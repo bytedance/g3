@@ -1,0 +1,23 @@
+[Unit]
+Description=G3 Proxy %i
+After=syslog.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment="RUNTIME_DIRECTORY=/run/g3proxy"
+EnvironmentFile=-/etc/g3proxy/%i/env
+ExecStartPre=/bin/sh -c "[ -d $RUNTIME_DIRECTORY ] || mkdir $RUNTIME_DIRECTORY"
+ExecStartPre=/bin/sh -c "[ ! -e $RUNTIME_DIRECTORY/%i.sock ] || rm $RUNTIME_DIRECTORY/%i.sock"
+ExecStart=/usr/bin/g3proxy -c /etc/g3proxy/%i/main.conf --control-dir $RUNTIME_DIRECTORY -s -G %i
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStop=/usr/bin/g3proxy-ctl --control-dir $RUNTIME_DIRECTORY -G %i -p $MAINPID offline
+KillMode=none
+Restart=on-failure
+SuccessExitStatus=SIGQUIT
+RestartPreventExitStatus=255
+TimeoutStartSec=10
+LimitNOFILE=10485760
+
+[Install]
+WantedBy=multi-user.target

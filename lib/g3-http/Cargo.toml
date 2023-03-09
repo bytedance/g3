@@ -1,0 +1,25 @@
+[package]
+name = "g3-http"
+version = "0.2.0"
+edition = "2021"
+rust-version = "1.64"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+thiserror = "1.0"
+bytes = "1.0"
+tokio = { version = "1.0" }
+memchr = "2.4"
+atoi = "2.0"
+http = "0.2.9"
+mime = "0.3"
+base64 = "0.21"
+g3-types = { path = "../g3-types", features = ["http"] }
+g3-io-ext = { path = "../g3-io-ext" }
+
+[dev-dependencies]
+tokio = { version = "1.0", features = ["macros", "io-util", "rt"] }
+tokio-util = { version = "0.7", features = ["io"] }
+tokio-stream = "0.1"
+httparse = "1.4"

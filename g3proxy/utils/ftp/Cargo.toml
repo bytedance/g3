@@ -1,0 +1,18 @@
+[package]
+name = "g3proxy-ftp"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.59.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0"
+tokio = { version = "1.0", features = ["rt", "net", "macros", "io-std", "io-util", "fs"] }
+clap = "4.0"
+clap_complete = "4.0"
+async-trait = "0.1"
+log = { version = "0.4", features = ["max_level_debug", "release_max_level_debug"] }
+g3-types = { path = "../../../lib/g3-types" }
+g3-socket = { path = "../../../lib/g3-socket" }
+g3-ftp-client = { path = "../../../lib/g3-ftp-client", features = ["log-raw-io"] }

@@ -1,0 +1,204 @@
+/*
+ * Copyright 2023 ByteDance and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+use std::collections::BTreeSet;
+use std::time::Duration;
+
+use anyhow::{anyhow, Context};
+use yaml_rust::{yaml, Yaml};
+
+use g3_types::acl::AclNetworkRuleBuilder;
+use g3_types::net::TcpListenConfig;
+use g3_yaml::YamlDocPosition;
+
+use super::ServerConfig;
+use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
+
+const SERVER_CONFIG_TYPE: &str = "IntelliProxy";
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct IntelliProxyConfig {
+    name: String,
+    position: Option<YamlDocPosition>,
+    pub(crate) listen: TcpListenConfig,
+    pub(crate) listen_in_worker: bool,
+    pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
+    pub(crate) http_server: String,
+    pub(crate) socks_server: String,
+    pub(crate) protocol_detection_channel_size: usize,
+    pub(crate) protocol_detection_timeout: Duration,
+    pub(crate) protocol_detection_max_jobs: usize,
+}
+
+impl IntelliProxyConfig {
+    fn new(position: Option<YamlDocPosition>) -> Self {
+        IntelliProxyConfig {
+            name: String::new(),
+            position,
+            listen: TcpListenConfig::default(),
+            listen_in_worker: false,
+            ingress_net_filter: None,
+            http_server: String::new(),
+            socks_server: String::new(),
+            protocol_detection_channel_size: 4096,
+            protocol_detection_timeout: Duration::from_secs(4),
+            protocol_detection_max_jobs: 4096,
+        }
+    }
+
+    pub(crate) fn parse(
+        map: &yaml::Hash,
+        position: Option<YamlDocPosition>,
+    ) -> anyhow::Result<Self> {
+        let mut server = IntelliProxyConfig::new(position);
+
+        g3_yaml::foreach_kv(map, |k, v| server.set(k, v))?;
+
+        server.check()?;
+        Ok(server)
+    }
+
+    fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
+        match g3_yaml::key::normalize(k).as_str() {
+            super::CONFIG_KEY_SERVER_TYPE => Ok(()),
+            super::CONFIG_KEY_SERVER_NAME => {
+                if let Yaml::String(name) = v {
+                    self.name.clone_from(name);
+                    Ok(())
+                } else {
+                    Err(anyhow!("invalid string value for key {k}"))
+                }
+            }
+            "listen" => {
+                self.listen = g3_yaml::value::as_tcp_listen_config(v)
+                    .context(format!("invalid tcp listen config value for key {k}"))?;
+                Ok(())
+            }
+            "listen_in_worker" => {
+                self.listen_in_worker = g3_yaml::value::as_bool(v)?;
+                Ok(())
+            }
+            "ingress_network_filter" | "ingress_net_filter" => {
+                let filter = g3_yaml::value::acl::as_ingress_network_rule_builder(v).context(
+                    format!("invalid ingress network acl rule value for key {k}"),
+                )?;
+                self.ingress_net_filter = Some(filter);
+                Ok(())
+            }
+            "http_server" => {
+                if let Yaml::String(name) = v {
+                    self.http_server.clone_from(name);
+                    Ok(())
+                } else {
+                    Err(anyhow!("invalid string value for key {k}"))
+                }
+            }
+            "socks_server" => {
+                if let Yaml::String(name) = v {
+                    self.socks_server.clone_from(name);
+                    Ok(())
+                } else {
+                    Err(anyhow!("invalid string value for key {k}"))
+                }
+            }
+            "protocol_detection_channel_size" => {
+                self.protocol_detection_channel_size = g3_yaml::value::as_usize(v)
+                    .context(format!("invalid usize value for key {k}"))?;
+                Ok(())
+            }
+            "protocol_detection_timeout" => {
+                self.protocol_detection_timeout = g3_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                Ok(())
+            }
+            "protocol_detection_max_jobs" => {
+                self.protocol_detection_max_jobs = g3_yaml::value::as_usize(v)
+                    .context(format!("invalid usize value for key {k}"))?;
+                Ok(())
+            }
+            _ => Err(anyhow!("invalid key {k}")),
+        }
+    }
+
+    fn check(&mut self) -> anyhow::Result<()> {
+        if self.name.is_empty() {
+            return Err(anyhow!("name is not set"));
+        }
+        if self.http_server.is_empty() {
+            return Err(anyhow!("http server is not set"));
+        }
+        if self.socks_server.is_empty() {
+            return Err(anyhow!("socks server is not set"));
+        }
+        // make sure listen is always set
+        self.listen.check().context("invalid listen config")?;
+
+        Ok(())
+    }
+}
+
+impl ServerConfig for IntelliProxyConfig {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn position(&self) -> Option<YamlDocPosition> {
+        self.position.clone()
+    }
+
+    fn server_type(&self) -> &'static str {
+        SERVER_CONFIG_TYPE
+    }
+
+    fn escaper(&self) -> &str {
+        ""
+    }
+
+    fn user_group(&self) -> &str {
+        ""
+    }
+
+    fn auditor(&self) -> &str {
+        ""
+    }
+
+    fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction {
+        let new = match new {
+            AnyServerConfig::IntelliProxy(config) => config,
+            _ => return ServerConfigDiffAction::SpawnNew,
+        };
+
+        if self.eq(new) {
+            return ServerConfigDiffAction::NoAction;
+        }
+
+        if self.listen != new.listen {
+            return ServerConfigDiffAction::ReloadAndRespawn;
+        }
+        if self.protocol_detection_channel_size != new.protocol_detection_channel_size {
+            return ServerConfigDiffAction::ReloadAndRespawn;
+        }
+
+        ServerConfigDiffAction::UpdateInPlace(0)
+    }
+
+    fn dependent_server(&self) -> Option<BTreeSet<String>> {
+        let mut set = BTreeSet::new();
+        set.insert(self.http_server.clone());
+        set.insert(self.socks_server.clone());
+        Some(set)
+    }
+}

@@ -1,0 +1,11 @@
+Source: g3rcgen
+Section: net
+Priority: optional
+Maintainer: G3rcgen Maintainers <g3rcgen-maintainers@devel.machine>
+Build-Depends: debhelper
+Standards-Version: 3.9.8
+
+Package: g3rcgen
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: TLS Interception Certificate Generator for G3 Project

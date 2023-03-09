@@ -1,0 +1,32 @@
+[package]
+name = "g3-json"
+version = "0.3.0"
+edition = "2021"
+rust-version = "1.66.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0"
+serde_json = "1.0"
+chrono = { version = "0.4.22", default-features = false }
+humanize-rs = "0.1"
+idna = "0.3"
+ascii = "1.0"
+rand = "0.8"
+ip_network = { version = "0.4", optional = true }
+regex = { version = "1.5", optional = true }
+rustls = { version = "0.20", optional = true }
+rustls-pemfile = { version = "1.0", optional = true }
+openssl = { version = "0.10", optional = true }
+g3-types = { path = "../g3-types" }
+
+[features]
+default = []
+resolve = ["g3-types/resolve"]
+acl-rule = ["g3-types/acl-rule", "dep:ip_network", "dep:regex"]
+http = ["g3-types/http"]
+proxy = ["g3-types/proxy"]
+rustls = ["g3-types/rustls", "dep:rustls", "dep:rustls-pemfile"]
+openssl = ["g3-types/openssl", "dep:openssl"]
+route = ["g3-types/route"]

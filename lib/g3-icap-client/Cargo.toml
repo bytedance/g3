@@ -1,0 +1,24 @@
+[package]
+name = "g3-icap-client"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0"
+thiserror = "1.0"
+async-trait = "0.1"
+memchr = "2.4"
+atoi = "2.0"
+url = "2.1"
+bytes = "1.0"
+flume = { version = "0.10", default-features = false, features = ["async"] }
+tokio = { version = "1.21", features = ["time", "io-util", "sync"] }
+http = "0.2.9"
+h2 = "0.3"
+g3-types = { path = "../g3-types" }
+g3-io-ext = { path = "../g3-io-ext" }
+g3-socket = { path = "../g3-socket" }
+g3-http = { path = "../g3-http" }
+g3-h2 = { path = "../g3-h2" }

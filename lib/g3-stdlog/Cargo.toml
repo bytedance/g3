@@ -1,0 +1,16 @@
+[package]
+name = "g3-stdlog"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+slog = "2"
+chrono = { version = "0.4.22", default-features = false, features = ["clock"] }
+flume = { version = "0.10", default-features = false }
+console = "0.15"
+itoa = "1.0"
+ryu = "1.0"
+g3-types = { path = "../g3-types", features = ["async-log"] }
+g3-datetime = { path = "../g3-datetime" }

@@ -1,0 +1,16 @@
+[package]
+name = "test-resolver"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "1.0", features = ["rt"] }
+log = { version = "0.4", features = ["max_level_trace", "release_max_level_info"] }
+slog = { version = "2", features = ["max_level_trace", "release_max_level_info"] }
+slog-scope = "4"
+slog-stdlog = "4"
+g3-types = { path = "../../lib/g3-types", features = ["async-log"] }
+g3-resolver = { path = "../../lib/g3-resolver", features = ["trust-dns"] }
+g3-stdlog = { path = "../../lib/g3-stdlog" }

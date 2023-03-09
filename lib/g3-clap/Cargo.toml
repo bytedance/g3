@@ -1,0 +1,11 @@
+[package]
+name = "g3-clap"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0"
+clap = "4.0"
+humanize-rs = "0.1"

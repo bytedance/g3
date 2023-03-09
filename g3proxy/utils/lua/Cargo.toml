@@ -1,0 +1,19 @@
+[package]
+name = "g3proxy-lua"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0"
+clap = "4.0"
+clap_complete = "4.0"
+mlua = { version = "0.8.1" }
+
+[features]
+default = ["lua54"]
+luajit = ["mlua/luajit"]
+lua51 = ["mlua/lua51"]
+lua53 = ["mlua/lua53"]
+lua54 = ["mlua/lua54"]

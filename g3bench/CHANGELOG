@@ -1,0 +1,74 @@
+
+v0.6.1:
+ - Feature: add --no-multiplex option to h2 target
+
+v0.6.0:
+ - Feature: add new ssl test target
+ - Feature: add config option to control connect timeout
+ - Feature: resolve domain in early stage and allow to set pick policy
+ - BUG FIX: fix the use of local address specified in args
+
+v0.5.6:
+ - BUG FIX: really use h1 & h2 timeout config option
+ - Feature: allow to disable TLS SNI
+ - Feature: use http prefix for h1 & h2 metrics and add 'target' tag
+
+v0.5.5:
+ - Feature: add more tls config options for h1 and h2 target
+
+v0.5.4:
+ - Optimization: don't wait for h1 connection shutdown, and add shutdown error stats
+
+v0.5.3:
+ - Feature: allow to use unaided workers
+ - Feature: allow to disable TLS session cache when handshake with target site
+
+v0.5.2:
+ - Feature: add --resolve global option to set resolve redirection
+
+v0.5.1:
+ - BUG FIX: fix command line handling
+
+v0.5.0:
+ - Feature: add new h2 test target
+
+v0.4.4:
+ - Optimization: use batch update of progress bar
+
+v0.4.3:
+ - Feature: add connection usage summary to h1 target
+
+v0.4.2:
+ - Feature: add requests distribution summary
+ - BUG FIX: fix traffic read summary
+
+v0.4.1:
+ - Feature: add connection stats
+ - BUG FIX: fix traffic summary
+
+v0.4.0:
+ - Feature: allow to set time limit
+ - Feature: do graceful quit at Ctrl-C
+ - Feature: summary io stats in final report
+
+v0.3.1:
+ - BUG FIX: fix the meaning of --proxy-tunnel
+
+v0.3.0:
+ - Feature: allow to disable progress bar
+ - Optimization: h1: use the same proxy args as curl
+
+v0.2.0:
+ - Feature: h1 target: allow to emit histogram stats
+ - Feature: add pid tag to metrics
+ - Optimization: also use hdrhistogram for final report
+
+v0.1.2:
+ - BUG FIX: fix tls connect for h1 target when using CONNECT proxy
+ - Feature: support set tcp rate limit config
+
+v0.1.1:
+ - BUG FIX: fix tls connect for h1 target
+
+v0.1.0:
+ - Initial release

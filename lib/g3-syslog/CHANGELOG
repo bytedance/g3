@@ -1,0 +1,12 @@
+
+v0.4.0:
+ - Optimization: switch to time crate and use g3-timezone for local time offsets
+
+v0.3.0:
+ - Feature: use native async implementation
+
+v0.2.0:
+ - Feature: escape all non-printable characters for syslog backend
+
+v0.1.0:
+ - Initial version

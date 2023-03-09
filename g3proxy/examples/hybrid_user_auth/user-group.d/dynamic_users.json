@@ -1,0 +1,44 @@
+[
+  {
+    "name": "foo",
+    "token": {
+      "salt": "113323bdab6fd2cc",
+      "md5": "5c81f2becadde7fa5fde9026652ccc84",
+      "sha1": "ff9d5c1a14328dd85ee95d4e574bd0558a1dfa96"
+    },
+    "dst_host_filter_set": {
+      "exact_match": {
+        "default": "allow",
+        "forbid": "192.168.1.1"
+      },
+      "subnet_match": {
+        "default": "allow",
+        "forbid": [
+          "192.168.0.0/16"
+        ]
+      }
+    },
+    "dst_port_filter": {
+      "default": "allow",
+      "forbid": [
+        22,
+        "50000-60000"
+      ]
+    },
+    "tcp_conn_limit": {
+      "shift_millis": 8,
+      "north": "10M",
+      "south": "10M"
+    }
+  },
+  {
+    "name": "bar",
+    "token": "$1$rnfSARNK$DJNIbbMpjjSmral92rE3k1",
+    "proxy_request_filter": {
+      "default": "allow",
+      "forbid": "ftp_over_http"
+    },
+    "tcp_conn_limit": "10M",
+    "udp_relay_limit": "1M"
+  }
+]

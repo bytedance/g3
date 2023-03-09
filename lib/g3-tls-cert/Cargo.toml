@@ -1,0 +1,17 @@
+[package]
+name = "g3-tls-cert"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0"
+log = "0.4"
+tokio = { version = "1.21", features = ["net"] }
+rustls = "0.20"
+rmpv = "1.0"
+g3-types = { path = "../g3-types" }
+g3-msgpack = { path = "../g3-msgpack", features = ["rustls"] }
+g3-socket = { path = "../g3-socket" }
+g3-io-ext = { path = "../g3-io-ext" }

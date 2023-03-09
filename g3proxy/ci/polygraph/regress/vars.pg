@@ -1,0 +1,4 @@
+
+addr[] server_address = ['127.0.0.1:9090'];
+addr[] client_address = ['127.0.0.1'];
+addr[] proxy_address = ['127.0.0.1:10086'];

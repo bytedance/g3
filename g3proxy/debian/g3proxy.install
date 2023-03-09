@@ -1,0 +1,5 @@
+usr/bin/g3proxy
+usr/bin/g3proxy-ctl
+usr/bin/g3proxy-ftp
+usr/bin/g3proxy-lua
+lib/systemd/system/

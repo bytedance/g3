@@ -1,0 +1,52 @@
+
+strict digraph G {
+  user [style=filled];
+  subgraph cluster_resolver {
+    graph [style=dashed][label=resolver];
+    r_intranet [label=intranet];
+    r_unicom [label=unicom];
+  };
+  subgraph cluster_escaper {
+    graph [label=escaper];
+    node [style=dotted];
+    e_rt_domain [label="rt-domain"];
+    e_rt_dstip [label="rt-dstip"];
+    e_intranet [label=intranet];
+    e_unicom [label=unicom];
+    e_alisg [label=alisg];
+    e_deny [label=deny];
+    e_rt_domain -> e_rt_dstip [label=default];
+    e_rt_domain -> e_deny;
+    e_rt_domain -> e_intranet;
+    e_rt_domain -> e_unicom;
+    e_rt_domain -> e_alisg;
+    e_rt_dstip -> e_unicom [label=default];
+    e_rt_dstip -> e_deny;
+    e_rt_dstip -> e_intranet;
+  };
+  subgraph cluster_server {
+    graph [label=server];
+    s_http [label=http];
+    s_socks [label=socks];
+  }
+  subgraph cluster_path {
+    graph [label=path];
+    node [style=filled];
+    intranet;
+    unicom;
+    alisg;
+  }
+  e_rt_dstip -> r_intranet [style=dashed][dir=both];
+  e_intranet -> r_intranet [style=dashed][dir=both];
+  e_unicom -> r_unicom [style=dashed][dir=both];
+  s_http -> e_rt_domain;
+  s_socks -> e_rt_domain;
+  user -> s_http;
+  user -> s_socks;
+  e_intranet -> intranet;
+  e_unicom -> unicom;
+  e_alisg -> alisg;
+  r_intranet -> intranet [dir=both];
+  r_unicom -> unicom [dir=both];
+}
+

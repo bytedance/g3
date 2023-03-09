@@ -1,0 +1,3 @@
+usr/bin/g3tiles
+usr/bin/g3tiles-ctl
+lib/systemd/system/

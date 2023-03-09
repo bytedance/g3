@@ -1,0 +1,27 @@
+#!/usr/bin/make -f
+
+PACKAGE_NAME := g3bench
+BUILD_PROFILE := release-lto
+
+DEB_VERSION ?= $(shell dpkg-parsechangelog -SVersion)
+SSL_FEATURE ?= $(shell scripts/package/detect_openssl_feature.sh)
+
+%:
+	dh $@
+
+override_dh_auto_clean:
+	cargo clean --frozen --offline --release --package g3bench
+
+override_dh_auto_build:
+	G3_PACKAGE_VERSION=$(DEB_VERSION) \
+	  cargo build --frozen --offline --profile $(BUILD_PROFILE) \
+	    --no-default-features --features $(SSL_FEATURE), \
+	    --package g3bench
+
+override_dh_auto_install:
+	dh_auto_install
+	install -m 755 -D target/$(BUILD_PROFILE)/g3bench debian/tmp/usr/bin/g3bench
+
+override_dh_installchangelogs:
+	dh_installchangelogs $(PACKAGE_NAME)/CHANGELOG
+

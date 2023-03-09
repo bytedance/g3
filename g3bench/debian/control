@@ -1,0 +1,12 @@
+Source: g3bench
+Section: net
+Priority: optional
+Maintainer: G3bench Maintainers <g3bench-maintainers@devel.machine>
+Build-Depends: debhelper
+Standards-Version: 3.9.8
+
+Package: g3bench
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Recommends: ca-certificates
+Description: Benchmark tool for G3 Project

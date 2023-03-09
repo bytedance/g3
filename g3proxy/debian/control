@@ -1,0 +1,13 @@
+Source: g3proxy
+Section: net
+Priority: optional
+Maintainer: G3proxy Maintainers <g3proxy-maintainers@devel.machine>
+Build-Depends: debhelper, pkg-config, libtool, capnproto, python3-sphinx, graphviz,
+ libssl-dev, libc-ares-dev, liblua5.4-dev | liblua5.3-dev | liblua5.1-dev
+Standards-Version: 3.9.8
+
+Package: g3proxy
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, systemd
+Recommends: ca-certificates
+Description: Generic proxy for G3 Project

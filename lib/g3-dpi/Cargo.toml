@@ -1,0 +1,13 @@
+[package]
+name = "g3-dpi"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+fnv = "1"
+bytes = "1.0"
+memchr = "2.4"
+g3-types = { path = "../g3-types" }
+

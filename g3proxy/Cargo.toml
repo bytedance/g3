@@ -1,0 +1,103 @@
+[package]
+name = "g3proxy"
+version = "1.7.10"
+edition = "2021"
+rust-version = "1.66"
+description = "G3 generic proxy"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0"
+thiserror = "1.0"
+async-trait = "0.1"
+async-recursion = "1.0"
+clap = "4.0"
+clap_complete = "4.0"
+yaml-rust = "0.4"
+once_cell = "1.7"
+futures-util = "0.3"
+nix = { version = "0.26", default-features = false }
+rand = "0.8"
+tokio = { version = "1.24", features = ["rt-multi-thread", "rt", "signal", "sync", "time", "io-util", "net", "fs"] }
+tokio-util = { version = "0.7", features = ["time"] }
+tokio-rustls = "0.23.1"
+rustls = "0.20"
+tokio-openssl = "0.6"
+openssl = "0.10"
+indexmap = "1.6"
+bytes = "1.0"
+chrono = { version = "0.4.22", default-features = false, features = ["clock"] }
+uuid = { version = "1.2", features = ["v1", "v4"] }
+log = { version = "0.4", features = ["max_level_trace", "release_max_level_info"] }
+slog = { version = "2", features = ["nested-values", "max_level_trace", "release_max_level_info"] }
+percent-encoding = "2.1"
+url = "2.1"
+http = "0.2.9"
+h2 = "0.3.15"
+mime = "0.3"
+askama = "0.12"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+ip_network = "0.4"
+ip_network_table = "0.2"
+radix_trie = "0.2.0"
+base64 = "0.21"
+pin-project = "1.0"
+memchr = "2.4"
+arc-swap = "1.2"
+capnp-rpc = "0.16"
+capnp = "0.16"
+itoa = "1.0"
+redis = { version = "0.22", default-features = false, features = ["cluster"] }
+ascii = "1.0"
+ahash = "0.8"
+fxhash = "0.2"
+governor = { version = "0.5", default-features = false, features = ["std", "jitter"] }
+cadence = { package = "cadence-with-flush", version = "0.29" }
+rmpv = "1.0"
+mlua = { version = "0.8.1", features = ["send"], optional = true }
+pyo3 = { version = "0.18", features = ["auto-initialize"], optional = true }
+curl = { version = "0.4", features = ["http2"], optional = true }
+g3-compat = { path = "../lib/g3-compat" }
+g3-types = { path = "../lib/g3-types", features = ["auth-crypt", "rustls", "openssl", "acl-rule", "http", "route", "async-log"] }
+g3-socket = { path = "../lib/g3-socket" }
+g3-daemon = { path = "../lib/g3-daemon" }
+g3-signal = { path = "../lib/g3-signal" }
+g3-datetime = { path = "../lib/g3-datetime" }
+g3-syslog = { path = "../lib/g3-syslog" }
+g3-journal = { path = "../lib/g3-journal" }
+g3-fluentd = { path = "../lib/g3-fluentd" }
+g3-statsd = { path = "../lib/g3-statsd" }
+g3-yaml = { path = "../lib/g3-yaml", features = ["resolve", "rustls", "openssl", "acl-rule", "http", "ftp-client", "proxy", "route", "dpi", "icap"] }
+g3-json = { path = "../lib/g3-json", features = ["acl-rule", "resolve", "http", "rustls", "openssl", "proxy"] }
+g3-msgpack = { path = "../lib/g3-msgpack" }
+g3-io-ext = { path = "../lib/g3-io-ext" }
+g3-resolver = { path = "../lib/g3-resolver", features = ["trust-dns"] }
+g3-xcrypt = { path = "../lib/g3-xcrypt" }
+g3-ftp-client = { path = "../lib/g3-ftp-client" }
+g3-http = { path = "../lib/g3-http" }
+g3-h2 = { path = "../lib/g3-h2" }
+g3-socks  = { path = "../lib/g3-socks" }
+g3-dpi = { path = "../lib/g3-dpi" }
+g3-tls-cert = { path = "../lib/g3-tls-cert" }
+g3-icap-client = { path = "../lib/g3-icap-client" }
+g3proxy-proto = { path = "proto" }
+
+[dev-dependencies]
+tokio = { version = "1.0", features = ["macros", "io-util"] }
+tokio-util = { version = "0.7", features = ["io"] }
+
+[build-dependencies]
+rustc_version = "0.4"
+
+[features]
+default = ["lua54", "python", "c-ares", "curl"]
+lua = ["mlua"]
+luajit = ["lua", "mlua/luajit"]
+lua51 = ["lua", "mlua/lua51"]
+lua53 = ["lua", "mlua/lua53"]
+lua54 = ["lua", "mlua/lua54"]
+python = ["pyo3"]
+c-ares = ["g3-resolver/c-ares"]
+curl = ["dep:curl"]
+vendored-openssl = ["openssl/vendored"]

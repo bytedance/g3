@@ -1,0 +1,18 @@
+
+v0.2.3:
+ - Feature: allow to set tcp socket options at client side
+ - Optimization: enable tcp_nodelay by default if needed
+
+v0.2.2:
+ - BUG FIX: fix the clean of offline servers
+ - Optimization: listen in each worker when listen_in_worker is enabled
+ - Feature: add new ctl command to force quit offline servers
+
+v0.2.1:
+ - Feature: allow to listen in worker, and run tasks in unconstrained mode
+ - Feature: allow to start listen instance according to available parallelism
+ - Compatibility: add g3-compat to allow compile on platforms with glibc < 2.27
+ - Compatibility: use vendored-openssl on platforms with libssl < 1.1.1
+
+v0.2.0
+ - Initial release.

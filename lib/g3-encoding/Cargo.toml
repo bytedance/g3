@@ -1,0 +1,17 @@
+[package]
+name = "g3-encoding"
+version = "0.2.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { "version" = "1.0" }
+atoi = "2.0"
+g3-io-ext = { path = "../g3-io-ext" }
+
+[dev-dependencies]
+tokio = { version = "1.0", features = ["macros", "io-util"] }
+tokio-util = { version = "0.7", features = ["io"] }
+tokio-stream = "0.1"
+bytes = "1.0"

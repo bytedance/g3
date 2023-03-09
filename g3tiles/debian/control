@@ -1,0 +1,12 @@
+Source: g3tiles
+Section: net
+Priority: optional
+Maintainer: G3tiles Maintainers <g3tiles-maintainers@devel.machine>
+Build-Depends: debhelper, pkg-config, libtool, capnproto, libssl-dev
+Standards-Version: 3.9.8
+
+Package: g3tiles
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, systemd
+Recommends: ca-certificates
+Description: Generic reverse proxy for G3 Project

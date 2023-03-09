@@ -1,0 +1,37 @@
+#!/usr/bin/make -f
+
+PACKAGE_NAME := g3proxy
+BUILD_PROFILE := release-lto
+
+DEB_VERSION ?= $(shell dpkg-parsechangelog -SVersion)
+LUA_FEATURE ?= $(shell scripts/package/detect_lua_feature.sh)
+SSL_FEATURE ?= $(shell scripts/package/detect_openssl_feature.sh)
+
+%:
+	dh $@
+
+override_dh_auto_clean:
+	cargo clean --frozen --offline
+	rm -rf $(PACKAGE_NAME)/doc/_build
+
+override_dh_auto_build:
+	G3_PACKAGE_VERSION=$(DEB_VERSION) \
+	  cargo build --frozen --offline --profile $(BUILD_PROFILE) \
+	    --no-default-features --features $(LUA_FEATURE),$(SSL_FEATURE),c-ares \
+	    --package g3proxy --package g3proxy-ctl --package g3proxy-ftp --package g3proxy-lua
+	sh $(PACKAGE_NAME)/service/generate_systemd.sh
+	cd $(PACKAGE_NAME)/doc && make html
+
+override_dh_auto_install:
+	dh_auto_install
+	install -m 755 -D target/$(BUILD_PROFILE)/g3proxy debian/tmp/usr/bin/g3proxy
+	install -m 755 -D target/$(BUILD_PROFILE)/g3proxy-ctl debian/tmp/usr/bin/g3proxy-ctl
+	install -m 755 -D target/$(BUILD_PROFILE)/g3proxy-ftp debian/tmp/usr/bin/g3proxy-ftp
+	install -m 755 -D target/$(BUILD_PROFILE)/g3proxy-lua debian/tmp/usr/bin/g3proxy-lua
+	install -m 644 -D $(PACKAGE_NAME)/service/g3proxy@.service debian/tmp/lib/systemd/system/g3proxy@.service
+	mkdir -p debian/tmp/usr/share/doc/$(PACKAGE_NAME)/
+	cp -r $(PACKAGE_NAME)/doc/_build/html debian/tmp/usr/share/doc/$(PACKAGE_NAME)/
+
+override_dh_installchangelogs:
+	dh_installchangelogs $(PACKAGE_NAME)/CHANGELOG
+

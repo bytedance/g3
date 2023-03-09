@@ -1,0 +1,61 @@
+
+#include "vars.pg"
+
+Content cntImage = {
+    kind = "Image";
+    mime = { type = "image/jpg"; extensions = [ ".jpg" ]; };
+    size = exp(100KB);
+    cachable = 0%;
+};
+
+Content cntHTML = {
+    kind = "HTML";
+    mime = { type = "text/html"; extensions = [ ".html" : 60%, ".htm" ]; };
+    size = exp(8.5KB);
+    cachable = 0%;
+
+    may_contain = [ cntImage ];
+    embedded_obj_cnt = zipf(13);
+};
+
+// a primitive server cleverly labeled "S101"
+// normally, you would specify more properties,
+// but we will mostly rely on defaults for now
+Server S = {
+        kind = "S101";
+
+        addresses = server_address; // where to create these server agents
+
+        contents = [ cntHTML, cntImage ];
+        direct_access = contents;
+
+        pconn_use_lmt = const(10);
+};
+
+// a primitive robot
+Robot R = {
+        kind = "R101";
+
+        origins = S.addresses;      // where the origin servers are
+        addresses = client_address; // where these robot agents will be created
+
+        http_proxies = proxy_address;
+
+        req_methods = ["GET", "HEAD": 10%];
+        embed_recur = 100%;
+        pconn_use_lmt = const(10);
+
+        open_conn_lmt = 4;
+};
+
+Phase P1 = {
+        name = "keepalive_get";
+
+        goal.xactions = 100;
+        goal.errors = 1;
+};
+
+schedule(P1);
+
+// commit to using these servers and robots
+use(S, R);

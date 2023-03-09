@@ -1,0 +1,10 @@
+[Unit]
+Description=G3 X.509 Certificates Generation Service
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/g3rcgen/env
+ExecStart=/usr/bin/g3rcgen -s --ca-cert /etc/g3rcgen/rootCA.pem --ca-key /etc/g3rcgen/rootCA-key.pem
+
+[Install]
+WantedBy=multi-user.target

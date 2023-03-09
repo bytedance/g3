@@ -1,0 +1,50 @@
+
+#include "vars.pg"
+
+Content SimpleContent = {
+        size = exp(13KB); // response sizes distributed exponentially
+        cachable = 0%;    // disable check of cache
+};
+
+// a primitive server cleverly labeled "S101"
+// normally, you would specify more properties,
+// but we will mostly rely on defaults for now
+Server S = {
+        kind = "S101";
+
+        addresses = server_address; // where to create these server agents
+
+        contents = [ SimpleContent ];
+        direct_access = contents;
+
+        req_body_allowed = 70%; // affects "Expect: 100-continue" requests
+};
+
+// a primitive robot
+Robot R = {
+        kind = "R101";
+
+        origins = S.addresses;      // where the origin servers are
+        addresses = client_address; // where these robot agents will be created
+
+        http_proxies = proxy_address;
+
+        req_methods = ["POST", "PUT": 10%];
+        req_body_pause_prob = 50%; // add "Expect: 100-continue" header
+        post_contents = [ SimpleContent ];
+        put_contents = post_contents;
+
+        open_conn_lmt = 4;
+};
+
+Phase P1 = {
+        name = "expect_post";
+
+        goal.xactions = 100;
+        goal.errors = 1;
+};
+
+schedule(P1);
+
+// commit to using these servers and robots
+use(S, R);

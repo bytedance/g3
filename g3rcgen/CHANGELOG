@@ -1,0 +1,14 @@
+
+v0.3.0:
+ - Feature: use rcgen backend instead of squid, and rename to g3rcgen
+ - Feature: add --version command line option to print version
+
+v0.2.2:
+ - BUG FIX: fix dependency feature
+
+v0.2.1:
+ - Feature: add systemd service config
+ - BUG FIX: fix command line handling
+
+v0.2.0:
+ - Initial release

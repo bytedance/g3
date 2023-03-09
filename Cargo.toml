@@ -1,0 +1,65 @@
+[workspace]
+members = [
+    "lib/g3-types",
+    "lib/g3-io-ext",
+    "lib/g3-daemon",
+    "lib/g3-socket",
+    "lib/g3-signal",
+    "lib/g3-compat",
+    "lib/g3-clap",
+    "lib/g3-yaml",
+    "lib/g3-json",
+    "lib/g3-msgpack",
+    "lib/g3-runtime",
+    "lib/g3-resolver",
+    "lib/g3-encoding",
+    "lib/g3-datetime",
+    "lib/g3-stdlog",
+    "lib/g3-syslog",
+    "lib/g3-journal",
+    "lib/g3-fluentd",
+    "lib/g3-statsd",
+    "lib/g3-xcrypt",
+    "lib/g3-ftp-client",
+    "lib/g3-http",
+    "lib/g3-h2",
+    "lib/g3-icap-client",
+    "lib/g3-socks",
+    "lib/g3-dpi",
+    "lib/g3-tls-cert",
+    "g3bench",
+    "g3rcgen",
+    "g3proxy",
+    "g3proxy/proto",
+    "g3proxy/utils/ctl",
+    "g3proxy/utils/ftp",
+    "g3proxy/utils/lua",
+    "g3tiles",
+    "g3tiles/proto",
+    "g3tiles/utils/ctl",
+    "demo/test-int-signal",
+    "demo/test-tcp-relay",
+    "demo/test-resolver",
+    "demo/test-copy-yield",
+]
+default-members = [
+    "g3bench",
+    "g3rcgen",
+    "g3proxy",
+    "g3proxy/utils/ctl",
+    "g3tiles",
+    "g3tiles/utils/ctl",
+]
+
+[profile.release-lto]
+inherits = "release"
+strip = true
+lto = true
+
+[profile.release-dbg]
+inherits = "release"
+debug = 1
+debug-assertions = false
+
+[patch.crates-io]
+metadeps = { version = "1.1.2", git = "https://github.com/zh-jq/metadeps.git", branch = "modernize" }
