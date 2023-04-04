@@ -25,9 +25,6 @@ use log::warn;
 use super::{User, UserGroupConfig};
 use crate::config::auth::{UserConfig, UserDynamicSource};
 
-#[cfg(feature = "curl")]
-mod http;
-
 #[cfg(feature = "lua")]
 mod lua;
 
@@ -40,8 +37,6 @@ pub(super) async fn load_initial_users(
 ) -> anyhow::Result<AHashMap<String, Arc<User>>> {
     let r = match source {
         UserDynamicSource::File(config) => config.fetch_records().await?,
-        #[cfg(feature = "curl")]
-        UserDynamicSource::Http(config) => config.fetch_cached_records().await?,
         #[cfg(feature = "lua")]
         UserDynamicSource::Lua(config) => config.fetch_cached_records().await?,
         #[cfg(feature = "python")]
@@ -77,8 +72,6 @@ pub(super) fn new_job(
                 if let Some(source) = &group_config.dynamic_source {
                     let r = match source {
                         UserDynamicSource::File(config) => config.fetch_records().await,
-                        #[cfg(feature = "curl")]
-                        UserDynamicSource::Http(config) => http::fetch_records(config).await,
                         #[cfg(feature = "lua")]
                         UserDynamicSource::Lua(config) => lua::fetch_records(config).await,
                         #[cfg(feature = "python")]

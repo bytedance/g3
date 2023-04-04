@@ -24,9 +24,6 @@ use yaml_rust::Yaml;
 pub(crate) mod cache;
 pub(crate) mod file;
 
-#[cfg(feature = "curl")]
-pub(crate) mod http;
-
 #[cfg(feature = "lua")]
 pub(crate) mod lua;
 
@@ -38,8 +35,6 @@ const CONFIG_KEY_SOURCE_TYPE: &str = "type";
 #[derive(Clone)]
 pub(crate) enum UserDynamicSource {
     File(Arc<file::UserDynamicFileSource>),
-    #[cfg(feature = "curl")]
-    Http(Arc<http::UserDynamicHttpSource>),
     #[cfg(feature = "lua")]
     Lua(Arc<lua::UserDynamicLuaSource>),
     #[cfg(feature = "python")]
@@ -56,11 +51,6 @@ impl UserDynamicSource {
                     "file" => {
                         let source = file::UserDynamicFileSource::parse_map(map, lookup_dir)?;
                         Ok(UserDynamicSource::File(Arc::new(source)))
-                    }
-                    #[cfg(feature = "curl")]
-                    "http" => {
-                        let source = http::UserDynamicHttpSource::parse_map(map, lookup_dir)?;
-                        Ok(UserDynamicSource::Http(Arc::new(source)))
                     }
                     #[cfg(feature = "lua")]
                     "lua" => {
@@ -84,8 +74,6 @@ impl UserDynamicSource {
                         let source = file::UserDynamicFileSource::parse_url(&url)?;
                         Ok(UserDynamicSource::File(Arc::new(source)))
                     }
-                    #[cfg(feature = "curl")]
-                    "http" => Err(anyhow!("use the map format for http source")),
                     _ => Err(anyhow!("unsupported url scheme: {scheme}")),
                 }
             }
