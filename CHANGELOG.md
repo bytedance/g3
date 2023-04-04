@@ -1,5 +1,5 @@
 
-Each component have it's own changelog.
+Each component have its own changelog.
 
 - [g3proxy](g3proxy/CHANGELOG)
 - [g3bench](g3bench/CHANGELOG)
