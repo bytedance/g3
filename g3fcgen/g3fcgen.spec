@@ -11,7 +11,7 @@
 %define build_profile release-lto
 
 Name:           g3fcgen
-Version:        0.3.0
+Version:        0.4.0
 Release:        1%{?dist}
 Summary:        Fake Certificate Generator for G3 Project
 
@@ -54,5 +54,5 @@ install -m 644 -D %{name}/service/g3fcgen.preset %{buildroot}/lib/systemd/system
 
 
 %changelog
-* Tue Jan 10 2023 G3fcgen Maintainers <g3fcgen-maintainers@devel.machine> - 0.3.0-1
+* Thu Mar 23 2023 G3fcgen Maintainers <g3fcgen-maintainers@devel.machine> - 0.4.0-1
 - New upstream release
