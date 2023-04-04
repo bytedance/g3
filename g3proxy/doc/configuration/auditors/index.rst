@@ -40,16 +40,16 @@ Set the portmap for protocol inspection based on client side tcp port.
 
 **default**: set with default value
 
-tls_cert_generator
-------------------
+tls_cert_agent
+--------------
 
-**optional**, **type**: :ref:`tls cert generator <conf_value_dpi_tls_cert_generator>`
+**optional**, **type**: :ref:`tls cert agent <conf_value_dpi_tls_cert_agent>`
 
 Set certificate generator for TLS interception.
 
 If not set, TLS interception will be disabled.
 
-**default**: not set
+**default**: not set, **alias**: tls_cert_generator
 
 tls_interception_client
 -----------------------

@@ -93,16 +93,16 @@ impl Auditor {
     pub(crate) fn build_handle(&self) -> anyhow::Result<Arc<AuditHandle>> {
         let mut handle = AuditHandle::new(self);
 
-        if let Some(cert_generator_config) = &self.config.tls_cert_generator {
-            let cert_generator = cert_generator_config
-                .spawn_cert_generator()
+        if let Some(cert_agent_config) = &self.config.tls_cert_agent {
+            let cert_agent = cert_agent_config
+                .spawn_cert_agent()
                 .context("failed to spawn cert generator task")?;
             let client_config = self
                 .config
                 .tls_interception_client
                 .build()
                 .context("failed to build tls client config")?;
-            let ctx = TlsInterceptionContext::new(cert_generator, client_config);
+            let ctx = TlsInterceptionContext::new(cert_agent, client_config);
             handle.set_tls_interception(ctx);
         }
 

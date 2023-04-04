@@ -15,9 +15,11 @@
  */
 
 use std::net::SocketAddr;
+use std::sync::Arc;
+use std::time::Duration;
 
 use ::log::{debug, error, warn};
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 
 pub mod build;
 
@@ -25,7 +27,7 @@ mod opts;
 pub use opts::{add_global_args, parse_global_args, ProcArgs};
 
 mod backend;
-use backend::{RcGenBackend, RcGenBackendConfig};
+use backend::{OpensslBackend, OpensslBackendConfig};
 
 mod frontend;
 use frontend::{ResponseData, UdpDgramFrontend};
@@ -34,25 +36,42 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
     let (req_sender, req_receiver) = flume::bounded::<(String, SocketAddr)>(1024);
     let (rsp_sender, rsp_receiver) = flume::bounded::<(ResponseData, SocketAddr)>(1024);
 
-    let backend_config = RcGenBackendConfig::new(&proc_args.ca_cert, &proc_args.ca_key)?;
+    let backend_config = OpensslBackendConfig::new(&proc_args.ca_cert, &proc_args.ca_key)?;
+    let backend_config = Arc::new(backend_config);
     for i in 0..proc_args.backend_number {
-        let backend = RcGenBackend::new(&backend_config);
+        let mut backend =
+            OpensslBackend::new(&backend_config).context(format!("failed to build backend {i}"))?;
         let req_receiver = req_receiver.clone();
         let rsp_sender = rsp_sender.clone();
         tokio::spawn(async move {
-            while let Ok((host, peer_addr)) = req_receiver.recv_async().await {
-                match backend.generate(&host) {
-                    Ok(data) => {
-                        debug!("BG#{i} got certificate for host {host}");
-                        if let Err(e) = rsp_sender.send_async((data, peer_addr)).await {
-                            error!(
-                                "BG#{i} failed to send certificate for host {host} to frontend: {e}"
-                            );
-                            break;
+            let mut interval = tokio::time::interval(Duration::from_secs(300));
+
+            loop {
+                tokio::select! {
+                    _ = interval.tick() => {
+                        if let Err(e) = backend.refresh() {
+                            warn!("failed to refresh backend: {e:?}");
                         }
                     }
-                    Err(e) => {
-                        warn!("BG#{i} generate for {host} failed: {e:?}");
+                    r = req_receiver.recv_async() => {
+                        let Ok((host, peer_addr)) = r else {
+                            break
+                        };
+
+                        match backend.generate(&host) {
+                            Ok(data) => {
+                                debug!("BG#{i} got certificate for host {host}");
+                                if let Err(e) = rsp_sender.send_async((data, peer_addr)).await {
+                                    error!(
+                                        "BG#{i} failed to send certificate for host {host} to frontend: {e}"
+                                    );
+                                    break;
+                                }
+                            }
+                            Err(e) => {
+                                warn!("BG#{i} generate for {host} failed: {e:?}");
+                            }
+                        }
                     }
                 }
             }

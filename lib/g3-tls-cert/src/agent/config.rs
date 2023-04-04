@@ -22,10 +22,10 @@ use tokio::net::UdpSocket;
 
 use g3_types::net::SocketBufferConfig;
 
-use super::{CertGeneratorHandle, QueryRuntime};
+use super::{CertAgentHandle, QueryRuntime};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CertGeneratorConfig {
+pub struct CertAgentConfig {
     pub(crate) cache_request_batch_count: usize,
     pub(crate) cache_request_timeout: Duration,
     pub(crate) cache_vanish_wait: Duration,
@@ -36,9 +36,9 @@ pub struct CertGeneratorConfig {
     pub(crate) maximum_cache_ttl: u32,
 }
 
-impl Default for CertGeneratorConfig {
+impl Default for CertAgentConfig {
     fn default() -> Self {
-        CertGeneratorConfig {
+        CertAgentConfig {
             cache_request_batch_count: 10,
             cache_request_timeout: Duration::from_millis(800),
             cache_vanish_wait: Duration::from_secs(300),
@@ -51,7 +51,7 @@ impl Default for CertGeneratorConfig {
     }
 }
 
-impl CertGeneratorConfig {
+impl CertAgentConfig {
     pub fn set_cache_request_batch_count(&mut self, count: usize) {
         self.cache_request_batch_count = count;
     }
@@ -84,7 +84,7 @@ impl CertGeneratorConfig {
         self.maximum_cache_ttl = ttl;
     }
 
-    pub fn spawn_cert_generator(&self) -> anyhow::Result<CertGeneratorHandle> {
+    pub fn spawn_cert_agent(&self) -> anyhow::Result<CertAgentHandle> {
         use anyhow::Context;
 
         let (socket, _addr) = g3_socket::udp::new_std_bind_connect(
@@ -108,7 +108,7 @@ impl CertGeneratorConfig {
         tokio::spawn(query_runtime);
         tokio::spawn(cache_runtime);
 
-        Ok(CertGeneratorHandle::new(
+        Ok(CertAgentHandle::new(
             cache_handle,
             self.cache_request_timeout,
         ))

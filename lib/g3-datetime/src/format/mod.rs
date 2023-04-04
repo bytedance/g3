@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+pub mod asn1;
 pub mod ftp;
 pub mod log;
 pub mod std;

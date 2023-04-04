@@ -17,11 +17,11 @@
 use anyhow::{anyhow, Context};
 use yaml_rust::Yaml;
 
-use g3_tls_cert::generator::CertGeneratorConfig;
+use g3_tls_cert::agent::CertAgentConfig;
 
-pub fn as_tls_cert_generator_config(value: &Yaml) -> anyhow::Result<CertGeneratorConfig> {
+pub fn as_tls_cert_agent_config(value: &Yaml) -> anyhow::Result<CertAgentConfig> {
     if let Yaml::Hash(map) = value {
-        let mut config = CertGeneratorConfig::default();
+        let mut config = CertAgentConfig::default();
 
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
             "cache_request_batch_count" => {

@@ -24,17 +24,17 @@ use g3_io_ext::EffectiveCacheHandle;
 use super::CacheQueryKey;
 
 #[derive(Clone)]
-pub struct CertGeneratorHandle {
+pub struct CertAgentHandle {
     inner: EffectiveCacheHandle<CacheQueryKey, (Vec<Certificate>, PrivateKey)>,
     request_timeout: Duration,
 }
 
-impl CertGeneratorHandle {
+impl CertAgentHandle {
     pub(crate) fn new(
         inner: EffectiveCacheHandle<CacheQueryKey, (Vec<Certificate>, PrivateKey)>,
         request_timeout: Duration,
     ) -> Self {
-        CertGeneratorHandle {
+        CertAgentHandle {
             inner,
             request_timeout,
         }

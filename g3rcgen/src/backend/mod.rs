@@ -14,54 +14,73 @@
  * limitations under the License.
  */
 
+use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use rcgen::{Certificate, CertificateParams, DnType, KeyPair};
+use openssl::pkey::{PKey, Private};
+use openssl::x509::X509;
+
+use g3_tls_cert::builder::ServerCertBuilder;
+use g3_types::net::Host;
 
 use crate::frontend::ResponseData;
 
-pub(crate) struct RcGenBackendConfig {
-    ca_cert: Arc<Certificate>,
+pub(crate) struct OpensslBackendConfig {
+    ca_cert: X509,
+    ca_key: PKey<Private>,
 }
 
-pub(crate) struct RcGenBackend {
-    ca_cert: Arc<Certificate>,
-}
-
-impl RcGenBackendConfig {
+impl OpensslBackendConfig {
     pub(crate) fn new(ca_cert: &str, ca_key: &str) -> anyhow::Result<Self> {
-        let ca_key =
-            KeyPair::from_pem(ca_key).map_err(|e| anyhow!("failed to parse ca_key: {e}"))?;
-        let params = CertificateParams::from_ca_cert_pem(ca_cert, ca_key)
-            .map_err(|e| anyhow!("failed to parse ca_cert: {e}"))?;
-        let ca_cert = Certificate::from_params(params)
-            .map_err(|e| anyhow!("invalid ca_cert / ca_key pair: {e}"))?;
-        Ok(RcGenBackendConfig {
-            ca_cert: Arc::new(ca_cert),
-        })
+        let ca_key = PKey::private_key_from_pem(ca_key.as_bytes())
+            .map_err(|e| anyhow!("failed to load ca pkey: {e}"))?;
+        let ca_cert = X509::from_pem(ca_cert.as_bytes())
+            .map_err(|e| anyhow!("failed to load ca cert: {e}"))?;
+
+        Ok(OpensslBackendConfig { ca_cert, ca_key })
     }
 }
 
-impl RcGenBackend {
-    pub(crate) fn new(config: &RcGenBackendConfig) -> Self {
-        RcGenBackend {
-            ca_cert: Arc::clone(&config.ca_cert),
-        }
+pub(crate) struct OpensslBackend {
+    config: Arc<OpensslBackendConfig>,
+    builder: ServerCertBuilder,
+}
+
+impl OpensslBackend {
+    pub(crate) fn new(config: &Arc<OpensslBackendConfig>) -> anyhow::Result<Self> {
+        let builder = ServerCertBuilder::new()?;
+        Ok(OpensslBackend {
+            config: Arc::clone(config),
+            builder,
+        })
+    }
+
+    pub(crate) fn refresh(&mut self) -> anyhow::Result<()> {
+        self.builder.refresh_datetime()?;
+        self.builder.refresh_pkey()?;
+        self.builder.refresh_serial()?;
+        Ok(())
     }
 
     pub(crate) fn generate(&self, host: &str) -> anyhow::Result<ResponseData> {
-        let mut params = CertificateParams::new([host.to_string()]);
-        params.alg = &rcgen::PKCS_ECDSA_P256_SHA256;
-        params.distinguished_name.push(DnType::CommonName, host);
-        let cert = Certificate::from_params(params)
-            .map_err(|e| anyhow!("failed to generate new cert/key pair: {e}"))?;
-        let cert_pem = cert.serialize_pem_with_signer(&self.ca_cert).unwrap();
-        let key_pem = cert.serialize_private_key_pem();
+        let host = Host::from_str(host)?;
+        let cert = self
+            .builder
+            .build_fake(&host, &self.config.ca_cert, &self.config.ca_key)?;
+        let cert_pem = cert
+            .to_pem()
+            .map_err(|e| anyhow!("failed to encode cert: {e}"))?;
+        let key_pem = self
+            .builder
+            .pkey()
+            .private_key_to_pem_pkcs8()
+            .map_err(|e| anyhow!("failed to encode pkey: {e}"))?;
+
         let data = ResponseData {
             host: host.to_string(),
-            cert: cert_pem,
-            key: key_pem,
+            cert: unsafe { String::from_utf8_unchecked(cert_pem) },
+            key: unsafe { String::from_utf8_unchecked(key_pem) },
             ttl: 300,
         };
         Ok(data)

@@ -20,7 +20,7 @@ use slog::slog_info;
 
 use g3_daemon::log::types::{LtUpstreamAddr, LtUuid};
 use g3_io_ext::OnceBufReader;
-use g3_tls_cert::generator::CertGeneratorHandle;
+use g3_tls_cert::agent::CertAgentHandle;
 use g3_types::net::{OpensslTlsInterceptionClientConfig, UpstreamAddr};
 
 use super::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext};
@@ -33,17 +33,17 @@ mod modern;
 
 #[derive(Clone)]
 pub(crate) struct TlsInterceptionContext {
-    cert_generator: Arc<CertGeneratorHandle>,
+    cert_agent: Arc<CertAgentHandle>,
     client_config: Arc<OpensslTlsInterceptionClientConfig>,
 }
 
 impl TlsInterceptionContext {
     pub(crate) fn new(
-        cert_generator: CertGeneratorHandle,
+        cert_agent: CertAgentHandle,
         client_config: OpensslTlsInterceptionClientConfig,
     ) -> Self {
         TlsInterceptionContext {
-            cert_generator: Arc::new(cert_generator),
+            cert_agent: Arc::new(cert_agent),
             client_config: Arc::new(client_config),
         }
     }

@@ -14,16 +14,14 @@
  * limitations under the License.
  */
 
-mod query;
-use query::QueryRuntime;
+use anyhow::anyhow;
+use openssl::ec::{EcGroup, EcKey};
+use openssl::nid::Nid;
+use openssl::pkey::{PKey, Private};
 
-mod config;
-pub use config::CertGeneratorConfig;
-
-mod handle;
-pub use handle::CertGeneratorHandle;
-
-#[derive(Clone, Debug, Hash, Eq, PartialEq)]
-pub(crate) struct CacheQueryKey {
-    pub(crate) host: String,
+pub fn new_ec() -> anyhow::Result<PKey<Private>> {
+    let group = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1)
+        .map_err(|e| anyhow!("failed to get ec group: {e}"))?;
+    let ec_key = EcKey::generate(&group).map_err(|e| anyhow!("failed to generate ec key: {e}"))?;
+    PKey::from_ec_key(ec_key).map_err(|e| anyhow!("failed to convert ec key to pkey: {e}"))
 }

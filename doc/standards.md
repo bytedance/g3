@@ -81,6 +81,8 @@ The code should comply to these, but should be more compliant to existing popula
 
  - [rfc7468](https://datatracker.ietf.org/doc/html/rfc7468)
    : Textual Encodings of PKIX, PKCS, and CMS Structures
+ - [rfc5280](https://datatracker.ietf.org/doc/html/rfc5280)
+   : Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile
 
 # Network Protocol
 

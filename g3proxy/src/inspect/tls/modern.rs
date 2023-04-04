@@ -101,7 +101,7 @@ where
         // fetch fake server cert early in the background
         let tls_interception = self.tls_interception.clone();
         let clt_cert_handle =
-            tokio::spawn(async move { tls_interception.cert_generator.fetch(hostname).await });
+            tokio::spawn(async move { tls_interception.cert_agent.fetch(hostname).await });
 
         // handshake with upstream server
         let mut ups_tls_stream = tokio_openssl::SslStream::new(

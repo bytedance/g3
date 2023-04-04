@@ -14,6 +14,16 @@
  * limitations under the License.
  */
 
-pub mod agent;
+mod query;
+use query::QueryRuntime;
 
-pub mod builder;
+mod config;
+pub use config::CertAgentConfig;
+
+mod handle;
+pub use handle::CertAgentHandle;
+
+#[derive(Clone, Debug, Hash, Eq, PartialEq)]
+pub(crate) struct CacheQueryKey {
+    pub(crate) host: String,
+}

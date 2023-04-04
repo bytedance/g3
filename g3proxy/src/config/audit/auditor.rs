@@ -24,7 +24,7 @@ use g3_dpi::{
     H1InterceptionConfig, H2InterceptionConfig, ProtocolInspectionConfig, ProtocolPortMap,
 };
 use g3_icap_client::IcapServiceConfig;
-use g3_tls_cert::generator::CertGeneratorConfig;
+use g3_tls_cert::agent::CertAgentConfig;
 use g3_types::net::OpensslTlsInterceptionClientConfigBuilder;
 use g3_yaml::YamlDocPosition;
 
@@ -35,7 +35,7 @@ pub(crate) struct AuditorConfig {
     pub(crate) protocol_inspection: ProtocolInspectionConfig,
     pub(crate) server_tcp_portmap: ProtocolPortMap,
     pub(crate) client_tcp_portmap: ProtocolPortMap,
-    pub(crate) tls_cert_generator: Option<CertGeneratorConfig>,
+    pub(crate) tls_cert_agent: Option<CertAgentConfig>,
     pub(crate) tls_interception_client: OpensslTlsInterceptionClientConfigBuilder,
     pub(crate) log_uri_max_chars: usize,
     pub(crate) h1_interception: H1InterceptionConfig,
@@ -61,7 +61,7 @@ impl AuditorConfig {
             protocol_inspection: Default::default(),
             server_tcp_portmap: ProtocolPortMap::tcp_server(),
             client_tcp_portmap: ProtocolPortMap::tcp_client(),
-            tls_cert_generator: None,
+            tls_cert_agent: None,
             tls_interception_client: Default::default(),
             log_uri_max_chars: 1024,
             h1_interception: Default::default(),
@@ -120,11 +120,11 @@ impl AuditorConfig {
                 g3_yaml::value::update_protocol_portmap(&mut self.client_tcp_portmap, v)
                     .context(format!("invalid protocol portmap value for key {k}"))
             }
-            "tls_cert_generator" => {
-                let generator = g3_yaml::value::as_tls_cert_generator_config(v).context(
-                    format!("invalid tls cert generator config value for key {k}"),
-                )?;
-                self.tls_cert_generator = Some(generator);
+            "tls_cert_agent" | "tls_cert_generator" => {
+                let agent = g3_yaml::value::as_tls_cert_agent_config(v).context(format!(
+                    "invalid tls cert generator config value for key {k}"
+                ))?;
+                self.tls_cert_agent = Some(agent);
                 Ok(())
             }
             "tls_interception_client" => {

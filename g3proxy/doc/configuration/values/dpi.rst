@@ -187,14 +187,14 @@ See the code `lib/g3-dpi/src/protocol/portmap.rs` for default set ports.
 TLS Interception
 ================
 
-.. _conf_value_dpi_tls_cert_generator:
+.. _conf_value_dpi_tls_cert_agent:
 
-tls cert generator
-------------------
+tls cert agent
+--------------
 
 **type**: map
 
-Set the config for tls certificate generator.
+Set the config for tls certificate agent / generator.
 
 The keys are:
 

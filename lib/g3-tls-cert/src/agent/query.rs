@@ -30,7 +30,7 @@ use tokio::net::UdpSocket;
 
 use g3_io_ext::{EffectiveCacheData, EffectiveQueryHandle};
 
-use super::{CacheQueryKey, CertGeneratorConfig};
+use super::{CacheQueryKey, CertAgentConfig};
 
 pub(super) struct QueryRuntime {
     socket: UdpSocket,
@@ -45,7 +45,7 @@ pub(super) struct QueryRuntime {
 
 impl QueryRuntime {
     pub(super) fn new(
-        config: &CertGeneratorConfig,
+        config: &CertAgentConfig,
         socket: UdpSocket,
         query_handle: EffectiveQueryHandle<CacheQueryKey, (Vec<Certificate>, PrivateKey)>,
     ) -> Self {
