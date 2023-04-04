@@ -23,6 +23,7 @@ use ahash::AHashMap;
 use anyhow::{anyhow, Context};
 use cadence::StatsdClient;
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
+use is_terminal::IsTerminal;
 
 use g3_runtime::blended::BlendedRuntimeConfig;
 use g3_runtime::unaided::UnaidedRuntimeConfig;
@@ -102,10 +103,8 @@ impl ProcArgs {
             None
         } else if let Some(requests) = self.requests {
             Some(BenchProgress::new_fixed(requests))
-        } else if let Some(timeout) = self.time_limit {
-            Some(BenchProgress::new_timed(timeout))
         } else {
-            None
+            self.time_limit.map(BenchProgress::new_timed)
         }
     }
 
@@ -415,7 +414,7 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
         proc_args.statsd_client_config = Some(config);
     }
 
-    if args.get_flag(GLOBAL_ARG_NO_PROGRESS_BAR) {
+    if args.get_flag(GLOBAL_ARG_NO_PROGRESS_BAR) || !std::io::stderr().is_terminal() {
         proc_args.no_progress_bar = true;
     }
 

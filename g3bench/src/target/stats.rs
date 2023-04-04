@@ -146,7 +146,7 @@ impl GlobalState {
         }
 
         println!(
-            "Requests per second:  {} [#/sec] (mean)",
+            "Requests per second:  {:.3} [#/sec] (mean)",
             passed as f64 / total_time.as_secs_f64()
         );
 

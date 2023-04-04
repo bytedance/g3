@@ -182,7 +182,9 @@ where
                 match rt {
                     Ok(_) => {
                         context.mark_task_passed();
-                        progress_counter.as_ref().map(|c| c.inc());
+                        if let Some(c) = progress_counter.as_ref() {
+                            c.inc();
+                        }
                         global_state.add_passed();
                     }
                     Err(e) => {

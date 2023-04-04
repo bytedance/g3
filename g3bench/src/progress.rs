@@ -20,7 +20,7 @@ use std::thread;
 use std::time::Duration;
 
 use anyhow::anyhow;
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::{HumanDuration, ProgressBar, ProgressStyle};
 
 #[derive(Clone)]
 pub(crate) struct ProgressCounter(Arc<AtomicU64>);
@@ -65,7 +65,10 @@ impl BenchProgress {
     }
 
     pub(crate) fn new_timed(timeout: Duration) -> Self {
-        let template = format!("[{{elapsed}}/{timeout:?}] Total {{pos}} Rate {{per_sec}}");
+        let template = format!(
+            "[{{elapsed}}/{}] Total: {{pos}}, Success Rate: {{per_sec}}",
+            HumanDuration(timeout)
+        );
         let bar = ProgressBar::new_spinner().with_style(
             ProgressStyle::default_spinner()
                 .template(&template)
