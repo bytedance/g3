@@ -273,7 +273,7 @@ impl ServerInternal for TlsStreamServer {
 #[async_trait]
 impl Server for TlsStreamServer {
     #[inline]
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         self.config.name()
     }
 

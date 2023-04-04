@@ -25,6 +25,7 @@ use slog::Logger;
 use yaml_rust::{yaml, Yaml};
 
 use g3_daemon::config::sort_nodes_in_dependency_graph;
+use g3_types::metrics::MetricsName;
 use g3_yaml::{HybridParser, YamlDocPosition};
 
 pub(crate) mod dummy_close;
@@ -53,13 +54,13 @@ pub(crate) enum ServerConfigDiffAction {
 }
 
 pub(crate) trait ServerConfig {
-    fn name(&self) -> &str;
+    fn name(&self) -> &MetricsName;
     fn position(&self) -> Option<YamlDocPosition>;
     fn server_type(&self) -> &'static str;
 
     fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction;
 
-    fn dependent_server(&self) -> Option<BTreeSet<String>> {
+    fn dependent_server(&self) -> Option<BTreeSet<MetricsName>> {
         None
     }
     fn shared_logger(&self) -> Option<&str> {
@@ -109,10 +110,10 @@ macro_rules! impl_transparent1 {
 }
 
 impl AnyServerConfig {
-    impl_transparent0!(name, &str);
+    impl_transparent0!(name, &MetricsName);
     impl_transparent0!(position, Option<YamlDocPosition>);
     impl_transparent0!(server_type, &'static str);
-    impl_transparent0!(dependent_server, Option<BTreeSet<String>>);
+    impl_transparent0!(dependent_server, Option<BTreeSet<MetricsName>>);
 
     impl_transparent1!(diff_action, ServerConfigDiffAction, &Self);
 }
@@ -171,7 +172,7 @@ fn load_server(
 
 fn get_edges_for_dependency_graph(
     all_config: &[Arc<AnyServerConfig>],
-    all_names: &IndexSet<String>,
+    all_names: &IndexSet<MetricsName>,
 ) -> anyhow::Result<Vec<(usize, usize)>> {
     let mut edges: Vec<(usize, usize)> = Vec::with_capacity(all_config.len());
 
@@ -198,11 +199,11 @@ fn get_edges_for_dependency_graph(
 
 pub(crate) fn get_all_sorted() -> anyhow::Result<Vec<Arc<AnyServerConfig>>> {
     let all_config = registry::get_all();
-    let mut all_names = IndexSet::<String>::new();
+    let mut all_names = IndexSet::<MetricsName>::new();
     let mut map_config = BTreeMap::<usize, Arc<AnyServerConfig>>::new();
 
     for conf in all_config.iter() {
-        let (index, ok) = all_names.insert_full(conf.name().to_string());
+        let (index, ok) = all_names.insert_full(conf.name().clone());
         assert!(ok);
         map_config.insert(index, Arc::clone(conf));
     }
@@ -233,10 +234,10 @@ pub(crate) fn get_all_sorted() -> anyhow::Result<Vec<Arc<AnyServerConfig>>> {
 
 fn check_dependency() -> anyhow::Result<()> {
     let all_config = registry::get_all();
-    let mut all_names = IndexSet::<String>::new();
+    let mut all_names = IndexSet::<MetricsName>::new();
 
     for conf in all_config.iter() {
-        all_names.insert(conf.name().to_string());
+        all_names.insert(conf.name().clone());
     }
 
     let edges = get_edges_for_dependency_graph(&all_config, &all_names)?;

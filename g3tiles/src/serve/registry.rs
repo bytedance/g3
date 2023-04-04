@@ -21,11 +21,13 @@ use anyhow::anyhow;
 use once_cell::sync::Lazy;
 use tokio::sync::broadcast;
 
+use g3_types::metrics::MetricsName;
+
 use super::{ArcServer, ServerReloadCommand};
 use crate::config::server::AnyServerConfig;
 use crate::serve::dummy_close::DummyCloseServer;
 
-static RUNTIME_SERVER_REGISTRY: Lazy<Mutex<HashMap<String, ArcServer>>> =
+static RUNTIME_SERVER_REGISTRY: Lazy<Mutex<HashMap<MetricsName, ArcServer>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 static OFFLINE_SERVER_SET: Lazy<Mutex<Vec<ArcServer>>> = Lazy::new(|| Mutex::new(Vec::new()));
 
@@ -64,7 +66,7 @@ where
     }
 }
 
-pub(super) fn add(name: String, server: ArcServer) -> anyhow::Result<()> {
+pub(super) fn add(name: MetricsName, server: ArcServer) -> anyhow::Result<()> {
     let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     server._start_runtime(&server)?;
     if let Some(old_server) = ht.insert(name, server) {
@@ -74,7 +76,7 @@ pub(super) fn add(name: String, server: ArcServer) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub(super) fn del(name: &str) {
+pub(super) fn del(name: &MetricsName) {
     let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     if let Some(old_server) = ht.remove(name) {
         old_server._abort_runtime();
@@ -82,27 +84,27 @@ pub(super) fn del(name: &str) {
     }
 }
 
-pub(crate) fn get_names() -> HashSet<String> {
+pub(crate) fn get_names() -> HashSet<MetricsName> {
     let mut names = HashSet::new();
     let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     for name in ht.keys() {
-        names.insert(name.to_string());
+        names.insert(name.clone());
     }
     names
 }
 
-pub(super) fn get_config(name: &str) -> Option<AnyServerConfig> {
+pub(super) fn get_config(name: &MetricsName) -> Option<AnyServerConfig> {
     let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     ht.get(name).map(|server| server._clone_config())
 }
 
-pub(crate) fn get_server(name: &str) -> Option<ArcServer> {
+pub(crate) fn get_server(name: &MetricsName) -> Option<ArcServer> {
     let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     ht.get(name).map(Arc::clone)
 }
 
 pub(super) fn update_config_in_place(
-    name: &str,
+    name: &MetricsName,
     flags: u64,
     config: AnyServerConfig,
 ) -> anyhow::Result<()> {
@@ -114,7 +116,10 @@ pub(super) fn update_config_in_place(
     }
 }
 
-pub(super) fn reload_only_config(name: &str, config: AnyServerConfig) -> anyhow::Result<()> {
+pub(super) fn reload_only_config(
+    name: &MetricsName,
+    config: AnyServerConfig,
+) -> anyhow::Result<()> {
     let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     let old_server = match ht.get(name) {
         Some(server) => server,
@@ -122,7 +127,7 @@ pub(super) fn reload_only_config(name: &str, config: AnyServerConfig) -> anyhow:
     };
 
     let server = old_server._reload_with_old_notifier(config)?;
-    if let Some(old_server) = ht.insert(name.to_string(), Arc::clone(&server)) {
+    if let Some(old_server) = ht.insert(name.clone(), Arc::clone(&server)) {
         // do not abort the runtime, as it's reused
         add_offline(old_server);
     }
@@ -130,7 +135,10 @@ pub(super) fn reload_only_config(name: &str, config: AnyServerConfig) -> anyhow:
     Ok(())
 }
 
-pub(super) fn reload_and_respawn(name: &str, config: AnyServerConfig) -> anyhow::Result<()> {
+pub(super) fn reload_and_respawn(
+    name: &MetricsName,
+    config: AnyServerConfig,
+) -> anyhow::Result<()> {
     let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     let old_server = match ht.get(name) {
         Some(server) => server,
@@ -139,7 +147,7 @@ pub(super) fn reload_and_respawn(name: &str, config: AnyServerConfig) -> anyhow:
 
     let server = old_server._reload_with_new_notifier(config)?;
     server._start_runtime(&server)?;
-    if let Some(old_server) = ht.insert(name.to_string(), server) {
+    if let Some(old_server) = ht.insert(name.clone(), server) {
         old_server._abort_runtime();
         add_offline(old_server);
     }
@@ -148,7 +156,7 @@ pub(super) fn reload_and_respawn(name: &str, config: AnyServerConfig) -> anyhow:
 
 pub(crate) fn foreach_online<F>(mut f: F)
 where
-    F: FnMut(&str, &ArcServer),
+    F: FnMut(&MetricsName, &ArcServer),
 {
     let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     for (name, server) in ht.iter() {
@@ -158,11 +166,11 @@ where
 
 /// the notifier should be got while holding the lock
 pub(crate) fn get_with_notifier(
-    name: &str,
+    name: &MetricsName,
 ) -> (ArcServer, broadcast::Receiver<ServerReloadCommand>) {
     let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     let server = ht
-        .entry(name.to_string())
+        .entry(name.clone())
         .or_insert_with(|| DummyCloseServer::prepare_default(name));
     let server_reload_channel = server._get_reload_notifier();
     (Arc::clone(server), server_reload_channel)

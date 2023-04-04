@@ -324,7 +324,7 @@ impl ServerInternal for HttpProxyServer {
 #[async_trait]
 impl Server for HttpProxyServer {
     #[inline]
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         self.config.name()
     }
 

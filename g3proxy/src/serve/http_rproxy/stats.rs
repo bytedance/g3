@@ -20,7 +20,7 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
 
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::{StatId, TcpIoSnapshot, TcpIoStats};
 
 use crate::serve::{
@@ -29,7 +29,7 @@ use crate::serve::{
 use crate::stat::types::UntrustedTaskStatsSnapshot;
 
 pub(crate) struct HttpRProxyServerStats {
-    name: String,
+    name: MetricsName,
     id: StatId,
 
     extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
@@ -47,9 +47,9 @@ pub(crate) struct HttpRProxyServerStats {
 }
 
 impl HttpRProxyServerStats {
-    pub(super) fn new(name: &str) -> Self {
+    pub(super) fn new(name: &MetricsName) -> Self {
         HttpRProxyServerStats {
-            name: name.to_string(),
+            name: name.clone(),
             id: StatId::new(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
             online: AtomicIsize::new(0),
@@ -81,7 +81,7 @@ impl HttpRProxyServerStats {
 
 impl ServerStats for HttpRProxyServerStats {
     #[inline]
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         &self.name
     }
 

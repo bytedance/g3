@@ -16,11 +16,13 @@
 
 use slog::{slog_o, Logger};
 
+use g3_types::metrics::MetricsName;
+
 use super::shared::SharedLoggerType;
 
 pub(crate) mod tcp_connect;
 
-pub(crate) fn get_logger(server_type: &str, server_name: &str) -> Logger {
+pub(crate) fn get_logger(server_type: &str, server_name: &MetricsName) -> Logger {
     let config = crate::config::log::get_task_default_config();
     let logger_name = format!("lt-{server_name}");
     let common_values = slog_o!(
@@ -33,7 +35,11 @@ pub(crate) fn get_logger(server_type: &str, server_name: &str) -> Logger {
     g3_daemon::log::create_logger(&config, logger_name, super::LOG_TYPE_TASK, common_values)
 }
 
-pub(crate) fn get_shared_logger(name: &str, server_type: &str, server_name: &str) -> Logger {
+pub(crate) fn get_shared_logger(
+    name: &str,
+    server_type: &str,
+    server_name: &MetricsName,
+) -> Logger {
     let logger_name = format!("lt-{name}");
     super::shared::get_shared_logger(SharedLoggerType::Task, logger_name, |logger| {
         logger.new(slog_o!(

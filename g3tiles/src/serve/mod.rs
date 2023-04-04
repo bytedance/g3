@@ -23,6 +23,7 @@ use tokio::sync::broadcast;
 
 use g3_daemon::listen::ListenStats;
 use g3_daemon::server::ServerQuitPolicy;
+use g3_types::metrics::MetricsName;
 
 use crate::config::server::AnyServerConfig;
 
@@ -87,7 +88,7 @@ pub(crate) trait ServerInternal {
 
 #[async_trait]
 pub(crate) trait Server: ServerInternal {
-    fn name(&self) -> &str;
+    fn name(&self) -> &MetricsName;
     fn version(&self) -> usize;
 
     fn get_server_stats(&self) -> Option<ArcServerStats> {

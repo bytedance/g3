@@ -25,13 +25,14 @@ use tokio::sync::{broadcast, watch};
 use g3_daemon::listen::ListenStats;
 use g3_io_ext::LimitedTcpListener;
 use g3_socket::util::native_socket_addr;
+use g3_types::metrics::MetricsName;
 use g3_types::net::TcpListenConfig;
 
 use crate::config::server::ServerConfig;
 use crate::serve::{ArcServer, ServerReloadCommand, ServerRunContext};
 
 pub(crate) trait AuxiliaryServerConfig {
-    fn next_server(&self) -> &str;
+    fn next_server(&self) -> &MetricsName;
     fn run_tcp_task(
         &self,
         rt_handle: Handle,
@@ -120,7 +121,7 @@ impl AuxiliaryTcpPortRuntime {
             Some(c) => c,
             None => return,
         };
-        let mut next_server_name = aux_config.next_server().to_string();
+        let mut next_server_name = aux_config.next_server().clone();
         let (mut next_server, mut next_server_reload_channel) =
             crate::serve::get_with_notifier(&next_server_name);
         let mut run_ctx = ServerRunContext::new(
@@ -162,7 +163,7 @@ impl AuxiliaryTcpPortRuntime {
                             if aux_config.next_server().ne(&next_server_name) {
                                 info!("SRT[{}_v{}#{}] will use next server '{}' instead of '{next_server_name}'",
                                     self.server.name(), self.server_version, self.instance_id, aux_config.next_server());
-                                next_server_name = aux_config.next_server().to_string();
+                                next_server_name = aux_config.next_server().clone();
                                 reload_next_server = true;
                             }
                         }

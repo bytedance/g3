@@ -281,7 +281,7 @@ impl User {
     fn fetch_forbidden_stats(
         &self,
         user_type: UserType,
-        server: &str,
+        server: &MetricsName,
         server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
     ) -> Arc<UserForbiddenStats> {
         let mut map = self.forbid_stats.lock().unwrap();
@@ -309,7 +309,7 @@ impl User {
     fn fetch_request_stats(
         &self,
         user_type: UserType,
-        server: &str,
+        server: &MetricsName,
         server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
     ) -> Arc<UserRequestStats> {
         let mut map = self.req_stats.lock().unwrap();
@@ -337,7 +337,7 @@ impl User {
     fn fetch_traffic_stats(
         &self,
         user_type: UserType,
-        server: &str,
+        server: &MetricsName,
         server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
     ) -> Arc<UserTrafficStats> {
         let mut map = self.io_stats.lock().unwrap();
@@ -530,7 +530,7 @@ impl UserContext {
     pub(crate) fn new(
         user: Arc<User>,
         user_type: UserType,
-        server: &str,
+        server: &MetricsName,
         server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
     ) -> Self {
         let forbid_stats = user.fetch_forbidden_stats(user_type, server, server_extra_tags);
@@ -553,7 +553,7 @@ impl UserContext {
 
     pub(crate) fn check_in_site(
         &mut self,
-        server: &str,
+        server: &MetricsName,
         server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
         ups: &UpstreamAddr,
     ) {
@@ -601,7 +601,7 @@ impl UserContext {
 
     pub(crate) fn fetch_traffic_stats(
         &self,
-        server: &str,
+        server: &MetricsName,
         server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
     ) -> Vec<Arc<UserTrafficStats>> {
         let mut all_stats = Vec::with_capacity(2);

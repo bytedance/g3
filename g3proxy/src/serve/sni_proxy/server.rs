@@ -221,7 +221,7 @@ impl ServerInternal for SniProxyServer {
 #[async_trait]
 impl Server for SniProxyServer {
     #[inline]
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         self.config.name()
     }
 

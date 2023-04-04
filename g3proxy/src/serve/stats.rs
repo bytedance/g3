@@ -19,13 +19,13 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
 
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
 
 use crate::stat::types::UntrustedTaskStatsSnapshot;
 
 pub(crate) trait ServerStats {
-    fn name(&self) -> &str;
+    fn name(&self) -> &MetricsName;
     fn stat_id(&self) -> StatId;
     fn extra_tags(&self) -> &Arc<ArcSwapOption<StaticMetricsTags>>;
 

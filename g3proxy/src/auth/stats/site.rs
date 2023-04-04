@@ -48,7 +48,7 @@ impl UserSiteStats {
     pub(crate) fn fetch_request_stats(
         &self,
         user_type: UserType,
-        server: &str,
+        server: &MetricsName,
         server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
     ) -> Arc<UserRequestStats> {
         let mut new_stats = None;
@@ -80,7 +80,7 @@ impl UserSiteStats {
     pub(crate) fn fetch_traffic_stats(
         &self,
         user_type: UserType,
-        server: &str,
+        server: &MetricsName,
         server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
     ) -> Arc<UserTrafficStats> {
         let mut new_stats = None;

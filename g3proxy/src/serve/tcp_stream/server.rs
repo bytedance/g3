@@ -261,7 +261,7 @@ impl ServerInternal for TcpStreamServer {
 #[async_trait]
 impl Server for TcpStreamServer {
     #[inline]
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         self.config.name()
     }
 

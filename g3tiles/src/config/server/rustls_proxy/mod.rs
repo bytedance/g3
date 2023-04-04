@@ -23,7 +23,7 @@ use yaml_rust::{yaml, Yaml};
 
 use g3_io_ext::LimitedCopyConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::net::{TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig};
 use g3_types::route::HostMatch;
 use g3_yaml::YamlDocPosition;
@@ -41,7 +41,7 @@ const SERVER_CONFIG_TYPE: &str = "RustlsProxy";
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct RustlsProxyServerConfig {
-    name: String,
+    name: MetricsName,
     position: Option<YamlDocPosition>,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) listen: TcpListenConfig,
@@ -61,7 +61,7 @@ pub(crate) struct RustlsProxyServerConfig {
 impl RustlsProxyServerConfig {
     pub(crate) fn new(position: Option<YamlDocPosition>) -> Self {
         RustlsProxyServerConfig {
-            name: String::new(),
+            name: MetricsName::default(),
             position,
             shared_logger: None,
             listen: TcpListenConfig::default(),
@@ -108,12 +108,8 @@ impl RustlsProxyServerConfig {
         match k {
             super::CONFIG_KEY_SERVER_TYPE => Ok(()),
             super::CONFIG_KEY_SERVER_NAME => {
-                if let Yaml::String(name) = v {
-                    self.name.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.name = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "shared_logger" => {
                 let name = g3_yaml::value::as_ascii(v)?;
@@ -194,7 +190,7 @@ impl RustlsProxyServerConfig {
 }
 
 impl ServerConfig for RustlsProxyServerConfig {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         &self.name
     }
 

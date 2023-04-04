@@ -314,7 +314,7 @@ impl ServerInternal for HttpRProxyServer {
 #[async_trait]
 impl Server for HttpRProxyServer {
     #[inline]
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         self.config.name()
     }
 

@@ -23,6 +23,7 @@ use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 
 use g3_daemon::listen::ListenStats;
+use g3_types::metrics::MetricsName;
 
 use crate::config::server::dummy_close::DummyCloseServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
@@ -61,7 +62,7 @@ impl DummyCloseServer {
         }
     }
 
-    pub(crate) fn prepare_default(name: &str) -> ArcServer {
+    pub(crate) fn prepare_default(name: &MetricsName) -> ArcServer {
         let config = DummyCloseServerConfig::new(name, None);
         let listen_stats = Arc::new(ListenStats::new(name));
         Arc::new(DummyCloseServer::new(config, listen_stats))
@@ -122,7 +123,7 @@ impl ServerInternal for DummyCloseServer {
 
 #[async_trait]
 impl Server for DummyCloseServer {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         self.config.name()
     }
 

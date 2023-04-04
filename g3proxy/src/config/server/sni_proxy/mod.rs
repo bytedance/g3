@@ -38,7 +38,7 @@ const SERVER_CONFIG_TYPE: &str = "SniProxy";
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct SniProxyServerConfig {
-    name: String,
+    name: MetricsName,
     position: Option<YamlDocPosition>,
     pub(crate) escaper: MetricsName,
     pub(crate) auditor: MetricsName,
@@ -63,7 +63,7 @@ pub(crate) struct SniProxyServerConfig {
 impl SniProxyServerConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         SniProxyServerConfig {
-            name: String::new(),
+            name: MetricsName::default(),
             position,
             escaper: MetricsName::default(),
             auditor: MetricsName::default(),
@@ -102,12 +102,8 @@ impl SniProxyServerConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_SERVER_TYPE => Ok(()),
             super::CONFIG_KEY_SERVER_NAME => {
-                if let Yaml::String(name) = v {
-                    self.name.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.name = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "escaper" => {
                 self.escaper = g3_yaml::value::as_metrics_name(v)?;
@@ -230,8 +226,8 @@ impl SniProxyServerConfig {
 }
 
 impl ServerConfig for SniProxyServerConfig {
-    fn name(&self) -> &str {
-        self.name.as_str()
+    fn name(&self) -> &MetricsName {
+        &self.name
     }
 
     fn position(&self) -> Option<YamlDocPosition> {

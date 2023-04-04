@@ -17,6 +17,7 @@
 use anyhow::anyhow;
 use yaml_rust::{yaml, Yaml};
 
+use g3_types::metrics::MetricsName;
 use g3_yaml::YamlDocPosition;
 
 use super::ServerConfig;
@@ -26,14 +27,14 @@ const SERVER_CONFIG_TYPE: &str = "DummyClose";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct DummyCloseServerConfig {
-    name: String,
+    name: MetricsName,
     position: Option<YamlDocPosition>,
 }
 
 impl DummyCloseServerConfig {
-    pub(crate) fn new(name: &str, position: Option<YamlDocPosition>) -> Self {
+    pub(crate) fn new(name: &MetricsName, position: Option<YamlDocPosition>) -> Self {
         DummyCloseServerConfig {
-            name: name.to_string(),
+            name: name.clone(),
             position,
         }
     }
@@ -42,23 +43,36 @@ impl DummyCloseServerConfig {
         map: &yaml::Hash,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
-        let name = g3_yaml::hash_get_required_str(map, super::CONFIG_KEY_SERVER_NAME)?;
-        let mut escaper = DummyCloseServerConfig::new(name, position);
-        g3_yaml::foreach_kv(map, |k, v| escaper.set(k, v))?;
-        Ok(escaper)
+        let mut server = DummyCloseServerConfig {
+            name: MetricsName::default(),
+            position,
+        };
+        g3_yaml::foreach_kv(map, |k, v| server.set(k, v))?;
+        server.check()?;
+        Ok(server)
     }
 
-    fn set(&mut self, k: &str, _v: &Yaml) -> anyhow::Result<()> {
+    fn check(&self) -> anyhow::Result<()> {
+        if self.name.is_empty() {
+            return Err(anyhow!("name is not set"));
+        }
+        Ok(())
+    }
+
+    fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
         match k {
             super::CONFIG_KEY_SERVER_TYPE => Ok(()),
-            super::CONFIG_KEY_SERVER_NAME => Ok(()),
+            super::CONFIG_KEY_SERVER_NAME => {
+                self.name = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
+            }
             _ => Err(anyhow!("invalid key {k}")),
         }
     }
 }
 
 impl ServerConfig for DummyCloseServerConfig {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         &self.name
     }
 

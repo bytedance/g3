@@ -31,23 +31,23 @@ const SERVER_CONFIG_TYPE: &str = "PlainTcpPort";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct PlainTcpPortConfig {
-    name: String,
+    name: MetricsName,
     position: Option<YamlDocPosition>,
     pub(crate) listen: TcpListenConfig,
     pub(crate) listen_in_worker: bool,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
-    pub(crate) server: String,
+    pub(crate) server: MetricsName,
 }
 
 impl PlainTcpPortConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         PlainTcpPortConfig {
-            name: String::new(),
+            name: MetricsName::default(),
             position,
             listen: TcpListenConfig::default(),
             listen_in_worker: false,
             ingress_net_filter: None,
-            server: String::new(),
+            server: MetricsName::default(),
         }
     }
 
@@ -67,12 +67,8 @@ impl PlainTcpPortConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_SERVER_TYPE => Ok(()),
             super::CONFIG_KEY_SERVER_NAME => {
-                if let Yaml::String(name) = v {
-                    self.name.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.name = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "listen" => {
                 self.listen = g3_yaml::value::as_tcp_listen_config(v)
@@ -91,12 +87,8 @@ impl PlainTcpPortConfig {
                 Ok(())
             }
             "server" => {
-                if let Yaml::String(name) = v {
-                    self.server.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.server = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
         }
@@ -117,7 +109,7 @@ impl PlainTcpPortConfig {
 }
 
 impl ServerConfig for PlainTcpPortConfig {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         &self.name
     }
 
@@ -158,7 +150,7 @@ impl ServerConfig for PlainTcpPortConfig {
         ServerConfigDiffAction::UpdateInPlace(0)
     }
 
-    fn dependent_server(&self) -> Option<BTreeSet<String>> {
+    fn dependent_server(&self) -> Option<BTreeSet<MetricsName>> {
         let mut set = BTreeSet::new();
         set.insert(self.server.clone());
         Some(set)

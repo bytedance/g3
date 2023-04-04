@@ -29,7 +29,7 @@ pub(crate) struct UserForbiddenStats {
     user_group: MetricsName,
     user: String,
     user_type: UserType,
-    server: String,
+    server: MetricsName,
     server_extra_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
     auth_failed: AtomicU64,
     user_expired: AtomicU64,
@@ -62,7 +62,7 @@ impl UserForbiddenStats {
         user_group: &MetricsName,
         user: &str,
         user_type: UserType,
-        server: &str,
+        server: &MetricsName,
         server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
     ) -> Self {
         UserForbiddenStats {
@@ -70,7 +70,7 @@ impl UserForbiddenStats {
             user_group: user_group.clone(),
             user: user.to_string(),
             user_type,
-            server: server.to_string(),
+            server: server.clone(),
             server_extra_tags: Arc::clone(server_extra_tags),
             auth_failed: Default::default(),
             user_expired: Default::default(),
@@ -106,7 +106,7 @@ impl UserForbiddenStats {
     }
 
     #[inline]
-    pub(crate) fn server(&self) -> &str {
+    pub(crate) fn server(&self) -> &MetricsName {
         &self.server
     }
 

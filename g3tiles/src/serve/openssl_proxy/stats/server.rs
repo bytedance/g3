@@ -20,13 +20,13 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
 
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::{StatId, TcpIoSnapshot, TcpIoStats};
 
 use crate::serve::ServerStats;
 
 pub(crate) struct OpensslProxyServerStats {
-    name: String,
+    name: MetricsName,
     id: StatId,
 
     extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
@@ -42,9 +42,9 @@ pub(crate) struct OpensslProxyServerStats {
 }
 
 impl OpensslProxyServerStats {
-    pub(crate) fn new(name: &str) -> Self {
+    pub(crate) fn new(name: &MetricsName) -> Self {
         OpensslProxyServerStats {
-            name: name.to_string(),
+            name: name.clone(),
             id: StatId::new(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
             online: AtomicIsize::new(0),
@@ -96,7 +96,7 @@ impl OpensslProxyServerStats {
 
 impl ServerStats for OpensslProxyServerStats {
     #[inline]
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         &self.name
     }
 

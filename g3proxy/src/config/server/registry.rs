@@ -20,9 +20,11 @@ use std::sync::{Arc, Mutex};
 use anyhow::anyhow;
 use once_cell::sync::Lazy;
 
+use g3_types::metrics::MetricsName;
+
 use super::AnyServerConfig;
 
-static INITIAL_SERVER_CONFIG_REGISTRY: Lazy<Mutex<HashMap<String, Arc<AnyServerConfig>>>> =
+static INITIAL_SERVER_CONFIG_REGISTRY: Lazy<Mutex<HashMap<MetricsName, Arc<AnyServerConfig>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
 pub(crate) fn clear() {
@@ -31,7 +33,7 @@ pub(crate) fn clear() {
 }
 
 pub(super) fn add(server: AnyServerConfig, replace: bool) -> anyhow::Result<()> {
-    let name = server.name().to_string();
+    let name = server.name().clone();
     let server = Arc::new(server);
     let mut ht = INITIAL_SERVER_CONFIG_REGISTRY.lock().unwrap();
     if let Some(old) = ht.insert(name, server) {

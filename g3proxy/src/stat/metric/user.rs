@@ -115,7 +115,7 @@ trait UserMetricExt<'m> {
         user_group: &'m MetricsName,
         user: &'m str,
         user_type: &'m str,
-        server: &'m str,
+        server: &'m MetricsName,
         stat_id: &'m str,
     ) -> Self;
     fn add_user_traffic_tags(
@@ -123,7 +123,7 @@ trait UserMetricExt<'m> {
         user_group: &'m MetricsName,
         user: &'m str,
         user_type: &'m str,
-        server: &'m str,
+        server: &'m MetricsName,
         req_type: MetricUserRequestType,
         stat_id: &'m str,
     ) -> Self;
@@ -148,14 +148,14 @@ where
         user_group: &'m MetricsName,
         user: &'m str,
         user_type: &'m str,
-        server: &'m str,
+        server: &'m MetricsName,
         stat_id: &'m str,
     ) -> Self {
         self.with_tag(TAG_KEY_USER_GROUP, user_group.as_str())
             .with_tag(TAG_KEY_USER, user)
             .with_tag(TAG_KEY_USER_TYPE, user_type)
             .with_tag(TAG_KEY_STAT_ID, stat_id)
-            .with_tag(TAG_KEY_SERVER, server)
+            .with_tag(TAG_KEY_SERVER, server.as_str())
     }
 
     fn add_user_traffic_tags(
@@ -163,7 +163,7 @@ where
         user_group: &'m MetricsName,
         user: &'m str,
         user_type: &'m str,
-        server: &'m str,
+        server: &'m MetricsName,
         req_type: MetricUserRequestType,
         stat_id: &'m str,
     ) -> Self {

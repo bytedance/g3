@@ -32,13 +32,13 @@ const SERVER_CONFIG_TYPE: &str = "IntelliProxy";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct IntelliProxyConfig {
-    name: String,
+    name: MetricsName,
     position: Option<YamlDocPosition>,
     pub(crate) listen: TcpListenConfig,
     pub(crate) listen_in_worker: bool,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
-    pub(crate) http_server: String,
-    pub(crate) socks_server: String,
+    pub(crate) http_server: MetricsName,
+    pub(crate) socks_server: MetricsName,
     pub(crate) protocol_detection_channel_size: usize,
     pub(crate) protocol_detection_timeout: Duration,
     pub(crate) protocol_detection_max_jobs: usize,
@@ -47,13 +47,13 @@ pub(crate) struct IntelliProxyConfig {
 impl IntelliProxyConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         IntelliProxyConfig {
-            name: String::new(),
+            name: MetricsName::default(),
             position,
             listen: TcpListenConfig::default(),
             listen_in_worker: false,
             ingress_net_filter: None,
-            http_server: String::new(),
-            socks_server: String::new(),
+            http_server: MetricsName::default(),
+            socks_server: MetricsName::default(),
             protocol_detection_channel_size: 4096,
             protocol_detection_timeout: Duration::from_secs(4),
             protocol_detection_max_jobs: 4096,
@@ -76,12 +76,8 @@ impl IntelliProxyConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_SERVER_TYPE => Ok(()),
             super::CONFIG_KEY_SERVER_NAME => {
-                if let Yaml::String(name) = v {
-                    self.name.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.name = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "listen" => {
                 self.listen = g3_yaml::value::as_tcp_listen_config(v)
@@ -100,20 +96,12 @@ impl IntelliProxyConfig {
                 Ok(())
             }
             "http_server" => {
-                if let Yaml::String(name) = v {
-                    self.http_server.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.http_server = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "socks_server" => {
-                if let Yaml::String(name) = v {
-                    self.socks_server.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.socks_server = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "protocol_detection_channel_size" => {
                 self.protocol_detection_channel_size = g3_yaml::value::as_usize(v)
@@ -152,7 +140,7 @@ impl IntelliProxyConfig {
 }
 
 impl ServerConfig for IntelliProxyConfig {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         &self.name
     }
 
@@ -196,7 +184,7 @@ impl ServerConfig for IntelliProxyConfig {
         ServerConfigDiffAction::UpdateInPlace(0)
     }
 
-    fn dependent_server(&self) -> Option<BTreeSet<String>> {
+    fn dependent_server(&self) -> Option<BTreeSet<MetricsName>> {
         let mut set = BTreeSet::new();
         set.insert(self.http_server.clone());
         set.insert(self.socks_server.clone());

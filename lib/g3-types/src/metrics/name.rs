@@ -38,8 +38,22 @@ impl MetricsName {
         self.0.as_str()
     }
 
+    /// Get a MetricsName from a String value
+    ///
+    /// # Safety
+    ///
+    /// Call this only if you need not use the value in metrics
+    pub unsafe fn from_unchecked(name: String) -> Self {
+        MetricsName(name)
+    }
+
+    /// Get a MetricsName from a str value
+    ///
+    /// # Safety
+    ///
+    /// Call this only if you need not use the value in metrics
     pub unsafe fn from_str_unchecked(name: &str) -> Self {
-        MetricsName(name.to_string())
+        Self::from_unchecked(name.to_string())
     }
 }
 

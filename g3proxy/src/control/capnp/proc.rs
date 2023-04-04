@@ -17,6 +17,8 @@
 use capnp::capability::Promise;
 use capnp_rpc::pry;
 
+use g3_types::metrics::MetricsName;
+
 use g3proxy_proto::escaper_capnp::escaper_control;
 use g3proxy_proto::proc_capnp::proc_control;
 use g3proxy_proto::resolver_capnp::resolver_control;
@@ -110,7 +112,7 @@ impl proc_control::Server for ProcControlImpl {
         let set = crate::serve::get_names();
         let mut builder = results.get().init_result(set.len() as u32);
         for (i, name) in set.iter().enumerate() {
-            builder.set(i as u32, name);
+            builder.set(i as u32, name.as_str());
         }
         Promise::ok(())
     }
@@ -248,7 +250,8 @@ impl proc_control::Server for ProcControlImpl {
         params: proc_control::ForceQuitOfflineServerParams,
         mut results: proc_control::ForceQuitOfflineServerResults,
     ) -> Promise<(), capnp::Error> {
-        let server = pry!(pry!(params.get()).get_name()).to_string();
+        let server = pry!(pry!(params.get()).get_name());
+        let server = unsafe { MetricsName::from_str_unchecked(server) };
         crate::serve::force_quit_offline_server(&server);
         results.get().init_result().set_ok("success");
         Promise::ok(())

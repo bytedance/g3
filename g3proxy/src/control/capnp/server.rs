@@ -16,6 +16,8 @@
 
 use capnp::capability::Promise;
 
+use g3_types::metrics::MetricsName;
+
 use g3proxy_proto::server_capnp::server_control;
 
 use crate::serve::ArcServer;
@@ -26,7 +28,8 @@ pub(super) struct ServerControlImpl {
 
 impl ServerControlImpl {
     pub(super) fn new_client(name: &str) -> anyhow::Result<server_control::Client> {
-        let server = crate::serve::get_server(name)?;
+        let name = unsafe { MetricsName::from_str_unchecked(name) };
+        let server = crate::serve::get_server(&name)?;
         Ok(capnp_rpc::new_client(ServerControlImpl { server }))
     }
 }

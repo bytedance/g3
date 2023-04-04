@@ -172,7 +172,7 @@ pub(crate) trait ServerInternal {
 
 #[async_trait]
 pub(crate) trait Server: ServerInternal {
-    fn name(&self) -> &str;
+    fn name(&self) -> &MetricsName;
     fn version(&self) -> usize;
     fn escaper(&self) -> &MetricsName;
     fn user_group(&self) -> &MetricsName;

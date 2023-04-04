@@ -31,25 +31,25 @@ const SERVER_CONFIG_TYPE: &str = "PlainTlsPort";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct PlainTlsPortConfig {
-    name: String,
+    name: MetricsName,
     position: Option<YamlDocPosition>,
     pub(crate) listen: TcpListenConfig,
     pub(crate) listen_in_worker: bool,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) server_tls_config: Option<RustlsServerConfigBuilder>,
-    pub(crate) server: String,
+    pub(crate) server: MetricsName,
 }
 
 impl PlainTlsPortConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         PlainTlsPortConfig {
-            name: String::new(),
+            name: MetricsName::default(),
             position,
             listen: TcpListenConfig::default(),
             listen_in_worker: false,
             ingress_net_filter: None,
             server_tls_config: None,
-            server: String::new(),
+            server: MetricsName::default(),
         }
     }
 
@@ -69,12 +69,8 @@ impl PlainTlsPortConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_SERVER_TYPE => Ok(()),
             super::CONFIG_KEY_SERVER_NAME => {
-                if let Yaml::String(name) = v {
-                    self.name.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.name = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "listen" => {
                 self.listen = g3_yaml::value::as_tcp_listen_config(v)
@@ -100,12 +96,8 @@ impl PlainTlsPortConfig {
                 Ok(())
             }
             "server" => {
-                if let Yaml::String(name) = v {
-                    self.server.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.server = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
         }
@@ -129,7 +121,7 @@ impl PlainTlsPortConfig {
 }
 
 impl ServerConfig for PlainTlsPortConfig {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         &self.name
     }
 
@@ -170,7 +162,7 @@ impl ServerConfig for PlainTlsPortConfig {
         ServerConfigDiffAction::UpdateInPlace(0)
     }
 
-    fn dependent_server(&self) -> Option<BTreeSet<String>> {
+    fn dependent_server(&self) -> Option<BTreeSet<MetricsName>> {
         let mut set = BTreeSet::new();
         set.insert(self.server.clone());
         Some(set)

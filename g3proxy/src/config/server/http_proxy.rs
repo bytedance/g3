@@ -61,7 +61,7 @@ impl Default for HttpProxyServerTimeoutConfig {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct HttpProxyServerConfig {
-    name: String,
+    name: MetricsName,
     position: Option<YamlDocPosition>,
     pub(crate) escaper: MetricsName,
     pub(crate) auditor: MetricsName,
@@ -103,7 +103,7 @@ pub(crate) struct HttpProxyServerConfig {
 impl HttpProxyServerConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         HttpProxyServerConfig {
-            name: String::new(),
+            name: MetricsName::default(),
             position,
             escaper: MetricsName::default(),
             auditor: MetricsName::default(),
@@ -159,12 +159,8 @@ impl HttpProxyServerConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_SERVER_TYPE => Ok(()),
             super::CONFIG_KEY_SERVER_NAME => {
-                if let Yaml::String(name) = v {
-                    self.name.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.name = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "escaper" => {
                 self.escaper = g3_yaml::value::as_metrics_name(v)?;
@@ -398,8 +394,8 @@ impl HttpProxyServerConfig {
 }
 
 impl ServerConfig for HttpProxyServerConfig {
-    fn name(&self) -> &str {
-        self.name.as_str()
+    fn name(&self) -> &MetricsName {
+        &self.name
     }
 
     fn position(&self) -> Option<YamlDocPosition> {

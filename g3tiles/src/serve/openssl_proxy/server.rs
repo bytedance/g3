@@ -30,6 +30,7 @@ use tokio::sync::broadcast;
 
 use g3_daemon::listen::ListenStats;
 use g3_types::acl::{AclAction, AclNetworkRule};
+use g3_types::metrics::MetricsName;
 use g3_types::route::HostMatch;
 
 use super::{CommonTaskContext, OpensslAcceptTask, OpensslHost, OpensslProxyServerStats};
@@ -259,7 +260,7 @@ impl ServerInternal for OpensslProxyServer {
 
 #[async_trait]
 impl Server for OpensslProxyServer {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         self.config.name()
     }
 

@@ -20,13 +20,13 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
 
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::{StatId, TcpIoSnapshot, TcpIoStats};
 
 use crate::serve::{ServerForbiddenSnapshot, ServerForbiddenStats, ServerStats};
 
 pub(crate) struct TcpStreamServerStats {
-    name: String,
+    name: MetricsName,
     id: StatId,
 
     extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
@@ -42,9 +42,9 @@ pub(crate) struct TcpStreamServerStats {
 }
 
 impl TcpStreamServerStats {
-    pub(crate) fn new(name: &str) -> Self {
+    pub(crate) fn new(name: &MetricsName) -> Self {
         TcpStreamServerStats {
-            name: name.to_string(),
+            name: name.clone(),
             id: StatId::new(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
             online: AtomicIsize::new(0),
@@ -97,7 +97,7 @@ impl TcpStreamServerStats {
 
 impl ServerStats for TcpStreamServerStats {
     #[inline]
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         &self.name
     }
 

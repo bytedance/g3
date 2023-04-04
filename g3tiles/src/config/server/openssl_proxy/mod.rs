@@ -23,7 +23,7 @@ use yaml_rust::{yaml, Yaml};
 
 use g3_io_ext::LimitedCopyConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::net::{TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig};
 use g3_types::route::HostMatch;
 use g3_yaml::YamlDocPosition;
@@ -41,7 +41,7 @@ const SERVER_CONFIG_TYPE: &str = "OpensslProxy";
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct OpensslProxyServerConfig {
-    name: String,
+    name: MetricsName,
     position: Option<YamlDocPosition>,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) listen: TcpListenConfig,
@@ -62,7 +62,7 @@ pub(crate) struct OpensslProxyServerConfig {
 impl OpensslProxyServerConfig {
     pub(crate) fn new(position: Option<YamlDocPosition>) -> Self {
         OpensslProxyServerConfig {
-            name: String::new(),
+            name: MetricsName::default(),
             position,
             shared_logger: None,
             listen: TcpListenConfig::default(),
@@ -110,12 +110,8 @@ impl OpensslProxyServerConfig {
         match k {
             super::CONFIG_KEY_SERVER_TYPE => Ok(()),
             super::CONFIG_KEY_SERVER_NAME => {
-                if let Yaml::String(name) = v {
-                    self.name.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.name = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "shared_logger" => {
                 let name = g3_yaml::value::as_ascii(v)?;
@@ -200,7 +196,7 @@ impl OpensslProxyServerConfig {
 }
 
 impl ServerConfig for OpensslProxyServerConfig {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         &self.name
     }
 

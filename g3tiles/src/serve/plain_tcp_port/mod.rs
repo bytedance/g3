@@ -26,6 +26,7 @@ use tokio::sync::{broadcast, watch};
 
 use g3_daemon::listen::ListenStats;
 use g3_types::acl::{AclAction, AclNetworkRule};
+use g3_types::metrics::MetricsName;
 
 use crate::config::server::plain_tcp_port::PlainTcpPortConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
@@ -42,7 +43,7 @@ struct PlainTcpPortAuxConfig {
 }
 
 impl AuxiliaryServerConfig for PlainTcpPortAuxConfig {
-    fn next_server(&self) -> &str {
+    fn next_server(&self) -> &MetricsName {
         &self.config.server
     }
 
@@ -78,7 +79,7 @@ impl AuxiliaryServerConfig for PlainTcpPortAuxConfig {
 }
 
 pub(crate) struct PlainTcpPort {
-    name: String,
+    name: MetricsName,
     config: ArcSwap<PlainTcpPortConfig>,
     listen_stats: Arc<ListenStats>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
@@ -110,7 +111,7 @@ impl PlainTcpPort {
         let (cfg_sender, _cfg_receiver) = watch::channel(Some(aux_config));
 
         Ok(PlainTcpPort {
-            name: config.name().to_string(),
+            name: config.name().clone(),
             config: ArcSwap::new(config),
             listen_stats,
             reload_sender,
@@ -212,7 +213,7 @@ impl ServerInternal for PlainTcpPort {
 #[async_trait]
 impl Server for PlainTcpPort {
     #[inline]
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         &self.name
     }
 

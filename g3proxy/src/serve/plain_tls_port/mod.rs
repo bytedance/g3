@@ -47,7 +47,7 @@ struct PlainTlsPortAuxConfig {
 }
 
 impl AuxiliaryServerConfig for PlainTlsPortAuxConfig {
-    fn next_server(&self) -> &str {
+    fn next_server(&self) -> &MetricsName {
         &self.config.server
     }
 
@@ -99,7 +99,7 @@ impl AuxiliaryServerConfig for PlainTlsPortAuxConfig {
 }
 
 pub(crate) struct PlainTlsPort {
-    name: String,
+    name: MetricsName,
     config: ArcSwap<PlainTlsPortConfig>,
     listen_stats: Arc<ListenStats>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
@@ -140,7 +140,7 @@ impl PlainTlsPort {
         let (cfg_sender, _cfg_receiver) = watch::channel(Some(aux_config));
 
         Ok(PlainTlsPort {
-            name: config.name().to_string(),
+            name: config.name().clone(),
             config: ArcSwap::new(config),
             listen_stats,
             reload_sender,
@@ -256,7 +256,7 @@ impl ServerInternal for PlainTlsPort {
 #[async_trait]
 impl Server for PlainTlsPort {
     #[inline]
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         &self.name
     }
 

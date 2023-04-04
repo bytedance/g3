@@ -228,7 +228,7 @@ impl ServerInternal for SocksProxyServer {
 #[async_trait]
 impl Server for SocksProxyServer {
     #[inline]
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         self.config.name()
     }
 

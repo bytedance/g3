@@ -32,7 +32,7 @@ pub(crate) struct UserRequestStats {
     user_group: MetricsName,
     user: String,
     user_type: UserType,
-    server: String,
+    server: MetricsName,
     server_extra_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
     pub(crate) conn_total: ConnectionStats,
     pub(crate) req_total: RequestStats,
@@ -57,7 +57,7 @@ impl UserRequestStats {
         user_group: &MetricsName,
         user: &str,
         user_type: UserType,
-        server: &str,
+        server: &MetricsName,
         server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
     ) -> Self {
         UserRequestStats {
@@ -65,7 +65,7 @@ impl UserRequestStats {
             user_group: user_group.clone(),
             user: user.to_string(),
             user_type,
-            server: server.to_string(),
+            server: server.clone(),
             server_extra_tags: Arc::clone(server_extra_tags),
             conn_total: Default::default(),
             req_total: Default::default(),
@@ -98,7 +98,7 @@ impl UserRequestStats {
     }
 
     #[inline]
-    pub(crate) fn server(&self) -> &str {
+    pub(crate) fn server(&self) -> &MetricsName {
         &self.server
     }
 

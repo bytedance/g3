@@ -25,7 +25,7 @@ use g3_daemon::listen::{ListenSnapshot, ListenStats};
 use g3_daemon::metric::{
     TAG_KEY_STAT_ID, TAG_KEY_TRANSPORT, TRANSPORT_TYPE_TCP, TRANSPORT_TYPE_UDP,
 };
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
 
 use super::TAG_KEY_SERVER;
@@ -63,7 +63,12 @@ static LISTEN_STATS_MAP: Lazy<Mutex<AHashMap<StatId, ListenStatsValue>>> =
     Lazy::new(|| Mutex::new(AHashMap::new()));
 
 trait ServerMetricExt<'m> {
-    fn add_server_tags(self, server: &'m str, online_value: &'m str, stat_id: &'m str) -> Self;
+    fn add_server_tags(
+        self,
+        server: &'m MetricsName,
+        online_value: &'m str,
+        stat_id: &'m str,
+    ) -> Self;
     fn add_server_extra_tags(self, tags: &'m Option<Arc<StaticMetricsTags>>) -> Self;
 }
 
@@ -71,8 +76,13 @@ impl<'m, 'c, T> ServerMetricExt<'m> for MetricBuilder<'m, 'c, T>
 where
     T: Metric + From<String>,
 {
-    fn add_server_tags(self, server: &'m str, online_value: &'m str, stat_id: &'m str) -> Self {
-        self.with_tag(TAG_KEY_SERVER, server)
+    fn add_server_tags(
+        self,
+        server: &'m MetricsName,
+        online_value: &'m str,
+        stat_id: &'m str,
+    ) -> Self {
+        self.with_tag(TAG_KEY_SERVER, server.as_str())
             .with_tag(TAG_KEY_ONLINE, online_value)
             .with_tag(TAG_KEY_STAT_ID, stat_id)
     }
@@ -226,7 +236,7 @@ fn emit_forbidden_stats(
     stats: ServerForbiddenSnapshot,
     snap: &mut ServerForbiddenSnapshot,
     online_value: &str,
-    server: &str,
+    server: &MetricsName,
     server_extra_tags: &Option<Arc<StaticMetricsTags>>,
     stat_id: &str,
 ) {
@@ -256,7 +266,7 @@ fn emit_tcp_io_to_statsd(
     stats: TcpIoSnapshot,
     snap: &mut TcpIoSnapshot,
     online_value: &str,
-    server: &str,
+    server: &MetricsName,
     server_extra_tags: &Option<Arc<StaticMetricsTags>>,
     stat_id: &str,
 ) {
@@ -289,7 +299,7 @@ fn emit_udp_io_to_statsd(
     stats: UdpIoSnapshot,
     snap: &mut UdpIoSnapshot,
     online_value: &str,
-    server: &str,
+    server: &MetricsName,
     server_extra_tags: &Option<Arc<StaticMetricsTags>>,
     stat_id: &str,
 ) {
@@ -342,7 +352,7 @@ fn emit_untrusted_stats(
     stats: UntrustedTaskStatsSnapshot,
     snap: &mut UntrustedTaskStatsSnapshot,
     online_value: &str,
-    server: &str,
+    server: &MetricsName,
     server_extra_tags: &Option<Arc<StaticMetricsTags>>,
     stat_id: &str,
 ) {

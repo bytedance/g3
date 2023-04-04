@@ -27,6 +27,7 @@ use tokio::sync::broadcast;
 
 use g3_daemon::listen::ListenStats;
 use g3_types::acl::{AclAction, AclNetworkRule};
+use g3_types::metrics::MetricsName;
 use g3_types::route::HostMatch;
 
 use super::{CommonTaskContext, RustlsAcceptTask, RustlsHost, RustlsProxyServerStats};
@@ -227,7 +228,7 @@ impl ServerInternal for RustlsProxyServer {
 
 #[async_trait]
 impl Server for RustlsProxyServer {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         self.config.name()
     }
 

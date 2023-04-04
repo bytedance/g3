@@ -35,7 +35,7 @@ use crate::serve::{
 };
 
 pub(crate) struct IntelliProxy {
-    name: String,
+    name: MetricsName,
     config: ArcSwap<IntelliProxyConfig>,
     listen_stats: Arc<ListenStats>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
@@ -58,7 +58,7 @@ impl IntelliProxy {
         let (cfg_sender, cfg_receiver) = watch::channel(Some(config.as_ref().clone()));
 
         IntelliProxy {
-            name: config.name().to_string(),
+            name: config.name().clone(),
             config: ArcSwap::new(config),
             listen_stats,
             reload_sender,
@@ -158,7 +158,7 @@ impl ServerInternal for IntelliProxy {
 #[async_trait]
 impl Server for IntelliProxy {
     #[inline]
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         &self.name
     }
 

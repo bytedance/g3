@@ -16,6 +16,7 @@
 
 use std::sync::atomic::{AtomicIsize, AtomicU64, Ordering};
 
+use g3_types::metrics::MetricsName;
 use g3_types::stats::StatId;
 
 #[derive(Default)]
@@ -28,7 +29,7 @@ pub struct ListenSnapshot {
 
 #[derive(Debug)]
 pub struct ListenStats {
-    name: String,
+    name: MetricsName,
     id: StatId,
 
     runtime_count: AtomicIsize,
@@ -39,9 +40,9 @@ pub struct ListenStats {
 }
 
 impl ListenStats {
-    pub fn new(name: &str) -> Self {
+    pub fn new(name: &MetricsName) -> Self {
         ListenStats {
-            name: name.to_string(),
+            name: name.clone(),
             id: StatId::new(),
             runtime_count: AtomicIsize::new(0),
             accepted: AtomicU64::new(0),
@@ -52,7 +53,7 @@ impl ListenStats {
     }
 
     #[inline]
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> &MetricsName {
         &self.name
     }
 

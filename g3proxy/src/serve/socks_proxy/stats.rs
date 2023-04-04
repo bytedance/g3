@@ -20,7 +20,7 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
 
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::{StatId, TcpIoSnapshot, TcpIoStats, UdpIoSnapshot, UdpIoStats};
 
 use crate::serve::{
@@ -28,7 +28,7 @@ use crate::serve::{
 };
 
 pub(crate) struct SocksProxyServerStats {
-    name: String,
+    name: MetricsName,
     id: StatId,
 
     extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
@@ -47,9 +47,9 @@ pub(crate) struct SocksProxyServerStats {
 }
 
 impl SocksProxyServerStats {
-    pub(crate) fn new(name: &str) -> Self {
+    pub(crate) fn new(name: &MetricsName) -> Self {
         SocksProxyServerStats {
-            name: name.to_string(),
+            name: name.clone(),
             id: StatId::new(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
             online: AtomicIsize::new(0),
@@ -82,7 +82,7 @@ impl SocksProxyServerStats {
 
 impl ServerStats for SocksProxyServerStats {
     #[inline]
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         &self.name
     }
 

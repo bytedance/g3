@@ -23,6 +23,7 @@ use log::debug;
 use once_cell::sync::Lazy;
 use tokio::sync::Mutex;
 
+use g3_types::metrics::MetricsName;
 use g3_yaml::YamlDocPosition;
 
 use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
@@ -51,12 +52,12 @@ pub fn spawn_offline_clean() {
 pub async fn spawn_all() -> anyhow::Result<()> {
     let _guard = SERVER_OPS_LOCK.lock().await;
 
-    let mut new_names = HashSet::<String>::new();
+    let mut new_names = HashSet::<MetricsName>::new();
 
     let all_config = crate::config::server::get_all_sorted()?;
     for config in all_config {
         let name = config.name();
-        new_names.insert(name.to_string());
+        new_names.insert(name.clone());
         match registry::get_config(name) {
             Some(old) => {
                 debug!("reloading server {name}");
@@ -91,14 +92,17 @@ pub async fn stop_all() {
     });
 }
 
-pub(crate) fn get_server(name: &str) -> anyhow::Result<ArcServer> {
+pub(crate) fn get_server(name: &MetricsName) -> anyhow::Result<ArcServer> {
     match registry::get_server(name) {
         Some(server) => Ok(server),
         None => Err(anyhow!("no server named {name} found")),
     }
 }
 
-pub(crate) async fn reload(name: &str, position: Option<YamlDocPosition>) -> anyhow::Result<()> {
+pub(crate) async fn reload(
+    name: &MetricsName,
+    position: Option<YamlDocPosition>,
+) -> anyhow::Result<()> {
     let _guard = SERVER_OPS_LOCK.lock().await;
 
     let old_config = match registry::get_config(name) {
@@ -165,7 +169,7 @@ fn reload_old_unlocked(old: AnyServerConfig, new: AnyServerConfig) -> anyhow::Re
 
 // use async fn to allow tokio schedule
 fn spawn_new_unlocked(config: AnyServerConfig) -> anyhow::Result<()> {
-    let name = config.name().to_string();
+    let name = config.name().clone();
     let server = match config {
         AnyServerConfig::DummyClose(_) => DummyCloseServer::prepare_initial(config)?,
         AnyServerConfig::PlainTcpPort(_) => PlainTcpPort::prepare_initial(config)?,
@@ -178,7 +182,7 @@ fn spawn_new_unlocked(config: AnyServerConfig) -> anyhow::Result<()> {
 
 pub(crate) async fn wait_all_tasks<F>(wait_timeout: Duration, quit_timeout: Duration, on_timeout: F)
 where
-    F: Fn(&str, i32),
+    F: Fn(&MetricsName, i32),
 {
     let loop_wait = async {
         loop {
@@ -232,7 +236,7 @@ pub(crate) fn force_quit_offline_servers() {
     });
 }
 
-pub(crate) fn force_quit_offline_server(name: &str) {
+pub(crate) fn force_quit_offline_server(name: &MetricsName) {
     registry::foreach_offline(|server| {
         if server.name() == name {
             server.quit_policy().set_force_quit();
