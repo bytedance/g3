@@ -22,6 +22,8 @@ fn build_cli_args() -> Command {
 }
 
 fn main() -> anyhow::Result<()> {
+    openssl::init();
+
     let args = build_cli_args().get_matches();
     let proc_args = g3fcgen::parse_global_args(&args)?;
 
