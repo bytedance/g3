@@ -20,7 +20,7 @@ use anyhow::{anyhow, Context};
 use openssl::ssl::{SslAcceptor, SslContext, SslMethod, SslSessionCacheMode, SslVerifyMode};
 use openssl::stack::Stack;
 use openssl::x509::store::X509StoreBuilder;
-use openssl::x509::{X509Name, X509};
+use openssl::x509::X509;
 use yaml_rust::Yaml;
 
 use g3_types::collection::NamedValue;
@@ -97,12 +97,10 @@ impl OpensslHostConfig {
                 Stack::new().map_err(|e| anyhow!("failed to get new ca name stack: {e}"))?;
             for (i, obj) in store.objects().iter().enumerate() {
                 if let Some(cert) = obj.x509() {
-                    let der = cert
+                    let name = cert
                         .subject_name()
-                        .to_der()
-                        .map_err(|e| anyhow!("[#{i}] failed to convert subject name: {e}"))?;
-                    let name = X509Name::from_der(&der)
-                        .map_err(|e| anyhow!("[#{i}] failed to convert back subject name: {e}"))?;
+                        .to_owned()
+                        .map_err(|e| anyhow!("[#{i}] failed to get subject name: {e}"))?;
                     ca_stack
                         .push(name)
                         .map_err(|e| anyhow!("[#{i}] failed to push to ca name stack: {e}"))?;
