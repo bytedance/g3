@@ -12,7 +12,7 @@
 %define build_profile release-lto
 
 Name:           g3proxy
-Version:        1.7.10
+Version:        1.7.11
 Release:        1%{?dist}
 Summary:        Generic proxy for G3 Project
 
@@ -68,5 +68,5 @@ mkdir -p %{buildroot}/%{_datadir}/doc/%{name}/
 
 
 %changelog
-* Thu Mar 09 2023 G3proxy Maintainers <g3proxy-maintainers@devel.machine> - 1.7.10-1
+* Tue Mar 28 2023 G3proxy Maintainers <g3proxy-maintainers@devel.machine> - 1.7.11-1
 - New upstream release

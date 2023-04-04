@@ -1,6 +1,6 @@
 [package]
 name = "g3proxy"
-version = "1.7.10"
+version = "1.7.11"
 edition = "2021"
 rust-version = "1.66"
 description = "G3 generic proxy"

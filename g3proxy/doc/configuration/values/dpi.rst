@@ -264,6 +264,8 @@ The keys are:
 
 For *str* value, it will parsed as *query_peer_addr* and use default value for other fields.
 
+.. versionchanged:: 1.7.11 allow str value
+
 .. _conf_value_dpi_tls_interception_client:
 
 tls interception client

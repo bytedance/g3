@@ -1,4 +1,11 @@
 
+v1.7.11:
+ - BUG FIX: fix reload of resolver with changed internal dependency
+ - Feature: allow string value type for tls cert generator config
+ - Feature: allow to output dependency graph in graphviz / mermaid / plantuml format
+ - Feature: use metrics name for server/escaper/user-group/resolver/auditor name
+ - Removed: drop support for http dynamic user source
+
 v1.7.10:
  - Feature: support happy-eyeballs for resolve redirected domain
  - Feature: allow to set resolve strategy at user-site level
