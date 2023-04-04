@@ -32,14 +32,16 @@ const ARGS_VERSION: &str = "version";
 const ARGS_VERBOSE: &str = "verbose";
 const ARGS_VERIFY_PANIC: &str = "verify-panic";
 const ARGS_TEST_CONFIG: &str = "test-config";
-const ARGS_DOT_GRAPH: &str = "dot-graph";
-const ARGS_MERMAID: &str = "mermaid";
+const ARGS_DEP_GRAPH: &str = "dep-graph";
 const ARGS_DAEMON: &str = "daemon";
 const ARGS_SYSTEMD: &str = "systemd";
 const ARGS_GROUP_NAME: &str = "group-name";
 const ARGS_CONFIG_FILE: &str = "config-file";
 const ARGS_CONTROL_DIR: &str = "control-dir";
 const ARGS_PID_FILE: &str = "pid-file";
+
+const DEP_GRAPH_GRAPHVIZ: &str = "graphviz";
+const DEP_GRAPH_MERMAID: &str = "mermaid";
 
 static CONTROL_DIR: OnceCell<PathBuf> = OnceCell::new();
 
@@ -113,17 +115,14 @@ fn build_cli_args() -> Command {
                 .long("test-config"),
         )
         .arg(
-            Arg::new(ARGS_DOT_GRAPH)
-                .help("Generate a dependency graph in DOT language")
-                .action(ArgAction::SetTrue)
+            Arg::new(ARGS_DEP_GRAPH)
+                .help("Generate a dependency graph")
+                .value_name("GRAPH TYPE")
                 .short('g')
-                .long("dot-graph"),
-        )
-        .arg(
-            Arg::new(ARGS_MERMAID)
-                .help("Generate a dependency graph in mermaid syntax")
-                .action(ArgAction::SetTrue)
-                .long("mermaid"),
+                .long("dep-graph")
+                .num_args(0..=1)
+                .value_parser([DEP_GRAPH_GRAPHVIZ, DEP_GRAPH_MERMAID])
+                .default_missing_value(DEP_GRAPH_GRAPHVIZ),
         )
         .arg(
             Arg::new(ARGS_DAEMON)
@@ -211,11 +210,14 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
     if args.get_flag(ARGS_TEST_CONFIG) {
         proc_args.test_config = true;
     }
-    if args.get_flag(ARGS_DOT_GRAPH) {
-        proc_args.output_dot_graph = true;
-    }
-    if args.get_flag(ARGS_MERMAID) {
-        proc_args.output_mermaid_graph = true;
+    if let Some(g) = args.get_one::<String>(ARGS_DEP_GRAPH) {
+        match g.as_str() {
+            DEP_GRAPH_GRAPHVIZ => proc_args.output_dot_graph = true,
+            DEP_GRAPH_MERMAID => proc_args.output_mermaid_graph = true,
+            s => {
+                panic!("unsupported graph type {s}")
+            }
+        }
     }
     if args.get_flag(ARGS_DAEMON) {
         proc_args.daemon_config.daemon_mode = true;
