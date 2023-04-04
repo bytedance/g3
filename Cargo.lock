@@ -1267,6 +1267,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "g3fcgen"
+version = "0.3.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "flume",
+ "g3-daemon",
+ "g3-msgpack",
+ "g3-runtime",
+ "g3-tls-cert",
+ "g3-types",
+ "log",
+ "memchr",
+ "openssl",
+ "rmpv",
+ "rustc_version",
+ "tokio",
+]
+
+[[package]]
+name = "g3fcgen-one"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "g3-tls-cert",
+ "g3-types",
+ "openssl",
+]
+
+[[package]]
 name = "g3proxy"
 version = "1.7.10"
 dependencies = [
@@ -1396,37 +1427,6 @@ version = "0.1.0"
 dependencies = [
  "capnp",
  "capnpc",
-]
-
-[[package]]
-name = "g3rcgen"
-version = "0.3.0"
-dependencies = [
- "anyhow",
- "clap",
- "flume",
- "g3-daemon",
- "g3-msgpack",
- "g3-runtime",
- "g3-tls-cert",
- "g3-types",
- "log",
- "memchr",
- "openssl",
- "rmpv",
- "rustc_version",
- "tokio",
-]
-
-[[package]]
-name = "g3rcgen-one"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "g3-tls-cert",
- "g3-types",
- "openssl",
 ]
 
 [[package]]

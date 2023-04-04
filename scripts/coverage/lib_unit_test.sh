@@ -28,6 +28,6 @@ cargo profdata -- merge -o "${PROF_DATA_FILE}" ${profraw_files}
 
 # report to console
 
-IGNORE_FLAGS="--ignore-filename-regex=.cargo --ignore-filename-regex=rustc --ignore-filename-regex=target/debug/build --ignore-filename-regex=g3bench --ignore-filename-regex=g3proxy  --ignore-filename-regex=g3rcgen --ignore-filename-regex=g3tiles --ignore-filename-regex=demo"
+IGNORE_FLAGS="--ignore-filename-regex=.cargo --ignore-filename-regex=rustc --ignore-filename-regex=target/debug/build --ignore-filename-regex=g3bench --ignore-filename-regex=g3proxy  --ignore-filename-regex=g3fcgen --ignore-filename-regex=g3tiles --ignore-filename-regex=demo"
 
 cargo cov -- report --use-color --instr-profile="${PROF_DATA_FILE}" ${IGNORE_FLAGS} ${all_binaries} ${all_objects}

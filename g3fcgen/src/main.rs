@@ -18,15 +18,15 @@ use anyhow::Context;
 use clap::Command;
 
 fn build_cli_args() -> Command {
-    g3rcgen::add_global_args(Command::new(g3rcgen::build::PKG_NAME))
+    g3fcgen::add_global_args(Command::new(g3fcgen::build::PKG_NAME))
 }
 
 fn main() -> anyhow::Result<()> {
     let args = build_cli_args().get_matches();
-    let proc_args = g3rcgen::parse_global_args(&args)?;
+    let proc_args = g3fcgen::parse_global_args(&args)?;
 
     if proc_args.print_version {
-        g3rcgen::build::print_version(proc_args.daemon_config.verbose_level);
+        g3fcgen::build::print_version(proc_args.daemon_config.verbose_level);
         return Ok(());
     }
 
@@ -41,5 +41,5 @@ fn main() -> anyhow::Result<()> {
         .runtime_config
         .start()
         .context("failed to start runtime")?;
-    rt.block_on(g3rcgen::run(&proc_args))
+    rt.block_on(g3fcgen::run(&proc_args))
 }

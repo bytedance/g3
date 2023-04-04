@@ -30,7 +30,7 @@ const ARG_CA_KEY: &str = "ca-key";
 const ARG_HOST: &str = "host";
 
 fn main() -> anyhow::Result<()> {
-    let args = Command::new("g3rcgen-one")
+    let args = Command::new("g3fcgen-one")
         .arg(
             Arg::new(ARG_CA_CERT)
                 .help("CA Certificate file")

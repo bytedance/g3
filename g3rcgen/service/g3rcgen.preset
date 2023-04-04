@@ -1,4 +1,0 @@
-#
-# Disable g3rcgen by default
-
-disable g3rcgen.service

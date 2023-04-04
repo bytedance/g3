@@ -30,9 +30,9 @@ A work in progress reverse proxy solution.
 
 A benchmark tool for the test of g3proxy.
 
-### g3rcgen
+### g3fcgen
 
-A certificate generator for g3proxy.
+Fake certificate generator for g3proxy.
 
 ## Dev-env Setup Guide
 

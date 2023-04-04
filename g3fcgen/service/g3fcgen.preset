@@ -1,0 +1,4 @@
+#
+# Disable g3fcgen by default
+
+disable g3fcgen.service

@@ -1,4 +1,7 @@
 
+v0.4.0:
+ - Feature: use openssl instead if rcgen, and rename to g3fcgen
+
 v0.3.0:
  - Feature: use rcgen backend instead of squid, and rename to g3rcgen
  - Feature: add --version command line option to print version

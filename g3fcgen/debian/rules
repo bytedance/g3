@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
 
-PACKAGE_NAME := g3rcgen
+PACKAGE_NAME := g3fcgen
 BUILD_PROFILE := release-lto
 
 DEB_VERSION ?= $(shell dpkg-parsechangelog -SVersion)
@@ -16,14 +16,14 @@ override_dh_auto_build:
 	G3_PACKAGE_VERSION=$(DEB_VERSION) \
 	  cargo build --frozen --offline --profile $(BUILD_PROFILE) \
 	    --no-default-features --features $(SSL_FEATURE), \
-	    --package g3rcgen --package g3rcgen-one
+	    --package g3fcgen --package g3fcgen-one
 
 override_dh_auto_install:
 	dh_auto_install
-	install -m 755 -D target/$(BUILD_PROFILE)/g3rcgen debian/tmp/usr/bin/g3rcgen
-	install -m 755 -D target/$(BUILD_PROFILE)/g3rcgen-one debian/tmp/usr/bin/g3rcgen-one
-	install -m 644 -D $(PACKAGE_NAME)/service/g3rcgen.service debian/tmp/lib/systemd/system/g3rcgen.service
-	install -m 644 -D $(PACKAGE_NAME)/service/g3rcgen.preset debian/tmp/lib/systemd/system-preset/90-g3rcgen.preset
+	install -m 755 -D target/$(BUILD_PROFILE)/g3fcgen debian/tmp/usr/bin/g3fcgen
+	install -m 755 -D target/$(BUILD_PROFILE)/g3fcgen-one debian/tmp/usr/bin/g3fcgen-one
+	install -m 644 -D $(PACKAGE_NAME)/service/g3fcgen.service debian/tmp/lib/systemd/system/g3fcgen.service
+	install -m 644 -D $(PACKAGE_NAME)/service/g3fcgen.preset debian/tmp/lib/systemd/system-preset/90-g3fcgen.preset
 
 override_dh_installchangelogs:
 	dh_installchangelogs $(PACKAGE_NAME)/CHANGELOG

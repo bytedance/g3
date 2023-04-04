@@ -1,11 +1,11 @@
-Source: g3rcgen
+Source: g3fcgen
 Section: net
 Priority: optional
-Maintainer: G3rcgen Maintainers <g3rcgen-maintainers@devel.machine>
+Maintainer: G3fcgen Maintainers <g3fcgen-maintainers@devel.machine>
 Build-Depends: debhelper, pkg-config, libssl-dev
 Standards-Version: 3.9.8
 
-Package: g3rcgen
+Package: g3fcgen
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: TLS Interception Certificate Generator for G3 Project
+Description: Fake Certificate Generator for G3 Project

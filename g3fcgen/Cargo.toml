@@ -1,8 +1,9 @@
 [package]
-name = "g3rcgen"
+name = "g3fcgen"
 version = "0.3.0"
 edition = "2021"
 rust-version = "1.65.0"
+description = "G3 fake certificate generator"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
