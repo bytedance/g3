@@ -23,3 +23,7 @@ g3-tls-cert = { path = "../lib/g3-tls-cert" }
 
 [build-dependencies]
 rustc_version = "0.4"
+
+[features]
+default = []
+vendored-openssl = ["openssl/vendored"]

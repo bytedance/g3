@@ -16,12 +16,12 @@ Version:        1.7.10
 Release:        1%{?dist}
 Summary:        Generic proxy for G3 Project
 
-License:        Unspecified
+License:        Apache-2.0
 #URL:
 Source0:        %{name}-%{version}.tar.xz
 
 BuildRequires:  gcc, make, %{pkgconfig_real}, capnproto
-BuildRequires:  lua-devel, openssl-devel,
+BuildRequires:  lua-devel, openssl-devel
 BuildRequires:  libtool
 %{?build_docs:BuildRequires: python3-sphinx, graphviz}
 Requires:       systemd

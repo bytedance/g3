@@ -10,7 +10,7 @@ SSL_FEATURE ?= $(shell scripts/package/detect_openssl_feature.sh)
 	dh $@
 
 override_dh_auto_clean:
-	cargo clean --frozen --offline --release --package g3bench
+	cargo clean --frozen --offline --release
 
 override_dh_auto_build:
 	G3_PACKAGE_VERSION=$(DEB_VERSION) \

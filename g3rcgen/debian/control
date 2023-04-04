@@ -2,7 +2,7 @@ Source: g3rcgen
 Section: net
 Priority: optional
 Maintainer: G3rcgen Maintainers <g3rcgen-maintainers@devel.machine>
-Build-Depends: debhelper
+Build-Depends: debhelper, pkg-config, libssl-dev
 Standards-Version: 3.9.8
 
 Package: g3rcgen

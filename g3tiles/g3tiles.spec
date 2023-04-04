@@ -15,7 +15,7 @@ Version:        0.2.3
 Release:        1%{?dist}
 Summary:        Generic reverse proxy for G3 Project
 
-License:        Unspecified
+License:        Apache-2.0
 #URL:
 Source0:        %{name}-%{version}.tar.xz
 
