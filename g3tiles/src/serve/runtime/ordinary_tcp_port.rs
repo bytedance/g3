@@ -142,26 +142,32 @@ impl OrdinaryTcpServerRuntime {
                     }
                 }
                 result = listener.accept() => {
-                    match result {
-                        Ok(Some((stream, peer_addr, local_addr))) => {
-                            self.listen_stats.add_accepted();
-                            self.run_task(
-                                stream,
-                                native_socket_addr(peer_addr),
-                                native_socket_addr(local_addr),
-                                run_ctx.clone(),
-                            );
+                    if listener.accept_current_available(result, &|result| {
+                        match result {
+                            Ok(Some((stream, peer_addr, local_addr))) => {
+                                self.listen_stats.add_accepted();
+                                self.run_task(
+                                    stream,
+                                    native_socket_addr(peer_addr),
+                                    native_socket_addr(local_addr),
+                                    run_ctx.clone(),
+                                );
+                                Ok(())
+                            }
+                            Ok(None) => {
+                                info!("SRT[{}_v{}#{}] offline",
+                                    self.server.name(), self.server_version, self.instance_id);
+                                Err(())
+                            }
+                            Err(e) => {
+                                self.listen_stats.add_failed();
+                                warn!("SRT[{}_v{}#{}] accept: {e:?}",
+                                    self.server.name(), self.server_version, self.instance_id);
+                                Ok(())
+                            }
                         }
-                        Ok(None) => {
-                            info!("SRT[{}_v{}#{}] offline",
-                                self.server.name(), self.server_version, self.instance_id);
-                            break;
-                        }
-                        Err(e) => {
-                            self.listen_stats.add_failed();
-                            warn!("SRT[{}_v{}#{}] accept: {e:?}",
-                                self.server.name(), self.server_version, self.instance_id);
-                        }
+                    }).await.is_err() {
+                        break;
                     }
                 }
             }

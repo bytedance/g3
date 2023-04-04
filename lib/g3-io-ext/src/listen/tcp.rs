@@ -19,6 +19,7 @@ use std::io;
 use std::net::{self, SocketAddr};
 use std::task::{Context, Poll};
 
+use futures_util::FutureExt;
 use tokio::net::{TcpListener, TcpStream};
 
 pub struct LimitedTcpListener {
@@ -73,5 +74,23 @@ impl LimitedTcpListener {
                 }
             }
         }
+    }
+
+    pub async fn accept_current_available<E, F>(
+        &mut self,
+        r: io::Result<Option<(TcpStream, SocketAddr, SocketAddr)>>,
+        accept: &F,
+    ) -> Result<(), E>
+    where
+        F: Fn(io::Result<Option<(TcpStream, SocketAddr, SocketAddr)>>) -> Result<(), E>,
+    {
+        accept(r)?;
+        for _ in 1..100 {
+            let Some(r) = self.accept().now_or_never() else {
+                return Ok(());
+            };
+            accept(r)?;
+        }
+        Ok(())
     }
 }

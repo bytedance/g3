@@ -229,7 +229,6 @@ impl IntelliProxyRuntime {
                         server_version: self.server_version,
                         cfg_receiver: self.cfg_receiver.clone(),
                         listen_stats: Arc::clone(&self.listen_stats),
-                        listener: LimitedTcpListener::new(listener),
                         stream_sender,
                         instance_id: self.instance_id,
                     };
@@ -237,7 +236,7 @@ impl IntelliProxyRuntime {
                     tokio::spawn(async move {
                         self.run(stream_receiver).await;
                     });
-                    listen.run().await;
+                    listen.run(LimitedTcpListener::new(listener)).await;
                 }
                 Err(e) => {
                     warn!(
@@ -276,7 +275,6 @@ pub(crate) struct IntelliProxyListen {
     server_version: usize,
     cfg_receiver: watch::Receiver<Option<IntelliProxyConfig>>,
     listen_stats: Arc<ListenStats>,
-    listener: LimitedTcpListener,
     stream_sender: mpsc::Sender<DetectedTcpStream>,
     instance_id: usize,
 }
@@ -292,7 +290,7 @@ impl IntelliProxyListen {
         );
     }
 
-    async fn run(mut self) {
+    async fn run(mut self, mut listener: LimitedTcpListener) {
         let mut spawn_sema = GaugeSemaphore::new(self.config.protocol_detection_max_jobs);
 
         loop {
@@ -316,7 +314,7 @@ impl IntelliProxyListen {
                                 info!("SRT[{}_v{}#{}] will go offline",
                                 self.config.name(), self.server_version, self.instance_id);
                                 self.pre_stop();
-                                let accept_again = self.listener.set_offline();
+                                let accept_again = listener.set_offline();
                                 if accept_again {
                                     info!("SRT[{}_v{}#{}] will accept all pending connections",
                                         self.config.name(), self.server_version, self.instance_id);
@@ -328,31 +326,37 @@ impl IntelliProxyListen {
                         }
                     }
                 }
-                result = self.listener.accept() => {
-                    match result {
-                        Ok(Some((stream, peer_addr, local_addr))) => {
-                            if let Ok(permit) = spawn_sema.try_acquire() {
-                                self.send_to_detection(
-                                    stream,
-                                    native_socket_addr(peer_addr),
-                                    native_socket_addr(local_addr),
-                                    permit,
-                                );
-                            } else {
-                                // limit reached
+                result = listener.accept() => {
+                    if listener.accept_current_available(result, &|result| {
+                        match result {
+                            Ok(Some((stream, peer_addr, local_addr))) => {
+                                if let Ok(permit) = spawn_sema.try_acquire() {
+                                    self.send_to_detection(
+                                        stream,
+                                        native_socket_addr(peer_addr),
+                                        native_socket_addr(local_addr),
+                                        permit,
+                                    );
+                                } else {
+                                    // limit reached
+                                    self.listen_stats.add_failed();
+                                }
+                                Ok(())
+                            }
+                            Ok(None) => {
+                                info!("SRT[{}_v{}#{}] offline",
+                                    self.config.name(), self.server_version, self.instance_id);
+                                Err(())
+                            }
+                            Err(e) => {
                                 self.listen_stats.add_failed();
+                                warn!("SRT[{}_v{}#{}] accept: {:?}",
+                                    self.config.name(), self.server_version, self.instance_id, e);
+                                Ok(())
                             }
                         }
-                        Ok(None) => {
-                            info!("SRT[{}_v{}#{}] offline",
-                                self.config.name(), self.server_version, self.instance_id);
-                            break;
-                        }
-                        Err(e) => {
-                            self.listen_stats.add_failed();
-                            warn!("SRT[{}_v{}#{}] accept: {:?}",
-                                self.config.name(), self.server_version, self.instance_id, e);
-                        }
+                    }).await.is_err() {
+                        break;
                     }
                 }
             }

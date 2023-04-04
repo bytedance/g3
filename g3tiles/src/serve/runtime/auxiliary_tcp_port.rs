@@ -185,31 +185,37 @@ impl AuxiliaryTcpPortRuntime {
                     }
                 }
                 result = listener.accept() => {
-                    match result {
-                        Ok(Some((stream, peer_addr, local_addr))) => {
-                            self.listen_stats.add_accepted();
-                            let (rt_handle, worker_id) = self.rt_handle();
-                            let mut run_ctx = run_ctx.clone();
-                            run_ctx.worker_id = worker_id;
-                            aux_config.run_tcp_task(
-                                rt_handle,
-                                next_server.clone(),
-                                stream,
-                                native_socket_addr(peer_addr),
-                                native_socket_addr(local_addr),
-                                run_ctx,
-                            );
+                    if listener.accept_current_available(result, &|result| {
+                        match result {
+                            Ok(Some((stream, peer_addr, local_addr))) => {
+                                self.listen_stats.add_accepted();
+                                let (rt_handle, worker_id) = self.rt_handle();
+                                let mut run_ctx = run_ctx.clone();
+                                run_ctx.worker_id = worker_id;
+                                aux_config.run_tcp_task(
+                                    rt_handle,
+                                    next_server.clone(),
+                                    stream,
+                                    native_socket_addr(peer_addr),
+                                    native_socket_addr(local_addr),
+                                    run_ctx,
+                                );
+                                Ok(())
+                            }
+                            Ok(None) => {
+                                info!("SRT[{}_v{}#{}] offline",
+                                    self.server.name(), self.server_version, self.instance_id);
+                                Err(())
+                            }
+                            Err(e) => {
+                                self.listen_stats.add_failed();
+                                warn!("SRT[{}_v{}#{}] accept: {e:?}",
+                                    self.server.name(), self.server_version, self.instance_id);
+                                Ok(())
+                            }
                         }
-                        Ok(None) => {
-                            info!("SRT[{}_v{}#{}] offline",
-                                self.server.name(), self.server_version, self.instance_id);
-                            break;
-                        }
-                        Err(e) => {
-                            self.listen_stats.add_failed();
-                            warn!("SRT[{}_v{}#{}] accept: {e:?}",
-                                self.server.name(), self.server_version, self.instance_id);
-                        }
+                    }).await.is_err() {
+                        break;
                     }
                 }
             }
