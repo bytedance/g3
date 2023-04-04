@@ -20,7 +20,7 @@ use std::sync::Arc;
 use log::{info, warn};
 use tokio::net::TcpStream;
 use tokio::runtime::Handle;
-use tokio::sync::{broadcast, mpsc, watch};
+use tokio::sync::{mpsc, watch};
 
 use g3_io_ext::LimitedTcpListener;
 use g3_socket::util::native_socket_addr;
@@ -30,7 +30,8 @@ use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit};
 use super::{detect_tcp_proxy_protocol, DetectedProxyProtocol};
 use crate::config::server::intelli_proxy::IntelliProxyConfig;
 use crate::config::server::ServerConfig;
-use crate::serve::{ArcServer, ListenStats, ServerReloadCommand, ServerRunContext};
+use crate::serve::runtime::AuxiliaryRunContext;
+use crate::serve::{ArcServer, ListenStats, ServerRunContext};
 
 struct DetectedTcpStream {
     stream: TcpStream,
@@ -101,28 +102,16 @@ impl IntelliProxyRuntime {
     }
 
     async fn run(mut self, mut stream_receiver: mpsc::Receiver<DetectedTcpStream>) {
-        use broadcast::error::RecvError;
-
-        let (mut http_next_server, mut http_next_server_reload_channel) =
-            crate::serve::get_with_notifier(&self.config.http_server);
-        let mut http_run_ctx = ServerRunContext::new(
-            http_next_server.escaper(),
-            http_next_server.user_group(),
-            http_next_server.auditor(),
-        );
-
-        let (mut socks_next_server, mut socks_next_server_reload_channel) =
-            crate::serve::get_with_notifier(&self.config.socks_server);
-        let mut socks_run_ctx = ServerRunContext::new(
-            socks_next_server.escaper(),
-            socks_next_server.user_group(),
-            socks_next_server.auditor(),
-        );
+        let mut run_ctx = AuxiliaryRunContext::new(format!(
+            "SRT[{}_v{}#{}]",
+            self.config.name(),
+            self.server_version,
+            self.instance_id
+        ));
+        let http_server_id = run_ctx.add_server(&self.config.http_server);
+        let socks_server_id = run_ctx.add_server(&self.config.socks_server);
 
         loop {
-            let mut reload_http_server = false;
-            let mut reload_socks_server = false;
-
             tokio::select! {
                 biased;
 
@@ -149,111 +138,28 @@ impl IntelliProxyRuntime {
                         if self.config.http_server.ne(&old_http_server) {
                             info!("SRT[{}_v{}#{}] will use next http server '{}' instead of '{old_http_server}'",
                                 self.config.name(), self.server_version, self.instance_id, self.config.http_server);
-                            reload_http_server = true;
+                            run_ctx.reload(http_server_id, &self.config.http_server);
                         }
 
                         if self.config.socks_server.ne(&old_socks_server) {
                             info!("SRT[{}_v{}#{}] will use next socks server '{}' instead of '{old_socks_server}'",
                                 self.config.name(), self.server_version, self.instance_id, self.config.socks_server);
-                            reload_socks_server = true;
+                            run_ctx.reload(socks_server_id, &self.config.socks_server);
                         }
                     }
                 }
-                ev = http_next_server_reload_channel.recv() => {
-                    match ev {
-                        Ok(ServerReloadCommand::ReloadVersion(version)) => {
-                            info!("SRT[{}_v{}#{}] reload next http server {} to v{}",
-                                self.config.name(), self.server_version, self.instance_id, self.config.http_server, version);
-                            reload_http_server = true;
-                        }
-                        Ok(ServerReloadCommand::ReloadEscaper) => {
-                            let escaper_name = http_next_server.escaper();
-                            info!("SRT[{}_v{}#{}] will reload http escaper {escaper_name}",
-                                self.config.name(), self.server_version, self.instance_id);
-                            http_run_ctx.update_escaper(escaper_name);
-                        },
-                        Ok(ServerReloadCommand::ReloadUserGroup) => {
-                            let user_group_name = http_next_server.user_group();
-                            info!("SRT[{}_v{}#{}] will reload http user group {user_group_name}",
-                                self.config.name(), self.server_version, self.instance_id);
-                            http_run_ctx.update_user_group(user_group_name);
-                        },
-                        Ok(ServerReloadCommand::ReloadAuditor) => {
-                            let auditor_name = http_next_server.auditor();
-                            info!("SRT[{}_v{}#{}] will reload http auditor {auditor_name}",
-                                self.config.name(), self.server_version, self.instance_id);
-                            http_run_ctx.update_audit_handle(auditor_name);
-                        },
-                        Ok(ServerReloadCommand::QuitRuntime) | Err(RecvError::Closed) => {
-                            info!("SRT[{}_v{}#{}] next http server {} quit, reload it",
-                                self.config.name(), self.server_version, self.instance_id, self.config.http_server);
-                            reload_http_server = true;
-                        }
-                        Err(RecvError::Lagged(dropped)) => {
-                            warn!("SRT[{}_v{}#{}] next http server {} reload notify channel overflowed, {dropped} msg dropped",
-                                self.config.name(), self.server_version, self.instance_id, http_next_server.name());
-                            continue
-                        },
-                    }
-                }
-                ev = socks_next_server_reload_channel.recv() => {
-                    match ev {
-                        Ok(ServerReloadCommand::ReloadVersion(version)) => {
-                            info!("SRT[{}_v{}#{}] reload next socks server {} to v{}",
-                                self.config.name(), self.server_version, self.instance_id, self.config.socks_server, version);
-                            reload_socks_server = true;
-                        }
-                        Ok(ServerReloadCommand::ReloadEscaper) => {
-                            let escaper_name = socks_next_server.escaper();
-                            info!("SRT[{}_v{}#{}] will reload socks escaper {escaper_name}",
-                                self.config.name(), self.server_version, self.instance_id);
-                            socks_run_ctx.update_escaper(escaper_name);
-                        },
-                        Ok(ServerReloadCommand::ReloadUserGroup) => {
-                            let user_group_name = socks_next_server.user_group();
-                            info!("SRT[{}_v{}#{}] will reload socks user group {user_group_name}",
-                                self.config.name(), self.server_version, self.instance_id);
-                            socks_run_ctx.update_user_group(user_group_name);
-                        },
-                        Ok(ServerReloadCommand::ReloadAuditor) => {
-                            let auditor_name = socks_next_server.auditor();
-                            info!("SRT[{}_v{}#{}] will reload socks auditor {auditor_name}",
-                                self.config.name(), self.server_version, self.instance_id);
-                            socks_run_ctx.update_audit_handle(auditor_name);
-                        },
-                        Ok(ServerReloadCommand::QuitRuntime) | Err(RecvError::Closed) => {
-                            info!("SRT[{}_v{}#{}] next socks server {} quit, reload it",
-                                self.config.name(), self.server_version, self.instance_id, self.config.socks_server);
-                            reload_socks_server = true;
-                        }
-                        Err(RecvError::Lagged(dropped)) => {
-                            warn!("SRT[{}_v{}#{}] next socks server {} reload notify channel overflowed, {dropped} msg dropped",
-                                self.config.name(), self.server_version, self.instance_id, socks_next_server.name());
-                            continue
-                        },
-                    }
-                }
+                _ = run_ctx.check_reload() => {}
                 data = stream_receiver.recv() => {
                     match data {
                         Some(d) => {
                             self.listen_stats.add_accepted();
-                            match d.protocol {
-                                DetectedProxyProtocol::Http => {
-                                    self.run_task(
-                                        d,
-                                        http_next_server.clone(),
-                                        http_run_ctx.clone(),
-                                    );
-                                }
-                                DetectedProxyProtocol::Socks => {
-                                    self.run_task(
-                                        d,
-                                        socks_next_server.clone(),
-                                        socks_run_ctx.clone(),
-                                    );
-                                }
-                                _ => {}
-                            }
+                            let id = match d.protocol {
+                                DetectedProxyProtocol::Http => http_server_id,
+                                DetectedProxyProtocol::Socks => socks_server_id,
+                                _ => continue,
+                            };
+                            let (task_server, task_run_ctx) = unsafe { run_ctx.get_unchecked(id) };
+                            self.run_task(d, task_server, task_run_ctx);
                         }
                         None => {
                             info!("SRT[{}_v{}#{}] quit after all connections handled",
@@ -261,72 +167,6 @@ impl IntelliProxyRuntime {
                             break;
                         },
                     }
-                }
-            }
-
-            if reload_http_server {
-                let result = crate::serve::get_with_notifier(&self.config.http_server);
-                http_next_server = result.0;
-                http_next_server_reload_channel = result.1;
-
-                // if escaper changed, reload it
-                let old_escaper = http_run_ctx.current_escaper();
-                let new_escaper = http_next_server.escaper();
-                if old_escaper.ne(new_escaper) {
-                    info!("SRT[{}_v{}#{}] will use http escaper '{new_escaper}' instead of '{old_escaper}'",
-                                    self.config.name(), self.server_version, self.instance_id);
-                    http_run_ctx.update_escaper(new_escaper);
-                }
-
-                // if user group changed, reload it
-                let old_user_group = http_run_ctx.current_user_group();
-                let new_user_group = http_next_server.user_group();
-                if old_user_group.ne(new_user_group) {
-                    info!("SRT[{}_v{}#{}] will use http user group '{new_user_group}' instead of '{old_user_group}'",
-                                    self.config.name(), self.server_version, self.instance_id);
-                    http_run_ctx.update_user_group(new_user_group);
-                }
-
-                // if auditor changed, reload it
-                let old_auditor = http_run_ctx.current_auditor();
-                let new_auditor = http_next_server.auditor();
-                if old_auditor.ne(new_auditor) {
-                    info!("SRT[{}_v{}#{}] will use http auditor '{new_auditor}' instead of '{old_auditor}'",
-                                    self.config.name(), self.server_version, self.instance_id);
-                    http_run_ctx.update_audit_handle(new_auditor);
-                }
-            }
-
-            if reload_socks_server {
-                let result = crate::serve::get_with_notifier(&self.config.socks_server);
-                socks_next_server = result.0;
-                socks_next_server_reload_channel = result.1;
-
-                // if escaper changed, reload it
-                let old_escaper = socks_run_ctx.current_escaper();
-                let new_escaper = socks_next_server.escaper();
-                if old_escaper.ne(new_escaper) {
-                    info!("SRT[{}_v{}#{}] will use socks escaper '{new_escaper}' instead of '{old_escaper}'",
-                                    self.config.name(), self.server_version, self.instance_id);
-                    socks_run_ctx.update_escaper(new_escaper);
-                }
-
-                // if user group changed, reload it
-                let old_user_group = socks_run_ctx.current_user_group();
-                let new_user_group = socks_next_server.user_group();
-                if old_user_group.ne(new_user_group) {
-                    info!("SRT[{}_v{}#{}] will use socks user group '{new_user_group}' instead of '{old_user_group}'",
-                                    self.config.name(), self.server_version, self.instance_id);
-                    socks_run_ctx.update_user_group(new_user_group);
-                }
-
-                // if auditor changed, reload it
-                let old_auditor = socks_run_ctx.current_auditor();
-                let new_auditor = socks_next_server.auditor();
-                if old_auditor.ne(new_auditor) {
-                    info!("SRT[{}_v{}#{}] will use socks auditor '{new_auditor}' instead of '{old_auditor}'",
-                                    self.config.name(), self.server_version, self.instance_id);
-                    socks_run_ctx.update_audit_handle(new_auditor);
                 }
             }
         }
@@ -339,12 +179,12 @@ impl IntelliProxyRuntime {
 
         let rt_handle = if let Some(worker_id) = self.worker_id {
             ctx.worker_id = Some(worker_id);
-            tokio::runtime::Handle::current()
+            Handle::current()
         } else if let Some(rt) = g3_daemon::runtime::worker::select_handle() {
             ctx.worker_id = Some(rt.id);
             rt.handle
         } else {
-            tokio::runtime::Handle::current()
+            Handle::current()
         };
 
         rt_handle.spawn(async move {
