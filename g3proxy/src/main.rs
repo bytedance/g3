@@ -48,6 +48,11 @@ fn main() -> anyhow::Result<()> {
         println!("{content}");
         return Ok(());
     }
+    if proc_args.output_mermaid_graph {
+        let content = g3proxy::config::mermaid_graph()?;
+        println!("{content}");
+        return Ok(());
+    }
 
     // enter daemon mode after config loaded
     g3_daemon::daemonize::check_enter(&proc_args.daemon_config)?;

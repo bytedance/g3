@@ -33,6 +33,7 @@ const ARGS_VERBOSE: &str = "verbose";
 const ARGS_VERIFY_PANIC: &str = "verify-panic";
 const ARGS_TEST_CONFIG: &str = "test-config";
 const ARGS_DOT_GRAPH: &str = "dot-graph";
+const ARGS_MERMAID: &str = "mermaid";
 const ARGS_DAEMON: &str = "daemon";
 const ARGS_SYSTEMD: &str = "systemd";
 const ARGS_GROUP_NAME: &str = "group-name";
@@ -49,6 +50,7 @@ pub struct ProcArgs {
     pub group_name: String,
     pub test_config: bool,
     pub output_dot_graph: bool,
+    pub output_mermaid_graph: bool,
 }
 
 impl Default for ProcArgs {
@@ -65,6 +67,7 @@ impl ProcArgs {
             group_name: String::new(),
             test_config: false,
             output_dot_graph: false,
+            output_mermaid_graph: false,
         }
     }
 }
@@ -115,6 +118,12 @@ fn build_cli_args() -> Command {
                 .action(ArgAction::SetTrue)
                 .short('g')
                 .long("dot-graph"),
+        )
+        .arg(
+            Arg::new(ARGS_MERMAID)
+                .help("Generate a dependency graph in mermaid syntax")
+                .action(ArgAction::SetTrue)
+                .long("mermaid"),
         )
         .arg(
             Arg::new(ARGS_DAEMON)
@@ -204,6 +213,9 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
     }
     if args.get_flag(ARGS_DOT_GRAPH) {
         proc_args.output_dot_graph = true;
+    }
+    if args.get_flag(ARGS_MERMAID) {
+        proc_args.output_mermaid_graph = true;
     }
     if args.get_flag(ARGS_DAEMON) {
         proc_args.daemon_config.daemon_mode = true;

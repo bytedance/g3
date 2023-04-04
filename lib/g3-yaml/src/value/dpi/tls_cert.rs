@@ -82,8 +82,7 @@ pub fn as_tls_cert_agent_config(value: &Yaml) -> anyhow::Result<CertAgentConfig>
         }
         Yaml::String(_) => {
             let mut config = CertAgentConfig::default();
-            set_query_peer_addr(&mut config, value)
-                .context(format!("invalid sockaddr str value"))?;
+            set_query_peer_addr(&mut config, value).context("invalid sockaddr str value")?;
             Ok(config)
         }
         _ => Err(anyhow!(

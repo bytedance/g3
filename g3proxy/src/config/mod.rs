@@ -27,6 +27,9 @@ use crate::opts::ProcArgs;
 mod dot;
 pub use dot::dot_graph;
 
+mod mermaid;
+pub use mermaid::mermaid_graph;
+
 pub(crate) mod audit;
 pub(crate) mod auth;
 pub(crate) mod escaper;
