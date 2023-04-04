@@ -141,6 +141,8 @@ The code should comply to these, but should be more compliant to existing popula
     : Specification for DNS over Transport Layer Security (TLS)
  - [rfc8484](https://datatracker.ietf.org/doc/html/rfc8484)
     : DNS Queries over HTTPS (DoH)
+ - [rfc9250](https://datatracker.ietf.org/doc/html/rfc9250)
+    : DNS over Dedicated QUIC Connections
  - [iana-domains-reserved](https://www.iana.org/domains/reserved)
     : IANA-managed Reserved Domains
 

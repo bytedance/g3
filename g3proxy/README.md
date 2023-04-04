@@ -7,127 +7,122 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 
 ### Server
 
-#### General
+- **General**
 
-* Ingress network filter / Target Host filter / Target Port filter
-* Socket Speed Limit / Request Rate Limit / IDLE Check
-* Protocol Inspection / TLS Interception / ICAP Adaptation
-* Various TCP / UDP socket config options
+  * Ingress network filter / Target Host filter / Target Port filter
+  * Socket Speed Limit / Request Rate Limit / IDLE Check
+  * Protocol Inspection / TLS Interception / ICAP Adaptation
+  * Various TCP / UDP socket config options
 
-#### Forward Proxy
+- **Forward Proxy**
 
-- Http(s) Proxy
+  - Http(s) Proxy
 
-  * TLS / mTLS
-  * Http Forward / Https Forward / Http CONNECT / Ftp over HTTP
-  * Basic User Authentication
-  * Port Hiding
+    * TLS / mTLS
+    * Http Forward / Https Forward / Http CONNECT / Ftp over HTTP
+    * Basic User Authentication
+    * Port Hiding
 
-- Socks Proxy
+  - Socks Proxy
 
-  * Socks4 Tcp Connect / Socks5 Tcp Connect / Socks5 UDP Associate
-  * User Authentication
-  * Client side UDP IP Binding / IP Map / Ranged Port
+    * Socks4 Tcp Connect / Socks5 Tcp Connect / Socks5 UDP Associate
+    * User Authentication
+    * Client side UDP IP Binding / IP Map / Ranged Port
 
-#### Transparent Proxy
+- **Transparent Proxy**
 
-- SNI Proxy
+  - SNI Proxy
 
-  * Multiple Protocol: TLS SNI extension / HTTP Host Header
-  * Host Redirection / Host ACL
+    * Multiple Protocol: TLS SNI extension / HTTP Host Header
+    * Host Redirection / Host ACL
 
-#### Reverse Proxy
+- **Reverse Proxy**
 
-- Http(s) Reverse Proxy
+  - Http(s) Reverse Proxy
 
-  * TLS / mTLS
-  * Basic User Authentication
-  * Port Hiding
-  * Host based Routing
-  * Path based Routing
+    * TLS / mTLS
+    * Basic User Authentication
+    * Port Hiding
+    * Host based Routing
+    * Path based Routing
 
-#### Streaming
+- **Streaming**
 
-- TCP Stream
+  - TCP Stream
 
-  * Upstream TLS / mTLS
-  * Load Balance: RR / Random / Rendezvous / Jump Hash
+    * Upstream TLS / mTLS
+    * Load Balance: RR / Random / Rendezvous / Jump Hash
 
-- TLS Stream
+  - TLS Stream
 
-  * mTLS
-  * Upstream TLS / mTLS
-  * Load Balance: RR / Random / Rendezvous / Jump Hash
+    * mTLS
+    * Upstream TLS / mTLS
+    * Load Balance: RR / Random / Rendezvous / Jump Hash
 
-#### Alias Port
+- **Alias Port**
 
-- TCP Port
-- TLS Port
-
-  * mTLS
-
-- Intelli Proxy
-
-  * Multiple protocol: Http Proxy / Socks Proxy
+  - TCP Port
+  - TLS Port
+    * mTLS
+  - Intelli Proxy Port
+    * Multiple protocol: Http Proxy / Socks Proxy
 
 ### Escaper
 
-#### General
+- **General**
 
-* Happy Eyeballs
-* Socket Speed Limit
-* Various TCP / UDP socket config options
-* IP Bind
+  * Happy Eyeballs
+  * Socket Speed Limit
+  * Various TCP / UDP socket config options
+  * IP Bind
 
-#### Direct Connect
+- **Direct Connect**
 
-- Fixed
+  - Fixed
 
-  * TCP Connect / TLS Connect / HTTP(s) Forward / UDP Associate
-  * Egress network filter
-  * Resolve redirection
+    * TCP Connect / TLS Connect / HTTP(s) Forward / UDP Associate
+    * Egress network filter
+    * Resolve redirection
 
-- Float
+  - Float
 
-  * TCP Connect / TLS Connect / HTTP(s) Forward
-  * Egress network filter
-  * Resolve redirection
-  * Dynamic IP Bind
+    * TCP Connect / TLS Connect / HTTP(s) Forward
+    * Egress network filter
+    * Resolve redirection
+    * Dynamic IP Bind
 
-#### Proxy Chaining
+- **Proxy Chaining**
 
-- Http Proxy
+  - Http Proxy
 
-  * TCP Connect / TLS Connect / HTTP(s) Forward
-  * PROXY Protocol
-  * Load Balance: RR / Random / Rendezvous / Jump Hash
-  * Basic User Authentication
+    * TCP Connect / TLS Connect / HTTP(s) Forward
+    * PROXY Protocol
+    * Load Balance: RR / Random / Rendezvous / Jump Hash
+    * Basic User Authentication
 
-- Https Proxy
+  - Https Proxy
 
-  * TCP Connect / TLS Connect / HTTP(s) Forward
-  * PROXY Protocol
-  * Load Balance: RR / Random / Rendezvous / Jump Hash
-  * Basic User Authentication
-  * mTLS
+    * TCP Connect / TLS Connect / HTTP(s) Forward
+    * PROXY Protocol
+    * Load Balance: RR / Random / Rendezvous / Jump Hash
+    * Basic User Authentication
+    * mTLS
 
-- Socks5 Proxy
+  - Socks5 Proxy
 
-  * TCP Connect / TLS Connect / HTTP(s) Forward / UDP Associate
-  * Load Balance: RR / Random / Rendezvous / Jump Hash
-  * Basic User Authentication
+    * TCP Connect / TLS Connect / HTTP(s) Forward / UDP Associate
+    * Load Balance: RR / Random / Rendezvous / Jump Hash
+    * Basic User Authentication
 
-- Float
+  - Float
 
-  * Dynamic Proxy: Http Proxy / Https Proxy / Socks5 Proxy (no UDP)
+    * Dynamic Proxy: Http Proxy / Https Proxy / Socks5 Proxy (no UDP)
 
 #### Router
 
 - route-client - based on client addresses
-
   * exact ip match
   * subnet match
-
 - route-mapping - based on user supplied rules in requests
 - route-query - based on queries to external agent
 - route-resolved - based on resolved IP of target host
@@ -153,19 +148,20 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 
 ### Auth
 
-#### User Authentication and Authorization
+- **User Authentication and Authorization**
 
-- ACL: Proxy Request / Target Host / Target Port / User Agent
-- Socket Speed Limit / Request Rate Limit / Request Alive Limit / IDLE Check
-- Auto Expire / Block
-- Explicit Site Config
-  * match by exact ip / exact domain / wildcard domain / subnet
+  - ACL: Proxy Request / Target Host / Target Port / User Agent
+  - Socket Speed Limit / Request Rate Limit / Request Alive Limit / IDLE Check
+  - Auto Expire / Block
+  - Explicit Site Config
+    * match by exact ip / exact domain / wildcard domain / subnet
 
 ### Audit
 
 - TCP Protocol Inspection
 - TLS Interception
-- Http / H2 Interception / ICAP Adaptation / Sampling
+- Http / H2 Interception
+- ICAP Adaptation & Sampling
 
 ### Logging
 
@@ -173,7 +169,7 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
   * Server: task log
   * Escaper: escape error log
   * Resolver: resolve error log
-  * Audit: inspect / intercept log
+  * Audit: inspect & intercept log
 - Backend: journald / syslog / fluentd
 
 ### Metrics
@@ -187,9 +183,14 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 
 ## Documents
 
-The detailed docs are resided in the *doc* directory.
-You need to [install sphinx](https://www.sphinx-doc.org/en/master/usage/installation.html) to build html docs.
+The detailed docs are resided in the [doc](doc) directory, which describes the configuration & metrics & logs.
+
+To view the docs:
+
+1. [install sphinx](https://www.sphinx-doc.org/en/master/usage/installation.html) 
+2. run `make html` in the doc directory
+3. open *_build/html/index.html* with your favourite browser
 
 ## Examples
 
-See [examples](examples/README.md).
+You can find example config in the [examples](examples) directory.
