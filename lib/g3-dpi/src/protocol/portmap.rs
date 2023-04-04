@@ -137,6 +137,7 @@ impl ProtocolPortMap {
         map.insert(4222, MaybeProtocol::Nats);
         map.insert(6881, MaybeProtocol::BitTorrent);
         map.insert(8080, MaybeProtocol::Http);
+        map.insert(8554, MaybeProtocol::Rtsp);
         map.insert(8883, MaybeProtocol::SecureMqtt);
         map
     }
