@@ -214,7 +214,7 @@ impl HttpRProxyServer {
             &pipeline_stats,
         );
 
-        tokio::spawn(async { r_task.into_running().await });
+        tokio::spawn(r_task.into_running());
         w_task.into_running(&self.hosts).await
     }
 
@@ -245,7 +245,7 @@ impl HttpRProxyServer {
             &pipeline_stats,
         );
 
-        tokio::spawn(async { r_task.into_running().await });
+        tokio::spawn(r_task.into_running());
         w_task.into_running(&self.hosts).await
     }
 }

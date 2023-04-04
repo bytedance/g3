@@ -25,20 +25,19 @@ static RELOAD_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
 fn do_quit(_: u32) -> SigResult {
     info!("got quit signal");
-    tokio::spawn(async { crate::control::UniqueController::abort_immediately().await });
+    tokio::spawn(crate::control::UniqueController::abort_immediately());
     SigResult::Break
 }
 
 fn go_offline(_: u32) -> SigResult {
     info!("got offline signal");
-    tokio::spawn(async { crate::control::DaemonController::abort().await });
+    tokio::spawn(crate::control::DaemonController::abort());
     SigResult::Break
 }
 
 fn call_reload(_: u32) -> SigResult {
     info!("got reload signal");
-    let f = async { do_reload().await };
-    tokio::spawn(f);
+    tokio::spawn(do_reload());
     SigResult::Continue
 }
 

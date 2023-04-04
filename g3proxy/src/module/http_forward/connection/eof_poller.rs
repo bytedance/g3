@@ -71,7 +71,7 @@ impl HttpConnectionEofPoller {
             wait_channel: notify_receiver,
             send_channel: conn_sender,
         };
-        tokio::spawn(async move { runtime.run().await });
+        tokio::spawn(runtime.run());
         HttpConnectionEofPoller {
             notify_channel: notify_sender,
             recv_channel: conn_receiver,

@@ -114,8 +114,8 @@ pub(super) async fn spawn(config: &Arc<RouteQueryEscaperConfig>) -> anyhow::Resu
         g3_io_ext::spawn_effective_cache(config.cache_request_batch_count);
     let query_runtime = QueryRuntime::new(config, socket, query_handle);
 
-    tokio::spawn(async { query_runtime.await });
-    tokio::spawn(async { cache_runtime.await });
+    tokio::spawn(query_runtime);
+    tokio::spawn(cache_runtime);
 
     Ok(CacheHandle {
         inner: cache_handle,

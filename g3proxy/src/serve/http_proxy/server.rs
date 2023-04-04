@@ -193,7 +193,7 @@ impl HttpProxyServer {
         false
     }
 
-    fn spawn_tls_task(
+    async fn spawn_tls_task(
         &self,
         stream: TlsStream<TcpStream>,
         peer_addr: SocketAddr,
@@ -223,11 +223,11 @@ impl HttpProxyServer {
             &pipeline_stats,
         );
 
-        tokio::spawn(async { w_task.into_running().await });
-        tokio::spawn(async { r_task.into_running().await });
+        tokio::spawn(r_task.into_running());
+        w_task.into_running().await
     }
 
-    fn spawn_tcp_task(
+    async fn spawn_tcp_task(
         &self,
         stream: TcpStream,
         peer_addr: SocketAddr,
@@ -255,8 +255,8 @@ impl HttpProxyServer {
             &pipeline_stats,
         );
 
-        tokio::spawn(async { w_task.into_running().await });
-        tokio::spawn(async { r_task.into_running().await });
+        tokio::spawn(r_task.into_running());
+        w_task.into_running().await
     }
 }
 
@@ -376,7 +376,10 @@ impl Server for HttpProxyServer {
 
         if let Some(tls_acceptor) = &self.tls_acceptor {
             match tokio::time::timeout(self.tls_accept_timeout, tls_acceptor.accept(stream)).await {
-                Ok(Ok(tls_stream)) => self.spawn_tls_task(tls_stream, peer_addr, local_addr, ctx),
+                Ok(Ok(tls_stream)) => {
+                    self.spawn_tls_task(tls_stream, peer_addr, local_addr, ctx)
+                        .await
+                }
                 Ok(Err(e)) => {
                     self.listen_stats.add_failed();
                     debug!("{} - {} tls error: {:?}", local_addr, peer_addr, e);
@@ -389,7 +392,8 @@ impl Server for HttpProxyServer {
                 }
             }
         } else {
-            self.spawn_tcp_task(stream, peer_addr, local_addr, ctx);
+            self.spawn_tcp_task(stream, peer_addr, local_addr, ctx)
+                .await;
         }
     }
 
@@ -405,6 +409,7 @@ impl Server for HttpProxyServer {
         if self.drop_early(peer_addr) {
             return;
         }
-        self.spawn_tls_task(stream, peer_addr, local_addr, ctx);
+        self.spawn_tls_task(stream, peer_addr, local_addr, ctx)
+            .await;
     }
 }

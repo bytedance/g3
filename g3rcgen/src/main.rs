@@ -41,5 +41,5 @@ fn main() -> anyhow::Result<()> {
         .runtime_config
         .start()
         .context("failed to start runtime")?;
-    rt.block_on(async move { g3rcgen::run(&proc_args).await })
+    rt.block_on(g3rcgen::run(&proc_args))
 }

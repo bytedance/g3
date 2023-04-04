@@ -105,8 +105,8 @@ impl CertGeneratorConfig {
             g3_io_ext::spawn_effective_cache(self.cache_request_batch_count);
         let query_runtime = QueryRuntime::new(self, socket, query_handle);
 
-        tokio::spawn(async { query_runtime.await });
-        tokio::spawn(async { cache_runtime.await });
+        tokio::spawn(query_runtime);
+        tokio::spawn(cache_runtime);
 
         Ok(CertGeneratorHandle::new(
             cache_handle,

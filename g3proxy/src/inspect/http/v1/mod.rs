@@ -141,7 +141,7 @@ where
         let req_io = HttpRequestIo { clt_r, ups_w };
         let (req_forwarder, mut req_acceptor) =
             pipeline::new_request_handler(self.ctx.clone(), req_io, pipeline_stats.clone());
-        tokio::spawn(async move { req_forwarder.into_running().await });
+        tokio::spawn(req_forwarder.into_running());
 
         while let Some(r) = req_acceptor.accept().await {
             self.req_id += 1;
