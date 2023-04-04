@@ -28,6 +28,7 @@ use tokio_rustls::{server::TlsStream, TlsAcceptor};
 
 use g3_daemon::listen::ListenStats;
 use g3_types::acl::{AclAction, AclNetworkRule};
+use g3_types::metrics::MetricsName;
 use g3_types::net::RustlsServerConfig;
 
 use crate::config::server::plain_tls_port::PlainTlsPortConfig;
@@ -272,8 +273,8 @@ impl Server for PlainTlsPort {
         String::new()
     }
 
-    fn auditor(&self) -> String {
-        String::new()
+    fn auditor(&self) -> &MetricsName {
+        Default::default()
     }
 
     fn get_listen_stats(&self) -> Arc<ListenStats> {

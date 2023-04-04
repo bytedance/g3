@@ -24,7 +24,7 @@ use yaml_rust::{yaml, Yaml};
 
 use g3_types::auth::{Password, Username};
 use g3_types::collection::SelectivePickPolicy;
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::net::{
     HappyEyeballsConfig, Host, HttpForwardCapability, OpensslTlsClientConfigBuilder,
     ProxyProtocolVersion, TcpKeepAliveConfig, TcpMiscSockOpts, WeightedUpstreamAddr,
@@ -51,7 +51,7 @@ pub(crate) struct ProxyHttpsEscaperConfig {
     pub(crate) no_ipv6: bool,
     pub(crate) tls_config: OpensslTlsClientConfigBuilder,
     pub(crate) tls_name: Option<String>,
-    pub(crate) resolver: String,
+    pub(crate) resolver: MetricsName,
     pub(crate) resolve_strategy: ResolveStrategy,
     pub(crate) general: GeneralEscaperConfig,
     pub(crate) happy_eyeballs: HappyEyeballsConfig,
@@ -82,7 +82,7 @@ impl ProxyHttpsEscaperConfig {
             no_ipv6: false,
             tls_config: OpensslTlsClientConfigBuilder::with_cache_for_many_sites(),
             tls_name: None,
-            resolver: String::new(),
+            resolver: MetricsName::default(),
             resolve_strategy: Default::default(),
             general: Default::default(),
             happy_eyeballs: Default::default(),
@@ -174,12 +174,8 @@ impl ProxyHttpsEscaperConfig {
                 Ok(())
             }
             "resolver" => {
-                if let Yaml::String(name) = v {
-                    self.resolver.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.resolver = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "resolve_strategy" => {
                 self.resolve_strategy = g3_yaml::value::as_resolve_strategy(v)?;
@@ -354,7 +350,7 @@ impl EscaperConfig for ProxyHttpsEscaperConfig {
         ESCAPER_CONFIG_TYPE
     }
 
-    fn resolver(&self) -> &str {
+    fn resolver(&self) -> &MetricsName {
         &self.resolver
     }
 

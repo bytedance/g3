@@ -22,6 +22,7 @@ use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
 
 use g3_types::collection::SelectivePickPolicy;
+use g3_types::metrics::MetricsName;
 use g3_types::net::SocketBufferConfig;
 use g3_yaml::YamlDocPosition;
 
@@ -191,8 +192,8 @@ impl EscaperConfig for RouteQueryEscaperConfig {
         ESCAPER_CONFIG_TYPE
     }
 
-    fn resolver(&self) -> &str {
-        ""
+    fn resolver(&self) -> &MetricsName {
+        Default::default()
     }
 
     fn diff_action(&self, new: &AnyEscaperConfig) -> EscaperConfigDiffAction {

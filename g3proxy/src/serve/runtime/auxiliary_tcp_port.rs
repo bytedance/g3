@@ -126,7 +126,7 @@ impl AuxiliaryTcpPortRuntime {
         let mut run_ctx = ServerRunContext::new(
             &next_server.escaper(),
             &next_server.user_group(),
-            &next_server.auditor(),
+            next_server.auditor(),
         );
 
         loop {
@@ -191,7 +191,7 @@ impl AuxiliaryTcpPortRuntime {
                             let auditor_name = next_server.auditor();
                             info!("SRT[{}_v{}#{}] will reload auditor {auditor_name}",
                                 self.server.name(), self.server_version, self.instance_id);
-                            run_ctx.update_audit_handle(&auditor_name);
+                            run_ctx.update_audit_handle(auditor_name);
                         },
                         Ok(ServerReloadCommand::QuitRuntime) | Err(RecvError::Closed) => {
                             info!("SRT[{}_v{}#{}] next server {next_server_name} quit, reload it",
@@ -264,7 +264,7 @@ impl AuxiliaryTcpPortRuntime {
                 if old_auditor.ne(&new_auditor) {
                     info!("SRT[{}_v{}#{}] will use auditor '{new_auditor}' instead of '{old_auditor}'",
                                         self.server.name(), self.server_version, self.instance_id);
-                    run_ctx.update_audit_handle(&new_auditor);
+                    run_ctx.update_audit_handle(new_auditor);
                 }
             }
         }

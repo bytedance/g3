@@ -20,37 +20,39 @@ use std::sync::{Arc, Mutex};
 use anyhow::anyhow;
 use once_cell::sync::Lazy;
 
+use g3_types::metrics::MetricsName;
+
 use super::Auditor;
 use crate::audit::AuditorConfig;
 
-static RUNTIME_AUDITOR_REGISTRY: Lazy<Mutex<HashMap<String, Arc<Auditor>>>> =
+static RUNTIME_AUDITOR_REGISTRY: Lazy<Mutex<HashMap<MetricsName, Arc<Auditor>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
-pub(super) fn add(name: String, auditor: Arc<Auditor>) {
+pub(super) fn add(name: MetricsName, auditor: Arc<Auditor>) {
     let mut ht = RUNTIME_AUDITOR_REGISTRY.lock().unwrap();
     if let Some(_old_group) = ht.insert(name, auditor) {}
 }
 
-fn get(name: &str) -> Option<Arc<Auditor>> {
+fn get(name: &MetricsName) -> Option<Arc<Auditor>> {
     let ht = RUNTIME_AUDITOR_REGISTRY.lock().unwrap();
     ht.get(name).map(Arc::clone)
 }
 
-pub(super) fn del(name: &str) {
+pub(super) fn del(name: &MetricsName) {
     let mut ht = RUNTIME_AUDITOR_REGISTRY.lock().unwrap();
     if let Some(_old_auditor) = ht.remove(name) {}
 }
 
-pub(crate) fn get_names() -> HashSet<String> {
+pub(crate) fn get_names() -> HashSet<MetricsName> {
     let mut names = HashSet::new();
     let ht = RUNTIME_AUDITOR_REGISTRY.lock().unwrap();
     for key in ht.keys() {
-        names.insert(key.to_string());
+        names.insert(key.clone());
     }
     names
 }
 
-pub(super) fn get_config(name: &str) -> Option<AuditorConfig> {
+pub(super) fn get_config(name: &MetricsName) -> Option<AuditorConfig> {
     let ht = RUNTIME_AUDITOR_REGISTRY.lock().unwrap();
     if let Some(auditor) = ht.get(name) {
         let config = &*auditor.config;
@@ -60,7 +62,10 @@ pub(super) fn get_config(name: &str) -> Option<AuditorConfig> {
     }
 }
 
-pub(super) fn reload_existed(name: &str, config: Option<AuditorConfig>) -> anyhow::Result<()> {
+pub(super) fn reload_existed(
+    name: &MetricsName,
+    config: Option<AuditorConfig>,
+) -> anyhow::Result<()> {
     let old_auditor = match get(name) {
         Some(auditor) => auditor,
         None => return Err(anyhow!("no auditor with name {name} found")),
@@ -77,13 +82,13 @@ pub(super) fn reload_existed(name: &str, config: Option<AuditorConfig>) -> anyho
     // the reload method is allowed to hold a registry lock
     // a tokio mutex is needed if we lock this await inside
     let group = old_auditor.reload(config);
-    add(name.to_string(), group);
+    add(name.clone(), group);
     Ok(())
 }
 
-pub(crate) fn get_or_insert_default(name: &str) -> Arc<Auditor> {
+pub(crate) fn get_or_insert_default(name: &MetricsName) -> Arc<Auditor> {
     let mut ht = RUNTIME_AUDITOR_REGISTRY.lock().unwrap();
-    ht.entry(name.to_string())
+    ht.entry(name.clone())
         .or_insert_with(|| Auditor::new_no_config(name))
         .clone()
 }

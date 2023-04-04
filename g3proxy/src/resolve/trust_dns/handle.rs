@@ -23,6 +23,7 @@ use tokio::time::Instant;
 
 use g3_daemon::log::types::{LtDuration, LtIpAddr};
 use g3_resolver::{ResolveError, ResolveQueryType, ResolvedRecordSource};
+use g3_types::metrics::MetricsName;
 
 use crate::config::resolver::trust_dns::TrustDnsResolverConfig;
 use crate::config::resolver::ResolverConfig;
@@ -49,7 +50,7 @@ impl TrustDnsResolverHandle {
 }
 
 impl IntegratedResolverHandle for TrustDnsResolverHandle {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         self.config.name()
     }
 

@@ -16,6 +16,8 @@
 
 use slog::Logger;
 
-pub(crate) fn get_logger(auditor_name: &str) -> Logger {
+use g3_types::metrics::MetricsName;
+
+pub(crate) fn get_logger(auditor_name: &MetricsName) -> Logger {
     super::audit::get_logger(super::LOG_TYPE_INTERCEPT, auditor_name)
 }

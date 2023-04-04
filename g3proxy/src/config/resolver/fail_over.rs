@@ -21,6 +21,7 @@ use anyhow::anyhow;
 use yaml_rust::{yaml, Yaml};
 
 use g3_resolver::ResolverRuntimeConfig;
+use g3_types::metrics::MetricsName;
 use g3_yaml::YamlDocPosition;
 
 use super::{AnyResolverConfig, ResolverConfig, ResolverConfigDiffAction};
@@ -30,10 +31,10 @@ const RESOLVER_CONFIG_TYPE: &str = "fail-over";
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct FailOverResolverConfig {
     position: Option<YamlDocPosition>,
-    name: String,
+    name: MetricsName,
     pub(crate) runtime: ResolverRuntimeConfig,
-    pub(crate) primary: String,
-    pub(crate) standby: String,
+    pub(crate) primary: MetricsName,
+    pub(crate) standby: MetricsName,
     pub(crate) timeout: Duration,
     pub(crate) negative_ttl: Option<u32>,
 }
@@ -41,11 +42,11 @@ pub(crate) struct FailOverResolverConfig {
 impl FailOverResolverConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         FailOverResolverConfig {
-            name: String::new(),
+            name: MetricsName::default(),
             position,
             runtime: Default::default(),
-            primary: String::default(),
-            standby: String::default(),
+            primary: MetricsName::default(),
+            standby: MetricsName::default(),
             timeout: Duration::from_millis(100),
             negative_ttl: None,
         }
@@ -67,28 +68,16 @@ impl FailOverResolverConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_RESOLVER_TYPE => Ok(()),
             super::CONFIG_KEY_RESOLVER_NAME => {
-                if let Yaml::String(name) = v {
-                    self.name.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.name = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "primary" => {
-                if let Yaml::String(name) = v {
-                    self.primary.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.primary = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "standby" => {
-                if let Yaml::String(name) = v {
-                    self.standby.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.standby = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "timeout" => {
                 self.timeout = g3_yaml::humanize::as_duration(v)?;
@@ -132,7 +121,7 @@ impl FailOverResolverConfig {
 }
 
 impl ResolverConfig for FailOverResolverConfig {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         &self.name
     }
 
@@ -157,7 +146,7 @@ impl ResolverConfig for FailOverResolverConfig {
         ResolverConfigDiffAction::Update
     }
 
-    fn dependent_resolver(&self) -> Option<BTreeSet<String>> {
+    fn dependent_resolver(&self) -> Option<BTreeSet<MetricsName>> {
         let mut set = BTreeSet::new();
         set.insert(self.primary.clone());
         set.insert(self.standby.clone());

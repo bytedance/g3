@@ -24,6 +24,7 @@ use async_trait::async_trait;
 use ip_network_table::IpNetworkTable;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
+use g3_types::metrics::MetricsName;
 use g3_types::net::{OpensslTlsClientConfig, UpstreamAddr};
 
 use super::{ArcEscaper, Escaper, EscaperInternal, RouteEscaperStats};
@@ -232,8 +233,8 @@ impl Escaper for RouteClientEscaper {
 
 #[async_trait]
 impl EscaperInternal for RouteClientEscaper {
-    fn _resolver(&self) -> &str {
-        ""
+    fn _resolver(&self) -> &MetricsName {
+        Default::default()
     }
 
     fn _dependent_escaper(&self) -> Option<BTreeSet<String>> {

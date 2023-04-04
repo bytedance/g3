@@ -25,7 +25,7 @@ use ascii::AsciiString;
 use log::warn;
 use yaml_rust::{yaml, Yaml};
 
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::net::{OpensslTlsClientConfigBuilder, TcpKeepAliveConfig, TcpMiscSockOpts};
 use g3_yaml::YamlDocPosition;
 
@@ -220,8 +220,8 @@ impl EscaperConfig for ProxyFloatEscaperConfig {
         ESCAPER_CONFIG_TYPE
     }
 
-    fn resolver(&self) -> &str {
-        ""
+    fn resolver(&self) -> &MetricsName {
+        Default::default()
     }
 
     fn shared_logger(&self) -> Option<&str> {

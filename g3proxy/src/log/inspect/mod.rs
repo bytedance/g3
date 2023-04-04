@@ -16,6 +16,8 @@
 
 use slog::Logger;
 
+use g3_types::metrics::MetricsName;
+
 pub(crate) mod stream;
 
 pub(crate) enum InspectSource {
@@ -36,6 +38,6 @@ impl InspectSource {
     }
 }
 
-pub(crate) fn get_logger(auditor_name: &str) -> Logger {
+pub(crate) fn get_logger(auditor_name: &MetricsName) -> Logger {
     super::audit::get_logger(super::LOG_TYPE_INSPECT, auditor_name)
 }

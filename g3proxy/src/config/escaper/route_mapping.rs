@@ -17,6 +17,7 @@
 use std::collections::BTreeSet;
 
 use anyhow::anyhow;
+use g3_types::metrics::MetricsName;
 use indexmap::IndexSet;
 use yaml_rust::{yaml, Yaml};
 
@@ -116,8 +117,8 @@ impl EscaperConfig for RouteMappingEscaperConfig {
         ESCAPER_CONFIG_TYPE
     }
 
-    fn resolver(&self) -> &str {
-        ""
+    fn resolver(&self) -> &MetricsName {
+        Default::default()
     }
 
     fn diff_action(&self, new: &AnyEscaperConfig) -> EscaperConfigDiffAction {

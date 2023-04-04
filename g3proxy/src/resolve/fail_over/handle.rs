@@ -23,6 +23,7 @@ use tokio::time::Instant;
 
 use g3_daemon::log::types::LtDuration;
 use g3_resolver::{ResolveError, ResolveQueryType, ResolvedRecordSource};
+use g3_types::metrics::MetricsName;
 
 use crate::config::resolver::fail_over::FailOverResolverConfig;
 use crate::config::resolver::ResolverConfig;
@@ -49,7 +50,7 @@ impl FailOverResolverHandle {
 }
 
 impl IntegratedResolverHandle for FailOverResolverHandle {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         self.config.name()
     }
 
@@ -98,8 +99,8 @@ struct FailOverResolverJob {
 impl LoggedResolveJob for FailOverResolverJob {
     fn log_error(&self, e: &ResolveError, source: ResolvedRecordSource) {
         slog_info!(&self.logger, "{}", e;
-            "next_primary" => &self.config.primary,
-            "next_standby" => &self.config.standby,
+            "next_primary" => &self.config.primary.as_str(),
+            "next_standby" => &self.config.standby.as_str(),
             "query_type" => self.query_type.as_str(),
             "duration" => LtDuration(self.create_ins.elapsed()),
             "rr_source" => source.as_str(),

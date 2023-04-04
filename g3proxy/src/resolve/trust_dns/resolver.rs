@@ -21,6 +21,8 @@ use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use slog::Logger;
 
+use g3_types::metrics::MetricsName;
+
 use crate::config::resolver::trust_dns::TrustDnsResolverConfig;
 use crate::config::resolver::{AnyResolverConfig, ResolverConfig};
 use crate::resolve::{
@@ -58,7 +60,7 @@ impl TrustDnsResolver {
 
 #[async_trait]
 impl ResolverInternal for TrustDnsResolver {
-    fn _dependent_resolver(&self) -> Option<BTreeSet<String>> {
+    fn _dependent_resolver(&self) -> Option<BTreeSet<MetricsName>> {
         None
     }
 
@@ -69,7 +71,7 @@ impl ResolverInternal for TrustDnsResolver {
     fn _update_config(
         &mut self,
         config: AnyResolverConfig,
-        _dep_table: BTreeMap<String, ArcIntegratedResolverHandle>,
+        _dep_table: BTreeMap<MetricsName, ArcIntegratedResolverHandle>,
     ) -> anyhow::Result<()> {
         if let AnyResolverConfig::TrustDns(config) = config {
             self.inner
@@ -84,7 +86,7 @@ impl ResolverInternal for TrustDnsResolver {
 
     fn _update_dependent_handle(
         &mut self,
-        _target: &str,
+        _target: &MetricsName,
         _handle: ArcIntegratedResolverHandle,
     ) -> anyhow::Result<()> {
         Ok(())

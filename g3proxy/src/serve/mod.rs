@@ -25,6 +25,7 @@ use tokio_rustls::server::TlsStream;
 
 use g3_daemon::listen::ListenStats;
 use g3_daemon::server::ServerQuitPolicy;
+use g3_types::metrics::MetricsName;
 
 use crate::audit::AuditHandle;
 use crate::auth::UserGroup;
@@ -89,7 +90,7 @@ pub(crate) struct ServerRunContext {
 }
 
 impl ServerRunContext {
-    pub(crate) fn new(escaper: &str, user_group: &str, auditor: &str) -> Self {
+    pub(crate) fn new(escaper: &str, user_group: &str, auditor: &MetricsName) -> Self {
         let mut ctx = ServerRunContext {
             escaper: crate::escape::get_or_insert_default(escaper),
             user_group: None,
@@ -125,14 +126,14 @@ impl ServerRunContext {
         }
     }
 
-    pub(crate) fn current_auditor(&self) -> &str {
+    pub(crate) fn current_auditor(&self) -> &MetricsName {
         self.audit_handle
             .as_ref()
             .map(|h| h.name())
             .unwrap_or_default()
     }
 
-    pub(crate) fn update_audit_handle(&mut self, auditor_name: &str) {
+    pub(crate) fn update_audit_handle(&mut self, auditor_name: &MetricsName) {
         if auditor_name.is_empty() {
             self.audit_handle = None;
         } else {
@@ -171,7 +172,7 @@ pub(crate) trait Server: ServerInternal {
     fn version(&self) -> usize;
     fn escaper(&self) -> String;
     fn user_group(&self) -> String;
-    fn auditor(&self) -> String;
+    fn auditor(&self) -> &MetricsName;
 
     fn get_server_stats(&self) -> Option<ArcServerStats> {
         None

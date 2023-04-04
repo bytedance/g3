@@ -25,12 +25,13 @@ use g3_dpi::{
 };
 use g3_icap_client::IcapServiceConfig;
 use g3_tls_cert::agent::CertAgentConfig;
+use g3_types::metrics::MetricsName;
 use g3_types::net::OpensslTlsInterceptionClientConfigBuilder;
 use g3_yaml::YamlDocPosition;
 
 #[derive(Clone)]
 pub(crate) struct AuditorConfig {
-    name: String,
+    name: MetricsName,
     position: Option<YamlDocPosition>,
     pub(crate) protocol_inspection: ProtocolInspectionConfig,
     pub(crate) server_tcp_portmap: ProtocolPortMap,
@@ -46,7 +47,7 @@ pub(crate) struct AuditorConfig {
 }
 
 impl AuditorConfig {
-    pub(crate) fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &MetricsName {
         &self.name
     }
 
@@ -54,7 +55,7 @@ impl AuditorConfig {
         self.position.clone()
     }
 
-    pub(crate) fn default(name: String, position: Option<YamlDocPosition>) -> Self {
+    fn with_name(name: MetricsName, position: Option<YamlDocPosition>) -> Self {
         AuditorConfig {
             name,
             position,
@@ -72,12 +73,12 @@ impl AuditorConfig {
         }
     }
 
-    pub(crate) fn empty(name: &str) -> Self {
-        AuditorConfig::default(name.to_string(), None)
+    pub(crate) fn empty(name: &MetricsName) -> Self {
+        AuditorConfig::with_name(name.clone(), None)
     }
 
     pub(crate) fn new(position: Option<YamlDocPosition>) -> Self {
-        AuditorConfig::default(String::new(), position)
+        AuditorConfig::with_name(MetricsName::default(), position)
     }
 
     pub(crate) fn parse(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
@@ -97,12 +98,8 @@ impl AuditorConfig {
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
         match g3_yaml::key::normalize(k).as_str() {
             "name" => {
-                if let Yaml::String(name) = v {
-                    self.name.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.name = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "protocol_inspection" => {
                 let protocol_inspection = g3_yaml::value::as_protocol_inspection_config(v)

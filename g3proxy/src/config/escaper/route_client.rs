@@ -18,6 +18,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::net::IpAddr;
 
 use anyhow::{anyhow, Context};
+use g3_types::metrics::MetricsName;
 use ip_network::IpNetwork;
 use yaml_rust::{yaml, Yaml};
 
@@ -215,8 +216,8 @@ impl EscaperConfig for RouteClientEscaperConfig {
         ESCAPER_CONFIG_TYPE
     }
 
-    fn resolver(&self) -> &str {
-        ""
+    fn resolver(&self) -> &MetricsName {
+        Default::default()
     }
 
     fn diff_action(&self, new: &AnyEscaperConfig) -> EscaperConfigDiffAction {

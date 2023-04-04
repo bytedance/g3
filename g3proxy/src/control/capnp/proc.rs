@@ -71,7 +71,7 @@ impl proc_control::Server for ProcControlImpl {
         let set = crate::resolve::get_names();
         let mut builder = results.get().init_result(set.len() as u32);
         for (i, name) in set.iter().enumerate() {
-            builder.set(i as u32, name);
+            builder.set(i as u32, name.as_str());
         }
         Promise::ok(())
     }
@@ -84,7 +84,7 @@ impl proc_control::Server for ProcControlImpl {
         let set = crate::audit::get_names();
         let mut builder = results.get().init_result(set.len() as u32);
         for (i, name) in set.iter().enumerate() {
-            builder.set(i as u32, name);
+            builder.set(i as u32, name.as_str());
         }
         Promise::ok(())
     }

@@ -20,6 +20,7 @@ use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
 
 use g3_types::collection::{SelectivePickPolicy, WeightedValue};
+use g3_types::metrics::MetricsName;
 use g3_yaml::YamlDocPosition;
 
 use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction};
@@ -119,8 +120,8 @@ impl EscaperConfig for RouteSelectEscaperConfig {
         ESCAPER_CONFIG_TYPE
     }
 
-    fn resolver(&self) -> &str {
-        ""
+    fn resolver(&self) -> &MetricsName {
+        Default::default()
     }
 
     fn diff_action(&self, new: &AnyEscaperConfig) -> EscaperConfigDiffAction {

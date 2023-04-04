@@ -24,7 +24,7 @@ use yaml_rust::{yaml, Yaml};
 use g3_dpi::{ProtocolInspectionConfig, ProtocolPortMap};
 use g3_io_ext::LimitedCopyConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::net::{TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig};
 use g3_types::route::HostMatch;
 use g3_yaml::YamlDocPosition;
@@ -41,7 +41,7 @@ pub(crate) struct SniProxyServerConfig {
     name: String,
     position: Option<YamlDocPosition>,
     pub(crate) escaper: String,
-    pub(crate) auditor: String,
+    pub(crate) auditor: MetricsName,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) listen: TcpListenConfig,
     pub(crate) listen_in_worker: bool,
@@ -66,7 +66,7 @@ impl SniProxyServerConfig {
             name: String::new(),
             position,
             escaper: String::new(),
-            auditor: String::new(),
+            auditor: MetricsName::default(),
             shared_logger: None,
             listen: TcpListenConfig::default(),
             listen_in_worker: false,
@@ -114,7 +114,7 @@ impl SniProxyServerConfig {
                 Ok(())
             }
             "auditor" => {
-                self.auditor = g3_yaml::value::as_string(v)?;
+                self.auditor = g3_yaml::value::as_metrics_name(v)?;
                 Ok(())
             }
             "shared_logger" => {
@@ -250,7 +250,7 @@ impl ServerConfig for SniProxyServerConfig {
         ""
     }
 
-    fn auditor(&self) -> &str {
+    fn auditor(&self) -> &MetricsName {
         &self.auditor
     }
 

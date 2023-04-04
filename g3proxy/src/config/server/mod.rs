@@ -26,6 +26,7 @@ use yaml_rust::{yaml, Yaml};
 
 use g3_daemon::config::sort_nodes_in_dependency_graph;
 use g3_io_ext::LimitedCopyConfig;
+use g3_types::metrics::MetricsName;
 use g3_yaml::{HybridParser, YamlDocPosition};
 
 pub(crate) mod dummy_close;
@@ -66,7 +67,7 @@ pub(crate) trait ServerConfig {
 
     fn escaper(&self) -> &str;
     fn user_group(&self) -> &str;
-    fn auditor(&self) -> &str;
+    fn auditor(&self) -> &MetricsName;
 
     fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction;
 
@@ -154,7 +155,7 @@ impl AnyServerConfig {
     impl_transparent0!(dependent_server, Option<BTreeSet<String>>);
     impl_transparent0!(escaper, &str);
     impl_transparent0!(user_group, &str);
-    impl_transparent0!(auditor, &str);
+    impl_transparent0!(auditor, &MetricsName);
 
     impl_transparent1!(diff_action, ServerConfigDiffAction, &Self);
 }

@@ -26,7 +26,7 @@ use yaml_rust::{yaml, Yaml};
 use g3_io_ext::{LimitedCopyConfig, LimitedUdpRelayConfig};
 use g3_types::acl::{AclExactPortRule, AclNetworkRuleBuilder};
 use g3_types::acl_set::AclDstHostRuleSetBuilder;
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::net::{
     PortRange, SocketBufferConfig, TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig,
     UdpMiscSockOpts, UdpSockSpeedLimitConfig,
@@ -64,7 +64,7 @@ pub(crate) struct SocksProxyServerConfig {
     name: String,
     position: Option<YamlDocPosition>,
     pub(crate) escaper: String,
-    pub(crate) auditor: String,
+    pub(crate) auditor: MetricsName,
     pub(crate) user_group: String,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) listen: TcpListenConfig,
@@ -96,7 +96,7 @@ impl SocksProxyServerConfig {
             name: String::new(),
             position,
             escaper: String::new(),
-            auditor: String::new(),
+            auditor: MetricsName::default(),
             user_group: String::new(),
             shared_logger: None,
             listen: TcpListenConfig::default(),
@@ -151,7 +151,7 @@ impl SocksProxyServerConfig {
                 Ok(())
             }
             "auditor" => {
-                self.auditor = g3_yaml::value::as_string(v)?;
+                self.auditor = g3_yaml::value::as_metrics_name(v)?;
                 Ok(())
             }
             "user_group" => {
@@ -342,7 +342,7 @@ impl ServerConfig for SocksProxyServerConfig {
         &self.user_group
     }
 
-    fn auditor(&self) -> &str {
+    fn auditor(&self) -> &MetricsName {
         &self.auditor
     }
 

@@ -27,6 +27,7 @@ use rand::seq::SliceRandom;
 use slog::Logger;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
+use g3_types::metrics::MetricsName;
 use g3_types::net::{OpensslTlsClientConfig, UpstreamAddr};
 
 use super::{ArcEscaper, ArcEscaperInternalStats, ArcEscaperStats, Escaper, EscaperInternal};
@@ -280,8 +281,8 @@ impl Escaper for ProxyFloatEscaper {
 
 #[async_trait]
 impl EscaperInternal for ProxyFloatEscaper {
-    fn _resolver(&self) -> &str {
-        ""
+    fn _resolver(&self) -> &MetricsName {
+        Default::default()
     }
 
     fn _dependent_escaper(&self) -> Option<BTreeSet<String>> {

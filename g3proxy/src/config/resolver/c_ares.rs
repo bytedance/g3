@@ -24,6 +24,7 @@ use yaml_rust::{yaml, Yaml};
 
 use g3_resolver::driver::c_ares::CAresDriverConfig;
 use g3_resolver::{AnyResolveDriverConfig, ResolverRuntimeConfig};
+use g3_types::metrics::MetricsName;
 use g3_yaml::YamlDocPosition;
 
 use super::{AnyResolverConfig, ResolverConfigDiffAction};
@@ -32,7 +33,7 @@ const RESOLVER_CONFIG_TYPE: &str = "c-ares";
 
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct CAresResolverConfig {
-    name: String,
+    name: MetricsName,
     position: Option<YamlDocPosition>,
     runtime: ResolverRuntimeConfig,
     driver: CAresDriverConfig,
@@ -41,7 +42,7 @@ pub(crate) struct CAresResolverConfig {
 impl From<&CAresResolverConfig> for g3_resolver::ResolverConfig {
     fn from(c: &CAresResolverConfig) -> Self {
         g3_resolver::ResolverConfig {
-            name: c.name.clone(),
+            name: c.name.to_string(),
             runtime: c.runtime.clone(),
             driver: AnyResolveDriverConfig::CAres(c.driver.clone()),
         }
@@ -51,7 +52,7 @@ impl From<&CAresResolverConfig> for g3_resolver::ResolverConfig {
 impl CAresResolverConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         CAresResolverConfig {
-            name: String::new(),
+            name: MetricsName::default(),
             position,
             runtime: Default::default(),
             driver: Default::default(),
@@ -86,12 +87,8 @@ impl CAresResolverConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_RESOLVER_TYPE => Ok(()),
             super::CONFIG_KEY_RESOLVER_NAME => {
-                if let Yaml::String(name) = v {
-                    self.name.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.name = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "server" => match v {
                 Yaml::String(addrs) => self.parse_server_str(addrs),
@@ -208,7 +205,7 @@ impl CAresResolverConfig {
 }
 
 impl super::ResolverConfig for CAresResolverConfig {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         &self.name
     }
 
@@ -233,7 +230,7 @@ impl super::ResolverConfig for CAresResolverConfig {
         ResolverConfigDiffAction::Update
     }
 
-    fn dependent_resolver(&self) -> Option<BTreeSet<String>> {
+    fn dependent_resolver(&self) -> Option<BTreeSet<MetricsName>> {
         None
     }
 }

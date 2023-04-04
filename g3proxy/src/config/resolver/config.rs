@@ -16,6 +16,7 @@
 
 use std::collections::BTreeSet;
 
+use g3_types::metrics::MetricsName;
 use g3_yaml::YamlDocPosition;
 
 #[cfg(feature = "c-ares")]
@@ -35,12 +36,12 @@ pub(crate) enum ResolverConfigDiffAction {
 }
 
 pub(crate) trait ResolverConfig {
-    fn name(&self) -> &str;
+    fn name(&self) -> &MetricsName;
     fn position(&self) -> Option<YamlDocPosition>;
     fn resolver_type(&self) -> &'static str;
 
     fn diff_action(&self, new: &AnyResolverConfig) -> ResolverConfigDiffAction;
-    fn dependent_resolver(&self) -> Option<BTreeSet<String>>;
+    fn dependent_resolver(&self) -> Option<BTreeSet<MetricsName>>;
 }
 
 #[derive(Clone)]
@@ -52,44 +53,38 @@ pub(crate) enum AnyResolverConfig {
     FailOver(fail_over::FailOverResolverConfig),
 }
 
+macro_rules! impl_transparent0 {
+    ($f:tt, $v:ty) => {
+        pub(crate) fn $f(&self) -> $v {
+            match self {
+                #[cfg(feature = "c-ares")]
+                AnyResolverConfig::CAres(r) => r.$f(),
+                AnyResolverConfig::TrustDns(r) => r.$f(),
+                AnyResolverConfig::DenyAll(r) => r.$f(),
+                AnyResolverConfig::FailOver(r) => r.$f(),
+            }
+        }
+    };
+}
+
+macro_rules! impl_transparent1 {
+    ($f:tt, $v:ty, $p:ty) => {
+        pub(crate) fn $f(&self, p: $p) -> $v {
+            match self {
+                #[cfg(feature = "c-ares")]
+                AnyResolverConfig::CAres(r) => r.$f(p),
+                AnyResolverConfig::TrustDns(r) => r.$f(p),
+                AnyResolverConfig::DenyAll(r) => r.$f(p),
+                AnyResolverConfig::FailOver(r) => r.$f(p),
+            }
+        }
+    };
+}
+
 impl AnyResolverConfig {
-    pub(crate) fn name(&self) -> &str {
-        match self {
-            #[cfg(feature = "c-ares")]
-            AnyResolverConfig::CAres(r) => r.name(),
-            AnyResolverConfig::TrustDns(r) => r.name(),
-            AnyResolverConfig::DenyAll(r) => r.name(),
-            AnyResolverConfig::FailOver(r) => r.name(),
-        }
-    }
+    impl_transparent0!(name, &MetricsName);
+    impl_transparent0!(position, Option<YamlDocPosition>);
+    impl_transparent0!(dependent_resolver, Option<BTreeSet<MetricsName>>);
 
-    pub(crate) fn position(&self) -> Option<YamlDocPosition> {
-        match self {
-            #[cfg(feature = "c-ares")]
-            AnyResolverConfig::CAres(r) => r.position(),
-            AnyResolverConfig::TrustDns(r) => r.position(),
-            AnyResolverConfig::DenyAll(r) => r.position(),
-            AnyResolverConfig::FailOver(r) => r.position(),
-        }
-    }
-
-    pub(crate) fn diff_action(&self, new: &Self) -> ResolverConfigDiffAction {
-        match self {
-            #[cfg(feature = "c-ares")]
-            AnyResolverConfig::CAres(r) => r.diff_action(new),
-            AnyResolverConfig::TrustDns(r) => r.diff_action(new),
-            AnyResolverConfig::DenyAll(r) => r.diff_action(new),
-            AnyResolverConfig::FailOver(r) => r.diff_action(new),
-        }
-    }
-
-    pub(crate) fn dependent_resolver(&self) -> Option<BTreeSet<String>> {
-        match self {
-            #[cfg(feature = "c-ares")]
-            AnyResolverConfig::CAres(r) => r.dependent_resolver(),
-            AnyResolverConfig::TrustDns(r) => r.dependent_resolver(),
-            AnyResolverConfig::DenyAll(r) => r.dependent_resolver(),
-            AnyResolverConfig::FailOver(r) => r.dependent_resolver(),
-        }
-    }
+    impl_transparent1!(diff_action, ResolverConfigDiffAction, &Self);
 }

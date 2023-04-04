@@ -23,6 +23,7 @@ use tokio::time::Instant;
 
 use g3_daemon::log::types::{LtDuration, LtIpAddr};
 use g3_resolver::{ResolveError, ResolveQueryType, ResolvedRecordSource};
+use g3_types::metrics::MetricsName;
 
 use crate::config::resolver::c_ares::CAresResolverConfig;
 use crate::config::resolver::ResolverConfig;
@@ -49,7 +50,7 @@ impl CAresResolverHandle {
 }
 
 impl IntegratedResolverHandle for CAresResolverHandle {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         self.config.name()
     }
 

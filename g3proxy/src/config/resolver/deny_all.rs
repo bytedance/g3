@@ -19,6 +19,7 @@ use std::collections::BTreeSet;
 use anyhow::anyhow;
 use yaml_rust::{yaml, Yaml};
 
+use g3_types::metrics::MetricsName;
 use g3_yaml::YamlDocPosition;
 
 use super::{AnyResolverConfig, ResolverConfig, ResolverConfigDiffAction};
@@ -28,7 +29,7 @@ const RESOLVER_CONFIG_TYPE: &str = "deny-all";
 #[derive(Clone)]
 pub(crate) struct DenyAllResolverConfig {
     position: Option<YamlDocPosition>,
-    name: String,
+    name: MetricsName,
 }
 
 impl DenyAllResolverConfig {
@@ -36,28 +37,39 @@ impl DenyAllResolverConfig {
         map: &yaml::Hash,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
-        let name = g3_yaml::hash_get_required_str(map, super::CONFIG_KEY_RESOLVER_NAME)?;
         let mut resolver = DenyAllResolverConfig {
             position,
-            name: name.to_string(),
+            name: MetricsName::default(),
         };
 
         g3_yaml::foreach_kv(map, |k, v| resolver.set(k, v))?;
 
+        resolver.check()?;
         Ok(resolver)
     }
 
-    fn set(&mut self, k: &str, _v: &Yaml) -> anyhow::Result<()> {
+    fn check(&self) -> anyhow::Result<()> {
+        if self.name.is_empty() {
+            return Err(anyhow!("name is not set"));
+        }
+
+        Ok(())
+    }
+
+    fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_RESOLVER_TYPE => Ok(()),
-            super::CONFIG_KEY_RESOLVER_NAME => Ok(()),
+            super::CONFIG_KEY_RESOLVER_NAME => {
+                self.name = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
+            }
             _ => Err(anyhow!("invalid key {k}")),
         }
     }
 }
 
 impl ResolverConfig for DenyAllResolverConfig {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         &self.name
     }
 
@@ -76,7 +88,7 @@ impl ResolverConfig for DenyAllResolverConfig {
         }
     }
 
-    fn dependent_resolver(&self) -> Option<BTreeSet<String>> {
+    fn dependent_resolver(&self) -> Option<BTreeSet<MetricsName>> {
         None
     }
 }

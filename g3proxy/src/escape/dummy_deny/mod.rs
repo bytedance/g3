@@ -21,6 +21,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
+use g3_types::metrics::MetricsName;
 use g3_types::net::{OpensslTlsClientConfig, UpstreamAddr};
 
 use super::{ArcEscaper, ArcEscaperInternalStats, ArcEscaperStats, Escaper, EscaperInternal};
@@ -171,8 +172,8 @@ impl Escaper for DummyDenyEscaper {
 
 #[async_trait]
 impl EscaperInternal for DummyDenyEscaper {
-    fn _resolver(&self) -> &str {
-        ""
+    fn _resolver(&self) -> &MetricsName {
+        Default::default()
     }
 
     fn _dependent_escaper(&self) -> Option<BTreeSet<String>> {

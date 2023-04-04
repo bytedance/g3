@@ -21,6 +21,7 @@ use std::task::{ready, Context, Poll};
 use std::time::Duration;
 
 use g3_resolver::{ResolveError, ResolvedRecordSource};
+use g3_types::metrics::MetricsName;
 use g3_types::resolve::{QueryStrategy, ResolveRedirectionValue, ResolveStrategy};
 
 pub(crate) trait LoggedResolveJob {
@@ -48,7 +49,7 @@ macro_rules! impl_logged_poll_query {
 }
 
 pub(crate) trait IntegratedResolverHandle {
-    fn name(&self) -> &str;
+    fn name(&self) -> &MetricsName;
     fn is_closed(&self) -> bool;
     fn query_v4(&self, domain: String) -> Result<BoxLoggedResolveJob, ResolveError>;
     fn query_v6(&self, domain: String) -> Result<BoxLoggedResolveJob, ResolveError>;

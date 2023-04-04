@@ -22,6 +22,7 @@ use anyhow::{anyhow, Context};
 use ip_network::IpNetwork;
 use yaml_rust::{yaml, Yaml};
 
+use g3_types::metrics::MetricsName;
 use g3_types::resolve::ResolveStrategy;
 use g3_yaml::YamlDocPosition;
 
@@ -33,7 +34,7 @@ const ESCAPER_CONFIG_TYPE: &str = "RouteResolved";
 pub(crate) struct RouteResolvedEscaperConfig {
     pub(crate) name: String,
     position: Option<YamlDocPosition>,
-    pub(crate) resolver: String,
+    pub(crate) resolver: MetricsName,
     pub(crate) resolve_strategy: ResolveStrategy,
     pub(crate) resolution_delay: Duration,
     pub(crate) lpm_rules: BTreeMap<String, BTreeSet<IpNetwork>>,
@@ -45,7 +46,7 @@ impl RouteResolvedEscaperConfig {
         RouteResolvedEscaperConfig {
             name: String::new(),
             position,
-            resolver: String::new(),
+            resolver: MetricsName::default(),
             resolve_strategy: Default::default(),
             resolution_delay: Duration::from_millis(50),
             lpm_rules: BTreeMap::new(),
@@ -77,12 +78,8 @@ impl RouteResolvedEscaperConfig {
                 }
             }
             "resolver" => {
-                if let Yaml::String(name) = v {
-                    self.resolver = name.to_string();
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.resolver = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "resolve_strategy" => {
                 self.resolve_strategy = g3_yaml::value::as_resolve_strategy(v)?;
@@ -190,7 +187,7 @@ impl EscaperConfig for RouteResolvedEscaperConfig {
         ESCAPER_CONFIG_TYPE
     }
 
-    fn resolver(&self) -> &str {
+    fn resolver(&self) -> &MetricsName {
         &self.resolver
     }
 

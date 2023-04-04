@@ -22,6 +22,7 @@ use log::{debug, warn};
 use once_cell::sync::Lazy;
 use tokio::sync::Mutex;
 
+use g3_types::metrics::MetricsName;
 use g3_yaml::YamlDocPosition;
 
 use crate::config::resolver::{AnyResolverConfig, ResolverConfigDiffAction};
@@ -40,12 +41,12 @@ static RESOLVER_OPS_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 pub async fn spawn_all() -> anyhow::Result<()> {
     let _guard = RESOLVER_OPS_LOCK.lock().await;
 
-    let mut new_names = HashSet::<String>::new();
+    let mut new_names = HashSet::<MetricsName>::new();
 
     let all_config = crate::config::resolver::get_all_sorted()?;
     for config in all_config {
         let name = config.name();
-        new_names.insert(name.to_string());
+        new_names.insert(name.clone());
         match registry::get_config(name) {
             Some(old) => {
                 debug!("reloading resolver {name}");
@@ -75,7 +76,10 @@ pub async fn spawn_all() -> anyhow::Result<()> {
     Ok(())
 }
 
-pub(crate) async fn reload(name: &str, position: Option<YamlDocPosition>) -> anyhow::Result<()> {
+pub(crate) async fn reload(
+    name: &MetricsName,
+    position: Option<YamlDocPosition>,
+) -> anyhow::Result<()> {
     let _guard = RESOLVER_OPS_LOCK.lock().await;
 
     let old_config = match registry::get_config(name) {
@@ -116,13 +120,13 @@ pub(crate) async fn reload(name: &str, position: Option<YamlDocPosition>) -> any
 }
 
 #[async_recursion]
-async fn update_dependency_to_resolver_unlocked(target: &str) {
-    let mut names = Vec::<String>::new();
+async fn update_dependency_to_resolver_unlocked(target: &MetricsName) {
+    let mut names = Vec::<MetricsName>::new();
 
     registry::foreach(|name, resolver| {
         if let Some(set) = resolver._dependent_resolver() {
             if set.contains(target) {
-                names.push(name.to_string())
+                names.push(name.clone())
             }
         }
     });
@@ -160,7 +164,7 @@ async fn reload_old_unlocked(old: AnyResolverConfig, new: AnyResolverConfig) -> 
 }
 
 async fn spawn_new_unlocked(config: AnyResolverConfig) -> anyhow::Result<()> {
-    let name = config.name().to_string();
+    let name = config.name().clone();
     let resolver = match config {
         #[cfg(feature = "c-ares")]
         AnyResolverConfig::CAres(_) => CAresResolver::new_obj(config)?,

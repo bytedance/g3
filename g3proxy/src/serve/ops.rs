@@ -23,6 +23,7 @@ use log::{debug, warn};
 use once_cell::sync::Lazy;
 use tokio::sync::Mutex;
 
+use g3_types::metrics::MetricsName;
 use g3_yaml::YamlDocPosition;
 
 use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
@@ -191,7 +192,7 @@ pub(crate) async fn update_dependency_to_user_group(user_group: &str, status: &s
     }
 }
 
-pub(crate) async fn update_dependency_to_auditor(auditor: &str, status: &str) {
+pub(crate) async fn update_dependency_to_auditor(auditor: &MetricsName, status: &str) {
     let _guard = SERVER_OPS_LOCK.lock().await;
 
     let mut names = Vec::<String>::new();

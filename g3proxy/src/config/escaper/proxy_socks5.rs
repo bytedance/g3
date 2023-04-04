@@ -24,7 +24,7 @@ use yaml_rust::{yaml, Yaml};
 
 use g3_types::auth::{Password, Username};
 use g3_types::collection::SelectivePickPolicy;
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::net::{
     HappyEyeballsConfig, Host, SocksAuth, TcpKeepAliveConfig, TcpMiscSockOpts, UdpMiscSockOpts,
     WeightedUpstreamAddr,
@@ -49,7 +49,7 @@ pub(crate) struct ProxySocks5EscaperConfig {
     pub(crate) bind_v6: Option<Ipv6Addr>,
     pub(crate) no_ipv4: bool,
     pub(crate) no_ipv6: bool,
-    pub(crate) resolver: String,
+    pub(crate) resolver: MetricsName,
     pub(crate) resolve_strategy: ResolveStrategy,
     pub(crate) general: GeneralEscaperConfig,
     pub(crate) happy_eyeballs: HappyEyeballsConfig,
@@ -75,7 +75,7 @@ impl ProxySocks5EscaperConfig {
             bind_v6: None,
             no_ipv4: false,
             no_ipv6: false,
-            resolver: String::new(),
+            resolver: MetricsName::default(),
             resolve_strategy: Default::default(),
             general: Default::default(),
             happy_eyeballs: Default::default(),
@@ -164,12 +164,8 @@ impl ProxySocks5EscaperConfig {
                 Ok(())
             }
             "resolver" => {
-                if let Yaml::String(name) = v {
-                    self.resolver.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.resolver = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "resolve_strategy" => {
                 self.resolve_strategy = g3_yaml::value::as_resolve_strategy(v)?;
@@ -310,7 +306,7 @@ impl EscaperConfig for ProxySocks5EscaperConfig {
         ESCAPER_CONFIG_TYPE
     }
 
-    fn resolver(&self) -> &str {
+    fn resolver(&self) -> &MetricsName {
         &self.resolver
     }
 

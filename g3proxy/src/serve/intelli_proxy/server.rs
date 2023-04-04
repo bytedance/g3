@@ -25,6 +25,7 @@ use tokio::sync::{broadcast, watch};
 use tokio_rustls::server::TlsStream;
 
 use g3_daemon::listen::ListenStats;
+use g3_types::metrics::MetricsName;
 
 use super::runtime::IntelliProxyRuntime;
 use crate::config::server::intelli_proxy::IntelliProxyConfig;
@@ -174,8 +175,8 @@ impl Server for IntelliProxy {
         String::new()
     }
 
-    fn auditor(&self) -> String {
-        String::new()
+    fn auditor(&self) -> &MetricsName {
+        Default::default()
     }
 
     fn get_listen_stats(&self) -> Arc<ListenStats> {

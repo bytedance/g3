@@ -20,6 +20,7 @@ use anyhow::Context;
 
 use g3_dpi::ProtocolPortMap;
 use g3_icap_client::IcapServiceClient;
+use g3_types::metrics::MetricsName;
 
 use crate::config::audit::AuditorConfig;
 use crate::inspect::tls::TlsInterceptionContext;
@@ -43,7 +44,7 @@ pub(crate) struct Auditor {
 }
 
 impl Auditor {
-    fn new_no_config(name: &str) -> Arc<Self> {
+    fn new_no_config(name: &MetricsName) -> Arc<Self> {
         let config = AuditorConfig::empty(name);
         Auditor::new_with_config(config)
     }

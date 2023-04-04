@@ -24,7 +24,7 @@ use yaml_rust::{yaml, Yaml};
 use g3_io_ext::LimitedCopyConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
 use g3_types::collection::SelectivePickPolicy;
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::net::{
     OpensslTlsClientConfigBuilder, RustlsServerConfigBuilder, TcpListenConfig, TcpMiscSockOpts,
     TcpSockSpeedLimitConfig, WeightedUpstreamAddr,
@@ -40,7 +40,7 @@ pub(crate) struct TlsStreamServerConfig {
     name: String,
     position: Option<YamlDocPosition>,
     pub(crate) escaper: String,
-    pub(crate) auditor: String,
+    pub(crate) auditor: MetricsName,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) listen: TcpListenConfig,
     pub(crate) listen_in_worker: bool,
@@ -64,7 +64,7 @@ impl TlsStreamServerConfig {
             name: String::new(),
             position,
             escaper: String::new(),
-            auditor: String::new(),
+            auditor: MetricsName::default(),
             shared_logger: None,
             listen: TcpListenConfig::default(),
             listen_in_worker: false,
@@ -111,7 +111,7 @@ impl TlsStreamServerConfig {
                 Ok(())
             }
             "auditor" => {
-                self.auditor = g3_yaml::value::as_string(v)?;
+                self.auditor = g3_yaml::value::as_metrics_name(v)?;
                 Ok(())
             }
             "shared_logger" => {
@@ -279,7 +279,7 @@ impl ServerConfig for TlsStreamServerConfig {
         ""
     }
 
-    fn auditor(&self) -> &str {
+    fn auditor(&self) -> &MetricsName {
         &self.auditor
     }
 

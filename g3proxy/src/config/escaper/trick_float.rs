@@ -17,6 +17,7 @@
 use std::collections::BTreeSet;
 
 use anyhow::anyhow;
+use g3_types::metrics::MetricsName;
 use yaml_rust::{yaml, Yaml};
 
 use g3_yaml::YamlDocPosition;
@@ -112,8 +113,8 @@ impl EscaperConfig for TrickFloatEscaperConfig {
         ESCAPER_CONFIG_TYPE
     }
 
-    fn resolver(&self) -> &str {
-        ""
+    fn resolver(&self) -> &MetricsName {
+        Default::default()
     }
 
     fn diff_action(&self, new: &AnyEscaperConfig) -> EscaperConfigDiffAction {

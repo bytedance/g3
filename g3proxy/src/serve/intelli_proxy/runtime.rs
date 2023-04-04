@@ -108,7 +108,7 @@ impl IntelliProxyRuntime {
         let mut http_run_ctx = ServerRunContext::new(
             &http_next_server.escaper(),
             &http_next_server.user_group(),
-            &http_next_server.auditor(),
+            http_next_server.auditor(),
         );
 
         let (mut socks_next_server, mut socks_next_server_reload_channel) =
@@ -116,7 +116,7 @@ impl IntelliProxyRuntime {
         let mut socks_run_ctx = ServerRunContext::new(
             &socks_next_server.escaper(),
             &socks_next_server.user_group(),
-            &socks_next_server.auditor(),
+            socks_next_server.auditor(),
         );
 
         loop {
@@ -182,7 +182,7 @@ impl IntelliProxyRuntime {
                             let auditor_name = http_next_server.auditor();
                             info!("SRT[{}_v{}#{}] will reload http auditor {auditor_name}",
                                 self.config.name(), self.server_version, self.instance_id);
-                            http_run_ctx.update_audit_handle(&auditor_name);
+                            http_run_ctx.update_audit_handle(auditor_name);
                         },
                         Ok(ServerReloadCommand::QuitRuntime) | Err(RecvError::Closed) => {
                             info!("SRT[{}_v{}#{}] next http server {} quit, reload it",
@@ -219,7 +219,7 @@ impl IntelliProxyRuntime {
                             let auditor_name = socks_next_server.auditor();
                             info!("SRT[{}_v{}#{}] will reload socks auditor {auditor_name}",
                                 self.config.name(), self.server_version, self.instance_id);
-                            socks_run_ctx.update_audit_handle(&auditor_name);
+                            socks_run_ctx.update_audit_handle(auditor_name);
                         },
                         Ok(ServerReloadCommand::QuitRuntime) | Err(RecvError::Closed) => {
                             info!("SRT[{}_v{}#{}] next socks server {} quit, reload it",
@@ -293,7 +293,7 @@ impl IntelliProxyRuntime {
                 if old_auditor.ne(&new_auditor) {
                     info!("SRT[{}_v{}#{}] will use http auditor '{new_auditor}' instead of '{old_auditor}'",
                                     self.config.name(), self.server_version, self.instance_id);
-                    http_run_ctx.update_audit_handle(&new_auditor);
+                    http_run_ctx.update_audit_handle(new_auditor);
                 }
             }
 
@@ -326,7 +326,7 @@ impl IntelliProxyRuntime {
                 if old_auditor.ne(&new_auditor) {
                     info!("SRT[{}_v{}#{}] will use socks auditor '{new_auditor}' instead of '{old_auditor}'",
                                     self.config.name(), self.server_version, self.instance_id);
-                    socks_run_ctx.update_audit_handle(&new_auditor);
+                    socks_run_ctx.update_audit_handle(new_auditor);
                 }
             }
         }

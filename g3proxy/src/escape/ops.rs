@@ -22,6 +22,7 @@ use log::{debug, warn};
 use once_cell::sync::Lazy;
 use tokio::sync::Mutex;
 
+use g3_types::metrics::MetricsName;
 use g3_yaml::YamlDocPosition;
 
 use super::registry;
@@ -127,7 +128,7 @@ pub(crate) async fn reload(name: &str, position: Option<YamlDocPosition>) -> any
     Ok(())
 }
 
-pub(crate) async fn update_dependency_to_resolver(resolver: &str, status: &str) {
+pub(crate) async fn update_dependency_to_resolver(resolver: &MetricsName, status: &str) {
     let _guard = ESCAPER_OPS_LOCK.lock().await;
 
     let mut names = Vec::<String>::new();

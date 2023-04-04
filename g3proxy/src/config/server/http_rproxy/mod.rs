@@ -23,7 +23,7 @@ use yaml_rust::{yaml, Yaml};
 
 use g3_io_ext::LimitedCopyConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::net::{
     HttpForwardedHeaderType, HttpKeepAliveConfig, HttpServerId, RustlsServerConfigBuilder,
     TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig,
@@ -368,8 +368,8 @@ impl ServerConfig for HttpRProxyServerConfig {
         &self.user_group
     }
 
-    fn auditor(&self) -> &str {
-        ""
+    fn auditor(&self) -> &MetricsName {
+        Default::default()
     }
 
     fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction {

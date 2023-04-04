@@ -23,6 +23,7 @@ use g3_dpi::{
 };
 use g3_icap_client::reqmod::IcapReqmodClient;
 use g3_icap_client::respmod::IcapRespmodClient;
+use g3_types::metrics::MetricsName;
 
 use super::Auditor;
 use crate::config::audit::AuditorConfig;
@@ -66,7 +67,7 @@ impl AuditHandle {
     }
 
     #[inline]
-    pub(crate) fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &MetricsName {
         self.auditor_config.name()
     }
 

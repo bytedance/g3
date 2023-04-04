@@ -32,6 +32,10 @@ impl MetricsName {
     pub fn as_str(&self) -> &str {
         self.0.as_str()
     }
+
+    pub unsafe fn from_str_unchecked(name: &str) -> Self {
+        MetricsName(name.to_string())
+    }
 }
 
 impl FromStr for MetricsName {
@@ -46,5 +50,12 @@ impl FromStr for MetricsName {
 impl fmt::Display for MetricsName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+impl<'a> Default for &'a MetricsName {
+    fn default() -> &'a MetricsName {
+        static VALUE: MetricsName = MetricsName(String::new());
+        &VALUE
     }
 }

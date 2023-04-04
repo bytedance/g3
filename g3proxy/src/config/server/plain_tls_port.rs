@@ -20,6 +20,7 @@ use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
 
 use g3_types::acl::AclNetworkRuleBuilder;
+use g3_types::metrics::MetricsName;
 use g3_types::net::{RustlsServerConfigBuilder, TcpListenConfig};
 use g3_yaml::YamlDocPosition;
 
@@ -148,8 +149,8 @@ impl ServerConfig for PlainTlsPortConfig {
         ""
     }
 
-    fn auditor(&self) -> &str {
-        ""
+    fn auditor(&self) -> &MetricsName {
+        Default::default()
     }
 
     fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction {

@@ -23,7 +23,7 @@ use log::warn;
 use yaml_rust::{yaml, Yaml};
 
 use g3_types::acl::{AclAction, AclNetworkRuleBuilder};
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::net::{HappyEyeballsConfig, TcpKeepAliveConfig, TcpMiscSockOpts};
 use g3_types::resolve::{QueryStrategy, ResolveRedirectionBuilder, ResolveStrategy};
 use g3_yaml::YamlDocPosition;
@@ -41,7 +41,7 @@ pub(crate) struct DirectFloatEscaperConfig {
     pub(crate) no_ipv6: bool,
     pub(crate) cache_ipv4: Option<PathBuf>,
     pub(crate) cache_ipv6: Option<PathBuf>,
-    pub(crate) resolver: String,
+    pub(crate) resolver: MetricsName,
     pub(crate) resolve_strategy: ResolveStrategy,
     pub(crate) resolve_redirection: Option<ResolveRedirectionBuilder>,
     pub(crate) egress_net_filter: AclNetworkRuleBuilder,
@@ -62,7 +62,7 @@ impl DirectFloatEscaperConfig {
             no_ipv6: false,
             cache_ipv4: None,
             cache_ipv6: None,
-            resolver: String::new(),
+            resolver: MetricsName::default(),
             resolve_strategy: Default::default(),
             resolve_redirection: None,
             egress_net_filter: AclNetworkRuleBuilder::new_egress(AclAction::Permit),
@@ -109,12 +109,8 @@ impl DirectFloatEscaperConfig {
                 Ok(())
             }
             "resolver" => {
-                if let Yaml::String(name) = v {
-                    self.resolver = name.to_string();
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.resolver = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "resolve_strategy" => {
                 self.resolve_strategy = g3_yaml::value::as_resolve_strategy(v)?;
@@ -241,7 +237,7 @@ impl EscaperConfig for DirectFloatEscaperConfig {
         ESCAPER_CONFIG_TYPE
     }
 
-    fn resolver(&self) -> &str {
+    fn resolver(&self) -> &MetricsName {
         &self.resolver
     }
 

@@ -28,6 +28,7 @@ use tokio_rustls::server::TlsStream;
 use g3_daemon::listen::ListenStats;
 use g3_dpi::ProtocolPortMap;
 use g3_types::acl::{AclAction, AclNetworkRule};
+use g3_types::metrics::MetricsName;
 
 use super::{ClientHelloAcceptTask, CommonTaskContext, TcpStreamServerStats};
 use crate::config::server::sni_proxy::SniProxyServerConfig;
@@ -237,8 +238,8 @@ impl Server for SniProxyServer {
         String::new()
     }
 
-    fn auditor(&self) -> String {
-        self.config.auditor().to_string()
+    fn auditor(&self) -> &MetricsName {
+        self.config.auditor()
     }
 
     fn get_server_stats(&self) -> Option<ArcServerStats> {

@@ -23,6 +23,7 @@ use indexmap::IndexSet;
 use yaml_rust::{yaml, Yaml};
 
 use g3_daemon::config::sort_nodes_in_dependency_graph;
+use g3_types::metrics::MetricsName;
 use g3_yaml::{HybridParser, YamlDocPosition};
 
 #[cfg(feature = "c-ares")]
@@ -112,7 +113,7 @@ fn load_resolver(
 
 fn get_edges_for_dependency_graph(
     all_config: &[Arc<AnyResolverConfig>],
-    all_names: &IndexSet<String>,
+    all_names: &IndexSet<MetricsName>,
 ) -> anyhow::Result<Vec<(usize, usize)>> {
     let mut edges: Vec<(usize, usize)> = Vec::with_capacity(all_config.len());
 
@@ -139,11 +140,11 @@ fn get_edges_for_dependency_graph(
 
 pub(crate) fn get_all_sorted() -> anyhow::Result<Vec<Arc<AnyResolverConfig>>> {
     let all_config = registry::get_all();
-    let mut all_names = IndexSet::<String>::new();
+    let mut all_names = IndexSet::<MetricsName>::new();
     let mut map_config = BTreeMap::<usize, Arc<AnyResolverConfig>>::new();
 
     for conf in all_config.iter() {
-        let (index, ok) = all_names.insert_full(conf.name().to_string());
+        let (index, ok) = all_names.insert_full(conf.name().clone());
         assert!(ok);
         map_config.insert(index, Arc::clone(conf));
     }
@@ -174,10 +175,10 @@ pub(crate) fn get_all_sorted() -> anyhow::Result<Vec<Arc<AnyResolverConfig>>> {
 
 fn check_dependency() -> anyhow::Result<()> {
     let all_config = registry::get_all();
-    let mut all_names = IndexSet::<String>::new();
+    let mut all_names = IndexSet::<MetricsName>::new();
 
     for conf in all_config.iter() {
-        all_names.insert(conf.name().to_string());
+        all_names.insert(conf.name().clone());
     }
 
     let edges = get_edges_for_dependency_graph(&all_config, &all_names)?;

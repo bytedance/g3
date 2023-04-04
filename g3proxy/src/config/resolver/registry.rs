@@ -19,9 +19,11 @@ use std::sync::{Arc, Mutex};
 
 use once_cell::sync::Lazy;
 
+use g3_types::metrics::MetricsName;
+
 use super::AnyResolverConfig;
 
-static INITIAL_RESOLVER_CONFIG_REGISTRY: Lazy<Mutex<HashMap<String, Arc<AnyResolverConfig>>>> =
+static INITIAL_RESOLVER_CONFIG_REGISTRY: Lazy<Mutex<HashMap<MetricsName, Arc<AnyResolverConfig>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
 pub(crate) fn clear() {
@@ -30,13 +32,13 @@ pub(crate) fn clear() {
 }
 
 pub(super) fn add(resolver: AnyResolverConfig) -> Option<AnyResolverConfig> {
-    let name = resolver.name().to_string();
+    let name = resolver.name().clone();
     let resolver = Arc::new(resolver);
     let mut ht = INITIAL_RESOLVER_CONFIG_REGISTRY.lock().unwrap();
     ht.insert(name, resolver).map(|old| old.as_ref().clone())
 }
 
-pub(super) fn del(name: &str) {
+pub(super) fn del(name: &MetricsName) {
     let mut ht = INITIAL_RESOLVER_CONFIG_REGISTRY.lock().unwrap();
     ht.remove(name);
 }

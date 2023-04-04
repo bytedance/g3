@@ -19,7 +19,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
 
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_yaml::YamlDocPosition;
 
 use super::{EscaperConfig, EscaperConfigDiffAction};
@@ -91,8 +91,8 @@ impl EscaperConfig for DummyDenyEscaperConfig {
         &self.custom_type
     }
 
-    fn resolver(&self) -> &str {
-        ""
+    fn resolver(&self) -> &MetricsName {
+        Default::default()
     }
 
     fn diff_action(&self, new: &AnyEscaperConfig) -> EscaperConfigDiffAction {

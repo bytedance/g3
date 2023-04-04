@@ -24,6 +24,7 @@ use slog::Logger;
 use yaml_rust::{yaml, Yaml};
 
 use g3_daemon::config::sort_nodes_in_dependency_graph;
+use g3_types::metrics::MetricsName;
 use g3_types::net::{TcpConnectConfig, TcpSockSpeedLimitConfig, UdpSockSpeedLimitConfig};
 use g3_yaml::{HybridParser, YamlDocPosition};
 
@@ -63,7 +64,7 @@ pub(crate) trait EscaperConfig {
     fn name(&self) -> &str;
     fn position(&self) -> Option<YamlDocPosition>;
     fn escaper_type(&self) -> &str;
-    fn resolver(&self) -> &str;
+    fn resolver(&self) -> &MetricsName;
 
     fn diff_action(&self, new: &AnyEscaperConfig) -> EscaperConfigDiffAction;
 
@@ -157,7 +158,7 @@ impl AnyEscaperConfig {
     impl_transparent0!(name, &str);
     impl_transparent0!(position, Option<YamlDocPosition>);
     impl_transparent0!(dependent_escaper, Option<BTreeSet<String>>);
-    impl_transparent0!(resolver, &str);
+    impl_transparent0!(resolver, &MetricsName);
 
     impl_transparent1!(diff_action, EscaperConfigDiffAction, &Self);
 }

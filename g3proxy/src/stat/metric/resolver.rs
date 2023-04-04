@@ -25,6 +25,7 @@ use g3_daemon::metric::TAG_KEY_STAT_ID;
 use g3_resolver::{
     ResolveQueryType, ResolverMemorySnapshot, ResolverQuerySnapshot, ResolverSnapshot,
 };
+use g3_types::metrics::MetricsName;
 use g3_types::stats::StatId;
 
 use crate::resolve::ResolverStats;
@@ -53,15 +54,25 @@ static RESOLVER_STATS_MAP: Lazy<Mutex<AHashMap<StatId, ResolverStatsValue>>> =
     Lazy::new(|| Mutex::new(AHashMap::new()));
 
 trait ResolverMetricExt<'m> {
-    fn add_resolver_tags(self, resolver: &'m str, rr_type: &'m str, stat_id: &'m str) -> Self;
+    fn add_resolver_tags(
+        self,
+        resolver: &'m MetricsName,
+        rr_type: &'m str,
+        stat_id: &'m str,
+    ) -> Self;
 }
 
 impl<'m, 'c, T> ResolverMetricExt<'m> for MetricBuilder<'m, 'c, T>
 where
     T: Metric + From<String>,
 {
-    fn add_resolver_tags(self, resolver: &'m str, rr_type: &'m str, stat_id: &'m str) -> Self {
-        self.with_tag(TAG_KEY_RESOLVER, resolver)
+    fn add_resolver_tags(
+        self,
+        resolver: &'m MetricsName,
+        rr_type: &'m str,
+        stat_id: &'m str,
+    ) -> Self {
+        self.with_tag(TAG_KEY_RESOLVER, resolver.as_str())
             .with_tag(TAG_KEY_RR_TYPE, rr_type)
             .with_tag(TAG_KEY_STAT_ID, stat_id)
     }
@@ -133,7 +144,7 @@ fn emit_query_stats_to_statsd(
     client: &StatsdClient,
     stats: &ResolverQuerySnapshot,
     snap: &mut ResolverQuerySnapshot,
-    resolver: &str,
+    resolver: &MetricsName,
     rr_type: ResolveQueryType,
     stat_id: &str,
 ) {
@@ -179,7 +190,7 @@ fn emit_query_stats_to_statsd(
 fn emit_memory_stats_to_statsd(
     client: &StatsdClient,
     stats: &ResolverMemorySnapshot,
-    resolver: &str,
+    resolver: &MetricsName,
     rr_type: ResolveQueryType,
     stat_id: &str,
 ) {

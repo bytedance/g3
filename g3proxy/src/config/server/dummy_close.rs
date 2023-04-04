@@ -17,6 +17,7 @@
 use anyhow::anyhow;
 use yaml_rust::{yaml, Yaml};
 
+use g3_types::metrics::MetricsName;
 use g3_yaml::YamlDocPosition;
 
 use super::ServerConfig;
@@ -78,8 +79,8 @@ impl ServerConfig for DummyCloseServerConfig {
         ""
     }
 
-    fn auditor(&self) -> &str {
-        ""
+    fn auditor(&self) -> &MetricsName {
+        Default::default()
     }
 
     fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction {

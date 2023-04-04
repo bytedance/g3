@@ -24,6 +24,7 @@ use ip_network_table::IpNetworkTable;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_resolver::ResolveError;
+use g3_types::metrics::MetricsName;
 use g3_types::net::{Host, OpensslTlsClientConfig, UpstreamAddr};
 
 use super::{ArcEscaper, Escaper, EscaperInternal, RouteEscaperStats};
@@ -291,7 +292,7 @@ impl Escaper for RouteResolvedEscaper {
 
 #[async_trait]
 impl EscaperInternal for RouteResolvedEscaper {
-    fn _resolver(&self) -> &str {
+    fn _resolver(&self) -> &MetricsName {
         self.config.resolver()
     }
 

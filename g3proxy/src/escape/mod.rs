@@ -22,6 +22,7 @@ use async_trait::async_trait;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::collection::{SelectiveHash, SelectiveItem, SelectivePickPolicy, SelectiveVec};
+use g3_types::metrics::MetricsName;
 use g3_types::net::{Host, HttpForwardCapability, OpensslTlsClientConfig, UpstreamAddr};
 
 use crate::config::escaper::AnyEscaperConfig;
@@ -76,7 +77,7 @@ pub(crate) use ops::{get_escaper, reload, update_dependency_to_resolver};
 /// its notifier, which will lead to missing of the notification.
 #[async_trait]
 pub(crate) trait EscaperInternal {
-    fn _resolver(&self) -> &str;
+    fn _resolver(&self) -> &MetricsName;
     fn _dependent_escaper(&self) -> Option<BTreeSet<String>>;
 
     fn _clone_config(&self) -> AnyEscaperConfig;

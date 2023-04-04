@@ -24,6 +24,7 @@ use slog::Logger;
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_resolver::{ResolveError, ResolveLocalError};
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder};
+use g3_types::metrics::MetricsName;
 use g3_types::net::{Host, OpensslTlsClientConfig, UpstreamAddr, WeightedUpstreamAddr};
 
 use super::{
@@ -84,11 +85,11 @@ impl ProxySocks5Escaper {
 
         let escape_logger = config.get_escape_logger();
 
-        let resolver = config.resolver().to_string();
-        let resolver_handle = if config.resolver.is_empty() {
+        let resolver = config.resolver();
+        let resolver_handle = if resolver.is_empty() {
             None
         } else {
-            Some(crate::resolve::get_handle(&resolver)?)
+            Some(crate::resolve::get_handle(resolver)?)
         };
 
         stats.set_extra_tags(config.extra_metrics_tags.clone());
@@ -246,7 +247,7 @@ impl Escaper for ProxySocks5Escaper {
 
 #[async_trait]
 impl EscaperInternal for ProxySocks5Escaper {
-    fn _resolver(&self) -> &str {
+    fn _resolver(&self) -> &MetricsName {
         self.config.resolver()
     }
 

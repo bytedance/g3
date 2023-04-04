@@ -30,6 +30,7 @@ use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_resolver::ResolveError;
 use g3_socket::util::AddressFamily;
 use g3_types::acl::AclNetworkRule;
+use g3_types::metrics::MetricsName;
 use g3_types::net::{OpensslTlsClientConfig, UpstreamAddr};
 use g3_types::resolve::{ResolveRedirection, ResolveStrategy};
 
@@ -349,7 +350,7 @@ impl Escaper for DirectFloatEscaper {
 
 #[async_trait]
 impl EscaperInternal for DirectFloatEscaper {
-    fn _resolver(&self) -> &str {
+    fn _resolver(&self) -> &MetricsName {
         self.config.resolver()
     }
 

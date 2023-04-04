@@ -29,6 +29,7 @@ use tokio_rustls::{server::TlsStream, TlsAcceptor};
 use g3_daemon::listen::ListenStats;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::collection::{SelectivePickPolicy, SelectiveVec, SelectiveVecBuilder};
+use g3_types::metrics::MetricsName;
 use g3_types::net::{OpensslTlsClientConfig, WeightedUpstreamAddr};
 
 use super::common::CommonTaskContext;
@@ -289,8 +290,8 @@ impl Server for TlsStreamServer {
         String::new()
     }
 
-    fn auditor(&self) -> String {
-        self.config.auditor().to_string()
+    fn auditor(&self) -> &MetricsName {
+        self.config.auditor()
     }
 
     fn get_server_stats(&self) -> Option<ArcServerStats> {

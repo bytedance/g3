@@ -20,25 +20,27 @@ use std::sync::Mutex;
 use anyhow::anyhow;
 use once_cell::sync::Lazy;
 
+use g3_types::metrics::MetricsName;
+
 use super::{ArcIntegratedResolverHandle, BoxResolver};
 use crate::config::resolver::AnyResolverConfig;
 
-static RUNTIME_RESOLVER_REGISTRY: Lazy<Mutex<HashMap<String, BoxResolver>>> =
+static RUNTIME_RESOLVER_REGISTRY: Lazy<Mutex<HashMap<MetricsName, BoxResolver>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
-pub(super) fn add(name: String, resolver: BoxResolver) -> Option<BoxResolver> {
+pub(super) fn add(name: MetricsName, resolver: BoxResolver) -> Option<BoxResolver> {
     let mut ht = RUNTIME_RESOLVER_REGISTRY.lock().unwrap();
     ht.insert(name, resolver)
 }
 
-pub(super) fn del(name: &str) -> Option<BoxResolver> {
+pub(super) fn del(name: &MetricsName) -> Option<BoxResolver> {
     let mut ht = RUNTIME_RESOLVER_REGISTRY.lock().unwrap();
     ht.remove(name)
 }
 
 pub(crate) fn foreach<F>(mut f: F)
 where
-    F: FnMut(&str, &BoxResolver),
+    F: FnMut(&MetricsName, &BoxResolver),
 {
     let ht = RUNTIME_RESOLVER_REGISTRY.lock().unwrap();
     for (name, server) in ht.iter() {
@@ -46,16 +48,16 @@ where
     }
 }
 
-pub(crate) fn get_names() -> HashSet<String> {
+pub(crate) fn get_names() -> HashSet<MetricsName> {
     let mut names = HashSet::new();
     let ht = RUNTIME_RESOLVER_REGISTRY.lock().unwrap();
     for name in ht.keys() {
-        names.insert(name.to_string());
+        names.insert(name.clone());
     }
     names
 }
 
-pub(crate) fn get_handle(name: &str) -> anyhow::Result<ArcIntegratedResolverHandle> {
+pub(crate) fn get_handle(name: &MetricsName) -> anyhow::Result<ArcIntegratedResolverHandle> {
     let ht = RUNTIME_RESOLVER_REGISTRY.lock().unwrap();
     match ht.get(name) {
         Some(resolver) => Ok(resolver.get_handle()),
@@ -63,12 +65,12 @@ pub(crate) fn get_handle(name: &str) -> anyhow::Result<ArcIntegratedResolverHand
     }
 }
 
-pub(super) fn get_config(name: &str) -> Option<AnyResolverConfig> {
+pub(super) fn get_config(name: &MetricsName) -> Option<AnyResolverConfig> {
     let ht = RUNTIME_RESOLVER_REGISTRY.lock().unwrap();
     ht.get(name).map(|resolver| resolver._clone_config())
 }
 
-pub(super) fn update_config(name: &str, config: AnyResolverConfig) -> anyhow::Result<()> {
+pub(super) fn update_config(name: &MetricsName, config: AnyResolverConfig) -> anyhow::Result<()> {
     let mut ht = RUNTIME_RESOLVER_REGISTRY.lock().unwrap();
     if let Some(resolver) = ht.get(name) {
         let mut dep_table = BTreeMap::new();
@@ -89,7 +91,7 @@ pub(super) fn update_config(name: &str, config: AnyResolverConfig) -> anyhow::Re
     }
 }
 
-pub(super) fn update_dependency(name: &str, target: &str) -> anyhow::Result<()> {
+pub(super) fn update_dependency(name: &MetricsName, target: &MetricsName) -> anyhow::Result<()> {
     let mut ht = RUNTIME_RESOLVER_REGISTRY.lock().unwrap();
     if let Some(target_resolver) = ht.get_mut(target) {
         let handle = target_resolver.get_handle();

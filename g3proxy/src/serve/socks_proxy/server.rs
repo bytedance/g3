@@ -28,6 +28,7 @@ use tokio_rustls::server::TlsStream;
 use g3_daemon::listen::ListenStats;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::acl_set::AclDstHostRuleSet;
+use g3_types::metrics::MetricsName;
 
 use super::task::{CommonTaskContext, SocksProxyNegotiationTask};
 use super::SocksProxyServerStats;
@@ -244,8 +245,8 @@ impl Server for SocksProxyServer {
         self.config.user_group().to_string()
     }
 
-    fn auditor(&self) -> String {
-        self.config.auditor().to_string()
+    fn auditor(&self) -> &MetricsName {
+        self.config.auditor()
     }
 
     fn get_server_stats(&self) -> Option<ArcServerStats> {

@@ -94,7 +94,7 @@ impl OrdinaryTcpServerRuntime {
         let mut run_ctx = ServerRunContext::new(
             &self.server.escaper(),
             &self.server.user_group(),
-            &self.server.auditor(),
+            self.server.auditor(),
         );
 
         loop {
@@ -156,7 +156,7 @@ impl OrdinaryTcpServerRuntime {
                             if old_auditor.ne(&new_auditor) {
                                 info!("SRT[{}_v{}#{}] will use auditor '{new_auditor}' instead of '{old_auditor}'",
                                     self.server.name(), self.server_version, self.instance_id);
-                                run_ctx.update_audit_handle(&new_auditor);
+                                run_ctx.update_audit_handle(new_auditor);
                             }
                         }
                         ServerReloadCommand::ReloadEscaper => {
@@ -175,7 +175,7 @@ impl OrdinaryTcpServerRuntime {
                             let auditor_name = self.server.auditor();
                             info!("SRT[{}_v{}#{}] will reload auditor {auditor_name}",
                                 self.server.name(), self.server_version, self.instance_id);
-                            run_ctx.update_audit_handle(&auditor_name);
+                            run_ctx.update_audit_handle(auditor_name);
                         }
                         ServerReloadCommand::QuitRuntime => {
                             info!("SRT[{}_v{}#{}] will go offline",

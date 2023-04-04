@@ -27,6 +27,7 @@ use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_resolver::ResolveError;
 use g3_socket::util::AddressFamily;
 use g3_types::acl::AclNetworkRule;
+use g3_types::metrics::MetricsName;
 use g3_types::net::{Host, OpensslTlsClientConfig, UpstreamAddr};
 use g3_types::resolve::{ResolveRedirection, ResolveStrategy};
 use g3_types::route::EgressPathSelection;
@@ -346,7 +347,7 @@ impl Escaper for DirectFixedEscaper {
 
 #[async_trait]
 impl EscaperInternal for DirectFixedEscaper {
-    fn _resolver(&self) -> &str {
+    fn _resolver(&self) -> &MetricsName {
         self.config.resolver()
     }
 
