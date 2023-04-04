@@ -125,7 +125,7 @@ impl AuxiliaryTcpPortRuntime {
             crate::serve::get_with_notifier(&next_server_name);
         let mut run_ctx = ServerRunContext::new(
             &next_server.escaper(),
-            &next_server.user_group(),
+            next_server.user_group(),
             next_server.auditor(),
         );
 
@@ -185,7 +185,7 @@ impl AuxiliaryTcpPortRuntime {
                             let user_group_name = next_server.user_group();
                             info!("SRT[{}_v{}#{}] will reload user group {user_group_name}",
                                 self.server.name(), self.server_version, self.instance_id);
-                            run_ctx.update_user_group(&user_group_name);
+                            run_ctx.update_user_group(user_group_name);
                         },
                         Ok(ServerReloadCommand::ReloadAuditor) => {
                             let auditor_name = next_server.auditor();
@@ -252,16 +252,16 @@ impl AuxiliaryTcpPortRuntime {
                 // if user group changed, reload it
                 let old_user_group = run_ctx.current_user_group();
                 let new_user_group = next_server.user_group();
-                if old_user_group.ne(&new_user_group) {
+                if old_user_group.ne(new_user_group) {
                     info!("SRT[{}_v{}#{}] will use user group '{new_user_group}' instead of '{old_user_group}'",
                                         self.server.name(), self.server_version, self.instance_id);
-                    run_ctx.update_user_group(&new_user_group);
+                    run_ctx.update_user_group(new_user_group);
                 }
 
                 // if auditor changed, reload it
                 let old_auditor = run_ctx.current_auditor();
                 let new_auditor = next_server.auditor();
-                if old_auditor.ne(&new_auditor) {
+                if old_auditor.ne(new_auditor) {
                     info!("SRT[{}_v{}#{}] will use auditor '{new_auditor}' instead of '{old_auditor}'",
                                         self.server.name(), self.server_version, self.instance_id);
                     run_ctx.update_audit_handle(new_auditor);

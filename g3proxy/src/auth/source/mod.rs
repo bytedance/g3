@@ -22,6 +22,8 @@ use chrono::Utc;
 use futures_util::future::{AbortHandle, Abortable};
 use log::warn;
 
+use g3_types::metrics::MetricsName;
+
 use super::{User, UserGroupConfig};
 use crate::config::auth::{UserConfig, UserDynamicSource};
 
@@ -32,7 +34,7 @@ mod lua;
 mod python;
 
 pub(super) async fn load_initial_users(
-    group: &str,
+    group: &MetricsName,
     source: &UserDynamicSource,
 ) -> anyhow::Result<AHashMap<String, Arc<User>>> {
     let r = match source {

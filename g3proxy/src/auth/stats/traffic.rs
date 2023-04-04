@@ -19,7 +19,7 @@ use std::sync::Arc;
 use arc_swap::ArcSwapOption;
 
 use g3_daemon::stat::remote::*;
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::StatId;
 
 use crate::auth::UserType;
@@ -29,7 +29,7 @@ use crate::stat::types::{
 
 pub(crate) struct UserTrafficStats {
     id: StatId,
-    user_group: String,
+    user_group: MetricsName,
     user: String,
     user_type: UserType,
     server: String,
@@ -44,7 +44,7 @@ pub(crate) struct UserTrafficSnapshot {
 
 impl UserTrafficStats {
     pub(crate) fn new(
-        user_group: &str,
+        user_group: &MetricsName,
         user: &str,
         user_type: UserType,
         server: &str,
@@ -52,7 +52,7 @@ impl UserTrafficStats {
     ) -> Self {
         UserTrafficStats {
             id: StatId::new(),
-            user_group: user_group.to_string(),
+            user_group: user_group.clone(),
             user: user.to_string(),
             user_type,
             server: server.to_string(),
@@ -67,7 +67,7 @@ impl UserTrafficStats {
     }
 
     #[inline]
-    pub(crate) fn user_group(&self) -> &str {
+    pub(crate) fn user_group(&self) -> &MetricsName {
         &self.user_group
     }
 
@@ -94,7 +94,7 @@ impl UserTrafficStats {
 
 pub(crate) struct UserUpstreamTrafficStats {
     id: StatId,
-    user_group: String,
+    user_group: MetricsName,
     user: String,
     user_type: UserType,
     escaper: String,
@@ -109,7 +109,7 @@ pub(crate) struct UserUpstreamTrafficSnapshot {
 
 impl UserUpstreamTrafficStats {
     pub(crate) fn new(
-        user_group: &str,
+        user_group: &MetricsName,
         user: &str,
         user_type: UserType,
         escaper: &str,
@@ -117,7 +117,7 @@ impl UserUpstreamTrafficStats {
     ) -> Self {
         UserUpstreamTrafficStats {
             id: StatId::new(),
-            user_group: user_group.to_string(),
+            user_group: user_group.clone(),
             user: user.to_string(),
             user_type,
             escaper: escaper.to_string(),
@@ -132,7 +132,7 @@ impl UserUpstreamTrafficStats {
     }
 
     #[inline]
-    pub(crate) fn user_group(&self) -> &str {
+    pub(crate) fn user_group(&self) -> &MetricsName {
         &self.user_group
     }
 

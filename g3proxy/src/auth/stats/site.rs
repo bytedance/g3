@@ -26,7 +26,7 @@ use crate::auth::UserType;
 
 pub(crate) struct UserSiteStats {
     user: String,
-    user_group: String,
+    user_group: MetricsName,
     site_id: MetricsName,
     pub(crate) request: Mutex<AHashMap<String, Arc<UserRequestStats>>>,
     pub(crate) client_io: Mutex<AHashMap<String, Arc<UserTrafficStats>>>,
@@ -34,10 +34,10 @@ pub(crate) struct UserSiteStats {
 }
 
 impl UserSiteStats {
-    pub(crate) fn new(user: &str, user_group: &str, site_id: &MetricsName) -> Self {
+    pub(crate) fn new(user: &str, user_group: &MetricsName, site_id: &MetricsName) -> Self {
         UserSiteStats {
             user: user.to_string(),
-            user_group: user_group.to_string(),
+            user_group: user_group.clone(),
             site_id: site_id.clone(),
             request: Mutex::new(AHashMap::new()),
             client_io: Mutex::new(AHashMap::new()),

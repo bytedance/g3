@@ -93,7 +93,7 @@ impl OrdinaryTcpServerRuntime {
 
         let mut run_ctx = ServerRunContext::new(
             &self.server.escaper(),
-            &self.server.user_group(),
+            self.server.user_group(),
             self.server.auditor(),
         );
 
@@ -144,16 +144,16 @@ impl OrdinaryTcpServerRuntime {
                             // if user group changed, reload it
                             let old_user_group = run_ctx.current_user_group();
                             let new_user_group = self.server.user_group();
-                            if old_user_group.ne(&new_user_group) {
+                            if old_user_group.ne(new_user_group) {
                                 info!("SRT[{}_v{}#{}] will use user group '{new_user_group}' instead of '{old_user_group}'",
                                     self.server.name(), self.server_version, self.instance_id);
-                                run_ctx.update_user_group(&new_user_group);
+                                run_ctx.update_user_group(new_user_group);
                             }
 
                             // if auditor changed, reload it
                             let old_auditor = run_ctx.current_auditor();
                             let new_auditor = self.server.auditor();
-                            if old_auditor.ne(&new_auditor) {
+                            if old_auditor.ne(new_auditor) {
                                 info!("SRT[{}_v{}#{}] will use auditor '{new_auditor}' instead of '{old_auditor}'",
                                     self.server.name(), self.server_version, self.instance_id);
                                 run_ctx.update_audit_handle(new_auditor);
@@ -169,7 +169,7 @@ impl OrdinaryTcpServerRuntime {
                             let user_group_name = self.server.user_group();
                             info!("SRT[{}_v{}#{}] will reload user group {user_group_name}",
                                 self.server.name(), self.server_version, self.instance_id);
-                            run_ctx.update_user_group(&user_group_name);
+                            run_ctx.update_user_group(user_group_name);
                         }
                         ServerReloadCommand::ReloadAuditor => {
                             let auditor_name = self.server.auditor();

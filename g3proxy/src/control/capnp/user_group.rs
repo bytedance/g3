@@ -18,6 +18,8 @@ use std::sync::Arc;
 
 use capnp::capability::Promise;
 
+use g3_types::metrics::MetricsName;
+
 use g3proxy_proto::user_group_capnp::user_group_control;
 
 use crate::auth::UserGroup;
@@ -28,7 +30,8 @@ pub(super) struct UserGroupControlImpl {
 
 impl UserGroupControlImpl {
     pub(super) fn new_client(name: &str) -> user_group_control::Client {
-        let user_group = crate::auth::get_or_insert_default(name);
+        let name = unsafe { MetricsName::from_str_unchecked(name) };
+        let user_group = crate::auth::get_or_insert_default(&name);
         capnp_rpc::new_client(UserGroupControlImpl { user_group })
     }
 }

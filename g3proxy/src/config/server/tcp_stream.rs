@@ -261,8 +261,8 @@ impl ServerConfig for TcpStreamServerConfig {
         &self.escaper
     }
 
-    fn user_group(&self) -> &str {
-        ""
+    fn user_group(&self) -> &MetricsName {
+        Default::default()
     }
 
     fn auditor(&self) -> &MetricsName {

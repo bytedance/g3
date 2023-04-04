@@ -21,6 +21,7 @@ use std::time::Duration;
 use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
 
+use g3_types::metrics::MetricsName;
 use g3_yaml::YamlDocPosition;
 
 use super::{UserConfig, UserDynamicSource};
@@ -29,7 +30,7 @@ const DEFAULT_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 
 #[derive(Clone)]
 pub(crate) struct UserGroupConfig {
-    name: String,
+    name: MetricsName,
     position: Option<YamlDocPosition>,
     pub(crate) static_users: HashMap<String, Arc<UserConfig>>,
     pub(crate) dynamic_source: Option<UserDynamicSource>,
@@ -37,7 +38,7 @@ pub(crate) struct UserGroupConfig {
 }
 
 impl UserGroupConfig {
-    pub(crate) fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &MetricsName {
         &self.name
     }
 
@@ -45,9 +46,9 @@ impl UserGroupConfig {
         self.position.clone()
     }
 
-    pub(crate) fn empty(name: &str) -> Self {
+    pub(crate) fn empty(name: &MetricsName) -> Self {
         UserGroupConfig {
-            name: name.to_string(),
+            name: name.clone(),
             position: None,
             static_users: HashMap::new(),
             dynamic_source: None,
@@ -57,7 +58,7 @@ impl UserGroupConfig {
 
     pub(crate) fn new(position: Option<YamlDocPosition>) -> Self {
         UserGroupConfig {
-            name: String::new(),
+            name: MetricsName::default(),
             position,
             static_users: HashMap::new(),
             dynamic_source: None,
@@ -82,12 +83,8 @@ impl UserGroupConfig {
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
         match g3_yaml::key::normalize(k).as_str() {
             "name" => {
-                if let Yaml::String(name) = v {
-                    self.name.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.name = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "static_users" => {
                 if let Yaml::Array(seq) = v {

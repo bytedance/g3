@@ -107,7 +107,7 @@ impl IntelliProxyRuntime {
             crate::serve::get_with_notifier(&self.config.http_server);
         let mut http_run_ctx = ServerRunContext::new(
             &http_next_server.escaper(),
-            &http_next_server.user_group(),
+            http_next_server.user_group(),
             http_next_server.auditor(),
         );
 
@@ -115,7 +115,7 @@ impl IntelliProxyRuntime {
             crate::serve::get_with_notifier(&self.config.socks_server);
         let mut socks_run_ctx = ServerRunContext::new(
             &socks_next_server.escaper(),
-            &socks_next_server.user_group(),
+            socks_next_server.user_group(),
             socks_next_server.auditor(),
         );
 
@@ -176,7 +176,7 @@ impl IntelliProxyRuntime {
                             let user_group_name = http_next_server.user_group();
                             info!("SRT[{}_v{}#{}] will reload http user group {user_group_name}",
                                 self.config.name(), self.server_version, self.instance_id);
-                            http_run_ctx.update_user_group(&user_group_name);
+                            http_run_ctx.update_user_group(user_group_name);
                         },
                         Ok(ServerReloadCommand::ReloadAuditor) => {
                             let auditor_name = http_next_server.auditor();
@@ -213,7 +213,7 @@ impl IntelliProxyRuntime {
                             let user_group_name = socks_next_server.user_group();
                             info!("SRT[{}_v{}#{}] will reload socks user group {user_group_name}",
                                 self.config.name(), self.server_version, self.instance_id);
-                            socks_run_ctx.update_user_group(&user_group_name);
+                            socks_run_ctx.update_user_group(user_group_name);
                         },
                         Ok(ServerReloadCommand::ReloadAuditor) => {
                             let auditor_name = socks_next_server.auditor();
@@ -281,16 +281,16 @@ impl IntelliProxyRuntime {
                 // if user group changed, reload it
                 let old_user_group = http_run_ctx.current_user_group();
                 let new_user_group = http_next_server.user_group();
-                if old_user_group.ne(&new_user_group) {
+                if old_user_group.ne(new_user_group) {
                     info!("SRT[{}_v{}#{}] will use http user group '{new_user_group}' instead of '{old_user_group}'",
                                     self.config.name(), self.server_version, self.instance_id);
-                    http_run_ctx.update_user_group(&new_user_group);
+                    http_run_ctx.update_user_group(new_user_group);
                 }
 
                 // if auditor changed, reload it
                 let old_auditor = http_run_ctx.current_auditor();
                 let new_auditor = http_next_server.auditor();
-                if old_auditor.ne(&new_auditor) {
+                if old_auditor.ne(new_auditor) {
                     info!("SRT[{}_v{}#{}] will use http auditor '{new_auditor}' instead of '{old_auditor}'",
                                     self.config.name(), self.server_version, self.instance_id);
                     http_run_ctx.update_audit_handle(new_auditor);
@@ -314,16 +314,16 @@ impl IntelliProxyRuntime {
                 // if user group changed, reload it
                 let old_user_group = socks_run_ctx.current_user_group();
                 let new_user_group = socks_next_server.user_group();
-                if old_user_group.ne(&new_user_group) {
+                if old_user_group.ne(new_user_group) {
                     info!("SRT[{}_v{}#{}] will use socks user group '{new_user_group}' instead of '{old_user_group}'",
                                     self.config.name(), self.server_version, self.instance_id);
-                    socks_run_ctx.update_user_group(&new_user_group);
+                    socks_run_ctx.update_user_group(new_user_group);
                 }
 
                 // if auditor changed, reload it
                 let old_auditor = socks_run_ctx.current_auditor();
                 let new_auditor = socks_next_server.auditor();
-                if old_auditor.ne(&new_auditor) {
+                if old_auditor.ne(new_auditor) {
                     info!("SRT[{}_v{}#{}] will use socks auditor '{new_auditor}' instead of '{old_auditor}'",
                                     self.config.name(), self.server_version, self.instance_id);
                     socks_run_ctx.update_audit_handle(new_auditor);

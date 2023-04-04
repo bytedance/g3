@@ -65,7 +65,7 @@ pub(crate) struct SocksProxyServerConfig {
     position: Option<YamlDocPosition>,
     pub(crate) escaper: String,
     pub(crate) auditor: MetricsName,
-    pub(crate) user_group: String,
+    pub(crate) user_group: MetricsName,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) listen: TcpListenConfig,
     pub(crate) listen_in_worker: bool,
@@ -97,7 +97,7 @@ impl SocksProxyServerConfig {
             position,
             escaper: String::new(),
             auditor: MetricsName::default(),
-            user_group: String::new(),
+            user_group: MetricsName::default(),
             shared_logger: None,
             listen: TcpListenConfig::default(),
             listen_in_worker: false,
@@ -155,7 +155,7 @@ impl SocksProxyServerConfig {
                 Ok(())
             }
             "user_group" => {
-                self.user_group = g3_yaml::value::as_string(v)?;
+                self.user_group = g3_yaml::value::as_metrics_name(v)?;
                 Ok(())
             }
             "shared_logger" => {
@@ -338,7 +338,7 @@ impl ServerConfig for SocksProxyServerConfig {
         &self.escaper
     }
 
-    fn user_group(&self) -> &str {
+    fn user_group(&self) -> &MetricsName {
         &self.user_group
     }
 

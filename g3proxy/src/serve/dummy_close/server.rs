@@ -139,8 +139,8 @@ impl Server for DummyCloseServer {
         String::new()
     }
 
-    fn user_group(&self) -> String {
-        String::new()
+    fn user_group(&self) -> &MetricsName {
+        Default::default()
     }
 
     fn auditor(&self) -> &MetricsName {

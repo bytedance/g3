@@ -18,7 +18,7 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
 
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::StatId;
 
 use crate::auth::UserType;
@@ -29,7 +29,7 @@ use crate::stat::types::{
 
 pub(crate) struct UserRequestStats {
     id: StatId,
-    user_group: String,
+    user_group: MetricsName,
     user: String,
     user_type: UserType,
     server: String,
@@ -54,7 +54,7 @@ pub(crate) struct UserRequestSnapshot {
 
 impl UserRequestStats {
     pub(crate) fn new(
-        user_group: &str,
+        user_group: &MetricsName,
         user: &str,
         user_type: UserType,
         server: &str,
@@ -62,7 +62,7 @@ impl UserRequestStats {
     ) -> Self {
         UserRequestStats {
             id: StatId::new(),
-            user_group: user_group.to_string(),
+            user_group: user_group.clone(),
             user: user.to_string(),
             user_type,
             server: server.to_string(),
@@ -83,7 +83,7 @@ impl UserRequestStats {
     }
 
     #[inline]
-    pub(crate) fn user_group(&self) -> &str {
+    pub(crate) fn user_group(&self) -> &MetricsName {
         &self.user_group
     }
 

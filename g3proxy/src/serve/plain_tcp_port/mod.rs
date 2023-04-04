@@ -230,8 +230,8 @@ impl Server for PlainTcpPort {
         String::new()
     }
 
-    fn user_group(&self) -> String {
-        String::new()
+    fn user_group(&self) -> &MetricsName {
+        Default::default()
     }
 
     fn auditor(&self) -> &MetricsName {

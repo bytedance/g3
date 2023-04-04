@@ -29,7 +29,7 @@ use g3_types::acl::AclAction;
 use g3_types::acl_set::AclDstHostRuleSet;
 use g3_types::auth::UserAuthError;
 use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit};
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::net::{ProxyRequestType, UpstreamAddr};
 use g3_types::resolve::{ResolveRedirection, ResolveStrategy};
 
@@ -41,7 +41,7 @@ use crate::config::auth::UserConfig;
 
 pub(crate) struct User {
     pub(crate) config: Arc<UserConfig>,
-    group: String,
+    group: MetricsName,
     started: Instant,
     is_expired: AtomicBool,
     is_blocked: Arc<AtomicBool>,
@@ -85,7 +85,11 @@ impl User {
             .map(|builder| builder.build());
     }
 
-    pub(super) fn new(group: &str, config: &Arc<UserConfig>, datetime_now: &DateTime<Utc>) -> Self {
+    pub(super) fn new(
+        group: &MetricsName,
+        config: &Arc<UserConfig>,
+        datetime_now: &DateTime<Utc>,
+    ) -> Self {
         let request_rate_limit = config
             .request_rate_limit
             .as_ref()
@@ -106,7 +110,7 @@ impl User {
 
         let mut user = User {
             config: Arc::clone(config),
-            group: group.to_string(),
+            group: group.clone(),
             started: Instant::now(),
             is_expired,
             is_blocked,

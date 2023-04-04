@@ -90,7 +90,7 @@ pub(crate) struct ServerRunContext {
 }
 
 impl ServerRunContext {
-    pub(crate) fn new(escaper: &str, user_group: &str, auditor: &MetricsName) -> Self {
+    pub(crate) fn new(escaper: &str, user_group: &MetricsName, auditor: &MetricsName) -> Self {
         let mut ctx = ServerRunContext {
             escaper: crate::escape::get_or_insert_default(escaper),
             user_group: None,
@@ -110,14 +110,14 @@ impl ServerRunContext {
         self.escaper = crate::escape::get_or_insert_default(escaper);
     }
 
-    pub(crate) fn current_user_group(&self) -> &str {
+    pub(crate) fn current_user_group(&self) -> &MetricsName {
         self.user_group
             .as_ref()
             .map(|ug| ug.name())
             .unwrap_or_default()
     }
 
-    pub(crate) fn update_user_group(&mut self, user_group: &str) {
+    pub(crate) fn update_user_group(&mut self, user_group: &MetricsName) {
         if user_group.is_empty() {
             self.user_group = None;
         } else {
@@ -171,7 +171,7 @@ pub(crate) trait Server: ServerInternal {
     fn name(&self) -> &str;
     fn version(&self) -> usize;
     fn escaper(&self) -> String;
-    fn user_group(&self) -> String;
+    fn user_group(&self) -> &MetricsName;
     fn auditor(&self) -> &MetricsName;
 
     fn get_server_stats(&self) -> Option<ArcServerStats> {

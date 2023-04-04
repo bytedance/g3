@@ -22,6 +22,8 @@ use chrono::Utc;
 use futures_util::future::AbortHandle;
 use log::{info, warn};
 
+use g3_types::metrics::MetricsName;
+
 use crate::config::auth::UserGroupConfig;
 
 mod ops;
@@ -79,7 +81,7 @@ impl Drop for UserGroup {
 }
 
 impl UserGroup {
-    pub(crate) fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &MetricsName {
         self.config.name()
     }
 
@@ -92,7 +94,7 @@ impl UserGroup {
         }
     }
 
-    fn new_no_config(name: &str) -> Arc<Self> {
+    fn new_no_config(name: &MetricsName) -> Arc<Self> {
         let config = UserGroupConfig::empty(name);
         Arc::new(Self::new_without_users(config))
     }

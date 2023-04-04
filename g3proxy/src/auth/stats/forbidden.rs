@@ -19,14 +19,14 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
 
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::StatId;
 
 use crate::auth::UserType;
 
 pub(crate) struct UserForbiddenStats {
     id: StatId,
-    user_group: String,
+    user_group: MetricsName,
     user: String,
     user_type: UserType,
     server: String,
@@ -59,7 +59,7 @@ pub(crate) struct UserForbiddenSnapshot {
 
 impl UserForbiddenStats {
     pub(crate) fn new(
-        user_group: &str,
+        user_group: &MetricsName,
         user: &str,
         user_type: UserType,
         server: &str,
@@ -67,7 +67,7 @@ impl UserForbiddenStats {
     ) -> Self {
         UserForbiddenStats {
             id: StatId::new(),
-            user_group: user_group.to_string(),
+            user_group: user_group.clone(),
             user: user.to_string(),
             user_type,
             server: server.to_string(),
@@ -91,7 +91,7 @@ impl UserForbiddenStats {
     }
 
     #[inline]
-    pub(crate) fn user_group(&self) -> &str {
+    pub(crate) fn user_group(&self) -> &MetricsName {
         &self.user_group
     }
 

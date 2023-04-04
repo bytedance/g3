@@ -35,7 +35,7 @@ pub(super) struct UserSite {
 }
 
 impl UserSite {
-    fn new(config: &Arc<UserSiteConfig>, user: &str, user_group: &str) -> Self {
+    fn new(config: &Arc<UserSiteConfig>, user: &str, user_group: &MetricsName) -> Self {
         UserSite {
             config: Arc::clone(config),
             stats: Arc::new(UserSiteStats::new(user, user_group, &config.id)),
@@ -143,7 +143,7 @@ impl UserSites {
     pub(super) fn new<'a, T: Iterator<Item = &'a Arc<UserSiteConfig>>>(
         sites: T,
         user: &str,
-        user_group: &str,
+        user_group: &MetricsName,
     ) -> Self {
         Self::build(sites, |site_config| {
             UserSite::new(site_config, user, user_group)
@@ -154,7 +154,7 @@ impl UserSites {
         &self,
         sites: T,
         user: &str,
-        user_group: &str,
+        user_group: &MetricsName,
     ) -> Self {
         Self::build(sites, |site_config| {
             if let Some(old) = self.all_sites.get(&site_config.id) {

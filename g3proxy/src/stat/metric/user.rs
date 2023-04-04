@@ -24,7 +24,7 @@ use once_cell::sync::Lazy;
 use g3_daemon::metric::{
     MetricTransportType, TAG_KEY_CONNECTION, TAG_KEY_REQUEST, TAG_KEY_STAT_ID, TAG_KEY_TRANSPORT,
 };
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
 
 use super::{MetricUserConnectionType, MetricUserRequestType};
@@ -112,7 +112,7 @@ static USER_UPSTREAM_TRAFFIC_STATS_MAP: Lazy<Mutex<AHashMap<StatId, UpstreamTraf
 trait UserMetricExt<'m> {
     fn add_user_request_tags(
         self,
-        user_group: &'m str,
+        user_group: &'m MetricsName,
         user: &'m str,
         user_type: &'m str,
         server: &'m str,
@@ -120,7 +120,7 @@ trait UserMetricExt<'m> {
     ) -> Self;
     fn add_user_traffic_tags(
         self,
-        user_group: &'m str,
+        user_group: &'m MetricsName,
         user: &'m str,
         user_type: &'m str,
         server: &'m str,
@@ -129,7 +129,7 @@ trait UserMetricExt<'m> {
     ) -> Self;
     fn add_user_upstream_traffic_tags(
         self,
-        user_group: &'m str,
+        user_group: &'m MetricsName,
         user: &'m str,
         user_type: &'m str,
         escaper: &'m str,
@@ -145,13 +145,13 @@ where
 {
     fn add_user_request_tags(
         self,
-        user_group: &'m str,
+        user_group: &'m MetricsName,
         user: &'m str,
         user_type: &'m str,
         server: &'m str,
         stat_id: &'m str,
     ) -> Self {
-        self.with_tag(TAG_KEY_USER_GROUP, user_group)
+        self.with_tag(TAG_KEY_USER_GROUP, user_group.as_str())
             .with_tag(TAG_KEY_USER, user)
             .with_tag(TAG_KEY_USER_TYPE, user_type)
             .with_tag(TAG_KEY_STAT_ID, stat_id)
@@ -160,7 +160,7 @@ where
 
     fn add_user_traffic_tags(
         self,
-        user_group: &'m str,
+        user_group: &'m MetricsName,
         user: &'m str,
         user_type: &'m str,
         server: &'m str,
@@ -173,14 +173,14 @@ where
 
     fn add_user_upstream_traffic_tags(
         self,
-        user_group: &'m str,
+        user_group: &'m MetricsName,
         user: &'m str,
         user_type: &'m str,
         escaper: &'m str,
         trans_type: MetricTransportType,
         stat_id: &'m str,
     ) -> Self {
-        self.with_tag(TAG_KEY_USER_GROUP, user_group)
+        self.with_tag(TAG_KEY_USER_GROUP, user_group.as_str())
             .with_tag(TAG_KEY_USER, user)
             .with_tag(TAG_KEY_USER_TYPE, user_type)
             .with_tag(TAG_KEY_STAT_ID, stat_id)

@@ -65,7 +65,7 @@ pub(crate) struct HttpProxyServerConfig {
     position: Option<YamlDocPosition>,
     pub(crate) escaper: String,
     pub(crate) auditor: MetricsName,
-    pub(crate) user_group: String,
+    pub(crate) user_group: MetricsName,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) listen: TcpListenConfig,
     pub(crate) listen_in_worker: bool,
@@ -107,7 +107,7 @@ impl HttpProxyServerConfig {
             position,
             escaper: String::new(),
             auditor: MetricsName::default(),
-            user_group: String::new(),
+            user_group: MetricsName::default(),
             shared_logger: None,
             listen: TcpListenConfig::default(),
             listen_in_worker: false,
@@ -175,7 +175,7 @@ impl HttpProxyServerConfig {
                 Ok(())
             }
             "user_group" => {
-                self.user_group = g3_yaml::value::as_string(v)?;
+                self.user_group = g3_yaml::value::as_metrics_name(v)?;
                 Ok(())
             }
             "shared_logger" => {
@@ -414,7 +414,7 @@ impl ServerConfig for HttpProxyServerConfig {
         &self.escaper
     }
 
-    fn user_group(&self) -> &str {
+    fn user_group(&self) -> &MetricsName {
         &self.user_group
     }
 

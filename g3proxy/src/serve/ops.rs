@@ -168,7 +168,7 @@ pub(crate) async fn update_dependency_to_escaper(escaper: &str, status: &str) {
     }
 }
 
-pub(crate) async fn update_dependency_to_user_group(user_group: &str, status: &str) {
+pub(crate) async fn update_dependency_to_user_group(user_group: &MetricsName, status: &str) {
     let _guard = SERVER_OPS_LOCK.lock().await;
 
     let mut names = Vec::<String>::new();

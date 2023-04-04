@@ -66,7 +66,7 @@ pub(crate) trait ServerConfig {
     fn server_type(&self) -> &'static str;
 
     fn escaper(&self) -> &str;
-    fn user_group(&self) -> &str;
+    fn user_group(&self) -> &MetricsName;
     fn auditor(&self) -> &MetricsName;
 
     fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction;
@@ -154,7 +154,7 @@ impl AnyServerConfig {
     impl_transparent0!(server_type, &'static str);
     impl_transparent0!(dependent_server, Option<BTreeSet<String>>);
     impl_transparent0!(escaper, &str);
-    impl_transparent0!(user_group, &str);
+    impl_transparent0!(user_group, &MetricsName);
     impl_transparent0!(auditor, &MetricsName);
 
     impl_transparent1!(diff_action, ServerConfigDiffAction, &Self);

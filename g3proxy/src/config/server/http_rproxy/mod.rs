@@ -67,7 +67,7 @@ pub(crate) struct HttpRProxyServerConfig {
     name: String,
     position: Option<YamlDocPosition>,
     pub(crate) escaper: String,
-    pub(crate) user_group: String,
+    pub(crate) user_group: MetricsName,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) listen: TcpListenConfig,
     pub(crate) listen_in_worker: bool,
@@ -103,7 +103,7 @@ impl HttpRProxyServerConfig {
             name: String::new(),
             position,
             escaper: String::new(),
-            user_group: String::new(),
+            user_group: MetricsName::default(),
             shared_logger: None,
             listen: TcpListenConfig::default(),
             listen_in_worker: false,
@@ -162,7 +162,7 @@ impl HttpRProxyServerConfig {
                 Ok(())
             }
             "user_group" => {
-                self.user_group = g3_yaml::value::as_string(v)?;
+                self.user_group = g3_yaml::value::as_metrics_name(v)?;
                 Ok(())
             }
             "shared_logger" => {
@@ -364,7 +364,7 @@ impl ServerConfig for HttpRProxyServerConfig {
         &self.escaper
     }
 
-    fn user_group(&self) -> &str {
+    fn user_group(&self) -> &MetricsName {
         &self.user_group
     }
 

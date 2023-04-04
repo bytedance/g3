@@ -20,15 +20,17 @@ use std::sync::{Arc, Mutex};
 use anyhow::anyhow;
 use once_cell::sync::Lazy;
 
+use g3_types::metrics::MetricsName;
+
 use super::UserGroup;
 use crate::config::auth::UserGroupConfig;
 
-static RUNTIME_USER_GROUP_REGISTRY: Lazy<Mutex<HashMap<String, Arc<UserGroup>>>> =
+static RUNTIME_USER_GROUP_REGISTRY: Lazy<Mutex<HashMap<MetricsName, Arc<UserGroup>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
 fn foreach<F>(mut f: F)
 where
-    F: FnMut(&str, &Arc<UserGroup>),
+    F: FnMut(&MetricsName, &Arc<UserGroup>),
 {
     let ht = RUNTIME_USER_GROUP_REGISTRY.lock().unwrap();
     for (name, user_group) in ht.iter() {
@@ -44,31 +46,31 @@ pub(crate) fn get_all_groups() -> Vec<Arc<UserGroup>> {
     groups
 }
 
-pub(super) fn add(name: String, group: Arc<UserGroup>) {
+pub(super) fn add(name: MetricsName, group: Arc<UserGroup>) {
     let mut ht = RUNTIME_USER_GROUP_REGISTRY.lock().unwrap();
     if let Some(_old_group) = ht.insert(name, group) {}
 }
 
-fn get(name: &str) -> Option<Arc<UserGroup>> {
+fn get(name: &MetricsName) -> Option<Arc<UserGroup>> {
     let ht = RUNTIME_USER_GROUP_REGISTRY.lock().unwrap();
     ht.get(name).map(Arc::clone)
 }
 
-pub(super) fn del(name: &str) {
+pub(super) fn del(name: &MetricsName) {
     let mut ht = RUNTIME_USER_GROUP_REGISTRY.lock().unwrap();
     if let Some(_old_group) = ht.remove(name) {}
 }
 
-pub(crate) fn get_names() -> HashSet<String> {
+pub(crate) fn get_names() -> HashSet<MetricsName> {
     let mut names = HashSet::new();
     let ht = RUNTIME_USER_GROUP_REGISTRY.lock().unwrap();
     for key in ht.keys() {
-        names.insert(key.to_string());
+        names.insert(key.clone());
     }
     names
 }
 
-pub(super) fn get_config(name: &str) -> Option<UserGroupConfig> {
+pub(super) fn get_config(name: &MetricsName) -> Option<UserGroupConfig> {
     let ht = RUNTIME_USER_GROUP_REGISTRY.lock().unwrap();
     if let Some(group) = ht.get(name) {
         let config = &*group.config;
@@ -78,7 +80,10 @@ pub(super) fn get_config(name: &str) -> Option<UserGroupConfig> {
     }
 }
 
-pub(super) fn reload_existed(name: &str, config: Option<UserGroupConfig>) -> anyhow::Result<()> {
+pub(super) fn reload_existed(
+    name: &MetricsName,
+    config: Option<UserGroupConfig>,
+) -> anyhow::Result<()> {
     let old_group = match get(name) {
         Some(group) => group,
         None => return Err(anyhow!("no user group with name {name} found")),
@@ -95,13 +100,13 @@ pub(super) fn reload_existed(name: &str, config: Option<UserGroupConfig>) -> any
     // the reload method is allowed to hold a registry lock
     // a tokio mutex is needed if we lock this await inside
     let group = old_group.reload(config)?;
-    add(name.to_string(), group);
+    add(name.clone(), group);
     Ok(())
 }
 
-pub(crate) fn get_or_insert_default(name: &str) -> Arc<UserGroup> {
+pub(crate) fn get_or_insert_default(name: &MetricsName) -> Arc<UserGroup> {
     let mut ht = RUNTIME_USER_GROUP_REGISTRY.lock().unwrap();
-    ht.entry(name.to_string())
+    ht.entry(name.clone())
         .or_insert_with(|| UserGroup::new_no_config(name))
         .clone()
 }

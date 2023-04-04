@@ -50,7 +50,7 @@ macro_rules! impl_reload2 {
     };
 }
 
-impl_reload!(reload_user_group, auth);
+impl_reload2!(reload_user_group, auth);
 impl_reload2!(reload_auditor, audit);
 impl_reload2!(reload_resolver, resolve);
 impl_reload!(reload_escaper, escape);

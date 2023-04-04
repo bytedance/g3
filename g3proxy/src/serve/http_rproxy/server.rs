@@ -327,8 +327,8 @@ impl Server for HttpRProxyServer {
         self.config.escaper().to_string()
     }
 
-    fn user_group(&self) -> String {
-        self.config.user_group().to_string()
+    fn user_group(&self) -> &MetricsName {
+        self.config.user_group()
     }
 
     fn auditor(&self) -> &MetricsName {

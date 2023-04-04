@@ -21,6 +21,7 @@ use log::debug;
 use once_cell::sync::Lazy;
 use tokio::sync::Mutex;
 
+use g3_types::metrics::MetricsName;
 use g3_yaml::YamlDocPosition;
 
 use super::registry;
@@ -32,12 +33,12 @@ static USER_GROUP_OPS_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 pub async fn load_all() -> anyhow::Result<()> {
     let _guard = USER_GROUP_OPS_LOCK.lock().await;
 
-    let mut new_names = HashSet::<String>::new();
+    let mut new_names = HashSet::<MetricsName>::new();
 
     let all_config = crate::config::auth::get_all();
     for config in all_config {
         let name = config.name();
-        new_names.insert(name.to_string());
+        new_names.insert(name.clone());
         match registry::get_config(name) {
             Some(old) => {
                 debug!("reloading user group {name}");
@@ -64,7 +65,10 @@ pub async fn load_all() -> anyhow::Result<()> {
     Ok(())
 }
 
-pub(crate) async fn reload(name: &str, position: Option<YamlDocPosition>) -> anyhow::Result<()> {
+pub(crate) async fn reload(
+    name: &MetricsName,
+    position: Option<YamlDocPosition>,
+) -> anyhow::Result<()> {
     let _guard = USER_GROUP_OPS_LOCK.lock().await;
 
     let old_config = match registry::get_config(name) {
@@ -112,7 +116,7 @@ async fn reload_old_unlocked(old: UserGroupConfig, new: UserGroupConfig) -> anyh
 }
 
 async fn spawn_new_unlocked(config: UserGroupConfig) -> anyhow::Result<()> {
-    let name = config.name().to_string();
+    let name = config.name().clone();
     let group = UserGroup::new_with_config(config).await?;
     registry::add(name.clone(), group);
     crate::serve::update_dependency_to_user_group(&name, "spawned").await;
