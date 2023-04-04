@@ -34,7 +34,7 @@ const ESCAPER_CONFIG_TYPE: &str = "DirectFixed";
 
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct DirectFixedEscaperConfig {
-    pub(crate) name: String,
+    pub(crate) name: MetricsName,
     position: Option<YamlDocPosition>,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) bind4: Vec<IpAddr>,
@@ -57,7 +57,7 @@ pub(crate) struct DirectFixedEscaperConfig {
 impl DirectFixedEscaperConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         DirectFixedEscaperConfig {
-            name: String::new(),
+            name: MetricsName::default(),
             position,
             shared_logger: None,
             bind4: Vec::new(),
@@ -94,12 +94,8 @@ impl DirectFixedEscaperConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                if let Yaml::String(name) = v {
-                    self.name.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.name = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "shared_logger" => {
                 let name = g3_yaml::value::as_ascii(v)?;
@@ -233,8 +229,8 @@ impl DirectFixedEscaperConfig {
 }
 
 impl EscaperConfig for DirectFixedEscaperConfig {
-    fn name(&self) -> &str {
-        self.name.as_str()
+    fn name(&self) -> &MetricsName {
+        &self.name
     }
 
     fn position(&self) -> Option<YamlDocPosition> {

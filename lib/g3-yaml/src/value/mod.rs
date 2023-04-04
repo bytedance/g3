@@ -31,7 +31,7 @@ pub use auth::{as_password, as_username};
 pub use collection::as_selective_pick_policy;
 pub use datetime::as_rfc3339_datetime;
 pub use fs::{as_absolute_path, as_config_file_format, as_file, as_file_path};
-pub use metrics::{as_metrics_name, as_static_metrics_tags};
+pub use metrics::{as_metrics_name, as_static_metrics_tags, as_weighted_metrics_name};
 pub use net::*;
 pub use primary::{
     as_ascii, as_bool, as_f64, as_hashmap, as_i32, as_i64, as_list, as_nonzero_u32, as_string,

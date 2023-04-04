@@ -16,6 +16,7 @@
 
 use async_trait::async_trait;
 
+use g3_types::metrics::MetricsName;
 use g3_types::net::UpstreamAddr;
 
 use super::{
@@ -26,14 +27,14 @@ use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
 use crate::serve::ServerTaskNotes;
 
 pub(crate) struct DenyFtpConnectContext {
-    escaper_name: String,
+    escaper_name: MetricsName,
     control_error: Option<TcpConnectError>,
 }
 
 impl DenyFtpConnectContext {
-    pub(crate) fn new(escaper_name: &str, error: Option<TcpConnectError>) -> Self {
+    pub(crate) fn new(escaper_name: &MetricsName, error: Option<TcpConnectError>) -> Self {
         DenyFtpConnectContext {
-            escaper_name: escaper_name.to_string(),
+            escaper_name: escaper_name.clone(),
             control_error: error,
         }
     }

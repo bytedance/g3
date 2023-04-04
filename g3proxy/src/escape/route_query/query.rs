@@ -29,6 +29,7 @@ use uuid::Uuid;
 
 use g3_io_ext::{EffectiveCacheData, EffectiveQueryHandle};
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder, WeightedValue};
+use g3_types::metrics::MetricsName;
 
 use super::cache::CacheQueryKey;
 use super::RouteQueryEscaperConfig;
@@ -36,7 +37,7 @@ use super::RouteQueryEscaperConfig;
 pub(super) struct QueryRuntime {
     config: Arc<RouteQueryEscaperConfig>,
     socket: UdpSocket,
-    query_handle: EffectiveQueryHandle<CacheQueryKey, SelectiveVec<WeightedValue<String>>>,
+    query_handle: EffectiveQueryHandle<CacheQueryKey, SelectiveVec<WeightedValue<MetricsName>>>,
     id_key_map: AHashMap<Uuid, Arc<CacheQueryKey>>,
     key_id_map: AHashMap<Arc<CacheQueryKey>, Uuid>,
     read_buffer: Box<[u8]>,
@@ -47,7 +48,7 @@ impl QueryRuntime {
     pub(super) fn new(
         config: &Arc<RouteQueryEscaperConfig>,
         socket: UdpSocket,
-        query_handle: EffectiveQueryHandle<CacheQueryKey, SelectiveVec<WeightedValue<String>>>,
+        query_handle: EffectiveQueryHandle<CacheQueryKey, SelectiveVec<WeightedValue<MetricsName>>>,
     ) -> Self {
         QueryRuntime {
             config: Arc::clone(config),
@@ -111,14 +112,14 @@ impl QueryRuntime {
 
     fn parse_rsp(
         map: Vec<(rmpv::ValueRef, rmpv::ValueRef)>,
-    ) -> anyhow::Result<(Uuid, Vec<WeightedValue<String>>, u32)> {
+    ) -> anyhow::Result<(Uuid, Vec<WeightedValue<MetricsName>>, u32)> {
         use anyhow::Context;
         use rmpv::ValueRef;
 
         const KEY_ID: &str = "id";
 
         let mut id: Option<Uuid> = None;
-        let mut nodes = Vec::<WeightedValue<String>>::new();
+        let mut nodes = Vec::<WeightedValue<MetricsName>>::new();
         let mut ttl: u32 = 0;
 
         for (k, v) in map {
@@ -130,13 +131,13 @@ impl QueryRuntime {
                 }
                 "nodes" => match v {
                     ValueRef::String(_) => {
-                        let item = g3_msgpack::value::as_weighted_name_string(&v)
+                        let item = g3_msgpack::value::as_weighted_metrics_name(&v)
                             .context(format!("invalid weighted name string value for key {key}"))?;
                         nodes.push(item);
                     }
                     ValueRef::Array(seq) => {
                         for (i, v) in seq.iter().enumerate() {
-                            let item = g3_msgpack::value::as_weighted_name_string(v).context(
+                            let item = g3_msgpack::value::as_weighted_metrics_name(v).context(
                                 format!("invalid weighted name string value for {key}#{i}"),
                             )?;
                             nodes.push(item);

@@ -100,7 +100,7 @@ impl TrickFloatEscaper {
 
 #[async_trait]
 impl Escaper for TrickFloatEscaper {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         self.config.name()
     }
 
@@ -237,7 +237,7 @@ impl EscaperInternal for TrickFloatEscaper {
         Default::default()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<String>> {
+    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
         self.config.dependent_escaper()
     }
 

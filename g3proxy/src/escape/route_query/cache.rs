@@ -23,6 +23,7 @@ use tokio::net::UdpSocket;
 
 use g3_io_ext::EffectiveCacheHandle;
 use g3_types::collection::{SelectivePickPolicy, SelectiveVec, WeightedValue};
+use g3_types::metrics::MetricsName;
 use g3_types::net::UpstreamAddr;
 
 use super::query::QueryRuntime;
@@ -42,7 +43,7 @@ struct CacheQueryConsistentKey {
 }
 
 pub(super) struct CacheHandle {
-    inner: EffectiveCacheHandle<CacheQueryKey, SelectiveVec<WeightedValue<String>>>,
+    inner: EffectiveCacheHandle<CacheQueryKey, SelectiveVec<WeightedValue<MetricsName>>>,
 }
 
 impl CacheHandle {
@@ -51,7 +52,7 @@ impl CacheHandle {
         config: &RouteQueryEscaperConfig,
         task_notes: &ServerTaskNotes,
         upstream: &UpstreamAddr,
-    ) -> Option<String> {
+    ) -> Option<MetricsName> {
         let client_ip = if config.query_pass_client_ip {
             Some(task_notes.client_addr.ip().to_string())
         } else {

@@ -50,7 +50,7 @@ use crate::serve::ServerTaskNotes;
 pub(super) struct RouteClientEscaper {
     config: RouteClientEscaperConfig,
     stats: Arc<RouteEscaperStats>,
-    next_table: BTreeMap<String, ArcEscaper>,
+    next_table: BTreeMap<MetricsName, ArcEscaper>,
     exact_match_ipaddr: AHashMap<IpAddr, ArcEscaper>,
     subnet_match_ipaddr: IpNetworkTable<ArcEscaper>,
     default_next: ArcEscaper,
@@ -138,7 +138,7 @@ impl RouteClientEscaper {
 
 #[async_trait]
 impl Escaper for RouteClientEscaper {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         self.config.name()
     }
 
@@ -237,10 +237,10 @@ impl EscaperInternal for RouteClientEscaper {
         Default::default()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<String>> {
+    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
         let mut set = BTreeSet::new();
         for escaper in self.next_table.keys() {
-            set.insert(escaper.to_string());
+            set.insert(escaper.clone());
         }
         Some(set)
     }

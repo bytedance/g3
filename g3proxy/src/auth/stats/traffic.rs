@@ -97,7 +97,7 @@ pub(crate) struct UserUpstreamTrafficStats {
     user_group: MetricsName,
     user: String,
     user_type: UserType,
-    escaper: String,
+    escaper: MetricsName,
     escaper_extra_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
     pub(crate) io: UpstreamTrafficStats,
 }
@@ -112,7 +112,7 @@ impl UserUpstreamTrafficStats {
         user_group: &MetricsName,
         user: &str,
         user_type: UserType,
-        escaper: &str,
+        escaper: &MetricsName,
         escaper_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
     ) -> Self {
         UserUpstreamTrafficStats {
@@ -120,7 +120,7 @@ impl UserUpstreamTrafficStats {
             user_group: user_group.clone(),
             user: user.to_string(),
             user_type,
-            escaper: escaper.to_string(),
+            escaper: escaper.clone(),
             escaper_extra_tags: Arc::clone(escaper_extra_tags),
             io: Default::default(),
         }
@@ -147,7 +147,7 @@ impl UserUpstreamTrafficStats {
     }
 
     #[inline]
-    pub(crate) fn escaper(&self) -> &str {
+    pub(crate) fn escaper(&self) -> &MetricsName {
         &self.escaper
     }
 

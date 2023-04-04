@@ -61,7 +61,7 @@ impl Hash for EscaperWrapper {
 pub(super) struct RouteQueryEscaper {
     config: Arc<RouteQueryEscaperConfig>,
     stats: Arc<RouteEscaperStats>,
-    query_nodes: BTreeMap<String, ArcEscaper>,
+    query_nodes: BTreeMap<MetricsName, ArcEscaper>,
     fallback_node: ArcEscaper,
     cache_handle: CacheHandle,
 }
@@ -138,7 +138,7 @@ impl RouteQueryEscaper {
 
 #[async_trait]
 impl Escaper for RouteQueryEscaper {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         self.config.name()
     }
 
@@ -241,7 +241,7 @@ impl EscaperInternal for RouteQueryEscaper {
         Default::default()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<String>> {
+    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
         self.config.dependent_escaper()
     }
 

@@ -29,20 +29,16 @@ const ESCAPER_CONFIG_DEFAULT_TYPE: &str = "DummyDeny";
 
 #[derive(Clone)]
 pub(crate) struct DummyDenyEscaperConfig {
-    pub(crate) name: String,
+    pub(crate) name: MetricsName,
     position: Option<YamlDocPosition>,
     custom_type: String,
     pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
 }
 
 impl DummyDenyEscaperConfig {
-    pub(crate) fn new(
-        name: &str,
-        position: Option<YamlDocPosition>,
-        custom_type: Option<&str>,
-    ) -> Self {
+    pub(crate) fn new(position: Option<YamlDocPosition>, custom_type: Option<&str>) -> Self {
         DummyDenyEscaperConfig {
-            name: name.to_string(),
+            name: MetricsName::default(),
             position,
             custom_type: match custom_type {
                 Some(custom_type) => custom_type.to_string(),
@@ -57,16 +53,26 @@ impl DummyDenyEscaperConfig {
         position: Option<YamlDocPosition>,
         custom_type: Option<&str>,
     ) -> anyhow::Result<Self> {
-        let name = g3_yaml::hash_get_required_str(map, super::CONFIG_KEY_ESCAPER_NAME)?;
-        let mut escaper = Self::new(name, position, custom_type);
+        let mut escaper = Self::new(position, custom_type);
         g3_yaml::foreach_kv(map, |k, v| escaper.set(k, v))?;
+        escaper.check()?;
         Ok(escaper)
+    }
+
+    fn check(&self) -> anyhow::Result<()> {
+        if self.name.is_empty() {
+            return Err(anyhow!("name is not set"));
+        }
+        Ok(())
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
         match k {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
-            super::CONFIG_KEY_ESCAPER_NAME => Ok(()),
+            super::CONFIG_KEY_ESCAPER_NAME => {
+                self.name = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
+            }
             "extra_metrics_tags" => {
                 let tags = g3_yaml::value::as_static_metrics_tags(v)
                     .context(format!("invalid static metrics tags value for key {k}"))?;
@@ -79,7 +85,7 @@ impl DummyDenyEscaperConfig {
 }
 
 impl EscaperConfig for DummyDenyEscaperConfig {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         &self.name
     }
 

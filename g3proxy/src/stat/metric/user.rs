@@ -132,7 +132,7 @@ trait UserMetricExt<'m> {
         user_group: &'m MetricsName,
         user: &'m str,
         user_type: &'m str,
-        escaper: &'m str,
+        escaper: &'m MetricsName,
         trans_type: MetricTransportType,
         stat_id: &'m str,
     ) -> Self;
@@ -176,7 +176,7 @@ where
         user_group: &'m MetricsName,
         user: &'m str,
         user_type: &'m str,
-        escaper: &'m str,
+        escaper: &'m MetricsName,
         trans_type: MetricTransportType,
         stat_id: &'m str,
     ) -> Self {
@@ -184,7 +184,7 @@ where
             .with_tag(TAG_KEY_USER, user)
             .with_tag(TAG_KEY_USER_TYPE, user_type)
             .with_tag(TAG_KEY_STAT_ID, stat_id)
-            .with_tag(TAG_KEY_ESCAPER, escaper)
+            .with_tag(TAG_KEY_ESCAPER, escaper.as_str())
             .with_tag(TAG_KEY_TRANSPORT, trans_type.as_str())
     }
 

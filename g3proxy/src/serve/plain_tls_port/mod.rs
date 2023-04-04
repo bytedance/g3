@@ -265,8 +265,8 @@ impl Server for PlainTlsPort {
         self.reload_version
     }
 
-    fn escaper(&self) -> String {
-        String::new()
+    fn escaper(&self) -> &MetricsName {
+        Default::default()
     }
 
     fn user_group(&self) -> &MetricsName {

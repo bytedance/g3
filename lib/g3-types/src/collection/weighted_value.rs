@@ -28,7 +28,7 @@ impl<T> WeightedValue<T> {
     pub const DEFAULT_WEIGHT: f64 = 1.0;
 
     pub fn new(value: T) -> Self {
-        Self::with_weight(value, 1.0f64)
+        Self::with_weight(value, Self::DEFAULT_WEIGHT)
     }
 
     pub fn with_weight(value: T, weight: f64) -> Self {

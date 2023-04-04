@@ -29,6 +29,11 @@ impl MetricsName {
     }
 
     #[inline]
+    pub fn clear(&mut self) {
+        self.0.clear()
+    }
+
+    #[inline]
     pub fn as_str(&self) -> &str {
         self.0.as_str()
     }

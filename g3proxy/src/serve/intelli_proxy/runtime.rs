@@ -106,7 +106,7 @@ impl IntelliProxyRuntime {
         let (mut http_next_server, mut http_next_server_reload_channel) =
             crate::serve::get_with_notifier(&self.config.http_server);
         let mut http_run_ctx = ServerRunContext::new(
-            &http_next_server.escaper(),
+            http_next_server.escaper(),
             http_next_server.user_group(),
             http_next_server.auditor(),
         );
@@ -114,7 +114,7 @@ impl IntelliProxyRuntime {
         let (mut socks_next_server, mut socks_next_server_reload_channel) =
             crate::serve::get_with_notifier(&self.config.socks_server);
         let mut socks_run_ctx = ServerRunContext::new(
-            &socks_next_server.escaper(),
+            socks_next_server.escaper(),
             socks_next_server.user_group(),
             socks_next_server.auditor(),
         );
@@ -170,7 +170,7 @@ impl IntelliProxyRuntime {
                             let escaper_name = http_next_server.escaper();
                             info!("SRT[{}_v{}#{}] will reload http escaper {escaper_name}",
                                 self.config.name(), self.server_version, self.instance_id);
-                            http_run_ctx.update_escaper(&escaper_name);
+                            http_run_ctx.update_escaper(escaper_name);
                         },
                         Ok(ServerReloadCommand::ReloadUserGroup) => {
                             let user_group_name = http_next_server.user_group();
@@ -207,7 +207,7 @@ impl IntelliProxyRuntime {
                             let escaper_name = socks_next_server.escaper();
                             info!("SRT[{}_v{}#{}] will reload socks escaper {escaper_name}",
                                 self.config.name(), self.server_version, self.instance_id);
-                            socks_run_ctx.update_escaper(&escaper_name);
+                            socks_run_ctx.update_escaper(escaper_name);
                         },
                         Ok(ServerReloadCommand::ReloadUserGroup) => {
                             let user_group_name = socks_next_server.user_group();
@@ -272,10 +272,10 @@ impl IntelliProxyRuntime {
                 // if escaper changed, reload it
                 let old_escaper = http_run_ctx.current_escaper();
                 let new_escaper = http_next_server.escaper();
-                if old_escaper.ne(&new_escaper) {
+                if old_escaper.ne(new_escaper) {
                     info!("SRT[{}_v{}#{}] will use http escaper '{new_escaper}' instead of '{old_escaper}'",
                                     self.config.name(), self.server_version, self.instance_id);
-                    http_run_ctx.update_escaper(&new_escaper);
+                    http_run_ctx.update_escaper(new_escaper);
                 }
 
                 // if user group changed, reload it
@@ -305,10 +305,10 @@ impl IntelliProxyRuntime {
                 // if escaper changed, reload it
                 let old_escaper = socks_run_ctx.current_escaper();
                 let new_escaper = socks_next_server.escaper();
-                if old_escaper.ne(&new_escaper) {
+                if old_escaper.ne(new_escaper) {
                     info!("SRT[{}_v{}#{}] will use socks escaper '{new_escaper}' instead of '{old_escaper}'",
                                     self.config.name(), self.server_version, self.instance_id);
-                    socks_run_ctx.update_escaper(&new_escaper);
+                    socks_run_ctx.update_escaper(new_escaper);
                 }
 
                 // if user group changed, reload it

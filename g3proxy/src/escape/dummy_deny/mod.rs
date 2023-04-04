@@ -70,8 +70,8 @@ impl DummyDenyEscaper {
         }
     }
 
-    pub(super) fn prepare_default(name: &str) -> ArcEscaper {
-        let config = DummyDenyEscaperConfig::new(name, None, None);
+    pub(super) fn prepare_default(name: &MetricsName) -> ArcEscaper {
+        let config = DummyDenyEscaperConfig::new(None, None);
         let stats = Arc::new(DummyDenyEscaperStats::new(name));
         DummyDenyEscaper::new_obj(config, stats)
     }
@@ -90,7 +90,7 @@ impl DummyDenyEscaper {
 
 #[async_trait]
 impl Escaper for DummyDenyEscaper {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         self.config.name()
     }
 
@@ -176,7 +176,7 @@ impl EscaperInternal for DummyDenyEscaper {
         Default::default()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<String>> {
+    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
         None
     }
 

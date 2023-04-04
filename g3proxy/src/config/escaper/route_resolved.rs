@@ -32,25 +32,25 @@ const ESCAPER_CONFIG_TYPE: &str = "RouteResolved";
 
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct RouteResolvedEscaperConfig {
-    pub(crate) name: String,
+    pub(crate) name: MetricsName,
     position: Option<YamlDocPosition>,
     pub(crate) resolver: MetricsName,
     pub(crate) resolve_strategy: ResolveStrategy,
     pub(crate) resolution_delay: Duration,
-    pub(crate) lpm_rules: BTreeMap<String, BTreeSet<IpNetwork>>,
-    pub(crate) default_next: String,
+    pub(crate) lpm_rules: BTreeMap<MetricsName, BTreeSet<IpNetwork>>,
+    pub(crate) default_next: MetricsName,
 }
 
 impl RouteResolvedEscaperConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         RouteResolvedEscaperConfig {
-            name: String::new(),
+            name: MetricsName::default(),
             position,
             resolver: MetricsName::default(),
             resolve_strategy: Default::default(),
             resolution_delay: Duration::from_millis(50),
             lpm_rules: BTreeMap::new(),
-            default_next: String::new(),
+            default_next: MetricsName::default(),
         }
     }
 
@@ -70,12 +70,8 @@ impl RouteResolvedEscaperConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                if let Yaml::String(name) = v {
-                    self.name.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.name = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "resolver" => {
                 self.resolver = g3_yaml::value::as_metrics_name(v)?;
@@ -105,12 +101,8 @@ impl RouteResolvedEscaperConfig {
                 }
             }
             "default_next" => {
-                if let Yaml::String(next) = v {
-                    self.default_next.clone_from(next);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.default_next = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
         }
@@ -134,16 +126,12 @@ impl RouteResolvedEscaperConfig {
     }
 
     fn add_lpm_rule(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
-        let mut escaper = String::new();
+        let mut escaper = MetricsName::default();
         let mut networks = BTreeSet::<IpNetwork>::new();
         g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
             "next" | "escaper" => {
-                if let Yaml::String(v) = v {
-                    escaper = v.to_string();
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                escaper = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "nets" | "net" | "networks" | "network" => {
                 if let Yaml::Array(seq) = v {
@@ -175,7 +163,7 @@ impl RouteResolvedEscaperConfig {
 }
 
 impl EscaperConfig for RouteResolvedEscaperConfig {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         &self.name
     }
 
@@ -204,11 +192,11 @@ impl EscaperConfig for RouteResolvedEscaperConfig {
         EscaperConfigDiffAction::Reload
     }
 
-    fn dependent_escaper(&self) -> Option<BTreeSet<String>> {
+    fn dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
         let mut set = BTreeSet::new();
         set.insert(self.default_next.clone());
         for key in self.lpm_rules.keys() {
-            set.insert(key.to_string());
+            set.insert(key.clone());
         }
         Some(set)
     }

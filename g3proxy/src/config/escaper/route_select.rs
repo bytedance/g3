@@ -29,16 +29,16 @@ const ESCAPER_CONFIG_TYPE: &str = "RouteSelect";
 
 #[derive(Clone, PartialEq)]
 pub(crate) struct RouteSelectEscaperConfig {
-    pub(crate) name: String,
+    pub(crate) name: MetricsName,
     position: Option<YamlDocPosition>,
-    pub(crate) next_nodes: Vec<WeightedValue<String>>,
+    pub(crate) next_nodes: Vec<WeightedValue<MetricsName>>,
     pub(crate) next_pick_policy: SelectivePickPolicy,
 }
 
 impl RouteSelectEscaperConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         RouteSelectEscaperConfig {
-            name: String::new(),
+            name: MetricsName::default(),
             position,
             next_nodes: Vec::new(),
             next_pick_policy: SelectivePickPolicy::Rendezvous,
@@ -61,24 +61,20 @@ impl RouteSelectEscaperConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                if let Yaml::String(name) = v {
-                    self.name.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.name = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "next_nodes" => match v {
                 Yaml::String(_) => {
-                    let item = g3_yaml::value::as_weighted_name_string(v)
-                        .context(format!("invalid weighted name string value for key {k}"))?;
+                    let item = g3_yaml::value::as_weighted_metrics_name(v)
+                        .context(format!("invalid weighted metrics name value for key {k}"))?;
                     self.next_nodes.push(item);
                     Ok(())
                 }
                 Yaml::Array(seq) => {
                     for (i, v) in seq.iter().enumerate() {
-                        let item = g3_yaml::value::as_weighted_name_string(v)
-                            .context(format!("invalid weighted name string value for {k}#{i}"))?;
+                        let item = g3_yaml::value::as_weighted_metrics_name(v)
+                            .context(format!("invalid weighted metrics name value for {k}#{i}"))?;
                         self.next_nodes.push(item);
                     }
                     Ok(())
@@ -108,7 +104,7 @@ impl RouteSelectEscaperConfig {
 }
 
 impl EscaperConfig for RouteSelectEscaperConfig {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         &self.name
     }
 
@@ -137,10 +133,10 @@ impl EscaperConfig for RouteSelectEscaperConfig {
         EscaperConfigDiffAction::Reload
     }
 
-    fn dependent_escaper(&self) -> Option<BTreeSet<String>> {
+    fn dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
         let mut set = BTreeSet::new();
         for v in &self.next_nodes {
-            set.insert(v.inner().to_string());
+            set.insert(v.inner().clone());
         }
         Some(set)
     }

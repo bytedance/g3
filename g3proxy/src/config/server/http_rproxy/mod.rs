@@ -66,7 +66,7 @@ impl Default for HttpRProxyServerTimeoutConfig {
 pub(crate) struct HttpRProxyServerConfig {
     name: String,
     position: Option<YamlDocPosition>,
-    pub(crate) escaper: String,
+    pub(crate) escaper: MetricsName,
     pub(crate) user_group: MetricsName,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) listen: TcpListenConfig,
@@ -102,7 +102,7 @@ impl HttpRProxyServerConfig {
         HttpRProxyServerConfig {
             name: String::new(),
             position,
-            escaper: String::new(),
+            escaper: MetricsName::default(),
             user_group: MetricsName::default(),
             shared_logger: None,
             listen: TcpListenConfig::default(),
@@ -158,7 +158,7 @@ impl HttpRProxyServerConfig {
                 }
             }
             "escaper" => {
-                self.escaper = g3_yaml::value::as_string(v)?;
+                self.escaper = g3_yaml::value::as_metrics_name(v)?;
                 Ok(())
             }
             "user_group" => {
@@ -360,7 +360,7 @@ impl ServerConfig for HttpRProxyServerConfig {
         SERVER_CONFIG_TYPE
     }
 
-    fn escaper(&self) -> &str {
+    fn escaper(&self) -> &MetricsName {
         &self.escaper
     }
 

@@ -92,7 +92,7 @@ impl OrdinaryTcpServerRuntime {
         use broadcast::error::RecvError;
 
         let mut run_ctx = ServerRunContext::new(
-            &self.server.escaper(),
+            self.server.escaper(),
             self.server.user_group(),
             self.server.auditor(),
         );
@@ -135,10 +135,10 @@ impl OrdinaryTcpServerRuntime {
                             // if escaper changed, reload it
                             let old_escaper = run_ctx.current_escaper();
                             let new_escaper = self.server.escaper();
-                            if old_escaper.ne(&new_escaper) {
+                            if old_escaper.ne(new_escaper) {
                                 info!("SRT[{}_v{}#{}] will use escaper '{new_escaper}' instead of '{old_escaper}'",
                                     self.server.name(), self.server_version, self.instance_id);
-                                run_ctx.update_escaper(&new_escaper);
+                                run_ctx.update_escaper(new_escaper);
                             }
 
                             // if user group changed, reload it
@@ -163,7 +163,7 @@ impl OrdinaryTcpServerRuntime {
                             let escaper_name = self.server.escaper();
                             info!("SRT[{}_v{}#{}] will reload escaper {escaper_name}",
                                 self.server.name(), self.server_version, self.instance_id);
-                            run_ctx.update_escaper(&escaper_name);
+                            run_ctx.update_escaper(escaper_name);
                         }
                         ServerReloadCommand::ReloadUserGroup => {
                             let user_group_name = self.server.user_group();

@@ -21,7 +21,7 @@ use arc_swap::ArcSwapOption;
 use g3_io_ext::{
     ArcLimitedReaderStats, ArcLimitedWriterStats, LimitedReaderStats, LimitedWriterStats,
 };
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
 
 use crate::escape::{
@@ -30,7 +30,7 @@ use crate::escape::{
 };
 
 pub(crate) struct DirectFloatEscaperStats {
-    name: String,
+    name: MetricsName,
     id: StatId,
     extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
     pub(super) forbidden: EscaperForbiddenStats,
@@ -40,9 +40,9 @@ pub(crate) struct DirectFloatEscaperStats {
 }
 
 impl DirectFloatEscaperStats {
-    pub(super) fn new(name: &str) -> Self {
+    pub(super) fn new(name: &MetricsName) -> Self {
         DirectFloatEscaperStats {
-            name: name.to_string(),
+            name: name.clone(),
             id: StatId::new(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
             forbidden: Default::default(),
@@ -80,7 +80,7 @@ impl EscaperInternalStats for DirectFloatEscaperStats {
 }
 
 impl EscaperStats for DirectFloatEscaperStats {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         &self.name
     }
 

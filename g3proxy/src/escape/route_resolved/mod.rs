@@ -52,7 +52,7 @@ pub(super) struct RouteResolvedEscaper {
     config: RouteResolvedEscaperConfig,
     stats: Arc<RouteEscaperStats>,
     resolver_handle: ArcIntegratedResolverHandle,
-    next_table: BTreeMap<String, ArcEscaper>,
+    next_table: BTreeMap<MetricsName, ArcEscaper>,
     lpm_table: IpNetworkTable<ArcEscaper>,
     default_next: ArcEscaper,
 }
@@ -155,7 +155,7 @@ impl RouteResolvedEscaper {
 
 #[async_trait]
 impl Escaper for RouteResolvedEscaper {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         self.config.name()
     }
 
@@ -296,10 +296,10 @@ impl EscaperInternal for RouteResolvedEscaper {
         self.config.resolver()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<String>> {
+    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
         let mut set = BTreeSet::new();
         for escaper in self.next_table.keys() {
-            set.insert(escaper.to_string());
+            set.insert(escaper.clone());
         }
         Some(set)
     }

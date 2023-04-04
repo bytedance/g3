@@ -124,7 +124,7 @@ impl AuxiliaryTcpPortRuntime {
         let (mut next_server, mut next_server_reload_channel) =
             crate::serve::get_with_notifier(&next_server_name);
         let mut run_ctx = ServerRunContext::new(
-            &next_server.escaper(),
+            next_server.escaper(),
             next_server.user_group(),
             next_server.auditor(),
         );
@@ -179,7 +179,7 @@ impl AuxiliaryTcpPortRuntime {
                             let escaper_name = next_server.escaper();
                             info!("SRT[{}_v{}#{}] will reload escaper {escaper_name}",
                                 self.server.name(), self.server_version, self.instance_id);
-                            run_ctx.update_escaper(&escaper_name);
+                            run_ctx.update_escaper(escaper_name);
                         },
                         Ok(ServerReloadCommand::ReloadUserGroup) => {
                             let user_group_name = next_server.user_group();
@@ -243,10 +243,10 @@ impl AuxiliaryTcpPortRuntime {
                 // if escaper changed, reload it
                 let old_escaper = run_ctx.current_escaper();
                 let new_escaper = next_server.escaper();
-                if old_escaper.ne(&new_escaper) {
+                if old_escaper.ne(new_escaper) {
                     info!("SRT[{}_v{}#{}] will use escaper '{new_escaper}' instead of '{old_escaper}'",
                                         self.server.name(), self.server_version, self.instance_id);
-                    run_ctx.update_escaper(&new_escaper);
+                    run_ctx.update_escaper(new_escaper);
                 }
 
                 // if user group changed, reload it

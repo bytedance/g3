@@ -169,7 +169,7 @@ impl EscaperExt for ProxyHttpsEscaper {}
 
 #[async_trait]
 impl Escaper for ProxyHttpsEscaper {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         self.config.name()
     }
 
@@ -259,7 +259,7 @@ impl EscaperInternal for ProxyHttpsEscaper {
         self.config.resolver()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<String>> {
+    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
         None
     }
 

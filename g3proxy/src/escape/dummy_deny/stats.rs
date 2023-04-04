@@ -18,22 +18,22 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
 
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::StatId;
 
 use crate::escape::{EscaperInterfaceStats, EscaperInternalStats, EscaperStats};
 
 pub(super) struct DummyDenyEscaperStats {
-    name: String,
+    name: MetricsName,
     id: StatId,
     extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
     pub(super) interface: EscaperInterfaceStats,
 }
 
 impl DummyDenyEscaperStats {
-    pub(super) fn new(name: &str) -> Self {
+    pub(super) fn new(name: &MetricsName) -> Self {
         DummyDenyEscaperStats {
-            name: name.to_string(),
+            name: name.clone(),
             id: StatId::new(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
             interface: EscaperInterfaceStats::default(),
@@ -58,7 +58,7 @@ impl EscaperInternalStats for DummyDenyEscaperStats {
 }
 
 impl EscaperStats for DummyDenyEscaperStats {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         &self.name
     }
 

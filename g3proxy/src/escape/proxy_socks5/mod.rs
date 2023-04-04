@@ -162,7 +162,7 @@ impl EscaperExt for ProxySocks5Escaper {}
 
 #[async_trait]
 impl Escaper for ProxySocks5Escaper {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         self.config.name()
     }
 
@@ -251,7 +251,7 @@ impl EscaperInternal for ProxySocks5Escaper {
         self.config.resolver()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<String>> {
+    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
         None
     }
 

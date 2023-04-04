@@ -64,7 +64,7 @@ impl TaskLogForUdpConnect<'_> {
             "udp_listen_addr" => self.udp_listen_addr,
             "udp_client_addr" => self.udp_client_addr,
             "upstream" => self.udp_notes.upstream.as_ref().map(LtUpstreamAddr),
-            "escaper" => &self.udp_notes.escaper,
+            "escaper" => self.udp_notes.escaper.as_str(),
             "next_bind_ip" => self.udp_notes.bind.map(LtIpAddr),
             "next_bound_addr" => self.udp_notes.local,
             "next_peer_addr" => self.udp_notes.next,

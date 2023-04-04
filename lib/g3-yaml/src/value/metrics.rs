@@ -20,6 +20,7 @@ use std::str::FromStr;
 use anyhow::{anyhow, Context};
 use yaml_rust::Yaml;
 
+use g3_types::collection::WeightedValue;
 use g3_types::metrics::{MetricsName, MetricsTagName, MetricsTagValue, StaticMetricsTags};
 
 pub fn as_metrics_name(v: &Yaml) -> anyhow::Result<MetricsName> {
@@ -52,5 +53,36 @@ pub fn as_static_metrics_tags(v: &Yaml) -> anyhow::Result<StaticMetricsTags> {
         Err(anyhow!(
             "the yaml value type for 'static metric tags' should be 'map'"
         ))
+    }
+}
+
+pub fn as_weighted_metrics_name(value: &Yaml) -> anyhow::Result<WeightedValue<MetricsName>> {
+    if let Yaml::Hash(map) = value {
+        let mut name = MetricsName::default();
+        let mut weight = None;
+
+        crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
+            "name" => {
+                name = as_metrics_name(v)?;
+                Ok(())
+            }
+            "weight" => {
+                let f = crate::value::as_f64(v)?;
+                weight = Some(f);
+                Ok(())
+            }
+            _ => Ok(()),
+        })?;
+
+        if name.is_empty() {
+            Err(anyhow!("no name found"))
+        } else if let Some(weight) = weight {
+            Ok(WeightedValue::with_weight(name, weight))
+        } else {
+            Ok(WeightedValue::new(name))
+        }
+    } else {
+        let name = as_metrics_name(value)?;
+        Ok(WeightedValue::new(name))
     }
 }

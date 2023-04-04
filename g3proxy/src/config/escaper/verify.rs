@@ -18,19 +18,21 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::anyhow;
 
+use g3_types::metrics::MetricsName;
+
 pub(super) struct EscaperConfigVerifier {}
 
 impl EscaperConfigVerifier {
     pub(super) fn check_duplicated_rule<T>(
-        input_map: &BTreeMap<String, BTreeSet<T>>,
+        input_map: &BTreeMap<MetricsName, BTreeSet<T>>,
     ) -> anyhow::Result<()>
     where
         T: std::fmt::Display,
     {
-        let mut table = BTreeMap::<String, String>::new();
+        let mut table = BTreeMap::<String, MetricsName>::new();
         for (escaper, set) in input_map {
             for entry in set {
-                if let Some(old_escaper) = table.insert(entry.to_string(), escaper.to_string()) {
+                if let Some(old_escaper) = table.insert(entry.to_string(), escaper.clone()) {
                     return Err(anyhow!(
                         "rule {entry} is added both for escaper {escaper} and {old_escaper}"
                     ));

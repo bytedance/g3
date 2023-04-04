@@ -71,8 +71,8 @@ impl ServerConfig for DummyCloseServerConfig {
         SERVER_CONFIG_TYPE
     }
 
-    fn escaper(&self) -> &str {
-        ""
+    fn escaper(&self) -> &MetricsName {
+        Default::default()
     }
 
     fn user_group(&self) -> &MetricsName {

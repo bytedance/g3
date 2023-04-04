@@ -323,8 +323,8 @@ impl Server for HttpRProxyServer {
         self.reload_version
     }
 
-    fn escaper(&self) -> String {
-        self.config.escaper().to_string()
+    fn escaper(&self) -> &MetricsName {
+        self.config.escaper()
     }
 
     fn user_group(&self) -> &MetricsName {

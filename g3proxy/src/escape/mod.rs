@@ -78,7 +78,7 @@ pub(crate) use ops::{get_escaper, reload, update_dependency_to_resolver};
 #[async_trait]
 pub(crate) trait EscaperInternal {
     fn _resolver(&self) -> &MetricsName;
-    fn _dependent_escaper(&self) -> Option<BTreeSet<String>>;
+    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>>;
 
     fn _clone_config(&self) -> AnyEscaperConfig;
     fn _update_config_in_place(&self, flags: u64, config: AnyEscaperConfig) -> anyhow::Result<()>;
@@ -134,7 +134,7 @@ pub(crate) trait EscaperInternal {
 
 #[async_trait]
 pub(crate) trait Escaper: EscaperInternal {
-    fn name(&self) -> &str;
+    fn name(&self) -> &MetricsName;
     fn escaper_type(&self) -> &str;
     fn get_escape_stats(&self) -> Option<ArcEscaperStats> {
         None

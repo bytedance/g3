@@ -81,33 +81,33 @@ pub fn as_f64(v: &ValueRef) -> anyhow::Result<f64> {
 }
 
 pub fn as_weighted_name_string(v: &ValueRef) -> anyhow::Result<WeightedValue<String>> {
-    const KEY_NAME: &str = "name";
-    const KEY_WEIGHT: &str = "weight";
-
     match v {
         ValueRef::Map(map) => {
-            let mut name: Option<String> = None;
-            let mut weight = WeightedValue::<String>::DEFAULT_WEIGHT;
+            let mut name = String::new();
+            let mut weight = None;
 
             for (k, v) in map {
                 let key = as_string(k).context("all keys should be string")?;
                 match crate::key::normalize(key.as_str()).as_str() {
-                    KEY_NAME => {
-                        let v =
+                    "name" => {
+                        name =
                             as_string(v).context(format!("invalid string value for key {key}"))?;
-                        name = Some(v);
                     }
-                    KEY_WEIGHT => {
-                        weight = crate::value::as_f64(v)
+                    "weight" => {
+                        let f = crate::value::as_f64(v)
                             .context(format!("invalid f64 value for key {key}"))?;
+                        weight = Some(f);
                     }
                     _ => {} // ignore all other keys
                 }
             }
 
-            match name {
-                Some(s) => Ok(WeightedValue::with_weight(s, weight)),
-                None => Err(anyhow!("no required key {KEY_NAME} found")),
+            if name.is_empty() {
+                Err(anyhow!("no name found"))
+            } else if let Some(weight) = weight {
+                Ok(WeightedValue::with_weight(name, weight))
+            } else {
+                Ok(WeightedValue::new(name))
             }
         }
         _ => {

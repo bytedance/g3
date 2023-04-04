@@ -19,6 +19,8 @@ use std::sync::Arc;
 use capnp::capability::Promise;
 use capnp_rpc::pry;
 
+use g3_types::metrics::MetricsName;
+
 use g3proxy_proto::escaper_capnp::escaper_control;
 
 use super::set_operation_result;
@@ -30,7 +32,8 @@ pub(super) struct EscaperControlImpl {
 
 impl EscaperControlImpl {
     pub(super) fn new_client(name: &str) -> anyhow::Result<escaper_control::Client> {
-        let escaper = crate::escape::get_escaper(name)?;
+        let name = unsafe { MetricsName::from_str_unchecked(name) };
+        let escaper = crate::escape::get_escaper(&name)?;
         Ok(capnp_rpc::new_client(EscaperControlImpl { escaper }))
     }
 }

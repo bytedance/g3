@@ -90,7 +90,11 @@ pub(crate) struct ServerRunContext {
 }
 
 impl ServerRunContext {
-    pub(crate) fn new(escaper: &str, user_group: &MetricsName, auditor: &MetricsName) -> Self {
+    pub(crate) fn new(
+        escaper: &MetricsName,
+        user_group: &MetricsName,
+        auditor: &MetricsName,
+    ) -> Self {
         let mut ctx = ServerRunContext {
             escaper: crate::escape::get_or_insert_default(escaper),
             user_group: None,
@@ -102,11 +106,11 @@ impl ServerRunContext {
         ctx
     }
 
-    pub(crate) fn current_escaper(&self) -> &str {
+    pub(crate) fn current_escaper(&self) -> &MetricsName {
         self.escaper.name()
     }
 
-    pub(crate) fn update_escaper(&mut self, escaper: &str) {
+    pub(crate) fn update_escaper(&mut self, escaper: &MetricsName) {
         self.escaper = crate::escape::get_or_insert_default(escaper);
     }
 
@@ -170,7 +174,7 @@ pub(crate) trait ServerInternal {
 pub(crate) trait Server: ServerInternal {
     fn name(&self) -> &str;
     fn version(&self) -> usize;
-    fn escaper(&self) -> String;
+    fn escaper(&self) -> &MetricsName;
     fn user_group(&self) -> &MetricsName;
     fn auditor(&self) -> &MetricsName;
 

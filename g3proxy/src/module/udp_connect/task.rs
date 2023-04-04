@@ -18,12 +18,13 @@ use std::net::{IpAddr, SocketAddr};
 
 use chrono::{DateTime, Utc};
 
+use g3_types::metrics::MetricsName;
 use g3_types::net::{SocketBufferConfig, UpstreamAddr};
 
 pub(crate) struct UdpConnectTaskNotes {
     pub(crate) buf_conf: SocketBufferConfig,
     pub(crate) upstream: Option<UpstreamAddr>,
-    pub(crate) escaper: String,
+    pub(crate) escaper: MetricsName,
     pub(crate) bind: Option<IpAddr>,
     pub(crate) next: Option<SocketAddr>,
     pub(crate) local: Option<SocketAddr>,
@@ -35,7 +36,7 @@ impl UdpConnectTaskNotes {
         UdpConnectTaskNotes {
             buf_conf,
             upstream: None,
-            escaper: String::new(),
+            escaper: MetricsName::default(),
             bind: None,
             next: None,
             local: None,
@@ -48,7 +49,7 @@ impl UdpConnectTaskNotes {
         UdpConnectTaskNotes {
             buf_conf,
             upstream: Some(upstream),
-            escaper: String::new(),
+            escaper: MetricsName::default(),
             bind: None,
             next: None,
             local: None,

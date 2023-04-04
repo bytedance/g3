@@ -112,7 +112,7 @@ impl UserSiteStats {
     pub(crate) fn fetch_upstream_traffic_stats(
         &self,
         user_type: UserType,
-        escaper: &str,
+        escaper: &MetricsName,
         escaper_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
     ) -> Arc<UserUpstreamTrafficStats> {
         let mut new_stats = None;

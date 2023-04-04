@@ -38,7 +38,7 @@ const ESCAPER_CONFIG_TYPE: &str = "ProxyHttp";
 
 #[derive(Clone, PartialEq)]
 pub(crate) struct ProxyHttpEscaperConfig {
-    pub(crate) name: String,
+    pub(crate) name: MetricsName,
     position: Option<YamlDocPosition>,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) proxy_nodes: Vec<WeightedUpstreamAddr>,
@@ -67,7 +67,7 @@ pub(crate) struct ProxyHttpEscaperConfig {
 impl ProxyHttpEscaperConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         ProxyHttpEscaperConfig {
-            name: String::new(),
+            name: MetricsName::default(),
             position,
             shared_logger: None,
             proxy_nodes: Vec::with_capacity(1),
@@ -110,12 +110,8 @@ impl ProxyHttpEscaperConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                if let Yaml::String(name) = v {
-                    self.name.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.name = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "shared_logger" => {
                 let name = g3_yaml::value::as_ascii(v)?;
@@ -317,8 +313,8 @@ impl ProxyHttpEscaperConfig {
 }
 
 impl EscaperConfig for ProxyHttpEscaperConfig {
-    fn name(&self) -> &str {
-        self.name.as_str()
+    fn name(&self) -> &MetricsName {
+        &self.name
     }
 
     fn position(&self) -> Option<YamlDocPosition> {

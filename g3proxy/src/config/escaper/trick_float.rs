@@ -16,10 +16,10 @@
 
 use std::collections::BTreeSet;
 
-use anyhow::anyhow;
-use g3_types::metrics::MetricsName;
+use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
 
+use g3_types::metrics::MetricsName;
 use g3_yaml::YamlDocPosition;
 
 use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction};
@@ -28,15 +28,15 @@ const ESCAPER_CONFIG_TYPE: &str = "TrickFloat";
 
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct TrickFloatEscaperConfig {
-    pub(crate) name: String,
+    pub(crate) name: MetricsName,
     position: Option<YamlDocPosition>,
-    pub(crate) next_nodes: BTreeSet<String>, // no duplication for next escapers
+    pub(crate) next_nodes: BTreeSet<MetricsName>, // no duplication for next escapers
 }
 
 impl TrickFloatEscaperConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         TrickFloatEscaperConfig {
-            name: String::new(),
+            name: MetricsName::default(),
             position,
             next_nodes: BTreeSet::new(),
         }
@@ -58,26 +58,16 @@ impl TrickFloatEscaperConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                if let Yaml::String(name) = v {
-                    self.name.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.name = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "next" => {
                 if let Yaml::Array(seq) = v {
                     for (i, escaper) in seq.iter().enumerate() {
-                        match escaper {
-                            Yaml::String(s) => {
-                                if s.is_empty() {
-                                    return Err(anyhow!("empty string value for {k}#{i}"));
-                                }
-                                // duplicate values won't report an error
-                                self.next_nodes.insert(s.to_string());
-                            }
-                            _ => return Err(anyhow!("invalid value type for {k}#{i}")),
-                        };
+                        let name = g3_yaml::value::as_metrics_name(escaper)
+                            .context(format!("invalid metrics name value for {k}#{i}"))?;
+                        // duplicate values won't report an error
+                        self.next_nodes.insert(name);
                     }
                     Ok(())
                 } else {
@@ -101,7 +91,7 @@ impl TrickFloatEscaperConfig {
 }
 
 impl EscaperConfig for TrickFloatEscaperConfig {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         &self.name
     }
 
@@ -130,7 +120,7 @@ impl EscaperConfig for TrickFloatEscaperConfig {
         EscaperConfigDiffAction::Reload
     }
 
-    fn dependent_escaper(&self) -> Option<BTreeSet<String>> {
+    fn dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
         Some(self.next_nodes.clone())
     }
 }

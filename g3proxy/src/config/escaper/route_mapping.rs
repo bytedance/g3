@@ -16,7 +16,7 @@
 
 use std::collections::BTreeSet;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use g3_types::metrics::MetricsName;
 use indexmap::IndexSet;
 use yaml_rust::{yaml, Yaml};
@@ -29,16 +29,16 @@ const ESCAPER_CONFIG_TYPE: &str = "RouteMapping";
 
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct RouteMappingEscaperConfig {
-    pub(crate) name: String,
+    pub(crate) name: MetricsName,
     position: Option<YamlDocPosition>,
     // no duplication for next escapers, and the order is important
-    pub(crate) next_nodes: IndexSet<String>,
+    pub(crate) next_nodes: IndexSet<MetricsName>,
 }
 
 impl RouteMappingEscaperConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         RouteMappingEscaperConfig {
-            name: String::new(),
+            name: MetricsName::default(),
             position,
             next_nodes: IndexSet::new(),
         }
@@ -60,28 +60,18 @@ impl RouteMappingEscaperConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                if let Yaml::String(name) = v {
-                    self.name.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.name = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "next" => {
                 if let Yaml::Array(seq) = v {
                     for (i, escaper) in seq.iter().enumerate() {
-                        match escaper {
-                            Yaml::String(s) => {
-                                if s.is_empty() {
-                                    return Err(anyhow!("empty string value for {k}#{i}"));
-                                }
-                                // duplicate values should report an error
-                                if !self.next_nodes.insert(s.to_string()) {
-                                    return Err(anyhow!("found duplicate next node: {s}"));
-                                }
-                            }
-                            _ => return Err(anyhow!("invalid value type for {k}#{i}")),
-                        };
+                        let name = g3_yaml::value::as_metrics_name(escaper)
+                            .context(format!("invalid metrics name value for {k}#{i}"))?;
+                        // duplicate values should report an error
+                        if !self.next_nodes.insert(name.clone()) {
+                            return Err(anyhow!("found duplicate next node: {name}"));
+                        }
                     }
                     Ok(())
                 } else {
@@ -105,7 +95,7 @@ impl RouteMappingEscaperConfig {
 }
 
 impl EscaperConfig for RouteMappingEscaperConfig {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         &self.name
     }
 
@@ -134,10 +124,10 @@ impl EscaperConfig for RouteMappingEscaperConfig {
         EscaperConfigDiffAction::Reload
     }
 
-    fn dependent_escaper(&self) -> Option<BTreeSet<String>> {
+    fn dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
         let mut set = BTreeSet::new();
         for name in &self.next_nodes {
-            set.insert(name.to_string());
+            set.insert(name.clone());
         }
         Some(set)
     }

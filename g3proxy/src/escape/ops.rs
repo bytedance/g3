@@ -49,12 +49,12 @@ static ESCAPER_OPS_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 pub async fn load_all() -> anyhow::Result<()> {
     let _guard = ESCAPER_OPS_LOCK.lock().await;
 
-    let mut new_names = HashSet::<String>::new();
+    let mut new_names = HashSet::<MetricsName>::new();
 
     let all_config = crate::config::escaper::get_all_sorted()?;
     for config in all_config {
         let name = config.name();
-        new_names.insert(name.to_string());
+        new_names.insert(name.clone());
         match registry::get_config(name) {
             Some(old) => {
                 debug!("reloading escaper {name}");
@@ -81,14 +81,17 @@ pub async fn load_all() -> anyhow::Result<()> {
     Ok(())
 }
 
-pub(crate) fn get_escaper(name: &str) -> anyhow::Result<ArcEscaper> {
+pub(crate) fn get_escaper(name: &MetricsName) -> anyhow::Result<ArcEscaper> {
     match registry::get_escaper(name) {
         Some(server) => Ok(server),
         None => Err(anyhow!("no escaper named {name} found")),
     }
 }
 
-pub(crate) async fn reload(name: &str, position: Option<YamlDocPosition>) -> anyhow::Result<()> {
+pub(crate) async fn reload(
+    name: &MetricsName,
+    position: Option<YamlDocPosition>,
+) -> anyhow::Result<()> {
     let _guard = ESCAPER_OPS_LOCK.lock().await;
 
     let old_config = match registry::get_config(name) {
@@ -131,11 +134,11 @@ pub(crate) async fn reload(name: &str, position: Option<YamlDocPosition>) -> any
 pub(crate) async fn update_dependency_to_resolver(resolver: &MetricsName, status: &str) {
     let _guard = ESCAPER_OPS_LOCK.lock().await;
 
-    let mut names = Vec::<String>::new();
+    let mut names = Vec::<MetricsName>::new();
 
     registry::foreach(|name, escaper| {
         if escaper._resolver().eq(resolver) {
-            names.push(name.to_string());
+            names.push(name.clone());
         }
     });
 
@@ -153,13 +156,13 @@ pub(crate) async fn update_dependency_to_resolver(resolver: &MetricsName, status
 }
 
 #[async_recursion]
-async fn update_dependency_to_escaper_unlocked(target: &str) {
-    let mut names = Vec::<String>::new();
+async fn update_dependency_to_escaper_unlocked(target: &MetricsName) {
+    let mut names = Vec::<MetricsName>::new();
 
     registry::foreach(|name, escaper| {
         if let Some(set) = escaper._dependent_escaper() {
             if set.contains(target) {
-                names.push(name.to_string())
+                names.push(name.clone())
             }
         }
     });
@@ -200,14 +203,17 @@ async fn reload_unlocked(old: AnyEscaperConfig, new: AnyEscaperConfig) -> anyhow
     }
 }
 
-async fn reload_existed_unlocked(name: &str, new: Option<AnyEscaperConfig>) -> anyhow::Result<()> {
+async fn reload_existed_unlocked(
+    name: &MetricsName,
+    new: Option<AnyEscaperConfig>,
+) -> anyhow::Result<()> {
     registry::reload_existed(name, new).await?;
     crate::serve::update_dependency_to_escaper(name, "reloaded").await;
     Ok(())
 }
 
 async fn spawn_new_unlocked(config: AnyEscaperConfig) -> anyhow::Result<()> {
-    let name = config.name().to_string();
+    let name = config.name().clone();
     let escaper = match config {
         AnyEscaperConfig::DirectFixed(_) => DirectFixedEscaper::prepare_initial(config)?,
         AnyEscaperConfig::DirectFloat(_) => DirectFloatEscaper::prepare_initial(config).await?,

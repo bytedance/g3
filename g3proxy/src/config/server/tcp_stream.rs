@@ -39,7 +39,7 @@ const SERVER_CONFIG_TYPE: &str = "TcpStream";
 pub(crate) struct TcpStreamServerConfig {
     name: String,
     position: Option<YamlDocPosition>,
-    pub(crate) escaper: String,
+    pub(crate) escaper: MetricsName,
     pub(crate) auditor: MetricsName,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) listen: TcpListenConfig,
@@ -62,7 +62,7 @@ impl TcpStreamServerConfig {
         TcpStreamServerConfig {
             name: String::new(),
             position,
-            escaper: String::new(),
+            escaper: MetricsName::default(),
             auditor: MetricsName::default(),
             shared_logger: None,
             listen: TcpListenConfig::default(),
@@ -105,7 +105,7 @@ impl TcpStreamServerConfig {
                 }
             }
             "escaper" => {
-                self.escaper = g3_yaml::value::as_string(v)?;
+                self.escaper = g3_yaml::value::as_metrics_name(v)?;
                 Ok(())
             }
             "auditor" => {
@@ -257,7 +257,7 @@ impl ServerConfig for TcpStreamServerConfig {
         SERVER_CONFIG_TYPE
     }
 
-    fn escaper(&self) -> &str {
+    fn escaper(&self) -> &MetricsName {
         &self.escaper
     }
 

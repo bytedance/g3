@@ -21,13 +21,13 @@ use arc_swap::ArcSwapOption;
 use g3_io_ext::{
     ArcLimitedReaderStats, ArcLimitedWriterStats, LimitedReaderStats, LimitedWriterStats,
 };
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::{StatId, TcpIoSnapshot};
 
 use crate::escape::{EscaperInterfaceStats, EscaperInternalStats, EscaperStats, EscaperTcpStats};
 
 pub(crate) struct ProxyHttpEscaperStats {
-    name: String,
+    name: MetricsName,
     id: StatId,
     extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
     pub(super) interface: EscaperInterfaceStats,
@@ -35,9 +35,9 @@ pub(crate) struct ProxyHttpEscaperStats {
 }
 
 impl ProxyHttpEscaperStats {
-    pub(super) fn new(name: &str) -> Self {
+    pub(super) fn new(name: &MetricsName) -> Self {
         ProxyHttpEscaperStats {
-            name: name.to_string(),
+            name: name.clone(),
             id: StatId::new(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
             interface: EscaperInterfaceStats::default(),
@@ -73,7 +73,7 @@ impl EscaperInternalStats for ProxyHttpEscaperStats {
 }
 
 impl EscaperStats for ProxyHttpEscaperStats {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         &self.name
     }
 

@@ -64,7 +64,7 @@ impl TaskLogForUdpAssociate<'_> {
             "udp_listen_addr" => self.udp_listen_addr,
             "udp_client_addr" => self.udp_client_addr,
             "initial_peer" => LtUpstreamAddr(&self.udp_notes.initial_peer),
-            "escaper" => &self.udp_notes.escaper,
+            "escaper" => self.udp_notes.escaper.as_str(),
             "reason" => e.brief(),
             "wait_time" => LtDuration(self.task_notes.wait_time),
             "ready_time" => LtDuration(self.task_notes.ready_time),

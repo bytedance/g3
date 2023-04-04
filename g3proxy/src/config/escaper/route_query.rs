@@ -32,11 +32,11 @@ const ESCAPER_CONFIG_TYPE: &str = "RouteQuery";
 
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct RouteQueryEscaperConfig {
-    pub(crate) name: String,
+    pub(crate) name: MetricsName,
     position: Option<YamlDocPosition>,
     pub(crate) query_pass_client_ip: bool,
-    pub(crate) query_allowed_nodes: BTreeSet<String>,
-    pub(crate) fallback_node: String,
+    pub(crate) query_allowed_nodes: BTreeSet<MetricsName>,
+    pub(crate) fallback_node: MetricsName,
     pub(crate) cache_request_batch_count: usize,
     pub(crate) cache_request_timeout: Duration,
     pub(crate) cache_pick_policy: SelectivePickPolicy,
@@ -51,11 +51,11 @@ pub(crate) struct RouteQueryEscaperConfig {
 impl RouteQueryEscaperConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         RouteQueryEscaperConfig {
-            name: String::new(),
+            name: MetricsName::default(),
             position,
             query_pass_client_ip: false,
             query_allowed_nodes: BTreeSet::new(),
-            fallback_node: String::new(),
+            fallback_node: MetricsName::default(),
             cache_request_batch_count: 10,
             cache_request_timeout: Duration::from_millis(100),
             cache_pick_policy: SelectivePickPolicy::Rendezvous,
@@ -84,12 +84,8 @@ impl RouteQueryEscaperConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                if let Yaml::String(name) = v {
-                    self.name.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.name = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "query_pass_client_ip" => {
                 self.query_pass_client_ip = g3_yaml::value::as_bool(v)?;
@@ -98,8 +94,8 @@ impl RouteQueryEscaperConfig {
             "query_allowed_next" => {
                 if let Yaml::Array(seq) = v {
                     for (i, v) in seq.iter().enumerate() {
-                        let name = g3_yaml::value::as_string(v)
-                            .context(format!("invalid string value for {k}#{i}"))?;
+                        let name = g3_yaml::value::as_metrics_name(v)
+                            .context(format!("invalid metrics name value for {k}#{i}"))?;
                         // duplicate values should report an error
                         if let Some(old) = self.query_allowed_nodes.replace(name) {
                             return Err(anyhow!("found duplicate next node: {old}"));
@@ -111,8 +107,7 @@ impl RouteQueryEscaperConfig {
                 }
             }
             "fallback_node" => {
-                self.fallback_node = g3_yaml::value::as_string(v)
-                    .context(format!("invalid string value for key {k}"))?;
+                self.fallback_node = g3_yaml::value::as_metrics_name(v)?;
                 Ok(())
             }
             "cache_request_batch_count" => {
@@ -180,7 +175,7 @@ impl RouteQueryEscaperConfig {
 }
 
 impl EscaperConfig for RouteQueryEscaperConfig {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         &self.name
     }
 
@@ -209,10 +204,10 @@ impl EscaperConfig for RouteQueryEscaperConfig {
         EscaperConfigDiffAction::Reload
     }
 
-    fn dependent_escaper(&self) -> Option<BTreeSet<String>> {
+    fn dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
         let mut set = BTreeSet::new();
         for name in &self.query_allowed_nodes {
-            set.insert(name.to_string());
+            set.insert(name.clone());
         }
         set.insert(self.fallback_node.clone());
         Some(set)

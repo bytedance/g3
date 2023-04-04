@@ -65,7 +65,7 @@ pub(crate) trait ServerConfig {
     fn position(&self) -> Option<YamlDocPosition>;
     fn server_type(&self) -> &'static str;
 
-    fn escaper(&self) -> &str;
+    fn escaper(&self) -> &MetricsName;
     fn user_group(&self) -> &MetricsName;
     fn auditor(&self) -> &MetricsName;
 
@@ -153,7 +153,7 @@ impl AnyServerConfig {
     impl_transparent0!(position, Option<YamlDocPosition>);
     impl_transparent0!(server_type, &'static str);
     impl_transparent0!(dependent_server, Option<BTreeSet<String>>);
-    impl_transparent0!(escaper, &str);
+    impl_transparent0!(escaper, &MetricsName);
     impl_transparent0!(user_group, &MetricsName);
     impl_transparent0!(auditor, &MetricsName);
 

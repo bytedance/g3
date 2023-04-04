@@ -24,7 +24,7 @@ use once_cell::sync::Lazy;
 use g3_daemon::metric::{
     TAG_KEY_STAT_ID, TAG_KEY_TRANSPORT, TRANSPORT_TYPE_TCP, TRANSPORT_TYPE_UDP,
 };
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
 
 use super::TAG_KEY_ESCAPER;
@@ -53,7 +53,7 @@ static ROUTE_STATS_MAP: Lazy<Mutex<AHashMap<StatId, RouterStatsValue>>> =
     Lazy::new(|| Mutex::new(AHashMap::new()));
 
 trait EscaperMetricExt<'m> {
-    fn add_escaper_tags(self, escaper: &'m str, stat_id: &'m str) -> Self;
+    fn add_escaper_tags(self, escaper: &'m MetricsName, stat_id: &'m str) -> Self;
     fn add_escaper_extra_tags(self, tags: &'m Option<Arc<StaticMetricsTags>>) -> Self;
 }
 
@@ -61,8 +61,8 @@ impl<'m, 'c, T> EscaperMetricExt<'m> for MetricBuilder<'m, 'c, T>
 where
     T: Metric + From<String>,
 {
-    fn add_escaper_tags(self, escaper: &'m str, stat_id: &'m str) -> Self {
-        self.with_tag(TAG_KEY_ESCAPER, escaper)
+    fn add_escaper_tags(self, escaper: &'m MetricsName, stat_id: &'m str) -> Self {
+        self.with_tag(TAG_KEY_ESCAPER, escaper.as_str())
             .with_tag(TAG_KEY_STAT_ID, stat_id)
     }
 
@@ -206,7 +206,7 @@ fn emit_forbidden_stats(
     client: &StatsdClient,
     stats: EscaperForbiddenSnapshot,
     snap: &mut EscaperForbiddenSnapshot,
-    escaper: &str,
+    escaper: &MetricsName,
     escaper_extra_tags: &Option<Arc<StaticMetricsTags>>,
     stat_id: &str,
 ) {
@@ -226,7 +226,7 @@ fn emit_tcp_io_to_statsd(
     client: &StatsdClient,
     stats: TcpIoSnapshot,
     snap: &mut TcpIoSnapshot,
-    escaper: &str,
+    escaper: &MetricsName,
     escaper_extra_tags: &Option<Arc<StaticMetricsTags>>,
     stat_id: &str,
 ) {
@@ -258,7 +258,7 @@ fn emit_udp_io_to_statsd(
     client: &StatsdClient,
     stats: UdpIoSnapshot,
     snap: &mut UdpIoSnapshot,
-    escaper: &str,
+    escaper: &MetricsName,
     escaper_extra_tags: &Option<Arc<StaticMetricsTags>>,
     stat_id: &str,
 ) {

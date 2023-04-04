@@ -30,21 +30,21 @@ const ESCAPER_CONFIG_TYPE: &str = "RouteClient";
 
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct RouteClientEscaperConfig {
-    pub(crate) name: String,
+    pub(crate) name: MetricsName,
     position: Option<YamlDocPosition>,
-    pub(crate) exact_match_ipaddr: BTreeMap<String, BTreeSet<IpAddr>>,
-    pub(crate) subnet_match_ipaddr: BTreeMap<String, BTreeSet<IpNetwork>>,
-    pub(crate) default_next: String,
+    pub(crate) exact_match_ipaddr: BTreeMap<MetricsName, BTreeSet<IpAddr>>,
+    pub(crate) subnet_match_ipaddr: BTreeMap<MetricsName, BTreeSet<IpNetwork>>,
+    pub(crate) default_next: MetricsName,
 }
 
 impl RouteClientEscaperConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         RouteClientEscaperConfig {
-            name: String::new(),
+            name: MetricsName::default(),
             position,
             exact_match_ipaddr: BTreeMap::new(),
             subnet_match_ipaddr: BTreeMap::new(),
-            default_next: String::new(),
+            default_next: MetricsName::default(),
         }
     }
 
@@ -82,12 +82,8 @@ impl RouteClientEscaperConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                if let Yaml::String(name) = v {
-                    self.name.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.name = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "exact_match" | "exact_rules" => {
                 RouteClientEscaperConfig::foreach_rule(k, v, |map| self.add_exact_match(map))
@@ -96,12 +92,8 @@ impl RouteClientEscaperConfig {
                 RouteClientEscaperConfig::foreach_rule(k, v, |map| self.add_subnet_match(map))
             }
             "default_next" => {
-                if let Yaml::String(next) = v {
-                    self.default_next.clone_from(next);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.default_next = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
         }
@@ -126,16 +118,12 @@ impl RouteClientEscaperConfig {
     }
 
     fn add_exact_match(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
-        let mut escaper = String::new();
+        let mut escaper = MetricsName::default();
         let mut all_ipaddr = BTreeSet::<IpAddr>::new();
         g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
             "next" | "escaper" => {
-                if let Yaml::String(v) = v {
-                    escaper.clone_from(v);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                escaper = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "ips" | "ip" => {
                 if let Yaml::Array(seq) = v {
@@ -163,16 +151,12 @@ impl RouteClientEscaperConfig {
     }
 
     fn add_subnet_match(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
-        let mut escaper = String::new();
+        let mut escaper = MetricsName::default();
         let mut all_subnets = BTreeSet::<IpNetwork>::new();
         g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
             "next" | "escaper" => {
-                if let Yaml::String(v) = v {
-                    escaper.clone_from(v);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                escaper = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "subnets" | "subnet" => {
                 if let Yaml::Array(seq) = v {
@@ -204,7 +188,7 @@ impl RouteClientEscaperConfig {
 }
 
 impl EscaperConfig for RouteClientEscaperConfig {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         &self.name
     }
 
@@ -233,14 +217,14 @@ impl EscaperConfig for RouteClientEscaperConfig {
         EscaperConfigDiffAction::Reload
     }
 
-    fn dependent_escaper(&self) -> Option<BTreeSet<String>> {
+    fn dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
         let mut set = BTreeSet::new();
         set.insert(self.default_next.clone());
         for key in self.exact_match_ipaddr.keys() {
-            set.insert(key.to_string());
+            set.insert(key.clone());
         }
         for key in self.subnet_match_ipaddr.keys() {
-            set.insert(key.to_string());
+            set.insert(key.clone());
         }
         Some(set)
     }

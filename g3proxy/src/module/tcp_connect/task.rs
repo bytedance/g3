@@ -19,6 +19,7 @@ use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 
+use g3_types::metrics::MetricsName;
 use g3_types::net::{EgressInfo, UpstreamAddr};
 
 /// This contains the final chained info about the client request
@@ -38,7 +39,7 @@ impl TcpConnectChainedNotes {
 #[derive(Debug, Clone)]
 pub(crate) struct TcpConnectTaskNotes {
     pub(crate) upstream: UpstreamAddr,
-    pub(crate) escaper: String,
+    pub(crate) escaper: MetricsName,
     pub(crate) bind: Option<IpAddr>,
     pub(crate) next: Option<SocketAddr>,
     pub(crate) tries: usize,
@@ -53,7 +54,7 @@ impl TcpConnectTaskNotes {
     pub(crate) fn new(upstream: UpstreamAddr) -> Self {
         TcpConnectTaskNotes {
             upstream,
-            escaper: String::new(),
+            escaper: MetricsName::default(),
             bind: None,
             next: None,
             tries: 0,

@@ -181,7 +181,7 @@ impl ProxyFloatEscaper {
 
 #[async_trait]
 impl Escaper for ProxyFloatEscaper {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         self.config.name()
     }
 
@@ -285,7 +285,7 @@ impl EscaperInternal for ProxyFloatEscaper {
         Default::default()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<String>> {
+    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
         None
     }
 

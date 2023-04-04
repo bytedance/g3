@@ -18,10 +18,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::net::IpAddr;
 
 use anyhow::{anyhow, Context};
-use g3_types::metrics::MetricsName;
 use ip_network::IpNetwork;
 use yaml_rust::{yaml, Yaml};
 
+use g3_types::metrics::MetricsName;
 use g3_types::net::Host;
 use g3_yaml::YamlDocPosition;
 
@@ -31,27 +31,27 @@ const ESCAPER_CONFIG_TYPE: &str = "RouteUpstream";
 
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct RouteUpstreamEscaperConfig {
-    pub(crate) name: String,
+    pub(crate) name: MetricsName,
     position: Option<YamlDocPosition>,
-    pub(crate) exact_match_domain: BTreeMap<String, BTreeSet<String>>,
-    pub(crate) exact_match_ipaddr: BTreeMap<String, BTreeSet<IpAddr>>,
-    pub(crate) subnet_match_ipaddr: BTreeMap<String, BTreeSet<IpNetwork>>,
-    pub(crate) radix_match_domain: BTreeMap<String, BTreeSet<String>>,
-    pub(crate) child_match_domain: BTreeMap<String, BTreeSet<String>>,
-    pub(crate) default_next: String,
+    pub(crate) exact_match_domain: BTreeMap<MetricsName, BTreeSet<String>>,
+    pub(crate) exact_match_ipaddr: BTreeMap<MetricsName, BTreeSet<IpAddr>>,
+    pub(crate) subnet_match_ipaddr: BTreeMap<MetricsName, BTreeSet<IpNetwork>>,
+    pub(crate) radix_match_domain: BTreeMap<MetricsName, BTreeSet<String>>,
+    pub(crate) child_match_domain: BTreeMap<MetricsName, BTreeSet<String>>,
+    pub(crate) default_next: MetricsName,
 }
 
 impl RouteUpstreamEscaperConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         RouteUpstreamEscaperConfig {
-            name: String::new(),
+            name: MetricsName::default(),
             position,
             exact_match_domain: BTreeMap::new(),
             exact_match_ipaddr: BTreeMap::new(),
             subnet_match_ipaddr: BTreeMap::new(),
             radix_match_domain: BTreeMap::new(),
             child_match_domain: BTreeMap::new(),
-            default_next: String::new(),
+            default_next: MetricsName::default(),
         }
     }
 
@@ -89,12 +89,8 @@ impl RouteUpstreamEscaperConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                if let Yaml::String(name) = v {
-                    self.name.clone_from(name);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.name = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "exact_match" | "exact_rules" => {
                 RouteUpstreamEscaperConfig::foreach_rule(k, v, |map| self.add_exact_match(map))
@@ -109,12 +105,8 @@ impl RouteUpstreamEscaperConfig {
                 RouteUpstreamEscaperConfig::foreach_rule(k, v, |map| self.add_child_match(map))
             }
             "default_next" => {
-                if let Yaml::String(next) = v {
-                    self.default_next.clone_from(next);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                self.default_next = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
         }
@@ -151,17 +143,13 @@ impl RouteUpstreamEscaperConfig {
     }
 
     fn add_exact_match(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
-        let mut escaper = String::new();
+        let mut escaper = MetricsName::default();
         let mut all_ipaddr = BTreeSet::<IpAddr>::new();
         let mut all_domain = BTreeSet::<String>::new();
         g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
             "next" | "escaper" => {
-                if let Yaml::String(v) = v {
-                    escaper.clone_from(v);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                escaper = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "hosts" | "host" => {
                 if let Yaml::Array(seq) = v {
@@ -201,16 +189,12 @@ impl RouteUpstreamEscaperConfig {
     }
 
     fn add_subnet_match(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
-        let mut escaper = String::new();
+        let mut escaper = MetricsName::default();
         let mut all_subnets = BTreeSet::<IpNetwork>::new();
         g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
             "next" | "escaper" => {
-                if let Yaml::String(v) = v {
-                    escaper.clone_from(v);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                escaper = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "subnets" | "subnet" => {
                 if let Yaml::Array(seq) = v {
@@ -241,16 +225,12 @@ impl RouteUpstreamEscaperConfig {
     }
 
     fn add_child_match(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
-        let mut escaper = String::new();
+        let mut escaper = MetricsName::default();
         let mut all_domain = BTreeSet::<String>::new();
         g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
             "next" | "escaper" => {
-                if let Yaml::String(v) = v {
-                    escaper.clone_from(v);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                escaper = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "domains" | "domain" => {
                 if let Yaml::Array(seq) = v {
@@ -278,16 +258,12 @@ impl RouteUpstreamEscaperConfig {
     }
 
     fn add_radix_match(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
-        let mut escaper = String::new();
+        let mut escaper = MetricsName::default();
         let mut all_domain = BTreeSet::<String>::new();
         g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
             "next" | "escaper" => {
-                if let Yaml::String(v) = v {
-                    escaper.clone_from(v);
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid string value for key {k}"))
-                }
+                escaper = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
             }
             "suffixes" | "suffix" => {
                 if let Yaml::Array(seq) = v {
@@ -316,7 +292,7 @@ impl RouteUpstreamEscaperConfig {
 }
 
 impl EscaperConfig for RouteUpstreamEscaperConfig {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         &self.name
     }
 
@@ -345,23 +321,23 @@ impl EscaperConfig for RouteUpstreamEscaperConfig {
         EscaperConfigDiffAction::Reload
     }
 
-    fn dependent_escaper(&self) -> Option<BTreeSet<String>> {
+    fn dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
         let mut set = BTreeSet::new();
         set.insert(self.default_next.clone());
         for key in self.exact_match_ipaddr.keys() {
-            set.insert(key.to_string());
+            set.insert(key.clone());
         }
         for key in self.exact_match_domain.keys() {
-            set.insert(key.to_string());
+            set.insert(key.clone());
         }
         for key in self.subnet_match_ipaddr.keys() {
-            set.insert(key.to_string());
+            set.insert(key.clone());
         }
         for key in self.radix_match_domain.keys() {
-            set.insert(key.to_string());
+            set.insert(key.clone());
         }
         for key in self.child_match_domain.keys() {
-            set.insert(key.to_string());
+            set.insert(key.clone());
         }
         Some(set)
     }

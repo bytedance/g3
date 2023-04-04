@@ -135,8 +135,8 @@ impl Server for DummyCloseServer {
         0
     }
 
-    fn escaper(&self) -> String {
-        String::new()
+    fn escaper(&self) -> &MetricsName {
+        Default::default()
     }
 
     fn user_group(&self) -> &MetricsName {

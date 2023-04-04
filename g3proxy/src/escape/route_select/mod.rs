@@ -124,7 +124,7 @@ impl EscaperExt for RouteSelectEscaper {}
 
 #[async_trait]
 impl Escaper for RouteSelectEscaper {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         self.config.name()
     }
 
@@ -227,7 +227,7 @@ impl EscaperInternal for RouteSelectEscaper {
         Default::default()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<String>> {
+    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
         self.config.dependent_escaper()
     }
 

@@ -262,7 +262,7 @@ impl DirectFixedEscaper {
 
 #[async_trait]
 impl Escaper for DirectFixedEscaper {
-    fn name(&self) -> &str {
+    fn name(&self) -> &MetricsName {
         self.config.name()
     }
 
@@ -351,7 +351,7 @@ impl EscaperInternal for DirectFixedEscaper {
         self.config.resolver()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<String>> {
+    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
         None
     }
 

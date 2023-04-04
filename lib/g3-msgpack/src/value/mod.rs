@@ -15,6 +15,7 @@
  */
 
 mod datetime;
+mod metrics;
 mod primary;
 mod uuid;
 
@@ -23,6 +24,7 @@ mod rustls;
 
 pub use self::uuid::as_uuid;
 pub use datetime::as_rfc3339_datetime;
+pub use metrics::{as_metrics_name, as_weighted_metrics_name};
 pub use primary::{as_f64, as_string, as_u32, as_weighted_name_string};
 
 #[cfg(feature = "rustls")]

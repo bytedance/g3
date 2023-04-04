@@ -365,7 +365,7 @@ impl User {
     fn fetch_upstream_traffic_stats(
         &self,
         user_type: UserType,
-        escaper: &str,
+        escaper: &MetricsName,
         escaper_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
     ) -> Arc<UserUpstreamTrafficStats> {
         let mut map = self.upstream_io_stats.lock().unwrap();
@@ -620,7 +620,7 @@ impl UserContext {
 
     pub(crate) fn fetch_upstream_traffic_stats(
         &self,
-        escaper: &str,
+        escaper: &MetricsName,
         escaper_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
     ) -> Vec<Arc<UserUpstreamTrafficStats>> {
         let mut all_stats = Vec::with_capacity(2);
