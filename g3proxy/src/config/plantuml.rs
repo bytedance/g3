@@ -68,7 +68,7 @@ fn plantuml_resolver(content: &mut String) -> anyhow::Result<()> {
         if let Some(d) = c.dependent_resolver() {
             let s_name = c.name();
             for v in d {
-                let _ = writeln!(content, "  resolver_{s_name} -> resolver_{v}",);
+                let _ = writeln!(content, "  resolver_{s_name} --> resolver_{v}",);
             }
         }
     }
@@ -89,7 +89,7 @@ fn plantuml_escaper(content: &mut String) -> anyhow::Result<()> {
         if let Some(d) = c.dependent_escaper() {
             let s_name = c.name();
             for v in d {
-                let _ = writeln!(content, "  escaper_{s_name} -> escaper_{v}",);
+                let _ = writeln!(content, "  escaper_{s_name} --> escaper_{v}",);
             }
         }
     }
@@ -98,7 +98,7 @@ fn plantuml_escaper(content: &mut String) -> anyhow::Result<()> {
     for c in &all_escaper {
         let r = c.resolver();
         if !r.is_empty() {
-            let _ = writeln!(content, "escaper_{} -> resolver_{r}", c.name());
+            let _ = writeln!(content, "escaper_{} ..> resolver_{r}", c.name());
         }
     }
 
@@ -118,7 +118,7 @@ fn plantuml_server(content: &mut String) -> anyhow::Result<()> {
         if let Some(d) = c.dependent_server() {
             for v in d {
                 let s_name = c.name();
-                let _ = writeln!(content, "  server_{s_name} -> server_{v}",);
+                let _ = writeln!(content, "  server_{s_name} --> server_{v}",);
             }
         }
     }
@@ -129,17 +129,17 @@ fn plantuml_server(content: &mut String) -> anyhow::Result<()> {
 
         let e = c.escaper();
         if !e.is_empty() {
-            let _ = writeln!(content, "server_{s_name} -> escaper_{e}");
+            let _ = writeln!(content, "server_{s_name} --> escaper_{e}");
         }
 
         let u = c.user_group();
         if !u.is_empty() {
-            let _ = writeln!(content, "server_{s_name} -> user_group_{u}");
+            let _ = writeln!(content, "server_{s_name} ..> user_group_{u}");
         }
 
         let a = c.auditor();
         if !a.is_empty() {
-            let _ = writeln!(content, "server_{s_name} -> auditor_{a}");
+            let _ = writeln!(content, "server_{s_name} --> auditor_{a}");
         }
     }
 
