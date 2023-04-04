@@ -30,15 +30,6 @@ The code should comply to these, but should be more compliant to existing popula
  - [rfc4122](https://datatracker.ietf.org/doc/html/rfc4122)
     : A Universally Unique IDentifier (UUID) URN Namespace
 
-## JSON-RPC
-
- - [JSON-RPC](https://www.simple-is-better.org/json-rpc/)
-    : An up-to-date summary of all relevant information about JSON-RPC
- - [JSON-RPC 2.0](https://www.jsonrpc.org/specification)
-    : JSON-RPC 2.0 Specification
- - [JSON-RPC 2.0 Transport: HTTP](https://www.simple-is-better.org/json-rpc/transport_http.html)
- - [JSON-RPC 2.0 Transport: Sockets](https://www.simple-is-better.org/json-rpc/transport_sockets.html)
-
 ## Encoding
 
  - [netstring](http://cr.yp.to/proto/netstrings.txt)

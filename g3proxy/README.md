@@ -3,6 +3,10 @@
 The g3proxy is an enterprise level forward proxy, but still with basic support for
 tcp streaming / tls streaming / transparent proxy / reverse proxy.
 
+## User Guide
+
+[中文版](UserGuide.zh_CN.md)
+
 ## Features
 
 ### Server
@@ -64,7 +68,7 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
   - TCP Port
   - TLS Port
     * mTLS
-  - Intelli Proxy Port
+  - Intelli Proxy
     * Multiple protocol: Http Proxy / Socks Proxy
 
 ### Escaper
@@ -183,13 +187,7 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 
 ## Documents
 
-The detailed docs are resided in the [doc](doc) directory, which describes the configuration & metrics & logs.
-
-To view the docs:
-
-1. [install sphinx](https://www.sphinx-doc.org/en/master/usage/installation.html) 
-2. run `make html` in the doc directory
-3. open *_build/html/index.html* with your favourite browser
+The detailed docs are resided in the [doc](doc) directory.
 
 ## Examples
 
