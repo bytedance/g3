@@ -72,9 +72,9 @@ pub(super) fn get_config(name: &MetricsName) -> Option<AnyResolverConfig> {
 
 pub(super) fn update_config(name: &MetricsName, config: AnyResolverConfig) -> anyhow::Result<()> {
     let mut ht = RUNTIME_RESOLVER_REGISTRY.lock().unwrap();
-    if let Some(resolver) = ht.get(name) {
+    if ht.contains_key(name) {
         let mut dep_table = BTreeMap::new();
-        if let Some(set) = resolver._dependent_resolver() {
+        if let Some(set) = config.dependent_resolver() {
             for name in set {
                 if let Some(dr) = ht.get(&name) {
                     dep_table.insert(name, dr.get_handle());
