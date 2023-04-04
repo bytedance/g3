@@ -53,6 +53,10 @@ default-members = [
     "g3tiles/utils/ctl",
 ]
 
+[workspace.package]
+license = "Apache-2.0"
+edition = "2021"
+
 [profile.release-lto]
 inherits = "release"
 strip = true
