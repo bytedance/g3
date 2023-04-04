@@ -15,6 +15,7 @@
  */
 
 mod opts;
+mod progress;
 
 pub mod build;
 pub mod target;

@@ -23,7 +23,6 @@ use ahash::AHashMap;
 use anyhow::{anyhow, Context};
 use cadence::StatsdClient;
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
-use indicatif::{ProgressBar, ProgressStyle};
 
 use g3_runtime::blended::BlendedRuntimeConfig;
 use g3_runtime::unaided::UnaidedRuntimeConfig;
@@ -31,6 +30,8 @@ use g3_statsd::client::{StatsdBackend, StatsdClientConfig};
 use g3_types::collection::{SelectivePickPolicy, SelectiveVec, SelectiveVecBuilder, WeightedValue};
 use g3_types::metrics::MetricsName;
 use g3_types::net::{TcpSockSpeedLimitConfig, UpstreamAddr};
+
+use super::progress::BenchProgress;
 
 const GLOBAL_ARG_UNAIDED: &str = "unaided";
 const GLOBAL_ARG_UNCONSTRAINED: &str = "unconstrained";
@@ -96,17 +97,13 @@ impl ProcArgs {
         println!();
     }
 
-    pub(super) fn new_progress_bar(&self) -> Option<ProgressBar> {
+    pub(super) fn new_progress_bar(&self) -> Option<BenchProgress> {
         if self.no_progress_bar {
             None
         } else if let Some(requests) = self.requests {
-            let bar = ProgressBar::new(requests as u64).with_style(
-                ProgressStyle::default_bar()
-                    .progress_chars("=>-")
-                    .template("[{elapsed_precise}] {wide_bar} {pos}/{len}")
-                    .unwrap(),
-            );
-            Some(bar)
+            Some(BenchProgress::new_fixed(requests))
+        } else if let Some(timeout) = self.time_limit {
+            Some(BenchProgress::new_timed(timeout))
         } else {
             None
         }
@@ -418,7 +415,7 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
         proc_args.statsd_client_config = Some(config);
     }
 
-    if args.get_flag(GLOBAL_ARG_NO_PROGRESS_BAR) || proc_args.requests.is_none() {
+    if args.get_flag(GLOBAL_ARG_NO_PROGRESS_BAR) {
         proc_args.no_progress_bar = true;
     }
 

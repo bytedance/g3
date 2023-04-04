@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -144,12 +144,8 @@ where
     let sync_sem = Arc::new(Semaphore::new(0));
     let sync_barrier = Arc::new(Barrier::new(proc_args.concurrency + 1));
     let (sender, mut receiver) = mpsc::channel::<usize>(proc_args.concurrency);
-    let progress_bar = proc_args.new_progress_bar();
-    let progress_bar_atomic = if progress_bar.is_some() {
-        Some(Arc::new(AtomicU64::new(0)))
-    } else {
-        None
-    };
+    let progress = proc_args.new_progress_bar();
+    let progress_counter = progress.as_ref().map(|p| p.counter());
 
     stats::init_global_state(proc_args.requests, proc_args.log_error_count);
     tokio::spawn(
@@ -161,7 +157,7 @@ where
         let sem = Arc::clone(&sync_sem);
         let barrier = Arc::clone(&sync_barrier);
         let quit_sender = sender.clone();
-        let progress_bar_atomic = progress_bar_atomic.clone();
+        let progress_counter = progress_counter.clone();
 
         let mut context = target
             .new_context()
@@ -186,9 +182,7 @@ where
                 match rt {
                     Ok(_) => {
                         context.mark_task_passed();
-                        if let Some(bar_atomic) = &progress_bar_atomic {
-                            bar_atomic.fetch_add(1, Ordering::Relaxed);
-                        }
+                        progress_counter.as_ref().map(|c| c.inc());
                         global_state.add_passed();
                     }
                     Err(e) => {
@@ -217,29 +211,9 @@ where
 
     let quit_notifier = Arc::new(AtomicBool::new(false));
     // progress bar
-    let progress_bar_handler = if let Some(progress_bar) = progress_bar {
-        if let Some(progress_bar_atomic) = progress_bar_atomic.clone() {
-            let quit_notifier = quit_notifier.clone();
-            let handler = std::thread::Builder::new()
-                .name("progress-bar".to_string())
-                .spawn(move || {
-                    loop {
-                        progress_bar.inc(progress_bar_atomic.swap(0, Ordering::Relaxed));
-
-                        if quit_notifier.load(Ordering::Relaxed) {
-                            break;
-                        }
-
-                        std::thread::sleep(Duration::from_millis(100));
-                    }
-
-                    progress_bar
-                })
-                .map_err(|e| anyhow!("failed to create progress bar thread: {e}"))?;
-            Some(handler)
-        } else {
-            None
-        }
+    let progress_bar_handler = if let Some(progress) = progress {
+        let handler = progress.spawn(quit_notifier.clone())?;
+        Some(handler)
     } else {
         None
     };
@@ -327,7 +301,7 @@ where
 
     if let Some(handler) = progress_bar_handler {
         match handler.join() {
-            Ok(bar) => bar.finish_and_clear(),
+            Ok(bar) => bar.finish(),
             Err(e) => eprintln!("error to join progress bar thread: {e:?}"),
         }
     }
