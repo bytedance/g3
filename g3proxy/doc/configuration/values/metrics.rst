@@ -40,7 +40,6 @@ metrics name
 
 The metrics name
 
-
 .. _conf_value_statsd_client_config:
 
 Statsd Client Config

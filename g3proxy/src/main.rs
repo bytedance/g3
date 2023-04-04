@@ -43,13 +43,18 @@ fn main() -> anyhow::Result<()> {
         info!("the format of the config file is ok");
         return Ok(());
     }
-    if proc_args.output_dot_graph {
-        let content = g3proxy::config::dot_graph()?;
+    if proc_args.output_graphviz_graph {
+        let content = g3proxy::config::graphviz_graph()?;
         println!("{content}");
         return Ok(());
     }
     if proc_args.output_mermaid_graph {
         let content = g3proxy::config::mermaid_graph()?;
+        println!("{content}");
+        return Ok(());
+    }
+    if proc_args.output_plantuml_graph {
+        let content = g3proxy::config::plantuml_graph()?;
         println!("{content}");
         return Ok(());
     }

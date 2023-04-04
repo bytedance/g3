@@ -24,11 +24,14 @@ use g3_yaml::YamlDocPosition;
 
 use crate::opts::ProcArgs;
 
-mod dot;
-pub use dot::dot_graph;
+mod graphviz;
+pub use graphviz::graphviz_graph;
 
 mod mermaid;
 pub use mermaid::mermaid_graph;
+
+mod plantuml;
+pub use plantuml::plantuml_graph;
 
 pub(crate) mod audit;
 pub(crate) mod auth;

@@ -42,6 +42,7 @@ const ARGS_PID_FILE: &str = "pid-file";
 
 const DEP_GRAPH_GRAPHVIZ: &str = "graphviz";
 const DEP_GRAPH_MERMAID: &str = "mermaid";
+const DEP_GRAPH_PLANTUML: &str = "plantuml";
 
 static CONTROL_DIR: OnceCell<PathBuf> = OnceCell::new();
 
@@ -51,8 +52,9 @@ pub struct ProcArgs {
     pub config_file: PathBuf,
     pub group_name: String,
     pub test_config: bool,
-    pub output_dot_graph: bool,
+    pub output_graphviz_graph: bool,
     pub output_mermaid_graph: bool,
+    pub output_plantuml_graph: bool,
 }
 
 impl Default for ProcArgs {
@@ -68,8 +70,9 @@ impl ProcArgs {
             config_file,
             group_name: String::new(),
             test_config: false,
-            output_dot_graph: false,
+            output_graphviz_graph: false,
             output_mermaid_graph: false,
+            output_plantuml_graph: false,
         }
     }
 }
@@ -121,7 +124,7 @@ fn build_cli_args() -> Command {
                 .short('g')
                 .long("dep-graph")
                 .num_args(0..=1)
-                .value_parser([DEP_GRAPH_GRAPHVIZ, DEP_GRAPH_MERMAID])
+                .value_parser([DEP_GRAPH_GRAPHVIZ, DEP_GRAPH_MERMAID, DEP_GRAPH_PLANTUML])
                 .default_missing_value(DEP_GRAPH_GRAPHVIZ),
         )
         .arg(
@@ -212,8 +215,9 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
     }
     if let Some(g) = args.get_one::<String>(ARGS_DEP_GRAPH) {
         match g.as_str() {
-            DEP_GRAPH_GRAPHVIZ => proc_args.output_dot_graph = true,
+            DEP_GRAPH_GRAPHVIZ => proc_args.output_graphviz_graph = true,
             DEP_GRAPH_MERMAID => proc_args.output_mermaid_graph = true,
+            DEP_GRAPH_PLANTUML => proc_args.output_plantuml_graph = true,
             s => {
                 panic!("unsupported graph type {s}")
             }

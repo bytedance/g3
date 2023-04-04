@@ -18,64 +18,60 @@ use anyhow::Context;
 
 use std::fmt::Write;
 
-pub fn dot_graph() -> anyhow::Result<String> {
+pub fn graphviz_graph() -> anyhow::Result<String> {
     let mut content = String::with_capacity(4096);
     let _ = content.write_str("strict digraph G {\n");
 
-    dot_auditor(&mut content);
+    graphviz_auditor(&mut content);
 
-    dot_user_group(&mut content);
+    graphviz_user_group(&mut content);
 
-    dot_resolver(&mut content)?;
+    graphviz_resolver(&mut content)?;
 
-    dot_escaper(&mut content)?;
+    graphviz_escaper(&mut content)?;
 
-    dot_server(&mut content)?;
+    graphviz_server(&mut content)?;
 
     let _ = content.write_str("}\n");
 
     Ok(content)
 }
 
-fn dot_auditor(content: &mut String) {
+fn graphviz_auditor(content: &mut String) {
     let _ = content.write_str("  subgraph cluster_auditor {\n");
     let _ = content.write_str("    graph [style=dashed][label=auditor];\n");
     for config in crate::config::audit::get_all() {
-        let name = config.name().escape_debug();
-        let _ = writeln!(content, "    \"auditor_{name}\" [label=\"{name}\"]");
+        let name = config.name();
+        let _ = writeln!(content, "    auditor_{name} [label={name}]");
     }
     let _ = content.write_str("  };\n");
 }
 
-fn dot_user_group(content: &mut String) {
+fn graphviz_user_group(content: &mut String) {
     let _ = content.write_str("  subgraph cluster_user_group {\n");
     let _ = content.write_str("    graph [style=dashed][label=user_group];\n");
     for config in crate::config::auth::get_all() {
-        let name = config.name().escape_debug();
-        let _ = writeln!(content, "    \"user_group_{name}\" [label=\"{name}\"]");
+        let name = config.name();
+        let _ = writeln!(content, "    user_group_{name} [label={name}]");
     }
     let _ = content.write_str("  };\n");
 }
 
-fn dot_resolver(content: &mut String) -> anyhow::Result<()> {
+fn graphviz_resolver(content: &mut String) -> anyhow::Result<()> {
     let all_resolver =
         crate::config::resolver::get_all_sorted().context("failed to get all resolver config")?;
 
     let _ = content.write_str("  subgraph cluster_resolver {\n");
     let _ = content.write_str("    graph [style=dashed][label=resolver];\n");
     for c in &all_resolver {
-        let name = c.name().escape_debug();
-        let _ = writeln!(content, "    \"resolver_{name}\" [label=\"{name}\"]");
+        let name = c.name();
+        let _ = writeln!(content, "    resolver_{name} [label={name}]");
     }
     for c in &all_resolver {
         if let Some(d) = c.dependent_resolver() {
+            let s_name = c.name();
             for v in d {
-                let s_name = c.name().escape_debug();
-                let d_name = v.escape_debug();
-                let _ = writeln!(
-                    content,
-                    "    \"resolver_{s_name}\" -> \"resolver_{d_name}\""
-                );
+                let _ = writeln!(content, "    resolver_{s_name} -> resolver_{v}");
             }
         }
     }
@@ -83,22 +79,21 @@ fn dot_resolver(content: &mut String) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn dot_escaper(content: &mut String) -> anyhow::Result<()> {
+fn graphviz_escaper(content: &mut String) -> anyhow::Result<()> {
     let all_escaper =
         crate::config::escaper::get_all_sorted().context("failed to get all escaper config")?;
 
     let _ = content.write_str("  subgraph cluster_escaper {\n");
     let _ = content.write_str("    graph [label=escaper];\n");
     for c in &all_escaper {
-        let name = c.name().escape_debug();
-        let _ = writeln!(content, "    \"escaper_{name}\" [label=\"{name}\"]");
+        let name = c.name();
+        let _ = writeln!(content, "    escaper_{name} [label={name}]");
     }
     for c in &all_escaper {
         if let Some(d) = c.dependent_escaper() {
+            let s_name = c.name();
             for v in d {
-                let s_name = c.name().escape_debug();
-                let d_name = v.escape_debug();
-                let _ = writeln!(content, "    \"escaper_{s_name}\" -> \"escaper_{d_name}\"");
+                let _ = writeln!(content, "   escaper_{s_name} -> escaper_{v}");
             }
         }
     }
@@ -107,55 +102,49 @@ fn dot_escaper(content: &mut String) -> anyhow::Result<()> {
     for c in &all_escaper {
         let r = c.resolver();
         if !r.is_empty() {
-            let s_name = c.name().escape_debug();
-            let d_name = r.escape_debug();
-            let _ = writeln!(content, "  \"escaper_{s_name}\" -> \"resolver_{d_name}\"");
+            let _ = writeln!(content, "  escaper_{} -> resolver_{r}", c.name());
         }
     }
 
     Ok(())
 }
 
-fn dot_server(content: &mut String) -> anyhow::Result<()> {
+fn graphviz_server(content: &mut String) -> anyhow::Result<()> {
     let all_server =
         crate::config::server::get_all_sorted().context("failed to get all escaper config")?;
 
     let _ = content.write_str("  subgraph cluster_server {\n");
     let _ = content.write_str("    graph [style=dashed][label=server];\n");
     for c in &all_server {
-        let name = c.name().escape_debug();
-        let _ = writeln!(content, "    \"server_{name}\" [label=\"{name}\"]");
+        let name = c.name();
+        let _ = writeln!(content, "    server_{name} [label={name}]");
     }
     for c in &all_server {
         if let Some(d) = c.dependent_server() {
+            let s_name = c.name();
             for v in d {
-                let s_name = c.name().escape_debug();
-                let d_name = v.escape_debug();
-                let _ = writeln!(content, "    \"server_{s_name}\" -> \"server_{d_name}\"");
+                let _ = writeln!(content, "    server_{s_name} -> server_{v}");
             }
         }
     }
     let _ = content.write_str("  };\n");
 
     for c in &all_server {
-        let s_name = c.name().escape_debug();
+        let s_name = c.name();
 
         let e = c.escaper();
         if !e.is_empty() {
-            let d_name = e.escape_debug();
-            let _ = writeln!(content, "  \"server_{s_name}\" -> \"escaper_{d_name}\"");
+            let _ = writeln!(content, "  \"server_{s_name}\" -> \"escaper_{e}\"");
         }
 
         let u = c.user_group();
         if !u.is_empty() {
-            let d_name = u.escape_debug();
-            let _ = writeln!(content, "  \"server_{s_name}\" -> \"user_group_{d_name}\"");
+            let _ = writeln!(content, "  server_{s_name} -> user_group_{u}");
         }
 
         let a = c.auditor();
         if !a.is_empty() {
-            let d_name = a.escape_debug();
-            let _ = writeln!(content, "  \"server_{s_name}\" -> \"auditor_{d_name}\"");
+            let _ = writeln!(content, "  server_{s_name} -> auditor_{a}");
         }
     }
 
