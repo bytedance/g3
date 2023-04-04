@@ -7,5 +7,5 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio = { version = "1.23", features = ["time", "macros", "rt"] }
+tokio = { workspace = true, features = ["time", "macros", "rt"] }
 g3-io-ext = { path = "../../lib/g3-io-ext" }

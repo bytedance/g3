@@ -9,14 +9,14 @@ description = "G3 fake certificate generator"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0"
-clap = "4.0"
-log = { version = "0.4", features = ["max_level_trace", "release_max_level_info"] }
-rmpv = "1.0"
-memchr = "2"
-openssl = "0.10"
-tokio = { version = "1.21", features = ["macros", "net", "io-util"] }
-flume = { version = "0.10", default-features = false, features = ["async"] }
+anyhow.workspace = true
+clap.workspace = true
+log = { workspace = true, features = ["max_level_trace", "release_max_level_info"] }
+rmpv.workspace = true
+memchr.workspace = true
+openssl.workspace = true
+tokio = { workspace = true, features = ["macros", "net", "io-util"] }
+flume = { workspace = true, features = ["async"] }
 g3-types = { path = "../lib/g3-types" }
 g3-runtime = { path = "../lib/g3-runtime" }
 g3-msgpack = { path = "../lib/g3-msgpack" }

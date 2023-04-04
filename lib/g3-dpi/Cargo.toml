@@ -8,7 +8,6 @@ edition.workspace = true
 
 [dependencies]
 fnv = "1"
-bytes = "1.0"
-memchr = "2.4"
+bytes.workspace = true
+memchr.workspace = true
 g3-types = { path = "../g3-types" }
-

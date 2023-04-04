@@ -8,40 +8,40 @@ rust-version = "1.63.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0"
-thiserror = "1.0"
-idna = "0.3"
-libc = "0.2"
-percent-encoding = "2.1"
-rand = "0.8"
-fxhash = "0.2"
+anyhow.workspace = true
+thiserror.workspace = true
+idna.workspace = true
+libc.workspace = true
+percent-encoding.workspace = true
+rand.workspace = true
+fxhash.workspace = true
 metrohash = "1.0"
 smallvec = "1.6"
-memchr = "2.4"
-url = "2.2"
+memchr.workspace = true
+url.workspace = true
 num-traits = "0.2"
-governor = { version = "0.5", "default-features" = false, features = ["std", "jitter"] }
-digest = { version = "0.10.0", optional = true }
-md-5 = { version = "0.10.0", optional = true }
+governor = { workspace = true, features = ["std", "jitter"] }
+digest = { workspace = true, optional = true }
+md-5 = { workspace = true, optional = true }
 sha-1 = { version = "0.10.0", optional = true }
 blake3 = { version = "1.2", "default-features" = false, optional = true }
-hex = { version = "0.4.2", optional = true }
-ahash = { version = "0.8", optional = true }
-ip_network = { version = "0.4", optional = true }
-ip_network_table = { version = "0.2", optional = true }
-once_cell = { version = "1.7", optional = true }
-regex = { version = "1.5", optional = true }
-radix_trie = { version = "0.2.0", optional = true }
-rustls = { version = "0.20.1", optional = true }
-rustls-native-certs = { version = "0.6", optional = true }
+hex = { workspace = true, optional = true }
+ahash = { workspace = true, optional = true }
+ip_network = { workspace = true, optional = true }
+ip_network_table = { workspace = true, optional = true }
+once_cell = { workspace = true, optional = true }
+regex = { workspace = true, optional = true }
+radix_trie = { workspace = true, optional = true }
+rustls = { workspace = true, optional = true }
+rustls-native-certs = { workspace = true, optional = true }
 webpki-roots = { version = "0.22", optional = true }
-openssl = { version = "0.10", optional = true }
+openssl = { workspace = true, optional = true }
 lru = { version = "0.10", default-features = false, optional = true }
-http = { version = "0.2", optional = true }
-base64 = { version = "0.21", optional = true }
-flume = { version = "0.10", default-features = false, features = ["eventual-fairness"], optional = true }
-slog = { version = "2", optional = true }
-indexmap = { version = "1.9", optional = true }
+http = { workspace = true, optional = true }
+base64 = { workspace = true, optional = true }
+flume = { workspace = true, features = ["eventual-fairness"], optional = true }
+slog = { workspace = true, optional = true }
+indexmap = { workspace = true, optional = true }
 
 [features]
 default = []

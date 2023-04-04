@@ -8,33 +8,33 @@ description = "G3 generic reverse proxy"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0"
-thiserror = "1.0"
-async-trait = "0.1"
-yaml-rust = "0.4"
-log = "0.4"
-once_cell = "1"
-rand = "0.8"
-clap = "4.0"
-clap_complete = "4.0"
-indexmap = "1.6"
-arc-swap = "1.6"
-cadence = { package = "cadence-with-flush", version = "0.29" }
-ahash = "0.8"
-itoa = "1"
-ascii = "1.0"
-slog = { version = "2", features = ["nested-values", "max_level_trace", "release_max_level_info"] }
-capnp = "0.16"
-capnp-rpc = "0.16"
-tokio = { version = "1.24", features = ["net", "sync", "time"] }
-openssl = "0.10.46"
-tokio-openssl = "0.6"
-rustls = "0.20"
-tokio-rustls = "0.23.1"
-rustls-native-certs = "0.6"
-governor = { version = "0.5", default-features = false, features = ["std", "jitter"] }
-chrono = { version = "0.4.22", default-features = false, features = ["clock"] }
-uuid = { version = "1.2", features = ["v1", "v4"] }
+anyhow.workspace = true
+thiserror.workspace = true
+async-trait.workspace = true
+yaml-rust.workspace = true
+log = { workspace = true, features = ["max_level_trace", "release_max_level_info"] }
+once_cell.workspace = true
+rand.workspace = true
+clap.workspace = true
+clap_complete.workspace = true
+indexmap.workspace = true
+arc-swap.workspace = true
+cadence.workspace = true
+ahash.workspace = true
+itoa.workspace = true
+ascii.workspace = true
+slog = { workspace = true, features = ["nested-values", "max_level_trace", "release_max_level_info"] }
+capnp.workspace = true
+capnp-rpc.workspace = true
+tokio = { workspace = true, features = ["net", "sync", "time"] }
+openssl.workspace = true
+tokio-openssl.workspace = true
+rustls.workspace = true
+tokio-rustls.workspace = true
+rustls-native-certs.workspace = true
+governor = { workspace = true, features = ["std", "jitter"] }
+chrono = { workspace = true, features = ["clock"] }
+uuid = { workspace = true, features = ["v1", "v4"] }
 g3-compat = { path = "../lib/g3-compat" }
 g3-daemon = { path = "../lib/g3-daemon" }
 g3-signal = { path = "../lib/g3-signal" }

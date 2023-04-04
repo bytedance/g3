@@ -7,21 +7,21 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0"
-thiserror = "1.0"
-slog = { version = "2", features = ["nested-values"] }
-chrono = { version = "0.4.22", default-features = false, features = ["clock"] }
-nix = { version = "0.26", default-features = false, features = ["hostname"] }
-flume = { version = "0.10", default-features = false, features = ["async"] }
-rmp = "0.8"
-rmp-serde = "1"
-serde = "1.0"
-tokio-openssl = "0.6"
-tokio = { version = "1.0", features = ["rt", "net", "time", "macros"] }
-rand = "0.8"
-digest = "0.10.0"
-sha2 = "0.10.0"
-hex = "0.4.2"
-log = "0.4"
+anyhow.workspace = true
+thiserror.workspace = true
+slog = { workspace = true, features = ["nested-values"] }
+chrono = { workspace = true, features = ["clock"] }
+nix = { workspace = true, features = ["hostname"] }
+flume = { workspace = true, features = ["async"] }
+rmp.workspace = true
+rmp-serde.workspace = true
+serde.workspace = true
+tokio-openssl.workspace = true
+tokio = { workspace = true, features = ["rt", "net", "time", "macros"] }
+rand.workspace = true
+digest.workspace = true
+sha2.workspace = true
+hex.workspace = true
+log.workspace = true
 g3-types = { path = "../g3-types", features = ["async-log", "openssl"] }
 g3-socket = { path = "../g3-socket" }

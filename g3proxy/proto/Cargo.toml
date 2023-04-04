@@ -7,7 +7,7 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-capnp = "0.16"
+capnp.workspace = true
 
 [build-dependencies]
-capnpc = "0.16"
+capnpc.workspace = true

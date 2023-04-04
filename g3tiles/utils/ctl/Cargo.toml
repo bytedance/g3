@@ -7,13 +7,13 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0"
-thiserror = "1.0"
-clap = "4.0"
-clap_complete = "4.0"
-tokio = { version = "1.0", features = ["rt", "net", "macros", "io-util", "fs"] }
-tokio-util = { version = "0.7", features = ["compat"] }
-futures-util = "0.3"
-capnp-rpc = "0.16"
-capnp = "0.16"
+anyhow.workspace = true
+thiserror.workspace = true
+clap.workspace = true
+clap_complete.workspace = true
+tokio = { workspace = true, features = ["rt", "net", "macros", "io-util", "fs"] }
+tokio-util = { workspace = true, features = ["compat"] }
+futures-util.workspace = true
+capnp-rpc.workspace = true
+capnp.workspace = true
 g3tiles-proto = { path = "../../proto" }

@@ -7,13 +7,13 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0"
-log = "0.4"
-tokio = { version = "1.21", features = ["net"] }
-rustls = "0.20"
-openssl = "0.10"
-chrono = { version = "0.4.22", default-features = false, features = ["clock"] }
-rmpv = "1.0"
+anyhow.workspace = true
+log.workspace = true
+tokio = { workspace = true, features = ["net"] }
+rustls.workspace = true
+openssl.workspace = true
+chrono = { workspace = true, features = ["clock"] }
+rmpv.workspace = true
 g3-types = { path = "../g3-types" }
 g3-msgpack = { path = "../g3-msgpack", features = ["rustls"] }
 g3-socket = { path = "../g3-socket" }

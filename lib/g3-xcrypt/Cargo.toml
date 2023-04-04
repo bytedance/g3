@@ -7,8 +7,8 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-thiserror = "1.0"
-memchr = "2.4"
-digest = "0.10.0"
-md-5 = "0.10.0"
-sha2 = "0.10.0"
+thiserror.workspace = true
+memchr.workspace = true
+digest.workspace = true
+md-5.workspace = true
+sha2.workspace = true

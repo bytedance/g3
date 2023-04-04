@@ -7,11 +7,11 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-slog = "2"
-chrono = { version = "0.4.22", default-features = false, features = ["clock"] }
-flume = { version = "0.10", default-features = false }
+slog.workspace = true
+chrono = { workspace = true, features = ["clock"] }
+flume.workspace = true
 console = "0.15"
-itoa = "1.0"
-ryu = "1.0"
+itoa.workspace = true
+ryu.workspace = true
 g3-types = { path = "../g3-types", features = ["async-log"] }
 g3-datetime = { path = "../g3-datetime" }

@@ -8,21 +8,21 @@ rust-version = "1.66.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0"
-yaml-rust = "0.4"
-humanize-rs = "0.1"
-idna = "0.3"
-ascii = "1.0"
-chrono = { version = "0.4.22", default-features = false }
-url = "2.1"
-rand = "0.8"
-ip_network = { version = "0.4", optional = true }
-regex = { version = "1.5", optional = true }
-rustls = { version = "0.20", optional = true }
-rustls-pemfile = { version = "1.0", optional = true }
-openssl = { version = "0.10", optional = true }
-nix = { version = "0.26", optional = true, default-features = false }
-http = { version = "0.2.9", optional = true }
+anyhow.workspace = true
+yaml-rust.workspace = true
+humanize-rs.workspace = true
+idna.workspace = true
+ascii.workspace = true
+chrono.workspace = true
+url.workspace = true
+rand.workspace = true
+ip_network = { workspace = true, optional = true }
+regex = { workspace = true, optional = true }
+rustls = { workspace = true, optional = true }
+rustls-pemfile = { workspace = true, optional = true }
+openssl = { workspace = true, optional = true }
+nix = { workspace = true, optional = true }
+http = { workspace = true, optional = true }
 g3-types = { path = "../g3-types" }
 g3-syslog = { path = "../g3-syslog", optional = true }
 g3-fluentd = { path = "../g3-fluentd", optional = true }

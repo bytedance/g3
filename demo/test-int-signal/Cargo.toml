@@ -7,5 +7,5 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio = {version = "1.0", features = ["rt-multi-thread", "macros"]}
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 g3-signal = {path = "../../lib/g3-signal"}

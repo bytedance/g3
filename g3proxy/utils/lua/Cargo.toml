@@ -7,9 +7,9 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0"
-clap = "4.0"
-clap_complete = "4.0"
+anyhow.workspace = true
+clap.workspace = true
+clap_complete.workspace = true
 mlua = { version = "0.8.1" }
 
 [features]

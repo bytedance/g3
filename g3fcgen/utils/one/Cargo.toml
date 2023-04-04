@@ -7,8 +7,8 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0"
-clap = "4.1"
-openssl = "0.10"
+anyhow.workspace = true
+clap.workspace = true
+openssl.workspace = true
 g3-types = { path = "../../../lib/g3-types" }
 g3-tls-cert = { path = "../../../lib/g3-tls-cert" }

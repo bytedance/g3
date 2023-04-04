@@ -7,13 +7,13 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-thiserror = "1.0"
-tokio = { version = "1.0", features = ["rt", "io-util"] }
-async-trait = "0.1"
-memchr = "2.4"
-chrono = { version = "0.4.22", default-features = false }
-mime = "0.3"
-log = "0.4"
+thiserror.workspace = true
+tokio = { workspace = true, features = ["rt", "io-util"] }
+async-trait.workspace = true
+memchr.workspace = true
+chrono.workspace = true
+mime.workspace = true
+log.workspace = true
 g3-types = { path = "../g3-types" }
 g3-io-ext = { path = "../g3-io-ext" }
 g3-datetime = { path = "../g3-datetime" }
