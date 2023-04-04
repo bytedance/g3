@@ -192,7 +192,7 @@ TLS Interception
 tls cert agent
 --------------
 
-**type**: map
+**type**: map | str
 
 Set the config for tls certificate agent / generator.
 
@@ -261,6 +261,8 @@ The keys are:
   Set the vanish time after the record is considered expired (not the certificate expire time).
 
   **default**: 300s
+
+For *str* value, it will parsed as *query_peer_addr* and use default value for other fields.
 
 .. _conf_value_dpi_tls_interception_client:
 

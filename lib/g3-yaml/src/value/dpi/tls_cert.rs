@@ -19,63 +19,75 @@ use yaml_rust::Yaml;
 
 use g3_tls_cert::agent::CertAgentConfig;
 
+fn set_query_peer_addr(config: &mut CertAgentConfig, value: &Yaml) -> anyhow::Result<()> {
+    let addr = crate::value::as_sockaddr(value)?;
+    config.set_query_peer_addr(addr);
+    Ok(())
+}
+
 pub fn as_tls_cert_agent_config(value: &Yaml) -> anyhow::Result<CertAgentConfig> {
-    if let Yaml::Hash(map) = value {
-        let mut config = CertAgentConfig::default();
+    match value {
+        Yaml::Hash(map) => {
+            let mut config = CertAgentConfig::default();
 
-        crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
-            "cache_request_batch_count" => {
-                let count = crate::value::as_usize(v)?;
-                config.set_cache_request_batch_count(count);
-                Ok(())
-            }
-            "cache_request_timeout" => {
-                let time = crate::humanize::as_duration(v)
-                    .context(format!("invalid humanize duration value for key {k}"))?;
-                config.set_cache_request_timeout(time);
-                Ok(())
-            }
-            "cache_vanish_wait" | "vanish_after_expire" => {
-                let time = crate::humanize::as_duration(v)
-                    .context(format!("invalid humanize duration value for key {k}"))?;
-                config.set_cache_vanish_wait(time);
-                Ok(())
-            }
-            "query_peer_addr" => {
-                let addr = crate::value::as_sockaddr(v)
-                    .context(format!("invalid sockaddr str value for key {k}"))?;
-                config.set_query_peer_addr(addr);
-                Ok(())
-            }
-            "query_socket_buffer" => {
-                let buf_config = crate::value::as_socket_buffer_config(v)
-                    .context(format!("invalid socket buffer config value for key {k}"))?;
-                config.set_query_socket_buffer(buf_config);
-                Ok(())
-            }
-            "query_wait_timeout" => {
-                let time = crate::humanize::as_duration(v)
-                    .context(format!("invalid humanize duration value for key {k}"))?;
-                config.set_query_wait_timeout(time);
-                Ok(())
-            }
-            "protective_cache_ttl" => {
-                let ttl = crate::value::as_u32(v)?;
-                config.set_protective_cache_ttl(ttl);
-                Ok(())
-            }
-            "maximum_cache_ttl" => {
-                let ttl = crate::value::as_u32(v)?;
-                config.set_maximum_cache_ttl(ttl);
-                Ok(())
-            }
-            _ => Err(anyhow!("invalid key {k}")),
-        })?;
+            crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
+                "cache_request_batch_count" => {
+                    let count = crate::value::as_usize(v)?;
+                    config.set_cache_request_batch_count(count);
+                    Ok(())
+                }
+                "cache_request_timeout" => {
+                    let time = crate::humanize::as_duration(v)
+                        .context(format!("invalid humanize duration value for key {k}"))?;
+                    config.set_cache_request_timeout(time);
+                    Ok(())
+                }
+                "cache_vanish_wait" | "vanish_after_expire" => {
+                    let time = crate::humanize::as_duration(v)
+                        .context(format!("invalid humanize duration value for key {k}"))?;
+                    config.set_cache_vanish_wait(time);
+                    Ok(())
+                }
+                "query_peer_addr" => {
+                    set_query_peer_addr(&mut config, v)
+                        .context(format!("invalid sockaddr str value for key {k}"))?;
+                    Ok(())
+                }
+                "query_socket_buffer" => {
+                    let buf_config = crate::value::as_socket_buffer_config(v)
+                        .context(format!("invalid socket buffer config value for key {k}"))?;
+                    config.set_query_socket_buffer(buf_config);
+                    Ok(())
+                }
+                "query_wait_timeout" => {
+                    let time = crate::humanize::as_duration(v)
+                        .context(format!("invalid humanize duration value for key {k}"))?;
+                    config.set_query_wait_timeout(time);
+                    Ok(())
+                }
+                "protective_cache_ttl" => {
+                    let ttl = crate::value::as_u32(v)?;
+                    config.set_protective_cache_ttl(ttl);
+                    Ok(())
+                }
+                "maximum_cache_ttl" => {
+                    let ttl = crate::value::as_u32(v)?;
+                    config.set_maximum_cache_ttl(ttl);
+                    Ok(())
+                }
+                _ => Err(anyhow!("invalid key {k}")),
+            })?;
 
-        Ok(config)
-    } else {
-        Err(anyhow!(
+            Ok(config)
+        }
+        Yaml::String(_) => {
+            let mut config = CertAgentConfig::default();
+            set_query_peer_addr(&mut config, value)
+                .context(format!("invalid sockaddr str value"))?;
+            Ok(config)
+        }
+        _ => Err(anyhow!(
             "yaml type for 'tls cert generator config' should be 'map'"
-        ))
+        )),
     }
 }
