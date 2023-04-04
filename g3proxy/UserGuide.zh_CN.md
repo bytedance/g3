@@ -32,10 +32,6 @@
     + [流量审计](#流量审计)
     + [性能优化](#性能优化)
 - [场景设计](#场景设计)
-    + [外网访问控制](#外网访问控制)
-    + [内网隔离打通](#内网隔离打通)
-    + [数据防泄漏](#数据防泄漏)
-    + [mTLS通道](#mtls通道)
     + [多区域加速](#多区域加速)
 
 ## 如何安装
@@ -510,12 +506,117 @@ listen_in_worker: true
 
 ## 场景设计
 
-### 外网访问控制
-
-### 内网隔离打通
-
-### 数据防泄漏
-
-### mTLS通道
-
 ### 多区域加速
+
+有快速专线的情况下，可以使用g3proxy现有模块实现区域间加速功能。
+
+以3个区域为例，整体拓扑如下：
+
+```mermaid
+flowchart LR
+%% Paste to https://mermaid.live/ to see the graph
+  subgraph Area1
+    a1_client[Client]
+    a1_site[Site]
+    subgraph Proxy1
+      a1_proxy[GW]
+      a1_relay[relay]
+      a1_route[route]
+      a1_proxy -.-> a1_route
+    end
+    a1_client --> a1_proxy
+    a1_route --local--> a1_site
+    a1_relay --local--> a1_site
+  end
+  subgraph Area2
+    a2_client[Client]
+    a2_site[Site]
+    subgraph Proxy2
+      a2_proxy[GW]
+      a2_relay[relay]
+      a2_route[route]
+      a2_proxy -.-> a2_route
+    end
+    a2_client --> a2_proxy
+    a2_route --local--> a2_site
+    a2_relay --local--> a2_site
+  end
+  subgraph Area3
+    a3_client[Client]
+    a3_site[Site]
+    subgraph Proxy3
+      a3_proxy[GW]
+      a3_relay[relay]
+      a3_route[route]
+      a3_proxy -.-> a3_route
+    end
+    a3_client --> a3_proxy
+    a3_route --local--> a3_site
+    a3_relay --local--> a3_site
+  end
+  a1_route --mTLS to a2----> a2_relay
+  a1_route --mTLS to a3----> a3_relay
+  a2_route --mTLS to a1----> a1_relay
+  a2_route --mTLS to a3----> a3_relay
+  a3_route --mTLS to a1----> a1_relay
+  a3_route --mTLS to a2----> a2_relay
+```
+
+每个节点的Proxy分别配置以下功能：
+
+- GW
+
+  处理当地的用户请求，可使用[SNI Proxy](#sni代理)进行4层加速，或使用[HTTP反向代理](#安全反向代理)进行7层加速。
+
+  简化配置如下：
+
+  ```yaml
+  server:
+    - name: port443
+      type: sni_proxy
+      escaper: route
+    - name: port80
+      type: http_rproxy
+      escaper: route
+  ```
+
+- relay
+
+  处理其他区域节点的请求，使用内部协议，例如使用mTLS通道。
+
+  简要配置如下：
+
+  ```yaml
+  server:
+    - name: relay
+      type: https_proxy
+      escaper: local
+      tls_server: {} # 配置TLS参数
+  ```
+
+- route
+
+  对当地的用户请求进行选路分流，需要配置 >=1 个route类型出口，一个本地出口，另外对每个区域配置一个Proxy出口。
+
+  简化配置如下：
+
+  ```yaml
+  escaper:
+    - name: route
+      type: route_query  # 该模块可向外部agent查询选路规则，也可以用其他route出口模块
+      query_allowed_next:
+        - a1_proxy
+        - a2_proxy
+        - local
+      fallback_node: local
+      # ... agent配置
+    - name: local
+      type: direct_fixed
+      # ... 出口配置
+    - name: a1_proxy
+      type: proxy_https
+      tls_client: {} # 配置TLS参数
+    - name: a2_proxy
+      type: proxy_https
+      tls_client: {} # 配置TLS参数
+  ```
