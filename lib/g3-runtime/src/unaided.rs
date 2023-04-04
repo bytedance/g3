@@ -66,10 +66,7 @@ impl UnaidedRuntimeConfig {
     }
 
     pub fn set_mapped_sched_affinity(&mut self) -> anyhow::Result<()> {
-        let n = self
-            .thread_number
-            .map(|v| v.get())
-            .unwrap_or_else(num_cpus::get);
+        let n = self.num_threads();
         for i in 0..n {
             let mut cpu = CpuSet::new();
             cpu.set(i)
@@ -87,13 +84,9 @@ impl UnaidedRuntimeConfig {
     where
         F: Fn(usize, Handle),
     {
-        let n = self
-            .thread_number
-            .map(|n| n.get())
-            .unwrap_or_else(num_cpus::get);
-
         let (close_w, _close_r) = watch::channel(());
 
+        let n = self.num_threads();
         for i in 0..n {
             let mut close_r = close_w.subscribe();
             let (sender, receiver) = oneshot::channel();
@@ -154,5 +147,12 @@ impl UnaidedRuntimeConfig {
         }
 
         Ok(WorkersGuard(close_w))
+    }
+
+    fn num_threads(&self) -> usize {
+        self.thread_number
+            .or(std::thread::available_parallelism().ok())
+            .map(|v| v.get())
+            .unwrap_or(1)
     }
 }
