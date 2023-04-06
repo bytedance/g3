@@ -38,7 +38,7 @@ def get_registry_path(name: str):
     return f"/{name[0]}{name[1]}/{name[2]}{name[3]}/{name}"
 
 
-def get_latest_version(name: str):
+def get_latest_version(request_session, name: str):
     p = get_locked_pkg(name)
     registry_index = "https://index.crates.io"
     if p['source'] == 'registry+https://github.com/rust-lang/crates.io-index':
@@ -49,7 +49,7 @@ def get_latest_version(name: str):
     index_url = f"{registry_index}{get_registry_path(name)}"
     if verbose_level > 1:
         print(f"   GET {index_url}")
-    rsp = requests.get(url=index_url, timeout=30)
+    rsp = request_session.get(url=index_url, timeout=30)
     for line in rsp.text.splitlines():
         d = json.loads(line)
         if d.get('yanked', False):
@@ -72,12 +72,13 @@ def check():
             local_package_names.append(pkg['name'])
             local_packages.append(pkg)
 
+    request_session = requests.session()
     outdated_packages = {}
     for pkg in local_packages:
         pkg_name = pkg['name']
         dependencies = pkg.get('dependencies', [])
         if verbose_level > 0:
-            print(f"== Checking dependency for package {pkg_name}")
+            print(f"== Checking dependencies for package {pkg_name}")
         for dep in dependencies:
             if dep in local_package_names:
                 continue
@@ -87,7 +88,7 @@ def check():
                 dep_version = r[1]
             else:
                 dep_version = get_locked_version(dep_name)
-            next_version = get_latest_version(dep_name)
+            next_version = get_latest_version(request_session, dep_name)
             if semver.compare(next_version, dep_version) > 0:
                 if verbose_level > 0:
                     print(f"   {dep_name} {dep_version} -> {next_version}")
