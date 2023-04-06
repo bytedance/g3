@@ -50,7 +50,7 @@ arc-swap.workspace = true
 capnp-rpc.workspace = true
 capnp.workspace = true
 itoa.workspace = true
-redis = { version = "0.22", default-features = false, features = ["cluster"] }
+redis = { version = "0.23", default-features = false, features = ["aio", "tokio-comp", "cluster-async"] }
 ascii.workspace = true
 ahash.workspace = true
 fxhash.workspace = true

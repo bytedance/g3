@@ -17,29 +17,19 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use redis::{Commands, ConnectionAddr, ConnectionInfo, RedisConnectionInfo};
+use redis::{AsyncCommands, ConnectionAddr, ConnectionInfo, RedisConnectionInfo};
 
 use crate::config::escaper::proxy_float::source::redis_cluster::ProxyFloatRedisClusterSource;
 
-pub(super) async fn fetch_records(
+async fn connect_to_redis_cluster(
     source: &Arc<ProxyFloatRedisClusterSource>,
-) -> anyhow::Result<Vec<serde_json::Value>> {
-    // the async in redis crate is not ready yet
-    let source = Arc::clone(source);
-    tokio::task::spawn_blocking(move || fetch_records_blocking(source))
-        .await
-        .map_err(|e| anyhow!("join blocking task error: {e:?}"))?
-}
-
-pub(super) fn fetch_records_blocking(
-    source: Arc<ProxyFloatRedisClusterSource>,
-) -> anyhow::Result<Vec<serde_json::Value>> {
+) -> anyhow::Result<impl AsyncCommands> {
     let mut initial_nodes = Vec::<ConnectionInfo>::new();
     for node in &source.initial_nodes {
         initial_nodes.push(ConnectionInfo {
             addr: ConnectionAddr::Tcp(node.host().to_string(), node.port()),
             redis: RedisConnectionInfo {
-                db: 0,
+                db: 0, // database is always 0 according to https://redis.io/docs/reference/cluster-spec/
                 username: None,
                 password: None,
             },
@@ -53,28 +43,20 @@ pub(super) fn fetch_records_blocking(
     if let Some(password) = &source.password {
         client_builder = client_builder.password(password.to_string());
     }
-    let client = client_builder.build()?;
-    let mut con = client
-        .get_connection()
-        .map_err(|e| anyhow!("connect failed: {e:?}"))?;
-    con.set_read_timeout(Some(source.read_timeout))
-        .map_err(|e| {
-            anyhow!(
-                "unable set read timeout to {:?}: {e:?}",
-                source.read_timeout
-            )
-        })?;
-    let members: Vec<String> = con.smembers(&source.sets_key).map_err(|e| {
-        anyhow!(
-            "failed to get all members for sets {}: {e:?}",
-            source.sets_key
-        )
-    })?;
-    let mut records = Vec::<serde_json::Value>::new();
-    for member in &members {
-        let record =
-            serde_json::from_str(member).map_err(|e| anyhow!("found invalid member: {e:?}"))?;
-        records.push(record);
+    let client = client_builder
+        .build()
+        .map_err(|e| anyhow!("failed to build redis cluster client: {e}"))?;
+
+    match tokio::time::timeout(source.connect_timeout, client.get_async_connection()).await {
+        Ok(Ok(con)) => Ok(con),
+        Ok(Err(e)) => Err(anyhow!("connect failed: {e}")),
+        Err(_) => Err(anyhow!("connect timeout")),
     }
-    Ok(records)
+}
+
+pub(super) async fn fetch_records(
+    source: &Arc<ProxyFloatRedisClusterSource>,
+) -> anyhow::Result<Vec<serde_json::Value>> {
+    let con = connect_to_redis_cluster(source).await?;
+    super::redis::get_members(con, source.read_timeout, &source.sets_key).await
 }

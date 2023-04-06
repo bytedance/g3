@@ -15,47 +15,52 @@
  */
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::anyhow;
-use redis::Commands;
+use redis::AsyncCommands;
 
 use crate::config::escaper::proxy_float::source::redis::ProxyFloatRedisSource;
+
+async fn connect_to_redis(
+    source: &Arc<ProxyFloatRedisSource>,
+) -> anyhow::Result<impl AsyncCommands> {
+    let client = redis::Client::open(source.as_ref())
+        .map_err(|e| anyhow!("redis client open failed: {e}"))?;
+    match tokio::time::timeout(source.connect_timeout, client.get_async_connection()).await {
+        Ok(Ok(con)) => Ok(con),
+        Ok(Err(e)) => Err(anyhow!("connect failed: {e:}")),
+        Err(_) => Err(anyhow!("connect timeout")),
+    }
+}
+
+pub(super) async fn get_members<C: AsyncCommands>(
+    mut con: C,
+    timeout: Duration,
+    sets_key: &str,
+) -> anyhow::Result<Vec<serde_json::Value>> {
+    let members: Vec<String> = match tokio::time::timeout(timeout, con.smembers(sets_key)).await {
+        Ok(Ok(v)) => v,
+        Ok(Err(e)) => {
+            return Err(anyhow!(
+                "failed to get all members for sets {sets_key}: {e}"
+            ))
+        }
+        Err(_) => return Err(anyhow!("timeout to get all members for sets {sets_key}",)),
+    };
+
+    let mut records = Vec::<serde_json::Value>::new();
+    for member in &members {
+        let record =
+            serde_json::from_str(member).map_err(|e| anyhow!("found invalid member: {e}"))?;
+        records.push(record);
+    }
+    Ok(records)
+}
 
 pub(super) async fn fetch_records(
     source: &Arc<ProxyFloatRedisSource>,
 ) -> anyhow::Result<Vec<serde_json::Value>> {
-    // the async in redis crate is not ready yet
-    let source = Arc::clone(source);
-    tokio::task::spawn_blocking(move || fetch_records_blocking(source))
-        .await
-        .map_err(|e| anyhow!("join blocking task error: {e:?}"))?
-}
-
-pub(super) fn fetch_records_blocking(
-    source: Arc<ProxyFloatRedisSource>,
-) -> anyhow::Result<Vec<serde_json::Value>> {
-    let client = redis::Client::open(&*source).map_err(|e| anyhow!("connect failed: {e:?}"))?;
-    let mut con = client
-        .get_connection_with_timeout(source.connect_timeout)
-        .map_err(|e| anyhow!("connect failed: {e:?}"))?;
-    con.set_read_timeout(Some(source.read_timeout))
-        .map_err(|e| {
-            anyhow!(
-                "unable set read timeout to {:?}: {e:?}",
-                source.read_timeout
-            )
-        })?;
-    let members: Vec<String> = con.smembers(&source.sets_key).map_err(|e| {
-        anyhow!(
-            "failed to get all members for sets {}: {e:?}",
-            source.sets_key
-        )
-    })?;
-    let mut records = Vec::<serde_json::Value>::new();
-    for member in &members {
-        let record =
-            serde_json::from_str(member).map_err(|e| anyhow!("found invalid member: {e:?}"))?;
-        records.push(record);
-    }
-    Ok(records)
+    let con = connect_to_redis(source).await?;
+    get_members(con, source.read_timeout, &source.sets_key).await
 }

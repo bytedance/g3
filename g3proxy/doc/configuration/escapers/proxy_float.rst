@@ -228,6 +228,16 @@ The value should be a *map*, with these keys:
 
   **default**: not set
 
+* connect_timeout
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Set the connect timeout.
+
+  **default**: 5s
+
+  .. versionadded:: 1.7.12
+
 * read_timeout
 
   **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`

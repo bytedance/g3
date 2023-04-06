@@ -22,6 +22,7 @@ use yaml_rust::{yaml, Yaml};
 
 use g3_types::net::UpstreamAddr;
 
+const REDIS_DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 const REDIS_DEFAULT_READ_TIMEOUT: Duration = Duration::from_secs(2);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -29,6 +30,7 @@ pub(crate) struct ProxyFloatRedisClusterSource {
     pub(crate) initial_nodes: Vec<UpstreamAddr>,
     pub(crate) username: Option<String>,
     pub(crate) password: Option<String>,
+    pub(crate) connect_timeout: Duration,
     pub(crate) read_timeout: Duration,
     pub(crate) sets_key: String,
 }
@@ -39,6 +41,7 @@ impl ProxyFloatRedisClusterSource {
             initial_nodes: Vec::new(),
             username: None,
             password: None,
+            connect_timeout: REDIS_DEFAULT_CONNECT_TIMEOUT,
             read_timeout: REDIS_DEFAULT_READ_TIMEOUT,
             sets_key: String::new(),
         }
@@ -88,6 +91,11 @@ impl ProxyFloatRedisClusterSource {
             "password" => {
                 let password = g3_yaml::value::as_string(v)?;
                 self.password = Some(password);
+                Ok(())
+            }
+            "connect_timeout" => {
+                self.connect_timeout = g3_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "read_timeout" => {
