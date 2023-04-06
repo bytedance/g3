@@ -90,17 +90,9 @@ The following plugins is recommended:
   Needed by IDE(at least JetBrains' rust plugin) to expand macros.
   The nightly toolchain is also required to run this.
 
-- cargo-outdated
-
-  Useful if you want to find out the outdated dependencies in your Cargo.toml.
-
 - cargo-audit
 
   Audit Cargo.lock for crates with security vulnerabilities.
- 
-- cargo-license
-
-  To see license of dependencies.
 
 - cargo-binutils
 
@@ -151,7 +143,6 @@ capnproto
 
 The following tools are needed to run testing scripts:
 ```text
-llvm
 mkcert
 curl
 ```
@@ -172,6 +163,7 @@ We use python3 for more complicated scripts, the following packages are needed:
 ```text
 toml
 requests
+semver
 PySocks
 dnspython
 ```
