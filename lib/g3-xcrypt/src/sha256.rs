@@ -143,17 +143,17 @@ fn do_sha256_hash(phrase: &[u8], salt: &str, rounds: usize) -> String {
     }
 
     let mut encoder = B64CryptEncoder::new(HASH_STR_LEN);
-    encoder.push(hash[0], hash[10], hash[20], 4);
-    encoder.push(hash[21], hash[1], hash[11], 4);
-    encoder.push(hash[12], hash[22], hash[2], 4);
-    encoder.push(hash[3], hash[13], hash[23], 4);
-    encoder.push(hash[24], hash[4], hash[14], 4);
-    encoder.push(hash[15], hash[25], hash[5], 4);
-    encoder.push(hash[6], hash[16], hash[26], 4);
-    encoder.push(hash[27], hash[7], hash[17], 4);
-    encoder.push(hash[18], hash[28], hash[8], 4);
-    encoder.push(hash[9], hash[19], hash[29], 4);
-    encoder.push(0, hash[31], hash[30], 3);
+    encoder.push::<4>(hash[0], hash[10], hash[20]);
+    encoder.push::<4>(hash[21], hash[1], hash[11]);
+    encoder.push::<4>(hash[12], hash[22], hash[2]);
+    encoder.push::<4>(hash[3], hash[13], hash[23]);
+    encoder.push::<4>(hash[24], hash[4], hash[14]);
+    encoder.push::<4>(hash[15], hash[25], hash[5]);
+    encoder.push::<4>(hash[6], hash[16], hash[26]);
+    encoder.push::<4>(hash[27], hash[7], hash[17]);
+    encoder.push::<4>(hash[18], hash[28], hash[8]);
+    encoder.push::<4>(hash[9], hash[19], hash[29]);
+    encoder.push::<3>(0, hash[31], hash[30]);
 
     encoder.into()
 }

@@ -113,12 +113,12 @@ fn do_md5_hash(phrase: &[u8], salt: &str) -> String {
     }
 
     let mut encoder = B64CryptEncoder::new(HASH_STR_LEN);
-    encoder.push(hash[0], hash[6], hash[12], 4);
-    encoder.push(hash[1], hash[7], hash[13], 4);
-    encoder.push(hash[2], hash[8], hash[14], 4);
-    encoder.push(hash[3], hash[9], hash[15], 4);
-    encoder.push(hash[4], hash[10], hash[5], 4);
-    encoder.push(0, 0, hash[11], 2);
+    encoder.push::<4>(hash[0], hash[6], hash[12]);
+    encoder.push::<4>(hash[1], hash[7], hash[13]);
+    encoder.push::<4>(hash[2], hash[8], hash[14]);
+    encoder.push::<4>(hash[3], hash[9], hash[15]);
+    encoder.push::<4>(hash[4], hash[10], hash[5]);
+    encoder.push::<2>(0, 0, hash[11]);
 
     encoder.into()
 }

@@ -27,14 +27,11 @@ impl B64CryptEncoder {
         }
     }
 
-    pub(crate) fn push(&mut self, b2: u8, b1: u8, b0: u8, len: usize) {
+    pub(crate) fn push<const LENGTH: usize>(&mut self, b2: u8, b1: u8, b0: u8) {
         let mut w: u32 = ((b2 as u32) << 16) | ((b1 as u32) << 8) | (b0 as u32);
-
-        let mut n = len;
-        while n > 0 {
+        for _ in 0..LENGTH {
             self.buf.push(CRYPT_HASH64[w as usize & 0x3f]);
             w >>= 6;
-            n -= 1;
         }
     }
 }
