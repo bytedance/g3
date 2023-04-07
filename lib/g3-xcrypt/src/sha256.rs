@@ -19,7 +19,7 @@ use std::str::FromStr;
 use digest::{Digest, Output};
 use sha2::Sha256;
 
-use super::{B64CryptEncoder, XCryptParseError, XCryptParseResult};
+use super::{B64CryptDecoder, XCryptParseError, XCryptParseResult};
 
 pub(super) const PREFIX: &str = "$5$";
 
@@ -32,11 +32,17 @@ const ROUNDS_MAX: usize = 999999999;
 const HASH_BIN_LEN: usize = 32;
 const HASH_STR_LEN: usize = 43;
 
+const ENCODE_INDEX_MAP: [u8; HASH_BIN_LEN] = [
+    0, 10, 20, 21, 1, 11, 12, 22, 2, 3, 13, 23, 24, 4, 14, 15, 25, 5, 6, 16, 26, 27, 7, 17, 18, 28,
+    8, 9, 19, 29, 31, 30,
+];
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Sha256Crypt {
     rounds: usize,
     salt: String,
     hash: String,
+    hash_bin: [u8; HASH_BIN_LEN],
 }
 
 fn sha256_update_recycled<D>(digest: &mut D, block: &Output<D>, len: usize)
@@ -53,7 +59,7 @@ where
     }
 }
 
-fn do_sha256_hash(phrase: &[u8], salt: &str, rounds: usize) -> String {
+fn do_sha256_hash(phrase: &[u8], salt: &str, rounds: usize) -> [u8; HASH_BIN_LEN] {
     /*
       Compute alternate MD5 sum with input PHRASE, SALT, and PHRASE.  The
       final result will be added to the first context.
@@ -142,6 +148,9 @@ fn do_sha256_hash(phrase: &[u8], salt: &str, rounds: usize) -> String {
         hash = digest.finalize();
     }
 
+    hash.into()
+
+    /*
     let mut encoder = B64CryptEncoder::new(HASH_STR_LEN);
     encoder.push::<4>(hash[0], hash[10], hash[20]);
     encoder.push::<4>(hash[21], hash[1], hash[11]);
@@ -156,6 +165,7 @@ fn do_sha256_hash(phrase: &[u8], salt: &str, rounds: usize) -> String {
     encoder.push::<3>(0, hash[31], hash[30]);
 
     encoder.into()
+     */
 }
 
 impl Sha256Crypt {
@@ -191,10 +201,28 @@ impl Sha256Crypt {
                 return Err(XCryptParseError::InvalidHashSize);
             }
 
+            let hash = &v.as_bytes()[d + 1..];
+            let mut bin = [0u8; HASH_BIN_LEN];
+            for i in 0..10 {
+                let ii = i * 4;
+                let oi = i * 3;
+                B64CryptDecoder::decode_buf(&hash[ii..ii + 4], &mut bin[oi..oi + 3]);
+            }
+            let r = B64CryptDecoder::decode(hash[40], hash[41], hash[42], 0);
+            bin[30] = r.1;
+            bin[31] = r.2;
+
+            let mut hash_bin = [0u8; HASH_BIN_LEN];
+            for i in 0..HASH_BIN_LEN {
+                let j = ENCODE_INDEX_MAP[i];
+                hash_bin[j as usize] = bin[i];
+            }
+
             Ok(Sha256Crypt {
                 rounds,
                 salt: s[0..d].to_string(),
                 hash: s[d + 1..].to_string(),
+                hash_bin,
             })
         } else {
             Err(XCryptParseError::NoSaltFound)
@@ -203,6 +231,6 @@ impl Sha256Crypt {
 
     pub(super) fn verify(&self, phrase: &[u8]) -> bool {
         let hash = do_sha256_hash(phrase, &self.salt, self.rounds);
-        self.hash.eq(&hash)
+        self.hash_bin.eq(&hash)
     }
 }

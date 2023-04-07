@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
-mod crypt;
+mod encode;
+pub use encode::B64CryptEncoder;
 
-pub(crate) use crypt::B64CryptEncoder;
+mod decode;
+pub(crate) use decode::B64CryptDecoder;

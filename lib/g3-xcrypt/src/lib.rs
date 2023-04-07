@@ -15,7 +15,8 @@
  */
 
 mod b64;
-pub(crate) use b64::B64CryptEncoder;
+pub(crate) use b64::B64CryptDecoder;
+pub use b64::B64CryptEncoder;
 
 mod error;
 pub use error::{XCryptParseError, XCryptParseResult};

@@ -17,7 +17,7 @@
 use digest::Digest;
 use md5::Md5;
 
-use super::{B64CryptEncoder, XCryptParseError, XCryptParseResult};
+use super::{B64CryptDecoder, XCryptParseError, XCryptParseResult};
 
 pub(super) const PREFIX: &str = "$1$";
 
@@ -26,13 +26,16 @@ const SALT_LEN_MAX: usize = 8;
 const HASH_BIN_LEN: usize = 16;
 const HASH_STR_LEN: usize = 22;
 
+const ENCODE_INDEX_MAP: [u8; HASH_BIN_LEN] = [0, 6, 12, 1, 7, 13, 2, 8, 14, 3, 9, 15, 4, 10, 5, 11];
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Md5Crypt {
     salt: String,
     hash: String,
+    hash_bin: [u8; HASH_BIN_LEN],
 }
 
-fn do_md5_hash(phrase: &[u8], salt: &str) -> String {
+fn do_md5_hash(phrase: &[u8], salt: &str) -> [u8; HASH_BIN_LEN] {
     /*
       Compute alternate MD5 sum with input PHRASE, SALT, and PHRASE.  The
       final result will be added to the first context.
@@ -112,6 +115,9 @@ fn do_md5_hash(phrase: &[u8], salt: &str) -> String {
         hash = digest.finalize();
     }
 
+    hash.into()
+
+    /*
     let mut encoder = B64CryptEncoder::new(HASH_STR_LEN);
     encoder.push::<4>(hash[0], hash[6], hash[12]);
     encoder.push::<4>(hash[1], hash[7], hash[13]);
@@ -121,6 +127,7 @@ fn do_md5_hash(phrase: &[u8], salt: &str) -> String {
     encoder.push::<2>(0, 0, hash[11]);
 
     encoder.into()
+    */
 }
 
 impl Md5Crypt {
@@ -136,9 +143,26 @@ impl Md5Crypt {
                 return Err(XCryptParseError::InvalidHashSize);
             }
 
+            let hash = &v.as_bytes()[d + 1..];
+            let mut bin = [0u8; HASH_BIN_LEN];
+            for i in 0..5 {
+                let ii = i * 4;
+                let oi = i * 3;
+                B64CryptDecoder::decode_buf(&hash[ii..ii + 4], &mut bin[oi..oi + 3]);
+            }
+            let r = B64CryptDecoder::decode(hash[20], hash[21], 0, 0);
+            bin[15] = r.2;
+
+            let mut hash_bin = [0u8; HASH_BIN_LEN];
+            for i in 0..HASH_BIN_LEN {
+                let j = ENCODE_INDEX_MAP[i];
+                hash_bin[j as usize] = bin[i];
+            }
+
             Ok(Md5Crypt {
                 salt: v[0..d].to_string(),
                 hash: v[d + 1..].to_string(),
+                hash_bin,
             })
         } else {
             Err(XCryptParseError::NoSaltFound)
@@ -147,6 +171,6 @@ impl Md5Crypt {
 
     pub(super) fn verify(&self, phrase: &[u8]) -> bool {
         let hash = do_md5_hash(phrase, &self.salt);
-        self.hash.eq(&hash)
+        self.hash_bin.eq(&hash)
     }
 }

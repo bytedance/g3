@@ -19,7 +19,7 @@ use std::str::FromStr;
 use digest::{Digest, Output};
 use sha2::Sha512;
 
-use super::{B64CryptEncoder, XCryptParseError, XCryptParseResult};
+use super::{B64CryptDecoder, XCryptParseError, XCryptParseResult};
 
 pub(super) const PREFIX: &str = "$6$";
 
@@ -32,11 +32,18 @@ const ROUNDS_MAX: usize = 999999999;
 const HASH_BIN_LEN: usize = 64;
 const HASH_STR_LEN: usize = 86;
 
+const ENCODE_INDEX_MAP: [u8; HASH_BIN_LEN] = [
+    0, 21, 42, 22, 43, 1, 44, 2, 23, 3, 24, 45, 25, 46, 4, 47, 5, 26, 6, 27, 48, 28, 49, 7, 50, 8,
+    29, 9, 30, 51, 31, 52, 10, 53, 11, 32, 12, 33, 54, 34, 55, 13, 56, 14, 35, 15, 36, 57, 37, 58,
+    16, 59, 17, 38, 18, 39, 60, 40, 61, 19, 62, 20, 41, 63,
+];
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Sha512Crypt {
     rounds: usize,
     salt: String,
     hash: String,
+    hash_bin: [u8; HASH_BIN_LEN],
 }
 
 fn sha512_update_recycled<D>(digest: &mut D, block: &Output<D>, len: usize)
@@ -53,7 +60,7 @@ where
     }
 }
 
-fn do_sha512_hash(phrase: &[u8], salt: &str, rounds: usize) -> String {
+fn do_sha512_hash(phrase: &[u8], salt: &str, rounds: usize) -> [u8; HASH_BIN_LEN] {
     /*
       Compute alternate MD5 sum with input PHRASE, SALT, and PHRASE.  The
       final result will be added to the first context.
@@ -142,6 +149,9 @@ fn do_sha512_hash(phrase: &[u8], salt: &str, rounds: usize) -> String {
         hash = digest.finalize();
     }
 
+    hash.into()
+
+    /*
     let mut encoder = B64CryptEncoder::new(HASH_STR_LEN);
     encoder.push::<4>(hash[0], hash[21], hash[42]);
     encoder.push::<4>(hash[22], hash[43], hash[1]);
@@ -167,6 +177,7 @@ fn do_sha512_hash(phrase: &[u8], salt: &str, rounds: usize) -> String {
     encoder.push::<2>(0, 0, hash[63]);
 
     encoder.into()
+     */
 }
 
 impl Sha512Crypt {
@@ -202,10 +213,27 @@ impl Sha512Crypt {
                 return Err(XCryptParseError::InvalidHashSize);
             }
 
+            let hash = &v.as_bytes()[d + 1..];
+            let mut bin = [0u8; HASH_BIN_LEN];
+            for i in 0..21 {
+                let ii = i * 4;
+                let oi = i * 3;
+                B64CryptDecoder::decode_buf(&hash[ii..ii + 4], &mut bin[oi..oi + 3]);
+            }
+            let r = B64CryptDecoder::decode(hash[84], hash[85], 0, 0);
+            bin[63] = r.2;
+
+            let mut hash_bin = [0u8; HASH_BIN_LEN];
+            for i in 0..HASH_BIN_LEN {
+                let j = ENCODE_INDEX_MAP[i];
+                hash_bin[j as usize] = bin[i];
+            }
+
             Ok(Sha512Crypt {
                 rounds,
                 salt: s[0..d].to_string(),
                 hash: s[d + 1..].to_string(),
+                hash_bin,
             })
         } else {
             Err(XCryptParseError::NoSaltFound)
@@ -214,6 +242,6 @@ impl Sha512Crypt {
 
     pub(super) fn verify(&self, phrase: &[u8]) -> bool {
         let hash = do_sha512_hash(phrase, &self.salt, self.rounds);
-        self.hash.eq(&hash)
+        self.hash_bin.eq(&hash)
     }
 }

@@ -16,18 +16,18 @@
 
 const CRYPT_HASH64: &[u8] = b"./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-pub(crate) struct B64CryptEncoder {
+pub struct B64CryptEncoder {
     buf: Vec<u8>,
 }
 
 impl B64CryptEncoder {
-    pub(crate) fn new(capacity: usize) -> Self {
+    pub fn new(capacity: usize) -> Self {
         B64CryptEncoder {
             buf: Vec::<u8>::with_capacity(capacity),
         }
     }
 
-    pub(crate) fn push<const LENGTH: usize>(&mut self, b2: u8, b1: u8, b0: u8) {
+    pub fn push<const LENGTH: usize>(&mut self, b2: u8, b1: u8, b0: u8) {
         let mut w: u32 = ((b2 as u32) << 16) | ((b1 as u32) << 8) | (b0 as u32);
         for _ in 0..LENGTH {
             self.buf.push(CRYPT_HASH64[w as usize & 0x3f]);
