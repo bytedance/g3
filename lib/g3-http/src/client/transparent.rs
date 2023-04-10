@@ -25,6 +25,7 @@ use g3_io_ext::LimitedBufReadExt;
 use g3_types::net::{HttpHeaderMap, HttpHeaderValue, HttpUpgradeToken};
 
 use super::{HttpAdaptedResponse, HttpResponseParseError};
+use crate::header::Connection;
 use crate::{HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpStatusLine};
 
 pub struct HttpTransparentResponse {
@@ -33,6 +34,7 @@ pub struct HttpTransparentResponse {
     pub reason: String,
     pub end_to_end_headers: HttpHeaderMap,
     pub hop_by_hop_headers: HttpHeaderMap,
+    original_connection_name: Option<String>,
     extra_connection_headers: Vec<HeaderName>,
     origin_header_size: usize,
     keep_alive: bool,
@@ -55,6 +57,7 @@ impl HttpTransparentResponse {
             reason,
             end_to_end_headers: HttpHeaderMap::default(),
             hop_by_hop_headers: HttpHeaderMap::default(),
+            original_connection_name: None,
             extra_connection_headers: Vec::new(),
             origin_header_size: 0,
             keep_alive: false,
@@ -83,6 +86,7 @@ impl HttpTransparentResponse {
             reason: adapted.reason,
             end_to_end_headers: adapted.headers,
             hop_by_hop_headers,
+            original_connection_name: self.original_connection_name.clone(),
             extra_connection_headers: self.extra_connection_headers.clone(),
             origin_header_size: self.origin_header_size,
             keep_alive: self.keep_alive,
@@ -244,30 +248,31 @@ impl HttpTransparentResponse {
     fn parse_header_line(&mut self, line_buf: &[u8]) -> Result<(), HttpResponseParseError> {
         let header =
             HttpHeaderLine::parse(line_buf).map_err(HttpResponseParseError::InvalidHeaderLine)?;
-        self.handle_header(header.name, header.value)
+        self.handle_header(header)
     }
 
     fn insert_hop_by_hop_header(
         &mut self,
         name: HeaderName,
-        value: &str,
+        header: &HttpHeaderLine,
     ) -> Result<(), HttpResponseParseError> {
-        let value = HttpHeaderValue::from_str(value).map_err(|_| {
+        let mut value = HttpHeaderValue::from_str(header.value).map_err(|_| {
             HttpResponseParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
+        value.set_original_name(header.name.to_string());
         self.hop_by_hop_headers.append(name, value);
         Ok(())
     }
 
-    fn handle_header(&mut self, name: &str, value: &str) -> Result<(), HttpResponseParseError> {
-        let name = HeaderName::from_str(name).map_err(|_| {
+    fn handle_header(&mut self, header: HttpHeaderLine) -> Result<(), HttpResponseParseError> {
+        let name = HeaderName::from_str(header.name).map_err(|_| {
             HttpResponseParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderName)
         })?;
 
         match name.as_str() {
             "connection" | "proxy-connection" => {
                 // proxy-connection is not standard, but at least curl use it
-                for v in value.to_lowercase().as_str().split(',') {
+                for v in header.value.to_lowercase().as_str().split(',') {
                     if v.is_empty() {
                         continue;
                     }
@@ -290,18 +295,21 @@ impl HttpTransparentResponse {
                         }
                     }
                 }
+
+                self.original_connection_name = Some(header.name.to_string());
+                return Ok(());
             }
             "upgrade" => {
-                let protocol = HttpUpgradeToken::from_str(value)?;
+                let protocol = HttpUpgradeToken::from_str(header.value)?;
                 self.upgrade = Some(protocol);
-                return self.insert_hop_by_hop_header(name, value);
+                return self.insert_hop_by_hop_header(name, &header);
             }
             "trailer" => {
                 self.has_trailer = true;
                 if self.chunked_transfer {
                     self.chunked_with_trailer = true;
                 }
-                return self.insert_hop_by_hop_header(name, value);
+                return self.insert_hop_by_hop_header(name, &header);
             }
             "transfer-encoding" => {
                 // it's a hop-by-hop option, but we just pass it
@@ -311,7 +319,7 @@ impl HttpTransparentResponse {
                     self.content_length = 0;
                 }
 
-                let v = value.to_lowercase();
+                let v = header.value.to_lowercase();
                 if v.ends_with("chunked") {
                     self.chunked_transfer = true;
                     if self.has_trailer {
@@ -320,7 +328,7 @@ impl HttpTransparentResponse {
                 } else if v.contains("chunked") {
                     return Err(HttpResponseParseError::InvalidChunkedTransferEncoding);
                 }
-                return self.insert_hop_by_hop_header(name, value);
+                return self.insert_hop_by_hop_header(name, &header);
             }
             "content-length" => {
                 if self.has_transfer_encoding {
@@ -328,7 +336,7 @@ impl HttpTransparentResponse {
                     return Ok(());
                 }
 
-                let content_length = u64::from_str(value)
+                let content_length = u64::from_str(header.value)
                     .map_err(|_| HttpResponseParseError::InvalidContentLength)?;
 
                 if self.has_content_length && self.content_length != content_length {
@@ -337,13 +345,14 @@ impl HttpTransparentResponse {
                 self.has_content_length = true;
                 self.content_length = content_length;
             }
-            "proxy-authenticate" => return self.insert_hop_by_hop_header(name, value),
+            "proxy-authenticate" => return self.insert_hop_by_hop_header(name, &header),
             _ => {}
         }
 
-        let value = HttpHeaderValue::from_str(value).map_err(|_| {
+        let mut value = HttpHeaderValue::from_str(header.value).map_err(|_| {
             HttpResponseParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
+        value.set_original_name(name.to_string());
         self.end_to_end_headers.append(name, value);
         Ok(())
     }
@@ -355,23 +364,15 @@ impl HttpTransparentResponse {
 
         let _ = write!(buf, "{:?} {} {}\r\n", self.version, self.code, self.reason);
 
-        self.end_to_end_headers.for_each(|name, value| {
-            buf.put_slice(name.as_ref());
-            buf.put_slice(b": ");
-            buf.put_slice(value.as_bytes());
-            buf.put_slice(b"\r\n");
-        });
-        self.hop_by_hop_headers.for_each(|name, value| {
-            buf.put_slice(name.as_ref());
-            buf.put_slice(b": ");
-            buf.put_slice(value.as_bytes());
-            buf.put_slice(b"\r\n");
-        });
-        let connection_value = crate::header::connection_with_more_headers(
+        self.end_to_end_headers
+            .for_each(|name, value| value.write_to_buf(name, &mut buf));
+        self.hop_by_hop_headers
+            .for_each(|name, value| value.write_to_buf(name, &mut buf));
+        Connection::from_original(self.original_connection_name.as_deref()).write_to_buf(
             !self.keep_alive,
             &self.extra_connection_headers,
+            &mut buf,
         );
-        buf.put_slice(connection_value.as_bytes());
         buf.put_slice(b"\r\n");
         buf
     }
@@ -381,12 +382,8 @@ impl HttpTransparentResponse {
 
         let _ = write!(buf, "{:?} {} {}\r\n", self.version, self.code, self.reason);
 
-        self.end_to_end_headers.for_each(|name, value| {
-            buf.put_slice(name.as_ref());
-            buf.put_slice(b": ");
-            buf.put_slice(value.as_bytes());
-            buf.put_slice(b"\r\n");
-        });
+        self.end_to_end_headers
+            .for_each(|name, value| value.write_to_buf(name, &mut buf));
         buf.put_slice(b"\r\n");
         buf
     }

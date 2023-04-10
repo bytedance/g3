@@ -16,8 +16,8 @@
 
 use std::str::FromStr;
 
-use bytes::Bytes;
-use http::HeaderValue;
+use bytes::{BufMut, Bytes};
+use http::{HeaderName, HeaderValue};
 
 #[derive(Clone)]
 pub struct HttpHeaderValue {
@@ -69,6 +69,17 @@ impl HttpHeaderValue {
 
     pub fn to_str(&self) -> &str {
         unsafe { std::str::from_utf8_unchecked(self.inner.as_ref()) }
+    }
+
+    pub fn write_to_buf(&self, name: &HeaderName, buf: &mut Vec<u8>) {
+        if let Some(name) = self.original_name() {
+            buf.put_slice(name.as_bytes());
+        } else {
+            buf.put_slice(name.as_ref());
+        }
+        buf.put_slice(b": ");
+        buf.put_slice(self.inner.as_ref());
+        buf.put_slice(b"\r\n");
     }
 }
 

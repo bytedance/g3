@@ -25,6 +25,7 @@ use g3_io_ext::LimitedBufReadExt;
 use g3_types::net::{HttpHeaderMap, HttpHeaderValue, UpstreamAddr};
 
 use super::{HttpAdaptedRequest, HttpRequestParseError};
+use crate::header::Connection;
 use crate::{HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpMethodLine};
 
 pub struct HttpTransparentRequest {
@@ -35,6 +36,7 @@ pub struct HttpTransparentRequest {
     pub hop_by_hop_headers: HttpHeaderMap,
     /// the port may be 0
     pub host: Option<UpstreamAddr>,
+    original_connection_name: Option<String>,
     extra_connection_headers: Vec<HeaderName>,
     origin_header_size: usize,
     keep_alive: bool,
@@ -57,6 +59,7 @@ impl HttpTransparentRequest {
             end_to_end_headers: HttpHeaderMap::default(),
             hop_by_hop_headers: HttpHeaderMap::default(),
             host: None,
+            original_connection_name: None,
             extra_connection_headers: Vec::new(),
             origin_header_size: 0,
             keep_alive: false,
@@ -85,6 +88,7 @@ impl HttpTransparentRequest {
             end_to_end_headers: adapted.headers,
             hop_by_hop_headers,
             host: None,
+            original_connection_name: self.original_connection_name.clone(),
             extra_connection_headers: self.extra_connection_headers.clone(),
             origin_header_size: self.origin_header_size,
             keep_alive: self.keep_alive,
@@ -238,11 +242,14 @@ impl HttpTransparentRequest {
     fn parse_header_line(&mut self, line_buf: &[u8]) -> Result<(), HttpRequestParseError> {
         let header =
             HttpHeaderLine::parse(line_buf).map_err(HttpRequestParseError::InvalidHeaderLine)?;
-        self.handle_header(header.name, header.value)
+        self.handle_header(header)
     }
 
-    pub fn parse_header_connection(&mut self, value: &str) -> Result<(), HttpRequestParseError> {
-        let value = value.to_lowercase();
+    pub fn parse_header_connection(
+        &mut self,
+        header: &HttpHeaderLine,
+    ) -> Result<(), HttpRequestParseError> {
+        let value = header.value.to_lowercase();
 
         for v in value.as_str().split(',') {
             if v.is_empty() {
@@ -268,17 +275,19 @@ impl HttpTransparentRequest {
             }
         }
 
+        self.original_connection_name = Some(header.name.to_string());
         Ok(())
     }
 
     pub fn append_header(
         &mut self,
         name: HeaderName,
-        value: &str,
+        header: &HttpHeaderLine,
     ) -> Result<(), HttpRequestParseError> {
-        let value = HttpHeaderValue::from_str(value).map_err(|_| {
+        let mut value = HttpHeaderValue::from_str(header.value).map_err(|_| {
             HttpRequestParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
+        value.set_original_name(header.name.to_string());
         self.end_to_end_headers.append(name, value);
         Ok(())
     }
@@ -286,17 +295,18 @@ impl HttpTransparentRequest {
     fn insert_hop_by_hop_header(
         &mut self,
         name: HeaderName,
-        value: &str,
+        header: &HttpHeaderLine,
     ) -> Result<(), HttpRequestParseError> {
-        let value = HttpHeaderValue::from_str(value).map_err(|_| {
+        let mut value = HttpHeaderValue::from_str(header.value).map_err(|_| {
             HttpRequestParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
+        value.set_original_name(header.name.to_string());
         self.hop_by_hop_headers.append(name, value);
         Ok(())
     }
 
-    fn handle_header(&mut self, name: &str, value: &str) -> Result<(), HttpRequestParseError> {
-        let name = HeaderName::from_str(name).map_err(|_| {
+    fn handle_header(&mut self, header: HttpHeaderLine) -> Result<(), HttpRequestParseError> {
+        let name = HeaderName::from_str(header.name).map_err(|_| {
             HttpRequestParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderName)
         })?;
 
@@ -305,24 +315,24 @@ impl HttpTransparentRequest {
                 if self.host.is_some() {
                     return Err(HttpRequestParseError::InvalidHost);
                 }
-                if !value.is_empty() {
-                    let host = UpstreamAddr::from_str(value)
+                if !header.value.is_empty() {
+                    let host = UpstreamAddr::from_str(header.value)
                         .map_err(|_| HttpRequestParseError::InvalidHost)?;
                     // we didn't set the default port here, as we didn't know the server port
                     self.host = Some(host);
                 }
             }
-            "connection" => return self.parse_header_connection(value),
+            "connection" => return self.parse_header_connection(&header),
             "upgrade" => {
                 self.upgrade = true;
-                return self.insert_hop_by_hop_header(name, value);
+                return self.insert_hop_by_hop_header(name, &header);
             }
             "trailer" => {
                 self.has_trailer = true;
                 if self.chunked_transfer {
                     self.chunked_with_trailer = true;
                 }
-                return self.insert_hop_by_hop_header(name, value);
+                return self.insert_hop_by_hop_header(name, &header);
             }
             "transfer-encoding" => {
                 // it's a hop-by-hop option, but we just pass it
@@ -332,7 +342,7 @@ impl HttpTransparentRequest {
                     self.content_length = 0;
                 }
 
-                let v = value.to_lowercase();
+                let v = header.value.to_lowercase();
                 if v.ends_with("chunked") {
                     self.chunked_transfer = true;
                     if self.has_trailer {
@@ -341,7 +351,7 @@ impl HttpTransparentRequest {
                 } else {
                     return Err(HttpRequestParseError::InvalidChunkedTransferEncoding);
                 }
-                return self.insert_hop_by_hop_header(name, value);
+                return self.insert_hop_by_hop_header(name, &header);
             }
             "content-length" => {
                 if self.has_transfer_encoding {
@@ -349,7 +359,7 @@ impl HttpTransparentRequest {
                     return Ok(());
                 }
 
-                let content_length = u64::from_str(value)
+                let content_length = u64::from_str(header.value)
                     .map_err(|_| HttpRequestParseError::InvalidContentLength)?;
 
                 if self.has_content_length && self.content_length != content_length {
@@ -359,13 +369,13 @@ impl HttpTransparentRequest {
                 self.content_length = content_length;
             }
             "te" | "proxy-authorization" => {
-                return self.insert_hop_by_hop_header(name, value);
+                return self.insert_hop_by_hop_header(name, &header);
             }
             // ignore "expect"
             _ => {}
         }
 
-        self.append_header(name, value)
+        self.append_header(name, &header)
     }
 
     pub fn serialize_for_origin(&self) -> Vec<u8> {
@@ -383,23 +393,15 @@ impl HttpTransparentRequest {
         } else {
             let _ = write!(buf, "{} / {:?}\r\n", self.method, self.version);
         }
-        self.end_to_end_headers.for_each(|name, value| {
-            buf.put_slice(name.as_ref());
-            buf.put_slice(b": ");
-            buf.put_slice(value.as_bytes());
-            buf.put_slice(b"\r\n");
-        });
-        self.hop_by_hop_headers.for_each(|name, value| {
-            buf.put_slice(name.as_ref());
-            buf.put_slice(b": ");
-            buf.put_slice(value.as_bytes());
-            buf.put_slice(b"\r\n");
-        });
-        let connection_value = crate::header::connection_with_more_headers(
+        self.end_to_end_headers
+            .for_each(|name, value| value.write_to_buf(name, &mut buf));
+        self.hop_by_hop_headers
+            .for_each(|name, value| value.write_to_buf(name, &mut buf));
+        Connection::from_original(self.original_connection_name.as_deref()).write_to_buf(
             !self.keep_alive,
             &self.extra_connection_headers,
+            &mut buf,
         );
-        buf.put_slice(connection_value.as_bytes());
         buf.put_slice(b"\r\n");
         buf
     }
@@ -417,12 +419,8 @@ impl HttpTransparentRequest {
         } else {
             let _ = write!(buf, "{} / {:?}\r\n", self.method, self.version);
         }
-        self.end_to_end_headers.for_each(|name, value| {
-            buf.put_slice(name.as_ref());
-            buf.put_slice(b": ");
-            buf.put_slice(value.as_bytes());
-            buf.put_slice(b"\r\n");
-        });
+        self.end_to_end_headers
+            .for_each(|name, value| value.write_to_buf(name, &mut buf));
         buf.put_slice(b"\r\n");
         buf
     }

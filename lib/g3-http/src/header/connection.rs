@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use bytes::BufMut;
 use http::HeaderName;
 
 pub const fn connection_as_bytes(close: bool) -> &'static [u8] {
@@ -24,17 +25,29 @@ pub const fn connection_as_bytes(close: bool) -> &'static [u8] {
     }
 }
 
-pub fn connection_with_more_headers(close: bool, headers: &[HeaderName]) -> String {
-    let mut s = String::with_capacity(32);
-    if close {
-        s.push_str("Connection: Close");
-    } else {
-        s.push_str("Connection: Keep-Alive");
+pub struct Connection<'a> {
+    original: &'a str,
+}
+
+impl<'a> Connection<'a> {
+    pub fn from_original(original: Option<&'a str>) -> Self {
+        Connection {
+            original: original.unwrap_or("Connection"),
+        }
     }
-    for h in headers {
-        s.push_str(", ");
-        s.push_str(h.as_str());
+
+    pub fn write_to_buf(&'a self, close: bool, headers: &[HeaderName], buf: &mut Vec<u8>) {
+        buf.put_slice(self.original.as_bytes());
+        buf.put_slice(b": ");
+        if close {
+            buf.put_slice(b"Close");
+        } else {
+            buf.put_slice(b"Keep-Alive");
+        }
+        for h in headers {
+            buf.put_slice(b", ");
+            buf.put_slice(h.as_str().as_bytes());
+        }
+        buf.put_slice(b"\r\n");
     }
-    s.push_str("\r\n");
-    s
 }

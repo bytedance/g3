@@ -175,9 +175,10 @@ impl HttpAdaptedRequest {
             _ => {}
         }
 
-        let value = HttpHeaderValue::from_str(header.value).map_err(|_| {
+        let mut value = HttpHeaderValue::from_str(header.value).map_err(|_| {
             HttpRequestParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
+        value.set_original_name(header.name.to_string());
         self.headers.append(name, value);
         Ok(())
     }

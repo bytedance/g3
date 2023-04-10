@@ -18,7 +18,7 @@ mod auth;
 pub use auth::{proxy_authenticate_basic, proxy_authorization_basic, www_authenticate_basic};
 
 mod connection;
-pub use connection::{connection_as_bytes, connection_with_more_headers};
+pub use connection::{connection_as_bytes, Connection};
 
 mod content;
 pub use content::{content_length, content_range_overflowed, content_range_sized, content_type};

@@ -25,6 +25,7 @@ use g3_io_ext::LimitedBufReadExt;
 use g3_types::net::{HttpHeaderMap, HttpHeaderValue};
 
 use super::{HttpAdaptedResponse, HttpResponseParseError};
+use crate::header::Connection;
 use crate::{HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpStatusLine};
 
 pub struct HttpForwardRemoteResponse {
@@ -33,6 +34,7 @@ pub struct HttpForwardRemoteResponse {
     pub reason: String,
     pub end_to_end_headers: HttpHeaderMap,
     pub hop_by_hop_headers: HttpHeaderMap,
+    original_connection_name: Option<String>,
     extra_connection_headers: Vec<HeaderName>,
     origin_header_size: usize,
     keep_alive: bool,
@@ -53,6 +55,7 @@ impl HttpForwardRemoteResponse {
             reason,
             end_to_end_headers: HttpHeaderMap::default(),
             hop_by_hop_headers: HttpHeaderMap::default(),
+            original_connection_name: None,
             extra_connection_headers: Vec::new(),
             origin_header_size: 0,
             keep_alive: false,
@@ -79,6 +82,7 @@ impl HttpForwardRemoteResponse {
             reason: adapted.reason,
             end_to_end_headers: adapted.headers,
             hop_by_hop_headers,
+            original_connection_name: self.original_connection_name.clone(),
             extra_connection_headers: self.extra_connection_headers.clone(),
             origin_header_size: self.origin_header_size,
             keep_alive: self.keep_alive,
@@ -245,11 +249,12 @@ impl HttpForwardRemoteResponse {
     fn insert_hop_by_hop_header(
         &mut self,
         name: HeaderName,
-        value: &str,
+        header: &HttpHeaderLine,
     ) -> Result<(), HttpResponseParseError> {
-        let value = HttpHeaderValue::from_str(value).map_err(|_| {
+        let mut value = HttpHeaderValue::from_str(header.value).map_err(|_| {
             HttpResponseParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
+        value.set_original_name(header.name.to_string());
         self.hop_by_hop_headers.append(name, value);
         Ok(())
     }
@@ -284,22 +289,23 @@ impl HttpForwardRemoteResponse {
                     }
                 }
 
+                self.original_connection_name = Some(header.name.to_string());
                 return Ok(());
             }
             "upgrade" => {
-                return self.insert_hop_by_hop_header(name, header.value);
+                return self.insert_hop_by_hop_header(name, &header);
             }
             "keep-alive" => {
                 // just pass
                 self.has_keep_alive = true;
-                return self.insert_hop_by_hop_header(name, header.value);
+                return self.insert_hop_by_hop_header(name, &header);
             }
             "trailer" => {
                 self.has_trailer = true;
                 if self.chunked_transfer {
                     self.chunked_with_trailer = true;
                 }
-                return self.insert_hop_by_hop_header(name, header.value);
+                return self.insert_hop_by_hop_header(name, &header);
             }
             "transfer-encoding" => {
                 // it's a hop-by-hop option, but we just pass it
@@ -321,7 +327,7 @@ impl HttpForwardRemoteResponse {
                     return Err(HttpResponseParseError::InvalidChunkedTransferEncoding);
                 }
 
-                return self.insert_hop_by_hop_header(name, header.value);
+                return self.insert_hop_by_hop_header(name, &header);
             }
             "content-length" => {
                 if self.has_transfer_encoding {
@@ -342,9 +348,10 @@ impl HttpForwardRemoteResponse {
             _ => {}
         }
 
-        let value = HttpHeaderValue::from_str(header.value).map_err(|_| {
+        let mut value = HttpHeaderValue::from_str(header.value).map_err(|_| {
             HttpResponseParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
+        value.set_original_name(header.name.to_string());
         self.end_to_end_headers.append(name, value);
         Ok(())
     }
@@ -359,23 +366,16 @@ impl HttpForwardRemoteResponse {
 
     pub fn serialize_to(&self, buf: &mut Vec<u8>) {
         let _ = write!(buf, "{:?} {} {}\r\n", self.version, self.code, self.reason);
-        self.end_to_end_headers.for_each(|name, value| {
-            buf.put_slice(name.as_ref());
-            buf.put_slice(b": ");
-            buf.put_slice(value.as_bytes());
-            buf.put_slice(b"\r\n");
-        });
-        self.hop_by_hop_headers.for_each(|name, value| {
-            buf.put_slice(name.as_ref());
-            buf.put_slice(b": ");
-            buf.put_slice(value.as_bytes());
-            buf.put_slice(b"\r\n");
-        });
-        let connection_value = crate::header::connection_with_more_headers(
+        self.end_to_end_headers
+            .for_each(|name, value| value.write_to_buf(name, buf));
+        self.hop_by_hop_headers
+            .for_each(|name, value| value.write_to_buf(name, buf));
+
+        Connection::from_original(self.original_connection_name.as_deref()).write_to_buf(
             !self.keep_alive,
             &self.extra_connection_headers,
+            buf,
         );
-        buf.put_slice(connection_value.as_bytes());
         buf.put_slice(b"\r\n");
     }
 
@@ -384,12 +384,8 @@ impl HttpForwardRemoteResponse {
 
         let _ = write!(buf, "{:?} {} {}\r\n", self.version, self.code, self.reason);
 
-        self.end_to_end_headers.for_each(|name, value| {
-            buf.put_slice(name.as_ref());
-            buf.put_slice(b": ");
-            buf.put_slice(value.as_bytes());
-            buf.put_slice(b"\r\n");
-        });
+        self.end_to_end_headers
+            .for_each(|name, value| value.write_to_buf(name, &mut buf));
         buf.put_slice(b"\r\n");
         buf
     }

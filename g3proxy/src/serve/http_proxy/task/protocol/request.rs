@@ -48,13 +48,16 @@ where
     ) -> Result<(Self, bool), HttpRequestParseError> {
         let time_accepted = Instant::now();
 
-        let req =
-            HttpProxyClientRequest::parse(reader, max_header_size, version, &|req, name, value| {
+        let req = HttpProxyClientRequest::parse(
+            reader,
+            max_header_size,
+            version,
+            &|req, name, header| {
                 match name.as_str() {
-                    "proxy-authorization" => return req.parse_header_authorization(value),
+                    "proxy-authorization" => return req.parse_header_authorization(header.value),
                     "proxy-connection" => {
                         // proxy-connection is not standard, but at least curl use it
-                        return req.parse_header_connection(value);
+                        return req.parse_header_connection(header);
                     }
                     "forwarded" | "x-forwarded-for" => {
                         if steal_forwarder_for {
@@ -63,10 +66,11 @@ where
                     }
                     _ => {}
                 }
-                req.append_header(name, value)?;
+                req.append_header(name, header)?;
                 Ok(())
-            })
-            .await?;
+            },
+        )
+        .await?;
         let time_received = Instant::now();
 
         let (upstream, sub_protocol) = if matches!(&req.method, &Method::CONNECT) {

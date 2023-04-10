@@ -159,9 +159,10 @@ impl HttpAdapterErrorResponse {
             _ => {}
         }
 
-        let value = HttpHeaderValue::from_str(header.value).map_err(|_| {
+        let mut value = HttpHeaderValue::from_str(header.value).map_err(|_| {
             HttpResponseParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
+        value.set_original_name(header.name.to_string());
         self.headers.append(name, value);
         Ok(())
     }
@@ -177,12 +178,8 @@ impl HttpAdapterErrorResponse {
             self.reason
         );
 
-        self.headers.for_each(|name, value| {
-            buf.put_slice(name.as_ref());
-            buf.put_slice(b": ");
-            buf.put_slice(value.as_bytes());
-            buf.put_slice(b"\r\n");
-        });
+        self.headers
+            .for_each(|name, value| value.write_to_buf(name, &mut buf));
         let connection_value = g3_http::header::connection_as_bytes(close_connection);
         buf.put_slice(connection_value);
         buf.put_slice(b"\r\n");
