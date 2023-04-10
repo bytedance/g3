@@ -5,7 +5,7 @@
 
 ## About
 
-This is the project we used to build enterprise-oriented general proxy solutions,
+This is the project we used to build enterprise-oriented generic proxy solutions,
 including but not limited to proxy / reverse proxy / load balancer / nat traversal.
 
 ## Components
@@ -17,7 +17,7 @@ Each component will have its own doc in its *doc* subdirectory.
 
 ### g3proxy
 
-A general forward proxy solution, but you can also use it as tcp streaming / transparent proxy / reverse proxy
+A generic forward proxy solution, but you can also use it as tcp streaming / transparent proxy / reverse proxy
 as we have basic support built in.
 
 See [g3proxy](g3proxy/README.md) for detailed introduction.
