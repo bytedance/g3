@@ -166,6 +166,8 @@ The code should comply to these, but should be more compliant to existing popula
     : Hypertext Transfer Protocol (HTTP) Method Registry
  - [iana-http-status-codes](https://www.iana.org/assignments/http-status-codes/http-status-codes)
     : Hypertext Transfer Protocol (HTTP) Status Code Registry
+ - [iana-http-fields](https://www.iana.org/assignments/http-fields/http-fields.xhtml)
+    : Hypertext Transfer Protocol (HTTP) Field Name Registry
  - [mozilla-http-headers](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers)
     : HTTP headers
  - [rfc6648](https://datatracker.ietf.org/doc/html/rfc6648)
