@@ -17,10 +17,11 @@
 use std::collections::BTreeSet;
 use std::str::FromStr;
 
-use http::{HeaderMap, HeaderName, HeaderValue};
+use http::HeaderName;
 use tokio::io::AsyncBufRead;
 
 use g3_io_ext::LimitedBufReadExt;
+use g3_types::net::{HttpHeaderMap, HttpHeaderValue};
 
 use super::{IcapReqmodParseError, IcapReqmodResponsePayload};
 use crate::parse::{HeaderLine, IcapLineParseError, StatusLine};
@@ -30,8 +31,8 @@ pub(crate) struct ReqmodResponse {
     pub(crate) reason: String,
     pub(crate) keep_alive: bool,
     pub(crate) payload: IcapReqmodResponsePayload,
-    shared_headers: HeaderMap,
-    trailers: Vec<HeaderValue>,
+    shared_headers: HttpHeaderMap,
+    trailers: Vec<HttpHeaderValue>,
 }
 
 impl ReqmodResponse {
@@ -41,16 +42,16 @@ impl ReqmodResponse {
             reason,
             keep_alive: true,
             payload: IcapReqmodResponsePayload::NoPayload,
-            shared_headers: HeaderMap::new(),
+            shared_headers: HttpHeaderMap::default(),
             trailers: Vec::new(),
         }
     }
 
-    pub(crate) fn take_trailers(&mut self) -> Vec<HeaderValue> {
+    pub(crate) fn take_trailers(&mut self) -> Vec<HttpHeaderValue> {
         self.trailers.drain(..).collect()
     }
 
-    pub(crate) fn take_shared_headers(&mut self) -> HeaderMap {
+    pub(crate) fn take_shared_headers(&mut self) -> HttpHeaderMap {
         std::mem::take(&mut self.shared_headers)
     }
 
@@ -150,7 +151,7 @@ impl ReqmodResponse {
                 }
             }
             "trailer" => {
-                let value = HeaderValue::from_str(header.value).map_err(|_| {
+                let value = HttpHeaderValue::from_str(header.value).map_err(|_| {
                     IcapReqmodParseError::InvalidHeaderLine(IcapLineParseError::InvalidTrailerValue)
                 })?;
                 self.trailers.push(value);
@@ -163,7 +164,7 @@ impl ReqmodResponse {
                             IcapLineParseError::InvalidHeaderName,
                         )
                     })?;
-                    let value = HeaderValue::from_str(header.value).map_err(|_| {
+                    let value = HttpHeaderValue::from_str(header.value).map_err(|_| {
                         IcapReqmodParseError::InvalidHeaderLine(
                             IcapLineParseError::InvalidHeaderValue,
                         )

@@ -20,9 +20,9 @@ use std::net::{IpAddr, SocketAddr};
 
 use base64::prelude::*;
 use chrono::{DateTime, Utc};
-use http::{HeaderMap, HeaderValue};
+use http::HeaderName;
 
-use g3_types::net::{EgressInfo, HttpServerId};
+use g3_types::net::{EgressInfo, HttpHeaderMap, HttpHeaderValue, HttpServerId};
 
 // chained final info header
 const UPSTREAM_ID: &str = "x-bd-upstream-id";
@@ -80,7 +80,7 @@ pub(crate) fn remote_connection_info(
 }
 
 pub(crate) fn set_remote_connection_info(
-    headers: &mut HeaderMap,
+    headers: &mut HttpHeaderMap,
     server_id: &HttpServerId,
     bind: Option<IpAddr>,
     local: Option<SocketAddr>,
@@ -90,8 +90,8 @@ pub(crate) fn set_remote_connection_info(
     TL_BUF.with(|buf| {
         let mut buf = buf.borrow_mut();
         set_value_for_remote_connection_info(buf.as_mut(), server_id, bind, local, remote, expire);
-        headers.append(REMOTE_CONNECTION_INFO, unsafe {
-            HeaderValue::from_maybe_shared_unchecked(buf.clone())
+        headers.append(HeaderName::from_static(REMOTE_CONNECTION_INFO), unsafe {
+            HttpHeaderValue::from_buf_unchecked(buf.clone())
         });
         buf.clear();
     })
@@ -124,23 +124,23 @@ pub(crate) fn dynamic_egress_info(server_id: &HttpServerId, egress: &EgressInfo)
 }
 
 pub(crate) fn set_dynamic_egress_info(
-    headers: &mut HeaderMap,
+    headers: &mut HttpHeaderMap,
     server_id: &HttpServerId,
     egress: &EgressInfo,
 ) {
     TL_BUF.with(|buf| {
         let mut buf = buf.borrow_mut();
         set_value_for_dynamic_egress_info(buf.as_mut(), server_id, egress);
-        headers.append(DYNAMIC_EGRESS_INFO, unsafe {
-            HeaderValue::from_maybe_shared_unchecked(buf.clone())
+        headers.append(HeaderName::from_static(DYNAMIC_EGRESS_INFO), unsafe {
+            HttpHeaderValue::from_buf_unchecked(buf.clone())
         });
         buf.clear()
     })
 }
 
-pub(crate) fn set_upstream_id(headers: &mut HeaderMap, id: &HttpServerId) {
-    if !headers.contains_key(UPSTREAM_ID) {
-        headers.append(UPSTREAM_ID, id.to_header_value());
+pub(crate) fn set_upstream_id(headers: &mut HttpHeaderMap, id: &HttpServerId) {
+    if !headers.contains_key(HeaderName::from_static(UPSTREAM_ID)) {
+        headers.append(HeaderName::from_static(UPSTREAM_ID), id.to_header_value());
     }
 }
 
@@ -149,10 +149,10 @@ pub(crate) fn upstream_addr(addr: SocketAddr) -> String {
     format!("X-BD-Upstream-Addr: {addr}\r\n")
 }
 
-pub(crate) fn set_upstream_addr(headers: &mut HeaderMap, addr: SocketAddr) {
-    if !headers.contains_key(UPSTREAM_ADDR) {
-        headers.append(UPSTREAM_ADDR, unsafe {
-            HeaderValue::from_maybe_shared_unchecked(addr.to_string())
+pub(crate) fn set_upstream_addr(headers: &mut HttpHeaderMap, addr: SocketAddr) {
+    if !headers.contains_key(HeaderName::from_static(UPSTREAM_ADDR)) {
+        headers.append(HeaderName::from_static(UPSTREAM_ADDR), unsafe {
+            HttpHeaderValue::from_string_unchecked(addr.to_string())
         });
     }
 }
@@ -162,10 +162,10 @@ pub(crate) fn outgoing_ip(ip: IpAddr) -> String {
     format!("X-BD-Outgoing-IP: {ip}\r\n")
 }
 
-pub(crate) fn set_outgoing_ip(headers: &mut HeaderMap, addr: SocketAddr) {
-    if !headers.contains_key(OUTGOING_IP) {
-        headers.append(OUTGOING_IP, unsafe {
-            HeaderValue::from_maybe_shared_unchecked(addr.ip().to_string())
+pub(crate) fn set_outgoing_ip(headers: &mut HttpHeaderMap, addr: SocketAddr) {
+    if !headers.contains_key(HeaderName::from_static(OUTGOING_IP)) {
+        headers.append(HeaderName::from_static(OUTGOING_IP), unsafe {
+            HttpHeaderValue::from_string_unchecked(addr.ip().to_string())
         });
     }
 }

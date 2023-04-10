@@ -20,7 +20,6 @@ use anyhow::anyhow;
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use futures_util::FutureExt;
-use http::HeaderMap;
 use slog::slog_info;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
@@ -38,6 +37,7 @@ use g3_icap_client::respmod::h1::{
     HttpResponseAdapter, RespmodAdaptationEndState, RespmodAdaptationRunState,
 };
 use g3_io_ext::{LimitedBufReadExt, LimitedCopy, LimitedCopyError};
+use g3_types::net::HttpHeaderMap;
 
 use super::{HttpRequest, HttpRequestIo, HttpResponseIo};
 use crate::config::server::ServerConfig;
@@ -626,7 +626,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         mut rsp: HttpTransparentResponse,
         rsp_head: Bytes,
         rsp_io: &mut HttpResponseIo<UR, CW>,
-        adaptation_respond_shared_headers: Option<HeaderMap>,
+        adaptation_respond_shared_headers: Option<HttpHeaderMap>,
     ) -> ServerTaskResult<()>
     where
         UR: AsyncRead + Unpin,

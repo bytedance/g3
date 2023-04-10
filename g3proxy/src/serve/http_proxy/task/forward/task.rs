@@ -18,7 +18,6 @@ use anyhow::anyhow;
 use std::sync::Arc;
 
 use futures_util::FutureExt;
-use http::HeaderMap;
 use log::debug;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
@@ -35,7 +34,7 @@ use g3_icap_client::respmod::h1::{
 };
 use g3_io_ext::{LimitedBufReadExt, LimitedCopy, LimitedCopyError};
 use g3_types::acl::AclAction;
-use g3_types::net::ProxyRequestType;
+use g3_types::net::{HttpHeaderMap, ProxyRequestType};
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpProxyRequest};
 use super::{
@@ -211,7 +210,7 @@ impl<'a> HttpProxyForwardTask<'a> {
             .req
             .end_to_end_headers
             .get(http::header::USER_AGENT)
-            .map(|v| v.to_str().unwrap_or("invalid"));
+            .map(|v| v.to_str());
         TaskLogForHttpForward {
             task_notes: &self.task_notes,
             http_notes: &self.http_notes,
@@ -1239,7 +1238,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         clt_w: &mut W,
         ups_r: &mut R,
         rsp_header: &mut HttpForwardRemoteResponse,
-        adaptation_respond_shared_headers: Option<HeaderMap>,
+        adaptation_respond_shared_headers: Option<HttpHeaderMap>,
     ) -> ServerTaskResult<()>
     where
         R: AsyncBufRead + Unpin,

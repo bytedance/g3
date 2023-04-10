@@ -16,10 +16,10 @@
 
 use std::str::FromStr;
 
-use http::HeaderValue;
 use url::Url;
 
 use crate::auth::{AuthParseError, Password, Username};
+use crate::net::HttpHeaderValue;
 
 mod basic;
 pub use basic::HttpBasicAuth;
@@ -44,10 +44,10 @@ impl HttpAuth {
     }
 }
 
-impl TryFrom<&HeaderValue> for HttpAuth {
+impl TryFrom<&HttpHeaderValue> for HttpAuth {
     type Error = AuthParseError;
 
-    fn try_from(value: &HeaderValue) -> Result<Self, Self::Error> {
+    fn try_from(value: &HttpHeaderValue) -> Result<Self, Self::Error> {
         let value = std::str::from_utf8(value.as_bytes())
             .map_err(|_| AuthParseError::InvalidUtf8Encoding)?;
         HttpAuth::from_authorization(value)

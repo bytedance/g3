@@ -19,13 +19,12 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use ahash::AHashMap;
-use http::HeaderMap;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::mpsc;
 
 use g3_io_ext::{ArcLimitedWriterStats, LimitedWriter};
 use g3_types::auth::{UserAuthError, Username};
-use g3_types::net::{HttpAuth, HttpBasicAuth};
+use g3_types::net::{HttpAuth, HttpBasicAuth, HttpHeaderMap};
 use g3_types::route::EgressPathSelection;
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpProxyRequest, HttpProxySubProtocol};
@@ -227,17 +226,12 @@ where
         }
     }
 
-    fn get_egress_path_selection(&self, headers: &mut HeaderMap) -> EgressPathSelection {
-        use http::header::Entry;
-
+    fn get_egress_path_selection(&self, headers: &mut HttpHeaderMap) -> EgressPathSelection {
         if let Some(header) = &self.ctx.server_config.egress_path_selection_header {
             // check and remove the custom header
-            if let Entry::Occupied(entry) = headers.entry(header) {
-                let (_, mut values) = entry.remove_entry_mult();
-                if let Some(value) = values.next() {
-                    if let Ok(s) = value.to_str() {
-                        return EgressPathSelection::from_str(s).unwrap_or_default();
-                    }
+            if let Some((_name, values)) = headers.remove_entry(header) {
+                if let Some(value) = values.get(0) {
+                    return EgressPathSelection::from_str(value.to_str()).unwrap_or_default();
                 }
             }
         }

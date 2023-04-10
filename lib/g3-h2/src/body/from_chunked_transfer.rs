@@ -92,7 +92,7 @@ where
             ),
         })?;
         self.send_stream
-            .send_trailers(headers)
+            .send_trailers(headers.to_h2_map())
             .map_err(H2StreamFromChunkedTransferError::SendTrailerFailed)?;
         Poll::Ready(Ok(()))
     }

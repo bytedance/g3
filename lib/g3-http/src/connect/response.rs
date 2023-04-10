@@ -16,10 +16,11 @@
 
 use std::str::FromStr;
 
-use http::{HeaderMap, HeaderName, HeaderValue};
+use http::HeaderName;
 use tokio::io::AsyncBufRead;
 
 use g3_io_ext::LimitedBufReadExt;
+use g3_types::net::{HttpHeaderMap, HttpHeaderValue};
 
 use super::{HttpConnectError, HttpConnectResponseError};
 use crate::{HttpBodyReader, HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpStatusLine};
@@ -27,7 +28,7 @@ use crate::{HttpBodyReader, HttpBodyType, HttpHeaderLine, HttpLineParseError, Ht
 pub struct HttpConnectResponse {
     pub code: u16,
     pub reason: String,
-    pub headers: HeaderMap,
+    pub headers: HttpHeaderMap,
     content_length: u64,
     chunked_transfer: bool,
     chunked_with_trailer: bool,
@@ -41,7 +42,7 @@ impl HttpConnectResponse {
         HttpConnectResponse {
             code,
             reason,
-            headers: HeaderMap::new(),
+            headers: HttpHeaderMap::default(),
             content_length: 0,
             chunked_transfer: false,
             chunked_with_trailer: false,
@@ -185,7 +186,7 @@ impl HttpConnectResponse {
             _ => {}
         }
 
-        let value = HeaderValue::from_str(header.value).map_err(|_| {
+        let value = HttpHeaderValue::from_str(header.value).map_err(|_| {
             HttpConnectResponseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
         self.headers.append(name, value);

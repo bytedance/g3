@@ -16,19 +16,21 @@
 
 use std::str::FromStr;
 
-use http::{HeaderMap, HeaderName, HeaderValue, StatusCode, Version};
+use http::{HeaderName, StatusCode, Version};
 use tokio::io::AsyncBufRead;
+
+use g3_io_ext::LimitedBufReadExt;
+use g3_types::net::{HttpHeaderMap, HttpHeaderValue};
 
 use super::HttpResponseParseError;
 use crate::{HttpHeaderLine, HttpLineParseError, HttpStatusLine};
-use g3_io_ext::LimitedBufReadExt;
 
 pub struct HttpAdaptedResponse {
     pub version: Version,
     pub status: StatusCode,
     pub reason: String,
-    pub headers: HeaderMap,
-    trailer: Vec<HeaderValue>,
+    pub headers: HttpHeaderMap,
+    trailer: Vec<HttpHeaderValue>,
 }
 
 impl HttpAdaptedResponse {
@@ -37,7 +39,7 @@ impl HttpAdaptedResponse {
             version,
             status,
             reason,
-            headers: HeaderMap::new(),
+            headers: HttpHeaderMap::default(),
             trailer: Vec::new(),
         }
     }
@@ -45,16 +47,16 @@ impl HttpAdaptedResponse {
     pub fn set_chunked_encoding(&mut self) {
         self.headers.insert(
             http::header::TRANSFER_ENCODING,
-            HeaderValue::from_static("chunked"),
+            HttpHeaderValue::from_static("chunked"),
         );
     }
 
-    pub fn set_trailer(&mut self, trailers: Vec<HeaderValue>) {
+    pub fn set_trailer(&mut self, trailers: Vec<HttpHeaderValue>) {
         self.trailer = trailers;
     }
 
     #[inline]
-    pub(crate) fn trailer(&self) -> &[HeaderValue] {
+    pub(crate) fn trailer(&self) -> &[HttpHeaderValue] {
         &self.trailer
     }
 
@@ -161,7 +163,7 @@ impl HttpAdaptedResponse {
             _ => {}
         }
 
-        let value = HeaderValue::from_str(header.value).map_err(|_| {
+        let value = HttpHeaderValue::from_str(header.value).map_err(|_| {
             HttpResponseParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
         self.headers.append(name, value);

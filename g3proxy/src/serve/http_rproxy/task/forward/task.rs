@@ -183,7 +183,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
             .req
             .end_to_end_headers
             .get(http::header::USER_AGENT)
-            .map(|v| v.to_str().unwrap_or("invalid"));
+            .map(|v| v.to_str());
         TaskLogForHttpForward {
             task_notes: &self.task_notes,
             http_notes: &self.http_notes,

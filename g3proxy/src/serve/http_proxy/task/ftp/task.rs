@@ -97,7 +97,7 @@ impl<'a> FtpOverHttpTask<'a> {
             .req
             .end_to_end_headers
             .get(http::header::USER_AGENT)
-            .map(|v| v.to_str().unwrap_or("invalid"));
+            .map(|v| v.to_str());
         TaskLogForFtpOverHttp {
             task_notes: &self.task_notes,
             ftp_notes: &self.ftp_notes,

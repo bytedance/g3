@@ -18,11 +18,11 @@ use std::io::Write;
 use std::str::FromStr;
 
 use bytes::BufMut;
-use http::{header, HeaderMap, HeaderName, HeaderValue, Method, Uri, Version};
+use http::{header, HeaderName, Method, Uri, Version};
 use tokio::io::AsyncBufRead;
 
 use g3_io_ext::LimitedBufReadExt;
-use g3_types::net::{HttpAuth, UpstreamAddr};
+use g3_types::net::{HttpAuth, HttpHeaderMap, HttpHeaderValue, UpstreamAddr};
 
 use super::{HttpAdaptedRequest, HttpRequestParseError};
 use crate::{HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpMethodLine};
@@ -31,8 +31,8 @@ pub struct HttpProxyClientRequest {
     pub version: Version,
     pub method: Method,
     pub uri: Uri,
-    pub end_to_end_headers: HeaderMap,
-    pub hop_by_hop_headers: HeaderMap,
+    pub end_to_end_headers: HttpHeaderMap,
+    pub hop_by_hop_headers: HttpHeaderMap,
     pub auth_info: HttpAuth,
     /// the port may be 0
     pub host: Option<UpstreamAddr>,
@@ -53,8 +53,8 @@ impl HttpProxyClientRequest {
             version,
             method,
             uri,
-            end_to_end_headers: HeaderMap::new(),
-            hop_by_hop_headers: HeaderMap::new(),
+            end_to_end_headers: HttpHeaderMap::default(),
+            hop_by_hop_headers: HttpHeaderMap::default(),
             auth_info: HttpAuth::None,
             host: None,
             extra_connection_headers: Vec::new(),
@@ -305,7 +305,7 @@ impl HttpProxyClientRequest {
         name: HeaderName,
         value: &str,
     ) -> Result<(), HttpRequestParseError> {
-        let value = HeaderValue::from_str(value).map_err(|_| {
+        let value = HttpHeaderValue::from_str(value).map_err(|_| {
             HttpRequestParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
         self.end_to_end_headers.append(name, value);
@@ -317,7 +317,7 @@ impl HttpProxyClientRequest {
         name: HeaderName,
         value: &str,
     ) -> Result<(), HttpRequestParseError> {
-        let value = HeaderValue::from_str(value).map_err(|_| {
+        let value = HttpHeaderValue::from_str(value).map_err(|_| {
             HttpRequestParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
         self.hop_by_hop_headers.append(name, value);
@@ -427,18 +427,18 @@ impl HttpProxyClientRequest {
         } else {
             let _ = write!(buf, "{} / {:?}\r\n", self.method, self.version);
         }
-        for (name, value) in self.end_to_end_headers.iter() {
+        self.end_to_end_headers.for_each(|name, value| {
             buf.put_slice(name.as_ref());
             buf.put_slice(b": ");
             buf.put_slice(value.as_bytes());
             buf.put_slice(b"\r\n");
-        }
-        for (name, value) in self.hop_by_hop_headers.iter() {
+        });
+        self.hop_by_hop_headers.for_each(|name, value| {
             buf.put_slice(name.as_ref());
             buf.put_slice(b": ");
             buf.put_slice(value.as_bytes());
             buf.put_slice(b"\r\n");
-        }
+        });
         let connection_value = crate::header::connection_with_more_headers(
             !self.keep_alive,
             &self.extra_connection_headers,
@@ -464,18 +464,18 @@ impl HttpProxyClientRequest {
         } else {
             let _ = write!(buf, "{} / {:?}\r\n", self.method, self.version);
         }
-        for (name, value) in self.end_to_end_headers.iter() {
+        self.end_to_end_headers.for_each(|name, value| {
             buf.put_slice(name.as_ref());
             buf.put_slice(b": ");
             buf.put_slice(value.as_bytes());
             buf.put_slice(b"\r\n");
-        }
-        for (name, value) in self.hop_by_hop_headers.iter() {
+        });
+        self.hop_by_hop_headers.for_each(|name, value| {
             buf.put_slice(name.as_ref());
             buf.put_slice(b": ");
             buf.put_slice(value.as_bytes());
             buf.put_slice(b"\r\n");
-        }
+        });
         let connection_value = crate::header::connection_with_more_headers(
             !self.keep_alive,
             &self.extra_connection_headers,
@@ -497,12 +497,12 @@ impl HttpProxyClientRequest {
         } else {
             let _ = write!(buf, "{} / {:?}\r\n", self.method, self.version);
         }
-        for (name, value) in self.end_to_end_headers.iter() {
+        self.end_to_end_headers.for_each(|name, value| {
             buf.put_slice(name.as_ref());
             buf.put_slice(b": ");
             buf.put_slice(value.as_bytes());
             buf.put_slice(b"\r\n");
-        }
+        });
         buf.put_slice(b"\r\n");
         buf
     }

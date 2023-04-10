@@ -37,6 +37,7 @@ rustls-native-certs = { workspace = true, optional = true }
 webpki-roots = { version = "0.22", optional = true }
 openssl = { workspace = true, optional = true }
 lru = { version = "0.10", default-features = false, optional = true }
+bytes = { workspace = true, optional = true }
 http = { workspace = true, optional = true }
 base64 = { workspace = true, optional = true }
 flume = { workspace = true, features = ["eventual-fairness"], optional = true }
@@ -50,7 +51,7 @@ resolve = ["dep:ahash", "dep:radix_trie"]
 rustls = ["dep:rustls", "dep:rustls-native-certs", "dep:webpki-roots"]
 openssl = ["dep:openssl", "dep:ahash", "dep:lru"]
 acl-rule = ["resolve", "dep:ahash", "dep:ip_network", "dep:ip_network_table", "dep:once_cell", "dep:regex", "dep:radix_trie", "proxy"]
-http = ["dep:http", "dep:base64"]
+http = ["dep:http", "dep:bytes", "dep:base64"]
 proxy = ["http", "openssl"]
 route = ["dep:ahash", "dep:radix_trie", "dep:indexmap", "resolve"]
 async-log = ["dep:flume", "dep:slog"]

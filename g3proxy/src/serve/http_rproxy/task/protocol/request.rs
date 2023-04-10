@@ -16,13 +16,13 @@
 
 use std::borrow::Cow;
 
-use http::{HeaderValue, Method, Version};
+use http::{Method, Version};
 use tokio::io::AsyncRead;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 
 use g3_http::server::{HttpProxyClientRequest, HttpRequestParseError, UriExt};
-use g3_types::net::{HttpServerId, UpstreamAddr};
+use g3_types::net::{HttpHeaderValue, HttpServerId, UpstreamAddr};
 
 use super::HttpClientReader;
 
@@ -97,7 +97,7 @@ where
         }
         // append VIA
         let via_value = format!("HTTP/{:?} {}", req.version, this_pseudonym);
-        let v = unsafe { HeaderValue::from_maybe_shared_unchecked(via_value) };
+        let v = unsafe { HttpHeaderValue::from_string_unchecked(via_value) };
         req.end_to_end_headers.append(http::header::VIA, v);
 
         let req = HttpRProxyRequest {

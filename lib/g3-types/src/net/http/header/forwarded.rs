@@ -17,7 +17,9 @@
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
-use http::header::{HeaderMap, HeaderName, HeaderValue};
+use http::HeaderName;
+
+use crate::net::{HttpHeaderMap, HttpHeaderValue};
 
 #[derive(Clone, Copy, Debug)]
 pub struct HttpStandardForwardedHeaderValue {
@@ -40,12 +42,12 @@ impl HttpForwardedHeaderValue {
         HttpForwardedHeaderValue::Standard(HttpStandardForwardedHeaderValue { for_addr, by_addr })
     }
 
-    pub fn append_to(&self, map: &mut HeaderMap) {
+    pub fn append_to(&self, map: &mut HttpHeaderMap) {
         match self {
             HttpForwardedHeaderValue::Classic(ip) => {
                 let name = HeaderName::from_static("x-forwarded-for");
                 map.append(name, unsafe {
-                    HeaderValue::from_maybe_shared_unchecked(ip.to_string())
+                    HttpHeaderValue::from_string_unchecked(ip.to_string())
                 });
             }
             HttpForwardedHeaderValue::Standard(HttpStandardForwardedHeaderValue {
@@ -67,7 +69,7 @@ impl HttpForwardedHeaderValue {
                     }
                 };
                 map.append(http::header::FORWARDED, unsafe {
-                    HeaderValue::from_maybe_shared_unchecked(s)
+                    HttpHeaderValue::from_string_unchecked(s)
                 });
             }
         }

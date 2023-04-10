@@ -55,7 +55,7 @@ impl<T> ResponseExt for Response<T> {
         let (mut parts, body) = self.into_parts();
         // keep old version
         parts.status = other.status;
-        parts.headers = other.headers.clone();
+        parts.headers = other.headers.to_h2_map();
         Response::from_parts(parts, body)
     }
 }

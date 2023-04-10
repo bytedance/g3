@@ -21,13 +21,14 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use bytes::BufMut;
-use http::{HeaderMap, Method};
+use http::Method;
 use tokio::io::{AsyncBufRead, AsyncWrite};
 use tokio::time::Instant;
 
 use g3_http::server::HttpAdaptedRequest;
 use g3_http::{HttpBodyReader, HttpBodyType};
 use g3_io_ext::{IdleCheck, LimitedCopyConfig};
+use g3_types::net::HttpHeaderMap;
 
 use super::IcapReqmodClient;
 use crate::{IcapClientConnection, IcapServiceClient, IcapServiceOptions};
@@ -106,7 +107,7 @@ pub struct ReqmodAdaptationRunState {
     pub clt_read_finished: bool,
     pub ups_write_finished: bool,
     pub(crate) icap_io_finished: bool,
-    pub(crate) respond_shared_headers: Option<HeaderMap>,
+    pub(crate) respond_shared_headers: Option<HttpHeaderMap>,
 }
 
 impl ReqmodAdaptationRunState {
@@ -122,7 +123,7 @@ impl ReqmodAdaptationRunState {
         }
     }
 
-    pub fn take_respond_shared_headers(&mut self) -> Option<HeaderMap> {
+    pub fn take_respond_shared_headers(&mut self) -> Option<HttpHeaderMap> {
         self.respond_shared_headers.take()
     }
 

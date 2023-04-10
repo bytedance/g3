@@ -22,12 +22,13 @@ use std::time::Duration;
 use bytes::{BufMut, Bytes};
 use h2::client::SendRequest;
 use h2::{RecvStream, SendStream};
-use http::{HeaderMap, Request, Response};
+use http::{Request, Response};
 use tokio::time::Instant;
 
 use g3_h2::H2StreamFromChunkedTransfer;
 use g3_http::server::HttpAdaptedRequest;
 use g3_io_ext::{IdleCheck, LimitedCopyConfig};
+use g3_types::net::HttpHeaderMap;
 
 pub use super::h1::HttpAdapterErrorResponse;
 use super::IcapReqmodClient;
@@ -95,7 +96,7 @@ pub struct ReqmodAdaptationRunState {
     pub dur_ups_send_all: Option<Duration>,
     pub dur_ups_recv_header: Option<Duration>,
     pub(crate) icap_io_finished: bool,
-    pub(crate) respond_shared_headers: Option<HeaderMap>,
+    pub(crate) respond_shared_headers: Option<HttpHeaderMap>,
 }
 
 impl ReqmodAdaptationRunState {
@@ -110,7 +111,7 @@ impl ReqmodAdaptationRunState {
         }
     }
 
-    pub fn take_respond_shared_headers(&mut self) -> Option<HeaderMap> {
+    pub fn take_respond_shared_headers(&mut self) -> Option<HttpHeaderMap> {
         self.respond_shared_headers.take()
     }
 

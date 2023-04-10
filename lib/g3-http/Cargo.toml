@@ -10,6 +10,7 @@ rust-version = "1.64"
 [dependencies]
 thiserror.workspace = true
 bytes.workspace = true
+ahash.workspace = true
 tokio.workspace = true
 memchr.workspace = true
 atoi.workspace = true

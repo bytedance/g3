@@ -58,10 +58,10 @@ impl<T> RequestExt for Request<T> {
     }
 
     fn adapt_to(self, other: &HttpAdaptedRequest) -> Self {
-        let mut headers = other.headers.clone();
+        let mut headers = other.headers.to_h2_map();
         // add hop-by-hop headers
         if let Some(v) = self.headers().get(http::header::TE) {
-            headers.insert(http::header::TE, v.clone());
+            headers.insert(http::header::TE, v.into());
         }
         let (mut parts, body) = self.into_parts();
         parts.method = other.method.clone();

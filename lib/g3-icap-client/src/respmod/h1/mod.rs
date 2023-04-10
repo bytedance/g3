@@ -21,13 +21,14 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use bytes::BufMut;
-use http::{HeaderMap, Method};
+use http::Method;
 use tokio::io::{AsyncBufRead, AsyncWrite};
 use tokio::time::Instant;
 
 use g3_http::client::HttpAdaptedResponse;
 use g3_http::HttpBodyType;
 use g3_io_ext::{IdleCheck, LimitedCopyConfig};
+use g3_types::net::HttpHeaderMap;
 
 use super::IcapRespmodClient;
 use crate::reqmod::h1::HttpRequestForAdaptation;
@@ -91,7 +92,7 @@ pub struct HttpResponseAdapter<I: IdleCheck> {
     idle_checker: I,
     client_addr: Option<SocketAddr>,
     client_username: Option<String>,
-    respond_shared_headers: Option<HeaderMap>,
+    respond_shared_headers: Option<HttpHeaderMap>,
 }
 
 pub struct RespmodAdaptationRunState {
@@ -159,7 +160,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
         self.client_username = Some(user.to_string());
     }
 
-    pub fn set_respond_shared_headers(&mut self, shared_headers: Option<HeaderMap>) {
+    pub fn set_respond_shared_headers(&mut self, shared_headers: Option<HttpHeaderMap>) {
         self.respond_shared_headers = shared_headers;
     }
 
@@ -174,12 +175,12 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
             data.put_slice(b"\r\n");
         }
         if let Some(map) = &self.respond_shared_headers {
-            for (name, value) in map {
+            map.for_each(|name, value| {
                 data.put_slice(name.as_str().as_bytes());
                 data.put_slice(b": ");
                 data.put_slice(value.as_bytes());
                 data.put_slice(b"\r\n");
-            }
+            });
         }
     }
 

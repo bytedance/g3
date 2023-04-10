@@ -18,18 +18,19 @@ use std::io::Write;
 use std::str::FromStr;
 
 use bytes::BufMut;
-use http::{HeaderMap, HeaderName, HeaderValue, StatusCode, Version};
+use http::{HeaderName, StatusCode, Version};
 use tokio::io::AsyncBufRead;
 
 use g3_http::client::HttpResponseParseError;
 use g3_http::{HttpHeaderLine, HttpLineParseError, HttpStatusLine};
 use g3_io_ext::LimitedBufReadExt;
+use g3_types::net::{HttpHeaderMap, HttpHeaderValue};
 
 pub struct HttpAdapterErrorResponse {
     pub version: Version,
     pub status: StatusCode,
     pub reason: String,
-    pub headers: HeaderMap,
+    pub headers: HttpHeaderMap,
     has_trailer: bool,
 }
 
@@ -39,7 +40,7 @@ impl HttpAdapterErrorResponse {
             version,
             status,
             reason,
-            headers: HeaderMap::new(),
+            headers: HttpHeaderMap::default(),
             has_trailer: false,
         }
     }
@@ -47,11 +48,11 @@ impl HttpAdapterErrorResponse {
     pub(crate) fn set_chunked_encoding(&mut self) {
         self.headers.insert(
             http::header::TRANSFER_ENCODING,
-            HeaderValue::from_static("chunked"),
+            HttpHeaderValue::from_static("chunked"),
         );
     }
 
-    pub(crate) fn set_trailer(&mut self, trailers: Vec<HeaderValue>) {
+    pub(crate) fn set_trailer(&mut self, trailers: Vec<HttpHeaderValue>) {
         if self.has_trailer {
             self.headers.remove(http::header::TRAILER);
         }
@@ -158,7 +159,7 @@ impl HttpAdapterErrorResponse {
             _ => {}
         }
 
-        let value = HeaderValue::from_str(header.value).map_err(|_| {
+        let value = HttpHeaderValue::from_str(header.value).map_err(|_| {
             HttpResponseParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
         self.headers.append(name, value);
@@ -176,12 +177,12 @@ impl HttpAdapterErrorResponse {
             self.reason
         );
 
-        for (name, value) in self.headers.iter() {
+        self.headers.for_each(|name, value| {
             buf.put_slice(name.as_ref());
             buf.put_slice(b": ");
             buf.put_slice(value.as_bytes());
             buf.put_slice(b"\r\n");
-        }
+        });
         let connection_value = g3_http::header::connection_as_bytes(close_connection);
         buf.put_slice(connection_value);
         buf.put_slice(b"\r\n");

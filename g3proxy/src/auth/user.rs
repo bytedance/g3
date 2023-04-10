@@ -22,7 +22,6 @@ use ahash::AHashMap;
 use arc_swap::ArcSwapOption;
 use chrono::{DateTime, Utc};
 use governor::{clock::DefaultClock, state::InMemoryState, state::NotKeyed, RateLimiter};
-use http::HeaderMap;
 use tokio::time::Instant;
 
 use g3_types::acl::AclAction;
@@ -30,7 +29,7 @@ use g3_types::acl_set::AclDstHostRuleSet;
 use g3_types::auth::UserAuthError;
 use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit};
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
-use g3_types::net::{ProxyRequestType, UpstreamAddr};
+use g3_types::net::{HttpHeaderMap, ProxyRequestType, UpstreamAddr};
 use g3_types::resolve::{ResolveRedirection, ResolveStrategy};
 
 use super::{
@@ -481,20 +480,13 @@ impl User {
 
     fn check_http_user_agent(
         &self,
-        headers: &HeaderMap,
+        headers: &HttpHeaderMap,
         forbid_stats: &Arc<UserForbiddenStats>,
     ) -> Option<AclAction> {
         if let Some(filter) = &self.config.http_user_agent_filter {
             let mut default_action = filter.missed_action();
             for v in headers.get_all(http::header::USER_AGENT) {
-                let ua_value = match v.to_str() {
-                    Ok(s) => s,
-                    Err(_) => {
-                        forbid_stats.add_ua_blocked();
-                        return Some(AclAction::Forbid);
-                    }
-                };
-                if let (true, action) = filter.check(ua_value) {
+                if let (true, action) = filter.check(v.to_str()) {
                     if action.forbid_early() {
                         forbid_stats.add_ua_blocked();
                         return Some(action);
@@ -674,7 +666,7 @@ impl UserContext {
     }
 
     #[inline]
-    pub(crate) fn check_http_user_agent(&self, headers: &HeaderMap) -> Option<AclAction> {
+    pub(crate) fn check_http_user_agent(&self, headers: &HttpHeaderMap) -> Option<AclAction> {
         self.user.check_http_user_agent(headers, &self.forbid_stats)
     }
 

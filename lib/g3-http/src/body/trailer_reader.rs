@@ -17,11 +17,14 @@
 use std::future::Future;
 use std::io;
 use std::pin::Pin;
+use std::str::FromStr;
 use std::task::{ready, Context, Poll};
 
-use http::{HeaderMap, HeaderName, HeaderValue};
+use http::HeaderName;
 use thiserror::Error;
 use tokio::io::AsyncBufRead;
+
+use g3_types::net::{HttpHeaderMap, HttpHeaderValue};
 
 use crate::{HttpHeaderLine, HttpLineParseError};
 
@@ -40,7 +43,7 @@ pub enum TrailerReadError {
 struct TrailerReaderInternal {
     trailer_max_size: usize,
     cached_line: Vec<u8>,
-    headers: HeaderMap,
+    headers: HttpHeaderMap,
     header_size: usize,
     active: bool,
 }
@@ -50,7 +53,7 @@ impl TrailerReaderInternal {
         TrailerReaderInternal {
             trailer_max_size,
             cached_line: Vec::with_capacity(32),
-            headers: HeaderMap::new(),
+            headers: HttpHeaderMap::default(),
             header_size: 0,
             active: false,
         }
@@ -69,7 +72,7 @@ impl TrailerReaderInternal {
         &mut self,
         cx: &mut Context<'_>,
         mut reader: Pin<&mut R>,
-    ) -> Poll<Result<HeaderMap, TrailerReadError>>
+    ) -> Poll<Result<HttpHeaderMap, TrailerReadError>>
     where
         R: AsyncBufRead + Unpin,
     {
@@ -100,15 +103,15 @@ impl TrailerReaderInternal {
             if self.cached_line[0] == b'\n'
                 || (self.cached_line[0] == b'\r' && self.cached_line[1] == b'\n')
             {
-                let headers = std::mem::replace(&mut self.headers, HeaderMap::new());
+                let headers = std::mem::take(&mut self.headers);
                 return Poll::Ready(Ok(headers));
             }
 
             let header = HttpHeaderLine::parse(&self.cached_line)?;
-            let name = HeaderName::try_from(header.name).map_err(|_| {
+            let name = HeaderName::from_str(header.name).map_err(|_| {
                 TrailerReadError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderName)
             })?;
-            let value = HeaderValue::try_from(header.value).map_err(|_| {
+            let value = HttpHeaderValue::from_str(header.value).map_err(|_| {
                 TrailerReadError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
             })?;
             self.headers.append(name, value);
@@ -143,7 +146,7 @@ impl<'a, R> Future for TrailerReader<'a, R>
 where
     R: AsyncBufRead + Unpin,
 {
-    type Output = Result<HeaderMap, TrailerReadError>;
+    type Output = Result<HttpHeaderMap, TrailerReadError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let me = &mut *self;

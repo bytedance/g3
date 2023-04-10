@@ -997,6 +997,7 @@ dependencies = [
 name = "g3-http"
 version = "0.2.0"
 dependencies = [
+ "ahash",
  "atoi",
  "base64 0.21.0",
  "bytes",
@@ -1225,6 +1226,7 @@ dependencies = [
  "anyhow",
  "base64 0.21.0",
  "blake3",
+ "bytes",
  "digest",
  "flume",
  "fxhash",

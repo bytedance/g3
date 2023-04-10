@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
-use http::HeaderValue;
+use std::str::FromStr;
+
 use tokio::io::AsyncBufRead;
 
 use g3_io_ext::LimitedBufReadExt;
+use g3_types::net::HttpHeaderValue;
 
 use super::{IcapRespmodParseError, IcapRespmodResponsePayload};
 use crate::parse::{HeaderLine, IcapLineParseError, StatusLine};
@@ -27,7 +29,7 @@ pub(crate) struct RespmodResponse {
     pub(crate) reason: String,
     pub(crate) keep_alive: bool,
     pub(crate) payload: IcapRespmodResponsePayload,
-    trailers: Vec<HeaderValue>,
+    trailers: Vec<HttpHeaderValue>,
 }
 
 impl RespmodResponse {
@@ -41,7 +43,7 @@ impl RespmodResponse {
         }
     }
 
-    pub(crate) fn take_trailers(&mut self) -> Vec<HeaderValue> {
+    pub(crate) fn take_trailers(&mut self) -> Vec<HttpHeaderValue> {
         self.trailers.drain(..).collect()
     }
 
@@ -136,7 +138,7 @@ impl RespmodResponse {
                 }
             }
             "trailer" => {
-                let value = HeaderValue::from_str(header.value).map_err(|_| {
+                let value = HttpHeaderValue::from_str(header.value).map_err(|_| {
                     IcapRespmodParseError::InvalidHeaderLine(
                         IcapLineParseError::InvalidTrailerValue,
                     )

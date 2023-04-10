@@ -23,7 +23,7 @@ use chrono::{DateTime, Utc};
 use h2::client::SendRequest;
 use h2::server::SendResponse;
 use h2::{Reason, RecvStream, StreamId};
-use http::{HeaderMap, Method, Request, Response, StatusCode, Uri, Version};
+use http::{Method, Request, Response, StatusCode, Uri, Version};
 use slog::slog_info;
 use tokio::time::Instant;
 
@@ -36,6 +36,7 @@ use g3_icap_client::reqmod::h2::{
 use g3_icap_client::respmod::h2::{
     H2ResponseAdapter, RespmodAdaptationEndState, RespmodAdaptationRunState,
 };
+use g3_types::net::HttpHeaderMap;
 
 use super::{H2BodyTransfer, H2ConcurrencyStats, H2StreamTransferError};
 use crate::config::server::ServerConfig;
@@ -341,7 +342,7 @@ where
         let (mut parts, _) = response.into_parts();
         parts.version = Version::HTTP_2;
         parts.status = rsp.status;
-        parts.headers = rsp.headers;
+        parts.headers = rsp.headers.into_h2_map();
         let response = Response::from_parts(parts, ());
 
         self.send_error_response = false;
@@ -570,7 +571,7 @@ where
         ups_req: Request<()>,
         ups_rsp: Response<RecvStream>,
         clt_send_rsp: &mut SendResponse<Bytes>,
-        adaptation_respond_shared_headers: Option<HeaderMap>,
+        adaptation_respond_shared_headers: Option<HttpHeaderMap>,
     ) -> Result<(), H2StreamTransferError> {
         let (parts, ups_body) = ups_rsp.into_parts();
         let clt_rsp = Response::from_parts(parts, ());

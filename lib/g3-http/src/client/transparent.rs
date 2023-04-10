@@ -18,11 +18,11 @@ use std::io::Write;
 use std::str::FromStr;
 
 use bytes::{BufMut, Bytes, BytesMut};
-use http::{HeaderMap, HeaderName, HeaderValue, Method, Version};
+use http::{HeaderName, Method, Version};
 use tokio::io::AsyncBufRead;
 
 use g3_io_ext::LimitedBufReadExt;
-use g3_types::net::HttpUpgradeToken;
+use g3_types::net::{HttpHeaderMap, HttpHeaderValue, HttpUpgradeToken};
 
 use super::{HttpAdaptedResponse, HttpResponseParseError};
 use crate::{HttpBodyType, HttpHeaderLine, HttpLineParseError, HttpStatusLine};
@@ -31,8 +31,8 @@ pub struct HttpTransparentResponse {
     pub version: Version,
     pub code: u16,
     pub reason: String,
-    pub end_to_end_headers: HeaderMap,
-    pub hop_by_hop_headers: HeaderMap,
+    pub end_to_end_headers: HttpHeaderMap,
+    pub hop_by_hop_headers: HttpHeaderMap,
     extra_connection_headers: Vec<HeaderName>,
     origin_header_size: usize,
     keep_alive: bool,
@@ -53,8 +53,8 @@ impl HttpTransparentResponse {
             version,
             code,
             reason,
-            end_to_end_headers: HeaderMap::new(),
-            hop_by_hop_headers: HeaderMap::new(),
+            end_to_end_headers: HttpHeaderMap::default(),
+            hop_by_hop_headers: HttpHeaderMap::default(),
             extra_connection_headers: Vec::new(),
             origin_header_size: 0,
             keep_alive: false,
@@ -104,7 +104,8 @@ impl HttpTransparentResponse {
 
     pub fn set_no_keep_alive(&mut self) {
         if self.has_keep_alive {
-            self.hop_by_hop_headers.remove("keep-alive");
+            self.hop_by_hop_headers
+                .remove(HeaderName::from_static("keep-alive"));
             self.has_keep_alive = false;
         }
         self.keep_alive = false;
@@ -251,7 +252,7 @@ impl HttpTransparentResponse {
         name: HeaderName,
         value: &str,
     ) -> Result<(), HttpResponseParseError> {
-        let value = HeaderValue::from_str(value).map_err(|_| {
+        let value = HttpHeaderValue::from_str(value).map_err(|_| {
             HttpResponseParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
         self.hop_by_hop_headers.append(name, value);
@@ -340,7 +341,7 @@ impl HttpTransparentResponse {
             _ => {}
         }
 
-        let value = HeaderValue::from_str(value).map_err(|_| {
+        let value = HttpHeaderValue::from_str(value).map_err(|_| {
             HttpResponseParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
         self.end_to_end_headers.append(name, value);
@@ -354,18 +355,18 @@ impl HttpTransparentResponse {
 
         let _ = write!(buf, "{:?} {} {}\r\n", self.version, self.code, self.reason);
 
-        for (name, value) in self.end_to_end_headers.iter() {
+        self.end_to_end_headers.for_each(|name, value| {
             buf.put_slice(name.as_ref());
             buf.put_slice(b": ");
             buf.put_slice(value.as_bytes());
             buf.put_slice(b"\r\n");
-        }
-        for (name, value) in self.hop_by_hop_headers.iter() {
+        });
+        self.hop_by_hop_headers.for_each(|name, value| {
             buf.put_slice(name.as_ref());
             buf.put_slice(b": ");
             buf.put_slice(value.as_bytes());
             buf.put_slice(b"\r\n");
-        }
+        });
         let connection_value = crate::header::connection_with_more_headers(
             !self.keep_alive,
             &self.extra_connection_headers,
@@ -380,12 +381,12 @@ impl HttpTransparentResponse {
 
         let _ = write!(buf, "{:?} {} {}\r\n", self.version, self.code, self.reason);
 
-        for (name, value) in self.end_to_end_headers.iter() {
+        self.end_to_end_headers.for_each(|name, value| {
             buf.put_slice(name.as_ref());
             buf.put_slice(b": ");
             buf.put_slice(value.as_bytes());
             buf.put_slice(b"\r\n");
-        }
+        });
         buf.put_slice(b"\r\n");
         buf
     }

@@ -14,6 +14,12 @@
  * limitations under the License.
  */
 
+mod map;
+mod value;
+
+pub use map::HttpHeaderMap;
+pub use value::HttpHeaderValue;
+
 mod forwarded;
 mod server_id;
 
