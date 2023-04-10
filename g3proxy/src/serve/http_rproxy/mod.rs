@@ -24,6 +24,3 @@ pub(super) use server::HttpRProxyServer;
 
 mod host;
 use host::HttpHost;
-
-mod service;
-use service::HttpService;

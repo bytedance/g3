@@ -14,26 +14,40 @@
  * limitations under the License.
  */
 
-use std::sync::Arc;
-
 use anyhow::{anyhow, Context};
 use yaml_rust::Yaml;
 
-use g3_types::net::RustlsServerConfigBuilder;
-use g3_types::route::UriPathMatch;
+use g3_types::net::{OpensslTlsClientConfigBuilder, RustlsServerConfigBuilder, UpstreamAddr};
 use g3_yaml::{YamlDocPosition, YamlMapCallback};
 
-use super::HttpServiceConfig;
-
-#[derive(Default, Debug, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub(crate) struct HttpHostConfig {
-    pub(crate) sites: UriPathMatch<Arc<HttpServiceConfig>>,
+    upstream: UpstreamAddr,
     pub(crate) tls_server_builder: Option<RustlsServerConfigBuilder>,
+    pub(crate) tls_client_builder: Option<OpensslTlsClientConfigBuilder>,
+    pub(crate) tls_name: String,
+}
+
+impl Default for HttpHostConfig {
+    fn default() -> Self {
+        HttpHostConfig {
+            upstream: UpstreamAddr::empty(),
+            tls_server_builder: None,
+            tls_client_builder: None,
+            tls_name: String::new(),
+        }
+    }
+}
+
+impl HttpHostConfig {
+    pub(crate) fn upstream(&self) -> &UpstreamAddr {
+        &self.upstream
+    }
 }
 
 impl YamlMapCallback for HttpHostConfig {
     fn type_name(&self) -> &'static str {
-        "HttpLocalSiteConfig"
+        "HttpHostConfig"
     }
 
     fn parse_kv(
@@ -43,10 +57,10 @@ impl YamlMapCallback for HttpHostConfig {
         doc: Option<&YamlDocPosition>,
     ) -> anyhow::Result<()> {
         match key {
-            "services" => {
-                self.sites = g3_yaml::value::as_url_path_matched_obj(value, doc).context(
-                    format!("invalid url path matched HttpSiteConfig value for key {key}"),
-                )?;
+            "upstream" => {
+                self.upstream = g3_yaml::value::as_upstream_addr(value, 80)
+                    .context(format!("invalid upstream addr value for key {key}"))?;
+                self.tls_name = self.upstream.host().to_string();
                 Ok(())
             }
             "tls_server" => {
@@ -59,7 +73,31 @@ impl YamlMapCallback for HttpHostConfig {
                 self.tls_server_builder = Some(builder);
                 Ok(())
             }
+            "tls_client" => {
+                let lookup_dir = crate::config::get_lookup_dir(doc);
+                let builder = g3_yaml::value::as_to_one_openssl_tls_client_config_builder(
+                    value,
+                    Some(&lookup_dir),
+                )
+                .context(format!(
+                    "invalid openssl tls client config value for key {key}"
+                ))?;
+                self.tls_client_builder = Some(builder);
+                Ok(())
+            }
+            "tls_name" => {
+                self.tls_name = g3_yaml::value::as_string(value)
+                    .context(format!("invalid tls name value for key {key}"))?;
+                Ok(())
+            }
             _ => Err(anyhow!("invalid key {key}")),
         }
+    }
+
+    fn check(&mut self) -> anyhow::Result<()> {
+        if self.upstream.is_empty() {
+            return Err(anyhow!("upstream is empty"));
+        }
+        Ok(())
     }
 }

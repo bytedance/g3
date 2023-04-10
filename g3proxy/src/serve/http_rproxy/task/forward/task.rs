@@ -39,7 +39,7 @@ use crate::module::http_forward::{
     HttpForwardTaskNotes, HttpProxyClientResponse,
 };
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
-use crate::serve::http_rproxy::HttpService;
+use crate::serve::http_rproxy::host::HttpHost;
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
@@ -47,7 +47,7 @@ use crate::serve::{
 
 pub(crate) struct HttpRProxyForwardTask<'a> {
     ctx: Arc<CommonTaskContext>,
-    service: Arc<HttpService>,
+    host: Arc<HttpHost>,
     req: &'a HttpProxyClientRequest,
     is_https: bool,
     should_close: bool,
@@ -63,7 +63,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
     pub(crate) fn new(
         ctx: &Arc<CommonTaskContext>,
         req: &'a HttpRProxyRequest<impl AsyncRead>,
-        service: &Arc<HttpService>,
+        host: Arc<HttpHost>,
         task_notes: ServerTaskNotes,
     ) -> Self {
         let uri_log_max_chars = task_notes
@@ -77,17 +77,19 @@ impl<'a> HttpRProxyForwardTask<'a> {
             req.inner.uri.clone(),
             uri_log_max_chars,
         );
+        let is_https = host.tls_client.is_some();
+        let upstream = host.config.upstream().clone();
         HttpRProxyForwardTask {
             ctx: Arc::clone(ctx),
-            service: Arc::clone(service),
+            host,
             req: &req.inner,
-            is_https: service.tls_client.is_some(),
+            is_https,
             should_close: !req.inner.keep_alive(),
             send_error_response: true,
             retry_new_connection: false,
             task_notes,
             http_notes,
-            tcp_notes: TcpConnectTaskNotes::new(service.config.upstream().clone()),
+            tcp_notes: TcpConnectTaskNotes::new(upstream),
             task_stats: Arc::new(HttpForwardTaskStats::default()),
         }
     }
@@ -575,13 +577,13 @@ impl<'a> HttpRProxyForwardTask<'a> {
         &self,
         fwd_ctx: &mut BoxHttpForwardContext,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
-        if let Some(tls_client) = &self.service.tls_client {
+        if let Some(tls_client) = &self.host.tls_client {
             fwd_ctx
                 .make_new_https_connection(
                     &self.task_notes,
                     self.task_stats.for_escaper(),
                     tls_client,
-                    &self.service.config.tls_name,
+                    &self.host.config.tls_name,
                 )
                 .await
         } else {

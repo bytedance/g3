@@ -35,7 +35,6 @@ use crate::auth::{UserContext, UserGroup, UserRequestStats};
 use crate::config::server::ServerConfig;
 use crate::module::http_forward::{BoxHttpForwardContext, HttpProxyClientResponse};
 use crate::serve::http_rproxy::host::HttpHost;
-use crate::serve::http_rproxy::service::HttpService;
 use crate::serve::{ServerStats, ServerTaskNotes};
 
 struct UserData {
@@ -262,42 +261,18 @@ where
         );
 
         if let Some(mut stream_w) = self.stream_writer.take() {
-            match host.get_service(&req.inner.uri) {
-                Some(service) => {
-                    // check in final escaper so we can use route escapers
-                    let _ = self
-                        .forward_context
-                        .check_in_final_escaper(&task_notes, service.config.upstream())
-                        .await;
+            // check in final escaper so we can use route escapers
+            let _ = self
+                .forward_context
+                .check_in_final_escaper(&task_notes, host.config.upstream())
+                .await;
 
-                    match self
-                        .run_forward(&mut stream_w, req, service, task_notes)
-                        .await
-                    {
-                        LoopAction::Continue => {
-                            self.reset_client_writer(stream_w);
-                            LoopAction::Continue
-                        }
-                        LoopAction::Break => LoopAction::Break,
-                    }
+            match self.run_forward(&mut stream_w, req, host, task_notes).await {
+                LoopAction::Continue => {
+                    self.reset_client_writer(stream_w);
+                    LoopAction::Continue
                 }
-                None => {
-                    // close the connection if no site config found
-                    self.req_count.invalid += 1;
-
-                    if !self.ctx.server_config.no_early_error_reply {
-                        if let Some(stream_w) = &mut self.stream_writer {
-                            let rsp = HttpProxyClientResponse::resource_not_found(
-                                req.inner.version,
-                                true,
-                            );
-                            let _ = rsp.reply_err_to_request(stream_w).await;
-                        }
-                    }
-
-                    self.notify_reader_to_close();
-                    LoopAction::Break
-                }
+                LoopAction::Break => LoopAction::Break,
             }
         } else {
             unreachable!()
@@ -408,7 +383,7 @@ where
         &mut self,
         clt_w: &mut HttpClientWriter<CDW>,
         mut req: HttpRProxyRequest<CDR>,
-        service: &Arc<HttpService>,
+        host: Arc<HttpHost>,
         task_notes: ServerTaskNotes,
     ) -> LoopAction {
         match req.body_reader.take() {
@@ -416,7 +391,7 @@ where
                 // we have a body, or we need to close the connection
                 // we may need to send stream_r back if we have a body
                 let mut forward_task =
-                    HttpRProxyForwardTask::new(&self.ctx, &req, service, task_notes);
+                    HttpRProxyForwardTask::new(&self.ctx, &req, host, task_notes);
                 let mut clt_r = Some(stream_r);
                 forward_task
                     .run(&mut clt_r, clt_w, &mut self.forward_context)
@@ -438,7 +413,7 @@ where
             None => {
                 // no body, and the connection is expected to keep alive from the client side
                 let mut forward_task =
-                    HttpRProxyForwardTask::new(&self.ctx, &req, service, task_notes);
+                    HttpRProxyForwardTask::new(&self.ctx, &req, host, task_notes);
                 let mut clt_r = None;
                 forward_task
                     .run::<CDR, CDW>(&mut clt_r, clt_w, &mut self.forward_context)

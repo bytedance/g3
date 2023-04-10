@@ -17,19 +17,15 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use http::Uri;
 
-use g3_types::net::RustlsServerConfig;
-use g3_types::route::UriPathMatch;
+use g3_types::net::{OpensslTlsClientConfig, RustlsServerConfig};
 
-use super::HttpService;
 use crate::config::server::http_rproxy::HttpHostConfig;
 
 pub(crate) struct HttpHost {
-    #[allow(unused)]
-    config: Arc<HttpHostConfig>,
+    pub(super) config: Arc<HttpHostConfig>,
     pub(super) tls_server: Option<RustlsServerConfig>,
-    pub(super) services: UriPathMatch<Arc<HttpService>>,
+    pub(super) tls_client: Option<OpensslTlsClientConfig>,
 }
 
 impl TryFrom<&Arc<HttpHostConfig>> for HttpHost {
@@ -41,11 +37,6 @@ impl TryFrom<&Arc<HttpHostConfig>> for HttpHost {
 }
 
 impl HttpHost {
-    #[inline]
-    pub(super) fn get_service(&self, uri: &Uri) -> Option<&Arc<HttpService>> {
-        self.services.get(uri.path())
-    }
-
     fn build(config: &Arc<HttpHostConfig>) -> anyhow::Result<Self> {
         let tls_server = if let Some(builder) = &config.tls_server_builder {
             let server = builder.build().context("failed to build tls server")?;
@@ -54,12 +45,17 @@ impl HttpHost {
             None
         };
 
-        let services = (&config.sites).try_into()?;
+        let tls_client = if let Some(builder) = &config.tls_client_builder {
+            let client = builder.build().context("failed to build tls client")?;
+            Some(client)
+        } else {
+            None
+        };
 
         Ok(HttpHost {
             config: Arc::clone(config),
             tls_server,
-            services,
+            tls_client,
         })
     }
 }

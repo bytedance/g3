@@ -39,9 +39,6 @@ use super::{
 mod host;
 pub(crate) use host::HttpHostConfig;
 
-mod service;
-pub(crate) use service::HttpServiceConfig;
-
 const SERVER_CONFIG_TYPE: &str = "HttpRProxy";
 
 /// collection of timeout config

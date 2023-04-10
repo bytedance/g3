@@ -39,7 +39,8 @@ server_id
 
 **optional**, **type**: :ref:`http server id <conf_value_http_server_id>`
 
-Set the server id. If set, the header *X-BD-Remote-Connection-Info* will be added to response.
+Set the server id. If set, the header *X-BD-Remote-Connection-Info* will be added to response,
+and it will also be used in the *Via* header added to request.
 
 **default**: not set
 
@@ -178,6 +179,37 @@ See the doc of supported escapers for detailed protocol info.
 
 **default**: classic, which means *X-Forwarded-\** headers will be appended
 
+enable_tls_server
+-----------------
+
+**optional**, **type**: bool
+
+Set whether tls is enabled for all local sites.
+
+Requests to local sites without valid tls server config will be dropped.
+
+**default**: false
+
+.. _configuration_server_http_rproxy_global_tls_server:
+
+global_tls_server
+-----------------
+
+**optional**, **type**: :ref:`rustls server config <conf_value_rustls_server_config>`
+
+Set global TLS server config on the server. This will be used if no tls server config set on the matched local site.
+
+**default**: not set
+
+client_hello_recv_timeout
+-------------------------
+
+**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+Set the timeout value for the receive of the complete TLS ClientHello message.
+
+**default**: 1s
+
 hosts
 -----
 
@@ -217,13 +249,6 @@ Host
 
 This is the config for each local host on this server.
 
-services
-""""""""
-
-**required**, **type**: :ref:`uri path matched object <conf_value_uri_path_matched_object>` <:ref:`service <configuration_server_http_rproxy_service>`>
-
-Set the sites we should handle based on url path match rules.
-
 tls_server
 """"""""""
 
@@ -234,13 +259,6 @@ Set TLS server config for this local site.
 If not set, the :ref:`global tls server <configuration_server_http_rproxy_global_tls_server>` config will be used.
 
 **default**: not set
-
-.. _configuration_server_http_rproxy_service:
-
-Service
-^^^^^^^
-
-This set the config for a upstream http service.
 
 upstream
 """"""""
@@ -269,34 +287,3 @@ Set the tls server name to verify tls certificate of the upstream site.
 If not set, the host part of the upstream address will be used.
 
 **default**: not set
-
-enable_tls_server
------------------
-
-**optional**, **type**: bool
-
-Set whether tls is enabled for all local sites.
-
-Requests to local sites without valid tls server config will be dropped.
-
-**default**: false
-
-.. _configuration_server_http_rproxy_global_tls_server:
-
-global_tls_server
------------------
-
-**optional**, **type**: :ref:`rustls server config <conf_value_rustls_server_config>`
-
-Set global TLS server config on the server. This will be used if no tls server config set on the matched local site.
-
-**default**: not set
-
-client_hello_recv_timeout
--------------------------
-
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
-
-Set the timeout value for the receive of the complete TLS ClientHello message.
-
-**default**: 1s
