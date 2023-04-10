@@ -37,7 +37,7 @@ pub struct HttpProxyClientRequest {
     pub auth_info: HttpAuth,
     /// the port may be 0
     pub host: Option<UpstreamAddr>,
-    original_connection_name: Option<String>,
+    original_connection_name: Connection,
     extra_connection_headers: Vec<HeaderName>,
     origin_header_size: usize,
     keep_alive: bool,
@@ -59,7 +59,7 @@ impl HttpProxyClientRequest {
             hop_by_hop_headers: HttpHeaderMap::default(),
             auth_info: HttpAuth::None,
             host: None,
-            original_connection_name: None,
+            original_connection_name: Connection::default(),
             extra_connection_headers: Vec::new(),
             origin_header_size: 0,
             keep_alive: false,
@@ -304,7 +304,7 @@ impl HttpProxyClientRequest {
             }
         }
 
-        self.original_connection_name = Some(header.name.to_string());
+        self.original_connection_name = Connection::from_original(header.name);
         Ok(())
     }
 
@@ -316,7 +316,7 @@ impl HttpProxyClientRequest {
         let mut value = HttpHeaderValue::from_str(header.value).map_err(|_| {
             HttpRequestParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
-        value.set_original_name(header.name.to_string());
+        value.set_original_name(header.name);
         self.end_to_end_headers.append(name, value);
         Ok(())
     }
@@ -329,7 +329,7 @@ impl HttpProxyClientRequest {
         let mut value = HttpHeaderValue::from_str(header.value).map_err(|_| {
             HttpRequestParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
-        value.set_original_name(header.name.to_string());
+        value.set_original_name(header.name);
         self.hop_by_hop_headers.append(name, value);
         Ok(())
     }
@@ -441,7 +441,7 @@ impl HttpProxyClientRequest {
             .for_each(|name, value| value.write_to_buf(name, &mut buf));
         self.hop_by_hop_headers
             .for_each(|name, value| value.write_to_buf(name, &mut buf));
-        Connection::from_original(self.original_connection_name.as_deref()).write_to_buf(
+        self.original_connection_name.write_to_buf(
             !self.keep_alive,
             &self.extra_connection_headers,
             &mut buf,
@@ -470,7 +470,7 @@ impl HttpProxyClientRequest {
             .for_each(|name, value| value.write_to_buf(name, &mut buf));
         self.hop_by_hop_headers
             .for_each(|name, value| value.write_to_buf(name, &mut buf));
-        Connection::from_original(self.original_connection_name.as_deref()).write_to_buf(
+        self.original_connection_name.write_to_buf(
             !self.keep_alive,
             &self.extra_connection_headers,
             &mut buf,

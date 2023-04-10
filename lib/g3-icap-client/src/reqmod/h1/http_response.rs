@@ -162,7 +162,7 @@ impl HttpAdapterErrorResponse {
         let mut value = HttpHeaderValue::from_str(header.value).map_err(|_| {
             HttpResponseParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
         })?;
-        value.set_original_name(header.name.to_string());
+        value.set_original_name(header.name);
         self.headers.append(name, value);
         Ok(())
     }

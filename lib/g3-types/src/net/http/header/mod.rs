@@ -15,9 +15,11 @@
  */
 
 mod map;
+mod name;
 mod value;
 
 pub use map::HttpHeaderMap;
+pub use name::HttpOriginalHeaderName;
 pub use value::HttpHeaderValue;
 
 mod forwarded;

@@ -25,19 +25,34 @@ pub const fn connection_as_bytes(close: bool) -> &'static [u8] {
     }
 }
 
-pub struct Connection<'a> {
-    original: &'a str,
+#[derive(Clone, Default)]
+pub enum Connection {
+    #[default]
+    CamelCase,
+    LowerCase,
+    UpperCase,
 }
 
-impl<'a> Connection<'a> {
-    pub fn from_original(original: Option<&'a str>) -> Self {
-        Connection {
-            original: original.unwrap_or("Connection"),
+impl Connection {
+    pub fn from_original(original: &str) -> Self {
+        match original {
+            "Connection" | "Proxy-Connection" => Connection::CamelCase,
+            "connection" | "proxy-connection" => Connection::LowerCase,
+            "CONNECTION" | "PROXY-CONNECTION" => Connection::UpperCase,
+            _ => Connection::CamelCase,
         }
     }
 
-    pub fn write_to_buf(&'a self, close: bool, headers: &[HeaderName], buf: &mut Vec<u8>) {
-        buf.put_slice(self.original.as_bytes());
+    fn as_str(&self) -> &str {
+        match self {
+            Connection::CamelCase => "Connection",
+            Connection::LowerCase => "connection",
+            Connection::UpperCase => "CONNECTION",
+        }
+    }
+
+    pub fn write_to_buf(&self, close: bool, headers: &[HeaderName], buf: &mut Vec<u8>) {
+        buf.put_slice(self.as_str().as_bytes());
         buf.put_slice(b": ");
         if close {
             buf.put_slice(b"Close");

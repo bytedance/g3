@@ -19,10 +19,12 @@ use std::str::FromStr;
 use bytes::{BufMut, Bytes};
 use http::{HeaderName, HeaderValue};
 
+use super::HttpOriginalHeaderName;
+
 #[derive(Clone)]
 pub struct HttpHeaderValue {
     inner: Bytes,
-    original_name: Option<String>,
+    original_name: Option<HttpOriginalHeaderName>,
 }
 
 impl HttpHeaderValue {
@@ -55,8 +57,8 @@ impl HttpHeaderValue {
         }
     }
 
-    pub fn set_original_name(&mut self, name: String) {
-        self.original_name = Some(name);
+    pub fn set_original_name(&mut self, name: &str) {
+        self.original_name = Some(HttpOriginalHeaderName::from(name));
     }
 
     pub fn original_name(&self) -> Option<&str> {
