@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-use ahash::AHashMap;
+use http::header::{AsHeaderName, GetAll};
 use http::{HeaderMap, HeaderName};
 
 use super::HttpHeaderValue;
 
 #[derive(Default, Clone)]
 pub struct HttpHeaderMap {
-    inner: AHashMap<HeaderName, Vec<HttpHeaderValue>>,
+    inner: HeaderMap<HttpHeaderValue>,
 }
 
 impl HttpHeaderMap {
@@ -30,53 +30,43 @@ impl HttpHeaderMap {
         self.inner.is_empty()
     }
 
-    pub fn insert(
-        &mut self,
-        name: HeaderName,
-        value: HttpHeaderValue,
-    ) -> Option<Vec<HttpHeaderValue>> {
-        self.inner.insert(name, vec![value])
+    #[inline]
+    pub fn insert(&mut self, name: HeaderName, value: HttpHeaderValue) -> Option<HttpHeaderValue> {
+        self.inner.insert(name, value)
     }
 
+    #[inline]
     pub fn append(&mut self, name: HeaderName, value: HttpHeaderValue) {
-        self.inner.entry(name).or_insert(vec![]).push(value);
+        self.inner.append(name, value);
     }
 
-    pub fn remove(&mut self, name: HeaderName) -> Option<Vec<HttpHeaderValue>> {
-        self.inner.remove(name.as_str())
+    #[inline]
+    pub fn remove<K: AsHeaderName>(&mut self, name: K) -> Option<HttpHeaderValue> {
+        self.inner.remove(name)
     }
 
-    pub fn remove_entry(
-        &mut self,
-        name: &HeaderName,
-    ) -> Option<(HeaderName, Vec<HttpHeaderValue>)> {
-        self.inner.remove_entry(name.as_str())
+    #[inline]
+    pub fn contains_key<K: AsHeaderName>(&self, name: K) -> bool {
+        self.inner.contains_key(name)
     }
 
-    pub fn contains_key(&self, name: HeaderName) -> bool {
-        self.inner.contains_key(name.as_str())
+    #[inline]
+    pub fn get<K: AsHeaderName>(&self, name: K) -> Option<&HttpHeaderValue> {
+        self.inner.get(name)
     }
 
-    pub fn get(&self, name: HeaderName) -> Option<&HttpHeaderValue> {
-        self.inner.get(name.as_str()).and_then(|v| v.get(0))
-    }
-
-    pub fn get_all(&self, name: HeaderName) -> &[HttpHeaderValue] {
-        self.inner
-            .get(name.as_str())
-            .map(|v| v.as_slice())
-            .unwrap_or_default()
+    #[inline]
+    pub fn get_all<K: AsHeaderName>(&self, name: K) -> GetAll<'_, HttpHeaderValue> {
+        self.inner.get_all(name)
     }
 
     pub fn for_each<F>(&self, mut call: F)
     where
         F: FnMut(&HeaderName, &HttpHeaderValue),
     {
-        self.inner.iter().for_each(|(name, values)| {
-            for value in values {
-                call(name, value)
-            }
-        });
+        self.inner
+            .iter()
+            .for_each(|(name, value)| call(name, value));
     }
 
     pub fn to_h2_map(&self) -> HeaderMap {
@@ -89,9 +79,20 @@ impl HttpHeaderMap {
 
     pub fn into_h2_map(mut self) -> HeaderMap {
         let mut h2_map = HeaderMap::new();
-        for (name, values) in self.inner.drain() {
-            for value in values {
-                h2_map.append(name.clone(), value.into());
+
+        let mut last_name: Option<HeaderName> = None;
+        for (name, value) in self.inner.drain() {
+            match name {
+                Some(name) => {
+                    last_name = Some(name.clone());
+                    h2_map.append(name, value.into());
+                }
+                None => {
+                    let Some(name) = &last_name else {
+                        break;
+                    };
+                    h2_map.append(name, value.into());
+                }
             }
         }
         h2_map

@@ -229,10 +229,8 @@ where
     fn get_egress_path_selection(&self, headers: &mut HttpHeaderMap) -> EgressPathSelection {
         if let Some(header) = &self.ctx.server_config.egress_path_selection_header {
             // check and remove the custom header
-            if let Some((_name, values)) = headers.remove_entry(header) {
-                if let Some(value) = values.get(0) {
-                    return EgressPathSelection::from_str(value.to_str()).unwrap_or_default();
-                }
+            if let Some(value) = headers.remove(header) {
+                return EgressPathSelection::from_str(value.to_str()).unwrap_or_default();
             }
         }
         EgressPathSelection::Default
