@@ -16,7 +16,7 @@ jobs:
         - beta
         - nightly
         - 1.66 # MSRV
-      os:
+        os:
         - ubuntu-22.04
     steps:
     - name: Checkout sources
