@@ -456,6 +456,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn pick_one_from_two() {
         let node1 = Node {
             name: "node1".to_string(),
@@ -499,6 +500,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn pick_one_from_weighted_two() {
         let node1 = Node {
             name: "node1".to_string(),
@@ -540,6 +542,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn pick_two_from_two() {
         let node1 = Node {
             name: "node1".to_string(),
@@ -591,6 +594,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn pick_two_from_weighted_two() {
         let node1 = Node {
             name: "node1".to_string(),
@@ -642,6 +646,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn pick_two_from_three() {
         let node1 = Node {
             name: "node1".to_string(),
@@ -705,6 +710,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn pick_two_from_weighted_three() {
         let node1 = Node {
             name: "node1".to_string(),

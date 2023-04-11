@@ -28,7 +28,7 @@ fn simple_query() {
     let rt = Builder::new_current_thread().enable_all().build().unwrap();
     rt.block_on(async {
         let mut cares_config = CAresDriverConfig::default();
-        cares_config.add_server(SocketAddr::from_str("223.5.5.5:53").unwrap());
+        cares_config.add_server(SocketAddr::from_str("1.1.1.1:53").unwrap());
         let config = ResolverConfig {
             name: String::new(),
             driver: AnyResolveDriverConfig::CAres(cares_config),

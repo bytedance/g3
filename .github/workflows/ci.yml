@@ -1,0 +1,53 @@
+name: CI
+
+on: [push, pull_request]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+        - stable
+        - beta
+        - nightly
+        - 1.66 # MSRV
+        os:
+        - ubuntu-22.04
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v3
+    - name: Install ${{ matrix.rust }} toolchain
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ matrix.rust }}
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install capnproto libssl-dev liblua5.4-dev
+    - name: Cargo build
+      run: cargo build --all
+    - name: Cargo test
+      run: cargo test --all
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v3
+    - name: Install rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: clippy
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install capnproto libssl-dev liblua5.4-dev
+    - name: Cargo clippy
+      run: cargo clippy --tests --all -- --deny warnings
+
