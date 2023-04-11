@@ -16,8 +16,8 @@ indexmap.workspace = true
 ahash.workspace = true
 c-ares = { "version" = "7", optional = true }
 c-ares-resolver = { "version" = "7", optional = true }
-trust-dns-resolver = { "version" = "0.22", optional = true, default-features = false, features = ["tokio-runtime", "dns-over-rustls", "dns-over-https-rustls"] }
-trust-dns-proto = { "version" = "0.22", optional = true }
+trust-dns-resolver = { "version" = "0.23.0-alpha.1", optional = true, default-features = false, features = ["tokio-runtime", "dns-over-rustls", "dns-over-https-rustls"] }
+trust-dns-proto = { "version" = "0.23.0-alpha.1", optional = true }
 rustls = { workspace = true, optional = true }
 g3-types = { workspace = true, optional = true }
 

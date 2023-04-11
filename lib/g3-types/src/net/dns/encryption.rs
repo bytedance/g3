@@ -98,6 +98,7 @@ impl DnsEncryptionConfigBuilder {
     pub fn summary(&self) -> String {
         match &self.tls_name {
             ServerName::DnsName(n) => format!("{}({})", self.protocol.as_str(), n.as_ref()),
+            ServerName::IpAddress(ip) => format!("{}({ip})", self.protocol.as_str()),
             _ => format!("{}(other)", self.protocol.as_str()), // FIXME support other server name variants
         }
     }

@@ -111,8 +111,8 @@ async-trait = "0.1"
 async-recursion = "1.0"
 pin-project = "1.1"
 #
-tokio-rustls = "0.23.1"
-rustls = "0.20.1"
+rustls = "0.21"
+tokio-rustls = "0.24"
 tokio-openssl = "0.6"
 openssl = "0.10.53"
 openssl-probe = "0.1"
@@ -176,3 +176,5 @@ debug = 1
 debug-assertions = false
 
 [patch.crates-io]
+trust-dns-proto = { git = "https://github.com/bluejekyll/trust-dns.git", branch = 'main' }
+trust-dns-resolver = { git = "https://github.com/bluejekyll/trust-dns.git", branch = 'main' }
