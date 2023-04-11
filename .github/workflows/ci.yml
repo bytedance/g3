@@ -1,10 +1,6 @@
-name: Rust
+name: CI
 
-on:
-  push:
-    branches: [ "ci-setup" ]
-  pull_request:
-    branches: [ "ci-setup" ]
+on: [push, pull_request]
 
 env:
   CARGO_TERM_COLOR: always
@@ -16,12 +12,15 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - uses: dtolnay/rust-toolchain@stable
     - name: Install dependencies
       run: |
         sudo apt-get update
         sudo apt-get install capnproto libssl-dev liblua5.4-dev
-    - name: Build
+    - name: Cargo build
       run: cargo build --all
-    - name: Run tests
+    - name: Cargo test
       run: cargo test --all
+    - name: Cargo clippy
+      run: cargo clippy --tests --all -- --deny warnings
 
