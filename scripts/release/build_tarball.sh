@@ -42,10 +42,12 @@ SOURCE_TIMESTAMP=$(git show -s --pretty="format:%ct" "${RELEASE_TAG}^{commit}")
 BUILD_DIR=$(mktemp -d "/tmp/build.${SOURCE_NAME}-${SOURCE_VERSION}.XXX")
 echo "==> Use temp build dir ${BUILD_DIR}"
 
+
 echo "==> adding source code from git"
 git archive --format=tar --prefix="${SOURCE_NAME}-${SOURCE_VERSION}/" "${RELEASE_TAG}" | tar -C "${BUILD_DIR}" -xf -
 
 cd "${BUILD_DIR}/${SOURCE_NAME}-${SOURCE_VERSION}"
+
 
 echo "==> cleaning useless source files"
 SOURCE_PATH="$(pwd)/${SOURCE_NAME}"
@@ -86,12 +88,13 @@ do
 	[ ! -d "${_path}" ] || rm -r "${_path}"
 done
 
+
 echo "==> cleaning useless cargo patches"
 useless_patches=$(cargo tree 2>&1 >/dev/null | awk -f "${SCRIPT_DIR}"/useless_patch.awk)
 "${SCRIPT_DIR}"/prune_patch.py --input Cargo.toml --output Cargo.toml ${useless_patches}
 
-echo "==> cleaning local cargo checkouts"
 
+echo "==> cleaning local cargo checkouts"
 for _file in $(cargo metadata --format-version 1 | jq -r '.packages[]["manifest_path"]|select(test("/tmp/build")|not)')
 do
 	_dir=$(dirname "${_file}")
@@ -107,6 +110,7 @@ do
 	fi
 done
 
+
 echo "==> adding vendor code from cargo"
 [ -d "${CARGO_CONFIG_DIR}" ] || mkdir "${CARGO_CONFIG_DIR}"
 if [ -f "${CARGO_CONFIG_FILE}" ]
@@ -118,8 +122,16 @@ fi
 mkdir "${CARGO_VENDOR_DIR}"
 cargo vendor --locked "${CARGO_VENDOR_DIR}" | tee -a "${CARGO_CONFIG_FILE}"
 
-echo "==> moving package files"
 
+echo "==> building sphinx docs"
+if [ -f ${SOURCE_NAME}/doc/conf.py ]
+then
+	mkdir -p ${SOURCE_NAME}/doc/_build
+	sphinx-build ${SOURCE_NAME}/doc ${SOURCE_NAME}/doc/_build
+fi
+
+
+echo "==> moving package files"
 if [ -d ${SOURCE_NAME}/debian ]
 then
 	[ ! -d debian ] || rm -rf debian
@@ -130,6 +142,7 @@ if [ -f ${SOURCE_NAME}/${SOURCE_NAME}.spec ]
 then
 	mv ${SOURCE_NAME}/${SOURCE_NAME}.spec ${SOURCE_NAME}.spec
 fi
+
 
 echo "==> building final tarball"
 cd - >/dev/null
