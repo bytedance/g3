@@ -83,6 +83,7 @@ impl TryFrom<&TrustDnsDriverConfig> for NameServerConfigGroup {
         let g = if let Some(ec) = &c.encryption {
             let tls_name = match ec.tls_name() {
                 ServerName::DnsName(n) => n.as_ref().to_string(),
+                ServerName::IpAddress(ip) => ip.to_string(),
                 v => return Err(anyhow!("unsupported tls server name: {v:?}")), // FIXME add after trust-dns support it
             };
 

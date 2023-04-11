@@ -116,7 +116,7 @@ impl FromStr for Host {
     }
 }
 
-#[cfg(feature = "rustls-config")]
+#[cfg(feature = "rustls")]
 impl TryFrom<&Host> for rustls::ServerName {
     type Error = std::io::Error;
 
@@ -124,10 +124,7 @@ impl TryFrom<&Host> for rustls::ServerName {
         use std::io;
 
         match value {
-            Host::Ip(_ip) => Err(io::Error::new(
-                io::ErrorKind::Other,
-                "ip verification is not supported",
-            )),
+            Host::Ip(ip) => Ok(rustls::ServerName::IpAddress(*ip)),
             Host::Domain(domain) => rustls::ServerName::try_from(domain.as_str())
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e)),
         }

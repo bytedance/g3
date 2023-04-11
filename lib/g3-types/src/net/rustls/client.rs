@@ -18,7 +18,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
-use rustls::client::NoClientSessionStorage;
+use rustls::client::Resumption;
 use rustls::{Certificate, ClientConfig, OwnedTrustAnchor, RootCertStore};
 
 use super::RustlsCertificatePair;
@@ -114,16 +114,15 @@ impl RustlsClientConfigBuilder {
         let mut root_store = RootCertStore::empty();
         if !self.no_default_ca_certs {
             if self.use_builtin_ca_certs {
-                let mut owned_anchors = Vec::with_capacity(webpki_roots::TLS_SERVER_ROOTS.0.len());
-                for anchor in webpki_roots::TLS_SERVER_ROOTS.0 {
-                    let owned_anchor = OwnedTrustAnchor::from_subject_spki_name_constraints(
-                        anchor.subject,
-                        anchor.spki,
-                        anchor.name_constraints,
-                    );
-                    owned_anchors.push(owned_anchor);
-                }
-                root_store.add_server_trust_anchors(owned_anchors.into_iter());
+                root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(
+                    |ta| {
+                        OwnedTrustAnchor::from_subject_spki_name_constraints(
+                            ta.subject,
+                            ta.spki,
+                            ta.name_constraints,
+                        )
+                    },
+                ));
             } else {
                 let certs = super::load_openssl_certs_for_rustls()
                     .context("failed to load default openssl ca certs")?;
@@ -160,8 +159,7 @@ impl RustlsClientConfigBuilder {
 
         config.max_fragment_size = self.max_fragment_size;
         if self.no_session_cache {
-            config.enable_tickets = false;
-            config.session_storage = Arc::new(NoClientSessionStorage {});
+            config.resumption = Resumption::disabled();
         }
         if self.disable_sni {
             config.enable_sni = false;

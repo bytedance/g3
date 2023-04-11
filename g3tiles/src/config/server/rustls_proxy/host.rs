@@ -94,7 +94,8 @@ impl RustlsHostConfig {
                     })?;
                 }
             }
-            config_builder.with_client_cert_verifier(AllowAnyAuthenticatedClient::new(root_store))
+            config_builder
+                .with_client_cert_verifier(Arc::new(AllowAnyAuthenticatedClient::new(root_store)))
         } else {
             config_builder.with_no_client_auth()
         };

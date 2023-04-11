@@ -15,7 +15,7 @@ tls name
 Set the dns name / ip address for server certificate verification.
 If not set, the corresponding peer address will be used.
 
-.. note:: IP address is not supported by now
+.. versionchanged:: IP address is supported since version 1.7.15
 
 .. _conf_value_tls_certificates:
 
