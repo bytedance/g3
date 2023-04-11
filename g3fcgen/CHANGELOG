@@ -1,4 +1,7 @@
 
+v0.4.1:
+ - BUG FIX: init openssl properly
+
 v0.4.0:
  - Feature: use openssl instead if rcgen, and rename to g3fcgen
 

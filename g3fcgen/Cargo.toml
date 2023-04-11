@@ -1,6 +1,6 @@
 [package]
 name = "g3fcgen"
-version = "0.4.0"
+version = "0.4.1"
 license.workspace = true
 edition.workspace = true
 rust-version = "1.65.0"
