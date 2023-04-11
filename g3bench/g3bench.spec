@@ -9,7 +9,7 @@
 %define build_profile release-lto
 
 Name:           g3bench
-Version:        0.6.1
+Version:        0.6.2
 Release:        1%{?dist}
 Summary:        Benchmark tool for G3 Project
 
@@ -45,5 +45,5 @@ install -m 755 -D target/%{build_profile}/g3bench %{buildroot}%{_bindir}/g3bench
 
 
 %changelog
-* Thu Mar 09 2023 G3bench Maintainers <g3bench-maintainers@devel.machine> - 0.6.1-1
+* Tue Apr 11 2023 G3bench Maintainers <g3bench-maintainers@devel.machine> - 0.6.2-1
 - New upstream release

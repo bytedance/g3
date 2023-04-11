@@ -1,4 +1,7 @@
 
+v0.6.2:
+ - Feature: add progress bar by default in more cases
+
 v0.6.1:
  - Feature: add --no-multiplex option to h2 target
 
