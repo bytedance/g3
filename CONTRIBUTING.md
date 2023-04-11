@@ -1,10 +1,10 @@
 # Contributing
 
-Thank you for investing your time in contributing to <NAME> project!
+Thank you for investing your time in contributing to G3 project!
 
 Read our [Code of Conduct](CODE_OF_CONDUCT.md) to keep our community approachable and respectable.
 
-This guide details how to use issues and pull requests to improve <NAME> project.
+This guide details how to use issues and pull requests to improve G3 project.
 
 ## General Guidelines
 
@@ -41,7 +41,7 @@ When filing an issue, please check existing open, or recently closed, issues to 
 
 ### Find interesting issue
 
-If you spot a problem with the problem, [search if an issue already exists](https://github.com/bytedance/g3-ose/issues). If a related issue doesn't exist, you can open a new issue using [issue template](https://github.com/bytedance/g3-ose/issues/new/choose).
+If you spot a problem with the problem, [search if an issue already exists](https://github.com/bytedance/g3/issues). If a related issue doesn't exist, you can open a new issue using [issue template](https://github.com/bytedance/g3/issues/new/choose).
 
 ### Solve an issue
 
