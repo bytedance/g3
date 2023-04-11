@@ -21,7 +21,7 @@ jobs:
         sudo apt-get update
         sudo apt-get install capnproto libssl-dev liblua5.4-dev
     - name: Build
-      run: cargo build
+      run: cargo build --all
     - name: Run tests
-      run: cargo test
+      run: cargo test --all
 
