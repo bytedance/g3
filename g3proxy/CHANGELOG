@@ -1,4 +1,9 @@
 
+v1.7.12:
+ - Optimization: do batch tcp accept
+ - Feature: try best to reserve the case of http header name
+ - Removed: remove uri path match in http_rproxy server
+
 v1.7.11:
  - BUG FIX: fix reload of resolver with changed internal dependency
  - Feature: allow string value type for tls cert generator config
