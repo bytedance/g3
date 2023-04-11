@@ -123,11 +123,10 @@ mkdir "${CARGO_VENDOR_DIR}"
 cargo vendor --locked "${CARGO_VENDOR_DIR}" | tee -a "${CARGO_CONFIG_FILE}"
 
 
-echo "==> building sphinx docs"
 if [ -f ${SOURCE_NAME}/doc/conf.py ]
 then
-	mkdir -p ${SOURCE_NAME}/doc/_build
-	sphinx-build ${SOURCE_NAME}/doc ${SOURCE_NAME}/doc/_build
+	echo "==> building sphinx docs"
+	sphinx-build -b html ${SOURCE_NAME}/doc ${SOURCE_NAME}/doc/_build/html
 fi
 
 

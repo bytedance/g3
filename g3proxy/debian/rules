@@ -12,7 +12,6 @@ SSL_FEATURE ?= $(shell scripts/package/detect_openssl_feature.sh)
 
 override_dh_auto_clean:
 	cargo clean --frozen --offline
-	rm -rf $(PACKAGE_NAME)/doc/_build
 
 override_dh_auto_build:
 	G3_PACKAGE_VERSION=$(DEB_VERSION) \
@@ -20,7 +19,6 @@ override_dh_auto_build:
 	    --no-default-features --features $(LUA_FEATURE),$(SSL_FEATURE),c-ares \
 	    --package g3proxy --package g3proxy-ctl --package g3proxy-ftp --package g3proxy-lua
 	sh $(PACKAGE_NAME)/service/generate_systemd.sh
-	cd $(PACKAGE_NAME)/doc && make html
 
 override_dh_auto_install:
 	dh_auto_install

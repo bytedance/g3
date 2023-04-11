@@ -16,6 +16,12 @@ fi
 
 cd "${PROJECT_DIR}"
 
+if [ -f ${PACKAGE}/doc/conf.py ]
+then
+	echo "Building sphinx docs"
+	sphinx-build -q -b html ${PACKAGE}/doc ${PACKAGE}/doc/_build/html
+fi
+
 SPEC_FILE="${PACKAGE}.spec"
 [ ! -e "${SPEC_FILE}" ] || rm "${SPEC_FILE}"
 cp "${PACKAGE}/${PACKAGE}.spec" "${SPEC_FILE}"
