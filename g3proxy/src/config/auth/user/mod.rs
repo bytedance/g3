@@ -119,9 +119,14 @@ impl UserConfig {
     pub(crate) fn check_password(&self, password: &str) -> bool {
         match &self.token {
             UserAuthentication::Forbidden => false,
+            UserAuthentication::SkipVerify => true,
             UserAuthentication::FastHash(fast_hash) => fast_hash.verify(password),
             UserAuthentication::XCrypt(xcrypt_hash) => xcrypt_hash.verify(password.as_bytes()),
         }
+    }
+
+    pub(super) fn set_no_password(&mut self) {
+        self.token = UserAuthentication::SkipVerify;
     }
 
     fn add_site_group(&mut self, sg: UserSiteConfig) -> anyhow::Result<()> {

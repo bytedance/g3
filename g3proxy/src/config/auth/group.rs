@@ -35,6 +35,7 @@ pub(crate) struct UserGroupConfig {
     pub(crate) static_users: HashMap<String, Arc<UserConfig>>,
     pub(crate) dynamic_source: Option<UserDynamicSource>,
     pub(crate) refresh_interval: Duration,
+    pub(crate) anonymous_user: Option<Arc<UserConfig>>,
 }
 
 impl UserGroupConfig {
@@ -53,6 +54,7 @@ impl UserGroupConfig {
             static_users: HashMap::new(),
             dynamic_source: None,
             refresh_interval: DEFAULT_REFRESH_INTERVAL,
+            anonymous_user: None,
         }
     }
 
@@ -63,6 +65,7 @@ impl UserGroupConfig {
             static_users: HashMap::new(),
             dynamic_source: None,
             refresh_interval: DEFAULT_REFRESH_INTERVAL,
+            anonymous_user: None,
         }
     }
 
@@ -119,6 +122,16 @@ impl UserGroupConfig {
                 self.refresh_interval = g3_yaml::humanize::as_duration(v)
                     .context(format!("invalid duration value for key {k}"))?;
                 Ok(())
+            }
+            "anonymous_user" => {
+                if let Yaml::Hash(map) = v {
+                    let mut user = UserConfig::parse_yaml(map)?;
+                    user.set_no_password();
+                    self.anonymous_user = Some(Arc::new(user));
+                    Ok(())
+                } else {
+                    Err(anyhow!("invalid hash value for key {k}"))
+                }
             }
             _ => Err(anyhow!("invalid key {k}")),
         }

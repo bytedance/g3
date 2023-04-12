@@ -25,6 +25,7 @@ const CONFIG_KEY_TYPE: &str = "type";
 #[derive(Clone)]
 pub(crate) enum UserAuthentication {
     Forbidden,
+    SkipVerify,
     FastHash(FastHashedPassPhrase),
     XCrypt(XCryptHash),
 }

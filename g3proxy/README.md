@@ -156,6 +156,7 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
   - ACL: Proxy Request / Target Host / Target Port / User Agent
   - Socket Speed Limit / Request Rate Limit / Request Alive Limit / IDLE Check
   - Auto Expire / Block
+  - Anonymous user
   - Explicit Site Config
     * match by exact ip / exact domain / wildcard domain / subnet
 

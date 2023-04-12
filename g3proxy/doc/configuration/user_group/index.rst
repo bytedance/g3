@@ -65,3 +65,15 @@ format. Both can be optional and share the same data structure.
   Set the check interval for user expiration and the fetch interval for dynamic users.
 
   **default**: 60s
+
+* anonymous_user
+
+  **optional**, **type**: :ref:`user <configuration_user_group_user>`
+
+  Set and enable the anonymous user.
+
+  This will be used if no correct username could be found in both static and dynamic users.
+
+  **default**: not set
+
+  .. versionadded:: 1.7.13

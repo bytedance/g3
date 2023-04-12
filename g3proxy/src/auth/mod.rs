@@ -52,6 +52,7 @@ mod source;
 pub(crate) enum UserType {
     Static,
     Dynamic,
+    Anonymous,
 }
 
 impl UserType {
@@ -59,17 +60,18 @@ impl UserType {
         match self {
             UserType::Static => "Static",
             UserType::Dynamic => "Dynamic",
+            UserType::Anonymous => "Anonymous",
         }
     }
 }
 
 pub(crate) struct UserGroup {
     config: Arc<UserGroupConfig>,
-    // use ahash for performance
     static_users: Arc<AHashMap<String, Arc<User>>>,
     dynamic_users: Arc<ArcSwap<AHashMap<String, Arc<User>>>>,
     /// the dynamic job is for both dynamic fetch and expire check
     dynamic_job_handler: Option<AbortHandle>,
+    anonymous_user: Option<Arc<User>>,
 }
 
 impl Drop for UserGroup {
@@ -91,6 +93,7 @@ impl UserGroup {
             static_users: Arc::new(AHashMap::new()),
             dynamic_users: Arc::new(ArcSwap::from_pointee(AHashMap::new())),
             dynamic_job_handler: None,
+            anonymous_user: None,
         }
     }
 
@@ -106,6 +109,11 @@ impl UserGroup {
             let user = User::new(config.name(), user_config, &datetime_now);
             users.insert(username.to_string(), Arc::new(user));
         }
+
+        let anonymous_user = config
+            .anonymous_user
+            .as_ref()
+            .map(|user_config| User::new(config.name(), user_config, &datetime_now));
 
         let mut group = Self::new_without_users(config);
         group.static_users = Arc::new(users);
@@ -128,6 +136,8 @@ impl UserGroup {
             }
         }
 
+        group.anonymous_user = anonymous_user.map(Arc::new);
+
         group.dynamic_job_handler = Some(source::new_job(
             &group.config,
             &group.static_users,
@@ -149,6 +159,13 @@ impl UserGroup {
             static_users.insert(username.to_string(), Arc::new(user));
         }
 
+        let anonymous_user = config.anonymous_user.as_ref().map(|user_config| {
+            self.anonymous_user
+                .as_ref()
+                .map(|old| old.new_for_reload(user_config, &datetime_now))
+                .unwrap_or_else(|| User::new(config.name(), user_config, &datetime_now))
+        });
+
         let mut dynamic_users = AHashMap::new();
         if self.config.dynamic_source.is_some() && config.dynamic_source.is_some() {
             // keep old dynamic users, even if the source may change
@@ -164,6 +181,8 @@ impl UserGroup {
             group.dynamic_users.store(Arc::new(dynamic_users));
         }
 
+        group.anonymous_user = anonymous_user.map(Arc::new);
+
         group.dynamic_job_handler = Some(source::new_job(
             &group.config,
             &group.static_users,
@@ -171,6 +190,12 @@ impl UserGroup {
         ));
 
         Ok(Arc::new(group))
+    }
+
+    pub(crate) fn get_anonymous_user(&self) -> Option<(Arc<User>, UserType)> {
+        self.anonymous_user
+            .as_ref()
+            .map(|u| (Arc::clone(u), UserType::Anonymous))
     }
 
     pub(crate) fn get_user(&self, username: &str) -> Option<(Arc<User>, UserType)> {
@@ -185,7 +210,7 @@ impl UserGroup {
             }
         }
 
-        None
+        self.get_anonymous_user()
     }
 
     pub(crate) fn foreach_user<F>(&self, mut f: F)

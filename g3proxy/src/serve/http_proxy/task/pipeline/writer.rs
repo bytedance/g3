@@ -23,7 +23,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::mpsc;
 
 use g3_io_ext::{ArcLimitedWriterStats, LimitedWriter};
-use g3_types::auth::{UserAuthError, Username};
+use g3_types::auth::UserAuthError;
 use g3_types::net::{HttpAuth, HttpBasicAuth, HttpHeaderMap};
 use g3_types::route::EgressPathSelection;
 
@@ -53,7 +53,7 @@ impl Drop for UserData {
 }
 
 struct RequestCount {
-    passed_users: AHashMap<Username, UserData>,
+    passed_users: AHashMap<String, UserData>,
     anonymous: usize,
     auth_failed: usize,
     invalid: usize,
@@ -127,58 +127,67 @@ where
         &mut self,
         req: &HttpProxyRequest<CDR>,
     ) -> Result<Option<UserContext>, UserAuthError> {
-        use std::collections::hash_map::Entry;
-
         if let Some(user_group) = &self.user_group {
-            match &req.inner.auth_info {
-                HttpAuth::None => Err(UserAuthError::NoUserSupplied),
+            let mut user_ctx = match &req.inner.auth_info {
+                HttpAuth::None => {
+                    if let Some((user, user_type)) = user_group.get_anonymous_user() {
+                        UserContext::new(
+                            user,
+                            user_type,
+                            self.ctx.server_config.name(),
+                            self.ctx.server_stats.extra_tags(),
+                        )
+                    } else {
+                        return Err(UserAuthError::NoUserSupplied);
+                    }
+                }
                 HttpAuth::Basic(HttpBasicAuth {
                     username, password, ..
                 }) => match user_group.get_user(username.as_original()) {
                     Some((user, user_type)) => {
-                        let mut user_ctx = UserContext::new(
+                        let user_ctx = UserContext::new(
                             user,
                             user_type,
                             self.ctx.server_config.name(),
                             self.ctx.server_stats.extra_tags(),
                         );
                         user_ctx.check_password(password.as_original())?;
-                        user_ctx.check_in_site(
-                            self.ctx.server_config.name(),
-                            self.ctx.server_stats.extra_tags(),
-                            &req.upstream,
-                        );
-
-                        match self.req_count.passed_users.entry(username.clone()) {
-                            Entry::Occupied(entry) => {
-                                user_ctx.mark_reused_client_connection();
-                                entry.into_mut().count += 1;
-                            }
-                            Entry::Vacant(entry) => {
-                                let req_stats = user_ctx.req_stats().clone();
-                                req_stats.conn_total.add_http();
-                                req_stats.l7_conn_alive.inc_http();
-                                let site_req_stats =
-                                    if let Some(site_req_stats) = user_ctx.site_req_stats() {
-                                        site_req_stats.conn_total.add_http();
-                                        site_req_stats.l7_conn_alive.inc_http();
-                                        Some(Arc::clone(site_req_stats))
-                                    } else {
-                                        None
-                                    };
-                                entry.insert(UserData {
-                                    req_stats,
-                                    site_req_stats,
-                                    count: 1,
-                                });
-                            }
-                        }
-
-                        Ok(Some(user_ctx))
+                        user_ctx
                     }
-                    None => Err(UserAuthError::NoSuchUser),
+                    None => return Err(UserAuthError::NoSuchUser),
                 },
-            }
+            };
+
+            user_ctx.check_in_site(
+                self.ctx.server_config.name(),
+                self.ctx.server_stats.extra_tags(),
+                &req.upstream,
+            );
+            self.req_count
+                .passed_users
+                .entry(user_ctx.user().name().to_string())
+                .and_modify(|e| {
+                    user_ctx.mark_reused_client_connection();
+                    e.count += 1;
+                })
+                .or_insert_with(|| {
+                    let req_stats = user_ctx.req_stats().clone();
+                    req_stats.conn_total.add_http();
+                    req_stats.l7_conn_alive.inc_http();
+                    let site_req_stats = if let Some(site_req_stats) = user_ctx.site_req_stats() {
+                        site_req_stats.conn_total.add_http();
+                        site_req_stats.l7_conn_alive.inc_http();
+                        Some(Arc::clone(site_req_stats))
+                    } else {
+                        None
+                    };
+                    UserData {
+                        req_stats,
+                        site_req_stats,
+                        count: 1,
+                    }
+                });
+            Ok(Some(user_ctx))
         } else {
             self.req_count.anonymous += 1;
             Ok(None)
