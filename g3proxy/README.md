@@ -48,7 +48,6 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
     * Basic User Authentication
     * Port Hiding
     * Host based Routing
-    * Path based Routing
 
 - **Streaming**
 
