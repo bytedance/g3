@@ -3,6 +3,8 @@
 
 # G3 Project
 
+[中文版 README](README.zh_CN.md)
+
 ## About
 
 This is the project we used to build enterprise-oriented generic proxy solutions,
