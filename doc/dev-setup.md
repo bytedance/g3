@@ -109,10 +109,51 @@ There is an official [rust plugin](https://plugins.jetbrains.com/plugin/8182-rus
 
 # Dependent Tools and Libraries
 
+## Fast Install Guides
+
+### Debian based distribution
+
+It is recommended to use Debian based distro as your development platform.
+
+```shell
+apt-get install gcc pkgconf libtool make capnproto
+apt-get install curl mkcert jq xz-utils tar
+apt-get install libssl-dev libc-ares-dev
+# install lua5.4 or any other versions available on your system
+apt-get install lua5.4-dev
+apt-get install python3-dev
+apt-get install python3-toml python3-requests python3-semver python3-socks python3-dnspyton
+apt-get install python3-sphinx
+apt-get install lsb-release dpkg-dev debhelper
+apt-get --no-install-recommends devscripts
+```
+
+### RHEL based distribution
+
+The devel packages is contained in repos that is not enabled by default,
+you need to check the files under /etc/yum.repo.d/ and enable the corresponding repos.
+Some scripting or testing tools may be unavailable.
+
+```shell
+# enable epel repo first
+dnf install epel-release
+dnf update
+
+#
+dnf install gcc pkgconf libtool make capnproto
+dnf install curl jq xz tar
+dnf install openssl-devel c-ares-devel lua-devel
+dnf install python3-devel
+dnf install python3-toml python3-requests python3-semver
+dnf install python3-sphinx
+dnf install rpmdevtools rpm-build
+```
+
 ## Development Libraries
 
 For *g3proxy*:
 ```text
+openssl
 c-ares
 lua
 python3
@@ -191,4 +232,3 @@ For all *rhel* based distributions:
 rpmdevtools
 rpm-build
 ```
-

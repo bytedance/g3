@@ -36,6 +36,10 @@ A benchmark tool for the test of g3proxy.
 
 Fake certificate generator for g3proxy.
 
+## Target Platform
+
+Only Linux is supported currently. But we are open to PRs to add support to other platforms.
+
 ## Dev-env Setup Guide
 
 Follow [dev-setup](doc/dev-setup.md).

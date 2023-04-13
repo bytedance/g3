@@ -34,6 +34,10 @@ G3 Project 由若干组件构成。
 
 适用于g3proxy TLS劫持功能的的伪造证书生成服务组件。
 
+## 支持平台
+
+目前仅支持在Linux系统运行。如果需要支持其他系统，欢迎提交PR。
+
 ## 开发环境搭建
 
 参考 [dev-setup](doc/dev-setup.md)。
