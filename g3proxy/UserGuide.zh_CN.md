@@ -391,12 +391,10 @@ server:
     no_early_error_reply: true              # 请求确认合法前禁止错误返回，端口防扫描
     hosts:
       - exact_match: service1.example.net   # 匹配该域名
-        services:
-          upstream: 127.0.0.1:8081          # 路径/全部转发
+        upstream: 127.0.0.1:8081            # 路径/全部转发
       - exact_match: service2.example.net   # 匹配该域名
         set_default: true                   # 若域名没有匹配的，作为默认站点
-        services:
-          upstream: 127.0.0.1:8082          # 路径/全部转发
+        upstream: 127.0.0.1:8082            # 路径/全部转发
     # 可通过tls_server启用TLS,或通过前置plain_tls_port添加独立的TLS端口
 ```
 
@@ -616,7 +614,9 @@ flowchart LR
     - name: a1_proxy
       type: proxy_https
       tls_client: {} # 配置TLS参数
+      # ... 配置代理参数 指向a1区域的 relay代理地址
     - name: a2_proxy
       type: proxy_https
       tls_client: {} # 配置TLS参数
+      # ... 配置代理参数 指向a2区域的 relay代理地址
   ```
