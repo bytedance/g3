@@ -186,7 +186,7 @@ impl BenchHttpArgs {
                             )
                             .await
                         } else {
-                            Ok((Box::new(buf_r), Box::new(w)))
+                            Ok((Box::new(buf_r.into_inner()), Box::new(w)))
                         }
                     } else {
                         let (r, mut w) = stream.into_split();
@@ -210,7 +210,7 @@ impl BenchHttpArgs {
                             )
                             .await
                         } else {
-                            Ok((Box::new(buf_r), Box::new(w)))
+                            Ok((Box::new(buf_r.into_inner()), Box::new(w)))
                         }
                     }
                 }
@@ -231,7 +231,7 @@ impl BenchHttpArgs {
                         self.tls_connect_to_peer(tls_client, AggregatedIo::new(r, w))
                             .await
                     } else {
-                        Ok((Box::new(BufReader::new(r)), Box::new(w)))
+                        Ok((Box::new(r), Box::new(w)))
                     }
                 }
                 Proxy::Socks5(socks5_proxy) => {
@@ -256,7 +256,7 @@ impl BenchHttpArgs {
                         self.tls_connect_to_peer(tls_client, AggregatedIo::new(r, w))
                             .await
                     } else {
-                        Ok((Box::new(BufReader::new(r)), Box::new(w)))
+                        Ok((Box::new(r), Box::new(w)))
                     }
                 }
             }
@@ -272,10 +272,10 @@ impl BenchHttpArgs {
                     .await?;
 
                 let (r, w) = tokio::io::split(tls_stream);
-                Ok((Box::new(BufReader::new(r)), Box::new(w)))
+                Ok((Box::new(r), Box::new(w)))
             } else {
                 let (r, w) = stream.into_split();
-                Ok((Box::new(BufReader::new(r)), Box::new(w)))
+                Ok((Box::new(r), Box::new(w)))
             }
         } else {
             let stream = self
@@ -287,7 +287,7 @@ impl BenchHttpArgs {
                 self.tls_connect_to_peer(tls_client, stream).await
             } else {
                 let (r, w) = stream.into_split();
-                Ok((Box::new(BufReader::new(r)), Box::new(w)))
+                Ok((Box::new(r), Box::new(w)))
             }
         }
     }
@@ -320,7 +320,7 @@ impl BenchHttpArgs {
             .map_err(|e| anyhow!("tls connect to {tls_name} failed: {e}"))?;
 
         let (r, w) = tokio::io::split(tls_stream);
-        Ok((Box::new(BufReader::new(r)), Box::new(w)))
+        Ok((Box::new(r), Box::new(w)))
     }
 
     async fn tls_connect_to_proxy(
