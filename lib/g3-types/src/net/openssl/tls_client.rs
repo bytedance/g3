@@ -17,7 +17,9 @@
 use std::time::Duration;
 
 use anyhow::anyhow;
-use openssl::ssl::{Ssl, SslConnector, SslContext, SslMethod, SslVerifyMode, SslVersion};
+use openssl::ssl::{
+    Ssl, SslConnector, SslContext, SslContextBuilder, SslMethod, SslVerifyMode, SslVersion,
+};
 use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::X509;
 
@@ -172,6 +174,44 @@ impl OpensslTlsClientConfigBuilder {
         self.session_cache.set_each_capacity(cap);
     }
 
+    fn set_tls_version(
+        &self,
+        version: SslVersion,
+        ctx_builder: &mut SslContextBuilder,
+    ) -> anyhow::Result<()> {
+        ctx_builder
+            .set_min_proto_version(Some(version))
+            .map_err(|e| anyhow!("failed to set min protocol version: {e}"))?;
+        ctx_builder
+            .set_max_proto_version(Some(version))
+            .map_err(|e| anyhow!("failed to set max protocol version: {e}"))?;
+
+        if !self.ciphers.is_empty() {
+            let cipher_list = self.ciphers.join(":");
+            ctx_builder
+                .set_cipher_list(&cipher_list)
+                .map_err(|e| anyhow!("failed to set cipher list: {e}"))?;
+        }
+        Ok(())
+    }
+
+    fn set_tls13(&self, ctx_builder: &mut SslContextBuilder) -> anyhow::Result<()> {
+        ctx_builder
+            .set_min_proto_version(Some(SslVersion::TLS1_3))
+            .map_err(|e| anyhow!("failed to set min protocol version: {e}"))?;
+        ctx_builder
+            .set_max_proto_version(Some(SslVersion::TLS1_3))
+            .map_err(|e| anyhow!("failed to set max protocol version: {e}"))?;
+
+        if !self.ciphers.is_empty() {
+            let ciphersuites = self.ciphers.join(":");
+            ctx_builder
+                .set_ciphersuites(&ciphersuites)
+                .map_err(|e| anyhow!("failed to set ciphersuites: {e}"))?;
+        }
+        Ok(())
+    }
+
     pub fn build_with_alpn_protocols(
         &self,
         alpn_protocols: Option<Vec<AlpnProtocol>>,
@@ -181,36 +221,19 @@ impl OpensslTlsClientConfigBuilder {
         ctx_builder.set_verify(SslVerifyMode::PEER);
 
         match self.protocol {
+            Some(OpensslProtocol::Ssl3) => {
+                self.set_tls_version(SslVersion::SSL3, &mut ctx_builder)?;
+            }
+            Some(OpensslProtocol::Tls1) => {
+                self.set_tls_version(SslVersion::TLS1, &mut ctx_builder)?;
+            }
+            Some(OpensslProtocol::Tls11) => {
+                self.set_tls_version(SslVersion::TLS1_1, &mut ctx_builder)?;
+            }
             Some(OpensslProtocol::Tls12) => {
-                ctx_builder
-                    .set_min_proto_version(Some(SslVersion::TLS1_2))
-                    .map_err(|e| anyhow!("failed to set min protocol version: {e}"))?;
-                ctx_builder
-                    .set_max_proto_version(Some(SslVersion::TLS1_2))
-                    .map_err(|e| anyhow!("failed to set max protocol version: {e}"))?;
-
-                if !self.ciphers.is_empty() {
-                    let cipher_list = self.ciphers.join(":");
-                    ctx_builder
-                        .set_cipher_list(&cipher_list)
-                        .map_err(|e| anyhow!("failed to set cipher list: {e}"))?;
-                }
+                self.set_tls_version(SslVersion::TLS1_2, &mut ctx_builder)?;
             }
-            Some(OpensslProtocol::Tls13) => {
-                ctx_builder
-                    .set_min_proto_version(Some(SslVersion::TLS1_3))
-                    .map_err(|e| anyhow!("failed to set min protocol version: {e}"))?;
-                ctx_builder
-                    .set_max_proto_version(Some(SslVersion::TLS1_3))
-                    .map_err(|e| anyhow!("failed to set max protocol version: {e}"))?;
-
-                if !self.ciphers.is_empty() {
-                    let ciphersuites = self.ciphers.join(":");
-                    ctx_builder
-                        .set_ciphersuites(&ciphersuites)
-                        .map_err(|e| anyhow!("failed to set ciphersuites: {e}"))?;
-                }
-            }
+            Some(OpensslProtocol::Tls13) => self.set_tls13(&mut ctx_builder)?,
             None => {}
         }
 

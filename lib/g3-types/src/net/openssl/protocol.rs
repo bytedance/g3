@@ -20,6 +20,9 @@ use anyhow::anyhow;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum OpensslProtocol {
+    Ssl3,
+    Tls1,
+    Tls11,
     Tls12,
     Tls13,
 }
@@ -29,6 +32,9 @@ impl FromStr for OpensslProtocol {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
+            "ssl3" | "ssl30" | "ssl3.0" | "ssl3_0" => Ok(OpensslProtocol::Ssl3),
+            "tls1" | "tls10" | "tls1.0" | "tls1_0" => Ok(OpensslProtocol::Tls1),
+            "tls11" | "tls1.1" | "tls1_1" => Ok(OpensslProtocol::Tls11),
             "tls12" | "tls1.2" | "tls1_2" => Ok(OpensslProtocol::Tls12),
             "tls13" | "tls1.3" | "tls1_3" => Ok(OpensslProtocol::Tls13),
             _ => Err(anyhow!("")),

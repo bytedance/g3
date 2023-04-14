@@ -49,7 +49,7 @@ const PROXY_TLS_ARG_PROTOCOL: &str = "proxy-tls-protocol";
 const PROXY_TLS_ARG_CIPHERS: &str = "proxy-tls-ciphers";
 
 const SESSION_CACHE_VALUES: [&str; 2] = ["off", "builtin"];
-const PROTOCOL_VALUES: [&str; 2] = ["tls1.2", "tls1.3"];
+const PROTOCOL_VALUES: [&str; 5] = ["ssl3.0", "tls1.0", "tls1.1", "tls1.2", "tls1.3"];
 
 pub(crate) trait AppendTlsArgs {
     fn append_tls_args(self) -> Self;
