@@ -39,6 +39,7 @@ fn build_cli_args() -> Command {
         .subcommand(g3bench::target::h1::command())
         .subcommand(g3bench::target::h2::command())
         .subcommand(g3bench::target::ssl::command())
+        .subcommand(g3bench::target::keyless::command())
 }
 
 fn main() -> anyhow::Result<()> {
@@ -84,6 +85,9 @@ fn main() -> anyhow::Result<()> {
             g3bench::target::h1::COMMAND => g3bench::target::h1::run(&proc_args, sub_args).await,
             g3bench::target::h2::COMMAND => g3bench::target::h2::run(&proc_args, sub_args).await,
             g3bench::target::ssl::COMMAND => g3bench::target::ssl::run(&proc_args, sub_args).await,
+            g3bench::target::keyless::COMMAND => {
+                g3bench::target::keyless::run(&proc_args, sub_args).await
+            }
             cmd => Err(anyhow!("invalid subcommand {}", cmd)),
         }
     })

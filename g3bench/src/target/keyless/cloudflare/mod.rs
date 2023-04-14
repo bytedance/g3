@@ -19,29 +19,37 @@ use std::sync::Arc;
 use clap::{ArgMatches, Command};
 
 use super::{BenchTarget, BenchTaskContext, ProcArgs};
+use crate::target::ssl::{SslHistogram, SslRuntimeStats};
 
 mod opts;
-use opts::BenchSslArgs;
-
-mod stats;
-pub(crate) use stats::{SslHistogram, SslHistogramRecorder, SslRuntimeStats};
+use opts::KeylessCloudflareArgs;
 
 mod task;
-use task::SslTaskContext;
+use task::KeylessCloudflareTaskContext;
 
-pub const COMMAND: &str = "ssl";
+mod connection;
+use connection::{BoxKeylessConnection, SavedKeylessConnection};
 
-struct SslTarget {
-    args: Arc<BenchSslArgs>,
+pub(super) const COMMAND: &str = "cloudflare";
+
+struct KeylessCloudflareTarget {
+    args: Arc<KeylessCloudflareArgs>,
     proc_args: Arc<ProcArgs>,
     stats: Arc<SslRuntimeStats>,
     histogram: Option<SslHistogram>,
 }
 
-impl BenchTarget<SslRuntimeStats, SslHistogram, SslTaskContext> for SslTarget {
-    fn new_context(&self) -> anyhow::Result<SslTaskContext> {
+impl BenchTarget<SslRuntimeStats, SslHistogram, KeylessCloudflareTaskContext>
+    for KeylessCloudflareTarget
+{
+    fn new_context(&self) -> anyhow::Result<KeylessCloudflareTaskContext> {
         let histogram_recorder = self.histogram.as_ref().map(|h| h.recorder());
-        SslTaskContext::new(&self.args, &self.proc_args, &self.stats, histogram_recorder)
+        KeylessCloudflareTaskContext::new(
+            &self.args,
+            &self.proc_args,
+            &self.stats,
+            histogram_recorder,
+        )
     }
 
     fn fetch_runtime_stats(&self) -> Arc<SslRuntimeStats> {
@@ -53,20 +61,22 @@ impl BenchTarget<SslRuntimeStats, SslHistogram, SslTaskContext> for SslTarget {
     }
 }
 
-pub fn command() -> Command {
-    opts::add_ssl_args(Command::new(COMMAND))
+pub(super) fn command() -> Command {
+    opts::add_cloudflare_args(
+        Command::new(COMMAND).about("Use keyless server that speaks cloudflare protocol"),
+    )
 }
 
-pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Result<()> {
-    let mut ssl_args = opts::parse_ssl_args(cmd_args)?;
-    ssl_args.resolve_target_address(proc_args).await?;
+pub(super) async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Result<()> {
+    let mut cf_args = opts::parse_cloudflare_args(cmd_args)?;
+    cf_args.resolve_target_address(proc_args).await?;
 
-    let target = SslTarget {
-        args: Arc::new(ssl_args),
+    let target = KeylessCloudflareTarget {
+        args: Arc::new(cf_args),
         proc_args: Arc::clone(proc_args),
         stats: Arc::new(SslRuntimeStats::default()),
         histogram: Some(SslHistogram::new()),
     };
 
-    super::run(target, proc_args).await
+    crate::target::run(target, proc_args).await
 }
