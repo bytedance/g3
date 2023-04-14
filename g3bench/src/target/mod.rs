@@ -32,6 +32,9 @@ use super::ProcArgs;
 
 mod stats;
 
+mod proxy_protocol;
+use proxy_protocol::{AppendProxyProtocolArgs, ProxyProtocolArgs};
+
 mod tls;
 use tls::{AppendTlsArgs, OpensslTlsClientArgs};
 

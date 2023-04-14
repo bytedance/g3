@@ -22,7 +22,7 @@ use std::time::Duration;
 use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgMatches, Command};
 use openssl::ssl::SslVerifyMode;
-use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio_openssl::SslStream;
 
@@ -30,7 +30,9 @@ use g3_types::collection::{SelectiveVec, WeightedValue};
 use g3_types::net::{OpensslTlsClientConfig, OpensslTlsClientConfigBuilder, UpstreamAddr};
 
 use super::ProcArgs;
-use crate::target::{AppendTlsArgs, OpensslTlsClientArgs};
+use crate::target::{
+    AppendProxyProtocolArgs, AppendTlsArgs, OpensslTlsClientArgs, ProxyProtocolArgs,
+};
 
 const SSL_ARG_TARGET: &str = "target";
 const SSL_ARG_LOCAL_ADDRESS: &str = "local-address";
@@ -43,6 +45,7 @@ pub(super) struct BenchSslArgs {
     pub(super) timeout: Duration,
     pub(super) connect_timeout: Duration,
     pub(super) tls: OpensslTlsClientArgs,
+    proxy_protocol: ProxyProtocolArgs,
 
     target_addrs: SelectiveVec<WeightedValue<SocketAddr>>,
 }
@@ -59,6 +62,7 @@ impl BenchSslArgs {
             timeout: Duration::from_secs(10),
             connect_timeout: Duration::from_secs(10),
             tls,
+            proxy_protocol: ProxyProtocolArgs::default(),
             target_addrs: SelectiveVec::empty(),
         }
     }
@@ -85,10 +89,19 @@ impl BenchSslArgs {
             true,
         )
         .map_err(|e| anyhow!("failed to setup socket to peer {peer}: {e:?}"))?;
-        socket
+        let mut stream = socket
             .connect(peer)
             .await
-            .map_err(|e| anyhow!("connect to {peer} error: {e:?}"))
+            .map_err(|e| anyhow!("connect to {peer} error: {e:?}"))?;
+
+        if let Some(data) = self.proxy_protocol.data() {
+            stream
+                .write_all(data)
+                .await
+                .map_err(|e| anyhow!("failed to write proxy protocol data: {e:?}"))?;
+        }
+
+        Ok(stream)
     }
 
     pub(super) async fn tls_connect_to_target<S>(
@@ -153,6 +166,7 @@ pub(super) fn add_ssl_args(app: Command) -> Command {
             .num_args(1),
     )
     .append_tls_args()
+    .append_proxy_protocol_args()
 }
 
 pub(super) fn parse_ssl_args(args: &ArgMatches) -> anyhow::Result<BenchSslArgs> {
@@ -180,6 +194,10 @@ pub(super) fn parse_ssl_args(args: &ArgMatches) -> anyhow::Result<BenchSslArgs> 
         .tls
         .parse_tls_args(args)
         .context("invalid tls config")?;
+    ssl_args
+        .proxy_protocol
+        .parse_args(args)
+        .context("invalid proxy protocol config")?;
 
     Ok(ssl_args)
 }

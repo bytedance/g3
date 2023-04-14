@@ -27,7 +27,7 @@ use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
 use h2::client::SendRequest;
 use http::{HeaderValue, Method, StatusCode};
 use openssl::ssl::SslVerifyMode;
-use tokio::io::{AsyncRead, AsyncWrite, BufReader};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tokio_openssl::SslStream;
 use url::Url;
@@ -40,7 +40,9 @@ use g3_types::net::{
 };
 
 use super::{H2PreRequest, HttpRuntimeStats, ProcArgs};
-use crate::target::{AppendTlsArgs, OpensslTlsClientArgs};
+use crate::target::{
+    AppendProxyProtocolArgs, AppendTlsArgs, OpensslTlsClientArgs, ProxyProtocolArgs,
+};
 
 const HTTP_ARG_CONNECTION_POOL: &str = "connection-pool";
 const HTTP_ARG_URI: &str = "uri";
@@ -65,6 +67,7 @@ pub(super) struct BenchH2Args {
 
     target_tls: OpensslTlsClientArgs,
     proxy_tls: OpensslTlsClientArgs,
+    proxy_protocol: ProxyProtocolArgs,
 
     host: UpstreamAddr,
     auth: HttpAuth,
@@ -94,6 +97,7 @@ impl BenchH2Args {
             connect_timeout: Duration::from_secs(15),
             target_tls,
             proxy_tls: OpensslTlsClientArgs::default(),
+            proxy_protocol: ProxyProtocolArgs::default(),
             host: upstream,
             auth,
             peer_addrs: SelectiveVec::empty(),
@@ -127,10 +131,19 @@ impl BenchH2Args {
             true,
         )
         .map_err(|e| anyhow!("failed to setup socket to {peer}: {e:?}"))?;
-        socket
+        let mut stream = socket
             .connect(peer)
             .await
-            .map_err(|e| anyhow!("connect to {peer} error: {e:?}"))
+            .map_err(|e| anyhow!("connect to {peer} error: {e:?}"))?;
+
+        if let Some(data) = self.proxy_protocol.data() {
+            stream
+                .write_all(data)
+                .await
+                .map_err(|e| anyhow!("failed to write proxy protocol data: {e:?}"))?;
+        }
+
+        Ok(stream)
     }
 
     pub(super) async fn new_h2_connection(
@@ -458,6 +471,7 @@ pub(super) fn add_h2_args(app: Command) -> Command {
         )
         .append_tls_args()
         .append_proxy_tls_args()
+        .append_proxy_protocol_args()
 }
 
 pub(super) fn parse_h2_args(args: &ArgMatches) -> anyhow::Result<BenchH2Args> {
@@ -514,6 +528,10 @@ pub(super) fn parse_h2_args(args: &ArgMatches) -> anyhow::Result<BenchH2Args> {
         .proxy_tls
         .parse_proxy_tls_args(args)
         .context("invalid proxy tls config")?;
+    h2_args
+        .proxy_protocol
+        .parse_args(args)
+        .context("invalid proxy protocol config")?;
 
     match h2_args.target_url.scheme() {
         "http" | "https" => {}

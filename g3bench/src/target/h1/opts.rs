@@ -25,7 +25,7 @@ use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
 use http::{Method, StatusCode};
 use openssl::ssl::SslVerifyMode;
-use tokio::io::{AsyncRead, AsyncWrite, BufReader};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tokio_openssl::SslStream;
 use url::Url;
@@ -37,7 +37,9 @@ use g3_types::net::{
 };
 
 use super::{BoxHttpForwardConnection, ProcArgs};
-use crate::target::{AppendTlsArgs, OpensslTlsClientArgs};
+use crate::target::{
+    AppendProxyProtocolArgs, AppendTlsArgs, OpensslTlsClientArgs, ProxyProtocolArgs,
+};
 
 const HTTP_ARG_URL: &str = "url";
 const HTTP_ARG_METHOD: &str = "method";
@@ -64,6 +66,7 @@ pub(super) struct BenchHttpArgs {
 
     target_tls: OpensslTlsClientArgs,
     proxy_tls: OpensslTlsClientArgs,
+    proxy_protocol: ProxyProtocolArgs,
 
     host: UpstreamAddr,
     auth: HttpAuth,
@@ -94,6 +97,7 @@ impl BenchHttpArgs {
             connect_timeout: Duration::from_secs(15),
             target_tls,
             proxy_tls: OpensslTlsClientArgs::default(),
+            proxy_protocol: ProxyProtocolArgs::default(),
             host: upstream,
             auth,
             peer_addrs: SelectiveVec::empty(),
@@ -129,10 +133,19 @@ impl BenchHttpArgs {
             !self.no_keepalive,
         )
         .map_err(|e| anyhow!("failed to setup socket to {peer}: {e:?}"))?;
-        socket
+        let mut stream = socket
             .connect(peer)
             .await
-            .map_err(|e| anyhow!("connect to {peer} error: {e:?}"))
+            .map_err(|e| anyhow!("connect to {peer} error: {e:?}"))?;
+
+        if let Some(data) = self.proxy_protocol.data() {
+            stream
+                .write_all(data)
+                .await
+                .map_err(|e| anyhow!("failed to send proxy protocol data: {e:?}"))?;
+        }
+
+        Ok(stream)
     }
 
     pub(super) async fn new_http_connection(
@@ -462,6 +475,7 @@ pub(super) fn add_http_args(app: Command) -> Command {
         )
         .append_tls_args()
         .append_proxy_tls_args()
+        .append_proxy_protocol_args()
 }
 
 pub(super) fn parse_http_args(args: &ArgMatches) -> anyhow::Result<BenchHttpArgs> {
@@ -524,6 +538,10 @@ pub(super) fn parse_http_args(args: &ArgMatches) -> anyhow::Result<BenchHttpArgs
         .proxy_tls
         .parse_proxy_tls_args(args)
         .context("invalid proxy tls config")?;
+    h1_args
+        .proxy_protocol
+        .parse_args(args)
+        .context("invalid proxy protocol config")?;
 
     match h1_args.target_url.scheme() {
         "http" | "https" => {}

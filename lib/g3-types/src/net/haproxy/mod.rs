@@ -15,7 +15,9 @@
  */
 
 use std::net::SocketAddr;
+use std::str::FromStr;
 
+use anyhow::anyhow;
 use thiserror::Error;
 
 mod v1;
@@ -28,6 +30,18 @@ use v2::ProxyProtocolV2Encoder;
 pub enum ProxyProtocolVersion {
     V1,
     V2,
+}
+
+impl FromStr for ProxyProtocolVersion {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "1" | "v1" | "V1" => Ok(ProxyProtocolVersion::V1),
+            "2" | "v2" | "V2" => Ok(ProxyProtocolVersion::V2),
+            _ => Err(anyhow!("invalid proxy protocol version string")),
+        }
+    }
 }
 
 #[derive(Debug, Error)]
