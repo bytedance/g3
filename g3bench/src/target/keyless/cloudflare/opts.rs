@@ -29,17 +29,21 @@ use tokio_openssl::SslStream;
 use g3_types::collection::{SelectiveVec, WeightedValue};
 use g3_types::net::{OpensslTlsClientConfig, OpensslTlsClientConfigBuilder, UpstreamAddr};
 
-use super::BoxKeylessConnection;
+use super::SendHandle;
 use crate::opts::ProcArgs;
+use crate::target::keyless::{AppendKeylessArgs, KeylessGlobalArgs};
 use crate::target::{
     AppendProxyProtocolArgs, AppendTlsArgs, OpensslTlsClientArgs, ProxyProtocolArgs,
 };
 
+const CF_ARG_CONNECTION_POOL: &str = "connection-pool";
 const CF_ARG_TARGET: &str = "target";
 const CF_ARG_LOCAL_ADDRESS: &str = "local-address";
 const CF_ARG_CONNECT_TIMEOUT: &str = "connect-timeout";
 
 pub(super) struct KeylessCloudflareArgs {
+    pub(super) global: KeylessGlobalArgs,
+    pub(super) pool_size: Option<usize>,
     target: UpstreamAddr,
     bind: Option<IpAddr>,
     pub(super) connect_timeout: Duration,
@@ -50,12 +54,14 @@ pub(super) struct KeylessCloudflareArgs {
 }
 
 impl KeylessCloudflareArgs {
-    fn new(target: UpstreamAddr) -> Self {
+    fn new(global_args: KeylessGlobalArgs, target: UpstreamAddr) -> Self {
         let tls = OpensslTlsClientArgs {
             config: Some(OpensslTlsClientConfigBuilder::with_cache_for_one_site()),
             ..Default::default()
         };
         KeylessCloudflareArgs {
+            global: global_args,
+            pool_size: None,
             target,
             bind: None,
             connect_timeout: Duration::from_secs(10),
@@ -76,15 +82,15 @@ impl KeylessCloudflareArgs {
     pub(super) async fn new_keyless_connection(
         &self,
         proc_args: &ProcArgs,
-    ) -> anyhow::Result<BoxKeylessConnection> {
+    ) -> anyhow::Result<SendHandle> {
         let tcp_stream = self.new_tcp_connection(proc_args).await?;
         if let Some(tls_client) = &self.tls.client {
             let ssl_stream = self.tls_connect_to_target(tls_client, tcp_stream).await?;
             let (r, w) = tokio::io::split(ssl_stream);
-            Ok((Box::new(r), Box::new(w)))
+            Ok(super::connection::start_transfer(r, w))
         } else {
             let (r, w) = tcp_stream.into_split();
-            Ok((Box::new(r), Box::new(w)))
+            Ok(super::connection::start_transfer(r, w))
         }
     }
 
@@ -152,6 +158,18 @@ pub(super) fn add_cloudflare_args(app: Command) -> Command {
             .value_parser(value_parser!(UpstreamAddr)),
     )
     .arg(
+        Arg::new(CF_ARG_CONNECTION_POOL)
+            .help(
+                "Set the number of pooled underlying keyless connections.\n\
+                        If not set, each concurrency will use it's own keyless connection",
+            )
+            .value_name("POOL SIZE")
+            .long(CF_ARG_CONNECTION_POOL)
+            .short('C')
+            .num_args(1)
+            .value_parser(value_parser!(usize)),
+    )
+    .arg(
         Arg::new(CF_ARG_LOCAL_ADDRESS)
             .value_name("LOCAL IP ADDRESS")
             .short('B')
@@ -167,6 +185,7 @@ pub(super) fn add_cloudflare_args(app: Command) -> Command {
             .long(CF_ARG_CONNECT_TIMEOUT)
             .num_args(1),
     )
+    .append_keyless_args()
     .append_tls_args()
     .append_proxy_protocol_args()
 }
@@ -178,7 +197,16 @@ pub(super) fn parse_cloudflare_args(args: &ArgMatches) -> anyhow::Result<Keyless
         return Err(anyhow!("no target set"));
     };
 
-    let mut cf_args = KeylessCloudflareArgs::new(target);
+    let global_args =
+        KeylessGlobalArgs::parse_args(args).context("failed to parse global keyless args")?;
+
+    let mut cf_args = KeylessCloudflareArgs::new(global_args, target);
+
+    if let Some(c) = args.get_one::<usize>(CF_ARG_CONNECTION_POOL) {
+        if *c > 0 {
+            cf_args.pool_size = Some(*c);
+        }
+    }
 
     if let Some(ip) = args.get_one::<IpAddr>(CF_ARG_LOCAL_ADDRESS) {
         cf_args.bind = Some(*ip);

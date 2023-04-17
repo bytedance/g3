@@ -19,27 +19,36 @@ use std::sync::Arc;
 use clap::{ArgMatches, Command};
 
 use super::{BenchTarget, BenchTaskContext, ProcArgs};
-use crate::target::ssl::{SslHistogram, SslRuntimeStats};
 
 mod opts;
 use opts::KeylessCloudflareArgs;
 
+mod stats;
+use stats::{KeylessHistogram, KeylessHistogramRecorder, KeylessRuntimeStats};
+
 mod task;
 use task::KeylessCloudflareTaskContext;
 
+mod message;
+use message::{KeylessLocalError, KeylessRequest, KeylessResponse, KeylessResponseError};
+
 mod connection;
-use connection::{BoxKeylessConnection, SavedKeylessConnection};
+use connection::SendHandle;
+
+mod pool;
+use pool::KeylessConnectionPool;
 
 pub(super) const COMMAND: &str = "cloudflare";
 
 struct KeylessCloudflareTarget {
     args: Arc<KeylessCloudflareArgs>,
     proc_args: Arc<ProcArgs>,
-    stats: Arc<SslRuntimeStats>,
-    histogram: Option<SslHistogram>,
+    stats: Arc<KeylessRuntimeStats>,
+    histogram: Option<KeylessHistogram>,
+    pool: Option<Arc<KeylessConnectionPool>>,
 }
 
-impl BenchTarget<SslRuntimeStats, SslHistogram, KeylessCloudflareTaskContext>
+impl BenchTarget<KeylessRuntimeStats, KeylessHistogram, KeylessCloudflareTaskContext>
     for KeylessCloudflareTarget
 {
     fn new_context(&self) -> anyhow::Result<KeylessCloudflareTaskContext> {
@@ -49,14 +58,15 @@ impl BenchTarget<SslRuntimeStats, SslHistogram, KeylessCloudflareTaskContext>
             &self.proc_args,
             &self.stats,
             histogram_recorder,
+            self.pool.clone(),
         )
     }
 
-    fn fetch_runtime_stats(&self) -> Arc<SslRuntimeStats> {
+    fn fetch_runtime_stats(&self) -> Arc<KeylessRuntimeStats> {
         self.stats.clone()
     }
 
-    fn take_histogram(&mut self) -> Option<SslHistogram> {
+    fn take_histogram(&mut self) -> Option<KeylessHistogram> {
         self.histogram.take()
     }
 }
@@ -71,11 +81,27 @@ pub(super) async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> any
     let mut cf_args = opts::parse_cloudflare_args(cmd_args)?;
     cf_args.resolve_target_address(proc_args).await?;
 
+    let cf_args = Arc::new(cf_args);
+
+    let runtime_stats = Arc::new(KeylessRuntimeStats::default());
+    let histogram = Some(KeylessHistogram::new());
+
+    let pool = cf_args.pool_size.map(|s| {
+        Arc::new(KeylessConnectionPool::new(
+            &cf_args,
+            proc_args,
+            s,
+            &runtime_stats,
+            histogram.as_ref(),
+        ))
+    });
+
     let target = KeylessCloudflareTarget {
-        args: Arc::new(cf_args),
+        args: cf_args,
         proc_args: Arc::clone(proc_args),
-        stats: Arc::new(SslRuntimeStats::default()),
-        histogram: Some(SslHistogram::new()),
+        stats: runtime_stats,
+        histogram,
+        pool,
     };
 
     crate::target::run(target, proc_args).await

@@ -20,47 +20,84 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use tokio::time::Instant;
 
-use super::{BenchTaskContext, BoxKeylessConnection, KeylessCloudflareArgs};
+use super::{
+    BenchTaskContext, KeylessCloudflareArgs, KeylessConnectionPool, KeylessHistogramRecorder,
+    KeylessRequest, KeylessRuntimeStats, SendHandle,
+};
 use crate::opts::ProcArgs;
-use crate::target::ssl::{SslHistogramRecorder, SslRuntimeStats};
+use crate::target::keyless::cloudflare::message::KeylessRequestBuilder;
 
 pub(super) struct KeylessCloudflareTaskContext {
     args: Arc<KeylessCloudflareArgs>,
     proc_args: Arc<ProcArgs>,
 
-    runtime_stats: Arc<SslRuntimeStats>,
-    histogram_recorder: Option<SslHistogramRecorder>,
+    pool: Option<Arc<KeylessConnectionPool>>,
+    save: Option<SendHandle>,
+
+    reuse_conn_count: u64,
+    request_message: KeylessRequest,
+
+    runtime_stats: Arc<KeylessRuntimeStats>,
+    histogram_recorder: Option<KeylessHistogramRecorder>,
 }
 
 impl KeylessCloudflareTaskContext {
     pub(super) fn new(
         args: &Arc<KeylessCloudflareArgs>,
         proc_args: &Arc<ProcArgs>,
-        runtime_stats: &Arc<SslRuntimeStats>,
-        histogram_recorder: Option<SslHistogramRecorder>,
+        runtime_stats: &Arc<KeylessRuntimeStats>,
+        histogram_recorder: Option<KeylessHistogramRecorder>,
+        pool: Option<Arc<KeylessConnectionPool>>,
     ) -> anyhow::Result<Self> {
+        let request_builder =
+            KeylessRequestBuilder::new(args.global.cert.as_ref(), args.global.action)?;
+        let request_message = request_builder.build(&args.global.payload)?;
         Ok(KeylessCloudflareTaskContext {
             args: Arc::clone(args),
             proc_args: Arc::clone(proc_args),
+            pool,
+            save: None,
+            reuse_conn_count: 0,
+            request_message,
             runtime_stats: Arc::clone(runtime_stats),
             histogram_recorder,
         })
     }
 
-    async fn connect(&self) -> anyhow::Result<BoxKeylessConnection> {
+    async fn fetch_handle(&mut self) -> anyhow::Result<SendHandle> {
+        if let Some(pool) = &self.pool {
+            return pool.fetch_handle().await;
+        }
+
+        if let Some(handle) = &self.save {
+            if !handle.is_closed() {
+                return Ok(handle.clone());
+            }
+            self.save = None;
+        }
+
+        if self.reuse_conn_count > 0 {
+            if let Some(r) = &mut self.histogram_recorder {
+                r.record_conn_reuse_count(self.reuse_conn_count);
+            }
+            self.reuse_conn_count = 0;
+        }
+
         self.runtime_stats.add_conn_attempt();
-        let conn = match tokio::time::timeout(
+        let handle = match tokio::time::timeout(
             self.args.connect_timeout,
             self.args.new_keyless_connection(&self.proc_args),
         )
         .await
         {
-            Ok(Ok(s)) => s,
+            Ok(Ok(h)) => h,
             Ok(Err(e)) => return Err(e),
             Err(_) => return Err(anyhow!("timeout to get new connection")),
         };
         self.runtime_stats.add_conn_success();
-        Ok(conn)
+
+        self.save = Some(handle.clone());
+        Ok(handle)
     }
 }
 
@@ -82,9 +119,20 @@ impl BenchTaskContext for KeylessCloudflareTaskContext {
     }
 
     async fn run(&mut self, _task_id: usize, time_started: Instant) -> anyhow::Result<()> {
-        let tcp_stream = self.connect().await?;
+        let handle = self.fetch_handle().await?;
 
-        // TODO
-        todo!()
+        match handle.send_request(self.request_message.clone()).await {
+            Some(_rsp) => {
+                let total_time = time_started.elapsed();
+                if let Some(r) = &mut self.histogram_recorder {
+                    r.record_total_time(total_time);
+                }
+                Ok(())
+            }
+            None => {
+                self.save = None;
+                Err(anyhow!(""))
+            }
+        }
     }
 }

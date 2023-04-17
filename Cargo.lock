@@ -1331,6 +1331,7 @@ dependencies = [
  "once_cell",
  "openssl",
  "rustc_version",
+ "thiserror",
  "tokio",
  "tokio-openssl",
  "url",
