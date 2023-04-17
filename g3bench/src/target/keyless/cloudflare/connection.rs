@@ -16,70 +16,80 @@
 
 use std::collections::HashMap;
 use std::future::Future;
+use std::io;
 use std::pin::Pin;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::task::{Context, Poll, Waker};
 
-use anyhow::anyhow;
-use concurrent_queue::{ConcurrentQueue, PushError};
+use concurrent_queue::{ConcurrentQueue, PopError, PushError};
 use fxhash::FxBuildHasher;
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio::sync::mpsc;
 
-use g3_io_ext::{LimitedReader, LimitedWriter};
+use super::{KeylessLocalError, KeylessRequest, KeylessResponse, KeylessResponseError};
 
-pub(super) type BoxKeylessWriter = Box<dyn AsyncWrite + Send + Unpin>;
-pub(super) type BoxKeylessReader = Box<dyn AsyncRead + Send + Unpin>;
-pub(super) type BoxKeylessConnection = (BoxKeylessReader, BoxKeylessWriter);
-
-pub(super) struct SavedKeylessConnection {
-    pub(super) reader: LimitedReader<BoxKeylessReader>,
-    pub(super) writer: LimitedWriter<BoxKeylessWriter>,
+struct ResponseValue {
+    data: Option<KeylessResponse>,
+    waker: Option<Waker>,
 }
 
-impl SavedKeylessConnection {
-    pub(super) fn new(
-        reader: LimitedReader<BoxKeylessReader>,
-        writer: LimitedWriter<BoxKeylessWriter>,
-    ) -> Self {
-        SavedKeylessConnection { reader, writer }
-    }
-}
-
-struct SharedState<T> {
+struct SharedState {
     write_waker: RwLock<Option<Waker>>,
-    req_queue: ConcurrentQueue<(T, Waker)>,
-    rsp_table: Mutex<HashMap<u32, (T, Waker), FxBuildHasher>>,
+    next_req_id: AtomicU32,
+    req_queue: ConcurrentQueue<(KeylessRequest, Waker)>,
+    rsp_table: Mutex<HashMap<u32, ResponseValue, FxBuildHasher>>,
+    error: Mutex<Option<KeylessResponseError>>,
 }
 
-impl<T> Default for SharedState<T> {
-    fn default() -> Self {
-        SharedState {
-            write_waker: RwLock::new(None),
-            req_queue: ConcurrentQueue::bounded(1024),
-            rsp_table: Mutex::new(HashMap::with_hasher(FxBuildHasher::default())),
+impl SharedState {
+    fn next_req_id(&self) -> u32 {
+        self.next_req_id.fetch_add(1, Ordering::Relaxed)
+    }
+
+    fn set_req_error(&self, e: io::Error) {
+        let mut req_err_guard = self.error.lock().unwrap();
+        *req_err_guard = Some(KeylessLocalError::WriteFailed(e).into());
+    }
+
+    fn set_rsp_error(&self, e: KeylessResponseError) {
+        let mut rsp_err_guard = self.error.lock().unwrap();
+        *rsp_err_guard = Some(e);
+    }
+
+    fn clean_pending_req(&self) {
+        while let Ok((_r, waker)) = self.req_queue.pop() {
+            waker.wake();
+        }
+        let mut rsp_table_guard = self.rsp_table.lock().unwrap();
+        for (_, v) in rsp_table_guard.drain() {
+            if let Some(waker) = v.waker {
+                waker.wake();
+            }
         }
     }
 }
 
-struct UnderlyingWriterState<T> {
-    init: bool,
-    shared: Arc<SharedState<T>>,
-    current_buffer: Vec<u8>,
-    current_offset: usize,
-    current_request: Option<(T, Waker, u32)>,
-    next_id: u32,
+impl Default for SharedState {
+    fn default() -> Self {
+        SharedState {
+            write_waker: RwLock::new(None),
+            next_req_id: AtomicU32::new(0),
+            req_queue: ConcurrentQueue::bounded(1024),
+            rsp_table: Mutex::new(HashMap::with_hasher(FxBuildHasher::default())),
+            error: Mutex::new(None),
+        }
+    }
 }
 
-impl<T> UnderlyingWriterState<T>
-where
-    T: Unpin,
-{
-    fn poll_write<W>(
-        &mut self,
-        cx: &mut Context<'_>,
-        mut writer: Pin<&mut W>,
-    ) -> Poll<anyhow::Result<()>>
+struct UnderlyingWriterState {
+    init: bool,
+    shared: Arc<SharedState>,
+    current_offset: usize,
+    current_request: Option<(KeylessRequest, Waker)>,
+}
+
+impl UnderlyingWriterState {
+    fn poll_write<W>(&mut self, cx: &mut Context<'_>, mut writer: Pin<&mut W>) -> Poll<()>
     where
         W: AsyncWrite + Unpin,
     {
@@ -92,56 +102,58 @@ where
         }
 
         loop {
-            if let Some((req, waker, id)) = self.current_request.take() {
-                while self.current_offset < self.current_buffer.len() {
+            if let Some((req, waker)) = self.current_request.take() {
+                let current_buffer = req.as_bytes();
+                while self.current_offset < current_buffer.len() {
                     match writer
                         .as_mut()
-                        .poll_write(cx, &self.current_buffer[self.current_offset..])
+                        .poll_write(cx, &current_buffer[self.current_offset..])
                     {
                         Poll::Ready(Ok(n)) => self.current_offset += n,
                         Poll::Ready(Err(e)) => {
                             self.shared.req_queue.close();
-                            // TODO clean pending requests
-                            return Poll::Ready(Err(anyhow!("connection error: {e:?}")));
+                            self.shared.clean_pending_req();
+                            self.shared.set_req_error(e);
+                            return Poll::Ready(());
                         }
                         Poll::Pending => {
-                            self.current_request = Some((req, waker, id));
+                            self.current_request = Some((req, waker));
                             return Poll::Pending;
                         }
                     };
                 }
                 let mut rsp_table = self.shared.rsp_table.lock().unwrap();
-                if let Some((req, waker)) = rsp_table.insert(id, (req, waker)) {
-                    // TODO handle error
-                }
+                rsp_table.insert(
+                    req.id(),
+                    ResponseValue {
+                        data: None,
+                        waker: Some(waker),
+                    },
+                );
             }
 
-            let Ok((req, waker)) = self.shared.req_queue.pop() else {
-                return Poll::Pending;
-            };
-
-            let id = self.next_id;
-            self.next_id = self.next_id.wrapping_add(1);
-            // TODO compose send buffer
-            self.current_offset = 0;
-            self.current_buffer.clear();
-            self.current_request = Some((req, waker, id));
-            // TODO fetch new request from queue
+            match self.shared.req_queue.pop() {
+                Ok((req, waker)) => {
+                    self.current_offset = 0;
+                    self.current_request = Some((req, waker));
+                }
+                Err(PopError::Empty) => return Poll::Pending,
+                Err(PopError::Closed) => return Poll::Ready(()),
+            }
         }
     }
 }
 
-struct UnderlyingWriter<T, W> {
+struct UnderlyingWriter<W> {
     writer: W,
-    state: UnderlyingWriterState<T>,
+    state: UnderlyingWriterState,
 }
 
-impl<T, W> Future for UnderlyingWriter<T, W>
+impl<W> Future for UnderlyingWriter<W>
 where
     W: AsyncWrite + Unpin,
-    T: Unpin,
 {
-    type Output = anyhow::Result<()>;
+    type Output = ();
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let me = &mut *self;
@@ -150,48 +162,50 @@ where
     }
 }
 
-struct SendHandle<T> {
-    shared: Arc<SharedState<T>>,
+#[derive(Clone)]
+pub(crate) struct SendHandle {
+    shared: Arc<SharedState>,
 }
 
-impl<T> SendHandle<T>
-where
-    T: Clone,
-{
-    fn send_request(&self, req: T) -> SendRequest<T> {
+impl SendHandle {
+    pub(crate) fn is_closed(&self) -> bool {
+        self.shared.req_queue.is_closed()
+    }
+
+    pub(crate) fn send_request(&self, req: KeylessRequest) -> SendRequest {
         SendRequest {
             shared: self.shared.clone(),
             request: Some(req),
+            rsp_id: 0,
         }
     }
 }
 
 #[derive(Clone)]
-struct SendRequest<T>
-where
-    T: Clone,
-{
-    shared: Arc<SharedState<T>>,
-    request: Option<T>,
+pub(crate) struct SendRequest {
+    shared: Arc<SharedState>,
+    request: Option<KeylessRequest>,
+    rsp_id: u32,
 }
 
-impl<T> Future for SendRequest<T>
-where
-    T: Clone + Unpin,
-{
-    type Output = anyhow::Result<()>;
+impl Future for SendRequest {
+    type Output = Option<KeylessResponse>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        if let Some(req) = self.request.take() {
+        if let Some(mut req) = self.request.take() {
             let underlying_waker_guard = self.shared.write_waker.read().unwrap();
             if let Some(underlying_waker) = &*underlying_waker_guard {
                 let rsp_waker = cx.waker().clone();
+                let id = self.shared.next_req_id();
+                req.set_id(id);
                 match self.shared.req_queue.push((req, rsp_waker)) {
                     Ok(_) => {
                         underlying_waker.wake_by_ref();
+                        drop(underlying_waker_guard);
+                        self.rsp_id = id;
                         Poll::Pending
                     }
-                    Err(PushError::Closed(_)) => Poll::Ready(Err(anyhow!("connection closed"))),
+                    Err(PushError::Closed(_)) => Poll::Ready(None),
                     Err(PushError::Full((req, waker))) => {
                         drop(underlying_waker_guard);
                         self.request = Some(req);
@@ -205,31 +219,60 @@ where
                 Poll::Pending
             }
         } else {
-            // TODO handle response
-            todo!()
+            let mut rsp_table_guard = self.shared.rsp_table.lock().unwrap();
+            let r = rsp_table_guard.remove(&self.rsp_id).and_then(|s| s.data);
+            Poll::Ready(r)
         }
     }
 }
 
-fn start_transfer<T>(connection: BoxKeylessConnection) -> SendHandle<T>
+pub(crate) fn start_transfer<R, W>(mut r: R, w: W) -> SendHandle
 where
-    T: Clone + Send + Unpin + 'static,
+    R: AsyncRead + Send + Unpin + 'static,
+    W: AsyncWrite + Send + Unpin + 'static,
 {
-    let (r, w) = connection;
-    let shared: Arc<SharedState<T>> = Arc::new(SharedState::default());
+    let shared = Arc::new(SharedState::default());
 
     let underlying_w = UnderlyingWriter {
         writer: w,
         state: UnderlyingWriterState {
             init: true,
             shared: Arc::clone(&shared),
-            current_buffer: vec![],
             current_offset: 0,
             current_request: None,
-            next_id: 0,
         },
     };
     tokio::spawn(underlying_w);
+    let handle = SendHandle {
+        shared: shared.clone(),
+    };
 
-    SendHandle { shared }
+    // TODO use a timer to clean timeout cache and keep hashtable small
+
+    tokio::spawn(async move {
+        let mut buf: Vec<u8> = Vec::with_capacity(512);
+        loop {
+            match KeylessResponse::read(&mut r, &mut buf).await {
+                Ok(r) => {
+                    let mut rsp_table_guard = shared.rsp_table.lock().unwrap();
+                    let Some(entry) = rsp_table_guard.get_mut(&r.id()) else {
+                        continue;
+                    };
+                    if let Some(waker) = entry.waker.take() {
+                        entry.data = Some(r);
+                        drop(rsp_table_guard);
+                        waker.wake();
+                    }
+                }
+                Err(e) => {
+                    shared.req_queue.close();
+                    shared.clean_pending_req();
+                    shared.set_rsp_error(e);
+                    break;
+                }
+            };
+        }
+    });
+
+    handle
 }

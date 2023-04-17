@@ -21,6 +21,9 @@ use clap::{ArgMatches, Command};
 
 use super::{BenchTarget, BenchTaskContext, ProcArgs};
 
+mod opts;
+use opts::{AppendKeylessArgs, KeylessGlobalArgs};
+
 mod cloudflare;
 
 pub const COMMAND: &str = "keyless";
