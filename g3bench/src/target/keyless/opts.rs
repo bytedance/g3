@@ -14,23 +14,65 @@
  * limitations under the License.
  */
 
-use std::fs::File;
-use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use anyhow::{anyhow, Context};
-use clap::{value_parser, Arg, ArgAction, ArgGroup, ArgMatches, Command};
+use clap::{value_parser, Arg, ArgAction, ArgGroup, ArgMatches, Command, ValueHint};
+use openssl::hash::MessageDigest;
+use openssl::nid::Nid;
+use openssl::pkey::{PKey, Private};
+use openssl::rsa::Padding;
+use openssl::sign::Signer;
 use openssl::x509::X509;
 
 const ARG_CERT: &str = "cert";
+const ARG_PKEY: &str = "key";
 const ARG_RSA_DECRYPT: &str = "rsa-decrypt";
-const ARG_RSA_DECRYPT_RAW: &str = "rsa-decrypt-raw";
 const ARG_RSA_SIGN: &str = "rsa-sign";
 const ARG_ECDSA_SIGN: &str = "ecdsa-sign";
 const ARG_DIGEST_TYPE: &str = "digest-type";
+const ARG_RSA_PADDING: &str = "rsa-padding";
+const ARG_PAYLOAD: &str = "payload";
 
 const DIGEST_TYPES: [&str; 6] = ["md5sha1", "sha1", "sha224", "sha256", "sha384", "sha512"];
+const RSA_PADDING_VALUES: [&str; 5] = ["PKCS1", "PKCS1_OAEP", "PKCS1_PSS", "X931", "NONE"];
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum KeylessRsaPadding {
+    None,
+    Pkcs1,
+    Pkcs1Oaep,
+    PkcsPss,
+    X931,
+}
+
+impl FromStr for KeylessRsaPadding {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "pkcs1" => Ok(KeylessRsaPadding::Pkcs1),
+            "pkcs1_oaep" => Ok(KeylessRsaPadding::Pkcs1Oaep),
+            "pkcs_pss" => Ok(KeylessRsaPadding::PkcsPss),
+            "x931" => Ok(KeylessRsaPadding::X931),
+            "none" => Ok(KeylessRsaPadding::None),
+            _ => Err(anyhow!("unsupported rsa padding type {s}")),
+        }
+    }
+}
+
+impl From<KeylessRsaPadding> for Padding {
+    fn from(value: KeylessRsaPadding) -> Self {
+        match value {
+            KeylessRsaPadding::None => Padding::NONE,
+            KeylessRsaPadding::Pkcs1 => Padding::PKCS1,
+            KeylessRsaPadding::Pkcs1Oaep => Padding::PKCS1_OAEP,
+            KeylessRsaPadding::PkcsPss => Padding::from_raw(6),
+            KeylessRsaPadding::X931 => Padding::from_raw(5),
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum KeylessSignDigest {
@@ -58,10 +100,22 @@ impl FromStr for KeylessSignDigest {
     }
 }
 
+impl From<KeylessSignDigest> for MessageDigest {
+    fn from(value: KeylessSignDigest) -> Self {
+        match value {
+            KeylessSignDigest::Md5Sha1 => MessageDigest::from_nid(Nid::MD5_SHA1).unwrap(),
+            KeylessSignDigest::Sha1 => MessageDigest::sha1(),
+            KeylessSignDigest::Sha224 => MessageDigest::sha224(),
+            KeylessSignDigest::Sha256 => MessageDigest::sha256(),
+            KeylessSignDigest::Sha384 => MessageDigest::sha384(),
+            KeylessSignDigest::Sha512 => MessageDigest::sha512(),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum KeylessAction {
-    RsaDecrypt,
-    RsaDecryptRaw,
+    RsaDecrypt(KeylessRsaPadding),
     RsaSign(KeylessSignDigest),
     EcdsaSign(KeylessSignDigest),
 }
@@ -72,6 +126,7 @@ pub(super) trait AppendKeylessArgs {
 
 pub(super) struct KeylessGlobalArgs {
     pub(super) cert: X509,
+    pub(super) key: Option<PKey<Private>>,
     pub(super) action: KeylessAction,
     pub(super) payload: Vec<u8>,
 }
@@ -81,52 +136,83 @@ impl KeylessGlobalArgs {
         let Some(file) = args.get_one::<PathBuf>(ARG_CERT) else {
             unreachable!();
         };
-        let cert = load_cert(file).context(format!(
-            "failed to load client certificate from file {}",
-            file.display()
-        ))?;
+        let cert = crate::target::tls::load_certs(file)?.pop().unwrap();
 
-        let action = if args.contains_id(ARG_RSA_DECRYPT) {
-            KeylessAction::RsaDecrypt
-        } else if args.contains_id(ARG_RSA_DECRYPT_RAW) {
-            KeylessAction::RsaDecryptRaw
-        } else if args.contains_id(ARG_RSA_SIGN) {
+        let payload_str = args.get_one::<String>(ARG_PAYLOAD).unwrap();
+        let payload = hex::decode(payload_str)
+            .map_err(|e| anyhow!("the payload string is not valid hex string: {e}"))?;
+
+        let action = if args.get_flag(ARG_RSA_DECRYPT) {
+            let padding_str = args.get_one::<String>(ARG_RSA_PADDING).unwrap();
+            let rsa_padding = KeylessRsaPadding::from_str(padding_str)?;
+
+            KeylessAction::RsaDecrypt(rsa_padding)
+        } else if args.get_flag(ARG_RSA_SIGN) {
             let digest_str = args.get_one::<String>(ARG_DIGEST_TYPE).unwrap();
             let digest_type = KeylessSignDigest::from_str(digest_str)?;
+
             KeylessAction::RsaSign(digest_type)
-        } else if args.contains_id(ARG_ECDSA_SIGN) {
+        } else if args.get_flag(ARG_ECDSA_SIGN) {
             let digest_str = args.get_one::<String>(ARG_DIGEST_TYPE).unwrap();
             let digest_type = KeylessSignDigest::from_str(digest_str)?;
+
             KeylessAction::EcdsaSign(digest_type)
         } else {
             return Err(anyhow!("no keyless action set"));
         };
 
-        Ok(KeylessGlobalArgs {
+        let mut key_args = KeylessGlobalArgs {
             cert,
+            key: None,
             action,
-            payload: Vec::new(),
-        })
-    }
-}
+            payload,
+        };
 
-fn load_cert(path: &Path) -> anyhow::Result<X509> {
-    const MAX_FILE_SIZE: usize = 4_000_000; // 4MB
-    let mut contents = String::with_capacity(MAX_FILE_SIZE);
-    let file =
-        File::open(path).map_err(|e| anyhow!("unable to open file {}: {e}", path.display()))?;
-    file.take(MAX_FILE_SIZE as u64)
-        .read_to_string(&mut contents)
-        .map_err(|e| anyhow!("failed to read contents of file {}: {e}", path.display()))?;
-    let mut certs = X509::stack_from_pem(contents.as_bytes())
-        .map_err(|e| anyhow!("invalid certificate file({}): {e}", path.display()))?;
-    if certs.is_empty() {
-        Err(anyhow!(
-            "no valid certificate found in file {}",
-            path.display()
-        ))
-    } else {
-        Ok(certs.pop().unwrap())
+        if let Some(file) = args.get_one::<PathBuf>(ARG_PKEY) {
+            let key = crate::target::tls::load_key(file)?;
+            key_args.key = Some(key);
+        }
+
+        Ok(key_args)
+    }
+
+    pub(super) fn rsa_decrypt(&self, padding: KeylessRsaPadding) -> anyhow::Result<Vec<u8>> {
+        let pkey = self
+            .key
+            .as_ref()
+            .ok_or_else(|| anyhow!("no private key set"))?;
+        let rsa = pkey.rsa().context("private key is not rsa")?;
+
+        let rsa_size = rsa.size() as usize;
+        let mut output_buf = Vec::new();
+        output_buf.resize(rsa_size, 0);
+
+        let payload_len = self.payload.len();
+        if payload_len > rsa_size {
+            return Err(anyhow!(
+                "payload length {payload_len} is larger than RSA size {rsa_size}"
+            ));
+        }
+
+        rsa.private_decrypt(&self.payload, &mut output_buf, padding.into())
+            .map_err(|e| anyhow!("rsa decrypt failed: {e}"))?;
+        Ok(output_buf)
+    }
+
+    pub(super) fn pkey_sign(&self, digest: KeylessSignDigest) -> anyhow::Result<Vec<u8>> {
+        let pkey = self
+            .key
+            .as_ref()
+            .ok_or_else(|| anyhow!("no private key set"))?;
+
+        let mut signer = Signer::new(digest.into(), pkey)
+            .map_err(|e| anyhow!("error when create signer: {e}"))?;
+        signer
+            .update(&self.payload)
+            .map_err(|e| anyhow!("failed to set payload data: {e}"))?;
+        signer
+            .sign_to_vec()
+            .map_err(|e| anyhow!("sign failed: {e}"))
     }
 }
 
@@ -137,21 +223,24 @@ fn add_keyless_args(cmd: Command) -> Command {
             .num_args(1)
             .long(ARG_CERT)
             .value_parser(value_parser!(PathBuf))
-            .required(true),
+            .required(true)
+            .value_hint(ValueHint::FilePath),
+    )
+    .arg(
+        Arg::new(ARG_PKEY)
+            .help("Target private key file")
+            .num_args(1)
+            .long(ARG_PKEY)
+            .value_parser(value_parser!(PathBuf))
+            .value_hint(ValueHint::FilePath),
     )
     .arg(
         Arg::new(ARG_RSA_DECRYPT)
             .help("RSA Decrypt")
             .num_args(0)
             .long(ARG_RSA_DECRYPT)
-            .action(ArgAction::SetTrue),
-    )
-    .arg(
-        Arg::new(ARG_RSA_DECRYPT_RAW)
-            .help("RSA Decrypt Raw")
-            .num_args(0)
-            .long(ARG_RSA_DECRYPT_RAW)
-            .action(ArgAction::SetTrue),
+            .action(ArgAction::SetTrue)
+            .requires(ARG_RSA_PADDING),
     )
     .arg(
         Arg::new(ARG_RSA_SIGN)
@@ -171,12 +260,7 @@ fn add_keyless_args(cmd: Command) -> Command {
     )
     .group(
         ArgGroup::new("method")
-            .args([
-                ARG_RSA_DECRYPT,
-                ARG_RSA_DECRYPT_RAW,
-                ARG_RSA_SIGN,
-                ARG_ECDSA_SIGN,
-            ])
+            .args([ARG_RSA_DECRYPT, ARG_RSA_SIGN, ARG_ECDSA_SIGN])
             .required(true),
     )
     .arg(
@@ -185,6 +269,20 @@ fn add_keyless_args(cmd: Command) -> Command {
             .num_args(1)
             .long(ARG_DIGEST_TYPE)
             .value_parser(DIGEST_TYPES),
+    )
+    .arg(
+        Arg::new(ARG_RSA_PADDING)
+            .help("RSA Padding Type")
+            .num_args(1)
+            .long(ARG_RSA_PADDING)
+            .value_parser(RSA_PADDING_VALUES)
+            .default_value("PKCS1"),
+    )
+    .arg(
+        Arg::new(ARG_PAYLOAD)
+            .help("Payload data")
+            .num_args(1)
+            .required(true),
     )
 }
 

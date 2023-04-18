@@ -26,16 +26,20 @@ use opts::{AppendKeylessArgs, KeylessGlobalArgs};
 
 mod cloudflare;
 
+mod openssl;
+
 pub const COMMAND: &str = "keyless";
 
 pub fn command() -> Command {
     Command::new(COMMAND)
         .display_name("PROVIDER")
+        .subcommand(openssl::command())
         .subcommand(cloudflare::command())
 }
 
 pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Result<()> {
     match cmd_args.subcommand() {
+        Some((openssl::COMMAND, args)) => openssl::run(proc_args, args).await,
         Some((cloudflare::COMMAND, args)) => cloudflare::run(proc_args, args).await,
         Some((provider, _)) => Err(anyhow!("invalid provider {provider}")),
         None => Err(anyhow!("no provider set")),

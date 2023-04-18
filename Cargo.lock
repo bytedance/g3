@@ -1325,6 +1325,7 @@ dependencies = [
  "g3-types",
  "h2",
  "hdrhistogram",
+ "hex",
  "http",
  "indicatif",
  "is-terminal",

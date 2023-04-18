@@ -38,7 +38,7 @@ struct SharedState {
     next_req_id: AtomicU32,
     req_queue: ConcurrentQueue<(KeylessRequest, Waker)>,
     rsp_table: Mutex<HashMap<u32, ResponseValue, FxBuildHasher>>,
-    error: Mutex<Option<KeylessResponseError>>,
+    error: Mutex<Option<Arc<KeylessResponseError>>>,
 }
 
 impl SharedState {
@@ -48,12 +48,12 @@ impl SharedState {
 
     fn set_req_error(&self, e: io::Error) {
         let mut req_err_guard = self.error.lock().unwrap();
-        *req_err_guard = Some(KeylessLocalError::WriteFailed(e).into());
+        *req_err_guard = Some(Arc::new(KeylessLocalError::WriteFailed(e).into()));
     }
 
     fn set_rsp_error(&self, e: KeylessResponseError) {
         let mut rsp_err_guard = self.error.lock().unwrap();
-        *rsp_err_guard = Some(e);
+        *rsp_err_guard = Some(Arc::new(e));
     }
 
     fn clean_pending_req(&self) {
@@ -178,6 +178,11 @@ impl SendHandle {
             request: Some(req),
             rsp_id: 0,
         }
+    }
+
+    pub(crate) fn fetch_error(&self) -> Option<Arc<KeylessResponseError>> {
+        let guard = self.shared.error.lock().unwrap();
+        guard.clone()
     }
 }
 

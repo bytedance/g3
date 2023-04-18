@@ -220,7 +220,7 @@ impl OpensslTlsClientArgs {
     }
 }
 
-fn load_certs(path: &Path) -> anyhow::Result<Vec<X509>> {
+pub(crate) fn load_certs(path: &Path) -> anyhow::Result<Vec<X509>> {
     const MAX_FILE_SIZE: usize = 4_000_000; // 4MB
     let mut contents = String::with_capacity(MAX_FILE_SIZE);
     let file =
@@ -240,7 +240,7 @@ fn load_certs(path: &Path) -> anyhow::Result<Vec<X509>> {
     }
 }
 
-fn load_key(path: &Path) -> anyhow::Result<PKey<Private>> {
+pub(crate) fn load_key(path: &Path) -> anyhow::Result<PKey<Private>> {
     const MAX_FILE_SIZE: usize = 256_000; // 256KB
     let mut contents = String::with_capacity(MAX_FILE_SIZE);
     let file =

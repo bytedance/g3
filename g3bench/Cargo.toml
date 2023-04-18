@@ -28,6 +28,7 @@ hdrhistogram = "7.5"
 ahash.workspace = true
 fxhash.workspace = true
 concurrent-queue = "2.2"
+hex.workspace = true
 g3-runtime = { path = "../lib/g3-runtime" }
 g3-signal = { path = "../lib/g3-signal" }
 g3-types = { path = "../lib/g3-types", features = ["proxy"] }
