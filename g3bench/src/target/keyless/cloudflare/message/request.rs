@@ -33,6 +33,8 @@ pub(crate) enum KeylessOpCode {
     RsaSignSha384 = 0x06,
     RsaSignSha512 = 0x07,
     RsaRawDecrypt = 0x08,
+    #[allow(unused)]
+    EcdsaMask = 0x10,
     EcdsaSignMd5sha1 = 0x12,
     EcdsaSignSha1 = 0x13,
     EcdsaSignSha224 = 0x14,

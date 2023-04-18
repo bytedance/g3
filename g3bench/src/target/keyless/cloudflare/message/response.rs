@@ -109,13 +109,17 @@ fn parse_buf(buf: &[u8]) -> Result<Vec<u8>, KeylessResponseError> {
         }
 
         match item {
+            // OPCODE
             0x11 => {
                 if item_len != 1 {
                     return Err(KeylessLocalError::InvalidItemLength(item).into());
                 }
                 opcode = buf[offset];
             }
+            // PAYLOAD
             0x12 => data_buf = &buf[offset..offset + item_len],
+            // PADDING
+            0x20 => {}
             _ => return Err(KeylessLocalError::InvalidItemTag(item).into()),
         }
 
