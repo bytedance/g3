@@ -19,7 +19,7 @@ use std::io;
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncReadExt};
 
-#[derive(Debug, Error)]
+#[derive(Clone, Copy, Debug, Error)]
 pub(crate) enum KeylessServerError {
     #[error("cryptography failure")]
     CryptographyFailure,

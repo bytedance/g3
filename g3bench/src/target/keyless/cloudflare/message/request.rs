@@ -19,7 +19,7 @@ use bytes::BufMut;
 use openssl::hash::{DigestBytes, MessageDigest};
 use openssl::x509::X509Ref;
 
-use crate::target::keyless::opts::{KeylessAction, KeylessSignDigest};
+use crate::target::keyless::opts::{KeylessAction, KeylessRsaPadding, KeylessSignDigest};
 
 #[non_exhaustive]
 #[repr(u8)]
@@ -46,8 +46,11 @@ impl TryFrom<KeylessAction> for KeylessOpCode {
 
     fn try_from(value: KeylessAction) -> Result<Self, Self::Error> {
         match value {
-            KeylessAction::RsaDecrypt => Ok(KeylessOpCode::RsaDecrypt),
-            KeylessAction::RsaDecryptRaw => Ok(KeylessOpCode::RsaRawDecrypt),
+            KeylessAction::RsaDecrypt(KeylessRsaPadding::None) => Ok(KeylessOpCode::RsaRawDecrypt),
+            KeylessAction::RsaDecrypt(KeylessRsaPadding::Pkcs1) => Ok(KeylessOpCode::RsaDecrypt),
+            KeylessAction::RsaDecrypt(padding) => {
+                Err(anyhow!("unsupported rsa padding type {padding:?}"))
+            }
             KeylessAction::RsaSign(KeylessSignDigest::Md5Sha1) => Ok(KeylessOpCode::RsaSignMd5Sha1),
             KeylessAction::RsaSign(KeylessSignDigest::Sha1) => Ok(KeylessOpCode::RsaSignSha1),
             KeylessAction::RsaSign(KeylessSignDigest::Sha224) => Ok(KeylessOpCode::RsaSignSha224),

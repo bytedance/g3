@@ -153,6 +153,9 @@ impl KeylessCloudflareArgs {
 pub(super) fn add_cloudflare_args(app: Command) -> Command {
     app.arg(
         Arg::new(CF_ARG_TARGET)
+            .help("Target service address")
+            .value_name("ADDRESS")
+            .long(CF_ARG_TARGET)
             .required(true)
             .num_args(1)
             .value_parser(value_parser!(UpstreamAddr)),

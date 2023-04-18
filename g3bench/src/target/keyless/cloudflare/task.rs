@@ -131,7 +131,10 @@ impl BenchTaskContext for KeylessCloudflareTaskContext {
             }
             None => {
                 self.save = None;
-                Err(anyhow!(""))
+                match handle.fetch_error() {
+                    Some(e) => Err(anyhow!(e)),
+                    None => Err(anyhow!("we get no response but no error reported")),
+                }
             }
         }
     }
