@@ -46,9 +46,13 @@ impl TryFrom<KeylessAction> for KeylessOpCode {
 
     fn try_from(value: KeylessAction) -> Result<Self, Self::Error> {
         match value {
-            KeylessAction::RsaDecrypt(KeylessRsaPadding::None) => Ok(KeylessOpCode::RsaRawDecrypt),
-            KeylessAction::RsaDecrypt(KeylessRsaPadding::Pkcs1) => Ok(KeylessOpCode::RsaDecrypt),
-            KeylessAction::RsaDecrypt(padding) => {
+            KeylessAction::RsaPrivateDecrypt(KeylessRsaPadding::None) => {
+                Ok(KeylessOpCode::RsaRawDecrypt)
+            }
+            KeylessAction::RsaPrivateDecrypt(KeylessRsaPadding::Pkcs1) => {
+                Ok(KeylessOpCode::RsaDecrypt)
+            }
+            KeylessAction::RsaPrivateDecrypt(padding) => {
                 Err(anyhow!("unsupported rsa padding type {padding:?}"))
             }
             KeylessAction::RsaSign(KeylessSignDigest::Md5Sha1) => Ok(KeylessOpCode::RsaSignMd5Sha1),
@@ -73,6 +77,7 @@ impl TryFrom<KeylessAction> for KeylessOpCode {
             KeylessAction::EcdsaSign(KeylessSignDigest::Sha512) => {
                 Ok(KeylessOpCode::EcdsaSignSha512)
             }
+            _ => Err(anyhow!("unsupported action: {value:?}")),
         }
     }
 }

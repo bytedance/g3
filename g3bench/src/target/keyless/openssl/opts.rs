@@ -30,7 +30,10 @@ pub(super) struct KeylessOpensslArgs {
 impl KeylessOpensslArgs {
     pub(super) fn handle_action(&self) -> anyhow::Result<Vec<u8>> {
         match self.global.action {
-            KeylessAction::RsaDecrypt(padding) => self.global.rsa_decrypt(padding),
+            KeylessAction::RsaPrivateDecrypt(padding) => self.global.rsa_private_decrypt(padding),
+            KeylessAction::RsaPrivateEncrypt(padding) => self.global.rsa_private_encrypt(padding),
+            KeylessAction::RsaPublicEncrypt(padding) => self.global.rsa_public_encrypt(padding),
+            KeylessAction::RsaPublicDecrypt(padding) => self.global.rsa_public_decrypt(padding),
             KeylessAction::RsaSign(digest) => self.global.pkey_sign(digest),
             KeylessAction::EcdsaSign(digest) => self.global.pkey_sign(digest),
         }
