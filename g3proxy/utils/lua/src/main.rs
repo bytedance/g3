@@ -37,6 +37,7 @@ fn build_cli_args() -> Command {
                 .value_parser(value_parser!(Shell))
                 .exclusive(true),
         )
+        .subcommand_required(true)
         .subcommand(cmd_version::command())
         .subcommand(cmd_path::command())
         .subcommand(cmd_run::command())

@@ -131,6 +131,7 @@ fn build_cli_args() -> Command {
                 .short('p')
                 .long("daemon-pid"),
         )
+        .subcommand_required(true)
         .subcommand(proc::commands::version())
         .subcommand(proc::commands::offline())
         .subcommand(proc::commands::force_quit())

@@ -32,7 +32,8 @@ pub const COMMAND: &str = "keyless";
 
 pub fn command() -> Command {
     Command::new(COMMAND)
-        .display_name("PROVIDER")
+        .subcommand_required(true)
+        .subcommand_value_name("PROVIDER")
         .subcommand(openssl::command())
         .subcommand(cloudflare::command())
 }

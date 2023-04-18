@@ -95,6 +95,7 @@ fn build_cli_args() -> Command {
                 .short('v')
                 .global(true),
         )
+        .subcommand_required(true)
         .subcommand(cmd_list::command())
         .subcommand(cmd_stat::command())
         .subcommand(cmd_get::command())

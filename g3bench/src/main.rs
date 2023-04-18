@@ -26,6 +26,8 @@ const COMMAND_COMPLETION: &str = "completion";
 
 fn build_cli_args() -> Command {
     g3bench::add_global_args(Command::new("g3bench"))
+        .subcommand_required(true)
+        .subcommand_value_name("TARGET")
         .subcommand(Command::new(COMMAND_VERSION).override_help("Show version"))
         .subcommand(
             Command::new(COMMAND_COMPLETION).arg(
