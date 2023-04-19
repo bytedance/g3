@@ -165,6 +165,7 @@ where
 #[derive(Clone)]
 pub(crate) struct SendHandle {
     shared: Arc<SharedState>,
+    writer_waker: Waker,
 }
 
 impl SendHandle {
@@ -175,6 +176,7 @@ impl SendHandle {
     pub(crate) fn send_request(&self, req: KeylessRequest) -> SendRequest {
         SendRequest {
             shared: self.shared.clone(),
+            writer_waker: self.writer_waker.clone(),
             request: Some(req),
             rsp_id: 0,
         }
@@ -186,9 +188,32 @@ impl SendHandle {
     }
 }
 
+struct WaitWriteWaker {
+    shared: Arc<SharedState>,
+}
+
+impl Future for WaitWriteWaker {
+    type Output = SendHandle;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let underlying_waker_guard = self.shared.write_waker.read().unwrap();
+        match &*underlying_waker_guard {
+            Some(waker) => Poll::Ready(SendHandle {
+                shared: self.shared.clone(),
+                writer_waker: waker.clone(),
+            }),
+            None => {
+                cx.waker().wake_by_ref();
+                Poll::Pending
+            }
+        }
+    }
+}
+
 #[derive(Clone)]
 pub(crate) struct SendRequest {
     shared: Arc<SharedState>,
+    writer_waker: Waker,
     request: Option<KeylessRequest>,
     rsp_id: u32,
 }
@@ -198,32 +223,21 @@ impl Future for SendRequest {
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         if let Some(mut req) = self.request.take() {
-            let underlying_waker_guard = self.shared.write_waker.read().unwrap();
-            if let Some(underlying_waker) = &*underlying_waker_guard {
-                let rsp_waker = cx.waker().clone();
-                let id = self.shared.next_req_id();
-                req.set_id(id);
-                match self.shared.req_queue.push((req, rsp_waker)) {
-                    Ok(_) => {
-                        underlying_waker.wake_by_ref();
-                        drop(underlying_waker_guard);
-                        self.rsp_id = id;
-                        Poll::Pending
-                    }
-                    Err(PushError::Closed(_)) => Poll::Ready(None),
-                    Err(PushError::Full((req, waker))) => {
-                        drop(underlying_waker_guard);
-                        self.request = Some(req);
-                        waker.wake();
-                        Poll::Pending
-                    }
+            let rsp_waker = cx.waker().clone();
+            let id = self.shared.next_req_id();
+            req.set_id(id);
+            match self.shared.req_queue.push((req, rsp_waker)) {
+                Ok(_) => {
+                    self.writer_waker.wake_by_ref();
+                    self.rsp_id = id;
+                    Poll::Pending
                 }
-            } else {
-                drop(underlying_waker_guard);
-                self.request = Some(req);
-                // wait underlying writer
-                cx.waker().wake_by_ref();
-                Poll::Pending
+                Err(PushError::Closed(_)) => Poll::Ready(None),
+                Err(PushError::Full((req, waker))) => {
+                    self.request = Some(req);
+                    waker.wake();
+                    Poll::Pending
+                }
             }
         } else {
             let mut rsp_table_guard = self.shared.rsp_table.lock().unwrap();
@@ -233,7 +247,7 @@ impl Future for SendRequest {
     }
 }
 
-pub(crate) fn start_transfer<R, W>(mut r: R, w: W) -> SendHandle
+pub(crate) async fn start_transfer<R, W>(mut r: R, w: W) -> SendHandle
 where
     R: AsyncRead + Send + Unpin + 'static,
     W: AsyncWrite + Send + Unpin + 'static,
@@ -250,7 +264,7 @@ where
         },
     };
     tokio::spawn(underlying_w);
-    let handle = SendHandle {
+    let wait_waiter = WaitWriteWaker {
         shared: shared.clone(),
     };
 
@@ -281,5 +295,5 @@ where
         }
     });
 
-    handle
+    wait_waiter.await
 }
