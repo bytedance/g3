@@ -19,7 +19,9 @@ use std::str::FromStr;
 
 use anyhow::anyhow;
 use clap::{value_parser, Arg, ArgAction, ArgGroup, ArgMatches, Command, ValueHint};
-use openssl::hash::MessageDigest;
+use openssl::bn::BigNumContext;
+use openssl::ec::PointConversionForm;
+use openssl::hash::{DigestBytes, MessageDigest};
 use openssl::nid::Nid;
 use openssl::pkey::{PKey, Private};
 use openssl::rsa::Padding;
@@ -195,6 +197,33 @@ impl KeylessGlobalArgs {
         }
 
         Ok(key_args)
+    }
+
+    pub(super) fn get_public_key_digest(&self) -> anyhow::Result<DigestBytes> {
+        let pkey = self
+            .cert
+            .public_key()
+            .map_err(|e| anyhow!("no public key found in cert: {e}"))?;
+        if let Ok(rsa) = pkey.rsa() {
+            let hex = rsa
+                .n()
+                .to_hex_str()
+                .map_err(|e| anyhow!("failed to get hex string of rsa modulus: {e}"))?;
+            openssl::hash::hash(MessageDigest::sha256(), hex.as_bytes())
+                .map_err(|e| anyhow!("public key digest hash error: {e}"))
+        } else if let Ok(ec) = pkey.ec_key() {
+            let group = ec.group();
+            let point = ec.public_key();
+            let mut ctx = BigNumContext::new_secure().unwrap();
+            let bytes = point
+                .to_bytes(group, PointConversionForm::COMPRESSED, &mut ctx)
+                .unwrap();
+            let hex = hex::encode(bytes);
+            openssl::hash::hash(MessageDigest::sha256(), hex.as_bytes())
+                .map_err(|e| anyhow!("public key digest hash error: {e}"))
+        } else {
+            Err(anyhow!("unsupported public type: {:?}", pkey.id()))
+        }
     }
 
     pub(super) fn rsa_private_decrypt(

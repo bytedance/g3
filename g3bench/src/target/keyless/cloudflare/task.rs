@@ -49,8 +49,8 @@ impl KeylessCloudflareTaskContext {
         histogram_recorder: Option<KeylessHistogramRecorder>,
         pool: Option<Arc<KeylessConnectionPool>>,
     ) -> anyhow::Result<Self> {
-        let request_builder =
-            KeylessRequestBuilder::new(args.global.cert.as_ref(), args.global.action)?;
+        let pkey_digest = args.global.get_public_key_digest()?;
+        let request_builder = KeylessRequestBuilder::new(pkey_digest, args.global.action)?;
         let request_message = request_builder.build(&args.global.payload)?;
         Ok(KeylessCloudflareTaskContext {
             args: Arc::clone(args),

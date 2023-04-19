@@ -16,8 +16,7 @@
 
 use anyhow::anyhow;
 use bytes::BufMut;
-use openssl::hash::{DigestBytes, MessageDigest};
-use openssl::x509::X509Ref;
+use openssl::hash::DigestBytes;
 
 use crate::target::keyless::opts::{KeylessAction, KeylessRsaPadding, KeylessSignDigest};
 
@@ -89,11 +88,8 @@ pub(crate) struct KeylessRequestBuilder {
 }
 
 impl KeylessRequestBuilder {
-    pub(crate) fn new(cert: &X509Ref, action: KeylessAction) -> anyhow::Result<Self> {
+    pub(crate) fn new(digest: DigestBytes, action: KeylessAction) -> anyhow::Result<Self> {
         let opcode = KeylessOpCode::try_from(action)?;
-        let digest = cert
-            .digest(MessageDigest::sha256())
-            .map_err(|e| anyhow!("failed to get cert digest: {e}"))?;
         Ok(KeylessRequestBuilder {
             opcode,
             cert_digest: digest,
