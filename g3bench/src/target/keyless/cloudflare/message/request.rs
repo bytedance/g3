@@ -115,6 +115,8 @@ impl KeylessRequestBuilder {
 
         // OpCode
         buf.push(0x11);
+        buf.push(0x00);
+        buf.push(0x01);
         buf.push(self.opcode as u8);
 
         // Payload
@@ -131,6 +133,8 @@ impl KeylessRequestBuilder {
         if len > u16::MAX as usize {
             return Err(anyhow!("message length too long"));
         }
+        buf[2] = ((len >> 8) & 0xFF) as u8;
+        buf[3] = (len & 0xFF) as u8;
 
         Ok(KeylessRequest { buf, id: 0 })
     }

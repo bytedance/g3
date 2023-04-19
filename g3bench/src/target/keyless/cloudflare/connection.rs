@@ -219,6 +219,8 @@ impl Future for SendRequest {
                     }
                 }
             } else {
+                drop(underlying_waker_guard);
+                self.request = Some(req);
                 // wait underlying writer
                 cx.waker().wake_by_ref();
                 Poll::Pending
@@ -271,8 +273,8 @@ where
                 }
                 Err(e) => {
                     shared.req_queue.close();
-                    shared.clean_pending_req();
                     shared.set_rsp_error(e);
+                    shared.clean_pending_req();
                     break;
                 }
             };
