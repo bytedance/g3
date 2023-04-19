@@ -21,22 +21,26 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 
 #[derive(Clone, Copy, Debug, Error)]
 pub(crate) enum KeylessServerError {
-    #[error("cryptography failure")]
+    #[error("cryptography error")]
     CryptographyFailure,
-    #[error("no matching certificate ID")]
+    #[error("key not found due to no matching SKI/SNI/ServerIP")]
     KeyNotFound,
     #[error("I/O read failure")]
     ReadError,
-    #[error("unsupported version incorrect")]
+    #[error("version mismatch")]
     VersionMismatch,
-    #[error("use of unknown opcode in request")]
+    #[error("bad opcode")]
     BadOpCode,
-    #[error("use of response opcode in request")]
+    #[error("unexpected opcode")]
     UnexpectedOpCode,
     #[error("malformed message")]
     FormatError,
-    #[error("memory or other internal error")]
+    #[error("internal error")]
     InternalError,
+    #[error("certificate not found")]
+    CertNotFound,
+    #[error("sealing key expired")]
+    Expired,
 }
 
 impl From<u8> for KeylessResponseError {
@@ -50,6 +54,8 @@ impl From<u8> for KeylessResponseError {
             0x06 => KeylessServerError::UnexpectedOpCode.into(),
             0x07 => KeylessServerError::FormatError.into(),
             0x08 => KeylessServerError::InternalError.into(),
+            0x09 => KeylessServerError::CertNotFound.into(),
+            0x0A => KeylessServerError::Expired.into(),
             n => KeylessLocalError::UnsupportedServerErrorCode(n).into(),
         }
     }

@@ -20,24 +20,57 @@ use openssl::hash::DigestBytes;
 
 use crate::target::keyless::opts::{KeylessAction, KeylessRsaPadding, KeylessSignDigest};
 
+const PADDED_LENGTH: usize = 1024;
+const HEADER_LENGTH: usize = 8;
+
 #[non_exhaustive]
 #[repr(u8)]
 #[derive(Clone, Copy)]
 pub(crate) enum KeylessOpCode {
+    // requests an RSA decrypted payload
     RsaDecrypt = 0x01,
+    // requests an RSA signature on an MD5SHA1 hash payload
     RsaSignMd5Sha1 = 0x02,
+    // requests an RSA signature on an SHA1 hash payload
     RsaSignSha1 = 0x03,
+    // requests an RSA signature on an SHA224 hash payload
     RsaSignSha224 = 0x04,
+    // requests an RSA signature on an SHA256 hash payload
     RsaSignSha256 = 0x05,
+    // requests an RSA signature on an SHA384 hash payload
     RsaSignSha384 = 0x06,
+    // requests an RSA signature on an SHA512 hash payload
     RsaSignSha512 = 0x07,
-    RsaRawDecrypt = 0x08,
+    // requests an ECDSA signature on an MD5SHA1 hash payload
     EcdsaSignMd5sha1 = 0x12,
+    // requests an ECDSA signature on an SHA1 hash payload
     EcdsaSignSha1 = 0x13,
+    // requests an ECDSA signature on an SHA224 hash payload
     EcdsaSignSha224 = 0x14,
+    // requests an ECDSA signature on an SHA256 hash payload
     EcdsaSignSha256 = 0x15,
+    // requests an ECDSA signature on an SHA384 hash payload
     EcdsaSignSha384 = 0x16,
+    // requests an ECDSA signature on an SHA512 hash payload
     EcdsaSignSha512 = 0x17,
+    // requests an Ed25519 signature on an arbitrary-length payload
+    #[allow(unused)]
+    Ed25519Sign = 0x18,
+    // asks to encrypt a blob (like a Session Ticket)
+    #[allow(unused)]
+    Seal = 0x21,
+    // asks to decrypt a blob encrypted by OpSeal
+    #[allow(unused)]
+    Unseal = 0x22,
+    // requests an RSASSA-PSS signature on an SHA256 hash payload
+    #[allow(unused)]
+    RsaPssSignSha256 = 0x35,
+    // requests an RSASSA-PSS signature on an SHA384 hash payload
+    #[allow(unused)]
+    RsaPssSignSha384 = 0x36,
+    // requests an RSASSA-PSS signature on an SHA512 hash payload
+    #[allow(unused)]
+    RsaPssSignSha512 = 0x37,
 }
 
 impl TryFrom<KeylessAction> for KeylessOpCode {
@@ -45,9 +78,6 @@ impl TryFrom<KeylessAction> for KeylessOpCode {
 
     fn try_from(value: KeylessAction) -> Result<Self, Self::Error> {
         match value {
-            KeylessAction::RsaPrivateDecrypt(KeylessRsaPadding::None) => {
-                Ok(KeylessOpCode::RsaRawDecrypt)
-            }
             KeylessAction::RsaPrivateDecrypt(KeylessRsaPadding::Pkcs1) => {
                 Ok(KeylessOpCode::RsaDecrypt)
             }
@@ -114,9 +144,7 @@ impl KeylessRequestBuilder {
         }
 
         // OpCode
-        buf.push(0x11);
-        buf.push(0x00);
-        buf.push(0x01);
+        buf.put_slice(&[0x11, 0x00, 0x01]);
         buf.push(self.opcode as u8);
 
         // Payload
@@ -129,7 +157,23 @@ impl KeylessRequestBuilder {
         buf.push((payload_len & 0xFF) as u8);
         buf.put_slice(&payload[0..payload_len]);
 
-        let len = buf.len() - 4;
+        if buf.len() < PADDED_LENGTH {
+            match PADDED_LENGTH - buf.len() {
+                0 => unreachable!(),
+                1 | 2 | 3 => {
+                    buf.put_slice(&[0x20, 0x00, 0x00]);
+                }
+                n => {
+                    let left = n - 3;
+                    buf.push(0x20);
+                    buf.push(((left >> 8) & 0xFF) as u8);
+                    buf.push((left & 0xFF) as u8);
+                    buf.resize(PADDED_LENGTH, 0);
+                }
+            }
+        }
+
+        let len = buf.len() - HEADER_LENGTH;
         if len > u16::MAX as usize {
             return Err(anyhow!("message length too long"));
         }
