@@ -66,6 +66,7 @@ impl BenchTaskContext for KeylessOpensslTaskContext {
             r.record_total_time(total_time);
         }
         self.args.global.dump_result(task_id, output);
+        tokio::task::yield_now().await;
         Ok(())
     }
 }
