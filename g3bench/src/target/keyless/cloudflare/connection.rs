@@ -20,7 +20,7 @@ use std::io;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
-use std::task::{Context, Poll, Waker};
+use std::task::{ready, Context, Poll, Waker};
 
 use concurrent_queue::{ConcurrentQueue, PopError, PushError};
 use fxhash::FxBuildHasher;
@@ -101,6 +101,7 @@ impl UnderlyingWriterState {
             self.init = false;
         }
 
+        let mut do_flush = false;
         loop {
             if let Some((req, waker)) = self.current_request.take() {
                 let current_buffer = req.as_bytes();
@@ -109,7 +110,10 @@ impl UnderlyingWriterState {
                         .as_mut()
                         .poll_write(cx, &current_buffer[self.current_offset..])
                     {
-                        Poll::Ready(Ok(n)) => self.current_offset += n,
+                        Poll::Ready(Ok(n)) => {
+                            self.current_offset += n;
+                            do_flush = true;
+                        }
                         Poll::Ready(Err(e)) => {
                             self.shared.req_queue.close();
                             self.shared.clean_pending_req();
@@ -137,7 +141,17 @@ impl UnderlyingWriterState {
                     self.current_offset = 0;
                     self.current_request = Some((req, waker));
                 }
-                Err(PopError::Empty) => return Poll::Pending,
+                Err(PopError::Empty) => {
+                    if do_flush {
+                        if let Err(e) = ready!(writer.as_mut().poll_flush(cx)) {
+                            self.shared.req_queue.close();
+                            self.shared.clean_pending_req();
+                            self.shared.set_req_error(e);
+                            return Poll::Ready(());
+                        }
+                    }
+                    return Poll::Pending;
+                }
                 Err(PopError::Closed) => return Poll::Ready(()),
             }
         }
