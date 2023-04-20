@@ -1,4 +1,8 @@
 
+v1.7.13:
+ - Feature: allow to set anonymous user in user group
+ - Feature: allow to set retry in failover resolver if the first answer is empty
+
 v1.7.12:
  - Optimization: do batch tcp accept
  - Feature: try best to reserve the case of http header name
