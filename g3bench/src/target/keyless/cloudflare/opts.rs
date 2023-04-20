@@ -40,12 +40,14 @@ const CF_ARG_CONNECTION_POOL: &str = "connection-pool";
 const CF_ARG_TARGET: &str = "target";
 const CF_ARG_LOCAL_ADDRESS: &str = "local-address";
 const CF_ARG_CONNECT_TIMEOUT: &str = "connect-timeout";
+const CF_ARG_TIMEOUT: &str = "timeout";
 
 pub(super) struct KeylessCloudflareArgs {
     pub(super) global: KeylessGlobalArgs,
     pub(super) pool_size: Option<usize>,
     target: UpstreamAddr,
     bind: Option<IpAddr>,
+    pub(super) timeout: Duration,
     pub(super) connect_timeout: Duration,
     pub(super) tls: OpensslTlsClientArgs,
     proxy_protocol: ProxyProtocolArgs,
@@ -64,6 +66,7 @@ impl KeylessCloudflareArgs {
             pool_size: None,
             target,
             bind: None,
+            timeout: Duration::from_secs(5),
             connect_timeout: Duration::from_secs(10),
             tls,
             proxy_protocol: ProxyProtocolArgs::default(),
@@ -188,6 +191,14 @@ pub(super) fn add_cloudflare_args(app: Command) -> Command {
             .long(CF_ARG_CONNECT_TIMEOUT)
             .num_args(1),
     )
+    .arg(
+        Arg::new(CF_ARG_TIMEOUT)
+            .value_name("TIMEOUT DURATION")
+            .help("Timeout for a single request")
+            .default_value("5s")
+            .long(CF_ARG_TIMEOUT)
+            .num_args(1),
+    )
     .append_keyless_args()
     .append_tls_args()
     .append_proxy_protocol_args()
@@ -217,6 +228,9 @@ pub(super) fn parse_cloudflare_args(args: &ArgMatches) -> anyhow::Result<Keyless
 
     if let Some(timeout) = g3_clap::humanize::get_duration(args, CF_ARG_CONNECT_TIMEOUT)? {
         cf_args.connect_timeout = timeout;
+    }
+    if let Some(timeout) = g3_clap::humanize::get_duration(args, CF_ARG_TIMEOUT)? {
+        cf_args.timeout = timeout;
     }
 
     cf_args

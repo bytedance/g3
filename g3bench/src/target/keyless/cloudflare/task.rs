@@ -25,7 +25,7 @@ use super::{
     KeylessRequest, KeylessRuntimeStats, SendHandle,
 };
 use crate::opts::ProcArgs;
-use crate::target::keyless::cloudflare::message::KeylessRequestBuilder;
+use crate::target::keyless::cloudflare::message::{KeylessRequestBuilder, KeylessResponse};
 
 pub(super) struct KeylessCloudflareTaskContext {
     args: Arc<KeylessCloudflareArgs>,
@@ -99,6 +99,22 @@ impl KeylessCloudflareTaskContext {
         self.save = Some(handle.clone());
         Ok(handle)
     }
+
+    async fn do_run(&self, handle: SendHandle) -> anyhow::Result<KeylessResponse> {
+        match tokio::time::timeout(
+            self.args.timeout,
+            handle.send_request(self.request_message.clone()),
+        )
+        .await
+        {
+            Ok(Some(rsp)) => Ok(rsp),
+            Ok(None) => match handle.fetch_error() {
+                Some(e) => Err(anyhow!(e)),
+                None => Err(anyhow!("we get no response but no error reported")),
+            },
+            Err(_) => Err(anyhow!("request timed out")),
+        }
+    }
 }
 
 #[async_trait]
@@ -121,22 +137,18 @@ impl BenchTaskContext for KeylessCloudflareTaskContext {
     async fn run(&mut self, task_id: usize, time_started: Instant) -> anyhow::Result<()> {
         let handle = self.fetch_handle().await?;
 
-        match handle.send_request(self.request_message.clone()).await {
-            Some(rsp) => {
+        self.do_run(handle)
+            .await
+            .map(|rsp| {
                 let total_time = time_started.elapsed();
                 if let Some(r) = &mut self.histogram_recorder {
                     r.record_total_time(total_time);
                 }
                 self.args.global.dump_result(task_id, rsp.into_vec());
-                Ok(())
-            }
-            None => {
+            })
+            .map_err(|e| {
                 self.save = None;
-                match handle.fetch_error() {
-                    Some(e) => Err(anyhow!(e)),
-                    None => Err(anyhow!("we get no response but no error reported")),
-                }
-            }
-        }
+                e
+            })
     }
 }
