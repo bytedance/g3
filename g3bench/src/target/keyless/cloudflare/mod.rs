@@ -71,6 +71,10 @@ impl BenchTarget<KeylessRuntimeStats, KeylessHistogram, KeylessCloudflareTaskCon
     fn take_histogram(&mut self) -> Option<KeylessHistogram> {
         self.histogram.take()
     }
+
+    fn notify_finish(&mut self) {
+        self.pool = None;
+    }
 }
 
 pub(super) fn command() -> Command {

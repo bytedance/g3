@@ -246,46 +246,7 @@ where
             None
         };
     // histogram runtime stats
-    let histogram_stats_handler = if let Some(mut histogram) = target.take_histogram() {
-        let quit_notifier = quit_notifier.clone();
-        let thread_builder = std::thread::Builder::new().name("histogram".to_string());
-        if let Some((statsd_client, emit_duration)) = proc_args.new_statsd_client() {
-            let handler = thread_builder
-                .spawn(move || {
-                    loop {
-                        histogram.refresh();
-                        histogram.emit(&statsd_client);
-
-                        if quit_notifier.load(Ordering::Relaxed) {
-                            break;
-                        }
-
-                        std::thread::sleep(emit_duration);
-                    }
-                    histogram
-                })
-                .map_err(|e| anyhow!("failed to create histogram metrics thread: {e}"))?;
-            Some(handler)
-        } else {
-            let handler = thread_builder
-                .spawn(move || {
-                    loop {
-                        histogram.refresh();
-
-                        if quit_notifier.load(Ordering::Relaxed) {
-                            break;
-                        }
-
-                        std::thread::sleep(Duration::from_millis(100));
-                    }
-                    histogram
-                })
-                .map_err(|e| anyhow!("failed to create histogram refresh thread: {e}"))?;
-            Some(handler)
-        }
-    } else {
-        None
-    };
+    let histogram_stats = target.take_histogram();
 
     let time_start = Instant::now();
     sync_barrier.wait().await;
@@ -319,15 +280,9 @@ where
     H::summary_newline();
     target.notify_finish();
     target.fetch_runtime_stats().summary(total_time);
-    if let Some(handler) = histogram_stats_handler {
-        match handler.join() {
-            Ok(mut histogram) => {
-                histogram.refresh();
-                histogram.summary();
-            }
-            Err(e) => eprintln!("error to join histogram stats thread: {e:?}"),
-        }
+    if let Some(mut histogram) = histogram_stats {
+        histogram.refresh();
+        histogram.summary();
     }
-
     Ok(())
 }
