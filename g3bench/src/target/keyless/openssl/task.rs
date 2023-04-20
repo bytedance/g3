@@ -65,7 +65,7 @@ impl BenchTaskContext for KeylessOpensslTaskContext {
         if let Some(r) = &mut self.histogram_recorder {
             r.record_total_time(total_time);
         }
-        self.args.dump_result(task_id, output);
+        self.args.global.dump_result(task_id, output);
         Ok(())
     }
 }

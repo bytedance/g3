@@ -38,6 +38,7 @@ const ARG_SIGN: &str = "sign";
 const ARG_DIGEST_TYPE: &str = "digest-type";
 const ARG_RSA_PADDING: &str = "rsa-padding";
 const ARG_PAYLOAD: &str = "payload";
+const ARG_DUMP_RESULT: &str = "dump-result";
 
 const DIGEST_TYPES: [&str; 6] = ["md5sha1", "sha1", "sha224", "sha256", "sha384", "sha512"];
 const RSA_PADDING_VALUES: [&str; 5] = ["PKCS1", "OAEP", "PSS", "X931", "NONE"];
@@ -152,6 +153,7 @@ pub(super) struct KeylessGlobalArgs {
     pub(super) key: Option<PKey<Private>>,
     pub(super) action: KeylessAction,
     pub(super) payload: Vec<u8>,
+    dump_result: bool,
 }
 
 impl KeylessGlobalArgs {
@@ -202,11 +204,14 @@ impl KeylessGlobalArgs {
             return Err(anyhow!("no keyless action set"));
         };
 
+        let dump_result = args.get_flag(ARG_DUMP_RESULT);
+
         let mut key_args = KeylessGlobalArgs {
             cert,
             key: None,
             action,
             payload,
+            dump_result,
         };
 
         if let Some(file) = args.get_one::<PathBuf>(ARG_PKEY) {
@@ -215,6 +220,13 @@ impl KeylessGlobalArgs {
         }
 
         Ok(key_args)
+    }
+
+    pub(super) fn dump_result(&self, task_id: usize, data: Vec<u8>) {
+        if self.dump_result {
+            let hex_str = hex::encode(data);
+            println!("== Output of task {task_id}:\n{hex_str}");
+        }
     }
 
     pub(super) fn get_public_key_digest(&self) -> anyhow::Result<DigestBytes> {
@@ -503,6 +515,13 @@ fn add_keyless_args(cmd: Command) -> Command {
             .help("Payload data")
             .num_args(1)
             .required(true),
+    )
+    .arg(
+        Arg::new(ARG_DUMP_RESULT)
+            .help("Dump output use hex string")
+            .action(ArgAction::SetTrue)
+            .num_args(0)
+            .long(ARG_DUMP_RESULT),
     )
 }
 

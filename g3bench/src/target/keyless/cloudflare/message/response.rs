@@ -161,6 +161,10 @@ impl KeylessResponse {
         self.id
     }
 
+    pub(crate) fn into_vec(self) -> Vec<u8> {
+        self.data
+    }
+
     pub(crate) async fn read<R>(
         reader: &mut R,
         buf: &mut Vec<u8>,

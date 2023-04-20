@@ -118,15 +118,16 @@ impl BenchTaskContext for KeylessCloudflareTaskContext {
         self.runtime_stats.dec_task_alive();
     }
 
-    async fn run(&mut self, _task_id: usize, time_started: Instant) -> anyhow::Result<()> {
+    async fn run(&mut self, task_id: usize, time_started: Instant) -> anyhow::Result<()> {
         let handle = self.fetch_handle().await?;
 
         match handle.send_request(self.request_message.clone()).await {
-            Some(_rsp) => {
+            Some(rsp) => {
                 let total_time = time_started.elapsed();
                 if let Some(r) = &mut self.histogram_recorder {
                     r.record_total_time(total_time);
                 }
+                self.args.global.dump_result(task_id, rsp.into_vec());
                 Ok(())
             }
             None => {
