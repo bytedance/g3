@@ -19,8 +19,6 @@ use std::time::Duration;
 
 use cadence::{Counted, Gauged, StatsdClient};
 
-use g3_io_ext::{LimitedReaderStats, LimitedWriterStats};
-
 use crate::target::BenchRuntimeStats;
 
 #[derive(Default)]
@@ -33,11 +31,6 @@ pub(crate) struct KeylessRuntimeStats {
     conn_attempt_total: AtomicU64,
     conn_success: AtomicU64,
     conn_success_total: AtomicU64,
-
-    tcp_read: AtomicU64,
-    tcp_write: AtomicU64,
-    tcp_read_total: AtomicU64,
-    tcp_write_total: AtomicU64,
 }
 
 impl KeylessRuntimeStats {
@@ -70,18 +63,6 @@ impl KeylessRuntimeStats {
     }
 }
 
-impl LimitedReaderStats for KeylessRuntimeStats {
-    fn add_read_bytes(&self, size: usize) {
-        self.tcp_read.fetch_add(size as u64, Ordering::Relaxed);
-    }
-}
-
-impl LimitedWriterStats for KeylessRuntimeStats {
-    fn add_write_bytes(&self, size: usize) {
-        self.tcp_write.fetch_add(size as u64, Ordering::Relaxed);
-    }
-}
-
 impl BenchRuntimeStats for KeylessRuntimeStats {
     fn emit(&self, client: &StatsdClient) {
         macro_rules! emit_count {
@@ -94,7 +75,7 @@ impl BenchRuntimeStats for KeylessRuntimeStats {
 
         let task_alive = self.task_alive.load(Ordering::Relaxed);
         client
-            .gauge_with_tags("ssl.task.alive", task_alive as f64)
+            .gauge_with_tags("keyless.task.alive", task_alive as f64)
             .send();
 
         emit_count!(task_total, "task.total");
@@ -106,10 +87,6 @@ impl BenchRuntimeStats for KeylessRuntimeStats {
         emit_count!(conn_success, "connection.success");
         self.conn_success_total
             .fetch_add(conn_success, Ordering::Relaxed);
-        emit_count!(tcp_write, "io.tcp.write");
-        self.tcp_write_total.fetch_add(tcp_write, Ordering::Relaxed);
-        emit_count!(tcp_read, "io.tcp.read");
-        self.tcp_read_total.fetch_add(tcp_read, Ordering::Relaxed);
     }
 
     fn summary(&self, total_time: Duration) {
@@ -127,15 +104,5 @@ impl BenchRuntimeStats for KeylessRuntimeStats {
             (total_success as f64 / total_attempt as f64) * 100.0
         );
         println!("Success rate:  {:.3}/s", total_success as f64 / total_secs);
-
-        println!("# Traffic");
-        let total_send =
-            self.tcp_write_total.load(Ordering::Relaxed) + self.tcp_write.load(Ordering::Relaxed);
-        println!("Send bytes:    {total_send}");
-        println!("Send rate:     {:.3}B/s", total_send as f64 / total_secs);
-        let total_recv =
-            self.tcp_read_total.load(Ordering::Relaxed) + self.tcp_read.load(Ordering::Relaxed);
-        println!("Recv bytes:    {total_recv}");
-        println!("Recv rate:     {:.3}B/s", total_recv as f64 / total_secs);
     }
 }

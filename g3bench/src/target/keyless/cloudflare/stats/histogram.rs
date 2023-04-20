@@ -47,6 +47,7 @@ impl KeylessHistogram {
 impl BenchHistogram for KeylessHistogram {
     fn refresh(&mut self) {
         self.total_time.refresh();
+        self.conn_reuse_count.refresh();
     }
 
     fn emit(&self, client: &StatsdClient) {
