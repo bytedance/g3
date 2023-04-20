@@ -54,7 +54,6 @@ pub(crate) enum KeylessOpCode {
     // requests an ECDSA signature on an SHA512 hash payload
     EcdsaSignSha512 = 0x17,
     // requests an Ed25519 signature on an arbitrary-length payload
-    #[allow(unused)]
     Ed25519Sign = 0x18,
     // asks to encrypt a blob (like a Session Ticket)
     #[allow(unused)]
@@ -63,13 +62,10 @@ pub(crate) enum KeylessOpCode {
     #[allow(unused)]
     Unseal = 0x22,
     // requests an RSASSA-PSS signature on an SHA256 hash payload
-    #[allow(unused)]
     RsaPssSignSha256 = 0x35,
     // requests an RSASSA-PSS signature on an SHA384 hash payload
-    #[allow(unused)]
     RsaPssSignSha384 = 0x36,
     // requests an RSASSA-PSS signature on an SHA512 hash payload
-    #[allow(unused)]
     RsaPssSignSha512 = 0x37,
 }
 
@@ -84,12 +80,36 @@ impl TryFrom<KeylessAction> for KeylessOpCode {
             KeylessAction::RsaPrivateDecrypt(padding) => {
                 Err(anyhow!("unsupported rsa padding type {padding:?}"))
             }
-            KeylessAction::RsaSign(KeylessSignDigest::Md5Sha1) => Ok(KeylessOpCode::RsaSignMd5Sha1),
-            KeylessAction::RsaSign(KeylessSignDigest::Sha1) => Ok(KeylessOpCode::RsaSignSha1),
-            KeylessAction::RsaSign(KeylessSignDigest::Sha224) => Ok(KeylessOpCode::RsaSignSha224),
-            KeylessAction::RsaSign(KeylessSignDigest::Sha256) => Ok(KeylessOpCode::RsaSignSha256),
-            KeylessAction::RsaSign(KeylessSignDigest::Sha384) => Ok(KeylessOpCode::RsaSignSha384),
-            KeylessAction::RsaSign(KeylessSignDigest::Sha512) => Ok(KeylessOpCode::RsaSignSha512),
+            KeylessAction::RsaSign(KeylessSignDigest::Md5Sha1, KeylessRsaPadding::Pkcs1) => {
+                Ok(KeylessOpCode::RsaSignMd5Sha1)
+            }
+            KeylessAction::RsaSign(KeylessSignDigest::Sha1, KeylessRsaPadding::Pkcs1) => {
+                Ok(KeylessOpCode::RsaSignSha1)
+            }
+            KeylessAction::RsaSign(KeylessSignDigest::Sha224, KeylessRsaPadding::Pkcs1) => {
+                Ok(KeylessOpCode::RsaSignSha224)
+            }
+            KeylessAction::RsaSign(KeylessSignDigest::Sha256, KeylessRsaPadding::Pkcs1) => {
+                Ok(KeylessOpCode::RsaSignSha256)
+            }
+            KeylessAction::RsaSign(KeylessSignDigest::Sha256, KeylessRsaPadding::Pss) => {
+                Ok(KeylessOpCode::RsaPssSignSha256)
+            }
+            KeylessAction::RsaSign(KeylessSignDigest::Sha384, KeylessRsaPadding::Pkcs1) => {
+                Ok(KeylessOpCode::RsaSignSha384)
+            }
+            KeylessAction::RsaSign(KeylessSignDigest::Sha384, KeylessRsaPadding::Pss) => {
+                Ok(KeylessOpCode::RsaPssSignSha384)
+            }
+            KeylessAction::RsaSign(KeylessSignDigest::Sha512, KeylessRsaPadding::Pkcs1) => {
+                Ok(KeylessOpCode::RsaSignSha512)
+            }
+            KeylessAction::RsaSign(KeylessSignDigest::Sha512, KeylessRsaPadding::Pss) => {
+                Ok(KeylessOpCode::RsaPssSignSha512)
+            }
+            KeylessAction::RsaSign(digest, padding) => Err(anyhow!(
+                "unsupported rsa sign using digest {digest:?} padding {padding:?}"
+            )),
             KeylessAction::EcdsaSign(KeylessSignDigest::Md5Sha1) => {
                 Ok(KeylessOpCode::EcdsaSignMd5sha1)
             }
@@ -106,6 +126,7 @@ impl TryFrom<KeylessAction> for KeylessOpCode {
             KeylessAction::EcdsaSign(KeylessSignDigest::Sha512) => {
                 Ok(KeylessOpCode::EcdsaSignSha512)
             }
+            KeylessAction::Ed25519Sign => Ok(KeylessOpCode::Ed25519Sign),
             _ => Err(anyhow!("unsupported action: {value:?}")),
         }
     }

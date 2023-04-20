@@ -23,7 +23,7 @@ use openssl::bn::BigNumContext;
 use openssl::ec::PointConversionForm;
 use openssl::hash::{DigestBytes, MessageDigest};
 use openssl::nid::Nid;
-use openssl::pkey::{PKey, Private};
+use openssl::pkey::{Id, PKey, Private};
 use openssl::rsa::Padding;
 use openssl::sign::Signer;
 use openssl::x509::X509;
@@ -34,22 +34,22 @@ const ARG_RSA_PRIVATE_DECRYPT: &str = "rsa-private-decrypt";
 const ARG_RSA_PRIVATE_ENCRYPT: &str = "rsa-private-encrypt";
 const ARG_RSA_PUBLIC_DECRYPT: &str = "rsa-public-decrypt";
 const ARG_RSA_PUBLIC_ENCRYPT: &str = "rsa-public-encrypt";
-const ARG_RSA_SIGN: &str = "rsa-sign";
-const ARG_ECDSA_SIGN: &str = "ecdsa-sign";
+const ARG_SIGN: &str = "sign";
 const ARG_DIGEST_TYPE: &str = "digest-type";
 const ARG_RSA_PADDING: &str = "rsa-padding";
 const ARG_PAYLOAD: &str = "payload";
 
 const DIGEST_TYPES: [&str; 6] = ["md5sha1", "sha1", "sha224", "sha256", "sha384", "sha512"];
-const RSA_PADDING_VALUES: [&str; 5] = ["PKCS1", "PKCS1_OAEP", "PKCS1_PSS", "X931", "NONE"];
+const RSA_PADDING_VALUES: [&str; 5] = ["PKCS1", "OAEP", "PSS", "X931", "NONE"];
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub(crate) enum KeylessRsaPadding {
-    None,
+    #[default]
     Pkcs1,
-    Pkcs1Oaep,
-    PkcsPss,
+    Oaep,
+    Pss,
     X931,
+    None,
 }
 
 impl FromStr for KeylessRsaPadding {
@@ -58,8 +58,8 @@ impl FromStr for KeylessRsaPadding {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "pkcs1" => Ok(KeylessRsaPadding::Pkcs1),
-            "pkcs1_oaep" => Ok(KeylessRsaPadding::Pkcs1Oaep),
-            "pkcs_pss" => Ok(KeylessRsaPadding::PkcsPss),
+            "oaep" => Ok(KeylessRsaPadding::Oaep),
+            "pss" => Ok(KeylessRsaPadding::Pss),
             "x931" => Ok(KeylessRsaPadding::X931),
             "none" => Ok(KeylessRsaPadding::None),
             _ => Err(anyhow!("unsupported rsa padding type {s}")),
@@ -72,8 +72,8 @@ impl From<KeylessRsaPadding> for Padding {
         match value {
             KeylessRsaPadding::None => Padding::NONE,
             KeylessRsaPadding::Pkcs1 => Padding::PKCS1,
-            KeylessRsaPadding::Pkcs1Oaep => Padding::PKCS1_OAEP,
-            KeylessRsaPadding::PkcsPss => Padding::from_raw(6),
+            KeylessRsaPadding::Oaep => Padding::PKCS1_OAEP,
+            KeylessRsaPadding::Pss => Padding::from_raw(6),
             KeylessRsaPadding::X931 => Padding::from_raw(5),
         }
     }
@@ -87,6 +87,20 @@ pub(crate) enum KeylessSignDigest {
     Sha256,
     Sha384,
     Sha512,
+}
+
+impl KeylessSignDigest {
+    fn check_payload(&self, payload: &[u8]) -> anyhow::Result<()> {
+        let digest = MessageDigest::from(*self);
+        if digest.size() != payload.len() {
+            return Err(anyhow!(
+                "payload size {} not match digest size {}",
+                payload.len(),
+                digest.size()
+            ));
+        }
+        Ok(())
+    }
 }
 
 impl FromStr for KeylessSignDigest {
@@ -124,8 +138,9 @@ pub(crate) enum KeylessAction {
     RsaPrivateEncrypt(KeylessRsaPadding),
     RsaPublicDecrypt(KeylessRsaPadding),
     RsaPublicEncrypt(KeylessRsaPadding),
-    RsaSign(KeylessSignDigest),
+    RsaSign(KeylessSignDigest, KeylessRsaPadding),
     EcdsaSign(KeylessSignDigest),
+    Ed25519Sign,
 }
 
 pub(super) trait AppendKeylessArgs {
@@ -145,41 +160,44 @@ impl KeylessGlobalArgs {
             unreachable!();
         };
         let cert = crate::target::tls::load_certs(file)?.pop().unwrap();
+        let pkey = cert
+            .public_key()
+            .map_err(|e| anyhow!("failed to fetch pubkey: {e}"))?;
 
         let payload_str = args.get_one::<String>(ARG_PAYLOAD).unwrap();
         let payload = hex::decode(payload_str)
             .map_err(|e| anyhow!("the payload string is not valid hex string: {e}"))?;
 
-        let action = if args.get_flag(ARG_RSA_PRIVATE_DECRYPT) {
-            let padding_str = args.get_one::<String>(ARG_RSA_PADDING).unwrap();
-            let rsa_padding = KeylessRsaPadding::from_str(padding_str)?;
+        let rsa_padding = if let Some(s) = args.get_one::<String>(ARG_RSA_PADDING) {
+            KeylessRsaPadding::from_str(s)?
+        } else {
+            KeylessRsaPadding::default()
+        };
 
+        let action = if args.get_flag(ARG_RSA_PRIVATE_DECRYPT) {
             KeylessAction::RsaPrivateDecrypt(rsa_padding)
         } else if args.get_flag(ARG_RSA_PRIVATE_ENCRYPT) {
-            let padding_str = args.get_one::<String>(ARG_RSA_PADDING).unwrap();
-            let rsa_padding = KeylessRsaPadding::from_str(padding_str)?;
-
             KeylessAction::RsaPrivateEncrypt(rsa_padding)
         } else if args.get_flag(ARG_RSA_PUBLIC_DECRYPT) {
-            let padding_str = args.get_one::<String>(ARG_RSA_PADDING).unwrap();
-            let rsa_padding = KeylessRsaPadding::from_str(padding_str)?;
-
             KeylessAction::RsaPublicDecrypt(rsa_padding)
         } else if args.get_flag(ARG_RSA_PUBLIC_ENCRYPT) {
-            let padding_str = args.get_one::<String>(ARG_RSA_PADDING).unwrap();
-            let rsa_padding = KeylessRsaPadding::from_str(padding_str)?;
-
             KeylessAction::RsaPublicEncrypt(rsa_padding)
-        } else if args.get_flag(ARG_RSA_SIGN) {
+        } else if args.get_flag(ARG_SIGN) {
             let digest_str = args.get_one::<String>(ARG_DIGEST_TYPE).unwrap();
             let digest_type = KeylessSignDigest::from_str(digest_str)?;
 
-            KeylessAction::RsaSign(digest_type)
-        } else if args.get_flag(ARG_ECDSA_SIGN) {
-            let digest_str = args.get_one::<String>(ARG_DIGEST_TYPE).unwrap();
-            let digest_type = KeylessSignDigest::from_str(digest_str)?;
-
-            KeylessAction::EcdsaSign(digest_type)
+            match pkey.id() {
+                Id::RSA => {
+                    digest_type.check_payload(payload.as_slice())?;
+                    KeylessAction::RsaSign(digest_type, rsa_padding)
+                }
+                Id::EC => {
+                    digest_type.check_payload(payload.as_slice())?;
+                    KeylessAction::EcdsaSign(digest_type)
+                }
+                Id::ED25519 => KeylessAction::Ed25519Sign,
+                id => return Err(anyhow!("unsupported public key type {id:?}")),
+            }
         } else {
             return Err(anyhow!("no keyless action set"));
         };
@@ -355,6 +373,45 @@ impl KeylessGlobalArgs {
             .sign_to_vec()
             .map_err(|e| anyhow!("sign failed: {e}"))
     }
+
+    pub(super) fn pkey_sign_rsa(
+        &self,
+        digest: KeylessSignDigest,
+        padding: KeylessRsaPadding,
+    ) -> anyhow::Result<Vec<u8>> {
+        let pkey = self
+            .key
+            .as_ref()
+            .ok_or_else(|| anyhow!("no private key set"))?;
+
+        let mut signer = Signer::new(digest.into(), pkey)
+            .map_err(|e| anyhow!("error when create signer: {e}"))?;
+        signer
+            .set_rsa_padding(padding.into())
+            .map_err(|e| anyhow!("failed to set rsa padding: {e}"))?;
+        signer
+            .update(&self.payload)
+            .map_err(|e| anyhow!("failed to set payload data: {e}"))?;
+        signer
+            .sign_to_vec()
+            .map_err(|e| anyhow!("sign failed: {e}"))
+    }
+
+    pub(super) fn pkey_sign_ed(&self) -> anyhow::Result<Vec<u8>> {
+        let pkey = self
+            .key
+            .as_ref()
+            .ok_or_else(|| anyhow!("no private key set"))?;
+
+        let mut signer = Signer::new_without_digest(pkey)
+            .map_err(|e| anyhow!("error when create signer: {e}"))?;
+        signer
+            .update(&self.payload)
+            .map_err(|e| anyhow!("failed to set payload data: {e}"))?;
+        signer
+            .sign_to_vec()
+            .map_err(|e| anyhow!("sign failed: {e}"))
+    }
 }
 
 fn add_keyless_args(cmd: Command) -> Command {
@@ -408,18 +465,10 @@ fn add_keyless_args(cmd: Command) -> Command {
             .requires(ARG_RSA_PADDING),
     )
     .arg(
-        Arg::new(ARG_RSA_SIGN)
-            .help("RSA Sign")
+        Arg::new(ARG_SIGN)
+            .help("Computes cryptographic signatures of data")
             .num_args(0)
-            .long(ARG_RSA_SIGN)
-            .action(ArgAction::SetTrue)
-            .requires(ARG_DIGEST_TYPE),
-    )
-    .arg(
-        Arg::new(ARG_ECDSA_SIGN)
-            .help("ECDSA Sign")
-            .num_args(0)
-            .long(ARG_ECDSA_SIGN)
+            .long(ARG_SIGN)
             .action(ArgAction::SetTrue)
             .requires(ARG_DIGEST_TYPE),
     )
@@ -430,8 +479,7 @@ fn add_keyless_args(cmd: Command) -> Command {
                 ARG_RSA_PRIVATE_ENCRYPT,
                 ARG_RSA_PUBLIC_DECRYPT,
                 ARG_RSA_PUBLIC_ENCRYPT,
-                ARG_RSA_SIGN,
-                ARG_ECDSA_SIGN,
+                ARG_SIGN,
             ])
             .required(true),
     )

@@ -34,8 +34,9 @@ impl KeylessOpensslArgs {
             KeylessAction::RsaPrivateEncrypt(padding) => self.global.rsa_private_encrypt(padding),
             KeylessAction::RsaPublicEncrypt(padding) => self.global.rsa_public_encrypt(padding),
             KeylessAction::RsaPublicDecrypt(padding) => self.global.rsa_public_decrypt(padding),
-            KeylessAction::RsaSign(digest) => self.global.pkey_sign(digest),
+            KeylessAction::RsaSign(digest, padding) => self.global.pkey_sign_rsa(digest, padding),
             KeylessAction::EcdsaSign(digest) => self.global.pkey_sign(digest),
+            KeylessAction::Ed25519Sign => self.global.pkey_sign_ed(),
         }
     }
 
