@@ -51,39 +51,39 @@ impl BenchHistogram for SslHistogram {
             ($field:ident, $name:literal) => {
                 let min = self.$field.min();
                 client
-                    .gauge_with_tags(concat!("h1.", $name, ".min"), min)
+                    .gauge_with_tags(concat!("ssl.", $name, ".min"), min)
                     .send();
                 let max = self.$field.max();
                 client
-                    .gauge_with_tags(concat!("h1.", $name, ".max"), max)
+                    .gauge_with_tags(concat!("ssl.", $name, ".max"), max)
                     .send();
                 let mean = self.$field.mean();
                 client
-                    .gauge_with_tags(concat!("h1.", $name, ".mean"), mean)
+                    .gauge_with_tags(concat!("ssl.", $name, ".mean"), mean)
                     .send();
                 let pct50 = self.$field.value_at_percentile(0.50);
                 client
-                    .gauge_with_tags(concat!("h1.", $name, ".pct50"), pct50)
+                    .gauge_with_tags(concat!("ssl.", $name, ".pct50"), pct50)
                     .send();
                 let pct80 = self.$field.value_at_percentile(0.80);
                 client
-                    .gauge_with_tags(concat!("h1.", $name, ".pct80"), pct80)
+                    .gauge_with_tags(concat!("ssl.", $name, ".pct80"), pct80)
                     .send();
                 let pct90 = self.$field.value_at_percentile(0.90);
                 client
-                    .gauge_with_tags(concat!("h1.", $name, ".pct90"), pct90)
+                    .gauge_with_tags(concat!("ssl.", $name, ".pct90"), pct90)
                     .send();
                 let pct95 = self.$field.value_at_percentile(0.95);
                 client
-                    .gauge_with_tags(concat!("h1.", $name, ".pct95"), pct95)
+                    .gauge_with_tags(concat!("ssl.", $name, ".pct95"), pct95)
                     .send();
                 let pct98 = self.$field.value_at_percentile(0.98);
                 client
-                    .gauge_with_tags(concat!("h1.", $name, ".pct98"), pct98)
+                    .gauge_with_tags(concat!("ssl.", $name, ".pct98"), pct98)
                     .send();
                 let pct99 = self.$field.value_at_percentile(0.99);
                 client
-                    .gauge_with_tags(concat!("h1.", $name, ".pct99"), pct99)
+                    .gauge_with_tags(concat!("ssl.", $name, ".pct99"), pct99)
                     .send();
             };
         }

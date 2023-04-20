@@ -69,7 +69,7 @@ impl BenchRuntimeStats for KeylessRuntimeStats {
             ($field:ident, $name:literal) => {
                 let $field = self.$field.swap(0, Ordering::Relaxed);
                 let v = i64::try_from($field).unwrap_or(i64::MAX);
-                client.count_with_tags(concat!("ssl.", $name), v).send();
+                client.count_with_tags(concat!("keyless.", $name), v).send();
             };
         }
 
