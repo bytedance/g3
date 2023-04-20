@@ -25,8 +25,8 @@ standby
 
 Set the standby resolver to use.
 
-timeout
--------
+fallback_delay
+--------------
 
 **optional**, **type**:
 
@@ -42,3 +42,14 @@ negative_ttl
 Time-to-Live (TTL) for negative caching of failed DNS lookups.
 
 **default**: 30
+
+retry_empty_record
+------------------
+
+**optional**, **type**: bool
+
+Set if we should do a fallback query if the first answer contains no IP address.
+
+**default**: false
+
+.. versionadded:: 1.7.13

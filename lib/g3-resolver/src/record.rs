@@ -60,6 +60,10 @@ impl ResolvedRecord {
         self.result.is_ok()
     }
 
+    pub fn is_usable(&self) -> bool {
+        self.result.as_ref().map(|v| !v.is_empty()).unwrap_or(false)
+    }
+
     pub fn is_err(&self) -> bool {
         self.result.is_err()
     }

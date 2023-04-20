@@ -15,11 +15,11 @@
  */
 
 use std::collections::BTreeSet;
-use std::time::Duration;
 
 use anyhow::anyhow;
 use yaml_rust::{yaml, Yaml};
 
+use g3_resolver::driver::fail_over::FailOverDriverStaticConfig;
 use g3_resolver::ResolverRuntimeConfig;
 use g3_types::metrics::MetricsName;
 use g3_yaml::YamlDocPosition;
@@ -35,8 +35,7 @@ pub(crate) struct FailOverResolverConfig {
     pub(crate) runtime: ResolverRuntimeConfig,
     pub(crate) primary: MetricsName,
     pub(crate) standby: MetricsName,
-    pub(crate) timeout: Duration,
-    pub(crate) negative_ttl: Option<u32>,
+    pub(crate) static_conf: FailOverDriverStaticConfig,
 }
 
 impl FailOverResolverConfig {
@@ -47,8 +46,7 @@ impl FailOverResolverConfig {
             runtime: Default::default(),
             primary: MetricsName::default(),
             standby: MetricsName::default(),
-            timeout: Duration::from_millis(100),
-            negative_ttl: None,
+            static_conf: FailOverDriverStaticConfig::default(),
         }
     }
 
@@ -79,13 +77,19 @@ impl FailOverResolverConfig {
                 self.standby = g3_yaml::value::as_metrics_name(v)?;
                 Ok(())
             }
-            "timeout" => {
-                self.timeout = g3_yaml::humanize::as_duration(v)?;
+            "fallback_delay" | "delay" | "fallback_timeout" | "timeout" => {
+                let delay = g3_yaml::humanize::as_duration(v)?;
+                self.static_conf.fallback_delay(delay);
                 Ok(())
             }
             "negative_ttl" | "protective_cache_ttl" => {
                 let ttl = g3_yaml::value::as_u32(v)?;
-                self.negative_ttl = Some(ttl);
+                self.static_conf.set_negative_ttl(ttl);
+                Ok(())
+            }
+            "retry_empty_record" => {
+                let retry_empty_record = g3_yaml::value::as_bool(v)?;
+                self.static_conf.set_retry_empty_record(retry_empty_record);
                 Ok(())
             }
             "graceful_stop_wait" => {

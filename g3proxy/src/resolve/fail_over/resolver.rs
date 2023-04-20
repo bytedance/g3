@@ -49,10 +49,7 @@ impl FailOverResolver {
                 .context("failed to get standby resolver handle")?;
             driver_config.set_primary_handle(primary_handle.clone_inner());
             driver_config.set_standby_handle(standby_handle.clone_inner());
-            driver_config.set_timeout(config.timeout);
-            if let Some(ttl) = config.negative_ttl {
-                driver_config.set_negative_ttl(ttl);
-            }
+            driver_config.set_static_config(config.static_conf);
 
             let inner_config = g3_resolver::ResolverConfig {
                 name: config.name().to_string(),
@@ -101,7 +98,7 @@ impl ResolverInternal for FailOverResolver {
             let standby_handle = dep_table.get(&config.standby).unwrap();
             driver_config.set_primary_handle(primary_handle.clone_inner());
             driver_config.set_standby_handle(standby_handle.clone_inner());
-            driver_config.set_timeout(config.timeout);
+            driver_config.set_static_config(config.static_conf);
 
             let inner_config = g3_resolver::ResolverConfig {
                 name: config.name().to_string(),

@@ -18,6 +18,7 @@ use std::time::Duration;
 
 use tokio::sync::mpsc;
 
+use super::FailOverDriverStaticConfig;
 use crate::config::ResolverRuntimeConfig;
 use crate::message::ResolveDriverResponse;
 use crate::{
@@ -28,16 +29,14 @@ use crate::{
 pub(super) struct FailOverResolver {
     pub(super) primary: Option<ResolverHandle>,
     pub(super) standby: Option<ResolverHandle>,
-    pub(super) timeout: Duration,
-    pub(super) negative_ttl: u32,
+    pub(super) conf: FailOverDriverStaticConfig,
 }
 
 struct FailOverResolverJob {
     primary: Option<ResolveJob>,
     standby: Option<ResolveJob>,
-    fallback_timeout: Duration,
     job_timeout: Duration,
-    negative_ttl: u32,
+    config: FailOverDriverStaticConfig,
 }
 
 impl FailOverResolverJob {
@@ -48,7 +47,17 @@ impl FailOverResolverJob {
     ) -> ResolvedRecord {
         match result {
             Ok((r, _)) => r.as_ref().clone(),
-            Err(e) => ResolvedRecord::failed(domain.to_string(), self.negative_ttl, e.into()),
+            Err(e) => {
+                ResolvedRecord::failed(domain.to_string(), self.config.negative_ttl, e.into())
+            }
+        }
+    }
+
+    fn record_is_valid(&self, r: &ResolvedRecord) -> bool {
+        if self.config.retry_empty_record {
+            r.is_usable()
+        } else {
+            r.is_ok()
         }
     }
 
@@ -57,9 +66,9 @@ impl FailOverResolverJob {
         let standby = self.standby.take();
         match (primary, standby) {
             (Some(mut primary), Some(mut standby)) => {
-                match tokio::time::timeout(self.fallback_timeout, primary.recv()).await {
+                match tokio::time::timeout(self.config.fallback_delay, primary.recv()).await {
                     Ok(Ok((r, _))) => {
-                        if r.is_ok() {
+                        if self.record_is_valid(&r) {
                             r.as_ref().clone()
                         } else {
                             self.normalize_job_recv_result(domain, standby.recv().await)
@@ -74,7 +83,7 @@ impl FailOverResolverJob {
                             r = primary.recv() => {
                                 match r {
                                     Ok((r, _)) => {
-                                        if r.is_ok() {
+                                        if self.record_is_valid(&r) {
                                             r.as_ref().clone()
                                         } else {
                                             self.normalize_job_recv_result(domain, standby.recv().await)
@@ -88,7 +97,7 @@ impl FailOverResolverJob {
                             r = standby.recv() => {
                                 match r {
                                     Ok((r, _)) => {
-                                        if r.is_ok() {
+                                        if self.record_is_valid(&r) {
                                             r.as_ref().clone()
                                         } else {
                                             self.normalize_job_recv_result(domain, primary.recv().await)
@@ -113,7 +122,7 @@ impl FailOverResolverJob {
     }
 
     async fn resolve_protective(self, domain: String) -> ResolvedRecord {
-        let protective_cache_ttl = self.negative_ttl;
+        let protective_cache_ttl = self.config.negative_ttl;
         tokio::time::timeout(self.job_timeout, self.resolve(&domain))
             .await
             .unwrap_or_else(|_| ResolvedRecord::timed_out(domain, protective_cache_ttl))
@@ -140,9 +149,8 @@ impl ResolveDriver for FailOverResolver {
         let job = FailOverResolverJob {
             primary: job_primary,
             standby: job_standby,
-            fallback_timeout: self.timeout,
             job_timeout: config.protective_query_timeout,
-            negative_ttl: self.negative_ttl,
+            config: self.conf,
         };
         tokio::spawn(async move {
             let record = job.resolve_protective(domain).await;
@@ -169,9 +177,8 @@ impl ResolveDriver for FailOverResolver {
         let job = FailOverResolverJob {
             primary: job_primary,
             standby: job_standby,
-            fallback_timeout: self.timeout,
             job_timeout: config.protective_query_timeout,
-            negative_ttl: self.negative_ttl,
+            config: self.conf,
         };
         tokio::spawn(async move {
             let record = job.resolve_protective(domain).await;

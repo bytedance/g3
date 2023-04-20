@@ -15,7 +15,7 @@
  */
 
 mod config;
-pub use config::FailOverDriverConfig;
+pub use config::{FailOverDriverConfig, FailOverDriverStaticConfig};
 
 mod driver;
 use driver::FailOverResolver;
