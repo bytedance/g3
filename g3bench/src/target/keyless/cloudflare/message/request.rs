@@ -146,7 +146,7 @@ impl KeylessRequestBuilder {
     }
 
     pub(crate) fn build(&self, payload: &[u8]) -> anyhow::Result<KeylessRequest> {
-        let mut buf = Vec::with_capacity(512);
+        let mut buf = Vec::with_capacity(super::MESSAGE_PADDED_LENGTH + 2);
         // hdr and ID
         buf.extend_from_slice(&[0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
 

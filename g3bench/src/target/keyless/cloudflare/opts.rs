@@ -36,11 +36,11 @@ use crate::target::{
     AppendProxyProtocolArgs, AppendTlsArgs, OpensslTlsClientArgs, ProxyProtocolArgs,
 };
 
-const CF_ARG_CONNECTION_POOL: &str = "connection-pool";
-const CF_ARG_TARGET: &str = "target";
-const CF_ARG_LOCAL_ADDRESS: &str = "local-address";
-const CF_ARG_CONNECT_TIMEOUT: &str = "connect-timeout";
-const CF_ARG_TIMEOUT: &str = "timeout";
+const ARG_CONNECTION_POOL: &str = "connection-pool";
+const ARG_TARGET: &str = "target";
+const ARG_LOCAL_ADDRESS: &str = "local-address";
+const ARG_CONNECT_TIMEOUT: &str = "connect-timeout";
+const ARG_TIMEOUT: &str = "timeout";
 
 pub(super) struct KeylessCloudflareArgs {
     pub(super) global: KeylessGlobalArgs,
@@ -155,48 +155,48 @@ impl KeylessCloudflareArgs {
 
 pub(super) fn add_cloudflare_args(app: Command) -> Command {
     app.arg(
-        Arg::new(CF_ARG_TARGET)
+        Arg::new(ARG_TARGET)
             .help("Target service address")
             .value_name("ADDRESS")
-            .long(CF_ARG_TARGET)
+            .long(ARG_TARGET)
             .required(true)
             .num_args(1)
             .value_parser(value_parser!(UpstreamAddr)),
     )
     .arg(
-        Arg::new(CF_ARG_CONNECTION_POOL)
+        Arg::new(ARG_CONNECTION_POOL)
             .help(
                 "Set the number of pooled underlying keyless connections.\n\
                         If not set, each concurrency will use it's own keyless connection",
             )
             .value_name("POOL SIZE")
-            .long(CF_ARG_CONNECTION_POOL)
+            .long(ARG_CONNECTION_POOL)
             .short('C')
             .num_args(1)
             .value_parser(value_parser!(usize)),
     )
     .arg(
-        Arg::new(CF_ARG_LOCAL_ADDRESS)
+        Arg::new(ARG_LOCAL_ADDRESS)
             .value_name("LOCAL IP ADDRESS")
             .short('B')
-            .long(CF_ARG_LOCAL_ADDRESS)
+            .long(ARG_LOCAL_ADDRESS)
             .num_args(1)
             .value_parser(value_parser!(IpAddr)),
     )
     .arg(
-        Arg::new(CF_ARG_CONNECT_TIMEOUT)
+        Arg::new(ARG_CONNECT_TIMEOUT)
             .value_name("TIMEOUT DURATION")
             .help("Timeout for connection to next peer")
             .default_value("10s")
-            .long(CF_ARG_CONNECT_TIMEOUT)
+            .long(ARG_CONNECT_TIMEOUT)
             .num_args(1),
     )
     .arg(
-        Arg::new(CF_ARG_TIMEOUT)
+        Arg::new(ARG_TIMEOUT)
             .value_name("TIMEOUT DURATION")
             .help("Timeout for a single request")
             .default_value("5s")
-            .long(CF_ARG_TIMEOUT)
+            .long(ARG_TIMEOUT)
             .num_args(1),
     )
     .append_keyless_args()
@@ -205,7 +205,7 @@ pub(super) fn add_cloudflare_args(app: Command) -> Command {
 }
 
 pub(super) fn parse_cloudflare_args(args: &ArgMatches) -> anyhow::Result<KeylessCloudflareArgs> {
-    let target = if let Some(v) = args.get_one::<UpstreamAddr>(CF_ARG_TARGET) {
+    let target = if let Some(v) = args.get_one::<UpstreamAddr>(ARG_TARGET) {
         v.clone()
     } else {
         return Err(anyhow!("no target set"));
@@ -216,20 +216,20 @@ pub(super) fn parse_cloudflare_args(args: &ArgMatches) -> anyhow::Result<Keyless
 
     let mut cf_args = KeylessCloudflareArgs::new(global_args, target);
 
-    if let Some(c) = args.get_one::<usize>(CF_ARG_CONNECTION_POOL) {
+    if let Some(c) = args.get_one::<usize>(ARG_CONNECTION_POOL) {
         if *c > 0 {
             cf_args.pool_size = Some(*c);
         }
     }
 
-    if let Some(ip) = args.get_one::<IpAddr>(CF_ARG_LOCAL_ADDRESS) {
+    if let Some(ip) = args.get_one::<IpAddr>(ARG_LOCAL_ADDRESS) {
         cf_args.bind = Some(*ip);
     }
 
-    if let Some(timeout) = g3_clap::humanize::get_duration(args, CF_ARG_CONNECT_TIMEOUT)? {
+    if let Some(timeout) = g3_clap::humanize::get_duration(args, ARG_CONNECT_TIMEOUT)? {
         cf_args.connect_timeout = timeout;
     }
-    if let Some(timeout) = g3_clap::humanize::get_duration(args, CF_ARG_TIMEOUT)? {
+    if let Some(timeout) = g3_clap::humanize::get_duration(args, ARG_TIMEOUT)? {
         cf_args.timeout = timeout;
     }
 

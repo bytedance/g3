@@ -30,7 +30,9 @@ mod task;
 use task::KeylessCloudflareTaskContext;
 
 mod message;
-use message::{KeylessLocalError, KeylessRequest, KeylessResponse, KeylessResponseError};
+use message::{
+    KeylessLocalError, KeylessRequest, KeylessRequestBuilder, KeylessResponse, KeylessResponseError,
+};
 
 mod connection;
 use connection::SendHandle;

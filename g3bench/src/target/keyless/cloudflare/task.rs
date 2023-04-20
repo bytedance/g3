@@ -22,10 +22,9 @@ use tokio::time::Instant;
 
 use super::{
     BenchTaskContext, KeylessCloudflareArgs, KeylessConnectionPool, KeylessHistogramRecorder,
-    KeylessRequest, KeylessRuntimeStats, SendHandle,
+    KeylessRequest, KeylessRequestBuilder, KeylessResponse, KeylessRuntimeStats, SendHandle,
 };
 use crate::opts::ProcArgs;
-use crate::target::keyless::cloudflare::message::{KeylessRequestBuilder, KeylessResponse};
 
 pub(super) struct KeylessCloudflareTaskContext {
     args: Arc<KeylessCloudflareArgs>,
