@@ -100,30 +100,32 @@ fn parse_buf(buf: &[u8]) -> Result<Vec<u8>, KeylessResponseError> {
 
     let mut offset = 0usize;
     loop {
-        if offset + 4 > total_len {
+        if offset + super::ITEM_HEADER_LENGTH > total_len {
             return Err(KeylessLocalError::NotEnoughData.into());
         }
 
-        let item = buf[0];
-        let item_len = ((buf[1] as usize) << 8) + buf[2] as usize;
+        let hdr = &buf[offset..offset + super::ITEM_HEADER_LENGTH];
+        let item = hdr[0];
+        let item_len = ((hdr[1] as usize) << 8) + hdr[2] as usize;
         if item_len < 1 {
             return Err(KeylessLocalError::InvalidItemLength(item).into());
         }
-        offset += 3;
+        offset += super::ITEM_HEADER_LENGTH;
         if offset + item_len > total_len {
             return Err(KeylessLocalError::TooLongItemLength.into());
         }
 
+        let data = &buf[offset..offset + item_len];
         match item {
             // OPCODE
             0x11 => {
                 if item_len != 1 {
                     return Err(KeylessLocalError::InvalidItemLength(item).into());
                 }
-                opcode = buf[offset];
+                opcode = data[0];
             }
             // PAYLOAD
-            0x12 => data_buf = &buf[offset..offset + item_len],
+            0x12 => data_buf = data,
             // PADDING
             0x20 => {}
             _ => return Err(KeylessLocalError::InvalidItemTag(item).into()),

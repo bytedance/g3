@@ -20,9 +20,6 @@ use openssl::hash::DigestBytes;
 
 use crate::target::keyless::opts::{KeylessAction, KeylessRsaPadding, KeylessSignDigest};
 
-const PADDED_LENGTH: usize = 1024;
-const HEADER_LENGTH: usize = 8;
-
 #[non_exhaustive]
 #[repr(u8)]
 #[derive(Clone, Copy)]
@@ -178,23 +175,20 @@ impl KeylessRequestBuilder {
         buf.push((payload_len & 0xFF) as u8);
         buf.put_slice(&payload[0..payload_len]);
 
-        if buf.len() < PADDED_LENGTH {
-            match PADDED_LENGTH - buf.len() {
-                0 => unreachable!(),
-                1 | 2 | 3 => {
-                    buf.put_slice(&[0x20, 0x00, 0x00]);
-                }
-                n => {
-                    let left = n - 3;
-                    buf.push(0x20);
-                    buf.push(((left >> 8) & 0xFF) as u8);
-                    buf.push((left & 0xFF) as u8);
-                    buf.resize(PADDED_LENGTH, 0);
-                }
+        match super::MESSAGE_PADDED_LENGTH.checked_sub(buf.len()) {
+            Some(0) => {}
+            Some(1..=super::ITEM_HEADER_LENGTH) => buf.put_slice(&[0x20, 0x00, 0x00]),
+            Some(n) => {
+                let left = n - super::ITEM_HEADER_LENGTH;
+                buf.push(0x20);
+                buf.push(((left >> 8) & 0xFF) as u8);
+                buf.push((left & 0xFF) as u8);
+                buf.resize(super::MESSAGE_PADDED_LENGTH, 0);
             }
+            None => {}
         }
 
-        let len = buf.len() - HEADER_LENGTH;
+        let len = buf.len() - super::MESSAGE_HEADER_LENGTH;
         if len > u16::MAX as usize {
             return Err(anyhow!("message length too long"));
         }
