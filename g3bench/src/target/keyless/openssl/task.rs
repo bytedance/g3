@@ -20,6 +20,7 @@ use async_trait::async_trait;
 use tokio::time::Instant;
 
 use super::{BenchTaskContext, KeylessHistogramRecorder, KeylessOpensslArgs, KeylessRuntimeStats};
+use crate::target::BenchError;
 
 pub(super) struct KeylessOpensslTaskContext {
     args: Arc<KeylessOpensslArgs>,
@@ -59,8 +60,8 @@ impl BenchTaskContext for KeylessOpensslTaskContext {
         self.runtime_stats.dec_task_alive();
     }
 
-    async fn run(&mut self, task_id: usize, time_started: Instant) -> anyhow::Result<()> {
-        let output = self.args.handle_action()?;
+    async fn run(&mut self, task_id: usize, time_started: Instant) -> Result<(), BenchError> {
+        let output = self.args.handle_action().map_err(BenchError::Fatal)?;
         let total_time = time_started.elapsed();
         if let Some(r) = &mut self.histogram_recorder {
             r.record_total_time(total_time);

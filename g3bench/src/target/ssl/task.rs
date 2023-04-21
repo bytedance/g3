@@ -26,6 +26,7 @@ use tokio::time::Instant;
 use g3_io_ext::LimitedStream;
 
 use super::{BenchSslArgs, BenchTaskContext, ProcArgs, SslHistogramRecorder, SslRuntimeStats};
+use crate::target::BenchError;
 
 pub(super) struct SslTaskContext {
     args: Arc<BenchSslArgs>,
@@ -92,8 +93,8 @@ impl BenchTaskContext for SslTaskContext {
         self.runtime_stats.dec_task_alive();
     }
 
-    async fn run(&mut self, _task_id: usize, time_started: Instant) -> anyhow::Result<()> {
-        let tcp_stream = self.connect().await?;
+    async fn run(&mut self, _task_id: usize, time_started: Instant) -> Result<(), BenchError> {
+        let tcp_stream = self.connect().await.map_err(BenchError::Fatal)?;
 
         let tls_client = self.args.tls.client.as_ref().unwrap();
         match tokio::time::timeout(
@@ -118,8 +119,8 @@ impl BenchTaskContext for SslTaskContext {
 
                 Ok(())
             }
-            Ok(Err(e)) => Err(e),
-            Err(_) => Err(anyhow!("tls handshake timeout")),
+            Ok(Err(e)) => Err(BenchError::Task(e)),
+            Err(_) => Err(BenchError::Task(anyhow!("tls handshake timeout"))),
         }
     }
 }

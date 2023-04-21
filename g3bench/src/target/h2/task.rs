@@ -26,6 +26,7 @@ use super::{
     BenchH2Args, BenchTaskContext, H2ConnectionPool, H2PreRequest, HttpHistogramRecorder,
     HttpRuntimeStats, ProcArgs,
 };
+use crate::target::BenchError;
 
 pub(super) struct H2TaskContext {
     args: Arc<BenchH2Args>,
@@ -192,11 +193,12 @@ impl BenchTaskContext for H2TaskContext {
         self.runtime_stats.dec_task_alive();
     }
 
-    async fn run(&mut self, _task_id: usize, time_started: Instant) -> anyhow::Result<()> {
+    async fn run(&mut self, _task_id: usize, time_started: Instant) -> Result<(), BenchError> {
         let send_req = self
             .fetch_stream()
             .await
-            .context("fetch new stream failed")?;
+            .context("fetch new stream failed")
+            .map_err(BenchError::Fatal)?;
 
         match self.run_with_stream(time_started, send_req).await {
             Ok(_) => {
@@ -211,7 +213,7 @@ impl BenchTaskContext for H2TaskContext {
             }
             Err(e) => {
                 self.drop_connection();
-                Err(e)
+                Err(BenchError::Task(e))
             }
         }
     }

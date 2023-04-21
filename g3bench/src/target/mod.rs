@@ -112,12 +112,17 @@ trait BenchRuntimeStats {
     fn summary(&self, total_time: Duration);
 }
 
+enum BenchError {
+    Fatal(anyhow::Error),
+    Task(anyhow::Error),
+}
+
 #[async_trait]
 trait BenchTaskContext {
     fn mark_task_start(&self);
     fn mark_task_passed(&self);
     fn mark_task_failed(&self);
-    async fn run(&mut self, task_id: usize, time_started: Instant) -> anyhow::Result<()>;
+    async fn run(&mut self, task_id: usize, time_started: Instant) -> Result<(), BenchError>;
 }
 
 trait BenchTarget<RS, H, C>
@@ -191,7 +196,13 @@ where
                         }
                         global_state.add_passed();
                     }
-                    Err(e) => {
+                    Err(BenchError::Fatal(e)) => {
+                        context.mark_task_failed();
+                        global_state.add_failed();
+                        eprintln!("!! Fatal error with task context {i}: {e:?}");
+                        break;
+                    }
+                    Err(BenchError::Task(e)) => {
                         context.mark_task_failed();
                         if global_state.check_log_error() {
                             eprintln!("! request {task_id} failed: {e:?}\n");

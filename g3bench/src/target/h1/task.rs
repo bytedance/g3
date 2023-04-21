@@ -31,6 +31,7 @@ use super::{
     BenchHttpArgs, BenchTaskContext, HttpHistogramRecorder, HttpRuntimeStats, ProcArgs,
     SavedHttpForwardConnection,
 };
+use crate::target::BenchError;
 
 pub(super) struct HttpTaskContext {
     args: Arc<BenchHttpArgs>,
@@ -204,13 +205,14 @@ impl BenchTaskContext for HttpTaskContext {
         self.runtime_stats.dec_task_alive();
     }
 
-    async fn run(&mut self, _task_id: usize, time_started: Instant) -> anyhow::Result<()> {
+    async fn run(&mut self, _task_id: usize, time_started: Instant) -> Result<(), BenchError> {
         self.reset_request_header();
 
         let mut connection = self
             .fetch_connection()
             .await
-            .context("connect to upstream failed")?;
+            .context("connect to upstream failed")
+            .map_err(BenchError::Fatal)?;
 
         match self
             .run_with_connection(time_started, &mut connection)
@@ -242,7 +244,7 @@ impl BenchTaskContext for HttpTaskContext {
                 }
                 Ok(())
             }
-            Err(e) => Err(e),
+            Err(e) => Err(BenchError::Task(e)),
         }
     }
 }

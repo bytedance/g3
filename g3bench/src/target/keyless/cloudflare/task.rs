@@ -25,6 +25,7 @@ use super::{
     KeylessRequest, KeylessRequestBuilder, KeylessResponse, KeylessRuntimeStats, SendHandle,
 };
 use crate::opts::ProcArgs;
+use crate::target::BenchError;
 
 pub(super) struct KeylessCloudflareTaskContext {
     args: Arc<KeylessCloudflareArgs>,
@@ -133,8 +134,8 @@ impl BenchTaskContext for KeylessCloudflareTaskContext {
         self.runtime_stats.dec_task_alive();
     }
 
-    async fn run(&mut self, task_id: usize, time_started: Instant) -> anyhow::Result<()> {
-        let handle = self.fetch_handle().await?;
+    async fn run(&mut self, task_id: usize, time_started: Instant) -> Result<(), BenchError> {
+        let handle = self.fetch_handle().await.map_err(BenchError::Fatal)?;
 
         self.do_run(handle)
             .await
@@ -147,7 +148,7 @@ impl BenchTaskContext for KeylessCloudflareTaskContext {
             })
             .map_err(|e| {
                 self.save = None;
-                e
+                BenchError::Task(e)
             })
     }
 }
