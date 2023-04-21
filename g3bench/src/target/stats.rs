@@ -14,36 +14,35 @@
  * limitations under the License.
  */
 
-use std::ops::{Deref, DerefMut};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
 use hdrhistogram::Histogram;
-use once_cell::sync::Lazy;
 
-static mut GLOBAL_STATE: Lazy<GlobalState> = Lazy::new(GlobalState::default);
+static GLOBAL_STATE: GlobalState = GlobalState::new(None, 0);
 
 pub(super) fn global_state() -> &'static GlobalState {
-    unsafe { GLOBAL_STATE.deref() }
+    &GLOBAL_STATE
 }
 
 pub(super) fn mark_force_quit() {
-    global_state().mark_force_quit();
+    GLOBAL_STATE.mark_force_quit();
 }
 
 pub(super) fn init_global_state(requests: Option<usize>, log_error_count: usize) {
-    let stats_mut = unsafe { GLOBAL_STATE.deref_mut() };
-    stats_mut.total_count = requests;
-    stats_mut
+    GLOBAL_STATE
+        .check_total
+        .store(requests.is_some(), Ordering::Relaxed);
+    GLOBAL_STATE
         .total_left
         .store(requests.unwrap_or_default(), Ordering::Relaxed);
-    stats_mut
+    GLOBAL_STATE
         .log_error_left
         .store(log_error_count, Ordering::Relaxed);
 }
 
 pub(super) struct GlobalState {
-    total_count: Option<usize>,
+    check_total: AtomicBool,
     force_quit: AtomicBool,
     total_left: AtomicUsize,
     total_passed: AtomicUsize,
@@ -59,15 +58,19 @@ impl Default for GlobalState {
 }
 
 impl GlobalState {
-    pub(super) fn new(requests: Option<usize>, log_error_count: usize) -> Self {
+    pub(super) const fn new(requests: Option<usize>, log_error_count: usize) -> Self {
+        let total_left = match requests {
+            Some(v) => v,
+            None => 0,
+        };
         GlobalState {
-            total_count: requests,
+            check_total: AtomicBool::new(requests.is_some()),
             force_quit: AtomicBool::new(false),
-            total_left: AtomicUsize::new(requests.unwrap_or_default()),
-            total_passed: AtomicUsize::default(),
-            total_failed: AtomicUsize::default(),
+            total_left: AtomicUsize::new(total_left),
+            total_passed: AtomicUsize::new(0),
+            total_failed: AtomicUsize::new(0),
             log_error_left: AtomicUsize::new(log_error_count),
-            request_id: AtomicUsize::default(),
+            request_id: AtomicUsize::new(0),
         }
     }
 
@@ -80,7 +83,7 @@ impl GlobalState {
             return None;
         }
 
-        if self.total_count.is_some() {
+        if self.check_total.load(Ordering::Relaxed) {
             let mut curr = self.total_left.load(Ordering::Acquire);
             loop {
                 if curr == 0 {

@@ -1329,7 +1329,6 @@ dependencies = [
  "http",
  "indicatif",
  "is-terminal",
- "once_cell",
  "openssl",
  "rustc_version",
  "thiserror",
