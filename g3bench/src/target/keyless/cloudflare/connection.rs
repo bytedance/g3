@@ -192,6 +192,16 @@ pub(crate) struct SendHandle {
     writer_waker: Waker,
 }
 
+impl Drop for SendHandle {
+    fn drop(&mut self) {
+        self.shared.req_queue.close();
+        let mut waker_guard = self.shared.write_waker.write().unwrap();
+        if let Some(waker) = waker_guard.take() {
+            waker.wake(); // let the writer handle the quit
+        }
+    }
+}
+
 impl SendHandle {
     pub(crate) fn is_closed(&self) -> bool {
         self.shared.req_queue.is_closed()
