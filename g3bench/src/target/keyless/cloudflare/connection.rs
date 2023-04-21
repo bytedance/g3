@@ -21,16 +21,19 @@ use std::pin::Pin;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::task::{ready, Context, Poll, Waker};
+use std::time::Duration;
 
 use concurrent_queue::{ConcurrentQueue, PopError, PushError};
 use fxhash::FxBuildHasher;
 use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::time::Instant;
 
 use super::{KeylessLocalError, KeylessRequest, KeylessResponse, KeylessResponseError};
 
 struct ResponseValue {
     data: Option<KeylessResponse>,
     waker: Option<Waker>,
+    created: Instant,
 }
 
 struct SharedState {
@@ -116,8 +119,10 @@ impl UnderlyingWriterState {
                         }
                         Poll::Ready(Err(e)) => {
                             self.shared.req_queue.close();
+                            waker.wake();
                             self.shared.clean_pending_req();
                             self.shared.set_req_error(e);
+                            let _ = writer.as_mut().poll_shutdown(cx);
                             return Poll::Ready(());
                         }
                         Poll::Pending => {
@@ -132,6 +137,7 @@ impl UnderlyingWriterState {
                     ResponseValue {
                         data: None,
                         waker: Some(waker),
+                        created: Instant::now(),
                     },
                 );
             }
@@ -147,12 +153,16 @@ impl UnderlyingWriterState {
                             self.shared.req_queue.close();
                             self.shared.clean_pending_req();
                             self.shared.set_req_error(e);
+                            let _ = writer.as_mut().poll_shutdown(cx);
                             return Poll::Ready(());
                         }
                     }
                     return Poll::Pending;
                 }
-                Err(PopError::Closed) => return Poll::Ready(()),
+                Err(PopError::Closed) => {
+                    let _ = writer.as_mut().poll_shutdown(cx);
+                    return Poll::Ready(());
+                }
             }
         }
     }
@@ -261,7 +271,7 @@ impl Future for SendRequest {
     }
 }
 
-pub(crate) async fn start_transfer<R, W>(mut r: R, w: W) -> SendHandle
+pub(crate) async fn start_transfer<R, W>(mut r: R, w: W, request_timeout: Duration) -> SendHandle
 where
     R: AsyncRead + Send + Unpin + 'static,
     W: AsyncWrite + Send + Unpin + 'static,
@@ -282,10 +292,30 @@ where
         shared: shared.clone(),
     };
 
-    // TODO use a timer to clean timeout cache and keep hashtable small
+    let clean_shared = shared.clone();
+    tokio::spawn(async move {
+        // use a timer to clean timeout cache and keep hashtable small
+        let mut interval = tokio::time::interval(request_timeout);
+        interval.tick().await;
+        loop {
+            interval.tick().await;
+
+            let mut rsp_table_guard = clean_shared.rsp_table.lock().unwrap();
+            rsp_table_guard.retain(|_, v| {
+                if v.created.elapsed() > request_timeout {
+                    if let Some(waker) = v.waker.take() {
+                        waker.wake();
+                    }
+                    false
+                } else {
+                    true
+                }
+            });
+        }
+    });
 
     tokio::spawn(async move {
-        let mut buf: Vec<u8> = Vec::with_capacity(512);
+        let mut buf: Vec<u8> = Vec::with_capacity(1024);
         loop {
             match KeylessResponse::read(&mut r, &mut buf).await {
                 Ok(r) => {
@@ -303,6 +333,10 @@ where
                     shared.req_queue.close();
                     shared.set_rsp_error(e);
                     shared.clean_pending_req();
+                    let mut waker_guard = shared.write_waker.write().unwrap();
+                    if let Some(waker) = waker_guard.take() {
+                        waker.wake(); // tell the writer to quit
+                    }
                     break;
                 }
             };

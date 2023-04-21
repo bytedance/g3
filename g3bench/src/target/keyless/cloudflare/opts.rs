@@ -90,10 +90,10 @@ impl KeylessCloudflareArgs {
         if let Some(tls_client) = &self.tls.client {
             let ssl_stream = self.tls_connect_to_target(tls_client, tcp_stream).await?;
             let (r, w) = tokio::io::split(ssl_stream);
-            Ok(super::connection::start_transfer(r, w).await)
+            Ok(super::connection::start_transfer(r, w, self.timeout).await)
         } else {
             let (r, w) = tcp_stream.into_split();
-            Ok(super::connection::start_transfer(r, w).await)
+            Ok(super::connection::start_transfer(r, w, self.timeout).await)
         }
     }
 
