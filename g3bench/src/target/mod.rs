@@ -252,10 +252,13 @@ where
     sync_barrier.wait().await;
 
     if let Some(time_limit) = proc_args.time_limit {
-        tokio::spawn(async move {
-            tokio::time::sleep(time_limit).await;
-            stats::mark_force_quit();
-        });
+        std::thread::Builder::new()
+            .name("quit-timer".to_string())
+            .spawn(move || {
+                std::thread::sleep(time_limit);
+                stats::mark_force_quit();
+            })
+            .map_err(|e| anyhow!("failed to create quit timer thread: {e}"))?;
     }
 
     let mut distribute_histogram = Histogram::<u64>::new(3).unwrap();
