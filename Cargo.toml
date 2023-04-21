@@ -113,7 +113,7 @@ pin-project = "1.0"
 tokio-rustls = "0.23.1"
 rustls = "0.20.1"
 tokio-openssl = "0.6"
-openssl = "0.10.46"
+openssl = "0.10.51"
 rustls-pemfile = "1.0"
 rustls-native-certs = "0.6"
 #
