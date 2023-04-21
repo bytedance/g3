@@ -71,6 +71,7 @@ impl KeylessCloudflareTaskContext {
 
         if let Some(handle) = &self.save {
             if !handle.is_closed() {
+                self.reuse_conn_count += 1;
                 return Ok(handle.clone());
             }
             self.save = None;
