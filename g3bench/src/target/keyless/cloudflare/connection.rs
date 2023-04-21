@@ -26,7 +26,7 @@ use std::time::Duration;
 use concurrent_queue::{ConcurrentQueue, PopError, PushError};
 use fxhash::FxBuildHasher;
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio::time::Instant;
+use tokio::time::{Instant, Sleep};
 
 use super::{KeylessLocalError, KeylessRequest, KeylessResponse, KeylessResponseError};
 
@@ -70,6 +70,11 @@ impl SharedState {
             }
         }
     }
+
+    fn take_write_waker(&self) -> Option<Waker> {
+        let mut guard = self.write_waker.write().unwrap();
+        guard.take()
+    }
 }
 
 impl Default for SharedState {
@@ -89,6 +94,8 @@ struct UnderlyingWriterState {
     shared: Arc<SharedState>,
     current_offset: usize,
     current_request: Option<(KeylessRequest, Waker)>,
+    request_timeout: Duration,
+    shutdown_wait: Option<Pin<Box<Sleep>>>,
 }
 
 impl UnderlyingWriterState {
@@ -160,8 +167,21 @@ impl UnderlyingWriterState {
                     return Poll::Pending;
                 }
                 Err(PopError::Closed) => {
-                    let _ = writer.as_mut().poll_shutdown(cx);
-                    return Poll::Ready(());
+                    let _ = self.shared.take_write_waker(); // make sure no more wake by others
+                    let mut sleep = self
+                        .shutdown_wait
+                        .take()
+                        .unwrap_or_else(|| Box::pin(tokio::time::sleep(self.request_timeout)));
+                    return match sleep.as_mut().poll(cx) {
+                        Poll::Ready(_) => {
+                            let _ = writer.as_mut().poll_shutdown(cx);
+                            Poll::Ready(())
+                        }
+                        Poll::Pending => {
+                            self.shutdown_wait = Some(sleep);
+                            Poll::Pending
+                        }
+                    };
                 }
             }
         }
@@ -194,8 +214,7 @@ pub(crate) struct SendHandle {
 impl Drop for SendHandle {
     fn drop(&mut self) {
         self.shared.req_queue.close();
-        let mut waker_guard = self.shared.write_waker.write().unwrap();
-        if let Some(waker) = waker_guard.take() {
+        if let Some(waker) = self.shared.take_write_waker() {
             waker.wake(); // let the writer handle the quit
         }
     }
@@ -293,6 +312,8 @@ where
             shared: Arc::clone(&shared),
             current_offset: 0,
             current_request: None,
+            request_timeout,
+            shutdown_wait: None,
         },
     };
     tokio::spawn(underlying_w);
@@ -341,8 +362,7 @@ where
                     shared.req_queue.close();
                     shared.set_rsp_error(e);
                     shared.clean_pending_req();
-                    let mut waker_guard = shared.write_waker.write().unwrap();
-                    if let Some(waker) = waker_guard.take() {
+                    if let Some(waker) = shared.take_write_waker() {
                         waker.wake(); // tell the writer to quit
                     }
                     break;
