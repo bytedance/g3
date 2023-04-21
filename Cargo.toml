@@ -67,7 +67,7 @@ memchr = "2.4"
 uuid = "1.2"
 base64 = "0.21"
 once_cell = "1.7"
-regex = "1.5"
+regex = "1.8"
 arc-swap = "1.2"
 chrono = { version = "0.4.22", default-features = false }
 governor = { version = "0.5", default-features = false }
