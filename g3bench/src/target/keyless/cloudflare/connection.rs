@@ -186,7 +186,6 @@ where
     }
 }
 
-#[derive(Clone)]
 pub(crate) struct SendHandle {
     shared: Arc<SharedState>,
     writer_waker: Waker,
@@ -244,7 +243,6 @@ impl Future for WaitWriteWaker {
     }
 }
 
-#[derive(Clone)]
 pub(crate) struct SendRequest {
     shared: Arc<SharedState>,
     writer_waker: Waker,

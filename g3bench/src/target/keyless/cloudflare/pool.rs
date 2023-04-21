@@ -29,7 +29,7 @@ struct KeylessConnectionUnlocked {
     args: Arc<KeylessCloudflareArgs>,
     proc_args: Arc<ProcArgs>,
     index: usize,
-    save: Option<SendHandle>,
+    save: Option<Arc<SendHandle>>,
     runtime_stats: Arc<KeylessRuntimeStats>,
     histogram_recorder: Option<KeylessHistogramRecorder>,
     reuse_conn_count: u64,
@@ -63,7 +63,7 @@ impl KeylessConnectionUnlocked {
         }
     }
 
-    async fn fetch_handle(&mut self) -> anyhow::Result<SendHandle> {
+    async fn fetch_handle(&mut self) -> anyhow::Result<Arc<SendHandle>> {
         if let Some(handle) = &self.save {
             if !handle.is_closed() {
                 self.reuse_conn_count += 1;
@@ -84,7 +84,7 @@ impl KeylessConnectionUnlocked {
         )
         .await
         {
-            Ok(Ok(h)) => h,
+            Ok(Ok(h)) => Arc::new(h),
             Ok(Err(e)) => return Err(e.context(format!("P#{} new connection failed", self.index))),
             Err(_) => return Err(anyhow!("timeout to get new connection")),
         };
@@ -117,7 +117,7 @@ impl KeylessConnection {
         }
     }
 
-    async fn fetch_handle(&self) -> anyhow::Result<SendHandle> {
+    async fn fetch_handle(&self) -> anyhow::Result<Arc<SendHandle>> {
         let mut inner = self.inner.lock().await;
         inner.fetch_handle().await
     }
@@ -155,7 +155,7 @@ impl KeylessConnectionPool {
         }
     }
 
-    pub(super) async fn fetch_handle(&self) -> anyhow::Result<SendHandle> {
+    pub(super) async fn fetch_handle(&self) -> anyhow::Result<Arc<SendHandle>> {
         match self.pool_size {
             0 => Err(anyhow!("no connections configured for this pool")),
             1 => self.pool[0].fetch_handle().await,

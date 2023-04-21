@@ -32,7 +32,7 @@ pub(super) struct KeylessCloudflareTaskContext {
     proc_args: Arc<ProcArgs>,
 
     pool: Option<Arc<KeylessConnectionPool>>,
-    save: Option<SendHandle>,
+    save: Option<Arc<SendHandle>>,
 
     reuse_conn_count: u64,
     request_message: KeylessRequest,
@@ -64,7 +64,7 @@ impl KeylessCloudflareTaskContext {
         })
     }
 
-    async fn fetch_handle(&mut self) -> anyhow::Result<SendHandle> {
+    async fn fetch_handle(&mut self) -> anyhow::Result<Arc<SendHandle>> {
         if let Some(pool) = &self.pool {
             return pool.fetch_handle().await;
         }
@@ -91,7 +91,7 @@ impl KeylessCloudflareTaskContext {
         )
         .await
         {
-            Ok(Ok(h)) => h,
+            Ok(Ok(h)) => Arc::new(h),
             Ok(Err(e)) => return Err(e),
             Err(_) => return Err(anyhow!("timeout to get new connection")),
         };
@@ -101,7 +101,7 @@ impl KeylessCloudflareTaskContext {
         Ok(handle)
     }
 
-    async fn do_run(&self, handle: SendHandle) -> anyhow::Result<KeylessResponse> {
+    async fn do_run(&self, handle: &SendHandle) -> anyhow::Result<KeylessResponse> {
         match tokio::time::timeout(
             self.args.timeout,
             handle.send_request(self.request_message.clone()),
@@ -138,7 +138,7 @@ impl BenchTaskContext for KeylessCloudflareTaskContext {
     async fn run(&mut self, task_id: usize, time_started: Instant) -> Result<(), BenchError> {
         let handle = self.fetch_handle().await.map_err(BenchError::Fatal)?;
 
-        self.do_run(handle)
+        self.do_run(&handle)
             .await
             .map(|rsp| {
                 let total_time = time_started.elapsed();
