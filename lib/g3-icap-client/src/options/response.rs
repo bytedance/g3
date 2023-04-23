@@ -40,7 +40,21 @@ pub struct IcapServiceOptions {
 }
 
 impl IcapServiceOptions {
-    pub(crate) fn new(method: IcapMethod) -> Self {
+    fn new(method: IcapMethod) -> Self {
+        IcapServiceOptions {
+            method,
+            server: None,
+            service_tag: String::new(),
+            service_id: None,
+            max_connections: None,
+            expire: None,
+            support_204: false,
+            support_206: false,
+            preview_size: None,
+        }
+    }
+
+    pub(crate) fn new_expired(method: IcapMethod) -> Self {
         IcapServiceOptions {
             method,
             server: None,

@@ -55,7 +55,7 @@ impl IcapServicePool {
         client_cmd_receiver: flume::Receiver<IcapServiceClientCommand>,
         conn_creator: Arc<IcapConnectionCreator>,
     ) -> Self {
-        let options = Arc::new(IcapServiceOptions::new(config.method));
+        let options = Arc::new(IcapServiceOptions::new_expired(config.method));
         let check_interval = tokio::time::interval(config.connection_pool.check_interval);
         let (pool_cmd_sender, pool_cmd_receiver) =
             mpsc::channel(config.connection_pool.max_idle_count);
