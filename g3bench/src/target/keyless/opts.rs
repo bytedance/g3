@@ -54,6 +54,23 @@ pub(crate) enum KeylessRsaPadding {
     None,
 }
 
+impl KeylessRsaPadding {
+    fn check_encrypt_payload(&self, rsa_size: usize, payload: &[u8]) -> anyhow::Result<()> {
+        let reserve_size: usize = match self {
+            KeylessRsaPadding::Pkcs1 => 11,
+            KeylessRsaPadding::Oaep => 42,
+            _ => 0,
+        };
+        if payload.len() + reserve_size > rsa_size {
+            Err(anyhow!(
+                "rsa encrypt payload length should be less than {rsa_size} - {reserve_size}"
+            ))
+        } else {
+            Ok(())
+        }
+    }
+}
+
 impl FromStr for KeylessRsaPadding {
     type Err = anyhow::Error;
 
@@ -198,12 +215,25 @@ impl KeylessGlobalArgs {
             }
         } else if args.get_flag(ARG_DECRYPT) {
             match pkey.id() {
-                Id::RSA => KeylessAction::RsaDecrypt(rsa_padding),
+                Id::RSA => {
+                    let rsa_size = pkey.rsa().unwrap().size() as usize;
+                    if payload.len() < rsa_size {
+                        return Err(anyhow!(
+                            "payload length {} not match rsa decrypt data length {rsa_size}",
+                            payload.len()
+                        ));
+                    }
+                    KeylessAction::RsaDecrypt(rsa_padding)
+                }
                 _ => KeylessAction::Decrypt,
             }
         } else if args.get_flag(ARG_ENCRYPT) {
             match pkey.id() {
-                Id::RSA => KeylessAction::RsaEncrypt(rsa_padding),
+                Id::RSA => {
+                    let rsa_size = pkey.rsa().unwrap().size() as usize;
+                    rsa_padding.check_encrypt_payload(rsa_size, payload.as_slice())?;
+                    KeylessAction::RsaEncrypt(rsa_padding)
+                }
                 _ => KeylessAction::Encrypt,
             }
         } else if args.get_flag(ARG_RSA_PRIVATE_ENCRYPT) {
