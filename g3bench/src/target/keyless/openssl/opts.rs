@@ -27,13 +27,15 @@ pub(super) struct KeylessOpensslArgs {
 impl KeylessOpensslArgs {
     pub(super) fn handle_action(&self) -> anyhow::Result<Vec<u8>> {
         match self.global.action {
-            KeylessAction::RsaPrivateDecrypt(padding) => self.global.rsa_private_decrypt(padding),
+            KeylessAction::RsaSign(digest, padding) => self.global.sign_rsa(digest, padding),
+            KeylessAction::EcdsaSign(digest) => self.global.sign(digest),
+            KeylessAction::Ed25519Sign => self.global.sign_ed(),
+            KeylessAction::RsaDecrypt(padding) => self.global.decrypt_rsa(padding),
+            KeylessAction::RsaEncrypt(padding) => self.global.encrypt_rsa(padding),
+            KeylessAction::Decrypt => self.global.decrypt(),
+            KeylessAction::Encrypt => self.global.encrypt(),
             KeylessAction::RsaPrivateEncrypt(padding) => self.global.rsa_private_encrypt(padding),
-            KeylessAction::RsaPublicEncrypt(padding) => self.global.rsa_public_encrypt(padding),
             KeylessAction::RsaPublicDecrypt(padding) => self.global.rsa_public_decrypt(padding),
-            KeylessAction::RsaSign(digest, padding) => self.global.pkey_sign_rsa(digest, padding),
-            KeylessAction::EcdsaSign(digest) => self.global.pkey_sign(digest),
-            KeylessAction::Ed25519Sign => self.global.pkey_sign_ed(),
         }
     }
 }
