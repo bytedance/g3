@@ -47,7 +47,7 @@ impl IcapServiceOptions {
             service_tag: String::new(),
             service_id: None,
             max_connections: None,
-            expire: None,
+            expire: Some(Instant::now()),
             support_204: false,
             support_206: false,
             preview_size: None,
@@ -56,7 +56,7 @@ impl IcapServiceOptions {
 
     pub(crate) fn expired(&self) -> bool {
         if let Some(expire) = self.expire {
-            Instant::now() > expire
+            Instant::now() >= expire
         } else {
             false
         }
