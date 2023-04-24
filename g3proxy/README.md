@@ -15,7 +15,7 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 
   * Ingress network filter / Target Host filter / Target Port filter
   * Socket Speed Limit / Request Rate Limit / IDLE Check
-  * Protocol Inspection / TLS Interception / ICAP Adaptation
+  * Protocol Inspection / TLS Interception / ICAP Adaptation (experimental)
   * Various TCP / UDP socket config options
 
 - **Forward Proxy**
