@@ -129,18 +129,24 @@ impl TryFrom<KeylessAction> for KeylessOpCode {
 
 pub(crate) struct KeylessRequestBuilder {
     opcode: KeylessOpCode,
-    cert_digest: DigestBytes,
+    cert_ski: Vec<u8>,
+    cert_digest: Option<DigestBytes>,
     server_name: String,
 }
 
 impl KeylessRequestBuilder {
-    pub(crate) fn new(digest: DigestBytes, action: KeylessAction) -> anyhow::Result<Self> {
+    pub(crate) fn new(ski: &[u8], action: KeylessAction) -> anyhow::Result<Self> {
         let opcode = KeylessOpCode::try_from(action)?;
         Ok(KeylessRequestBuilder {
             opcode,
-            cert_digest: digest,
+            cert_ski: ski.to_vec(),
+            cert_digest: None,
             server_name: String::new(),
         })
+    }
+
+    pub(crate) fn set_digest(&mut self, digest: DigestBytes) {
+        self.cert_digest = Some(digest);
     }
 
     pub(crate) fn build(&self, payload: &[u8]) -> anyhow::Result<KeylessRequest> {
@@ -149,15 +155,24 @@ impl KeylessRequestBuilder {
         buf.extend_from_slice(&[0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
 
         // certificate digest
-        buf.push(0x01);
-        let digest_len = self.cert_digest.len();
-        buf.push(((digest_len >> 8) & 0xFF) as u8);
-        buf.push((digest_len & 0xFF) as u8);
-        buf.put_slice(self.cert_digest.as_ref());
+        if let Some(digest) = &self.cert_digest {
+            buf.push(0x01);
+            let digest_len = digest.len();
+            buf.push(((digest_len >> 8) & 0xFF) as u8);
+            buf.push((digest_len & 0xFF) as u8);
+            buf.put_slice(digest.as_ref());
+        }
 
         if !self.server_name.is_empty() {
             // TODO
         }
+
+        // SKI
+        buf.push(0x04);
+        let ski_len = self.cert_ski.len();
+        buf.push(((ski_len >> 8) & 0xFF) as u8);
+        buf.push((ski_len & 0xFF) as u8);
+        buf.put_slice(self.cert_ski.as_slice());
 
         // OpCode
         buf.put_slice(&[0x11, 0x00, 0x01]);

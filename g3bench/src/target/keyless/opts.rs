@@ -19,10 +19,8 @@ use std::str::FromStr;
 
 use anyhow::anyhow;
 use clap::{value_parser, Arg, ArgAction, ArgGroup, ArgMatches, Command, ValueHint};
-use openssl::bn::BigNumContext;
-use openssl::ec::PointConversionForm;
 use openssl::encrypt::{Decrypter, Encrypter};
-use openssl::hash::{DigestBytes, MessageDigest};
+use openssl::hash::MessageDigest;
 use openssl::nid::Nid;
 use openssl::pkey::{Id, PKey, Private, Public};
 use openssl::rsa::Padding;
@@ -270,34 +268,19 @@ impl KeylessGlobalArgs {
         }
     }
 
-    pub(super) fn get_public_key_digest(&self) -> anyhow::Result<DigestBytes> {
-        let pkey = self
-            .cert
-            .public_key()
-            .map_err(|e| anyhow!("no public key found in cert: {e}"))?;
-        if let Ok(rsa) = pkey.rsa() {
-            let hex = rsa
-                .n()
-                .to_hex_str()
-                .map_err(|e| anyhow!("failed to get hex string of rsa modulus: {e}"))?;
-            openssl::hash::hash(MessageDigest::sha256(), hex.as_bytes())
-                .map_err(|e| anyhow!("public key digest hash error: {e}"))
-        } else if let Ok(ec) = pkey.ec_key() {
-            let group = ec.group();
-            let point = ec.public_key();
-            let mut ctx = BigNumContext::new_secure().unwrap();
-            let bytes = point
-                .to_bytes(group, PointConversionForm::COMPRESSED, &mut ctx)
-                .unwrap();
-            let hex = hex::encode(bytes);
-            openssl::hash::hash(MessageDigest::sha256(), hex.as_bytes())
-                .map_err(|e| anyhow!("public key digest hash error: {e}"))
-        } else {
-            Err(anyhow!("unsupported public type: {:?}", pkey.id()))
+    pub(super) fn get_subject_key_id(&self) -> anyhow::Result<&[u8]> {
+        if let Some(o) = self.cert.subject_key_id() {
+            return Ok(o.as_slice());
         }
+
+        Err(anyhow!("still not supported"))
     }
 
-    fn get_private_key(&self) -> anyhow::Result<&PKey<Private>> {
+    pub(super) fn public_key(&self) -> &PKey<Public> {
+        &self.public_key
+    }
+
+    fn private_key(&self) -> anyhow::Result<&PKey<Private>> {
         self.private_key
             .as_ref()
             .ok_or_else(|| anyhow!("no private key set"))
@@ -333,7 +316,7 @@ impl KeylessGlobalArgs {
     }
 
     fn get_decrypter(&self) -> anyhow::Result<Decrypter> {
-        let pkey = self.get_private_key()?;
+        let pkey = self.private_key()?;
         Decrypter::new(pkey).map_err(|e| anyhow!("failed to create decrypter: {e}"))
     }
 
@@ -363,7 +346,7 @@ impl KeylessGlobalArgs {
     }
 
     pub(super) fn sign(&self, digest: KeylessSignDigest) -> anyhow::Result<Vec<u8>> {
-        let pkey = self.get_private_key()?;
+        let pkey = self.private_key()?;
         let signer = Signer::new(digest.into(), pkey)
             .map_err(|e| anyhow!("error when create signer: {e}"))?;
         self.do_sign(signer)
@@ -374,7 +357,7 @@ impl KeylessGlobalArgs {
         digest: KeylessSignDigest,
         padding: KeylessRsaPadding,
     ) -> anyhow::Result<Vec<u8>> {
-        let pkey = self.get_private_key()?;
+        let pkey = self.private_key()?;
         let mut signer = Signer::new(digest.into(), pkey)
             .map_err(|e| anyhow!("error when create signer: {e}"))?;
         signer
@@ -384,7 +367,7 @@ impl KeylessGlobalArgs {
     }
 
     pub(super) fn sign_ed(&self) -> anyhow::Result<Vec<u8>> {
-        let pkey = self.get_private_key()?;
+        let pkey = self.private_key()?;
         let signer = Signer::new_without_digest(pkey)
             .map_err(|e| anyhow!("error when create signer: {e}"))?;
         self.do_sign(signer)
@@ -403,7 +386,7 @@ impl KeylessGlobalArgs {
         &self,
         padding: KeylessRsaPadding,
     ) -> anyhow::Result<Vec<u8>> {
-        let pkey = self.get_private_key()?;
+        let pkey = self.private_key()?;
         let rsa = pkey
             .rsa()
             .map_err(|e| anyhow!("private key is not rsa: {e}"))?;
