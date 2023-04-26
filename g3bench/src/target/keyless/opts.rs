@@ -280,7 +280,7 @@ impl KeylessGlobalArgs {
         &self.public_key
     }
 
-    fn private_key(&self) -> anyhow::Result<&PKey<Private>> {
+    fn get_private_key(&self) -> anyhow::Result<&PKey<Private>> {
         self.private_key
             .as_ref()
             .ok_or_else(|| anyhow!("no private key set"))
@@ -316,7 +316,7 @@ impl KeylessGlobalArgs {
     }
 
     fn get_decrypter(&self) -> anyhow::Result<Decrypter> {
-        let pkey = self.private_key()?;
+        let pkey = self.get_private_key()?;
         Decrypter::new(pkey).map_err(|e| anyhow!("failed to create decrypter: {e}"))
     }
 
@@ -346,7 +346,7 @@ impl KeylessGlobalArgs {
     }
 
     pub(super) fn sign(&self, digest: KeylessSignDigest) -> anyhow::Result<Vec<u8>> {
-        let pkey = self.private_key()?;
+        let pkey = self.get_private_key()?;
         let signer = Signer::new(digest.into(), pkey)
             .map_err(|e| anyhow!("error when create signer: {e}"))?;
         self.do_sign(signer)
@@ -357,7 +357,7 @@ impl KeylessGlobalArgs {
         digest: KeylessSignDigest,
         padding: KeylessRsaPadding,
     ) -> anyhow::Result<Vec<u8>> {
-        let pkey = self.private_key()?;
+        let pkey = self.get_private_key()?;
         let mut signer = Signer::new(digest.into(), pkey)
             .map_err(|e| anyhow!("error when create signer: {e}"))?;
         signer
@@ -367,7 +367,7 @@ impl KeylessGlobalArgs {
     }
 
     pub(super) fn sign_ed(&self) -> anyhow::Result<Vec<u8>> {
-        let pkey = self.private_key()?;
+        let pkey = self.get_private_key()?;
         let signer = Signer::new_without_digest(pkey)
             .map_err(|e| anyhow!("error when create signer: {e}"))?;
         self.do_sign(signer)
@@ -386,7 +386,7 @@ impl KeylessGlobalArgs {
         &self,
         padding: KeylessRsaPadding,
     ) -> anyhow::Result<Vec<u8>> {
-        let pkey = self.private_key()?;
+        let pkey = self.get_private_key()?;
         let rsa = pkey
             .rsa()
             .map_err(|e| anyhow!("private key is not rsa: {e}"))?;
