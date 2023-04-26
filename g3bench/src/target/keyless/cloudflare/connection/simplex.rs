@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
+use futures_util::FutureExt;
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 use super::{KeylessLocalError, KeylessRequest, KeylessResponse, KeylessResponseError};
 
@@ -37,6 +38,11 @@ impl SimplexTransfer {
             next_req_id: 0,
             read_buf: Vec::with_capacity(1024),
         }
+    }
+
+    pub(crate) fn is_closed(&mut self) -> bool {
+        let mut buf = [0u8; 4];
+        self.reader.read(&mut buf).now_or_never().is_some()
     }
 
     pub(crate) async fn send_request(
