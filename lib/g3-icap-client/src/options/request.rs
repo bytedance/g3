@@ -31,11 +31,11 @@ impl<'a> IcapOptionsRequest<'a> {
         IcapOptionsRequest { config }
     }
 
-    pub(crate) async fn send<W>(&self, writer: &mut W) -> io::Result<()>
+    async fn send<W>(&self, writer: &mut W) -> io::Result<()>
     where
         W: AsyncWrite + Unpin,
     {
-        let mut header = self.config.build_request_header();
+        let mut header = self.config.build_options_request();
         if self.config.icap_206_enable {
             header.put_slice(b"Allow: 204, 206\r\n");
         } else {
