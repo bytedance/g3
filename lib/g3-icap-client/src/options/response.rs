@@ -164,9 +164,12 @@ impl IcapServiceOptions {
 
         match header.name.to_lowercase().as_str() {
             "methods" => {
-                if self.method.as_str() != header.value {
-                    return Err(IcapOptionsParseError::MethodNotMatch);
+                for v in header.value.split(',') {
+                    if self.method.as_str() == v.trim() {
+                        return Ok(());
+                    }
                 }
+                return Err(IcapOptionsParseError::MethodNotMatch);
             }
             "service" => self.server = Some(header.value.to_string()),
             "istag" => self.service_tag = header.value.to_string(),
