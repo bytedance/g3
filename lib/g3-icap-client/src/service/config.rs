@@ -124,7 +124,7 @@ impl IcapServiceConfig {
 
     pub(crate) fn build_request_header(&self) -> Vec<u8> {
         let mut header = Vec::with_capacity(1024);
-        let _ = write!(header, "{} {} ICAP/1.0\r\n", self.method.as_str(), self.url);
+        let _ = write!(header, "OPTIONS {} ICAP/1.0\r\n", self.url);
         if let Some(host) = self.url.host_str() {
             let _ = write!(header, "Host: {host}\r\n");
         }
