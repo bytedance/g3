@@ -24,7 +24,8 @@ use tokio::time::Instant;
 
 use super::{
     BenchTaskContext, KeylessCloudflareArgs, KeylessConnectionPool, KeylessHistogramRecorder,
-    KeylessRequest, KeylessRequestBuilder, KeylessResponse, KeylessRuntimeStats, SendHandle,
+    KeylessRequest, KeylessRequestBuilder, KeylessResponse, KeylessRuntimeStats, MultiplexTransfer,
+    SimplexTransfer,
 };
 use crate::opts::ProcArgs;
 use crate::target::BenchError;
@@ -34,7 +35,8 @@ pub(super) struct KeylessCloudflareTaskContext {
     proc_args: Arc<ProcArgs>,
 
     pool: Option<Arc<KeylessConnectionPool>>,
-    save: Option<Arc<SendHandle>>,
+    multiplex: Option<Arc<MultiplexTransfer>>,
+    simplex: Option<SimplexTransfer>,
 
     reuse_conn_count: u64,
     request_message: KeylessRequest,
@@ -61,7 +63,8 @@ impl KeylessCloudflareTaskContext {
             args: Arc::clone(args),
             proc_args: Arc::clone(proc_args),
             pool,
-            save: None,
+            multiplex: None,
+            simplex: None,
             reuse_conn_count: 0,
             request_message,
             runtime_stats: Arc::clone(runtime_stats),
@@ -69,17 +72,17 @@ impl KeylessCloudflareTaskContext {
         })
     }
 
-    async fn fetch_handle(&mut self) -> anyhow::Result<Arc<SendHandle>> {
+    async fn fetch_multiplex_handle(&mut self) -> anyhow::Result<Arc<MultiplexTransfer>> {
         if let Some(pool) = &self.pool {
             return pool.fetch_handle().await;
         }
 
-        if let Some(handle) = &self.save {
+        if let Some(handle) = &self.multiplex {
             if !handle.is_closed() {
                 self.reuse_conn_count += 1;
                 return Ok(handle.clone());
             }
-            self.save = None;
+            self.multiplex = None;
         }
 
         if self.reuse_conn_count > 0 {
@@ -92,7 +95,7 @@ impl KeylessCloudflareTaskContext {
         self.runtime_stats.add_conn_attempt();
         let handle = match tokio::time::timeout(
             self.args.connect_timeout,
-            self.args.new_keyless_connection(&self.proc_args),
+            self.args.new_multiplex_keyless_connection(&self.proc_args),
         )
         .await
         {
@@ -102,11 +105,43 @@ impl KeylessCloudflareTaskContext {
         };
         self.runtime_stats.add_conn_success();
 
-        self.save = Some(handle.clone());
+        self.multiplex = Some(handle.clone());
         Ok(handle)
     }
 
-    async fn do_run(&self, handle: &SendHandle) -> anyhow::Result<KeylessResponse> {
+    async fn fetch_simplex_connection(&mut self) -> anyhow::Result<SimplexTransfer> {
+        if let Some(c) = self.simplex.take() {
+            self.reuse_conn_count += 1;
+            return Ok(c);
+        }
+
+        if self.reuse_conn_count > 0 {
+            if let Some(r) = &mut self.histogram_recorder {
+                r.record_conn_reuse_count(self.reuse_conn_count);
+            }
+            self.reuse_conn_count = 0;
+        }
+
+        self.runtime_stats.add_conn_attempt();
+        match tokio::time::timeout(
+            self.args.connect_timeout,
+            self.args.new_simplex_keyless_connection(&self.proc_args),
+        )
+        .await
+        {
+            Ok(Ok(c)) => {
+                self.runtime_stats.add_conn_success();
+                Ok(c)
+            }
+            Ok(Err(e)) => Err(e),
+            Err(_) => Err(anyhow!("timeout to get new connection")),
+        }
+    }
+
+    async fn do_run_multiplex(
+        &self,
+        handle: &MultiplexTransfer,
+    ) -> anyhow::Result<KeylessResponse> {
         match tokio::time::timeout(
             self.args.timeout,
             handle.send_request(self.request_message.clone()),
@@ -115,9 +150,25 @@ impl KeylessCloudflareTaskContext {
         {
             Ok(Some(rsp)) => Ok(rsp),
             Ok(None) => match handle.fetch_error() {
-                Some(e) => Err(anyhow!(e)),
+                Some(e) => Err(anyhow::Error::new(e)),
                 None => Err(anyhow!("we get no response but no error reported")),
             },
+            Err(_) => Err(anyhow!("request timed out")),
+        }
+    }
+
+    async fn do_run_simplex(
+        &mut self,
+        connection: &mut SimplexTransfer,
+    ) -> anyhow::Result<KeylessResponse> {
+        match tokio::time::timeout(
+            self.args.timeout,
+            connection.send_request(&mut self.request_message),
+        )
+        .await
+        {
+            Ok(Ok(rsp)) => Ok(rsp),
+            Ok(Err(e)) => Err(anyhow::Error::new(e)),
             Err(_) => Err(anyhow!("request timed out")),
         }
     }
@@ -141,21 +192,43 @@ impl BenchTaskContext for KeylessCloudflareTaskContext {
     }
 
     async fn run(&mut self, task_id: usize, time_started: Instant) -> Result<(), BenchError> {
-        let handle = self.fetch_handle().await.map_err(BenchError::Fatal)?;
+        if self.args.no_multiplex {
+            let mut connection = self
+                .fetch_simplex_connection()
+                .await
+                .map_err(BenchError::Fatal)?;
 
-        self.do_run(&handle)
-            .await
-            .map(|rsp| {
-                let total_time = time_started.elapsed();
-                if let Some(r) = &mut self.histogram_recorder {
-                    r.record_total_time(total_time);
-                }
-                self.args.global.dump_result(task_id, rsp.into_vec());
-            })
-            .map_err(|e| {
-                self.save = None;
-                BenchError::Task(e)
-            })
+            self.do_run_simplex(&mut connection)
+                .await
+                .map(|rsp| {
+                    let total_time = time_started.elapsed();
+                    self.simplex = Some(connection);
+                    if let Some(r) = &mut self.histogram_recorder {
+                        r.record_total_time(total_time);
+                    }
+                    self.args.global.dump_result(task_id, rsp.into_vec());
+                })
+                .map_err(BenchError::Task)
+        } else {
+            let handle = self
+                .fetch_multiplex_handle()
+                .await
+                .map_err(BenchError::Fatal)?;
+
+            self.do_run_multiplex(&handle)
+                .await
+                .map(|rsp| {
+                    let total_time = time_started.elapsed();
+                    if let Some(r) = &mut self.histogram_recorder {
+                        r.record_total_time(total_time);
+                    }
+                    self.args.global.dump_result(task_id, rsp.into_vec());
+                })
+                .map_err(|e| {
+                    self.multiplex = None;
+                    BenchError::Task(e)
+                })
+        }
     }
 }
 

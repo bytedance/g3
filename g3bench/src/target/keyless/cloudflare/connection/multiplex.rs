@@ -206,51 +206,17 @@ where
     }
 }
 
-pub(crate) struct SendHandle {
-    shared: Arc<SharedState>,
-    writer_waker: Waker,
-}
-
-impl Drop for SendHandle {
-    fn drop(&mut self) {
-        self.shared.req_queue.close();
-        if let Some(waker) = self.shared.take_write_waker() {
-            waker.wake(); // let the writer handle the quit
-        }
-    }
-}
-
-impl SendHandle {
-    pub(crate) fn is_closed(&self) -> bool {
-        self.shared.req_queue.is_closed()
-    }
-
-    pub(crate) fn send_request(&self, req: KeylessRequest) -> SendRequest {
-        SendRequest {
-            shared: self.shared.clone(),
-            writer_waker: self.writer_waker.clone(),
-            request: Some(req),
-            rsp_id: 0,
-        }
-    }
-
-    pub(crate) fn fetch_error(&self) -> Option<Arc<KeylessResponseError>> {
-        let guard = self.shared.error.lock().unwrap();
-        guard.clone()
-    }
-}
-
 struct WaitWriteWaker {
     shared: Arc<SharedState>,
 }
 
 impl Future for WaitWriteWaker {
-    type Output = SendHandle;
+    type Output = MultiplexTransfer;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let underlying_waker_guard = self.shared.write_waker.read().unwrap();
         match &*underlying_waker_guard {
-            Some(waker) => Poll::Ready(SendHandle {
+            Some(waker) => Poll::Ready(MultiplexTransfer {
                 shared: self.shared.clone(),
                 writer_waker: waker.clone(),
             }),
@@ -298,78 +264,112 @@ impl Future for SendRequest {
     }
 }
 
-pub(crate) async fn start_transfer<R, W>(mut r: R, w: W, request_timeout: Duration) -> SendHandle
-where
-    R: AsyncRead + Send + Unpin + 'static,
-    W: AsyncWrite + Send + Unpin + 'static,
-{
-    let shared = Arc::new(SharedState::default());
+pub(crate) struct MultiplexTransfer {
+    shared: Arc<SharedState>,
+    writer_waker: Waker,
+}
 
-    let underlying_w = UnderlyingWriter {
-        writer: w,
-        state: UnderlyingWriterState {
-            init: true,
-            shared: Arc::clone(&shared),
-            current_offset: 0,
-            current_request: None,
-            request_timeout,
-            shutdown_wait: None,
-        },
-    };
-    tokio::spawn(underlying_w);
-    let wait_waiter = WaitWriteWaker {
-        shared: shared.clone(),
-    };
+impl Drop for MultiplexTransfer {
+    fn drop(&mut self) {
+        self.shared.req_queue.close();
+        if let Some(waker) = self.shared.take_write_waker() {
+            waker.wake(); // let the writer handle the quit
+        }
+    }
+}
 
-    let clean_shared = shared.clone();
-    tokio::spawn(async move {
-        // use a timer to clean timeout cache and keep hashtable small
-        let mut interval = tokio::time::interval(request_timeout);
-        interval.tick().await;
-        loop {
+impl MultiplexTransfer {
+    pub(crate) fn is_closed(&self) -> bool {
+        self.shared.req_queue.is_closed()
+    }
+
+    pub(crate) fn send_request(&self, req: KeylessRequest) -> SendRequest {
+        SendRequest {
+            shared: self.shared.clone(),
+            writer_waker: self.writer_waker.clone(),
+            request: Some(req),
+            rsp_id: 0,
+        }
+    }
+
+    pub(crate) fn fetch_error(&self) -> Option<Arc<KeylessResponseError>> {
+        let guard = self.shared.error.lock().unwrap();
+        guard.clone()
+    }
+
+    pub(crate) async fn start<R, W>(mut r: R, w: W, request_timeout: Duration) -> Self
+    where
+        R: AsyncRead + Send + Unpin + 'static,
+        W: AsyncWrite + Send + Unpin + 'static,
+    {
+        let shared = Arc::new(SharedState::default());
+
+        let underlying_w = UnderlyingWriter {
+            writer: w,
+            state: UnderlyingWriterState {
+                init: true,
+                shared: Arc::clone(&shared),
+                current_offset: 0,
+                current_request: None,
+                request_timeout,
+                shutdown_wait: None,
+            },
+        };
+        tokio::spawn(underlying_w);
+        let wait_waiter = WaitWriteWaker {
+            shared: shared.clone(),
+        };
+
+        let clean_shared = shared.clone();
+        tokio::spawn(async move {
+            // use a timer to clean timeout cache and keep hashtable small
+            let mut interval = tokio::time::interval(request_timeout);
             interval.tick().await;
+            loop {
+                interval.tick().await;
 
-            let mut rsp_table_guard = clean_shared.rsp_table.lock().unwrap();
-            rsp_table_guard.retain(|_, v| {
-                if v.created.elapsed() > request_timeout {
-                    if let Some(waker) = v.waker.take() {
-                        waker.wake();
+                let mut rsp_table_guard = clean_shared.rsp_table.lock().unwrap();
+                rsp_table_guard.retain(|_, v| {
+                    if v.created.elapsed() > request_timeout {
+                        if let Some(waker) = v.waker.take() {
+                            waker.wake();
+                        }
+                        false
+                    } else {
+                        true
                     }
-                    false
-                } else {
-                    true
-                }
-            });
-        }
-    });
+                });
+            }
+        });
 
-    tokio::spawn(async move {
-        let mut buf: Vec<u8> = Vec::with_capacity(1024);
-        loop {
-            match KeylessResponse::read(&mut r, &mut buf).await {
-                Ok(r) => {
-                    let mut rsp_table_guard = shared.rsp_table.lock().unwrap();
-                    let Some(entry) = rsp_table_guard.get_mut(&r.id()) else {
-                        continue;
-                    };
-                    if let Some(waker) = entry.waker.take() {
-                        entry.data = Some(r);
-                        drop(rsp_table_guard);
-                        waker.wake();
+        tokio::spawn(async move {
+            let mut buf: Vec<u8> = Vec::with_capacity(1024);
+            loop {
+                match KeylessResponse::read(&mut r, &mut buf).await {
+                    Ok(r) => {
+                        let mut rsp_table_guard = shared.rsp_table.lock().unwrap();
+                        let Some(entry) = rsp_table_guard.get_mut(&r.id()) else {
+                            continue;
+                        };
+                        if let Some(waker) = entry.waker.take() {
+                            entry.data = Some(r);
+                            drop(rsp_table_guard);
+                            waker.wake();
+                        }
                     }
-                }
-                Err(e) => {
-                    shared.req_queue.close();
-                    shared.set_rsp_error(e);
-                    shared.clean_pending_req();
-                    if let Some(waker) = shared.take_write_waker() {
-                        waker.wake(); // tell the writer to quit
+                    Err(e) => {
+                        shared.req_queue.close();
+                        shared.set_rsp_error(e);
+                        shared.clean_pending_req();
+                        if let Some(waker) = shared.take_write_waker() {
+                            waker.wake(); // tell the writer to quit
+                        }
+                        break;
                     }
-                    break;
-                }
-            };
-        }
-    });
+                };
+            }
+        });
 
-    wait_waiter.await
+        wait_waiter.await
+    }
 }

@@ -22,14 +22,14 @@ use tokio::sync::Mutex;
 
 use super::{
     KeylessCloudflareArgs, KeylessHistogram, KeylessHistogramRecorder, KeylessRuntimeStats,
-    ProcArgs, SendHandle,
+    MultiplexTransfer, ProcArgs,
 };
 
 struct KeylessConnectionUnlocked {
     args: Arc<KeylessCloudflareArgs>,
     proc_args: Arc<ProcArgs>,
     index: usize,
-    save: Option<Arc<SendHandle>>,
+    save: Option<Arc<MultiplexTransfer>>,
     runtime_stats: Arc<KeylessRuntimeStats>,
     histogram_recorder: Option<KeylessHistogramRecorder>,
     reuse_conn_count: u64,
@@ -63,7 +63,7 @@ impl KeylessConnectionUnlocked {
         }
     }
 
-    async fn fetch_handle(&mut self) -> anyhow::Result<Arc<SendHandle>> {
+    async fn fetch_handle(&mut self) -> anyhow::Result<Arc<MultiplexTransfer>> {
         if let Some(handle) = &self.save {
             if !handle.is_closed() {
                 self.reuse_conn_count += 1;
@@ -80,7 +80,7 @@ impl KeylessConnectionUnlocked {
         self.runtime_stats.add_conn_attempt();
         let handle = match tokio::time::timeout(
             self.args.connect_timeout,
-            self.args.new_keyless_connection(&self.proc_args),
+            self.args.new_multiplex_keyless_connection(&self.proc_args),
         )
         .await
         {
@@ -117,7 +117,7 @@ impl KeylessConnection {
         }
     }
 
-    async fn fetch_handle(&self) -> anyhow::Result<Arc<SendHandle>> {
+    async fn fetch_handle(&self) -> anyhow::Result<Arc<MultiplexTransfer>> {
         let mut inner = self.inner.lock().await;
         inner.fetch_handle().await
     }
@@ -155,7 +155,7 @@ impl KeylessConnectionPool {
         }
     }
 
-    pub(super) async fn fetch_handle(&self) -> anyhow::Result<Arc<SendHandle>> {
+    pub(super) async fn fetch_handle(&self) -> anyhow::Result<Arc<MultiplexTransfer>> {
         match self.pool_size {
             0 => Err(anyhow!("no connections configured for this pool")),
             1 => self.pool[0].fetch_handle().await,

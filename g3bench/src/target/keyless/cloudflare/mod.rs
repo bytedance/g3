@@ -35,7 +35,7 @@ use message::{
 };
 
 mod connection;
-use connection::SendHandle;
+use connection::{MultiplexTransfer, SimplexTransfer};
 
 mod pool;
 use pool::KeylessConnectionPool;

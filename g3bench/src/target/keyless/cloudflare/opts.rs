@@ -20,7 +20,7 @@ use std::pin::Pin;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
-use clap::{value_parser, Arg, ArgMatches, Command};
+use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
 use openssl::ssl::SslVerifyMode;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
@@ -29,7 +29,7 @@ use tokio_openssl::SslStream;
 use g3_types::collection::{SelectiveVec, WeightedValue};
 use g3_types::net::{OpensslTlsClientConfig, OpensslTlsClientConfigBuilder, UpstreamAddr};
 
-use super::SendHandle;
+use super::{MultiplexTransfer, SimplexTransfer};
 use crate::opts::ProcArgs;
 use crate::target::keyless::{AppendKeylessArgs, KeylessGlobalArgs};
 use crate::target::{
@@ -41,12 +41,14 @@ const ARG_TARGET: &str = "target";
 const ARG_LOCAL_ADDRESS: &str = "local-address";
 const ARG_CONNECT_TIMEOUT: &str = "connect-timeout";
 const ARG_TIMEOUT: &str = "timeout";
+const ARG_NO_MULTIPLEX: &str = "no-multiplex";
 
 pub(super) struct KeylessCloudflareArgs {
     pub(super) global: KeylessGlobalArgs,
     pub(super) pool_size: Option<usize>,
     target: UpstreamAddr,
     bind: Option<IpAddr>,
+    pub(super) no_multiplex: bool,
     pub(super) timeout: Duration,
     pub(super) connect_timeout: Duration,
     pub(super) tls: OpensslTlsClientArgs,
@@ -66,6 +68,7 @@ impl KeylessCloudflareArgs {
             pool_size: None,
             target,
             bind: None,
+            no_multiplex: false,
             timeout: Duration::from_secs(5),
             connect_timeout: Duration::from_secs(10),
             tls,
@@ -82,18 +85,33 @@ impl KeylessCloudflareArgs {
         Ok(())
     }
 
-    pub(super) async fn new_keyless_connection(
+    pub(super) async fn new_multiplex_keyless_connection(
         &self,
         proc_args: &ProcArgs,
-    ) -> anyhow::Result<SendHandle> {
+    ) -> anyhow::Result<MultiplexTransfer> {
         let tcp_stream = self.new_tcp_connection(proc_args).await?;
         if let Some(tls_client) = &self.tls.client {
             let ssl_stream = self.tls_connect_to_target(tls_client, tcp_stream).await?;
             let (r, w) = tokio::io::split(ssl_stream);
-            Ok(super::connection::start_transfer(r, w, self.timeout).await)
+            Ok(MultiplexTransfer::start(r, w, self.timeout).await)
         } else {
             let (r, w) = tcp_stream.into_split();
-            Ok(super::connection::start_transfer(r, w, self.timeout).await)
+            Ok(MultiplexTransfer::start(r, w, self.timeout).await)
+        }
+    }
+
+    pub(super) async fn new_simplex_keyless_connection(
+        &self,
+        proc_args: &ProcArgs,
+    ) -> anyhow::Result<SimplexTransfer> {
+        let tcp_stream = self.new_tcp_connection(proc_args).await?;
+        if let Some(tls_client) = &self.tls.client {
+            let ssl_stream = self.tls_connect_to_target(tls_client, tcp_stream).await?;
+            let (r, w) = tokio::io::split(ssl_stream);
+            Ok(SimplexTransfer::new(r, w))
+        } else {
+            let (r, w) = tcp_stream.into_split();
+            Ok(SimplexTransfer::new(r, w))
         }
     }
 
@@ -173,7 +191,8 @@ pub(super) fn add_cloudflare_args(app: Command) -> Command {
             .long(ARG_CONNECTION_POOL)
             .short('C')
             .num_args(1)
-            .value_parser(value_parser!(usize)),
+            .value_parser(value_parser!(usize))
+            .conflicts_with(ARG_NO_MULTIPLEX),
     )
     .arg(
         Arg::new(ARG_LOCAL_ADDRESS)
@@ -198,6 +217,14 @@ pub(super) fn add_cloudflare_args(app: Command) -> Command {
             .default_value("5s")
             .long(ARG_TIMEOUT)
             .num_args(1),
+    )
+    .arg(
+        Arg::new(ARG_NO_MULTIPLEX)
+            .help("Disable multiplex usage on the connection")
+            .long(ARG_NO_MULTIPLEX)
+            .action(ArgAction::SetTrue)
+            .num_args(0)
+            .conflicts_with(ARG_CONNECTION_POOL),
     )
     .append_keyless_args()
     .append_tls_args()
@@ -231,6 +258,10 @@ pub(super) fn parse_cloudflare_args(args: &ArgMatches) -> anyhow::Result<Keyless
     }
     if let Some(timeout) = g3_clap::humanize::get_duration(args, ARG_TIMEOUT)? {
         cf_args.timeout = timeout;
+    }
+
+    if args.get_flag(ARG_NO_MULTIPLEX) {
+        cf_args.no_multiplex = true;
     }
 
     cf_args
