@@ -90,13 +90,16 @@ impl KeylessCloudflareArgs {
         proc_args: &ProcArgs,
     ) -> anyhow::Result<MultiplexTransfer> {
         let tcp_stream = self.new_tcp_connection(proc_args).await?;
+        let local_addr = tcp_stream
+            .local_addr()
+            .map_err(|e| anyhow!("failed to get local address: {e:?}"))?;
         if let Some(tls_client) = &self.tls.client {
             let ssl_stream = self.tls_connect_to_target(tls_client, tcp_stream).await?;
             let (r, w) = tokio::io::split(ssl_stream);
-            Ok(MultiplexTransfer::start(r, w, self.timeout).await)
+            Ok(MultiplexTransfer::start(r, w, local_addr, self.timeout).await)
         } else {
             let (r, w) = tcp_stream.into_split();
-            Ok(MultiplexTransfer::start(r, w, self.timeout).await)
+            Ok(MultiplexTransfer::start(r, w, local_addr, self.timeout).await)
         }
     }
 
@@ -105,13 +108,16 @@ impl KeylessCloudflareArgs {
         proc_args: &ProcArgs,
     ) -> anyhow::Result<SimplexTransfer> {
         let tcp_stream = self.new_tcp_connection(proc_args).await?;
+        let local_addr = tcp_stream
+            .local_addr()
+            .map_err(|e| anyhow!("failed to get local address: {e:?}"))?;
         if let Some(tls_client) = &self.tls.client {
             let ssl_stream = self.tls_connect_to_target(tls_client, tcp_stream).await?;
             let (r, w) = tokio::io::split(ssl_stream);
-            Ok(SimplexTransfer::new(r, w))
+            Ok(SimplexTransfer::new(r, w, local_addr))
         } else {
             let (r, w) = tcp_stream.into_split();
-            Ok(SimplexTransfer::new(r, w))
+            Ok(SimplexTransfer::new(r, w, local_addr))
         }
     }
 

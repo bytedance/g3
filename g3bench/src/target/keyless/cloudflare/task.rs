@@ -150,12 +150,15 @@ impl KeylessCloudflareTaskContext {
         )
         .await
         {
-            Ok(Some(rsp)) => Ok(rsp),
-            Ok(None) => match handle.fetch_error() {
-                Some(e) => Err(anyhow::Error::new(e)),
-                None => Err(anyhow!("we get no response but no error reported")),
+            Ok(Ok(rsp)) => Ok(rsp),
+            Ok(Err(id)) => match handle.fetch_error() {
+                Some(e) => Err(anyhow!("{}/{id} error: {e}", handle.local_addr())),
+                None => Err(anyhow!(
+                    "{}/{id}: we get no response but no error reported",
+                    handle.local_addr()
+                )),
             },
-            Err(_) => Err(anyhow!("request timed out")),
+            Err(_) => Err(anyhow!("{}: request timed out", handle.local_addr())),
         }
     }
 
@@ -170,8 +173,8 @@ impl KeylessCloudflareTaskContext {
         .await
         {
             Ok(Ok(rsp)) => Ok(rsp),
-            Ok(Err(e)) => Err(anyhow::Error::new(e)),
-            Err(_) => Err(anyhow!("request timed out")),
+            Ok(Err(e)) => Err(anyhow!("{} error: {e}", connection.local_addr())),
+            Err(_) => Err(anyhow!("{}: request timed out", connection.local_addr())),
         }
     }
 }

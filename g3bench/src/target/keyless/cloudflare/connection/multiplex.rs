@@ -17,6 +17,7 @@
 use std::collections::HashMap;
 use std::future::Future;
 use std::io;
+use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
@@ -208,6 +209,7 @@ where
 
 struct WaitWriteWaker {
     shared: Arc<SharedState>,
+    local_addr: SocketAddr,
 }
 
 impl Future for WaitWriteWaker {
@@ -219,6 +221,7 @@ impl Future for WaitWriteWaker {
             Some(waker) => Poll::Ready(MultiplexTransfer {
                 shared: self.shared.clone(),
                 writer_waker: waker.clone(),
+                local_addr: self.local_addr,
             }),
             None => {
                 cx.waker().wake_by_ref();
@@ -236,7 +239,7 @@ pub(crate) struct SendRequest {
 }
 
 impl Future for SendRequest {
-    type Output = Option<KeylessResponse>;
+    type Output = Result<KeylessResponse, u32>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         if let Some(mut req) = self.request.take() {
@@ -249,7 +252,7 @@ impl Future for SendRequest {
                     self.rsp_id = id;
                     Poll::Pending
                 }
-                Err(PushError::Closed(_)) => Poll::Ready(None),
+                Err(PushError::Closed(_)) => Poll::Ready(Err(self.rsp_id)),
                 Err(PushError::Full((req, waker))) => {
                     self.request = Some(req);
                     waker.wake();
@@ -258,7 +261,11 @@ impl Future for SendRequest {
             }
         } else {
             let mut rsp_table_guard = self.shared.rsp_table.lock().unwrap();
-            let r = rsp_table_guard.remove(&self.rsp_id).and_then(|s| s.data);
+            let r = rsp_table_guard
+                .remove(&self.rsp_id)
+                .and_then(|s| s.data)
+                .map(Ok)
+                .unwrap_or_else(|| Err(self.rsp_id));
             Poll::Ready(r)
         }
     }
@@ -267,6 +274,7 @@ impl Future for SendRequest {
 pub(crate) struct MultiplexTransfer {
     shared: Arc<SharedState>,
     writer_waker: Waker,
+    local_addr: SocketAddr,
 }
 
 impl Drop for MultiplexTransfer {
@@ -283,6 +291,11 @@ impl MultiplexTransfer {
         self.shared.req_queue.is_closed()
     }
 
+    #[inline]
+    pub(crate) fn local_addr(&self) -> SocketAddr {
+        self.local_addr
+    }
+
     pub(crate) fn send_request(&self, req: KeylessRequest) -> SendRequest {
         SendRequest {
             shared: self.shared.clone(),
@@ -297,7 +310,12 @@ impl MultiplexTransfer {
         guard.clone()
     }
 
-    pub(crate) async fn start<R, W>(mut r: R, w: W, request_timeout: Duration) -> Self
+    pub(crate) async fn start<R, W>(
+        mut r: R,
+        w: W,
+        local_addr: SocketAddr,
+        request_timeout: Duration,
+    ) -> Self
     where
         R: AsyncRead + Send + Unpin + 'static,
         W: AsyncWrite + Send + Unpin + 'static,
@@ -318,6 +336,7 @@ impl MultiplexTransfer {
         tokio::spawn(underlying_w);
         let wait_waiter = WaitWriteWaker {
             shared: shared.clone(),
+            local_addr,
         };
 
         let clean_shared = shared.clone();
