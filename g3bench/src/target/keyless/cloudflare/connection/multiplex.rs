@@ -35,6 +35,27 @@ struct ResponseValue {
     data: Option<KeylessResponse>,
     waker: Option<Waker>,
     created: Instant,
+    end: bool,
+}
+
+impl ResponseValue {
+    fn new(waker: Waker) -> Self {
+        ResponseValue {
+            data: None,
+            waker: Some(waker),
+            created: Instant::now(),
+            end: false,
+        }
+    }
+
+    fn empty() -> Self {
+        ResponseValue {
+            data: None,
+            waker: None,
+            created: Instant::now(),
+            end: true,
+        }
+    }
 }
 
 struct SharedState {
@@ -61,14 +82,16 @@ impl SharedState {
     }
 
     fn clean_pending_req(&self) {
-        while let Ok((_r, waker)) = self.req_queue.pop() {
+        let mut rsp_table_guard = self.rsp_table.lock().unwrap();
+        while let Ok((r, waker)) = self.req_queue.pop() {
+            rsp_table_guard.insert(r.id(), ResponseValue::empty());
             waker.wake();
         }
-        let mut rsp_table_guard = self.rsp_table.lock().unwrap();
-        for (_, v) in rsp_table_guard.drain() {
-            if let Some(waker) = v.waker {
+        for mut v in (*rsp_table_guard).values_mut() {
+            if let Some(waker) = v.waker.take() {
                 waker.wake();
             }
+            v.end = true;
         }
     }
 
@@ -94,7 +117,7 @@ struct UnderlyingWriterState {
     init: bool,
     shared: Arc<SharedState>,
     current_offset: usize,
-    current_request: Option<(KeylessRequest, Waker)>,
+    current_request: Option<KeylessRequest>,
     request_timeout: Duration,
     shutdown_wait: Option<Pin<Box<Sleep>>>,
 }
@@ -114,7 +137,7 @@ impl UnderlyingWriterState {
 
         let mut do_flush = false;
         loop {
-            if let Some((req, waker)) = self.current_request.take() {
+            if let Some(req) = self.current_request.take() {
                 let current_buffer = req.as_bytes();
                 while self.current_offset < current_buffer.len() {
                     match writer
@@ -127,40 +150,33 @@ impl UnderlyingWriterState {
                         }
                         Poll::Ready(Err(e)) => {
                             self.shared.req_queue.close();
-                            waker.wake();
-                            self.shared.clean_pending_req();
                             self.shared.set_req_error(e);
+                            self.shared.clean_pending_req();
                             let _ = writer.as_mut().poll_shutdown(cx);
                             return Poll::Ready(());
                         }
                         Poll::Pending => {
-                            self.current_request = Some((req, waker));
+                            self.current_request = Some(req);
                             return Poll::Pending;
                         }
                     };
                 }
-                let mut rsp_table = self.shared.rsp_table.lock().unwrap();
-                rsp_table.insert(
-                    req.id(),
-                    ResponseValue {
-                        data: None,
-                        waker: Some(waker),
-                        created: Instant::now(),
-                    },
-                );
             }
 
             match self.shared.req_queue.pop() {
                 Ok((req, waker)) => {
+                    let mut rsp_table = self.shared.rsp_table.lock().unwrap();
+                    rsp_table.insert(req.id(), ResponseValue::new(waker));
+                    drop(rsp_table);
                     self.current_offset = 0;
-                    self.current_request = Some((req, waker));
+                    self.current_request = Some(req);
                 }
                 Err(PopError::Empty) => {
                     if do_flush {
                         if let Err(e) = ready!(writer.as_mut().poll_flush(cx)) {
                             self.shared.req_queue.close();
-                            self.shared.clean_pending_req();
                             self.shared.set_req_error(e);
+                            self.shared.clean_pending_req();
                             let _ = writer.as_mut().poll_shutdown(cx);
                             return Poll::Ready(());
                         }
@@ -261,12 +277,16 @@ impl Future for SendRequest {
             }
         } else {
             let mut rsp_table_guard = self.shared.rsp_table.lock().unwrap();
-            let r = rsp_table_guard
-                .remove(&self.rsp_id)
-                .and_then(|s| s.data)
-                .map(Ok)
-                .unwrap_or_else(|| Err(self.rsp_id));
-            Poll::Ready(r)
+            match rsp_table_guard.remove(&self.rsp_id) {
+                Some(v) => {
+                    if v.end {
+                        Poll::Ready(v.data.ok_or(self.rsp_id))
+                    } else {
+                        Poll::Pending
+                    }
+                }
+                None => Poll::Pending,
+            }
         }
     }
 }
@@ -351,6 +371,7 @@ impl MultiplexTransfer {
                 rsp_table_guard.retain(|_, v| {
                     if v.created.elapsed() > request_timeout {
                         if let Some(waker) = v.waker.take() {
+                            v.end = true;
                             waker.wake();
                         }
                         false
@@ -372,6 +393,7 @@ impl MultiplexTransfer {
                         };
                         if let Some(waker) = entry.waker.take() {
                             entry.data = Some(r);
+                            entry.end = true;
                             drop(rsp_table_guard);
                             waker.wake();
                         }
