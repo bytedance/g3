@@ -49,7 +49,7 @@ pub(crate) struct OpensslBackend {
 
 impl OpensslBackend {
     pub(crate) fn new(config: &Arc<OpensslBackendConfig>) -> anyhow::Result<Self> {
-        let builder = ServerCertBuilder::new()?;
+        let builder = ServerCertBuilder::new_ec256()?;
         Ok(OpensslBackend {
             config: Arc::clone(config),
             builder,

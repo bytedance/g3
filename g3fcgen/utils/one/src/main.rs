@@ -18,7 +18,7 @@ use anyhow::{anyhow, Context};
 use std::io::Write;
 use std::path::PathBuf;
 
-use clap::{value_parser, Arg, ArgAction, Command};
+use clap::{value_parser, Arg, ArgAction, ArgGroup, Command};
 use openssl::pkey::{PKey, Private};
 use openssl::x509::{X509Ref, X509};
 
@@ -29,6 +29,14 @@ const ARG_CA_CERT: &str = "ca-cert";
 const ARG_CA_KEY: &str = "ca-key";
 const ARG_HOST: &str = "host";
 const ARG_RSA: &str = "rsa";
+const ARG_EC224: &str = "ec224";
+const ARG_EC256: &str = "ec256";
+const ARG_EC384: &str = "ec384";
+const ARG_EC521: &str = "ec521";
+const ARG_ED25519: &str = "ed25519";
+const ARG_ED448: &str = "ed448";
+const ARG_X25519: &str = "x25519";
+const ARG_X448: &str = "x448";
 
 fn main() -> anyhow::Result<()> {
     let args = Command::new("g3fcgen-one")
@@ -56,19 +64,102 @@ fn main() -> anyhow::Result<()> {
         )
         .arg(
             Arg::new(ARG_RSA)
-                .help("Use RSA keypair")
+                .help("Use RSA")
                 .value_name("BITS")
                 .num_args(0..=1)
                 .long(ARG_RSA)
                 .value_parser(value_parser!(u32))
                 .default_missing_value("2048"),
         )
+        .arg(
+            Arg::new(ARG_EC224)
+                .help("Use Curve P-224")
+                .num_args(0)
+                .long(ARG_EC224)
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new(ARG_EC256)
+                .help("Use Curve P-256")
+                .num_args(0)
+                .long(ARG_EC256)
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new(ARG_EC384)
+                .help("Use Curve P-384")
+                .num_args(0)
+                .long(ARG_EC384)
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new(ARG_EC521)
+                .help("Use Curve P-521")
+                .num_args(0)
+                .long(ARG_EC521)
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new(ARG_ED25519)
+                .help("Use Curve25519")
+                .num_args(0)
+                .long(ARG_ED25519)
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new(ARG_ED448)
+                .help("Use Curve448")
+                .num_args(0)
+                .long(ARG_ED448)
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new(ARG_X25519)
+                .help("Use X25519")
+                .num_args(0)
+                .long(ARG_X25519)
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new(ARG_X448)
+                .help("Use X448")
+                .num_args(0)
+                .long(ARG_X448)
+                .action(ArgAction::SetTrue),
+        )
+        .group(ArgGroup::new("algo").args([
+            ARG_RSA,
+            ARG_EC224,
+            ARG_EC256,
+            ARG_EC384,
+            ARG_EC521,
+            ARG_ED25519,
+            ARG_ED448,
+            ARG_X25519,
+            ARG_X448,
+        ]))
         .get_matches();
 
     let builder = if let Some(bits) = args.get_one::<u32>(ARG_RSA) {
         ServerCertBuilder::new_rsa(*bits)?
+    } else if args.get_flag(ARG_X448) {
+        ServerCertBuilder::new_x448()?
+    } else if args.get_flag(ARG_X25519) {
+        ServerCertBuilder::new_x25519()?
+    } else if args.get_flag(ARG_ED448) {
+        ServerCertBuilder::new_ed448()?
+    } else if args.get_flag(ARG_ED25519) {
+        ServerCertBuilder::new_ed25519()?
+    } else if args.get_flag(ARG_EC521) {
+        ServerCertBuilder::new_ec521()?
+    } else if args.get_flag(ARG_EC384) {
+        ServerCertBuilder::new_ec384()?
+    } else if args.get_flag(ARG_EC256) {
+        ServerCertBuilder::new_ec256()?
+    } else if args.get_flag(ARG_EC224) {
+        ServerCertBuilder::new_ec224()?
     } else {
-        ServerCertBuilder::new()?
+        ServerCertBuilder::new_ec256()?
     };
 
     let ca_cert_file = args.get_one::<PathBuf>(ARG_CA_CERT).unwrap();

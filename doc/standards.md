@@ -75,6 +75,13 @@ The code should comply to these, but should be more compliant to existing popula
  - [rfc5280](https://datatracker.ietf.org/doc/html/rfc5280)
    : Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile
 
+## Cryptography
+
+ - [NIST SP 800-186](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-186.pdf)
+   : Recommendations for Discrete Logarithm-based Cryptography: Elliptic Curve Domain Parameters
+ - [SEC2-v2](https://www.secg.org/sec2-v2.pdf)
+   : SEC 2: Recommended Elliptic Curve Domain Parameters
+
 # Network Protocol
 
 ## Happy Eyeballs

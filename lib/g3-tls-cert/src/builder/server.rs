@@ -38,11 +38,24 @@ pub struct ServerCertBuilder {
     digest: MessageDigest,
 }
 
+macro_rules! impl_new {
+    ($f:ident) => {
+        pub fn $f() -> anyhow::Result<Self> {
+            let pkey = super::pkey::$f()?;
+            ServerCertBuilder::with_pkey(pkey)
+        }
+    };
+}
+
 impl ServerCertBuilder {
-    pub fn new() -> anyhow::Result<Self> {
-        let pkey = super::pkey::new_ec()?;
-        ServerCertBuilder::with_pkey(pkey)
-    }
+    impl_new!(new_ec224);
+    impl_new!(new_ec256);
+    impl_new!(new_ec384);
+    impl_new!(new_ec521);
+    impl_new!(new_ed25519);
+    impl_new!(new_ed448);
+    impl_new!(new_x25519);
+    impl_new!(new_x448);
 
     pub fn new_rsa(bits: u32) -> anyhow::Result<Self> {
         let pkey = super::pkey::new_rsa(bits)?;
@@ -97,7 +110,7 @@ impl ServerCertBuilder {
     }
 
     pub fn refresh_pkey(&mut self) -> anyhow::Result<()> {
-        self.pkey = super::pkey::new_ec()?;
+        self.pkey = super::pkey::new_ec256()?;
         Ok(())
     }
 
