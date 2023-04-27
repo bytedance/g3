@@ -45,6 +45,14 @@ pub(super) struct KeylessCloudflareTaskContext {
     histogram_recorder: Option<KeylessHistogramRecorder>,
 }
 
+impl Drop for KeylessCloudflareTaskContext {
+    fn drop(&mut self) {
+        if let Some(r) = &mut self.histogram_recorder {
+            r.record_conn_reuse_count(self.reuse_conn_count);
+        }
+    }
+}
+
 impl KeylessCloudflareTaskContext {
     pub(super) fn new(
         args: &Arc<KeylessCloudflareArgs>,
