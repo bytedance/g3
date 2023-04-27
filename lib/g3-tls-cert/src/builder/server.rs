@@ -21,7 +21,8 @@ use openssl::hash::MessageDigest;
 use openssl::nid::Nid;
 use openssl::pkey::{PKey, Private};
 use openssl::x509::extension::{
-    ExtendedKeyUsage, KeyUsage, SubjectAlternativeName, SubjectKeyIdentifier,
+    AuthorityKeyIdentifier, ExtendedKeyUsage, KeyUsage, SubjectAlternativeName,
+    SubjectKeyIdentifier,
 };
 use openssl::x509::{X509Builder, X509Extension, X509Name, X509Ref, X509};
 
@@ -199,6 +200,11 @@ impl ServerCertBuilder {
         let ski = SubjectKeyIdentifier::new()
             .build(&v3_ctx)
             .map_err(|e| anyhow!("failed to build SubjectKeyIdentifier extension: {e} "))?;
+        let mut aki_builder = AuthorityKeyIdentifier::new();
+        aki_builder.keyid(false);
+        let aki = aki_builder
+            .build(&v3_ctx)
+            .map_err(|e| anyhow!("failed to build AuthorityKeyIdentifier extension: {e}"))?;
 
         builder
             .append_extension(san)
@@ -206,6 +212,9 @@ impl ServerCertBuilder {
         builder
             .append_extension(ski)
             .map_err(|e| anyhow!("failed to append SubjectKeyIdentifier extension: {e}"))?;
+        builder
+            .append_extension(aki)
+            .map_err(|e| anyhow!("failed to append AuthorityKeyIdentifier extension: {e}"))?;
 
         builder
             .set_issuer_name(ca_cert.subject_name())
