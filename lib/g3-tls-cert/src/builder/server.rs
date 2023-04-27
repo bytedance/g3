@@ -40,6 +40,15 @@ pub struct ServerCertBuilder {
 impl ServerCertBuilder {
     pub fn new() -> anyhow::Result<Self> {
         let pkey = super::pkey::new_ec()?;
+        ServerCertBuilder::with_pkey(pkey)
+    }
+
+    pub fn new_rsa(bits: u32) -> anyhow::Result<Self> {
+        let pkey = super::pkey::new_rsa(bits)?;
+        ServerCertBuilder::with_pkey(pkey)
+    }
+
+    fn with_pkey(pkey: PKey<Private>) -> anyhow::Result<Self> {
         let serial = super::serial::random_16()?;
 
         let key_usage = KeyUsage::new()

@@ -28,6 +28,7 @@ use g3_types::net::Host;
 const ARG_CA_CERT: &str = "ca-cert";
 const ARG_CA_KEY: &str = "ca-key";
 const ARG_HOST: &str = "host";
+const ARG_RSA: &str = "rsa";
 
 fn main() -> anyhow::Result<()> {
     let args = Command::new("g3fcgen-one")
@@ -53,9 +54,22 @@ fn main() -> anyhow::Result<()> {
                 .required(true)
                 .value_parser(value_parser!(Host)),
         )
+        .arg(
+            Arg::new(ARG_RSA)
+                .help("Use RSA keypair")
+                .value_name("BITS")
+                .num_args(0..=1)
+                .long(ARG_RSA)
+                .value_parser(value_parser!(u32))
+                .default_value("2048"),
+        )
         .get_matches();
 
-    let builder = ServerCertBuilder::new()?;
+    let builder = if let Some(bits) = args.get_one::<u32>(ARG_RSA) {
+        ServerCertBuilder::new_rsa(*bits)?
+    } else {
+        ServerCertBuilder::new()?
+    };
 
     let ca_cert_file = args.get_one::<PathBuf>(ARG_CA_CERT).unwrap();
     let ca_key_file = args.get_one::<PathBuf>(ARG_CA_KEY).unwrap();

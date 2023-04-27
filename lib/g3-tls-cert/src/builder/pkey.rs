@@ -18,10 +18,17 @@ use anyhow::anyhow;
 use openssl::ec::{EcGroup, EcKey};
 use openssl::nid::Nid;
 use openssl::pkey::{PKey, Private};
+use openssl::rsa::Rsa;
 
 pub fn new_ec() -> anyhow::Result<PKey<Private>> {
     let group = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1)
         .map_err(|e| anyhow!("failed to get ec group: {e}"))?;
     let ec_key = EcKey::generate(&group).map_err(|e| anyhow!("failed to generate ec key: {e}"))?;
     PKey::from_ec_key(ec_key).map_err(|e| anyhow!("failed to convert ec key to pkey: {e}"))
+}
+
+pub fn new_rsa(bits: u32) -> anyhow::Result<PKey<Private>> {
+    let rsa_key =
+        Rsa::generate(bits).map_err(|e| anyhow!("failed to generate rsa {bits} keypair: {e}"))?;
+    PKey::from_rsa(rsa_key).map_err(|e| anyhow!("failed to convert rsa key to pkey: {e}"))
 }
