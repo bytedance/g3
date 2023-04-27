@@ -61,7 +61,7 @@ fn main() -> anyhow::Result<()> {
                 .num_args(0..=1)
                 .long(ARG_RSA)
                 .value_parser(value_parser!(u32))
-                .default_value("2048"),
+                .default_missing_value("2048"),
         )
         .get_matches();
 
