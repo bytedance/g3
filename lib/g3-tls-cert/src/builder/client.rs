@@ -20,16 +20,13 @@ use openssl::asn1::{Asn1Integer, Asn1Time};
 use openssl::hash::MessageDigest;
 use openssl::pkey::{PKey, Private};
 use openssl::x509::extension::{
-    AuthorityKeyIdentifier, ExtendedKeyUsage, KeyUsage, SubjectAlternativeName,
-    SubjectKeyIdentifier,
+    AuthorityKeyIdentifier, ExtendedKeyUsage, KeyUsage, SubjectKeyIdentifier,
 };
 use openssl::x509::{X509Builder, X509Extension, X509Ref, X509};
 
-use g3_types::net::Host;
-
 use super::{asn1_time_from_chrono, SubjectNameBuilder};
 
-pub struct ServerCertBuilder {
+pub struct ClientCertBuilder {
     pkey: PKey<Private>,
     serial: Asn1Integer,
     key_usage: X509Extension,
@@ -44,12 +41,12 @@ macro_rules! impl_new {
     ($f:ident) => {
         pub fn $f() -> anyhow::Result<Self> {
             let pkey = super::pkey::$f()?;
-            ServerCertBuilder::with_pkey(pkey)
+            ClientCertBuilder::with_pkey(pkey)
         }
     };
 }
 
-impl ServerCertBuilder {
+impl ClientCertBuilder {
     impl_new!(new_ec224);
     impl_new!(new_ec256);
     impl_new!(new_ec384);
@@ -61,7 +58,7 @@ impl ServerCertBuilder {
 
     pub fn new_rsa(bits: u32) -> anyhow::Result<Self> {
         let pkey = super::pkey::new_rsa(bits)?;
-        ServerCertBuilder::with_pkey(pkey)
+        ClientCertBuilder::with_pkey(pkey)
     }
 
     fn with_pkey(pkey: PKey<Private>) -> anyhow::Result<Self> {
@@ -75,7 +72,7 @@ impl ServerCertBuilder {
             .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
 
         let ext_key_usage = ExtendedKeyUsage::new()
-            .server_auth()
+            .client_auth()
             .build()
             .map_err(|e| anyhow!("failed to build ExtendedKeyUsage extension: {e}"))?;
 
@@ -91,7 +88,7 @@ impl ServerCertBuilder {
         let not_after =
             asn1_time_from_chrono(&time_after).context("failed to set NotAfter time")?;
 
-        Ok(ServerCertBuilder {
+        Ok(ClientCertBuilder {
             pkey,
             serial,
             key_usage,
@@ -117,39 +114,13 @@ impl ServerCertBuilder {
         self.pkey = pkey;
     }
 
-    pub fn refresh_pkey(&mut self) -> anyhow::Result<()> {
-        self.pkey = super::pkey::new_ec256()?;
-        Ok(())
-    }
-
     pub fn set_serial(&mut self, serial: Asn1Integer) {
         self.serial = serial;
     }
 
-    pub fn refresh_serial(&mut self) -> anyhow::Result<()> {
-        self.serial = super::serial::random_16()?;
-        Ok(())
-    }
-
-    pub fn refresh_datetime(&mut self) -> anyhow::Result<()> {
-        let time_now = Utc::now();
-        let time_before = time_now
-            .checked_sub_days(Days::new(1))
-            .ok_or(anyhow!("unable to get time before date"))?;
-        let time_after = time_now
-            .checked_add_days(Days::new(365))
-            .ok_or(anyhow!("unable to get time after date"))?;
-
-        self.not_before =
-            asn1_time_from_chrono(&time_before).context("failed to set NotBefore time")?;
-        self.not_after =
-            asn1_time_from_chrono(&time_after).context("failed to set NotAfter time")?;
-        Ok(())
-    }
-
-    pub fn build_fake(
+    pub fn build(
         &self,
-        host: &Host,
+        user: &str,
         ca_cert: &X509Ref,
         ca_key: &PKey<Private>,
     ) -> anyhow::Result<X509> {
@@ -189,37 +160,15 @@ impl ServerCertBuilder {
             .append_extension2(&self.ext_key_usage)
             .map_err(|e| anyhow!("failed to append ExtendedKeyUsage extension: {e}"))?;
 
-        let mut san = SubjectAlternativeName::new();
-        match host {
-            Host::Domain(domain) => {
-                let name = self
-                    .subject_builder
-                    .build_for_server(domain)
-                    .context("failed to build subject name")?;
-                builder
-                    .set_subject_name(&name)
-                    .map_err(|e| anyhow!("failed to set subject name: {e}"))?;
-
-                san.dns(domain);
-            }
-            Host::Ip(ip) => {
-                let text = ip.to_string();
-                let name = self
-                    .subject_builder
-                    .build_for_server(&text)
-                    .context("failed to build subject name")?;
-                builder
-                    .set_subject_name(&name)
-                    .map_err(|e| anyhow!("failed to set subject name: {e}"))?;
-
-                san.ip(&text);
-            }
-        }
+        let name = self
+            .subject_builder
+            .build_for_user(user)
+            .context("failed to build subject name")?;
+        builder
+            .set_subject_name(&name)
+            .map_err(|e| anyhow!("failed to set subject name: {e}"))?;
 
         let v3_ctx = builder.x509v3_context(Some(ca_cert), None);
-        let san = san
-            .build(&v3_ctx)
-            .map_err(|e| anyhow!("failed to build SubjectAlternativeName extension: {e}"))?;
         let ski = SubjectKeyIdentifier::new()
             .build(&v3_ctx)
             .map_err(|e| anyhow!("failed to build SubjectKeyIdentifier extension: {e} "))?;
@@ -229,9 +178,6 @@ impl ServerCertBuilder {
             .build(&v3_ctx)
             .map_err(|e| anyhow!("failed to build AuthorityKeyIdentifier extension: {e}"))?;
 
-        builder
-            .append_extension(san)
-            .map_err(|e| anyhow!("failed to append SubjectAlternativeName extension: {e}"))?;
         builder
             .append_extension(ski)
             .map_err(|e| anyhow!("failed to append SubjectKeyIdentifier extension: {e}"))?;
