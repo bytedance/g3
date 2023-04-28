@@ -14,9 +14,15 @@
  * limitations under the License.
  */
 
-use libc::c_long;
-use openssl_sys::X509;
+use libc::{c_int, c_long, c_uchar, c_uint};
+use openssl_sys::{EVP_MD, X509};
 
 extern "C" {
     pub fn X509_get_pathlen(x: *mut X509) -> c_long;
+    pub fn X509_pubkey_digest(
+        data: *const X509,
+        type_: *const EVP_MD,
+        md: *mut c_uchar,
+        len: *mut c_uint,
+    ) -> c_int;
 }

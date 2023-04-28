@@ -61,8 +61,8 @@ impl KeylessCloudflareTaskContext {
         histogram_recorder: Option<KeylessHistogramRecorder>,
         pool: Option<Arc<KeylessConnectionPool>>,
     ) -> anyhow::Result<Self> {
-        let ski = args.global.get_subject_key_id()?;
-        let mut request_builder = KeylessRequestBuilder::new(ski, args.global.action)?;
+        let mut request_builder =
+            KeylessRequestBuilder::new(args.global.subject_key_id(), args.global.action)?;
         if let Some(digest) = get_public_key_digest(args.global.public_key())? {
             request_builder.set_digest(digest);
         }

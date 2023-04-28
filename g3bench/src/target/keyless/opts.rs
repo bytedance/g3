@@ -25,7 +25,8 @@ use openssl::nid::Nid;
 use openssl::pkey::{Id, PKey, Private, Public};
 use openssl::rsa::Padding;
 use openssl::sign::Signer;
-use openssl::x509::X509;
+
+use g3_types::net::X509Ext;
 
 const ARG_CERT: &str = "cert";
 const ARG_PKEY: &str = "key";
@@ -167,8 +168,8 @@ pub(super) trait AppendKeylessArgs {
 }
 
 pub(super) struct KeylessGlobalArgs {
-    pub(super) cert: X509,
     public_key: PKey<Public>,
+    public_key_ski: Vec<u8>,
     pub(super) private_key: Option<PKey<Private>>,
     pub(super) action: KeylessAction,
     pub(super) payload: Vec<u8>,
@@ -244,10 +245,17 @@ impl KeylessGlobalArgs {
 
         let dump_result = args.get_flag(ARG_DUMP_RESULT);
 
+        let public_key_ski = if let Some(o) = cert.subject_key_id() {
+            o.as_slice().to_vec()
+        } else {
+            cert.pubkey_digest(MessageDigest::sha1())
+                .map_err(|e| anyhow!("failed to get sha1 hash of pubkey digest: {e}"))?
+        };
+
         let mut key_args = KeylessGlobalArgs {
-            cert,
             public_key: pkey,
             private_key: None,
+            public_key_ski,
             action,
             payload,
             dump_result,
@@ -268,14 +276,12 @@ impl KeylessGlobalArgs {
         }
     }
 
-    pub(super) fn get_subject_key_id(&self) -> anyhow::Result<&[u8]> {
-        if let Some(o) = self.cert.subject_key_id() {
-            return Ok(o.as_slice());
-        }
-
-        Err(anyhow!("still not supported"))
+    #[inline]
+    pub(super) fn subject_key_id(&self) -> &[u8] {
+        &self.public_key_ski
     }
 
+    #[inline]
     pub(super) fn public_key(&self) -> &PKey<Public> {
         &self.public_key
     }
