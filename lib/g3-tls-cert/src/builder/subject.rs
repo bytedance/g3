@@ -18,20 +18,11 @@ use anyhow::anyhow;
 use openssl::nid::Nid;
 use openssl::x509::{X509Name, X509NameBuilder};
 
+#[derive(Default)]
 pub struct SubjectNameBuilder {
     organization: Option<String>,
     organization_unit: Option<String>,
     country: Option<String>,
-}
-
-impl Default for SubjectNameBuilder {
-    fn default() -> Self {
-        SubjectNameBuilder {
-            organization: None,
-            organization_unit: None,
-            country: None,
-        }
-    }
 }
 
 impl SubjectNameBuilder {
