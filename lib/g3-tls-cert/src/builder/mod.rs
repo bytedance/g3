@@ -28,3 +28,9 @@ pub use server::ServerCertBuilder;
 
 mod client;
 pub use client::ClientCertBuilder;
+
+mod root;
+pub use root::RootCertBuilder;
+
+mod intermediate;
+pub use intermediate::IntermediateCertBuilder;

@@ -59,7 +59,7 @@ impl SubjectNameBuilder {
         Ok(builder)
     }
 
-    pub(super) fn build_for_server(&self, cn: &str) -> anyhow::Result<X509Name> {
+    pub(super) fn build_with_common_name(&self, cn: &str) -> anyhow::Result<X509Name> {
         let mut builder = self.get_builder()?;
         builder
             .append_entry_by_nid(Nid::COMMONNAME, cn)
