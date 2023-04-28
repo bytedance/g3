@@ -24,6 +24,8 @@ use openssl::x509::extension::{
 };
 use openssl::x509::{X509Builder, X509Extension, X509Ref, X509};
 
+use g3_types::net::X509Ext;
+
 use super::{asn1_time_from_chrono, SubjectNameBuilder};
 
 pub struct IntermediateCertBuilder {
@@ -146,11 +148,19 @@ impl IntermediateCertBuilder {
             .append_extension2(&self.key_usage)
             .map_err(|e| anyhow!("failed to append KeyUsage extension: {e}"))?;
 
-        // TODO check path len in ca_cert
+        let mut path_len = path_len.unwrap_or_default();
+        if let Some(len) = ca_cert.pathlen() {
+            if len == 0 {
+                return Err(anyhow!(
+                    "no more intermediate ca cert is allowed by the specified ca cert"
+                ));
+            }
+            path_len = path_len.max(len - 1);
+        }
         let basic_constraints = BasicConstraints::new()
             .critical()
             .ca()
-            .pathlen(path_len.unwrap_or_default())
+            .pathlen(path_len)
             .build()
             .map_err(|e| anyhow!("failed to build BasicConstraints extension: {e}"))?;
         builder

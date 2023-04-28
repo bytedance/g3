@@ -36,6 +36,8 @@ rustls = { workspace = true, optional = true }
 rustls-native-certs = { workspace = true, optional = true }
 webpki-roots = { version = "0.22", optional = true }
 openssl = { workspace = true, optional = true }
+openssl-sys = { workspace = true, optional = true }
+foreign-types = { version = "0.3", optional = true }
 lru = { version = "0.10", default-features = false, optional = true }
 bytes = { workspace = true, optional = true }
 http = { workspace = true, optional = true }
@@ -49,7 +51,7 @@ default = []
 auth-crypt = ["dep:digest", "dep:md-5", "dep:sha-1", "dep:blake3", "dep:hex"]
 resolve = ["dep:ahash", "dep:radix_trie"]
 rustls = ["dep:rustls", "dep:rustls-native-certs", "dep:webpki-roots"]
-openssl = ["dep:openssl", "dep:ahash", "dep:lru"]
+openssl = ["dep:openssl", "dep:openssl-sys", "dep:foreign-types", "dep:ahash", "dep:lru"]
 acl-rule = ["resolve", "dep:ahash", "dep:ip_network", "dep:ip_network_table", "dep:once_cell", "dep:regex", "dep:radix_trie", "proxy"]
 http = ["dep:http", "dep:bytes", "dep:base64"]
 proxy = ["http", "openssl"]

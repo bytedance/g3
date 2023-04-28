@@ -14,21 +14,9 @@
  * limitations under the License.
  */
 
-mod tls_client;
-pub use tls_client::{
-    OpensslTlsClientConfig, OpensslTlsClientConfigBuilder, OpensslTlsInterceptionClientConfig,
-    OpensslTlsInterceptionClientConfigBuilder,
-};
+use libc::c_long;
+use openssl_sys::X509;
 
-mod cert_pair;
-pub use cert_pair::OpensslCertificatePair;
-
-mod protocol;
-pub use protocol::OpensslProtocol;
-
-mod session;
-use session::{OpensslSessionCacheConfig, OpensslTlsClientSessionCache};
-
-mod ext;
-mod ffi;
-pub use ext::X509Ext;
+extern "C" {
+    pub fn X509_get_pathlen(x: *mut X509) -> c_long;
+}

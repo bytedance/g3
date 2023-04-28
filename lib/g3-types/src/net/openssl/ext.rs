@@ -14,21 +14,16 @@
  * limitations under the License.
  */
 
-mod tls_client;
-pub use tls_client::{
-    OpensslTlsClientConfig, OpensslTlsClientConfigBuilder, OpensslTlsInterceptionClientConfig,
-    OpensslTlsInterceptionClientConfigBuilder,
-};
+use foreign_types::ForeignTypeRef;
+use openssl::x509::X509Ref;
 
-mod cert_pair;
-pub use cert_pair::OpensslCertificatePair;
+pub trait X509Ext {
+    fn pathlen(&self) -> Option<u32>;
+}
 
-mod protocol;
-pub use protocol::OpensslProtocol;
-
-mod session;
-use session::{OpensslSessionCacheConfig, OpensslTlsClientSessionCache};
-
-mod ext;
-mod ffi;
-pub use ext::X509Ext;
+impl X509Ext for X509Ref {
+    fn pathlen(&self) -> Option<u32> {
+        let v = unsafe { super::ffi::X509_get_pathlen(self.as_ptr()) };
+        u32::try_from(v).ok()
+    }
+}
