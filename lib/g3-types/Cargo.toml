@@ -37,7 +37,7 @@ rustls-native-certs = { workspace = true, optional = true }
 webpki-roots = { version = "0.22", optional = true }
 openssl = { workspace = true, optional = true }
 openssl-sys = { workspace = true, optional = true }
-foreign-types = { version = "0.3", optional = true }
+foreign-types = { version = "0.5", optional = true }
 lru = { version = "0.10", default-features = false, optional = true }
 bytes = { workspace = true, optional = true }
 http = { workspace = true, optional = true }
