@@ -1,4 +1,7 @@
 
+v1.7.14:
+ - BUG FIX: fix the parse of ICAP OPTIONS response
+
 v1.7.13:
  - BUG FIX: fix the fetch of ICAP options
  - Feature: allow to set anonymous user in user group

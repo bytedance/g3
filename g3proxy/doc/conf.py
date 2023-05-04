@@ -22,7 +22,7 @@ copyright = '2022, Zhang Jingqiang'
 author = 'Zhang Jingqiang'
 
 # The full version, including alpha/beta/rc tags
-release = '1.7.13'
+release = '1.7.14'
 
 
 # -- General configuration ---------------------------------------------------
