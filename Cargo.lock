@@ -1365,9 +1365,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "clap_complete",
  "g3-tls-cert",
  "g3-types",
  "openssl",
+ "rustc_version",
 ]
 
 [[package]]

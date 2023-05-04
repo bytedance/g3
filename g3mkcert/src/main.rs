@@ -20,6 +20,7 @@ use std::path::{Path, PathBuf};
 
 use clap::builder::ArgPredicate;
 use clap::{value_parser, Arg, ArgAction, ArgGroup, ArgMatches, Command, ValueHint};
+use clap_complete::Shell;
 use openssl::pkey::{PKey, Private};
 use openssl::x509::extension::SubjectAlternativeName;
 use openssl::x509::{X509Name, X509};
@@ -29,6 +30,11 @@ use g3_tls_cert::builder::{
     SubjectNameBuilder,
 };
 use g3_types::net::Host;
+
+mod build;
+
+const ARG_VERSION: &str = "version";
+const ARG_COMPLETION: &str = "completion";
 
 const ARG_ROOT: &str = "root";
 const ARG_INTERMEDIATE: &str = "intermediate";
@@ -64,7 +70,46 @@ const ARG_GROUP_TYPE: &str = "type";
 const ARG_GROUP_ALGORITHM: &str = "algorithm";
 
 fn main() -> anyhow::Result<()> {
-    let args = Command::new("g3mkcert")
+    let args = build_cli_args().get_matches();
+
+    if args.get_flag(ARG_VERSION) {
+        build::print_version();
+        Ok(())
+    } else if let Some(shell) = args.get_one::<Shell>(ARG_COMPLETION) {
+        let mut app = build_cli_args();
+        let bin_name = app.get_name().to_string();
+        clap_complete::generate(*shell, &mut app, bin_name, &mut std::io::stdout());
+        Ok(())
+    } else if args.get_flag(ARG_ROOT) {
+        generate_root(args)
+    } else if args.get_flag(ARG_INTERMEDIATE) {
+        generate_intermediate(args)
+    } else if args.get_flag(ARG_TLS_SERVER) {
+        generate_tls_server(args)
+    } else if args.get_flag(ARG_TLS_CLIENT) {
+        generate_tls_client(args)
+    } else {
+        unreachable!()
+    }
+}
+
+fn build_cli_args() -> Command {
+    Command::new(build::PKG_NAME)
+        .arg(
+            Arg::new(ARG_VERSION)
+                .help("Show version")
+                .num_args(0)
+                .long(ARG_VERSION)
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new(ARG_COMPLETION)
+                .help("Generate shell completion script")
+                .long(ARG_COMPLETION)
+                .num_args(1)
+                .value_name("SHELL")
+                .value_parser(value_parser!(Shell)),
+        )
         .arg(
             Arg::new(ARG_ROOT)
                 .help("Generate self signed root CA certificate")
@@ -105,7 +150,14 @@ fn main() -> anyhow::Result<()> {
         )
         .group(
             ArgGroup::new(ARG_GROUP_TYPE)
-                .args([ARG_ROOT, ARG_INTERMEDIATE, ARG_TLS_SERVER, ARG_TLS_CLIENT])
+                .args([
+                    ARG_ROOT,
+                    ARG_INTERMEDIATE,
+                    ARG_TLS_SERVER,
+                    ARG_TLS_CLIENT,
+                    ARG_VERSION,
+                    ARG_COMPLETION,
+                ])
                 .required(true),
         )
         .arg(
@@ -268,19 +320,6 @@ fn main() -> anyhow::Result<()> {
                 .value_parser(value_parser!(PathBuf))
                 .value_hint(ValueHint::FilePath),
         )
-        .get_matches();
-
-    if args.get_flag(ARG_ROOT) {
-        generate_root(args)
-    } else if args.get_flag(ARG_INTERMEDIATE) {
-        generate_intermediate(args)
-    } else if args.get_flag(ARG_TLS_SERVER) {
-        generate_tls_server(args)
-    } else if args.get_flag(ARG_TLS_CLIENT) {
-        generate_tls_client(args)
-    } else {
-        unreachable!()
-    }
 }
 
 fn get_ca_cert_and_key(args: &ArgMatches) -> anyhow::Result<(X509, PKey<Private>)> {

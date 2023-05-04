@@ -1,0 +1,11 @@
+Source: g3mkcert
+Section: net
+Priority: optional
+Maintainer: G3mkcert Maintainers <g3mkcert-maintainers@devel.machine>
+Build-Depends: debhelper
+Standards-Version: 3.9.8
+
+Package: g3mkcert
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Tool to make certificates from G3 Project
