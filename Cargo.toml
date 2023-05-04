@@ -29,7 +29,7 @@ members = [
     "lib/g3-tls-cert",
     "g3bench",
     "g3fcgen",
-    "g3fcgen/utils/one",
+    "g3mkcert",
     "g3proxy",
     "g3proxy/proto",
     "g3proxy/utils/ctl",
@@ -46,7 +46,7 @@ members = [
 default-members = [
     "g3bench",
     "g3fcgen",
-    "g3fcgen/utils/one",
+    "g3mkcert",
     "g3proxy",
     "g3proxy/utils/ctl",
     "g3tiles",

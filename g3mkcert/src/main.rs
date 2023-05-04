@@ -39,7 +39,7 @@ const ARG_X25519: &str = "x25519";
 const ARG_X448: &str = "x448";
 
 fn main() -> anyhow::Result<()> {
-    let args = Command::new("g3fcgen-one")
+    let args = Command::new("g3mkcert")
         .arg(
             Arg::new(ARG_CA_CERT)
                 .help("CA Certificate file")
