@@ -43,6 +43,16 @@ impl SubjectNameBuilder {
         self.common_name = Some(cn);
     }
 
+    pub fn set_common_name_if_missing(&mut self, cn: &str) {
+        if self.common_name.is_none() {
+            self.common_name = Some(cn.to_string());
+        }
+    }
+
+    pub fn common_name(&self) -> Option<&str> {
+        self.common_name.as_deref()
+    }
+
     fn get_builder(&self) -> anyhow::Result<X509NameBuilder> {
         let mut builder = X509Name::builder()
             .map_err(|e| anyhow!("failed to create x509 subject name builder: {e}"))?;
@@ -64,7 +74,7 @@ impl SubjectNameBuilder {
         Ok(builder)
     }
 
-    pub(super) fn build(&self) -> anyhow::Result<X509Name> {
+    pub fn build(&self) -> anyhow::Result<X509Name> {
         let mut builder = self.get_builder()?;
         if let Some(cn) = &self.common_name {
             builder

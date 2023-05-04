@@ -23,7 +23,7 @@ use openssl::x509::extension::{
     AuthorityKeyIdentifier, ExtendedKeyUsage, KeyUsage, SubjectAlternativeName,
     SubjectKeyIdentifier,
 };
-use openssl::x509::{X509Builder, X509Extension, X509Ref, X509};
+use openssl::x509::{X509Builder, X509Extension, X509Name, X509Ref, X509};
 
 use g3_types::net::Host;
 
@@ -109,6 +109,11 @@ impl ServerCertBuilder {
     }
 
     #[inline]
+    pub fn subject_builder(&self) -> &SubjectNameBuilder {
+        &self.subject_builder
+    }
+
+    #[inline]
     pub fn pkey(&self) -> &PKey<Private> {
         &self.pkey
     }
@@ -153,6 +158,32 @@ impl ServerCertBuilder {
         ca_cert: &X509Ref,
         ca_key: &PKey<Private>,
     ) -> anyhow::Result<X509> {
+        let mut san = SubjectAlternativeName::new();
+        let subject_name = match host {
+            Host::Domain(domain) => {
+                san.dns(domain);
+                self.subject_builder
+                    .build_with_default_common_name(domain)
+                    .context("failed to build subject name")?
+            }
+            Host::Ip(ip) => {
+                let text = ip.to_string();
+                san.ip(&text);
+                self.subject_builder
+                    .build_with_default_common_name(&text)
+                    .context("failed to build subject name")?
+            }
+        };
+        self.build_with_subject(&subject_name, san, ca_cert, ca_key)
+    }
+
+    pub fn build_with_subject(
+        &self,
+        subject_name: &X509Name,
+        subject_alt_name: SubjectAlternativeName,
+        ca_cert: &X509Ref,
+        ca_key: &PKey<Private>,
+    ) -> anyhow::Result<X509> {
         let mut builder =
             X509Builder::new().map_err(|e| anyhow!("failed to create x509 builder {e}"))?;
         builder
@@ -189,35 +220,12 @@ impl ServerCertBuilder {
             .append_extension2(&self.ext_key_usage)
             .map_err(|e| anyhow!("failed to append ExtendedKeyUsage extension: {e}"))?;
 
-        let mut san = SubjectAlternativeName::new();
-        match host {
-            Host::Domain(domain) => {
-                let name = self
-                    .subject_builder
-                    .build_with_default_common_name(domain)
-                    .context("failed to build subject name")?;
-                builder
-                    .set_subject_name(&name)
-                    .map_err(|e| anyhow!("failed to set subject name: {e}"))?;
-
-                san.dns(domain);
-            }
-            Host::Ip(ip) => {
-                let text = ip.to_string();
-                let name = self
-                    .subject_builder
-                    .build_with_default_common_name(&text)
-                    .context("failed to build subject name")?;
-                builder
-                    .set_subject_name(&name)
-                    .map_err(|e| anyhow!("failed to set subject name: {e}"))?;
-
-                san.ip(&text);
-            }
-        }
+        builder
+            .set_subject_name(subject_name)
+            .map_err(|e| anyhow!("failed to set subject name: {e}"))?;
 
         let v3_ctx = builder.x509v3_context(Some(ca_cert), None);
-        let san = san
+        let san = subject_alt_name
             .build(&v3_ctx)
             .map_err(|e| anyhow!("failed to build SubjectAlternativeName extension: {e}"))?;
         let ski = SubjectKeyIdentifier::new()

@@ -16,12 +16,13 @@
 
 use anyhow::{anyhow, Context};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use clap::builder::ArgPredicate;
-use clap::{value_parser, Arg, ArgAction, ArgGroup, ArgMatches, Command};
+use clap::{value_parser, Arg, ArgAction, ArgGroup, ArgMatches, Command, ValueHint};
 use openssl::pkey::{PKey, Private};
-use openssl::x509::{X509Ref, X509};
+use openssl::x509::extension::SubjectAlternativeName;
+use openssl::x509::{X509Name, X509};
 
 use g3_tls_cert::builder::{
     ClientCertBuilder, IntermediateCertBuilder, RootCertBuilder, ServerCertBuilder,
@@ -54,6 +55,13 @@ const ARG_COMMON_NAME: &str = "common-name";
 
 const ARG_PATH_LENGTH: &str = "path-length";
 const ARG_HOST: &str = "host";
+
+const ARG_OUTPUT_CERT: &str = "output-cert";
+const ARG_OUTPUT_KEY: &str = "output-key";
+
+const ARG_GROUP_SUBJECT: &str = "subject";
+const ARG_GROUP_TYPE: &str = "type";
+const ARG_GROUP_ALGORITHM: &str = "algorithm";
 
 fn main() -> anyhow::Result<()> {
     let args = Command::new("g3mkcert")
@@ -96,7 +104,7 @@ fn main() -> anyhow::Result<()> {
                 .requires(ARG_HOST),
         )
         .group(
-            ArgGroup::new("type")
+            ArgGroup::new(ARG_GROUP_TYPE)
                 .args([ARG_ROOT, ARG_INTERMEDIATE, ARG_TLS_SERVER, ARG_TLS_CLIENT])
                 .required(true),
         )
@@ -165,7 +173,7 @@ fn main() -> anyhow::Result<()> {
                 .long(ARG_X448)
                 .action(ArgAction::SetTrue),
         )
-        .group(ArgGroup::new("algorithm").args([
+        .group(ArgGroup::new(ARG_GROUP_ALGORITHM).args([
             ARG_RSA,
             ARG_EC224,
             ARG_EC256,
@@ -181,14 +189,16 @@ fn main() -> anyhow::Result<()> {
                 .help("CA Certificate file")
                 .long(ARG_CA_CERT)
                 .num_args(1)
-                .value_parser(value_parser!(PathBuf)),
+                .value_parser(value_parser!(PathBuf))
+                .value_hint(ValueHint::FilePath),
         )
         .arg(
             Arg::new(ARG_CA_KEY)
                 .help("CA Private Key file")
                 .long(ARG_CA_KEY)
                 .num_args(1)
-                .value_parser(value_parser!(PathBuf)),
+                .value_parser(value_parser!(PathBuf))
+                .value_hint(ValueHint::FilePath),
         )
         .arg(
             Arg::new(ARG_COUNTRY)
@@ -216,11 +226,10 @@ fn main() -> anyhow::Result<()> {
                 .help("Set common name field in subject name")
                 .value_name("CN")
                 .long(ARG_COMMON_NAME)
-                .num_args(1)
-                .conflicts_with(ARG_HOST),
+                .num_args(1),
         )
         .group(
-            ArgGroup::new("subject")
+            ArgGroup::new(ARG_GROUP_SUBJECT)
                 .args([
                     ARG_COUNTRY,
                     ARG_ORGANIZATION,
@@ -231,6 +240,7 @@ fn main() -> anyhow::Result<()> {
         )
         .arg(
             Arg::new(ARG_HOST)
+                .long(ARG_HOST)
                 .action(ArgAction::Append)
                 .value_parser(value_parser!(Host)),
         )
@@ -241,6 +251,22 @@ fn main() -> anyhow::Result<()> {
                 .num_args(1)
                 .value_parser(value_parser!(u32))
                 .default_value_if(ARG_INTERMEDIATE, ArgPredicate::IsPresent, "0"),
+        )
+        .arg(
+            Arg::new(ARG_OUTPUT_CERT)
+                .help("Output path for the certificate file")
+                .long(ARG_OUTPUT_CERT)
+                .num_args(1)
+                .value_parser(value_parser!(PathBuf))
+                .value_hint(ValueHint::FilePath),
+        )
+        .arg(
+            Arg::new(ARG_OUTPUT_KEY)
+                .help("Output path for the private key file")
+                .long(ARG_OUTPUT_KEY)
+                .num_args(1)
+                .value_parser(value_parser!(PathBuf))
+                .value_hint(ValueHint::FilePath),
         )
         .get_matches();
 
@@ -286,14 +312,56 @@ fn get_ca_cert_and_key(args: &ArgMatches) -> anyhow::Result<(X509, PKey<Private>
     Ok((ca_cert, ca_key))
 }
 
+fn get_output_cert_file(args: &ArgMatches) -> Option<PathBuf> {
+    args.get_one::<PathBuf>(ARG_OUTPUT_CERT).cloned()
+}
+
+fn get_output_key_file(args: &ArgMatches) -> Option<PathBuf> {
+    args.get_one::<PathBuf>(ARG_OUTPUT_KEY).cloned()
+}
+
 fn set_subject_name(
     args: &ArgMatches,
     subject_builder: &mut SubjectNameBuilder,
 ) -> anyhow::Result<()> {
+    if let Some(c) = args.get_one::<String>(ARG_COUNTRY) {
+        subject_builder.set_country(c.to_string());
+    }
+    if let Some(o) = args.get_one::<String>(ARG_ORGANIZATION) {
+        subject_builder.set_organization(o.to_string());
+    }
+    if let Some(ou) = args.get_one::<String>(ARG_ORGANIZATION_UNIT) {
+        subject_builder.set_organization_unit(ou.to_string());
+    }
     if let Some(cn) = args.get_one::<String>(ARG_COMMON_NAME) {
         subject_builder.set_common_name(cn.to_string());
     }
     Ok(())
+}
+
+fn get_subject_with_host(
+    args: &ArgMatches,
+    subject_builder: &mut SubjectNameBuilder,
+) -> anyhow::Result<(X509Name, SubjectAlternativeName)> {
+    set_subject_name(args, subject_builder)?;
+    let mut san = SubjectAlternativeName::new();
+    if let Some(hosts) = args.get_many::<Host>(ARG_HOST) {
+        for host in hosts {
+            match host {
+                Host::Domain(domain) => {
+                    subject_builder.set_common_name_if_missing(domain);
+                    san.dns(domain);
+                }
+                Host::Ip(ip) => {
+                    let text = ip.to_string();
+                    subject_builder.set_common_name_if_missing(&text);
+                    san.ip(&text);
+                }
+            }
+        }
+    }
+    let subject_name = subject_builder.build()?;
+    Ok((subject_name, san))
 }
 
 fn generate_root(args: ArgMatches) -> anyhow::Result<()> {
@@ -320,10 +388,18 @@ fn generate_root(args: ArgMatches) -> anyhow::Result<()> {
     };
 
     set_subject_name(&args, builder.subject_builder_mut())?;
+    let cn = builder
+        .subject_builder()
+        .common_name()
+        .ok_or_else(|| anyhow!("no common name set"))?;
 
     let cert = builder.build()?;
-    write_certificate_file(&cert, "root-CA.pem")?;
-    write_private_key_file(builder.pkey(), "root-CA.key.pem")?;
+    let cert_output =
+        get_output_cert_file(&args).unwrap_or_else(|| PathBuf::from(format!("{cn}-CA.crt")));
+    write_certificate_file(&cert, cert_output)?;
+    let key_output =
+        get_output_key_file(&args).unwrap_or_else(|| PathBuf::from(format!("{cn}-CA.key")));
+    write_private_key_file(builder.pkey(), key_output)?;
 
     Ok(())
 }
@@ -354,10 +430,18 @@ fn generate_intermediate(args: ArgMatches) -> anyhow::Result<()> {
     let (ca_cert, ca_key) = get_ca_cert_and_key(&args)?;
     set_subject_name(&args, builder.subject_builder_mut())?;
     let path_len = args.get_one::<u32>(ARG_PATH_LENGTH).copied();
+    let cn = builder
+        .subject_builder()
+        .common_name()
+        .ok_or_else(|| anyhow!("no common name set"))?;
 
     let cert = builder.build(path_len, &ca_cert, &ca_key)?;
-    write_certificate_file(&cert, "intermediate-CA.pem")?;
-    write_private_key_file(builder.pkey(), "intermediate-CA.key.pem")?;
+    let cert_output =
+        get_output_cert_file(&args).unwrap_or_else(|| PathBuf::from(format!("{cn}-CA.crt")));
+    write_certificate_file(&cert, cert_output)?;
+    let key_output =
+        get_output_key_file(&args).unwrap_or_else(|| PathBuf::from(format!("{cn}-CA.key")));
+    write_private_key_file(builder.pkey(), key_output)?;
 
     Ok(())
 }
@@ -386,30 +470,23 @@ fn generate_tls_server(args: ArgMatches) -> anyhow::Result<()> {
     };
 
     let (ca_cert, ca_key) = get_ca_cert_and_key(&args)?;
-    set_subject_name(&args, builder.subject_builder_mut())?;
+    let (subject_name, subject_alt_name) =
+        get_subject_with_host(&args, builder.subject_builder_mut())?;
+    let cn = builder
+        .subject_builder()
+        .common_name()
+        .ok_or_else(|| anyhow!("no common name set"))?;
 
-    let hosts = args.get_many::<Host>(ARG_HOST).unwrap();
-    for host in hosts {
-        if let Err(e) = generate_one_server(&builder, host, &ca_cert, &ca_key) {
-            eprintln!("== {host}:\n {e:?}");
-        }
-    }
-    Ok(())
-}
-
-fn generate_one_server(
-    builder: &ServerCertBuilder,
-    host: &Host,
-    ca_cert: &X509Ref,
-    ca_key: &PKey<Private>,
-) -> anyhow::Result<()> {
     let cert = builder
-        .build_fake(host, ca_cert, ca_key)
-        .context("failed to build fake certificate")?;
-    let cert_output_file = format!("{host}.pem");
-    write_certificate_file(&cert, &cert_output_file)?;
-    let key_output_file = format!("{host}-key.pem");
-    write_private_key_file(builder.pkey(), &key_output_file)?;
+        .build_with_subject(&subject_name, subject_alt_name, &ca_cert, &ca_key)
+        .context("failed to build tls server certificate")?;
+    let cert_output =
+        get_output_cert_file(&args).unwrap_or_else(|| PathBuf::from(format!("{cn}.crt")));
+    write_certificate_file(&cert, cert_output)?;
+    let key_output =
+        get_output_key_file(&args).unwrap_or_else(|| PathBuf::from(format!("{cn}.key")));
+    write_private_key_file(builder.pkey(), key_output)?;
+
     Ok(())
 }
 
@@ -437,35 +514,26 @@ fn generate_tls_client(args: ArgMatches) -> anyhow::Result<()> {
     };
 
     let (ca_cert, ca_key) = get_ca_cert_and_key(&args)?;
-    set_subject_name(&args, builder.subject_builder_mut())?;
+    let (subject_name, subject_alt_name) =
+        get_subject_with_host(&args, builder.subject_builder_mut())?;
+    let cn = builder
+        .subject_builder()
+        .common_name()
+        .ok_or_else(|| anyhow!("no common name set"))?;
 
-    let hosts = args.get_many::<Host>(ARG_HOST).unwrap();
-    for host in hosts {
-        if let Err(e) = generate_one_client(&builder, host, &ca_cert, &ca_key) {
-            eprintln!("== {host}:\n {e:?}");
-        }
-    }
-
-    Ok(())
-}
-
-fn generate_one_client(
-    builder: &ClientCertBuilder,
-    host: &Host,
-    ca_cert: &X509Ref,
-    ca_key: &PKey<Private>,
-) -> anyhow::Result<()> {
     let cert = builder
-        .build(host, ca_cert, ca_key)
-        .context("failed to build fake certificate")?;
-    let cert_output_file = format!("{host}-client.pem");
-    write_certificate_file(&cert, &cert_output_file)?;
-    let key_output_file = format!("{host}-client-key.pem");
-    write_private_key_file(builder.pkey(), &key_output_file)?;
+        .build_with_subject(&subject_name, subject_alt_name, &ca_cert, &ca_key)
+        .context("failed to build tls client certificate")?;
+    let cert_output =
+        get_output_cert_file(&args).unwrap_or_else(|| PathBuf::from(format!("{cn}-client.crt")));
+    write_certificate_file(&cert, cert_output)?;
+    let key_output =
+        get_output_key_file(&args).unwrap_or_else(|| PathBuf::from(format!("{cn}-client.key")));
+    write_private_key_file(builder.pkey(), key_output)?;
     Ok(())
 }
 
-fn write_certificate_file(cert: &X509, path: &str) -> anyhow::Result<()> {
+fn write_certificate_file<P: AsRef<Path>>(cert: &X509, path: P) -> anyhow::Result<()> {
     let content = cert
         .to_pem()
         .map_err(|e| anyhow!("failed to encode certificate: {e}"))?;
@@ -473,15 +541,23 @@ fn write_certificate_file(cert: &X509, path: &str) -> anyhow::Result<()> {
         .write(true)
         .create(true)
         .truncate(true)
-        .open(path)
-        .map_err(|e| anyhow!("failed to open cert output file {path}: {e:?}"))?;
-    cert_file
-        .write_all(&content)
-        .map_err(|e| anyhow!("failed to write certificate to file {path}: {e:?}"))?;
+        .open(path.as_ref())
+        .map_err(|e| {
+            anyhow!(
+                "failed to open cert output file {}: {e:?}",
+                path.as_ref().display()
+            )
+        })?;
+    cert_file.write_all(&content).map_err(|e| {
+        anyhow!(
+            "failed to write certificate to file {}: {e:?}",
+            path.as_ref().display()
+        )
+    })?;
     Ok(())
 }
 
-fn write_private_key_file(key: &PKey<Private>, path: &str) -> anyhow::Result<()> {
+fn write_private_key_file<P: AsRef<Path>>(key: &PKey<Private>, path: P) -> anyhow::Result<()> {
     let content = key
         .private_key_to_pem_pkcs8()
         .map_err(|e| anyhow!("failed to encode private key: {e}"))?;
@@ -489,10 +565,18 @@ fn write_private_key_file(key: &PKey<Private>, path: &str) -> anyhow::Result<()>
         .write(true)
         .create(true)
         .truncate(true)
-        .open(path)
-        .map_err(|e| anyhow!("failed to open private key output file {path}: {e:?}"))?;
-    key_file
-        .write_all(&content)
-        .map_err(|e| anyhow!("failed to write private key to file {path}: {e:?}"))?;
+        .open(path.as_ref())
+        .map_err(|e| {
+            anyhow!(
+                "failed to open private key output file {}: {e:?}",
+                path.as_ref().display()
+            )
+        })?;
+    key_file.write_all(&content).map_err(|e| {
+        anyhow!(
+            "failed to write private key to file {}: {e:?}",
+            path.as_ref().display()
+        )
+    })?;
     Ok(())
 }

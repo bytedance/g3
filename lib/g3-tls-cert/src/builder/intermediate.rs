@@ -100,6 +100,11 @@ impl IntermediateCertBuilder {
     }
 
     #[inline]
+    pub fn subject_builder(&self) -> &SubjectNameBuilder {
+        &self.subject_builder
+    }
+
+    #[inline]
     pub fn pkey(&self) -> &PKey<Private> {
         &self.pkey
     }
