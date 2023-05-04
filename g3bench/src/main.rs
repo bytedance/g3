@@ -25,7 +25,7 @@ const COMMAND_VERSION: &str = "version";
 const COMMAND_COMPLETION: &str = "completion";
 
 fn build_cli_args() -> Command {
-    g3bench::add_global_args(Command::new("g3bench"))
+    g3bench::add_global_args(Command::new(g3bench::build::PKG_NAME))
         .subcommand_required(true)
         .subcommand_value_name("TARGET")
         .subcommand(Command::new(COMMAND_VERSION).override_help("Show version"))
