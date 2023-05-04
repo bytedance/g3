@@ -18,16 +18,22 @@ use anyhow::{anyhow, Context};
 use std::io::Write;
 use std::path::PathBuf;
 
-use clap::{value_parser, Arg, ArgAction, ArgGroup, Command};
+use clap::builder::ArgPredicate;
+use clap::{value_parser, Arg, ArgAction, ArgGroup, ArgMatches, Command};
 use openssl::pkey::{PKey, Private};
 use openssl::x509::{X509Ref, X509};
 
-use g3_tls_cert::builder::ServerCertBuilder;
+use g3_tls_cert::builder::{
+    ClientCertBuilder, IntermediateCertBuilder, RootCertBuilder, ServerCertBuilder,
+    SubjectNameBuilder,
+};
 use g3_types::net::Host;
 
-const ARG_CA_CERT: &str = "ca-cert";
-const ARG_CA_KEY: &str = "ca-key";
-const ARG_HOST: &str = "host";
+const ARG_ROOT: &str = "root";
+const ARG_INTERMEDIATE: &str = "intermediate";
+const ARG_TLS_SERVER: &str = "tls-server";
+const ARG_TLS_CLIENT: &str = "tls-client";
+
 const ARG_RSA: &str = "rsa";
 const ARG_EC224: &str = "ec224";
 const ARG_EC256: &str = "ec256";
@@ -38,33 +44,65 @@ const ARG_ED448: &str = "ed448";
 const ARG_X25519: &str = "x25519";
 const ARG_X448: &str = "x448";
 
+const ARG_CA_CERT: &str = "ca-cert";
+const ARG_CA_KEY: &str = "ca-key";
+
+const ARG_COUNTRY: &str = "country";
+const ARG_ORGANIZATION: &str = "organization";
+const ARG_ORGANIZATION_UNIT: &str = "organization-unit";
+const ARG_COMMON_NAME: &str = "common-name";
+
+const ARG_PATH_LENGTH: &str = "path-length";
+const ARG_HOST: &str = "host";
+
 fn main() -> anyhow::Result<()> {
     let args = Command::new("g3mkcert")
         .arg(
-            Arg::new(ARG_CA_CERT)
-                .help("CA Certificate file")
-                .long(ARG_CA_CERT)
-                .num_args(1)
-                .required(true)
-                .value_parser(value_parser!(PathBuf)),
+            Arg::new(ARG_ROOT)
+                .help("Generate self signed root CA certificate")
+                .num_args(0)
+                .long(ARG_ROOT)
+                .action(ArgAction::SetTrue)
+                .requires(ARG_COMMON_NAME),
         )
         .arg(
-            Arg::new(ARG_CA_KEY)
-                .help("CA Private Key file")
-                .long(ARG_CA_KEY)
-                .num_args(1)
-                .required(true)
-                .value_parser(value_parser!(PathBuf)),
+            Arg::new(ARG_INTERMEDIATE)
+                .help("Generate intermediate CA certificate")
+                .num_args(0)
+                .long(ARG_INTERMEDIATE)
+                .action(ArgAction::SetTrue)
+                .requires(ARG_CA_CERT)
+                .requires(ARG_CA_KEY)
+                .requires(ARG_COMMON_NAME),
         )
         .arg(
-            Arg::new(ARG_HOST)
-                .action(ArgAction::Append)
-                .required(true)
-                .value_parser(value_parser!(Host)),
+            Arg::new(ARG_TLS_SERVER)
+                .help("Generate end entity certificate for TLS server")
+                .num_args(0)
+                .long(ARG_TLS_SERVER)
+                .action(ArgAction::SetTrue)
+                .requires(ARG_CA_CERT)
+                .requires(ARG_CA_KEY)
+                .requires(ARG_HOST),
+        )
+        .arg(
+            Arg::new(ARG_TLS_CLIENT)
+                .help("Generate end entity certificate for TLS client")
+                .num_args(0)
+                .long(ARG_TLS_CLIENT)
+                .action(ArgAction::SetTrue)
+                .requires(ARG_CA_CERT)
+                .requires(ARG_CA_KEY)
+                .requires(ARG_HOST),
+        )
+        .group(
+            ArgGroup::new("type")
+                .args([ARG_ROOT, ARG_INTERMEDIATE, ARG_TLS_SERVER, ARG_TLS_CLIENT])
+                .required(true),
         )
         .arg(
             Arg::new(ARG_RSA)
-                .help("Use RSA")
+                .help("Use RSA (Default to 2048 bits)")
                 .value_name("BITS")
                 .num_args(0..=1)
                 .long(ARG_RSA)
@@ -80,7 +118,7 @@ fn main() -> anyhow::Result<()> {
         )
         .arg(
             Arg::new(ARG_EC256)
-                .help("Use Curve P-256")
+                .help("Use Curve P-256 (Default)")
                 .num_args(0)
                 .long(ARG_EC256)
                 .action(ArgAction::SetTrue),
@@ -127,7 +165,7 @@ fn main() -> anyhow::Result<()> {
                 .long(ARG_X448)
                 .action(ArgAction::SetTrue),
         )
-        .group(ArgGroup::new("algo").args([
+        .group(ArgGroup::new("algorithm").args([
             ARG_RSA,
             ARG_EC224,
             ARG_EC256,
@@ -138,9 +176,194 @@ fn main() -> anyhow::Result<()> {
             ARG_X25519,
             ARG_X448,
         ]))
+        .arg(
+            Arg::new(ARG_CA_CERT)
+                .help("CA Certificate file")
+                .long(ARG_CA_CERT)
+                .num_args(1)
+                .value_parser(value_parser!(PathBuf)),
+        )
+        .arg(
+            Arg::new(ARG_CA_KEY)
+                .help("CA Private Key file")
+                .long(ARG_CA_KEY)
+                .num_args(1)
+                .value_parser(value_parser!(PathBuf)),
+        )
+        .arg(
+            Arg::new(ARG_COUNTRY)
+                .help("Set country field in subject name")
+                .value_name("C")
+                .long(ARG_COUNTRY)
+                .num_args(1),
+        )
+        .arg(
+            Arg::new(ARG_ORGANIZATION)
+                .help("Set organization field in subject name")
+                .value_name("O")
+                .long(ARG_ORGANIZATION)
+                .num_args(1),
+        )
+        .arg(
+            Arg::new(ARG_ORGANIZATION_UNIT)
+                .help("Set organization unit field in subject name")
+                .value_name("OU")
+                .long(ARG_ORGANIZATION_UNIT)
+                .num_args(1),
+        )
+        .arg(
+            Arg::new(ARG_COMMON_NAME)
+                .help("Set common name field in subject name")
+                .value_name("CN")
+                .long(ARG_COMMON_NAME)
+                .num_args(1)
+                .conflicts_with(ARG_HOST),
+        )
+        .group(
+            ArgGroup::new("subject")
+                .args([
+                    ARG_COUNTRY,
+                    ARG_ORGANIZATION,
+                    ARG_ORGANIZATION_UNIT,
+                    ARG_COMMON_NAME,
+                ])
+                .multiple(true),
+        )
+        .arg(
+            Arg::new(ARG_HOST)
+                .action(ArgAction::Append)
+                .value_parser(value_parser!(Host)),
+        )
+        .arg(
+            Arg::new(ARG_PATH_LENGTH)
+                .help("Set pathlen of BasicConstraints extension for CA certificate")
+                .long(ARG_PATH_LENGTH)
+                .num_args(1)
+                .value_parser(value_parser!(u32))
+                .default_value_if(ARG_INTERMEDIATE, ArgPredicate::IsPresent, "0"),
+        )
         .get_matches();
 
-    let builder = if let Some(bits) = args.get_one::<u32>(ARG_RSA) {
+    if args.get_flag(ARG_ROOT) {
+        generate_root(args)
+    } else if args.get_flag(ARG_INTERMEDIATE) {
+        generate_intermediate(args)
+    } else if args.get_flag(ARG_TLS_SERVER) {
+        generate_tls_server(args)
+    } else if args.get_flag(ARG_TLS_CLIENT) {
+        generate_tls_client(args)
+    } else {
+        unreachable!()
+    }
+}
+
+fn get_ca_cert_and_key(args: &ArgMatches) -> anyhow::Result<(X509, PKey<Private>)> {
+    let ca_cert_file = args
+        .get_one::<PathBuf>(ARG_CA_CERT)
+        .ok_or_else(|| anyhow!("no ca certificate set"))?;
+    let ca_key_file = args
+        .get_one::<PathBuf>(ARG_CA_KEY)
+        .ok_or_else(|| anyhow!("no ca private key set"))?;
+
+    let ca_cert_content = std::fs::read_to_string(ca_cert_file).map_err(|e| {
+        anyhow!(
+            "failed to read ca cert file {}: {e:?}",
+            ca_cert_file.display()
+        )
+    })?;
+    let ca_cert = X509::from_pem(ca_cert_content.as_bytes())
+        .map_err(|e| anyhow!("invalid ca cert in file {}: {e}", ca_cert_file.display()))?;
+
+    let ca_key_content = std::fs::read_to_string(ca_key_file).map_err(|e| {
+        anyhow!(
+            "failed to read ca pkey file {}: {e:?}",
+            ca_key_file.display()
+        )
+    })?;
+    let ca_key = PKey::private_key_from_pem(ca_key_content.as_bytes())
+        .map_err(|e| anyhow!("invalid ca pkey in file {}: {e}", ca_key_file.display()))?;
+
+    Ok((ca_cert, ca_key))
+}
+
+fn set_subject_name(
+    args: &ArgMatches,
+    subject_builder: &mut SubjectNameBuilder,
+) -> anyhow::Result<()> {
+    if let Some(cn) = args.get_one::<String>(ARG_COMMON_NAME) {
+        subject_builder.set_common_name(cn.to_string());
+    }
+    Ok(())
+}
+
+fn generate_root(args: ArgMatches) -> anyhow::Result<()> {
+    let mut builder = if let Some(bits) = args.get_one::<u32>(ARG_RSA) {
+        RootCertBuilder::new_rsa(*bits)?
+    } else if args.get_flag(ARG_X448) {
+        RootCertBuilder::new_x448()?
+    } else if args.get_flag(ARG_X25519) {
+        RootCertBuilder::new_x25519()?
+    } else if args.get_flag(ARG_ED448) {
+        RootCertBuilder::new_ed448()?
+    } else if args.get_flag(ARG_ED25519) {
+        RootCertBuilder::new_ed25519()?
+    } else if args.get_flag(ARG_EC521) {
+        RootCertBuilder::new_ec521()?
+    } else if args.get_flag(ARG_EC384) {
+        RootCertBuilder::new_ec384()?
+    } else if args.get_flag(ARG_EC256) {
+        RootCertBuilder::new_ec256()?
+    } else if args.get_flag(ARG_EC224) {
+        RootCertBuilder::new_ec224()?
+    } else {
+        RootCertBuilder::new_ec256()?
+    };
+
+    set_subject_name(&args, builder.subject_builder_mut())?;
+
+    let cert = builder.build()?;
+    write_certificate_file(&cert, "root-CA.pem")?;
+    write_private_key_file(builder.pkey(), "root-CA.key.pem")?;
+
+    Ok(())
+}
+
+fn generate_intermediate(args: ArgMatches) -> anyhow::Result<()> {
+    let mut builder = if let Some(bits) = args.get_one::<u32>(ARG_RSA) {
+        IntermediateCertBuilder::new_rsa(*bits)?
+    } else if args.get_flag(ARG_X448) {
+        IntermediateCertBuilder::new_x448()?
+    } else if args.get_flag(ARG_X25519) {
+        IntermediateCertBuilder::new_x25519()?
+    } else if args.get_flag(ARG_ED448) {
+        IntermediateCertBuilder::new_ed448()?
+    } else if args.get_flag(ARG_ED25519) {
+        IntermediateCertBuilder::new_ed25519()?
+    } else if args.get_flag(ARG_EC521) {
+        IntermediateCertBuilder::new_ec521()?
+    } else if args.get_flag(ARG_EC384) {
+        IntermediateCertBuilder::new_ec384()?
+    } else if args.get_flag(ARG_EC256) {
+        IntermediateCertBuilder::new_ec256()?
+    } else if args.get_flag(ARG_EC224) {
+        IntermediateCertBuilder::new_ec224()?
+    } else {
+        IntermediateCertBuilder::new_ec256()?
+    };
+
+    let (ca_cert, ca_key) = get_ca_cert_and_key(&args)?;
+    set_subject_name(&args, builder.subject_builder_mut())?;
+    let path_len = args.get_one::<u32>(ARG_PATH_LENGTH).copied();
+
+    let cert = builder.build(path_len, &ca_cert, &ca_key)?;
+    write_certificate_file(&cert, "intermediate-CA.pem")?;
+    write_private_key_file(builder.pkey(), "intermediate-CA.key.pem")?;
+
+    Ok(())
+}
+
+fn generate_tls_server(args: ArgMatches) -> anyhow::Result<()> {
+    let mut builder = if let Some(bits) = args.get_one::<u32>(ARG_RSA) {
         ServerCertBuilder::new_rsa(*bits)?
     } else if args.get_flag(ARG_X448) {
         ServerCertBuilder::new_x448()?
@@ -162,39 +385,19 @@ fn main() -> anyhow::Result<()> {
         ServerCertBuilder::new_ec256()?
     };
 
-    let ca_cert_file = args.get_one::<PathBuf>(ARG_CA_CERT).unwrap();
-    let ca_key_file = args.get_one::<PathBuf>(ARG_CA_KEY).unwrap();
-
-    let ca_cert_content = std::fs::read_to_string(ca_cert_file).map_err(|e| {
-        anyhow!(
-            "failed to read ca cert file {}: {e:?}",
-            ca_cert_file.display()
-        )
-    })?;
-    let ca_cert = X509::from_pem(ca_cert_content.as_bytes())
-        .map_err(|e| anyhow!("invalid ca cert in file {}: {e}", ca_cert_file.display()))?;
-
-    let ca_key_content = std::fs::read_to_string(ca_key_file).map_err(|e| {
-        anyhow!(
-            "failed to read ca pkey file {}: {e:?}",
-            ca_key_file.display()
-        )
-    })?;
-    let ca_key = PKey::private_key_from_pem(ca_key_content.as_bytes())
-        .map_err(|e| anyhow!("invalid ca pkey in file {}: {e}", ca_key_file.display()))?;
+    let (ca_cert, ca_key) = get_ca_cert_and_key(&args)?;
+    set_subject_name(&args, builder.subject_builder_mut())?;
 
     let hosts = args.get_many::<Host>(ARG_HOST).unwrap();
-
     for host in hosts {
-        if let Err(e) = generate_one(&builder, host, &ca_cert, &ca_key) {
+        if let Err(e) = generate_one_server(&builder, host, &ca_cert, &ca_key) {
             eprintln!("== {host}:\n {e:?}");
         }
     }
-
     Ok(())
 }
 
-fn generate_one(
+fn generate_one_server(
     builder: &ServerCertBuilder,
     host: &Host,
     ca_cert: &X509Ref,
@@ -203,34 +406,93 @@ fn generate_one(
     let cert = builder
         .build_fake(host, ca_cert, ca_key)
         .context("failed to build fake certificate")?;
-    let cert = cert
+    let cert_output_file = format!("{host}.pem");
+    write_certificate_file(&cert, &cert_output_file)?;
+    let key_output_file = format!("{host}-key.pem");
+    write_private_key_file(builder.pkey(), &key_output_file)?;
+    Ok(())
+}
+
+fn generate_tls_client(args: ArgMatches) -> anyhow::Result<()> {
+    let mut builder = if let Some(bits) = args.get_one::<u32>(ARG_RSA) {
+        ClientCertBuilder::new_rsa(*bits)?
+    } else if args.get_flag(ARG_X448) {
+        ClientCertBuilder::new_x448()?
+    } else if args.get_flag(ARG_X25519) {
+        ClientCertBuilder::new_x25519()?
+    } else if args.get_flag(ARG_ED448) {
+        ClientCertBuilder::new_ed448()?
+    } else if args.get_flag(ARG_ED25519) {
+        ClientCertBuilder::new_ed25519()?
+    } else if args.get_flag(ARG_EC521) {
+        ClientCertBuilder::new_ec521()?
+    } else if args.get_flag(ARG_EC384) {
+        ClientCertBuilder::new_ec384()?
+    } else if args.get_flag(ARG_EC256) {
+        ClientCertBuilder::new_ec256()?
+    } else if args.get_flag(ARG_EC224) {
+        ClientCertBuilder::new_ec224()?
+    } else {
+        ClientCertBuilder::new_ec256()?
+    };
+
+    let (ca_cert, ca_key) = get_ca_cert_and_key(&args)?;
+    set_subject_name(&args, builder.subject_builder_mut())?;
+
+    let hosts = args.get_many::<Host>(ARG_HOST).unwrap();
+    for host in hosts {
+        if let Err(e) = generate_one_client(&builder, host, &ca_cert, &ca_key) {
+            eprintln!("== {host}:\n {e:?}");
+        }
+    }
+
+    Ok(())
+}
+
+fn generate_one_client(
+    builder: &ClientCertBuilder,
+    host: &Host,
+    ca_cert: &X509Ref,
+    ca_key: &PKey<Private>,
+) -> anyhow::Result<()> {
+    let cert = builder
+        .build(host, ca_cert, ca_key)
+        .context("failed to build fake certificate")?;
+    let cert_output_file = format!("{host}-client.pem");
+    write_certificate_file(&cert, &cert_output_file)?;
+    let key_output_file = format!("{host}-client-key.pem");
+    write_private_key_file(builder.pkey(), &key_output_file)?;
+    Ok(())
+}
+
+fn write_certificate_file(cert: &X509, path: &str) -> anyhow::Result<()> {
+    let content = cert
         .to_pem()
         .map_err(|e| anyhow!("failed to encode certificate: {e}"))?;
-    let key = builder
-        .pkey()
-        .private_key_to_pem_pkcs8()
-        .map_err(|e| anyhow!("failed to encode pkey: {e}"))?;
-
-    let cert_output_file = format!("{host}.pem");
     let mut cert_file = std::fs::File::options()
         .write(true)
         .create(true)
         .truncate(true)
-        .open(&cert_output_file)
-        .map_err(|e| anyhow!("failed to open cert output file {cert_output_file}: {e:?}"))?;
+        .open(path)
+        .map_err(|e| anyhow!("failed to open cert output file {path}: {e:?}"))?;
     cert_file
-        .write_all(&cert)
-        .map_err(|e| anyhow!("failed to write cert to file {cert_output_file}: {e:?}"))?;
+        .write_all(&content)
+        .map_err(|e| anyhow!("failed to write certificate to file {path}: {e:?}"))?;
+    Ok(())
+}
 
-    let key_output_file = format!("{host}-key.pem");
+fn write_private_key_file(key: &PKey<Private>, path: &str) -> anyhow::Result<()> {
+    let content = key
+        .private_key_to_pem_pkcs8()
+        .map_err(|e| anyhow!("failed to encode private key: {e}"))?;
     let mut key_file = std::fs::File::options()
         .write(true)
         .create(true)
         .truncate(true)
-        .open(&key_output_file)
-        .map_err(|e| anyhow!("failed to open pkey output file {key_output_file}: {e:?}"))?;
+        .open(path)
+        .map_err(|e| anyhow!("failed to open private key output file {path}: {e:?}"))?;
     key_file
-        .write_all(&key)
-        .map_err(|e| anyhow!("failed to write pkey to file {key_output_file}: {e:?}"))?;
+        .write_all(&content)
+        .map_err(|e| anyhow!("failed to write private key to file {path}: {e:?}"))?;
     Ok(())
 }

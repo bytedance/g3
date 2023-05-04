@@ -112,7 +112,7 @@ impl RootCertBuilder {
         self.serial = serial;
     }
 
-    pub fn build(&self, common_name: &str) -> anyhow::Result<X509> {
+    pub fn build(&self) -> anyhow::Result<X509> {
         let mut builder =
             X509Builder::new().map_err(|e| anyhow!("failed to create x509 builder {e}"))?;
         builder
@@ -141,7 +141,7 @@ impl RootCertBuilder {
 
         let subject_name = self
             .subject_builder
-            .build_with_common_name(common_name)
+            .build()
             .context("failed to build subject name")?;
         builder
             .set_subject_name(&subject_name)

@@ -194,7 +194,7 @@ impl ServerCertBuilder {
             Host::Domain(domain) => {
                 let name = self
                     .subject_builder
-                    .build_with_common_name(domain)
+                    .build_with_default_common_name(domain)
                     .context("failed to build subject name")?;
                 builder
                     .set_subject_name(&name)
@@ -206,7 +206,7 @@ impl ServerCertBuilder {
                 let text = ip.to_string();
                 let name = self
                     .subject_builder
-                    .build_with_common_name(&text)
+                    .build_with_default_common_name(&text)
                     .context("failed to build subject name")?;
                 builder
                     .set_subject_name(&name)

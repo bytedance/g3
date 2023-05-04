@@ -110,7 +110,6 @@ impl IntermediateCertBuilder {
 
     pub fn build(
         &self,
-        common_name: &str,
         path_len: Option<u32>,
         ca_cert: &X509Ref,
         ca_key: &PKey<Private>,
@@ -169,7 +168,7 @@ impl IntermediateCertBuilder {
 
         let subject_name = self
             .subject_builder
-            .build_with_common_name(common_name)
+            .build()
             .context("failed to build subject name")?;
         builder
             .set_subject_name(&subject_name)

@@ -20,9 +20,12 @@ use openssl::asn1::{Asn1Integer, Asn1Time};
 use openssl::hash::MessageDigest;
 use openssl::pkey::{PKey, Private};
 use openssl::x509::extension::{
-    AuthorityKeyIdentifier, ExtendedKeyUsage, KeyUsage, SubjectKeyIdentifier,
+    AuthorityKeyIdentifier, ExtendedKeyUsage, KeyUsage, SubjectAlternativeName,
+    SubjectKeyIdentifier,
 };
 use openssl::x509::{X509Builder, X509Extension, X509Ref, X509};
+
+use g3_types::net::Host;
 
 use super::{asn1_time_from_chrono, SubjectNameBuilder};
 
@@ -120,7 +123,7 @@ impl ClientCertBuilder {
 
     pub fn build(
         &self,
-        user: &str,
+        host: &Host,
         ca_cert: &X509Ref,
         ca_key: &PKey<Private>,
     ) -> anyhow::Result<X509> {
@@ -160,15 +163,37 @@ impl ClientCertBuilder {
             .append_extension2(&self.ext_key_usage)
             .map_err(|e| anyhow!("failed to append ExtendedKeyUsage extension: {e}"))?;
 
-        let name = self
-            .subject_builder
-            .build_for_user(user)
-            .context("failed to build subject name")?;
-        builder
-            .set_subject_name(&name)
-            .map_err(|e| anyhow!("failed to set subject name: {e}"))?;
+        let mut san = SubjectAlternativeName::new();
+        match host {
+            Host::Domain(domain) => {
+                let name = self
+                    .subject_builder
+                    .build_with_default_common_name(domain)
+                    .context("failed to build subject name")?;
+                builder
+                    .set_subject_name(&name)
+                    .map_err(|e| anyhow!("failed to set subject name: {e}"))?;
+
+                san.dns(domain);
+            }
+            Host::Ip(ip) => {
+                let text = ip.to_string();
+                let name = self
+                    .subject_builder
+                    .build_with_default_common_name(&text)
+                    .context("failed to build subject name")?;
+                builder
+                    .set_subject_name(&name)
+                    .map_err(|e| anyhow!("failed to set subject name: {e}"))?;
+
+                san.ip(&text);
+            }
+        }
 
         let v3_ctx = builder.x509v3_context(Some(ca_cert), None);
+        let san = san
+            .build(&v3_ctx)
+            .map_err(|e| anyhow!("failed to build SubjectAlternativeName extension: {e}"))?;
         let ski = SubjectKeyIdentifier::new()
             .build(&v3_ctx)
             .map_err(|e| anyhow!("failed to build SubjectKeyIdentifier extension: {e} "))?;
@@ -178,6 +203,9 @@ impl ClientCertBuilder {
             .build(&v3_ctx)
             .map_err(|e| anyhow!("failed to build AuthorityKeyIdentifier extension: {e}"))?;
 
+        builder
+            .append_extension(san)
+            .map_err(|e| anyhow!("failed to append SubjectAlternativeName extension: {e}"))?;
         builder
             .append_extension(ski)
             .map_err(|e| anyhow!("failed to append SubjectKeyIdentifier extension: {e}"))?;
