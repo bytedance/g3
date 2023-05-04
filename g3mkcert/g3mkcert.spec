@@ -13,7 +13,7 @@ Version:        0.1.0
 Release:        1%{?dist}
 Summary:        Tool to make certificates from G3 Project
 
-License:        Apache-2.0
+License:        ASL 2.0
 #URL:
 Source0:        %{name}-%{version}.tar.xz
 

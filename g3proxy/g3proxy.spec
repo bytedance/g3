@@ -15,7 +15,7 @@ Version:        1.7.14
 Release:        1%{?dist}
 Summary:        Generic proxy for G3 Project
 
-License:        Apache-2.0
+License:        ASL 2.0
 #URL:
 Source0:        %{name}-%{version}.tar.xz
 
