@@ -17,7 +17,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use rustls::client::NoClientSessionStorage;
 use rustls::{Certificate, ClientConfig, OwnedTrustAnchor, RootCertStore};
 
@@ -125,12 +125,13 @@ impl RustlsClientConfigBuilder {
                 }
                 root_store.add_server_trust_anchors(owned_anchors.into_iter());
             } else {
-                let certs = rustls_native_certs::load_native_certs().map_err(|e| {
-                    anyhow!("failed to load system root certs for server auth: {e:?}")
-                })?;
-                let v = certs.into_iter().map(|c| c.0).collect::<Vec<Vec<u8>>>();
-                let (_added, _ignored) = root_store.add_parsable_certificates(v.as_slice());
-                // debug!("{} added, {} ignored", added, ignored);
+                let certs = super::load_openssl_certs_for_rustls()
+                    .context("failed to load default openssl ca certs")?;
+                for (i, cert) in certs.iter().enumerate() {
+                    root_store.add(cert).map_err(|e| {
+                        anyhow!("failed to add openssl ca cert {i} as root certs for client auth: {e:?}",)
+                    })?;
+                }
             }
         }
         for (i, cert) in self.ca_certs.iter().enumerate() {

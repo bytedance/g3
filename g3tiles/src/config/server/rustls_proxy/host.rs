@@ -80,12 +80,13 @@ impl RustlsHostConfig {
         let config_builder = if self.client_auth {
             let mut root_store = RootCertStore::empty();
             if self.client_auth_certs.is_empty() {
-                let certs = rustls_native_certs::load_native_certs().map_err(|e| {
-                    anyhow!("failed to load local root certs for client auth: {e:?}")
-                })?;
-                let v = certs.into_iter().map(|c| c.0).collect::<Vec<Vec<u8>>>();
-                let (_added, _ignored) = root_store.add_parsable_certificates(v.as_slice());
-                // debug!("{} added, {} ignored", added, ignored);
+                let certs = g3_types::net::load_openssl_certs_for_rustls()
+                    .context("failed to load default openssl ca certs")?;
+                for (i, cert) in certs.iter().enumerate() {
+                    root_store.add(cert).map_err(|e| {
+                        anyhow!("failed to add openssl ca cert {i} as root certs for client auth: {e:?}",)
+                    })?;
+                }
             } else {
                 for (i, cert) in self.client_auth_certs.iter().enumerate() {
                     root_store.add(cert).map_err(|e| {

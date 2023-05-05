@@ -25,3 +25,6 @@ pub use cert_pair::RustlsCertificatePair;
 
 mod cert_resolver;
 pub use cert_resolver::MultipleCertResolver;
+
+mod ca_certs;
+pub use ca_certs::load_openssl_certs_for_rustls;

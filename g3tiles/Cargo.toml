@@ -32,7 +32,6 @@ openssl-probe = { workspace = true, optional = true }
 tokio-openssl.workspace = true
 rustls.workspace = true
 tokio-rustls.workspace = true
-rustls-native-certs.workspace = true
 governor = { workspace = true, features = ["std", "jitter"] }
 chrono = { workspace = true, features = ["clock"] }
 uuid = { workspace = true, features = ["v1", "v4"] }
