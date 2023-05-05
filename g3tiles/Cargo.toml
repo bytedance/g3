@@ -35,14 +35,14 @@ rustls-native-certs.workspace = true
 governor = { workspace = true, features = ["std", "jitter"] }
 chrono = { workspace = true, features = ["clock"] }
 uuid = { workspace = true, features = ["v1", "v4"] }
-g3-compat = { path = "../lib/g3-compat" }
-g3-daemon = { path = "../lib/g3-daemon" }
-g3-signal = { path = "../lib/g3-signal" }
-g3-yaml = { path = "../lib/g3-yaml", features = ["acl-rule", "route", "openssl", "rustls"] }
-g3-types = { path = "../lib/g3-types", features = ["acl-rule", "route", "openssl", "rustls"] }
-g3-socket = { path = "../lib/g3-socket" }
-g3-io-ext = { path = "../lib/g3-io-ext" }
-g3-statsd = { path = "../lib/g3-statsd" }
+g3-compat.workspace = true
+g3-daemon.workspace = true
+g3-signal.workspace = true
+g3-yaml = { workspace = true, features = ["acl-rule", "route", "openssl", "rustls"] }
+g3-types = { workspace = true, features = ["acl-rule", "route", "openssl", "rustls"] }
+g3-socket.workspace = true
+g3-io-ext.workspace = true
+g3-statsd.workspace = true
 g3tiles-proto = { path = "proto" }
 
 [build-dependencies]

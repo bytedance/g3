@@ -18,8 +18,8 @@ memchr.workspace = true
 rand.workspace = true
 bytes.workspace = true
 ahash.workspace = true
-g3-types = { path = "../g3-types" }
-g3-resolver = { path = "../g3-resolver" }
+g3-types.workspace = true
+g3-resolver.workspace = true
 
 [dev-dependencies]
 tokio-util = { workspace = true, features = ["io"] }

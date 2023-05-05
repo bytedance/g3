@@ -10,4 +10,4 @@ edition.workspace = true
 fnv = "1"
 bytes.workspace = true
 memchr.workspace = true
-g3-types = { path = "../g3-types" }
+g3-types.workspace = true

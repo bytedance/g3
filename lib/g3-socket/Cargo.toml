@@ -12,4 +12,4 @@ libc.workspace = true
 tokio = { workspace = true, features = ["net"] }
 socket2 = { version = "0.5", features = ["all"] }
 rand.workspace = true
-g3-types = { path = "../g3-types" }
+g3-types.workspace = true

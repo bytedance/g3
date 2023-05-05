@@ -14,4 +14,4 @@ libsystemd = "0.6"
 itoa.workspace = true
 ryu.workspace = true
 flume.workspace = true
-g3-types = { path = "../g3-types", features = ["async-log"] }
+g3-types = { workspace = true, features = ["async-log"] }

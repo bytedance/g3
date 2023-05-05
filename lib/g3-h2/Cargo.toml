@@ -12,5 +12,5 @@ bytes.workspace = true
 h2.workspace = true
 http.workspace = true
 tokio.workspace = true
-g3-http = { path = "../g3-http" }
-g3-io-ext = { path = "../g3-io-ext" }
+g3-http.workspace = true
+g3-io-ext.workspace = true

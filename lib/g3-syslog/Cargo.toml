@@ -16,5 +16,5 @@ flume.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 log.workspace = true
-g3-types = { path = "../g3-types", features = ["async-log"] }
-g3-datetime = { path = "../g3-datetime" }
+g3-types = { workspace = true, features = ["async-log"] }
+g3-datetime.workspace = true

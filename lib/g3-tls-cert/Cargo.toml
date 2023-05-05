@@ -17,8 +17,8 @@ foreign-types = "0.3"
 libc.workspace = true
 chrono = { workspace = true, features = ["clock"] }
 rmpv.workspace = true
-g3-types = { path = "../g3-types", features = ["openssl"] }
-g3-msgpack = { path = "../g3-msgpack", features = ["rustls"] }
-g3-socket = { path = "../g3-socket" }
-g3-io-ext = { path = "../g3-io-ext" }
-g3-datetime = { path = "../g3-datetime" }
+g3-types = { workspace = true, features = ["openssl"] }
+g3-msgpack = { workspace = true, features = ["rustls"] }
+g3-socket.workspace = true
+g3-io-ext.workspace = true
+g3-datetime.workspace = true

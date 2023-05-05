@@ -11,8 +11,8 @@ anyhow.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
 openssl.workspace = true
-g3-types = { path = "../lib/g3-types" }
-g3-tls-cert = { path = "../lib/g3-tls-cert" }
+g3-types.workspace = true
+g3-tls-cert.workspace = true
 
 [build-dependencies]
 rustc_version = "0.4"

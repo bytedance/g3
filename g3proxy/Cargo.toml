@@ -59,29 +59,29 @@ cadence.workspace = true
 rmpv.workspace = true
 mlua = { version = "0.8.1", features = ["send"], optional = true }
 pyo3 = { version = "0.18", features = ["auto-initialize"], optional = true }
-g3-compat = { path = "../lib/g3-compat" }
-g3-types = { path = "../lib/g3-types", features = ["auth-crypt", "rustls", "openssl", "acl-rule", "http", "route", "async-log"] }
-g3-socket = { path = "../lib/g3-socket" }
-g3-daemon = { path = "../lib/g3-daemon" }
-g3-signal = { path = "../lib/g3-signal" }
-g3-datetime = { path = "../lib/g3-datetime" }
-g3-syslog = { path = "../lib/g3-syslog" }
-g3-journal = { path = "../lib/g3-journal" }
-g3-fluentd = { path = "../lib/g3-fluentd" }
-g3-statsd = { path = "../lib/g3-statsd" }
-g3-yaml = { path = "../lib/g3-yaml", features = ["resolve", "rustls", "openssl", "acl-rule", "http", "ftp-client", "proxy", "route", "dpi", "icap"] }
-g3-json = { path = "../lib/g3-json", features = ["acl-rule", "resolve", "http", "rustls", "openssl", "proxy"] }
-g3-msgpack = { path = "../lib/g3-msgpack" }
-g3-io-ext = { path = "../lib/g3-io-ext" }
+g3-compat.workspace = true
+g3-types = { workspace = true, features = ["auth-crypt", "rustls", "openssl", "acl-rule", "http", "route", "async-log"] }
+g3-socket.workspace = true
+g3-daemon.workspace = true
+g3-signal.workspace = true
+g3-datetime.workspace = true
+g3-syslog.workspace = true
+g3-journal.workspace = true
+g3-fluentd.workspace = true
+g3-statsd.workspace = true
+g3-yaml = { workspace = true, features = ["resolve", "rustls", "openssl", "acl-rule", "http", "ftp-client", "proxy", "route", "dpi", "icap"] }
+g3-json = { workspace = true, features = ["acl-rule", "resolve", "http", "rustls", "openssl", "proxy"] }
+g3-msgpack.workspace = true
+g3-io-ext.workspace = true
 g3-resolver = { path = "../lib/g3-resolver", features = ["trust-dns"] }
-g3-xcrypt = { path = "../lib/g3-xcrypt" }
-g3-ftp-client = { path = "../lib/g3-ftp-client" }
-g3-http = { path = "../lib/g3-http" }
-g3-h2 = { path = "../lib/g3-h2" }
-g3-socks  = { path = "../lib/g3-socks" }
-g3-dpi = { path = "../lib/g3-dpi" }
-g3-tls-cert = { path = "../lib/g3-tls-cert" }
-g3-icap-client = { path = "../lib/g3-icap-client" }
+g3-xcrypt.workspace = true
+g3-ftp-client.workspace = true
+g3-http.workspace = true
+g3-h2.workspace = true
+g3-socks.workspace = true
+g3-dpi.workspace = true
+g3-tls-cert.workspace = true
+g3-icap-client.workspace = true
 g3proxy-proto = { path = "proto" }
 
 [dev-dependencies]

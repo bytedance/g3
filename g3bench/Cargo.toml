@@ -28,16 +28,16 @@ ahash.workspace = true
 fxhash.workspace = true
 concurrent-queue = "2.2"
 hex.workspace = true
-g3-runtime = { path = "../lib/g3-runtime" }
-g3-signal = { path = "../lib/g3-signal" }
-g3-types = { path = "../lib/g3-types", features = ["proxy"] }
-g3-clap = { path = "../lib/g3-clap" }
-g3-socket = { path = "../lib/g3-socket" }
-g3-http = { path = "../lib/g3-http" }
-g3-socks = { path = "../lib/g3-socks" }
-g3-io-ext = { path = "../lib/g3-io-ext" }
-g3-statsd = { path = "../lib/g3-statsd" }
-g3-tls-cert = { path = "../lib/g3-tls-cert" }
+g3-runtime.workspace = true
+g3-signal.workspace = true
+g3-types = { workspace = true, features = ["proxy"] }
+g3-clap.workspace = true
+g3-socket.workspace = true
+g3-http.workspace = true
+g3-socks.workspace = true
+g3-io-ext.workspace = true
+g3-statsd.workspace = true
+g3-tls-cert.workspace = true
 
 [build-dependencies]
 rustc_version = "0.4"

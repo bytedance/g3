@@ -9,4 +9,4 @@ edition.workspace = true
 [dependencies]
 thiserror.workspace = true
 cadence.workspace = true
-g3-types = { path = "../g3-types" }
+g3-types.workspace = true

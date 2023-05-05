@@ -20,7 +20,7 @@ regex = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
 rustls-pemfile = { workspace = true, optional = true }
 openssl = { workspace = true, optional = true }
-g3-types = { path = "../g3-types" }
+g3-types.workspace = true
 
 [features]
 default = []

@@ -17,8 +17,8 @@ atoi.workspace = true
 http.workspace = true
 mime.workspace = true
 base64.workspace = true
-g3-types = { path = "../g3-types", features = ["http"] }
-g3-io-ext = { path = "../g3-io-ext" }
+g3-types = { workspace = true, features = ["http"] }
+g3-io-ext.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "io-util", "rt"] }

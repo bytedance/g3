@@ -8,4 +8,4 @@ edition.workspace = true
 
 [dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
-g3-signal = {path = "../../lib/g3-signal"}
+g3-signal.workspace = true

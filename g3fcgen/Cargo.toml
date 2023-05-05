@@ -17,11 +17,11 @@ memchr.workspace = true
 openssl.workspace = true
 tokio = { workspace = true, features = ["macros", "net", "io-util"] }
 flume = { workspace = true, features = ["async"] }
-g3-types = { path = "../lib/g3-types" }
-g3-runtime = { path = "../lib/g3-runtime" }
-g3-msgpack = { path = "../lib/g3-msgpack" }
-g3-daemon = { path = "../lib/g3-daemon" }
-g3-tls-cert = { path = "../lib/g3-tls-cert" }
+g3-types.workspace = true
+g3-runtime.workspace = true
+g3-msgpack.workspace = true
+g3-daemon.workspace = true
+g3-tls-cert.workspace = true
 
 [build-dependencies]
 rustc_version = "0.4"

@@ -11,5 +11,5 @@ rust-version = "1.63.0"
 thiserror.workspace = true
 bytes.workspace = true
 tokio.workspace = true
-g3-types = { path = "../g3-types" }
-g3-io-ext = { path = "../g3-io-ext" }
+g3-types.workspace = true
+g3-io-ext.workspace = true

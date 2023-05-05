@@ -8,4 +8,4 @@ edition.workspace = true
 
 [dependencies]
 tokio = { workspace = true, features = ["time", "macros", "rt"] }
-g3-io-ext = { path = "../../lib/g3-io-ext" }
+g3-io-ext.workspace = true

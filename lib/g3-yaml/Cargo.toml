@@ -23,15 +23,15 @@ rustls-pemfile = { workspace = true, optional = true }
 openssl = { workspace = true, optional = true }
 nix = { workspace = true, optional = true }
 http = { workspace = true, optional = true }
-g3-types = { path = "../g3-types" }
-g3-syslog = { path = "../g3-syslog", optional = true }
-g3-fluentd = { path = "../g3-fluentd", optional = true }
-g3-statsd = { path = "../g3-statsd", optional = true }
-g3-ftp-client = { path = "../g3-ftp-client", optional = true }
-g3-runtime = { path = "../g3-runtime", optional = true }
-g3-dpi = { path = "../g3-dpi", optional = true }
-g3-tls-cert = { path = "../g3-tls-cert", optional = true }
-g3-icap-client = { path = "../g3-icap-client", optional = true }
+g3-types.workspace = true
+g3-syslog = { workspace = true, optional = true }
+g3-fluentd = { workspace = true, optional = true }
+g3-statsd = { workspace = true, optional = true }
+g3-ftp-client = { workspace = true, optional = true }
+g3-runtime = { workspace = true, optional = true }
+g3-dpi = { workspace = true, optional = true }
+g3-tls-cert = { workspace = true, optional = true }
+g3-icap-client = { workspace = true, optional = true }
 
 [features]
 default = []

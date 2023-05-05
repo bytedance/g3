@@ -14,6 +14,6 @@ clap.workspace = true
 clap_complete.workspace = true
 async-trait.workspace = true
 log = { workspace = true, features = ["max_level_debug", "release_max_level_debug"] }
-g3-types = { path = "../../../lib/g3-types" }
-g3-socket = { path = "../../../lib/g3-socket" }
-g3-ftp-client = { path = "../../../lib/g3-ftp-client", features = ["log-raw-io"] }
+g3-types.workspace = true
+g3-socket.workspace = true
+g3-ftp-client = { workspace = true, features = ["log-raw-io"] }

@@ -10,4 +10,4 @@ edition.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "io-util"] }
 futures-util.workspace = true
 once_cell.workspace = true
-g3-io-ext = { path = "../../lib/g3-io-ext" }
+g3-io-ext.workspace = true
