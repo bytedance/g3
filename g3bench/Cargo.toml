@@ -37,6 +37,7 @@ g3-http = { path = "../lib/g3-http" }
 g3-socks = { path = "../lib/g3-socks" }
 g3-io-ext = { path = "../lib/g3-io-ext" }
 g3-statsd = { path = "../lib/g3-statsd" }
+g3-tls-cert = { path = "../lib/g3-tls-cert" }
 
 [build-dependencies]
 rustc_version = "0.4"

@@ -26,7 +26,7 @@ use openssl::pkey::{Id, PKey, Private, Public};
 use openssl::rsa::Padding;
 use openssl::sign::Signer;
 
-use g3_types::net::X509Ext;
+use g3_tls_cert::ext::X509Ext;
 
 const ARG_CERT: &str = "cert";
 const ARG_PKEY: &str = "key";

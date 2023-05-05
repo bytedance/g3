@@ -12,6 +12,9 @@ log.workspace = true
 tokio = { workspace = true, features = ["net"] }
 rustls.workspace = true
 openssl.workspace = true
+openssl-sys.workspace = true
+foreign-types = "0.3"
+libc.workspace = true
 chrono = { workspace = true, features = ["clock"] }
 rmpv.workspace = true
 g3-types = { path = "../g3-types", features = ["openssl"] }

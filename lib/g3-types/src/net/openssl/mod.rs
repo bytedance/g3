@@ -28,7 +28,3 @@ pub use protocol::OpensslProtocol;
 
 mod session;
 use session::{OpensslSessionCacheConfig, OpensslTlsClientSessionCache};
-
-mod ext;
-mod ffi;
-pub use ext::X509Ext;
