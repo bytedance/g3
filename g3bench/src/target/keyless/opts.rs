@@ -26,7 +26,7 @@ use openssl::pkey::{Id, PKey, Private, Public};
 use openssl::rsa::Padding;
 use openssl::sign::Signer;
 
-use g3_tls_cert::ext::X509Ext;
+use g3_tls_cert::ext::{X509Ext, X509Pubkey};
 
 const ARG_CERT: &str = "cert";
 const ARG_PKEY: &str = "key";
@@ -182,7 +182,7 @@ impl KeylessGlobalArgs {
             unreachable!();
         };
         let cert = crate::target::tls::load_certs(file)?.pop().unwrap();
-        let pkey = cert
+        let public_key = cert
             .public_key()
             .map_err(|e| anyhow!("failed to fetch pubkey: {e}"))?;
 
@@ -200,7 +200,7 @@ impl KeylessGlobalArgs {
             let digest_str = args.get_one::<String>(ARG_DIGEST_TYPE).unwrap();
             let digest_type = KeylessSignDigest::from_str(digest_str)?;
 
-            match pkey.id() {
+            match public_key.id() {
                 Id::RSA => {
                     digest_type.check_payload(payload.as_slice())?;
                     KeylessAction::RsaSign(digest_type, rsa_padding)
@@ -213,9 +213,9 @@ impl KeylessGlobalArgs {
                 id => return Err(anyhow!("unsupported public key type {id:?}")),
             }
         } else if args.get_flag(ARG_DECRYPT) {
-            match pkey.id() {
+            match public_key.id() {
                 Id::RSA => {
-                    let rsa_size = pkey.rsa().unwrap().size() as usize;
+                    let rsa_size = public_key.rsa().unwrap().size() as usize;
                     if payload.len() < rsa_size {
                         return Err(anyhow!(
                             "payload length {} not match rsa decrypt data length {rsa_size}",
@@ -227,9 +227,9 @@ impl KeylessGlobalArgs {
                 _ => KeylessAction::Decrypt,
             }
         } else if args.get_flag(ARG_ENCRYPT) {
-            match pkey.id() {
+            match public_key.id() {
                 Id::RSA => {
-                    let rsa_size = pkey.rsa().unwrap().size() as usize;
+                    let rsa_size = public_key.rsa().unwrap().size() as usize;
                     rsa_padding.check_encrypt_payload(rsa_size, payload.as_slice())?;
                     KeylessAction::RsaEncrypt(rsa_padding)
                 }
@@ -252,21 +252,41 @@ impl KeylessGlobalArgs {
                 .map_err(|e| anyhow!("failed to get sha1 hash of pubkey digest: {e}"))?
         };
 
-        let mut key_args = KeylessGlobalArgs {
-            public_key: pkey,
-            private_key: None,
+        let private_key = if let Some(file) = args.get_one::<PathBuf>(ARG_PKEY) {
+            let key = crate::target::tls::load_key(file)?;
+
+            // verify SKI match
+            let x509_pubkey = X509Pubkey::from_pubkey(&key).map_err(|e| {
+                anyhow!(
+                    "failed to create x509 pubkey from key in file {}: {e}",
+                    file.display()
+                )
+            })?;
+            let encoded_bytes = x509_pubkey
+                .encoded_bytes()
+                .map_err(|e| anyhow!("failed to get encoded pubkey data: {e}"))?;
+            let digest = openssl::hash::hash(MessageDigest::sha1(), encoded_bytes)
+                .map_err(|e| anyhow!("failed to get sha1 hash of pubkey: {e}"))?;
+
+            if public_key_ski.as_slice().ne(digest.as_ref()) {
+                return Err(anyhow!(
+                    "the supplied certificate and private key not match"
+                ));
+            }
+
+            Some(key)
+        } else {
+            None
+        };
+
+        Ok(KeylessGlobalArgs {
+            public_key,
+            private_key,
             public_key_ski,
             action,
             payload,
             dump_result,
-        };
-
-        if let Some(file) = args.get_one::<PathBuf>(ARG_PKEY) {
-            let key = crate::target::tls::load_key(file)?;
-            key_args.private_key = Some(key);
-        }
-
-        Ok(key_args)
+        })
     }
 
     pub(super) fn dump_result(&self, task_id: usize, data: Vec<u8>) {
