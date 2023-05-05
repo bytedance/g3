@@ -12,7 +12,6 @@ members = [
     "lib/g3-msgpack",
     "lib/g3-runtime",
     "lib/g3-resolver",
-    "lib/g3-encoding",
     "lib/g3-datetime",
     "lib/g3-stdlog",
     "lib/g3-syslog",

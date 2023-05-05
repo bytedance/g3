@@ -929,18 +929,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "g3-encoding"
-version = "0.2.0"
-dependencies = [
- "atoi",
- "bytes",
- "g3-io-ext",
- "tokio",
- "tokio-stream",
- "tokio-util",
-]
-
-[[package]]
 name = "g3-fluentd"
 version = "0.1.0"
 dependencies = [
