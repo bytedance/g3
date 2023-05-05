@@ -11,6 +11,7 @@ anyhow.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
 openssl.workspace = true
+openssl-probe = { workspace = true, optional = true }
 g3-types.workspace = true
 g3-tls-cert.workspace = true
 
@@ -19,4 +20,4 @@ rustc_version = "0.4"
 
 [features]
 default = []
-vendored-openssl = ["openssl/vendored"]
+vendored-openssl = ["openssl/vendored", "dep:openssl-probe"]

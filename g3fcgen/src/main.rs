@@ -22,6 +22,8 @@ fn build_cli_args() -> Command {
 }
 
 fn main() -> anyhow::Result<()> {
+    #[cfg(feature = "vendored-openssl")]
+    openssl_probe::init_ssl_cert_env_vars();
     openssl::init();
 
     let args = build_cli_args().get_matches();

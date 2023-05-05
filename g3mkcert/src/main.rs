@@ -70,6 +70,10 @@ const ARG_GROUP_TYPE: &str = "type";
 const ARG_GROUP_ALGORITHM: &str = "algorithm";
 
 fn main() -> anyhow::Result<()> {
+    #[cfg(feature = "vendored-openssl")]
+    openssl_probe::init_ssl_cert_env_vars();
+    openssl::init();
+
     let args = build_cli_args().get_matches();
 
     if args.get_flag(ARG_VERSION) {

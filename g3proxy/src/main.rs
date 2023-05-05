@@ -25,6 +25,8 @@ use log::{debug, error, info};
 use g3proxy::opts::ProcArgs;
 
 fn main() -> anyhow::Result<()> {
+    #[cfg(feature = "vendored-openssl")]
+    openssl_probe::init_ssl_cert_env_vars();
     openssl::init();
 
     let Some(proc_args) = g3proxy::opts::parse_clap().context("failed to parse command line options")? else {

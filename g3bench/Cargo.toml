@@ -22,6 +22,7 @@ bytes.workspace = true
 futures-util.workspace = true
 tokio-openssl.workspace = true
 openssl.workspace = true
+openssl-probe = { workspace = true, optional = true }
 cadence.workspace = true
 hdrhistogram = "7.5"
 ahash.workspace = true
@@ -44,4 +45,4 @@ rustc_version = "0.4"
 
 [features]
 default = []
-vendored-openssl = ["openssl/vendored"]
+vendored-openssl = ["openssl/vendored", "dep:openssl-probe"]

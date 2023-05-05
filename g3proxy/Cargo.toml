@@ -26,6 +26,7 @@ tokio-rustls.workspace = true
 rustls.workspace = true
 tokio-openssl.workspace = true
 openssl.workspace = true
+openssl-probe = { workspace = true, optional = true }
 indexmap.workspace = true
 bytes.workspace = true
 chrono = { workspace = true, features = ["clock"] }
@@ -100,4 +101,4 @@ lua53 = ["lua", "mlua/lua53"]
 lua54 = ["lua", "mlua/lua54"]
 python = ["pyo3"]
 c-ares = ["g3-resolver/c-ares"]
-vendored-openssl = ["openssl/vendored"]
+vendored-openssl = ["openssl/vendored", "dep:openssl-probe"]

@@ -28,6 +28,7 @@ capnp.workspace = true
 capnp-rpc.workspace = true
 tokio = { workspace = true, features = ["net", "sync", "time"] }
 openssl.workspace = true
+openssl-probe = { workspace = true, optional = true }
 tokio-openssl.workspace = true
 rustls.workspace = true
 tokio-rustls.workspace = true
@@ -50,4 +51,4 @@ rustc_version = "0.4"
 
 [features]
 default = []
-vendored-openssl = ["openssl/vendored"]
+vendored-openssl = ["openssl/vendored", "dep:openssl-probe"]
