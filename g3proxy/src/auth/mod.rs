@@ -192,6 +192,11 @@ impl UserGroup {
         Ok(Arc::new(group))
     }
 
+    #[inline]
+    pub(crate) fn allow_anonymous(&self) -> bool {
+        self.anonymous_user.is_some()
+    }
+
     pub(crate) fn get_anonymous_user(&self) -> Option<(Arc<User>, UserType)> {
         self.anonymous_user
             .as_ref()

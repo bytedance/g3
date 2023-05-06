@@ -176,8 +176,14 @@ impl SocksProxyNegotiationTask {
         CDW: AsyncWrite + Send + Sync + Unpin + 'static,
     {
         let client_methods = v5::auth::recv_methods_from_client(&mut clt_r).await?;
-        let auth_method = if self.user_group.is_some() {
-            SocksAuthMethod::User
+        let auth_method = if let Some(user_group) = &self.user_group {
+            if client_methods.contains(&SocksAuthMethod::User) {
+                SocksAuthMethod::User
+            } else if user_group.allow_anonymous() {
+                SocksAuthMethod::None
+            } else {
+                SocksAuthMethod::User
+            }
         } else {
             SocksAuthMethod::None
         };
@@ -193,7 +199,25 @@ impl SocksProxyNegotiationTask {
             .map_err(ServerTaskError::ClientTcpWriteFailed)?;
 
         let user_ctx = match auth_method {
-            SocksAuthMethod::None => None,
+            SocksAuthMethod::None => {
+                if let Some(user_group) = &self.user_group {
+                    if let Some((user, user_type)) = user_group.get_anonymous_user() {
+                        let user_ctx = UserContext::new(
+                            user,
+                            user_type,
+                            self.ctx.server_config.name(),
+                            self.ctx.server_stats.extra_tags(),
+                        );
+                        user_ctx.req_stats().conn_total.add_socks();
+                        // TODO handle site level conn_total stats in each tasks
+                        Some(user_ctx)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
             SocksAuthMethod::User => {
                 if let Some(user_group) = &self.user_group {
                     let (username, password) = v5::auth::recv_user_from_client(&mut clt_r).await?;

@@ -72,7 +72,8 @@ format. Both can be optional and share the same data structure.
 
   Set and enable the anonymous user.
 
-  This will be used if no correct username could be found in both static and dynamic users.
+  This will be used if no correct username could be found in both static and dynamic users,
+  or no auth info is carried in the client request.
 
   **default**: not set
 
