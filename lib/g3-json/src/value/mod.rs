@@ -53,6 +53,8 @@ pub use self::rustls::{
 
 #[cfg(feature = "openssl")]
 mod openssl;
+#[cfg(feature = "vendored-tongsuo")]
+pub use self::openssl::as_openssl_tlcp_certificate_pair;
 #[cfg(feature = "openssl")]
 pub use self::openssl::{
     as_openssl_certificate_pair, as_openssl_certificates, as_openssl_private_key,

@@ -70,7 +70,7 @@ const ARG_GROUP_TYPE: &str = "type";
 const ARG_GROUP_ALGORITHM: &str = "algorithm";
 
 fn main() -> anyhow::Result<()> {
-    #[cfg(feature = "vendored-openssl")]
+    #[cfg(any(feature = "vendored-openssl", feature = "vendored-tongsuo"))]
     openssl_probe::init_ssl_cert_env_vars();
     openssl::init();
 

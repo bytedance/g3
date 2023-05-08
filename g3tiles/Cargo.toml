@@ -51,3 +51,4 @@ rustc_version = "0.4"
 [features]
 default = []
 vendored-openssl = ["openssl/vendored", "dep:openssl-probe"]
+vendored-tongsuo = ["openssl/unstable_tongsuo", "dep:openssl-probe", "g3-yaml/vendored-tongsuo", "g3-types/vendored-tongsuo"]
