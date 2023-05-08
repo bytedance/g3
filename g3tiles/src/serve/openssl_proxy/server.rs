@@ -51,6 +51,8 @@ pub(crate) struct OpensslProxyServer {
     hosts: Arc<HostMatch<Arc<OpensslHost>>>,
     host_index: Index<Ssl, Arc<OpensslHost>>,
     ssl_accept_context: SslContext,
+    #[cfg(feature = "vendored-tongsuo")]
+    tlcp_accept_context: SslContext,
 
     quit_policy: Arc<ServerQuitPolicy>,
     reload_version: usize,
@@ -80,6 +82,14 @@ impl OpensslProxyServer {
         let _ = Ssl::new(&ssl_accept_context)
             .map_err(|e| anyhow!("unable build ssl context for real connections: {e}"))?;
 
+        #[cfg(feature = "vendored-tongsuo")]
+        let tlcp_accept_context = super::host::build_tlcp_context(
+            hosts.clone(),
+            host_index,
+            sema_index,
+            config.alert_unrecognized_name,
+        )?;
+
         let ingress_net_filter = config
             .ingress_net_filter
             .as_ref()
@@ -100,6 +110,8 @@ impl OpensslProxyServer {
             hosts,
             host_index,
             ssl_accept_context,
+            #[cfg(feature = "vendored-tongsuo")]
+            tlcp_accept_context,
             quit_policy: Arc::new(ServerQuitPolicy::default()),
             reload_version: version,
         })
@@ -174,18 +186,66 @@ impl OpensslProxyServer {
         false
     }
 
+    #[cfg(feature = "vendored-tongsuo")]
+    async fn build_ssl(&self, stream: &TcpStream) -> Result<Ssl, ()> {
+        let mut buf = [0u8; 3];
+        let ssl =
+            match tokio::time::timeout(self.config.accept_timeout, stream.peek(&mut buf)).await {
+                Ok(Ok(3)) => {
+                    if buf[0] != 0x16 {
+                        // invalid data, may be attack
+                        self.listen_stats.add_dropped();
+                        return Err(());
+                    }
+                    if buf[1] == 0x01 && buf[2] == 0x01 {
+                        Ssl::new(&self.tlcp_accept_context)
+                    } else {
+                        Ssl::new(&self.ssl_accept_context)
+                    }
+                }
+                Ok(Ok(_n)) => {
+                    // no enough data, may be attack
+                    self.listen_stats.add_dropped();
+                    return Err(());
+                }
+                Ok(Err(_e)) => {
+                    // connection closed, may be attack
+                    self.listen_stats.add_dropped();
+                    return Err(());
+                }
+                Err(_) => {
+                    // timeout, may be attack
+                    self.listen_stats.add_dropped();
+                    return Err(());
+                }
+            };
+        match ssl {
+            Ok(v) => Ok(v),
+            Err(e) => {
+                warn!("failed to build ssl context when accepting connections: {e}");
+                self.listen_stats.add_dropped();
+                Err(())
+            }
+        }
+    }
+
     async fn run_task(
         &self,
         stream: TcpStream,
         cc_info: ClientConnectionInfo,
         _run_ctx: ServerRunContext,
     ) {
+        #[cfg(not(feature = "vendored-tongsuo"))]
         let ssl = match Ssl::new(&self.ssl_accept_context) {
             Ok(v) => v,
             Err(e) => {
                 warn!("failed to build ssl context when accepting connections: {e}");
                 return;
             }
+        };
+        #[cfg(feature = "vendored-tongsuo")]
+        let Ok(ssl) = self.build_ssl(&stream).await else {
+            return;
         };
 
         let ctx = CommonTaskContext {

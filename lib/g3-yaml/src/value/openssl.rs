@@ -28,6 +28,9 @@ use g3_types::net::{
     OpensslTlsInterceptionClientConfigBuilder,
 };
 
+#[cfg(feature = "vendored-tongsuo")]
+use g3_types::net::OpensslTlcpCertificatePair;
+
 fn as_certificates_from_single_element(
     value: &Yaml,
     lookup_dir: Option<&Path>,
@@ -136,6 +139,55 @@ pub fn as_openssl_certificate_pair(
     }
 }
 
+#[cfg(feature = "vendored-tongsuo")]
+pub fn as_openssl_tlcp_certificate_pair(
+    value: &Yaml,
+    lookup_dir: Option<&Path>,
+) -> anyhow::Result<OpensslTlcpCertificatePair> {
+    if let Yaml::Hash(map) = value {
+        let mut pair = OpensslTlcpCertificatePair::default();
+
+        crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
+            "sign_certificate" | "sign_cert" => {
+                let cert = as_openssl_certificates(v, lookup_dir)
+                    .context(format!("invalid certificates value for key {k}"))?;
+                pair.set_sign_certificates(cert)
+                    .context("failed to set sign certificate")?;
+                Ok(())
+            }
+            "enc_certificate" | "enc_cert" => {
+                let cert = as_openssl_certificates(v, lookup_dir)
+                    .context(format!("invalid certificates value for key {k}"))?;
+                pair.set_enc_certificates(cert)
+                    .context("failed to set enc certificate")?;
+                Ok(())
+            }
+            "sign_private_key" | "sign_key" => {
+                let key = as_openssl_private_key(v, lookup_dir)
+                    .context(format!("invalid private key value for key {k}"))?;
+                pair.set_sign_private_key(key)
+                    .context("failed to set private key")?;
+                Ok(())
+            }
+            "enc_private_key" | "enc_key" => {
+                let key = as_openssl_private_key(v, lookup_dir)
+                    .context(format!("invalid private key value for key {k}"))?;
+                pair.set_enc_private_key(key)
+                    .context("failed to set private key")?;
+                Ok(())
+            }
+            _ => Err(anyhow!("invalid key {k}")),
+        })?;
+
+        pair.check()?;
+        Ok(pair)
+    } else {
+        Err(anyhow!(
+            "yaml value type for 'openssl tlcp cert pair' should be 'map'"
+        ))
+    }
+}
+
 fn as_openssl_protocol(value: &Yaml) -> anyhow::Result<OpensslProtocol> {
     if let Yaml::String(s) = value {
         OpensslProtocol::from_str(s)
@@ -220,6 +272,13 @@ fn set_openssl_tls_client_config_builder(
                 let pair = as_openssl_certificate_pair(v, lookup_dir)
                     .context(format!("invalid cert pair value for key {k}"))?;
                 builder.set_cert_pair(pair);
+                Ok(())
+            }
+            #[cfg(feature = "vendored-tongsuo")]
+            "tlcp_cert_pair" => {
+                let pair = as_openssl_tlcp_certificate_pair(v, lookup_dir)
+                    .context(format!("invalid tlcp certificate pair value for key {k}"))?;
+                builder.set_tlcp_cert_pair(pair);
                 Ok(())
             }
             "ca_certificate" | "ca_cert" | "server_auth_certificate" | "server_auth_cert" => {
