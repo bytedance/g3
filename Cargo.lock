@@ -326,12 +326,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "18eca1b9aca7e3623dda158213b1b79c1e5c4293fbbf0ead6b9ed28a1763bbff"
 
 [[package]]
+name = "capnp"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13e2d432d1601d61d1e11140d04e9d239b5cf7316fa1106523c3d86eea19c29d"
+
+[[package]]
 name = "capnp-futures"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6cbe2479d667c6d44219a07d3da971379e4321ea7343b319994695be7da97a17"
 dependencies = [
- "capnp",
+ "capnp 0.16.1",
  "futures",
 ]
 
@@ -341,18 +347,18 @@ version = "0.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "619ac0423bdd1dc0b9bb4348cc80daaf81e8e41d64210822e603d44c668534e6"
 dependencies = [
- "capnp",
+ "capnp 0.16.1",
  "capnp-futures",
  "futures",
 ]
 
 [[package]]
 name = "capnpc"
-version = "0.16.5"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55b72fc31ab0a8fd0420a799737d15e0a5297d695ba6c8b7b578d8cc0ba8360c"
+checksum = "d96f2815c224ac779eeef76a292264d5361600f0f3ab97ab189342c7042308cc"
 dependencies = [
- "capnp",
+ "capnp 0.17.0",
 ]
 
 [[package]]
@@ -842,7 +848,7 @@ dependencies = [
  "ahash",
  "anyhow",
  "cadence-with-flush",
- "capnp",
+ "capnp 0.16.1",
  "capnp-rpc",
  "chrono",
  "daemonize",
@@ -1339,7 +1345,7 @@ dependencies = [
  "base64",
  "bytes",
  "cadence-with-flush",
- "capnp",
+ "capnp 0.16.1",
  "capnp-rpc",
  "chrono",
  "clap",
@@ -1412,7 +1418,7 @@ name = "g3proxy-ctl"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "capnp",
+ "capnp 0.16.1",
  "capnp-rpc",
  "clap",
  "clap_complete",
@@ -1454,7 +1460,7 @@ dependencies = [
 name = "g3proxy-proto"
 version = "0.1.0"
 dependencies = [
- "capnp",
+ "capnp 0.16.1",
  "capnpc",
 ]
 
@@ -1468,7 +1474,7 @@ dependencies = [
  "ascii",
  "async-trait",
  "cadence-with-flush",
- "capnp",
+ "capnp 0.16.1",
  "capnp-rpc",
  "chrono",
  "clap",
@@ -1506,7 +1512,7 @@ name = "g3tiles-ctl"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "capnp",
+ "capnp 0.16.1",
  "capnp-rpc",
  "clap",
  "clap_complete",
@@ -1521,7 +1527,7 @@ dependencies = [
 name = "g3tiles-proto"
 version = "0.1.0"
 dependencies = [
- "capnp",
+ "capnp 0.16.1",
  "capnpc",
 ]
 
