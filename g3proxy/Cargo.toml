@@ -90,7 +90,7 @@ tokio = { workspace = true, features = ["macros", "io-util"] }
 tokio-util = { workspace = true, features = ["io"] }
 
 [build-dependencies]
-rustc_version = "0.4"
+rustc_version.workspace = true
 
 [features]
 default = ["lua54", "python", "c-ares"]
