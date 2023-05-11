@@ -14,13 +14,10 @@
  * limitations under the License.
  */
 
-use std::ffi::{OsStr, OsString};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use anyhow::anyhow;
 use yaml_rust::{yaml, Yaml};
-
-use g3_yaml::YamlDocPosition;
 
 use crate::opts::ProcArgs;
 
@@ -28,52 +25,19 @@ pub(crate) mod log;
 
 pub(crate) mod server;
 
-static mut CONFIG_FILE_PATH: Option<PathBuf> = None;
-static mut CONFIG_DIR_PATH: Option<PathBuf> = None;
-
 static mut DAEMON_GROUP_NAME: String = String::new();
-static mut CONFIG_FILE_EXTENSION: Option<OsString> = None;
-
-pub(crate) fn config_dir() -> PathBuf {
-    if let Some(dir) = unsafe { CONFIG_DIR_PATH.clone() } {
-        dir
-    } else {
-        unreachable!()
-    }
-}
-
-pub(crate) fn get_lookup_dir(position: Option<&YamlDocPosition>) -> PathBuf {
-    if let Some(position) = position {
-        if let Some(dir) = position.path.parent() {
-            return dir.to_path_buf();
-        }
-    }
-    config_dir()
-}
 
 pub(crate) fn daemon_group_name() -> &'static str {
     unsafe { &DAEMON_GROUP_NAME }
 }
 
-pub(crate) fn config_file_extension() -> Option<&'static OsStr> {
-    unsafe { CONFIG_FILE_EXTENSION.as_deref() }
-}
-
-pub fn load(args: &ProcArgs) -> anyhow::Result<()> {
-    let current_dir = std::env::current_dir()?;
-    if let Some(ext) = args.config_file.extension() {
-        unsafe { CONFIG_FILE_EXTENSION = Some(ext.to_os_string()) }
-    }
-    let conf_dir = args.config_file.parent().unwrap_or(&current_dir);
-
-    unsafe {
-        CONFIG_FILE_PATH = Some(args.config_file.clone());
-        CONFIG_DIR_PATH = Some(PathBuf::from(conf_dir));
-    }
+pub fn load(args: &ProcArgs) -> anyhow::Result<&'static Path> {
+    let config_file =
+        g3_daemon::opts::config_file().ok_or_else(|| anyhow!("no config file set"))?;
 
     // allow multiple docs, and treat them as the same
-    g3_yaml::foreach_doc(args.config_file.as_path(), |_, doc| match doc {
-        Yaml::Hash(map) => load_doc(map, conf_dir),
+    g3_yaml::foreach_doc(config_file, |_, doc| match doc {
+        Yaml::Hash(map) => load_doc(map),
         _ => Err(anyhow!("yaml doc root should be hash")),
     })?;
 
@@ -81,7 +45,7 @@ pub fn load(args: &ProcArgs) -> anyhow::Result<()> {
         unsafe { DAEMON_GROUP_NAME.clone_from(&args.group_name) }
     }
 
-    Ok(())
+    Ok(config_file)
 }
 
 fn clear_all() {
@@ -96,17 +60,19 @@ pub(crate) async fn reload() -> anyhow::Result<()> {
 
 fn reload_blocking() -> anyhow::Result<()> {
     clear_all();
-    if let (Some(conf_dir), Some(conf_file)) = unsafe { (&CONFIG_DIR_PATH, &CONFIG_FILE_PATH) } {
+    if let Some(conf_file) = g3_daemon::opts::config_file() {
         // allow multiple docs, and treat them as the same
-        g3_yaml::foreach_doc(conf_file.as_path(), |_, doc| match doc {
-            Yaml::Hash(map) => reload_doc(map, conf_dir),
+        g3_yaml::foreach_doc(conf_file, |_, doc| match doc {
+            Yaml::Hash(map) => reload_doc(map),
             _ => Err(anyhow!("yaml doc root should be hash")),
         })?;
     }
     Ok(())
 }
 
-fn reload_doc(map: &yaml::Hash, conf_dir: &Path) -> anyhow::Result<()> {
+fn reload_doc(map: &yaml::Hash) -> anyhow::Result<()> {
+    let conf_dir =
+        g3_daemon::opts::config_dir().ok_or_else(|| anyhow!("no valid config dir has been set"))?;
     g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
         "group_name" | "runtime" | "worker" | "log" | "stat" | "controller" => Ok(()),
         "server" => server::load_all(v, conf_dir),
@@ -115,7 +81,9 @@ fn reload_doc(map: &yaml::Hash, conf_dir: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn load_doc(map: &yaml::Hash, conf_dir: &Path) -> anyhow::Result<()> {
+fn load_doc(map: &yaml::Hash) -> anyhow::Result<()> {
+    let conf_dir =
+        g3_daemon::opts::config_dir().ok_or_else(|| anyhow!("no valid config dir has been set"))?;
     g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
         "group_name" => match v {
             Yaml::String(name) => {

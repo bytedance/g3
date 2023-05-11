@@ -19,7 +19,7 @@ use slog_scope::GlobalLoggerGuard;
 
 use g3_types::log::AsyncLogConfig;
 
-use crate::DaemonArgs;
+use crate::opts::DaemonArgs;
 
 const PROCESS_LOG_THREAD_NAME: &str = "log-process";
 

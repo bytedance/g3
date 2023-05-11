@@ -14,8 +14,17 @@
  * limitations under the License.
  */
 
-mod dependency;
-pub use dependency::sort_nodes_in_dependency_graph;
+use std::path::Path;
 
-mod lookup;
-pub use lookup::get_lookup_dir;
+use anyhow::anyhow;
+
+use g3_yaml::YamlDocPosition;
+
+pub fn get_lookup_dir(position: Option<&YamlDocPosition>) -> anyhow::Result<&Path> {
+    if let Some(position) = position {
+        if let Some(dir) = position.path.parent() {
+            return Ok(dir);
+        }
+    }
+    crate::opts::config_dir().ok_or_else(|| anyhow!("no valid config dir has been set"))
+}

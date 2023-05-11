@@ -119,7 +119,7 @@ impl AnyServerConfig {
 }
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
-    let parser = HybridParser::new(conf_dir, crate::config::config_file_extension());
+    let parser = HybridParser::new(conf_dir, g3_daemon::opts::config_file_extension());
     parser.foreach_map(v, &|map, position| {
         let server = load_server(map, position)?;
         registry::add(server, false)?;

@@ -114,9 +114,9 @@ impl LocalController {
         }
     }
 
-    pub fn start_unique(control_dir: PathBuf, daemon_group: &str) -> anyhow::Result<impl Future> {
+    pub fn start_unique(daemon_group: &str) -> anyhow::Result<impl Future> {
         let socket_name = format!("{daemon_group}_{}.sock", std::process::id());
-        let mut listen_path = control_dir;
+        let mut listen_path = crate::opts::control_dir();
         listen_path.push(Path::new(&socket_name));
         check_then_finalize_path(&listen_path)?;
 
@@ -131,13 +131,13 @@ impl LocalController {
         LocalController::abort(&UNIQUE_CONTROLLER_ABORT_HANDLER);
     }
 
-    pub fn start_daemon(control_dir: PathBuf, daemon_group: &str) -> anyhow::Result<impl Future> {
+    pub fn start_daemon(daemon_group: &str) -> anyhow::Result<impl Future> {
         let socket_name = if daemon_group.is_empty() {
             "_.sock".to_string()
         } else {
             format!("{daemon_group}.sock")
         };
-        let mut listen_path = control_dir;
+        let mut listen_path = crate::opts::control_dir();
         listen_path.push(Path::new(&socket_name));
         check_then_finalize_path(&listen_path)?;
 

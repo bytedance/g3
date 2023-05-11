@@ -142,17 +142,17 @@ impl DirectFloatEscaperConfig {
                 Ok(())
             }
             "cache_ipv4" => {
-                let lookup_dir = crate::config::get_lookup_dir(self.position.as_ref());
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 self.cache_ipv4 = Some(
-                    g3_yaml::value::as_file_path(v, &lookup_dir, true)
+                    g3_yaml::value::as_file_path(v, lookup_dir, true)
                         .context(format!("invalid value for key {k}"))?,
                 );
                 Ok(())
             }
             "cache_ipv6" => {
-                let lookup_dir = crate::config::get_lookup_dir(self.position.as_ref());
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 self.cache_ipv6 = Some(
-                    g3_yaml::value::as_file_path(v, &lookup_dir, true)
+                    g3_yaml::value::as_file_path(v, lookup_dir, true)
                         .context(format!("invalid value for key {k}"))?,
                 );
                 Ok(())

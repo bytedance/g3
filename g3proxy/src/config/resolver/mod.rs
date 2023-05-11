@@ -43,7 +43,7 @@ mod registry;
 pub(crate) use registry::clear;
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
-    let parser = HybridParser::new(conf_dir, crate::config::config_file_extension());
+    let parser = HybridParser::new(conf_dir, g3_daemon::opts::config_file_extension());
     parser.foreach_map(v, &|map, position| {
         let resolver = load_resolver(map, position)?;
         if let Some(old) = registry::add(resolver) {

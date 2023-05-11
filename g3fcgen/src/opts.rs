@@ -20,7 +20,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
 
-use g3_daemon::DaemonArgs;
+use g3_daemon::opts::DaemonArgs;
 use g3_runtime::blended::BlendedRuntimeConfig;
 
 const GLOBAL_ARG_VERBOSE: &str = "verbose";

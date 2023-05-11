@@ -107,9 +107,9 @@ impl TrustDnsResolverConfig {
                 Ok(())
             }
             "encryption" | "encrypt" => {
-                let lookup_dir = crate::config::get_lookup_dir(self.position.as_ref());
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 let config =
-                    g3_yaml::value::as_dns_encryption_protocol_builder(v, Some(&lookup_dir))
+                    g3_yaml::value::as_dns_encryption_protocol_builder(v, Some(lookup_dir))
                         .context(format!("invalid dns encryption config value for key {k}"))?;
                 self.driver.set_encryption(config);
                 Ok(())

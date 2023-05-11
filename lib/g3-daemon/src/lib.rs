@@ -20,9 +20,7 @@ pub mod daemonize;
 pub mod listen;
 pub mod log;
 pub mod metric;
+pub mod opts;
 pub mod runtime;
 pub mod server;
 pub mod stat;
-
-mod args;
-pub use args::DaemonArgs;
