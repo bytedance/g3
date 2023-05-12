@@ -105,7 +105,7 @@ impl RustlsProxyServerConfig {
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match k {
+        match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_SERVER_TYPE => Ok(()),
             super::CONFIG_KEY_SERVER_NAME => {
                 self.name = g3_yaml::value::as_metrics_name(v)?;
