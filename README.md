@@ -8,7 +8,7 @@
 ## About
 
 This is the project we used to build enterprise-oriented generic proxy solutions,
-including but not limited to proxy / reverse proxy / load balancer / nat traversal.
+including but not limited to proxy / reverse proxy (WIP) / load balancer (TBD) / nat traversal (TBD).
 
 ## Components
 
@@ -27,6 +27,8 @@ See [g3proxy](g3proxy/README.md) for detailed introduction.
 ### g3tiles
 
 A work in progress reverse proxy solution.
+
+See [g3bench](g3bench/README.md) for detailed introduction.
 
 ### g3bench
 
