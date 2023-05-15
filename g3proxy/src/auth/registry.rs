@@ -17,7 +17,6 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
-use anyhow::anyhow;
 use once_cell::sync::Lazy;
 
 use g3_types::metrics::MetricsName;
@@ -51,7 +50,7 @@ pub(super) fn add(name: MetricsName, group: Arc<UserGroup>) {
     if let Some(_old_group) = ht.insert(name, group) {}
 }
 
-fn get(name: &MetricsName) -> Option<Arc<UserGroup>> {
+pub(super) fn get(name: &MetricsName) -> Option<Arc<UserGroup>> {
     let ht = RUNTIME_USER_GROUP_REGISTRY.lock().unwrap();
     ht.get(name).map(Arc::clone)
 }
@@ -72,36 +71,7 @@ pub(crate) fn get_names() -> HashSet<MetricsName> {
 
 pub(super) fn get_config(name: &MetricsName) -> Option<UserGroupConfig> {
     let ht = RUNTIME_USER_GROUP_REGISTRY.lock().unwrap();
-    if let Some(group) = ht.get(name) {
-        let config = &*group.config;
-        Some(config.clone())
-    } else {
-        None
-    }
-}
-
-pub(super) fn reload_existed(
-    name: &MetricsName,
-    config: Option<UserGroupConfig>,
-) -> anyhow::Result<()> {
-    let old_group = match get(name) {
-        Some(group) => group,
-        None => return Err(anyhow!("no user group with name {name} found")),
-    };
-
-    let config = match config {
-        Some(config) => config,
-        None => {
-            let config = &*old_group.config;
-            config.clone()
-        }
-    };
-
-    // the reload method is allowed to hold a registry lock
-    // a tokio mutex is needed if we lock this await inside
-    let group = old_group.reload(config)?;
-    add(name.clone(), group);
-    Ok(())
+    ht.get(name).map(|g| g.config.as_ref().clone())
 }
 
 pub(crate) fn get_or_insert_default(name: &MetricsName) -> Arc<UserGroup> {

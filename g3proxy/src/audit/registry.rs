@@ -17,7 +17,6 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
-use anyhow::anyhow;
 use once_cell::sync::Lazy;
 
 use g3_types::metrics::MetricsName;
@@ -33,7 +32,7 @@ pub(super) fn add(name: MetricsName, auditor: Arc<Auditor>) {
     if let Some(_old_group) = ht.insert(name, auditor) {}
 }
 
-fn get(name: &MetricsName) -> Option<Arc<Auditor>> {
+pub(super) fn get(name: &MetricsName) -> Option<Arc<Auditor>> {
     let ht = RUNTIME_AUDITOR_REGISTRY.lock().unwrap();
     ht.get(name).map(Arc::clone)
 }
@@ -54,36 +53,7 @@ pub(crate) fn get_names() -> HashSet<MetricsName> {
 
 pub(super) fn get_config(name: &MetricsName) -> Option<AuditorConfig> {
     let ht = RUNTIME_AUDITOR_REGISTRY.lock().unwrap();
-    if let Some(auditor) = ht.get(name) {
-        let config = &*auditor.config;
-        Some(config.clone())
-    } else {
-        None
-    }
-}
-
-pub(super) fn reload_existed(
-    name: &MetricsName,
-    config: Option<AuditorConfig>,
-) -> anyhow::Result<()> {
-    let old_auditor = match get(name) {
-        Some(auditor) => auditor,
-        None => return Err(anyhow!("no auditor with name {name} found")),
-    };
-
-    let config = match config {
-        Some(config) => config,
-        None => {
-            let config = &*old_auditor.config;
-            config.clone()
-        }
-    };
-
-    // the reload method is allowed to hold a registry lock
-    // a tokio mutex is needed if we lock this await inside
-    let group = old_auditor.reload(config);
-    add(name.clone(), group);
-    Ok(())
+    ht.get(name).map(|a| a.config.as_ref().clone())
 }
 
 pub(crate) fn get_or_insert_default(name: &MetricsName) -> Arc<Auditor> {

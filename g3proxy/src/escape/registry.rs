@@ -90,15 +90,10 @@ pub(super) async fn reload_existed(
     name: &MetricsName,
     config: Option<AnyEscaperConfig>,
 ) -> anyhow::Result<()> {
-    let old_escaper = match get(name) {
-        Some(escaper) => escaper,
-        None => return Err(anyhow!("no escaper with name {name} found")),
+    let Some(old_escaper) = get(name) else {
+        return Err(anyhow!("no escaper with name {name} found"));
     };
-
-    let config = match config {
-        Some(config) => config,
-        None => old_escaper._clone_config(),
-    };
+    let config = config.unwrap_or_else(|| old_escaper._clone_config());
 
     // the _reload method is allowed to hold a registry lock
     // a tokio mutex is needed if we lock this await inside

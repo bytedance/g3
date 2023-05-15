@@ -109,8 +109,11 @@ pub(crate) async fn reload(
 
 async fn reload_old_unlocked(old: AuditorConfig, new: AuditorConfig) -> anyhow::Result<()> {
     let name = old.name();
-    // the reload check is done inside the group code, not through config
-    registry::reload_existed(name, Some(new))?;
+    let Some(old_auditor) = registry::get(name) else {
+        return Err(anyhow!("no auditor with name {name} found"));
+    };
+    let new_auditor = old_auditor.reload(new);
+    registry::add(name.clone(), new_auditor);
     crate::serve::update_dependency_to_auditor(name, "reloaded").await;
     Ok(())
 }
