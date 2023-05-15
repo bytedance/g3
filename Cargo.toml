@@ -93,7 +93,7 @@ url = "2.1"
 mime = "0.3"
 percent-encoding = "2.1"
 http = "0.2.9"
-h2 = "0.3.18"
+h2 = "0.3.19"
 #
 log = "0.4"
 slog = "2"
