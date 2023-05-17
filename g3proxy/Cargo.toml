@@ -58,7 +58,7 @@ fxhash.workspace = true
 governor = { workspace = true, features = ["std", "jitter"] }
 cadence.workspace = true
 rmpv.workspace = true
-mlua = { version = "0.8.1", features = ["send"], optional = true }
+mlua = { version = "0.8.9", features = ["send"], optional = true }
 pyo3 = { version = "0.18", features = ["auto-initialize"], optional = true }
 g3-compat.workspace = true
 g3-types = { workspace = true, features = ["auth-crypt", "rustls", "openssl", "acl-rule", "http", "route", "async-log"] }
