@@ -178,13 +178,69 @@ pub(super) struct KeylessGlobalArgs {
 
 impl KeylessGlobalArgs {
     pub(super) fn parse_args(args: &ArgMatches) -> anyhow::Result<Self> {
-        let Some(file) = args.get_one::<PathBuf>(ARG_CERT) else {
-            unreachable!();
+        let mut public_key_ski = None;
+
+        let cert = if let Some(file) = args.get_one::<PathBuf>(ARG_CERT) {
+            let cert = crate::target::tls::load_certs(file)?.pop().unwrap();
+
+            let ski = if let Some(o) = cert.subject_key_id() {
+                o.as_slice().to_vec()
+            } else {
+                cert.pubkey_digest(MessageDigest::sha1())
+                    .map_err(|e| anyhow!("failed to get sha1 hash of pubkey digest: {e}"))?
+            };
+            public_key_ski = Some(ski);
+
+            Some(cert)
+        } else {
+            None
         };
-        let cert = crate::target::tls::load_certs(file)?.pop().unwrap();
-        let public_key = cert
-            .public_key()
-            .map_err(|e| anyhow!("failed to fetch pubkey: {e}"))?;
+
+        let private_key = if let Some(file) = args.get_one::<PathBuf>(ARG_PKEY) {
+            let key = crate::target::tls::load_key(file)?;
+
+            // verify SKI match
+            let x509_pubkey = X509Pubkey::from_pubkey(&key).map_err(|e| {
+                anyhow!(
+                    "failed to create x509 pubkey from key in file {}: {e}",
+                    file.display()
+                )
+            })?;
+            let encoded_bytes = x509_pubkey
+                .encoded_bytes()
+                .map_err(|e| anyhow!("failed to get encoded pubkey data: {e}"))?;
+            let digest = openssl::hash::hash(MessageDigest::sha1(), encoded_bytes)
+                .map_err(|e| anyhow!("failed to get sha1 hash of pubkey: {e}"))?;
+            let ski = digest.to_vec();
+
+            if let Some(ski_cert) = &public_key_ski {
+                if ski.ne(ski_cert) {
+                    return Err(anyhow!(
+                        "the supplied certificate and private key not match"
+                    ));
+                }
+            } else {
+                public_key_ski = Some(ski);
+            }
+
+            Some(key)
+        } else {
+            None
+        };
+
+        let public_key = if let Some(key) = &private_key {
+            let public_key_bytes = key
+                .raw_public_key()
+                .map_err(|e| anyhow!("failed to get public key from private key: {e}"))?;
+            PKey::public_key_from_raw_bytes(public_key_bytes.as_slice(), key.id())
+                .map_err(|e| anyhow!("failed to build public key from private key: {e}"))?
+        } else if let Some(cert) = &cert {
+            cert.public_key()
+                .map_err(|e| anyhow!("failed to fetch pubkey: {e}"))?
+        } else {
+            unreachable!()
+        };
+        let public_key_ski = public_key_ski.unwrap();
 
         let payload_str = args.get_one::<String>(ARG_PAYLOAD).unwrap();
         let payload = hex::decode(payload_str)
@@ -244,40 +300,6 @@ impl KeylessGlobalArgs {
         };
 
         let dump_result = args.get_flag(ARG_DUMP_RESULT);
-
-        let public_key_ski = if let Some(o) = cert.subject_key_id() {
-            o.as_slice().to_vec()
-        } else {
-            cert.pubkey_digest(MessageDigest::sha1())
-                .map_err(|e| anyhow!("failed to get sha1 hash of pubkey digest: {e}"))?
-        };
-
-        let private_key = if let Some(file) = args.get_one::<PathBuf>(ARG_PKEY) {
-            let key = crate::target::tls::load_key(file)?;
-
-            // verify SKI match
-            let x509_pubkey = X509Pubkey::from_pubkey(&key).map_err(|e| {
-                anyhow!(
-                    "failed to create x509 pubkey from key in file {}: {e}",
-                    file.display()
-                )
-            })?;
-            let encoded_bytes = x509_pubkey
-                .encoded_bytes()
-                .map_err(|e| anyhow!("failed to get encoded pubkey data: {e}"))?;
-            let digest = openssl::hash::hash(MessageDigest::sha1(), encoded_bytes)
-                .map_err(|e| anyhow!("failed to get sha1 hash of pubkey: {e}"))?;
-
-            if public_key_ski.as_slice().ne(digest.as_ref()) {
-                return Err(anyhow!(
-                    "the supplied certificate and private key not match"
-                ));
-            }
-
-            Some(key)
-        } else {
-            None
-        };
 
         Ok(KeylessGlobalArgs {
             public_key,
@@ -465,7 +487,7 @@ fn add_keyless_args(cmd: Command) -> Command {
             .num_args(1)
             .long(ARG_CERT)
             .value_parser(value_parser!(PathBuf))
-            .required(true)
+            .required_unless_present(ARG_PKEY)
             .value_hint(ValueHint::FilePath),
     )
     .arg(
@@ -474,6 +496,7 @@ fn add_keyless_args(cmd: Command) -> Command {
             .num_args(1)
             .long(ARG_PKEY)
             .value_parser(value_parser!(PathBuf))
+            .required_unless_present(ARG_CERT)
             .value_hint(ValueHint::FilePath),
     )
     .arg(
