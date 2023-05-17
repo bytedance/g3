@@ -229,10 +229,10 @@ impl KeylessGlobalArgs {
         };
 
         let public_key = if let Some(key) = &private_key {
-            let public_key_bytes = key
-                .raw_public_key()
+            let public_key_der = key
+                .public_key_to_der()
                 .map_err(|e| anyhow!("failed to get public key from private key: {e}"))?;
-            PKey::public_key_from_raw_bytes(public_key_bytes.as_slice(), key.id())
+            PKey::public_key_from_der(public_key_der.as_slice())
                 .map_err(|e| anyhow!("failed to build public key from private key: {e}"))?
         } else if let Some(cert) = &cert {
             cert.public_key()
