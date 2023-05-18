@@ -91,7 +91,7 @@ impl From<KeylessRsaPadding> for Padding {
             KeylessRsaPadding::None => Padding::NONE,
             KeylessRsaPadding::Pkcs1 => Padding::PKCS1,
             KeylessRsaPadding::Oaep => Padding::PKCS1_OAEP,
-            KeylessRsaPadding::Pss => Padding::from_raw(6),
+            KeylessRsaPadding::Pss => Padding::PKCS1_PSS,
             KeylessRsaPadding::X931 => Padding::from_raw(5),
         }
     }
