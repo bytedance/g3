@@ -763,6 +763,14 @@ The followings values are supported:
 
 .. _dns over https: https://datatracker.ietf.org/doc/html/rfc8484
 
+* dns-over-quic | doq | quic
+
+  If `dns over quic`_ should be used.
+
+.. _dns over quic: https://datatracker.ietf.org/doc/html/rfc9250
+
+.. versionchanged:: added dns over quic support since version 1.7.15
+
 .. _conf_value_dns_encryption_config:
 
 dns encryption config

@@ -25,6 +25,7 @@ use crate::net::{RustlsClientConfig, RustlsClientConfigBuilder};
 pub enum DnsEncryptionProtocol {
     Tls,
     Https,
+    Quic,
 }
 
 impl FromStr for DnsEncryptionProtocol {
@@ -34,6 +35,7 @@ impl FromStr for DnsEncryptionProtocol {
         match s.to_ascii_lowercase().replace('-', "_").as_str() {
             "tls" | "dns_over_tls" | "dnsovertls" | "dot" => Ok(DnsEncryptionProtocol::Tls),
             "https" | "dns_over_https" | "dnsoverhttps" | "doh" => Ok(DnsEncryptionProtocol::Https),
+            "quic" | "dns_over_quic" | "dnsoverquic" | "doq" => Ok(DnsEncryptionProtocol::Quic),
             _ => Err(anyhow!("unknown protocol {}", s)),
         }
     }
@@ -44,6 +46,7 @@ impl DnsEncryptionProtocol {
         match self {
             DnsEncryptionProtocol::Tls => "DnsOverTls",
             DnsEncryptionProtocol::Https => "DnsOverHttps",
+            DnsEncryptionProtocol::Quic => "DnsOverQuic",
         }
     }
 }
