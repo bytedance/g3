@@ -100,6 +100,12 @@ impl TryFrom<&TrustDnsDriverConfig> for NameServerConfigGroup {
                     tls_name,
                     false,
                 ),
+                DnsEncryptionProtocol::Quic => NameServerConfigGroup::from_ips_quic(
+                    &c.servers,
+                    c.server_port.unwrap_or(853),
+                    tls_name,
+                    false,
+                ),
             };
 
             if let Some(config) = ec
