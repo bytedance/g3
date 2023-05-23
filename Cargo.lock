@@ -563,14 +563,14 @@ checksum = "c34f04666d835ff5d62e058c3995147c06f42fe86ff053337632bca83e42702d"
 
 [[package]]
 name = "enum-as-inner"
-version = "0.5.1"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c9720bba047d567ffc8a3cba48bf19126600e249ab7f128e9233e6376976a116"
+checksum = "5ffccbb6966c05b32ef8fbac435df276c4ae4d3dc55a8cd0eb9745e6c12f546a"
 dependencies = [
  "heck",
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.18",
 ]
 
 [[package]]
@@ -2918,7 +2918,7 @@ dependencies = [
 [[package]]
 name = "trust-dns-proto"
 version = "0.23.0-alpha.2"
-source = "git+https://github.com/bluejekyll/trust-dns.git?branch=main#1d9d50cbe0772503cc14b1cf87b534d6b8cf5764"
+source = "git+https://github.com/bluejekyll/trust-dns.git?branch=main#555e0ceebca77ffe0558433a265e186f052381da"
 dependencies = [
  "async-trait",
  "bytes",
@@ -2932,7 +2932,7 @@ dependencies = [
  "http",
  "idna",
  "ipnet",
- "lazy_static",
+ "once_cell",
  "quinn",
  "rand",
  "rustls",
@@ -2951,12 +2951,12 @@ dependencies = [
 [[package]]
 name = "trust-dns-resolver"
 version = "0.23.0-alpha.2"
-source = "git+https://github.com/bluejekyll/trust-dns.git?branch=main#1d9d50cbe0772503cc14b1cf87b534d6b8cf5764"
+source = "git+https://github.com/bluejekyll/trust-dns.git?branch=main#555e0ceebca77ffe0558433a265e186f052381da"
 dependencies = [
  "cfg-if",
  "futures-util",
- "lazy_static",
  "lru-cache",
+ "once_cell",
  "parking_lot",
  "rand",
  "rustls",
@@ -3135,9 +3135,9 @@ dependencies = [
 
 [[package]]
 name = "webpki-roots"
-version = "0.23.0"
+version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa54963694b65584e170cf5dc46aeb4dcaa5584e652ff5f3952e56d66aff0125"
+checksum = "b03058f88386e5ff5310d9111d53f48b17d732b401aeb83a8d5190f2ac459338"
 dependencies = [
  "rustls-webpki",
 ]

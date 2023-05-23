@@ -198,8 +198,7 @@ impl TrustDnsDriverConfig {
         let d_config = ResolverConfig::from_parts(None, vec![], name_servers);
         let d_opts = ResolverOpts::from(self);
 
-        let d_resolver = TokioAsyncResolver::tokio(d_config, d_opts)
-            .map_err(|e| anyhow!("failed to create resolver: {e}"))?;
+        let d_resolver = TokioAsyncResolver::tokio(d_config, d_opts);
 
         let resolver = TrustDnsResolver {
             inner: Arc::new(d_resolver),
