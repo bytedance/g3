@@ -100,7 +100,7 @@ slog = "2"
 cadence = { package = "cadence-with-flush", version = "0.29" }
 #
 clap = "4.3"
-clap_complete = "4.2"
+clap_complete = "4.3"
 #
 tokio = "1.28"
 tokio-util = "0.7"
