@@ -273,22 +273,22 @@ impl YamlMapCallback for OpensslHostConfig {
             }
             #[cfg(feature = "vendored-tongsuo")]
             "tlcp_cert_pairs" => {
-                let lookup_dir = crate::config::get_lookup_dir(doc);
+                let lookup_dir = g3_daemon::config::get_lookup_dir(doc)?;
                 if let Yaml::Array(seq) = value {
                     for (i, v) in seq.iter().enumerate() {
                         let pair =
-                            g3_yaml::value::as_openssl_tlcp_certificate_pair(v, Some(&lookup_dir))
+                            g3_yaml::value::as_openssl_tlcp_certificate_pair(v, Some(lookup_dir))
                                 .context(format!(
-                                    "invalid openssl tlcp cert pair value for {key}#{i}"
-                                ))?;
+                                "invalid openssl tlcp cert pair value for {key}#{i}"
+                            ))?;
                         self.tlcp_cert_pairs.push(pair);
                     }
                 } else {
                     let pair =
-                        g3_yaml::value::as_openssl_tlcp_certificate_pair(value, Some(&lookup_dir))
+                        g3_yaml::value::as_openssl_tlcp_certificate_pair(value, Some(lookup_dir))
                             .context(format!(
-                                "invalid openssl tlcp cert pair value for key {key}"
-                            ))?;
+                            "invalid openssl tlcp cert pair value for key {key}"
+                        ))?;
                     self.tlcp_cert_pairs.push(pair);
                 }
                 Ok(())
