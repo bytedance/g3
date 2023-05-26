@@ -15,6 +15,7 @@
  */
 
 pub mod types_capnp {
+    #![allow(clippy::extra_unused_type_parameters)]
     include!(concat!(env!("OUT_DIR"), "/types_capnp.rs"));
 }
 

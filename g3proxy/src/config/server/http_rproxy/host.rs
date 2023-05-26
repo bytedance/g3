@@ -64,9 +64,9 @@ impl YamlMapCallback for HttpHostConfig {
                 Ok(())
             }
             "tls_server" => {
-                let lookup_dir = crate::config::get_lookup_dir(doc);
+                let lookup_dir = g3_daemon::config::get_lookup_dir(doc)?;
                 let builder =
-                    g3_yaml::value::as_rustls_server_config_builder(value, Some(&lookup_dir))
+                    g3_yaml::value::as_rustls_server_config_builder(value, Some(lookup_dir))
                         .context(format!(
                             "invalid tls server config builder value for key {key}"
                         ))?;
@@ -74,10 +74,10 @@ impl YamlMapCallback for HttpHostConfig {
                 Ok(())
             }
             "tls_client" => {
-                let lookup_dir = crate::config::get_lookup_dir(doc);
+                let lookup_dir = g3_daemon::config::get_lookup_dir(doc)?;
                 let builder = g3_yaml::value::as_to_one_openssl_tls_client_config_builder(
                     value,
-                    Some(&lookup_dir),
+                    Some(lookup_dir),
                 )
                 .context(format!(
                     "invalid openssl tls client config value for key {key}"

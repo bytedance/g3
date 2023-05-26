@@ -20,7 +20,7 @@ use anyhow::anyhow;
 use daemonize::Daemonize;
 use log::debug;
 
-use crate::DaemonArgs;
+use crate::opts::DaemonArgs;
 
 pub fn check_enter(args: &DaemonArgs) -> anyhow::Result<()> {
     if args.daemon_mode {

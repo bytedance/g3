@@ -134,15 +134,15 @@ impl YamlMapCallback for RustlsHostConfig {
                 Ok(())
             }
             "cert_pairs" => {
-                let lookup_dir = crate::config::get_lookup_dir(doc);
+                let lookup_dir = g3_daemon::config::get_lookup_dir(doc)?;
                 if let Yaml::Array(seq) = value {
                     for (i, v) in seq.iter().enumerate() {
-                        let pair = g3_yaml::value::as_rustls_certificate_pair(v, Some(&lookup_dir))
+                        let pair = g3_yaml::value::as_rustls_certificate_pair(v, Some(lookup_dir))
                             .context(format!("invalid rustls cert pair value for {key}#{i}"))?;
                         self.cert_pairs.push(pair);
                     }
                 } else {
-                    let pair = g3_yaml::value::as_rustls_certificate_pair(value, Some(&lookup_dir))
+                    let pair = g3_yaml::value::as_rustls_certificate_pair(value, Some(lookup_dir))
                         .context(format!("invalid rustls cert pair value for key {key}"))?;
                     self.cert_pairs.push(pair);
                 }
@@ -154,8 +154,8 @@ impl YamlMapCallback for RustlsHostConfig {
                 Ok(())
             }
             "ca_certificate" | "ca_cert" | "client_auth_certificate" | "client_auth_cert" => {
-                let lookup_dir = crate::config::get_lookup_dir(doc);
-                let certs = g3_yaml::value::as_rustls_certificates(value, Some(&lookup_dir))
+                let lookup_dir = g3_daemon::config::get_lookup_dir(doc)?;
+                let certs = g3_yaml::value::as_rustls_certificates(value, Some(lookup_dir))
                     .context(format!("invalid certificate(s) value for key {key}"))?;
                 for cert in certs {
                     self.client_auth_certs.push(cert);

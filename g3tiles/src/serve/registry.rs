@@ -121,9 +121,8 @@ pub(super) fn reload_only_config(
     config: AnyServerConfig,
 ) -> anyhow::Result<()> {
     let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
-    let old_server = match ht.get(name) {
-        Some(server) => server,
-        None => return Err(anyhow!("no server with name {name} found")),
+    let Some(old_server) = ht.get(name) else {
+        return Err(anyhow!("no server with name {name} found"));
     };
 
     let server = old_server._reload_with_old_notifier(config)?;
@@ -140,9 +139,8 @@ pub(super) fn reload_and_respawn(
     config: AnyServerConfig,
 ) -> anyhow::Result<()> {
     let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
-    let old_server = match ht.get(name) {
-        Some(server) => server,
-        None => return Err(anyhow!("no server with name {name} found")),
+    let Some(old_server) = ht.get(name) else {
+        return Err(anyhow!("no server with name {name} found"));
     };
 
     let server = old_server._reload_with_new_notifier(config)?;

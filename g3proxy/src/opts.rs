@@ -15,17 +15,14 @@
  */
 
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use anyhow::{anyhow, Context};
 use clap::builder::ArgPredicate;
 use clap::{value_parser, Arg, ArgAction, Command, ValueHint};
 use clap_complete::Shell;
-use once_cell::sync::OnceCell;
 
-use g3_daemon::DaemonArgs;
-
-const DEFAULT_CONTROL_DIR: &str = "/tmp/g3";
+use g3_daemon::opts::DaemonArgs;
 
 const ARGS_COMPLETION: &str = "completion";
 const ARGS_VERSION: &str = "version";
@@ -44,12 +41,9 @@ const DEP_GRAPH_GRAPHVIZ: &str = "graphviz";
 const DEP_GRAPH_MERMAID: &str = "mermaid";
 const DEP_GRAPH_PLANTUML: &str = "plantuml";
 
-static CONTROL_DIR: OnceCell<PathBuf> = OnceCell::new();
-
 #[derive(Debug)]
 pub struct ProcArgs {
     pub daemon_config: DaemonArgs,
-    pub config_file: PathBuf,
     pub group_name: String,
     pub test_config: bool,
     pub output_graphviz_graph: bool,
@@ -59,15 +53,8 @@ pub struct ProcArgs {
 
 impl Default for ProcArgs {
     fn default() -> Self {
-        ProcArgs::new(PathBuf::new())
-    }
-}
-
-impl ProcArgs {
-    pub fn new(config_file: PathBuf) -> Self {
         ProcArgs {
             daemon_config: DaemonArgs::new(crate::build::PKG_NAME),
-            config_file,
             group_name: String::new(),
             test_config: false,
             output_graphviz_graph: false,
@@ -158,7 +145,7 @@ fn build_cli_args() -> Command {
                 .value_name("CONTROL DIR")
                 .value_hint(ValueHint::DirPath)
                 .value_parser(value_parser!(PathBuf))
-                .default_value(DEFAULT_CONTROL_DIR)
+                .default_value(g3_daemon::opts::DEFAULT_CONTROL_DIR)
                 .default_value_if(ARGS_COMPLETION, ArgPredicate::IsPresent, None)
                 .short('C')
                 .long("control-dir"),
@@ -230,7 +217,7 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
         proc_args.daemon_config.with_systemd = true;
     }
     if let Some(config_file) = args.get_one::<PathBuf>(ARGS_CONFIG_FILE) {
-        proc_args.config_file = validate_and_get_config_file(config_file).context(format!(
+        g3_daemon::opts::validate_and_set_config_file(config_file).context(format!(
             "failed to load config file {}",
             config_file.display()
         ))?;
@@ -238,7 +225,7 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
         return Err(anyhow!("no config file given"));
     }
     if let Some(control_dir) = args.get_one::<PathBuf>(ARGS_CONTROL_DIR) {
-        validate_and_set_control_dir(control_dir)
+        g3_daemon::opts::validate_and_set_control_dir(control_dir)
             .context(format!("invalid control dir: {}", control_dir.display()))?;
     }
     if let Some(pid_file) = args.get_one::<PathBuf>(ARGS_PID_FILE) {
@@ -249,35 +236,4 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
     }
 
     Ok(Some(proc_args))
-}
-
-fn validate_and_get_config_file(path: &Path) -> anyhow::Result<PathBuf> {
-    if path.is_absolute() {
-        return Ok(path.to_path_buf());
-    }
-    let mut dir = std::env::current_dir()?;
-    dir.push(path);
-    dir.canonicalize()?;
-    Ok(dir)
-}
-
-fn validate_and_set_control_dir(path: &Path) -> anyhow::Result<()> {
-    if path.is_relative() {
-        return Err(anyhow!("{} is not an absolute path", path.display()));
-    }
-
-    if path.exists() && !path.is_dir() {
-        return Err(anyhow!("{} is existed but not a directory", path.display()));
-    }
-
-    CONTROL_DIR
-        .set(path.to_path_buf())
-        .map_err(|_| anyhow!("control directory has already been set"))
-}
-
-pub(crate) fn control_dir() -> PathBuf {
-    CONTROL_DIR
-        .get()
-        .cloned()
-        .unwrap_or_else(|| PathBuf::from(DEFAULT_CONTROL_DIR))
 }

@@ -25,10 +25,7 @@ pub struct DaemonController {}
 
 impl UniqueController {
     pub fn start() -> anyhow::Result<impl Future> {
-        LocalController::start_unique(
-            crate::opts::control_dir(),
-            crate::config::daemon_group_name(),
-        )
+        LocalController::start_unique(crate::config::daemon_group_name())
     }
 
     async fn abort(force: bool) {
@@ -66,10 +63,7 @@ impl UniqueController {
 
 impl DaemonController {
     pub fn start() -> anyhow::Result<impl Future> {
-        LocalController::start_daemon(
-            crate::opts::control_dir(),
-            crate::config::daemon_group_name(),
-        )
+        LocalController::start_daemon(crate::config::daemon_group_name())
     }
 
     pub async fn abort() {

@@ -437,11 +437,9 @@ fn generate_root(args: ArgMatches) -> anyhow::Result<()> {
         .ok_or_else(|| anyhow!("no common name set"))?;
 
     let cert = builder.build()?;
-    let cert_output =
-        get_output_cert_file(&args).unwrap_or_else(|| PathBuf::from(format!("{cn}-CA.crt")));
+    let cert_output = get_output_cert_file(&args).unwrap_or_else(|| cn2fn(format!("{cn}.crt")));
     write_certificate_file(&cert, cert_output)?;
-    let key_output =
-        get_output_key_file(&args).unwrap_or_else(|| PathBuf::from(format!("{cn}-CA.key")));
+    let key_output = get_output_key_file(&args).unwrap_or_else(|| cn2fn(format!("{cn}.key")));
     write_private_key_file(builder.pkey(), key_output)?;
 
     Ok(())
@@ -479,11 +477,9 @@ fn generate_intermediate(args: ArgMatches) -> anyhow::Result<()> {
         .ok_or_else(|| anyhow!("no common name set"))?;
 
     let cert = builder.build(path_len, &ca_cert, &ca_key)?;
-    let cert_output =
-        get_output_cert_file(&args).unwrap_or_else(|| PathBuf::from(format!("{cn}-CA.crt")));
+    let cert_output = get_output_cert_file(&args).unwrap_or_else(|| cn2fn(format!("{cn}.crt")));
     write_certificate_file(&cert, cert_output)?;
-    let key_output =
-        get_output_key_file(&args).unwrap_or_else(|| PathBuf::from(format!("{cn}-CA.key")));
+    let key_output = get_output_key_file(&args).unwrap_or_else(|| cn2fn(format!("{cn}.key")));
     write_private_key_file(builder.pkey(), key_output)?;
 
     Ok(())
@@ -523,11 +519,9 @@ fn generate_tls_server(args: ArgMatches) -> anyhow::Result<()> {
     let cert = builder
         .build_with_subject(&subject_name, subject_alt_name, &ca_cert, &ca_key)
         .context("failed to build tls server certificate")?;
-    let cert_output =
-        get_output_cert_file(&args).unwrap_or_else(|| PathBuf::from(format!("{cn}.crt")));
+    let cert_output = get_output_cert_file(&args).unwrap_or_else(|| cn2fn(format!("{cn}.crt")));
     write_certificate_file(&cert, cert_output)?;
-    let key_output =
-        get_output_key_file(&args).unwrap_or_else(|| PathBuf::from(format!("{cn}.key")));
+    let key_output = get_output_key_file(&args).unwrap_or_else(|| cn2fn(format!("{cn}.key")));
     write_private_key_file(builder.pkey(), key_output)?;
 
     Ok(())
@@ -568,12 +562,17 @@ fn generate_tls_client(args: ArgMatches) -> anyhow::Result<()> {
         .build_with_subject(&subject_name, subject_alt_name, &ca_cert, &ca_key)
         .context("failed to build tls client certificate")?;
     let cert_output =
-        get_output_cert_file(&args).unwrap_or_else(|| PathBuf::from(format!("{cn}-client.crt")));
+        get_output_cert_file(&args).unwrap_or_else(|| cn2fn(format!("{cn}-client.crt")));
     write_certificate_file(&cert, cert_output)?;
     let key_output =
-        get_output_key_file(&args).unwrap_or_else(|| PathBuf::from(format!("{cn}-client.key")));
+        get_output_key_file(&args).unwrap_or_else(|| cn2fn(format!("{cn}-client.key")));
     write_private_key_file(builder.pkey(), key_output)?;
     Ok(())
+}
+
+fn cn2fn(s: String) -> PathBuf {
+    let n = s.split_whitespace().collect::<Vec<&str>>().join("_");
+    PathBuf::from(n)
 }
 
 fn write_certificate_file<P: AsRef<Path>>(cert: &X509, path: P) -> anyhow::Result<()> {

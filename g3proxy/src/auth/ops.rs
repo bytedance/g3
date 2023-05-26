@@ -109,8 +109,11 @@ pub(crate) async fn reload(
 
 async fn reload_old_unlocked(old: UserGroupConfig, new: UserGroupConfig) -> anyhow::Result<()> {
     let name = old.name();
-    // the reload check is done inside the group code, not through config
-    registry::reload_existed(name, Some(new))?;
+    let Some(old_group) = registry::get(name) else {
+        return Err(anyhow!("no user group with name {name} found"));
+    };
+    let new_group = old_group.reload(new)?;
+    registry::add(name.clone(), new_group);
     crate::serve::update_dependency_to_user_group(name, "reloaded").await;
     Ok(())
 }

@@ -135,10 +135,10 @@ impl TcpStreamServerConfig {
                             Some(OpensslTlsClientConfigBuilder::with_cache_for_one_site());
                     }
                 } else {
-                    let lookup_dir = crate::config::get_lookup_dir(self.position.as_ref());
+                    let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
                     let builder = g3_yaml::value::as_to_one_openssl_tls_client_config_builder(
                         v,
-                        Some(&lookup_dir),
+                        Some(lookup_dir),
                     )
                     .context(format!(
                         "invalid openssl tls client config value for key {k}"

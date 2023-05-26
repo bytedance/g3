@@ -131,9 +131,9 @@ impl TlsStreamServerConfig {
                 Ok(())
             }
             "tls" | "tls_server" => {
-                let lookup_dir = crate::config::get_lookup_dir(self.position.as_ref());
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 self.server_tls_config =
-                    g3_yaml::value::as_rustls_server_config_builder(v, Some(&lookup_dir))
+                    g3_yaml::value::as_rustls_server_config_builder(v, Some(lookup_dir))
                         .context(format!("invalid server tls config value for key {k}"))?;
                 Ok(())
             }
@@ -144,10 +144,10 @@ impl TlsStreamServerConfig {
                             Some(OpensslTlsClientConfigBuilder::with_cache_for_one_site());
                     }
                 } else {
-                    let lookup_dir = crate::config::get_lookup_dir(self.position.as_ref());
+                    let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
                     let builder = g3_yaml::value::as_to_one_openssl_tls_client_config_builder(
                         v,
-                        Some(&lookup_dir),
+                        Some(lookup_dir),
                     )
                     .context(format!(
                         "invalid openssl tls client config value for key {k}"

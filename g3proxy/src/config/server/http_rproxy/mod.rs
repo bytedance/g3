@@ -304,8 +304,8 @@ impl HttpRProxyServerConfig {
                 Ok(())
             }
             "global_tls_server" => {
-                let lookup_dir = crate::config::get_lookup_dir(self.position.as_ref());
-                let builder = g3_yaml::value::as_rustls_server_config_builder(v, Some(&lookup_dir))
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let builder = g3_yaml::value::as_rustls_server_config_builder(v, Some(lookup_dir))
                     .context(format!(
                         "invalid tls server config builder value for key {k}"
                     ))?;

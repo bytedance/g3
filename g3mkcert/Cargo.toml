@@ -16,7 +16,7 @@ g3-types.workspace = true
 g3-tls-cert.workspace = true
 
 [build-dependencies]
-rustc_version = "0.4"
+rustc_version.workspace = true
 
 [features]
 default = []

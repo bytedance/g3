@@ -111,9 +111,9 @@ impl UserGroupConfig {
                 }
             }
             "source" => {
-                let lookup_dir = crate::config::get_lookup_dir(self.position.as_ref());
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 self.dynamic_source = Some(
-                    UserDynamicSource::parse_config(v, &lookup_dir)
+                    UserDynamicSource::parse_config(v, lookup_dir)
                         .context(format!("invalid value for key {k}"))?,
                 );
                 Ok(())
