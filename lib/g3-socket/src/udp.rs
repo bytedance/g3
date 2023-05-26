@@ -150,6 +150,7 @@ fn set_misc_opts(socket: &Socket, misc_opts: &UdpMiscSockOpts) -> io::Result<()>
     if let Some(tos) = misc_opts.type_of_service {
         socket.set_tos(tos as u32)?;
     }
+    #[cfg(target_os = "linux")]
     if let Some(mark) = misc_opts.netfilter_mark {
         socket.set_mark(mark)?;
     }
