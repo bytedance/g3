@@ -50,6 +50,7 @@ where
             let drain = slog::Discard {};
             Logger::root(drain, common_values)
         }
+        #[cfg(target_os = "linux")]
         LogConfigDriver::Journal => {
             let async_conf = AsyncLogConfig {
                 channel_capacity: config.async_channel_size,

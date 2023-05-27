@@ -168,7 +168,7 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
         proc_args.daemon_config.daemon_mode = true;
     }
     if args.get_flag(GLOBAL_ARG_SYSTEMD) {
-        proc_args.daemon_config.with_systemd = true;
+        proc_args.daemon_config.set_with_systemd();
     }
 
     if let Some(pid_file) = args.get_one::<PathBuf>(GLOBAL_ARG_PID_FILE) {

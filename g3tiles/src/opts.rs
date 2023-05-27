@@ -172,7 +172,7 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
         proc_args.daemon_config.daemon_mode = true;
     }
     if args.get_flag(ARGS_SYSTEMD) {
-        proc_args.daemon_config.with_systemd = true;
+        proc_args.daemon_config.set_with_systemd();
     }
     if let Some(config_file) = args.get_one::<PathBuf>(ARGS_CONFIG_FILE) {
         g3_daemon::opts::validate_and_set_config_file(config_file).context(format!(

@@ -31,6 +31,7 @@ pub(crate) fn load(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
         Yaml::String(s) => {
             let config = match s.as_str() {
                 "discard" => LogConfig::default_discard(crate::build::PKG_NAME),
+                #[cfg(target_os = "linux")]
                 "journal" => LogConfig::default_journal(crate::build::PKG_NAME),
                 "syslog" => LogConfig::default_syslog(crate::build::PKG_NAME),
                 "fluentd" => LogConfig::default_fluentd(crate::build::PKG_NAME),
