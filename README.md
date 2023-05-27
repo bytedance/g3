@@ -28,11 +28,11 @@ See [g3proxy](g3proxy/README.md) for detailed introduction.
 
 A work in progress reverse proxy solution.
 
-See [g3bench](g3bench/README.md) for detailed introduction.
-
 ### g3bench
 
 A benchmark tool, which support HTTP 1.x / HTTP 2 / TLS Handshake / Cloudflare Keyless.
+
+See [g3bench](g3bench/README.md) for detailed introduction.
 
 ### g3mkcert
 
