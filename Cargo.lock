@@ -2859,9 +2859,9 @@ checksum = "736b60249cb25337bc196faa43ee12c705e426f3d55c214d73a4e7be06f92cb4"
 
 [[package]]
 name = "tongsuo-p832-src"
-version = "832.0.4+8.3.2"
+version = "832.0.5+8.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c916d09f5094dbc66edfa800006845072bf57f9668218a8d402b8333bcd3466a"
+checksum = "df3ece6c75984861848a9f0b3b562cea45c3ce531406e084ed6142a11b200ab4"
 dependencies = [
  "cc",
 ]
