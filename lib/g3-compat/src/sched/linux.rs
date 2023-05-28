@@ -50,15 +50,15 @@ impl CpuAffinity {
     }
 
     pub fn apply_to_local_thread(&self) -> io::Result<()> {
-        let errno = unsafe {
+        let r = unsafe {
             libc::sched_setaffinity(
                 0,
                 mem::size_of::<libc::cpu_set_t>() as libc::size_t,
                 &self.cpu_set,
             )
         };
-        if errno != 0 {
-            Err(io::Error::from_raw_os_error(errno))
+        if r != 0 {
+            Err(io::Error::last_os_error())
         } else {
             Ok(())
         }
