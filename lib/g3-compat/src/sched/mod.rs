@@ -18,3 +18,8 @@
 mod linux;
 #[cfg(target_os = "linux")]
 pub use linux::CpuAffinity;
+
+#[cfg(any(target_os = "freebsd", target_os = "dragonfly"))]
+mod freebsd;
+#[cfg(any(target_os = "freebsd", target_os = "dragonfly"))]
+pub use freebsd::CpuAffinity;
