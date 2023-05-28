@@ -15,22 +15,23 @@
  */
 
 use anyhow::{anyhow, Context};
-use nix::sched::CpuSet;
 use yaml_rust::Yaml;
 
-pub fn as_cpu_set(v: &Yaml) -> anyhow::Result<CpuSet> {
-    let mut set = CpuSet::new();
+use g3_compat::CpuAffinity;
+
+pub fn as_cpu_set(v: &Yaml) -> anyhow::Result<CpuAffinity> {
+    let mut set = CpuAffinity::default();
 
     if let Yaml::Array(seq) = v {
         for (i, v) in seq.iter().enumerate() {
             let id = crate::value::as_usize(v).context(format!("invalid cpu id value #{i}"))?;
-            set.set(id)
-                .map_err(|e| anyhow!("unable to add cpu {id} to this set: {}", e.desc()))?;
+            set.add_id(id)
+                .map_err(|e| anyhow!("unable to add cpu {id} to this set: {e}"))?;
         }
     } else {
         let id = crate::value::as_usize(v).context("invalid cpu id value")?;
-        set.set(id)
-            .map_err(|e| anyhow!("unable to add cpu {id} to this set: {}", e.desc()))?;
+        set.add_id(id)
+            .map_err(|e| anyhow!("unable to add cpu {id} to this set: {e}"))?;
     }
 
     Ok(set)

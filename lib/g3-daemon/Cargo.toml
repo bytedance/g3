@@ -9,7 +9,7 @@ edition.workspace = true
 [dependencies]
 anyhow.workspace = true
 log.workspace = true
-cfg-if = "1.0"
+cfg-if.workspace = true
 slog = { workspace = true, features = ["max_level_trace", "release_max_level_info"] }
 slog-scope = "4"
 slog-stdlog = "4.1"
