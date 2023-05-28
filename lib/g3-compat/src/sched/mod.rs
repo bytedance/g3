@@ -23,3 +23,8 @@ pub use linux::CpuAffinity;
 mod freebsd;
 #[cfg(any(target_os = "freebsd", target_os = "dragonfly"))]
 pub use freebsd::CpuAffinity;
+
+#[cfg(target_os = "netbsd")]
+mod netbsd;
+#[cfg(target_os = "netbsd")]
+pub use netbsd::CpuAffinity;
