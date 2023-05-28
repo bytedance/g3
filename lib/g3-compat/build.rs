@@ -34,10 +34,21 @@ fn build_linux() {
         .compile(STATIC_LIB_NAME);
 }
 
+#[allow(unused)]
+fn build_other() {
+    let source_dir = source_dir("other");
+    cc::Build::new()
+        .cargo_metadata(true)
+        .file(source_dir.join("null.c"))
+        .compile(STATIC_LIB_NAME);
+}
+
 fn main() {
     cfg_if::cfg_if! {
         if #[cfg(target_os = "linux")] {
             build_linux();
+        } else {
+            build_other();
         }
     }
 }
