@@ -10,5 +10,5 @@ rust-version = "1.59.0"
 [dependencies]
 anyhow.workspace = true
 log.workspace = true
-nix = { workspace = true, features = ["sched"]}
 tokio = { workspace = true, features = ["rt-multi-thread", "rt", "sync"] }
+g3-compat.workspace = true

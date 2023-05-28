@@ -134,6 +134,7 @@ rmp = "0.8"
 rmpv = "1.0"
 #
 rustc_version = "0.4"
+cfg-if = "1.0"
 #
 g3-clap = { version = "0.1", path = "lib/g3-clap" }
 g3-compat = { version = "0.1", path = "lib/g3-compat" }

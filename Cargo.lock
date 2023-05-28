@@ -776,6 +776,8 @@ name = "g3-compat"
 version = "0.1.0"
 dependencies = [
  "cc",
+ "cfg-if",
+ "libc",
 ]
 
 [[package]]
@@ -1017,8 +1019,8 @@ name = "g3-runtime"
 version = "0.3.0"
 dependencies = [
  "anyhow",
+ "g3-compat",
  "log",
- "nix",
  "tokio",
 ]
 
@@ -1172,6 +1174,7 @@ dependencies = [
  "anyhow",
  "ascii",
  "chrono",
+ "g3-compat",
  "g3-dpi",
  "g3-fluentd",
  "g3-ftp-client",
@@ -1185,7 +1188,6 @@ dependencies = [
  "humanize-rs",
  "idna 0.3.0",
  "ip_network",
- "nix",
  "openssl",
  "rand",
  "regex",
