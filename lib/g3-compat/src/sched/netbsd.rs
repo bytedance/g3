@@ -26,7 +26,7 @@ impl Clone for CpuAffinity {
     fn clone(&self) -> Self {
         let mut new = CpuAffinity::default();
         for i in 0..=self.max_cpu_id() {
-            let set = unsafe { libc::_cpuset_isset(i, self.cpu_set) };
+            let set = unsafe { libc::_cpuset_isset(i as u64, self.cpu_set) };
             if set > 0 {
                 let _ = new.add_id(i);
             }
