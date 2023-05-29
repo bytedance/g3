@@ -33,7 +33,7 @@ impl Default for CpuAffinity {
 impl CpuAffinity {
     fn max_cpu_id() -> usize {
         let bytes = mem::size_of::<libc::cpu_set_t>();
-        bytes << 3
+        (bytes << 3) - 1
     }
 
     pub fn add_id(&mut self, id: usize) -> io::Result<()> {

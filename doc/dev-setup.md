@@ -111,7 +111,7 @@ There is an official [rust plugin](https://plugins.jetbrains.com/plugin/8182-rus
 
 ## Fast Install Guides
 
-### Debian based distribution
+### Debian based Linux distribution
 
 It is recommended to use Debian based distro as your development platform.
 
@@ -128,7 +128,7 @@ apt-get install lsb-release dpkg-dev debhelper
 apt-get --no-install-recommends devscripts
 ```
 
-### RHEL based distribution
+### RHEL based Linux distribution
 
 The devel packages is contained in repos that is not enabled by default,
 you need to check the files under /etc/yum.repo.d/ and enable the corresponding repos.
@@ -147,6 +147,31 @@ dnf install python3-devel
 dnf install python3-toml python3-requests python3-semver
 dnf install python3-sphinx
 dnf install rpmdevtools rpm-build
+```
+
+### FreeBSD
+
+```shell
+pkg install pkgconf capnproto
+pkg install openssl c-ares
+# install lua5.4 or any other versions available on your system, and create a pkgconfig link
+pkg install lua54
+ln -s /usr/local/libdata/pkgconfig/lua-5.4.pc /usr/local/libdata/pkgconfig/lua5.4.pc
+pkg install python3
+```
+
+### NetBSD
+
+```shell
+pkgin install pkgconf libtool autoconf automake capnproto
+pkgin install openssl libcares
+# install lua5.4 or any other versions available on your system, and create a pkgconfig link
+pkgin install lua54
+ln -s /usr/pkg/lib/pkgconfig/lua-5.4.pc /usr/pkg/lib/pkgconfig/lua5.4.pc
+# install python 3.10 or any other versions available on your system, and create links
+pkgin install python310
+ln -s /usr/pkg/lib/pkgconfig/python-3.10.pc /usr/pkg/lib/pkgconfig/python3.pc
+ln -s /usr/pkg/bin/python3.10 /usr/pkg/bin/python3
 ```
 
 ## Development Libraries
