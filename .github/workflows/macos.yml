@@ -25,7 +25,7 @@ jobs:
           toolchain: ${{ matrix.rust }}
       - name: Install dependencies
         run: |
-          brew install pkgconf capnp openssl c-ares lua
+          brew install capnp openssl c-ares lua
       - name: Cargo build
         run: cargo build --all
       - name: Cargo test
@@ -43,7 +43,7 @@ jobs:
           components: clippy
       - name: Install dependencies
         run: |
-          brew install pkgconf capnp openssl c-ares lua
+          brew install capnp openssl c-ares lua
       - name: Cargo clippy
         run: cargo clippy --tests --all -- --deny warnings
 
