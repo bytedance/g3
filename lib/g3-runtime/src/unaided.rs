@@ -79,11 +79,11 @@ impl UnaidedRuntimeConfig {
 
     #[cfg(target_os = "macos")]
     pub fn set_mapped_sched_affinity(&mut self) -> anyhow::Result<()> {
-        use std::num::NonZeroIsize;
+        use std::num::NonZeroI32;
 
         let n = self.num_threads();
         for i in 1..=n {
-            let cpu = CpuAffinity::new(unsafe { NonZeroIsize::new_unchecked(i) });
+            let cpu = CpuAffinity::new(unsafe { NonZeroI32::new_unchecked(i as i32) });
             self.sched_affinity.insert(i, cpu);
         }
         Ok(())

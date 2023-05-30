@@ -15,11 +15,12 @@
  */
 
 use std::io;
-use std::num::NonZeroIsize;
+use std::num::NonZeroI32;
 
 use libc::{
-    current_thread, thread_affinity_policy, thread_policy_set, thread_policy_t,
-    THREAD_AFFINITY_POLICY, THREAD_AFFINITY_POLICY_COUNT, THREAD_AFFINITY_TAG_NULL,
+    mach_thread_self, thread_affinity_policy, thread_policy_flavor_t, thread_policy_set,
+    thread_policy_t, THREAD_AFFINITY_POLICY, THREAD_AFFINITY_POLICY_COUNT,
+    THREAD_AFFINITY_TAG_NULL,
 };
 
 #[derive(Clone)]
@@ -36,7 +37,7 @@ impl Default for CpuAffinity {
 }
 
 impl CpuAffinity {
-    pub fn new(tag: NonZeroIsize) -> Self {
+    pub fn new(tag: NonZeroI32) -> Self {
         CpuAffinity { cpu_tag: tag.get() }
     }
 
@@ -46,9 +47,9 @@ impl CpuAffinity {
         };
         let errno = unsafe {
             thread_policy_set(
-                current_thread(),
-                THREAD_AFFINITY_POLICY,
-                &mut policy_info as thread_policy_t,
+                mach_thread_self(),
+                THREAD_AFFINITY_POLICY as thread_policy_flavor_t,
+                &mut policy_info as *mut thread_affinity_policy as thread_policy_t,
                 THREAD_AFFINITY_POLICY_COUNT,
             )
         };

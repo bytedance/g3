@@ -44,6 +44,6 @@ pub fn as_cpu_tag(v: &Yaml) -> anyhow::Result<CpuAffinity> {
     use anyhow::Context;
 
     let v =
-        crate::value::as_nonzero_isize(v).context("cpu tag should be valid nonzero isize value")?;
+        crate::value::as_nonzero_i32(v).context("cpu tag should be valid nonzero isize value")?;
     Ok(CpuAffinity::new(v))
 }
