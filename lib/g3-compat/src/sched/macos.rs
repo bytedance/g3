@@ -53,16 +53,19 @@ impl CpuAffinity {
                 THREAD_AFFINITY_POLICY_COUNT,
             )
         };
-        if errno != 0 {
-            Err(io::Error::new(
+        match errno {
+            0 => Ok(()),
+            46 => Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "thread_policy_set() is not supported",
+            )),
+            n => Err(io::Error::new(
                 io::ErrorKind::Other,
                 format!(
-                    "thread_policy_set({}) returned error code {errno}",
+                    "thread_policy_set({}) returned error code {n}",
                     self.cpu_tag
                 ),
-            ))
-        } else {
-            Ok(())
+            )),
         }
     }
 }
