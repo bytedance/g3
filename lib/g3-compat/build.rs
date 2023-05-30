@@ -26,6 +26,7 @@ fn source_dir(os: &str) -> PathBuf {
 
 #[cfg(target_os = "linux")]
 fn build_linux() {
+    println!("cargo:rerun-if-changed=compat-src/linux/libc.c");
     let source_dir = source_dir("linux");
     cc::Build::new()
         .cargo_metadata(true)
@@ -36,6 +37,7 @@ fn build_linux() {
 
 #[allow(unused)]
 fn build_other() {
+    println!("cargo:rerun-if-changed=compat-src/other/null.c");
     let source_dir = source_dir("other");
     cc::Build::new()
         .cargo_metadata(true)
