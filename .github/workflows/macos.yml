@@ -1,0 +1,48 @@
+name: MacOS-CI
+
+on: [push, pull_request]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        rust:
+          - stable
+          - beta
+          - nightly
+          - 1.66 # MSRV
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+      - name: Install ${{ matrix.rust }} toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+      - name: Install dependencies
+        run: |
+          brew install capnp openssl c-ares lua
+      - name: Cargo build
+        run: cargo build
+      - name: Cargo test
+        run: cargo test
+
+  clippy:
+    name: Clippy
+    runs-on: macos-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Install dependencies
+        run: |
+          brew install capnp openssl c-ares lua
+      - name: Cargo clippy
+        run: cargo clippy --tests -- --deny warnings
