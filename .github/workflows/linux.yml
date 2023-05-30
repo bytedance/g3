@@ -48,4 +48,3 @@ jobs:
         sudo apt-get install capnproto libssl-dev liblua5.4-dev
     - name: Cargo clippy
       run: cargo clippy --tests --all -- --deny warnings
-

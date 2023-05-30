@@ -27,9 +27,9 @@ jobs:
         run: |
           brew install capnp openssl c-ares lua
       - name: Cargo build
-        run: cargo build --all
+        run: cargo build
       - name: Cargo test
-        run: cargo test --all
+        run: cargo test
 
   clippy:
     name: Clippy
@@ -45,5 +45,4 @@ jobs:
         run: |
           brew install capnp openssl c-ares lua
       - name: Cargo clippy
-        run: cargo clippy --tests --all -- --deny warnings
-
+        run: cargo clippy --tests -- --deny warnings
