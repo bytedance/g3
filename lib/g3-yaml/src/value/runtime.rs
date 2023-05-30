@@ -41,8 +41,12 @@ pub fn as_unaided_runtime_config(v: &Yaml) -> anyhow::Result<UnaidedRuntimeConfi
                     for (ik, iv) in map.iter() {
                         let id = crate::value::as_usize(ik)
                             .context(format!("the keys for {k} should be usize value"))?;
+                        #[cfg(not(target_os = "macos"))]
                         let cpu = crate::value::as_cpu_set(iv)
-                            .context(format!("invalid cpu set value for {k} cpu{id}"))?;
+                            .context(format!("invalid cpu set value for {k}/{id}"))?;
+                        #[cfg(target_os = "macos")]
+                        let cpu = crate::value::as_cpu_tag(iv)
+                            .context(format!("invalid cpu tag value for {k}/{id}"))?;
 
                         config.set_sched_affinity(id, cpu);
                     }

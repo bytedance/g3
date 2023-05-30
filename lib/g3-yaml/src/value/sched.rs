@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
-use anyhow::{anyhow, Context};
 use yaml_rust::Yaml;
 
 use g3_compat::CpuAffinity;
 
+#[cfg(not(target_os = "macos"))]
 pub fn as_cpu_set(v: &Yaml) -> anyhow::Result<CpuAffinity> {
+    use anyhow::{anyhow, Context};
+
     let mut set = CpuAffinity::default();
 
     if let Yaml::Array(seq) = v {
@@ -35,4 +37,13 @@ pub fn as_cpu_set(v: &Yaml) -> anyhow::Result<CpuAffinity> {
     }
 
     Ok(set)
+}
+
+#[cfg(target_os = "macos")]
+pub fn as_cpu_tag(v: &Yaml) -> anyhow::Result<CpuAffinity> {
+    use anyhow::Context;
+
+    let v =
+        crate::value::as_nonzero_i32(v).context("cpu tag should be valid nonzero isize value")?;
+    Ok(CpuAffinity::new(v))
 }

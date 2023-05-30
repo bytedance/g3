@@ -60,7 +60,7 @@ impl CpuAffinity {
             )
         };
         if errno != 0 {
-            Err(io::Error::from_raw_os_error(errno))
+            Err(io::Error::last_os_error())
         } else {
             Ok(())
         }

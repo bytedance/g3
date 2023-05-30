@@ -34,8 +34,9 @@ pub use fs::{as_absolute_path, as_config_file_format, as_file, as_file_path};
 pub use metrics::{as_metrics_name, as_static_metrics_tags, as_weighted_metrics_name};
 pub use net::*;
 pub use primary::{
-    as_ascii, as_bool, as_f64, as_hashmap, as_i32, as_i64, as_list, as_nonzero_u32, as_string,
-    as_u16, as_u32, as_u64, as_u8, as_usize, as_weighted_name_string,
+    as_ascii, as_bool, as_f64, as_hashmap, as_i32, as_i64, as_list, as_nonzero_i32,
+    as_nonzero_isize, as_nonzero_u32, as_string, as_u16, as_u32, as_u64, as_u8, as_usize,
+    as_weighted_name_string,
 };
 pub use random::as_random_ratio;
 pub use rate_limit::as_rate_limit_quota;
@@ -86,7 +87,7 @@ pub use self::openssl::{
 #[cfg(feature = "sched")]
 mod sched;
 #[cfg(feature = "sched")]
-pub use sched::as_cpu_set;
+pub use sched::*;
 
 #[cfg(feature = "sched")]
 mod runtime;
