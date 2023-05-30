@@ -18,14 +18,39 @@ use std::path::{Path, PathBuf};
 
 const STATIC_LIB_NAME: &str = "g3-compat";
 
-pub fn source_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("compat-src")
+fn source_dir(os: &str) -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("compat-src")
+        .join(os)
+}
+
+#[cfg(target_os = "linux")]
+fn build_linux() {
+    println!("cargo:rerun-if-changed=compat-src/linux/libc.c");
+    let source_dir = source_dir("linux");
+    cc::Build::new()
+        .cargo_metadata(true)
+        .define("_GNU_SOURCE", "1")
+        .file(source_dir.join("libc.c"))
+        .compile(STATIC_LIB_NAME);
+}
+
+#[allow(unused)]
+fn build_other() {
+    println!("cargo:rerun-if-changed=compat-src/other/null.c");
+    let source_dir = source_dir("other");
+    cc::Build::new()
+        .cargo_metadata(true)
+        .file(source_dir.join("null.c"))
+        .compile(STATIC_LIB_NAME);
 }
 
 fn main() {
-    let source_dir = source_dir();
-    cc::Build::new()
-        .cargo_metadata(true)
-        .file(source_dir.join("libc.c"))
-        .compile(STATIC_LIB_NAME);
+    cfg_if::cfg_if! {
+        if #[cfg(target_os = "linux")] {
+            build_linux();
+        } else {
+            build_other();
+        }
+    }
 }

@@ -14,5 +14,29 @@
  * limitations under the License.
  */
 
-mod sched;
-pub use sched::CpuAffinity;
+use std::io;
+
+#[derive(Clone)]
+pub struct CpuAffinity {}
+
+impl Default for CpuAffinity {
+    fn default() -> Self {
+        CpuAffinity {}
+    }
+}
+
+impl CpuAffinity {
+    pub fn add_id(&mut self, _id: usize) -> io::Result<()> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "cpu affinity is not supported",
+        ))
+    }
+
+    pub fn apply_to_local_thread(&self) -> io::Result<()> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "cpu affinity is not supported",
+        ))
+    }
+}

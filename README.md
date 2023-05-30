@@ -44,7 +44,9 @@ Fake certificate generator for g3proxy.
 
 ## Target Platform
 
-Only Linux is supported currently. But we are open to PRs to add support to other platforms.
+Only Linux is fully supported yet. The code will compile on FreeBSD / NetBSD / MacOS, but we haven't tested it there.
+
+Feel free to open PRs to add support to other platforms.
 
 ## Dev-env Setup Guide
 

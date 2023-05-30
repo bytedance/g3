@@ -89,7 +89,7 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
         let unique_ctl = g3tiles::control::UniqueController::start()
             .context("failed to start unique controller")?;
 
-        if args.daemon_config.daemon_mode || args.daemon_config.with_systemd {
+        if args.daemon_config.need_daemon_controller() {
             let daemon_ctl = g3tiles::control::DaemonController::start()
                 .context("failed to start daemon controller")?;
             tokio::spawn(async move {

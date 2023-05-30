@@ -17,7 +17,7 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::hash::Hash;
-use std::num::NonZeroU32;
+use std::num::{NonZeroI32, NonZeroIsize, NonZeroU32};
 use std::str::FromStr;
 
 use anyhow::{anyhow, Context};
@@ -89,6 +89,19 @@ pub fn as_i32(v: &Yaml) -> anyhow::Result<i32> {
     }
 }
 
+pub fn as_nonzero_i32(v: &Yaml) -> anyhow::Result<NonZeroI32> {
+    match v {
+        Yaml::String(s) => Ok(NonZeroI32::from_str(s)?),
+        Yaml::Integer(i) => {
+            let u = i32::try_from(*i)?;
+            Ok(NonZeroI32::try_from(u)?)
+        }
+        _ => Err(anyhow!(
+            "yaml value type for 'nonzero i32' should be 'string' or 'integer'"
+        )),
+    }
+}
+
 pub fn as_i64(v: &Yaml) -> anyhow::Result<i64> {
     match v {
         Yaml::String(s) => Ok(i64::from_str(s)?),
@@ -121,6 +134,19 @@ pub fn as_bool(v: &Yaml) -> anyhow::Result<bool> {
         Yaml::Integer(i) => Ok(*i != 0),
         _ => Err(anyhow!(
             "yaml value type for 'bool' should be 'boolean' / 'string' / 'integer'"
+        )),
+    }
+}
+
+pub fn as_nonzero_isize(v: &Yaml) -> anyhow::Result<NonZeroIsize> {
+    match v {
+        Yaml::String(s) => Ok(NonZeroIsize::from_str(s)?),
+        Yaml::Integer(i) => {
+            let u = isize::try_from(*i)?;
+            Ok(NonZeroIsize::try_from(u)?)
+        }
+        _ => Err(anyhow!(
+            "yaml value type for 'nonzero isize' should be 'string' or 'integer'"
         )),
     }
 }

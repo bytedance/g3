@@ -18,18 +18,18 @@ use std::collections::HashMap;
 use std::num::NonZeroUsize;
 
 use anyhow::anyhow;
-use log::{error, trace};
-use nix::sched::CpuSet;
-use nix::unistd::Pid;
+use log::{error, trace, warn};
 use tokio::runtime::Handle;
 use tokio::sync::{oneshot, watch};
+
+use g3_compat::CpuAffinity;
 
 pub struct WorkersGuard(watch::Sender<()>);
 
 pub struct UnaidedRuntimeConfig {
     thread_number: Option<NonZeroUsize>,
     thread_stack_size: Option<usize>,
-    sched_affinity: HashMap<usize, CpuSet>,
+    sched_affinity: HashMap<usize, CpuAffinity>,
     max_io_events_per_tick: Option<usize>,
 }
 
@@ -61,16 +61,29 @@ impl UnaidedRuntimeConfig {
         self.thread_stack_size = Some(size);
     }
 
-    pub fn set_sched_affinity(&mut self, id: usize, cpus: CpuSet) {
+    pub fn set_sched_affinity(&mut self, id: usize, cpus: CpuAffinity) {
         self.sched_affinity.insert(id, cpus);
     }
 
+    #[cfg(not(target_os = "macos"))]
     pub fn set_mapped_sched_affinity(&mut self) -> anyhow::Result<()> {
         let n = self.num_threads();
         for i in 0..n {
-            let mut cpu = CpuSet::new();
-            cpu.set(i)
-                .map_err(|e| anyhow!("unable to build cpu set for cpu {i}: {}", e.desc()))?;
+            let mut cpu = CpuAffinity::default();
+            cpu.add_id(i)
+                .map_err(|e| anyhow!("unable to build cpu set for cpu {i}: {e}"))?;
+            self.sched_affinity.insert(i, cpu);
+        }
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn set_mapped_sched_affinity(&mut self) -> anyhow::Result<()> {
+        use std::num::NonZeroI32;
+
+        let n = self.num_threads();
+        for i in 1..=n {
+            let cpu = CpuAffinity::new(unsafe { NonZeroI32::new_unchecked(i as i32) });
             self.sched_affinity.insert(i, cpu);
         }
         Ok(())
@@ -105,11 +118,8 @@ impl UnaidedRuntimeConfig {
                     trace!("started worker thread #{i}");
 
                     if let Some(set) = cpu_set {
-                        if let Err(e) = nix::sched::sched_setaffinity(Pid::from_raw(0), &set) {
-                            error!(
-                                "failed to set sched affinity for worker thread {i}: {}",
-                                e.desc()
-                            );
+                        if let Err(e) = set.apply_to_local_thread() {
+                            warn!("failed to set sched affinity for worker thread {i}: {e}");
                         }
                     }
 

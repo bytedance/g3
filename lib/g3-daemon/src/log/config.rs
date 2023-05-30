@@ -30,6 +30,7 @@ const IO_ERROR_SAMPLING_OFFSET_DEFAULT: usize = 10;
 #[derive(Clone)]
 pub enum LogConfigDriver {
     Discard,
+    #[cfg(target_os = "linux")]
     Journal,
     Syslog(SyslogBuilder),
     Fluentd(Arc<FluentdClientConfig>),
@@ -59,6 +60,7 @@ impl LogConfig {
         Self::with_driver(LogConfigDriver::Discard, program_name)
     }
 
+    #[cfg(target_os = "linux")]
     pub fn default_journal(program_name: &'static str) -> Self {
         Self::with_driver(LogConfigDriver::Journal, program_name)
     }
@@ -85,6 +87,7 @@ impl LogConfig {
         match v {
             Yaml::String(s) => match s.as_str() {
                 "discard" => Ok(LogConfig::default_discard(program_name)),
+                #[cfg(target_os = "linux")]
                 "journal" => Ok(LogConfig::default_journal(program_name)),
                 "syslog" => Ok(LogConfig::default_syslog(program_name)),
                 "fluentd" => Ok(LogConfig::default_fluentd(program_name)),
@@ -93,6 +96,7 @@ impl LogConfig {
             Yaml::Hash(map) => {
                 let mut config = LogConfig::default_discard(program_name);
                 g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+                    #[cfg(target_os = "linux")]
                     "journal" => {
                         config.driver = LogConfigDriver::Journal;
                         Ok(())

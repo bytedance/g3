@@ -1,4 +1,4 @@
-name: CI
+name: Linux-CI
 
 on: [push, pull_request]
 
@@ -16,8 +16,6 @@ jobs:
         - beta
         - nightly
         - 1.66 # MSRV
-        os:
-        - ubuntu-22.04
     steps:
     - name: Checkout sources
       uses: actions/checkout@v3
@@ -50,4 +48,3 @@ jobs:
         sudo apt-get install capnproto libssl-dev liblua5.4-dev
     - name: Cargo clippy
       run: cargo clippy --tests --all -- --deny warnings
-
