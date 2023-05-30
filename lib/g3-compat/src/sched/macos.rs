@@ -15,52 +15,51 @@
  */
 
 use std::io;
-use std::mem;
+use std::num::NonZeroIsize;
+
+use libc::{
+    current_thread, thread_affinity_policy, thread_policy_set, thread_policy_t,
+    THREAD_AFFINITY_POLICY, THREAD_AFFINITY_POLICY_COUNT, THREAD_AFFINITY_TAG_NULL,
+};
 
 #[derive(Clone)]
 pub struct CpuAffinity {
-    cpu_set: libc::cpuset_t,
+    cpu_tag: libc::integer_t,
 }
 
 impl Default for CpuAffinity {
     fn default() -> Self {
         CpuAffinity {
-            cpu_set: unsafe { mem::zeroed() },
+            cpu_tag: THREAD_AFFINITY_TAG_NULL,
         }
     }
 }
 
 impl CpuAffinity {
-    fn max_cpu_id() -> usize {
-        let bytes = mem::size_of::<libc::cpuset_t>();
-        (bytes << 3) - 1
-    }
-
-    pub fn add_id(&mut self, id: usize) -> io::Result<()> {
-        if id > CpuAffinity::max_cpu_id() {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "invalid cpu id",
-            ));
-        }
-        unsafe {
-            libc::CPU_SET(id, &mut self.cpu_set);
-        }
-        Ok(())
+    pub fn new(tag: NonZeroIsize) -> Self {
+        CpuAffinity { cpu_tag: tag.get() }
     }
 
     pub fn apply_to_local_thread(&self) -> io::Result<()> {
+        let mut policy_info = thread_affinity_policy {
+            affinity_tag: self.cpu_tag,
+        };
         let errno = unsafe {
-            libc::cpuset_setaffinity(
-                libc::CPU_LEVEL_WHICH,
-                libc::CPU_WHICH_TID,
-                -1,
-                mem::size_of::<libc::cpuset_t>() as libc::size_t,
-                &self.cpu_set,
+            thread_policy_set(
+                current_thread(),
+                THREAD_AFFINITY_POLICY,
+                &mut policy_info as thread_policy_t,
+                THREAD_AFFINITY_POLICY_COUNT,
             )
         };
         if errno != 0 {
-            Err(io::Error::last_os_error())
+            Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!(
+                    "thread_policy_set({}) returned error code {errno}",
+                    self.cpu_tag
+                ),
+            ))
         } else {
             Ok(())
         }
