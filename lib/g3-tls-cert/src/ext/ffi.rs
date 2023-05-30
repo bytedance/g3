@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-use libc::{c_int, c_long, c_uchar, c_uint};
+use libc::{c_int, c_uchar, c_uint};
 use openssl_sys::{ASN1_OBJECT, EVP_MD, EVP_PKEY, X509, X509_ALGOR};
 
 #[allow(non_camel_case_types)]
 pub enum X509_PUBKEY {}
 
 extern "C" {
-    pub fn X509_get_pathlen(x: *mut X509) -> c_long;
     pub fn X509_pubkey_digest(
         data: *const X509,
         type_: *const EVP_MD,

@@ -23,17 +23,11 @@ use openssl::x509::X509Ref;
 use super::{ffi, X509PubkeyRef};
 
 pub trait X509Ext {
-    fn pathlen(&self) -> Option<u32>;
     fn pubkey(&self) -> Result<&X509PubkeyRef, ErrorStack>;
     fn pubkey_digest(&self, hash_type: MessageDigest) -> Result<Vec<u8>, ErrorStack>;
 }
 
 impl X509Ext for X509Ref {
-    fn pathlen(&self) -> Option<u32> {
-        let v = unsafe { ffi::X509_get_pathlen(self.as_ptr()) };
-        u32::try_from(v).ok()
-    }
-
     fn pubkey(&self) -> Result<&X509PubkeyRef, ErrorStack> {
         unsafe {
             let p = ffi::X509_get_X509_PUBKEY(self.as_ptr());

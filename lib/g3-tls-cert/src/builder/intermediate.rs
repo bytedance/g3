@@ -25,7 +25,6 @@ use openssl::x509::extension::{
 use openssl::x509::{X509Builder, X509Extension, X509Ref, X509};
 
 use super::{asn1_time_from_chrono, SubjectNameBuilder};
-use crate::ext::X509Ext;
 
 pub struct IntermediateCertBuilder {
     pkey: PKey<Private>,
