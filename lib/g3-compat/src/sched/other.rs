@@ -14,21 +14,29 @@
  * limitations under the License.
  */
 
-cfg_if::cfg_if! {
-    if #[cfg(any(target_os = "android", target_os = "linux"))] {
-        mod linux;
-        pub use linux::CpuAffinity;
-    } else if #[cfg(any(target_os = "freebsd", target_os = "dragonfly"))] {
-        mod freebsd;
-        pub use freebsd::CpuAffinity;
-    } else if #[cfg(target_os = "netbsd")] {
-        mod netbsd;
-        pub use netbsd::CpuAffinity;
-    } else if #[cfg(target_os = "macos")] {
-        mod macos;
-        pub use macos::CpuAffinity;
-    } else {
-        mod other;
-        pub use other::CpuAffinity;
+use std::io;
+
+#[derive(Clone)]
+pub struct CpuAffinity {}
+
+impl Default for CpuAffinity {
+    fn default() -> Self {
+        CpuAffinity {}
+    }
+}
+
+impl CpuAffinity {
+    pub fn add_id(&mut self, _id: usize) -> io::Result<()> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "cpu affinity is not supported",
+        ))
+    }
+
+    pub fn apply_to_local_thread(&self) -> io::Result<()> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "cpu affinity is not supported",
+        ))
     }
 }

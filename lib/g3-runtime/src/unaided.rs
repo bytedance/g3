@@ -18,7 +18,7 @@ use std::collections::HashMap;
 use std::num::NonZeroUsize;
 
 use anyhow::anyhow;
-use log::{error, trace};
+use log::{error, trace, warn};
 use tokio::runtime::Handle;
 use tokio::sync::{oneshot, watch};
 
@@ -119,7 +119,7 @@ impl UnaidedRuntimeConfig {
 
                     if let Some(set) = cpu_set {
                         if let Err(e) = set.apply_to_local_thread() {
-                            error!("failed to set sched affinity for worker thread {i}: {e}");
+                            warn!("failed to set sched affinity for worker thread {i}: {e}");
                         }
                     }
 
