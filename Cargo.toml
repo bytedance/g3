@@ -78,6 +78,7 @@ ryu = "1.0"
 #
 ahash = "0.8"
 rustc-hash = "1.1"
+fnv = "1"
 indexmap = "1.6"
 ip_network = "0.4"
 ip_network_table = "0.2"

@@ -1122,6 +1122,7 @@ dependencies = [
  "bytes",
  "digest",
  "flume",
+ "fnv",
  "governor",
  "hex",
  "http",

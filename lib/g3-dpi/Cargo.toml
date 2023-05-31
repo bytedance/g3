@@ -7,7 +7,7 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-fnv = "1"
+fnv.workspace = true
 bytes.workspace = true
 memchr.workspace = true
 g3-types.workspace = true

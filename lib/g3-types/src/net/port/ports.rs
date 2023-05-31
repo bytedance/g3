@@ -14,15 +14,22 @@
  * limitations under the License.
  */
 
+use std::collections::HashSet;
 use std::iter::{Extend, IntoIterator, Iterator};
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 
 use anyhow::anyhow;
-use rustc_hash::FxHashSet;
+use fnv::{FnvBuildHasher, FnvHashSet};
 
-#[derive(Clone, Default, Eq, PartialEq)]
-pub struct Ports(FxHashSet<u16>);
+#[derive(Clone, Eq, PartialEq)]
+pub struct Ports(FnvHashSet<u16>);
+
+impl Default for Ports {
+    fn default() -> Self {
+        Ports(HashSet::with_hasher(FnvBuildHasher::default()))
+    }
+}
 
 impl Ports {
     pub fn add_single(&mut self, port: u16) {
