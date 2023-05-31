@@ -87,7 +87,7 @@ impl SharedState {
             rsp_table_guard.insert(r.id(), ResponseValue::empty());
             waker.wake();
         }
-        for mut v in (*rsp_table_guard).values_mut() {
+        for v in (*rsp_table_guard).values_mut() {
             if let Some(waker) = v.waker.take() {
                 waker.wake();
             }
