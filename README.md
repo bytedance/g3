@@ -1,4 +1,4 @@
-[![minimum rustc: 1.66](https://img.shields.io/badge/minimum%20rustc-1.66-green?logo=rust)](https://www.whatrustisit.com)
+[![minimum rustc: 1.70](https://img.shields.io/badge/minimum%20rustc-1.70-green?logo=rust)](https://www.whatrustisit.com)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
 
 # G3 Project

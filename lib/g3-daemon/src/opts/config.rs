@@ -16,14 +16,14 @@
 
 use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use anyhow::anyhow;
-use once_cell::sync::OnceCell;
 
-static CONFIG_FILE_PATH: OnceCell<PathBuf> = OnceCell::new();
-static CONFIG_DIR_PATH: OnceCell<PathBuf> = OnceCell::new();
+static CONFIG_FILE_PATH: OnceLock<PathBuf> = OnceLock::new();
+static CONFIG_DIR_PATH: OnceLock<PathBuf> = OnceLock::new();
 
-static CONFIG_FILE_EXTENSION: OnceCell<OsString> = OnceCell::new();
+static CONFIG_FILE_EXTENSION: OnceLock<OsString> = OnceLock::new();
 
 fn validate_and_get_config_file(path: &Path) -> anyhow::Result<PathBuf> {
     if path.is_absolute() {
