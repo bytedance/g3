@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::collections::HashMap;
 use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
@@ -25,7 +24,7 @@ use std::task::{ready, Context, Poll, Waker};
 use std::time::Duration;
 
 use concurrent_queue::{ConcurrentQueue, PopError, PushError};
-use fxhash::FxBuildHasher;
+use rustc_hash::FxHashMap;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::time::{Instant, Sleep};
 
@@ -62,7 +61,7 @@ struct SharedState {
     write_waker: RwLock<Option<Waker>>,
     next_req_id: AtomicU32,
     req_queue: ConcurrentQueue<(KeylessRequest, Waker)>,
-    rsp_table: Mutex<HashMap<u32, ResponseValue, FxBuildHasher>>,
+    rsp_table: Mutex<FxHashMap<u32, ResponseValue>>,
     error: Mutex<Option<Arc<KeylessResponseError>>>,
 }
 
@@ -107,7 +106,7 @@ impl Default for SharedState {
             write_waker: RwLock::new(None),
             next_req_id: AtomicU32::new(0),
             req_queue: ConcurrentQueue::bounded(1024),
-            rsp_table: Mutex::new(HashMap::with_hasher(FxBuildHasher::default())),
+            rsp_table: Mutex::new(FxHashMap::default()),
             error: Mutex::new(None),
         }
     }

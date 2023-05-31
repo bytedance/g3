@@ -54,7 +54,6 @@ itoa.workspace = true
 redis = { version = "0.23", default-features = false, features = ["aio", "tokio-comp", "cluster-async"] }
 ascii.workspace = true
 ahash.workspace = true
-fxhash.workspace = true
 governor = { workspace = true, features = ["std", "jitter"] }
 cadence.workspace = true
 rmpv.workspace = true

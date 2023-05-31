@@ -14,20 +14,19 @@
  * limitations under the License.
  */
 
-use std::collections::HashSet;
 use std::iter::{Extend, IntoIterator, Iterator};
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 
 use anyhow::anyhow;
-use fxhash::{FxBuildHasher, FxHashSet};
+use rustc_hash::FxHashSet;
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Ports(FxHashSet<u16>);
 
 impl Default for Ports {
     fn default() -> Self {
-        Ports(HashSet::with_hasher(FxBuildHasher::default()))
+        Ports(FxHashSet::default())
     }
 }
 
