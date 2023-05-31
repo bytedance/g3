@@ -21,14 +21,8 @@ use std::str::FromStr;
 use anyhow::anyhow;
 use rustc_hash::FxHashSet;
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Default, Eq, PartialEq)]
 pub struct Ports(FxHashSet<u16>);
-
-impl Default for Ports {
-    fn default() -> Self {
-        Ports(FxHashSet::default())
-    }
-}
 
 impl Ports {
     pub fn add_single(&mut self, port: u16) {
