@@ -15,10 +15,9 @@
  */
 
 use std::borrow::Borrow;
-use std::collections::HashMap;
 use std::hash::Hash;
 
-use fxhash::{FxBuildHasher, FxHashMap};
+use rustc_hash::FxHashMap;
 
 use super::AclAction;
 
@@ -46,7 +45,7 @@ where
 {
     pub fn new(missed_action: AclAction) -> Self {
         AclFxHashRule {
-            inner: HashMap::with_hasher(FxBuildHasher::default()),
+            inner: FxHashMap::default(),
             missed_action,
         }
     }

@@ -115,11 +115,7 @@ impl HttpProxyConnectTask {
         self.ctx
             .set_custom_header_for_local_reply(&self.tcp_notes, &mut rsp);
         let should_close = rsp.should_close();
-        if should_close {
-            self.back_to_http = false;
-        } else {
-            self.back_to_http = true;
-        }
+        self.back_to_http = !should_close;
 
         if rsp.reply_err_to_request(clt_w).await.is_err() {
             self.back_to_http = false;

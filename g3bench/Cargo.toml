@@ -26,7 +26,7 @@ openssl-probe = { workspace = true, optional = true }
 cadence.workspace = true
 hdrhistogram = { version = "7.5", default-features = false, features = ["sync"] }
 ahash.workspace = true
-fxhash.workspace = true
+rustc-hash.workspace = true
 concurrent-queue = "2.2"
 hex.workspace = true
 g3-runtime.workspace = true

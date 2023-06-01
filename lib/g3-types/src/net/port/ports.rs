@@ -20,14 +20,14 @@ use std::ops::RangeInclusive;
 use std::str::FromStr;
 
 use anyhow::anyhow;
-use fxhash::{FxBuildHasher, FxHashSet};
+use fnv::{FnvBuildHasher, FnvHashSet};
 
 #[derive(Clone, Eq, PartialEq)]
-pub struct Ports(FxHashSet<u16>);
+pub struct Ports(FnvHashSet<u16>);
 
 impl Default for Ports {
     fn default() -> Self {
-        Ports(HashSet::with_hasher(FxBuildHasher::default()))
+        Ports(HashSet::with_hasher(FnvBuildHasher::default()))
     }
 }
 

@@ -97,3 +97,32 @@ pub fn as_config_file_format(v: &Yaml) -> anyhow::Result<ConfigFileFormat> {
         ))
     }
 }
+
+pub fn as_dir_path(v: &Yaml, lookup_dir: &Path, auto_create: bool) -> anyhow::Result<PathBuf> {
+    if let Yaml::String(path) = v {
+        let path = PathBuf::from_str(path).map_err(|e| anyhow!("invalid path: {e:?}"))?;
+        let path = if path.is_absolute() {
+            path
+        } else {
+            let mut abs_path = lookup_dir.to_path_buf();
+            abs_path.push(path);
+            abs_path
+        };
+        if path.exists() {
+            if !path.is_dir() {
+                return Err(anyhow!("the path is existed but not a directory"));
+            }
+        } else if auto_create {
+            std::fs::create_dir_all(&path)
+                .map_err(|e| anyhow!("failed to create dir {}: {e:?}", path.display()))?;
+        } else {
+            return Err(anyhow!("path {} is not existed", path.display()));
+        }
+        let path = path
+            .canonicalize()
+            .map_err(|e| anyhow!("invalid path {}: {e:?}", path.display()))?;
+        Ok(path)
+    } else {
+        Err(anyhow!("yaml value type for dir path should be string"))
+    }
+}
