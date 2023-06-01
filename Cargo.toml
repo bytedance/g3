@@ -176,5 +176,5 @@ debug = 1
 debug-assertions = false
 
 [patch.crates-io]
-openssl = { version = "0.10.53", git = "https://github.com/zh-jq/rust-openssl.git", branch = "tongsuo-patch-8.3.2" }
+openssl = { version = "0.10.54", git = "https://github.com/zh-jq/rust-openssl.git", branch = "tongsuo-patch-8.3.2" }
 openssl-sys = { version = "0.9.88", git = "https://github.com/zh-jq/rust-openssl.git", branch = "tongsuo-patch-8.3.2" }
