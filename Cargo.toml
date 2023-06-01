@@ -51,6 +51,7 @@ default-members = [
     "g3tiles",
     "g3tiles/utils/ctl",
 ]
+resolver = "2"
 
 [workspace.package]
 license = "Apache-2.0"
