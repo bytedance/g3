@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::io::{stderr, IsTerminal};
 use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -23,7 +24,6 @@ use ahash::AHashMap;
 use anyhow::{anyhow, Context};
 use cadence::StatsdClient;
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
-use is_terminal::IsTerminal;
 
 use g3_runtime::blended::BlendedRuntimeConfig;
 use g3_runtime::unaided::UnaidedRuntimeConfig;
@@ -414,7 +414,7 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
         proc_args.statsd_client_config = Some(config);
     }
 
-    if args.get_flag(GLOBAL_ARG_NO_PROGRESS_BAR) || !std::io::stderr().is_terminal() {
+    if args.get_flag(GLOBAL_ARG_NO_PROGRESS_BAR) || !stderr().is_terminal() {
         proc_args.no_progress_bar = true;
     }
 

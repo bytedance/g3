@@ -1223,7 +1223,6 @@ dependencies = [
  "hex",
  "http",
  "indicatif",
- "is-terminal",
  "openssl",
  "openssl-probe",
  "rustc-hash",
