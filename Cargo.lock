@@ -1240,6 +1240,7 @@ dependencies = [
  "anyhow",
  "clap",
  "flume",
+ "g3-compat",
  "g3-daemon",
  "g3-msgpack",
  "g3-runtime",
