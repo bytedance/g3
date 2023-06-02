@@ -50,7 +50,7 @@ G3 Project 由若干组件构成。
 
 参考 [dev-setup](doc/dev-setup.md)。
 
-## 国际标准
+## 标准及约定
 
 参考 [standards](doc/standards.md)。
 
