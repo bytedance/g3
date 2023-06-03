@@ -2917,8 +2917,9 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-proto"
-version = "0.23.0-alpha.2"
-source = "git+https://github.com/bluejekyll/trust-dns.git?branch=main#555e0ceebca77ffe0558433a265e186f052381da"
+version = "0.23.0-alpha.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "139c01b403975c09702d92930285aa1a20bdfa4e04b0d54b343563141f876366"
 dependencies = [
  "async-trait",
  "bytes",
@@ -2950,8 +2951,9 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-resolver"
-version = "0.23.0-alpha.2"
-source = "git+https://github.com/bluejekyll/trust-dns.git?branch=main#555e0ceebca77ffe0558433a265e186f052381da"
+version = "0.23.0-alpha.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "82923e77b9f65436147b233f975e0b5c1210b7d267532f495c3033062aafed7a"
 dependencies = [
  "cfg-if",
  "futures-util",
