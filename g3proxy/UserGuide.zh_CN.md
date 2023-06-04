@@ -240,7 +240,7 @@ resolver:
   - name: default
     type: trust-dns
     server: 1.1.1.1
-    encryption: dns-over-https # 此外也支持 dns-over-tls (dns-over-quic计划中)
+    encryption: dns-over-https # 此外也支持 dns-over-tls、dns-over-quic
 ```
 
 ### 容灾解析
@@ -587,7 +587,7 @@ flowchart LR
   ```yaml
   server:
     - name: relay
-      type: https_proxy
+      type: http_proxy
       escaper: local
       tls_server: {} # 配置TLS参数
   ```
