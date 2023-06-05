@@ -90,7 +90,7 @@ md-5 = "0.10.0"
 sha2 = "0.10.0"
 hex = "0.4.2"
 #
-idna = "0.3"
+idna = "0.4"
 url = "2.1"
 mime = "0.3"
 percent-encoding = "2.1"
