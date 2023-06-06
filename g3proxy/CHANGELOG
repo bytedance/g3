@@ -1,4 +1,10 @@
 
+v1.7.15:
+ - Optimization: set correct default CA path if build using vendored openssl
+ - Feature: allow no auth in socks5 proxy if anonymous user is enabled
+ - Feature: add dns-over-quic support in trust-dns resolver
+ - Compatibility: compile on MacOS / FreeBSD / NetBSD
+
 v1.7.14:
  - BUG FIX: fix the parse of ICAP OPTIONS response
 
