@@ -173,17 +173,19 @@ where
             .context(format!("failed to to create context #{i}"))?;
 
         let task_unconstrained = proc_args.task_unconstrained;
-        let mut latency_interval = if let Some(latency) = proc_args.latency {
-            let mut interval = tokio::time::interval(latency);
-            interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
-            Some(interval)
-        } else {
-            None
-        };
+        let latency = proc_args.latency;
         let rt = super::worker::select_handle(i).unwrap_or_else(tokio::runtime::Handle::current);
         rt.spawn(async move {
             sem.add_permits(1);
             barrier.wait().await;
+
+            let mut latency_interval = if let Some(latency) = latency {
+                let mut interval = tokio::time::interval(latency);
+                interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+                Some(interval)
+            } else {
+                None
+            };
 
             let global_state = stats::global_state();
             let mut req_count = 0;
