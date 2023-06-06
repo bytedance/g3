@@ -24,7 +24,7 @@ use cadence::StatsdClient;
 use hdrhistogram::Histogram;
 use tokio::signal::unix::SignalKind;
 use tokio::sync::{mpsc, Barrier, Semaphore};
-use tokio::time::Instant;
+use tokio::time::{Instant, MissedTickBehavior};
 
 use g3_signal::{ActionSignal, SigResult};
 
@@ -173,6 +173,13 @@ where
             .context(format!("failed to to create context #{i}"))?;
 
         let task_unconstrained = proc_args.task_unconstrained;
+        let mut latency_interval = if let Some(latency) = proc_args.latency {
+            let mut interval = tokio::time::interval(latency);
+            interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+            Some(interval)
+        } else {
+            None
+        };
         let rt = super::worker::select_handle(i).unwrap_or_else(tokio::runtime::Handle::current);
         rt.spawn(async move {
             sem.add_permits(1);
@@ -181,6 +188,10 @@ where
             let global_state = stats::global_state();
             let mut req_count = 0;
             while let Some(task_id) = global_state.fetch_request() {
+                if let Some(latency) = &mut latency_interval {
+                    latency.tick().await;
+                }
+
                 let time_start = Instant::now();
                 context.mark_task_start();
                 let rt = if task_unconstrained {
