@@ -83,6 +83,7 @@ impl TryFrom<&TrustDnsDriverConfig> for NameServerConfigGroup {
         let g = if let Some(ec) = &c.encryption {
             let tls_name = match ec.tls_name() {
                 ServerName::DnsName(n) => n.as_ref().to_string(),
+                ServerName::IpAddress(ip) => ip.to_string(),
                 v => return Err(anyhow!("unsupported tls server name: {v:?}")), // FIXME add after trust-dns support it
             };
 
@@ -96,6 +97,12 @@ impl TryFrom<&TrustDnsDriverConfig> for NameServerConfigGroup {
                 DnsEncryptionProtocol::Https => NameServerConfigGroup::from_ips_https(
                     &c.servers,
                     c.server_port.unwrap_or(443),
+                    tls_name,
+                    false,
+                ),
+                DnsEncryptionProtocol::Quic => NameServerConfigGroup::from_ips_quic(
+                    &c.servers,
+                    c.server_port.unwrap_or(853),
                     tls_name,
                     false,
                 ),
@@ -191,8 +198,7 @@ impl TrustDnsDriverConfig {
         let d_config = ResolverConfig::from_parts(None, vec![], name_servers);
         let d_opts = ResolverOpts::from(self);
 
-        let d_resolver = TokioAsyncResolver::tokio(d_config, d_opts)
-            .map_err(|e| anyhow!("failed to create resolver: {e}"))?;
+        let d_resolver = TokioAsyncResolver::tokio(d_config, d_opts);
 
         let resolver = TrustDnsResolver {
             inner: Arc::new(d_resolver),

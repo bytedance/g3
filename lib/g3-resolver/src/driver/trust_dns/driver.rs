@@ -55,7 +55,7 @@ impl ResultConverter for Ipv4Lookup {
     fn finalize(self) -> (Instant, Vec<IpAddr>) {
         let mut addrs = Vec::<IpAddr>::new();
         for ip4 in self.iter() {
-            addrs.push(IpAddr::V4(*ip4));
+            addrs.push(IpAddr::V4(ip4.0));
         }
 
         (Instant::from_std(self.valid_until()), addrs)
@@ -66,7 +66,7 @@ impl ResultConverter for Ipv6Lookup {
     fn finalize(self) -> (Instant, Vec<IpAddr>) {
         let mut addrs = Vec::<IpAddr>::new();
         for ip6 in self.iter() {
-            addrs.push(IpAddr::V6(*ip6));
+            addrs.push(IpAddr::V6(ip6.0));
         }
 
         (Instant::from_std(self.valid_until()), addrs)

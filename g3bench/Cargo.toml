@@ -1,6 +1,7 @@
 [package]
 name = "g3bench"
 version = "0.6.2"
+rust-version = "1.70.0"
 license.workspace = true
 edition.workspace = true
 
@@ -13,7 +14,6 @@ clap.workspace = true
 clap_complete.workspace = true
 async-trait.workspace = true
 indicatif = "0.17"
-is-terminal = "0.4"
 tokio = { workspace = true, features = ["rt", "net", "macros"] }
 http.workspace = true
 url.workspace = true

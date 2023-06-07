@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 
+#[link(name = "g3-compat", kind = "static", modifiers = "+whole-archive")]
+extern "C" {
+    // ...
+}
+
 use anyhow::Context;
 use clap::Command;
 

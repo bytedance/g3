@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::io::{stderr, IsTerminal};
 use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -23,7 +24,6 @@ use ahash::AHashMap;
 use anyhow::{anyhow, Context};
 use cadence::StatsdClient;
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
-use is_terminal::IsTerminal;
 
 use g3_runtime::blended::BlendedRuntimeConfig;
 use g3_runtime::unaided::UnaidedRuntimeConfig;
@@ -39,6 +39,7 @@ const GLOBAL_ARG_UNCONSTRAINED: &str = "unconstrained";
 const GLOBAL_ARG_THREADS: &str = "threads";
 const GLOBAL_ARG_THREAD_STACK_SIZE: &str = "thread-stack-size";
 const GLOBAL_ARG_CONCURRENCY: &str = "concurrency";
+const GLOBAL_ARG_LATENCY: &str = "latency";
 const GLOBAL_ARG_TIME_LIMIT: &str = "time-limit";
 const GLOBAL_ARG_REQUESTS: &str = "requests";
 const GLOBAL_ARG_RESOLVE: &str = "resolve";
@@ -56,6 +57,7 @@ const DEFAULT_STAT_PREFIX: &str = "g3bench";
 
 pub struct ProcArgs {
     pub(super) concurrency: usize,
+    pub(super) latency: Option<Duration>,
     pub(super) requests: Option<usize>,
     pub(super) time_limit: Option<Duration>,
     pub(super) log_error_count: usize,
@@ -76,6 +78,7 @@ impl Default for ProcArgs {
     fn default() -> Self {
         ProcArgs {
             concurrency: 1,
+            latency: None,
             requests: None,
             time_limit: None,
             log_error_count: 0,
@@ -229,6 +232,16 @@ pub fn add_global_args(app: Command) -> Command {
             .default_value("1"),
     )
     .arg(
+        Arg::new(GLOBAL_ARG_LATENCY)
+            .help("Latency between serial tasks in milliseconds")
+            .value_name("LATENCY TIME")
+            .short('l')
+            .long(GLOBAL_ARG_LATENCY)
+            .global(true)
+            .num_args(1)
+            .value_parser(value_parser!(usize)),
+    )
+    .arg(
         Arg::new(GLOBAL_ARG_TIME_LIMIT)
             .help("Maximum time to spend for benchmarking")
             .value_name("TOTAL TIME")
@@ -367,6 +380,10 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
         proc_args.concurrency = *n;
     }
 
+    if let Some(n) = args.get_one::<usize>(GLOBAL_ARG_LATENCY) {
+        proc_args.latency = Some(Duration::from_millis(*n as u64));
+    }
+
     if let Some(n) = args.get_one::<usize>(GLOBAL_ARG_REQUESTS) {
         proc_args.requests = Some(*n);
     }
@@ -414,7 +431,7 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
         proc_args.statsd_client_config = Some(config);
     }
 
-    if args.get_flag(GLOBAL_ARG_NO_PROGRESS_BAR) || !std::io::stderr().is_terminal() {
+    if args.get_flag(GLOBAL_ARG_NO_PROGRESS_BAR) || !stderr().is_terminal() {
         proc_args.no_progress_bar = true;
     }
 

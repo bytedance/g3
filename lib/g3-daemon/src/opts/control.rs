@@ -15,13 +15,13 @@
  */
 
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use anyhow::anyhow;
-use once_cell::sync::OnceCell;
 
 pub const DEFAULT_CONTROL_DIR: &str = "/tmp/g3";
 
-static CONTROL_DIR: OnceCell<PathBuf> = OnceCell::new();
+static CONTROL_DIR: OnceLock<PathBuf> = OnceLock::new();
 
 pub fn validate_and_set_control_dir(path: &Path) -> anyhow::Result<()> {
     if path.is_relative() {
