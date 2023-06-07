@@ -1477,9 +1477,9 @@ dependencies = [
 
 [[package]]
 name = "getrandom"
-version = "0.2.9"
+version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c85e1d9ab2eadba7e5040d4e09cbd6d072b76a557ad64e797c2cb9d4da21d7e4"
+checksum = "be4136b2a15dd319360be1c07d9933517ccf0be8f16bf62a3bee4f0d618df427"
 dependencies = [
  "cfg-if",
  "js-sys",
@@ -2033,7 +2033,7 @@ checksum = "dd8b5dd2ae5ed71462c540258bedcb51965123ad7e7ccf4b9a8cafaa4a63576d"
 [[package]]
 name = "openssl"
 version = "0.10.54"
-source = "git+https://github.com/zh-jq/rust-openssl.git?branch=tongsuo-patch-8.3.2#3424e9a76f2f077aef2e2a9be59517588f2049e9"
+source = "git+https://github.com/zh-jq/rust-openssl.git?branch=tongsuo#99595481c5af9dea8db83ea9263f9a820e045fdd"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -2047,7 +2047,7 @@ dependencies = [
 [[package]]
 name = "openssl-macros"
 version = "0.1.1"
-source = "git+https://github.com/zh-jq/rust-openssl.git?branch=tongsuo-patch-8.3.2#3424e9a76f2f077aef2e2a9be59517588f2049e9"
+source = "git+https://github.com/zh-jq/rust-openssl.git?branch=tongsuo#99595481c5af9dea8db83ea9263f9a820e045fdd"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2072,13 +2072,13 @@ dependencies = [
 [[package]]
 name = "openssl-sys"
 version = "0.9.88"
-source = "git+https://github.com/zh-jq/rust-openssl.git?branch=tongsuo-patch-8.3.2#3424e9a76f2f077aef2e2a9be59517588f2049e9"
+source = "git+https://github.com/zh-jq/rust-openssl.git?branch=tongsuo#99595481c5af9dea8db83ea9263f9a820e045fdd"
 dependencies = [
  "cc",
  "libc",
  "openssl-src",
  "pkg-config",
- "tongsuo-p832-src",
+ "tongsuo-src",
  "vcpkg",
 ]
 
@@ -2891,10 +2891,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "736b60249cb25337bc196faa43ee12c705e426f3d55c214d73a4e7be06f92cb4"
 
 [[package]]
-name = "tongsuo-p832-src"
-version = "832.0.6+8.3.2"
+name = "tongsuo-src"
+version = "840.0.1+8.4.0pre1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66a25844d6951c409f15502ebebd98610583683f2aa04a1e29e825593b1e72fd"
+checksum = "7ee55c4e319cb58e8f27a9d61c1777f4fb3f7b087187ac743e6e522463aa88fb"
 dependencies = [
  "cc",
 ]
