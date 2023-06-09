@@ -39,7 +39,6 @@ http.workspace = true
 h2.workspace = true
 mime.workspace = true
 askama = "0.12"
-serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 ip_network.workspace = true
 ip_network_table.workspace = true

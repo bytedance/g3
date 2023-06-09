@@ -1334,7 +1334,6 @@ dependencies = [
  "rmpv",
  "rustc_version",
  "rustls",
- "serde",
  "serde_json",
  "slog",
  "thiserror",
