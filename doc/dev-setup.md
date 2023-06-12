@@ -117,7 +117,7 @@ It is recommended to use Debian based distro as your development platform.
 
 ```shell
 apt-get install gcc pkgconf libtool make capnproto
-apt-get install curl mkcert jq xz-utils tar
+apt-get install curl jq xz-utils tar
 apt-get install libssl-dev libc-ares-dev
 # install lua5.4 or any other versions available on your system
 apt-get install lua5.4-dev
@@ -219,7 +219,6 @@ capnproto
 
 The following tools are needed to run testing scripts:
 ```text
-mkcert
 curl
 ```
 
