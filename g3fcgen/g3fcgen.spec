@@ -34,13 +34,12 @@ Fake Certificate Generator for G3 Project
 G3_PACKAGE_VERSION="%{version}-%{release}"
 export G3_PACKAGE_VERSION
 SSL_FEATURE=$(pkg-config --atleast-version 1.1.1 libssl || echo "vendored-openssl")
-cargo build --frozen --offline --profile %{build_profile} --no-default-features --features $SSL_FEATURE, --package g3fcgen --package g3fcgen-one
+cargo build --frozen --offline --profile %{build_profile} --no-default-features --features $SSL_FEATURE, --package g3fcgen
 
 
 %install
 rm -rf $RPM_BUILD_ROOT
 install -m 755 -D target/%{build_profile}/g3fcgen %{buildroot}%{_bindir}/g3fcgen
-install -m 755 -D target/%{build_profile}/g3fcgen-one %{buildroot}%{_bindir}/g3fcgen-one
 install -m 644 -D %{name}/service/g3fcgen.service %{buildroot}/lib/systemd/system/g3fcgen.service
 install -m 644 -D %{name}/service/g3fcgen.preset %{buildroot}/lib/systemd/system-preset/90-g3fcgen.preset
 
@@ -48,7 +47,6 @@ install -m 644 -D %{name}/service/g3fcgen.preset %{buildroot}/lib/systemd/system
 %files
 #%license add-license-file-here
 %{_bindir}/g3fcgen
-%{_bindir}/g3fcgen-one
 /lib/systemd/system/g3fcgen.service
 /lib/systemd/system-preset/90-g3fcgen.preset
 
