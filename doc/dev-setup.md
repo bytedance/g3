@@ -132,6 +132,8 @@ apt-get --no-install-recommends devscripts
 
 The devel packages is contained in repos that is not enabled by default,
 you need to check the files under /etc/yum.repo.d/ and enable the corresponding repos.
+See [EPEL Quickstart](https://docs.fedoraproject.org/en-US/epel/#_quickstart) for more info.
+
 Some scripting or testing tools may be unavailable.
 
 ```shell
