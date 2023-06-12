@@ -80,6 +80,8 @@ G3 Project 由若干组件构成。
 
     rpm包:
     ```shell
+    rpmbuild -ta ./<name>-<version>.tar.xz
+    # 如果失败，可以手动执行以下指令：
     tar xvf <name>-<version>.tar.xz ./<name>-<version>/<name>.spec
     cp <name>-<version>.tar.xz ~/rpmbuild/SOURCES/
     rpmbuild -ba ./<name>-<version>/<name>.spec
