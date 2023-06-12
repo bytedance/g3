@@ -1,4 +1,7 @@
 
+v1.7.16:
+ - Compatibility: update build dependencies
+
 v1.7.15:
  - Optimization: set correct default CA path if build using vendored openssl
  - Feature: allow no auth in socks5 proxy if anonymous user is enabled
