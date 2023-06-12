@@ -1,4 +1,8 @@
 
+v0.2.5:
+ - Optimization: set correct default CA path if build using vendored openssl
+ - BUG FIX: fix match of server config key
+
 v0.2.4:
  - Feature: use metrics name for server name
  - Optimization: do batch tcp accept
