@@ -28,7 +28,7 @@ use g3_types::route::EgressPathSelection;
 
 use crate::auth::UserContext;
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub(crate) enum ServerTaskStage {
     Created,
     Preparing,
@@ -125,6 +125,23 @@ impl ServerTaskNotes {
             ready_time: Duration::default(),
             egress_path_selection,
             user_req_alive_permit: None,
+        }
+    }
+
+    pub(crate) fn dup_for_read(&self) -> Self {
+        ServerTaskNotes {
+            worker_id: self.worker_id,
+            client_addr: self.client_addr,
+            server_addr: self.server_addr,
+            stage: self.stage,
+            start_at: self.start_at,
+            create_ins: self.create_ins,
+            id: self.id,
+            user_ctx: self.user_ctx.clone(),
+            wait_time: self.wait_time,
+            ready_time: self.ready_time,
+            egress_path_selection: self.egress_path_selection.clone(),
+            user_req_alive_permit: None, // skipped
         }
     }
 

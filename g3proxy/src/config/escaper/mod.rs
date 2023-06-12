@@ -36,6 +36,7 @@ pub(crate) mod proxy_http;
 pub(crate) mod proxy_https;
 pub(crate) mod proxy_socks5;
 pub(crate) mod route_client;
+pub(crate) mod route_failover;
 pub(crate) mod route_mapping;
 pub(crate) mod route_query;
 pub(crate) mod route_resolved;
@@ -99,6 +100,7 @@ pub(crate) enum AnyEscaperConfig {
     ProxyHttp(Box<proxy_http::ProxyHttpEscaperConfig>),
     ProxyHttps(Box<proxy_https::ProxyHttpsEscaperConfig>),
     ProxySocks5(proxy_socks5::ProxySocks5EscaperConfig),
+    RouteFailover(route_failover::RouteFailoverEscaperConfig),
     RouteResolved(route_resolved::RouteResolvedEscaperConfig),
     RouteMapping(route_mapping::RouteMappingEscaperConfig),
     RouteQuery(route_query::RouteQueryEscaperConfig),
@@ -119,6 +121,7 @@ macro_rules! impl_transparent0 {
                 AnyEscaperConfig::ProxyHttp(s) => s.$f(),
                 AnyEscaperConfig::ProxyHttps(s) => s.$f(),
                 AnyEscaperConfig::ProxySocks5(s) => s.$f(),
+                AnyEscaperConfig::RouteFailover(s) => s.$f(),
                 AnyEscaperConfig::RouteResolved(s) => s.$f(),
                 AnyEscaperConfig::RouteMapping(s) => s.$f(),
                 AnyEscaperConfig::RouteQuery(s) => s.$f(),
@@ -142,6 +145,7 @@ macro_rules! impl_transparent1 {
                 AnyEscaperConfig::ProxyHttp(s) => s.$f(p),
                 AnyEscaperConfig::ProxyHttps(s) => s.$f(p),
                 AnyEscaperConfig::ProxySocks5(s) => s.$f(p),
+                AnyEscaperConfig::RouteFailover(s) => s.$f(p),
                 AnyEscaperConfig::RouteResolved(s) => s.$f(p),
                 AnyEscaperConfig::RouteMapping(s) => s.$f(p),
                 AnyEscaperConfig::RouteQuery(s) => s.$f(p),
@@ -235,6 +239,10 @@ fn load_escaper(
         "proxy_float" | "proxyfloat" | "proxy_dynamic" | "proxydynamic" => {
             let config = proxy_float::ProxyFloatEscaperConfig::parse(map, position)?;
             Ok(AnyEscaperConfig::ProxyFloat(config))
+        }
+        "route_failover" | "routefailover" => {
+            let config = route_failover::RouteFailoverEscaperConfig::parse(map, position)?;
+            Ok(AnyEscaperConfig::RouteFailover(config))
         }
         "route_mapping" | "routemapping" => {
             let config = route_mapping::RouteMappingEscaperConfig::parse(map, position)?;
