@@ -39,4 +39,18 @@ impl UdpRelayTaskNotes {
             expire: None,
         }
     }
+
+    pub(crate) fn dup_as_new(&self) -> Self {
+        UdpRelayTaskNotes {
+            buf_conf: self.buf_conf,
+            initial_peer: self.initial_peer.clone(),
+            escaper: MetricsName::default(),
+            expire: None,
+        }
+    }
+
+    pub(crate) fn fill_generated(&mut self, other: &Self) {
+        self.escaper.clone_from(&other.escaper);
+        self.expire = other.expire;
+    }
 }

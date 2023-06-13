@@ -16,25 +16,23 @@
 
 use std::pin::pin;
 
-use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_types::net::UpstreamAddr;
-
 use super::RouteFailoverEscaper;
 use crate::escape::ArcEscaper;
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
+use crate::module::udp_connect::{
+    ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectResult, UdpConnectTaskNotes,
+};
 use crate::serve::ServerTaskNotes;
 
-pub struct TcpConnectFailoverContext {
-    tcp_notes: TcpConnectTaskNotes,
-    connect_result: TcpConnectResult,
+struct UdpConnectFailoverContext {
+    udp_notes: UdpConnectTaskNotes,
+    connect_result: UdpConnectResult,
 }
 
-impl TcpConnectFailoverContext {
-    fn new(upstream: &UpstreamAddr) -> Self {
-        let tcp_notes = TcpConnectTaskNotes::new(upstream.clone());
-        TcpConnectFailoverContext {
-            tcp_notes,
-            connect_result: Err(TcpConnectError::EscaperNotUsable),
+impl UdpConnectFailoverContext {
+    fn new(udp_notes: &UdpConnectTaskNotes) -> Self {
+        UdpConnectFailoverContext {
+            udp_notes: udp_notes.dup_as_new(),
+            connect_result: Err(UdpConnectError::EscaperNotUsable),
         }
     }
 
@@ -42,10 +40,10 @@ impl TcpConnectFailoverContext {
         mut self,
         escaper: &ArcEscaper,
         task_notes: &ServerTaskNotes,
-        task_stats: ArcTcpConnectionTaskRemoteStats,
+        task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> Result<Self, Self> {
         match escaper
-            .tcp_setup_connection(&mut self.tcp_notes, task_notes, task_stats)
+            .udp_setup_connection(&mut self.udp_notes, task_notes, task_stats)
             .await
         {
             Ok(c) => {
@@ -61,26 +59,26 @@ impl TcpConnectFailoverContext {
 }
 
 impl RouteFailoverEscaper {
-    pub(super) async fn tcp_setup_connection_with_failover<'a>(
+    pub(super) async fn udp_setup_connection_with_failover<'a>(
         &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
+        udp_notes: &'a mut UdpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
-        task_stats: ArcTcpConnectionTaskRemoteStats,
-    ) -> TcpConnectResult {
-        let primary_context = TcpConnectFailoverContext::new(&tcp_notes.upstream);
+        task_stats: ArcUdpConnectTaskRemoteStats,
+    ) -> UdpConnectResult {
+        let primary_context = UdpConnectFailoverContext::new(udp_notes);
         let mut primary_task =
             pin!(primary_context.run(&self.primary_node, task_notes, task_stats.clone()));
 
         match tokio::time::timeout(self.config.fallback_delay, &mut primary_task).await {
             Ok(Ok(ctx)) => {
                 self.stats.add_request_passed();
-                tcp_notes.fill_generated(&ctx.tcp_notes);
+                udp_notes.fill_generated(&ctx.udp_notes);
                 return ctx.connect_result;
             }
             Ok(Err(_)) => {
                 return match self
                     .standby_node
-                    .tcp_setup_connection(tcp_notes, task_notes, task_stats)
+                    .udp_setup_connection(udp_notes, task_notes, task_stats)
                     .await
                 {
                     Ok(c) => {
@@ -96,18 +94,18 @@ impl RouteFailoverEscaper {
             Err(_) => {}
         }
 
-        let standby_context = TcpConnectFailoverContext::new(&tcp_notes.upstream);
+        let standby_context = UdpConnectFailoverContext::new(udp_notes);
         let standby_task = pin!(standby_context.run(&self.standby_node, task_notes, task_stats));
 
         match futures_util::future::select_ok([primary_task, standby_task]).await {
             Ok((ctx, _left)) => {
                 self.stats.add_request_passed();
-                tcp_notes.fill_generated(&ctx.tcp_notes);
+                udp_notes.fill_generated(&ctx.udp_notes);
                 ctx.connect_result
             }
             Err(ctx) => {
                 self.stats.add_request_failed();
-                tcp_notes.fill_generated(&ctx.tcp_notes);
+                udp_notes.fill_generated(&ctx.udp_notes);
                 ctx.connect_result
             }
         }

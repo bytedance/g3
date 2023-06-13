@@ -128,23 +128,6 @@ impl ServerTaskNotes {
         }
     }
 
-    pub(crate) fn dup_for_read(&self) -> Self {
-        ServerTaskNotes {
-            worker_id: self.worker_id,
-            client_addr: self.client_addr,
-            server_addr: self.server_addr,
-            stage: self.stage,
-            start_at: self.start_at,
-            create_ins: self.create_ins,
-            id: self.id,
-            user_ctx: self.user_ctx.clone(),
-            wait_time: self.wait_time,
-            ready_time: self.ready_time,
-            egress_path_selection: self.egress_path_selection.clone(),
-            user_req_alive_permit: None, // skipped
-        }
-    }
-
     #[inline]
     pub(crate) fn user_ctx(&self) -> Option<&UserContext> {
         self.user_ctx.as_ref()

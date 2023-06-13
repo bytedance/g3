@@ -45,6 +45,9 @@ use crate::module::udp_relay::{
 use crate::serve::ServerTaskNotes;
 
 mod tcp_connect;
+mod tls_connect;
+mod udp_connect;
+mod udp_relay;
 
 pub(super) struct RouteFailoverEscaper {
     config: RouteFailoverEscaperConfig,
@@ -132,11 +135,10 @@ impl Escaper for RouteFailoverEscaper {
         tls_name: &'a str,
     ) -> TcpConnectResult {
         tcp_notes.escaper.clone_from(&self.config.name);
-        // TODO
-        self.stats.add_request_passed();
-        self.primary_node
-            .tls_setup_connection(tcp_notes, task_notes, task_stats, tls_config, tls_name)
-            .await
+        self.tls_setup_connection_with_failover(
+            tcp_notes, task_notes, task_stats, tls_config, tls_name,
+        )
+        .await
     }
 
     async fn udp_setup_connection<'a>(
@@ -146,10 +148,7 @@ impl Escaper for RouteFailoverEscaper {
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
         udp_notes.escaper.clone_from(&self.config.name);
-        // TODO
-        self.stats.add_request_passed();
-        self.primary_node
-            .udp_setup_connection(udp_notes, task_notes, task_stats)
+        self.udp_setup_connection_with_failover(udp_notes, task_notes, task_stats)
             .await
     }
 
@@ -160,10 +159,7 @@ impl Escaper for RouteFailoverEscaper {
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
         udp_notes.escaper.clone_from(&self.config.name);
-        // TODO
-        self.stats.add_request_passed();
-        self.primary_node
-            .udp_setup_relay(udp_notes, task_notes, task_stats)
+        self.udp_setup_relay_with_failover(udp_notes, task_notes, task_stats)
             .await
     }
 

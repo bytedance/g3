@@ -3,7 +3,7 @@ name = "g3proxy"
 version = "1.7.16"
 license.workspace = true
 edition.workspace = true
-rust-version = "1.66"
+rust-version = "1.68"
 description = "G3 generic proxy"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
