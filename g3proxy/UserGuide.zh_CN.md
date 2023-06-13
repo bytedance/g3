@@ -115,7 +115,7 @@ stat:
   target:
     udp: 127.0.0.1:8125 # statsd的UDP套接字地址
     # unix: /run/statsd.sock
-  prefix: g3proxy       # 打点tag前缀
+  prefix: g3proxy       # 打点路径前缀
   emit_duration: 200ms  # 打点间隔
 ```
 
