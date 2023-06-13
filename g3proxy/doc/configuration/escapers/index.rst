@@ -30,6 +30,7 @@ Escapers
    route_select
    route_upstream
    route_client
+   route_failover
    trick_float
 
 Common Keys

@@ -26,8 +26,8 @@ pub(crate) use connection::{
     HttpForwardWrite, HttpForwardWriterForAdaptation,
 };
 pub(crate) use context::{
-    BoxHttpForwardContext, DirectHttpForwardContext, HttpForwardContext, ProxyHttpForwardContext,
-    RouteHttpForwardContext,
+    BoxHttpForwardContext, DirectHttpForwardContext, FailoverHttpForwardContext,
+    HttpForwardContext, ProxyHttpForwardContext, RouteHttpForwardContext,
 };
 pub(crate) use response::HttpProxyClientResponse;
 pub(crate) use stats::{

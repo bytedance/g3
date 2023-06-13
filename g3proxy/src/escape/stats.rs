@@ -222,11 +222,11 @@ impl RouteEscaperStats {
         self.id
     }
 
-    pub(super) fn add_request_passed(&self) {
+    pub(crate) fn add_request_passed(&self) {
         self.request_passed.fetch_add(1, Ordering::Relaxed);
     }
 
-    pub(super) fn add_request_failed(&self) {
+    pub(crate) fn add_request_failed(&self) {
         self.request_failed.fetch_add(1, Ordering::Relaxed);
     }
 

@@ -66,11 +66,11 @@ impl RouteFailoverEscaperConfig {
                 self.name = g3_yaml::value::as_metrics_name(v)?;
                 Ok(())
             }
-            "primary" => {
+            "primary" | "primary_next" => {
                 self.primary_node = g3_yaml::value::as_metrics_name(v)?;
                 Ok(())
             }
-            "standby" => {
+            "standby" | "standby_next" => {
                 self.standby_node = g3_yaml::value::as_metrics_name(v)?;
                 Ok(())
             }

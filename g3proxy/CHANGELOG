@@ -1,4 +1,7 @@
 
+v1.7.17:
+ - Feature: add route_failover escaper
+
 v1.7.16:
  - Compatibility: update build dependencies
 

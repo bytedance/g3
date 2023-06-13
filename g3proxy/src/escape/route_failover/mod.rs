@@ -33,7 +33,7 @@ use crate::module::ftp_over_http::{
 };
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, BoxHttpForwardContext,
-    RouteHttpForwardContext,
+    FailoverHttpForwardContext,
 };
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
 use crate::module::udp_connect::{
@@ -44,6 +44,7 @@ use crate::module::udp_relay::{
 };
 use crate::serve::ServerTaskNotes;
 
+mod ftp_connect;
 mod tcp_connect;
 mod tls_connect;
 mod udp_connect;
@@ -163,9 +164,13 @@ impl Escaper for RouteFailoverEscaper {
             .await
     }
 
-    fn new_http_forward_context(&self, escaper: ArcEscaper) -> BoxHttpForwardContext {
-        // TODO
-        let ctx = RouteHttpForwardContext::new(escaper);
+    fn new_http_forward_context(&self, _escaper: ArcEscaper) -> BoxHttpForwardContext {
+        let ctx = FailoverHttpForwardContext::new(
+            &self.primary_node,
+            &self.standby_node,
+            self.config.fallback_delay,
+            self.stats.clone(),
+        );
         Box::new(ctx)
     }
 
@@ -175,10 +180,7 @@ impl Escaper for RouteFailoverEscaper {
         task_notes: &'a ServerTaskNotes,
         upstream: &'a UpstreamAddr,
     ) -> BoxFtpConnectContext {
-        self.stats.add_request_passed();
-        // TODO
-        self.primary_node
-            .new_ftp_connect_context(Arc::clone(&self.primary_node), task_notes, upstream)
+        self.new_ftp_connect_context_with_failover(task_notes, upstream)
             .await
     }
 }

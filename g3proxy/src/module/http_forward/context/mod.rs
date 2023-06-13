@@ -33,6 +33,9 @@ pub(crate) use proxy::ProxyHttpForwardContext;
 mod route;
 pub(crate) use route::RouteHttpForwardContext;
 
+mod failover;
+pub(crate) use failover::FailoverHttpForwardContext;
+
 pub(crate) type BoxHttpForwardContext = Box<dyn HttpForwardContext + Send>;
 
 #[async_trait]

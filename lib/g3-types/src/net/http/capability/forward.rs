@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+use std::ops;
+
 use http::Method;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -64,6 +66,20 @@ impl HttpForwardCapability {
             Method::PUT => self.forward_ftp_put,
             Method::DELETE => self.forward_ftp_del,
             _ => self.forward_ftp_all,
+        }
+    }
+}
+
+impl ops::BitAnd for HttpForwardCapability {
+    type Output = Self;
+
+    fn bitand(self, rhs: Self) -> Self::Output {
+        HttpForwardCapability {
+            forward_https: self.forward_https & rhs.forward_https,
+            forward_ftp_all: self.forward_ftp_all & rhs.forward_ftp_all,
+            forward_ftp_get: self.forward_ftp_get & rhs.forward_ftp_get,
+            forward_ftp_put: self.forward_ftp_put & rhs.forward_ftp_put,
+            forward_ftp_del: self.forward_ftp_del & rhs.forward_ftp_del,
         }
     }
 }
