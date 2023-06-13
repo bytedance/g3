@@ -1,4 +1,9 @@
 
+v0.5.0:
+ - Removed: remove util g3fcgen-one
+ - Optimization: set correct default CA path if build using vendored openssl
+ - Compatibility: compile on MacOS / FreeBSD / NetBSD
+
 v0.4.1:
  - BUG FIX: init openssl properly
 

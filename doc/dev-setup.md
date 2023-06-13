@@ -117,7 +117,7 @@ It is recommended to use Debian based distro as your development platform.
 
 ```shell
 apt-get install gcc pkgconf libtool make capnproto
-apt-get install curl mkcert jq xz-utils tar
+apt-get install curl jq xz-utils tar
 apt-get install libssl-dev libc-ares-dev
 # install lua5.4 or any other versions available on your system
 apt-get install lua5.4-dev
@@ -132,6 +132,8 @@ apt-get --no-install-recommends devscripts
 
 The devel packages is contained in repos that is not enabled by default,
 you need to check the files under /etc/yum.repo.d/ and enable the corresponding repos.
+See [EPEL Quickstart](https://docs.fedoraproject.org/en-US/epel/#_quickstart) for more info.
+
 Some scripting or testing tools may be unavailable.
 
 ```shell
@@ -219,7 +221,6 @@ capnproto
 
 The following tools are needed to run testing scripts:
 ```text
-mkcert
 curl
 ```
 

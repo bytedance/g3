@@ -1,4 +1,3 @@
 usr/bin/g3fcgen
-usr/bin/g3fcgen-one
 lib/systemd/system/
 lib/systemd/system-preset/

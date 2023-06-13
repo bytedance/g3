@@ -60,6 +60,7 @@ mod proxy_http;
 mod proxy_https;
 mod proxy_socks5;
 mod route_client;
+mod route_failover;
 mod route_mapping;
 mod route_query;
 mod route_resolved;

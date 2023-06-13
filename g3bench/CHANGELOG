@@ -1,4 +1,11 @@
 
+v0.7.0:
+ - Feature: add proxy protocol support for h1/h2/ssl target
+ - Feature: add keyless target
+ - Feature: allow to set task latency
+ - Optimization: set correct default CA path if build using vendored openssl
+ - BUG FIX: make quit reliable
+
 v0.6.2:
  - Feature: add progress bar by default in more cases
 

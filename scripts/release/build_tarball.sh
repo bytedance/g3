@@ -91,7 +91,7 @@ done
 
 echo "==> cleaning useless cargo patches"
 useless_patches=$(cargo tree 2>&1 >/dev/null | awk -f "${SCRIPT_DIR}"/useless_patch.awk)
-"${SCRIPT_DIR}"/prune_patch.py --input Cargo.toml --output Cargo.toml ${useless_patches}
+[ -z "${useless_patches}" ] || "${SCRIPT_DIR}"/prune_patch.py --input Cargo.toml --output Cargo.toml ${useless_patches}
 
 
 echo "==> cleaning local cargo checkouts"

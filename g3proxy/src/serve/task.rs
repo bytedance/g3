@@ -28,7 +28,7 @@ use g3_types::route::EgressPathSelection;
 
 use crate::auth::UserContext;
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub(crate) enum ServerTaskStage {
     Created,
     Preparing,

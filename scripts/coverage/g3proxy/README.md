@@ -6,15 +6,6 @@ Setup for g3proxy coverage tests
 
 We use the following tools in the coverage scripts:
 
-## mkcert
-
-We use this to generate local self-signed certificates.
-
-Install on Debian:
-```shell
-apt install mkcert
-```
-
 ## docker
 
 We use docker containers to run various target services, i.e. httpbin.

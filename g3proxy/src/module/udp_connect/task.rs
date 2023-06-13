@@ -56,4 +56,24 @@ impl UdpConnectTaskNotes {
             expire: None,
         }
     }
+
+    pub(crate) fn dup_as_new(&self) -> Self {
+        UdpConnectTaskNotes {
+            buf_conf: self.buf_conf,
+            upstream: self.upstream.clone(),
+            escaper: MetricsName::default(),
+            bind: None,
+            next: None,
+            local: None,
+            expire: None,
+        }
+    }
+
+    pub(crate) fn fill_generated(&mut self, other: &Self) {
+        self.escaper.clone_from(&other.escaper);
+        self.bind = other.bind;
+        self.next = other.next;
+        self.local = other.local;
+        self.expire = other.expire;
+    }
 }

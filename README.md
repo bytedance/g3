@@ -84,6 +84,8 @@ If you want to do a release build:
 
     For rpm package:
     ```shell
+    rpmbuild -ta ./<name>-<version>.tar.xz
+    # if failed, you can run the following commands manually:
     tar xvf <name>-<version>.tar.xz ./<name>-<version>/<name>.spec
     cp <name>-<version>.tar.xz ~/rpmbuild/SOURCES/
     rpmbuild -ba ./<name>-<version>/<name>.spec
