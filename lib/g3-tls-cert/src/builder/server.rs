@@ -54,6 +54,7 @@ impl ServerCertBuilder {
     impl_new!(new_ec256);
     impl_new!(new_ec384);
     impl_new!(new_ec521);
+    impl_new!(new_sm2);
     impl_new!(new_ed25519);
     impl_new!(new_ed448);
     impl_new!(new_x25519);

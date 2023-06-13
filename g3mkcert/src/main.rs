@@ -46,6 +46,7 @@ const ARG_EC224: &str = "ec224";
 const ARG_EC256: &str = "ec256";
 const ARG_EC384: &str = "ec384";
 const ARG_EC521: &str = "ec521";
+const ARG_SM2: &str = "sm2";
 const ARG_ED25519: &str = "ed25519";
 const ARG_ED448: &str = "ed448";
 const ARG_X25519: &str = "x25519";
@@ -199,6 +200,13 @@ fn build_cli_args() -> Command {
                 .help("Use Curve P-521")
                 .num_args(0)
                 .long(ARG_EC521)
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new(ARG_SM2)
+                .help("Use Curve SM2")
+                .num_args(0)
+                .long(ARG_SM2)
                 .action(ArgAction::SetTrue),
         )
         .arg(
@@ -418,6 +426,8 @@ fn generate_root(args: ArgMatches) -> anyhow::Result<()> {
         RootCertBuilder::new_ed448()?
     } else if args.get_flag(ARG_ED25519) {
         RootCertBuilder::new_ed25519()?
+    } else if args.get_flag(ARG_SM2) {
+        RootCertBuilder::new_sm2()?
     } else if args.get_flag(ARG_EC521) {
         RootCertBuilder::new_ec521()?
     } else if args.get_flag(ARG_EC384) {
@@ -456,6 +466,8 @@ fn generate_intermediate(args: ArgMatches) -> anyhow::Result<()> {
         IntermediateCertBuilder::new_ed448()?
     } else if args.get_flag(ARG_ED25519) {
         IntermediateCertBuilder::new_ed25519()?
+    } else if args.get_flag(ARG_SM2) {
+        IntermediateCertBuilder::new_sm2()?
     } else if args.get_flag(ARG_EC521) {
         IntermediateCertBuilder::new_ec521()?
     } else if args.get_flag(ARG_EC384) {
@@ -496,6 +508,8 @@ fn generate_tls_server(args: ArgMatches) -> anyhow::Result<()> {
         ServerCertBuilder::new_ed448()?
     } else if args.get_flag(ARG_ED25519) {
         ServerCertBuilder::new_ed25519()?
+    } else if args.get_flag(ARG_SM2) {
+        ServerCertBuilder::new_sm2()?
     } else if args.get_flag(ARG_EC521) {
         ServerCertBuilder::new_ec521()?
     } else if args.get_flag(ARG_EC384) {
@@ -538,6 +552,8 @@ fn generate_tls_client(args: ArgMatches) -> anyhow::Result<()> {
         ClientCertBuilder::new_ed448()?
     } else if args.get_flag(ARG_ED25519) {
         ClientCertBuilder::new_ed25519()?
+    } else if args.get_flag(ARG_SM2) {
+        ClientCertBuilder::new_sm2()?
     } else if args.get_flag(ARG_EC521) {
         ClientCertBuilder::new_ec521()?
     } else if args.get_flag(ARG_EC384) {
