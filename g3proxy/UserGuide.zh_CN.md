@@ -115,7 +115,7 @@ stat:
   target:
     udp: 127.0.0.1:8125 # statsd的UDP套接字地址
     # unix: /run/statsd.sock
-  prefix: g3proxy       # 打点路径前缀
+  prefix: g3proxy       # 打点名称前缀，比如 server.task.total 会转变为 g3proxy.server.task.total
   emit_duration: 200ms  # 打点间隔
 ```
 

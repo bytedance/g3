@@ -18,7 +18,7 @@ The following is the common tags for all metrics:
 
 * stat_id
 
-  A machine local unique stat_id for dedup purpose. It should be dropped by statsd, and the metrics with the same
+  A machine local unique stat_id for dedup purpose. It should be **dropped** by statsd, and the metrics with the same
   remaining tags should be aggregated.
 
 .. _metrics_tag_transport:
