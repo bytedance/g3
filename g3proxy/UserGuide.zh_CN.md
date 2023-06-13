@@ -7,6 +7,7 @@
     + [服务管理](#服务管理)
     + [热升级](#热升级)
     + [配置结构](#配置结构)
+    + [监控](#监控)
 - [基础用法](#基础用法)
     + [HTTP代理](#http代理)
     + [SOCKS代理](#socks代理)
@@ -101,6 +102,24 @@ g3proxy采用模块化方式进行功能设计，主要包含以下功能模块�
 拆分文件配置可参考[examples/hybrid_https_proxy](examples/hybrid_https_proxy)。
 
 下文示例将不展示完整配置文件，仅对相关涉及的部分进行展示，完整示例参考[examples](examples)。
+
+### 监控
+
+为方便接入各种监控解决方案，G3项目统一使用[statsd](https://www.datadoghq.com/blog/statsd/)作为监控打点输出协议，
+用户可以根据自己的实际情况选择合适的statsd实现（例如[gostatsd](https://github.com/atlassian/gostatsd)），配置好然后接入自己的监控系统。
+
+g3proxy的监控配置在主配置文件*main.yml*中进行配置，示例如下：
+
+```yaml
+stat:
+  target:
+    udp: 127.0.0.1:8125 # statsd的UDP套接字地址
+    # unix: /run/statsd.sock
+  prefix: g3proxy       # 打点tag前缀
+  emit_duration: 200ms  # 打点间隔
+```
+
+具体metrics定义在 [metrics](doc/metrics) 文件夹下，建议生成sphinx html文档后查看。
 
 ## 基础用法
 
