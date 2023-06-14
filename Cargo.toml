@@ -163,7 +163,7 @@ g3-socks = { version = "0.1", path = "lib/g3-socks" }
 g3-statsd = { version = "0.1", path = "lib/g3-statsd" }
 g3-stdlog = { version = "0.1", path = "lib/g3-stdlog" }
 g3-syslog = { version = "0.5", path = "lib/g3-syslog" }
-g3-tls-cert = { version = "0.1", path = "lib/g3-tls-cert" }
+g3-tls-cert = { version = "0.2", path = "lib/g3-tls-cert" }
 g3-types = { version = "0.3", path = "lib/g3-types" }
 g3-xcrypt = { version = "0.1", path = "lib/g3-xcrypt" }
 g3-yaml = { version = "0.4", path = "lib/g3-yaml" }

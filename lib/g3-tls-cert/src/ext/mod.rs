@@ -19,5 +19,8 @@ mod ffi;
 mod x509;
 pub use x509::X509Ext;
 
+mod x509_builder;
+pub use x509_builder::X509BuilderExt;
+
 mod x509_pubkey;
 pub use x509_pubkey::{X509Pubkey, X509PubkeyRef};

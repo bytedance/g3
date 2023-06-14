@@ -23,6 +23,7 @@ use openssl::x509::extension::{BasicConstraints, KeyUsage, SubjectKeyIdentifier}
 use openssl::x509::{X509Builder, X509Extension, X509};
 
 use super::{asn1_time_from_chrono, SubjectNameBuilder};
+use crate::ext::X509BuilderExt;
 
 pub struct RootCertBuilder {
     pkey: PKey<Private>,
@@ -31,7 +32,6 @@ pub struct RootCertBuilder {
     basic_constraints: X509Extension,
     not_before: Asn1Time,
     not_after: Asn1Time,
-    digest: MessageDigest,
     subject_builder: SubjectNameBuilder,
 }
 
@@ -49,6 +49,7 @@ impl RootCertBuilder {
     impl_new!(new_ec256);
     impl_new!(new_ec384);
     impl_new!(new_ec521);
+    impl_new!(new_sm2);
     impl_new!(new_ed25519);
     impl_new!(new_ed448);
     impl_new!(new_x25519);
@@ -65,6 +66,7 @@ impl RootCertBuilder {
         let key_usage = KeyUsage::new()
             .critical()
             .key_cert_sign()
+            .crl_sign()
             .build()
             .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
 
@@ -93,7 +95,6 @@ impl RootCertBuilder {
             basic_constraints,
             not_before,
             not_after,
-            digest: MessageDigest::sha256(),
             subject_builder: SubjectNameBuilder::default(),
         })
     }
@@ -117,7 +118,7 @@ impl RootCertBuilder {
         self.serial = serial;
     }
 
-    pub fn build(&self) -> anyhow::Result<X509> {
+    pub fn build(&self, sign_digest: Option<MessageDigest>) -> anyhow::Result<X509> {
         let mut builder =
             X509Builder::new().map_err(|e| anyhow!("failed to create x509 builder {e}"))?;
         builder
@@ -164,7 +165,7 @@ impl RootCertBuilder {
             .set_issuer_name(&subject_name)
             .map_err(|e| anyhow!("failed to set issuer name: {e}"))?;
         builder
-            .sign(&self.pkey, self.digest)
+            .sign_with_optional_digest(&self.pkey, sign_digest)
             .map_err(|e| anyhow!("failed to sign: {e}"))?;
 
         Ok(builder.build())

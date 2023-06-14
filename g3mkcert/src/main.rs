@@ -27,7 +27,9 @@ use openssl::x509::{X509Name, X509};
 
 use g3_tls_cert::builder::{
     ClientCertBuilder, IntermediateCertBuilder, RootCertBuilder, ServerCertBuilder,
-    SubjectNameBuilder,
+    SubjectNameBuilder, TlcpClientEncCertBuilder, TlcpClientSignCertBuilder,
+    TlcpServerEncCertBuilder, TlcpServerSignCertBuilder, TlsClientCertBuilder,
+    TlsServerCertBuilder,
 };
 use g3_types::net::Host;
 
@@ -40,12 +42,17 @@ const ARG_ROOT: &str = "root";
 const ARG_INTERMEDIATE: &str = "intermediate";
 const ARG_TLS_SERVER: &str = "tls-server";
 const ARG_TLS_CLIENT: &str = "tls-client";
+const ARG_TLCP_SERVER_SIGN: &str = "tlcp-server-sign";
+const ARG_TLCP_SERVER_ENC: &str = "tlcp-server-enc";
+const ARG_TLCP_CLIENT_SIGN: &str = "tlcp-client-sign";
+const ARG_TLCP_CLIENT_ENC: &str = "tlcp-client-enc";
 
 const ARG_RSA: &str = "rsa";
 const ARG_EC224: &str = "ec224";
 const ARG_EC256: &str = "ec256";
 const ARG_EC384: &str = "ec384";
 const ARG_EC521: &str = "ec521";
+const ARG_SM2: &str = "sm2";
 const ARG_ED25519: &str = "ed25519";
 const ARG_ED448: &str = "ed448";
 const ARG_X25519: &str = "x25519";
@@ -92,6 +99,14 @@ fn main() -> anyhow::Result<()> {
         generate_tls_server(args)
     } else if args.get_flag(ARG_TLS_CLIENT) {
         generate_tls_client(args)
+    } else if args.get_flag(ARG_TLCP_SERVER_SIGN) {
+        generate_tlcp_server_sign(args)
+    } else if args.get_flag(ARG_TLCP_SERVER_ENC) {
+        generate_tlcp_server_enc(args)
+    } else if args.get_flag(ARG_TLCP_CLIENT_SIGN) {
+        generate_tlcp_client_sign(args)
+    } else if args.get_flag(ARG_TLCP_CLIENT_ENC) {
+        generate_tlcp_client_enc(args)
     } else {
         unreachable!()
     }
@@ -152,6 +167,46 @@ fn build_cli_args() -> Command {
                 .requires(ARG_CA_KEY)
                 .requires(ARG_HOST),
         )
+        .arg(
+            Arg::new(ARG_TLCP_SERVER_SIGN)
+                .help("Generate end entity sign certificate for TLCP server")
+                .num_args(0)
+                .long(ARG_TLCP_SERVER_SIGN)
+                .action(ArgAction::SetTrue)
+                .requires(ARG_CA_CERT)
+                .requires(ARG_CA_KEY)
+                .requires(ARG_HOST),
+        )
+        .arg(
+            Arg::new(ARG_TLCP_SERVER_ENC)
+                .help("Generate end entity enc certificate for TLCP server")
+                .num_args(0)
+                .long(ARG_TLCP_SERVER_ENC)
+                .action(ArgAction::SetTrue)
+                .requires(ARG_CA_CERT)
+                .requires(ARG_CA_KEY)
+                .requires(ARG_HOST),
+        )
+        .arg(
+            Arg::new(ARG_TLCP_CLIENT_SIGN)
+                .help("Generate end entity sign certificate for TLCP client")
+                .num_args(0)
+                .long(ARG_TLCP_CLIENT_SIGN)
+                .action(ArgAction::SetTrue)
+                .requires(ARG_CA_CERT)
+                .requires(ARG_CA_KEY)
+                .requires(ARG_HOST),
+        )
+        .arg(
+            Arg::new(ARG_TLCP_CLIENT_ENC)
+                .help("Generate end entity enc certificate for TLCP client")
+                .num_args(0)
+                .long(ARG_TLCP_CLIENT_ENC)
+                .action(ArgAction::SetTrue)
+                .requires(ARG_CA_CERT)
+                .requires(ARG_CA_KEY)
+                .requires(ARG_HOST),
+        )
         .group(
             ArgGroup::new(ARG_GROUP_TYPE)
                 .args([
@@ -159,6 +214,10 @@ fn build_cli_args() -> Command {
                     ARG_INTERMEDIATE,
                     ARG_TLS_SERVER,
                     ARG_TLS_CLIENT,
+                    ARG_TLCP_SERVER_SIGN,
+                    ARG_TLCP_SERVER_ENC,
+                    ARG_TLCP_CLIENT_SIGN,
+                    ARG_TLCP_CLIENT_ENC,
                     ARG_VERSION,
                     ARG_COMPLETION,
                 ])
@@ -199,6 +258,13 @@ fn build_cli_args() -> Command {
                 .help("Use Curve P-521")
                 .num_args(0)
                 .long(ARG_EC521)
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new(ARG_SM2)
+                .help("Use Curve SM2")
+                .num_args(0)
+                .long(ARG_SM2)
                 .action(ArgAction::SetTrue),
         )
         .arg(
@@ -418,6 +484,8 @@ fn generate_root(args: ArgMatches) -> anyhow::Result<()> {
         RootCertBuilder::new_ed448()?
     } else if args.get_flag(ARG_ED25519) {
         RootCertBuilder::new_ed25519()?
+    } else if args.get_flag(ARG_SM2) {
+        RootCertBuilder::new_sm2()?
     } else if args.get_flag(ARG_EC521) {
         RootCertBuilder::new_ec521()?
     } else if args.get_flag(ARG_EC384) {
@@ -436,7 +504,7 @@ fn generate_root(args: ArgMatches) -> anyhow::Result<()> {
         .common_name()
         .ok_or_else(|| anyhow!("no common name set"))?;
 
-    let cert = builder.build()?;
+    let cert = builder.build(None)?;
     let cert_output = get_output_cert_file(&args).unwrap_or_else(|| cn2fn(format!("{cn}.crt")));
     write_certificate_file(&cert, cert_output)?;
     let key_output = get_output_key_file(&args).unwrap_or_else(|| cn2fn(format!("{cn}.key")));
@@ -456,6 +524,8 @@ fn generate_intermediate(args: ArgMatches) -> anyhow::Result<()> {
         IntermediateCertBuilder::new_ed448()?
     } else if args.get_flag(ARG_ED25519) {
         IntermediateCertBuilder::new_ed25519()?
+    } else if args.get_flag(ARG_SM2) {
+        IntermediateCertBuilder::new_sm2()?
     } else if args.get_flag(ARG_EC521) {
         IntermediateCertBuilder::new_ec521()?
     } else if args.get_flag(ARG_EC384) {
@@ -476,7 +546,7 @@ fn generate_intermediate(args: ArgMatches) -> anyhow::Result<()> {
         .common_name()
         .ok_or_else(|| anyhow!("no common name set"))?;
 
-    let cert = builder.build(path_len, &ca_cert, &ca_key)?;
+    let cert = builder.build(path_len, &ca_cert, &ca_key, None)?;
     let cert_output = get_output_cert_file(&args).unwrap_or_else(|| cn2fn(format!("{cn}.crt")));
     write_certificate_file(&cert, cert_output)?;
     let key_output = get_output_key_file(&args).unwrap_or_else(|| cn2fn(format!("{cn}.key")));
@@ -486,28 +556,62 @@ fn generate_intermediate(args: ArgMatches) -> anyhow::Result<()> {
 }
 
 fn generate_tls_server(args: ArgMatches) -> anyhow::Result<()> {
-    let mut builder = if let Some(bits) = args.get_one::<u32>(ARG_RSA) {
-        ServerCertBuilder::new_rsa(*bits)?
+    let builder = if let Some(bits) = args.get_one::<u32>(ARG_RSA) {
+        TlsServerCertBuilder::new_rsa(*bits)?
     } else if args.get_flag(ARG_X448) {
-        ServerCertBuilder::new_x448()?
+        TlsServerCertBuilder::new_x448()?
     } else if args.get_flag(ARG_X25519) {
-        ServerCertBuilder::new_x25519()?
+        TlsServerCertBuilder::new_x25519()?
     } else if args.get_flag(ARG_ED448) {
-        ServerCertBuilder::new_ed448()?
+        TlsServerCertBuilder::new_ed448()?
     } else if args.get_flag(ARG_ED25519) {
-        ServerCertBuilder::new_ed25519()?
+        TlsServerCertBuilder::new_ed25519()?
+    } else if args.get_flag(ARG_SM2) {
+        TlsServerCertBuilder::new_sm2()?
     } else if args.get_flag(ARG_EC521) {
-        ServerCertBuilder::new_ec521()?
+        TlsServerCertBuilder::new_ec521()?
     } else if args.get_flag(ARG_EC384) {
-        ServerCertBuilder::new_ec384()?
+        TlsServerCertBuilder::new_ec384()?
     } else if args.get_flag(ARG_EC256) {
-        ServerCertBuilder::new_ec256()?
+        TlsServerCertBuilder::new_ec256()?
     } else if args.get_flag(ARG_EC224) {
-        ServerCertBuilder::new_ec224()?
+        TlsServerCertBuilder::new_ec224()?
     } else {
-        ServerCertBuilder::new_ec256()?
+        TlsServerCertBuilder::new_ec256()?
     };
 
+    generate_server(builder, args)
+}
+
+fn generate_tlcp_server_sign(args: ArgMatches) -> anyhow::Result<()> {
+    let builder = if let Some(bits) = args.get_one::<u32>(ARG_RSA) {
+        TlcpServerSignCertBuilder::new_rsa(*bits)?
+    } else if args.get_flag(ARG_SM2) {
+        TlcpServerSignCertBuilder::new_sm2()?
+    } else if args.contains_id(ARG_GROUP_ALGORITHM) {
+        return Err(anyhow!("unsupported signature algorithm"));
+    } else {
+        TlcpServerSignCertBuilder::new_sm2()?
+    };
+
+    generate_server(builder, args)
+}
+
+fn generate_tlcp_server_enc(args: ArgMatches) -> anyhow::Result<()> {
+    let builder = if let Some(bits) = args.get_one::<u32>(ARG_RSA) {
+        TlcpServerEncCertBuilder::new_rsa(*bits)?
+    } else if args.get_flag(ARG_SM2) {
+        TlcpServerEncCertBuilder::new_sm2()?
+    } else if args.contains_id(ARG_GROUP_ALGORITHM) {
+        return Err(anyhow!("unsupported signature algorithm"));
+    } else {
+        TlcpServerEncCertBuilder::new_sm2()?
+    };
+
+    generate_server(builder, args)
+}
+
+fn generate_server(mut builder: ServerCertBuilder, args: ArgMatches) -> anyhow::Result<()> {
     let (ca_cert, ca_key) = get_ca_cert_and_key(&args)?;
     let (subject_name, subject_alt_name) =
         get_subject_with_host(&args, builder.subject_builder_mut())?;
@@ -517,7 +621,7 @@ fn generate_tls_server(args: ArgMatches) -> anyhow::Result<()> {
         .ok_or_else(|| anyhow!("no common name set"))?;
 
     let cert = builder
-        .build_with_subject(&subject_name, subject_alt_name, &ca_cert, &ca_key)
+        .build_with_subject(&subject_name, subject_alt_name, &ca_cert, &ca_key, None)
         .context("failed to build tls server certificate")?;
     let cert_output = get_output_cert_file(&args).unwrap_or_else(|| cn2fn(format!("{cn}.crt")));
     write_certificate_file(&cert, cert_output)?;
@@ -528,28 +632,62 @@ fn generate_tls_server(args: ArgMatches) -> anyhow::Result<()> {
 }
 
 fn generate_tls_client(args: ArgMatches) -> anyhow::Result<()> {
-    let mut builder = if let Some(bits) = args.get_one::<u32>(ARG_RSA) {
-        ClientCertBuilder::new_rsa(*bits)?
+    let builder = if let Some(bits) = args.get_one::<u32>(ARG_RSA) {
+        TlsClientCertBuilder::new_rsa(*bits)?
     } else if args.get_flag(ARG_X448) {
-        ClientCertBuilder::new_x448()?
+        TlsClientCertBuilder::new_x448()?
     } else if args.get_flag(ARG_X25519) {
-        ClientCertBuilder::new_x25519()?
+        TlsClientCertBuilder::new_x25519()?
     } else if args.get_flag(ARG_ED448) {
-        ClientCertBuilder::new_ed448()?
+        TlsClientCertBuilder::new_ed448()?
     } else if args.get_flag(ARG_ED25519) {
-        ClientCertBuilder::new_ed25519()?
+        TlsClientCertBuilder::new_ed25519()?
+    } else if args.get_flag(ARG_SM2) {
+        TlsClientCertBuilder::new_sm2()?
     } else if args.get_flag(ARG_EC521) {
-        ClientCertBuilder::new_ec521()?
+        TlsClientCertBuilder::new_ec521()?
     } else if args.get_flag(ARG_EC384) {
-        ClientCertBuilder::new_ec384()?
+        TlsClientCertBuilder::new_ec384()?
     } else if args.get_flag(ARG_EC256) {
-        ClientCertBuilder::new_ec256()?
+        TlsClientCertBuilder::new_ec256()?
     } else if args.get_flag(ARG_EC224) {
-        ClientCertBuilder::new_ec224()?
+        TlsClientCertBuilder::new_ec224()?
     } else {
-        ClientCertBuilder::new_ec256()?
+        TlsClientCertBuilder::new_ec256()?
     };
 
+    generate_client(builder, args)
+}
+
+fn generate_tlcp_client_sign(args: ArgMatches) -> anyhow::Result<()> {
+    let builder = if let Some(bits) = args.get_one::<u32>(ARG_RSA) {
+        TlcpClientSignCertBuilder::new_rsa(*bits)?
+    } else if args.get_flag(ARG_SM2) {
+        TlcpClientSignCertBuilder::new_sm2()?
+    } else if args.contains_id(ARG_GROUP_ALGORITHM) {
+        return Err(anyhow!("unsupported signature algorithm"));
+    } else {
+        TlcpClientSignCertBuilder::new_sm2()?
+    };
+
+    generate_client(builder, args)
+}
+
+fn generate_tlcp_client_enc(args: ArgMatches) -> anyhow::Result<()> {
+    let builder = if let Some(bits) = args.get_one::<u32>(ARG_RSA) {
+        TlcpClientEncCertBuilder::new_rsa(*bits)?
+    } else if args.get_flag(ARG_SM2) {
+        TlcpClientEncCertBuilder::new_sm2()?
+    } else if args.contains_id(ARG_GROUP_ALGORITHM) {
+        return Err(anyhow!("unsupported signature algorithm"));
+    } else {
+        TlcpClientEncCertBuilder::new_sm2()?
+    };
+
+    generate_client(builder, args)
+}
+
+fn generate_client(mut builder: ClientCertBuilder, args: ArgMatches) -> anyhow::Result<()> {
     let (ca_cert, ca_key) = get_ca_cert_and_key(&args)?;
     let (subject_name, subject_alt_name) =
         get_subject_with_host(&args, builder.subject_builder_mut())?;
@@ -559,7 +697,7 @@ fn generate_tls_client(args: ArgMatches) -> anyhow::Result<()> {
         .ok_or_else(|| anyhow!("no common name set"))?;
 
     let cert = builder
-        .build_with_subject(&subject_name, subject_alt_name, &ca_cert, &ca_key)
+        .build_with_subject(&subject_name, subject_alt_name, &ca_cert, &ca_key, None)
         .context("failed to build tls client certificate")?;
     let cert_output =
         get_output_cert_file(&args).unwrap_or_else(|| cn2fn(format!("{cn}-client.crt")));

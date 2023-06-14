@@ -28,6 +28,7 @@ use openssl::x509::{X509Builder, X509Extension, X509Name, X509Ref, X509};
 use g3_types::net::Host;
 
 use super::{asn1_time_from_chrono, SubjectNameBuilder};
+use crate::ext::X509BuilderExt;
 
 pub struct ClientCertBuilder {
     pkey: PKey<Private>,
@@ -36,43 +37,108 @@ pub struct ClientCertBuilder {
     ext_key_usage: X509Extension,
     not_before: Asn1Time,
     not_after: Asn1Time,
-    digest: MessageDigest,
     subject_builder: SubjectNameBuilder,
 }
 
-macro_rules! impl_new {
+pub struct TlsClientCertBuilder {}
+
+macro_rules! tls_impl_new {
     ($f:ident) => {
-        pub fn $f() -> anyhow::Result<Self> {
+        pub fn $f() -> anyhow::Result<ClientCertBuilder> {
             let pkey = super::pkey::$f()?;
-            ClientCertBuilder::with_pkey(pkey)
+            TlsClientCertBuilder::with_pkey(pkey)
         }
     };
 }
 
-impl ClientCertBuilder {
-    impl_new!(new_ec224);
-    impl_new!(new_ec256);
-    impl_new!(new_ec384);
-    impl_new!(new_ec521);
-    impl_new!(new_ed25519);
-    impl_new!(new_ed448);
-    impl_new!(new_x25519);
-    impl_new!(new_x448);
+impl TlsClientCertBuilder {
+    tls_impl_new!(new_ec224);
+    tls_impl_new!(new_ec256);
+    tls_impl_new!(new_ec384);
+    tls_impl_new!(new_ec521);
+    tls_impl_new!(new_sm2);
+    tls_impl_new!(new_ed25519);
+    tls_impl_new!(new_ed448);
+    tls_impl_new!(new_x25519);
+    tls_impl_new!(new_x448);
 
-    pub fn new_rsa(bits: u32) -> anyhow::Result<Self> {
+    pub fn new_rsa(bits: u32) -> anyhow::Result<ClientCertBuilder> {
         let pkey = super::pkey::new_rsa(bits)?;
-        ClientCertBuilder::with_pkey(pkey)
+        TlsClientCertBuilder::with_pkey(pkey)
     }
 
-    fn with_pkey(pkey: PKey<Private>) -> anyhow::Result<Self> {
-        let serial = super::serial::random_16()?;
-
+    fn with_pkey(pkey: PKey<Private>) -> anyhow::Result<ClientCertBuilder> {
         let key_usage = KeyUsage::new()
             .critical()
             .digital_signature()
             .key_encipherment()
             .build()
             .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
+        ClientCertBuilder::new(pkey, key_usage)
+    }
+}
+
+pub struct TlcpClientSignCertBuilder {}
+
+macro_rules! tlcp_sign_impl_new {
+    ($f:ident) => {
+        pub fn $f() -> anyhow::Result<ClientCertBuilder> {
+            let pkey = super::pkey::$f()?;
+            TlcpClientSignCertBuilder::with_pkey(pkey)
+        }
+    };
+}
+
+impl TlcpClientSignCertBuilder {
+    tlcp_sign_impl_new!(new_sm2);
+
+    pub fn new_rsa(bits: u32) -> anyhow::Result<ClientCertBuilder> {
+        let pkey = super::pkey::new_rsa(bits)?;
+        TlcpClientSignCertBuilder::with_pkey(pkey)
+    }
+
+    fn with_pkey(pkey: PKey<Private>) -> anyhow::Result<ClientCertBuilder> {
+        let key_usage = KeyUsage::new()
+            .critical()
+            .digital_signature()
+            .build()
+            .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
+        ClientCertBuilder::new(pkey, key_usage)
+    }
+}
+
+pub struct TlcpClientEncCertBuilder {}
+
+macro_rules! tlcp_enc_impl_new {
+    ($f:ident) => {
+        pub fn $f() -> anyhow::Result<ClientCertBuilder> {
+            let pkey = super::pkey::$f()?;
+            TlcpClientEncCertBuilder::with_pkey(pkey)
+        }
+    };
+}
+
+impl TlcpClientEncCertBuilder {
+    tlcp_enc_impl_new!(new_sm2);
+
+    pub fn new_rsa(bits: u32) -> anyhow::Result<ClientCertBuilder> {
+        let pkey = super::pkey::new_rsa(bits)?;
+        TlcpClientEncCertBuilder::with_pkey(pkey)
+    }
+
+    fn with_pkey(pkey: PKey<Private>) -> anyhow::Result<ClientCertBuilder> {
+        let key_usage = KeyUsage::new()
+            .critical()
+            .key_encipherment()
+            .build()
+            .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
+        ClientCertBuilder::new(pkey, key_usage)
+    }
+}
+
+impl ClientCertBuilder {
+    pub fn new(pkey: PKey<Private>, key_usage: X509Extension) -> anyhow::Result<Self> {
+        let serial = super::serial::random_16()?;
 
         let ext_key_usage = ExtendedKeyUsage::new()
             .client_auth()
@@ -98,7 +164,6 @@ impl ClientCertBuilder {
             ext_key_usage,
             not_before,
             not_after,
-            digest: MessageDigest::sha256(),
             subject_builder: SubjectNameBuilder::default(),
         })
     }
@@ -131,6 +196,7 @@ impl ClientCertBuilder {
         host: &Host,
         ca_cert: &X509Ref,
         ca_key: &PKey<Private>,
+        sign_digest: Option<MessageDigest>,
     ) -> anyhow::Result<X509> {
         let mut san = SubjectAlternativeName::new();
         let subject_name = match host {
@@ -148,7 +214,7 @@ impl ClientCertBuilder {
                     .context("failed to build subject name")?
             }
         };
-        self.build_with_subject(&subject_name, san, ca_cert, ca_key)
+        self.build_with_subject(&subject_name, san, ca_cert, ca_key, sign_digest)
     }
 
     pub fn build_with_subject(
@@ -157,6 +223,7 @@ impl ClientCertBuilder {
         subject_alt_name: SubjectAlternativeName,
         ca_cert: &X509Ref,
         ca_key: &PKey<Private>,
+        sign_digest: Option<MessageDigest>,
     ) -> anyhow::Result<X509> {
         let mut builder =
             X509Builder::new().map_err(|e| anyhow!("failed to create x509 builder {e}"))?;
@@ -225,7 +292,7 @@ impl ClientCertBuilder {
             .set_issuer_name(ca_cert.subject_name())
             .map_err(|e| anyhow!("failed to set issuer name: {e}"))?;
         builder
-            .sign(ca_key, self.digest)
+            .sign_with_optional_digest(ca_key, sign_digest)
             .map_err(|e| anyhow!("failed to sign: {e}"))?;
 
         Ok(builder.build())
