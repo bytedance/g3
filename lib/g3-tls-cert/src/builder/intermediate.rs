@@ -67,6 +67,7 @@ impl IntermediateCertBuilder {
         let key_usage = KeyUsage::new()
             .critical()
             .key_cert_sign()
+            .crl_sign()
             .build()
             .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
 

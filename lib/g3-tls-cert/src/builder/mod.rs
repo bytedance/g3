@@ -24,10 +24,14 @@ mod time;
 use time::asn1_time_from_chrono;
 
 mod server;
-pub use server::ServerCertBuilder;
+pub use server::{
+    ServerCertBuilder, TlcpServerEncCertBuilder, TlcpServerSignCertBuilder, TlsServerCertBuilder,
+};
 
 mod client;
-pub use client::ClientCertBuilder;
+pub use client::{
+    ClientCertBuilder, TlcpClientEncCertBuilder, TlcpClientSignCertBuilder, TlsClientCertBuilder,
+};
 
 mod root;
 pub use root::RootCertBuilder;

@@ -21,7 +21,7 @@ use anyhow::anyhow;
 use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
 
-use g3_tls_cert::builder::ServerCertBuilder;
+use g3_tls_cert::builder::{ServerCertBuilder, TlsServerCertBuilder};
 use g3_types::net::Host;
 
 use crate::frontend::ResponseData;
@@ -49,7 +49,7 @@ pub(crate) struct OpensslBackend {
 
 impl OpensslBackend {
     pub(crate) fn new(config: &Arc<OpensslBackendConfig>) -> anyhow::Result<Self> {
-        let builder = ServerCertBuilder::new_ec256()?;
+        let builder = TlsServerCertBuilder::new_ec256()?;
         Ok(OpensslBackend {
             config: Arc::clone(config),
             builder,

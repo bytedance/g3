@@ -40,40 +40,105 @@ pub struct ServerCertBuilder {
     subject_builder: SubjectNameBuilder,
 }
 
-macro_rules! impl_new {
+pub struct TlsServerCertBuilder {}
+
+macro_rules! tls_impl_new {
     ($f:ident) => {
-        pub fn $f() -> anyhow::Result<Self> {
+        pub fn $f() -> anyhow::Result<ServerCertBuilder> {
             let pkey = super::pkey::$f()?;
-            ServerCertBuilder::with_pkey(pkey)
+            TlsServerCertBuilder::with_pkey(pkey)
         }
     };
 }
 
-impl ServerCertBuilder {
-    impl_new!(new_ec224);
-    impl_new!(new_ec256);
-    impl_new!(new_ec384);
-    impl_new!(new_ec521);
-    impl_new!(new_sm2);
-    impl_new!(new_ed25519);
-    impl_new!(new_ed448);
-    impl_new!(new_x25519);
-    impl_new!(new_x448);
+impl TlsServerCertBuilder {
+    tls_impl_new!(new_ec224);
+    tls_impl_new!(new_ec256);
+    tls_impl_new!(new_ec384);
+    tls_impl_new!(new_ec521);
+    tls_impl_new!(new_sm2);
+    tls_impl_new!(new_ed25519);
+    tls_impl_new!(new_ed448);
+    tls_impl_new!(new_x25519);
+    tls_impl_new!(new_x448);
 
-    pub fn new_rsa(bits: u32) -> anyhow::Result<Self> {
+    pub fn new_rsa(bits: u32) -> anyhow::Result<ServerCertBuilder> {
         let pkey = super::pkey::new_rsa(bits)?;
-        ServerCertBuilder::with_pkey(pkey)
+        TlsServerCertBuilder::with_pkey(pkey)
     }
 
-    fn with_pkey(pkey: PKey<Private>) -> anyhow::Result<Self> {
-        let serial = super::serial::random_16()?;
-
+    fn with_pkey(pkey: PKey<Private>) -> anyhow::Result<ServerCertBuilder> {
         let key_usage = KeyUsage::new()
             .critical()
             .digital_signature()
             .key_encipherment()
             .build()
             .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
+        ServerCertBuilder::new(pkey, key_usage)
+    }
+}
+
+pub struct TlcpServerSignCertBuilder {}
+
+macro_rules! tlcp_sign_impl_new {
+    ($f:ident) => {
+        pub fn $f() -> anyhow::Result<ServerCertBuilder> {
+            let pkey = super::pkey::$f()?;
+            TlcpServerSignCertBuilder::with_pkey(pkey)
+        }
+    };
+}
+
+impl TlcpServerSignCertBuilder {
+    tlcp_sign_impl_new!(new_sm2);
+
+    pub fn new_rsa(bits: u32) -> anyhow::Result<ServerCertBuilder> {
+        let pkey = super::pkey::new_rsa(bits)?;
+        TlcpServerSignCertBuilder::with_pkey(pkey)
+    }
+
+    fn with_pkey(pkey: PKey<Private>) -> anyhow::Result<ServerCertBuilder> {
+        let key_usage = KeyUsage::new()
+            .critical()
+            .digital_signature()
+            .build()
+            .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
+        ServerCertBuilder::new(pkey, key_usage)
+    }
+}
+
+pub struct TlcpServerEncCertBuilder {}
+
+macro_rules! tlcp_enc_impl_new {
+    ($f:ident) => {
+        pub fn $f() -> anyhow::Result<ServerCertBuilder> {
+            let pkey = super::pkey::$f()?;
+            TlcpServerEncCertBuilder::with_pkey(pkey)
+        }
+    };
+}
+
+impl TlcpServerEncCertBuilder {
+    tlcp_enc_impl_new!(new_sm2);
+
+    pub fn new_rsa(bits: u32) -> anyhow::Result<ServerCertBuilder> {
+        let pkey = super::pkey::new_rsa(bits)?;
+        TlcpServerEncCertBuilder::with_pkey(pkey)
+    }
+
+    fn with_pkey(pkey: PKey<Private>) -> anyhow::Result<ServerCertBuilder> {
+        let key_usage = KeyUsage::new()
+            .critical()
+            .key_encipherment()
+            .build()
+            .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
+        ServerCertBuilder::new(pkey, key_usage)
+    }
+}
+
+impl ServerCertBuilder {
+    pub fn new(pkey: PKey<Private>, key_usage: X509Extension) -> anyhow::Result<Self> {
+        let serial = super::serial::random_16()?;
 
         let ext_key_usage = ExtendedKeyUsage::new()
             .server_auth()
