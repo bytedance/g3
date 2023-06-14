@@ -28,6 +28,7 @@ use openssl::x509::{X509Builder, X509Extension, X509Name, X509Ref, X509};
 use g3_types::net::Host;
 
 use super::{asn1_time_from_chrono, SubjectNameBuilder};
+use crate::ext::X509BuilderExt;
 
 pub struct ClientCertBuilder {
     pkey: PKey<Private>,
@@ -36,7 +37,6 @@ pub struct ClientCertBuilder {
     ext_key_usage: X509Extension,
     not_before: Asn1Time,
     not_after: Asn1Time,
-    digest: MessageDigest,
     subject_builder: SubjectNameBuilder,
 }
 
@@ -99,7 +99,6 @@ impl ClientCertBuilder {
             ext_key_usage,
             not_before,
             not_after,
-            digest: MessageDigest::sha256(),
             subject_builder: SubjectNameBuilder::default(),
         })
     }
@@ -132,6 +131,7 @@ impl ClientCertBuilder {
         host: &Host,
         ca_cert: &X509Ref,
         ca_key: &PKey<Private>,
+        sign_digest: Option<MessageDigest>,
     ) -> anyhow::Result<X509> {
         let mut san = SubjectAlternativeName::new();
         let subject_name = match host {
@@ -149,7 +149,7 @@ impl ClientCertBuilder {
                     .context("failed to build subject name")?
             }
         };
-        self.build_with_subject(&subject_name, san, ca_cert, ca_key)
+        self.build_with_subject(&subject_name, san, ca_cert, ca_key, sign_digest)
     }
 
     pub fn build_with_subject(
@@ -158,6 +158,7 @@ impl ClientCertBuilder {
         subject_alt_name: SubjectAlternativeName,
         ca_cert: &X509Ref,
         ca_key: &PKey<Private>,
+        sign_digest: Option<MessageDigest>,
     ) -> anyhow::Result<X509> {
         let mut builder =
             X509Builder::new().map_err(|e| anyhow!("failed to create x509 builder {e}"))?;
@@ -226,7 +227,7 @@ impl ClientCertBuilder {
             .set_issuer_name(ca_cert.subject_name())
             .map_err(|e| anyhow!("failed to set issuer name: {e}"))?;
         builder
-            .sign(ca_key, self.digest)
+            .sign_with_optional_digest(ca_key, sign_digest)
             .map_err(|e| anyhow!("failed to sign: {e}"))?;
 
         Ok(builder.build())

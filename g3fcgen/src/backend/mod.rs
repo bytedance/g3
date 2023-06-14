@@ -65,9 +65,9 @@ impl OpensslBackend {
 
     pub(crate) fn generate(&self, host: &str) -> anyhow::Result<ResponseData> {
         let host = Host::from_str(host)?;
-        let cert = self
-            .builder
-            .build_fake(&host, &self.config.ca_cert, &self.config.ca_key)?;
+        let cert =
+            self.builder
+                .build_fake(&host, &self.config.ca_cert, &self.config.ca_key, None)?;
         let cert_pem = cert
             .to_pem()
             .map_err(|e| anyhow!("failed to encode cert: {e}"))?;

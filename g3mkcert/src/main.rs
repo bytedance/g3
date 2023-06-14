@@ -446,7 +446,7 @@ fn generate_root(args: ArgMatches) -> anyhow::Result<()> {
         .common_name()
         .ok_or_else(|| anyhow!("no common name set"))?;
 
-    let cert = builder.build()?;
+    let cert = builder.build(None)?;
     let cert_output = get_output_cert_file(&args).unwrap_or_else(|| cn2fn(format!("{cn}.crt")));
     write_certificate_file(&cert, cert_output)?;
     let key_output = get_output_key_file(&args).unwrap_or_else(|| cn2fn(format!("{cn}.key")));
@@ -488,7 +488,7 @@ fn generate_intermediate(args: ArgMatches) -> anyhow::Result<()> {
         .common_name()
         .ok_or_else(|| anyhow!("no common name set"))?;
 
-    let cert = builder.build(path_len, &ca_cert, &ca_key)?;
+    let cert = builder.build(path_len, &ca_cert, &ca_key, None)?;
     let cert_output = get_output_cert_file(&args).unwrap_or_else(|| cn2fn(format!("{cn}.crt")));
     write_certificate_file(&cert, cert_output)?;
     let key_output = get_output_key_file(&args).unwrap_or_else(|| cn2fn(format!("{cn}.key")));
@@ -531,7 +531,7 @@ fn generate_tls_server(args: ArgMatches) -> anyhow::Result<()> {
         .ok_or_else(|| anyhow!("no common name set"))?;
 
     let cert = builder
-        .build_with_subject(&subject_name, subject_alt_name, &ca_cert, &ca_key)
+        .build_with_subject(&subject_name, subject_alt_name, &ca_cert, &ca_key, None)
         .context("failed to build tls server certificate")?;
     let cert_output = get_output_cert_file(&args).unwrap_or_else(|| cn2fn(format!("{cn}.crt")));
     write_certificate_file(&cert, cert_output)?;
@@ -575,7 +575,7 @@ fn generate_tls_client(args: ArgMatches) -> anyhow::Result<()> {
         .ok_or_else(|| anyhow!("no common name set"))?;
 
     let cert = builder
-        .build_with_subject(&subject_name, subject_alt_name, &ca_cert, &ca_key)
+        .build_with_subject(&subject_name, subject_alt_name, &ca_cert, &ca_key, None)
         .context("failed to build tls client certificate")?;
     let cert_output =
         get_output_cert_file(&args).unwrap_or_else(|| cn2fn(format!("{cn}-client.crt")));
