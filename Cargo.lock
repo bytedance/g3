@@ -1063,8 +1063,8 @@ dependencies = [
 name = "g3-stdlog"
 version = "0.1.0"
 dependencies = [
+ "anstyle",
  "chrono",
- "console",
  "flume",
  "g3-datetime",
  "g3-types",
