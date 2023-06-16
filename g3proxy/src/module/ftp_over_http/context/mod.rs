@@ -20,9 +20,7 @@ use async_trait::async_trait;
 
 use g3_types::net::UpstreamAddr;
 
-use super::{
-    ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpRemoteHttpConnection,
-};
+use super::{ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpRemoteConnection};
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
 use crate::serve::ServerTaskNotes;
 
@@ -38,7 +36,7 @@ pub(crate) trait FtpConnectContext {
         &mut self,
         task_notes: &ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteControlStats,
-    ) -> Result<BoxFtpRemoteHttpConnection, TcpConnectError>;
+    ) -> Result<BoxFtpRemoteConnection, TcpConnectError>;
     fn fetch_control_tcp_notes(&self, tcp_notes: &mut TcpConnectTaskNotes);
 
     async fn new_transfer_connection(
@@ -46,7 +44,7 @@ pub(crate) trait FtpConnectContext {
         server_addr: &UpstreamAddr,
         task_notes: &ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteTransferStats,
-    ) -> Result<BoxFtpRemoteHttpConnection, TcpConnectError>;
+    ) -> Result<BoxFtpRemoteConnection, TcpConnectError>;
     fn fetch_transfer_tcp_notes(&self, tcp_notes: &mut TcpConnectTaskNotes);
 }
 

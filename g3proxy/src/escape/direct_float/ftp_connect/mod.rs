@@ -18,7 +18,7 @@ use g3_io_ext::{AggregatedIo, LimitedReader, LimitedWriter};
 
 use super::{DirectFloatEscaper, DirectFloatEscaperStats};
 use crate::module::ftp_over_http::{
-    ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpRemoteHttpConnection,
+    ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpRemoteConnection,
 };
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
 use crate::serve::ServerTaskNotes;
@@ -32,7 +32,7 @@ impl DirectFloatEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteControlStats,
-    ) -> Result<BoxFtpRemoteHttpConnection, TcpConnectError> {
+    ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         let (stream, _) = self.tcp_connect_to(tcp_notes, task_notes).await?;
 
         let (r, w) = stream.into_split();
@@ -67,7 +67,7 @@ impl DirectFloatEscaper {
         control_tcp_notes: &'a TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteTransferStats,
-    ) -> Result<BoxFtpRemoteHttpConnection, TcpConnectError> {
+    ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         let (stream, _) = self
             .tcp_connect_to_again(transfer_tcp_notes, control_tcp_notes, task_notes)
             .await?;

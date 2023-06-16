@@ -25,7 +25,7 @@ use super::RouteFailoverEscaper;
 use crate::escape::ArcEscaper;
 use crate::module::ftp_over_http::{
     ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpConnectContext,
-    BoxFtpRemoteHttpConnection, FtpConnectContext, FtpTaskRemoteControlStats,
+    BoxFtpRemoteConnection, FtpConnectContext, FtpTaskRemoteControlStats,
 };
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
 use crate::serve::ServerTaskNotes;
@@ -43,7 +43,7 @@ struct FtpConnectFailoverContext {
 }
 
 struct FailoverFtpConnectContext {
-    control_connection: Option<BoxFtpRemoteHttpConnection>,
+    control_connection: Option<BoxFtpRemoteConnection>,
     inner: BoxFtpConnectContext,
 }
 
@@ -53,7 +53,7 @@ impl FtpConnectContext for FailoverFtpConnectContext {
         &mut self,
         task_notes: &ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteControlStats,
-    ) -> Result<BoxFtpRemoteHttpConnection, TcpConnectError> {
+    ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         if let Some(c) = self.control_connection.take() {
             return Ok(c);
         }
@@ -71,7 +71,7 @@ impl FtpConnectContext for FailoverFtpConnectContext {
         server_addr: &UpstreamAddr,
         task_notes: &ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteTransferStats,
-    ) -> Result<BoxFtpRemoteHttpConnection, TcpConnectError> {
+    ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         self.inner
             .new_transfer_connection(server_addr, task_notes, task_stats)
             .await

@@ -35,7 +35,7 @@ use crate::config::escaper::proxy_float::ProxyFloatEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
 use crate::module::ftp_over_http::{
     AnyFtpConnectContextParam, ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats,
-    BoxFtpConnectContext, BoxFtpRemoteHttpConnection, DenyFtpConnectContext,
+    BoxFtpConnectContext, BoxFtpRemoteConnection, DenyFtpConnectContext,
 };
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, BoxHttpForwardContext,
@@ -361,7 +361,7 @@ impl EscaperInternal for ProxyFloatEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         _task_notes: &'a ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteControlStats,
-    ) -> Result<BoxFtpRemoteHttpConnection, TcpConnectError> {
+    ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         self.stats.interface.add_ftp_over_http_request_attempted();
         self.stats.interface.add_ftp_control_connection_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
@@ -375,7 +375,7 @@ impl EscaperInternal for ProxyFloatEscaper {
         _task_notes: &'a ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteTransferStats,
         _context: AnyFtpConnectContextParam,
-    ) -> Result<BoxFtpRemoteHttpConnection, TcpConnectError> {
+    ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         self.stats.interface.add_ftp_transfer_connection_attempted();
         transfer_tcp_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)

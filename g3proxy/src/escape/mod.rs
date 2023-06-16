@@ -28,7 +28,7 @@ use g3_types::net::{Host, HttpForwardCapability, OpensslTlsClientConfig, Upstrea
 use crate::config::escaper::AnyEscaperConfig;
 use crate::module::ftp_over_http::{
     AnyFtpConnectContextParam, ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats,
-    BoxFtpConnectContext, BoxFtpRemoteHttpConnection,
+    BoxFtpConnectContext, BoxFtpRemoteConnection,
 };
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, BoxHttpForwardContext,
@@ -118,7 +118,7 @@ pub(crate) trait EscaperInternal {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteControlStats,
-    ) -> Result<BoxFtpRemoteHttpConnection, TcpConnectError>;
+    ) -> Result<BoxFtpRemoteConnection, TcpConnectError>;
     async fn _new_ftp_transfer_connection<'a>(
         &'a self,
         transfer_tcp_notes: &'a mut TcpConnectTaskNotes,
@@ -126,7 +126,7 @@ pub(crate) trait EscaperInternal {
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteTransferStats,
         context: AnyFtpConnectContextParam,
-    ) -> Result<BoxFtpRemoteHttpConnection, TcpConnectError>;
+    ) -> Result<BoxFtpRemoteConnection, TcpConnectError>;
 
     fn _trick_float_weight(&self) -> u8 {
         0

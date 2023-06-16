@@ -24,7 +24,7 @@ use g3_types::net::UpstreamAddr;
 use super::FtpOverHttpTaskStats;
 use crate::module::ftp_over_http::{
     ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpConnectContext,
-    BoxFtpRemoteHttpConnection,
+    BoxFtpRemoteConnection,
 };
 use crate::module::tcp_connect::TcpConnectError;
 use crate::serve::ServerTaskNotes;
@@ -52,14 +52,14 @@ impl HttpProxyFtpConnectionProvider {
 }
 
 #[async_trait]
-impl FtpConnectionProvider<BoxFtpRemoteHttpConnection, TcpConnectError, ServerTaskNotes>
+impl FtpConnectionProvider<BoxFtpRemoteConnection, TcpConnectError, ServerTaskNotes>
     for HttpProxyFtpConnectionProvider
 {
     async fn new_control_connection(
         &mut self,
         _upstream: &UpstreamAddr,
         task_notes: &ServerTaskNotes,
-    ) -> Result<BoxFtpRemoteHttpConnection, TcpConnectError> {
+    ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         self.connect_context
             .new_control_connection(
                 task_notes,
@@ -72,7 +72,7 @@ impl FtpConnectionProvider<BoxFtpRemoteHttpConnection, TcpConnectError, ServerTa
         &mut self,
         server_addr: &UpstreamAddr,
         task_notes: &ServerTaskNotes,
-    ) -> Result<BoxFtpRemoteHttpConnection, TcpConnectError> {
+    ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         self.connect_context
             .new_transfer_connection(
                 server_addr,
