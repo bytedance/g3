@@ -17,11 +17,17 @@
 use std::pin::pin;
 use std::sync::Arc;
 
+use async_trait::async_trait;
+
 use g3_types::net::UpstreamAddr;
 
 use super::RouteFailoverEscaper;
 use crate::escape::ArcEscaper;
-use crate::module::ftp_over_http::{BoxFtpConnectContext, FtpTaskRemoteControlStats};
+use crate::module::ftp_over_http::{
+    ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpConnectContext,
+    BoxFtpRemoteHttpConnection, FtpConnectContext, FtpTaskRemoteControlStats,
+};
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
 use crate::serve::ServerTaskNotes;
 
 struct NullStats {}
@@ -36,6 +42,46 @@ struct FtpConnectFailoverContext {
     escaper: ArcEscaper,
 }
 
+struct FailoverFtpConnectContext {
+    control_connection: Option<BoxFtpRemoteHttpConnection>,
+    inner: BoxFtpConnectContext,
+}
+
+#[async_trait]
+impl FtpConnectContext for FailoverFtpConnectContext {
+    async fn new_control_connection(
+        &mut self,
+        task_notes: &ServerTaskNotes,
+        task_stats: ArcFtpTaskRemoteControlStats,
+    ) -> Result<BoxFtpRemoteHttpConnection, TcpConnectError> {
+        if let Some(c) = self.control_connection.take() {
+            return Ok(c);
+        }
+        self.inner
+            .new_control_connection(task_notes, task_stats)
+            .await
+    }
+
+    fn fetch_control_tcp_notes(&self, tcp_notes: &mut TcpConnectTaskNotes) {
+        self.inner.fetch_control_tcp_notes(tcp_notes)
+    }
+
+    async fn new_transfer_connection(
+        &mut self,
+        server_addr: &UpstreamAddr,
+        task_notes: &ServerTaskNotes,
+        task_stats: ArcFtpTaskRemoteTransferStats,
+    ) -> Result<BoxFtpRemoteHttpConnection, TcpConnectError> {
+        self.inner
+            .new_transfer_connection(server_addr, task_notes, task_stats)
+            .await
+    }
+
+    fn fetch_transfer_tcp_notes(&self, tcp_notes: &mut TcpConnectTaskNotes) {
+        self.inner.fetch_transfer_tcp_notes(tcp_notes)
+    }
+}
+
 impl FtpConnectFailoverContext {
     fn new(escaper: ArcEscaper) -> Self {
         FtpConnectFailoverContext { escaper }
@@ -45,7 +91,7 @@ impl FtpConnectFailoverContext {
         self,
         task_notes: &ServerTaskNotes,
         upstream: &UpstreamAddr,
-    ) -> Result<BoxFtpConnectContext, BoxFtpConnectContext> {
+    ) -> Result<FailoverFtpConnectContext, FailoverFtpConnectContext> {
         let mut ftp_ctx = self
             .escaper
             .new_ftp_connect_context(self.escaper.clone(), task_notes, upstream)
@@ -53,8 +99,14 @@ impl FtpConnectFailoverContext {
         let null_stats = Arc::new(NullStats {});
         // try connect
         match ftp_ctx.new_control_connection(task_notes, null_stats).await {
-            Ok(_) => Ok(ftp_ctx),
-            Err(_) => Err(ftp_ctx),
+            Ok(c) => Ok(FailoverFtpConnectContext {
+                control_connection: Some(c),
+                inner: ftp_ctx,
+            }),
+            Err(_) => Err(FailoverFtpConnectContext {
+                control_connection: None,
+                inner: ftp_ctx,
+            }),
         }
     }
 }
@@ -71,7 +123,7 @@ impl RouteFailoverEscaper {
         match tokio::time::timeout(self.config.fallback_delay, &mut primary_task).await {
             Ok(Ok(ctx)) => {
                 self.stats.add_request_passed();
-                return ctx;
+                return Box::new(ctx);
             }
             Ok(Err(_)) => {
                 self.stats.add_request_passed(); // just return the ftp ctx on the standby escaper
@@ -89,11 +141,11 @@ impl RouteFailoverEscaper {
         match futures_util::future::select_ok([primary_task, standby_task]).await {
             Ok((ctx, _left)) => {
                 self.stats.add_request_passed();
-                ctx
+                Box::new(ctx)
             }
             Err(ctx) => {
                 self.stats.add_request_failed();
-                ctx
+                Box::new(ctx)
             }
         }
     }

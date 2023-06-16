@@ -23,7 +23,7 @@ mod task;
 pub(crate) use connection::BoxFtpRemoteHttpConnection;
 pub(crate) use context::{
     AnyFtpConnectContextParam, BoxFtpConnectContext, DenyFtpConnectContext,
-    DirectFtpConnectContext, DirectFtpConnectContextParam,
+    DirectFtpConnectContext, DirectFtpConnectContextParam, FtpConnectContext,
 };
 pub(crate) use path::FtpRequestPath;
 pub(crate) use stats::{
