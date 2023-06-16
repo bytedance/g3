@@ -610,6 +610,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9435d864e017c3c6afeac1654189b06cdb491cf2ff73dbf0d73b0f292f42ff8"
 
 [[package]]
+name = "fastrand"
+version = "1.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e51093e27b0797c359783294ca4f0a911c270184cb10f85783b118614a1501be"
+dependencies = [
+ "instant",
+]
+
+[[package]]
 name = "fixedbitset"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1219,6 +1228,8 @@ dependencies = [
  "g3-tls-cert",
  "g3-types",
  "h2",
+ "h3",
+ "h3-quinn",
  "hdrhistogram",
  "hex",
  "http",
@@ -1520,6 +1531,34 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
+]
+
+[[package]]
+name = "h3"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6de6ca43eed186fd055214af06967b0a7a68336cefec7e8a4004e96efeaccb9e"
+dependencies = [
+ "bytes",
+ "fastrand",
+ "futures-util",
+ "http",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "h3-quinn"
+version = "0.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d4a1a1763e4f3e82ee9f1ecf2cf862b22cc7316ebe14684e42f94532b5ec64d"
+dependencies = [
+ "bytes",
+ "futures",
+ "h3",
+ "quinn",
+ "quinn-proto",
+ "tokio-util",
 ]
 
 [[package]]
@@ -2555,9 +2594,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.96"
+version = "1.0.97"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "057d394a50403bcac12672b2b18fb387ab6d289d957dab67dd201875391e52f1"
+checksum = "bdf3bf93142acad5821c99197022e170842cdbc1c30482b98750c688c640842a"
 dependencies = [
  "itoa",
  "ryu",

@@ -117,10 +117,7 @@ impl BenchH2Args {
         Ok(())
     }
 
-    pub(super) async fn new_tcp_connection(
-        &self,
-        proc_args: &ProcArgs,
-    ) -> anyhow::Result<TcpStream> {
+    async fn new_tcp_connection(&self, proc_args: &ProcArgs) -> anyhow::Result<TcpStream> {
         let peer = *proc_args.select_peer(&self.peer_addrs);
 
         let socket = g3_socket::tcp::new_socket_to(

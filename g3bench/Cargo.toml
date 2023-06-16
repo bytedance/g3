@@ -18,6 +18,8 @@ tokio = { workspace = true, features = ["rt", "net", "macros"] }
 http.workspace = true
 url.workspace = true
 h2.workspace = true
+h3 = "0.0.2"
+h3-quinn = "0.0.3"
 bytes.workspace = true
 futures-util.workspace = true
 tokio-openssl.workspace = true
@@ -31,7 +33,7 @@ concurrent-queue = "2.2"
 hex.workspace = true
 g3-runtime.workspace = true
 g3-signal.workspace = true
-g3-types = { workspace = true, features = ["proxy"] }
+g3-types = { workspace = true, features = ["proxy", "openssl", "rustls"] }
 g3-clap.workspace = true
 g3-socket.workspace = true
 g3-http.workspace = true
