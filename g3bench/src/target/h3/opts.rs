@@ -277,9 +277,8 @@ pub(super) fn parse_h3_args(args: &ArgMatches) -> anyhow::Result<BenchH3Args> {
         h3_args.connect_timeout = timeout;
     }
 
-    match h3_args.target_url.scheme() {
-        "http" | "https" => {}
-        _ => return Err(anyhow!("unsupported target url {}", h3_args.target_url)),
+    if h3_args.target_url.scheme() != "https" {
+        return Err(anyhow!("unsupported target url {}", h3_args.target_url));
     }
 
     Ok(h3_args)
