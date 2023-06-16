@@ -31,7 +31,7 @@ use g3_types::net::{OpensslTlsClientConfig, OpensslTlsClientConfigBuilder, Upstr
 
 use super::ProcArgs;
 use crate::target::{
-    AppendProxyProtocolArgs, AppendTlsArgs, OpensslTlsClientArgs, ProxyProtocolArgs,
+    AppendOpensslArgs, AppendProxyProtocolArgs, OpensslTlsClientArgs, ProxyProtocolArgs,
 };
 
 const SSL_ARG_TARGET: &str = "target";
@@ -165,7 +165,7 @@ pub(super) fn add_ssl_args(app: Command) -> Command {
             .long(SSL_ARG_CONNECT_TIMEOUT)
             .num_args(1),
     )
-    .append_tls_args()
+    .append_openssl_args()
     .append_proxy_protocol_args()
 }
 

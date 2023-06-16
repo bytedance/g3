@@ -51,9 +51,9 @@ const PROXY_TLS_ARG_CIPHERS: &str = "proxy-tls-ciphers";
 const SESSION_CACHE_VALUES: [&str; 2] = ["off", "builtin"];
 const PROTOCOL_VALUES: [&str; 5] = ["ssl3.0", "tls1.0", "tls1.1", "tls1.2", "tls1.3"];
 
-pub(crate) trait AppendTlsArgs {
-    fn append_tls_args(self) -> Self;
-    fn append_proxy_tls_args(self) -> Self;
+pub(crate) trait AppendOpensslArgs {
+    fn append_openssl_args(self) -> Self;
+    fn append_proxy_openssl_args(self) -> Self;
 }
 
 #[derive(Default)]
@@ -252,12 +252,12 @@ pub(crate) fn load_key(path: &Path) -> anyhow::Result<PKey<Private>> {
         .map_err(|e| anyhow!("invalid private key file({}): {e}", path.display()))
 }
 
-impl AppendTlsArgs for Command {
-    fn append_tls_args(self) -> Command {
+impl AppendOpensslArgs for Command {
+    fn append_openssl_args(self) -> Command {
         append_tls_args(self)
     }
 
-    fn append_proxy_tls_args(self) -> Command {
+    fn append_proxy_openssl_args(self) -> Command {
         append_proxy_tls_args(self)
     }
 }

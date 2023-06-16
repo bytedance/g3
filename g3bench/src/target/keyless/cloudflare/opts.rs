@@ -33,7 +33,7 @@ use super::{MultiplexTransfer, SimplexTransfer};
 use crate::opts::ProcArgs;
 use crate::target::keyless::{AppendKeylessArgs, KeylessGlobalArgs};
 use crate::target::{
-    AppendProxyProtocolArgs, AppendTlsArgs, OpensslTlsClientArgs, ProxyProtocolArgs,
+    AppendOpensslArgs, AppendProxyProtocolArgs, OpensslTlsClientArgs, ProxyProtocolArgs,
 };
 
 const ARG_CONNECTION_POOL: &str = "connection-pool";
@@ -233,7 +233,7 @@ pub(super) fn add_cloudflare_args(app: Command) -> Command {
             .conflicts_with(ARG_CONNECTION_POOL),
     )
     .append_keyless_args()
-    .append_tls_args()
+    .append_openssl_args()
     .append_proxy_protocol_args()
 }
 

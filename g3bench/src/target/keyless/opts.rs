@@ -181,7 +181,7 @@ impl KeylessGlobalArgs {
         let mut public_key_ski = None;
 
         let cert = if let Some(file) = args.get_one::<PathBuf>(ARG_CERT) {
-            let cert = crate::target::tls::load_certs(file)?.pop().unwrap();
+            let cert = crate::target::openssl::load_certs(file)?.pop().unwrap();
 
             let ski = if let Some(o) = cert.subject_key_id() {
                 o.as_slice().to_vec()
@@ -197,7 +197,7 @@ impl KeylessGlobalArgs {
         };
 
         let private_key = if let Some(file) = args.get_one::<PathBuf>(ARG_PKEY) {
-            let key = crate::target::tls::load_key(file)?;
+            let key = crate::target::openssl::load_key(file)?;
 
             // verify SKI match
             let x509_pubkey = X509Pubkey::from_pubkey(&key).map_err(|e| {

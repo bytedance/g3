@@ -41,7 +41,7 @@ use g3_types::net::{
 
 use super::{H2PreRequest, HttpRuntimeStats, ProcArgs};
 use crate::target::{
-    AppendProxyProtocolArgs, AppendTlsArgs, OpensslTlsClientArgs, ProxyProtocolArgs,
+    AppendOpensslArgs, AppendProxyProtocolArgs, OpensslTlsClientArgs, ProxyProtocolArgs,
 };
 
 const HTTP_ARG_CONNECTION_POOL: &str = "connection-pool";
@@ -466,8 +466,8 @@ pub(super) fn add_h2_args(app: Command) -> Command {
                 .long(HTTP_ARG_CONNECT_TIMEOUT)
                 .num_args(1),
         )
-        .append_tls_args()
-        .append_proxy_tls_args()
+        .append_openssl_args()
+        .append_proxy_openssl_args()
         .append_proxy_protocol_args()
 }
 

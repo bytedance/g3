@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::net::{IpAddr, SocketAddr};
+use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -51,6 +51,8 @@ pub(super) struct BenchH3Args {
     pub(super) timeout: Duration,
     pub(super) connect_timeout: Duration,
 
+    target_tls: RustlsClientConfigBuilder,
+
     host: UpstreamAddr,
     auth: HttpAuth,
     peer_addrs: SelectiveVec<WeightedValue<SocketAddr>>,
@@ -71,6 +73,7 @@ impl BenchH3Args {
             ok_status: None,
             timeout: Duration::from_secs(30),
             connect_timeout: Duration::from_secs(15),
+            target_tls: RustlsClientConfigBuilder::default(),
             host: upstream,
             auth,
             peer_addrs: SelectiveVec::empty(),
@@ -89,17 +92,27 @@ impl BenchH3Args {
         &self,
         proc_args: &ProcArgs,
     ) -> anyhow::Result<h3_quinn::Connection> {
-        let peer = *proc_args.select_peer(&self.peer_addrs);
+        use h3_quinn::quinn::{ClientConfig, Endpoint, TransportConfig, VarInt};
 
-        let endpoint = h3_quinn::quinn::Endpoint::client(peer)
+        let bind_addr = if let Some(ip) = self.bind {
+            SocketAddr::new(ip, 0)
+        } else {
+            SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0)
+        };
+        let endpoint = Endpoint::client(bind_addr)
             .map_err(|e| anyhow!("failed to create quic endpoint: {e}"))?;
 
-        let tls_config_builder = RustlsClientConfigBuilder::default();
-        let tls_config = tls_config_builder.build()?;
-        let client_config = h3_quinn::quinn::ClientConfig::new(tls_config.driver);
+        let tls_config = self.target_tls.build()?;
+        let mut transport = TransportConfig::default();
+        transport.max_concurrent_bidi_streams(VarInt::from_u32(0));
+        transport.max_concurrent_uni_streams(VarInt::from_u32(0));
+        // TODO add more transport settings
+        let mut client_config = ClientConfig::new(tls_config.driver);
+        client_config.transport_config(Arc::new(transport));
 
+        let peer = *proc_args.select_peer(&self.peer_addrs);
         let conn = endpoint
-            .connect_with(client_config, peer, "")
+            .connect_with(client_config, peer, "") // TODO set tls_name
             .map_err(|e| anyhow!("failed to create quic client: {e}"))?
             .await
             .map_err(|e| anyhow!("failed to connect: {e}"))?;
