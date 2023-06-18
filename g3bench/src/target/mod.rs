@@ -38,6 +38,9 @@ use proxy_protocol::{AppendProxyProtocolArgs, ProxyProtocolArgs};
 mod openssl;
 use self::openssl::{AppendOpensslArgs, OpensslTlsClientArgs};
 
+mod rustls;
+use self::rustls::{AppendRustlsArgs, RustlsTlsClientArgs};
+
 mod http;
 
 pub mod h1;

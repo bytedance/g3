@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::borrow::Cow;
 use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::str::FromStr;
 use std::sync::Arc;
@@ -31,6 +32,7 @@ use g3_types::collection::{SelectiveVec, WeightedValue};
 use g3_types::net::{HttpAuth, RustlsClientConfigBuilder, UpstreamAddr};
 
 use super::{H3PreRequest, HttpRuntimeStats, ProcArgs};
+use crate::target::{AppendRustlsArgs, RustlsTlsClientArgs};
 
 const HTTP_ARG_CONNECTION_POOL: &str = "connection-pool";
 const HTTP_ARG_URI: &str = "uri";
@@ -51,7 +53,7 @@ pub(super) struct BenchH3Args {
     pub(super) timeout: Duration,
     pub(super) connect_timeout: Duration,
 
-    target_tls: RustlsClientConfigBuilder,
+    target_tls: RustlsTlsClientArgs,
 
     host: UpstreamAddr,
     auth: HttpAuth,
@@ -64,6 +66,11 @@ impl BenchH3Args {
         let auth = HttpAuth::try_from(&url)
             .map_err(|e| anyhow!("failed to detect upstream auth method: {e}"))?;
 
+        let tls = RustlsTlsClientArgs {
+            config: Some(RustlsClientConfigBuilder::default()),
+            ..Default::default()
+        };
+
         Ok(BenchH3Args {
             pool_size: None,
             method: Method::GET,
@@ -73,7 +80,7 @@ impl BenchH3Args {
             ok_status: None,
             timeout: Duration::from_secs(30),
             connect_timeout: Duration::from_secs(15),
-            target_tls: RustlsClientConfigBuilder::default(),
+            target_tls: tls,
             host: upstream,
             auth,
             peer_addrs: SelectiveVec::empty(),
@@ -102,17 +109,25 @@ impl BenchH3Args {
         let endpoint = Endpoint::client(bind_addr)
             .map_err(|e| anyhow!("failed to create quic endpoint: {e}"))?;
 
-        let tls_config = self.target_tls.build()?;
+        let Some(tls_client) = &self.target_tls.client else {
+            unreachable!()
+        };
         let mut transport = TransportConfig::default();
         transport.max_concurrent_bidi_streams(VarInt::from_u32(0));
         transport.max_concurrent_uni_streams(VarInt::from_u32(0));
         // TODO add more transport settings
-        let mut client_config = ClientConfig::new(tls_config.driver);
+        let mut client_config = ClientConfig::new(tls_client.driver.clone());
         client_config.transport_config(Arc::new(transport));
 
         let peer = *proc_args.select_peer(&self.peer_addrs);
+        let tls_name = self
+            .target_tls
+            .tls_name
+            .as_ref()
+            .map(|s| Cow::Borrowed(s.as_str()))
+            .unwrap_or(self.host.host_str());
         let conn = endpoint
-            .connect_with(client_config, peer, "") // TODO set tls_name
+            .connect_with(client_config, peer, &tls_name)
             .map_err(|e| anyhow!("failed to create quic client: {e}"))?
             .await
             .map_err(|e| anyhow!("failed to connect: {e}"))?;
@@ -235,6 +250,7 @@ pub(super) fn add_h3_args(app: Command) -> Command {
                 .long(HTTP_ARG_CONNECT_TIMEOUT)
                 .num_args(1),
         )
+        .append_rustls_args()
 }
 
 pub(super) fn parse_h3_args(args: &ArgMatches) -> anyhow::Result<BenchH3Args> {
@@ -276,6 +292,11 @@ pub(super) fn parse_h3_args(args: &ArgMatches) -> anyhow::Result<BenchH3Args> {
     if let Some(timeout) = g3_clap::humanize::get_duration(args, HTTP_ARG_CONNECT_TIMEOUT)? {
         h3_args.connect_timeout = timeout;
     }
+
+    h3_args
+        .target_tls
+        .parse_tls_args(args)
+        .context("invalid target tls config")?;
 
     if h3_args.target_url.scheme() != "https" {
         return Err(anyhow!("unsupported target url {}", h3_args.target_url));

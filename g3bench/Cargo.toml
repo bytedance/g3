@@ -25,6 +25,8 @@ futures-util.workspace = true
 tokio-openssl.workspace = true
 openssl.workspace = true
 openssl-probe = { workspace = true, optional = true }
+rustls.workspace = true
+rustls-pemfile.workspace = true
 cadence.workspace = true
 hdrhistogram = { version = "7.5", default-features = false, features = ["sync"] }
 ahash.workspace = true
