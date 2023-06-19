@@ -114,7 +114,10 @@ impl BenchH3Args {
             unreachable!()
         };
         let mut transport = TransportConfig::default();
+        // no remotely-initiated bidi streams is needed
         transport.max_concurrent_bidi_streams(VarInt::from_u32(0));
+        // remotely-initiated uni streams is needed by QPACK headers as say in
+        //   https://http3-explained.haxx.se/en/h3/h3-streams
         // transport.max_concurrent_uni_streams(VarInt::from_u32(0));
         // TODO add more transport settings
         let mut client_config = ClientConfig::new(tls_client.driver.clone());
