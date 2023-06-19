@@ -129,7 +129,7 @@ impl H3TaskContext {
         let mut send_stream = send_req
             .send_request(req)
             .await
-            .map_err(|e| anyhow!("failed to send request header: {e:?}"))?;
+            .map_err(|e| anyhow!("failed to send request header: {e}"))?;
         send_stream.finish().await?;
         let send_hdr_time = time_started.elapsed();
         if let Some(r) = &mut self.histogram_recorder {

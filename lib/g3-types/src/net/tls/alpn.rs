@@ -14,19 +14,38 @@
  * limitations under the License.
  */
 
+use std::fmt;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AlpnProtocol {
     Http10,
     Http11,
     Http2,
+    Http3,
+}
+
+impl fmt::Display for AlpnProtocol {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
 }
 
 impl AlpnProtocol {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Http10 => "http/1.0",
+            Self::Http11 => "http/1.1",
+            Self::Http2 => "h2",
+            Self::Http3 => "h3",
+        }
+    }
+
     pub fn wired_identification_sequence(&self) -> &'static [u8] {
         match self {
             Self::Http10 => b"\x08http/1.0",
             Self::Http11 => b"\x08http/1.1",
             Self::Http2 => b"\x02h2",
+            Self::Http3 => b"\x02h3",
         }
     }
 
@@ -45,6 +64,7 @@ impl AlpnProtocol {
             b"http/1.0" => Some(AlpnProtocol::Http10),
             b"http/1.1" => Some(AlpnProtocol::Http11),
             b"h2" => Some(AlpnProtocol::Http2),
+            b"h3" => Some(AlpnProtocol::Http3),
             _ => None,
         }
     }

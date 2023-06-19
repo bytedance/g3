@@ -29,7 +29,7 @@ use http::{HeaderValue, Method, StatusCode};
 use url::Url;
 
 use g3_types::collection::{SelectiveVec, WeightedValue};
-use g3_types::net::{HttpAuth, RustlsClientConfigBuilder, UpstreamAddr};
+use g3_types::net::{AlpnProtocol, HttpAuth, RustlsClientConfigBuilder, UpstreamAddr};
 
 use super::{H3PreRequest, HttpRuntimeStats, ProcArgs};
 use crate::target::{AppendRustlsArgs, RustlsTlsClientArgs};
@@ -68,6 +68,7 @@ impl BenchH3Args {
 
         let tls = RustlsTlsClientArgs {
             config: Some(RustlsClientConfigBuilder::default()),
+            alpn_protocol: Some(AlpnProtocol::Http3),
             ..Default::default()
         };
 
@@ -114,7 +115,7 @@ impl BenchH3Args {
         };
         let mut transport = TransportConfig::default();
         transport.max_concurrent_bidi_streams(VarInt::from_u32(0));
-        transport.max_concurrent_uni_streams(VarInt::from_u32(0));
+        // transport.max_concurrent_uni_streams(VarInt::from_u32(0));
         // TODO add more transport settings
         let mut client_config = ClientConfig::new(tls_client.driver.clone());
         client_config.transport_config(Arc::new(transport));

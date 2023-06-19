@@ -18,8 +18,8 @@ tokio = { workspace = true, features = ["rt", "net", "macros"] }
 http.workspace = true
 url.workspace = true
 h2.workspace = true
-h3 = "0.0.2"
-h3-quinn = "0.0.3"
+h3.workspace = true
+h3-quinn.workspace = true
 bytes.workspace = true
 futures-util.workspace = true
 tokio-openssl.workspace = true

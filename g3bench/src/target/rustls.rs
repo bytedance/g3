@@ -22,7 +22,9 @@ use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
 use rustls::{Certificate, PrivateKey};
 
-use g3_types::net::{RustlsCertificatePair, RustlsClientConfig, RustlsClientConfigBuilder};
+use g3_types::net::{
+    AlpnProtocol, RustlsCertificatePair, RustlsClientConfig, RustlsClientConfigBuilder,
+};
 
 const TLS_ARG_CA_CERT: &str = "tls-ca-cert";
 const TLS_ARG_CERT: &str = "tls-cert";
@@ -52,6 +54,7 @@ pub(crate) struct RustlsTlsClientArgs {
     pub(crate) tls_name: Option<String>,
     pub(crate) cert_pair: RustlsCertificatePair,
     pub(crate) no_verify: bool,
+    pub(crate) alpn_protocol: Option<AlpnProtocol>,
 }
 
 impl RustlsTlsClientArgs {
@@ -137,7 +140,13 @@ impl RustlsTlsClientArgs {
         }
 
         tls_config.check().context("invalid tls config")?;
-        let tls_client = tls_config.build().context("failed to build tls client")?;
+        let tls_client = if let Some(p) = self.alpn_protocol {
+            tls_config
+                .build_with_alpn_protocols(Some(vec![p]))
+                .context(format!("failed to build tls client with alpn protocol {p}"))?
+        } else {
+            tls_config.build().context("failed to build tls client")?
+        };
         self.client = Some(tls_client);
         Ok(())
     }

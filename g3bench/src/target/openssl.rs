@@ -189,7 +189,7 @@ impl OpensslTlsClientArgs {
         let tls_client = if let Some(p) = self.alpn_protocol {
             tls_config
                 .build_with_alpn_protocols(Some(vec![p]))
-                .context("failed to build tls client with alpn protocol {p}")?
+                .context(format!("failed to build tls client with alpn protocol {p}"))?
         } else {
             tls_config.build().context("failed to build tls client")?
         };

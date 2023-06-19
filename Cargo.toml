@@ -96,6 +96,8 @@ mime = "0.3"
 percent-encoding = "2.1"
 http = "0.2.9"
 h2 = "0.3.19"
+h3-quinn = "0.0.3"
+h3 = "0.0.2"
 #
 log = "0.4"
 slog = "2"
