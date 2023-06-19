@@ -162,8 +162,18 @@ impl H2TaskContext {
         // recv body
         if !rsp_recv_body.is_end_stream() {
             while let Some(r) = rsp_recv_body.data().await {
-                if let Err(e) = r {
-                    return Err(anyhow!("failed to recv rsp body: {e:?}"));
+                match r {
+                    Ok(bytes) => {
+                        rsp_recv_body
+                            .flow_control()
+                            .release_capacity(bytes.len())
+                            .map_err(|e| {
+                                anyhow!("failed to release capacity while reading body: {e:?}")
+                            })?;
+                    }
+                    Err(e) => {
+                        return Err(anyhow!("failed to recv rsp body: {e:?}"));
+                    }
                 }
             }
             let _ = rsp_recv_body

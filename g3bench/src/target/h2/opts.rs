@@ -83,6 +83,7 @@ impl BenchH2Args {
         let mut target_tls = OpensslTlsClientArgs::default();
         if url.scheme() == "https" {
             target_tls.config = Some(OpensslTlsClientConfigBuilder::with_cache_for_one_site());
+            target_tls.alpn_protocol = Some(AlpnProtocol::Http2);
         }
 
         Ok(BenchH2Args {

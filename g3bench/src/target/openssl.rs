@@ -25,7 +25,8 @@ use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
 
 use g3_types::net::{
-    OpensslCertificatePair, OpensslProtocol, OpensslTlsClientConfig, OpensslTlsClientConfigBuilder,
+    AlpnProtocol, OpensslCertificatePair, OpensslProtocol, OpensslTlsClientConfig,
+    OpensslTlsClientConfigBuilder,
 };
 
 const TLS_ARG_CA_CERT: &str = "tls-ca-cert";
@@ -63,6 +64,7 @@ pub(crate) struct OpensslTlsClientArgs {
     pub(crate) tls_name: Option<String>,
     pub(crate) cert_pair: OpensslCertificatePair,
     pub(crate) no_verify: bool,
+    pub(crate) alpn_protocol: Option<AlpnProtocol>,
 }
 
 impl OpensslTlsClientArgs {
@@ -184,7 +186,13 @@ impl OpensslTlsClientArgs {
         }
 
         tls_config.check().context("invalid tls config")?;
-        let tls_client = tls_config.build().context("failed to build tls client")?;
+        let tls_client = if let Some(p) = self.alpn_protocol {
+            tls_config
+                .build_with_alpn_protocols(Some(vec![p]))
+                .context("failed to build tls client with alpn protocol {p}")?
+        } else {
+            tls_config.build().context("failed to build tls client")?
+        };
         self.client = Some(tls_client);
         Ok(())
     }
