@@ -28,7 +28,7 @@ G3 Project 由若干组件构成。
 
 ### g3bench
 
-压测工具，支持 HTTP 1.x、HTTP 2、TLS握手、Cloudflare Keyless 。
+压测工具，支持 HTTP/1.x、HTTP/2、HTTP/3、TLS握手、Cloudflare Keyless 。
 
 更多详情参考 [g3bench](g3bench/README.md)。
 
