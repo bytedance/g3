@@ -26,6 +26,11 @@ Benchmark tool for many targets.
   * Socks5 proxy / Http Proxy / Https Proxy
   * Connection Pool
 
+- *HTTP 3*
+
+  * GET / HEAD
+  * Connection Pool
+
 - *TLS Handshake*
 
 - *Cloudflare Keyless*
