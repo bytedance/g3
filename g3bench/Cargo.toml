@@ -20,6 +20,7 @@ url.workspace = true
 h2.workspace = true
 h3.workspace = true
 h3-quinn.workspace = true
+quinn = { workspace = true, features = ["tls-rustls", "runtime-tokio"] }
 bytes.workspace = true
 futures-util.workspace = true
 tokio-openssl.workspace = true

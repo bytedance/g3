@@ -100,7 +100,7 @@ impl BenchH3Args {
         &self,
         proc_args: &ProcArgs,
     ) -> anyhow::Result<h3_quinn::Connection> {
-        use h3_quinn::quinn::{ClientConfig, Endpoint, TransportConfig, VarInt};
+        use quinn::{ClientConfig, Endpoint, TransportConfig, VarInt};
 
         let bind_addr = if let Some(ip) = self.bind {
             SocketAddr::new(ip, 0)
