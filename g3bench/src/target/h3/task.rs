@@ -19,30 +19,31 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use bytes::Bytes;
-use h2::client::SendRequest;
+use h3::client::SendRequest;
+use h3_quinn::OpenStreams;
 use tokio::time::Instant;
 
 use super::{
-    BenchH2Args, BenchTaskContext, H2ConnectionPool, H2PreRequest, HttpHistogramRecorder,
+    BenchH3Args, BenchTaskContext, H3ConnectionPool, H3PreRequest, HttpHistogramRecorder,
     HttpRuntimeStats, ProcArgs,
 };
 use crate::target::BenchError;
 
-pub(super) struct H2TaskContext {
-    args: Arc<BenchH2Args>,
+pub(super) struct H3TaskContext {
+    args: Arc<BenchH3Args>,
     proc_args: Arc<ProcArgs>,
 
-    pool: Option<Arc<H2ConnectionPool>>,
-    h2s: Option<SendRequest<Bytes>>,
+    pool: Option<Arc<H3ConnectionPool>>,
+    h3s: Option<SendRequest<OpenStreams, Bytes>>,
 
     reuse_conn_count: u64,
-    pre_request: H2PreRequest,
+    pre_request: H3PreRequest,
 
     runtime_stats: Arc<HttpRuntimeStats>,
     histogram_recorder: Option<HttpHistogramRecorder>,
 }
 
-impl Drop for H2TaskContext {
+impl Drop for H3TaskContext {
     fn drop(&mut self) {
         if let Some(r) = &mut self.histogram_recorder {
             r.record_conn_reuse_count(self.reuse_conn_count);
@@ -50,22 +51,22 @@ impl Drop for H2TaskContext {
     }
 }
 
-impl H2TaskContext {
+impl H3TaskContext {
     pub(super) fn new(
-        args: &Arc<BenchH2Args>,
+        args: &Arc<BenchH3Args>,
         proc_args: &Arc<ProcArgs>,
         runtime_stats: &Arc<HttpRuntimeStats>,
         histogram_recorder: Option<HttpHistogramRecorder>,
-        pool: Option<Arc<H2ConnectionPool>>,
+        pool: Option<Arc<H3ConnectionPool>>,
     ) -> anyhow::Result<Self> {
         let pre_request = args
             .build_pre_request_header()
             .context("failed to build request header")?;
-        Ok(H2TaskContext {
+        Ok(H3TaskContext {
             args: Arc::clone(args),
             proc_args: Arc::clone(proc_args),
             pool,
-            h2s: None,
+            h3s: None,
             reuse_conn_count: 0,
             pre_request,
             runtime_stats: Arc::clone(runtime_stats),
@@ -74,19 +75,18 @@ impl H2TaskContext {
     }
 
     fn drop_connection(&mut self) {
-        self.h2s = None;
+        self.h3s = None;
     }
 
-    async fn fetch_stream(&mut self) -> anyhow::Result<SendRequest<Bytes>> {
+    async fn fetch_stream(&mut self) -> anyhow::Result<SendRequest<OpenStreams, Bytes>> {
         if let Some(pool) = &self.pool {
             return pool.fetch_stream().await;
         }
 
-        if let Some(h2s) = self.h2s.clone() {
-            if let Ok(ups_send_req) = h2s.ready().await {
-                self.reuse_conn_count += 1;
-                return Ok(ups_send_req);
-            }
+        if let Some(h3s) = self.h3s.clone() {
+            // TODO check close
+            self.reuse_conn_count += 1;
+            return Ok(h3s);
         }
 
         if self.reuse_conn_count > 0 {
@@ -97,32 +97,28 @@ impl H2TaskContext {
         }
 
         self.runtime_stats.add_conn_attempt();
-        let h2s = match tokio::time::timeout(
+        let h3s = match tokio::time::timeout(
             self.args.connect_timeout,
             self.args
-                .new_h2_connection(&self.runtime_stats, &self.proc_args),
+                .new_h3_connection(&self.runtime_stats, &self.proc_args),
         )
         .await
         {
-            Ok(Ok(h2s)) => h2s,
+            Ok(Ok(h3s)) => h3s,
             Ok(Err(e)) => return Err(e),
             Err(_) => return Err(anyhow!("timeout to get new connection")),
         };
         self.runtime_stats.add_conn_success();
 
-        let s = h2s
-            .clone()
-            .ready()
-            .await
-            .map_err(|e| anyhow!("failed to open new stream on new connection: {e:?}"))?;
-        self.h2s = Some(h2s);
+        let s = h3s.clone();
+        self.h3s = Some(h3s);
         Ok(s)
     }
 
     async fn run_with_stream(
         &mut self,
         time_started: Instant,
-        mut send_req: SendRequest<Bytes>,
+        mut send_req: SendRequest<OpenStreams, Bytes>,
     ) -> anyhow::Result<()> {
         let req = self
             .pre_request
@@ -130,64 +126,55 @@ impl H2TaskContext {
             .context("failed to build request header")?;
 
         // send hdr
-        let (rsp_fut, _) = send_req
-            .send_request(req, true)
-            .map_err(|e| anyhow!("failed to send request: {e:?}"))?;
+        let mut send_stream = send_req
+            .send_request(req)
+            .await
+            .map_err(|e| anyhow!("failed to send request header: {e}"))?;
+        send_stream.finish().await?;
         let send_hdr_time = time_started.elapsed();
         if let Some(r) = &mut self.histogram_recorder {
             r.record_send_hdr_time(send_hdr_time);
         }
 
         // recv hdr
-        let rsp = match tokio::time::timeout(self.args.timeout, rsp_fut).await {
+        let rsp = match tokio::time::timeout(self.args.timeout, send_stream.recv_response()).await {
             Ok(Ok(rsp)) => rsp,
             Ok(Err(e)) => return Err(anyhow!("failed to read response: {e}")),
             Err(_) => return Err(anyhow!("timeout to read response")),
         };
-        let (rsp, mut rsp_recv_body) = rsp.into_parts();
         let recv_hdr_time = time_started.elapsed();
         if let Some(r) = &mut self.histogram_recorder {
             r.record_recv_hdr_time(recv_hdr_time);
         }
         if let Some(ok_status) = self.args.ok_status {
-            if rsp.status != ok_status {
+            let status = rsp.status();
+            if status != ok_status {
                 return Err(anyhow!(
                     "Got rsp code {} while {} is expected",
-                    rsp.status.as_u16(),
+                    status.as_u16(),
                     ok_status.as_u16()
                 ));
             }
         }
 
         // recv body
-        if !rsp_recv_body.is_end_stream() {
-            while let Some(r) = rsp_recv_body.data().await {
-                match r {
-                    Ok(bytes) => {
-                        rsp_recv_body
-                            .flow_control()
-                            .release_capacity(bytes.len())
-                            .map_err(|e| {
-                                anyhow!("failed to release capacity while reading body: {e:?}")
-                            })?;
-                    }
-                    Err(e) => {
-                        return Err(anyhow!("failed to recv rsp body: {e:?}"));
-                    }
-                }
-            }
-            let _ = rsp_recv_body
-                .trailers()
-                .await
-                .map_err(|e| anyhow!("failed to recv rsp trailers: {e:?}"))?;
-        }
+        while send_stream
+            .recv_data()
+            .await
+            .map_err(|e| anyhow!("failed to recv data: {e}"))?
+            .is_some()
+        {}
+        let _ = send_stream
+            .recv_trailers()
+            .await
+            .map_err(|e| anyhow!("failed to recv trailer: {e}"))?;
 
         Ok(())
     }
 }
 
 #[async_trait]
-impl BenchTaskContext for H2TaskContext {
+impl BenchTaskContext for H3TaskContext {
     fn mark_task_start(&self) {
         self.runtime_stats.add_task_total();
         self.runtime_stats.inc_task_alive();

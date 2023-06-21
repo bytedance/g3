@@ -19,7 +19,7 @@ use async_trait::async_trait;
 use g3_types::net::UpstreamAddr;
 
 use super::{
-    ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpRemoteHttpConnection,
+    ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpRemoteConnection,
     FtpConnectContext,
 };
 use crate::escape::ArcEscaper;
@@ -50,7 +50,7 @@ impl FtpConnectContext for DirectFtpConnectContext {
         &mut self,
         task_notes: &ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteControlStats,
-    ) -> Result<BoxFtpRemoteHttpConnection, TcpConnectError> {
+    ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         self.escaper
             ._new_ftp_control_connection(&mut self.control_tcp_notes, task_notes, task_stats)
             .await
@@ -65,7 +65,7 @@ impl FtpConnectContext for DirectFtpConnectContext {
         server_addr: &UpstreamAddr,
         task_notes: &ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteTransferStats,
-    ) -> Result<BoxFtpRemoteHttpConnection, TcpConnectError> {
+    ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         let param = DirectFtpConnectContextParam {};
         self.transfer_tcp_notes.upstream.clone_from(server_addr);
         self.escaper

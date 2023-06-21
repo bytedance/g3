@@ -101,9 +101,10 @@ impl FromStr for MaybeProtocol {
 impl From<AlpnProtocol> for MaybeProtocol {
     fn from(p: AlpnProtocol) -> Self {
         match p {
-            AlpnProtocol::Http10 | AlpnProtocol::Http11 | AlpnProtocol::Http2 => {
-                MaybeProtocol::Http
-            }
+            AlpnProtocol::Http10
+            | AlpnProtocol::Http11
+            | AlpnProtocol::Http2
+            | AlpnProtocol::Http3 => MaybeProtocol::Http,
         }
     }
 }
@@ -117,6 +118,7 @@ pub enum Protocol {
     TlsTlcp,
     Http1,
     Http2,
+    Http3,
     Smtp,
     SshLegacy,
     Ssh,
@@ -142,6 +144,7 @@ impl Protocol {
             Protocol::TlsTlcp => "tls_tlcp",
             Protocol::Http1 => "http_1",
             Protocol::Http2 => "http_2",
+            Protocol::Http3 => "http_3",
             Protocol::Smtp => "smtp",
             Protocol::SshLegacy => "ssh_legacy",
             Protocol::Ssh => "ssh",
@@ -164,6 +167,7 @@ impl From<AlpnProtocol> for Protocol {
         match p {
             AlpnProtocol::Http10 | AlpnProtocol::Http11 => Protocol::Http1,
             AlpnProtocol::Http2 => Protocol::Http2,
+            AlpnProtocol::Http3 => Protocol::Http3,
         }
     }
 }

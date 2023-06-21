@@ -40,9 +40,7 @@ use super::{
 };
 use crate::config::server::ServerConfig;
 use crate::log::task::ftp_over_http::TaskLogForFtpOverHttp;
-use crate::module::ftp_over_http::{
-    BoxFtpRemoteHttpConnection, FtpOverHttpTaskNotes, FtpRequestPath,
-};
+use crate::module::ftp_over_http::{BoxFtpRemoteConnection, FtpOverHttpTaskNotes, FtpRequestPath};
 use crate::module::http_forward::HttpProxyClientResponse;
 use crate::module::tcp_connect::TcpConnectError;
 use crate::serve::{
@@ -52,7 +50,7 @@ use crate::serve::{
 
 type HttpProxyFtpClient = FtpClient<
     HttpProxyFtpConnectionProvider,
-    BoxFtpRemoteHttpConnection,
+    BoxFtpRemoteConnection,
     TcpConnectError,
     ServerTaskNotes,
 >;
@@ -835,7 +833,7 @@ impl<'a> FtpOverHttpTask<'a> {
     async fn receive_list_data<R>(
         &mut self,
         ftp_client: &mut HttpProxyFtpClient,
-        data_stream: BoxFtpRemoteHttpConnection,
+        data_stream: BoxFtpRemoteConnection,
         receiver: &mut R,
     ) -> ServerTaskResult<()>
     where

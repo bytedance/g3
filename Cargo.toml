@@ -96,6 +96,8 @@ mime = "0.3"
 percent-encoding = "2.1"
 http = "0.2.9"
 h2 = "0.3.19"
+h3-quinn = "0.0.3"
+h3 = "0.0.2"
 #
 log = "0.4"
 slog = "2"
@@ -114,10 +116,11 @@ pin-project = "1.1"
 rustls = "0.21"
 tokio-rustls = "0.24"
 tokio-openssl = "0.6"
-openssl = "0.10.53"
+openssl = "0.10.55"
 openssl-probe = "0.1"
 rustls-pemfile = "1.0"
 rustls-native-certs = "0.6"
+quinn = { version = "0.10", default-features = false }
 #
 flume = { version = "0.10", default-features = false }
 #

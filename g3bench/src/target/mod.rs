@@ -35,13 +35,17 @@ mod stats;
 mod proxy_protocol;
 use proxy_protocol::{AppendProxyProtocolArgs, ProxyProtocolArgs};
 
-mod tls;
-use tls::{AppendTlsArgs, OpensslTlsClientArgs};
+mod openssl;
+use self::openssl::{AppendOpensslArgs, OpensslTlsClientArgs};
+
+mod rustls;
+use self::rustls::{AppendRustlsArgs, RustlsTlsClientArgs};
 
 mod http;
 
 pub mod h1;
 pub mod h2;
+pub mod h3;
 pub mod keyless;
 pub mod ssl;
 

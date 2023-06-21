@@ -18,11 +18,16 @@ tokio = { workspace = true, features = ["rt", "net", "macros"] }
 http.workspace = true
 url.workspace = true
 h2.workspace = true
+h3.workspace = true
+h3-quinn.workspace = true
+quinn = { workspace = true, features = ["tls-rustls", "runtime-tokio"] }
 bytes.workspace = true
 futures-util.workspace = true
 tokio-openssl.workspace = true
 openssl.workspace = true
 openssl-probe = { workspace = true, optional = true }
+rustls.workspace = true
+rustls-pemfile.workspace = true
 cadence.workspace = true
 hdrhistogram = { version = "7.5", default-features = false, features = ["sync"] }
 ahash.workspace = true
@@ -31,7 +36,7 @@ concurrent-queue = "2.2"
 hex.workspace = true
 g3-runtime.workspace = true
 g3-signal.workspace = true
-g3-types = { workspace = true, features = ["proxy"] }
+g3-types = { workspace = true, features = ["proxy", "openssl", "rustls"] }
 g3-clap.workspace = true
 g3-socket.workspace = true
 g3-http.workspace = true

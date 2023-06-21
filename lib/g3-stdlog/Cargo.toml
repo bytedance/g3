@@ -3,6 +3,7 @@ name = "g3-stdlog"
 version = "0.1.0"
 license.workspace = true
 edition.workspace = true
+rust-version = "1.70.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -10,7 +11,7 @@ edition.workspace = true
 slog.workspace = true
 chrono = { workspace = true, features = ["clock"] }
 flume.workspace = true
-console = "0.15"
+anstyle = "1.0"
 itoa.workspace = true
 ryu.workspace = true
 g3-types = { workspace = true, features = ["async-log"] }

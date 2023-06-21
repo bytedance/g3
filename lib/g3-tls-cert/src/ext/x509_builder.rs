@@ -35,15 +35,9 @@ impl X509BuilderExt for X509Builder {
     ) -> Result<(), ErrorStack> {
         let digest = digest.unwrap_or_else(|| match key.id() {
             // see https://www.openssl.org/docs/manmaster/man3/EVP_DigestSign.html
-            // TODO use Id::SM2 after supported
+            Id::SM2 => MessageDigest::sm3(),
             Id::ED25519 | Id::ED448 => MessageDigest::null(),
-            id => {
-                if id.as_raw() == 1172 {
-                    MessageDigest::sm3()
-                } else {
-                    MessageDigest::sha256()
-                }
-            }
+            _ => MessageDigest::sha256(),
         });
         self.sign(key, digest)
     }

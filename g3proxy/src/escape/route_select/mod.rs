@@ -31,7 +31,7 @@ use crate::config::escaper::route_select::RouteSelectEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
 use crate::module::ftp_over_http::{
     AnyFtpConnectContextParam, ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats,
-    BoxFtpConnectContext, BoxFtpRemoteHttpConnection,
+    BoxFtpConnectContext, BoxFtpRemoteConnection,
 };
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, BoxHttpForwardContext,
@@ -285,7 +285,7 @@ impl EscaperInternal for RouteSelectEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         _task_notes: &'a ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteControlStats,
-    ) -> Result<BoxFtpRemoteHttpConnection, TcpConnectError> {
+    ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         tcp_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }
@@ -297,7 +297,7 @@ impl EscaperInternal for RouteSelectEscaper {
         _task_notes: &'a ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteTransferStats,
         _context: AnyFtpConnectContextParam,
-    ) -> Result<BoxFtpRemoteHttpConnection, TcpConnectError> {
+    ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         transfer_tcp_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }

@@ -20,7 +20,7 @@ use g3_types::metrics::MetricsName;
 use g3_types::net::UpstreamAddr;
 
 use super::{
-    ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpRemoteHttpConnection,
+    ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpRemoteConnection,
     FtpConnectContext,
 };
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
@@ -46,7 +46,7 @@ impl FtpConnectContext for DenyFtpConnectContext {
         &mut self,
         _task_notes: &ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteControlStats,
-    ) -> Result<BoxFtpRemoteHttpConnection, TcpConnectError> {
+    ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         if let Some(e) = self.control_error.take() {
             Err(e)
         } else {
@@ -63,7 +63,7 @@ impl FtpConnectContext for DenyFtpConnectContext {
         _server_addr: &UpstreamAddr,
         _task_notes: &ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteTransferStats,
-    ) -> Result<BoxFtpRemoteHttpConnection, TcpConnectError> {
+    ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         Err(TcpConnectError::MethodUnavailable)
     }
 

@@ -25,7 +25,8 @@ use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
 
 use g3_types::net::{
-    OpensslCertificatePair, OpensslProtocol, OpensslTlsClientConfig, OpensslTlsClientConfigBuilder,
+    AlpnProtocol, OpensslCertificatePair, OpensslProtocol, OpensslTlsClientConfig,
+    OpensslTlsClientConfigBuilder,
 };
 
 const TLS_ARG_CA_CERT: &str = "tls-ca-cert";
@@ -54,9 +55,9 @@ const PROTOCOL_VALUES: [&str; 5] = ["ssl3.0", "tls1.0", "tls1.1", "tls1.2", "tls
 #[cfg(feature = "vendored-tongsuo")]
 const PROTOCOL_VALUES: [&str; 6] = ["ssl3.0", "tls1.0", "tls1.1", "tls1.2", "tls1.3", "tlcp"];
 
-pub(crate) trait AppendTlsArgs {
-    fn append_tls_args(self) -> Self;
-    fn append_proxy_tls_args(self) -> Self;
+pub(crate) trait AppendOpensslArgs {
+    fn append_openssl_args(self) -> Self;
+    fn append_proxy_openssl_args(self) -> Self;
 }
 
 #[derive(Default)]
@@ -66,6 +67,7 @@ pub(crate) struct OpensslTlsClientArgs {
     pub(crate) tls_name: Option<String>,
     pub(crate) cert_pair: OpensslCertificatePair,
     pub(crate) no_verify: bool,
+    pub(crate) alpn_protocol: Option<AlpnProtocol>,
 }
 
 impl OpensslTlsClientArgs {
@@ -187,7 +189,13 @@ impl OpensslTlsClientArgs {
         }
 
         tls_config.check().context("invalid tls config")?;
-        let tls_client = tls_config.build().context("failed to build tls client")?;
+        let tls_client = if let Some(p) = self.alpn_protocol {
+            tls_config
+                .build_with_alpn_protocols(Some(vec![p]))
+                .context(format!("failed to build tls client with alpn protocol {p}"))?
+        } else {
+            tls_config.build().context("failed to build tls client")?
+        };
         self.client = Some(tls_client);
         Ok(())
     }
@@ -255,12 +263,12 @@ pub(crate) fn load_key(path: &Path) -> anyhow::Result<PKey<Private>> {
         .map_err(|e| anyhow!("invalid private key file({}): {e}", path.display()))
 }
 
-impl AppendTlsArgs for Command {
-    fn append_tls_args(self) -> Command {
+impl AppendOpensslArgs for Command {
+    fn append_openssl_args(self) -> Command {
         append_tls_args(self)
     }
 
-    fn append_proxy_tls_args(self) -> Command {
+    fn append_proxy_openssl_args(self) -> Command {
         append_proxy_tls_args(self)
     }
 }

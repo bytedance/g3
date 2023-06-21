@@ -41,7 +41,7 @@ use g3_types::net::{
 
 use super::{H2PreRequest, HttpRuntimeStats, ProcArgs};
 use crate::target::{
-    AppendProxyProtocolArgs, AppendTlsArgs, OpensslTlsClientArgs, ProxyProtocolArgs,
+    AppendOpensslArgs, AppendProxyProtocolArgs, OpensslTlsClientArgs, ProxyProtocolArgs,
 };
 
 const HTTP_ARG_CONNECTION_POOL: &str = "connection-pool";
@@ -83,6 +83,7 @@ impl BenchH2Args {
         let mut target_tls = OpensslTlsClientArgs::default();
         if url.scheme() == "https" {
             target_tls.config = Some(OpensslTlsClientConfigBuilder::with_cache_for_one_site());
+            target_tls.alpn_protocol = Some(AlpnProtocol::Http2);
         }
 
         Ok(BenchH2Args {
@@ -117,10 +118,7 @@ impl BenchH2Args {
         Ok(())
     }
 
-    pub(super) async fn new_tcp_connection(
-        &self,
-        proc_args: &ProcArgs,
-    ) -> anyhow::Result<TcpStream> {
+    async fn new_tcp_connection(&self, proc_args: &ProcArgs) -> anyhow::Result<TcpStream> {
         let peer = *proc_args.select_peer(&self.peer_addrs);
 
         let socket = g3_socket::tcp::new_socket_to(
@@ -289,7 +287,7 @@ impl BenchH2Args {
         );
 
         let mut client_builder = h2::client::Builder::new();
-        client_builder.max_concurrent_streams(1).enable_push(false);
+        client_builder.max_concurrent_streams(0).enable_push(false);
         let (h2s, h2s_connection) = h2::client::handshake(stream)
             .await
             .map_err(|e| anyhow!("h2 handshake failed: {e:?}"))?;
@@ -469,8 +467,8 @@ pub(super) fn add_h2_args(app: Command) -> Command {
                 .long(HTTP_ARG_CONNECT_TIMEOUT)
                 .num_args(1),
         )
-        .append_tls_args()
-        .append_proxy_tls_args()
+        .append_openssl_args()
+        .append_proxy_openssl_args()
         .append_proxy_protocol_args()
 }
 

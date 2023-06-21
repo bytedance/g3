@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::io::{self, Write};
+use std::io::{self, IsTerminal, Write};
 use std::sync::Arc;
 
 use chrono::Local;
@@ -68,10 +68,11 @@ impl AsyncIoThread {
     }
 
     fn run_to_end(self) {
-        if console::user_attended_stderr() {
-            self.run_console(std::io::stderr())
+        let stderr = io::stderr();
+        if stderr.is_terminal() {
+            self.run_console(stderr)
         } else {
-            self.run_plain(std::io::stderr())
+            self.run_plain(stderr)
         }
     }
 
@@ -110,30 +111,49 @@ impl AsyncIoThread {
     }
 
     fn write_console<IO: Write>(&self, io: &mut IO, v: StdLogValue) -> io::Result<()> {
-        use console::{style, Style};
+        use anstyle::{AnsiColor, Color, Style};
+
+        const COLOR_MAGENTA: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Magenta)));
+        const COLOR_RED: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Red)));
+        const COLOR_YELLOW: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Yellow)));
+        const COLOR_GREEN: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Green)));
+        const COLOR_CYAN: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Cyan)));
+        const COLOR_BLUE: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Blue)));
+        const STYLE_BOLD: Style = Style::new().bold();
+        const STYLE_ITALIC: Style = Style::new().italic();
+
+        let bold_s = STYLE_BOLD.render();
+        let bold_e = STYLE_BOLD.render_reset();
 
         self.write_time(io)?;
         let level_color = match v.level {
-            Level::Critical => Style::new().magenta(),
-            Level::Error => Style::new().red(),
-            Level::Warning => Style::new().yellow(),
-            Level::Info => Style::new().green(),
-            Level::Debug => Style::new().cyan(),
-            Level::Trace => Style::new().blue(),
+            Level::Critical => COLOR_MAGENTA,
+            Level::Error => COLOR_RED,
+            Level::Warning => COLOR_YELLOW,
+            Level::Info => COLOR_GREEN,
+            Level::Debug => COLOR_CYAN,
+            Level::Trace => COLOR_BLUE,
         };
         write!(
             io,
-            " {} {}",
-            level_color.apply_to(v.level),
-            style(v.message).bold()
+            " {}{}{} {bold_s}{}{bold_e}",
+            level_color.render(),
+            v.level,
+            level_color.render_reset(),
+            v.message,
         )?;
 
         for (k, v) in v.kv_pairs {
-            write!(io, ", {}={}", style(k).bold(), v)?;
+            write!(io, ", {bold_s}{k}{bold_e}={v}")?;
         }
 
         if let Some(location) = v.location {
-            write!(io, " <{}>", style(location).italic())?;
+            write!(
+                io,
+                " <{}{location}{}>",
+                STYLE_ITALIC.render(),
+                STYLE_ITALIC.render_reset()
+            )?;
         }
         writeln!(io)?;
         io.flush()?;

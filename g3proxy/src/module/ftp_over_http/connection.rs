@@ -30,4 +30,4 @@ where
 {
 }
 
-pub(crate) type BoxFtpRemoteHttpConnection = Box<dyn FtpRemoteConnection + Send + Unpin>;
+pub(crate) type BoxFtpRemoteConnection = Box<dyn FtpRemoteConnection + Send + Unpin>;
