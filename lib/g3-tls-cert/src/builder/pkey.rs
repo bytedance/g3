@@ -45,8 +45,7 @@ pub fn new_ec521() -> anyhow::Result<PKey<Private>> {
 }
 
 pub fn new_sm2() -> anyhow::Result<PKey<Private>> {
-    // TODO use Nid::SM2 after supported
-    let group = EcGroup::from_curve_name(Nid::from_raw(1172))
+    let group = EcGroup::from_curve_name(Nid::SM2)
         .map_err(|e| anyhow!("failed to get SM2 ec group: {e}"))?;
     new_ec(&group)
 }
