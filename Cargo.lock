@@ -2064,8 +2064,7 @@ checksum = "dd8b5dd2ae5ed71462c540258bedcb51965123ad7e7ccf4b9a8cafaa4a63576d"
 [[package]]
 name = "openssl"
 version = "0.10.55"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "345df152bc43501c5eb9e4654ff05f794effb78d4efe3d53abc158baddc0703d"
+source = "git+https://github.com/zh-jq/rust-openssl.git?branch=tongsuo#61027f3d0d6b02de2e47a0ea1fdffe0a32f9c309"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -2079,7 +2078,7 @@ dependencies = [
 [[package]]
 name = "openssl-macros"
 version = "0.1.1"
-source = "git+https://github.com/zh-jq/rust-openssl.git?branch=tongsuo#99595481c5af9dea8db83ea9263f9a820e045fdd"
+source = "git+https://github.com/zh-jq/rust-openssl.git?branch=tongsuo#61027f3d0d6b02de2e47a0ea1fdffe0a32f9c309"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2104,8 +2103,7 @@ dependencies = [
 [[package]]
 name = "openssl-sys"
 version = "0.9.90"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "374533b0e45f3a7ced10fcaeccca020e66656bc03dac384f852e4e5a7a8104a6"
+source = "git+https://github.com/zh-jq/rust-openssl.git?branch=tongsuo#61027f3d0d6b02de2e47a0ea1fdffe0a32f9c309"
 dependencies = [
  "cc",
  "libc",
