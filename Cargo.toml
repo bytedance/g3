@@ -124,8 +124,9 @@ quinn = { version = "0.10", default-features = false }
 #
 flume = { version = "0.10", default-features = false }
 #
-trust-dns-resolver = { "version" = "0.23.0-alpha.3", default-features = false }
-trust-dns-proto = { "version" = "0.23.0-alpha.3", default-features = false }
+trust-dns-resolver = { version = "0.23.0-alpha.4", default-features = false }
+trust-dns-proto = { version = "0.23.0-alpha.4", default-features = false }
+trust-dns-client = { version = "0.23.0-alpha.4", default-features = false }
 #
 capnp-rpc = "0.17"
 capnp = "0.17"

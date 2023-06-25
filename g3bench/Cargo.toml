@@ -34,6 +34,8 @@ ahash.workspace = true
 rustc-hash.workspace = true
 concurrent-queue = "2.2"
 hex.workspace = true
+trust-dns-client = { workspace = true, features = ["dns-over-rustls", "dns-over-https-rustls", "dns-over-quic"] }
+trust-dns-proto.workspace = true
 g3-runtime.workspace = true
 g3-signal.workspace = true
 g3-types = { workspace = true, features = ["proxy", "openssl", "rustls"] }
