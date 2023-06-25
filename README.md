@@ -30,7 +30,7 @@ A work in progress reverse proxy solution.
 
 ### g3bench
 
-A benchmark tool, which support HTTP 1.x / HTTP 2 / HTTP 3 / TLS Handshake / Cloudflare Keyless.
+A benchmark tool, which support HTTP 1.x / HTTP 2 / HTTP 3 / TLS Handshake / DNS / Cloudflare Keyless.
 
 See [g3bench](g3bench/README.md) for detailed introduction.
 

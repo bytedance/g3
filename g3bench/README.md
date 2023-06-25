@@ -6,10 +6,8 @@ Benchmark tool for many targets.
 
 ### General
 
-- PROXY Protocol
 - Metrics
 - mTLS / Rich TLS config options
-- Socket Speed limit
 - Progress Bar
 - IP Bind
 
@@ -19,12 +17,16 @@ Benchmark tool for many targets.
 
   * GET / HEAD
   * Socks5 proxy / Http Proxy / Https Proxy
+  * PROXY Protocol
+  * Socket Speed limit
 
 - *HTTP 2*
 
   * GET / HEAD
   * Socks5 proxy / Http Proxy / Https Proxy
   * Connection Pool
+  * PROXY Protocol
+  * Socket Speed limit
 
 - *HTTP 3*
 
@@ -32,6 +34,16 @@ Benchmark tool for many targets.
   * Connection Pool
 
 - *TLS Handshake*
+
+  * PROXY Protocol
+
+- *DNS*
+
+  * DNS over UDP
+  * DNS over TCP
+  * DNS over TLS
+  * DNS over HTTPS
+  * DNS over QUIC
 
 - *Cloudflare Keyless*
 
