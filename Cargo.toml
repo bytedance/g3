@@ -48,6 +48,8 @@ default-members = [
     "g3mkcert",
     "g3proxy",
     "g3proxy/utils/ctl",
+    "g3proxy/utils/ftp",
+    "g3proxy/utils/lua",
     "g3tiles",
     "g3tiles/utils/ctl",
 ]
