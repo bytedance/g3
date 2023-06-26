@@ -134,7 +134,7 @@ capnp-rpc = "0.17"
 capnp = "0.17"
 capnpc = "0.17"
 #
-libc = "0.2.146"
+libc = "0.2.147"
 nix = { version = "0.26", default-features = false }
 #
 serde = "1.0"
