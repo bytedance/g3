@@ -238,9 +238,9 @@ impl BenchDnsArgs {
 pub(super) fn add_dns_args(app: Command) -> Command {
     app.arg(
         Arg::new(DNS_ARG_TARGET)
+            .help("Target dns server address (default port will be used if missing)")
             .required(true)
-            .num_args(1)
-            .value_parser(value_parser!(SocketAddr)),
+            .num_args(1),
     )
     .arg(
         Arg::new(DNS_ARG_LOCAL_ADDRESS)
@@ -317,10 +317,16 @@ pub(super) fn add_dns_args(app: Command) -> Command {
 }
 
 pub(super) fn parse_dns_args(args: &ArgMatches) -> anyhow::Result<BenchDnsArgs> {
-    let Some(target) = args.get_one::<SocketAddr>(DNS_ARG_TARGET) else {
+    let Some(target) = args.get_one::<String>(DNS_ARG_TARGET) else {
         return Err(anyhow!("no target set"));
     };
-    let mut dns_args = BenchDnsArgs::new(*target);
+    let mut dns_args = if let Ok(addr) = SocketAddr::from_str(target) {
+        BenchDnsArgs::new(addr)
+    } else if let Ok(ip) = IpAddr::from_str(target) {
+        BenchDnsArgs::new(SocketAddr::new(ip, 0))
+    } else {
+        return Err(anyhow!("invalid dns server address {target}"));
+    };
 
     if let Some(ip) = args.get_one::<SocketAddr>(DNS_ARG_LOCAL_ADDRESS) {
         dns_args.bind = Some(*ip);
@@ -334,12 +340,16 @@ pub(super) fn parse_dns_args(args: &ArgMatches) -> anyhow::Result<BenchDnsArgs> 
         dns_args.connect_timeout = timeout;
     }
 
+    if args.get_flag(DNS_ARG_TCP) {
+        dns_args.use_tcp = true;
+    }
     if let Some(s) = args.get_one::<String>(DNS_ARG_ENCRYPTION) {
         let p = DnsEncryptionProtocol::from_str(s).context("invalid dns encryption protocol")?;
         dns_args.encryption = Some(p);
     }
-    if args.get_flag(DNS_ARG_TCP) {
-        dns_args.use_tcp = true;
+    if dns_args.target.port() == 0 {
+        let default_port = dns_args.encryption.map(|e| e.default_port()).unwrap_or(53);
+        dns_args.target.set_port(default_port);
     }
 
     if let Some(requests) = args.get_many::<String>(DNS_ARG_QUERY_REQUESTS) {
