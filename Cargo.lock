@@ -840,6 +840,7 @@ name = "g3-dpi"
 version = "0.1.0"
 dependencies = [
  "bytes",
+ "fixedbitset",
  "fnv",
  "g3-types",
  "memchr",

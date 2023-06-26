@@ -27,7 +27,7 @@ mod portmap;
 pub use portmap::{ProtocolPortMap, ProtocolPortMapValue};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-#[repr(u16)]
+#[repr(usize)]
 pub enum MaybeProtocol {
     Http,
     Smtp,
@@ -51,6 +51,8 @@ pub enum MaybeProtocol {
     Rtmps,
 
     Ssl,
+
+    _MaxSize,
 }
 
 impl MaybeProtocol {
