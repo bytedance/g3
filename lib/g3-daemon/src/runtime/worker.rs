@@ -32,7 +32,7 @@ static mut WORKER_HANDLERS: Vec<WorkerHandle> = Vec::new();
 
 static LISTEN_RR_INDEX: AtomicUsize = AtomicUsize::new(0);
 thread_local! {
-    static WORKER_RR_INDEX: RefCell<Option<usize>> = RefCell::new(None);
+    static WORKER_RR_INDEX: RefCell<Option<usize>> = const { RefCell::new(None) };
 }
 
 pub async fn spawn_workers() -> anyhow::Result<Option<WorkersGuard>> {
