@@ -1,0 +1,12 @@
+[package]
+name = "openssl-async-job"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+libc.workspace = true
+openssl-sys.workspace = true
+openssl.workspace = true
+foreign-types.workspace = true

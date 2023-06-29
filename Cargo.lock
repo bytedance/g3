@@ -2156,6 +2156,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "openssl-async-job"
+version = "0.1.0"
+dependencies = [
+ "foreign-types",
+ "libc",
+ "openssl",
+ "openssl-sys",
+]
+
+[[package]]
 name = "openssl-macros"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

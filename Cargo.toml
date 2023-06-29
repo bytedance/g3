@@ -26,6 +26,7 @@ members = [
     "lib/g3-socks",
     "lib/g3-dpi",
     "lib/g3-tls-cert",
+    "lib/openssl-async-job",
     "g3bench",
     "g3fcgen",
     "g3mkcert",
@@ -120,6 +121,8 @@ tokio-rustls = "0.24"
 tokio-openssl = "0.6"
 openssl = "0.10.55"
 openssl-probe = "0.1"
+openssl-sys = "0.9"
+foreign-types = "0.3"
 rustls-pemfile = "1.0"
 rustls-native-certs = "0.6"
 quinn = { version = "0.10", default-features = false }
