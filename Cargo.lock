@@ -2145,10 +2145,13 @@ dependencies = [
 name = "openssl-async-job"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "foreign-types",
  "libc",
  "openssl",
  "openssl-sys",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]
