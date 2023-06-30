@@ -1069,6 +1069,7 @@ dependencies = [
  "anyhow",
  "g3-compat",
  "log",
+ "openssl-async-job",
  "tokio",
 ]
 

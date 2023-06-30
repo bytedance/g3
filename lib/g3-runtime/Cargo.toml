@@ -10,5 +10,10 @@ rust-version = "1.59.0"
 [dependencies]
 anyhow.workspace = true
 log.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread", "rt", "sync"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "rt", "sync", "net"] }
 g3-compat.workspace = true
+openssl-async-job = { workspace = true, optional = true }
+
+[features]
+default = []
+openssl = ["openssl-async-job"]

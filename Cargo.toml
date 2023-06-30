@@ -176,6 +176,7 @@ g3-tls-cert = { version = "0.2", path = "lib/g3-tls-cert" }
 g3-types = { version = "0.3", path = "lib/g3-types" }
 g3-xcrypt = { version = "0.1", path = "lib/g3-xcrypt" }
 g3-yaml = { version = "0.4", path = "lib/g3-yaml" }
+openssl-async-job = { version = "0.1", path = "lib/openssl-async-job" }
 
 [profile.release-lto]
 inherits = "release"
