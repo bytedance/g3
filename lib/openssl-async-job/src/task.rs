@@ -52,12 +52,16 @@ pub struct OpensslAsyncTask<T> {
     job: *mut ffi::ASYNC_JOB,
     wait_ctx: AsyncWaitCtx,
     operation: T,
-    op_error: anyhow::Result<()>,
 }
 
 /// NOTE: OpensslAsyncTask in fact is not Send,
 /// make sure you call it in a single threaded async runtime
 unsafe impl<T: Send> Send for OpensslAsyncTask<T> {}
+
+struct CallbackValue<'a, T> {
+    op: &'a mut T,
+    r: anyhow::Result<()>,
+}
 
 impl<T: AsyncOperation> OpensslAsyncTask<T> {
     /// Create a new Openssl Async Task
@@ -71,7 +75,6 @@ impl<T: AsyncOperation> OpensslAsyncTask<T> {
             job: ptr::null_mut(),
             wait_ctx,
             operation,
-            op_error: Ok(()),
         })
     }
 
@@ -83,18 +86,23 @@ impl<T: AsyncOperation> OpensslAsyncTask<T> {
     fn poll_run(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), OpensslAsyncTaskError>> {
         let mut ret: c_int = 0;
 
-        let r = unsafe {
-            ffi::ASYNC_start_job(
-                &mut self.job,
-                self.wait_ctx.as_ptr(),
-                &mut ret,
-                Some(start_job::<T>),
-                self as *mut Self as *mut c_void,
-                mem::size_of::<*mut Self>(),
-            )
-        };
-
         loop {
+            let mut value = CallbackValue {
+                op: &mut self.operation,
+                r: Ok(()),
+            };
+
+            let r = unsafe {
+                ffi::ASYNC_start_job(
+                    &mut self.job,
+                    self.wait_ctx.as_ptr(),
+                    &mut ret,
+                    Some(start_job::<T>),
+                    &mut value as *mut CallbackValue<T> as *mut c_void,
+                    mem::size_of::<CallbackValue<T>>(),
+                )
+            };
+
             match r {
                 ffi::ASYNC_ERR => return Poll::Ready(Err(ErrorStack::get().into())),
                 ffi::ASYNC_NO_JOBS => {
@@ -113,8 +121,7 @@ impl<T: AsyncOperation> OpensslAsyncTask<T> {
                     ready!(self.operation.poll_ready_fds(cx))?;
                 }
                 ffi::ASYNC_FINISH => {
-                    let r = mem::replace(&mut self.op_error, Ok(()));
-                    return Poll::Ready(r.map_err(OpensslAsyncTaskError::Operation));
+                    return Poll::Ready(value.r.map_err(OpensslAsyncTaskError::Operation));
                 }
                 _ => unreachable!(),
             }
@@ -123,9 +130,9 @@ impl<T: AsyncOperation> OpensslAsyncTask<T> {
 }
 
 extern "C" fn start_job<T: AsyncOperation>(arg: *mut c_void) -> c_int {
-    let mut task = ptr::NonNull::new(arg as *mut OpensslAsyncTask<T>).unwrap();
+    let mut task = ptr::NonNull::new(arg as *mut CallbackValue<T>).unwrap();
     let task = unsafe { task.as_mut() };
-    task.op_error = task.operation.run();
+    task.r = task.op.run();
     0
 }
 
