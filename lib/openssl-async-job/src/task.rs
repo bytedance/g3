@@ -55,8 +55,17 @@ pub struct OpensslAsyncTask<T> {
     op_error: anyhow::Result<()>,
 }
 
+/// NOTE: OpensslAsyncTask in fact is not Send,
+/// make sure you call it in a single threaded async runtime
+unsafe impl<T: Send> Send for OpensslAsyncTask<T> {}
+
 impl<T: AsyncOperation> OpensslAsyncTask<T> {
-    pub fn new(operation: T) -> Result<Self, ErrorStack> {
+    /// Create a new Openssl Async Task
+    ///
+    /// # Safety
+    ///
+    /// Only await this object in a single threaded async runtime
+    pub unsafe fn new(operation: T) -> Result<Self, ErrorStack> {
         let wait_ctx = AsyncWaitCtx::new()?;
         Ok(OpensslAsyncTask {
             job: ptr::null_mut(),

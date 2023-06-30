@@ -64,10 +64,10 @@ pub struct ProcArgs {
     pub(super) log_error_count: usize,
     pub(super) task_unconstrained: bool,
     resolver: AHashMap<UpstreamAddr, IpAddr>,
-    use_unaided_worker: bool,
+    pub(super) use_unaided_worker: bool,
     thread_number: Option<usize>,
     thread_stack_size: Option<usize>,
-    openssl_async_job_size: usize,
+    pub(super) openssl_async_job_size: usize,
 
     statsd_client_config: Option<StatsdClientConfig>,
     no_progress_bar: bool,

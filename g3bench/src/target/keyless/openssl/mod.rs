@@ -30,10 +30,14 @@ use task::KeylessOpensslTaskContext;
 mod opts;
 use opts::KeylessOpensslArgs;
 
+mod async_job;
+use async_job::KeylessOpensslAsyncJob;
+
 pub(super) const COMMAND: &str = "openssl";
 
 struct KeylessOpensslTarget {
     args: Arc<KeylessOpensslArgs>,
+    proc_args: Arc<ProcArgs>,
     stats: Arc<KeylessRuntimeStats>,
     histogram: Option<KeylessHistogram>,
 }
@@ -43,7 +47,7 @@ impl BenchTarget<KeylessRuntimeStats, KeylessHistogram, KeylessOpensslTaskContex
 {
     fn new_context(&self) -> anyhow::Result<KeylessOpensslTaskContext> {
         let histogram_recorder = self.histogram.as_ref().map(|h| h.recorder());
-        KeylessOpensslTaskContext::new(&self.args, &self.stats, histogram_recorder)
+        KeylessOpensslTaskContext::new(&self.args, &self.proc_args, &self.stats, histogram_recorder)
     }
 
     fn fetch_runtime_stats(&self) -> Arc<KeylessRuntimeStats> {
@@ -69,6 +73,7 @@ pub(super) async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> any
 
     let target = KeylessOpensslTarget {
         args: Arc::new(global_args),
+        proc_args: Arc::clone(proc_args),
         stats: runtime_stats,
         histogram,
     };
