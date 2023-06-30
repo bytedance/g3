@@ -99,7 +99,11 @@ impl UnaidedRuntimeConfig {
 
     #[cfg(feature = "openssl")]
     pub fn set_openssl_async_job_size(&mut self, size: usize) {
-        self.openssl_async_job_size = size;
+        if openssl_async_job::async_is_capable() {
+            self.openssl_async_job_size = size;
+        } else if size > 0 {
+            warn!("openssl async job is not supported");
+        }
     }
 
     pub async fn start<F>(&self, recv_handle: &F) -> anyhow::Result<WorkersGuard>

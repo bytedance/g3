@@ -38,6 +38,7 @@ const GLOBAL_ARG_UNAIDED: &str = "unaided";
 const GLOBAL_ARG_UNCONSTRAINED: &str = "unconstrained";
 const GLOBAL_ARG_THREADS: &str = "threads";
 const GLOBAL_ARG_THREAD_STACK_SIZE: &str = "thread-stack-size";
+const GLOBAL_ARG_OPENSSL_ASYNC_JOBS: &str = "openssl-async-jobs";
 const GLOBAL_ARG_CONCURRENCY: &str = "concurrency";
 const GLOBAL_ARG_LATENCY: &str = "latency";
 const GLOBAL_ARG_TIME_LIMIT: &str = "time-limit";
@@ -66,6 +67,7 @@ pub struct ProcArgs {
     use_unaided_worker: bool,
     thread_number: Option<usize>,
     thread_stack_size: Option<usize>,
+    openssl_async_job_size: usize,
 
     statsd_client_config: Option<StatsdClientConfig>,
     no_progress_bar: bool,
@@ -87,6 +89,7 @@ impl Default for ProcArgs {
             use_unaided_worker: false,
             thread_number: None,
             thread_stack_size: None,
+            openssl_async_job_size: 0,
             statsd_client_config: None,
             no_progress_bar: false,
             peer_pick_policy: SelectivePickPolicy::RoundRobin,
@@ -206,6 +209,7 @@ impl ProcArgs {
     pub fn worker_runtime(&self) -> Option<UnaidedRuntimeConfig> {
         if self.use_unaided_worker {
             let mut runtime = UnaidedRuntimeConfig::new();
+            runtime.set_openssl_async_job_size(self.openssl_async_job_size);
             if let Some(thread_number) = self.thread_number {
                 runtime.set_thread_number(thread_number);
             }
@@ -299,6 +303,15 @@ pub fn add_global_args(app: Command) -> Command {
             .value_name("STACK SIZE")
             .global(true)
             .num_args(1),
+    )
+    .arg(
+        Arg::new(GLOBAL_ARG_OPENSSL_ASYNC_JOBS)
+            .help("Use OpenSSL async jobs and set max size")
+            .value_name("MAX SIZE")
+            .global(true)
+            .long(GLOBAL_ARG_OPENSSL_ASYNC_JOBS)
+            .num_args(1)
+            .value_parser(value_parser!(usize)),
     )
     .arg(
         Arg::new(GLOBAL_ARG_LOG_ERROR)
@@ -411,6 +424,12 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
         if stack_size > 0 {
             proc_args.thread_stack_size = Some(stack_size);
         }
+    }
+    if let Some(n) = args.get_one::<usize>(GLOBAL_ARG_OPENSSL_ASYNC_JOBS) {
+        if *n > 0 && !openssl_async_job::async_is_capable() {
+            return Err(anyhow!("openssl async job is not supported"));
+        }
+        proc_args.openssl_async_job_size = *n;
     }
 
     if let Some(n) = args.get_one::<usize>(GLOBAL_ARG_LOG_ERROR) {

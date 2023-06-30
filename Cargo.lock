@@ -1278,6 +1278,7 @@ dependencies = [
  "http",
  "indicatif",
  "openssl",
+ "openssl-async-job",
  "openssl-probe",
  "quinn",
  "rustc-hash",
