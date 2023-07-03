@@ -85,14 +85,15 @@ impl<T: AsyncOperation> OpensslAsyncTask<T> {
                 r: Err(anyhow!("no result returned from the sync operation")),
             };
 
+            let mut param = &mut value;
             let r = unsafe {
                 ffi::ASYNC_start_job(
                     &mut self.job,
                     self.wait_ctx.as_ptr(),
                     &mut ret,
                     Some(start_job::<T>),
-                    &mut value as *mut CallbackValue<T> as *mut c_void,
-                    mem::size_of::<CallbackValue<T>>(),
+                    &mut param as *mut _ as *mut c_void,
+                    mem::size_of::<*mut *mut CallbackValue<T>>(),
                 )
             };
 
@@ -123,7 +124,8 @@ impl<T: AsyncOperation> OpensslAsyncTask<T> {
 }
 
 extern "C" fn start_job<T: AsyncOperation>(arg: *mut c_void) -> c_int {
-    let mut task = ptr::NonNull::new(arg as *mut CallbackValue<T>).unwrap();
+    let mut ptr = ptr::NonNull::new(arg as *mut *mut CallbackValue<T>).unwrap();
+    let mut task = ptr::NonNull::new(unsafe { *ptr.as_mut() }).unwrap();
     let task = unsafe { task.as_mut() };
     task.r = task.op.run();
     0
