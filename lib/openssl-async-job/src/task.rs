@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use anyhow::anyhow;
 use std::future::Future;
 use std::io;
 use std::os::fd::RawFd;
@@ -22,6 +21,7 @@ use std::pin::Pin;
 use std::task::{ready, Context, Poll};
 use std::{mem, ptr};
 
+use anyhow::anyhow;
 use foreign_types::ForeignType;
 use libc::{c_int, c_void};
 use openssl::error::ErrorStack;
