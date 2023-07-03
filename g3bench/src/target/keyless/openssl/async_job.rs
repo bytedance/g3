@@ -14,43 +14,33 @@
  * limitations under the License.
  */
 
-use std::pin::Pin;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use openssl_async_job::{OpensslAsyncTask, SyncOperation, TokioAsyncOperation};
+use openssl_async_job::{SyncOperation, TokioAsyncOperation};
 
 use super::KeylessOpensslArgs;
 
 pub(super) struct KeylessOpensslAsyncJob {
     args: Arc<KeylessOpensslArgs>,
-    result: Vec<u8>,
 }
 
 impl SyncOperation for KeylessOpensslAsyncJob {
-    fn run(&mut self) -> anyhow::Result<()> {
-        self.result = self.args.handle_action()?;
-        Ok(())
+    type Output = Vec<u8>;
+
+    fn run(&mut self) -> anyhow::Result<Self::Output> {
+        self.args.handle_action()
     }
 }
 
 impl KeylessOpensslAsyncJob {
     pub(super) fn new(args: Arc<KeylessOpensslArgs>) -> Self {
-        KeylessOpensslAsyncJob {
-            args,
-            result: Vec::new(),
-        }
+        KeylessOpensslAsyncJob { args }
     }
 
     pub(super) async fn run(self) -> anyhow::Result<Vec<u8>> {
-        let async_op = TokioAsyncOperation::new(self);
-        let mut task = unsafe {
-            OpensslAsyncTask::new(async_op)
-                .map_err(|e| anyhow!("failed to create openssl async task: {e}"))?
-        };
-        Pin::new(&mut task).await.map_err(anyhow::Error::new)?;
-
-        let sync_op = task.into_op().into_sync_op();
-        Ok(sync_op.result)
+        let async_task = TokioAsyncOperation::build_async_task(self)
+            .map_err(|e| anyhow!("failed to create openssl async task: {e}"))?;
+        async_task.await.map_err(anyhow::Error::new)
     }
 }

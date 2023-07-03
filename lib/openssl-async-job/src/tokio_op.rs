@@ -18,31 +18,45 @@ use std::io;
 use std::os::fd::RawFd;
 use std::task::{Context, Poll};
 
+use openssl::error::ErrorStack;
 use tokio::io::unix::AsyncFd;
 use tokio::io::Interest;
+use tokio::runtime::{Handle, RuntimeFlavor};
 
-use super::{AsyncOperation, SyncOperation};
+use super::{AsyncOperation, OpensslAsyncTask, SyncOperation};
 
 pub struct TokioAsyncOperation<T> {
     sync_op: T,
     tracked_fds: Vec<AsyncFd<RawFd>>,
 }
 
-impl<T> TokioAsyncOperation<T> {
-    pub fn new(sync_op: T) -> Self {
-        TokioAsyncOperation {
+impl<T> TokioAsyncOperation<T>
+where
+    T: SyncOperation,
+{
+    /// Create a openssl async task in tokio single threaded runtime
+    ///
+    /// It will panic if called in multi-threaded runtime
+    pub fn build_async_task(
+        sync_op: T,
+    ) -> Result<OpensslAsyncTask<TokioAsyncOperation<T>>, ErrorStack> {
+        assert_eq!(
+            Handle::current().runtime_flavor(),
+            RuntimeFlavor::CurrentThread
+        );
+
+        let async_op = TokioAsyncOperation {
             sync_op,
             tracked_fds: Vec::with_capacity(1),
-        }
-    }
-
-    pub fn into_sync_op(self) -> T {
-        self.sync_op
+        };
+        OpensslAsyncTask::new(async_op)
     }
 }
 
 impl<T: SyncOperation> SyncOperation for TokioAsyncOperation<T> {
-    fn run(&mut self) -> anyhow::Result<()> {
+    type Output = T::Output;
+
+    fn run(&mut self) -> anyhow::Result<T::Output> {
         self.sync_op.run()
     }
 }

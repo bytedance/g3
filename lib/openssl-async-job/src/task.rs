@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use anyhow::anyhow;
 use std::future::Future;
 use std::io;
 use std::os::fd::RawFd;
@@ -29,7 +30,9 @@ use thiserror::Error;
 use super::{ffi, AsyncWaitCtx};
 
 pub trait SyncOperation {
-    fn run(&mut self) -> anyhow::Result<()>;
+    type Output;
+
+    fn run(&mut self) -> anyhow::Result<Self::Output>;
 }
 
 pub trait AsyncOperation: SyncOperation {
@@ -58,18 +61,13 @@ pub struct OpensslAsyncTask<T> {
 /// make sure you call it in a single threaded async runtime
 unsafe impl<T: Send> Send for OpensslAsyncTask<T> {}
 
-struct CallbackValue<'a, T> {
+struct CallbackValue<'a, T: AsyncOperation> {
     op: &'a mut T,
-    r: anyhow::Result<()>,
+    r: anyhow::Result<T::Output>,
 }
 
 impl<T: AsyncOperation> OpensslAsyncTask<T> {
-    /// Create a new Openssl Async Task
-    ///
-    /// # Safety
-    ///
-    /// Only await this object in a single threaded async runtime
-    pub unsafe fn new(operation: T) -> Result<Self, ErrorStack> {
+    pub(crate) fn new(operation: T) -> Result<Self, ErrorStack> {
         let wait_ctx = AsyncWaitCtx::new()?;
         Ok(OpensslAsyncTask {
             job: ptr::null_mut(),
@@ -78,18 +76,13 @@ impl<T: AsyncOperation> OpensslAsyncTask<T> {
         })
     }
 
-    #[inline]
-    pub fn into_op(self) -> T {
-        self.operation
-    }
-
-    fn poll_run(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), OpensslAsyncTaskError>> {
+    fn poll_run(&mut self, cx: &mut Context<'_>) -> Poll<Result<T::Output, OpensslAsyncTaskError>> {
         let mut ret: c_int = 0;
 
         loop {
             let mut value = CallbackValue {
                 op: &mut self.operation,
-                r: Ok(()),
+                r: Err(anyhow!("no result returned from the sync operation")),
             };
 
             let r = unsafe {
@@ -140,7 +133,7 @@ impl<T> Future for OpensslAsyncTask<T>
 where
     T: AsyncOperation + Unpin,
 {
-    type Output = Result<(), OpensslAsyncTaskError>;
+    type Output = Result<T::Output, OpensslAsyncTaskError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.poll_run(cx)
