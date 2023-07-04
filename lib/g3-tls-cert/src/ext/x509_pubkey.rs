@@ -38,7 +38,7 @@ impl X509Pubkey {
     where
         T: HasPublic,
     {
-        let mut p = ptr::null_mut() as *mut ffi::X509_PUBKEY;
+        let mut p = ptr::null_mut();
         let r = unsafe { ffi::X509_PUBKEY_set(&mut p as *mut _, key.as_ptr()) };
         if r <= 0 {
             Err(ErrorStack::get())
@@ -64,7 +64,7 @@ impl X509PubkeyRef {
             if r <= 0 {
                 Err(ErrorStack::get())
             } else {
-                Ok(slice::from_raw_parts(pk as *const u8, pkt_len as usize))
+                Ok(slice::from_raw_parts(pk, pkt_len as usize))
             }
         }
     }
