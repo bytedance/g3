@@ -125,7 +125,7 @@ openssl-sys = "0.9"
 foreign-types = "0.3"
 rustls-pemfile = "1.0"
 rustls-native-certs = "0.6"
-quinn = { version = "0.10", default-features = false }
+quinn = { version = "0.10", default-features = false, features = ["native-certs"] }
 #
 flume = { version = "0.10", default-features = false }
 #

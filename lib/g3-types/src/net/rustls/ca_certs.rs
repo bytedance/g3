@@ -14,22 +14,11 @@
  * limitations under the License.
  */
 
-use std::fs::File;
-use std::io::BufReader;
-
 use anyhow::anyhow;
 use rustls::Certificate;
 
-pub fn load_openssl_certs_for_rustls() -> anyhow::Result<Vec<Certificate>> {
-    let r = openssl_probe::probe();
-    let Some(path) = r.cert_file else {
-        return Err(anyhow!("no ca certificate file could be found"));
-    };
-    let f = File::open(&path)
-        .map_err(|e| anyhow!("failed to open ca cert file {}: {e}", path.display()))?;
-    let mut f = BufReader::new(f);
-
-    rustls_pemfile::certs(&mut f)
-        .map(|v| v.into_iter().map(Certificate).collect())
-        .map_err(|e| anyhow!("failed to load pem certs from file {}: {e}", path.display()))
+pub fn load_native_certs_for_rustls() -> anyhow::Result<Vec<Certificate>> {
+    rustls_native_certs::load_native_certs()
+        .map(|certs| certs.into_iter().map(|v| Certificate(v.0)).collect())
+        .map_err(|e| anyhow!("failed to load native ca certs: {e}"))
 }

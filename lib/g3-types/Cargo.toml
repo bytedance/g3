@@ -25,7 +25,7 @@ governor = { workspace = true, features = ["std", "jitter"] }
 digest = { workspace = true, optional = true }
 md-5 = { workspace = true, optional = true }
 sha-1 = { version = "0.10.0", optional = true }
-blake3 = { version = "1.4", "default-features" = false, optional = true }
+blake3 = { version = "1.4", default-features = false, optional = true }
 hex = { workspace = true, optional = true }
 ahash = { workspace = true, optional = true }
 ip_network = { workspace = true, optional = true }
@@ -36,7 +36,7 @@ radix_trie = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
 webpki-roots = { version = "0.23", optional = true }
 rustls-pemfile = { workspace = true, optional = true }
-openssl-probe = { workspace = true, optional = true }
+rustls-native-certs = { version = "0.6", optional = true }
 openssl = { workspace = true, optional = true }
 lru = { version = "0.10", default-features = false, optional = true }
 bytes = { workspace = true, optional = true }
@@ -50,7 +50,7 @@ indexmap = { workspace = true, optional = true }
 default = []
 auth-crypt = ["dep:digest", "dep:md-5", "dep:sha-1", "dep:blake3", "dep:hex"]
 resolve = ["dep:ahash", "dep:radix_trie"]
-rustls = ["dep:rustls", "dep:webpki-roots", "dep:rustls-pemfile", "dep:openssl-probe"]
+rustls = ["dep:rustls", "dep:webpki-roots", "dep:rustls-pemfile", "dep:rustls-native-certs"]
 openssl = ["dep:openssl", "dep:ahash", "dep:lru"]
 acl-rule = ["resolve", "dep:ahash", "dep:ip_network", "dep:ip_network_table", "dep:once_cell", "dep:regex", "dep:radix_trie", "proxy"]
 http = ["dep:http", "dep:bytes", "dep:base64"]
