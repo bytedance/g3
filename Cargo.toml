@@ -91,6 +91,8 @@ radix_trie = "0.2"
 digest = "0.10.7"
 md-5 = "0.10.0"
 sha2 = "0.10.0"
+sha-1 = "0.10.0"
+blake3 = { version = "1.4", default-features = false }
 hex = "0.4.2"
 #
 idna = "0.4"
@@ -111,6 +113,7 @@ clap_complete = "4.3"
 #
 tokio = "1.29"
 tokio-util = "0.7"
+tokio-stream = "0.1"
 futures-util = "0.3"
 async-trait = "0.1"
 async-recursion = "1.0"
