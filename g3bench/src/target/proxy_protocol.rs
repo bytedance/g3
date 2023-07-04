@@ -77,7 +77,7 @@ impl ProxyProtocolArgs {
 
     fn parse_address(&mut self, args: &ArgMatches) -> anyhow::Result<()> {
         let Some(v) = args.get_one::<String>(PP_ARG_ADDRESS) else {
-            return Ok(())
+            return Ok(());
         };
 
         let r: Vec<&str> = v.splitn(2, ',').collect();

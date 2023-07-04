@@ -211,8 +211,8 @@ where
 
                 let old_state = std::mem::replace(&mut self.state, ChunkedTransferState::End);
                 let ChunkedTransferState::SendHead(send_head) = old_state else {
-                        unreachable!()
-                    };
+                    unreachable!()
+                };
                 let copy = ROwnedLimitedCopy::new(
                     send_head.body_reader,
                     send_head.writer,

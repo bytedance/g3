@@ -177,7 +177,9 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
     {
         if let Some(body_type) = http_request.body_type() {
             let Some(clt_body_io) = clt_body_io else {
-                return Err(H1ReqmodAdaptationError::InternalServerError("no client http body io supplied while body type is not none"));
+                return Err(H1ReqmodAdaptationError::InternalServerError(
+                    "no client http body io supplied while body type is not none",
+                ));
             };
             if let Some(preview_size) = self.icap_options.preview_size {
                 self.xfer_with_preview(
