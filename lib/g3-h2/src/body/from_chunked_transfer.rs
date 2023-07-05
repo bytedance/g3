@@ -203,8 +203,8 @@ where
 
                 let old_state = std::mem::replace(&mut self.state, TransferState::End);
                 let TransferState::Data(encode) = old_state else {
-                        unreachable!()
-                    };
+                    unreachable!()
+                };
                 if self.has_trailer {
                     let (reader, send_stream) = encode.into_io();
                     let reader = reader.into_reader();

@@ -16,7 +16,7 @@
 
 use std::sync::Arc;
 
-use fnv::FnvHashSet;
+use fixedbitset::FixedBitSet;
 
 use g3_types::net::AlpnProtocol;
 
@@ -41,24 +41,32 @@ pub enum ProtocolInspectError {
     NeedMoreData(usize),
 }
 
-#[derive(Default)]
 pub(crate) struct ProtocolInspectState {
     current: Option<MaybeProtocol>,
-    excluded: FnvHashSet<MaybeProtocol>,
+    excluded: FixedBitSet,
+}
+
+impl Default for ProtocolInspectState {
+    fn default() -> Self {
+        ProtocolInspectState {
+            current: None,
+            excluded: FixedBitSet::with_capacity(MaybeProtocol::_MaxSize as usize),
+        }
+    }
 }
 
 impl ProtocolInspectState {
     pub(crate) fn exclude_other(&mut self, protocol: MaybeProtocol) {
-        self.excluded.insert(protocol);
+        self.excluded.insert(protocol as usize);
     }
 
-    fn excluded(&self, protocol: &MaybeProtocol) -> bool {
-        self.excluded.get(protocol).is_some()
+    fn excluded(&self, protocol: MaybeProtocol) -> bool {
+        self.excluded.contains(protocol as usize)
     }
 
     pub(crate) fn exclude_current(&mut self) {
         if let Some(p) = self.current.take() {
-            self.excluded.insert(p);
+            self.excluded.insert(p as usize);
         }
     }
 
@@ -77,7 +85,7 @@ impl ProtocolInspectState {
         data: &[u8],
         size_limit: &ProtocolInspectionSizeLimit,
     ) -> Result<Option<Protocol>, ProtocolInspectError> {
-        if self.excluded(&proto) {
+        if self.excluded(proto) {
             return Ok(None);
         }
         self.current = Some(proto);
@@ -104,7 +112,8 @@ impl ProtocolInspectState {
             | MaybeProtocol::Imaps
             | MaybeProtocol::Rtsps
             | MaybeProtocol::SecureMqtt
-            | MaybeProtocol::Rtmps => {
+            | MaybeProtocol::Rtmps
+            | MaybeProtocol::_MaxSize => {
                 unreachable!()
             }
         }
@@ -116,7 +125,7 @@ impl ProtocolInspectState {
         data: &[u8],
         size_limit: &ProtocolInspectionSizeLimit,
     ) -> Result<Option<Protocol>, ProtocolInspectError> {
-        if self.excluded(&proto) {
+        if self.excluded(proto) {
             return Ok(None);
         }
         self.current = Some(proto);
@@ -143,7 +152,8 @@ impl ProtocolInspectState {
             | MaybeProtocol::Imaps
             | MaybeProtocol::Rtsps
             | MaybeProtocol::SecureMqtt
-            | MaybeProtocol::Rtmps => {
+            | MaybeProtocol::Rtmps
+            | MaybeProtocol::_MaxSize => {
                 unreachable!()
             }
         }

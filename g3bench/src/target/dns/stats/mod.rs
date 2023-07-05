@@ -14,11 +14,8 @@
  * limitations under the License.
  */
 
-use anyhow::anyhow;
-use rustls::Certificate;
+mod runtime;
+pub(crate) use runtime::DnsRuntimeStats;
 
-pub fn load_native_certs_for_rustls() -> anyhow::Result<Vec<Certificate>> {
-    rustls_native_certs::load_native_certs()
-        .map(|certs| certs.into_iter().map(|v| Certificate(v.0)).collect())
-        .map_err(|e| anyhow!("failed to load native ca certs: {e}"))
-}
+mod histogram;
+pub(crate) use histogram::{DnsHistogram, DnsHistogramRecorder};

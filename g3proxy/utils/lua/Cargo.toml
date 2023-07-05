@@ -10,11 +10,16 @@ edition.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
-mlua = { version = "0.8.9" }
+mlua = { version = "0.8.9", optional = true }
 
 [features]
 default = ["lua54"]
-luajit = ["mlua/luajit"]
-lua51 = ["mlua/lua51"]
-lua53 = ["mlua/lua53"]
-lua54 = ["mlua/lua54"]
+lua = ["mlua"]
+luajit = ["lua", "mlua/luajit"]
+lua51 = ["lua", "mlua/lua51"]
+lua53 = ["lua", "mlua/lua53"]
+lua54 = ["lua", "mlua/lua54"]
+
+[[bin]]
+name = "g3proxy-lua"
+required-features = ["lua"]

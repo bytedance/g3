@@ -205,7 +205,7 @@ where
             .map_err(FtpRawResponseError::ReadFailed)?;
         match len {
             0 => Err(FtpRawResponseError::ConnectionClosed),
-            1 | 2 | 3 | 4 => {
+            1..=4 => {
                 // at least <code>\n
 
                 #[cfg(feature = "log-raw-io")]

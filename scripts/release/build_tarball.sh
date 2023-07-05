@@ -120,7 +120,7 @@ else
 	: > "${CARGO_CONFIG_FILE}"
 fi
 mkdir "${CARGO_VENDOR_DIR}"
-cargo vendor --locked "${CARGO_VENDOR_DIR}" | tee -a "${CARGO_CONFIG_FILE}"
+cargo vendor --frozen "${CARGO_VENDOR_DIR}" | tee -a "${CARGO_CONFIG_FILE}"
 
 
 if [ -f ${SOURCE_NAME}/doc/conf.py ]

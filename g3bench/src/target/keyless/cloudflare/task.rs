@@ -247,8 +247,8 @@ impl BenchTaskContext for KeylessCloudflareTaskContext {
 
 pub(super) fn get_public_key_digest(key: &PKey<Public>) -> anyhow::Result<Option<DigestBytes>> {
     let Ok(rsa) = key.rsa() else {
-            return Ok(None);
-        };
+        return Ok(None);
+    };
 
     let hex = rsa
         .n()

@@ -88,8 +88,7 @@ impl RustlsServerConfigBuilder {
                     })?;
                 }
             } else {
-                let certs = super::load_openssl_certs_for_rustls()
-                    .context("failed to load default openssl ca certs")?;
+                let certs = super::load_native_certs_for_rustls()?;
                 for (i, cert) in certs.iter().enumerate() {
                     root_store.add(cert).map_err(|e| {
                         anyhow!("failed to add openssl ca cert {i} as root certs for client auth: {e:?}",)

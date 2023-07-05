@@ -10,4 +10,5 @@ edition.workspace = true
 fnv.workspace = true
 bytes.workspace = true
 memchr.workspace = true
+fixedbitset = "0.4.2"
 g3-types.workspace = true

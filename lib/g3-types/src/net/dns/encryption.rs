@@ -49,6 +49,14 @@ impl DnsEncryptionProtocol {
             DnsEncryptionProtocol::Quic => "DnsOverQuic",
         }
     }
+
+    pub fn default_port(&self) -> u16 {
+        match self {
+            DnsEncryptionProtocol::Tls => 853,
+            DnsEncryptionProtocol::Https => 443,
+            DnsEncryptionProtocol::Quic => 853,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

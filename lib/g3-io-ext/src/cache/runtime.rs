@@ -44,7 +44,7 @@ pub struct EffectiveCacheRuntime<K: Hash, R> {
     vanish: DelayQueue<Arc<K>>,
 }
 
-impl<K: Hash + Eq, R> EffectiveCacheRuntime<K, R> {
+impl<K: Hash + Eq, R: Send + Sync> EffectiveCacheRuntime<K, R> {
     pub(super) fn new(
         request_batch_handle_count: usize,
         req_receiver: mpsc::UnboundedReceiver<CacheQueryRequest<K, R>>,
@@ -163,7 +163,7 @@ impl<K: Hash + Eq, R> EffectiveCacheRuntime<K, R> {
     }
 }
 
-impl<K: Hash + Eq, R> Future for EffectiveCacheRuntime<K, R> {
+impl<K: Hash + Eq, R: Send + Sync> Future for EffectiveCacheRuntime<K, R> {
     type Output = io::Result<()>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {

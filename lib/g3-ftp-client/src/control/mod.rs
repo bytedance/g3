@@ -108,7 +108,7 @@ where
 
         let reply = self.timed_read_raw_response("check server feature").await?;
         match reply.code() {
-            500 | 501 | 502 => {}
+            500..=502 => {}
             211 => {
                 if let Some(lines) = reply.lines() {
                     for line in &lines[1..] {
@@ -134,7 +134,7 @@ where
 
         let reply = self.timed_read_raw_response("set use utf8").await?;
         match reply.code() {
-            500 | 501 | 502 => Ok(false),
+            500..=502 => Ok(false),
             200 => Ok(true),
             421 => Err(FtpCommandError::ServiceNotAvailable),
             n => Err(FtpCommandError::UnexpectedReplyCode(cmd, n)),
