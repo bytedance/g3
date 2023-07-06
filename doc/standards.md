@@ -214,13 +214,15 @@ The code should comply to these, but should be more compliant to existing popula
 
 ### Websocket
  - [rfc6455](https://datatracker.ietf.org/doc/html/rfc6455)
-   : The WebSocket Protocol
+    : The WebSocket Protocol
  - [rfc8441](https://datatracker.ietf.org/doc/html/rfc8441)
-   : Bootstrapping WebSockets with HTTP/2
+    : Bootstrapping WebSockets with HTTP/2
  - [rfc9220](https://datatracker.ietf.org/doc/html/rfc9220)
-   : Bootstrapping WebSockets with HTTP/3
+    : Bootstrapping WebSockets with HTTP/3
  - [nginx-websocket-proxying](https://nginx.org/en/docs/http/websocket.html)
-   : WebSocket proxying
+    : WebSocket proxying
+ - [iana-websocket](https://www.iana.org/assignments/websocket/websocket.xml)
+    : WebSocket Protocol Registries
 
 ### FTP
 
