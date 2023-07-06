@@ -95,6 +95,7 @@ impl ProtocolInspectState {
             MaybeProtocol::Ssl => self.check_ssl_client_hello(data),
             MaybeProtocol::Rtsp => self.check_rtsp_client_setup_request(data),
             MaybeProtocol::Mqtt => self.check_mqtt_client_connect_request(data),
+            MaybeProtocol::Stomp => self.check_stomp_client_connect_request(data),
             MaybeProtocol::Rtmp => self.check_rtmp_client_handshake(data),
             MaybeProtocol::BitTorrent => self.check_bittorrent_handshake(data),
             MaybeProtocol::Ftp
@@ -142,6 +143,7 @@ impl ProtocolInspectState {
             | MaybeProtocol::Http
             | MaybeProtocol::Rtsp
             | MaybeProtocol::Mqtt
+            | MaybeProtocol::Stomp
             | MaybeProtocol::Rtmp => {
                 self.exclude_current();
                 Ok(None)

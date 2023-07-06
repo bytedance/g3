@@ -17,7 +17,7 @@
 use std::fmt;
 use std::str::FromStr;
 
-use g3_types::net::AlpnProtocol;
+use g3_types::net::{AlpnProtocol, WebSocketSubProtocol};
 
 mod inspect;
 use inspect::ProtocolInspectState;
@@ -38,6 +38,7 @@ pub enum MaybeProtocol {
     Imap,
     Rtsp,
     Mqtt,
+    Stomp,
     Rtmp,
     Nats,
     BitTorrent,
@@ -84,6 +85,8 @@ impl FromStr for MaybeProtocol {
             "nntp" => Ok(MaybeProtocol::Nntp),
             "imap" => Ok(MaybeProtocol::Imap),
             "rtsp" => Ok(MaybeProtocol::Rtsp),
+            "mqtt" => Ok(MaybeProtocol::Mqtt),
+            "stomp" => Ok(MaybeProtocol::Stomp),
             "rtmp" => Ok(MaybeProtocol::Rtmp),
             "nats" => Ok(MaybeProtocol::Nats),
             "bittorrent" | "bt" => Ok(MaybeProtocol::BitTorrent),
@@ -111,6 +114,17 @@ impl From<AlpnProtocol> for MaybeProtocol {
     }
 }
 
+impl From<WebSocketSubProtocol> for MaybeProtocol {
+    fn from(p: WebSocketSubProtocol) -> Self {
+        match p {
+            WebSocketSubProtocol::Mqtt => MaybeProtocol::Mqtt,
+            WebSocketSubProtocol::StompV10
+            | WebSocketSubProtocol::StompV11
+            | WebSocketSubProtocol::StompV12 => MaybeProtocol::Stomp,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Protocol {
     Unknown,
@@ -130,6 +144,7 @@ pub enum Protocol {
     Imap,
     Rtsp,
     Mqtt,
+    Stomp,
     Rtmp,
     Nats,
     BitTorrent,
@@ -156,6 +171,7 @@ impl Protocol {
             Protocol::Imap => "imap",
             Protocol::Rtsp => "rtsp",
             Protocol::Mqtt => "mqtt",
+            Protocol::Stomp => "stomp",
             Protocol::Rtmp => "rtmp",
             Protocol::Nats => "nats",
             Protocol::BitTorrent => "bittorrent",
@@ -193,3 +209,4 @@ mod rtsp;
 mod smtp;
 mod ssh;
 mod ssl;
+mod stomp;

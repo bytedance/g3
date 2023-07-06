@@ -41,6 +41,7 @@ impl ProtocolInspectState {
         self.exclude_other(MaybeProtocol::Ssh);
         self.exclude_other(MaybeProtocol::Http);
         self.exclude_other(MaybeProtocol::Rtsp);
+        self.exclude_other(MaybeProtocol::Stomp);
         self.exclude_other(MaybeProtocol::Rtmp);
         self.exclude_other(MaybeProtocol::BitTorrent);
 

@@ -45,14 +45,16 @@ impl ProtocolInspectState {
             b'A' => {
                 // 0x41
                 self.http_exclude_by_byte0();
-                self.exclude_other(MaybeProtocol::Ssh);
+                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Stomp);
 
                 check_method!(b"ACL ");
             }
             b'B' => {
                 // 0x42
                 self.http_exclude_by_byte0();
-                self.exclude_other(MaybeProtocol::Ssh);
+                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Stomp);
 
                 check_method!(b"BIND ");
                 check_method!(b"BASELINE-CONTROL ");
@@ -60,38 +62,54 @@ impl ProtocolInspectState {
             b'C' => {
                 // 0x43
                 self.http_exclude_by_byte0();
-                self.exclude_other(MaybeProtocol::Ssh);
+                self.http_exclude_by_byte0_s();
 
-                check_method!(b"CONNECT ");
-                check_method!(b"COPY ");
-                check_method!(b"CHECKIN ");
-                check_method!(b"CHECKOUT ");
+                if data.starts_with(b"CONNECT ") {
+                    self.exclude_other(MaybeProtocol::Stomp);
+                    return self.check_http1_after_method(data, 8, size_limit);
+                }
+                if data.starts_with(b"COPY ") {
+                    self.exclude_other(MaybeProtocol::Stomp);
+                    return self.check_http1_after_method(data, 5, size_limit);
+                }
+                if data.starts_with(b"CHECKIN ") {
+                    self.exclude_other(MaybeProtocol::Stomp);
+                    return self.check_http1_after_method(data, 8, size_limit);
+                }
+                if data.starts_with(b"CHECKOUT ") {
+                    self.exclude_other(MaybeProtocol::Stomp);
+                    return self.check_http1_after_method(data, 9, size_limit);
+                }
             }
             b'D' => {
                 // 0x44
                 self.http_exclude_by_byte0();
-                self.exclude_other(MaybeProtocol::Ssh);
+                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Stomp);
 
                 check_method!(b"DELETE ");
             }
             b'G' => {
                 // 0x47
                 self.http_exclude_by_byte0();
-                self.exclude_other(MaybeProtocol::Ssh);
+                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Stomp);
 
                 check_method!(b"GET ");
             }
             b'H' => {
                 // 0x48
                 self.http_exclude_by_byte0();
-                self.exclude_other(MaybeProtocol::Ssh);
+                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Stomp);
 
                 check_method!(b"HEAD ");
             }
             b'L' => {
                 // 0x4C
                 self.http_exclude_by_byte0();
-                self.exclude_other(MaybeProtocol::Ssh);
+                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Stomp);
 
                 check_method!(b"LOCK ");
                 check_method!(b"LINK ");
@@ -100,7 +118,8 @@ impl ProtocolInspectState {
             b'M' => {
                 // 0x4D
                 self.http_exclude_by_byte0();
-                self.exclude_other(MaybeProtocol::Ssh);
+                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Stomp);
 
                 check_method!(b"MOVE ");
                 check_method!(b"MKCOL ");
@@ -113,7 +132,8 @@ impl ProtocolInspectState {
             b'O' => {
                 // 0x4F
                 self.http_exclude_by_byte0();
-                self.exclude_other(MaybeProtocol::Ssh);
+                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Stomp);
 
                 check_method!(b"OPTIONS ");
                 check_method!(b"ORDERPATCH ");
@@ -121,7 +141,8 @@ impl ProtocolInspectState {
             b'P' => {
                 // 0x50
                 self.http_exclude_by_byte0();
-                self.exclude_other(MaybeProtocol::Ssh);
+                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Stomp);
 
                 check_method!(b"POST ");
                 check_method!(b"PUT ");
@@ -135,7 +156,8 @@ impl ProtocolInspectState {
             b'R' => {
                 // 0x52
                 self.http_exclude_by_byte0();
-                self.exclude_other(MaybeProtocol::Ssh);
+                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Stomp);
 
                 check_method!(b"REPORT ");
                 check_method!(b"REBIND ");
@@ -147,26 +169,30 @@ impl ProtocolInspectState {
                 if data.starts_with(b"SEARCH ") {
                     self.exclude_other(MaybeProtocol::Ssh);
                     self.exclude_other(MaybeProtocol::Rtsp);
+                    self.exclude_other(MaybeProtocol::Stomp);
                     return self.check_http1_after_method(data, 7, size_limit);
                 }
                 if data.starts_with(b"SOURCE ") {
                     // Icecast, deprecated since 2.4.0
                     self.exclude_other(MaybeProtocol::Ssh);
                     self.exclude_other(MaybeProtocol::Rtsp);
+                    self.exclude_other(MaybeProtocol::Stomp);
                     return self.check_http1_after_method(data, 7, size_limit);
                 }
             }
             b'T' => {
                 // 0x54
                 self.http_exclude_by_byte0();
-                self.exclude_other(MaybeProtocol::Ssh);
+                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Stomp);
 
                 check_method!(b"TRACE ");
             }
             b'U' => {
                 // 0x55
                 self.http_exclude_by_byte0();
-                self.exclude_other(MaybeProtocol::Ssh);
+                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Stomp);
 
                 check_method!(b"UNLOCK ");
                 check_method!(b"UNBIND ");
@@ -178,7 +204,8 @@ impl ProtocolInspectState {
             b'V' => {
                 // 0x56
                 self.http_exclude_by_byte0();
-                self.exclude_other(MaybeProtocol::Ssh);
+                self.http_exclude_by_byte0_s();
+                self.exclude_other(MaybeProtocol::Stomp);
 
                 check_method!(b"VERSION-CONTROL ");
             }
@@ -194,6 +221,11 @@ impl ProtocolInspectState {
         self.exclude_other(MaybeProtocol::Mqtt);
         self.exclude_other(MaybeProtocol::Rtmp);
         self.exclude_other(MaybeProtocol::BitTorrent);
+    }
+
+    fn http_exclude_by_byte0_s(&mut self) {
+        self.exclude_other(MaybeProtocol::Ssh);
+        self.exclude_other(MaybeProtocol::Rtsp);
     }
 
     fn check_http1_after_method(

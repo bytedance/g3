@@ -50,6 +50,7 @@ impl ProtocolInspectState {
 
         self.exclude_other(MaybeProtocol::Ssh);
         self.exclude_other(MaybeProtocol::Http);
+        self.exclude_other(MaybeProtocol::Stomp);
 
         // seems there's no need to do more check
 

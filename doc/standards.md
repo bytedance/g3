@@ -280,6 +280,11 @@ The code should comply to these, but should be more compliant to existing popula
  - [mqtt-v3.1.1-os](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html)
     : MQTT Version 3.1.1 OASIS Standard
 
+### STOMP
+
+ - [stomp-specification-1.2](https://stomp.github.io/stomp-specification-1.2.html)
+    : https://stomp.github.io/stomp-specification-1.2.html
+
 ### RTMP
 
  - [rtmp_specification_1.0](https://rtmp.veriskope.com/docs/spec/)

@@ -40,6 +40,7 @@ impl ProtocolInspectState {
         // exclude impossible protocols
         self.exclude_other(MaybeProtocol::Ssl);
         self.exclude_other(MaybeProtocol::Mqtt);
+        self.exclude_other(MaybeProtocol::Stomp);
         self.exclude_other(MaybeProtocol::Rtmp);
         self.exclude_other(MaybeProtocol::BitTorrent);
 
