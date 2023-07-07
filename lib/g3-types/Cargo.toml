@@ -34,7 +34,7 @@ once_cell = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
 radix_trie = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
-webpki-roots = { version = "0.23", optional = true }
+webpki-roots = { version = "0.24", optional = true }
 rustls-pemfile = { workspace = true, optional = true }
 rustls-native-certs = { workspace = true, optional = true }
 openssl = { workspace = true, optional = true }
