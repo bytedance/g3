@@ -183,6 +183,8 @@ The code should comply to these, but should be more compliant to existing popula
     : HTTP headers
  - [rfc6648](https://datatracker.ietf.org/doc/html/rfc6648)
     : Deprecating the "X-" Prefix and Similar Constructs in Application Protocols
+ - [rfc8941](https://datatracker.ietf.org/doc/html/rfc8941)
+    : Structured Field Values for HTTP
  - [rfc9297](https://datatracker.ietf.org/doc/html/rfc9297)
     : HTTP Datagrams and the Capsule Protocol
  - [rfc9298](https://datatracker.ietf.org/doc/html/rfc9298)
