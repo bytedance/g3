@@ -38,6 +38,7 @@ members = [
     "g3tiles",
     "g3tiles/proto",
     "g3tiles/utils/ctl",
+    "g3keymess",
     "demo/test-int-signal",
     "demo/test-tcp-relay",
     "demo/test-resolver",
@@ -142,6 +143,7 @@ capnpc = "0.17"
 #
 libc = "0.2.147"
 nix = { version = "0.26", default-features = false }
+inotify = "0.10"
 #
 serde = "1.0"
 yaml-rust = "0.4"

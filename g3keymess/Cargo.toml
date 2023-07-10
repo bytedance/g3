@@ -1,0 +1,40 @@
+[package]
+name = "g3keymess"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+description = "G3 Keyless Server"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow.workspace = true
+thiserror.workspace = true
+clap.workspace = true
+log.workspace = true
+openssl.workspace = true
+openssl-probe = { workspace = true, optional = true }
+tokio = { workspace = true, features = ["time", "sync", "fs"] }
+once_cell.workspace = true
+yaml-rust.workspace = true
+url.workspace = true
+ahash.workspace = true
+async-trait.workspace = true
+inotify.workspace = true
+futures-util.workspace = true
+g3-daemon.workspace = true
+g3-signal.workspace = true
+g3-yaml = { workspace = true, features = [] }
+g3-types = { workspace = true, features = [] }
+g3-socket.workspace = true
+g3-io-ext.workspace = true
+g3-tls-cert.workspace = true
+g3-compat.workspace = true
+openssl-async-job.workspace = true
+
+[build-dependencies]
+rustc_version.workspace = true
+
+[features]
+default = []
+vendored-openssl = ["openssl/vendored", "dep:openssl-probe"]
