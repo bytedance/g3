@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::HashMap;
 use std::sync::Mutex;
 
 use once_cell::sync::Lazy;
@@ -47,17 +47,15 @@ where
         ),
     };
     let mut container = SHARED_LOGGER.lock().unwrap();
-    let logger = match container.entry(format!("{log_type}/{logger_name}")) {
-        Entry::Occupied(entry) => entry.into_mut(),
-        Entry::Vacant(entry) => {
-            let logger = g3_daemon::log::create_shared_logger(
+    let logger = container
+        .entry(format!("{log_type}/{logger_name}"))
+        .or_insert_with(|| {
+            g3_daemon::log::create_shared_logger(
                 logger_name,
                 crate::config::daemon_group_name(),
                 log_type,
                 &config,
-            );
-            entry.insert(logger)
-        }
-    };
+            )
+        });
     sub_logger(logger)
 }
