@@ -18,52 +18,47 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use slog::Logger;
 use tokio::io::AsyncRead;
 use tokio::sync::{broadcast, Semaphore};
 
-use g3_daemon::server::ServerQuitPolicy;
-
 use crate::config::server::KeyServerConfig;
 use crate::protocol::KeylessRequest;
-use crate::serve::{KeyServer, KeyServerStats, ServerReloadCommand};
+use crate::serve::{KeyServerStats, ServerReloadCommand};
 
 mod multiplex;
 mod simplex;
 
+#[allow(unused)]
+pub(crate) struct KeylessTaskContext {
+    pub(crate) server_config: Arc<KeyServerConfig>,
+    pub(crate) server_stats: Arc<KeyServerStats>,
+    pub(crate) peer_addr: SocketAddr,
+    pub(crate) local_addr: SocketAddr,
+    pub(crate) task_logger: Logger,
+    pub(crate) request_logger: Logger,
+    pub(crate) reload_notifier: broadcast::Receiver<ServerReloadCommand>,
+    pub(crate) concurrency_limit: Option<Arc<Semaphore>>,
+}
+
 pub(crate) struct KeylessTask {
-    server_config: Arc<KeyServerConfig>,
-    server_stats: Arc<KeyServerStats>,
-    #[allow(unused)]
-    peer_addr: SocketAddr,
-    #[allow(unused)]
-    local_addr: SocketAddr,
-    reload_notifier: broadcast::Receiver<ServerReloadCommand>,
-    #[allow(unused)]
-    server_quit_policy: Arc<ServerQuitPolicy>,
+    ctx: KeylessTaskContext,
     buf: Vec<u8>,
-    concurrency_limit: Option<Arc<Semaphore>>,
 }
 
 impl Drop for KeylessTask {
     fn drop(&mut self) {
-        self.server_stats.dec_alive_task();
+        self.ctx.server_stats.dec_alive_task();
     }
 }
 
 impl KeylessTask {
-    pub(crate) fn new(server: &KeyServer, peer_addr: SocketAddr, local_addr: SocketAddr) -> Self {
-        let server_stats = server.get_server_stats();
-        server_stats.add_task();
-        server_stats.inc_alive_task();
+    pub(crate) fn new(ctx: KeylessTaskContext) -> Self {
+        ctx.server_stats.add_task();
+        ctx.server_stats.inc_alive_task();
         KeylessTask {
-            server_config: server.clone_config(),
-            server_stats: server.get_server_stats(),
-            peer_addr,
-            local_addr,
-            reload_notifier: server.reload_notifier(),
-            server_quit_policy: server.quit_policy().clone(),
+            ctx,
             buf: Vec::with_capacity(crate::protocol::MESSAGE_PADDED_LENGTH + 2),
-            concurrency_limit: server.concurrency_limit(),
         }
     }
 
@@ -72,7 +67,7 @@ impl KeylessTask {
         R: AsyncRead + Unpin,
     {
         match tokio::time::timeout(
-            self.server_config.request_read_timeout,
+            self.ctx.server_config.request_read_timeout,
             KeylessRequest::read(reader, &mut self.buf),
         )
         .await

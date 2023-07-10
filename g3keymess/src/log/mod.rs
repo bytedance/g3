@@ -14,13 +14,10 @@
  * limitations under the License.
  */
 
-pub mod config;
-pub mod control;
-pub mod opts;
-pub mod serve;
-pub mod signal;
-pub mod store;
+mod shared;
 
-mod build;
-mod log;
-mod protocol;
+pub(crate) mod request;
+pub(crate) mod task;
+
+const LOG_TYPE_TASK: &str = "Task";
+const LOG_TYPE_REQUEST: &str = "Request";

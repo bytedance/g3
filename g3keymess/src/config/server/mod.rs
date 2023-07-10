@@ -18,6 +18,8 @@ use std::path::Path;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
+use ascii::AsciiString;
+use slog::Logger;
 use yaml_rust::{yaml, Yaml};
 
 use g3_types::metrics::MetricsName;
@@ -32,6 +34,7 @@ pub(crate) struct KeyServerConfig {
     name: MetricsName,
     #[allow(unused)]
     position: Option<YamlDocPosition>,
+    pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) listen: TcpListenConfig,
     pub(crate) multiplex_queue_depth: usize,
     pub(crate) request_read_timeout: Duration,
@@ -44,6 +47,7 @@ impl KeyServerConfig {
         KeyServerConfig {
             name: MetricsName::default(),
             position,
+            shared_logger: None,
             listen: TcpListenConfig::default(),
             multiplex_queue_depth: 0,
             request_read_timeout: Duration::from_millis(100),
@@ -80,6 +84,11 @@ impl KeyServerConfig {
                 self.name = g3_yaml::value::as_metrics_name(v)?;
                 Ok(())
             }
+            "shared_logger" => {
+                let name = g3_yaml::value::as_ascii(v)?;
+                self.shared_logger = Some(name);
+                Ok(())
+            }
             "listen" => {
                 self.listen = g3_yaml::value::as_tcp_listen_config(v)
                     .context(format!("invalid tcp listen config value for key {k}"))?;
@@ -102,6 +111,22 @@ impl KeyServerConfig {
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
+        }
+    }
+
+    pub(crate) fn get_task_logger(&self) -> Logger {
+        if let Some(shared_logger) = &self.shared_logger {
+            crate::log::task::get_shared_logger(shared_logger.as_str(), self.name())
+        } else {
+            crate::log::task::get_logger(self.name())
+        }
+    }
+
+    pub(crate) fn get_request_logger(&self) -> Logger {
+        if let Some(shared_logger) = &self.shared_logger {
+            crate::log::request::get_shared_logger(shared_logger.as_str(), self.name())
+        } else {
+            crate::log::request::get_logger(self.name())
         }
     }
 }

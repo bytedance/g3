@@ -17,6 +17,7 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use slog::Logger;
 use tokio::net::TcpStream;
 use tokio::sync::{broadcast, Semaphore};
 
@@ -24,7 +25,9 @@ use g3_daemon::listen::ListenStats;
 use g3_daemon::server::ServerQuitPolicy;
 use g3_types::metrics::MetricsName;
 
-use super::{KeyServerRuntime, KeyServerStats, KeylessTask, ServerReloadCommand};
+use super::{
+    KeyServerRuntime, KeyServerStats, KeylessTask, KeylessTaskContext, ServerReloadCommand,
+};
 use crate::config::server::KeyServerConfig;
 
 pub(crate) struct KeyServer {
@@ -34,6 +37,8 @@ pub(crate) struct KeyServer {
     quit_policy: Arc<ServerQuitPolicy>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
     concurrency_limit: Option<Arc<Semaphore>>,
+    task_logger: Logger,
+    request_logger: Logger,
 }
 
 impl KeyServer {
@@ -44,6 +49,10 @@ impl KeyServer {
         concurrency_limit: Option<Arc<Semaphore>>,
     ) -> Self {
         let (reload_sender, _reload_receiver) = broadcast::channel(16);
+
+        let task_logger = config.get_task_logger();
+        let request_logger = config.get_request_logger();
+
         KeyServer {
             config: Arc::new(config),
             server_stats,
@@ -51,6 +60,8 @@ impl KeyServer {
             quit_policy: Arc::new(ServerQuitPolicy::default()),
             reload_sender,
             concurrency_limit,
+            task_logger,
+            request_logger,
         }
     }
 
@@ -100,14 +111,6 @@ impl KeyServer {
         self.config.clone()
     }
 
-    pub(super) fn reload_notifier(&self) -> broadcast::Receiver<ServerReloadCommand> {
-        self.reload_sender.subscribe()
-    }
-
-    pub(super) fn concurrency_limit(&self) -> Option<Arc<Semaphore>> {
-        self.concurrency_limit.clone()
-    }
-
     pub(super) fn reload_with_new_notifier(&self, config: KeyServerConfig) -> KeyServer {
         self.prepare_reload(config)
     }
@@ -117,6 +120,7 @@ impl KeyServer {
         self.listen_stats.clone()
     }
 
+    #[allow(unused)]
     pub(super) fn get_server_stats(&self) -> Arc<KeyServerStats> {
         self.server_stats.clone()
     }
@@ -136,8 +140,19 @@ impl KeyServer {
         peer_addr: SocketAddr,
         local_addr: SocketAddr,
     ) {
+        let ctx = KeylessTaskContext {
+            server_config: self.config.clone(),
+            server_stats: self.server_stats.clone(),
+            peer_addr,
+            local_addr,
+            task_logger: self.task_logger.clone(),
+            request_logger: self.request_logger.clone(),
+            reload_notifier: self.reload_sender.subscribe(),
+            concurrency_limit: self.concurrency_limit.clone(),
+        };
+
         let (r, w) = stream.into_split();
-        let task = KeylessTask::new(self, peer_addr, local_addr);
+        let task = KeylessTask::new(ctx);
         if self.config.multiplex_queue_depth > 1 {
             task.into_multiplex_running(r, w).await
         } else {

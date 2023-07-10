@@ -21,7 +21,7 @@ mod server;
 use server::KeyServer;
 
 mod task;
-use task::KeylessTask;
+use task::{KeylessTask, KeylessTaskContext};
 
 mod runtime;
 use runtime::KeyServerRuntime;

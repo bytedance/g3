@@ -52,7 +52,7 @@ impl KeylessTask {
                         }
                     }
                 }
-                r = self.reload_notifier.recv() => {
+                r = self.ctx.reload_notifier.recv() => {
                     match r {
                         Ok(ServerReloadCommand::QuitRuntime) => {
                             // TODO close connection gracefully
@@ -87,7 +87,7 @@ impl KeylessTask {
             return self.send_response(writer, KeylessResponse::Error(rsp.key_not_found())).await;
         };
 
-        let server_sem = if let Some(sem) = self.concurrency_limit.clone() {
+        let server_sem = if let Some(sem) = self.ctx.concurrency_limit.clone() {
             sem.acquire_owned().await.ok()
         } else {
             None

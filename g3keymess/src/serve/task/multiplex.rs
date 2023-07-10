@@ -36,7 +36,7 @@ impl KeylessTask {
         W: AsyncWrite + Send + Unpin + 'static,
     {
         let (msg_sender, mut msg_receiver) =
-            mpsc::channel::<KeylessResponse>(self.server_config.multiplex_queue_depth);
+            mpsc::channel::<KeylessResponse>(self.ctx.server_config.multiplex_queue_depth);
 
         let write_handle = tokio::spawn(async move {
             let mut write_error: io::Result<()> = Ok(());
@@ -97,7 +97,7 @@ impl KeylessTask {
                         }
                     }
                 }
-                r = self.reload_notifier.recv() => {
+                r = self.ctx.reload_notifier.recv() => {
                     match r {
                         Ok(ServerReloadCommand::QuitRuntime) => {
                             // TODO close connection gracefully
@@ -150,7 +150,7 @@ impl KeylessTask {
         key: PKey<Private>,
         msg_sender: &mpsc::Sender<KeylessResponse>,
     ) -> anyhow::Result<()> {
-        let server_sem = if let Some(sem) = self.concurrency_limit.clone() {
+        let server_sem = if let Some(sem) = self.ctx.concurrency_limit.clone() {
             sem.acquire_owned().await.ok()
         } else {
             None
@@ -163,7 +163,7 @@ impl KeylessTask {
         };
 
         let msg_sender = msg_sender.clone();
-        let async_op_timeout = self.server_config.async_op_timeout;
+        let async_op_timeout = self.ctx.server_config.async_op_timeout;
         tokio::spawn(async move {
             let rsp = match tokio::time::timeout(async_op_timeout, task).await {
                 Ok(Ok(r)) => r,

@@ -1331,6 +1331,7 @@ version = "0.1.0"
 dependencies = [
  "ahash",
  "anyhow",
+ "ascii",
  "async-trait",
  "clap",
  "futures-util",
@@ -1349,6 +1350,7 @@ dependencies = [
  "openssl-async-job",
  "openssl-probe",
  "rustc_version",
+ "slog",
  "thiserror",
  "tokio",
  "url",
