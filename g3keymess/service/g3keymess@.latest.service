@@ -1,0 +1,23 @@
+[Unit]
+Description=G3 Keyless Server %i
+After=syslog.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+RuntimeDirectory=g3keymess
+RuntimeDirectoryPreserve=yes
+EnvironmentFile=-/etc/g3keymess/%i/env
+ExecStartPre=/bin/sh -c "[ ! -e $RUNTIME_DIRECTORY/%i.sock ] || rm $RUNTIME_DIRECTORY/%i.sock"
+ExecStart=/usr/bin/g3keymess -c /etc/g3keymess/%i/main.yml --control-dir $RUNTIME_DIRECTORY -s -G %i
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStop=/bin/kill -TERM $MAINPID
+KillMode=none
+Restart=on-failure
+SuccessExitStatus=SIGQUIT
+RestartPreventExitStatus=255
+TimeoutStartSec=10
+LimitNOFILE=10485760
+
+[Install]
+WantedBy=multi-user.target
