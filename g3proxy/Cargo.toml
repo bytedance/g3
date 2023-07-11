@@ -50,14 +50,14 @@ arc-swap.workspace = true
 capnp-rpc.workspace = true
 capnp.workspace = true
 itoa.workspace = true
-redis = { version = "0.23", default-features = false, features = ["aio", "tokio-comp", "cluster-async"] }
+redis = { workspace = true, features = ["aio", "tokio-comp", "cluster-async"] }
 ascii.workspace = true
 ahash.workspace = true
 governor = { workspace = true, features = ["std", "jitter"] }
 cadence.workspace = true
 rmpv.workspace = true
-mlua = { version = "0.8.9", features = ["send"], optional = true }
-pyo3 = { version = "0.19", features = ["auto-initialize"], optional = true }
+mlua = { workspace = true, features = ["send"], optional = true }
+pyo3 = { workspace = true, features = ["auto-initialize"], optional = true }
 g3-compat.workspace = true
 g3-types = { workspace = true, features = ["auth-crypt", "rustls", "openssl", "acl-rule", "http", "route", "async-log"] }
 g3-socket.workspace = true
@@ -70,7 +70,7 @@ g3-yaml = { workspace = true, features = ["resolve", "rustls", "openssl", "acl-r
 g3-json = { workspace = true, features = ["acl-rule", "resolve", "http", "rustls", "openssl", "proxy"] }
 g3-msgpack.workspace = true
 g3-io-ext.workspace = true
-g3-resolver = { path = "../lib/g3-resolver", features = ["trust-dns"] }
+g3-resolver = { workspace = true, features = ["trust-dns"] }
 g3-xcrypt.workspace = true
 g3-ftp-client.workspace = true
 g3-http.workspace = true

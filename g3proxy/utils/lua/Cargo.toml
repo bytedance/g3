@@ -10,7 +10,7 @@ edition.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
-mlua = { version = "0.8.9", optional = true }
+mlua = { workspace = true, optional = true }
 
 [features]
 default = ["lua54"]
