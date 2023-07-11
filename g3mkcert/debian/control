@@ -4,6 +4,7 @@ Priority: optional
 Maintainer: G3mkcert Maintainers <g3mkcert-maintainers@devel.machine>
 Build-Depends: debhelper
 Standards-Version: 3.9.8
+Homepage: https://github.com/bytedance/g3
 
 Package: g3mkcert
 Architecture: any

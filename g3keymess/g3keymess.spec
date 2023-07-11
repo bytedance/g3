@@ -16,7 +16,7 @@ Release:        1%{?dist}
 Summary:        Keyless server for G3 Project
 
 License:        ASL 2.0
-#URL:
+URL:            https://github.com/bytedance/g3
 Source0:        %{name}-%{version}.tar.xz
 
 BuildRequires:  gcc, make, %{pkgconfig_real}
