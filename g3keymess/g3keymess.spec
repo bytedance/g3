@@ -15,7 +15,7 @@ Version:        0.1.0
 Release:        1%{?dist}
 Summary:        Keyless server for G3 Project
 
-License:        ASL 2.0
+License:        Apache-2.0
 URL:            https://github.com/bytedance/g3
 Source0:        %{name}-%{version}.tar.xz
 
@@ -46,9 +46,10 @@ install -m 644 -D %{name}/service/g3keymess@.service %{buildroot}/lib/systemd/sy
 
 
 %files
-#%license add-license-file-here
 %{_bindir}/g3keymess
 /lib/systemd/system/g3keymess@.service
+%license LICENSE
+%license LICENSE-BUNDLED
 
 
 %changelog

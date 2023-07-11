@@ -15,7 +15,7 @@ Version:        0.5.0
 Release:        1%{?dist}
 Summary:        Fake Certificate Generator for G3 Project
 
-License:        ASL 2.0
+License:        Apache-2.0
 URL:            https://github.com/bytedance/g3
 Source0:        %{name}-%{version}.tar.xz
 
@@ -45,10 +45,11 @@ install -m 644 -D %{name}/service/g3fcgen.preset %{buildroot}/lib/systemd/system
 
 
 %files
-#%license add-license-file-here
 %{_bindir}/g3fcgen
 /lib/systemd/system/g3fcgen.service
 /lib/systemd/system-preset/90-g3fcgen.preset
+%license LICENSE
+%license LICENSE-BUNDLED
 
 
 %changelog

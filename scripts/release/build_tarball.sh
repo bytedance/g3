@@ -123,6 +123,10 @@ mkdir "${CARGO_VENDOR_DIR}"
 cargo vendor --frozen "${CARGO_VENDOR_DIR}" | tee -a "${CARGO_CONFIG_FILE}"
 
 
+echo "==> generate license files for bundled crates"
+cargo metadata --format-version 1 | "${SCRIPT_DIR}"/bundle_license.py > LICENSE-BUNDLED
+
+
 if [ -f ${SOURCE_NAME}/doc/conf.py ]
 then
 	echo "==> building sphinx docs"

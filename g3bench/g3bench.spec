@@ -13,7 +13,7 @@ Version:        0.8.0
 Release:        1%{?dist}
 Summary:        Benchmark tool for G3 Project
 
-License:        ASL 2.0
+License:        Apache-2.0
 URL:            https://github.com/bytedance/g3
 Source0:        %{name}-%{version}.tar.xz
 
@@ -40,8 +40,9 @@ install -m 755 -D target/%{build_profile}/g3bench %{buildroot}%{_bindir}/g3bench
 
 
 %files
-#%license add-license-file-here
 %{_bindir}/g3bench
+%license LICENSE
+%license LICENSE-BUNDLED
 
 
 %changelog
