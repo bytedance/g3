@@ -142,7 +142,7 @@ impl RustlsClientConfigBuilder {
 
         let mut config = if let Some(pair) = &self.client_cert_pair {
             config_builder
-                .with_single_cert(pair.certs.clone(), pair.key.clone())
+                .with_client_auth_cert(pair.certs.clone(), pair.key.clone())
                 .map_err(|e| anyhow!("unable to add client auth certificate: {e:?}"))?
         } else {
             config_builder.with_no_client_auth()
