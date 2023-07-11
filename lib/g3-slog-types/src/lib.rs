@@ -25,3 +25,8 @@ pub use net::{LtIpAddr, LtUpstreamAddr};
 
 mod uuid;
 pub use self::uuid::LtUuid;
+
+#[cfg(feature = "http")]
+mod http;
+#[cfg(feature = "http")]
+pub use self::http::{LtH2StreamId, LtHttpMethod, LtHttpUri};

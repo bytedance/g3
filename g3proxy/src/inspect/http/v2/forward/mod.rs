@@ -27,7 +27,6 @@ use http::{Method, Request, Response, StatusCode, Uri, Version};
 use slog::slog_info;
 use tokio::time::Instant;
 
-use g3_daemon::log::types::{LtDateTime, LtDuration, LtUuid};
 use g3_h2::{H2StreamBodyTransferError, H2StreamFromChunkedTransferError, RequestExt};
 use g3_icap_client::reqmod::h2::{
     H2RequestAdapter, HttpAdapterErrorResponse, ReqmodAdaptationEndState, ReqmodAdaptationRunState,
@@ -36,12 +35,12 @@ use g3_icap_client::reqmod::h2::{
 use g3_icap_client::respmod::h2::{
     H2ResponseAdapter, RespmodAdaptationEndState, RespmodAdaptationRunState,
 };
+use g3_slog_types::{LtDateTime, LtDuration, LtH2StreamId, LtHttpMethod, LtHttpUri, LtUuid};
 use g3_types::net::HttpHeaderMap;
 
 use super::{H2BodyTransfer, H2ConcurrencyStats, H2StreamTransferError};
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
-use crate::log::types::{LtH2StreamId, LtHttpMethod, LtHttpUri};
 use crate::serve::ServerIdleChecker;
 
 macro_rules! intercept_log {

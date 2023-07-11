@@ -22,10 +22,10 @@ use h2::Reason;
 use slog::slog_info;
 use tokio::time::Instant;
 
-use g3_daemon::log::types::LtUuid;
 use g3_dpi::Protocol;
 use g3_h2::H2BodyTransfer;
 use g3_io_ext::{AggregatedIo, OnceBufReader};
+use g3_slog_types::LtUuid;
 
 use crate::config::server::ServerConfig;
 use crate::inspect::{BoxAsyncRead, BoxAsyncWrite, InterceptionError, StreamInspectContext};

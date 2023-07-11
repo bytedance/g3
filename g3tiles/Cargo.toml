@@ -43,6 +43,7 @@ g3-types = { workspace = true, features = ["acl-rule", "route", "openssl", "rust
 g3-socket.workspace = true
 g3-io-ext.workspace = true
 g3-statsd.workspace = true
+g3-slog-types.workspace = true
 g3tiles-proto = { path = "proto" }
 
 [build-dependencies]

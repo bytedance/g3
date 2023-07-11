@@ -18,8 +18,8 @@ use bytes::Bytes;
 use h2::{RecvStream, SendStream};
 use slog::slog_info;
 
-use g3_daemon::log::types::{LtUpstreamAddr, LtUuid};
 use g3_h2::{H2StreamReader, H2StreamWriter};
+use g3_slog_types::{LtUpstreamAddr, LtUuid};
 use g3_types::net::UpstreamAddr;
 
 use crate::config::server::ServerConfig;

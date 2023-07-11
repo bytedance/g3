@@ -18,7 +18,7 @@ use std::time::Duration;
 
 use slog::{slog_info, Logger};
 
-use g3_daemon::log::types::{LtDateTime, LtDuration, LtIpAddr, LtUpstreamAddr, LtUuid};
+use g3_slog_types::{LtDateTime, LtDuration, LtIpAddr, LtUpstreamAddr, LtUuid};
 
 use crate::module::tcp_connect::TcpConnectTaskNotes;
 use crate::serve::{ServerTaskError, ServerTaskNotes};

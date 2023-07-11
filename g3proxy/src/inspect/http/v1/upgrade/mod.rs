@@ -24,11 +24,11 @@ use slog::slog_info;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
-use g3_daemon::log::types::{LtDateTime, LtDuration, LtUpstreamAddr, LtUuid};
 use g3_dpi::Protocol;
 use g3_http::client::HttpTransparentResponse;
 use g3_http::server::{HttpTransparentRequest, UriExt};
 use g3_io_ext::OnceBufReader;
+use g3_slog_types::{LtDateTime, LtDuration, LtHttpUri, LtUpstreamAddr, LtUuid};
 use g3_types::net::{HttpUpgradeToken, UpstreamAddr};
 
 use super::{H1InterceptionError, HttpRequest, HttpRequestIo, HttpResponseIo};
@@ -36,7 +36,6 @@ use crate::config::server::ServerConfig;
 use crate::inspect::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext, StreamInspection};
 use crate::log::inspect::stream::StreamInspectLog;
 use crate::log::inspect::InspectSource;
-use crate::log::types::LtHttpUri;
 use crate::module::http_forward::HttpProxyClientResponse;
 use crate::serve::{ServerTaskError, ServerTaskResult};
 

@@ -17,8 +17,8 @@
 use slog::{slog_info, Logger};
 use uuid::Uuid;
 
-use g3_daemon::log::types::{LtDateTime, LtUpstreamAddr, LtUuid};
 use g3_io_ext::{UdpCopyRemoteError, UdpRelayRemoteError};
+use g3_slog_types::{LtDateTime, LtUpstreamAddr, LtUuid};
 use g3_types::net::UpstreamAddr;
 
 use crate::module::udp_connect::UdpConnectTaskNotes;

@@ -21,8 +21,8 @@ use std::task::{ready, Context, Poll};
 use slog::{slog_info, Logger};
 use tokio::time::Instant;
 
-use g3_daemon::log::types::LtDuration;
 use g3_resolver::{ResolveError, ResolveQueryType, ResolvedRecordSource};
+use g3_slog_types::LtDuration;
 use g3_types::metrics::MetricsName;
 
 use crate::config::resolver::fail_over::FailOverResolverConfig;

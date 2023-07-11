@@ -847,7 +847,6 @@ dependencies = [
  "capnp",
  "capnp-rpc",
  "cfg-if",
- "chrono",
  "daemonize",
  "futures-util",
  "g3-fluentd",
@@ -869,7 +868,6 @@ dependencies = [
  "slog-stdlog",
  "tokio",
  "tokio-util",
- "uuid",
  "yaml-rust",
 ]
 
@@ -1088,6 +1086,19 @@ name = "g3-signal"
 version = "0.3.0"
 dependencies = [
  "tokio",
+]
+
+[[package]]
+name = "g3-slog-types"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "g3-types",
+ "h2",
+ "http",
+ "memchr",
+ "slog",
+ "uuid",
 ]
 
 [[package]]
@@ -1404,6 +1415,7 @@ dependencies = [
  "g3-msgpack",
  "g3-resolver",
  "g3-signal",
+ "g3-slog-types",
  "g3-socket",
  "g3-socks",
  "g3-statsd",
@@ -1518,6 +1530,7 @@ dependencies = [
  "g3-daemon",
  "g3-io-ext",
  "g3-signal",
+ "g3-slog-types",
  "g3-socket",
  "g3-statsd",
  "g3-types",

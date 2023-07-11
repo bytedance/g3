@@ -20,7 +20,7 @@ use h2::StreamId;
 use http::{Method, Uri};
 use slog::{Record, Serializer, Value};
 
-pub(crate) struct LtHttpMethod<'a>(pub(crate) &'a Method);
+pub struct LtHttpMethod<'a>(pub &'a Method);
 
 impl<'a> Value for LtHttpMethod<'a> {
     fn serialize(
@@ -33,13 +33,13 @@ impl<'a> Value for LtHttpMethod<'a> {
     }
 }
 
-pub(crate) struct LtHttpUri<'a> {
+pub struct LtHttpUri<'a> {
     uri: &'a Uri,
     max_chars: usize,
 }
 
 impl<'a> LtHttpUri<'a> {
-    pub(crate) fn new(uri: &'a Uri, max_chars: usize) -> Self {
+    pub fn new(uri: &'a Uri, max_chars: usize) -> Self {
         LtHttpUri { uri, max_chars }
     }
 
@@ -113,7 +113,7 @@ impl<'a> Value for LtHttpUri<'a> {
     }
 }
 
-pub(crate) struct LtH2StreamId<'a>(pub(crate) &'a StreamId);
+pub struct LtH2StreamId<'a>(pub &'a StreamId);
 
 impl<'a> Value for LtH2StreamId<'a> {
     fn serialize(

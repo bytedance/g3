@@ -27,8 +27,6 @@ capnp-rpc.workspace = true
 rand.workspace = true
 tokio = { workspace = true, features = ["net", "io-util"] }
 tokio-util = { workspace = true, features = ["compat"] }
-chrono = { workspace = true, features = ["clock"] }
-uuid = { workspace = true, features = ["v1", "v4"] }
 g3-types = { workspace = true, features = ["async-log"] }
 g3-stdlog.workspace = true
 g3-syslog.workspace = true

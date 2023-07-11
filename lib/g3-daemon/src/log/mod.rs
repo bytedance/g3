@@ -15,7 +15,6 @@
  */
 
 pub mod process;
-pub mod types;
 
 mod report;
 pub use report::ReportLogIoError;
