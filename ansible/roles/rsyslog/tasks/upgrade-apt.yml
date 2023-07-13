@@ -1,0 +1,11 @@
+---
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+
+- name: Install the latest version of rsyslog
+  ansible.builtin.apt:
+    name: rsyslog
+    state: latest
+  notify: Restart rsyslog

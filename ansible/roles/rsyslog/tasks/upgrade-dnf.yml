@@ -1,0 +1,13 @@
+---
+
+- name: Install the latest version of rsyslog
+  ansible.builtin.dnf:
+    name: rsyslog
+    state: latest
+  notify: Restart rsyslog
+
+- name: Install the latest version of rsyslog-mmjsonparse
+  ansible.builtin.dnf:
+    name: rsyslog-mmjsonparse
+    state: latest
+  notify: Restart rsyslog
