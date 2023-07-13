@@ -60,6 +60,7 @@ install -m 644 -D %{name}/service/g3proxy@.service %{buildroot}/lib/systemd/syst
 /lib/systemd/system/g3proxy@.service
 %license LICENSE
 %license LICENSE-BUNDLED
+%license LICENSE-FOREIGN
 %doc %{name}/doc/_build/html
 
 

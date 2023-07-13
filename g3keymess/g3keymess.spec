@@ -50,6 +50,7 @@ install -m 644 -D %{name}/service/g3keymess@.service %{buildroot}/lib/systemd/sy
 /lib/systemd/system/g3keymess@.service
 %license LICENSE
 %license LICENSE-BUNDLED
+%license LICENSE-FOREIGN
 
 
 %changelog

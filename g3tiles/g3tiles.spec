@@ -54,6 +54,7 @@ install -m 644 -D %{name}/service/g3tiles@.service %{buildroot}/lib/systemd/syst
 /lib/systemd/system/g3tiles@.service
 %license LICENSE
 %license LICENSE-BUNDLED
+%license LICENSE-FOREIGN
 
 
 %changelog

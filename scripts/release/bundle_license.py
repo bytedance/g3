@@ -106,8 +106,9 @@ def print_dual_licenses(name: str, licenses, d: Path):
                 continue
             if name in NO_TEXT_CRATES:
                 print(f"\nLicense: {l}")
-                print("Comment: no license content found in the crate source code,")
-                print("         you should find them in the repository")
+                print("Comment:")
+                print(" no license content found in the crate source code,")
+                print(" you should find them in the repository")
                 continue
             raise Exception(f"no matching license file found for license {l}")
         print(f"\nLicense: {l}")
@@ -126,8 +127,9 @@ def print_single_license(name: str, l: str, d: Path):
         return
 
     if name in NO_TEXT_CRATES:
-        print("Comment: no license content found in the crate source code,")
-        print("         you should find them in the repository")
+        print("Comment:")
+        print(" no license content found in the crate source code,")
+        print(" you should find them in the repository")
         return
     raise Exception("no license found")
 
@@ -145,13 +147,21 @@ args = parser.parse_args()
 metadata = json.load(args.metadata)
 packages = metadata['packages']
 
+print("# This file contains the licenses that we bundled in the release source code tarball.")
+print("#")
+print("# The format is similar to debian/copyright file:")
+print("#   https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/")
+print("#")
+print("# This file is auto generated. Please report to the upstream if possible:")
+print("#   https://github.com/bytedance/g3")
+
 for pkg in packages:
     p_name = pkg['name']
     p_version = pkg['version']
     p_repository = pkg.get('repository', None)
     if p_repository is None:
         continue
-    print(f"Crate: {p_name}@{p_version}")
+    print(f"\nCrate: {p_name}@{p_version}")
     print(f"Repository: {p_repository}")
 
     p_path = Path(pkg['manifest_path']).parent
@@ -172,4 +182,3 @@ for pkg in packages:
         else:
             print(f"License: {p_license}")
             print_dual_licenses(p_name, all_list, p_path)
-    print("")

@@ -50,6 +50,7 @@ install -m 644 -D %{name}/service/g3fcgen.preset %{buildroot}/lib/systemd/system
 /lib/systemd/system-preset/90-g3fcgen.preset
 %license LICENSE
 %license LICENSE-BUNDLED
+%license LICENSE-FOREIGN
 
 
 %changelog

@@ -43,6 +43,7 @@ install -m 755 -D target/%{build_profile}/g3bench %{buildroot}%{_bindir}/g3bench
 %{_bindir}/g3bench
 %license LICENSE
 %license LICENSE-BUNDLED
+%license LICENSE-FOREIGN
 
 
 %changelog

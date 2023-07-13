@@ -41,6 +41,7 @@ install -m 755 -D target/%{build_profile}/g3mkcert %{buildroot}%{_bindir}/g3mkce
 %{_bindir}/g3mkcert
 %license LICENSE
 %license LICENSE-BUNDLED
+%license LICENSE-FOREIGN
 
 
 %changelog
