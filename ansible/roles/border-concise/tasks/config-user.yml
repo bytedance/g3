@@ -1,0 +1,12 @@
+---
+
+- name: Config users
+  ansible.builtin.include_role:
+    name: g3proxy
+    tasks_from: config-user-group
+    handlers_from: reload-user-group
+  vars:
+    template_name: "default"
+    user_group_name: "ug_default"
+    border_conf: "{{ border_concise_conf }}"
+  when: border_concise_conf.users is defined

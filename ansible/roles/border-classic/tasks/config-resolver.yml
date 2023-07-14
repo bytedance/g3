@@ -1,0 +1,65 @@
+---
+
+- name: Config resolvers
+  ansible.builtin.include_role:
+    name: g3proxy
+    tasks_from: config-resolver
+    handlers_from: reload-resolver
+    allow_duplicates: true
+  vars:
+    network_name: "{{ item.key }}"
+    border_conf: "{{ item.value }}"
+    template_name: "direct"
+    resolver_name: "r_{{ item.key }}"
+    dns_server: "{{ item.value.dns_server | default(border_default_dns_server) }}"
+  when: item.value.dns_server|default(border_default_dns_server) is not mapping
+  with_dict: "{{ border_egress_networks }}"
+  loop_control:
+    label: "config single direct resolver for network {{ item.key }}"
+
+- name: Config failover resolvers
+  ansible.builtin.include_role:
+    name: g3proxy
+    tasks_from: config-resolver
+    handlers_from: reload-resolver
+  vars:
+    network_name: "{{ item.key }}"
+    border_conf: "{{ item.value }}"
+    template_name: "failover"
+    resolver_name: "r_{{ item.key }}"
+  when: item.value.dns_server|default(border_default_dns_server) is mapping
+  with_dict: "{{ border_egress_networks }}"
+  loop_control:
+    label: "config failover resolver for network {{ item.key }}"
+
+- name: Config primary resolvers
+  ansible.builtin.include_role:
+    name: g3proxy
+    tasks_from: config-resolver
+    handlers_from: reload-resolver
+  vars:
+    network_name: "{{ item.key }}"
+    border_conf: "{{ item.value }}"
+    template_name: "direct"
+    resolver_name: "r_{{ item.key }}_p"
+    dns_server: "{{ (item.value.dns_server | default(border_default_dns_server)).primary }}"
+  when: item.value.dns_server|default(border_default_dns_server) is mapping
+  with_dict: "{{ border_egress_networks }}"
+  loop_control:
+    label: "config primary direct resolver for network {{ item.key }}"
+
+- name: Config standby resolvers
+  ansible.builtin.include_role:
+    name: g3proxy
+    tasks_from: config-resolver
+    handlers_from: reload-resolver
+  vars:
+    network_name: "{{ item.key }}"
+    border_conf: "{{ item.value }}"
+    template_name: "direct"
+    resolver_name: "r_{{ item.key }}_s"
+    dns_server: "{{ (item.value.dns_server | default(border_default_dns_server)).standby }}"
+  when: item.value.dns_server|default(border_default_dns_server) is mapping
+  with_dict: "{{ border_egress_networks }}"
+  loop_control:
+    label: "config standby direct resolver for network {{ item.key }}"
