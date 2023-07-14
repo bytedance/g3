@@ -847,6 +847,7 @@ dependencies = [
  "capnp",
  "capnp-rpc",
  "cfg-if",
+ "chrono",
  "daemonize",
  "futures-util",
  "g3-fluentd",
@@ -868,6 +869,7 @@ dependencies = [
  "slog-stdlog",
  "tokio",
  "tokio-util",
+ "uuid",
  "yaml-rust",
 ]
 
@@ -1344,12 +1346,14 @@ dependencies = [
  "anyhow",
  "ascii",
  "async-trait",
+ "chrono",
  "clap",
  "futures-util",
  "g3-compat",
  "g3-daemon",
  "g3-io-ext",
  "g3-signal",
+ "g3-slog-types",
  "g3-socket",
  "g3-tls-cert",
  "g3-types",
@@ -1365,6 +1369,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "url",
+ "uuid",
  "yaml-rust",
 ]
 

@@ -34,7 +34,7 @@ rustls.workspace = true
 tokio-rustls.workspace = true
 governor = { workspace = true, features = ["std", "jitter"] }
 chrono = { workspace = true, features = ["clock"] }
-uuid = { workspace = true, features = ["v1", "v4"] }
+uuid.workspace = true
 g3-compat.workspace = true
 g3-daemon.workspace = true
 g3-signal.workspace = true

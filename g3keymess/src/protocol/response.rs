@@ -90,7 +90,6 @@ impl KeylessDataResponse {
     }
 }
 
-#[allow(unused)]
 #[derive(Clone, Copy, Debug, Error)]
 #[repr(u8)]
 pub(crate) enum KeylessResponseErrorCode {
@@ -139,6 +138,23 @@ impl KeylessErrorResponse {
         }
     }
 
+    pub(crate) fn error_code(&self) -> KeylessResponseErrorCode {
+        match self.buf[BUF_PREFIX_LEN] {
+            0 => KeylessResponseErrorCode::NoError,
+            1 => KeylessResponseErrorCode::CryptographyFailure,
+            2 => KeylessResponseErrorCode::KeyNotFound,
+            3 => KeylessResponseErrorCode::ReadError,
+            4 => KeylessResponseErrorCode::VersionMismatch,
+            5 => KeylessResponseErrorCode::BadOpCode,
+            6 => KeylessResponseErrorCode::UnexpectedOpCode,
+            7 => KeylessResponseErrorCode::FormatError,
+            8 => KeylessResponseErrorCode::InternalError,
+            9 => KeylessResponseErrorCode::CertNotFound,
+            10 => KeylessResponseErrorCode::Expired,
+            _ => unreachable!(),
+        }
+    }
+
     pub(crate) fn key_not_found(mut self) -> Self {
         self.buf[BUF_PREFIX_LEN] = KeylessResponseErrorCode::KeyNotFound as u8;
         self
@@ -170,6 +186,7 @@ impl KeylessResponse {
         }
     }
 
+    #[allow(unused)]
     pub(crate) fn id(&self) -> u32 {
         match self {
             KeylessResponse::Data(d) => d.id,

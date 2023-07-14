@@ -30,7 +30,7 @@ openssl-probe = { workspace = true, optional = true }
 indexmap.workspace = true
 bytes.workspace = true
 chrono = { workspace = true, features = ["clock"] }
-uuid = { workspace = true, features = ["v1", "v4"] }
+uuid = { workspace = true, features = ["v4"] }
 log = { workspace = true, features = ["max_level_trace", "release_max_level_info"] }
 slog = { workspace = true, features = ["nested-values", "max_level_trace", "release_max_level_info"] }
 percent-encoding.workspace = true

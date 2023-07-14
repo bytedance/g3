@@ -17,6 +17,9 @@
 mod stats;
 pub(crate) use stats::KeyServerStats;
 
+mod error;
+pub(crate) use error::ServerTaskError;
+
 mod server;
 use server::KeyServer;
 

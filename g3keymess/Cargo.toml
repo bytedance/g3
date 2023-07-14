@@ -19,11 +19,13 @@ openssl-probe = { workspace = true, optional = true }
 tokio = { workspace = true, features = ["time", "sync", "fs"] }
 once_cell.workspace = true
 yaml-rust.workspace = true
+chrono = { workspace = true, features = ["clock"] }
+uuid.workspace = true
 url.workspace = true
 ahash.workspace = true
 async-trait.workspace = true
-inotify.workspace = true
 futures-util.workspace = true
+inotify.workspace = true
 g3-daemon.workspace = true
 g3-signal.workspace = true
 g3-yaml = { workspace = true, features = [] }
@@ -31,6 +33,7 @@ g3-types = { workspace = true, features = [] }
 g3-socket.workspace = true
 g3-io-ext.workspace = true
 g3-tls-cert.workspace = true
+g3-slog-types.workspace = true
 g3-compat.workspace = true
 openssl-async-job.workspace = true
 

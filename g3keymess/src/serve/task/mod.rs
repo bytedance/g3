@@ -17,19 +17,21 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use anyhow::anyhow;
-use slog::Logger;
+use chrono::{DateTime, Utc};
+use slog::{slog_info, Logger};
 use tokio::io::AsyncRead;
 use tokio::sync::{broadcast, Semaphore};
+use uuid::Uuid;
+
+use g3_slog_types::{LtDateTime, LtUuid};
 
 use crate::config::server::KeyServerConfig;
 use crate::protocol::KeylessRequest;
-use crate::serve::{KeyServerStats, ServerReloadCommand};
+use crate::serve::{KeyServerStats, ServerReloadCommand, ServerTaskError};
 
 mod multiplex;
 mod simplex;
 
-#[allow(unused)]
 pub(crate) struct KeylessTaskContext {
     pub(crate) server_config: Arc<KeyServerConfig>,
     pub(crate) server_stats: Arc<KeyServerStats>,
@@ -42,7 +44,9 @@ pub(crate) struct KeylessTaskContext {
 }
 
 pub(crate) struct KeylessTask {
+    id: Uuid,
     ctx: KeylessTaskContext,
+    started: DateTime<Utc>,
     buf: Vec<u8>,
 }
 
@@ -56,13 +60,21 @@ impl KeylessTask {
     pub(crate) fn new(ctx: KeylessTaskContext) -> Self {
         ctx.server_stats.add_task();
         ctx.server_stats.inc_alive_task();
+
+        let started = Utc::now();
+
         KeylessTask {
+            id: g3_daemon::server::task::generate_uuid(&started),
             ctx,
+            started,
             buf: Vec::with_capacity(crate::protocol::MESSAGE_PADDED_LENGTH + 2),
         }
     }
 
-    async fn timed_read_request<R>(&mut self, reader: &mut R) -> anyhow::Result<KeylessRequest>
+    async fn timed_read_request<R>(
+        &mut self,
+        reader: &mut R,
+    ) -> Result<KeylessRequest, ServerTaskError>
     where
         R: AsyncRead + Unpin,
     {
@@ -73,8 +85,21 @@ impl KeylessTask {
         .await
         {
             Ok(Ok(req)) => Ok(req),
-            Ok(Err(e)) => Err(anyhow!("request read failed: {e}")),
-            Err(_) => Err(anyhow!("request read timeout")),
+            Ok(Err(e)) => Err(e.into()),
+            Err(_) => Err(ServerTaskError::ReadTimeout),
         }
+    }
+
+    fn log_task_err(&self, e: ServerTaskError) {
+        slog_info!(self.ctx.task_logger, "{}", e;
+            "task_id" => LtUuid(&self.id),
+            "start_at" => LtDateTime(&self.started),
+            "server_addr" => self.ctx.local_addr,
+            "client_addr" => self.ctx.peer_addr,
+        );
+    }
+
+    fn log_task_ok(&self) {
+        self.log_task_err(ServerTaskError::NoError)
     }
 }

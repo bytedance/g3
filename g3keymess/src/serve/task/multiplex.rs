@@ -14,10 +14,6 @@
  * limitations under the License.
  */
 
-use std::io;
-
-use anyhow::anyhow;
-use log::warn;
 use openssl::pkey::{PKey, Private};
 use openssl_async_job::{SyncOperation, TokioAsyncOperation};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
@@ -26,8 +22,9 @@ use tokio::sync::{broadcast, mpsc};
 use g3_io_ext::LimitedBufReadExt;
 
 use super::KeylessTask;
+use crate::log::request::RequestErrorLogContext;
 use crate::protocol::{KeylessErrorResponse, KeylessRequest, KeylessResponse};
-use crate::serve::ServerReloadCommand;
+use crate::serve::{ServerReloadCommand, ServerTaskError};
 
 impl KeylessTask {
     pub(crate) async fn into_multiplex_running<R, W>(mut self, reader: R, mut writer: W)
@@ -38,23 +35,30 @@ impl KeylessTask {
         let (msg_sender, mut msg_receiver) =
             mpsc::channel::<KeylessResponse>(self.ctx.server_config.multiplex_queue_depth);
 
+        let task_id = self.id;
+        let request_logger = self.ctx.request_logger.clone();
         let write_handle = tokio::spawn(async move {
-            let mut write_error: io::Result<()> = Ok(());
+            let mut write_error: Result<(), ServerTaskError> = Ok(());
+
+            let request_log_ctx = RequestErrorLogContext { task_id: &task_id };
+
             'outer: while let Some(rsp) = msg_receiver.recv().await {
+                request_log_ctx.log(&request_logger, &rsp);
                 if let Err(e) = writer.write_all(rsp.message()).await {
-                    write_error = Err(e);
+                    write_error = Err(ServerTaskError::WriteFailed(e));
                     break;
                 }
 
                 while let Ok(rsp) = msg_receiver.try_recv() {
+                    request_log_ctx.log(&request_logger, &rsp);
                     if let Err(e) = writer.write_all(rsp.message()).await {
-                        write_error = Err(e);
+                        write_error = Err(ServerTaskError::WriteFailed(e));
                         break 'outer;
                     }
                 }
 
                 if let Err(e) = writer.flush().await {
-                    write_error = Err(e);
+                    write_error = Err(ServerTaskError::WriteFailed(e));
                     break;
                 }
             }
@@ -62,17 +66,32 @@ impl KeylessTask {
             write_error
         });
 
-        let _read_result = self.read_till_end(reader, &msg_sender).await;
-        drop(msg_sender);
+        let mut log_ok = true;
+        if let Err(e) = self.read_till_end(reader, &msg_sender).await {
+            self.log_task_err(e);
+            log_ok = false;
+        }
 
-        let _write_result = write_handle.await;
+        drop(msg_sender);
+        match write_handle.await {
+            Ok(Ok(_)) => {}
+            Ok(Err(e)) => {
+                self.log_task_err(e);
+                return;
+            }
+            Err(_) => {}
+        }
+
+        if log_ok {
+            self.log_task_ok();
+        }
     }
 
     async fn read_till_end<R>(
         &mut self,
         reader: R,
         msg_sender: &mpsc::Sender<KeylessResponse>,
-    ) -> anyhow::Result<()>
+    ) -> Result<(), ServerTaskError>
     where
         R: AsyncRead + Send + Unpin + 'static,
     {
@@ -84,63 +103,52 @@ impl KeylessTask {
 
                 r = buf_reader.fill_wait_data() => {
                     match r {
-                        Ok(true) => {
-                            if let Err(e) = self.read_and_spawn(&mut buf_reader, msg_sender).await {
-                                warn!("failed to recv request: {e}");
-                                break;
-                            }
-                        }
-                        Ok(false) => break,
-                        Err(e) => {
-                            warn!("failed to read new request: {e}");
-                            break;
-                        }
+                        Ok(true) => self.read_and_spawn(&mut buf_reader, msg_sender).await?,
+                        Ok(false) => return Ok(()),
+                        Err(e) => return Err(ServerTaskError::ReadFailed(e)),
                     }
                 }
                 r = self.ctx.reload_notifier.recv() => {
                     match r {
                         Ok(ServerReloadCommand::QuitRuntime) => {
                             // TODO close connection gracefully
-                            break;
+                            return Err(ServerTaskError::ServerForceQuit);
                         }
                         Err(broadcast::error::RecvError::Closed) => {
                             // force quit
-                            break;
+                            return Err(ServerTaskError::ServerForceQuit);
                         }
                         Err(broadcast::error::RecvError::Lagged(_)) => {}
                     }
                 }
             }
         }
-
-        Ok(())
     }
 
     async fn read_and_spawn<R>(
         &mut self,
         reader: &mut R,
         msg_sender: &mpsc::Sender<KeylessResponse>,
-    ) -> anyhow::Result<()>
+    ) -> Result<(), ServerTaskError>
     where
         R: AsyncRead + Send + Unpin + 'static,
     {
         let req = self.timed_read_request(reader).await?;
         if let Some(pong) = req.ping_pong() {
-            return msg_sender
-                .send(KeylessResponse::Pong(pong))
-                .await
-                .map_err(|e| anyhow!("writer closed while send pong response {}", e.0.id()));
+            let _ = msg_sender.send(KeylessResponse::Pong(pong)).await;
+            return Ok(());
         }
 
         let rsp = KeylessErrorResponse::new(req.id);
 
         let Some(key) = req.find_key() else {
-            return msg_sender.send(KeylessResponse::Error(rsp.key_not_found())).await
-                .map_err(|e| anyhow!("writer closed while send error response {}", e.0.id()));
+            let _ =  msg_sender.send(KeylessResponse::Error(rsp.key_not_found())).await;
+            return Ok(());
         };
 
         self.async_process_by_openssl(req, rsp, key, msg_sender)
-            .await
+            .await;
+        Ok(())
     }
 
     async fn async_process_by_openssl(
@@ -149,7 +157,7 @@ impl KeylessTask {
         rsp: KeylessErrorResponse,
         key: PKey<Private>,
         msg_sender: &mpsc::Sender<KeylessResponse>,
-    ) -> anyhow::Result<()> {
+    ) {
         let server_sem = if let Some(sem) = self.ctx.concurrency_limit.clone() {
             sem.acquire_owned().await.ok()
         } else {
@@ -158,8 +166,8 @@ impl KeylessTask {
 
         let sync_op = OpensslOperation { req, key };
         let Ok(task) = TokioAsyncOperation::build_async_task(sync_op) else {
-            return msg_sender.send(KeylessResponse::Error(rsp.crypto_fail())).await
-                .map_err(|e| anyhow!("writer closed while send error response {}", e.0.id()));
+            let _ = msg_sender.send(KeylessResponse::Error(rsp.crypto_fail())).await;
+            return;
         };
 
         let msg_sender = msg_sender.clone();
@@ -172,11 +180,8 @@ impl KeylessTask {
             };
             drop(server_sem);
             // send to writer
-            if let Err(e) = msg_sender.send(rsp).await {
-                warn!("writer closed while send response {}", e.0.id());
-            }
+            let _ = msg_sender.send(rsp).await;
         });
-        Ok(())
     }
 }
 

@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 
-use anyhow::anyhow;
-use log::warn;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::broadcast;
 
 use g3_io_ext::LimitedBufReadExt;
 
 use super::KeylessTask;
+use crate::log::request::RequestErrorLogContext;
 use crate::protocol::{KeylessErrorResponse, KeylessResponse};
-use crate::serve::ServerReloadCommand;
+use crate::serve::{ServerReloadCommand, ServerTaskError};
 
 impl KeylessTask {
     pub(crate) async fn into_simplex_running<R, W>(mut self, reader: R, mut writer: W)
@@ -41,13 +40,13 @@ impl KeylessTask {
                     match r {
                         Ok(true) => {
                             if let Err(e) = self.read_and_handle(&mut buf_reader, &mut writer).await {
-                                warn!("failed to recv request: {e}");
+                                self.log_task_err(e);
                                 break;
                             }
                         }
                         Ok(false) => break,
                         Err(e) => {
-                            warn!("failed to read new request: {e}");
+                            self.log_task_err(ServerTaskError::ReadFailed(e));
                             break;
                         }
                     }
@@ -56,10 +55,12 @@ impl KeylessTask {
                     match r {
                         Ok(ServerReloadCommand::QuitRuntime) => {
                             // TODO close connection gracefully
+                            self.log_task_err(ServerTaskError::ServerForceQuit);
                             break;
                         }
                         Err(broadcast::error::RecvError::Closed) => {
                             // force quit
+                            self.log_task_err(ServerTaskError::ServerForceQuit);
                             break;
                         }
                         Err(broadcast::error::RecvError::Lagged(_)) => {}
@@ -69,7 +70,11 @@ impl KeylessTask {
         }
     }
 
-    async fn read_and_handle<R, W>(&mut self, reader: &mut R, writer: &mut W) -> anyhow::Result<()>
+    async fn read_and_handle<R, W>(
+        &mut self,
+        reader: &mut R,
+        writer: &mut W,
+    ) -> Result<(), ServerTaskError>
     where
         R: AsyncRead + Send + Unpin + 'static,
         W: AsyncWrite + Send + Unpin + 'static,
@@ -106,18 +111,17 @@ impl KeylessTask {
         &self,
         writer: &mut W,
         rsp: KeylessResponse,
-    ) -> anyhow::Result<()>
+    ) -> Result<(), ServerTaskError>
     where
         W: AsyncWrite + Send + Unpin + 'static,
     {
+        RequestErrorLogContext { task_id: &self.id }.log(&self.ctx.request_logger, &rsp);
+
         writer
             .write_all(rsp.message())
             .await
-            .map_err(|e| anyhow!("write response failed: {e}"))?;
-        writer
-            .flush()
-            .await
-            .map_err(|e| anyhow!("write flush failed: {e}"))?;
+            .map_err(ServerTaskError::WriteFailed)?;
+        writer.flush().await.map_err(ServerTaskError::WriteFailed)?;
         Ok(())
     }
 }

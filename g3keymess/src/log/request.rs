@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 
-use slog::{slog_o, Logger};
+use slog::{slog_info, slog_o, Logger};
+use uuid::Uuid;
 
+use g3_slog_types::LtUuid;
 use g3_types::metrics::MetricsName;
 
 use super::shared::SharedLoggerType;
+use crate::protocol::KeylessResponse;
 
 pub(crate) fn get_logger(server_name: &MetricsName) -> Logger {
     let config = crate::config::log::get_task_default_config();
@@ -39,4 +42,20 @@ pub(crate) fn get_shared_logger(name: &str, server_name: &MetricsName) -> Logger
             "server_name" => server_name.to_string(),
         ))
     })
+}
+
+pub(crate) struct RequestErrorLogContext<'a> {
+    pub(crate) task_id: &'a Uuid,
+}
+
+impl<'a> RequestErrorLogContext<'a> {
+    pub(crate) fn log(&'a self, logger: &'a Logger, rsp: &KeylessResponse) {
+        if let KeylessResponse::Error(r) = rsp {
+            let e = r.error_code();
+            slog_info!(logger, "{}", e;
+                "task_id" => LtUuid(self.task_id),
+                "msg_id" => r.id,
+            )
+        }
+    }
 }
