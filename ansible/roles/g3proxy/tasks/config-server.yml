@@ -1,0 +1,10 @@
+---
+
+- name: "Install server conf for {{ server_name }}"
+  ansible.builtin.template:
+    src: "server.d/{{ template_name | default(server_name) }}.conf"
+    dest: "/etc/g3proxy/{{ daemon_group }}/server.d/{{ server_name }}.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload server {{ server_name }}

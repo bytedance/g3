@@ -1,0 +1,28 @@
+---
+
+- name: Install CA Root Certificate
+  ansible.builtin.copy:
+    src: "{{ inventory_dir }}/files/certs-server/rootCA.pem"
+    dest: "/etc/g3proxy/{{ daemon_group }}/server.d/{{ server_name }}-rootCA.pem"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload server {{ server_name }}
+
+- name: Install server certificate
+  ansible.builtin.copy:
+    src: "{{ inventory_dir }}/files/certs-server/{{ tls_name }}.pem"
+    dest: "/etc/g3proxy/{{ daemon_group }}/server.d/{{ server_name }}-{{ tls_name }}.pem"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload server {{ server_name }}
+
+- name: Install server private key
+  ansible.builtin.copy:
+    src: "{{ inventory_dir }}/files/certs-server/{{ tls_name }}-key.pem"
+    dest: "/etc/g3proxy/{{ daemon_group }}/server.d/{{ server_name }}-{{ tls_name }}-key.pem"
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Reload server {{ server_name }}

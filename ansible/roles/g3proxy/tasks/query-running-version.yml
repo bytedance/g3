@@ -1,0 +1,20 @@
+---
+
+- name: "Query running version for proxy instance {{ daemon_group }}"
+  ansible.builtin.command: "/usr/bin/g3proxy-ctl -G {{ daemon_group }} --control-dir /run/g3proxy version"
+  register: proxy_running_version
+  changed_when:
+    - proxy_running_version.rc == 0
+
+- name: "Set fact proxy_running_version"
+  ansible.builtin.set_fact:
+    proxy_running_version: "{{ proxy_running_version.stdout }}"
+
+- name: "Print proxy running version for instance {{ daemon_group }}"
+  ansible.builtin.debug:
+    msg: "proxy@{{ daemon_group }} running version: {{ proxy_running_version }}"
+
+- name: "Check if running version match expected version"
+  ansible.builtin.fail:
+    msg: "Running version {{ proxy_running_version }} doesn't match expected version {{ proxy_expected_version }}"
+  when: proxy_expected_version is defined and proxy_expected_version != proxy_running_version

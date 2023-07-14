@@ -1,0 +1,29 @@
+---
+
+- name: "Create rfc5424 rsyslog conf"
+  ansible.builtin.template:
+    src: rsyslog.d/g3proxy-rfc5424.conf
+    dest: /etc/rsyslog.d/g3proxy.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart rsyslog
+  when: proxy_use_cee_log_syntax is not defined or not proxy_use_cee_log_syntax|bool
+
+- name: "Create rfc3164 rsyslog conf"
+  ansible.builtin.template:
+    src: rsyslog.d/g3proxy-rfc3164.conf
+    dest: /etc/rsyslog.d/g3proxy.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart rsyslog
+  when: proxy_use_cee_log_syntax is defined and proxy_use_cee_log_syntax|bool
+
+- name: "Create logrotate conf"
+  ansible.builtin.template:
+    src: logrotate.d/g3proxy
+    dest: /etc/logrotate.d/g3proxy
+    owner: root
+    group: root
+    mode: "0644"

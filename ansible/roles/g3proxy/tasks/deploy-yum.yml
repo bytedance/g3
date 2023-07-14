@@ -1,0 +1,7 @@
+---
+
+- name: Install proxy package
+  ansible.builtin.yum:
+    name: g3proxy
+    state: latest
+  notify: Systemd daemon reload

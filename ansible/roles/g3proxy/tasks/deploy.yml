@@ -1,0 +1,13 @@
+---
+
+- name: Deploy via apt
+  ansible.builtin.include_tasks: deploy-apt.yml
+  when: ansible_pkg_mgr == "apt"
+
+- name: Deploy via yum
+  ansible.builtin.include_tasks: deploy-yum.yml
+  when: ansible_pkg_mgr == "yum"
+
+- name: Deploy via dnf
+  ansible.builtin.include_tasks: deploy-dnf.yml
+  when: ansible_pkg_mgr == "dnf"

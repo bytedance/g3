@@ -1,0 +1,6 @@
+---
+
+- name: Remove conf dir for "g3proxy@{{ daemon_group }}"
+  ansible.builtin.file:
+    path: "/etc/g3proxy/{{ daemon_group }}"
+    state: absent
