@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
@@ -128,7 +129,6 @@ pub fn add_global_args(app: Command) -> Command {
             .long(GLOBAL_ARG_UDP_ADDR)
             .short('u')
             .num_args(1)
-            .value_parser(value_parser!(SocketAddr))
             .default_value("127.0.0.1:2999"),
     )
     .arg(
@@ -195,7 +195,15 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
         ca_key_file.display()
     ))?;
 
-    proc_args.udp_addr = args.get_one::<SocketAddr>(GLOBAL_ARG_UDP_ADDR).cloned();
+    if let Some(s) = args.get_one::<String>(GLOBAL_ARG_UDP_ADDR) {
+        if let Ok(addr) = SocketAddr::from_str(s) {
+            proc_args.udp_addr = Some(addr);
+        } else if let Ok(port) = u16::from_str(s.strip_prefix(':').unwrap_or(s)) {
+            proc_args.udp_addr = Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port));
+        } else {
+            return Err(anyhow!("invalid udp address: {s}"));
+        }
+    }
 
     Ok(proc_args)
 }
