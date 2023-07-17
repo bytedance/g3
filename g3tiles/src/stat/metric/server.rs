@@ -14,25 +14,21 @@
  * limitations under the License.
  */
 
-use std::convert::{From, TryFrom};
+use std::convert::TryFrom;
 use std::sync::{Arc, Mutex};
 
 use ahash::AHashMap;
-use cadence::{Counted, Gauged, Metric, MetricBuilder, StatsdClient};
+use cadence::{Counted, Gauged, StatsdClient};
 use once_cell::sync::Lazy;
 
 use g3_daemon::listen::{ListenSnapshot, ListenStats};
 use g3_daemon::metric::{
-    TAG_KEY_STAT_ID, TAG_KEY_TRANSPORT, TRANSPORT_TYPE_TCP, TRANSPORT_TYPE_UDP,
+    ServerMetricExt, TAG_KEY_TRANSPORT, TRANSPORT_TYPE_TCP, TRANSPORT_TYPE_UDP,
 };
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
 
 use crate::serve::ArcServerStats;
-
-use super::TAG_KEY_SERVER;
-
-const TAG_KEY_ONLINE: &str = "online";
 
 const METRIC_NAME_SERVER_CONN_TOTAL: &str = "server.connection.total";
 const METRIC_NAME_SERVER_TASK_TOTAL: &str = "server.task.total";
@@ -55,41 +51,6 @@ static SERVER_STATS_MAP: Lazy<Mutex<AHashMap<StatId, ServerStatsValue>>> =
     Lazy::new(|| Mutex::new(AHashMap::new()));
 static LISTEN_STATS_MAP: Lazy<Mutex<AHashMap<StatId, ListenStatsValue>>> =
     Lazy::new(|| Mutex::new(AHashMap::new()));
-
-trait ServerMetricExt<'m> {
-    fn add_server_tags(
-        self,
-        server: &'m MetricsName,
-        online_value: &'m str,
-        stat_id: &'m str,
-    ) -> Self;
-    fn add_server_extra_tags(self, tags: &'m Option<Arc<StaticMetricsTags>>) -> Self;
-}
-
-impl<'m, 'c, T> ServerMetricExt<'m> for MetricBuilder<'m, 'c, T>
-where
-    T: Metric + From<String>,
-{
-    fn add_server_tags(
-        self,
-        server: &'m MetricsName,
-        online_value: &'m str,
-        stat_id: &'m str,
-    ) -> Self {
-        self.with_tag(TAG_KEY_SERVER, server.as_str())
-            .with_tag(TAG_KEY_ONLINE, online_value)
-            .with_tag(TAG_KEY_STAT_ID, stat_id)
-    }
-
-    fn add_server_extra_tags(mut self, tags: &'m Option<Arc<StaticMetricsTags>>) -> Self {
-        if let Some(tags) = tags {
-            for (k, v) in tags.iter() {
-                self = self.with_tag(k.as_str(), v.as_str());
-            }
-        }
-        self
-    }
-}
 
 #[derive(Default)]
 struct ServerSnapshot {

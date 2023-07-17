@@ -15,5 +15,3 @@
  */
 
 pub(super) mod server;
-
-const TAG_KEY_SERVER: &str = "server";

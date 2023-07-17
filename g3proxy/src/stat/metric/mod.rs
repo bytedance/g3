@@ -23,7 +23,6 @@ use user::{RequestStatsNamesRef, TrafficStatsNamesRef};
 
 pub(crate) mod user_site;
 
-const TAG_KEY_SERVER: &str = "server";
 const TAG_KEY_ESCAPER: &str = "escaper";
 
 #[derive(Copy, Clone)]
