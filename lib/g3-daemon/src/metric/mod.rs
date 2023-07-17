@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+mod listen;
+pub use listen::emit_listen_stats;
+
 mod server;
 pub use server::{ServerMetricExt, TAG_KEY_ONLINE, TAG_KEY_SERVER};
 
