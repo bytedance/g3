@@ -38,6 +38,17 @@ const METRIC_NAME_SERVER_REQUEST_ALIVE: &str = "server.request.alive";
 const METRIC_NAME_SERVER_REQUEST_PASSED: &str = "server.request.passed";
 const METRIC_NAME_SERVER_REQUEST_FAILED: &str = "server.request.failed";
 
+const REQUEST_TYPE_PING_PONG: &str = "ping_pong";
+const REQUEST_TYPE_RSA_DECRYPT: &str = "rsa_decrypt";
+const REQUEST_TYPE_RSA_SIGN: &str = "rsa_sign";
+const REQUEST_TYPE_RSA_PSS_SIGN: &str = "rsa_pss_sign";
+const REQUEST_TYPE_ECDSA_SIGN: &str = "ecdsa_sign";
+const REQUEST_TYPE_ED25519_SIGN: &str = "ed25519_sign";
+
+const FAIL_REASON_KEY_NOT_FOUND: &str = "key_not_found";
+const FAIL_REASON_CRYPTO_FAIL: &str = "crypto_fail";
+const FAIL_REASON_OTHER_FAIL: &str = "other_fail";
+
 type ServerStatsValue = (Arc<KeyServerStats>, KeyServerSnapshot);
 type ListenStatsValue = (Arc<ListenStats>, ListenSnapshot);
 
@@ -124,7 +135,7 @@ fn emit_server_stats(
         stat_id,
     };
     macro_rules! emit_request_stats_u64 {
-        ($id:ident, $request:literal) => {
+        ($id:ident, $request:expr) => {
             emit_server_request_stats(
                 client,
                 $request,
@@ -134,12 +145,12 @@ fn emit_server_stats(
             );
         };
     }
-    emit_request_stats_u64!(ping_pong, "ping_pong");
-    emit_request_stats_u64!(rsa_decrypt, "rsa_decrypt");
-    emit_request_stats_u64!(rsa_sign, "rsa_sign");
-    emit_request_stats_u64!(rsa_pss_sign, "rsa_pss_sign");
-    emit_request_stats_u64!(ecdsa_sign, "ecdsa_sign");
-    emit_request_stats_u64!(ed25519_sign, "ed25519_sign");
+    emit_request_stats_u64!(ping_pong, REQUEST_TYPE_PING_PONG);
+    emit_request_stats_u64!(rsa_decrypt, REQUEST_TYPE_RSA_DECRYPT);
+    emit_request_stats_u64!(rsa_sign, REQUEST_TYPE_RSA_SIGN);
+    emit_request_stats_u64!(rsa_pss_sign, REQUEST_TYPE_RSA_PSS_SIGN);
+    emit_request_stats_u64!(ecdsa_sign, REQUEST_TYPE_ECDSA_SIGN);
+    emit_request_stats_u64!(ed25519_sign, REQUEST_TYPE_ED25519_SIGN);
 }
 
 struct CommonParams<'a> {
@@ -186,7 +197,7 @@ fn emit_server_request_stats(
     snap.passed = new_value;
 
     macro_rules! emit_failed_stats_u64 {
-        ($id:ident, $reason:literal) => {
+        ($id:ident, $reason:expr) => {
             let new_value = stats.$id;
             if new_value != 0 || snap.$id != 0 {
                 let diff_value =
@@ -202,7 +213,7 @@ fn emit_server_request_stats(
             }
         };
     }
-    emit_failed_stats_u64!(key_not_found, "key_not_found");
-    emit_failed_stats_u64!(crypto_fail, "crypto_fail");
-    emit_failed_stats_u64!(other_fail, "other_fail");
+    emit_failed_stats_u64!(key_not_found, FAIL_REASON_KEY_NOT_FOUND);
+    emit_failed_stats_u64!(crypto_fail, FAIL_REASON_CRYPTO_FAIL);
+    emit_failed_stats_u64!(other_fail, FAIL_REASON_OTHER_FAIL);
 }
