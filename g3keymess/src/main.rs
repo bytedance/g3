@@ -49,7 +49,23 @@ fn main() -> anyhow::Result<()> {
     // enter daemon mode after config loaded
     g3_daemon::daemonize::check_enter(&proc_args.daemon_config)?;
 
+    let stat_join = if let Some(stat_config) = g3_daemon::stat::config::get_global_stat_config() {
+        Some(
+            g3keymess::stat::spawn_working_threads(stat_config)
+                .context("failed to start stat thread")?,
+        )
+    } else {
+        None
+    };
+
     let ret = tokio_run(&proc_args);
+
+    if let Some(handlers) = stat_join {
+        g3keymess::stat::stop_working_threads();
+        for handle in handlers {
+            let _ = handle.join();
+        }
+    }
 
     match ret {
         Ok(_) => Ok(()),

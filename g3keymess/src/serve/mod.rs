@@ -30,6 +30,7 @@ mod runtime;
 use runtime::KeyServerRuntime;
 
 mod registry;
+pub(crate) use registry::foreach_online as foreach_server;
 
 mod ops;
 pub use ops::{spawn_all, spawn_offline_clean};

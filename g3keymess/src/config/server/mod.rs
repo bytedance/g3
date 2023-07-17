@@ -15,6 +15,7 @@
  */
 
 use std::path::Path;
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
@@ -22,7 +23,7 @@ use ascii::AsciiString;
 use slog::Logger;
 use yaml_rust::{yaml, Yaml};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::net::TcpListenConfig;
 use g3_yaml::{HybridParser, YamlDocPosition};
 
@@ -40,6 +41,7 @@ pub(crate) struct KeyServerConfig {
     pub(crate) request_read_timeout: Duration,
     pub(crate) async_op_timeout: Duration,
     pub(crate) concurrency_limit: usize,
+    pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
 }
 
 impl KeyServerConfig {
@@ -53,6 +55,7 @@ impl KeyServerConfig {
             request_read_timeout: Duration::from_millis(100),
             async_op_timeout: Duration::from_secs(4),
             concurrency_limit: 0,
+            extra_metrics_tags: None,
         }
     }
 
@@ -87,6 +90,12 @@ impl KeyServerConfig {
             "shared_logger" => {
                 let name = g3_yaml::value::as_ascii(v)?;
                 self.shared_logger = Some(name);
+                Ok(())
+            }
+            "extra_metrics_tags" => {
+                let tags = g3_yaml::value::as_static_metrics_tags(v)
+                    .context(format!("invalid static metrics tags value for key {k}"))?;
+                self.extra_metrics_tags = Some(Arc::new(tags));
                 Ok(())
             }
             "listen" => {

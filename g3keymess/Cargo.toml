@@ -25,6 +25,9 @@ url.workspace = true
 ahash.workspace = true
 async-trait.workspace = true
 futures-util.workspace = true
+cadence.workspace = true
+itoa.workspace = true
+arc-swap.workspace = true
 inotify.workspace = true
 g3-daemon.workspace = true
 g3-signal.workspace = true
@@ -34,6 +37,7 @@ g3-socket.workspace = true
 g3-io-ext.workspace = true
 g3-tls-cert.workspace = true
 g3-slog-types.workspace = true
+g3-statsd.workspace = true
 g3-compat.workspace = true
 openssl-async-job.workspace = true
 

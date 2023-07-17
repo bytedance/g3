@@ -14,16 +14,19 @@
  * limitations under the License.
  */
 
-#![allow(unused)]
-
 use std::sync::atomic::{AtomicI32, AtomicIsize, AtomicU64, Ordering};
+use std::sync::Arc;
 
-use g3_types::metrics::MetricsName;
+use arc_swap::ArcSwapOption;
+
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::StatId;
 
 pub(crate) struct KeyServerStats {
     name: MetricsName,
     id: StatId,
+
+    extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
 
     online: AtomicIsize,
 
@@ -36,6 +39,7 @@ impl KeyServerStats {
         KeyServerStats {
             name: name.clone(),
             id: StatId::new(),
+            extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
             online: AtomicIsize::new(0),
             task_total: AtomicU64::new(0),
             task_alive_count: AtomicI32::new(0),
@@ -43,12 +47,12 @@ impl KeyServerStats {
     }
 
     #[inline]
-    fn name(&self) -> &MetricsName {
+    pub(crate) fn name(&self) -> &MetricsName {
         &self.name
     }
 
     #[inline]
-    fn stat_id(&self) -> StatId {
+    pub(crate) fn stat_id(&self) -> StatId {
         self.id
     }
 
@@ -58,6 +62,14 @@ impl KeyServerStats {
 
     pub(crate) fn set_offline(&self) {
         self.online.fetch_sub(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn set_extra_tags(&self, tags: Option<Arc<StaticMetricsTags>>) {
+        self.extra_metrics_tags.store(tags);
+    }
+
+    pub(crate) fn extra_tags(&self) -> &Arc<ArcSwapOption<StaticMetricsTags>> {
+        &self.extra_metrics_tags
     }
 
     pub(crate) fn add_task(&self) {

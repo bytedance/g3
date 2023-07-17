@@ -53,6 +53,9 @@ impl KeyServer {
         let task_logger = config.get_task_logger();
         let request_logger = config.get_request_logger();
 
+        // always update extra metrics tags
+        server_stats.set_extra_tags(config.extra_metrics_tags.clone());
+
         KeyServer {
             config: Arc::new(config),
             server_stats,
@@ -116,17 +119,19 @@ impl KeyServer {
     }
 
     #[inline]
-    pub(super) fn get_listen_stats(&self) -> Arc<ListenStats> {
+    pub(crate) fn get_listen_stats(&self) -> Arc<ListenStats> {
         self.listen_stats.clone()
     }
 
-    #[allow(unused)]
-    pub(super) fn get_server_stats(&self) -> Arc<KeyServerStats> {
+    #[inline]
+    pub(crate) fn get_server_stats(&self) -> Arc<KeyServerStats> {
         self.server_stats.clone()
     }
 
     pub(super) fn start_runtime(&self, server: &Arc<KeyServer>) -> anyhow::Result<()> {
-        KeyServerRuntime::new(server).into_running(&self.config.listen, &self.reload_sender)
+        KeyServerRuntime::new(server)
+            .into_running(&self.config.listen, &self.reload_sender)
+            .map(|_| server.server_stats.set_online())
     }
 
     pub(super) fn abort_runtime(&self) {

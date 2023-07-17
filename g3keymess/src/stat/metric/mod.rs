@@ -14,14 +14,4 @@
  * limitations under the License.
  */
 
-pub mod config;
-pub mod control;
-pub mod opts;
-pub mod serve;
-pub mod signal;
-pub mod stat;
-pub mod store;
-
-mod build;
-mod log;
-mod protocol;
+pub(super) mod server;
