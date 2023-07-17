@@ -22,6 +22,80 @@ use arc_swap::ArcSwapOption;
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::StatId;
 
+use crate::protocol::KeylessResponseErrorCode;
+
+#[derive(Default)]
+pub(crate) struct KeyServerRequestStats {
+    total: AtomicU64,
+    alive_count: AtomicI32,
+
+    passed: AtomicU64,
+    key_not_found: AtomicU64,
+    crypto_fail: AtomicU64,
+    other_fail: AtomicU64,
+}
+
+#[derive(Default)]
+pub(crate) struct KeyServerRequestSnapshot {
+    pub(crate) total: u64,
+    pub(crate) alive_count: i32,
+
+    pub(crate) passed: u64,
+    pub(crate) key_not_found: u64,
+    pub(crate) crypto_fail: u64,
+    pub(crate) other_fail: u64,
+}
+
+impl KeyServerRequestStats {
+    pub(crate) fn add_total(&self) {
+        self.total.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn inc_alive(&self) {
+        self.alive_count.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn dec_alive(&self) {
+        self.alive_count.fetch_sub(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn add_passed(&self) {
+        self.passed.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn add_key_not_found(&self) {
+        self.key_not_found.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn add_crypto_fail(&self) {
+        self.crypto_fail.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn add_other_fail(&self) {
+        self.other_fail.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn add_by_error_code(&self, code: KeylessResponseErrorCode) {
+        match code {
+            KeylessResponseErrorCode::NoError => self.add_passed(),
+            KeylessResponseErrorCode::KeyNotFound => self.add_key_not_found(),
+            KeylessResponseErrorCode::CryptographyFailure => self.add_crypto_fail(),
+            _ => self.add_other_fail(),
+        }
+    }
+
+    pub(crate) fn snapshot(&self) -> KeyServerRequestSnapshot {
+        KeyServerRequestSnapshot {
+            total: self.total.load(Ordering::Relaxed),
+            alive_count: self.alive_count.load(Ordering::Relaxed),
+            passed: self.passed.load(Ordering::Relaxed),
+            key_not_found: self.key_not_found.load(Ordering::Relaxed),
+            crypto_fail: self.crypto_fail.load(Ordering::Relaxed),
+            other_fail: self.other_fail.load(Ordering::Relaxed),
+        }
+    }
+}
+
 pub(crate) struct KeyServerStats {
     name: MetricsName,
     id: StatId,
@@ -32,6 +106,25 @@ pub(crate) struct KeyServerStats {
 
     task_total: AtomicU64,
     task_alive_count: AtomicI32,
+
+    pub(crate) ping_pong: Arc<KeyServerRequestStats>,
+    pub(crate) rsa_decrypt: Arc<KeyServerRequestStats>,
+    pub(crate) rsa_sign: Arc<KeyServerRequestStats>,
+    pub(crate) rsa_pss_sign: Arc<KeyServerRequestStats>,
+    pub(crate) ecdsa_sign: Arc<KeyServerRequestStats>,
+    pub(crate) ed25519_sign: Arc<KeyServerRequestStats>,
+}
+
+#[derive(Default)]
+pub(crate) struct KeyServerSnapshot {
+    pub(crate) task_total: u64,
+
+    pub(crate) ping_pong: KeyServerRequestSnapshot,
+    pub(crate) rsa_decrypt: KeyServerRequestSnapshot,
+    pub(crate) rsa_sign: KeyServerRequestSnapshot,
+    pub(crate) rsa_pss_sign: KeyServerRequestSnapshot,
+    pub(crate) ecdsa_sign: KeyServerRequestSnapshot,
+    pub(crate) ed25519_sign: KeyServerRequestSnapshot,
 }
 
 impl KeyServerStats {
@@ -43,6 +136,12 @@ impl KeyServerStats {
             online: AtomicIsize::new(0),
             task_total: AtomicU64::new(0),
             task_alive_count: AtomicI32::new(0),
+            ping_pong: Arc::new(KeyServerRequestStats::default()),
+            rsa_decrypt: Arc::new(KeyServerRequestStats::default()),
+            rsa_sign: Arc::new(KeyServerRequestStats::default()),
+            rsa_pss_sign: Arc::new(KeyServerRequestStats::default()),
+            ecdsa_sign: Arc::new(KeyServerRequestStats::default()),
+            ed25519_sign: Arc::new(KeyServerRequestStats::default()),
         }
     }
 

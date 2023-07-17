@@ -19,9 +19,10 @@ pub(crate) const MESSAGE_PADDED_LENGTH: usize = 1024;
 const ITEM_HEADER_LENGTH: usize = 3;
 
 mod request;
-pub(crate) use request::{KeylessRequest, KeylessRequestError};
+pub(crate) use request::{KeylessAction, KeylessRequest, KeylessRequestError};
 
 mod response;
 pub(crate) use response::{
     KeylessDataResponse, KeylessErrorResponse, KeylessPongResponse, KeylessResponse,
+    KeylessResponseErrorCode,
 };

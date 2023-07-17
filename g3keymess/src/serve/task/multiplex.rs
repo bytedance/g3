@@ -21,9 +21,9 @@ use tokio::sync::{broadcast, mpsc};
 
 use g3_io_ext::LimitedBufReadExt;
 
-use super::KeylessTask;
+use super::{KeylessTask, WrappedKeylessRequest};
 use crate::log::request::RequestErrorLogContext;
-use crate::protocol::{KeylessErrorResponse, KeylessRequest, KeylessResponse};
+use crate::protocol::{KeylessErrorResponse, KeylessResponse};
 use crate::serve::{ServerReloadCommand, ServerTaskError};
 
 impl KeylessTask {
@@ -134,14 +134,16 @@ impl KeylessTask {
         R: AsyncRead + Send + Unpin + 'static,
     {
         let req = self.timed_read_request(reader).await?;
-        if let Some(pong) = req.ping_pong() {
+        if let Some(pong) = req.inner.ping_pong() {
+            req.stats.add_passed();
             let _ = msg_sender.send(KeylessResponse::Pong(pong)).await;
             return Ok(());
         }
 
-        let rsp = KeylessErrorResponse::new(req.id);
+        let rsp = KeylessErrorResponse::new(req.inner.id);
 
-        let Some(key) = req.find_key() else {
+        let Some(key) = req.inner.find_key() else {
+            req.stats.add_key_not_found();
             let _ =  msg_sender.send(KeylessResponse::Error(rsp.key_not_found())).await;
             return Ok(());
         };
@@ -153,7 +155,7 @@ impl KeylessTask {
 
     async fn async_process_by_openssl(
         &self,
-        req: KeylessRequest,
+        req: WrappedKeylessRequest,
         rsp: KeylessErrorResponse,
         key: PKey<Private>,
         msg_sender: &mpsc::Sender<KeylessResponse>,
@@ -164,8 +166,10 @@ impl KeylessTask {
             None
         };
 
+        let req_stats = req.stats.clone();
         let sync_op = OpensslOperation { req, key };
         let Ok(task) = TokioAsyncOperation::build_async_task(sync_op) else {
+            req_stats.add_crypto_fail();
             let _ = msg_sender.send(KeylessResponse::Error(rsp.crypto_fail())).await;
             return;
         };
@@ -174,9 +178,18 @@ impl KeylessTask {
         let async_op_timeout = self.ctx.server_config.async_op_timeout;
         tokio::spawn(async move {
             let rsp = match tokio::time::timeout(async_op_timeout, task).await {
-                Ok(Ok(r)) => r,
-                Ok(Err(_)) => KeylessResponse::Error(rsp.crypto_fail()),
-                Err(_) => KeylessResponse::Error(rsp.crypto_fail()),
+                Ok(Ok(r)) => {
+                    req_stats.add_passed();
+                    r
+                }
+                Ok(Err(_)) => {
+                    req_stats.add_crypto_fail();
+                    KeylessResponse::Error(rsp.crypto_fail())
+                }
+                Err(_) => {
+                    req_stats.add_crypto_fail();
+                    KeylessResponse::Error(rsp.crypto_fail())
+                }
             };
             drop(server_sem);
             // send to writer
@@ -186,7 +199,7 @@ impl KeylessTask {
 }
 
 struct OpensslOperation {
-    req: KeylessRequest,
+    req: WrappedKeylessRequest,
     key: PKey<Private>,
 }
 
@@ -194,7 +207,7 @@ impl SyncOperation for OpensslOperation {
     type Output = KeylessResponse;
 
     fn run(&mut self) -> anyhow::Result<Self::Output> {
-        let rsp = match self.req.process(&self.key) {
+        let rsp = match self.req.inner.process(&self.key) {
             Ok(d) => KeylessResponse::Data(d),
             Err(e) => KeylessResponse::Error(e),
         };

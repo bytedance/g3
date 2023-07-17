@@ -80,15 +80,17 @@ impl KeylessTask {
         W: AsyncWrite + Send + Unpin + 'static,
     {
         let req = self.timed_read_request(reader).await?;
-        if let Some(pong) = req.ping_pong() {
+        if let Some(pong) = req.inner.ping_pong() {
+            req.stats.add_passed();
             return self
                 .send_response(writer, KeylessResponse::Pong(pong))
                 .await;
         }
 
-        let rsp = KeylessErrorResponse::new(req.id);
+        let rsp = KeylessErrorResponse::new(req.inner.id);
 
-        let Some(key) = req.find_key() else {
+        let Some(key) = req.inner.find_key() else {
+            req.stats.add_key_not_found();
             return self.send_response(writer, KeylessResponse::Error(rsp.key_not_found())).await;
         };
 
@@ -98,12 +100,20 @@ impl KeylessTask {
             None
         };
 
-        let rsp = match req.process(&key) {
-            Ok(d) => KeylessResponse::Data(d),
-            Err(e) => KeylessResponse::Error(e),
+        let rsp = match req.inner.process(&key) {
+            Ok(d) => {
+                req.stats.add_passed();
+                KeylessResponse::Data(d)
+            }
+            Err(e) => {
+                req.stats.add_by_error_code(e.error_code());
+                KeylessResponse::Error(e)
+            }
         };
 
         drop(server_sem);
+        drop(req);
+
         self.send_response(writer, rsp).await
     }
 

@@ -15,7 +15,9 @@
  */
 
 mod stats;
-pub(crate) use stats::KeyServerStats;
+pub(crate) use stats::{
+    KeyServerRequestSnapshot, KeyServerRequestStats, KeyServerSnapshot, KeyServerStats,
+};
 
 mod error;
 pub(crate) use error::ServerTaskError;

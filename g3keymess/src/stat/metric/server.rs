@@ -22,12 +22,21 @@ use once_cell::sync::Lazy;
 
 use g3_daemon::listen::{ListenSnapshot, ListenStats};
 use g3_daemon::metric::ServerMetricExt;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::StatId;
 
-use crate::serve::KeyServerStats;
+use crate::serve::{KeyServerRequestSnapshot, KeyServerSnapshot, KeyServerStats};
+
+const TAG_KEY_REQUEST: &str = "request";
+const TAG_KEY_REASON: &str = "reason";
 
 const METRIC_NAME_SERVER_TASK_TOTAL: &str = "server.task.total";
 const METRIC_NAME_SERVER_TASK_ALIVE: &str = "server.task.alive";
+
+const METRIC_NAME_SERVER_REQUEST_TOTAL: &str = "server.request.total";
+const METRIC_NAME_SERVER_REQUEST_ALIVE: &str = "server.request.alive";
+const METRIC_NAME_SERVER_REQUEST_PASSED: &str = "server.request.passed";
+const METRIC_NAME_SERVER_REQUEST_FAILED: &str = "server.request.failed";
 
 type ServerStatsValue = (Arc<KeyServerStats>, KeyServerSnapshot);
 type ListenStatsValue = (Arc<ListenStats>, ListenSnapshot);
@@ -36,11 +45,6 @@ static SERVER_STATS_MAP: Lazy<Mutex<AHashMap<StatId, ServerStatsValue>>> =
     Lazy::new(|| Mutex::new(AHashMap::new()));
 static LISTEN_STATS_MAP: Lazy<Mutex<AHashMap<StatId, ListenStatsValue>>> =
     Lazy::new(|| Mutex::new(AHashMap::new()));
-
-#[derive(Default)]
-struct KeyServerSnapshot {
-    task_total: u64,
-}
 
 pub(in crate::stat) fn sync_stats() {
     let mut server_stats_map = SERVER_STATS_MAP.lock().unwrap();
@@ -112,4 +116,93 @@ fn emit_server_stats(
         .add_server_tags(server, online_value, stat_id)
         .add_server_extra_tags(&server_extra_tags)
         .send();
+
+    let common = CommonParams {
+        online_value,
+        server,
+        server_extra_tags: &server_extra_tags,
+        stat_id,
+    };
+    macro_rules! emit_request_stats_u64 {
+        ($id:ident, $request:literal) => {
+            emit_server_request_stats(
+                client,
+                $request,
+                stats.$id.snapshot(),
+                &mut snap.$id,
+                &common,
+            );
+        };
+    }
+    emit_request_stats_u64!(ping_pong, "ping_pong");
+    emit_request_stats_u64!(rsa_decrypt, "rsa_decrypt");
+    emit_request_stats_u64!(rsa_sign, "rsa_sign");
+    emit_request_stats_u64!(rsa_pss_sign, "rsa_pss_sign");
+    emit_request_stats_u64!(ecdsa_sign, "ecdsa_sign");
+    emit_request_stats_u64!(ed25519_sign, "ed25519_sign");
+}
+
+struct CommonParams<'a> {
+    online_value: &'a str,
+    server: &'a MetricsName,
+    server_extra_tags: &'a Option<Arc<StaticMetricsTags>>,
+    stat_id: &'a str,
+}
+
+fn emit_server_request_stats(
+    client: &StatsdClient,
+    request: &str,
+    stats: KeyServerRequestSnapshot,
+    snap: &mut KeyServerRequestSnapshot,
+    p: &CommonParams,
+) {
+    let new_value = stats.total;
+    if new_value == 0 && snap.total == 0 {
+        return;
+    }
+    let diff_value = i64::try_from(new_value.wrapping_sub(snap.total)).unwrap_or(i64::MAX);
+    client
+        .count_with_tags(METRIC_NAME_SERVER_REQUEST_TOTAL, diff_value)
+        .add_server_tags(p.server, p.online_value, p.stat_id)
+        .add_server_extra_tags(p.server_extra_tags)
+        .with_tag(TAG_KEY_REQUEST, request)
+        .send();
+    snap.total = new_value;
+
+    client
+        .gauge_with_tags(METRIC_NAME_SERVER_REQUEST_ALIVE, stats.alive_count as f64)
+        .add_server_tags(p.server, p.online_value, p.stat_id)
+        .add_server_extra_tags(p.server_extra_tags)
+        .send();
+
+    let new_value = stats.passed;
+    let diff_value = i64::try_from(new_value.wrapping_sub(snap.passed)).unwrap_or(i64::MAX);
+    client
+        .count_with_tags(METRIC_NAME_SERVER_REQUEST_PASSED, diff_value)
+        .add_server_tags(p.server, p.online_value, p.stat_id)
+        .add_server_extra_tags(p.server_extra_tags)
+        .with_tag(TAG_KEY_REQUEST, request)
+        .send();
+    snap.passed = new_value;
+
+    macro_rules! emit_failed_stats_u64 {
+        ($id:ident, $reason:literal) => {
+            let new_value = stats.$id;
+            if new_value != 0 || snap.$id != 0 {
+                let diff_value =
+                    i64::try_from(new_value.wrapping_sub(snap.$id)).unwrap_or(i64::MAX);
+                client
+                    .count_with_tags(METRIC_NAME_SERVER_REQUEST_FAILED, diff_value)
+                    .add_server_tags(p.server, p.online_value, p.stat_id)
+                    .add_server_extra_tags(p.server_extra_tags)
+                    .with_tag(TAG_KEY_REQUEST, request)
+                    .with_tag(TAG_KEY_REASON, $reason)
+                    .send();
+                snap.$id = new_value;
+            }
+        };
+    }
+    emit_failed_stats_u64!(key_not_found, "key_not_found");
+    emit_failed_stats_u64!(crypto_fail, "crypto_fail");
+    emit_failed_stats_u64!(other_fail, "other_fail");
 }

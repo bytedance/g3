@@ -26,11 +26,39 @@ use uuid::Uuid;
 use g3_slog_types::{LtDateTime, LtUuid};
 
 use crate::config::server::KeyServerConfig;
-use crate::protocol::KeylessRequest;
-use crate::serve::{KeyServerStats, ServerReloadCommand, ServerTaskError};
+use crate::protocol::{KeylessAction, KeylessRequest};
+use crate::serve::{KeyServerRequestStats, KeyServerStats, ServerReloadCommand, ServerTaskError};
 
 mod multiplex;
 mod simplex;
+
+struct WrappedKeylessRequest {
+    inner: KeylessRequest,
+    stats: Arc<KeyServerRequestStats>,
+}
+
+impl WrappedKeylessRequest {
+    fn new(req: KeylessRequest, server_stats: &Arc<KeyServerStats>) -> Self {
+        let stats = match req.action {
+            KeylessAction::Ping => server_stats.ping_pong.clone(),
+            KeylessAction::RsaDecrypt(_) => server_stats.rsa_decrypt.clone(),
+            KeylessAction::RsaSign(_) => server_stats.rsa_sign.clone(),
+            KeylessAction::RsaPssSign(_) => server_stats.rsa_pss_sign.clone(),
+            KeylessAction::EcdsaSign(_) => server_stats.ecdsa_sign.clone(),
+            KeylessAction::Ed25519Sign => server_stats.ed25519_sign.clone(),
+            KeylessAction::NotSet => unreachable!(),
+        };
+        stats.add_total();
+        stats.inc_alive();
+        WrappedKeylessRequest { inner: req, stats }
+    }
+}
+
+impl Drop for WrappedKeylessRequest {
+    fn drop(&mut self) {
+        self.stats.dec_alive();
+    }
+}
 
 pub(crate) struct KeylessTaskContext {
     pub(crate) server_config: Arc<KeyServerConfig>,
@@ -74,7 +102,7 @@ impl KeylessTask {
     async fn timed_read_request<R>(
         &mut self,
         reader: &mut R,
-    ) -> Result<KeylessRequest, ServerTaskError>
+    ) -> Result<WrappedKeylessRequest, ServerTaskError>
     where
         R: AsyncRead + Unpin,
     {
@@ -84,7 +112,7 @@ impl KeylessTask {
         )
         .await
         {
-            Ok(Ok(req)) => Ok(req),
+            Ok(Ok(req)) => Ok(WrappedKeylessRequest::new(req, &self.ctx.server_stats)),
             Ok(Err(e)) => Err(e.into()),
             Err(_) => Err(ServerTaskError::ReadTimeout),
         }
