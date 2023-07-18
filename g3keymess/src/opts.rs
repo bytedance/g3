@@ -179,6 +179,7 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
             .set(group_name.to_string())
             .map_err(|_| anyhow!("daemon group has already been set"))?;
 
+        #[cfg(not(target_os = "macos"))]
         if let Some(s) = group_name.strip_prefix("core") {
             let mut cpu = CpuAffinity::default();
             if let Ok(id) = usize::from_str(s) {
@@ -186,6 +187,15 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
                     info!("will try to bind to cpu core {id}");
                     proc_args.core_affinity = Some(cpu);
                 }
+            }
+        }
+        #[cfg(target_os = "macos")]
+        if let Some(s) = group_name.strip_prefix("core") {
+            use std::num::NonZeroI32;
+
+            if let Ok(id) = NonZeroI32::from_str(s) {
+                let cpu = CpuAffinity::new(id);
+                proc_args.core_affinity = Some(cpu);
             }
         }
     }
