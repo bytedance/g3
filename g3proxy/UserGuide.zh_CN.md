@@ -673,7 +673,7 @@ flowchart LR
 ### 双出口容灾
 
 单IDC有多个POP点公网出口时，或其他类似多目标站点的访问具有至少2条**非本机**线路可供选择的情况下，
-如果希望在2条线路进行自动容灾，可做如下设计：
+如果希望在2条线路进行主备切换自动容灾，可做如下设计：
 
 拓扑图如下：
 
@@ -698,8 +698,8 @@ flowchart LR
   internet[Internet]
   i1_route --proxy to pop1--> p1_proxy
   i1_route --proxy to pop2--> p2_proxy
-  p1_proxy --> internet
-  p2_proxy --> internet
+  p1_proxy --local---> internet
+  p2_proxy --local---> internet
 ```
 
 每个节点的Proxy分别配置以下功能：
