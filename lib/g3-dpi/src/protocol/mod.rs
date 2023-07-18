@@ -100,7 +100,7 @@ impl FromStr for MaybeProtocol {
             "imaps" | "imap+tls" => Ok(MaybeProtocol::Imaps),
             "rtsps" | "rtsp+tls" => Ok(MaybeProtocol::Rtsps),
             "secure-mqtt" => Ok(MaybeProtocol::SecureMqtt),
-            "ssmpp" => Ok(MaybeProtocol::Ssmpp),
+            "ssmpp" | "smpps" | "secure smpp" => Ok(MaybeProtocol::Ssmpp),
             "rtmps" | "rtmp+tls" => Ok(MaybeProtocol::Rtmps),
             "ssl" | "tls" => Ok(MaybeProtocol::Ssl),
             _ => Err(()),

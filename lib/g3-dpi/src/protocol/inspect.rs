@@ -27,6 +27,7 @@ const GUESS_PROTOCOL_FOR_CLIENT_INITIAL_DATA: &[MaybeProtocol] = &[
     MaybeProtocol::Ssl,
     MaybeProtocol::Http,
     MaybeProtocol::Ssh,
+    MaybeProtocol::Smpp,
     MaybeProtocol::BitTorrent,
 ];
 const GUESS_PROTOCOL_FOR_SERVER_INITIAL_DATA: &[MaybeProtocol] = &[
