@@ -73,6 +73,10 @@ impl ProtocolPortMapValue {
                 self.check_ssl = true;
                 MaybeProtocol::Mqtt
             }
+            MaybeProtocol::Ssmpp => {
+                self.check_ssl = true;
+                MaybeProtocol::Smpp
+            }
             MaybeProtocol::Rtmps => {
                 self.check_ssl = true;
                 MaybeProtocol::Rtmp
@@ -134,6 +138,8 @@ impl ProtocolPortMap {
         map.insert(995, MaybeProtocol::Pop3s);
         map.insert(1883, MaybeProtocol::Mqtt);
         map.insert(1935, MaybeProtocol::Rtmp);
+        map.insert(2775, MaybeProtocol::Smpp);
+        map.insert(3550, MaybeProtocol::Ssmpp);
         map.insert(4222, MaybeProtocol::Nats);
         map.insert(6881, MaybeProtocol::BitTorrent);
         map.insert(8080, MaybeProtocol::Http);

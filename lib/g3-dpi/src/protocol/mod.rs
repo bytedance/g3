@@ -39,6 +39,7 @@ pub enum MaybeProtocol {
     Rtsp,
     Mqtt,
     Stomp,
+    Smpp,
     Rtmp,
     Nats,
     BitTorrent,
@@ -49,6 +50,7 @@ pub enum MaybeProtocol {
     Imaps,
     Rtsps,
     SecureMqtt,
+    Ssmpp,
     Rtmps,
 
     Ssl,
@@ -67,6 +69,7 @@ impl MaybeProtocol {
                 | MaybeProtocol::Imaps
                 | MaybeProtocol::Rtsps
                 | MaybeProtocol::SecureMqtt
+                | MaybeProtocol::Ssmpp
                 | MaybeProtocol::Rtmps
         )
     }
@@ -87,6 +90,7 @@ impl FromStr for MaybeProtocol {
             "rtsp" => Ok(MaybeProtocol::Rtsp),
             "mqtt" => Ok(MaybeProtocol::Mqtt),
             "stomp" => Ok(MaybeProtocol::Stomp),
+            "smpp" => Ok(MaybeProtocol::Smpp),
             "rtmp" => Ok(MaybeProtocol::Rtmp),
             "nats" => Ok(MaybeProtocol::Nats),
             "bittorrent" | "bt" => Ok(MaybeProtocol::BitTorrent),
@@ -96,6 +100,7 @@ impl FromStr for MaybeProtocol {
             "imaps" | "imap+tls" => Ok(MaybeProtocol::Imaps),
             "rtsps" | "rtsp+tls" => Ok(MaybeProtocol::Rtsps),
             "secure-mqtt" => Ok(MaybeProtocol::SecureMqtt),
+            "ssmpp" => Ok(MaybeProtocol::Ssmpp),
             "rtmps" | "rtmp+tls" => Ok(MaybeProtocol::Rtmps),
             "ssl" | "tls" => Ok(MaybeProtocol::Ssl),
             _ => Err(()),
@@ -145,6 +150,7 @@ pub enum Protocol {
     Rtsp,
     Mqtt,
     Stomp,
+    Smpp,
     Rtmp,
     Nats,
     BitTorrent,
@@ -172,6 +178,7 @@ impl Protocol {
             Protocol::Rtsp => "rtsp",
             Protocol::Mqtt => "mqtt",
             Protocol::Stomp => "stomp",
+            Protocol::Smpp => "smpp",
             Protocol::Rtmp => "rtmp",
             Protocol::Nats => "nats",
             Protocol::BitTorrent => "bittorrent",
@@ -206,6 +213,7 @@ mod nntp;
 mod pop3;
 mod rtmp;
 mod rtsp;
+mod smpp;
 mod smtp;
 mod ssh;
 mod ssl;

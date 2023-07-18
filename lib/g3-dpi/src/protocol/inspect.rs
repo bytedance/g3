@@ -96,6 +96,7 @@ impl ProtocolInspectState {
             MaybeProtocol::Rtsp => self.check_rtsp_client_setup_request(data),
             MaybeProtocol::Mqtt => self.check_mqtt_client_connect_request(data),
             MaybeProtocol::Stomp => self.check_stomp_client_connect_request(data),
+            MaybeProtocol::Smpp => self.check_smpp_session_request(data),
             MaybeProtocol::Rtmp => self.check_rtmp_client_handshake(data),
             MaybeProtocol::BitTorrent => self.check_bittorrent_handshake(data),
             MaybeProtocol::Ftp
@@ -113,6 +114,7 @@ impl ProtocolInspectState {
             | MaybeProtocol::Imaps
             | MaybeProtocol::Rtsps
             | MaybeProtocol::SecureMqtt
+            | MaybeProtocol::Ssmpp
             | MaybeProtocol::Rtmps
             | MaybeProtocol::_MaxSize => {
                 unreachable!()
@@ -144,6 +146,7 @@ impl ProtocolInspectState {
             | MaybeProtocol::Rtsp
             | MaybeProtocol::Mqtt
             | MaybeProtocol::Stomp
+            | MaybeProtocol::Smpp
             | MaybeProtocol::Rtmp => {
                 self.exclude_current();
                 Ok(None)
@@ -154,6 +157,7 @@ impl ProtocolInspectState {
             | MaybeProtocol::Imaps
             | MaybeProtocol::Rtsps
             | MaybeProtocol::SecureMqtt
+            | MaybeProtocol::Ssmpp
             | MaybeProtocol::Rtmps
             | MaybeProtocol::_MaxSize => {
                 unreachable!()

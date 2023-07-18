@@ -55,6 +55,7 @@ impl ProtocolInspectState {
         self.exclude_other(MaybeProtocol::Ssh);
         self.exclude_other(MaybeProtocol::Rtsp);
         self.exclude_other(MaybeProtocol::Mqtt);
+        self.exclude_other(MaybeProtocol::Smpp);
         self.exclude_other(MaybeProtocol::Rtmp);
         self.exclude_other(MaybeProtocol::BitTorrent);
 
@@ -105,6 +106,7 @@ impl ProtocolInspectState {
         self.exclude_other(MaybeProtocol::Ssl);
         self.exclude_other(MaybeProtocol::Ssh);
         self.exclude_other(MaybeProtocol::Mqtt);
+        self.exclude_other(MaybeProtocol::Smpp);
         self.exclude_other(MaybeProtocol::Rtmp);
         self.exclude_other(MaybeProtocol::BitTorrent);
 

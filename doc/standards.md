@@ -289,7 +289,14 @@ The code should comply to these, but should be more compliant to existing popula
 ### STOMP
 
  - [stomp-specification-1.2](https://stomp.github.io/stomp-specification-1.2.html)
-    : https://stomp.github.io/stomp-specification-1.2.html
+    : STOMP Protocol Specification, Version 1.2
+
+### SMPP
+
+ - [SMPP](https://smpp.org/)
+    : SMPP Protocol: API to enable SMS messaging between applications and mobiles
+ - [SMPP_v5](https://smpp.org/SMPP_v5.pdf)
+    : Short Message Peer-to-Peer Protocol Specification Version 5.0
 
 ### RTMP
 
