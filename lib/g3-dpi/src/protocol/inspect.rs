@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+use std::cmp::Ordering;
+use std::collections::VecDeque;
 use std::sync::Arc;
 
 use fixedbitset::FixedBitSet;
@@ -71,8 +73,14 @@ impl ProtocolInspectState {
         }
     }
 
+    #[inline]
     fn take_current(&mut self) -> Option<MaybeProtocol> {
         self.current.take()
+    }
+
+    #[inline]
+    fn set_current(&mut self, protocol: MaybeProtocol) {
+        self.current = Some(protocol);
     }
 
     fn reset_state(&mut self) {
@@ -167,11 +175,31 @@ impl ProtocolInspectState {
     }
 }
 
+#[derive(PartialEq, Eq)]
+struct ReadPendingProtocol {
+    size: usize,
+    protocol: MaybeProtocol,
+}
+
+impl PartialOrd for ReadPendingProtocol {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.size.partial_cmp(&other.size)
+    }
+}
+
+impl Ord for ReadPendingProtocol {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.size.cmp(&other.size)
+    }
+}
+
 pub struct ProtocolInspector {
     server_portmap: Arc<ProtocolPortMap>,
     state: ProtocolInspectState,
     next_check_protocol: Vec<MaybeProtocol>,
     no_explicit_ssl: bool,
+    read_pending_set: VecDeque<ReadPendingProtocol>,
+    guess_protocols: bool,
 }
 
 impl Default for ProtocolInspector {
@@ -181,6 +209,8 @@ impl Default for ProtocolInspector {
             state: ProtocolInspectState::default(),
             next_check_protocol: Vec::with_capacity(4),
             no_explicit_ssl: false,
+            read_pending_set: VecDeque::with_capacity(4),
+            guess_protocols: true,
         }
     }
 }
@@ -195,6 +225,8 @@ impl ProtocolInspector {
             state: ProtocolInspectState::default(),
             next_check_protocol: Vec::with_capacity(4),
             no_explicit_ssl: false,
+            read_pending_set: VecDeque::with_capacity(4),
+            guess_protocols: true,
         }
     }
 
@@ -208,6 +240,7 @@ impl ProtocolInspector {
 
     pub fn reset_state(&mut self) {
         self.state.reset_state();
+        self.guess_protocols = true;
     }
 
     pub fn set_no_explicit_ssl(&mut self) {
@@ -226,12 +259,19 @@ impl ProtocolInspector {
     ) -> Result<Protocol, ProtocolInspectError> {
         macro_rules! check_protocol {
             ($p:expr) => {
-                if let Some(p) = self.state.check_client_initial_data_for_protocol(
+                match self.state.check_client_initial_data_for_protocol(
                     $p,
                     data,
                     config.size_limit(),
-                )? {
-                    return Ok(p);
+                ) {
+                    Ok(Some(p)) => return Ok(p),
+                    Ok(None) => {}
+                    Err(ProtocolInspectError::NeedMoreData(len)) => {
+                        self.read_pending_set.push_back(ReadPendingProtocol {
+                            size: len,
+                            protocol: $p,
+                        });
+                    }
                 }
             };
         }
@@ -244,20 +284,25 @@ impl ProtocolInspector {
             check_protocol!(proto);
         }
 
-        if let Some(v) = self.server_portmap.get(server_port) {
-            if !self.no_explicit_ssl && v.check_ssl() {
-                check_protocol!(MaybeProtocol::Ssl);
+        if self.guess_protocols {
+            if let Some(v) = self.server_portmap.get(server_port) {
+                if !self.no_explicit_ssl && v.check_ssl() {
+                    check_protocol!(MaybeProtocol::Ssl);
+                }
+
+                for proto in v.protocols() {
+                    check_protocol!(*proto);
+                }
             }
 
-            for proto in v.protocols() {
+            for proto in GUESS_PROTOCOL_FOR_CLIENT_INITIAL_DATA {
                 check_protocol!(*proto);
             }
+
+            self.guess_protocols = false;
         }
 
-        for proto in GUESS_PROTOCOL_FOR_CLIENT_INITIAL_DATA {
-            check_protocol!(*proto);
-        }
-
+        self.handle_read_pending()?;
         Ok(Protocol::Unknown)
     }
 
@@ -269,12 +314,19 @@ impl ProtocolInspector {
     ) -> Result<Protocol, ProtocolInspectError> {
         macro_rules! check_protocol {
             ($p:expr) => {
-                if let Some(p) = self.state.check_server_initial_data_for_protocol(
+                match self.state.check_server_initial_data_for_protocol(
                     $p,
                     data,
                     config.size_limit(),
-                )? {
-                    return Ok(p);
+                ) {
+                    Ok(Some(p)) => return Ok(p),
+                    Ok(None) => {}
+                    Err(ProtocolInspectError::NeedMoreData(len)) => {
+                        self.read_pending_set.push_back(ReadPendingProtocol {
+                            size: len,
+                            protocol: $p,
+                        });
+                    }
                 }
             };
         }
@@ -287,16 +339,38 @@ impl ProtocolInspector {
             check_protocol!(proto);
         }
 
-        if let Some(v) = self.server_portmap.get(server_port) {
-            for proto in v.protocols() {
+        if self.guess_protocols {
+            if let Some(v) = self.server_portmap.get(server_port) {
+                for proto in v.protocols() {
+                    check_protocol!(*proto);
+                }
+            }
+
+            for proto in GUESS_PROTOCOL_FOR_SERVER_INITIAL_DATA {
                 check_protocol!(*proto);
             }
+
+            self.guess_protocols = false;
         }
 
-        for proto in GUESS_PROTOCOL_FOR_SERVER_INITIAL_DATA {
-            check_protocol!(*proto);
-        }
-
+        self.handle_read_pending()?;
         Ok(Protocol::Unknown)
+    }
+
+    fn handle_read_pending(&mut self) -> Result<(), ProtocolInspectError> {
+        let Some(v) = self.read_pending_set.pop_front() else {
+            return Ok(());
+        };
+
+        self.state.set_current(v.protocol);
+        let mut pending_len = v.size;
+
+        while let Some(v) = self.read_pending_set.pop_front() {
+            if v.size < pending_len {
+                pending_len = v.size;
+            }
+            self.next_check_protocol.push(v.protocol);
+        }
+        Err(ProtocolInspectError::NeedMoreData(pending_len))
     }
 }
