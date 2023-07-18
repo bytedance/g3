@@ -14,14 +14,10 @@
  * limitations under the License.
  */
 
-use std::future::poll_fn;
 use std::path::{Path, PathBuf};
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use futures_util::StreamExt;
-use inotify::{Inotify, WatchMask};
-use log::warn;
 use openssl::pkey::{PKey, Private};
 use tokio::sync::oneshot;
 use yaml_rust::{yaml, Yaml};
@@ -128,6 +124,12 @@ impl KeyStoreConfig for LocalKeyStoreConfig {
 
     #[cfg(target_os = "linux")]
     fn spawn_subscriber(&self) -> anyhow::Result<Option<oneshot::Sender<()>>> {
+        use std::future::poll_fn;
+
+        use futures_util::StreamExt;
+        use inotify::{Inotify, WatchMask};
+        use log::warn;
+
         if !self.watch {
             return Ok(None);
         }
@@ -184,6 +186,11 @@ impl KeyStoreConfig for LocalKeyStoreConfig {
         });
 
         Ok(Some(quit_sender))
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    fn spawn_subscriber(&self) -> anyhow::Result<Option<oneshot::Sender<()>>> {
+        Ok(None)
     }
 }
 
