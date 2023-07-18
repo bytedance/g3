@@ -16,7 +16,6 @@
 
 use g3keymess_proto::types_capnp::operation_result;
 
-#[allow(unused)]
 pub(super) fn set_operation_result(
     mut builder: operation_result::Builder<'_>,
     r: anyhow::Result<()>,

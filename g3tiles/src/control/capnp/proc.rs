@@ -43,8 +43,8 @@ impl proc_control::Server for ProcControlImpl {
         mut results: proc_control::OfflineResults,
     ) -> Promise<(), capnp::Error> {
         Promise::from_future(async move {
-            crate::control::DaemonController::abort().await;
-            results.get().init_result().set_ok("success");
+            let r = crate::control::bridge::offline().await;
+            set_operation_result(results.get().init_result(), r);
             Ok(())
         })
     }

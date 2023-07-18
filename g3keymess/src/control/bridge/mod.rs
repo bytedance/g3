@@ -13,3 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use anyhow::anyhow;
+
+pub(crate) async fn offline() -> anyhow::Result<()> {
+    g3_daemon::control::bridge::main_runtime_handle()
+        .ok_or(anyhow!("unable to get main runtime handle"))?
+        .spawn(async move { crate::control::DaemonController::abort().await })
+        .await
+        .map_err(|e| anyhow!("failed to spawn reload task: {e}"))?;
+    Ok(())
+}

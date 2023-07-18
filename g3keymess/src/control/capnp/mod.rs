@@ -17,6 +17,7 @@
 use g3keymess_proto::proc_capnp::proc_control;
 
 mod common;
+use common::set_operation_result;
 mod proc;
 
 mod server;
