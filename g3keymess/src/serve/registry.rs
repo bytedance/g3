@@ -96,6 +96,11 @@ pub(super) fn get_config(name: &MetricsName) -> Option<Arc<KeyServerConfig>> {
     ht.get(name).map(|server| server.clone_config())
 }
 
+pub(crate) fn get_server(name: &MetricsName) -> Option<Arc<KeyServer>> {
+    let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
+    ht.get(name).map(Arc::clone)
+}
+
 pub(super) fn reload_and_respawn(
     name: &MetricsName,
     config: KeyServerConfig,

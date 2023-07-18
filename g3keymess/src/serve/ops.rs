@@ -18,6 +18,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 
+use anyhow::anyhow;
 use log::debug;
 use once_cell::sync::Lazy;
 use tokio::sync::Mutex;
@@ -81,6 +82,13 @@ pub async fn stop_all() {
         server.abort_runtime();
         registry::add_offline(Arc::clone(server));
     });
+}
+
+pub(crate) fn get_server(name: &MetricsName) -> anyhow::Result<Arc<KeyServer>> {
+    match registry::get_server(name) {
+        Some(server) => Ok(server),
+        None => Err(anyhow!("no server named {name} found")),
+    }
 }
 
 fn reload_old_unlocked(old: &KeyServerConfig, new: KeyServerConfig) -> anyhow::Result<()> {

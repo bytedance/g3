@@ -16,12 +16,13 @@ override_dh_auto_build:
 	G3_PACKAGE_VERSION=$(DEB_VERSION) \
 	  cargo build --frozen --offline --profile $(BUILD_PROFILE) \
 	    --no-default-features --features $(SSL_FEATURE), \
-	    --package g3keymess
+	    --package g3keymess --package g3keymess-ctl
 	sh $(PACKAGE_NAME)/service/generate_systemd.sh
 
 override_dh_auto_install:
 	dh_auto_install
 	install -m 755 -D target/$(BUILD_PROFILE)/g3keymess debian/tmp/usr/bin/g3keymess
+	install -m 755 -D target/$(BUILD_PROFILE)/g3keymess-ctl debian/tmp/usr/bin/g3keymess-ctl
 	install -m 644 -D $(PACKAGE_NAME)/service/g3keymess@.service debian/tmp/lib/systemd/system/g3keymess@.service
 
 override_dh_installchangelogs:

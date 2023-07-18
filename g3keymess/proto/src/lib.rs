@@ -14,31 +14,15 @@
  * limitations under the License.
  */
 
-mod stats;
-pub(crate) use stats::{
-    KeyServerRequestSnapshot, KeyServerRequestStats, KeyServerSnapshot, KeyServerStats,
-};
+pub mod types_capnp {
+    #![allow(clippy::extra_unused_type_parameters)]
+    include!(concat!(env!("OUT_DIR"), "/types_capnp.rs"));
+}
 
-mod error;
-pub(crate) use error::ServerTaskError;
+pub mod proc_capnp {
+    include!(concat!(env!("OUT_DIR"), "/proc_capnp.rs"));
+}
 
-mod server;
-pub(crate) use server::KeyServer;
-
-mod task;
-use task::{KeylessTask, KeylessTaskContext};
-
-mod runtime;
-use runtime::KeyServerRuntime;
-
-mod registry;
-pub(crate) use registry::{foreach_online as foreach_server, get_names};
-
-mod ops;
-pub(crate) use ops::{get_server, stop_all, wait_all_tasks};
-pub use ops::{spawn_all, spawn_offline_clean};
-
-#[derive(Clone)]
-pub(crate) enum ServerReloadCommand {
-    QuitRuntime,
+pub mod server_capnp {
+    include!(concat!(env!("OUT_DIR"), "/server_capnp.rs"));
 }

@@ -40,6 +40,8 @@ members = [
     "g3tiles/proto",
     "g3tiles/utils/ctl",
     "g3keymess",
+    "g3keymess/proto",
+    "g3keymess/utils/ctl",
     "demo/test-int-signal",
     "demo/test-tcp-relay",
     "demo/test-resolver",
@@ -55,6 +57,9 @@ default-members = [
     "g3proxy/utils/lua",
     "g3tiles",
     "g3tiles/utils/ctl",
+    "g3keymess",
+    "g3keymess/proto",
+    "g3keymess/utils/ctl",
 ]
 resolver = "2"
 

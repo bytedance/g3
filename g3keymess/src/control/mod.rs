@@ -14,5 +14,9 @@
  * limitations under the License.
  */
 
+mod bridge;
+
 mod local;
 pub use local::{DaemonController, UniqueController};
+
+pub mod capnp;

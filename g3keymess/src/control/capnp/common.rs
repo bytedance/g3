@@ -14,31 +14,19 @@
  * limitations under the License.
  */
 
-mod stats;
-pub(crate) use stats::{
-    KeyServerRequestSnapshot, KeyServerRequestStats, KeyServerSnapshot, KeyServerStats,
-};
+use g3keymess_proto::types_capnp::operation_result;
 
-mod error;
-pub(crate) use error::ServerTaskError;
-
-mod server;
-pub(crate) use server::KeyServer;
-
-mod task;
-use task::{KeylessTask, KeylessTaskContext};
-
-mod runtime;
-use runtime::KeyServerRuntime;
-
-mod registry;
-pub(crate) use registry::{foreach_online as foreach_server, get_names};
-
-mod ops;
-pub(crate) use ops::{get_server, stop_all, wait_all_tasks};
-pub use ops::{spawn_all, spawn_offline_clean};
-
-#[derive(Clone)]
-pub(crate) enum ServerReloadCommand {
-    QuitRuntime,
+#[allow(unused)]
+pub(super) fn set_operation_result(
+    mut builder: operation_result::Builder<'_>,
+    r: anyhow::Result<()>,
+) {
+    match r {
+        Ok(_) => builder.set_ok("success"),
+        Err(e) => {
+            let mut ev = builder.init_err();
+            ev.set_code(-1);
+            ev.set_reason(&format!("{e:?}"));
+        }
+    }
 }

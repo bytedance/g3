@@ -14,31 +14,16 @@
  * limitations under the License.
  */
 
-mod stats;
-pub(crate) use stats::{
-    KeyServerRequestSnapshot, KeyServerRequestStats, KeyServerSnapshot, KeyServerStats,
-};
+use thiserror::Error;
 
-mod error;
-pub(crate) use error::ServerTaskError;
-
-mod server;
-pub(crate) use server::KeyServer;
-
-mod task;
-use task::{KeylessTask, KeylessTaskContext};
-
-mod runtime;
-use runtime::KeyServerRuntime;
-
-mod registry;
-pub(crate) use registry::{foreach_online as foreach_server, get_names};
-
-mod ops;
-pub(crate) use ops::{get_server, stop_all, wait_all_tasks};
-pub use ops::{spawn_all, spawn_offline_clean};
-
-#[derive(Clone)]
-pub(crate) enum ServerReloadCommand {
-    QuitRuntime,
+#[derive(Debug, Error)]
+pub enum CommandError {
+    #[error("cli error ({0})")]
+    Cli(String),
+    #[error("rpc error ({0:?})")]
+    Rpc(#[from] capnp::Error),
+    #[error("api error (code: {code:?}, reason: {reason:?})")]
+    Api { code: i32, reason: String },
 }
+
+pub type CommandResult<T> = Result<T, CommandError>;

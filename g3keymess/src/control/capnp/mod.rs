@@ -14,31 +14,22 @@
  * limitations under the License.
  */
 
-mod stats;
-pub(crate) use stats::{
-    KeyServerRequestSnapshot, KeyServerRequestStats, KeyServerSnapshot, KeyServerStats,
-};
+use g3keymess_proto::proc_capnp::proc_control;
 
-mod error;
-pub(crate) use error::ServerTaskError;
+mod common;
+mod proc;
 
 mod server;
-pub(crate) use server::KeyServer;
 
-mod task;
-use task::{KeylessTask, KeylessTaskContext};
+pub fn stop_working_thread() {
+    g3_daemon::control::capnp::stop_working_thread();
+}
 
-mod runtime;
-use runtime::KeyServerRuntime;
+fn build_capnp_client() -> capnp::capability::Client {
+    let control_client: proc_control::Client = capnp_rpc::new_client(proc::ProcControlImpl);
+    control_client.client
+}
 
-mod registry;
-pub(crate) use registry::{foreach_online as foreach_server, get_names};
-
-mod ops;
-pub(crate) use ops::{get_server, stop_all, wait_all_tasks};
-pub use ops::{spawn_all, spawn_offline_clean};
-
-#[derive(Clone)]
-pub(crate) enum ServerReloadCommand {
-    QuitRuntime,
+pub async fn spawn_working_thread() -> anyhow::Result<std::thread::JoinHandle<()>> {
+    g3_daemon::control::capnp::spawn_working_thread(&build_capnp_client).await
 }

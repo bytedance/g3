@@ -14,6 +14,8 @@ clap.workspace = true
 log = { workspace = true, features = ["max_level_trace", "release_max_level_info"] }
 slog = { workspace = true, features = ["nested-values", "max_level_trace", "release_max_level_info"] }
 ascii.workspace = true
+capnp.workspace = true
+capnp-rpc.workspace = true
 openssl.workspace = true
 openssl-probe = { workspace = true, optional = true }
 tokio = { workspace = true, features = ["time", "sync", "fs"] }
@@ -40,6 +42,7 @@ g3-slog-types.workspace = true
 g3-statsd.workspace = true
 g3-compat.workspace = true
 openssl-async-job.workspace = true
+g3keymess-proto = { path = "proto" }
 
 [build-dependencies]
 rustc_version.workspace = true

@@ -97,7 +97,7 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
         let ret: anyhow::Result<()> = Ok(());
 
         g3_daemon::control::bridge::set_main_runtime_handle();
-        // TODO capnp
+        let ctl_thread_handler = g3keymess::control::capnp::spawn_working_thread().await?;
 
         let unique_ctl = g3keymess::control::UniqueController::start()
             .context("failed to start unique controller")?;
@@ -122,6 +122,9 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
             .context("failed to spawn all servers")?;
 
         unique_ctl.await;
+
+        g3keymess::control::capnp::stop_working_thread();
+        let _ = ctl_thread_handler.join();
 
         ret
     })

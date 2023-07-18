@@ -14,31 +14,12 @@
  * limitations under the License.
  */
 
-mod stats;
-pub(crate) use stats::{
-    KeyServerRequestSnapshot, KeyServerRequestStats, KeyServerSnapshot, KeyServerStats,
-};
-
-mod error;
-pub(crate) use error::ServerTaskError;
-
-mod server;
-pub(crate) use server::KeyServer;
-
-mod task;
-use task::{KeylessTask, KeylessTaskContext};
-
-mod runtime;
-use runtime::KeyServerRuntime;
-
-mod registry;
-pub(crate) use registry::{foreach_online as foreach_server, get_names};
-
-mod ops;
-pub(crate) use ops::{get_server, stop_all, wait_all_tasks};
-pub use ops::{spawn_all, spawn_offline_clean};
-
-#[derive(Clone)]
-pub(crate) enum ServerReloadCommand {
-    QuitRuntime,
+fn main() {
+    capnpc::CompilerCommand::new()
+        .src_prefix("schema")
+        .file("schema/types.capnp")
+        .file("schema/proc.capnp")
+        .file("schema/server.capnp")
+        .run()
+        .unwrap();
 }

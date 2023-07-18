@@ -1348,6 +1348,8 @@ dependencies = [
  "ascii",
  "async-trait",
  "cadence-with-flush",
+ "capnp",
+ "capnp-rpc",
  "chrono",
  "clap",
  "futures-util",
@@ -1361,6 +1363,7 @@ dependencies = [
  "g3-tls-cert",
  "g3-types",
  "g3-yaml",
+ "g3keymess-proto",
  "inotify",
  "itoa",
  "log",
@@ -1375,6 +1378,30 @@ dependencies = [
  "url",
  "uuid",
  "yaml-rust",
+]
+
+[[package]]
+name = "g3keymess-ctl"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "capnp",
+ "capnp-rpc",
+ "clap",
+ "clap_complete",
+ "futures-util",
+ "g3keymess-proto",
+ "thiserror",
+ "tokio",
+ "tokio-util",
+]
+
+[[package]]
+name = "g3keymess-proto"
+version = "0.1.0"
+dependencies = [
+ "capnp",
+ "capnpc",
 ]
 
 [[package]]
