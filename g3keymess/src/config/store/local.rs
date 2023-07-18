@@ -126,6 +126,7 @@ impl KeyStoreConfig for LocalKeyStoreConfig {
         Ok(keys)
     }
 
+    #[cfg(target_os = "linux")]
     fn spawn_subscriber(&self) -> anyhow::Result<Option<oneshot::Sender<()>>> {
         if !self.watch {
             return Ok(None);
