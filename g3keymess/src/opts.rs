@@ -195,6 +195,7 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
 
             if let Ok(id) = NonZeroI32::from_str(s) {
                 let cpu = CpuAffinity::new(id);
+                info!("will try to bind to cpu core {id}");
                 proc_args.core_affinity = Some(cpu);
             }
         }
