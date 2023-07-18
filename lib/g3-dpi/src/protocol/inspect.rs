@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::cmp::Ordering;
 use std::collections::VecDeque;
 use std::sync::Arc;
 
@@ -175,22 +174,9 @@ impl ProtocolInspectState {
     }
 }
 
-#[derive(PartialEq, Eq)]
 struct ReadPendingProtocol {
     size: usize,
     protocol: MaybeProtocol,
-}
-
-impl PartialOrd for ReadPendingProtocol {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.size.partial_cmp(&other.size)
-    }
-}
-
-impl Ord for ReadPendingProtocol {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.size.cmp(&other.size)
-    }
 }
 
 pub struct ProtocolInspector {
