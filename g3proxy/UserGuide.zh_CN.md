@@ -24,6 +24,7 @@
     + [用户限流限速](#用户限流限速)
 - [进阶用法](#进阶用法)
     + [mTLS客户端](#mtls客户端)
+    + [国密TLCP协议卸载](#国密tlcp协议卸载)
     + [多协议入口复用](#多协议入口复用)
     + [监听多个端口](#监听多个端口)
     + [Socks5 UDP IP映射](#socks5-udp-ip映射)
@@ -353,6 +354,80 @@ tls_client:
   certificate: /path/to/cert.crt  # 客户端证书
   private_key: /path/to/pkey.key  # 客户端私钥
   ca_certificate: /path/to/ca/cert.crt # CA证书，用于验证服务端证书（默认用系统CA证书）
+```
+
+### 国密TLCP协议卸载
+
+此功能需要使用分支 feat/tlcp-tongsuo，编译启用feature vendored-tongsuo。
+
+有些场景可能要求使用国密协议访问，很多客户端不支持国密协议，可使用g3proxy进行协议转换：
+
+* TLCP转4层TCP
+
+```yaml
+server:
+  - name: l4tcp
+    type: tcp_stream
+    listen: "[::1]:10086"
+    upstream: "127.0.0.1:443" # 对方国密服务器地址，支持域名
+    tls_client:
+      protocol: tlcp
+      ca_certificate: /path/to/ca.cert # CA证书路径
+      # 可继续配置mTLS等参数
+    upstream_tls_name: target.host.domain # 对方域名，用于验证对方身份（如果upstream url带域名，可省略）
+```
+
+* TLCP转4层TLS
+
+```yaml
+server:
+  - name: l4tls
+    type: tls_stream
+    tls_server:
+      cert_pairs:
+        - certificate: /path/to/cert
+          private_key: /path/to/key
+    # 其他配置同上面 tcp_stream
+```
+
+* TLCP转7层HTTP
+
+```yaml
+server:
+  - name: l7http
+    type: http_rproxy
+    listen: "[::1]:80"
+    hosts:
+      - set_default: true
+        upstream: "127.0.0.1:443"
+        tls_client:
+          protocol: tlcp
+          ca_certificate: /path/to/ca.cert # CA证书路径
+          # 可继续配置mTLS等参数
+        tls_name: target.host.domain # 对方域名，用于验证对方身份（如果upstream url带域名，可省略）
+```
+
+* TLCP转7层HTTPS
+
+```yaml
+server:
+  - name: l7http
+    type: http_rproxy
+    listen: "[::1]:443"
+    hosts:
+      - set_default: true
+        upstream: "127.0.0.1:443"
+        tls_client:
+          protocol: tlcp
+          ca_certificate: /path/to/ca.cert # CA证书路径
+          # 可继续配置mTLS等参数
+        tls_name: target.host.domain # 对方域名，用于验证对方身份（如果upstream url带域名，可省略）
+        tls_server: # 配置该host对应的tls服务配置
+          cert_pairs:
+            - certificate: /path/to/cert
+              private_key: /path/to/key
+    enable_tls_server: true
+    # 可使用global_tls_server参数设置默认tls服务配置，对未设置tls_server参数的host生效
 ```
 
 ### 多协议入口复用
