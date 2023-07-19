@@ -20,7 +20,7 @@ use std::net::{IpAddr, SocketAddr};
 use ascii::AsciiStr;
 use http::{StatusCode, Version};
 use mime::Mime;
-use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
+use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use g3_ftp_client::FtpConnectError;
 use g3_http::server::HttpRequestParseError;
@@ -515,8 +515,6 @@ impl HttpProxyClientResponse {
     where
         W: AsyncWrite + Unpin,
     {
-        let mut writer = BufWriter::new(writer);
-
         let code = self.status.as_u16();
         let reason = self.canonical_reason();
         let body = format!(
@@ -542,9 +540,10 @@ impl HttpProxyClientResponse {
         header.extend_from_slice(g3_http::header::content_length(body.len() as u64).as_bytes());
         header.extend_from_slice(g3_http::header::connection_as_bytes(self.close));
         header.extend_from_slice(b"\r\n");
+        // append body
+        header.extend_from_slice(body.as_bytes());
 
         writer.write_all(header.as_ref()).await?;
-        writer.write_all(body.as_bytes()).await?;
         writer.flush().await?;
         Ok(())
     }
