@@ -17,13 +17,14 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use arc_swap::ArcSwap;
 use slog::Logger;
 use tokio::net::TcpStream;
 use tokio::sync::{broadcast, Semaphore};
 
 use g3_daemon::listen::ListenStats;
 use g3_daemon::server::ServerQuitPolicy;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::{MetricsName, MetricsTagName, MetricsTagValue, StaticMetricsTags};
 
 use super::{
     KeyServerRuntime, KeyServerStats, KeylessTask, KeylessTaskContext, ServerReloadCommand,
@@ -39,6 +40,7 @@ pub(crate) struct KeyServer {
     concurrency_limit: Option<Arc<Semaphore>>,
     task_logger: Logger,
     request_logger: Logger,
+    dynamic_metrics_tags: Arc<ArcSwap<StaticMetricsTags>>,
 }
 
 impl KeyServer {
@@ -47,6 +49,7 @@ impl KeyServer {
         server_stats: Arc<KeyServerStats>,
         listen_stats: Arc<ListenStats>,
         concurrency_limit: Option<Arc<Semaphore>>,
+        dynamic_metrics_tags: Arc<ArcSwap<StaticMetricsTags>>,
     ) -> Self {
         let (reload_sender, _reload_receiver) = broadcast::channel(16);
 
@@ -54,7 +57,15 @@ impl KeyServer {
         let request_logger = config.get_request_logger();
 
         // always update extra metrics tags
-        server_stats.set_extra_tags(config.extra_metrics_tags.clone());
+        let dynamic_tags = dynamic_metrics_tags.load();
+        let dynamic_tags = dynamic_tags.as_ref().clone();
+        if let Some(conf) = config.extra_metrics_tags.clone() {
+            let mut extra = (*conf).clone();
+            extra.extend(dynamic_tags);
+            server_stats.set_extra_tags(Some(Arc::new(extra)));
+        } else if !dynamic_tags.is_empty() {
+            server_stats.set_extra_tags(Some(Arc::new(dynamic_tags)));
+        }
 
         KeyServer {
             config: Arc::new(config),
@@ -65,6 +76,7 @@ impl KeyServer {
             concurrency_limit,
             task_logger,
             request_logger,
+            dynamic_metrics_tags,
         }
     }
 
@@ -81,6 +93,7 @@ impl KeyServer {
             Arc::new(server_stats),
             Arc::new(listen_stats),
             concurrency_limit,
+            Arc::new(ArcSwap::new(Default::default())),
         )
     }
 
@@ -92,7 +105,13 @@ impl KeyServer {
         } else {
             None
         };
-        KeyServer::new(config, server_stats, listen_stats, concurrency_limit)
+        KeyServer::new(
+            config,
+            server_stats,
+            listen_stats,
+            concurrency_limit,
+            self.dynamic_metrics_tags.clone(),
+        )
     }
 
     #[inline]
@@ -116,6 +135,26 @@ impl KeyServer {
 
     pub(super) fn reload_with_new_notifier(&self, config: KeyServerConfig) -> KeyServer {
         self.prepare_reload(config)
+    }
+
+    pub(crate) fn add_dynamic_metrics_tag(&self, name: MetricsTagName, value: MetricsTagValue) {
+        let dynamic_tags = self.dynamic_metrics_tags.load();
+        let mut dynamic_tags = dynamic_tags.as_ref().clone();
+        dynamic_tags.insert(name, value);
+        self.dynamic_metrics_tags
+            .store(Arc::new(dynamic_tags.clone()));
+
+        let m = self.server_stats.extra_tags().load().clone();
+        match m {
+            Some(extra) => {
+                let mut extra = (*extra).clone();
+                extra.extend(dynamic_tags);
+                self.server_stats.set_extra_tags(Some(Arc::new(extra)))
+            }
+            None => self
+                .server_stats
+                .set_extra_tags(Some(Arc::new(dynamic_tags))),
+        }
     }
 
     #[inline]

@@ -19,10 +19,10 @@ use std::str::FromStr;
 
 use super::{chars_allowed_in_opentsdb, ParseError};
 
-#[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub struct MetricsTagName(String);
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MetricsTagValue(String);
 
 pub type StaticMetricsTags = BTreeMap<MetricsTagName, MetricsTagValue>;
