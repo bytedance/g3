@@ -38,8 +38,7 @@ G3_PACKAGE_VERSION="%{version}-%{release}"
 export G3_PACKAGE_VERSION
 LUA_VERSION=$(pkg-config --variable=V lua | tr -d '.')
 LUA_FEATURE=lua$LUA_VERSION
-SSL_FEATURE=$(pkg-config --atleast-version 1.1.1 libssl || echo "vendored-openssl")
-cargo build --frozen --offline --profile %{build_profile} --no-default-features --features $LUA_FEATURE,$SSL_FEATURE,c-ares --package g3proxy --package g3proxy-ctl --package g3proxy-ftp --package g3proxy-lua
+cargo build --frozen --offline --profile %{build_profile} --no-default-features --features $LUA_FEATURE,vendored-tongsuo,c-ares --package g3proxy --package g3proxy-ctl --package g3proxy-ftp --package g3proxy-lua
 sh %{name}/service/generate_systemd.sh
 
 
