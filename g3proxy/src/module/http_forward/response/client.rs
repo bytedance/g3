@@ -515,7 +515,7 @@ impl HttpProxyClientResponse {
     where
         W: AsyncWrite + Unpin,
     {
-        let code = self.status.as_u16();
+        let code = self.status.as_str();
         let reason = self.canonical_reason();
         let body = format!(
             "<html>\n\
