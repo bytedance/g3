@@ -22,9 +22,9 @@ use slog::slog_info;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
-use g3_daemon::log::types::{LtDateTime, LtDuration, LtUpstreamAddr, LtUuid};
 use g3_http::client::HttpTransparentResponse;
 use g3_http::server::{HttpTransparentRequest, UriExt};
+use g3_slog_types::{LtDateTime, LtDuration, LtUpstreamAddr, LtUuid};
 use g3_types::net::UpstreamAddr;
 
 use super::{HttpRequest, HttpRequestIo, HttpResponseIo};

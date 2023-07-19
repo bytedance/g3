@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-pub(crate) mod types;
-
 mod shared;
 
 pub(crate) mod audit;

@@ -1,0 +1,28 @@
+---
+
+- name: Install CA Root Certificate
+  ansible.builtin.copy:
+    src: "{{ inventory_dir }}/files/certs-client/rootCA.pem"
+    dest: "/etc/g3proxy/{{ daemon_group }}/escaper.d/{{ escaper_name }}-rootCA.pem"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload escaper {{ escaper_name }}
+
+- name: Install client certificate
+  ansible.builtin.copy:
+    src: "{{ inventory_dir }}/files/certs-client/{{ tls_name }}-client.pem"
+    dest: "/etc/g3proxy/{{ daemon_group }}/escaper.d/{{ escaper_name }}-{{ tls_name }}-client.pem"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload escaper {{ escaper_name }}
+
+- name: Install escaper private key
+  ansible.builtin.copy:
+    src: "{{ inventory_dir }}/files/certs-client/{{ tls_name }}-client-key.pem"
+    dest: "/etc/g3proxy/{{ daemon_group }}/escaper.d/{{ escaper_name }}-{{ tls_name }}-client-key.pem"
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Reload escaper {{ escaper_name }}

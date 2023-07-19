@@ -183,10 +183,14 @@ The code should comply to these, but should be more compliant to existing popula
     : HTTP headers
  - [rfc6648](https://datatracker.ietf.org/doc/html/rfc6648)
     : Deprecating the "X-" Prefix and Similar Constructs in Application Protocols
+ - [rfc8941](https://datatracker.ietf.org/doc/html/rfc8941)
+    : Structured Field Values for HTTP
  - [rfc9297](https://datatracker.ietf.org/doc/html/rfc9297)
     : HTTP Datagrams and the Capsule Protocol
  - [rfc9298](https://datatracker.ietf.org/doc/html/rfc9298)
     : Proxying UDP in HTTP
+ - [draft-ietf-masque-connect-ip](https://datatracker.ietf.org/doc/draft-ietf-masque-connect-ip/13/)
+    : Proxying IP in HTTP
  - [iana-http-upgrade-tokens](https://www.iana.org/assignments/http-upgrade-tokens/http-upgrade-tokens.xhtml)
     : Hypertext Transfer Protocol (HTTP) Upgrade Token Registry
  - [iana-well-known-uris](https://www.iana.org/assignments/well-known-uris/well-known-uris.xhtml)
@@ -214,13 +218,15 @@ The code should comply to these, but should be more compliant to existing popula
 
 ### Websocket
  - [rfc6455](https://datatracker.ietf.org/doc/html/rfc6455)
-   : The WebSocket Protocol
+    : The WebSocket Protocol
  - [rfc8441](https://datatracker.ietf.org/doc/html/rfc8441)
-   : Bootstrapping WebSockets with HTTP/2
+    : Bootstrapping WebSockets with HTTP/2
  - [rfc9220](https://datatracker.ietf.org/doc/html/rfc9220)
-   : Bootstrapping WebSockets with HTTP/3
+    : Bootstrapping WebSockets with HTTP/3
  - [nginx-websocket-proxying](https://nginx.org/en/docs/http/websocket.html)
-   : WebSocket proxying
+    : WebSocket proxying
+ - [iana-websocket](https://www.iana.org/assignments/websocket/websocket.xml)
+    : WebSocket Protocol Registries
 
 ### FTP
 
@@ -279,6 +285,18 @@ The code should comply to these, but should be more compliant to existing popula
     : MQTT Version 5.0 OASIS Standard
  - [mqtt-v3.1.1-os](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html)
     : MQTT Version 3.1.1 OASIS Standard
+
+### STOMP
+
+ - [stomp-specification-1.2](https://stomp.github.io/stomp-specification-1.2.html)
+    : STOMP Protocol Specification, Version 1.2
+
+### SMPP
+
+ - [SMPP](https://smpp.org/)
+    : SMPP Protocol: API to enable SMS messaging between applications and mobiles
+ - [SMPP_v5](https://smpp.org/SMPP_v5.pdf)
+    : Short Message Peer-to-Peer Protocol Specification Version 5.0
 
 ### RTMP
 

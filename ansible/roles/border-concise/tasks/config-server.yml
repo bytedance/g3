@@ -1,0 +1,25 @@
+---
+
+- name: Config http server
+  ansible.builtin.include_role:
+    name: g3proxy
+    tasks_from: config-server
+    handlers_from: reload-server
+  vars:
+    template_name: http
+    server_name: "http"
+    server_port: "{{ border_concise_conf.port }}"
+    border_conf: "{{ border_concise_conf }}"
+  when: border_concise_conf.port is defined
+
+- name: Config socks servers
+  ansible.builtin.include_role:
+    name: g3proxy
+    tasks_from: config-server
+    handlers_from: reload-server
+  vars:
+    template_name: socks
+    server_name: "socks"
+    server_port: "{{ border_concise_conf.socks_port }}"
+    border_conf: "{{ border_concise_conf }}"
+  when: border_concise_conf.socks_port is defined

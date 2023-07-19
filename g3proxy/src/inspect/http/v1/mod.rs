@@ -21,9 +21,9 @@ use http::{Method, Version};
 use slog::slog_info;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_daemon::log::types::LtUuid;
 use g3_dpi::Protocol;
 use g3_io_ext::FlexBufReader;
+use g3_slog_types::LtUuid;
 
 use crate::config::server::ServerConfig;
 use crate::inspect::{

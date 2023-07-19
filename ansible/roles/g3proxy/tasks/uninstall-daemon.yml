@@ -1,0 +1,22 @@
+---
+
+- name: User confirmation
+  ansible.builtin.pause:
+    prompt: "This will uninstall g3proxy@{{ daemon_group }}, continue (yes/no)?"
+  register: uninstall_confirm
+  run_once: true
+  delegate_to: localhost
+
+- name: Cancel?
+  ansible.builtin.fail:
+    msg: "User has cancelled uninstall of g3proxy@{{ daemon_group }}"
+  when: uninstall_confirm.user_input != "yes"
+
+- name: "Stop and disable service g3proxy@{{ daemon_group }}"
+  ansible.builtin.systemd:
+    name: "g3proxy@{{ daemon_group }}"
+    state: stopped
+    enabled: false
+
+- name: Clean config
+  ansible.builtin.include_tasks: clean-config.yml

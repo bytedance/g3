@@ -24,7 +24,6 @@ use slog::slog_info;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
-use g3_daemon::log::types::{LtDateTime, LtDuration, LtUuid};
 use g3_http::client::HttpTransparentResponse;
 use g3_http::server::HttpTransparentRequest;
 use g3_http::{HttpBodyReader, HttpBodyType};
@@ -37,12 +36,12 @@ use g3_icap_client::respmod::h1::{
     HttpResponseAdapter, RespmodAdaptationEndState, RespmodAdaptationRunState,
 };
 use g3_io_ext::{LimitedBufReadExt, LimitedCopy, LimitedCopyError};
+use g3_slog_types::{LtDateTime, LtDuration, LtHttpMethod, LtHttpUri, LtUuid};
 use g3_types::net::HttpHeaderMap;
 
 use super::{HttpRequest, HttpRequestIo, HttpResponseIo};
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
-use crate::log::types::{LtHttpMethod, LtHttpUri};
 use crate::module::http_forward::HttpProxyClientResponse;
 use crate::serve::{ServerIdleChecker, ServerTaskError, ServerTaskResult};
 

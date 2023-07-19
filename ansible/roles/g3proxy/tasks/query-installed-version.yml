@@ -1,0 +1,15 @@
+---
+
+- name: "Query installed version of proxy"
+  ansible.builtin.command: "dpkg-query -W -f='${Version}' g3proxy"
+  register: proxy_installed_version
+  changed_when:
+    - proxy_installed_version.rc == 0
+
+- name: "Set fact proxy_installed_version"
+  ansible.builtin.set_fact:
+    proxy_installed_version: "{{ proxy_installed_version.stdout }}"
+
+- name: "Print proxy installed version"
+  ansible.builtin.debug:
+    msg: "proxy installed version: {{ proxy_installed_version }}"

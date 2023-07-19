@@ -16,8 +16,8 @@
 
 use slog::slog_info;
 
-use g3_daemon::log::types::LtUuid;
 use g3_dpi::Protocol;
+use g3_slog_types::LtUuid;
 
 use super::InspectSource;
 use crate::config::server::ServerConfig;

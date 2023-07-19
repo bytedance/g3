@@ -11,12 +11,12 @@
 %define build_profile release-lto
 
 Name:           g3fcgen
-Version:        0.5.0
+Version:        0.5.1
 Release:        1%{?dist}
 Summary:        Fake Certificate Generator for G3 Project
 
-License:        ASL 2.0
-#URL:
+License:        Apache-2.0
+URL:            https://github.com/bytedance/g3
 Source0:        %{name}-%{version}.tar.xz
 
 BuildRequires:  gcc, make, %{pkgconfig_real}
@@ -42,15 +42,19 @@ rm -rf $RPM_BUILD_ROOT
 install -m 755 -D target/%{build_profile}/g3fcgen %{buildroot}%{_bindir}/g3fcgen
 install -m 644 -D %{name}/service/g3fcgen.service %{buildroot}/lib/systemd/system/g3fcgen.service
 install -m 644 -D %{name}/service/g3fcgen.preset %{buildroot}/lib/systemd/system-preset/90-g3fcgen.preset
+install -m 644 -D %{name}/service/g3fcgen@.service %{buildroot}/lib/systemd/system/g3fcgen@.service
 
 
 %files
-#%license add-license-file-here
 %{_bindir}/g3fcgen
 /lib/systemd/system/g3fcgen.service
 /lib/systemd/system-preset/90-g3fcgen.preset
+/lib/systemd/system/g3fcgen@.service
+%license LICENSE
+%license LICENSE-BUNDLED
+%license LICENSE-FOREIGN
 
 
 %changelog
-* Mon Jun 12 2023 G3fcgen Maintainers <g3fcgen-maintainers@devel.machine> - 0.5.0-1
+* Mon Jul 17 2023 G3fcgen Maintainers <g3fcgen-maintainers@devel.machine> - 0.5.1-1
 - New upstream release

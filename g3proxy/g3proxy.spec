@@ -11,12 +11,12 @@
 %define build_profile release-lto
 
 Name:           g3proxy
-Version:        1.7.17
+Version:        1.7.18
 Release:        1%{?dist}
 Summary:        Generic proxy for G3 Project
 
-License:        ASL 2.0
-#URL:
+License:        Apache-2.0
+URL:            https://github.com/bytedance/g3
 Source0:        %{name}-%{version}.tar.xz
 
 BuildRequires:  gcc, make, %{pkgconfig_real}, capnproto
@@ -50,20 +50,20 @@ install -m 755 -D target/%{build_profile}/g3proxy-ctl %{buildroot}%{_bindir}/g3p
 install -m 755 -D target/%{build_profile}/g3proxy-ftp %{buildroot}%{_bindir}/g3proxy-ftp
 install -m 755 -D target/%{build_profile}/g3proxy-lua %{buildroot}%{_bindir}/g3proxy-lua
 install -m 644 -D %{name}/service/g3proxy@.service %{buildroot}/lib/systemd/system/g3proxy@.service
-mkdir -p %{buildroot}/%{_datadir}/doc/%{name}/
-cp -r %{name}/doc/_build/html %{buildroot}/%{_datadir}/doc/%{name}
 
 
 %files
-#%license add-license-file-here
 %{_bindir}/g3proxy
 %{_bindir}/g3proxy-ctl
 %{_bindir}/g3proxy-ftp
 %{_bindir}/g3proxy-lua
 /lib/systemd/system/g3proxy@.service
-%doc %{_datadir}/doc/%{name}
+%license LICENSE
+%license LICENSE-BUNDLED
+%license LICENSE-FOREIGN
+%doc %{name}/doc/_build/html
 
 
 %changelog
-* Wed Jul 05 2023 G3proxy Maintainers <g3proxy-maintainers@devel.machine> - 1.7.17-1
+* Thu Jul 13 2023 G3proxy Maintainers <g3proxy-maintainers@devel.machine> - 1.7.18-1
 - New upstream release

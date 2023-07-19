@@ -1,0 +1,21 @@
+---
+
+- name: Config server certificates
+  ansible.builtin.include_role:
+    name: g3proxy
+    tasks_from: config-server-cert
+    handlers_from: reload-server
+  vars:
+    server_name: "http"
+    tls_name: "{{ border_transit_conf.tls_name }}"
+
+- name: Config http server
+  ansible.builtin.include_role:
+    name: g3proxy
+    tasks_from: config-server
+    handlers_from: reload-server
+  vars:
+    template_name: http
+    server_name: "http"
+    server_port: "{{ border_transit_conf.port }}"
+    border_conf: "{{ border_transit_conf }}"

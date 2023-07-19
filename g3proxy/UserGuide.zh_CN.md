@@ -12,6 +12,7 @@
     + [HTTP代理](#http代理)
     + [SOCKS代理](#socks代理)
     + [TCP映射](#tcp映射)
+    + [TLS卸载](#tls卸载)
     + [TLS封装](#tls封装)
     + [SNI代理](#sni代理)
     + [线路绑定](#线路绑定)
@@ -22,6 +23,7 @@
     + [用户认证授权](#用户认证授权)
     + [用户限流限速](#用户限流限速)
 - [进阶用法](#进阶用法)
+    + [mTLS客户端](#mtls客户端)
     + [多协议入口复用](#多协议入口复用)
     + [监听多个端口](#监听多个端口)
     + [Socks5 UDP IP映射](#socks5-udp-ip映射)
@@ -34,7 +36,8 @@
     + [性能优化](#性能优化)
 - [场景设计](#场景设计)
     + [多区域加速](#多区域加速)
-
+    + [双出口容灾](#双出口容灾)
+ 
 ## 如何安装
 
 目前只支持Linux系统，并对Debian、RHEL等发行版提供了打包安装支持，
@@ -169,6 +172,20 @@ server:
     upstream_pick_policy: rr # 负载均衡算法，默认random
 ```
 
+### TLS卸载
+
+本地TCP端口映射到目标机器的TLS端口，需要添加TcpStream类型入口，示例如下：
+
+```yaml
+server:
+  - name: tcp           # 名称需要唯一，不跟其他入口冲突，日志&监控需要使用该字段
+    escaper: default    # 必填，可以是任意类型出口
+    type: tcp_stream
+    listen: "[::1]:80"
+    proxy_pass: "127.0.0.1:443"
+    tls_client: {}      # 使用TLS连接目标端口，配置TLS参数，如CA证书、客户端证书(mTLS)等
+```
+
 ### TLS封装
 
 本地TLS端口映射到目标机器的特定端口，需要添加TlsStream类型入口，示例如下：
@@ -181,8 +198,9 @@ server:
     listen:
       address: "[::1]:10443"
     tls_server:                   # 配置TLS参数
-      certificate: /path/to/cert
-      private_key: /path/to/key
+      cert_pairs:
+        certificate: /path/to/cert
+        private_key: /path/to/key
       enable_client_auth: true    # 启用mTLS
     proxy_pass:         # 目标地址，可以单条/多条
       - "127.0.0.1:5201"
@@ -326,6 +344,17 @@ request_max_alive: 2000     # 存活任务总数限制
 
 ## 进阶用法
 
+### mTLS客户端
+
+本文若干处涉及到TLS Client的配置，如果需要作为TLS客户端启用mTLS双向认证，示例配置如下：
+
+```yaml
+tls_client:
+  certificate: /path/to/cert.crt  # 客户端证书
+  private_key: /path/to/pkey.key  # 客户端私钥
+  ca_certificate: /path/to/ca/cert.crt # CA证书，用于验证服务端证书（默认用系统CA证书）
+```
+
 ### 多协议入口复用
 
 如果需要单个端口同时用于HttpProxy & SocksProxy，可以使用IntelliProxy Port入口：
@@ -378,8 +407,9 @@ server:
     listen: "[::]:8443"
     server: http
     tls_server:
-      certificate: /path/to/certificate
-      private_key: /path/to/private_key
+      cert_pairs:
+        certificate: /path/to/certificate
+        private_key: /path/to/private_key
       enable_client_auth: true            # 开启mTLS
 ```
 
@@ -638,4 +668,81 @@ flowchart LR
       type: proxy_https
       tls_client: {} # 配置TLS参数
       # ... 配置代理参数 指向a2区域的 relay代理地址
+  ```
+
+### 双出口容灾
+
+单IDC有多个POP点公网出口时，或其他类似对目标站点的访问具有至少2条**非本机**线路可供选择的情况下，
+如果希望在2条线路进行主备切换自动容灾，可做如下设计：
+
+拓扑图如下：
+
+```mermaid
+flowchart LR
+%% Paste to https://mermaid.live/ to see the graph
+  subgraph IDC
+    i1_client[Client]
+    subgraph Proxy
+      i1_proxy[GW]
+      i1_route[route]
+      i1_proxy -.-> i1_route
+    end
+    i1_client --> i1_proxy
+  end
+  subgraph POP1
+    p1_proxy[relay]
+  end
+  subgraph POP2
+    p2_proxy[relay]
+  end
+  internet[Internet]
+  i1_route --proxy to pop1--> p1_proxy
+  i1_route --proxy to pop2--> p2_proxy
+  p1_proxy --local---> internet
+  p2_proxy --local---> internet
+```
+
+每个节点的Proxy分别配置以下功能：
+
+- GW
+
+  处理客户端请求，可配置成任意一种Server类型，如正向代理、反向代理、TCP映射等。
+
+- relay
+
+  处理其他区域节点的请求，使用内部协议，例如使用mTLS通道。
+
+  简要配置如下：
+
+  ```yaml
+  server:
+    - name: relay
+      type: http_proxy
+      escaper: local
+      tls_server: {} # 配置TLS参数
+  ```
+
+  注意，如果IDC内GW需要支持Socks5 UDP协议，则relay应该配置成UDP代理，需要使用[SOCKS 代理](#socks代理)。
+
+- route
+
+  对当地的用户请求进行选路分流，需要配置 >=1 个route类型出口，对每个区域配置一个Proxy出口。
+
+  简化配置如下：
+
+  ```yaml
+  escaper:
+    - name: route
+      type: route_failover
+      primary_next: p1_proxy
+      standby_next: p2_proxy
+      fallback_delay: 100ms  # fallback尝试等待时间（超时后同步对standby出口发起请求）
+    - name: p1_proxy
+      type: proxy_https # 注意，需适配POP1的relay server类型
+      tls_client: {} # 配置TLS参数
+      # ... 配置代理参数 指向POP1区域的 relay代理地址
+    - name: p2_proxy
+      type: proxy_https # 注意，需适配POP2的relay server类型
+      tls_client: {} # 配置TLS参数
+      # ... 配置代理参数 指向POP2区域的 relay代理地址
   ```

@@ -21,15 +21,14 @@ use h2::{RecvStream, SendStream, StreamId};
 use http::{Request, Response, StatusCode, Version};
 use slog::slog_info;
 
-use g3_daemon::log::types::{LtDateTime, LtDuration, LtUpstreamAddr, LtUuid};
 use g3_h2::{H2StreamReader, H2StreamWriter};
 use g3_http::server::UriExt;
+use g3_slog_types::{LtDateTime, LtDuration, LtH2StreamId, LtUpstreamAddr, LtUuid};
 use g3_types::net::UpstreamAddr;
 
 use super::{ExchangeHead, HttpForwardTaskNotes};
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
-use crate::log::types::LtH2StreamId;
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {

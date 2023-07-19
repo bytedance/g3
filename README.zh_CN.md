@@ -101,6 +101,13 @@ G3 Project 由若干组件构成。
    ./build_rpm_from_git.sh <name>
    ```
 
+### 预构建安装包
+
+如需在生产环境使用，建议自行打包。
+
+测试环境的话，部分包已经编译上传到
+[cloudsmith](https://cloudsmith.io/~g3-oqh/repos/g3-J0E/packages/), 可参考该链接页面的说明进行安装.
+
 ## 贡献指南
 
 参考 [Contributing](CONTRIBUTING.md)。
@@ -111,7 +118,7 @@ G3 Project 由若干组件构成。
 [G3代理用户交流群加入链接](https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=9fah8def-d024-4db5-91cd-522ae09c2b72)，
 或使用如下二维码:
 
-<img alt="" src="https://github.com/bytedance/g3/blob/master/G3-FEISHU-USER-GROUP.png" width="50%" height="50%">
+<img alt="" src="G3-FEISHU-USER-GROUP.png" width="50%" height="50%">
 
 ## Code of Conduct
 

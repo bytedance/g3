@@ -15,8 +15,8 @@ Version:        0.2.5
 Release:        1%{?dist}
 Summary:        Generic reverse proxy for G3 Project
 
-License:        ASL 2.0
-#URL:
+License:        Apache-2.0
+URL:            https://github.com/bytedance/g3
 Source0:        %{name}-%{version}.tar.xz
 
 BuildRequires:  gcc, make, %{pkgconfig_real}, capnproto
@@ -49,10 +49,12 @@ install -m 644 -D %{name}/service/g3tiles@.service %{buildroot}/lib/systemd/syst
 
 
 %files
-#%license add-license-file-here
 %{_bindir}/g3tiles
 %{_bindir}/g3tiles-ctl
 /lib/systemd/system/g3tiles@.service
+%license LICENSE
+%license LICENSE-BUNDLED
+%license LICENSE-FOREIGN
 
 
 %changelog

@@ -1,0 +1,29 @@
+---
+
+- name: Define root ipv4 map
+  set_fact:
+    ipv4map: {}
+  when: ipv4map is not defined
+
+- name: Combine bgp ipv4 map
+  set_fact:
+    ipv4map: "{{ ipv4map | combine(bgp_ipv4map) }}"
+  when: bgp_ipv4map is defined
+
+- name: Final merged ipv4 map
+  debug:
+    var: ipv4map
+
+- name: Define root ipv6 map
+  set_fact:
+    ipv6map: {}
+  when: ipv6map is not defined
+
+- name: Combine bgp ipv6 map
+  set_fact:
+    ipv6map: "{{ ipv6map | combine(bgp_ipv6map) }}"
+  when: bgp_ipv6map is defined
+
+- name: Final merged ipv6 map
+  debug:
+    var: ipv6map

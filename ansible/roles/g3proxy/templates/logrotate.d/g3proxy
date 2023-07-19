@@ -1,0 +1,17 @@
+
+{{ proxy_log_dir }}/*/*.log {
+	rotate {{ proxy_log_rotate_count }}
+	daily
+	missingok
+	notifempty
+	minsize {{ proxy_log_rotate_minsize }}
+	compress
+{% if proxy_log_delaycompress is defined and proxy_log_delaycompress|bool %}
+	delaycompress
+{% endif %}
+	sharedscripts
+	postrotate
+		/usr/lib/rsyslog/rsyslog-rotate
+	endscript
+}
+

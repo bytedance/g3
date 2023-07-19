@@ -22,13 +22,14 @@ use cadence::{Counted, Gauged, Metric, MetricBuilder, StatsdClient};
 use once_cell::sync::Lazy;
 
 use g3_daemon::metric::{
-    MetricTransportType, TAG_KEY_CONNECTION, TAG_KEY_REQUEST, TAG_KEY_STAT_ID, TAG_KEY_TRANSPORT,
+    MetricTransportType, TAG_KEY_CONNECTION, TAG_KEY_REQUEST, TAG_KEY_SERVER, TAG_KEY_STAT_ID,
+    TAG_KEY_TRANSPORT,
 };
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
 
+use super::TAG_KEY_ESCAPER;
 use super::{MetricUserConnectionType, MetricUserRequestType};
-use super::{TAG_KEY_ESCAPER, TAG_KEY_SERVER};
 use crate::auth::{
     User, UserForbiddenSnapshot, UserForbiddenStats, UserRequestSnapshot, UserRequestStats,
     UserTrafficSnapshot, UserTrafficStats, UserUpstreamTrafficSnapshot, UserUpstreamTrafficStats,

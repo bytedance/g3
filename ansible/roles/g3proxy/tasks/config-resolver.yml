@@ -1,0 +1,10 @@
+---
+
+- name: "Install resolver conf for {{ resolver_name }}"
+  ansible.builtin.template:
+    src: "resolver.d/{{ template_name | default(resolver_name) }}.conf"
+    dest: "/etc/g3proxy/{{ daemon_group }}/resolver.d/{{ resolver_name }}.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload resolver {{ resolver_name }}

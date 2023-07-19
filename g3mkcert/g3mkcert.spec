@@ -13,8 +13,8 @@ Version:        0.1.0
 Release:        1%{?dist}
 Summary:        Tool to make certificates from G3 Project
 
-License:        ASL 2.0
-#URL:
+License:        Apache-2.0
+URL:            https://github.com/bytedance/g3
 Source0:        %{name}-%{version}.tar.xz
 
 %description
@@ -38,8 +38,10 @@ install -m 755 -D target/%{build_profile}/g3mkcert %{buildroot}%{_bindir}/g3mkce
 
 
 %files
-#%license add-license-file-here
 %{_bindir}/g3mkcert
+%license LICENSE
+%license LICENSE-BUNDLED
+%license LICENSE-FOREIGN
 
 
 %changelog

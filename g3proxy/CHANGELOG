@@ -1,4 +1,7 @@
 
+v1.7.18:
+ - Feature: add license info to deb and rpm package files
+
 v1.7.17:
  - Feature: add route_failover escaper
 

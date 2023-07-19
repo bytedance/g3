@@ -1,0 +1,45 @@
+---
+
+- name: Config resolver
+  ansible.builtin.include_role:
+    name: g3proxy
+    tasks_from: config-resolver
+    handlers_from: reload-resolver
+    allow_duplicates: true
+  vars:
+    template_name: "direct"
+    resolver_name: "r_default"
+    dns_server: "{{ border_default_dns_server }}"
+  when: border_default_dns_server is not mapping
+
+- name: Config failover resolver
+  ansible.builtin.include_role:
+    name: g3proxy
+    tasks_from: config-resolver
+    handlers_from: reload-resolver
+  vars:
+    template_name: "failover"
+    resolver_name: "r_default"
+  when: border_default_dns_server is mapping
+
+- name: Config primary resolver
+  ansible.builtin.include_role:
+    name: g3proxy
+    tasks_from: config-resolver
+    handlers_from: reload-resolver
+  vars:
+    template_name: "direct"
+    resolver_name: "r_default_p"
+    dns_server: "{{ border_default_dns_server.primary }}"
+  when: border_default_dns_server is mapping
+
+- name: Config standby resolver
+  ansible.builtin.include_role:
+    name: g3proxy
+    tasks_from: config-resolver
+    handlers_from: reload-resolver
+  vars:
+    template_name: "direct"
+    resolver_name: "r_default_s"
+    dns_server: "{{ border_default_dns_server.standby }}"
+  when: border_default_dns_server is mapping

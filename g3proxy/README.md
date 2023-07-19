@@ -137,6 +137,7 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
   * wildcard domain match
   * subnet match
   * regex domain match
+- route-failover - failover between primary and standby escaper
 
 ### Resolver
 

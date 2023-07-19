@@ -1,0 +1,11 @@
+---
+
+- name: Config tcp stream servers
+  ansible.builtin.include_tasks: config-server-per-net.yml
+  vars:
+    escaper_name: "ed_{{ net_item.key }}"
+    network_name: "{{ net_item.key }}"
+    border_conf: "{{ net_item.value }}"
+  with_dict: "{{ border_stream_networks }}"
+  loop_control:
+    loop_var: net_item

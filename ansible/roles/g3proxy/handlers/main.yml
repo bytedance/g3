@@ -1,0 +1,10 @@
+---
+
+- name: systemd daemon reload
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Restart rsyslog
+  ansible.builtin.systemd:
+    name: rsyslog.service
+    state: restarted

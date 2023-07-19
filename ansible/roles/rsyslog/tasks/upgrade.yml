@@ -1,0 +1,13 @@
+---
+
+- name: Upgrade via apt
+  ansible.builtin.include_tasks: upgrade-apt.yml
+  when: ansible_pkg_mgr == "apt"
+
+- name: Upgrade via yum
+  ansible.builtin.include_tasks: upgrade-yum.yml
+  when: ansible_pkg_mgr == "yum"
+
+- name: Upgrade via dnf
+  ansible.builtin.include_tasks: upgrade-dnf.yml
+  when: ansible_pkg_mgr == "dnf"

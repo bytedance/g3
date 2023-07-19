@@ -17,7 +17,7 @@
 use slog::{slog_info, Logger};
 use uuid::Uuid;
 
-use g3_daemon::log::types::{LtDateTime, LtDuration, LtIpAddr, LtUpstreamAddr, LtUuid};
+use g3_slog_types::{LtDateTime, LtDuration, LtIpAddr, LtUpstreamAddr, LtUuid};
 
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
 

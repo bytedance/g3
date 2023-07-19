@@ -1,0 +1,23 @@
+---
+
+- name: Config users for each direct port
+  ansible.builtin.include_role:
+    name: g3proxy
+    tasks_from: config-user-group
+    handlers_from: reload-user-group
+  vars:
+    template_name: "default"
+    user_group_name: "ug_{{ item.key }}"
+    border_conf: "{{ item.value }}"
+  with_dict: "{{ border_egress_networks }}"
+
+- name: Config user for auto select port
+  ansible.builtin.include_role:
+    name: g3proxy
+    tasks_from: config-user-group
+    handlers_from: reload-user-group
+  vars:
+    template_name: "default"
+    user_group_name: "select"
+    border_conf: "{{ border_egress_auto_select }}"
+  when: border_egress_auto_select is mapping

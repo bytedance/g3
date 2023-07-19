@@ -9,12 +9,12 @@
 %define build_profile release-lto
 
 Name:           g3bench
-Version:        0.8.0
+Version:        0.8.1
 Release:        1%{?dist}
 Summary:        Benchmark tool for G3 Project
 
-License:        ASL 2.0
-#URL:
+License:        Apache-2.0
+URL:            https://github.com/bytedance/g3
 Source0:        %{name}-%{version}.tar.xz
 
 Requires:       ca-certificates
@@ -40,10 +40,12 @@ install -m 755 -D target/%{build_profile}/g3bench %{buildroot}%{_bindir}/g3bench
 
 
 %files
-#%license add-license-file-here
 %{_bindir}/g3bench
+%license LICENSE
+%license LICENSE-BUNDLED
+%license LICENSE-FOREIGN
 
 
 %changelog
-* Mon Jun 26 2023 G3bench Maintainers <g3bench-maintainers@devel.machine> - 0.8.0-1
+* Thu Jul 13 2023 G3bench Maintainers <g3bench-maintainers@devel.machine> - 0.8.1-1
 - New upstream release

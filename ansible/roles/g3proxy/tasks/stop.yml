@@ -1,0 +1,11 @@
+---
+
+- name: "Test config file for g3proxy instance {{ daemon_group }}"
+  ansible.builtin.command: "g3proxy -t -c /etc/g3proxy/{{ daemon_group }}/main.conf"
+  register: check
+  changed_when: check.rc == 0
+
+- name: "Restart g3proxy instance {{ daemon_group }}"
+  ansible.builtin.systemd:
+    name: "g3proxy@{{ daemon_group }}.service"
+    state: stopped

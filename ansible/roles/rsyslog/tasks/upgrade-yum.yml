@@ -1,0 +1,13 @@
+---
+
+- name: Install the latest version of rsyslog
+  ansible.builtin.yum:
+    name: rsyslog
+    state: latest
+  notify: Restart rsyslog
+
+- name: Install the latest version of rsyslog-mmjsonparse
+  ansible.builtin.yum:
+    name: rsyslog-mmjsonparse
+    state: latest
+  notify: Restart rsyslog

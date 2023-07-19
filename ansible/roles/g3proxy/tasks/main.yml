@@ -1,0 +1,31 @@
+---
+
+- name: "Check if the hosts are allowed to run role {{ role_name }}"
+  ansible.builtin.fail:
+    msg: "This host is not allowed to run role {{ role_name }}"
+  when: role_name not in allowed_roles
+  tags:
+    - always
+
+- name: Query installed version
+  ansible.builtin.import_tasks: query-installed-version.yml
+  tags:
+    - query-version
+
+- name: Deploy
+  ansible.builtin.import_tasks: deploy.yml
+  tags:
+    - never
+    - deploy
+
+- name: Config log
+  ansible.builtin.import_tasks: config-log.yml
+  tags:
+    - never
+    - config-log
+
+- name: Uninstall daemon
+  ansible.builtin.import_tasks: uninstall-daemon.yml
+  tags:
+    - never
+    - uninstall-daemon

@@ -27,6 +27,7 @@ mod tcp;
 mod tls;
 mod udp;
 mod upstream;
+mod websocket;
 
 #[cfg(feature = "http")]
 mod http;
@@ -56,6 +57,7 @@ pub use tcp::*;
 pub use tls::*;
 pub use udp::UdpMiscSockOpts;
 pub use upstream::{UpstreamAddr, UpstreamHostRef, WeightedUpstreamAddr};
+pub use websocket::WebSocketSubProtocol;
 
 #[cfg(feature = "http")]
 pub use self::http::*;

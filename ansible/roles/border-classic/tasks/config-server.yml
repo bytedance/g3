@@ -1,0 +1,45 @@
+---
+
+- name: Config http servers
+  ansible.builtin.include_role:
+    name: g3proxy
+    tasks_from: config-server
+    handlers_from: reload-server
+  vars:
+    template_name: http
+    server_name: "http_{{ item.key }}"
+    server_port: "{{ item.value.port }}"
+    escaper_name: "ed_{{ item.key }}"
+    user_group_name: "ug_{{ item.key }}"
+    border_conf: "{{ item.value }}"
+  when: item.value.port is defined
+  with_dict: "{{ border_egress_networks }}"
+
+- name: Config socks servers
+  ansible.builtin.include_role:
+    name: g3proxy
+    tasks_from: config-server
+    handlers_from: reload-server
+  vars:
+    template_name: socks
+    server_name: "socks_{{ item.key }}"
+    server_port: "{{ item.value.socks_port }}"
+    escaper_name: "ed_{{ item.key }}"
+    user_group_name: "ug_{{ item.key }}"
+    border_conf: "{{ item.value }}"
+  when: item.value.socks_port is defined
+  with_dict: "{{ border_egress_networks }}"
+
+- name: Config auto select http server
+  ansible.builtin.include_role:
+    name: g3proxy
+    tasks_from: config-server
+    handlers_from: reload-server
+  vars:
+    template_name: http
+    server_name: "http_select"
+    server_port: "{{ border_egress_auto_select.port }}"
+    escaper_name: "select"
+    user_group_name: "select"
+    border_conf: "{{ border_egress_auto_select }}"
+  when: border_egress_auto_select is mapping and border_egress_auto_select.port is defined

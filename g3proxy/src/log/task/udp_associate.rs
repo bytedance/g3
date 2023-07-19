@@ -19,7 +19,7 @@ use std::time::Duration;
 
 use slog::{slog_info, Logger};
 
-use g3_daemon::log::types::{LtDateTime, LtDuration, LtUpstreamAddr, LtUuid};
+use g3_slog_types::{LtDateTime, LtDuration, LtUpstreamAddr, LtUuid};
 
 use crate::module::udp_relay::UdpRelayTaskNotes;
 use crate::serve::{ServerTaskError, ServerTaskNotes};

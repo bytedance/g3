@@ -1,0 +1,14 @@
+---
+
+- name: "Check if the hosts are allowed to run role {{ role_name }}"
+  ansible.builtin.fail:
+    msg: "This host is not allowed to run role {{ role_name }}"
+  when: role_name not in allowed_roles
+  tags:
+    - always
+
+- ansible.builtin.import_tasks: config-sysctl.yml
+  tags:
+    - never
+    - config-sysctl
+    - config-all

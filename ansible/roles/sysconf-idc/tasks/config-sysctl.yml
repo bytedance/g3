@@ -1,0 +1,11 @@
+---
+
+- name: Install proxy sysctl config
+  ansible.builtin.template:
+    src: sysctl.d/99-proxy.conf
+    dest: /etc/sysctl.d/99-proxy.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Apply proxy sysctl config

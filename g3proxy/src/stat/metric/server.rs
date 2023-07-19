@@ -14,25 +14,22 @@
  * limitations under the License.
  */
 
-use std::convert::{From, TryFrom};
+use std::convert::TryFrom;
 use std::sync::{Arc, Mutex};
 
 use ahash::AHashMap;
-use cadence::{Counted, Gauged, Metric, MetricBuilder, StatsdClient};
+use cadence::{Counted, Gauged, StatsdClient};
 use once_cell::sync::Lazy;
 
 use g3_daemon::listen::{ListenSnapshot, ListenStats};
 use g3_daemon::metric::{
-    TAG_KEY_STAT_ID, TAG_KEY_TRANSPORT, TRANSPORT_TYPE_TCP, TRANSPORT_TYPE_UDP,
+    ServerMetricExt, TAG_KEY_TRANSPORT, TRANSPORT_TYPE_TCP, TRANSPORT_TYPE_UDP,
 };
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
 
-use super::TAG_KEY_SERVER;
 use crate::serve::{ArcServerStats, ServerForbiddenSnapshot};
 use crate::stat::types::UntrustedTaskStatsSnapshot;
-
-const TAG_KEY_ONLINE: &str = "online";
 
 const METRIC_NAME_SERVER_CONN_TOTAL: &str = "server.connection.total";
 const METRIC_NAME_SERVER_TASK_TOTAL: &str = "server.task.total";
@@ -48,12 +45,6 @@ const METRIC_NAME_SERVER_UNTRUSTED_TASK_TOTAL: &str = "server.task.untrusted_tot
 const METRIC_NAME_SERVER_UNTRUSTED_TASK_ALIVE: &str = "server.task.untrusted_alive";
 const METRIC_NAME_SERVER_IO_UNTRUSTED_IN_BYTES: &str = "server.traffic.untrusted_in.bytes";
 
-const METRIC_NAME_LISTEN_INSTANCE_COUNT: &str = "listen.instance.count";
-const METRIC_NAME_LISTEN_ACCEPTED: &str = "listen.accepted";
-const METRIC_NAME_LISTEN_DROPPED: &str = "listen.dropped";
-const METRIC_NAME_LISTEN_TIMEOUT: &str = "listen.timeout";
-const METRIC_NAME_LISTEN_FAILED: &str = "listen.failed";
-
 type ServerStatsValue = (ArcServerStats, ServerSnapshot);
 type ListenStatsValue = (Arc<ListenStats>, ListenSnapshot);
 
@@ -61,41 +52,6 @@ static SERVER_STATS_MAP: Lazy<Mutex<AHashMap<StatId, ServerStatsValue>>> =
     Lazy::new(|| Mutex::new(AHashMap::new()));
 static LISTEN_STATS_MAP: Lazy<Mutex<AHashMap<StatId, ListenStatsValue>>> =
     Lazy::new(|| Mutex::new(AHashMap::new()));
-
-trait ServerMetricExt<'m> {
-    fn add_server_tags(
-        self,
-        server: &'m MetricsName,
-        online_value: &'m str,
-        stat_id: &'m str,
-    ) -> Self;
-    fn add_server_extra_tags(self, tags: &'m Option<Arc<StaticMetricsTags>>) -> Self;
-}
-
-impl<'m, 'c, T> ServerMetricExt<'m> for MetricBuilder<'m, 'c, T>
-where
-    T: Metric + From<String>,
-{
-    fn add_server_tags(
-        self,
-        server: &'m MetricsName,
-        online_value: &'m str,
-        stat_id: &'m str,
-    ) -> Self {
-        self.with_tag(TAG_KEY_SERVER, server.as_str())
-            .with_tag(TAG_KEY_ONLINE, online_value)
-            .with_tag(TAG_KEY_STAT_ID, stat_id)
-    }
-
-    fn add_server_extra_tags(mut self, tags: &'m Option<Arc<StaticMetricsTags>>) -> Self {
-        if let Some(tags) = tags {
-            for (k, v) in tags.iter() {
-                self = self.with_tag(k.as_str(), v.as_str());
-            }
-        }
-        self
-    }
-}
 
 #[derive(Default)]
 struct ServerSnapshot {
@@ -141,7 +97,7 @@ pub(in crate::stat) fn emit_stats(client: &StatsdClient) {
 
     let mut listen_stats_map = LISTEN_STATS_MAP.lock().unwrap();
     listen_stats_map.retain(|_, (stats, snap)| {
-        emit_listen_stats(client, stats, snap);
+        g3_daemon::metric::emit_listen_stats(client, stats, snap);
         // use Arc instead of Weak here, as we should emit the final metrics before drop it
         Arc::strong_count(stats) > 1
     });
@@ -386,59 +342,4 @@ fn emit_untrusted_stats(
         .with_tag(TAG_KEY_TRANSPORT, TRANSPORT_TYPE_TCP)
         .send();
     snap.in_bytes = new_value;
-}
-
-fn emit_listen_stats(client: &StatsdClient, stats: &Arc<ListenStats>, snap: &mut ListenSnapshot) {
-    let online_value = if stats.is_running() { "y" } else { "n" };
-    let server = stats.name();
-    let mut buffer = itoa::Buffer::new();
-    let stat_id = buffer.format(stats.stat_id().as_u64());
-
-    client
-        .gauge_with_tags(
-            METRIC_NAME_LISTEN_INSTANCE_COUNT,
-            stats.get_running_runtime_count() as f64,
-        )
-        .add_server_tags(server, online_value, stat_id)
-        .send();
-
-    let new_value = stats.get_accepted();
-    if new_value != 0 || snap.accepted != 0 {
-        let diff_value = i64::try_from(new_value.wrapping_sub(snap.accepted)).unwrap_or(i64::MAX);
-        client
-            .count_with_tags(METRIC_NAME_LISTEN_ACCEPTED, diff_value)
-            .add_server_tags(server, online_value, stat_id)
-            .send();
-        snap.accepted = new_value;
-    }
-
-    let new_value = stats.get_dropped();
-    if new_value != 0 || snap.dropped != 0 {
-        let diff_value = i64::try_from(new_value.wrapping_sub(snap.dropped)).unwrap_or(i64::MAX);
-        client
-            .count_with_tags(METRIC_NAME_LISTEN_DROPPED, diff_value)
-            .add_server_tags(server, online_value, stat_id)
-            .send();
-        snap.dropped = new_value;
-    }
-
-    let new_value = stats.get_timeout();
-    if new_value != 0 || snap.timeout != 0 {
-        let diff_value = i64::try_from(new_value.wrapping_sub(snap.timeout)).unwrap_or(i64::MAX);
-        client
-            .count_with_tags(METRIC_NAME_LISTEN_TIMEOUT, diff_value)
-            .add_server_tags(server, online_value, stat_id)
-            .send();
-        snap.timeout = new_value;
-    }
-
-    let new_value = stats.get_failed();
-    if new_value != 0 || snap.failed != 0 {
-        let diff_value = i64::try_from(new_value.wrapping_sub(snap.failed)).unwrap_or(i64::MAX);
-        client
-            .count_with_tags(METRIC_NAME_LISTEN_FAILED, diff_value)
-            .add_server_tags(server, online_value, stat_id)
-            .send();
-        snap.failed = new_value;
-    }
 }

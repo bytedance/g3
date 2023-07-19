@@ -1,0 +1,6 @@
+---
+
+- name: Apply proxy sysctl config
+  ansible.builtin.command: sysctl -p /etc/sysctl.d/99-proxy.conf
+  register: apply
+  changed_when: apply.rc == 0

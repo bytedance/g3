@@ -1,0 +1,12 @@
+---
+
+- name: "Config tcp stream server on network {{ network_name }}"
+  ansible.builtin.include_role:
+    name: g3proxy
+    tasks_from: config-server
+    handlers_from: reload-server
+  vars:
+    template_name: tcp
+    server_name: "tcp_{{ network_name }}_{{ item.key }}"
+    stream_conf: "{{ item.value }}"
+  with_dict: "{{ border_conf.tcp_servers }}"

@@ -1,0 +1,10 @@
+---
+
+enterprise_id: 32473
+
+proxy_log_udp_port: 1514
+
+proxy_log_dir: /var/log/g3proxy
+proxy_log_rotate_count: 7
+proxy_log_rotate_minsize: 1G
+proxy_log_delaycompress: true

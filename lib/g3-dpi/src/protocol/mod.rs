@@ -17,7 +17,7 @@
 use std::fmt;
 use std::str::FromStr;
 
-use g3_types::net::AlpnProtocol;
+use g3_types::net::{AlpnProtocol, WebSocketSubProtocol};
 
 mod inspect;
 use inspect::ProtocolInspectState;
@@ -38,6 +38,8 @@ pub enum MaybeProtocol {
     Imap,
     Rtsp,
     Mqtt,
+    Stomp,
+    Smpp,
     Rtmp,
     Nats,
     BitTorrent,
@@ -48,6 +50,7 @@ pub enum MaybeProtocol {
     Imaps,
     Rtsps,
     SecureMqtt,
+    Ssmpp,
     Rtmps,
 
     Ssl,
@@ -66,6 +69,7 @@ impl MaybeProtocol {
                 | MaybeProtocol::Imaps
                 | MaybeProtocol::Rtsps
                 | MaybeProtocol::SecureMqtt
+                | MaybeProtocol::Ssmpp
                 | MaybeProtocol::Rtmps
         )
     }
@@ -84,6 +88,9 @@ impl FromStr for MaybeProtocol {
             "nntp" => Ok(MaybeProtocol::Nntp),
             "imap" => Ok(MaybeProtocol::Imap),
             "rtsp" => Ok(MaybeProtocol::Rtsp),
+            "mqtt" => Ok(MaybeProtocol::Mqtt),
+            "stomp" => Ok(MaybeProtocol::Stomp),
+            "smpp" => Ok(MaybeProtocol::Smpp),
             "rtmp" => Ok(MaybeProtocol::Rtmp),
             "nats" => Ok(MaybeProtocol::Nats),
             "bittorrent" | "bt" => Ok(MaybeProtocol::BitTorrent),
@@ -93,6 +100,7 @@ impl FromStr for MaybeProtocol {
             "imaps" | "imap+tls" => Ok(MaybeProtocol::Imaps),
             "rtsps" | "rtsp+tls" => Ok(MaybeProtocol::Rtsps),
             "secure-mqtt" => Ok(MaybeProtocol::SecureMqtt),
+            "ssmpp" | "smpps" | "secure smpp" => Ok(MaybeProtocol::Ssmpp),
             "rtmps" | "rtmp+tls" => Ok(MaybeProtocol::Rtmps),
             "ssl" | "tls" => Ok(MaybeProtocol::Ssl),
             _ => Err(()),
@@ -107,6 +115,17 @@ impl From<AlpnProtocol> for MaybeProtocol {
             | AlpnProtocol::Http11
             | AlpnProtocol::Http2
             | AlpnProtocol::Http3 => MaybeProtocol::Http,
+        }
+    }
+}
+
+impl From<WebSocketSubProtocol> for MaybeProtocol {
+    fn from(p: WebSocketSubProtocol) -> Self {
+        match p {
+            WebSocketSubProtocol::Mqtt => MaybeProtocol::Mqtt,
+            WebSocketSubProtocol::StompV10
+            | WebSocketSubProtocol::StompV11
+            | WebSocketSubProtocol::StompV12 => MaybeProtocol::Stomp,
         }
     }
 }
@@ -130,6 +149,8 @@ pub enum Protocol {
     Imap,
     Rtsp,
     Mqtt,
+    Stomp,
+    Smpp,
     Rtmp,
     Nats,
     BitTorrent,
@@ -156,6 +177,8 @@ impl Protocol {
             Protocol::Imap => "imap",
             Protocol::Rtsp => "rtsp",
             Protocol::Mqtt => "mqtt",
+            Protocol::Stomp => "stomp",
+            Protocol::Smpp => "smpp",
             Protocol::Rtmp => "rtmp",
             Protocol::Nats => "nats",
             Protocol::BitTorrent => "bittorrent",
@@ -190,6 +213,8 @@ mod nntp;
 mod pop3;
 mod rtmp;
 mod rtsp;
+mod smpp;
 mod smtp;
 mod ssh;
 mod ssl;
+mod stomp;

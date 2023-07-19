@@ -1,0 +1,46 @@
+---
+
+- name: Create main conf directory
+  ansible.builtin.file:
+    path: "/etc/g3proxy/{{ daemon_group }}/"
+    state: directory
+    recurse: true
+
+- name: Create conf sub directories
+  ansible.builtin.file:
+    path: "/etc/g3proxy/{{ daemon_group }}/{{ item }}.d"
+    state: directory
+    recurse: true
+  with_items:
+    - resolver
+    - escaper
+    - server
+    - user-group
+
+- name: Install main conf
+  ansible.builtin.template:
+    src: main.conf
+    dest: "/etc/g3proxy/{{ daemon_group }}/main.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart daemon
+
+- name: Config users
+  ansible.builtin.include_tasks: config-user.yml
+
+- name: Config resolvers
+  ansible.builtin.include_tasks: config-resolver.yml
+
+- name: Config escapers
+  ansible.builtin.include_role:
+    name: g3proxy
+    tasks_from: config-escaper
+    handlers_from: reload-escaper
+  vars:
+    template_name: "default"
+    escaper_name: "ed_default"
+    border_conf: "{{ border_transit_conf }}"
+
+- name: Config servers
+  ansible.builtin.include_tasks: config-server.yml

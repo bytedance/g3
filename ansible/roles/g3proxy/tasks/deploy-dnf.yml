@@ -1,0 +1,7 @@
+---
+
+- name: Install proxy package
+  ansible.builtin.dnf:
+    name: g3proxy
+    state: latest
+  notify: Systemd daemon reload

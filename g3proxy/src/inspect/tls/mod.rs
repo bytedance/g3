@@ -18,8 +18,8 @@ use std::sync::Arc;
 
 use slog::slog_info;
 
-use g3_daemon::log::types::{LtUpstreamAddr, LtUuid};
 use g3_io_ext::OnceBufReader;
+use g3_slog_types::{LtUpstreamAddr, LtUuid};
 use g3_tls_cert::agent::CertAgentHandle;
 use g3_types::net::{OpensslTlsInterceptionClientConfig, UpstreamAddr};
 

@@ -1,0 +1,12 @@
+---
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+  ignore_errors: true
+
+- name: Install proxy package
+  ansible.builtin.apt:
+    name: g3proxy
+    state: latest
+  notify: Systemd daemon reload

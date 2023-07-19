@@ -42,6 +42,10 @@ A tool to make root CA / intermediate CA / TLS server / TLS client certificates.
 
 Fake certificate generator for g3proxy.
 
+### g3keymess
+
+A simple implementation of Cloudflare keyless server.
+
 ## Target Platform
 
 Only Linux is fully supported yet. The code will compile on FreeBSD / NetBSD / MacOS, but we haven't tested it there.
@@ -104,6 +108,13 @@ If you want to build a package directly from the git repo:
    ```shell
    ./build_rpm_from_git.sh <name>
    ```
+
+### Pre-Built Packages
+
+It is recommended to build packages by yourselves if you want to do install in production environment.
+
+For testing purpose, we have built and uploaded some packages to
+[cloudsmith](https://cloudsmith.io/~g3-oqh/repos/g3-J0E/packages/), you will find install instructions there.
 
 ## Contribution
 

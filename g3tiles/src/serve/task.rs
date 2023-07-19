@@ -15,13 +15,11 @@
  */
 
 use std::net::SocketAddr;
-use std::ops::Deref;
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
-use once_cell::sync::Lazy;
 use tokio::time::Instant;
-use uuid::{v1::Context, Uuid};
+use uuid::Uuid;
 
 #[derive(Clone)]
 pub(crate) enum ServerTaskStage {
@@ -65,39 +63,13 @@ pub(crate) struct ServerTaskNotes {
 }
 
 impl ServerTaskNotes {
-    fn generate_uuid(time: &DateTime<Utc>) -> Uuid {
-        static UUID_CONTEXT: Lazy<Context> = Lazy::new(|| {
-            use rand::Rng;
-
-            let mut rng = rand::thread_rng();
-            Context::new(rng.gen())
-        });
-        static UUID_NODE_ID: Lazy<[u8; 6]> = Lazy::new(|| {
-            use rand::RngCore;
-
-            let mut bytes = [0u8; 6];
-            let mut rng = rand::thread_rng();
-            rng.fill_bytes(&mut bytes);
-            bytes
-        });
-
-        Uuid::new_v1(
-            uuid::Timestamp::from_unix(
-                &*UUID_CONTEXT,
-                time.timestamp() as u64,
-                time.timestamp_subsec_nanos().max(999_999_999), // ignore leap second
-            ),
-            UUID_NODE_ID.deref(),
-        )
-    }
-
     pub(crate) fn new(
         client_addr: SocketAddr,
         server_addr: SocketAddr,
         wait_time: Duration,
     ) -> Self {
         let started = Utc::now();
-        let uuid = ServerTaskNotes::generate_uuid(&started);
+        let uuid = g3_daemon::server::task::generate_uuid(&started);
         ServerTaskNotes {
             client_addr,
             server_addr,

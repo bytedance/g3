@@ -1,4 +1,8 @@
 
+v0.8.1
+ - Feature: support openssl async jobs in keyless-openssl target
+ - Feature: add license info to deb and rpm package files
+
 v0.8.0
  - Feature: add new h3 target
  - Feature: add new dns target
