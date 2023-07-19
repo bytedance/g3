@@ -72,6 +72,19 @@ impl proc_control::Server for ProcControlImpl {
         ));
         Promise::ok(())
     }
+
+    fn publish_key(
+        &mut self,
+        params: proc_control::PublishKeyParams,
+        mut results: proc_control::PublishKeyResults,
+    ) -> Promise<(), capnp::Error> {
+        let pem = pry!(pry!(params.get()).get_pem()).to_string();
+        Promise::from_future(async move {
+            let r = crate::control::bridge::add_key(&pem).await;
+            set_operation_result(results.get().init_result(), r);
+            Ok(())
+        })
+    }
 }
 
 fn set_fetch_result<'a, T>(

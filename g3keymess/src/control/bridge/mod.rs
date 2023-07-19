@@ -15,6 +15,7 @@
  */
 
 use anyhow::anyhow;
+use openssl::pkey::PKey;
 
 pub(crate) async fn offline() -> anyhow::Result<()> {
     g3_daemon::control::bridge::main_runtime_handle()
@@ -23,4 +24,14 @@ pub(crate) async fn offline() -> anyhow::Result<()> {
         .await
         .map_err(|e| anyhow!("failed to spawn reload task: {e}"))?;
     Ok(())
+}
+
+pub(crate) async fn add_key(pem: &str) -> anyhow::Result<()> {
+    let key = PKey::private_key_from_pem(pem.as_bytes())
+        .map_err(|e| anyhow!("invalid private key content: {e}"))?;
+    g3_daemon::control::bridge::main_runtime_handle()
+        .ok_or(anyhow!("unable to get main runtime handle"))?
+        .spawn(async move { crate::store::add_global(key) })
+        .await
+        .map_err(|e| anyhow!("failed to spawn reload task: {e}"))?
 }

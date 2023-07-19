@@ -14,25 +14,30 @@
  * limitations under the License.
  */
 
+use std::path::PathBuf;
+
+use anyhow::anyhow;
 use clap::ArgMatches;
 
 use g3keymess_proto::proc_capnp::proc_control;
 use g3keymess_proto::server_capnp::server_control;
 
-use super::CommandResult;
+use super::{CommandError, CommandResult};
 use crate::common::{parse_fetch_result, parse_operation_result, print_list_text};
 
 pub const COMMAND_VERSION: &str = "version";
 pub const COMMAND_OFFLINE: &str = "offline";
-
 pub const COMMAND_LIST: &str = "list";
+pub const COMMAND_PUBLISH_KEY: &str = "publish-key";
 
 const COMMAND_LIST_ARG_RESOURCE: &str = "resource";
 const RESOURCE_VALUE_SERVER: &str = "server";
 
+const COMMAND_ARG_FILE: &str = "file";
+
 pub mod commands {
     use super::*;
-    use clap::{Arg, Command};
+    use clap::{value_parser, Arg, Command, ValueHint};
 
     pub fn version() -> Command {
         Command::new(COMMAND_VERSION)
@@ -49,6 +54,17 @@ pub mod commands {
                 .num_args(1)
                 .value_parser([RESOURCE_VALUE_SERVER])
                 .ignore_case(true),
+        )
+    }
+
+    pub fn publish_key() -> Command {
+        Command::new(COMMAND_PUBLISH_KEY).arg(
+            Arg::new(COMMAND_ARG_FILE)
+                .help("Private key file in pem format")
+                .required(true)
+                .num_args(1)
+                .value_parser(value_parser!(PathBuf))
+                .value_hint(ValueHint::FilePath),
         )
     }
 }
@@ -92,4 +108,18 @@ pub(crate) async fn get_server(
     req.get().set_name(name);
     let rsp = req.send().promise.await?;
     parse_fetch_result(rsp.get()?.get_server()?)
+}
+
+pub async fn publish_key(client: &proc_control::Client, args: &ArgMatches) -> CommandResult<()> {
+    let file = args.get_one::<PathBuf>(COMMAND_ARG_FILE).unwrap();
+    let content = std::fs::read_to_string(file).map_err(|e| {
+        CommandError::Cli(anyhow!(
+            "failed to read content of file {}: {e}",
+            file.display()
+        ))
+    })?;
+    let mut req = client.publish_key_request();
+    req.get().set_pem(&content);
+    let rsp = req.send().promise.await?;
+    parse_operation_result(rsp.get()?.get_result()?)
 }

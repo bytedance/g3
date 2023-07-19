@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use anyhow::anyhow;
 use clap::{Arg, ArgMatches, Command};
 use futures_util::future::TryFutureExt;
 
@@ -54,7 +55,7 @@ pub async fn run(client: &proc_control::Client, args: &ArgMatches) -> CommandRes
                     .and_then(|server| async move { status(&server).await })
                     .await
             }
-            cmd => Err(CommandError::Cli(format!("supported subcommand {cmd}"))),
+            cmd => Err(CommandError::Cli(anyhow!("supported subcommand {cmd}"))),
         }
     } else {
         Ok(())
