@@ -27,3 +27,6 @@ pub use x509_pubkey::{X509Pubkey, X509PubkeyRef};
 
 mod rsa;
 pub use rsa::RsaExt;
+
+mod ec;
+pub use ec::EcPointExt;

@@ -14,8 +14,11 @@
  * limitations under the License.
  */
 
-use libc::{c_int, c_uchar, c_uint};
-use openssl_sys::{ASN1_OBJECT, EVP_MD, EVP_PKEY, RSA, X509, X509_ALGOR};
+use libc::{c_char, c_int, c_uchar, c_uint};
+use openssl_sys::{
+    point_conversion_form_t, ASN1_OBJECT, BN_CTX, EC_GROUP, EC_POINT, EVP_MD, EVP_PKEY, RSA, X509,
+    X509_ALGOR,
+};
 
 #[allow(non_camel_case_types)]
 pub enum X509_PUBKEY {}
@@ -47,4 +50,11 @@ extern "C" {
         siglen: *mut c_uint,
         rsa: *mut RSA,
     ) -> c_int;
+
+    pub fn EC_POINT_point2hex(
+        group: *const EC_GROUP,
+        p: *const EC_POINT,
+        form: point_conversion_form_t,
+        ctx: *mut BN_CTX,
+    ) -> *mut c_char;
 }
