@@ -75,4 +75,14 @@ impl server_control::Server for ServerControlImpl {
         set_operation_result(results.get().init_result(), r);
         Promise::ok(())
     }
+
+    fn get_listen_addr(
+        &mut self,
+        _params: server_control::GetListenAddrParams,
+        mut results: server_control::GetListenAddrResults,
+    ) -> Promise<(), capnp::Error> {
+        let addr = self.server.listen_addr().to_string();
+        results.get().set_addr(&addr);
+        Promise::ok(())
+    }
 }

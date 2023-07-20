@@ -12,4 +12,5 @@ interface ServerControl {
   status @0 () -> (status :ServerStats);
 
   addMetricsTag @1 (name :Text, value :Text) -> (result :Types.OperationResult);
+  getListenAddr @2 () -> (addr :Text);
 }

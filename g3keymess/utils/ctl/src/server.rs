@@ -30,6 +30,7 @@ const COMMAND_ARG_NAME: &str = "server";
 
 const SUBCOMMAND_STATUS: &str = "status";
 const SUBCOMMAND_ADD_METRICS_TAG: &str = "add-metrics-tag";
+const SUBCOMMAND_GET_LISTEN_ADDR: &str = "get-listen-addr";
 
 const SUBCOMMAND_ARG_NAME: &str = "name";
 const SUBCOMMAND_ARG_VALUE: &str = "value";
@@ -55,6 +56,7 @@ pub fn command() -> Command {
                         .num_args(1),
                 ),
         )
+        .subcommand(Command::new(SUBCOMMAND_GET_LISTEN_ADDR))
 }
 
 async fn status(client: &server_control::Client) -> CommandResult<()> {
@@ -78,6 +80,14 @@ async fn add_metrics_tag(client: &server_control::Client, args: &ArgMatches) -> 
     parse_operation_result(rsp.get()?.get_result()?)
 }
 
+async fn get_listen_addr(client: &server_control::Client) -> CommandResult<()> {
+    let req = client.get_listen_addr_request();
+    let rsp = req.send().promise.await?;
+    let addr = rsp.get()?.get_addr()?;
+    println!("listen addr: {addr}");
+    Ok(())
+}
+
 pub async fn run(client: &proc_control::Client, args: &ArgMatches) -> CommandResult<()> {
     let name = args.get_one::<String>(COMMAND_ARG_NAME).unwrap();
 
@@ -91,6 +101,11 @@ pub async fn run(client: &proc_control::Client, args: &ArgMatches) -> CommandRes
             SUBCOMMAND_ADD_METRICS_TAG => {
                 super::proc::get_server(client, name)
                     .and_then(|server| async move { add_metrics_tag(&server, sub_args).await })
+                    .await
+            }
+            SUBCOMMAND_GET_LISTEN_ADDR => {
+                super::proc::get_server(client, name)
+                    .and_then(|server| async move { get_listen_addr(&server).await })
                     .await
             }
             cmd => Err(CommandError::Cli(anyhow!("supported subcommand {cmd}"))),

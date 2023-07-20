@@ -119,6 +119,10 @@ impl KeyServer {
         self.config.name()
     }
 
+    pub(crate) fn listen_addr(&self) -> SocketAddr {
+        self.config.listen.address()
+    }
+
     pub(super) fn alive_count(&self) -> i32 {
         self.server_stats.get_alive_count()
     }
