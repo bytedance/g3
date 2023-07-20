@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
+use openssl::pkey::{PKey, Private};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::broadcast;
 
 use g3_io_ext::LimitedBufReadExt;
 
-use super::KeylessTask;
+use super::{KeylessTask, WrappedKeylessRequest};
 use crate::log::request::RequestErrorLogContext;
 use crate::protocol::{KeylessErrorResponse, KeylessResponse};
 use crate::serve::{ServerReloadCommand, ServerTaskError};
@@ -100,7 +101,19 @@ impl KeylessTask {
             None
         };
 
-        let rsp = match req.inner.process(&key) {
+        let rsp = self.process_by_openssl(req, &key);
+
+        drop(server_sem);
+
+        self.send_response(writer, rsp).await
+    }
+
+    fn process_by_openssl(
+        &self,
+        req: WrappedKeylessRequest,
+        key: &PKey<Private>,
+    ) -> KeylessResponse {
+        match req.inner.process(key) {
             Ok(d) => {
                 req.stats.add_passed();
                 KeylessResponse::Data(d)
@@ -109,12 +122,7 @@ impl KeylessTask {
                 req.stats.add_by_error_code(e.error_code());
                 KeylessResponse::Error(e)
             }
-        };
-
-        drop(server_sem);
-        drop(req);
-
-        self.send_response(writer, rsp).await
+        }
     }
 
     pub(super) async fn send_response<W>(
