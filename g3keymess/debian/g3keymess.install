@@ -1,2 +1,3 @@
 usr/bin/g3keymess
+usr/bin/g3keymess-ctl
 lib/systemd/system/
