@@ -15,7 +15,7 @@
  */
 
 use libc::{c_int, c_uchar, c_uint};
-use openssl_sys::{ASN1_OBJECT, EVP_MD, EVP_PKEY, X509, X509_ALGOR};
+use openssl_sys::{ASN1_OBJECT, EVP_MD, EVP_PKEY, RSA, X509, X509_ALGOR};
 
 #[allow(non_camel_case_types)]
 pub enum X509_PUBKEY {}
@@ -37,5 +37,14 @@ extern "C" {
         ppklen: *mut c_int,
         pa: *mut *mut X509_ALGOR,
         pub_: *mut X509_PUBKEY,
+    ) -> c_int;
+
+    pub fn RSA_sign_ASN1_OCTET_STRING(
+        dummy: c_int,
+        m: *mut c_uchar,
+        m_len: c_uint,
+        sigret: *mut c_uchar,
+        siglen: *mut c_uint,
+        rsa: *mut RSA,
     ) -> c_int;
 }
