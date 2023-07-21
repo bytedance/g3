@@ -58,7 +58,6 @@ pub(crate) struct KeylessRequest {
     pub(crate) id: u32,
     pub(crate) action: KeylessAction,
     pub(crate) ski: Vec<u8>,
-    pub(crate) digest: Vec<u8>,
     pub(crate) payload: Vec<u8>,
 }
 
@@ -68,7 +67,6 @@ impl KeylessRequest {
             id,
             action: KeylessAction::NotSet,
             ski: Vec::new(),
-            digest: Vec::new(),
             payload: Vec::new(),
         }
     }
@@ -134,9 +132,7 @@ impl KeylessRequest {
             let data = &buf[offset..offset + item_len];
             match item {
                 // Cert Digest
-                0x01 => {
-                    self.digest = data.to_vec();
-                }
+                0x01 => {}
                 // SKI
                 0x04 => {
                     self.ski = data.to_vec();

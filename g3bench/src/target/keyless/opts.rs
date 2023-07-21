@@ -323,11 +323,6 @@ impl KeylessGlobalArgs {
         &self.public_key_ski
     }
 
-    #[inline]
-    pub(super) fn public_key(&self) -> &PKey<Public> {
-        &self.public_key
-    }
-
     fn get_private_key(&self) -> anyhow::Result<&PKey<Private>> {
         self.private_key
             .as_ref()
