@@ -26,6 +26,7 @@ NO_TEXT_CRATES = [
     "quinn-udp",  # in the root dir repo
     "winapi-x86_64-pc-windows-gnu",  # not uploaded
     "winapi-i686-pc-windows-gnu",  # not uploaded
+    "serde_derive",  # not uploaded
 ]
 
 
@@ -91,6 +92,10 @@ def find_license_file(l: str, d: Path):
 def find_default_license_file(d: Path):
     return find_license_file_with_ext("LICENSE", d)
 
+def print_license_not_found():
+    print("Comment:")
+    print(" no license content found in the crate source code,")
+    print(" you should find them in the repository")
 
 def print_dual_licenses(name: str, licenses, d: Path):
     # they may have already merged the license file, like https://github.com/BLAKE3-team/BLAKE3
@@ -104,13 +109,16 @@ def print_dual_licenses(name: str, licenses, d: Path):
         if license_file is None:
             if l.upper() in NO_TEXT_LICENSES:
                 continue
-            if name in NO_TEXT_CRATES:
+            if raise_not_found:
+                if name in NO_TEXT_CRATES:
+                    print(f"\nLicense: {l}")
+                    print_license_not_found()
+                    continue
+                raise Exception(f"no matching license file found for {name} license {l}")
+            else:
                 print(f"\nLicense: {l}")
-                print("Comment:")
-                print(" no license content found in the crate source code,")
-                print(" you should find them in the repository")
+                print_license_not_found()
                 continue
-            raise Exception(f"no matching license file found for license {l}")
         print(f"\nLicense: {l}")
         print_license_file(license_file)
 
@@ -126,12 +134,13 @@ def print_single_license(name: str, l: str, d: Path):
         print_license_file(license_file)
         return
 
-    if name in NO_TEXT_CRATES:
-        print("Comment:")
-        print(" no license content found in the crate source code,")
-        print(" you should find them in the repository")
-        return
-    raise Exception("no license found")
+    if raise_not_found:
+        if name in NO_TEXT_CRATES:
+            print_license_not_found()
+            return
+        raise Exception("no license found for {name}")
+    else:
+        print_license_not_found()
 
 
 def print_license_file(file: Path):
@@ -142,10 +151,12 @@ def print_license_file(file: Path):
 
 parser = argparse.ArgumentParser(description="bundle license file for vendored crates")
 parser.add_argument('--metadata', nargs=1, type=argparse.FileType('r'), default=sys.stdin, help="Cargo metadata")
+parser.add_argument('--raise-not-found', '-r', action='store_true', default=False, help='')
 
 args = parser.parse_args()
 metadata = json.load(args.metadata)
 packages = metadata['packages']
+raise_not_found = args.raise_not_found
 
 print("# This file contains the licenses that we bundled in the release source code tarball.")
 print("#")
