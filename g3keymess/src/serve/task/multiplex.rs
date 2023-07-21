@@ -133,21 +133,29 @@ impl KeylessTask {
     where
         R: AsyncRead + Send + Unpin + 'static,
     {
-        let req = self.timed_read_request(reader).await?;
+        let mut req = self.timed_read_request(reader).await?;
+        if let Err(rsp) = req.inner.verify_opcode() {
+            req.stats.add_by_error_code(rsp.error_code());
+            let _ = msg_sender.send(KeylessResponse::Error(rsp)).await;
+            return Ok(());
+        }
+
         if let Some(pong) = req.inner.ping_pong() {
             req.stats.add_passed();
             let _ = msg_sender.send(KeylessResponse::Pong(pong)).await;
             return Ok(());
         }
 
-        let rsp = KeylessErrorResponse::new(req.inner.id);
-
-        let Some(key) = req.inner.find_key() else {
-            req.stats.add_key_not_found();
-            let _ =  msg_sender.send(KeylessResponse::Error(rsp.key_not_found())).await;
-            return Ok(());
+        let key = match req.inner.find_key() {
+            Ok(key) => key,
+            Err(rsp) => {
+                req.stats.add_by_error_code(rsp.error_code());
+                let _ = msg_sender.send(KeylessResponse::Error(rsp)).await;
+                return Ok(());
+            }
         };
 
+        let rsp = KeylessErrorResponse::new(req.inner.id);
         self.async_process_by_openssl(req, rsp, key, msg_sender)
             .await;
         Ok(())

@@ -32,6 +32,8 @@ pub(crate) struct KeyServerRequestStats {
     passed: AtomicU64,
     key_not_found: AtomicU64,
     crypto_fail: AtomicU64,
+    bad_op_code: AtomicU64,
+    format_error: AtomicU64,
     other_fail: AtomicU64,
 }
 
@@ -43,6 +45,8 @@ pub(crate) struct KeyServerRequestSnapshot {
     pub(crate) passed: u64,
     pub(crate) key_not_found: u64,
     pub(crate) crypto_fail: u64,
+    pub(crate) bad_op_code: u64,
+    pub(crate) format_error: u64,
     pub(crate) other_fail: u64,
 }
 
@@ -71,6 +75,14 @@ impl KeyServerRequestStats {
         self.crypto_fail.fetch_add(1, Ordering::Relaxed);
     }
 
+    pub(crate) fn add_bad_op_code(&self) {
+        self.bad_op_code.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn add_format_error(&self) {
+        self.format_error.fetch_add(1, Ordering::Relaxed);
+    }
+
     fn add_other_fail(&self) {
         self.other_fail.fetch_add(1, Ordering::Relaxed);
     }
@@ -80,6 +92,8 @@ impl KeyServerRequestStats {
             KeylessResponseErrorCode::NoError => self.add_passed(),
             KeylessResponseErrorCode::KeyNotFound => self.add_key_not_found(),
             KeylessResponseErrorCode::CryptographyFailure => self.add_crypto_fail(),
+            KeylessResponseErrorCode::BadOpCode => self.add_bad_op_code(),
+            KeylessResponseErrorCode::FormatError => self.add_format_error(),
             _ => self.add_other_fail(),
         }
     }
@@ -91,6 +105,8 @@ impl KeyServerRequestStats {
             passed: self.passed.load(Ordering::Relaxed),
             key_not_found: self.key_not_found.load(Ordering::Relaxed),
             crypto_fail: self.crypto_fail.load(Ordering::Relaxed),
+            bad_op_code: self.bad_op_code.load(Ordering::Relaxed),
+            format_error: self.format_error.load(Ordering::Relaxed),
             other_fail: self.other_fail.load(Ordering::Relaxed),
         }
     }

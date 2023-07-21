@@ -22,7 +22,7 @@ use g3_io_ext::LimitedBufReadExt;
 
 use super::{KeylessTask, WrappedKeylessRequest};
 use crate::log::request::RequestErrorLogContext;
-use crate::protocol::{KeylessErrorResponse, KeylessResponse};
+use crate::protocol::KeylessResponse;
 use crate::serve::{ServerReloadCommand, ServerTaskError};
 
 impl KeylessTask {
@@ -80,7 +80,14 @@ impl KeylessTask {
         R: AsyncRead + Send + Unpin + 'static,
         W: AsyncWrite + Send + Unpin + 'static,
     {
-        let req = self.timed_read_request(reader).await?;
+        let mut req = self.timed_read_request(reader).await?;
+        if let Err(rsp) = req.inner.verify_opcode() {
+            req.stats.add_by_error_code(rsp.error_code());
+            return self
+                .send_response(writer, KeylessResponse::Error(rsp))
+                .await;
+        }
+
         if let Some(pong) = req.inner.ping_pong() {
             req.stats.add_passed();
             return self
@@ -88,11 +95,14 @@ impl KeylessTask {
                 .await;
         }
 
-        let rsp = KeylessErrorResponse::new(req.inner.id);
-
-        let Some(key) = req.inner.find_key() else {
-            req.stats.add_key_not_found();
-            return self.send_response(writer, KeylessResponse::Error(rsp.key_not_found())).await;
+        let key = match req.inner.find_key() {
+            Ok(key) => key,
+            Err(rsp) => {
+                req.stats.add_by_error_code(rsp.error_code());
+                return self
+                    .send_response(writer, KeylessResponse::Error(rsp))
+                    .await;
+            }
         };
 
         let server_sem = if let Some(sem) = self.ctx.concurrency_limit.clone() {

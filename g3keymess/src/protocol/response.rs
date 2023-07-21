@@ -155,19 +155,34 @@ impl KeylessErrorResponse {
         }
     }
 
-    pub(crate) fn key_not_found(mut self) -> Self {
-        self.buf[BUF_PREFIX_LEN] = KeylessResponseErrorCode::KeyNotFound as u8;
+    fn set_error_code(mut self, error_code: KeylessResponseErrorCode) -> Self {
+        self.buf[BUF_PREFIX_LEN] = error_code as u8;
         self
     }
 
-    pub(crate) fn unexpected_op_code(mut self) -> Self {
-        self.buf[BUF_PREFIX_LEN] = KeylessResponseErrorCode::UnexpectedOpCode as u8;
-        self
+    #[inline]
+    pub(crate) fn key_not_found(self) -> Self {
+        self.set_error_code(KeylessResponseErrorCode::KeyNotFound)
     }
 
-    pub(crate) fn crypto_fail(mut self) -> Self {
-        self.buf[BUF_PREFIX_LEN] = KeylessResponseErrorCode::CryptographyFailure as u8;
-        self
+    #[inline]
+    pub(crate) fn bad_op_code(self) -> Self {
+        self.set_error_code(KeylessResponseErrorCode::BadOpCode)
+    }
+
+    #[inline]
+    pub(crate) fn unexpected_op_code(self) -> Self {
+        self.set_error_code(KeylessResponseErrorCode::UnexpectedOpCode)
+    }
+
+    #[inline]
+    pub(crate) fn crypto_fail(self) -> Self {
+        self.set_error_code(KeylessResponseErrorCode::CryptographyFailure)
+    }
+
+    #[inline]
+    pub(crate) fn format_error(self) -> Self {
+        self.set_error_code(KeylessResponseErrorCode::FormatError)
     }
 }
 

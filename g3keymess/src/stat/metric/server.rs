@@ -47,6 +47,8 @@ const REQUEST_TYPE_ED25519_SIGN: &str = "ed25519_sign";
 
 const FAIL_REASON_KEY_NOT_FOUND: &str = "key_not_found";
 const FAIL_REASON_CRYPTO_FAIL: &str = "crypto_fail";
+const FAIL_REASON_BAD_OP_CODE: &str = "bad_op_code";
+const FAIL_REASON_FORMAT_ERROR: &str = "format_error";
 const FAIL_REASON_OTHER_FAIL: &str = "other_fail";
 
 type ServerStatsValue = (Arc<KeyServerStats>, KeyServerSnapshot);
@@ -215,5 +217,7 @@ fn emit_server_request_stats(
     }
     emit_failed_stats_u64!(key_not_found, FAIL_REASON_KEY_NOT_FOUND);
     emit_failed_stats_u64!(crypto_fail, FAIL_REASON_CRYPTO_FAIL);
+    emit_failed_stats_u64!(bad_op_code, FAIL_REASON_BAD_OP_CODE);
+    emit_failed_stats_u64!(format_error, FAIL_REASON_FORMAT_ERROR);
     emit_failed_stats_u64!(other_fail, FAIL_REASON_OTHER_FAIL);
 }
