@@ -132,6 +132,7 @@ fn build_cli_args() -> Command {
         .subcommand(proc::commands::version())
         .subcommand(proc::commands::offline())
         .subcommand(proc::commands::list())
+        .subcommand(proc::commands::publish_key())
         .subcommand(server::command())
 }
 
@@ -173,11 +174,12 @@ async fn main() -> anyhow::Result<()> {
                     proc::COMMAND_VERSION => proc::version(&proc_control).await,
                     proc::COMMAND_OFFLINE => proc::offline(&proc_control).await,
                     proc::COMMAND_LIST => proc::list(&proc_control, args).await,
+                    proc::COMMAND_PUBLISH_KEY => proc::publish_key(&proc_control, args).await,
                     server::COMMAND => server::run(&proc_control, args).await,
-                    cmd => Err(CommandError::Cli(format!("invalid subcommand {cmd}"))),
+                    cmd => Err(CommandError::Cli(anyhow!("invalid subcommand {cmd}"))),
                 }
             } else {
-                Err(CommandError::Cli("no subcommand found".to_string()))
+                Err(CommandError::Cli(anyhow!("no subcommand found")))
             }
         })
         .await

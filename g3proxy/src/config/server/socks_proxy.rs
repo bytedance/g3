@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -86,7 +86,7 @@ pub(crate) struct SocksProxyServerConfig {
     pub(crate) udp_relay: LimitedUdpRelayConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
     pub(crate) udp_misc_opts: UdpMiscSockOpts,
-    pub(crate) auto_reply_local_ip_map: Option<AHashMap<IpAddr, IpAddr>>,
+    pub(crate) transmute_udp_echo_ip: Option<AHashMap<IpAddr, IpAddr>>,
     pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
 }
 
@@ -118,7 +118,7 @@ impl SocksProxyServerConfig {
             udp_relay: Default::default(),
             tcp_misc_opts: Default::default(),
             udp_misc_opts: Default::default(),
-            auto_reply_local_ip_map: None,
+            transmute_udp_echo_ip: None,
             extra_metrics_tags: None,
         }
     }
@@ -289,13 +289,13 @@ impl SocksProxyServerConfig {
                     g3_yaml::value::as_i32(v).context(format!("invalid i32 value for key {k}"))?;
                 Ok(())
             }
-            "auto_reply_local_ip_map" => {
+            "transmute_udp_echo_ip" | "auto_reply_local_ip_map" => {
                 let map = g3_yaml::value::as_hashmap(
                     v,
                     g3_yaml::value::as_ipaddr,
                     g3_yaml::value::as_ipaddr,
                 )?;
-                self.auto_reply_local_ip_map = Some(map.into_iter().collect::<AHashMap<_, _>>());
+                self.transmute_udp_echo_ip = Some(map.into_iter().collect::<AHashMap<_, _>>());
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
@@ -314,6 +314,15 @@ impl SocksProxyServerConfig {
         }
 
         Ok(())
+    }
+
+    pub(crate) fn transmute_udp_echo_addr(&self, local_addr: SocketAddr) -> SocketAddr {
+        if let Some(map) = &self.transmute_udp_echo_ip {
+            if let Some(ip) = map.get(&local_addr.ip()) {
+                return SocketAddr::new(*ip, local_addr.port());
+            }
+        }
+        local_addr
     }
 }
 

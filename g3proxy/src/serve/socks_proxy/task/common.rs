@@ -167,12 +167,4 @@ impl CommonTaskContext {
         })?;
         Ok((listen_addr, socket))
     }
-
-    pub(super) fn get_mapped_udp_listen_ip(&self, bind_ip: IpAddr) -> IpAddr {
-        self.server_config
-            .auto_reply_local_ip_map
-            .as_ref()
-            .map(|map| map.get(&bind_ip).copied().unwrap_or(bind_ip))
-            .unwrap_or(bind_ip)
-    }
 }

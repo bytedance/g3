@@ -323,11 +323,6 @@ impl KeylessGlobalArgs {
         &self.public_key_ski
     }
 
-    #[inline]
-    pub(super) fn public_key(&self) -> &PKey<Public> {
-        &self.public_key
-    }
-
     fn get_private_key(&self) -> anyhow::Result<&PKey<Private>> {
         self.private_key
             .as_ref()
@@ -450,7 +445,7 @@ impl KeylessGlobalArgs {
         }
 
         let len = rsa
-            .private_decrypt(&self.payload, &mut output_buf, padding.into())
+            .private_encrypt(&self.payload, &mut output_buf, padding.into())
             .map_err(|e| anyhow!("rsa private encrypt failed: {e}"))?;
         output_buf.truncate(len);
         Ok(output_buf)

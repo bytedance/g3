@@ -19,7 +19,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum CommandError {
     #[error("cli error ({0})")]
-    Cli(String),
+    Cli(anyhow::Error),
     #[error("rpc error ({0:?})")]
     Rpc(#[from] capnp::Error),
     #[error("api error (code: {code:?}, reason: {reason:?})")]

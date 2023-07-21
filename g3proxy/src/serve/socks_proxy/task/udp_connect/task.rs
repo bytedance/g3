@@ -272,13 +272,14 @@ impl SocksProxyUdpConnectTask {
             Ok((udp_listen_addr, socket)) => {
                 self.task_notes.stage = ServerTaskStage::Replying;
                 self.udp_listen_addr = Some(udp_listen_addr);
-                Socks5Reply::Succeeded(SocketAddr::new(
-                    self.ctx.get_mapped_udp_listen_ip(udp_listen_addr.ip()),
-                    udp_listen_addr.port(),
-                ))
-                .send(&mut clt_tcp_w)
-                .await
-                .map_err(ServerTaskError::ClientTcpWriteFailed)?;
+                let udp_echo_addr = self
+                    .ctx
+                    .server_config
+                    .transmute_udp_echo_addr(udp_listen_addr);
+                Socks5Reply::Succeeded(udp_echo_addr)
+                    .send(&mut clt_tcp_w)
+                    .await
+                    .map_err(ServerTaskError::ClientTcpWriteFailed)?;
                 socket
             }
             Err(e) => {

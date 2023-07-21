@@ -50,15 +50,13 @@ pub(crate) enum KeylessRequestError {
     CorruptedMessage,
     #[error("invalid length for item {0}")]
     InvalidItemLength(u8),
-    #[error("invalid op code {0}")]
-    InvalidOpCode(u8),
 }
 
 pub(crate) struct KeylessRequest {
     pub(crate) id: u32,
+    pub(crate) opcode: u8,
     pub(crate) action: KeylessAction,
     pub(crate) ski: Vec<u8>,
-    pub(crate) digest: Vec<u8>,
     pub(crate) payload: Vec<u8>,
 }
 
@@ -66,9 +64,9 @@ impl KeylessRequest {
     fn new(id: u32) -> Self {
         KeylessRequest {
             id,
+            opcode: 0,
             action: KeylessAction::NotSet,
             ski: Vec::new(),
-            digest: Vec::new(),
             payload: Vec::new(),
         }
     }
@@ -134,9 +132,7 @@ impl KeylessRequest {
             let data = &buf[offset..offset + item_len];
             match item {
                 // Cert Digest
-                0x01 => {
-                    self.digest = data.to_vec();
-                }
+                0x01 => {}
                 // SKI
                 0x04 => {
                     self.ski = data.to_vec();
@@ -146,7 +142,7 @@ impl KeylessRequest {
                     if item_len != 1 {
                         return Err(KeylessRequestError::InvalidItemLength(item));
                     }
-                    self.parse_opcode(data[0])?;
+                    self.opcode = data[0];
                 }
                 // PAYLOAD
                 0x12 => {
@@ -162,34 +158,104 @@ impl KeylessRequest {
                 break;
             }
         }
-
         Ok(())
     }
 
-    fn parse_opcode(&mut self, opcode: u8) -> Result<(), KeylessRequestError> {
-        let action = match opcode {
+    pub(crate) fn verify_opcode(&mut self) -> Result<(), KeylessErrorResponse> {
+        let action = match self.opcode {
             0x01 => KeylessAction::RsaDecrypt(Padding::PKCS1),
-            0x02 => KeylessAction::RsaSign(Nid::MD5_SHA1),
-            0x03 => KeylessAction::RsaSign(Nid::SHA1),
-            0x04 => KeylessAction::RsaSign(Nid::SHA224),
-            0x05 => KeylessAction::RsaSign(Nid::SHA256),
-            0x06 => KeylessAction::RsaSign(Nid::SHA384),
-            0x07 => KeylessAction::RsaSign(Nid::SHA512),
+            0x02 => {
+                self.check_payload_for_message_digest(
+                    MessageDigest::from_nid(Nid::MD5_SHA1).unwrap(),
+                )?;
+                KeylessAction::RsaSign(Nid::MD5_SHA1)
+            }
+            0x03 => {
+                self.check_payload_for_message_digest(MessageDigest::sha1())?;
+                KeylessAction::RsaSign(Nid::SHA1)
+            }
+            0x04 => {
+                self.check_payload_for_message_digest(MessageDigest::sha224())?;
+                KeylessAction::RsaSign(Nid::SHA224)
+            }
+            0x05 => {
+                self.check_payload_for_message_digest(MessageDigest::sha256())?;
+                KeylessAction::RsaSign(Nid::SHA256)
+            }
+            0x06 => {
+                self.check_payload_for_message_digest(MessageDigest::sha384())?;
+                KeylessAction::RsaSign(Nid::SHA384)
+            }
+            0x07 => {
+                self.check_payload_for_message_digest(MessageDigest::sha512())?;
+                KeylessAction::RsaSign(Nid::SHA512)
+            }
             0x08 => KeylessAction::RsaDecrypt(Padding::NONE),
-            0x12 => KeylessAction::EcdsaSign(Nid::MD5_SHA1),
-            0x13 => KeylessAction::EcdsaSign(Nid::SHA1),
-            0x14 => KeylessAction::EcdsaSign(Nid::SHA224),
-            0x15 => KeylessAction::EcdsaSign(Nid::SHA256),
-            0x16 => KeylessAction::EcdsaSign(Nid::SHA384),
-            0x17 => KeylessAction::EcdsaSign(Nid::SHA512),
+            0x12 => {
+                self.check_payload_for_message_digest(
+                    MessageDigest::from_nid(Nid::MD5_SHA1).unwrap(),
+                )?;
+                KeylessAction::EcdsaSign(Nid::MD5_SHA1)
+            }
+            0x13 => {
+                self.check_payload_for_message_digest(MessageDigest::sha1())?;
+                KeylessAction::EcdsaSign(Nid::SHA1)
+            }
+            0x14 => {
+                self.check_payload_for_message_digest(MessageDigest::sha224())?;
+                KeylessAction::EcdsaSign(Nid::SHA224)
+            }
+            0x15 => {
+                self.check_payload_for_message_digest(MessageDigest::sha256())?;
+                KeylessAction::EcdsaSign(Nid::SHA256)
+            }
+            0x16 => {
+                self.check_payload_for_message_digest(MessageDigest::sha384())?;
+                KeylessAction::EcdsaSign(Nid::SHA384)
+            }
+            0x17 => {
+                self.check_payload_for_message_digest(MessageDigest::sha512())?;
+                KeylessAction::EcdsaSign(Nid::SHA512)
+            }
             0x18 => KeylessAction::Ed25519Sign,
-            0x35 => KeylessAction::RsaPssSign(Nid::SHA256),
-            0x36 => KeylessAction::RsaPssSign(Nid::SHA384),
-            0x37 => KeylessAction::RsaPssSign(Nid::SHA512),
+            0x35 => {
+                self.check_payload_for_message_digest(MessageDigest::sha256())?;
+                KeylessAction::RsaPssSign(Nid::SHA256)
+            }
+            0x36 => {
+                self.check_payload_for_message_digest(MessageDigest::sha384())?;
+                KeylessAction::RsaPssSign(Nid::SHA384)
+            }
+            0x37 => {
+                self.check_payload_for_message_digest(MessageDigest::sha512())?;
+                KeylessAction::RsaPssSign(Nid::SHA512)
+            }
             0xF1 => KeylessAction::Ping,
-            n => return Err(KeylessRequestError::InvalidOpCode(n)),
+            _ => return Err(KeylessErrorResponse::new(self.id).bad_op_code()),
         };
         self.action = action;
+        Ok(())
+    }
+
+    fn check_payload_for_message_digest(
+        &self,
+        d: MessageDigest,
+    ) -> Result<(), KeylessErrorResponse> {
+        if d.size() != self.payload.len() {
+            return Err(KeylessErrorResponse::new(self.id).format_error());
+        }
+        Ok(())
+    }
+
+    fn check_payload_for_key_size(&self, key_size: usize) -> Result<(), KeylessErrorResponse> {
+        match self.opcode {
+            0x01 | 0x08 => {
+                if self.payload.len() != key_size {
+                    return Err(KeylessErrorResponse::new(self.id).format_error());
+                }
+            }
+            _ => {}
+        }
         Ok(())
     }
 
@@ -201,13 +267,14 @@ impl KeylessRequest {
         }
     }
 
-    pub(crate) fn find_key(&self) -> Option<PKey<Private>> {
+    pub(crate) fn find_key(&self) -> Result<PKey<Private>, KeylessErrorResponse> {
         if !self.ski.is_empty() {
             if let Some(k) = crate::store::get_by_ski(&self.ski) {
-                return Some(k);
+                self.check_payload_for_key_size(k.size())?;
+                return Ok(k);
             }
         }
-        None
+        Err(KeylessErrorResponse::new(self.id).key_not_found())
     }
 
     pub(crate) fn process(

@@ -108,8 +108,8 @@ Set the buffer config for the udp socket.
 
 **default**: not set
 
-auto_reply_local_ip_map
------------------------
+transmute_udp_echo_ip
+---------------------
 
 **optional**, **type**: map
 
@@ -117,4 +117,6 @@ Set this if you want to reply another ip other then the real bind ip for the udp
 
 The key of the map should be the local ip, and the value should be the ip you want the client to use.
 
-**default**: not set
+**default**: not set, **alias**: auto_reply_local_ip_map
+
+.. versionchanged:: 1.7.19 change option name to transmute_udp_echo_ip

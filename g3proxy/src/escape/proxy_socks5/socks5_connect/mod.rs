@@ -107,6 +107,9 @@ impl ProxySocks5Escaper {
         let local_tcp_addr = tcp_notes
             .local
             .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "no local tcp address"))?;
+        let peer_tcp_addr = tcp_notes
+            .next
+            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "no peer tcp address"))?;
 
         // bind early and send listen_addr if configured ?
         let send_udp_ip = match local_tcp_addr.ip() {
@@ -115,18 +118,21 @@ impl ProxySocks5Escaper {
         };
         let send_udp_addr = SocketAddr::new(send_udp_ip, 0);
 
-        let peer_addr =
+        let peer_udp_addr =
             v5::client::socks5_udp_associate(&mut r, &mut w, &self.config.auth_info, send_udp_addr)
                 .await
                 .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        let peer_udp_addr = self
+            .config
+            .transmute_udp_peer_addr(peer_udp_addr, peer_tcp_addr.ip());
         let socket = g3_socket::udp::new_std_socket_to(
-            peer_addr,
+            peer_udp_addr,
             Some(local_tcp_addr.ip()),
             buf_conf,
             &self.config.udp_misc_opts,
         )?;
         let socket = UdpSocket::from_std(socket)?;
-        socket.connect(peer_addr).await?;
+        socket.connect(peer_udp_addr).await?;
         let listen_addr = socket.local_addr()?;
 
         let r = r.into_inner();
@@ -158,7 +164,7 @@ impl ProxySocks5Escaper {
             }
         });
 
-        Ok((tcp_close_receiver, socket, listen_addr, peer_addr))
+        Ok((tcp_close_receiver, socket, listen_addr, peer_udp_addr))
     }
 
     pub(super) async fn timed_socks5_udp_associate(

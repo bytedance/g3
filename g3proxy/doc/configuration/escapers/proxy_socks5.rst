@@ -91,3 +91,19 @@ Set tcp keepalive.
 The tcp keepalive set in user config won't be taken into account.
 
 **default**: 60s
+
+transmute_udp_peer_ip
+---------------------
+
+**optional**, **type**: bool or map
+
+Set this option if the UDP peer IP returned from the remote proxy should be transmuted.
+
+For map value, the key should be the returned IP, and the value should be the real IP to use.
+If the map is empty, the peer IP used by the tcp connection will be used.
+
+For bool value, an empty map will be used if set to true, or disabled if set to false.
+
+**default**: false
+
+.. versionadded:: 1.7.19

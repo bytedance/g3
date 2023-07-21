@@ -18,10 +18,9 @@ use std::io::{self, Write};
 use std::net::{IpAddr, SocketAddr};
 
 use ascii::AsciiStr;
-use askama::Template;
 use http::{StatusCode, Version};
 use mime::Mime;
-use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
+use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use g3_ftp_client::FtpConnectError;
 use g3_http::server::HttpRequestParseError;
@@ -30,13 +29,6 @@ use g3_types::net::ConnectError;
 use crate::module::http_header;
 use crate::module::tcp_connect::TcpConnectError;
 use crate::serve::ServerTaskError;
-
-#[derive(Template)]
-#[template(path = "error.html")]
-struct ErrorPageTemplate<'a> {
-    code: u16,
-    reason: &'a str,
-}
 
 struct CustomStatusCode {}
 
@@ -523,23 +515,23 @@ impl HttpProxyClientResponse {
     where
         W: AsyncWrite + Unpin,
     {
-        let mut writer = BufWriter::new(writer);
-
-        let error = ErrorPageTemplate {
-            code: self.status.as_u16(),
-            reason: self.canonical_reason(),
-        };
-        let body = error
-            .render()
-            .map_or_else(|e| format!("unable to render http body: {e}"), |v| v);
+        let code = self.status.as_str();
+        let reason = self.canonical_reason();
+        let body = format!(
+            "<html>\n\
+             <head><title>{code} {reason}</title></head>\n\
+             <body>\n\
+             <div style=\"text-align: center;\"><h1>{code} {reason}</h1></div>\n\
+             </body>\n\
+             </html>\n"
+        );
 
         let mut header = Vec::<u8>::with_capacity(Self::RESPONSE_BUFFER_SIZE);
         write!(
             header,
-            "{:?} {} {}\r\n",
+            "{:?} {} {reason}\r\n",
             self.version,
             self.status.as_str(),
-            error.reason,
         )?;
         for line in &self.extra_headers {
             header.extend_from_slice(line.as_bytes());
@@ -548,9 +540,10 @@ impl HttpProxyClientResponse {
         header.extend_from_slice(g3_http::header::content_length(body.len() as u64).as_bytes());
         header.extend_from_slice(g3_http::header::connection_as_bytes(self.close));
         header.extend_from_slice(b"\r\n");
+        // append body
+        header.extend_from_slice(body.as_bytes());
 
         writer.write_all(header.as_ref()).await?;
-        writer.write_all(body.as_bytes()).await?;
         writer.flush().await?;
         Ok(())
     }

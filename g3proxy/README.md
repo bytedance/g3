@@ -17,6 +17,7 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
   * Socket Speed Limit / Request Rate Limit / IDLE Check
   * Protocol Inspection / TLS Interception / ICAP Adaptation (experimental)
   * Various TCP / UDP socket config options
+  * 国密《GB/T 38636-2020》（TLCP） client (require branch feat/tlcp-tongsuo)
 
 - **Forward Proxy**
 

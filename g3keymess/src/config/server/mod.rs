@@ -53,7 +53,7 @@ impl KeyServerConfig {
             listen: TcpListenConfig::default(),
             multiplex_queue_depth: 0,
             request_read_timeout: Duration::from_millis(100),
-            async_op_timeout: Duration::from_secs(4),
+            async_op_timeout: Duration::from_millis(10),
             concurrency_limit: 0,
             extra_metrics_tags: None,
         }

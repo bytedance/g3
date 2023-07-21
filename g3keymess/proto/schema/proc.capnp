@@ -12,4 +12,6 @@ interface ProcControl {
 
   listServer @2 () -> (result :List(Text));
   getServer @3 (name: Text) -> (server :Types.FetchResult(Server.ServerControl));
+
+  publishKey @4 (pem: Text) -> (result :Types.OperationResult);
 }

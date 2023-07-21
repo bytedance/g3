@@ -18,8 +18,6 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use openssl::hash::{DigestBytes, MessageDigest};
-use openssl::pkey::{PKey, Public};
 use tokio::time::Instant;
 
 use super::{
@@ -61,11 +59,8 @@ impl KeylessCloudflareTaskContext {
         histogram_recorder: Option<KeylessHistogramRecorder>,
         pool: Option<Arc<KeylessConnectionPool>>,
     ) -> anyhow::Result<Self> {
-        let mut request_builder =
+        let request_builder =
             KeylessRequestBuilder::new(args.global.subject_key_id(), args.global.action)?;
-        if let Some(digest) = get_public_key_digest(args.global.public_key())? {
-            request_builder.set_digest(digest);
-        }
         let request_message = request_builder.build(&args.global.payload)?;
         Ok(KeylessCloudflareTaskContext {
             args: Arc::clone(args),
@@ -243,18 +238,4 @@ impl BenchTaskContext for KeylessCloudflareTaskContext {
                 })
         }
     }
-}
-
-pub(super) fn get_public_key_digest(key: &PKey<Public>) -> anyhow::Result<Option<DigestBytes>> {
-    let Ok(rsa) = key.rsa() else {
-        return Ok(None);
-    };
-
-    let hex = rsa
-        .n()
-        .to_hex_str()
-        .map_err(|e| anyhow!("failed to get hex string of rsa modulus: {e}"))?;
-    let digest = openssl::hash::hash(MessageDigest::sha256(), hex.as_bytes())
-        .map_err(|e| anyhow!("public key digest hash error: {e}"))?;
-    Ok(Some(digest))
 }

@@ -16,7 +16,6 @@
 
 use anyhow::anyhow;
 use bytes::BufMut;
-use openssl::hash::DigestBytes;
 
 use crate::target::keyless::opts::{KeylessAction, KeylessRsaPadding, KeylessSignDigest};
 
@@ -130,8 +129,6 @@ impl TryFrom<KeylessAction> for KeylessOpCode {
 pub(crate) struct KeylessRequestBuilder {
     opcode: KeylessOpCode,
     cert_ski: Vec<u8>,
-    cert_digest: Option<DigestBytes>,
-    server_name: String,
 }
 
 impl KeylessRequestBuilder {
@@ -140,32 +137,13 @@ impl KeylessRequestBuilder {
         Ok(KeylessRequestBuilder {
             opcode,
             cert_ski: ski.to_vec(),
-            cert_digest: None,
-            server_name: String::new(),
         })
-    }
-
-    pub(crate) fn set_digest(&mut self, digest: DigestBytes) {
-        self.cert_digest = Some(digest);
     }
 
     pub(crate) fn build(&self, payload: &[u8]) -> anyhow::Result<KeylessRequest> {
         let mut buf = Vec::with_capacity(super::MESSAGE_PADDED_LENGTH + 2);
         // hdr and ID
         buf.extend_from_slice(&[0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-
-        // certificate digest
-        if let Some(digest) = &self.cert_digest {
-            buf.push(0x01);
-            let digest_len = digest.len();
-            buf.push(((digest_len >> 8) & 0xFF) as u8);
-            buf.push((digest_len & 0xFF) as u8);
-            buf.put_slice(digest.as_ref());
-        }
-
-        if !self.server_name.is_empty() {
-            // TODO
-        }
 
         // SKI
         buf.push(0x04);
