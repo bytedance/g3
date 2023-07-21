@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 
+use ahash::AHashMap;
 use anyhow::{anyhow, Context};
 use ascii::AsciiString;
 use yaml_rust::{yaml, Yaml};
@@ -58,6 +59,7 @@ pub(crate) struct ProxySocks5EscaperConfig {
     pub(crate) udp_misc_opts: UdpMiscSockOpts,
     pub(crate) auth_info: SocksAuth,
     pub(crate) peer_negotiation_timeout: Duration,
+    pub(crate) transmute_udp_peer_ip: Option<AHashMap<IpAddr, IpAddr>>,
     pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
 }
 
@@ -84,6 +86,7 @@ impl ProxySocks5EscaperConfig {
             udp_misc_opts: Default::default(),
             auth_info: SocksAuth::None,
             peer_negotiation_timeout: Duration::from_secs(10),
+            transmute_udp_peer_ip: None,
             extra_metrics_tags: None,
         }
     }
@@ -218,6 +221,23 @@ impl ProxySocks5EscaperConfig {
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
+            "transmute_udp_peer_ip" => {
+                if let Yaml::Hash(_) = v {
+                    let map = g3_yaml::value::as_hashmap(
+                        v,
+                        g3_yaml::value::as_ipaddr,
+                        g3_yaml::value::as_ipaddr,
+                    )
+                    .context(format!("invalid IP:IP hashmap value for key {k}"))?;
+                    self.transmute_udp_peer_ip = Some(map.into_iter().collect::<AHashMap<_, _>>());
+                } else {
+                    let enable = g3_yaml::value::as_bool(v)?;
+                    if enable {
+                        self.transmute_udp_peer_ip = Some(AHashMap::default());
+                    }
+                }
+                Ok(())
+            }
             _ => Err(anyhow!("invalid key {k}")),
         }
     }
@@ -286,6 +306,19 @@ impl ProxySocks5EscaperConfig {
         }
 
         Ok(())
+    }
+
+    pub(crate) fn transmute_udp_peer_addr(
+        &self,
+        returned_addr: SocketAddr,
+        tcp_peer_ip: IpAddr,
+    ) -> SocketAddr {
+        if let Some(map) = &self.transmute_udp_peer_ip {
+            let ip = map.get(&returned_addr.ip()).unwrap_or(&tcp_peer_ip);
+            SocketAddr::new(*ip, returned_addr.port())
+        } else {
+            returned_addr
+        }
     }
 }
 
