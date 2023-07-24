@@ -51,7 +51,7 @@ impl WrappedKeylessRequest {
             KeylessAction::RsaPssSign(_) => server_stats.rsa_pss_sign.clone(),
             KeylessAction::EcdsaSign(_) => server_stats.ecdsa_sign.clone(),
             KeylessAction::Ed25519Sign => server_stats.ed25519_sign.clone(),
-            KeylessAction::NotSet => server_stats.other.clone(),
+            KeylessAction::NotSet => server_stats.noop.clone(),
         };
         stats.add_total();
         stats.inc_alive();
