@@ -26,7 +26,7 @@ use uuid::Uuid;
 use g3_slog_types::{LtDateTime, LtUuid};
 
 use crate::config::server::KeyServerConfig;
-use crate::protocol::{KeylessAction, KeylessRequest};
+use crate::protocol::{KeylessAction, KeylessErrorResponse, KeylessRequest};
 use crate::serve::{KeyServerRequestStats, KeyServerStats, ServerReloadCommand, ServerTaskError};
 
 mod multiplex;
@@ -35,10 +35,15 @@ mod simplex;
 struct WrappedKeylessRequest {
     inner: KeylessRequest,
     stats: Arc<KeyServerRequestStats>,
+    err_rsp: Option<KeylessErrorResponse>,
 }
 
 impl WrappedKeylessRequest {
-    fn new(req: KeylessRequest, server_stats: &Arc<KeyServerStats>) -> Self {
+    fn new(mut req: KeylessRequest, server_stats: &Arc<KeyServerStats>) -> Self {
+        let err_rsp = match req.verify_opcode() {
+            Ok(_) => None,
+            Err(r) => Some(r),
+        };
         let stats = match req.action {
             KeylessAction::Ping => server_stats.ping_pong.clone(),
             KeylessAction::RsaDecrypt(_) => server_stats.rsa_decrypt.clone(),
@@ -46,11 +51,19 @@ impl WrappedKeylessRequest {
             KeylessAction::RsaPssSign(_) => server_stats.rsa_pss_sign.clone(),
             KeylessAction::EcdsaSign(_) => server_stats.ecdsa_sign.clone(),
             KeylessAction::Ed25519Sign => server_stats.ed25519_sign.clone(),
-            KeylessAction::NotSet => unreachable!(),
+            KeylessAction::NotSet => server_stats.other.clone(),
         };
         stats.add_total();
         stats.inc_alive();
-        WrappedKeylessRequest { inner: req, stats }
+        WrappedKeylessRequest {
+            inner: req,
+            stats,
+            err_rsp,
+        }
+    }
+
+    fn take_err_rsp(&mut self) -> Option<KeylessErrorResponse> {
+        self.err_rsp.take()
     }
 }
 
