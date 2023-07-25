@@ -54,11 +54,11 @@ Feel free to open PRs to add support to other platforms.
 
 ## Dev-env Setup Guide
 
-Follow [dev-setup](doc/dev-setup.md).
+Follow [Dev-Setup](doc/dev-setup.md).
 
 ## Standards
 
-Follow [standards](doc/standards.md).
+Follow [Standards](doc/standards.md).
 
 ## Release and Packaging
 

@@ -228,7 +228,7 @@ The code should comply to these, but should be more compliant to existing popula
  - [iana-websocket](https://www.iana.org/assignments/websocket/websocket.xml)
     : WebSocket Protocol Registries
 
-### FTP
+## FTP
 
  - [rfc959](https://datatracker.ietf.org/doc/html/rfc959)
     : FILE TRANSFER PROTOCOL (FTP)
@@ -255,77 +255,77 @@ The code should comply to these, but should be more compliant to existing popula
  - [draft-rosenau-ftp-single-port-05](https://datatracker.ietf.org/doc/html/draft-rosenau-ftp-single-port-05)
     : FTP EXTENSION ALLOWING IP FORWARDING (NATs)
 
-### SMTP
+## SMTP
 
  - [rfc5321](https://datatracker.ietf.org/doc/html/rfc5321)
     : Simple Mail Transfer Protocol
 
-### POP3
+## POP3
 
  - [rfc1939](https://datatracker.ietf.org/doc/html/rfc1939)
     : Post Office Protocol - Version 3
 
-### IMAP
+## IMAP
 
  - [rfc3501](https://datatracker.ietf.org/doc/html/rfc3501)
     : INTERNET MESSAGE ACCESS PROTOCOL - VERSION 4rev1
  - [rfc7162](https://datatracker.ietf.org/doc/html/rfc7162)
     : IMAP Extensions: Quick Flag Changes Resynchronization (CONDSTORE) and Quick Mailbox Resynchronization (QRESYNC)
 
-### NNTP
+## NNTP
 
  - [rfc3977](https://datatracker.ietf.org/doc/html/rfc3977)
     : Network News Transfer Protocol (NNTP)
  - [rfc8143](https://datatracker.ietf.org/doc/html/rfc8143)
     : Using Transport Layer Security (TLS) with Network News Transfer Protocol (NNTP)
 
-### MQTT
+## MQTT
 
  - [mqtt-v5.0-os](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html)
     : MQTT Version 5.0 OASIS Standard
  - [mqtt-v3.1.1-os](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html)
     : MQTT Version 3.1.1 OASIS Standard
 
-### STOMP
+## STOMP
 
  - [stomp-specification-1.2](https://stomp.github.io/stomp-specification-1.2.html)
     : STOMP Protocol Specification, Version 1.2
 
-### SMPP
+## SMPP
 
  - [SMPP](https://smpp.org/)
     : SMPP Protocol: API to enable SMS messaging between applications and mobiles
  - [SMPP_v5](https://smpp.org/SMPP_v5.pdf)
     : Short Message Peer-to-Peer Protocol Specification Version 5.0
 
-### RTMP
+## RTMP
 
  - [rtmp_specification_1.0](https://rtmp.veriskope.com/docs/spec/)
     : Adobe RTMP Specification
 
-### RTSP/2.0
+## RTSP/2.0
 
  - [rfc7826](https://datatracker.ietf.org/doc/html/rfc7826)
     : Real-Time Streaming Protocol Version 2.0
 
-### BitTorrent
+## BitTorrent
 
  - [bep_0003](http://bittorrent.org/beps/bep_0003.html)
     : The BitTorrent Protocol Specification
 
-### ICAP
+## ICAP
 
  - [rfc3507](https://datatracker.ietf.org/doc/html/rfc3507)
     : Internet Content Adaptation Protocol (ICAP)
  - [draft-icap-ext-partial-content-07](http://www.icap-forum.org/documents/specification/draft-icap-ext-partial-content-07.txt)
     : ICAP Partial Content Extension
 
-### WCCP
+## WCCP
 
  - [draft-wilson-wrec-wccp-v2-01](https://datatracker.ietf.org/doc/html/draft-wilson-wrec-wccp-v2-01)
     : Web Cache Communication Protocol V2.0
 
-### NAT Traversal
+## NAT Traversal
 
  - [rfc8489](https://datatracker.ietf.org/doc/html/rfc8489)
    : Session Traversal Utilities for NAT (STUN)

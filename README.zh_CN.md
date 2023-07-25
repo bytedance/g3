@@ -52,11 +52,11 @@ Cloudflare Keyless Server的简单实现。
 
 ## 开发环境搭建
 
-参考 [dev-setup](doc/dev-setup.md)。
+参考 [Dev-Setup](doc/dev-setup.md)。
 
 ## 标准及约定
 
-参考 [standards](doc/standards.md)。
+参考 [Standards](doc/standards.md)。
 
 ## 发布及打包
 
