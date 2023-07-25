@@ -21,6 +21,8 @@ use chrono::{DateTime, Utc};
 use tokio::time::Instant;
 use uuid::Uuid;
 
+use g3_daemon::server::ClientConnectionInfo;
+
 #[derive(Clone)]
 pub(crate) enum ServerTaskStage {
     Created,
@@ -52,8 +54,7 @@ impl ServerTaskStage {
 /// it can be reset if the connection is consisted of many tasks.
 /// Do not share this struct between different client connections.
 pub(crate) struct ServerTaskNotes {
-    pub(crate) client_addr: SocketAddr,
-    pub(crate) server_addr: SocketAddr,
+    cc_info: ClientConnectionInfo,
     pub(crate) stage: ServerTaskStage,
     pub(crate) start_at: DateTime<Utc>,
     create_ins: Instant,
@@ -63,16 +64,11 @@ pub(crate) struct ServerTaskNotes {
 }
 
 impl ServerTaskNotes {
-    pub(crate) fn new(
-        client_addr: SocketAddr,
-        server_addr: SocketAddr,
-        wait_time: Duration,
-    ) -> Self {
+    pub(crate) fn new(cc_info: ClientConnectionInfo, wait_time: Duration) -> Self {
         let started = Utc::now();
         let uuid = g3_daemon::server::task::generate_uuid(&started);
         ServerTaskNotes {
-            client_addr,
-            server_addr,
+            cc_info,
             stage: ServerTaskStage::Created,
             start_at: started,
             create_ins: Instant::now(),
@@ -80,6 +76,16 @@ impl ServerTaskNotes {
             wait_time,
             ready_time: Duration::default(),
         }
+    }
+
+    #[inline]
+    pub(crate) fn client_addr(&self) -> SocketAddr {
+        self.cc_info.client_addr()
+    }
+
+    #[inline]
+    pub(crate) fn server_addr(&self) -> SocketAddr {
+        self.cc_info.server_addr()
     }
 
     #[inline]

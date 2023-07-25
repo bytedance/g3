@@ -48,7 +48,7 @@ impl OpensslRelayTask {
         wait_time: Duration,
         pre_handshake_stats: Arc<TcpStreamConnectionStats>,
     ) -> Self {
-        let task_notes = ServerTaskNotes::new(ctx.client_addr, ctx.server_addr, wait_time);
+        let task_notes = ServerTaskNotes::new(ctx.cc_info.clone(), wait_time);
         OpensslRelayTask {
             ctx,
             host,
@@ -83,7 +83,7 @@ impl OpensslRelayTask {
     fn pre_start(&self) {
         debug!(
             "OpensslProxy: new client from {} to {} server {}",
-            self.ctx.client_addr,
+            self.ctx.client_addr(),
             self.ctx.server_config.server_type(),
             self.ctx.server_config.name(),
         );
@@ -102,14 +102,14 @@ impl OpensslRelayTask {
         self.task_notes.stage = ServerTaskStage::Preparing;
 
         // set client side socket options
-        g3_socket::tcp::set_raw_opts(
-            self.ctx.tcp_client_socket,
-            &self.ctx.server_config.tcp_misc_opts,
-            true,
-        )
-        .map_err(|_| ServerTaskError::InternalServerError("failed to set client socket options"))?;
+        self.ctx
+            .cc_info
+            .sock_set_raw_opts(&self.ctx.server_config.tcp_misc_opts, true)
+            .map_err(|_| {
+                ServerTaskError::InternalServerError("failed to set client socket options")
+            })?;
 
-        let next_addr = self.service.select_addr(self.ctx.client_addr.ip());
+        let next_addr = self.service.select_addr(self.ctx.client_ip());
 
         self.task_notes.stage = ServerTaskStage::Connecting;
 
