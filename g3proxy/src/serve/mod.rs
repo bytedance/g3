@@ -24,7 +24,7 @@ use tokio::sync::broadcast;
 use tokio_rustls::server::TlsStream;
 
 use g3_daemon::listen::ListenStats;
-use g3_daemon::server::ServerQuitPolicy;
+use g3_daemon::server::{ClientConnectionInfo, ServerQuitPolicy};
 use g3_types::metrics::MetricsName;
 
 use crate::audit::AuditHandle;
@@ -196,10 +196,9 @@ pub(crate) trait Server: ServerInternal {
 
     async fn run_tls_task(
         &self,
-        _stream: TlsStream<TcpStream>,
-        _peer_addr: SocketAddr,
-        _local_addr: SocketAddr,
-        _ctx: ServerRunContext,
+        stream: TlsStream<TcpStream>,
+        cc_info: ClientConnectionInfo,
+        ctx: ServerRunContext,
     );
 }
 

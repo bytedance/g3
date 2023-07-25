@@ -37,6 +37,7 @@ g3-runtime.workspace = true
 g3-yaml = { workspace = true, features = ["syslog", "fluentd", "statsd", "sched"] }
 g3-statsd.workspace = true
 g3-io-ext.workspace = true
+g3-socket.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 g3-journal.workspace = true

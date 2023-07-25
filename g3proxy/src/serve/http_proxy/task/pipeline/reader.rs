@@ -88,15 +88,11 @@ where
                 {
                     Ok(Ok(true)) => {}
                     Ok(Ok(false)) => {
-                        trace!("client {} closed", self.ctx.tcp_client_addr);
+                        trace!("client {} closed", self.ctx.client_addr());
                         break;
                     }
                     Ok(Err(e)) => {
-                        trace!(
-                            "client {} closed with error {:?}",
-                            self.ctx.tcp_client_addr,
-                            e
-                        );
+                        trace!("client {} closed with error {e:?}", self.ctx.client_addr());
                         break;
                     }
                     Err(_) => {
@@ -159,11 +155,7 @@ where
                                 trace!("write end has closed for previous request while sending error response");
                             }
                         }
-                        trace!(
-                            "Error handling client {}: {:?}",
-                            self.ctx.tcp_client_addr,
-                            e
-                        );
+                        trace!("Error handling client {}: {e:?}", self.ctx.client_addr());
                         // TODO handle error, negotiation failed, may be attack
                         break;
                     }

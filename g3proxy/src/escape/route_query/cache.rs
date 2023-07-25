@@ -54,7 +54,7 @@ impl CacheHandle {
         upstream: &UpstreamAddr,
     ) -> Option<MetricsName> {
         let client_ip = if config.query_pass_client_ip {
-            Some(task_notes.client_addr.ip().to_string())
+            Some(task_notes.client_ip().to_string())
         } else {
             None
         };
@@ -78,13 +78,13 @@ impl CacheHandle {
                         SelectivePickPolicy::RoundRobin => nodes.pick_round_robin(),
                         SelectivePickPolicy::Rendezvous => {
                             let select_key = CacheQueryConsistentKey {
-                                client_ip: task_notes.client_addr.ip(),
+                                client_ip: task_notes.client_ip(),
                             };
                             nodes.pick_rendezvous(&select_key)
                         }
                         SelectivePickPolicy::JumpHash => {
                             let select_key = CacheQueryConsistentKey {
-                                client_ip: task_notes.client_addr.ip(),
+                                client_ip: task_notes.client_ip(),
                             };
                             nodes.pick_jump(&select_key)
                         }

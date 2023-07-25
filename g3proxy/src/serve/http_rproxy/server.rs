@@ -15,7 +15,7 @@
  */
 
 use std::net::SocketAddr;
-use std::os::unix::prelude::*;
+use std::os::fd::AsRawFd;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -29,6 +29,7 @@ use tokio_rustls::server::TlsStream;
 use tokio_rustls::LazyConfigAcceptor;
 
 use g3_daemon::listen::ListenStats;
+use g3_daemon::server::ClientConnectionInfo;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::MetricsName;
 use g3_types::net::{RustlsServerConfig, UpstreamAddr};
@@ -150,22 +151,18 @@ impl HttpRProxyServer {
 
     fn get_common_task_context(
         &self,
-        local_addr: SocketAddr,
-        peer_addr: SocketAddr,
+        cc_info: ClientConnectionInfo,
         escaper: ArcEscaper,
         worker_id: Option<usize>,
-        raw_socket: RawFd,
     ) -> Arc<CommonTaskContext> {
         Arc::new(CommonTaskContext {
             server_config: Arc::clone(&self.config),
             server_stats: Arc::clone(&self.server_stats),
             server_quit_policy: Arc::clone(&self.quit_policy),
             escaper,
-            tcp_server_addr: local_addr,
-            tcp_client_addr: peer_addr,
+            cc_info,
             task_logger: self.task_logger.clone(),
             worker_id,
-            tcp_client_socket: raw_socket,
         })
     }
 
@@ -189,17 +186,10 @@ impl HttpRProxyServer {
     async fn spawn_tls_task(
         &self,
         stream: TlsStream<TcpStream>,
-        peer_addr: SocketAddr,
-        local_addr: SocketAddr,
+        cc_info: ClientConnectionInfo,
         run_ctx: ServerRunContext,
     ) {
-        let ctx = self.get_common_task_context(
-            local_addr,
-            peer_addr,
-            run_ctx.escaper,
-            run_ctx.worker_id,
-            stream.as_raw_fd(),
-        );
+        let ctx = self.get_common_task_context(cc_info, run_ctx.escaper, run_ctx.worker_id);
         let pipeline_stats = Arc::new(HttpRProxyPipelineStats::default());
         let (task_sender, task_receiver) = mpsc::channel(ctx.server_config.pipeline_size);
 
@@ -222,17 +212,10 @@ impl HttpRProxyServer {
     async fn spawn_tcp_task(
         &self,
         stream: TcpStream,
-        peer_addr: SocketAddr,
-        local_addr: SocketAddr,
+        cc_info: ClientConnectionInfo,
         run_ctx: ServerRunContext,
     ) {
-        let ctx = self.get_common_task_context(
-            local_addr,
-            peer_addr,
-            run_ctx.escaper,
-            run_ctx.worker_id,
-            stream.as_raw_fd(),
-        );
+        let ctx = self.get_common_task_context(cc_info, run_ctx.escaper, run_ctx.worker_id);
         let pipeline_stats = Arc::new(HttpRProxyPipelineStats::default());
         let (task_sender, task_receiver) = mpsc::channel(ctx.server_config.pipeline_size);
 
@@ -365,6 +348,8 @@ impl Server for HttpRProxyServer {
             return;
         }
 
+        let cc_info = ClientConnectionInfo::new(peer_addr, local_addr, stream.as_raw_fd());
+
         if self.config.enable_tls_server {
             let tls_acceptor = LazyConfigAcceptor::new(rustls::server::Acceptor::default(), stream);
             match tokio::time::timeout(self.config.client_hello_recv_timeout, tls_acceptor).await {
@@ -389,10 +374,7 @@ impl Server for HttpRProxyServer {
                             )
                             .await
                             {
-                                Ok(Ok(stream)) => {
-                                    self.spawn_tls_task(stream, peer_addr, local_addr, ctx)
-                                        .await
-                                }
+                                Ok(Ok(stream)) => self.spawn_tls_task(stream, cc_info, ctx).await,
                                 Ok(Err(e)) => {
                                     self.listen_stats.add_failed();
                                     debug!("{local_addr} - {peer_addr} tls error: {e:?}");
@@ -426,24 +408,22 @@ impl Server for HttpRProxyServer {
                 }
             }
         } else {
-            self.spawn_tcp_task(stream, peer_addr, local_addr, ctx)
-                .await;
+            self.spawn_tcp_task(stream, cc_info, ctx).await;
         }
     }
 
     async fn run_tls_task(
         &self,
         stream: TlsStream<TcpStream>,
-        peer_addr: SocketAddr,
-        local_addr: SocketAddr,
+        cc_info: ClientConnectionInfo,
         ctx: ServerRunContext,
     ) {
+        let peer_addr = cc_info.sock_peer_addr();
         self.server_stats.add_conn(peer_addr);
-
         if self.drop_early(peer_addr) {
             return;
         }
-        self.spawn_tls_task(stream, peer_addr, local_addr, ctx)
-            .await;
+
+        self.spawn_tls_task(stream, cc_info, ctx).await;
     }
 }

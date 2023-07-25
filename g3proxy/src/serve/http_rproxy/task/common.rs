@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
-use std::os::unix::prelude::*;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
 use slog::Logger;
+
+use g3_daemon::server::ClientConnectionInfo;
 
 use super::{HttpRProxyServerConfig, HttpRProxyServerStats};
 use crate::escape::ArcEscaper;
@@ -30,10 +31,24 @@ pub(crate) struct CommonTaskContext {
     pub(crate) server_stats: Arc<HttpRProxyServerStats>,
     pub(crate) server_quit_policy: Arc<ServerQuitPolicy>,
     pub(crate) escaper: ArcEscaper,
-    pub(crate) tcp_server_addr: SocketAddr,
-    pub(crate) tcp_client_addr: SocketAddr,
+    pub(crate) cc_info: ClientConnectionInfo,
     pub(crate) task_logger: Logger,
     pub(crate) worker_id: Option<usize>,
+}
 
-    pub(crate) tcp_client_socket: RawFd,
+impl CommonTaskContext {
+    #[inline]
+    pub(crate) fn client_addr(&self) -> SocketAddr {
+        self.cc_info.client_addr()
+    }
+
+    #[inline]
+    pub(crate) fn client_ip(&self) -> IpAddr {
+        self.cc_info.client_ip()
+    }
+
+    #[inline]
+    pub(crate) fn server_addr(&self) -> SocketAddr {
+        self.cc_info.server_addr()
+    }
 }

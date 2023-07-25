@@ -15,11 +15,11 @@
  */
 
 use std::net::SocketAddr;
-use std::os::unix::prelude::*;
 use std::sync::Arc;
 
 use slog::Logger;
 
+use g3_daemon::server::ClientConnectionInfo;
 use g3_dpi::ProtocolPortMap;
 
 use crate::audit::AuditHandle;
@@ -29,18 +29,27 @@ use crate::serve::tcp_stream::TcpStreamServerStats;
 use crate::serve::ServerQuitPolicy;
 
 pub(crate) struct CommonTaskContext {
-    pub server_config: Arc<SniProxyServerConfig>,
-    pub server_stats: Arc<TcpStreamServerStats>,
-    pub server_quit_policy: Arc<ServerQuitPolicy>,
-    pub escaper: ArcEscaper,
-    pub audit_handle: Option<Arc<AuditHandle>>,
-    pub server_addr: SocketAddr,
-    pub client_addr: SocketAddr,
-    pub task_logger: Logger,
-    pub worker_id: Option<usize>,
+    pub(crate) server_config: Arc<SniProxyServerConfig>,
+    pub(crate) server_stats: Arc<TcpStreamServerStats>,
+    pub(crate) server_quit_policy: Arc<ServerQuitPolicy>,
+    pub(crate) escaper: ArcEscaper,
+    pub(crate) audit_handle: Option<Arc<AuditHandle>>,
+    pub(crate) cc_info: ClientConnectionInfo,
+    pub(crate) task_logger: Logger,
+    pub(crate) worker_id: Option<usize>,
 
-    pub server_tcp_portmap: Arc<ProtocolPortMap>,
-    pub client_tcp_portmap: Arc<ProtocolPortMap>,
+    pub(crate) server_tcp_portmap: Arc<ProtocolPortMap>,
+    pub(crate) client_tcp_portmap: Arc<ProtocolPortMap>,
+}
 
-    pub tcp_client_socket: RawFd,
+impl CommonTaskContext {
+    #[inline]
+    pub(crate) fn client_addr(&self) -> SocketAddr {
+        self.cc_info.client_addr()
+    }
+
+    #[inline]
+    pub(crate) fn server_port(&self) -> u16 {
+        self.cc_info.server_addr().port()
+    }
 }

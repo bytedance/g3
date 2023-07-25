@@ -810,6 +810,7 @@ dependencies = [
  "g3-io-ext",
  "g3-journal",
  "g3-runtime",
+ "g3-socket",
  "g3-statsd",
  "g3-stdlog",
  "g3-syslog",

@@ -15,11 +15,11 @@
  */
 
 use std::net::SocketAddr;
-use std::os::unix::prelude::RawFd;
 use std::sync::Arc;
 
 use slog::Logger;
 
+use g3_daemon::server::ClientConnectionInfo;
 use g3_icap_client::reqmod::h1::HttpAdapterErrorResponse;
 use g3_types::acl::AclAction;
 use g3_types::acl_set::AclDstHostRuleSet;
@@ -40,17 +40,20 @@ pub(crate) struct CommonTaskContext {
     pub(crate) server_quit_policy: Arc<ServerQuitPolicy>,
     pub(crate) escaper: ArcEscaper,
     pub(crate) audit_handle: Option<Arc<AuditHandle>>,
-    pub(crate) tcp_server_addr: SocketAddr,
-    pub(crate) tcp_client_addr: SocketAddr,
+    pub(crate) cc_info: ClientConnectionInfo,
     pub(crate) tls_client_config: Arc<OpensslTlsClientConfig>,
     pub(crate) task_logger: Logger,
     pub(crate) worker_id: Option<usize>,
 
     pub(crate) dst_host_filter: Option<Arc<AclDstHostRuleSet>>,
-    pub(crate) tcp_client_socket: RawFd,
 }
 
 impl CommonTaskContext {
+    #[inline]
+    pub(crate) fn client_addr(&self) -> SocketAddr {
+        self.cc_info.client_addr()
+    }
+
     pub(crate) fn idle_checker(&self, task_notes: &ServerTaskNotes) -> ServerIdleChecker {
         ServerIdleChecker {
             idle_duration: self.server_config.task_idle_check_duration,

@@ -224,7 +224,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
     fn pre_start(&self) {
         debug!(
             "HttpRProxy/FORWARD: new client from {} to {} server {}, using escaper {}",
-            self.ctx.tcp_client_addr,
+            self.ctx.client_addr(),
             self.ctx.server_config.server_type(),
             self.ctx.server_config.name(),
             self.ctx.server_config.escaper
@@ -473,7 +473,9 @@ impl<'a> HttpRProxyForwardTask<'a> {
         }
 
         // set client side socket options
-        g3_socket::tcp::set_raw_opts(self.ctx.tcp_client_socket, &tcp_client_misc_opts, true)
+        self.ctx
+            .cc_info
+            .sock_set_raw_opts(&tcp_client_misc_opts, true)
             .map_err(|_| {
                 ServerTaskError::InternalServerError("failed to set client socket options")
             })?;

@@ -26,6 +26,7 @@ use tokio::sync::{broadcast, watch};
 use tokio_rustls::server::TlsStream;
 
 use g3_daemon::listen::ListenStats;
+use g3_daemon::server::ClientConnectionInfo;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::MetricsName;
 
@@ -263,8 +264,7 @@ impl Server for PlainTcpPort {
     async fn run_tls_task(
         &self,
         _stream: TlsStream<TcpStream>,
-        _peer_addr: SocketAddr,
-        _local_addr: SocketAddr,
+        _cc_info: ClientConnectionInfo,
         _ctx: ServerRunContext,
     ) {
     }

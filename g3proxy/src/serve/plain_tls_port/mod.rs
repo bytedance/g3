@@ -15,6 +15,7 @@
  */
 
 use std::net::SocketAddr;
+use std::os::fd::AsRawFd;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
@@ -27,6 +28,7 @@ use tokio::sync::{broadcast, watch};
 use tokio_rustls::{server::TlsStream, TlsAcceptor};
 
 use g3_daemon::listen::ListenStats;
+use g3_daemon::server::ClientConnectionInfo;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::MetricsName;
 use g3_types::net::RustlsServerConfig;
@@ -77,11 +79,11 @@ impl AuxiliaryServerConfig for PlainTlsPortAuxConfig {
                 }
             }
 
+            let stream_raw_fd = stream.as_raw_fd();
             match tokio::time::timeout(tls_accept_timeout, tls_acceptor.accept(stream)).await {
                 Ok(Ok(tls_stream)) => {
-                    next_server
-                        .run_tls_task(tls_stream, peer_addr, local_addr, ctx)
-                        .await;
+                    let cc_info = ClientConnectionInfo::new(peer_addr, local_addr, stream_raw_fd);
+                    next_server.run_tls_task(tls_stream, cc_info, ctx).await;
                 }
                 Ok(Err(e)) => {
                     listen_stats.add_failed();
@@ -302,8 +304,7 @@ impl Server for PlainTlsPort {
     async fn run_tls_task(
         &self,
         _stream: TlsStream<TcpStream>,
-        _peer_addr: SocketAddr,
-        _local_addr: SocketAddr,
+        _cc_info: ClientConnectionInfo,
         _ctx: ServerRunContext,
     ) {
     }
