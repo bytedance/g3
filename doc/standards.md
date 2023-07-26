@@ -95,7 +95,7 @@ The code should comply to these, but should be more compliant to existing popula
 
 ## PROXY protocol
 
- - [haproxy-proxy-protocol](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt)
+ - [haproxy-proxy-protocol](https://github.com/haproxy/haproxy/blob/master/doc/proxy-protocol.txt)
    : The PROXY protocol Versions 1 & 2
 
 ## Socks
