@@ -206,36 +206,42 @@ impl BenchTaskContext for KeylessCloudflareTaskContext {
                 .await
                 .map_err(BenchError::Fatal)?;
 
-            self.do_run_simplex(&mut connection)
-                .await
-                .map(|rsp| {
+            match self.do_run_simplex(&mut connection).await {
+                Ok(rsp) => {
                     let total_time = time_started.elapsed();
                     self.simplex = Some(connection);
                     if let Some(r) = &mut self.histogram_recorder {
                         r.record_total_time(total_time);
                     }
-                    self.args.global.dump_result(task_id, rsp.into_vec());
-                })
-                .map_err(BenchError::Task)
+                    self.args
+                        .global
+                        .check_result(task_id, rsp.into_vec())
+                        .map_err(BenchError::Task)
+                }
+                Err(e) => Err(BenchError::Task(e)),
+            }
         } else {
             let handle = self
                 .fetch_multiplex_handle()
                 .await
                 .map_err(BenchError::Fatal)?;
 
-            self.do_run_multiplex(&handle)
-                .await
-                .map(|rsp| {
+            match self.do_run_multiplex(&handle).await {
+                Ok(rsp) => {
                     let total_time = time_started.elapsed();
                     if let Some(r) = &mut self.histogram_recorder {
                         r.record_total_time(total_time);
                     }
-                    self.args.global.dump_result(task_id, rsp.into_vec());
-                })
-                .map_err(|e| {
+                    self.args
+                        .global
+                        .check_result(task_id, rsp.into_vec())
+                        .map_err(BenchError::Task)
+                }
+                Err(e) => {
                     self.multiplex = None;
-                    BenchError::Task(e)
-                })
+                    Err(BenchError::Task(e))
+                }
+            }
         }
     }
 }

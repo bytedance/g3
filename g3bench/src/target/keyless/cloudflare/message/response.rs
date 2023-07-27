@@ -93,12 +93,12 @@ pub(crate) enum KeylessResponseError {
     LocalError(#[from] KeylessLocalError),
 }
 
-struct KeylessResponseParser<'a> {
+struct KeylessResponseTlvParser<'a> {
     opcode: u8,
     payload: &'a [u8],
 }
 
-impl<'a> T1L2BVParse<'a> for KeylessResponseParser<'a> {
+impl<'a> T1L2BVParse<'a> for KeylessResponseTlvParser<'a> {
     type Error = KeylessResponseError;
 
     fn no_enough_data() -> Self::Error {
@@ -124,9 +124,9 @@ impl<'a> T1L2BVParse<'a> for KeylessResponseParser<'a> {
     }
 }
 
-impl<'a> KeylessResponseParser<'a> {
+impl<'a> KeylessResponseTlvParser<'a> {
     fn new() -> Self {
-        KeylessResponseParser {
+        KeylessResponseTlvParser {
             opcode: 0,
             payload: &[],
         }
@@ -197,7 +197,7 @@ impl KeylessResponse {
         }
 
         let id = u32::from_be_bytes([hdr_buf[4], hdr_buf[5], hdr_buf[6], hdr_buf[7]]);
-        let data = KeylessResponseParser::new().parse_buf(buf)?;
+        let data = KeylessResponseTlvParser::new().parse_buf(buf)?;
 
         Ok(KeylessResponse { id, data })
     }
