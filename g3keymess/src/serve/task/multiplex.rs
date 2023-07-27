@@ -134,7 +134,7 @@ impl KeylessTask {
         R: AsyncRead + Send + Unpin + 'static,
     {
         let mut req = self.timed_read_request(reader).await?;
-        if let Err(rsp) = req.inner.verify_opcode() {
+        if let Some(rsp) = req.take_err_rsp() {
             req.stats.add_by_error_code(rsp.error_code());
             let _ = msg_sender.send(KeylessResponse::Error(rsp)).await;
             return Ok(());

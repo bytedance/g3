@@ -253,8 +253,7 @@ where
         let path_selection = self.get_egress_path_selection(&mut req.inner.end_to_end_headers);
         let task_notes = ServerTaskNotes::new(
             self.ctx.worker_id,
-            self.ctx.tcp_client_addr,
-            self.ctx.tcp_server_addr,
+            self.ctx.cc_info.clone(),
             user_ctx,
             req.time_accepted.elapsed(),
             path_selection,

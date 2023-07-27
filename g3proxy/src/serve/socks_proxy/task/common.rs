@@ -15,13 +15,13 @@
  */
 
 use std::net::{IpAddr, SocketAddr};
-use std::os::unix::prelude::*;
 use std::sync::Arc;
 
 use rand::seq::SliceRandom;
 use slog::Logger;
 use tokio::net::UdpSocket;
 
+use g3_daemon::server::ClientConnectionInfo;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::acl_set::AclDstHostRuleSet;
 use g3_types::net::UpstreamAddr;
@@ -40,14 +40,27 @@ pub(crate) struct CommonTaskContext {
     pub(crate) audit_handle: Option<Arc<AuditHandle>>,
     pub(crate) ingress_net_filter: Option<Arc<AclNetworkRule>>,
     pub(crate) dst_host_filter: Option<Arc<AclDstHostRuleSet>>,
-    pub(crate) tcp_server_addr: SocketAddr,
-    pub(crate) tcp_client_addr: SocketAddr,
+    pub(crate) cc_info: ClientConnectionInfo,
     pub(crate) task_logger: Logger,
-    pub(crate) tcp_client_socket: RawFd,
     pub(crate) worker_id: Option<usize>,
 }
 
 impl CommonTaskContext {
+    #[inline]
+    pub(super) fn client_addr(&self) -> SocketAddr {
+        self.cc_info.client_addr()
+    }
+
+    #[inline]
+    pub(super) fn server_addr(&self) -> SocketAddr {
+        self.cc_info.server_addr()
+    }
+
+    #[inline]
+    pub(super) fn server_ip(&self) -> IpAddr {
+        self.cc_info.server_ip()
+    }
+
     pub(super) fn check_upstream(&self, upstream: &UpstreamAddr) -> AclAction {
         let mut default_action = if upstream.is_empty() {
             AclAction::Forbid
@@ -103,17 +116,17 @@ impl CommonTaskContext {
             }
 
             if matches!(
-                (ref_ip, self.tcp_server_addr.ip()),
+                (ref_ip, self.server_ip()),
                 (IpAddr::V4(_), IpAddr::V4(_)) | (IpAddr::V6(_), IpAddr::V6(_))
             ) {
-                Ok(self.tcp_server_addr.ip())
+                Ok(self.server_ip())
             } else {
                 Err(ServerTaskError::InvalidClientProtocol(
                     "unsupported client udp socket family",
                 ))
             }
         } else {
-            let ref_ip = self.tcp_server_addr.ip();
+            let ref_ip = self.server_ip();
             Ok(self.select_bind_ip(ref_ip).unwrap_or(ref_ip))
         }
     }

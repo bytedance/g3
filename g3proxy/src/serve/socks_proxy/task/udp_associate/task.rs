@@ -75,8 +75,8 @@ impl SocksProxyUdpAssociateTask {
     fn get_log_context(&self) -> TaskLogForUdpAssociate {
         TaskLogForUdpAssociate {
             task_notes: &self.task_notes,
-            tcp_server_addr: self.ctx.tcp_server_addr,
-            tcp_client_addr: self.ctx.tcp_client_addr,
+            tcp_server_addr: self.ctx.server_addr(),
+            tcp_client_addr: self.ctx.client_addr(),
             udp_listen_addr: self.udp_listen_addr,
             udp_client_addr: self.udp_client_addr,
             udp_notes: &self.udp_notes,
@@ -112,7 +112,7 @@ impl SocksProxyUdpAssociateTask {
     fn pre_start(&self) {
         debug!(
             "SocksProxy/UdpAssociate: new client from {} to {} server {}, using escaper {}",
-            self.ctx.tcp_client_addr,
+            self.ctx.client_addr(),
             self.ctx.server_config.server_type(),
             self.ctx.server_config.name(),
             self.ctx.server_config.escaper

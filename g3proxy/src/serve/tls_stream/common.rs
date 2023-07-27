@@ -19,6 +19,7 @@ use std::sync::Arc;
 
 use slog::Logger;
 
+use g3_daemon::server::ClientConnectionInfo;
 use g3_types::net::OpensslTlsClientConfig;
 
 use crate::audit::AuditHandle;
@@ -33,9 +34,15 @@ pub(super) struct CommonTaskContext {
     pub(super) server_quit_policy: Arc<ServerQuitPolicy>,
     pub(super) escaper: ArcEscaper,
     pub(super) audit_handle: Option<Arc<AuditHandle>>,
-    pub(super) server_addr: SocketAddr,
-    pub(super) client_addr: SocketAddr,
+    pub(super) cc_info: ClientConnectionInfo,
     pub(super) tls_client_config: Option<Arc<OpensslTlsClientConfig>>,
     pub(super) task_logger: Logger,
     pub(super) worker_id: Option<usize>,
+}
+
+impl CommonTaskContext {
+    #[inline]
+    pub(super) fn client_addr(&self) -> SocketAddr {
+        self.cc_info.client_addr()
+    }
 }

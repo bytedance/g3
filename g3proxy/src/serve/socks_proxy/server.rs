@@ -15,7 +15,7 @@
  */
 
 use std::net::SocketAddr;
-use std::os::unix::prelude::AsRawFd;
+use std::os::fd::AsRawFd;
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -26,6 +26,7 @@ use tokio::sync::broadcast;
 use tokio_rustls::server::TlsStream;
 
 use g3_daemon::listen::ListenStats;
+use g3_daemon::server::ClientConnectionInfo;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::acl_set::AclDstHostRuleSet;
 use g3_types::metrics::MetricsName;
@@ -141,8 +142,7 @@ impl SocksProxyServer {
     async fn run_task(
         &self,
         stream: TcpStream,
-        peer_addr: SocketAddr,
-        local_addr: SocketAddr,
+        cc_info: ClientConnectionInfo,
         run_ctx: ServerRunContext,
     ) {
         let ctx = CommonTaskContext {
@@ -153,10 +153,8 @@ impl SocksProxyServer {
             audit_handle: run_ctx.audit_handle,
             ingress_net_filter: self.ingress_net_filter.clone(),
             dst_host_filter: self.dst_host_filter.clone(),
-            tcp_server_addr: local_addr,
-            tcp_client_addr: peer_addr,
+            cc_info,
             task_logger: self.task_logger.clone(),
-            tcp_client_socket: stream.as_raw_fd(),
             worker_id: run_ctx.worker_id,
         };
         SocksProxyNegotiationTask::new(ctx, run_ctx.user_group)
@@ -278,17 +276,18 @@ impl Server for SocksProxyServer {
         if self.drop_early(peer_addr) {
             return;
         }
-        self.run_task(stream, peer_addr, local_addr, ctx).await
+
+        let cc_info = ClientConnectionInfo::new(peer_addr, local_addr, stream.as_raw_fd());
+        self.run_task(stream, cc_info, ctx).await
     }
 
     async fn run_tls_task(
         &self,
         _stream: TlsStream<TcpStream>,
-        peer_addr: SocketAddr,
-        _local_addr: SocketAddr,
+        cc_info: ClientConnectionInfo,
         _ctx: ServerRunContext,
     ) {
-        self.server_stats.add_conn(peer_addr);
+        self.server_stats.add_conn(cc_info.client_addr());
         self.listen_stats.add_dropped();
     }
 }

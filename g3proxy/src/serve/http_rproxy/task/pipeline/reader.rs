@@ -79,13 +79,13 @@ where
         match self.ctx.server_config.append_forwarded_for {
             HttpForwardedHeaderType::Disable => {}
             HttpForwardedHeaderType::Classic => {
-                let v = HttpForwardedHeaderValue::new_classic(self.ctx.tcp_client_addr.ip());
+                let v = HttpForwardedHeaderValue::new_classic(self.ctx.client_ip());
                 v.append_to(&mut req.inner.end_to_end_headers);
             }
             HttpForwardedHeaderType::Standard => {
                 let v = HttpForwardedHeaderValue::new_standard(
-                    self.ctx.tcp_client_addr,
-                    self.ctx.tcp_server_addr,
+                    self.ctx.client_addr(),
+                    self.ctx.server_addr(),
                 );
                 v.append_to(&mut req.inner.end_to_end_headers);
             }
@@ -106,15 +106,11 @@ where
                 {
                     Ok(Ok(true)) => {}
                     Ok(Ok(false)) => {
-                        trace!("client {} closed", self.ctx.tcp_client_addr);
+                        trace!("client {} closed", self.ctx.client_addr());
                         break;
                     }
                     Ok(Err(e)) => {
-                        trace!(
-                            "client {} closed with error {:?}",
-                            self.ctx.tcp_client_addr,
-                            e
-                        );
+                        trace!("client {} closed with error {e:?}", self.ctx.client_addr());
                         break;
                     }
                     Err(_) => {
@@ -178,11 +174,7 @@ where
                                 trace!("write end has closed for previous request while sending error response");
                             }
                         }
-                        trace!(
-                            "Error handling client {}: {:?}",
-                            self.ctx.tcp_client_addr,
-                            e
-                        );
+                        trace!("Error handling client {}: {e:?}", self.ctx.client_addr());
                         // TODO handle error, negotiation failed, may be attack
                         break;
                     }

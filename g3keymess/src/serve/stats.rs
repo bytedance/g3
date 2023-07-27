@@ -129,6 +129,7 @@ pub(crate) struct KeyServerStats {
     pub(crate) rsa_pss_sign: Arc<KeyServerRequestStats>,
     pub(crate) ecdsa_sign: Arc<KeyServerRequestStats>,
     pub(crate) ed25519_sign: Arc<KeyServerRequestStats>,
+    pub(crate) noop: Arc<KeyServerRequestStats>,
 }
 
 #[derive(Default)]
@@ -158,6 +159,7 @@ impl KeyServerStats {
             rsa_pss_sign: Arc::new(KeyServerRequestStats::default()),
             ecdsa_sign: Arc::new(KeyServerRequestStats::default()),
             ed25519_sign: Arc::new(KeyServerRequestStats::default()),
+            noop: Arc::new(KeyServerRequestStats::default()),
         }
     }
 

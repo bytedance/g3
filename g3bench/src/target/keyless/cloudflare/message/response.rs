@@ -19,6 +19,8 @@ use std::io;
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncReadExt};
 
+use g3_types::net::{T1L2BVParse, TlvParse};
+
 #[derive(Clone, Copy, Debug, Error)]
 pub(crate) enum KeylessServerError {
     #[error("cryptography error")]
@@ -73,8 +75,6 @@ pub(crate) enum KeylessLocalError {
     WriteFailed(io::Error),
     #[error("not enough data for a valid item")]
     NotEnoughData,
-    #[error("too long item length")]
-    TooLongItemLength,
     #[error("invalid length for item {0}")]
     InvalidItemLength(u8),
     #[error("invalid item tag {0}")]
@@ -93,59 +93,57 @@ pub(crate) enum KeylessResponseError {
     LocalError(#[from] KeylessLocalError),
 }
 
-fn parse_buf(buf: &[u8]) -> Result<Vec<u8>, KeylessResponseError> {
-    let total_len = buf.len();
-    let mut opcode = 0;
-    let mut data_buf = buf;
+struct KeylessResponseTlvParser<'a> {
+    opcode: u8,
+    payload: &'a [u8],
+}
 
-    let mut offset = 0usize;
-    loop {
-        if offset + super::ITEM_HEADER_LENGTH > total_len {
-            return Err(KeylessLocalError::NotEnoughData.into());
-        }
+impl<'a> T1L2BVParse<'a> for KeylessResponseTlvParser<'a> {
+    type Error = KeylessResponseError;
 
-        let hdr = &buf[offset..offset + super::ITEM_HEADER_LENGTH];
-        let item = hdr[0];
-        let item_len = ((hdr[1] as usize) << 8) + hdr[2] as usize;
-        if item_len < 1 {
-            return Err(KeylessLocalError::InvalidItemLength(item).into());
-        }
-        offset += super::ITEM_HEADER_LENGTH;
-        if offset + item_len > total_len {
-            return Err(KeylessLocalError::TooLongItemLength.into());
-        }
+    fn no_enough_data() -> Self::Error {
+        KeylessLocalError::NotEnoughData.into()
+    }
 
-        let data = &buf[offset..offset + item_len];
-        match item {
+    fn parse_value(&mut self, tag: u8, v: &'a [u8]) -> Result<(), Self::Error> {
+        match tag {
             // OPCODE
             0x11 => {
-                if item_len != 1 {
-                    return Err(KeylessLocalError::InvalidItemLength(item).into());
+                if v.len() != 1 {
+                    return Err(KeylessLocalError::InvalidItemLength(tag).into());
                 }
-                opcode = data[0];
+                self.opcode = v[0];
             }
             // PAYLOAD
-            0x12 => data_buf = data,
+            0x12 => self.payload = v,
             // PADDING
             0x20 => {}
-            _ => return Err(KeylessLocalError::InvalidItemTag(item).into()),
+            _ => return Err(KeylessLocalError::InvalidItemTag(tag).into()),
         }
+        Ok(())
+    }
+}
 
-        offset += item_len;
-        if offset >= total_len {
-            break;
+impl<'a> KeylessResponseTlvParser<'a> {
+    fn new() -> Self {
+        KeylessResponseTlvParser {
+            opcode: 0,
+            payload: &[],
         }
     }
 
-    match opcode {
-        0xF0 => Ok(data_buf.to_vec()),
-        0xFF => {
-            if data_buf.len() != 1 {
-                return Err(KeylessLocalError::InvalidItemLength(0x12).into());
+    fn parse_buf(&mut self, buf: &'a [u8]) -> Result<Vec<u8>, KeylessResponseError> {
+        self.parse_tlv(buf)?;
+        match self.opcode {
+            0xF0 => Ok(self.payload.to_vec()),
+            0xFF => {
+                if self.payload.len() != 1 {
+                    return Err(KeylessLocalError::InvalidItemLength(0x12).into());
+                }
+                Err(KeylessResponseError::from(self.payload[0]))
             }
-            Err(KeylessResponseError::from(data_buf[0]))
+            _ => Err(KeylessLocalError::InvalidOpCode(self.opcode).into()),
         }
-        _ => Err(KeylessLocalError::InvalidOpCode(opcode).into()),
     }
 }
 
@@ -199,7 +197,7 @@ impl KeylessResponse {
         }
 
         let id = u32::from_be_bytes([hdr_buf[4], hdr_buf[5], hdr_buf[6], hdr_buf[7]]);
-        let data = parse_buf(buf)?;
+        let data = KeylessResponseTlvParser::new().parse_buf(buf)?;
 
         Ok(KeylessResponse { id, data })
     }

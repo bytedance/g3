@@ -16,7 +16,7 @@
 
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
-use std::os::unix::prelude::*;
+use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
 use rand::distributions::Uniform;
 use rand::Rng;

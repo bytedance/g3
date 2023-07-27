@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
-use std::os::unix::prelude::*;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
 use slog::Logger;
+
+use g3_daemon::server::ClientConnectionInfo;
 
 use crate::config::server::openssl_proxy::OpensslProxyServerConfig;
 use crate::serve::openssl_proxy::OpensslProxyServerStats;
@@ -28,9 +29,18 @@ pub(crate) struct CommonTaskContext {
     pub server_config: Arc<OpensslProxyServerConfig>,
     pub server_stats: Arc<OpensslProxyServerStats>,
     pub server_quit_policy: Arc<ServerQuitPolicy>,
-    pub server_addr: SocketAddr,
-    pub client_addr: SocketAddr,
+    pub cc_info: ClientConnectionInfo,
     pub task_logger: Logger,
+}
 
-    pub tcp_client_socket: RawFd,
+impl CommonTaskContext {
+    #[inline]
+    pub(super) fn client_addr(&self) -> SocketAddr {
+        self.cc_info.client_addr()
+    }
+
+    #[inline]
+    pub(super) fn client_ip(&self) -> IpAddr {
+        self.cc_info.client_ip()
+    }
 }

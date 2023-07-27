@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::os::unix::prelude::AsRawFd;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -46,8 +45,7 @@ impl TcpStreamTask {
     pub(super) fn new(ctx: CommonTaskContext, upstream: &UpstreamAddr) -> Self {
         let task_notes = ServerTaskNotes::new(
             ctx.worker_id,
-            ctx.client_addr,
-            ctx.server_addr,
+            ctx.cc_info.clone(),
             None,
             Duration::ZERO,
             EgressPathSelection::Default,
@@ -86,7 +84,7 @@ impl TcpStreamTask {
     fn pre_start(&self) {
         debug!(
             "TcpStream: new client from {} to {} server {}, using escaper {}",
-            self.ctx.client_addr,
+            self.ctx.client_addr(),
             self.ctx.server_config.server_type(),
             self.ctx.server_config.name(),
             self.ctx.server_config.escaper
@@ -101,12 +99,12 @@ impl TcpStreamTask {
 
     async fn run(&mut self, clt_stream: TcpStream) -> ServerTaskResult<()> {
         // set client side socket options
-        g3_socket::tcp::set_raw_opts(
-            clt_stream.as_raw_fd(),
-            &self.ctx.server_config.tcp_misc_opts,
-            true,
-        )
-        .map_err(|_| ServerTaskError::InternalServerError("failed to set client socket options"))?;
+        self.ctx
+            .cc_info
+            .sock_set_raw_opts(&self.ctx.server_config.tcp_misc_opts, true)
+            .map_err(|_| {
+                ServerTaskError::InternalServerError("failed to set client socket options")
+            })?;
 
         self.task_notes.stage = ServerTaskStage::Connecting;
         let (ups_r, ups_w) = if let Some(tls_client_config) = &self.ctx.tls_client_config {

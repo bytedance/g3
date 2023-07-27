@@ -80,7 +80,10 @@ impl BenchTaskContext for KeylessOpensslTaskContext {
         if let Some(r) = &mut self.histogram_recorder {
             r.record_total_time(total_time);
         }
-        self.args.global.dump_result(task_id, output);
+        self.args
+            .global
+            .check_result(task_id, output)
+            .map_err(BenchError::Task)?;
         tokio::task::yield_now().await;
         Ok(())
     }

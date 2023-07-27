@@ -57,7 +57,7 @@ impl From<&ServerTaskNotes> for StreamInspectTaskNotes {
     fn from(task_notes: &ServerTaskNotes) -> Self {
         StreamInspectTaskNotes {
             task_id: task_notes.id,
-            client_addr: task_notes.client_addr,
+            client_addr: task_notes.client_addr(),
             user_ctx: task_notes.user_ctx().map(|ctx| StreamInspectUserContext {
                 user: ctx.user().clone(),
                 forbidden_stats: ctx.forbidden_stats().clone(),

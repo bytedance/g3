@@ -39,6 +39,7 @@ const ARG_DIGEST_TYPE: &str = "digest-type";
 const ARG_RSA_PADDING: &str = "rsa-padding";
 const ARG_PAYLOAD: &str = "payload";
 const ARG_DUMP_RESULT: &str = "dump-result";
+const ARG_VERIFY: &str = "verify";
 
 const DIGEST_TYPES: [&str; 6] = ["md5sha1", "sha1", "sha224", "sha256", "sha384", "sha512"];
 const RSA_PADDING_VALUES: [&str; 5] = ["PKCS1", "OAEP", "PSS", "X931", "NONE"];
@@ -174,6 +175,7 @@ pub(super) struct KeylessGlobalArgs {
     pub(super) action: KeylessAction,
     pub(super) payload: Vec<u8>,
     dump_result: bool,
+    verify_result: Vec<u8>,
 }
 
 impl KeylessGlobalArgs {
@@ -300,6 +302,11 @@ impl KeylessGlobalArgs {
         };
 
         let dump_result = args.get_flag(ARG_DUMP_RESULT);
+        let verify_result = if let Some(s) = args.get_one::<String>(ARG_VERIFY) {
+            hex::decode(s.as_bytes()).map_err(|e| anyhow!("invalid verify value: {e}"))?
+        } else {
+            vec![]
+        };
 
         Ok(KeylessGlobalArgs {
             public_key,
@@ -308,14 +315,20 @@ impl KeylessGlobalArgs {
             action,
             payload,
             dump_result,
+            verify_result,
         })
     }
 
-    pub(super) fn dump_result(&self, task_id: usize, data: Vec<u8>) {
+    pub(super) fn check_result(&self, task_id: usize, data: Vec<u8>) -> anyhow::Result<()> {
         if self.dump_result {
-            let hex_str = hex::encode(data);
+            let hex_str = hex::encode(&data);
             println!("== Output of task {task_id}:\n{hex_str}");
         }
+        if !self.verify_result.is_empty() && self.verify_result != data {
+            return Err(anyhow!("result verify failed"));
+        }
+
+        Ok(())
     }
 
     #[inline]
@@ -570,6 +583,12 @@ fn add_keyless_args(cmd: Command) -> Command {
             .action(ArgAction::SetTrue)
             .num_args(0)
             .long(ARG_DUMP_RESULT),
+    )
+    .arg(
+        Arg::new(ARG_VERIFY)
+            .help("Verify the result")
+            .num_args(1)
+            .long(ARG_VERIFY),
     )
 }
 

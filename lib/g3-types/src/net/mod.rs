@@ -25,6 +25,7 @@ mod rate_limit;
 mod socks;
 mod tcp;
 mod tls;
+mod tlv;
 mod udp;
 mod upstream;
 mod websocket;
@@ -55,6 +56,7 @@ pub use rate_limit::{
 pub use socks::SocksAuth;
 pub use tcp::*;
 pub use tls::*;
+pub use tlv::{T1L2BVParse, TlvParse};
 pub use udp::UdpMiscSockOpts;
 pub use upstream::{UpstreamAddr, UpstreamHostRef, WeightedUpstreamAddr};
 pub use websocket::WebSocketSubProtocol;

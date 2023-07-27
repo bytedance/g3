@@ -161,7 +161,7 @@ impl Escaper for RouteClientEscaper {
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
         tcp_notes.escaper.clone_from(&self.config.name);
-        let escaper = self.select_next(task_notes.client_addr.ip());
+        let escaper = self.select_next(task_notes.client_ip());
         self.stats.add_request_passed();
         escaper
             .tcp_setup_connection(tcp_notes, task_notes, task_stats)
@@ -177,7 +177,7 @@ impl Escaper for RouteClientEscaper {
         tls_name: &'a str,
     ) -> TcpConnectResult {
         tcp_notes.escaper.clone_from(&self.config.name);
-        let escaper = self.select_next(task_notes.client_addr.ip());
+        let escaper = self.select_next(task_notes.client_ip());
         self.stats.add_request_passed();
         escaper
             .tls_setup_connection(tcp_notes, task_notes, task_stats, tls_config, tls_name)
@@ -191,7 +191,7 @@ impl Escaper for RouteClientEscaper {
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
         udp_notes.escaper.clone_from(&self.config.name);
-        let escaper = self.select_next(task_notes.client_addr.ip());
+        let escaper = self.select_next(task_notes.client_ip());
         self.stats.add_request_passed();
         escaper
             .udp_setup_connection(udp_notes, task_notes, task_stats)
@@ -205,7 +205,7 @@ impl Escaper for RouteClientEscaper {
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
         udp_notes.escaper.clone_from(&self.config.name);
-        let escaper = self.select_next(task_notes.client_addr.ip());
+        let escaper = self.select_next(task_notes.client_ip());
         self.stats.add_request_passed();
         escaper
             .udp_setup_relay(udp_notes, task_notes, task_stats)
@@ -223,7 +223,7 @@ impl Escaper for RouteClientEscaper {
         task_notes: &'a ServerTaskNotes,
         upstream: &'a UpstreamAddr,
     ) -> BoxFtpConnectContext {
-        let escaper = self.select_next(task_notes.client_addr.ip());
+        let escaper = self.select_next(task_notes.client_ip());
         self.stats.add_request_passed();
         escaper
             .new_ftp_connect_context(Arc::clone(&escaper), task_notes, upstream)
@@ -267,7 +267,7 @@ impl EscaperInternal for RouteClientEscaper {
         task_notes: &ServerTaskNotes,
         _upstream: &UpstreamAddr,
     ) -> Option<ArcEscaper> {
-        let escaper = self.select_next(task_notes.client_addr.ip());
+        let escaper = self.select_next(task_notes.client_ip());
         self.stats.add_request_passed();
         Some(escaper)
     }

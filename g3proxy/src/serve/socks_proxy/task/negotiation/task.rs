@@ -70,9 +70,9 @@ impl SocksProxyNegotiationTask {
             clt_w_stats,
         );
 
-        let client_addr = self.ctx.tcp_client_addr;
+        let client_addr = self.ctx.client_addr();
         if let Err(e) = self.run(BufReader::new(clt_r), clt_w).await {
-            debug!("Error handling client {}: {}", client_addr, e);
+            debug!("Error handling client {client_addr}: {e}");
             // TODO handle negotiation error
         }
     }
@@ -80,7 +80,7 @@ impl SocksProxyNegotiationTask {
     fn pre_start(&self) {
         debug!(
             "new client from {} to {} server {}, using escaper {}",
-            self.ctx.tcp_client_addr,
+            self.ctx.client_addr(),
             self.ctx.server_config.server_type(),
             self.ctx.server_config.name(),
             self.ctx.server_config.escaper
@@ -137,8 +137,7 @@ impl SocksProxyNegotiationTask {
 
         let task_notes = ServerTaskNotes::new(
             self.ctx.worker_id,
-            self.ctx.tcp_client_addr,
-            self.ctx.tcp_server_addr,
+            self.ctx.cc_info.clone(),
             None,
             self.time_accepted.elapsed(),
             EgressPathSelection::Default,
@@ -268,8 +267,7 @@ impl SocksProxyNegotiationTask {
 
         let task_notes = ServerTaskNotes::new(
             self.ctx.worker_id,
-            self.ctx.tcp_client_addr,
-            self.ctx.tcp_server_addr,
+            self.ctx.cc_info.clone(),
             user_ctx,
             self.time_accepted.elapsed(),
             EgressPathSelection::Default,

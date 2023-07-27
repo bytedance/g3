@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use tokio::time::Instant;
 use uuid::Uuid;
 
+use g3_daemon::server::ClientConnectionInfo;
 use g3_types::limit::GaugeSemaphorePermit;
 use g3_types::route::EgressPathSelection;
 
@@ -59,8 +60,7 @@ impl ServerTaskStage {
 pub(crate) struct ServerTaskNotes {
     #[allow(unused)]
     pub(crate) worker_id: Option<usize>,
-    pub(crate) client_addr: SocketAddr,
-    pub(crate) server_addr: SocketAddr,
+    cc_info: ClientConnectionInfo,
     pub(crate) stage: ServerTaskStage,
     pub(crate) start_at: DateTime<Utc>,
     create_ins: Instant,
@@ -76,8 +76,7 @@ pub(crate) struct ServerTaskNotes {
 impl ServerTaskNotes {
     pub(crate) fn new(
         worker_id: Option<usize>,
-        client_addr: SocketAddr,
-        server_addr: SocketAddr,
+        cc_info: ClientConnectionInfo,
         user_ctx: Option<UserContext>,
         wait_time: Duration,
         egress_path_selection: EgressPathSelection,
@@ -86,8 +85,7 @@ impl ServerTaskNotes {
         let uuid = g3_daemon::server::task::generate_uuid(&started);
         ServerTaskNotes {
             worker_id,
-            client_addr,
-            server_addr,
+            cc_info,
             stage: ServerTaskStage::Created,
             start_at: started,
             create_ins: Instant::now(),
@@ -98,6 +96,21 @@ impl ServerTaskNotes {
             egress_path_selection,
             user_req_alive_permit: None,
         }
+    }
+
+    #[inline]
+    pub(crate) fn client_addr(&self) -> SocketAddr {
+        self.cc_info.client_addr()
+    }
+
+    #[inline]
+    pub(crate) fn client_ip(&self) -> IpAddr {
+        self.cc_info.client_ip()
+    }
+
+    #[inline]
+    pub(crate) fn server_addr(&self) -> SocketAddr {
+        self.cc_info.server_addr()
     }
 
     #[inline]

@@ -29,6 +29,7 @@ use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 
 use g3_daemon::listen::ListenStats;
+use g3_daemon::server::ClientConnectionInfo;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::MetricsName;
 use g3_types::route::HostMatch;
@@ -232,8 +233,7 @@ impl OpensslProxyServer {
     async fn run_task(
         &self,
         stream: TcpStream,
-        peer_addr: SocketAddr,
-        local_addr: SocketAddr,
+        cc_info: ClientConnectionInfo,
         _run_ctx: ServerRunContext,
     ) {
         #[cfg(not(feature = "vendored-tongsuo"))]
@@ -253,10 +253,8 @@ impl OpensslProxyServer {
             server_config: Arc::clone(&self.config),
             server_stats: Arc::clone(&self.server_stats),
             server_quit_policy: Arc::clone(&self.quit_policy),
-            server_addr: local_addr,
-            client_addr: peer_addr,
+            cc_info,
             task_logger: self.task_logger.clone(),
-            tcp_client_socket: stream.as_raw_fd(),
         };
 
         if self.config.spawn_task_unconstrained {
@@ -357,6 +355,8 @@ impl Server for OpensslProxyServer {
         if self.drop_early(peer_addr) {
             return;
         }
-        self.run_task(stream, peer_addr, local_addr, ctx).await
+
+        let cc_info = ClientConnectionInfo::new(peer_addr, local_addr, stream.as_raw_fd());
+        self.run_task(stream, cc_info, ctx).await
     }
 }

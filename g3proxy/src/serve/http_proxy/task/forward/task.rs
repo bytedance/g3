@@ -249,7 +249,7 @@ impl<'a> HttpProxyForwardTask<'a> {
     fn pre_start(&self) {
         debug!(
             "HttpProxy/FORWARD: new client from {} to {} server {}, using escaper {}",
-            self.ctx.tcp_client_addr,
+            self.ctx.client_addr(),
             self.ctx.server_config.server_type(),
             self.ctx.server_config.name(),
             self.ctx.server_config.escaper
@@ -577,7 +577,9 @@ impl<'a> HttpProxyForwardTask<'a> {
             .await?;
 
         // set client side socket options
-        g3_socket::tcp::set_raw_opts(self.ctx.tcp_client_socket, &tcp_client_misc_opts, true)
+        self.ctx
+            .cc_info
+            .sock_set_raw_opts(&tcp_client_misc_opts, true)
             .map_err(|_| {
                 ServerTaskError::InternalServerError("failed to set client socket options")
             })?;
@@ -756,7 +758,7 @@ impl<'a> HttpProxyForwardTask<'a> {
                             let mut adaptation_state = ReqmodAdaptationRunState::new(
                                 self.task_notes.task_created_instant(),
                             );
-                            adapter.set_client_addr(self.ctx.tcp_client_addr);
+                            adapter.set_client_addr(self.ctx.client_addr());
                             if let Some(user_ctx) = self.task_notes.user_ctx() {
                                 adapter.set_client_username(user_ctx.user().name());
                             }
@@ -1270,7 +1272,7 @@ impl<'a> HttpProxyForwardTask<'a> {
                                 self.task_notes.task_created_instant(),
                                 self.http_notes.dur_rsp_recv_hdr,
                             );
-                            adapter.set_client_addr(self.ctx.tcp_client_addr);
+                            adapter.set_client_addr(self.ctx.client_addr());
                             if let Some(user_ctx) = self.task_notes.user_ctx() {
                                 adapter.set_client_username(user_ctx.user().name());
                             }

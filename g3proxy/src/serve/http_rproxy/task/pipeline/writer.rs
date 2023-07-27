@@ -263,8 +263,7 @@ where
     ) -> LoopAction {
         let task_notes = ServerTaskNotes::new(
             self.ctx.worker_id,
-            self.ctx.tcp_client_addr,
-            self.ctx.tcp_server_addr,
+            self.ctx.cc_info.clone(),
             user_ctx,
             req.time_accepted.elapsed(),
             EgressPathSelection::default(),

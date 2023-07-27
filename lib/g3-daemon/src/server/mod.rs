@@ -18,3 +18,6 @@ mod quit_policy;
 pub use quit_policy::ServerQuitPolicy;
 
 pub mod task;
+
+mod connection;
+pub use connection::ClientConnectionInfo;

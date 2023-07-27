@@ -319,7 +319,7 @@ impl ProxyHttpEscaper {
         if let Some(version) = self.config.use_proxy_protocol {
             let mut encoder = ProxyProtocolEncoder::new(version);
             let bytes = encoder
-                .encode_tcp(task_notes.client_addr, task_notes.server_addr)
+                .encode_tcp(task_notes.client_addr(), task_notes.server_addr())
                 .map_err(TcpConnectError::ProxyProtocolEncodeError)?;
             w.write_all(bytes)
                 .await

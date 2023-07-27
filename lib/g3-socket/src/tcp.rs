@@ -16,7 +16,7 @@
 
 use std::io;
 use std::net::{IpAddr, SocketAddr};
-use std::os::unix::prelude::*;
+use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
 use socket2::{Domain, SockAddr, Socket, TcpKeepalive, Type};
 use tokio::net::{TcpListener, TcpSocket};

@@ -212,7 +212,7 @@ pub(crate) trait EscaperExt: Escaper {
             SelectivePickPolicy::RoundRobin => nodes.pick_round_robin(),
             SelectivePickPolicy::Rendezvous => {
                 let key = ConsistentKey {
-                    client_ip: task_notes.client_addr.ip(),
+                    client_ip: task_notes.client_ip(),
                     user: task_notes.user_ctx().map(|c| c.user().name()),
                     host,
                 };
@@ -220,7 +220,7 @@ pub(crate) trait EscaperExt: Escaper {
             }
             SelectivePickPolicy::JumpHash => {
                 let key = ConsistentKey {
-                    client_ip: task_notes.client_addr.ip(),
+                    client_ip: task_notes.client_ip(),
                     user: task_notes.user_ctx().map(|c| c.user().name()),
                     host,
                 };

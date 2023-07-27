@@ -51,7 +51,7 @@ impl<'a> HttpProxyUntrustedTask<'a> {
     fn pre_start(&self) {
         debug!(
             "HttpProxy/UNTRUSTED: new client from {} to {} server {}, using escaper {}",
-            self.ctx.tcp_client_addr,
+            self.ctx.client_addr(),
             self.ctx.server_config.server_type(),
             self.ctx.server_config.name(),
             self.ctx.server_config.escaper

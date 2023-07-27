@@ -15,6 +15,7 @@
  */
 
 use std::net::{IpAddr, SocketAddr};
+use std::os::fd::AsRawFd;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -27,6 +28,7 @@ use tokio::sync::broadcast;
 use tokio_rustls::{server::TlsStream, TlsAcceptor};
 
 use g3_daemon::listen::ListenStats;
+use g3_daemon::server::ClientConnectionInfo;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::collection::{SelectivePickPolicy, SelectiveVec, SelectiveVecBuilder};
 use g3_types::metrics::MetricsName;
@@ -168,18 +170,17 @@ impl TlsStreamServer {
     async fn run_task(
         &self,
         stream: TlsStream<TcpStream>,
-        peer_addr: SocketAddr,
-        local_addr: SocketAddr,
+        cc_info: ClientConnectionInfo,
         run_ctx: ServerRunContext,
     ) {
+        let client_ip = cc_info.client_ip();
         let ctx = CommonTaskContext {
             server_config: Arc::clone(&self.config),
             server_stats: Arc::clone(&self.server_stats),
             server_quit_policy: Arc::clone(&self.quit_policy),
             escaper: run_ctx.escaper,
             audit_handle: run_ctx.audit_handle,
-            server_addr: local_addr,
-            client_addr: peer_addr,
+            cc_info,
             tls_client_config: self.tls_client_config.clone(),
             task_logger: self.task_logger.clone(),
             worker_id: run_ctx.worker_id,
@@ -195,15 +196,11 @@ impl TlsStreamServer {
             SelectivePickPolicy::Serial => self.upstream.pick_serial(),
             SelectivePickPolicy::RoundRobin => self.upstream.pick_round_robin(),
             SelectivePickPolicy::Rendezvous => {
-                let key = ConsistentKey {
-                    client_ip: peer_addr.ip(),
-                };
+                let key = ConsistentKey { client_ip };
                 self.upstream.pick_rendezvous(&key)
             }
             SelectivePickPolicy::JumpHash => {
-                let key = ConsistentKey {
-                    client_ip: peer_addr.ip(),
-                };
+                let key = ConsistentKey { client_ip };
                 self.upstream.pick_jump(&key)
             }
         };
@@ -324,9 +321,11 @@ impl Server for TlsStreamServer {
             return;
         }
 
+        let cc_info = ClientConnectionInfo::new(peer_addr, local_addr, stream.as_raw_fd());
+
         match tokio::time::timeout(self.tls_accept_timeout, self.tls_acceptor.accept(stream)).await
         {
-            Ok(Ok(stream)) => self.run_task(stream, peer_addr, local_addr, ctx).await,
+            Ok(Ok(stream)) => self.run_task(stream, cc_info, ctx).await,
             Ok(Err(e)) => {
                 self.listen_stats.add_failed();
                 debug!("{local_addr} - {peer_addr} tls error: {e:?}");
@@ -343,15 +342,15 @@ impl Server for TlsStreamServer {
     async fn run_tls_task(
         &self,
         stream: TlsStream<TcpStream>,
-        peer_addr: SocketAddr,
-        local_addr: SocketAddr,
+        cc_info: ClientConnectionInfo,
         ctx: ServerRunContext,
     ) {
+        let peer_addr = cc_info.sock_peer_addr();
         self.server_stats.add_conn(peer_addr);
-
         if self.drop_early(peer_addr) {
             return;
         }
-        self.run_task(stream, peer_addr, local_addr, ctx).await
+
+        self.run_task(stream, cc_info, ctx).await
     }
 }
