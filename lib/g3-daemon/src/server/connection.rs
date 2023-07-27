@@ -18,6 +18,7 @@ use std::io;
 use std::net::{IpAddr, SocketAddr};
 use std::os::fd::RawFd;
 
+use g3_io_ext::haproxy::ProxyAddr;
 use g3_types::net::TcpMiscSockOpts;
 
 #[derive(Clone, Debug)]
@@ -39,6 +40,12 @@ impl ClientConnectionInfo {
             sock_local_addr: local_addr,
             sock_raw_fd: raw_fd,
         }
+    }
+
+    #[inline]
+    pub fn set_proxy_addr(&mut self, addr: ProxyAddr) {
+        self.client_addr = addr.src_addr;
+        self.server_addr = addr.dst_addr;
     }
 
     #[inline]

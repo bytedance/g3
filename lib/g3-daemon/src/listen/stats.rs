@@ -16,6 +16,7 @@
 
 use std::sync::atomic::{AtomicIsize, AtomicU64, Ordering};
 
+use g3_io_ext::haproxy::ProxyProtocolReadError;
 use g3_types::metrics::MetricsName;
 use g3_types::stats::StatId;
 
@@ -102,5 +103,20 @@ impl ListenStats {
     }
     pub fn get_failed(&self) -> u64 {
         self.failed.load(Ordering::Relaxed)
+    }
+
+    pub fn add_by_proxy_protocol_error(&self, e: ProxyProtocolReadError) {
+        match e {
+            ProxyProtocolReadError::ReadTimeout => self.add_timeout(),
+            ProxyProtocolReadError::ReadFailed(_) | ProxyProtocolReadError::ClosedUnexpected => {
+                self.add_failed()
+            }
+            ProxyProtocolReadError::InvalidMagicHeader
+            | ProxyProtocolReadError::InvalidDataLength(_)
+            | ProxyProtocolReadError::InvalidVersion(_)
+            | ProxyProtocolReadError::InvalidCommand(_)
+            | ProxyProtocolReadError::InvalidFamily(_)
+            | ProxyProtocolReadError::InvalidProtocol(_) => self.add_dropped(),
+        }
     }
 }
