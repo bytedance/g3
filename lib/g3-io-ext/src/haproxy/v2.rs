@@ -192,3 +192,48 @@ impl ProxyProtocolV2Reader {
         self.hdr_buf[13] & 0x0F
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bytes::Bytes;
+    use g3_types::net::{ProxyProtocolEncoder, ProxyProtocolVersion};
+    use std::io;
+    use std::str::FromStr;
+    use tokio_util::io::StreamReader;
+
+    async fn run_t(client: SocketAddr, server: SocketAddr) {
+        let mut encoder = ProxyProtocolEncoder::new(ProxyProtocolVersion::V2);
+        let encoded = encoder.encode_tcp(client, server).unwrap();
+
+        let stream = tokio_stream::iter(vec![<io::Result<Bytes>>::Ok(Bytes::copy_from_slice(
+            encoded,
+        ))]);
+        let mut stream = StreamReader::new(stream);
+
+        let mut reader = ProxyProtocolV2Reader::new(Duration::from_secs(1));
+        let addr = reader
+            .read_proxy_protocol_v2_for_tcp(&mut stream)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(addr.src_addr, client);
+        assert_eq!(addr.dst_addr, server);
+    }
+
+    #[tokio::test]
+    async fn t_tcp4() {
+        let client = SocketAddr::from_str("192.168.0.1:56324").unwrap();
+        let server = SocketAddr::from_str("192.168.0.11:443").unwrap();
+
+        run_t(client, server).await;
+    }
+
+    #[tokio::test]
+    async fn t_tcp6() {
+        let client = SocketAddr::from_str("[2001:db8::1]:56324").unwrap();
+        let server = SocketAddr::from_str("[2001:db8::11]:443").unwrap();
+
+        run_t(client, server).await;
+    }
+}
