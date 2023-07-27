@@ -127,6 +127,10 @@ ingress_network_filter
 
 Set the network filter for clients.
 
+The used client address will always be the real socket peer address for servers that support PROXY Protocol.
+
+If a server is chained after a PROXY Protocol server, the used client address will be the one in the PROXY Protocol message.
+
 **default**: not set
 
 .. _conf_server_common_dst_host_filter_set:

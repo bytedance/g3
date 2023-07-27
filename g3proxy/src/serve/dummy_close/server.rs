@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -164,8 +163,7 @@ impl Server for DummyCloseServer {
     async fn run_tcp_task(
         &self,
         _stream: TcpStream,
-        _peer_addr: SocketAddr,
-        _local_addr: SocketAddr,
+        _cc_info: ClientConnectionInfo,
         _ctx: ServerRunContext,
     ) {
     }

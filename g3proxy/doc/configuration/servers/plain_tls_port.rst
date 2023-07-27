@@ -22,3 +22,33 @@ server
 Set name of the next server to send the accepted connections to.
 
 The next server should be able to accept tls connections.
+
+proxy_protocol
+--------------
+
+**optional**, **type**: :ref:`proxy protocol version <conf_value_proxy_protocol_version>`
+
+Set the version of PROXY protocol we use for incoming tcp connections.
+
+If set, connections with no matched PROXY Protocol message will be dropped.
+
+The TLS handshake with the client will happen after we receive the PROXY Protocol message.
+
+.. note:: The *ingress_network_filter* config option of this server will always applies to the real socket client address.
+
+.. note:: We only support PROXY Protocol version 2 currently.
+
+**default**: not set, which means PROXY protocol won't be used
+
+.. versionadded:: 1.7.19
+
+proxy_protocol_read_timeout
+---------------------------
+
+**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+Set the timeout value before we read a complete PROXY Protocol message.
+
+**default**: 5s
+
+.. versionadded:: 1.7.19

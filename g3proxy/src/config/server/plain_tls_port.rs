@@ -15,13 +15,14 @@
  */
 
 use std::collections::BTreeSet;
+use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
 
 use g3_types::acl::AclNetworkRuleBuilder;
 use g3_types::metrics::MetricsName;
-use g3_types::net::{RustlsServerConfigBuilder, TcpListenConfig};
+use g3_types::net::{ProxyProtocolVersion, RustlsServerConfigBuilder, TcpListenConfig};
 use g3_yaml::YamlDocPosition;
 
 use super::ServerConfig;
@@ -38,6 +39,8 @@ pub(crate) struct PlainTlsPortConfig {
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) server_tls_config: Option<RustlsServerConfigBuilder>,
     pub(crate) server: MetricsName,
+    pub(crate) proxy_protocol: Option<ProxyProtocolVersion>,
+    pub(crate) proxy_protocol_read_timeout: Duration,
 }
 
 impl PlainTlsPortConfig {
@@ -50,6 +53,8 @@ impl PlainTlsPortConfig {
             ingress_net_filter: None,
             server_tls_config: None,
             server: MetricsName::default(),
+            proxy_protocol: None,
+            proxy_protocol_read_timeout: Duration::from_secs(5),
         }
     }
 
@@ -97,6 +102,18 @@ impl PlainTlsPortConfig {
             }
             "server" => {
                 self.server = g3_yaml::value::as_metrics_name(v)?;
+                Ok(())
+            }
+            "proxy_protocol" => {
+                let p = g3_yaml::value::as_proxy_protocol_version(v)
+                    .context(format!("invalid proxy protocol version value for key {k}"))?;
+                self.proxy_protocol = Some(p);
+                Ok(())
+            }
+            "proxy_protocol_read_timeout" => {
+                let t = g3_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                self.proxy_protocol_read_timeout = t;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

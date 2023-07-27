@@ -66,7 +66,9 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 - **Alias Port**
 
   - TCP Port
+    * PROXY Protocol v2
   - TLS Port
+    * PROXY Protocol v2
     * mTLS
   - Intelli Proxy
     * Multiple protocol: Http Proxy / Socks Proxy

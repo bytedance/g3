@@ -71,6 +71,11 @@ impl ClientConnectionInfo {
         self.sock_peer_addr
     }
 
+    #[inline]
+    pub fn sock_local_addr(&self) -> SocketAddr {
+        self.sock_local_addr
+    }
+
     pub fn sock_set_raw_opts(
         &self,
         opts: &TcpMiscSockOpts,
