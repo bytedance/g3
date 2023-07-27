@@ -72,6 +72,11 @@ impl ClientConnectionInfo {
     }
 
     #[inline]
+    pub fn sock_peer_ip(&self) -> IpAddr {
+        self.sock_peer_addr.ip()
+    }
+
+    #[inline]
     pub fn sock_local_addr(&self) -> SocketAddr {
         self.sock_local_addr
     }

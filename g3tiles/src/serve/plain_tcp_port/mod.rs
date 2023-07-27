@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
-use std::os::fd::AsRawFd;
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -56,8 +54,7 @@ impl AuxiliaryServerConfig for PlainTcpPortAuxConfig {
         rt_handle: Handle,
         next_server: ArcServer,
         stream: TcpStream,
-        peer_addr: SocketAddr,
-        local_addr: SocketAddr,
+        cc_info: ClientConnectionInfo,
         ctx: ServerRunContext,
     ) {
         let ingress_net_filter = self.ingress_net_filter.clone();
@@ -67,7 +64,7 @@ impl AuxiliaryServerConfig for PlainTcpPortAuxConfig {
 
         rt_handle.spawn(async move {
             if let Some(filter) = ingress_net_filter {
-                let (_, action) = filter.check(peer_addr.ip());
+                let (_, action) = filter.check(cc_info.sock_peer_ip());
                 match action {
                     AclAction::Permit | AclAction::PermitAndLog => {}
                     AclAction::Forbid | AclAction::ForbidAndLog => {
@@ -77,7 +74,7 @@ impl AuxiliaryServerConfig for PlainTcpPortAuxConfig {
                 }
             }
 
-            let mut cc_info = ClientConnectionInfo::new(peer_addr, local_addr, stream.as_raw_fd());
+            let mut cc_info = cc_info;
             match proxy_protocol {
                 Some(ProxyProtocolVersion::V1) => {
                     // TODO support proxy protocol v1

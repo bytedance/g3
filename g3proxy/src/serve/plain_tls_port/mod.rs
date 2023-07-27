@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
-use std::os::fd::AsRawFd;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
@@ -59,8 +57,7 @@ impl AuxiliaryServerConfig for PlainTlsPortAuxConfig {
         rt_handle: Handle,
         next_server: ArcServer,
         stream: TcpStream,
-        peer_addr: SocketAddr,
-        local_addr: SocketAddr,
+        cc_info: ClientConnectionInfo,
         ctx: ServerRunContext,
     ) {
         let tls_acceptor = TlsAcceptor::from(Arc::clone(&self.tls_server_config.driver));
@@ -72,7 +69,7 @@ impl AuxiliaryServerConfig for PlainTlsPortAuxConfig {
 
         rt_handle.spawn(async move {
             if let Some(filter) = ingress_net_filter {
-                let (_, action) = filter.check(peer_addr.ip());
+                let (_, action) = filter.check(cc_info.sock_peer_ip());
                 match action {
                     AclAction::Permit | AclAction::PermitAndLog => {}
                     AclAction::Forbid | AclAction::ForbidAndLog => {
@@ -83,7 +80,7 @@ impl AuxiliaryServerConfig for PlainTlsPortAuxConfig {
             }
 
             let mut stream = stream;
-            let mut cc_info = ClientConnectionInfo::new(peer_addr, local_addr, stream.as_raw_fd());
+            let mut cc_info = cc_info;
             match proxy_protocol {
                 Some(ProxyProtocolVersion::V1) => {
                     // TODO support proxy protocol v1
@@ -108,12 +105,20 @@ impl AuxiliaryServerConfig for PlainTlsPortAuxConfig {
                 Ok(Ok(tls_stream)) => next_server.run_tls_task(tls_stream, cc_info, ctx).await,
                 Ok(Err(e)) => {
                     listen_stats.add_failed();
-                    debug!("{local_addr} - {peer_addr} tls error: {e:?}");
+                    debug!(
+                        "{} - {} tls error: {e:?}",
+                        cc_info.sock_local_addr(),
+                        cc_info.sock_peer_addr()
+                    );
                     // TODO record tls failure and add some sec policy
                 }
                 Err(_) => {
                     listen_stats.add_timeout();
-                    debug!("{local_addr} - {peer_addr} tls timeout");
+                    debug!(
+                        "{} - {} tls timeout",
+                        cc_info.sock_local_addr(),
+                        cc_info.sock_peer_addr()
+                    );
                     // TODO record tls failure and add some sec policy
                 }
             }

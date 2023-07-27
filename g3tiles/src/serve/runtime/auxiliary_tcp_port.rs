@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
+use std::os::fd::AsRawFd;
 use std::sync::Arc;
 
 use log::{info, warn};
@@ -23,6 +23,7 @@ use tokio::runtime::Handle;
 use tokio::sync::{broadcast, watch};
 
 use g3_daemon::listen::ListenStats;
+use g3_daemon::server::ClientConnectionInfo;
 use g3_io_ext::LimitedTcpListener;
 use g3_socket::util::native_socket_addr;
 use g3_types::metrics::MetricsName;
@@ -38,8 +39,7 @@ pub(crate) trait AuxiliaryServerConfig {
         rt_handle: Handle,
         next_server: ArcServer,
         stream: TcpStream,
-        peer_addr: SocketAddr,
-        local_addr: SocketAddr,
+        cc_info: ClientConnectionInfo,
         ctx: ServerRunContext,
     );
 }
@@ -192,12 +192,16 @@ impl AuxiliaryTcpPortRuntime {
                                 let (rt_handle, worker_id) = self.rt_handle();
                                 let mut run_ctx = run_ctx.clone();
                                 run_ctx.worker_id = worker_id;
+                                let cc_info = ClientConnectionInfo::new(
+                                    native_socket_addr(peer_addr),
+                                    native_socket_addr(local_addr),
+                                    stream.as_raw_fd(),
+                                );
                                 aux_config.run_tcp_task(
                                     rt_handle,
                                     next_server.clone(),
                                     stream,
-                                    native_socket_addr(peer_addr),
-                                    native_socket_addr(local_addr),
+                                    cc_info,
                                     run_ctx,
                                 );
                                 Ok(())
