@@ -25,6 +25,8 @@ use openssl::sign::{RsaPssSaltlen, Signer};
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncReadExt};
 
+use g3_types::net::{T1L2BVParse, TlvParse};
+
 use super::{KeylessDataResponse, KeylessErrorResponse, KeylessPongResponse};
 
 #[derive(Clone, Copy)]
@@ -58,6 +60,40 @@ pub(crate) struct KeylessRequest {
     pub(crate) action: KeylessAction,
     pub(crate) ski: Vec<u8>,
     pub(crate) payload: Vec<u8>,
+}
+
+impl T1L2BVParse<'_> for KeylessRequest {
+    type Error = KeylessRequestError;
+
+    fn no_enough_data() -> Self::Error {
+        KeylessRequestError::CorruptedMessage
+    }
+
+    fn parse_value(&mut self, tag: u8, v: &[u8]) -> Result<(), Self::Error> {
+        match tag {
+            // Cert Digest
+            0x01 => {}
+            // SKI
+            0x04 => {
+                self.ski = v.to_vec();
+            }
+            // OPCODE
+            0x11 => {
+                if v.len() != 1 {
+                    return Err(KeylessRequestError::InvalidItemLength(tag));
+                }
+                self.opcode = v[0];
+            }
+            // PAYLOAD
+            0x12 => {
+                self.payload = v.to_vec();
+            }
+            // PADDING
+            0x20 => {}
+            _ => {}
+        }
+        Ok(())
+    }
 }
 
 impl KeylessRequest {
@@ -106,59 +142,8 @@ impl KeylessRequest {
 
         let id = u32::from_be_bytes([hdr_buf[4], hdr_buf[5], hdr_buf[6], hdr_buf[7]]);
         let mut request = KeylessRequest::new(id);
-        request.parse_buf(buf)?;
+        request.parse_tlv(buf)?;
         Ok(request)
-    }
-
-    fn parse_buf(&mut self, buf: &[u8]) -> Result<(), KeylessRequestError> {
-        let total_len = buf.len();
-        let mut offset = 0usize;
-        loop {
-            if offset + super::ITEM_HEADER_LENGTH > total_len {
-                return Err(KeylessRequestError::CorruptedMessage);
-            }
-
-            let hdr = &buf[offset..offset + super::ITEM_HEADER_LENGTH];
-            let item = hdr[0];
-            let item_len = ((hdr[1] as usize) << 8) + hdr[2] as usize;
-            if item_len < 1 {
-                return Err(KeylessRequestError::InvalidItemLength(item));
-            }
-            offset += super::ITEM_HEADER_LENGTH;
-            if offset + item_len > total_len {
-                return Err(KeylessRequestError::InvalidItemLength(item));
-            }
-
-            let data = &buf[offset..offset + item_len];
-            match item {
-                // Cert Digest
-                0x01 => {}
-                // SKI
-                0x04 => {
-                    self.ski = data.to_vec();
-                }
-                // OPCODE
-                0x11 => {
-                    if item_len != 1 {
-                        return Err(KeylessRequestError::InvalidItemLength(item));
-                    }
-                    self.opcode = data[0];
-                }
-                // PAYLOAD
-                0x12 => {
-                    self.payload = data.to_vec();
-                }
-                // PADDING
-                0x20 => {}
-                _ => {}
-            }
-
-            offset += item_len;
-            if offset >= total_len {
-                break;
-            }
-        }
-        Ok(())
     }
 
     pub(crate) fn verify_opcode(&mut self) -> Result<(), KeylessErrorResponse> {
