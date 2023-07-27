@@ -1,4 +1,8 @@
 
+v0.8.2:
+ - Feature: allow to verify keyless action result
+ - BUG FIX: fix openssl rsa private encrypt action
+
 v0.8.1
  - Feature: support openssl async jobs in keyless-openssl target
  - Feature: add license info to deb and rpm package files
