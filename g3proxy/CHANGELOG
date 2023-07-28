@@ -1,5 +1,6 @@
 
 v1.7.19:
+ - Feature: support PROXY Protocol in PlainTcpPort and PlainTlsPort server
  - Feature: support transmute udp peer addr in proxy_socks5 escaper
  - Optimization: rename and deprecate options in socks_proxy server:
      - auto_reply_local_ip_map -> transmute_udp_echo_ip
