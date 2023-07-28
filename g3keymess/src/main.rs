@@ -121,16 +121,22 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
             .context("failed to load all key stores")?;
 
         g3keymess::serve::spawn_offline_clean();
-        g3keymess::serve::create_all_stopped()
-            .await
-            .context("failed to create all servers")?;
-
-        g3keymess::register::startup(&unique_ctl_path)
-            .await
-            .context("register failed")?;
-        g3keymess::serve::start_all_stopped()
-            .await
-            .context("failed to start all servers")?;
+        if let Some(config) = g3_daemon::register::get_config() {
+            tokio::spawn(async move {
+                g3keymess::serve::create_all_stopped().await;
+                if let Err(e) = g3keymess::register::startup(config, &unique_ctl_path).await {
+                    warn!("register failed: {e:?}");
+                    g3keymess::control::UniqueController::abort_immediately().await;
+                } else if let Err(e) = g3keymess::serve::start_all_stopped().await {
+                    warn!("failed to start all servers: {e:?}");
+                    g3keymess::control::UniqueController::abort_immediately().await;
+                }
+            });
+        } else {
+            g3keymess::serve::spawn_all()
+                .await
+                .context("failed to start all servers")?;
+        }
 
         unique_ctl.await;
 

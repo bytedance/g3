@@ -41,25 +41,23 @@ pub fn spawn_offline_clean() {
     });
 }
 
-pub async fn create_all_stopped() -> anyhow::Result<()> {
+pub async fn create_all_stopped() {
     let _guard = SERVER_OPS_LOCK.lock().await;
 
     let all_config = crate::config::server::get_all();
     for config in all_config {
         let name = config.name();
         debug!("creating server {name}");
-        spawn_new_lazy_unlocked(config.as_ref().clone())?;
+        spawn_new_lazy_unlocked(config.as_ref().clone());
         debug!("server {name} create OK");
     }
-
-    Ok(())
 }
 
 pub async fn start_all_stopped() -> anyhow::Result<()> {
     registry::foreach_start_runtime()
 }
 
-pub(crate) async fn spawn_all() -> anyhow::Result<()> {
+pub async fn spawn_all() -> anyhow::Result<()> {
     let _guard = SERVER_OPS_LOCK.lock().await;
 
     let mut new_names = HashSet::<MetricsName>::new();
@@ -124,11 +122,10 @@ fn spawn_new_unlocked(config: KeyServerConfig) -> anyhow::Result<()> {
 }
 
 // use async fn to allow tokio schedule
-fn spawn_new_lazy_unlocked(config: KeyServerConfig) -> anyhow::Result<()> {
+fn spawn_new_lazy_unlocked(config: KeyServerConfig) {
     let name = config.name().clone();
     let server = KeyServer::prepare_initial(config);
-    registry::add_lazy(name, Arc::new(server))?;
-    Ok(())
+    registry::add_lazy(name, Arc::new(server));
 }
 
 pub(crate) async fn wait_all_tasks<F>(wait_timeout: Duration, quit_timeout: Duration, on_timeout: F)

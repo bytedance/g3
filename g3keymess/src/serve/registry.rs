@@ -74,13 +74,12 @@ pub(super) fn add(name: MetricsName, server: Arc<KeyServer>) -> anyhow::Result<(
     Ok(())
 }
 
-pub(super) fn add_lazy(name: MetricsName, server: Arc<KeyServer>) -> anyhow::Result<()> {
+pub(super) fn add_lazy(name: MetricsName, server: Arc<KeyServer>) {
     let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     // no start runtime
     if let Some(_old_server) = ht.insert(name, server) {
         // no offline
     }
-    Ok(())
 }
 
 pub(super) fn del(name: &MetricsName) {

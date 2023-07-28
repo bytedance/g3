@@ -15,52 +15,52 @@
  */
 
 use std::path::Path;
+use std::sync::Arc;
 use std::time::Duration;
 
 use log::{info, warn};
 use serde_json::Value;
 
-use g3_daemon::register::RegisterTask;
+use g3_daemon::register::{RegisterConfig, RegisterTask};
 
-pub async fn startup(ctl_socket: &Path) -> anyhow::Result<()> {
-    if let Some(config) = g3_daemon::register::get_config() {
-        let mut data = serde_json::Map::new();
-        data.insert(
-            "ctl_local".to_string(),
-            Value::String(format!("{}", ctl_socket.display())),
-        );
-        data.insert(
-            "pid".to_string(),
-            Value::String(std::process::id().to_string()),
-        );
+pub async fn startup(config: Arc<RegisterConfig>, ctl_socket: &Path) -> anyhow::Result<()> {
+    let mut data = serde_json::Map::new();
+    data.insert(
+        "ctl_local".to_string(),
+        Value::String(format!("{}", ctl_socket.display())),
+    );
+    data.insert(
+        "pid".to_string(),
+        Value::String(std::process::id().to_string()),
+    );
 
-        let mut task = RegisterTask::new(config).await?;
-        task.register(data.clone()).await?;
-        info!("process register ok");
+    let mut task = RegisterTask::new(config).await?;
+    task.register(data.clone()).await?;
+    info!("process register ok");
 
-        tokio::spawn(async move {
-            loop {
-                if let Err(e) = task.ping_until_end().await {
-                    warn!("lost connection with register upstream: {e:?}");
-                }
-
-                loop {
-                    tokio::time::sleep(Duration::from_secs(10)).await;
-                    info!("start reconnect to register upstream");
-                    if let Err(e) = task.reopen().await {
-                        warn!("reconnect to register upstream failed: {e:?}");
-                        continue;
-                    }
-                    info!("reconnected to register upstream");
-                    if let Err(e) = task.register(data.clone()).await {
-                        warn!("register failed: {e:?}");
-                        continue;
-                    }
-                    info!("process register ok");
-                    break;
-                }
+    tokio::spawn(async move {
+        loop {
+            if let Err(e) = task.ping_until_end().await {
+                warn!("lost connection with register upstream: {e:?}");
             }
-        });
-    }
+
+            loop {
+                tokio::time::sleep(Duration::from_secs(10)).await;
+                info!("start reconnect to register upstream");
+                if let Err(e) = task.reopen().await {
+                    warn!("reconnect to register upstream failed: {e:?}");
+                    continue;
+                }
+                info!("reconnected to register upstream");
+                if let Err(e) = task.register(data.clone()).await {
+                    warn!("register failed: {e:?}");
+                    continue;
+                }
+                info!("process register ok");
+                break;
+            }
+        }
+    });
+
     Ok(())
 }
