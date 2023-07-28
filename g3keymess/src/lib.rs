@@ -17,6 +17,7 @@
 pub mod config;
 pub mod control;
 pub mod opts;
+pub mod register;
 pub mod serve;
 pub mod signal;
 pub mod stat;

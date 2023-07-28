@@ -60,6 +60,10 @@ impl LocalController {
         })
     }
 
+    pub fn listen_path(&self) -> PathBuf {
+        self.listen_path.clone()
+    }
+
     fn start(self, mutex: &Mutex<Option<AbortHandle>>) -> anyhow::Result<impl Future> {
         let mut abort_handler_container = mutex.lock().unwrap();
         if abort_handler_container.is_some() {
@@ -114,7 +118,7 @@ impl LocalController {
         }
     }
 
-    pub fn start_unique(daemon_group: &str) -> anyhow::Result<impl Future> {
+    pub fn create_unique(daemon_group: &str) -> anyhow::Result<Self> {
         let socket_name = format!("{daemon_group}_{}.sock", std::process::id());
         let mut listen_path = crate::opts::control_dir();
         listen_path.push(Path::new(&socket_name));
@@ -122,16 +126,25 @@ impl LocalController {
 
         debug!("setting up unique controller {}", listen_path.display());
         let controller = LocalController::new(listen_path)?;
-        let fut = controller.start(&UNIQUE_CONTROLLER_ABORT_HANDLER)?;
         debug!("unique controller created");
+        Ok(controller)
+    }
+
+    pub fn start_as_unique(self) -> anyhow::Result<impl Future> {
+        let fut = self.start(&UNIQUE_CONTROLLER_ABORT_HANDLER)?;
+        debug!("unique controller started");
         Ok(fut)
+    }
+
+    pub fn start_unique(daemon_group: &str) -> anyhow::Result<impl Future> {
+        LocalController::create_unique(daemon_group)?.start_as_unique()
     }
 
     pub fn abort_unique() {
         LocalController::abort(&UNIQUE_CONTROLLER_ABORT_HANDLER);
     }
 
-    pub fn start_daemon(daemon_group: &str) -> anyhow::Result<impl Future> {
+    pub fn create_daemon(daemon_group: &str) -> anyhow::Result<Self> {
         let socket_name = if daemon_group.is_empty() {
             "_.sock".to_string()
         } else {
@@ -143,9 +156,18 @@ impl LocalController {
 
         debug!("setting up daemon controller {}", listen_path.display());
         let controller = LocalController::new(listen_path)?;
-        let fut = controller.start(&DAEMON_CONTROLLER_ABORT_HANDLER)?;
         debug!("daemon controller created");
+        Ok(controller)
+    }
+
+    pub fn start_as_daemon(self) -> anyhow::Result<impl Future> {
+        let fut = self.start(&DAEMON_CONTROLLER_ABORT_HANDLER)?;
+        debug!("daemon controller started");
         Ok(fut)
+    }
+
+    pub fn start_daemon(daemon_group: &str) -> anyhow::Result<impl Future> {
+        LocalController::create_unique(daemon_group)?.start_as_daemon()
     }
 
     pub fn abort_daemon() {

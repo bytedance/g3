@@ -14,16 +14,25 @@
  * limitations under the License.
  */
 
-pub mod config;
-pub mod control;
-pub mod daemonize;
-pub mod listen;
-pub mod log;
-pub mod metric;
-pub mod opts;
-pub mod runtime;
-pub mod server;
-pub mod stat;
+use std::sync::Arc;
 
-#[cfg(feature = "register")]
-pub mod register;
+use yaml_rust::Yaml;
+
+mod config;
+pub use config::RegisterConfig;
+
+mod task;
+pub use task::RegisterTask;
+
+static mut REGISTER_CONFIG: Option<Arc<RegisterConfig>> = None;
+
+pub fn load_config(v: &Yaml) -> anyhow::Result<()> {
+    let mut config = RegisterConfig::default();
+    config.parse(v)?;
+    unsafe { REGISTER_CONFIG = Some(Arc::new(config)) }
+    Ok(())
+}
+
+pub fn get_config() -> Option<Arc<RegisterConfig>> {
+    unsafe { REGISTER_CONFIG.clone() }
+}

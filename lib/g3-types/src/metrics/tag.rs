@@ -15,6 +15,7 @@
  */
 
 use std::collections::BTreeMap;
+use std::fmt;
 use std::str::FromStr;
 
 use super::{chars_allowed_in_opentsdb, ParseError};
@@ -43,6 +44,12 @@ impl FromStr for MetricsTagName {
     }
 }
 
+impl fmt::Display for MetricsTagName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 impl MetricsTagValue {
     #[inline]
     pub fn as_str(&self) -> &str {
@@ -56,6 +63,12 @@ impl FromStr for MetricsTagValue {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         chars_allowed_in_opentsdb(s)?;
         Ok(MetricsTagValue(s.to_string()))
+    }
+}
+
+impl fmt::Display for MetricsTagValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

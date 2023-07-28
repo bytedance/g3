@@ -15,17 +15,30 @@
  */
 
 use std::future::Future;
+use std::path::PathBuf;
 
 use log::debug;
 
 use g3_daemon::control::LocalController;
 
-pub struct UniqueController {}
+pub struct UniqueController {
+    inner: LocalController,
+}
 pub struct DaemonController {}
 
 impl UniqueController {
-    pub fn start() -> anyhow::Result<impl Future> {
-        LocalController::start_unique(crate::opts::daemon_group())
+    pub fn create() -> anyhow::Result<Self> {
+        let controller = LocalController::create_unique(crate::opts::daemon_group())?;
+        Ok(UniqueController { inner: controller })
+    }
+
+    pub fn start(self) -> anyhow::Result<impl Future> {
+        self.inner.start_as_unique()
+    }
+
+    #[inline]
+    pub fn listen_path(&self) -> PathBuf {
+        self.inner.listen_path()
     }
 
     async fn abort(force: bool) {

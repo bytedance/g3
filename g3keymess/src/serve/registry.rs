@@ -17,7 +17,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use once_cell::sync::Lazy;
 
 use g3_types::metrics::MetricsName;
@@ -70,6 +70,15 @@ pub(super) fn add(name: MetricsName, server: Arc<KeyServer>) -> anyhow::Result<(
     if let Some(old_server) = ht.insert(name, server) {
         old_server.abort_runtime();
         add_offline(old_server);
+    }
+    Ok(())
+}
+
+pub(super) fn add_lazy(name: MetricsName, server: Arc<KeyServer>) -> anyhow::Result<()> {
+    let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
+    // no start runtime
+    if let Some(_old_server) = ht.insert(name, server) {
+        // no offline
     }
     Ok(())
 }
@@ -128,4 +137,14 @@ where
     for (name, server) in ht.iter() {
         f(name, server)
     }
+}
+
+pub(crate) fn foreach_start_runtime() -> anyhow::Result<()> {
+    let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
+    for (name, server) in ht.iter() {
+        server
+            .start_runtime(server)
+            .context(format!("failed to start runtime for {name}"))?;
+    }
+    Ok(())
 }
