@@ -43,7 +43,7 @@ impl From<&TrustDnsResolverConfig> for g3_resolver::ResolverConfig {
         g3_resolver::ResolverConfig {
             name: c.name.to_string(),
             runtime: c.runtime.clone(),
-            driver: AnyResolveDriverConfig::TrustDns(c.driver.clone()),
+            driver: AnyResolveDriverConfig::TrustDns(Box::new(c.driver.clone())),
         }
     }
 }

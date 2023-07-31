@@ -50,7 +50,7 @@ fn main() {
         config.add_server(IpAddr::from_str("223.5.5.5").unwrap());
         let config = ResolverConfig {
             name: String::new(),
-            driver: AnyResolveDriverConfig::TrustDns(config),
+            driver: AnyResolveDriverConfig::TrustDns(Box::new(config)),
             runtime: Default::default(),
         };
         let resolver = ResolverBuilder::new(config).build().unwrap();
