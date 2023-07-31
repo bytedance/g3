@@ -26,7 +26,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install capnproto libssl-dev liblua5.4-dev
+        sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
     - name: Cargo build
       run: cargo build --all
     - name: Cargo test
@@ -45,6 +45,6 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install capnproto libssl-dev liblua5.4-dev
+        sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
     - name: Cargo clippy
       run: cargo clippy --tests --all -- --deny warnings
