@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-use anyhow::{anyhow, Context};
 use std::convert::TryFrom;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 
+use anyhow::{anyhow, Context};
 use rustls::ServerName;
 use trust_dns_resolver::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts};
 use trust_dns_resolver::TokioAsyncResolver;
