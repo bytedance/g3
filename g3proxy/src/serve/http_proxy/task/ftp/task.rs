@@ -332,16 +332,14 @@ impl<'a> FtpOverHttpTask<'a> {
             }
             wrapper_stats.push_user_io_stats(user_io_stats);
 
-            let user = user_ctx.user();
-            if user
-                .config
+            let user_config = user_ctx.user_config();
+            if user_config
                 .tcp_sock_speed_limit
                 .eq(&self.ctx.server_config.tcp_sock_speed_limit)
             {
                 None
             } else {
-                let limit_config = user
-                    .config
+                let limit_config = user_config
                     .tcp_sock_speed_limit
                     .shrink_as_smaller(&self.ctx.server_config.tcp_sock_speed_limit);
                 Some(limit_config)
@@ -400,8 +398,7 @@ impl<'a> FtpOverHttpTask<'a> {
 
             // TODO merge user custom upstream keepalive config
             tcp_client_misc_opts = user_ctx
-                .user()
-                .config
+                .user_config()
                 .tcp_client_misc_opts(&tcp_client_misc_opts);
         }
 

@@ -140,8 +140,7 @@ impl CommonTaskContext {
 
         let misc_opts = if let Some(user_ctx) = task_notes.user_ctx() {
             user_ctx
-                .user()
-                .config
+                .user_config()
                 .udp_client_misc_opts(&self.server_config.udp_misc_opts)
         } else {
             self.server_config.udp_misc_opts

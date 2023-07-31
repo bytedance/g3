@@ -36,10 +36,10 @@ use super::{
     UserForbiddenStats, UserRequestStats, UserSite, UserSiteStats, UserSites, UserTrafficStats,
     UserType, UserUpstreamTrafficStats,
 };
-use crate::config::auth::UserConfig;
+use crate::config::auth::{UserAuditConfig, UserConfig};
 
 pub(crate) struct User {
-    pub(crate) config: Arc<UserConfig>,
+    config: Arc<UserConfig>,
     group: MetricsName,
     started: Instant,
     is_expired: AtomicBool,
@@ -58,11 +58,6 @@ pub(crate) struct User {
 }
 
 impl User {
-    #[inline]
-    pub(crate) fn name(&self) -> &str {
-        self.config.name()
-    }
-
     #[inline]
     pub(crate) fn task_max_idle_count(&self) -> i32 {
         self.config.task_idle_max_count
@@ -287,7 +282,7 @@ impl User {
         let stats = map.entry(server.to_string()).or_insert_with(|| {
             Arc::new(UserForbiddenStats::new(
                 &self.group,
-                self.name(),
+                self.config.name(),
                 user_type,
                 server,
                 server_extra_tags,
@@ -315,7 +310,7 @@ impl User {
         let stats = map.entry(server.to_string()).or_insert_with(|| {
             Arc::new(UserRequestStats::new(
                 &self.group,
-                self.name(),
+                self.config.name(),
                 user_type,
                 server,
                 server_extra_tags,
@@ -343,7 +338,7 @@ impl User {
         let stats = map.entry(server.to_string()).or_insert_with(|| {
             Arc::new(UserTrafficStats::new(
                 &self.group,
-                self.name(),
+                self.config.name(),
                 user_type,
                 server,
                 server_extra_tags,
@@ -371,7 +366,7 @@ impl User {
         let stats = map.entry(escaper.to_string()).or_insert_with(|| {
             Arc::new(UserUpstreamTrafficStats::new(
                 &self.group,
-                self.name(),
+                self.config.name(),
                 user_type,
                 escaper,
                 escaper_extra_tags,
@@ -504,10 +499,19 @@ impl User {
     pub(crate) fn resolve_redirection(&self) -> Option<&ResolveRedirection> {
         self.resolve_redirection.as_ref()
     }
+
+    pub(crate) fn audit(&self) -> &UserAuditConfig {
+        &self.config.audit
+    }
+
+    pub(crate) fn log_uri_max_chars(&self) -> Option<usize> {
+        self.config.log_uri_max_chars
+    }
 }
 
 #[derive(Clone)]
 pub(crate) struct UserContext {
+    raw_user_name: Option<String>,
     user: Arc<User>,
     user_type: UserType,
     user_site: Option<Arc<UserSite>>,
@@ -520,6 +524,7 @@ pub(crate) struct UserContext {
 
 impl UserContext {
     pub(crate) fn new(
+        raw_user_name: Option<String>,
         user: Arc<User>,
         user_type: UserType,
         server: &MetricsName,
@@ -528,6 +533,7 @@ impl UserContext {
         let forbid_stats = user.fetch_forbidden_stats(user_type, server, server_extra_tags);
         let req_stats = user.fetch_request_stats(user_type, server, server_extra_tags);
         UserContext {
+            raw_user_name,
             user,
             user_type,
             user_site: None,
@@ -567,6 +573,21 @@ impl UserContext {
     #[inline]
     pub(crate) fn user(&self) -> &Arc<User> {
         &self.user
+    }
+
+    #[inline]
+    pub(crate) fn raw_user_name(&self) -> Option<&str> {
+        self.raw_user_name.as_deref()
+    }
+
+    #[inline]
+    pub(crate) fn user_name(&self) -> &str {
+        self.user.config.name()
+    }
+
+    #[inline]
+    pub(crate) fn user_config(&self) -> &UserConfig {
+        &self.user.config
     }
 
     pub(crate) fn resolve_strategy(&self) -> Option<ResolveStrategy> {

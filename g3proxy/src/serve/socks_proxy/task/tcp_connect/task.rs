@@ -253,8 +253,7 @@ impl SocksProxyTcpConnectTask {
                 .await?;
 
             tcp_client_misc_opts = user_ctx
-                .user()
-                .config
+                .user_config()
                 .tcp_client_misc_opts(&tcp_client_misc_opts);
         }
 
@@ -375,7 +374,7 @@ impl SocksProxyTcpConnectTask {
                 .task_notes
                 .user_ctx()
                 .map(|ctx| {
-                    let user_config = &ctx.user().config.audit;
+                    let user_config = &ctx.user_config().audit;
                     user_config.enable_protocol_inspection
                         && user_config
                             .do_application_audit()
@@ -430,14 +429,12 @@ impl SocksProxyTcpConnectTask {
                 self.ctx.server_stats.extra_tags(),
             ));
 
-            let user = user_ctx.user();
-            if !user
-                .config
+            let user_config = user_ctx.user_config();
+            if !user_config
                 .tcp_sock_speed_limit
                 .eq(&self.ctx.server_config.tcp_sock_speed_limit)
             {
-                let limit_config = user
-                    .config
+                let limit_config = user_config
                     .tcp_sock_speed_limit
                     .shrink_as_smaller(&self.ctx.server_config.tcp_sock_speed_limit);
                 clt_r.reset_limit(limit_config.shift_millis, limit_config.max_north);

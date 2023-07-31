@@ -268,8 +268,7 @@ impl HttpProxyConnectTask {
             self.handle_user_upstream_acl_action(action, clt_w).await?;
 
             tcp_client_misc_opts = user_ctx
-                .user()
-                .config
+                .user_config()
                 .tcp_client_misc_opts(&tcp_client_misc_opts);
         }
 
@@ -435,7 +434,7 @@ impl HttpProxyConnectTask {
                 .task_notes
                 .user_ctx()
                 .map(|ctx| {
-                    let user_config = &ctx.user().config.audit;
+                    let user_config = &ctx.user_config().audit;
                     user_config.enable_protocol_inspection
                         && user_config
                             .do_application_audit()
@@ -495,8 +494,7 @@ impl HttpProxyConnectTask {
             ));
 
             user_ctx
-                .user()
-                .config
+                .user_config()
                 .tcp_sock_speed_limit
                 .shrink_as_smaller(&self.ctx.server_config.tcp_sock_speed_limit)
         } else {

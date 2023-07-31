@@ -427,8 +427,7 @@ impl SocksProxyUdpConnectTask {
 
         let limit_config = if let Some(user_ctx) = self.task_notes.user_ctx() {
             user_ctx
-                .user()
-                .config
+                .user_config()
                 .udp_sock_speed_limit
                 .shrink_as_smaller(&self.ctx.server_config.udp_sock_speed_limit)
         } else {

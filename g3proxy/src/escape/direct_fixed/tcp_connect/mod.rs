@@ -327,17 +327,17 @@ impl DirectFixedEscaper {
         let mut tcp_connect_config = self.config.general.tcp_connect;
 
         let (keepalive, misc_opts) = if let Some(user_ctx) = task_notes.user_ctx() {
-            let user = user_ctx.user();
+            let user_config = user_ctx.user_config();
 
-            if let Some(user_config) = &user.config.tcp_connect {
+            if let Some(user_config) = &user_config.tcp_connect {
                 tcp_connect_config.limit_to(user_config);
             }
 
             let keepalive = self
                 .config
                 .tcp_keepalive
-                .adjust_to(user.config.tcp_remote_keepalive);
-            let misc_opts = user.config.tcp_remote_misc_opts(&self.config.tcp_misc_opts);
+                .adjust_to(user_config.tcp_remote_keepalive);
+            let misc_opts = user_config.tcp_remote_misc_opts(&self.config.tcp_misc_opts);
             (keepalive, misc_opts)
         } else {
             (self.config.tcp_keepalive, self.config.tcp_misc_opts)
@@ -383,13 +383,12 @@ impl DirectFixedEscaper {
         let mut tcp_connect_config = self.config.general.tcp_connect;
 
         let misc_opts = if let Some(user_ctx) = task_notes.user_ctx() {
-            if let Some(user_config) = &user_ctx.user().config.tcp_connect {
+            if let Some(user_config) = &user_ctx.user_config().tcp_connect {
                 tcp_connect_config.limit_to(user_config);
             }
 
             user_ctx
-                .user()
-                .config
+                .user_config()
                 .tcp_remote_misc_opts(&self.config.tcp_misc_opts)
         } else {
             self.config.tcp_misc_opts

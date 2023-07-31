@@ -54,7 +54,7 @@ impl ProxyHttpEscaper {
             HttpConnectRequest::new(&tcp_notes.upstream, &self.config.append_http_headers);
 
         if self.config.pass_proxy_userid {
-            if let Some(name) = task_notes.user_ctx().map(|c| c.user().name()) {
+            if let Some(name) = task_notes.raw_user_name() {
                 let line = crate::module::http_header::proxy_authorization_basic_pass(name);
                 req.append_dyn_header(line);
             }

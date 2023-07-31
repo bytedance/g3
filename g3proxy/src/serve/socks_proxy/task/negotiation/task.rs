@@ -202,6 +202,7 @@ impl SocksProxyNegotiationTask {
                 if let Some(user_group) = &self.user_group {
                     if let Some((user, user_type)) = user_group.get_anonymous_user() {
                         let user_ctx = UserContext::new(
+                            None,
                             user,
                             user_type,
                             self.ctx.server_config.name(),
@@ -222,6 +223,7 @@ impl SocksProxyNegotiationTask {
                     let (username, password) = v5::auth::recv_user_from_client(&mut clt_r).await?;
                     if let Some((user, user_type)) = user_group.get_user(username.as_original()) {
                         let user_ctx = UserContext::new(
+                            Some(username.as_original().to_string()),
                             user,
                             user_type,
                             self.ctx.server_config.name(),
@@ -297,7 +299,7 @@ impl SocksProxyNegotiationTask {
                 let use_udp_associate = self.ctx.server_config.use_udp_associate
                     || task_notes
                         .user_ctx()
-                        .map(|uc| uc.user().config.socks_use_udp_associate)
+                        .map(|uc| uc.user_config().socks_use_udp_associate)
                         .unwrap_or(false);
                 if use_udp_associate {
                     let task =

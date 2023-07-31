@@ -42,7 +42,7 @@ pub(super) struct ProxyHttpHttpForwardWriter<W: AsyncWrite> {
     inner: W,
     escaper_stats: Option<Arc<ProxyHttpEscaperStats>>,
     upstream: UpstreamAddr,
-    username: Option<String>,
+    pass_userid: Option<String>,
 }
 
 impl<W> ProxyHttpHttpForwardWriter<W>
@@ -60,7 +60,7 @@ where
             inner: ups_w,
             escaper_stats,
             upstream,
-            username: None,
+            pass_userid: None,
         }
     }
 }
@@ -96,9 +96,7 @@ where
 {
     fn prepare_new(&mut self, task_notes: &ServerTaskNotes, upstream: &UpstreamAddr) {
         self.upstream = upstream.clone();
-        if let Some(user_ctx) = task_notes.user_ctx() {
-            self.username = Some(user_ctx.user().name().to_string());
-        }
+        self.pass_userid = task_notes.raw_user_name().map(|s| s.to_string());
     }
 
     fn update_stats(
@@ -121,7 +119,7 @@ where
         &'a mut self,
         req: &'a HttpProxyClientRequest,
     ) -> io::Result<()> {
-        let userid = self.username.as_deref();
+        let userid = self.pass_userid.as_deref();
         send_req_header_via_proxy(
             &mut self.inner,
             req,

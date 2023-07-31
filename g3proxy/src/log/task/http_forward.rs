@@ -40,21 +40,18 @@ pub(crate) struct TaskLogForHttpForward<'a> {
 
 impl TaskLogForHttpForward<'_> {
     pub(crate) fn log(&self, logger: &Logger, e: &ServerTaskError) {
-        let username = if let Some(user_ctx) = self.task_notes.user_ctx() {
+        if let Some(user_ctx) = self.task_notes.user_ctx() {
             if user_ctx.skip_log() {
                 return;
             }
-            user_ctx.user().name()
-        } else {
-            ""
-        };
+        }
 
         slog_info!(logger, "{}", e;
             "task_type" => "HttpForward",
             "task_id" => LtUuid(&self.task_notes.id),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
-            "user" => username,
+            "user" => self.task_notes.raw_user_name(),
             "server_addr" => self.task_notes.server_addr(),
             "client_addr" => self.task_notes.client_addr(),
             "upstream" => LtUpstreamAddr(&self.tcp_notes.upstream),

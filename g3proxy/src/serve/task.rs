@@ -123,6 +123,10 @@ impl ServerTaskNotes {
         self.user_ctx.as_mut()
     }
 
+    pub(crate) fn raw_user_name(&self) -> Option<&str> {
+        self.user_ctx.as_ref().and_then(|c| c.raw_user_name())
+    }
+
     #[inline]
     pub(crate) fn task_created_instant(&self) -> Instant {
         self.create_ins

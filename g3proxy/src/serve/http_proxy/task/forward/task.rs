@@ -77,7 +77,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         let mut uri_log_max_chars = ctx.server_config.log_uri_max_chars;
         let mut do_application_audit = false;
         if let Some(user_ctx) = task_notes.user_ctx() {
-            let user_config = &user_ctx.user().config;
+            let user_config = &user_ctx.user_config();
             if let Some(max_chars) = user_config.log_uri_max_chars {
                 uri_log_max_chars = max_chars; // overwrite
             }
@@ -444,16 +444,14 @@ impl<'a> HttpProxyForwardTask<'a> {
                 }
                 wrapper_stats.push_user_io_stats(user_io_stats);
 
-                let user = user_ctx.user();
-                if user
-                    .config
+                let user_config = user_ctx.user_config();
+                if user_config
                     .tcp_sock_speed_limit
                     .eq(&self.ctx.server_config.tcp_sock_speed_limit)
                 {
                     None
                 } else {
-                    let limit_config = user
-                        .config
+                    let limit_config = user_config
                         .tcp_sock_speed_limit
                         .shrink_as_smaller(&self.ctx.server_config.tcp_sock_speed_limit);
                     Some(limit_config)
@@ -478,16 +476,14 @@ impl<'a> HttpProxyForwardTask<'a> {
                 }
                 wrapper_stats.push_user_io_stats(user_io_stats);
 
-                let user = user_ctx.user();
-                if user
-                    .config
+                let user_config = user_ctx.user_config();
+                if user_config
                     .tcp_sock_speed_limit
                     .eq(&self.ctx.server_config.tcp_sock_speed_limit)
                 {
                     None
                 } else {
-                    let limit_config = user
-                        .config
+                    let limit_config = user_config
                         .tcp_sock_speed_limit
                         .shrink_as_smaller(&self.ctx.server_config.tcp_sock_speed_limit);
                     Some(limit_config)
@@ -564,10 +560,9 @@ impl<'a> HttpProxyForwardTask<'a> {
             }
 
             upstream_keepalive =
-                upstream_keepalive.adjust_to(user_ctx.user().config.http_upstream_keepalive);
+                upstream_keepalive.adjust_to(user_ctx.user_config().http_upstream_keepalive);
             tcp_client_misc_opts = user_ctx
-                .user()
-                .config
+                .user_config()
                 .tcp_client_misc_opts(&tcp_client_misc_opts);
         }
 
@@ -759,8 +754,8 @@ impl<'a> HttpProxyForwardTask<'a> {
                                 self.task_notes.task_created_instant(),
                             );
                             adapter.set_client_addr(self.ctx.client_addr());
-                            if let Some(user_ctx) = self.task_notes.user_ctx() {
-                                adapter.set_client_username(user_ctx.user().name());
+                            if let Some(name) = self.task_notes.raw_user_name() {
+                                adapter.set_client_username(name);
                             }
                             let r = self
                                 .run_with_adaptation(
@@ -1273,8 +1268,8 @@ impl<'a> HttpProxyForwardTask<'a> {
                                 self.http_notes.dur_rsp_recv_hdr,
                             );
                             adapter.set_client_addr(self.ctx.client_addr());
-                            if let Some(user_ctx) = self.task_notes.user_ctx() {
-                                adapter.set_client_username(user_ctx.user().name());
+                            if let Some(name) = self.task_notes.raw_user_name() {
+                                adapter.set_client_username(name);
                             }
                             adapter.set_respond_shared_headers(adaptation_respond_shared_headers);
                             let r = self
