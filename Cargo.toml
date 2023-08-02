@@ -204,3 +204,6 @@ lto = true
 inherits = "release"
 debug = 1
 debug-assertions = false
+
+[patch.crates-io]
+console = { version = "0.15.7", git = "https://github.com/console-rs/console.git", rev = "51425fc" }
