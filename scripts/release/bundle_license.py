@@ -15,11 +15,9 @@ ALIAS_NAME_MAP = {
 NO_TEXT_CRATES = [
     "cadence-with-flush",  # in the root dir repo
     "daemonize",  # in the root dir repo
-    "error-chain",  # not uploaded
     "governor",  # no license text at all
     "h3",  # in the root dir repo
     "h3-quinn",  # in the root dir repo
-    "metadeps",  # no license text at all
     "number_prefix",  # not uploaded
     "quinn",  # in the root dir repo
     "quinn-proto",  # in the root dir repo
