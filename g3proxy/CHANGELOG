@@ -2,6 +2,13 @@
 v1.7.20:
  - Feature: allow to set ingress net filter in user config
  - Feature: always log the raw input user name, so you will get the real user name if auth against anonymous user
+ - Feature: make the listen config optional in the following servers:
+     - http_proxy
+     - http_rproxy
+     - socks_proxy
+     - sni_proxy
+     - tcp_stream
+     - tls_stream
 
 v1.7.19:
  - Feature: support PROXY Protocol in PlainTcpPort and PlainTlsPort server

@@ -7,9 +7,17 @@ This server provides plain tcp port, which can be placed in front of other serve
 
 The following common keys are supported:
 
-* :ref:`listen <conf_server_common_listen>`
 * :ref:`listen_in_worker <conf_server_common_listen_in_worker>`
 * :ref:`ingress_network_filter <conf_server_common_ingress_network_filter>`
+
+listen
+------
+
+**required**, **type**: :ref:`tcp listen <conf_value_tcp_listen>`
+
+Set the listen config for this server.
+
+The instance count setting will be ignored if *listen_in_worker* is correctly enabled.
 
 server
 ------

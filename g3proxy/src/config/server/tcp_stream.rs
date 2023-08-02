@@ -42,7 +42,7 @@ pub(crate) struct TcpStreamServerConfig {
     pub(crate) escaper: MetricsName,
     pub(crate) auditor: MetricsName,
     pub(crate) shared_logger: Option<AsciiString>,
-    pub(crate) listen: TcpListenConfig,
+    pub(crate) listen: Option<TcpListenConfig>,
     pub(crate) listen_in_worker: bool,
     pub(crate) client_tls_config: Option<OpensslTlsClientConfigBuilder>,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
@@ -65,7 +65,7 @@ impl TcpStreamServerConfig {
             escaper: MetricsName::default(),
             auditor: MetricsName::default(),
             shared_logger: None,
-            listen: TcpListenConfig::default(),
+            listen: None,
             listen_in_worker: false,
             client_tls_config: None,
             ingress_net_filter: None,
@@ -120,8 +120,9 @@ impl TcpStreamServerConfig {
                 Ok(())
             }
             "listen" => {
-                self.listen = g3_yaml::value::as_tcp_listen_config(v)
+                let config = g3_yaml::value::as_tcp_listen_config(v)
                     .context(format!("invalid tcp listen config value for key {k}"))?;
+                self.listen = Some(config);
                 Ok(())
             }
             "listen_in_worker" => {

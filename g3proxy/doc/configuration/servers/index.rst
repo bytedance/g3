@@ -81,8 +81,6 @@ Set the server to use a logger running on a shared thread.
 
 **default**: not set
 
-.. _conf_server_common_listen:
-
 listen
 ------
 

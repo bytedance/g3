@@ -206,10 +206,13 @@ impl ServerInternal for SocksProxyServer {
     }
 
     fn _start_runtime(&self, server: &ArcServer) -> anyhow::Result<()> {
+        let Some(listen_config) = &self.config.listen else {
+            return Ok(());
+        };
         let runtime = OrdinaryTcpServerRuntime::new(server, &*self.config);
         runtime
             .run_all_instances(
-                &self.config.listen,
+                listen_config,
                 self.config.listen_in_worker,
                 &self.reload_sender,
             )
