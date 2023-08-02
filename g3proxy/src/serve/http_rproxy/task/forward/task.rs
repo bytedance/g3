@@ -298,6 +298,36 @@ impl<'a> HttpRProxyForwardTask<'a> {
         }
     }
 
+    async fn handle_user_client_acl_action<W>(
+        &mut self,
+        action: AclAction,
+        clt_w: &mut W,
+    ) -> ServerTaskResult<()>
+    where
+        W: AsyncWrite + Unpin,
+    {
+        let forbid = match action {
+            AclAction::Permit => false,
+            AclAction::PermitAndLog => {
+                // TODO log permit
+                false
+            }
+            AclAction::Forbid => true,
+            AclAction::ForbidAndLog => {
+                // TODO log forbid
+                true
+            }
+        };
+        if forbid {
+            self.reply_forbidden(clt_w).await;
+            Err(ServerTaskError::ForbiddenByRule(
+                ServerTaskForbiddenError::SrcBlocked,
+            ))
+        } else {
+            Ok(())
+        }
+    }
+
     async fn handle_user_ua_acl_action<W>(
         &mut self,
         action: AclAction,
@@ -435,6 +465,9 @@ impl<'a> HttpRProxyForwardTask<'a> {
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             let user_ctx = user_ctx.clone();
+
+            let action = user_ctx.check_client_addr(self.task_notes.client_addr());
+            self.handle_user_client_acl_action(action, clt_w).await?;
 
             if user_ctx.check_rate_limit().is_err() {
                 self.reply_too_many_requests(clt_w).await;

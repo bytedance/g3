@@ -15,6 +15,7 @@
  */
 
 use std::cmp::PartialEq;
+use std::net::SocketAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -24,7 +25,7 @@ use chrono::{DateTime, Utc};
 use governor::{clock::DefaultClock, state::InMemoryState, state::NotKeyed, RateLimiter};
 use tokio::time::Instant;
 
-use g3_types::acl::AclAction;
+use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::acl_set::AclDstHostRuleSet;
 use g3_types::auth::UserAuthError;
 use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit};
@@ -46,6 +47,7 @@ pub(crate) struct User {
     is_blocked: Arc<AtomicBool>,
     request_rate_limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
     tcp_conn_rate_limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
+    ingress_net_filter: Option<Arc<AclNetworkRule>>,
     dst_host_filter: Option<Arc<AclDstHostRuleSet>>,
     resolve_redirection: Option<ResolveRedirection>,
     log_rate_limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
@@ -61,6 +63,14 @@ impl User {
     #[inline]
     pub(crate) fn task_max_idle_count(&self) -> i32 {
         self.config.task_idle_max_count
+    }
+
+    fn update_ingress_net_filter(&mut self) {
+        self.ingress_net_filter = self
+            .config
+            .ingress_net_filter
+            .as_ref()
+            .map(|builder| Arc::new(builder.build()));
     }
 
     fn update_dst_host_filter(&mut self) {
@@ -110,6 +120,7 @@ impl User {
             is_blocked,
             request_rate_limit,
             tcp_conn_rate_limit,
+            ingress_net_filter: None,
             dst_host_filter: None,
             resolve_redirection: None,
             log_rate_limit,
@@ -120,6 +131,7 @@ impl User {
             req_alive_sem: GaugeSemaphore::new(config.request_alive_max),
             explicit_sites,
         };
+        user.update_ingress_net_filter();
         user.update_dst_host_filter();
         user.update_resolve_redirection();
         user
@@ -212,6 +224,7 @@ impl User {
             is_blocked,
             request_rate_limit,
             tcp_conn_rate_limit,
+            ingress_net_filter: None,
             dst_host_filter: None,
             resolve_redirection: None,
             log_rate_limit,
@@ -222,6 +235,15 @@ impl User {
             req_alive_sem: self.req_alive_sem.new_updated(config.request_alive_max),
             explicit_sites,
         };
+        if self
+            .config
+            .ingress_net_filter
+            .ne(&config.ingress_net_filter)
+        {
+            user.update_ingress_net_filter();
+        } else {
+            user.ingress_net_filter = self.ingress_net_filter.clone();
+        }
         if self.config.dst_host_filter.ne(&config.dst_host_filter) {
             user.update_dst_host_filter();
         } else {
@@ -434,6 +456,22 @@ impl User {
             let (_, action) = filter.check_request(&request);
             if action.forbid_early() {
                 forbid_stats.add_proto_banned();
+            }
+            action
+        } else {
+            AclAction::Permit
+        }
+    }
+
+    fn check_client_addr(
+        &self,
+        addr: SocketAddr,
+        forbid_stats: &Arc<UserForbiddenStats>,
+    ) -> AclAction {
+        if let Some(filter) = &self.ingress_net_filter {
+            let (_, action) = filter.check(addr.ip());
+            if action.forbid_early() {
+                forbid_stats.add_src_blocked();
             }
             action
         } else {
@@ -679,6 +717,11 @@ impl UserContext {
     #[inline]
     pub(crate) fn check_proxy_request(&self, request: ProxyRequestType) -> AclAction {
         self.user.check_proxy_request(request, &self.forbid_stats)
+    }
+
+    #[inline]
+    pub(crate) fn check_client_addr(&self, addr: SocketAddr) -> AclAction {
+        self.user.check_client_addr(addr, &self.forbid_stats)
     }
 
     #[inline]

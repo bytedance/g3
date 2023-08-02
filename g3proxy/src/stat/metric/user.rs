@@ -50,6 +50,7 @@ const METRIC_NAME_FORBIDDEN_USER_BLOCKED: &str = "user.forbidden.user_blocked";
 const METRIC_NAME_FORBIDDEN_FULLY_LOADED: &str = "user.forbidden.fully_loaded";
 const METRIC_NAME_FORBIDDEN_RATE_LIMITED: &str = "user.forbidden.rate_limited";
 const METRIC_NAME_FORBIDDEN_PROTO_BANNED: &str = "user.forbidden.proto_banned";
+const METRIC_NAME_FORBIDDEN_SRC_BLOCKED: &str = "user.forbidden.src_blocked";
 const METRIC_NAME_FORBIDDEN_DEST_DENIED: &str = "user.forbidden.dest_denied";
 const METRIC_NAME_FORBIDDEN_IP_BLOCKED: &str = "user.forbidden.ip_blocked";
 const METRIC_NAME_FORBIDDEN_LOG_SKIPPED: &str = "user.forbidden.log_skipped";
@@ -331,6 +332,7 @@ fn emit_user_forbidden_stats(
     emit_forbid_stats_u64!(fully_loaded, METRIC_NAME_FORBIDDEN_FULLY_LOADED);
     emit_forbid_stats_u64!(rate_limited, METRIC_NAME_FORBIDDEN_RATE_LIMITED);
     emit_forbid_stats_u64!(proto_banned, METRIC_NAME_FORBIDDEN_PROTO_BANNED);
+    emit_forbid_stats_u64!(src_blocked, METRIC_NAME_FORBIDDEN_SRC_BLOCKED);
     emit_forbid_stats_u64!(dest_denied, METRIC_NAME_FORBIDDEN_DEST_DENIED);
     emit_forbid_stats_u64!(ip_blocked, METRIC_NAME_FORBIDDEN_IP_BLOCKED);
     emit_forbid_stats_u64!(ua_blocked, METRIC_NAME_FORBIDDEN_UA_BLOCKED);

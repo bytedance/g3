@@ -37,6 +37,7 @@ pub(crate) struct UserForbiddenStats {
     fully_loaded: AtomicU64,
     rate_limited: AtomicU64,
     proto_banned: AtomicU64,
+    src_blocked: AtomicU64,
     dest_denied: AtomicU64,
     ip_blocked: AtomicU64,
     ua_blocked: AtomicU64,
@@ -51,6 +52,7 @@ pub(crate) struct UserForbiddenSnapshot {
     pub(crate) fully_loaded: u64,
     pub(crate) rate_limited: u64,
     pub(crate) proto_banned: u64,
+    pub(crate) src_blocked: u64,
     pub(crate) dest_denied: u64,
     pub(crate) ip_blocked: u64,
     pub(crate) ua_blocked: u64,
@@ -78,6 +80,7 @@ impl UserForbiddenStats {
             fully_loaded: Default::default(),
             rate_limited: Default::default(),
             proto_banned: Default::default(),
+            src_blocked: Default::default(),
             dest_denied: Default::default(),
             ip_blocked: Default::default(),
             ua_blocked: Default::default(),
@@ -123,6 +126,7 @@ impl UserForbiddenStats {
             fully_loaded: self.fully_loaded.load(Ordering::Relaxed),
             rate_limited: self.rate_limited.load(Ordering::Relaxed),
             proto_banned: self.proto_banned.load(Ordering::Relaxed),
+            src_blocked: self.src_blocked.load(Ordering::Relaxed),
             dest_denied: self.dest_denied.load(Ordering::Relaxed),
             ip_blocked: self.ip_blocked.load(Ordering::Relaxed),
             ua_blocked: self.ua_blocked.load(Ordering::Relaxed),
@@ -152,6 +156,10 @@ impl UserForbiddenStats {
 
     pub(crate) fn add_proto_banned(&self) {
         self.proto_banned.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn add_src_blocked(&self) {
+        self.src_blocked.fetch_add(1, Ordering::Relaxed);
     }
 
     pub(crate) fn add_dest_denied(&self) {

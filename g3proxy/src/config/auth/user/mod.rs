@@ -21,7 +21,9 @@ use std::time::Duration;
 use anyhow::anyhow;
 use chrono::{DateTime, Utc};
 
-use g3_types::acl::{AclExactPortRule, AclProxyRequestRule, AclUserAgentRule};
+use g3_types::acl::{
+    AclExactPortRule, AclNetworkRuleBuilder, AclProxyRequestRule, AclUserAgentRule,
+};
 use g3_types::acl_set::AclDstHostRuleSetBuilder;
 use g3_types::limit::RateLimitQuotaConfig;
 use g3_types::metrics::MetricsName;
@@ -57,6 +59,7 @@ pub(crate) struct UserConfig {
     pub(crate) udp_sock_speed_limit: UdpSockSpeedLimitConfig,
     pub(crate) log_rate_limit: Option<RateLimitQuotaConfig>,
     pub(crate) log_uri_max_chars: Option<usize>,
+    pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) proxy_request_filter: Option<AclProxyRequestRule>,
     pub(crate) dst_host_filter: Option<AclDstHostRuleSetBuilder>,
     pub(crate) dst_port_filter: Option<AclExactPortRule>,
@@ -90,6 +93,7 @@ impl Default for UserConfig {
             udp_sock_speed_limit: Default::default(),
             log_rate_limit: None,
             log_uri_max_chars: None,
+            ingress_net_filter: None,
             proxy_request_filter: None,
             dst_host_filter: None,
             dst_port_filter: None,

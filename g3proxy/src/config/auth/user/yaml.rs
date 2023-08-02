@@ -118,6 +118,13 @@ impl UserConfig {
                     .context(format!("invalid usize value for key {k}"))?;
                 Ok(())
             }
+            "ingress_network_filter" | "ingress_net_filter" => {
+                let filter = g3_yaml::value::acl::as_ingress_network_rule_builder(v).context(
+                    format!("invalid ingress network acl rule value for key {k}"),
+                )?;
+                self.ingress_net_filter = Some(filter);
+                Ok(())
+            }
             "proxy_request_filter" => {
                 let filter = g3_yaml::value::acl::as_proxy_request_rule(v)
                     .context(format!("invalid proxy request acl rule for key {k}"))?;
