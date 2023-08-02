@@ -9,6 +9,7 @@ v1.7.20:
      - sni_proxy
      - tcp_stream
      - tls_stream
+ - Feature: allow to set token to null value to disable password auth for user
 
 v1.7.19:
  - Feature: support PROXY Protocol in PlainTcpPort and PlainTlsPort server

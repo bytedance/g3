@@ -21,6 +21,14 @@ token
 
 Set the token used to authenticate the user. The token can be in the following types:
 
+* null
+
+  The null value means password token auth is disabled.
+
+  .. note:: This is different from not setting token value, which means forbid the user.
+
+  .. versionadded:: 1.7.20
+
 * str
 
   The value should be a string in unix format, see crypt(5).

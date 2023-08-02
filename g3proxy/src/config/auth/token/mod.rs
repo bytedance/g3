@@ -23,7 +23,7 @@ mod yaml;
 const CONFIG_KEY_TYPE: &str = "type";
 
 #[derive(Clone)]
-pub(crate) enum UserAuthentication {
+pub(crate) enum PasswordToken {
     Forbidden,
     SkipVerify,
     FastHash(FastHashedPassPhrase),

@@ -33,7 +33,7 @@ use g3_types::net::{
 };
 use g3_types::resolve::{ResolveRedirectionBuilder, ResolveStrategy};
 
-use super::{UserAuditConfig, UserAuthentication, UserSiteConfig};
+use super::{PasswordToken, UserAuditConfig, UserSiteConfig};
 
 mod json;
 mod yaml;
@@ -41,7 +41,7 @@ mod yaml;
 #[derive(Clone)]
 pub(crate) struct UserConfig {
     name: String,
-    token: UserAuthentication,
+    password_token: PasswordToken,
     expire_datetime: Option<DateTime<Utc>>,
     pub(crate) audit: UserAuditConfig,
     pub(crate) block_and_delay: Option<Duration>,
@@ -75,7 +75,7 @@ impl Default for UserConfig {
     fn default() -> Self {
         UserConfig {
             name: String::new(),
-            token: UserAuthentication::Forbidden,
+            password_token: PasswordToken::Forbidden,
             expire_datetime: None,
             audit: UserAuditConfig::default(),
             block_and_delay: None,
@@ -121,16 +121,16 @@ impl UserConfig {
     }
 
     pub(crate) fn check_password(&self, password: &str) -> bool {
-        match &self.token {
-            UserAuthentication::Forbidden => false,
-            UserAuthentication::SkipVerify => true,
-            UserAuthentication::FastHash(fast_hash) => fast_hash.verify(password),
-            UserAuthentication::XCrypt(xcrypt_hash) => xcrypt_hash.verify(password.as_bytes()),
+        match &self.password_token {
+            PasswordToken::Forbidden => false,
+            PasswordToken::SkipVerify => true,
+            PasswordToken::FastHash(fast_hash) => fast_hash.verify(password),
+            PasswordToken::XCrypt(xcrypt_hash) => xcrypt_hash.verify(password.as_bytes()),
         }
     }
 
     pub(super) fn set_no_password(&mut self) {
-        self.token = UserAuthentication::SkipVerify;
+        self.password_token = PasswordToken::SkipVerify;
     }
 
     fn add_site_group(&mut self, sg: UserSiteConfig) -> anyhow::Result<()> {

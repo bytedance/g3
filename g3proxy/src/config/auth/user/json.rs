@@ -17,7 +17,7 @@
 use anyhow::{anyhow, Context};
 use serde_json::{Map, Value};
 
-use super::{UserAuthentication, UserConfig, UserSiteConfig};
+use super::{PasswordToken, UserConfig, UserSiteConfig};
 
 impl UserConfig {
     pub(crate) fn parse_json(map: &Map<String, Value>) -> anyhow::Result<Self> {
@@ -37,8 +37,8 @@ impl UserConfig {
                 Ok(())
             }
             "token" => {
-                self.token = UserAuthentication::parse_json(v)
-                    .context(format!("invalid value for key {k}"))?;
+                self.password_token =
+                    PasswordToken::parse_json(v).context(format!("invalid value for key {k}"))?;
                 Ok(())
             }
             "expire" => {

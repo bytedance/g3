@@ -17,7 +17,7 @@
 use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
 
-use super::{UserAuthentication, UserConfig, UserSiteConfig};
+use super::{PasswordToken, UserConfig, UserSiteConfig};
 
 impl UserConfig {
     pub(crate) fn parse_yaml(map: &yaml::Hash) -> anyhow::Result<Self> {
@@ -35,8 +35,8 @@ impl UserConfig {
                 Ok(())
             }
             "token" => {
-                self.token = UserAuthentication::parse_yaml(v)
-                    .context(format!("invalid value for key {k}"))?;
+                self.password_token =
+                    PasswordToken::parse_yaml(v).context(format!("invalid value for key {k}"))?;
                 Ok(())
             }
             "expire" => {
