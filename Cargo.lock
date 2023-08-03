@@ -304,9 +304,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.80"
+version = "1.0.81"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51f1226cd9da55587234753d1245dd5b132343ea240f26b6a9003d68706141ba"
+checksum = "6c6b2562119bf28c3439f7f02db99faf0aa1a8cdfe5772a2ee155d32227239f0"
 dependencies = [
  "libc",
 ]
@@ -1128,7 +1128,7 @@ dependencies = [
  "smallvec",
  "thiserror",
  "url",
- "webpki-roots 0.25.1",
+ "webpki-roots",
 ]
 
 [[package]]
@@ -1737,9 +1737,9 @@ dependencies = [
 
 [[package]]
 name = "indicatif"
-version = "0.17.5"
+version = "0.17.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ff8cc23a7393a397ed1d7f56e6365cba772aba9f9912ab968b03043c395d057"
+checksum = "0b297dc40733f23a0e52728a58fa9489a5b7638a324932de16b41adc3ef80730"
 dependencies = [
  "console",
  "instant",
@@ -2614,9 +2614,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.38.4"
+version = "0.38.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a962918ea88d644592894bc6dc55acc6c0956488adcebbfb6e273506b7fd6e5"
+checksum = "1ee020b1716f0a80e2ace9b03441a749e402e86712f15f16fe8a8f75afac732f"
 dependencies = [
  "bitflags 2.3.3",
  "errno",
@@ -2633,7 +2633,7 @@ checksum = "1d1feddffcfcc0b33f5c6ce9a29e341e4cd59c3f78e7ee45f4a40c038b1d6cbb"
 dependencies = [
  "log",
  "ring",
- "rustls-webpki 0.101.2",
+ "rustls-webpki",
  "sct",
 ]
 
@@ -2656,16 +2656,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2d3987094b1d07b653b7dfdc3f70ce9a1da9c51ac18c1b06b662e4f9a0e9f4b2"
 dependencies = [
  "base64",
-]
-
-[[package]]
-name = "rustls-webpki"
-version = "0.100.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6207cd5ed3d8dca7816f8f3725513a34609c0c765bf652b8c3cb4cfd87db46b"
-dependencies = [
- "ring",
- "untrusted",
 ]
 
 [[package]]
@@ -3116,9 +3106,9 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-client"
-version = "0.23.0-alpha.4"
+version = "0.23.0-alpha.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "245b145d34e2ef860acce2fc5c3a5f6280d991b7a0e3e5c8020c97f5507bfe89"
+checksum = "43ea00437e11eb1211bfd67e07679dcafd28589dfd5620099bfaff9db37a6682"
 dependencies = [
  "cfg-if",
  "data-encoding",
@@ -3127,9 +3117,7 @@ dependencies = [
  "once_cell",
  "radix_trie",
  "rand",
- "ring",
  "rustls",
- "rustls-webpki 0.100.1",
  "thiserror",
  "tokio",
  "tracing",
@@ -3138,9 +3126,9 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-proto"
-version = "0.23.0-alpha.4"
+version = "0.23.0-alpha.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1e2bdb35be1f8b7d5b3800d42990f44b784889b6c0a29de3ac66932727349da"
+checksum = "5a0e26a546f7c8d1fb0cc5f6ef18ae108ae12a14cbe738462e350ac5362444de"
 dependencies = [
  "async-trait",
  "bytes",
@@ -3160,7 +3148,7 @@ dependencies = [
  "ring",
  "rustls",
  "rustls-pemfile",
- "rustls-webpki 0.100.1",
+ "rustls-webpki",
  "smallvec",
  "thiserror",
  "tinyvec",
@@ -3168,14 +3156,14 @@ dependencies = [
  "tokio-rustls",
  "tracing",
  "url",
- "webpki-roots 0.23.1",
+ "webpki-roots",
 ]
 
 [[package]]
 name = "trust-dns-resolver"
-version = "0.23.0-alpha.4"
+version = "0.23.0-alpha.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1596a10f98a46a6faf1886a332f087fefc8caa9d5024187378748a7e688377eb"
+checksum = "4df1065ac584960e5716a7b1dd091e5bb5d66830c60faae000e6d9e1cbd69adc"
 dependencies = [
  "cfg-if",
  "futures-util",
@@ -3190,7 +3178,7 @@ dependencies = [
  "tokio-rustls",
  "tracing",
  "trust-dns-proto",
- "webpki-roots 0.23.1",
+ "webpki-roots",
 ]
 
 [[package]]
@@ -3346,15 +3334,6 @@ checksum = "9b85cbef8c220a6abc02aefd892dfc0fc23afb1c6a426316ec33253a3877249b"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "webpki-roots"
-version = "0.23.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b03058f88386e5ff5310d9111d53f48b17d732b401aeb83a8d5190f2ac459338"
-dependencies = [
- "rustls-webpki 0.100.1",
 ]
 
 [[package]]
