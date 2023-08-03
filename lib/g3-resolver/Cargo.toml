@@ -14,8 +14,8 @@ tokio-util = { workspace = true, features = ["time"]}
 log.workspace = true
 indexmap.workspace = true
 ahash.workspace = true
-c-ares = { package = "mini-c-ares", version = "0.1", optional = true }
-c-ares-resolver = { package = "mini-c-ares-resolver", version = "0.1", optional = true }
+c-ares = { version = "7", optional = true }
+c-ares-resolver = { version = "7", optional = true }
 trust-dns-resolver = { workspace = true, optional = true, features = ["tokio-runtime", "dns-over-rustls", "dns-over-https-rustls", "dns-over-quic"] }
 trust-dns-proto = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
