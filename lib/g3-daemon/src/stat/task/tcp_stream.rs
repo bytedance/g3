@@ -14,29 +14,39 @@
  * limitations under the License.
  */
 
+use std::cell::UnsafeCell;
 use std::sync::Arc;
 
 use crate::stat::remote::{ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStats};
 
-#[derive(Copy, Clone, Default)]
+#[derive(Default)]
 pub struct TcpStreamHalfConnectionStats {
-    bytes: u64,
+    bytes: UnsafeCell<u64>,
 }
 
-impl TcpStreamHalfConnectionStats {
-    pub fn get_bytes(&self) -> u64 {
-        self.bytes
-    }
+unsafe impl Sync for TcpStreamHalfConnectionStats {}
 
-    pub fn add_bytes(&self, size: u64) {
-        unsafe {
-            let r = &self.bytes as *const u64 as *mut u64;
-            *r += size;
+impl Clone for TcpStreamHalfConnectionStats {
+    fn clone(&self) -> Self {
+        TcpStreamHalfConnectionStats {
+            bytes: UnsafeCell::new(self.get_bytes()),
         }
     }
 }
 
-#[derive(Copy, Clone, Default)]
+impl TcpStreamHalfConnectionStats {
+    pub fn get_bytes(&self) -> u64 {
+        let r = unsafe { &*self.bytes.get() };
+        *r
+    }
+
+    pub fn add_bytes(&self, size: u64) {
+        let r = unsafe { &mut *self.bytes.get() };
+        *r += size;
+    }
+}
+
+#[derive(Clone, Default)]
 pub struct TcpStreamConnectionStats {
     pub read: TcpStreamHalfConnectionStats,
     pub write: TcpStreamHalfConnectionStats,

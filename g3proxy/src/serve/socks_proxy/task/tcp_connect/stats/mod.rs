@@ -16,8 +16,6 @@
 
 use super::SocksProxyServerStats;
 
-mod task;
 mod wrapper;
 
-pub(super) use task::TcpConnectTaskStats;
 pub(super) use wrapper::TcpConnectTaskCltWrapperStats;

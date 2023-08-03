@@ -46,7 +46,7 @@ async fn process_socket(mut clt_stream: TcpStream) -> io::Result<()> {
     let (clt_r, clt_w) = clt_stream.split();
     let (ups_r, ups_w) = ups_stream.split();
 
-    let task_stats = Arc::new(TaskStats::new());
+    let task_stats = Arc::new(TaskStats::default());
 
     let (clt_r_stats, clt_w_stats) = CltStats::new_pair(Arc::clone(&task_stats));
     let mut clt_r = LimitedReader::new(clt_r, *SHIFT_MILLIS, *MAX_BYTES, clt_r_stats);

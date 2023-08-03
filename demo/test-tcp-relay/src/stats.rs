@@ -14,69 +14,42 @@
  * limitations under the License.
  */
 
+use std::cell::UnsafeCell;
 use std::sync::Arc;
 
 use g3_io_ext::{
     ArcLimitedReaderStats, ArcLimitedWriterStats, LimitedReaderStats, LimitedWriterStats,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct HalfConnectionStats {
-    bytes: u64,
-    #[allow(unused)]
-    delay: u64,
+    bytes: UnsafeCell<u64>,
 }
+
+unsafe impl Sync for HalfConnectionStats {}
 
 impl HalfConnectionStats {
-    fn new() -> Self {
-        HalfConnectionStats { bytes: 0, delay: 0 }
-    }
-
     fn add_bytes(&self, size: u64) {
-        unsafe {
-            let r = &self.bytes as *const u64 as *mut u64;
-            *r += size;
-        }
+        let r = unsafe { &mut *self.bytes.get() };
+        *r += size;
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct ConnectionStats {
     read: HalfConnectionStats,
     write: HalfConnectionStats,
 }
 
-impl ConnectionStats {
-    fn new() -> Self {
-        ConnectionStats {
-            read: HalfConnectionStats::new(),
-            write: HalfConnectionStats::new(),
-        }
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct TaskStats {
     clt: ConnectionStats,
     ups: ConnectionStats,
 }
 
 impl TaskStats {
-    pub fn new() -> Self {
-        TaskStats {
-            clt: ConnectionStats::new(),
-            ups: ConnectionStats::new(),
-        }
-    }
-
     fn print(&self) {
         println!("{self:?}");
-    }
-}
-
-impl Default for TaskStats {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

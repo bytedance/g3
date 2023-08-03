@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::cell::UnsafeCell;
 use std::ops;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -61,31 +62,23 @@ impl TcpIoStats {
     }
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Default)]
 struct PerThreadTcpIoStats {
-    in_bytes: u64,
-    out_bytes: u64,
+    in_bytes: UnsafeCell<u64>,
+    out_bytes: UnsafeCell<u64>,
 }
 
 impl PerThreadTcpIoStats {
-    fn add_in_bytes(&self, size: u64) {
-        unsafe {
-            let r = &self.in_bytes as *const u64 as *mut u64;
-            *r += size;
-        }
-    }
+    impl_per_thread_unsafe_add_size!(add_in_bytes, in_bytes);
+    impl_per_thread_unsafe_add_size!(add_out_bytes, out_bytes);
 
-    fn add_out_bytes(&self, size: u64) {
-        unsafe {
-            let r = &self.out_bytes as *const u64 as *mut u64;
-            *r += size;
-        }
-    }
+    impl_per_thread_unsafe_get!(get_in_bytes, in_bytes, u64);
+    impl_per_thread_unsafe_get!(get_out_bytes, out_bytes, u64);
 
     fn snapshot(&self) -> TcpIoSnapshot {
         TcpIoSnapshot {
-            in_bytes: self.in_bytes,
-            out_bytes: self.out_bytes,
+            in_bytes: self.get_in_bytes(),
+            out_bytes: self.get_out_bytes(),
         }
     }
 }
@@ -97,9 +90,13 @@ pub struct ThreadedTcpIoStats {
 
 impl ThreadedTcpIoStats {
     pub fn new(thread_count: usize) -> Self {
+        let mut p = Vec::with_capacity(thread_count);
+        for _ in 0..thread_count {
+            p.push(PerThreadTcpIoStats::default());
+        }
         ThreadedTcpIoStats {
             a: TcpIoStats::default(),
-            p: vec![PerThreadTcpIoStats::default(); thread_count],
+            p,
         }
     }
 
@@ -116,7 +113,7 @@ impl ThreadedTcpIoStats {
     pub fn get_in_bytes(&self) -> u64 {
         self.p
             .iter()
-            .map(|x| x.in_bytes)
+            .map(|x| x.get_in_bytes())
             .fold(self.a.get_in_bytes(), |acc, x| acc + x)
     }
 

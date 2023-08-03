@@ -15,4 +15,7 @@
  */
 
 mod tcp_stream;
-pub use tcp_stream::{TcpStreamConnectionStats, TcpStreamTaskStats};
+pub use tcp_stream::{TcpStreamConnectionStats, TcpStreamHalfConnectionStats, TcpStreamTaskStats};
+
+mod udp_connect;
+pub use udp_connect::{UdpConnectConnectionStats, UdpConnectHalfConnectionStats};

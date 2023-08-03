@@ -20,12 +20,13 @@ use http::Version;
 use log::debug;
 use tokio::io::{AsyncRead, AsyncWrite};
 
+use g3_daemon::stat::task::TcpStreamTaskStats;
 use g3_io_ext::{LimitedReader, LimitedWriter};
 use g3_types::acl::AclAction;
 use g3_types::net::ProxyRequestType;
 
 use super::protocol::{HttpClientWriter, HttpProxyRequest};
-use super::{CommonTaskContext, TcpConnectTaskCltWrapperStats, TcpConnectTaskStats};
+use super::{CommonTaskContext, TcpConnectTaskCltWrapperStats};
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
@@ -42,7 +43,7 @@ pub(crate) struct HttpProxyConnectTask {
     back_to_http: bool,
     task_notes: ServerTaskNotes,
     tcp_notes: TcpConnectTaskNotes,
-    task_stats: Arc<TcpConnectTaskStats>,
+    task_stats: Arc<TcpStreamTaskStats>,
     http_version: Version,
 }
 
@@ -58,7 +59,7 @@ impl HttpProxyConnectTask {
             back_to_http: false,
             task_notes,
             tcp_notes: TcpConnectTaskNotes::new(req.upstream.clone()),
-            task_stats: Arc::new(TcpConnectTaskStats::new()),
+            task_stats: Arc::new(TcpStreamTaskStats::default()),
             http_version: req.inner.version,
         }
     }

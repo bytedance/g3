@@ -17,42 +17,14 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
+use g3_daemon::stat::task::UdpConnectHalfConnectionStats;
+
 use crate::module::udp_relay::{ArcUdpRelayTaskRemoteStats, UdpRelayTaskRemoteStats};
 
 #[derive(Default)]
-pub(crate) struct UdpAssociateClientSideHalfStats {
-    bytes: u64,
-    packets: u64,
-}
-
-impl UdpAssociateClientSideHalfStats {
-    pub(crate) fn get_bytes(&self) -> u64 {
-        self.bytes
-    }
-
-    pub(crate) fn get_packets(&self) -> u64 {
-        self.packets
-    }
-
-    pub(crate) fn add_bytes(&self, size: u64) {
-        unsafe {
-            let r = &self.bytes as *const u64 as *mut u64;
-            *r += size;
-        }
-    }
-
-    pub(crate) fn add_packet(&self) {
-        unsafe {
-            let r = &self.packets as *const u64 as *mut u64;
-            *r += 1;
-        }
-    }
-}
-
-#[derive(Default)]
 pub(crate) struct UdpAssociateClientSideStats {
-    pub(crate) recv: UdpAssociateClientSideHalfStats,
-    pub(crate) send: UdpAssociateClientSideHalfStats,
+    pub(crate) recv: UdpConnectHalfConnectionStats,
+    pub(crate) send: UdpConnectHalfConnectionStats,
 }
 
 #[derive(Default)]

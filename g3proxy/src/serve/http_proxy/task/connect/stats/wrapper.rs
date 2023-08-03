@@ -16,11 +16,12 @@
 
 use std::sync::Arc;
 
+use g3_daemon::stat::task::TcpStreamTaskStats;
 use g3_io_ext::{
     ArcLimitedReaderStats, ArcLimitedWriterStats, LimitedReaderStats, LimitedWriterStats,
 };
 
-use super::{HttpProxyServerStats, TcpConnectTaskStats};
+use super::HttpProxyServerStats;
 use crate::auth::UserTrafficStats;
 
 trait TcpConnectTaskCltStatsWrapper {
@@ -43,12 +44,12 @@ impl TcpConnectTaskCltStatsWrapper for UserTrafficStats {
 #[derive(Clone)]
 pub(crate) struct TcpConnectTaskCltWrapperStats {
     server: Arc<HttpProxyServerStats>,
-    task: Arc<TcpConnectTaskStats>,
+    task: Arc<TcpStreamTaskStats>,
     others: Vec<ArcTcpConnectTaskCltStatsWrapper>,
 }
 
 impl TcpConnectTaskCltWrapperStats {
-    pub(crate) fn new(server: &Arc<HttpProxyServerStats>, task: &Arc<TcpConnectTaskStats>) -> Self {
+    pub(crate) fn new(server: &Arc<HttpProxyServerStats>, task: &Arc<TcpStreamTaskStats>) -> Self {
         TcpConnectTaskCltWrapperStats {
             server: Arc::clone(server),
             task: Arc::clone(task),

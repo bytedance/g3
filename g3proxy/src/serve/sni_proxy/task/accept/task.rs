@@ -131,7 +131,7 @@ impl ClientHelloAcceptTask {
                     protocol,
                     final_upstream,
                     self.time_accepted.elapsed(),
-                    *self.pre_handshake_stats,
+                    self.pre_handshake_stats.as_ref().clone(),
                 )
                 .into_running(clt_r, clt_r_buf, clt_w)
                 .await;
@@ -148,7 +148,7 @@ impl ClientHelloAcceptTask {
                 protocol,
                 upstream,
                 self.time_accepted.elapsed(),
-                *self.pre_handshake_stats,
+                self.pre_handshake_stats.as_ref().clone(),
             )
             .into_running(clt_r, clt_r_buf, clt_w)
             .await;
