@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -25,8 +24,11 @@ use tokio::runtime::Handle;
 use tokio::sync::{broadcast, watch};
 
 use g3_daemon::listen::ListenStats;
+use g3_daemon::server::ClientConnectionInfo;
+use g3_io_ext::haproxy::ProxyProtocolV2Reader;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::MetricsName;
+use g3_types::net::ProxyProtocolVersion;
 
 use crate::config::server::plain_tcp_port::PlainTcpPortConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
@@ -52,16 +54,17 @@ impl AuxiliaryServerConfig for PlainTcpPortAuxConfig {
         rt_handle: Handle,
         next_server: ArcServer,
         stream: TcpStream,
-        peer_addr: SocketAddr,
-        local_addr: SocketAddr,
+        cc_info: ClientConnectionInfo,
         ctx: ServerRunContext,
     ) {
         let ingress_net_filter = self.ingress_net_filter.clone();
         let listen_stats = self.listen_stats.clone();
+        let proxy_protocol = self.config.proxy_protocol;
+        let proxy_protocol_read_timeout = self.config.proxy_protocol_read_timeout;
 
         rt_handle.spawn(async move {
             if let Some(filter) = ingress_net_filter {
-                let (_, action) = filter.check(peer_addr.ip());
+                let (_, action) = filter.check(cc_info.sock_peer_ip());
                 match action {
                     AclAction::Permit | AclAction::PermitAndLog => {}
                     AclAction::Forbid | AclAction::ForbidAndLog => {
@@ -71,9 +74,26 @@ impl AuxiliaryServerConfig for PlainTcpPortAuxConfig {
                 }
             }
 
-            next_server
-                .run_tcp_task(stream, peer_addr, local_addr, ctx)
-                .await
+            let mut cc_info = cc_info;
+            match proxy_protocol {
+                Some(ProxyProtocolVersion::V1) => {
+                    // TODO support proxy protocol v1
+                    listen_stats.add_dropped();
+                }
+                Some(ProxyProtocolVersion::V2) => {
+                    let mut stream = stream;
+                    let mut parser = ProxyProtocolV2Reader::new(proxy_protocol_read_timeout);
+                    match parser.read_proxy_protocol_v2_for_tcp(&mut stream).await {
+                        Ok(Some(a)) => {
+                            cc_info.set_proxy_addr(a);
+                            next_server.run_tcp_task(stream, cc_info, ctx).await
+                        }
+                        Ok(None) => next_server.run_tcp_task(stream, cc_info, ctx).await,
+                        Err(e) => listen_stats.add_by_proxy_protocol_error(e),
+                    }
+                }
+                None => next_server.run_tcp_task(stream, cc_info, ctx).await,
+            }
         });
     }
 }
@@ -238,8 +258,7 @@ impl Server for PlainTcpPort {
     async fn run_tcp_task(
         &self,
         _stream: TcpStream,
-        _peer_addr: SocketAddr,
-        _local_addr: SocketAddr,
+        _cc_info: ClientConnectionInfo,
         _ctx: ServerRunContext,
     ) {
     }

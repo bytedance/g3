@@ -16,36 +16,14 @@
 
 use std::sync::Arc;
 
+use g3_daemon::stat::task::TcpStreamConnectionStats;
+
 use crate::module::http_forward::{ArcHttpForwardTaskRemoteStats, HttpForwardTaskRemoteStats};
 
 #[derive(Default)]
-pub(crate) struct HttpForwardHalfConnectionStats {
-    bytes: u64,
-}
-
-impl HttpForwardHalfConnectionStats {
-    pub(crate) fn get_bytes(&self) -> u64 {
-        self.bytes
-    }
-
-    pub(crate) fn add_bytes(&self, size: u64) {
-        unsafe {
-            let r = &self.bytes as *const u64 as *mut u64;
-            *r += size;
-        }
-    }
-}
-
-#[derive(Default)]
-pub(crate) struct HttpForwardConnectionStats {
-    pub(crate) read: HttpForwardHalfConnectionStats,
-    pub(crate) write: HttpForwardHalfConnectionStats,
-}
-
-#[derive(Default)]
 pub(crate) struct HttpForwardTaskStats {
-    pub(crate) clt: HttpForwardConnectionStats,
-    pub(crate) ups: HttpForwardConnectionStats,
+    pub(crate) clt: TcpStreamConnectionStats,
+    pub(crate) ups: TcpStreamConnectionStats,
 }
 
 impl HttpForwardTaskStats {

@@ -47,6 +47,8 @@ pub(crate) enum ServerTaskForbiddenError {
     RateLimited,
     #[error("proxy request type banned")]
     ProtoBanned,
+    #[error("source address blocked")]
+    SrcBlocked,
     #[error("target dest denied")]
     DestDenied,
     #[error("target ip blocked")]

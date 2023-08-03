@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::cell::UnsafeCell;
 use std::ops;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -73,49 +74,31 @@ impl UdpIoStats {
     }
 }
 
-#[derive(Default, Clone, Copy)]
+#[derive(Default)]
 struct PerThreadUdpIoStats {
-    in_packets: u64,
-    in_bytes: u64,
-    out_packets: u64,
-    out_bytes: u64,
+    in_packets: UnsafeCell<u64>,
+    in_bytes: UnsafeCell<u64>,
+    out_packets: UnsafeCell<u64>,
+    out_bytes: UnsafeCell<u64>,
 }
 
 impl PerThreadUdpIoStats {
-    fn add_in_packet(&self) {
-        unsafe {
-            let r = &self.in_packets as *const u64 as *mut u64;
-            *r += 1;
-        }
-    }
+    impl_per_thread_unsafe_add_size!(add_in_bytes, in_bytes);
+    impl_per_thread_unsafe_add_packet!(add_in_packet, in_packets);
+    impl_per_thread_unsafe_add_size!(add_out_bytes, out_bytes);
+    impl_per_thread_unsafe_add_packet!(add_out_packet, out_packets);
 
-    fn add_in_bytes(&self, size: u64) {
-        unsafe {
-            let r = &self.in_bytes as *const u64 as *mut u64;
-            *r += size;
-        }
-    }
-
-    fn add_out_packet(&self) {
-        unsafe {
-            let r = &self.out_packets as *const u64 as *mut u64;
-            *r += 1;
-        }
-    }
-
-    fn add_out_bytes(&self, size: u64) {
-        unsafe {
-            let r = &self.out_bytes as *const u64 as *mut u64;
-            *r += size;
-        }
-    }
+    impl_per_thread_unsafe_get!(get_in_bytes, in_bytes, u64);
+    impl_per_thread_unsafe_get!(get_in_packets, in_packets, u64);
+    impl_per_thread_unsafe_get!(get_out_bytes, out_bytes, u64);
+    impl_per_thread_unsafe_get!(get_out_packets, out_packets, u64);
 
     fn snapshot(&self) -> UdpIoSnapshot {
         UdpIoSnapshot {
-            in_packets: self.in_packets,
-            in_bytes: self.in_bytes,
-            out_packets: self.out_packets,
-            out_bytes: self.out_bytes,
+            in_packets: self.get_in_packets(),
+            in_bytes: self.get_in_bytes(),
+            out_packets: self.get_out_packets(),
+            out_bytes: self.get_out_bytes(),
         }
     }
 }
@@ -127,9 +110,13 @@ pub struct ThreadedUdpIoStats {
 
 impl ThreadedUdpIoStats {
     pub fn new(thread_count: usize) -> Self {
+        let mut p = Vec::with_capacity(thread_count);
+        for _ in 0..thread_count {
+            p.push(PerThreadUdpIoStats::default());
+        }
         ThreadedUdpIoStats {
             a: UdpIoStats::default(),
-            p: vec![PerThreadUdpIoStats::default(); thread_count],
+            p,
         }
     }
 

@@ -15,7 +15,6 @@
  */
 
 use std::net::SocketAddr;
-use std::os::fd::AsRawFd;
 use std::sync::Arc;
 
 use ahash::AHashMap;
@@ -346,17 +345,15 @@ impl Server for OpensslProxyServer {
     async fn run_tcp_task(
         &self,
         stream: TcpStream,
-        peer_addr: SocketAddr,
-        local_addr: SocketAddr,
+        cc_info: ClientConnectionInfo,
         ctx: ServerRunContext,
     ) {
-        self.server_stats.add_conn(peer_addr);
-
-        if self.drop_early(peer_addr) {
+        let client_addr = cc_info.client_addr();
+        self.server_stats.add_conn(client_addr);
+        if self.drop_early(client_addr) {
             return;
         }
 
-        let cc_info = ClientConnectionInfo::new(peer_addr, local_addr, stream.as_raw_fd());
         self.run_task(stream, cc_info, ctx).await
     }
 }

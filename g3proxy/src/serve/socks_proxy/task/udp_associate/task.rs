@@ -149,10 +149,11 @@ impl SocksProxyUdpAssociateTask {
         let _ = Socks5Reply::ForbiddenByRule.send(clt_w).await;
     }
 
-    async fn handle_user_protocol_acl_action<W>(
+    async fn handle_user_acl_action<W>(
         &self,
         action: AclAction,
         clt_w: &mut W,
+        forbidden_error: ServerTaskForbiddenError,
     ) -> ServerTaskResult<()>
     where
         W: AsyncWrite + Unpin,
@@ -171,9 +172,7 @@ impl SocksProxyUdpAssociateTask {
         };
         if forbid {
             self.reply_forbidden(clt_w).await;
-            Err(ServerTaskError::ForbiddenByRule(
-                ServerTaskForbiddenError::ProtoBanned,
-            ))
+            Err(ServerTaskError::ForbiddenByRule(forbidden_error))
         } else {
             Ok(())
         }
@@ -190,6 +189,14 @@ impl SocksProxyUdpAssociateTask {
     {
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             let user_ctx = user_ctx.clone();
+
+            let action = user_ctx.check_client_addr(self.task_notes.client_addr());
+            self.handle_user_acl_action(
+                action,
+                &mut clt_tcp_w,
+                ServerTaskForbiddenError::SrcBlocked,
+            )
+            .await?;
 
             if user_ctx.check_rate_limit().is_err() {
                 self.reply_forbidden(&mut clt_tcp_w).await;
@@ -209,8 +216,12 @@ impl SocksProxyUdpAssociateTask {
             }
 
             let action = user_ctx.check_proxy_request(ProxyRequestType::SocksUdpAssociate);
-            self.handle_user_protocol_acl_action(action, &mut clt_tcp_w)
-                .await?;
+            self.handle_user_acl_action(
+                action,
+                &mut clt_tcp_w,
+                ServerTaskForbiddenError::ProtoBanned,
+            )
+            .await?;
         }
 
         self.task_notes.stage = ServerTaskStage::Preparing;
@@ -381,8 +392,7 @@ impl SocksProxyUdpAssociateTask {
 
         let limit_config = if let Some(user_ctx) = self.task_notes.user_ctx() {
             user_ctx
-                .user()
-                .config
+                .user_config()
                 .udp_sock_speed_limit
                 .shrink_as_smaller(&self.ctx.server_config.udp_sock_speed_limit)
         } else {

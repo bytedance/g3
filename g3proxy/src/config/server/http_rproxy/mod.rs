@@ -66,7 +66,7 @@ pub(crate) struct HttpRProxyServerConfig {
     pub(crate) escaper: MetricsName,
     pub(crate) user_group: MetricsName,
     pub(crate) shared_logger: Option<AsciiString>,
-    pub(crate) listen: TcpListenConfig,
+    pub(crate) listen: Option<TcpListenConfig>,
     pub(crate) listen_in_worker: bool,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) server_id: Option<HttpServerId>,
@@ -102,7 +102,7 @@ impl HttpRProxyServerConfig {
             escaper: MetricsName::default(),
             user_group: MetricsName::default(),
             shared_logger: None,
-            listen: TcpListenConfig::default(),
+            listen: None,
             listen_in_worker: false,
             ingress_net_filter: None,
             server_id: None,
@@ -170,8 +170,9 @@ impl HttpRProxyServerConfig {
                 Ok(())
             }
             "listen" => {
-                self.listen = g3_yaml::value::as_tcp_listen_config(v)
+                let config = g3_yaml::value::as_tcp_listen_config(v)
                     .context(format!("invalid tcp listen config value for key {k}"))?;
+                self.listen = Some(config);
                 Ok(())
             }
             "listen_in_worker" => {

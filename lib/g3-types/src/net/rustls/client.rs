@@ -114,15 +114,13 @@ impl RustlsClientConfigBuilder {
         let mut root_store = RootCertStore::empty();
         if !self.no_default_ca_certs {
             if self.use_builtin_ca_certs {
-                root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(
-                    |ta| {
-                        OwnedTrustAnchor::from_subject_spki_name_constraints(
-                            ta.subject,
-                            ta.spki,
-                            ta.name_constraints,
-                        )
-                    },
-                ));
+                root_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
+                    OwnedTrustAnchor::from_subject_spki_name_constraints(
+                        ta.subject,
+                        ta.spki,
+                        ta.name_constraints,
+                    )
+                }));
             } else {
                 let certs = super::load_native_certs_for_rustls()?;
                 for (i, cert) in certs.iter().enumerate() {

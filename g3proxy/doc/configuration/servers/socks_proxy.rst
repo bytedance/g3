@@ -11,7 +11,6 @@ The following common keys are supported:
 * :ref:`auditor <conf_server_common_auditor>`
 * :ref:`user_group <conf_server_common_user_group>`
 * :ref:`shared_logger <conf_server_common_shared_logger>`
-* :ref:`listen <conf_server_common_listen>`
 * :ref:`listen_in_worker <conf_server_common_listen_in_worker>`
 * :ref:`tcp_sock_speed_limit <conf_server_common_tcp_sock_speed_limit>`
 * :ref:`udp_sock_speed_limit <conf_server_common_udp_sock_speed_limit>`
@@ -37,6 +36,19 @@ The auth type supported by the server is determined by the type of the specified
 +-------------+---------------------------+-------------------+
 |gssapi       |gss_api                    |not yet            |
 +-------------+---------------------------+-------------------+
+
+listen
+------
+
+**optional**, **type**: :ref:`tcp listen <conf_value_tcp_listen>`
+
+Set the listen config for this server.
+
+The instance count setting will be ignored if *listen_in_worker* is correctly enabled.
+
+**default**: not set
+
+.. versionadded:: 1.7.20 change listen config to be optional
 
 use_udp_associate
 -----------------

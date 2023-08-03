@@ -102,20 +102,14 @@ impl ProtocolPortMap {
     }
 
     pub fn insert_batch(&mut self, port: u16, protocols: &[MaybeProtocol]) {
-        let node = self
-            .inner
-            .entry(port)
-            .or_insert_with(ProtocolPortMapValue::default);
+        let node = self.inner.entry(port).or_default();
         for protocol in protocols {
             node.insert(*protocol);
         }
     }
 
     pub fn insert(&mut self, port: u16, protocol: MaybeProtocol) {
-        let node = self
-            .inner
-            .entry(port)
-            .or_insert_with(ProtocolPortMapValue::default);
+        let node = self.inner.entry(port).or_default();
         node.insert(protocol);
     }
 

@@ -81,8 +81,6 @@ Set the server to use a logger running on a shared thread.
 
 **default**: not set
 
-.. _conf_server_common_listen:
-
 listen
 ------
 
@@ -126,6 +124,10 @@ ingress_network_filter
 **optional**, **type**: :ref:`ingress network acl rule <conf_value_ingress_network_acl_rule>`
 
 Set the network filter for clients.
+
+The used client address will always be the real socket peer address for servers that support PROXY Protocol.
+
+If a server is chained after a PROXY Protocol server, the used client address will be the one in the PROXY Protocol message.
 
 **default**: not set
 

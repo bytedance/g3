@@ -20,12 +20,13 @@ use http::Version;
 use log::debug;
 use tokio::io::{AsyncRead, AsyncWrite};
 
+use g3_daemon::stat::task::TcpStreamTaskStats;
 use g3_io_ext::{LimitedReader, LimitedWriter};
 use g3_types::acl::AclAction;
 use g3_types::net::ProxyRequestType;
 
 use super::protocol::{HttpClientWriter, HttpProxyRequest};
-use super::{CommonTaskContext, TcpConnectTaskCltWrapperStats, TcpConnectTaskStats};
+use super::{CommonTaskContext, TcpConnectTaskCltWrapperStats};
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
@@ -42,7 +43,7 @@ pub(crate) struct HttpProxyConnectTask {
     back_to_http: bool,
     task_notes: ServerTaskNotes,
     tcp_notes: TcpConnectTaskNotes,
-    task_stats: Arc<TcpConnectTaskStats>,
+    task_stats: Arc<TcpStreamTaskStats>,
     http_version: Version,
 }
 
@@ -58,7 +59,7 @@ impl HttpProxyConnectTask {
             back_to_http: false,
             task_notes,
             tcp_notes: TcpConnectTaskNotes::new(req.upstream.clone()),
-            task_stats: Arc::new(TcpConnectTaskStats::new()),
+            task_stats: Arc::new(TcpStreamTaskStats::default()),
             http_version: req.inner.version,
         }
     }
@@ -73,7 +74,7 @@ impl HttpProxyConnectTask {
         self.back_to_http = false;
     }
 
-    async fn reply_forbidden_host<W>(&mut self, clt_w: &mut W)
+    async fn reply_forbidden<W>(&mut self, clt_w: &mut W)
     where
         W: AsyncWrite + Unpin,
     {
@@ -166,7 +167,7 @@ impl HttpProxyConnectTask {
                 user_ctx.add_dest_denied();
             }
 
-            self.reply_forbidden_host(clt_w).await;
+            self.reply_forbidden(clt_w).await;
             Err(ServerTaskError::ForbiddenByRule(
                 ServerTaskForbiddenError::DestDenied,
             ))
@@ -196,9 +197,39 @@ impl HttpProxyConnectTask {
             }
         };
         if forbid {
-            self.reply_forbidden_host(clt_w).await;
+            self.reply_forbidden(clt_w).await;
             Err(ServerTaskError::ForbiddenByRule(
                 ServerTaskForbiddenError::DestDenied,
+            ))
+        } else {
+            Ok(())
+        }
+    }
+
+    async fn handle_user_client_acl_action<W>(
+        &mut self,
+        action: AclAction,
+        clt_w: &mut W,
+    ) -> ServerTaskResult<()>
+    where
+        W: AsyncWrite + Unpin,
+    {
+        let forbid = match action {
+            AclAction::Permit => false,
+            AclAction::PermitAndLog => {
+                // TODO log permit
+                false
+            }
+            AclAction::Forbid => true,
+            AclAction::ForbidAndLog => {
+                // TODO log forbid
+                true
+            }
+        };
+        if forbid {
+            self.reply_forbidden(clt_w).await;
+            Err(ServerTaskError::ForbiddenByRule(
+                ServerTaskForbiddenError::SrcBlocked,
             ))
         } else {
             Ok(())
@@ -244,6 +275,9 @@ impl HttpProxyConnectTask {
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             let user_ctx = user_ctx.clone();
 
+            let action = user_ctx.check_client_addr(self.task_notes.client_addr());
+            self.handle_user_client_acl_action(action, clt_w).await?;
+
             if user_ctx.check_rate_limit().is_err() {
                 self.reply_too_many_requests(clt_w).await;
                 return Err(ServerTaskError::ForbiddenByRule(
@@ -268,8 +302,7 @@ impl HttpProxyConnectTask {
             self.handle_user_upstream_acl_action(action, clt_w).await?;
 
             tcp_client_misc_opts = user_ctx
-                .user()
-                .config
+                .user_config()
                 .tcp_client_misc_opts(&tcp_client_misc_opts);
         }
 
@@ -435,7 +468,7 @@ impl HttpProxyConnectTask {
                 .task_notes
                 .user_ctx()
                 .map(|ctx| {
-                    let user_config = &ctx.user().config.audit;
+                    let user_config = &ctx.user_config().audit;
                     user_config.enable_protocol_inspection
                         && user_config
                             .do_application_audit()
@@ -495,8 +528,7 @@ impl HttpProxyConnectTask {
             ));
 
             user_ctx
-                .user()
-                .config
+                .user_config()
                 .tcp_sock_speed_limit
                 .shrink_as_smaller(&self.ctx.server_config.tcp_sock_speed_limit)
         } else {

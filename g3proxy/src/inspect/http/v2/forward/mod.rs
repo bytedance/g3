@@ -254,8 +254,8 @@ where
                     let mut adaptation_state =
                         ReqmodAdaptationRunState::new(self.http_notes.started_ins);
                     adapter.set_client_addr(self.ctx.task_notes.client_addr);
-                    if let Some(user) = self.ctx.user() {
-                        adapter.set_client_username(user.name());
+                    if let Some(username) = self.ctx.raw_user_name() {
+                        adapter.set_client_username(username);
                     }
                     let r = self
                         .forward_with_adaptation(
@@ -593,8 +593,8 @@ where
                         self.http_notes.dur_rsp_recv_hdr,
                     );
                     adapter.set_client_addr(self.ctx.task_notes.client_addr);
-                    if let Some(user) = self.ctx.user() {
-                        adapter.set_client_username(user.name());
+                    if let Some(username) = self.ctx.raw_user_name() {
+                        adapter.set_client_username(username);
                     }
                     adapter.set_respond_shared_headers(adaptation_respond_shared_headers);
                     let r = self

@@ -16,54 +16,14 @@
 
 use std::sync::Arc;
 
+use g3_daemon::stat::task::UdpConnectConnectionStats;
+
 use crate::module::udp_connect::{ArcUdpConnectTaskRemoteStats, UdpConnectTaskRemoteStats};
 
 #[derive(Default)]
-pub(crate) struct UdpConnectHalfStats {
-    bytes: u64,
-    packets: u64,
-}
-
-impl UdpConnectHalfStats {
-    pub(crate) fn get_bytes(&self) -> u64 {
-        self.bytes
-    }
-
-    pub(crate) fn get_packets(&self) -> u64 {
-        self.packets
-    }
-
-    pub(crate) fn add_bytes(&self, size: u64) {
-        unsafe {
-            let r = &self.bytes as *const u64 as *mut u64;
-            *r += size;
-        }
-    }
-
-    pub(crate) fn add_packet(&self) {
-        unsafe {
-            let r = &self.packets as *const u64 as *mut u64;
-            *r += 1;
-        }
-    }
-}
-
-#[derive(Default)]
-pub(crate) struct UdpConnectClientSideStats {
-    pub(crate) recv: UdpConnectHalfStats,
-    pub(crate) send: UdpConnectHalfStats,
-}
-
-#[derive(Default)]
-pub(crate) struct UdpConnectRemoteSideStats {
-    pub(crate) recv: UdpConnectHalfStats,
-    pub(crate) send: UdpConnectHalfStats,
-}
-
-#[derive(Default)]
 pub(crate) struct UdpConnectTaskStats {
-    pub(crate) clt: UdpConnectClientSideStats,
-    pub(crate) ups: UdpConnectRemoteSideStats,
+    pub(crate) clt: UdpConnectConnectionStats,
+    pub(crate) ups: UdpConnectConnectionStats,
 }
 
 impl UdpConnectTaskStats {

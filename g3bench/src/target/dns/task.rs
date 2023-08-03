@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::cell::UnsafeCell;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
@@ -30,25 +31,30 @@ use crate::target::BenchError;
 
 #[derive(Default)]
 struct LocalRequestPicker {
-    id: usize,
+    id: UnsafeCell<usize>,
 }
+
+unsafe impl Sync for LocalRequestPicker {}
 
 impl LocalRequestPicker {
     fn set_id(&self, v: usize) {
-        unsafe {
-            let p = &self.id as *const usize as *mut usize;
-            *p = v;
-        }
+        let p = unsafe { &mut *self.id.get() };
+        *p = v;
+    }
+
+    fn get_id(&self) -> usize {
+        let p = unsafe { &*self.id.get() };
+        *p
     }
 }
 
 impl DnsRequestPickState for LocalRequestPicker {
     fn pick_next(&self, max: usize) -> usize {
-        let next = self.id;
-        if self.id >= max {
+        let next = self.get_id();
+        if next >= max {
             self.set_id(0);
         } else {
-            self.set_id(self.id + 1);
+            self.set_id(next + 1);
         }
         next
     }

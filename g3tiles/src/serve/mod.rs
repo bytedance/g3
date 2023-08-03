@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -22,7 +21,7 @@ use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 
 use g3_daemon::listen::ListenStats;
-use g3_daemon::server::ServerQuitPolicy;
+use g3_daemon::server::{ClientConnectionInfo, ServerQuitPolicy};
 use g3_types::metrics::MetricsName;
 
 use crate::config::server::AnyServerConfig;
@@ -102,8 +101,7 @@ pub(crate) trait Server: ServerInternal {
     async fn run_tcp_task(
         &self,
         stream: TcpStream,
-        peer_addr: SocketAddr,
-        local_addr: SocketAddr,
+        cc_info: ClientConnectionInfo,
         ctx: ServerRunContext,
     );
 }

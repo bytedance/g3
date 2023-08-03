@@ -99,7 +99,11 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
         g3_daemon::control::bridge::set_main_runtime_handle();
         let ctl_thread_handler = g3keymess::control::capnp::spawn_working_thread().await?;
 
-        let unique_ctl = g3keymess::control::UniqueController::start()
+        let unique_controller = g3keymess::control::UniqueController::create()
+            .context("failed to create unique controller")?;
+        let unique_ctl_path = unique_controller.listen_path();
+        let unique_ctl = unique_controller
+            .start()
             .context("failed to start unique controller")?;
 
         if args.daemon_config.need_daemon_controller() {
@@ -117,9 +121,22 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
             .context("failed to load all key stores")?;
 
         g3keymess::serve::spawn_offline_clean();
-        g3keymess::serve::spawn_all()
-            .await
-            .context("failed to spawn all servers")?;
+        if let Some(config) = g3_daemon::register::get_config() {
+            tokio::spawn(async move {
+                g3keymess::serve::create_all_stopped().await;
+                if let Err(e) = g3keymess::register::startup(config, &unique_ctl_path).await {
+                    warn!("register failed: {e:?}");
+                    g3keymess::control::UniqueController::abort_immediately().await;
+                } else if let Err(e) = g3keymess::serve::start_all_stopped().await {
+                    warn!("failed to start all servers: {e:?}");
+                    g3keymess::control::UniqueController::abort_immediately().await;
+                }
+            });
+        } else {
+            g3keymess::serve::spawn_all()
+                .await
+                .context("failed to start all servers")?;
+        }
 
         unique_ctl.await;
 

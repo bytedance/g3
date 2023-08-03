@@ -21,7 +21,9 @@ use std::time::Duration;
 use anyhow::anyhow;
 use chrono::{DateTime, Utc};
 
-use g3_types::acl::{AclExactPortRule, AclProxyRequestRule, AclUserAgentRule};
+use g3_types::acl::{
+    AclExactPortRule, AclNetworkRuleBuilder, AclProxyRequestRule, AclUserAgentRule,
+};
 use g3_types::acl_set::AclDstHostRuleSetBuilder;
 use g3_types::limit::RateLimitQuotaConfig;
 use g3_types::metrics::MetricsName;
@@ -31,7 +33,7 @@ use g3_types::net::{
 };
 use g3_types::resolve::{ResolveRedirectionBuilder, ResolveStrategy};
 
-use super::{UserAuditConfig, UserAuthentication, UserSiteConfig};
+use super::{PasswordToken, UserAuditConfig, UserSiteConfig};
 
 mod json;
 mod yaml;
@@ -39,7 +41,7 @@ mod yaml;
 #[derive(Clone)]
 pub(crate) struct UserConfig {
     name: String,
-    token: UserAuthentication,
+    password_token: PasswordToken,
     expire_datetime: Option<DateTime<Utc>>,
     pub(crate) audit: UserAuditConfig,
     pub(crate) block_and_delay: Option<Duration>,
@@ -57,6 +59,7 @@ pub(crate) struct UserConfig {
     pub(crate) udp_sock_speed_limit: UdpSockSpeedLimitConfig,
     pub(crate) log_rate_limit: Option<RateLimitQuotaConfig>,
     pub(crate) log_uri_max_chars: Option<usize>,
+    pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) proxy_request_filter: Option<AclProxyRequestRule>,
     pub(crate) dst_host_filter: Option<AclDstHostRuleSetBuilder>,
     pub(crate) dst_port_filter: Option<AclExactPortRule>,
@@ -72,7 +75,7 @@ impl Default for UserConfig {
     fn default() -> Self {
         UserConfig {
             name: String::new(),
-            token: UserAuthentication::Forbidden,
+            password_token: PasswordToken::Forbidden,
             expire_datetime: None,
             audit: UserAuditConfig::default(),
             block_and_delay: None,
@@ -90,6 +93,7 @@ impl Default for UserConfig {
             udp_sock_speed_limit: Default::default(),
             log_rate_limit: None,
             log_uri_max_chars: None,
+            ingress_net_filter: None,
             proxy_request_filter: None,
             dst_host_filter: None,
             dst_port_filter: None,
@@ -117,16 +121,16 @@ impl UserConfig {
     }
 
     pub(crate) fn check_password(&self, password: &str) -> bool {
-        match &self.token {
-            UserAuthentication::Forbidden => false,
-            UserAuthentication::SkipVerify => true,
-            UserAuthentication::FastHash(fast_hash) => fast_hash.verify(password),
-            UserAuthentication::XCrypt(xcrypt_hash) => xcrypt_hash.verify(password.as_bytes()),
+        match &self.password_token {
+            PasswordToken::Forbidden => false,
+            PasswordToken::SkipVerify => true,
+            PasswordToken::FastHash(fast_hash) => fast_hash.verify(password),
+            PasswordToken::XCrypt(xcrypt_hash) => xcrypt_hash.verify(password.as_bytes()),
         }
     }
 
     pub(super) fn set_no_password(&mut self) {
-        self.token = UserAuthentication::SkipVerify;
+        self.password_token = PasswordToken::SkipVerify;
     }
 
     fn add_site_group(&mut self, sg: UserSiteConfig) -> anyhow::Result<()> {

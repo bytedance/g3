@@ -35,7 +35,7 @@ use send::ProxySocks5UdpRelayRemoteSend;
 impl ProxySocks5Escaper {
     pub(super) async fn udp_setup_relay<'a>(
         &'a self,
-        udp_notes: &'a mut UdpRelayTaskNotes,
+        udp_notes: &'a UdpRelayTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {

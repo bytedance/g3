@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -23,6 +22,7 @@ use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 
 use g3_daemon::listen::ListenStats;
+use g3_daemon::server::ClientConnectionInfo;
 use g3_types::metrics::MetricsName;
 
 use crate::config::server::dummy_close::DummyCloseServerConfig;
@@ -147,8 +147,7 @@ impl Server for DummyCloseServer {
     async fn run_tcp_task(
         &self,
         _stream: TcpStream,
-        _peer_addr: SocketAddr,
-        _local_addr: SocketAddr,
+        _cc_info: ClientConnectionInfo,
         _ctx: ServerRunContext,
     ) {
     }

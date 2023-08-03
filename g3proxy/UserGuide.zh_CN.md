@@ -27,6 +27,7 @@
     + [国密TLCP协议卸载](#国密tlcp协议卸载)
     + [多协议入口复用](#多协议入口复用)
     + [监听多个端口](#监听多个端口)
+    + [监听端口启用PROXY Protocol](#监听端口启用proxy-protocol)
     + [Socks5 UDP IP映射](#socks5-udp-ip映射)
     + [安全反向代理](#安全反向代理)
     + [域名解析劫持](#域名解析劫持)
@@ -489,6 +490,25 @@ server:
 ```
 
 Port类型入口仅有独立的Listen监控，流量监控、日志都是在下一跳Server处理的，在规划时需要考虑清楚是串联Port还是拆分Server更合适。
+
+### 监听端口启用PROXY Protocol
+
+串联场景，如果需要透传Client地址信息，可以使用PROXY Protocol。可以使用PlainTcpPort或PlainTlsPort来配置单独的支持PROXY Protocol的端口。
+
+示例如下：
+```yaml
+server:
+  - name: real_http
+    listen: "[127.0.0.1]:1234"
+    type: http_proxy
+    ingress_network_filter: {} # 配置针对解析后地址的过滤规则
+    # ... 其他配置
+  - name: pp_for_http
+    type: plain_tls_port
+    server: real_http
+    proxy_protocol: v2
+    ingress_network_filter: {} # 配置针对上一级代理的过滤规则
+```
 
 ### Socks5 UDP IP映射
 

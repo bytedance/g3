@@ -20,4 +20,4 @@ mod task;
 pub(super) use task::SocksProxyTcpConnectTask;
 
 mod stats;
-use stats::{TcpConnectTaskCltWrapperStats, TcpConnectTaskStats};
+use stats::TcpConnectTaskCltWrapperStats;

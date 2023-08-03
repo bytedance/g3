@@ -54,7 +54,9 @@ impl RustlsRelayTask {
             host,
             service,
             task_notes,
-            task_stats: Arc::new(TcpStreamTaskStats::with_clt_stats(*pre_handshake_stats)),
+            task_stats: Arc::new(TcpStreamTaskStats::with_clt_stats(
+                pre_handshake_stats.as_ref().clone(),
+            )),
         }
     }
 

@@ -15,7 +15,6 @@
  */
 
 use std::net::SocketAddr;
-use std::os::fd::AsRawFd;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -278,10 +277,13 @@ impl ServerInternal for HttpRProxyServer {
     }
 
     fn _start_runtime(&self, server: &ArcServer) -> anyhow::Result<()> {
+        let Some(listen_config) = &self.config.listen else {
+            return Ok(());
+        };
         let runtime = OrdinaryTcpServerRuntime::new(server, &*self.config);
         runtime
             .run_all_instances(
-                &self.config.listen,
+                listen_config,
                 self.config.listen_in_worker,
                 &self.reload_sender,
             )
@@ -338,17 +340,14 @@ impl Server for HttpRProxyServer {
     async fn run_tcp_task(
         &self,
         stream: TcpStream,
-        peer_addr: SocketAddr,
-        local_addr: SocketAddr,
+        cc_info: ClientConnectionInfo,
         ctx: ServerRunContext,
     ) {
-        self.server_stats.add_conn(peer_addr);
-
-        if self.drop_early(peer_addr) {
+        let client_addr = cc_info.client_addr();
+        self.server_stats.add_conn(client_addr);
+        if self.drop_early(client_addr) {
             return;
         }
-
-        let cc_info = ClientConnectionInfo::new(peer_addr, local_addr, stream.as_raw_fd());
 
         if self.config.enable_tls_server {
             let tls_acceptor = LazyConfigAcceptor::new(rustls::server::Acceptor::default(), stream);
@@ -377,12 +376,20 @@ impl Server for HttpRProxyServer {
                                 Ok(Ok(stream)) => self.spawn_tls_task(stream, cc_info, ctx).await,
                                 Ok(Err(e)) => {
                                     self.listen_stats.add_failed();
-                                    debug!("{local_addr} - {peer_addr} tls error: {e:?}");
+                                    debug!(
+                                        "{} - {} tls error: {e:?}",
+                                        cc_info.sock_local_addr(),
+                                        cc_info.sock_peer_addr()
+                                    );
                                     // TODO record tls failure and add some sec policy
                                 }
                                 Err(_) => {
                                     self.listen_stats.add_timeout();
-                                    debug!("{local_addr} - {peer_addr} tls timeout");
+                                    debug!(
+                                        "{} - {} tls timeout",
+                                        cc_info.sock_local_addr(),
+                                        cc_info.sock_peer_addr()
+                                    );
                                     // TODO record tls failure and add some sec policy
                                 }
                             }
@@ -391,19 +398,29 @@ impl Server for HttpRProxyServer {
                             // No tls server config found
                             self.listen_stats.add_failed();
                             debug!(
-                                "{local_addr} - {peer_addr} tls error: no matched server config found",
+                                "{} - {} tls error: no matched server config found",
+                                cc_info.sock_local_addr(),
+                                cc_info.sock_peer_addr()
                             );
                         }
                     }
                 }
                 Ok(Err(e)) => {
                     self.listen_stats.add_failed();
-                    debug!("{local_addr} - {peer_addr} tls client hello error: {e:?}",);
+                    debug!(
+                        "{} - {} tls client hello error: {e:?}",
+                        cc_info.sock_local_addr(),
+                        cc_info.sock_peer_addr()
+                    );
                     // TODO record tls failure and add some sec policy
                 }
                 Err(_) => {
                     self.listen_stats.add_timeout();
-                    debug!("{local_addr} - {peer_addr} tls client hello timeout");
+                    debug!(
+                        "{} - {} tls client hello timeout",
+                        cc_info.sock_local_addr(),
+                        cc_info.sock_peer_addr()
+                    );
                     // TODO record tls failure and add some sec policy
                 }
             }

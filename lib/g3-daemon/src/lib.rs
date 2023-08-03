@@ -24,3 +24,6 @@ pub mod opts;
 pub mod runtime;
 pub mod server;
 pub mod stat;
+
+#[cfg(feature = "register")]
+pub mod register;

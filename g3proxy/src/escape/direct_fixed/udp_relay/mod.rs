@@ -39,7 +39,7 @@ use stats::DirectUdpRelayRemoteStats;
 impl DirectFixedEscaper {
     pub(super) async fn udp_setup_relay<'a>(
         &'a self,
-        udp_notes: &'a mut UdpRelayTaskNotes,
+        udp_notes: &'a UdpRelayTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
@@ -91,8 +91,7 @@ impl DirectFixedEscaper {
 
         let misc_opts = if let Some(user_ctx) = task_notes.user_ctx() {
             user_ctx
-                .user()
-                .config
+                .user_config()
                 .udp_remote_misc_opts(&self.config.udp_misc_opts)
         } else {
             self.config.udp_misc_opts

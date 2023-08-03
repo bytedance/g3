@@ -33,7 +33,7 @@ pub enum AnyResolveDriverConfig {
     #[cfg(feature = "c-ares")]
     CAres(c_ares::CAresDriverConfig),
     #[cfg(feature = "trust-dns")]
-    TrustDns(trust_dns::TrustDnsDriverConfig),
+    TrustDns(Box<trust_dns::TrustDnsDriverConfig>),
 }
 
 impl AnyResolveDriverConfig {

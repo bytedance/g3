@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-use anyhow::anyhow;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 
+use anyhow::anyhow;
 use c_ares_resolver::FutureResolver;
 use indexmap::IndexSet;
 

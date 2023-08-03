@@ -44,21 +44,18 @@ pub(crate) struct TaskLogForUdpAssociate<'a> {
 
 impl TaskLogForUdpAssociate<'_> {
     pub(crate) fn log(&self, logger: &Logger, e: &ServerTaskError) {
-        let username = if let Some(user_ctx) = self.task_notes.user_ctx() {
+        if let Some(user_ctx) = self.task_notes.user_ctx() {
             if user_ctx.skip_log() {
                 return;
             }
-            user_ctx.user().name()
-        } else {
-            ""
-        };
+        }
 
         slog_info!(logger, "{}", e;
             "task_type" => "UdpAssociate",
             "task_id" => LtUuid(&self.task_notes.id),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
-            "user" => username,
+            "user" => self.task_notes.raw_user_name(),
             "tcp_server_addr" => self.tcp_server_addr,
             "tcp_client_addr" => self.tcp_client_addr,
             "udp_listen_addr" => self.udp_listen_addr,

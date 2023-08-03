@@ -14,43 +14,21 @@
  * limitations under the License.
  */
 
+use g3_daemon::stat::task::{TcpStreamConnectionStats, TcpStreamHalfConnectionStats};
+
 use crate::module::ftp_over_http::{FtpTaskRemoteControlStats, FtpTaskRemoteTransferStats};
 
 #[derive(Default)]
-pub(crate) struct TcpHalfConnectionStats {
-    bytes: u64,
-}
-
-impl TcpHalfConnectionStats {
-    pub(crate) fn get_bytes(&self) -> u64 {
-        self.bytes
-    }
-
-    pub(crate) fn add_bytes(&self, size: u64) {
-        unsafe {
-            let r = &self.bytes as *const u64 as *mut u64;
-            *r += size;
-        }
-    }
-}
-
-#[derive(Default)]
-pub(crate) struct FtpOverHttpClientStats {
-    pub(crate) read: TcpHalfConnectionStats,
-    pub(crate) write: TcpHalfConnectionStats,
-}
-
-#[derive(Default)]
 pub(crate) struct FtpOverHttpServerStats {
-    pub(crate) control_read: TcpHalfConnectionStats,
-    pub(crate) control_write: TcpHalfConnectionStats,
-    pub(crate) transfer_read: TcpHalfConnectionStats,
-    pub(crate) transfer_write: TcpHalfConnectionStats,
+    pub(crate) control_read: TcpStreamHalfConnectionStats,
+    pub(crate) control_write: TcpStreamHalfConnectionStats,
+    pub(crate) transfer_read: TcpStreamHalfConnectionStats,
+    pub(crate) transfer_write: TcpStreamHalfConnectionStats,
 }
 
 #[derive(Default)]
 pub(crate) struct FtpOverHttpTaskStats {
-    pub(crate) http_client: FtpOverHttpClientStats,
+    pub(crate) http_client: TcpStreamConnectionStats,
     pub(crate) ftp_server: FtpOverHttpServerStats,
 }
 

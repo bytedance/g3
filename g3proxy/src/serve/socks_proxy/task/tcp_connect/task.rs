@@ -20,12 +20,13 @@ use std::sync::Arc;
 use log::debug;
 use tokio::io::{AsyncRead, AsyncWrite};
 
+use g3_daemon::stat::task::TcpStreamTaskStats;
 use g3_io_ext::{LimitedReader, LimitedWriter};
 use g3_socks::{v4a, v5, SocksVersion};
 use g3_types::acl::AclAction;
 use g3_types::net::{ProxyRequestType, UpstreamAddr};
 
-use super::{CommonTaskContext, TcpConnectTaskCltWrapperStats, TcpConnectTaskStats};
+use super::{CommonTaskContext, TcpConnectTaskCltWrapperStats};
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
@@ -40,7 +41,7 @@ pub(crate) struct SocksProxyTcpConnectTask {
     ctx: CommonTaskContext,
     task_notes: ServerTaskNotes,
     tcp_notes: TcpConnectTaskNotes,
-    task_stats: Arc<TcpConnectTaskStats>,
+    task_stats: Arc<TcpStreamTaskStats>,
 }
 
 impl SocksProxyTcpConnectTask {
@@ -62,7 +63,7 @@ impl SocksProxyTcpConnectTask {
             ctx,
             task_notes,
             tcp_notes: TcpConnectTaskNotes::new(upstream),
-            task_stats: Arc::new(TcpConnectTaskStats::new()),
+            task_stats: Arc::new(TcpStreamTaskStats::default()),
         }
     }
 
@@ -227,6 +228,10 @@ impl SocksProxyTcpConnectTask {
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             let user_ctx = user_ctx.clone();
 
+            let action = user_ctx.check_client_addr(self.task_notes.client_addr());
+            self.handle_user_acl_action(action, &mut clt_w, ServerTaskForbiddenError::SrcBlocked)
+                .await?;
+
             if user_ctx.check_rate_limit().is_err() {
                 self.reply_forbidden(&mut clt_w).await;
                 return Err(ServerTaskError::ForbiddenByRule(
@@ -253,8 +258,7 @@ impl SocksProxyTcpConnectTask {
                 .await?;
 
             tcp_client_misc_opts = user_ctx
-                .user()
-                .config
+                .user_config()
                 .tcp_client_misc_opts(&tcp_client_misc_opts);
         }
 
@@ -375,7 +379,7 @@ impl SocksProxyTcpConnectTask {
                 .task_notes
                 .user_ctx()
                 .map(|ctx| {
-                    let user_config = &ctx.user().config.audit;
+                    let user_config = &ctx.user_config().audit;
                     user_config.enable_protocol_inspection
                         && user_config
                             .do_application_audit()
@@ -430,14 +434,12 @@ impl SocksProxyTcpConnectTask {
                 self.ctx.server_stats.extra_tags(),
             ));
 
-            let user = user_ctx.user();
-            if !user
-                .config
+            let user_config = user_ctx.user_config();
+            if !user_config
                 .tcp_sock_speed_limit
                 .eq(&self.ctx.server_config.tcp_sock_speed_limit)
             {
-                let limit_config = user
-                    .config
+                let limit_config = user_config
                     .tcp_sock_speed_limit
                     .shrink_as_smaller(&self.ctx.server_config.tcp_sock_speed_limit);
                 clt_r.reset_limit(limit_config.shift_millis, limit_config.max_north);

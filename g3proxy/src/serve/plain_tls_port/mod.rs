@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
-use std::os::fd::AsRawFd;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
@@ -29,9 +27,10 @@ use tokio_rustls::{server::TlsStream, TlsAcceptor};
 
 use g3_daemon::listen::ListenStats;
 use g3_daemon::server::ClientConnectionInfo;
+use g3_io_ext::haproxy::ProxyProtocolV2Reader;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::MetricsName;
-use g3_types::net::RustlsServerConfig;
+use g3_types::net::{ProxyProtocolVersion, RustlsServerConfig};
 
 use crate::config::server::plain_tls_port::PlainTlsPortConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
@@ -58,18 +57,19 @@ impl AuxiliaryServerConfig for PlainTlsPortAuxConfig {
         rt_handle: Handle,
         next_server: ArcServer,
         stream: TcpStream,
-        peer_addr: SocketAddr,
-        local_addr: SocketAddr,
+        cc_info: ClientConnectionInfo,
         ctx: ServerRunContext,
     ) {
         let tls_acceptor = TlsAcceptor::from(Arc::clone(&self.tls_server_config.driver));
         let tls_accept_timeout = self.tls_server_config.accept_timeout;
         let ingress_net_filter = self.ingress_net_filter.clone();
         let listen_stats = Arc::clone(&self.listen_stats);
+        let proxy_protocol = self.config.proxy_protocol;
+        let proxy_protocol_read_timeout = self.config.proxy_protocol_read_timeout;
 
         rt_handle.spawn(async move {
             if let Some(filter) = ingress_net_filter {
-                let (_, action) = filter.check(peer_addr.ip());
+                let (_, action) = filter.check(cc_info.sock_peer_ip());
                 match action {
                     AclAction::Permit | AclAction::PermitAndLog => {}
                     AclAction::Forbid | AclAction::ForbidAndLog => {
@@ -79,20 +79,46 @@ impl AuxiliaryServerConfig for PlainTlsPortAuxConfig {
                 }
             }
 
-            let stream_raw_fd = stream.as_raw_fd();
-            match tokio::time::timeout(tls_accept_timeout, tls_acceptor.accept(stream)).await {
-                Ok(Ok(tls_stream)) => {
-                    let cc_info = ClientConnectionInfo::new(peer_addr, local_addr, stream_raw_fd);
-                    next_server.run_tls_task(tls_stream, cc_info, ctx).await;
+            let mut stream = stream;
+            let mut cc_info = cc_info;
+            match proxy_protocol {
+                Some(ProxyProtocolVersion::V1) => {
+                    // TODO support proxy protocol v1
+                    listen_stats.add_dropped();
+                    return;
                 }
+                Some(ProxyProtocolVersion::V2) => {
+                    let mut parser = ProxyProtocolV2Reader::new(proxy_protocol_read_timeout);
+                    match parser.read_proxy_protocol_v2_for_tcp(&mut stream).await {
+                        Ok(Some(a)) => cc_info.set_proxy_addr(a),
+                        Ok(None) => {}
+                        Err(e) => {
+                            listen_stats.add_by_proxy_protocol_error(e);
+                            return;
+                        }
+                    }
+                }
+                None => {}
+            }
+
+            match tokio::time::timeout(tls_accept_timeout, tls_acceptor.accept(stream)).await {
+                Ok(Ok(tls_stream)) => next_server.run_tls_task(tls_stream, cc_info, ctx).await,
                 Ok(Err(e)) => {
                     listen_stats.add_failed();
-                    debug!("{local_addr} - {peer_addr} tls error: {e:?}");
+                    debug!(
+                        "{} - {} tls error: {e:?}",
+                        cc_info.sock_local_addr(),
+                        cc_info.sock_peer_addr()
+                    );
                     // TODO record tls failure and add some sec policy
                 }
                 Err(_) => {
                     listen_stats.add_timeout();
-                    debug!("{local_addr} - {peer_addr} tls timeout");
+                    debug!(
+                        "{} - {} tls timeout",
+                        cc_info.sock_local_addr(),
+                        cc_info.sock_peer_addr()
+                    );
                     // TODO record tls failure and add some sec policy
                 }
             }
@@ -295,8 +321,7 @@ impl Server for PlainTlsPort {
     async fn run_tcp_task(
         &self,
         _stream: TcpStream,
-        _peer_addr: SocketAddr,
-        _local_addr: SocketAddr,
+        _cc_info: ClientConnectionInfo,
         _ctx: ServerRunContext,
     ) {
     }

@@ -1,5 +1,18 @@
 
+v1.7.20:
+ - Feature: allow to set ingress net filter in user config
+ - Feature: always log the raw input user name, so you will get the real user name if auth against anonymous user
+ - Feature: make the listen config optional in the following servers:
+     - http_proxy
+     - http_rproxy
+     - socks_proxy
+     - sni_proxy
+     - tcp_stream
+     - tls_stream
+ - Feature: allow to set token to null value to disable password auth for user
+
 v1.7.19:
+ - Feature: support PROXY Protocol in PlainTcpPort and PlainTlsPort server
  - Feature: support transmute udp peer addr in proxy_socks5 escaper
  - Optimization: rename and deprecate options in socks_proxy server:
      - auto_reply_local_ip_map -> transmute_udp_echo_ip

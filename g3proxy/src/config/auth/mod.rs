@@ -22,7 +22,7 @@ use yaml_rust::{yaml, Yaml};
 use g3_yaml::{HybridParser, YamlDocPosition};
 
 mod token;
-pub(crate) use token::UserAuthentication;
+pub(crate) use token::PasswordToken;
 
 mod site;
 pub(crate) use site::UserSiteConfig;

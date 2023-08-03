@@ -15,8 +15,10 @@
  */
 
 use std::net::SocketAddr;
+use std::os::fd::AsRawFd;
 use std::sync::Arc;
 
+use g3_daemon::server::ClientConnectionInfo;
 use log::{info, warn};
 use tokio::net::TcpStream;
 use tokio::runtime::Handle;
@@ -199,9 +201,9 @@ impl IntelliProxyRuntime {
                 }
             }
 
-            server
-                .run_tcp_task(d.stream, d.peer_addr, d.local_addr, ctx)
-                .await
+            let cc_info =
+                ClientConnectionInfo::new(d.peer_addr, d.local_addr, d.stream.as_raw_fd());
+            server.run_tcp_task(d.stream, cc_info, ctx).await
         });
     }
 

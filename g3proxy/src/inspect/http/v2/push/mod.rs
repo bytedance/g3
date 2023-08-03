@@ -195,8 +195,8 @@ impl<SC: ServerConfig> H2PushTask<SC> {
                         self.http_notes.dur_rsp_recv_hdr,
                     );
                     adapter.set_client_addr(self.ctx.task_notes.client_addr);
-                    if let Some(user) = self.ctx.user() {
-                        adapter.set_client_username(user.name());
+                    if let Some(username) = self.ctx.raw_user_name() {
+                        adapter.set_client_username(username);
                     }
                     let r = self
                         .push_with_adaptation(

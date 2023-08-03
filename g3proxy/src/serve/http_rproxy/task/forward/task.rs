@@ -68,7 +68,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
     ) -> Self {
         let uri_log_max_chars = task_notes
             .user_ctx()
-            .and_then(|c| c.user().config.log_uri_max_chars)
+            .and_then(|c| c.user_config().log_uri_max_chars)
             .unwrap_or(ctx.server_config.log_uri_max_chars);
         let http_notes = HttpForwardTaskNotes::new(
             req.time_received,
@@ -298,6 +298,36 @@ impl<'a> HttpRProxyForwardTask<'a> {
         }
     }
 
+    async fn handle_user_client_acl_action<W>(
+        &mut self,
+        action: AclAction,
+        clt_w: &mut W,
+    ) -> ServerTaskResult<()>
+    where
+        W: AsyncWrite + Unpin,
+    {
+        let forbid = match action {
+            AclAction::Permit => false,
+            AclAction::PermitAndLog => {
+                // TODO log permit
+                false
+            }
+            AclAction::Forbid => true,
+            AclAction::ForbidAndLog => {
+                // TODO log forbid
+                true
+            }
+        };
+        if forbid {
+            self.reply_forbidden(clt_w).await;
+            Err(ServerTaskError::ForbiddenByRule(
+                ServerTaskForbiddenError::SrcBlocked,
+            ))
+        } else {
+            Ok(())
+        }
+    }
+
     async fn handle_user_ua_acl_action<W>(
         &mut self,
         action: AclAction,
@@ -353,16 +383,14 @@ impl<'a> HttpRProxyForwardTask<'a> {
                 }
                 wrapper_stats.push_user_io_stats(user_io_stats);
 
-                let user = user_ctx.user();
-                if user
-                    .config
+                let user_config = user_ctx.user_config();
+                if user_config
                     .tcp_sock_speed_limit
                     .eq(&self.ctx.server_config.tcp_sock_speed_limit)
                 {
                     None
                 } else {
-                    let limit_config = user
-                        .config
+                    let limit_config = user_config
                         .tcp_sock_speed_limit
                         .shrink_as_smaller(&self.ctx.server_config.tcp_sock_speed_limit);
                     Some(limit_config)
@@ -387,16 +415,14 @@ impl<'a> HttpRProxyForwardTask<'a> {
                 }
                 wrapper_stats.push_user_io_stats(user_io_stats);
 
-                let user = user_ctx.user();
-                if user
-                    .config
+                let user_config = user_ctx.user_config();
+                if user_config
                     .tcp_sock_speed_limit
                     .eq(&self.ctx.server_config.tcp_sock_speed_limit)
                 {
                     None
                 } else {
-                    let limit_config = user
-                        .config
+                    let limit_config = user_config
                         .tcp_sock_speed_limit
                         .shrink_as_smaller(&self.ctx.server_config.tcp_sock_speed_limit);
                     Some(limit_config)
@@ -440,6 +466,9 @@ impl<'a> HttpRProxyForwardTask<'a> {
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             let user_ctx = user_ctx.clone();
 
+            let action = user_ctx.check_client_addr(self.task_notes.client_addr());
+            self.handle_user_client_acl_action(action, clt_w).await?;
+
             if user_ctx.check_rate_limit().is_err() {
                 self.reply_too_many_requests(clt_w).await;
                 return Err(ServerTaskError::ForbiddenByRule(
@@ -465,10 +494,9 @@ impl<'a> HttpRProxyForwardTask<'a> {
             }
 
             upstream_keepalive =
-                upstream_keepalive.adjust_to(user_ctx.user().config.http_upstream_keepalive);
+                upstream_keepalive.adjust_to(user_ctx.user_config().http_upstream_keepalive);
             tcp_client_misc_opts = user_ctx
-                .user()
-                .config
+                .user_config()
                 .tcp_client_misc_opts(&tcp_client_misc_opts);
         }
 

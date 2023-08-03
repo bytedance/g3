@@ -194,7 +194,7 @@ where
         UW: AsyncWrite + Unpin,
     {
         if let Some(user_ctx) = &self.task_notes.user_ctx {
-            if user_ctx.user.config.audit.prohibit_unknown_protocol {
+            if user_ctx.user.audit().prohibit_unknown_protocol {
                 user_ctx.forbidden_stats.add_proto_banned();
                 return Err(ServerTaskError::ForbiddenByRule(
                     ServerTaskForbiddenError::ProtoBanned,

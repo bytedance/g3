@@ -20,7 +20,7 @@ use yaml_rust::{yaml, Yaml};
 use g3_types::auth::FastHashedPassPhrase;
 use g3_xcrypt::XCryptHash;
 
-use super::{UserAuthentication, CONFIG_KEY_TYPE};
+use super::{PasswordToken, CONFIG_KEY_TYPE};
 
 const CONFIG_KEY_SALT: &str = "salt";
 
@@ -79,21 +79,22 @@ fn as_xcrypt_hash(v: &Yaml) -> anyhow::Result<XCryptHash> {
     }
 }
 
-impl UserAuthentication {
+impl PasswordToken {
     pub(crate) fn parse_yaml(v: &Yaml) -> anyhow::Result<Self> {
         match v {
-            Yaml::String(_) => Ok(UserAuthentication::XCrypt(as_xcrypt_hash(v)?)),
+            Yaml::String(_) => Ok(PasswordToken::XCrypt(as_xcrypt_hash(v)?)),
             Yaml::Hash(map) => {
                 if let Ok(map_type) = g3_yaml::hash_get_required_str(map, CONFIG_KEY_TYPE) {
                     match g3_yaml::key::normalize(map_type).as_str() {
-                        "fast_hash" => Ok(UserAuthentication::FastHash(as_fast_hash(map)?)),
-                        "xcrypt_hash" => Ok(UserAuthentication::XCrypt(as_xcrypt_hash(v)?)),
+                        "fast_hash" => Ok(PasswordToken::FastHash(as_fast_hash(map)?)),
+                        "xcrypt_hash" => Ok(PasswordToken::XCrypt(as_xcrypt_hash(v)?)),
                         _ => Err(anyhow!("unsupported user authentication type")),
                     }
                 } else {
-                    Ok(UserAuthentication::FastHash(as_fast_hash(map)?))
+                    Ok(PasswordToken::FastHash(as_fast_hash(map)?))
                 }
             }
+            Yaml::Null => Ok(PasswordToken::SkipVerify),
             _ => Err(anyhow!("invalid value type")),
         }
     }

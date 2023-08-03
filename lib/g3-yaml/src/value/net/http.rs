@@ -17,6 +17,7 @@
 use std::str::FromStr;
 
 use anyhow::{anyhow, Context};
+use http::uri::PathAndQuery;
 use http::HeaderName;
 use yaml_rust::Yaml;
 
@@ -129,11 +130,20 @@ pub fn as_http_server_id(value: &Yaml) -> anyhow::Result<HttpServerId> {
 
 pub fn as_http_header_name(value: &Yaml) -> anyhow::Result<HeaderName> {
     if let Yaml::String(s) = value {
-        let name = HeaderName::from_str(s)?;
-        Ok(name)
+        HeaderName::from_str(s).map_err(|e| anyhow!(e))
     } else {
         Err(anyhow!(
             "yaml value type for 'HttpHeaderName' should be 'string'"
+        ))
+    }
+}
+
+pub fn as_http_path_and_query(value: &Yaml) -> anyhow::Result<PathAndQuery> {
+    if let Yaml::String(s) = value {
+        PathAndQuery::from_str(s).map_err(|e| anyhow!(e))
+    } else {
+        Err(anyhow!(
+            "yaml value type for 'HttpPathAndQuery' should be 'string'"
         ))
     }
 }

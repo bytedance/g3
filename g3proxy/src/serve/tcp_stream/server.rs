@@ -15,7 +15,6 @@
  */
 
 use std::net::{IpAddr, SocketAddr};
-use std::os::fd::AsRawFd;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
@@ -239,10 +238,13 @@ impl ServerInternal for TcpStreamServer {
     }
 
     fn _start_runtime(&self, server: &ArcServer) -> anyhow::Result<()> {
+        let Some(listen_config) = &self.config.listen else {
+            return Ok(());
+        };
         let runtime = OrdinaryTcpServerRuntime::new(server, &*self.config);
         runtime
             .run_all_instances(
-                &self.config.listen,
+                listen_config,
                 self.config.listen_in_worker,
                 &self.reload_sender,
             )
@@ -299,17 +301,15 @@ impl Server for TcpStreamServer {
     async fn run_tcp_task(
         &self,
         stream: TcpStream,
-        peer_addr: SocketAddr,
-        local_addr: SocketAddr,
+        cc_info: ClientConnectionInfo,
         ctx: ServerRunContext,
     ) {
-        self.server_stats.add_conn(peer_addr);
-
-        if self.drop_early(peer_addr) {
+        let client_addr = cc_info.client_addr();
+        self.server_stats.add_conn(client_addr);
+        if self.drop_early(client_addr) {
             return;
         }
 
-        let cc_info = ClientConnectionInfo::new(peer_addr, local_addr, stream.as_raw_fd());
         self.run_task(stream, cc_info, ctx).await
     }
 

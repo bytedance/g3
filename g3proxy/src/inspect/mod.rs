@@ -42,6 +42,7 @@ mod websocket;
 
 #[derive(Clone)]
 pub(super) struct StreamInspectUserContext {
+    raw_user_name: Option<String>,
     user: Arc<User>,
     forbidden_stats: Arc<UserForbiddenStats>,
 }
@@ -59,6 +60,7 @@ impl From<&ServerTaskNotes> for StreamInspectTaskNotes {
             task_id: task_notes.id,
             client_addr: task_notes.client_addr(),
             user_ctx: task_notes.user_ctx().map(|ctx| StreamInspectUserContext {
+                raw_user_name: ctx.raw_user_name().map(|s| s.to_string()),
                 user: ctx.user().clone(),
                 forbidden_stats: ctx.forbidden_stats().clone(),
             }),
@@ -117,6 +119,13 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
 
     fn user(&self) -> Option<&Arc<User>> {
         self.task_notes.user_ctx.as_ref().map(|cx| &cx.user)
+    }
+
+    fn raw_user_name(&self) -> Option<&str> {
+        self.task_notes
+            .user_ctx
+            .as_ref()
+            .and_then(|cx| cx.raw_user_name.as_deref())
     }
 
     #[inline]
@@ -186,7 +195,7 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
         self.task_notes
             .user_ctx
             .as_ref()
-            .and_then(|cx| cx.user.config.log_uri_max_chars)
+            .and_then(|cx| cx.user.log_uri_max_chars())
             .unwrap_or_else(|| self.audit_handle.log_uri_max_chars())
     }
 

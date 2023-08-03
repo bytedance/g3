@@ -17,7 +17,7 @@
 use anyhow::{anyhow, Context};
 use serde_json::{Map, Value};
 
-use super::{UserAuthentication, UserConfig, UserSiteConfig};
+use super::{PasswordToken, UserConfig, UserSiteConfig};
 
 impl UserConfig {
     pub(crate) fn parse_json(map: &Map<String, Value>) -> anyhow::Result<Self> {
@@ -37,8 +37,8 @@ impl UserConfig {
                 Ok(())
             }
             "token" => {
-                self.token = UserAuthentication::parse_json(v)
-                    .context(format!("invalid value for key {k}"))?;
+                self.password_token =
+                    PasswordToken::parse_json(v).context(format!("invalid value for key {k}"))?;
                 Ok(())
             }
             "expire" => {
@@ -118,6 +118,13 @@ impl UserConfig {
             "request_max_alive" | "request_alive_max" => {
                 self.request_alive_max = g3_json::value::as_usize(v)
                     .context(format!("invalid usize value for key {k}"))?;
+                Ok(())
+            }
+            "ingress_network_filter" | "ingress_net_filter" => {
+                let filter = g3_json::value::acl::as_ingress_network_rule_builder(v).context(
+                    format!("invalid ingress network acl rule value for key {k}"),
+                )?;
+                self.ingress_net_filter = Some(filter);
                 Ok(())
             }
             "proxy_request_filter" => {

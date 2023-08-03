@@ -15,6 +15,7 @@
  */
 
 use std::cmp::PartialEq;
+use std::net::SocketAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -24,7 +25,7 @@ use chrono::{DateTime, Utc};
 use governor::{clock::DefaultClock, state::InMemoryState, state::NotKeyed, RateLimiter};
 use tokio::time::Instant;
 
-use g3_types::acl::AclAction;
+use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::acl_set::AclDstHostRuleSet;
 use g3_types::auth::UserAuthError;
 use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit};
@@ -36,16 +37,17 @@ use super::{
     UserForbiddenStats, UserRequestStats, UserSite, UserSiteStats, UserSites, UserTrafficStats,
     UserType, UserUpstreamTrafficStats,
 };
-use crate::config::auth::UserConfig;
+use crate::config::auth::{UserAuditConfig, UserConfig};
 
 pub(crate) struct User {
-    pub(crate) config: Arc<UserConfig>,
+    config: Arc<UserConfig>,
     group: MetricsName,
     started: Instant,
     is_expired: AtomicBool,
     is_blocked: Arc<AtomicBool>,
     request_rate_limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
     tcp_conn_rate_limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
+    ingress_net_filter: Option<Arc<AclNetworkRule>>,
     dst_host_filter: Option<Arc<AclDstHostRuleSet>>,
     resolve_redirection: Option<ResolveRedirection>,
     log_rate_limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
@@ -59,13 +61,16 @@ pub(crate) struct User {
 
 impl User {
     #[inline]
-    pub(crate) fn name(&self) -> &str {
-        self.config.name()
-    }
-
-    #[inline]
     pub(crate) fn task_max_idle_count(&self) -> i32 {
         self.config.task_idle_max_count
+    }
+
+    fn update_ingress_net_filter(&mut self) {
+        self.ingress_net_filter = self
+            .config
+            .ingress_net_filter
+            .as_ref()
+            .map(|builder| Arc::new(builder.build()));
     }
 
     fn update_dst_host_filter(&mut self) {
@@ -115,6 +120,7 @@ impl User {
             is_blocked,
             request_rate_limit,
             tcp_conn_rate_limit,
+            ingress_net_filter: None,
             dst_host_filter: None,
             resolve_redirection: None,
             log_rate_limit,
@@ -125,6 +131,7 @@ impl User {
             req_alive_sem: GaugeSemaphore::new(config.request_alive_max),
             explicit_sites,
         };
+        user.update_ingress_net_filter();
         user.update_dst_host_filter();
         user.update_resolve_redirection();
         user
@@ -217,6 +224,7 @@ impl User {
             is_blocked,
             request_rate_limit,
             tcp_conn_rate_limit,
+            ingress_net_filter: None,
             dst_host_filter: None,
             resolve_redirection: None,
             log_rate_limit,
@@ -227,6 +235,15 @@ impl User {
             req_alive_sem: self.req_alive_sem.new_updated(config.request_alive_max),
             explicit_sites,
         };
+        if self
+            .config
+            .ingress_net_filter
+            .ne(&config.ingress_net_filter)
+        {
+            user.update_ingress_net_filter();
+        } else {
+            user.ingress_net_filter = self.ingress_net_filter.clone();
+        }
         if self.config.dst_host_filter.ne(&config.dst_host_filter) {
             user.update_dst_host_filter();
         } else {
@@ -287,7 +304,7 @@ impl User {
         let stats = map.entry(server.to_string()).or_insert_with(|| {
             Arc::new(UserForbiddenStats::new(
                 &self.group,
-                self.name(),
+                self.config.name(),
                 user_type,
                 server,
                 server_extra_tags,
@@ -315,7 +332,7 @@ impl User {
         let stats = map.entry(server.to_string()).or_insert_with(|| {
             Arc::new(UserRequestStats::new(
                 &self.group,
-                self.name(),
+                self.config.name(),
                 user_type,
                 server,
                 server_extra_tags,
@@ -343,7 +360,7 @@ impl User {
         let stats = map.entry(server.to_string()).or_insert_with(|| {
             Arc::new(UserTrafficStats::new(
                 &self.group,
-                self.name(),
+                self.config.name(),
                 user_type,
                 server,
                 server_extra_tags,
@@ -371,7 +388,7 @@ impl User {
         let stats = map.entry(escaper.to_string()).or_insert_with(|| {
             Arc::new(UserUpstreamTrafficStats::new(
                 &self.group,
-                self.name(),
+                self.config.name(),
                 user_type,
                 escaper,
                 escaper_extra_tags,
@@ -446,6 +463,22 @@ impl User {
         }
     }
 
+    fn check_client_addr(
+        &self,
+        addr: SocketAddr,
+        forbid_stats: &Arc<UserForbiddenStats>,
+    ) -> AclAction {
+        if let Some(filter) = &self.ingress_net_filter {
+            let (_, action) = filter.check(addr.ip());
+            if action.forbid_early() {
+                forbid_stats.add_src_blocked();
+            }
+            action
+        } else {
+            AclAction::Permit
+        }
+    }
+
     fn check_upstream(
         &self,
         upstream: &UpstreamAddr,
@@ -504,10 +537,19 @@ impl User {
     pub(crate) fn resolve_redirection(&self) -> Option<&ResolveRedirection> {
         self.resolve_redirection.as_ref()
     }
+
+    pub(crate) fn audit(&self) -> &UserAuditConfig {
+        &self.config.audit
+    }
+
+    pub(crate) fn log_uri_max_chars(&self) -> Option<usize> {
+        self.config.log_uri_max_chars
+    }
 }
 
 #[derive(Clone)]
 pub(crate) struct UserContext {
+    raw_user_name: Option<String>,
     user: Arc<User>,
     user_type: UserType,
     user_site: Option<Arc<UserSite>>,
@@ -520,6 +562,7 @@ pub(crate) struct UserContext {
 
 impl UserContext {
     pub(crate) fn new(
+        raw_user_name: Option<String>,
         user: Arc<User>,
         user_type: UserType,
         server: &MetricsName,
@@ -528,6 +571,7 @@ impl UserContext {
         let forbid_stats = user.fetch_forbidden_stats(user_type, server, server_extra_tags);
         let req_stats = user.fetch_request_stats(user_type, server, server_extra_tags);
         UserContext {
+            raw_user_name,
             user,
             user_type,
             user_site: None,
@@ -567,6 +611,21 @@ impl UserContext {
     #[inline]
     pub(crate) fn user(&self) -> &Arc<User> {
         &self.user
+    }
+
+    #[inline]
+    pub(crate) fn raw_user_name(&self) -> Option<&str> {
+        self.raw_user_name.as_deref()
+    }
+
+    #[inline]
+    pub(crate) fn user_name(&self) -> &str {
+        self.user.config.name()
+    }
+
+    #[inline]
+    pub(crate) fn user_config(&self) -> &UserConfig {
+        &self.user.config
     }
 
     pub(crate) fn resolve_strategy(&self) -> Option<ResolveStrategy> {
@@ -658,6 +717,11 @@ impl UserContext {
     #[inline]
     pub(crate) fn check_proxy_request(&self, request: ProxyRequestType) -> AclAction {
         self.user.check_proxy_request(request, &self.forbid_stats)
+    }
+
+    #[inline]
+    pub(crate) fn check_client_addr(&self, addr: SocketAddr) -> AclAction {
+        self.user.check_client_addr(addr, &self.forbid_stats)
     }
 
     #[inline]

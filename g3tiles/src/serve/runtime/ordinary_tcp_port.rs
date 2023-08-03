@@ -15,6 +15,7 @@
  */
 
 use std::net::SocketAddr;
+use std::os::fd::AsRawFd;
 use std::sync::Arc;
 
 use log::{info, warn};
@@ -23,6 +24,7 @@ use tokio::runtime::Handle;
 use tokio::sync::broadcast;
 
 use g3_daemon::listen::ListenStats;
+use g3_daemon::server::ClientConnectionInfo;
 use g3_io_ext::LimitedTcpListener;
 use g3_socket::util::native_socket_addr;
 use g3_types::net::TcpListenConfig;
@@ -184,25 +186,20 @@ impl OrdinaryTcpServerRuntime {
     ) {
         let server = Arc::clone(&self.server);
 
+        let cc_info = ClientConnectionInfo::new(peer_addr, local_addr, stream.as_raw_fd());
         if let Some(worker_id) = self.worker_id {
             run_ctx.worker_id = Some(worker_id);
             tokio::spawn(async move {
-                server
-                    .run_tcp_task(stream, peer_addr, local_addr, run_ctx)
-                    .await;
+                server.run_tcp_task(stream, cc_info, run_ctx).await;
             });
         } else if let Some(rt) = g3_daemon::runtime::worker::select_handle() {
             run_ctx.worker_id = Some(rt.id);
             rt.handle.spawn(async move {
-                server
-                    .run_tcp_task(stream, peer_addr, local_addr, run_ctx)
-                    .await;
+                server.run_tcp_task(stream, cc_info, run_ctx).await;
             });
         } else {
             tokio::spawn(async move {
-                server
-                    .run_tcp_task(stream, peer_addr, local_addr, run_ctx)
-                    .await;
+                server.run_tcp_task(stream, cc_info, run_ctx).await;
             });
         }
     }

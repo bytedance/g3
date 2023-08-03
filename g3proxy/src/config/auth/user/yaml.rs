@@ -17,7 +17,7 @@
 use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
 
-use super::{UserAuthentication, UserConfig, UserSiteConfig};
+use super::{PasswordToken, UserConfig, UserSiteConfig};
 
 impl UserConfig {
     pub(crate) fn parse_yaml(map: &yaml::Hash) -> anyhow::Result<Self> {
@@ -35,8 +35,8 @@ impl UserConfig {
                 Ok(())
             }
             "token" => {
-                self.token = UserAuthentication::parse_yaml(v)
-                    .context(format!("invalid value for key {k}"))?;
+                self.password_token =
+                    PasswordToken::parse_yaml(v).context(format!("invalid value for key {k}"))?;
                 Ok(())
             }
             "expire" => {
@@ -116,6 +116,13 @@ impl UserConfig {
             "request_max_alive" | "request_alive_max" => {
                 self.request_alive_max = g3_yaml::value::as_usize(v)
                     .context(format!("invalid usize value for key {k}"))?;
+                Ok(())
+            }
+            "ingress_network_filter" | "ingress_net_filter" => {
+                let filter = g3_yaml::value::acl::as_ingress_network_rule_builder(v).context(
+                    format!("invalid ingress network acl rule value for key {k}"),
+                )?;
+                self.ingress_net_filter = Some(filter);
                 Ok(())
             }
             "proxy_request_filter" => {
