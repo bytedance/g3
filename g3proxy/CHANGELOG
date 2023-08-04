@@ -1,4 +1,7 @@
 
+v1.7.21:
+ - BUG FIX: fix create of daemon controller
+
 v1.7.20:
  - Feature: allow to set ingress net filter in user config
  - Feature: always log the raw input user name, so you will get the real user name if auth against anonymous user
