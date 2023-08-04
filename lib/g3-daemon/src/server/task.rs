@@ -14,20 +14,22 @@
  * limitations under the License.
  */
 
-use std::ops::Deref;
+use std::sync::OnceLock;
 
 use chrono::{DateTime, Utc};
-use once_cell::sync::Lazy;
-use uuid::{v1::Context, Uuid};
+use uuid::{v1::Context, Timestamp, Uuid};
+
+static UUID_CONTEXT: OnceLock<Context> = OnceLock::new();
+static UUID_NODE_ID: OnceLock<[u8; 6]> = OnceLock::new();
 
 pub fn generate_uuid(time: &DateTime<Utc>) -> Uuid {
-    static UUID_CONTEXT: Lazy<Context> = Lazy::new(|| {
+    let context = UUID_CONTEXT.get_or_init(|| {
         use rand::Rng;
 
         let mut rng = rand::thread_rng();
         Context::new(rng.gen())
     });
-    static UUID_NODE_ID: Lazy<[u8; 6]> = Lazy::new(|| {
+    let node_id = UUID_NODE_ID.get_or_init(|| {
         use rand::RngCore;
 
         let mut bytes = [0u8; 6];
@@ -36,12 +38,10 @@ pub fn generate_uuid(time: &DateTime<Utc>) -> Uuid {
         bytes
     });
 
-    Uuid::new_v1(
-        uuid::Timestamp::from_unix(
-            &*UUID_CONTEXT,
-            time.timestamp() as u64,
-            time.timestamp_subsec_nanos().max(999_999_999), // ignore leap second
-        ),
-        UUID_NODE_ID.deref(),
-    )
+    let ts = Timestamp::from_unix(
+        context,
+        time.timestamp() as u64,
+        time.timestamp_subsec_nanos().max(999_999_999), // ignore leap second
+    );
+    Uuid::new_v1(ts, node_id)
 }

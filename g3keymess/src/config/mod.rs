@@ -63,7 +63,7 @@ fn reload_doc(map: &yaml::Hash) -> anyhow::Result<()> {
     let conf_dir =
         g3_daemon::opts::config_dir().ok_or_else(|| anyhow!("no valid config dir has been set"))?;
     g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
-        "log" | "stat" | "controller" | "register" => Ok(()),
+        "log" | "stat" | "controller" | "pre_register" => Ok(()),
         "server" => server::load_all(v, conf_dir),
         "store" => store::load_all(v, conf_dir),
         _ => Ok(()),
@@ -78,7 +78,7 @@ fn load_doc(map: &yaml::Hash) -> anyhow::Result<()> {
         "log" => log::load(v, conf_dir),
         "stat" => g3_daemon::stat::config::load(v, crate::build::PKG_NAME),
         "controller" => g3_daemon::control::config::load(v),
-        "register" => g3_daemon::register::load_config(v),
+        "pre_register" => g3_daemon::register::load_pre_config(v),
         "server" => server::load_all(v, conf_dir),
         "store" => store::load_all(v, conf_dir),
         _ => Err(anyhow!("invalid key {k} in main conf")),
