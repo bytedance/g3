@@ -24,15 +24,15 @@ pub use config::RegisterConfig;
 mod task;
 pub use task::RegisterTask;
 
-static mut REGISTER_CONFIG: Option<Arc<RegisterConfig>> = None;
+static mut PRE_REGISTER_CONFIG: Option<Arc<RegisterConfig>> = None;
 
-pub fn load_config(v: &Yaml) -> anyhow::Result<()> {
+pub fn load_pre_config(v: &Yaml) -> anyhow::Result<()> {
     let mut config = RegisterConfig::default();
     config.parse(v)?;
-    unsafe { REGISTER_CONFIG = Some(Arc::new(config)) }
+    unsafe { PRE_REGISTER_CONFIG = Some(Arc::new(config)) }
     Ok(())
 }
 
-pub fn get_config() -> Option<Arc<RegisterConfig>> {
-    unsafe { REGISTER_CONFIG.clone() }
+pub fn get_pre_config() -> Option<Arc<RegisterConfig>> {
+    unsafe { PRE_REGISTER_CONFIG.clone() }
 }

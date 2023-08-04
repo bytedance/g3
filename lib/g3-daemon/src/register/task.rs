@@ -19,7 +19,8 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use http::{Method, StatusCode};
 use serde_json::{Map, Value};
-use tokio::io::{AsyncBufRead, AsyncWrite, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncWriteExt, BufStream};
+use tokio::net::TcpStream;
 
 use g3_http::client::HttpForwardRemoteResponse;
 use g3_http::HttpBodyReader;
@@ -29,31 +30,25 @@ use super::RegisterConfig;
 
 pub struct RegisterTask {
     config: Arc<RegisterConfig>,
-    reader: Box<dyn AsyncBufRead + Send + Unpin>,
-    writer: Box<dyn AsyncWrite + Send + Unpin>,
+    stream: BufStream<TcpStream>,
 }
 
 impl RegisterTask {
     pub async fn new(config: Arc<RegisterConfig>) -> anyhow::Result<Self> {
-        let stream = tokio::net::TcpStream::connect(config.upstream.to_string())
+        let stream = TcpStream::connect(config.upstream.to_string())
             .await
             .map_err(|e| anyhow!("failed to connect to {}: {e:?}", config.upstream))?;
-
-        let (r, w) = stream.into_split();
         Ok(RegisterTask {
             config,
-            reader: Box::new(BufReader::new(r)),
-            writer: Box::new(w),
+            stream: BufStream::new(stream),
         })
     }
 
     pub async fn reopen(&mut self) -> anyhow::Result<()> {
-        let stream = tokio::net::TcpStream::connect(self.config.upstream.to_string())
+        let stream = TcpStream::connect(self.config.upstream.to_string())
             .await
             .map_err(|e| anyhow!("failed to connect to {}: {e:?}", self.config.upstream))?;
-        let (r, w) = stream.into_split();
-        self.reader = Box::new(BufReader::new(r));
-        self.writer = Box::new(w);
+        self.stream = BufStream::new(stream);
         Ok(())
     }
 
@@ -93,7 +88,7 @@ impl RegisterTask {
                     self.write_request(data.as_bytes()).await?;
                     self.check_response(Method::GET).await?;
                 }
-                _ = self.reader.fill_wait_data() => {
+                _ = self.stream.fill_wait_data() => {
                     return Err(anyhow!("upstream closed connection"));
                 }
             }
@@ -101,18 +96,18 @@ impl RegisterTask {
     }
 
     async fn write_request(&mut self, data: &[u8]) -> anyhow::Result<()> {
-        self.writer
+        self.stream
             .write_all(data)
             .await
             .map_err(|e| anyhow!("failed to write data: {e:?}"))?;
-        self.writer
+        self.stream
             .flush()
             .await
             .map_err(|e| anyhow!("failed to write data: {e:?}"))
     }
 
     async fn check_response(&mut self, method: Method) -> anyhow::Result<()> {
-        let rsp = HttpForwardRemoteResponse::parse(&mut self.reader, &method, true, 1024)
+        let rsp = HttpForwardRemoteResponse::parse(&mut self.stream, &method, true, 4096)
             .await
             .map_err(|e| anyhow!("failed to recv response: {e}"))?;
         if rsp.code != StatusCode::OK {
@@ -121,7 +116,7 @@ impl RegisterTask {
 
         // recv body
         if let Some(body_type) = rsp.body_type(&method) {
-            let mut body_reader = HttpBodyReader::new(&mut self.reader, body_type, 2048);
+            let mut body_reader = HttpBodyReader::new(&mut self.stream, body_type, 1024);
             let mut sink = tokio::io::sink();
             tokio::io::copy(&mut body_reader, &mut sink)
                 .await

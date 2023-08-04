@@ -123,7 +123,7 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
             .context("failed to load all key stores")?;
 
         g3keymess::serve::spawn_offline_clean();
-        if let Some(config) = g3_daemon::register::get_config() {
+        if let Some(config) = g3_daemon::register::get_pre_config() {
             tokio::spawn(async move {
                 g3keymess::serve::create_all_stopped().await;
                 if let Err(e) = g3keymess::register::startup(config, &unique_ctl_path).await {
