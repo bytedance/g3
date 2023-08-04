@@ -7,7 +7,7 @@ RELEASE_TAG=$1
 BUILD_DIR=
 CARGO_VENDOR_DIR="vendor"
 CARGO_CONFIG_DIR=".cargo"
-CARGO_CONFIG_FILE="${CARGO_CONFIG_DIR}/config"
+CARGO_CONFIG_FILE="${CARGO_CONFIG_DIR}/config.toml"
 
 lib_dependency()
 {

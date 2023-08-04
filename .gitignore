@@ -3,7 +3,6 @@
 .idea/
 
 # Cargo
-.cargo
 /target/
 
 # generated bundled license
