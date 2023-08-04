@@ -178,7 +178,9 @@ impl KeylessTask {
         let sync_op = OpensslOperation { req, key };
         let Ok(task) = TokioAsyncOperation::build_async_task(sync_op) else {
             req_stats.add_crypto_fail();
-            let _ = msg_sender.send(KeylessResponse::Error(rsp.crypto_fail())).await;
+            let _ = msg_sender
+                .send(KeylessResponse::Error(rsp.crypto_fail()))
+                .await;
             return;
         };
 
