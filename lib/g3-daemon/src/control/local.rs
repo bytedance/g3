@@ -167,7 +167,7 @@ impl LocalController {
     }
 
     pub fn start_daemon(daemon_group: &str) -> anyhow::Result<impl Future> {
-        LocalController::create_unique(daemon_group)?.start_as_daemon()
+        LocalController::create_daemon(daemon_group)?.start_as_daemon()
     }
 
     pub fn abort_daemon() {
