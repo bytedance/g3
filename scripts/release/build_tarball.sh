@@ -4,6 +4,7 @@ set -e
 
 SCRIPT_DIR=$(dirname $(realpath $0))
 RELEASE_TAG=$1
+GIT_REVISION=${2:-RELEASE_TAG}
 BUILD_DIR=
 CARGO_VENDOR_DIR="vendor"
 CARGO_CONFIG_DIR=".cargo"
@@ -37,14 +38,14 @@ fi
 
 SOURCE_NAME=$(echo "${RELEASE_TAG}" | sed 's/\(.*[^-]\)-v[0-9].*/\1/')
 SOURCE_VERSION=$(echo "${RELEASE_TAG}" | sed 's/.*[^-]-v\([0-9].*\)/\1/')
-SOURCE_TIMESTAMP=$(git show -s --pretty="format:%ct" "${RELEASE_TAG}^{commit}")
+SOURCE_TIMESTAMP=$(git show -s --pretty="format:%ct" "${GIT_REVISION}^{commit}")
 
 BUILD_DIR=$(mktemp -d "/tmp/build.${SOURCE_NAME}-${SOURCE_VERSION}.XXX")
 echo "==> Use temp build dir ${BUILD_DIR}"
 
 
 echo "==> adding source code from git"
-git archive --format=tar --prefix="${SOURCE_NAME}-${SOURCE_VERSION}/" "${RELEASE_TAG}" | tar -C "${BUILD_DIR}" -xf -
+git archive --format=tar --prefix="${SOURCE_NAME}-${SOURCE_VERSION}/" "${GIT_REVISION}" | tar -C "${BUILD_DIR}" -xf -
 
 cd "${BUILD_DIR}/${SOURCE_NAME}-${SOURCE_VERSION}"
 
