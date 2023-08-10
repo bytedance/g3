@@ -36,7 +36,7 @@ mod server;
 
 use error::{CommandError, CommandResult};
 
-const DEFAULT_SYS_CONTROL_DIR: &str = "/run/g3tiles";
+const DEFAULT_SYS_CONTROL_DIR: &str = "/run/g3keymess";
 const DEFAULT_TMP_CONTROL_DIR: &str = "/tmp/g3";
 
 const GLOBAL_ARG_COMPLETION: &str = "completion";
