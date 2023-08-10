@@ -15,4 +15,6 @@ interface ProcControl {
 
   publishKey @4 (pem: Text) -> (result :Types.OperationResult);
   listKeys @5 () -> (result :List(Data));
+
+  addMetricsTag @6 (name :Text, value :Text) -> (result :Types.OperationResult);
 }

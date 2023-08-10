@@ -14,8 +14,13 @@
  * limitations under the License.
  */
 
+use std::str::FromStr;
+
+use anyhow::anyhow;
 use capnp::capability::Promise;
 use capnp_rpc::pry;
+
+use g3_types::metrics::{MetricsTagName, MetricsTagValue};
 
 use g3keymess_proto::proc_capnp::proc_control;
 use g3keymess_proto::server_capnp::server_control;
@@ -102,6 +107,33 @@ impl proc_control::Server for ProcControlImpl {
             Ok(())
         })
     }
+
+    fn add_metrics_tag(
+        &mut self,
+        params: proc_control::AddMetricsTagParams,
+        mut results: proc_control::AddMetricsTagResults,
+    ) -> Promise<(), capnp::Error> {
+        let name = pry!(pry!(params.get()).get_name());
+        let value = pry!(pry!(params.get()).get_value());
+
+        let r = do_add_metrics_tag(name, value);
+        set_operation_result(results.get().init_result(), r);
+        Promise::ok(())
+    }
+}
+
+fn do_add_metrics_tag(name: &str, value: &str) -> anyhow::Result<()> {
+    let name =
+        MetricsTagName::from_str(name).map_err(|e| anyhow!("invalid metrics tag name: {e}"))?;
+    let value =
+        MetricsTagValue::from_str(value).map_err(|e| anyhow!("invalid metrics tag value: {e}"))?;
+
+    // add for server metrics
+    crate::serve::foreach_server(|_, s| {
+        s.add_dynamic_metrics_tag(name.clone(), value.clone());
+    });
+
+    Ok(())
 }
 
 fn set_fetch_result<'a, T>(

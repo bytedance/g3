@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-use anyhow::anyhow;
 use std::str::FromStr;
 use std::sync::Arc;
 
+use anyhow::anyhow;
 use capnp::capability::Promise;
 use capnp_rpc::pry;
 
