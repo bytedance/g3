@@ -116,9 +116,6 @@ impl KeyStoreConfig for LocalKeyStoreConfig {
                 keys.push(key);
             }
         }
-        if keys.is_empty() {
-            return Err(anyhow!("no valid private key found"));
-        }
         Ok(keys)
     }
 
