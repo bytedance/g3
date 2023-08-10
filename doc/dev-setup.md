@@ -156,6 +156,7 @@ dnf install rpmdevtools rpm-build
 ```shell
 brew install pkgconf capnp
 brew install openssl c-ares
+brew install autoconf automake libtool
 brew install lua
 # install python, or you can use the one provided by XCode
 brew install python
