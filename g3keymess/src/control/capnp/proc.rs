@@ -85,6 +85,23 @@ impl proc_control::Server for ProcControlImpl {
             Ok(())
         })
     }
+
+    fn list_keys(
+        &mut self,
+        _params: proc_control::ListKeysParams,
+        mut results: proc_control::ListKeysResults,
+    ) -> Promise<(), capnp::Error> {
+        Promise::from_future(async move {
+            let r = crate::control::bridge::list_keys()
+                .await
+                .unwrap_or_default();
+            let mut builder = results.get().init_result(r.len() as u32);
+            for (i, ski) in r.iter().enumerate() {
+                builder.set(i as u32, ski.as_slice());
+            }
+            Ok(())
+        })
+    }
 }
 
 fn set_fetch_result<'a, T>(

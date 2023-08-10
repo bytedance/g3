@@ -42,6 +42,13 @@ pub(crate) fn add_global(key: PKey<Private>) -> anyhow::Result<()> {
     Ok(())
 }
 
+pub(crate) fn get_all_ski() -> Vec<Vec<u8>> {
+    GLOBAL_SKI_MAP.with(|cell| {
+        let map = cell.borrow();
+        map.keys().map(|v| v.to_vec()).collect()
+    })
+}
+
 pub(crate) fn get_by_ski(ski: &[u8]) -> Option<PKey<Private>> {
     GLOBAL_SKI_MAP.with(|cell| {
         let map = cell.borrow();

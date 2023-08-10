@@ -23,7 +23,7 @@ use g3keymess_proto::proc_capnp::proc_control;
 use g3keymess_proto::server_capnp::server_control;
 
 use super::{CommandError, CommandResult};
-use crate::common::{parse_fetch_result, parse_operation_result, print_list_text};
+use crate::common::{parse_fetch_result, parse_operation_result, print_list_data, print_list_text};
 
 pub const COMMAND_VERSION: &str = "version";
 pub const COMMAND_OFFLINE: &str = "offline";
@@ -32,6 +32,7 @@ pub const COMMAND_PUBLISH_KEY: &str = "publish-key";
 
 const COMMAND_LIST_ARG_RESOURCE: &str = "resource";
 const RESOURCE_VALUE_SERVER: &str = "server";
+const RESOURCE_VALUE_KEY: &str = "key";
 
 const COMMAND_ARG_FILE: &str = "file";
 
@@ -52,7 +53,7 @@ pub mod commands {
             Arg::new(COMMAND_LIST_ARG_RESOURCE)
                 .required(true)
                 .num_args(1)
-                .value_parser([RESOURCE_VALUE_SERVER])
+                .value_parser([RESOURCE_VALUE_SERVER, RESOURCE_VALUE_KEY])
                 .ignore_case(true),
         )
     }
@@ -90,6 +91,7 @@ pub async fn list(client: &proc_control::Client, args: &ArgMatches) -> CommandRe
         .as_str()
     {
         RESOURCE_VALUE_SERVER => list_server(client).await,
+        RESOURCE_VALUE_KEY => list_key(client).await,
         _ => unreachable!(),
     }
 }
@@ -98,6 +100,12 @@ async fn list_server(client: &proc_control::Client) -> CommandResult<()> {
     let req = client.list_server_request();
     let rsp = req.send().promise.await?;
     print_list_text(rsp.get()?.get_result()?)
+}
+
+async fn list_key(client: &proc_control::Client) -> CommandResult<()> {
+    let req = client.list_keys_request();
+    let rsp = req.send().promise.await?;
+    print_list_data(rsp.get()?.get_result()?)
 }
 
 pub(crate) async fn get_server(

@@ -25,6 +25,13 @@ pub(crate) fn print_list_text(list: capnp::text_list::Reader<'_>) -> CommandResu
     Ok(())
 }
 
+pub(crate) fn print_list_data(list: capnp::data_list::Reader<'_>) -> CommandResult<()> {
+    for text in list.iter() {
+        println!("{}", hex::encode(text?));
+    }
+    Ok(())
+}
+
 pub(crate) fn parse_operation_result(r: operation_result::Reader<'_>) -> CommandResult<()> {
     match r.which().unwrap() {
         operation_result::Which::Ok(ok) => {

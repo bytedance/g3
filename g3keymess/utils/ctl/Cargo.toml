@@ -16,4 +16,5 @@ tokio-util = { workspace = true, features = ["compat"] }
 futures-util.workspace = true
 capnp-rpc.workspace = true
 capnp.workspace = true
+hex.workspace = true
 g3keymess-proto = { path = "../../proto" }

@@ -1354,6 +1354,7 @@ dependencies = [
  "clap_complete",
  "futures-util",
  "g3keymess-proto",
+ "hex",
  "thiserror",
  "tokio",
  "tokio-util",

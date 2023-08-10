@@ -35,3 +35,11 @@ pub(crate) async fn add_key(pem: &str) -> anyhow::Result<()> {
         .await
         .map_err(|e| anyhow!("failed to spawn reload task: {e}"))?
 }
+
+pub(crate) async fn list_keys() -> anyhow::Result<Vec<Vec<u8>>> {
+    g3_daemon::control::bridge::main_runtime_handle()
+        .ok_or(anyhow!("unable to get main runtime handle"))?
+        .spawn(async move { Ok(crate::store::get_all_ski()) })
+        .await
+        .map_err(|e| anyhow!("failed to spawn reload task: {e}"))?
+}
