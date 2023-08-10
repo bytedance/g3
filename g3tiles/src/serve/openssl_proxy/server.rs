@@ -64,7 +64,7 @@ impl OpensslProxyServer {
         hosts: Arc<HostMatch<Arc<OpensslHost>>>,
         version: usize,
     ) -> anyhow::Result<Self> {
-        let (reload_sender, _reload_receiver) = crate::serve::new_reload_notify_channel();
+        let reload_sender = crate::serve::new_reload_notify_channel();
 
         let host_index =
             Ssl::new_ex_index().map_err(|e| anyhow!("failed to get host index: {e}"))?;

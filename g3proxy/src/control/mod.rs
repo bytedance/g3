@@ -16,7 +16,6 @@
 
 use std::future::Future;
 
-use once_cell::sync::Lazy;
 use tokio::sync::Mutex;
 
 mod bridge;
@@ -25,7 +24,7 @@ pub mod capnp;
 mod local;
 pub use local::{DaemonController, UniqueController};
 
-static IO_MUTEX: Lazy<Mutex<Option<Mutex<()>>>> = Lazy::new(|| Mutex::new(Some(Mutex::new(()))));
+static IO_MUTEX: Mutex<Option<Mutex<()>>> = Mutex::const_new(Some(Mutex::const_new(())));
 
 pub(crate) async fn run_protected_io<F: Future>(future: F) -> Option<F::Output> {
     let outer = IO_MUTEX.lock().await;

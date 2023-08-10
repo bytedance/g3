@@ -20,7 +20,6 @@ use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use log::{debug, warn};
-use once_cell::sync::Lazy;
 use tokio::sync::Mutex;
 
 use g3_types::metrics::MetricsName;
@@ -42,7 +41,7 @@ use super::socks_proxy::SocksProxyServer;
 use super::tcp_stream::TcpStreamServer;
 use super::tls_stream::TlsStreamServer;
 
-static SERVER_OPS_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+static SERVER_OPS_LOCK: Mutex<()> = Mutex::const_new(());
 
 pub fn spawn_offline_clean() {
     tokio::spawn(async {

@@ -202,9 +202,6 @@ pub(crate) trait Server: ServerInternal {
 
 pub(crate) type ArcServer = Arc<dyn Server + Send + Sync>;
 
-fn new_reload_notify_channel() -> (
-    broadcast::Sender<ServerReloadCommand>,
-    broadcast::Receiver<ServerReloadCommand>,
-) {
-    broadcast::channel::<ServerReloadCommand>(16)
+fn new_reload_notify_channel() -> broadcast::Sender<ServerReloadCommand> {
+    broadcast::Sender::new(16)
 }

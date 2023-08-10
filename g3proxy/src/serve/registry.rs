@@ -29,7 +29,7 @@ use crate::serve::dummy_close::DummyCloseServer;
 
 static RUNTIME_SERVER_REGISTRY: Lazy<Mutex<HashMap<MetricsName, ArcServer>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
-static OFFLINE_SERVER_SET: Lazy<Mutex<Vec<ArcServer>>> = Lazy::new(|| Mutex::new(Vec::new()));
+static OFFLINE_SERVER_SET: Mutex<Vec<ArcServer>> = Mutex::new(Vec::new());
 
 pub(super) fn add_offline(old_server: ArcServer) {
     let mut set = OFFLINE_SERVER_SET.lock().unwrap();

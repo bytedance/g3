@@ -18,7 +18,6 @@ use std::collections::HashSet;
 
 use anyhow::{anyhow, Context};
 use log::debug;
-use once_cell::sync::Lazy;
 use tokio::sync::Mutex;
 
 use g3_types::metrics::MetricsName;
@@ -28,7 +27,7 @@ use super::registry;
 use crate::audit::Auditor;
 use crate::config::audit::AuditorConfig;
 
-static AUDITOR_OPS_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+static AUDITOR_OPS_LOCK: Mutex<()> = Mutex::const_new(());
 
 pub async fn load_all() -> anyhow::Result<()> {
     let _guard = AUDITOR_OPS_LOCK.lock().await;

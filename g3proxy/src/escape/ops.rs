@@ -19,7 +19,6 @@ use std::collections::HashSet;
 use anyhow::{anyhow, Context};
 use async_recursion::async_recursion;
 use log::{debug, warn};
-use once_cell::sync::Lazy;
 use tokio::sync::Mutex;
 
 use g3_types::metrics::MetricsName;
@@ -45,7 +44,7 @@ use super::route_select::RouteSelectEscaper;
 use super::route_upstream::RouteUpstreamEscaper;
 use super::trick_float::TrickFloatEscaper;
 
-static ESCAPER_OPS_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+static ESCAPER_OPS_LOCK: Mutex<()> = Mutex::const_new(());
 
 pub async fn load_all() -> anyhow::Result<()> {
     let _guard = ESCAPER_OPS_LOCK.lock().await;

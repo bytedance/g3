@@ -20,7 +20,6 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use log::debug;
-use once_cell::sync::Lazy;
 use tokio::sync::Mutex;
 
 use g3_types::metrics::MetricsName;
@@ -28,7 +27,7 @@ use g3_types::metrics::MetricsName;
 use super::{registry, KeyServer};
 use crate::config::server::KeyServerConfig;
 
-static SERVER_OPS_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+static SERVER_OPS_LOCK: Mutex<()> = Mutex::const_new(());
 
 pub fn spawn_offline_clean() {
     tokio::spawn(async {

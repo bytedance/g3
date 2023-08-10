@@ -70,7 +70,7 @@ impl HttpProxyServer {
         listen_stats: Arc<ListenStats>,
         version: usize,
     ) -> anyhow::Result<HttpProxyServer> {
-        let (reload_sender, _reload_receiver) = crate::serve::new_reload_notify_channel();
+        let reload_sender = crate::serve::new_reload_notify_channel();
 
         let mut tls_accept_timeout = Duration::from_secs(10);
         let tls_acceptor = if let Some(tls_config_builder) = &config.server_tls_config {

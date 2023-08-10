@@ -51,7 +51,7 @@ impl KeyServer {
         concurrency_limit: Option<Arc<Semaphore>>,
         dynamic_metrics_tags: Arc<ArcSwap<StaticMetricsTags>>,
     ) -> Self {
-        let (reload_sender, _reload_receiver) = broadcast::channel(16);
+        let reload_sender = broadcast::Sender::new(16);
 
         let task_logger = config.get_task_logger();
         let request_logger = config.get_request_logger();

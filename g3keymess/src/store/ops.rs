@@ -18,7 +18,6 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use anyhow::Context;
-use once_cell::sync::Lazy;
 use tokio::sync::Mutex;
 
 use g3_types::metrics::MetricsName;
@@ -26,7 +25,7 @@ use g3_types::metrics::MetricsName;
 use super::registry;
 use crate::config::store::AnyKeyStoreConfig;
 
-static KEY_STORE_OPS_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+static KEY_STORE_OPS_LOCK: Mutex<()> = Mutex::const_new(());
 
 pub async fn load_all() -> anyhow::Result<()> {
     let _guard = KEY_STORE_OPS_LOCK.lock().await;

@@ -66,7 +66,7 @@ impl TlsStreamServer {
         listen_stats: Arc<ListenStats>,
         version: usize,
     ) -> anyhow::Result<Self> {
-        let (reload_sender, _reload_receiver) = crate::serve::new_reload_notify_channel();
+        let reload_sender = crate::serve::new_reload_notify_channel();
 
         let mut nodes_builder = SelectiveVecBuilder::new();
         for node in &config.upstream {

@@ -69,7 +69,7 @@ impl HttpRProxyServer {
         hosts: HostMatch<Arc<HttpHost>>,
         version: usize,
     ) -> anyhow::Result<Self> {
-        let (reload_sender, _reload_receiver) = crate::serve::new_reload_notify_channel();
+        let reload_sender = crate::serve::new_reload_notify_channel();
 
         let global_tls_server = match &config.global_tls_server {
             Some(builder) => {

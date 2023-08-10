@@ -144,7 +144,7 @@ impl PlainTlsPort {
         listen_stats: Arc<ListenStats>,
         reload_version: usize,
     ) -> anyhow::Result<Self> {
-        let (reload_sender, _reload_receiver) = crate::serve::new_reload_notify_channel();
+        let reload_sender = crate::serve::new_reload_notify_channel();
 
         let tls_server_config = if let Some(builder) = &config.server_tls_config {
             builder

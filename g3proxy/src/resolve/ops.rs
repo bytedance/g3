@@ -19,7 +19,6 @@ use std::collections::HashSet;
 use anyhow::{anyhow, Context};
 use async_recursion::async_recursion;
 use log::{debug, warn};
-use once_cell::sync::Lazy;
 use tokio::sync::Mutex;
 
 use g3_types::metrics::MetricsName;
@@ -36,7 +35,7 @@ use super::fail_over::FailOverResolver;
 
 use super::registry;
 
-static RESOLVER_OPS_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+static RESOLVER_OPS_LOCK: Mutex<()> = Mutex::const_new(());
 
 pub async fn spawn_all() -> anyhow::Result<()> {
     let _guard = RESOLVER_OPS_LOCK.lock().await;

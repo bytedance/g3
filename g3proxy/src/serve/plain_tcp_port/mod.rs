@@ -117,7 +117,7 @@ impl PlainTcpPort {
         listen_stats: Arc<ListenStats>,
         reload_version: usize,
     ) -> anyhow::Result<Self> {
-        let (reload_sender, _reload_receiver) = crate::serve::new_reload_notify_channel();
+        let reload_sender = crate::serve::new_reload_notify_channel();
 
         let ingress_net_filter = config
             .ingress_net_filter

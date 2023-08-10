@@ -41,7 +41,7 @@ pub(crate) struct DummyCloseServer {
 
 impl DummyCloseServer {
     fn new(config: DummyCloseServerConfig, listen_stats: Arc<ListenStats>) -> Self {
-        let (reload_sender, _reload_receiver) = crate::serve::new_reload_notify_channel();
+        let reload_sender = crate::serve::new_reload_notify_channel();
 
         DummyCloseServer {
             config,

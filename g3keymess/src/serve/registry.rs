@@ -27,7 +27,7 @@ use crate::config::server::KeyServerConfig;
 
 static RUNTIME_SERVER_REGISTRY: Lazy<Mutex<HashMap<MetricsName, Arc<KeyServer>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
-static OFFLINE_SERVER_SET: Lazy<Mutex<Vec<Arc<KeyServer>>>> = Lazy::new(|| Mutex::new(Vec::new()));
+static OFFLINE_SERVER_SET: Mutex<Vec<Arc<KeyServer>>> = Mutex::new(Vec::new());
 
 pub(super) fn add_offline(old_server: Arc<KeyServer>) {
     let mut set = OFFLINE_SERVER_SET.lock().unwrap();

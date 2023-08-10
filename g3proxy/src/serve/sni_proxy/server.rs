@@ -59,7 +59,7 @@ impl SniProxyServer {
         listen_stats: Arc<ListenStats>,
         version: usize,
     ) -> anyhow::Result<SniProxyServer> {
-        let (reload_sender, _reload_receiver) = crate::serve::new_reload_notify_channel();
+        let reload_sender = crate::serve::new_reload_notify_channel();
 
         let ingress_net_filter = config
             .ingress_net_filter

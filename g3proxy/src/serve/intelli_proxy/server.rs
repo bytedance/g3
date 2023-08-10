@@ -53,7 +53,7 @@ impl IntelliProxy {
         listen_stats: Arc<ListenStats>,
         reload_version: usize,
     ) -> Self {
-        let (reload_sender, _reload_receiver) = crate::serve::new_reload_notify_channel();
+        let reload_sender = crate::serve::new_reload_notify_channel();
 
         let (cfg_sender, cfg_receiver) = watch::channel(Some(config.as_ref().clone()));
 

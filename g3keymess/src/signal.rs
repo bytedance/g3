@@ -15,13 +15,12 @@
  */
 
 use log::{error, info, warn};
-use once_cell::sync::Lazy;
 use tokio::signal::unix::SignalKind;
 use tokio::sync::Mutex;
 
 use g3_signal::{ActionSignal, SigResult};
 
-static RELOAD_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+static RELOAD_MUTEX: Mutex<()> = Mutex::const_new(());
 
 fn do_quit(_: u32) -> SigResult {
     info!("got quit signal");
