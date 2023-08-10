@@ -16,6 +16,11 @@ verbose_level = 0
 script_name = sys.argv[0]
 
 
+FORKED_NAMES = {
+    "cadence-with-flush": "cadence",
+}
+
+
 def get_locked_pkg(name: str):
     for p in packages:
         if p['name'] == name:
@@ -29,6 +34,7 @@ def get_locked_version(name: str):
 
 
 def get_registry_path(name: str):
+    name = FORKED_NAMES.get(name, name)
     if len(name) == 1:
         return f"/1/{name}"
     if len(name) == 2:
