@@ -1,3 +1,10 @@
 
+v0.3.0:
+ - Feature: allow to register service before running
+ - Feature: always restart after service success quit
+ - Feature: add the following global rpc methods:
+     - add_metrics_tag to add metrics tag to all metrics
+     - list_keys to list SKI of all stored keys
+
 v0.2.0:
  - Initial release
