@@ -187,7 +187,7 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
   * Escaper level metrics
   * User level metrics
   * User-Site level metrics
-- Backend: statsd, so we can support multiple backends via statsd implementations
+- Protocol: StatsD
 
 ## Documents
 
