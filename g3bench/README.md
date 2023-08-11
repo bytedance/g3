@@ -69,6 +69,10 @@ g3bench h1 https://example.net/echo1k -t 20s -c 100
 g3bench h1 https://example.net/echo1k -t 20s -c 100 --no-keepalive
 # using TLS 1.2 cipher ECDHE-RSA-AES256-GCM-SHA384
 g3bench h1 https://example.net/echo1k -t 20s -c 100 --tls-protocol tls1.2 --tls-ciphers ECDHE-RSA-AES256-GCM-SHA384
+# h2
+g3bench h2 https://www.example.net
+# h3
+g3bench h3 https://www.example.net
 ```
 
 ## Test a Http Proxy
@@ -82,6 +86,10 @@ g3bench h1 -x http://192.168.1.1:3128 https://example.net/echo1k -t 20s -c 100
 g3bench h1 -x http://192.168.1.1:3128 -p https://example.net/echo1k -t 20s -c 100
 # disable HTTP Keep-Alive
 g3bench h1 -x http://192.168.1.1:3128 http://example.net/echo1k --no-keepalive -t 20s -c 100
+# using FTP over HTTP
+g3bench h1 -x http://192.168.1.1:3128 ftp://example.net/
+# using HTTP CONNECT for h2
+g3bench h2 -x http://192.168.1.1:3128 https://example.net
 ```
 
 ## Test DNS
