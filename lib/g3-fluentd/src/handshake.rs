@@ -15,7 +15,6 @@
  */
 
 use anyhow::anyhow;
-
 use rmp::decode::Bytes;
 
 pub(super) struct HeloMsgRef<'a> {

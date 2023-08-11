@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-use anyhow::anyhow;
 use std::io;
 
+use anyhow::anyhow;
 use clap::{value_parser, Arg, Command};
 use clap_complete::Shell;
 use mlua::Lua;

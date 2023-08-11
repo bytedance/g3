@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-use anyhow::anyhow;
 use std::sync::Arc;
 
+use anyhow::anyhow;
 use clap::{ArgMatches, Command};
 
 use super::{BenchTarget, BenchTaskContext, ProcArgs};

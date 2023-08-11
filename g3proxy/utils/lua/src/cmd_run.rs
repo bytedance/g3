@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-use anyhow::anyhow;
 use std::path::PathBuf;
 
+use anyhow::anyhow;
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
 use mlua::{Lua, Value};
 

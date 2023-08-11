@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-use anyhow::{anyhow, Context};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::pin::Pin;
 use std::time::Duration;
 
+use anyhow::{anyhow, Context};
 use digest::Digest;
 use rand::Rng;
 use rmp::encode::ValueWriteError;

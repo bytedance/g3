@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-use anyhow::{anyhow, Context};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+use anyhow::{anyhow, Context};
 use clap::builder::ArgPredicate;
 use clap::{value_parser, Arg, ArgAction, ArgGroup, ArgMatches, Command, ValueHint};
 use clap_complete::Shell;
