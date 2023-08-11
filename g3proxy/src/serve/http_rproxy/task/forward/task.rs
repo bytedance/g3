@@ -233,19 +233,10 @@ impl<'a> HttpRProxyForwardTask<'a> {
         self.ctx.server_stats.task_http_forward.inc_alive_task();
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
-            user_ctx
-                .req_stats()
-                .req_total
-                .add_http_forward(self.is_https);
-            user_ctx
-                .req_stats()
-                .req_alive
-                .add_http_forward(self.is_https);
-
-            if let Some(site_req_stats) = user_ctx.site_req_stats() {
-                site_req_stats.req_total.add_http_forward(self.is_https);
-                site_req_stats.req_alive.add_http_forward(self.is_https);
-            }
+            user_ctx.foreach_req_stats(|s| {
+                s.req_total.add_http_forward(self.is_https);
+                s.req_alive.add_http_forward(self.is_https);
+            });
         }
     }
 
@@ -253,14 +244,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
         self.ctx.server_stats.task_http_forward.dec_alive_task();
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
-            user_ctx
-                .req_stats()
-                .req_alive
-                .del_http_forward(self.is_https);
-
-            if let Some(site_req_stats) = user_ctx.site_req_stats() {
-                site_req_stats.req_alive.del_http_forward(self.is_https);
-            }
+            user_ctx.foreach_req_stats(|s| s.req_alive.del_http_forward(self.is_https));
 
             if let Some(user_req_alive_permit) = self.task_notes.user_req_alive_permit.take() {
                 drop(user_req_alive_permit);
@@ -525,13 +509,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
             fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
             self.retry_new_connection = true;
             if let Some(user_ctx) = self.task_notes.user_ctx() {
-                user_ctx
-                    .req_stats()
-                    .req_reuse
-                    .add_http_forward(self.is_https);
-                if let Some(site_req_stats) = user_ctx.site_req_stats() {
-                    site_req_stats.req_reuse.add_http_forward(self.is_https);
-                }
+                user_ctx.foreach_req_stats(|s| s.req_reuse.add_http_forward(self.is_https));
             }
 
             let r = self
@@ -549,12 +527,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
                         // continue to make new connection
                         if let Some(user_ctx) = self.task_notes.user_ctx() {
                             user_ctx
-                                .req_stats()
-                                .req_renew
-                                .add_http_forward(self.is_https);
-                            if let Some(site_req_stats) = user_ctx.site_req_stats() {
-                                site_req_stats.req_renew.add_http_forward(self.is_https);
-                            }
+                                .foreach_req_stats(|s| s.req_renew.add_http_forward(self.is_https));
                         }
                     } else {
                         self.should_close = true;
@@ -626,13 +599,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
     fn mark_relaying(&mut self) {
         self.task_notes.mark_relaying();
         if let Some(user_ctx) = self.task_notes.user_ctx() {
-            user_ctx
-                .req_stats()
-                .req_ready
-                .add_http_forward(self.is_https);
-            if let Some(site_req_stats) = user_ctx.site_req_stats() {
-                site_req_stats.req_ready.add_http_forward(self.is_https);
-            }
+            user_ctx.foreach_req_stats(|s| s.req_ready.add_http_forward(self.is_https));
         }
     }
 

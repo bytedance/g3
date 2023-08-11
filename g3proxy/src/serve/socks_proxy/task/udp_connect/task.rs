@@ -130,11 +130,7 @@ impl SocksProxyUdpConnectTask {
         self.ctx.server_stats.task_udp_connect.dec_alive_task();
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
-            user_ctx.req_stats().req_alive.del_socks_udp_connect();
-
-            if let Some(site_req_stats) = user_ctx.site_req_stats() {
-                site_req_stats.req_alive.del_socks_udp_connect();
-            }
+            user_ctx.foreach_req_stats(|s| s.req_alive.del_socks_udp_connect());
 
             if let Some(user_req_alive_permit) = self.task_notes.user_req_alive_permit.take() {
                 drop(user_req_alive_permit);
@@ -304,7 +300,7 @@ impl SocksProxyUdpConnectTask {
 
         self.task_notes.mark_relaying();
         if let Some(user_ctx) = self.task_notes.user_ctx() {
-            user_ctx.req_stats().req_ready.add_socks_udp_connect();
+            user_ctx.foreach_req_stats(|s| s.req_ready.add_socks_udp_connect());
         }
         self.run_relay(
             clt_tcp_r,

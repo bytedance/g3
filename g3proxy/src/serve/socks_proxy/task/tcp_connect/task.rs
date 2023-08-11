@@ -108,13 +108,10 @@ impl SocksProxyTcpConnectTask {
         self.ctx.server_stats.task_tcp_connect.inc_alive_task();
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
-            user_ctx.req_stats().req_total.add_socks_tcp_connect();
-            user_ctx.req_stats().req_alive.add_socks_tcp_connect();
-
-            if let Some(site_req_stats) = user_ctx.site_req_stats() {
-                site_req_stats.req_total.add_socks_tcp_connect();
-                site_req_stats.req_alive.add_socks_tcp_connect();
-            }
+            user_ctx.foreach_req_stats(|s| {
+                s.req_total.add_socks_tcp_connect();
+                s.req_alive.add_socks_tcp_connect();
+            });
         }
     }
 
@@ -122,11 +119,7 @@ impl SocksProxyTcpConnectTask {
         self.ctx.server_stats.task_tcp_connect.dec_alive_task();
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
-            user_ctx.req_stats().req_alive.del_socks_tcp_connect();
-
-            if let Some(site_req_stats) = user_ctx.site_req_stats() {
-                site_req_stats.req_alive.del_socks_tcp_connect();
-            }
+            user_ctx.foreach_req_stats(|s| s.req_alive.del_socks_tcp_connect());
 
             if let Some(user_req_alive_permit) = self.task_notes.user_req_alive_permit.take() {
                 drop(user_req_alive_permit);
@@ -351,10 +344,7 @@ impl SocksProxyTcpConnectTask {
         }
         self.task_notes.mark_relaying();
         if let Some(user_ctx) = self.task_notes.user_ctx() {
-            user_ctx.req_stats().req_ready.add_socks_tcp_connect();
-            if let Some(site_req_stats) = user_ctx.site_req_stats() {
-                site_req_stats.req_ready.add_socks_tcp_connect();
-            }
+            user_ctx.foreach_req_stats(|s| s.req_ready.add_socks_tcp_connect());
         }
         self.relay(clt_r, clt_w, ups_r, ups_w).await
     }
