@@ -48,7 +48,7 @@ A simple implementation of Cloudflare keyless server.
 
 ## Target Platform
 
-Only Linux is fully supported yet. The code will compile on FreeBSD / NetBSD / MacOS, but we haven't tested it there.
+Only Linux is fully supported yet. The code will compile on FreeBSD / NetBSD / macOS, but we haven't tested it there.
 
 Feel free to open PRs to add support to other platforms.
 
