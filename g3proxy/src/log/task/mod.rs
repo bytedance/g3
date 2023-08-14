@@ -30,7 +30,7 @@ pub(crate) fn get_logger(server_type: &str, server_name: &MetricsName) -> Logger
     let config = crate::config::log::get_task_default_config();
     let logger_name = format!("lt-{server_name}");
     let common_values = slog_o!(
-        "daemon_name" => crate::config::daemon_group_name(),
+        "daemon_name" => crate::opts::daemon_group(),
         "log_type" => super::LOG_TYPE_TASK,
         "pid" => std::process::id(),
         "server_type" => server_type.to_string(),

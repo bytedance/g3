@@ -28,7 +28,7 @@ pub(crate) fn get_logger(escaper_type: &str, escaper_name: &MetricsName) -> Logg
     let config = crate::config::log::get_escape_default_config();
     let logger_name = format!("le-{escaper_name}");
     let common_values = slog_o!(
-        "daemon_name" => crate::config::daemon_group_name(),
+        "daemon_name" => crate::opts::daemon_group(),
         "log_type" => super::LOG_TYPE_ESCAPE,
         "pid" => std::process::id(),
         "escaper_type" => escaper_type.to_string(),
