@@ -1291,6 +1291,7 @@ dependencies = [
  "g3-runtime",
  "g3-tls-cert",
  "g3-types",
+ "g3-yaml",
  "log",
  "memchr",
  "openssl",
@@ -1298,6 +1299,7 @@ dependencies = [
  "rmpv",
  "rustc_version",
  "tokio",
+ "yaml-rust",
 ]
 
 [[package]]

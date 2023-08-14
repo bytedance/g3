@@ -100,3 +100,13 @@ pub fn select_listen_handle() -> Option<WorkerHandle> {
         }
     }
 }
+
+pub fn foreach<F, E>(spawn: F) -> Result<(), E>
+where
+    F: Fn(&WorkerHandle) -> Result<(), E>,
+{
+    for handle in handles() {
+        spawn(handle)?;
+    }
+    Ok(())
+}

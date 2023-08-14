@@ -15,19 +15,20 @@
  */
 
 use std::net::SocketAddr;
-use std::sync::Arc;
 use std::time::Duration;
 
 use ::log::{debug, error, warn};
 use anyhow::{anyhow, Context};
 
-pub mod build;
+pub mod config;
 
-mod opts;
-pub use opts::{add_global_args, parse_global_args, ProcArgs};
+mod build;
+
+pub mod opts;
+use opts::ProcArgs;
 
 mod backend;
-use backend::{OpensslBackend, OpensslBackendConfig};
+use backend::OpensslBackend;
 
 mod frontend;
 use frontend::{ResponseData, UdpDgramFrontend};
@@ -36,14 +37,17 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
     let (req_sender, req_receiver) = flume::bounded::<(String, SocketAddr)>(1024);
     let (rsp_sender, rsp_receiver) = flume::bounded::<(ResponseData, SocketAddr)>(1024);
 
-    let backend_config = OpensslBackendConfig::new(&proc_args.ca_cert, &proc_args.ca_key)?;
-    let backend_config = Arc::new(backend_config);
-    for i in 0..proc_args.backend_number {
-        let mut backend =
-            OpensslBackend::new(&backend_config).context(format!("failed to build backend {i}"))?;
+    let backend_config =
+        config::get_backend_config().ok_or_else(|| anyhow!("no backend config available"))?;
+
+    g3_daemon::runtime::worker::foreach(|h| {
+        let id = h.id;
+        let mut backend = OpensslBackend::new(&backend_config)
+            .context(format!("failed to build backend {id}"))?;
         let req_receiver = req_receiver.clone();
         let rsp_sender = rsp_sender.clone();
-        tokio::spawn(async move {
+
+        h.handle.spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(300));
 
             loop {
@@ -60,23 +64,24 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
 
                         match backend.generate(&host) {
                             Ok(data) => {
-                                debug!("BG#{i} got certificate for host {host}");
+                                debug!("Worker#{id} got certificate for host {host}");
                                 if let Err(e) = rsp_sender.send_async((data, peer_addr)).await {
                                     error!(
-                                        "BG#{i} failed to send certificate for host {host} to frontend: {e}"
+                                        "Worker#{id} failed to send certificate for host {host} to frontend: {e}"
                                     );
                                     break;
                                 }
                             }
                             Err(e) => {
-                                warn!("BG#{i} generate for {host} failed: {e:?}");
+                                warn!("Worker#{id} generate for {host} failed: {e:?}");
                             }
                         }
                     }
                 }
             }
         });
-    }
+        Ok::<(), anyhow::Error>(())
+    })?;
 
     if let Some(addr) = proc_args.udp_addr {
         let frontend = UdpDgramFrontend::new(addr).await?;

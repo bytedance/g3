@@ -14,145 +14,120 @@
  * limitations under the License.
  */
 
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::path::{Path, PathBuf};
+use std::net::{IpAddr, Ipv6Addr, SocketAddr};
+use std::path::PathBuf;
 use std::str::FromStr;
+use std::sync::OnceLock;
 
 use anyhow::{anyhow, Context};
-use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
+use clap::{value_parser, Arg, ArgAction, Command, ValueHint};
 
 use g3_daemon::opts::DaemonArgs;
-use g3_runtime::blended::BlendedRuntimeConfig;
 
 const GLOBAL_ARG_VERBOSE: &str = "verbose";
 const GLOBAL_ARG_VERSION: &str = "version";
+const GLOBAL_ARG_TEST_CONFIG: &str = "test-config";
 const GLOBAL_ARG_DAEMON: &str = "daemon";
 const GLOBAL_ARG_SYSTEMD: &str = "systemd";
+const GLOBAL_ARG_GROUP_NAME: &str = "group-name";
 const GLOBAL_ARG_PID_FILE: &str = "pid-file";
-const GLOBAL_ARG_CA_CERT: &str = "ca-cert";
-const GLOBAL_ARG_CA_KEY: &str = "ca-key";
-const GLOBAL_ARG_UDP_ADDR: &str = "udp";
+const GLOBAL_ARG_CONFIG_FILE: &str = "config-file";
 
-const GLOBAL_ARG_BACKEND_NUMBER: &str = "backend-number";
-const GLOBAL_ARG_THREAD_NUMBER: &str = "thread-number";
+static DAEMON_GROUP: OnceLock<String> = OnceLock::new();
 
+#[derive(Debug)]
 pub struct ProcArgs {
     pub daemon_config: DaemonArgs,
-    pub(crate) ca_cert: String,
-    pub(crate) ca_key: String,
+    pub test_config: bool,
     pub(crate) udp_addr: Option<SocketAddr>,
-    pub print_version: bool,
-    pub runtime_config: BlendedRuntimeConfig,
-    pub(crate) backend_number: usize,
 }
 
 impl Default for ProcArgs {
     fn default() -> Self {
         ProcArgs {
             daemon_config: DaemonArgs::new(crate::build::PKG_NAME),
-            ca_cert: String::new(),
-            ca_key: String::new(),
+            test_config: false,
             udp_addr: None,
-            print_version: false,
-            runtime_config: BlendedRuntimeConfig::default(),
-            backend_number: 1,
         }
     }
 }
 
-pub fn add_global_args(app: Command) -> Command {
-    app.arg(
-        Arg::new(GLOBAL_ARG_VERBOSE)
-            .help("Show verbose output")
-            .num_args(0)
-            .action(ArgAction::Count)
-            .short('v')
-            .long(GLOBAL_ARG_VERBOSE),
-    )
-    .arg(
-        Arg::new(GLOBAL_ARG_VERSION)
-            .help("Show version")
-            .num_args(0)
-            .action(ArgAction::SetTrue)
-            .short('V')
-            .long(GLOBAL_ARG_VERSION),
-    )
-    .arg(
-        Arg::new(GLOBAL_ARG_DAEMON)
-            .help("Run in daemon mode")
-            .action(ArgAction::SetTrue)
-            .requires_all([GLOBAL_ARG_PID_FILE])
-            .short('d')
-            .long(GLOBAL_ARG_DAEMON),
-    )
-    .arg(
-        Arg::new(GLOBAL_ARG_SYSTEMD)
-            .help("Run with systemd")
-            .action(ArgAction::SetTrue)
-            .short('s')
-            .long(GLOBAL_ARG_SYSTEMD),
-    )
-    .arg(
-        Arg::new(GLOBAL_ARG_PID_FILE)
-            .help("Pid file for daemon mode")
-            .num_args(1)
-            .value_name("PID FILE")
-            .value_hint(ValueHint::FilePath)
-            .value_parser(value_parser!(PathBuf))
-            .short('p')
-            .long(GLOBAL_ARG_PID_FILE),
-    )
-    .arg(
-        Arg::new(GLOBAL_ARG_CA_CERT)
-            .help("ca certificate file, in PEM format")
-            .value_name("CA CERTIFICATE FILE")
-            .long(GLOBAL_ARG_CA_CERT)
-            .required_unless_present_any([GLOBAL_ARG_VERSION])
-            .num_args(1)
-            .value_parser(value_parser!(PathBuf))
-            .value_hint(ValueHint::FilePath),
-    )
-    .arg(
-        Arg::new(GLOBAL_ARG_CA_KEY)
-            .help("ca private key file, in PEM format")
-            .value_name("CA PRIVATE KEY FILE")
-            .long(GLOBAL_ARG_CA_KEY)
-            .required_unless_present_any([GLOBAL_ARG_VERSION])
-            .num_args(1)
-            .value_parser(value_parser!(PathBuf))
-            .value_hint(ValueHint::FilePath),
-    )
-    .arg(
-        Arg::new(GLOBAL_ARG_UDP_ADDR)
-            .help("the udp socket address to accept requests")
-            .value_name("UDP SOCKET ADDRESS")
-            .long(GLOBAL_ARG_UDP_ADDR)
-            .short('u')
-            .num_args(1)
-            .default_value("127.0.0.1:2999"),
-    )
-    .arg(
-        Arg::new(GLOBAL_ARG_THREAD_NUMBER)
-            .help("runtime thread number")
-            .value_name("THREAD COUNT")
-            .long(GLOBAL_ARG_THREAD_NUMBER)
-            .short('T')
-            .num_args(1)
-            .value_parser(value_parser!(usize)),
-    )
-    .arg(
-        Arg::new(GLOBAL_ARG_BACKEND_NUMBER)
-            .help("number of background helper process")
-            .value_name("BACKEND COUNT")
-            .long(GLOBAL_ARG_BACKEND_NUMBER)
-            .short('N')
-            .num_args(1)
-            .value_parser(value_parser!(usize))
-            .default_value("1"),
-    )
+fn build_cli_args() -> Command {
+    Command::new(crate::build::PKG_NAME)
+        .disable_version_flag(true)
+        .arg(
+            Arg::new(GLOBAL_ARG_VERBOSE)
+                .help("Show verbose output")
+                .num_args(0)
+                .action(ArgAction::Count)
+                .short('v')
+                .long(GLOBAL_ARG_VERBOSE),
+        )
+        .arg(
+            Arg::new(GLOBAL_ARG_VERSION)
+                .help("Show version")
+                .num_args(0)
+                .action(ArgAction::SetTrue)
+                .short('V')
+                .long(GLOBAL_ARG_VERSION),
+        )
+        .arg(
+            Arg::new(GLOBAL_ARG_TEST_CONFIG)
+                .help("Test the format of config file and exit")
+                .action(ArgAction::SetTrue)
+                .short('t')
+                .long("test-config"),
+        )
+        .arg(
+            Arg::new(GLOBAL_ARG_DAEMON)
+                .help("Run in daemon mode")
+                .action(ArgAction::SetTrue)
+                .requires_all([GLOBAL_ARG_PID_FILE])
+                .short('d')
+                .long(GLOBAL_ARG_DAEMON),
+        )
+        .arg(
+            Arg::new(GLOBAL_ARG_SYSTEMD)
+                .help("Run with systemd")
+                .action(ArgAction::SetTrue)
+                .short('s')
+                .long(GLOBAL_ARG_SYSTEMD),
+        )
+        .arg(
+            Arg::new(GLOBAL_ARG_GROUP_NAME)
+                .help("Group name")
+                .num_args(1)
+                .value_name("GROUP NAME")
+                .short('G')
+                .long("group-name"),
+        )
+        .arg(
+            Arg::new(GLOBAL_ARG_PID_FILE)
+                .help("Pid file for daemon mode")
+                .num_args(1)
+                .value_name("PID FILE")
+                .value_hint(ValueHint::FilePath)
+                .value_parser(value_parser!(PathBuf))
+                .short('p')
+                .long(GLOBAL_ARG_PID_FILE),
+        )
+        .arg(
+            Arg::new(GLOBAL_ARG_CONFIG_FILE)
+                .help("Config file path")
+                .num_args(1)
+                .value_name("CONFIG FILE")
+                .value_hint(ValueHint::FilePath)
+                .value_parser(value_parser!(PathBuf))
+                .required_unless_present_any([GLOBAL_ARG_TEST_CONFIG])
+                .short('c')
+                .long("config-file"),
+        )
 }
 
-pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
+pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
+    let args_parser = build_cli_args();
+    let args = args_parser.get_matches();
+
     let mut proc_args = ProcArgs::default();
 
     if let Some(verbose_level) = args.get_one::<u8>(GLOBAL_ARG_VERBOSE) {
@@ -160,10 +135,12 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
     }
 
     if args.get_flag(GLOBAL_ARG_VERSION) {
-        proc_args.print_version = true;
-        return Ok(proc_args);
+        crate::build::print_version(proc_args.daemon_config.verbose_level);
+        return Ok(None);
     }
-
+    if args.get_flag(GLOBAL_ARG_TEST_CONFIG) {
+        proc_args.test_config = true;
+    }
     if args.get_flag(GLOBAL_ARG_DAEMON) {
         proc_args.daemon_config.daemon_mode = true;
     }
@@ -171,51 +148,29 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
         proc_args.daemon_config.set_with_systemd();
     }
 
+    if let Some(config_file) = args.get_one::<PathBuf>(GLOBAL_ARG_CONFIG_FILE) {
+        g3_daemon::opts::validate_and_set_config_file(config_file).context(format!(
+            "failed to load config file {}",
+            config_file.display()
+        ))?;
+    } else {
+        return Err(anyhow!("no config file given"));
+    }
     if let Some(pid_file) = args.get_one::<PathBuf>(GLOBAL_ARG_PID_FILE) {
         proc_args.daemon_config.pid_file = Some(pid_file.to_path_buf());
     }
 
-    if let Some(thread_number) = args.get_one::<usize>(GLOBAL_ARG_THREAD_NUMBER) {
-        proc_args.runtime_config.set_thread_number(*thread_number);
-    }
+    if let Some(group_name) = args.get_one::<String>(GLOBAL_ARG_GROUP_NAME) {
+        DAEMON_GROUP
+            .set(group_name.to_string())
+            .map_err(|_| anyhow!("daemon group has already been set"))?;
 
-    if let Some(backend_number) = args.get_one::<usize>(GLOBAL_ARG_BACKEND_NUMBER) {
-        proc_args.backend_number = *backend_number;
-    }
-
-    let ca_cert_file = args.get_one::<PathBuf>(GLOBAL_ARG_CA_CERT).unwrap();
-    proc_args.ca_cert = load_ca_cert(ca_cert_file).context(format!(
-        "failed to load ca cert file {}",
-        ca_cert_file.display()
-    ))?;
-
-    let ca_key_file = args.get_one::<PathBuf>(GLOBAL_ARG_CA_KEY).unwrap();
-    proc_args.ca_key = load_ca_key(ca_key_file).context(format!(
-        "failed to load ca key file {}",
-        ca_key_file.display()
-    ))?;
-
-    if let Some(s) = args.get_one::<String>(GLOBAL_ARG_UDP_ADDR) {
-        if let Ok(addr) = SocketAddr::from_str(s) {
-            proc_args.udp_addr = Some(addr);
-        } else if let Ok(port) = u16::from_str(s.strip_prefix(':').unwrap_or(s)) {
-            proc_args.udp_addr = Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port));
-        } else {
-            return Err(anyhow!("invalid udp address: {s}"));
+        if let Some(s) = group_name.strip_prefix("port") {
+            if let Ok(port) = u16::from_str(s) {
+                proc_args.udp_addr = Some(SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), port));
+            }
         }
     }
 
-    Ok(proc_args)
-}
-
-fn load_ca_cert(path: &Path) -> anyhow::Result<String> {
-    let content =
-        std::fs::read_to_string(path).map_err(|e| anyhow!("failed to read in file: {e:?}"))?;
-    Ok(content)
-}
-
-fn load_ca_key(path: &Path) -> anyhow::Result<String> {
-    let content =
-        std::fs::read_to_string(path).map_err(|e| anyhow!("failed to read in file: {e:?}"))?;
-    Ok(content)
+    Ok(Some(proc_args))
 }

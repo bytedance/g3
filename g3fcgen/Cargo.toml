@@ -18,9 +18,11 @@ openssl.workspace = true
 openssl-probe = { workspace = true, optional = true }
 tokio = { workspace = true, features = ["macros", "net", "io-util"] }
 flume = { workspace = true, features = ["async"] }
+yaml-rust.workspace = true
 g3-types.workspace = true
 g3-runtime.workspace = true
 g3-msgpack.workspace = true
+g3-yaml.workspace = true
 g3-daemon.workspace = true
 g3-tls-cert.workspace = true
 g3-compat.workspace = true

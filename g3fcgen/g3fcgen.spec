@@ -40,8 +40,6 @@ cargo build --frozen --offline --profile %{build_profile} --no-default-features 
 %install
 rm -rf $RPM_BUILD_ROOT
 install -m 755 -D target/%{build_profile}/g3fcgen %{buildroot}%{_bindir}/g3fcgen
-install -m 644 -D %{name}/service/g3fcgen.service %{buildroot}/lib/systemd/system/g3fcgen.service
-install -m 644 -D %{name}/service/g3fcgen.preset %{buildroot}/lib/systemd/system-preset/90-g3fcgen.preset
 install -m 644 -D %{name}/service/g3fcgen@.service %{buildroot}/lib/systemd/system/g3fcgen@.service
 
 

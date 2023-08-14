@@ -18,29 +18,12 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use openssl::pkey::{PKey, Private};
-use openssl::x509::X509;
 
 use g3_tls_cert::builder::{ServerCertBuilder, TlsServerCertBuilder};
 use g3_types::net::Host;
 
+use crate::config::OpensslBackendConfig;
 use crate::frontend::ResponseData;
-
-pub(crate) struct OpensslBackendConfig {
-    ca_cert: X509,
-    ca_key: PKey<Private>,
-}
-
-impl OpensslBackendConfig {
-    pub(crate) fn new(ca_cert: &str, ca_key: &str) -> anyhow::Result<Self> {
-        let ca_key = PKey::private_key_from_pem(ca_key.as_bytes())
-            .map_err(|e| anyhow!("failed to load ca pkey: {e}"))?;
-        let ca_cert = X509::from_pem(ca_cert.as_bytes())
-            .map_err(|e| anyhow!("failed to load ca cert: {e}"))?;
-
-        Ok(OpensslBackendConfig { ca_cert, ca_key })
-    }
-}
 
 pub(crate) struct OpensslBackend {
     config: Arc<OpensslBackendConfig>,

@@ -20,35 +20,57 @@ extern "C" {
 }
 
 use anyhow::Context;
-use clap::Command;
+use log::{debug, error, info};
 
-fn build_cli_args() -> Command {
-    g3fcgen::add_global_args(Command::new(g3fcgen::build::PKG_NAME))
-}
+use g3fcgen::opts::ProcArgs;
 
 fn main() -> anyhow::Result<()> {
     #[cfg(feature = "vendored-openssl")]
     openssl_probe::init_ssl_cert_env_vars();
     openssl::init();
 
-    let args = build_cli_args().get_matches();
-    let proc_args = g3fcgen::parse_global_args(&args)?;
-
-    if proc_args.print_version {
-        g3fcgen::build::print_version(proc_args.daemon_config.verbose_level);
+    let Some(proc_args) = g3fcgen::opts::parse_clap().context("failed to parse command line options")? else {
         return Ok(());
-    }
+    };
 
     // set up process logger early, only proc args is used inside
     let _log_guard = g3_daemon::log::process::setup(&proc_args.daemon_config)
         .context("failed to setup logger")?;
 
+    let config_file = g3fcgen::config::load()
+        .context(format!("failed to load config, opts: {:?}", &proc_args))?;
+    debug!("loaded config from {}", config_file.display());
+
+    if proc_args.test_config {
+        info!("the format of the config file is ok");
+        return Ok(());
+    }
+
     // enter daemon mode after config loaded
     g3_daemon::daemonize::check_enter(&proc_args.daemon_config)?;
 
-    let rt = proc_args
-        .runtime_config
+    let ret = tokio_run(&proc_args);
+
+    match ret {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            error!("{:?}", e);
+            Err(e)
+        }
+    }
+}
+
+fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
+    let rt = g3_daemon::runtime::config::get_runtime_config()
         .start()
         .context("failed to start runtime")?;
-    rt.block_on(g3fcgen::run(&proc_args))
+    rt.block_on(async {
+        // TODO setup signal handler
+
+        let _workers_guard = g3_daemon::runtime::worker::spawn_workers()
+            .await
+            .context("failed to spawn workers")?;
+
+        g3fcgen::run(args).await
+    })
 }
