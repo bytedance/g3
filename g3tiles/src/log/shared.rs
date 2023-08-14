@@ -47,7 +47,7 @@ where
         .or_insert_with(|| {
             g3_daemon::log::create_shared_logger(
                 logger_name,
-                crate::config::daemon_group_name(),
+                crate::opts::daemon_group(),
                 log_type,
                 &config,
             )

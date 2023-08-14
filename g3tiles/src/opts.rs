@@ -16,6 +16,7 @@
 
 use std::io;
 use std::path::PathBuf;
+use std::sync::OnceLock;
 
 use anyhow::{anyhow, Context};
 use clap::builder::ArgPredicate;
@@ -35,10 +36,11 @@ const ARGS_CONFIG_FILE: &str = "config-file";
 const ARGS_CONTROL_DIR: &str = "control-dir";
 const ARGS_PID_FILE: &str = "pid-file";
 
+static DAEMON_GROUP: OnceLock<String> = OnceLock::new();
+
 #[derive(Debug)]
 pub struct ProcArgs {
     pub daemon_config: DaemonArgs,
-    pub group_name: String,
     pub test_config: bool,
 }
 
@@ -46,7 +48,6 @@ impl Default for ProcArgs {
     fn default() -> Self {
         ProcArgs {
             daemon_config: DaemonArgs::new(crate::build::PKG_NAME),
-            group_name: String::new(),
             test_config: false,
         }
     }
@@ -190,8 +191,14 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
         proc_args.daemon_config.pid_file = Some(pid_file.to_path_buf());
     }
     if let Some(group_name) = args.get_one::<String>(ARGS_GROUP_NAME) {
-        proc_args.group_name = group_name.to_string();
+        DAEMON_GROUP
+            .set(group_name.to_string())
+            .map_err(|_| anyhow!("daemon group has already been set"))?;
     }
 
     Ok(Some(proc_args))
+}
+
+pub(crate) fn daemon_group() -> &'static str {
+    DAEMON_GROUP.get().map(|s| s.as_str()).unwrap_or_default()
 }

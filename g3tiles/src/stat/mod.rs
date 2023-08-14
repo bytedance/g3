@@ -35,7 +35,7 @@ fn build_statsd_client(config: &StatsdClientConfig) -> anyhow::Result<StatsdClie
     let client = builder
         .with_tag(
             g3_daemon::metric::TAG_KEY_DAEMON_GROUP,
-            crate::config::daemon_group_name(),
+            crate::opts::daemon_group(),
         )
         .with_error_handler(move |e| {
             static mut LAST_REPORT_TIME_SLICE: u64 = 0;

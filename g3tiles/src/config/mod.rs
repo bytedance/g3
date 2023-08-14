@@ -19,19 +19,11 @@ use std::path::Path;
 use anyhow::anyhow;
 use yaml_rust::{yaml, Yaml};
 
-use crate::opts::ProcArgs;
-
 pub(crate) mod log;
 
 pub(crate) mod server;
 
-static mut DAEMON_GROUP_NAME: String = String::new();
-
-pub(crate) fn daemon_group_name() -> &'static str {
-    unsafe { &DAEMON_GROUP_NAME }
-}
-
-pub fn load(args: &ProcArgs) -> anyhow::Result<&'static Path> {
+pub fn load() -> anyhow::Result<&'static Path> {
     let config_file =
         g3_daemon::opts::config_file().ok_or_else(|| anyhow!("no config file set"))?;
 
@@ -40,10 +32,6 @@ pub fn load(args: &ProcArgs) -> anyhow::Result<&'static Path> {
         Yaml::Hash(map) => load_doc(map),
         _ => Err(anyhow!("yaml doc root should be hash")),
     })?;
-
-    if !args.group_name.is_empty() {
-        unsafe { DAEMON_GROUP_NAME.clone_from(&args.group_name) }
-    }
 
     Ok(config_file)
 }
@@ -74,7 +62,7 @@ fn reload_doc(map: &yaml::Hash) -> anyhow::Result<()> {
     let conf_dir =
         g3_daemon::opts::config_dir().ok_or_else(|| anyhow!("no valid config dir has been set"))?;
     g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
-        "group_name" | "runtime" | "worker" | "log" | "stat" | "controller" => Ok(()),
+        "runtime" | "worker" | "log" | "stat" | "controller" => Ok(()),
         "server" => server::load_all(v, conf_dir),
         _ => Ok(()),
     })?;
@@ -85,13 +73,6 @@ fn load_doc(map: &yaml::Hash) -> anyhow::Result<()> {
     let conf_dir =
         g3_daemon::opts::config_dir().ok_or_else(|| anyhow!("no valid config dir has been set"))?;
     g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
-        "group_name" => match v {
-            Yaml::String(name) => {
-                unsafe { DAEMON_GROUP_NAME.clone_from(name) };
-                Ok(())
-            }
-            _ => Err(anyhow!("invalid value for key {k}")),
-        },
         "runtime" => g3_daemon::runtime::config::load(v),
         "worker" => g3_daemon::runtime::config::load_worker(v),
         "log" => log::load(v, conf_dir),

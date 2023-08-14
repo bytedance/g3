@@ -17,11 +17,11 @@
 use std::env;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::sync::OnceLock;
 
 use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgAction, Command, ValueHint};
 use log::info;
-use once_cell::sync::OnceCell;
 
 use g3_compat::CpuAffinity;
 use g3_daemon::opts::DaemonArgs;
@@ -35,7 +35,7 @@ const ARGS_CONFIG_FILE: &str = "config-file";
 const ARGS_CONTROL_DIR: &str = "control-dir";
 const ARGS_PID_FILE: &str = "pid-file";
 
-static DAEMON_GROUP: OnceCell<String> = OnceCell::new();
+static DAEMON_GROUP: OnceLock<String> = OnceLock::new();
 
 pub struct ProcArgs {
     pub daemon_config: DaemonArgs,

@@ -39,7 +39,7 @@ fn main() -> anyhow::Result<()> {
     let _log_guard = g3_daemon::log::process::setup(&proc_args.daemon_config)
         .context("failed to setup logger")?;
 
-    let config_file = g3tiles::config::load(&proc_args)
+    let config_file = g3tiles::config::load()
         .context(format!("failed to load config, opts: {:?}", &proc_args))?;
     debug!("loaded config from {}", config_file.display());
 
