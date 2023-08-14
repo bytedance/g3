@@ -127,7 +127,6 @@ impl UnderlyingWriterState {
         W: AsyncWrite + Unpin,
     {
         if self.init {
-            // TODO use OnceLock
             let mut waker = self.shared.write_waker.write().unwrap();
             *waker = Some(cx.waker().clone());
             drop(waker);

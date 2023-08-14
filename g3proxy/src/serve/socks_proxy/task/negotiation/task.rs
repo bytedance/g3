@@ -209,7 +209,6 @@ impl SocksProxyNegotiationTask {
                             self.ctx.server_stats.extra_tags(),
                         );
                         user_ctx.req_stats().conn_total.add_socks();
-                        // TODO handle site level conn_total stats in each tasks
                         Some(user_ctx)
                     } else {
                         None
@@ -232,7 +231,6 @@ impl SocksProxyNegotiationTask {
                         match user_ctx.check_password(password.as_original()) {
                             Ok(_) => {
                                 user_ctx.req_stats().conn_total.add_socks();
-                                // TODO handle site level conn_total stats in each tasks
                                 v5::auth::send_user_auth_success(&mut clt_w)
                                     .await
                                     .map_err(ServerTaskError::ClientTcpWriteFailed)?;
