@@ -1,6 +1,6 @@
 [package]
 name = "g3tiles"
-version = "0.2.5"
+version = "0.2.6"
 license.workspace = true
 edition.workspace = true
 description = "G3 generic reverse proxy"
