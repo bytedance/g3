@@ -14,32 +14,37 @@
  * limitations under the License.
  */
 
+use std::future::Future;
+
 use anyhow::anyhow;
 use openssl::pkey::PKey;
 
 pub(crate) async fn offline() -> anyhow::Result<()> {
-    g3_daemon::control::bridge::main_runtime_handle()
-        .ok_or(anyhow!("unable to get main runtime handle"))?
-        .spawn(async move { crate::control::DaemonController::abort().await })
-        .await
-        .map_err(|e| anyhow!("failed to spawn reload task: {e}"))?;
-    Ok(())
+    run_in_main_thread(async move {
+        crate::control::DaemonController::abort().await;
+        Ok(())
+    })
+    .await
 }
 
 pub(crate) async fn add_key(pem: &str) -> anyhow::Result<()> {
     let key = PKey::private_key_from_pem(pem.as_bytes())
         .map_err(|e| anyhow!("invalid private key content: {e}"))?;
-    g3_daemon::control::bridge::main_runtime_handle()
-        .ok_or(anyhow!("unable to get main runtime handle"))?
-        .spawn(async move { crate::store::add_global(key) })
-        .await
-        .map_err(|e| anyhow!("failed to spawn reload task: {e}"))?
+    run_in_main_thread(async move { crate::store::add_global(key) }).await
 }
 
 pub(crate) async fn list_keys() -> anyhow::Result<Vec<Vec<u8>>> {
+    run_in_main_thread(async move { Ok(crate::store::get_all_ski()) }).await
+}
+
+async fn run_in_main_thread<T, F>(future: F) -> anyhow::Result<T>
+where
+    T: Send + 'static,
+    F: Future<Output = anyhow::Result<T>> + Send + 'static,
+{
     g3_daemon::control::bridge::main_runtime_handle()
         .ok_or(anyhow!("unable to get main runtime handle"))?
-        .spawn(async move { Ok(crate::store::get_all_ski()) })
+        .spawn(future)
         .await
         .map_err(|e| anyhow!("failed to spawn reload task: {e}"))?
 }
