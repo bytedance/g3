@@ -12,10 +12,10 @@ including but not limited to proxy / reverse proxy (WIP) / load balancer (TBD) /
 
 ## Components
 
-G3 Project is make up of many components.
+G3 Project is made up of many components.
 
-The project level docs resides in the *doc* subdirectory, and you should see the links below for the important ones.
-Each component will have its own doc in its *doc* subdirectory.
+The project-level documents resides in the *doc* subdirectory, and you should see the links below for the important ones.
+Each component will have its own documents in its *doc* subdirectory.
 
 ### g3proxy
 
@@ -30,7 +30,7 @@ A work in progress reverse proxy solution.
 
 ### g3bench
 
-A benchmark tool, which support HTTP 1.x / HTTP 2 / HTTP 3 / TLS Handshake / DNS / Cloudflare Keyless.
+A benchmark tool that supports HTTP 1.x, HTTP 2, HTTP 3, TLS Handshake, DNS and Cloudflare Keyless.
 
 See [g3bench](g3bench/README.md) for detailed introduction.
 
@@ -48,9 +48,9 @@ A simple implementation of Cloudflare keyless server.
 
 ## Target Platform
 
-Only Linux is fully supported yet. The code will compile on FreeBSD / NetBSD / macOS, but we haven't tested it there.
+Only Linux is fully supported yet. The code will compile on FreeBSD, NetBSD and macOS, but we haven't tested it there.
 
-Feel free to open PRs to add support to other platforms.
+Feel free to open PRs to add support for other platforms.
 
 ## Dev-env Setup Guide
 
@@ -62,7 +62,7 @@ Follow [Standards](doc/standards.md).
 
 ## Release and Packaging
 
-We will set tags for each release of each component, in the form *\<name\>-v\<version\>*.
+We will set tags for each release of each component in the form *\<name\>-v\<version\>*.
 You can use these tags to generate source tarballs.
 And we have added deb and rpm package files for each component that is ready for distribution.
 
@@ -75,7 +75,7 @@ If you want to do a release build:
     ```
 
     All vendor sources will be added to the source tarball, so you can save the source tarball and build it offline at
-    anywhere that have the compiler and dependencies installed.
+    anywhere that has the compiler and dependencies installed.
 
  2. build the package
 
@@ -111,10 +111,10 @@ If you want to build a package directly from the git repo:
 
 ### Pre-Built Packages
 
-It is recommended to build packages by yourselves if you want to do install in production environment.
+It is recommended to build packages yourself if you want to install them in a production environment.
 
 For testing purpose, we have built and uploaded some packages to
-[cloudsmith](https://cloudsmith.io/~g3-oqh/repos/g3-J0E/packages/), you will find install instructions there.
+[cloudsmith](https://cloudsmith.io/~g3-oqh/repos/g3-J0E/packages/), you can find installation instructions there.
 
 ## Contribution
 
