@@ -57,7 +57,9 @@ impl SocksProxyTcpConnectTask {
                 ctx.server_stats.extra_tags(),
                 &upstream,
             );
-            user_ctx.site_req_stats().map(|s| s.conn_total.add_socks());
+            if let Some(site_req_stats) = user_ctx.site_req_stats() {
+                site_req_stats.conn_total.add_socks();
+            }
         }
         SocksProxyTcpConnectTask {
             socks_version,
