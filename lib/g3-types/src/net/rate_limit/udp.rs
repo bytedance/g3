@@ -31,7 +31,7 @@ pub struct UdpSockSpeedLimitConfig {
 
 impl UdpSockSpeedLimitConfig {
     pub fn validate(&self) -> anyhow::Result<()> {
-        if self.shift_millis > 0 && self.shift_millis > RATE_LIMIT_SHIFT_MILLIS_MAX {
+        if self.shift_millis > RATE_LIMIT_SHIFT_MILLIS_MAX {
             return Err(anyhow!(
                 "the shift value should be less than {RATE_LIMIT_SHIFT_MILLIS_MAX}",
             ));
