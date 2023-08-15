@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::borrow::Borrow;
 use std::fmt;
 use std::str::FromStr;
 
@@ -76,5 +77,11 @@ impl<'a> Default for &'a MetricsName {
     fn default() -> &'a MetricsName {
         static VALUE: MetricsName = MetricsName(String::new());
         &VALUE
+    }
+}
+
+impl Borrow<str> for MetricsName {
+    fn borrow(&self) -> &str {
+        self.as_str()
     }
 }
