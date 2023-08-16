@@ -27,6 +27,8 @@ use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
 use crate::escape::{
     EscaperInterfaceStats, EscaperInternalStats, EscaperStats, EscaperTcpStats, EscaperUdpStats,
 };
+use crate::module::udp_connect::UdpConnectTaskRemoteStats;
+use crate::module::udp_relay::UdpRelayTaskRemoteStats;
 
 pub(crate) struct ProxyFloatEscaperStats {
     name: MetricsName,
@@ -121,5 +123,41 @@ impl LimitedWriterStats for ProxyFloatEscaperStats {
     fn add_write_bytes(&self, size: usize) {
         let size = size as u64;
         self.tcp.io.add_out_bytes(size);
+    }
+}
+
+impl UdpRelayTaskRemoteStats for ProxyFloatEscaperStats {
+    fn add_recv_bytes(&self, size: u64) {
+        self.udp.io.add_in_bytes(size);
+    }
+
+    fn add_recv_packet(&self) {
+        self.udp.io.add_in_packet();
+    }
+
+    fn add_send_bytes(&self, size: u64) {
+        self.udp.io.add_out_bytes(size);
+    }
+
+    fn add_send_packet(&self) {
+        self.udp.io.add_out_packet();
+    }
+}
+
+impl UdpConnectTaskRemoteStats for ProxyFloatEscaperStats {
+    fn add_recv_bytes(&self, size: u64) {
+        self.udp.io.add_in_bytes(size);
+    }
+
+    fn add_recv_packet(&self) {
+        self.udp.io.add_in_packet();
+    }
+
+    fn add_send_bytes(&self, size: u64) {
+        self.udp.io.add_out_bytes(size);
+    }
+
+    fn add_send_packet(&self) {
+        self.udp.io.add_out_packet();
     }
 }

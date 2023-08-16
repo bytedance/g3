@@ -14,20 +14,20 @@
  * limitations under the License.
  */
 
+use std::sync::Arc;
+
 use g3_io_ext::{LimitedUdpRecv, LimitedUdpSend};
 
-use super::{NextProxyPeerInternal, ProxyFloatEscaperStats, ProxyFloatSocks5Peer};
+use super::{NextProxyPeerInternal, ProxyFloatSocks5Peer};
 use crate::escape::proxy_socks5::udp_connect::{
     ProxySocks5UdpConnectRemoteRecv, ProxySocks5UdpConnectRemoteSend,
+    ProxySocks5UdpConnectRemoteStats,
 };
 use crate::module::tcp_connect::TcpConnectTaskNotes;
 use crate::module::udp_connect::{
     ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectResult, UdpConnectTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
-
-mod stats;
-use stats::ProxySocks5UdpConnectRemoteStats;
 
 impl ProxyFloatSocks5Peer {
     pub(super) async fn udp_connect_to<'a>(
@@ -50,8 +50,10 @@ impl ProxyFloatSocks5Peer {
         udp_notes.local = Some(udp_local_addr);
         udp_notes.next = Some(udp_peer_addr);
 
-        let mut wrapper_stats =
-            ProxySocks5UdpConnectRemoteStats::new(&self.escaper_stats, task_stats);
+        let mut wrapper_stats = ProxySocks5UdpConnectRemoteStats::new(
+            Arc::clone(&self.escaper_stats) as ArcUdpConnectTaskRemoteStats,
+            task_stats,
+        );
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
         let (ups_r_stats, ups_w_stats) = wrapper_stats.into_pair();
 
