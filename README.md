@@ -116,6 +116,10 @@ It is recommended to build packages yourself if you want to install them in a pr
 For testing purpose, we have built and uploaded some packages to
 [cloudsmith](https://cloudsmith.io/~g3-oqh/repos/g3-J0E/packages/), you can find installation instructions there.
 
+### Static Linking
+
+See [Static Linking](doc/static-linking.md).
+
 ## Contribution
 
 Please check [Contributing](CONTRIBUTING.md) for more details.
