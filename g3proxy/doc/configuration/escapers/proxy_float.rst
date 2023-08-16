@@ -399,3 +399,28 @@ socks5
   **optional**, **type**: :ref:`password <conf_value_password>`
 
   Set the password for Socks5 User auth.
+
+* udp_sock_speed_limit
+
+  **optional**, **type**: :ref:`udp socket speed limit <conf_value_udp_sock_speed_limit>`
+
+  Set speed limit for each udp socket.
+
+  **default**: no limit
+
+  .. versionadded:: 1.7.22
+
+* transmute_udp_peer_ip
+
+  **optional**, **type**: bool or map
+
+  Set this option if the UDP peer IP returned from the remote proxy should be transmuted.
+
+  For map value, the key should be the returned IP, and the value should be the real IP to use.
+  If the map is empty, the peer IP used by the tcp connection will be used.
+
+  For bool value, an empty map will be used if set to true, or disabled if set to false.
+
+  **default**: false
+
+  .. versionadded:: 1.7.22

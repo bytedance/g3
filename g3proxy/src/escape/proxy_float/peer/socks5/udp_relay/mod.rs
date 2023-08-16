@@ -16,65 +16,60 @@
 
 use g3_io_ext::{LimitedUdpRecv, LimitedUdpSend};
 
-use super::{ProxySocks5Escaper, ProxySocks5EscaperStats};
+use super::{NextProxyPeerInternal, ProxyFloatEscaperStats, ProxyFloatSocks5Peer};
+use crate::escape::proxy_socks5::udp_relay::{
+    ProxySocks5UdpRelayRemoteRecv, ProxySocks5UdpRelayRemoteSend,
+};
 use crate::module::tcp_connect::TcpConnectTaskNotes;
-use crate::module::udp_connect::{
-    ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectResult, UdpConnectTaskNotes,
+use crate::module::udp_relay::{
+    ArcUdpRelayTaskRemoteStats, UdpRelaySetupError, UdpRelaySetupResult, UdpRelayTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
 mod stats;
-use stats::ProxySocks5UdpConnectRemoteStats;
+use stats::ProxySocks5UdpRelayRemoteStats;
 
-mod recv;
-mod send;
-
-pub(crate) use recv::ProxySocks5UdpConnectRemoteRecv;
-pub(crate) use send::ProxySocks5UdpConnectRemoteSend;
-
-impl ProxySocks5Escaper {
-    pub(super) async fn udp_connect_to<'a>(
+impl ProxyFloatSocks5Peer {
+    pub(super) async fn udp_setup_relay<'a>(
         &'a self,
-        udp_notes: &'a mut UdpConnectTaskNotes,
+        udp_notes: &'a UdpRelayTaskNotes,
         task_notes: &'a ServerTaskNotes,
-        task_stats: ArcUdpConnectTaskRemoteStats,
-    ) -> UdpConnectResult {
-        let upstream = udp_notes
-            .upstream
-            .as_ref()
-            .ok_or(UdpConnectError::NoUpstreamSupplied)?;
-
+        task_stats: ArcUdpRelayTaskRemoteStats,
+    ) -> UdpRelaySetupResult {
         let mut tcp_notes = TcpConnectTaskNotes::empty();
         let (tcp_close_receiver, udp_socket, udp_local_addr, udp_peer_addr) = self
             .timed_socks5_udp_associate(udp_notes.buf_conf, &mut tcp_notes, task_notes)
             .await
-            .map_err(UdpConnectError::SetupSocketFailed)?;
+            .map_err(UdpRelaySetupError::SetupSocketFailed)?;
 
-        udp_notes.local = Some(udp_local_addr);
-        udp_notes.next = Some(udp_peer_addr);
-
-        let mut wrapper_stats = ProxySocks5UdpConnectRemoteStats::new(&self.stats, task_stats);
+        let mut wrapper_stats =
+            ProxySocks5UdpRelayRemoteStats::new(&self.escaper_stats, task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
         let (ups_r_stats, ups_w_stats) = wrapper_stats.into_pair();
 
         let (recv, send) = g3_io_ext::split_udp(udp_socket);
         let recv = LimitedUdpRecv::new(
             recv,
-            self.config.general.udp_sock_speed_limit.shift_millis,
-            self.config.general.udp_sock_speed_limit.max_south_packets,
-            self.config.general.udp_sock_speed_limit.max_south_bytes,
+            self.udp_sock_speed_limit.shift_millis,
+            self.udp_sock_speed_limit.max_south_packets,
+            self.udp_sock_speed_limit.max_south_bytes,
             ups_r_stats,
         );
         let send = LimitedUdpSend::new(
             send,
-            self.config.general.udp_sock_speed_limit.shift_millis,
-            self.config.general.udp_sock_speed_limit.max_north_packets,
-            self.config.general.udp_sock_speed_limit.max_north_bytes,
+            self.udp_sock_speed_limit.shift_millis,
+            self.udp_sock_speed_limit.max_north_packets,
+            self.udp_sock_speed_limit.max_north_bytes,
             ups_w_stats,
         );
 
-        let recv = ProxySocks5UdpConnectRemoteRecv::new(recv, tcp_close_receiver);
-        let send = ProxySocks5UdpConnectRemoteSend::new(send, upstream.clone());
+        let recv = ProxySocks5UdpRelayRemoteRecv::new(
+            recv,
+            udp_local_addr,
+            udp_peer_addr,
+            tcp_close_receiver,
+        );
+        let send = ProxySocks5UdpRelayRemoteSend::new(send, udp_local_addr, udp_peer_addr);
 
         Ok((Box::new(recv), Box::new(send), self.escape_logger.clone()))
     }

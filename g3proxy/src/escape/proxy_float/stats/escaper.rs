@@ -22,9 +22,11 @@ use g3_io_ext::{
     ArcLimitedReaderStats, ArcLimitedWriterStats, LimitedReaderStats, LimitedWriterStats,
 };
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
-use g3_types::stats::{StatId, TcpIoSnapshot};
+use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
 
-use crate::escape::{EscaperInterfaceStats, EscaperInternalStats, EscaperStats, EscaperTcpStats};
+use crate::escape::{
+    EscaperInterfaceStats, EscaperInternalStats, EscaperStats, EscaperTcpStats, EscaperUdpStats,
+};
 
 pub(crate) struct ProxyFloatEscaperStats {
     name: MetricsName,
@@ -32,6 +34,7 @@ pub(crate) struct ProxyFloatEscaperStats {
     extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
     pub(crate) interface: EscaperInterfaceStats,
     pub(crate) tcp: EscaperTcpStats,
+    pub(crate) udp: EscaperUdpStats,
 }
 
 impl ProxyFloatEscaperStats {
@@ -42,6 +45,7 @@ impl ProxyFloatEscaperStats {
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
             interface: EscaperInterfaceStats::default(),
             tcp: EscaperTcpStats::default(),
+            udp: EscaperUdpStats::default(),
         }
     }
 
@@ -99,6 +103,10 @@ impl EscaperStats for ProxyFloatEscaperStats {
 
     fn tcp_io_snapshot(&self) -> Option<TcpIoSnapshot> {
         Some(self.tcp.io.snapshot())
+    }
+
+    fn udp_io_snapshot(&self) -> Option<UdpIoSnapshot> {
+        Some(self.udp.io.snapshot())
     }
 }
 

@@ -26,7 +26,9 @@ use log::warn;
 use yaml_rust::{yaml, Yaml};
 
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
-use g3_types::net::{OpensslTlsClientConfigBuilder, TcpKeepAliveConfig, TcpMiscSockOpts};
+use g3_types::net::{
+    OpensslTlsClientConfigBuilder, TcpKeepAliveConfig, TcpMiscSockOpts, UdpMiscSockOpts,
+};
 use g3_yaml::YamlDocPosition;
 
 use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction};
@@ -50,6 +52,7 @@ pub(crate) struct ProxyFloatEscaperConfig {
     pub(crate) tcp_connect_timeout: Duration,
     pub(crate) tcp_keepalive: TcpKeepAliveConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
+    pub(crate) udp_misc_opts: UdpMiscSockOpts,
     pub(crate) expire_guard_duration: chrono::Duration,
     pub(crate) peer_negotiation_timeout: Duration,
     pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
@@ -70,6 +73,7 @@ impl ProxyFloatEscaperConfig {
             tcp_connect_timeout: Duration::from_secs(30),
             tcp_keepalive: TcpKeepAliveConfig::default_enabled(),
             tcp_misc_opts: Default::default(),
+            udp_misc_opts: Default::default(),
             expire_guard_duration: chrono::Duration::seconds(5),
             peer_negotiation_timeout: Duration::from_secs(10),
             extra_metrics_tags: None,
@@ -166,6 +170,11 @@ impl ProxyFloatEscaperConfig {
             "tcp_misc_opts" => {
                 self.tcp_misc_opts = g3_yaml::value::as_tcp_misc_sock_opts(v)
                     .context(format!("invalid tcp misc sock opts value for key {k}"))?;
+                Ok(())
+            }
+            "udp_misc_opts" => {
+                self.udp_misc_opts = g3_yaml::value::as_udp_misc_sock_opts(v)
+                    .context(format!("invalid udp misc sock opts value for key {k}"))?;
                 Ok(())
             }
             "expire_guard_duration" => {

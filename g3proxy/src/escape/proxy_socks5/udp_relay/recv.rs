@@ -25,7 +25,7 @@ use g3_io_ext::{AsyncUdpRecv, UdpRelayRemoteError, UdpRelayRemoteRecv};
 use g3_socks::v5::UdpInput;
 use g3_types::net::UpstreamAddr;
 
-pub(super) struct ProxySocks5UdpRelayRemoteRecv<T> {
+pub(crate) struct ProxySocks5UdpRelayRemoteRecv<T> {
     local_addr: SocketAddr,
     peer_addr: SocketAddr,
     inner: T,
@@ -36,7 +36,7 @@ impl<T> ProxySocks5UdpRelayRemoteRecv<T>
 where
     T: AsyncUdpRecv,
 {
-    pub(super) fn new(
+    pub(crate) fn new(
         recv: T,
         local_addr: SocketAddr,
         peer_addr: SocketAddr,

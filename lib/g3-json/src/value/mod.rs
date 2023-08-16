@@ -28,7 +28,8 @@ pub use datetime::as_rfc3339_datetime;
 pub use metrics::as_metrics_name;
 pub use net::*;
 pub use primary::{
-    as_ascii, as_bool, as_i32, as_nonzero_u32, as_string, as_u16, as_u32, as_u8, as_usize,
+    as_ascii, as_bool, as_hashmap, as_i32, as_nonzero_u32, as_string, as_u16, as_u32, as_u8,
+    as_usize,
 };
 pub use random::as_random_ratio;
 pub use rate_limit::as_rate_limit_quota;

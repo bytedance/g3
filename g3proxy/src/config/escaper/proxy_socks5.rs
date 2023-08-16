@@ -59,7 +59,7 @@ pub(crate) struct ProxySocks5EscaperConfig {
     pub(crate) udp_misc_opts: UdpMiscSockOpts,
     pub(crate) auth_info: SocksAuth,
     pub(crate) peer_negotiation_timeout: Duration,
-    pub(crate) transmute_udp_peer_ip: Option<AHashMap<IpAddr, IpAddr>>,
+    transmute_udp_peer_ip: Option<AHashMap<IpAddr, IpAddr>>,
     pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
 }
 

@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
+use std::collections::HashMap;
 use std::convert::TryFrom;
+use std::hash::Hash;
 use std::num::NonZeroU32;
 use std::str::FromStr;
 
@@ -162,6 +164,29 @@ pub fn as_string(v: &Value) -> anyhow::Result<String> {
         _ => Err(anyhow!(
             "json value type for string should be 'string' / 'integer'"
         )),
+    }
+}
+
+pub fn as_hashmap<K, V, KF, VF>(
+    v: &Value,
+    convert_key: KF,
+    convert_value: VF,
+) -> anyhow::Result<HashMap<K, V>>
+where
+    K: Hash + Eq,
+    KF: Fn(&str) -> anyhow::Result<K>,
+    VF: Fn(&Value) -> anyhow::Result<V>,
+{
+    if let Value::Object(map) = v {
+        let mut table = HashMap::new();
+        for (k, v) in map.iter() {
+            let key = convert_key(k).context(format!("failed to parse key {k:?}"))?;
+            let value = convert_value(v).context(format!("failed to parse value for key {k:?}"))?;
+            table.insert(key, value);
+        }
+        Ok(table)
+    } else {
+        Err(anyhow!("the json value should be a 'map'"))
     }
 }
 

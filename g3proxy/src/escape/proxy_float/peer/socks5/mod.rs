@@ -15,9 +15,11 @@
  */
 
 use std::net::{IpAddr, SocketAddr};
+use std::str::FromStr;
 use std::sync::Arc;
 
-use anyhow::Context;
+use ahash::AHashMap;
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -28,6 +30,7 @@ use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::auth::{Password, Username};
 use g3_types::net::{
     EgressArea, EgressInfo, OpensslTlsClientConfig, SocksAuth, TcpSockSpeedLimitConfig,
+    UdpSockSpeedLimitConfig,
 };
 
 use super::{
@@ -37,20 +40,22 @@ use super::{
 use crate::module::http_forward::{ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection};
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
 use crate::module::udp_connect::{
-    ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectResult, UdpConnectTaskNotes,
+    ArcUdpConnectTaskRemoteStats, UdpConnectResult, UdpConnectTaskNotes,
 };
 use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupError, UdpRelaySetupResult, UdpRelayTaskNotes,
+    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
 mod http_forward;
 mod socks5_connect;
 mod tcp_connect;
+mod udp_connect;
+mod udp_relay;
 
 #[derive(Clone)]
 struct ProxyFloatSocks5PeerSharedConfig {
-    tcp_conn_speed_limit: TcpSockSpeedLimitConfig,
+    tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
     expire_datetime: Option<DateTime<Utc>>,
     expire_instant: Option<Instant>,
     auth_info: SocksAuth,
@@ -59,7 +64,7 @@ struct ProxyFloatSocks5PeerSharedConfig {
 impl Default for ProxyFloatSocks5PeerSharedConfig {
     fn default() -> Self {
         ProxyFloatSocks5PeerSharedConfig {
-            tcp_conn_speed_limit: Default::default(),
+            tcp_sock_speed_limit: Default::default(),
             expire_datetime: None,
             expire_instant: None,
             auth_info: SocksAuth::None,
@@ -82,6 +87,8 @@ pub(super) struct ProxyFloatSocks5Peer {
     password: Password,
     egress_info: EgressInfo,
     shared_config: Arc<ProxyFloatSocks5PeerSharedConfig>,
+    transmute_udp_peer_ip: Option<AHashMap<IpAddr, IpAddr>>,
+    udp_sock_speed_limit: UdpSockSpeedLimitConfig,
 }
 
 impl ProxyFloatSocks5Peer {
@@ -100,7 +107,22 @@ impl ProxyFloatSocks5Peer {
             password: Password::empty(),
             egress_info: Default::default(),
             shared_config: Arc::new(Default::default()),
+            transmute_udp_peer_ip: None,
+            udp_sock_speed_limit: Default::default(),
         })
+    }
+
+    pub(crate) fn transmute_udp_peer_addr(
+        &self,
+        returned_addr: SocketAddr,
+        tcp_peer_ip: IpAddr,
+    ) -> SocketAddr {
+        if let Some(map) = &self.transmute_udp_peer_ip {
+            let ip = map.get(&returned_addr.ip()).unwrap_or(&tcp_peer_ip);
+            SocketAddr::new(*ip, returned_addr.port())
+        } else {
+            returned_addr
+        }
     }
 }
 
@@ -125,7 +147,7 @@ impl NextProxyPeerInternal for ProxyFloatSocks5Peer {
 
     fn set_tcp_sock_speed_limit(&mut self, speed_limit: TcpSockSpeedLimitConfig) {
         let shared_config = Arc::make_mut(&mut self.shared_config);
-        shared_config.tcp_conn_speed_limit = speed_limit;
+        shared_config.tcp_sock_speed_limit = speed_limit;
     }
 
     fn set_kv(&mut self, k: &str, v: &Value) -> anyhow::Result<()> {
@@ -138,6 +160,30 @@ impl NextProxyPeerInternal for ProxyFloatSocks5Peer {
             "password" => {
                 self.password = g3_json::value::as_password(v)
                     .context(format!("invalid password value for key {k}"))?;
+                Ok(())
+            }
+            "transmute_udp_peer_ip" => {
+                if let Value::Object(_) = v {
+                    let map = g3_json::value::as_hashmap(
+                        v,
+                        |k| {
+                            IpAddr::from_str(k)
+                                .map_err(|e| anyhow!("the key {k} is not a valid ip address: {e}"))
+                        },
+                        g3_json::value::as_ipaddr,
+                    )
+                    .context(format!("invalid IP:IP hashmap value for key {k}"))?;
+                    self.transmute_udp_peer_ip = Some(map.into_iter().collect::<AHashMap<_, _>>());
+                } else {
+                    let enable = g3_json::value::as_bool(v)?;
+                    if enable {
+                        self.transmute_udp_peer_ip = Some(AHashMap::default());
+                    }
+                }
+                Ok(())
+            }
+            "udp_sock_speed_limit" => {
+                self.udp_sock_speed_limit = g3_json::value::as_udp_sock_speed_limit(v)?;
                 Ok(())
             }
             _ => Ok(()),
@@ -211,19 +257,20 @@ impl NextProxyPeer for ProxyFloatSocks5Peer {
 
     async fn udp_setup_connection<'a>(
         &'a self,
-        _udp_notes: &'a mut UdpConnectTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
-        _task_stats: ArcUdpConnectTaskRemoteStats,
+        udp_notes: &'a mut UdpConnectTaskNotes,
+        task_notes: &'a ServerTaskNotes,
+        task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
-        Err(UdpConnectError::MethodUnavailable)
+        self.udp_connect_to(udp_notes, task_notes, task_stats).await
     }
 
     async fn udp_setup_relay<'a>(
         &'a self,
-        _udp_notes: &'a mut UdpRelayTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
-        _task_stats: ArcUdpRelayTaskRemoteStats,
+        udp_notes: &'a mut UdpRelayTaskNotes,
+        task_notes: &'a ServerTaskNotes,
+        task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
-        Err(UdpRelaySetupError::MethodUnavailable)
+        self.udp_setup_relay(udp_notes, task_notes, task_stats)
+            .await
     }
 }

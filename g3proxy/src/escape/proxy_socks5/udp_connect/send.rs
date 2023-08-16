@@ -23,7 +23,7 @@ use g3_io_ext::{AsyncUdpSend, UdpCopyRemoteError, UdpCopyRemoteSend};
 use g3_socks::v5::UdpOutput;
 use g3_types::net::UpstreamAddr;
 
-pub(super) struct ProxySocks5UdpConnectRemoteSend<T> {
+pub(crate) struct ProxySocks5UdpConnectRemoteSend<T> {
     upstream: UpstreamAddr,
     inner: T,
 }
@@ -32,7 +32,7 @@ impl<T> ProxySocks5UdpConnectRemoteSend<T>
 where
     T: AsyncUdpSend,
 {
-    pub(super) fn new(send: T, upstream: UpstreamAddr) -> Self {
+    pub(crate) fn new(send: T, upstream: UpstreamAddr) -> Self {
         ProxySocks5UdpConnectRemoteSend {
             upstream,
             inner: send,

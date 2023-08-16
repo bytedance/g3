@@ -115,7 +115,7 @@ impl ProxyFloatSocks5Peer {
         let stream = self.tcp_connect_to(tcp_notes, task_notes).await?;
         let (r, w) = stream.into_split();
 
-        let limit_config = &self.shared_config.tcp_conn_speed_limit;
+        let limit_config = &self.shared_config.tcp_sock_speed_limit;
         let r = LimitedReader::new(
             r,
             limit_config.shift_millis,

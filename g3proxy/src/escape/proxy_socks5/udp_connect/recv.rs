@@ -23,7 +23,7 @@ use tokio::sync::oneshot;
 use g3_io_ext::{AsyncUdpRecv, UdpCopyRemoteError, UdpCopyRemoteRecv};
 use g3_socks::v5::UdpInput;
 
-pub(super) struct ProxySocks5UdpConnectRemoteRecv<T> {
+pub(crate) struct ProxySocks5UdpConnectRemoteRecv<T> {
     inner: T,
     tcp_close_receiver: oneshot::Receiver<Option<io::Error>>,
 }
@@ -32,7 +32,7 @@ impl<T> ProxySocks5UdpConnectRemoteRecv<T>
 where
     T: AsyncUdpRecv,
 {
-    pub(super) fn new(recv: T, tcp_close_receiver: oneshot::Receiver<Option<io::Error>>) -> Self {
+    pub(crate) fn new(recv: T, tcp_close_receiver: oneshot::Receiver<Option<io::Error>>) -> Self {
         ProxySocks5UdpConnectRemoteRecv {
             inner: recv,
             tcp_close_receiver,

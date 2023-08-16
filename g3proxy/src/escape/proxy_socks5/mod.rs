@@ -59,8 +59,8 @@ use stats::ProxySocks5EscaperStats;
 mod http_forward;
 mod socks5_connect;
 mod tcp_connect;
-mod udp_connect;
-mod udp_relay;
+pub(crate) mod udp_connect;
+pub(crate) mod udp_relay;
 
 pub(super) struct ProxySocks5Escaper {
     config: Arc<ProxySocks5EscaperConfig>,

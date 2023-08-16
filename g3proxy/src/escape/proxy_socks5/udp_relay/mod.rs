@@ -29,8 +29,8 @@ use stats::ProxySocks5UdpRelayRemoteStats;
 mod recv;
 mod send;
 
-use recv::ProxySocks5UdpRelayRemoteRecv;
-use send::ProxySocks5UdpRelayRemoteSend;
+pub(crate) use recv::ProxySocks5UdpRelayRemoteRecv;
+pub(crate) use send::ProxySocks5UdpRelayRemoteSend;
 
 impl ProxySocks5Escaper {
     pub(super) async fn udp_setup_relay<'a>(
