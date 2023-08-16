@@ -278,7 +278,7 @@ impl SocksProxyTcpConnectTask {
             .tcp_setup_connection(
                 &mut self.tcp_notes,
                 &self.task_notes,
-                self.task_stats.for_escaper(),
+                self.task_stats.clone() as _,
             )
             .await
         {

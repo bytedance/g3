@@ -43,16 +43,13 @@ impl DirectUdpConnectRemoteStats {
 
     pub(super) fn push_user_io_stats(&mut self, all: Vec<Arc<UserUpstreamTrafficStats>>) {
         for s in all {
-            self.others.push(s as ArcUdpConnectTaskRemoteStats);
+            self.others.push(s as _);
         }
     }
 
     pub(super) fn into_pair(self) -> (ArcLimitedRecvStats, ArcLimitedSendStats) {
         let s = Arc::new(self);
-        (
-            Arc::clone(&s) as ArcLimitedRecvStats,
-            s as ArcLimitedSendStats,
-        )
+        (Arc::clone(&s) as _, s as _)
     }
 }
 

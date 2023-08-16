@@ -23,8 +23,8 @@ use std::task::{Context, Poll};
 use pin_project::pin_project;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
-use super::limited_read::{ArcLimitedReaderStats, LimitedReaderState, LimitedReaderStats};
-use super::limited_write::{ArcLimitedWriterStats, LimitedWriterState, LimitedWriterStats};
+use super::limited_read::{LimitedReaderState, LimitedReaderStats};
+use super::limited_write::{LimitedWriterState, LimitedWriterStats};
 
 #[pin_project]
 pub struct LimitedStream<S> {
@@ -47,16 +47,8 @@ impl<S> LimitedStream<S> {
     {
         LimitedStream {
             inner,
-            reader_state: LimitedReaderState::new(
-                shift_millis,
-                read_max_bytes,
-                stats.clone() as ArcLimitedReaderStats,
-            ),
-            writer_state: LimitedWriterState::new(
-                shift_millis,
-                write_max_bytes,
-                stats as ArcLimitedWriterStats,
-            ),
+            reader_state: LimitedReaderState::new(shift_millis, read_max_bytes, stats.clone() as _),
+            writer_state: LimitedWriterState::new(shift_millis, write_max_bytes, stats as _),
         }
     }
 
@@ -66,8 +58,8 @@ impl<S> LimitedStream<S> {
     {
         LimitedStream {
             inner,
-            reader_state: LimitedReaderState::new_unlimited(stats.clone() as ArcLimitedReaderStats),
-            writer_state: LimitedWriterState::new_unlimited(stats as ArcLimitedWriterStats),
+            reader_state: LimitedReaderState::new_unlimited(stats.clone() as _),
+            writer_state: LimitedWriterState::new_unlimited(stats as _),
         }
     }
 
@@ -75,10 +67,8 @@ impl<S> LimitedStream<S> {
     where
         ST: LimitedReaderStats + LimitedWriterStats + Send + Sync + 'static,
     {
-        self.reader_state
-            .reset_stats(stats.clone() as ArcLimitedReaderStats);
-        self.writer_state
-            .reset_stats(stats as ArcLimitedWriterStats);
+        self.reader_state.reset_stats(stats.clone() as _);
+        self.writer_state.reset_stats(stats as _);
     }
 
     pub fn reset_limit(&mut self, shift_millis: u8, read_max_bytes: usize, write_max_bytes: usize) {

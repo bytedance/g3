@@ -30,7 +30,7 @@ use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::metrics::MetricsName;
 use g3_types::net::{OpensslTlsClientConfig, UpstreamAddr};
 
-use super::{ArcEscaper, ArcEscaperInternalStats, ArcEscaperStats, Escaper, EscaperInternal};
+use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperInternal};
 use crate::config::escaper::proxy_float::ProxyFloatEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
 use crate::module::ftp_over_http::{
@@ -190,7 +190,7 @@ impl Escaper for ProxyFloatEscaper {
     }
 
     fn get_escape_stats(&self) -> Option<ArcEscaperStats> {
-        Some(Arc::clone(&self.stats) as ArcEscaperStats)
+        Some(Arc::clone(&self.stats) as _)
     }
 
     async fn publish(&self, data: String) -> anyhow::Result<()> {
@@ -272,10 +272,7 @@ impl Escaper for ProxyFloatEscaper {
     }
 
     fn new_http_forward_context(&self, escaper: ArcEscaper) -> BoxHttpForwardContext {
-        let ctx = DirectHttpForwardContext::new(
-            Arc::clone(&self.stats) as ArcEscaperInternalStats,
-            escaper,
-        );
+        let ctx = DirectHttpForwardContext::new(Arc::clone(&self.stats) as _, escaper);
         Box::new(ctx)
     }
 

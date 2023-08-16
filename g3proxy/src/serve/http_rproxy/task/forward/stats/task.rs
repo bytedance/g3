@@ -14,23 +14,14 @@
  * limitations under the License.
  */
 
-use std::sync::Arc;
-
 use g3_daemon::stat::task::TcpStreamConnectionStats;
 
-use crate::module::http_forward::{ArcHttpForwardTaskRemoteStats, HttpForwardTaskRemoteStats};
+use crate::module::http_forward::HttpForwardTaskRemoteStats;
 
 #[derive(Default)]
 pub(crate) struct HttpForwardTaskStats {
     pub(crate) clt: TcpStreamConnectionStats,
     pub(crate) ups: TcpStreamConnectionStats,
-}
-
-impl HttpForwardTaskStats {
-    #[inline]
-    pub(crate) fn for_escaper(self: &Arc<Self>) -> ArcHttpForwardTaskRemoteStats {
-        Arc::clone(self) as ArcHttpForwardTaskRemoteStats
-    }
 }
 
 impl HttpForwardTaskRemoteStats for HttpForwardTaskStats {

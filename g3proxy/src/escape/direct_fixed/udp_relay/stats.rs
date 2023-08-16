@@ -43,16 +43,16 @@ impl DirectUdpRelayRemoteStats {
 
     pub(super) fn push_user_io_stats(&mut self, all: Vec<Arc<UserUpstreamTrafficStats>>) {
         for s in all {
-            self.others.push(s as ArcUdpRelayTaskRemoteStats);
+            self.others.push(s as _);
         }
     }
 
     pub(super) fn for_recv(self: &Arc<Self>) -> ArcLimitedRecvStats {
-        Arc::clone(self) as ArcLimitedRecvStats
+        Arc::clone(self) as _
     }
 
     pub(super) fn for_send(self: &Arc<Self>) -> ArcLimitedSendStats {
-        Arc::clone(self) as ArcLimitedSendStats
+        Arc::clone(self) as _
     }
 }
 

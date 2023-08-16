@@ -29,10 +29,7 @@ use g3_types::net::{
     Host, HttpForwardCapability, OpensslTlsClientConfig, UpstreamAddr, WeightedUpstreamAddr,
 };
 
-use super::{
-    ArcEscaper, ArcEscaperInternalStats, ArcEscaperStats, Escaper, EscaperExt, EscaperInternal,
-    EscaperStats,
-};
+use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperExt, EscaperInternal, EscaperStats};
 use crate::auth::UserUpstreamTrafficStats;
 use crate::config::escaper::proxy_https::ProxyHttpsEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
@@ -178,7 +175,7 @@ impl Escaper for ProxyHttpsEscaper {
     }
 
     fn get_escape_stats(&self) -> Option<ArcEscaperStats> {
-        Some(Arc::clone(&self.stats) as ArcEscaperStats)
+        Some(Arc::clone(&self.stats) as _)
     }
 
     async fn publish(&self, _data: String) -> anyhow::Result<()> {
@@ -236,10 +233,7 @@ impl Escaper for ProxyHttpsEscaper {
     }
 
     fn new_http_forward_context(&self, escaper: ArcEscaper) -> BoxHttpForwardContext {
-        let ctx = ProxyHttpForwardContext::new(
-            Arc::clone(&self.stats) as ArcEscaperInternalStats,
-            escaper,
-        );
+        let ctx = ProxyHttpForwardContext::new(Arc::clone(&self.stats) as _, escaper);
         Box::new(ctx)
     }
 

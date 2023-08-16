@@ -120,13 +120,13 @@ impl ProxyFloatHttpsPeer {
             r,
             limit_config.shift_millis,
             limit_config.max_south,
-            self.escaper_stats.for_limited_reader(),
+            self.escaper_stats.clone() as _,
         );
         let w = LimitedWriter::new(
             w,
             limit_config.shift_millis,
             limit_config.max_north,
-            self.escaper_stats.for_limited_writer(),
+            self.escaper_stats.clone() as _,
         );
 
         Ok((r, w))

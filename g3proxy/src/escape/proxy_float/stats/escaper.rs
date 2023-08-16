@@ -18,9 +18,7 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
 
-use g3_io_ext::{
-    ArcLimitedReaderStats, ArcLimitedWriterStats, LimitedReaderStats, LimitedWriterStats,
-};
+use g3_io_ext::{LimitedReaderStats, LimitedWriterStats};
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
 
@@ -49,16 +47,6 @@ impl ProxyFloatEscaperStats {
             tcp: EscaperTcpStats::default(),
             udp: EscaperUdpStats::default(),
         }
-    }
-
-    #[inline]
-    pub(crate) fn for_limited_reader(self: &Arc<Self>) -> ArcLimitedReaderStats {
-        Arc::clone(self) as ArcLimitedReaderStats
-    }
-
-    #[inline]
-    pub(crate) fn for_limited_writer(self: &Arc<Self>) -> ArcLimitedWriterStats {
-        Arc::clone(self) as ArcLimitedWriterStats
     }
 
     pub(crate) fn set_extra_tags(&self, tags: Option<Arc<StaticMetricsTags>>) {

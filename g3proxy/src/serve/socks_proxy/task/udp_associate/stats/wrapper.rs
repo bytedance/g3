@@ -69,16 +69,13 @@ impl UdpAssociateTaskCltWrapperStats {
 
     pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserTrafficStats>>) {
         for s in all {
-            self.others.push(s as ArcUdpAssociateTaskCltStatsWrapper);
+            self.others.push(s as _);
         }
     }
 
     pub(crate) fn split(self) -> (ArcLimitedRecvStats, ArcLimitedSendStats) {
         let s = Arc::new(self);
-        (
-            Arc::clone(&s) as ArcLimitedRecvStats,
-            s as ArcLimitedSendStats,
-        )
+        (Arc::clone(&s) as _, s as _)
     }
 }
 

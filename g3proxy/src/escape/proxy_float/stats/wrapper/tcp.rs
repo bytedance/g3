@@ -45,16 +45,13 @@ impl ProxyTcpRemoteStats {
 
     pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserUpstreamTrafficStats>>) {
         for s in all {
-            self.others.push(s as ArcTcpConnectionTaskRemoteStats);
+            self.others.push(s as _);
         }
     }
 
     pub(crate) fn into_pair(self) -> (ArcLimitedReaderStats, ArcLimitedWriterStats) {
         let s = Arc::new(self);
-        (
-            Arc::clone(&s) as ArcLimitedReaderStats,
-            s as ArcLimitedWriterStats,
-        )
+        (Arc::clone(&s) as _, s as _)
     }
 }
 

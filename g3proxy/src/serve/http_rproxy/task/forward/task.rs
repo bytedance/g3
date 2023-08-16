@@ -499,7 +499,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
         if let Some(connection) = fwd_ctx
             .get_alive_connection(
                 &self.task_notes,
-                self.task_stats.for_escaper(),
+                self.task_stats.clone() as _,
                 upstream_keepalive.idle_expire(),
             )
             .await
@@ -584,14 +584,14 @@ impl<'a> HttpRProxyForwardTask<'a> {
             fwd_ctx
                 .make_new_https_connection(
                     &self.task_notes,
-                    self.task_stats.for_escaper(),
+                    self.task_stats.clone() as _,
                     tls_client,
                     &self.host.config.tls_name,
                 )
                 .await
         } else {
             fwd_ctx
-                .make_new_http_connection(&self.task_notes, self.task_stats.for_escaper())
+                .make_new_http_connection(&self.task_notes, self.task_stats.clone() as _)
                 .await
         }
     }

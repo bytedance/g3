@@ -22,10 +22,7 @@ use g3_ftp_client::FtpConnectionProvider;
 use g3_types::net::UpstreamAddr;
 
 use super::FtpOverHttpTaskStats;
-use crate::module::ftp_over_http::{
-    ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpConnectContext,
-    BoxFtpRemoteConnection,
-};
+use crate::module::ftp_over_http::{BoxFtpConnectContext, BoxFtpRemoteConnection};
 use crate::module::tcp_connect::TcpConnectError;
 use crate::serve::ServerTaskNotes;
 
@@ -61,10 +58,7 @@ impl FtpConnectionProvider<BoxFtpRemoteConnection, TcpConnectError, ServerTaskNo
         task_notes: &ServerTaskNotes,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         self.connect_context
-            .new_control_connection(
-                task_notes,
-                Arc::clone(&self.task_stats) as ArcFtpTaskRemoteControlStats,
-            )
+            .new_control_connection(task_notes, Arc::clone(&self.task_stats) as _)
             .await
     }
 
@@ -74,11 +68,7 @@ impl FtpConnectionProvider<BoxFtpRemoteConnection, TcpConnectError, ServerTaskNo
         task_notes: &ServerTaskNotes,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         self.connect_context
-            .new_transfer_connection(
-                server_addr,
-                task_notes,
-                Arc::clone(&self.task_stats) as ArcFtpTaskRemoteTransferStats,
-            )
+            .new_transfer_connection(server_addr, task_notes, Arc::clone(&self.task_stats) as _)
             .await
     }
 }

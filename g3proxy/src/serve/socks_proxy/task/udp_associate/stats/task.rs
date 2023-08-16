@@ -15,11 +15,10 @@
  */
 
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
 
 use g3_daemon::stat::task::UdpConnectHalfConnectionStats;
 
-use crate::module::udp_relay::{ArcUdpRelayTaskRemoteStats, UdpRelayTaskRemoteStats};
+use crate::module::udp_relay::UdpRelayTaskRemoteStats;
 
 #[derive(Default)]
 pub(crate) struct UdpAssociateClientSideStats {
@@ -61,13 +60,6 @@ pub(crate) struct UdpAssociateRemoteSideStats {
 pub(crate) struct UdpAssociateTaskStats {
     pub(crate) clt: UdpAssociateClientSideStats,
     pub(crate) ups: UdpAssociateRemoteSideStats,
-}
-
-impl UdpAssociateTaskStats {
-    #[inline]
-    pub(crate) fn for_escaper(self: &Arc<Self>) -> ArcUdpRelayTaskRemoteStats {
-        Arc::clone(self) as ArcUdpRelayTaskRemoteStats
-    }
 }
 
 impl UdpRelayTaskRemoteStats for UdpAssociateTaskStats {

@@ -25,7 +25,7 @@ use tokio::time::Instant;
 
 use g3_http::client::HttpForwardRemoteResponse;
 use g3_http::HttpBodyReader;
-use g3_io_ext::{ArcLimitedReaderStats, ArcLimitedWriterStats, LimitedReader, LimitedWriter};
+use g3_io_ext::{LimitedReader, LimitedWriter};
 
 use super::{
     BenchHttpArgs, BenchTaskContext, HttpHistogramRecorder, HttpRuntimeStats, ProcArgs,
@@ -103,13 +103,13 @@ impl HttpTaskContext {
             r,
             self.proc_args.tcp_sock_speed_limit.shift_millis,
             self.proc_args.tcp_sock_speed_limit.max_south,
-            self.runtime_stats.clone() as ArcLimitedReaderStats,
+            self.runtime_stats.clone() as _,
         );
         let w = LimitedWriter::new(
             w,
             self.proc_args.tcp_sock_speed_limit.shift_millis,
             self.proc_args.tcp_sock_speed_limit.max_north,
-            self.runtime_stats.clone() as ArcLimitedWriterStats,
+            self.runtime_stats.clone() as _,
         );
         Ok(SavedHttpForwardConnection::new(BufReader::new(r), w))
     }

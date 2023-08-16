@@ -603,7 +603,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         if let Some(connection) = fwd_ctx
             .get_alive_connection(
                 &self.task_notes,
-                self.task_stats.for_escaper(),
+                self.task_stats.clone() as _,
                 upstream_keepalive.idle_expire(),
             )
             .await
@@ -695,14 +695,14 @@ impl<'a> HttpProxyForwardTask<'a> {
             fwd_ctx
                 .make_new_https_connection(
                     &self.task_notes,
-                    self.task_stats.for_escaper(),
+                    self.task_stats.clone() as _,
                     &self.ctx.tls_client_config,
                     &tls_name,
                 )
                 .await
         } else {
             fwd_ctx
-                .make_new_http_connection(&self.task_notes, self.task_stats.for_escaper())
+                .make_new_http_connection(&self.task_notes, self.task_stats.clone() as _)
                 .await
         }
     }

@@ -234,7 +234,7 @@ impl Server for RustlsProxyServer {
     }
 
     fn get_server_stats(&self) -> Option<ArcServerStats> {
-        Some(Arc::clone(&self.server_stats) as ArcServerStats)
+        Some(Arc::clone(&self.server_stats) as _)
     }
 
     fn get_listen_stats(&self) -> Arc<ListenStats> {

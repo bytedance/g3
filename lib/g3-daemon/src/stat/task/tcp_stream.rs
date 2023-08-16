@@ -15,9 +15,8 @@
  */
 
 use std::cell::UnsafeCell;
-use std::sync::Arc;
 
-use crate::stat::remote::{ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStats};
+use crate::stat::remote::TcpConnectionTaskRemoteStats;
 
 #[derive(Default)]
 pub struct TcpStreamHalfConnectionStats {
@@ -64,11 +63,6 @@ impl TcpStreamTaskStats {
             clt,
             ups: TcpStreamConnectionStats::default(),
         }
-    }
-
-    #[inline]
-    pub fn for_escaper(self: &Arc<Self>) -> ArcTcpConnectionTaskRemoteStats {
-        Arc::clone(self) as ArcTcpConnectionTaskRemoteStats
     }
 }
 

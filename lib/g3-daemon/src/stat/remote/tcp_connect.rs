@@ -47,16 +47,13 @@ impl TcpConnectionTaskRemoteStatsWrapper {
         T: TcpConnectionTaskRemoteStats + Send + Sync + 'static,
     {
         for s in all {
-            self.others.push(s as ArcTcpConnectionTaskRemoteStats);
+            self.others.push(s as _);
         }
     }
 
     pub fn into_pair(self) -> (ArcLimitedReaderStats, ArcLimitedWriterStats) {
         let s = Arc::new(self);
-        (
-            Arc::clone(&s) as ArcLimitedReaderStats,
-            s as ArcLimitedWriterStats,
-        )
+        (Arc::clone(&s) as _, s as _)
     }
 }
 

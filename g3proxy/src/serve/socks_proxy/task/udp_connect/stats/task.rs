@@ -14,23 +14,14 @@
  * limitations under the License.
  */
 
-use std::sync::Arc;
-
 use g3_daemon::stat::task::UdpConnectConnectionStats;
 
-use crate::module::udp_connect::{ArcUdpConnectTaskRemoteStats, UdpConnectTaskRemoteStats};
+use crate::module::udp_connect::UdpConnectTaskRemoteStats;
 
 #[derive(Default)]
 pub(crate) struct UdpConnectTaskStats {
     pub(crate) clt: UdpConnectConnectionStats,
     pub(crate) ups: UdpConnectConnectionStats,
-}
-
-impl UdpConnectTaskStats {
-    #[inline]
-    pub(crate) fn for_escaper(self: &Arc<Self>) -> ArcUdpConnectTaskRemoteStats {
-        Arc::clone(self) as ArcUdpConnectTaskRemoteStats
-    }
 }
 
 impl UdpConnectTaskRemoteStats for UdpConnectTaskStats {

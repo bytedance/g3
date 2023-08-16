@@ -43,13 +43,13 @@ impl ProxyHttpMixedRemoteStats {
 
     pub(crate) fn push_user_io_stats_by_ref(&mut self, all: &[Arc<UserUpstreamTrafficStats>]) {
         for s in all {
-            self.others.push(s.clone() as ArcHttpForwardTaskRemoteStats);
+            self.others.push(s.clone() as _);
         }
     }
 
     pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserUpstreamTrafficStats>>) {
         for s in all {
-            self.others.push(s.clone() as ArcHttpForwardTaskRemoteStats);
+            self.others.push(s.clone() as _);
         }
     }
 

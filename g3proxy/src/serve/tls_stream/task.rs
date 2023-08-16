@@ -115,7 +115,7 @@ impl TlsStreamTask {
                     .tls_setup_connection(
                         &mut self.tcp_notes,
                         &self.task_notes,
-                        self.task_stats.for_escaper(),
+                        self.task_stats.clone() as _,
                         tls_client_config,
                         tls_name,
                     )
@@ -127,7 +127,7 @@ impl TlsStreamTask {
                     .tls_setup_connection(
                         &mut self.tcp_notes,
                         &self.task_notes,
-                        self.task_stats.for_escaper(),
+                        self.task_stats.clone() as _,
                         tls_client_config,
                         &tls_name,
                     )
@@ -139,7 +139,7 @@ impl TlsStreamTask {
                 .tcp_setup_connection(
                     &mut self.tcp_notes,
                     &self.task_notes,
-                    self.task_stats.for_escaper(),
+                    self.task_stats.clone() as _,
                 )
                 .await?
         };

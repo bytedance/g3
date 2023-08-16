@@ -58,7 +58,7 @@ impl DirectFixedEscaper {
             ups_r,
             limit_config.shift_millis,
             limit_config.max_south,
-            self.stats.for_limited_reader(),
+            self.stats.clone() as _,
             r_wrapper_stats.into_reader(),
         );
         let ups_w = LimitedWriter::new(

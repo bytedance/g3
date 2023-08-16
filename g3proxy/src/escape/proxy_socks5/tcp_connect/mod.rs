@@ -306,13 +306,13 @@ impl ProxySocks5Escaper {
             r,
             limit_config.shift_millis,
             limit_config.max_south,
-            self.stats.for_limited_reader(),
+            self.stats.clone() as _,
         );
         let w = LimitedWriter::new(
             w,
             limit_config.shift_millis,
             limit_config.max_north,
-            self.stats.for_limited_writer(),
+            self.stats.clone() as _,
         );
 
         Ok((r, w))

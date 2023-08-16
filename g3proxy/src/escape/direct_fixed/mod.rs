@@ -32,9 +32,7 @@ use g3_types::net::{Host, OpensslTlsClientConfig, UpstreamAddr};
 use g3_types::resolve::{ResolveRedirection, ResolveStrategy};
 use g3_types::route::EgressPathSelection;
 
-use super::{
-    ArcEscaper, ArcEscaperInternalStats, ArcEscaperStats, Escaper, EscaperInternal, EscaperStats,
-};
+use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperInternal, EscaperStats};
 use crate::auth::UserUpstreamTrafficStats;
 use crate::config::escaper::direct_fixed::DirectFixedEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
@@ -271,7 +269,7 @@ impl Escaper for DirectFixedEscaper {
     }
 
     fn get_escape_stats(&self) -> Option<ArcEscaperStats> {
-        Some(Arc::clone(&self.stats) as ArcEscaperStats)
+        Some(Arc::clone(&self.stats) as _)
     }
 
     async fn publish(&self, _data: String) -> anyhow::Result<()> {
@@ -328,10 +326,7 @@ impl Escaper for DirectFixedEscaper {
     }
 
     fn new_http_forward_context(&self, escaper: ArcEscaper) -> BoxHttpForwardContext {
-        let ctx = DirectHttpForwardContext::new(
-            Arc::clone(&self.stats) as ArcEscaperInternalStats,
-            escaper,
-        );
+        let ctx = DirectHttpForwardContext::new(Arc::clone(&self.stats) as _, escaper);
         Box::new(ctx)
     }
 

@@ -525,7 +525,7 @@ impl SocksProxyUdpConnectTask {
             .udp_setup_connection(
                 &mut self.udp_notes,
                 &self.task_notes,
-                self.task_stats.for_escaper(),
+                self.task_stats.clone() as _,
             )
             .await?;
         self.task_notes.stage = ServerTaskStage::Connected;

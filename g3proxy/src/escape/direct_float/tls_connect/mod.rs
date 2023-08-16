@@ -57,13 +57,13 @@ impl DirectFloatEscaper {
             ups_r,
             limit_config.shift_millis,
             limit_config.max_south,
-            self.stats.for_limited_reader(),
+            self.stats.clone() as _,
         );
         let ups_w = LimitedWriter::new(
             ups_w,
             limit_config.shift_millis,
             limit_config.max_north,
-            self.stats.for_limited_writer(),
+            self.stats.clone() as _,
         );
 
         let ssl = tls_config

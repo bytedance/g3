@@ -43,13 +43,13 @@ impl DirectHttpMixedRemoteStats {
 
     pub(super) fn push_user_io_stats_by_ref(&mut self, all: &[Arc<UserUpstreamTrafficStats>]) {
         for s in all {
-            self.others.push(s.clone() as ArcHttpForwardTaskRemoteStats);
+            self.others.push(s.clone() as _);
         }
     }
 
     pub(super) fn push_user_io_stats(&mut self, all: Vec<Arc<UserUpstreamTrafficStats>>) {
         for s in all {
-            self.others.push(s as ArcHttpForwardTaskRemoteStats);
+            self.others.push(s as _);
         }
     }
 
