@@ -172,5 +172,11 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
         }
     }
 
+    if let Some(s) = option_env!("UDP_LISTEN_ADDR") {
+        if let Ok(addr) = SocketAddr::from_str(s) {
+            proc_args.udp_addr = Some(addr);
+        }
+    }
+
     Ok(Some(proc_args))
 }
