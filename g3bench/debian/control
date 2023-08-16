@@ -10,4 +10,4 @@ Package: g3bench
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: ca-certificates
-Description: Benchmark tool for G3 Project
+Description: G3 Benchmark Tool

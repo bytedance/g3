@@ -20,7 +20,7 @@ Source0:        %{name}-%{version}.tar.xz
 Requires:       ca-certificates
 
 %description
-Benchmark tool for G3 Project
+G3 Benchmark Tool
 
 
 %prep
