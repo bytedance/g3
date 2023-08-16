@@ -242,23 +242,33 @@ impl Escaper for ProxyFloatEscaper {
     async fn udp_setup_connection<'a>(
         &'a self,
         udp_notes: &'a mut UdpConnectTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
-        _task_stats: ArcUdpConnectTaskRemoteStats,
+        task_notes: &'a ServerTaskNotes,
+        task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
         self.stats.interface.add_udp_connect_attempted();
         udp_notes.escaper.clone_from(&self.config.name);
-        Err(UdpConnectError::MethodUnavailable)
+        if let Some(peer) = self.get_random_peer() {
+            peer.udp_setup_connection(udp_notes, task_notes, task_stats)
+                .await
+        } else {
+            Err(UdpConnectError::EscaperNotUsable)
+        }
     }
 
     async fn udp_setup_relay<'a>(
         &'a self,
         udp_notes: &'a mut UdpRelayTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
-        _task_stats: ArcUdpRelayTaskRemoteStats,
+        task_notes: &'a ServerTaskNotes,
+        task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
         self.stats.interface.add_udp_relay_session_attempted();
         udp_notes.escaper.clone_from(&self.config.name);
-        Err(UdpRelaySetupError::MethodUnavailable)
+        if let Some(peer) = self.get_random_peer() {
+            peer.udp_setup_relay(udp_notes, task_notes, task_stats)
+                .await
+        } else {
+            Err(UdpRelaySetupError::EscaperNotUsable)
+        }
     }
 
     fn new_http_forward_context(&self, escaper: ArcEscaper) -> BoxHttpForwardContext {

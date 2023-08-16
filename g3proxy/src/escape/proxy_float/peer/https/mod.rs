@@ -34,6 +34,12 @@ use super::{
 };
 use crate::module::http_forward::{ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection};
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
+use crate::module::udp_connect::{
+    ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectResult, UdpConnectTaskNotes,
+};
+use crate::module::udp_relay::{
+    ArcUdpRelayTaskRemoteStats, UdpRelaySetupError, UdpRelaySetupResult, UdpRelayTaskNotes,
+};
 use crate::serve::ServerTaskNotes;
 
 mod http_connect;
@@ -232,5 +238,23 @@ impl NextProxyPeer for ProxyFloatHttpsPeer {
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.https_forward_new_connection(tcp_notes, task_notes, task_stats, tls_config, tls_name)
             .await
+    }
+
+    async fn udp_setup_connection<'a>(
+        &'a self,
+        _udp_notes: &'a mut UdpConnectTaskNotes,
+        _task_notes: &'a ServerTaskNotes,
+        _task_stats: ArcUdpConnectTaskRemoteStats,
+    ) -> UdpConnectResult {
+        Err(UdpConnectError::MethodUnavailable)
+    }
+
+    async fn udp_setup_relay<'a>(
+        &'a self,
+        _udp_notes: &'a mut UdpRelayTaskNotes,
+        _task_notes: &'a ServerTaskNotes,
+        _task_stats: ArcUdpRelayTaskRemoteStats,
+    ) -> UdpRelaySetupResult {
+        Err(UdpRelaySetupError::MethodUnavailable)
     }
 }

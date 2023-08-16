@@ -33,6 +33,12 @@ use crate::auth::UserUpstreamTrafficStats;
 use crate::escape::EscaperStats;
 use crate::module::http_forward::{ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection};
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
+use crate::module::udp_connect::{
+    ArcUdpConnectTaskRemoteStats, UdpConnectResult, UdpConnectTaskNotes,
+};
+use crate::module::udp_relay::{
+    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskNotes,
+};
 use crate::serve::ServerTaskNotes;
 
 mod http;
@@ -123,6 +129,20 @@ pub(super) trait NextProxyPeer: NextProxyPeerInternal {
         tls_config: &'a OpensslTlsClientConfig,
         tls_name: &'a str,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError>;
+
+    async fn udp_setup_connection<'a>(
+        &'a self,
+        udp_notes: &'a mut UdpConnectTaskNotes,
+        _task_notes: &'a ServerTaskNotes,
+        _task_stats: ArcUdpConnectTaskRemoteStats,
+    ) -> UdpConnectResult;
+
+    async fn udp_setup_relay<'a>(
+        &'a self,
+        udp_notes: &'a mut UdpRelayTaskNotes,
+        _task_notes: &'a ServerTaskNotes,
+        _task_stats: ArcUdpRelayTaskRemoteStats,
+    ) -> UdpRelaySetupResult;
 }
 
 pub(super) type ArcNextProxyPeer = Arc<dyn NextProxyPeer + Send + Sync>;
