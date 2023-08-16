@@ -51,9 +51,12 @@ impl OpensslBackend {
         let cert =
             self.builder
                 .build_fake(&host, &self.config.ca_cert, &self.config.ca_key, None)?;
-        let cert_pem = cert
+        let mut cert_pem = cert
             .to_pem()
             .map_err(|e| anyhow!("failed to encode cert: {e}"))?;
+        if !self.config.ca_cert_pem.is_empty() {
+            cert_pem.extend_from_slice(&self.config.ca_cert_pem);
+        }
         let key_pem = self
             .builder
             .pkey()

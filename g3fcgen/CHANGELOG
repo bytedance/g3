@@ -1,4 +1,8 @@
 
+v0.6.0:
+ - Feature: add config file and reduce command line options
+ - Feature: default to append ca cert to cert content
+
 v0.5.1:
  - Feature: allow to run multiple systemd instances
 
