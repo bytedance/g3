@@ -16,25 +16,25 @@
 
 use std::sync::Arc;
 
-use g3_io_ext::{ArcLimitedRecvStats, ArcLimitedSendStats, LimitedRecvStats, LimitedSendStats};
+use g3_io_ext::{LimitedRecvStats, LimitedSendStats};
 
 use crate::auth::UserUpstreamTrafficStats;
-use crate::module::udp_relay::ArcUdpRelayTaskRemoteStats;
+use crate::module::udp_relay::{ArcUdpRelayTaskRemoteStats, UdpRelayTaskRemoteStats};
 
 #[derive(Clone)]
-pub(crate) struct ProxySocks5UdpRelayRemoteStats {
-    escaper: ArcUdpRelayTaskRemoteStats,
+pub(crate) struct ProxySocks5UdpRelayRemoteStats<T> {
+    escaper: Arc<T>,
     task: ArcUdpRelayTaskRemoteStats,
     others: Vec<ArcUdpRelayTaskRemoteStats>,
 }
 
-impl ProxySocks5UdpRelayRemoteStats {
-    pub(crate) fn new(
-        escaper: ArcUdpRelayTaskRemoteStats,
-        task: ArcUdpRelayTaskRemoteStats,
-    ) -> Self {
+impl<T> ProxySocks5UdpRelayRemoteStats<T>
+where
+    T: UdpRelayTaskRemoteStats + Send + Sync + 'static,
+{
+    pub(crate) fn new(escaper: &Arc<T>, task: ArcUdpRelayTaskRemoteStats) -> Self {
         ProxySocks5UdpRelayRemoteStats {
-            escaper,
+            escaper: Arc::clone(escaper),
             task,
             others: Vec::with_capacity(2),
         }
@@ -45,17 +45,9 @@ impl ProxySocks5UdpRelayRemoteStats {
             self.others.push(s as ArcUdpRelayTaskRemoteStats);
         }
     }
-
-    pub(crate) fn into_pair(self) -> (ArcLimitedRecvStats, ArcLimitedSendStats) {
-        let s = Arc::new(self);
-        (
-            Arc::clone(&s) as ArcLimitedRecvStats,
-            s as ArcLimitedSendStats,
-        )
-    }
 }
 
-impl LimitedRecvStats for ProxySocks5UdpRelayRemoteStats {
+impl<T: UdpRelayTaskRemoteStats> LimitedRecvStats for ProxySocks5UdpRelayRemoteStats<T> {
     fn add_recv_bytes(&self, size: usize) {
         let size = size as u64;
         self.escaper.add_recv_bytes(size);
@@ -72,7 +64,7 @@ impl LimitedRecvStats for ProxySocks5UdpRelayRemoteStats {
     }
 }
 
-impl LimitedSendStats for ProxySocks5UdpRelayRemoteStats {
+impl<T: UdpRelayTaskRemoteStats> LimitedSendStats for ProxySocks5UdpRelayRemoteStats<T> {
     fn add_send_bytes(&self, size: usize) {
         let size = size as u64;
         self.escaper.add_send_bytes(size);

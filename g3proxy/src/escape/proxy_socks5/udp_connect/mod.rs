@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-use g3_io_ext::{LimitedUdpRecv, LimitedUdpSend};
 use std::sync::Arc;
+
+use g3_io_ext::{LimitedUdpRecv, LimitedUdpSend};
 
 use super::ProxySocks5Escaper;
 use crate::module::tcp_connect::TcpConnectTaskNotes;
@@ -54,12 +55,9 @@ impl ProxySocks5Escaper {
         udp_notes.local = Some(udp_local_addr);
         udp_notes.next = Some(udp_peer_addr);
 
-        let mut wrapper_stats = ProxySocks5UdpConnectRemoteStats::new(
-            Arc::clone(&self.stats) as ArcUdpConnectTaskRemoteStats,
-            task_stats,
-        );
+        let mut wrapper_stats = ProxySocks5UdpConnectRemoteStats::new(&self.stats, task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
-        let (ups_r_stats, ups_w_stats) = wrapper_stats.into_pair();
+        let wrapper_stats = Arc::new(wrapper_stats);
 
         let (recv, send) = g3_io_ext::split_udp(udp_socket);
         let recv = LimitedUdpRecv::new(
@@ -67,14 +65,14 @@ impl ProxySocks5Escaper {
             self.config.general.udp_sock_speed_limit.shift_millis,
             self.config.general.udp_sock_speed_limit.max_south_packets,
             self.config.general.udp_sock_speed_limit.max_south_bytes,
-            ups_r_stats,
+            wrapper_stats.clone() as _,
         );
         let send = LimitedUdpSend::new(
             send,
             self.config.general.udp_sock_speed_limit.shift_millis,
             self.config.general.udp_sock_speed_limit.max_north_packets,
             self.config.general.udp_sock_speed_limit.max_north_bytes,
-            ups_w_stats,
+            wrapper_stats as _,
         );
 
         let recv = ProxySocks5UdpConnectRemoteRecv::new(recv, tcp_close_receiver);

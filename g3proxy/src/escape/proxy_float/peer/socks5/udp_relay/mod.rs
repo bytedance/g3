@@ -41,12 +41,10 @@ impl ProxyFloatSocks5Peer {
             .await
             .map_err(UdpRelaySetupError::SetupSocketFailed)?;
 
-        let mut wrapper_stats = ProxySocks5UdpRelayRemoteStats::new(
-            Arc::clone(&self.escaper_stats) as ArcUdpRelayTaskRemoteStats,
-            task_stats,
-        );
+        let mut wrapper_stats =
+            ProxySocks5UdpRelayRemoteStats::new(&self.escaper_stats, task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
-        let (ups_r_stats, ups_w_stats) = wrapper_stats.into_pair();
+        let wrapper_stats = Arc::new(wrapper_stats);
 
         let (recv, send) = g3_io_ext::split_udp(udp_socket);
         let recv = LimitedUdpRecv::new(
@@ -54,14 +52,14 @@ impl ProxyFloatSocks5Peer {
             self.udp_sock_speed_limit.shift_millis,
             self.udp_sock_speed_limit.max_south_packets,
             self.udp_sock_speed_limit.max_south_bytes,
-            ups_r_stats,
+            wrapper_stats.clone() as _,
         );
         let send = LimitedUdpSend::new(
             send,
             self.udp_sock_speed_limit.shift_millis,
             self.udp_sock_speed_limit.max_north_packets,
             self.udp_sock_speed_limit.max_north_bytes,
-            ups_w_stats,
+            wrapper_stats as _,
         );
 
         let recv = ProxySocks5UdpRelayRemoteRecv::new(
