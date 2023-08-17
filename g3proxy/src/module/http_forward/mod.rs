@@ -31,6 +31,7 @@ pub(crate) use context::{
 };
 pub(crate) use response::HttpProxyClientResponse;
 pub(crate) use stats::{
-    ArcHttpForwardTaskRemoteStats, HttpForwardRemoteStatsWrapper, HttpForwardTaskRemoteStats,
+    ArcHttpForwardTaskRemoteStats, HttpForwardRemoteWrapperStats, HttpForwardTaskRemoteStats,
+    HttpForwardTaskRemoteWrapperStats,
 };
 pub(crate) use task::HttpForwardTaskNotes;

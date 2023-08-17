@@ -16,6 +16,8 @@
 
 use std::sync::Arc;
 
+use g3_io_ext::{LimitedRecvStats, LimitedSendStats};
+
 use crate::auth::UserUpstreamTrafficStats;
 
 /// task related stats used at escaper side
@@ -43,5 +45,62 @@ impl UdpConnectTaskRemoteStats for UserUpstreamTrafficStats {
 
     fn add_send_packet(&self) {
         self.io.udp.add_out_packet();
+    }
+}
+
+#[derive(Clone)]
+pub(crate) struct UdpConnectRemoteWrapperStats<T> {
+    escaper: Arc<T>,
+    task: ArcUdpConnectTaskRemoteStats,
+    others: Vec<ArcUdpConnectTaskRemoteStats>,
+}
+
+impl<T: UdpConnectTaskRemoteStats> UdpConnectRemoteWrapperStats<T> {
+    pub(crate) fn new(escaper: &Arc<T>, task: ArcUdpConnectTaskRemoteStats) -> Self {
+        UdpConnectRemoteWrapperStats {
+            escaper: Arc::clone(escaper),
+            task,
+            others: Vec::with_capacity(2),
+        }
+    }
+
+    pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserUpstreamTrafficStats>>) {
+        for s in all {
+            self.others.push(s as ArcUdpConnectTaskRemoteStats);
+        }
+    }
+}
+
+impl<T: UdpConnectTaskRemoteStats> LimitedRecvStats for UdpConnectRemoteWrapperStats<T> {
+    fn add_recv_bytes(&self, size: usize) {
+        let size = size as u64;
+        self.escaper.add_recv_bytes(size);
+        self.task.add_recv_bytes(size);
+        self.others
+            .iter()
+            .for_each(|stats| stats.add_recv_bytes(size));
+    }
+
+    fn add_recv_packet(&self) {
+        self.escaper.add_recv_packet();
+        self.task.add_recv_packet();
+        self.others.iter().for_each(|stats| stats.add_recv_packet());
+    }
+}
+
+impl<T: UdpConnectTaskRemoteStats> LimitedSendStats for UdpConnectRemoteWrapperStats<T> {
+    fn add_send_bytes(&self, size: usize) {
+        let size = size as u64;
+        self.escaper.add_send_bytes(size);
+        self.task.add_send_bytes(size);
+        self.others
+            .iter()
+            .for_each(|stats| stats.add_send_bytes(size));
+    }
+
+    fn add_send_packet(&self) {
+        self.escaper.add_send_packet();
+        self.task.add_send_packet();
+        self.others.iter().for_each(|stats| stats.add_send_packet());
     }
 }

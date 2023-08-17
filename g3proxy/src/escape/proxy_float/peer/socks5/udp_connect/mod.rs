@@ -21,11 +21,11 @@ use g3_io_ext::{LimitedUdpRecv, LimitedUdpSend};
 use super::{NextProxyPeerInternal, ProxyFloatSocks5Peer};
 use crate::escape::proxy_socks5::udp_connect::{
     ProxySocks5UdpConnectRemoteRecv, ProxySocks5UdpConnectRemoteSend,
-    ProxySocks5UdpConnectRemoteStats,
 };
 use crate::module::tcp_connect::TcpConnectTaskNotes;
 use crate::module::udp_connect::{
-    ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectResult, UdpConnectTaskNotes,
+    ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectRemoteWrapperStats, UdpConnectResult,
+    UdpConnectTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -50,8 +50,7 @@ impl ProxyFloatSocks5Peer {
         udp_notes.local = Some(udp_local_addr);
         udp_notes.next = Some(udp_peer_addr);
 
-        let mut wrapper_stats =
-            ProxySocks5UdpConnectRemoteStats::new(&self.escaper_stats, task_stats);
+        let mut wrapper_stats = UdpConnectRemoteWrapperStats::new(&self.escaper_stats, task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
         let wrapper_stats = Arc::new(wrapper_stats);
 

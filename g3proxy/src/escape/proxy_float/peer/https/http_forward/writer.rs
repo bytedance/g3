@@ -32,7 +32,7 @@ use super::ProxyFloatHttpsPeerSharedConfig;
 use crate::auth::UserUpstreamTrafficStats;
 use crate::module::http_forward::{
     send_req_header_to_origin, send_req_header_via_proxy, ArcHttpForwardTaskRemoteStats,
-    HttpForwardRemoteStatsWrapper, HttpForwardWrite,
+    HttpForwardTaskRemoteWrapperStats, HttpForwardWrite,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -99,9 +99,9 @@ where
         task_stats: &ArcHttpForwardTaskRemoteStats,
         user_stats: Vec<Arc<UserUpstreamTrafficStats>>,
     ) {
-        let mut wrapper_stats = HttpForwardRemoteStatsWrapper::new(Arc::clone(task_stats));
+        let mut wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(Arc::clone(task_stats));
         wrapper_stats.push_user_io_stats(user_stats);
-        self.inner.reset_stats(wrapper_stats.into_writer());
+        self.inner.reset_stats(Arc::new(wrapper_stats) as _);
     }
 
     async fn send_request_header<'a>(
@@ -183,9 +183,9 @@ where
         task_stats: &ArcHttpForwardTaskRemoteStats,
         user_stats: Vec<Arc<UserUpstreamTrafficStats>>,
     ) {
-        let mut wrapper_stats = HttpForwardRemoteStatsWrapper::new(Arc::clone(task_stats));
+        let mut wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(Arc::clone(task_stats));
         wrapper_stats.push_user_io_stats(user_stats);
-        self.inner.reset_stats(wrapper_stats.into_writer());
+        self.inner.reset_stats(Arc::new(wrapper_stats) as _);
     }
 
     async fn send_request_header<'a>(

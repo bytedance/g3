@@ -27,11 +27,11 @@ use g3_http::server::HttpProxyClientRequest;
 use g3_io_ext::LimitedWriter;
 use g3_types::net::UpstreamAddr;
 
-use super::{DirectFloatBindIp, DirectFloatEscaperStats, DirectHttpMixedRemoteStats};
+use super::{DirectFloatBindIp, DirectFloatEscaperStats};
 use crate::auth::UserUpstreamTrafficStats;
 use crate::module::http_forward::{
-    send_req_header_to_origin, ArcHttpForwardTaskRemoteStats, HttpForwardRemoteStatsWrapper,
-    HttpForwardWrite,
+    send_req_header_to_origin, ArcHttpForwardTaskRemoteStats, HttpForwardRemoteWrapperStats,
+    HttpForwardTaskRemoteWrapperStats, HttpForwardWrite,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -97,13 +97,13 @@ where
         user_stats: Vec<Arc<UserUpstreamTrafficStats>>,
     ) {
         if let Some(escaper_stats) = &self.escaper_stats {
-            let mut wrapper_stats = DirectHttpMixedRemoteStats::new(escaper_stats, task_stats);
+            let mut wrapper_stats = HttpForwardRemoteWrapperStats::new(escaper_stats, task_stats);
             wrapper_stats.push_user_io_stats(user_stats);
-            self.inner.reset_stats(wrapper_stats.into_writer());
+            self.inner.reset_stats(Arc::new(wrapper_stats) as _);
         } else {
-            let mut wrapper_stats = HttpForwardRemoteStatsWrapper::new(Arc::clone(task_stats));
+            let mut wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(Arc::clone(task_stats));
             wrapper_stats.push_user_io_stats(user_stats);
-            self.inner.reset_stats(wrapper_stats.into_writer());
+            self.inner.reset_stats(Arc::new(wrapper_stats) as _);
         }
     }
 

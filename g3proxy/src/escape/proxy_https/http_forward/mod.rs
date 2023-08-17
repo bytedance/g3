@@ -22,7 +22,7 @@ use g3_types::net::OpensslTlsClientConfig;
 use super::{ProxyHttpsEscaper, ProxyHttpsEscaperConfig};
 use crate::log::escape::tls_handshake::TlsApplication;
 use crate::module::http_forward::{
-    ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpForwardRemoteStatsWrapper,
+    ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpForwardTaskRemoteWrapperStats,
 };
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
 use crate::serve::ServerTaskNotes;
@@ -43,16 +43,16 @@ impl ProxyHttpsEscaper {
         let (ups_r, ups_w) = self.tls_handshake_to_remote(tcp_notes, task_notes).await?;
 
         // add task and user stats
-        let mut wrapper_stats = HttpForwardRemoteStatsWrapper::new(task_stats);
+        let mut wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
-        let (ups_r_stats, ups_w_stats) = wrapper_stats.into_pair();
+        let wrapper_stats = Arc::new(wrapper_stats);
 
         let ups_r = LimitedBufReader::new_unlimited(
             ups_r,
             Arc::new(NilLimitedReaderStats::default()),
-            ups_r_stats,
+            wrapper_stats.clone() as _,
         );
-        let ups_w = LimitedWriter::new_unlimited(ups_w, ups_w_stats);
+        let ups_w = LimitedWriter::new_unlimited(ups_w, wrapper_stats as _);
 
         let writer =
             ProxyHttpsHttpForwardWriter::new(ups_w, &self.config, tcp_notes.upstream.clone());
@@ -81,16 +81,16 @@ impl ProxyHttpsEscaper {
         let (ups_r, ups_w) = tokio::io::split(tls_stream);
 
         // add task and user stats
-        let mut wrapper_stats = HttpForwardRemoteStatsWrapper::new(task_stats);
+        let mut wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
-        let (ups_r_stats, ups_w_stats) = wrapper_stats.into_pair();
+        let wrapper_stats = Arc::new(wrapper_stats);
 
         let ups_r = LimitedBufReader::new_unlimited(
             ups_r,
             Arc::new(NilLimitedReaderStats::default()),
-            ups_r_stats,
+            wrapper_stats.clone() as _,
         );
-        let ups_w = LimitedWriter::new_unlimited(ups_w, ups_w_stats);
+        let ups_w = LimitedWriter::new_unlimited(ups_w, wrapper_stats as _);
 
         let writer = ProxyHttpsHttpRequestWriter::new(ups_w, &self.config);
         let reader = ProxyHttpsHttpForwardReader::new(ups_r);

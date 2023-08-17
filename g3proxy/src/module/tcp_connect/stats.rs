@@ -16,49 +16,38 @@
 
 use std::sync::Arc;
 
-use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_io_ext::{
-    ArcLimitedReaderStats, ArcLimitedWriterStats, LimitedReaderStats, LimitedWriterStats,
-};
+use g3_daemon::stat::remote::{ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStats};
+use g3_io_ext::{LimitedReaderStats, LimitedWriterStats};
 
-use super::DirectFixedEscaperStats;
 use crate::auth::UserUpstreamTrafficStats;
 
 #[derive(Clone)]
-pub(super) struct DirectTcpMixedRemoteStats {
-    escaper: Arc<DirectFixedEscaperStats>,
+pub(crate) struct TcpConnectRemoteWrapperStats<T> {
+    escaper: Arc<T>,
     task: ArcTcpConnectionTaskRemoteStats,
     others: Vec<ArcTcpConnectionTaskRemoteStats>,
 }
 
-impl DirectTcpMixedRemoteStats {
-    pub(super) fn new(
-        escaper: &Arc<DirectFixedEscaperStats>,
-        task: ArcTcpConnectionTaskRemoteStats,
-    ) -> Self {
-        DirectTcpMixedRemoteStats {
+impl<T: TcpConnectionTaskRemoteStats> TcpConnectRemoteWrapperStats<T> {
+    pub(crate) fn new(escaper: &Arc<T>, task: ArcTcpConnectionTaskRemoteStats) -> Self {
+        TcpConnectRemoteWrapperStats {
             escaper: Arc::clone(escaper),
             task,
             others: Vec::with_capacity(2),
         }
     }
 
-    pub(super) fn push_user_io_stats(&mut self, all: Vec<Arc<UserUpstreamTrafficStats>>) {
+    pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserUpstreamTrafficStats>>) {
         for s in all {
             self.others.push(s as _);
         }
     }
-
-    pub(super) fn into_pair(self) -> (ArcLimitedReaderStats, ArcLimitedWriterStats) {
-        let s = Arc::new(self);
-        (Arc::clone(&s) as _, s as _)
-    }
 }
 
-impl LimitedReaderStats for DirectTcpMixedRemoteStats {
+impl<T: TcpConnectionTaskRemoteStats> LimitedReaderStats for TcpConnectRemoteWrapperStats<T> {
     fn add_read_bytes(&self, size: usize) {
         let size = size as u64;
-        self.escaper.tcp.io.add_in_bytes(size);
+        self.escaper.add_read_bytes(size);
         self.task.add_read_bytes(size);
         self.others
             .iter()
@@ -66,10 +55,10 @@ impl LimitedReaderStats for DirectTcpMixedRemoteStats {
     }
 }
 
-impl LimitedWriterStats for DirectTcpMixedRemoteStats {
+impl<T: TcpConnectionTaskRemoteStats> LimitedWriterStats for TcpConnectRemoteWrapperStats<T> {
     fn add_write_bytes(&self, size: usize) {
         let size = size as u64;
-        self.escaper.tcp.io.add_out_bytes(size);
+        self.escaper.add_write_bytes(size);
         self.task.add_write_bytes(size);
         self.others
             .iter()

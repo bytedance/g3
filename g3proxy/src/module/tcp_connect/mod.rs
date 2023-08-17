@@ -17,9 +17,11 @@
 use tokio::io::{AsyncRead, AsyncWrite};
 
 mod error;
+mod stats;
 mod task;
 
 pub(crate) use error::TcpConnectError;
+pub(crate) use stats::TcpConnectRemoteWrapperStats;
 pub(crate) use task::TcpConnectTaskNotes;
 
 pub(crate) type TcpConnection = (

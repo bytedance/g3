@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
+use std::sync::Arc;
+
 use g3_io_ext::{AggregatedIo, LimitedReader, LimitedWriter};
 
-use super::{DirectFixedEscaper, DirectFixedEscaperStats};
+use super::DirectFixedEscaper;
 use crate::module::ftp_over_http::{
     ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpRemoteConnection,
+    FtpControlRemoteWrapperStats, FtpTransferRemoteWrapperStats,
 };
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
 use crate::serve::ServerTaskNotes;
-
-mod stats;
-use stats::{FtpControlRemoteStats, FtpTransferRemoteStats};
 
 impl DirectFixedEscaper {
     pub(super) async fn new_ftp_control_connection<'a>(
@@ -37,22 +37,22 @@ impl DirectFixedEscaper {
 
         let (r, w) = stream.into_split();
 
-        let mut wrapper_stats = FtpControlRemoteStats::new(&self.stats, task_stats);
+        let mut wrapper_stats = FtpControlRemoteWrapperStats::new(&self.stats, task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
-        let (ups_r_stats, ups_w_stats) = wrapper_stats.into_pair();
+        let wrapper_stats = Arc::new(wrapper_stats);
 
         let limit_config = &self.config.general.tcp_sock_speed_limit;
         let r = LimitedReader::new(
             r,
             limit_config.shift_millis,
             limit_config.max_south,
-            ups_r_stats,
+            wrapper_stats.clone() as _,
         );
         let w = LimitedWriter::new(
             w,
             limit_config.shift_millis,
             limit_config.max_north,
-            ups_w_stats,
+            wrapper_stats as _,
         );
 
         Ok(Box::new(AggregatedIo {
@@ -74,22 +74,22 @@ impl DirectFixedEscaper {
 
         let (r, w) = stream.into_split();
 
-        let mut wrapper_stats = FtpTransferRemoteStats::new(&self.stats, task_stats);
+        let mut wrapper_stats = FtpTransferRemoteWrapperStats::new(&self.stats, task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
-        let (ups_r_stats, ups_w_stats) = wrapper_stats.into_pair();
+        let wrapper_stats = Arc::new(wrapper_stats);
 
         let limit_config = &self.config.general.tcp_sock_speed_limit;
         let r = LimitedReader::new(
             r,
             limit_config.shift_millis,
             limit_config.max_south,
-            ups_r_stats,
+            wrapper_stats.clone() as _,
         );
         let w = LimitedWriter::new(
             w,
             limit_config.shift_millis,
             limit_config.max_north,
-            ups_w_stats,
+            wrapper_stats as _,
         );
 
         Ok(Box::new(AggregatedIo {

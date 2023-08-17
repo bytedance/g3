@@ -22,13 +22,11 @@ use g3_types::net::OpensslTlsClientConfig;
 use super::{DirectFixedEscaper, DirectFixedEscaperStats};
 use crate::log::escape::tls_handshake::TlsApplication;
 use crate::module::http_forward::{
-    ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpForwardRemoteStatsWrapper,
+    ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpForwardRemoteWrapperStats,
+    HttpForwardTaskRemoteWrapperStats,
 };
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
 use crate::serve::ServerTaskNotes;
-
-mod stats;
-use stats::DirectHttpMixedRemoteStats;
 
 mod reader;
 mod writer;
@@ -47,8 +45,8 @@ impl DirectFixedEscaper {
 
         let (ups_r, ups_w) = stream.into_split();
 
-        let mut w_wrapper_stats = DirectHttpMixedRemoteStats::new(&self.stats, &task_stats);
-        let mut r_wrapper_stats = HttpForwardRemoteStatsWrapper::new(task_stats);
+        let mut w_wrapper_stats = HttpForwardRemoteWrapperStats::new(&self.stats, &task_stats);
+        let mut r_wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(task_stats);
         let user_stats = self.fetch_user_upstream_io_stats(task_notes);
         w_wrapper_stats.push_user_io_stats_by_ref(&user_stats);
         r_wrapper_stats.push_user_io_stats(user_stats);
@@ -59,13 +57,13 @@ impl DirectFixedEscaper {
             limit_config.shift_millis,
             limit_config.max_south,
             self.stats.clone() as _,
-            r_wrapper_stats.into_reader(),
+            Arc::new(r_wrapper_stats) as _,
         );
         let ups_w = LimitedWriter::new(
             ups_w,
             limit_config.shift_millis,
             limit_config.max_north,
-            w_wrapper_stats.into_writer(),
+            Arc::new(w_wrapper_stats) as _,
         );
 
         let writer = DirectFixedHttpForwardWriter::new(ups_w, Some(Arc::clone(&self.stats)));
@@ -94,16 +92,16 @@ impl DirectFixedEscaper {
         let (ups_r, ups_w) = tokio::io::split(tls_stream);
 
         // add task and user stats
-        let mut wrapper_stats = HttpForwardRemoteStatsWrapper::new(task_stats);
+        let mut wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
-        let (ups_r_stats, ups_w_stats) = wrapper_stats.into_pair();
+        let wrapper_stats = Arc::new(wrapper_stats);
 
         let ups_r = LimitedBufReader::new_unlimited(
             ups_r,
             Arc::new(NilLimitedReaderStats::default()),
-            ups_r_stats,
+            wrapper_stats.clone() as _,
         );
-        let ups_w = LimitedWriter::new_unlimited(ups_w, ups_w_stats);
+        let ups_w = LimitedWriter::new_unlimited(ups_w, wrapper_stats as _);
 
         let writer = DirectFixedHttpForwardWriter::new(ups_w, None);
         let reader = DirectFixedHttpForwardReader::new(ups_r);

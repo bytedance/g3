@@ -18,6 +18,7 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
 
+use g3_daemon::stat::remote::TcpConnectionTaskRemoteStats;
 use g3_io_ext::{LimitedReaderStats, LimitedWriterStats};
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
@@ -26,6 +27,8 @@ use crate::escape::{
     EscaperForbiddenSnapshot, EscaperForbiddenStats, EscaperInterfaceStats, EscaperInternalStats,
     EscaperStats, EscaperTcpStats, EscaperUdpStats,
 };
+use crate::module::ftp_over_http::{FtpTaskRemoteControlStats, FtpTaskRemoteTransferStats};
+use crate::module::http_forward::HttpForwardTaskRemoteStats;
 
 pub(crate) struct DirectFloatEscaperStats {
     name: MetricsName,
@@ -118,6 +121,46 @@ impl LimitedReaderStats for DirectFloatEscaperStats {
 impl LimitedWriterStats for DirectFloatEscaperStats {
     fn add_write_bytes(&self, size: usize) {
         let size = size as u64;
+        self.tcp.io.add_out_bytes(size);
+    }
+}
+
+impl TcpConnectionTaskRemoteStats for DirectFloatEscaperStats {
+    fn add_read_bytes(&self, size: u64) {
+        self.tcp.io.add_in_bytes(size);
+    }
+
+    fn add_write_bytes(&self, size: u64) {
+        self.tcp.io.add_out_bytes(size);
+    }
+}
+
+impl HttpForwardTaskRemoteStats for DirectFloatEscaperStats {
+    fn add_read_bytes(&self, size: u64) {
+        self.tcp.io.add_in_bytes(size);
+    }
+
+    fn add_write_bytes(&self, size: u64) {
+        self.tcp.io.add_out_bytes(size);
+    }
+}
+
+impl FtpTaskRemoteControlStats for DirectFloatEscaperStats {
+    fn add_read_bytes(&self, size: u64) {
+        self.tcp.io.add_in_bytes(size);
+    }
+
+    fn add_write_bytes(&self, size: u64) {
+        self.tcp.io.add_out_bytes(size);
+    }
+}
+
+impl FtpTaskRemoteTransferStats for DirectFloatEscaperStats {
+    fn add_read_bytes(&self, size: u64) {
+        self.tcp.io.add_in_bytes(size);
+    }
+
+    fn add_write_bytes(&self, size: u64) {
         self.tcp.io.add_out_bytes(size);
     }
 }

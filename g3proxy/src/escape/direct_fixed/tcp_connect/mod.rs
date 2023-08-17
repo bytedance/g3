@@ -16,6 +16,7 @@
 
 use std::io;
 use std::net::{IpAddr, SocketAddr};
+use std::sync::Arc;
 
 use tokio::net::{TcpSocket, TcpStream};
 use tokio::task::JoinSet;
@@ -27,14 +28,13 @@ use g3_socket::util::AddressFamily;
 use g3_types::acl::AclAction;
 use g3_types::net::{ConnectError, Host, TcpConnectConfig, TcpKeepAliveConfig, TcpMiscSockOpts};
 
-use super::{DirectFixedEscaper, DirectFixedEscaperStats};
+use super::DirectFixedEscaper;
 use crate::log::escape::tcp_connect::EscapeLogForTcpConnect;
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectError, TcpConnectRemoteWrapperStats, TcpConnectResult, TcpConnectTaskNotes,
+};
 use crate::resolve::HappyEyeballsResolveJob;
 use crate::serve::ServerTaskNotes;
-
-mod stats;
-use stats::DirectTcpMixedRemoteStats;
 
 impl DirectFixedEscaper {
     fn handle_tcp_target_ip_acl_action<'a>(
@@ -459,22 +459,22 @@ impl DirectFixedEscaper {
         let stream = self.tcp_connect_to(tcp_notes, task_notes).await?;
         let (r, w) = stream.into_split();
 
-        let mut wrapper_stats = DirectTcpMixedRemoteStats::new(&self.stats, task_stats);
+        let mut wrapper_stats = TcpConnectRemoteWrapperStats::new(&self.stats, task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
-        let (ups_r_stats, ups_w_stats) = wrapper_stats.into_pair();
+        let wrapper_stats = Arc::new(wrapper_stats);
 
         let limit_config = &self.config.general.tcp_sock_speed_limit;
         let r = LimitedReader::new(
             r,
             limit_config.shift_millis,
             limit_config.max_south,
-            ups_r_stats,
+            wrapper_stats.clone() as _,
         );
         let w = LimitedWriter::new(
             w,
             limit_config.shift_millis,
             limit_config.max_north,
-            ups_w_stats,
+            wrapper_stats as _,
         );
 
         Ok((Box::new(r), Box::new(w)))

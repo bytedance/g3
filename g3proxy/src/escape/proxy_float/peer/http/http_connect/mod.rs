@@ -15,6 +15,7 @@
  */
 
 use std::pin::Pin;
+use std::sync::Arc;
 
 use anyhow::anyhow;
 use tokio::io::BufReader;
@@ -29,9 +30,10 @@ use g3_io_ext::{AggregatedIo, LimitedReader, LimitedWriter};
 use g3_types::net::OpensslTlsClientConfig;
 
 use super::{NextProxyPeerInternal, ProxyFloatHttpPeer};
-use crate::escape::proxy_float::stats::ProxyTcpRemoteStats;
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectError, TcpConnectRemoteWrapperStats, TcpConnectResult, TcpConnectTaskNotes,
+};
 use crate::serve::ServerTaskNotes;
 
 impl ProxyFloatHttpPeer {
@@ -95,17 +97,17 @@ impl ProxyFloatHttpPeer {
         // add in read buffered data
         let r_buffer_size = r.buffer().len() as u64;
         task_stats.add_read_bytes(r_buffer_size);
-        let mut wrapper_stats = ProxyTcpRemoteStats::new(&self.escaper_stats, task_stats);
+        let mut wrapper_stats = TcpConnectRemoteWrapperStats::new(&self.escaper_stats, task_stats);
         let user_stats = self.fetch_user_upstream_io_stats(task_notes);
         for s in &user_stats {
             s.io.tcp.add_in_bytes(r_buffer_size);
         }
         wrapper_stats.push_user_io_stats(user_stats);
-        let (ups_r_stats, ups_w_stats) = wrapper_stats.into_pair();
+        let wrapper_stats = Arc::new(wrapper_stats);
 
         // reset underlying io stats
-        r.get_mut().reset_stats(ups_r_stats);
-        w.reset_stats(ups_w_stats);
+        r.get_mut().reset_stats(wrapper_stats.clone() as _);
+        w.reset_stats(wrapper_stats as _);
 
         Ok((Box::new(r), Box::new(w)))
     }
@@ -199,10 +201,10 @@ impl ProxyFloatHttpPeer {
         // add task and user stats
         let mut wrapper_stats = TcpConnectionTaskRemoteStatsWrapper::new(task_stats);
         wrapper_stats.push_other_stats(self.fetch_user_upstream_io_stats(task_notes));
-        let (ups_r_stats, ups_w_stats) = wrapper_stats.into_pair();
+        let wrapper_stats = Arc::new(wrapper_stats);
 
-        let ups_r = LimitedReader::new_unlimited(ups_r, ups_r_stats);
-        let ups_w = LimitedWriter::new_unlimited(ups_w, ups_w_stats);
+        let ups_r = LimitedReader::new_unlimited(ups_r, wrapper_stats.clone() as _);
+        let ups_w = LimitedWriter::new_unlimited(ups_w, wrapper_stats as _);
 
         Ok((Box::new(ups_r), Box::new(ups_w)))
     }

@@ -27,7 +27,7 @@ pub(crate) use context::{
 };
 pub(crate) use path::FtpRequestPath;
 pub(crate) use stats::{
-    ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, FtpTaskRemoteControlStats,
-    FtpTaskRemoteTransferStats,
+    ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, FtpControlRemoteWrapperStats,
+    FtpTaskRemoteControlStats, FtpTaskRemoteTransferStats, FtpTransferRemoteWrapperStats,
 };
 pub(crate) use task::FtpOverHttpTaskNotes;

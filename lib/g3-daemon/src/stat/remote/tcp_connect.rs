@@ -16,9 +16,7 @@
 
 use std::sync::Arc;
 
-use g3_io_ext::{
-    ArcLimitedReaderStats, ArcLimitedWriterStats, LimitedReaderStats, LimitedWriterStats,
-};
+use g3_io_ext::{LimitedReaderStats, LimitedWriterStats};
 
 /// task related stats used at escaper side
 pub trait TcpConnectionTaskRemoteStats {
@@ -49,11 +47,6 @@ impl TcpConnectionTaskRemoteStatsWrapper {
         for s in all {
             self.others.push(s as _);
         }
-    }
-
-    pub fn into_pair(self) -> (ArcLimitedReaderStats, ArcLimitedWriterStats) {
-        let s = Arc::new(self);
-        (Arc::clone(&s) as _, s as _)
     }
 }
 

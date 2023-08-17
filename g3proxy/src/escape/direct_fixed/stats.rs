@@ -18,6 +18,7 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
 
+use g3_daemon::stat::remote::TcpConnectionTaskRemoteStats;
 use g3_io_ext::{LimitedReaderStats, LimitedWriterStats};
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
@@ -26,6 +27,10 @@ use crate::escape::{
     EscaperForbiddenSnapshot, EscaperForbiddenStats, EscaperInterfaceStats, EscaperInternalStats,
     EscaperStats, EscaperTcpStats, EscaperUdpStats,
 };
+use crate::module::ftp_over_http::{FtpTaskRemoteControlStats, FtpTaskRemoteTransferStats};
+use crate::module::http_forward::HttpForwardTaskRemoteStats;
+use crate::module::udp_connect::UdpConnectTaskRemoteStats;
+use crate::module::udp_relay::UdpRelayTaskRemoteStats;
 
 pub(crate) struct DirectFixedEscaperStats {
     name: MetricsName,
@@ -119,5 +124,81 @@ impl LimitedWriterStats for DirectFixedEscaperStats {
     fn add_write_bytes(&self, size: usize) {
         let size = size as u64;
         self.tcp.io.add_out_bytes(size);
+    }
+}
+
+impl TcpConnectionTaskRemoteStats for DirectFixedEscaperStats {
+    fn add_read_bytes(&self, size: u64) {
+        self.tcp.io.add_in_bytes(size);
+    }
+
+    fn add_write_bytes(&self, size: u64) {
+        self.tcp.io.add_out_bytes(size);
+    }
+}
+
+impl HttpForwardTaskRemoteStats for DirectFixedEscaperStats {
+    fn add_read_bytes(&self, size: u64) {
+        self.tcp.io.add_in_bytes(size);
+    }
+
+    fn add_write_bytes(&self, size: u64) {
+        self.tcp.io.add_out_bytes(size);
+    }
+}
+
+impl FtpTaskRemoteControlStats for DirectFixedEscaperStats {
+    fn add_read_bytes(&self, size: u64) {
+        self.tcp.io.add_in_bytes(size);
+    }
+
+    fn add_write_bytes(&self, size: u64) {
+        self.tcp.io.add_out_bytes(size);
+    }
+}
+
+impl FtpTaskRemoteTransferStats for DirectFixedEscaperStats {
+    fn add_read_bytes(&self, size: u64) {
+        self.tcp.io.add_in_bytes(size);
+    }
+
+    fn add_write_bytes(&self, size: u64) {
+        self.tcp.io.add_out_bytes(size);
+    }
+}
+
+impl UdpRelayTaskRemoteStats for DirectFixedEscaperStats {
+    fn add_recv_bytes(&self, size: u64) {
+        self.udp.io.add_in_bytes(size);
+    }
+
+    fn add_recv_packet(&self) {
+        self.udp.io.add_in_packet();
+    }
+
+    fn add_send_bytes(&self, size: u64) {
+        self.udp.io.add_out_bytes(size);
+    }
+
+    fn add_send_packet(&self) {
+        self.udp.io.add_out_packet();
+    }
+}
+
+impl UdpConnectTaskRemoteStats for DirectFixedEscaperStats {
+    fn add_recv_bytes(&self, size: u64) {
+        self.udp.io.add_in_bytes(size);
+    }
+
+    fn add_recv_packet(&self) {
+        self.udp.io.add_in_packet();
+    }
+
+    fn add_send_bytes(&self, size: u64) {
+        self.udp.io.add_out_bytes(size);
+    }
+
+    fn add_send_packet(&self) {
+        self.udp.io.add_out_packet();
     }
 }

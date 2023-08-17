@@ -23,7 +23,9 @@ mod stats;
 mod task;
 
 pub(crate) use error::UdpConnectError;
-pub(crate) use stats::{ArcUdpConnectTaskRemoteStats, UdpConnectTaskRemoteStats};
+pub(crate) use stats::{
+    ArcUdpConnectTaskRemoteStats, UdpConnectRemoteWrapperStats, UdpConnectTaskRemoteStats,
+};
 pub(crate) use task::UdpConnectTaskNotes;
 
 pub(crate) type UdpConnectResult = Result<

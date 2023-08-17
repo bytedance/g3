@@ -21,12 +21,10 @@ use g3_io_ext::{LimitedUdpRecv, LimitedUdpSend};
 use super::ProxySocks5Escaper;
 use crate::module::tcp_connect::TcpConnectTaskNotes;
 use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupError, UdpRelaySetupResult, UdpRelayTaskNotes,
+    ArcUdpRelayTaskRemoteStats, UdpRelayRemoteWrapperStats, UdpRelaySetupError,
+    UdpRelaySetupResult, UdpRelayTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
-
-mod stats;
-pub(crate) use stats::ProxySocks5UdpRelayRemoteStats;
 
 mod recv;
 mod send;
@@ -47,7 +45,7 @@ impl ProxySocks5Escaper {
             .await
             .map_err(UdpRelaySetupError::SetupSocketFailed)?;
 
-        let mut wrapper_stats = ProxySocks5UdpRelayRemoteStats::new(&self.stats, task_stats);
+        let mut wrapper_stats = UdpRelayRemoteWrapperStats::new(&self.stats, task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
         let wrapper_stats = Arc::new(wrapper_stats);
 

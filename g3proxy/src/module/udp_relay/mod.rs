@@ -23,7 +23,9 @@ mod stats;
 mod task;
 
 pub(crate) use error::UdpRelaySetupError;
-pub(crate) use stats::{ArcUdpRelayTaskRemoteStats, UdpRelayTaskRemoteStats};
+pub(crate) use stats::{
+    ArcUdpRelayTaskRemoteStats, UdpRelayRemoteWrapperStats, UdpRelayTaskRemoteStats,
+};
 pub(crate) use task::UdpRelayTaskNotes;
 
 pub(crate) type UdpRelaySetupResult = Result<

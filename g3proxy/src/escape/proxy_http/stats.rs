@@ -18,11 +18,13 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
 
+use g3_daemon::stat::remote::TcpConnectionTaskRemoteStats;
 use g3_io_ext::{LimitedReaderStats, LimitedWriterStats};
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::{StatId, TcpIoSnapshot};
 
 use crate::escape::{EscaperInterfaceStats, EscaperInternalStats, EscaperStats, EscaperTcpStats};
+use crate::module::http_forward::HttpForwardTaskRemoteStats;
 
 pub(crate) struct ProxyHttpEscaperStats {
     name: MetricsName,
@@ -100,6 +102,26 @@ impl LimitedReaderStats for ProxyHttpEscaperStats {
 impl LimitedWriterStats for ProxyHttpEscaperStats {
     fn add_write_bytes(&self, size: usize) {
         let size = size as u64;
+        self.tcp.io.add_out_bytes(size);
+    }
+}
+
+impl TcpConnectionTaskRemoteStats for ProxyHttpEscaperStats {
+    fn add_read_bytes(&self, size: u64) {
+        self.tcp.io.add_in_bytes(size);
+    }
+
+    fn add_write_bytes(&self, size: u64) {
+        self.tcp.io.add_out_bytes(size);
+    }
+}
+
+impl HttpForwardTaskRemoteStats for ProxyHttpEscaperStats {
+    fn add_read_bytes(&self, size: u64) {
+        self.tcp.io.add_in_bytes(size);
+    }
+
+    fn add_write_bytes(&self, size: u64) {
         self.tcp.io.add_out_bytes(size);
     }
 }

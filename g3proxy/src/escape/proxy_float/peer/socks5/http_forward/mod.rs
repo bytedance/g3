@@ -23,10 +23,10 @@ use super::{
     NextProxyPeerInternal, ProxyFloatEscaperStats, ProxyFloatSocks5Peer,
     ProxyFloatSocks5PeerSharedConfig,
 };
-use crate::escape::proxy_float::stats::ProxyHttpMixedRemoteStats;
 use crate::log::escape::tls_handshake::TlsApplication;
 use crate::module::http_forward::{
-    ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpForwardRemoteStatsWrapper,
+    ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpForwardRemoteWrapperStats,
+    HttpForwardTaskRemoteWrapperStats,
 };
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
 use crate::serve::ServerTaskNotes;
@@ -48,14 +48,15 @@ impl ProxyFloatSocks5Peer {
             .timed_socks5_connect_tcp_connect_to(tcp_notes, task_notes)
             .await?;
 
-        let mut w_wrapper_stats = ProxyHttpMixedRemoteStats::new(&self.escaper_stats, &task_stats);
-        let mut r_wrapper_stats = HttpForwardRemoteStatsWrapper::new(task_stats);
+        let mut w_wrapper_stats =
+            HttpForwardRemoteWrapperStats::new(&self.escaper_stats, &task_stats);
+        let mut r_wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(task_stats);
         let user_stats = self.fetch_user_upstream_io_stats(task_notes);
         w_wrapper_stats.push_user_io_stats_by_ref(&user_stats);
         r_wrapper_stats.push_user_io_stats(user_stats);
 
-        ups_w.reset_stats(w_wrapper_stats.into_writer());
-        let ups_r = LimitedBufReader::new_directed(ups_r, r_wrapper_stats.into_reader());
+        ups_w.reset_stats(Arc::new(w_wrapper_stats) as _);
+        let ups_r = LimitedBufReader::new_directed(ups_r, Arc::new(r_wrapper_stats) as _);
 
         let writer = Socks5PeerHttpForwardWriter::new(
             ups_w,
@@ -87,16 +88,16 @@ impl ProxyFloatSocks5Peer {
         let (ups_r, ups_w) = tokio::io::split(tls_stream);
 
         // add task and user stats
-        let mut wrapper_stats = HttpForwardRemoteStatsWrapper::new(task_stats);
+        let mut wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
-        let (ups_r_stats, ups_w_stats) = wrapper_stats.into_pair();
+        let wrapper_stats = Arc::new(wrapper_stats);
 
         let ups_r = LimitedBufReader::new_unlimited(
             ups_r,
             Arc::new(NilLimitedReaderStats::default()),
-            ups_r_stats,
+            wrapper_stats.clone() as _,
         );
-        let ups_w = LimitedWriter::new_unlimited(ups_w, ups_w_stats);
+        let ups_w = LimitedWriter::new_unlimited(ups_w, wrapper_stats as _);
 
         let writer = Socks5PeerHttpForwardWriter::new(ups_w, None, &self.shared_config);
         let reader = Socks5PeerHttpForwardReader::new(ups_r);
