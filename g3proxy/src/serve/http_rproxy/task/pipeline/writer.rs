@@ -257,18 +257,25 @@ where
         }
     }
 
+    fn get_egress_path_selection(&self, user_ctx: Option<&UserContext>) -> EgressPathSelection {
+        user_ctx
+            .map(|ctx| ctx.user_config().egress_path_selection.clone())
+            .unwrap_or_default()
+    }
+
     async fn run(
         &mut self,
         req: HttpRProxyRequest<CDR>,
         user_ctx: Option<UserContext>,
         host: Arc<HttpHost>,
     ) -> LoopAction {
+        let path_selection = self.get_egress_path_selection(user_ctx.as_ref());
         let task_notes = ServerTaskNotes::new(
             self.ctx.worker_id,
             self.ctx.cc_info.clone(),
             user_ctx,
             req.time_accepted.elapsed(),
-            EgressPathSelection::default(),
+            path_selection,
         );
 
         if let Some(mut stream_w) = self.stream_writer.take() {

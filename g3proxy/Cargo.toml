@@ -58,7 +58,7 @@ rmpv.workspace = true
 mlua = { workspace = true, features = ["send"], optional = true }
 pyo3 = { workspace = true, features = ["auto-initialize"], optional = true }
 g3-compat.workspace = true
-g3-types = { workspace = true, features = ["auth-crypt", "rustls", "openssl", "acl-rule", "http", "route", "async-log"] }
+g3-types = { workspace = true, features = ["auth-crypt", "rustls", "openssl", "acl-rule", "http", "route", "async-log", "json"] }
 g3-socket.workspace = true
 g3-daemon.workspace = true
 g3-signal.workspace = true

@@ -32,6 +32,7 @@ use g3_types::net::{
     TcpSockSpeedLimitConfig, UdpMiscSockOpts, UdpSockSpeedLimitConfig,
 };
 use g3_types::resolve::{ResolveRedirectionBuilder, ResolveStrategy};
+use g3_types::route::EgressPathSelection;
 
 use super::{PasswordToken, UserAuditConfig, UserSiteConfig};
 
@@ -68,6 +69,7 @@ pub(crate) struct UserConfig {
     pub(crate) resolve_redirection: Option<ResolveRedirectionBuilder>,
     pub(crate) task_idle_max_count: i32,
     pub(crate) socks_use_udp_associate: bool,
+    pub(crate) egress_path_selection: EgressPathSelection,
     pub(crate) explicit_sites: BTreeMap<MetricsName, Arc<UserSiteConfig>>,
 }
 
@@ -102,6 +104,7 @@ impl Default for UserConfig {
             resolve_redirection: None,
             task_idle_max_count: 1,
             socks_use_udp_associate: false,
+            egress_path_selection: EgressPathSelection::Default,
             explicit_sites: BTreeMap::new(),
         }
     }

@@ -237,14 +237,20 @@ where
         }
     }
 
-    fn get_egress_path_selection(&self, headers: &mut HttpHeaderMap) -> EgressPathSelection {
+    fn get_egress_path_selection(
+        &self,
+        headers: &mut HttpHeaderMap,
+        user_ctx: Option<&UserContext>,
+    ) -> EgressPathSelection {
         if let Some(header) = &self.ctx.server_config.egress_path_selection_header {
             // check and remove the custom header
             if let Some(value) = headers.remove(header) {
                 return EgressPathSelection::from_str(value.to_str()).unwrap_or_default();
             }
         }
-        EgressPathSelection::Default
+        user_ctx
+            .map(|ctx| ctx.user_config().egress_path_selection.clone())
+            .unwrap_or_default()
     }
 
     async fn run(
@@ -252,7 +258,8 @@ where
         mut req: HttpProxyRequest<CDR>,
         user_ctx: Option<UserContext>,
     ) -> LoopAction {
-        let path_selection = self.get_egress_path_selection(&mut req.inner.end_to_end_headers);
+        let path_selection =
+            self.get_egress_path_selection(&mut req.inner.end_to_end_headers, user_ctx.as_ref());
         let task_notes = ServerTaskNotes::new(
             self.ctx.worker_id,
             self.ctx.cc_info.clone(),

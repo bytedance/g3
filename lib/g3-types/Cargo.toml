@@ -45,6 +45,7 @@ base64 = { workspace = true, optional = true }
 flume = { workspace = true, features = ["eventual-fairness"], optional = true }
 slog = { workspace = true, optional = true }
 indexmap = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
 
 [features]
 default = []
@@ -57,3 +58,4 @@ http = ["dep:http", "dep:bytes", "dep:base64"]
 proxy = ["http", "openssl"]
 route = ["dep:ahash", "dep:radix_trie", "dep:indexmap", "resolve"]
 async-log = ["dep:flume", "dep:slog"]
+json = ["dep:serde_json"]

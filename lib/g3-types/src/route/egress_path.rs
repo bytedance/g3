@@ -15,12 +15,15 @@
  */
 
 use std::str::FromStr;
+use std::sync::Arc;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum EgressPathSelection {
     #[default]
     Default,
     Index(usize),
+    #[cfg(feature = "json")]
+    JsonValue(Arc<serde_json::Value>),
 }
 
 impl EgressPathSelection {

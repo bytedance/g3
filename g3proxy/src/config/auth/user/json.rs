@@ -14,8 +14,12 @@
  * limitations under the License.
  */
 
+use std::sync::Arc;
+
 use anyhow::{anyhow, Context};
 use serde_json::{Map, Value};
+
+use g3_types::route::EgressPathSelection;
 
 use super::{PasswordToken, UserConfig, UserSiteConfig};
 
@@ -203,6 +207,10 @@ impl UserConfig {
                 .audit
                 .parse_json(v)
                 .context(format!("invalid user audit config value for key {k}")),
+            "egress_path" => {
+                self.egress_path_selection = EgressPathSelection::JsonValue(Arc::new(v.clone()));
+                Ok(())
+            }
             _ => Err(anyhow!("invalid key {k}")),
         }
     }
