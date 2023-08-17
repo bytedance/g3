@@ -20,7 +20,7 @@ use std::task::{ready, Context, Poll};
 use g3_io_ext::{AsyncUdpRecv, UdpRelayRemoteError, UdpRelayRemoteRecv};
 use g3_types::net::UpstreamAddr;
 
-pub(super) struct DirectUdpRelayRemoteRecv<T> {
+pub(crate) struct DirectUdpRelayRemoteRecv<T> {
     inner_v4: Option<T>,
     inner_v6: Option<T>,
     bind_v4: SocketAddr,
@@ -28,7 +28,7 @@ pub(super) struct DirectUdpRelayRemoteRecv<T> {
 }
 
 impl<T> DirectUdpRelayRemoteRecv<T> {
-    pub(super) fn new() -> Self {
+    pub(crate) fn new() -> Self {
         DirectUdpRelayRemoteRecv {
             inner_v4: None,
             inner_v6: None,
@@ -42,12 +42,12 @@ impl<T> DirectUdpRelayRemoteRecv<T>
 where
     T: AsyncUdpRecv,
 {
-    pub(super) fn enable_v4(&mut self, inner: T, bind: SocketAddr) {
+    pub(crate) fn enable_v4(&mut self, inner: T, bind: SocketAddr) {
         self.inner_v4 = Some(inner);
         self.bind_v4 = bind;
     }
 
-    pub(super) fn enable_v6(&mut self, inner: T, bind: SocketAddr) {
+    pub(crate) fn enable_v6(&mut self, inner: T, bind: SocketAddr) {
         self.inner_v6 = Some(inner);
         self.bind_v6 = bind;
     }

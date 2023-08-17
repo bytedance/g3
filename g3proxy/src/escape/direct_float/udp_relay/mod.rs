@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -22,20 +23,16 @@ use g3_socket::util::AddressFamily;
 
 use tokio::net::UdpSocket;
 
-use super::{DirectFixedEscaper, DirectFixedEscaperStats};
+use super::DirectFloatEscaper;
+use crate::escape::direct_fixed::udp_relay::{DirectUdpRelayRemoteRecv, DirectUdpRelayRemoteSend};
+use crate::escape::direct_fixed::DirectFixedEscaperStats;
 use crate::module::udp_relay::{
     ArcUdpRelayTaskRemoteStats, UdpRelayRemoteWrapperStats, UdpRelaySetupError,
     UdpRelaySetupResult, UdpRelayTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
-mod recv;
-mod send;
-
-pub(crate) use recv::DirectUdpRelayRemoteRecv;
-pub(crate) use send::DirectUdpRelayRemoteSend;
-
-impl DirectFixedEscaper {
+impl DirectFloatEscaper {
     pub(super) async fn udp_setup_relay<'a>(
         &'a self,
         udp_notes: &'a UdpRelayTaskNotes,
@@ -86,7 +83,12 @@ impl DirectFixedEscaper {
         ),
         UdpRelaySetupError,
     > {
-        let bind_ip = self.get_bind_random(family, &task_notes.egress_path_selection);
+        let bind = self.get_bind_random(family).ok_or_else(|| {
+            UdpRelaySetupError::SetupSocketFailed(io::Error::new(
+                io::ErrorKind::AddrNotAvailable,
+                "no bind ip usable",
+            ))
+        })?;
 
         let misc_opts = if let Some(user_ctx) = task_notes.user_ctx() {
             user_ctx
@@ -96,9 +98,13 @@ impl DirectFixedEscaper {
             self.config.udp_misc_opts
         };
 
-        let socket =
-            g3_socket::udp::new_std_bind_relay(bind_ip, family, udp_notes.buf_conf, &misc_opts)
-                .map_err(UdpRelaySetupError::SetupSocketFailed)?;
+        let socket = g3_socket::udp::new_std_bind_relay(
+            Some(bind.ip),
+            family,
+            udp_notes.buf_conf,
+            &misc_opts,
+        )
+        .map_err(UdpRelaySetupError::SetupSocketFailed)?;
         let bind_addr = socket
             .local_addr()
             .map_err(UdpRelaySetupError::SetupSocketFailed)?;

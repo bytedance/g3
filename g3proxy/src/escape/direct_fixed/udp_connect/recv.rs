@@ -18,7 +18,7 @@ use std::task::{ready, Context, Poll};
 
 use g3_io_ext::{AsyncUdpRecv, UdpCopyRemoteError, UdpCopyRemoteRecv};
 
-pub(super) struct DirectUdpConnectRemoteRecv<T> {
+pub(crate) struct DirectUdpConnectRemoteRecv<T> {
     inner: T,
 }
 
@@ -26,7 +26,7 @@ impl<T> DirectUdpConnectRemoteRecv<T>
 where
     T: AsyncUdpRecv,
 {
-    pub(super) fn new(recv: T) -> Self {
+    pub(crate) fn new(recv: T) -> Self {
         DirectUdpConnectRemoteRecv { inner: recv }
     }
 }

@@ -19,7 +19,7 @@ use std::sync::Arc;
 use g3_io_ext::{LimitedBufReader, LimitedWriter, NilLimitedReaderStats};
 use g3_types::net::OpensslTlsClientConfig;
 
-use super::{DirectFloatBindIp, DirectFloatEscaper, DirectFloatEscaperStats};
+use super::{DirectFloatBindIp, DirectFloatEscaper};
 use crate::log::escape::tls_handshake::TlsApplication;
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpForwardRemoteWrapperStats,

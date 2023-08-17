@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::io;
 use std::sync::Arc;
 
 use tokio::net::UdpSocket;
@@ -22,20 +23,17 @@ use g3_io_ext::{LimitedUdpRecv, LimitedUdpSend};
 use g3_socket::util::AddressFamily;
 use g3_types::acl::AclAction;
 
-use super::DirectFixedEscaper;
+use super::DirectFloatEscaper;
+use crate::escape::direct_fixed::udp_connect::{
+    DirectUdpConnectRemoteRecv, DirectUdpConnectRemoteSend,
+};
 use crate::module::udp_connect::{
     ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectRemoteWrapperStats, UdpConnectResult,
     UdpConnectTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
-mod recv;
-mod send;
-
-pub(crate) use recv::DirectUdpConnectRemoteRecv;
-pub(crate) use send::DirectUdpConnectRemoteSend;
-
-impl DirectFixedEscaper {
+impl DirectFloatEscaper {
     fn handle_udp_target_ip_acl_action<'a>(
         &'a self,
         action: AclAction,
@@ -83,8 +81,13 @@ impl DirectFixedEscaper {
         self.handle_udp_target_ip_acl_action(action, task_notes)?;
 
         let family = AddressFamily::from(&peer_addr);
-        let bind_ip = self.get_bind_random(family, &task_notes.egress_path_selection);
-        udp_notes.bind = bind_ip;
+        let bind = self.get_bind_random(family).ok_or_else(|| {
+            UdpConnectError::SetupSocketFailed(io::Error::new(
+                io::ErrorKind::AddrNotAvailable,
+                "no bind ip usable",
+            ))
+        })?;
+        udp_notes.bind = Some(bind.ip);
 
         let misc_opts = if let Some(user_ctx) = task_notes.user_ctx() {
             user_ctx
@@ -94,9 +97,13 @@ impl DirectFixedEscaper {
             self.config.udp_misc_opts
         };
 
-        let socket =
-            g3_socket::udp::new_std_socket_to(peer_addr, bind_ip, udp_notes.buf_conf, &misc_opts)
-                .map_err(UdpConnectError::SetupSocketFailed)?;
+        let socket = g3_socket::udp::new_std_socket_to(
+            peer_addr,
+            udp_notes.bind,
+            udp_notes.buf_conf,
+            &misc_opts,
+        )
+        .map_err(UdpConnectError::SetupSocketFailed)?;
         socket
             .connect(peer_addr)
             .map_err(UdpConnectError::SetupSocketFailed)?;

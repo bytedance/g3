@@ -29,7 +29,7 @@ use super::DirectFixedEscaperStats;
 use crate::auth::UserContext;
 use crate::resolve::{ArcIntegratedResolverHandle, ArriveFirstResolveJob};
 
-pub(super) struct DirectUdpRelayRemoteSend<T> {
+pub(crate) struct DirectUdpRelayRemoteSend<T> {
     escaper_stats: Arc<DirectFixedEscaperStats>,
     user_ctx: Option<UserContext>,
     inner_v4: Option<T>,
@@ -47,7 +47,7 @@ pub(super) struct DirectUdpRelayRemoteSend<T> {
 }
 
 impl<T> DirectUdpRelayRemoteSend<T> {
-    pub(super) fn new(
+    pub(crate) fn new(
         escaper_stats: &Arc<DirectFixedEscaperStats>,
         user_ctx: Option<&UserContext>,
         egress_net_filter: &Arc<AclNetworkRule>,
@@ -77,12 +77,12 @@ impl<T> DirectUdpRelayRemoteSend<T>
 where
     T: AsyncUdpSend,
 {
-    pub(super) fn enable_v4(&mut self, inner: T, bind: SocketAddr) {
+    pub(crate) fn enable_v4(&mut self, inner: T, bind: SocketAddr) {
         self.inner_v4 = Some(inner);
         self.bind_v4 = bind;
     }
 
-    pub(super) fn enable_v6(&mut self, inner: T, bind: SocketAddr) {
+    pub(crate) fn enable_v6(&mut self, inner: T, bind: SocketAddr) {
         self.inner_v6 = Some(inner);
         self.bind_v6 = bind;
     }

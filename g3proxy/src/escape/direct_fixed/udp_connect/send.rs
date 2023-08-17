@@ -18,7 +18,7 @@ use std::task::{ready, Context, Poll};
 
 use g3_io_ext::{AsyncUdpSend, UdpCopyRemoteError, UdpCopyRemoteSend};
 
-pub(super) struct DirectUdpConnectRemoteSend<T> {
+pub(crate) struct DirectUdpConnectRemoteSend<T> {
     inner: T,
 }
 
@@ -26,7 +26,7 @@ impl<T> DirectUdpConnectRemoteSend<T>
 where
     T: AsyncUdpSend,
 {
-    pub(super) fn new(send: T) -> Self {
+    pub(crate) fn new(send: T) -> Self {
         DirectUdpConnectRemoteSend { inner: send }
     }
 }

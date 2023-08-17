@@ -24,7 +24,7 @@ use yaml_rust::{yaml, Yaml};
 
 use g3_types::acl::{AclAction, AclNetworkRuleBuilder};
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
-use g3_types::net::{HappyEyeballsConfig, TcpKeepAliveConfig, TcpMiscSockOpts};
+use g3_types::net::{HappyEyeballsConfig, TcpKeepAliveConfig, TcpMiscSockOpts, UdpMiscSockOpts};
 use g3_types::resolve::{QueryStrategy, ResolveRedirectionBuilder, ResolveStrategy};
 use g3_yaml::YamlDocPosition;
 
@@ -49,6 +49,7 @@ pub(crate) struct DirectFloatEscaperConfig {
     pub(crate) happy_eyeballs: HappyEyeballsConfig,
     pub(crate) tcp_keepalive: TcpKeepAliveConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
+    pub(crate) udp_misc_opts: UdpMiscSockOpts,
     pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
 }
 
@@ -70,6 +71,7 @@ impl DirectFloatEscaperConfig {
             happy_eyeballs: Default::default(),
             tcp_keepalive: TcpKeepAliveConfig::default_enabled(),
             tcp_misc_opts: Default::default(),
+            udp_misc_opts: Default::default(),
             extra_metrics_tags: None,
         }
     }
@@ -175,6 +177,11 @@ impl DirectFloatEscaperConfig {
             "tcp_misc_opts" => {
                 self.tcp_misc_opts = g3_yaml::value::as_tcp_misc_sock_opts(v)
                     .context(format!("invalid tcp misc sock opts value for key {k}"))?;
+                Ok(())
+            }
+            "udp_misc_opts" => {
+                self.udp_misc_opts = g3_yaml::value::as_udp_misc_sock_opts(v)
+                    .context(format!("invalid udp misc sock opts value for key {k}"))?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

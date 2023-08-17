@@ -27,8 +27,9 @@ use g3_http::server::HttpProxyClientRequest;
 use g3_io_ext::LimitedWriter;
 use g3_types::net::UpstreamAddr;
 
-use super::{DirectFloatBindIp, DirectFloatEscaperStats};
+use super::DirectFloatBindIp;
 use crate::auth::UserUpstreamTrafficStats;
+use crate::escape::direct_fixed::DirectFixedEscaperStats;
 use crate::module::http_forward::{
     send_req_header_to_origin, ArcHttpForwardTaskRemoteStats, HttpForwardRemoteWrapperStats,
     HttpForwardTaskRemoteWrapperStats, HttpForwardWrite,
@@ -40,7 +41,7 @@ pub(super) struct DirectFloatHttpForwardWriter<W: AsyncWrite> {
     bind: DirectFloatBindIp,
     #[pin]
     inner: W,
-    escaper_stats: Option<Arc<DirectFloatEscaperStats>>,
+    escaper_stats: Option<Arc<DirectFixedEscaperStats>>,
 }
 
 impl<W> DirectFloatHttpForwardWriter<W>
@@ -49,7 +50,7 @@ where
 {
     pub(super) fn new(
         ups_w: W,
-        escaper_stats: Option<Arc<DirectFloatEscaperStats>>,
+        escaper_stats: Option<Arc<DirectFixedEscaperStats>>,
         bind: DirectFloatBindIp,
     ) -> Self {
         DirectFloatHttpForwardWriter {

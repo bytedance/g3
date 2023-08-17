@@ -56,14 +56,14 @@ use crate::resolve::{ArcIntegratedResolverHandle, HappyEyeballsResolveJob};
 use crate::serve::ServerTaskNotes;
 
 mod stats;
-use stats::DirectFixedEscaperStats;
+pub(crate) use stats::DirectFixedEscaperStats;
 
 mod ftp_connect;
 mod http_forward;
 mod tcp_connect;
 mod tls_connect;
-mod udp_connect;
-mod udp_relay;
+pub(crate) mod udp_connect;
+pub(crate) mod udp_relay;
 
 pub(super) struct DirectFixedEscaper {
     config: Arc<DirectFixedEscaperConfig>,

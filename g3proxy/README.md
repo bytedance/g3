@@ -92,7 +92,7 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 
   - Float
 
-    * TCP Connect / TLS Connect / HTTP(s) Forward
+    * TCP Connect / TLS Connect / HTTP(s) Forward / UDP Associate
     * Egress network filter
     * Resolve redirection
     * Dynamic IP Bind
@@ -122,7 +122,7 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 
   - Float
 
-    * Dynamic Proxy: Http Proxy / Https Proxy / Socks5 Proxy (no UDP)
+    * Dynamic Proxy: Http Proxy / Https Proxy / Socks5 Proxy
 
 #### Router
 

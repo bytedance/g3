@@ -16,7 +16,7 @@
 
 use std::collections::BTreeSet;
 use std::convert::TryFrom;
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -31,7 +31,7 @@ use g3_resolver::ResolveError;
 use g3_socket::util::AddressFamily;
 use g3_types::acl::AclNetworkRule;
 use g3_types::metrics::MetricsName;
-use g3_types::net::{OpensslTlsClientConfig, UpstreamAddr};
+use g3_types::net::{Host, OpensslTlsClientConfig, UpstreamAddr};
 use g3_types::resolve::{ResolveRedirection, ResolveStrategy};
 
 use super::{
@@ -40,6 +40,7 @@ use super::{
 use crate::auth::UserUpstreamTrafficStats;
 use crate::config::escaper::direct_float::DirectFloatEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
+use crate::escape::direct_fixed::DirectFixedEscaperStats;
 use crate::module::ftp_over_http::{
     AnyFtpConnectContextParam, ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats,
     BoxFtpConnectContext, BoxFtpRemoteConnection, DirectFtpConnectContext,
@@ -51,10 +52,10 @@ use crate::module::http_forward::{
 };
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
 use crate::module::udp_connect::{
-    ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectResult, UdpConnectTaskNotes,
+    ArcUdpConnectTaskRemoteStats, UdpConnectResult, UdpConnectTaskNotes,
 };
 use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupError, UdpRelaySetupResult, UdpRelayTaskNotes,
+    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskNotes,
 };
 use crate::resolve::{ArcIntegratedResolverHandle, HappyEyeballsResolveJob};
 use crate::serve::ServerTaskNotes;
@@ -64,19 +65,18 @@ use bind::DirectFloatBindIp;
 
 mod publish;
 
-mod stats;
-use stats::DirectFloatEscaperStats;
-
 mod ftp_connect;
 mod http_forward;
 mod tcp_connect;
 mod tls_connect;
+mod udp_connect;
+mod udp_relay;
 
 pub(super) struct DirectFloatEscaper {
     config: Arc<DirectFloatEscaperConfig>,
-    stats: Arc<DirectFloatEscaperStats>,
+    stats: Arc<DirectFixedEscaperStats>,
     resolver_handle: ArcIntegratedResolverHandle,
-    egress_net_filter: AclNetworkRule,
+    egress_net_filter: Arc<AclNetworkRule>,
     resolve_redirection: Option<ResolveRedirection>,
     bind_v4: ArcSwap<Box<[DirectFloatBindIp]>>,
     bind_v6: ArcSwap<Box<[DirectFloatBindIp]>>,
@@ -86,12 +86,12 @@ pub(super) struct DirectFloatEscaper {
 impl DirectFloatEscaper {
     async fn new_obj(
         config: DirectFloatEscaperConfig,
-        stats: Arc<DirectFloatEscaperStats>,
+        stats: Arc<DirectFixedEscaperStats>,
         bind_v4: Option<Arc<Box<[DirectFloatBindIp]>>>,
         bind_v6: Option<Arc<Box<[DirectFloatBindIp]>>>,
     ) -> anyhow::Result<ArcEscaper> {
         let resolver_handle = crate::resolve::get_handle(config.resolver())?;
-        let egress_net_filter = config.egress_net_filter.build();
+        let egress_net_filter = Arc::new(config.egress_net_filter.build());
 
         let resolve_redirection = config
             .resolve_redirection
@@ -151,7 +151,7 @@ impl DirectFloatEscaper {
 
     pub(super) async fn prepare_initial(config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
         if let AnyEscaperConfig::DirectFloat(config) = config {
-            let stats = Arc::new(DirectFloatEscaperStats::new(config.name()));
+            let stats = Arc::new(DirectFixedEscaperStats::new(config.name()));
             DirectFloatEscaper::new_obj(*config, stats, None, None).await
         } else {
             Err(anyhow!("invalid escaper config type"))
@@ -160,7 +160,7 @@ impl DirectFloatEscaper {
 
     async fn prepare_reload(
         config: AnyEscaperConfig,
-        stats: Arc<DirectFloatEscaperStats>,
+        stats: Arc<DirectFixedEscaperStats>,
         bind_v4: Option<Arc<Box<[DirectFloatBindIp]>>>,
         bind_v6: Option<Arc<Box<[DirectFloatBindIp]>>>,
     ) -> anyhow::Result<ArcEscaper> {
@@ -253,6 +253,67 @@ impl DirectFloatEscaper {
         HappyEyeballsResolveJob::new_dyn(strategy, &self.resolver_handle, domain)
     }
 
+    async fn resolve_best(
+        &self,
+        domain: &str,
+        strategy: ResolveStrategy,
+    ) -> Result<IpAddr, ResolveError> {
+        let mut resolver_job =
+            HappyEyeballsResolveJob::new_dyn(strategy, &self.resolver_handle, domain)?;
+        let ips = resolver_job
+            .get_r1_or_first(self.config.happy_eyeballs.resolution_delay(), usize::MAX)
+            .await?;
+        strategy.pick_best(ips).ok_or_else(|| {
+            ResolveError::UnexpectedError("no upstream ip can be selected".to_string())
+        })
+    }
+
+    async fn redirect_get_best(
+        &self,
+        redirect_result: Host,
+        resolve_strategy: ResolveStrategy,
+    ) -> Result<IpAddr, ResolveError> {
+        match redirect_result {
+            Host::Ip(ip) => Ok(ip),
+            Host::Domain(new) => self.resolve_best(&new, resolve_strategy).await,
+        }
+    }
+
+    async fn select_upstream_addr(
+        &self,
+        ups: &UpstreamAddr,
+        resolve_strategy: ResolveStrategy,
+        task_notes: &ServerTaskNotes,
+    ) -> Result<SocketAddr, ResolveError> {
+        match ups.host() {
+            Host::Ip(ip) => Ok(SocketAddr::new(*ip, ups.port())),
+            Host::Domain(domain) => {
+                if let Some(user_ctx) = task_notes.user_ctx() {
+                    if let Some(redirect) = user_ctx.user().resolve_redirection() {
+                        if let Some(v) = redirect.query_first(domain, resolve_strategy.query) {
+                            return self
+                                .redirect_get_best(v, resolve_strategy)
+                                .await
+                                .map(|ip| SocketAddr::new(ip, ups.port()));
+                        }
+                    }
+                }
+
+                if let Some(redirect) = &self.resolve_redirection {
+                    if let Some(v) = redirect.query_first(domain, resolve_strategy.query) {
+                        return self
+                            .redirect_get_best(v, resolve_strategy)
+                            .await
+                            .map(|ip| SocketAddr::new(ip, ups.port()));
+                    }
+                }
+
+                let ip = self.resolve_best(domain, resolve_strategy).await?;
+                Ok(SocketAddr::new(ip, ups.port()))
+            }
+        }
+    }
+
     fn fetch_user_upstream_io_stats(
         &self,
         task_notes: &ServerTaskNotes,
@@ -311,23 +372,24 @@ impl Escaper for DirectFloatEscaper {
     async fn udp_setup_connection<'a>(
         &'a self,
         udp_notes: &'a mut UdpConnectTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
-        _task_stats: ArcUdpConnectTaskRemoteStats,
+        task_notes: &'a ServerTaskNotes,
+        task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
         self.stats.interface.add_udp_connect_attempted();
         udp_notes.escaper.clone_from(&self.config.name);
-        Err(UdpConnectError::MethodUnavailable)
+        self.udp_connect_to(udp_notes, task_notes, task_stats).await
     }
 
     async fn udp_setup_relay<'a>(
         &'a self,
         udp_notes: &'a mut UdpRelayTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
-        _task_stats: ArcUdpRelayTaskRemoteStats,
+        task_notes: &'a ServerTaskNotes,
+        task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
         self.stats.interface.add_udp_relay_session_attempted();
         udp_notes.escaper.clone_from(&self.config.name);
-        Err(UdpRelaySetupError::MethodUnavailable)
+        self.udp_setup_relay(udp_notes, task_notes, task_stats)
+            .await
     }
 
     fn new_http_forward_context(&self, escaper: ArcEscaper) -> BoxHttpForwardContext {

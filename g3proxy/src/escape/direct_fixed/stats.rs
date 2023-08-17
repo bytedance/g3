@@ -36,14 +36,14 @@ pub(crate) struct DirectFixedEscaperStats {
     name: MetricsName,
     id: StatId,
     extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
-    pub(super) forbidden: EscaperForbiddenStats,
-    pub(super) interface: EscaperInterfaceStats,
-    pub(super) udp: EscaperUdpStats,
-    pub(super) tcp: EscaperTcpStats,
+    pub(crate) forbidden: EscaperForbiddenStats,
+    pub(crate) interface: EscaperInterfaceStats,
+    pub(crate) udp: EscaperUdpStats,
+    pub(crate) tcp: EscaperTcpStats,
 }
 
 impl DirectFixedEscaperStats {
-    pub(super) fn new(name: &MetricsName) -> Self {
+    pub(crate) fn new(name: &MetricsName) -> Self {
         DirectFixedEscaperStats {
             name: name.clone(),
             id: StatId::new(),
@@ -55,7 +55,7 @@ impl DirectFixedEscaperStats {
         }
     }
 
-    pub(super) fn set_extra_tags(&self, tags: Option<Arc<StaticMetricsTags>>) {
+    pub(crate) fn set_extra_tags(&self, tags: Option<Arc<StaticMetricsTags>>) {
         self.extra_metrics_tags.store(tags);
     }
 }
