@@ -34,12 +34,12 @@ mod redis_cluster;
 pub(super) async fn load_cached_peers<'a>(
     config: &'a Arc<ProxyFloatEscaperConfig>,
     stats: &'a Arc<ProxyFloatEscaperStats>,
-    escape_logger: Logger,
+    escape_logger: &Logger,
     tls_config: &'a Option<Arc<OpensslTlsClientConfig>>,
 ) -> anyhow::Result<Vec<ArcNextProxyPeer>> {
     if let Some(cache_file) = &config.cache_file {
         let records = file::load_peers_from_cache(cache_file).await?;
-        super::peer::parse_peers(config, stats, escape_logger.clone(), &records, tls_config)
+        super::peer::parse_peers(config, stats, escape_logger, &records, tls_config)
     } else {
         Ok(Vec::new())
     }
@@ -53,9 +53,8 @@ async fn parse_and_save_peers(
     tls_config: &Option<Arc<OpensslTlsClientConfig>>,
     records: Vec<serde_json::Value>,
 ) -> anyhow::Result<()> {
-    let peers =
-        super::peer::parse_peers(config, stats, escape_logger.clone(), &records, tls_config)
-            .map_err(|e| anyhow!("failed to parse peers: {e:?}"))?;
+    let peers = super::peer::parse_peers(config, stats, escape_logger, &records, tls_config)
+        .map_err(|e| anyhow!("failed to parse peers: {e:?}"))?;
 
     container.store(Arc::new(peers.into_boxed_slice()));
     if let Some(cache_file) = &config.cache_file {

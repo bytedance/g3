@@ -38,7 +38,7 @@ async fn load_records_from_cache(cache_file: &Path) -> anyhow::Result<Vec<Value>
     if contents.is_empty() {
         return Ok(Vec::new());
     }
-    let doc = serde_json::Value::from_str(&contents).map_err(|e| {
+    let doc = Value::from_str(&contents).map_err(|e| {
         anyhow!(
             "invalid json content for cache file {}: {:?}",
             cache_file.display(),
@@ -119,10 +119,10 @@ pub(super) async fn publish_records(
     v6_container: &ArcSwap<Box<[DirectFloatBindIp]>>,
     data: String,
 ) -> anyhow::Result<()> {
-    let obj = serde_json::Value::from_str(&data)
-        .map_err(|e| anyhow!("the input data is not valid json: {:?}", e))?;
+    let obj =
+        Value::from_str(&data).map_err(|e| anyhow!("the input data is not valid json: {:?}", e))?;
 
-    if let serde_json::Value::Object(map) = obj {
+    if let Value::Object(map) = obj {
         for (k, v) in map.into_iter() {
             match g3_json::key::normalize(&k).as_str() {
                 "ipv4" | "v4" => {

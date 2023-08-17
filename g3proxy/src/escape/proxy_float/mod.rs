@@ -96,16 +96,15 @@ impl ProxyFloatEscaper {
         let peers = match peers {
             Some(peers) => peers,
             None => {
-                let peers =
-                    source::load_cached_peers(&config, &stats, escape_logger.clone(), &tls_config)
-                        .await
-                        .unwrap_or_else(|e| {
-                            warn!(
-                                "failed to load cached peers for escaper {}: {e:?}",
-                                config.name
-                            );
-                            Vec::new()
-                        });
+                let peers = source::load_cached_peers(&config, &stats, &escape_logger, &tls_config)
+                    .await
+                    .unwrap_or_else(|e| {
+                        warn!(
+                            "failed to load cached peers for escaper {}: {e:?}",
+                            config.name
+                        );
+                        Vec::new()
+                    });
                 Arc::new(peers.into_boxed_slice())
             }
         };

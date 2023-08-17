@@ -67,27 +67,17 @@ impl DirectFloatBindIp {
             u64::MAX
         }
     }
-}
 
-pub(super) fn parse_records(
-    records: &[Value],
-    family: AddressFamily,
-) -> anyhow::Result<Vec<DirectFloatBindIp>> {
-    let mut ips = Vec::<DirectFloatBindIp>::new();
-
-    let instant_now = Instant::now();
-    let datetime_now = Utc::now();
-
-    'next_record: for record in records {
-        let bind = match record {
+    fn parse_json(
+        value: &Value,
+        instant_now: Instant,
+        datetime_now: DateTime<Utc>,
+    ) -> anyhow::Result<Option<Self>> {
+        match value {
             Value::Object(map) => {
                 let ip_v = g3_json::map_get_required(map, CONFIG_KEY_IP)?;
                 let ip = g3_json::value::as_ipaddr(ip_v)
                     .context(format!("invalid value for key {CONFIG_KEY_IP}"))?;
-
-                if AddressFamily::from(&ip).ne(&family) {
-                    continue;
-                }
 
                 let mut bind = DirectFloatBindIp::new(ip);
 
@@ -96,21 +86,18 @@ pub(super) fn parse_records(
                         CONFIG_KEY_IP => {}
                         "expire" => {
                             let datetime_expire = g3_json::value::as_rfc3339_datetime(v)?;
-                            if datetime_expire <= datetime_now {
-                                continue 'next_record;
+                            if datetime_expire < datetime_now {
+                                return Ok(None);
                             }
-
-                            if let Ok(duration) =
+                            let Ok(duration) =
                                 datetime_expire.signed_duration_since(datetime_now).to_std()
-                            {
-                                if let Some(instant_expire) = instant_now.checked_add(duration) {
-                                    bind.set_expire(datetime_expire, instant_expire);
-                                } else {
-                                    continue 'next_record;
-                                }
-                            } else {
-                                continue 'next_record;
-                            }
+                            else {
+                                return Ok(None);
+                            };
+                            let Some(instant_expire) = instant_now.checked_add(duration) else {
+                                return Ok(None);
+                            };
+                            bind.set_expire(datetime_expire, instant_expire);
                         }
                         "isp" => {
                             if let Ok(isp) = g3_json::value::as_string(v) {
@@ -134,15 +121,37 @@ pub(super) fn parse_records(
                     }
                 }
 
-                bind
+                Ok(Some(bind))
             }
             Value::String(_) => {
-                let ip = g3_json::value::as_ipaddr(record)
+                let ip = g3_json::value::as_ipaddr(value)
                     .context(anyhow!("invalid ip address value"))?;
-                DirectFloatBindIp::new(ip)
+                Ok(Some(DirectFloatBindIp::new(ip)))
             }
-            _ => return Err(anyhow!("invalid value type")),
+            _ => Err(anyhow!("invalid value type")),
+        }
+    }
+}
+
+pub(super) fn parse_records(
+    records: &[Value],
+    family: AddressFamily,
+) -> anyhow::Result<Vec<DirectFloatBindIp>> {
+    let mut ips = Vec::<DirectFloatBindIp>::new();
+
+    let instant_now = Instant::now();
+    let datetime_now = Utc::now();
+
+    for (i, record) in records.iter().enumerate() {
+        let Some(bind) = DirectFloatBindIp::parse_json(record, instant_now, datetime_now)
+            .context(format!("invalid value for record #{i}"))?
+        else {
+            continue;
         };
+
+        if AddressFamily::from(&bind.ip).ne(&family) {
+            continue;
+        }
 
         ips.push(bind);
     }
