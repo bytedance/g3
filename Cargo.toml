@@ -118,7 +118,7 @@ cadence = { package = "cadence-with-flush", version = "0.29" }
 clap = "4.3"
 clap_complete = "4.3"
 #
-tokio = "1.31"
+tokio = "1.32"
 tokio-util = "0.7"
 tokio-stream = "0.1"
 futures-util = "0.3"
@@ -137,7 +137,7 @@ rustls-pemfile = "1.0"
 rustls-native-certs = "0.6"
 quinn = { version = "0.10", default-features = false, features = ["native-certs"] }
 #
-flume = { version = "0.10", default-features = false }
+flume = { version = "0.11", default-features = false }
 #
 trust-dns-resolver = { version = "0.23.0-alpha.4", default-features = false }
 trust-dns-proto = { version = "0.23.0-alpha.4", default-features = false }
