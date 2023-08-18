@@ -56,6 +56,24 @@ format. Both can be optional and share the same data structure.
 
   **default**: not set
 
+.. _conf_usr_group_cache:
+
+* cache
+
+  **optional**, **type**: :ref:`file path <conf_value_file_path>`
+
+  The local file to cache remote results, it will be used during initial load of the user group.
+
+  The file will be created if not existed.
+
+  This will overwrite the *cache_file* options in :ref:`source <configuration_user_group_source>` config.
+
+  .. note:: This should be set if you want to publish dynamic users.
+
+  **default**: not set
+
+  .. versionadded:: 1.7.22
+
 .. _conf_user_group_refresh_interval:
 
 * refresh_interval

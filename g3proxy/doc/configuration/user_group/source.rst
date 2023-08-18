@@ -34,70 +34,7 @@ For *url* str values, the *path* should be an absolute path with the following f
 
     file://<path>[?[format=<format>]]
 
-http
-====
-
-Fetch dynamic users through an http GET request.
-
-The success response code should be 200, and the body should be the json encoded string of all dynamic users.
-
-The keys used in *map* format are:
-
-* url
-
-  **required**, **type**: :ref:`url str <conf_value_url_str>`
-
-  Set the url to GET.
-
-* cache_file
-
-  **required**, **type**: :ref:`file path <conf_value_file_path>`
-
-  The local file to cache remote results, it will be used during initial load of the user group.
-
-  The file will be created if not existed.
-
-* timeout
-
-  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
-
-  Set the timeout value for the whole request.
-
-  It's not recommended to set the timeout value greater the :ref:`refresh_interval <conf_user_group_refresh_interval>`
-  in group config.
-
-  **default**: 10s
-
-* connect_timeout
-
-  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
-
-  Set the connect timeout value.
-
-  It's not recommended to set the timeout value greater the :ref:`refresh_interval <conf_user_group_refresh_interval>`
-  in group config.
-
-  **default**: 5s
-
-  .. versionadded:: 1.2.0
-
-* interface
-
-  **optional**, **type**: str
-
-  Set the bind IP or bind interface.
-
-  **default**: not set
-
-  .. versionadded:: 1.2.0
-
-* max_body_size
-
-  **optional**, **type**: :ref:`humanize size <conf_value_humanize_usize>`
-
-  Set the max body size.
-
-  **default**: 64MiB
+.. note:: The published users won't be cached if you use static file source.
 
 lua
 ===
@@ -126,6 +63,10 @@ The keys used in *map* format are:
   The local file to cache results, it will be used during initial load of the user group.
 
   The file will be created if not existed.
+
+  This will be overwritten by the user-group level :ref:`cache <conf_user_group_cache>` config.
+
+  .. deprecated:: 1.7.22 use user-group level cache config option
 
 * fetch_script
 
@@ -204,6 +145,10 @@ The keys used in *map* format are:
   The local file to cache results, it will be used during initial load of the user group.
 
   The file will be created if not existed.
+
+  This will be overwritten by the user-group level :ref:`cache <conf_user_group_cache>` config.
+
+  .. deprecated:: 1.7.22 use user-group level cache config option
 
 * script
 

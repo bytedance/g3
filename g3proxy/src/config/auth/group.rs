@@ -15,6 +15,7 @@
  */
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -34,6 +35,7 @@ pub(crate) struct UserGroupConfig {
     position: Option<YamlDocPosition>,
     pub(crate) static_users: HashMap<String, Arc<UserConfig>>,
     pub(crate) dynamic_source: Option<UserDynamicSource>,
+    pub(crate) dynamic_cache: PathBuf,
     pub(crate) refresh_interval: Duration,
     pub(crate) anonymous_user: Option<Arc<UserConfig>>,
 }
@@ -53,6 +55,7 @@ impl UserGroupConfig {
             position: None,
             static_users: HashMap::new(),
             dynamic_source: None,
+            dynamic_cache: PathBuf::default(),
             refresh_interval: DEFAULT_REFRESH_INTERVAL,
             anonymous_user: None,
         }
@@ -64,6 +67,7 @@ impl UserGroupConfig {
             position,
             static_users: HashMap::new(),
             dynamic_source: None,
+            dynamic_cache: PathBuf::default(),
             refresh_interval: DEFAULT_REFRESH_INTERVAL,
             anonymous_user: None,
         }
@@ -116,6 +120,13 @@ impl UserGroupConfig {
                     UserDynamicSource::parse_config(v, lookup_dir)
                         .context(format!("invalid value for key {k}"))?,
                 );
+                Ok(())
+            }
+            "cache" => {
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let cache_file = g3_yaml::value::as_file_path(v, lookup_dir, true)
+                    .context(format!("invalid file path value for key {k}"))?;
+                self.dynamic_cache = cache_file;
                 Ok(())
             }
             "refresh_interval" => {

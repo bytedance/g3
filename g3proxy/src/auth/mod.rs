@@ -14,13 +14,16 @@
  * limitations under the License.
  */
 
+use std::str::FromStr;
 use std::sync::Arc;
 
 use ahash::AHashMap;
+use anyhow::anyhow;
 use arc_swap::ArcSwap;
 use chrono::Utc;
 use futures_util::future::AbortHandle;
 use log::{info, warn};
+use nix::NixPath;
 
 use g3_types::metrics::MetricsName;
 
@@ -118,7 +121,7 @@ impl UserGroup {
         let mut group = Self::new_without_users(config);
         group.static_users = Arc::new(users);
         if let Some(source) = &group.config.dynamic_source {
-            match source::load_initial_users(group.config.name(), source).await {
+            match source::load_initial_users(&group.config, source).await {
                 Ok(cached_users) => {
                     if cached_users.is_empty() {
                         info!(
@@ -252,5 +255,27 @@ impl UserGroup {
     pub(crate) fn all_dynamic_users(&self) -> Vec<String> {
         let dynamic_users = self.dynamic_users.load();
         dynamic_users.keys().map(|k| k.to_string()).collect()
+    }
+
+    pub(crate) async fn publish_dynamic_users(&self, contents: &str) -> anyhow::Result<()> {
+        let doc = serde_json::Value::from_str(contents)
+            .map_err(|e| anyhow!("the published contents is not valid json: {e}",))?;
+        let user_config = crate::config::auth::source::cache::parse_json(&doc)?;
+
+        // we should avoid corrupt write at process exit
+        if !self.config.dynamic_cache.is_empty() {
+            if let Some(Err(e)) = crate::control::run_protected_io(tokio::fs::write(
+                &self.config.dynamic_cache,
+                contents,
+            ))
+            .await
+            {
+                warn!("failed to cache dynamic users to file {} ({e:?}), this may lead to auth error during restart",
+                    self.config.dynamic_cache.display());
+            }
+        }
+
+        source::publish_dynamic_users(self.config.as_ref(), user_config, &self.dynamic_users);
+        Ok(())
     }
 }

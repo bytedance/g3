@@ -18,6 +18,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
+use log::warn;
 use nix::NixPath;
 use yaml_rust::{yaml, Yaml};
 
@@ -74,6 +75,9 @@ impl UserDynamicPythonSource {
                 Ok(())
             }
             "cache_file" => {
+                warn!(
+                    "this config option is deprecated, use user-group level cache option instead"
+                );
                 self.cache_file = g3_yaml::value::as_file_path(v, lookup_dir, true)
                     .context(format!("invalid value for key {k}"))?;
                 Ok(())
@@ -93,9 +97,20 @@ impl UserDynamicPythonSource {
         Ok(())
     }
 
-    pub(crate) async fn fetch_cached_records(&self) -> anyhow::Result<Vec<UserConfig>> {
+    pub(crate) fn real_cache_path<'a>(&'a self, cache: &'a Path) -> &'a Path {
+        if cache.is_empty() {
+            self.cache_file.as_path()
+        } else {
+            cache
+        }
+    }
+
+    pub(crate) async fn fetch_cached_records(
+        &self,
+        cache: &Path,
+    ) -> anyhow::Result<Vec<UserConfig>> {
         let file_source = UserDynamicFileSource {
-            path: self.cache_file.clone(),
+            path: self.real_cache_path(cache).to_path_buf(),
             format: ConfigFileFormat::Json,
         };
         file_source.fetch_records().await

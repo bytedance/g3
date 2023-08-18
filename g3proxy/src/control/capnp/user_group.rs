@@ -17,11 +17,13 @@
 use std::sync::Arc;
 
 use capnp::capability::Promise;
+use capnp_rpc::pry;
 
 use g3_types::metrics::MetricsName;
 
 use g3proxy_proto::user_group_capnp::user_group_control;
 
+use super::set_operation_result;
 use crate::auth::UserGroup;
 
 pub(super) struct UserGroupControlImpl {
@@ -61,5 +63,19 @@ impl user_group_control::Server for UserGroupControlImpl {
             builder.set(i as u32, name);
         }
         Promise::ok(())
+    }
+
+    fn publish_dynamic_user(
+        &mut self,
+        params: user_group_control::PublishDynamicUserParams,
+        mut results: user_group_control::PublishDynamicUserResults,
+    ) -> Promise<(), capnp::Error> {
+        let user_group = self.user_group.clone();
+        let contents = pry!(pry!(params.get()).get_contents()).to_string();
+        Promise::from_future(async move {
+            let r = user_group.publish_dynamic_users(&contents).await;
+            set_operation_result(results.get().init_result(), r);
+            Ok(())
+        })
     }
 }

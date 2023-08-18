@@ -18,11 +18,9 @@ use std::sync::Arc;
 
 use ahash::AHashMap;
 use arc_swap::ArcSwap;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use futures_util::future::{AbortHandle, Abortable};
 use log::warn;
-
-use g3_types::metrics::MetricsName;
 
 use super::{User, UserGroupConfig};
 use crate::config::auth::{UserConfig, UserDynamicSource};
@@ -34,15 +32,23 @@ mod lua;
 mod python;
 
 pub(super) async fn load_initial_users(
-    group: &MetricsName,
+    group_config: &UserGroupConfig,
     source: &UserDynamicSource,
 ) -> anyhow::Result<AHashMap<String, Arc<User>>> {
     let r = match source {
         UserDynamicSource::File(config) => config.fetch_records().await?,
         #[cfg(feature = "lua")]
-        UserDynamicSource::Lua(config) => config.fetch_cached_records().await?,
+        UserDynamicSource::Lua(config) => {
+            config
+                .fetch_cached_records(&group_config.dynamic_cache)
+                .await?
+        }
         #[cfg(feature = "python")]
-        UserDynamicSource::Python(config) => config.fetch_cached_records().await?,
+        UserDynamicSource::Python(config) => {
+            config
+                .fetch_cached_records(&group_config.dynamic_cache)
+                .await?
+        }
     };
 
     let datetime_now = Utc::now();
@@ -50,7 +56,7 @@ pub(super) async fn load_initial_users(
     for user_config in r {
         let user_config = Arc::new(user_config);
         let username = user_config.name();
-        let user = User::new(group, &user_config, &datetime_now);
+        let user = User::new(group_config.name(), &user_config, &datetime_now);
         dynamic_users.insert(username.to_string(), Arc::new(user));
     }
 
@@ -75,9 +81,13 @@ pub(super) fn new_job(
                     let r = match source {
                         UserDynamicSource::File(config) => config.fetch_records().await,
                         #[cfg(feature = "lua")]
-                        UserDynamicSource::Lua(config) => lua::fetch_records(config).await,
+                        UserDynamicSource::Lua(config) => {
+                            lua::fetch_records(config, &group_config.dynamic_cache).await
+                        }
                         #[cfg(feature = "python")]
-                        UserDynamicSource::Python(config) => python::fetch_records(config).await,
+                        UserDynamicSource::Python(config) => {
+                            python::fetch_records(config, &group_config.dynamic_cache).await
+                        }
                     };
                     match r {
                         Ok(users) => Some(users),
@@ -90,39 +100,25 @@ pub(super) fn new_job(
                         }
                     }
                 } else {
-                    // always update
-                    Some(Vec::new())
+                    None
                 };
 
             let datetime_now = Utc::now();
 
-            let old_dynamic_users = dynamic_users_container.load();
             if let Some(dynamic_config) = new_dynamic_config {
                 // if fetch success, update/insert/remove dynamic users
-                let mut new_dynamic_users = AHashMap::new();
-                for user_config in dynamic_config {
-                    let user_config = Arc::new(user_config);
-                    let username = user_config.name();
-                    let user = if let Some(old_user) = old_dynamic_users.get(username) {
-                        old_user.new_for_reload(&user_config, &datetime_now)
-                    } else {
-                        User::new(group_config.name(), &user_config, &datetime_now)
-                    };
-                    new_dynamic_users.insert(username.to_string(), Arc::new(user));
-                }
-
-                dynamic_users_container.store(Arc::new(new_dynamic_users));
+                update_dynamic_users(
+                    group_config.as_ref(),
+                    &datetime_now,
+                    dynamic_config,
+                    &dynamic_users_container,
+                );
             } else {
-                // if fetch fail, check expired for old dynamic users
-                for (_, user) in old_dynamic_users.iter() {
-                    user.check_expired(&datetime_now);
-                }
+                // if fetch fail or no need to fetch, check expired for old dynamic users
+                check_dynamic_users(&datetime_now, &dynamic_users_container);
             }
 
-            // check expired for static users
-            for (_, user) in static_users.iter() {
-                user.check_expired(&datetime_now);
-            }
+            check_static_users(&datetime_now, &static_users);
 
             interval.tick().await;
         }
@@ -132,4 +128,59 @@ pub(super) fn new_job(
     let future = Abortable::new(f, abort_registration);
     tokio::spawn(future);
     abort_handle
+}
+
+pub(super) fn publish_dynamic_users(
+    group_config: &UserGroupConfig,
+    dynamic_config: Vec<UserConfig>,
+    dynamic_users_container: &Arc<ArcSwap<AHashMap<String, Arc<User>>>>,
+) {
+    let datetime_now = Utc::now();
+    update_dynamic_users(
+        group_config,
+        &datetime_now,
+        dynamic_config,
+        dynamic_users_container,
+    );
+}
+
+fn update_dynamic_users(
+    group_config: &UserGroupConfig,
+    datetime_now: &DateTime<Utc>,
+    dynamic_config: Vec<UserConfig>,
+    dynamic_users_container: &Arc<ArcSwap<AHashMap<String, Arc<User>>>>,
+) {
+    let old_dynamic_users = dynamic_users_container.load();
+    let mut new_dynamic_users = AHashMap::new();
+    for user_config in dynamic_config {
+        let user_config = Arc::new(user_config);
+        let username = user_config.name();
+        let user = if let Some(old_user) = old_dynamic_users.get(username) {
+            old_user.new_for_reload(&user_config, datetime_now)
+        } else {
+            User::new(group_config.name(), &user_config, datetime_now)
+        };
+        new_dynamic_users.insert(username.to_string(), Arc::new(user));
+    }
+
+    dynamic_users_container.store(Arc::new(new_dynamic_users));
+}
+
+fn check_dynamic_users(
+    datetime_now: &DateTime<Utc>,
+    dynamic_users_container: &Arc<ArcSwap<AHashMap<String, Arc<User>>>>,
+) {
+    let old_dynamic_users = dynamic_users_container.load();
+    for (_, user) in old_dynamic_users.iter() {
+        user.check_expired(datetime_now);
+    }
+}
+
+fn check_static_users(
+    datetime_now: &DateTime<Utc>,
+    static_users: &Arc<AHashMap<String, Arc<User>>>,
+) {
+    for (_, user) in static_users.iter() {
+        user.check_expired(datetime_now);
+    }
 }

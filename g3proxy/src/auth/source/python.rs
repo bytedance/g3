@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -32,6 +32,7 @@ const FN_NAME_REPORT_ERR: &str = "report_err";
 
 pub(super) async fn fetch_records(
     source: &Arc<UserDynamicPythonSource>,
+    cache: &Path,
 ) -> anyhow::Result<Vec<UserConfig>> {
     let contents = tokio::time::timeout(
         source.fetch_timeout,
@@ -68,14 +69,15 @@ pub(super) async fn fetch_records(
                 }
             }
 
+            let cache_file = source.real_cache_path(cache);
             // we should avoid corrupt write at process exit
             if let Some(Err(e)) =
-                crate::control::run_protected_io(tokio::fs::write(&source.cache_file, contents))
-                    .await
+                crate::control::run_protected_io(tokio::fs::write(cache_file, contents)).await
             {
                 warn!(
-                    "failed to cache dynamic users to file {} ({e:?}), this may lead to auth error during restart",
-                    source.cache_file.display()
+                    "failed to cache dynamic users to file {} ({e:?}),\
+                    this may lead to auth error during restart",
+                    cache_file.display()
                 );
             }
 
