@@ -160,7 +160,7 @@ rmpv = "1.0"
 #
 redis = { version = "0.23", default-features = false }
 #
-mlua = "0.8.9"
+mlua = "0.9"
 pyo3 = "0.19"
 #
 rustc_version = "0.4"
