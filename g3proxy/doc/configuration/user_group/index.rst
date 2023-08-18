@@ -35,6 +35,9 @@ The users are split into two groups: static and dynamic. The static users is con
 in config file, each in yaml format. The dynamic users are fetched from *dynamic_source* periodically, each in json
 format. Both can be optional and share the same data structure.
 
+The Cap'n Proto RPC publish_dynamic_users command is supported, the published data should be an array of
+:ref:`user <configuration_user_group_user>`.
+
 * static_users
 
   **optional**, **type**: seq
