@@ -56,7 +56,7 @@ format. Both can be optional and share the same data structure.
 
   **default**: not set
 
-.. _conf_usr_group_cache:
+.. _conf_user_group_cache:
 
 * cache
 

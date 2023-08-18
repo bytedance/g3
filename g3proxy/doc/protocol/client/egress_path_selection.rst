@@ -21,7 +21,7 @@ custom http header
 
 Only http proxy server can support this.
 
-The supported method is :ref:`by index <_proto_egress_path_selection_by_index>`.
+The supported method is :ref:`by index <proto_egress_path_selection_by_index>`.
 
 See :ref:`path_selection_header <config_server_http_proxy_egress_path_selection_header>` for more info.
 
@@ -44,7 +44,7 @@ user support
 
 User level egress path selection can be enabled via :ref:`egress_path <config_user_egress_path>` config option.
 
-The supported method is :ref:`by json <_proto_egress_path_selection_by_json>`.
+The supported method is :ref:`by json <proto_egress_path_selection_by_json>`.
 
 selection methods
 =================
