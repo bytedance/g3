@@ -23,7 +23,8 @@ use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use futures_util::future::AbortHandle;
 use log::warn;
-use rand::seq::SliceRandom;
+use rand::seq::{IteratorRandom, SliceRandom};
+use serde_json::Value;
 use slog::Logger;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
@@ -96,15 +97,16 @@ impl ProxyFloatEscaper {
         let peers = match peers {
             Some(peers) => peers,
             None => {
-                let peers = source::load_cached_peers(&config, &stats, &escape_logger, &tls_config)
-                    .await
-                    .unwrap_or_else(|e| {
-                        warn!(
-                            "failed to load cached peers for escaper {}: {e:?}",
-                            config.name
-                        );
-                        Vec::new()
-                    });
+                let peers =
+                    source::load_cached_peers(&config, &stats, &escape_logger, tls_config.as_ref())
+                        .await
+                        .unwrap_or_else(|e| {
+                            warn!(
+                                "failed to load cached peers for escaper {}: {e:?}",
+                                config.name
+                            );
+                            Vec::new()
+                        });
                 Arc::new(peers.into_boxed_slice())
             }
         };
@@ -152,7 +154,7 @@ impl ProxyFloatEscaper {
         }
     }
 
-    fn get_random_peer(&self) -> Option<ArcNextProxyPeer> {
+    fn select_peer_from_escaper(&self) -> Option<ArcNextProxyPeer> {
         let peers = self.peers.load();
         match peers.len() {
             0 => None,
@@ -174,6 +176,44 @@ impl ProxyFloatEscaper {
                     None
                 }
             }
+        }
+    }
+
+    fn select_peer_from_egress_path(&self, value: &Value) -> Option<ArcNextProxyPeer> {
+        if let Value::Array(v) = value {
+            let mut peers = peer::parse_peers(
+                &self.config,
+                &self.stats,
+                &self.escape_logger,
+                v,
+                self.tls_config.as_ref(),
+            )
+            .ok()?;
+            match peers.len() {
+                0 => None,
+                1 => peers.pop(),
+                _ => peers.into_iter().choose(&mut rand::thread_rng()),
+            }
+        } else {
+            peer::parse_peer(
+                &self.config,
+                &self.stats,
+                &self.escape_logger,
+                value,
+                self.tls_config.as_ref(),
+            )
+            .ok()?
+        }
+    }
+
+    fn select_peer(&self, task_notes: &ServerTaskNotes) -> Option<ArcNextProxyPeer> {
+        if let Some(v) = task_notes
+            .egress_path_selection
+            .select_json_value_by_key(self.name().as_str())
+        {
+            self.select_peer_from_egress_path(v)
+        } else {
+            self.select_peer_from_escaper()
         }
     }
 }
@@ -198,7 +238,7 @@ impl Escaper for ProxyFloatEscaper {
             &self.stats,
             &self.escape_logger,
             &self.peers,
-            &self.tls_config,
+            self.tls_config.as_ref(),
             data,
         )
         .await
@@ -212,7 +252,7 @@ impl Escaper for ProxyFloatEscaper {
     ) -> TcpConnectResult {
         self.stats.interface.add_tcp_connect_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
-        if let Some(peer) = self.get_random_peer() {
+        if let Some(peer) = self.select_peer(task_notes) {
             peer.tcp_setup_connection(tcp_notes, task_notes, task_stats)
                 .await
         } else {
@@ -230,7 +270,7 @@ impl Escaper for ProxyFloatEscaper {
     ) -> TcpConnectResult {
         self.stats.interface.add_tls_connect_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
-        if let Some(peer) = self.get_random_peer() {
+        if let Some(peer) = self.select_peer(task_notes) {
             peer.tls_setup_connection(tcp_notes, task_notes, task_stats, tls_config, tls_name)
                 .await
         } else {
@@ -246,7 +286,7 @@ impl Escaper for ProxyFloatEscaper {
     ) -> UdpConnectResult {
         self.stats.interface.add_udp_connect_attempted();
         udp_notes.escaper.clone_from(&self.config.name);
-        if let Some(peer) = self.get_random_peer() {
+        if let Some(peer) = self.select_peer(task_notes) {
             peer.udp_setup_connection(udp_notes, task_notes, task_stats)
                 .await
         } else {
@@ -262,7 +302,7 @@ impl Escaper for ProxyFloatEscaper {
     ) -> UdpRelaySetupResult {
         self.stats.interface.add_udp_relay_session_attempted();
         udp_notes.escaper.clone_from(&self.config.name);
-        if let Some(peer) = self.get_random_peer() {
+        if let Some(peer) = self.select_peer(task_notes) {
             peer.udp_setup_relay(udp_notes, task_notes, task_stats)
                 .await
         } else {
@@ -332,7 +372,7 @@ impl EscaperInternal for ProxyFloatEscaper {
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.stats.interface.add_http_forward_connection_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
-        if let Some(peer) = self.get_random_peer() {
+        if let Some(peer) = self.select_peer(task_notes) {
             peer.new_http_forward_connection(tcp_notes, task_notes, task_stats)
                 .await
         } else {
@@ -352,7 +392,7 @@ impl EscaperInternal for ProxyFloatEscaper {
             .interface
             .add_https_forward_connection_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
-        if let Some(peer) = self.get_random_peer() {
+        if let Some(peer) = self.select_peer(task_notes) {
             peer.new_https_forward_connection(
                 tcp_notes, task_notes, task_stats, tls_config, tls_name,
             )

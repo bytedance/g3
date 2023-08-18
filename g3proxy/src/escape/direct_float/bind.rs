@@ -158,3 +158,21 @@ pub(super) fn parse_records(
 
     Ok(ips)
 }
+
+pub(super) fn parse_record(
+    record: &Value,
+    family: AddressFamily,
+) -> anyhow::Result<Option<DirectFloatBindIp>> {
+    let instant_now = Instant::now();
+    let datetime_now = Utc::now();
+
+    let bind = DirectFloatBindIp::parse_json(record, instant_now, datetime_now)?;
+    let bind = bind.and_then(|v| {
+        if AddressFamily::from(&v.ip).ne(&family) {
+            None
+        } else {
+            Some(v)
+        }
+    });
+    Ok(bind)
+}

@@ -147,12 +147,12 @@ pub(super) trait NextProxyPeer: NextProxyPeerInternal {
 
 pub(super) type ArcNextProxyPeer = Arc<dyn NextProxyPeer + Send + Sync>;
 
-fn parse_peer(
+fn do_parse_peer(
     value: &Value,
     escaper_config: &Arc<ProxyFloatEscaperConfig>,
     escaper_stats: &Arc<ProxyFloatEscaperStats>,
     escape_logger: &Logger,
-    tls_config: &Option<Arc<OpensslTlsClientConfig>>,
+    tls_config: Option<&Arc<OpensslTlsClientConfig>>,
     instant_now: Instant,
     datetime_now: DateTime<Utc>,
 ) -> anyhow::Result<Option<ArcNextProxyPeer>> {
@@ -251,7 +251,7 @@ pub(super) fn parse_peers(
     escaper_stats: &Arc<ProxyFloatEscaperStats>,
     escape_logger: &Logger,
     records: &[Value],
-    tls_config: &Option<Arc<OpensslTlsClientConfig>>,
+    tls_config: Option<&Arc<OpensslTlsClientConfig>>,
 ) -> anyhow::Result<Vec<ArcNextProxyPeer>> {
     let mut peers = Vec::<ArcNextProxyPeer>::new();
 
@@ -259,7 +259,7 @@ pub(super) fn parse_peers(
     let datetime_now = Utc::now();
 
     for (i, record) in records.iter().enumerate() {
-        if let Some(peer) = parse_peer(
+        if let Some(peer) = do_parse_peer(
             record,
             escaper_config,
             escaper_stats,
@@ -274,4 +274,25 @@ pub(super) fn parse_peers(
         }
     }
     Ok(peers)
+}
+
+pub(super) fn parse_peer(
+    escaper_config: &Arc<ProxyFloatEscaperConfig>,
+    escaper_stats: &Arc<ProxyFloatEscaperStats>,
+    escape_logger: &Logger,
+    record: &Value,
+    tls_config: Option<&Arc<OpensslTlsClientConfig>>,
+) -> anyhow::Result<Option<ArcNextProxyPeer>> {
+    let instant_now = Instant::now();
+    let datetime_now = Utc::now();
+
+    do_parse_peer(
+        record,
+        escaper_config,
+        escaper_stats,
+        escape_logger,
+        tls_config,
+        instant_now,
+        datetime_now,
+    )
 }

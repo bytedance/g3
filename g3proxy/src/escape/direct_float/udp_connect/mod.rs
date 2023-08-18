@@ -81,7 +81,7 @@ impl DirectFloatEscaper {
         self.handle_udp_target_ip_acl_action(action, task_notes)?;
 
         let family = AddressFamily::from(&peer_addr);
-        let bind = self.get_bind_random(family).ok_or_else(|| {
+        let bind = self.select_bind(family, task_notes).ok_or_else(|| {
             UdpConnectError::SetupSocketFailed(io::Error::new(
                 io::ErrorKind::AddrNotAvailable,
                 "no bind ip usable",

@@ -83,7 +83,7 @@ impl DirectFloatEscaper {
         ),
         UdpRelaySetupError,
     > {
-        let bind = self.get_bind_random(family).ok_or_else(|| {
+        let bind = self.select_bind(family, task_notes).ok_or_else(|| {
             UdpRelaySetupError::SetupSocketFailed(io::Error::new(
                 io::ErrorKind::AddrNotAvailable,
                 "no bind ip usable",

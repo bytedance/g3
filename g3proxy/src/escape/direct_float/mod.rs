@@ -23,7 +23,8 @@ use anyhow::anyhow;
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use log::warn;
-use rand::seq::SliceRandom;
+use rand::seq::{IteratorRandom, SliceRandom};
+use serde_json::Value;
 use slog::Logger;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
@@ -171,21 +172,44 @@ impl DirectFloatEscaper {
         }
     }
 
-    fn get_bind_again(&self, ip: IpAddr) -> Option<DirectFloatBindIp> {
+    fn select_bind_again_from_egress_path(ip: IpAddr, value: &Value) -> Option<DirectFloatBindIp> {
+        let family = AddressFamily::from(&ip);
+        if let Value::Array(v) = value {
+            let vec = bind::parse_records(v, family).ok()?;
+            vec.into_iter()
+                .find_map(|v| if v.ip == ip { Some(v) } else { None })
+        } else {
+            let bind = bind::parse_record(value, family).ok()?;
+            bind.and_then(|v| if v.ip == ip { Some(v) } else { None })
+        }
+    }
+
+    fn select_bind_again_from_escaper(&self, ip: IpAddr) -> Option<DirectFloatBindIp> {
         let vec = match ip {
             IpAddr::V4(_) => self.bind_v4.load(),
             IpAddr::V6(_) => self.bind_v6.load(),
         };
-        let vec = vec.as_ref();
-        for v in vec.as_ref() {
-            if v.ip == ip {
-                return Some(v.clone());
-            }
-        }
-        None
+        vec.as_ref()
+            .iter()
+            .find_map(|v| if v.ip == ip { Some(v.clone()) } else { None })
     }
 
-    fn get_bind_random(&self, family: AddressFamily) -> Option<DirectFloatBindIp> {
+    fn select_bind_again(
+        &self,
+        ip: IpAddr,
+        task_notes: &ServerTaskNotes,
+    ) -> Option<DirectFloatBindIp> {
+        if let Some(value) = task_notes
+            .egress_path_selection
+            .select_json_value_by_key(self.name().as_str())
+        {
+            DirectFloatEscaper::select_bind_again_from_egress_path(ip, value)
+        } else {
+            self.select_bind_again_from_escaper(ip)
+        }
+    }
+
+    fn select_bind_from_escaper(&self, family: AddressFamily) -> Option<DirectFloatBindIp> {
         let vec = match family {
             AddressFamily::Ipv4 => self.bind_v4.load(),
             AddressFamily::Ipv6 => self.bind_v6.load(),
@@ -211,6 +235,37 @@ impl DirectFloatEscaper {
                     None
                 }
             }
+        }
+    }
+
+    fn select_bind_from_egress_path(
+        family: AddressFamily,
+        value: &Value,
+    ) -> Option<DirectFloatBindIp> {
+        if let Value::Array(v) = value {
+            let mut peers = bind::parse_records(v, family).ok()?;
+            match peers.len() {
+                0 => None,
+                1 => peers.pop(),
+                _ => peers.into_iter().choose(&mut rand::thread_rng()),
+            }
+        } else {
+            bind::parse_record(value, family).ok()?
+        }
+    }
+
+    fn select_bind(
+        &self,
+        family: AddressFamily,
+        task_notes: &ServerTaskNotes,
+    ) -> Option<DirectFloatBindIp> {
+        if let Some(v) = task_notes
+            .egress_path_selection
+            .select_json_value_by_key(self.name().as_str())
+        {
+            DirectFloatEscaper::select_bind_from_egress_path(family, v)
+        } else {
+            self.select_bind_from_escaper(family)
         }
     }
 

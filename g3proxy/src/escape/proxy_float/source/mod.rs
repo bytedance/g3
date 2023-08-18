@@ -31,11 +31,11 @@ mod file;
 mod redis;
 mod redis_cluster;
 
-pub(super) async fn load_cached_peers<'a>(
-    config: &'a Arc<ProxyFloatEscaperConfig>,
-    stats: &'a Arc<ProxyFloatEscaperStats>,
+pub(super) async fn load_cached_peers(
+    config: &Arc<ProxyFloatEscaperConfig>,
+    stats: &Arc<ProxyFloatEscaperStats>,
     escape_logger: &Logger,
-    tls_config: &'a Option<Arc<OpensslTlsClientConfig>>,
+    tls_config: Option<&Arc<OpensslTlsClientConfig>>,
 ) -> anyhow::Result<Vec<ArcNextProxyPeer>> {
     if let Some(cache_file) = &config.cache_file {
         let records = file::load_peers_from_cache(cache_file).await?;
@@ -50,7 +50,7 @@ async fn parse_and_save_peers(
     stats: &Arc<ProxyFloatEscaperStats>,
     escape_logger: &Logger,
     container: &Arc<ArcSwap<Box<[ArcNextProxyPeer]>>>,
-    tls_config: &Option<Arc<OpensslTlsClientConfig>>,
+    tls_config: Option<&Arc<OpensslTlsClientConfig>>,
     records: Vec<serde_json::Value>,
 ) -> anyhow::Result<()> {
     let peers = super::peer::parse_peers(config, stats, escape_logger, &records, tls_config)
@@ -70,7 +70,7 @@ pub(super) async fn publish_peers(
     stats: &Arc<ProxyFloatEscaperStats>,
     escape_logger: &Logger,
     peers_container: &Arc<ArcSwap<Box<[ArcNextProxyPeer]>>>,
-    tls_config: &Option<Arc<OpensslTlsClientConfig>>,
+    tls_config: Option<&Arc<OpensslTlsClientConfig>>,
     data: String,
 ) -> anyhow::Result<()> {
     let obj = serde_json::from_str(&data)
@@ -129,7 +129,7 @@ pub(super) fn new_job(
                         &stats,
                         &escape_logger,
                         &peers_container,
-                        &tls_config,
+                        tls_config.as_ref(),
                         records,
                     )
                     .await

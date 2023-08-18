@@ -89,6 +89,7 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
     * TCP Connect / TLS Connect / HTTP(s) Forward / UDP Associate
     * Egress network filter
     * Resolve redirection
+    * Index based Egress Path Selection
 
   - Float
 
@@ -96,6 +97,7 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
     * Egress network filter
     * Resolve redirection
     * Dynamic IP Bind
+    * Json based Egress Path Selection
 
 - **Proxy Chaining**
 
@@ -123,6 +125,7 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
   - Float
 
     * Dynamic Proxy: Http Proxy / Https Proxy / Socks5 Proxy
+    * Json based Egress Path Selection
 
 #### Router
 
@@ -130,6 +133,7 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
   * exact ip match
   * subnet match
 - route-mapping - based on user supplied rules in requests
+  * Index based Egress Path Selection
 - route-query - based on queries to external agent
 - route-resolved - based on resolved IP of target host
 - route-select - simple load balancer
@@ -151,6 +155,7 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
   * UDP / TCP
   * DNS over TLS
   * DNS over HTTPS
+  * DNS over QUIC
 - fail-over
 
 ### Auth
@@ -161,6 +166,7 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
   - Socket Speed Limit / Request Rate Limit / Request Alive Limit / IDLE Check
   - Auto Expire / Block
   - Anonymous user
+  - Json based Egress Path Selection
   - Explicit Site Config
     * match by exact ip / exact domain / wildcard domain / subnet
 
