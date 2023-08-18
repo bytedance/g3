@@ -5,7 +5,13 @@ route_mapping
 
 This escaper allows to select a next escaper based on the user specified path selection index.
 
-If no index can be get from the path selection method, the default random one will be used.
+The following egress path selection methods is supported:
+
+* :ref:`by index <proto_egress_path_selection_by_index>`
+
+  The index will be used as the index of the next escaper
+
+  If no index can be get from the path selection method, the default random one will be used.
 
 No common keys are supported.
 

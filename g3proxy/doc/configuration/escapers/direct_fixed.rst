@@ -13,6 +13,12 @@ The following interfaces are supported:
 * http(s) forward
 * ftp over http
 
+The following egress path selection methods is supported:
+
+* :ref:`by index <proto_egress_path_selection_by_index>`
+
+  The index will be used as the index of the binding IP address
+
 The following common keys are supported:
 
 * :ref:`shared_logger <conf_escaper_common_shared_logger>`

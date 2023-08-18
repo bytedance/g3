@@ -343,3 +343,14 @@ explicit_sites
 Set explicit sites for this user.
 
 .. versionadded:: 1.3.4
+
+.. _config_user_egress_path:
+
+egress_path
+-----------
+
+**optional**, **type**: :ref:`by json egress path <proto_egress_path_selection_by_json>`
+
+Set egress path selection for this user.
+
+.. versionadded:: 1.7.22

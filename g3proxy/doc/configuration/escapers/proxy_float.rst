@@ -6,15 +6,25 @@ proxy_float
 
 This escaper provide the capability to access the target upstream through dynamic remote proxies.
 
-The following interfaces are supported:
-
-* tcp connect
-* http(s) forward
-
 The following remote proxy protocols are supported:
 
 * Http Proxy
+* Https Proxy
 * Socks5 Proxy
+
+The following interfaces are supported:
+
+* tcp connect
+* udp relay (only socks5 peer)
+* udp connect (only socks5 peer)
+* http(s) forward
+
+The following egress path selection methods is supported:
+
+* :ref:`by json <proto_egress_path_selection_by_json>`
+
+  The json value will be parsed as one (json map) or more (json array) :ref:`peer <config_escaper_dynamic_peer>`.
+  The peers passed here will overwrite the ones in the escaper config.
 
 The Cap'n Proto RPC publish command is supported on this escaper, the published data should be an array of
 or just one :ref:`peer <config_escaper_dynamic_peer>`.

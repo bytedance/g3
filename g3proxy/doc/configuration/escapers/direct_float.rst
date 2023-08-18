@@ -10,7 +10,17 @@ can be set via the `publish` rpc method.
 The following interfaces are supported:
 
 * tcp connect
+* udp relay
+* udp connect
 * http(s) forward
+* ftp over http
+
+The following egress path selection methods is supported:
+
+* :ref:`by json <proto_egress_path_selection_by_json>`
+
+  The json value will be parsed as one (json map) or more (json array) :ref:`Bind IP <config_escaper_dynamic_bind_ip>`.
+  The bind ips passed here will overwrite the ones in the escaper config.
 
 The Cap'n Proto RPC publish command is supported on this escaper, the published data should be a map, with the keys:
 
