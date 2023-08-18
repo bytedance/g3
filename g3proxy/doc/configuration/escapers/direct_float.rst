@@ -15,13 +15,6 @@ The following interfaces are supported:
 * http(s) forward
 * ftp over http
 
-The following egress path selection methods is supported:
-
-* :ref:`by json <proto_egress_path_selection_by_json>`
-
-  The json value will be parsed as one (json map) or more (json array) :ref:`Bind IP <config_escaper_dynamic_bind_ip>`.
-  The bind ips passed here will overwrite the ones in the escaper config.
-
 The Cap'n Proto RPC publish command is supported on this escaper, the published data should be a map, with the keys:
 
 * ipv4
@@ -34,7 +27,15 @@ The Cap'n Proto RPC publish command is supported on this escaper, the published 
   Set the IPv6 bind ip address(es).
   The value could be an array of or just one :ref:`bind ip <config_escaper_dynamic_bind_ip>`.
 
-There is no path selection support for this escaper.
+The following egress path selection methods is supported:
+
+* :ref:`by json <proto_egress_path_selection_by_json>`
+
+  The json value will be parsed as one (json map) or more (json array) :ref:`Bind IP <config_escaper_dynamic_bind_ip>`.
+  The bind ips passed here will overwrite the ones in the escaper config.
+
+  .. note:: you should consider disable ipv4 / ipv6 at escaper level if the value in the egress path selection doesn't
+            support ipv4 / ipv6
 
 Config Keys
 ===========

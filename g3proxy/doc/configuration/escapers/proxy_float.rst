@@ -19,17 +19,15 @@ The following interfaces are supported:
 * udp connect (only socks5 peer)
 * http(s) forward
 
+The Cap'n Proto RPC publish command is supported on this escaper, the published data should be an array of
+or just one :ref:`peer <config_escaper_dynamic_peer>`.
+
 The following egress path selection methods is supported:
 
 * :ref:`by json <proto_egress_path_selection_by_json>`
 
   The json value will be parsed as one (json map) or more (json array) :ref:`peer <config_escaper_dynamic_peer>`.
   The peers passed here will overwrite the ones in the escaper config.
-
-The Cap'n Proto RPC publish command is supported on this escaper, the published data should be an array of
-or just one :ref:`peer <config_escaper_dynamic_peer>`.
-
-There is no path selection support for this escaper.
 
 Config Keys
 ===========
@@ -373,8 +371,6 @@ https
   **optional**, **type**: :ref:`tls name <conf_value_tls_name>`
 
   Set the tls server name for server certificate verification.
-
-  .. note:: IP address is not supported by now. So if not set, the connection will fail.
 
   **default**: not set
 
