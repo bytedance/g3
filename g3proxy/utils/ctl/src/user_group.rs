@@ -32,16 +32,17 @@ const COMMAND_ARG_FILE: &str = "file";
 
 const SUBCOMMAND_LIST_STATIC_USER: &str = "list-static-user";
 const SUBCOMMAND_LIST_DYNAMIC_USER: &str = "list-dynamic-user";
-const SUBCOMMAND_PUBLISH_DYNAMIC_USER: &str = "publish-dynamic-user";
+const SUBCOMMAND_PUBLISH_USER: &str = "publish-user";
 
 pub fn command() -> Command {
     Command::new(COMMAND)
         .arg(Arg::new(COMMAND_ARG_NAME).required(true).num_args(1))
-        .subcommand(Command::new(SUBCOMMAND_LIST_STATIC_USER))
-        .subcommand(Command::new(SUBCOMMAND_LIST_DYNAMIC_USER))
+        .subcommand(Command::new(SUBCOMMAND_LIST_STATIC_USER).about("List static users"))
+        .subcommand(Command::new(SUBCOMMAND_LIST_DYNAMIC_USER).about("List dynamic users"))
         .subcommand(
-            Command::new(SUBCOMMAND_PUBLISH_DYNAMIC_USER)
-                .long_flag("publish")
+            Command::new(SUBCOMMAND_PUBLISH_USER)
+                .about("Publish dynamic users")
+                .visible_aliases(["publish", "publish-dynamic-user"])
                 .arg(
                     Arg::new(COMMAND_ARG_FILE)
                         .required(true)
@@ -61,7 +62,7 @@ pub async fn run(client: &proc_control::Client, args: &ArgMatches) -> CommandRes
         match subcommand {
             SUBCOMMAND_LIST_STATIC_USER => list_static_user(&user_group).await,
             SUBCOMMAND_LIST_DYNAMIC_USER => list_dynamic_user(&user_group).await,
-            SUBCOMMAND_PUBLISH_DYNAMIC_USER => publish_dynamic_user(&user_group, args).await,
+            SUBCOMMAND_PUBLISH_USER => publish_dynamic_user(&user_group, args).await,
             cmd => Err(CommandError::Cli(format!("unsupported subcommand {cmd}"))),
         }
     } else {
