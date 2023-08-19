@@ -7,7 +7,7 @@
 You can use the following instructions to install musl on Debian:
 
 ```shell
-apt install musl-tools musl-dev
+apt install musl-tools
 ```
 
 ## Install rustc target

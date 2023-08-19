@@ -79,4 +79,4 @@ The root value should be a json map.
 
 The key should be the escaper name, so the corresponding value will be handled by that escaper.
 
-The format of the value should be defined by each escaper that has such support.
+The format of the value is defined by each :ref:`escaper <configuration_escaper>` that has such support.
