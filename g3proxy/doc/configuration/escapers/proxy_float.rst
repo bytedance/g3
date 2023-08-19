@@ -43,12 +43,14 @@ The following common keys are supported:
 source
 ------
 
-**required**, **type**: :ref:`url str <conf_value_url_str>` | map | null
+**optional**, **type**: :ref:`url str <conf_value_url_str>` | map | null
 
 Set the fetch source for peers.
 
 We support many type of sources. The type is detected by reading the *scheme* field of url,
 or the *type* key of the map. See :ref:`sources <config_escaper_dynamic_source>` for all supported type of sources.
+
+**default**: passive
 
 cache
 -----

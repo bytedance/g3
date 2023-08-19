@@ -46,7 +46,7 @@ pub(crate) struct ProxyFloatEscaperConfig {
     pub(crate) bind_v4: Option<IpAddr>,
     pub(crate) bind_v6: Option<IpAddr>,
     pub(crate) tls_config: Option<OpensslTlsClientConfigBuilder>,
-    pub(crate) source: Option<ProxyFloatSource>,
+    pub(crate) source: ProxyFloatSource,
     pub(crate) cache_file: Option<PathBuf>,
     pub(crate) refresh_interval: Duration,
     pub(crate) tcp_connect_timeout: Duration,
@@ -67,7 +67,7 @@ impl ProxyFloatEscaperConfig {
             bind_v4: None,
             bind_v6: None,
             tls_config: None,
-            source: None,
+            source: ProxyFloatSource::Passive,
             cache_file: None,
             refresh_interval: Duration::from_secs(1),
             tcp_connect_timeout: Duration::from_secs(30),
@@ -141,7 +141,7 @@ impl ProxyFloatEscaperConfig {
             }
             "source" => {
                 self.source =
-                    Some(ProxyFloatSource::parse(v).context(format!("invalid value for key {k}"))?);
+                    ProxyFloatSource::parse(v).context(format!("invalid value for key {k}"))?;
                 Ok(())
             }
             "cache" => {
@@ -197,15 +197,11 @@ impl ProxyFloatEscaperConfig {
         if self.name.is_empty() {
             return Err(anyhow!("name is not set"));
         }
-        if let Some(source) = &self.source {
-            if source.need_local_cache() && self.cache_file.is_none() {
-                warn!(
-                    "It is very recommended to set local cache for escaper {}",
-                    self.name
-                );
-            }
-        } else {
-            return Err(anyhow!("no source url set"));
+        if self.source.need_local_cache() && self.cache_file.is_none() {
+            warn!(
+                "It is very recommended to set local cache for escaper {}",
+                self.name
+            );
         }
 
         Ok(())

@@ -99,19 +99,11 @@ pub(super) fn new_job(
     peers_container: Arc<ArcSwap<Box<[ArcNextProxyPeer]>>>,
     tls_config: Option<Arc<OpensslTlsClientConfig>>,
 ) -> anyhow::Result<AbortHandle> {
-    if config.source.is_none() {
-        return Err(anyhow!("no source set"));
-    }
-
     let f = async move {
-        let source = match &config.source {
-            Some(source) => source,
-            None => unreachable!(),
-        };
         let mut interval = tokio::time::interval(config.refresh_interval);
         interval.tick().await; // will tick immediately
         loop {
-            let result = match source {
+            let result = match &config.source {
                 ProxyFloatSource::Passive => {
                     // do nothing
                     interval.tick().await;
