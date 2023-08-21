@@ -26,8 +26,8 @@ use crate::serve::{ServerTaskError, ServerTaskForbiddenError};
 pub(crate) enum UdpConnectError {
     #[error("method is not available")]
     MethodUnavailable,
-    #[error("escaper is not usable")]
-    EscaperNotUsable,
+    #[error("escaper is not usable: {0:?}")]
+    EscaperNotUsable(anyhow::Error),
     #[error("no upstream addr supplied")]
     NoUpstreamSupplied,
     #[error("forbidden remote address")]
@@ -44,7 +44,7 @@ impl From<UdpConnectError> for ServerTaskError {
             UdpConnectError::MethodUnavailable => {
                 ServerTaskError::ForbiddenByRule(ServerTaskForbiddenError::MethodUnavailable)
             }
-            UdpConnectError::EscaperNotUsable => ServerTaskError::EscaperNotUsable,
+            UdpConnectError::EscaperNotUsable(e) => ServerTaskError::EscaperNotUsable(e),
             UdpConnectError::NoUpstreamSupplied => {
                 ServerTaskError::InternalServerError("no upstream addr supplied")
             }

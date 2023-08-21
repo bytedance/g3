@@ -16,6 +16,8 @@
 
 use std::pin::pin;
 
+use anyhow::anyhow;
+
 use super::RouteFailoverEscaper;
 use crate::escape::ArcEscaper;
 use crate::module::udp_relay::{
@@ -32,7 +34,9 @@ impl UdpRelayFailoverContext {
     fn new(udp_notes: &UdpRelayTaskNotes) -> Self {
         UdpRelayFailoverContext {
             udp_notes: udp_notes.dup_as_new(),
-            setup_result: Err(UdpRelaySetupError::EscaperNotUsable),
+            setup_result: Err(UdpRelaySetupError::EscaperNotUsable(anyhow!(
+                "no udp set relay called yet"
+            ))),
         }
     }
 

@@ -16,6 +16,8 @@
 
 use std::pin::pin;
 
+use anyhow::anyhow;
+
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::net::{OpensslTlsClientConfig, UpstreamAddr};
 
@@ -33,7 +35,9 @@ impl TlsConnectFailoverContext {
     fn new(upstream: UpstreamAddr) -> Self {
         TlsConnectFailoverContext {
             tcp_notes: TcpConnectTaskNotes::new(upstream),
-            connect_result: Err(TcpConnectError::EscaperNotUsable),
+            connect_result: Err(TcpConnectError::EscaperNotUsable(anyhow!(
+                "tcp setup connection not called yet"
+            ))),
         }
     }
 

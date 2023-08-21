@@ -179,16 +179,15 @@ impl ProxyFloatEscaper {
         }
     }
 
-    fn select_peer_from_egress_path(&self, value: &Value) -> Option<ArcNextProxyPeer> {
-        if let Value::Array(v) = value {
+    fn select_peer_from_egress_path(&self, value: &Value) -> anyhow::Result<ArcNextProxyPeer> {
+        let peer = if let Value::Array(v) = value {
             let mut peers = peer::parse_peers(
                 &self.config,
                 &self.stats,
                 &self.escape_logger,
                 v,
                 self.tls_config.as_ref(),
-            )
-            .ok()?;
+            )?;
             match peers.len() {
                 0 => None,
                 1 => peers.pop(),
@@ -201,19 +200,21 @@ impl ProxyFloatEscaper {
                 &self.escape_logger,
                 value,
                 self.tls_config.as_ref(),
-            )
-            .ok()?
-        }
+            )?
+        };
+        peer.ok_or_else(|| anyhow!("no peer available"))
     }
 
-    fn select_peer(&self, task_notes: &ServerTaskNotes) -> Option<ArcNextProxyPeer> {
+    fn select_peer(&self, task_notes: &ServerTaskNotes) -> anyhow::Result<ArcNextProxyPeer> {
         if let Some(v) = task_notes
             .egress_path_selection
             .select_json_value_by_key(self.name().as_str())
         {
             self.select_peer_from_egress_path(v)
+                .context("failed to select peer from egress path")
         } else {
             self.select_peer_from_escaper()
+                .ok_or_else(|| anyhow!("no peer can be selected from escaper config"))
         }
     }
 }
@@ -252,12 +253,11 @@ impl Escaper for ProxyFloatEscaper {
     ) -> TcpConnectResult {
         self.stats.interface.add_tcp_connect_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
-        if let Some(peer) = self.select_peer(task_notes) {
-            peer.tcp_setup_connection(tcp_notes, task_notes, task_stats)
-                .await
-        } else {
-            Err(TcpConnectError::EscaperNotUsable)
-        }
+        let peer = self
+            .select_peer(task_notes)
+            .map_err(TcpConnectError::EscaperNotUsable)?;
+        peer.tcp_setup_connection(tcp_notes, task_notes, task_stats)
+            .await
     }
 
     async fn tls_setup_connection<'a>(
@@ -270,12 +270,11 @@ impl Escaper for ProxyFloatEscaper {
     ) -> TcpConnectResult {
         self.stats.interface.add_tls_connect_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
-        if let Some(peer) = self.select_peer(task_notes) {
-            peer.tls_setup_connection(tcp_notes, task_notes, task_stats, tls_config, tls_name)
-                .await
-        } else {
-            Err(TcpConnectError::EscaperNotUsable)
-        }
+        let peer = self
+            .select_peer(task_notes)
+            .map_err(TcpConnectError::EscaperNotUsable)?;
+        peer.tls_setup_connection(tcp_notes, task_notes, task_stats, tls_config, tls_name)
+            .await
     }
 
     async fn udp_setup_connection<'a>(
@@ -286,12 +285,11 @@ impl Escaper for ProxyFloatEscaper {
     ) -> UdpConnectResult {
         self.stats.interface.add_udp_connect_attempted();
         udp_notes.escaper.clone_from(&self.config.name);
-        if let Some(peer) = self.select_peer(task_notes) {
-            peer.udp_setup_connection(udp_notes, task_notes, task_stats)
-                .await
-        } else {
-            Err(UdpConnectError::EscaperNotUsable)
-        }
+        let peer = self
+            .select_peer(task_notes)
+            .map_err(UdpConnectError::EscaperNotUsable)?;
+        peer.udp_setup_connection(udp_notes, task_notes, task_stats)
+            .await
     }
 
     async fn udp_setup_relay<'a>(
@@ -302,12 +300,11 @@ impl Escaper for ProxyFloatEscaper {
     ) -> UdpRelaySetupResult {
         self.stats.interface.add_udp_relay_session_attempted();
         udp_notes.escaper.clone_from(&self.config.name);
-        if let Some(peer) = self.select_peer(task_notes) {
-            peer.udp_setup_relay(udp_notes, task_notes, task_stats)
-                .await
-        } else {
-            Err(UdpRelaySetupError::EscaperNotUsable)
-        }
+        let peer = self
+            .select_peer(task_notes)
+            .map_err(UdpRelaySetupError::EscaperNotUsable)?;
+        peer.udp_setup_relay(udp_notes, task_notes, task_stats)
+            .await
     }
 
     fn new_http_forward_context(&self, escaper: ArcEscaper) -> BoxHttpForwardContext {
@@ -372,12 +369,11 @@ impl EscaperInternal for ProxyFloatEscaper {
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.stats.interface.add_http_forward_connection_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
-        if let Some(peer) = self.select_peer(task_notes) {
-            peer.new_http_forward_connection(tcp_notes, task_notes, task_stats)
-                .await
-        } else {
-            Err(TcpConnectError::EscaperNotUsable)
-        }
+        let peer = self
+            .select_peer(task_notes)
+            .map_err(TcpConnectError::EscaperNotUsable)?;
+        peer.new_http_forward_connection(tcp_notes, task_notes, task_stats)
+            .await
     }
 
     async fn _new_https_forward_connection<'a>(
@@ -392,14 +388,11 @@ impl EscaperInternal for ProxyFloatEscaper {
             .interface
             .add_https_forward_connection_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
-        if let Some(peer) = self.select_peer(task_notes) {
-            peer.new_https_forward_connection(
-                tcp_notes, task_notes, task_stats, tls_config, tls_name,
-            )
+        let peer = self
+            .select_peer(task_notes)
+            .map_err(TcpConnectError::EscaperNotUsable)?;
+        peer.new_https_forward_connection(tcp_notes, task_notes, task_stats, tls_config, tls_name)
             .await
-        } else {
-            Err(TcpConnectError::EscaperNotUsable)
-        }
     }
 
     async fn _new_ftp_control_connection<'a>(

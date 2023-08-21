@@ -279,7 +279,7 @@ impl EscaperInternal for RouteQueryEscaper {
         _task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         tcp_notes.escaper.clone_from(&self.config.name);
-        Err(TcpConnectError::EscaperNotUsable)
+        Err(TcpConnectError::MethodUnavailable)
     }
 
     async fn _new_https_forward_connection<'a>(
@@ -291,7 +291,7 @@ impl EscaperInternal for RouteQueryEscaper {
         _tls_name: &'a str,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         tcp_notes.escaper.clone_from(&self.config.name);
-        Err(TcpConnectError::EscaperNotUsable)
+        Err(TcpConnectError::MethodUnavailable)
     }
 
     async fn _new_ftp_control_connection<'a>(

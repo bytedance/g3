@@ -20,6 +20,7 @@ use std::pin::pin;
 use std::sync::Arc;
 use std::time::Duration;
 
+use anyhow::anyhow;
 use async_trait::async_trait;
 use tokio::time::Instant;
 
@@ -44,7 +45,9 @@ impl HttpConnectFailoverContext {
         HttpConnectFailoverContext {
             tcp_notes: TcpConnectTaskNotes::new(upstream),
             escaper,
-            connect_result: Err(TcpConnectError::EscaperNotUsable),
+            connect_result: Err(TcpConnectError::EscaperNotUsable(anyhow!(
+                "no http connection tried yet"
+            ))),
         }
     }
 

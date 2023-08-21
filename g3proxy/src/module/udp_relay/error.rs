@@ -26,8 +26,8 @@ use crate::serve::{ServerTaskError, ServerTaskForbiddenError};
 pub(crate) enum UdpRelaySetupError {
     #[error("method is not available")]
     MethodUnavailable,
-    #[error("escaper is not usable")]
-    EscaperNotUsable,
+    #[error("escaper is not usable: {0:?}")]
+    EscaperNotUsable(anyhow::Error),
     #[error("resolve failed: {0}")]
     ResolveFailed(#[from] ResolveError),
     #[error("setup socket failed: {0:?}")]
@@ -40,7 +40,7 @@ impl From<UdpRelaySetupError> for ServerTaskError {
             UdpRelaySetupError::MethodUnavailable => {
                 ServerTaskError::ForbiddenByRule(ServerTaskForbiddenError::MethodUnavailable)
             }
-            UdpRelaySetupError::EscaperNotUsable => ServerTaskError::EscaperNotUsable,
+            UdpRelaySetupError::EscaperNotUsable(e) => ServerTaskError::EscaperNotUsable(e),
             UdpRelaySetupError::ResolveFailed(e) => ServerTaskError::from(e),
             UdpRelaySetupError::SetupSocketFailed(_) => {
                 ServerTaskError::InternalServerError("setup local udp socket failed")

@@ -30,8 +30,8 @@ use crate::serve::{ServerTaskError, ServerTaskForbiddenError};
 pub(crate) enum TcpConnectError {
     #[error("method is not available")]
     MethodUnavailable,
-    #[error("escaper not usable")]
-    EscaperNotUsable,
+    #[error("escaper not usable: {0:?}")]
+    EscaperNotUsable(anyhow::Error),
     #[error("resolve failed: {0}")]
     ResolveFailed(#[from] ResolveError),
     #[error("setup socket failed: {0:?}")]
@@ -78,7 +78,7 @@ impl TcpConnectError {
     pub(crate) fn brief(&self) -> &'static str {
         match self {
             TcpConnectError::MethodUnavailable => "MethodUnavailable",
-            TcpConnectError::EscaperNotUsable => "EscaperNotUsable",
+            TcpConnectError::EscaperNotUsable(_) => "EscaperNotUsable",
             TcpConnectError::ResolveFailed(_) => "ResolveFailed",
             TcpConnectError::SetupSocketFailed(_) => "SetupSocketFailed",
             TcpConnectError::ConnectFailed(_) => "ConnectFailed",
@@ -109,7 +109,7 @@ impl From<TcpConnectError> for ServerTaskError {
             TcpConnectError::MethodUnavailable => {
                 ServerTaskError::ForbiddenByRule(ServerTaskForbiddenError::MethodUnavailable)
             }
-            TcpConnectError::EscaperNotUsable => ServerTaskError::EscaperNotUsable,
+            TcpConnectError::EscaperNotUsable(e) => ServerTaskError::EscaperNotUsable(e),
             TcpConnectError::ResolveFailed(e) => ServerTaskError::from(e),
             TcpConnectError::SetupSocketFailed(_) => ServerTaskError::InternalServerError(
                 "failed to setup local socket for remote connection",
@@ -193,7 +193,7 @@ impl From<&TcpConnectError> for Socks5Reply {
                 Socks5Reply::HostUnreachable
             }
             TcpConnectError::TimeoutByRule => Socks5Reply::ConnectionTimedOut,
-            TcpConnectError::EscaperNotUsable
+            TcpConnectError::EscaperNotUsable(_)
             | TcpConnectError::SetupSocketFailed(_)
             | TcpConnectError::ProxyProtocolEncodeError(_)
             | TcpConnectError::NegotiationProtocolErr => Socks5Reply::GeneralServerFailure,

@@ -16,6 +16,8 @@
 
 use std::pin::pin;
 
+use anyhow::anyhow;
+
 use super::RouteFailoverEscaper;
 use crate::escape::ArcEscaper;
 use crate::module::udp_connect::{
@@ -32,7 +34,9 @@ impl UdpConnectFailoverContext {
     fn new(udp_notes: &UdpConnectTaskNotes) -> Self {
         UdpConnectFailoverContext {
             udp_notes: udp_notes.dup_as_new(),
-            connect_result: Err(UdpConnectError::EscaperNotUsable),
+            connect_result: Err(UdpConnectError::EscaperNotUsable(anyhow!(
+                "no udp setup connection called yet"
+            ))),
         }
     }
 

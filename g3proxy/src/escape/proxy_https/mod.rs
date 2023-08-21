@@ -340,7 +340,9 @@ impl EscaperInternal for ProxyHttpsEscaper {
         transfer_tcp_notes.escaper.clone_from(&self.config.name);
         match context.downcast_mut::<DirectFtpConnectContextParam>() {
             Some(_ctx) => Err(TcpConnectError::MethodUnavailable),
-            None => Err(TcpConnectError::EscaperNotUsable),
+            None => Err(TcpConnectError::EscaperNotUsable(anyhow!(
+                "unmatched ftp connection context param"
+            ))),
         }
     }
 }

@@ -65,14 +65,14 @@ pub(crate) enum ServerTaskForbiddenError {
 pub(crate) enum ServerTaskError {
     #[error("internal server error: {0}")]
     InternalServerError(&'static str),
-    #[error("internal adapter error: {0}")]
+    #[error("internal adapter error: {0:?}")]
     InternalAdapterError(anyhow::Error),
-    #[error("internal resolver error: {0}")]
+    #[error("internal resolver error: {0:?}")]
     InternalResolverError(ResolveError),
-    #[error("internal tls client error: {0}")]
+    #[error("internal tls client error: {0:?}")]
     InternalTlsClientError(anyhow::Error),
-    #[error("escaper not usable")]
-    EscaperNotUsable,
+    #[error("escaper not usable: {0:?}")]
+    EscaperNotUsable(anyhow::Error),
     #[error("forbidden by rule: {0}")]
     ForbiddenByRule(#[from] ServerTaskForbiddenError),
     #[error("invalid client protocol: {0}")]
@@ -142,7 +142,7 @@ impl ServerTaskError {
             ServerTaskError::InternalAdapterError(_) => "InternalAdapterError",
             ServerTaskError::InternalResolverError(_) => "InternalResolverError",
             ServerTaskError::InternalTlsClientError(_) => "InternalTlsClientError",
-            ServerTaskError::EscaperNotUsable => "EscaperNotUsable",
+            ServerTaskError::EscaperNotUsable(_) => "EscaperNotUsable",
             ServerTaskError::ForbiddenByRule(_) => "ForbiddenByRule",
             ServerTaskError::InvalidClientProtocol(_) => "InvalidClientProtocol",
             ServerTaskError::UnimplementedProtocol => "UnimplementedProtocol",

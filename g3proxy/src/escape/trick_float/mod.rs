@@ -88,12 +88,12 @@ impl TrickFloatEscaper {
         }
     }
 
-    fn random_next(&self) -> Result<ArcEscaper, ()> {
+    fn random_next(&self) -> anyhow::Result<ArcEscaper> {
         let mut rng = rand::thread_rng();
         let escaper = self
             .next_nodes
             .choose_weighted(&mut rng, |escaper| escaper._trick_float_weight())
-            .map_err(|_| ())?;
+            .map_err(|e| anyhow!("no next escaper can be selected: {e}"))?;
         Ok(Arc::clone(escaper))
     }
 }
@@ -130,9 +130,9 @@ impl Escaper for TrickFloatEscaper {
                     .tcp_setup_connection(tcp_notes, task_notes, task_stats)
                     .await
             }
-            Err(_) => {
+            Err(e) => {
                 self.stats.add_request_failed();
-                Err(TcpConnectError::EscaperNotUsable)
+                Err(TcpConnectError::EscaperNotUsable(e))
             }
         }
     }
@@ -153,9 +153,9 @@ impl Escaper for TrickFloatEscaper {
                     .tls_setup_connection(tcp_notes, task_notes, task_stats, tls_config, tls_name)
                     .await
             }
-            Err(_) => {
+            Err(e) => {
                 self.stats.add_request_failed();
-                Err(TcpConnectError::EscaperNotUsable)
+                Err(TcpConnectError::EscaperNotUsable(e))
             }
         }
     }
@@ -174,9 +174,9 @@ impl Escaper for TrickFloatEscaper {
                     .udp_setup_connection(udp_notes, task_notes, task_stats)
                     .await
             }
-            Err(_) => {
+            Err(e) => {
                 self.stats.add_request_failed();
-                Err(UdpConnectError::EscaperNotUsable)
+                Err(UdpConnectError::EscaperNotUsable(e))
             }
         }
     }
@@ -195,9 +195,9 @@ impl Escaper for TrickFloatEscaper {
                     .udp_setup_relay(udp_notes, task_notes, task_stats)
                     .await
             }
-            Err(_) => {
+            Err(e) => {
                 self.stats.add_request_failed();
-                Err(UdpRelaySetupError::MethodUnavailable)
+                Err(UdpRelaySetupError::EscaperNotUsable(e))
             }
         }
     }
@@ -220,11 +220,11 @@ impl Escaper for TrickFloatEscaper {
                     .new_ftp_connect_context(Arc::clone(&escaper), task_notes, upstream)
                     .await
             }
-            Err(_) => {
+            Err(e) => {
                 self.stats.add_request_failed();
                 Box::new(DenyFtpConnectContext::new(
                     self.name(),
-                    Some(TcpConnectError::EscaperNotUsable),
+                    Some(TcpConnectError::EscaperNotUsable(e)),
                 ))
             }
         }
@@ -279,7 +279,7 @@ impl EscaperInternal for TrickFloatEscaper {
         _task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         tcp_notes.escaper.clone_from(&self.config.name);
-        Err(TcpConnectError::EscaperNotUsable)
+        Err(TcpConnectError::MethodUnavailable)
     }
 
     async fn _new_https_forward_connection<'a>(
@@ -291,7 +291,7 @@ impl EscaperInternal for TrickFloatEscaper {
         _tls_name: &'a str,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         tcp_notes.escaper.clone_from(&self.config.name);
-        Err(TcpConnectError::EscaperNotUsable)
+        Err(TcpConnectError::MethodUnavailable)
     }
 
     async fn _new_ftp_control_connection<'a>(

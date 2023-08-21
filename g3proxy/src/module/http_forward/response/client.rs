@@ -253,7 +253,7 @@ impl HttpProxyClientResponse {
             TcpConnectError::MethodUnavailable => {
                 HttpProxyClientResponse::from_standard(StatusCode::FORBIDDEN, version, true)
             }
-            TcpConnectError::EscaperNotUsable => HttpProxyClientResponse::from_standard(
+            TcpConnectError::EscaperNotUsable(_) => HttpProxyClientResponse::from_standard(
                 StatusCode::SERVICE_UNAVAILABLE,
                 version,
                 true,
@@ -340,7 +340,7 @@ impl HttpProxyClientResponse {
                 version,
                 true,
             ),
-            ServerTaskError::EscaperNotUsable => HttpProxyClientResponse::from_standard(
+            ServerTaskError::EscaperNotUsable(_) => HttpProxyClientResponse::from_standard(
                 StatusCode::SERVICE_UNAVAILABLE,
                 version,
                 true,

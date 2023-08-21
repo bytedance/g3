@@ -16,6 +16,8 @@
 
 use std::pin::pin;
 
+use anyhow::anyhow;
+
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::net::UpstreamAddr;
 
@@ -34,7 +36,9 @@ impl TcpConnectFailoverContext {
         let tcp_notes = TcpConnectTaskNotes::new(upstream.clone());
         TcpConnectFailoverContext {
             tcp_notes,
-            connect_result: Err(TcpConnectError::EscaperNotUsable),
+            connect_result: Err(TcpConnectError::EscaperNotUsable(anyhow!(
+                "tcp setup connection not called yet"
+            ))),
         }
     }
 

@@ -437,7 +437,9 @@ impl EscaperInternal for DirectFixedEscaper {
                 )
                 .await
             }
-            None => Err(TcpConnectError::EscaperNotUsable),
+            None => Err(TcpConnectError::EscaperNotUsable(anyhow!(
+                "unmatched ftp connection context param"
+            ))),
         }
     }
 }
