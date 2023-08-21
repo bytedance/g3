@@ -1,4 +1,8 @@
 
+v0.3.1:
+ - Feature: default to guess main config file when run as systemd service
+ - BUG FIX: ignore failure of ExecStop to ensure restart on success
+
 v0.3.0:
  - Feature: allow to register service before running
  - Feature: always restart after service success quit
