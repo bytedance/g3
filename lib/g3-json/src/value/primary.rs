@@ -121,6 +121,22 @@ pub fn as_usize(v: &Value) -> anyhow::Result<usize> {
     }
 }
 
+pub fn as_f64(v: &Value) -> anyhow::Result<f64> {
+    match v {
+        Value::String(s) => Ok(f64::from_str(s)?),
+        Value::Number(n) => {
+            if let Some(f) = n.as_f64() {
+                Ok(f)
+            } else {
+                Err(anyhow!("out of range json value for f64"))
+            }
+        }
+        _ => Err(anyhow!(
+            "json value type for 'f64' should be 'string' or 'number'"
+        )),
+    }
+}
+
 pub fn as_bool(v: &Value) -> anyhow::Result<bool> {
     match v {
         Value::String(s) => match s.to_lowercase().as_str() {
@@ -139,7 +155,7 @@ pub fn as_bool(v: &Value) -> anyhow::Result<bool> {
             }
         }
         _ => Err(anyhow!(
-            "json value type for 'bool' should be 'boolean' / 'string' / 'integer'"
+            "json value type for 'bool' should be 'boolean' / 'string' / 'number'"
         )),
     }
 }

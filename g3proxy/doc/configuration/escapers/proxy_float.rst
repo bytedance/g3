@@ -29,6 +29,8 @@ The following egress path selection methods is supported:
   The json value will be parsed as one (json map) or more (json array) :ref:`peer <config_escaper_dynamic_peer>`.
   The peers passed here will overwrite the ones in the escaper config.
 
+  .. versionadded:: 1.7.22
+
 Config Keys
 ===========
 

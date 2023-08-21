@@ -37,6 +37,8 @@ The following egress path selection methods is supported:
   .. note:: you should consider disable ipv4 / ipv6 at escaper level if the value in the egress path selection doesn't
             support ipv4 / ipv6
 
+  .. versionadded:: 1.7.22
+
 Config Keys
 ===========
 

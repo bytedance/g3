@@ -18,8 +18,10 @@ use std::collections::BTreeSet;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
+use ahash::AHashMap;
 use anyhow::anyhow;
 use async_trait::async_trait;
+use serde_json::Value;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder, WeightedValue};
@@ -31,7 +33,7 @@ use crate::config::escaper::route_select::RouteSelectEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
 use crate::module::ftp_over_http::{
     AnyFtpConnectContextParam, ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats,
-    BoxFtpConnectContext, BoxFtpRemoteConnection,
+    BoxFtpConnectContext, BoxFtpRemoteConnection, DenyFtpConnectContext,
 };
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, BoxHttpForwardContext,
@@ -42,7 +44,7 @@ use crate::module::udp_connect::{
     ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectResult, UdpConnectTaskNotes,
 };
 use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskNotes,
+    ArcUdpRelayTaskRemoteStats, UdpRelaySetupError, UdpRelaySetupResult, UdpRelayTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -59,6 +61,7 @@ impl Hash for EscaperWrapper {
 pub(super) struct RouteSelectEscaper {
     config: RouteSelectEscaperConfig,
     stats: Arc<RouteEscaperStats>,
+    all_nodes: AHashMap<MetricsName, ArcEscaper>,
     select_nodes: SelectiveVec<WeightedValue<EscaperWrapper>>,
 }
 
@@ -67,9 +70,11 @@ impl RouteSelectEscaper {
         config: RouteSelectEscaperConfig,
         stats: Arc<RouteEscaperStats>,
     ) -> anyhow::Result<ArcEscaper> {
+        let mut all_nodes = AHashMap::with_capacity(config.next_nodes.len());
         let mut select_nodes_builder = SelectiveVecBuilder::with_capacity(config.next_nodes.len());
         for v in &config.next_nodes {
             let escaper = super::registry::get_or_insert_default(v.inner());
+            all_nodes.insert(escaper.name().clone(), escaper.clone());
             select_nodes_builder.insert(WeightedValue::with_weight(
                 EscaperWrapper { escaper },
                 v.weight(),
@@ -83,6 +88,7 @@ impl RouteSelectEscaper {
         let escaper = RouteSelectEscaper {
             config,
             stats,
+            all_nodes,
             select_nodes,
         };
 
@@ -109,14 +115,64 @@ impl RouteSelectEscaper {
         }
     }
 
-    fn select_next(&self, task_notes: &ServerTaskNotes, upstream: &UpstreamAddr) -> ArcEscaper {
+    fn parse_nodes_from_egress_path(
+        value: &Value,
+    ) -> anyhow::Result<SelectiveVec<WeightedValue<MetricsName>>> {
+        let mut next_nodes = SelectiveVecBuilder::new();
+        match value {
+            Value::Array(seq) => {
+                for v in seq {
+                    let item = g3_json::value::as_weighted_metrics_name(v)?;
+                    next_nodes.insert(item);
+                }
+            }
+            Value::String(_) => {
+                let item = g3_json::value::as_weighted_metrics_name(value)?;
+                next_nodes.insert(item);
+            }
+            _ => return Err(anyhow!("invalid value type")),
+        }
+        next_nodes
+            .build()
+            .map_err(|e| anyhow!("failed to build selective vec: {e}"))
+    }
+
+    fn select_next_from_egress_path(
+        &self,
+        value: &Value,
+        task_notes: &ServerTaskNotes,
+        upstream: &UpstreamAddr,
+    ) -> Option<ArcEscaper> {
+        let next_nodes = RouteSelectEscaper::parse_nodes_from_egress_path(value).ok()?;
         let v = self.select_consistent(
-            &self.select_nodes,
+            &next_nodes,
             self.config.next_pick_policy,
             task_notes,
             upstream.host(),
         );
-        Arc::clone(&v.inner().escaper)
+
+        self.all_nodes.get(v.inner()).cloned()
+    }
+
+    fn select_next(
+        &self,
+        task_notes: &ServerTaskNotes,
+        upstream: &UpstreamAddr,
+    ) -> Option<ArcEscaper> {
+        if let Some(v) = task_notes
+            .egress_path_selection
+            .select_json_value_by_key(self.name().as_str())
+        {
+            self.select_next_from_egress_path(v, task_notes, upstream)
+        } else {
+            let v = self.select_consistent(
+                &self.select_nodes,
+                self.config.next_pick_policy,
+                task_notes,
+                upstream.host(),
+            );
+            Some(v.inner().escaper.clone())
+        }
     }
 }
 
@@ -147,11 +203,18 @@ impl Escaper for RouteSelectEscaper {
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
         tcp_notes.escaper.clone_from(&self.config.name);
-        let escaper = self.select_next(task_notes, &tcp_notes.upstream);
-        self.stats.add_request_passed();
-        escaper
-            .tcp_setup_connection(tcp_notes, task_notes, task_stats)
-            .await
+        match self.select_next(task_notes, &tcp_notes.upstream) {
+            Some(escaper) => {
+                self.stats.add_request_passed();
+                escaper
+                    .tcp_setup_connection(tcp_notes, task_notes, task_stats)
+                    .await
+            }
+            None => {
+                self.stats.add_request_failed();
+                Err(TcpConnectError::EscaperNotUsable)
+            }
+        }
     }
 
     async fn tls_setup_connection<'a>(
@@ -163,11 +226,18 @@ impl Escaper for RouteSelectEscaper {
         tls_name: &'a str,
     ) -> TcpConnectResult {
         tcp_notes.escaper.clone_from(&self.config.name);
-        let escaper = self.select_next(task_notes, &tcp_notes.upstream);
-        self.stats.add_request_passed();
-        escaper
-            .tls_setup_connection(tcp_notes, task_notes, task_stats, tls_config, tls_name)
-            .await
+        match self.select_next(task_notes, &tcp_notes.upstream) {
+            Some(escaper) => {
+                self.stats.add_request_passed();
+                escaper
+                    .tls_setup_connection(tcp_notes, task_notes, task_stats, tls_config, tls_name)
+                    .await
+            }
+            None => {
+                self.stats.add_request_failed();
+                Err(TcpConnectError::EscaperNotUsable)
+            }
+        }
     }
 
     async fn udp_setup_connection<'a>(
@@ -181,11 +251,18 @@ impl Escaper for RouteSelectEscaper {
             .upstream
             .as_ref()
             .ok_or(UdpConnectError::NoUpstreamSupplied)?;
-        let escaper = self.select_next(task_notes, upstream);
-        self.stats.add_request_passed();
-        escaper
-            .udp_setup_connection(udp_notes, task_notes, task_stats)
-            .await
+        match self.select_next(task_notes, upstream) {
+            Some(escaper) => {
+                self.stats.add_request_passed();
+                escaper
+                    .udp_setup_connection(udp_notes, task_notes, task_stats)
+                    .await
+            }
+            None => {
+                self.stats.add_request_failed();
+                Err(UdpConnectError::EscaperNotUsable)
+            }
+        }
     }
 
     async fn udp_setup_relay<'a>(
@@ -195,11 +272,18 @@ impl Escaper for RouteSelectEscaper {
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
         udp_notes.escaper.clone_from(&self.config.name);
-        let escaper = self.select_next(task_notes, &udp_notes.initial_peer);
-        self.stats.add_request_passed();
-        escaper
-            .udp_setup_relay(udp_notes, task_notes, task_stats)
-            .await
+        match self.select_next(task_notes, &udp_notes.initial_peer) {
+            Some(escaper) => {
+                self.stats.add_request_passed();
+                escaper
+                    .udp_setup_relay(udp_notes, task_notes, task_stats)
+                    .await
+            }
+            None => {
+                self.stats.add_request_failed();
+                Err(UdpRelaySetupError::EscaperNotUsable)
+            }
+        }
     }
 
     fn new_http_forward_context(&self, escaper: ArcEscaper) -> BoxHttpForwardContext {
@@ -213,11 +297,21 @@ impl Escaper for RouteSelectEscaper {
         task_notes: &'a ServerTaskNotes,
         upstream: &'a UpstreamAddr,
     ) -> BoxFtpConnectContext {
-        let escaper = self.select_next(task_notes, upstream);
-        self.stats.add_request_passed();
-        escaper
-            .new_ftp_connect_context(Arc::clone(&escaper), task_notes, upstream)
-            .await
+        match self.select_next(task_notes, upstream) {
+            Some(escaper) => {
+                self.stats.add_request_passed();
+                escaper
+                    .new_ftp_connect_context(Arc::clone(&escaper), task_notes, upstream)
+                    .await
+            }
+            None => {
+                self.stats.add_request_failed();
+                Box::new(DenyFtpConnectContext::new(
+                    self.name(),
+                    Some(TcpConnectError::EscaperNotUsable),
+                ))
+            }
+        }
     }
 }
 
@@ -253,9 +347,16 @@ impl EscaperInternal for RouteSelectEscaper {
         task_notes: &ServerTaskNotes,
         upstream: &UpstreamAddr,
     ) -> Option<ArcEscaper> {
-        let escaper = self.select_next(task_notes, upstream);
-        self.stats.add_request_passed();
-        Some(escaper)
+        match self.select_next(task_notes, upstream) {
+            Some(escaper) => {
+                self.stats.add_request_passed();
+                Some(escaper)
+            }
+            None => {
+                self.stats.add_request_failed();
+                None
+            }
+        }
     }
 
     async fn _new_http_forward_connection<'a>(
