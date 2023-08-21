@@ -806,6 +806,7 @@ dependencies = [
  "capnp-rpc",
  "cfg-if",
  "chrono",
+ "clap",
  "daemonize",
  "futures-util",
  "g3-fluentd",

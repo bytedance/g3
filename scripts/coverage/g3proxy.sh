@@ -24,7 +24,7 @@ all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk
 
 # run integration tests
 
-./target/debug/g3proxy -c "${SCRIPTS_DIR}/g3proxy/g3proxy.conf" -G ${TEST_NAME} &
+./target/debug/g3proxy -c "${SCRIPTS_DIR}/g3proxy/g3proxy.yml" -G ${TEST_NAME} &
 proxy_pid=$!
 
 all_http_proxies="http://127.0.0.1:10080 http://t1:toor@127.0.0.1:10082 http://t2:toor@127.0.0.1:10082 http://127.0.0.1:20080 http://127.0.0.1:20443 http://127.0.0.1:9001 http://127.0.0.1:9003"

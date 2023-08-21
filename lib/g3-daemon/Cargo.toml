@@ -31,6 +31,7 @@ tokio = { workspace = true, features = ["net", "io-util"] }
 tokio-util = { workspace = true, features = ["compat"] }
 http = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
+clap.workspace = true
 g3-types = { workspace = true, features = ["async-log"] }
 g3-stdlog.workspace = true
 g3-syslog.workspace = true

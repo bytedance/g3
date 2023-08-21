@@ -15,7 +15,7 @@
  */
 
 mod daemon;
-pub use daemon::DaemonArgs;
+pub use daemon::{DaemonArgs, DaemonArgsExt};
 
 mod control;
 pub use control::{control_dir, validate_and_set_control_dir, DEFAULT_CONTROL_DIR};

@@ -48,6 +48,11 @@ fn main() -> anyhow::Result<()> {
     let config_file = g3keymess::config::load().context("failed to load config")?;
     debug!("loaded config from {}", config_file.display());
 
+    if proc_args.daemon_config.test_config {
+        info!("the format of the config file is ok");
+        return Ok(());
+    }
+
     // enter daemon mode after config loaded
     g3_daemon::daemonize::check_enter(&proc_args.daemon_config)?;
 

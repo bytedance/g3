@@ -15,6 +15,7 @@
  */
 
 use std::ffi::{OsStr, OsString};
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
@@ -25,18 +26,56 @@ static CONFIG_DIR_PATH: OnceLock<PathBuf> = OnceLock::new();
 
 static CONFIG_FILE_EXTENSION: OnceLock<OsString> = OnceLock::new();
 
-fn validate_and_get_config_file(path: &Path) -> anyhow::Result<PathBuf> {
-    if path.is_absolute() {
-        return Ok(path.to_path_buf());
+fn guess_config_file(dir: &Path, program_name: &'static str) -> anyhow::Result<PathBuf> {
+    const GUESS_EXT: &[&str] = &["yml", "yaml", "conf"];
+
+    let rdir = dir
+        .read_dir()
+        .map_err(|e| anyhow!("failed to open {}: {e}", dir.display()))?;
+    for v in rdir {
+        let Ok(v) = v else {
+            continue;
+        };
+        let path = v.path();
+        for ext in GUESS_EXT {
+            if path.ends_with(format!("main.{ext}")) {
+                return Ok(path);
+            }
+            if path.ends_with(format!("{program_name}.{ext}")) {
+                return Ok(path);
+            }
+        }
     }
-    let mut dir = std::env::current_dir()?;
-    dir.push(path);
-    dir.canonicalize()?;
-    Ok(dir)
+    Err(anyhow!(
+        "no main config file found in dir {}",
+        dir.display()
+    ))
 }
 
-pub fn validate_and_set_config_file(path: &Path) -> anyhow::Result<()> {
-    let config_file = validate_and_get_config_file(path)?;
+fn validate_and_get_config_file(
+    path: &Path,
+    program_name: &'static str,
+) -> anyhow::Result<PathBuf> {
+    let metadata = fs::metadata(path)
+        .map_err(|e| anyhow!("failed to get metadata of path {}: {e}", path.display()))?;
+
+    let mut path = if metadata.is_dir() {
+        guess_config_file(path, program_name)?
+    } else {
+        path.to_path_buf()
+    };
+
+    if !path.is_absolute() {
+        let cur_dir =
+            std::env::current_dir().map_err(|e| anyhow!("failed to get current dir: {e}"))?;
+        path = cur_dir.join(path);
+    }
+    path.canonicalize()
+        .map_err(|e| anyhow!("failed to canonicalize path: {e}"))
+}
+
+pub fn validate_and_set_config_file(path: &Path, program_name: &'static str) -> anyhow::Result<()> {
+    let config_file = validate_and_get_config_file(path, program_name)?;
 
     CONFIG_FILE_PATH
         .set(config_file.clone())

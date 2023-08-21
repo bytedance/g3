@@ -43,7 +43,7 @@ fn main() -> anyhow::Result<()> {
         .context(format!("failed to load config, opts: {:?}", &proc_args))?;
     debug!("loaded config from {}", config_file.display());
 
-    if proc_args.test_config {
+    if proc_args.daemon_config.test_config {
         info!("the format of the config file is ok");
         return Ok(());
     }
