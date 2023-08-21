@@ -27,7 +27,7 @@ static CONFIG_DIR_PATH: OnceLock<PathBuf> = OnceLock::new();
 static CONFIG_FILE_EXTENSION: OnceLock<OsString> = OnceLock::new();
 
 fn guess_config_file(dir: &Path, program_name: &'static str) -> anyhow::Result<PathBuf> {
-    const GUESS_EXT: &[&str] = &["yml", "yaml", "conf"];
+    const GUESS_EXT: &[&str] = &["yaml", "yml", "conf"];
 
     let rdir = dir
         .read_dir()
