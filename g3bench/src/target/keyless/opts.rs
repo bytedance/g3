@@ -183,7 +183,10 @@ impl KeylessGlobalArgs {
         let mut public_key_ski = None;
 
         let cert = if let Some(file) = args.get_one::<PathBuf>(ARG_CERT) {
-            let cert = crate::target::openssl::load_certs(file)?.pop().unwrap();
+            let cert = crate::target::openssl::load_certs(file)?
+                .into_iter()
+                .next()
+                .unwrap();
 
             let ski = if let Some(o) = cert.subject_key_id() {
                 o.as_slice().to_vec()
