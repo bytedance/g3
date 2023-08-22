@@ -2,8 +2,8 @@
 
 - name: "Install user group conf {{ user_group_name }}"
   ansible.builtin.template:
-    src: "user-group.d/{{ template_name | default(user_group_name) }}.conf"
-    dest: "/etc/g3proxy/{{ daemon_group }}/user-group.d/{{ user_group_name }}.conf"
+    src: "user-group.d/{{ template_name | default(user_group_name) }}.yaml"
+    dest: "/etc/g3proxy/{{ daemon_group }}/user-group.d/{{ user_group_name }}.yaml"
     owner: root
     group: root
     mode: "0644"

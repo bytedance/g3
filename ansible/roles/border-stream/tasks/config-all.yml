@@ -18,8 +18,8 @@
 
 - name: Install main conf
   ansible.builtin.template:
-    src: main.conf
-    dest: "/etc/g3proxy/{{ daemon_group }}/main.conf"
+    src: main.yaml
+    dest: "/etc/g3proxy/{{ daemon_group }}/main.yaml"
     owner: root
     group: root
     mode: "0644"

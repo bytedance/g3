@@ -2,8 +2,8 @@
 
 - name: "Install server conf for {{ server_name }}"
   ansible.builtin.template:
-    src: "server.d/{{ template_name | default(server_name) }}.conf"
-    dest: "/etc/g3proxy/{{ daemon_group }}/server.d/{{ server_name }}.conf"
+    src: "server.d/{{ template_name | default(server_name) }}.yaml"
+    dest: "/etc/g3proxy/{{ daemon_group }}/server.d/{{ server_name }}.yaml"
     owner: root
     group: root
     mode: "0644"

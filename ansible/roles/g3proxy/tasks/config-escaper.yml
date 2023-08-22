@@ -2,8 +2,8 @@
 
 - name: "Install escaper conf for {{ escaper_name }}"
   ansible.builtin.template:
-    src: "escaper.d/{{ template_name | default(escaper_name) }}.conf"
-    dest: "/etc/g3proxy/{{ daemon_group }}/escaper.d/{{ escaper_name }}.conf"
+    src: "escaper.d/{{ template_name | default(escaper_name) }}.yaml"
+    dest: "/etc/g3proxy/{{ daemon_group }}/escaper.d/{{ escaper_name }}.yaml"
     owner: root
     group: root
     mode: "0644"
