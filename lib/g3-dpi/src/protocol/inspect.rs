@@ -182,7 +182,7 @@ struct ReadPendingProtocol {
 pub struct ProtocolInspector {
     server_portmap: Arc<ProtocolPortMap>,
     state: ProtocolInspectState,
-    next_check_protocol: Vec<MaybeProtocol>,
+    next_check_protocol: VecDeque<MaybeProtocol>,
     no_explicit_ssl: bool,
     read_pending_set: VecDeque<ReadPendingProtocol>,
     guess_protocols: bool,
@@ -193,7 +193,7 @@ impl Default for ProtocolInspector {
         ProtocolInspector {
             server_portmap: Arc::new(ProtocolPortMap::tcp_server()),
             state: ProtocolInspectState::default(),
-            next_check_protocol: Vec::with_capacity(4),
+            next_check_protocol: VecDeque::with_capacity(4),
             no_explicit_ssl: false,
             read_pending_set: VecDeque::with_capacity(4),
             guess_protocols: true,
@@ -209,7 +209,7 @@ impl ProtocolInspector {
         ProtocolInspector {
             server_portmap,
             state: ProtocolInspectState::default(),
-            next_check_protocol: Vec::with_capacity(4),
+            next_check_protocol: VecDeque::with_capacity(4),
             no_explicit_ssl: false,
             read_pending_set: VecDeque::with_capacity(4),
             guess_protocols: true,
@@ -217,7 +217,7 @@ impl ProtocolInspector {
     }
 
     pub fn push_protocol(&mut self, p: MaybeProtocol) {
-        self.next_check_protocol.push(p);
+        self.next_check_protocol.push_front(p);
     }
 
     pub fn push_alpn_protocol(&mut self, p: AlpnProtocol) {
@@ -266,7 +266,7 @@ impl ProtocolInspector {
             check_protocol!(proto);
         }
 
-        while let Some(proto) = self.next_check_protocol.pop() {
+        while let Some(proto) = self.next_check_protocol.pop_front() {
             check_protocol!(proto);
         }
 
@@ -321,7 +321,7 @@ impl ProtocolInspector {
             check_protocol!(proto);
         }
 
-        while let Some(proto) = self.next_check_protocol.pop() {
+        while let Some(proto) = self.next_check_protocol.pop_front() {
             check_protocol!(proto);
         }
 
@@ -355,7 +355,7 @@ impl ProtocolInspector {
             if v.size < pending_len {
                 pending_len = v.size;
             }
-            self.next_check_protocol.push(v.protocol);
+            self.next_check_protocol.push_front(v.protocol);
         }
         Err(ProtocolInspectError::NeedMoreData(pending_len))
     }
