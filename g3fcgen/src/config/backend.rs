@@ -44,7 +44,7 @@ pub(super) fn load_config(value: &Yaml) -> anyhow::Result<()> {
 
         g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
             "ca_certificate" => {
-                let mut certs = g3_yaml::value::as_openssl_certificates(v, Some(lookup_dir))
+                let certs = g3_yaml::value::as_openssl_certificates(v, Some(lookup_dir))
                     .context(format!("invalid openssl certificate value for key {k}"))?;
                 for (i, cert) in certs.iter().enumerate() {
                     let pem = cert.to_pem().map_err(|e| {
@@ -54,7 +54,8 @@ pub(super) fn load_config(value: &Yaml) -> anyhow::Result<()> {
                 }
 
                 let cert = certs
-                    .pop()
+                    .into_iter()
+                    .next()
                     .ok_or_else(|| anyhow!("no valid openssl certificate key found"))?;
                 ca_cert = Some(cert);
                 Ok(())
