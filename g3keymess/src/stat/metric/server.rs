@@ -186,6 +186,7 @@ fn emit_server_request_stats(
         .gauge_with_tags(METRIC_NAME_SERVER_REQUEST_ALIVE, stats.alive_count as f64)
         .add_server_tags(p.server, p.online_value, p.stat_id)
         .add_server_extra_tags(p.server_extra_tags)
+        .with_tag(TAG_KEY_REQUEST, request)
         .send();
 
     let new_value = stats.passed;
