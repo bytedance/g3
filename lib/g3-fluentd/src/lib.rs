@@ -172,7 +172,10 @@ impl AsyncIoThread {
                     match r {
                         Ok(data) => {
                             match tokio::time::timeout(self.config.write_timeout, connection.write_all(data.as_slice())).await {
-                                Ok(Ok(_)) => {}
+                                Ok(Ok(_)) => {
+                                    self.stats.io.add_passed();
+                                    self.stats.io.add_size(data.len());
+                                }
                                 Ok(Err(e)) => {
                                     self.push_to_retry(data);
                                     return Err(anyhow!("write event failed: {e:?}"));

@@ -44,7 +44,10 @@ pub fn new_async_logger(
 
     let stats = Arc::new(LogStats::default());
 
-    let io_thread = AsyncIoThread { receiver };
+    let io_thread = AsyncIoThread {
+        receiver,
+        stats: Arc::clone(&stats),
+    };
 
     let _detached_thread = std::thread::Builder::new()
         .name(async_conf.thread_name.clone())
@@ -57,6 +60,7 @@ pub fn new_async_logger(
 
 struct AsyncIoThread {
     receiver: Receiver<StdLogValue>,
+    stats: Arc<LogStats>,
 }
 
 impl AsyncIoThread {
@@ -81,8 +85,7 @@ impl AsyncIoThread {
         while let Ok(v) = self.receiver.recv() {
             buf.clear();
             let _ = self.write_plain(&mut buf, v);
-            let _ = io.write(&buf);
-            let _ = io.flush();
+            self.write_buf(&mut io, &buf);
         }
     }
 
@@ -105,8 +108,7 @@ impl AsyncIoThread {
         while let Ok(v) = self.receiver.recv() {
             buf.clear();
             let _ = self.write_console(&mut buf, v);
-            let _ = io.write(&buf);
-            let _ = io.flush();
+            self.write_buf(&mut io, &buf);
         }
     }
 
@@ -159,5 +161,16 @@ impl AsyncIoThread {
         io.flush()?;
 
         Ok(())
+    }
+
+    fn write_buf<IO: Write>(&self, io: &mut IO, buf: &[u8]) {
+        match io.write_all(buf) {
+            Ok(_) => {
+                self.stats.io.add_passed();
+                self.stats.io.add_size(buf.len());
+                let _ = io.flush();
+            }
+            Err(_) => self.stats.drop.add_peer_unreachable(),
+        }
     }
 }

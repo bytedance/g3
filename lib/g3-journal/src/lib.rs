@@ -65,8 +65,12 @@ struct AsyncIoThread {
 impl AsyncIoThread {
     fn run_to_end(self) {
         while let Ok(v) = self.receiver.recv() {
-            if libsystemd::logging::journal_send(v.priority, &v.msg, v.vars.into_iter()).is_err() {
-                self.stats.drop.add_peer_unreachable();
+            match libsystemd::logging::journal_send(v.priority, &v.msg, v.vars.into_iter()) {
+                Ok(_) => {
+                    self.stats.io.add_passed();
+                    self.stats.io.add_size(v.msg.len()); // FIXME use the real msg size
+                }
+                Err(_) => self.stats.drop.add_peer_unreachable(),
             }
         }
     }
