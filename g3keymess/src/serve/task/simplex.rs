@@ -32,6 +32,7 @@ impl KeylessTask {
         W: AsyncWrite + Send + Unpin + 'static,
     {
         let mut buf_reader = BufReader::new(reader);
+        let mut msg_count = 0;
 
         loop {
             tokio::select! {
@@ -40,10 +41,11 @@ impl KeylessTask {
                 r = buf_reader.fill_wait_data() => {
                     match r {
                         Ok(true) => {
-                            if let Err(e) = self.read_and_handle(&mut buf_reader, &mut writer).await {
+                            if let Err(e) = self.read_and_handle(&mut buf_reader, &mut writer, msg_count).await {
                                 self.log_task_err(e);
                                 break;
                             }
+                            msg_count += 1;
                         }
                         Ok(false) => break,
                         Err(e) => {
@@ -75,12 +77,13 @@ impl KeylessTask {
         &mut self,
         reader: &mut R,
         writer: &mut W,
+        msg_count: usize,
     ) -> Result<(), ServerTaskError>
     where
         R: AsyncRead + Send + Unpin + 'static,
         W: AsyncWrite + Send + Unpin + 'static,
     {
-        let mut req = self.timed_read_request(reader).await?;
+        let mut req = self.timed_read_request(reader, msg_count).await?;
         if let Some(rsp) = req.take_err_rsp() {
             req.stats.add_by_error_code(rsp.error_code());
             return self

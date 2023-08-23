@@ -96,6 +96,7 @@ impl KeylessTask {
         R: AsyncRead + Send + Unpin + 'static,
     {
         let mut buf_reader = BufReader::new(reader);
+        let mut msg_count = 0;
 
         loop {
             tokio::select! {
@@ -103,7 +104,10 @@ impl KeylessTask {
 
                 r = buf_reader.fill_wait_data() => {
                     match r {
-                        Ok(true) => self.read_and_spawn(&mut buf_reader, msg_sender).await?,
+                        Ok(true) => {
+                            self.read_and_spawn(&mut buf_reader, msg_count, msg_sender).await?;
+                            msg_count += 1;
+                        }
                         Ok(false) => return Ok(()),
                         Err(e) => return Err(ServerTaskError::ReadFailed(e)),
                     }
@@ -128,12 +132,13 @@ impl KeylessTask {
     async fn read_and_spawn<R>(
         &mut self,
         reader: &mut R,
+        msg_count: usize,
         msg_sender: &mpsc::Sender<KeylessResponse>,
     ) -> Result<(), ServerTaskError>
     where
         R: AsyncRead + Send + Unpin + 'static,
     {
-        let mut req = self.timed_read_request(reader).await?;
+        let mut req = self.timed_read_request(reader, msg_count).await?;
         if let Some(rsp) = req.take_err_rsp() {
             req.stats.add_by_error_code(rsp.error_code());
             let _ = msg_sender.send(KeylessResponse::Error(rsp)).await;

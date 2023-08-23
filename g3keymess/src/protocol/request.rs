@@ -42,6 +42,8 @@ pub(crate) enum KeylessAction {
 
 #[derive(Debug, Error)]
 pub(crate) enum KeylessRequestError {
+    #[error("closed early")]
+    ClosedEarly,
     #[error("read failed: {0:?}")]
     ReadFailed(io::Error),
     #[error("invalid message length")]
@@ -110,17 +112,31 @@ impl KeylessRequest {
     pub(crate) async fn read<R>(
         reader: &mut R,
         buf: &mut Vec<u8>,
+        msg_count: usize,
     ) -> Result<Self, KeylessRequestError>
     where
         R: AsyncRead + Unpin,
     {
-        let mut hdr_buf = [0u8; 8];
-        let len = reader
-            .read_exact(&mut hdr_buf)
-            .await
-            .map_err(KeylessRequestError::ReadFailed)?;
-        if len < 4 {
-            return Err(KeylessRequestError::InvalidMessageLength);
+        const HDR_BUF_LEN: usize = 8;
+
+        let mut hdr_buf = [0u8; HDR_BUF_LEN];
+        match reader.read_exact(&mut hdr_buf).await {
+            Ok(len) => {
+                if len < HDR_BUF_LEN {
+                    return if msg_count == 0 {
+                        Err(KeylessRequestError::ClosedEarly)
+                    } else {
+                        Err(KeylessRequestError::InvalidMessageLength)
+                    };
+                }
+            }
+            Err(e) => {
+                return if msg_count == 0 {
+                    Err(KeylessRequestError::ClosedEarly)
+                } else {
+                    Err(KeylessRequestError::ReadFailed(e))
+                };
+            }
         }
 
         let major = hdr_buf[0];
@@ -132,12 +148,23 @@ impl KeylessRequest {
         let len = ((hdr_buf[2] as usize) << 8) + hdr_buf[3] as usize;
         buf.clear();
         buf.resize(len, 0);
-        let nr = reader
-            .read_exact(buf)
-            .await
-            .map_err(KeylessRequestError::ReadFailed)?;
-        if nr < len {
-            return Err(KeylessRequestError::InvalidMessageLength);
+        match reader.read_exact(buf).await {
+            Ok(nr) => {
+                if nr < len {
+                    return if msg_count == 0 {
+                        Err(KeylessRequestError::ClosedEarly)
+                    } else {
+                        Err(KeylessRequestError::InvalidMessageLength)
+                    };
+                }
+            }
+            Err(e) => {
+                return if msg_count == 0 {
+                    Err(KeylessRequestError::ClosedEarly)
+                } else {
+                    Err(KeylessRequestError::ReadFailed(e))
+                };
+            }
         }
 
         let id = u32::from_be_bytes([hdr_buf[4], hdr_buf[5], hdr_buf[6], hdr_buf[7]]);

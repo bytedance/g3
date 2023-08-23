@@ -115,13 +115,14 @@ impl KeylessTask {
     async fn timed_read_request<R>(
         &mut self,
         reader: &mut R,
+        msg_count: usize,
     ) -> Result<WrappedKeylessRequest, ServerTaskError>
     where
         R: AsyncRead + Unpin,
     {
         match tokio::time::timeout(
             self.ctx.server_config.request_read_timeout,
-            KeylessRequest::read(reader, &mut self.buf),
+            KeylessRequest::read(reader, &mut self.buf, msg_count),
         )
         .await
         {
@@ -132,6 +133,9 @@ impl KeylessTask {
     }
 
     fn log_task_err(&self, e: ServerTaskError) {
+        if e.ignore_log() {
+            return;
+        }
         slog_info!(self.ctx.task_logger, "{}", e;
             "task_id" => LtUuid(&self.id),
             "start_at" => LtDateTime(&self.started),

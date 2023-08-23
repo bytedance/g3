@@ -24,6 +24,8 @@ use crate::protocol::KeylessRequestError;
 pub(crate) enum ServerTaskError {
     #[error("no error")]
     NoError,
+    #[error("connection closed early")]
+    ConnectionClosedEarly,
     #[error("write failed: {0:?}")]
     WriteFailed(io::Error),
     #[error("read failed: {0:?}")]
@@ -36,9 +38,16 @@ pub(crate) enum ServerTaskError {
     ServerForceQuit,
 }
 
+impl ServerTaskError {
+    pub(crate) fn ignore_log(&self) -> bool {
+        matches!(self, ServerTaskError::ConnectionClosedEarly)
+    }
+}
+
 impl From<KeylessRequestError> for ServerTaskError {
     fn from(value: KeylessRequestError) -> Self {
         match value {
+            KeylessRequestError::ClosedEarly => ServerTaskError::ConnectionClosedEarly,
             KeylessRequestError::ReadFailed(e) => ServerTaskError::ReadFailed(e),
             _ => ServerTaskError::InvalidRequest(value),
         }
