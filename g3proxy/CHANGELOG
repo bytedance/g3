@@ -1,4 +1,17 @@
 
+v1.7.22:
+ - Removed: remove the daemon group name setting in config file
+ - BUG FIX: fix site level socks_tcp_connect conn_total stats
+ - BUG FIX: fix logger io stats in various AsyncLogger backends
+ - Feature: support udp methods in ProxyFloat socks5 proxy peer
+ - Feature: support udp methods in DirectFloat escaper
+ - Feature: allow to use json value for egress path selection
+     - allow to set at user level
+     - support at ProxyFloat / DirectFloat / RouteSelect escaper
+     - make source config in ProxyFloat escaper optional
+ - Feature: allow to publish dynamic users
+ - Feature: default to guess main config file when run as systemd service
+
 v1.7.21:
  - BUG FIX: fix create of daemon controller
 
