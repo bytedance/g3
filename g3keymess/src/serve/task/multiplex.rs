@@ -109,7 +109,13 @@ impl KeylessTask {
                             msg_count += 1;
                         }
                         Ok(false) => return Ok(()),
-                        Err(e) => return Err(ServerTaskError::ReadFailed(e)),
+                        Err(e) => {
+                            return if msg_count == 0 {
+                                Err(ServerTaskError::ConnectionClosedEarly)
+                            } else {
+                                Err(ServerTaskError::ReadFailed(e))
+                            };
+                        }
                     }
                 }
                 r = self.ctx.reload_notifier.recv() => {

@@ -49,7 +49,11 @@ impl KeylessTask {
                         }
                         Ok(false) => break,
                         Err(e) => {
-                            self.log_task_err(ServerTaskError::ReadFailed(e));
+                            if msg_count == 0 {
+                                self.log_task_err(ServerTaskError::ConnectionClosedEarly);
+                            } else {
+                                self.log_task_err(ServerTaskError::ReadFailed(e));
+                            }
                             break;
                         }
                     }
