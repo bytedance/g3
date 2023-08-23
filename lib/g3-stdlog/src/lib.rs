@@ -86,6 +86,14 @@ impl AsyncIoThread {
             buf.clear();
             let _ = self.write_plain(&mut buf, v);
             self.write_buf(&mut io, &buf);
+
+            while let Ok(v) = self.receiver.try_recv() {
+                buf.clear();
+                let _ = self.write_plain(&mut buf, v);
+                self.write_buf(&mut io, &buf);
+            }
+
+            let _ = io.flush();
         }
     }
 
@@ -109,6 +117,14 @@ impl AsyncIoThread {
             buf.clear();
             let _ = self.write_console(&mut buf, v);
             self.write_buf(&mut io, &buf);
+
+            while let Ok(v) = self.receiver.try_recv() {
+                buf.clear();
+                let _ = self.write_console(&mut buf, v);
+                self.write_buf(&mut io, &buf);
+            }
+
+            let _ = io.flush();
         }
     }
 
@@ -168,7 +184,6 @@ impl AsyncIoThread {
             Ok(_) => {
                 self.stats.io.add_passed();
                 self.stats.io.add_size(buf.len());
-                let _ = io.flush();
             }
             Err(_) => self.stats.drop.add_peer_unreachable(),
         }
