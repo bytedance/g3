@@ -28,7 +28,7 @@ use g3_types::route::EgressPathSelection;
 
 use crate::auth::UserContext;
 
-const DEFAULT_PATH_SELECTION: OnceLock<Arc<EgressPathSelection>> = OnceLock::new();
+static DEFAULT_PATH_SELECTION: OnceLock<Arc<EgressPathSelection>> = OnceLock::new();
 
 #[derive(Clone, Copy)]
 pub(crate) enum ServerTaskStage {
@@ -83,15 +83,14 @@ impl ServerTaskNotes {
         user_ctx: Option<UserContext>,
         wait_time: Duration,
     ) -> Self {
-        let path_selection = DEFAULT_PATH_SELECTION
-            .get_or_init(|| Arc::new(EgressPathSelection::Default))
-            .clone();
+        let path_selection =
+            DEFAULT_PATH_SELECTION.get_or_init(|| Arc::new(EgressPathSelection::Default));
         ServerTaskNotes::with_path_selection(
             worker_id,
             cc_info,
             user_ctx,
             wait_time,
-            path_selection,
+            path_selection.clone(),
         )
     }
 
