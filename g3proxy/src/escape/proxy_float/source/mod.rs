@@ -49,14 +49,14 @@ async fn parse_and_save_peers(
     config: &Arc<ProxyFloatEscaperConfig>,
     stats: &Arc<ProxyFloatEscaperStats>,
     escape_logger: &Logger,
-    container: &Arc<ArcSwap<Box<[ArcNextProxyPeer]>>>,
+    container: &Arc<ArcSwap<Vec<ArcNextProxyPeer>>>,
     tls_config: Option<&Arc<OpensslTlsClientConfig>>,
     records: Vec<serde_json::Value>,
 ) -> anyhow::Result<()> {
     let peers = super::peer::parse_peers(config, stats, escape_logger, &records, tls_config)
         .map_err(|e| anyhow!("failed to parse peers: {e:?}"))?;
 
-    container.store(Arc::new(peers.into_boxed_slice()));
+    container.store(Arc::new(peers));
     if let Some(cache_file) = &config.cache_file {
         file::save_peers_to_cache(cache_file, records)
             .await
@@ -69,7 +69,7 @@ pub(super) async fn publish_peers(
     config: &Arc<ProxyFloatEscaperConfig>,
     stats: &Arc<ProxyFloatEscaperStats>,
     escape_logger: &Logger,
-    peers_container: &Arc<ArcSwap<Box<[ArcNextProxyPeer]>>>,
+    peers_container: &Arc<ArcSwap<Vec<ArcNextProxyPeer>>>,
     tls_config: Option<&Arc<OpensslTlsClientConfig>>,
     data: String,
 ) -> anyhow::Result<()> {
@@ -96,7 +96,7 @@ pub(super) fn new_job(
     config: Arc<ProxyFloatEscaperConfig>,
     stats: Arc<ProxyFloatEscaperStats>,
     escape_logger: Logger,
-    peers_container: Arc<ArcSwap<Box<[ArcNextProxyPeer]>>>,
+    peers_container: Arc<ArcSwap<Vec<ArcNextProxyPeer>>>,
     tls_config: Option<Arc<OpensslTlsClientConfig>>,
 ) -> anyhow::Result<AbortHandle> {
     let f = async move {

@@ -62,7 +62,7 @@ pub(super) struct ProxyFloatEscaper {
     config: Arc<ProxyFloatEscaperConfig>,
     stats: Arc<ProxyFloatEscaperStats>,
     source_job_handler: Option<AbortHandle>,
-    peers: Arc<ArcSwap<Box<[ArcNextProxyPeer]>>>,
+    peers: Arc<ArcSwap<Vec<ArcNextProxyPeer>>>,
     tls_config: Option<Arc<OpensslTlsClientConfig>>,
     escape_logger: Logger,
 }
@@ -79,7 +79,7 @@ impl ProxyFloatEscaper {
     async fn new_obj(
         config: ProxyFloatEscaperConfig,
         stats: Arc<ProxyFloatEscaperStats>,
-        peers: Option<Arc<Box<[ArcNextProxyPeer]>>>,
+        peers: Option<Arc<Vec<ArcNextProxyPeer>>>,
     ) -> anyhow::Result<ArcEscaper> {
         let escape_logger = config.get_escape_logger();
 
@@ -107,10 +107,10 @@ impl ProxyFloatEscaper {
                             );
                             Vec::new()
                         });
-                Arc::new(peers.into_boxed_slice())
+                Arc::new(peers)
             }
         };
-        let peers = Arc::new(ArcSwap::<Box<[ArcNextProxyPeer]>>::new(peers));
+        let peers = Arc::new(ArcSwap::new(peers));
         let source_job_handler = source::new_job(
             Arc::clone(&config),
             Arc::clone(&stats),
@@ -145,7 +145,7 @@ impl ProxyFloatEscaper {
     async fn prepare_reload(
         config: AnyEscaperConfig,
         stats: Arc<ProxyFloatEscaperStats>,
-        peers: Arc<Box<[ArcNextProxyPeer]>>,
+        peers: Arc<Vec<ArcNextProxyPeer>>,
     ) -> anyhow::Result<ArcEscaper> {
         if let AnyEscaperConfig::ProxyFloat(config) = config {
             ProxyFloatEscaper::new_obj(config, stats, Some(peers)).await
