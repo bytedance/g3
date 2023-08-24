@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#![allow(clippy::vtable_address_comparisons)]
-
 use std::pin::pin;
 use std::sync::Arc;
 use std::time::Duration;

@@ -53,7 +53,6 @@ impl RouteHttpForwardContext {
 
 #[async_trait]
 impl HttpForwardContext for RouteHttpForwardContext {
-    #[allow(clippy::vtable_address_comparisons)]
     async fn check_in_final_escaper<'a>(
         &'a mut self,
         task_notes: &'a ServerTaskNotes,
