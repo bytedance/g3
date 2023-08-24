@@ -15,6 +15,7 @@
  */
 
 use std::str::FromStr;
+use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
@@ -209,7 +210,7 @@ impl UserConfig {
                 if let Yaml::String(s) = v {
                     let v = serde_json::Value::from_str(s)
                         .map_err(|e| anyhow!("invalid json string value for key {k}: {e}"))?;
-                    self.egress_path_selection = EgressPathSelection::JsonValue(v);
+                    self.egress_path_selection = Arc::new(EgressPathSelection::JsonValue(v));
                     Ok(())
                 } else {
                     Err(anyhow!("invalid json string value for key {k}"))

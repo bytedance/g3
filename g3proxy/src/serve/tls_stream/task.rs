@@ -25,7 +25,6 @@ use tokio_rustls::server::TlsStream;
 use g3_daemon::stat::task::TcpStreamTaskStats;
 use g3_io_ext::{LimitedReader, LimitedWriter};
 use g3_types::net::UpstreamAddr;
-use g3_types::route::EgressPathSelection;
 
 use super::common::CommonTaskContext;
 use crate::config::server::ServerConfig;
@@ -44,13 +43,8 @@ pub(super) struct TlsStreamTask {
 
 impl TlsStreamTask {
     pub(super) fn new(ctx: CommonTaskContext, upstream: &UpstreamAddr) -> Self {
-        let task_notes = ServerTaskNotes::new(
-            ctx.worker_id,
-            ctx.cc_info.clone(),
-            None,
-            Duration::ZERO,
-            EgressPathSelection::Default,
-        );
+        let task_notes =
+            ServerTaskNotes::new(ctx.worker_id, ctx.cc_info.clone(), None, Duration::ZERO);
         TlsStreamTask {
             ctx,
             tcp_notes: TcpConnectTaskNotes::new(upstream.clone()),

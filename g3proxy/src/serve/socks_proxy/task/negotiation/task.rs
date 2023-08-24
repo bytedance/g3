@@ -116,7 +116,10 @@ impl SocksProxyNegotiationTask {
         }
     }
 
-    fn get_egress_path_selection(&self, user_ctx: Option<&UserContext>) -> EgressPathSelection {
+    fn get_egress_path_selection(
+        &self,
+        user_ctx: Option<&UserContext>,
+    ) -> Arc<EgressPathSelection> {
         user_ctx
             .map(|ctx| ctx.user_config().egress_path_selection.clone())
             .unwrap_or_default()
@@ -146,7 +149,6 @@ impl SocksProxyNegotiationTask {
             self.ctx.cc_info.clone(),
             None,
             self.time_accepted.elapsed(),
-            EgressPathSelection::Default,
         );
         match req.command {
             SocksCommand::TcpConnect => {
@@ -272,7 +274,7 @@ impl SocksProxyNegotiationTask {
         let req = v5::Socks5Request::recv(&mut clt_r).await?;
 
         let path_selection = self.get_egress_path_selection(user_ctx.as_ref());
-        let task_notes = ServerTaskNotes::new(
+        let task_notes = ServerTaskNotes::with_path_selection(
             self.ctx.worker_id,
             self.ctx.cc_info.clone(),
             user_ctx,

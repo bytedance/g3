@@ -15,6 +15,7 @@
  */
 
 use std::net::{IpAddr, SocketAddr};
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
@@ -26,6 +27,8 @@ use g3_types::limit::GaugeSemaphorePermit;
 use g3_types::route::EgressPathSelection;
 
 use crate::auth::UserContext;
+
+const DEFAULT_PATH_SELECTION: OnceLock<Arc<EgressPathSelection>> = OnceLock::new();
 
 #[derive(Clone, Copy)]
 pub(crate) enum ServerTaskStage {
@@ -68,7 +71,7 @@ pub(crate) struct ServerTaskNotes {
     user_ctx: Option<UserContext>,
     pub(crate) wait_time: Duration,
     pub(crate) ready_time: Duration,
-    pub(crate) egress_path_selection: EgressPathSelection,
+    pub(crate) egress_path_selection: Arc<EgressPathSelection>,
     /// the following fields should not be cloned
     pub(crate) user_req_alive_permit: Option<GaugeSemaphorePermit>,
 }
@@ -79,7 +82,25 @@ impl ServerTaskNotes {
         cc_info: ClientConnectionInfo,
         user_ctx: Option<UserContext>,
         wait_time: Duration,
-        egress_path_selection: EgressPathSelection,
+    ) -> Self {
+        let path_selection = DEFAULT_PATH_SELECTION
+            .get_or_init(|| Arc::new(EgressPathSelection::Default))
+            .clone();
+        ServerTaskNotes::with_path_selection(
+            worker_id,
+            cc_info,
+            user_ctx,
+            wait_time,
+            path_selection,
+        )
+    }
+
+    pub(crate) fn with_path_selection(
+        worker_id: Option<usize>,
+        cc_info: ClientConnectionInfo,
+        user_ctx: Option<UserContext>,
+        wait_time: Duration,
+        egress_path_selection: Arc<EgressPathSelection>,
     ) -> Self {
         let started = Utc::now();
         let uuid = g3_daemon::server::task::generate_uuid(&started);

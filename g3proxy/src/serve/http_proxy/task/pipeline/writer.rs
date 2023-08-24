@@ -241,11 +241,12 @@ where
         &self,
         headers: &mut HttpHeaderMap,
         user_ctx: Option<&UserContext>,
-    ) -> EgressPathSelection {
+    ) -> Arc<EgressPathSelection> {
         if let Some(header) = &self.ctx.server_config.egress_path_selection_header {
             // check and remove the custom header
             if let Some(value) = headers.remove(header) {
-                return EgressPathSelection::from_str(value.to_str()).unwrap_or_default();
+                let egress = EgressPathSelection::from_str(value.to_str()).unwrap_or_default();
+                return Arc::new(egress);
             }
         }
         user_ctx
@@ -260,7 +261,7 @@ where
     ) -> LoopAction {
         let path_selection =
             self.get_egress_path_selection(&mut req.inner.end_to_end_headers, user_ctx.as_ref());
-        let task_notes = ServerTaskNotes::new(
+        let task_notes = ServerTaskNotes::with_path_selection(
             self.ctx.worker_id,
             self.ctx.cc_info.clone(),
             user_ctx,

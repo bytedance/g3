@@ -25,7 +25,6 @@ use g3_daemon::stat::task::{TcpStreamConnectionStats, TcpStreamTaskStats};
 use g3_dpi::Protocol;
 use g3_io_ext::{FlexBufReader, LimitedCopy, LimitedReader, LimitedWriter, OnceBufReader};
 use g3_types::net::UpstreamAddr;
-use g3_types::route::EgressPathSelection;
 
 use super::CommonTaskContext;
 use crate::config::server::ServerConfig;
@@ -51,13 +50,7 @@ impl TcpStreamTask {
         wait_time: Duration,
         pre_handshake_stats: TcpStreamConnectionStats,
     ) -> Self {
-        let task_notes = ServerTaskNotes::new(
-            ctx.worker_id,
-            ctx.cc_info.clone(),
-            None,
-            wait_time,
-            EgressPathSelection::Default,
-        );
+        let task_notes = ServerTaskNotes::new(ctx.worker_id, ctx.cc_info.clone(), None, wait_time);
         TcpStreamTask {
             ctx,
             protocol,

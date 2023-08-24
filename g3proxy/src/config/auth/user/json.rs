@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+use std::sync::Arc;
+
 use anyhow::{anyhow, Context};
 use serde_json::{Map, Value};
 
@@ -206,7 +208,7 @@ impl UserConfig {
                 .parse_json(v)
                 .context(format!("invalid user audit config value for key {k}")),
             "egress_path" => {
-                self.egress_path_selection = EgressPathSelection::JsonValue(v.clone());
+                self.egress_path_selection = Arc::new(EgressPathSelection::JsonValue(v.clone()));
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

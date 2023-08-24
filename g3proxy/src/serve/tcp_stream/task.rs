@@ -24,7 +24,6 @@ use tokio::net::TcpStream;
 use g3_daemon::stat::task::TcpStreamTaskStats;
 use g3_io_ext::{LimitedReader, LimitedWriter};
 use g3_types::net::UpstreamAddr;
-use g3_types::route::EgressPathSelection;
 
 use super::common::CommonTaskContext;
 use super::stats::TcpStreamTaskCltWrapperStats;
@@ -43,13 +42,8 @@ pub(super) struct TcpStreamTask {
 
 impl TcpStreamTask {
     pub(super) fn new(ctx: CommonTaskContext, upstream: &UpstreamAddr) -> Self {
-        let task_notes = ServerTaskNotes::new(
-            ctx.worker_id,
-            ctx.cc_info.clone(),
-            None,
-            Duration::ZERO,
-            EgressPathSelection::Default,
-        );
+        let task_notes =
+            ServerTaskNotes::new(ctx.worker_id, ctx.cc_info.clone(), None, Duration::ZERO);
         TcpStreamTask {
             ctx,
             tcp_notes: TcpConnectTaskNotes::new(upstream.clone()),
