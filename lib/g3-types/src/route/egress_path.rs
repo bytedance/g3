@@ -15,7 +15,6 @@
  */
 
 use std::str::FromStr;
-use std::sync::Arc;
 
 #[cfg(feature = "json")]
 use serde_json::Value;
@@ -26,7 +25,7 @@ pub enum EgressPathSelection {
     Default,
     Index(usize),
     #[cfg(feature = "json")]
-    JsonValue(Arc<Value>),
+    JsonValue(Value),
 }
 
 impl EgressPathSelection {
@@ -51,11 +50,9 @@ impl EgressPathSelection {
 
     #[cfg(feature = "json")]
     pub fn select_json_value_by_key(&self, key: &str) -> Option<&Value> {
-        if let EgressPathSelection::JsonValue(v) = self {
-            if let Value::Object(map) = v.as_ref() {
-                if let Some(v) = map.get(key) {
-                    return Some(v);
-                }
+        if let EgressPathSelection::JsonValue(Value::Object(map)) = self {
+            if let Some(v) = map.get(key) {
+                return Some(v);
             }
         }
         None
