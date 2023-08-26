@@ -29,8 +29,8 @@ The following egress path selection methods is supported:
   The json value will be either of:
 
   - just one :ref:`peer <config_escaper_dynamic_peer>`
-  - an array of :ref:`peer <config_escaper_dynamic_peer>`, one will be selected randomly
-  - just one :ref:`peer id <config_escaper_dynamic_peer_id>`, the peer with that ID must be existed in escaper config
+  - an array of :ref:`peer <config_escaper_dynamic_peer>`, a random one will be selected
+  - just one :ref:`peer id <config_escaper_dynamic_peer_id>`, the ID should be present in escaper config
 
   .. versionadded:: 1.7.22
 

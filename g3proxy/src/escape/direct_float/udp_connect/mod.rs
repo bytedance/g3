@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::io;
 use std::sync::Arc;
 
 use tokio::net::UdpSocket;
@@ -81,12 +80,9 @@ impl DirectFloatEscaper {
         self.handle_udp_target_ip_acl_action(action, task_notes)?;
 
         let family = AddressFamily::from(&peer_addr);
-        let bind = self.select_bind(family, task_notes).ok_or_else(|| {
-            UdpConnectError::SetupSocketFailed(io::Error::new(
-                io::ErrorKind::AddrNotAvailable,
-                "no bind ip usable",
-            ))
-        })?;
+        let bind = self
+            .select_bind(family, task_notes)
+            .map_err(UdpConnectError::EscaperNotUsable)?;
         udp_notes.bind = Some(bind.ip);
 
         let misc_opts = if let Some(user_ctx) = task_notes.user_ctx() {

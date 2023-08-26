@@ -16,8 +16,10 @@
 
 use std::net::IpAddr;
 
+use ahash::AHashMap;
 use anyhow::{anyhow, Context};
 use chrono::{DateTime, Utc};
+use rand::seq::IteratorRandom;
 use serde_json::Value;
 use tokio::time::Instant;
 
@@ -72,18 +74,20 @@ impl DirectFloatBindIp {
         value: &Value,
         instant_now: Instant,
         datetime_now: DateTime<Utc>,
-    ) -> anyhow::Result<Option<Self>> {
+    ) -> anyhow::Result<Option<(String, Self)>> {
         match value {
             Value::Object(map) => {
                 let ip_v = g3_json::map_get_required(map, CONFIG_KEY_IP)?;
                 let ip = g3_json::value::as_ipaddr(ip_v)
                     .context(format!("invalid value for key {CONFIG_KEY_IP}"))?;
 
+                let mut bind_id = String::new();
                 let mut bind = DirectFloatBindIp::new(ip);
 
                 for (k, v) in map {
                     match g3_json::key::normalize(k).as_str() {
                         CONFIG_KEY_IP => {}
+                        "id" => bind_id = g3_json::value::as_string(v)?,
                         "expire" => {
                             let datetime_expire = g3_json::value::as_rfc3339_datetime(v)?;
                             if datetime_expire < datetime_now {
@@ -121,30 +125,28 @@ impl DirectFloatBindIp {
                     }
                 }
 
-                Ok(Some(bind))
+                Ok(Some((bind_id, bind)))
             }
             Value::String(_) => {
                 let ip = g3_json::value::as_ipaddr(value)
                     .context(anyhow!("invalid ip address value"))?;
-                Ok(Some(DirectFloatBindIp::new(ip)))
+                Ok(Some((String::new(), DirectFloatBindIp::new(ip))))
             }
             _ => Err(anyhow!("invalid value type")),
         }
     }
 }
 
-pub(super) fn parse_records(
-    records: &[Value],
-    family: AddressFamily,
-) -> anyhow::Result<Vec<DirectFloatBindIp>> {
-    let mut ips = Vec::<DirectFloatBindIp>::new();
+pub(super) fn parse_records(records: &[Value], family: AddressFamily) -> anyhow::Result<BindSet> {
+    let mut bind_set = BindSet::default();
 
     let instant_now = Instant::now();
     let datetime_now = Utc::now();
 
     for (i, record) in records.iter().enumerate() {
-        let Some(bind) = DirectFloatBindIp::parse_json(record, instant_now, datetime_now)
-            .context(format!("invalid value for record #{i}"))?
+        let Some((bind_id, bind)) =
+            DirectFloatBindIp::parse_json(record, instant_now, datetime_now)
+                .context(format!("invalid value for record #{i}"))?
         else {
             continue;
         };
@@ -153,10 +155,14 @@ pub(super) fn parse_records(
             continue;
         }
 
-        ips.push(bind);
+        if bind_id.is_empty() {
+            bind_set.push_unnamed(bind);
+        } else {
+            bind_set.insert_named(bind_id, bind);
+        }
     }
 
-    Ok(ips)
+    Ok(bind_set)
 }
 
 pub(super) fn parse_record(
@@ -166,13 +172,62 @@ pub(super) fn parse_record(
     let instant_now = Instant::now();
     let datetime_now = Utc::now();
 
-    let bind = DirectFloatBindIp::parse_json(record, instant_now, datetime_now)?;
-    let bind = bind.and_then(|v| {
-        if AddressFamily::from(&v.ip).ne(&family) {
+    let r = DirectFloatBindIp::parse_json(record, instant_now, datetime_now)?;
+    let bind = r.and_then(|(_, bind)| {
+        if AddressFamily::from(&bind.ip).ne(&family) {
             None
         } else {
-            Some(v)
+            Some(bind)
         }
     });
     Ok(bind)
+}
+
+#[derive(Default)]
+pub(super) struct BindSet {
+    unnamed: Vec<DirectFloatBindIp>,
+    named: AHashMap<String, DirectFloatBindIp>,
+}
+
+impl BindSet {
+    #[inline]
+    fn push_unnamed(&mut self, bind: DirectFloatBindIp) {
+        self.unnamed.push(bind);
+    }
+
+    #[inline]
+    fn insert_named(&mut self, id: String, bind: DirectFloatBindIp) {
+        self.named.insert(id, bind);
+    }
+
+    pub(super) fn select_random_bind(&self) -> Option<DirectFloatBindIp> {
+        self.unnamed
+            .iter()
+            .chain(self.named.values())
+            .choose(&mut rand::thread_rng())
+            .cloned()
+    }
+
+    pub(super) fn select_again(&self, ip: IpAddr) -> Option<DirectFloatBindIp> {
+        self.unnamed
+            .iter()
+            .chain(self.named.values())
+            .find(|v| v.ip == ip)
+            .cloned()
+    }
+
+    pub(super) fn select_stable_bind(&self) -> Option<&DirectFloatBindIp> {
+        if self.unnamed.len() == 1 {
+            return self.unnamed.first();
+        }
+        if self.named.len() == 1 {
+            return self.named.values().next();
+        }
+        None
+    }
+
+    #[inline]
+    pub(super) fn select_named_bind(&self, id: &str) -> Option<DirectFloatBindIp> {
+        self.named.get(id).cloned()
+    }
 }

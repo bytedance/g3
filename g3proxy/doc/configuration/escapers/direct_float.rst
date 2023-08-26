@@ -31,8 +31,11 @@ The following egress path selection methods is supported:
 
 * :ref:`by json <proto_egress_path_selection_by_json>`
 
-  The json value will be parsed as one (json map) or more (json array) :ref:`Bind IP <config_escaper_dynamic_bind_ip>`.
-  The bind ips passed here will overwrite the ones in the escaper config.
+  The json value will be either of:
+
+  - just one :ref:`Bind IP <config_escaper_dynamic_bind_ip>`
+  - an array of  :ref:`Bind IP <config_escaper_dynamic_bind_ip>`, a random one will be selected
+  - just one :ref:`Bind IP ID <config_escaper_dynamic_bind_ip_id>`, the ID should be present in escaper config
 
   .. note:: you should consider disable ipv4 / ipv6 at escaper level if the value in the egress path selection doesn't
             support ipv4 / ipv6
@@ -143,6 +146,16 @@ We use json string to represent a dynamic bind ip, with a map type as root eleme
   **required**, **type**: :ref:`ip addr str <conf_value_ip_addr_str>`
 
   Set the IP address. The address family should match the type of the publish key described above.
+
+.. _config_escaper_dynamic_bind_ip_id:
+
+* id
+
+  **optional**, **type**: str
+
+  The ID of this bind IP.
+
+  .. versionadded:: 1.7.23
 
 * isp
 

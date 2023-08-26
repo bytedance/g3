@@ -90,20 +90,11 @@ impl DirectFloatEscaper {
         self.handle_tcp_target_ip_acl_action(action, task_notes)?;
 
         let bind = if let Some(ip) = bind_ip {
-            self.select_bind_again(ip, task_notes).ok_or_else(|| {
-                TcpConnectError::SetupSocketFailed(io::Error::new(
-                    io::ErrorKind::AddrNotAvailable,
-                    "bind ip expired",
-                ))
-            })?
+            self.select_bind_again(ip, task_notes)
+                .map_err(TcpConnectError::EscaperNotUsable)?
         } else {
             self.select_bind(AddressFamily::from(&peer_ip), task_notes)
-                .ok_or_else(|| {
-                    TcpConnectError::SetupSocketFailed(io::Error::new(
-                        io::ErrorKind::AddrNotAvailable,
-                        "no bind ip usable",
-                    ))
-                })?
+                .map_err(TcpConnectError::EscaperNotUsable)?
         };
 
         let sock =

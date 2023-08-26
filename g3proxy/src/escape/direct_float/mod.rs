@@ -19,11 +19,10 @@ use std::convert::TryFrom;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use log::warn;
-use rand::seq::{IteratorRandom, SliceRandom};
 use serde_json::Value;
 use slog::Logger;
 
@@ -62,7 +61,7 @@ use crate::resolve::{ArcIntegratedResolverHandle, HappyEyeballsResolveJob};
 use crate::serve::ServerTaskNotes;
 
 mod bind;
-use bind::DirectFloatBindIp;
+use bind::{BindSet, DirectFloatBindIp};
 
 mod publish;
 
@@ -79,8 +78,8 @@ pub(super) struct DirectFloatEscaper {
     resolver_handle: ArcIntegratedResolverHandle,
     egress_net_filter: Arc<AclNetworkRule>,
     resolve_redirection: Option<ResolveRedirection>,
-    bind_v4: ArcSwap<Box<[DirectFloatBindIp]>>,
-    bind_v6: ArcSwap<Box<[DirectFloatBindIp]>>,
+    bind_v4: ArcSwap<BindSet>,
+    bind_v6: ArcSwap<BindSet>,
     escape_logger: Logger,
 }
 
@@ -88,8 +87,8 @@ impl DirectFloatEscaper {
     async fn new_obj(
         config: DirectFloatEscaperConfig,
         stats: Arc<DirectFixedEscaperStats>,
-        bind_v4: Option<Arc<Box<[DirectFloatBindIp]>>>,
-        bind_v6: Option<Arc<Box<[DirectFloatBindIp]>>>,
+        bind_v4: Option<Arc<BindSet>>,
+        bind_v6: Option<Arc<BindSet>>,
     ) -> anyhow::Result<ArcEscaper> {
         let resolver_handle = crate::resolve::get_handle(config.resolver())?;
         let egress_net_filter = Arc::new(config.egress_net_filter.build());
@@ -106,31 +105,31 @@ impl DirectFloatEscaper {
         let bind_v4 = match bind_v4 {
             Some(binds) => binds,
             None => {
-                let vec = publish::load_ipv4_from_cache(&config)
+                let bind_set = publish::load_ipv4_from_cache(&config)
                     .await
                     .unwrap_or_else(|e| {
                         warn!(
                             "failed to load cached ipv4 addr for escaper {}: {:?}",
                             config.name, e
                         );
-                        Vec::new()
+                        BindSet::default()
                     });
-                Arc::new(vec.into_boxed_slice())
+                Arc::new(bind_set)
             }
         };
         let bind_v6 = match bind_v6 {
             Some(binds) => binds,
             None => {
-                let vec = publish::load_ipv6_from_cache(&config)
+                let bind_set = publish::load_ipv6_from_cache(&config)
                     .await
                     .unwrap_or_else(|e| {
                         warn!(
                             "failed to load cached ipv6 addr for escaper {}: {:?}",
                             config.name, e
                         );
-                        Vec::new()
+                        BindSet::default()
                     });
-                Arc::new(vec.into_boxed_slice())
+                Arc::new(bind_set)
             }
         };
 
@@ -162,8 +161,8 @@ impl DirectFloatEscaper {
     async fn prepare_reload(
         config: AnyEscaperConfig,
         stats: Arc<DirectFixedEscaperStats>,
-        bind_v4: Option<Arc<Box<[DirectFloatBindIp]>>>,
-        bind_v6: Option<Arc<Box<[DirectFloatBindIp]>>>,
+        bind_v4: Option<Arc<BindSet>>,
+        bind_v6: Option<Arc<BindSet>>,
     ) -> anyhow::Result<ArcEscaper> {
         if let AnyEscaperConfig::DirectFloat(config) = config {
             DirectFloatEscaper::new_obj(*config, stats, bind_v4, bind_v6).await
@@ -172,85 +171,113 @@ impl DirectFloatEscaper {
         }
     }
 
-    fn select_bind_again_from_egress_path(ip: IpAddr, value: &Value) -> Option<DirectFloatBindIp> {
+    fn select_bind_again_from_egress_path(
+        &self,
+        ip: IpAddr,
+        value: &Value,
+    ) -> anyhow::Result<DirectFloatBindIp> {
         let family = AddressFamily::from(&ip);
-        if let Value::Array(v) = value {
-            let vec = bind::parse_records(v, family).ok()?;
-            vec.into_iter()
-                .find_map(|v| if v.ip == ip { Some(v) } else { None })
-        } else {
-            let bind = bind::parse_record(value, family).ok()?;
-            bind.and_then(|v| if v.ip == ip { Some(v) } else { None })
+        match value {
+            Value::Array(seq) => {
+                let bind_set = bind::parse_records(seq, family)
+                    .context("invalid egress path json array value")?;
+                bind_set
+                    .select_again(ip)
+                    .ok_or_else(|| anyhow!("no bind IP {ip} found in egress path"))
+            }
+            Value::Object(_) => {
+                let bind = bind::parse_record(value, family)
+                    .context("invalid egress path json object value")?
+                    .ok_or_else(|| anyhow!("no bind IP found in egress path"))?;
+                if bind.ip != ip {
+                    return Err(anyhow!(
+                        "the bind IP in egress path has changed from {ip} to {}",
+                        bind.ip
+                    ));
+                }
+                Ok(bind)
+            }
+            Value::String(s) => {
+                let bind_set = match family {
+                    AddressFamily::Ipv4 => self.bind_v4.load(),
+                    AddressFamily::Ipv6 => self.bind_v6.load(),
+                };
+                let bind = bind_set
+                    .select_named_bind(s)
+                    .ok_or_else(|| anyhow!("no bind IP with ID {s} found at escaper level"))?;
+                if bind.ip != ip {
+                    return Err(anyhow!(
+                        "the bind IP with ID {s} at escaper level has changed from {ip} to {}",
+                        bind.ip
+                    ));
+                }
+                Ok(bind)
+            }
+            _ => Err(anyhow!("invalid egress path json value")),
         }
     }
 
-    fn select_bind_again_from_escaper(&self, ip: IpAddr) -> Option<DirectFloatBindIp> {
-        let vec = match ip {
+    fn select_bind_again_from_escaper(&self, ip: IpAddr) -> anyhow::Result<DirectFloatBindIp> {
+        let bind_set = match ip {
             IpAddr::V4(_) => self.bind_v4.load(),
             IpAddr::V6(_) => self.bind_v6.load(),
         };
-        vec.as_ref()
-            .iter()
-            .find_map(|v| if v.ip == ip { Some(v.clone()) } else { None })
+        bind_set
+            .select_again(ip)
+            .ok_or_else(|| anyhow!("no bind IP {ip} found at escaper level"))
     }
 
     fn select_bind_again(
         &self,
         ip: IpAddr,
         task_notes: &ServerTaskNotes,
-    ) -> Option<DirectFloatBindIp> {
+    ) -> anyhow::Result<DirectFloatBindIp> {
         if let Some(value) = task_notes
             .egress_path_selection
             .select_json_value_by_key(self.name().as_str())
         {
-            DirectFloatEscaper::select_bind_again_from_egress_path(ip, value)
+            self.select_bind_again_from_egress_path(ip, value)
         } else {
             self.select_bind_again_from_escaper(ip)
         }
     }
 
-    fn select_bind_from_escaper(&self, family: AddressFamily) -> Option<DirectFloatBindIp> {
-        let vec = match family {
+    fn select_bind_from_escaper(&self, family: AddressFamily) -> anyhow::Result<DirectFloatBindIp> {
+        let bind_set = match family {
             AddressFamily::Ipv4 => self.bind_v4.load(),
             AddressFamily::Ipv6 => self.bind_v6.load(),
         };
-        let vec = vec.as_ref();
-        match vec.len() {
-            0 => None,
-            1 => {
-                let bind = &vec[0];
-                if bind.is_expired() {
-                    None
-                } else {
-                    Some(bind.clone())
-                }
-            }
-            _ => {
-                let mut rng = rand::thread_rng();
-                if let Ok(bind) =
-                    vec.choose_weighted(&mut rng, |bind| i32::from(!bind.is_expired()))
-                {
-                    Some(bind.clone())
-                } else {
-                    None
-                }
-            }
-        }
+        bind_set
+            .select_random_bind()
+            .ok_or_else(|| anyhow!("no {family} bind IP available at escaper level"))
     }
 
     fn select_bind_from_egress_path(
+        &self,
         family: AddressFamily,
         value: &Value,
-    ) -> Option<DirectFloatBindIp> {
-        if let Value::Array(v) = value {
-            let mut peers = bind::parse_records(v, family).ok()?;
-            match peers.len() {
-                0 => None,
-                1 => peers.pop(),
-                _ => peers.into_iter().choose(&mut rand::thread_rng()),
+    ) -> anyhow::Result<DirectFloatBindIp> {
+        match value {
+            Value::Array(v) => {
+                let bind_set = bind::parse_records(v, family)
+                    .context("invalid egress path json array value")?;
+                bind_set
+                    .select_random_bind()
+                    .ok_or_else(|| anyhow!("no {family} bind IP available in egress path"))
             }
-        } else {
-            bind::parse_record(value, family).ok()?
+            Value::Object(_) => bind::parse_record(value, family)
+                .context("invalid egress path json object value")?
+                .ok_or_else(|| anyhow!("no {family} bind IP available in egress path")),
+            Value::String(s) => {
+                let bind_set = match family {
+                    AddressFamily::Ipv4 => self.bind_v4.load(),
+                    AddressFamily::Ipv6 => self.bind_v6.load(),
+                };
+                bind_set
+                    .select_named_bind(s)
+                    .ok_or_else(|| anyhow!("no bind IP with ID {s} found at escaper level"))
+            }
+            _ => Err(anyhow!("invalid egress path json value")),
         }
     }
 
@@ -258,12 +285,12 @@ impl DirectFloatEscaper {
         &self,
         family: AddressFamily,
         task_notes: &ServerTaskNotes,
-    ) -> Option<DirectFloatBindIp> {
+    ) -> anyhow::Result<DirectFloatBindIp> {
         if let Some(v) = task_notes
             .egress_path_selection
             .select_json_value_by_key(self.name().as_str())
         {
-            DirectFloatEscaper::select_bind_from_egress_path(family, v)
+            self.select_bind_from_egress_path(family, v)
         } else {
             self.select_bind_from_escaper(family)
         }
@@ -572,19 +599,18 @@ impl EscaperInternal for DirectFloatEscaper {
     }
 
     fn _trick_float_weight(&self) -> u8 {
-        let mut vec = self.bind_v4.load();
-        if vec.len() == 0 {
-            // the v4 and v6 binding should be in sync in most cases if both available.
-            // If v4 available, then v6 may be unavailable or just be the same.
-            vec = self.bind_v6.load();
-        }
-        let vec = vec.as_ref();
-        if vec.len() == 1 {
-            let bind = &vec[0];
+        let bind_v4 = self.bind_v4.load();
+        if let Some(bind) = bind_v4.select_stable_bind() {
             let alive_minutes = bind.expected_alive_minutes();
-            u8::try_from(alive_minutes).unwrap_or(u8::MAX)
-        } else {
-            0
+            return u8::try_from(alive_minutes).unwrap_or(u8::MAX);
         }
+
+        let bind_v6 = self.bind_v6.load();
+        if let Some(bind) = bind_v6.select_stable_bind() {
+            let alive_minutes = bind.expected_alive_minutes();
+            return u8::try_from(alive_minutes).unwrap_or(u8::MAX);
+        }
+
+        0
     }
 }

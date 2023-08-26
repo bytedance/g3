@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -83,12 +82,9 @@ impl DirectFloatEscaper {
         ),
         UdpRelaySetupError,
     > {
-        let bind = self.select_bind(family, task_notes).ok_or_else(|| {
-            UdpRelaySetupError::SetupSocketFailed(io::Error::new(
-                io::ErrorKind::AddrNotAvailable,
-                "no bind ip usable",
-            ))
-        })?;
+        let bind = self
+            .select_bind(family, task_notes)
+            .map_err(UdpRelaySetupError::EscaperNotUsable)?;
 
         let misc_opts = if let Some(user_ctx) = task_notes.user_ctx() {
             user_ctx

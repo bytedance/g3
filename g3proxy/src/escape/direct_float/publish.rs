@@ -24,7 +24,7 @@ use serde_json::Value;
 
 use g3_socket::util::AddressFamily;
 
-use super::DirectFloatBindIp;
+use super::BindSet;
 use crate::config::escaper::direct_float::DirectFloatEscaperConfig;
 
 async fn load_records_from_cache(cache_file: &Path) -> anyhow::Result<Vec<Value>> {
@@ -53,25 +53,23 @@ async fn load_records_from_cache(cache_file: &Path) -> anyhow::Result<Vec<Value>
 
 pub(super) async fn load_ipv4_from_cache(
     config: &Arc<DirectFloatEscaperConfig>,
-) -> anyhow::Result<Vec<DirectFloatBindIp>> {
+) -> anyhow::Result<BindSet> {
     if let Some(cache_file) = &config.cache_ipv4 {
         let records = load_records_from_cache(cache_file).await?;
-        let binds = super::bind::parse_records(&records, AddressFamily::Ipv4)?;
-        Ok(binds)
+        super::bind::parse_records(&records, AddressFamily::Ipv4)
     } else {
-        Ok(Vec::new())
+        Ok(BindSet::default())
     }
 }
 
 pub(super) async fn load_ipv6_from_cache(
     config: &Arc<DirectFloatEscaperConfig>,
-) -> anyhow::Result<Vec<DirectFloatBindIp>> {
+) -> anyhow::Result<BindSet> {
     if let Some(cache_file) = &config.cache_ipv6 {
         let records = load_records_from_cache(cache_file).await?;
-        let binds = super::bind::parse_records(&records, AddressFamily::Ipv6)?;
-        Ok(binds)
+        super::bind::parse_records(&records, AddressFamily::Ipv6)
     } else {
-        Ok(Vec::new())
+        Ok(BindSet::default())
     }
 }
 
@@ -79,7 +77,7 @@ async fn parse_value(
     value: Value,
     family: AddressFamily,
     cache_file: &Option<PathBuf>,
-) -> anyhow::Result<Vec<DirectFloatBindIp>> {
+) -> anyhow::Result<BindSet> {
     let records = if let Value::Array(vec) = value {
         vec
     } else {
@@ -115,8 +113,8 @@ async fn parse_value(
 
 pub(super) async fn publish_records(
     config: &Arc<DirectFloatEscaperConfig>,
-    v4_container: &ArcSwap<Box<[DirectFloatBindIp]>>,
-    v6_container: &ArcSwap<Box<[DirectFloatBindIp]>>,
+    v4_container: &ArcSwap<BindSet>,
+    v6_container: &ArcSwap<BindSet>,
     data: String,
 ) -> anyhow::Result<()> {
     let obj =
@@ -126,12 +124,12 @@ pub(super) async fn publish_records(
         for (k, v) in map.into_iter() {
             match g3_json::key::normalize(&k).as_str() {
                 "ipv4" | "v4" => {
-                    let binds = parse_value(v, AddressFamily::Ipv4, &config.cache_ipv4).await?;
-                    v4_container.store(Arc::new(binds.into_boxed_slice()));
+                    let bind_set = parse_value(v, AddressFamily::Ipv4, &config.cache_ipv4).await?;
+                    v4_container.store(Arc::new(bind_set));
                 }
                 "ipv6" | "v6" => {
-                    let binds = parse_value(v, AddressFamily::Ipv6, &config.cache_ipv6).await?;
-                    v6_container.store(Arc::new(binds.into_boxed_slice()));
+                    let bind_set = parse_value(v, AddressFamily::Ipv6, &config.cache_ipv6).await?;
+                    v6_container.store(Arc::new(bind_set));
                 }
                 _ => return Err(anyhow!("no action defined for key {}", k)),
             }
