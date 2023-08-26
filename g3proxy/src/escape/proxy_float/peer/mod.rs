@@ -18,9 +18,11 @@ use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 use std::sync::Arc;
 
+use ahash::AHashMap;
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use rand::seq::IteratorRandom;
 use serde_json::Value;
 use slog::Logger;
 use tokio::time::Instant;
@@ -46,6 +48,7 @@ mod https;
 mod socks5;
 
 const CONFIG_KEY_PEER_TYPE: &str = "type";
+const CONFIG_KEY_PEER_ID: &str = "id";
 const CONFIG_KEY_PEER_ADDR: &str = "addr";
 const CONFIG_KEY_PEER_EXPIRE: &str = "expire";
 const CONFIG_KEY_PEER_ISP: &str = "isp";
@@ -155,7 +158,7 @@ fn do_parse_peer(
     tls_config: Option<&Arc<OpensslTlsClientConfig>>,
     instant_now: Instant,
     datetime_now: DateTime<Utc>,
-) -> anyhow::Result<Option<ArcNextProxyPeer>> {
+) -> anyhow::Result<Option<(String, ArcNextProxyPeer)>> {
     if let Value::Object(map) = value {
         let peer_type = g3_json::get_required_str(map, CONFIG_KEY_PEER_TYPE)?;
         let addr_str = g3_json::get_required_str(map, CONFIG_KEY_PEER_ADDR)?;
@@ -189,10 +192,14 @@ fn do_parse_peer(
             ),
             _ => return Err(anyhow!("unsupported peer type {peer_type}")),
         };
+        let mut peer_id = String::new();
         let peer_mut = Arc::get_mut(&mut peer).unwrap();
         for (k, v) in map {
             match g3_json::key::normalize(k).as_str() {
                 CONFIG_KEY_PEER_TYPE | CONFIG_KEY_PEER_ADDR => {}
+                CONFIG_KEY_PEER_ID => {
+                    peer_id = g3_json::value::as_string(v)?;
+                }
                 CONFIG_KEY_PEER_ISP => {
                     if let Ok(isp) = g3_json::value::as_string(v) {
                         peer_mut.set_isp(isp);
@@ -240,7 +247,7 @@ fn do_parse_peer(
             }
         }
         peer_mut.finalize()?;
-        Ok(Some(peer))
+        Ok(Some((peer_id, peer)))
     } else {
         Err(anyhow!("record root type should be json map"))
     }
@@ -252,14 +259,14 @@ pub(super) fn parse_peers(
     escape_logger: &Logger,
     records: &[Value],
     tls_config: Option<&Arc<OpensslTlsClientConfig>>,
-) -> anyhow::Result<Vec<ArcNextProxyPeer>> {
-    let mut peers = Vec::<ArcNextProxyPeer>::new();
+) -> anyhow::Result<PeerSet> {
+    let mut peer_set = PeerSet::default();
 
     let instant_now = Instant::now();
     let datetime_now = Utc::now();
 
     for (i, record) in records.iter().enumerate() {
-        if let Some(peer) = do_parse_peer(
+        if let Some((peer_id, peer)) = do_parse_peer(
             record,
             escaper_config,
             escaper_stats,
@@ -270,10 +277,14 @@ pub(super) fn parse_peers(
         )
         .context(format!("invalid value for record #{i}"))?
         {
-            peers.push(peer);
+            if peer_id.is_empty() {
+                peer_set.push_unnamed(peer);
+            } else {
+                peer_set.insert_named(peer_id, peer);
+            }
         }
     }
-    Ok(peers)
+    Ok(peer_set)
 }
 
 pub(super) fn parse_peer(
@@ -295,4 +306,45 @@ pub(super) fn parse_peer(
         instant_now,
         datetime_now,
     )
+    .map(|r| r.map(|v| v.1))
+}
+
+#[derive(Default)]
+pub(super) struct PeerSet {
+    unnamed: Vec<ArcNextProxyPeer>,
+    named: AHashMap<String, ArcNextProxyPeer>,
+}
+
+impl PeerSet {
+    fn push_unnamed(&mut self, peer: ArcNextProxyPeer) {
+        self.unnamed.push(peer);
+    }
+
+    fn insert_named(&mut self, id: String, peer: ArcNextProxyPeer) {
+        self.named.insert(id, peer);
+    }
+
+    pub(super) fn select_random_peer(&self) -> Option<ArcNextProxyPeer> {
+        self.unnamed
+            .iter()
+            .chain(self.named.values())
+            .filter(|p| !p.is_expired())
+            .choose(&mut rand::thread_rng())
+            .cloned()
+    }
+
+    pub(super) fn select_stable_peer(&self) -> Option<&ArcNextProxyPeer> {
+        if self.unnamed.len() == 1 {
+            return self.unnamed.first();
+        }
+        if self.named.len() == 1 {
+            return self.named.values().next();
+        }
+        None
+    }
+
+    #[inline]
+    pub(super) fn select_named_peer(&self, id: &str) -> Option<ArcNextProxyPeer> {
+        self.named.get(id).cloned()
+    }
 }

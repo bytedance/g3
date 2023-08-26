@@ -23,7 +23,6 @@ use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use futures_util::future::AbortHandle;
 use log::warn;
-use rand::seq::{IteratorRandom, SliceRandom};
 use serde_json::Value;
 use slog::Logger;
 
@@ -55,14 +54,14 @@ mod stats;
 use stats::ProxyFloatEscaperStats;
 
 mod peer;
-use peer::ArcNextProxyPeer;
+use peer::{ArcNextProxyPeer, PeerSet};
 mod source;
 
 pub(super) struct ProxyFloatEscaper {
     config: Arc<ProxyFloatEscaperConfig>,
     stats: Arc<ProxyFloatEscaperStats>,
     source_job_handler: Option<AbortHandle>,
-    peers: Arc<ArcSwap<Vec<ArcNextProxyPeer>>>,
+    peers: Arc<ArcSwap<PeerSet>>,
     tls_config: Option<Arc<OpensslTlsClientConfig>>,
     escape_logger: Logger,
 }
@@ -79,7 +78,7 @@ impl ProxyFloatEscaper {
     async fn new_obj(
         config: ProxyFloatEscaperConfig,
         stats: Arc<ProxyFloatEscaperStats>,
-        peers: Option<Arc<Vec<ArcNextProxyPeer>>>,
+        peers: Option<Arc<PeerSet>>,
     ) -> anyhow::Result<ArcEscaper> {
         let escape_logger = config.get_escape_logger();
 
@@ -105,7 +104,7 @@ impl ProxyFloatEscaper {
                                 "failed to load cached peers for escaper {}: {e:?}",
                                 config.name
                             );
-                            Vec::new()
+                            PeerSet::default()
                         });
                 Arc::new(peers)
             }
@@ -145,7 +144,7 @@ impl ProxyFloatEscaper {
     async fn prepare_reload(
         config: AnyEscaperConfig,
         stats: Arc<ProxyFloatEscaperStats>,
-        peers: Arc<Vec<ArcNextProxyPeer>>,
+        peers: Arc<PeerSet>,
     ) -> anyhow::Result<ArcEscaper> {
         if let AnyEscaperConfig::ProxyFloat(config) = config {
             ProxyFloatEscaper::new_obj(config, stats, Some(peers)).await
@@ -155,52 +154,34 @@ impl ProxyFloatEscaper {
     }
 
     fn select_peer_from_escaper(&self) -> Option<ArcNextProxyPeer> {
-        let peers = self.peers.load();
-        match peers.len() {
-            0 => None,
-            1 => {
-                let peer = &peers[0];
-                if peer.is_expired() {
-                    None
-                } else {
-                    Some(Arc::clone(&peers[0]))
-                }
-            }
-            _ => {
-                let mut rng = rand::thread_rng();
-                if let Ok(peer) =
-                    peers.choose_weighted(&mut rng, |peer| i32::from(!peer.is_expired()))
-                {
-                    Some(Arc::clone(peer))
-                } else {
-                    None
-                }
-            }
-        }
+        let peer_set = self.peers.load();
+        peer_set.select_random_peer()
     }
 
     fn select_peer_from_egress_path(&self, value: &Value) -> anyhow::Result<ArcNextProxyPeer> {
-        let peer = if let Value::Array(v) = value {
-            let mut peers = peer::parse_peers(
-                &self.config,
-                &self.stats,
-                &self.escape_logger,
-                v,
-                self.tls_config.as_ref(),
-            )?;
-            match peers.len() {
-                0 => None,
-                1 => peers.pop(),
-                _ => peers.into_iter().choose(&mut rand::thread_rng()),
+        let peer = match value {
+            Value::Array(seq) => {
+                let peer_set = peer::parse_peers(
+                    &self.config,
+                    &self.stats,
+                    &self.escape_logger,
+                    seq,
+                    self.tls_config.as_ref(),
+                )?;
+                peer_set.select_random_peer()
             }
-        } else {
-            peer::parse_peer(
+            Value::Object(_) => peer::parse_peer(
                 &self.config,
                 &self.stats,
                 &self.escape_logger,
                 value,
                 self.tls_config.as_ref(),
-            )?
+            )?,
+            Value::String(id) => {
+                let peer_set = self.peers.load();
+                peer_set.select_named_peer(id)
+            }
+            _ => return Err(anyhow!("unsupported json value type for peer selection")),
         };
         peer.ok_or_else(|| anyhow!("no peer available"))
     }
@@ -421,13 +402,13 @@ impl EscaperInternal for ProxyFloatEscaper {
     }
 
     fn _trick_float_weight(&self) -> u8 {
-        let peers = self.peers.load();
-        if peers.len() == 1 {
-            let peer = &peers[0];
-            let alive_minutes = peer.expected_alive_minutes();
-            u8::try_from(alive_minutes).unwrap_or(u8::MAX)
-        } else {
-            0
-        }
+        let peer_set = self.peers.load();
+        peer_set
+            .select_stable_peer()
+            .map(|peer| {
+                let alive_minutes = peer.expected_alive_minutes();
+                u8::try_from(alive_minutes).unwrap_or(u8::MAX)
+            })
+            .unwrap_or(0)
     }
 }

@@ -24,7 +24,7 @@ use slog::Logger;
 
 use g3_types::net::OpensslTlsClientConfig;
 
-use super::{ArcNextProxyPeer, ProxyFloatEscaperStats};
+use super::{PeerSet, ProxyFloatEscaperStats};
 use crate::config::escaper::proxy_float::{ProxyFloatEscaperConfig, ProxyFloatSource};
 
 mod file;
@@ -36,12 +36,12 @@ pub(super) async fn load_cached_peers(
     stats: &Arc<ProxyFloatEscaperStats>,
     escape_logger: &Logger,
     tls_config: Option<&Arc<OpensslTlsClientConfig>>,
-) -> anyhow::Result<Vec<ArcNextProxyPeer>> {
+) -> anyhow::Result<PeerSet> {
     if let Some(cache_file) = &config.cache_file {
         let records = file::load_peers_from_cache(cache_file).await?;
         super::peer::parse_peers(config, stats, escape_logger, &records, tls_config)
     } else {
-        Ok(Vec::new())
+        Ok(PeerSet::default())
     }
 }
 
@@ -49,7 +49,7 @@ async fn parse_and_save_peers(
     config: &Arc<ProxyFloatEscaperConfig>,
     stats: &Arc<ProxyFloatEscaperStats>,
     escape_logger: &Logger,
-    container: &Arc<ArcSwap<Vec<ArcNextProxyPeer>>>,
+    container: &Arc<ArcSwap<PeerSet>>,
     tls_config: Option<&Arc<OpensslTlsClientConfig>>,
     records: Vec<serde_json::Value>,
 ) -> anyhow::Result<()> {
@@ -69,7 +69,7 @@ pub(super) async fn publish_peers(
     config: &Arc<ProxyFloatEscaperConfig>,
     stats: &Arc<ProxyFloatEscaperStats>,
     escape_logger: &Logger,
-    peers_container: &Arc<ArcSwap<Vec<ArcNextProxyPeer>>>,
+    peers_container: &Arc<ArcSwap<PeerSet>>,
     tls_config: Option<&Arc<OpensslTlsClientConfig>>,
     data: String,
 ) -> anyhow::Result<()> {
@@ -96,7 +96,7 @@ pub(super) fn new_job(
     config: Arc<ProxyFloatEscaperConfig>,
     stats: Arc<ProxyFloatEscaperStats>,
     escape_logger: Logger,
-    peers_container: Arc<ArcSwap<Vec<ArcNextProxyPeer>>>,
+    peers_container: Arc<ArcSwap<PeerSet>>,
     tls_config: Option<Arc<OpensslTlsClientConfig>>,
 ) -> anyhow::Result<AbortHandle> {
     let f = async move {
