@@ -1,13 +1,13 @@
 %if 0%{?rhel} > 7
 %undefine _debugsource_packages
 %define pkgconfig_real pkgconf
-%define cmake_real cmake3
+%define cmake_real cmake
 %endif
 
 %if 0%{?rhel} == 7
 %global debug_package %{nil}
 %define pkgconfig_real pkgconfig
-%define cmake_real cmake
+%define cmake_real cmake3
 %endif
 
 %define build_profile release-lto
