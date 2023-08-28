@@ -3010,9 +3010,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-tongsuo"
-version = "0.6.3"
+version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1657d51268522acc09cb9091351cac04a1db3adf66ed815f484d02e487d6e1ec"
+checksum = "351402c10b415b4a2cad8821bf1ecf28c8d603683b5724c4f23c154aa1f3ed5f"
 dependencies = [
  "futures-util",
  "tokio",

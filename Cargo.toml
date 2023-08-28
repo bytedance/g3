@@ -128,7 +128,7 @@ pin-project = "1.1"
 #
 rustls = "0.21.5"
 tokio-rustls = "0.24"
-tokio-openssl = { package = "tokio-tongsuo", version = "0.6" }
+tokio-openssl = { package = "tokio-tongsuo", version = "0.6.4", default-features = false }
 openssl = { package = "tongsuo", version = "0.10.55", default-features = false }
 openssl-sys = { package = "tongsuo-sys", version = "0.9" }
 openssl-probe = "0.1"
