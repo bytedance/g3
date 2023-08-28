@@ -6,6 +6,7 @@ BUILD_PROFILE := release-lto
 DEB_VERSION ?= $(shell dpkg-parsechangelog -SVersion)
 LUA_FEATURE ?= $(shell scripts/package/detect_lua_feature.sh)
 SSL_FEATURE ?= $(shell scripts/package/detect_openssl_feature.sh)
+CARES_FEATURE ?= $(shell scripts/package/detect_c-ares_feature.sh)
 
 %:
 	dh $@
@@ -16,7 +17,7 @@ override_dh_auto_clean:
 override_dh_auto_build:
 	G3_PACKAGE_VERSION=$(DEB_VERSION) \
 	  cargo build --frozen --offline --profile $(BUILD_PROFILE) \
-	    --no-default-features --features $(LUA_FEATURE),$(SSL_FEATURE),c-ares \
+	    --no-default-features --features $(LUA_FEATURE),$(SSL_FEATURE),$(CARES_FEATURE) \
 	    --package g3proxy --package g3proxy-ctl --package g3proxy-ftp --package g3proxy-lua
 	sh $(PACKAGE_NAME)/service/generate_systemd.sh
 

@@ -258,54 +258,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "89b2fd2a0dcf38d7971e2194b6b6eebab45ae01067456a7fd93d5547a61b70be"
 
 [[package]]
-name = "c-ares"
-version = "7.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1932e9f90cc8c9e1747463d8906770fdb9b64af7133c31e1de42df52b9d6b31"
-dependencies = [
- "bitflags 1.3.2",
- "c-ares-sys",
- "c-types",
- "itertools",
-]
-
-[[package]]
-name = "c-ares-resolver"
-version = "7.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7fd81a667aea0779fe56292eedd5840a5dd5bdb96df21b54e59922b3b06ab0f"
-dependencies = [
- "c-ares",
- "crossbeam-channel",
- "futures-channel",
- "polling",
-]
-
-[[package]]
-name = "c-ares-sys"
-version = "5.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1dc9e91b07ab23cb37bffba5f619c5358e7bc9235e57b03bd612e0927ab8f7c"
-dependencies = [
- "c-types",
- "cc",
- "fs_extra",
- "jni-sys",
- "libc",
- "metadeps",
-]
-
-[[package]]
-name = "c-types"
-version = "2.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b93e48ee8e263ecd770e7ac87282c1430a82aabc77ba598b45fecd20ff780461"
-dependencies = [
- "libc",
- "winapi",
-]
-
-[[package]]
 name = "cadence-with-flush"
 version = "0.29.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -412,6 +364,15 @@ name = "clap_lex"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd7cc57abe963c6d3b9d8be5b06ba7c8957a930305ca90304f24ef040aa6f961"
+
+[[package]]
+name = "cmake"
+version = "0.1.50"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a31c789563b815f77f4250caee12365734369f942439b7defd71e18a48197130"
+dependencies = [
+ "cc",
+]
 
 [[package]]
 name = "colorchoice"
@@ -592,12 +553,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "error-chain"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9435d864e017c3c6afeac1654189b06cdb491cf2ff73dbf0d73b0f292f42ff8"
-
-[[package]]
 name = "fastrand"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -653,12 +608,6 @@ checksum = "a62bc1cf6f830c2ec14a513a9fb124d0a213a629668a4186f329db21fe045652"
 dependencies = [
  "percent-encoding",
 ]
-
-[[package]]
-name = "fs_extra"
-version = "1.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42703706b716c37f96a77aea830392ad231f44c9e9a67872fa5548707e11b11c"
 
 [[package]]
 name = "futures"
@@ -1000,11 +949,11 @@ version = "0.4.0"
 dependencies = [
  "ahash",
  "anyhow",
- "c-ares",
- "c-ares-resolver",
  "g3-types",
  "indexmap 2.0.0",
  "log",
+ "mini-c-ares",
+ "mini-c-ares-resolver",
  "rustls",
  "thiserror",
  "tokio",
@@ -1858,9 +1807,9 @@ checksum = "28b29a3cd74f0f4598934efe3aeba42bae0eb4680554128851ebbecb02af14e6"
 
 [[package]]
 name = "itertools"
-version = "0.10.5"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
+checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
 dependencies = [
  "either",
 ]
@@ -1987,17 +1936,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "metadeps"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73b122901b3a675fac8cecf68dcb2f0d3036193bc861d1ac0e1c337f7d5254c2"
-dependencies = [
- "error-chain",
- "pkg-config",
- "toml",
-]
-
-[[package]]
 name = "metrohash"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2008,6 +1946,50 @@ name = "mime"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
+
+[[package]]
+name = "mini-c-ares"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb9325569370b1f4778533d53b9f4db0d3f257ae63612360f7e26f4e7cf860cf"
+dependencies = [
+ "bitflags 2.4.0",
+ "itertools",
+ "libc",
+ "mini-c-ares-sys",
+]
+
+[[package]]
+name = "mini-c-ares-resolver"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a3572da3764b815bbb1f7ca7561d645860969e18dbef0a0bb99840d23b4e029f"
+dependencies = [
+ "futures-channel",
+ "mini-c-ares",
+ "polling",
+]
+
+[[package]]
+name = "mini-c-ares-src"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a0de64ff009ff5ff6fbcddb471020913e65b83f81729e3911e87dc4563c6cea2"
+dependencies = [
+ "cmake",
+]
+
+[[package]]
+name = "mini-c-ares-sys"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9bb49a6d3b18ba3be12dfe51524ba08d6cde4a49ace23bcbb449e562973f0f4b"
+dependencies = [
+ "jni-sys",
+ "libc",
+ "mini-c-ares-src",
+ "pkg-config",
+]
 
 [[package]]
 name = "minimal-lexical"
@@ -3035,12 +3017,6 @@ dependencies = [
  "tokio",
  "tracing",
 ]
-
-[[package]]
-name = "toml"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "736b60249cb25337bc196faa43ee12c705e426f3d55c214d73a4e7be06f92cb4"
 
 [[package]]
 name = "tongsuo"
