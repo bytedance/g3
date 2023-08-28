@@ -50,7 +50,10 @@ const PROXY_TLS_ARG_PROTOCOL: &str = "proxy-tls-protocol";
 const PROXY_TLS_ARG_CIPHERS: &str = "proxy-tls-ciphers";
 
 const SESSION_CACHE_VALUES: [&str; 2] = ["off", "builtin"];
+#[cfg(not(feature = "vendored-tongsuo"))]
 const PROTOCOL_VALUES: [&str; 5] = ["ssl3.0", "tls1.0", "tls1.1", "tls1.2", "tls1.3"];
+#[cfg(feature = "vendored-tongsuo")]
+const PROTOCOL_VALUES: [&str; 6] = ["ssl3.0", "tls1.0", "tls1.1", "tls1.2", "tls1.3", "tlcp"];
 
 pub(crate) trait AppendOpensslArgs {
     fn append_openssl_args(self) -> Self;

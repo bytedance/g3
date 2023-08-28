@@ -18,7 +18,7 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use openssl::ssl::{
-    Ssl, SslConnector, SslContext, SslContextBuilder, SslMethod, SslVerifyMode, SslVersion,
+    Ssl, SslConnector, SslConnectorBuilder, SslContext, SslMethod, SslVerifyMode, SslVersion,
 };
 use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::X509;
@@ -28,6 +28,9 @@ use super::{
     OpensslTlsClientSessionCache,
 };
 use crate::net::tls::AlpnProtocol;
+
+#[cfg(feature = "vendored-tongsuo")]
+use super::OpensslTlcpCertificatePair;
 
 const MINIMAL_HANDSHAKE_TIMEOUT: Duration = Duration::from_millis(100);
 const DEFAULT_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
@@ -63,6 +66,8 @@ pub struct OpensslTlsClientConfigBuilder {
     ca_certs: Vec<Vec<u8>>,
     no_default_ca_certs: bool,
     client_cert_pair: Option<OpensslCertificatePair>,
+    #[cfg(feature = "vendored-tongsuo")]
+    client_tlcp_cert_pair: Option<OpensslTlcpCertificatePair>,
     handshake_timeout: Duration,
     session_cache: OpensslSessionCacheConfig,
 }
@@ -76,6 +81,8 @@ impl Default for OpensslTlsClientConfigBuilder {
             ca_certs: Vec::new(),
             no_default_ca_certs: false,
             client_cert_pair: None,
+            #[cfg(feature = "vendored-tongsuo")]
+            client_tlcp_cert_pair: None,
             handshake_timeout: DEFAULT_HANDSHAKE_TIMEOUT,
             session_cache: OpensslSessionCacheConfig::default(),
         }
@@ -100,6 +107,11 @@ impl OpensslTlsClientConfigBuilder {
     pub fn check(&mut self) -> anyhow::Result<()> {
         if let Some(cert_pair) = &self.client_cert_pair {
             cert_pair.check()?;
+        }
+
+        #[cfg(feature = "vendored-tongsuo")]
+        if let Some(tlcp_cert_pair) = &self.client_tlcp_cert_pair {
+            tlcp_cert_pair.check()?;
         }
 
         if !self.ciphers.is_empty() && self.protocol.is_none() {
@@ -154,6 +166,14 @@ impl OpensslTlsClientConfigBuilder {
         self.client_cert_pair.replace(pair)
     }
 
+    #[cfg(feature = "vendored-tongsuo")]
+    pub fn set_tlcp_cert_pair(
+        &mut self,
+        pair: OpensslTlcpCertificatePair,
+    ) -> Option<OpensslTlcpCertificatePair> {
+        self.client_tlcp_cert_pair.replace(pair)
+    }
+
     #[inline]
     pub fn set_no_session_cache(&mut self) {
         self.session_cache.set_no_session_cache();
@@ -174,28 +194,48 @@ impl OpensslTlsClientConfigBuilder {
         self.session_cache.set_each_capacity(cap);
     }
 
-    fn set_tls_version(
-        &self,
-        version: SslVersion,
-        ctx_builder: &mut SslContextBuilder,
-    ) -> anyhow::Result<()> {
-        ctx_builder
-            .set_min_proto_version(Some(version))
-            .map_err(|e| anyhow!("failed to set min protocol version: {e}"))?;
-        ctx_builder
-            .set_max_proto_version(Some(version))
-            .map_err(|e| anyhow!("failed to set max protocol version: {e}"))?;
+    #[cfg(feature = "vendored-tongsuo")]
+    fn new_tlcp_builder(&self) -> anyhow::Result<SslConnectorBuilder> {
+        let mut ctx_builder = SslConnector::builder(SslMethod::ntls_client())
+            .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
+        ctx_builder.set_verify(SslVerifyMode::PEER);
+        ctx_builder.enable_ntls();
+
+        let mut use_dhe = false;
+        if let Some(cert_pair) = &self.client_tlcp_cert_pair {
+            cert_pair.add_to_ssl_context(&mut ctx_builder)?;
+            use_dhe = true;
+        }
 
         if !self.ciphers.is_empty() {
             let cipher_list = self.ciphers.join(":");
             ctx_builder
                 .set_cipher_list(&cipher_list)
                 .map_err(|e| anyhow!("failed to set cipher list: {e}"))?;
+        } else if use_dhe {
+            ctx_builder
+                .set_cipher_list(
+                    "ECDHE-SM2-SM4-GCM-SM3:ECC-SM2-SM4-GCM-SM3:ECDHE-SM2-SM4-CBC-SM3:ECC-SM2-SM4-CBC-SM3:\
+                     RSA-SM4-GCM-SM3:RSA-SM4-GCM-SHA256:RSA-SM4-CBC-SM3:RSA-SM4-CBC-SHA256",
+                )
+                .map_err(|e| anyhow!("failed to set cipher list: {e}"))?;
+        } else {
+            ctx_builder
+                .set_cipher_list(
+                    "ECC-SM2-SM4-GCM-SM3:ECC-SM2-SM4-CBC-SM3:\
+                     RSA-SM4-GCM-SM3:RSA-SM4-GCM-SHA256:RSA-SM4-CBC-SM3:RSA-SM4-CBC-SHA256",
+                )
+                .map_err(|e| anyhow!("failed to set cipher list: {e}"))?;
         }
-        Ok(())
+
+        Ok(ctx_builder)
     }
 
-    fn set_tls13(&self, ctx_builder: &mut SslContextBuilder) -> anyhow::Result<()> {
+    fn new_tls13_builder(&self) -> anyhow::Result<SslConnectorBuilder> {
+        let mut ctx_builder = SslConnector::builder(SslMethod::tls_client())
+            .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
+        ctx_builder.set_verify(SslVerifyMode::PEER);
+
         ctx_builder
             .set_min_proto_version(Some(SslVersion::TLS1_3))
             .map_err(|e| anyhow!("failed to set min protocol version: {e}"))?;
@@ -209,37 +249,66 @@ impl OpensslTlsClientConfigBuilder {
                 .set_ciphersuites(&ciphersuites)
                 .map_err(|e| anyhow!("failed to set ciphersuites: {e}"))?;
         }
-        Ok(())
+
+        if let Some(cert_pair) = &self.client_cert_pair {
+            cert_pair.add_to_ssl_context(&mut ctx_builder)?;
+        }
+
+        Ok(ctx_builder)
+    }
+
+    fn new_versioned_builder(&self, version: SslVersion) -> anyhow::Result<SslConnectorBuilder> {
+        let mut ctx_builder = SslConnector::builder(SslMethod::tls_client())
+            .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
+        ctx_builder.set_verify(SslVerifyMode::PEER);
+
+        ctx_builder
+            .set_min_proto_version(Some(version))
+            .map_err(|e| anyhow!("failed to set min protocol version: {e}"))?;
+        ctx_builder
+            .set_max_proto_version(Some(version))
+            .map_err(|e| anyhow!("failed to set max protocol version: {e}"))?;
+
+        if !self.ciphers.is_empty() {
+            let cipher_list = self.ciphers.join(":");
+            ctx_builder
+                .set_cipher_list(&cipher_list)
+                .map_err(|e| anyhow!("failed to set cipher list: {e}"))?;
+        }
+
+        if let Some(cert_pair) = &self.client_cert_pair {
+            cert_pair.add_to_ssl_context(&mut ctx_builder)?;
+        }
+
+        Ok(ctx_builder)
+    }
+
+    fn new_default_builder(&self) -> anyhow::Result<SslConnectorBuilder> {
+        let mut ctx_builder = SslConnector::builder(SslMethod::tls_client())
+            .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
+        ctx_builder.set_verify(SslVerifyMode::PEER);
+
+        if let Some(cert_pair) = &self.client_cert_pair {
+            cert_pair.add_to_ssl_context(&mut ctx_builder)?;
+        }
+
+        Ok(ctx_builder)
     }
 
     pub fn build_with_alpn_protocols(
         &self,
         alpn_protocols: Option<Vec<AlpnProtocol>>,
     ) -> anyhow::Result<OpensslTlsClientConfig> {
-        let mut ctx_builder = SslConnector::builder(SslMethod::tls_client())
-            .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
-        ctx_builder.set_verify(SslVerifyMode::PEER);
-
-        match self.protocol {
-            Some(OpensslProtocol::Ssl3) => {
-                self.set_tls_version(SslVersion::SSL3, &mut ctx_builder)?;
-            }
-            Some(OpensslProtocol::Tls1) => {
-                self.set_tls_version(SslVersion::TLS1, &mut ctx_builder)?;
-            }
-            Some(OpensslProtocol::Tls11) => {
-                self.set_tls_version(SslVersion::TLS1_1, &mut ctx_builder)?;
-            }
-            Some(OpensslProtocol::Tls12) => {
-                self.set_tls_version(SslVersion::TLS1_2, &mut ctx_builder)?;
-            }
-            Some(OpensslProtocol::Tls13) => self.set_tls13(&mut ctx_builder)?,
-            None => {}
-        }
-
-        if let Some(cert_pair) = &self.client_cert_pair {
-            cert_pair.add_to_ssl_context(&mut ctx_builder)?;
-        }
+        let mut ctx_builder = match self.protocol {
+            Some(OpensslProtocol::Ssl3) => self.new_versioned_builder(SslVersion::SSL3)?,
+            Some(OpensslProtocol::Tls1) => self.new_versioned_builder(SslVersion::TLS1)?,
+            Some(OpensslProtocol::Tls11) => self.new_versioned_builder(SslVersion::TLS1_1)?,
+            Some(OpensslProtocol::Tls12) => self.new_versioned_builder(SslVersion::TLS1_2)?,
+            Some(OpensslProtocol::Tls13) => self.new_tls13_builder()?,
+            #[cfg(feature = "vendored-tongsuo")]
+            Some(OpensslProtocol::Tlcp11) => self.new_tlcp_builder()?,
+            None => self.new_default_builder()?,
+        };
 
         let mut store_builder = X509StoreBuilder::new()
             .map_err(|e| anyhow!("failed to create ca cert store builder: {e}"))?;

@@ -25,7 +25,7 @@ use log::{debug, error, info, warn};
 use g3keymess::opts::ProcArgs;
 
 fn main() -> anyhow::Result<()> {
-    #[cfg(feature = "vendored-openssl")]
+    #[cfg(any(feature = "vendored-openssl", feature = "vendored-tongsuo"))]
     openssl_probe::init_ssl_cert_env_vars();
     openssl::init();
 

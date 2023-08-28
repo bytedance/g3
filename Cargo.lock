@@ -853,7 +853,7 @@ dependencies = [
  "slog",
  "thiserror",
  "tokio",
- "tokio-openssl",
+ "tokio-tongsuo",
 ]
 
 [[package]]
@@ -972,12 +972,12 @@ dependencies = [
  "humanize-rs",
  "idna",
  "ip_network",
- "openssl",
  "rand",
  "regex",
  "rustls",
  "rustls-pemfile",
  "serde_json",
+ "tongsuo",
 ]
 
 [[package]]
@@ -1120,11 +1120,11 @@ dependencies = [
  "g3-types",
  "libc",
  "log",
- "openssl",
- "openssl-sys",
  "rmpv",
  "rustls",
  "tokio",
+ "tongsuo",
+ "tongsuo-sys",
 ]
 
 [[package]]
@@ -1153,7 +1153,6 @@ dependencies = [
  "metrohash",
  "num-traits",
  "once_cell",
- "openssl",
  "percent-encoding",
  "radix_trie",
  "rand",
@@ -1167,6 +1166,7 @@ dependencies = [
  "slog",
  "smallvec",
  "thiserror",
+ "tongsuo",
  "url",
  "webpki-roots",
 ]
@@ -1203,11 +1203,11 @@ dependencies = [
  "humanize-rs",
  "idna",
  "ip_network",
- "openssl",
  "rand",
  "regex",
  "rustls",
  "rustls-pemfile",
+ "tongsuo",
  "url",
  "yaml-rust",
 ]
@@ -1242,7 +1242,6 @@ dependencies = [
  "hex",
  "http",
  "indicatif",
- "openssl",
  "openssl-async-job",
  "openssl-probe",
  "quinn",
@@ -1252,7 +1251,8 @@ dependencies = [
  "rustls-pemfile",
  "thiserror",
  "tokio",
- "tokio-openssl",
+ "tokio-tongsuo",
+ "tongsuo",
  "trust-dns-client",
  "trust-dns-proto",
  "url",
@@ -1274,11 +1274,11 @@ dependencies = [
  "g3-yaml",
  "log",
  "memchr",
- "openssl",
  "openssl-probe",
  "rmpv",
  "rustc_version",
  "tokio",
+ "tongsuo",
  "yaml-rust",
 ]
 
@@ -1312,7 +1312,6 @@ dependencies = [
  "itoa",
  "log",
  "once_cell",
- "openssl",
  "openssl-async-job",
  "openssl-probe",
  "rustc_version",
@@ -1320,6 +1319,7 @@ dependencies = [
  "slog",
  "thiserror",
  "tokio",
+ "tongsuo",
  "url",
  "uuid",
  "yaml-rust",
@@ -1359,9 +1359,9 @@ dependencies = [
  "clap_complete",
  "g3-tls-cert",
  "g3-types",
- "openssl",
  "openssl-probe",
  "rustc_version",
+ "tongsuo",
 ]
 
 [[package]]
@@ -1418,7 +1418,6 @@ dependencies = [
  "mlua",
  "nix 0.27.0",
  "once_cell",
- "openssl",
  "openssl-probe",
  "percent-encoding",
  "pin-project",
@@ -1433,9 +1432,10 @@ dependencies = [
  "slog",
  "thiserror",
  "tokio",
- "tokio-openssl",
  "tokio-rustls",
+ "tokio-tongsuo",
  "tokio-util",
+ "tongsuo",
  "url",
  "uuid",
  "yaml-rust",
@@ -1522,7 +1522,6 @@ dependencies = [
  "itoa",
  "log",
  "once_cell",
- "openssl",
  "openssl-probe",
  "rand",
  "rustc_version",
@@ -1530,8 +1529,9 @@ dependencies = [
  "slog",
  "thiserror",
  "tokio",
- "tokio-openssl",
  "tokio-rustls",
+ "tokio-tongsuo",
+ "tongsuo",
  "uuid",
  "yaml-rust",
 ]
@@ -2163,31 +2163,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd8b5dd2ae5ed71462c540258bedcb51965123ad7e7ccf4b9a8cafaa4a63576d"
 
 [[package]]
-name = "openssl"
-version = "0.10.57"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bac25ee399abb46215765b1cb35bc0212377e58a061560d8b29b024fd0430e7c"
-dependencies = [
- "bitflags 2.4.0",
- "cfg-if",
- "foreign-types",
- "libc",
- "once_cell",
- "openssl-macros",
- "openssl-sys",
-]
-
-[[package]]
 name = "openssl-async-job"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "foreign-types",
  "libc",
- "openssl",
- "openssl-sys",
  "thiserror",
  "tokio",
+ "tongsuo",
+ "tongsuo-sys",
 ]
 
 [[package]]
@@ -2214,19 +2199,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06e8f197c82d7511c5b014030c9b1efeda40d7d5f99d23b4ceed3524a5e63f02"
 dependencies = [
  "cc",
-]
-
-[[package]]
-name = "openssl-sys"
-version = "0.9.92"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db7e971c2c2bba161b2d2fdf37080177eff520b3bc044787c7f1f5f9e78d869b"
-dependencies = [
- "cc",
- "libc",
- "openssl-src",
- "pkg-config",
- "vcpkg",
 ]
 
 [[package]]
@@ -3016,18 +2988,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tokio-openssl"
-version = "0.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c08f9ffb7809f1b20c1b398d92acf4cc719874b3b2b2d9ea2f09b4a80350878a"
-dependencies = [
- "futures-util",
- "openssl",
- "openssl-sys",
- "tokio",
-]
-
-[[package]]
 name = "tokio-rustls"
 version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3046,6 +3006,18 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
+]
+
+[[package]]
+name = "tokio-tongsuo"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "351402c10b415b4a2cad8821bf1ecf28c8d603683b5724c4f23c154aa1f3ed5f"
+dependencies = [
+ "futures-util",
+ "tokio",
+ "tongsuo",
+ "tongsuo-sys",
 ]
 
 [[package]]
@@ -3069,6 +3041,44 @@ name = "toml"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "736b60249cb25337bc196faa43ee12c705e426f3d55c214d73a4e7be06f92cb4"
+
+[[package]]
+name = "tongsuo"
+version = "0.10.57"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "747f21ace9f4a49d36bf60cbf62d1db59f621817aa731f1624f4b30326d6a0ad"
+dependencies = [
+ "bitflags 2.4.0",
+ "cfg-if",
+ "foreign-types",
+ "libc",
+ "once_cell",
+ "openssl-macros",
+ "tongsuo-sys",
+]
+
+[[package]]
+name = "tongsuo-src"
+version = "840.0.2+8.4.0pre2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e0b51274068c147b89e1d2b1ca4e0e03adb4bb003952faab27b5b21fc1d138d"
+dependencies = [
+ "cc",
+]
+
+[[package]]
+name = "tongsuo-sys"
+version = "0.9.92"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ebc04b6b1b96ab43294513c6a076cb3f20fde6a5d67a9bf7491fce53cb44d381"
+dependencies = [
+ "cc",
+ "libc",
+ "openssl-src",
+ "pkg-config",
+ "tongsuo-src",
+ "vcpkg",
+]
 
 [[package]]
 name = "tracing"
