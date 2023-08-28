@@ -135,12 +135,12 @@ pub(super) fn build_tlcp_context(
             }
             // we do not check request alive sema here
             let Ok(sema) = host.acquire_request_semaphore() else {
-                                return Err(sni_err);
-                            };
+                return Err(sni_err);
+            };
 
             let Some(ssl_context) = &host.tlcp_context else {
-                                return Err(sni_err);
-                            };
+                return Err(sni_err);
+            };
 
             if let Err(e) = ssl.set_ssl_context(ssl_context) {
                 debug!("failed to set tlcp ssl context for host: {e}"); // TODO print host name

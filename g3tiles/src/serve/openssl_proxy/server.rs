@@ -244,7 +244,8 @@ impl OpensslProxyServer {
             }
         };
         #[cfg(feature = "vendored-tongsuo")]
-        let Ok(ssl) = self.build_ssl(&stream).await else {
+        let Ok(ssl) = self.build_ssl(&stream).await
+        else {
             return;
         };
 
