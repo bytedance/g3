@@ -23,5 +23,5 @@ rustup target add x86_64-unknown-linux-musl
 Then compile with the features that do not require dynamic linking:
 
 ```shell
-cargo build --target=x86_64-unknown-linux-musl --no-default-features --features vendored-openssl,c-ares
+cargo build --target=x86_64-unknown-linux-musl --no-default-features --features vendored-openssl,vendored-c-ares
 ```
