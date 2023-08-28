@@ -36,6 +36,7 @@ The following egress path selection methods is supported:
   - just one :ref:`Bind IP <config_escaper_dynamic_bind_ip>`
   - an array of  :ref:`Bind IP <config_escaper_dynamic_bind_ip>`, a random one will be selected
   - just one :ref:`Bind IP ID <config_escaper_dynamic_bind_ip_id>`, the ID should be present in escaper config
+  - an array of :ref:`Bind IP ID <config_escaper_dynamic_bind_ip_id>`, a usable ID will be selected randomly
 
   .. note:: you should consider disable ipv4 / ipv6 at escaper level if the value in the egress path selection doesn't
             support ipv4 / ipv6

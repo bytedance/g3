@@ -23,6 +23,7 @@ use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use futures_util::future::AbortHandle;
 use log::warn;
+use rand::seq::IteratorRandom;
 use serde_json::Value;
 use slog::Logger;
 
@@ -159,31 +160,61 @@ impl ProxyFloatEscaper {
     }
 
     fn select_peer_from_egress_path(&self, value: &Value) -> anyhow::Result<ArcNextProxyPeer> {
-        let peer = match value {
-            Value::Array(seq) => {
-                let peer_set = peer::parse_peers(
-                    &self.config,
-                    &self.stats,
-                    &self.escape_logger,
-                    seq,
-                    self.tls_config.as_ref(),
-                )?;
-                peer_set.select_random_peer()
-            }
-            Value::Object(_) => peer::parse_peer(
-                &self.config,
-                &self.stats,
-                &self.escape_logger,
-                value,
-                self.tls_config.as_ref(),
-            )?,
-            Value::String(id) => {
-                let peer_set = self.peers.load();
-                peer_set.select_named_peer(id)
-            }
-            _ => return Err(anyhow!("unsupported json value type for peer selection")),
-        };
-        peer.ok_or_else(|| anyhow!("no peer available"))
+        let peer =
+            match value {
+                Value::Array(seq) => {
+                    let Some(v) = seq.first() else {
+                        return Err(anyhow!("empty peer array in egress path"));
+                    };
+                    if let Value::Object(_) = v {
+                        let peer_set = peer::parse_peers(
+                            &self.config,
+                            &self.stats,
+                            &self.escape_logger,
+                            seq,
+                            self.tls_config.as_ref(),
+                        )?;
+                        peer_set.select_random_peer()
+                    } else {
+                        let peer_set = self.peers.load();
+                        seq.iter()
+                            .filter_map(|v| {
+                                let Value::String(s) = v else {
+                                    return None;
+                                };
+                                let peer = peer_set.select_named_peer(s)?;
+                                if peer.is_expired() {
+                                    None
+                                } else {
+                                    Some(peer)
+                                }
+                            })
+                            .choose(&mut rand::thread_rng())
+                    }
+                }
+                Value::Object(_) => {
+                    let peer = peer::parse_peer(
+                        &self.config,
+                        &self.stats,
+                        &self.escape_logger,
+                        value,
+                        self.tls_config.as_ref(),
+                    )?;
+                    peer.and_then(|v| if v.is_expired() { None } else { Some(v) })
+                }
+                Value::String(id) => {
+                    let peer_set = self.peers.load();
+                    peer_set.select_named_peer(id).and_then(|v| {
+                        if v.is_expired() {
+                            None
+                        } else {
+                            Some(v)
+                        }
+                    })
+                }
+                _ => return Err(anyhow!("unsupported json value type for peer selection")),
+            };
+        peer.ok_or_else(|| anyhow!("no peer available in egress path"))
     }
 
     fn select_peer(&self, task_notes: &ServerTaskNotes) -> anyhow::Result<ArcNextProxyPeer> {
