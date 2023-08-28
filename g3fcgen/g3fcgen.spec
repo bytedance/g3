@@ -33,7 +33,7 @@ Fake Certificate Generator for G3 Project
 %build
 G3_PACKAGE_VERSION="%{version}-%{release}"
 export G3_PACKAGE_VERSION
-SSL_FEATURE=$(pkg-config --atleast-version 1.1.1 libssl || echo "vendored-openssl")
+SSL_FEATURE=$(sh scripts/package/detect_openssl_feature.sh)
 cargo build --frozen --offline --profile %{build_profile} --no-default-features --features $SSL_FEATURE, --package g3fcgen
 
 
