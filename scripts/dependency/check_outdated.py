@@ -18,6 +18,8 @@ script_name = sys.argv[0]
 
 FORKED_NAMES = {
     "cadence-with-flush": "cadence",
+    "tongsuo": "openssl",
+    "tongsuo-sys": "openssl-sys",
 }
 
 
