@@ -22,8 +22,6 @@ NO_TEXT_CRATES = [
     "quinn",  # in the root dir repo
     "quinn-proto",  # in the root dir repo
     "quinn-udp",  # in the root dir repo
-    "winapi-x86_64-pc-windows-gnu",  # not uploaded
-    "winapi-i686-pc-windows-gnu",  # not uploaded
 ]
 
 

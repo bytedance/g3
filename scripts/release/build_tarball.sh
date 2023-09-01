@@ -4,7 +4,7 @@ set -e
 
 SCRIPT_DIR=$(dirname $(realpath $0))
 RELEASE_TAG=$1
-GIT_REVISION=${2:-RELEASE_TAG}
+GIT_REVISION=${2:-$RELEASE_TAG}
 BUILD_DIR=
 CARGO_VENDOR_DIR="vendor"
 CARGO_CONFIG_DIR=".cargo"
