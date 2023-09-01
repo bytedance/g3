@@ -1,4 +1,9 @@
 
+v1.7.23:
+ - Feature: allow to use ID string as egress path json value in DirectFloat and ProxyFloat escaper
+ - Feature: add vendored-c-ares feature to set if enable source compile of c-ares
+ - Feature: drop out of date dependencies by using forks and patches
+
 v1.7.22:
  - Removed: remove the daemon group name setting in config file
  - BUG FIX: fix site level socks_tcp_connect conn_total stats
