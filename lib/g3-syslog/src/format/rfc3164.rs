@@ -277,7 +277,7 @@ impl<'a> Serializer for FormatterKv<'a> {
 mod tests {
     use super::*;
     use crate::Facility;
-    use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
+    use chrono::{FixedOffset, NaiveDate, NaiveDateTime, NaiveTime, TimeZone};
 
     #[test]
     fn format_header() {
@@ -293,7 +293,9 @@ mod tests {
             NaiveDate::from_ymd_opt(2021, 12, 1).unwrap(),
             NaiveTime::from_hms_opt(10, 20, 30).unwrap(),
         );
-        let dt = DateTime::from_local(datetime, FixedOffset::east_opt(8).unwrap());
+        let dt = datetime
+            .and_local_timezone(Local::from_offset(&FixedOffset::east_opt(8).unwrap()))
+            .unwrap();
         format_rfc3164_header(&mut buffer, &lh, Level::Info, &dt).unwrap();
 
         let s = String::from_utf8(buffer).unwrap();
