@@ -10,7 +10,7 @@ cd "${PROJECT_DIR}"
 CODENAME=$(lsb_release -c -s)
 
 echo "Finalize debian/changelog"
-dch --maintmaint --release --distribution "${CODENAME}" --force-distribution "Finalize changelog"
+sed -i s/UNRELEASED/${CODENAME}/ debian/changelog
 
 SOURCE_NAME=$(dpkg-parsechangelog -SSource)
 SOURCE_VERSION=$(dpkg-parsechangelog -SVersion | awk -F'-' '{print $1}')
