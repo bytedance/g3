@@ -1,4 +1,7 @@
 
+v1.7.24:
+ - BUG FIX: fix vendoring build of ring
+
 v1.7.23:
  - Feature: allow to use ID string as egress path json value in DirectFloat and ProxyFloat escaper
  - Feature: add vendored-c-ares feature to set if enable source compile of c-ares
