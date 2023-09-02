@@ -125,7 +125,6 @@ apt-get install libpython3-dev
 apt-get install python3-toml python3-requests python3-semver python3-socks python3-dnspyton
 apt-get install python3-sphinx
 apt-get install lsb-release dpkg-dev debhelper
-apt-get --no-install-recommends devscripts
 ```
 
 ### RHEL based Linux distribution
@@ -257,7 +256,6 @@ We use [sphinx](https://www.sphinx-doc.org/en/master/) to generate docs.
 For all *Debian* based distributions:
 ```text
 lsb-release
-devscripts
 dpkg-dev
 debhelper
 ```

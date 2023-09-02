@@ -45,11 +45,21 @@ fi
 
 GIT_VER=$(git log -1 --pretty=format:git%cd.%h --date=format:%Y%m%d)
 echo "Git version: ${GIT_VER}"
+NEW_VERSION="${VERSION}${VERSION_SYMBOL}${GIT_VER}-1"
+
+CODENAME=$(lsb_release -c -s)
+MAINTAINER=$(dpkg-parsechangelog -S Maintainer)
+GIT_TS=$(git log -1 --pretty=format:%cd --date=format:%s)
+DCH_TIME=$(LANG=en_US date -d @${GIT_TS} +"%a, %d %b %Y %X %z")
 
 echo "Finalize debian/changelog"
-NEW_VERSION="${VERSION}${VERSION_SYMBOL}${GIT_VER}-1"
-dch --maintmaint --newversion "${NEW_VERSION}" --force-bad-version "Set version for git build"
-dch --maintmaint --release "Finalize changelog"
+cat << EOF > debian/changelog
+${PACKAGE} (${NEW_VERSION}) ${CODENAME}; urgency=medium
+
+  * New git snapshot.
+
+ -- ${MAINTAINER}  ${DCH_TIME}
+EOF
 
 export RUSTFLAGS="--remap-path-prefix ${HOME}=~"
 
