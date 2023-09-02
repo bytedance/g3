@@ -2524,7 +2524,7 @@ checksum = "dbb5fb1acd8a1a18b3dd5be62d25485eb770e05afb408a9627d14d451bae12da"
 [[package]]
 name = "ring"
 version = "0.16.20"
-source = "git+https://github.com/zh-jq/ring.git?branch=patch-0.16#eb6f33ea98ad1726ba1730d2ed80fe5bf0d8953e"
+source = "git+https://github.com/zh-jq/ring-repack.git?branch=patch-0.16#58ee27b8db18ffe733b760d62fbd262b5643011e"
 dependencies = [
  "cc",
  "getrandom",
