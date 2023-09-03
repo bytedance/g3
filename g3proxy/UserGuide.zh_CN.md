@@ -359,7 +359,7 @@ tls_client:
 
 ### 国密TLCP协议卸载
 
-此功能需要使用分支 feat/tlcp-tongsuo，编译启用feature vendored-tongsuo。
+此功能需要编译时启用feature vendored-tongsuo。
 
 有些场景可能要求使用国密协议访问，很多客户端不支持国密协议，可使用g3proxy进行协议转换：
 
