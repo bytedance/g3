@@ -3027,9 +3027,9 @@ dependencies = [
 
 [[package]]
 name = "tongsuo-src"
-version = "840.0.2+8.4.0pre2"
+version = "840.0.3+8.4.0pre2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e0b51274068c147b89e1d2b1ca4e0e03adb4bb003952faab27b5b21fc1d138d"
+checksum = "e5d60c926249e82a632d278c26d2d281649efca830f69ed3cd63a0101e8f965d"
 dependencies = [
  "cc",
 ]
