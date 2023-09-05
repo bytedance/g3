@@ -19,10 +19,10 @@ use ip_network::IpNetwork;
 use super::{Continent, ISO3166Alpha2CountryCode};
 
 pub struct GeoipRecord {
-    net: IpNetwork,
-    country: ISO3166Alpha2CountryCode,
-    continent: Continent,
-    as_number: u32,
-    as_name: String,
-    as_domain: String,
+    pub net: IpNetwork,
+    pub country: ISO3166Alpha2CountryCode,
+    pub continent: Continent,
+    pub as_number: u32,
+    pub as_name: String,
+    pub as_domain: String,
 }

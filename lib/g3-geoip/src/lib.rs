@@ -21,3 +21,4 @@ mod country;
 pub use country::ISO3166Alpha2CountryCode;
 
 mod record;
+pub use record::GeoipRecord;

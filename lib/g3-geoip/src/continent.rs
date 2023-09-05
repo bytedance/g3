@@ -16,10 +16,39 @@
 
 pub enum Continent {
     Africa,
-    NorthAmerica,
-    Oceania,
     Antarctica,
     Asia,
     Europe,
+    NorthAmerica,
+    Oceania,
     SouthAmerica,
+}
+
+pub struct InvalidContinentCode {}
+
+impl Continent {
+    pub fn from_code(s: &str) -> Result<Self, InvalidContinentCode> {
+        match s {
+            "AF" | "af" => Ok(Continent::Africa),
+            "AN" | "an" => Ok(Continent::Antarctica),
+            "AS" | "as" => Ok(Continent::Asia),
+            "EU" | "eu" => Ok(Continent::Europe),
+            "NA" | "na" => Ok(Continent::NorthAmerica),
+            "OC" | "oc" => Ok(Continent::Oceania),
+            "SA" | "sa" => Ok(Continent::SouthAmerica),
+            _ => Err(InvalidContinentCode {}),
+        }
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self {
+            Continent::Africa => "Africa",
+            Continent::Antarctica => "Antarctica",
+            Continent::Asia => "Asia",
+            Continent::Europe => "Europe",
+            Continent::NorthAmerica => "North America",
+            Continent::Oceania => "Oceania",
+            Continent::SouthAmerica => "South America",
+        }
+    }
 }
