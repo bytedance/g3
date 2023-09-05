@@ -17,13 +17,15 @@
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use anyhow::anyhow;
 use clap::{value_parser, Arg, ArgMatches, Command, ValueHint};
 use futures_util::future::TryFutureExt;
+
+use g3_ctl::{CommandError, CommandResult};
 
 use g3proxy_proto::escaper_capnp::escaper_control;
 use g3proxy_proto::proc_capnp::proc_control;
 
-use super::{CommandError, CommandResult};
 use crate::common::parse_operation_result;
 
 pub const COMMAND: &str = "escaper";
@@ -37,6 +39,7 @@ const SUBCOMMAND_PUBLISH_ARG_DATA: &str = "data";
 pub fn command() -> Command {
     Command::new(COMMAND)
         .arg(Arg::new(COMMAND_ARG_NAME).required(true).num_args(1))
+        .subcommand_required(true)
         .subcommand(
             Command::new(SUBCOMMAND_PUBLISH)
                 .arg(
@@ -63,7 +66,7 @@ pub fn command() -> Command {
 async fn publish(client: &escaper_control::Client, args: &ArgMatches) -> CommandResult<()> {
     let data = if let Some(file) = args.get_one::<PathBuf>(SUBCOMMAND_PUBLISH_ARG_FILE) {
         tokio::fs::read_to_string(file).await.map_err(|e| {
-            CommandError::Cli(format!(
+            CommandError::Cli(anyhow!(
                 "failed to read contents of file {}: {e:?}",
                 file.display()
             ))
@@ -75,13 +78,13 @@ async fn publish(client: &escaper_control::Client, args: &ArgMatches) -> Command
     };
 
     if let Err(e) = serde_json::Value::from_str(&data) {
-        return Err(CommandError::Cli(format!(
+        return Err(CommandError::Cli(anyhow!(
             "the data to publish is not valid json: {e:?}"
         )));
     }
 
     let mut req = client.publish_request();
-    req.get().set_data(&data);
+    req.get().set_data(data.as_str().into());
     let rsp = req.send().promise.await?;
     parse_operation_result(rsp.get()?.get_result()?)
 }
@@ -89,16 +92,13 @@ async fn publish(client: &escaper_control::Client, args: &ArgMatches) -> Command
 pub async fn run(client: &proc_control::Client, args: &ArgMatches) -> CommandResult<()> {
     let name = args.get_one::<String>(COMMAND_ARG_NAME).unwrap();
 
-    if let Some((subcommand, args)) = args.subcommand() {
-        match subcommand {
-            SUBCOMMAND_PUBLISH => {
-                super::proc::get_escaper(client, name)
-                    .and_then(|escaper| async move { publish(&escaper, args).await })
-                    .await
-            }
-            cmd => Err(CommandError::Cli(format!("unsupported subcommand {cmd}"))),
+    let (subcommand, args) = args.subcommand().unwrap();
+    match subcommand {
+        SUBCOMMAND_PUBLISH => {
+            super::proc::get_escaper(client, name)
+                .and_then(|escaper| async move { publish(&escaper, args).await })
+                .await
         }
-    } else {
-        Ok(())
+        _ => unreachable!(),
     }
 }

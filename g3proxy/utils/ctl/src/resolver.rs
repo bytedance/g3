@@ -16,17 +16,17 @@
 
 use std::str::FromStr;
 
+use anyhow::anyhow;
 use clap::{value_parser, Arg, ArgMatches, Command};
 use futures_util::future::TryFutureExt;
+
+use g3_ctl::{CommandError, CommandResult};
+use g3_types::resolve::QueryStrategy as ResolverQueryStrategy;
 
 use g3proxy_proto::proc_capnp::proc_control;
 use g3proxy_proto::resolver_capnp::{
     query_result, resolver_control, QueryStrategy as RpcQueryStrategy,
 };
-
-use g3_types::resolve::QueryStrategy as ResolverQueryStrategy;
-
-use super::{CommandError, CommandResult};
 
 pub const COMMAND: &str = "resolver";
 
@@ -40,6 +40,7 @@ const SUBCOMMAND_QUERY_ARG_RESOLUTION_DELAY: &str = "resolution-delay";
 pub fn command() -> Command {
     Command::new(COMMAND)
         .arg(Arg::new(COMMAND_ARG_NAME).required(true).num_args(1))
+        .subcommand_required(true)
         .subcommand(
             Command::new(SUBCOMMAND_QUERY)
                 .arg(Arg::new(SUBCOMMAND_QUERY_ARG_DOMAIN).required(true))
@@ -63,7 +64,7 @@ pub fn command() -> Command {
 async fn query_domain(client: &resolver_control::Client, args: &ArgMatches) -> CommandResult<()> {
     let domain = args.get_one::<String>(SUBCOMMAND_QUERY_ARG_DOMAIN).unwrap();
     let mut req = client.query_request();
-    req.get().set_domain(domain);
+    req.get().set_domain(domain.as_str().into());
 
     if let Some(delay) = args.get_one::<u16>(SUBCOMMAND_QUERY_ARG_RESOLUTION_DELAY) {
         req.get().set_resolution_delay(*delay);
@@ -71,7 +72,7 @@ async fn query_domain(client: &resolver_control::Client, args: &ArgMatches) -> C
 
     if let Some(qs) = args.get_one::<String>(SUBCOMMAND_QUERY_ARG_STRATEGY) {
         let qs = ResolverQueryStrategy::from_str(qs)
-            .map_err(|_| CommandError::Cli("invalid query strategy".to_string()))?;
+            .map_err(|_| CommandError::Cli(anyhow!("invalid query strategy")))?;
         let qs = match qs {
             ResolverQueryStrategy::Ipv4Only => RpcQueryStrategy::Ipv4Only,
             ResolverQueryStrategy::Ipv4First => RpcQueryStrategy::Ipv4First,
@@ -87,31 +88,22 @@ async fn query_domain(client: &resolver_control::Client, args: &ArgMatches) -> C
         query_result::Which::Ip(ips) => {
             let ips = ips?;
             println!("query results:");
-            for ip in ips {
-                println!("{}", ip?);
-            }
+            g3_ctl::print_text_list("ip", ips)
         }
-        query_result::Which::Err(reason) => {
-            let reason = reason?;
-            println!("query error: {reason}");
-        }
+        query_result::Which::Err(reason) => g3_ctl::print_text("err", reason?),
     }
-    Ok(())
 }
 
 pub async fn run(client: &proc_control::Client, args: &ArgMatches) -> CommandResult<()> {
     let name = args.get_one::<String>(COMMAND_ARG_NAME).unwrap();
 
-    if let Some((subcommand, args)) = args.subcommand() {
-        match subcommand {
-            SUBCOMMAND_QUERY => {
-                super::proc::get_resolver(client, name)
-                    .and_then(|resolver| async move { query_domain(&resolver, args).await })
-                    .await
-            }
-            cmd => Err(CommandError::Cli(format!("unsupported subcommand {cmd}"))),
+    let (subcommand, args) = args.subcommand().unwrap();
+    match subcommand {
+        SUBCOMMAND_QUERY => {
+            super::proc::get_resolver(client, name)
+                .and_then(|resolver| async move { query_domain(&resolver, args).await })
+                .await
         }
-    } else {
-        Ok(())
+        _ => unreachable!(),
     }
 }

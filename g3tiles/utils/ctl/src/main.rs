@@ -29,12 +29,9 @@ use tokio::net::UnixStream;
 use g3tiles_proto::proc_capnp::proc_control;
 
 mod common;
-mod error;
 mod proc;
 
 mod server;
-
-use error::{CommandError, CommandResult};
 
 const DEFAULT_SYS_CONTROL_DIR: &str = "/run/g3tiles";
 const DEFAULT_TMP_CONTROL_DIR: &str = "/tmp/g3";
@@ -171,19 +168,16 @@ async fn main() -> anyhow::Result<()> {
                     .map_err(|e| eprintln!("rpc system error: {e:?}"))
             });
 
-            if let Some((subcommand, args)) = args.subcommand() {
-                match subcommand {
-                    proc::COMMAND_VERSION => proc::version(&proc_control).await,
-                    proc::COMMAND_OFFLINE => proc::offline(&proc_control).await,
-                    proc::COMMAND_FORCE_QUIT => proc::force_quit(&proc_control, args).await,
-                    proc::COMMAND_FORCE_QUIT_ALL => proc::force_quit_all(&proc_control).await,
-                    proc::COMMAND_LIST => proc::list(&proc_control, args).await,
-                    proc::COMMAND_RELOAD_SERVER => proc::reload_server(&proc_control, args).await,
-                    server::COMMAND => server::run(&proc_control, args).await,
-                    cmd => Err(CommandError::Cli(format!("invalid subcommand {cmd}"))),
-                }
-            } else {
-                Err(CommandError::Cli("no subcommand found".to_string()))
+            let (subcommand, args) = args.subcommand().unwrap();
+            match subcommand {
+                proc::COMMAND_VERSION => proc::version(&proc_control).await,
+                proc::COMMAND_OFFLINE => proc::offline(&proc_control).await,
+                proc::COMMAND_FORCE_QUIT => proc::force_quit(&proc_control, args).await,
+                proc::COMMAND_FORCE_QUIT_ALL => proc::force_quit_all(&proc_control).await,
+                proc::COMMAND_LIST => proc::list(&proc_control, args).await,
+                proc::COMMAND_RELOAD_SERVER => proc::reload_server(&proc_control, args).await,
+                server::COMMAND => server::run(&proc_control, args).await,
+                _ => unreachable!(),
             }
         })
         .await

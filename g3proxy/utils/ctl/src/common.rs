@@ -14,29 +14,16 @@
  * limitations under the License.
  */
 
+use g3_ctl::{CommandError, CommandResult};
+
 use g3proxy_proto::types_capnp::{fetch_result, operation_result};
-
-use super::{CommandError, CommandResult};
-
-pub(crate) fn print_list_text(list: capnp::text_list::Reader<'_>) -> CommandResult<()> {
-    for text in list.iter() {
-        println!("{}", text?);
-    }
-    Ok(())
-}
 
 pub(crate) fn parse_operation_result(r: operation_result::Reader<'_>) -> CommandResult<()> {
     match r.which().unwrap() {
-        operation_result::Which::Ok(ok) => {
-            let notice = ok?;
-            println!("notice: {notice}");
-            Ok(())
-        }
+        operation_result::Which::Ok(ok) => g3_ctl::print_ok_notice(ok?),
         operation_result::Which::Err(err) => {
             let e = err?;
-            let code = e.get_code();
-            let reason = e.get_reason()?.to_string();
-            Err(CommandError::Api { code, reason })
+            Err(CommandError::api_error(e.get_code(), e.get_reason()?))
         }
     }
 }
@@ -51,9 +38,7 @@ where
         fetch_result::Which::Data(data) => Ok(data?),
         fetch_result::Which::Err(err) => {
             let e = err?;
-            let code = e.get_code();
-            let reason = e.get_reason()?.to_string();
-            Err(CommandError::Api { code, reason })
+            Err(CommandError::api_error(e.get_code(), e.get_reason()?))
         }
     }
 }

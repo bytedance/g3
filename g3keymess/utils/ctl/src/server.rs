@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-use anyhow::anyhow;
 use clap::{Arg, ArgMatches, Command};
 use futures_util::future::TryFutureExt;
+
+use g3_ctl::CommandResult;
 
 use g3keymess_proto::proc_capnp::proc_control;
 use g3keymess_proto::server_capnp::server_control;
 
-use super::{CommandError, CommandResult};
 use crate::common::parse_operation_result;
 
 pub const COMMAND: &str = "server";
@@ -38,6 +38,7 @@ const SUBCOMMAND_ARG_VALUE: &str = "value";
 pub fn command() -> Command {
     Command::new(COMMAND)
         .arg(Arg::new(COMMAND_ARG_NAME).required(true).num_args(1))
+        .subcommand_required(true)
         .subcommand(Command::new(SUBCOMMAND_STATUS))
         .subcommand(
             Command::new(SUBCOMMAND_ADD_METRICS_TAG)
@@ -74,8 +75,8 @@ async fn add_metrics_tag(client: &server_control::Client, args: &ArgMatches) -> 
     let value = args.get_one::<String>(SUBCOMMAND_ARG_VALUE).unwrap();
 
     let mut req = client.add_metrics_tag_request();
-    req.get().set_name(name);
-    req.get().set_value(value);
+    req.get().set_name(name.as_str().into());
+    req.get().set_value(value.as_str().into());
     let rsp = req.send().promise.await?;
     parse_operation_result(rsp.get()?.get_result()?)
 }
@@ -83,34 +84,29 @@ async fn add_metrics_tag(client: &server_control::Client, args: &ArgMatches) -> 
 async fn get_listen_addr(client: &server_control::Client) -> CommandResult<()> {
     let req = client.get_listen_addr_request();
     let rsp = req.send().promise.await?;
-    let addr = rsp.get()?.get_addr()?;
-    println!("listen addr: {addr}");
-    Ok(())
+    g3_ctl::print_text("addr", rsp.get()?.get_addr()?)
 }
 
 pub async fn run(client: &proc_control::Client, args: &ArgMatches) -> CommandResult<()> {
     let name = args.get_one::<String>(COMMAND_ARG_NAME).unwrap();
 
-    if let Some((subcommand, sub_args)) = args.subcommand() {
-        match subcommand {
-            SUBCOMMAND_STATUS => {
-                super::proc::get_server(client, name)
-                    .and_then(|server| async move { status(&server).await })
-                    .await
-            }
-            SUBCOMMAND_ADD_METRICS_TAG => {
-                super::proc::get_server(client, name)
-                    .and_then(|server| async move { add_metrics_tag(&server, sub_args).await })
-                    .await
-            }
-            SUBCOMMAND_GET_LISTEN_ADDR => {
-                super::proc::get_server(client, name)
-                    .and_then(|server| async move { get_listen_addr(&server).await })
-                    .await
-            }
-            cmd => Err(CommandError::Cli(anyhow!("supported subcommand {cmd}"))),
+    let (subcommand, sub_args) = args.subcommand().unwrap();
+    match subcommand {
+        SUBCOMMAND_STATUS => {
+            super::proc::get_server(client, name)
+                .and_then(|server| async move { status(&server).await })
+                .await
         }
-    } else {
-        Ok(())
+        SUBCOMMAND_ADD_METRICS_TAG => {
+            super::proc::get_server(client, name)
+                .and_then(|server| async move { add_metrics_tag(&server, sub_args).await })
+                .await
+        }
+        SUBCOMMAND_GET_LISTEN_ADDR => {
+            super::proc::get_server(client, name)
+                .and_then(|server| async move { get_listen_addr(&server).await })
+                .await
+        }
+        _ => unreachable!(),
     }
 }

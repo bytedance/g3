@@ -17,4 +17,5 @@ futures-util.workspace = true
 capnp-rpc.workspace = true
 capnp.workspace = true
 hex.workspace = true
+g3-ctl.workspace = true
 g3keymess-proto = { path = "../../proto" }

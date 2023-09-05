@@ -36,7 +36,7 @@ impl proc_control::Server for ProcControlImpl {
         _params: proc_control::VersionParams,
         mut results: proc_control::VersionResults,
     ) -> Promise<(), capnp::Error> {
-        results.get().set_version(crate::build::VERSION);
+        results.get().set_version(crate::build::VERSION.into());
         Promise::ok(())
     }
 
@@ -60,7 +60,7 @@ impl proc_control::Server for ProcControlImpl {
         let set = crate::auth::get_names();
         let mut builder = results.get().init_result(set.len() as u32);
         for (i, name) in set.iter().enumerate() {
-            builder.set(i as u32, name.as_str());
+            builder.set(i as u32, name.as_str().into());
         }
         Promise::ok(())
     }
@@ -73,7 +73,7 @@ impl proc_control::Server for ProcControlImpl {
         let set = crate::resolve::get_names();
         let mut builder = results.get().init_result(set.len() as u32);
         for (i, name) in set.iter().enumerate() {
-            builder.set(i as u32, name.as_str());
+            builder.set(i as u32, name.as_str().into());
         }
         Promise::ok(())
     }
@@ -86,7 +86,7 @@ impl proc_control::Server for ProcControlImpl {
         let set = crate::audit::get_names();
         let mut builder = results.get().init_result(set.len() as u32);
         for (i, name) in set.iter().enumerate() {
-            builder.set(i as u32, name.as_str());
+            builder.set(i as u32, name.as_str().into());
         }
         Promise::ok(())
     }
@@ -99,7 +99,7 @@ impl proc_control::Server for ProcControlImpl {
         let set = crate::escape::get_names();
         let mut builder = results.get().init_result(set.len() as u32);
         for (i, name) in set.iter().enumerate() {
-            builder.set(i as u32, name.as_str());
+            builder.set(i as u32, name.as_str().into());
         }
         Promise::ok(())
     }
@@ -112,7 +112,7 @@ impl proc_control::Server for ProcControlImpl {
         let set = crate::serve::get_names();
         let mut builder = results.get().init_result(set.len() as u32);
         for (i, name) in set.iter().enumerate() {
-            builder.set(i as u32, name.as_str());
+            builder.set(i as u32, name.as_str().into());
         }
         Promise::ok(())
     }
@@ -122,7 +122,7 @@ impl proc_control::Server for ProcControlImpl {
         params: proc_control::ReloadUserGroupParams,
         mut results: proc_control::ReloadUserGroupResults,
     ) -> Promise<(), capnp::Error> {
-        let user_group = pry!(pry!(params.get()).get_name()).to_string();
+        let user_group = pry!(pry!(pry!(params.get()).get_name()).to_string());
         Promise::from_future(async move {
             let r = crate::control::bridge::reload_user_group(user_group, None).await;
             set_operation_result(results.get().init_result(), r);
@@ -135,7 +135,7 @@ impl proc_control::Server for ProcControlImpl {
         params: proc_control::ReloadResolverParams,
         mut results: proc_control::ReloadResolverResults,
     ) -> Promise<(), capnp::Error> {
-        let resolver = pry!(pry!(params.get()).get_name()).to_string();
+        let resolver = pry!(pry!(pry!(params.get()).get_name()).to_string());
         Promise::from_future(async move {
             let r = crate::control::bridge::reload_resolver(resolver, None).await;
             set_operation_result(results.get().init_result(), r);
@@ -148,7 +148,7 @@ impl proc_control::Server for ProcControlImpl {
         params: proc_control::ReloadAuditorParams,
         mut results: proc_control::ReloadAuditorResults,
     ) -> Promise<(), capnp::Error> {
-        let auditor = pry!(pry!(params.get()).get_name()).to_string();
+        let auditor = pry!(pry!(pry!(params.get()).get_name()).to_string());
         Promise::from_future(async move {
             let r = crate::control::bridge::reload_auditor(auditor, None).await;
             set_operation_result(results.get().init_result(), r);
@@ -161,7 +161,7 @@ impl proc_control::Server for ProcControlImpl {
         params: proc_control::ReloadEscaperParams,
         mut results: proc_control::ReloadEscaperResults,
     ) -> Promise<(), capnp::Error> {
-        let escaper = pry!(pry!(params.get()).get_name()).to_string();
+        let escaper = pry!(pry!(pry!(params.get()).get_name()).to_string());
         Promise::from_future(async move {
             let r = crate::control::bridge::reload_escaper(escaper, None).await;
             set_operation_result(results.get().init_result(), r);
@@ -174,7 +174,7 @@ impl proc_control::Server for ProcControlImpl {
         params: proc_control::ReloadServerParams,
         mut results: proc_control::ReloadServerResults,
     ) -> Promise<(), capnp::Error> {
-        let server = pry!(pry!(params.get()).get_name()).to_string();
+        let server = pry!(pry!(pry!(params.get()).get_name()).to_string());
         Promise::from_future(async move {
             let r = crate::control::bridge::reload_server(server, None).await;
             set_operation_result(results.get().init_result(), r);
@@ -187,7 +187,7 @@ impl proc_control::Server for ProcControlImpl {
         params: proc_control::GetUserGroupParams,
         mut results: proc_control::GetUserGroupResults,
     ) -> Promise<(), capnp::Error> {
-        let user_group = pry!(pry!(params.get()).get_name());
+        let user_group = pry!(pry!(pry!(params.get()).get_name()).to_str());
         let ug = super::user_group::UserGroupControlImpl::new_client(user_group);
         pry!(set_fetch_result::<user_group_control::Owned>(
             results.get().init_user_group(),
@@ -201,7 +201,7 @@ impl proc_control::Server for ProcControlImpl {
         params: proc_control::GetResolverParams,
         mut results: proc_control::GetResolverResults,
     ) -> Promise<(), capnp::Error> {
-        let resolver = pry!(pry!(params.get()).get_name());
+        let resolver = pry!(pry!(pry!(params.get()).get_name()).to_str());
         pry!(set_fetch_result::<resolver_control::Owned>(
             results.get().init_resolver(),
             super::resolver::ResolverControlImpl::new_client(resolver),
@@ -214,7 +214,7 @@ impl proc_control::Server for ProcControlImpl {
         params: proc_control::GetEscaperParams,
         mut results: proc_control::GetEscaperResults,
     ) -> Promise<(), capnp::Error> {
-        let escaper = pry!(pry!(params.get()).get_name());
+        let escaper = pry!(pry!(pry!(params.get()).get_name()).to_str());
         pry!(set_fetch_result::<escaper_control::Owned>(
             results.get().init_escaper(),
             super::escaper::EscaperControlImpl::new_client(escaper),
@@ -227,7 +227,7 @@ impl proc_control::Server for ProcControlImpl {
         params: proc_control::GetServerParams,
         mut results: proc_control::GetServerResults,
     ) -> Promise<(), capnp::Error> {
-        let server = pry!(pry!(params.get()).get_name());
+        let server = pry!(pry!(pry!(params.get()).get_name()).to_str());
         pry!(set_fetch_result::<server_control::Owned>(
             results.get().init_server(),
             super::server::ServerControlImpl::new_client(server),
@@ -241,7 +241,7 @@ impl proc_control::Server for ProcControlImpl {
         mut results: proc_control::ForceQuitOfflineServersResults,
     ) -> Promise<(), capnp::Error> {
         crate::serve::force_quit_offline_servers();
-        results.get().init_result().set_ok("success");
+        results.get().init_result().set_ok("success".into());
         Promise::ok(())
     }
 
@@ -250,10 +250,10 @@ impl proc_control::Server for ProcControlImpl {
         params: proc_control::ForceQuitOfflineServerParams,
         mut results: proc_control::ForceQuitOfflineServerResults,
     ) -> Promise<(), capnp::Error> {
-        let server = pry!(pry!(params.get()).get_name());
+        let server = pry!(pry!(pry!(params.get()).get_name()).to_str());
         let server = unsafe { MetricsName::from_str_unchecked(server) };
         crate::serve::force_quit_offline_server(&server);
-        results.get().init_result().set_ok("success");
+        results.get().init_result().set_ok("success".into());
         Promise::ok(())
     }
 }
@@ -270,7 +270,7 @@ where
         Err(e) => {
             let mut ev = builder.init_err();
             ev.set_code(-1);
-            ev.set_reason(&format!("{e:?}"));
+            ev.set_reason(format!("{e:?}").as_str().into());
             Ok(())
         }
     }

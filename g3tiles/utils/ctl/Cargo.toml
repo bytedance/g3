@@ -16,4 +16,5 @@ tokio-util = { workspace = true, features = ["compat"] }
 futures-util.workspace = true
 capnp-rpc.workspace = true
 capnp.workspace = true
+g3-ctl.workspace = true
 g3tiles-proto = { path = "../../proto" }

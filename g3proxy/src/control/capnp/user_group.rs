@@ -46,8 +46,8 @@ impl user_group_control::Server for UserGroupControlImpl {
     ) -> Promise<(), capnp::Error> {
         let v = self.user_group.all_static_users();
         let mut builder = results.get().init_result(v.len() as u32);
-        for (i, name) in v.iter().enumerate() {
-            builder.set(i as u32, name);
+        for (i, name) in v.into_iter().enumerate() {
+            builder.set(i as u32, name.into());
         }
         Promise::ok(())
     }
@@ -60,7 +60,7 @@ impl user_group_control::Server for UserGroupControlImpl {
         let v = self.user_group.all_dynamic_users();
         let mut builder = results.get().init_result(v.len() as u32);
         for (i, name) in v.iter().enumerate() {
-            builder.set(i as u32, name);
+            builder.set(i as u32, name.as_str().into());
         }
         Promise::ok(())
     }
@@ -71,7 +71,7 @@ impl user_group_control::Server for UserGroupControlImpl {
         mut results: user_group_control::PublishDynamicUserResults,
     ) -> Promise<(), capnp::Error> {
         let user_group = self.user_group.clone();
-        let contents = pry!(pry!(params.get()).get_contents()).to_string();
+        let contents = pry!(pry!(pry!(params.get()).get_contents()).to_string());
         Promise::from_future(async move {
             let r = user_group.publish_dynamic_users(&contents).await;
             set_operation_result(results.get().init_result(), r);

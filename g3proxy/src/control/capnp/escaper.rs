@@ -44,7 +44,7 @@ impl escaper_control::Server for EscaperControlImpl {
         params: escaper_control::PublishParams,
         mut results: escaper_control::PublishResults,
     ) -> Promise<(), capnp::Error> {
-        let data = pry!(pry!(params.get()).get_data()).to_string();
+        let data = pry!(pry!(pry!(params.get()).get_data()).to_string());
         let escaper = Arc::clone(&self.escaper);
         Promise::from_future(async move {
             set_operation_result(results.get().init_result(), escaper.publish(data).await);

@@ -17,5 +17,6 @@ futures-util.workspace = true
 capnp-rpc.workspace = true
 capnp.workspace = true
 serde_json.workspace = true
-g3proxy-proto = { path = "../../proto" }
 g3-types = { workspace = true, features = ["resolve"] }
+g3-ctl.workspace = true
+g3proxy-proto = { path = "../../proto" }

@@ -21,11 +21,11 @@ pub(super) fn set_operation_result(
     r: anyhow::Result<()>,
 ) {
     match r {
-        Ok(_) => builder.set_ok("success"),
+        Ok(_) => builder.set_ok("success".into()),
         Err(e) => {
             let mut ev = builder.init_err();
             ev.set_code(-1);
-            ev.set_reason(&format!("{e:?}"));
+            ev.set_reason(format!("{e:?}").as_str().into());
         }
     }
 }

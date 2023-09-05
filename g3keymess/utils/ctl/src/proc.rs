@@ -19,11 +19,12 @@ use std::path::PathBuf;
 use anyhow::anyhow;
 use clap::ArgMatches;
 
+use g3_ctl::{CommandError, CommandResult};
+
 use g3keymess_proto::proc_capnp::proc_control;
 use g3keymess_proto::server_capnp::server_control;
 
-use super::{CommandError, CommandResult};
-use crate::common::{parse_fetch_result, parse_operation_result, print_list_data, print_list_text};
+use crate::common::{parse_fetch_result, parse_operation_result};
 
 pub const COMMAND_VERSION: &str = "version";
 pub const COMMAND_OFFLINE: &str = "offline";
@@ -73,9 +74,7 @@ pub mod commands {
 pub async fn version(client: &proc_control::Client) -> CommandResult<()> {
     let req = client.version_request();
     let rsp = req.send().promise.await?;
-    let ver = rsp.get()?.get_version()?;
-    println!("{ver}");
-    Ok(())
+    g3_ctl::print_version(rsp.get()?.get_version()?)
 }
 
 pub async fn offline(client: &proc_control::Client) -> CommandResult<()> {
@@ -99,13 +98,13 @@ pub async fn list(client: &proc_control::Client, args: &ArgMatches) -> CommandRe
 async fn list_server(client: &proc_control::Client) -> CommandResult<()> {
     let req = client.list_server_request();
     let rsp = req.send().promise.await?;
-    print_list_text(rsp.get()?.get_result()?)
+    g3_ctl::print_result_list(rsp.get()?.get_result()?)
 }
 
 async fn list_key(client: &proc_control::Client) -> CommandResult<()> {
     let req = client.list_keys_request();
     let rsp = req.send().promise.await?;
-    print_list_data(rsp.get()?.get_result()?)
+    g3_ctl::print_data_list(rsp.get()?.get_result()?)
 }
 
 pub(crate) async fn get_server(
@@ -113,7 +112,7 @@ pub(crate) async fn get_server(
     name: &str,
 ) -> CommandResult<server_control::Client> {
     let mut req = client.get_server_request();
-    req.get().set_name(name);
+    req.get().set_name(name.into());
     let rsp = req.send().promise.await?;
     parse_fetch_result(rsp.get()?.get_server()?)
 }
@@ -127,7 +126,7 @@ pub async fn publish_key(client: &proc_control::Client, args: &ArgMatches) -> Co
         ))
     })?;
     let mut req = client.publish_key_request();
-    req.get().set_pem(&content);
+    req.get().set_pem(content.as_str().into());
     let rsp = req.send().promise.await?;
     parse_operation_result(rsp.get()?.get_result()?)
 }

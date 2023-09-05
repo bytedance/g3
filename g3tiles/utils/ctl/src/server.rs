@@ -17,10 +17,10 @@
 use clap::{Arg, ArgMatches, Command};
 use futures_util::future::TryFutureExt;
 
+use g3_ctl::CommandResult;
+
 use g3tiles_proto::proc_capnp::proc_control;
 use g3tiles_proto::server_capnp::server_control;
-
-use super::{CommandError, CommandResult};
 
 pub const COMMAND: &str = "server";
 
@@ -31,6 +31,7 @@ const SUBCOMMAND_STATUS: &str = "status";
 pub fn command() -> Command {
     Command::new(COMMAND)
         .arg(Arg::new(COMMAND_ARG_NAME).required(true).num_args(1))
+        .subcommand_required(true)
         .subcommand(Command::new(SUBCOMMAND_STATUS))
 }
 
@@ -48,16 +49,13 @@ async fn status(client: &server_control::Client) -> CommandResult<()> {
 pub async fn run(client: &proc_control::Client, args: &ArgMatches) -> CommandResult<()> {
     let name = args.get_one::<String>(COMMAND_ARG_NAME).unwrap();
 
-    if let Some((subcommand, _)) = args.subcommand() {
-        match subcommand {
-            SUBCOMMAND_STATUS => {
-                super::proc::get_server(client, name)
-                    .and_then(|server| async move { status(&server).await })
-                    .await
-            }
-            cmd => Err(CommandError::Cli(format!("supported subcommand {cmd}"))),
+    let (subcommand, _) = args.subcommand().unwrap();
+    match subcommand {
+        SUBCOMMAND_STATUS => {
+            super::proc::get_server(client, name)
+                .and_then(|server| async move { status(&server).await })
+                .await
         }
-    } else {
-        Ok(())
+        _ => unreachable!(),
     }
 }

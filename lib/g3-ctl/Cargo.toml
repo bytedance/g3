@@ -1,0 +1,13 @@
+[package]
+name = "g3-ctl"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+thiserror.workspace = true
+anyhow.workspace = true
+capnp.workspace = true
+hex.workspace = true

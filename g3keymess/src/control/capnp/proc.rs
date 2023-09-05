@@ -36,7 +36,7 @@ impl proc_control::Server for ProcControlImpl {
         _params: proc_control::VersionParams,
         mut results: proc_control::VersionResults,
     ) -> Promise<(), capnp::Error> {
-        results.get().set_version(crate::build::VERSION);
+        results.get().set_version(crate::build::VERSION.into());
         Promise::ok(())
     }
 
@@ -60,7 +60,7 @@ impl proc_control::Server for ProcControlImpl {
         let set = crate::serve::get_names();
         let mut builder = results.get().init_result(set.len() as u32);
         for (i, name) in set.iter().enumerate() {
-            builder.set(i as u32, name.as_str());
+            builder.set(i as u32, name.as_str().into());
         }
         Promise::ok(())
     }
@@ -70,7 +70,7 @@ impl proc_control::Server for ProcControlImpl {
         params: proc_control::GetServerParams,
         mut results: proc_control::GetServerResults,
     ) -> Promise<(), capnp::Error> {
-        let server = pry!(pry!(params.get()).get_name());
+        let server = pry!(pry!(pry!(params.get()).get_name()).to_str());
         pry!(set_fetch_result::<server_control::Owned>(
             results.get().init_server(),
             super::server::ServerControlImpl::new_client(server),
@@ -83,7 +83,7 @@ impl proc_control::Server for ProcControlImpl {
         params: proc_control::PublishKeyParams,
         mut results: proc_control::PublishKeyResults,
     ) -> Promise<(), capnp::Error> {
-        let pem = pry!(pry!(params.get()).get_pem()).to_string();
+        let pem = pry!(pry!(pry!(params.get()).get_pem()).to_string());
         Promise::from_future(async move {
             let r = crate::control::bridge::add_key(&pem).await;
             set_operation_result(results.get().init_result(), r);
@@ -113,8 +113,8 @@ impl proc_control::Server for ProcControlImpl {
         params: proc_control::AddMetricsTagParams,
         mut results: proc_control::AddMetricsTagResults,
     ) -> Promise<(), capnp::Error> {
-        let name = pry!(pry!(params.get()).get_name());
-        let value = pry!(pry!(params.get()).get_value());
+        let name = pry!(pry!(pry!(params.get()).get_name()).to_str());
+        let value = pry!(pry!(pry!(params.get()).get_value()).to_str());
 
         let r = do_add_metrics_tag(name, value);
         set_operation_result(results.get().init_result(), r);
@@ -148,7 +148,7 @@ where
         Err(e) => {
             let mut ev = builder.init_err();
             ev.set_code(-1);
-            ev.set_reason(&format!("{e:?}"));
+            ev.set_reason(format!("{e:?}").as_str().into());
             Ok(())
         }
     }

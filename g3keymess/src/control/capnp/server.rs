@@ -68,8 +68,8 @@ impl server_control::Server for ServerControlImpl {
         params: server_control::AddMetricsTagParams,
         mut results: server_control::AddMetricsTagResults,
     ) -> Promise<(), capnp::Error> {
-        let name = pry!(pry!(params.get()).get_name());
-        let value = pry!(pry!(params.get()).get_value());
+        let name = pry!(pry!(pry!(params.get()).get_name()).to_str());
+        let value = pry!(pry!(pry!(params.get()).get_value()).to_str());
 
         let r = self.do_add_metrics_tag(name, value);
         set_operation_result(results.get().init_result(), r);
@@ -82,7 +82,7 @@ impl server_control::Server for ServerControlImpl {
         mut results: server_control::GetListenAddrResults,
     ) -> Promise<(), capnp::Error> {
         let addr = self.server.listen_addr().to_string();
-        results.get().set_addr(&addr);
+        results.get().set_addr(addr.as_str().into());
         Promise::ok(())
     }
 }
