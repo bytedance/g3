@@ -841,6 +841,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "g3-geoip"
+version = "0.1.0"
+dependencies = [
+ "ip_network",
+ "ip_network_table",
+]
+
+[[package]]
 name = "g3-h2"
 version = "0.1.0"
 dependencies = [
