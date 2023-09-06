@@ -14,15 +14,5 @@
  * limitations under the License.
  */
 
-use ip_network::IpNetwork;
-
-use super::{ContinentCode, CountryCode};
-
-pub struct GeoipRecord {
-    pub network: IpNetwork,
-    pub country: CountryCode,
-    pub continent: ContinentCode,
-    pub as_number: u32,
-    pub as_name: String,
-    pub as_domain: String,
-}
+mod ipinfo;
+pub use ipinfo::load_ipinfo;

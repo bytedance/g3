@@ -48,6 +48,7 @@ members = [
     "demo/test-tcp-relay",
     "demo/test-resolver",
     "demo/test-copy-yield",
+    "demo/geoip-query",
 ]
 default-members = [
     "g3bench",
