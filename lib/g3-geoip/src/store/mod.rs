@@ -15,4 +15,4 @@
  */
 
 mod ipinfo;
-pub use ipinfo::load as load_ipinfo;
+pub use ipinfo::{load as ipinfo_load, store as ipinfo_store};

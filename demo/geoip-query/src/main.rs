@@ -60,9 +60,9 @@ fn main() -> anyhow::Result<()> {
                     r.network,
                     r.country.name(),
                     r.continent.name(),
-                    r.as_number,
-                    r.as_name,
-                    r.as_domain
+                    r.as_number.unwrap_or_default(),
+                    r.as_name().unwrap_or_default(),
+                    r.as_domain().unwrap_or_default()
                 );
             }
             None => {

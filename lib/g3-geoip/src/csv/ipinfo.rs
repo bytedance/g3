@@ -23,9 +23,9 @@ use anyhow::anyhow;
 use ip_network::{IpNetwork, Ipv4Network, Ipv6Network};
 use ip_network_table::IpNetworkTable;
 
-use crate::{ContinentCode, CountryCode, GeoipRecord};
+use crate::{ContinentCode, CountryCode, GeoIpRecord};
 
-pub fn load_ipinfo(file: &Path) -> anyhow::Result<IpNetworkTable<GeoipRecord>> {
+pub fn load(file: &Path) -> anyhow::Result<IpNetworkTable<GeoIpRecord>> {
     let mut table = IpNetworkTable::new();
 
     let mut rdr = csv::Reader::from_path(file)
@@ -108,22 +108,21 @@ pub fn load_ipinfo(file: &Path) -> anyhow::Result<IpNetworkTable<GeoipRecord>> {
         };
         let asn = record
             .get(asn_index)
-            .map(|v| u32::from_str(v.strip_prefix("AS").unwrap_or(v)).unwrap_or_default())
-            .unwrap_or_default();
-        let as_name = record.get(as_name_index).unwrap_or_default();
-        let as_domain = record.get(as_domain_index).unwrap_or_default();
+            .and_then(|v| u32::from_str(v.strip_prefix("AS").unwrap_or(v)).ok());
+        let as_name = record.get(as_name_index).map(|s| s.to_string());
+        let as_domain = record.get(as_domain_index).map(|s| s.to_string());
 
-        let geo_record = GeoipRecord {
+        let geo_record = GeoIpRecord {
             network,
             country,
             continent,
             as_number: asn,
-            as_name: as_name.to_string(),
-            as_domain: as_domain.to_string(),
+            as_name,
+            as_domain,
         };
         if let Some(v) = table.insert(network, geo_record) {
             return Err(anyhow!(
-                "found duplicate entry for network {} as {}/{}/{}",
+                "found duplicate entry for network {} as {:?}/{:?}/{:?}",
                 v.network,
                 v.as_number,
                 v.as_name,

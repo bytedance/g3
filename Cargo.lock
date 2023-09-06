@@ -866,9 +866,11 @@ name = "g3-geoip"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "arc-swap",
  "csv",
  "ip_network",
  "ip_network_table",
+ "once_cell",
 ]
 
 [[package]]

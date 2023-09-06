@@ -8,6 +8,8 @@ edition.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+arc-swap.workspace = true
+once_cell.workspace = true
 ip_network.workspace = true
 ip_network_table.workspace = true
 csv = "1.2"

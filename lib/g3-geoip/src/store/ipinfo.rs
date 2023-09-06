@@ -14,5 +14,21 @@
  * limitations under the License.
  */
 
-mod ipinfo;
-pub use ipinfo::load as load_ipinfo;
+use std::sync::Arc;
+
+use arc_swap::ArcSwapOption;
+use ip_network_table::IpNetworkTable;
+use once_cell::sync::Lazy;
+
+use crate::GeoIpRecord;
+
+static GEO_DB: Lazy<ArcSwapOption<IpNetworkTable<GeoIpRecord>>> =
+    Lazy::new(|| ArcSwapOption::new(None));
+
+pub fn load() -> Option<Arc<IpNetworkTable<GeoIpRecord>>> {
+    GEO_DB.load_full()
+}
+
+pub fn store(db: Arc<IpNetworkTable<GeoIpRecord>>) {
+    GEO_DB.store(Some(db));
+}
