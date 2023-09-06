@@ -15,10 +15,10 @@
  */
 
 mod continent;
-pub use continent::Continent;
+pub use continent::{Continent, ContinentCode};
 
 mod country;
-pub use country::ISO3166Alpha2CountryCode;
+pub use country::{CountryCode, ISO3166Alpha2CountryCode, ISO3166Alpha3CountryCode};
 
 mod record;
 pub use record::GeoipRecord;

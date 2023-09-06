@@ -9,7 +9,7 @@ curl "https://download.geonames.org/export/dump/countryInfo.txt" -o ${TMP_FILE}
 
 cd "${SCRIPT_DIR}"
 
-cat << EOF > ../../../lib/g3-geoip/src/country.rs
+cat << EOF > ../../../lib/g3-geoip/src/country/generated.rs
 /*
  * Copyright 2023 ByteDance and/or its affiliates.
  *
@@ -32,11 +32,33 @@ cat << EOF > ../../../lib/g3-geoip/src/country.rs
 ///
 use std::str::FromStr;
 
-$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_alpha2_enum.awk)
+$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_names.awk)
 
-$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_alpha2_name.awk)
+#[derive(Debug, Clone, Copy)]
+pub enum ISO3166Alpha2CountryCode {
+$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_alpha2_enum.awk)
+}
+
+impl ISO3166Alpha2CountryCode {
+    pub fn name(&self) -> &'static str {
+        ALL_COUNTRY_NAMES[*self as usize]
+    }
+}
 
 $(cat ${TMP_FILE} | awk -F'\t' -f iso3166_alpha2_from_str.awk)
+
+#[derive(Debug, Clone, Copy)]
+pub enum ISO3166Alpha3CountryCode {
+$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_alpha3_enum.awk)
+}
+
+impl ISO3166Alpha3CountryCode {
+    pub fn name(&self) -> &'static str {
+        ALL_COUNTRY_NAMES[*self as usize]
+    }
+}
+
+$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_alpha3_from_str.awk)
 EOF
 
 rm ${TMP_FILE}

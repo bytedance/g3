@@ -14,6 +14,53 @@
  * limitations under the License.
  */
 
+use std::str::FromStr;
+
+const ALL_CONTINENT_NAMES: &[&str] = &[
+    "Africa",
+    "Antarctica",
+    "Asia",
+    "Europe",
+    "North America",
+    "Oceania",
+    "South America",
+];
+
+#[derive(Debug, Clone, Copy)]
+pub enum ContinentCode {
+    AF,
+    AN,
+    AS,
+    EU,
+    NA,
+    OC,
+    SA,
+}
+
+impl ContinentCode {
+    pub fn name(&self) -> &'static str {
+        ALL_CONTINENT_NAMES[*self as usize]
+    }
+}
+
+impl FromStr for ContinentCode {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "AF" | "af" => Ok(ContinentCode::AF),
+            "AN" | "an" => Ok(ContinentCode::AN),
+            "AS" | "as" => Ok(ContinentCode::AS),
+            "EU" | "eu" => Ok(ContinentCode::EU),
+            "NA" | "na" => Ok(ContinentCode::NA),
+            "OC" | "oc" => Ok(ContinentCode::OC),
+            "SA" | "sa" => Ok(ContinentCode::SA),
+            _ => Err(()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum Continent {
     Africa,
     Antarctica,
@@ -24,31 +71,36 @@ pub enum Continent {
     SouthAmerica,
 }
 
-pub struct InvalidContinentCode {}
-
-impl Continent {
-    pub fn from_code(s: &str) -> Result<Self, InvalidContinentCode> {
-        match s {
-            "AF" | "af" => Ok(Continent::Africa),
-            "AN" | "an" => Ok(Continent::Antarctica),
-            "AS" | "as" => Ok(Continent::Asia),
-            "EU" | "eu" => Ok(Continent::Europe),
-            "NA" | "na" => Ok(Continent::NorthAmerica),
-            "OC" | "oc" => Ok(Continent::Oceania),
-            "SA" | "sa" => Ok(Continent::SouthAmerica),
-            _ => Err(InvalidContinentCode {}),
+impl From<ContinentCode> for Continent {
+    fn from(value: ContinentCode) -> Self {
+        match value {
+            ContinentCode::AF => Continent::Africa,
+            ContinentCode::AN => Continent::Antarctica,
+            ContinentCode::AS => Continent::Asia,
+            ContinentCode::EU => Continent::Europe,
+            ContinentCode::NA => Continent::NorthAmerica,
+            ContinentCode::OC => Continent::Oceania,
+            ContinentCode::SA => Continent::SouthAmerica,
         }
     }
+}
 
+impl Continent {
     pub fn name(&self) -> &'static str {
-        match self {
-            Continent::Africa => "Africa",
-            Continent::Antarctica => "Antarctica",
-            Continent::Asia => "Asia",
-            Continent::Europe => "Europe",
-            Continent::NorthAmerica => "North America",
-            Continent::Oceania => "Oceania",
-            Continent::SouthAmerica => "South America",
+        ALL_CONTINENT_NAMES[*self as usize]
+    }
+}
+
+impl From<Continent> for ContinentCode {
+    fn from(value: Continent) -> Self {
+        match value {
+            Continent::Africa => ContinentCode::AF,
+            Continent::Antarctica => ContinentCode::AN,
+            Continent::Asia => ContinentCode::AS,
+            Continent::Europe => ContinentCode::EU,
+            Continent::NorthAmerica => ContinentCode::NA,
+            Continent::Oceania => ContinentCode::OC,
+            Continent::SouthAmerica => ContinentCode::SA,
         }
     }
 }
