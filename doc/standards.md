@@ -30,9 +30,10 @@ The code should comply to these, but should be more compliant to existing popula
  - [rfc4122](https://datatracker.ietf.org/doc/html/rfc4122)
     : A Universally Unique IDentifier (UUID) URN Namespace
 
-## Encoding
+## Systemd Journal
 
- - [netstring](http://cr.yp.to/proto/netstrings.txt)
+ - [JOURNAL_NATIVE_PROTOCOL](https://systemd.io/JOURNAL_NATIVE_PROTOCOL/)
+    : Native Journal Protocol
 
 ## Syslog
 
@@ -71,32 +72,32 @@ The code should comply to these, but should be more compliant to existing popula
 ## X.509
 
  - [rfc7468](https://datatracker.ietf.org/doc/html/rfc7468)
-   : Textual Encodings of PKIX, PKCS, and CMS Structures
+    : Textual Encodings of PKIX, PKCS, and CMS Structures
  - [rfc5280](https://datatracker.ietf.org/doc/html/rfc5280)
-   : Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile
+    : Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile
  - [rfc5758](https://datatracker.ietf.org/doc/html/rfc5758)
-   : Internet X.509 Public Key Infrastructure: Additional Algorithms and Identifiers for DSA and ECDSA
+    : Internet X.509 Public Key Infrastructure: Additional Algorithms and Identifiers for DSA and ECDSA
  - [rfc4055](https://datatracker.ietf.org/doc/html/rfc4055/)
-   : Additional Algorithms and Identifiers for RSA Cryptography for use in the Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile
+    : Additional Algorithms and Identifiers for RSA Cryptography for use in the Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile
 
 ## Cryptography
 
  - [NIST SP 800-186](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-186.pdf)
-   : Recommendations for Discrete Logarithm-based Cryptography: Elliptic Curve Domain Parameters
+    : Recommendations for Discrete Logarithm-based Cryptography: Elliptic Curve Domain Parameters
  - [SEC2-v2](https://www.secg.org/sec2-v2.pdf)
-   : SEC 2: Recommended Elliptic Curve Domain Parameters
+    : SEC 2: Recommended Elliptic Curve Domain Parameters
 
 # Network Protocol
 
 ## Happy Eyeballs
 
  - [rfc8305](https://datatracker.ietf.org/doc/html/rfc8305)
-   : Happy Eyeballs Version 2: Better Connectivity Using Concurrency
+    : Happy Eyeballs Version 2: Better Connectivity Using Concurrency
 
 ## PROXY protocol
 
  - [haproxy-proxy-protocol](https://github.com/haproxy/haproxy/blob/master/doc/proxy-protocol.txt)
-   : The PROXY protocol Versions 1 & 2
+    : The PROXY protocol Versions 1 & 2
 
 ## Socks
 
@@ -328,8 +329,8 @@ The code should comply to these, but should be more compliant to existing popula
 ## NAT Traversal
 
  - [rfc8489](https://datatracker.ietf.org/doc/html/rfc8489)
-   : Session Traversal Utilities for NAT (STUN)
+    : Session Traversal Utilities for NAT (STUN)
  - [rfc8656](https://datatracker.ietf.org/doc/html/rfc8656)
-   : Traversal Using Relays around NAT (TURN): Relay Extensions to Session Traversal Utilities for NAT (STUN)
+    : Traversal Using Relays around NAT (TURN): Relay Extensions to Session Traversal Utilities for NAT (STUN)
  - [rfc8445](https://datatracker.ietf.org/doc/html/rfc8445)
-   : Interactive Connectivity Establishment (ICE): A Protocol for Network Address Translator (NAT) Traversal
+    : Interactive Connectivity Establishment (ICE): A Protocol for Network Address Translator (NAT) Traversal

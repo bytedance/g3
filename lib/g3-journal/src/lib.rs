@@ -24,6 +24,8 @@ use g3_types::log::{AsyncLogConfig, AsyncLogger, LogStats};
 #[macro_use]
 mod macros;
 
+mod io;
+
 mod format;
 pub use format::JournalFormatter;
 

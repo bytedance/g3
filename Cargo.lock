@@ -973,10 +973,12 @@ dependencies = [
 name = "g3-journal"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "flume",
  "g3-types",
  "itoa",
  "libsystemd",
+ "nix 0.27.1",
  "ryu",
  "serde",
  "serde_json",
@@ -2165,6 +2167,7 @@ dependencies = [
  "bitflags 2.4.0",
  "cfg-if",
  "libc",
+ "memoffset 0.9.0",
 ]
 
 [[package]]
