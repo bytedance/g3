@@ -14,5 +14,4 @@
  * limitations under the License.
  */
 
-mod ipinfo;
-pub use ipinfo::load as load_ipinfo;
+pub mod ipinfo;

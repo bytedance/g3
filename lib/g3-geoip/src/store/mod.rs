@@ -14,5 +14,31 @@
  * limitations under the License.
  */
 
-mod ipinfo;
-pub use ipinfo::{load as ipinfo_load, store as ipinfo_store};
+use std::sync::Arc;
+
+use arc_swap::ArcSwapOption;
+use ip_network_table::IpNetworkTable;
+use once_cell::sync::Lazy;
+
+use crate::{GeoIpAsRecord, GeoIpCountryRecord};
+
+static GEO_COUNTRY_DB: Lazy<ArcSwapOption<IpNetworkTable<GeoIpCountryRecord>>> =
+    Lazy::new(|| ArcSwapOption::new(None));
+static GEO_AS_DB: Lazy<ArcSwapOption<IpNetworkTable<GeoIpAsRecord>>> =
+    Lazy::new(|| ArcSwapOption::new(None));
+
+pub fn load_country() -> Option<Arc<IpNetworkTable<GeoIpCountryRecord>>> {
+    GEO_COUNTRY_DB.load_full()
+}
+
+pub fn store_country(db: Arc<IpNetworkTable<GeoIpCountryRecord>>) {
+    GEO_COUNTRY_DB.store(Some(db));
+}
+
+pub fn load_as() -> Option<Arc<IpNetworkTable<GeoIpAsRecord>>> {
+    GEO_AS_DB.load_full()
+}
+
+pub fn store_as(db: Arc<IpNetworkTable<GeoIpAsRecord>>) {
+    GEO_AS_DB.store(Some(db));
+}

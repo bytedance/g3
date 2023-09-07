@@ -47,7 +47,7 @@ fn main() -> anyhow::Result<()> {
 
     let input = args.get_one::<PathBuf>(ARG_INPUT).unwrap();
     println!("# loading geoip data");
-    let geoip_table = g3_geoip::csv::load_ipinfo(input)?;
+    let geoip_table = g3_geoip::csv::ipinfo::load_country(input)?;
     let (v4l, v6l) = geoip_table.len();
     println!("# loaded {v4l} ipv4 records, {v6l} ipv6 records");
 
@@ -56,13 +56,10 @@ fn main() -> anyhow::Result<()> {
         match geoip_table.longest_match(*ip) {
             Some((_, r)) => {
                 println!(
-                    "network: {}\ncountry: {}/{}\nas: {}/{}/{}",
+                    "network: {}\ncountry: {}/{}",
                     r.network,
                     r.country.name(),
                     r.continent.name(),
-                    r.as_number.unwrap_or_default(),
-                    r.as_name().unwrap_or_default(),
-                    r.as_domain().unwrap_or_default()
                 );
             }
             None => {

@@ -163,6 +163,9 @@ rmpv = "1.0"
 #
 redis = { version = "0.23", default-features = false }
 #
+flate2 = "1.0"
+zip = { version = "0.6", default-features = false }
+#
 mlua = "0.9"
 pyo3 = "0.19"
 #

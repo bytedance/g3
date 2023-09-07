@@ -14,22 +14,52 @@
  * limitations under the License.
  */
 
+use std::fs::File;
+use std::io::{self, BufReader};
 use std::net::IpAddr;
 use std::ops::BitXor;
 use std::path::Path;
 use std::str::FromStr;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
+use csv::StringRecord;
+use flate2::bufread::GzDecoder;
 use ip_network::{IpNetwork, Ipv4Network, Ipv6Network};
 use ip_network_table::IpNetworkTable;
 
-use crate::{ContinentCode, CountryCode, GeoIpRecord};
+use crate::{ContinentCode, CountryCode, GeoIpAsRecord, GeoIpCountryRecord};
 
-pub fn load(file: &Path) -> anyhow::Result<IpNetworkTable<GeoIpRecord>> {
-    let mut table = IpNetworkTable::new();
+pub fn load_country(file: &Path) -> anyhow::Result<IpNetworkTable<GeoIpCountryRecord>> {
+    if let Some(ext) = file.extension() {
+        match ext.to_str() {
+            Some("gz") => {
+                let f = File::open(file)
+                    .map_err(|e| anyhow!("failed to open gzip file {}: {e}", file.display()))?;
+                let f = GzDecoder::new(BufReader::new(f));
+                return load_country_from_csv(f).context(format!(
+                    "failed to load records from gzip file {}",
+                    file.display()
+                ));
+            }
+            Some("csv") => {
+                let f = File::open(file)
+                    .map_err(|e| anyhow!("failed to open csv file {}: {e}", file.display()))?;
+                return load_country_from_csv(f).context(format!(
+                    "failed to load records from csv file {}",
+                    file.display()
+                ));
+            }
+            Some(_) => {}
+            None => {}
+        }
+    }
+    Err(anyhow!("file {} has no known extension", file.display()))
+}
 
-    let mut rdr = csv::Reader::from_path(file)
-        .map_err(|e| anyhow!("failed to read csv file {}: {e}", file.display()))?;
+fn load_country_from_csv<R: io::Read>(
+    stream: R,
+) -> anyhow::Result<IpNetworkTable<GeoIpCountryRecord>> {
+    let mut rdr = csv::Reader::from_reader(stream);
     let headers = rdr
         .headers()
         .map_err(|e| anyhow!("no csv header line found: {e}"))?;
@@ -38,6 +68,91 @@ pub fn load(file: &Path) -> anyhow::Result<IpNetworkTable<GeoIpRecord>> {
     let mut end_ip_index = usize::MAX;
     let mut country_index = usize::MAX;
     let mut continent_index = usize::MAX;
+    for (column, s) in headers.iter().enumerate() {
+        match s {
+            "start_ip" => start_ip_index = column,
+            "end_ip" => end_ip_index = column,
+            "country" => country_index = column,
+            "continent" => continent_index = column,
+            _ => {}
+        }
+    }
+
+    let mut table = IpNetworkTable::new();
+    for (i, record) in rdr.records().enumerate() {
+        let record = record.map_err(|e| anyhow!("invalid record {i}: {e}"))?;
+
+        let Some(network) = parse_network(&record, start_ip_index, end_ip_index) else {
+            continue;
+        };
+
+        macro_rules! get_field {
+            ($field:ident, $index:expr) => {
+                let Some($field) = record.get($index) else {
+                    continue;
+                };
+            };
+        }
+
+        get_field!(country, country_index);
+        let Ok(country) = CountryCode::from_str(country) else {
+            continue;
+        };
+        get_field!(continent, continent_index);
+        let Ok(continent) = ContinentCode::from_str(continent) else {
+            continue;
+        };
+
+        let geo_record = GeoIpCountryRecord {
+            network,
+            country,
+            continent,
+        };
+        if let Some(v) = table.insert(network, geo_record) {
+            return Err(anyhow!("found duplicate entry for network {}", v.network,));
+        }
+    }
+
+    Ok(table)
+}
+
+pub fn load_asn(file: &Path) -> anyhow::Result<IpNetworkTable<GeoIpAsRecord>> {
+    if let Some(ext) = file.extension() {
+        match ext.to_str() {
+            Some("gz") => {
+                let f = File::open(file)
+                    .map_err(|e| anyhow!("failed to open gzip file {}: {e}", file.display()))?;
+                let f = GzDecoder::new(BufReader::new(f));
+                return load_asn_from_csv(f).context(format!(
+                    "failed to load records from gzip file {}",
+                    file.display()
+                ));
+            }
+            Some("csv") => {
+                let f = File::open(file)
+                    .map_err(|e| anyhow!("failed to open csv file {}: {e}", file.display()))?;
+                return load_asn_from_csv(f).context(format!(
+                    "failed to load records from csv file {}",
+                    file.display()
+                ));
+            }
+            Some(_) => {}
+            None => {}
+        }
+    }
+    Err(anyhow!("file {} has no known extension", file.display()))
+}
+
+fn load_asn_from_csv<R: io::Read>(stream: R) -> anyhow::Result<IpNetworkTable<GeoIpAsRecord>> {
+    let mut table = IpNetworkTable::new();
+
+    let mut rdr = csv::Reader::from_reader(stream);
+    let headers = rdr
+        .headers()
+        .map_err(|e| anyhow!("no csv header line found: {e}"))?;
+
+    let mut start_ip_index = usize::MAX;
+    let mut end_ip_index = usize::MAX;
     let mut asn_index = usize::MAX;
     let mut as_name_index = usize::MAX;
     let mut as_domain_index = usize::MAX;
@@ -45,8 +160,6 @@ pub fn load(file: &Path) -> anyhow::Result<IpNetworkTable<GeoIpRecord>> {
         match s {
             "start_ip" => start_ip_index = column,
             "end_ip" => end_ip_index = column,
-            "country" => country_index = column,
-            "continent" => continent_index = column,
             "asn" => asn_index = column,
             "as_name" => as_name_index = column,
             "as_domain" => as_domain_index = column,
@@ -57,79 +170,75 @@ pub fn load(file: &Path) -> anyhow::Result<IpNetworkTable<GeoIpRecord>> {
     for (i, record) in rdr.records().enumerate() {
         let record = record.map_err(|e| anyhow!("invalid record {i}: {e}"))?;
 
-        macro_rules! get_field {
-            ($field:ident, $index:expr) => {
-                let Some($field) = record.get($index) else {
-                    continue;
-                };
-            };
-        }
-
-        get_field!(start_ip, start_ip_index);
-        let Ok(start_ip) = IpAddr::from_str(start_ip) else {
-            continue;
-        };
-        get_field!(end_ip, end_ip_index);
-        let Ok(end_ip) = IpAddr::from_str(end_ip) else {
+        let Some(network) = parse_network(&record, start_ip_index, end_ip_index) else {
             continue;
         };
 
-        let network = match (start_ip, end_ip) {
-            (IpAddr::V4(s), IpAddr::V4(e)) => {
-                let si = u32::from(s);
-                let ei = u32::from(e);
-                let prefix = si.bitxor(&ei).leading_zeros() as u8;
-                // the start ip may be not the network address with trailing zeros, so truncate here
-                let Ok(v4_net) = Ipv4Network::new_truncate(s, prefix) else {
-                    continue;
-                };
-                IpNetwork::V4(v4_net)
-            }
-            (IpAddr::V6(s), IpAddr::V6(e)) => {
-                let si = u128::from(s);
-                let ei = u128::from(e);
-                let prefix = si.bitxor(&ei).leading_zeros() as u8;
-                // the start ip may be not the network address with trailing zeros, so truncate here
-                let Ok(v6_net) = Ipv6Network::new_truncate(s, prefix) else {
-                    continue;
-                };
-                IpNetwork::V6(v6_net)
-            }
-            _ => continue,
-        };
-
-        get_field!(country, country_index);
-        let Ok(country) = CountryCode::from_str(country) else {
-            continue;
-        };
-        get_field!(continent, continent_index);
-        let Ok(continent) = ContinentCode::from_str(continent) else {
-            continue;
-        };
         let asn = record
             .get(asn_index)
             .and_then(|v| u32::from_str(v.strip_prefix("AS").unwrap_or(v)).ok());
         let as_name = record.get(as_name_index).map(|s| s.to_string());
         let as_domain = record.get(as_domain_index).map(|s| s.to_string());
 
-        let geo_record = GeoIpRecord {
+        let geo_record = GeoIpAsRecord {
             network,
-            country,
-            continent,
-            as_number: asn,
-            as_name,
-            as_domain,
+            number: asn,
+            name: as_name,
+            domain: as_domain,
         };
         if let Some(v) = table.insert(network, geo_record) {
             return Err(anyhow!(
                 "found duplicate entry for network {} as {:?}/{:?}/{:?}",
                 v.network,
-                v.as_number,
-                v.as_name,
-                v.as_domain
+                v.number,
+                v.name,
+                v.domain
             ));
         }
     }
 
     Ok(table)
+}
+
+fn parse_network(
+    record: &StringRecord,
+    start_ip_index: usize,
+    end_ip_index: usize,
+) -> Option<IpNetwork> {
+    macro_rules! get_ip_field {
+        ($field:ident, $index:expr) => {
+            let Some($field) = record.get($index) else {
+                return None;
+            };
+            let Ok($field) = IpAddr::from_str($field) else {
+                return None;
+            };
+        };
+    }
+
+    get_ip_field!(start_ip, start_ip_index);
+    get_ip_field!(end_ip, end_ip_index);
+    match (start_ip, end_ip) {
+        (IpAddr::V4(s), IpAddr::V4(e)) => {
+            let si = u32::from(s);
+            let ei = u32::from(e);
+            let prefix = si.bitxor(&ei).leading_zeros() as u8;
+            // the start ip may be not the network address with trailing zeros, so truncate here
+            let Ok(v4_net) = Ipv4Network::new_truncate(s, prefix) else {
+                return None;
+            };
+            Some(IpNetwork::V4(v4_net))
+        }
+        (IpAddr::V6(s), IpAddr::V6(e)) => {
+            let si = u128::from(s);
+            let ei = u128::from(e);
+            let prefix = si.bitxor(&ei).leading_zeros() as u8;
+            // the start ip may be not the network address with trailing zeros, so truncate here
+            let Ok(v6_net) = Ipv6Network::new_truncate(s, prefix) else {
+                return None;
+            };
+            Some(IpNetwork::V6(v6_net))
+        }
+        _ => None,
+    }
 }

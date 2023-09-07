@@ -18,21 +18,25 @@ use ip_network::IpNetwork;
 
 use super::{ContinentCode, CountryCode};
 
-pub struct GeoIpRecord {
+pub struct GeoIpCountryRecord {
     pub network: IpNetwork,
     pub country: CountryCode,
     pub continent: ContinentCode,
-    pub as_number: Option<u32>,
-    pub(crate) as_name: Option<String>,
-    pub(crate) as_domain: Option<String>,
 }
 
-impl GeoIpRecord {
-    pub fn as_name(&self) -> Option<&str> {
-        self.as_name.as_deref()
+pub struct GeoIpAsRecord {
+    pub network: IpNetwork,
+    pub number: Option<u32>,
+    pub(crate) name: Option<String>,
+    pub(crate) domain: Option<String>,
+}
+
+impl GeoIpAsRecord {
+    pub fn isp_name(&self) -> Option<&str> {
+        self.name.as_deref()
     }
 
-    pub fn as_domain(&self) -> Option<&str> {
-        self.as_domain.as_deref()
+    pub fn isp_domain(&self) -> Option<&str> {
+        self.domain.as_deref()
     }
 }
