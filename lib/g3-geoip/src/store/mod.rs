@@ -20,11 +20,11 @@ use arc_swap::ArcSwapOption;
 use ip_network_table::IpNetworkTable;
 use once_cell::sync::Lazy;
 
-use crate::{GeoIpAsRecord, GeoIpCountryRecord};
+use crate::{GeoIpAsnRecord, GeoIpCountryRecord};
 
 static GEO_COUNTRY_DB: Lazy<ArcSwapOption<IpNetworkTable<GeoIpCountryRecord>>> =
     Lazy::new(|| ArcSwapOption::new(None));
-static GEO_AS_DB: Lazy<ArcSwapOption<IpNetworkTable<GeoIpAsRecord>>> =
+static GEO_ASN_DB: Lazy<ArcSwapOption<IpNetworkTable<GeoIpAsnRecord>>> =
     Lazy::new(|| ArcSwapOption::new(None));
 
 pub fn load_country() -> Option<Arc<IpNetworkTable<GeoIpCountryRecord>>> {
@@ -35,10 +35,10 @@ pub fn store_country(db: Arc<IpNetworkTable<GeoIpCountryRecord>>) {
     GEO_COUNTRY_DB.store(Some(db));
 }
 
-pub fn load_as() -> Option<Arc<IpNetworkTable<GeoIpAsRecord>>> {
-    GEO_AS_DB.load_full()
+pub fn load_asn() -> Option<Arc<IpNetworkTable<GeoIpAsnRecord>>> {
+    GEO_ASN_DB.load_full()
 }
 
-pub fn store_as(db: Arc<IpNetworkTable<GeoIpAsRecord>>) {
-    GEO_AS_DB.store(Some(db));
+pub fn store_asn(db: Arc<IpNetworkTable<GeoIpAsnRecord>>) {
+    GEO_ASN_DB.store(Some(db));
 }

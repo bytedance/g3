@@ -27,7 +27,7 @@ use flate2::bufread::GzDecoder;
 use ip_network::{IpNetwork, Ipv4Network, Ipv6Network};
 use ip_network_table::IpNetworkTable;
 
-use crate::{ContinentCode, CountryCode, GeoIpAsRecord, GeoIpCountryRecord};
+use crate::{ContinentCode, CountryCode, GeoIpAsnRecord, GeoIpCountryRecord};
 
 pub fn load_country(file: &Path) -> anyhow::Result<IpNetworkTable<GeoIpCountryRecord>> {
     if let Some(ext) = file.extension() {
@@ -116,7 +116,7 @@ fn load_country_from_csv<R: io::Read>(
     Ok(table)
 }
 
-pub fn load_asn(file: &Path) -> anyhow::Result<IpNetworkTable<GeoIpAsRecord>> {
+pub fn load_asn(file: &Path) -> anyhow::Result<IpNetworkTable<GeoIpAsnRecord>> {
     if let Some(ext) = file.extension() {
         match ext.to_str() {
             Some("gz") => {
@@ -143,7 +143,7 @@ pub fn load_asn(file: &Path) -> anyhow::Result<IpNetworkTable<GeoIpAsRecord>> {
     Err(anyhow!("file {} has no known extension", file.display()))
 }
 
-fn load_asn_from_csv<R: io::Read>(stream: R) -> anyhow::Result<IpNetworkTable<GeoIpAsRecord>> {
+fn load_asn_from_csv<R: io::Read>(stream: R) -> anyhow::Result<IpNetworkTable<GeoIpAsnRecord>> {
     let mut table = IpNetworkTable::new();
 
     let mut rdr = csv::Reader::from_reader(stream);
@@ -161,8 +161,8 @@ fn load_asn_from_csv<R: io::Read>(stream: R) -> anyhow::Result<IpNetworkTable<Ge
             "start_ip" => start_ip_index = column,
             "end_ip" => end_ip_index = column,
             "asn" => asn_index = column,
-            "as_name" => as_name_index = column,
-            "as_domain" => as_domain_index = column,
+            "name" => as_name_index = column,
+            "domain" => as_domain_index = column,
             _ => {}
         }
     }
@@ -174,13 +174,16 @@ fn load_asn_from_csv<R: io::Read>(stream: R) -> anyhow::Result<IpNetworkTable<Ge
             continue;
         };
 
-        let asn = record
+        let Some(asn) = record
             .get(asn_index)
-            .and_then(|v| u32::from_str(v.strip_prefix("AS").unwrap_or(v)).ok());
+            .and_then(|v| u32::from_str(v.strip_prefix("AS").unwrap_or(v)).ok())
+        else {
+            continue;
+        };
         let as_name = record.get(as_name_index).map(|s| s.to_string());
         let as_domain = record.get(as_domain_index).map(|s| s.to_string());
 
-        let geo_record = GeoIpAsRecord {
+        let geo_record = GeoIpAsnRecord {
             network,
             number: asn,
             name: as_name,
@@ -188,7 +191,7 @@ fn load_asn_from_csv<R: io::Read>(stream: R) -> anyhow::Result<IpNetworkTable<Ge
         };
         if let Some(v) = table.insert(network, geo_record) {
             return Err(anyhow!(
-                "found duplicate entry for network {} as {:?}/{:?}/{:?}",
+                "found duplicate entry for network {} as {}/{:?}/{:?}",
                 v.network,
                 v.number,
                 v.name,

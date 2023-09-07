@@ -21,7 +21,7 @@ mod country;
 pub use country::{CountryCode, ISO3166Alpha2CountryCode, ISO3166Alpha3CountryCode};
 
 mod record;
-pub use record::{GeoIpAsRecord, GeoIpCountryRecord};
+pub use record::{GeoIpAsnRecord, GeoIpCountryRecord};
 
 pub mod csv;
 pub mod store;

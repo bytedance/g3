@@ -24,14 +24,14 @@ pub struct GeoIpCountryRecord {
     pub continent: ContinentCode,
 }
 
-pub struct GeoIpAsRecord {
+pub struct GeoIpAsnRecord {
     pub network: IpNetwork,
-    pub number: Option<u32>,
+    pub number: u32,
     pub(crate) name: Option<String>,
     pub(crate) domain: Option<String>,
 }
 
-impl GeoIpAsRecord {
+impl GeoIpAsnRecord {
     pub fn isp_name(&self) -> Option<&str> {
         self.name.as_deref()
     }
