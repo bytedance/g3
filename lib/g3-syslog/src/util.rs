@@ -18,7 +18,7 @@ use slog::Level;
 
 use crate::types::{Facility, Priority, Severity};
 
-pub(crate) fn level_to_severity(level: slog::Level) -> Severity {
+pub(crate) fn level_to_severity(level: Level) -> Severity {
     match level {
         Level::Critical => Severity::Critical,
         Level::Error => Severity::Error,

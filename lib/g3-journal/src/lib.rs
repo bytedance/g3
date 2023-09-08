@@ -17,7 +17,6 @@
 use std::sync::Arc;
 
 use flume::Receiver;
-use libsystemd::logging::Priority;
 
 use g3_types::log::{AsyncLogConfig, AsyncLogger, LogStats};
 
@@ -29,17 +28,11 @@ mod io;
 mod format;
 pub use format::JournalFormatter;
 
-pub struct JournalValue {
-    priority: Priority,
-    msg: String,
-    vars: Vec<(String, String)>,
-}
-
 pub fn new_async_logger(
     async_conf: &AsyncLogConfig,
     append_code_position: bool,
-) -> AsyncLogger<JournalValue, JournalFormatter> {
-    let (sender, receiver) = flume::bounded::<JournalValue>(async_conf.channel_capacity);
+) -> AsyncLogger<Vec<u8>, JournalFormatter> {
+    let (sender, receiver) = flume::bounded::<Vec<u8>>(async_conf.channel_capacity);
 
     let stats = Arc::new(LogStats::default());
 
@@ -60,17 +53,17 @@ pub fn new_async_logger(
 }
 
 struct AsyncIoThread {
-    receiver: Receiver<JournalValue>,
+    receiver: Receiver<Vec<u8>>,
     stats: Arc<LogStats>,
 }
 
 impl AsyncIoThread {
     fn run_to_end(self) {
         while let Ok(v) = self.receiver.recv() {
-            match libsystemd::logging::journal_send(v.priority, &v.msg, v.vars.into_iter()) {
+            match io::journal_send(&v) {
                 Ok(_) => {
                     self.stats.io.add_passed();
-                    self.stats.io.add_size(v.msg.len()); // FIXME use the real msg size
+                    self.stats.io.add_size(v.len());
                 }
                 Err(_) => self.stats.drop.add_peer_unreachable(),
             }

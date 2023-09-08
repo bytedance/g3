@@ -12,7 +12,8 @@ slog = { workspace = true, features = ["nested-values"] }
 serde.workspace = true
 serde_json.workspace = true
 nix = { workspace = true, features = ["fs", "socket", "uio"] }
-libsystemd = "0.6"
+once_cell.workspace = true
+memchr.workspace = true
 itoa.workspace = true
 ryu.workspace = true
 flume.workspace = true

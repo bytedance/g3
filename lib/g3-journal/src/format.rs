@@ -18,27 +18,24 @@ use std::cell::RefCell;
 use std::fmt::{Arguments, Write};
 
 use itoa::Integer;
-use libsystemd::logging::Priority;
 use ryu::Float;
 use slog::{Error, Level, OwnedKVList, Record, Serializer, KV};
 
 use g3_types::log::AsyncLogFormatter;
-
-use super::JournalValue;
 
 thread_local! {
     static TL_BUF: RefCell<String> = RefCell::new(String::with_capacity(128));
     static TL_VBUF: RefCell<Vec<u8>> = RefCell::new(Vec::with_capacity(128));
 }
 
-fn level_to_sd_priority(level: Level) -> Priority {
+fn level_to_sd_priority(level: Level) -> &'static str {
     match level {
-        Level::Critical => Priority::Critical,
-        Level::Error => Priority::Error,
-        Level::Warning => Priority::Warning,
-        Level::Info => Priority::Notice,
-        Level::Debug => Priority::Info,
-        Level::Trace => Priority::Debug,
+        Level::Critical => "2", // LOG_CRIT
+        Level::Error => "3",    // LOG_ERR
+        Level::Warning => "4",  // LOG_WARNING
+        Level::Info => "5",     // LOG_NOTICE
+        Level::Debug => "6",    // LOG_INFO
+        Level::Trace => "7",    // LOG_DEBUG
     }
 }
 
@@ -54,14 +51,12 @@ impl JournalFormatter {
     }
 }
 
-impl AsyncLogFormatter<JournalValue> for JournalFormatter {
-    fn format_slog(
-        &self,
-        record: &Record,
-        logger_values: &OwnedKVList,
-    ) -> Result<JournalValue, Error> {
-        let mut vars = Vec::new();
-        let mut kv_formatter = FormatterKv(&mut vars);
+impl AsyncLogFormatter<Vec<u8>> for JournalFormatter {
+    fn format_slog(&self, record: &Record, logger_values: &OwnedKVList) -> Result<Vec<u8>, Error> {
+        let mut buf = Vec::with_capacity(1024);
+        let mut kv_formatter = FormatterKv(&mut buf);
+
+        kv_formatter.emit_one_line("PRIORITY", level_to_sd_priority(record.level()))?;
 
         logger_values.serialize(record, &mut kv_formatter)?;
         record.kv().serialize(record, &mut kv_formatter)?;
@@ -71,30 +66,50 @@ impl AsyncLogFormatter<JournalValue> for JournalFormatter {
                 Some(filename) => format!("{}({filename}:{})", record.module(), record.line()),
                 None => record.module().to_string(),
             };
-            vars.push(("CODE_POSITION".to_string(), code_position));
+            kv_formatter.emit_one_line("CODE_POSITION", &code_position)?;
         }
 
-        Ok(JournalValue {
-            priority: level_to_sd_priority(record.level()),
-            msg: record.msg().to_string(),
-            vars,
-        })
+        kv_formatter.emit_arguments("MESSAGE", record.msg())?;
+
+        Ok(buf)
     }
 }
 
-struct FormatterKv<'a>(&'a mut Vec<(String, String)>);
+struct FormatterKv<'a>(&'a mut Vec<u8>);
 
 impl<'a> FormatterKv<'a> {
     fn emit_integer<T: Integer>(&mut self, key: slog::Key, value: T) -> slog::Result {
         let mut buffer = itoa::Buffer::new();
         let value_s = buffer.format(value);
-        self.emit_str(key, value_s)
+        self.emit_one_line(key, value_s)
     }
 
     fn emit_float<T: Float>(&mut self, key: slog::Key, value: T) -> slog::Result {
         let mut buffer = ryu::Buffer::new();
         let value_s = buffer.format(value);
-        self.emit_str(key, value_s)
+        self.emit_one_line(key, value_s)
+    }
+
+    fn emit_one_line(&mut self, key: slog::Key, value: &str) -> slog::Result {
+        if let Some(k) = sanitized_key(key) {
+            self.0.extend_from_slice(k.as_bytes());
+            self.0.push(b'=');
+            self.0.extend_from_slice(value.as_bytes());
+            self.0.push(b'\n');
+        }
+        Ok(())
+    }
+
+    fn emit_multi_line(&mut self, key: slog::Key, value: &str) -> slog::Result {
+        if let Some(k) = sanitized_key(key) {
+            self.0.extend_from_slice(k.as_bytes());
+            self.0.push(b'\n');
+            let len = value.len() as u64;
+            self.0.extend_from_slice(&len.to_le_bytes());
+            self.0.extend_from_slice(value.as_bytes());
+            self.0.push(b'\n');
+        }
+        Ok(())
     }
 }
 
@@ -150,14 +165,18 @@ impl<'a> Serializer for FormatterKv<'a> {
 
     fn emit_bool(&mut self, key: slog::Key, value: bool) -> slog::Result {
         if value {
-            self.emit_str(key, "true")
+            self.emit_one_line(key, "true")
         } else {
-            self.emit_str(key, "false")
+            self.emit_one_line(key, "false")
         }
     }
 
     fn emit_char(&mut self, key: slog::Key, value: char) -> slog::Result {
-        self.emit_str(key, value.encode_utf8(&mut [0u8; 4]))
+        if value == '\n' {
+            self.emit_multi_line(key, "\n")
+        } else {
+            self.emit_one_line(key, value.encode_utf8(&mut [0u8; 4]))
+        }
     }
 
     fn emit_none(&mut self, _key: slog::Key) -> slog::Result {
@@ -165,11 +184,11 @@ impl<'a> Serializer for FormatterKv<'a> {
     }
 
     fn emit_str(&mut self, key: slog::Key, value: &str) -> slog::Result {
-        if let Some(k) = sanitized_key(key) {
-            let v = value.to_string();
-            self.0.push((k, v));
+        if memchr::memchr(b'\n', value.as_bytes()).is_some() {
+            self.emit_multi_line(key, value)
+        } else {
+            self.emit_one_line(key, value)
         }
-        Ok(())
     }
 
     fn emit_arguments(&mut self, key: slog::Key, value: &Arguments) -> slog::Result {
@@ -252,7 +271,7 @@ mod tests {
         let mut kv_formatter = FormatterKv(&mut vars);
 
         kv_formatter.emit_u8("a-key", 8u8).unwrap();
-        assert_eq!(vars, [("A_KEY".to_string(), "8".to_string())]);
+        assert_eq!(vars, b"A_KEY=8\n");
     }
 
     #[test]
@@ -261,7 +280,7 @@ mod tests {
         let mut kv_formatter = FormatterKv(&mut vars);
 
         kv_formatter.emit_f32("a-key", 1.1f32).unwrap();
-        assert_eq!(vars, [("A_KEY".to_string(), "1.1".to_string())]);
+        assert_eq!(vars, b"A_KEY=1.1\n");
     }
 
     #[test]
@@ -270,7 +289,7 @@ mod tests {
         let mut kv_formatter = FormatterKv(&mut vars);
 
         kv_formatter.emit_bool("a-key", true).unwrap();
-        assert_eq!(vars, [("A_KEY".to_string(), "true".to_string())]);
+        assert_eq!(vars, b"A_KEY=true\n");
     }
 
     #[test]
@@ -282,6 +301,18 @@ mod tests {
         kv_formatter
             .emit_arguments("a-key", &format_args!("a-{v}"))
             .unwrap();
-        assert_eq!(vars, [("A_KEY".to_string(), "a-value".to_string())]);
+        assert_eq!(vars, b"A_KEY=a-value\n");
+    }
+
+    #[test]
+    fn format_newline() {
+        let mut vars = Vec::new();
+        let mut kv_formatter = FormatterKv(&mut vars);
+
+        let v = "v1\nv2";
+        kv_formatter
+            .emit_arguments("a-key", &format_args!("a-{v}"))
+            .unwrap();
+        assert_eq!(vars, b"A_KEY\n\x07\0\0\0\0\0\0\0a-v1\nv2\n");
     }
 }
