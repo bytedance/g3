@@ -9,7 +9,7 @@ $1 ~ "^#.*" {
 }
 
 {
-	print "            ISO3166Alpha3CountryCode::"$2" => ContinentCode::"$9",";
+	print "            IsoCountryCode::"$1" => ContinentCode::"$9",";
 }
 
 END {

@@ -25,7 +25,7 @@ use ip_network::IpNetwork;
 use ip_network_table::IpNetworkTable;
 use zip::ZipArchive;
 
-use crate::{ContinentCode, CountryCode, GeoIpAsnRecord, GeoIpCountryRecord};
+use crate::{ContinentCode, GeoIpAsnRecord, GeoIpCountryRecord, IsoCountryCode};
 
 const GEOLITE2_COUNTRY_LOCATIONS: &str = "GeoLite2-Country-Locations-en.csv";
 const GEOLITE2_COUNTRY_V4: &str = "GeoLite2-Country-Blocks-IPv4.csv";
@@ -88,7 +88,7 @@ fn load_country_from_zip<R: io::Read + io::Seek>(
 
 fn load_country_location_map_from_csv<R: io::Read>(
     stream: R,
-) -> anyhow::Result<HashMap<u32, (CountryCode, ContinentCode)>> {
+) -> anyhow::Result<HashMap<u32, (IsoCountryCode, ContinentCode)>> {
     let mut rdr = csv::Reader::from_reader(stream);
     let headers = rdr
         .headers()
@@ -122,7 +122,7 @@ fn load_country_location_map_from_csv<R: io::Read>(
         }
 
         get_field!(geoname_id, geoname_id_index, u32);
-        get_field!(country, country_index, CountryCode);
+        get_field!(country, country_index, IsoCountryCode);
         get_field!(continent, continent_index, ContinentCode);
 
         table.insert(geoname_id, (country, continent));
@@ -132,7 +132,7 @@ fn load_country_location_map_from_csv<R: io::Read>(
 
 fn load_country_blocks_from_csv<R: io::Read>(
     stream: R,
-    locations_map: &HashMap<u32, (CountryCode, ContinentCode)>,
+    locations_map: &HashMap<u32, (IsoCountryCode, ContinentCode)>,
     table: &mut IpNetworkTable<GeoIpCountryRecord>,
 ) -> anyhow::Result<()> {
     let mut rdr = csv::Reader::from_reader(stream);

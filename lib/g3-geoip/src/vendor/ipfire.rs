@@ -26,7 +26,7 @@ use flate2::bufread::GzDecoder;
 use ip_network::IpNetwork;
 use ip_network_table::IpNetworkTable;
 
-use crate::{CountryCode, GeoIpAsnRecord, GeoIpCountryRecord};
+use crate::{GeoIpAsnRecord, GeoIpCountryRecord, IsoCountryCode};
 
 pub fn load_location(
     file: &Path,
@@ -120,7 +120,7 @@ struct Block {
     as_number: Option<u32>,
     as_name: String,
     network: Option<IpNetwork>,
-    country: Option<CountryCode>,
+    country: Option<IsoCountryCode>,
 }
 
 impl Block {
@@ -131,7 +131,7 @@ impl Block {
             }
             "name" => self.as_name = value.to_string(),
             "net" => self.network = IpNetwork::from_str(value).ok(),
-            "country" => self.country = CountryCode::from_str(value).ok(),
+            "country" => self.country = IsoCountryCode::from_str(value).ok(),
             _ => {}
         }
     }

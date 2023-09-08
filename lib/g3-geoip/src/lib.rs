@@ -18,7 +18,7 @@ mod continent;
 pub use continent::{Continent, ContinentCode};
 
 mod country;
-pub use country::{CountryCode, ISO3166Alpha2CountryCode, ISO3166Alpha3CountryCode};
+pub use country::IsoCountryCode;
 
 mod record;
 pub use record::{GeoIpAsnRecord, GeoIpCountryRecord};

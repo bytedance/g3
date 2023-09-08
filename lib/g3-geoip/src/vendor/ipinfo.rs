@@ -27,7 +27,7 @@ use flate2::bufread::GzDecoder;
 use ip_network::{IpNetwork, Ipv4Network, Ipv6Network};
 use ip_network_table::IpNetworkTable;
 
-use crate::{ContinentCode, CountryCode, GeoIpAsnRecord, GeoIpCountryRecord};
+use crate::{ContinentCode, GeoIpAsnRecord, GeoIpCountryRecord, IsoCountryCode};
 
 pub fn load_country(file: &Path) -> anyhow::Result<IpNetworkTable<GeoIpCountryRecord>> {
     if let Some(ext) = file.extension() {
@@ -95,7 +95,7 @@ fn load_country_from_csv<R: io::Read>(
         }
 
         get_field!(country, country_index);
-        let Ok(country) = CountryCode::from_str(country) else {
+        let Ok(country) = IsoCountryCode::from_str(country) else {
             continue;
         };
         get_field!(continent, continent_index);

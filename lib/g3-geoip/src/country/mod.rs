@@ -14,49 +14,5 @@
  * limitations under the License.
  */
 
-use std::str::FromStr;
-
-use crate::ContinentCode;
-
-mod generated;
-pub use generated::{ISO3166Alpha2CountryCode, ISO3166Alpha3CountryCode};
-
-#[derive(Debug, Clone, Copy)]
-pub enum CountryCode {
-    ISO3166Alpha2(ISO3166Alpha2CountryCode),
-    ISO3166Alpha3(ISO3166Alpha3CountryCode),
-}
-
-impl CountryCode {
-    pub fn name(&self) -> &'static str {
-        match self {
-            CountryCode::ISO3166Alpha2(c) => c.name(),
-            CountryCode::ISO3166Alpha3(c) => c.name(),
-        }
-    }
-
-    pub fn continent(&self) -> ContinentCode {
-        match self {
-            CountryCode::ISO3166Alpha2(c) => c.continent(),
-            CountryCode::ISO3166Alpha3(c) => c.continent(),
-        }
-    }
-}
-
-impl FromStr for CountryCode {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.len() {
-            2 => {
-                let code = ISO3166Alpha2CountryCode::from_str(s)?;
-                Ok(CountryCode::ISO3166Alpha2(code))
-            }
-            3 => {
-                let code = ISO3166Alpha3CountryCode::from_str(s)?;
-                Ok(CountryCode::ISO3166Alpha3(code))
-            }
-            _ => Err(()),
-        }
-    }
-}
+mod iso_generated;
+pub use iso_generated::IsoCountryCode;

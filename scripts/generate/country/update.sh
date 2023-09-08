@@ -9,7 +9,7 @@ curl "https://download.geonames.org/export/dump/countryInfo.txt" -o ${TMP_FILE}
 
 cd "${SCRIPT_DIR}"
 
-cat << EOF > ../../../lib/g3-geoip/src/country/generated.rs
+cat << EOF > ../../../lib/g3-geoip/src/country/iso_generated.rs
 /*
  * Copyright 2023 ByteDance and/or its affiliates.
  *
@@ -36,35 +36,48 @@ use crate::ContinentCode;
 
 $(cat ${TMP_FILE} | awk -F'\t' -f iso3166_names.awk)
 
+$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_alpha2.awk)
+
+$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_alpha3.awk)
+
 #[derive(Debug, Clone, Copy)]
-pub enum ISO3166Alpha2CountryCode {
-$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_alpha2_enum.awk)
+pub enum IsoCountryCode {
+$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_enum.awk)
 }
 
-impl ISO3166Alpha2CountryCode {
+impl IsoCountryCode {
     pub fn name(&self) -> &'static str {
         ALL_COUNTRY_NAMES[*self as usize]
     }
 
-$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_alpha2_continent.awk)
-}
-
-$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_alpha2_from_str.awk)
-
-#[derive(Debug, Clone, Copy)]
-pub enum ISO3166Alpha3CountryCode {
-$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_alpha3_enum.awk)
-}
-
-impl ISO3166Alpha3CountryCode {
-    pub fn name(&self) -> &'static str {
-        ALL_COUNTRY_NAMES[*self as usize]
+    pub fn alpha2_code(&self) -> &'static str {
+        ALL_ALPHA2_CODES[*self as usize]
     }
 
-$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_alpha3_continent.awk)
+    pub fn alpha3_code(&self) -> &'static str {
+        ALL_ALPHA3_CODES[*self as usize]
+    }
+
+$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_continent.awk)
 }
 
-$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_alpha3_from_str.awk)
+impl FromStr for IsoCountryCode {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.len() {
+            2 => match s {
+$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_from_alpha2_str.awk)
+                _ => Err(()),
+            },
+            3 => match s {
+$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_from_alpha3_str.awk)
+                _ => Err(()),
+            },
+            _ => Err(()),
+        }
+    }
+}
 EOF
 
 rm ${TMP_FILE}

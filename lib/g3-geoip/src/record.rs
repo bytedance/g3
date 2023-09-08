@@ -16,11 +16,11 @@
 
 use ip_network::IpNetwork;
 
-use super::{ContinentCode, CountryCode};
+use super::{ContinentCode, IsoCountryCode};
 
 pub struct GeoIpCountryRecord {
     pub network: IpNetwork,
-    pub country: CountryCode,
+    pub country: IsoCountryCode,
     pub continent: ContinentCode,
 }
 
