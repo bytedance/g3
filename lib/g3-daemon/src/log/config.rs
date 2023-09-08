@@ -21,6 +21,7 @@ use anyhow::{anyhow, Context};
 use yaml_rust::Yaml;
 
 use g3_fluentd::FluentdClientConfig;
+#[cfg(target_os = "linux")]
 use g3_journal::JournalConfig;
 use g3_syslog::SyslogBuilder;
 
