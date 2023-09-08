@@ -82,9 +82,9 @@ fn main() -> anyhow::Result<()> {
 fn query_country(args: &ArgMatches) -> anyhow::Result<()> {
     println!("# loading geoip country data");
     let geoip_table = if let Some(v) = args.get_one::<PathBuf>(ARG_IPINFO) {
-        g3_geoip::csv::ipinfo::load_country(v)?
+        g3_geoip::vendor::ipinfo::load_country(v)?
     } else if let Some(v) = args.get_one::<PathBuf>(ARG_MAXMIND) {
-        g3_geoip::csv::maxmind::load_country(v)?
+        g3_geoip::vendor::maxmind::load_country(v)?
     } else {
         unreachable!()
     };
@@ -114,9 +114,9 @@ fn query_country(args: &ArgMatches) -> anyhow::Result<()> {
 fn query_asn(args: &ArgMatches) -> anyhow::Result<()> {
     println!("# loading geoip asn data");
     let geoip_table = if let Some(v) = args.get_one::<PathBuf>(ARG_IPINFO) {
-        g3_geoip::csv::ipinfo::load_asn(v)?
+        g3_geoip::vendor::ipinfo::load_asn(v)?
     } else if let Some(v) = args.get_one::<PathBuf>(ARG_MAXMIND) {
-        g3_geoip::csv::maxmind::load_asn(v)?
+        g3_geoip::vendor::maxmind::load_asn(v)?
     } else {
         unreachable!()
     };

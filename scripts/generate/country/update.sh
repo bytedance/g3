@@ -32,6 +32,8 @@ cat << EOF > ../../../lib/g3-geoip/src/country/generated.rs
 ///
 use std::str::FromStr;
 
+use crate::ContinentCode;
+
 $(cat ${TMP_FILE} | awk -F'\t' -f iso3166_names.awk)
 
 #[derive(Debug, Clone, Copy)]
@@ -43,6 +45,8 @@ impl ISO3166Alpha2CountryCode {
     pub fn name(&self) -> &'static str {
         ALL_COUNTRY_NAMES[*self as usize]
     }
+
+$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_alpha2_continent.awk)
 }
 
 $(cat ${TMP_FILE} | awk -F'\t' -f iso3166_alpha2_from_str.awk)
@@ -56,6 +60,8 @@ impl ISO3166Alpha3CountryCode {
     pub fn name(&self) -> &'static str {
         ALL_COUNTRY_NAMES[*self as usize]
     }
+
+$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_alpha3_continent.awk)
 }
 
 $(cat ${TMP_FILE} | awk -F'\t' -f iso3166_alpha3_from_str.awk)

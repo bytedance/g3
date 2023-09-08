@@ -16,6 +16,8 @@
 
 use std::str::FromStr;
 
+use crate::ContinentCode;
+
 mod generated;
 pub use generated::{ISO3166Alpha2CountryCode, ISO3166Alpha3CountryCode};
 
@@ -30,6 +32,13 @@ impl CountryCode {
         match self {
             CountryCode::ISO3166Alpha2(c) => c.name(),
             CountryCode::ISO3166Alpha3(c) => c.name(),
+        }
+    }
+
+    pub fn continent(&self) -> ContinentCode {
+        match self {
+            CountryCode::ISO3166Alpha2(c) => c.continent(),
+            CountryCode::ISO3166Alpha3(c) => c.continent(),
         }
     }
 }

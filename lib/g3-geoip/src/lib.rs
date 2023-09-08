@@ -23,5 +23,5 @@ pub use country::{CountryCode, ISO3166Alpha2CountryCode, ISO3166Alpha3CountryCod
 mod record;
 pub use record::{GeoIpAsnRecord, GeoIpCountryRecord};
 
-pub mod csv;
 pub mod store;
+pub mod vendor;

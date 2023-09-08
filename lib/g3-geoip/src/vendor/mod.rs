@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+pub mod ipfire;
+
 pub mod ipinfo;
 
 pub mod maxmind;
