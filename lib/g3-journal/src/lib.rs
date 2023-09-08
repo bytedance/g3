@@ -28,9 +28,29 @@ mod io;
 mod format;
 pub use format::JournalFormatter;
 
+#[derive(Clone, Copy)]
+pub struct JournalConfig {
+    ident: &'static str,
+    append_code_position: bool,
+}
+
+impl JournalConfig {
+    pub fn with_ident(ident: &'static str) -> Self {
+        JournalConfig {
+            ident,
+            append_code_position: false,
+        }
+    }
+
+    pub fn append_code_position(mut self) -> Self {
+        self.append_code_position = true;
+        self
+    }
+}
+
 pub fn new_async_logger(
     async_conf: &AsyncLogConfig,
-    append_code_position: bool,
+    journal_conf: JournalConfig,
 ) -> AsyncLogger<Vec<u8>, JournalFormatter> {
     let (sender, receiver) = flume::bounded::<Vec<u8>>(async_conf.channel_capacity);
 
@@ -49,7 +69,7 @@ pub fn new_async_logger(
             });
     }
 
-    AsyncLogger::new(sender, JournalFormatter::new(append_code_position), stats)
+    AsyncLogger::new(sender, JournalFormatter::new(journal_conf), stats)
 }
 
 struct AsyncIoThread {

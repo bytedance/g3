@@ -323,7 +323,7 @@ mod tests {
         let lh = SyslogHeader {
             facility: Facility::Daemon,
             hostname: None,
-            process: "test".to_string(),
+            process: "test",
             pid: 1024,
         };
 

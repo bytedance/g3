@@ -51,13 +51,13 @@ where
             Logger::root(drain, common_values)
         }
         #[cfg(target_os = "linux")]
-        LogConfigDriver::Journal => {
+        LogConfigDriver::Journal(journal_conf) => {
             let async_conf = AsyncLogConfig {
                 channel_capacity: config.async_channel_size,
                 thread_number: config.async_thread_number,
                 thread_name: logger_name.clone(),
             };
-            let drain = g3_journal::new_async_logger(&async_conf, false);
+            let drain = g3_journal::new_async_logger(&async_conf, journal_conf);
             let logger_stats = LoggerStats::new(&logger_name, drain.get_stats());
             super::registry::add(logger_name.clone(), Arc::new(logger_stats));
             let drain = ReportLogIoError::new(drain, &logger_name, config.io_err_sampling_mask);

@@ -124,7 +124,7 @@ fn as_syslog_backend_unix(value: &Yaml) -> anyhow::Result<SyslogBackendBuilder> 
     }
 }
 
-pub fn as_syslog_builder(value: &Yaml, ident: String) -> anyhow::Result<SyslogBuilder> {
+pub fn as_syslog_builder(value: &Yaml, ident: &'static str) -> anyhow::Result<SyslogBuilder> {
     match value {
         Yaml::Hash(map) => {
             let mut builder = SyslogBuilder::with_ident(ident);

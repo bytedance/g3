@@ -23,6 +23,8 @@ use slog::{Error, Level, OwnedKVList, Record, Serializer, KV};
 
 use g3_types::log::AsyncLogFormatter;
 
+use super::JournalConfig;
+
 thread_local! {
     static TL_BUF: RefCell<String> = RefCell::new(String::with_capacity(128));
     static TL_VBUF: RefCell<Vec<u8>> = RefCell::new(Vec::with_capacity(128));
@@ -40,14 +42,12 @@ fn level_to_sd_priority(level: Level) -> &'static str {
 }
 
 pub struct JournalFormatter {
-    append_code_position: bool,
+    conf: JournalConfig,
 }
 
 impl JournalFormatter {
-    pub(super) fn new(append_code_position: bool) -> Self {
-        JournalFormatter {
-            append_code_position,
-        }
+    pub(super) fn new(conf: JournalConfig) -> Self {
+        JournalFormatter { conf }
     }
 }
 
@@ -56,17 +56,18 @@ impl AsyncLogFormatter<Vec<u8>> for JournalFormatter {
         let mut buf = Vec::with_capacity(1024);
         let mut kv_formatter = FormatterKv(&mut buf);
 
-        kv_formatter.emit_one_line("PRIORITY", level_to_sd_priority(record.level()))?;
+        kv_formatter.emit_sanitized_one_line("PRIORITY", level_to_sd_priority(record.level()));
+        kv_formatter.emit_sanitized_one_line("SYSLOG_IDENTIFIER", self.conf.ident);
 
         logger_values.serialize(record, &mut kv_formatter)?;
         record.kv().serialize(record, &mut kv_formatter)?;
 
-        if self.append_code_position {
+        if self.conf.append_code_position {
             let code_position = match record.file().rsplit_once('/').map(|x| x.1) {
                 Some(filename) => format!("{}({filename}:{})", record.module(), record.line()),
                 None => record.module().to_string(),
             };
-            kv_formatter.emit_one_line("CODE_POSITION", &code_position)?;
+            kv_formatter.emit_sanitized_one_line("CODE_POSITION", &code_position);
         }
 
         kv_formatter.emit_arguments("MESSAGE", record.msg())?;
@@ -90,12 +91,16 @@ impl<'a> FormatterKv<'a> {
         self.emit_one_line(key, value_s)
     }
 
+    fn emit_sanitized_one_line(&mut self, key: &str, value: &str) {
+        self.0.extend_from_slice(key.as_bytes());
+        self.0.push(b'=');
+        self.0.extend_from_slice(value.as_bytes());
+        self.0.push(b'\n');
+    }
+
     fn emit_one_line(&mut self, key: slog::Key, value: &str) -> slog::Result {
         if let Some(k) = sanitized_key(key) {
-            self.0.extend_from_slice(k.as_bytes());
-            self.0.push(b'=');
-            self.0.extend_from_slice(value.as_bytes());
-            self.0.push(b'\n');
+            self.emit_sanitized_one_line(&k, value);
         }
         Ok(())
     }

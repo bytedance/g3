@@ -35,13 +35,13 @@ pub use format::SyslogFormatterKind;
 pub struct SyslogHeader {
     pub facility: Facility,
     pub hostname: Option<String>,
-    pub process: String,
+    pub process: &'static str,
     pub pid: u32,
 }
 
 #[derive(Clone, Debug)]
 pub struct SyslogBuilder {
-    ident: String,
+    ident: &'static str,
     facility: Facility,
     backend: SyslogBackendBuilder,
     format: SyslogFormatterKind,
@@ -49,14 +49,8 @@ pub struct SyslogBuilder {
     append_report_ts: bool,
 }
 
-impl Default for SyslogBuilder {
-    fn default() -> Self {
-        SyslogBuilder::with_ident(String::new())
-    }
-}
-
 impl SyslogBuilder {
-    pub fn with_ident(ident: String) -> Self {
+    pub fn with_ident(ident: &'static str) -> Self {
         SyslogBuilder {
             ident,
             facility: Facility::User,
@@ -65,10 +59,6 @@ impl SyslogBuilder {
             emit_hostname: false,
             append_report_ts: false,
         }
-    }
-
-    pub fn set_ident(&mut self, ident: String) {
-        self.ident = ident;
     }
 
     pub fn set_facility(&mut self, facility: Facility) {

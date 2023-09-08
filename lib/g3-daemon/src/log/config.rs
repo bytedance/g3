@@ -21,6 +21,7 @@ use anyhow::{anyhow, Context};
 use yaml_rust::Yaml;
 
 use g3_fluentd::FluentdClientConfig;
+use g3_journal::JournalConfig;
 use g3_syslog::SyslogBuilder;
 
 const DEFAULT_CHANNEL_SIZE: usize = 4096;
@@ -31,7 +32,7 @@ const IO_ERROR_SAMPLING_OFFSET_DEFAULT: usize = 10;
 pub enum LogConfigDriver {
     Discard,
     #[cfg(target_os = "linux")]
-    Journal,
+    Journal(JournalConfig),
     Syslog(SyslogBuilder),
     Fluentd(Arc<FluentdClientConfig>),
 }
@@ -62,12 +63,15 @@ impl LogConfig {
 
     #[cfg(target_os = "linux")]
     pub fn default_journal(program_name: &'static str) -> Self {
-        Self::with_driver(LogConfigDriver::Journal, program_name)
+        Self::with_driver(
+            LogConfigDriver::Journal(JournalConfig::with_ident(program_name)),
+            program_name,
+        )
     }
 
     pub fn default_syslog(program_name: &'static str) -> Self {
         Self::with_driver(
-            LogConfigDriver::Syslog(SyslogBuilder::with_ident(program_name.to_string())),
+            LogConfigDriver::Syslog(SyslogBuilder::with_ident(program_name)),
             program_name,
         )
     }
@@ -98,13 +102,13 @@ impl LogConfig {
                 g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
                     #[cfg(target_os = "linux")]
                     "journal" => {
-                        config.driver = LogConfigDriver::Journal;
+                        config.driver =
+                            LogConfigDriver::Journal(JournalConfig::with_ident(program_name));
                         Ok(())
                     }
                     "syslog" => {
-                        let builder =
-                            g3_yaml::value::as_syslog_builder(v, program_name.to_string())
-                                .context("invalid syslog config")?;
+                        let builder = g3_yaml::value::as_syslog_builder(v, program_name)
+                            .context("invalid syslog config")?;
                         config.driver = LogConfigDriver::Syslog(builder);
                         Ok(())
                     }

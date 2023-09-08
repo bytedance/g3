@@ -28,15 +28,16 @@ pub fn setup(args: &DaemonArgs) -> Result<GlobalLoggerGuard, log::SetLoggerError
     let logger = if args.with_systemd {
         cfg_if::cfg_if! {
             if #[cfg(target_os = "linux")] {
-                let drain = g3_journal::new_async_logger(&async_conf, true);
+                let journal_conf = g3_journal::JournalConfig::with_ident(args.process_name).append_code_position();
+                let drain = g3_journal::new_async_logger(&async_conf, journal_conf);
                 slog::Logger::root(drain.fuse(), slog_o!())
             } else {
                 unreachable!()
             }
         }
     } else if args.daemon_mode {
-        let drain = g3_syslog::SyslogBuilder::with_ident(args.process_name.to_string())
-            .start_async(&async_conf);
+        let drain =
+            g3_syslog::SyslogBuilder::with_ident(args.process_name).start_async(&async_conf);
         slog::Logger::root(drain.fuse(), slog_o!())
     } else {
         let drain = g3_stdlog::new_async_logger(&async_conf, true);
