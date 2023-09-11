@@ -21,6 +21,7 @@ use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
 
 const ARG_IPINFO: &str = "ipinfo";
 const ARG_MAXMIND: &str = "maxmind";
+const ARG_IPFIRE: &str = "ipfire";
 
 const ARG_COUNTRY: &str = "country";
 const ARG_ASN: &str = "asn";
@@ -34,7 +35,7 @@ fn build_cli_args() -> Command {
                 .help("Input csv data file from ipinfo.io")
                 .long(ARG_IPINFO)
                 .num_args(1)
-                .required_unless_present(ARG_MAXMIND)
+                .required_unless_present_any([ARG_MAXMIND, ARG_IPFIRE])
                 .value_parser(value_parser!(PathBuf))
                 .value_hint(ValueHint::FilePath),
         )
@@ -43,7 +44,16 @@ fn build_cli_args() -> Command {
                 .help("Input csv data file from maxmind.com")
                 .long(ARG_MAXMIND)
                 .num_args(1)
-                .required_unless_present(ARG_IPINFO)
+                .required_unless_present_any([ARG_IPINFO, ARG_IPFIRE])
+                .value_parser(value_parser!(PathBuf))
+                .value_hint(ValueHint::FilePath),
+        )
+        .arg(
+            Arg::new(ARG_IPFIRE)
+                .help("Input dump data file from ipfire")
+                .long(ARG_IPFIRE)
+                .num_args(1)
+                .required_unless_present_any([ARG_IPINFO, ARG_MAXMIND])
                 .value_parser(value_parser!(PathBuf))
                 .value_hint(ValueHint::FilePath),
         )
@@ -85,6 +95,8 @@ fn query_country(args: &ArgMatches) -> anyhow::Result<()> {
         g3_geoip::vendor::ipinfo::load_country(v)?
     } else if let Some(v) = args.get_one::<PathBuf>(ARG_MAXMIND) {
         g3_geoip::vendor::maxmind::load_country(v)?
+    } else if let Some(v) = args.get_one::<PathBuf>(ARG_IPFIRE) {
+        g3_geoip::vendor::ipfire::load_location(v)?.0
     } else {
         unreachable!()
     };
@@ -117,6 +129,8 @@ fn query_asn(args: &ArgMatches) -> anyhow::Result<()> {
         g3_geoip::vendor::ipinfo::load_asn(v)?
     } else if let Some(v) = args.get_one::<PathBuf>(ARG_MAXMIND) {
         g3_geoip::vendor::maxmind::load_asn(v)?
+    } else if let Some(v) = args.get_one::<PathBuf>(ARG_IPFIRE) {
+        g3_geoip::vendor::ipfire::load_location(v)?.1
     } else {
         unreachable!()
     };
