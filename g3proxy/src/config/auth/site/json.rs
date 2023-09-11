@@ -41,43 +41,25 @@ impl UserSiteConfig {
                 Ok(())
             }
             "exact_match" => {
-                if let Value::Array(seq) = v {
-                    for (i, v) in seq.iter().enumerate() {
-                        let host = g3_json::value::as_host(v)
-                            .context(format!("invalid host value for {k}#{i}"))?;
-                        self.add_exact_host(host);
-                    }
-                } else {
-                    let host = g3_json::value::as_host(v)
-                        .context(format!("invalid host value(s) for key {k}"))?;
+                let hosts = g3_json::value::as_list(v, g3_json::value::as_host)
+                    .context(format!("invalid host list value for key {k}"))?;
+                for host in hosts {
                     self.add_exact_host(host);
                 }
                 Ok(())
             }
             "subnet_match" => {
-                if let Value::Array(seq) = v {
-                    for (i, v) in seq.iter().enumerate() {
-                        let net = g3_json::value::as_ip_network(v)
-                            .context(format!("invalid ip network value for {k}#{i}"))?;
-                        self.subnet_match_ipaddr.insert(net);
-                    }
-                } else {
-                    let net = g3_json::value::as_ip_network(v)
-                        .context(format!("invalid ip network value(s) for key {k}"))?;
+                let nets = g3_json::value::as_list(v, g3_json::value::as_ip_network)
+                    .context(format!("invalid ip network list value for key {k}"))?;
+                for net in nets {
                     self.subnet_match_ipaddr.insert(net);
                 }
                 Ok(())
             }
             "child_match" => {
-                if let Value::Array(seq) = v {
-                    for (i, v) in seq.iter().enumerate() {
-                        let domain = g3_json::value::as_domain(v)
-                            .context(format!("invalid domain value for {k}#{i}"))?;
-                        self.child_match_domain.insert(domain);
-                    }
-                } else {
-                    let domain = g3_json::value::as_domain(v)
-                        .context(format!("invalid domain value(s) for key {k}"))?;
+                let domains = g3_json::value::as_list(v, g3_json::value::as_domain)
+                    .context(format!("invalid domain list value for key {k}"))?;
+                for domain in domains {
                     self.child_match_domain.insert(domain);
                 }
                 Ok(())

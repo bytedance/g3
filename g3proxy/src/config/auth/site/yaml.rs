@@ -47,7 +47,8 @@ impl UserSiteConfig {
                 Ok(())
             }
             "subnet_match" => {
-                let nets = g3_yaml::value::as_list(v, g3_yaml::value::as_ip_network)?;
+                let nets = g3_yaml::value::as_list(v, g3_yaml::value::as_ip_network)
+                    .context(format!("invalid ip network list value for key {k}"))?;
                 for net in nets {
                     self.subnet_match_ipaddr.insert(net);
                 }

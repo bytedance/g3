@@ -155,29 +155,32 @@ impl RouteGeoIpEscaperConfig {
                 Ok(())
             }
             "net" | "network" | "networks" => {
-                let nets = g3_yaml::value::as_list(v, g3_yaml::value::as_ip_network)?;
+                let nets = g3_yaml::value::as_list(v, g3_yaml::value::as_ip_network)
+                    .context(format!("invalid ip network list value for key {k}"))?;
                 for net in nets {
                     networks.insert(net);
                 }
                 Ok(())
             }
             "asn" | "as_number" | "as_numbers" => {
-                let all_as = g3_yaml::value::as_list(v, g3_yaml::value::as_u32)?;
+                let all_as = g3_yaml::value::as_list(v, g3_yaml::value::as_u32)
+                    .context(format!("invalid as number list value for key {k}"))?;
                 for asn in all_as {
                     asn_set.insert(asn);
                 }
                 Ok(())
             }
             "country" | "countries" => {
-                let all_countries =
-                    g3_yaml::value::as_list(v, g3_yaml::value::as_iso_country_code)?;
+                let all_countries = g3_yaml::value::as_list(v, g3_yaml::value::as_iso_country_code)
+                    .context(format!("invalid iso country code list value for key {k}"))?;
                 for country in all_countries {
                     countries.insert(country);
                 }
                 Ok(())
             }
             "continent" | "continents" => {
-                let all_continents = g3_yaml::value::as_list(v, g3_yaml::value::as_continent_code)?;
+                let all_continents = g3_yaml::value::as_list(v, g3_yaml::value::as_continent_code)
+                    .context(format!("invalid continent code list value for key {k}"))?;
                 for continent in all_continents {
                     continents.insert(continent);
                 }

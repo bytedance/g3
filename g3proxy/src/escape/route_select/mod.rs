@@ -119,18 +119,10 @@ impl RouteSelectEscaper {
         value: &Value,
     ) -> anyhow::Result<SelectiveVec<WeightedValue<MetricsName>>> {
         let mut next_nodes = SelectiveVecBuilder::new();
-        match value {
-            Value::Array(seq) => {
-                for v in seq {
-                    let item = g3_json::value::as_weighted_metrics_name(v)?;
-                    next_nodes.insert(item);
-                }
-            }
-            Value::String(_) => {
-                let item = g3_json::value::as_weighted_metrics_name(value)?;
-                next_nodes.insert(item);
-            }
-            _ => return Err(anyhow!("invalid value type")),
+        let items = g3_json::value::as_list(value, g3_json::value::as_weighted_metrics_name)
+            .context("invalid weighted metrics name list value")?;
+        for item in items {
+            next_nodes.insert(item);
         }
         next_nodes
             .build()

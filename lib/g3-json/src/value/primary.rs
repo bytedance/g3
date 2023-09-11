@@ -183,6 +183,26 @@ pub fn as_string(v: &Value) -> anyhow::Result<String> {
     }
 }
 
+pub fn as_list<T, F>(v: &Value, convert: F) -> anyhow::Result<Vec<T>>
+where
+    F: Fn(&Value) -> anyhow::Result<T>,
+{
+    let mut vec = Vec::new();
+    match v {
+        Value::Array(seq) => {
+            for (i, v) in seq.iter().enumerate() {
+                let node = convert(v).context(format!("invalid value for list element #{i}"))?;
+                vec.push(node);
+            }
+        }
+        _ => {
+            let node = convert(v).context("invalid single value for the list")?;
+            vec.push(node);
+        }
+    }
+    Ok(vec)
+}
+
 pub fn as_hashmap<K, V, KF, VF>(
     v: &Value,
     convert_key: KF,
