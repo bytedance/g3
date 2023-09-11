@@ -64,23 +64,13 @@ impl RouteSelectEscaperConfig {
                 self.name = g3_yaml::value::as_metrics_name(v)?;
                 Ok(())
             }
-            "next_nodes" => match v {
-                Yaml::String(_) => {
-                    let item = g3_yaml::value::as_weighted_metrics_name(v)
-                        .context(format!("invalid weighted metrics name value for key {k}"))?;
-                    self.next_nodes.push(item);
-                    Ok(())
-                }
-                Yaml::Array(seq) => {
-                    for (i, v) in seq.iter().enumerate() {
-                        let item = g3_yaml::value::as_weighted_metrics_name(v)
-                            .context(format!("invalid weighted metrics name value for {k}#{i}"))?;
-                        self.next_nodes.push(item);
-                    }
-                    Ok(())
-                }
-                _ => Err(anyhow!("invalid value type for key {k}")),
-            },
+            "next_nodes" => {
+                self.next_nodes =
+                    g3_yaml::value::as_list(v, g3_yaml::value::as_weighted_metrics_name).context(
+                        format!("invalid weighted metrics name list value for key {k}"),
+                    )?;
+                Ok(())
+            }
             "next_pick_policy" => {
                 self.next_pick_policy = g3_yaml::value::as_selective_pick_policy(v)
                     .context(format!("invalid selective pick policy value for key {k}"))?;

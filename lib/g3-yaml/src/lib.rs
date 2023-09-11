@@ -25,8 +25,7 @@ pub mod value;
 
 pub use callback::YamlMapCallback;
 pub use hash::{
-    foreach_kv, foreach_maybe_list_v, get_required as hash_get_required,
-    get_required_str as hash_get_required_str,
+    foreach_kv, get_required as hash_get_required, get_required_str as hash_get_required_str,
 };
 pub use hybrid::HybridParser;
 pub use util::{foreach_doc, load_doc, YamlDocPosition};

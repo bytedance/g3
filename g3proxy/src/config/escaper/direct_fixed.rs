@@ -15,7 +15,6 @@
  */
 
 use std::net::IpAddr;
-use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
@@ -108,20 +107,14 @@ impl DirectFixedEscaperConfig {
                 self.extra_metrics_tags = Some(Arc::new(tags));
                 Ok(())
             }
-            "bind_ip" => match v {
-                Yaml::String(ip) => self.add_bind_address(ip),
-                Yaml::Array(seq) => {
-                    for (i, ip) in seq.iter().enumerate() {
-                        if let Yaml::String(ip) = ip {
-                            self.add_bind_address(ip)?;
-                        } else {
-                            return Err(anyhow!("invalid string value for {k}#{i}"));
-                        }
-                    }
-                    Ok(())
+            "bind_ip" => {
+                let ips = g3_yaml::value::as_list(v, g3_yaml::value::as_ipaddr)
+                    .context(format!("invalid ip address list value for key {k}"))?;
+                for ip in ips {
+                    self.add_bind_address(ip)?;
                 }
-                _ => Err(anyhow!("invalid value type for key {k}")),
-            },
+                Ok(())
+            }
             "resolver" => {
                 self.resolver = g3_yaml::value::as_metrics_name(v)?;
                 Ok(())
@@ -218,8 +211,7 @@ impl DirectFixedEscaperConfig {
         Ok(())
     }
 
-    fn add_bind_address(&mut self, ip: &str) -> anyhow::Result<()> {
-        let ip = IpAddr::from_str(ip)?;
+    fn add_bind_address(&mut self, ip: IpAddr) -> anyhow::Result<()> {
         match ip {
             IpAddr::V4(_) => self.bind4.push(ip),
             IpAddr::V6(_) => self.bind6.push(ip),

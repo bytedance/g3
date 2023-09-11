@@ -135,17 +135,10 @@ impl YamlMapCallback for RustlsHostConfig {
             }
             "cert_pairs" => {
                 let lookup_dir = g3_daemon::config::get_lookup_dir(doc)?;
-                if let Yaml::Array(seq) = value {
-                    for (i, v) in seq.iter().enumerate() {
-                        let pair = g3_yaml::value::as_rustls_certificate_pair(v, Some(lookup_dir))
-                            .context(format!("invalid rustls cert pair value for {key}#{i}"))?;
-                        self.cert_pairs.push(pair);
-                    }
-                } else {
-                    let pair = g3_yaml::value::as_rustls_certificate_pair(value, Some(lookup_dir))
-                        .context(format!("invalid rustls cert pair value for key {key}"))?;
-                    self.cert_pairs.push(pair);
-                }
+                self.cert_pairs = g3_yaml::value::as_list(value, |v| {
+                    g3_yaml::value::as_rustls_certificate_pair(v, Some(lookup_dir))
+                })
+                .context(format!("invalid rustls cert pair list value for key {key}"))?;
                 Ok(())
             }
             "enable_client_auth" => {

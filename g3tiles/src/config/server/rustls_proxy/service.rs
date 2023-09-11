@@ -50,18 +50,10 @@ impl YamlMapCallback for RustlsServiceConfig {
     ) -> anyhow::Result<()> {
         match g3_yaml::key::normalize(key).as_str() {
             "addrs" => {
-                if let Yaml::Array(seq) = value {
-                    for (i, v) in seq.iter().enumerate() {
-                        let addr = g3_yaml::value::as_weighted_sockaddr(v).context(format!(
-                            "invalid weighted sockaddr string value for {key}#{i}"
-                        ))?;
-                        self.addrs.push(addr);
-                    }
-                } else {
-                    let addr = g3_yaml::value::as_weighted_sockaddr(value)
-                        .context(format!("invalid weighted sockaddr string value for {key}"))?;
-                    self.addrs.push(addr);
-                }
+                self.addrs = g3_yaml::value::as_list(value, g3_yaml::value::as_weighted_sockaddr)
+                    .context(format!(
+                    "invalid weighted socket address list for key {key}"
+                ))?;
                 Ok(())
             }
             "pick_policy" => {

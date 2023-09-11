@@ -165,20 +165,11 @@ impl TlsStreamServerConfig {
                 Ok(())
             }
             "upstream" | "proxy_pass" => {
-                match v {
-                    Yaml::String(_) => {
-                        let node = g3_yaml::value::as_weighted_upstream_addr(v, 0)?;
-                        self.upstream.push(node);
-                    }
-                    Yaml::Array(seq) => {
-                        for (i, v) in seq.iter().enumerate() {
-                            let node = g3_yaml::value::as_weighted_upstream_addr(v, 0)
-                                .context(format!("invalid value for {k}#{i}"))?;
-                            self.upstream.push(node);
-                        }
-                    }
-                    _ => return Err(anyhow!("invalid value type for key {k}")),
-                }
+                self.upstream =
+                    g3_yaml::value::as_list(v, |v| g3_yaml::value::as_weighted_upstream_addr(v, 0))
+                        .context(format!(
+                            "invalid weighted upstream address list value for key {k}"
+                        ))?;
                 Ok(())
             }
             "upstream_pick_policy" => {

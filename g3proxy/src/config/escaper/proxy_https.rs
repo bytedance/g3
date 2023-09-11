@@ -129,20 +129,12 @@ impl ProxyHttpsEscaperConfig {
                 Ok(())
             }
             "proxy_addr" => {
-                match v {
-                    Yaml::String(_) => {
-                        let node = g3_yaml::value::as_weighted_upstream_addr(v, 3128)?;
-                        self.proxy_nodes.push(node);
-                    }
-                    Yaml::Array(seq) => {
-                        for (i, v) in seq.iter().enumerate() {
-                            let node = g3_yaml::value::as_weighted_upstream_addr(v, 3128)
-                                .context(format!("invalid value for {k}#{i}"))?;
-                            self.proxy_nodes.push(node);
-                        }
-                    }
-                    _ => return Err(anyhow!("invalid value type for key {k}")),
-                }
+                self.proxy_nodes = g3_yaml::value::as_list(v, |v| {
+                    g3_yaml::value::as_weighted_upstream_addr(v, 3128)
+                })
+                .context(format!(
+                    "invalid weighted upstream address list value for key {k}"
+                ))?;
                 Ok(())
             }
             "proxy_addr_pick_policy" => {

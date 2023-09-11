@@ -155,14 +155,14 @@ impl RouteGeoIpEscaperConfig {
                 Ok(())
             }
             "net" | "network" | "networks" => {
-                let nets = g3_yaml::foreach_maybe_list_v(v, g3_yaml::value::as_ip_network)?;
+                let nets = g3_yaml::value::as_list(v, g3_yaml::value::as_ip_network)?;
                 for net in nets {
                     networks.insert(net);
                 }
                 Ok(())
             }
             "asn" | "as_number" | "as_numbers" => {
-                let all_as = g3_yaml::foreach_maybe_list_v(v, g3_yaml::value::as_u32)?;
+                let all_as = g3_yaml::value::as_list(v, g3_yaml::value::as_u32)?;
                 for asn in all_as {
                     asn_set.insert(asn);
                 }
@@ -170,15 +170,14 @@ impl RouteGeoIpEscaperConfig {
             }
             "country" | "countries" => {
                 let all_countries =
-                    g3_yaml::foreach_maybe_list_v(v, g3_yaml::value::as_iso_country_code)?;
+                    g3_yaml::value::as_list(v, g3_yaml::value::as_iso_country_code)?;
                 for country in all_countries {
                     countries.insert(country);
                 }
                 Ok(())
             }
             "continent" | "continents" => {
-                let all_continents =
-                    g3_yaml::foreach_maybe_list_v(v, g3_yaml::value::as_continent_code)?;
+                let all_continents = g3_yaml::value::as_list(v, g3_yaml::value::as_continent_code)?;
                 for continent in all_continents {
                     continents.insert(continent);
                 }

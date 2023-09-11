@@ -39,36 +39,24 @@ impl UserSiteConfig {
                 Ok(())
             }
             "exact_match" => {
-                if let Yaml::Array(seq) = v {
-                    for (i, v) in seq.iter().enumerate() {
-                        let host = g3_yaml::value::as_host(v)
-                            .context(format!("invalid host value for {k}#{i}"))?;
-                        self.add_exact_host(host);
-                    }
-                } else {
-                    let host = g3_yaml::value::as_host(v)
-                        .context(format!("invalid host value(s) for key {k}"))?;
+                let hosts = g3_yaml::value::as_list(v, g3_yaml::value::as_host)
+                    .context(format!("invalid host list value for key {k}"))?;
+                for host in hosts {
                     self.add_exact_host(host);
                 }
                 Ok(())
             }
             "subnet_match" => {
-                let nets = g3_yaml::foreach_maybe_list_v(v, g3_yaml::value::as_ip_network)?;
+                let nets = g3_yaml::value::as_list(v, g3_yaml::value::as_ip_network)?;
                 for net in nets {
                     self.subnet_match_ipaddr.insert(net);
                 }
                 Ok(())
             }
             "child_match" => {
-                if let Yaml::Array(seq) = v {
-                    for (i, v) in seq.iter().enumerate() {
-                        let domain = g3_yaml::value::as_domain(v)
-                            .context(format!("invalid domain value for {k}#{i}"))?;
-                        self.child_match_domain.insert(domain);
-                    }
-                } else {
-                    let domain = g3_yaml::value::as_domain(v)
-                        .context(format!("invalid domain value(s) for key {k}"))?;
+                let domains = g3_yaml::value::as_list(v, g3_yaml::value::as_domain)
+                    .context(format!("invalid domain list value for key {k}"))?;
+                for domain in domains {
                     self.child_match_domain.insert(domain);
                 }
                 Ok(())

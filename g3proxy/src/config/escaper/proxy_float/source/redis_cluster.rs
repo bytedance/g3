@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
@@ -69,20 +68,12 @@ impl ProxyFloatRedisClusterSource {
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_SOURCE_TYPE => Ok(()),
-            "initial_nodes" | "startup_nodes" => match v {
-                Yaml::String(addr) => self.add_initial_node(addr),
-                Yaml::Array(seq) => {
-                    for (i, v) in seq.iter().enumerate() {
-                        if let Yaml::String(addr) = v {
-                            self.add_initial_node(addr)?;
-                        } else {
-                            return Err(anyhow!("invalid string value for {k}#{i}"));
-                        }
-                    }
-                    Ok(())
-                }
-                _ => Err(anyhow!("invalid value type for key {k}")),
-            },
+            "initial_nodes" | "startup_nodes" => {
+                self.initial_nodes =
+                    g3_yaml::value::as_list(v, |v| g3_yaml::value::as_upstream_addr(v, 0))
+                        .context(format!("invalid upstream addr list value for key {k}"))?;
+                Ok(())
+            }
             "username" => {
                 let username = g3_yaml::value::as_string(v)?;
                 self.username = Some(username);
@@ -109,11 +100,5 @@ impl ProxyFloatRedisClusterSource {
             }
             _ => Err(anyhow!("invalid key {k}")),
         }
-    }
-
-    fn add_initial_node(&mut self, addr: &str) -> anyhow::Result<()> {
-        let upstream = UpstreamAddr::from_str(addr)?;
-        self.initial_nodes.push(upstream);
-        Ok(())
     }
 }
