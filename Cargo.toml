@@ -97,6 +97,7 @@ indexmap = "2.0"
 ip_network = "0.4"
 ip_network_table = "0.2"
 radix_trie = "0.2"
+fixedbitset = "0.4.2"
 #
 digest = "0.10.7"
 md-5 = "0.10.0"

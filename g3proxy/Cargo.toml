@@ -52,6 +52,9 @@ itoa.workspace = true
 redis = { workspace = true, features = ["aio", "tokio-comp", "cluster-async"] }
 ascii.workspace = true
 ahash.workspace = true
+fixedbitset = { workspace = true, optional = true }
+rustc-hash = { workspace = true, optional = true }
+fnv = { workspace = true, optional = true }
 governor = { workspace = true, features = ["std", "jitter"] }
 cadence.workspace = true
 rmpv.workspace = true
@@ -78,6 +81,7 @@ g3-socks.workspace = true
 g3-dpi.workspace = true
 g3-tls-cert.workspace = true
 g3-icap-client.workspace = true
+g3-geoip = { workspace = true, optional = true }
 g3proxy-proto = { path = "proto" }
 
 [dev-dependencies]
@@ -88,7 +92,7 @@ tokio-util = { workspace = true, features = ["io"] }
 rustc_version.workspace = true
 
 [features]
-default = ["lua54", "python", "c-ares"]
+default = ["lua54", "python", "c-ares", "geoip"]
 lua = ["mlua"]
 luajit = ["lua", "mlua/luajit"]
 lua51 = ["lua", "mlua/lua51"]
@@ -96,6 +100,7 @@ lua53 = ["lua", "mlua/lua53"]
 lua54 = ["lua", "mlua/lua54"]
 python = ["pyo3"]
 c-ares = ["g3-resolver/c-ares"]
+geoip = ["g3-geoip", "g3-yaml/geoip", "fixedbitset", "rustc-hash", "fnv"]
 vendored-openssl = ["openssl/vendored", "dep:openssl-probe"]
 vendored-tongsuo = ["openssl/tongsuo", "dep:openssl-probe"]
 vendored-c-ares = ["c-ares", "g3-resolver/vendored-c-ares"]

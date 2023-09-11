@@ -53,15 +53,8 @@ impl UserSiteConfig {
                 Ok(())
             }
             "subnet_match" => {
-                if let Yaml::Array(seq) = v {
-                    for (i, v) in seq.iter().enumerate() {
-                        let net = g3_yaml::value::as_ip_network(v)
-                            .context(format!("invalid ip network value for {k}#{i}"))?;
-                        self.subnet_match_ipaddr.insert(net);
-                    }
-                } else {
-                    let net = g3_yaml::value::as_ip_network(v)
-                        .context(format!("invalid ip network value(s) for key {k}"))?;
+                let nets = g3_yaml::foreach_maybe_list_v(v, g3_yaml::value::as_ip_network)?;
+                for net in nets {
                     self.subnet_match_ipaddr.insert(net);
                 }
                 Ok(())

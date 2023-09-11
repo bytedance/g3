@@ -20,3 +20,4 @@ The meanings and formats of them are described as follows:
    metrics
    route
    runtime
+   geoip

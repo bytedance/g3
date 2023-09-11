@@ -31,6 +31,23 @@ where
     Ok(())
 }
 
+pub fn foreach_maybe_list_v<F, T>(value: &Yaml, mut f: F) -> anyhow::Result<Vec<T>>
+where
+    F: FnMut(&Yaml) -> anyhow::Result<T>,
+{
+    if let Yaml::Array(seq) = value {
+        let mut list = Vec::new();
+        for (i, v) in seq.iter().enumerate() {
+            let r = f(v).context(format!("invalid value for array index #{i}"))?;
+            list.push(r);
+        }
+        Ok(list)
+    } else {
+        let r = f(value)?;
+        Ok(vec![r])
+    }
+}
+
 pub fn get_required<'a>(map: &'a yaml::Hash, k: &str) -> anyhow::Result<&'a Yaml> {
     let key = Yaml::String(k.to_owned());
     match map.get(&key) {

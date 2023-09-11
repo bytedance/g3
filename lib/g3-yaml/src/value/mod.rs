@@ -105,3 +105,8 @@ pub use route::*;
 mod dpi;
 #[cfg(feature = "dpi")]
 pub use dpi::*;
+
+#[cfg(feature = "geoip")]
+mod geoip;
+#[cfg(feature = "geoip")]
+pub use geoip::{as_continent_code, as_iso_country_code};

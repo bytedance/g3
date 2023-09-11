@@ -61,6 +61,8 @@ mod proxy_https;
 mod proxy_socks5;
 mod route_client;
 mod route_failover;
+#[cfg(feature = "geoip")]
+mod route_geoip;
 mod route_mapping;
 mod route_query;
 mod route_resolved;

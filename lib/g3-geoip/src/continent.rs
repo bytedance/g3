@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::fmt;
 use std::str::FromStr;
 
 const ALL_CONTINENT_NAMES: &[&str] = &[
@@ -26,7 +27,8 @@ const ALL_CONTINENT_NAMES: &[&str] = &[
     "South America",
 ];
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(u8)]
 pub enum ContinentCode {
     AF,
     AN,
@@ -40,6 +42,10 @@ pub enum ContinentCode {
 impl ContinentCode {
     pub fn name(&self) -> &'static str {
         ALL_CONTINENT_NAMES[*self as usize]
+    }
+
+    pub fn variant_count() -> usize {
+        Self::SA as usize
     }
 }
 
@@ -57,6 +63,12 @@ impl FromStr for ContinentCode {
             "SA" | "sa" => Ok(ContinentCode::SA),
             _ => Err(()),
         }
+    }
+}
+
+impl fmt::Display for ContinentCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.name())
     }
 }
 

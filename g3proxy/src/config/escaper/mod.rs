@@ -37,6 +37,8 @@ pub(crate) mod proxy_https;
 pub(crate) mod proxy_socks5;
 pub(crate) mod route_client;
 pub(crate) mod route_failover;
+#[cfg(feature = "geoip")]
+pub(crate) mod route_geoip;
 pub(crate) mod route_mapping;
 pub(crate) mod route_query;
 pub(crate) mod route_resolved;
@@ -102,6 +104,8 @@ pub(crate) enum AnyEscaperConfig {
     ProxySocks5(proxy_socks5::ProxySocks5EscaperConfig),
     RouteFailover(route_failover::RouteFailoverEscaperConfig),
     RouteResolved(route_resolved::RouteResolvedEscaperConfig),
+    #[cfg(feature = "geoip")]
+    RouteGeoIp(route_geoip::RouteGeoIpEscaperConfig),
     RouteMapping(route_mapping::RouteMappingEscaperConfig),
     RouteQuery(route_query::RouteQueryEscaperConfig),
     RouteSelect(route_select::RouteSelectEscaperConfig),
@@ -123,6 +127,7 @@ macro_rules! impl_transparent0 {
                 AnyEscaperConfig::ProxySocks5(s) => s.$f(),
                 AnyEscaperConfig::RouteFailover(s) => s.$f(),
                 AnyEscaperConfig::RouteResolved(s) => s.$f(),
+                AnyEscaperConfig::RouteGeoIp(s) => s.$f(),
                 AnyEscaperConfig::RouteMapping(s) => s.$f(),
                 AnyEscaperConfig::RouteQuery(s) => s.$f(),
                 AnyEscaperConfig::RouteSelect(s) => s.$f(),
@@ -147,6 +152,7 @@ macro_rules! impl_transparent1 {
                 AnyEscaperConfig::ProxySocks5(s) => s.$f(p),
                 AnyEscaperConfig::RouteFailover(s) => s.$f(p),
                 AnyEscaperConfig::RouteResolved(s) => s.$f(p),
+                AnyEscaperConfig::RouteGeoIp(s) => s.$f(p),
                 AnyEscaperConfig::RouteMapping(s) => s.$f(p),
                 AnyEscaperConfig::RouteQuery(s) => s.$f(p),
                 AnyEscaperConfig::RouteSelect(s) => s.$f(p),
@@ -255,6 +261,10 @@ fn load_escaper(
         "route_resolved" | "routeresolved" | "route_dst_ip" | "route_dstip" | "routedstip" => {
             let config = route_resolved::RouteResolvedEscaperConfig::parse(map, position)?;
             Ok(AnyEscaperConfig::RouteResolved(config))
+        }
+        "route_geoip" | "routegeoip" | "route_geo_ip" => {
+            let config = route_geoip::RouteGeoIpEscaperConfig::parse(map, position)?;
+            Ok(AnyEscaperConfig::RouteGeoIp(config))
         }
         "route_select" | "routeselect" => {
             let config = route_select::RouteSelectEscaperConfig::parse(map, position)?;

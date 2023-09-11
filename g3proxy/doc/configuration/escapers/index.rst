@@ -27,6 +27,7 @@ Escapers
    route_mapping
    route_query
    route_resolved
+   route_geoip
    route_select
    route_upstream
    route_client

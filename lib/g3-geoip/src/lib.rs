@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+extern crate core;
+
 mod continent;
 pub use continent::{Continent, ContinentCode};
 

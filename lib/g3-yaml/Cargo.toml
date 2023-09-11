@@ -32,6 +32,7 @@ g3-compat = { workspace = true, optional = true }
 g3-dpi = { workspace = true, optional = true }
 g3-tls-cert = { workspace = true, optional = true }
 g3-icap-client = { workspace = true, optional = true }
+g3-geoip = { workspace = true, optional = true }
 
 [features]
 default = []
@@ -50,3 +51,4 @@ ftp-client = ["g3-ftp-client"]
 sched = ["g3-runtime", "g3-compat"]
 dpi = ["g3-dpi", "g3-tls-cert"]
 icap = ["g3-icap-client", "http"]
+geoip = ["g3-geoip"]
