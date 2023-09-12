@@ -68,4 +68,8 @@ fn main() {
     if env::var("CARGO_FEATURE_C_ARES").is_ok() {
         println!("cargo:rustc-env=G3_C_ARES_FEATURE=c-ares");
     }
+
+    if env::var("CARGO_FEATURE_GEOIP").is_ok() {
+        println!("cargo:rustc-env=G3_GEOIP_FEATURE=geoip");
+    }
 }
