@@ -14,18 +14,14 @@
  * limitations under the License.
  */
 
-use ip_network::IpNetwork;
-
 use super::{ContinentCode, IsoCountryCode};
 
 pub struct GeoIpCountryRecord {
-    pub network: IpNetwork,
     pub country: IsoCountryCode,
     pub continent: ContinentCode,
 }
 
 pub struct GeoIpAsnRecord {
-    pub network: IpNetwork,
     pub number: u32,
     pub(crate) name: Option<String>,
     pub(crate) domain: Option<String>,

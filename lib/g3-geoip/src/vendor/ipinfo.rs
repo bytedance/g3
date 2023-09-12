@@ -103,13 +103,9 @@ fn load_country_from_csv<R: io::Read>(
             continue;
         };
 
-        let geo_record = GeoIpCountryRecord {
-            network,
-            country,
-            continent,
-        };
-        if let Some(v) = table.insert(network, geo_record) {
-            return Err(anyhow!("found duplicate entry for network {}", v.network,));
+        let geo_record = GeoIpCountryRecord { country, continent };
+        if table.insert(network, geo_record).is_some() {
+            return Err(anyhow!("found duplicate entry for network {}", network,));
         }
     }
 
@@ -184,7 +180,6 @@ fn load_asn_from_csv<R: io::Read>(stream: R) -> anyhow::Result<IpNetworkTable<Ge
         let as_domain = record.get(as_domain_index).map(|s| s.to_string());
 
         let geo_record = GeoIpAsnRecord {
-            network,
             number: asn,
             name: as_name,
             domain: as_domain,
@@ -192,7 +187,7 @@ fn load_asn_from_csv<R: io::Read>(stream: R) -> anyhow::Result<IpNetworkTable<Ge
         if let Some(v) = table.insert(network, geo_record) {
             return Err(anyhow!(
                 "found duplicate entry for network {} as {}/{:?}/{:?}",
-                v.network,
+                network,
                 v.number,
                 v.name,
                 v.domain

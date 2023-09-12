@@ -19,3 +19,5 @@ pub mod ipfire;
 pub mod ipinfo;
 
 pub mod maxmind;
+
+pub mod native;

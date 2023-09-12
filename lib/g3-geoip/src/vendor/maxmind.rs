@@ -174,7 +174,6 @@ fn load_country_blocks_from_csv<R: io::Read>(
             table.insert(
                 network,
                 GeoIpCountryRecord {
-                    network,
                     country: v.0,
                     continent: v.1,
                 },
@@ -260,7 +259,6 @@ fn load_asn_blocks_from_csv<R: io::Read>(
         table.insert(
             network,
             GeoIpAsnRecord {
-                network,
                 number: asn,
                 name: as_name,
                 domain: None,

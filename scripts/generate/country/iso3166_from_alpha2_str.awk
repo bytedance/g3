@@ -4,6 +4,6 @@ $1 ~ "^#.*" {
 }
 
 {
-	print "                \""$1"\" | \""tolower($1)"\" => Ok(IsoCountryCode::"$1"),";
+	print "                \""$1"\" => Ok(IsoCountryCode::"$1"),";
 }
 

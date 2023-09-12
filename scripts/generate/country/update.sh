@@ -41,6 +41,8 @@ $(cat ${TMP_FILE} | awk -F'\t' -f iso3166_alpha2.awk)
 
 $(cat ${TMP_FILE} | awk -F'\t' -f iso3166_alpha3.awk)
 
+$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_alpha2_map.awk)
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(u16)]
 pub enum IsoCountryCode {
@@ -76,11 +78,13 @@ impl FromStr for IsoCountryCode {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.len() {
-            2 => match s {
-$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_from_alpha2_str.awk)
-                _ => Err(()),
-            },
-            3 => match s {
+            2 => {
+                let s = s.to_uppercase();
+                let s = s.as_bytes();
+                let id = ((s[0] - b'A') as usize) * 26 + ((s[1] - b'A') as usize);
+                Ok(ALPHA2_FAST_MAP[id])
+            }
+            3 => match s.to_uppercase().as_str() {
 $(cat ${TMP_FILE} | awk -F'\t' -f iso3166_from_alpha3_str.awk)
                 _ => Err(()),
             },

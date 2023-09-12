@@ -788,7 +788,687 @@ const ALL_ALPHA3_CODES: &[&str] = &[
     "ANT", /* Netherlands Antilles */
 ];
 
+const ALPHA2_FAST_MAP: &[IsoCountryCode] = &[
+    IsoCountryCode::AN, // 0
+    IsoCountryCode::AN, // 1
+    IsoCountryCode::AN, // 2
+    IsoCountryCode::AD, // 3 - AD
+    IsoCountryCode::AE, // 4 - AE
+    IsoCountryCode::AF, // 5 - AF
+    IsoCountryCode::AG, // 6 - AG
+    IsoCountryCode::AN, // 7
+    IsoCountryCode::AI, // 8 - AI
+    IsoCountryCode::AN, // 9
+    IsoCountryCode::AN, // 10
+    IsoCountryCode::AL, // 11 - AL
+    IsoCountryCode::AM, // 12 - AM
+    IsoCountryCode::AN, // 13 - AN
+    IsoCountryCode::AO, // 14 - AO
+    IsoCountryCode::AN, // 15
+    IsoCountryCode::AQ, // 16 - AQ
+    IsoCountryCode::AR, // 17 - AR
+    IsoCountryCode::AS, // 18 - AS
+    IsoCountryCode::AT, // 19 - AT
+    IsoCountryCode::AU, // 20 - AU
+    IsoCountryCode::AN, // 21
+    IsoCountryCode::AW, // 22 - AW
+    IsoCountryCode::AX, // 23 - AX
+    IsoCountryCode::AN, // 24
+    IsoCountryCode::AZ, // 25 - AZ
+    IsoCountryCode::BA, // 26 - BA
+    IsoCountryCode::BB, // 27 - BB
+    IsoCountryCode::AN, // 28
+    IsoCountryCode::BD, // 29 - BD
+    IsoCountryCode::BE, // 30 - BE
+    IsoCountryCode::BF, // 31 - BF
+    IsoCountryCode::BG, // 32 - BG
+    IsoCountryCode::BH, // 33 - BH
+    IsoCountryCode::BI, // 34 - BI
+    IsoCountryCode::BJ, // 35 - BJ
+    IsoCountryCode::AN, // 36
+    IsoCountryCode::BL, // 37 - BL
+    IsoCountryCode::BM, // 38 - BM
+    IsoCountryCode::BN, // 39 - BN
+    IsoCountryCode::BO, // 40 - BO
+    IsoCountryCode::AN, // 41
+    IsoCountryCode::BQ, // 42 - BQ
+    IsoCountryCode::BR, // 43 - BR
+    IsoCountryCode::BS, // 44 - BS
+    IsoCountryCode::BT, // 45 - BT
+    IsoCountryCode::AN, // 46
+    IsoCountryCode::BV, // 47 - BV
+    IsoCountryCode::BW, // 48 - BW
+    IsoCountryCode::AN, // 49
+    IsoCountryCode::BY, // 50 - BY
+    IsoCountryCode::BZ, // 51 - BZ
+    IsoCountryCode::CA, // 52 - CA
+    IsoCountryCode::AN, // 53
+    IsoCountryCode::CC, // 54 - CC
+    IsoCountryCode::CD, // 55 - CD
+    IsoCountryCode::AN, // 56
+    IsoCountryCode::CF, // 57 - CF
+    IsoCountryCode::CG, // 58 - CG
+    IsoCountryCode::CH, // 59 - CH
+    IsoCountryCode::CI, // 60 - CI
+    IsoCountryCode::AN, // 61
+    IsoCountryCode::CK, // 62 - CK
+    IsoCountryCode::CL, // 63 - CL
+    IsoCountryCode::CM, // 64 - CM
+    IsoCountryCode::CN, // 65 - CN
+    IsoCountryCode::CO, // 66 - CO
+    IsoCountryCode::AN, // 67
+    IsoCountryCode::AN, // 68
+    IsoCountryCode::CR, // 69 - CR
+    IsoCountryCode::CS, // 70 - CS
+    IsoCountryCode::AN, // 71
+    IsoCountryCode::CU, // 72 - CU
+    IsoCountryCode::CV, // 73 - CV
+    IsoCountryCode::CW, // 74 - CW
+    IsoCountryCode::CX, // 75 - CX
+    IsoCountryCode::CY, // 76 - CY
+    IsoCountryCode::CZ, // 77 - CZ
+    IsoCountryCode::AN, // 78
+    IsoCountryCode::AN, // 79
+    IsoCountryCode::AN, // 80
+    IsoCountryCode::AN, // 81
+    IsoCountryCode::DE, // 82 - DE
+    IsoCountryCode::AN, // 83
+    IsoCountryCode::AN, // 84
+    IsoCountryCode::AN, // 85
+    IsoCountryCode::AN, // 86
+    IsoCountryCode::DJ, // 87 - DJ
+    IsoCountryCode::DK, // 88 - DK
+    IsoCountryCode::AN, // 89
+    IsoCountryCode::DM, // 90 - DM
+    IsoCountryCode::AN, // 91
+    IsoCountryCode::DO, // 92 - DO
+    IsoCountryCode::AN, // 93
+    IsoCountryCode::AN, // 94
+    IsoCountryCode::AN, // 95
+    IsoCountryCode::AN, // 96
+    IsoCountryCode::AN, // 97
+    IsoCountryCode::AN, // 98
+    IsoCountryCode::AN, // 99
+    IsoCountryCode::AN, // 100
+    IsoCountryCode::AN, // 101
+    IsoCountryCode::AN, // 102
+    IsoCountryCode::DZ, // 103 - DZ
+    IsoCountryCode::AN, // 104
+    IsoCountryCode::AN, // 105
+    IsoCountryCode::EC, // 106 - EC
+    IsoCountryCode::AN, // 107
+    IsoCountryCode::EE, // 108 - EE
+    IsoCountryCode::AN, // 109
+    IsoCountryCode::EG, // 110 - EG
+    IsoCountryCode::EH, // 111 - EH
+    IsoCountryCode::AN, // 112
+    IsoCountryCode::AN, // 113
+    IsoCountryCode::AN, // 114
+    IsoCountryCode::AN, // 115
+    IsoCountryCode::AN, // 116
+    IsoCountryCode::AN, // 117
+    IsoCountryCode::AN, // 118
+    IsoCountryCode::AN, // 119
+    IsoCountryCode::AN, // 120
+    IsoCountryCode::ER, // 121 - ER
+    IsoCountryCode::ES, // 122 - ES
+    IsoCountryCode::ET, // 123 - ET
+    IsoCountryCode::AN, // 124
+    IsoCountryCode::AN, // 125
+    IsoCountryCode::AN, // 126
+    IsoCountryCode::AN, // 127
+    IsoCountryCode::AN, // 128
+    IsoCountryCode::AN, // 129
+    IsoCountryCode::AN, // 130
+    IsoCountryCode::AN, // 131
+    IsoCountryCode::AN, // 132
+    IsoCountryCode::AN, // 133
+    IsoCountryCode::AN, // 134
+    IsoCountryCode::AN, // 135
+    IsoCountryCode::AN, // 136
+    IsoCountryCode::AN, // 137
+    IsoCountryCode::FI, // 138 - FI
+    IsoCountryCode::FJ, // 139 - FJ
+    IsoCountryCode::FK, // 140 - FK
+    IsoCountryCode::AN, // 141
+    IsoCountryCode::FM, // 142 - FM
+    IsoCountryCode::AN, // 143
+    IsoCountryCode::FO, // 144 - FO
+    IsoCountryCode::AN, // 145
+    IsoCountryCode::AN, // 146
+    IsoCountryCode::FR, // 147 - FR
+    IsoCountryCode::AN, // 148
+    IsoCountryCode::AN, // 149
+    IsoCountryCode::AN, // 150
+    IsoCountryCode::AN, // 151
+    IsoCountryCode::AN, // 152
+    IsoCountryCode::AN, // 153
+    IsoCountryCode::AN, // 154
+    IsoCountryCode::AN, // 155
+    IsoCountryCode::GA, // 156 - GA
+    IsoCountryCode::GB, // 157 - GB
+    IsoCountryCode::AN, // 158
+    IsoCountryCode::GD, // 159 - GD
+    IsoCountryCode::GE, // 160 - GE
+    IsoCountryCode::GF, // 161 - GF
+    IsoCountryCode::GG, // 162 - GG
+    IsoCountryCode::GH, // 163 - GH
+    IsoCountryCode::GI, // 164 - GI
+    IsoCountryCode::AN, // 165
+    IsoCountryCode::AN, // 166
+    IsoCountryCode::GL, // 167 - GL
+    IsoCountryCode::GM, // 168 - GM
+    IsoCountryCode::GN, // 169 - GN
+    IsoCountryCode::AN, // 170
+    IsoCountryCode::GP, // 171 - GP
+    IsoCountryCode::GQ, // 172 - GQ
+    IsoCountryCode::GR, // 173 - GR
+    IsoCountryCode::GS, // 174 - GS
+    IsoCountryCode::GT, // 175 - GT
+    IsoCountryCode::GU, // 176 - GU
+    IsoCountryCode::AN, // 177
+    IsoCountryCode::GW, // 178 - GW
+    IsoCountryCode::AN, // 179
+    IsoCountryCode::GY, // 180 - GY
+    IsoCountryCode::AN, // 181
+    IsoCountryCode::AN, // 182
+    IsoCountryCode::AN, // 183
+    IsoCountryCode::AN, // 184
+    IsoCountryCode::AN, // 185
+    IsoCountryCode::AN, // 186
+    IsoCountryCode::AN, // 187
+    IsoCountryCode::AN, // 188
+    IsoCountryCode::AN, // 189
+    IsoCountryCode::AN, // 190
+    IsoCountryCode::AN, // 191
+    IsoCountryCode::HK, // 192 - HK
+    IsoCountryCode::AN, // 193
+    IsoCountryCode::HM, // 194 - HM
+    IsoCountryCode::HN, // 195 - HN
+    IsoCountryCode::AN, // 196
+    IsoCountryCode::AN, // 197
+    IsoCountryCode::AN, // 198
+    IsoCountryCode::HR, // 199 - HR
+    IsoCountryCode::AN, // 200
+    IsoCountryCode::HT, // 201 - HT
+    IsoCountryCode::HU, // 202 - HU
+    IsoCountryCode::AN, // 203
+    IsoCountryCode::AN, // 204
+    IsoCountryCode::AN, // 205
+    IsoCountryCode::AN, // 206
+    IsoCountryCode::AN, // 207
+    IsoCountryCode::AN, // 208
+    IsoCountryCode::AN, // 209
+    IsoCountryCode::AN, // 210
+    IsoCountryCode::ID, // 211 - ID
+    IsoCountryCode::IE, // 212 - IE
+    IsoCountryCode::AN, // 213
+    IsoCountryCode::AN, // 214
+    IsoCountryCode::AN, // 215
+    IsoCountryCode::AN, // 216
+    IsoCountryCode::AN, // 217
+    IsoCountryCode::AN, // 218
+    IsoCountryCode::IL, // 219 - IL
+    IsoCountryCode::IM, // 220 - IM
+    IsoCountryCode::IN, // 221 - IN
+    IsoCountryCode::IO, // 222 - IO
+    IsoCountryCode::AN, // 223
+    IsoCountryCode::IQ, // 224 - IQ
+    IsoCountryCode::IR, // 225 - IR
+    IsoCountryCode::IS, // 226 - IS
+    IsoCountryCode::IT, // 227 - IT
+    IsoCountryCode::AN, // 228
+    IsoCountryCode::AN, // 229
+    IsoCountryCode::AN, // 230
+    IsoCountryCode::AN, // 231
+    IsoCountryCode::AN, // 232
+    IsoCountryCode::AN, // 233
+    IsoCountryCode::AN, // 234
+    IsoCountryCode::AN, // 235
+    IsoCountryCode::AN, // 236
+    IsoCountryCode::AN, // 237
+    IsoCountryCode::JE, // 238 - JE
+    IsoCountryCode::AN, // 239
+    IsoCountryCode::AN, // 240
+    IsoCountryCode::AN, // 241
+    IsoCountryCode::AN, // 242
+    IsoCountryCode::AN, // 243
+    IsoCountryCode::AN, // 244
+    IsoCountryCode::AN, // 245
+    IsoCountryCode::JM, // 246 - JM
+    IsoCountryCode::AN, // 247
+    IsoCountryCode::JO, // 248 - JO
+    IsoCountryCode::JP, // 249 - JP
+    IsoCountryCode::AN, // 250
+    IsoCountryCode::AN, // 251
+    IsoCountryCode::AN, // 252
+    IsoCountryCode::AN, // 253
+    IsoCountryCode::AN, // 254
+    IsoCountryCode::AN, // 255
+    IsoCountryCode::AN, // 256
+    IsoCountryCode::AN, // 257
+    IsoCountryCode::AN, // 258
+    IsoCountryCode::AN, // 259
+    IsoCountryCode::AN, // 260
+    IsoCountryCode::AN, // 261
+    IsoCountryCode::AN, // 262
+    IsoCountryCode::AN, // 263
+    IsoCountryCode::KE, // 264 - KE
+    IsoCountryCode::AN, // 265
+    IsoCountryCode::KG, // 266 - KG
+    IsoCountryCode::KH, // 267 - KH
+    IsoCountryCode::KI, // 268 - KI
+    IsoCountryCode::AN, // 269
+    IsoCountryCode::AN, // 270
+    IsoCountryCode::AN, // 271
+    IsoCountryCode::KM, // 272 - KM
+    IsoCountryCode::KN, // 273 - KN
+    IsoCountryCode::AN, // 274
+    IsoCountryCode::KP, // 275 - KP
+    IsoCountryCode::AN, // 276
+    IsoCountryCode::KR, // 277 - KR
+    IsoCountryCode::AN, // 278
+    IsoCountryCode::AN, // 279
+    IsoCountryCode::AN, // 280
+    IsoCountryCode::AN, // 281
+    IsoCountryCode::KW, // 282 - KW
+    IsoCountryCode::AN, // 283
+    IsoCountryCode::KY, // 284 - KY
+    IsoCountryCode::KZ, // 285 - KZ
+    IsoCountryCode::LA, // 286 - LA
+    IsoCountryCode::LB, // 287 - LB
+    IsoCountryCode::LC, // 288 - LC
+    IsoCountryCode::AN, // 289
+    IsoCountryCode::AN, // 290
+    IsoCountryCode::AN, // 291
+    IsoCountryCode::AN, // 292
+    IsoCountryCode::AN, // 293
+    IsoCountryCode::LI, // 294 - LI
+    IsoCountryCode::AN, // 295
+    IsoCountryCode::LK, // 296 - LK
+    IsoCountryCode::AN, // 297
+    IsoCountryCode::AN, // 298
+    IsoCountryCode::AN, // 299
+    IsoCountryCode::AN, // 300
+    IsoCountryCode::AN, // 301
+    IsoCountryCode::AN, // 302
+    IsoCountryCode::LR, // 303 - LR
+    IsoCountryCode::LS, // 304 - LS
+    IsoCountryCode::LT, // 305 - LT
+    IsoCountryCode::LU, // 306 - LU
+    IsoCountryCode::LV, // 307 - LV
+    IsoCountryCode::AN, // 308
+    IsoCountryCode::AN, // 309
+    IsoCountryCode::LY, // 310 - LY
+    IsoCountryCode::AN, // 311
+    IsoCountryCode::MA, // 312 - MA
+    IsoCountryCode::AN, // 313
+    IsoCountryCode::MC, // 314 - MC
+    IsoCountryCode::MD, // 315 - MD
+    IsoCountryCode::ME, // 316 - ME
+    IsoCountryCode::MF, // 317 - MF
+    IsoCountryCode::MG, // 318 - MG
+    IsoCountryCode::MH, // 319 - MH
+    IsoCountryCode::AN, // 320
+    IsoCountryCode::AN, // 321
+    IsoCountryCode::MK, // 322 - MK
+    IsoCountryCode::ML, // 323 - ML
+    IsoCountryCode::MM, // 324 - MM
+    IsoCountryCode::MN, // 325 - MN
+    IsoCountryCode::MO, // 326 - MO
+    IsoCountryCode::MP, // 327 - MP
+    IsoCountryCode::MQ, // 328 - MQ
+    IsoCountryCode::MR, // 329 - MR
+    IsoCountryCode::MS, // 330 - MS
+    IsoCountryCode::MT, // 331 - MT
+    IsoCountryCode::MU, // 332 - MU
+    IsoCountryCode::MV, // 333 - MV
+    IsoCountryCode::MW, // 334 - MW
+    IsoCountryCode::MX, // 335 - MX
+    IsoCountryCode::MY, // 336 - MY
+    IsoCountryCode::MZ, // 337 - MZ
+    IsoCountryCode::NA, // 338 - NA
+    IsoCountryCode::AN, // 339
+    IsoCountryCode::NC, // 340 - NC
+    IsoCountryCode::AN, // 341
+    IsoCountryCode::NE, // 342 - NE
+    IsoCountryCode::NF, // 343 - NF
+    IsoCountryCode::NG, // 344 - NG
+    IsoCountryCode::AN, // 345
+    IsoCountryCode::NI, // 346 - NI
+    IsoCountryCode::AN, // 347
+    IsoCountryCode::AN, // 348
+    IsoCountryCode::NL, // 349 - NL
+    IsoCountryCode::AN, // 350
+    IsoCountryCode::AN, // 351
+    IsoCountryCode::NO, // 352 - NO
+    IsoCountryCode::NP, // 353 - NP
+    IsoCountryCode::AN, // 354
+    IsoCountryCode::NR, // 355 - NR
+    IsoCountryCode::AN, // 356
+    IsoCountryCode::AN, // 357
+    IsoCountryCode::NU, // 358 - NU
+    IsoCountryCode::AN, // 359
+    IsoCountryCode::AN, // 360
+    IsoCountryCode::AN, // 361
+    IsoCountryCode::AN, // 362
+    IsoCountryCode::NZ, // 363 - NZ
+    IsoCountryCode::AN, // 364
+    IsoCountryCode::AN, // 365
+    IsoCountryCode::AN, // 366
+    IsoCountryCode::AN, // 367
+    IsoCountryCode::AN, // 368
+    IsoCountryCode::AN, // 369
+    IsoCountryCode::AN, // 370
+    IsoCountryCode::AN, // 371
+    IsoCountryCode::AN, // 372
+    IsoCountryCode::AN, // 373
+    IsoCountryCode::AN, // 374
+    IsoCountryCode::AN, // 375
+    IsoCountryCode::OM, // 376 - OM
+    IsoCountryCode::AN, // 377
+    IsoCountryCode::AN, // 378
+    IsoCountryCode::AN, // 379
+    IsoCountryCode::AN, // 380
+    IsoCountryCode::AN, // 381
+    IsoCountryCode::AN, // 382
+    IsoCountryCode::AN, // 383
+    IsoCountryCode::AN, // 384
+    IsoCountryCode::AN, // 385
+    IsoCountryCode::AN, // 386
+    IsoCountryCode::AN, // 387
+    IsoCountryCode::AN, // 388
+    IsoCountryCode::AN, // 389
+    IsoCountryCode::PA, // 390 - PA
+    IsoCountryCode::AN, // 391
+    IsoCountryCode::AN, // 392
+    IsoCountryCode::AN, // 393
+    IsoCountryCode::PE, // 394 - PE
+    IsoCountryCode::PF, // 395 - PF
+    IsoCountryCode::PG, // 396 - PG
+    IsoCountryCode::PH, // 397 - PH
+    IsoCountryCode::AN, // 398
+    IsoCountryCode::AN, // 399
+    IsoCountryCode::PK, // 400 - PK
+    IsoCountryCode::PL, // 401 - PL
+    IsoCountryCode::PM, // 402 - PM
+    IsoCountryCode::PN, // 403 - PN
+    IsoCountryCode::AN, // 404
+    IsoCountryCode::AN, // 405
+    IsoCountryCode::AN, // 406
+    IsoCountryCode::PR, // 407 - PR
+    IsoCountryCode::PS, // 408 - PS
+    IsoCountryCode::PT, // 409 - PT
+    IsoCountryCode::AN, // 410
+    IsoCountryCode::AN, // 411
+    IsoCountryCode::PW, // 412 - PW
+    IsoCountryCode::AN, // 413
+    IsoCountryCode::PY, // 414 - PY
+    IsoCountryCode::AN, // 415
+    IsoCountryCode::QA, // 416 - QA
+    IsoCountryCode::AN, // 417
+    IsoCountryCode::AN, // 418
+    IsoCountryCode::AN, // 419
+    IsoCountryCode::AN, // 420
+    IsoCountryCode::AN, // 421
+    IsoCountryCode::AN, // 422
+    IsoCountryCode::AN, // 423
+    IsoCountryCode::AN, // 424
+    IsoCountryCode::AN, // 425
+    IsoCountryCode::AN, // 426
+    IsoCountryCode::AN, // 427
+    IsoCountryCode::AN, // 428
+    IsoCountryCode::AN, // 429
+    IsoCountryCode::AN, // 430
+    IsoCountryCode::AN, // 431
+    IsoCountryCode::AN, // 432
+    IsoCountryCode::AN, // 433
+    IsoCountryCode::AN, // 434
+    IsoCountryCode::AN, // 435
+    IsoCountryCode::AN, // 436
+    IsoCountryCode::AN, // 437
+    IsoCountryCode::AN, // 438
+    IsoCountryCode::AN, // 439
+    IsoCountryCode::AN, // 440
+    IsoCountryCode::AN, // 441
+    IsoCountryCode::AN, // 442
+    IsoCountryCode::AN, // 443
+    IsoCountryCode::AN, // 444
+    IsoCountryCode::AN, // 445
+    IsoCountryCode::RE, // 446 - RE
+    IsoCountryCode::AN, // 447
+    IsoCountryCode::AN, // 448
+    IsoCountryCode::AN, // 449
+    IsoCountryCode::AN, // 450
+    IsoCountryCode::AN, // 451
+    IsoCountryCode::AN, // 452
+    IsoCountryCode::AN, // 453
+    IsoCountryCode::AN, // 454
+    IsoCountryCode::AN, // 455
+    IsoCountryCode::RO, // 456 - RO
+    IsoCountryCode::AN, // 457
+    IsoCountryCode::AN, // 458
+    IsoCountryCode::AN, // 459
+    IsoCountryCode::RS, // 460 - RS
+    IsoCountryCode::AN, // 461
+    IsoCountryCode::RU, // 462 - RU
+    IsoCountryCode::AN, // 463
+    IsoCountryCode::RW, // 464 - RW
+    IsoCountryCode::AN, // 465
+    IsoCountryCode::AN, // 466
+    IsoCountryCode::AN, // 467
+    IsoCountryCode::SA, // 468 - SA
+    IsoCountryCode::SB, // 469 - SB
+    IsoCountryCode::SC, // 470 - SC
+    IsoCountryCode::SD, // 471 - SD
+    IsoCountryCode::SE, // 472 - SE
+    IsoCountryCode::AN, // 473
+    IsoCountryCode::SG, // 474 - SG
+    IsoCountryCode::SH, // 475 - SH
+    IsoCountryCode::SI, // 476 - SI
+    IsoCountryCode::SJ, // 477 - SJ
+    IsoCountryCode::SK, // 478 - SK
+    IsoCountryCode::SL, // 479 - SL
+    IsoCountryCode::SM, // 480 - SM
+    IsoCountryCode::SN, // 481 - SN
+    IsoCountryCode::SO, // 482 - SO
+    IsoCountryCode::AN, // 483
+    IsoCountryCode::AN, // 484
+    IsoCountryCode::SR, // 485 - SR
+    IsoCountryCode::SS, // 486 - SS
+    IsoCountryCode::ST, // 487 - ST
+    IsoCountryCode::AN, // 488
+    IsoCountryCode::SV, // 489 - SV
+    IsoCountryCode::AN, // 490
+    IsoCountryCode::SX, // 491 - SX
+    IsoCountryCode::SY, // 492 - SY
+    IsoCountryCode::SZ, // 493 - SZ
+    IsoCountryCode::AN, // 494
+    IsoCountryCode::AN, // 495
+    IsoCountryCode::TC, // 496 - TC
+    IsoCountryCode::TD, // 497 - TD
+    IsoCountryCode::AN, // 498
+    IsoCountryCode::TF, // 499 - TF
+    IsoCountryCode::TG, // 500 - TG
+    IsoCountryCode::TH, // 501 - TH
+    IsoCountryCode::AN, // 502
+    IsoCountryCode::TJ, // 503 - TJ
+    IsoCountryCode::TK, // 504 - TK
+    IsoCountryCode::TL, // 505 - TL
+    IsoCountryCode::TM, // 506 - TM
+    IsoCountryCode::TN, // 507 - TN
+    IsoCountryCode::TO, // 508 - TO
+    IsoCountryCode::AN, // 509
+    IsoCountryCode::AN, // 510
+    IsoCountryCode::TR, // 511 - TR
+    IsoCountryCode::AN, // 512
+    IsoCountryCode::TT, // 513 - TT
+    IsoCountryCode::AN, // 514
+    IsoCountryCode::TV, // 515 - TV
+    IsoCountryCode::TW, // 516 - TW
+    IsoCountryCode::AN, // 517
+    IsoCountryCode::AN, // 518
+    IsoCountryCode::TZ, // 519 - TZ
+    IsoCountryCode::UA, // 520 - UA
+    IsoCountryCode::AN, // 521
+    IsoCountryCode::AN, // 522
+    IsoCountryCode::AN, // 523
+    IsoCountryCode::AN, // 524
+    IsoCountryCode::AN, // 525
+    IsoCountryCode::UG, // 526 - UG
+    IsoCountryCode::AN, // 527
+    IsoCountryCode::AN, // 528
+    IsoCountryCode::AN, // 529
+    IsoCountryCode::AN, // 530
+    IsoCountryCode::AN, // 531
+    IsoCountryCode::UM, // 532 - UM
+    IsoCountryCode::AN, // 533
+    IsoCountryCode::AN, // 534
+    IsoCountryCode::AN, // 535
+    IsoCountryCode::AN, // 536
+    IsoCountryCode::AN, // 537
+    IsoCountryCode::US, // 538 - US
+    IsoCountryCode::AN, // 539
+    IsoCountryCode::AN, // 540
+    IsoCountryCode::AN, // 541
+    IsoCountryCode::AN, // 542
+    IsoCountryCode::AN, // 543
+    IsoCountryCode::UY, // 544 - UY
+    IsoCountryCode::UZ, // 545 - UZ
+    IsoCountryCode::VA, // 546 - VA
+    IsoCountryCode::AN, // 547
+    IsoCountryCode::VC, // 548 - VC
+    IsoCountryCode::AN, // 549
+    IsoCountryCode::VE, // 550 - VE
+    IsoCountryCode::AN, // 551
+    IsoCountryCode::VG, // 552 - VG
+    IsoCountryCode::AN, // 553
+    IsoCountryCode::VI, // 554 - VI
+    IsoCountryCode::AN, // 555
+    IsoCountryCode::AN, // 556
+    IsoCountryCode::AN, // 557
+    IsoCountryCode::AN, // 558
+    IsoCountryCode::VN, // 559 - VN
+    IsoCountryCode::AN, // 560
+    IsoCountryCode::AN, // 561
+    IsoCountryCode::AN, // 562
+    IsoCountryCode::AN, // 563
+    IsoCountryCode::AN, // 564
+    IsoCountryCode::AN, // 565
+    IsoCountryCode::VU, // 566 - VU
+    IsoCountryCode::AN, // 567
+    IsoCountryCode::AN, // 568
+    IsoCountryCode::AN, // 569
+    IsoCountryCode::AN, // 570
+    IsoCountryCode::AN, // 571
+    IsoCountryCode::AN, // 572
+    IsoCountryCode::AN, // 573
+    IsoCountryCode::AN, // 574
+    IsoCountryCode::AN, // 575
+    IsoCountryCode::AN, // 576
+    IsoCountryCode::WF, // 577 - WF
+    IsoCountryCode::AN, // 578
+    IsoCountryCode::AN, // 579
+    IsoCountryCode::AN, // 580
+    IsoCountryCode::AN, // 581
+    IsoCountryCode::AN, // 582
+    IsoCountryCode::AN, // 583
+    IsoCountryCode::AN, // 584
+    IsoCountryCode::AN, // 585
+    IsoCountryCode::AN, // 586
+    IsoCountryCode::AN, // 587
+    IsoCountryCode::AN, // 588
+    IsoCountryCode::AN, // 589
+    IsoCountryCode::WS, // 590 - WS
+    IsoCountryCode::AN, // 591
+    IsoCountryCode::AN, // 592
+    IsoCountryCode::AN, // 593
+    IsoCountryCode::AN, // 594
+    IsoCountryCode::AN, // 595
+    IsoCountryCode::AN, // 596
+    IsoCountryCode::AN, // 597
+    IsoCountryCode::AN, // 598
+    IsoCountryCode::AN, // 599
+    IsoCountryCode::AN, // 600
+    IsoCountryCode::AN, // 601
+    IsoCountryCode::AN, // 602
+    IsoCountryCode::AN, // 603
+    IsoCountryCode::AN, // 604
+    IsoCountryCode::AN, // 605
+    IsoCountryCode::AN, // 606
+    IsoCountryCode::AN, // 607
+    IsoCountryCode::XK, // 608 - XK
+    IsoCountryCode::AN, // 609
+    IsoCountryCode::AN, // 610
+    IsoCountryCode::AN, // 611
+    IsoCountryCode::AN, // 612
+    IsoCountryCode::AN, // 613
+    IsoCountryCode::AN, // 614
+    IsoCountryCode::AN, // 615
+    IsoCountryCode::AN, // 616
+    IsoCountryCode::AN, // 617
+    IsoCountryCode::AN, // 618
+    IsoCountryCode::AN, // 619
+    IsoCountryCode::AN, // 620
+    IsoCountryCode::AN, // 621
+    IsoCountryCode::AN, // 622
+    IsoCountryCode::AN, // 623
+    IsoCountryCode::AN, // 624
+    IsoCountryCode::AN, // 625
+    IsoCountryCode::AN, // 626
+    IsoCountryCode::AN, // 627
+    IsoCountryCode::YE, // 628 - YE
+    IsoCountryCode::AN, // 629
+    IsoCountryCode::AN, // 630
+    IsoCountryCode::AN, // 631
+    IsoCountryCode::AN, // 632
+    IsoCountryCode::AN, // 633
+    IsoCountryCode::AN, // 634
+    IsoCountryCode::AN, // 635
+    IsoCountryCode::AN, // 636
+    IsoCountryCode::AN, // 637
+    IsoCountryCode::AN, // 638
+    IsoCountryCode::AN, // 639
+    IsoCountryCode::AN, // 640
+    IsoCountryCode::AN, // 641
+    IsoCountryCode::AN, // 642
+    IsoCountryCode::YT, // 643 - YT
+    IsoCountryCode::AN, // 644
+    IsoCountryCode::AN, // 645
+    IsoCountryCode::AN, // 646
+    IsoCountryCode::AN, // 647
+    IsoCountryCode::AN, // 648
+    IsoCountryCode::AN, // 649
+    IsoCountryCode::ZA, // 650 - ZA
+    IsoCountryCode::AN, // 651
+    IsoCountryCode::AN, // 652
+    IsoCountryCode::AN, // 653
+    IsoCountryCode::AN, // 654
+    IsoCountryCode::AN, // 655
+    IsoCountryCode::AN, // 656
+    IsoCountryCode::AN, // 657
+    IsoCountryCode::AN, // 658
+    IsoCountryCode::AN, // 659
+    IsoCountryCode::AN, // 660
+    IsoCountryCode::AN, // 661
+    IsoCountryCode::ZM, // 662 - ZM
+    IsoCountryCode::AN, // 663
+    IsoCountryCode::AN, // 664
+    IsoCountryCode::AN, // 665
+    IsoCountryCode::AN, // 666
+    IsoCountryCode::AN, // 667
+    IsoCountryCode::AN, // 668
+    IsoCountryCode::AN, // 669
+    IsoCountryCode::AN, // 670
+    IsoCountryCode::AN, // 671
+    IsoCountryCode::ZW, // 672 - ZW
+    IsoCountryCode::AN, // 673
+    IsoCountryCode::AN, // 674
+    IsoCountryCode::AN, // 675
+];
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(u16)]
 pub enum IsoCountryCode {
     AD, /* AND - Andorra */
     AE, /* ARE - United Arab Emirates */
@@ -1330,514 +2010,265 @@ impl FromStr for IsoCountryCode {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.len() {
-            2 => match s {
-                "AD" | "ad" => Ok(IsoCountryCode::AD),
-                "AE" | "ae" => Ok(IsoCountryCode::AE),
-                "AF" | "af" => Ok(IsoCountryCode::AF),
-                "AG" | "ag" => Ok(IsoCountryCode::AG),
-                "AI" | "ai" => Ok(IsoCountryCode::AI),
-                "AL" | "al" => Ok(IsoCountryCode::AL),
-                "AM" | "am" => Ok(IsoCountryCode::AM),
-                "AO" | "ao" => Ok(IsoCountryCode::AO),
-                "AQ" | "aq" => Ok(IsoCountryCode::AQ),
-                "AR" | "ar" => Ok(IsoCountryCode::AR),
-                "AS" | "as" => Ok(IsoCountryCode::AS),
-                "AT" | "at" => Ok(IsoCountryCode::AT),
-                "AU" | "au" => Ok(IsoCountryCode::AU),
-                "AW" | "aw" => Ok(IsoCountryCode::AW),
-                "AX" | "ax" => Ok(IsoCountryCode::AX),
-                "AZ" | "az" => Ok(IsoCountryCode::AZ),
-                "BA" | "ba" => Ok(IsoCountryCode::BA),
-                "BB" | "bb" => Ok(IsoCountryCode::BB),
-                "BD" | "bd" => Ok(IsoCountryCode::BD),
-                "BE" | "be" => Ok(IsoCountryCode::BE),
-                "BF" | "bf" => Ok(IsoCountryCode::BF),
-                "BG" | "bg" => Ok(IsoCountryCode::BG),
-                "BH" | "bh" => Ok(IsoCountryCode::BH),
-                "BI" | "bi" => Ok(IsoCountryCode::BI),
-                "BJ" | "bj" => Ok(IsoCountryCode::BJ),
-                "BL" | "bl" => Ok(IsoCountryCode::BL),
-                "BM" | "bm" => Ok(IsoCountryCode::BM),
-                "BN" | "bn" => Ok(IsoCountryCode::BN),
-                "BO" | "bo" => Ok(IsoCountryCode::BO),
-                "BQ" | "bq" => Ok(IsoCountryCode::BQ),
-                "BR" | "br" => Ok(IsoCountryCode::BR),
-                "BS" | "bs" => Ok(IsoCountryCode::BS),
-                "BT" | "bt" => Ok(IsoCountryCode::BT),
-                "BV" | "bv" => Ok(IsoCountryCode::BV),
-                "BW" | "bw" => Ok(IsoCountryCode::BW),
-                "BY" | "by" => Ok(IsoCountryCode::BY),
-                "BZ" | "bz" => Ok(IsoCountryCode::BZ),
-                "CA" | "ca" => Ok(IsoCountryCode::CA),
-                "CC" | "cc" => Ok(IsoCountryCode::CC),
-                "CD" | "cd" => Ok(IsoCountryCode::CD),
-                "CF" | "cf" => Ok(IsoCountryCode::CF),
-                "CG" | "cg" => Ok(IsoCountryCode::CG),
-                "CH" | "ch" => Ok(IsoCountryCode::CH),
-                "CI" | "ci" => Ok(IsoCountryCode::CI),
-                "CK" | "ck" => Ok(IsoCountryCode::CK),
-                "CL" | "cl" => Ok(IsoCountryCode::CL),
-                "CM" | "cm" => Ok(IsoCountryCode::CM),
-                "CN" | "cn" => Ok(IsoCountryCode::CN),
-                "CO" | "co" => Ok(IsoCountryCode::CO),
-                "CR" | "cr" => Ok(IsoCountryCode::CR),
-                "CU" | "cu" => Ok(IsoCountryCode::CU),
-                "CV" | "cv" => Ok(IsoCountryCode::CV),
-                "CW" | "cw" => Ok(IsoCountryCode::CW),
-                "CX" | "cx" => Ok(IsoCountryCode::CX),
-                "CY" | "cy" => Ok(IsoCountryCode::CY),
-                "CZ" | "cz" => Ok(IsoCountryCode::CZ),
-                "DE" | "de" => Ok(IsoCountryCode::DE),
-                "DJ" | "dj" => Ok(IsoCountryCode::DJ),
-                "DK" | "dk" => Ok(IsoCountryCode::DK),
-                "DM" | "dm" => Ok(IsoCountryCode::DM),
-                "DO" | "do" => Ok(IsoCountryCode::DO),
-                "DZ" | "dz" => Ok(IsoCountryCode::DZ),
-                "EC" | "ec" => Ok(IsoCountryCode::EC),
-                "EE" | "ee" => Ok(IsoCountryCode::EE),
-                "EG" | "eg" => Ok(IsoCountryCode::EG),
-                "EH" | "eh" => Ok(IsoCountryCode::EH),
-                "ER" | "er" => Ok(IsoCountryCode::ER),
-                "ES" | "es" => Ok(IsoCountryCode::ES),
-                "ET" | "et" => Ok(IsoCountryCode::ET),
-                "FI" | "fi" => Ok(IsoCountryCode::FI),
-                "FJ" | "fj" => Ok(IsoCountryCode::FJ),
-                "FK" | "fk" => Ok(IsoCountryCode::FK),
-                "FM" | "fm" => Ok(IsoCountryCode::FM),
-                "FO" | "fo" => Ok(IsoCountryCode::FO),
-                "FR" | "fr" => Ok(IsoCountryCode::FR),
-                "GA" | "ga" => Ok(IsoCountryCode::GA),
-                "GB" | "gb" => Ok(IsoCountryCode::GB),
-                "GD" | "gd" => Ok(IsoCountryCode::GD),
-                "GE" | "ge" => Ok(IsoCountryCode::GE),
-                "GF" | "gf" => Ok(IsoCountryCode::GF),
-                "GG" | "gg" => Ok(IsoCountryCode::GG),
-                "GH" | "gh" => Ok(IsoCountryCode::GH),
-                "GI" | "gi" => Ok(IsoCountryCode::GI),
-                "GL" | "gl" => Ok(IsoCountryCode::GL),
-                "GM" | "gm" => Ok(IsoCountryCode::GM),
-                "GN" | "gn" => Ok(IsoCountryCode::GN),
-                "GP" | "gp" => Ok(IsoCountryCode::GP),
-                "GQ" | "gq" => Ok(IsoCountryCode::GQ),
-                "GR" | "gr" => Ok(IsoCountryCode::GR),
-                "GS" | "gs" => Ok(IsoCountryCode::GS),
-                "GT" | "gt" => Ok(IsoCountryCode::GT),
-                "GU" | "gu" => Ok(IsoCountryCode::GU),
-                "GW" | "gw" => Ok(IsoCountryCode::GW),
-                "GY" | "gy" => Ok(IsoCountryCode::GY),
-                "HK" | "hk" => Ok(IsoCountryCode::HK),
-                "HM" | "hm" => Ok(IsoCountryCode::HM),
-                "HN" | "hn" => Ok(IsoCountryCode::HN),
-                "HR" | "hr" => Ok(IsoCountryCode::HR),
-                "HT" | "ht" => Ok(IsoCountryCode::HT),
-                "HU" | "hu" => Ok(IsoCountryCode::HU),
-                "ID" | "id" => Ok(IsoCountryCode::ID),
-                "IE" | "ie" => Ok(IsoCountryCode::IE),
-                "IL" | "il" => Ok(IsoCountryCode::IL),
-                "IM" | "im" => Ok(IsoCountryCode::IM),
-                "IN" | "in" => Ok(IsoCountryCode::IN),
-                "IO" | "io" => Ok(IsoCountryCode::IO),
-                "IQ" | "iq" => Ok(IsoCountryCode::IQ),
-                "IR" | "ir" => Ok(IsoCountryCode::IR),
-                "IS" | "is" => Ok(IsoCountryCode::IS),
-                "IT" | "it" => Ok(IsoCountryCode::IT),
-                "JE" | "je" => Ok(IsoCountryCode::JE),
-                "JM" | "jm" => Ok(IsoCountryCode::JM),
-                "JO" | "jo" => Ok(IsoCountryCode::JO),
-                "JP" | "jp" => Ok(IsoCountryCode::JP),
-                "KE" | "ke" => Ok(IsoCountryCode::KE),
-                "KG" | "kg" => Ok(IsoCountryCode::KG),
-                "KH" | "kh" => Ok(IsoCountryCode::KH),
-                "KI" | "ki" => Ok(IsoCountryCode::KI),
-                "KM" | "km" => Ok(IsoCountryCode::KM),
-                "KN" | "kn" => Ok(IsoCountryCode::KN),
-                "KP" | "kp" => Ok(IsoCountryCode::KP),
-                "KR" | "kr" => Ok(IsoCountryCode::KR),
-                "XK" | "xk" => Ok(IsoCountryCode::XK),
-                "KW" | "kw" => Ok(IsoCountryCode::KW),
-                "KY" | "ky" => Ok(IsoCountryCode::KY),
-                "KZ" | "kz" => Ok(IsoCountryCode::KZ),
-                "LA" | "la" => Ok(IsoCountryCode::LA),
-                "LB" | "lb" => Ok(IsoCountryCode::LB),
-                "LC" | "lc" => Ok(IsoCountryCode::LC),
-                "LI" | "li" => Ok(IsoCountryCode::LI),
-                "LK" | "lk" => Ok(IsoCountryCode::LK),
-                "LR" | "lr" => Ok(IsoCountryCode::LR),
-                "LS" | "ls" => Ok(IsoCountryCode::LS),
-                "LT" | "lt" => Ok(IsoCountryCode::LT),
-                "LU" | "lu" => Ok(IsoCountryCode::LU),
-                "LV" | "lv" => Ok(IsoCountryCode::LV),
-                "LY" | "ly" => Ok(IsoCountryCode::LY),
-                "MA" | "ma" => Ok(IsoCountryCode::MA),
-                "MC" | "mc" => Ok(IsoCountryCode::MC),
-                "MD" | "md" => Ok(IsoCountryCode::MD),
-                "ME" | "me" => Ok(IsoCountryCode::ME),
-                "MF" | "mf" => Ok(IsoCountryCode::MF),
-                "MG" | "mg" => Ok(IsoCountryCode::MG),
-                "MH" | "mh" => Ok(IsoCountryCode::MH),
-                "MK" | "mk" => Ok(IsoCountryCode::MK),
-                "ML" | "ml" => Ok(IsoCountryCode::ML),
-                "MM" | "mm" => Ok(IsoCountryCode::MM),
-                "MN" | "mn" => Ok(IsoCountryCode::MN),
-                "MO" | "mo" => Ok(IsoCountryCode::MO),
-                "MP" | "mp" => Ok(IsoCountryCode::MP),
-                "MQ" | "mq" => Ok(IsoCountryCode::MQ),
-                "MR" | "mr" => Ok(IsoCountryCode::MR),
-                "MS" | "ms" => Ok(IsoCountryCode::MS),
-                "MT" | "mt" => Ok(IsoCountryCode::MT),
-                "MU" | "mu" => Ok(IsoCountryCode::MU),
-                "MV" | "mv" => Ok(IsoCountryCode::MV),
-                "MW" | "mw" => Ok(IsoCountryCode::MW),
-                "MX" | "mx" => Ok(IsoCountryCode::MX),
-                "MY" | "my" => Ok(IsoCountryCode::MY),
-                "MZ" | "mz" => Ok(IsoCountryCode::MZ),
-                "NA" | "na" => Ok(IsoCountryCode::NA),
-                "NC" | "nc" => Ok(IsoCountryCode::NC),
-                "NE" | "ne" => Ok(IsoCountryCode::NE),
-                "NF" | "nf" => Ok(IsoCountryCode::NF),
-                "NG" | "ng" => Ok(IsoCountryCode::NG),
-                "NI" | "ni" => Ok(IsoCountryCode::NI),
-                "NL" | "nl" => Ok(IsoCountryCode::NL),
-                "NO" | "no" => Ok(IsoCountryCode::NO),
-                "NP" | "np" => Ok(IsoCountryCode::NP),
-                "NR" | "nr" => Ok(IsoCountryCode::NR),
-                "NU" | "nu" => Ok(IsoCountryCode::NU),
-                "NZ" | "nz" => Ok(IsoCountryCode::NZ),
-                "OM" | "om" => Ok(IsoCountryCode::OM),
-                "PA" | "pa" => Ok(IsoCountryCode::PA),
-                "PE" | "pe" => Ok(IsoCountryCode::PE),
-                "PF" | "pf" => Ok(IsoCountryCode::PF),
-                "PG" | "pg" => Ok(IsoCountryCode::PG),
-                "PH" | "ph" => Ok(IsoCountryCode::PH),
-                "PK" | "pk" => Ok(IsoCountryCode::PK),
-                "PL" | "pl" => Ok(IsoCountryCode::PL),
-                "PM" | "pm" => Ok(IsoCountryCode::PM),
-                "PN" | "pn" => Ok(IsoCountryCode::PN),
-                "PR" | "pr" => Ok(IsoCountryCode::PR),
-                "PS" | "ps" => Ok(IsoCountryCode::PS),
-                "PT" | "pt" => Ok(IsoCountryCode::PT),
-                "PW" | "pw" => Ok(IsoCountryCode::PW),
-                "PY" | "py" => Ok(IsoCountryCode::PY),
-                "QA" | "qa" => Ok(IsoCountryCode::QA),
-                "RE" | "re" => Ok(IsoCountryCode::RE),
-                "RO" | "ro" => Ok(IsoCountryCode::RO),
-                "RS" | "rs" => Ok(IsoCountryCode::RS),
-                "RU" | "ru" => Ok(IsoCountryCode::RU),
-                "RW" | "rw" => Ok(IsoCountryCode::RW),
-                "SA" | "sa" => Ok(IsoCountryCode::SA),
-                "SB" | "sb" => Ok(IsoCountryCode::SB),
-                "SC" | "sc" => Ok(IsoCountryCode::SC),
-                "SD" | "sd" => Ok(IsoCountryCode::SD),
-                "SS" | "ss" => Ok(IsoCountryCode::SS),
-                "SE" | "se" => Ok(IsoCountryCode::SE),
-                "SG" | "sg" => Ok(IsoCountryCode::SG),
-                "SH" | "sh" => Ok(IsoCountryCode::SH),
-                "SI" | "si" => Ok(IsoCountryCode::SI),
-                "SJ" | "sj" => Ok(IsoCountryCode::SJ),
-                "SK" | "sk" => Ok(IsoCountryCode::SK),
-                "SL" | "sl" => Ok(IsoCountryCode::SL),
-                "SM" | "sm" => Ok(IsoCountryCode::SM),
-                "SN" | "sn" => Ok(IsoCountryCode::SN),
-                "SO" | "so" => Ok(IsoCountryCode::SO),
-                "SR" | "sr" => Ok(IsoCountryCode::SR),
-                "ST" | "st" => Ok(IsoCountryCode::ST),
-                "SV" | "sv" => Ok(IsoCountryCode::SV),
-                "SX" | "sx" => Ok(IsoCountryCode::SX),
-                "SY" | "sy" => Ok(IsoCountryCode::SY),
-                "SZ" | "sz" => Ok(IsoCountryCode::SZ),
-                "TC" | "tc" => Ok(IsoCountryCode::TC),
-                "TD" | "td" => Ok(IsoCountryCode::TD),
-                "TF" | "tf" => Ok(IsoCountryCode::TF),
-                "TG" | "tg" => Ok(IsoCountryCode::TG),
-                "TH" | "th" => Ok(IsoCountryCode::TH),
-                "TJ" | "tj" => Ok(IsoCountryCode::TJ),
-                "TK" | "tk" => Ok(IsoCountryCode::TK),
-                "TL" | "tl" => Ok(IsoCountryCode::TL),
-                "TM" | "tm" => Ok(IsoCountryCode::TM),
-                "TN" | "tn" => Ok(IsoCountryCode::TN),
-                "TO" | "to" => Ok(IsoCountryCode::TO),
-                "TR" | "tr" => Ok(IsoCountryCode::TR),
-                "TT" | "tt" => Ok(IsoCountryCode::TT),
-                "TV" | "tv" => Ok(IsoCountryCode::TV),
-                "TW" | "tw" => Ok(IsoCountryCode::TW),
-                "TZ" | "tz" => Ok(IsoCountryCode::TZ),
-                "UA" | "ua" => Ok(IsoCountryCode::UA),
-                "UG" | "ug" => Ok(IsoCountryCode::UG),
-                "UM" | "um" => Ok(IsoCountryCode::UM),
-                "US" | "us" => Ok(IsoCountryCode::US),
-                "UY" | "uy" => Ok(IsoCountryCode::UY),
-                "UZ" | "uz" => Ok(IsoCountryCode::UZ),
-                "VA" | "va" => Ok(IsoCountryCode::VA),
-                "VC" | "vc" => Ok(IsoCountryCode::VC),
-                "VE" | "ve" => Ok(IsoCountryCode::VE),
-                "VG" | "vg" => Ok(IsoCountryCode::VG),
-                "VI" | "vi" => Ok(IsoCountryCode::VI),
-                "VN" | "vn" => Ok(IsoCountryCode::VN),
-                "VU" | "vu" => Ok(IsoCountryCode::VU),
-                "WF" | "wf" => Ok(IsoCountryCode::WF),
-                "WS" | "ws" => Ok(IsoCountryCode::WS),
-                "YE" | "ye" => Ok(IsoCountryCode::YE),
-                "YT" | "yt" => Ok(IsoCountryCode::YT),
-                "ZA" | "za" => Ok(IsoCountryCode::ZA),
-                "ZM" | "zm" => Ok(IsoCountryCode::ZM),
-                "ZW" | "zw" => Ok(IsoCountryCode::ZW),
-                "CS" | "cs" => Ok(IsoCountryCode::CS),
-                "AN" | "an" => Ok(IsoCountryCode::AN),
-                _ => Err(()),
-            },
-            3 => match s {
-                "AND" | "and" => Ok(IsoCountryCode::AD),
-                "ARE" | "are" => Ok(IsoCountryCode::AE),
-                "AFG" | "afg" => Ok(IsoCountryCode::AF),
-                "ATG" | "atg" => Ok(IsoCountryCode::AG),
-                "AIA" | "aia" => Ok(IsoCountryCode::AI),
-                "ALB" | "alb" => Ok(IsoCountryCode::AL),
-                "ARM" | "arm" => Ok(IsoCountryCode::AM),
-                "AGO" | "ago" => Ok(IsoCountryCode::AO),
-                "ATA" | "ata" => Ok(IsoCountryCode::AQ),
-                "ARG" | "arg" => Ok(IsoCountryCode::AR),
-                "ASM" | "asm" => Ok(IsoCountryCode::AS),
-                "AUT" | "aut" => Ok(IsoCountryCode::AT),
-                "AUS" | "aus" => Ok(IsoCountryCode::AU),
-                "ABW" | "abw" => Ok(IsoCountryCode::AW),
-                "ALA" | "ala" => Ok(IsoCountryCode::AX),
-                "AZE" | "aze" => Ok(IsoCountryCode::AZ),
-                "BIH" | "bih" => Ok(IsoCountryCode::BA),
-                "BRB" | "brb" => Ok(IsoCountryCode::BB),
-                "BGD" | "bgd" => Ok(IsoCountryCode::BD),
-                "BEL" | "bel" => Ok(IsoCountryCode::BE),
-                "BFA" | "bfa" => Ok(IsoCountryCode::BF),
-                "BGR" | "bgr" => Ok(IsoCountryCode::BG),
-                "BHR" | "bhr" => Ok(IsoCountryCode::BH),
-                "BDI" | "bdi" => Ok(IsoCountryCode::BI),
-                "BEN" | "ben" => Ok(IsoCountryCode::BJ),
-                "BLM" | "blm" => Ok(IsoCountryCode::BL),
-                "BMU" | "bmu" => Ok(IsoCountryCode::BM),
-                "BRN" | "brn" => Ok(IsoCountryCode::BN),
-                "BOL" | "bol" => Ok(IsoCountryCode::BO),
-                "BES" | "bes" => Ok(IsoCountryCode::BQ),
-                "BRA" | "bra" => Ok(IsoCountryCode::BR),
-                "BHS" | "bhs" => Ok(IsoCountryCode::BS),
-                "BTN" | "btn" => Ok(IsoCountryCode::BT),
-                "BVT" | "bvt" => Ok(IsoCountryCode::BV),
-                "BWA" | "bwa" => Ok(IsoCountryCode::BW),
-                "BLR" | "blr" => Ok(IsoCountryCode::BY),
-                "BLZ" | "blz" => Ok(IsoCountryCode::BZ),
-                "CAN" | "can" => Ok(IsoCountryCode::CA),
-                "CCK" | "cck" => Ok(IsoCountryCode::CC),
-                "COD" | "cod" => Ok(IsoCountryCode::CD),
-                "CAF" | "caf" => Ok(IsoCountryCode::CF),
-                "COG" | "cog" => Ok(IsoCountryCode::CG),
-                "CHE" | "che" => Ok(IsoCountryCode::CH),
-                "CIV" | "civ" => Ok(IsoCountryCode::CI),
-                "COK" | "cok" => Ok(IsoCountryCode::CK),
-                "CHL" | "chl" => Ok(IsoCountryCode::CL),
-                "CMR" | "cmr" => Ok(IsoCountryCode::CM),
-                "CHN" | "chn" => Ok(IsoCountryCode::CN),
-                "COL" | "col" => Ok(IsoCountryCode::CO),
-                "CRI" | "cri" => Ok(IsoCountryCode::CR),
-                "CUB" | "cub" => Ok(IsoCountryCode::CU),
-                "CPV" | "cpv" => Ok(IsoCountryCode::CV),
-                "CUW" | "cuw" => Ok(IsoCountryCode::CW),
-                "CXR" | "cxr" => Ok(IsoCountryCode::CX),
-                "CYP" | "cyp" => Ok(IsoCountryCode::CY),
-                "CZE" | "cze" => Ok(IsoCountryCode::CZ),
-                "DEU" | "deu" => Ok(IsoCountryCode::DE),
-                "DJI" | "dji" => Ok(IsoCountryCode::DJ),
-                "DNK" | "dnk" => Ok(IsoCountryCode::DK),
-                "DMA" | "dma" => Ok(IsoCountryCode::DM),
-                "DOM" | "dom" => Ok(IsoCountryCode::DO),
-                "DZA" | "dza" => Ok(IsoCountryCode::DZ),
-                "ECU" | "ecu" => Ok(IsoCountryCode::EC),
-                "EST" | "est" => Ok(IsoCountryCode::EE),
-                "EGY" | "egy" => Ok(IsoCountryCode::EG),
-                "ESH" | "esh" => Ok(IsoCountryCode::EH),
-                "ERI" | "eri" => Ok(IsoCountryCode::ER),
-                "ESP" | "esp" => Ok(IsoCountryCode::ES),
-                "ETH" | "eth" => Ok(IsoCountryCode::ET),
-                "FIN" | "fin" => Ok(IsoCountryCode::FI),
-                "FJI" | "fji" => Ok(IsoCountryCode::FJ),
-                "FLK" | "flk" => Ok(IsoCountryCode::FK),
-                "FSM" | "fsm" => Ok(IsoCountryCode::FM),
-                "FRO" | "fro" => Ok(IsoCountryCode::FO),
-                "FRA" | "fra" => Ok(IsoCountryCode::FR),
-                "GAB" | "gab" => Ok(IsoCountryCode::GA),
-                "GBR" | "gbr" => Ok(IsoCountryCode::GB),
-                "GRD" | "grd" => Ok(IsoCountryCode::GD),
-                "GEO" | "geo" => Ok(IsoCountryCode::GE),
-                "GUF" | "guf" => Ok(IsoCountryCode::GF),
-                "GGY" | "ggy" => Ok(IsoCountryCode::GG),
-                "GHA" | "gha" => Ok(IsoCountryCode::GH),
-                "GIB" | "gib" => Ok(IsoCountryCode::GI),
-                "GRL" | "grl" => Ok(IsoCountryCode::GL),
-                "GMB" | "gmb" => Ok(IsoCountryCode::GM),
-                "GIN" | "gin" => Ok(IsoCountryCode::GN),
-                "GLP" | "glp" => Ok(IsoCountryCode::GP),
-                "GNQ" | "gnq" => Ok(IsoCountryCode::GQ),
-                "GRC" | "grc" => Ok(IsoCountryCode::GR),
-                "SGS" | "sgs" => Ok(IsoCountryCode::GS),
-                "GTM" | "gtm" => Ok(IsoCountryCode::GT),
-                "GUM" | "gum" => Ok(IsoCountryCode::GU),
-                "GNB" | "gnb" => Ok(IsoCountryCode::GW),
-                "GUY" | "guy" => Ok(IsoCountryCode::GY),
-                "HKG" | "hkg" => Ok(IsoCountryCode::HK),
-                "HMD" | "hmd" => Ok(IsoCountryCode::HM),
-                "HND" | "hnd" => Ok(IsoCountryCode::HN),
-                "HRV" | "hrv" => Ok(IsoCountryCode::HR),
-                "HTI" | "hti" => Ok(IsoCountryCode::HT),
-                "HUN" | "hun" => Ok(IsoCountryCode::HU),
-                "IDN" | "idn" => Ok(IsoCountryCode::ID),
-                "IRL" | "irl" => Ok(IsoCountryCode::IE),
-                "ISR" | "isr" => Ok(IsoCountryCode::IL),
-                "IMN" | "imn" => Ok(IsoCountryCode::IM),
-                "IND" | "ind" => Ok(IsoCountryCode::IN),
-                "IOT" | "iot" => Ok(IsoCountryCode::IO),
-                "IRQ" | "irq" => Ok(IsoCountryCode::IQ),
-                "IRN" | "irn" => Ok(IsoCountryCode::IR),
-                "ISL" | "isl" => Ok(IsoCountryCode::IS),
-                "ITA" | "ita" => Ok(IsoCountryCode::IT),
-                "JEY" | "jey" => Ok(IsoCountryCode::JE),
-                "JAM" | "jam" => Ok(IsoCountryCode::JM),
-                "JOR" | "jor" => Ok(IsoCountryCode::JO),
-                "JPN" | "jpn" => Ok(IsoCountryCode::JP),
-                "KEN" | "ken" => Ok(IsoCountryCode::KE),
-                "KGZ" | "kgz" => Ok(IsoCountryCode::KG),
-                "KHM" | "khm" => Ok(IsoCountryCode::KH),
-                "KIR" | "kir" => Ok(IsoCountryCode::KI),
-                "COM" | "com" => Ok(IsoCountryCode::KM),
-                "KNA" | "kna" => Ok(IsoCountryCode::KN),
-                "PRK" | "prk" => Ok(IsoCountryCode::KP),
-                "KOR" | "kor" => Ok(IsoCountryCode::KR),
-                "XKX" | "xkx" => Ok(IsoCountryCode::XK),
-                "KWT" | "kwt" => Ok(IsoCountryCode::KW),
-                "CYM" | "cym" => Ok(IsoCountryCode::KY),
-                "KAZ" | "kaz" => Ok(IsoCountryCode::KZ),
-                "LAO" | "lao" => Ok(IsoCountryCode::LA),
-                "LBN" | "lbn" => Ok(IsoCountryCode::LB),
-                "LCA" | "lca" => Ok(IsoCountryCode::LC),
-                "LIE" | "lie" => Ok(IsoCountryCode::LI),
-                "LKA" | "lka" => Ok(IsoCountryCode::LK),
-                "LBR" | "lbr" => Ok(IsoCountryCode::LR),
-                "LSO" | "lso" => Ok(IsoCountryCode::LS),
-                "LTU" | "ltu" => Ok(IsoCountryCode::LT),
-                "LUX" | "lux" => Ok(IsoCountryCode::LU),
-                "LVA" | "lva" => Ok(IsoCountryCode::LV),
-                "LBY" | "lby" => Ok(IsoCountryCode::LY),
-                "MAR" | "mar" => Ok(IsoCountryCode::MA),
-                "MCO" | "mco" => Ok(IsoCountryCode::MC),
-                "MDA" | "mda" => Ok(IsoCountryCode::MD),
-                "MNE" | "mne" => Ok(IsoCountryCode::ME),
-                "MAF" | "maf" => Ok(IsoCountryCode::MF),
-                "MDG" | "mdg" => Ok(IsoCountryCode::MG),
-                "MHL" | "mhl" => Ok(IsoCountryCode::MH),
-                "MKD" | "mkd" => Ok(IsoCountryCode::MK),
-                "MLI" | "mli" => Ok(IsoCountryCode::ML),
-                "MMR" | "mmr" => Ok(IsoCountryCode::MM),
-                "MNG" | "mng" => Ok(IsoCountryCode::MN),
-                "MAC" | "mac" => Ok(IsoCountryCode::MO),
-                "MNP" | "mnp" => Ok(IsoCountryCode::MP),
-                "MTQ" | "mtq" => Ok(IsoCountryCode::MQ),
-                "MRT" | "mrt" => Ok(IsoCountryCode::MR),
-                "MSR" | "msr" => Ok(IsoCountryCode::MS),
-                "MLT" | "mlt" => Ok(IsoCountryCode::MT),
-                "MUS" | "mus" => Ok(IsoCountryCode::MU),
-                "MDV" | "mdv" => Ok(IsoCountryCode::MV),
-                "MWI" | "mwi" => Ok(IsoCountryCode::MW),
-                "MEX" | "mex" => Ok(IsoCountryCode::MX),
-                "MYS" | "mys" => Ok(IsoCountryCode::MY),
-                "MOZ" | "moz" => Ok(IsoCountryCode::MZ),
-                "NAM" | "nam" => Ok(IsoCountryCode::NA),
-                "NCL" | "ncl" => Ok(IsoCountryCode::NC),
-                "NER" | "ner" => Ok(IsoCountryCode::NE),
-                "NFK" | "nfk" => Ok(IsoCountryCode::NF),
-                "NGA" | "nga" => Ok(IsoCountryCode::NG),
-                "NIC" | "nic" => Ok(IsoCountryCode::NI),
-                "NLD" | "nld" => Ok(IsoCountryCode::NL),
-                "NOR" | "nor" => Ok(IsoCountryCode::NO),
-                "NPL" | "npl" => Ok(IsoCountryCode::NP),
-                "NRU" | "nru" => Ok(IsoCountryCode::NR),
-                "NIU" | "niu" => Ok(IsoCountryCode::NU),
-                "NZL" | "nzl" => Ok(IsoCountryCode::NZ),
-                "OMN" | "omn" => Ok(IsoCountryCode::OM),
-                "PAN" | "pan" => Ok(IsoCountryCode::PA),
-                "PER" | "per" => Ok(IsoCountryCode::PE),
-                "PYF" | "pyf" => Ok(IsoCountryCode::PF),
-                "PNG" | "png" => Ok(IsoCountryCode::PG),
-                "PHL" | "phl" => Ok(IsoCountryCode::PH),
-                "PAK" | "pak" => Ok(IsoCountryCode::PK),
-                "POL" | "pol" => Ok(IsoCountryCode::PL),
-                "SPM" | "spm" => Ok(IsoCountryCode::PM),
-                "PCN" | "pcn" => Ok(IsoCountryCode::PN),
-                "PRI" | "pri" => Ok(IsoCountryCode::PR),
-                "PSE" | "pse" => Ok(IsoCountryCode::PS),
-                "PRT" | "prt" => Ok(IsoCountryCode::PT),
-                "PLW" | "plw" => Ok(IsoCountryCode::PW),
-                "PRY" | "pry" => Ok(IsoCountryCode::PY),
-                "QAT" | "qat" => Ok(IsoCountryCode::QA),
-                "REU" | "reu" => Ok(IsoCountryCode::RE),
-                "ROU" | "rou" => Ok(IsoCountryCode::RO),
-                "SRB" | "srb" => Ok(IsoCountryCode::RS),
-                "RUS" | "rus" => Ok(IsoCountryCode::RU),
-                "RWA" | "rwa" => Ok(IsoCountryCode::RW),
-                "SAU" | "sau" => Ok(IsoCountryCode::SA),
-                "SLB" | "slb" => Ok(IsoCountryCode::SB),
-                "SYC" | "syc" => Ok(IsoCountryCode::SC),
-                "SDN" | "sdn" => Ok(IsoCountryCode::SD),
-                "SSD" | "ssd" => Ok(IsoCountryCode::SS),
-                "SWE" | "swe" => Ok(IsoCountryCode::SE),
-                "SGP" | "sgp" => Ok(IsoCountryCode::SG),
-                "SHN" | "shn" => Ok(IsoCountryCode::SH),
-                "SVN" | "svn" => Ok(IsoCountryCode::SI),
-                "SJM" | "sjm" => Ok(IsoCountryCode::SJ),
-                "SVK" | "svk" => Ok(IsoCountryCode::SK),
-                "SLE" | "sle" => Ok(IsoCountryCode::SL),
-                "SMR" | "smr" => Ok(IsoCountryCode::SM),
-                "SEN" | "sen" => Ok(IsoCountryCode::SN),
-                "SOM" | "som" => Ok(IsoCountryCode::SO),
-                "SUR" | "sur" => Ok(IsoCountryCode::SR),
-                "STP" | "stp" => Ok(IsoCountryCode::ST),
-                "SLV" | "slv" => Ok(IsoCountryCode::SV),
-                "SXM" | "sxm" => Ok(IsoCountryCode::SX),
-                "SYR" | "syr" => Ok(IsoCountryCode::SY),
-                "SWZ" | "swz" => Ok(IsoCountryCode::SZ),
-                "TCA" | "tca" => Ok(IsoCountryCode::TC),
-                "TCD" | "tcd" => Ok(IsoCountryCode::TD),
-                "ATF" | "atf" => Ok(IsoCountryCode::TF),
-                "TGO" | "tgo" => Ok(IsoCountryCode::TG),
-                "THA" | "tha" => Ok(IsoCountryCode::TH),
-                "TJK" | "tjk" => Ok(IsoCountryCode::TJ),
-                "TKL" | "tkl" => Ok(IsoCountryCode::TK),
-                "TLS" | "tls" => Ok(IsoCountryCode::TL),
-                "TKM" | "tkm" => Ok(IsoCountryCode::TM),
-                "TUN" | "tun" => Ok(IsoCountryCode::TN),
-                "TON" | "ton" => Ok(IsoCountryCode::TO),
-                "TUR" | "tur" => Ok(IsoCountryCode::TR),
-                "TTO" | "tto" => Ok(IsoCountryCode::TT),
-                "TUV" | "tuv" => Ok(IsoCountryCode::TV),
-                "TWN" | "twn" => Ok(IsoCountryCode::TW),
-                "TZA" | "tza" => Ok(IsoCountryCode::TZ),
-                "UKR" | "ukr" => Ok(IsoCountryCode::UA),
-                "UGA" | "uga" => Ok(IsoCountryCode::UG),
-                "UMI" | "umi" => Ok(IsoCountryCode::UM),
-                "USA" | "usa" => Ok(IsoCountryCode::US),
-                "URY" | "ury" => Ok(IsoCountryCode::UY),
-                "UZB" | "uzb" => Ok(IsoCountryCode::UZ),
-                "VAT" | "vat" => Ok(IsoCountryCode::VA),
-                "VCT" | "vct" => Ok(IsoCountryCode::VC),
-                "VEN" | "ven" => Ok(IsoCountryCode::VE),
-                "VGB" | "vgb" => Ok(IsoCountryCode::VG),
-                "VIR" | "vir" => Ok(IsoCountryCode::VI),
-                "VNM" | "vnm" => Ok(IsoCountryCode::VN),
-                "VUT" | "vut" => Ok(IsoCountryCode::VU),
-                "WLF" | "wlf" => Ok(IsoCountryCode::WF),
-                "WSM" | "wsm" => Ok(IsoCountryCode::WS),
-                "YEM" | "yem" => Ok(IsoCountryCode::YE),
-                "MYT" | "myt" => Ok(IsoCountryCode::YT),
-                "ZAF" | "zaf" => Ok(IsoCountryCode::ZA),
-                "ZMB" | "zmb" => Ok(IsoCountryCode::ZM),
-                "ZWE" | "zwe" => Ok(IsoCountryCode::ZW),
-                "SCG" | "scg" => Ok(IsoCountryCode::CS),
-                "ANT" | "ant" => Ok(IsoCountryCode::AN),
+            2 => {
+                let s = s.to_uppercase();
+                let s = s.as_bytes();
+                let id = ((s[0] - b'A') as usize) * 26 + ((s[1] - b'A') as usize);
+                Ok(ALPHA2_FAST_MAP[id])
+            }
+            3 => match s.to_uppercase().as_str() {
+                "AND" => Ok(IsoCountryCode::AD),
+                "ARE" => Ok(IsoCountryCode::AE),
+                "AFG" => Ok(IsoCountryCode::AF),
+                "ATG" => Ok(IsoCountryCode::AG),
+                "AIA" => Ok(IsoCountryCode::AI),
+                "ALB" => Ok(IsoCountryCode::AL),
+                "ARM" => Ok(IsoCountryCode::AM),
+                "AGO" => Ok(IsoCountryCode::AO),
+                "ATA" => Ok(IsoCountryCode::AQ),
+                "ARG" => Ok(IsoCountryCode::AR),
+                "ASM" => Ok(IsoCountryCode::AS),
+                "AUT" => Ok(IsoCountryCode::AT),
+                "AUS" => Ok(IsoCountryCode::AU),
+                "ABW" => Ok(IsoCountryCode::AW),
+                "ALA" => Ok(IsoCountryCode::AX),
+                "AZE" => Ok(IsoCountryCode::AZ),
+                "BIH" => Ok(IsoCountryCode::BA),
+                "BRB" => Ok(IsoCountryCode::BB),
+                "BGD" => Ok(IsoCountryCode::BD),
+                "BEL" => Ok(IsoCountryCode::BE),
+                "BFA" => Ok(IsoCountryCode::BF),
+                "BGR" => Ok(IsoCountryCode::BG),
+                "BHR" => Ok(IsoCountryCode::BH),
+                "BDI" => Ok(IsoCountryCode::BI),
+                "BEN" => Ok(IsoCountryCode::BJ),
+                "BLM" => Ok(IsoCountryCode::BL),
+                "BMU" => Ok(IsoCountryCode::BM),
+                "BRN" => Ok(IsoCountryCode::BN),
+                "BOL" => Ok(IsoCountryCode::BO),
+                "BES" => Ok(IsoCountryCode::BQ),
+                "BRA" => Ok(IsoCountryCode::BR),
+                "BHS" => Ok(IsoCountryCode::BS),
+                "BTN" => Ok(IsoCountryCode::BT),
+                "BVT" => Ok(IsoCountryCode::BV),
+                "BWA" => Ok(IsoCountryCode::BW),
+                "BLR" => Ok(IsoCountryCode::BY),
+                "BLZ" => Ok(IsoCountryCode::BZ),
+                "CAN" => Ok(IsoCountryCode::CA),
+                "CCK" => Ok(IsoCountryCode::CC),
+                "COD" => Ok(IsoCountryCode::CD),
+                "CAF" => Ok(IsoCountryCode::CF),
+                "COG" => Ok(IsoCountryCode::CG),
+                "CHE" => Ok(IsoCountryCode::CH),
+                "CIV" => Ok(IsoCountryCode::CI),
+                "COK" => Ok(IsoCountryCode::CK),
+                "CHL" => Ok(IsoCountryCode::CL),
+                "CMR" => Ok(IsoCountryCode::CM),
+                "CHN" => Ok(IsoCountryCode::CN),
+                "COL" => Ok(IsoCountryCode::CO),
+                "CRI" => Ok(IsoCountryCode::CR),
+                "CUB" => Ok(IsoCountryCode::CU),
+                "CPV" => Ok(IsoCountryCode::CV),
+                "CUW" => Ok(IsoCountryCode::CW),
+                "CXR" => Ok(IsoCountryCode::CX),
+                "CYP" => Ok(IsoCountryCode::CY),
+                "CZE" => Ok(IsoCountryCode::CZ),
+                "DEU" => Ok(IsoCountryCode::DE),
+                "DJI" => Ok(IsoCountryCode::DJ),
+                "DNK" => Ok(IsoCountryCode::DK),
+                "DMA" => Ok(IsoCountryCode::DM),
+                "DOM" => Ok(IsoCountryCode::DO),
+                "DZA" => Ok(IsoCountryCode::DZ),
+                "ECU" => Ok(IsoCountryCode::EC),
+                "EST" => Ok(IsoCountryCode::EE),
+                "EGY" => Ok(IsoCountryCode::EG),
+                "ESH" => Ok(IsoCountryCode::EH),
+                "ERI" => Ok(IsoCountryCode::ER),
+                "ESP" => Ok(IsoCountryCode::ES),
+                "ETH" => Ok(IsoCountryCode::ET),
+                "FIN" => Ok(IsoCountryCode::FI),
+                "FJI" => Ok(IsoCountryCode::FJ),
+                "FLK" => Ok(IsoCountryCode::FK),
+                "FSM" => Ok(IsoCountryCode::FM),
+                "FRO" => Ok(IsoCountryCode::FO),
+                "FRA" => Ok(IsoCountryCode::FR),
+                "GAB" => Ok(IsoCountryCode::GA),
+                "GBR" => Ok(IsoCountryCode::GB),
+                "GRD" => Ok(IsoCountryCode::GD),
+                "GEO" => Ok(IsoCountryCode::GE),
+                "GUF" => Ok(IsoCountryCode::GF),
+                "GGY" => Ok(IsoCountryCode::GG),
+                "GHA" => Ok(IsoCountryCode::GH),
+                "GIB" => Ok(IsoCountryCode::GI),
+                "GRL" => Ok(IsoCountryCode::GL),
+                "GMB" => Ok(IsoCountryCode::GM),
+                "GIN" => Ok(IsoCountryCode::GN),
+                "GLP" => Ok(IsoCountryCode::GP),
+                "GNQ" => Ok(IsoCountryCode::GQ),
+                "GRC" => Ok(IsoCountryCode::GR),
+                "SGS" => Ok(IsoCountryCode::GS),
+                "GTM" => Ok(IsoCountryCode::GT),
+                "GUM" => Ok(IsoCountryCode::GU),
+                "GNB" => Ok(IsoCountryCode::GW),
+                "GUY" => Ok(IsoCountryCode::GY),
+                "HKG" => Ok(IsoCountryCode::HK),
+                "HMD" => Ok(IsoCountryCode::HM),
+                "HND" => Ok(IsoCountryCode::HN),
+                "HRV" => Ok(IsoCountryCode::HR),
+                "HTI" => Ok(IsoCountryCode::HT),
+                "HUN" => Ok(IsoCountryCode::HU),
+                "IDN" => Ok(IsoCountryCode::ID),
+                "IRL" => Ok(IsoCountryCode::IE),
+                "ISR" => Ok(IsoCountryCode::IL),
+                "IMN" => Ok(IsoCountryCode::IM),
+                "IND" => Ok(IsoCountryCode::IN),
+                "IOT" => Ok(IsoCountryCode::IO),
+                "IRQ" => Ok(IsoCountryCode::IQ),
+                "IRN" => Ok(IsoCountryCode::IR),
+                "ISL" => Ok(IsoCountryCode::IS),
+                "ITA" => Ok(IsoCountryCode::IT),
+                "JEY" => Ok(IsoCountryCode::JE),
+                "JAM" => Ok(IsoCountryCode::JM),
+                "JOR" => Ok(IsoCountryCode::JO),
+                "JPN" => Ok(IsoCountryCode::JP),
+                "KEN" => Ok(IsoCountryCode::KE),
+                "KGZ" => Ok(IsoCountryCode::KG),
+                "KHM" => Ok(IsoCountryCode::KH),
+                "KIR" => Ok(IsoCountryCode::KI),
+                "COM" => Ok(IsoCountryCode::KM),
+                "KNA" => Ok(IsoCountryCode::KN),
+                "PRK" => Ok(IsoCountryCode::KP),
+                "KOR" => Ok(IsoCountryCode::KR),
+                "XKX" => Ok(IsoCountryCode::XK),
+                "KWT" => Ok(IsoCountryCode::KW),
+                "CYM" => Ok(IsoCountryCode::KY),
+                "KAZ" => Ok(IsoCountryCode::KZ),
+                "LAO" => Ok(IsoCountryCode::LA),
+                "LBN" => Ok(IsoCountryCode::LB),
+                "LCA" => Ok(IsoCountryCode::LC),
+                "LIE" => Ok(IsoCountryCode::LI),
+                "LKA" => Ok(IsoCountryCode::LK),
+                "LBR" => Ok(IsoCountryCode::LR),
+                "LSO" => Ok(IsoCountryCode::LS),
+                "LTU" => Ok(IsoCountryCode::LT),
+                "LUX" => Ok(IsoCountryCode::LU),
+                "LVA" => Ok(IsoCountryCode::LV),
+                "LBY" => Ok(IsoCountryCode::LY),
+                "MAR" => Ok(IsoCountryCode::MA),
+                "MCO" => Ok(IsoCountryCode::MC),
+                "MDA" => Ok(IsoCountryCode::MD),
+                "MNE" => Ok(IsoCountryCode::ME),
+                "MAF" => Ok(IsoCountryCode::MF),
+                "MDG" => Ok(IsoCountryCode::MG),
+                "MHL" => Ok(IsoCountryCode::MH),
+                "MKD" => Ok(IsoCountryCode::MK),
+                "MLI" => Ok(IsoCountryCode::ML),
+                "MMR" => Ok(IsoCountryCode::MM),
+                "MNG" => Ok(IsoCountryCode::MN),
+                "MAC" => Ok(IsoCountryCode::MO),
+                "MNP" => Ok(IsoCountryCode::MP),
+                "MTQ" => Ok(IsoCountryCode::MQ),
+                "MRT" => Ok(IsoCountryCode::MR),
+                "MSR" => Ok(IsoCountryCode::MS),
+                "MLT" => Ok(IsoCountryCode::MT),
+                "MUS" => Ok(IsoCountryCode::MU),
+                "MDV" => Ok(IsoCountryCode::MV),
+                "MWI" => Ok(IsoCountryCode::MW),
+                "MEX" => Ok(IsoCountryCode::MX),
+                "MYS" => Ok(IsoCountryCode::MY),
+                "MOZ" => Ok(IsoCountryCode::MZ),
+                "NAM" => Ok(IsoCountryCode::NA),
+                "NCL" => Ok(IsoCountryCode::NC),
+                "NER" => Ok(IsoCountryCode::NE),
+                "NFK" => Ok(IsoCountryCode::NF),
+                "NGA" => Ok(IsoCountryCode::NG),
+                "NIC" => Ok(IsoCountryCode::NI),
+                "NLD" => Ok(IsoCountryCode::NL),
+                "NOR" => Ok(IsoCountryCode::NO),
+                "NPL" => Ok(IsoCountryCode::NP),
+                "NRU" => Ok(IsoCountryCode::NR),
+                "NIU" => Ok(IsoCountryCode::NU),
+                "NZL" => Ok(IsoCountryCode::NZ),
+                "OMN" => Ok(IsoCountryCode::OM),
+                "PAN" => Ok(IsoCountryCode::PA),
+                "PER" => Ok(IsoCountryCode::PE),
+                "PYF" => Ok(IsoCountryCode::PF),
+                "PNG" => Ok(IsoCountryCode::PG),
+                "PHL" => Ok(IsoCountryCode::PH),
+                "PAK" => Ok(IsoCountryCode::PK),
+                "POL" => Ok(IsoCountryCode::PL),
+                "SPM" => Ok(IsoCountryCode::PM),
+                "PCN" => Ok(IsoCountryCode::PN),
+                "PRI" => Ok(IsoCountryCode::PR),
+                "PSE" => Ok(IsoCountryCode::PS),
+                "PRT" => Ok(IsoCountryCode::PT),
+                "PLW" => Ok(IsoCountryCode::PW),
+                "PRY" => Ok(IsoCountryCode::PY),
+                "QAT" => Ok(IsoCountryCode::QA),
+                "REU" => Ok(IsoCountryCode::RE),
+                "ROU" => Ok(IsoCountryCode::RO),
+                "SRB" => Ok(IsoCountryCode::RS),
+                "RUS" => Ok(IsoCountryCode::RU),
+                "RWA" => Ok(IsoCountryCode::RW),
+                "SAU" => Ok(IsoCountryCode::SA),
+                "SLB" => Ok(IsoCountryCode::SB),
+                "SYC" => Ok(IsoCountryCode::SC),
+                "SDN" => Ok(IsoCountryCode::SD),
+                "SSD" => Ok(IsoCountryCode::SS),
+                "SWE" => Ok(IsoCountryCode::SE),
+                "SGP" => Ok(IsoCountryCode::SG),
+                "SHN" => Ok(IsoCountryCode::SH),
+                "SVN" => Ok(IsoCountryCode::SI),
+                "SJM" => Ok(IsoCountryCode::SJ),
+                "SVK" => Ok(IsoCountryCode::SK),
+                "SLE" => Ok(IsoCountryCode::SL),
+                "SMR" => Ok(IsoCountryCode::SM),
+                "SEN" => Ok(IsoCountryCode::SN),
+                "SOM" => Ok(IsoCountryCode::SO),
+                "SUR" => Ok(IsoCountryCode::SR),
+                "STP" => Ok(IsoCountryCode::ST),
+                "SLV" => Ok(IsoCountryCode::SV),
+                "SXM" => Ok(IsoCountryCode::SX),
+                "SYR" => Ok(IsoCountryCode::SY),
+                "SWZ" => Ok(IsoCountryCode::SZ),
+                "TCA" => Ok(IsoCountryCode::TC),
+                "TCD" => Ok(IsoCountryCode::TD),
+                "ATF" => Ok(IsoCountryCode::TF),
+                "TGO" => Ok(IsoCountryCode::TG),
+                "THA" => Ok(IsoCountryCode::TH),
+                "TJK" => Ok(IsoCountryCode::TJ),
+                "TKL" => Ok(IsoCountryCode::TK),
+                "TLS" => Ok(IsoCountryCode::TL),
+                "TKM" => Ok(IsoCountryCode::TM),
+                "TUN" => Ok(IsoCountryCode::TN),
+                "TON" => Ok(IsoCountryCode::TO),
+                "TUR" => Ok(IsoCountryCode::TR),
+                "TTO" => Ok(IsoCountryCode::TT),
+                "TUV" => Ok(IsoCountryCode::TV),
+                "TWN" => Ok(IsoCountryCode::TW),
+                "TZA" => Ok(IsoCountryCode::TZ),
+                "UKR" => Ok(IsoCountryCode::UA),
+                "UGA" => Ok(IsoCountryCode::UG),
+                "UMI" => Ok(IsoCountryCode::UM),
+                "USA" => Ok(IsoCountryCode::US),
+                "URY" => Ok(IsoCountryCode::UY),
+                "UZB" => Ok(IsoCountryCode::UZ),
+                "VAT" => Ok(IsoCountryCode::VA),
+                "VCT" => Ok(IsoCountryCode::VC),
+                "VEN" => Ok(IsoCountryCode::VE),
+                "VGB" => Ok(IsoCountryCode::VG),
+                "VIR" => Ok(IsoCountryCode::VI),
+                "VNM" => Ok(IsoCountryCode::VN),
+                "VUT" => Ok(IsoCountryCode::VU),
+                "WLF" => Ok(IsoCountryCode::WF),
+                "WSM" => Ok(IsoCountryCode::WS),
+                "YEM" => Ok(IsoCountryCode::YE),
+                "MYT" => Ok(IsoCountryCode::YT),
+                "ZAF" => Ok(IsoCountryCode::ZA),
+                "ZMB" => Ok(IsoCountryCode::ZM),
+                "ZWE" => Ok(IsoCountryCode::ZW),
+                "SCG" => Ok(IsoCountryCode::CS),
+                "ANT" => Ok(IsoCountryCode::AN),
                 _ => Err(()),
             },
             _ => Err(()),

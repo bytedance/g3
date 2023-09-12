@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 
+use std::fs::OpenOptions;
+use std::io::{BufWriter, Write};
 use std::net::IpAddr;
 use std::path::PathBuf;
 
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
 
+const ARG_NATIVE: &str = "native";
 const ARG_IPINFO: &str = "ipinfo";
 const ARG_MAXMIND: &str = "maxmind";
 const ARG_IPFIRE: &str = "ipfire";
@@ -26,16 +29,27 @@ const ARG_IPFIRE: &str = "ipfire";
 const ARG_COUNTRY: &str = "country";
 const ARG_ASN: &str = "asn";
 
+const ARG_DUMP: &str = "dump";
+
 const ARG_IP_LIST: &str = "ip-list";
 
 fn build_cli_args() -> Command {
     Command::new(env!("CARGO_PKG_NAME"))
         .arg(
+            Arg::new(ARG_NATIVE)
+                .help("Input native data file")
+                .long(ARG_NATIVE)
+                .num_args(1)
+                .required_unless_present_any([ARG_IPINFO, ARG_MAXMIND, ARG_IPFIRE])
+                .value_parser(value_parser!(PathBuf))
+                .value_hint(ValueHint::FilePath),
+        )
+        .arg(
             Arg::new(ARG_IPINFO)
                 .help("Input csv data file from ipinfo.io")
                 .long(ARG_IPINFO)
                 .num_args(1)
-                .required_unless_present_any([ARG_MAXMIND, ARG_IPFIRE])
+                .required_unless_present_any([ARG_NATIVE, ARG_MAXMIND, ARG_IPFIRE])
                 .value_parser(value_parser!(PathBuf))
                 .value_hint(ValueHint::FilePath),
         )
@@ -44,7 +58,7 @@ fn build_cli_args() -> Command {
                 .help("Input csv data file from maxmind.com")
                 .long(ARG_MAXMIND)
                 .num_args(1)
-                .required_unless_present_any([ARG_IPINFO, ARG_IPFIRE])
+                .required_unless_present_any([ARG_NATIVE, ARG_IPINFO, ARG_IPFIRE])
                 .value_parser(value_parser!(PathBuf))
                 .value_hint(ValueHint::FilePath),
         )
@@ -53,7 +67,7 @@ fn build_cli_args() -> Command {
                 .help("Input dump data file from ipfire")
                 .long(ARG_IPFIRE)
                 .num_args(1)
-                .required_unless_present_any([ARG_IPINFO, ARG_MAXMIND])
+                .required_unless_present_any([ARG_NATIVE, ARG_IPINFO, ARG_MAXMIND])
                 .value_parser(value_parser!(PathBuf))
                 .value_hint(ValueHint::FilePath),
         )
@@ -68,6 +82,13 @@ fn build_cli_args() -> Command {
                 .long(ARG_ASN)
                 .action(ArgAction::SetTrue)
                 .required_unless_present(ARG_COUNTRY),
+        )
+        .arg(
+            Arg::new(ARG_DUMP)
+                .long(ARG_DUMP)
+                .num_args(1)
+                .value_parser(value_parser!(PathBuf))
+                .value_hint(ValueHint::FilePath),
         )
         .arg(
             Arg::new(ARG_IP_LIST)
@@ -91,7 +112,9 @@ fn main() -> anyhow::Result<()> {
 
 fn query_country(args: &ArgMatches) -> anyhow::Result<()> {
     println!("# loading geoip country data");
-    let geoip_table = if let Some(v) = args.get_one::<PathBuf>(ARG_IPINFO) {
+    let geoip_table = if let Some(v) = args.get_one::<PathBuf>(ARG_NATIVE) {
+        g3_geoip::vendor::native::load_country(v)?
+    } else if let Some(v) = args.get_one::<PathBuf>(ARG_IPINFO) {
         g3_geoip::vendor::ipinfo::load_country(v)?
     } else if let Some(v) = args.get_one::<PathBuf>(ARG_MAXMIND) {
         g3_geoip::vendor::maxmind::load_country(v)?
@@ -106,10 +129,10 @@ fn query_country(args: &ArgMatches) -> anyhow::Result<()> {
     for ip in args.get_many::<IpAddr>(ARG_IP_LIST).unwrap() {
         println!("# check for IP {ip}");
         match geoip_table.longest_match(*ip) {
-            Some((_, r)) => {
+            Some((network, r)) => {
                 println!(
                     "network: {}\ncountry: {}/{}",
-                    r.network,
+                    network,
                     r.country.name(),
                     r.continent.name(),
                 );
@@ -120,12 +143,27 @@ fn query_country(args: &ArgMatches) -> anyhow::Result<()> {
         }
     }
 
+    if let Some(p) = args.get_one::<PathBuf>(ARG_DUMP) {
+        let file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(p)?;
+        let mut writer = BufWriter::new(file);
+        for (net, v) in geoip_table.iter() {
+            writer.write_fmt(format_args!("{net},{}\n", v.country.alpha2_code()))?;
+        }
+        writer.flush()?;
+    }
+
     Ok(())
 }
 
 fn query_asn(args: &ArgMatches) -> anyhow::Result<()> {
     println!("# loading geoip asn data");
-    let geoip_table = if let Some(v) = args.get_one::<PathBuf>(ARG_IPINFO) {
+    let geoip_table = if let Some(v) = args.get_one::<PathBuf>(ARG_NATIVE) {
+        g3_geoip::vendor::native::load_asn(v)?
+    } else if let Some(v) = args.get_one::<PathBuf>(ARG_IPINFO) {
         g3_geoip::vendor::ipinfo::load_asn(v)?
     } else if let Some(v) = args.get_one::<PathBuf>(ARG_MAXMIND) {
         g3_geoip::vendor::maxmind::load_asn(v)?
@@ -140,8 +178,8 @@ fn query_asn(args: &ArgMatches) -> anyhow::Result<()> {
     for ip in args.get_many::<IpAddr>(ARG_IP_LIST).unwrap() {
         println!("# check for IP {ip}");
         match geoip_table.longest_match(*ip) {
-            Some((_, r)) => {
-                print!("network: {}\nasn: {}", r.network, r.number,);
+            Some((network, r)) => {
+                print!("network: {}\nasn: {}", network, r.number,);
                 if let Some(name) = r.isp_name() {
                     print!("/{name}");
                 }
@@ -154,6 +192,19 @@ fn query_asn(args: &ArgMatches) -> anyhow::Result<()> {
                 println!("no record found");
             }
         }
+    }
+
+    if let Some(p) = args.get_one::<PathBuf>(ARG_DUMP) {
+        let file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(p)?;
+        let mut writer = BufWriter::new(file);
+        for (net, v) in geoip_table.iter() {
+            writer.write_fmt(format_args!("{net},{}\n", v.number))?;
+        }
+        writer.flush()?;
     }
 
     Ok(())

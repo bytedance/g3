@@ -82,7 +82,6 @@ fn load_location_from_dump<R: io::Read>(
                     country_table.insert(
                         net,
                         GeoIpCountryRecord {
-                            network: net,
                             country,
                             continent: country.continent(),
                         },
@@ -92,7 +91,6 @@ fn load_location_from_dump<R: io::Read>(
                     asn_table.insert(
                         net,
                         GeoIpAsnRecord {
-                            network: net,
                             number: asn,
                             name: as_name_table.get(&asn).cloned(),
                             domain: None,
