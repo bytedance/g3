@@ -1,4 +1,12 @@
 
+v1.7.25:
+ - Feature: add route_geoip escaper
+ - Feature: various improvements to journal logging
+     - add SYSLOG_IDENTIFIER field
+     - improved efficiency
+     - io stats added
+ - Feature: update vendored openssl to 3.1
+
 v1.7.24:
  - BUG FIX: fix vendoring build of ring
 
