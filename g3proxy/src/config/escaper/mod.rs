@@ -127,6 +127,7 @@ macro_rules! impl_transparent0 {
                 AnyEscaperConfig::ProxySocks5(s) => s.$f(),
                 AnyEscaperConfig::RouteFailover(s) => s.$f(),
                 AnyEscaperConfig::RouteResolved(s) => s.$f(),
+                #[cfg(feature = "geoip")]
                 AnyEscaperConfig::RouteGeoIp(s) => s.$f(),
                 AnyEscaperConfig::RouteMapping(s) => s.$f(),
                 AnyEscaperConfig::RouteQuery(s) => s.$f(),
@@ -152,6 +153,7 @@ macro_rules! impl_transparent1 {
                 AnyEscaperConfig::ProxySocks5(s) => s.$f(p),
                 AnyEscaperConfig::RouteFailover(s) => s.$f(p),
                 AnyEscaperConfig::RouteResolved(s) => s.$f(p),
+                #[cfg(feature = "geoip")]
                 AnyEscaperConfig::RouteGeoIp(s) => s.$f(p),
                 AnyEscaperConfig::RouteMapping(s) => s.$f(p),
                 AnyEscaperConfig::RouteQuery(s) => s.$f(p),
@@ -262,6 +264,7 @@ fn load_escaper(
             let config = route_resolved::RouteResolvedEscaperConfig::parse(map, position)?;
             Ok(AnyEscaperConfig::RouteResolved(config))
         }
+        #[cfg(feature = "geoip")]
         "route_geoip" | "routegeoip" | "route_geo_ip" => {
             let config = route_geoip::RouteGeoIpEscaperConfig::parse(map, position)?;
             Ok(AnyEscaperConfig::RouteGeoIp(config))
