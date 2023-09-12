@@ -24,6 +24,8 @@ is make up of the following entries:
 +-----------+----------+-------+------------------------------------------------+
 |controller |Seq       |no     |Controller config                               |
 +-----------+----------+-------+------------------------------------------------+
+|geoip_db   |Map       |yes    |GeoIP Database                                  |
++-----------+----------+-------+------------------------------------------------+
 |resolver   |Mix [#m]_ |yes    |Resolver config, see :doc:`resolvers/index`     |
 +-----------+----------+-------+------------------------------------------------+
 |escaper    |Mix [#m]_ |yes    |Escaper config, see :doc:`escapers/index`       |
@@ -49,6 +51,7 @@ Example config: :doc:`example config for rd-relay service <example>`
    runtime
    log/index
    stat
+   geoip_db
    resolvers/index
    escapers/index
    auditors/index

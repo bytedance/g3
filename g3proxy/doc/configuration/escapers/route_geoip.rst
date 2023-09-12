@@ -20,7 +20,10 @@ geo_rules
 
 **optional**, **type**: seq
 
-If the resolved upstream ip address lpm match the network in the rules, that escaper will be selected.
+Set the GeoIP rules to select next escaper.
+
+Remember to set :ref:`geoip_db <configuration_geoip_db>` in main conf to enable GeoIP lookup.
+If not set, this escaper will just behave like :ref:`route_resolved <configuration_escaper_route_resolved>` escaper.
 
 Each rule is in *map* format, with two keys:
 

@@ -24,7 +24,7 @@ use g3_runtime::unaided::UnaidedRuntimeConfig;
 
 static mut RUNTIME_CONFIG: BlendedRuntimeConfig = BlendedRuntimeConfig::new();
 static mut WORKER_CONFIG: Option<UnaidedRuntimeConfig> = None;
-static mut SERVER_OFFLINE_DELAY_DURATION: Duration = Duration::from_secs(4);
+static mut SERVER_OFFLINE_DELAY_DURATION: Duration = Duration::from_secs(8);
 static mut TASK_WAIT_TIMEOUT_DURATION: Duration = Duration::from_secs(36000); // 10h
 static mut TASK_QUIT_TIMEOUT_DURATION: Duration = Duration::from_secs(1800); // 0.5h
 static mut TASK_WAIT_DELAY_DURATION: Duration = Duration::from_secs(2);

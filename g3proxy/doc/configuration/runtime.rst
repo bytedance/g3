@@ -74,7 +74,9 @@ Set the time duration before offline all servers after received daemon quit sign
 All listen server sockets will be closed after this duration, so it should be more than the time used to
 start the new daemon process if you depends on it for graceful restart.
 
-**default**: 4s
+**default**: 8s
+
+.. versionchanged:: 1.7.25 change default value from 4s to 8s
 
 task_wait_delay
 ---------------
