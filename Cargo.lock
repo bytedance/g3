@@ -1506,6 +1506,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "g3proxy-geoip"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "g3-geoip",
+ "ip_network_table",
+]
+
+[[package]]
 name = "g3proxy-lua"
 version = "0.1.0"
 dependencies = [
@@ -1600,15 +1610,6 @@ checksum = "85649ca51fd72272d7821adaf274ad91c288277713d9c18820d8499a7ff69e9a"
 dependencies = [
  "typenum",
  "version_check",
-]
-
-[[package]]
-name = "geoip-query"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "g3-geoip",
 ]
 
 [[package]]

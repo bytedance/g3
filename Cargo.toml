@@ -38,6 +38,7 @@ members = [
     "g3proxy/utils/ctl",
     "g3proxy/utils/ftp",
     "g3proxy/utils/lua",
+    "g3proxy/utils/geoip",
     "g3tiles",
     "g3tiles/proto",
     "g3tiles/utils/ctl",
@@ -48,7 +49,6 @@ members = [
     "demo/test-tcp-relay",
     "demo/test-resolver",
     "demo/test-copy-yield",
-    "demo/geoip-query",
 ]
 default-members = [
     "g3bench",
@@ -58,6 +58,7 @@ default-members = [
     "g3proxy/utils/ctl",
     "g3proxy/utils/ftp",
     "g3proxy/utils/lua",
+    "g3proxy/utils/geoip",
     "g3tiles",
     "g3tiles/utils/ctl",
     "g3keymess",
