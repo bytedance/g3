@@ -33,7 +33,7 @@ const SD_JOURNAL_SOCK_PATH: &str = "/run/systemd/journal/socket";
 const MEM_FD_NAME: &CStr = unsafe { CStr::from_bytes_with_nul_unchecked(b"journal-logging\0") };
 
 thread_local! {
-    static SD_SOCK: OnceCell<UnixDatagram> = OnceCell::new();
+    static SD_SOCK: OnceCell<UnixDatagram> = const { OnceCell::new() };
 }
 
 #[allow(unused)]
