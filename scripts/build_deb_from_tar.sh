@@ -57,6 +57,8 @@ then
 	create_orig_tar
 
 	BUILD_FLAGS="-us ${BUILD_FLAGS}"
+else
+	BUILD_FLAGS="-b ${BUILD_FLAGS}"
 fi
 
 echo "Building"
