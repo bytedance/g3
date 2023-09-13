@@ -77,6 +77,55 @@ The keys are:
 
 .. versionadded:: 1.7.7
 
+.. _conf_value_tlcp_cert_pair:
+
+tlcp cert pair
+==============
+
+**yaml value**: map
+
+A pair value contains tlcp certificate and private key.
+
+The keys are:
+
+* sign_certificate
+
+  **required**, **type**: :ref:`tls certificates <conf_value_tls_certificates>`
+
+  Set client sign certificates if client auth is needed by remote server.
+  Private key must also be set if client auth is needed.
+
+  **default**: not set
+
+* sign_private_key
+
+  **required**, **type**: :ref:`tls private_key <conf_value_tls_private_key>`
+
+  Set the sign private key for client if client auth is needed by remote server.
+  Client certificates are also needed if client auth is needed.
+
+  **default**: not set
+
+* enc_certificate
+
+  **required**, **type**: :ref:`tls certificates <conf_value_tls_certificates>`
+
+  Set client enc certificates if client auth is needed by remote server.
+  Private key must also be set if client auth is needed.
+
+  **default**: not set
+
+* enc_private_key
+
+  **required**, **type**: :ref:`tls private_key <conf_value_tls_private_key>`
+
+  Set the enc private key for client if client auth is needed by remote server.
+  Client certificates are also needed if client auth is needed.
+
+  **default**: not set
+
+.. versionadded:: 1.7.23
+
 .. _conf_value_openssl_protocol:
 
 openssl protocol
@@ -90,6 +139,7 @@ Current supported values are:
 
 - tls1.2
 - tls1.3
+- tlcp (only if vendored-tongsuo feature is enabled)
 
 .. versionadded:: 1.7.7
 
@@ -160,6 +210,17 @@ The map is consists of the following fields:
   **default**: not set
 
   .. versionadded:: 1.7.7
+
+* tlcp_cert_pair
+
+  **optional**, **type**: :ref:`tlcp cert pair <conf_value_tlcp_cert_pair>`
+
+  Set the client certificate and private key pair for TLCP protocol.
+  This will be in effect only if protocol is set to tlcp.
+
+  **default**: not set
+
+  .. versionadded:: 1.7.23
 
 * certificate
 
