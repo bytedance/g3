@@ -217,3 +217,4 @@ debug-assertions = false
 
 [patch.crates-io]
 console = { version = "0.15.7", git = "https://github.com/console-rs/console.git", rev = "51425fc" }
+ring = { version = "0.16.20", git = "https://github.com/zh-jq/ring-repack.git", branch = "patch-0.16" }
