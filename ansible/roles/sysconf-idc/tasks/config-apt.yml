@@ -1,5 +1,13 @@
 ---
 
+- name: Create /etc/apt/keyrings
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
 - name: Install apt-transport-https
   ansible.builtin.apt:
     name: apt-transport-https
@@ -22,14 +30,18 @@
 - name: Import apt key for G3 repo
   ansible.builtin.get_url:
     url: https://dl.cloudsmith.io/public/g3-oqh/g3-J0E/gpg.7E0155A319493E68.key
-    dest: /etc/apt/keyrings/g3.gpg
+    dest: /etc/apt/keyrings/g3.gpg.ascii
     owner: root
     group: root
     mode: "0644"
+  notify: Dearmor g3 apt gpg key
+
+- name: Make sure the g3 repo apt key is imported
+  ansible.builtin.meta: flush_handlers
 
 - name: Add G3 repo
   ansible.builtin.apt_repository:
-    filename: g3.list
-    repo: "deb [signed-by=/etc/apt/keyrings/g3.gpg] https://dl.cloudsmith.io/public/g3-oqh/g3-J0E/deb/{{ ansible_distribution }} {{ ansible_distribution_release }} main"
+    filename: g3
+    repo: "deb [signed-by=/etc/apt/keyrings/g3.gpg] https://dl.cloudsmith.io/public/g3-oqh/g3-J0E/deb/{{ ansible_distribution|lower }} {{ ansible_distribution_release }} main"
     state: present
     update_cache: true

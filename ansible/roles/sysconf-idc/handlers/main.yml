@@ -1,6 +1,13 @@
 ---
 
 - name: Apply proxy sysctl config
-  ansible.builtin.command: sysctl -p /etc/sysctl.d/99-proxy.conf
+  ansible.builtin.command:
+    cmd: sysctl -p /etc/sysctl.d/99-proxy.conf
   register: apply
   changed_when: apply.rc == 0
+
+- name: Dearmor g3 apt gpg key
+  ansible.builtin.shell:
+    cmd: cat /etc/apt/keyrings/g3.gpg.ascii | gpg --dearmor -o /etc/apt/keyrings/g3.gpg
+  register: dearmor
+  changed_when: dearmor.rc == 0
