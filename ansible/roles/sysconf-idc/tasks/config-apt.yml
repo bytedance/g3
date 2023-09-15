@@ -1,0 +1,35 @@
+---
+
+- name: Install apt-transport-https
+  ansible.builtin.apt:
+    name: apt-transport-https
+    state: present
+
+- name: Add apt proxy config for G3 repo
+  ansible.builtin.template:
+    src: apt.conf.d/80g3-proxy
+    dest: /etc/apt/apt.conf.d/80g3-proxy
+    owner: root
+    group: root
+    mode: "0644"
+  when: g3_repo_proxy is defined
+
+- name: Clear apt proxy config for G3 repo
+  ansible.builtin.file:
+    path: /etc/apt/apt.conf.d/80g3-proxy
+    state: absent
+
+- name: Import apt key for G3 repo
+  ansible.builtin.get_url:
+    url: https://dl.cloudsmith.io/public/g3-oqh/g3-J0E/gpg.7E0155A319493E68.key
+    dest: /etc/apt/keyrings/g3.gpg
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Add G3 repo
+  ansible.builtin.apt_repository:
+    filename: g3.list
+    repo: "deb [signed-by=/etc/apt/keyrings/g3.gpg] https://dl.cloudsmith.io/public/g3-oqh/g3-J0E/deb/{{ ansible_distribution }} {{ ansible_distribution_release }} main"
+    state: present
+    update_cache: true

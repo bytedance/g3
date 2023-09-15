@@ -7,8 +7,17 @@
   tags:
     - always
 
-- ansible.builtin.import_tasks: config-sysctl.yml
+- name: Config sysctl
+  ansible.builtin.import_tasks: config-sysctl.yml
   tags:
     - never
     - config-sysctl
+    - config-all
+    - config
+
+- name: Config repo
+  ansible.builtin.import_tasks: config-repo.yml
+  tags:
+    - never
+    - config-repo
     - config-all

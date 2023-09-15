@@ -1,0 +1,9 @@
+---
+
+- name: Config apt repo
+  ansible.builtin.include_tasks: config-apt.yml
+  when: ansible_pkg_mgr == "apt"
+
+- name: Config yum repo
+  ansible.builtin.include_tasks: config-yum.yml
+  when: ansible_pkg_mgr == "yum" || ansible_pkg_mgr == "dnf"

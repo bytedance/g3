@@ -1,0 +1,10 @@
+---
+
+- name: Add G3 repo
+  ansible.builtin.yum_repository:
+    name: g3
+    description: G3 repo
+    baseurl: https://dl.cloudsmith.io/public/g3-oqh/g3-J0E/rpm/el/$releasever/$basearch
+    gpgkey: https://dl.cloudsmith.io/public/g3-oqh/g3-J0E/gpg.7E0155A319493E68.key
+    enabled: true
+    proxy: "{{ g3_repo_proxy | default('_none_') }}"
