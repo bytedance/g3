@@ -1,4 +1,7 @@
 
+v0.8.3:
+ - BUG FIX: fix the load of x509 cert in keyless target
+
 v0.8.2:
  - Feature: allow to verify keyless action result
  - BUG FIX: fix openssl rsa private encrypt action
