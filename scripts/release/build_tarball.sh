@@ -38,6 +38,7 @@ fi
 
 SOURCE_NAME=$(echo "${RELEASE_TAG}" | sed 's/\(.*[^-]\)-v[0-9].*/\1/')
 SOURCE_VERSION=$(echo "${RELEASE_TAG}" | sed 's/.*[^-]-v\([0-9].*\)/\1/')
+PKG_VERSION=$(echo "${SOURCE_VERSION}" | tr '-' '.')
 SOURCE_TIMESTAMP=$(git show -s --pretty="format:%ct" "${GIT_REVISION}^{commit}")
 
 BUILD_DIR=$(mktemp -d "/tmp/build.${SOURCE_NAME}-${SOURCE_VERSION}.XXX")
@@ -45,9 +46,9 @@ echo "==> Use temp build dir ${BUILD_DIR}"
 
 
 echo "==> adding source code from git"
-git archive --format=tar --prefix="${SOURCE_NAME}-${SOURCE_VERSION}/" "${GIT_REVISION}" | tar -C "${BUILD_DIR}" -xf -
+git archive --format=tar --prefix="${SOURCE_NAME}-${PKG_VERSION}/" "${GIT_REVISION}" | tar -C "${BUILD_DIR}" -xf -
 
-cd "${BUILD_DIR}/${SOURCE_NAME}-${SOURCE_VERSION}"
+cd "${BUILD_DIR}/${SOURCE_NAME}-${PKG_VERSION}"
 
 
 echo "==> cleaning useless source files"
@@ -153,7 +154,7 @@ cd - >/dev/null
 PERMISSION_OPTS="--mode=u=rwX,g=rwX,o=rX"
 REPRODUCIBLE_OPTS="--mtime=@${SOURCE_TIMESTAMP} --owner=g3:1000 --group=g3:1000 --sort=name ${PERMISSION_OPTS}"
 PROGRESS_OPTS="--checkpoint=100 --checkpoint-action=dot"
-tar -Jcf "${SOURCE_NAME}-${SOURCE_VERSION}.tar.xz" ${REPRODUCIBLE_OPTS} ${PROGRESS_OPTS} -C "${BUILD_DIR}" .
+tar -Jcf "${SOURCE_NAME}-${PKG_VERSION}.tar.xz" ${REPRODUCIBLE_OPTS} ${PROGRESS_OPTS} -C "${BUILD_DIR}" .
 echo
 
 :
