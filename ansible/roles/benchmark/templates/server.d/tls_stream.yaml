@@ -6,7 +6,7 @@ type: TlsStream
 escaper: {{ escaper_name }}
 
 listen:
-  address: "[::]:{{ benchmark_tcp_port }}"
+  address: "[::]:{{ benchmark_tls_port }}"
   backlog: 4096
   scale: 1.0
 
@@ -14,4 +14,6 @@ tls_server:
   cert_pairs:
     certificate: "{{ server_name }}-{{ tls_name }}.pem"
     private_key: "{{ server_name }}-{{ tls_name }}-key.pem"
+
+upstream: "{{ benchmark_upstream_addr }}"
 

@@ -10,3 +10,5 @@ listen:
   backlog: 4096
   scale: 1.0
 
+upstream: "{{ benchmark_upstream_addr }}"
+
