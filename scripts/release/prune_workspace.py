@@ -33,7 +33,7 @@ for m in all_members.difference(members):
     print(m)
 
 if args.output is not None:
-    data["workspace"]["members"] = members
+    data["workspace"]["members"] = sorted(members)
     # delete default-members
     data["workspace"].pop("default-members", None)
     with open(args.output, 'w') as f:
