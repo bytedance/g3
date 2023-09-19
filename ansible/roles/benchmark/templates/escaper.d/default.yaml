@@ -1,0 +1,23 @@
+---
+
+name: {{ escaper_name }}
+type: DirectFixed
+
+resolver: {{ resolver_name }}
+resolve_strategy:
+  query: Ipv4First
+
+{% if benchmark_egress_network_filter is defined %}
+egress_network_filter:
+  {{ benchmark_egress_network_filter | to_nice_yaml(indent=2) | indent(width=2) }}
+{% else %}
+egress_network_filter:
+  default: forbid
+  allow:
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+    - 100.64.0.0/10
+    - fc00::/7
+{% endif %}
+

@@ -1,0 +1,43 @@
+---
+
+- name: Create main conf directory
+  ansible.builtin.file:
+    path: "/etc/g3proxy/{{ daemon_group }}/"
+    state: directory
+    recurse: yes
+
+- name: Create conf sub directories
+  ansible.builtin.file:
+    path: "/etc/g3proxy/{{ daemon_group }}/{{ item }}.d"
+    state: directory
+    recurse: yes
+  with_items:
+    - resolver
+    - escaper
+    - server
+
+- name: Install main conf
+  ansible.builtin.copy:
+    src: main.yaml
+    dest: "/etc/g3proxy/{{ daemon_group }}/main.yaml"
+  notify: restart daemon
+
+- name: Config resolver
+  ansible.builtin.include_role:
+    name: g3proxy
+    tasks_from: config-resolver
+    handlers_from: reload-resolver
+  vars:
+    resolver_name: default
+
+- name: Config escaper
+  ansible.builtin.include_role:
+    name: g3proxy
+    tasks_from: config-escaper
+    handlers_from: reload-escaper
+  vars:
+    escaper_name: default
+    resolver_name: default
+
+- name: Config servers
+  ansible.builtin.import_role: config-server.yml

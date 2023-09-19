@@ -1,0 +1,12 @@
+---
+
+name: {{ server_name }}
+type: TcpStream
+
+escaper: {{ escaper_name }}
+
+listen:
+  address: "[::]:{{ benchmark_tcp_port }}"
+  backlog: 4096
+  scale: 1.0
+

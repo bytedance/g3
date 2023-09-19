@@ -1,0 +1,17 @@
+---
+
+name: {{ server_name }}
+type: HttpProxy
+
+escaper: {{ escaper_name }}
+
+listen:
+  address: "[::]:{{ benchmark_http_port }}"
+  backlog: 4096
+  scale: 1.0
+
+tls_server:
+  cert_pair:
+    certificate: "{{ server_name }}-{{ tls_name }}.pem"
+    private_key: "{{ server_name }}-{{ tls_name }}-key.pem"
+

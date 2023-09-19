@@ -1,0 +1,12 @@
+---
+
+name: {{ server_name }}
+type: HttpProxy
+
+escaper: {{ escaper_name }}
+
+listen:
+  address: "[::]:{{ benchmark_http_port }}"
+  backlog: 4096
+  scale: 1.0
+

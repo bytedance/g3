@@ -1,0 +1,9 @@
+---
+
+benchmark_tls_name: bench.example.net
+
+benchmark_http_port: 8080
+benchmark_https_port: 9080
+benchmark_tcp_port: 8090
+benchmark_tls_port: 9090
+

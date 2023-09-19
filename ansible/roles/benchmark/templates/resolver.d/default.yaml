@@ -1,0 +1,9 @@
+---
+
+name: {{ resolver_name }}
+type: c_ares
+
+server:
+  - 1.1.1.1
+  - 1.0.0.1
+

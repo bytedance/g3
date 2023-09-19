@@ -1,0 +1,49 @@
+---
+
+- name: "Check if the hosts are allowed to run role {{ role_name }}"
+  ansible.builtin.fail:
+    msg: "This host is not allowed to run role {{ role_name }}"
+  when: role_name not in allowed_roles
+  tags:
+    - always
+
+- ansible.builtin.import_role:
+    name: common
+    tasks_from: merge_ipmap
+  tags:
+    - always
+
+- ansible.builtin.import_tasks: deploy.yml
+  tags:
+    - never
+    - deploy
+  vars:
+    do_reload: false
+
+- ansible.builtin.import_role:
+    name: g3proxy
+    tasks_from: query-running-version
+  tags:
+    - query-version
+
+- ansible.builtin.import_role:
+    name: g3proxy
+    tasks_from: upgrade
+  tags:
+    - never
+    - upgrade
+
+- ansible.builtin.import_role:
+    name: g3proxy
+    tasks_from: restart
+  tags:
+    - never
+    - restart
+
+- ansible.builtin.import_tasks: config-all.yml
+  vars:
+    do_reload: true
+  tags:
+    - never
+    - config-all
+

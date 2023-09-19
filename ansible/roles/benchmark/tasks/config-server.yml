@@ -1,0 +1,28 @@
+---
+
+- name: Config server certificates
+  ansible.builtin.include_role:
+    name: g3proxy
+    tasks_from: config-server-cert
+    handlers_from: reload-server
+  vars:
+    server_name: "{{ item }}"
+    tls_name: "{{ benchmark_tls_name }}"
+  with_items:
+    - https_proxy
+    - tls_stream
+
+- name: Config servers
+  ansible.builtin.include_role:
+    name: g3proxy
+    tasks_from: config-server
+    handlers_from: reload-server
+  vars:
+    server_name: "{{ item }}"
+    escaper_name: default
+    tls_name: "{{ benchmark_tls_name }}"
+  with_items:
+    - http_proxy
+    - https_proxy
+    - tcp_stream
+    - tls_stream
