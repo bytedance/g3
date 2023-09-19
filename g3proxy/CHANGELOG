@@ -1,4 +1,8 @@
 
+v1.7.26:
+ - BUG FIX: fix deb and rpm build scripts
+ - BUG FIX: fix parse of cert_pairs of tls server config in various servers
+
 v1.7.25:
  - Feature: add route_geoip escaper
  - Feature: various improvements to journal logging
