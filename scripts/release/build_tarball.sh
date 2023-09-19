@@ -122,7 +122,7 @@ else
 	: > "${CARGO_CONFIG_FILE}"
 fi
 mkdir "${CARGO_VENDOR_DIR}"
-cargo vendor --frozen "${CARGO_VENDOR_DIR}" | tee -a "${CARGO_CONFIG_FILE}"
+cargo vendor --locked "${CARGO_VENDOR_DIR}" | tee -a "${CARGO_CONFIG_FILE}"
 
 
 echo "==> generate license files for bundled crates"
