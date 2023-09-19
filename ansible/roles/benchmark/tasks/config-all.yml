@@ -17,10 +17,13 @@
     - server
 
 - name: Install main conf
-  ansible.builtin.copy:
+  ansible.builtin.template:
     src: main.yaml
     dest: "/etc/g3proxy/{{ daemon_group }}/main.yaml"
-  notify: restart daemon
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart daemon
 
 - name: Config resolver
   ansible.builtin.include_role:
@@ -40,4 +43,4 @@
     resolver_name: default
 
 - name: Config servers
-  ansible.builtin.import_role: config-server.yml
+  ansible.builtin.import_tasks: config-server.yml

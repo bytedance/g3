@@ -1,0 +1,9 @@
+---
+
+- hosts: "{{ group | default('g3proxy') }}"
+  roles:
+    - role: benchmark
+  handlers:
+    - ansible.builtin.import_tasks: roles/g3proxy/handlers/restart.yml
+  vars:
+    daemon_group: benchmark
