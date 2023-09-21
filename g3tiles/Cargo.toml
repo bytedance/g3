@@ -1,6 +1,6 @@
 [package]
 name = "g3tiles"
-version = "0.2.6"
+version = "0.2.7"
 license.workspace = true
 edition.workspace = true
 rust-version = "1.70.0"

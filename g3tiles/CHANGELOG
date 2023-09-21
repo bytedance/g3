@@ -1,4 +1,14 @@
 
+v0.2.7:
+ - BUG FIX: fix logger io stats in various AsyncLogger backends
+ - Feature: various improvements to journal logging
+     - add SYSLOG_IDENTIFIER field
+     - improved efficiency
+     - io stats added
+ - Feature: drop out of date dependencies by using forks and patches
+ - Feature: default to guess main config file when run as systemd service
+ - Feature: update vendored openssl to 3.1
+
 v0.2.6:
  - Feature: support PROXY Protocol in PlainTcpPort
  - Removed: remove the daemon group name setting in config file
