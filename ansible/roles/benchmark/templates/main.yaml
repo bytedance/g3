@@ -1,8 +1,13 @@
 ---
 
-{% if proxy_use_unaided_worker is defined and proxy_use_unaided_worker|bool %}
+runtime:
+  thread_number: 4
+
+{% if benchmark_bind_cpu is defined and benchmark_bind_cpu|bool %}
 worker:
   sched_affinity: true
+{% else %}
+worker: {}
 {% endif %}
 
 resolver: resolver.d
@@ -21,6 +26,8 @@ log:
         enterprise_id: {{ enterprise_id }}
         message_id: g3proxy
 {% endif %}
+{% else %}
+log: discard
 {% endif %}
 
 {% if proxy_enable_statsd is defined and proxy_enable_statsd|bool %}
