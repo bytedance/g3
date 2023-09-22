@@ -35,7 +35,6 @@ pub fn new_std_socket_to(
 ) -> io::Result<UdpSocket> {
     let peer_family = AddressFamily::from(&peer_addr);
     let socket = new_udp_socket(peer_family, buf_conf)?;
-    socket.set_nonblocking(true)?;
     if let Some(ip) = bind_ip {
         if AddressFamily::from(&ip) != peer_family {
             return Err(io::Error::new(
@@ -61,7 +60,6 @@ pub fn new_std_bind_connect(
         None => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
     };
     let socket = new_udp_socket(AddressFamily::from(&bind_addr), buf_conf)?;
-    socket.set_nonblocking(true)?;
     set_misc_opts(&socket, misc_opts)?;
     let bind_addr = SockAddr::from(bind_addr);
     socket.bind(&bind_addr)?;
@@ -83,7 +81,6 @@ pub fn new_std_in_range_bind_connect(
     debug_assert!(port_start < port_end);
 
     let socket = new_udp_socket(AddressFamily::from(&bind_ip), buf_conf)?;
-    socket.set_nonblocking(true)?;
     set_misc_opts(&socket, misc_opts)?;
 
     // like what's has been done in dante/sockd/sockd_request.c
@@ -129,7 +126,6 @@ pub fn new_std_bind_relay(
         },
     };
     let socket = new_udp_socket(AddressFamily::from(&bind_addr), buf_conf)?;
-    socket.set_nonblocking(true)?;
     let bind_addr = SockAddr::from(bind_addr);
     socket.bind(&bind_addr)?;
     set_misc_opts(&socket, misc_opts)?;
@@ -158,7 +154,7 @@ fn set_misc_opts(socket: &Socket, misc_opts: &UdpMiscSockOpts) -> io::Result<()>
 }
 
 fn new_udp_socket(family: AddressFamily, buf_conf: SocketBufferConfig) -> io::Result<Socket> {
-    let socket = Socket::new(Domain::from(family), Type::DGRAM, None)?;
+    let socket = Socket::new(Domain::from(family), Type::DGRAM.nonblocking(), None)?;
     if let Some(size) = buf_conf.recv_size() {
         socket.set_recv_buffer_size(size)?;
     }
