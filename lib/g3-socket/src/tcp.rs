@@ -113,7 +113,7 @@ fn set_misc_opts(
 
 #[cfg(target_os = "macos")]
 fn new_tcp_socket(family: AddressFamily) -> io::Result<Socket> {
-    let socket = Socket::new(Domain::from(family), Type::STREAM.nonblocking(), None)?;
+    let socket = Socket::new(Domain::from(family), Type::STREAM, None)?;
     socket.set_nonblocking(true)?;
     Ok(socket)
 }
