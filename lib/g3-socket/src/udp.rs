@@ -154,7 +154,7 @@ fn set_misc_opts(socket: &Socket, misc_opts: &UdpMiscSockOpts) -> io::Result<()>
 }
 
 fn new_udp_socket(family: AddressFamily, buf_conf: SocketBufferConfig) -> io::Result<Socket> {
-    let socket = Socket::new(Domain::from(family), Type::DGRAM.nonblocking(), None)?;
+    let socket = new_nonblocking_udp_socket(family)?;
     if let Some(size) = buf_conf.recv_size() {
         socket.set_recv_buffer_size(size)?;
     }
@@ -162,6 +162,18 @@ fn new_udp_socket(family: AddressFamily, buf_conf: SocketBufferConfig) -> io::Re
         socket.set_send_buffer_size(size)?;
     }
     Ok(socket)
+}
+
+#[cfg(target_os = "macos")]
+fn new_nonblocking_udp_socket(family: AddressFamily) -> io::Result<Socket> {
+    let socket = Socket::new(Domain::from(family), Type::DGRAM, None)?;
+    socket.set_nonblocking(true)?;
+    Ok(socket)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn new_nonblocking_udp_socket(family: AddressFamily) -> io::Result<Socket> {
+    Socket::new(Domain::from(family), Type::DGRAM.nonblocking(), None)
 }
 
 #[cfg(test)]

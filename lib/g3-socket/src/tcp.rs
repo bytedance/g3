@@ -111,10 +111,16 @@ fn set_misc_opts(
     Ok(())
 }
 
-#[inline]
+#[cfg(target_os = "macos")]
 fn new_tcp_socket(family: AddressFamily) -> io::Result<Socket> {
     let socket = Socket::new(Domain::from(family), Type::STREAM.nonblocking(), None)?;
+    socket.set_nonblocking(true)?;
     Ok(socket)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn new_tcp_socket(family: AddressFamily) -> io::Result<Socket> {
+    Socket::new(Domain::from(family), Type::STREAM.nonblocking(), None)
 }
 
 pub fn new_listen_to(config: &TcpListenConfig) -> io::Result<TcpListener> {
