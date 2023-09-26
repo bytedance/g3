@@ -26,6 +26,7 @@
   ansible.builtin.file:
     path: /etc/apt/apt.conf.d/80g3-proxy
     state: absent
+  when: g3_repo_proxy is not defined
 
 - name: Import apt key for G3 repo
   ansible.builtin.get_url:
