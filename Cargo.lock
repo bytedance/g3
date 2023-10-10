@@ -1915,12 +1915,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af150ab688ff2122fcef229be89cb50dd66af9e01a4ff320cc137eecc9bacc38"
 
 [[package]]
-name = "jni-sys"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8eaf4bc02d17cbdd7ff4c7438cafcdf7fb9a4613313ad11b4f8fefe7d3fa0130"
-
-[[package]]
 name = "js-sys"
 version = "0.3.64"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2035,9 +2029,9 @@ dependencies = [
 
 [[package]]
 name = "mini-c-ares-resolver"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eed0513fa39b9202824ad8ea87b0bdbddbf3ae4c9f2aa2bdc70a7fd036014fc6"
+checksum = "c9586ea48f4739975856279bc04db54dfff07db077c61c29650184c288c5cec3"
 dependencies = [
  "futures-channel",
  "mini-c-ares",
@@ -2046,20 +2040,19 @@ dependencies = [
 
 [[package]]
 name = "mini-c-ares-src"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0de64ff009ff5ff6fbcddb471020913e65b83f81729e3911e87dc4563c6cea2"
+checksum = "3c386ba7b549fbd3ddef66e553097d111497494bcdb14011b4e957104e9ee761"
 dependencies = [
  "cmake",
 ]
 
 [[package]]
 name = "mini-c-ares-sys"
-version = "0.2.1"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9bb49a6d3b18ba3be12dfe51524ba08d6cde4a49ace23bcbb449e562973f0f4b"
+checksum = "0d3fbe22b76124b943f57953752e326dca32875f39cc3a97dde9d6b7ccbb2acf"
 dependencies = [
- "jni-sys",
  "libc",
  "mini-c-ares-src",
  "pkg-config",
@@ -3079,9 +3072,9 @@ dependencies = [
 
 [[package]]
 name = "tongsuo-src"
-version = "840.0.3+8.4.0pre2"
+version = "840.0.4+8.4.0pre3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5d60c926249e82a632d278c26d2d281649efca830f69ed3cd63a0101e8f965d"
+checksum = "ec5df009e630f77b25e2430597fc4d067a46514621296df756de2d768aeb3ced"
 dependencies = [
  "cc",
 ]
