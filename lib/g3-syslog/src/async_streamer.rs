@@ -82,15 +82,13 @@ impl Drain for AsyncSyslogStreamer {
     type Err = slog::Error;
 
     fn log(&self, record: &Record, logger_values: &OwnedKVList) -> Result<(), slog::Error> {
-        TL_BUF.with(|buf| {
+        TL_BUF.with_borrow_mut(|buf| {
             self.stats.io.add_total();
-
-            let mut buf = buf.borrow_mut();
             buf.clear();
 
             match self
                 .formatter
-                .format_slog(&mut buf, &self.header, record, logger_values)
+                .format_slog(buf, &self.header, record, logger_values)
             {
                 Ok(_) => {
                     let s = unsafe { String::from_utf8_unchecked(buf.clone()) };

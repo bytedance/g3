@@ -188,8 +188,7 @@ impl<'a> Serializer for FormatterKv<'a> {
         if let Some(s) = value.as_str() {
             self.emit_str(key, s)
         } else {
-            TL_BUF.with(|buf| {
-                let mut buf = buf.borrow_mut();
+            TL_BUF.with_borrow_mut(|buf| {
                 buf.clear();
 
                 buf.write_fmt(*value).unwrap();

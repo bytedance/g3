@@ -1,6 +1,7 @@
 [package]
 name = "g3-journal"
 version = "0.2.0"
+rust-version = "1.73.0"
 license.workspace = true
 edition.workspace = true
 

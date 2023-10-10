@@ -200,8 +200,7 @@ impl<'a> Serializer for FormatterKv<'a> {
         if let Some(s) = value.as_str() {
             self.emit_str(key, s)
         } else {
-            TL_BUF.with(|buf| {
-                let mut buf = buf.borrow_mut();
+            TL_BUF.with_borrow_mut(|buf| {
                 buf.clear();
 
                 buf.write_fmt(*value).unwrap();
@@ -216,8 +215,7 @@ impl<'a> Serializer for FormatterKv<'a> {
         use std::io;
         use std::ops::DerefMut;
 
-        TL_VBUF.with(|buf| {
-            let mut buf = buf.borrow_mut();
+        TL_VBUF.with_borrow_mut(|buf| {
             buf.clear();
 
             let mut serializer = serde_json::Serializer::new(buf.deref_mut());
@@ -228,7 +226,7 @@ impl<'a> Serializer for FormatterKv<'a> {
                 )
             })?;
 
-            let v = std::str::from_utf8(&buf).map_err(|e| {
+            let v = std::str::from_utf8(buf).map_err(|e| {
                 io::Error::new(
                     io::ErrorKind::Other,
                     format!("invalid utf-8 value for key {key}: {e}"),

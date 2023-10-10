@@ -115,8 +115,7 @@ impl FastHashedPassPhrase {
     }
 
     pub fn verify(&self, pass: &str) -> bool {
-        HASH_TL_BUF.with(|buf| {
-            let mut buf = buf.borrow_mut();
+        HASH_TL_BUF.with_borrow_mut(|buf| {
             buf.extend_from_slice(pass.as_bytes());
             buf.extend_from_slice(&self.salt);
 

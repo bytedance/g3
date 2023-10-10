@@ -34,8 +34,7 @@ thread_local! {
 
 pub(crate) fn add_global(key: PKey<Private>) -> anyhow::Result<()> {
     let ski = public_key_ski(&key)?;
-    GLOBAL_SKI_MAP.with(|cell| {
-        let mut map = cell.borrow_mut();
+    GLOBAL_SKI_MAP.with_borrow_mut(|map| {
         map.insert(ski.to_vec(), key);
     });
 
@@ -43,17 +42,11 @@ pub(crate) fn add_global(key: PKey<Private>) -> anyhow::Result<()> {
 }
 
 pub(crate) fn get_all_ski() -> Vec<Vec<u8>> {
-    GLOBAL_SKI_MAP.with(|cell| {
-        let map = cell.borrow();
-        map.keys().map(|v| v.to_vec()).collect()
-    })
+    GLOBAL_SKI_MAP.with_borrow(|map| map.keys().map(|v| v.to_vec()).collect())
 }
 
 pub(crate) fn get_by_ski(ski: &[u8]) -> Option<PKey<Private>> {
-    GLOBAL_SKI_MAP.with(|cell| {
-        let map = cell.borrow();
-        map.get(ski).cloned()
-    })
+    GLOBAL_SKI_MAP.with_borrow(|map| map.get(ski).cloned())
 }
 
 fn public_key_ski<T: HasPublic>(key: &PKey<T>) -> anyhow::Result<DigestBytes> {

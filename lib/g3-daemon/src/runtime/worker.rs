@@ -61,8 +61,8 @@ pub fn select_handle() -> Option<WorkerHandle> {
     match handles.len() {
         0 => None,
         1 => Some(handles[0].clone()),
-        n => WORKER_RR_INDEX.with(|cell| {
-            let mut id = cell.borrow().map(|v| v + 1).unwrap_or_else(|| {
+        n => WORKER_RR_INDEX.with_borrow_mut(|cell| {
+            let mut id = cell.map(|v| v + 1).unwrap_or_else(|| {
                 let mut rng = rand::thread_rng();
                 rng.gen_range(0..n)
             });
@@ -70,7 +70,7 @@ pub fn select_handle() -> Option<WorkerHandle> {
                 id = 0;
             }
             let handle = unsafe { handles.get_unchecked(id).clone() };
-            *cell.borrow_mut() = Some(id);
+            *cell = Some(id);
             Some(handle)
         }),
     }

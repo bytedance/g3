@@ -43,8 +43,7 @@ macro_rules! impl_arguments_with_tls {
             if let Some(s) = value.as_str() {
                 self.emit_str(key, s)
             } else {
-                TL_BUF.with(|buf| {
-                    let mut buf = buf.borrow_mut();
+                TL_BUF.with_borrow_mut(|buf| {
                     buf.clear();
 
                     buf.write_fmt(*value).unwrap();
@@ -63,8 +62,7 @@ macro_rules! impl_serde_with_tls {
             use serde::ser::Serialize;
             use std::ops::DerefMut;
 
-            TL_VBUF.with(|buf| {
-                let mut buf = buf.borrow_mut();
+            TL_VBUF.with_borrow_mut(|buf| {
                 buf.clear();
 
                 let mut serializer = serde_json::Serializer::new(buf.deref_mut());

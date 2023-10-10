@@ -87,9 +87,8 @@ pub(crate) fn set_remote_connection_info(
     remote: Option<SocketAddr>,
     expire: &Option<DateTime<Utc>>,
 ) {
-    TL_BUF.with(|buf| {
-        let mut buf = buf.borrow_mut();
-        set_value_for_remote_connection_info(buf.as_mut(), server_id, bind, local, remote, expire);
+    TL_BUF.with_borrow_mut(|buf| {
+        set_value_for_remote_connection_info(buf, server_id, bind, local, remote, expire);
         headers.append(HeaderName::from_static(REMOTE_CONNECTION_INFO), unsafe {
             HttpHeaderValue::from_buf_unchecked(buf.clone())
         });
@@ -128,9 +127,8 @@ pub(crate) fn set_dynamic_egress_info(
     server_id: &HttpServerId,
     egress: &EgressInfo,
 ) {
-    TL_BUF.with(|buf| {
-        let mut buf = buf.borrow_mut();
-        set_value_for_dynamic_egress_info(buf.as_mut(), server_id, egress);
+    TL_BUF.with_borrow_mut(|buf| {
+        set_value_for_dynamic_egress_info(buf, server_id, egress);
         headers.append(HeaderName::from_static(DYNAMIC_EGRESS_INFO), unsafe {
             HttpHeaderValue::from_buf_unchecked(buf.clone())
         });

@@ -1,6 +1,7 @@
 [package]
 name = "g3-syslog"
 version = "0.6.0"
+rust-version = "1.73.0"
 license.workspace = true
 edition.workspace = true
 
