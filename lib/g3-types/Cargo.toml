@@ -38,7 +38,7 @@ webpki-roots = { version = "0.25", optional = true }
 rustls-pemfile = { workspace = true, optional = true }
 rustls-native-certs = { workspace = true, optional = true }
 openssl = { workspace = true, optional = true }
-lru = { version = "0.11", default-features = false, optional = true }
+lru = { workspace = true, optional = true }
 bytes = { workspace = true, optional = true }
 http = { workspace = true, optional = true }
 base64 = { workspace = true, optional = true }

@@ -99,6 +99,7 @@ ip_network = "0.4"
 ip_network_table = "0.2"
 radix_trie = "0.2"
 fixedbitset = "0.4.2"
+lru = { version = "0.12", default-features = false }
 #
 digest = "0.10.7"
 md-5 = "0.10.0"
