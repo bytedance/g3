@@ -42,8 +42,8 @@ impl Default for CAresDriverConfig {
     fn default() -> Self {
         CAresDriverConfig {
             flags: c_ares::Flags::empty() | c_ares::Flags::NOCHECKRESP,
-            each_timeout: 5000,
-            each_tries: 2,
+            each_timeout: 2000,
+            each_tries: 3,
             round_robin: false,
             so_send_buf_size: None,
             so_recv_buf_size: None,

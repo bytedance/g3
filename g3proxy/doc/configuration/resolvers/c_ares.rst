@@ -28,7 +28,9 @@ each_timeout
 The number of milliseconds each name server is given to respond to a query on the first try.
 After the first try, the timeout algorithm becomes more complicated, but scales linearly with the value of timeout.
 
-**default**: 5000
+**default**: 2000
+
+.. versionchanged:: 1.7.27 change default value from 5000 to 2000 to match default values set in c-ares 1.20.1
 
 each_tries
 ----------
@@ -37,7 +39,9 @@ each_tries
 
 The number of tries the resolver will try contacting each name server before giving up.
 
-**default**: 2
+**default**: 3
+
+.. versionchanged:: 1.7.27 change default value from 2 to 3 to match default values set in c-ares 1.20.1
 
 round_robin
 -----------

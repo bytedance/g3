@@ -1,4 +1,7 @@
 
+v1.7.27:
+ - Optimization: set default c-ares init options as c-ares 1.20.1 default values
+
 v1.7.26:
  - BUG FIX: fix deb and rpm build scripts
  - BUG FIX: fix parse of cert_pairs of tls server config in various servers
