@@ -96,7 +96,7 @@ impl<T: AsyncOperation> OpensslAsyncTask<T> {
                     &mut ret,
                     Some(start_job::<T>),
                     &mut param as *mut _ as *mut c_void,
-                    mem::size_of::<*mut *mut CallbackValue<T>>(),
+                    mem::size_of::<*mut CallbackValue<T>>(),
                 )
             };
 
@@ -149,7 +149,7 @@ impl<T: AsyncOperation> OpensslAsyncTask<T> {
                     &mut ret,
                     Some(start_job::<T>),
                     &mut param as *mut _ as *mut c_void,
-                    mem::size_of::<*mut *mut CallbackValue<T>>(),
+                    mem::size_of::<*mut CallbackValue<T>>(),
                 )
             };
 
