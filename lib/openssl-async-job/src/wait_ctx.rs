@@ -16,9 +16,13 @@
 
 use std::os::fd::RawFd;
 use std::ptr;
+#[cfg(feature = "callback")]
+use std::task::Waker;
 
 use foreign_types::foreign_type;
 use libc::c_int;
+#[cfg(feature = "callback")]
+use libc::c_void;
 use openssl::error::ErrorStack;
 
 use super::ffi;
@@ -36,9 +40,27 @@ impl AsyncWaitCtx {
     pub(super) fn new() -> Result<Self, ErrorStack> {
         let wait_ctx = unsafe { ffi::ASYNC_WAIT_CTX_new() };
         if wait_ctx.is_null() {
-            return Err(ErrorStack::get());
+            Err(ErrorStack::get())
+        } else {
+            Ok(AsyncWaitCtx(wait_ctx))
         }
-        Ok(AsyncWaitCtx(wait_ctx))
+    }
+
+    #[cfg(feature = "callback")]
+    pub fn set_callback(&self, waker: &Waker) -> Result<(), ErrorStack> {
+        let r = unsafe {
+            ffi::ASYNC_WAIT_CTX_set_callback(self.0, Some(wake), waker as *const _ as *mut c_void)
+        };
+        if r != 1 {
+            Err(ErrorStack::get())
+        } else {
+            Ok(())
+        }
+    }
+
+    #[cfg(feature = "callback")]
+    pub fn get_callback_status(&self) -> c_int {
+        unsafe { ffi::ASYNC_WAIT_CTX_get_status(self.0) }
     }
 
     pub fn get_all_fds(&self) -> Result<Vec<RawFd>, ErrorStack> {
@@ -97,4 +119,12 @@ impl AsyncWaitCtx {
             del_fds.into_iter().map(RawFd::from).collect(),
         ))
     }
+}
+
+#[cfg(feature = "callback")]
+extern "C" fn wake(arg: *mut c_void) -> c_int {
+    let ptr = ptr::NonNull::new(arg as *mut Waker).unwrap();
+    let waker = unsafe { ptr.as_ref() };
+    waker.wake_by_ref();
+    0
 }
