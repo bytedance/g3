@@ -18,10 +18,12 @@ use std::io;
 
 use openssl::encrypt::Decrypter;
 use openssl::hash::MessageDigest;
+use openssl::md::Md;
 use openssl::nid::Nid;
 use openssl::pkey::{PKey, Private};
+use openssl::pkey_ctx::PkeyCtx;
 use openssl::rsa::Padding;
-use openssl::sign::{RsaPssSaltlen, Signer};
+use openssl::sign::RsaPssSaltlen;
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncReadExt};
 
@@ -310,58 +312,53 @@ impl KeylessRequest {
                 Ok(data_rsp)
             }
             KeylessAction::RsaSign(h) => {
-                let mut signer = Signer::new(MessageDigest::from_nid(h).unwrap(), key)
+                let mut ctx = PkeyCtx::new(key).map_err(|_| err_rsp.crypto_fail())?;
+                ctx.sign_init().map_err(|_| err_rsp.crypto_fail())?;
+                ctx.set_signature_md(Md::from_nid(h).unwrap())
                     .map_err(|_| err_rsp.crypto_fail())?;
-                signer
-                    .set_rsa_padding(Padding::PKCS1)
+                ctx.set_rsa_padding(Padding::PKCS1)
                     .map_err(|_| err_rsp.crypto_fail())?;
-                signer
-                    .update(&self.payload)
-                    .map_err(|_| err_rsp.crypto_fail())?;
-                let len = signer
-                    .sign(data_rsp.payload_data_mut())
+
+                let len = ctx
+                    .sign(&self.payload, Some(data_rsp.payload_data_mut()))
                     .map_err(|_| err_rsp.crypto_fail())?;
                 data_rsp.finalize_payload(len);
                 Ok(data_rsp)
             }
             KeylessAction::RsaPssSign(h) => {
-                let mut signer = Signer::new(MessageDigest::from_nid(h).unwrap(), key)
+                let mut ctx = PkeyCtx::new(key).map_err(|_| err_rsp.crypto_fail())?;
+                ctx.sign_init().map_err(|_| err_rsp.crypto_fail())?;
+                ctx.set_signature_md(Md::from_nid(h).unwrap())
                     .map_err(|_| err_rsp.crypto_fail())?;
-                signer
-                    .set_rsa_padding(Padding::PKCS1_PSS)
+                ctx.set_rsa_padding(Padding::PKCS1_PSS)
                     .map_err(|_| err_rsp.crypto_fail())?;
-                signer
-                    .set_rsa_pss_saltlen(RsaPssSaltlen::DIGEST_LENGTH)
+                ctx.set_rsa_pss_saltlen(RsaPssSaltlen::DIGEST_LENGTH)
                     .map_err(|_| err_rsp.crypto_fail())?;
-                signer
-                    .update(&self.payload)
-                    .map_err(|_| err_rsp.crypto_fail())?;
-                let len = signer
-                    .sign(data_rsp.payload_data_mut())
+
+                let len = ctx
+                    .sign(&self.payload, Some(data_rsp.payload_data_mut()))
                     .map_err(|_| err_rsp.crypto_fail())?;
                 data_rsp.finalize_payload(len);
                 Ok(data_rsp)
             }
             KeylessAction::EcdsaSign(h) => {
-                let mut signer = Signer::new(MessageDigest::from_nid(h).unwrap(), key)
+                let mut ctx = PkeyCtx::new(key).map_err(|_| err_rsp.crypto_fail())?;
+                ctx.sign_init().map_err(|_| err_rsp.crypto_fail())?;
+                ctx.set_signature_md(Md::from_nid(h).unwrap())
                     .map_err(|_| err_rsp.crypto_fail())?;
-                signer
-                    .update(&self.payload)
-                    .map_err(|_| err_rsp.crypto_fail())?;
-                let len = signer
-                    .sign(data_rsp.payload_data_mut())
+
+                let len = ctx
+                    .sign(&self.payload, Some(data_rsp.payload_data_mut()))
                     .map_err(|_| err_rsp.crypto_fail())?;
                 data_rsp.finalize_payload(len);
                 Ok(data_rsp)
             }
             KeylessAction::Ed25519Sign => {
-                let mut signer =
-                    Signer::new_without_digest(key).map_err(|_| err_rsp.crypto_fail())?;
-                signer
-                    .update(&self.payload)
-                    .map_err(|_| err_rsp.crypto_fail())?;
-                let len = signer
-                    .sign(data_rsp.payload_data_mut())
+                let mut ctx = PkeyCtx::new(key).map_err(|_| err_rsp.crypto_fail())?;
+                ctx.sign_init().map_err(|_| err_rsp.crypto_fail())?;
+
+                let len = ctx
+                    .sign(&self.payload, Some(data_rsp.payload_data_mut()))
                     .map_err(|_| err_rsp.crypto_fail())?;
                 data_rsp.finalize_payload(len);
                 Ok(data_rsp)
