@@ -1,4 +1,14 @@
 
+v0.3.2:
+ - BUG FIX: fix sign action
+ - BUG FIX: add missing request tags for gauge metrics
+ - Optimization: ignore early connection close error
+ - Feature: various improvements to journal logging
+     - add SYSLOG_IDENTIFIER field
+     - improved efficiency
+     - io stats added
+ - Feature: drop out of date dependencies by using forks and patches
+
 v0.3.1:
  - Feature: default to guess main config file when run as systemd service
  - BUG FIX: ignore failure of ExecStop to ensure restart on success

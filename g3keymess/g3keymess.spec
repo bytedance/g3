@@ -11,7 +11,7 @@
 %define build_profile release-lto
 
 Name:           g3keymess
-Version:        0.3.1
+Version:        0.3.2
 Release:        1%{?dist}
 Summary:        Keyless server for G3 Project
 
@@ -56,5 +56,5 @@ install -m 644 -D %{name}/service/g3keymess@.service %{buildroot}/lib/systemd/sy
 
 
 %changelog
-* Mon Aug 21 2023 G3keymess Maintainers <g3keymess-maintainers@devel.machine> - 0.3.1-1
+* Thu Oct 12 2023 G3keymess Maintainers <g3keymess-maintainers@devel.machine> - 0.3.2-1
 - New upstream release
