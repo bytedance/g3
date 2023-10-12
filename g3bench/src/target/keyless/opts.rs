@@ -21,10 +21,11 @@ use anyhow::anyhow;
 use clap::{value_parser, Arg, ArgAction, ArgGroup, ArgMatches, Command, ValueHint};
 use openssl::encrypt::{Decrypter, Encrypter};
 use openssl::hash::MessageDigest;
+use openssl::md::{Md, MdRef};
 use openssl::nid::Nid;
 use openssl::pkey::{Id, PKey, Private, Public};
+use openssl::pkey_ctx::PkeyCtx;
 use openssl::rsa::Padding;
-use openssl::sign::Signer;
 
 use g3_tls_cert::ext::{X509Ext, X509Pubkey};
 
@@ -110,15 +111,25 @@ pub(crate) enum KeylessSignDigest {
 
 impl KeylessSignDigest {
     fn check_payload(&self, payload: &[u8]) -> anyhow::Result<()> {
-        let digest = MessageDigest::from(*self);
-        if digest.size() != payload.len() {
+        let digest_size = self.md().size();
+        if digest_size != payload.len() {
             return Err(anyhow!(
-                "payload size {} not match digest size {}",
-                payload.len(),
-                digest.size()
+                "payload size {} not match digest size {digest_size}",
+                payload.len()
             ));
         }
         Ok(())
+    }
+
+    fn md(&self) -> &'static MdRef {
+        match self {
+            KeylessSignDigest::Md5Sha1 => Md::from_nid(Nid::MD5_SHA1).unwrap(),
+            KeylessSignDigest::Sha1 => Md::sha1(),
+            KeylessSignDigest::Sha224 => Md::sha224(),
+            KeylessSignDigest::Sha256 => Md::sha256(),
+            KeylessSignDigest::Sha384 => Md::sha384(),
+            KeylessSignDigest::Sha512 => Md::sha512(),
+        }
     }
 }
 
@@ -134,19 +145,6 @@ impl FromStr for KeylessSignDigest {
             "sha384" => Ok(KeylessSignDigest::Sha384),
             "sha512" => Ok(KeylessSignDigest::Sha512),
             _ => Err(anyhow!("unsupported digest type {s}")),
-        }
-    }
-}
-
-impl From<KeylessSignDigest> for MessageDigest {
-    fn from(value: KeylessSignDigest) -> Self {
-        match value {
-            KeylessSignDigest::Md5Sha1 => MessageDigest::from_nid(Nid::MD5_SHA1).unwrap(),
-            KeylessSignDigest::Sha1 => MessageDigest::sha1(),
-            KeylessSignDigest::Sha224 => MessageDigest::sha224(),
-            KeylessSignDigest::Sha256 => MessageDigest::sha256(),
-            KeylessSignDigest::Sha384 => MessageDigest::sha384(),
-            KeylessSignDigest::Sha512 => MessageDigest::sha512(),
         }
     }
 }
@@ -406,9 +404,17 @@ impl KeylessGlobalArgs {
 
     pub(super) fn sign(&self, digest: KeylessSignDigest) -> anyhow::Result<Vec<u8>> {
         let pkey = self.get_private_key()?;
-        let signer = Signer::new(digest.into(), pkey)
-            .map_err(|e| anyhow!("error when create signer: {e}"))?;
-        self.do_sign(signer)
+        let mut ctx =
+            PkeyCtx::new(pkey).map_err(|e| anyhow!("failed to create EVP_PKEY_CTX: {e}"))?;
+        ctx.sign_init()
+            .map_err(|e| anyhow!("sign init failed: {e}"))?;
+        ctx.set_signature_md(digest.md())
+            .map_err(|e| anyhow!("failed to set signature digest type: {e}"))?;
+
+        let mut buf = Vec::new();
+        ctx.sign_to_vec(&self.payload, &mut buf)
+            .map_err(|e| anyhow!("sign failed: {e}"))?;
+        Ok(buf)
     }
 
     pub(super) fn sign_rsa(
@@ -417,28 +423,32 @@ impl KeylessGlobalArgs {
         padding: KeylessRsaPadding,
     ) -> anyhow::Result<Vec<u8>> {
         let pkey = self.get_private_key()?;
-        let mut signer = Signer::new(digest.into(), pkey)
-            .map_err(|e| anyhow!("error when create signer: {e}"))?;
-        signer
-            .set_rsa_padding(padding.into())
-            .map_err(|e| anyhow!("failed to set rsa padding: {e}"))?;
-        self.do_sign(signer)
+        let mut ctx =
+            PkeyCtx::new(pkey).map_err(|e| anyhow!("failed to create EVP_PKEY_CTX: {e}"))?;
+        ctx.sign_init()
+            .map_err(|e| anyhow!("sign init failed: {e}"))?;
+        ctx.set_signature_md(digest.md())
+            .map_err(|e| anyhow!("failed to set signature digest type: {e}"))?;
+        ctx.set_rsa_padding(padding.into())
+            .map_err(|e| anyhow!("failed to set rsa padding type: {e}"))?;
+
+        let mut buf = Vec::new();
+        ctx.sign_to_vec(&self.payload, &mut buf)
+            .map_err(|e| anyhow!("sign failed: {e}"))?;
+        Ok(buf)
     }
 
     pub(super) fn sign_ed(&self) -> anyhow::Result<Vec<u8>> {
         let pkey = self.get_private_key()?;
-        let signer = Signer::new_without_digest(pkey)
-            .map_err(|e| anyhow!("error when create signer: {e}"))?;
-        self.do_sign(signer)
-    }
+        let mut ctx =
+            PkeyCtx::new(pkey).map_err(|e| anyhow!("failed to create EVP_PKEY_CTX: {e}"))?;
+        ctx.sign_init()
+            .map_err(|e| anyhow!("sign init failed: {e}"))?;
 
-    fn do_sign(&self, mut signer: Signer) -> anyhow::Result<Vec<u8>> {
-        signer
-            .update(&self.payload)
-            .map_err(|e| anyhow!("failed to set payload data: {e}"))?;
-        signer
-            .sign_to_vec()
-            .map_err(|e| anyhow!("sign failed: {e}"))
+        let mut buf = Vec::new();
+        ctx.sign_to_vec(&self.payload, &mut buf)
+            .map_err(|e| anyhow!("sign failed: {e}"))?;
+        Ok(buf)
     }
 
     pub(super) fn rsa_private_encrypt(
