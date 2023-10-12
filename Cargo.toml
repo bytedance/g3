@@ -170,7 +170,7 @@ flate2 = "1.0"
 zip = { version = "0.6", default-features = false }
 #
 mlua = "0.9"
-pyo3 = "0.19"
+pyo3 = "0.20"
 #
 rustc_version = "0.4"
 cfg-if = "1.0"
