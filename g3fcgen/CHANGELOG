@@ -1,7 +1,10 @@
 
 v0.6.0:
+ - BUG FIX: fix load of intermediate ca certs
  - Feature: add config file and reduce command line options
  - Feature: default to append ca cert to cert content
+ - Feature: default to use current thread frontend runtime
+ - Feature: add frontend and backend metrics
 
 v0.5.1:
  - Feature: allow to run multiple systemd instances
