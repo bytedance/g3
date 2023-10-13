@@ -26,8 +26,8 @@ use g3_statsd::client::StatsdClientConfig;
 
 pub(crate) mod types;
 
-mod metric;
-pub(crate) use metric::user_site;
+mod metrics;
+pub(crate) use metrics::user_site;
 
 static QUIT_STAT_THREAD: AtomicBool = AtomicBool::new(false);
 
@@ -63,16 +63,16 @@ fn spawn_main_thread(config: &StatsdClientConfig) -> anyhow::Result<JoinHandle<(
         .spawn(move || loop {
             let instant_start = Instant::now();
 
-            metric::server::sync_stats();
-            metric::escaper::sync_stats();
-            metric::resolver::sync_stats();
-            metric::user::sync_stats();
+            metrics::server::sync_stats();
+            metrics::escaper::sync_stats();
+            metrics::resolver::sync_stats();
+            metrics::user::sync_stats();
             g3_daemon::log::metric::sync_stats();
 
-            metric::server::emit_stats(&client);
-            metric::escaper::emit_stats(&client);
-            metric::resolver::emit_stats(&client);
-            metric::user::emit_stats(&client);
+            metrics::server::emit_stats(&client);
+            metrics::escaper::emit_stats(&client);
+            metrics::resolver::emit_stats(&client);
+            metrics::user::emit_stats(&client);
             g3_daemon::log::metric::emit_stats(&client);
 
             client.flush_sink();

@@ -24,7 +24,7 @@ use log::warn;
 
 use g3_statsd::client::StatsdClientConfig;
 
-mod metric;
+mod metrics;
 
 static QUIT_STAT_THREAD: AtomicBool = AtomicBool::new(false);
 
@@ -60,10 +60,10 @@ fn spawn_main_thread(config: &StatsdClientConfig) -> anyhow::Result<JoinHandle<(
         .spawn(move || loop {
             let instant_start = Instant::now();
 
-            metric::server::sync_stats();
+            metrics::server::sync_stats();
             g3_daemon::log::metric::sync_stats();
 
-            metric::server::emit_stats(&client);
+            metrics::server::emit_stats(&client);
             g3_daemon::log::metric::emit_stats(&client);
 
             client.flush_sink();
