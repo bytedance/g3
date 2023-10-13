@@ -301,6 +301,7 @@ fn build_cli_args() -> Command {
             ARG_EC256,
             ARG_EC384,
             ARG_EC521,
+            ARG_SM2,
             ARG_ED25519,
             ARG_ED448,
             ARG_X25519,
