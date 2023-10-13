@@ -17,6 +17,9 @@
 use anyhow::{anyhow, Context};
 use rmpv::ValueRef;
 
+mod stats;
+pub(crate) use stats::FrontendStats;
+
 mod udp_dgram;
 pub(crate) use udp_dgram::UdpDgramFrontend;
 

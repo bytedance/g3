@@ -15,6 +15,7 @@
  */
 
 use std::net::SocketAddr;
+use std::sync::Arc;
 use std::time::Duration;
 
 use ::log::{debug, error, warn};
@@ -27,11 +28,13 @@ mod build;
 pub mod opts;
 use opts::ProcArgs;
 
+mod stat;
+
 mod backend;
-use backend::OpensslBackend;
+use backend::{BackendStats, OpensslBackend};
 
 mod frontend;
-use frontend::{ResponseData, UdpDgramFrontend};
+use frontend::{FrontendStats, ResponseData, UdpDgramFrontend};
 
 pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
     let (req_sender, req_receiver) = flume::bounded::<(String, SocketAddr)>(1024);
@@ -39,10 +42,11 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
 
     let backend_config =
         config::get_backend_config().ok_or_else(|| anyhow!("no backend config available"))?;
+    let backend_stats = Arc::new(BackendStats::default());
 
     g3_daemon::runtime::worker::foreach(|h| {
         let id = h.id;
-        let mut backend = OpensslBackend::new(&backend_config)
+        let mut backend = OpensslBackend::new(&backend_config, &backend_stats)
             .context(format!("failed to build backend {id}"))?;
         let req_receiver = req_receiver.clone();
         let rsp_sender = rsp_sender.clone();
@@ -83,6 +87,11 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
         Ok::<(), anyhow::Error>(())
     })?;
 
+    let frontend_stats = Arc::new(FrontendStats::default());
+    if let Some(stats_config) = g3_daemon::stat::config::get_global_stat_config() {
+        stat::spawn_working_thread(stats_config, backend_stats, frontend_stats.clone())?;
+    }
+
     if let Some(addr) = proc_args.udp_addr {
         let frontend = UdpDgramFrontend::new(addr).await?;
 
@@ -91,6 +100,7 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
         loop {
             tokio::select! {
                 r = frontend.recv_req(&mut rcv_buf) => {
+                    frontend_stats.add_request_total();
                     match r {
                         Ok((len, peer_addr)) => match crate::frontend::decode_req(&rcv_buf[0..len]) {
                             Ok(host) => {
@@ -98,7 +108,10 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
                                     return Err(anyhow!("failed to send request to backend: {e}"));
                                 }
                             }
-                            Err(e) => warn!("FG#0 invalid request from peer {peer_addr}: {e:?}"),
+                            Err(e) => {
+                                frontend_stats.add_request_invalid();
+                                warn!("invalid request from peer {peer_addr}: {e:?}");
+                            }
                         }
                         Err(e) => return Err(anyhow!("frontend recv error: {e:?}")),
                     }
@@ -107,8 +120,10 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
                     match r {
                         Ok((data, peer_addr)) => match data.encode() {
                             Ok(buf) => {
+                                frontend_stats.add_response_total();
                                 if let Err(e) = frontend.send_rsp(buf.as_slice(), peer_addr).await {
-                                    warn!("FG#0 write response back error: {e:?}");
+                                    frontend_stats.add_response_fail();
+                                    warn!("write response back error: {e:?}");
                                 }
                             }
                             Err(e) => return Err(anyhow!("response encode error: {e:?}")),

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Instant;
 
@@ -24,19 +24,15 @@ use log::warn;
 
 use g3_statsd::client::StatsdClientConfig;
 
-mod metric;
+mod metrics;
 
-static QUIT_STAT_THREAD: AtomicBool = AtomicBool::new(false);
+use super::{BackendStats, FrontendStats};
 
 fn build_statsd_client(config: &StatsdClientConfig) -> anyhow::Result<StatsdClient> {
     let builder = config.build().context("failed to build statsd client")?;
 
     let start_instant = Instant::now();
     let client = builder
-        .with_tag(
-            g3_daemon::metric::TAG_KEY_DAEMON_GROUP,
-            crate::opts::daemon_group(),
-        )
         .with_error_handler(move |e| {
             static mut LAST_REPORT_TIME_SLICE: u64 = 0;
             let time_slice = start_instant.elapsed().as_secs().rotate_right(6); // every 64s
@@ -51,40 +47,25 @@ fn build_statsd_client(config: &StatsdClientConfig) -> anyhow::Result<StatsdClie
     Ok(client)
 }
 
-fn spawn_main_thread(config: &StatsdClientConfig) -> anyhow::Result<JoinHandle<()>> {
-    let client = build_statsd_client(config).context("failed to build statsd client")?;
+pub(crate) fn spawn_working_thread(
+    config: StatsdClientConfig,
+    backend_stats: Arc<BackendStats>,
+    frontend_stats: Arc<FrontendStats>,
+) -> anyhow::Result<JoinHandle<()>> {
+    let client = build_statsd_client(&config).context("failed to build statsd client")?;
 
-    let emit_duration = config.emit_duration;
     let handle = std::thread::Builder::new()
         .name("stat-main".to_string())
         .spawn(move || loop {
             let instant_start = Instant::now();
 
-            metric::server::sync_stats();
-            g3_daemon::log::metric::sync_stats();
-
-            metric::server::emit_stats(&client);
-            g3_daemon::log::metric::emit_stats(&client);
+            metrics::backend::emit_stats(&client, &backend_stats);
+            metrics::frontend::emit_stats(&client, &frontend_stats);
 
             client.flush_sink();
 
-            if QUIT_STAT_THREAD.load(Ordering::Relaxed) {
-                break;
-            }
-
-            g3_daemon::stat::emit::wait_duration(emit_duration, instant_start);
+            g3_daemon::stat::emit::wait_duration(config.emit_duration, instant_start);
         })
         .map_err(|e| anyhow!("failed to spawn thread: {e:?}"))?;
     Ok(handle)
-}
-
-pub fn spawn_working_threads(config: StatsdClientConfig) -> anyhow::Result<Vec<JoinHandle<()>>> {
-    let mut handlers = Vec::with_capacity(2);
-    let main_handle = spawn_main_thread(&config).context("failed to spawn main stats thread")?;
-    handlers.push(main_handle);
-    Ok(handlers)
-}
-
-pub fn stop_working_threads() {
-    QUIT_STAT_THREAD.store(true, Ordering::Relaxed);
 }

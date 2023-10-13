@@ -14,9 +14,20 @@
  * limitations under the License.
  */
 
-pub mod config;
+use cadence::{Counted, StatsdClient};
 
-pub mod remote;
-pub mod task;
+use crate::BackendStats;
 
-pub mod emit;
+pub(crate) fn emit_stats(client: &StatsdClient, s: &BackendStats) {
+    macro_rules! emit_count {
+        ($take:ident, $name:literal) => {
+            let v = i64::try_from(s.$take()).unwrap_or(i64::MAX);
+            client.count_with_tags(concat!("backend.", $name), v).send();
+        };
+    }
+
+    emit_count!(take_refresh_total, "refresh_total");
+    emit_count!(take_refresh_ok, "refresh_ok");
+    emit_count!(take_request_total, "request_total");
+    emit_count!(take_request_ok, "request_ok");
+}

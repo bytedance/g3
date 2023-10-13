@@ -39,6 +39,7 @@ fn load_doc(map: &yaml::Hash) -> anyhow::Result<()> {
     g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
         "runtime" => g3_daemon::runtime::config::load(v),
         "worker" => g3_daemon::runtime::config::load_worker(v),
+        "stat" => g3_daemon::stat::config::load(v, crate::build::PKG_NAME),
         "backend" => backend::load_config(v),
         _ => Err(anyhow!("invalid key {k} in main conf")),
     })?;

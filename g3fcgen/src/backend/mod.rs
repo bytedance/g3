@@ -22,31 +22,42 @@ use anyhow::anyhow;
 use g3_tls_cert::builder::{ServerCertBuilder, TlsServerCertBuilder};
 use g3_types::net::Host;
 
+mod stats;
+pub(crate) use stats::BackendStats;
+
 use crate::config::OpensslBackendConfig;
 use crate::frontend::ResponseData;
 
 pub(crate) struct OpensslBackend {
     config: Arc<OpensslBackendConfig>,
     builder: ServerCertBuilder,
+    stats: Arc<BackendStats>,
 }
 
 impl OpensslBackend {
-    pub(crate) fn new(config: &Arc<OpensslBackendConfig>) -> anyhow::Result<Self> {
+    pub(crate) fn new(
+        config: &Arc<OpensslBackendConfig>,
+        stats: &Arc<BackendStats>,
+    ) -> anyhow::Result<Self> {
         let builder = TlsServerCertBuilder::new_ec256()?;
         Ok(OpensslBackend {
             config: Arc::clone(config),
             builder,
+            stats: Arc::clone(stats),
         })
     }
 
     pub(crate) fn refresh(&mut self) -> anyhow::Result<()> {
+        self.stats.add_refresh_total();
         self.builder.refresh_datetime()?;
         self.builder.refresh_ec256()?;
         self.builder.refresh_serial()?;
+        self.stats.add_refresh_ok();
         Ok(())
     }
 
     pub(crate) fn generate(&self, host: &str) -> anyhow::Result<ResponseData> {
+        self.stats.add_request_total();
         let host = Host::from_str(host)?;
         let cert =
             self.builder
@@ -69,6 +80,7 @@ impl OpensslBackend {
             key: unsafe { String::from_utf8_unchecked(key_pem) },
             ttl: 300,
         };
+        self.stats.add_request_ok();
         Ok(data)
     }
 }

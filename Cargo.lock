@@ -1298,12 +1298,14 @@ name = "g3fcgen"
 version = "0.5.1"
 dependencies = [
  "anyhow",
+ "cadence-with-flush",
  "clap",
  "flume",
  "g3-compat",
  "g3-daemon",
  "g3-msgpack",
  "g3-runtime",
+ "g3-statsd",
  "g3-tls-cert",
  "g3-types",
  "g3-yaml",
