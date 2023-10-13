@@ -79,6 +79,8 @@ The code should comply to these, but should be more compliant to existing popula
     : Internet X.509 Public Key Infrastructure: Additional Algorithms and Identifiers for DSA and ECDSA
  - [rfc4055](https://datatracker.ietf.org/doc/html/rfc4055/)
     : Additional Algorithms and Identifiers for RSA Cryptography for use in the Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile
+ - [rfc9295](https://datatracker.ietf.org/doc/html/rfc9295/)
+    : Clarifications for Ed25519, Ed448, X25519, and X448 Algorithm Identifiers
 
 ## Cryptography
 

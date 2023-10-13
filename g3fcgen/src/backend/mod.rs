@@ -41,7 +41,7 @@ impl OpensslBackend {
 
     pub(crate) fn refresh(&mut self) -> anyhow::Result<()> {
         self.builder.refresh_datetime()?;
-        self.builder.refresh_pkey()?;
+        self.builder.refresh_ec256()?;
         self.builder.refresh_serial()?;
         Ok(())
     }

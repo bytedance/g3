@@ -57,10 +57,46 @@ impl TlsServerCertBuilder {
     tls_impl_new!(new_ec384);
     tls_impl_new!(new_ec521);
     tls_impl_new!(new_sm2);
-    tls_impl_new!(new_ed25519);
-    tls_impl_new!(new_ed448);
-    tls_impl_new!(new_x25519);
-    tls_impl_new!(new_x448);
+
+    pub fn new_ed25519() -> anyhow::Result<ServerCertBuilder> {
+        let pkey = super::pkey::new_ed25519()?;
+        let key_usage = KeyUsage::new()
+            .critical()
+            .digital_signature()
+            .build()
+            .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
+        ServerCertBuilder::new(pkey, key_usage)
+    }
+
+    pub fn new_ed448() -> anyhow::Result<ServerCertBuilder> {
+        let pkey = super::pkey::new_ed448()?;
+        let key_usage = KeyUsage::new()
+            .critical()
+            .digital_signature()
+            .build()
+            .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
+        ServerCertBuilder::new(pkey, key_usage)
+    }
+
+    pub fn new_x25519() -> anyhow::Result<ServerCertBuilder> {
+        let pkey = super::pkey::new_x25519()?;
+        let key_usage = KeyUsage::new()
+            .critical()
+            .key_agreement()
+            .build()
+            .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
+        ServerCertBuilder::new(pkey, key_usage)
+    }
+
+    pub fn new_x448() -> anyhow::Result<ServerCertBuilder> {
+        let pkey = super::pkey::new_x448()?;
+        let key_usage = KeyUsage::new()
+            .critical()
+            .key_agreement()
+            .build()
+            .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
+        ServerCertBuilder::new(pkey, key_usage)
+    }
 
     pub fn new_rsa(bits: u32) -> anyhow::Result<ServerCertBuilder> {
         let pkey = super::pkey::new_rsa(bits)?;
@@ -70,6 +106,7 @@ impl TlsServerCertBuilder {
     fn with_pkey(pkey: PKey<Private>) -> anyhow::Result<ServerCertBuilder> {
         let key_usage = KeyUsage::new()
             .critical()
+            .key_agreement()
             .digital_signature()
             .key_encipherment()
             .build()
@@ -136,6 +173,15 @@ impl TlcpServerEncCertBuilder {
     }
 }
 
+macro_rules! impl_refresh_pkey {
+    ($refresh:ident, $new:ident) => {
+        pub fn $refresh(&mut self) -> anyhow::Result<()> {
+            self.pkey = super::pkey::$new()?;
+            Ok(())
+        }
+    };
+}
+
 impl ServerCertBuilder {
     pub fn new(pkey: PKey<Private>, key_usage: X509Extension) -> anyhow::Result<Self> {
         let serial = super::serial::random_16()?;
@@ -187,8 +233,18 @@ impl ServerCertBuilder {
         self.pkey = pkey;
     }
 
-    pub fn refresh_pkey(&mut self) -> anyhow::Result<()> {
-        self.pkey = super::pkey::new_ec256()?;
+    impl_refresh_pkey!(refresh_ec224, new_ec224);
+    impl_refresh_pkey!(refresh_ec256, new_ec256);
+    impl_refresh_pkey!(refresh_ec384, new_ec384);
+    impl_refresh_pkey!(refresh_ec521, new_ec521);
+    impl_refresh_pkey!(refresh_sm2, new_sm2);
+    impl_refresh_pkey!(refresh_ed25519, new_ed25519);
+    impl_refresh_pkey!(refresh_ed448, new_ed448);
+    impl_refresh_pkey!(refresh_x25519, new_x25519);
+    impl_refresh_pkey!(refresh_x448, new_x448);
+
+    pub fn refresh_rsa(&mut self, bits: u32) -> anyhow::Result<()> {
+        self.pkey = super::pkey::new_rsa(bits)?;
         Ok(())
     }
 

@@ -53,8 +53,6 @@ impl IntermediateCertBuilder {
     impl_new!(new_sm2);
     impl_new!(new_ed25519);
     impl_new!(new_ed448);
-    impl_new!(new_x25519);
-    impl_new!(new_x448);
 
     pub fn new_rsa(bits: u32) -> anyhow::Result<Self> {
         let pkey = super::pkey::new_rsa(bits)?;

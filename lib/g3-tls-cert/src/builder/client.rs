@@ -57,10 +57,46 @@ impl TlsClientCertBuilder {
     tls_impl_new!(new_ec384);
     tls_impl_new!(new_ec521);
     tls_impl_new!(new_sm2);
-    tls_impl_new!(new_ed25519);
-    tls_impl_new!(new_ed448);
-    tls_impl_new!(new_x25519);
-    tls_impl_new!(new_x448);
+
+    pub fn new_ed25519() -> anyhow::Result<ClientCertBuilder> {
+        let pkey = super::pkey::new_ed25519()?;
+        let key_usage = KeyUsage::new()
+            .critical()
+            .digital_signature()
+            .build()
+            .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
+        ClientCertBuilder::new(pkey, key_usage)
+    }
+
+    pub fn new_ed448() -> anyhow::Result<ClientCertBuilder> {
+        let pkey = super::pkey::new_ed448()?;
+        let key_usage = KeyUsage::new()
+            .critical()
+            .digital_signature()
+            .build()
+            .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
+        ClientCertBuilder::new(pkey, key_usage)
+    }
+
+    pub fn new_x25519() -> anyhow::Result<ClientCertBuilder> {
+        let pkey = super::pkey::new_x25519()?;
+        let key_usage = KeyUsage::new()
+            .critical()
+            .key_agreement()
+            .build()
+            .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
+        ClientCertBuilder::new(pkey, key_usage)
+    }
+
+    pub fn new_x448() -> anyhow::Result<ClientCertBuilder> {
+        let pkey = super::pkey::new_x448()?;
+        let key_usage = KeyUsage::new()
+            .critical()
+            .key_agreement()
+            .build()
+            .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
+        ClientCertBuilder::new(pkey, key_usage)
+    }
 
     pub fn new_rsa(bits: u32) -> anyhow::Result<ClientCertBuilder> {
         let pkey = super::pkey::new_rsa(bits)?;
@@ -70,6 +106,7 @@ impl TlsClientCertBuilder {
     fn with_pkey(pkey: PKey<Private>) -> anyhow::Result<ClientCertBuilder> {
         let key_usage = KeyUsage::new()
             .critical()
+            .key_agreement()
             .digital_signature()
             .key_encipherment()
             .build()
