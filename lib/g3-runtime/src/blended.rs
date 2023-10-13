@@ -46,6 +46,12 @@ impl BlendedRuntimeConfig {
         self.thread_number = Some(num);
     }
 
+    pub fn set_default_thread_number(&mut self, num: usize) {
+        if self.thread_name.is_none() {
+            self.thread_number = Some(num);
+        }
+    }
+
     pub fn set_thread_name(&mut self, name: impl Into<String>) {
         self.thread_name = Some(name.into());
     }

@@ -67,6 +67,10 @@ pub fn load_worker(v: &Yaml) -> anyhow::Result<()> {
     Ok(())
 }
 
+pub fn set_default_thread_number(num: usize) {
+    unsafe { RUNTIME_CONFIG.set_default_thread_number(num) };
+}
+
 fn set_global_config(k: &str, v: &Yaml) -> anyhow::Result<()> {
     match g3_yaml::key::normalize(k).as_str() {
         "server_offline_delay" => {

@@ -39,6 +39,7 @@ fn main() -> anyhow::Result<()> {
     let _log_guard = g3_daemon::log::process::setup(&proc_args.daemon_config)
         .context("failed to setup logger")?;
 
+    g3_daemon::runtime::config::set_default_thread_number(0); // default to use current thread
     let config_file = g3fcgen::config::load()
         .context(format!("failed to load config, opts: {:?}", &proc_args))?;
     debug!("loaded config from {}", config_file.display());
