@@ -152,7 +152,7 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 - c-ares
   * UDP
   * TCP
-- trust-dns
+- hickory
   * UDP / TCP
   * DNS over TLS
   * DNS over HTTPS

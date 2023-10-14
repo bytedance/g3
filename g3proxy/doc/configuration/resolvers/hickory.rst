@@ -1,11 +1,11 @@
-.. _configuration_resolver_trust_dns:
+.. _configuration_resolver_hickory:
 
-trust_dns
-=========
+hickory
+=======
 
 .. versionadded:: 1.1.4
 
-This is the resolver based on trust-dns library.
+This is the resolver based on hickory dns library.
 
 server
 ------

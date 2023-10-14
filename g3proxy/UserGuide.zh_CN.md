@@ -272,12 +272,12 @@ udp_sock_speed_limit: 10M/s
 
 ### 安全解析
 
-需要使用非明文的方式访问DNS递归解析服务器时，需要使用trust-dns解析，示例如下：
+需要使用非明文的方式访问DNS递归解析服务器时，需要使用hickory解析，示例如下：
 
 ```yaml
 resolver:
   - name: default
-    type: trust-dns
+    type: hickory
     server: 1.1.1.1
     encryption: dns-over-https # 此外也支持 dns-over-tls、dns-over-quic
 ```

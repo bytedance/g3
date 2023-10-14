@@ -28,7 +28,7 @@ use g3_yaml::{HybridParser, YamlDocPosition};
 
 #[cfg(feature = "c-ares")]
 pub(crate) mod c_ares;
-pub(crate) mod trust_dns;
+pub(crate) mod hickory;
 
 pub(crate) mod deny_all;
 pub(crate) mod fail_over;
@@ -92,10 +92,10 @@ fn load_resolver(
                 .context("failed to load this c-ares resolver")?;
             Ok(AnyResolverConfig::CAres(resolver))
         }
-        "trust_dns" | "trustdns" => {
-            let resolver = trust_dns::TrustDnsResolverConfig::parse(map, position)
-                .context("failed to load this trust-dns resolver")?;
-            Ok(AnyResolverConfig::TrustDns(resolver))
+        "hickory" | "hickory_dns" | "hickorydns" | "trust_dns" | "trustdns" => {
+            let resolver = hickory::HickoryResolverConfig::parse(map, position)
+                .context("failed to load this hickory resolver")?;
+            Ok(AnyResolverConfig::Hickory(resolver))
         }
         "deny_all" | "denyall" => {
             let resolver = deny_all::DenyAllResolverConfig::parse(map, position)

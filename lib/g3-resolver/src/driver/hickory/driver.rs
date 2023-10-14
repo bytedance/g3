@@ -28,7 +28,7 @@ use crate::config::ResolverRuntimeConfig;
 use crate::message::ResolveDriverResponse;
 use crate::{ResolveDriver, ResolvedRecord};
 
-pub(super) struct TrustDnsResolver {
+pub(super) struct HickoryResolver {
     pub(super) inner: Arc<TokioAsyncResolver>,
     pub(super) protective_cache_ttl: u32,
 }
@@ -38,7 +38,7 @@ struct JobConfig {
     protective_cache_ttl: u32,
 }
 
-impl TrustDnsResolver {
+impl HickoryResolver {
     fn build_job_config(&self, rc: &ResolverRuntimeConfig) -> JobConfig {
         JobConfig {
             timeout: rc.protective_query_timeout,
@@ -97,7 +97,7 @@ where
     }
 }
 
-impl ResolveDriver for TrustDnsResolver {
+impl ResolveDriver for HickoryResolver {
     fn query_v4(
         &self,
         domain: String,

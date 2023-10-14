@@ -21,36 +21,36 @@ use std::str::FromStr;
 use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
 
-use g3_resolver::driver::trust_dns::TrustDnsDriverConfig;
+use g3_resolver::driver::hickory::HickoryDriverConfig;
 use g3_resolver::{AnyResolveDriverConfig, ResolverRuntimeConfig};
 use g3_types::metrics::MetricsName;
 use g3_yaml::YamlDocPosition;
 
 use super::{AnyResolverConfig, ResolverConfigDiffAction};
 
-const RESOLVER_CONFIG_TYPE: &str = "trust-dns";
+const RESOLVER_CONFIG_TYPE: &str = "hickory";
 
 #[derive(Clone, PartialEq)]
-pub(crate) struct TrustDnsResolverConfig {
+pub(crate) struct HickoryResolverConfig {
     name: MetricsName,
     position: Option<YamlDocPosition>,
     runtime: ResolverRuntimeConfig,
-    driver: TrustDnsDriverConfig,
+    driver: HickoryDriverConfig,
 }
 
-impl From<&TrustDnsResolverConfig> for g3_resolver::ResolverConfig {
-    fn from(c: &TrustDnsResolverConfig) -> Self {
+impl From<&HickoryResolverConfig> for g3_resolver::ResolverConfig {
+    fn from(c: &HickoryResolverConfig) -> Self {
         g3_resolver::ResolverConfig {
             name: c.name.to_string(),
             runtime: c.runtime.clone(),
-            driver: AnyResolveDriverConfig::TrustDns(Box::new(c.driver.clone())),
+            driver: AnyResolveDriverConfig::Hickory(Box::new(c.driver.clone())),
         }
     }
 }
 
-impl TrustDnsResolverConfig {
+impl HickoryResolverConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
-        TrustDnsResolverConfig {
+        HickoryResolverConfig {
             name: MetricsName::default(),
             position,
             runtime: Default::default(),
@@ -201,7 +201,7 @@ impl TrustDnsResolverConfig {
     }
 }
 
-impl super::ResolverConfig for TrustDnsResolverConfig {
+impl super::ResolverConfig for HickoryResolverConfig {
     fn name(&self) -> &MetricsName {
         &self.name
     }
@@ -216,7 +216,7 @@ impl super::ResolverConfig for TrustDnsResolverConfig {
 
     fn diff_action(&self, new: &AnyResolverConfig) -> ResolverConfigDiffAction {
         let new = match new {
-            AnyResolverConfig::TrustDns(new) => new,
+            AnyResolverConfig::Hickory(new) => new,
             _ => return ResolverConfigDiffAction::SpawnNew,
         };
 

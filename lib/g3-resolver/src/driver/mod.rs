@@ -24,16 +24,16 @@ pub mod fail_over;
 #[cfg(feature = "c-ares")]
 pub mod c_ares;
 
-#[cfg(feature = "trust-dns")]
-pub mod trust_dns;
+#[cfg(feature = "hickory")]
+pub mod hickory;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum AnyResolveDriverConfig {
     FailOver(fail_over::FailOverDriverConfig),
     #[cfg(feature = "c-ares")]
     CAres(c_ares::CAresDriverConfig),
-    #[cfg(feature = "trust-dns")]
-    TrustDns(Box<trust_dns::TrustDnsDriverConfig>),
+    #[cfg(feature = "hickory")]
+    Hickory(Box<hickory::HickoryDriverConfig>),
 }
 
 impl AnyResolveDriverConfig {
@@ -42,8 +42,8 @@ impl AnyResolveDriverConfig {
             AnyResolveDriverConfig::FailOver(c) => Ok(c.spawn_resolver_driver()),
             #[cfg(feature = "c-ares")]
             AnyResolveDriverConfig::CAres(c) => c.spawn_resolver_driver(),
-            #[cfg(feature = "trust-dns")]
-            AnyResolveDriverConfig::TrustDns(c) => c.spawn_resolver_driver(),
+            #[cfg(feature = "hickory")]
+            AnyResolveDriverConfig::Hickory(c) => c.spawn_resolver_driver(),
         }
     }
 }

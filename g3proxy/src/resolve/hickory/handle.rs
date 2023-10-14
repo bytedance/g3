@@ -25,23 +25,23 @@ use g3_resolver::{ResolveError, ResolveQueryType, ResolvedRecordSource};
 use g3_slog_types::{LtDuration, LtIpAddr};
 use g3_types::metrics::MetricsName;
 
-use crate::config::resolver::trust_dns::TrustDnsResolverConfig;
+use crate::config::resolver::hickory::HickoryResolverConfig;
 use crate::config::resolver::ResolverConfig;
 use crate::resolve::{BoxLoggedResolveJob, IntegratedResolverHandle, LoggedResolveJob};
 
-pub(crate) struct TrustDnsResolverHandle {
-    config: Arc<TrustDnsResolverConfig>,
+pub(crate) struct HickoryResolverHandle {
+    config: Arc<HickoryResolverConfig>,
     inner: g3_resolver::ResolverHandle,
     logger: Arc<Logger>,
 }
 
-impl TrustDnsResolverHandle {
+impl HickoryResolverHandle {
     pub(crate) fn new(
-        config: &Arc<TrustDnsResolverConfig>,
+        config: &Arc<HickoryResolverConfig>,
         inner: g3_resolver::ResolverHandle,
         logger: &Arc<Logger>,
     ) -> Self {
-        TrustDnsResolverHandle {
+        HickoryResolverHandle {
             config: Arc::clone(config),
             inner,
             logger: Arc::clone(logger),
@@ -49,7 +49,7 @@ impl TrustDnsResolverHandle {
     }
 }
 
-impl IntegratedResolverHandle for TrustDnsResolverHandle {
+impl IntegratedResolverHandle for HickoryResolverHandle {
     fn name(&self) -> &MetricsName {
         self.config.name()
     }
@@ -60,7 +60,7 @@ impl IntegratedResolverHandle for TrustDnsResolverHandle {
 
     fn query_v4(&self, domain: String) -> Result<BoxLoggedResolveJob, ResolveError> {
         let job = self.inner.get_v4(domain.clone())?;
-        Ok(Box::new(TrustDnsResolverJob {
+        Ok(Box::new(HickoryResolverJob {
             config: Arc::clone(&self.config),
             domain,
             query_type: ResolveQueryType::A,
@@ -72,7 +72,7 @@ impl IntegratedResolverHandle for TrustDnsResolverHandle {
 
     fn query_v6(&self, domain: String) -> Result<BoxLoggedResolveJob, ResolveError> {
         let job = self.inner.get_v6(domain.clone())?;
-        Ok(Box::new(TrustDnsResolverJob {
+        Ok(Box::new(HickoryResolverJob {
             config: Arc::clone(&self.config),
             domain,
             query_type: ResolveQueryType::Aaaa,
@@ -87,8 +87,8 @@ impl IntegratedResolverHandle for TrustDnsResolverHandle {
     }
 }
 
-struct TrustDnsResolverJob {
-    config: Arc<TrustDnsResolverConfig>,
+struct HickoryResolverJob {
+    config: Arc<HickoryResolverConfig>,
     domain: String,
     query_type: ResolveQueryType,
     inner: g3_resolver::ResolveJob,
@@ -96,7 +96,7 @@ struct TrustDnsResolverJob {
     create_ins: Instant,
 }
 
-impl LoggedResolveJob for TrustDnsResolverJob {
+impl LoggedResolveJob for HickoryResolverJob {
     fn log_error(&self, e: &ResolveError, source: ResolvedRecordSource) {
         let servers = self
             .config

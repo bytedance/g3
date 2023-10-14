@@ -19,7 +19,7 @@ use std::time::Duration;
 use super::AnyResolveDriverConfig;
 
 pub(crate) const RESOLVER_MINIMUM_CACHE_TTL: u32 = 30;
-#[cfg(any(feature = "c-ares", feature = "trust-dns"))]
+#[cfg(any(feature = "c-ares", feature = "hickory"))]
 pub(crate) const RESOLVER_MAXIMUM_CACHE_TTL: u32 = 3600;
 
 const RESOLVER_CACHE_INITIAL_CAPACITY: usize = 10;

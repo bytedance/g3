@@ -3,7 +3,7 @@
 c_ares
 ======
 
-This is the resolver based on c-ares library.
+This is the resolver based on c-ares dns library.
 
 server
 ------

@@ -1,6 +1,6 @@
 [package]
 name = "g3-resolver"
-version = "0.4.0"
+version = "0.5.0"
 license.workspace = true
 edition.workspace = true
 
@@ -25,4 +25,4 @@ g3-types = { workspace = true, optional = true }
 default = []
 c-ares = ["dep:c-ares", "dep:c-ares-resolver"]
 vendored-c-ares = ["c-ares", "c-ares-resolver/vendored", "c-ares/vendored"]
-trust-dns = ["dep:hickory-resolver", "dep:hickory-proto", "g3-types/rustls", "dep:rustls"]
+hickory = ["dep:hickory-resolver", "dep:hickory-proto", "g3-types/rustls", "dep:rustls"]

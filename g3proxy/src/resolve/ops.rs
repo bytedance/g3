@@ -28,7 +28,7 @@ use crate::config::resolver::{AnyResolverConfig, ResolverConfigDiffAction};
 
 #[cfg(feature = "c-ares")]
 use super::c_ares::CAresResolver;
-use super::trust_dns::TrustDnsResolver;
+use super::hickory::HickoryResolver;
 
 use super::deny_all::DenyAllResolver;
 use super::fail_over::FailOverResolver;
@@ -167,7 +167,7 @@ async fn spawn_new_unlocked(config: AnyResolverConfig) -> anyhow::Result<()> {
     let resolver = match config {
         #[cfg(feature = "c-ares")]
         AnyResolverConfig::CAres(_) => CAresResolver::new_obj(config)?,
-        AnyResolverConfig::TrustDns(_) => TrustDnsResolver::new_obj(config)?,
+        AnyResolverConfig::Hickory(_) => HickoryResolver::new_obj(config)?,
         AnyResolverConfig::DenyAll(_) => DenyAllResolver::new_obj(config)?,
         AnyResolverConfig::FailOver(_) => FailOverResolver::new_obj(config)?,
     };

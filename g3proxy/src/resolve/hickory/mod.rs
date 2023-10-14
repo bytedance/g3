@@ -14,10 +14,8 @@
  * limitations under the License.
  */
 
-mod driver;
-use driver::TrustDnsResolver;
+mod handle;
+mod resolver;
 
-mod error;
-
-mod config;
-pub use config::TrustDnsDriverConfig;
+use handle::HickoryResolverHandle;
+pub(super) use resolver::HickoryResolver;

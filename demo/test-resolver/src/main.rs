@@ -22,8 +22,7 @@ use slog::{slog_o, Drain};
 use slog_scope::GlobalLoggerGuard;
 
 use g3_resolver::{
-    driver::trust_dns::TrustDnsDriverConfig, AnyResolveDriverConfig, ResolverBuilder,
-    ResolverConfig,
+    driver::hickory::HickoryDriverConfig, AnyResolveDriverConfig, ResolverBuilder, ResolverConfig,
 };
 use g3_types::log::AsyncLogConfig;
 
@@ -46,11 +45,11 @@ fn main() {
         .build()
         .unwrap();
     rt.block_on(async {
-        let mut config = TrustDnsDriverConfig::default();
+        let mut config = HickoryDriverConfig::default();
         config.add_server(IpAddr::from_str("223.5.5.5").unwrap());
         let config = ResolverConfig {
             name: String::new(),
-            driver: AnyResolveDriverConfig::TrustDns(Box::new(config)),
+            driver: AnyResolveDriverConfig::Hickory(Box::new(config)),
             runtime: Default::default(),
         };
         let resolver = ResolverBuilder::new(config).build().unwrap();

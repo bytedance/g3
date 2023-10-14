@@ -26,11 +26,11 @@ use rustls::ServerName;
 
 use g3_types::net::{DnsEncryptionConfigBuilder, DnsEncryptionProtocol};
 
-use super::TrustDnsResolver;
+use super::HickoryResolver;
 use crate::BoxResolverDriver;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct TrustDnsDriverConfig {
+pub struct HickoryDriverConfig {
     each_timeout: Duration,
     retry_attempts: usize,
     positive_min_ttl: u32,
@@ -43,9 +43,9 @@ pub struct TrustDnsDriverConfig {
     encryption: Option<DnsEncryptionConfigBuilder>,
 }
 
-impl Default for TrustDnsDriverConfig {
+impl Default for HickoryDriverConfig {
     fn default() -> Self {
-        TrustDnsDriverConfig {
+        HickoryDriverConfig {
             each_timeout: Duration::from_secs(5),
             retry_attempts: 2,
             positive_min_ttl: crate::config::RESOLVER_MINIMUM_CACHE_TTL,
@@ -60,8 +60,8 @@ impl Default for TrustDnsDriverConfig {
     }
 }
 
-impl From<&TrustDnsDriverConfig> for ResolverOpts {
-    fn from(c: &TrustDnsDriverConfig) -> Self {
+impl From<&HickoryDriverConfig> for ResolverOpts {
+    fn from(c: &HickoryDriverConfig) -> Self {
         let mut opts = ResolverOpts::default();
         opts.timeout = c.each_timeout;
         opts.attempts = c.retry_attempts;
@@ -76,15 +76,15 @@ impl From<&TrustDnsDriverConfig> for ResolverOpts {
     }
 }
 
-impl TryFrom<&TrustDnsDriverConfig> for NameServerConfigGroup {
+impl TryFrom<&HickoryDriverConfig> for NameServerConfigGroup {
     type Error = anyhow::Error;
 
-    fn try_from(c: &TrustDnsDriverConfig) -> anyhow::Result<Self> {
+    fn try_from(c: &HickoryDriverConfig) -> anyhow::Result<Self> {
         let g = if let Some(ec) = &c.encryption {
             let tls_name = match ec.tls_name() {
                 ServerName::DnsName(n) => n.as_ref().to_string(),
                 ServerName::IpAddress(ip) => ip.to_string(),
-                v => return Err(anyhow!("unsupported tls server name: {v:?}")), // FIXME add after trust-dns support it
+                v => return Err(anyhow!("unsupported tls server name: {v:?}")), // FIXME add after hickory support it
             };
 
             let mut g = match ec.protocol() {
@@ -128,7 +128,7 @@ impl TryFrom<&TrustDnsDriverConfig> for NameServerConfigGroup {
     }
 }
 
-impl TrustDnsDriverConfig {
+impl HickoryDriverConfig {
     pub fn add_server(&mut self, ip: IpAddr) {
         self.servers.push(ip);
     }
@@ -200,7 +200,7 @@ impl TrustDnsDriverConfig {
 
         let d_resolver = TokioAsyncResolver::tokio(d_config, d_opts);
 
-        let resolver = TrustDnsResolver {
+        let resolver = HickoryResolver {
             inner: Arc::new(d_resolver),
             protective_cache_ttl: self.negative_min_ttl,
         };

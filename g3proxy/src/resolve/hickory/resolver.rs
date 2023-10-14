@@ -23,22 +23,22 @@ use slog::Logger;
 
 use g3_types::metrics::MetricsName;
 
-use crate::config::resolver::trust_dns::TrustDnsResolverConfig;
+use crate::config::resolver::hickory::HickoryResolverConfig;
 use crate::config::resolver::{AnyResolverConfig, ResolverConfig};
 use crate::resolve::{
     ArcIntegratedResolverHandle, BoxResolver, Resolver, ResolverInternal, ResolverStats,
 };
 
-pub(crate) struct TrustDnsResolver {
-    config: Arc<TrustDnsResolverConfig>,
+pub(crate) struct HickoryResolver {
+    config: Arc<HickoryResolverConfig>,
     inner: g3_resolver::Resolver,
     stats: Arc<ResolverStats>,
     logger: Arc<Logger>,
 }
 
-impl TrustDnsResolver {
+impl HickoryResolver {
     pub(crate) fn new_obj(config: AnyResolverConfig) -> anyhow::Result<BoxResolver> {
-        if let AnyResolverConfig::TrustDns(config) = config {
+        if let AnyResolverConfig::Hickory(config) = config {
             let mut builder = g3_resolver::ResolverBuilder::new((&config).into());
             builder.thread_name(format!("res-{}", config.name()));
             let resolver = builder.build()?;
@@ -46,26 +46,26 @@ impl TrustDnsResolver {
             let logger = crate::log::resolve::get_logger(config.resolver_type(), config.name());
             let stats = ResolverStats::new(config.name(), resolver.get_stats());
 
-            Ok(Box::new(TrustDnsResolver {
+            Ok(Box::new(HickoryResolver {
                 config: Arc::new(config),
                 inner: resolver,
                 stats: Arc::new(stats),
                 logger: Arc::new(logger),
             }))
         } else {
-            Err(anyhow!("invalid config type for TrustDnsResolver"))
+            Err(anyhow!("invalid config type for HickoryResolver"))
         }
     }
 }
 
 #[async_trait]
-impl ResolverInternal for TrustDnsResolver {
+impl ResolverInternal for HickoryResolver {
     fn _dependent_resolver(&self) -> Option<BTreeSet<MetricsName>> {
         None
     }
 
     fn _clone_config(&self) -> AnyResolverConfig {
-        AnyResolverConfig::TrustDns(self.config.as_ref().clone())
+        AnyResolverConfig::Hickory(self.config.as_ref().clone())
     }
 
     fn _update_config(
@@ -73,14 +73,14 @@ impl ResolverInternal for TrustDnsResolver {
         config: AnyResolverConfig,
         _dep_table: BTreeMap<MetricsName, ArcIntegratedResolverHandle>,
     ) -> anyhow::Result<()> {
-        if let AnyResolverConfig::TrustDns(config) = config {
+        if let AnyResolverConfig::Hickory(config) = config {
             self.inner
                 .update_config((&config).into())
-                .context("failed to update inner trust_dns resolver config")?;
+                .context("failed to update inner hickory resolver config")?;
             self.config = Arc::new(config);
             Ok(())
         } else {
-            Err(anyhow!("invalid config type for TrustDnsResolver"))
+            Err(anyhow!("invalid config type for HickoryResolver"))
         }
     }
 
@@ -97,10 +97,10 @@ impl ResolverInternal for TrustDnsResolver {
     }
 }
 
-impl Resolver for TrustDnsResolver {
+impl Resolver for HickoryResolver {
     fn get_handle(&self) -> ArcIntegratedResolverHandle {
         let inner_context = self.inner.get_handle();
-        Arc::new(super::TrustDnsResolverHandle::new(
+        Arc::new(super::HickoryResolverHandle::new(
             &self.config,
             inner_context,
             &self.logger,

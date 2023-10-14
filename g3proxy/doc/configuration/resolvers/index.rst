@@ -20,7 +20,7 @@ Resolvers
    deny_all
    fail_over
    c_ares
-   trust_dns
+   hickory
 
 Common Keys
 ===========

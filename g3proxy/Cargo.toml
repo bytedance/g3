@@ -72,7 +72,7 @@ g3-yaml = { workspace = true, features = ["resolve", "rustls", "openssl", "acl-r
 g3-json = { workspace = true, features = ["acl-rule", "resolve", "http", "rustls", "openssl", "proxy"] }
 g3-msgpack.workspace = true
 g3-io-ext.workspace = true
-g3-resolver = { workspace = true, features = ["trust-dns"] }
+g3-resolver = { workspace = true, features = ["hickory"] }
 g3-xcrypt.workspace = true
 g3-ftp-client.workspace = true
 g3-http.workspace = true
