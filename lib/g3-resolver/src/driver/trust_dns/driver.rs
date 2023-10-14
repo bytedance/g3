@@ -19,10 +19,10 @@ use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
+use hickory_resolver::lookup::{Ipv4Lookup, Ipv6Lookup};
+use hickory_resolver::TokioAsyncResolver;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
-use trust_dns_resolver::lookup::{Ipv4Lookup, Ipv6Lookup};
-use trust_dns_resolver::TokioAsyncResolver;
 
 use crate::config::ResolverRuntimeConfig;
 use crate::message::ResolveDriverResponse;
@@ -79,7 +79,7 @@ async fn resolve_protective<F, T>(
     config: JobConfig,
 ) -> ResolvedRecord
 where
-    F: Future<Output = Result<T, trust_dns_resolver::error::ResolveError>>,
+    F: Future<Output = Result<T, hickory_resolver::error::ResolveError>>,
     T: ResultConverter,
 {
     match tokio::time::timeout(config.timeout, query_future).await {

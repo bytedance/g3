@@ -19,9 +19,9 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
+use hickory_client::client::{AsyncClient, ClientHandle};
+use hickory_proto::op::ResponseCode;
 use tokio::time::Instant;
-use trust_dns_client::client::{AsyncClient, ClientHandle};
-use trust_dns_proto::op::ResponseCode;
 
 use super::{
     BenchDnsArgs, BenchTaskContext, DnsHistogramRecorder, DnsRequestPickState, DnsRuntimeStats,

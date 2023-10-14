@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-use trust_dns_proto::op::ResponseCode;
-use trust_dns_resolver::error::ResolveErrorKind;
+use hickory_proto::op::ResponseCode;
+use hickory_resolver::error::ResolveErrorKind;
 
 use crate::error::{ResolveDriverError, ResolveError, ResolveServerError};
 
-impl From<trust_dns_resolver::error::ResolveError> for ResolveError {
-    fn from(e: trust_dns_resolver::error::ResolveError) -> Self {
+impl From<hickory_resolver::error::ResolveError> for ResolveError {
+    fn from(e: hickory_resolver::error::ResolveError) -> Self {
         match e.kind() {
             ResolveErrorKind::NoRecordsFound { response_code, .. } => match response_code {
                 ResponseCode::FormErr => ResolveServerError::FormErr.into(),

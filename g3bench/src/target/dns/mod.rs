@@ -19,7 +19,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use clap::{ArgMatches, Command};
-use trust_dns_proto::rr::{DNSClass, Name, RecordType};
+use hickory_proto::rr::{DNSClass, Name, RecordType};
 
 use super::{BenchTarget, BenchTaskContext, ProcArgs};
 

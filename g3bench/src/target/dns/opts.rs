@@ -25,10 +25,10 @@ use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
+use hickory_client::client::AsyncClient;
+use hickory_proto::iocompat::AsyncIoTokioAsStd;
 use rustls::ClientConfig;
 use tokio::net::{TcpStream, UdpSocket};
-use trust_dns_client::client::AsyncClient;
-use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
 
 use g3_types::net::{DnsEncryptionProtocol, RustlsClientConfigBuilder};
 
@@ -152,7 +152,7 @@ impl BenchDnsArgs {
     async fn new_dns_over_udp_client(&self) -> anyhow::Result<AsyncClient> {
         // FIXME should we use random port?
         let client_connect =
-            trust_dns_client::udp::UdpClientStream::<UdpSocket>::with_bind_addr_and_timeout(
+            hickory_client::udp::UdpClientStream::<UdpSocket>::with_bind_addr_and_timeout(
                 self.target,
                 self.bind,
                 self.connect_timeout,
@@ -167,7 +167,7 @@ impl BenchDnsArgs {
 
     async fn new_dns_over_tcp_client(&self) -> anyhow::Result<AsyncClient> {
         let (stream, sender) =
-            trust_dns_client::tcp::TcpClientStream::<AsyncIoTokioAsStd<TcpStream>>::with_bind_addr_and_timeout(
+            hickory_client::tcp::TcpClientStream::<AsyncIoTokioAsStd<TcpStream>>::with_bind_addr_and_timeout(
                 self.target,
                 self.bind,
                 self.connect_timeout,
@@ -185,7 +185,7 @@ impl BenchDnsArgs {
         tls_client: Arc<ClientConfig>,
         tls_name: String,
     ) -> anyhow::Result<AsyncClient> {
-        let (stream, sender) = trust_dns_proto::rustls::tls_client_connect_with_bind_addr::<
+        let (stream, sender) = hickory_proto::rustls::tls_client_connect_with_bind_addr::<
             AsyncIoTokioAsStd<TcpStream>,
         >(self.target, self.bind, tls_name, tls_client);
 
@@ -202,7 +202,7 @@ impl BenchDnsArgs {
         tls_name: String,
     ) -> anyhow::Result<AsyncClient> {
         let mut builder =
-            trust_dns_proto::https::HttpsClientStreamBuilder::with_client_config(tls_client);
+            hickory_proto::h2::HttpsClientStreamBuilder::with_client_config(tls_client);
         if let Some(addr) = self.bind {
             builder.bind_addr(addr);
         }
@@ -220,7 +220,7 @@ impl BenchDnsArgs {
         tls_client: &ClientConfig,
         tls_name: String,
     ) -> anyhow::Result<AsyncClient> {
-        let mut builder = trust_dns_proto::quic::QuicClientStream::builder();
+        let mut builder = hickory_proto::quic::QuicClientStream::builder();
         builder.crypto_config(tls_client.clone());
         if let Some(addr) = self.bind {
             builder.bind_addr(addr);
