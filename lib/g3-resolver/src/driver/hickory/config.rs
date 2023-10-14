@@ -100,6 +100,12 @@ impl TryFrom<&HickoryDriverConfig> for NameServerConfigGroup {
                     tls_name,
                     false,
                 ),
+                DnsEncryptionProtocol::H3 => NameServerConfigGroup::from_ips_h3(
+                    &c.servers,
+                    c.server_port.unwrap_or(443),
+                    tls_name,
+                    false,
+                ),
                 DnsEncryptionProtocol::Quic => NameServerConfigGroup::from_ips_quic(
                     &c.servers,
                     c.server_port.unwrap_or(853),

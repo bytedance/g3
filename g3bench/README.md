@@ -43,6 +43,7 @@ Benchmark tool for HTTP 1.x / HTTP 2 / HTTP 3 / TLS Handshake / DNS / Cloudflare
   * DNS over TCP
   * DNS over TLS
   * DNS over HTTPS
+  * DNS over HTTP/3
   * DNS over QUIC
 
 - *Cloudflare Keyless*

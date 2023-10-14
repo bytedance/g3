@@ -1,4 +1,7 @@
 
+v0.8.4:
+ - Feature: support dns over http/3 in dns target
+
 v0.8.3:
  - BUG FIX: fix the load of x509 cert in keyless target
 

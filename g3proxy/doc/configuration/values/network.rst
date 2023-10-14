@@ -763,6 +763,10 @@ The followings values are supported:
 
 .. _dns over https: https://datatracker.ietf.org/doc/html/rfc8484
 
+* dns-over-http/3 | doh3 | h3
+
+  If *dns over http/3* should be used.
+
 * dns-over-quic | doq | quic
 
   If `dns over quic`_ should be used.
@@ -770,6 +774,8 @@ The followings values are supported:
 .. _dns over quic: https://datatracker.ietf.org/doc/html/rfc9250
 
 .. versionchanged:: added dns over quic support since version 1.7.15
+
+.. versionchanged:: added dns over http/3 support since version 1.7.27
 
 .. _conf_value_dns_encryption_config:
 

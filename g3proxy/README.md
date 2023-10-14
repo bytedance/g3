@@ -156,6 +156,7 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
   * UDP / TCP
   * DNS over TLS
   * DNS over HTTPS
+  * DNS over HTTP/3
   * DNS over QUIC
 - fail-over
 
