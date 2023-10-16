@@ -108,6 +108,19 @@ impl proc_control::Server for ProcControlImpl {
         })
     }
 
+    fn check_key(
+        &mut self,
+        params: proc_control::CheckKeyParams,
+        mut results: proc_control::CheckKeyResults,
+    ) -> Promise<(), capnp::Error> {
+        let ski = pry!(pry!(params.get()).get_ski()).to_vec();
+        Promise::from_future(async move {
+            let r = crate::control::bridge::check_key(ski).await;
+            set_operation_result(results.get().init_result(), r);
+            Ok(())
+        })
+    }
+
     fn add_metrics_tag(
         &mut self,
         params: proc_control::AddMetricsTagParams,

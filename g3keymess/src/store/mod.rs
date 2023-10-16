@@ -18,10 +18,9 @@ use std::cell::RefCell;
 
 use ahash::AHashMap;
 use anyhow::anyhow;
-use openssl::hash::{DigestBytes, MessageDigest};
-use openssl::pkey::{HasPublic, PKey, Private};
+use openssl::pkey::{PKey, Private};
 
-use g3_tls_cert::ext::X509Pubkey;
+use g3_tls_cert::ext::PublicKeyExt;
 
 mod ops;
 pub use ops::{load_all, reload_all};
@@ -33,7 +32,7 @@ thread_local! {
 }
 
 pub(crate) fn add_global(key: PKey<Private>) -> anyhow::Result<()> {
-    let ski = public_key_ski(&key)?;
+    let ski = key.ski().map_err(|e| anyhow!("failed to get SKI: {e}"))?;
     GLOBAL_SKI_MAP.with_borrow_mut(|map| {
         map.insert(ski.to_vec(), key);
     });
@@ -47,14 +46,4 @@ pub(crate) fn get_all_ski() -> Vec<Vec<u8>> {
 
 pub(crate) fn get_by_ski(ski: &[u8]) -> Option<PKey<Private>> {
     GLOBAL_SKI_MAP.with_borrow(|map| map.get(ski).cloned())
-}
-
-fn public_key_ski<T: HasPublic>(key: &PKey<T>) -> anyhow::Result<DigestBytes> {
-    let x =
-        X509Pubkey::from_pubkey(key).map_err(|e| anyhow!("failed to build X509 PUBKEY: {e}"))?;
-    let encoded = x
-        .encoded_bytes()
-        .map_err(|e| anyhow!("failed to get encoded X509 PUBKEY bytes: {e}"))?;
-    openssl::hash::hash(MessageDigest::sha1(), encoded)
-        .map_err(|e| anyhow!("failed to calculate SKI value: {e}"))
 }

@@ -130,6 +130,7 @@ fn build_cli_args() -> Command {
         .subcommand(proc::commands::offline())
         .subcommand(proc::commands::list())
         .subcommand(proc::commands::publish_key())
+        .subcommand(proc::commands::check_key())
         .subcommand(server::command())
 }
 
@@ -172,6 +173,7 @@ async fn main() -> anyhow::Result<()> {
                 proc::COMMAND_OFFLINE => proc::offline(&proc_control).await,
                 proc::COMMAND_LIST => proc::list(&proc_control, args).await,
                 proc::COMMAND_PUBLISH_KEY => proc::publish_key(&proc_control, args).await,
+                proc::COMMAND_CHECK_KEY => proc::check_key(&proc_control, args).await,
                 server::COMMAND => server::run(&proc_control, args).await,
                 _ => unreachable!(),
             }

@@ -37,6 +37,15 @@ pub(crate) async fn list_keys() -> anyhow::Result<Vec<Vec<u8>>> {
     run_in_main_thread(async move { Ok(crate::store::get_all_ski()) }).await
 }
 
+pub(crate) async fn check_key(ski: Vec<u8>) -> anyhow::Result<()> {
+    run_in_main_thread(async move {
+        crate::store::get_by_ski(&ski)
+            .map(|_| ())
+            .ok_or_else(|| anyhow!("key not found"))
+    })
+    .await
+}
+
 async fn run_in_main_thread<T, F>(future: F) -> anyhow::Result<T>
 where
     T: Send + 'static,

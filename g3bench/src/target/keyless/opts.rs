@@ -27,7 +27,7 @@ use openssl::pkey::{Id, PKey, Private, Public};
 use openssl::pkey_ctx::PkeyCtx;
 use openssl::rsa::Padding;
 
-use g3_tls_cert::ext::{X509Ext, X509Pubkey};
+use g3_tls_cert::ext::{PublicKeyExt, X509Ext};
 
 const ARG_CERT: &str = "cert";
 const ARG_PKEY: &str = "key";
@@ -203,18 +203,10 @@ impl KeylessGlobalArgs {
             let key = crate::target::openssl::load_key(file)?;
 
             // verify SKI match
-            let x509_pubkey = X509Pubkey::from_pubkey(&key).map_err(|e| {
-                anyhow!(
-                    "failed to create x509 pubkey from key in file {}: {e}",
-                    file.display()
-                )
-            })?;
-            let encoded_bytes = x509_pubkey
-                .encoded_bytes()
-                .map_err(|e| anyhow!("failed to get encoded pubkey data: {e}"))?;
-            let digest = openssl::hash::hash(MessageDigest::sha1(), encoded_bytes)
-                .map_err(|e| anyhow!("failed to get sha1 hash of pubkey: {e}"))?;
-            let ski = digest.to_vec();
+            let ski = key
+                .ski()
+                .map_err(|e| anyhow!("failed to get SKI from key file {}: {e}", file.display()))?;
+            let ski = ski.to_vec();
 
             if let Some(ski_cert) = &public_key_ski {
                 if ski.ne(ski_cert) {

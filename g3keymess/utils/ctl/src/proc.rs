@@ -18,9 +18,11 @@ use std::path::PathBuf;
 
 use anyhow::anyhow;
 use clap::ArgMatches;
+use openssl::pkey::PKey;
 
 use g3_ctl::{CommandError, CommandResult};
 
+use g3_tls_cert::ext::PublicKeyExt;
 use g3keymess_proto::proc_capnp::proc_control;
 use g3keymess_proto::server_capnp::server_control;
 
@@ -30,6 +32,7 @@ pub const COMMAND_VERSION: &str = "version";
 pub const COMMAND_OFFLINE: &str = "offline";
 pub const COMMAND_LIST: &str = "list";
 pub const COMMAND_PUBLISH_KEY: &str = "publish-key";
+pub const COMMAND_CHECK_KEY: &str = "check-key";
 
 const COMMAND_LIST_ARG_RESOURCE: &str = "resource";
 const RESOURCE_VALUE_SERVER: &str = "server";
@@ -61,6 +64,17 @@ pub mod commands {
 
     pub fn publish_key() -> Command {
         Command::new(COMMAND_PUBLISH_KEY).arg(
+            Arg::new(COMMAND_ARG_FILE)
+                .help("Private key file in pem format")
+                .required(true)
+                .num_args(1)
+                .value_parser(value_parser!(PathBuf))
+                .value_hint(ValueHint::FilePath),
+        )
+    }
+
+    pub fn check_key() -> Command {
+        Command::new(COMMAND_CHECK_KEY).arg(
             Arg::new(COMMAND_ARG_FILE)
                 .help("Private key file in pem format")
                 .required(true)
@@ -127,6 +141,28 @@ pub async fn publish_key(client: &proc_control::Client, args: &ArgMatches) -> Co
     })?;
     let mut req = client.publish_key_request();
     req.get().set_pem(content.as_str().into());
+    let rsp = req.send().promise.await?;
+    parse_operation_result(rsp.get()?.get_result()?)
+}
+
+pub async fn check_key(client: &proc_control::Client, args: &ArgMatches) -> CommandResult<()> {
+    let file = args.get_one::<PathBuf>(COMMAND_ARG_FILE).unwrap();
+    let content = std::fs::read_to_string(file).map_err(|e| {
+        CommandError::Cli(anyhow!(
+            "failed to read content of file {}: {e}",
+            file.display()
+        ))
+    })?;
+
+    let key = PKey::private_key_from_pem(content.as_bytes()).map_err(|e| {
+        CommandError::Cli(anyhow!("failed to load key from {}: {e}", file.display()))
+    })?;
+    let ski = key.ski().map_err(|e| {
+        CommandError::Cli(anyhow!("failed to get SKI for key {}: {e}", file.display()))
+    })?;
+
+    let mut req = client.check_key_request();
+    req.get().set_ski(&ski);
     let rsp = req.send().promise.await?;
     parse_operation_result(rsp.get()?.get_result()?)
 }

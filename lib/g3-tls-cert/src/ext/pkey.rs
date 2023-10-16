@@ -14,19 +14,20 @@
  * limitations under the License.
  */
 
-mod ffi;
+use openssl::error::ErrorStack;
+use openssl::hash::{DigestBytes, MessageDigest};
+use openssl::pkey::{HasPublic, PKey};
 
-mod x509;
-pub use x509::X509Ext;
+use super::X509Pubkey;
 
-mod x509_builder;
-pub use x509_builder::X509BuilderExt;
+pub trait PublicKeyExt {
+    fn ski(&self) -> Result<DigestBytes, ErrorStack>;
+}
 
-mod x509_pubkey;
-use x509_pubkey::{X509Pubkey, X509PubkeyRef};
-
-mod rsa;
-pub use rsa::RsaExt;
-
-mod pkey;
-pub use pkey::PublicKeyExt;
+impl<T: HasPublic> PublicKeyExt for PKey<T> {
+    fn ski(&self) -> Result<DigestBytes, ErrorStack> {
+        let x = X509Pubkey::from_pubkey(self)?;
+        let encoded = x.encoded_bytes()?;
+        openssl::hash::hash(MessageDigest::sha1(), encoded)
+    }
+}
