@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use async_trait::async_trait;
 use clap::{Arg, ArgMatches, Command};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, Stdout};
 
@@ -68,7 +67,6 @@ impl Default for StdioLineReceiver {
     }
 }
 
-#[async_trait]
 impl FtpLineDataReceiver for StdioLineReceiver {
     async fn recv_line(&mut self, line: &str) {
         self.has_error = self.io.write_all(line.as_bytes()).await.is_err();

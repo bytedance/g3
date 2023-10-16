@@ -19,7 +19,6 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use async_trait::async_trait;
 use http::Method;
 use tokio::io::{AsyncBufRead, AsyncWrite};
 use tokio::time::Instant;
@@ -58,7 +57,7 @@ pub trait HttpRequestForAdaptation {
     fn adapt_to(&self, other: HttpAdaptedRequest) -> Self;
 }
 
-#[async_trait]
+#[allow(async_fn_in_trait)]
 pub trait HttpRequestUpstreamWriter<H: HttpRequestForAdaptation>: AsyncWrite {
     async fn send_request_header(&mut self, req: &H) -> io::Result<()>;
 }

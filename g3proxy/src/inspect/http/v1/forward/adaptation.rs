@@ -18,7 +18,6 @@ use std::io::{self, IoSlice};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use async_trait::async_trait;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use g3_http::server::HttpTransparentRequest;
@@ -61,7 +60,6 @@ where
     }
 }
 
-#[async_trait]
 impl<'a, W> HttpRequestUpstreamWriter<HttpTransparentRequest>
     for HttpRequestWriterForAdaptation<'a, W>
 where
