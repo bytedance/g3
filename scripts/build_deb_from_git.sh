@@ -50,7 +50,7 @@ NEW_VERSION="${VERSION}${VERSION_SYMBOL}${GIT_VER}-1"
 CODENAME=$(lsb_release -c -s)
 MAINTAINER=$(dpkg-parsechangelog -S Maintainer)
 GIT_TS=$(git log -1 --pretty=format:%cd --date=format:%s)
-DCH_TIME=$(LANG=en_US date -d @${GIT_TS} +"%a, %d %b %Y %X %z")
+DCH_TIME=$(LANG=en_US date -d @${GIT_TS} +"%a, %d %b %Y %H:%M:%S %z")
 
 echo "Finalize debian/changelog"
 cat << EOF > debian/changelog

@@ -13,7 +13,7 @@ cd ${SCRIPT_DIR}/../../
 DCH_FILE=${PACKAGE}/debian/changelog
 echo "Update ${DCH_FILE}"
 
-DCH_TIME=$(LANG=en_US date +"%a, %d %b %Y %X %z")
+DCH_TIME=$(LANG=en_US date +"%a, %d %b %Y %H:%M:%S %z")
 
 cat << EOF > ${DCH_FILE}
 ${PACKAGE} (${PKG_VERSION}-1) UNRELEASED; urgency=medium
