@@ -306,8 +306,10 @@ impl ProxySocks5EscaperConfig {
         tcp_peer_ip: IpAddr,
     ) -> SocketAddr {
         if let Some(map) = &self.transmute_udp_peer_ip {
-            let ip = map.get(&returned_addr.ip()).unwrap_or(&tcp_peer_ip);
-            SocketAddr::new(*ip, returned_addr.port())
+            let ip = map.get(&returned_addr.ip()).copied().unwrap_or(tcp_peer_ip);
+            SocketAddr::new(ip, returned_addr.port())
+        } else if returned_addr.ip().is_unspecified() {
+            SocketAddr::new(tcp_peer_ip, returned_addr.port())
         } else {
             returned_addr
         }
