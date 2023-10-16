@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncWrite, BufStream};
 
 use g3_io_ext::LimitedBufReadExt;
@@ -22,7 +21,7 @@ use g3_io_ext::LimitedBufReadExt;
 use crate::config::FtpTransferConfig;
 use crate::error::FtpLineDataReadError;
 
-#[async_trait]
+#[allow(async_fn_in_trait)]
 pub trait FtpLineDataReceiver {
     async fn recv_line(&mut self, line: &str);
     fn should_return_early(&self) -> bool;

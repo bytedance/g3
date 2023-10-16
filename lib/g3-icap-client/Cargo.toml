@@ -1,6 +1,6 @@
 [package]
 name = "g3-icap-client"
-version = "0.1.0"
+version = "0.2.0"
 license.workspace = true
 edition.workspace = true
 rust-version = "1.74.0"
@@ -10,7 +10,6 @@ rust-version = "1.74.0"
 [dependencies]
 anyhow.workspace = true
 thiserror.workspace = true
-async-trait.workspace = true
 memchr.workspace = true
 atoi.workspace = true
 url.workspace = true

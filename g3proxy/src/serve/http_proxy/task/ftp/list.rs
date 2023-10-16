@@ -16,7 +16,6 @@
 
 use std::io::{self, Error, Write};
 
-use async_trait::async_trait;
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
 use g3_ftp_client::FtpLineDataReceiver;
@@ -24,7 +23,6 @@ use g3_ftp_client::FtpLineDataReceiver;
 const CHUNKED_BUF_HEAD_RESERVED: usize = (usize::BITS as usize >> 2) + 2;
 const CHUNKED_BUF_TAIL_RESERVED: usize = 2;
 
-#[async_trait]
 pub(super) trait ListWriter: FtpLineDataReceiver {
     fn take_io_error(&mut self) -> Option<io::Error>;
     async fn flush_buf(&mut self) -> io::Result<()>;
@@ -75,7 +73,6 @@ where
     }
 }
 
-#[async_trait]
 impl<'a, W> FtpLineDataReceiver for ChunkedListWriter<'a, W>
 where
     W: AsyncWrite + Send + Unpin,
@@ -100,7 +97,6 @@ where
     }
 }
 
-#[async_trait]
 impl<'a, W> ListWriter for ChunkedListWriter<'a, W>
 where
     W: AsyncWrite + Send + Unpin,
@@ -153,7 +149,6 @@ where
     }
 }
 
-#[async_trait]
 impl<'a, W> FtpLineDataReceiver for EndingListWriter<'a, W>
 where
     W: AsyncWrite + Send + Unpin,
@@ -171,7 +166,6 @@ where
     }
 }
 
-#[async_trait]
 impl<'a, W> ListWriter for EndingListWriter<'a, W>
 where
     W: AsyncWrite + Send + Unpin,
