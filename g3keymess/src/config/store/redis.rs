@@ -15,7 +15,6 @@
  */
 
 use anyhow::anyhow;
-use async_trait::async_trait;
 use url::Url;
 use yaml_rust::{yaml, Yaml};
 
@@ -79,7 +78,6 @@ impl RedisKeyStoreConfig {
     }
 }
 
-#[async_trait]
 impl KeyStoreConfig for RedisKeyStoreConfig {
     #[inline]
     fn name(&self) -> &MetricsName {
