@@ -18,7 +18,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::anyhow;
-use async_trait::async_trait;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 use tokio::time::Instant;
@@ -76,7 +75,6 @@ impl SslTaskContext {
     }
 }
 
-#[async_trait]
 impl BenchTaskContext for SslTaskContext {
     fn mark_task_start(&self) {
         self.runtime_stats.add_task_total();
