@@ -13,7 +13,6 @@ thiserror.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
-async-trait.workspace = true
 indicatif = "0.17"
 tokio = { workspace = true, features = ["rt", "net", "macros"] }
 http.workspace = true

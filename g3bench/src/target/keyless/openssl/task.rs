@@ -16,7 +16,6 @@
 
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use tokio::time::Instant;
 
 use super::{
@@ -57,7 +56,6 @@ impl KeylessOpensslTaskContext {
     }
 }
 
-#[async_trait]
 impl BenchTaskContext for KeylessOpensslTaskContext {
     fn mark_task_start(&self) {
         self.runtime_stats.add_task_total();

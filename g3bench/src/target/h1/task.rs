@@ -18,7 +18,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
-use async_trait::async_trait;
 use futures_util::FutureExt;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::time::Instant;
@@ -183,7 +182,6 @@ impl HttpTaskContext {
     }
 }
 
-#[async_trait]
 impl BenchTaskContext for HttpTaskContext {
     fn mark_task_start(&self) {
         self.runtime_stats.add_task_total();

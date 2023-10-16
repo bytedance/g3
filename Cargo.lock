@@ -1343,7 +1343,6 @@ version = "0.8.5"
 dependencies = [
  "ahash",
  "anyhow",
- "async-trait",
  "atomic-waker",
  "bytes",
  "cadence-with-flush",

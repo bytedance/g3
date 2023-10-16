@@ -17,7 +17,6 @@
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
-use async_trait::async_trait;
 use bytes::Bytes;
 use h3::client::SendRequest;
 use h3_quinn::OpenStreams;
@@ -167,7 +166,6 @@ impl H3TaskContext {
     }
 }
 
-#[async_trait]
 impl BenchTaskContext for H3TaskContext {
     fn mark_task_start(&self) {
         self.runtime_stats.add_task_total();
