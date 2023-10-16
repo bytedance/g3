@@ -1419,7 +1419,6 @@ dependencies = [
  "anyhow",
  "arc-swap",
  "ascii",
- "async-trait",
  "cadence-with-flush",
  "capnp",
  "capnp-rpc",

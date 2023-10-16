@@ -26,7 +26,6 @@ chrono = { workspace = true, features = ["clock"] }
 uuid.workspace = true
 url.workspace = true
 ahash.workspace = true
-async-trait.workspace = true
 futures-util.workspace = true
 cadence.workspace = true
 itoa.workspace = true

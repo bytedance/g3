@@ -17,7 +17,6 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::anyhow;
-use async_trait::async_trait;
 use openssl::pkey::{PKey, Private};
 use tokio::sync::oneshot;
 use yaml_rust::{yaml, Yaml};
@@ -88,7 +87,6 @@ impl LocalKeyStoreConfig {
     }
 }
 
-#[async_trait]
 impl KeyStoreConfig for LocalKeyStoreConfig {
     #[inline]
     fn name(&self) -> &MetricsName {
