@@ -18,7 +18,6 @@ use std::cell::UnsafeCell;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
-use async_trait::async_trait;
 use hickory_client::client::{AsyncClient, ClientHandle};
 use hickory_proto::op::ResponseCode;
 use tokio::time::Instant;
@@ -133,7 +132,6 @@ impl DnsTaskContext {
     }
 }
 
-#[async_trait]
 impl BenchTaskContext for DnsTaskContext {
     fn mark_task_start(&self) {
         self.runtime_stats.add_task_total();

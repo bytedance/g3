@@ -17,7 +17,6 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use async_trait::async_trait;
 use tokio::time::Instant;
 
 use super::{
@@ -179,7 +178,6 @@ impl KeylessCloudflareTaskContext {
     }
 }
 
-#[async_trait]
 impl BenchTaskContext for KeylessCloudflareTaskContext {
     fn mark_task_start(&self) {
         self.runtime_stats.add_task_total();

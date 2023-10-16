@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
+use std::future::Future;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
-use async_trait::async_trait;
 use hdrhistogram::Histogram;
 use tokio::signal::unix::SignalKind;
 use tokio::sync::{mpsc, Barrier, Semaphore};
@@ -157,12 +157,17 @@ enum BenchError {
     Task(anyhow::Error),
 }
 
-#[async_trait]
 trait BenchTaskContext {
     fn mark_task_start(&self);
     fn mark_task_passed(&self);
     fn mark_task_failed(&self);
-    async fn run(&mut self, task_id: usize, time_started: Instant) -> Result<(), BenchError>;
+
+    // TODO use native async fn declaration
+    fn run(
+        &mut self,
+        task_id: usize,
+        time_started: Instant,
+    ) -> impl Future<Output = Result<(), BenchError>> + Send;
 }
 
 trait BenchTarget<RS, H, C>
