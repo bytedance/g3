@@ -17,7 +17,6 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::anyhow;
-use async_trait::async_trait;
 use log::warn;
 use openssl::pkey::{PKey, Private};
 use tokio::sync::oneshot;
@@ -89,7 +88,6 @@ impl LocalKeyStoreConfig {
     }
 }
 
-#[async_trait]
 impl KeyStoreConfig for LocalKeyStoreConfig {
     #[inline]
     fn name(&self) -> &MetricsName {
@@ -143,7 +141,6 @@ impl KeyStoreConfig for LocalKeyStoreConfig {
 
         use futures_util::StreamExt;
         use inotify::{Inotify, WatchMask};
-        use log::warn;
 
         if !self.watch {
             return Ok(None);

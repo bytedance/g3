@@ -17,7 +17,6 @@
 use std::path::Path;
 
 use anyhow::anyhow;
-use async_trait::async_trait;
 use tokio::sync::oneshot;
 use yaml_rust::{yaml, Yaml};
 
@@ -32,7 +31,6 @@ pub(crate) use registry::{clear, get_all};
 
 const CONFIG_KEY_STORE_TYPE: &str = "type";
 
-#[async_trait]
 pub trait KeyStoreConfig {
     fn name(&self) -> &MetricsName;
     async fn load_keys(&self) -> anyhow::Result<()>;

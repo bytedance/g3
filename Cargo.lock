@@ -1413,7 +1413,6 @@ dependencies = [
  "anyhow",
  "arc-swap",
  "ascii",
- "async-trait",
  "capnp",
  "capnp-rpc",
  "chrono",
