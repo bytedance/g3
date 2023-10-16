@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use async_trait::async_trait;
 use bytes::BufMut;
 use http::{header, Method};
 use tokio::io::{AsyncWrite, AsyncWriteExt};
@@ -68,7 +67,6 @@ impl HttpResponseForAdaptation for HttpTransparentResponse {
     }
 }
 
-#[async_trait]
 impl<W, H> HttpResponseClientWriter<H> for W
 where
     W: AsyncWrite + Send + Unpin,

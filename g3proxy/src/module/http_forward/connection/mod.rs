@@ -108,7 +108,6 @@ impl<'a> AsyncWrite for HttpForwardWriterForAdaptation<'a> {
     }
 }
 
-#[async_trait]
 impl<'a> HttpRequestUpstreamWriter<HttpProxyClientRequest> for HttpForwardWriterForAdaptation<'a> {
     async fn send_request_header(&mut self, req: &HttpProxyClientRequest) -> io::Result<()> {
         self.inner.send_request_header(req).await

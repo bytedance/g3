@@ -193,10 +193,10 @@ g3-ctl = { version = "0.1", path = "lib/g3-ctl" }
 g3-datetime = { version = "0.1", path = "lib/g3-datetime" }
 g3-dpi = { version = "0.1", path = "lib/g3-dpi" }
 g3-fluentd = { version = "0.1", path = "lib/g3-fluentd" }
-g3-ftp-client = { version = "0.2", path = "lib/g3-ftp-client" }
+g3-ftp-client = { version = "0.3", path = "lib/g3-ftp-client" }
 g3-h2 = { version = "0.1", path = "lib/g3-h2" }
 g3-http = { version = "0.2", path = "lib/g3-http" }
-g3-icap-client = { version = "0.1", path = "lib/g3-icap-client" }
+g3-icap-client = { version = "0.2", path = "lib/g3-icap-client" }
 g3-io-ext = { version = "0.6", path = "lib/g3-io-ext" }
 g3-journal = { version = "0.2", path = "lib/g3-journal" }
 g3-json = { version = "0.3", path = "lib/g3-json" }
