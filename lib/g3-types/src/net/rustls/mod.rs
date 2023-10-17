@@ -20,6 +20,9 @@ pub use client::{RustlsClientConfig, RustlsClientConfigBuilder};
 mod server;
 pub use server::{RustlsServerConfig, RustlsServerConfigBuilder};
 
+mod session;
+pub use session::RustlsTrickServerSessionCache;
+
 mod cert_pair;
 pub use cert_pair::RustlsCertificatePair;
 

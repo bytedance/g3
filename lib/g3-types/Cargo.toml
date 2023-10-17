@@ -51,7 +51,7 @@ serde_json = { workspace = true, optional = true }
 default = []
 auth-crypt = ["dep:digest", "dep:md-5", "dep:sha-1", "dep:blake3", "dep:hex"]
 resolve = ["dep:ahash", "dep:radix_trie"]
-rustls = ["dep:rustls", "dep:webpki-roots", "dep:rustls-pemfile", "dep:rustls-native-certs"]
+rustls = ["dep:rustls", "dep:webpki-roots", "dep:rustls-pemfile", "dep:rustls-native-certs", "dep:ahash"]
 openssl = ["dep:openssl", "dep:ahash", "dep:lru"]
 vendored-tongsuo = ["openssl", "openssl/tongsuo"]
 acl-rule = ["resolve", "dep:ahash", "dep:ip_network", "dep:ip_network_table", "dep:once_cell", "dep:regex", "dep:radix_trie", "proxy"]

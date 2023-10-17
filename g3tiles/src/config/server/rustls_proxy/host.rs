@@ -24,7 +24,10 @@ use yaml_rust::Yaml;
 
 use g3_types::collection::NamedValue;
 use g3_types::limit::RateLimitQuotaConfig;
-use g3_types::net::{MultipleCertResolver, RustlsCertificatePair, TcpSockSpeedLimitConfig};
+use g3_types::net::{
+    MultipleCertResolver, RustlsCertificatePair, RustlsTrickServerSessionCache,
+    TcpSockSpeedLimitConfig,
+};
 use g3_types::route::AlpnMatch;
 use g3_yaml::{YamlDocPosition, YamlMapCallback};
 
@@ -106,6 +109,8 @@ impl RustlsHostConfig {
                 .context(format!("failed to add cert pair {i}"))?;
         }
         let mut config = config_builder.with_cert_resolver(Arc::new(cert_resolver));
+
+        config.session_storage = Arc::new(RustlsTrickServerSessionCache::new(256));
 
         if !self.services.is_empty() {
             for protocol in self.services.protocols() {
