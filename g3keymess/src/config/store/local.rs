@@ -145,12 +145,13 @@ impl KeyStoreConfig for LocalKeyStoreConfig {
         let buffer = [0u8; 4096];
         let mut event_stream = inotify.into_event_stream(buffer)?;
 
+        let dir_path = self.dir_path.to_path_buf();
         let async_watch = async move {
             loop {
                 match poll_fn(|cx| event_stream.poll_next_unpin(cx)).await {
                     Some(Ok(v)) => {
                         if let Some(p) = v.name {
-                            let path = PathBuf::from(p);
+                            let path = dir_path.join(p);
                             match load_key(&path).await {
                                 Ok(Some(key)) => {
                                     if let Err(e) = crate::store::add_global(key) {
