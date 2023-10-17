@@ -1,4 +1,8 @@
 
+v0.3.3:
+ - Feature: allow to check key existence via g3keymess-ctl
+ - BUG FIX: fix auto load of newly added keys in the local store dir
+
 v0.3.2:
  - BUG FIX: fix sign action
  - BUG FIX: add missing request tags for gauge metrics
