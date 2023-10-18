@@ -21,7 +21,7 @@ mod server;
 pub use server::{RustlsServerConfig, RustlsServerConfigBuilder};
 
 mod session;
-pub use session::RustlsTrickServerSessionCache;
+pub use session::RustlsServerSessionCache;
 
 mod cert_pair;
 pub use cert_pair::RustlsCertificatePair;

@@ -32,15 +32,21 @@ impl CacheSlot {
     }
 }
 
-pub struct RustlsTrickServerSessionCache {
+pub struct RustlsServerSessionCache {
     slots: [CacheSlot; 16],
 }
 
-impl RustlsTrickServerSessionCache {
+impl Default for RustlsServerSessionCache {
+    fn default() -> Self {
+        RustlsServerSessionCache::new(256)
+    }
+}
+
+impl RustlsServerSessionCache {
     pub fn new(each_size: usize) -> Self {
         let each_size = NonZeroUsize::new(each_size)
             .unwrap_or_else(|| unsafe { NonZeroUsize::new_unchecked(256) });
-        RustlsTrickServerSessionCache {
+        RustlsServerSessionCache {
             slots: [
                 CacheSlot::new(each_size),
                 CacheSlot::new(each_size),
@@ -63,16 +69,13 @@ impl RustlsTrickServerSessionCache {
     }
 }
 
-impl StoresServerSessions for RustlsTrickServerSessionCache {
+impl StoresServerSessions for RustlsServerSessionCache {
     fn put(&self, key: Vec<u8>, value: Vec<u8>) -> bool {
         let Some(c) = key.first() else {
             return false;
         };
         let id = *c & 0x0F;
-
-        let Some(slot) = self.slots.get(id as usize) else {
-            return false;
-        };
+        let slot = unsafe { self.slots.get_unchecked(id as usize) };
 
         let mut cache = slot.inner.lock().unwrap();
         cache.put(key, value);
@@ -82,8 +85,8 @@ impl StoresServerSessions for RustlsTrickServerSessionCache {
     fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
         let c = key.first()?;
         let id = *c & 0x0F;
+        let slot = unsafe { self.slots.get_unchecked(id as usize) };
 
-        let slot = self.slots.get(id as usize)?;
         let mut cache = slot.inner.lock().unwrap();
         cache.get(key).cloned()
     }
@@ -91,8 +94,8 @@ impl StoresServerSessions for RustlsTrickServerSessionCache {
     fn take(&self, key: &[u8]) -> Option<Vec<u8>> {
         let c = key.first()?;
         let id = *c & 0x0F;
+        let slot = unsafe { self.slots.get_unchecked(id as usize) };
 
-        let slot = self.slots.get(id as usize)?;
         let mut cache = slot.inner.lock().unwrap();
         cache.pop(key)
     }

@@ -21,7 +21,7 @@ use anyhow::{anyhow, Context};
 use rustls::server::AllowAnyAuthenticatedClient;
 use rustls::{Certificate, RootCertStore, ServerConfig};
 
-use super::{MultipleCertResolver, RustlsCertificatePair};
+use super::{MultipleCertResolver, RustlsCertificatePair, RustlsServerSessionCache};
 use crate::net::tls::AlpnProtocol;
 
 #[derive(Clone)]
@@ -119,6 +119,7 @@ impl RustlsServerConfigBuilder {
                 config_builder.with_cert_resolver(Arc::new(cert_resolver))
             }
         };
+        config.session_storage = Arc::new(RustlsServerSessionCache::default());
 
         if let Some(protocols) = alpn_protocols {
             for proto in protocols {
