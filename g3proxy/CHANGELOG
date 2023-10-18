@@ -1,6 +1,7 @@
 
 v1.7.27:
  - Optimization: set default c-ares init options as c-ares 1.20.1 default values
+ - Optimization: reduce rustls server session cache lock contention
  - Feature: rename trust-dns resolver type to hickory to be sync with upstream
  - Feature: add dns over http/3 support in hickory resolver
  - Feature: use tcp peer ip if socks5 proxy returns unspecified udp peer ip
