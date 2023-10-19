@@ -19,7 +19,7 @@ use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use rustls::server::AllowAnyAuthenticatedClient;
-use rustls::{Certificate, RootCertStore, ServerConfig};
+use rustls::{Certificate, RootCertStore, ServerConfig, Ticketer};
 
 use super::{MultipleCertResolver, RustlsCertificatePair, RustlsServerSessionCache};
 use crate::net::tls::AlpnProtocol;
@@ -35,6 +35,7 @@ pub struct RustlsServerConfigBuilder {
     cert_pairs: Vec<RustlsCertificatePair>,
     client_auth: bool,
     client_auth_certs: Option<Vec<Certificate>>,
+    use_session_ticket: bool,
     accept_timeout: Duration,
 }
 
@@ -44,6 +45,7 @@ impl RustlsServerConfigBuilder {
             cert_pairs: Vec::with_capacity(1),
             client_auth: false,
             client_auth_certs: None,
+            use_session_ticket: false,
             accept_timeout: Duration::from_secs(10),
         }
     }
@@ -54,6 +56,10 @@ impl RustlsServerConfigBuilder {
         }
 
         Ok(())
+    }
+
+    pub fn set_use_session_ticket(&mut self, enable: bool) {
+        self.use_session_ticket = enable;
     }
 
     pub fn enable_client_auth(&mut self) {
@@ -120,6 +126,10 @@ impl RustlsServerConfigBuilder {
             }
         };
         config.session_storage = Arc::new(RustlsServerSessionCache::default());
+        if self.use_session_ticket {
+            config.ticketer =
+                Ticketer::new().map_err(|e| anyhow!("failed to create ticketer: {e}"))?;
+        }
 
         if let Some(protocols) = alpn_protocols {
             for proto in protocols {

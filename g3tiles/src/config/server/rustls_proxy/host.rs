@@ -19,7 +19,7 @@ use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use rustls::server::AllowAnyAuthenticatedClient;
-use rustls::{Certificate, RootCertStore, ServerConfig};
+use rustls::{Certificate, RootCertStore, ServerConfig, Ticketer};
 use yaml_rust::Yaml;
 
 use g3_types::collection::NamedValue;
@@ -38,6 +38,7 @@ pub(crate) struct RustlsHostConfig {
     cert_pairs: Vec<RustlsCertificatePair>,
     client_auth: bool,
     client_auth_certs: Vec<Certificate>,
+    use_session_ticket: bool,
     pub(crate) accept_timeout: Duration,
     pub(crate) request_alive_max: Option<usize>,
     pub(crate) request_rate_limit: Option<RateLimitQuotaConfig>,
@@ -53,6 +54,7 @@ impl Default for RustlsHostConfig {
             cert_pairs: Vec::with_capacity(1),
             client_auth: false,
             client_auth_certs: Vec::new(),
+            use_session_ticket: false,
             accept_timeout: Duration::from_secs(60),
             request_alive_max: None,
             request_rate_limit: None,
@@ -110,6 +112,10 @@ impl RustlsHostConfig {
         let mut config = config_builder.with_cert_resolver(Arc::new(cert_resolver));
 
         config.session_storage = Arc::new(RustlsServerSessionCache::default());
+        if self.use_session_ticket {
+            config.ticketer =
+                Ticketer::new().map_err(|e| anyhow!("failed to create ticketer: {e}"))?;
+        }
 
         if !self.services.is_empty() {
             for protocol in self.services.protocols() {
@@ -147,6 +153,11 @@ impl YamlMapCallback for RustlsHostConfig {
             }
             "enable_client_auth" => {
                 self.client_auth = g3_yaml::value::as_bool(value)
+                    .context(format!("invalid value for key {key}"))?;
+                Ok(())
+            }
+            "use_session_ticket" => {
+                self.use_session_ticket = g3_yaml::value::as_bool(value)
                     .context(format!("invalid value for key {key}"))?;
                 Ok(())
             }

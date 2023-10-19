@@ -449,6 +449,18 @@ The map is consists of the following fields:
 
   Set if you want to enable client auth.
 
+  **default**: disabled
+
+* use_session_ticket
+
+  **optional**, **type**: bool
+
+  Set if we should enable TLS session ticket to do TLS Session Resumption without Server-Side State.
+
+  .. versionchanged:: 1.7.28
+
+  **default**: disabled
+
 * ca_certificate | client_auth_certificate
 
   **optional**, **type**: :ref:`tls certificates <conf_value_tls_certificates>`

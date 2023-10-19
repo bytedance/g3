@@ -236,6 +236,11 @@ pub fn as_rustls_server_config_builder(value: &Value) -> anyhow::Result<RustlsSe
                         builder.enable_client_auth();
                     }
                 }
+                "use_session_ticket" => {
+                    let enable =
+                        crate::value::as_bool(v).context(format!("invalid value for key {k}"))?;
+                    builder.set_use_session_ticket(enable);
+                }
                 "ca_certificate" | "ca_cert" | "client_auth_certificate" | "client_auth_cert" => {
                     let certs =
                         as_rustls_certificates(v).context(format!("invalid value for key {k}"))?;

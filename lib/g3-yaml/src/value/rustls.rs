@@ -280,6 +280,12 @@ pub fn as_rustls_server_config_builder(
                 }
                 Ok(())
             }
+            "use_session_ticket" => {
+                let enable =
+                    crate::value::as_bool(v).context(format!("invalid value for key {k}"))?;
+                builder.set_use_session_ticket(enable);
+                Ok(())
+            }
             "ca_certificate" | "ca_cert" | "client_auth_certificate" | "client_auth_cert" => {
                 let certs = as_rustls_certificates(v, lookup_dir)
                     .context(format!("invalid value for key {k}"))?;
