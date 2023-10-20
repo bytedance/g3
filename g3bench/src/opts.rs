@@ -45,6 +45,7 @@ const GLOBAL_ARG_TIME_LIMIT: &str = "time-limit";
 const GLOBAL_ARG_REQUESTS: &str = "requests";
 const GLOBAL_ARG_RESOLVE: &str = "resolve";
 const GLOBAL_ARG_LOG_ERROR: &str = "log-error";
+const GLOBAL_ARG_IGNORE_FATAL_ERROR: &str = "ignore-fatal-error";
 const GLOBAL_ARG_EMIT_METRICS: &str = "emit-metrics";
 const GLOBAL_ARG_STATSD_TARGET_UDP: &str = "statsd-target-udp";
 const GLOBAL_ARG_STATSD_TARGET_UNIX: &str = "statsd-target-unix";
@@ -62,6 +63,7 @@ pub struct ProcArgs {
     pub(super) requests: Option<usize>,
     pub(super) time_limit: Option<Duration>,
     pub(super) log_error_count: usize,
+    pub(super) ignore_fatal_error: bool,
     pub(super) task_unconstrained: bool,
     resolver: AHashMap<UpstreamAddr, IpAddr>,
     pub(super) use_unaided_worker: bool,
@@ -84,6 +86,7 @@ impl Default for ProcArgs {
             requests: None,
             time_limit: None,
             log_error_count: 0,
+            ignore_fatal_error: false,
             task_unconstrained: false,
             resolver: AHashMap::new(),
             use_unaided_worker: false,
@@ -323,6 +326,13 @@ pub fn add_global_args(app: Command) -> Command {
             .value_parser(value_parser!(usize)),
     )
     .arg(
+        Arg::new(GLOBAL_ARG_IGNORE_FATAL_ERROR)
+            .help("Continue even if fatal error occurred")
+            .long(GLOBAL_ARG_IGNORE_FATAL_ERROR)
+            .global(true)
+            .action(ArgAction::SetTrue),
+    )
+    .arg(
         Arg::new(GLOBAL_ARG_EMIT_METRICS)
             .help("Set if we need to emit metrics to statsd")
             .action(ArgAction::SetTrue)
@@ -434,6 +444,9 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
 
     if let Some(n) = args.get_one::<usize>(GLOBAL_ARG_LOG_ERROR) {
         proc_args.log_error_count = *n;
+    }
+    if args.get_flag(GLOBAL_ARG_IGNORE_FATAL_ERROR) {
+        proc_args.ignore_fatal_error = true;
     }
 
     if args.get_flag(GLOBAL_ARG_EMIT_METRICS) {

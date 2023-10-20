@@ -179,6 +179,7 @@ where
 
         let task_unconstrained = proc_args.task_unconstrained;
         let latency = proc_args.latency;
+        let ignore_fatal_error = proc_args.ignore_fatal_error;
         let rt = super::worker::select_handle(i).unwrap_or_else(tokio::runtime::Handle::current);
         rt.spawn(async move {
             sem.add_permits(1);
@@ -217,15 +218,21 @@ where
                     Err(BenchError::Fatal(e)) => {
                         context.mark_task_failed();
                         global_state.add_failed();
-                        eprintln!("!! Fatal error with task context {i}: {e:?}");
-                        break;
+                        if ignore_fatal_error {
+                            if global_state.check_log_error() {
+                                eprintln!("! request {task_id} failed: {e:?}\n");
+                            }
+                        } else {
+                            eprintln!("!! Fatal error with task context {i}: {e:?}");
+                            break;
+                        }
                     }
                     Err(BenchError::Task(e)) => {
                         context.mark_task_failed();
+                        global_state.add_failed();
                         if global_state.check_log_error() {
                             eprintln!("! request {task_id} failed: {e:?}\n");
                         }
-                        global_state.add_failed();
                     }
                 }
                 req_count += 1;
