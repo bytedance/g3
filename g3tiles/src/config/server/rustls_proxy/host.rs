@@ -19,13 +19,14 @@ use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use rustls::server::AllowAnyAuthenticatedClient;
-use rustls::{Certificate, RootCertStore, ServerConfig, Ticketer};
+use rustls::{Certificate, RootCertStore, ServerConfig};
 use yaml_rust::Yaml;
 
 use g3_types::collection::NamedValue;
 use g3_types::limit::RateLimitQuotaConfig;
 use g3_types::net::{
-    MultipleCertResolver, RustlsCertificatePair, RustlsServerSessionCache, TcpSockSpeedLimitConfig,
+    MultipleCertResolver, RustlsCertificatePair, RustlsServerSessionCache, RustlsSessionTicketer,
+    TcpSockSpeedLimitConfig,
 };
 use g3_types::route::AlpnMatch;
 use g3_yaml::{YamlDocPosition, YamlMapCallback};
@@ -113,8 +114,9 @@ impl RustlsHostConfig {
 
         config.session_storage = Arc::new(RustlsServerSessionCache::default());
         if self.use_session_ticket {
-            config.ticketer =
-                Ticketer::new().map_err(|e| anyhow!("failed to create ticketer: {e}"))?;
+            let ticketer =
+                RustlsSessionTicketer::new().context("failed to create session ticketer")?;
+            config.ticketer = Arc::new(ticketer);
         }
 
         if !self.services.is_empty() {
