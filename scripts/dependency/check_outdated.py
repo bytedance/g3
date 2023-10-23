@@ -47,13 +47,16 @@ def get_registry_path(name: str):
 
 
 def get_latest_version(request_session, name: str):
+    latest_version = "0.0.0"
     p = get_locked_pkg(name)
     registry_index = "https://index.crates.io"
-    if p['source'] == 'registry+https://github.com/rust-lang/crates.io-index':
+    source = str(p['source'])
+    if source.startswith("git+https://"):
+        return latest_version
+    elif source == 'registry+https://github.com/rust-lang/crates.io-index':
         pass
     else:
         raise Exception("unsupported registry")
-    latest_version = "0.0.0"
     index_url = f"{registry_index}{get_registry_path(name)}"
     if verbose_level > 1:
         print(f"   GET {index_url}")
