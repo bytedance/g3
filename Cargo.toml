@@ -120,6 +120,7 @@ h3 = "0.0.2"
 log = "0.4"
 slog = "2"
 cadence = { package = "cadence-with-flush", version = "0.29" }
+hdrhistogram = { version = "7.5", default-features = false }
 #
 clap = "4.4.0"
 clap_complete = "4.4.0"

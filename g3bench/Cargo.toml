@@ -30,7 +30,7 @@ openssl-probe = { workspace = true, optional = true }
 rustls.workspace = true
 rustls-pemfile.workspace = true
 cadence.workspace = true
-hdrhistogram = { version = "7.5", default-features = false, features = ["sync"] }
+hdrhistogram = { workspace = true, features = ["sync"] }
 ahash.workspace = true
 rustc-hash.workspace = true
 concurrent-queue = "2.2"
