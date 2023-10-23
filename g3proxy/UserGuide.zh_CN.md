@@ -499,12 +499,13 @@ Port类型入口仅有独立的Listen监控，流量监控、日志都是在下�
 ```yaml
 server:
   - name: real_http
-    listen: "[127.0.0.1]:1234"
+    listen: "[127.0.0.1]:1234" # 也可以不写
     type: http_proxy
     ingress_network_filter: {} # 配置针对解析后地址的过滤规则
     # ... 其他配置
   - name: pp_for_http
     type: plain_tls_port
+    listen: "[::]:8080"
     server: real_http
     proxy_protocol: v2
     ingress_network_filter: {} # 配置针对上一级代理的过滤规则
