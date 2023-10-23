@@ -46,10 +46,9 @@ The following components is required and should have already been installed:
  - rustfmt
  - clippy
 
-**llvm-tools-preview** and **rust-src** is also recommended being installed:
+**llvm-tools** is also recommended to be installed:
 ```shell script
-rustup component add llvm-tools-preview
-rustup component add rust-src
+rustup component add llvm-tools
 ```
 
 ## Install nightly toolchains
@@ -96,7 +95,7 @@ The following plugins is recommended:
 
 - cargo-binutils
 
-  To run llvm-tools-preview installed via rustup.
+  To run llvm-tools installed via rustup.
 
 # IDE
 
