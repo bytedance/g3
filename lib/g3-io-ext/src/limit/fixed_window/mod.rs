@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-use rand::Rng;
-
 use g3_types::net::RATE_LIMIT_SHIFT_MILLIS_MAX;
 
 mod count;
@@ -59,8 +57,7 @@ impl FixedWindow {
         let slice_id_offset = if let Some(cur_millis) = cur_millis {
             cur_millis - (cur_millis & time_slice_mask)
         } else {
-            let mut rng = rand::thread_rng();
-            rng.gen_range(0..=max_delay_millis)
+            fastrand::u64(0..=max_delay_millis)
         };
 
         FixedWindow {

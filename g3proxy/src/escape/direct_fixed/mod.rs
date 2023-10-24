@@ -20,7 +20,6 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use rand::seq::SliceRandom;
 use slog::Logger;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
@@ -142,7 +141,7 @@ impl DirectFixedEscaper {
                     }
                 }
 
-                vec.choose(&mut rand::thread_rng()).copied()
+                fastrand::choice(vec).copied()
             }
         }
     }

@@ -18,8 +18,6 @@ use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
 use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
-use rand::distributions::Uniform;
-use rand::Rng;
 use socket2::{Domain, SockAddr, Socket, Type};
 
 use g3_types::net::{PortRange, SocketBufferConfig, UdpMiscSockOpts};
@@ -84,11 +82,9 @@ pub fn new_std_in_range_bind_connect(
     set_misc_opts(&socket, misc_opts)?;
 
     // like what's has been done in dante/sockd/sockd_request.c
-    let side = Uniform::new_inclusive(port_start, port_end);
-    let mut rng = rand::thread_rng();
     let tries = port.count().min(10);
     for _i in 0..tries {
-        let port = rng.sample(side);
+        let port = fastrand::u16(port_start..=port_end);
         let bind_addr: SockAddr = SocketAddr::new(bind_ip, port).into();
         if socket.bind(&bind_addr).is_ok() {
             let socket = UdpSocket::from(socket);

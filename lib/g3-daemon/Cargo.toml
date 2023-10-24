@@ -25,6 +25,7 @@ itoa.workspace = true
 capnp.workspace = true
 capnp-rpc.workspace = true
 rand.workspace = true
+fastrand.workspace = true
 uuid = { workspace = true, features = ["v1"] }
 chrono.workspace = true
 tokio = { workspace = true, features = ["net", "io-util"] }

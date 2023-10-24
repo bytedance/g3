@@ -21,6 +21,7 @@ smallvec = "1.11"
 memchr.workspace = true
 url.workspace = true
 num-traits = "0.2"
+fastrand = { workspace = true, optional = true }
 governor = { workspace = true, features = ["std", "jitter"] }
 digest = { workspace = true, optional = true }
 md-5 = { workspace = true, optional = true }
@@ -52,7 +53,7 @@ arc-swap = { workspace = true, optional = true }
 [features]
 default = []
 auth-crypt = ["dep:digest", "dep:md-5", "dep:sha-1", "dep:blake3", "dep:hex"]
-resolve = ["dep:ahash", "dep:radix_trie"]
+resolve = ["dep:ahash", "dep:radix_trie", "dep:fastrand"]
 rustls = ["dep:rustls", "dep:webpki-roots", "dep:rustls-pemfile", "dep:rustls-native-certs", "dep:ahash", "dep:lru", "dep:ring", "dep:arc-swap"]
 openssl = ["dep:openssl", "dep:ahash", "dep:lru"]
 vendored-tongsuo = ["openssl", "openssl/tongsuo"]

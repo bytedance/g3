@@ -17,7 +17,6 @@
 use std::cell::RefCell;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use rand::Rng;
 use tokio::runtime::Handle;
 
 use g3_runtime::unaided::WorkersGuard;
@@ -62,10 +61,7 @@ pub fn select_handle() -> Option<WorkerHandle> {
         0 => None,
         1 => Some(handles[0].clone()),
         n => WORKER_RR_INDEX.with_borrow_mut(|cell| {
-            let mut id = cell.map(|v| v + 1).unwrap_or_else(|| {
-                let mut rng = rand::thread_rng();
-                rng.gen_range(0..n)
-            });
+            let mut id = cell.map(|v| v + 1).unwrap_or_else(|| fastrand::usize(0..n));
             if id >= n {
                 id = 0;
             }

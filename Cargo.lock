@@ -810,6 +810,7 @@ dependencies = [
  "chrono",
  "clap",
  "daemonize",
+ "fastrand 2.0.1",
  "futures-util",
  "g3-fluentd",
  "g3-http",
@@ -971,13 +972,13 @@ version = "0.6.0"
 dependencies = [
  "ahash",
  "bytes",
+ "fastrand 2.0.1",
  "futures-util",
  "g3-resolver",
  "g3-types",
  "governor",
  "memchr",
  "pin-project",
- "rand",
  "thiserror",
  "tokio",
  "tokio-rustls",
@@ -1089,9 +1090,9 @@ dependencies = [
 name = "g3-socket"
 version = "0.3.0"
 dependencies = [
+ "fastrand 2.0.1",
  "g3-types",
  "libc",
- "rand",
  "socket2",
  "tokio",
 ]
@@ -1179,6 +1180,7 @@ dependencies = [
  "blake3",
  "bytes",
  "digest",
+ "fastrand 2.0.1",
  "flume",
  "fnv",
  "governor",
@@ -1431,6 +1433,7 @@ dependencies = [
  "chrono",
  "clap",
  "clap_complete",
+ "fastrand 2.0.1",
  "fixedbitset",
  "fnv",
  "futures-util",

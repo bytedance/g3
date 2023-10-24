@@ -11,5 +11,5 @@ rust-version = "1.63.0"
 libc.workspace = true
 tokio = { workspace = true, features = ["net"] }
 socket2 = { version = "0.5", features = ["all"] }
-rand.workspace = true
+fastrand.workspace = true
 g3-types.workspace = true

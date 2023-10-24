@@ -17,7 +17,6 @@
 use std::str::FromStr;
 
 use anyhow::anyhow;
-use rand::seq::SliceRandom;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum QueryStrategy {
@@ -136,8 +135,7 @@ impl ResolveStrategy {
                     all.truncate(count);
                 }
                 PickStrategy::Random => {
-                    let mut rng = rand::thread_rng();
-                    all.shuffle(&mut rng);
+                    fastrand::shuffle(&mut all);
                     all.truncate(count);
                 }
             }
@@ -145,17 +143,14 @@ impl ResolveStrategy {
         all
     }
 
-    pub fn pick_best<T: Copy>(&self, all: Vec<T>) -> Option<T> {
+    pub fn pick_best<T: Copy>(&self, mut all: Vec<T>) -> Option<T> {
         if all.len() > 1 {
             match self.pick {
                 PickStrategy::Serial => all.into_iter().next(),
-                PickStrategy::Random => {
-                    let mut rng = rand::thread_rng();
-                    all.choose(&mut rng).copied()
-                }
+                PickStrategy::Random => fastrand::choice(all),
             }
         } else {
-            all.into_iter().next()
+            all.pop()
         }
     }
 }

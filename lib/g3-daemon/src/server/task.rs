@@ -17,6 +17,7 @@
 use std::sync::OnceLock;
 
 use chrono::{DateTime, Utc};
+use rand::rngs::OsRng;
 use uuid::{v1::Context, Timestamp, Uuid};
 
 static UUID_CONTEXT: OnceLock<Context> = OnceLock::new();
@@ -26,15 +27,13 @@ pub fn generate_uuid(time: &DateTime<Utc>) -> Uuid {
     let context = UUID_CONTEXT.get_or_init(|| {
         use rand::Rng;
 
-        let mut rng = rand::thread_rng();
-        Context::new(rng.gen())
+        Context::new(OsRng.gen())
     });
     let node_id = UUID_NODE_ID.get_or_init(|| {
         use rand::RngCore;
 
         let mut bytes = [0u8; 6];
-        let mut rng = rand::thread_rng();
-        rng.fill_bytes(&mut bytes);
+        OsRng.fill_bytes(&mut bytes);
         bytes
     });
 

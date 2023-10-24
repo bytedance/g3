@@ -17,7 +17,6 @@
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
-use rand::seq::SliceRandom;
 use slog::Logger;
 use tokio::net::UdpSocket;
 
@@ -90,16 +89,8 @@ impl CommonTaskContext {
 
     fn select_bind_ip(&self, ref_ip: IpAddr) -> Option<IpAddr> {
         match ref_ip {
-            IpAddr::V4(_) => self
-                .server_config
-                .udp_bind4
-                .choose(&mut rand::thread_rng())
-                .copied(),
-            IpAddr::V6(_) => self
-                .server_config
-                .udp_bind6
-                .choose(&mut rand::thread_rng())
-                .copied(),
+            IpAddr::V4(_) => fastrand::choice(&self.server_config.udp_bind4).copied(),
+            IpAddr::V6(_) => fastrand::choice(&self.server_config.udp_bind6).copied(),
         }
     }
 

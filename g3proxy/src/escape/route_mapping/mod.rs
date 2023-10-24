@@ -19,7 +19,6 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use rand::seq::SliceRandom;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::metrics::MetricsName;
@@ -90,10 +89,7 @@ impl RouteMappingEscaper {
     }
 
     fn random_next(&self) -> ArcEscaper {
-        let mut rng = rand::thread_rng();
-
-        self.next_nodes
-            .choose(&mut rng)
+        fastrand::choice(&self.next_nodes)
             .unwrap_or(&self.next_nodes[0])
             .clone()
     }
