@@ -145,7 +145,10 @@ impl BenchH3Args {
     ) -> anyhow::Result<SendRequest<OpenStreams, Bytes>> {
         let quic_conn = self.new_quic_connection(proc_args).await?;
 
-        let (mut driver, send_request) = h3::client::new(quic_conn)
+        let mut client_builder = h3::client::builder();
+        // TODO add more client config
+        let (mut driver, send_request) = client_builder
+            .build(quic_conn)
             .await
             .map_err(|e| anyhow!("failed to create h3 connection: {e}"))?;
         tokio::spawn(async move {
