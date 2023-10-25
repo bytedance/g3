@@ -38,12 +38,12 @@ struct DnsTarget {
     args: Arc<BenchDnsArgs>,
     stats: Arc<DnsRuntimeStats>,
     histogram: Option<DnsHistogram>,
+    histogram_recorder: DnsHistogramRecorder,
 }
 
 impl BenchTarget<DnsRuntimeStats, DnsHistogram, DnsTaskContext> for DnsTarget {
     fn new_context(&self) -> anyhow::Result<DnsTaskContext> {
-        let histogram_recorder = self.histogram.as_ref().map(|h| h.recorder());
-        DnsTaskContext::new(&self.args, &self.stats, histogram_recorder)
+        DnsTaskContext::new(&self.args, &self.stats, self.histogram_recorder.clone())
     }
 
     fn fetch_runtime_stats(&self) -> Arc<DnsRuntimeStats> {
@@ -62,10 +62,12 @@ pub fn command() -> Command {
 pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Result<()> {
     let dns_args = opts::parse_dns_args(cmd_args)?;
 
+    let (histogram, histogram_recorder) = DnsHistogram::new();
     let target = DnsTarget {
         args: Arc::new(dns_args),
         stats: Arc::new(DnsRuntimeStats::default()),
-        histogram: Some(DnsHistogram::new()),
+        histogram: Some(histogram),
+        histogram_recorder,
     };
 
     super::run(target, proc_args).await

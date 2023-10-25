@@ -21,8 +21,8 @@ use anyhow::anyhow;
 use tokio::sync::Mutex;
 
 use super::{
-    KeylessCloudflareArgs, KeylessHistogram, KeylessHistogramRecorder, KeylessRuntimeStats,
-    MultiplexTransfer, ProcArgs,
+    KeylessCloudflareArgs, KeylessHistogramRecorder, KeylessRuntimeStats, MultiplexTransfer,
+    ProcArgs,
 };
 
 struct KeylessConnectionUnlocked {
@@ -31,15 +31,14 @@ struct KeylessConnectionUnlocked {
     index: usize,
     save: Option<Arc<MultiplexTransfer>>,
     runtime_stats: Arc<KeylessRuntimeStats>,
-    histogram_recorder: Option<KeylessHistogramRecorder>,
+    histogram_recorder: KeylessHistogramRecorder,
     reuse_conn_count: u64,
 }
 
 impl Drop for KeylessConnectionUnlocked {
     fn drop(&mut self) {
-        if let Some(r) = &mut self.histogram_recorder {
-            r.record_conn_reuse_count(self.reuse_conn_count);
-        }
+        self.histogram_recorder
+            .record_conn_reuse_count(self.reuse_conn_count);
         self.reuse_conn_count = 0;
     }
 }
@@ -50,7 +49,7 @@ impl KeylessConnectionUnlocked {
         proc_args: Arc<ProcArgs>,
         index: usize,
         runtime_stats: Arc<KeylessRuntimeStats>,
-        histogram_recorder: Option<KeylessHistogramRecorder>,
+        histogram_recorder: KeylessHistogramRecorder,
     ) -> Self {
         KeylessConnectionUnlocked {
             args,
@@ -72,9 +71,8 @@ impl KeylessConnectionUnlocked {
             self.save = None;
         }
 
-        if let Some(r) = &mut self.histogram_recorder {
-            r.record_conn_reuse_count(self.reuse_conn_count);
-        }
+        self.histogram_recorder
+            .record_conn_reuse_count(self.reuse_conn_count);
         self.reuse_conn_count = 0;
 
         self.runtime_stats.add_conn_attempt();
@@ -104,7 +102,7 @@ impl KeylessConnection {
         proc_args: Arc<ProcArgs>,
         index: usize,
         runtime_stats: Arc<KeylessRuntimeStats>,
-        histogram_recorder: Option<KeylessHistogramRecorder>,
+        histogram_recorder: KeylessHistogramRecorder,
     ) -> Self {
         KeylessConnection {
             inner: Mutex::new(KeylessConnectionUnlocked::new(
@@ -135,7 +133,7 @@ impl KeylessConnectionPool {
         proc_args: &Arc<ProcArgs>,
         pool_size: usize,
         runtime_stats: &Arc<KeylessRuntimeStats>,
-        histogram_stats: Option<&KeylessHistogram>,
+        histogram_recorder: &KeylessHistogramRecorder,
     ) -> Self {
         let mut pool = Vec::with_capacity(pool_size);
         for i in 0..pool_size {
@@ -144,7 +142,7 @@ impl KeylessConnectionPool {
                 proc_args.clone(),
                 i,
                 runtime_stats.clone(),
-                histogram_stats.map(|s| s.recorder()),
+                histogram_recorder.clone(),
             ));
         }
 

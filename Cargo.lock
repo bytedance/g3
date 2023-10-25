@@ -925,6 +925,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "g3-histogram"
+version = "0.1.0"
+dependencies = [
+ "hdrhistogram",
+ "tokio",
+]
+
+[[package]]
 name = "g3-http"
 version = "0.2.0"
 dependencies = [
@@ -1272,6 +1280,7 @@ dependencies = [
  "concurrent-queue",
  "futures-util",
  "g3-clap",
+ "g3-histogram",
  "g3-http",
  "g3-io-ext",
  "g3-runtime",
@@ -1769,7 +1778,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f19b9f54f7c7f55e31401bb647626ce0cf0f67b0004982ce815b3ee72a02aa8"
 dependencies = [
  "byteorder",
- "crossbeam-channel",
  "num-traits",
 ]
 

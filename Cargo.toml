@@ -19,6 +19,7 @@ members = [
     "lib/g3-journal",
     "lib/g3-fluentd",
     "lib/g3-statsd",
+    "lib/g3-histogram",
     "lib/g3-xcrypt",
     "lib/g3-ftp-client",
     "lib/g3-http",
@@ -198,6 +199,7 @@ g3-signal = { version = "0.3", path = "lib/g3-signal" }
 g3-socket = { version = "0.3", path = "lib/g3-socket" }
 g3-socks = { version = "0.1", path = "lib/g3-socks" }
 g3-statsd = { version = "0.1", path = "lib/g3-statsd" }
+g3-histogram = { version = "0.1", path = "lib/g3-histogram" }
 g3-stdlog = { version = "0.1", path = "lib/g3-stdlog" }
 g3-syslog = { version = "0.6", path = "lib/g3-syslog" }
 g3-slog-types = { version = "0.1", path = "lib/g3-slog-types" }

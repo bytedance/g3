@@ -22,7 +22,7 @@ use bytes::Bytes;
 use h2::client::SendRequest;
 use tokio::sync::Mutex;
 
-use super::{BenchH2Args, HttpHistogram, HttpHistogramRecorder, HttpRuntimeStats, ProcArgs};
+use super::{BenchH2Args, HttpHistogramRecorder, HttpRuntimeStats, ProcArgs};
 
 struct H2ConnectionUnlocked {
     args: Arc<BenchH2Args>,
@@ -30,15 +30,14 @@ struct H2ConnectionUnlocked {
     index: usize,
     h2s: Option<SendRequest<Bytes>>,
     runtime_stats: Arc<HttpRuntimeStats>,
-    histogram_recorder: Option<HttpHistogramRecorder>,
+    histogram_recorder: HttpHistogramRecorder,
     reuse_conn_count: u64,
 }
 
 impl Drop for H2ConnectionUnlocked {
     fn drop(&mut self) {
-        if let Some(r) = &mut self.histogram_recorder {
-            r.record_conn_reuse_count(self.reuse_conn_count);
-        }
+        self.histogram_recorder
+            .record_conn_reuse_count(self.reuse_conn_count);
         self.reuse_conn_count = 0;
     }
 }
@@ -49,7 +48,7 @@ impl H2ConnectionUnlocked {
         proc_args: Arc<ProcArgs>,
         index: usize,
         runtime_stats: Arc<HttpRuntimeStats>,
-        histogram_recorder: Option<HttpHistogramRecorder>,
+        histogram_recorder: HttpHistogramRecorder,
     ) -> Self {
         H2ConnectionUnlocked {
             args,
@@ -70,9 +69,8 @@ impl H2ConnectionUnlocked {
             }
         }
 
-        if let Some(r) = &mut self.histogram_recorder {
-            r.record_conn_reuse_count(self.reuse_conn_count);
-        }
+        self.histogram_recorder
+            .record_conn_reuse_count(self.reuse_conn_count);
         self.reuse_conn_count = 0;
 
         self.runtime_stats.add_conn_attempt();
@@ -108,7 +106,7 @@ impl H2Connection {
         proc_args: Arc<ProcArgs>,
         index: usize,
         runtime_stats: Arc<HttpRuntimeStats>,
-        histogram_recorder: Option<HttpHistogramRecorder>,
+        histogram_recorder: HttpHistogramRecorder,
     ) -> Self {
         H2Connection {
             inner: Mutex::new(H2ConnectionUnlocked::new(
@@ -139,7 +137,7 @@ impl H2ConnectionPool {
         proc_args: &Arc<ProcArgs>,
         pool_size: usize,
         runtime_stats: &Arc<HttpRuntimeStats>,
-        histogram_stats: Option<&HttpHistogram>,
+        histogram_recorder: &HttpHistogramRecorder,
     ) -> Self {
         let mut pool = Vec::with_capacity(pool_size);
         for i in 0..pool_size {
@@ -148,7 +146,7 @@ impl H2ConnectionPool {
                 proc_args.clone(),
                 i,
                 runtime_stats.clone(),
-                histogram_stats.map(|s| s.recorder()),
+                histogram_recorder.clone(),
             ));
         }
 

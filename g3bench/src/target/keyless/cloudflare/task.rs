@@ -40,14 +40,13 @@ pub(super) struct KeylessCloudflareTaskContext {
     request_message: KeylessRequest,
 
     runtime_stats: Arc<KeylessRuntimeStats>,
-    histogram_recorder: Option<KeylessHistogramRecorder>,
+    histogram_recorder: KeylessHistogramRecorder,
 }
 
 impl Drop for KeylessCloudflareTaskContext {
     fn drop(&mut self) {
-        if let Some(r) = &mut self.histogram_recorder {
-            r.record_conn_reuse_count(self.reuse_conn_count);
-        }
+        self.histogram_recorder
+            .record_conn_reuse_count(self.reuse_conn_count);
     }
 }
 
@@ -56,7 +55,7 @@ impl KeylessCloudflareTaskContext {
         args: &Arc<KeylessCloudflareArgs>,
         proc_args: &Arc<ProcArgs>,
         runtime_stats: &Arc<KeylessRuntimeStats>,
-        histogram_recorder: Option<KeylessHistogramRecorder>,
+        histogram_recorder: KeylessHistogramRecorder,
         pool: Option<Arc<KeylessConnectionPool>>,
     ) -> anyhow::Result<Self> {
         let request_builder =
@@ -89,9 +88,8 @@ impl KeylessCloudflareTaskContext {
         }
 
         if self.reuse_conn_count > 0 {
-            if let Some(r) = &mut self.histogram_recorder {
-                r.record_conn_reuse_count(self.reuse_conn_count);
-            }
+            self.histogram_recorder
+                .record_conn_reuse_count(self.reuse_conn_count);
             self.reuse_conn_count = 0;
         }
 
@@ -121,9 +119,8 @@ impl KeylessCloudflareTaskContext {
         }
 
         if self.reuse_conn_count > 0 {
-            if let Some(r) = &mut self.histogram_recorder {
-                r.record_conn_reuse_count(self.reuse_conn_count);
-            }
+            self.histogram_recorder
+                .record_conn_reuse_count(self.reuse_conn_count);
             self.reuse_conn_count = 0;
         }
 
@@ -210,9 +207,7 @@ impl BenchTaskContext for KeylessCloudflareTaskContext {
                 Ok(rsp) => {
                     let total_time = time_started.elapsed();
                     self.simplex = Some(connection);
-                    if let Some(r) = &mut self.histogram_recorder {
-                        r.record_total_time(total_time);
-                    }
+                    self.histogram_recorder.record_total_time(total_time);
                     self.args
                         .global
                         .check_result(task_id, rsp.into_vec())
@@ -229,9 +224,7 @@ impl BenchTaskContext for KeylessCloudflareTaskContext {
             match self.do_run_multiplex(&handle).await {
                 Ok(rsp) => {
                     let total_time = time_started.elapsed();
-                    if let Some(r) = &mut self.histogram_recorder {
-                        r.record_total_time(total_time);
-                    }
+                    self.histogram_recorder.record_total_time(total_time);
                     self.args
                         .global
                         .check_result(task_id, rsp.into_vec())

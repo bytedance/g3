@@ -33,7 +33,7 @@ pub(super) struct SslTaskContext {
     proc_args: Arc<ProcArgs>,
 
     runtime_stats: Arc<SslRuntimeStats>,
-    histogram_recorder: Option<SslHistogramRecorder>,
+    histogram_recorder: SslHistogramRecorder,
 }
 
 impl SslTaskContext {
@@ -41,7 +41,7 @@ impl SslTaskContext {
         args: &Arc<BenchSslArgs>,
         proc_args: &Arc<ProcArgs>,
         runtime_stats: &Arc<SslRuntimeStats>,
-        histogram_recorder: Option<SslHistogramRecorder>,
+        histogram_recorder: SslHistogramRecorder,
     ) -> anyhow::Result<Self> {
         Ok(SslTaskContext {
             args: Arc::clone(args),
@@ -105,9 +105,7 @@ impl BenchTaskContext for SslTaskContext {
         {
             Ok(Ok(mut tls_stream)) => {
                 let total_time = time_started.elapsed();
-                if let Some(r) = &mut self.histogram_recorder {
-                    r.record_total_time(total_time);
-                }
+                self.histogram_recorder.record_total_time(total_time);
 
                 let runtime_stats = self.runtime_stats.clone();
                 // make sure the tls ticket will be reused

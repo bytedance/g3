@@ -30,7 +30,7 @@ pub(super) struct KeylessOpensslTaskContext {
     proc_args: Arc<ProcArgs>,
 
     runtime_stats: Arc<KeylessRuntimeStats>,
-    histogram_recorder: Option<KeylessHistogramRecorder>,
+    histogram_recorder: KeylessHistogramRecorder,
 }
 
 impl KeylessOpensslTaskContext {
@@ -38,7 +38,7 @@ impl KeylessOpensslTaskContext {
         args: &Arc<KeylessOpensslArgs>,
         proc_args: &Arc<ProcArgs>,
         runtime_stats: &Arc<KeylessRuntimeStats>,
-        histogram_recorder: Option<KeylessHistogramRecorder>,
+        histogram_recorder: KeylessHistogramRecorder,
     ) -> anyhow::Result<Self> {
         Ok(KeylessOpensslTaskContext {
             args: Arc::clone(args),
@@ -77,9 +77,7 @@ impl BenchTaskContext for KeylessOpensslTaskContext {
     async fn run(&mut self, task_id: usize, time_started: Instant) -> Result<(), BenchError> {
         let output = self.run_action().await.map_err(BenchError::Fatal)?;
         let total_time = time_started.elapsed();
-        if let Some(r) = &mut self.histogram_recorder {
-            r.record_total_time(total_time);
-        }
+        self.histogram_recorder.record_total_time(total_time);
         self.args
             .global
             .check_result(task_id, output)

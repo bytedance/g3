@@ -40,7 +40,7 @@ pub(super) struct HttpTaskContext {
     reuse_conn_count: u64,
 
     runtime_stats: Arc<HttpRuntimeStats>,
-    histogram_recorder: Option<HttpHistogramRecorder>,
+    histogram_recorder: HttpHistogramRecorder,
 
     req_header: Vec<u8>,
     req_header_fixed_len: usize,
@@ -51,7 +51,7 @@ impl HttpTaskContext {
         args: &Arc<BenchHttpArgs>,
         proc_args: &Arc<ProcArgs>,
         runtime_stats: &Arc<HttpRuntimeStats>,
-        histogram_recorder: Option<HttpHistogramRecorder>,
+        histogram_recorder: HttpHistogramRecorder,
     ) -> anyhow::Result<Self> {
         let mut hdr_buf = Vec::with_capacity(1024);
         args.write_fixed_request_header(&mut hdr_buf)
@@ -81,9 +81,8 @@ impl HttpTaskContext {
             }
         }
 
-        if let Some(r) = &mut self.histogram_recorder {
-            r.record_conn_reuse_count(self.reuse_conn_count);
-        }
+        self.histogram_recorder
+            .record_conn_reuse_count(self.reuse_conn_count);
         self.reuse_conn_count = 0;
 
         self.runtime_stats.add_conn_attempt();
@@ -140,9 +139,7 @@ impl HttpTaskContext {
             .await
             .map_err(|e| anyhow!("failed to send request header: {e:?}"))?;
         let send_hdr_time = time_started.elapsed();
-        if let Some(r) = &mut self.histogram_recorder {
-            r.record_send_hdr_time(send_hdr_time);
-        }
+        self.histogram_recorder.record_send_hdr_time(send_hdr_time);
 
         // recv hdr
         let rsp = match tokio::time::timeout(
@@ -162,9 +159,7 @@ impl HttpTaskContext {
         };
 
         let recv_hdr_time = time_started.elapsed();
-        if let Some(r) = &mut self.histogram_recorder {
-            r.record_recv_hdr_time(recv_hdr_time);
-        }
+        self.histogram_recorder.record_recv_hdr_time(recv_hdr_time);
         if let Some(ok_status) = self.args.ok_status {
             if rsp.code != ok_status.as_u16() {
                 return Err(anyhow!(
@@ -220,9 +215,7 @@ impl BenchTaskContext for HttpTaskContext {
         {
             Ok(keep_alive) => {
                 let total_time = time_started.elapsed();
-                if let Some(r) = &mut self.histogram_recorder {
-                    r.record_total_time(total_time);
-                }
+                self.histogram_recorder.record_total_time(total_time);
 
                 if keep_alive {
                     self.save_connection(connection);

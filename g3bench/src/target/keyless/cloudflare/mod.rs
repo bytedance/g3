@@ -47,6 +47,7 @@ struct KeylessCloudflareTarget {
     proc_args: Arc<ProcArgs>,
     stats: Arc<KeylessRuntimeStats>,
     histogram: Option<KeylessHistogram>,
+    histogram_recorder: KeylessHistogramRecorder,
     pool: Option<Arc<KeylessConnectionPool>>,
 }
 
@@ -54,12 +55,11 @@ impl BenchTarget<KeylessRuntimeStats, KeylessHistogram, KeylessCloudflareTaskCon
     for KeylessCloudflareTarget
 {
     fn new_context(&self) -> anyhow::Result<KeylessCloudflareTaskContext> {
-        let histogram_recorder = self.histogram.as_ref().map(|h| h.recorder());
         KeylessCloudflareTaskContext::new(
             &self.args,
             &self.proc_args,
             &self.stats,
-            histogram_recorder,
+            self.histogram_recorder.clone(),
             self.pool.clone(),
         )
     }
@@ -90,7 +90,7 @@ pub(super) async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> any
     let cf_args = Arc::new(cf_args);
 
     let runtime_stats = Arc::new(KeylessRuntimeStats::default());
-    let histogram = Some(KeylessHistogram::new());
+    let (histogram, histogram_recorder) = KeylessHistogram::new();
 
     let pool = cf_args.pool_size.map(|s| {
         Arc::new(KeylessConnectionPool::new(
@@ -98,7 +98,7 @@ pub(super) async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> any
             proc_args,
             s,
             &runtime_stats,
-            histogram.as_ref(),
+            &histogram_recorder,
         ))
     });
 
@@ -106,7 +106,8 @@ pub(super) async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> any
         args: cf_args,
         proc_args: Arc::clone(proc_args),
         stats: runtime_stats,
-        histogram,
+        histogram: Some(histogram),
+        histogram_recorder,
         pool,
     };
 

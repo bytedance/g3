@@ -39,14 +39,13 @@ pub(super) struct H2TaskContext {
     pre_request: H2PreRequest,
 
     runtime_stats: Arc<HttpRuntimeStats>,
-    histogram_recorder: Option<HttpHistogramRecorder>,
+    histogram_recorder: HttpHistogramRecorder,
 }
 
 impl Drop for H2TaskContext {
     fn drop(&mut self) {
-        if let Some(r) = &mut self.histogram_recorder {
-            r.record_conn_reuse_count(self.reuse_conn_count);
-        }
+        self.histogram_recorder
+            .record_conn_reuse_count(self.reuse_conn_count);
     }
 }
 
@@ -55,7 +54,7 @@ impl H2TaskContext {
         args: &Arc<BenchH2Args>,
         proc_args: &Arc<ProcArgs>,
         runtime_stats: &Arc<HttpRuntimeStats>,
-        histogram_recorder: Option<HttpHistogramRecorder>,
+        histogram_recorder: HttpHistogramRecorder,
         pool: Option<Arc<H2ConnectionPool>>,
     ) -> anyhow::Result<Self> {
         let pre_request = args
@@ -90,9 +89,8 @@ impl H2TaskContext {
         }
 
         if self.reuse_conn_count > 0 {
-            if let Some(r) = &mut self.histogram_recorder {
-                r.record_conn_reuse_count(self.reuse_conn_count);
-            }
+            self.histogram_recorder
+                .record_conn_reuse_count(self.reuse_conn_count);
             self.reuse_conn_count = 0;
         }
 
@@ -134,9 +132,7 @@ impl H2TaskContext {
             .send_request(req, true)
             .map_err(|e| anyhow!("failed to send request: {e:?}"))?;
         let send_hdr_time = time_started.elapsed();
-        if let Some(r) = &mut self.histogram_recorder {
-            r.record_send_hdr_time(send_hdr_time);
-        }
+        self.histogram_recorder.record_send_hdr_time(send_hdr_time);
 
         // recv hdr
         let rsp = match tokio::time::timeout(self.args.timeout, rsp_fut).await {
@@ -146,9 +142,7 @@ impl H2TaskContext {
         };
         let (rsp, mut rsp_recv_body) = rsp.into_parts();
         let recv_hdr_time = time_started.elapsed();
-        if let Some(r) = &mut self.histogram_recorder {
-            r.record_recv_hdr_time(recv_hdr_time);
-        }
+        self.histogram_recorder.record_recv_hdr_time(recv_hdr_time);
         if let Some(ok_status) = self.args.ok_status {
             if rsp.status != ok_status {
                 return Err(anyhow!(
@@ -213,9 +207,7 @@ impl BenchTaskContext for H2TaskContext {
         match self.run_with_stream(time_started, send_req).await {
             Ok(_) => {
                 let total_time = time_started.elapsed();
-                if let Some(r) = &mut self.histogram_recorder {
-                    r.record_total_time(total_time);
-                }
+                self.histogram_recorder.record_total_time(total_time);
                 if self.args.no_multiplex {
                     self.drop_connection();
                 }

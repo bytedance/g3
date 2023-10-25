@@ -40,14 +40,19 @@ struct KeylessOpensslTarget {
     proc_args: Arc<ProcArgs>,
     stats: Arc<KeylessRuntimeStats>,
     histogram: Option<KeylessHistogram>,
+    histogram_recorder: KeylessHistogramRecorder,
 }
 
 impl BenchTarget<KeylessRuntimeStats, KeylessHistogram, KeylessOpensslTaskContext>
     for KeylessOpensslTarget
 {
     fn new_context(&self) -> anyhow::Result<KeylessOpensslTaskContext> {
-        let histogram_recorder = self.histogram.as_ref().map(|h| h.recorder());
-        KeylessOpensslTaskContext::new(&self.args, &self.proc_args, &self.stats, histogram_recorder)
+        KeylessOpensslTaskContext::new(
+            &self.args,
+            &self.proc_args,
+            &self.stats,
+            self.histogram_recorder.clone(),
+        )
     }
 
     fn fetch_runtime_stats(&self) -> Arc<KeylessRuntimeStats> {
@@ -69,13 +74,14 @@ pub(super) async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> any
     let global_args = opts::parse_openssl_args(cmd_args)?;
 
     let runtime_stats = Arc::new(KeylessRuntimeStats::default());
-    let histogram = Some(KeylessHistogram::new());
+    let (histogram, histogram_recorder) = KeylessHistogram::new();
 
     let target = KeylessOpensslTarget {
         args: Arc::new(global_args),
         proc_args: Arc::clone(proc_args),
         stats: runtime_stats,
-        histogram,
+        histogram: Some(histogram),
+        histogram_recorder,
     };
 
     crate::target::run(target, proc_args).await

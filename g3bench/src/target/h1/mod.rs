@@ -37,12 +37,17 @@ struct HttpTarget {
     proc_args: Arc<ProcArgs>,
     stats: Arc<HttpRuntimeStats>,
     histogram: Option<HttpHistogram>,
+    histogram_recorder: HttpHistogramRecorder,
 }
 
 impl BenchTarget<HttpRuntimeStats, HttpHistogram, HttpTaskContext> for HttpTarget {
     fn new_context(&self) -> anyhow::Result<HttpTaskContext> {
-        let histogram_recorder = self.histogram.as_ref().map(|h| h.recorder());
-        HttpTaskContext::new(&self.args, &self.proc_args, &self.stats, histogram_recorder)
+        HttpTaskContext::new(
+            &self.args,
+            &self.proc_args,
+            &self.stats,
+            self.histogram_recorder.clone(),
+        )
     }
 
     fn fetch_runtime_stats(&self) -> Arc<HttpRuntimeStats> {
@@ -62,11 +67,13 @@ pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Re
     let mut http_args = opts::parse_http_args(cmd_args)?;
     http_args.resolve_target_address(proc_args).await?;
 
+    let (histogram, histogram_recorder) = HttpHistogram::new();
     let target = HttpTarget {
         args: Arc::new(http_args),
         proc_args: Arc::clone(proc_args),
         stats: Arc::new(HttpRuntimeStats::new(COMMAND)),
-        histogram: Some(HttpHistogram::new()),
+        histogram: Some(histogram),
+        histogram_recorder,
     };
 
     super::run(target, proc_args).await

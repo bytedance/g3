@@ -39,17 +39,17 @@ struct H2Target {
     proc_args: Arc<ProcArgs>,
     stats: Arc<HttpRuntimeStats>,
     histogram: Option<HttpHistogram>,
+    histogram_recorder: HttpHistogramRecorder,
     pool: Option<Arc<H2ConnectionPool>>,
 }
 
 impl BenchTarget<HttpRuntimeStats, HttpHistogram, H2TaskContext> for H2Target {
     fn new_context(&self) -> anyhow::Result<H2TaskContext> {
-        let histogram_recorder = self.histogram.as_ref().map(|h| h.recorder());
         H2TaskContext::new(
             &self.args,
             &self.proc_args,
             &self.stats,
-            histogram_recorder,
+            self.histogram_recorder.clone(),
             self.pool.clone(),
         )
     }
@@ -77,7 +77,7 @@ pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Re
     let h2_args = Arc::new(h2_args);
 
     let runtime_stats = Arc::new(HttpRuntimeStats::new(COMMAND));
-    let histogram = Some(HttpHistogram::new());
+    let (histogram, histogram_recorder) = HttpHistogram::new();
 
     let pool = h2_args.pool_size.map(|s| {
         Arc::new(H2ConnectionPool::new(
@@ -85,7 +85,7 @@ pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Re
             proc_args,
             s,
             &runtime_stats,
-            histogram.as_ref(),
+            &histogram_recorder,
         ))
     });
 
@@ -93,7 +93,8 @@ pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Re
         args: h2_args,
         proc_args: Arc::clone(proc_args),
         stats: runtime_stats,
-        histogram,
+        histogram: Some(histogram),
+        histogram_recorder,
         pool,
     };
 

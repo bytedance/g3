@@ -30,7 +30,7 @@ openssl-probe = { workspace = true, optional = true }
 rustls.workspace = true
 rustls-pemfile.workspace = true
 cadence.workspace = true
-hdrhistogram = { workspace = true, features = ["sync"] }
+hdrhistogram.workspace = true
 ahash.workspace = true
 rustc-hash.workspace = true
 concurrent-queue = "2.2"
@@ -46,6 +46,7 @@ g3-http.workspace = true
 g3-socks.workspace = true
 g3-io-ext.workspace = true
 g3-statsd.workspace = true
+g3-histogram.workspace = true
 g3-tls-cert.workspace = true
 openssl-async-job.workspace = true
 

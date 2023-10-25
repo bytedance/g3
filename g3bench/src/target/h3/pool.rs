@@ -23,7 +23,7 @@ use h3::client::SendRequest;
 use h3_quinn::OpenStreams;
 use tokio::sync::Mutex;
 
-use super::{BenchH3Args, HttpHistogram, HttpHistogramRecorder, HttpRuntimeStats, ProcArgs};
+use super::{BenchH3Args, HttpHistogramRecorder, HttpRuntimeStats, ProcArgs};
 
 struct H3ConnectionUnlocked {
     args: Arc<BenchH3Args>,
@@ -31,15 +31,14 @@ struct H3ConnectionUnlocked {
     index: usize,
     h3s: Option<SendRequest<OpenStreams, Bytes>>,
     runtime_stats: Arc<HttpRuntimeStats>,
-    histogram_recorder: Option<HttpHistogramRecorder>,
+    histogram_recorder: HttpHistogramRecorder,
     reuse_conn_count: u64,
 }
 
 impl Drop for H3ConnectionUnlocked {
     fn drop(&mut self) {
-        if let Some(r) = &mut self.histogram_recorder {
-            r.record_conn_reuse_count(self.reuse_conn_count);
-        }
+        self.histogram_recorder
+            .record_conn_reuse_count(self.reuse_conn_count);
         self.reuse_conn_count = 0;
     }
 }
@@ -50,7 +49,7 @@ impl H3ConnectionUnlocked {
         proc_args: Arc<ProcArgs>,
         index: usize,
         runtime_stats: Arc<HttpRuntimeStats>,
-        histogram_recorder: Option<HttpHistogramRecorder>,
+        histogram_recorder: HttpHistogramRecorder,
     ) -> Self {
         H3ConnectionUnlocked {
             args,
@@ -70,9 +69,8 @@ impl H3ConnectionUnlocked {
             return Ok(h3s);
         }
 
-        if let Some(r) = &mut self.histogram_recorder {
-            r.record_conn_reuse_count(self.reuse_conn_count);
-        }
+        self.histogram_recorder
+            .record_conn_reuse_count(self.reuse_conn_count);
         self.reuse_conn_count = 0;
 
         self.runtime_stats.add_conn_attempt();
@@ -104,7 +102,7 @@ impl H3Connection {
         proc_args: Arc<ProcArgs>,
         index: usize,
         runtime_stats: Arc<HttpRuntimeStats>,
-        histogram_recorder: Option<HttpHistogramRecorder>,
+        histogram_recorder: HttpHistogramRecorder,
     ) -> Self {
         H3Connection {
             inner: Mutex::new(H3ConnectionUnlocked::new(
@@ -135,7 +133,7 @@ impl H3ConnectionPool {
         proc_args: &Arc<ProcArgs>,
         pool_size: usize,
         runtime_stats: &Arc<HttpRuntimeStats>,
-        histogram_stats: Option<&HttpHistogram>,
+        histogram_recorder: &HttpHistogramRecorder,
     ) -> Self {
         let mut pool = Vec::with_capacity(pool_size);
         for i in 0..pool_size {
@@ -144,7 +142,7 @@ impl H3ConnectionPool {
                 proc_args.clone(),
                 i,
                 runtime_stats.clone(),
-                histogram_stats.map(|s| s.recorder()),
+                histogram_recorder.clone(),
             ));
         }
 

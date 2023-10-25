@@ -36,12 +36,17 @@ struct SslTarget {
     proc_args: Arc<ProcArgs>,
     stats: Arc<SslRuntimeStats>,
     histogram: Option<SslHistogram>,
+    histogram_recorder: SslHistogramRecorder,
 }
 
 impl BenchTarget<SslRuntimeStats, SslHistogram, SslTaskContext> for SslTarget {
     fn new_context(&self) -> anyhow::Result<SslTaskContext> {
-        let histogram_recorder = self.histogram.as_ref().map(|h| h.recorder());
-        SslTaskContext::new(&self.args, &self.proc_args, &self.stats, histogram_recorder)
+        SslTaskContext::new(
+            &self.args,
+            &self.proc_args,
+            &self.stats,
+            self.histogram_recorder.clone(),
+        )
     }
 
     fn fetch_runtime_stats(&self) -> Arc<SslRuntimeStats> {
@@ -61,11 +66,13 @@ pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Re
     let mut ssl_args = opts::parse_ssl_args(cmd_args)?;
     ssl_args.resolve_target_address(proc_args).await?;
 
+    let (histogram, histogram_recorder) = SslHistogram::new();
     let target = SslTarget {
         args: Arc::new(ssl_args),
         proc_args: Arc::clone(proc_args),
         stats: Arc::new(SslRuntimeStats::default()),
-        histogram: Some(SslHistogram::new()),
+        histogram: Some(histogram),
+        histogram_recorder,
     };
 
     super::run(target, proc_args).await

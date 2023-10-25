@@ -66,7 +66,7 @@ pub(super) struct DnsTaskContext {
     client: Option<AsyncClient>,
 
     runtime_stats: Arc<DnsRuntimeStats>,
-    histogram_recorder: Option<DnsHistogramRecorder>,
+    histogram_recorder: DnsHistogramRecorder,
 
     local_picker: LocalRequestPicker,
 }
@@ -75,7 +75,7 @@ impl DnsTaskContext {
     pub(super) fn new(
         args: &Arc<BenchDnsArgs>,
         runtime_stats: &Arc<DnsRuntimeStats>,
-        histogram_recorder: Option<DnsHistogramRecorder>,
+        histogram_recorder: DnsHistogramRecorder,
     ) -> anyhow::Result<Self> {
         Ok(DnsTaskContext {
             args: Arc::clone(args),
@@ -166,9 +166,7 @@ impl BenchTaskContext for DnsTaskContext {
         match self.run_with_client(client, req).await {
             Ok(_) => {
                 let total_time = time_started.elapsed();
-                if let Some(r) = &mut self.histogram_recorder {
-                    r.record_total_time(total_time);
-                }
+                self.histogram_recorder.record_total_time(total_time);
                 Ok(())
             }
             Err(e) => {
