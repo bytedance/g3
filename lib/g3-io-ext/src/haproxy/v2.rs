@@ -19,7 +19,7 @@ use std::time::Duration;
 
 use tokio::io::{AsyncRead, AsyncReadExt};
 
-use super::ProxyProtocolReadError;
+use super::{ProxyAddr, ProxyProtocolReadError};
 
 const PROXY_HDR_V2_LEN: usize = 16;
 const PROXY_DATA_V2_MAX_LEN: usize = 536;
@@ -38,11 +38,6 @@ const PROTOCOL_UNSPEC: u8 = 0x00;
 const PROTOCOL_STREAM: u8 = 0x01;
 const PROTOCOL_DGRAM: u8 = 0x02;
 
-pub struct ProxyAddr {
-    pub src_addr: SocketAddr,
-    pub dst_addr: SocketAddr,
-}
-
 pub struct ProxyProtocolV2Reader {
     timeout: Duration,
     hdr_buf: [u8; PROXY_HDR_V2_LEN],
@@ -57,9 +52,7 @@ impl ProxyProtocolV2Reader {
             data_buf: Box::new([0u8; PROXY_DATA_V2_MAX_LEN]),
         }
     }
-}
 
-impl ProxyProtocolV2Reader {
     pub async fn read_proxy_protocol_v2_for_tcp<R>(
         &mut self,
         reader: &mut R,

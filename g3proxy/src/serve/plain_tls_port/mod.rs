@@ -27,7 +27,7 @@ use tokio_rustls::{server::TlsStream, TlsAcceptor};
 
 use g3_daemon::listen::ListenStats;
 use g3_daemon::server::ClientConnectionInfo;
-use g3_io_ext::haproxy::ProxyProtocolV2Reader;
+use g3_io_ext::haproxy::{ProxyProtocolV1Reader, ProxyProtocolV2Reader};
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::MetricsName;
 use g3_types::net::{ProxyProtocolVersion, RustlsServerConfig};
@@ -83,9 +83,15 @@ impl AuxiliaryServerConfig for PlainTlsPortAuxConfig {
             let mut cc_info = cc_info;
             match proxy_protocol {
                 Some(ProxyProtocolVersion::V1) => {
-                    // TODO support proxy protocol v1
-                    listen_stats.add_dropped();
-                    return;
+                    let mut parser = ProxyProtocolV1Reader::new(proxy_protocol_read_timeout);
+                    match parser.read_proxy_protocol_v1_for_tcp(&mut stream).await {
+                        Ok(Some(a)) => cc_info.set_proxy_addr(a),
+                        Ok(None) => {}
+                        Err(e) => {
+                            listen_stats.add_by_proxy_protocol_error(e);
+                            return;
+                        }
+                    }
                 }
                 Some(ProxyProtocolVersion::V2) => {
                     let mut parser = ProxyProtocolV2Reader::new(proxy_protocol_read_timeout);

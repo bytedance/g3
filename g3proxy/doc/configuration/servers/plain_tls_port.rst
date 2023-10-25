@@ -44,8 +44,6 @@ The TLS handshake with the client will happen after we receive the PROXY Protoco
 
 .. note:: The *ingress_network_filter* config option of this server will always applies to the real socket client address.
 
-.. note:: We only support PROXY Protocol version 2 currently.
-
 **default**: not set, which means PROXY protocol won't be used
 
 .. versionadded:: 1.7.19

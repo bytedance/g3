@@ -39,8 +39,6 @@ If set, connections with no matched PROXY Protocol message will be dropped.
 
 .. note:: The *ingress_network_filter* config option of this server will always applies to the real socket client address.
 
-.. note:: We only support PROXY Protocol version 2 currently.
-
 **default**: not set, which means PROXY protocol won't be used
 
 .. versionadded:: 1.7.19
