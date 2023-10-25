@@ -78,7 +78,7 @@ impl<T: AsyncOperation> OpensslAsyncTask<T> {
         })
     }
 
-    #[cfg(not(feature = "callback"))]
+    #[cfg(not(ossl300))]
     fn poll_run(&mut self, cx: &mut Context<'_>) -> Poll<Result<T::Output, OpensslAsyncTaskError>> {
         let mut ret: c_int = 0;
 
@@ -129,7 +129,7 @@ impl<T: AsyncOperation> OpensslAsyncTask<T> {
         }
     }
 
-    #[cfg(feature = "callback")]
+    #[cfg(ossl300)]
     fn poll_run(&mut self, cx: &mut Context<'_>) -> Poll<Result<T::Output, OpensslAsyncTaskError>> {
         let mut ret: c_int = 0;
 
