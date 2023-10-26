@@ -435,9 +435,9 @@ impl Server for HttpRProxyServer {
         cc_info: ClientConnectionInfo,
         ctx: ServerRunContext,
     ) {
-        let peer_addr = cc_info.sock_peer_addr();
-        self.server_stats.add_conn(peer_addr);
-        if self.drop_early(peer_addr) {
+        let client_addr = cc_info.client_addr();
+        self.server_stats.add_conn(client_addr);
+        if self.drop_early(client_addr) {
             return;
         }
 
