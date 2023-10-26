@@ -15,11 +15,20 @@
  */
 
 use std::io;
+use std::net::SocketAddr;
 
 use thiserror::Error;
 
+mod v1;
+pub use v1::ProxyProtocolV1Reader;
+
 mod v2;
-pub use v2::{ProxyAddr, ProxyProtocolV2Reader};
+pub use v2::ProxyProtocolV2Reader;
+
+pub struct ProxyAddr {
+    pub src_addr: SocketAddr,
+    pub dst_addr: SocketAddr,
+}
 
 #[derive(Debug, Error)]
 pub enum ProxyProtocolReadError {
@@ -41,4 +50,8 @@ pub enum ProxyProtocolReadError {
     InvalidProtocol(u8),
     #[error("invalid data length {0}")]
     InvalidDataLength(usize),
+    #[error("invalid src address")]
+    InvalidSrcAddr,
+    #[error("invalid dst address")]
+    InvalidDstAddr,
 }

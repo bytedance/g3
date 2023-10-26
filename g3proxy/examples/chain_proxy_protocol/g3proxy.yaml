@@ -1,0 +1,46 @@
+---
+runtime:
+  thread_number: 2
+
+server:
+  - name: http1
+    escaper: proxy_pp1
+    type: http_proxy
+    listen:
+      address: "[::]:3128"
+  - name: http2
+    escaper: proxy_pp2
+    type: http_proxy
+    listen:
+      address: "[::]:3129"
+  - name: http0
+    escaper: default
+    type: http_proxy
+  - name: port_pp1
+    type: plain_tcp_port
+    server: http0
+    proxy_protocol: 1
+    listen: "[::1]:3131"
+  - name: port_pp2
+    type: plain_tcp_port
+    server: http0
+    proxy_protocol: 2
+    listen: "[::1]:3132"
+
+resolver:
+  - name: default
+    type: c-ares
+    server: 223.5.5.5
+
+escaper:
+  - name: proxy_pp1
+    type: proxy_http
+    proxy_addr: "[::1]:3131"
+    use_proxy_protocol: 1
+  - name: proxy_pp2
+    type: proxy_http
+    proxy_addr: "[::1]:3132"
+    use_proxy_protocol: 2
+  - name: default
+    type: direct_fixed
+    resolver: default

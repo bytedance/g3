@@ -116,7 +116,9 @@ impl ListenStats {
             | ProxyProtocolReadError::InvalidVersion(_)
             | ProxyProtocolReadError::InvalidCommand(_)
             | ProxyProtocolReadError::InvalidFamily(_)
-            | ProxyProtocolReadError::InvalidProtocol(_) => self.add_dropped(),
+            | ProxyProtocolReadError::InvalidProtocol(_)
+            | ProxyProtocolReadError::InvalidSrcAddr
+            | ProxyProtocolReadError::InvalidDstAddr => self.add_dropped(),
         }
     }
 }
