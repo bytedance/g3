@@ -24,10 +24,12 @@ use tokio::net::TcpStream;
 use tokio::runtime::Handle;
 use tokio::sync::{mpsc, watch};
 
+use g3_io_ext::haproxy::{ProxyProtocolV1Reader, ProxyProtocolV2Reader};
 use g3_io_ext::LimitedTcpListener;
 use g3_socket::util::native_socket_addr;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit};
+use g3_types::net::ProxyProtocolVersion;
 
 use super::{detect_tcp_proxy_protocol, DetectedProxyProtocol};
 use crate::config::server::intelli_proxy::IntelliProxyConfig;
@@ -37,8 +39,7 @@ use crate::serve::{ArcServer, ListenStats, ServerRunContext};
 
 struct DetectedTcpStream {
     stream: TcpStream,
-    peer_addr: SocketAddr,
-    local_addr: SocketAddr,
+    cc_info: ClientConnectionInfo,
     protocol: DetectedProxyProtocol,
 }
 
@@ -191,7 +192,7 @@ impl IntelliProxyRuntime {
 
         rt_handle.spawn(async move {
             if let Some(filter) = ingress_net_filter {
-                let (_, action) = filter.check(d.peer_addr.ip());
+                let (_, action) = filter.check(d.cc_info.sock_peer_ip());
                 match action {
                     AclAction::Permit | AclAction::PermitAndLog => {}
                     AclAction::Forbid | AclAction::ForbidAndLog => {
@@ -201,9 +202,7 @@ impl IntelliProxyRuntime {
                 }
             }
 
-            let cc_info =
-                ClientConnectionInfo::new(d.peer_addr, d.local_addr, d.stream.as_raw_fd());
-            server.run_tcp_task(d.stream, cc_info, ctx).await
+            server.run_tcp_task(d.stream, d.cc_info, ctx).await
         });
     }
 
@@ -375,7 +374,37 @@ impl IntelliProxyListen {
         let listen_stats = Arc::clone(&self.listen_stats);
         let stream_sender = self.stream_sender.clone();
         let detection_timeout = self.config.protocol_detection_timeout;
+        let proxy_protocol = self.config.proxy_protocol;
+        let proxy_protocol_read_timeout = self.config.proxy_protocol_read_timeout;
+        let mut cc_info = ClientConnectionInfo::new(peer_addr, local_addr, stream.as_raw_fd());
         tokio::spawn(async move {
+            let mut stream = stream;
+            match proxy_protocol {
+                Some(ProxyProtocolVersion::V1) => {
+                    let mut parser = ProxyProtocolV1Reader::new(proxy_protocol_read_timeout);
+                    match parser.read_proxy_protocol_v1_for_tcp(&mut stream).await {
+                        Ok(Some(a)) => cc_info.set_proxy_addr(a),
+                        Ok(None) => {}
+                        Err(e) => {
+                            listen_stats.add_by_proxy_protocol_error(e);
+                            return;
+                        }
+                    }
+                }
+                Some(ProxyProtocolVersion::V2) => {
+                    let mut parser = ProxyProtocolV2Reader::new(proxy_protocol_read_timeout);
+                    match parser.read_proxy_protocol_v2_for_tcp(&mut stream).await {
+                        Ok(Some(a)) => cc_info.set_proxy_addr(a),
+                        Ok(None) => {}
+                        Err(e) => {
+                            listen_stats.add_by_proxy_protocol_error(e);
+                            return;
+                        }
+                    }
+                }
+                None => {}
+            }
+
             match tokio::time::timeout(detection_timeout, detect_tcp_proxy_protocol(&stream)).await
             {
                 Ok(Ok(protocol)) => {
@@ -387,8 +416,7 @@ impl IntelliProxyListen {
 
                     let d = DetectedTcpStream {
                         stream,
-                        peer_addr,
-                        local_addr,
+                        cc_info,
                         protocol,
                     };
                     if stream_sender.send(d).await.is_err() {

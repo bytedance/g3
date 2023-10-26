@@ -65,3 +65,29 @@ Set the limit of protocol detection jobs.
 If the limit is reached, the connection will be closed silently.
 
 **default**: 4096
+
+proxy_protocol
+--------------
+
+**optional**, **type**: :ref:`proxy protocol version <conf_value_proxy_protocol_version>`
+
+Set the version of PROXY protocol we use for incoming tcp connections.
+
+If set, connections with no matched PROXY Protocol message will be dropped.
+
+.. note:: The *ingress_network_filter* config option of this server will always applies to the real socket client address.
+
+**default**: not set, which means PROXY protocol won't be used
+
+.. versionadded:: 1.7.28
+
+proxy_protocol_read_timeout
+---------------------------
+
+**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+Set the timeout value before we read a complete PROXY Protocol message.
+
+**default**: 5s
+
+.. versionadded:: 1.7.28

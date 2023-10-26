@@ -22,7 +22,7 @@ use yaml_rust::{yaml, Yaml};
 
 use g3_types::acl::AclNetworkRuleBuilder;
 use g3_types::metrics::MetricsName;
-use g3_types::net::TcpListenConfig;
+use g3_types::net::{ProxyProtocolVersion, TcpListenConfig};
 use g3_yaml::YamlDocPosition;
 
 use super::ServerConfig;
@@ -42,6 +42,8 @@ pub(crate) struct IntelliProxyConfig {
     pub(crate) protocol_detection_channel_size: usize,
     pub(crate) protocol_detection_timeout: Duration,
     pub(crate) protocol_detection_max_jobs: usize,
+    pub(crate) proxy_protocol: Option<ProxyProtocolVersion>,
+    pub(crate) proxy_protocol_read_timeout: Duration,
 }
 
 impl IntelliProxyConfig {
@@ -57,6 +59,8 @@ impl IntelliProxyConfig {
             protocol_detection_channel_size: 4096,
             protocol_detection_timeout: Duration::from_secs(4),
             protocol_detection_max_jobs: 4096,
+            proxy_protocol: None,
+            proxy_protocol_read_timeout: Duration::from_secs(5),
         }
     }
 
@@ -116,6 +120,18 @@ impl IntelliProxyConfig {
             "protocol_detection_max_jobs" => {
                 self.protocol_detection_max_jobs = g3_yaml::value::as_usize(v)
                     .context(format!("invalid usize value for key {k}"))?;
+                Ok(())
+            }
+            "proxy_protocol" => {
+                let p = g3_yaml::value::as_proxy_protocol_version(v)
+                    .context(format!("invalid proxy protocol version value for key {k}"))?;
+                self.proxy_protocol = Some(p);
+                Ok(())
+            }
+            "proxy_protocol_read_timeout" => {
+                let t = g3_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                self.proxy_protocol_read_timeout = t;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
