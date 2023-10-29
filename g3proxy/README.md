@@ -66,12 +66,13 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 - **Alias Port**
 
   - TCP Port
-    * PROXY Protocol v2
+    * PROXY Protocol
   - TLS Port
-    * PROXY Protocol v2
+    * PROXY Protocol
     * mTLS
   - Intelli Proxy
     * Multiple protocol: Http Proxy / Socks Proxy
+    * PROXY Protocol
 
 ### Escaper
 
@@ -139,6 +140,7 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 - route-geoip - based on GeoIP rules if the resolved IP
 - route-select - simple load balancer
   * RR / Random / Rendezvous / Jump Hash
+  * Json based Egress Path Selection
 - route-upstream - based on original target host
   * exact ip match
   * exact domain match
