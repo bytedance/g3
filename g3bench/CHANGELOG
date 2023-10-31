@@ -1,6 +1,9 @@
 
 v0.8.4:
+ - BUG FIX: fix keyless openssl sign action
  - Feature: support dns over http/3 in dns target
+ - Feature: add an option to ignore fatal error
+ - Feature: emit histogram duration metrics
 
 v0.8.3:
  - BUG FIX: fix the load of x509 cert in keyless target
