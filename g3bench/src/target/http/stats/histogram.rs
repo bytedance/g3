@@ -16,7 +16,7 @@
 
 use std::time::Duration;
 
-use cadence::{Gauged, StatsdClient};
+use cadence::StatsdClient;
 
 use g3_histogram::{Recorder, SyncHistogram};
 use g3_types::ext::DurationExt;
@@ -61,51 +61,9 @@ impl BenchHistogram for HttpHistogram {
     }
 
     fn emit(&self, client: &StatsdClient) {
-        macro_rules! emit_histogram {
-            ($field:ident, $name:literal) => {
-                let h = self.$field.inner();
-                let min = h.min();
-                client
-                    .gauge_with_tags(concat!("http.", $name, ".min"), min)
-                    .send();
-                let max = h.max();
-                client
-                    .gauge_with_tags(concat!("http.", $name, ".max"), max)
-                    .send();
-                let mean = h.mean();
-                client
-                    .gauge_with_tags(concat!("http.", $name, ".mean"), mean)
-                    .send();
-                let pct50 = h.value_at_percentile(0.50);
-                client
-                    .gauge_with_tags(concat!("http.", $name, ".pct50"), pct50)
-                    .send();
-                let pct80 = h.value_at_percentile(0.80);
-                client
-                    .gauge_with_tags(concat!("http.", $name, ".pct80"), pct80)
-                    .send();
-                let pct90 = h.value_at_percentile(0.90);
-                client
-                    .gauge_with_tags(concat!("http.", $name, ".pct90"), pct90)
-                    .send();
-                let pct95 = h.value_at_percentile(0.95);
-                client
-                    .gauge_with_tags(concat!("http.", $name, ".pct95"), pct95)
-                    .send();
-                let pct98 = h.value_at_percentile(0.98);
-                client
-                    .gauge_with_tags(concat!("http.", $name, ".pct98"), pct98)
-                    .send();
-                let pct99 = h.value_at_percentile(0.99);
-                client
-                    .gauge_with_tags(concat!("http.", $name, ".pct99"), pct99)
-                    .send();
-            };
-        }
-
-        emit_histogram!(send_hdr_time, "time.send_hdr");
-        emit_histogram!(recv_hdr_time, "time.recv_hdr");
-        emit_histogram!(total_time, "time.total");
+        self.emit_histogram(client, self.send_hdr_time.inner(), "http.time.send_hdr");
+        self.emit_histogram(client, self.recv_hdr_time.inner(), "http.time.recv_hdr");
+        self.emit_histogram(client, self.total_time.inner(), "http.time.total");
     }
 
     fn summary(&self) {

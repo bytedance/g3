@@ -55,8 +55,6 @@ const GLOBAL_ARG_PEER_PICK_POLICY: &str = "peer-pick-policy";
 const GLOBAL_ARG_TCP_LIMIT_SHIFT: &str = "tcp-limit-shift";
 const GLOBAL_ARG_TCP_LIMIT_BYTES: &str = "tcp-limit-bytes";
 
-const DEFAULT_STAT_PREFIX: &str = "g3bench";
-
 pub struct ProcArgs {
     pub(super) concurrency: usize,
     pub(super) latency: Option<Duration>,
@@ -451,7 +449,7 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
 
     if args.get_flag(GLOBAL_ARG_EMIT_METRICS) {
         let mut config =
-            StatsdClientConfig::with_prefix(MetricsName::from_str(DEFAULT_STAT_PREFIX).unwrap());
+            StatsdClientConfig::with_prefix(MetricsName::from_str(crate::build::PKG_NAME).unwrap());
 
         if let Some(addr) = args.get_one::<SocketAddr>(GLOBAL_ARG_STATSD_TARGET_UDP) {
             config.set_backend(StatsdBackend::Udp(*addr, None));

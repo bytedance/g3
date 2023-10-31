@@ -20,7 +20,7 @@ use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use cadence::StatsdClient;
+use cadence::{Gauged, StatsdClient};
 use hdrhistogram::Histogram;
 use tokio::signal::unix::SignalKind;
 use tokio::sync::{mpsc, Barrier, Semaphore};
@@ -50,9 +50,60 @@ pub mod h3;
 pub mod keyless;
 pub mod ssl;
 
+const QUANTILE: &str = "quantile";
+
 trait BenchHistogram {
     fn refresh(&mut self);
     fn emit(&self, client: &StatsdClient);
+
+    fn emit_histogram(&self, client: &StatsdClient, histogram: &Histogram<u64>, key: &str) {
+        let min = histogram.min();
+        client
+            .gauge_with_tags(key, min)
+            .with_tag(QUANTILE, "min")
+            .send();
+        let max = histogram.max();
+        client
+            .gauge_with_tags(key, max)
+            .with_tag(QUANTILE, "max")
+            .send();
+        let mean = histogram.mean();
+        client
+            .gauge_with_tags(key, mean)
+            .with_tag(QUANTILE, "mean")
+            .send();
+        let pct50 = histogram.value_at_quantile(0.50);
+        client
+            .gauge_with_tags(key, pct50)
+            .with_tag(QUANTILE, "0.50")
+            .send();
+        let pct80 = histogram.value_at_quantile(0.80);
+        client
+            .gauge_with_tags(key, pct80)
+            .with_tag(QUANTILE, "0.80")
+            .send();
+        let pct90 = histogram.value_at_quantile(0.90);
+        client
+            .gauge_with_tags(key, pct90)
+            .with_tag(QUANTILE, "0.90")
+            .send();
+        let pct95 = histogram.value_at_quantile(0.95);
+        client
+            .gauge_with_tags(key, pct95)
+            .with_tag(QUANTILE, "0.95")
+            .send();
+        let pct98 = histogram.value_at_quantile(0.98);
+        client
+            .gauge_with_tags(key, pct98)
+            .with_tag(QUANTILE, "0.98")
+            .send();
+        let pct99 = histogram.value_at_quantile(0.99);
+        client
+            .gauge_with_tags(key, pct99)
+            .with_tag(QUANTILE, "0.99")
+            .send();
+    }
+
     fn summary(&self);
 
     fn summary_histogram_title(title: &str) {
@@ -68,7 +119,7 @@ trait BenchHistogram {
         let d_min = h.min();
         let d_mean = h.mean();
         let d_std_dev = h.stdev();
-        let d_pct90 = h.value_at_quantile(0.9);
+        let d_pct90 = h.value_at_quantile(0.90);
         let d_max = h.max();
 
         println!(
@@ -82,7 +133,7 @@ trait BenchHistogram {
         let t_min = Duration::from_nanos(h.min());
         let t_mean = Duration::from_secs_f64(h.mean() / NANOS_PER_SEC);
         let t_std_dev = Duration::from_secs_f64(h.stdev() / NANOS_PER_SEC);
-        let t_pct90 = Duration::from_nanos(h.value_at_quantile(0.9));
+        let t_pct90 = Duration::from_nanos(h.value_at_quantile(0.90));
         let t_max = Duration::from_nanos(h.max());
 
         println!(

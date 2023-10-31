@@ -16,7 +16,7 @@
 
 use std::time::Duration;
 
-use cadence::{Gauged, StatsdClient};
+use cadence::StatsdClient;
 
 use g3_histogram::{Recorder, SyncHistogram};
 use g3_types::ext::DurationExt;
@@ -43,49 +43,7 @@ impl BenchHistogram for DnsHistogram {
     }
 
     fn emit(&self, client: &StatsdClient) {
-        macro_rules! emit_histogram {
-            ($field:ident, $name:literal) => {
-                let h = self.$field.inner();
-                let min = h.min();
-                client
-                    .gauge_with_tags(concat!("dns.", $name, ".min"), min)
-                    .send();
-                let max = h.max();
-                client
-                    .gauge_with_tags(concat!("dns.", $name, ".max"), max)
-                    .send();
-                let mean = h.mean();
-                client
-                    .gauge_with_tags(concat!("dns.", $name, ".mean"), mean)
-                    .send();
-                let pct50 = h.value_at_percentile(0.50);
-                client
-                    .gauge_with_tags(concat!("dns.", $name, ".pct50"), pct50)
-                    .send();
-                let pct80 = h.value_at_percentile(0.80);
-                client
-                    .gauge_with_tags(concat!("dns.", $name, ".pct80"), pct80)
-                    .send();
-                let pct90 = h.value_at_percentile(0.90);
-                client
-                    .gauge_with_tags(concat!("dns.", $name, ".pct90"), pct90)
-                    .send();
-                let pct95 = h.value_at_percentile(0.95);
-                client
-                    .gauge_with_tags(concat!("dns.", $name, ".pct95"), pct95)
-                    .send();
-                let pct98 = h.value_at_percentile(0.98);
-                client
-                    .gauge_with_tags(concat!("dns.", $name, ".pct98"), pct98)
-                    .send();
-                let pct99 = h.value_at_percentile(0.99);
-                client
-                    .gauge_with_tags(concat!("dns.", $name, ".pct99"), pct99)
-                    .send();
-            };
-        }
-
-        emit_histogram!(total_time, "time.total");
+        self.emit_histogram(client, self.total_time.inner(), "dns.time.total");
     }
 
     fn summary(&self) {
