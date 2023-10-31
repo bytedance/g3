@@ -18,7 +18,7 @@ use std::time::Duration;
 
 use cadence::StatsdClient;
 
-use g3_histogram::{Recorder, SyncHistogram};
+use g3_histogram::{HistogramRecorder, SyncHistogram};
 use g3_types::ext::DurationExt;
 
 use crate::target::BenchHistogram;
@@ -57,7 +57,7 @@ impl BenchHistogram for DnsHistogram {
 
 #[derive(Clone)]
 pub(crate) struct DnsHistogramRecorder {
-    total_time: Recorder<u64>,
+    total_time: HistogramRecorder<u64>,
 }
 
 impl DnsHistogramRecorder {

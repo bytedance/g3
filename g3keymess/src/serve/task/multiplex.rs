@@ -20,6 +20,7 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::{broadcast, mpsc};
 
 use g3_io_ext::LimitedBufReadExt;
+use g3_types::ext::DurationExt;
 
 use super::{KeylessTask, WrappedKeylessRequest};
 use crate::log::request::RequestErrorLogContext;
@@ -185,6 +186,8 @@ impl KeylessTask {
             None
         };
 
+        let create_time = req.create_time;
+        let duration_recorder = req.duration_recorder.clone();
         let req_stats = req.stats.clone();
         let sync_op = OpensslOperation { req, key };
         let Ok(task) = TokioAsyncOperation::build_async_task(sync_op) else {
@@ -215,6 +218,7 @@ impl KeylessTask {
             drop(server_sem);
             // send to writer
             let _ = msg_sender.send(rsp).await;
+            let _ = duration_recorder.record(create_time.elapsed().as_nanos_u64());
         });
     }
 }

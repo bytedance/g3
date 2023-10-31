@@ -19,6 +19,7 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::broadcast;
 
 use g3_io_ext::LimitedBufReadExt;
+use g3_types::ext::DurationExt;
 
 use super::{KeylessTask, WrappedKeylessRequest};
 use crate::log::request::RequestErrorLogContext;
@@ -118,16 +119,20 @@ impl KeylessTask {
             None
         };
 
-        let rsp = self.process_by_openssl(req, &key);
+        let rsp = self.process_by_openssl(&req, &key);
 
         drop(server_sem);
 
-        self.send_response(writer, rsp).await
+        let r = self.send_response(writer, rsp).await;
+        let _ = req
+            .duration_recorder
+            .record(req.create_time.elapsed().as_nanos_u64());
+        r
     }
 
     fn process_by_openssl(
         &self,
-        req: WrappedKeylessRequest,
+        req: &WrappedKeylessRequest,
         key: &PKey<Private>,
     ) -> KeylessResponse {
         match req.inner.process(key) {

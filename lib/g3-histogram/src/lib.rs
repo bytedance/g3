@@ -15,4 +15,7 @@
  */
 
 mod sync;
-pub use sync::{Recorder, SyncHistogram};
+pub use sync::{HistogramRecorder, SyncHistogram};
+
+mod stats;
+pub use stats::HistogramStats;

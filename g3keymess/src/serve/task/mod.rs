@@ -21,13 +21,18 @@ use chrono::{DateTime, Utc};
 use slog::{slog_info, Logger};
 use tokio::io::AsyncRead;
 use tokio::sync::{broadcast, Semaphore};
+use tokio::time::Instant;
 use uuid::Uuid;
 
+use g3_histogram::HistogramRecorder;
 use g3_slog_types::{LtDateTime, LtUuid};
 
 use crate::config::server::KeyServerConfig;
 use crate::protocol::{KeylessAction, KeylessErrorResponse, KeylessRequest};
-use crate::serve::{KeyServerRequestStats, KeyServerStats, ServerReloadCommand, ServerTaskError};
+use crate::serve::{
+    KeyServerDurationRecorder, KeyServerRequestStats, KeyServerStats, ServerReloadCommand,
+    ServerTaskError,
+};
 
 mod multiplex;
 mod simplex;
@@ -35,29 +40,55 @@ mod simplex;
 struct WrappedKeylessRequest {
     inner: KeylessRequest,
     stats: Arc<KeyServerRequestStats>,
+    duration_recorder: Arc<HistogramRecorder<u64>>,
+    create_time: Instant,
     err_rsp: Option<KeylessErrorResponse>,
 }
 
 impl WrappedKeylessRequest {
-    fn new(mut req: KeylessRequest, server_stats: &Arc<KeyServerStats>) -> Self {
+    fn new(
+        mut req: KeylessRequest,
+        server_stats: &Arc<KeyServerStats>,
+        duration_recorder: &KeyServerDurationRecorder,
+    ) -> Self {
         let err_rsp = match req.verify_opcode() {
             Ok(_) => None,
             Err(r) => Some(r),
         };
-        let stats = match req.action {
-            KeylessAction::Ping => server_stats.ping_pong.clone(),
-            KeylessAction::RsaDecrypt(_) => server_stats.rsa_decrypt.clone(),
-            KeylessAction::RsaSign(_) => server_stats.rsa_sign.clone(),
-            KeylessAction::RsaPssSign(_) => server_stats.rsa_pss_sign.clone(),
-            KeylessAction::EcdsaSign(_) => server_stats.ecdsa_sign.clone(),
-            KeylessAction::Ed25519Sign => server_stats.ed25519_sign.clone(),
-            KeylessAction::NotSet => server_stats.noop.clone(),
+        let (stats, duration_recorder) = match req.action {
+            KeylessAction::Ping => (
+                server_stats.ping_pong.clone(),
+                duration_recorder.ping_pong.clone(),
+            ),
+            KeylessAction::RsaDecrypt(_) => (
+                server_stats.rsa_decrypt.clone(),
+                duration_recorder.rsa_decrypt.clone(),
+            ),
+            KeylessAction::RsaSign(_) => (
+                server_stats.rsa_sign.clone(),
+                duration_recorder.rsa_sign.clone(),
+            ),
+            KeylessAction::RsaPssSign(_) => (
+                server_stats.rsa_pss_sign.clone(),
+                duration_recorder.rsa_pss_sign.clone(),
+            ),
+            KeylessAction::EcdsaSign(_) => (
+                server_stats.ecdsa_sign.clone(),
+                duration_recorder.ecdsa_sign.clone(),
+            ),
+            KeylessAction::Ed25519Sign => (
+                server_stats.ed25519_sign.clone(),
+                duration_recorder.ed25519_sign.clone(),
+            ),
+            KeylessAction::NotSet => (server_stats.noop.clone(), duration_recorder.noop.clone()),
         };
         stats.add_total();
         stats.inc_alive();
         WrappedKeylessRequest {
             inner: req,
             stats,
+            duration_recorder,
+            create_time: Instant::now(),
             err_rsp,
         }
     }
@@ -76,6 +107,7 @@ impl Drop for WrappedKeylessRequest {
 pub(crate) struct KeylessTaskContext {
     pub(crate) server_config: Arc<KeyServerConfig>,
     pub(crate) server_stats: Arc<KeyServerStats>,
+    pub(crate) duration_recorder: KeyServerDurationRecorder,
     pub(crate) peer_addr: SocketAddr,
     pub(crate) local_addr: SocketAddr,
     pub(crate) task_logger: Logger,
@@ -126,7 +158,11 @@ impl KeylessTask {
         )
         .await
         {
-            Ok(Ok(req)) => Ok(WrappedKeylessRequest::new(req, &self.ctx.server_stats)),
+            Ok(Ok(req)) => Ok(WrappedKeylessRequest::new(
+                req,
+                &self.ctx.server_stats,
+                &self.ctx.duration_recorder,
+            )),
             Ok(Err(e)) => Err(e.into()),
             Err(_) => Err(ServerTaskError::ReadTimeout),
         }

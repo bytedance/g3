@@ -1,0 +1,105 @@
+/*
+ * Copyright 2023 ByteDance and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+use std::sync::atomic::{AtomicU64, Ordering};
+
+use hdrhistogram::{Counter, Histogram};
+use num_traits::FromPrimitive;
+use portable_atomic::AtomicF64;
+use rust_decimal::Decimal;
+
+pub struct HistogramQuantileStats {
+    quantile: f64,
+    quantile_s: String,
+    value: AtomicU64,
+}
+
+impl HistogramQuantileStats {
+    fn new(quantile: f64) -> Self {
+        let quantile_s = Decimal::from_f64(quantile)
+            .map(|d| d.to_string())
+            .unwrap_or_else(|| quantile.to_string());
+        HistogramQuantileStats {
+            quantile,
+            quantile_s,
+            value: AtomicU64::new(0),
+        }
+    }
+}
+
+pub struct HistogramStats {
+    min: AtomicU64,
+    max: AtomicU64,
+    mean: AtomicF64,
+    stdev: AtomicF64,
+    quantile: Vec<HistogramQuantileStats>,
+}
+
+impl HistogramStats {
+    pub fn new() -> HistogramStats {
+        HistogramStats {
+            min: AtomicU64::new(0),
+            max: AtomicU64::new(0),
+            mean: AtomicF64::new(0_f64),
+            stdev: AtomicF64::new(0_f64),
+            quantile: Vec::with_capacity(4),
+        }
+    }
+
+    pub fn with_quantile(mut self, quantile: f64) -> Self {
+        self.quantile.push(HistogramQuantileStats::new(quantile));
+        self
+    }
+
+    pub fn update<T: Counter>(&self, histogram: &Histogram<T>) {
+        self.min.store(histogram.min(), Ordering::Relaxed);
+        self.max.store(histogram.max(), Ordering::Relaxed);
+        self.mean.store(histogram.mean(), Ordering::Relaxed);
+        self.stdev.store(histogram.stdev(), Ordering::Relaxed);
+        for q in &self.quantile {
+            q.value
+                .store(histogram.value_at_quantile(q.quantile), Ordering::Relaxed);
+        }
+    }
+
+    pub fn foreach_stat<F>(&self, call: F)
+    where
+        F: Fn(Option<f64>, &str, f64),
+    {
+        let min = self.min.load(Ordering::Relaxed);
+        call(None, "min", min as f64);
+        let max = self.max.load(Ordering::Relaxed);
+        call(None, "max", max as f64);
+        let mean = self.mean.load(Ordering::Relaxed);
+        call(None, "mean", mean);
+        let stdev = self.stdev.load(Ordering::Relaxed);
+        call(None, "stdev", stdev);
+        for q in &self.quantile {
+            let v = q.value.load(Ordering::Relaxed);
+            call(Some(q.quantile), &q.quantile_s, v as f64);
+        }
+    }
+}
+
+impl Default for HistogramStats {
+    fn default() -> Self {
+        HistogramStats::new()
+            .with_quantile(0.80)
+            .with_quantile(0.90)
+            .with_quantile(0.95)
+            .with_quantile(0.98)
+    }
+}

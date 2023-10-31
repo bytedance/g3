@@ -27,7 +27,8 @@ use g3_daemon::server::ServerQuitPolicy;
 use g3_types::metrics::{MetricsName, MetricsTagName, MetricsTagValue, StaticMetricsTags};
 
 use super::{
-    KeyServerRuntime, KeyServerStats, KeylessTask, KeylessTaskContext, ServerReloadCommand,
+    KeyServerDurationRecorder, KeyServerDurationStats, KeyServerRuntime, KeyServerStats,
+    KeylessTask, KeylessTaskContext, ServerReloadCommand,
 };
 use crate::config::server::KeyServerConfig;
 
@@ -35,6 +36,8 @@ pub(crate) struct KeyServer {
     config: Arc<KeyServerConfig>,
     server_stats: Arc<KeyServerStats>,
     listen_stats: Arc<ListenStats>,
+    duration_recorder: KeyServerDurationRecorder,
+    duration_stats: Arc<KeyServerDurationStats>,
     quit_policy: Arc<ServerQuitPolicy>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
     concurrency_limit: Option<Arc<Semaphore>>,
@@ -48,6 +51,8 @@ impl KeyServer {
         config: KeyServerConfig,
         server_stats: Arc<KeyServerStats>,
         listen_stats: Arc<ListenStats>,
+        duration_recorder: KeyServerDurationRecorder,
+        duration_stats: Arc<KeyServerDurationStats>,
         concurrency_limit: Option<Arc<Semaphore>>,
         dynamic_metrics_tags: Arc<ArcSwap<StaticMetricsTags>>,
     ) -> Self {
@@ -62,15 +67,21 @@ impl KeyServer {
         if let Some(conf) = config.extra_metrics_tags.clone() {
             let mut extra = (*conf).clone();
             extra.extend(dynamic_tags);
-            server_stats.set_extra_tags(Some(Arc::new(extra)));
+            let extra = Arc::new(extra);
+            server_stats.set_extra_tags(Some(extra.clone()));
+            duration_stats.set_extra_tags(Some(extra));
         } else if !dynamic_tags.is_empty() {
-            server_stats.set_extra_tags(Some(Arc::new(dynamic_tags)));
+            let extra = Arc::new(dynamic_tags);
+            server_stats.set_extra_tags(Some(extra.clone()));
+            duration_stats.set_extra_tags(Some(extra));
         }
 
         KeyServer {
             config: Arc::new(config),
             server_stats,
             listen_stats,
+            duration_recorder,
+            duration_stats,
             quit_policy: Arc::new(ServerQuitPolicy::default()),
             reload_sender,
             concurrency_limit,
@@ -83,6 +94,7 @@ impl KeyServer {
     pub(crate) fn prepare_initial(config: KeyServerConfig) -> KeyServer {
         let server_stats = KeyServerStats::new(config.name());
         let listen_stats = ListenStats::new(config.name());
+        let (duration_recorder, duration_stats) = KeyServerDurationRecorder::new(config.name());
         let concurrency_limit = if config.concurrency_limit > 0 {
             Some(Arc::new(Semaphore::new(config.concurrency_limit)))
         } else {
@@ -92,14 +104,14 @@ impl KeyServer {
             config,
             Arc::new(server_stats),
             Arc::new(listen_stats),
+            duration_recorder,
+            Arc::new(duration_stats),
             concurrency_limit,
             Arc::new(ArcSwap::new(Default::default())),
         )
     }
 
     fn prepare_reload(&self, config: KeyServerConfig) -> KeyServer {
-        let server_stats = self.server_stats.clone();
-        let listen_stats = self.listen_stats.clone();
         let concurrency_limit = if config.concurrency_limit > 0 {
             Some(Arc::new(Semaphore::new(config.concurrency_limit)))
         } else {
@@ -107,8 +119,10 @@ impl KeyServer {
         };
         KeyServer::new(
             config,
-            server_stats,
-            listen_stats,
+            self.server_stats.clone(),
+            self.listen_stats.clone(),
+            self.duration_recorder.clone(),
+            self.duration_stats.clone(),
             concurrency_limit,
             self.dynamic_metrics_tags.clone(),
         )
@@ -171,15 +185,24 @@ impl KeyServer {
         self.server_stats.clone()
     }
 
+    #[inline]
+    pub(crate) fn get_duration_stats(&self) -> Arc<KeyServerDurationStats> {
+        self.duration_stats.clone()
+    }
+
     pub(super) fn start_runtime(&self, server: &Arc<KeyServer>) -> anyhow::Result<()> {
         KeyServerRuntime::new(server)
             .into_running(&self.config.listen, &self.reload_sender)
-            .map(|_| server.server_stats.set_online())
+            .map(|_| {
+                server.server_stats.set_online();
+                server.duration_stats.set_online()
+            })
     }
 
     pub(super) fn abort_runtime(&self) {
         let _ = self.reload_sender.send(ServerReloadCommand::QuitRuntime);
         self.server_stats.set_offline();
+        self.duration_stats.set_offline();
     }
 
     pub(super) async fn run_tcp_task(
@@ -191,6 +214,7 @@ impl KeyServer {
         let ctx = KeylessTaskContext {
             server_config: self.config.clone(),
             server_stats: self.server_stats.clone(),
+            duration_recorder: self.duration_recorder.clone(),
             peer_addr,
             local_addr,
             task_logger: self.task_logger.clone(),

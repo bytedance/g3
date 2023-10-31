@@ -16,7 +16,8 @@
 
 mod stats;
 pub(crate) use stats::{
-    KeyServerRequestSnapshot, KeyServerRequestStats, KeyServerSnapshot, KeyServerStats,
+    KeyServerDurationRecorder, KeyServerDurationStats, KeyServerRequestSnapshot,
+    KeyServerRequestStats, KeyServerSnapshot, KeyServerStats,
 };
 
 mod error;

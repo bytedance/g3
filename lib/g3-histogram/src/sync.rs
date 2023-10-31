@@ -23,37 +23,50 @@ pub struct SyncHistogram<T: Counter> {
 }
 
 #[derive(Clone)]
-pub struct Recorder<T: Counter> {
+pub struct HistogramRecorder<T: Counter> {
     sender: mpsc::UnboundedSender<T>,
 }
 
 impl<T: Counter> SyncHistogram<T> {
-    pub fn new(sigfig: u8) -> Result<(Self, Recorder<T>), CreationError> {
+    pub fn new(sigfig: u8) -> Result<(Self, HistogramRecorder<T>), CreationError> {
         let inner = Histogram::new(sigfig)?;
         let (sender, receiver) = mpsc::unbounded_channel();
-        Ok((SyncHistogram { inner, receiver }, Recorder { sender }))
+        Ok((
+            SyncHistogram { inner, receiver },
+            HistogramRecorder { sender },
+        ))
     }
 
-    pub fn new_with_max(high: u64, sigfig: u8) -> Result<(Self, Recorder<T>), CreationError> {
+    pub fn new_with_max(
+        high: u64,
+        sigfig: u8,
+    ) -> Result<(Self, HistogramRecorder<T>), CreationError> {
         let inner = Histogram::new_with_max(high, sigfig)?;
         let (sender, receiver) = mpsc::unbounded_channel();
-        Ok((SyncHistogram { inner, receiver }, Recorder { sender }))
+        Ok((
+            SyncHistogram { inner, receiver },
+            HistogramRecorder { sender },
+        ))
     }
 
     pub fn new_with_bounds(
         low: u64,
         high: u64,
         sigfig: u8,
-    ) -> Result<(Self, Recorder<T>), CreationError> {
+    ) -> Result<(Self, HistogramRecorder<T>), CreationError> {
         let inner = Histogram::new_with_bounds(low, high, sigfig)?;
         let (sender, receiver) = mpsc::unbounded_channel();
-        Ok((SyncHistogram { inner, receiver }, Recorder { sender }))
+        Ok((
+            SyncHistogram { inner, receiver },
+            HistogramRecorder { sender },
+        ))
     }
 
     pub fn auto(&mut self, enabled: bool) {
         self.inner.auto(enabled);
     }
 
+    // TODO use recv_many
     pub async fn recv(&mut self) -> Option<T> {
         self.receiver.recv().await
     }
@@ -78,7 +91,7 @@ impl<T: Counter> SyncHistogram<T> {
     }
 }
 
-impl<T: Counter> Recorder<T> {
+impl<T: Counter> HistogramRecorder<T> {
     pub fn record(&self, v: T) -> Result<(), mpsc::error::SendError<T>> {
         self.sender.send(v)
     }
