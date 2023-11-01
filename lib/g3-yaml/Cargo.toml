@@ -26,6 +26,7 @@ g3-types.workspace = true
 g3-syslog = { workspace = true, optional = true }
 g3-fluentd = { workspace = true, optional = true }
 g3-statsd = { workspace = true, optional = true }
+g3-histogram = { workspace = true, optional = true }
 g3-ftp-client = { workspace = true, optional = true }
 g3-runtime = { workspace = true, optional = true }
 g3-compat = { workspace = true, optional = true }
@@ -39,6 +40,7 @@ default = []
 syslog = ["g3-syslog"]
 fluentd = ["g3-fluentd", "openssl"]
 statsd = ["g3-statsd"]
+histogram = ["g3-histogram"]
 resolve = ["g3-types/resolve"]
 rustls = ["g3-types/rustls", "dep:rustls", "dep:rustls-pemfile"]
 openssl = ["g3-types/openssl", "dep:openssl"]

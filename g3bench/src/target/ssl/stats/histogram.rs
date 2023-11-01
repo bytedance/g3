@@ -18,18 +18,18 @@ use std::time::Duration;
 
 use cadence::StatsdClient;
 
-use g3_histogram::{HistogramRecorder, SyncHistogram};
+use g3_histogram::{DurationHistogram, HistogramRecorder};
 use g3_types::ext::DurationExt;
 
 use crate::target::BenchHistogram;
 
 pub(crate) struct SslHistogram {
-    total_time: SyncHistogram<u64>,
+    total_time: DurationHistogram<u64>,
 }
 
 impl SslHistogram {
     pub(crate) fn new() -> (Self, SslHistogramRecorder) {
-        let (h, r) = SyncHistogram::new(3).unwrap();
+        let (h, r) = DurationHistogram::new();
         (
             SslHistogram { total_time: h },
             SslHistogramRecorder { total_time: r },

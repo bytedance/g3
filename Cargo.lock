@@ -932,6 +932,7 @@ dependencies = [
  "num-traits",
  "portable-atomic",
  "rust_decimal",
+ "thiserror",
  "tokio",
 ]
 
@@ -1056,7 +1057,7 @@ dependencies = [
  "g3-types",
  "hickory-proto",
  "hickory-resolver",
- "indexmap 2.0.2",
+ "indexmap 2.1.0",
  "log",
  "mini-c-ares",
  "mini-c-ares-resolver",
@@ -1198,7 +1199,7 @@ dependencies = [
  "hex",
  "http",
  "idna",
- "indexmap 2.0.2",
+ "indexmap 2.1.0",
  "ip_network",
  "ip_network_table",
  "libc",
@@ -1250,6 +1251,7 @@ dependencies = [
  "g3-fluentd",
  "g3-ftp-client",
  "g3-geoip",
+ "g3-histogram",
  "g3-icap-client",
  "g3-runtime",
  "g3-statsd",
@@ -1476,7 +1478,7 @@ dependencies = [
  "governor",
  "h2",
  "http",
- "indexmap 2.0.2",
+ "indexmap 2.1.0",
  "ip_network",
  "ip_network_table",
  "itoa",
@@ -1598,7 +1600,7 @@ dependencies = [
  "g3-yaml",
  "g3tiles-proto",
  "governor",
- "indexmap 2.0.2",
+ "indexmap 2.1.0",
  "itoa",
  "log",
  "once_cell",
@@ -1948,9 +1950,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "2.0.2"
+version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8adf3ddd720272c6ea8bf59463c04e0f93d0bbf7c5439b691bca2987e0270897"
+checksum = "d530e1a18b1cb4c484e6e34556a0d948706958449fca0cab753d649f2bce3d1f"
 dependencies = [
  "equivalent",
  "hashbrown 0.14.2",
@@ -2400,7 +2402,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e1d3afd2628e69da2be385eb6f2fd57c8ac7977ceeff6dc166ff1657b0e386a9"
 dependencies = [
  "fixedbitset",
- "indexmap 2.0.2",
+ "indexmap 2.1.0",
 ]
 
 [[package]]
@@ -3517,18 +3519,18 @@ dependencies = [
 
 [[package]]
 name = "zerocopy"
-version = "0.7.20"
+version = "0.7.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd66a62464e3ffd4e37bd09950c2b9dd6c4f8767380fabba0d523f9a775bc85a"
+checksum = "686b7e407015242119c33dab17b8f61ba6843534de936d94368856528eae4dcc"
 dependencies = [
  "zerocopy-derive",
 ]
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.7.20"
+version = "0.7.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "255c4596d41e6916ced49cfafea18727b24d67878fa180ddfd69b9df34fd1726"
+checksum = "020f3dfe25dfc38dfea49ce62d5d45ecdd7f0d8a724fa63eb36b6eba4ec76806"
 dependencies = [
  "proc-macro2",
  "quote",

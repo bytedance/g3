@@ -17,24 +17,19 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use hdrhistogram::{Counter, Histogram};
-use num_traits::FromPrimitive;
 use portable_atomic::AtomicF64;
-use rust_decimal::Decimal;
+
+use super::Quantile;
 
 pub struct HistogramQuantileStats {
-    quantile: f64,
-    quantile_s: String,
+    quantile: Quantile,
     value: AtomicU64,
 }
 
 impl HistogramQuantileStats {
-    fn new(quantile: f64) -> Self {
-        let quantile_s = Decimal::from_f64(quantile)
-            .map(|d| d.to_string())
-            .unwrap_or_else(|| quantile.to_string());
+    fn new(quantile: Quantile) -> Self {
         HistogramQuantileStats {
             quantile,
-            quantile_s,
             value: AtomicU64::new(0),
         }
     }
@@ -44,7 +39,6 @@ pub struct HistogramStats {
     min: AtomicU64,
     max: AtomicU64,
     mean: AtomicF64,
-    stdev: AtomicF64,
     quantile: Vec<HistogramQuantileStats>,
 }
 
@@ -53,13 +47,12 @@ impl HistogramStats {
         HistogramStats {
             min: AtomicU64::new(0),
             max: AtomicU64::new(0),
-            mean: AtomicF64::new(0_f64),
-            stdev: AtomicF64::new(0_f64),
-            quantile: Vec::with_capacity(4),
+            mean: AtomicF64::new(0.0_f64),
+            quantile: Vec::with_capacity(8),
         }
     }
 
-    pub fn with_quantile(mut self, quantile: f64) -> Self {
+    pub fn with_quantile(mut self, quantile: Quantile) -> Self {
         self.quantile.push(HistogramQuantileStats::new(quantile));
         self
     }
@@ -68,10 +61,11 @@ impl HistogramStats {
         self.min.store(histogram.min(), Ordering::Relaxed);
         self.max.store(histogram.max(), Ordering::Relaxed);
         self.mean.store(histogram.mean(), Ordering::Relaxed);
-        self.stdev.store(histogram.stdev(), Ordering::Relaxed);
         for q in &self.quantile {
-            q.value
-                .store(histogram.value_at_quantile(q.quantile), Ordering::Relaxed);
+            q.value.store(
+                histogram.value_at_quantile(q.quantile.value()),
+                Ordering::Relaxed,
+            );
         }
     }
 
@@ -85,11 +79,9 @@ impl HistogramStats {
         call(None, "max", max as f64);
         let mean = self.mean.load(Ordering::Relaxed);
         call(None, "mean", mean);
-        let stdev = self.stdev.load(Ordering::Relaxed);
-        call(None, "stdev", stdev);
         for q in &self.quantile {
             let v = q.value.load(Ordering::Relaxed);
-            call(Some(q.quantile), &q.quantile_s, v as f64);
+            call(Some(q.quantile.value()), q.quantile.as_str(), v as f64);
         }
     }
 }
@@ -97,9 +89,10 @@ impl HistogramStats {
 impl Default for HistogramStats {
     fn default() -> Self {
         HistogramStats::new()
-            .with_quantile(0.80)
-            .with_quantile(0.90)
-            .with_quantile(0.95)
-            .with_quantile(0.98)
+            .with_quantile(Quantile::PCT50)
+            .with_quantile(Quantile::PCT80)
+            .with_quantile(Quantile::PCT90)
+            .with_quantile(Quantile::PCT95)
+            .with_quantile(Quantile::PCT99)
     }
 }

@@ -17,7 +17,7 @@
 use hdrhistogram::{Counter, CreationError, Histogram, RecordError};
 use tokio::sync::mpsc;
 
-pub struct SyncHistogram<T: Counter> {
+pub struct DurationHistogram<T: Counter> {
     inner: Histogram<T>,
     receiver: mpsc::UnboundedReceiver<T>,
 }
@@ -27,12 +27,16 @@ pub struct HistogramRecorder<T: Counter> {
     sender: mpsc::UnboundedSender<T>,
 }
 
-impl<T: Counter> SyncHistogram<T> {
-    pub fn new(sigfig: u8) -> Result<(Self, HistogramRecorder<T>), CreationError> {
+impl<T: Counter> DurationHistogram<T> {
+    pub fn new() -> (Self, HistogramRecorder<T>) {
+        DurationHistogram::with_sigfig(3).unwrap()
+    }
+
+    pub fn with_sigfig(sigfig: u8) -> Result<(Self, HistogramRecorder<T>), CreationError> {
         let inner = Histogram::new(sigfig)?;
         let (sender, receiver) = mpsc::unbounded_channel();
         Ok((
-            SyncHistogram { inner, receiver },
+            DurationHistogram { inner, receiver },
             HistogramRecorder { sender },
         ))
     }
@@ -44,7 +48,7 @@ impl<T: Counter> SyncHistogram<T> {
         let inner = Histogram::new_with_max(high, sigfig)?;
         let (sender, receiver) = mpsc::unbounded_channel();
         Ok((
-            SyncHistogram { inner, receiver },
+            DurationHistogram { inner, receiver },
             HistogramRecorder { sender },
         ))
     }
@@ -57,7 +61,7 @@ impl<T: Counter> SyncHistogram<T> {
         let inner = Histogram::new_with_bounds(low, high, sigfig)?;
         let (sender, receiver) = mpsc::unbounded_channel();
         Ok((
-            SyncHistogram { inner, receiver },
+            DurationHistogram { inner, receiver },
             HistogramRecorder { sender },
         ))
     }

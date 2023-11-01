@@ -18,24 +18,24 @@ use std::time::Duration;
 
 use cadence::StatsdClient;
 
-use g3_histogram::{HistogramRecorder, SyncHistogram};
+use g3_histogram::{DurationHistogram, HistogramRecorder};
 use g3_types::ext::DurationExt;
 
 use crate::target::BenchHistogram;
 
 pub(crate) struct HttpHistogram {
-    send_hdr_time: SyncHistogram<u64>,
-    recv_hdr_time: SyncHistogram<u64>,
-    total_time: SyncHistogram<u64>,
-    conn_reuse_count: SyncHistogram<u64>,
+    send_hdr_time: DurationHistogram<u64>,
+    recv_hdr_time: DurationHistogram<u64>,
+    total_time: DurationHistogram<u64>,
+    conn_reuse_count: DurationHistogram<u64>,
 }
 
 impl HttpHistogram {
     pub(crate) fn new() -> (Self, HttpHistogramRecorder) {
-        let (send_hdr_time_h, send_hdr_time_r) = SyncHistogram::new(3).unwrap();
-        let (recv_hdr_time_h, recv_hdr_time_r) = SyncHistogram::new(3).unwrap();
-        let (total_time_h, total_time_r) = SyncHistogram::new(3).unwrap();
-        let (conn_reuse_count_h, conn_reuse_count_r) = SyncHistogram::new(3).unwrap();
+        let (send_hdr_time_h, send_hdr_time_r) = DurationHistogram::new();
+        let (recv_hdr_time_h, recv_hdr_time_r) = DurationHistogram::new();
+        let (total_time_h, total_time_r) = DurationHistogram::new();
+        let (conn_reuse_count_h, conn_reuse_count_r) = DurationHistogram::new();
         let h = HttpHistogram {
             send_hdr_time: send_hdr_time_h,
             recv_hdr_time: recv_hdr_time_h,

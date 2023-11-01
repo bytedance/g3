@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
+use std::collections::BTreeSet;
 use std::sync::atomic::{AtomicI32, AtomicIsize, AtomicU64, Ordering};
 use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
 
-use g3_histogram::{HistogramRecorder, HistogramStats, SyncHistogram};
+use g3_histogram::{DurationHistogram, HistogramRecorder, HistogramStats, Quantile};
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::StatId;
 
@@ -275,14 +276,17 @@ pub(crate) struct KeyServerDurationRecorder {
 }
 
 impl KeyServerDurationRecorder {
-    pub(crate) fn new(name: &MetricsName) -> (KeyServerDurationRecorder, KeyServerDurationStats) {
-        let (ping_pong_r, ping_pong_s) = create_duration_pair();
-        let (rsa_decrypt_r, rsa_decrypt_s) = create_duration_pair();
-        let (rsa_sign_r, rsa_sign_s) = create_duration_pair();
-        let (rsa_pss_sign_r, rsa_pss_sign_s) = create_duration_pair();
-        let (ecdsa_sign_r, ecdsa_sign_s) = create_duration_pair();
-        let (ed25519_sign_r, ed25519_sign_s) = create_duration_pair();
-        let (_, noop_r) = SyncHistogram::new(3).unwrap();
+    pub(crate) fn new(
+        name: &MetricsName,
+        quantile: &BTreeSet<Quantile>,
+    ) -> (KeyServerDurationRecorder, KeyServerDurationStats) {
+        let (ping_pong_r, ping_pong_s) = create_duration_pair(quantile);
+        let (rsa_decrypt_r, rsa_decrypt_s) = create_duration_pair(quantile);
+        let (rsa_sign_r, rsa_sign_s) = create_duration_pair(quantile);
+        let (rsa_pss_sign_r, rsa_pss_sign_s) = create_duration_pair(quantile);
+        let (ecdsa_sign_r, ecdsa_sign_s) = create_duration_pair(quantile);
+        let (ed25519_sign_r, ed25519_sign_s) = create_duration_pair(quantile);
+        let (_, noop_r) = DurationHistogram::new();
 
         let r = KeyServerDurationRecorder {
             ping_pong: ping_pong_r,
@@ -309,9 +313,19 @@ impl KeyServerDurationRecorder {
     }
 }
 
-fn create_duration_pair() -> (Arc<HistogramRecorder<u64>>, Arc<HistogramStats>) {
-    let (h, r) = SyncHistogram::new(3).unwrap();
-    let stats = Arc::new(HistogramStats::default());
+fn create_duration_pair(
+    quantile: &BTreeSet<Quantile>,
+) -> (Arc<HistogramRecorder<u64>>, Arc<HistogramStats>) {
+    let (h, r) = DurationHistogram::new();
+    let stats = if quantile.is_empty() {
+        Arc::new(HistogramStats::default())
+    } else {
+        let mut stats = HistogramStats::new();
+        for q in quantile {
+            stats = stats.with_quantile(q.clone());
+        }
+        Arc::new(stats)
+    };
     let s = stats.clone();
     tokio::spawn(async move {
         let mut h = h;

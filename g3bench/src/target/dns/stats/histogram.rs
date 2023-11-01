@@ -18,18 +18,18 @@ use std::time::Duration;
 
 use cadence::StatsdClient;
 
-use g3_histogram::{HistogramRecorder, SyncHistogram};
+use g3_histogram::{DurationHistogram, HistogramRecorder};
 use g3_types::ext::DurationExt;
 
 use crate::target::BenchHistogram;
 
 pub(crate) struct DnsHistogram {
-    total_time: SyncHistogram<u64>,
+    total_time: DurationHistogram<u64>,
 }
 
 impl DnsHistogram {
     pub(crate) fn new() -> (Self, DnsHistogramRecorder) {
-        let (h, r) = SyncHistogram::new(3).unwrap();
+        let (h, r) = DurationHistogram::new();
         (
             DnsHistogram { total_time: h },
             DnsHistogramRecorder { total_time: r },

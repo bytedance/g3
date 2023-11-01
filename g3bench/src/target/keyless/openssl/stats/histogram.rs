@@ -18,18 +18,18 @@ use std::time::Duration;
 
 use cadence::StatsdClient;
 
-use g3_histogram::{HistogramRecorder, SyncHistogram};
+use g3_histogram::{DurationHistogram, HistogramRecorder};
 use g3_types::ext::DurationExt;
 
 use crate::target::BenchHistogram;
 
 pub(crate) struct KeylessHistogram {
-    total_time: SyncHistogram<u64>,
+    total_time: DurationHistogram<u64>,
 }
 
 impl KeylessHistogram {
     pub(crate) fn new() -> (Self, KeylessHistogramRecorder) {
-        let (h, r) = SyncHistogram::new(3).unwrap();
+        let (h, r) = DurationHistogram::new();
         (
             KeylessHistogram { total_time: h },
             KeylessHistogramRecorder { total_time: r },

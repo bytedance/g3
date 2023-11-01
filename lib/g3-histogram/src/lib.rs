@@ -15,7 +15,10 @@
  */
 
 mod sync;
-pub use sync::{HistogramRecorder, SyncHistogram};
+pub use sync::{DurationHistogram, HistogramRecorder};
 
 mod stats;
 pub use stats::HistogramStats;
+
+mod quantile;
+pub use quantile::Quantile;
