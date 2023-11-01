@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::env;
 use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -112,8 +113,8 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
         }
     }
 
-    if let Some(s) = option_env!("UDP_LISTEN_ADDR") {
-        if let Ok(addr) = SocketAddr::from_str(s) {
+    if let Ok(s) = env::var("UDP_LISTEN_ADDR") {
+        if let Ok(addr) = SocketAddr::from_str(&s) {
             proc_args.udp_addr = Some(addr);
         }
     }
