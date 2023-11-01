@@ -22,6 +22,7 @@ use anyhow::{anyhow, Context};
 use cadence::StatsdClient;
 use log::warn;
 
+use g3_histogram::HistogramStats;
 use g3_statsd::client::StatsdClientConfig;
 
 mod metrics;
@@ -50,6 +51,7 @@ fn build_statsd_client(config: &StatsdClientConfig) -> anyhow::Result<StatsdClie
 pub(crate) fn spawn_working_thread(
     config: StatsdClientConfig,
     backend_stats: Arc<BackendStats>,
+    backend_duration_stats: Arc<HistogramStats>,
     frontend_stats: Arc<FrontendStats>,
 ) -> anyhow::Result<JoinHandle<()>> {
     let client = build_statsd_client(&config).context("failed to build statsd client")?;
@@ -60,6 +62,7 @@ pub(crate) fn spawn_working_thread(
             let instant_start = Instant::now();
 
             metrics::backend::emit_stats(&client, &backend_stats);
+            metrics::backend::emit_duration_stats(&client, &backend_duration_stats);
             metrics::frontend::emit_stats(&client, &frontend_stats);
 
             client.flush_sink();

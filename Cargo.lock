@@ -1328,6 +1328,7 @@ dependencies = [
  "flume",
  "g3-compat",
  "g3-daemon",
+ "g3-histogram",
  "g3-msgpack",
  "g3-runtime",
  "g3-statsd",

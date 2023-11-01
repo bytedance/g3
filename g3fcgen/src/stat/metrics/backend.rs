@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-use cadence::{Counted, StatsdClient};
+use cadence::{Counted, Gauged, StatsdClient};
+
+use g3_histogram::HistogramStats;
 
 use crate::BackendStats;
 
@@ -30,4 +32,13 @@ pub(crate) fn emit_stats(client: &StatsdClient, s: &BackendStats) {
     emit_count!(take_refresh_ok, "refresh_ok");
     emit_count!(take_request_total, "request_total");
     emit_count!(take_request_ok, "request_ok");
+}
+
+pub(crate) fn emit_duration_stats(client: &StatsdClient, s: &HistogramStats) {
+    s.foreach_stat(|_, qs, v| {
+        client
+            .gauge_with_tags("backend.request_duration", v)
+            .with_tag("quantile", qs)
+            .send()
+    });
 }

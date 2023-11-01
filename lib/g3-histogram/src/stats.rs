@@ -43,13 +43,24 @@ pub struct HistogramStats {
 }
 
 impl HistogramStats {
-    pub fn new() -> HistogramStats {
+    pub fn new() -> Self {
         HistogramStats {
             min: AtomicU64::new(0),
             max: AtomicU64::new(0),
             mean: AtomicF64::new(0.0_f64),
             quantile: Vec::with_capacity(8),
         }
+    }
+
+    pub fn with_quantiles<'a, T>(quantiles: T) -> Self
+    where
+        T: IntoIterator<Item = &'a Quantile>,
+    {
+        let mut stats = HistogramStats::new();
+        for q in quantiles {
+            stats.quantile.push(HistogramQuantileStats::new(q.clone()));
+        }
+        stats
     }
 
     pub fn with_quantile(mut self, quantile: Quantile) -> Self {

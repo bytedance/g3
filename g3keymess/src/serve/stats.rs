@@ -320,11 +320,7 @@ fn create_duration_pair(
     let stats = if quantile.is_empty() {
         Arc::new(HistogramStats::default())
     } else {
-        let mut stats = HistogramStats::new();
-        for q in quantile {
-            stats = stats.with_quantile(q.clone());
-        }
-        Arc::new(stats)
+        Arc::new(HistogramStats::with_quantiles(quantile))
     };
     let s = stats.clone();
     tokio::spawn(async move {

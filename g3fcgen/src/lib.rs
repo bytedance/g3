@@ -20,6 +20,9 @@ use std::time::Duration;
 
 use ::log::{debug, error, warn};
 use anyhow::{anyhow, Context};
+use tokio::time::Instant;
+
+use g3_histogram::{DurationHistogram, HistogramStats};
 
 pub mod config;
 
@@ -35,14 +38,32 @@ use backend::{BackendStats, OpensslBackend};
 
 mod frontend;
 use frontend::{FrontendStats, ResponseData, UdpDgramFrontend};
+use g3_types::ext::DurationExt;
 
 pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
-    let (req_sender, req_receiver) = flume::bounded::<(String, SocketAddr)>(1024);
-    let (rsp_sender, rsp_receiver) = flume::bounded::<(ResponseData, SocketAddr)>(1024);
+    let (req_sender, req_receiver) = flume::bounded::<(String, SocketAddr, Instant)>(1024);
+    let (rsp_sender, rsp_receiver) = flume::bounded::<(ResponseData, SocketAddr, Instant)>(1024);
 
     let backend_config =
         config::get_backend_config().ok_or_else(|| anyhow!("no backend config available"))?;
     let backend_stats = Arc::new(BackendStats::default());
+
+    let duration_stats = if backend_config.request_duration_quantile.is_empty() {
+        Arc::new(HistogramStats::new())
+    } else {
+        Arc::new(HistogramStats::with_quantiles(
+            &backend_config.request_duration_quantile,
+        ))
+    };
+    let (histogram, recorder) = DurationHistogram::<u64>::new();
+    let stats = duration_stats.clone();
+    tokio::spawn(async move {
+        let mut histogram = histogram;
+        while let Some(v) = histogram.recv().await {
+            let _ = histogram.refresh(Some(v));
+            stats.update(histogram.inner());
+        }
+    });
 
     g3_daemon::runtime::worker::foreach(|h| {
         let id = h.id;
@@ -62,14 +83,14 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
                         }
                     }
                     r = req_receiver.recv_async() => {
-                        let Ok((host, peer_addr)) = r else {
+                        let Ok((host, peer_addr, create_time)) = r else {
                             break
                         };
 
                         match backend.generate(&host) {
                             Ok(data) => {
                                 debug!("Worker#{id} got certificate for host {host}");
-                                if let Err(e) = rsp_sender.send_async((data, peer_addr)).await {
+                                if let Err(e) = rsp_sender.send_async((data, peer_addr, create_time)).await {
                                     error!(
                                         "Worker#{id} failed to send certificate for host {host} to frontend: {e}"
                                     );
@@ -89,7 +110,12 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
 
     let frontend_stats = Arc::new(FrontendStats::default());
     if let Some(stats_config) = g3_daemon::stat::config::get_global_stat_config() {
-        stat::spawn_working_thread(stats_config, backend_stats, frontend_stats.clone())?;
+        stat::spawn_working_thread(
+            stats_config,
+            backend_stats,
+            duration_stats,
+            frontend_stats.clone(),
+        )?;
     }
 
     if let Some(addr) = proc_args.udp_addr {
@@ -101,10 +127,11 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
             tokio::select! {
                 r = frontend.recv_req(&mut rcv_buf) => {
                     frontend_stats.add_request_total();
+                    let create_time = Instant::now();
                     match r {
                         Ok((len, peer_addr)) => match crate::frontend::decode_req(&rcv_buf[0..len]) {
                             Ok(host) => {
-                                if let Err(e) = req_sender.send_async((host, peer_addr)).await {
+                                if let Err(e) = req_sender.send_async((host, peer_addr, create_time)).await {
                                     return Err(anyhow!("failed to send request to backend: {e}"));
                                 }
                             }
@@ -118,12 +145,17 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
                 }
                 r = rsp_receiver.recv_async() => {
                     match r {
-                        Ok((data, peer_addr)) => match data.encode() {
+                        Ok((data, peer_addr, create_time)) => match data.encode() {
                             Ok(buf) => {
                                 frontend_stats.add_response_total();
-                                if let Err(e) = frontend.send_rsp(buf.as_slice(), peer_addr).await {
-                                    frontend_stats.add_response_fail();
-                                    warn!("write response back error: {e:?}");
+                                match frontend.send_rsp(buf.as_slice(), peer_addr).await {
+                                    Ok(_) => {
+                                        let _ = recorder.record(create_time.elapsed().as_nanos_u64());
+                                    }
+                                    Err(e) => {
+                                        frontend_stats.add_response_fail();
+                                        warn!("write response back error: {e:?}");
+                                    }
                                 }
                             }
                             Err(e) => return Err(anyhow!("response encode error: {e:?}")),
