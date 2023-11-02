@@ -23,9 +23,15 @@ use crate::auth::UserTrafficStats;
 
 trait UdpConnectTaskCltStatsWrapper {
     fn add_recv_bytes(&self, size: u64);
-    fn add_recv_packet(&self);
+    fn add_recv_packet(&self) {
+        self.add_recv_packets(1);
+    }
+    fn add_recv_packets(&self, n: usize);
     fn add_send_bytes(&self, size: u64);
-    fn add_send_packet(&self);
+    fn add_send_packet(&self) {
+        self.add_send_packets(1);
+    }
+    fn add_send_packets(&self, n: usize);
 }
 
 type ArcUdpConnectTaskCltStatsWrapper = Arc<dyn UdpConnectTaskCltStatsWrapper + Send + Sync>;
@@ -35,16 +41,16 @@ impl UdpConnectTaskCltStatsWrapper for UserTrafficStats {
         self.io.socks_udp_connect.add_in_bytes(size);
     }
 
-    fn add_recv_packet(&self) {
-        self.io.socks_udp_connect.add_in_packet();
+    fn add_recv_packets(&self, n: usize) {
+        self.io.socks_udp_connect.add_in_packets(n);
     }
 
     fn add_send_bytes(&self, size: u64) {
         self.io.socks_udp_connect.add_out_bytes(size);
     }
 
-    fn add_send_packet(&self) {
-        self.io.socks_udp_connect.add_out_packet();
+    fn add_send_packets(&self, n: usize) {
+        self.io.socks_udp_connect.add_out_packets(n);
     }
 }
 
@@ -87,10 +93,10 @@ impl LimitedRecvStats for UdpConnectTaskCltWrapperStats {
         self.others.iter().for_each(|s| s.add_recv_bytes(size));
     }
 
-    fn add_recv_packet(&self) {
-        self.server.io_udp.add_in_packet();
-        self.task.clt.recv.add_packet();
-        self.others.iter().for_each(|s| s.add_recv_packet());
+    fn add_recv_packets(&self, n: usize) {
+        self.server.io_udp.add_in_packets(n);
+        self.task.clt.recv.add_packets(n);
+        self.others.iter().for_each(|s| s.add_recv_packets(n));
     }
 }
 
@@ -102,9 +108,9 @@ impl LimitedSendStats for UdpConnectTaskCltWrapperStats {
         self.others.iter().for_each(|s| s.add_send_bytes(size));
     }
 
-    fn add_send_packet(&self) {
-        self.server.io_udp.add_out_packet();
-        self.task.clt.send.add_packet();
-        self.others.iter().for_each(|s| s.add_send_packet());
+    fn add_send_packets(&self, n: usize) {
+        self.server.io_udp.add_out_packets(n);
+        self.task.clt.send.add_packets(n);
+        self.others.iter().for_each(|s| s.add_send_packets(n));
     }
 }

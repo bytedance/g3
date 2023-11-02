@@ -16,6 +16,6 @@
 
 mod fixed_window;
 pub use fixed_window::{
-    DatagramLimitInfo, DatagramLimitResult, StreamLimitInfo, StreamLimitResult,
+    DatagramLimitInfo, DatagramLimitResult, HasPacketSize, StreamLimitInfo, StreamLimitResult,
     ThreadedCountLimitInfo,
 };

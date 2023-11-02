@@ -33,3 +33,8 @@ pub use listen::{LimitedTcpListener, LimitedTlsListener};
 pub use udp::*;
 
 pub mod haproxy;
+
+#[cfg(feature = "quic")]
+mod quic;
+#[cfg(feature = "quic")]
+pub use quic::*;

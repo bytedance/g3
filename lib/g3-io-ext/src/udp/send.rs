@@ -87,7 +87,7 @@ where
         if self.limit.is_set() {
             let dur_millis = self.started.elapsed().as_millis() as u64;
             match self.limit.check_packet(dur_millis, buf.len()) {
-                DatagramLimitResult::Advance => {
+                DatagramLimitResult::Advance(_) => {
                     let nw = ready!(self.inner.poll_send_to(cx, buf, target))?;
                     self.limit.set_advance(1, nw);
                     self.stats.add_send_packet();
@@ -113,7 +113,7 @@ where
         if self.limit.is_set() {
             let dur_millis = self.started.elapsed().as_millis() as u64;
             match self.limit.check_packet(dur_millis, buf.len()) {
-                DatagramLimitResult::Advance => {
+                DatagramLimitResult::Advance(_) => {
                     let nw = ready!(self.inner.poll_send(cx, buf))?;
                     self.limit.set_advance(1, nw);
                     self.stats.add_send_packet();
@@ -145,7 +145,7 @@ where
             let dur_millis = self.started.elapsed().as_millis() as u64;
             let len = iov.iter().map(|v| v.len()).sum();
             match self.limit.check_packet(dur_millis, len) {
-                DatagramLimitResult::Advance => {
+                DatagramLimitResult::Advance(_) => {
                     let nw = ready!(self.inner.poll_sendmsg(cx, iov, target))?;
                     self.limit.set_advance(1, nw);
                     self.stats.add_send_packet();

@@ -38,11 +38,6 @@ pub use copy::{
 };
 pub use copy::{UdpCopyClientToRemote, UdpCopyError, UdpCopyRemoteToClient};
 
-#[cfg(feature = "quic")]
-mod quic;
-#[cfg(feature = "quic")]
-pub use quic::LimitedTokioRuntime;
-
 mod split;
 
 pub use split::{

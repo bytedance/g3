@@ -198,16 +198,16 @@ impl AsyncUdpSocket for LimitedUdpSocket {
         cx: &mut Context,
         transmits: &[udp::Transmit],
     ) -> Poll<io::Result<usize>> {
-        let len = transmits.iter().map(|t| t.contents.len()).sum();
         let l = unsafe { &mut *self.send_state.get() };
         if l.limit.is_set() {
             let dur_millis = l.started.elapsed().as_millis() as u64;
-            match l.limit.check_packet(dur_millis, len) {
-                DatagramLimitResult::Advance => {
-                    let nw = ready!(self.inner.poll_send(state, cx, transmits))?;
-                    l.limit.set_advance(1, nw);
-                    l.stats.add_send_packet();
-                    l.stats.add_send_bytes(nw);
+            match l.limit.check_packets(dur_millis, transmits) {
+                DatagramLimitResult::Advance(n) => {
+                    let nw = ready!(self.inner.poll_send(state, cx, &transmits[0..n]))?;
+                    let len = transmits.iter().take(nw).map(|v| v.contents.len()).sum();
+                    l.limit.set_advance(nw, len);
+                    l.stats.add_send_packets(nw);
+                    l.stats.add_send_bytes(len);
                     Poll::Ready(Ok(nw))
                 }
                 DatagramLimitResult::DelayFor(ms) => {
@@ -219,8 +219,9 @@ impl AsyncUdpSocket for LimitedUdpSocket {
             }
         } else {
             let nw = ready!(self.inner.poll_send(state, cx, transmits))?;
-            l.stats.add_send_packet();
-            l.stats.add_send_bytes(nw);
+            let len = transmits.iter().take(nw).map(|v| v.contents.len()).sum();
+            l.stats.add_send_packets(nw);
+            l.stats.add_send_bytes(len);
             Poll::Ready(Ok(nw))
         }
     }
@@ -231,16 +232,16 @@ impl AsyncUdpSocket for LimitedUdpSocket {
         bufs: &mut [IoSliceMut<'_>],
         meta: &mut [udp::RecvMeta],
     ) -> Poll<io::Result<usize>> {
-        let len = bufs.iter().map(|v| v.len()).sum();
         let l = unsafe { &mut *self.recv_state.get() };
         if l.limit.is_set() {
             let dur_millis = l.started.elapsed().as_millis() as u64;
-            match l.limit.check_packet(dur_millis, len) {
-                DatagramLimitResult::Advance => {
-                    let nr = ready!(self.inner.poll_recv(cx, bufs, meta))?;
-                    l.limit.set_advance(1, nr);
-                    l.stats.add_recv_packet();
-                    l.stats.add_recv_bytes(nr);
+            match l.limit.check_packets(dur_millis, bufs) {
+                DatagramLimitResult::Advance(n) => {
+                    let nr = ready!(self.inner.poll_recv(cx, &mut bufs[0..n], meta))?;
+                    let len = bufs.iter().take(nr).map(|v| v.len()).sum();
+                    l.limit.set_advance(nr, len);
+                    l.stats.add_recv_packets(nr);
+                    l.stats.add_recv_bytes(len);
                     Poll::Ready(Ok(nr))
                 }
                 DatagramLimitResult::DelayFor(ms) => {
@@ -252,8 +253,9 @@ impl AsyncUdpSocket for LimitedUdpSocket {
             }
         } else {
             let nr = ready!(self.inner.poll_recv(cx, bufs, meta))?;
-            l.stats.add_recv_packet();
-            l.stats.add_recv_bytes(nr);
+            let len = bufs.iter().take(nr).map(|v| v.len()).sum();
+            l.stats.add_recv_packets(nr);
+            l.stats.add_recv_bytes(len);
             Poll::Ready(Ok(nr))
         }
     }

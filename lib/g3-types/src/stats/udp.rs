@@ -49,7 +49,11 @@ pub struct UdpIoStats {
 
 impl UdpIoStats {
     pub fn add_in_packet(&self) {
-        self.in_packets.fetch_add(1, Ordering::Relaxed);
+        self.add_in_packets(1);
+    }
+
+    pub fn add_in_packets(&self, n: usize) {
+        self.in_packets.fetch_add(n as u64, Ordering::Relaxed);
     }
 
     pub fn add_in_bytes(&self, size: u64) {
@@ -57,7 +61,11 @@ impl UdpIoStats {
     }
 
     pub fn add_out_packet(&self) {
-        self.out_packets.fetch_add(1, Ordering::Relaxed);
+        self.add_out_packets(1);
+    }
+
+    pub fn add_out_packets(&self, n: usize) {
+        self.out_packets.fetch_add(n as u64, Ordering::Relaxed);
     }
 
     pub fn add_out_bytes(&self, size: u64) {

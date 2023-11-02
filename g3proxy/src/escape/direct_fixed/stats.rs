@@ -172,16 +172,16 @@ impl UdpRelayTaskRemoteStats for DirectFixedEscaperStats {
         self.udp.io.add_in_bytes(size);
     }
 
-    fn add_recv_packet(&self) {
-        self.udp.io.add_in_packet();
+    fn add_recv_packets(&self, n: usize) {
+        self.udp.io.add_in_packets(n);
     }
 
     fn add_send_bytes(&self, size: u64) {
         self.udp.io.add_out_bytes(size);
     }
 
-    fn add_send_packet(&self) {
-        self.udp.io.add_out_packet();
+    fn add_send_packets(&self, n: usize) {
+        self.udp.io.add_out_packets(n);
     }
 }
 
@@ -190,15 +190,15 @@ impl UdpConnectTaskRemoteStats for DirectFixedEscaperStats {
         self.udp.io.add_in_bytes(size);
     }
 
-    fn add_recv_packet(&self) {
-        self.udp.io.add_in_packet();
+    fn add_recv_packets(&self, n: usize) {
+        self.udp.io.add_in_packets(n);
     }
 
     fn add_send_bytes(&self, size: u64) {
         self.udp.io.add_out_bytes(size);
     }
 
-    fn add_send_packet(&self) {
-        self.udp.io.add_out_packet();
+    fn add_send_packets(&self, n: usize) {
+        self.udp.io.add_out_packets(n);
     }
 }

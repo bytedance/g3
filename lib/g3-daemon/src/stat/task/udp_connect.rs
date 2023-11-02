@@ -41,8 +41,12 @@ impl UdpConnectHalfConnectionStats {
     }
 
     pub fn add_packet(&self) {
+        self.add_packets(1);
+    }
+
+    pub fn add_packets(&self, n: usize) {
         let r = unsafe { &mut *self.packets.get() };
-        *r += 1;
+        *r += n as u64;
     }
 }
 
