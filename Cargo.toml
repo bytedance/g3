@@ -146,7 +146,6 @@ tokio-openssl = { package = "tokio-tongsuo", version = "0.6.4", default-features
 openssl = { package = "tongsuo", version = "0.10.55", default-features = false }
 openssl-sys = { package = "tongsuo-sys", version = "0.9.93" }
 openssl-probe = "0.1"
-foreign-types = "0.3"
 rustls-pemfile = "1.0"
 rustls-native-certs = "0.6"
 quinn = { version = "0.10", default-features = false, features = ["native-certs"] }

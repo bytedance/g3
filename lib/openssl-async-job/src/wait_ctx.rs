@@ -19,11 +19,11 @@ use std::ptr;
 #[cfg(ossl300)]
 use std::task::Waker;
 
-use foreign_types::foreign_type;
 use libc::c_int;
 #[cfg(ossl300)]
 use libc::c_void;
 use openssl::error::ErrorStack;
+use openssl::foreign_types::foreign_type;
 
 use super::ffi;
 

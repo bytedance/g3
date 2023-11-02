@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-use foreign_types::ForeignTypeRef;
 use libc::c_uint;
 use openssl::error::ErrorStack;
+use openssl::foreign_types::ForeignTypeRef;
 use openssl::hash::MessageDigest;
 use openssl::x509::X509Ref;
 

@@ -17,9 +17,9 @@
 use std::ptr;
 use std::slice;
 
-use foreign_types::{foreign_type, ForeignTypeRef};
 use libc::{c_int, c_uchar};
 use openssl::error::ErrorStack;
+use openssl::foreign_types::{foreign_type, ForeignTypeRef};
 use openssl::pkey::{HasPublic, PKeyRef};
 
 use super::ffi;

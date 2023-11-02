@@ -22,9 +22,9 @@ use std::task::{ready, Context, Poll};
 use std::{mem, ptr};
 
 use anyhow::anyhow;
-use foreign_types::ForeignType;
 use libc::{c_int, c_void};
 use openssl::error::ErrorStack;
+use openssl::foreign_types::ForeignType;
 use thiserror::Error;
 
 use super::{ffi, AsyncWaitCtx};

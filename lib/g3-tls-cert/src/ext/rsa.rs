@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-use foreign_types::ForeignType;
 use libc::{c_uchar, c_uint};
 use openssl::error::ErrorStack;
+use openssl::foreign_types::ForeignType;
 use openssl::pkey::HasPrivate;
 use openssl::rsa::Rsa;
 

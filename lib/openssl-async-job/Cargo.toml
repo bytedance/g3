@@ -11,5 +11,4 @@ thiserror.workspace = true
 libc.workspace = true
 openssl-sys.workspace = true
 openssl.workspace = true
-foreign-types.workspace = true
 tokio = { workspace = true, features = ["net", "rt"] }
