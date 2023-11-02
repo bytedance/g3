@@ -454,10 +454,10 @@ impl SocksProxyUdpConnectTask {
         let mut clt_r = Socks5UdpConnectClientRecv::new(clt_r, self.udp_client_addr);
 
         let buf_len = self.ctx.server_config.udp_relay.packet_size();
-        let mut buf = vec![0u8; buf_len].into_boxed_slice();
+        let mut buf = vec![0u8; buf_len];
 
         let (buf_off, buf_nr, udp_client_addr, upstream) = self
-            .recv_first_packet(clt_tcp_r, &mut clt_r, buf.as_mut())
+            .recv_first_packet(clt_tcp_r, &mut clt_r, &mut buf)
             .await?;
         self.udp_notes.upstream = Some(upstream.clone());
         self.udp_client_addr = Some(udp_client_addr);
@@ -530,7 +530,7 @@ impl SocksProxyUdpConnectTask {
             .await?;
         self.task_notes.stage = ServerTaskStage::Connected;
 
-        poll_fn(|cx| ups_w.poll_send_packet(cx, buf.as_mut(), buf_off, buf_nr)).await?;
+        poll_fn(|cx| ups_w.poll_send_packet(cx, &buf[buf_off..buf_nr])).await?;
 
         let clt_w = Socks5UdpConnectClientSend::new(clt_w, upstream);
 

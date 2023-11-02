@@ -37,7 +37,7 @@ pub enum UdpCopyClientError {
 
 pub trait UdpCopyClientRecv {
     /// reserve some space for offloading header
-    fn buf_reserve_length(&self) -> usize;
+    fn max_hdr_len(&self) -> usize;
 
     /// return `(off, len)`
     fn poll_recv_packet(
@@ -48,15 +48,10 @@ pub trait UdpCopyClientRecv {
 }
 
 pub trait UdpCopyClientSend {
-    /// reserve some space for adding header
-    fn buf_reserve_length(&self) -> usize;
-
     /// return `nw`, which should be greater than 0
     fn poll_send_packet(
         &mut self,
         cx: &mut Context<'_>,
-        buf: &mut [u8],
-        buf_off: usize,
-        buf_len: usize,
+        buf: &[u8],
     ) -> Poll<Result<usize, UdpCopyClientError>>;
 }

@@ -30,7 +30,6 @@ pub use remote::{UdpCopyRemoteError, UdpCopyRemoteRecv, UdpCopyRemoteSend};
 
 struct UdpCopyPacket {
     buf: Box<[u8]>,
-    buf_reserved: usize,
     buf_data_off: usize,
     buf_data_end: usize,
 }
@@ -40,7 +39,6 @@ impl UdpCopyPacket {
         let buf_size = packet_size + reserved_size;
         UdpCopyPacket {
             buf: vec![0; buf_size].into_boxed_slice(),
-            buf_reserved: reserved_size,
             buf_data_off: 0,
             buf_data_end: 0,
         }
@@ -71,8 +69,7 @@ where
     R: UdpCopyRemoteSend + ?Sized,
 {
     pub fn new(client: Box<C>, remote: Box<R>, config: LimitedUdpRelayConfig) -> Self {
-        let buf_reserved = remote.buf_reserve_length().max(client.buf_reserve_length());
-        let packet = UdpCopyPacket::new(buf_reserved, config.packet_size);
+        let packet = UdpCopyPacket::new(client.max_hdr_len(), config.packet_size);
         UdpCopyClientToRemote {
             client,
             remote,
@@ -105,15 +102,13 @@ where
         loop {
             let me = &mut *self;
             if !me.to_send {
-                let reserved = me.packet.buf_reserved;
                 let (off, nr) =
-                    ready!(Pin::new(&mut *me.client)
-                        .poll_recv_packet(cx, &mut me.packet.buf[reserved..]))?;
+                    ready!(Pin::new(&mut *me.client).poll_recv_packet(cx, &mut me.packet.buf))?;
                 if nr == 0 {
                     break;
                 }
-                me.packet.buf_data_off = reserved + off;
-                me.packet.buf_data_end = reserved + nr;
+                me.packet.buf_data_off = off;
+                me.packet.buf_data_end = nr;
                 me.to_send = true;
                 me.active = true;
             }
@@ -121,9 +116,7 @@ where
             if me.to_send {
                 let nw = ready!(Pin::new(&mut *me.remote).poll_send_packet(
                     cx,
-                    &mut me.packet.buf,
-                    me.packet.buf_data_off,
-                    me.packet.buf_data_end,
+                    &me.packet.buf[me.packet.buf_data_off..me.packet.buf_data_end],
                 ))?;
                 copy_this_round += nw;
                 me.total += nw as u64;
@@ -156,8 +149,7 @@ where
     R: UdpCopyRemoteRecv + ?Sized,
 {
     pub fn new(client: Box<C>, remote: Box<R>, config: LimitedUdpRelayConfig) -> Self {
-        let buf_reserved = client.buf_reserve_length().max(remote.buf_reserve_length());
-        let packet = UdpCopyPacket::new(buf_reserved, config.packet_size);
+        let packet = UdpCopyPacket::new(remote.max_hdr_len(), config.packet_size);
         UdpCopyRemoteToClient {
             client,
             remote,
@@ -190,15 +182,13 @@ where
         loop {
             let me = &mut *self;
             if !me.to_send {
-                let reserved = me.packet.buf_reserved;
                 let (off, nr) =
-                    ready!(Pin::new(&mut *me.remote)
-                        .poll_recv_packet(cx, &mut me.packet.buf[reserved..]))?;
+                    ready!(Pin::new(&mut *me.remote).poll_recv_packet(cx, &mut me.packet.buf))?;
                 if nr == 0 {
                     break;
                 }
-                me.packet.buf_data_off = reserved + off;
-                me.packet.buf_data_end = reserved + nr;
+                me.packet.buf_data_off = off;
+                me.packet.buf_data_end = nr;
                 me.to_send = true;
                 me.active = true;
             }
@@ -206,9 +196,7 @@ where
             if me.to_send {
                 let nw = ready!(Pin::new(&mut *me.client).poll_send_packet(
                     cx,
-                    &mut me.packet.buf,
-                    me.packet.buf_data_off,
-                    me.packet.buf_data_end,
+                    &me.packet.buf[me.packet.buf_data_off..me.packet.buf_data_end]
                 ))?;
                 copy_this_round += nw;
                 me.total += nw as u64;

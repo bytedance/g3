@@ -56,7 +56,7 @@ impl<T> UdpCopyRemoteRecv for ProxySocks5UdpConnectRemoteRecv<T>
 where
     T: AsyncUdpRecv,
 {
-    fn buf_reserve_length(&self) -> usize {
+    fn max_hdr_len(&self) -> usize {
         256 + 4 + 2
     }
 

@@ -135,7 +135,7 @@ where
     T: AsyncUdpRecv + Send,
 {
     /// reserve some space for offloading header
-    fn buf_reserve_length(&self) -> usize {
+    fn max_hdr_len(&self) -> usize {
         256 + 4 + 2
     }
 

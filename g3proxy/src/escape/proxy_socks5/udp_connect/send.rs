@@ -15,9 +15,8 @@
  */
 
 use std::io;
+use std::io::IoSlice;
 use std::task::{ready, Context, Poll};
-
-use bytes::BufMut;
 
 use g3_io_ext::{AsyncUdpSend, UdpCopyRemoteError, UdpCopyRemoteSend};
 use g3_socks::v5::UdpOutput;
@@ -42,24 +41,31 @@ where
     fn poll_send_packet(
         &mut self,
         cx: &mut Context<'_>,
-        buf: &mut [u8],
-        buf_off: usize,
-        buf_len: usize,
+        buf: &[u8],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
+        const STATIC_BUF_LEN: usize = 256;
+
         let header_len = UdpOutput::calc_header_len(&self.upstream);
-        let nw = if header_len <= buf_off {
-            UdpOutput::generate_header(&mut buf[buf_off - header_len..buf_off], &self.upstream);
-            ready!(self
-                .inner
-                .poll_send(cx, &buf[buf_off - header_len..buf_len]))
+        let nw = if header_len <= STATIC_BUF_LEN {
+            let mut hdr_buf = [0u8; STATIC_BUF_LEN];
+            UdpOutput::generate_header(&mut hdr_buf, &self.upstream);
+            ready!(self.inner.poll_sendmsg(
+                cx,
+                &[IoSlice::new(&hdr_buf[0..header_len]), IoSlice::new(buf)],
+                None
+            ))
             .map_err(UdpCopyRemoteError::SendFailed)?
         } else {
-            let mut new_buf: Vec<u8> = Vec::with_capacity(buf_len - buf_off + header_len);
-            UdpOutput::generate_header(&mut new_buf[0..header_len], &self.upstream);
-            unsafe { new_buf.set_len(header_len) };
-            new_buf.put_slice(&buf[buf_off..buf_len]);
-            ready!(self.inner.poll_send(cx, &new_buf)).map_err(UdpCopyRemoteError::SendFailed)?
+            let mut hdr_buf = vec![0u8; header_len];
+            UdpOutput::generate_header(&mut hdr_buf, &self.upstream);
+            ready!(self.inner.poll_sendmsg(
+                cx,
+                &[IoSlice::new(&hdr_buf[0..header_len]), IoSlice::new(buf)],
+                None
+            ))
+            .map_err(UdpCopyRemoteError::SendFailed)?
         };
+
         if nw == 0 {
             Poll::Ready(Err(UdpCopyRemoteError::SendFailed(io::Error::new(
                 io::ErrorKind::WriteZero,
@@ -75,17 +81,11 @@ impl<T> UdpCopyRemoteSend for ProxySocks5UdpConnectRemoteSend<T>
 where
     T: AsyncUdpSend + Send,
 {
-    fn buf_reserve_length(&self) -> usize {
-        256 + 4 + 2
-    }
-
     fn poll_send_packet(
         &mut self,
         cx: &mut Context<'_>,
-        buf: &mut [u8],
-        buf_off: usize,
-        buf_len: usize,
+        buf: &[u8],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
-        self.poll_send_packet(cx, buf, buf_off, buf_len)
+        self.poll_send_packet(cx, buf)
     }
 }

@@ -35,19 +35,12 @@ impl<T> UdpCopyRemoteSend for DirectUdpConnectRemoteSend<T>
 where
     T: AsyncUdpSend,
 {
-    fn buf_reserve_length(&self) -> usize {
-        0
-    }
-
     fn poll_send_packet(
         &mut self,
         cx: &mut Context<'_>,
-        buf: &mut [u8],
-        buf_off: usize,
-        buf_len: usize,
+        buf: &[u8],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
-        let nw = ready!(self.inner.poll_send(cx, &buf[buf_off..buf_len]))
-            .map_err(UdpCopyRemoteError::SendFailed)?;
+        let nw = ready!(self.inner.poll_send(cx, buf)).map_err(UdpCopyRemoteError::SendFailed)?;
         Poll::Ready(Ok(nw))
     }
 }
