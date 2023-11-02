@@ -94,19 +94,17 @@ impl AsyncUdpSend for SendHalf {
         iov: &[IoSlice<'_>],
         target: Option<SocketAddr>,
     ) -> Poll<io::Result<usize>> {
+        #[cfg(not(target_os = "macos"))]
+        let flags: MsgFlags = MsgFlags::MSG_DONTWAIT | MsgFlags::MSG_NOSIGNAL;
+        #[cfg(target_os = "macos")]
+        let flags: MsgFlags = MsgFlags::MSG_DONTWAIT;
+
         let raw_fd = self.0.as_raw_fd();
         let addr = target.map(SockaddrStorage::from);
         loop {
             ready!(self.0.poll_send_ready(cx))?;
             if let Ok(res) = self.0.try_io(Interest::WRITABLE, || {
-                sendmsg(
-                    raw_fd,
-                    iov,
-                    &[],
-                    MsgFlags::MSG_DONTWAIT | MsgFlags::MSG_NOSIGNAL,
-                    addr.as_ref(),
-                )
-                .map_err(io::Error::from)
+                sendmsg(raw_fd, iov, &[], flags, addr.as_ref()).map_err(io::Error::from)
             }) {
                 return Poll::Ready(Ok(res));
             }
