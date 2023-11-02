@@ -16,8 +16,12 @@
 
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::anyhow;
+use flume::{Receiver, Sender};
+use log::{debug, error, warn};
+use tokio::runtime::Handle;
 
 use g3_tls_cert::builder::{ServerCertBuilder, TlsServerCertBuilder};
 use g3_types::net::Host;
@@ -25,6 +29,7 @@ use g3_types::net::Host;
 mod stats;
 pub(crate) use stats::BackendStats;
 
+use super::{BackendRequest, BackendResponse};
 use crate::config::OpensslBackendConfig;
 use crate::frontend::ResponseData;
 
@@ -82,5 +87,47 @@ impl OpensslBackend {
         };
         self.stats.add_request_ok();
         Ok(data)
+    }
+
+    pub(crate) fn spawn(
+        mut self,
+        handle: &Handle,
+        id: usize,
+        req_receiver: Receiver<BackendRequest>,
+        rsp_sender: Sender<BackendResponse>,
+    ) {
+        handle.spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(300));
+
+            loop {
+                tokio::select! {
+                    _ = interval.tick() => {
+                        if let Err(e) = self.refresh() {
+                            warn!("failed to refresh backend: {e:?}");
+                        }
+                    }
+                    r = req_receiver.recv_async() => {
+                        let Ok(req) = r else {
+                            break
+                        };
+
+                        match self.generate(&req.host) {
+                            Ok(data) => {
+                                debug!("Worker#{id} got certificate for host {}", req.host);
+                                if let Err(e) = rsp_sender.send_async(req.response(data)).await {
+                                    error!(
+                                        "Worker#{id} failed to send certificate for host {} to frontend: {e}", req.host
+                                    );
+                                    break;
+                                }
+                            }
+                            Err(e) => {
+                                warn!("Worker#{id} generate for {} failed: {e:?}", req.host);
+                            }
+                        }
+                    }
+                }
+            }
+        });
     }
 }

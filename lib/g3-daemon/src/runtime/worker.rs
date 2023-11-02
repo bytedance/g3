@@ -97,12 +97,14 @@ pub fn select_listen_handle() -> Option<WorkerHandle> {
     }
 }
 
-pub fn foreach<F, E>(spawn: F) -> Result<(), E>
+pub fn foreach<F, E>(spawn: F) -> Result<usize, E>
 where
     F: Fn(&WorkerHandle) -> Result<(), E>,
 {
+    let mut count = 0;
     for handle in handles() {
         spawn(handle)?;
+        count += 1;
     }
-    Ok(())
+    Ok(count)
 }
