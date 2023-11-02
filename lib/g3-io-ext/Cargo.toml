@@ -19,6 +19,7 @@ fastrand.workspace = true
 bytes.workspace = true
 ahash.workspace = true
 nix = { workspace = true, features = ["socket", "net", "uio"] }
+quinn = { workspace = true, optional = true, features = ["runtime-tokio"] }
 g3-types.workspace = true
 g3-resolver.workspace = true
 
@@ -26,3 +27,7 @@ g3-resolver.workspace = true
 tokio-util = { workspace = true, features = ["io"] }
 tokio-stream.workspace = true
 governor = { workspace = true, features = ["std", "jitter"] }
+
+[features]
+default = []
+quic = ["dep:quinn"]

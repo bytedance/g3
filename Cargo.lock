@@ -992,6 +992,7 @@ dependencies = [
  "memchr",
  "nix",
  "pin-project",
+ "quinn",
  "thiserror",
  "tokio",
  "tokio-rustls",
