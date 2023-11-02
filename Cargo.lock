@@ -990,6 +990,7 @@ dependencies = [
  "g3-types",
  "governor",
  "memchr",
+ "nix",
  "pin-project",
  "thiserror",
  "tokio",

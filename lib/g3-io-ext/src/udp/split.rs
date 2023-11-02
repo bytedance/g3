@@ -16,12 +16,14 @@
 
 use std::error::Error;
 use std::fmt;
-use std::io;
+use std::io::{self, IoSlice};
 use std::net::SocketAddr;
+use std::os::fd::AsRawFd;
 use std::sync::Arc;
 use std::task::{ready, Context, Poll};
 
-use tokio::io::ReadBuf;
+use nix::sys::socket::{sendmsg, MsgFlags, SockaddrStorage};
+use tokio::io::{Interest, ReadBuf};
 use tokio::net::UdpSocket;
 
 use super::{AsyncUdpRecv, AsyncUdpSend};
@@ -84,6 +86,31 @@ impl AsyncUdpSend for SendHalf {
 
     fn poll_send(&mut self, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
         self.0.poll_send(cx, buf)
+    }
+
+    fn poll_sendmsg(
+        &mut self,
+        cx: &mut Context<'_>,
+        iov: &[IoSlice<'_>],
+        target: Option<SocketAddr>,
+    ) -> Poll<io::Result<usize>> {
+        let raw_fd = self.0.as_raw_fd();
+        let addr = target.map(SockaddrStorage::from);
+        loop {
+            ready!(self.0.poll_send_ready(cx))?;
+            if let Ok(res) = self.0.try_io(Interest::WRITABLE, || {
+                sendmsg(
+                    raw_fd,
+                    iov,
+                    &[],
+                    MsgFlags::MSG_DONTWAIT | MsgFlags::MSG_NOSIGNAL,
+                    addr.as_ref(),
+                )
+                .map_err(io::Error::from)
+            }) {
+                return Poll::Ready(Ok(res));
+            }
+        }
     }
 }
 
