@@ -22,7 +22,7 @@ static mut WORKER_HANDLERS: Vec<Handle> = Vec::new();
 
 pub async fn spawn_workers(config: &UnaidedRuntimeConfig) -> anyhow::Result<WorkersGuard> {
     let guard = config
-        .start(&|_, handle| unsafe { WORKER_HANDLERS.push(handle) })
+        .start(|_, handle| unsafe { WORKER_HANDLERS.push(handle) })
         .await?;
     Ok(guard)
 }

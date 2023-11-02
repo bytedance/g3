@@ -48,19 +48,15 @@ where
     ) -> Result<(Self, bool), HttpRequestParseError> {
         let time_accepted = Instant::now();
 
-        let mut req = HttpProxyClientRequest::parse(
-            reader,
-            max_header_size,
-            version,
-            &|req, name, header| {
+        let mut req =
+            HttpProxyClientRequest::parse(reader, max_header_size, version, |req, name, header| {
                 if name.as_str() == "authorization" {
                     return req.parse_header_authorization(header.value);
                 }
                 req.append_header(name, header)?;
                 Ok(())
-            },
-        )
-        .await?;
+            })
+            .await?;
         let time_received = Instant::now();
 
         if matches!(&req.method, &Method::CONNECT) {

@@ -35,16 +35,16 @@ impl HybridParser {
         }
     }
 
-    pub fn foreach_map<F>(&self, value: &Yaml, f: &F) -> anyhow::Result<()>
+    pub fn foreach_map<F>(&self, value: &Yaml, f: F) -> anyhow::Result<()>
     where
         F: Fn(&yaml::Hash, Option<YamlDocPosition>) -> anyhow::Result<()>,
     {
         match value {
-            Yaml::String(path) => self.load_path(path, f).context(format!(
+            Yaml::String(path) => self.load_path(path, &f).context(format!(
                 "value is a string {path}, which should be a valid path",
             ))?,
             Yaml::Array(seq) => self
-                .load_array(seq, f)
+                .load_array(seq, &f)
                 .context(format!("value is an array, with {} objects", seq.len()))?,
             _ => return Err(anyhow!("value should be a path or an array")),
         }

@@ -37,7 +37,7 @@ thread_local! {
 pub async fn spawn_workers() -> anyhow::Result<Option<WorkersGuard>> {
     if let Some(config) = crate::runtime::config::get_worker_config() {
         let guard = config
-            .start(&|id, handle| unsafe { WORKER_HANDLERS.push(WorkerHandle { handle, id }) })
+            .start(|id, handle| unsafe { WORKER_HANDLERS.push(WorkerHandle { handle, id }) })
             .await?;
         Ok(Some(guard))
     } else {

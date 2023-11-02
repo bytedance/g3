@@ -328,7 +328,7 @@ impl IntelliProxyListen {
                     }
                 }
                 result = listener.accept() => {
-                    if listener.accept_current_available(result, &|result| {
+                    if listener.accept_current_available(result, |result| {
                         match result {
                             Ok(Some((stream, peer_addr, local_addr))) => {
                                 if let Ok(permit) = spawn_sema.try_acquire() {

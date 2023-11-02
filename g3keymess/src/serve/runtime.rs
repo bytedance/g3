@@ -88,7 +88,7 @@ impl KeyServerRuntime {
                     }
                 }
                 result = listener.accept() => {
-                    if listener.accept_current_available(result, &|result| {
+                    if listener.accept_current_available(result, |result| {
                         match result {
                             Ok(Some((stream, peer_addr, local_addr))) => {
                                 self.listen_stats.add_accepted();

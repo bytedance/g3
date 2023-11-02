@@ -106,7 +106,7 @@ impl UnaidedRuntimeConfig {
         }
     }
 
-    pub async fn start<F>(&self, recv_handle: &F) -> anyhow::Result<WorkersGuard>
+    pub async fn start<F>(&self, recv_handle: F) -> anyhow::Result<WorkersGuard>
     where
         F: Fn(usize, Handle),
     {

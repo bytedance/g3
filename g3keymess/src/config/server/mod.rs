@@ -150,7 +150,7 @@ impl KeyServerConfig {
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
     let parser = HybridParser::new(conf_dir, g3_daemon::opts::config_file_extension());
-    parser.foreach_map(v, &|map, position| {
+    parser.foreach_map(v, |map, position| {
         let server = KeyServerConfig::parse(map, position)?;
         registry::add(server, false)?;
         Ok(())

@@ -155,7 +155,7 @@ impl HttpProxyClientRequest {
     where
         R: AsyncBufRead + Unpin,
     {
-        Self::parse(reader, max_header_size, version, &|req, name, value| {
+        Self::parse(reader, max_header_size, version, |req, name, value| {
             req.append_header(name, value)
         })
         .await
@@ -165,7 +165,7 @@ impl HttpProxyClientRequest {
         reader: &mut R,
         max_header_size: usize,
         version: &mut Version,
-        parse_more_header: &F,
+        parse_more_header: F,
     ) -> Result<Self, HttpRequestParseError>
     where
         R: AsyncBufRead + Unpin,
@@ -224,7 +224,7 @@ impl HttpProxyClientRequest {
                 break;
             }
 
-            req.parse_header_line(line_buf.as_ref(), parse_more_header)?;
+            req.parse_header_line(line_buf.as_ref(), &parse_more_header)?;
         }
         req.origin_header_size = header_size;
 
@@ -531,7 +531,7 @@ mod tests {
         let mut buf_stream = BufReader::new(stream);
         let mut version = Version::HTTP_11;
         let request =
-            HttpProxyClientRequest::parse(&mut buf_stream, 4096, &mut version, &parse_more_header)
+            HttpProxyClientRequest::parse(&mut buf_stream, 4096, &mut version, parse_more_header)
                 .await
                 .unwrap();
         assert_eq!(request.method, &Method::GET);
@@ -539,7 +539,7 @@ mod tests {
         assert!(request.body_type().is_none());
 
         let result =
-            HttpProxyClientRequest::parse(&mut buf_stream, 4096, &mut version, &parse_more_header)
+            HttpProxyClientRequest::parse(&mut buf_stream, 4096, &mut version, parse_more_header)
                 .await;
         assert!(result.is_err());
     }
@@ -556,7 +556,7 @@ mod tests {
         let mut buf_stream = BufReader::new(stream);
         let mut version = Version::HTTP_11;
         let request =
-            HttpProxyClientRequest::parse(&mut buf_stream, 4096, &mut version, &parse_more_header)
+            HttpProxyClientRequest::parse(&mut buf_stream, 4096, &mut version, parse_more_header)
                 .await
                 .unwrap();
         assert!(!request.keep_alive());

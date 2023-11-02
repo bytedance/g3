@@ -79,7 +79,7 @@ impl LimitedTcpListener {
     pub async fn accept_current_available<E, F>(
         &mut self,
         r: io::Result<Option<(TcpStream, SocketAddr, SocketAddr)>>,
-        accept: &F,
+        accept: F,
     ) -> Result<(), E>
     where
         F: Fn(io::Result<Option<(TcpStream, SocketAddr, SocketAddr)>>) -> Result<(), E>,
