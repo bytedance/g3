@@ -38,9 +38,9 @@ pub trait AsyncUdpSend {
 
     fn poll_sendmsg(
         &mut self,
-        _cx: &mut Context<'_>,
-        _iov: &[IoSlice<'_>],
-        _target: Option<SocketAddr>,
+        cx: &mut Context<'_>,
+        iov: &[IoSlice<'_>],
+        target: Option<SocketAddr>,
     ) -> Poll<io::Result<usize>>;
 }
 

@@ -90,24 +90,18 @@ where
     fn poll_send_packet(
         &mut self,
         cx: &mut Context<'_>,
-        buf: &mut [u8],
-        buf_off: usize,
-        buf_len: usize,
+        buf: &[u8],
         to: &UpstreamAddr,
     ) -> Poll<Result<usize, UdpRelayRemoteError>> {
         if let Some(resolved_ip) = self.resolved_ip.take() {
             let port = self.resolved_port;
             let ret = match resolved_ip {
-                IpAddr::V4(_) => self.poll_send_v4_packet(
-                    cx,
-                    &buf[buf_off..buf_len],
-                    SocketAddr::new(resolved_ip, port),
-                ),
-                IpAddr::V6(_) => self.poll_send_v6_packet(
-                    cx,
-                    &buf[buf_off..buf_len],
-                    SocketAddr::new(resolved_ip, port),
-                ),
+                IpAddr::V4(_) => {
+                    self.poll_send_v4_packet(cx, buf, SocketAddr::new(resolved_ip, port))
+                }
+                IpAddr::V6(_) => {
+                    self.poll_send_v6_packet(cx, buf, SocketAddr::new(resolved_ip, port))
+                }
             };
             if ret.is_pending() {
                 self.resolved_ip = Some(resolved_ip);
@@ -123,7 +117,7 @@ where
                 }
                 Poll::Ready(Ok(ip)) => {
                     self.resolved_ip = Some(ip);
-                    self.poll_send_packet(cx, buf, buf_off, buf_len, to)
+                    self.poll_send_packet(cx, buf, to)
                 }
                 Poll::Ready(Err(e)) => {
                     if let Some(domain) = self.resolve_retry_domain.take() {
@@ -138,7 +132,7 @@ where
                                     )?;
                                     self.resolver_job = Some(resolver_job);
                                     // no retry by leaving resolve_retry_domain to None
-                                    self.poll_send_packet(cx, buf, buf_off, buf_len, to)
+                                    self.poll_send_packet(cx, buf, to)
                                 }
                                 Err(_) => Poll::Ready(Err(UdpRelayRemoteError::DomainNotResolved(
                                     ResolveError::FromLocal(ResolveLocalError::NoResolverRunning),
@@ -155,16 +149,12 @@ where
         }
 
         match to.host() {
-            Host::Ip(IpAddr::V4(ip)) => self.poll_send_v4_packet(
-                cx,
-                &buf[buf_off..buf_len],
-                SocketAddr::new(IpAddr::V4(*ip), to.port()),
-            ),
-            Host::Ip(IpAddr::V6(ip)) => self.poll_send_v6_packet(
-                cx,
-                &buf[buf_off..buf_len],
-                SocketAddr::new(IpAddr::V6(*ip), to.port()),
-            ),
+            Host::Ip(IpAddr::V4(ip)) => {
+                self.poll_send_v4_packet(cx, buf, SocketAddr::new(IpAddr::V4(*ip), to.port()))
+            }
+            Host::Ip(IpAddr::V6(ip)) => {
+                self.poll_send_v6_packet(cx, buf, SocketAddr::new(IpAddr::V6(*ip), to.port()))
+            }
             Host::Domain(domain) => {
                 self.resolved_port = to.port();
                 let resolver_job = ArriveFirstResolveJob::new(
@@ -174,7 +164,7 @@ where
                 )?;
                 self.resolver_job = Some(resolver_job);
                 self.resolve_retry_domain = Some(domain.to_string());
-                self.poll_send_packet(cx, buf, buf_off, buf_len, to)
+                self.poll_send_packet(cx, buf, to)
             }
         }
     }
@@ -273,18 +263,12 @@ impl<T> UdpRelayRemoteSend for DirectUdpRelayRemoteSend<T>
 where
     T: AsyncUdpSend + Send,
 {
-    fn buf_reserve_length(&self) -> usize {
-        0
-    }
-
     fn poll_send_packet(
         &mut self,
         cx: &mut Context<'_>,
-        buf: &mut [u8],
-        buf_off: usize,
-        buf_len: usize,
+        buf: &[u8],
         to: &UpstreamAddr,
     ) -> Poll<Result<usize, UdpRelayRemoteError>> {
-        self.poll_send_packet(cx, buf, buf_off, buf_len, to)
+        self.poll_send_packet(cx, buf, to)
     }
 }

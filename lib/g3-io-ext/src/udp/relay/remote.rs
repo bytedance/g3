@@ -49,7 +49,7 @@ pub enum UdpRelayRemoteError {
 
 pub trait UdpRelayRemoteRecv {
     /// reserve some space for offloading header
-    fn buf_reserve_length(&self) -> usize;
+    fn max_hdr_len(&self) -> usize;
 
     /// return `(off, len. from)`
     fn poll_recv_packet(
@@ -60,16 +60,11 @@ pub trait UdpRelayRemoteRecv {
 }
 
 pub trait UdpRelayRemoteSend {
-    /// reserve some space for adding header
-    fn buf_reserve_length(&self) -> usize;
-
     /// return `nw`, which should be greater than 0
     fn poll_send_packet(
         &mut self,
         cx: &mut Context<'_>,
-        buf: &mut [u8],
-        buf_off: usize,
-        buf_len: usize,
+        buf: &[u8],
         to: &UpstreamAddr,
     ) -> Poll<Result<usize, UdpRelayRemoteError>>;
 }

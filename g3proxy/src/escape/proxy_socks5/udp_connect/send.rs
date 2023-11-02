@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-use std::io;
-use std::io::IoSlice;
+use std::io::{self, IoSlice};
 use std::task::{ready, Context, Poll};
 
 use g3_io_ext::{AsyncUdpSend, UdpCopyRemoteError, UdpCopyRemoteSend};
@@ -43,7 +42,7 @@ where
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
-        const STATIC_BUF_LEN: usize = 256;
+        const STATIC_BUF_LEN: usize = 128;
 
         let header_len = UdpOutput::calc_header_len(&self.upstream);
         let nw = if header_len <= STATIC_BUF_LEN {

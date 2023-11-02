@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-use std::io;
-use std::io::IoSlice;
+use std::io::{self, IoSlice};
 use std::task::{ready, Context, Poll};
 
 use g3_io_ext::{AsyncUdpSend, UdpCopyClientError, UdpCopyClientSend};
@@ -48,7 +47,7 @@ where
             UdpOutput::generate_header(&mut hdr_buf, &self.upstream);
             ready!(self.inner.poll_sendmsg(
                 cx,
-                &[IoSlice::new(&hdr_buf[..header_len]), IoSlice::new(buf)],
+                &[IoSlice::new(&hdr_buf[0..header_len]), IoSlice::new(buf)],
                 None
             ))
             .map_err(UdpCopyClientError::SendFailed)?

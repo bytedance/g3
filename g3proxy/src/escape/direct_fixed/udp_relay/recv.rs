@@ -92,7 +92,7 @@ impl<T> UdpRelayRemoteRecv for DirectUdpRelayRemoteRecv<T>
 where
     T: AsyncUdpRecv + Send,
 {
-    fn buf_reserve_length(&self) -> usize {
+    fn max_hdr_len(&self) -> usize {
         0
     }
 
