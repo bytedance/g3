@@ -44,7 +44,7 @@ g3-clap.workspace = true
 g3-socket.workspace = true
 g3-http.workspace = true
 g3-socks.workspace = true
-g3-io-ext.workspace = true
+g3-io-ext = { workspace = true, features = ["quic"] }
 g3-statsd.workspace = true
 g3-histogram.workspace = true
 g3-tls-cert.workspace = true
