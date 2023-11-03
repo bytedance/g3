@@ -1,6 +1,7 @@
 
 v1.7.29:
  - Feature: add OpenSSL based NativeTlsPort server
+ - Feature: allow to chain TcpStream after ports server
 
 v1.7.28:
  - BUG FIX: fix server ingress net acl check for traffic from extra tls ports

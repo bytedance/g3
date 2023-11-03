@@ -64,9 +64,26 @@ impl TcpStreamTask {
         }
     }
 
-    pub(super) async fn into_running(mut self, stream: TcpStream) {
+    pub(super) async fn tcp_into_running(self, stream: TcpStream) {
+        let (clt_r, clt_w) = self.split_tcp_clt(stream);
+        self.into_running(clt_r, clt_w).await;
+    }
+
+    pub(super) async fn stream_into_running<T>(self, stream: T)
+    where
+        T: AsyncRead + AsyncWrite + Send + Sync + 'static,
+    {
+        let (clt_r, clt_w) = self.split_stream_clt(stream);
+        self.into_running(clt_r, clt_w).await;
+    }
+
+    async fn into_running<CR, CW>(mut self, clt_r: CR, clt_w: CW)
+    where
+        CR: AsyncRead + Send + Sync + Unpin + 'static,
+        CW: AsyncWrite + Send + Sync + Unpin + 'static,
+    {
         self.pre_start();
-        match self.run(stream).await {
+        match self.run(clt_r, clt_w).await {
             Ok(_) => self
                 .get_log_context()
                 .log(&self.ctx.task_logger, &ServerTaskError::Finished),
@@ -91,7 +108,11 @@ impl TcpStreamTask {
         self.ctx.server_stats.dec_alive_task();
     }
 
-    async fn run(&mut self, clt_stream: TcpStream) -> ServerTaskResult<()> {
+    async fn run<CR, CW>(&mut self, clt_r: CR, clt_w: CW) -> ServerTaskResult<()>
+    where
+        CR: AsyncRead + Send + Sync + Unpin + 'static,
+        CW: AsyncWrite + Send + Sync + Unpin + 'static,
+    {
         // set client side socket options
         self.ctx
             .cc_info
@@ -138,35 +159,39 @@ impl TcpStreamTask {
         };
 
         self.task_notes.stage = ServerTaskStage::Connected;
-        self.run_connected(clt_stream, ups_r, ups_w).await
+        self.run_connected(clt_r, clt_w, ups_r, ups_w).await
     }
 
-    async fn run_connected<R, W>(
+    async fn run_connected<CR, CW, UR, UW>(
         &mut self,
-        clt_stream: TcpStream,
-        ups_r: R,
-        ups_w: W,
+        clt_r: CR,
+        clt_w: CW,
+        ups_r: UR,
+        ups_w: UW,
     ) -> ServerTaskResult<()>
     where
-        R: AsyncRead + Send + Sync + Unpin + 'static,
-        W: AsyncWrite + Send + Sync + Unpin + 'static,
+        CR: AsyncRead + Send + Sync + Unpin + 'static,
+        CW: AsyncWrite + Send + Sync + Unpin + 'static,
+        UR: AsyncRead + Send + Sync + Unpin + 'static,
+        UW: AsyncWrite + Send + Sync + Unpin + 'static,
     {
         self.task_notes.mark_relaying();
-        self.relay(clt_stream, ups_r, ups_w).await
+        self.relay(clt_r, clt_w, ups_r, ups_w).await
     }
 
-    async fn relay<R, W>(
+    async fn relay<CR, CW, UR, UW>(
         &mut self,
-        clt_stream: TcpStream,
-        ups_r: R,
-        ups_w: W,
+        clt_r: CR,
+        clt_w: CW,
+        ups_r: UR,
+        ups_w: UW,
     ) -> ServerTaskResult<()>
     where
-        R: AsyncRead + Send + Sync + Unpin + 'static,
-        W: AsyncWrite + Send + Sync + Unpin + 'static,
+        CR: AsyncRead + Send + Sync + Unpin + 'static,
+        CW: AsyncWrite + Send + Sync + Unpin + 'static,
+        UR: AsyncRead + Send + Sync + Unpin + 'static,
+        UW: AsyncWrite + Send + Sync + Unpin + 'static,
     {
-        let (clt_r, clt_w) = self.split_clt(clt_stream);
-
         if let Some(audit_handle) = self.ctx.audit_handle.take() {
             let ctx = StreamInspectContext::new(
                 audit_handle,
@@ -199,7 +224,7 @@ impl TcpStreamTask {
         }
     }
 
-    fn split_clt(
+    fn split_tcp_clt(
         &self,
         clt_stream: TcpStream,
     ) -> (
@@ -207,7 +232,32 @@ impl TcpStreamTask {
         LimitedWriter<impl AsyncWrite>,
     ) {
         let (clt_r, clt_w) = clt_stream.into_split();
+        self.setup_limit_and_stats(clt_r, clt_w)
+    }
 
+    fn split_stream_clt<T>(
+        &self,
+        clt_stream: T,
+    ) -> (
+        LimitedReader<impl AsyncRead>,
+        LimitedWriter<impl AsyncWrite>,
+    )
+    where
+        T: AsyncRead + AsyncWrite,
+    {
+        let (clt_r, clt_w) = tokio::io::split(clt_stream);
+        self.setup_limit_and_stats(clt_r, clt_w)
+    }
+
+    fn setup_limit_and_stats<CR, CW>(
+        &self,
+        clt_r: CR,
+        clt_w: CW,
+    ) -> (LimitedReader<CR>, LimitedWriter<CW>)
+    where
+        CR: AsyncRead,
+        CW: AsyncWrite,
+    {
         let (clt_r_stats, clt_w_stats) =
             TcpStreamTaskCltWrapperStats::new_pair(&self.ctx.server_stats, &self.task_stats);
         let clt_speed_limit = &self.ctx.server_config.tcp_sock_speed_limit;

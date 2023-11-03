@@ -20,6 +20,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use slog::Logger;
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 use tokio_openssl::SslStream;
@@ -30,7 +31,7 @@ use g3_daemon::server::ClientConnectionInfo;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::collection::{SelectivePickPolicy, SelectiveVec, SelectiveVecBuilder};
 use g3_types::metrics::MetricsName;
-use g3_types::net::{OpensslClientConfig, WeightedUpstreamAddr};
+use g3_types::net::{OpensslClientConfig, UpstreamAddr, WeightedUpstreamAddr};
 
 use super::common::CommonTaskContext;
 use super::stats::TcpStreamServerStats;
@@ -155,12 +156,11 @@ impl TcpStreamServer {
         false
     }
 
-    async fn run_task(
+    fn get_ctx_and_upstream(
         &self,
-        stream: TcpStream,
         cc_info: ClientConnectionInfo,
         run_ctx: ServerRunContext,
-    ) {
+    ) -> (CommonTaskContext, &UpstreamAddr) {
         let client_ip = cc_info.client_ip();
         let ctx = CommonTaskContext {
             server_config: Arc::clone(&self.config),
@@ -193,8 +193,34 @@ impl TcpStreamServer {
             }
         };
 
-        TcpStreamTask::new(ctx, upstream.inner())
-            .into_running(stream)
+        (ctx, upstream.inner())
+    }
+
+    async fn run_task_with_tcp(
+        &self,
+        stream: TcpStream,
+        cc_info: ClientConnectionInfo,
+        run_ctx: ServerRunContext,
+    ) {
+        let (ctx, upstream) = self.get_ctx_and_upstream(cc_info, run_ctx);
+
+        TcpStreamTask::new(ctx, upstream)
+            .tcp_into_running(stream)
+            .await;
+    }
+
+    async fn run_task_with_stream<T>(
+        &self,
+        stream: T,
+        cc_info: ClientConnectionInfo,
+        run_ctx: ServerRunContext,
+    ) where
+        T: AsyncRead + AsyncWrite + Send + Sync + 'static,
+    {
+        let (ctx, upstream) = self.get_ctx_and_upstream(cc_info, run_ctx);
+
+        TcpStreamTask::new(ctx, upstream)
+            .stream_into_running(stream)
             .await;
     }
 }
@@ -311,22 +337,36 @@ impl Server for TcpStreamServer {
             return;
         }
 
-        self.run_task(stream, cc_info, ctx).await
+        self.run_task_with_tcp(stream, cc_info, ctx).await
     }
 
     async fn run_rustls_task(
         &self,
-        _stream: TlsStream<TcpStream>,
-        _cc_info: ClientConnectionInfo,
-        _ctx: ServerRunContext,
+        stream: TlsStream<TcpStream>,
+        cc_info: ClientConnectionInfo,
+        ctx: ServerRunContext,
     ) {
+        let client_addr = cc_info.client_addr();
+        self.server_stats.add_conn(client_addr);
+        if self.drop_early(client_addr) {
+            return;
+        }
+
+        self.run_task_with_stream(stream, cc_info, ctx).await
     }
 
     async fn run_openssl_task(
         &self,
-        _stream: SslStream<TcpStream>,
-        _cc_info: ClientConnectionInfo,
-        _ctx: ServerRunContext,
+        stream: SslStream<TcpStream>,
+        cc_info: ClientConnectionInfo,
+        ctx: ServerRunContext,
     ) {
+        let client_addr = cc_info.client_addr();
+        self.server_stats.add_conn(client_addr);
+        if self.drop_early(client_addr) {
+            return;
+        }
+
+        self.run_task_with_stream(stream, cc_info, ctx).await
     }
 }
