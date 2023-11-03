@@ -24,6 +24,7 @@ use log::debug;
 use slog::Logger;
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
+use tokio_openssl::SslStream;
 use tokio_rustls::{server::TlsStream, TlsAcceptor};
 
 use g3_daemon::listen::ListenStats;
@@ -346,18 +347,19 @@ impl Server for TlsStreamServer {
         }
     }
 
-    async fn run_tls_task(
+    async fn run_rustls_task(
         &self,
-        stream: TlsStream<TcpStream>,
-        cc_info: ClientConnectionInfo,
-        ctx: ServerRunContext,
+        _stream: TlsStream<TcpStream>,
+        _cc_info: ClientConnectionInfo,
+        _ctx: ServerRunContext,
     ) {
-        let client_addr = cc_info.client_addr();
-        self.server_stats.add_conn(client_addr);
-        if self.drop_early(client_addr) {
-            return;
-        }
+    }
 
-        self.run_task(stream, cc_info, ctx).await
+    async fn run_openssl_task(
+        &self,
+        _stream: SslStream<TcpStream>,
+        _cc_info: ClientConnectionInfo,
+        _ctx: ServerRunContext,
+    ) {
     }
 }

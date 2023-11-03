@@ -20,6 +20,7 @@ use async_trait::async_trait;
 use log::warn;
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
+use tokio_openssl::SslStream;
 use tokio_rustls::server::TlsStream;
 
 use g3_daemon::listen::ListenStats;
@@ -192,9 +193,16 @@ pub(crate) trait Server: ServerInternal {
         ctx: ServerRunContext,
     );
 
-    async fn run_tls_task(
+    async fn run_rustls_task(
         &self,
         stream: TlsStream<TcpStream>,
+        cc_info: ClientConnectionInfo,
+        ctx: ServerRunContext,
+    );
+
+    async fn run_openssl_task(
+        &self,
+        stream: SslStream<TcpStream>,
         cc_info: ClientConnectionInfo,
         ctx: ServerRunContext,
     );

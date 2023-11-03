@@ -23,6 +23,7 @@ use log::debug;
 use tokio::net::TcpStream;
 use tokio::runtime::Handle;
 use tokio::sync::{broadcast, watch};
+use tokio_openssl::SslStream;
 use tokio_rustls::{server::TlsStream, TlsAcceptor};
 
 use g3_daemon::listen::ListenStats;
@@ -108,7 +109,7 @@ impl AuxiliaryServerConfig for PlainTlsPortAuxConfig {
             }
 
             match tokio::time::timeout(tls_accept_timeout, tls_acceptor.accept(stream)).await {
-                Ok(Ok(tls_stream)) => next_server.run_tls_task(tls_stream, cc_info, ctx).await,
+                Ok(Ok(tls_stream)) => next_server.run_rustls_task(tls_stream, cc_info, ctx).await,
                 Ok(Err(e)) => {
                     listen_stats.add_failed();
                     debug!(
@@ -332,9 +333,17 @@ impl Server for PlainTlsPort {
     ) {
     }
 
-    async fn run_tls_task(
+    async fn run_rustls_task(
         &self,
         _stream: TlsStream<TcpStream>,
+        _cc_info: ClientConnectionInfo,
+        _ctx: ServerRunContext,
+    ) {
+    }
+
+    async fn run_openssl_task(
+        &self,
+        _stream: SslStream<TcpStream>,
         _cc_info: ClientConnectionInfo,
         _ctx: ServerRunContext,
     ) {

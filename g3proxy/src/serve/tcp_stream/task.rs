@@ -206,7 +206,7 @@ impl TcpStreamTask {
         LimitedReader<impl AsyncRead>,
         LimitedWriter<impl AsyncWrite>,
     ) {
-        let (clt_r, clt_w) = tokio::io::split(clt_stream);
+        let (clt_r, clt_w) = clt_stream.into_split();
 
         let (clt_r_stats, clt_w_stats) =
             TcpStreamTaskCltWrapperStats::new_pair(&self.ctx.server_stats, &self.task_stats);

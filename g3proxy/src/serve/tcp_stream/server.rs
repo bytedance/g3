@@ -22,6 +22,7 @@ use async_trait::async_trait;
 use slog::Logger;
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
+use tokio_openssl::SslStream;
 use tokio_rustls::server::TlsStream;
 
 use g3_daemon::listen::ListenStats;
@@ -313,9 +314,17 @@ impl Server for TcpStreamServer {
         self.run_task(stream, cc_info, ctx).await
     }
 
-    async fn run_tls_task(
+    async fn run_rustls_task(
         &self,
         _stream: TlsStream<TcpStream>,
+        _cc_info: ClientConnectionInfo,
+        _ctx: ServerRunContext,
+    ) {
+    }
+
+    async fn run_openssl_task(
+        &self,
+        _stream: SslStream<TcpStream>,
         _cc_info: ClientConnectionInfo,
         _ctx: ServerRunContext,
     ) {

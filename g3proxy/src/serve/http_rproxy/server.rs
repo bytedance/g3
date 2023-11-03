@@ -22,8 +22,10 @@ use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use log::debug;
 use slog::Logger;
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
 use tokio::sync::{broadcast, mpsc};
+use tokio_openssl::SslStream;
 use tokio_rustls::server::TlsStream;
 use tokio_rustls::LazyConfigAcceptor;
 
@@ -182,12 +184,14 @@ impl HttpRProxyServer {
         false
     }
 
-    async fn spawn_tls_task(
+    async fn spawn_stream_task<T>(
         &self,
-        stream: TlsStream<TcpStream>,
+        stream: T,
         cc_info: ClientConnectionInfo,
         run_ctx: ServerRunContext,
-    ) {
+    ) where
+        T: AsyncRead + AsyncWrite + Send + Sync + 'static,
+    {
         let ctx = self.get_common_task_context(cc_info, run_ctx.escaper, run_ctx.worker_id);
         let pipeline_stats = Arc::new(HttpRProxyPipelineStats::default());
         let (task_sender, task_receiver) = mpsc::channel(ctx.server_config.pipeline_size);
@@ -373,7 +377,9 @@ impl Server for HttpRProxyServer {
                             )
                             .await
                             {
-                                Ok(Ok(stream)) => self.spawn_tls_task(stream, cc_info, ctx).await,
+                                Ok(Ok(stream)) => {
+                                    self.spawn_stream_task(stream, cc_info, ctx).await
+                                }
                                 Ok(Err(e)) => {
                                     self.listen_stats.add_failed();
                                     debug!(
@@ -429,7 +435,7 @@ impl Server for HttpRProxyServer {
         }
     }
 
-    async fn run_tls_task(
+    async fn run_rustls_task(
         &self,
         stream: TlsStream<TcpStream>,
         cc_info: ClientConnectionInfo,
@@ -441,6 +447,21 @@ impl Server for HttpRProxyServer {
             return;
         }
 
-        self.spawn_tls_task(stream, cc_info, ctx).await;
+        self.spawn_stream_task(stream, cc_info, ctx).await;
+    }
+
+    async fn run_openssl_task(
+        &self,
+        stream: SslStream<TcpStream>,
+        cc_info: ClientConnectionInfo,
+        ctx: ServerRunContext,
+    ) {
+        let client_addr = cc_info.client_addr();
+        self.server_stats.add_conn(client_addr);
+        if self.drop_early(client_addr) {
+            return;
+        }
+
+        self.spawn_stream_task(stream, cc_info, ctx).await;
     }
 }
