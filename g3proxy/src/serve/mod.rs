@@ -43,6 +43,7 @@ use runtime::{AuxiliaryServerConfig, AuxiliaryTcpPortRuntime, OrdinaryTcpServerR
 
 mod dummy_close;
 mod intelli_proxy;
+mod native_tls_port;
 mod plain_tcp_port;
 mod plain_tls_port;
 

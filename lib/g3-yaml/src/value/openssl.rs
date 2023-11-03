@@ -481,8 +481,7 @@ pub fn as_openssl_tls_server_config_builder(
             "ca_certificate" | "ca_cert" | "client_auth_certificate" | "client_auth_cert" => {
                 let certs = as_openssl_certificates(v, lookup_dir)
                     .context(format!("invalid value for key {k}"))?;
-                builder.set_client_auth_certificates(certs);
-                Ok(())
+                builder.set_client_auth_certificates(certs)
             }
             "handshake_timeout" | "negotiation_timeout" | "accept_timeout" => {
                 let timeout = crate::humanize::as_duration(v)

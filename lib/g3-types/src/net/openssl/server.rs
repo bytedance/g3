@@ -40,17 +40,19 @@ const TLCP_DEFAULT_CIPHER_LIST: &str = "ECDHE-SM2-WITH-SM4-SM3:ECC-SM2-WITH-SM4-
      ECDHE-SM2-SM4-CBC-SM3:ECDHE-SM2-SM4-GCM-SM3:ECC-SM2-SM4-CBC-SM3:ECC-SM2-SM4-GCM-SM3:\
      RSA-SM4-CBC-SM3:RSA-SM4-GCM-SM3:RSA-SM4-CBC-SHA256:RSA-SM4-GCM-SHA256";
 
+#[derive(Clone)]
 pub struct OpensslServerConfig {
     pub ssl_context: SslContext,
     pub accept_timeout: Duration,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OpensslServerConfigBuilder {
     cert_pairs: Vec<OpensslCertificatePair>,
     #[cfg(feature = "vendored-tongsuo")]
     tlcp_cert_pairs: Vec<OpensslTlcpCertificatePair>,
     client_auth: bool,
-    client_auth_certs: Vec<X509>,
+    client_auth_certs: Vec<Vec<u8>>,
     accept_timeout: Duration,
 }
 
@@ -88,8 +90,14 @@ impl OpensslServerConfigBuilder {
         self.client_auth = true;
     }
 
-    pub fn set_client_auth_certificates(&mut self, certs: Vec<X509>) {
-        self.client_auth_certs = certs;
+    pub fn set_client_auth_certificates(&mut self, certs: Vec<X509>) -> anyhow::Result<()> {
+        for (i, cert) in certs.into_iter().enumerate() {
+            let bytes = cert
+                .to_der()
+                .map_err(|e| anyhow!("failed to encode client chain certificate #{i}: {e}"))?;
+            self.client_auth_certs.push(bytes);
+        }
+        Ok(())
     }
 
     pub fn push_cert_pair(&mut self, cert_pair: OpensslCertificatePair) -> anyhow::Result<()> {
@@ -196,8 +204,9 @@ impl OpensslServerConfigBuilder {
                     .map_err(|e| anyhow!("failed to load default ca certs: {e}"))?;
             } else {
                 for (i, cert) in self.client_auth_certs.iter().enumerate() {
+                    let ca_cert = X509::from_der(cert.as_slice()).unwrap();
                     store_builder
-                        .add_cert(cert.clone())
+                        .add_cert(ca_cert)
                         .map_err(|e| anyhow!("[#{i}] failed to add ca certificate: {e}"))?;
                 }
             }
@@ -246,5 +255,10 @@ impl OpensslServerConfigBuilder {
             ssl_context: ssl_acceptor.into_context(),
             accept_timeout: self.accept_timeout,
         })
+    }
+
+    #[inline]
+    pub fn build(&self) -> anyhow::Result<OpensslServerConfig> {
+        self.build_with_alpn_protocols(None)
     }
 }

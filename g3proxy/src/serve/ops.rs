@@ -31,6 +31,7 @@ use super::{registry, ArcServer};
 
 use super::dummy_close::DummyCloseServer;
 use super::intelli_proxy::IntelliProxy;
+use super::native_tls_port::NativeTlsPort;
 use super::plain_tcp_port::PlainTcpPort;
 use super::plain_tls_port::PlainTlsPort;
 
@@ -251,6 +252,7 @@ fn spawn_new_unlocked(config: AnyServerConfig) -> anyhow::Result<()> {
         AnyServerConfig::DummyClose(_) => DummyCloseServer::prepare_initial(config)?,
         AnyServerConfig::PlainTcpPort(_) => PlainTcpPort::prepare_initial(config)?,
         AnyServerConfig::PlainTlsPort(_) => PlainTlsPort::prepare_initial(config)?,
+        AnyServerConfig::NativeTlsPort(_) => NativeTlsPort::prepare_initial(config)?,
         AnyServerConfig::IntelliProxy(_) => IntelliProxy::prepare_initial(config)?,
         AnyServerConfig::TcpStream(_) => TcpStreamServer::prepare_initial(config)?,
         AnyServerConfig::TlsStream(_) => TlsStreamServer::prepare_initial(config)?,

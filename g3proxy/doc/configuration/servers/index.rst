@@ -26,6 +26,7 @@ Servers
    sni_proxy
    plain_tcp_port
    plain_tls_port
+   native_tls_port
    intelli_proxy
 
 Common Keys

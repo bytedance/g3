@@ -31,6 +31,7 @@ use g3_yaml::{HybridParser, YamlDocPosition};
 
 pub(crate) mod dummy_close;
 pub(crate) mod intelli_proxy;
+pub(crate) mod native_tls_port;
 pub(crate) mod plain_tcp_port;
 pub(crate) mod plain_tls_port;
 
@@ -101,6 +102,7 @@ pub(crate) enum AnyServerConfig {
     DummyClose(dummy_close::DummyCloseServerConfig),
     PlainTcpPort(plain_tcp_port::PlainTcpPortConfig),
     PlainTlsPort(plain_tls_port::PlainTlsPortConfig),
+    NativeTlsPort(native_tls_port::NativeTlsPortConfig),
     IntelliProxy(intelli_proxy::IntelliProxyConfig),
     TcpStream(Box<tcp_stream::TcpStreamServerConfig>),
     TlsStream(Box<tls_stream::TlsStreamServerConfig>),
@@ -117,6 +119,7 @@ macro_rules! impl_transparent0 {
                 AnyServerConfig::DummyClose(s) => s.$f(),
                 AnyServerConfig::PlainTcpPort(s) => s.$f(),
                 AnyServerConfig::PlainTlsPort(s) => s.$f(),
+                AnyServerConfig::NativeTlsPort(s) => s.$f(),
                 AnyServerConfig::IntelliProxy(s) => s.$f(),
                 AnyServerConfig::TcpStream(s) => s.$f(),
                 AnyServerConfig::TlsStream(s) => s.$f(),
@@ -136,6 +139,7 @@ macro_rules! impl_transparent1 {
                 AnyServerConfig::DummyClose(s) => s.$f(p),
                 AnyServerConfig::PlainTcpPort(s) => s.$f(p),
                 AnyServerConfig::PlainTlsPort(s) => s.$f(p),
+                AnyServerConfig::NativeTlsPort(s) => s.$f(p),
                 AnyServerConfig::IntelliProxy(s) => s.$f(p),
                 AnyServerConfig::TcpStream(s) => s.$f(p),
                 AnyServerConfig::TlsStream(s) => s.$f(p),
@@ -202,6 +206,11 @@ fn load_server(
             let server = plain_tls_port::PlainTlsPortConfig::parse(map, position)
                 .context("failed to load this PlainTlsPort server")?;
             Ok(AnyServerConfig::PlainTlsPort(server))
+        }
+        "native_tls_port" | "nativetlsport" | "native_tls" | "nativetls" => {
+            let server = native_tls_port::NativeTlsPortConfig::parse(map, position)
+                .context("failed to load this NativeTlsPort server")?;
+            Ok(AnyServerConfig::NativeTlsPort(server))
         }
         "intelli_proxy" | "intelliproxy" | "ppdp_tcp_port" | "ppdptcpport" | "ppdp_tcp"
         | "ppdptcp" => {

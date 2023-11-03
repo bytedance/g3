@@ -304,6 +304,63 @@ The map is consists of the following fields:
 
 .. versionadded:: 1.1.4
 
+.. _conf_value_openssl_server_config:
+
+openssl server config
+=====================
+
+**yaml value**: map
+
+The tls config to be used as a openssl tls server.
+
+The map is consists of the following fields:
+
+* cert_pairs
+
+  **optional**, **type**: :ref:`tls cert pair <conf_value_tls_cert_pair>` or seq
+
+  Set certificate and private key pairs for this TLS server.
+
+  If not set, TLS protocol will be disabled.
+
+  **default**: not set
+
+* tlcp_cert_pairs
+
+  **optional**, **type**: :ref:`tlcp cert pair <conf_value_tlcp_cert_pair>` or seq
+
+  Set certificate and private key pairs for this TLCP server.
+
+  If not set, TLCP protocol will be disabled.
+
+  **default**: not set
+
+* enable_client_auth
+
+  **optional**, **type**: bool
+
+  Set if you want to enable client auth.
+
+  **default**: disabled
+
+* ca_certificate | client_auth_certificate
+
+  **optional**, **type**: :ref:`tls certificates <conf_value_tls_certificates>`
+
+  A list of certificates for client auth. If not set, the system default ca certificates will be used.
+
+  **default**: not set
+
+* handshake_timeout
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Set the tls handshake timeout value.
+
+  **default**: 10s
+
+.. versionadded:: 1.7.29
+
 .. _conf_value_rustls_client_config:
 
 rustls client config
