@@ -17,7 +17,9 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
   * Socket Speed Limit / Request Rate Limit / IDLE Check
   * Protocol Inspection / TLS Interception / ICAP Adaptation (experimental)
   * Various TCP / UDP socket config options
-  * 国密《GB/T 38636-2020》（TLCP） client (require feature vendored-tongsuo)
+  * Rustls TLS Server (default) / Openssl TLS Server
+  * Openssl TLS Client
+  * 国密《GB/T 38636-2020》（TLCP） client / server (require feature vendored-tongsuo)
 
 - **Forward Proxy**
 
@@ -65,11 +67,16 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 
 - **Alias Port**
 
-  - TCP Port
+  - Plain TCP Port
     * PROXY Protocol
-  - TLS Port
+  - Plain TLS Port
     * PROXY Protocol
     * mTLS
+    * based on Rustls
+  - Native TLS Port
+    * PROXY Protocol
+    * mTLS
+    * based on OpenSSL
   - Intelli Proxy
     * Multiple protocol: Http Proxy / Socks Proxy
     * PROXY Protocol

@@ -28,6 +28,7 @@
     + [多协议入口复用](#多协议入口复用)
     + [监听多个端口](#监听多个端口)
     + [监听端口启用PROXY Protocol](#监听端口启用proxy-protocol)
+    + [国密TLCP协议封装](#国密tlcp协议封装)
     + [Socks5 UDP IP映射](#socks5-udp-ip映射)
     + [安全反向代理](#安全反向代理)
     + [域名解析劫持](#域名解析劫持)
@@ -504,11 +505,30 @@ server:
     ingress_network_filter: {} # 配置针对PROXY Protocol提取来源地址的过滤规则
     # ... 其他配置
   - name: pp_for_http
-    type: plain_tls_port
+    type: plain_tcp_port
     listen: "[::]:8080"
     server: real_http
     proxy_protocol: v2
     ingress_network_filter: {} # 配置针对套接字原始来源地址的过滤规则
+```
+
+### 国密TLCP协议封装
+
+此功能需要编译时启用feature vendored-tongsuo。
+
+可使用NativeTlsPort实现国密TLCP协议封装：
+
+```yaml
+server:
+  - name: real_http
+    listen: "[127.0.0.1]:1234" # 可省略
+    type: http_proxy
+    # ... 其他配置
+  - name: tlcp
+    type: native_tls_port
+    listen: "[::]:443"
+    server: real_http
+    proxy_protocol: v2         # 可选启用PROXY Protocol
 ```
 
 ### Socks5 UDP IP映射

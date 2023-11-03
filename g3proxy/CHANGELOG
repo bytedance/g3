@@ -1,4 +1,7 @@
 
+v1.7.29:
+ - Feature: add OpenSSL based NativeTlsPort server
+
 v1.7.28:
  - BUG FIX: fix server ingress net acl check for traffic from extra tls ports
  - Feature: support PROXY Protocol v1 in PlainTcpPort and PlainTlsPort
