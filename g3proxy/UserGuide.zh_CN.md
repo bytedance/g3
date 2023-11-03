@@ -177,7 +177,7 @@ server:
 
 ### TLS卸载
 
-本地TCP端口映射到目标机器的TLS端口，需要添加TcpStream类型入口，示例如下：
+本地TCP端口映射到目标机器的TLS端口。需要添加TcpStream类型入口，示例如下：
 
 ```yaml
 server:
@@ -191,7 +191,9 @@ server:
 
 ### TLS封装
 
-本地TLS端口映射到目标机器的特定端口，需要添加TlsStream类型入口，示例如下：
+本地TLS端口映射到目标机器的特定端口。
+
+可添加TlsStream类型入口，示例如下：
 
 ```yaml
 server:
@@ -204,11 +206,34 @@ server:
       cert_pairs:
         certificate: /path/to/cert
         private_key: /path/to/key
-      enable_client_auth: true    # 启用mTLS
+      enable_client_auth: true    # 可选启用mTLS
     proxy_pass:         # 目标地址，可以单条/多条
       - "127.0.0.1:5201"
       - "127.0.0.1:5202"
     upstream_pick_policy: rr # 负载均衡算法，默认random
+```
+
+或使用PlainTlsPort串联TcpStream，示例如下：
+
+```yaml
+server:
+  - name: tcp
+    escaper: default
+    type: tcp_stream
+    proxy_pass:         # 目标地址，可以单条/多条
+      - "127.0.0.1:5201"
+      - "127.0.0.1:5202"
+    upstream_pick_policy: rr # 负载均衡算法，默认random
+  - name: tls
+    type: plain_tls_port
+    listen:
+      address: "[::1]:10443"
+    tls_server:                   # 配置TLS参数
+      cert_pairs:
+        certificate: /path/to/cert
+        private_key: /path/to/key
+      enable_client_auth: true    # 可选启用mTLS
+    server: tcp    # 指向tcp stream服务
 ```
 
 ### SNI代理
@@ -487,7 +512,7 @@ server:
       cert_pairs:
         certificate: /path/to/certificate
         private_key: /path/to/private_key
-      enable_client_auth: true            # 开启mTLS
+      enable_client_auth: true            # 可选开启mTLS
 ```
 
 Port类型入口仅有独立的Listen监控，流量监控、日志都是在下一跳Server处理的，在规划时需要考虑清楚是串联Port还是拆分Server更合适。
@@ -527,6 +552,13 @@ server:
   - name: tlcp
     type: native_tls_port
     listen: "[::]:443"
+    tls_server:
+      tlcp_cert_pairs:         # 启用国密TLCP协议
+        sign_certificate: /path/to/sign.crt
+        sign_private_key: /path/to/sign.key
+        enc_certificate: /path/to/enc.crt
+        enc_private_key: /path/to/enc.key
+      enable_client_auth: true # 可选启用mTLS
     server: real_http
     proxy_protocol: v2         # 可选启用PROXY Protocol
 ```
