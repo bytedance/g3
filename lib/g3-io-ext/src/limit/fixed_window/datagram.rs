@@ -46,6 +46,7 @@ pub enum DatagramLimitResult {
     DelayFor(u64),
 }
 
+#[derive(Default)]
 pub struct DatagramLimitInfo {
     window: FixedWindow,
 

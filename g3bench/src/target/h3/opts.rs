@@ -15,7 +15,7 @@
  */
 
 use std::borrow::Cow;
-use std::net::{IpAddr, Ipv6Addr, SocketAddr};
+use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -23,9 +23,11 @@ use std::time::Duration;
 use anyhow::{anyhow, Context};
 use bytes::Bytes;
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
+use g3_io_ext::LimitedTokioRuntime;
 use h3::client::SendRequest;
 use h3_quinn::OpenStreams;
 use http::{HeaderValue, Method, StatusCode};
+use quinn::Endpoint;
 use url::Url;
 
 use g3_types::collection::{SelectiveVec, WeightedValue};
@@ -96,19 +98,41 @@ impl BenchH3Args {
         Ok(())
     }
 
+    fn new_quic_endpoint(
+        &self,
+        stats: &Arc<HttpRuntimeStats>,
+        proc_args: &ProcArgs,
+    ) -> anyhow::Result<Endpoint> {
+        let peer = *proc_args.select_peer(&self.peer_addrs);
+        let socket = g3_socket::udp::new_std_socket_to(
+            peer,
+            self.bind,
+            Default::default(),
+            &Default::default(),
+        )
+        .map_err(|e| anyhow!("failed to setup local udp socket: {e}"))?;
+
+        let limit = &proc_args.udp_sock_speed_limit;
+        let runtime = LimitedTokioRuntime::new(
+            limit.shift_millis,
+            limit.max_north_packets,
+            limit.max_north_bytes,
+            limit.max_south_packets,
+            limit.max_south_bytes,
+            stats.clone(),
+        );
+        Endpoint::new(Default::default(), None, socket, Arc::new(runtime))
+            .map_err(|e| anyhow!("failed to create quic endpoint: {e}"))
+    }
+
     async fn new_quic_connection(
         &self,
+        stats: &Arc<HttpRuntimeStats>,
         proc_args: &ProcArgs,
     ) -> anyhow::Result<h3_quinn::Connection> {
-        use quinn::{ClientConfig, Endpoint, TransportConfig, VarInt};
+        use quinn::{ClientConfig, TransportConfig, VarInt};
 
-        let bind_addr = if let Some(ip) = self.bind {
-            SocketAddr::new(ip, 0)
-        } else {
-            SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0)
-        };
-        let endpoint = Endpoint::client(bind_addr)
-            .map_err(|e| anyhow!("failed to create quic endpoint: {e}"))?;
+        let endpoint = self.new_quic_endpoint(stats, proc_args)?;
 
         let Some(tls_client) = &self.target_tls.client else {
             unreachable!()
@@ -140,10 +164,10 @@ impl BenchH3Args {
 
     pub(super) async fn new_h3_connection(
         &self,
-        _stats: &Arc<HttpRuntimeStats>,
+        stats: &Arc<HttpRuntimeStats>,
         proc_args: &ProcArgs,
     ) -> anyhow::Result<SendRequest<OpenStreams, Bytes>> {
-        let quic_conn = self.new_quic_connection(proc_args).await?;
+        let quic_conn = self.new_quic_connection(stats, proc_args).await?;
 
         let mut client_builder = h3::client::builder();
         // TODO add more client config

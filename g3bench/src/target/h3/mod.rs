@@ -76,7 +76,7 @@ pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Re
     h3_args.resolve_target_address(proc_args).await?;
     let h3_args = Arc::new(h3_args);
 
-    let runtime_stats = Arc::new(HttpRuntimeStats::new(COMMAND));
+    let runtime_stats = Arc::new(HttpRuntimeStats::new_udp(COMMAND));
     let (histogram, histogram_recorder) = HttpHistogram::new();
 
     let pool = h3_args.pool_size.map(|s| {

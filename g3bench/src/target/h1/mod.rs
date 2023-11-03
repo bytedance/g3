@@ -71,7 +71,7 @@ pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Re
     let target = HttpTarget {
         args: Arc::new(http_args),
         proc_args: Arc::clone(proc_args),
-        stats: Arc::new(HttpRuntimeStats::new(COMMAND)),
+        stats: Arc::new(HttpRuntimeStats::new_tcp(COMMAND)),
         histogram: Some(histogram),
         histogram_recorder,
     };

@@ -31,19 +31,22 @@ use tokio::time::{Instant, Sleep};
 use crate::limit::{DatagramLimitInfo, DatagramLimitResult};
 use crate::{ArcLimitedRecvStats, ArcLimitedSendStats, LimitedRecvStats, LimitedSendStats};
 
-pub struct LimitedTokioRuntime<ST> {
-    inner: TokioRuntime,
+struct LimitConf {
     shift_millis: u8,
     max_send_packets: usize,
     max_send_bytes: usize,
     max_recv_packets: usize,
     max_recv_bytes: usize,
+}
+
+pub struct LimitedTokioRuntime<ST> {
+    inner: TokioRuntime,
+    limit: Option<LimitConf>,
     stats: Arc<ST>,
 }
 
 impl<ST> LimitedTokioRuntime<ST> {
     pub fn new(
-        inner: TokioRuntime,
         shift_millis: u8,
         max_send_packets: usize,
         max_send_bytes: usize,
@@ -51,13 +54,24 @@ impl<ST> LimitedTokioRuntime<ST> {
         max_recv_bytes: usize,
         stats: Arc<ST>,
     ) -> Self {
-        LimitedTokioRuntime {
-            inner,
+        let limit = LimitConf {
             shift_millis,
             max_send_packets,
             max_send_bytes,
             max_recv_packets,
             max_recv_bytes,
+        };
+        LimitedTokioRuntime {
+            inner: TokioRuntime,
+            limit: Some(limit),
+            stats,
+        }
+    }
+
+    pub fn new_unlimited(stats: Arc<ST>) -> Self {
+        LimitedTokioRuntime {
+            inner: TokioRuntime,
+            limit: None,
             stats,
         }
     }
@@ -83,15 +97,22 @@ where
 
     fn wrap_udp_socket(&self, sock: std::net::UdpSocket) -> io::Result<Box<dyn AsyncUdpSocket>> {
         let inner = self.inner.wrap_udp_socket(sock)?;
-        Ok(Box::new(LimitedUdpSocket::new(
-            inner,
-            self.shift_millis,
-            self.max_send_packets,
-            self.max_send_bytes,
-            self.max_recv_packets,
-            self.max_recv_bytes,
-            self.stats.clone(),
-        )))
+        if let Some(limit) = &self.limit {
+            Ok(Box::new(LimitedUdpSocket::new(
+                inner,
+                limit.shift_millis,
+                limit.max_send_packets,
+                limit.max_send_bytes,
+                limit.max_recv_packets,
+                limit.max_recv_bytes,
+                self.stats.clone(),
+            )))
+        } else {
+            Ok(Box::new(LimitedUdpSocket::new_unlimited(
+                inner,
+                self.stats.clone(),
+            )))
+        }
     }
 }
 
@@ -117,6 +138,15 @@ impl LimitedSendState {
             stats,
         }
     }
+
+    fn new_unlimited(started: Instant, stats: ArcLimitedSendStats) -> Self {
+        LimitedSendState {
+            delay: Box::pin(tokio::time::sleep(Duration::from_millis(0))),
+            started,
+            limit: DatagramLimitInfo::default(),
+            stats,
+        }
+    }
 }
 
 struct LimitedRecvState {
@@ -138,6 +168,15 @@ impl LimitedRecvState {
             delay: Box::pin(tokio::time::sleep(Duration::from_millis(0))),
             started,
             limit: DatagramLimitInfo::new(shift_millis, max_packets, max_bytes),
+            stats,
+        }
+    }
+
+    fn new_unlimited(started: Instant, stats: ArcLimitedRecvStats) -> Self {
+        LimitedRecvState {
+            delay: Box::pin(tokio::time::sleep(Duration::from_millis(0))),
+            started,
+            limit: DatagramLimitInfo::default(),
             stats,
         }
     }
@@ -177,6 +216,20 @@ impl LimitedUdpSocket {
             max_recv_bytes,
             stats as _,
         );
+        LimitedUdpSocket {
+            inner,
+            send_state: UnsafeCell::new(send_state),
+            recv_state: UnsafeCell::new(recv_state),
+        }
+    }
+
+    fn new_unlimited<ST>(inner: Box<dyn AsyncUdpSocket>, stats: Arc<ST>) -> Self
+    where
+        ST: LimitedSendStats + LimitedRecvStats + Send + Sync + 'static,
+    {
+        let started = Instant::now();
+        let send_state = LimitedSendState::new_unlimited(started, stats.clone() as _);
+        let recv_state = LimitedRecvState::new_unlimited(started, stats as _);
         LimitedUdpSocket {
             inner,
             send_state: UnsafeCell::new(send_state),
