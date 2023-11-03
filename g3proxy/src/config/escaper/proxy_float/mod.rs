@@ -27,7 +27,7 @@ use yaml_rust::{yaml, Yaml};
 
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::net::{
-    OpensslTlsClientConfigBuilder, TcpKeepAliveConfig, TcpMiscSockOpts, UdpMiscSockOpts,
+    OpensslClientConfigBuilder, TcpKeepAliveConfig, TcpMiscSockOpts, UdpMiscSockOpts,
 };
 use g3_yaml::YamlDocPosition;
 
@@ -45,7 +45,7 @@ pub(crate) struct ProxyFloatEscaperConfig {
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) bind_v4: Option<IpAddr>,
     pub(crate) bind_v6: Option<IpAddr>,
-    pub(crate) tls_config: Option<OpensslTlsClientConfigBuilder>,
+    pub(crate) tls_config: Option<OpensslClientConfigBuilder>,
     pub(crate) source: ProxyFloatSource,
     pub(crate) cache_file: Option<PathBuf>,
     pub(crate) refresh_interval: Duration,
@@ -124,7 +124,7 @@ impl ProxyFloatEscaperConfig {
                 if let Yaml::Boolean(enable) = v {
                     if *enable {
                         self.tls_config =
-                            Some(OpensslTlsClientConfigBuilder::with_cache_for_many_sites());
+                            Some(OpensslClientConfigBuilder::with_cache_for_many_sites());
                     }
                 } else {
                     let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;

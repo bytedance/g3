@@ -20,7 +20,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use tokio::time::Instant;
 
-use g3_types::net::{HttpForwardCapability, OpensslTlsClientConfig, UpstreamAddr};
+use g3_types::net::{HttpForwardCapability, OpensslClientConfig, UpstreamAddr};
 
 use super::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpConnectionEofPoller,
@@ -137,7 +137,7 @@ impl HttpForwardContext for RouteHttpForwardContext {
         &'a mut self,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
-        tls_config: &'a OpensslTlsClientConfig,
+        tls_config: &'a OpensslClientConfig,
         tls_name: &'a str,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.last_is_tls = true;

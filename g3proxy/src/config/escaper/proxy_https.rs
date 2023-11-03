@@ -26,7 +26,7 @@ use g3_types::auth::{Password, Username};
 use g3_types::collection::SelectivePickPolicy;
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::net::{
-    HappyEyeballsConfig, Host, HttpForwardCapability, OpensslTlsClientConfigBuilder,
+    HappyEyeballsConfig, Host, HttpForwardCapability, OpensslClientConfigBuilder,
     ProxyProtocolVersion, TcpKeepAliveConfig, TcpMiscSockOpts, WeightedUpstreamAddr,
 };
 use g3_types::resolve::{QueryStrategy, ResolveStrategy};
@@ -49,7 +49,7 @@ pub(crate) struct ProxyHttpsEscaperConfig {
     pub(crate) bind_v6: Option<Ipv6Addr>,
     pub(crate) no_ipv4: bool,
     pub(crate) no_ipv6: bool,
-    pub(crate) tls_config: OpensslTlsClientConfigBuilder,
+    pub(crate) tls_config: OpensslClientConfigBuilder,
     pub(crate) tls_name: Option<String>,
     pub(crate) resolver: MetricsName,
     pub(crate) resolve_strategy: ResolveStrategy,
@@ -80,7 +80,7 @@ impl ProxyHttpsEscaperConfig {
             bind_v6: None,
             no_ipv4: false,
             no_ipv6: false,
-            tls_config: OpensslTlsClientConfigBuilder::with_cache_for_many_sites(),
+            tls_config: OpensslClientConfigBuilder::with_cache_for_many_sites(),
             tls_name: None,
             resolver: MetricsName::default(),
             resolve_strategy: Default::default(),

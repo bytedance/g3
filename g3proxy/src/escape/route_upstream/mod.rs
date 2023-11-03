@@ -26,7 +26,7 @@ use radix_trie::Trie;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::metrics::MetricsName;
-use g3_types::net::{Host, OpensslTlsClientConfig, UpstreamAddr};
+use g3_types::net::{Host, OpensslClientConfig, UpstreamAddr};
 
 use super::{ArcEscaper, Escaper, EscaperInternal, RouteEscaperStats};
 use crate::config::escaper::route_upstream::RouteUpstreamEscaperConfig;
@@ -242,7 +242,7 @@ impl Escaper for RouteUpstreamEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        tls_config: &'a OpensslTlsClientConfig,
+        tls_config: &'a OpensslClientConfig,
         tls_name: &'a str,
     ) -> TcpConnectResult {
         tcp_notes.escaper.clone_from(&self.config.name);
@@ -360,7 +360,7 @@ impl EscaperInternal for RouteUpstreamEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         _task_notes: &'a ServerTaskNotes,
         _task_stats: ArcHttpForwardTaskRemoteStats,
-        _tls_config: &'a OpensslTlsClientConfig,
+        _tls_config: &'a OpensslClientConfig,
         _tls_name: &'a str,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         tcp_notes.escaper.clone_from(&self.config.name);

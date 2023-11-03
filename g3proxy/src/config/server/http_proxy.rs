@@ -29,7 +29,7 @@ use g3_types::acl::{AclExactPortRule, AclNetworkRuleBuilder};
 use g3_types::acl_set::AclDstHostRuleSetBuilder;
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::net::{
-    HttpKeepAliveConfig, HttpServerId, OpensslTlsClientConfigBuilder, RustlsServerConfigBuilder,
+    HttpKeepAliveConfig, HttpServerId, OpensslClientConfigBuilder, RustlsServerConfigBuilder,
     TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig,
 };
 use g3_yaml::YamlDocPosition;
@@ -70,7 +70,7 @@ pub(crate) struct HttpProxyServerConfig {
     pub(crate) listen: Option<TcpListenConfig>,
     pub(crate) listen_in_worker: bool,
     pub(crate) server_tls_config: Option<RustlsServerConfigBuilder>,
-    pub(crate) client_tls_config: OpensslTlsClientConfigBuilder,
+    pub(crate) client_tls_config: OpensslClientConfigBuilder,
     pub(crate) ftp_client_config: Arc<FtpClientConfig>,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) dst_host_filter: Option<AclDstHostRuleSetBuilder>,

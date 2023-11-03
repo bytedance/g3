@@ -17,14 +17,14 @@
 use anyhow::{anyhow, Context};
 use yaml_rust::Yaml;
 
-use g3_types::net::{OpensslTlsClientConfigBuilder, RustlsServerConfigBuilder, UpstreamAddr};
+use g3_types::net::{OpensslClientConfigBuilder, RustlsServerConfigBuilder, UpstreamAddr};
 use g3_yaml::{YamlDocPosition, YamlMapCallback};
 
 #[derive(Debug, PartialEq)]
 pub(crate) struct HttpHostConfig {
     upstream: UpstreamAddr,
     pub(crate) tls_server_builder: Option<RustlsServerConfigBuilder>,
-    pub(crate) tls_client_builder: Option<OpensslTlsClientConfigBuilder>,
+    pub(crate) tls_client_builder: Option<OpensslClientConfigBuilder>,
     pub(crate) tls_name: String,
 }
 

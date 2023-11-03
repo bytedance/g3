@@ -21,7 +21,7 @@ use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
 use serde_json::Value;
 
-use g3_types::net::{OpensslCertificatePair, OpensslProtocol, OpensslTlsClientConfigBuilder};
+use g3_types::net::{OpensslCertificatePair, OpensslClientConfigBuilder, OpensslProtocol};
 
 #[cfg(feature = "vendored-tongsuo")]
 use g3_types::net::OpensslTlcpCertificatePair;
@@ -178,9 +178,9 @@ fn as_openssl_ciphers(value: &Value) -> anyhow::Result<Vec<String>> {
 }
 
 fn set_openssl_tls_client_config_builder(
-    mut builder: OpensslTlsClientConfigBuilder,
+    mut builder: OpensslClientConfigBuilder,
     value: &Value,
-) -> anyhow::Result<OpensslTlsClientConfigBuilder> {
+) -> anyhow::Result<OpensslClientConfigBuilder> {
     if let Value::Object(map) = value {
         let mut cert_pair = OpensslCertificatePair::default();
 
@@ -290,14 +290,14 @@ fn set_openssl_tls_client_config_builder(
 
 pub fn as_to_one_openssl_tls_client_config_builder(
     value: &Value,
-) -> anyhow::Result<OpensslTlsClientConfigBuilder> {
-    let builder = OpensslTlsClientConfigBuilder::with_cache_for_one_site();
+) -> anyhow::Result<OpensslClientConfigBuilder> {
+    let builder = OpensslClientConfigBuilder::with_cache_for_one_site();
     set_openssl_tls_client_config_builder(builder, value)
 }
 
 pub fn as_to_many_openssl_tls_client_config_builder(
     value: &Value,
-) -> anyhow::Result<OpensslTlsClientConfigBuilder> {
-    let builder = OpensslTlsClientConfigBuilder::with_cache_for_many_sites();
+) -> anyhow::Result<OpensslClientConfigBuilder> {
+    let builder = OpensslClientConfigBuilder::with_cache_for_many_sites();
     set_openssl_tls_client_config_builder(builder, value)
 }

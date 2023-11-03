@@ -28,7 +28,7 @@ use slog::Logger;
 use tokio::time::Instant;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_types::net::{EgressArea, OpensslTlsClientConfig, TcpSockSpeedLimitConfig};
+use g3_types::net::{EgressArea, OpensslClientConfig, TcpSockSpeedLimitConfig};
 
 use super::{ProxyFloatEscaperConfig, ProxyFloatEscaperStats};
 use crate::auth::UserUpstreamTrafficStats;
@@ -113,7 +113,7 @@ pub(super) trait NextProxyPeer: NextProxyPeerInternal {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        tls_config: &'a OpensslTlsClientConfig,
+        tls_config: &'a OpensslClientConfig,
         tls_name: &'a str,
     ) -> TcpConnectResult;
 
@@ -129,7 +129,7 @@ pub(super) trait NextProxyPeer: NextProxyPeerInternal {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
-        tls_config: &'a OpensslTlsClientConfig,
+        tls_config: &'a OpensslClientConfig,
         tls_name: &'a str,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError>;
 
@@ -155,7 +155,7 @@ fn do_parse_peer(
     escaper_config: &Arc<ProxyFloatEscaperConfig>,
     escaper_stats: &Arc<ProxyFloatEscaperStats>,
     escape_logger: &Logger,
-    tls_config: Option<&Arc<OpensslTlsClientConfig>>,
+    tls_config: Option<&Arc<OpensslClientConfig>>,
     instant_now: Instant,
     datetime_now: DateTime<Utc>,
 ) -> anyhow::Result<Option<(String, ArcNextProxyPeer)>> {
@@ -258,7 +258,7 @@ pub(super) fn parse_peers(
     escaper_stats: &Arc<ProxyFloatEscaperStats>,
     escape_logger: &Logger,
     records: &[Value],
-    tls_config: Option<&Arc<OpensslTlsClientConfig>>,
+    tls_config: Option<&Arc<OpensslClientConfig>>,
 ) -> anyhow::Result<PeerSet> {
     let mut peer_set = PeerSet::default();
 
@@ -292,7 +292,7 @@ pub(super) fn parse_peer(
     escaper_stats: &Arc<ProxyFloatEscaperStats>,
     escape_logger: &Logger,
     record: &Value,
-    tls_config: Option<&Arc<OpensslTlsClientConfig>>,
+    tls_config: Option<&Arc<OpensslClientConfig>>,
 ) -> anyhow::Result<Option<ArcNextProxyPeer>> {
     let instant_now = Instant::now();
     let datetime_now = Utc::now();

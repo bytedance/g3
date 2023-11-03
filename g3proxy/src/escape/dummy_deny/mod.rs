@@ -22,7 +22,7 @@ use async_trait::async_trait;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::metrics::MetricsName;
-use g3_types::net::{OpensslTlsClientConfig, UpstreamAddr};
+use g3_types::net::{OpensslClientConfig, UpstreamAddr};
 
 use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperInternal};
 use crate::config::escaper::dummy_deny::DummyDenyEscaperConfig;
@@ -122,7 +122,7 @@ impl Escaper for DummyDenyEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         _task_notes: &'a ServerTaskNotes,
         _task_stats: ArcTcpConnectionTaskRemoteStats,
-        _tls_config: &'a OpensslTlsClientConfig,
+        _tls_config: &'a OpensslClientConfig,
         _tls_name: &'a str,
     ) -> TcpConnectResult {
         self.stats.interface.add_tls_connect_attempted();
@@ -218,7 +218,7 @@ impl EscaperInternal for DummyDenyEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         _task_notes: &'a ServerTaskNotes,
         _task_stats: ArcHttpForwardTaskRemoteStats,
-        _tls_config: &'a OpensslTlsClientConfig,
+        _tls_config: &'a OpensslClientConfig,
         _tls_name: &'a str,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.stats

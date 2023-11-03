@@ -33,7 +33,7 @@ use g3_daemon::server::ClientConnectionInfo;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::acl_set::AclDstHostRuleSet;
 use g3_types::metrics::MetricsName;
-use g3_types::net::OpensslTlsClientConfig;
+use g3_types::net::OpensslClientConfig;
 
 use super::task::{
     CommonTaskContext, HttpProxyPipelineReaderTask, HttpProxyPipelineStats,
@@ -55,7 +55,7 @@ pub(crate) struct HttpProxyServer {
     listen_stats: Arc<ListenStats>,
     tls_acceptor: Option<TlsAcceptor>,
     tls_accept_timeout: Duration,
-    tls_client_config: Arc<OpensslTlsClientConfig>,
+    tls_client_config: Arc<OpensslClientConfig>,
     ingress_net_filter: Option<Arc<AclNetworkRule>>,
     dst_host_filter: Option<Arc<AclDstHostRuleSet>>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,

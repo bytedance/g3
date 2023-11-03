@@ -29,7 +29,7 @@ use slog::Logger;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::metrics::MetricsName;
-use g3_types::net::{OpensslTlsClientConfig, UpstreamAddr};
+use g3_types::net::{OpensslClientConfig, UpstreamAddr};
 
 use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperInternal};
 use crate::config::escaper::proxy_float::ProxyFloatEscaperConfig;
@@ -63,7 +63,7 @@ pub(super) struct ProxyFloatEscaper {
     stats: Arc<ProxyFloatEscaperStats>,
     source_job_handler: Option<AbortHandle>,
     peers: Arc<ArcSwap<PeerSet>>,
-    tls_config: Option<Arc<OpensslTlsClientConfig>>,
+    tls_config: Option<Arc<OpensslClientConfig>>,
     escape_logger: Logger,
 }
 
@@ -277,7 +277,7 @@ impl Escaper for ProxyFloatEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        tls_config: &'a OpensslTlsClientConfig,
+        tls_config: &'a OpensslClientConfig,
         tls_name: &'a str,
     ) -> TcpConnectResult {
         self.stats.interface.add_tls_connect_attempted();
@@ -393,7 +393,7 @@ impl EscaperInternal for ProxyFloatEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
-        tls_config: &'a OpensslTlsClientConfig,
+        tls_config: &'a OpensslClientConfig,
         tls_name: &'a str,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.stats

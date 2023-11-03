@@ -26,7 +26,7 @@ use g3_resolver::{ResolveError, ResolveLocalError};
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder};
 use g3_types::metrics::MetricsName;
 use g3_types::net::{
-    Host, HttpForwardCapability, OpensslTlsClientConfig, UpstreamAddr, WeightedUpstreamAddr,
+    Host, HttpForwardCapability, OpensslClientConfig, UpstreamAddr, WeightedUpstreamAddr,
 };
 
 use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperExt, EscaperInternal, EscaperStats};
@@ -64,7 +64,7 @@ pub(super) struct ProxyHttpsEscaper {
     config: Arc<ProxyHttpsEscaperConfig>,
     stats: Arc<ProxyHttpsEscaperStats>,
     proxy_nodes: SelectiveVec<WeightedUpstreamAddr>,
-    tls_config: OpensslTlsClientConfig,
+    tls_config: OpensslClientConfig,
     resolver_handle: Option<ArcIntegratedResolverHandle>,
     escape_logger: Logger,
 }
@@ -199,7 +199,7 @@ impl Escaper for ProxyHttpsEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        tls_config: &'a OpensslTlsClientConfig,
+        tls_config: &'a OpensslClientConfig,
         tls_name: &'a str,
     ) -> TcpConnectResult {
         self.stats.interface.add_tls_connect_attempted();
@@ -305,7 +305,7 @@ impl EscaperInternal for ProxyHttpsEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
-        tls_config: &'a OpensslTlsClientConfig,
+        tls_config: &'a OpensslClientConfig,
         tls_name: &'a str,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.stats

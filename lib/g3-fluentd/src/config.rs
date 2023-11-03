@@ -26,7 +26,7 @@ use sha2::Sha512;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio_openssl::SslStream;
 
-use g3_types::net::{OpensslTlsClientConfig, OpensslTlsClientConfigBuilder, TcpKeepAliveConfig};
+use g3_types::net::{OpensslClientConfig, OpensslClientConfigBuilder, TcpKeepAliveConfig};
 
 use super::FluentdConnection;
 
@@ -40,7 +40,7 @@ pub struct FluentdClientConfig {
     username: String,
     password: String,
     tcp_keepalive: TcpKeepAliveConfig,
-    tls_client: Option<OpensslTlsClientConfig>,
+    tls_client: Option<OpensslClientConfig>,
     hostname: String,
     pub(super) connect_timeout: Duration,
     pub(super) connect_delay: Duration,
@@ -108,10 +108,7 @@ impl FluentdClientConfig {
         self.tcp_keepalive = keepalive;
     }
 
-    pub fn set_tls_client(
-        &mut self,
-        tls_config: OpensslTlsClientConfigBuilder,
-    ) -> anyhow::Result<()> {
+    pub fn set_tls_client(&mut self, tls_config: OpensslClientConfigBuilder) -> anyhow::Result<()> {
         let tls_client = tls_config
             .build()
             .context("failed to build tls client config")?;

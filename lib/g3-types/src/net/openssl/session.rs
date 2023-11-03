@@ -90,16 +90,16 @@ impl OpensslSessionCacheConfig {
     pub(super) fn set_for_client(
         &self,
         ctx_builder: &mut SslContextBuilder,
-    ) -> anyhow::Result<Option<OpensslTlsClientSessionCache>> {
+    ) -> anyhow::Result<Option<OpensslClientSessionCache>> {
         match self.method {
             OpensslSessionCacheMethod::ForMany => {
-                let session_cache = OpensslTlsClientSessionCache::new()?;
+                let session_cache = OpensslClientSessionCache::new()?;
                 let caches = SessionCaches::for_many(self.sites_count, self.each_capacity.get());
                 session_cache.add_to_context(ctx_builder, caches);
                 Ok(Some(session_cache))
             }
             OpensslSessionCacheMethod::ForOne => {
-                let session_cache = OpensslTlsClientSessionCache::new()?;
+                let session_cache = OpensslClientSessionCache::new()?;
                 let caches = SessionCaches::for_one(self.each_capacity.get());
                 session_cache.add_to_context(ctx_builder, caches);
                 Ok(Some(session_cache))
@@ -180,16 +180,16 @@ impl SessionCaches {
 }
 
 #[derive(Clone, Copy)]
-pub(super) struct OpensslTlsClientSessionCache {
+pub(super) struct OpensslClientSessionCache {
     session_cache_index: Index<SslContext, SessionCaches>,
     session_key_index: Index<Ssl, String>,
 }
 
-impl OpensslTlsClientSessionCache {
+impl OpensslClientSessionCache {
     pub(super) fn new() -> anyhow::Result<Self> {
         let cache_index = SslContext::new_ex_index().map_err(anyhow::Error::new)?;
         let key_index = Ssl::new_ex_index().map_err(anyhow::Error::new)?;
-        Ok(OpensslTlsClientSessionCache {
+        Ok(OpensslClientSessionCache {
             session_cache_index: cache_index,
             session_key_index: key_index,
         })

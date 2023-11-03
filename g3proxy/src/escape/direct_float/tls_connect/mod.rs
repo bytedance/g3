@@ -25,7 +25,7 @@ use g3_daemon::stat::remote::{
     ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStatsWrapper,
 };
 use g3_io_ext::{AggregatedIo, LimitedReader, LimitedWriter};
-use g3_types::net::OpensslTlsClientConfig;
+use g3_types::net::OpensslClientConfig;
 
 use super::{DirectFloatBindIp, DirectFloatEscaper};
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};
@@ -37,7 +37,7 @@ impl DirectFloatEscaper {
         &'a self,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
-        tls_config: &'a OpensslTlsClientConfig,
+        tls_config: &'a OpensslClientConfig,
         tls_name: &'a str,
         tls_application: TlsApplication,
     ) -> Result<
@@ -118,7 +118,7 @@ impl DirectFloatEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        tls_config: &'a OpensslTlsClientConfig,
+        tls_config: &'a OpensslClientConfig,
         tls_name: &'a str,
     ) -> TcpConnectResult {
         let (tls_stream, _) = self

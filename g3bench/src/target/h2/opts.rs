@@ -35,8 +35,7 @@ use url::Url;
 use g3_io_ext::{AggregatedIo, LimitedStream};
 use g3_types::collection::{SelectiveVec, WeightedValue};
 use g3_types::net::{
-    AlpnProtocol, HttpAuth, OpensslTlsClientConfig, OpensslTlsClientConfigBuilder, Proxy,
-    UpstreamAddr,
+    AlpnProtocol, HttpAuth, OpensslClientConfig, OpensslClientConfigBuilder, Proxy, UpstreamAddr,
 };
 
 use super::{H2PreRequest, HttpRuntimeStats, ProcArgs};
@@ -82,7 +81,7 @@ impl BenchH2Args {
 
         let mut target_tls = OpensslTlsClientArgs::default();
         if url.scheme() == "https" {
-            target_tls.config = Some(OpensslTlsClientConfigBuilder::with_cache_for_one_site());
+            target_tls.config = Some(OpensslClientConfigBuilder::with_cache_for_one_site());
             target_tls.alpn_protocol = Some(AlpnProtocol::Http2);
         }
 
@@ -299,7 +298,7 @@ impl BenchH2Args {
 
     async fn tls_connect_to_target<S>(
         &self,
-        tls_client: &OpensslTlsClientConfig,
+        tls_client: &OpensslClientConfig,
         stream: S,
     ) -> anyhow::Result<SslStream<S>>
     where
@@ -333,7 +332,7 @@ impl BenchH2Args {
 
     async fn tls_connect_to_proxy(
         &self,
-        tls_client: &OpensslTlsClientConfig,
+        tls_client: &OpensslClientConfig,
         peer: &UpstreamAddr,
         stream: TcpStream,
     ) -> anyhow::Result<SslStream<TcpStream>> {

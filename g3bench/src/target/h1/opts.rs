@@ -33,7 +33,7 @@ use url::Url;
 use g3_io_ext::AggregatedIo;
 use g3_types::collection::{SelectiveVec, WeightedValue};
 use g3_types::net::{
-    HttpAuth, HttpProxy, OpensslTlsClientConfig, OpensslTlsClientConfigBuilder, Proxy, UpstreamAddr,
+    HttpAuth, HttpProxy, OpensslClientConfig, OpensslClientConfigBuilder, Proxy, UpstreamAddr,
 };
 
 use super::{BoxHttpForwardConnection, ProcArgs};
@@ -81,7 +81,7 @@ impl BenchHttpArgs {
 
         let mut target_tls = OpensslTlsClientArgs::default();
         if url.scheme() == "https" {
-            target_tls.config = Some(OpensslTlsClientConfigBuilder::with_cache_for_one_site());
+            target_tls.config = Some(OpensslClientConfigBuilder::with_cache_for_one_site());
         }
 
         Ok(BenchHttpArgs {
@@ -294,7 +294,7 @@ impl BenchHttpArgs {
 
     async fn tls_connect_to_peer<S>(
         &self,
-        tls_client: &OpensslTlsClientConfig,
+        tls_client: &OpensslClientConfig,
         stream: S,
     ) -> anyhow::Result<BoxHttpForwardConnection>
     where
@@ -325,7 +325,7 @@ impl BenchHttpArgs {
 
     async fn tls_connect_to_proxy(
         &self,
-        tls_client: &OpensslTlsClientConfig,
+        tls_client: &OpensslClientConfig,
         peer: &UpstreamAddr,
         stream: TcpStream,
     ) -> anyhow::Result<SslStream<TcpStream>> {

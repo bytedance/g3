@@ -26,7 +26,7 @@ use g3_dpi::{
 use g3_icap_client::IcapServiceConfig;
 use g3_tls_cert::agent::CertAgentConfig;
 use g3_types::metrics::MetricsName;
-use g3_types::net::OpensslTlsInterceptionClientConfigBuilder;
+use g3_types::net::OpensslInterceptionClientConfigBuilder;
 use g3_yaml::YamlDocPosition;
 
 #[derive(Clone)]
@@ -37,7 +37,7 @@ pub(crate) struct AuditorConfig {
     pub(crate) server_tcp_portmap: ProtocolPortMap,
     pub(crate) client_tcp_portmap: ProtocolPortMap,
     pub(crate) tls_cert_agent: Option<CertAgentConfig>,
-    pub(crate) tls_interception_client: OpensslTlsInterceptionClientConfigBuilder,
+    pub(crate) tls_interception_client: OpensslInterceptionClientConfigBuilder,
     pub(crate) log_uri_max_chars: usize,
     pub(crate) h1_interception: H1InterceptionConfig,
     pub(crate) h2_interception: H2InterceptionConfig,

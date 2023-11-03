@@ -22,7 +22,7 @@ use async_trait::async_trait;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::metrics::MetricsName;
-use g3_types::net::{OpensslTlsClientConfig, UpstreamAddr};
+use g3_types::net::{OpensslClientConfig, UpstreamAddr};
 
 use super::{ArcEscaper, Escaper, EscaperExt, EscaperInternal, RouteEscaperStats};
 use crate::config::escaper::route_failover::RouteFailoverEscaperConfig;
@@ -132,7 +132,7 @@ impl Escaper for RouteFailoverEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        tls_config: &'a OpensslTlsClientConfig,
+        tls_config: &'a OpensslClientConfig,
         tls_name: &'a str,
     ) -> TcpConnectResult {
         tcp_notes.escaper.clone_from(&self.config.name);
@@ -235,7 +235,7 @@ impl EscaperInternal for RouteFailoverEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         _task_notes: &'a ServerTaskNotes,
         _task_stats: ArcHttpForwardTaskRemoteStats,
-        _tls_config: &'a OpensslTlsClientConfig,
+        _tls_config: &'a OpensslClientConfig,
         _tls_name: &'a str,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         tcp_notes.escaper.clone_from(&self.config.name);

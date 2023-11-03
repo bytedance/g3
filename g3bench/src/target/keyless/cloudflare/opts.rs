@@ -27,7 +27,7 @@ use tokio::net::TcpStream;
 use tokio_openssl::SslStream;
 
 use g3_types::collection::{SelectiveVec, WeightedValue};
-use g3_types::net::{OpensslTlsClientConfig, OpensslTlsClientConfigBuilder, UpstreamAddr};
+use g3_types::net::{OpensslClientConfig, OpensslClientConfigBuilder, UpstreamAddr};
 
 use super::{MultiplexTransfer, SimplexTransfer};
 use crate::opts::ProcArgs;
@@ -60,7 +60,7 @@ pub(super) struct KeylessCloudflareArgs {
 impl KeylessCloudflareArgs {
     fn new(global_args: KeylessGlobalArgs, target: UpstreamAddr) -> Self {
         let tls = OpensslTlsClientArgs {
-            config: Some(OpensslTlsClientConfigBuilder::with_cache_for_one_site()),
+            config: Some(OpensslClientConfigBuilder::with_cache_for_one_site()),
             ..Default::default()
         };
         KeylessCloudflareArgs {
@@ -149,7 +149,7 @@ impl KeylessCloudflareArgs {
 
     async fn tls_connect_to_target<S>(
         &self,
-        tls_client: &OpensslTlsClientConfig,
+        tls_client: &OpensslClientConfig,
         stream: S,
     ) -> anyhow::Result<SslStream<S>>
     where

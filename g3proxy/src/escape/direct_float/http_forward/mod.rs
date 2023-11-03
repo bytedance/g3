@@ -17,7 +17,7 @@
 use std::sync::Arc;
 
 use g3_io_ext::{LimitedBufReader, LimitedWriter, NilLimitedReaderStats};
-use g3_types::net::OpensslTlsClientConfig;
+use g3_types::net::OpensslClientConfig;
 
 use super::{DirectFloatBindIp, DirectFloatEscaper};
 use crate::log::escape::tls_handshake::TlsApplication;
@@ -76,7 +76,7 @@ impl DirectFloatEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
-        tls_config: &'a OpensslTlsClientConfig,
+        tls_config: &'a OpensslClientConfig,
         tls_name: &'a str,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         let (tls_stream, bind) = self

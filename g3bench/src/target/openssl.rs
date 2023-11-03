@@ -25,8 +25,8 @@ use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
 
 use g3_types::net::{
-    AlpnProtocol, OpensslCertificatePair, OpensslProtocol, OpensslTlsClientConfig,
-    OpensslTlsClientConfigBuilder,
+    AlpnProtocol, OpensslCertificatePair, OpensslClientConfig, OpensslClientConfigBuilder,
+    OpensslProtocol,
 };
 
 const TLS_ARG_CA_CERT: &str = "tls-ca-cert";
@@ -62,8 +62,8 @@ pub(crate) trait AppendOpensslArgs {
 
 #[derive(Default)]
 pub(crate) struct OpensslTlsClientArgs {
-    pub(crate) config: Option<OpensslTlsClientConfigBuilder>,
-    pub(crate) client: Option<OpensslTlsClientConfig>,
+    pub(crate) config: Option<OpensslClientConfigBuilder>,
+    pub(crate) client: Option<OpensslClientConfig>,
     pub(crate) tls_name: Option<String>,
     pub(crate) cert_pair: OpensslCertificatePair,
     pub(crate) no_verify: bool,

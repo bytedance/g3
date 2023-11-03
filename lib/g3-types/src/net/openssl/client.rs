@@ -24,8 +24,7 @@ use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::X509;
 
 use super::{
-    OpensslCertificatePair, OpensslProtocol, OpensslSessionCacheConfig,
-    OpensslTlsClientSessionCache,
+    OpensslCertificatePair, OpensslClientSessionCache, OpensslProtocol, OpensslSessionCacheConfig,
 };
 use crate::net::tls::AlpnProtocol;
 
@@ -36,14 +35,14 @@ const MINIMAL_HANDSHAKE_TIMEOUT: Duration = Duration::from_millis(100);
 const DEFAULT_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Clone)]
-pub struct OpensslTlsClientConfig {
+pub struct OpensslClientConfig {
     disable_sni: bool,
     ssl_context: SslContext,
     pub handshake_timeout: Duration,
-    session_cache: Option<OpensslTlsClientSessionCache>,
+    session_cache: Option<OpensslClientSessionCache>,
 }
 
-impl OpensslTlsClientConfig {
+impl OpensslClientConfig {
     pub fn build_ssl(&self, tls_name: &str, port: u16) -> anyhow::Result<Ssl> {
         let mut ssl =
             Ssl::new(&self.ssl_context).map_err(|e| anyhow!("failed to get new Ssl state: {e}"))?;
@@ -59,7 +58,7 @@ impl OpensslTlsClientConfig {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct OpensslTlsClientConfigBuilder {
+pub struct OpensslClientConfigBuilder {
     protocol: Option<OpensslProtocol>,
     ciphers: Vec<String>,
     disable_sni: bool,
@@ -72,9 +71,9 @@ pub struct OpensslTlsClientConfigBuilder {
     session_cache: OpensslSessionCacheConfig,
 }
 
-impl Default for OpensslTlsClientConfigBuilder {
+impl Default for OpensslClientConfigBuilder {
     fn default() -> Self {
-        OpensslTlsClientConfigBuilder {
+        OpensslClientConfigBuilder {
             protocol: None,
             ciphers: Vec::new(),
             disable_sni: false,
@@ -89,16 +88,16 @@ impl Default for OpensslTlsClientConfigBuilder {
     }
 }
 
-impl OpensslTlsClientConfigBuilder {
+impl OpensslClientConfigBuilder {
     pub fn with_cache_for_one_site() -> Self {
-        OpensslTlsClientConfigBuilder {
+        OpensslClientConfigBuilder {
             session_cache: OpensslSessionCacheConfig::new_for_one(),
             ..Default::default()
         }
     }
 
     pub fn with_cache_for_many_sites() -> Self {
-        OpensslTlsClientConfigBuilder {
+        OpensslClientConfigBuilder {
             session_cache: OpensslSessionCacheConfig::new_for_many(),
             ..Default::default()
         }
@@ -298,7 +297,7 @@ impl OpensslTlsClientConfigBuilder {
     pub fn build_with_alpn_protocols(
         &self,
         alpn_protocols: Option<Vec<AlpnProtocol>>,
-    ) -> anyhow::Result<OpensslTlsClientConfig> {
+    ) -> anyhow::Result<OpensslClientConfig> {
         let mut ctx_builder = match self.protocol {
             Some(OpensslProtocol::Ssl3) => self.new_versioned_builder(SslVersion::SSL3)?,
             Some(OpensslProtocol::Tls1) => self.new_versioned_builder(SslVersion::TLS1)?,
@@ -343,7 +342,7 @@ impl OpensslTlsClientConfigBuilder {
                 .map_err(|e| anyhow!("failed to set alpn protocols: {e}"))?;
         }
 
-        Ok(OpensslTlsClientConfig {
+        Ok(OpensslClientConfig {
             disable_sni: self.disable_sni,
             ssl_context: ctx_builder.build().into_context(),
             handshake_timeout: self.handshake_timeout,
@@ -351,19 +350,19 @@ impl OpensslTlsClientConfigBuilder {
         })
     }
 
-    pub fn build(&self) -> anyhow::Result<OpensslTlsClientConfig> {
+    pub fn build(&self) -> anyhow::Result<OpensslClientConfig> {
         self.build_with_alpn_protocols(None)
     }
 }
 
 #[derive(Clone)]
-pub struct OpensslTlsInterceptionClientConfig {
+pub struct OpensslInterceptionClientConfig {
     ssl_context: SslContext,
     pub handshake_timeout: Duration,
-    session_cache: Option<OpensslTlsClientSessionCache>,
+    session_cache: Option<OpensslClientSessionCache>,
 }
 
-impl OpensslTlsInterceptionClientConfig {
+impl OpensslInterceptionClientConfig {
     pub fn build_ssl<'a>(
         &'a self,
         tls_name: &str,
@@ -396,16 +395,16 @@ impl OpensslTlsInterceptionClientConfig {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct OpensslTlsInterceptionClientConfigBuilder {
+pub struct OpensslInterceptionClientConfigBuilder {
     ca_certs: Vec<Vec<u8>>,
     no_default_ca_certs: bool,
     handshake_timeout: Duration,
     session_cache: OpensslSessionCacheConfig,
 }
 
-impl Default for OpensslTlsInterceptionClientConfigBuilder {
+impl Default for OpensslInterceptionClientConfigBuilder {
     fn default() -> Self {
-        OpensslTlsInterceptionClientConfigBuilder {
+        OpensslInterceptionClientConfigBuilder {
             ca_certs: Vec::new(),
             no_default_ca_certs: false,
             handshake_timeout: DEFAULT_HANDSHAKE_TIMEOUT,
@@ -414,7 +413,7 @@ impl Default for OpensslTlsInterceptionClientConfigBuilder {
     }
 }
 
-impl OpensslTlsInterceptionClientConfigBuilder {
+impl OpensslInterceptionClientConfigBuilder {
     pub fn check(&mut self) -> anyhow::Result<()> {
         if self.handshake_timeout < MINIMAL_HANDSHAKE_TIMEOUT {
             self.handshake_timeout = MINIMAL_HANDSHAKE_TIMEOUT;
@@ -458,7 +457,7 @@ impl OpensslTlsInterceptionClientConfigBuilder {
         self.session_cache.set_each_capacity(cap);
     }
 
-    pub fn build(&self) -> anyhow::Result<OpensslTlsInterceptionClientConfig> {
+    pub fn build(&self) -> anyhow::Result<OpensslInterceptionClientConfig> {
         let mut ctx_builder = SslConnector::builder(SslMethod::tls_client())
             .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
         ctx_builder.set_verify(SslVerifyMode::PEER);
@@ -482,7 +481,7 @@ impl OpensslTlsInterceptionClientConfigBuilder {
 
         let session_cache = self.session_cache.set_for_client(&mut ctx_builder)?;
 
-        Ok(OpensslTlsInterceptionClientConfig {
+        Ok(OpensslInterceptionClientConfig {
             ssl_context: ctx_builder.build().into_context(),
             handshake_timeout: self.handshake_timeout,
             session_cache,

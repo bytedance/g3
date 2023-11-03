@@ -23,7 +23,7 @@ use async_trait::async_trait;
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::collection::{SelectiveHash, SelectiveItem, SelectivePickPolicy, SelectiveVec};
 use g3_types::metrics::MetricsName;
-use g3_types::net::{Host, HttpForwardCapability, OpensslTlsClientConfig, UpstreamAddr};
+use g3_types::net::{Host, HttpForwardCapability, OpensslClientConfig, UpstreamAddr};
 
 use crate::config::escaper::AnyEscaperConfig;
 use crate::module::ftp_over_http::{
@@ -111,7 +111,7 @@ pub(crate) trait EscaperInternal {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
-        tls_config: &'a OpensslTlsClientConfig,
+        tls_config: &'a OpensslClientConfig,
         tls_name: &'a str,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError>;
 
@@ -160,7 +160,7 @@ pub(crate) trait Escaper: EscaperInternal {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        tls_config: &'a OpensslTlsClientConfig,
+        tls_config: &'a OpensslClientConfig,
         tls_name: &'a str,
     ) -> TcpConnectResult;
 

@@ -19,12 +19,12 @@ use url::Url;
 use super::ProxyParseError;
 use crate::net::{HttpAuth, UpstreamAddr};
 
-use crate::net::OpensslTlsClientConfigBuilder;
+use crate::net::OpensslClientConfigBuilder;
 
 pub struct HttpProxy {
     peer: UpstreamAddr,
     pub auth: HttpAuth,
-    pub tls_config: Option<OpensslTlsClientConfigBuilder>,
+    pub tls_config: Option<OpensslClientConfigBuilder>,
 }
 
 impl HttpProxy {
@@ -49,7 +49,7 @@ impl HttpProxy {
 
     pub(super) fn from_url_authority_with_tls(url: &Url) -> Result<Self, ProxyParseError> {
         let mut v = HttpProxy::from_url_authority(url)?;
-        let tls_config = OpensslTlsClientConfigBuilder::with_cache_for_one_site();
+        let tls_config = OpensslClientConfigBuilder::with_cache_for_one_site();
         // for (_k, _v) in value.query_pairs() {
         //     // TODO set tls_config
         // }

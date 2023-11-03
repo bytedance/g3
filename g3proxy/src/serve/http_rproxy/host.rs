@@ -18,14 +18,14 @@ use std::sync::Arc;
 
 use anyhow::Context;
 
-use g3_types::net::{OpensslTlsClientConfig, RustlsServerConfig};
+use g3_types::net::{OpensslClientConfig, RustlsServerConfig};
 
 use crate::config::server::http_rproxy::HttpHostConfig;
 
 pub(crate) struct HttpHost {
     pub(super) config: Arc<HttpHostConfig>,
     pub(super) tls_server: Option<RustlsServerConfig>,
-    pub(super) tls_client: Option<OpensslTlsClientConfig>,
+    pub(super) tls_client: Option<OpensslClientConfig>,
 }
 
 impl TryFrom<&Arc<HttpHostConfig>> for HttpHost {

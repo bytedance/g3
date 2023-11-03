@@ -87,8 +87,8 @@ pub use self::openssl::as_openssl_tlcp_certificate_pair;
 #[cfg(feature = "openssl")]
 pub use self::openssl::{
     as_openssl_certificate_pair, as_openssl_certificates, as_openssl_private_key,
-    as_tls_interception_client_config_builder, as_to_many_openssl_tls_client_config_builder,
-    as_to_one_openssl_tls_client_config_builder,
+    as_openssl_tls_server_config_builder, as_tls_interception_client_config_builder,
+    as_to_many_openssl_tls_client_config_builder, as_to_one_openssl_tls_client_config_builder,
 };
 
 #[cfg(feature = "sched")]

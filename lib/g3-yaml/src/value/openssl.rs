@@ -24,8 +24,8 @@ use openssl::x509::X509;
 use yaml_rust::Yaml;
 
 use g3_types::net::{
-    OpensslCertificatePair, OpensslProtocol, OpensslTlsClientConfigBuilder,
-    OpensslTlsInterceptionClientConfigBuilder,
+    OpensslCertificatePair, OpensslClientConfigBuilder, OpensslInterceptionClientConfigBuilder,
+    OpensslProtocol, OpensslServerConfigBuilder,
 };
 
 #[cfg(feature = "vendored-tongsuo")]
@@ -224,10 +224,10 @@ fn as_openssl_ciphers(value: &Yaml) -> anyhow::Result<Vec<String>> {
 }
 
 fn set_openssl_tls_client_config_builder(
-    mut builder: OpensslTlsClientConfigBuilder,
+    mut builder: OpensslClientConfigBuilder,
     value: &Yaml,
     lookup_dir: Option<&Path>,
-) -> anyhow::Result<OpensslTlsClientConfigBuilder> {
+) -> anyhow::Result<OpensslClientConfigBuilder> {
     if let Yaml::Hash(map) = value {
         let mut cert_pair = OpensslCertificatePair::default();
 
@@ -350,25 +350,25 @@ fn set_openssl_tls_client_config_builder(
 pub fn as_to_one_openssl_tls_client_config_builder(
     value: &Yaml,
     lookup_dir: Option<&Path>,
-) -> anyhow::Result<OpensslTlsClientConfigBuilder> {
-    let builder = OpensslTlsClientConfigBuilder::with_cache_for_one_site();
+) -> anyhow::Result<OpensslClientConfigBuilder> {
+    let builder = OpensslClientConfigBuilder::with_cache_for_one_site();
     set_openssl_tls_client_config_builder(builder, value, lookup_dir)
 }
 
 pub fn as_to_many_openssl_tls_client_config_builder(
     value: &Yaml,
     lookup_dir: Option<&Path>,
-) -> anyhow::Result<OpensslTlsClientConfigBuilder> {
-    let builder = OpensslTlsClientConfigBuilder::with_cache_for_many_sites();
+) -> anyhow::Result<OpensslClientConfigBuilder> {
+    let builder = OpensslClientConfigBuilder::with_cache_for_many_sites();
     set_openssl_tls_client_config_builder(builder, value, lookup_dir)
 }
 
 pub fn as_tls_interception_client_config_builder(
     value: &Yaml,
     lookup_dir: Option<&Path>,
-) -> anyhow::Result<OpensslTlsInterceptionClientConfigBuilder> {
+) -> anyhow::Result<OpensslInterceptionClientConfigBuilder> {
     if let Yaml::Hash(map) = value {
-        let mut builder = OpensslTlsInterceptionClientConfigBuilder::default();
+        let mut builder = OpensslInterceptionClientConfigBuilder::default();
 
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
             "ca_certificate" | "ca_cert" | "server_auth_certificate" | "server_auth_cert" => {
@@ -421,6 +421,83 @@ pub fn as_tls_interception_client_config_builder(
     } else {
         Err(anyhow!(
             "yaml value type for 'openssl tls interception client config builder' should be 'map'"
+        ))
+    }
+}
+
+pub fn as_openssl_tls_server_config_builder(
+    value: &Yaml,
+    lookup_dir: Option<&Path>,
+) -> anyhow::Result<OpensslServerConfigBuilder> {
+    if let Yaml::Hash(map) = value {
+        let mut builder = OpensslServerConfigBuilder::empty();
+
+        crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
+            "cert_pairs" => {
+                if let Yaml::Array(seq) = v {
+                    for (i, v) in seq.iter().enumerate() {
+                        let pair = as_openssl_certificate_pair(v, lookup_dir)
+                            .context(format!("invalid openssl cert pair value for {k}#{i}"))?;
+                        builder
+                            .push_cert_pair(pair)
+                            .context(format!("invalid openssl cert pair value for {k}#{i}"))?;
+                    }
+                } else {
+                    let pair = as_openssl_certificate_pair(v, lookup_dir)
+                        .context(format!("invalid openssl cert pair value for key {k}"))?;
+                    builder
+                        .push_cert_pair(pair)
+                        .context(format!("invalid openssl cert pair value for key {k}"))?;
+                }
+                Ok(())
+            }
+            #[cfg(feature = "vendored-tongsuo")]
+            "tlcp_cert_pairs" => {
+                if let Yaml::Array(seq) = v {
+                    for (i, v) in seq.iter().enumerate() {
+                        let pair = as_openssl_tlcp_certificate_pair(v, lookup_dir)
+                            .context(format!("invalid openssl tlcp cert pair value for {k}#{i}"))?;
+                        builder
+                            .push_tlcp_cert_pair(pair)
+                            .context(format!("invalid openssl tlcp cert pair value for {k}#{i}"))?;
+                    }
+                } else {
+                    let pair = as_openssl_tlcp_certificate_pair(v, lookup_dir)
+                        .context(format!("invalid openssl tlcp cert pair value for key {k}"))?;
+                    builder
+                        .push_tlcp_cert_pair(pair)
+                        .context(format!("invalid openssl tlcp cert pair value for key {k}"))?;
+                }
+                Ok(())
+            }
+            "enable_client_auth" => {
+                let enable =
+                    crate::value::as_bool(v).context(format!("invalid value for key {k}"))?;
+                if enable {
+                    builder.enable_client_auth();
+                }
+                Ok(())
+            }
+            "ca_certificate" | "ca_cert" | "client_auth_certificate" | "client_auth_cert" => {
+                let certs = as_openssl_certificates(v, lookup_dir)
+                    .context(format!("invalid value for key {k}"))?;
+                builder.set_client_auth_certificates(certs);
+                Ok(())
+            }
+            "handshake_timeout" | "negotiation_timeout" | "accept_timeout" => {
+                let timeout = crate::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                builder.set_accept_timeout(timeout);
+                Ok(())
+            }
+            _ => Err(anyhow!("invalid key {k}")),
+        })?;
+
+        builder.check()?;
+        Ok(builder)
+    } else {
+        Err(anyhow!(
+            "yaml value type for 'openssl server config builder' should be 'map'"
         ))
     }
 }

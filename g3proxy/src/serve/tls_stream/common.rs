@@ -20,7 +20,7 @@ use std::sync::Arc;
 use slog::Logger;
 
 use g3_daemon::server::ClientConnectionInfo;
-use g3_types::net::OpensslTlsClientConfig;
+use g3_types::net::OpensslClientConfig;
 
 use crate::audit::AuditHandle;
 use crate::config::server::tls_stream::TlsStreamServerConfig;
@@ -35,7 +35,7 @@ pub(super) struct CommonTaskContext {
     pub(super) escaper: ArcEscaper,
     pub(super) audit_handle: Option<Arc<AuditHandle>>,
     pub(super) cc_info: ClientConnectionInfo,
-    pub(super) tls_client_config: Option<Arc<OpensslTlsClientConfig>>,
+    pub(super) tls_client_config: Option<Arc<OpensslClientConfig>>,
     pub(super) task_logger: Logger,
     pub(super) worker_id: Option<usize>,
 }

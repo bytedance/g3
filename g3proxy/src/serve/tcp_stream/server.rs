@@ -30,7 +30,7 @@ use g3_daemon::server::ClientConnectionInfo;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::collection::{SelectivePickPolicy, SelectiveVec, SelectiveVecBuilder};
 use g3_types::metrics::MetricsName;
-use g3_types::net::{OpensslTlsClientConfig, WeightedUpstreamAddr};
+use g3_types::net::{OpensslClientConfig, WeightedUpstreamAddr};
 
 use super::common::CommonTaskContext;
 use super::stats::TcpStreamServerStats;
@@ -47,7 +47,7 @@ pub(crate) struct TcpStreamServer {
     server_stats: Arc<TcpStreamServerStats>,
     listen_stats: Arc<ListenStats>,
     upstream: SelectiveVec<WeightedUpstreamAddr>,
-    tls_client_config: Option<Arc<OpensslTlsClientConfig>>,
+    tls_client_config: Option<Arc<OpensslClientConfig>>,
     ingress_net_filter: Option<Arc<AclNetworkRule>>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
     task_logger: Logger,

@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 
-mod tls_client;
-pub use tls_client::{
-    OpensslTlsClientConfig, OpensslTlsClientConfigBuilder, OpensslTlsInterceptionClientConfig,
-    OpensslTlsInterceptionClientConfigBuilder,
+mod client;
+pub use client::{
+    OpensslClientConfig, OpensslClientConfigBuilder, OpensslInterceptionClientConfig,
+    OpensslInterceptionClientConfigBuilder,
 };
+
+mod server;
+pub use server::{OpensslServerConfig, OpensslServerConfigBuilder};
 
 mod cert_pair;
 pub use cert_pair::OpensslCertificatePair;
@@ -32,4 +35,4 @@ mod protocol;
 pub use protocol::OpensslProtocol;
 
 mod session;
-use session::{OpensslSessionCacheConfig, OpensslTlsClientSessionCache};
+use session::{OpensslClientSessionCache, OpensslSessionCacheConfig};

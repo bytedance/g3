@@ -19,7 +19,7 @@ use std::pin::pin;
 use anyhow::anyhow;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_types::net::{OpensslTlsClientConfig, UpstreamAddr};
+use g3_types::net::{OpensslClientConfig, UpstreamAddr};
 
 use super::RouteFailoverEscaper;
 use crate::escape::ArcEscaper;
@@ -46,7 +46,7 @@ impl TlsConnectFailoverContext {
         escaper: &ArcEscaper,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        tls_config: &OpensslTlsClientConfig,
+        tls_config: &OpensslClientConfig,
         tls_name: &str,
     ) -> Result<Self, Self> {
         match escaper
@@ -77,7 +77,7 @@ impl RouteFailoverEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        tls_config: &'a OpensslTlsClientConfig,
+        tls_config: &'a OpensslClientConfig,
         tls_name: &'a str,
     ) -> TcpConnectResult {
         let primary_context = TlsConnectFailoverContext::new(tcp_notes.upstream.clone());

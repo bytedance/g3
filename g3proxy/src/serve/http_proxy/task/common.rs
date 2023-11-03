@@ -23,7 +23,7 @@ use g3_daemon::server::ClientConnectionInfo;
 use g3_icap_client::reqmod::h1::HttpAdapterErrorResponse;
 use g3_types::acl::AclAction;
 use g3_types::acl_set::AclDstHostRuleSet;
-use g3_types::net::{OpensslTlsClientConfig, UpstreamAddr};
+use g3_types::net::{OpensslClientConfig, UpstreamAddr};
 
 use super::{HttpProxyServerConfig, HttpProxyServerStats};
 use crate::audit::AuditHandle;
@@ -41,7 +41,7 @@ pub(crate) struct CommonTaskContext {
     pub(crate) escaper: ArcEscaper,
     pub(crate) audit_handle: Option<Arc<AuditHandle>>,
     pub(crate) cc_info: ClientConnectionInfo,
-    pub(crate) tls_client_config: Arc<OpensslTlsClientConfig>,
+    pub(crate) tls_client_config: Arc<OpensslClientConfig>,
     pub(crate) task_logger: Logger,
     pub(crate) worker_id: Option<usize>,
 

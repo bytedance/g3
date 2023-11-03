@@ -29,7 +29,7 @@ use tokio::time::Instant;
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::auth::{Password, Username};
 use g3_types::net::{
-    EgressArea, EgressInfo, OpensslTlsClientConfig, SocksAuth, TcpSockSpeedLimitConfig,
+    EgressArea, EgressInfo, OpensslClientConfig, SocksAuth, TcpSockSpeedLimitConfig,
     UdpSockSpeedLimitConfig,
 };
 
@@ -228,7 +228,7 @@ impl NextProxyPeer for ProxyFloatSocks5Peer {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        tls_config: &'a OpensslTlsClientConfig,
+        tls_config: &'a OpensslClientConfig,
         tls_name: &'a str,
     ) -> TcpConnectResult {
         self.socks5_new_tls_connection(tcp_notes, task_notes, task_stats, tls_config, tls_name)
@@ -250,7 +250,7 @@ impl NextProxyPeer for ProxyFloatSocks5Peer {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
-        tls_config: &'a OpensslTlsClientConfig,
+        tls_config: &'a OpensslClientConfig,
         tls_name: &'a str,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.https_forward_new_connection(tcp_notes, task_notes, task_stats, tls_config, tls_name)
