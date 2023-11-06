@@ -106,8 +106,7 @@ where
         loop {
             let me = &mut *self;
             if !me.to_send {
-                let (off, nr, to) =
-                    ready!(Pin::new(&mut *me.client).poll_recv_packet(cx, &mut me.packet.buf))?;
+                let (off, nr, to) = ready!(me.client.poll_recv_packet(cx, &mut me.packet.buf))?;
                 if nr == 0 {
                     break;
                 }
@@ -119,7 +118,7 @@ where
             }
 
             if me.to_send {
-                let nw = ready!(Pin::new(&mut *me.remote).poll_send_packet(
+                let nw = ready!(me.remote.poll_send_packet(
                     cx,
                     &me.packet.buf[me.packet.buf_data_off..me.packet.buf_data_end],
                     &me.packet.to
@@ -189,9 +188,8 @@ where
         loop {
             let me = &mut *self;
             if !me.to_send {
-                let (off, nr, to) =
-                    ready!(Pin::new(&mut *me.remote).poll_recv_packet(cx, &mut me.packet.buf))
-                        .map_err(|e| UdpRelayError::RemoteError(None, e))?;
+                let (off, nr, to) = ready!(me.remote.poll_recv_packet(cx, &mut me.packet.buf))
+                    .map_err(|e| UdpRelayError::RemoteError(None, e))?;
                 if nr == 0 {
                     break;
                 }
@@ -203,7 +201,7 @@ where
             }
 
             if me.to_send {
-                let nw = ready!(Pin::new(&mut *me.client).poll_send_packet(
+                let nw = ready!(me.client.poll_send_packet(
                     cx,
                     &me.packet.buf[me.packet.buf_data_off..me.packet.buf_data_end],
                     &me.packet.to

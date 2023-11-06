@@ -53,9 +53,79 @@ pub enum UdpCopyError {
     RemoteError(#[from] UdpCopyRemoteError),
 }
 
-pub struct UdpCopyClientToRemote<C: ?Sized, R: ?Sized> {
-    client: Box<C>,
-    remote: Box<R>,
+trait UdpCopyRecv {
+    fn poll_recv_packet(
+        &mut self,
+        cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<Result<(usize, usize), UdpCopyError>>;
+}
+
+struct ClientRecv<'a, T: UdpCopyClientRecv + ?Sized>(&'a mut T);
+
+impl<'a, T: UdpCopyClientRecv + ?Sized> UdpCopyRecv for ClientRecv<'a, T> {
+    fn poll_recv_packet(
+        &mut self,
+        cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<Result<(usize, usize), UdpCopyError>> {
+        self.0
+            .poll_recv_packet(cx, buf)
+            .map_err(UdpCopyError::ClientError)
+    }
+}
+
+struct RemoteRecv<'a, T: UdpCopyRemoteRecv + ?Sized>(&'a mut T);
+
+impl<'a, T: UdpCopyRemoteRecv + ?Sized> UdpCopyRecv for RemoteRecv<'a, T> {
+    fn poll_recv_packet(
+        &mut self,
+        cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<Result<(usize, usize), UdpCopyError>> {
+        self.0
+            .poll_recv_packet(cx, buf)
+            .map_err(UdpCopyError::RemoteError)
+    }
+}
+
+trait UdpCopySend {
+    fn poll_send_packet(
+        &mut self,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<Result<usize, UdpCopyError>>;
+}
+
+struct ClientSend<'a, T: UdpCopyClientSend + ?Sized>(&'a mut T);
+
+impl<'a, T: UdpCopyClientSend + ?Sized> UdpCopySend for ClientSend<'a, T> {
+    fn poll_send_packet(
+        &mut self,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<Result<usize, UdpCopyError>> {
+        self.0
+            .poll_send_packet(cx, buf)
+            .map_err(UdpCopyError::ClientError)
+    }
+}
+
+struct RemoteSend<'a, T: UdpCopyRemoteSend + ?Sized>(&'a mut T);
+
+impl<'a, T: UdpCopyRemoteSend + ?Sized> UdpCopySend for RemoteSend<'a, T> {
+    fn poll_send_packet(
+        &mut self,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<Result<usize, UdpCopyError>> {
+        self.0
+            .poll_send_packet(cx, buf)
+            .map_err(UdpCopyError::RemoteError)
+    }
+}
+
+struct UdpCopyBuffer {
     config: LimitedUdpRelayConfig,
     packet: UdpCopyPacket,
     total: u64,
@@ -63,16 +133,10 @@ pub struct UdpCopyClientToRemote<C: ?Sized, R: ?Sized> {
     to_send: bool,
 }
 
-impl<C, R> UdpCopyClientToRemote<C, R>
-where
-    C: UdpCopyClientRecv + ?Sized,
-    R: UdpCopyRemoteSend + ?Sized,
-{
-    pub fn new(client: Box<C>, remote: Box<R>, config: LimitedUdpRelayConfig) -> Self {
-        let packet = UdpCopyPacket::new(client.max_hdr_len(), config.packet_size);
-        UdpCopyClientToRemote {
-            client,
-            remote,
+impl UdpCopyBuffer {
+    fn new(max_hdr_size: usize, config: LimitedUdpRelayConfig) -> Self {
+        let packet = UdpCopyPacket::new(max_hdr_size, config.packet_size);
+        UdpCopyBuffer {
             config,
             packet,
             total: 0,
@@ -81,47 +145,38 @@ where
         }
     }
 
-    pub fn is_idle(&self) -> bool {
-        !self.active
-    }
-
-    pub fn reset_active(&mut self) {
-        self.active = false;
-    }
-}
-
-impl<C, R> Future for UdpCopyClientToRemote<C, R>
-where
-    C: UdpCopyClientRecv + Unpin + ?Sized,
-    R: UdpCopyRemoteSend + Unpin + ?Sized,
-{
-    type Output = Result<u64, UdpCopyError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll_copy<R, S>(
+        &mut self,
+        cx: &mut Context<'_>,
+        mut receiver: R,
+        mut sender: S,
+    ) -> Poll<Result<u64, UdpCopyError>>
+    where
+        R: UdpCopyRecv,
+        S: UdpCopySend,
+    {
         let mut copy_this_round = 0usize;
         loop {
-            let me = &mut *self;
-            if !me.to_send {
-                let (off, nr) =
-                    ready!(Pin::new(&mut *me.client).poll_recv_packet(cx, &mut me.packet.buf))?;
+            if !self.to_send {
+                let (off, nr) = ready!(receiver.poll_recv_packet(cx, &mut self.packet.buf))?;
                 if nr == 0 {
                     break;
                 }
-                me.packet.buf_data_off = off;
-                me.packet.buf_data_end = nr;
-                me.to_send = true;
-                me.active = true;
+                self.packet.buf_data_off = off;
+                self.packet.buf_data_end = nr;
+                self.to_send = true;
+                self.active = true;
             }
 
-            if me.to_send {
-                let nw = ready!(Pin::new(&mut *me.remote).poll_send_packet(
+            if self.to_send {
+                let nw = ready!(sender.poll_send_packet(
                     cx,
-                    &me.packet.buf[me.packet.buf_data_off..me.packet.buf_data_end],
+                    &self.packet.buf[self.packet.buf_data_off..self.packet.buf_data_end],
                 ))?;
                 copy_this_round += nw;
-                me.total += nw as u64;
-                me.to_send = false;
-                me.active = true;
+                self.total += nw as u64;
+                self.to_send = false;
+                self.active = true;
             }
 
             if copy_this_round >= self.config.yield_size {
@@ -131,46 +186,93 @@ where
         }
         Poll::Ready(Ok(self.total))
     }
-}
 
-pub struct UdpCopyRemoteToClient<C: ?Sized, R: ?Sized> {
-    client: Box<C>,
-    remote: Box<R>,
-    config: LimitedUdpRelayConfig,
-    packet: UdpCopyPacket,
-    total: u64,
-    active: bool,
-    to_send: bool,
-}
-
-impl<C, R> UdpCopyRemoteToClient<C, R>
-where
-    C: UdpCopyClientSend + ?Sized,
-    R: UdpCopyRemoteRecv + ?Sized,
-{
-    pub fn new(client: Box<C>, remote: Box<R>, config: LimitedUdpRelayConfig) -> Self {
-        let packet = UdpCopyPacket::new(remote.max_hdr_len(), config.packet_size);
-        UdpCopyRemoteToClient {
-            client,
-            remote,
-            config,
-            packet,
-            total: 0,
-            active: false,
-            to_send: false,
-        }
-    }
-
-    pub fn is_idle(&self) -> bool {
+    fn is_idle(&self) -> bool {
         !self.active
     }
 
-    pub fn reset_active(&mut self) {
+    fn reset_active(&mut self) {
         self.active = false;
     }
 }
 
-impl<C, R> Future for UdpCopyRemoteToClient<C, R>
+pub struct UdpCopyClientToRemote<'a, C: ?Sized, R: ?Sized> {
+    client: &'a mut C,
+    remote: &'a mut R,
+    buffer: UdpCopyBuffer,
+}
+
+impl<'a, C, R> UdpCopyClientToRemote<'a, C, R>
+where
+    C: UdpCopyClientRecv + ?Sized,
+    R: UdpCopyRemoteSend + ?Sized,
+{
+    pub fn new(client: &'a mut C, remote: &'a mut R, config: LimitedUdpRelayConfig) -> Self {
+        let buffer = UdpCopyBuffer::new(client.max_hdr_len(), config);
+        UdpCopyClientToRemote {
+            client,
+            remote,
+            buffer,
+        }
+    }
+
+    #[inline]
+    pub fn is_idle(&self) -> bool {
+        self.buffer.is_idle()
+    }
+
+    #[inline]
+    pub fn reset_active(&mut self) {
+        self.buffer.reset_active()
+    }
+}
+
+impl<'a, C, R> Future for UdpCopyClientToRemote<'a, C, R>
+where
+    C: UdpCopyClientRecv + Unpin + ?Sized,
+    R: UdpCopyRemoteSend + Unpin + ?Sized,
+{
+    type Output = Result<u64, UdpCopyError>;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let me = &mut *self;
+        me.buffer
+            .poll_copy(cx, ClientRecv(me.client), RemoteSend(me.remote))
+    }
+}
+
+pub struct UdpCopyRemoteToClient<'a, C: ?Sized, R: ?Sized> {
+    client: &'a mut C,
+    remote: &'a mut R,
+    buffer: UdpCopyBuffer,
+}
+
+impl<'a, C, R> UdpCopyRemoteToClient<'a, C, R>
+where
+    C: UdpCopyClientSend + ?Sized,
+    R: UdpCopyRemoteRecv + ?Sized,
+{
+    pub fn new(client: &'a mut C, remote: &'a mut R, config: LimitedUdpRelayConfig) -> Self {
+        let buffer = UdpCopyBuffer::new(remote.max_hdr_len(), config);
+        UdpCopyRemoteToClient {
+            client,
+            remote,
+            buffer,
+        }
+    }
+
+    #[inline]
+    pub fn is_idle(&self) -> bool {
+        self.buffer.is_idle()
+    }
+
+    #[inline]
+    pub fn reset_active(&mut self) {
+        self.buffer.reset_active()
+    }
+}
+
+impl<'a, C, R> Future for UdpCopyRemoteToClient<'a, C, R>
 where
     C: UdpCopyClientSend + Unpin + ?Sized,
     R: UdpCopyRemoteRecv + Unpin + ?Sized,
@@ -178,37 +280,8 @@ where
     type Output = Result<u64, UdpCopyError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let mut copy_this_round = 0usize;
-        loop {
-            let me = &mut *self;
-            if !me.to_send {
-                let (off, nr) =
-                    ready!(Pin::new(&mut *me.remote).poll_recv_packet(cx, &mut me.packet.buf))?;
-                if nr == 0 {
-                    break;
-                }
-                me.packet.buf_data_off = off;
-                me.packet.buf_data_end = nr;
-                me.to_send = true;
-                me.active = true;
-            }
-
-            if me.to_send {
-                let nw = ready!(Pin::new(&mut *me.client).poll_send_packet(
-                    cx,
-                    &me.packet.buf[me.packet.buf_data_off..me.packet.buf_data_end]
-                ))?;
-                copy_this_round += nw;
-                me.total += nw as u64;
-                me.to_send = false;
-                me.active = true;
-            }
-
-            if copy_this_round > self.config.yield_size {
-                cx.waker().wake_by_ref();
-                return Poll::Pending;
-            }
-        }
-        Poll::Ready(Ok(self.total))
+        let me = &mut *self;
+        me.buffer
+            .poll_copy(cx, RemoteRecv(&mut *me.remote), ClientSend(&mut *me.client))
     }
 }

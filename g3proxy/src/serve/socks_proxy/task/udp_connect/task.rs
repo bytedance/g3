@@ -316,10 +316,10 @@ impl SocksProxyUdpConnectTask {
     async fn run_relay<'a, R>(
         &'a mut self,
         mut clt_tcp_r: R,
-        clt_r: Box<dyn UdpCopyClientRecv + Unpin + Send>,
-        clt_w: Box<dyn UdpCopyClientSend + Unpin + Send>,
-        ups_r: Box<dyn UdpCopyRemoteRecv + Unpin + Send>,
-        ups_w: Box<dyn UdpCopyRemoteSend + Unpin + Send>,
+        mut clt_r: Box<dyn UdpCopyClientRecv + Unpin + Send>,
+        mut clt_w: Box<dyn UdpCopyClientSend + Unpin + Send>,
+        mut ups_r: Box<dyn UdpCopyRemoteRecv + Unpin + Send>,
+        mut ups_w: Box<dyn UdpCopyRemoteSend + Unpin + Send>,
         escape_logger: &'a Logger,
     ) -> ServerTaskResult<()>
     where
@@ -327,8 +327,10 @@ impl SocksProxyUdpConnectTask {
     {
         let task_id = &self.task_notes.id;
 
-        let mut c_to_r = UdpCopyClientToRemote::new(clt_r, ups_w, self.ctx.server_config.udp_relay);
-        let mut r_to_c = UdpCopyRemoteToClient::new(clt_w, ups_r, self.ctx.server_config.udp_relay);
+        let mut c_to_r =
+            UdpCopyClientToRemote::new(&mut *clt_r, &mut *ups_w, self.ctx.server_config.udp_relay);
+        let mut r_to_c =
+            UdpCopyRemoteToClient::new(&mut *clt_w, &mut *ups_r, self.ctx.server_config.udp_relay);
 
         let idle_duration = self.ctx.server_config.task_idle_check_duration;
         let mut idle_interval =
