@@ -34,7 +34,7 @@ struct UdpRelayPacket {
     buf: Box<[u8]>,
     buf_data_off: usize,
     buf_data_end: usize,
-    to: UpstreamAddr,
+    ups: UpstreamAddr,
 }
 
 impl UdpRelayPacket {
@@ -44,7 +44,7 @@ impl UdpRelayPacket {
             buf: vec![0; buf_size].into_boxed_slice(),
             buf_data_off: 0,
             buf_data_end: 0,
-            to: UpstreamAddr::empty(),
+            ups: UpstreamAddr::empty(),
         }
     }
 }
@@ -57,9 +57,82 @@ pub enum UdpRelayError {
     RemoteError(Option<UpstreamAddr>, UdpRelayRemoteError),
 }
 
-pub struct UdpRelayClientToRemote<C: ?Sized, R: ?Sized> {
-    client: Box<C>,
-    remote: Box<R>,
+trait UdpRelayRecv {
+    fn poll_recv_packet(
+        &mut self,
+        cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<Result<(usize, usize, UpstreamAddr), UdpRelayError>>;
+}
+
+struct ClientRecv<'a, T: UdpRelayClientRecv + ?Sized>(&'a mut T);
+
+impl<'a, T: UdpRelayClientRecv + ?Sized> UdpRelayRecv for ClientRecv<'a, T> {
+    fn poll_recv_packet(
+        &mut self,
+        cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<Result<(usize, usize, UpstreamAddr), UdpRelayError>> {
+        self.0
+            .poll_recv_packet(cx, buf)
+            .map_err(UdpRelayError::ClientError)
+    }
+}
+
+struct RemoteRecv<'a, T: UdpRelayRemoteRecv + ?Sized>(&'a mut T);
+
+impl<'a, T: UdpRelayRemoteRecv + ?Sized> UdpRelayRecv for RemoteRecv<'a, T> {
+    fn poll_recv_packet(
+        &mut self,
+        cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<Result<(usize, usize, UpstreamAddr), UdpRelayError>> {
+        self.0
+            .poll_recv_packet(cx, buf)
+            .map_err(|e| UdpRelayError::RemoteError(None, e))
+    }
+}
+
+trait UdpRelaySend {
+    fn poll_send_packet(
+        &mut self,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+        ups: &UpstreamAddr,
+    ) -> Poll<Result<usize, UdpRelayError>>;
+}
+
+struct ClientSend<'a, T: UdpRelayClientSend + ?Sized>(&'a mut T);
+
+impl<'a, T: UdpRelayClientSend + ?Sized> UdpRelaySend for ClientSend<'a, T> {
+    fn poll_send_packet(
+        &mut self,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+        from: &UpstreamAddr,
+    ) -> Poll<Result<usize, UdpRelayError>> {
+        self.0
+            .poll_send_packet(cx, buf, from)
+            .map_err(UdpRelayError::ClientError)
+    }
+}
+
+struct RemoteSend<'a, T: UdpRelayRemoteSend + ?Sized>(&'a mut T);
+
+impl<'a, T: UdpRelayRemoteSend + ?Sized> UdpRelaySend for RemoteSend<'a, T> {
+    fn poll_send_packet(
+        &mut self,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+        to: &UpstreamAddr,
+    ) -> Poll<Result<usize, UdpRelayError>> {
+        self.0
+            .poll_send_packet(cx, buf, to)
+            .map_err(|e| UdpRelayError::RemoteError(Some(to.clone()), e))
+    }
+}
+
+struct UdpRelayBuffer {
     config: LimitedUdpRelayConfig,
     packet: UdpRelayPacket,
     total: u64,
@@ -67,16 +140,10 @@ pub struct UdpRelayClientToRemote<C: ?Sized, R: ?Sized> {
     to_send: bool,
 }
 
-impl<C, R> UdpRelayClientToRemote<C, R>
-where
-    C: UdpRelayClientRecv + ?Sized,
-    R: UdpRelayRemoteSend + ?Sized,
-{
-    pub fn new(client: Box<C>, remote: Box<R>, config: LimitedUdpRelayConfig) -> Self {
-        let packet = UdpRelayPacket::new(client.max_hdr_len(), config.packet_size);
-        UdpRelayClientToRemote {
-            client,
-            remote,
+impl UdpRelayBuffer {
+    fn new(max_hdr_size: usize, config: LimitedUdpRelayConfig) -> Self {
+        let packet = UdpRelayPacket::new(max_hdr_size, config.packet_size);
+        UdpRelayBuffer {
             config,
             packet,
             total: 0,
@@ -85,49 +152,40 @@ where
         }
     }
 
-    pub fn is_idle(&self) -> bool {
-        !self.active
-    }
-
-    pub fn reset_active(&mut self) {
-        self.active = false;
-    }
-}
-
-impl<C, R> Future for UdpRelayClientToRemote<C, R>
-where
-    C: UdpRelayClientRecv + Unpin + ?Sized,
-    R: UdpRelayRemoteSend + Unpin + ?Sized,
-{
-    type Output = Result<u64, UdpRelayError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll_relay<R, S>(
+        &mut self,
+        cx: &mut Context<'_>,
+        mut receiver: R,
+        mut sender: S,
+    ) -> Poll<Result<u64, UdpRelayError>>
+    where
+        R: UdpRelayRecv,
+        S: UdpRelaySend,
+    {
         let mut relay_this_round = 0usize;
         loop {
-            let me = &mut *self;
-            if !me.to_send {
-                let (off, nr, to) = ready!(me.client.poll_recv_packet(cx, &mut me.packet.buf))?;
+            if !self.to_send {
+                let (off, nr, ups) = ready!(receiver.poll_recv_packet(cx, &mut self.packet.buf))?;
                 if nr == 0 {
                     break;
                 }
-                me.packet.buf_data_off = off;
-                me.packet.buf_data_end = nr;
-                me.packet.to = to;
-                me.to_send = true;
-                me.active = true;
+                self.packet.buf_data_off = off;
+                self.packet.buf_data_end = nr;
+                self.packet.ups = ups;
+                self.to_send = true;
+                self.active = true;
             }
 
-            if me.to_send {
-                let nw = ready!(me.remote.poll_send_packet(
+            if self.to_send {
+                let nw = ready!(sender.poll_send_packet(
                     cx,
-                    &me.packet.buf[me.packet.buf_data_off..me.packet.buf_data_end],
-                    &me.packet.to
-                ))
-                .map_err(|e| UdpRelayError::RemoteError(Some(me.packet.to.clone()), e))?;
+                    &self.packet.buf[self.packet.buf_data_off..self.packet.buf_data_end],
+                    &self.packet.ups
+                ))?;
                 relay_this_round += nw;
-                me.total += nw as u64;
-                me.to_send = false;
-                me.active = true;
+                self.total += nw as u64;
+                self.to_send = false;
+                self.active = true;
             }
 
             if relay_this_round >= self.config.yield_size {
@@ -137,46 +195,93 @@ where
         }
         Poll::Ready(Ok(self.total))
     }
-}
 
-pub struct UdpRelayRemoteToClient<C: ?Sized, R: ?Sized> {
-    client: Box<C>,
-    remote: Box<R>,
-    config: LimitedUdpRelayConfig,
-    packet: UdpRelayPacket,
-    total: u64,
-    active: bool,
-    to_send: bool,
-}
-
-impl<C, R> UdpRelayRemoteToClient<C, R>
-where
-    C: UdpRelayClientSend + ?Sized,
-    R: UdpRelayRemoteRecv + ?Sized,
-{
-    pub fn new(client: Box<C>, remote: Box<R>, config: LimitedUdpRelayConfig) -> Self {
-        let packet = UdpRelayPacket::new(remote.max_hdr_len(), config.packet_size);
-        UdpRelayRemoteToClient {
-            client,
-            remote,
-            config,
-            packet,
-            total: 0,
-            active: false,
-            to_send: false,
-        }
-    }
-
-    pub fn is_idle(&self) -> bool {
+    fn is_idle(&self) -> bool {
         !self.active
     }
 
-    pub fn reset_active(&mut self) {
+    fn reset_active(&mut self) {
         self.active = false;
     }
 }
 
-impl<C, R> Future for UdpRelayRemoteToClient<C, R>
+pub struct UdpRelayClientToRemote<'a, C: ?Sized, R: ?Sized> {
+    client: &'a mut C,
+    remote: &'a mut R,
+    buffer: UdpRelayBuffer,
+}
+
+impl<'a, C, R> UdpRelayClientToRemote<'a, C, R>
+where
+    C: UdpRelayClientRecv + ?Sized,
+    R: UdpRelayRemoteSend + ?Sized,
+{
+    pub fn new(client: &'a mut C, remote: &'a mut R, config: LimitedUdpRelayConfig) -> Self {
+        let buffer = UdpRelayBuffer::new(client.max_hdr_len(), config);
+        UdpRelayClientToRemote {
+            client,
+            remote,
+            buffer,
+        }
+    }
+
+    #[inline]
+    pub fn is_idle(&self) -> bool {
+        self.buffer.is_idle()
+    }
+
+    #[inline]
+    pub fn reset_active(&mut self) {
+        self.buffer.reset_active()
+    }
+}
+
+impl<'a, C, R> Future for UdpRelayClientToRemote<'a, C, R>
+where
+    C: UdpRelayClientRecv + Unpin + ?Sized,
+    R: UdpRelayRemoteSend + Unpin + ?Sized,
+{
+    type Output = Result<u64, UdpRelayError>;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let me = &mut *self;
+        me.buffer
+            .poll_relay(cx, ClientRecv(me.client), RemoteSend(me.remote))
+    }
+}
+
+pub struct UdpRelayRemoteToClient<'a, C: ?Sized, R: ?Sized> {
+    client: &'a mut C,
+    remote: &'a mut R,
+    buffer: UdpRelayBuffer,
+}
+
+impl<'a, C, R> UdpRelayRemoteToClient<'a, C, R>
+where
+    C: UdpRelayClientSend + ?Sized,
+    R: UdpRelayRemoteRecv + ?Sized,
+{
+    pub fn new(client: &'a mut C, remote: &'a mut R, config: LimitedUdpRelayConfig) -> Self {
+        let buffer = UdpRelayBuffer::new(remote.max_hdr_len(), config);
+        UdpRelayRemoteToClient {
+            client,
+            remote,
+            buffer,
+        }
+    }
+
+    #[inline]
+    pub fn is_idle(&self) -> bool {
+        self.buffer.is_idle()
+    }
+
+    #[inline]
+    pub fn reset_active(&mut self) {
+        self.buffer.reset_active()
+    }
+}
+
+impl<'a, C, R> Future for UdpRelayRemoteToClient<'a, C, R>
 where
     C: UdpRelayClientSend + Unpin + ?Sized,
     R: UdpRelayRemoteRecv + Unpin + ?Sized,
@@ -184,39 +289,8 @@ where
     type Output = Result<u64, UdpRelayError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let mut relay_this_round = 0usize;
-        loop {
-            let me = &mut *self;
-            if !me.to_send {
-                let (off, nr, to) = ready!(me.remote.poll_recv_packet(cx, &mut me.packet.buf))
-                    .map_err(|e| UdpRelayError::RemoteError(None, e))?;
-                if nr == 0 {
-                    break;
-                }
-                me.packet.buf_data_off = off;
-                me.packet.buf_data_end = nr;
-                me.packet.to = to;
-                me.to_send = true;
-                me.active = true;
-            }
-
-            if me.to_send {
-                let nw = ready!(me.client.poll_send_packet(
-                    cx,
-                    &me.packet.buf[me.packet.buf_data_off..me.packet.buf_data_end],
-                    &me.packet.to
-                ))?;
-                relay_this_round += nw;
-                me.total += nw as u64;
-                me.to_send = false;
-                me.active = true;
-            }
-
-            if relay_this_round > self.config.yield_size {
-                cx.waker().wake_by_ref();
-                return Poll::Pending;
-            }
-        }
-        Poll::Ready(Ok(self.total))
+        let me = &mut *self;
+        me.buffer
+            .poll_relay(cx, RemoteRecv(me.remote), ClientSend(me.client))
     }
 }
