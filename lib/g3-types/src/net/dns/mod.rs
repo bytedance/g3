@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#[cfg(feature = "rustls")]
 mod encryption;
 
 #[cfg(feature = "rustls")]
-pub use encryption::{DnsEncryptionConfigBuilder, DnsEncryptionProtocol};
+pub use encryption::DnsEncryptionConfigBuilder;
+pub use encryption::DnsEncryptionProtocol;

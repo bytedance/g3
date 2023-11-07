@@ -94,7 +94,7 @@ where
 {
     socks5_login(reader, writer, auth).await?;
 
-    let addr = UpstreamAddr::from_ip_and_port(local_udp_addr.ip(), local_udp_addr.port());
+    let addr = UpstreamAddr::from(local_udp_addr);
     Socks5Request::send(writer, SocksCommand::UdpAssociate, &addr)
         .await
         .map_err(SocksConnectError::WriteFailed)?;

@@ -43,7 +43,7 @@ g3-types = { workspace = true, features = ["proxy", "openssl", "rustls"] }
 g3-clap.workspace = true
 g3-socket.workspace = true
 g3-http.workspace = true
-g3-socks.workspace = true
+g3-socks = { workspace = true, features = ["quic"] }
 g3-io-ext = { workspace = true, features = ["quic"] }
 g3-statsd.workspace = true
 g3-histogram.workspace = true

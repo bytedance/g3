@@ -16,14 +16,14 @@ Benchmark tool for HTTP 1.x / HTTP 2 / HTTP 3 / TLS Handshake / DNS / Cloudflare
 - *HTTP 1.x*
 
   * GET / HEAD
-  * Socks5 proxy / Http Proxy / Https Proxy
+  * Socks5 Proxy / Http Proxy / Https Proxy
   * PROXY Protocol
   * Socket Speed limit and IO stats (HTTP layer)
 
 - *HTTP 2*
 
   * GET / HEAD
-  * Socks5 proxy / Http Proxy / Https Proxy
+  * Socks5 Proxy / Http Proxy / Https Proxy
   * Connection Pool
   * PROXY Protocol
   * Socket Speed limit and IO stats (H2 layer)
@@ -31,6 +31,7 @@ Benchmark tool for HTTP 1.x / HTTP 2 / HTTP 3 / TLS Handshake / DNS / Cloudflare
 - *HTTP 3*
 
   * GET / HEAD
+  * Socks5 Proxy
   * Connection Pool
   * Socket Speed limit and IO stats (QUIC layer)
 

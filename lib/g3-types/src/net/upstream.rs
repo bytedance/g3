@@ -17,7 +17,7 @@
 use std::borrow::Cow;
 use std::fmt;
 use std::hash::Hash;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddrV6};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV6};
 use std::str::FromStr;
 
 use anyhow::anyhow;
@@ -138,6 +138,12 @@ impl TryFrom<&Url> for UpstreamAddr {
         } else {
             Err(anyhow!("no host found in this url"))
         }
+    }
+}
+
+impl From<SocketAddr> for UpstreamAddr {
+    fn from(value: SocketAddr) -> Self {
+        UpstreamAddr::from_ip_and_port(value.ip(), value.port())
     }
 }
 

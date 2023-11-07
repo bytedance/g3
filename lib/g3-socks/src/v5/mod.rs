@@ -26,3 +26,8 @@ pub use udp_io::{UdpInput, UdpOutput};
 
 pub mod auth;
 pub mod client;
+
+#[cfg(feature = "quic")]
+mod quic;
+#[cfg(feature = "quic")]
+pub use quic::Socks5UdpTokioRuntime;

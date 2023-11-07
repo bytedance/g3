@@ -11,5 +11,10 @@ rust-version = "1.63.0"
 thiserror.workspace = true
 bytes.workspace = true
 tokio.workspace = true
+quinn = { workspace = true, optional = true, features = ["runtime-tokio"] }
 g3-types.workspace = true
 g3-io-ext.workspace = true
+
+[features]
+default = []
+quic = ["dep:quinn", "tokio/time", "tokio/sync"]

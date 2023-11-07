@@ -17,8 +17,10 @@
 use std::str::FromStr;
 
 use anyhow::anyhow;
+#[cfg(feature = "rustls")]
 use rustls::ServerName;
 
+#[cfg(feature = "rustls")]
 use crate::net::{RustlsClientConfig, RustlsClientConfigBuilder};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -48,7 +50,7 @@ impl FromStr for DnsEncryptionProtocol {
 }
 
 impl DnsEncryptionProtocol {
-    fn as_str(&self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match self {
             DnsEncryptionProtocol::Tls => "DnsOverTls",
             DnsEncryptionProtocol::Https => "DnsOverHttps",
@@ -68,12 +70,14 @@ impl DnsEncryptionProtocol {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg(feature = "rustls")]
 pub struct DnsEncryptionConfigBuilder {
     protocol: DnsEncryptionProtocol,
     tls_name: ServerName,
     tls_config: Option<RustlsClientConfigBuilder>,
 }
 
+#[cfg(feature = "rustls")]
 impl DnsEncryptionConfigBuilder {
     pub fn new(tls_name: ServerName) -> Self {
         DnsEncryptionConfigBuilder {

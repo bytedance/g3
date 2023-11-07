@@ -23,15 +23,19 @@ use std::time::Duration;
 use anyhow::{anyhow, Context};
 use bytes::Bytes;
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
-use g3_io_ext::LimitedTokioRuntime;
 use h3::client::SendRequest;
 use h3_quinn::OpenStreams;
 use http::{HeaderValue, Method, StatusCode};
 use quinn::{Endpoint, TokioRuntime};
+use tokio::net::TcpStream;
 use url::Url;
 
+use g3_io_ext::LimitedTokioRuntime;
+use g3_socks::v5::Socks5UdpTokioRuntime;
 use g3_types::collection::{SelectiveVec, WeightedValue};
-use g3_types::net::{AlpnProtocol, HttpAuth, RustlsClientConfigBuilder, UpstreamAddr};
+use g3_types::net::{
+    AlpnProtocol, HttpAuth, Proxy, RustlsClientConfigBuilder, Socks5Proxy, UpstreamAddr,
+};
 
 use super::{H3PreRequest, HttpRuntimeStats, ProcArgs};
 use crate::target::{AppendRustlsArgs, RustlsTlsClientArgs};
@@ -39,6 +43,7 @@ use crate::target::{AppendRustlsArgs, RustlsTlsClientArgs};
 const HTTP_ARG_CONNECTION_POOL: &str = "connection-pool";
 const HTTP_ARG_URI: &str = "uri";
 const HTTP_ARG_METHOD: &str = "method";
+const HTTP_ARG_PROXY: &str = "proxy";
 const HTTP_ARG_LOCAL_ADDRESS: &str = "local-address";
 const HTTP_ARG_NO_MULTIPLEX: &str = "no-multiplex";
 const HTTP_ARG_OK_STATUS: &str = "ok-status";
@@ -50,6 +55,7 @@ pub(super) struct BenchH3Args {
     pub(super) method: Method,
     target_url: Url,
     bind: Option<IpAddr>,
+    socks_proxy: Option<Socks5Proxy>,
     pub(super) no_multiplex: bool,
     pub(super) ok_status: Option<StatusCode>,
     pub(super) timeout: Duration,
@@ -59,7 +65,8 @@ pub(super) struct BenchH3Args {
 
     host: UpstreamAddr,
     auth: HttpAuth,
-    peer_addrs: SelectiveVec<WeightedValue<SocketAddr>>,
+    proxy_peer_addrs: SelectiveVec<WeightedValue<SocketAddr>>,
+    quic_peer_addrs: SelectiveVec<WeightedValue<SocketAddr>>,
 }
 
 impl BenchH3Args {
@@ -79,6 +86,7 @@ impl BenchH3Args {
             method: Method::GET,
             target_url: url,
             bind: None,
+            socks_proxy: None,
             no_multiplex: false,
             ok_status: None,
             timeout: Duration::from_secs(30),
@@ -86,7 +94,8 @@ impl BenchH3Args {
             target_tls: tls,
             host: upstream,
             auth,
-            peer_addrs: SelectiveVec::empty(),
+            proxy_peer_addrs: SelectiveVec::empty(),
+            quic_peer_addrs: SelectiveVec::empty(),
         })
     }
 
@@ -94,36 +103,110 @@ impl BenchH3Args {
         &mut self,
         proc_args: &ProcArgs,
     ) -> anyhow::Result<()> {
-        self.peer_addrs = proc_args.resolve(&self.host).await?;
+        if let Some(proxy) = &self.socks_proxy {
+            self.proxy_peer_addrs = proc_args.resolve(proxy.peer()).await?;
+        };
+        self.quic_peer_addrs = proc_args.resolve(&self.host).await?;
         Ok(())
     }
 
-    fn new_quic_endpoint(
+    pub(super) async fn new_tcp_connection(&self, peer: SocketAddr) -> anyhow::Result<TcpStream> {
+        let socket = g3_socket::tcp::new_socket_to(
+            peer.ip(),
+            self.bind,
+            &Default::default(),
+            &Default::default(),
+            true,
+        )
+        .map_err(|e| anyhow!("failed to setup socket to {peer}: {e:?}"))?;
+        socket
+            .connect(peer)
+            .await
+            .map_err(|e| anyhow!("connect to {peer} error: {e:?}"))
+    }
+
+    async fn new_quic_endpoint(
         &self,
         stats: &Arc<HttpRuntimeStats>,
         proc_args: &ProcArgs,
+        quic_peer: SocketAddr,
     ) -> anyhow::Result<Endpoint> {
-        let peer = *proc_args.select_peer(&self.peer_addrs);
-        let socket = g3_socket::udp::new_std_socket_to(
-            peer,
-            self.bind,
-            Default::default(),
-            &Default::default(),
-        )
-        .map_err(|e| anyhow!("failed to setup local udp socket: {e}"))?;
+        if let Some(socks5_proxy) = &self.socks_proxy {
+            let peer = *proc_args.select_peer(&self.proxy_peer_addrs);
 
-        let limit = &proc_args.udp_sock_speed_limit;
-        let runtime = LimitedTokioRuntime::new(
-            TokioRuntime,
-            limit.shift_millis,
-            limit.max_north_packets,
-            limit.max_north_bytes,
-            limit.max_south_packets,
-            limit.max_south_bytes,
-            stats.clone(),
-        );
-        Endpoint::new(Default::default(), None, socket, Arc::new(runtime))
-            .map_err(|e| anyhow!("failed to create quic endpoint: {e}"))
+            let stream = self.new_tcp_connection(peer).await.context(format!(
+                "failed to connect to socks5 proxy {}",
+                socks5_proxy.peer()
+            ))?;
+            let (mut r, mut w) = stream.into_split();
+
+            let socket = g3_socket::udp::new_std_socket_to(
+                peer,
+                self.bind,
+                Default::default(),
+                &Default::default(),
+            )
+            .map_err(|e| anyhow!("failed to setup local udp socket: {e}"))?;
+
+            let local_udp_addr = socket
+                .local_addr()
+                .map_err(|e| anyhow!("failed to get local addr of udp socket: {e}"))?;
+            let peer_udp_addr = g3_socks::v5::client::socks5_udp_associate(
+                &mut r,
+                &mut w,
+                &socks5_proxy.auth,
+                local_udp_addr,
+            )
+            .await
+            .map_err(|e| {
+                anyhow!(
+                    "socks5 udp associate to {} failed: {e}",
+                    socks5_proxy.peer()
+                )
+            })?;
+
+            socket.connect(peer_udp_addr).map_err(|e| {
+                anyhow!("failed to connect local udp socket to {peer_udp_addr}: {e}")
+            })?;
+
+            let tcp_stream = r.reunite(w).unwrap();
+            let limit = &proc_args.udp_sock_speed_limit;
+            let runtime = LimitedTokioRuntime::new(
+                Socks5UdpTokioRuntime::new(tcp_stream, local_udp_addr),
+                limit.shift_millis,
+                limit.max_north_packets,
+                limit.max_north_bytes,
+                limit.max_south_packets,
+                limit.max_south_bytes,
+                stats.clone(),
+            );
+            Endpoint::new(Default::default(), None, socket, Arc::new(runtime))
+                .map_err(|e| anyhow!("failed to create quic endpoint: {e}"))
+        } else {
+            let socket = g3_socket::udp::new_std_socket_to(
+                quic_peer,
+                self.bind,
+                Default::default(),
+                &Default::default(),
+            )
+            .map_err(|e| anyhow!("failed to setup local udp socket: {e}"))?;
+            socket
+                .connect(quic_peer)
+                .map_err(|e| anyhow!("failed to connect local udp socket to {quic_peer}: {e}"))?;
+
+            let limit = &proc_args.udp_sock_speed_limit;
+            let runtime = LimitedTokioRuntime::new(
+                TokioRuntime,
+                limit.shift_millis,
+                limit.max_north_packets,
+                limit.max_north_bytes,
+                limit.max_south_packets,
+                limit.max_south_bytes,
+                stats.clone(),
+            );
+            Endpoint::new(Default::default(), None, socket, Arc::new(runtime))
+                .map_err(|e| anyhow!("failed to create quic endpoint: {e}"))
+        }
     }
 
     async fn new_quic_connection(
@@ -133,7 +216,8 @@ impl BenchH3Args {
     ) -> anyhow::Result<h3_quinn::Connection> {
         use quinn::{ClientConfig, TransportConfig, VarInt};
 
-        let endpoint = self.new_quic_endpoint(stats, proc_args)?;
+        let quic_peer = *proc_args.select_peer(&self.quic_peer_addrs);
+        let endpoint = self.new_quic_endpoint(stats, proc_args, quic_peer).await?;
 
         let Some(tls_client) = &self.target_tls.client else {
             unreachable!()
@@ -148,7 +232,6 @@ impl BenchH3Args {
         let mut client_config = ClientConfig::new(tls_client.driver.clone());
         client_config.transport_config(Arc::new(transport));
 
-        let peer = *proc_args.select_peer(&self.peer_addrs);
         let tls_name = self
             .target_tls
             .tls_name
@@ -156,7 +239,7 @@ impl BenchH3Args {
             .map(|s| Cow::Borrowed(s.as_str()))
             .unwrap_or(self.host.host_str());
         let conn = endpoint
-            .connect_with(client_config, peer, &tls_name)
+            .connect_with(client_config, quic_peer, &tls_name)
             .map_err(|e| anyhow!("failed to create quic client: {e}"))?
             .await
             .map_err(|e| anyhow!("failed to connect: {e}"))?;
@@ -244,6 +327,15 @@ pub(super) fn add_h3_args(app: Command) -> Command {
                 .default_value("GET"),
         )
         .arg(
+            Arg::new(HTTP_ARG_PROXY)
+                .value_name("PROXY URL")
+                .short('x')
+                .help("Use a proxy")
+                .long(HTTP_ARG_PROXY)
+                .num_args(1)
+                .value_name("PROXY URL"),
+        )
+        .arg(
             Arg::new(HTTP_ARG_LOCAL_ADDRESS)
                 .value_name("LOCAL IP ADDRESS")
                 .short('B')
@@ -303,6 +395,15 @@ pub(super) fn parse_h3_args(args: &ArgMatches) -> anyhow::Result<BenchH3Args> {
     if let Some(v) = args.get_one::<String>(HTTP_ARG_METHOD) {
         let method = Method::from_str(v).context(format!("invalid {HTTP_ARG_METHOD} value"))?;
         h3_args.method = method;
+    }
+
+    if let Some(v) = args.get_one::<String>(HTTP_ARG_PROXY) {
+        let url = Url::parse(v).context(format!("invalid {HTTP_ARG_PROXY} value"))?;
+        let proxy = Proxy::try_from(&url).map_err(|e| anyhow!("invalid proxy: {e}"))?;
+        let Proxy::Socks5(proxy) = proxy else {
+            return Err(anyhow!("unsupported proxy {v}"));
+        };
+        h3_args.socks_proxy = Some(proxy);
     }
 
     if let Some(ip) = args.get_one::<IpAddr>(HTTP_ARG_LOCAL_ADDRESS) {
