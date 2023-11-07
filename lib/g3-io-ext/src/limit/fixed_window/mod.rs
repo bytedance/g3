@@ -22,7 +22,7 @@ pub use count::ThreadedCountLimitInfo;
 mod datagram;
 mod stream;
 
-pub use datagram::{DatagramLimitInfo, DatagramLimitResult, HasPacketSize};
+pub use datagram::{DatagramLimitInfo, DatagramLimitResult};
 pub use stream::{StreamLimitInfo, StreamLimitResult};
 
 #[derive(Clone, Copy)]
