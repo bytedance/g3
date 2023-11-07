@@ -25,7 +25,7 @@ use std::time::Duration;
 
 use futures_util::FutureExt;
 use quinn::udp;
-use quinn::{AsyncTimer, AsyncUdpSocket, Runtime, TokioRuntime};
+use quinn::{AsyncTimer, AsyncUdpSocket, Runtime};
 use tokio::time::{Instant, Sleep};
 
 use crate::limit::{DatagramLimitInfo, DatagramLimitResult};
@@ -39,14 +39,15 @@ struct LimitConf {
     max_recv_bytes: usize,
 }
 
-pub struct LimitedTokioRuntime<ST> {
-    inner: TokioRuntime,
+pub struct LimitedTokioRuntime<R, ST> {
+    inner: R,
     limit: Option<LimitConf>,
     stats: Arc<ST>,
 }
 
-impl<ST> LimitedTokioRuntime<ST> {
+impl<R, ST> LimitedTokioRuntime<R, ST> {
     pub fn new(
+        inner: R,
         shift_millis: u8,
         max_send_packets: usize,
         max_send_bytes: usize,
@@ -62,28 +63,28 @@ impl<ST> LimitedTokioRuntime<ST> {
             max_recv_bytes,
         };
         LimitedTokioRuntime {
-            inner: TokioRuntime,
+            inner,
             limit: Some(limit),
             stats,
         }
     }
 
-    pub fn new_unlimited(stats: Arc<ST>) -> Self {
+    pub fn new_unlimited(inner: R, stats: Arc<ST>) -> Self {
         LimitedTokioRuntime {
-            inner: TokioRuntime,
+            inner,
             limit: None,
             stats,
         }
     }
 }
 
-impl<ST> fmt::Debug for LimitedTokioRuntime<ST> {
+impl<R: Runtime, ST> fmt::Debug for LimitedTokioRuntime<R, ST> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.inner.fmt(f)
     }
 }
 
-impl<ST> Runtime for LimitedTokioRuntime<ST>
+impl<R: Runtime, ST> Runtime for LimitedTokioRuntime<R, ST>
 where
     ST: LimitedSendStats + LimitedRecvStats + Send + Sync + 'static,
 {

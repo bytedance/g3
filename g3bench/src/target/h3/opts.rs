@@ -27,7 +27,7 @@ use g3_io_ext::LimitedTokioRuntime;
 use h3::client::SendRequest;
 use h3_quinn::OpenStreams;
 use http::{HeaderValue, Method, StatusCode};
-use quinn::Endpoint;
+use quinn::{Endpoint, TokioRuntime};
 use url::Url;
 
 use g3_types::collection::{SelectiveVec, WeightedValue};
@@ -114,6 +114,7 @@ impl BenchH3Args {
 
         let limit = &proc_args.udp_sock_speed_limit;
         let runtime = LimitedTokioRuntime::new(
+            TokioRuntime,
             limit.shift_millis,
             limit.max_north_packets,
             limit.max_north_bytes,
