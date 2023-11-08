@@ -29,7 +29,7 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::sync::{broadcast, oneshot};
 use tokio::time::sleep_until;
 
-use g3_io_ext::{RecvMsghdr, SendMsgHdr, UdpSocketExt};
+use g3_io_ext::UdpSocketExt;
 use g3_types::net::{Host, UpstreamAddr};
 
 use super::{UdpInput, UdpOutput};
@@ -146,6 +146,8 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         cx: &mut Context,
         transmits: &[Transmit],
     ) -> Poll<io::Result<usize>> {
+        use g3_io_ext::SendMsgHdr;
+
         let mut msgs = Vec::with_capacity(transmits.len());
         let mut socks_hdrs = vec![SendHeaderBuffer::default(); transmits.len()];
 
@@ -227,6 +229,8 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         bufs: &mut [IoSliceMut<'_>],
         meta: &mut [RecvMeta],
     ) -> Poll<io::Result<usize>> {
+        use g3_io_ext::RecvMsghdr;
+
         let ctl_close_receiver = unsafe { &mut *self.ctl_close_receiver.get() };
         match Pin::new(ctl_close_receiver).poll(cx) {
             Poll::Pending => {}
@@ -328,41 +332,34 @@ impl AsyncUdpSocket for Socks5UdpSocket {
             return Poll::Ready(Err(io::Error::new(io::ErrorKind::InvalidInput, "no buf")));
         };
         let mut read_buf = ReadBuf::new(buf.as_mut());
-        match self.io.poll_recv(cx, &mut read_buf) {
-            Poll::Ready(res) => match res {
-                Ok(_) => {
-                    let mut len = read_buf.filled().len();
+        ready!(self.io.poll_recv(cx, &mut read_buf))?;
+        let mut len = read_buf.filled().len();
 
-                    let (off, ups) = UdpInput::parse_header(buf.as_ref())
-                        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-                    let addr = match ups.host() {
-                        Host::Ip(ip) => SocketAddr::new(*ip, ups.port()),
-                        Host::Domain(_) => {
-                            // invalid reply packet, use unspecified addr instead of return error
-                            let ip = match self.local_addr {
-                                SocketAddr::V4(_) => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-                                SocketAddr::V6(_) => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
-                            };
-                            SocketAddr::new(ip, ups.port())
-                        }
-                    };
-                    // TODO use IoSliceMut::advance instead of copy
-                    buf.copy_within(off..len, 0);
-                    len -= off;
+        let (off, ups) = UdpInput::parse_header(buf.as_ref())
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        let addr = match ups.host() {
+            Host::Ip(ip) => SocketAddr::new(*ip, ups.port()),
+            Host::Domain(_) => {
+                // invalid reply packet, use unspecified addr instead of return error
+                let ip = match self.local_addr {
+                    SocketAddr::V4(_) => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+                    SocketAddr::V6(_) => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
+                };
+                SocketAddr::new(ip, ups.port())
+            }
+        };
+        // TODO use IoSliceMut::advance instead of copy
+        buf.copy_within(off..len, 0);
+        len -= off;
 
-                    meta[0] = RecvMeta {
-                        len,
-                        stride: len,
-                        addr,
-                        ecn: None,
-                        dst_ip: None,
-                    };
-                    Poll::Ready(Ok(1))
-                }
-                Err(err) => Poll::Ready(Err(err)),
-            },
-            Poll::Pending => Poll::Pending,
-        }
+        meta[0] = RecvMeta {
+            len,
+            stride: len,
+            addr,
+            ecn: None,
+            dst_ip: None,
+        };
+        Poll::Ready(Ok(1))
     }
 
     fn local_addr(&self) -> io::Result<SocketAddr> {
