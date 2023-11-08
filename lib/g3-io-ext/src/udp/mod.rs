@@ -18,7 +18,7 @@ mod stats;
 pub use stats::{ArcLimitedRecvStats, ArcLimitedSendStats, LimitedRecvStats, LimitedSendStats};
 
 mod ext;
-pub use ext::UdpSocketExt;
+pub use ext::{RecvMsghdr, SendMsgHdr, UdpSocketExt};
 
 mod recv;
 mod send;

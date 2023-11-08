@@ -20,16 +20,16 @@ use std::io::{self, IoSlice, IoSliceMut};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
 use std::pin::Pin;
 use std::sync::Arc;
-use std::task::{Context, Poll};
+use std::task::{ready, Context, Poll};
 use std::time::Instant;
 
 use quinn::udp::{RecvMeta, Transmit, UdpState};
 use quinn::{AsyncTimer, AsyncUdpSocket, Runtime};
-use tokio::io::{AsyncRead, AsyncReadExt, ReadBuf};
+use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::sync::{broadcast, oneshot};
 use tokio::time::sleep_until;
 
-use g3_io_ext::UdpSocketExt;
+use g3_io_ext::{RecvMsghdr, SendMsgHdr, UdpSocketExt};
 use g3_types::net::{Host, UpstreamAddr};
 
 use super::{UdpInput, UdpOutput};
@@ -112,6 +112,25 @@ impl Runtime for Socks5UdpTokioRuntime {
     }
 }
 
+#[derive(Clone, Copy, Default)]
+struct SendHeaderBuffer {
+    buf: [u8; 22],
+    len: usize,
+}
+
+impl SendHeaderBuffer {
+    fn encode(&mut self, dest: SocketAddr) {
+        let ups = UpstreamAddr::from(dest);
+        self.len = UdpOutput::calc_header_len(&ups);
+        UdpOutput::generate_header(&mut self.buf, &ups);
+    }
+
+    #[inline]
+    fn hdr(&self) -> &[u8] {
+        &self.buf[0..self.len]
+    }
+}
+
 #[derive(Debug)]
 pub struct Socks5UdpSocket {
     io: tokio::net::UdpSocket,
@@ -120,6 +139,32 @@ pub struct Socks5UdpSocket {
 }
 
 impl AsyncUdpSocket for Socks5UdpSocket {
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "netbsd"))]
+    fn poll_send(
+        &self,
+        _state: &UdpState,
+        cx: &mut Context,
+        transmits: &[Transmit],
+    ) -> Poll<io::Result<usize>> {
+        let mut msgs = Vec::with_capacity(transmits.len());
+        let mut socks_hdrs = vec![SendHeaderBuffer::default(); transmits.len()];
+
+        for (hdr_buf, transmit) in socks_hdrs.iter_mut().zip(transmits) {
+            hdr_buf.encode(transmit.destination);
+
+            msgs.push(SendMsgHdr {
+                iov: [
+                    IoSlice::new(hdr_buf.hdr()),
+                    IoSlice::new(&transmit.contents),
+                ],
+                addr: None,
+            })
+        }
+
+        self.io.poll_batch_sendmsg(cx, &msgs)
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "netbsd")))]
     fn poll_send(
         &self,
         _state: &UdpState,
@@ -127,18 +172,15 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         transmits: &[Transmit],
     ) -> Poll<io::Result<usize>> {
         // logics from quinn-udp::fallback.rs
-        let io = &self.io;
         let mut sent = 0;
         for transmit in transmits {
-            let ups = UpstreamAddr::from(transmit.destination);
-            let hdr_len = UdpOutput::calc_header_len(&ups);
-            let mut buf = [0u8; 22]; // enough for ipv6
-            UdpOutput::generate_header(&mut buf, &ups);
+            let mut hdr_buf = SendHeaderBuffer::default();
+            hdr_buf.encode(transmit.destination);
 
-            match io.poll_sendmsg(
+            match self.io.poll_sendmsg(
                 cx,
                 &[
-                    IoSlice::new(&buf[0..hdr_len]),
+                    IoSlice::new(hdr_buf.hdr()),
                     IoSlice::new(&transmit.contents),
                 ],
                 None,
@@ -178,12 +220,86 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         Poll::Ready(Ok(sent))
     }
 
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "netbsd"))]
     fn poll_recv(
         &self,
         cx: &mut Context,
         bufs: &mut [IoSliceMut<'_>],
         meta: &mut [RecvMeta],
     ) -> Poll<io::Result<usize>> {
+        let ctl_close_receiver = unsafe { &mut *self.ctl_close_receiver.get() };
+        match Pin::new(ctl_close_receiver).poll(cx) {
+            Poll::Pending => {}
+            Poll::Ready(Ok(Some(e))) => {
+                return Poll::Ready(Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("ctl socket closed: {e:?}"),
+                )));
+            }
+            Poll::Ready(Ok(None)) => {
+                return Poll::Ready(Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    "ctl socket closed",
+                )));
+            }
+            Poll::Ready(Err(_)) => {
+                return Poll::Ready(Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    "ctl socket closed",
+                )));
+            }
+        }
+
+        let mut recv_hdrs = vec![RecvMsghdr::default(); meta.len()];
+        match ready!(self.io.poll_batch_recvmsg(cx, bufs, &mut recv_hdrs)) {
+            Ok(count) => {
+                for ((m, r), b) in meta
+                    .iter_mut()
+                    .take(count)
+                    .zip(recv_hdrs)
+                    .zip(bufs.iter_mut())
+                {
+                    let mut len = r.len;
+                    let (off, ups) = UdpInput::parse_header(b.as_ref())
+                        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+                    let addr = match ups.host() {
+                        Host::Ip(ip) => SocketAddr::new(*ip, ups.port()),
+                        Host::Domain(_) => {
+                            // invalid reply packet, use unspecified addr instead of return error
+                            let ip = match self.local_addr {
+                                SocketAddr::V4(_) => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+                                SocketAddr::V6(_) => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
+                            };
+                            SocketAddr::new(ip, ups.port())
+                        }
+                    };
+                    // TODO use IoSliceMut::advance instead of copy
+                    b.copy_within(off..len, 0);
+                    len -= off;
+
+                    *m = RecvMeta {
+                        len,
+                        stride: len,
+                        addr,
+                        ecn: None,
+                        dst_ip: None,
+                    };
+                }
+                Poll::Ready(Ok(count))
+            }
+            Err(e) => Poll::Ready(Err(e)),
+        }
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "netbsd")))]
+    fn poll_recv(
+        &self,
+        cx: &mut Context,
+        bufs: &mut [IoSliceMut<'_>],
+        meta: &mut [RecvMeta],
+    ) -> Poll<io::Result<usize>> {
+        use tokio::io::ReadBuf;
+
         // logics from quinn-udp::fallback.rs
         let ctl_close_receiver = unsafe { &mut *self.ctl_close_receiver.get() };
         match Pin::new(ctl_close_receiver).poll(cx) {
@@ -230,7 +346,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
                             SocketAddr::new(ip, ups.port())
                         }
                     };
-                    // TODO use IoSliceMut::advance instead of copy, then test
+                    // TODO use IoSliceMut::advance instead of copy
                     buf.copy_within(off..len, 0);
                     len -= off;
 
