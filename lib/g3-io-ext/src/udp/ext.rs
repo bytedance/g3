@@ -88,12 +88,19 @@ impl UdpSocketExt for UdpSocket {
 
         let raw_fd = self.as_raw_fd();
         let addr = target.map(SockaddrStorage::from);
+
         loop {
             ready!(self.poll_send_ready(cx))?;
-            if let Ok(res) = self.try_io(Interest::WRITABLE, || {
+            match self.try_io(Interest::WRITABLE, || {
                 sendmsg(raw_fd, iov, &[], flags, addr.as_ref()).map_err(io::Error::from)
             }) {
-                return Poll::Ready(Ok(res));
+                Ok(res) => return Poll::Ready(Ok(res)),
+                Err(e) => {
+                    if e.kind() == io::ErrorKind::WouldBlock {
+                        continue;
+                    }
+                    return Poll::Ready(Err(e));
+                }
             }
         }
     }
@@ -107,21 +114,30 @@ impl UdpSocketExt for UdpSocket {
 
         let raw_fd = self.as_raw_fd();
         let mut iov = [IoSliceMut::new(buf.as_mut())];
+
         loop {
             ready!(self.poll_recv_ready(cx))?;
-            if let Ok(res) = self.try_io(Interest::READABLE, || {
+            match self.try_io(Interest::READABLE, || {
                 recvmsg::<SockaddrStorage>(raw_fd, &mut iov, None, flags).map_err(io::Error::from)
             }) {
-                let addr = res.address.and_then(|v| {
-                    v.as_sockaddr_in()
-                        .map(|v4| SocketAddr::V4(SocketAddrV4::from(*v4)))
-                        .or_else(|| {
-                            v.as_sockaddr_in6()
-                                .map(|v6| SocketAddr::V6(SocketAddrV6::from(*v6)))
-                        })
-                });
-                let len = res.iovs().next().map(|b| b.len()).unwrap_or_default();
-                return Poll::Ready(Ok(RecvMsghdr { len, addr }));
+                Ok(res) => {
+                    let addr = res.address.and_then(|v| {
+                        v.as_sockaddr_in()
+                            .map(|v4| SocketAddr::V4(SocketAddrV4::from(*v4)))
+                            .or_else(|| {
+                                v.as_sockaddr_in6()
+                                    .map(|v6| SocketAddr::V6(SocketAddrV6::from(*v6)))
+                            })
+                    });
+                    let len = res.iovs().next().map(|b| b.len()).unwrap_or_default();
+                    return Poll::Ready(Ok(RecvMsghdr { len, addr }));
+                }
+                Err(e) => {
+                    if e.kind() == io::ErrorKind::WouldBlock {
+                        continue;
+                    }
+                    return Poll::Ready(Err(e));
+                }
             }
         }
     }
@@ -146,11 +162,16 @@ impl UdpSocketExt for UdpSocket {
 
         loop {
             ready!(self.poll_send_ready(cx))?;
-            if let Ok(res) = self.try_io(Interest::WRITABLE, || {
+            match self.try_io(Interest::WRITABLE, || {
                 sendmmsg(raw_fd, &mut data, msgs, &addrs, [], flags).map_err(io::Error::from)
             }) {
-                let count = res.count();
-                return Poll::Ready(Ok(count));
+                Ok(res) => return Poll::Ready(Ok(res.count())),
+                Err(e) => {
+                    if e.kind() == io::ErrorKind::WouldBlock {
+                        continue;
+                    }
+                    return Poll::Ready(Err(e));
+                }
             }
         }
     }
@@ -173,26 +194,34 @@ impl UdpSocketExt for UdpSocket {
 
         loop {
             ready!(self.poll_recv_ready(cx))?;
-            if let Ok(res) = self.try_io(Interest::READABLE, || {
+            match self.try_io(Interest::READABLE, || {
                 recvmmsg(raw_fd, &mut data, &slices, flags, None).map_err(io::Error::from)
             }) {
-                let mut count = 0;
-                for (hdr, v) in meta.iter_mut().zip(res) {
-                    let addr = v.address.and_then(|v| {
-                        v.as_sockaddr_in()
-                            .map(|v4| SocketAddr::V4(SocketAddrV4::from(*v4)))
-                            .or_else(|| {
-                                v.as_sockaddr_in6()
-                                    .map(|v6| SocketAddr::V6(SocketAddrV6::from(*v6)))
-                            })
-                    });
-                    hdr.addr = addr;
-                    if let Some(s) = v.iovs().next() {
-                        hdr.len = s.len();
+                Ok(res) => {
+                    let mut count = 0;
+                    for (hdr, v) in meta.iter_mut().zip(res) {
+                        let addr = v.address.and_then(|v| {
+                            v.as_sockaddr_in()
+                                .map(|v4| SocketAddr::V4(SocketAddrV4::from(*v4)))
+                                .or_else(|| {
+                                    v.as_sockaddr_in6()
+                                        .map(|v6| SocketAddr::V6(SocketAddrV6::from(*v6)))
+                                })
+                        });
+                        hdr.addr = addr;
+                        if let Some(s) = v.iovs().next() {
+                            hdr.len = s.len();
+                        }
+                        count += 1;
                     }
-                    count += 1;
+                    return Poll::Ready(Ok(count));
                 }
-                return Poll::Ready(Ok(count));
+                Err(e) => {
+                    if e.kind() == io::ErrorKind::WouldBlock {
+                        continue;
+                    }
+                    return Poll::Ready(Err(e));
+                }
             }
         }
     }
