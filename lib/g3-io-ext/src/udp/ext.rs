@@ -20,8 +20,8 @@ use std::os::fd::AsRawFd;
 use std::task::{ready, Context, Poll};
 
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "netbsd"))]
-use nix::sys::socket::{recvmmsg, sendmmsg};
-use nix::sys::socket::{recvmsg, sendmsg, MsgFlags, MultiHeaders, SockaddrStorage};
+use nix::sys::socket::{recvmmsg, sendmmsg, MultiHeaders};
+use nix::sys::socket::{recvmsg, sendmsg, MsgFlags, SockaddrStorage};
 use tokio::io::Interest;
 use tokio::net::UdpSocket;
 
