@@ -41,7 +41,7 @@ impl IcapConnectionCreator {
         IcapConnectionCreator { config }
     }
 
-    async fn select_peer_addr(&self) -> Result<SocketAddr, io::Error> {
+    async fn select_peer_addr(&self) -> io::Result<SocketAddr> {
         let upstream = &self.config.upstream;
         match upstream.host() {
             Host::Domain(domain) => {

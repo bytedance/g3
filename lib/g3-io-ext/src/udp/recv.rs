@@ -31,10 +31,9 @@ pub trait AsyncUdpRecv {
         &mut self,
         cx: &mut Context<'_>,
         buf: &mut [u8],
-    ) -> Poll<Result<(usize, SocketAddr), io::Error>>;
+    ) -> Poll<io::Result<(usize, SocketAddr)>>;
 
-    fn poll_recv(&mut self, cx: &mut Context<'_>, buf: &mut [u8])
-        -> Poll<Result<usize, io::Error>>;
+    fn poll_recv(&mut self, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>>;
 }
 
 pub struct LimitedUdpRecv<T> {
@@ -79,7 +78,7 @@ where
         &mut self,
         cx: &mut Context<'_>,
         buf: &mut [u8],
-    ) -> Poll<Result<(usize, SocketAddr), io::Error>> {
+    ) -> Poll<io::Result<(usize, SocketAddr)>> {
         if self.limit.is_set() {
             let dur_millis = self.started.elapsed().as_millis() as u64;
             match self.limit.check_packet(dur_millis, buf.len()) {
@@ -107,11 +106,7 @@ where
         }
     }
 
-    fn poll_recv(
-        &mut self,
-        cx: &mut Context<'_>,
-        buf: &mut [u8],
-    ) -> Poll<Result<usize, io::Error>> {
+    fn poll_recv(&mut self, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
         if self.limit.is_set() {
             let dur_millis = self.started.elapsed().as_millis() as u64;
             match self.limit.check_packet(dur_millis, buf.len()) {

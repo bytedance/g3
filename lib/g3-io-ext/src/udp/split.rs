@@ -111,17 +111,13 @@ impl AsyncUdpRecv for RecvHalf {
         &mut self,
         cx: &mut Context<'_>,
         buf: &mut [u8],
-    ) -> Poll<Result<(usize, SocketAddr), io::Error>> {
+    ) -> Poll<io::Result<(usize, SocketAddr)>> {
         let mut buf = ReadBuf::new(buf);
         let addr = ready!(self.0.poll_recv_from(cx, &mut buf))?;
         Poll::Ready(Ok((buf.filled().len(), addr)))
     }
 
-    fn poll_recv(
-        &mut self,
-        cx: &mut Context<'_>,
-        buf: &mut [u8],
-    ) -> Poll<Result<usize, io::Error>> {
+    fn poll_recv(&mut self, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
         let mut buf = ReadBuf::new(buf);
         ready!(self.0.poll_recv(cx, &mut buf))?;
         Poll::Ready(Ok(buf.filled().len()))
