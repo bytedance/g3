@@ -118,7 +118,12 @@ fn new_tcp_socket(family: AddressFamily) -> io::Result<Socket> {
     Ok(socket)
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd"
+))]
 fn new_tcp_socket(family: AddressFamily) -> io::Result<Socket> {
     Socket::new(Domain::from(family), Type::STREAM.nonblocking(), None)
 }

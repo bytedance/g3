@@ -41,7 +41,12 @@ pub fn as_unaided_runtime_config(v: &Yaml) -> anyhow::Result<UnaidedRuntimeConfi
                     for (ik, iv) in map.iter() {
                         let id = crate::value::as_usize(ik)
                             .context(format!("the keys for {k} should be usize value"))?;
-                        #[cfg(not(target_os = "macos"))]
+                        #[cfg(any(
+                            target_os = "linux",
+                            target_os = "android",
+                            target_os = "freebsd",
+                            target_os = "netbsd"
+                        ))]
                         let cpu = crate::value::as_cpu_set(iv)
                             .context(format!("invalid cpu set value for {k}/{id}"))?;
                         #[cfg(target_os = "macos")]

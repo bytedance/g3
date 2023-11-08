@@ -69,7 +69,12 @@ impl UnaidedRuntimeConfig {
         self.sched_affinity.insert(id, cpus);
     }
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd"
+    ))]
     pub fn set_mapped_sched_affinity(&mut self) -> anyhow::Result<()> {
         let n = self.num_threads();
         for i in 0..n {

@@ -131,7 +131,12 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
             .set(group_name.to_string())
             .map_err(|_| anyhow!("daemon group has already been set"))?;
 
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "freebsd",
+            target_os = "netbsd"
+        ))]
         if let Some(s) = group_name.strip_prefix("core") {
             let mut cpu = CpuAffinity::default();
             if let Ok(id) = usize::from_str(s) {

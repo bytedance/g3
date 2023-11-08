@@ -139,7 +139,12 @@ pub struct Socks5UdpSocket {
 }
 
 impl AsyncUdpSocket for Socks5UdpSocket {
-    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "netbsd"))]
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd"
+    ))]
     fn poll_send(
         &self,
         _state: &UdpState,
@@ -166,7 +171,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         self.io.poll_batch_sendmsg(cx, &msgs)
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "netbsd")))]
+    #[cfg(target_os = "macos")]
     fn poll_send(
         &self,
         _state: &UdpState,
@@ -222,7 +227,12 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         Poll::Ready(Ok(sent))
     }
 
-    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "netbsd"))]
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd"
+    ))]
     fn poll_recv(
         &self,
         cx: &mut Context,
@@ -295,7 +305,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         }
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "netbsd")))]
+    #[cfg(target_os = "macos")]
     fn poll_recv(
         &self,
         cx: &mut Context,

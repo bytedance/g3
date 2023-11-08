@@ -18,7 +18,12 @@ use yaml_rust::Yaml;
 
 use g3_compat::CpuAffinity;
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd"
+))]
 pub fn as_cpu_set(v: &Yaml) -> anyhow::Result<CpuAffinity> {
     use anyhow::{anyhow, Context};
 

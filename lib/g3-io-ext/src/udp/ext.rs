@@ -19,19 +19,34 @@ use std::net::{SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::os::fd::AsRawFd;
 use std::task::{ready, Context, Poll};
 
-#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "netbsd"))]
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd"
+))]
 use nix::sys::socket::{recvmmsg, sendmmsg, MultiHeaders};
 use nix::sys::socket::{recvmsg, sendmsg, MsgFlags, SockaddrStorage};
 use tokio::io::Interest;
 use tokio::net::UdpSocket;
 
-#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "netbsd"))]
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd"
+))]
 pub struct SendMsgHdr<'a, const C: usize> {
     pub iov: [IoSlice<'a>; C],
     pub addr: Option<SocketAddr>,
 }
 
-#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "netbsd"))]
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd"
+))]
 impl<'a, const C: usize> AsRef<[IoSlice<'a>]> for SendMsgHdr<'a, C> {
     fn as_ref(&self) -> &[IoSlice<'a>] {
         self.iov.as_ref()
@@ -58,14 +73,24 @@ pub trait UdpSocketExt {
         iov: &mut IoSliceMut<'_>,
     ) -> Poll<io::Result<RecvMsghdr>>;
 
-    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "netbsd"))]
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd"
+    ))]
     fn poll_batch_sendmsg<const C: usize>(
         &self,
         cx: &mut Context<'_>,
         msgs: &[SendMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>>;
 
-    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "netbsd"))]
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd"
+    ))]
     fn poll_batch_recvmsg(
         &self,
         cx: &mut Context<'_>,
@@ -81,7 +106,12 @@ impl UdpSocketExt for UdpSocket {
         iov: &[IoSlice<'_>],
         target: Option<SocketAddr>,
     ) -> Poll<io::Result<usize>> {
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "freebsd",
+            target_os = "netbsd"
+        ))]
         let flags: MsgFlags = MsgFlags::MSG_DONTWAIT | MsgFlags::MSG_NOSIGNAL;
         #[cfg(target_os = "macos")]
         let flags: MsgFlags = MsgFlags::MSG_DONTWAIT;
@@ -142,16 +172,18 @@ impl UdpSocketExt for UdpSocket {
         }
     }
 
-    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "netbsd"))]
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd"
+    ))]
     fn poll_batch_sendmsg<const C: usize>(
         &self,
         cx: &mut Context<'_>,
         msgs: &[SendMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>> {
-        #[cfg(not(target_os = "macos"))]
         let flags: MsgFlags = MsgFlags::MSG_DONTWAIT | MsgFlags::MSG_NOSIGNAL;
-        #[cfg(target_os = "macos")]
-        let flags: MsgFlags = MsgFlags::MSG_DONTWAIT;
 
         let mut data = MultiHeaders::<SockaddrStorage>::preallocate(msgs.len(), None);
         let addrs = msgs
@@ -176,7 +208,12 @@ impl UdpSocketExt for UdpSocket {
         }
     }
 
-    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "netbsd"))]
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd"
+    ))]
     fn poll_batch_recvmsg(
         &self,
         cx: &mut Context<'_>,
