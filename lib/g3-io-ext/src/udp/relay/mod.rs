@@ -30,7 +30,8 @@ mod remote;
 pub use client::{UdpRelayClientError, UdpRelayClientRecv, UdpRelayClientSend};
 pub use remote::{UdpRelayRemoteError, UdpRelayRemoteRecv, UdpRelayRemoteSend};
 
-struct UdpRelayPacket {
+#[derive(Clone)]
+pub struct UdpRelayPacket {
     buf: Box<[u8]>,
     buf_data_off: usize,
     buf_data_end: usize,
@@ -48,7 +49,38 @@ impl UdpRelayPacket {
         }
     }
 
-    fn payload(&self) -> &[u8] {
+    #[inline]
+    pub fn buf_mut(&mut self) -> &mut [u8] {
+        &mut self.buf
+    }
+
+    #[inline]
+    pub fn buf(&self) -> &[u8] {
+        &self.buf
+    }
+
+    #[inline]
+    pub fn set_offset(&mut self, off: usize) {
+        self.buf_data_off = off;
+    }
+
+    #[inline]
+    pub fn set_length(&mut self, len: usize) {
+        self.buf_data_end = len;
+    }
+
+    #[inline]
+    pub fn set_upstream(&mut self, ups: UpstreamAddr) {
+        self.ups = ups;
+    }
+
+    #[inline]
+    pub fn upstream(&self) -> &UpstreamAddr {
+        &self.ups
+    }
+
+    #[inline]
+    pub fn payload(&self) -> &[u8] {
         &self.buf[self.buf_data_off..self.buf_data_end]
     }
 }
@@ -67,6 +99,28 @@ trait UdpRelayRecv {
         cx: &mut Context<'_>,
         packet: &mut UdpRelayPacket,
     ) -> Poll<Result<usize, UdpRelayError>>;
+
+    fn poll_recv_packets(
+        &mut self,
+        cx: &mut Context<'_>,
+        packets: &mut [UdpRelayPacket],
+    ) -> Poll<Result<usize, UdpRelayError>> {
+        let mut count = 0;
+        for packet in packets.iter_mut() {
+            match self.poll_recv_packet(cx, packet) {
+                Poll::Pending => {
+                    return if count > 0 {
+                        Poll::Ready(Ok(count))
+                    } else {
+                        Poll::Pending
+                    };
+                }
+                Poll::Ready(Ok(_)) => count += 1,
+                Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
+            }
+        }
+        Poll::Ready(Ok(count))
+    }
 }
 
 struct ClientRecv<'a, T: UdpRelayClientRecv + ?Sized>(&'a mut T);
@@ -85,6 +139,22 @@ impl<'a, T: UdpRelayClientRecv + ?Sized> UdpRelayRecv for ClientRecv<'a, T> {
         packet.buf_data_end = nr;
         packet.ups = ups;
         Poll::Ready(Ok(nr))
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd"
+    ))]
+    fn poll_recv_packets(
+        &mut self,
+        cx: &mut Context<'_>,
+        packets: &mut [UdpRelayPacket],
+    ) -> Poll<Result<usize, UdpRelayError>> {
+        self.0
+            .poll_recv_packets(cx, packets)
+            .map_err(UdpRelayError::ClientError)
     }
 }
 
@@ -105,6 +175,22 @@ impl<'a, T: UdpRelayRemoteRecv + ?Sized> UdpRelayRecv for RemoteRecv<'a, T> {
         packet.ups = ups;
         Poll::Ready(Ok(nr))
     }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd"
+    ))]
+    fn poll_recv_packets(
+        &mut self,
+        cx: &mut Context<'_>,
+        packets: &mut [UdpRelayPacket],
+    ) -> Poll<Result<usize, UdpRelayError>> {
+        self.0
+            .poll_recv_packets(cx, packets)
+            .map_err(|e| UdpRelayError::RemoteError(None, e))
+    }
 }
 
 trait UdpRelaySend {
@@ -113,6 +199,28 @@ trait UdpRelaySend {
         cx: &mut Context<'_>,
         packet: &UdpRelayPacket,
     ) -> Poll<Result<usize, UdpRelayError>>;
+
+    fn poll_send_packets(
+        &mut self,
+        cx: &mut Context<'_>,
+        packets: &[UdpRelayPacket],
+    ) -> Poll<Result<usize, UdpRelayError>> {
+        let mut count = 0;
+        for packet in packets {
+            match self.poll_send_packet(cx, packet) {
+                Poll::Pending => {
+                    return if count > 0 {
+                        Poll::Ready(Ok(count))
+                    } else {
+                        Poll::Pending
+                    };
+                }
+                Poll::Ready(Ok(_)) => count += 1,
+                Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
+            }
+        }
+        Poll::Ready(Ok(count))
+    }
 }
 
 struct ClientSend<'a, T: UdpRelayClientSend + ?Sized>(&'a mut T);
@@ -125,6 +233,22 @@ impl<'a, T: UdpRelayClientSend + ?Sized> UdpRelaySend for ClientSend<'a, T> {
     ) -> Poll<Result<usize, UdpRelayError>> {
         self.0
             .poll_send_packet(cx, packet.payload(), &packet.ups)
+            .map_err(UdpRelayError::ClientError)
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd"
+    ))]
+    fn poll_send_packets(
+        &mut self,
+        cx: &mut Context<'_>,
+        packets: &[UdpRelayPacket],
+    ) -> Poll<Result<usize, UdpRelayError>> {
+        self.0
+            .poll_send_packets(cx, packets)
             .map_err(UdpRelayError::ClientError)
     }
 }
@@ -141,29 +265,50 @@ impl<'a, T: UdpRelayRemoteSend + ?Sized> UdpRelaySend for RemoteSend<'a, T> {
             .poll_send_packet(cx, packet.payload(), &packet.ups)
             .map_err(|e| UdpRelayError::RemoteError(Some(packet.ups.clone()), e))
     }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd"
+    ))]
+    fn poll_send_packets(
+        &mut self,
+        cx: &mut Context<'_>,
+        packets: &[UdpRelayPacket],
+    ) -> Poll<Result<usize, UdpRelayError>> {
+        self.0
+            .poll_send_packets(cx, packets)
+            .map_err(|e| UdpRelayError::RemoteError(None, e))
+    }
 }
 
 struct UdpRelayBuffer {
     config: LimitedUdpRelayConfig,
-    packet: UdpRelayPacket,
+    packets: Vec<UdpRelayPacket>,
+    send_start: usize,
+    send_end: usize,
+    recv_done: bool,
     total: u64,
     active: bool,
-    to_send: bool,
 }
 
 impl UdpRelayBuffer {
     fn new(max_hdr_size: usize, config: LimitedUdpRelayConfig) -> Self {
-        let packet = UdpRelayPacket::new(max_hdr_size, config.packet_size);
+        let packets =
+            vec![UdpRelayPacket::new(max_hdr_size, config.packet_size); config.batch_size];
         UdpRelayBuffer {
             config,
-            packet,
+            packets,
+            send_start: 0,
+            send_end: 0,
+            recv_done: false,
             total: 0,
             active: false,
-            to_send: false,
         }
     }
 
-    fn poll_relay<R, S>(
+    fn poll_batch_relay<R, S>(
         &mut self,
         cx: &mut Context<'_>,
         mut receiver: R,
@@ -173,31 +318,47 @@ impl UdpRelayBuffer {
         R: UdpRelayRecv,
         S: UdpRelaySend,
     {
-        let mut relay_this_round = 0usize;
+        let mut copy_this_round = 0usize;
         loop {
-            if !self.to_send {
-                let nr = ready!(receiver.poll_recv_packet(cx, &mut self.packet))?;
-                if nr == 0 {
-                    break;
+            if !self.recv_done && self.send_end < self.packets.len() {
+                match receiver.poll_recv_packets(cx, &mut self.packets[self.send_end..]) {
+                    Poll::Ready(Ok(count)) => {
+                        if count == 0 {
+                            self.recv_done = true;
+                        }
+                        self.send_end += count;
+                    }
+                    Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
+                    Poll::Pending => {
+                        if self.send_start >= self.send_end {
+                            return Poll::Pending;
+                        }
+                    }
                 }
-                self.to_send = true;
-                self.active = true;
             }
 
-            if self.to_send {
-                let nw = ready!(sender.poll_send_packet(cx, &self.packet))?;
-                relay_this_round += nw;
-                self.total += nw as u64;
-                self.to_send = false;
-                self.active = true;
+            while self.send_end > self.send_start {
+                let packets = &self.packets[self.send_start..self.send_end];
+                let count = ready!(sender.poll_send_packets(cx, packets))?;
+                copy_this_round += packets
+                    .iter()
+                    .take(count)
+                    .map(|p| p.buf_data_end - p.buf_data_off)
+                    .sum::<usize>();
+                self.send_start += count;
             }
+            self.send_start = 0;
+            self.send_end = 0;
 
-            if relay_this_round >= self.config.yield_size {
+            if copy_this_round >= self.config.yield_size {
                 cx.waker().wake_by_ref();
                 return Poll::Pending;
             }
+
+            if self.recv_done {
+                return Poll::Ready(Ok(self.total));
+            }
         }
-        Poll::Ready(Ok(self.total))
     }
 
     fn is_idle(&self) -> bool {
@@ -250,7 +411,7 @@ where
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let me = &mut *self;
         me.buffer
-            .poll_relay(cx, ClientRecv(me.client), RemoteSend(me.remote))
+            .poll_batch_relay(cx, ClientRecv(me.client), RemoteSend(me.remote))
     }
 }
 
@@ -295,6 +456,6 @@ where
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let me = &mut *self;
         me.buffer
-            .poll_relay(cx, RemoteRecv(me.remote), ClientSend(me.client))
+            .poll_batch_relay(cx, RemoteRecv(me.remote), ClientSend(me.client))
     }
 }

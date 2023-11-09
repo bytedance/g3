@@ -217,6 +217,7 @@ impl From<UdpRelayRemoteError> for ServerTaskError {
             }
             UdpRelayRemoteError::RecvFailed(_, e) => ServerTaskError::UpstreamReadFailed(e),
             UdpRelayRemoteError::SendFailed(_, _, e) => ServerTaskError::UpstreamWriteFailed(e),
+            UdpRelayRemoteError::BatchSendFailed(_, e) => ServerTaskError::UpstreamWriteFailed(e),
             UdpRelayRemoteError::InvalidPacket(_, _) => {
                 ServerTaskError::InvalidUpstreamProtocol("invalid received udp packet")
             }

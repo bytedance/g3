@@ -29,10 +29,9 @@ pub use recv::{AsyncUdpRecv, LimitedUdpRecv};
 pub use send::{AsyncUdpSend, LimitedUdpSend};
 
 mod relay;
-
 pub use relay::{
-    UdpRelayClientError, UdpRelayClientRecv, UdpRelayClientSend, UdpRelayRemoteError,
-    UdpRelayRemoteRecv, UdpRelayRemoteSend,
+    UdpRelayClientError, UdpRelayClientRecv, UdpRelayClientSend, UdpRelayPacket,
+    UdpRelayRemoteError, UdpRelayRemoteRecv, UdpRelayRemoteSend,
 };
 pub use relay::{UdpRelayClientToRemote, UdpRelayError, UdpRelayRemoteToClient};
 

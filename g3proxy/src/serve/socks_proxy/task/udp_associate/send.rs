@@ -19,12 +19,20 @@ use std::net::SocketAddr;
 use std::task::{ready, Context, Poll};
 
 use g3_io_ext::{AsyncUdpSend, UdpRelayClientError, UdpRelayClientSend};
-use g3_socks::v5::UdpOutput;
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd"
+))]
+use g3_io_ext::{SendMsgHdr, UdpRelayPacket};
+use g3_socks::v5::SocksUdpHeader;
 use g3_types::net::UpstreamAddr;
 
 pub(super) struct Socks5UdpAssociateClientSend<T> {
     inner: T,
     client: SocketAddr,
+    socks_headers: Vec<SocksUdpHeader>,
 }
 
 impl<T> Socks5UdpAssociateClientSend<T>
@@ -32,44 +40,10 @@ where
     T: AsyncUdpSend,
 {
     pub(super) fn new(inner: T, client: SocketAddr) -> Self {
-        Socks5UdpAssociateClientSend { inner, client }
-    }
-
-    fn poll_send_packet(
-        &mut self,
-        cx: &mut Context<'_>,
-        buf: &[u8],
-        from: &UpstreamAddr,
-    ) -> Poll<Result<usize, UdpRelayClientError>> {
-        const STATIC_BUF_LEN: usize = 128;
-
-        let header_len = UdpOutput::calc_header_len(from);
-        let nw = if header_len <= STATIC_BUF_LEN {
-            let mut hdr_buf = [0u8; STATIC_BUF_LEN];
-            UdpOutput::generate_header(&mut hdr_buf, from);
-            ready!(self.inner.poll_sendmsg(
-                cx,
-                &[IoSlice::new(&hdr_buf[0..header_len]), IoSlice::new(buf)],
-                Some(self.client)
-            ))
-            .map_err(UdpRelayClientError::SendFailed)?
-        } else {
-            let mut hdr_buf = vec![0u8; header_len];
-            UdpOutput::generate_header(&mut hdr_buf, from);
-            ready!(self.inner.poll_sendmsg(
-                cx,
-                &[IoSlice::new(&hdr_buf), IoSlice::new(buf)],
-                Some(self.client)
-            ))
-            .map_err(UdpRelayClientError::SendFailed)?
-        };
-        if nw == 0 {
-            Poll::Ready(Err(UdpRelayClientError::SendFailed(io::Error::new(
-                io::ErrorKind::WriteZero,
-                "write zero byte into sender",
-            ))))
-        } else {
-            Poll::Ready(Ok(nw))
+        Socks5UdpAssociateClientSend {
+            inner,
+            client,
+            socks_headers: vec![SocksUdpHeader::default(); 4],
         }
     }
 }
@@ -84,6 +58,57 @@ where
         buf: &[u8],
         from: &UpstreamAddr,
     ) -> Poll<Result<usize, UdpRelayClientError>> {
-        self.poll_send_packet(cx, buf, from)
+        let socks_header = self.socks_headers.get_mut(0).unwrap();
+        let nw = ready!(self.inner.poll_sendmsg(
+            cx,
+            &[IoSlice::new(socks_header.encode(from)), IoSlice::new(buf)],
+            Some(self.client)
+        ))
+        .map_err(UdpRelayClientError::SendFailed)?;
+        if nw == 0 {
+            Poll::Ready(Err(UdpRelayClientError::SendFailed(io::Error::new(
+                io::ErrorKind::WriteZero,
+                "write zero byte into sender",
+            ))))
+        } else {
+            Poll::Ready(Ok(nw))
+        }
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd"
+    ))]
+    fn poll_send_packets(
+        &mut self,
+        cx: &mut Context<'_>,
+        packets: &[UdpRelayPacket],
+    ) -> Poll<Result<usize, UdpRelayClientError>> {
+        if packets.len() > self.socks_headers.len() {
+            self.socks_headers.resize(packets.len(), Default::default());
+        }
+        let mut msgs = Vec::with_capacity(packets.len());
+        for (p, h) in packets.iter().zip(self.socks_headers.iter_mut()) {
+            msgs.push(SendMsgHdr {
+                iov: [
+                    IoSlice::new(h.encode(p.upstream())),
+                    IoSlice::new(p.payload()),
+                ],
+                addr: None,
+            });
+        }
+
+        let count = ready!(self.inner.poll_batch_sendmsg(cx, &msgs))
+            .map_err(UdpRelayClientError::SendFailed)?;
+        if count == 0 {
+            Poll::Ready(Err(UdpRelayClientError::SendFailed(io::Error::new(
+                io::ErrorKind::WriteZero,
+                "write zero packet into sender",
+            ))))
+        } else {
+            Poll::Ready(Ok(count))
+        }
     }
 }

@@ -36,6 +36,7 @@ impl EscapeLogForUdpRelaySendto<'_> {
             UdpRelayRemoteError::NoListenSocket => (None, None, "NoListenSocket"),
             UdpRelayRemoteError::RecvFailed(bind, _) => (Some(*bind), None, "RecvFailed"),
             UdpRelayRemoteError::SendFailed(bind, to, _) => (Some(*bind), Some(*to), "SendFailed"),
+            UdpRelayRemoteError::BatchSendFailed(bind, _) => (Some(*bind), None, "BatchSendFailed"),
             UdpRelayRemoteError::InvalidPacket(bind, _) => (Some(*bind), None, "InvalidPacket"),
             UdpRelayRemoteError::AddressNotSupported => (None, None, "AddressNotSupported"),
             UdpRelayRemoteError::DomainNotResolved(_) => (None, None, "DomainNotResolved"),

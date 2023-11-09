@@ -36,6 +36,7 @@ use tokio::net::UdpSocket;
     target_os = "freebsd",
     target_os = "netbsd"
 ))]
+#[derive(Clone, Copy)]
 pub struct SendMsgHdr<'a, const C: usize> {
     pub iov: [IoSlice<'a>; C],
     pub addr: Option<SocketAddr>,

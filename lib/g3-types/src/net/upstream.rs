@@ -147,6 +147,17 @@ impl From<SocketAddr> for UpstreamAddr {
     }
 }
 
+impl TryFrom<&UpstreamAddr> for SocketAddr {
+    type Error = ();
+
+    fn try_from(value: &UpstreamAddr) -> Result<Self, Self::Error> {
+        match &value.host {
+            Host::Domain(_) => Err(()),
+            Host::Ip(ip) => Ok(SocketAddr::new(*ip, value.port)),
+        }
+    }
+}
+
 impl FromStr for UpstreamAddr {
     type Err = anyhow::Error;
 

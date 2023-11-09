@@ -21,6 +21,8 @@ use thiserror::Error;
 
 use g3_types::net::UpstreamAddr;
 
+use super::UdpRelayPacket;
+
 #[derive(Error, Debug)]
 pub enum UdpRelayClientError {
     #[error("recv failed: {0:?}")]
@@ -49,6 +51,18 @@ pub trait UdpRelayClientRecv {
         cx: &mut Context<'_>,
         buf: &mut [u8],
     ) -> Poll<Result<(usize, usize, UpstreamAddr), UdpRelayClientError>>;
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd"
+    ))]
+    fn poll_recv_packets(
+        &mut self,
+        cx: &mut Context<'_>,
+        packets: &mut [UdpRelayPacket],
+    ) -> Poll<Result<usize, UdpRelayClientError>>;
 }
 
 pub trait UdpRelayClientSend {
@@ -58,5 +72,17 @@ pub trait UdpRelayClientSend {
         cx: &mut Context<'_>,
         buf: &[u8],
         from: &UpstreamAddr,
+    ) -> Poll<Result<usize, UdpRelayClientError>>;
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd"
+    ))]
+    fn poll_send_packets(
+        &mut self,
+        cx: &mut Context<'_>,
+        packets: &[UdpRelayPacket],
     ) -> Poll<Result<usize, UdpRelayClientError>>;
 }

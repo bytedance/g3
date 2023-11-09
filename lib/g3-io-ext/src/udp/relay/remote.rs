@@ -23,6 +23,14 @@ use thiserror::Error;
 use g3_resolver::ResolveError;
 use g3_types::net::UpstreamAddr;
 
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd"
+))]
+use super::UdpRelayPacket;
+
 #[derive(Error, Debug)]
 pub enum UdpRelayRemoteError {
     #[error("no listen socket")]
@@ -31,6 +39,8 @@ pub enum UdpRelayRemoteError {
     RecvFailed(SocketAddr, io::Error),
     #[error("send failed: (bind: {0}, remote: {1}) {2:?}")]
     SendFailed(SocketAddr, SocketAddr, io::Error),
+    #[error("batch send failed: (bind: {0}) {1:?}")]
+    BatchSendFailed(SocketAddr, io::Error),
     #[error("invalid packet: (bind: {0}) {0}")]
     InvalidPacket(SocketAddr, String),
     #[error("address not supported")]
@@ -57,6 +67,18 @@ pub trait UdpRelayRemoteRecv {
         cx: &mut Context<'_>,
         buf: &mut [u8],
     ) -> Poll<Result<(usize, usize, UpstreamAddr), UdpRelayRemoteError>>;
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd"
+    ))]
+    fn poll_recv_packets(
+        &mut self,
+        cx: &mut Context<'_>,
+        packets: &mut [UdpRelayPacket],
+    ) -> Poll<Result<usize, UdpRelayRemoteError>>;
 }
 
 pub trait UdpRelayRemoteSend {
@@ -66,5 +88,17 @@ pub trait UdpRelayRemoteSend {
         cx: &mut Context<'_>,
         buf: &[u8],
         to: &UpstreamAddr,
+    ) -> Poll<Result<usize, UdpRelayRemoteError>>;
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd"
+    ))]
+    fn poll_send_packets(
+        &mut self,
+        cx: &mut Context<'_>,
+        packets: &[UdpRelayPacket],
     ) -> Poll<Result<usize, UdpRelayRemoteError>>;
 }
