@@ -14,7 +14,14 @@
  * limitations under the License.
  */
 
-use std::io::{self, IoSliceMut};
+use std::io;
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd"
+))]
+use std::io::IoSliceMut;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::pin::Pin;
 use std::task::{ready, Context, Poll};

@@ -16,7 +16,14 @@
 
 use std::error::Error;
 use std::fmt;
-use std::io::{self, IoSlice, IoSliceMut};
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd"
+))]
+use std::io::IoSliceMut;
+use std::io::{self, IoSlice};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::task::{ready, Context, Poll};
