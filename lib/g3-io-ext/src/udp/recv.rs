@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::io;
+use std::io::{self, IoSliceMut};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::pin::Pin;
 use std::task::{ready, Context, Poll};
@@ -24,7 +24,7 @@ use futures_util::FutureExt;
 use tokio::time::{Instant, Sleep};
 
 use crate::limit::{DatagramLimitInfo, DatagramLimitResult};
-use crate::ArcLimitedRecvStats;
+use crate::{ArcLimitedRecvStats, RecvMsghdr};
 
 pub trait AsyncUdpRecv {
     fn poll_recv_from(
@@ -34,6 +34,19 @@ pub trait AsyncUdpRecv {
     ) -> Poll<io::Result<(usize, SocketAddr)>>;
 
     fn poll_recv(&mut self, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>>;
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd"
+    ))]
+    fn poll_batch_recvmsg(
+        &mut self,
+        cx: &mut Context<'_>,
+        bufs: &mut [IoSliceMut<'_>],
+        meta: &mut [RecvMsghdr],
+    ) -> Poll<io::Result<usize>>;
 }
 
 pub struct LimitedUdpRecv<T> {
@@ -129,6 +142,43 @@ where
             self.stats.add_recv_packet();
             self.stats.add_recv_bytes(nr);
             Poll::Ready(Ok(nr))
+        }
+    }
+
+    fn poll_batch_recvmsg(
+        &mut self,
+        cx: &mut Context<'_>,
+        bufs: &mut [IoSliceMut<'_>],
+        meta: &mut [RecvMsghdr],
+    ) -> Poll<io::Result<usize>> {
+        if self.limit.is_set() {
+            let dur_millis = self.started.elapsed().as_millis() as u64;
+            match self.limit.check_packets(dur_millis, bufs) {
+                DatagramLimitResult::Advance(n) => {
+                    let count = ready!(self.inner.poll_batch_recvmsg(
+                        cx,
+                        &mut bufs[0..n],
+                        &mut meta[0..n]
+                    ))?;
+                    let len = meta.iter().take(count).map(|h| h.len).sum();
+                    self.limit.set_advance(count, len);
+                    self.stats.add_recv_packets(count);
+                    self.stats.add_recv_bytes(len);
+                    Poll::Ready(Ok(count))
+                }
+                DatagramLimitResult::DelayFor(ms) => {
+                    self.delay
+                        .as_mut()
+                        .reset(self.started + Duration::from_millis(dur_millis + ms));
+                    self.delay.poll_unpin(cx).map(|_| Ok(0))
+                }
+            }
+        } else {
+            let count = ready!(self.inner.poll_batch_recvmsg(cx, bufs, meta))?;
+            self.stats.add_recv_packets(count);
+            self.stats
+                .add_recv_bytes(meta.iter().take(count).map(|h| h.len).sum());
+            Poll::Ready(Ok(count))
         }
     }
 }

@@ -16,7 +16,7 @@
 
 use std::error::Error;
 use std::fmt;
-use std::io::{self, IoSlice};
+use std::io::{self, IoSlice, IoSliceMut};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::task::{ready, Context, Poll};
@@ -24,7 +24,7 @@ use std::task::{ready, Context, Poll};
 use tokio::io::ReadBuf;
 use tokio::net::UdpSocket;
 
-use super::{AsyncUdpRecv, AsyncUdpSend, UdpSocketExt};
+use super::{AsyncUdpRecv, AsyncUdpSend, RecvMsghdr, SendMsgHdr, UdpSocketExt};
 
 #[derive(Debug)]
 pub struct SendHalf(Arc<UdpSocket>);
@@ -94,6 +94,14 @@ impl AsyncUdpSend for SendHalf {
     ) -> Poll<io::Result<usize>> {
         self.0.poll_sendmsg(cx, iov, target)
     }
+
+    fn poll_batch_sendmsg<const C: usize>(
+        &mut self,
+        cx: &mut Context<'_>,
+        msgs: &[SendMsgHdr<'_, C>],
+    ) -> Poll<io::Result<usize>> {
+        self.0.poll_batch_sendmsg(cx, msgs)
+    }
 }
 
 impl RecvHalf {
@@ -121,5 +129,14 @@ impl AsyncUdpRecv for RecvHalf {
         let mut buf = ReadBuf::new(buf);
         ready!(self.0.poll_recv(cx, &mut buf))?;
         Poll::Ready(Ok(buf.filled().len()))
+    }
+
+    fn poll_batch_recvmsg(
+        &mut self,
+        cx: &mut Context<'_>,
+        bufs: &mut [IoSliceMut<'_>],
+        meta: &mut [RecvMsghdr],
+    ) -> Poll<io::Result<usize>> {
+        self.0.poll_batch_recvmsg(cx, bufs, meta)
     }
 }

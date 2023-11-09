@@ -140,15 +140,14 @@ impl UdpSocketExt for UdpSocket {
         cx: &mut Context<'_>,
         buf: &mut IoSliceMut<'_>,
     ) -> Poll<io::Result<RecvMsghdr>> {
-        let flags: MsgFlags = MsgFlags::MSG_DONTWAIT;
-
         let raw_fd = self.as_raw_fd();
         let mut iov = [IoSliceMut::new(buf.as_mut())];
 
         loop {
             ready!(self.poll_recv_ready(cx))?;
             match self.try_io(Interest::READABLE, || {
-                recvmsg::<SockaddrStorage>(raw_fd, &mut iov, None, flags).map_err(io::Error::from)
+                recvmsg::<SockaddrStorage>(raw_fd, &mut iov, None, MsgFlags::MSG_DONTWAIT)
+                    .map_err(io::Error::from)
             }) {
                 Ok(res) => {
                     let addr = res.address.and_then(|v| {
@@ -220,8 +219,6 @@ impl UdpSocketExt for UdpSocket {
         bufs: &mut [IoSliceMut<'_>],
         meta: &mut [RecvMsghdr],
     ) -> Poll<io::Result<usize>> {
-        let flags: MsgFlags = MsgFlags::MSG_DONTWAIT;
-
         let mut data = MultiHeaders::<SockaddrStorage>::preallocate(bufs.len(), None);
         let slices: Vec<_> = bufs
             .iter_mut()
@@ -232,7 +229,8 @@ impl UdpSocketExt for UdpSocket {
         loop {
             ready!(self.poll_recv_ready(cx))?;
             match self.try_io(Interest::READABLE, || {
-                recvmmsg(raw_fd, &mut data, &slices, flags, None).map_err(io::Error::from)
+                recvmmsg(raw_fd, &mut data, &slices, MsgFlags::MSG_DONTWAIT, None)
+                    .map_err(io::Error::from)
             }) {
                 Ok(res) => {
                     let mut count = 0;

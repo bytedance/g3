@@ -43,6 +43,10 @@ impl UdpCopyPacket {
             buf_data_end: 0,
         }
     }
+
+    fn payload(&self) -> &[u8] {
+        &self.buf[self.buf_data_off..self.buf_data_end]
+    }
 }
 
 #[derive(Error, Debug)]
@@ -57,8 +61,8 @@ trait UdpCopyRecv {
     fn poll_recv_packet(
         &mut self,
         cx: &mut Context<'_>,
-        buf: &mut [u8],
-    ) -> Poll<Result<(usize, usize), UdpCopyError>>;
+        packet: &mut UdpCopyPacket,
+    ) -> Poll<Result<usize, UdpCopyError>>;
 }
 
 struct ClientRecv<'a, T: UdpCopyClientRecv + ?Sized>(&'a mut T);
@@ -67,11 +71,15 @@ impl<'a, T: UdpCopyClientRecv + ?Sized> UdpCopyRecv for ClientRecv<'a, T> {
     fn poll_recv_packet(
         &mut self,
         cx: &mut Context<'_>,
-        buf: &mut [u8],
-    ) -> Poll<Result<(usize, usize), UdpCopyError>> {
-        self.0
-            .poll_recv_packet(cx, buf)
-            .map_err(UdpCopyError::ClientError)
+        packet: &mut UdpCopyPacket,
+    ) -> Poll<Result<usize, UdpCopyError>> {
+        let (off, nr) = ready!(self
+            .0
+            .poll_recv_packet(cx, &mut packet.buf)
+            .map_err(UdpCopyError::ClientError))?;
+        packet.buf_data_off = off;
+        packet.buf_data_end = nr;
+        Poll::Ready(Ok(nr))
     }
 }
 
@@ -81,11 +89,15 @@ impl<'a, T: UdpCopyRemoteRecv + ?Sized> UdpCopyRecv for RemoteRecv<'a, T> {
     fn poll_recv_packet(
         &mut self,
         cx: &mut Context<'_>,
-        buf: &mut [u8],
-    ) -> Poll<Result<(usize, usize), UdpCopyError>> {
-        self.0
-            .poll_recv_packet(cx, buf)
-            .map_err(UdpCopyError::RemoteError)
+        packet: &mut UdpCopyPacket,
+    ) -> Poll<Result<usize, UdpCopyError>> {
+        let (off, nr) = ready!(self
+            .0
+            .poll_recv_packet(cx, &mut packet.buf)
+            .map_err(UdpCopyError::RemoteError))?;
+        packet.buf_data_off = off;
+        packet.buf_data_end = nr;
+        Poll::Ready(Ok(nr))
     }
 }
 
@@ -93,7 +105,7 @@ trait UdpCopySend {
     fn poll_send_packet(
         &mut self,
         cx: &mut Context<'_>,
-        buf: &[u8],
+        packet: &UdpCopyPacket,
     ) -> Poll<Result<usize, UdpCopyError>>;
 }
 
@@ -103,10 +115,10 @@ impl<'a, T: UdpCopyClientSend + ?Sized> UdpCopySend for ClientSend<'a, T> {
     fn poll_send_packet(
         &mut self,
         cx: &mut Context<'_>,
-        buf: &[u8],
+        packet: &UdpCopyPacket,
     ) -> Poll<Result<usize, UdpCopyError>> {
         self.0
-            .poll_send_packet(cx, buf)
+            .poll_send_packet(cx, packet.payload())
             .map_err(UdpCopyError::ClientError)
     }
 }
@@ -117,10 +129,10 @@ impl<'a, T: UdpCopyRemoteSend + ?Sized> UdpCopySend for RemoteSend<'a, T> {
     fn poll_send_packet(
         &mut self,
         cx: &mut Context<'_>,
-        buf: &[u8],
+        packet: &UdpCopyPacket,
     ) -> Poll<Result<usize, UdpCopyError>> {
         self.0
-            .poll_send_packet(cx, buf)
+            .poll_send_packet(cx, packet.payload())
             .map_err(UdpCopyError::RemoteError)
     }
 }
@@ -158,21 +170,16 @@ impl UdpCopyBuffer {
         let mut copy_this_round = 0usize;
         loop {
             if !self.to_send {
-                let (off, nr) = ready!(receiver.poll_recv_packet(cx, &mut self.packet.buf))?;
+                let nr = ready!(receiver.poll_recv_packet(cx, &mut self.packet))?;
                 if nr == 0 {
                     break;
                 }
-                self.packet.buf_data_off = off;
-                self.packet.buf_data_end = nr;
                 self.to_send = true;
                 self.active = true;
             }
 
             if self.to_send {
-                let nw = ready!(sender.poll_send_packet(
-                    cx,
-                    &self.packet.buf[self.packet.buf_data_off..self.packet.buf_data_end],
-                ))?;
+                let nw = ready!(sender.poll_send_packet(cx, &self.packet))?;
                 copy_this_round += nw;
                 self.total += nw as u64;
                 self.to_send = false;

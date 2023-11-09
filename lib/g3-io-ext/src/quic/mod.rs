@@ -291,7 +291,7 @@ impl AsyncUdpSocket for LimitedUdpSocket {
             let dur_millis = l.started.elapsed().as_millis() as u64;
             match l.limit.check_packets(dur_millis, bufs) {
                 DatagramLimitResult::Advance(n) => {
-                    let nr = ready!(self.inner.poll_recv(cx, &mut bufs[0..n], meta))?;
+                    let nr = ready!(self.inner.poll_recv(cx, &mut bufs[0..n], &mut meta[0..n]))?;
                     let len = bufs.iter().take(nr).map(|v| v.len()).sum();
                     l.limit.set_advance(nr, len);
                     l.stats.add_recv_packets(nr);
