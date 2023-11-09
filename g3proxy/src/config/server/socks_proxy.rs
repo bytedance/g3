@@ -260,6 +260,11 @@ impl SocksProxyServerConfig {
                 self.udp_relay.set_yield_size(yield_size);
                 Ok(())
             }
+            "udp_relay_batch_size" => {
+                let batch_size = g3_yaml::value::as_usize(v)?;
+                self.udp_relay.set_batch_size(batch_size);
+                Ok(())
+            }
             "tcp_misc_opts" => {
                 self.tcp_misc_opts = g3_yaml::value::as_tcp_misc_sock_opts(v)
                     .context(format!("invalid tcp misc sock opts value for key {k}"))?;

@@ -21,6 +21,13 @@ use futures_util::FutureExt;
 use tokio::sync::oneshot;
 
 use g3_io_ext::{AsyncUdpRecv, UdpCopyRemoteError, UdpCopyRemoteRecv};
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd"
+))]
+use g3_io_ext::{RecvMsghdr, UdpCopyPacket};
 use g3_socks::v5::UdpInput;
 
 pub(crate) struct ProxySocks5UdpConnectRemoteRecv<T> {
@@ -39,16 +46,15 @@ where
         }
     }
 
-    fn poll_recv(
-        &mut self,
-        cx: &mut Context<'_>,
-        buf: &mut [u8],
-    ) -> Poll<Result<(usize, usize), UdpCopyRemoteError>> {
-        let nr = ready!(self.inner.poll_recv(cx, buf)).map_err(UdpCopyRemoteError::RecvFailed)?;
-
-        let (off, _upstream) = UdpInput::parse_header(buf)
-            .map_err(|e| UdpCopyRemoteError::InvalidPacket(e.to_string()))?;
-        Poll::Ready(Ok((off, nr)))
+    fn check_tcp_close(&mut self, cx: &mut Context<'_>) -> Result<(), UdpCopyRemoteError> {
+        match self.tcp_close_receiver.poll_unpin(cx) {
+            Poll::Pending => Ok(()),
+            Poll::Ready(Ok(None)) => Err(UdpCopyRemoteError::RemoteSessionClosed),
+            Poll::Ready(Ok(Some(e))) => Err(UdpCopyRemoteError::RemoteSessionError(e)),
+            Poll::Ready(Err(_)) => Err(UdpCopyRemoteError::InternalServerError(
+                "tcp close wait channel closed unexpected",
+            )),
+        }
     }
 }
 
@@ -65,20 +71,47 @@ where
         cx: &mut Context<'_>,
         buf: &mut [u8],
     ) -> Poll<Result<(usize, usize), UdpCopyRemoteError>> {
-        match self.tcp_close_receiver.poll_unpin(cx) {
-            Poll::Pending => {}
-            Poll::Ready(Ok(None)) => {
-                return Poll::Ready(Err(UdpCopyRemoteError::RemoteSessionClosed));
-            }
-            Poll::Ready(Ok(Some(e))) => {
-                return Poll::Ready(Err(UdpCopyRemoteError::RemoteSessionError(e)));
-            }
-            Poll::Ready(Err(_)) => {
-                return Poll::Ready(Err(UdpCopyRemoteError::InternalServerError(
-                    "tcp close wait channel closed unexpected",
-                )));
-            }
+        self.check_tcp_close(cx)?;
+
+        let nr = ready!(self.inner.poll_recv(cx, buf)).map_err(UdpCopyRemoteError::RecvFailed)?;
+
+        let (off, _upstream) = UdpInput::parse_header(buf)
+            .map_err(|e| UdpCopyRemoteError::InvalidPacket(e.to_string()))?;
+        Poll::Ready(Ok((off, nr)))
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd"
+    ))]
+    fn poll_recv_packets(
+        &mut self,
+        cx: &mut Context<'_>,
+        packets: &mut [UdpCopyPacket],
+    ) -> Poll<Result<usize, UdpCopyRemoteError>> {
+        use std::io::IoSliceMut;
+
+        self.check_tcp_close(cx)?;
+
+        let mut meta = vec![RecvMsghdr::default(); packets.len()];
+        let mut bufs: Vec<_> = packets
+            .iter_mut()
+            .map(|p| IoSliceMut::new(p.buf_mut()))
+            .collect();
+
+        let count = ready!(self.inner.poll_batch_recvmsg(cx, &mut bufs, &mut meta))
+            .map_err(UdpCopyRemoteError::RecvFailed)?;
+
+        for (p, m) in packets.iter_mut().take(count).zip(meta) {
+            let (off, _upstream) = UdpInput::parse_header(&p.buf()[0..m.len])
+                .map_err(|e| UdpCopyRemoteError::InvalidPacket(e.to_string()))?;
+
+            p.set_offset(off);
+            p.set_length(m.len);
         }
-        self.poll_recv(cx, buf)
+
+        Poll::Ready(Ok(count))
     }
 }

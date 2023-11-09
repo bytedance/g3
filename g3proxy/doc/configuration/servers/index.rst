@@ -226,6 +226,19 @@ Set the yield out size for the internal relay task.
 
 **default**: 1M, **maximum**: 256K
 
+.. _conf_server_common_udp_relay_batch_size:
+
+udp_relay_batch_size
+--------------------
+
+**optional**, **type**: usize
+
+Set the batch recvmsg / sendmsg size.
+
+**default**: 8
+
+.. versionadded:: 1.7.29
+
 .. _conf_server_common_tcp_misc_opts:
 
 tcp_misc_opts

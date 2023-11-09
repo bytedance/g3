@@ -19,6 +19,14 @@ use std::task::{Context, Poll};
 
 use thiserror::Error;
 
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd"
+))]
+use super::UdpCopyPacket;
+
 #[derive(Error, Debug)]
 pub enum UdpCopyRemoteError {
     #[error("recv failed: {0:?}")]
@@ -45,6 +53,18 @@ pub trait UdpCopyRemoteRecv {
         cx: &mut Context<'_>,
         buf: &mut [u8],
     ) -> Poll<Result<(usize, usize), UdpCopyRemoteError>>;
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd"
+    ))]
+    fn poll_recv_packets(
+        &mut self,
+        cx: &mut Context<'_>,
+        packets: &mut [UdpCopyPacket],
+    ) -> Poll<Result<usize, UdpCopyRemoteError>>;
 }
 
 pub trait UdpCopyRemoteSend {
@@ -53,5 +73,17 @@ pub trait UdpCopyRemoteSend {
         &mut self,
         cx: &mut Context<'_>,
         buf: &[u8],
+    ) -> Poll<Result<usize, UdpCopyRemoteError>>;
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd"
+    ))]
+    fn poll_send_packets(
+        &mut self,
+        cx: &mut Context<'_>,
+        packets: &[UdpCopyPacket],
     ) -> Poll<Result<usize, UdpCopyRemoteError>>;
 }

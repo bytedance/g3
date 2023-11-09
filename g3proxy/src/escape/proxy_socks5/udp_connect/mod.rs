@@ -74,7 +74,7 @@ impl ProxySocks5Escaper {
         );
 
         let recv = ProxySocks5UdpConnectRemoteRecv::new(recv, tcp_close_receiver);
-        let send = ProxySocks5UdpConnectRemoteSend::new(send, upstream.clone());
+        let send = ProxySocks5UdpConnectRemoteSend::new(send, upstream);
 
         Ok((Box::new(recv), Box::new(send), self.escape_logger.clone()))
     }
