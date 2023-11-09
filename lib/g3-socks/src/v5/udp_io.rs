@@ -152,7 +152,9 @@ pub struct SocksUdpHeader {
 impl SocksUdpHeader {
     pub fn encode(&mut self, ups: &UpstreamAddr) -> &[u8] {
         let header_len = UdpOutput::calc_header_len(ups);
-        self.buf.reserve(header_len);
+        if header_len > self.buf.len() {
+            self.buf.resize(header_len, 0);
+        }
         UdpOutput::generate_header(&mut self.buf, ups);
         &self.buf[0..header_len]
     }
@@ -161,7 +163,7 @@ impl SocksUdpHeader {
 impl Default for SocksUdpHeader {
     fn default() -> Self {
         SocksUdpHeader {
-            buf: Vec::with_capacity(22), // large enough for ipv6
+            buf: vec![0; 22], // large enough for ipv6
         }
     }
 }

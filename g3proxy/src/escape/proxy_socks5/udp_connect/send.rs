@@ -39,7 +39,7 @@ where
 {
     pub(crate) fn new(send: T, upstream: &UpstreamAddr) -> Self {
         let header_len = UdpOutput::calc_header_len(upstream);
-        let mut socks5_header = Vec::with_capacity(header_len);
+        let mut socks5_header = vec![0; header_len];
         UdpOutput::generate_header(&mut socks5_header, upstream);
         ProxySocks5UdpConnectRemoteSend {
             inner: send,
