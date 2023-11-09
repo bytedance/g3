@@ -56,7 +56,8 @@ impl<'a, const C: usize> AsRef<[IoSlice<'a>]> for SendMsgHdr<'a, C> {
 
 #[derive(Clone, Copy, Default)]
 pub struct RecvMsghdr {
-    pub len: usize,
+    pub off: usize, // use this to set read offset instead of IoSliceMut::advance when possible
+    pub len: usize, // the total raw read length
     pub addr: Option<SocketAddr>,
 }
 
@@ -160,7 +161,7 @@ impl UdpSocketExt for UdpSocket {
                             })
                     });
                     let len = res.iovs().next().map(|b| b.len()).unwrap_or_default();
-                    return Poll::Ready(Ok(RecvMsghdr { len, addr }));
+                    return Poll::Ready(Ok(RecvMsghdr { off: 0, len, addr }));
                 }
                 Err(e) => {
                     if e.kind() == io::ErrorKind::WouldBlock {

@@ -274,7 +274,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
                     .zip(bufs.iter_mut())
                 {
                     let mut len = r.len;
-                    let (off, ups) = UdpInput::parse_header(b.as_ref())
+                    let (off, ups) = UdpInput::parse_header(&b[r.off..])
                         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
                     let addr = match ups.host() {
                         Host::Ip(ip) => SocketAddr::new(*ip, ups.port()),
@@ -287,6 +287,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
                             SocketAddr::new(ip, ups.port())
                         }
                     };
+                    let off = off + r.off;
                     // TODO use IoSliceMut::advance instead of copy
                     b.copy_within(off..len, 0);
                     len -= off;

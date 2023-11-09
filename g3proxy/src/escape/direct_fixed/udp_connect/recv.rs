@@ -78,7 +78,7 @@ where
             .map_err(UdpCopyRemoteError::RecvFailed)?;
 
         for (p, m) in packets.iter_mut().take(count).zip(meta) {
-            p.set_offset(0);
+            p.set_offset(m.off);
             p.set_length(m.len);
         }
 

@@ -122,7 +122,7 @@ where
                 SocketAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
                 SocketAddr::V6(_) => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
             });
-            p.set_offset(0);
+            p.set_offset(m.off);
             p.set_length(m.len);
             p.set_upstream(UpstreamAddr::from(addr));
         }

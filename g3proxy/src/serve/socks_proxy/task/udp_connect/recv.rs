@@ -182,13 +182,13 @@ where
             .map_err(UdpCopyClientError::RecvFailed)?;
 
         for (p, m) in packets.iter_mut().take(count).zip(meta) {
-            let (off, upstream) = UdpInput::parse_header(&p.buf()[0..m.len])
+            let (off, upstream) = UdpInput::parse_header(&p.buf()[m.off..m.len])
                 .map_err(|e| UdpCopyClientError::InvalidPacket(e.to_string()))?;
 
             if self.upstream.ne(&upstream) {
                 return Poll::Ready(Err(UdpCopyClientError::VaryUpstream));
             }
-            p.set_offset(off);
+            p.set_offset(m.off + off);
             p.set_length(m.len);
         }
 

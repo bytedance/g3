@@ -256,10 +256,10 @@ where
             .map_err(UdpRelayClientError::RecvFailed)?;
 
         for (p, m) in packets.iter_mut().take(count).zip(meta) {
-            let (off, ups) = UdpInput::parse_header(&p.buf()[0..m.len])
+            let (off, ups) = UdpInput::parse_header(&p.buf()[m.off..m.len])
                 .map_err(|e| UdpRelayClientError::InvalidPacket(e.to_string()))?;
 
-            p.set_offset(off);
+            p.set_offset(m.off + off);
             p.set_length(m.len);
             p.set_upstream(ups);
         }
