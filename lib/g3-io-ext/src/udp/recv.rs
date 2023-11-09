@@ -23,8 +23,15 @@ use std::time::Duration;
 use futures_util::FutureExt;
 use tokio::time::{Instant, Sleep};
 
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd"
+))]
+use super::RecvMsghdr;
 use crate::limit::{DatagramLimitInfo, DatagramLimitResult};
-use crate::{ArcLimitedRecvStats, RecvMsghdr};
+use crate::ArcLimitedRecvStats;
 
 pub trait AsyncUdpRecv {
     fn poll_recv_from(
@@ -145,6 +152,12 @@ where
         }
     }
 
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd"
+    ))]
     fn poll_batch_recvmsg(
         &mut self,
         cx: &mut Context<'_>,

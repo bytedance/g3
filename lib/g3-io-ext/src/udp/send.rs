@@ -23,8 +23,15 @@ use std::time::Duration;
 use futures_util::FutureExt;
 use tokio::time::{Instant, Sleep};
 
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd"
+))]
+use super::SendMsgHdr;
 use crate::limit::{DatagramLimitInfo, DatagramLimitResult};
-use crate::{ArcLimitedSendStats, SendMsgHdr};
+use crate::ArcLimitedSendStats;
 
 pub trait AsyncUdpSend {
     fn poll_send_to(
@@ -179,6 +186,12 @@ where
         }
     }
 
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd"
+    ))]
     fn poll_batch_sendmsg<const C: usize>(
         &mut self,
         cx: &mut Context<'_>,

@@ -24,7 +24,14 @@ use std::task::{ready, Context, Poll};
 use tokio::io::ReadBuf;
 use tokio::net::UdpSocket;
 
-use super::{AsyncUdpRecv, AsyncUdpSend, RecvMsghdr, SendMsgHdr, UdpSocketExt};
+use super::{AsyncUdpRecv, AsyncUdpSend, UdpSocketExt};
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd"
+))]
+use super::{RecvMsghdr, SendMsgHdr};
 
 #[derive(Debug)]
 pub struct SendHalf(Arc<UdpSocket>);
@@ -95,6 +102,12 @@ impl AsyncUdpSend for SendHalf {
         self.0.poll_sendmsg(cx, iov, target)
     }
 
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd"
+    ))]
     fn poll_batch_sendmsg<const C: usize>(
         &mut self,
         cx: &mut Context<'_>,
@@ -131,6 +144,12 @@ impl AsyncUdpRecv for RecvHalf {
         Poll::Ready(Ok(buf.filled().len()))
     }
 
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd"
+    ))]
     fn poll_batch_recvmsg(
         &mut self,
         cx: &mut Context<'_>,

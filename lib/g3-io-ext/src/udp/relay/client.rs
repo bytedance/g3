@@ -21,6 +21,12 @@ use thiserror::Error;
 
 use g3_types::net::UpstreamAddr;
 
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd"
+))]
 use super::UdpRelayPacket;
 
 #[derive(Error, Debug)]
