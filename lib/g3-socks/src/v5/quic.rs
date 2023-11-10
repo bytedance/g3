@@ -17,7 +17,7 @@
 use std::cell::UnsafeCell;
 use std::future::Future;
 use std::io::{self, IoSlice, IoSliceMut};
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
+use std::net::{SocketAddr, UdpSocket};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{ready, Context, Poll};
@@ -32,13 +32,15 @@ use tokio::time::sleep_until;
 use g3_io_ext::UdpSocketExt;
 use g3_types::net::{Host, UpstreamAddr};
 
+use super::udp_io::{UDP_HEADER_LEN_IPV4, UDP_HEADER_LEN_IPV6};
 use super::{UdpInput, UdpOutput};
 
 #[derive(Debug)]
 pub struct Socks5UdpTokioRuntime {
-    local_addr: SocketAddr,
+    quic_peer_addr: SocketAddr,
     ctl_close_receiver: broadcast::Receiver<Option<Arc<io::Error>>>,
     ctl_drop_receiver: oneshot::Receiver<()>,
+    send_socks_header: SendHeaderBuffer,
 }
 
 impl Drop for Socks5UdpTokioRuntime {
@@ -48,7 +50,7 @@ impl Drop for Socks5UdpTokioRuntime {
 }
 
 impl Socks5UdpTokioRuntime {
-    pub fn new<R>(ctl_stream: R, udp_local_addr: SocketAddr) -> Self
+    pub fn new<R>(ctl_stream: R, quic_peer_addr: SocketAddr) -> Self
     where
         R: AsyncRead + Send + Unpin + 'static,
     {
@@ -75,11 +77,14 @@ impl Socks5UdpTokioRuntime {
                 _ = ctl_drop_notifier.closed() => {}
             }
         });
+        let mut send_socks_header = SendHeaderBuffer::default();
+        send_socks_header.encode(quic_peer_addr);
 
         Socks5UdpTokioRuntime {
-            local_addr: udp_local_addr,
+            quic_peer_addr,
             ctl_close_receiver,
             ctl_drop_receiver,
+            send_socks_header,
         }
     }
 }
@@ -106,15 +111,20 @@ impl Runtime for Socks5UdpTokioRuntime {
         let io = tokio::net::UdpSocket::from_std(t)?;
         Ok(Box::new(Socks5UdpSocket {
             io,
-            local_addr: self.local_addr,
+            quic_peer_addr: self.quic_peer_addr,
             ctl_close_receiver: UnsafeCell::new(receiver),
+            send_socks_header: self.send_socks_header,
+            recv_socks_headers: UnsafeCell::new(vec![
+                RecvHeaderBuffer::new(self.quic_peer_addr);
+                4
+            ]),
         }))
     }
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 struct SendHeaderBuffer {
-    buf: [u8; 22],
+    buf: [u8; UDP_HEADER_LEN_IPV6],
     len: usize,
 }
 
@@ -131,11 +141,42 @@ impl SendHeaderBuffer {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+enum RecvHeaderBuffer {
+    V4([u8; UDP_HEADER_LEN_IPV4]),
+    V6([u8; UDP_HEADER_LEN_IPV6]),
+}
+
+impl RecvHeaderBuffer {
+    fn new(addr: SocketAddr) -> Self {
+        match addr {
+            SocketAddr::V4(_) => RecvHeaderBuffer::V4([0u8; UDP_HEADER_LEN_IPV4]),
+            SocketAddr::V6(_) => RecvHeaderBuffer::V6([0u8; UDP_HEADER_LEN_IPV6]),
+        }
+    }
+
+    fn buf_mut(&mut self) -> &mut [u8] {
+        match self {
+            RecvHeaderBuffer::V4(b) => b.as_mut(),
+            RecvHeaderBuffer::V6(b) => b.as_mut(),
+        }
+    }
+
+    fn buf(&self) -> &[u8] {
+        match self {
+            RecvHeaderBuffer::V4(b) => b.as_ref(),
+            RecvHeaderBuffer::V6(b) => b.as_ref(),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Socks5UdpSocket {
     io: tokio::net::UdpSocket,
-    local_addr: SocketAddr,
+    quic_peer_addr: SocketAddr,
     ctl_close_receiver: UnsafeCell<oneshot::Receiver<Option<io::Error>>>,
+    send_socks_header: SendHeaderBuffer,
+    recv_socks_headers: UnsafeCell<Vec<RecvHeaderBuffer>>,
 }
 
 impl AsyncUdpSocket for Socks5UdpSocket {
@@ -154,14 +195,13 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         use g3_io_ext::SendMsgHdr;
 
         let mut msgs = Vec::with_capacity(transmits.len());
-        let mut socks_hdrs = vec![SendHeaderBuffer::default(); transmits.len()];
 
-        for (hdr_buf, transmit) in socks_hdrs.iter_mut().zip(transmits) {
-            hdr_buf.encode(transmit.destination);
+        for transmit in transmits {
+            assert_eq!(self.quic_peer_addr, transmit.destination);
 
             msgs.push(SendMsgHdr {
                 iov: [
-                    IoSlice::new(hdr_buf.hdr()),
+                    IoSlice::new(self.send_socks_header.hdr()),
                     IoSlice::new(&transmit.contents),
                 ],
                 addr: None,
@@ -181,13 +221,12 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         // logics from quinn-udp::fallback.rs
         let mut sent = 0;
         for transmit in transmits {
-            let mut hdr_buf = SendHeaderBuffer::default();
-            hdr_buf.encode(transmit.destination);
+            assert_eq!(self.quic_peer_addr, transmit.destination);
 
             match self.io.poll_sendmsg(
                 cx,
                 &[
-                    IoSlice::new(hdr_buf.hdr()),
+                    IoSlice::new(self.send_socks_header.hdr()),
                     IoSlice::new(&transmit.contents),
                 ],
                 None,
@@ -239,7 +278,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         bufs: &mut [IoSliceMut<'_>],
         meta: &mut [RecvMeta],
     ) -> Poll<io::Result<usize>> {
-        use g3_io_ext::RecvMsghdr;
+        use g3_io_ext::RecvMsgHdr;
 
         let ctl_close_receiver = unsafe { &mut *self.ctl_close_receiver.get() };
         match Pin::new(ctl_close_receiver).poll(cx) {
@@ -264,38 +303,61 @@ impl AsyncUdpSocket for Socks5UdpSocket {
             }
         }
 
-        let mut recv_hdrs = vec![RecvMsghdr::default(); meta.len()];
-        match ready!(self.io.poll_batch_recvmsg(cx, bufs, &mut recv_hdrs)) {
+        let recv_socks_headers = unsafe { &mut *self.recv_socks_headers.get() };
+        if bufs.len() > recv_socks_headers.len() {
+            recv_socks_headers.resize(bufs.len(), RecvHeaderBuffer::new(self.quic_peer_addr));
+        }
+
+        let slices: Vec<[IoSliceMut<'_>; 2]> = bufs
+            .iter_mut()
+            .zip(recv_socks_headers.iter_mut())
+            .map(|(v, b)| [IoSliceMut::new(b.buf_mut()), IoSliceMut::new(v.as_mut())])
+            .collect();
+        let mut recv_hdrs = vec![RecvMsgHdr::default(); meta.len()];
+        match ready!(self.io.poll_batch_recvmsg(cx, &slices, &mut recv_hdrs)) {
             Ok(count) => {
-                for ((m, r), b) in meta
+                for ((m, r), socks_header) in meta
                     .iter_mut()
                     .take(count)
                     .zip(recv_hdrs)
-                    .zip(bufs.iter_mut())
+                    .zip(recv_socks_headers)
                 {
                     let mut len = r.len;
-                    let (off, ups) = UdpInput::parse_header(&b[r.off..])
+                    let socks_header_len = socks_header.buf().len();
+                    if len <= socks_header_len {
+                        // ignore invalid packets
+                        *m = RecvMeta {
+                            len: 0,
+                            addr: self.quic_peer_addr,
+                            stride: 0,
+                            ecn: None,
+                            dst_ip: None,
+                        };
+                        continue;
+                    }
+
+                    let (off, ups) = UdpInput::parse_header(socks_header.buf())
                         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-                    let addr = match ups.host() {
-                        Host::Ip(ip) => SocketAddr::new(*ip, ups.port()),
+                    assert_eq!(socks_header_len, off);
+                    let ip = match ups.host() {
+                        Host::Ip(ip) => *ip,
                         Host::Domain(_) => {
-                            // invalid reply packet, use unspecified addr instead of return error
-                            let ip = match self.local_addr {
-                                SocketAddr::V4(_) => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-                                SocketAddr::V6(_) => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
-                            };
-                            SocketAddr::new(ip, ups.port())
+                            // invalid reply packet, default to use the peer ip
+                            self.quic_peer_addr.ip()
                         }
                     };
-                    let off = off + r.off;
-                    // TODO use IoSliceMut::advance instead of copy
-                    b.copy_within(off..len, 0);
-                    len -= off;
+                    let port = ups.port();
+                    let port = if port == 0 {
+                        self.quic_peer_addr.port()
+                    } else {
+                        port
+                    };
 
+                    len -= off;
                     *m = RecvMeta {
                         len,
                         stride: len,
-                        addr,
+                        addr: SocketAddr::new(ip, port),
                         ecn: None,
                         dst_ip: None,
                     };
@@ -313,8 +375,6 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         bufs: &mut [IoSliceMut<'_>],
         meta: &mut [RecvMeta],
     ) -> Poll<io::Result<usize>> {
-        use tokio::io::ReadBuf;
-
         // logics from quinn-udp::fallback.rs
         let ctl_close_receiver = unsafe { &mut *self.ctl_close_receiver.get() };
         match Pin::new(ctl_close_receiver).poll(cx) {
@@ -342,31 +402,49 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         let Some(buf) = bufs.get_mut(0) else {
             return Poll::Ready(Err(io::Error::new(io::ErrorKind::InvalidInput, "no buf")));
         };
-        let mut read_buf = ReadBuf::new(buf.as_mut());
-        ready!(self.io.poll_recv(cx, &mut read_buf))?;
-        let mut len = read_buf.filled().len();
+        let recv_socks_headers = unsafe { &mut *self.recv_socks_headers.get() };
+        let recv_socks_header = recv_socks_headers.get_mut(0).unwrap();
 
-        let (off, ups) = UdpInput::parse_header(buf.as_ref())
+        let mut iov = [
+            IoSliceMut::new(recv_socks_header.buf_mut()),
+            IoSliceMut::new(buf),
+        ];
+
+        let mut nr = ready!(self.io.poll_recvmsg(cx, &mut iov))?;
+        let socks_header_len = recv_socks_header.buf().len();
+        if nr <= socks_header_len {
+            meta[0] = RecvMeta {
+                len,
+                stride: len,
+                addr: SocketAddr::new(ip, port),
+                ecn: None,
+                dst_ip: None,
+            };
+            return Poll::Ready(Ok(1));
+        }
+
+        let (off, ups) = UdpInput::parse_header(recv_socks_header.buf())
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-        let addr = match ups.host() {
-            Host::Ip(ip) => SocketAddr::new(*ip, ups.port()),
+        assert_eq!(socks_header_len, off);
+        let ip = match ups.host() {
+            Host::Ip(ip) => *ip,
             Host::Domain(_) => {
-                // invalid reply packet, use unspecified addr instead of return error
-                let ip = match self.local_addr {
-                    SocketAddr::V4(_) => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-                    SocketAddr::V6(_) => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
-                };
-                SocketAddr::new(ip, ups.port())
+                // invalid reply packet, default to use the peer ip
+                self.quic_peer_addr.ip()
             }
         };
-        // TODO use IoSliceMut::advance instead of copy
-        buf.copy_within(off..len, 0);
-        len -= off;
+        let port = ups.port();
+        let port = if port == 0 {
+            self.quic_peer_addr.port()
+        } else {
+            port
+        };
 
+        let len = nr - off;
         meta[0] = RecvMeta {
             len,
             stride: len,
-            addr,
+            addr: SocketAddr::new(ip, port),
             ecn: None,
             dst_ip: None,
         };
@@ -374,7 +452,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
     }
 
     fn local_addr(&self) -> io::Result<SocketAddr> {
-        Ok(self.local_addr)
+        Ok(self.quic_peer_addr)
     }
 
     fn may_fragment(&self) -> bool {

@@ -30,34 +30,52 @@ use nix::sys::socket::{recvmsg, sendmsg, MsgFlags, SockaddrStorage};
 use tokio::io::Interest;
 use tokio::net::UdpSocket;
 
-#[cfg(any(
-    target_os = "linux",
-    target_os = "android",
-    target_os = "freebsd",
-    target_os = "netbsd"
-))]
-#[derive(Clone, Copy)]
 pub struct SendMsgHdr<'a, const C: usize> {
     pub iov: [IoSlice<'a>; C],
     pub addr: Option<SocketAddr>,
 }
 
-#[cfg(any(
-    target_os = "linux",
-    target_os = "android",
-    target_os = "freebsd",
-    target_os = "netbsd"
-))]
 impl<'a, const C: usize> AsRef<[IoSlice<'a>]> for SendMsgHdr<'a, C> {
     fn as_ref(&self) -> &[IoSlice<'a>] {
         self.iov.as_ref()
     }
 }
 
+pub struct RecvMsgBuf<'a> {
+    inner: &'a mut [u8],
+}
+
+impl<'a> RecvMsgBuf<'a> {
+    pub fn new(inner: &'a mut [u8]) -> Self {
+        RecvMsgBuf { inner }
+    }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+}
+
+impl<'a> AsMut<[u8]> for RecvMsgBuf<'a> {
+    fn as_mut(&mut self) -> &mut [u8] {
+        self.inner
+    }
+}
+
+impl<'a> AsRef<[u8]> for RecvMsgBuf<'a> {
+    fn as_ref(&self) -> &[u8] {
+        self.inner.as_ref()
+    }
+}
+
 #[derive(Clone, Copy, Default)]
-pub struct RecvMsghdr {
-    pub off: usize, // use this to set read offset instead of IoSliceMut::advance when possible
-    pub len: usize, // the total raw read length
+pub struct RecvMsgHdr {
+    pub len: usize,
     pub addr: Option<SocketAddr>,
 }
 
@@ -72,8 +90,8 @@ pub trait UdpSocketExt {
     fn poll_recvmsg(
         &self,
         cx: &mut Context<'_>,
-        iov: &mut IoSliceMut<'_>,
-    ) -> Poll<io::Result<RecvMsghdr>>;
+        iov: &mut [IoSliceMut<'_>],
+    ) -> Poll<io::Result<RecvMsgHdr>>;
 
     #[cfg(any(
         target_os = "linux",
@@ -93,11 +111,11 @@ pub trait UdpSocketExt {
         target_os = "freebsd",
         target_os = "netbsd"
     ))]
-    fn poll_batch_recvmsg(
+    fn poll_batch_recvmsg<const C: usize>(
         &self,
         cx: &mut Context<'_>,
-        bufs: &mut [IoSliceMut<'_>],
-        meta: &mut [RecvMsghdr],
+        slices: &[[IoSliceMut<'_>; C]],
+        meta: &mut [RecvMsgHdr],
     ) -> Poll<io::Result<usize>>;
 }
 
@@ -140,15 +158,14 @@ impl UdpSocketExt for UdpSocket {
     fn poll_recvmsg(
         &self,
         cx: &mut Context<'_>,
-        buf: &mut IoSliceMut<'_>,
-    ) -> Poll<io::Result<RecvMsghdr>> {
+        iov: &mut [IoSliceMut<'_>],
+    ) -> Poll<io::Result<RecvMsgHdr>> {
         let raw_fd = self.as_raw_fd();
-        let mut iov = [IoSliceMut::new(buf.as_mut())];
 
         loop {
             ready!(self.poll_recv_ready(cx))?;
             match self.try_io(Interest::READABLE, || {
-                recvmsg::<SockaddrStorage>(raw_fd, &mut iov, None, MsgFlags::MSG_DONTWAIT)
+                recvmsg::<SockaddrStorage>(raw_fd, iov, None, MsgFlags::MSG_DONTWAIT)
                     .map_err(io::Error::from)
             }) {
                 Ok(res) => {
@@ -161,7 +178,7 @@ impl UdpSocketExt for UdpSocket {
                             })
                     });
                     let len = res.iovs().next().map(|b| b.len()).unwrap_or_default();
-                    return Poll::Ready(Ok(RecvMsghdr { off: 0, len, addr }));
+                    return Poll::Ready(Ok(RecvMsgHdr { len, addr }));
                 }
                 Err(e) => {
                     if e.kind() == io::ErrorKind::WouldBlock {
@@ -215,23 +232,19 @@ impl UdpSocketExt for UdpSocket {
         target_os = "freebsd",
         target_os = "netbsd"
     ))]
-    fn poll_batch_recvmsg(
+    fn poll_batch_recvmsg<const C: usize>(
         &self,
         cx: &mut Context<'_>,
-        bufs: &mut [IoSliceMut<'_>],
-        meta: &mut [RecvMsghdr],
+        slices: &[[IoSliceMut<'_>; C]],
+        meta: &mut [RecvMsgHdr],
     ) -> Poll<io::Result<usize>> {
-        let mut data = MultiHeaders::<SockaddrStorage>::preallocate(bufs.len(), None);
-        let slices: Vec<_> = bufs
-            .iter_mut()
-            .map(|b| [IoSliceMut::new(b.as_mut())])
-            .collect();
+        let mut data = MultiHeaders::<SockaddrStorage>::preallocate(slices.len(), None);
         let raw_fd = self.as_raw_fd();
 
         loop {
             ready!(self.poll_recv_ready(cx))?;
             match self.try_io(Interest::READABLE, || {
-                recvmmsg(raw_fd, &mut data, &slices, MsgFlags::MSG_DONTWAIT, None)
+                recvmmsg(raw_fd, &mut data, slices, MsgFlags::MSG_DONTWAIT, None)
                     .map_err(io::Error::from)
             }) {
                 Ok(res) => {
@@ -246,9 +259,7 @@ impl UdpSocketExt for UdpSocket {
                                 })
                         });
                         hdr.addr = addr;
-                        if let Some(s) = v.iovs().next() {
-                            hdr.len = s.len();
-                        }
+                        hdr.len = v.bytes;
                         count += 1;
                     }
                     return Poll::Ready(Ok(count));

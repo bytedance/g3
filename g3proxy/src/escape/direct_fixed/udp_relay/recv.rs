@@ -24,7 +24,7 @@ use g3_io_ext::{AsyncUdpRecv, UdpRelayRemoteError, UdpRelayRemoteRecv};
     target_os = "freebsd",
     target_os = "netbsd"
 ))]
-use g3_io_ext::{RecvMsghdr, UdpRelayPacket};
+use g3_io_ext::{RecvMsgBuf, RecvMsgHdr, UdpRelayPacket};
 use g3_types::net::UpstreamAddr;
 
 pub(crate) struct DirectUdpRelayRemoteRecv<T> {
@@ -106,12 +106,10 @@ where
         cx: &mut Context<'_>,
         packets: &mut [UdpRelayPacket],
     ) -> Poll<Result<usize, UdpRelayRemoteError>> {
-        use std::io::IoSliceMut;
-
-        let mut meta = vec![RecvMsghdr::default(); packets.len()];
+        let mut meta = vec![RecvMsgHdr::default(); packets.len()];
         let mut bufs: Vec<_> = packets
             .iter_mut()
-            .map(|p| IoSliceMut::new(p.buf_mut()))
+            .map(|p| RecvMsgBuf::new(p.buf_mut()))
             .collect();
 
         let count = ready!(inner.poll_batch_recvmsg(cx, &mut bufs, &mut meta))
@@ -122,7 +120,7 @@ where
                 SocketAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
                 SocketAddr::V6(_) => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
             });
-            p.set_offset(m.off);
+            p.set_offset(0);
             p.set_length(m.len);
             p.set_upstream(UpstreamAddr::from(addr));
         }

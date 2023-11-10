@@ -38,7 +38,7 @@ use super::{AsyncUdpRecv, AsyncUdpSend, UdpSocketExt};
     target_os = "freebsd",
     target_os = "netbsd"
 ))]
-use super::{RecvMsghdr, SendMsgHdr};
+use super::{RecvMsgBuf, RecvMsgHdr, SendMsgHdr};
 
 #[derive(Debug)]
 pub struct SendHalf(Arc<UdpSocket>);
@@ -160,9 +160,13 @@ impl AsyncUdpRecv for RecvHalf {
     fn poll_batch_recvmsg(
         &mut self,
         cx: &mut Context<'_>,
-        bufs: &mut [IoSliceMut<'_>],
-        meta: &mut [RecvMsghdr],
+        bufs: &mut [RecvMsgBuf<'_>],
+        meta: &mut [RecvMsgHdr],
     ) -> Poll<io::Result<usize>> {
-        self.0.poll_batch_recvmsg(cx, bufs, meta)
+        let slices: Vec<[IoSliceMut<'_>; 1]> = bufs
+            .iter_mut()
+            .map(|v| [IoSliceMut::new(v.as_mut())])
+            .collect();
+        self.0.poll_batch_recvmsg(cx, &slices, meta)
     }
 }

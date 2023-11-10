@@ -28,7 +28,7 @@ use g3_io_ext::{AsyncUdpRecv, UdpRelayRemoteError, UdpRelayRemoteRecv};
     target_os = "freebsd",
     target_os = "netbsd"
 ))]
-use g3_io_ext::{RecvMsghdr, UdpRelayPacket};
+use g3_io_ext::{RecvMsgBuf, RecvMsgHdr, UdpRelayPacket};
 use g3_socks::v5::UdpInput;
 use g3_types::net::UpstreamAddr;
 
@@ -110,24 +110,22 @@ where
         cx: &mut Context<'_>,
         packets: &mut [UdpRelayPacket],
     ) -> Poll<Result<usize, UdpRelayRemoteError>> {
-        use std::io::IoSliceMut;
-
         self.check_tcp_close(cx)?;
 
-        let mut meta = vec![RecvMsghdr::default(); packets.len()];
+        let mut meta = vec![RecvMsgHdr::default(); packets.len()];
         let mut bufs: Vec<_> = packets
             .iter_mut()
-            .map(|p| IoSliceMut::new(p.buf_mut()))
+            .map(|p| RecvMsgBuf::new(p.buf_mut()))
             .collect();
 
         let count = ready!(self.inner.poll_batch_recvmsg(cx, &mut bufs, &mut meta))
             .map_err(|e| UdpRelayRemoteError::RecvFailed(self.local_addr, e))?;
 
         for (p, m) in packets.iter_mut().take(count).zip(meta) {
-            let (off, ups) = UdpInput::parse_header(&p.buf()[m.off..m.len])
+            let (off, ups) = UdpInput::parse_header(&p.buf()[0..m.len])
                 .map_err(|e| UdpRelayRemoteError::InvalidPacket(self.local_addr, e.to_string()))?;
 
-            p.set_offset(m.off + off);
+            p.set_offset(off);
             p.set_length(m.len);
             p.set_upstream(ups);
         }

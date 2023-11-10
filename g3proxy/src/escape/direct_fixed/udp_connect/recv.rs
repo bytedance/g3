@@ -23,7 +23,7 @@ use g3_io_ext::{AsyncUdpRecv, UdpCopyRemoteError, UdpCopyRemoteRecv};
     target_os = "freebsd",
     target_os = "netbsd"
 ))]
-use g3_io_ext::{RecvMsghdr, UdpCopyPacket};
+use g3_io_ext::{RecvMsgBuf, RecvMsgHdr, UdpCopyPacket};
 
 pub(crate) struct DirectUdpConnectRemoteRecv<T> {
     inner: T,
@@ -66,19 +66,17 @@ where
         cx: &mut Context<'_>,
         packets: &mut [UdpCopyPacket],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
-        use std::io::IoSliceMut;
-
-        let mut meta = vec![RecvMsghdr::default(); packets.len()];
+        let mut meta = vec![RecvMsgHdr::default(); packets.len()];
         let mut bufs: Vec<_> = packets
             .iter_mut()
-            .map(|p| IoSliceMut::new(p.buf_mut()))
+            .map(|p| RecvMsgBuf::new(p.buf_mut()))
             .collect();
 
         let count = ready!(self.inner.poll_batch_recvmsg(cx, &mut bufs, &mut meta))
             .map_err(UdpCopyRemoteError::RecvFailed)?;
 
         for (p, m) in packets.iter_mut().take(count).zip(meta) {
-            p.set_offset(m.off);
+            p.set_offset(0);
             p.set_length(m.len);
         }
 

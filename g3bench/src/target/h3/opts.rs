@@ -172,7 +172,7 @@ impl BenchH3Args {
             let tcp_stream = r.reunite(w).unwrap();
             let limit = &proc_args.udp_sock_speed_limit;
             let runtime = LimitedTokioRuntime::new(
-                Socks5UdpTokioRuntime::new(tcp_stream, local_udp_addr),
+                Socks5UdpTokioRuntime::new(tcp_stream, quic_peer),
                 limit.shift_millis,
                 limit.max_north_packets,
                 limit.max_north_bytes,

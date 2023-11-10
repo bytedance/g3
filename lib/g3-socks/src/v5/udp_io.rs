@@ -22,6 +22,9 @@ use bytes::{Buf, BufMut};
 
 use super::SocksUdpPacketError;
 
+pub(crate) const UDP_HEADER_LEN_IPV4: usize = 10;
+pub(crate) const UDP_HEADER_LEN_IPV6: usize = 22;
+
 pub struct UdpInput {}
 
 impl UdpInput {
@@ -41,8 +44,7 @@ impl UdpInput {
 
         let (off, addr) = match buf[3] {
             0x01 => {
-                const HEADER_LEN: usize = 10;
-                if len <= HEADER_LEN {
+                if len < UDP_HEADER_LEN_IPV4 {
                     return Err(SocksUdpPacketError::TooSmallPacket);
                 }
 
@@ -50,14 +52,14 @@ impl UdpInput {
                 let ip4 = Ipv4Addr::from(buf.get_u32());
                 let port = buf.get_u16();
                 (
-                    HEADER_LEN,
+                    UDP_HEADER_LEN_IPV4,
                     UpstreamAddr::from_ip_and_port(IpAddr::V4(ip4), port),
                 )
             }
             0x03 => {
                 let domain_len = buf[4] as usize;
                 let header_len = 4 + 1 + domain_len + 2;
-                if len <= header_len {
+                if len < header_len {
                     return Err(SocksUdpPacketError::TooSmallPacket);
                 }
 
@@ -70,8 +72,7 @@ impl UdpInput {
                 (header_len, addr)
             }
             0x04 => {
-                const HEADER_LEN: usize = 22;
-                if len <= HEADER_LEN {
+                if len < UDP_HEADER_LEN_IPV6 {
                     return Err(SocksUdpPacketError::TooSmallPacket);
                 }
 
@@ -79,7 +80,7 @@ impl UdpInput {
                 let ip6 = Ipv6Addr::from(buf.get_u128());
                 let port = buf.get_u16();
                 (
-                    HEADER_LEN,
+                    UDP_HEADER_LEN_IPV6,
                     UpstreamAddr::from_ip_and_port(IpAddr::V6(ip6), port),
                 )
             }
@@ -97,10 +98,10 @@ impl UdpOutput {
         match upstream.host() {
             Host::Ip(ip) => match ip {
                 IpAddr::V6(ip6) => match ip6.to_ipv4_mapped() {
-                    Some(_) => 10,
-                    None => 22,
+                    Some(_) => UDP_HEADER_LEN_IPV4,
+                    None => UDP_HEADER_LEN_IPV6,
                 },
-                IpAddr::V4(_) => 10,
+                IpAddr::V4(_) => UDP_HEADER_LEN_IPV4,
             },
             Host::Domain(domain) => {
                 let domain_len = domain.len().max(u8::MAX as usize) as u8;

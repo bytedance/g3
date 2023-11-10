@@ -18,9 +18,7 @@ mod stats;
 pub use stats::{ArcLimitedRecvStats, ArcLimitedSendStats, LimitedRecvStats, LimitedSendStats};
 
 mod ext;
-#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "netbsd"))]
-pub use ext::SendMsgHdr;
-pub use ext::{RecvMsghdr, UdpSocketExt};
+pub use ext::{RecvMsgBuf, RecvMsgHdr, SendMsgHdr, UdpSocketExt};
 
 mod recv;
 mod send;

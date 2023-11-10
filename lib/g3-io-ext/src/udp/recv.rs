@@ -15,13 +15,6 @@
  */
 
 use std::io;
-#[cfg(any(
-    target_os = "linux",
-    target_os = "android",
-    target_os = "freebsd",
-    target_os = "netbsd"
-))]
-use std::io::IoSliceMut;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::pin::Pin;
 use std::task::{ready, Context, Poll};
@@ -36,7 +29,7 @@ use tokio::time::{Instant, Sleep};
     target_os = "freebsd",
     target_os = "netbsd"
 ))]
-use super::RecvMsghdr;
+use super::{RecvMsgBuf, RecvMsgHdr};
 use crate::limit::{DatagramLimitInfo, DatagramLimitResult};
 use crate::ArcLimitedRecvStats;
 
@@ -58,8 +51,8 @@ pub trait AsyncUdpRecv {
     fn poll_batch_recvmsg(
         &mut self,
         cx: &mut Context<'_>,
-        bufs: &mut [IoSliceMut<'_>],
-        meta: &mut [RecvMsghdr],
+        bufs: &mut [RecvMsgBuf<'_>],
+        meta: &mut [RecvMsgHdr],
     ) -> Poll<io::Result<usize>>;
 }
 
@@ -168,8 +161,8 @@ where
     fn poll_batch_recvmsg(
         &mut self,
         cx: &mut Context<'_>,
-        bufs: &mut [IoSliceMut<'_>],
-        meta: &mut [RecvMsghdr],
+        bufs: &mut [RecvMsgBuf<'_>],
+        meta: &mut [RecvMsgHdr],
     ) -> Poll<io::Result<usize>> {
         if self.limit.is_set() {
             let dur_millis = self.started.elapsed().as_millis() as u64;
