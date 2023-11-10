@@ -411,7 +411,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         ];
 
         let r = ready!(self.io.poll_recvmsg(cx, &mut iov))?;
-        let mut len = r.len();
+        let mut len = r.len;
         let socks_header_len = recv_socks_header.buf().len();
         if len <= socks_header_len {
             meta[0] = RecvMeta {
