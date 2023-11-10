@@ -10,7 +10,7 @@ TEST_NAME="g3proxy-ci"
 . "${SCRIPTS_DIR}/enter.sh"
 
 # build
-cargo build -p g3proxy -p g3proxy-ctl -p g3proxy-ftp
+cargo build -p g3proxy -p g3proxy-ctl -p g3proxy-ftp -p g3mkcert
 
 all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "-object "$0}')
 
@@ -42,7 +42,7 @@ echo "==== Update dynamic escapers"
 ./target/debug/g3proxy-ctl -G ${TEST_NAME} -p $proxy_pid escaper direct_lazy publish "{\"ipv4\": \"127.0.0.1\"}"
 
 ##
-for resolver in main cares1 cares2 trust
+for resolver in main cares1 cares2 hickory
 do
 	echo "==== Query directly on resolver ${resolver}"
 	./target/debug/g3proxy-ctl -G ${TEST_NAME} -p $proxy_pid resolver ${resolver} query g3proxy.local
