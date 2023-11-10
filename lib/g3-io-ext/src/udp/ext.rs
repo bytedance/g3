@@ -69,7 +69,7 @@ impl<'a> AsMut<[u8]> for RecvMsgBuf<'a> {
 
 impl<'a> AsRef<[u8]> for RecvMsgBuf<'a> {
     fn as_ref(&self) -> &[u8] {
-        self.inner.as_ref()
+        self.inner
     }
 }
 
