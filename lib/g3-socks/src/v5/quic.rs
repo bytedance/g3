@@ -410,13 +410,14 @@ impl AsyncUdpSocket for Socks5UdpSocket {
             IoSliceMut::new(buf),
         ];
 
-        let mut nr = ready!(self.io.poll_recvmsg(cx, &mut iov))?;
+        let r = ready!(self.io.poll_recvmsg(cx, &mut iov))?;
+        let mut len = r.len();
         let socks_header_len = recv_socks_header.buf().len();
-        if nr <= socks_header_len {
+        if len <= socks_header_len {
             meta[0] = RecvMeta {
-                len,
-                stride: len,
-                addr: SocketAddr::new(ip, port),
+                len: 0,
+                stride: 0,
+                addr: self.quic_peer_addr,
                 ecn: None,
                 dst_ip: None,
             };
@@ -440,7 +441,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
             port
         };
 
-        let len = nr - off;
+        len -= off;
         meta[0] = RecvMeta {
             len,
             stride: len,
