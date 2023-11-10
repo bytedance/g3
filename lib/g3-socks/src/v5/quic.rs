@@ -30,7 +30,7 @@ use tokio::sync::{broadcast, oneshot};
 use tokio::time::sleep_until;
 
 use g3_io_ext::UdpSocketExt;
-use g3_types::net::{Host, UpstreamAddr};
+use g3_types::net::Host;
 
 use super::udp_io::{UDP_HEADER_LEN_IPV4, UDP_HEADER_LEN_IPV6};
 use super::{UdpInput, UdpOutput};
@@ -40,7 +40,7 @@ pub struct Socks5UdpTokioRuntime {
     quic_peer_addr: SocketAddr,
     ctl_close_receiver: broadcast::Receiver<Option<Arc<io::Error>>>,
     ctl_drop_receiver: oneshot::Receiver<()>,
-    send_socks_header: SendHeaderBuffer,
+    send_socks_header: SocksHeaderBuffer,
 }
 
 impl Drop for Socks5UdpTokioRuntime {
@@ -77,8 +77,7 @@ impl Socks5UdpTokioRuntime {
                 _ = ctl_drop_notifier.closed() => {}
             }
         });
-        let mut send_socks_header = SendHeaderBuffer::default();
-        send_socks_header.encode(quic_peer_addr);
+        let send_socks_header = SocksHeaderBuffer::new_filled(quic_peer_addr);
 
         Socks5UdpTokioRuntime {
             quic_peer_addr,
@@ -115,57 +114,57 @@ impl Runtime for Socks5UdpTokioRuntime {
             ctl_close_receiver: UnsafeCell::new(receiver),
             send_socks_header: self.send_socks_header,
             recv_socks_headers: UnsafeCell::new(vec![
-                RecvHeaderBuffer::new(self.quic_peer_addr);
+                SocksHeaderBuffer::new(self.quic_peer_addr);
                 4
             ]),
         }))
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
-struct SendHeaderBuffer {
-    buf: [u8; UDP_HEADER_LEN_IPV6],
-    len: usize,
-}
-
-impl SendHeaderBuffer {
-    fn encode(&mut self, dest: SocketAddr) {
-        let ups = UpstreamAddr::from(dest);
-        self.len = UdpOutput::calc_header_len(&ups);
-        UdpOutput::generate_header(&mut self.buf, &ups);
-    }
-
-    #[inline]
-    fn hdr(&self) -> &[u8] {
-        &self.buf[0..self.len]
-    }
-}
-
 #[derive(Clone, Copy, Debug)]
-enum RecvHeaderBuffer {
+enum SocksHeaderBuffer {
     V4([u8; UDP_HEADER_LEN_IPV4]),
     V6([u8; UDP_HEADER_LEN_IPV6]),
 }
 
-impl RecvHeaderBuffer {
+impl SocksHeaderBuffer {
+    fn new_filled(addr: SocketAddr) -> Self {
+        match addr {
+            SocketAddr::V4(_) => {
+                let mut buf = [0u8; UDP_HEADER_LEN_IPV4];
+                UdpOutput::generate_header2(&mut buf, addr);
+                SocksHeaderBuffer::V4(buf)
+            }
+            SocketAddr::V6(_) => {
+                let mut buf = [0u8; UDP_HEADER_LEN_IPV6];
+                UdpOutput::generate_header2(&mut buf, addr);
+                SocksHeaderBuffer::V6(buf)
+            }
+        }
+    }
+
     fn new(addr: SocketAddr) -> Self {
         match addr {
-            SocketAddr::V4(_) => RecvHeaderBuffer::V4([0u8; UDP_HEADER_LEN_IPV4]),
-            SocketAddr::V6(_) => RecvHeaderBuffer::V6([0u8; UDP_HEADER_LEN_IPV6]),
+            SocketAddr::V4(_) => SocksHeaderBuffer::V4([0u8; UDP_HEADER_LEN_IPV4]),
+            SocketAddr::V6(_) => SocksHeaderBuffer::V6([0u8; UDP_HEADER_LEN_IPV6]),
         }
     }
+}
 
-    fn buf_mut(&mut self) -> &mut [u8] {
+impl AsRef<[u8]> for SocksHeaderBuffer {
+    fn as_ref(&self) -> &[u8] {
         match self {
-            RecvHeaderBuffer::V4(b) => b.as_mut(),
-            RecvHeaderBuffer::V6(b) => b.as_mut(),
+            SocksHeaderBuffer::V4(b) => b.as_ref(),
+            SocksHeaderBuffer::V6(b) => b.as_ref(),
         }
     }
+}
 
-    fn buf(&self) -> &[u8] {
+impl AsMut<[u8]> for SocksHeaderBuffer {
+    fn as_mut(&mut self) -> &mut [u8] {
         match self {
-            RecvHeaderBuffer::V4(b) => b.as_ref(),
-            RecvHeaderBuffer::V6(b) => b.as_ref(),
+            SocksHeaderBuffer::V4(b) => b.as_mut(),
+            SocksHeaderBuffer::V6(b) => b.as_mut(),
         }
     }
 }
@@ -175,8 +174,8 @@ pub struct Socks5UdpSocket {
     io: tokio::net::UdpSocket,
     quic_peer_addr: SocketAddr,
     ctl_close_receiver: UnsafeCell<oneshot::Receiver<Option<io::Error>>>,
-    send_socks_header: SendHeaderBuffer,
-    recv_socks_headers: UnsafeCell<Vec<RecvHeaderBuffer>>,
+    send_socks_header: SocksHeaderBuffer,
+    recv_socks_headers: UnsafeCell<Vec<SocksHeaderBuffer>>,
 }
 
 impl AsyncUdpSocket for Socks5UdpSocket {
@@ -201,7 +200,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
 
             msgs.push(SendMsgHdr {
                 iov: [
-                    IoSlice::new(self.send_socks_header.hdr()),
+                    IoSlice::new(self.send_socks_header.as_ref()),
                     IoSlice::new(&transmit.contents),
                 ],
                 addr: None,
@@ -226,7 +225,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
             match self.io.poll_sendmsg(
                 cx,
                 &[
-                    IoSlice::new(self.send_socks_header.hdr()),
+                    IoSlice::new(self.send_socks_header.as_ref()),
                     IoSlice::new(&transmit.contents),
                 ],
                 None,
@@ -305,13 +304,13 @@ impl AsyncUdpSocket for Socks5UdpSocket {
 
         let recv_socks_headers = unsafe { &mut *self.recv_socks_headers.get() };
         if bufs.len() > recv_socks_headers.len() {
-            recv_socks_headers.resize(bufs.len(), RecvHeaderBuffer::new(self.quic_peer_addr));
+            recv_socks_headers.resize(bufs.len(), SocksHeaderBuffer::new(self.quic_peer_addr));
         }
 
         let slices: Vec<[IoSliceMut<'_>; 2]> = bufs
             .iter_mut()
             .zip(recv_socks_headers.iter_mut())
-            .map(|(v, b)| [IoSliceMut::new(b.buf_mut()), IoSliceMut::new(v.as_mut())])
+            .map(|(v, b)| [IoSliceMut::new(b.as_mut()), IoSliceMut::new(v.as_mut())])
             .collect();
         let mut recv_hdrs = vec![RecvMsgHdr::default(); meta.len()];
         match ready!(self.io.poll_batch_recvmsg(cx, &slices, &mut recv_hdrs)) {
@@ -323,7 +322,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
                     .zip(recv_socks_headers)
                 {
                     let mut len = r.len;
-                    let socks_header_len = socks_header.buf().len();
+                    let socks_header_len = socks_header.as_ref().len();
                     if len <= socks_header_len {
                         // ignore invalid packets
                         *m = RecvMeta {
@@ -336,7 +335,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
                         continue;
                     }
 
-                    let (off, ups) = UdpInput::parse_header(socks_header.buf())
+                    let (off, ups) = UdpInput::parse_header(socks_header.as_ref())
                         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
                     assert_eq!(socks_header_len, off);
                     let ip = match ups.host() {
@@ -406,13 +405,13 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         let recv_socks_header = recv_socks_headers.get_mut(0).unwrap();
 
         let mut iov = [
-            IoSliceMut::new(recv_socks_header.buf_mut()),
+            IoSliceMut::new(recv_socks_header.as_mut()),
             IoSliceMut::new(buf),
         ];
 
         let r = ready!(self.io.poll_recvmsg(cx, &mut iov))?;
         let mut len = r.len;
-        let socks_header_len = recv_socks_header.buf().len();
+        let socks_header_len = recv_socks_header.as_ref().len();
         if len <= socks_header_len {
             meta[0] = RecvMeta {
                 len: 0,
@@ -424,7 +423,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
             return Poll::Ready(Ok(1));
         }
 
-        let (off, ups) = UdpInput::parse_header(recv_socks_header.buf())
+        let (off, ups) = UdpInput::parse_header(recv_socks_header.as_ref())
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
         assert_eq!(socks_header_len, off);
         let ip = match ups.host() {

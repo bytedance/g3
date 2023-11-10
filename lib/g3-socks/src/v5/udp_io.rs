@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use g3_types::net::{Host, UpstreamAddr};
 
@@ -115,25 +115,7 @@ impl UdpOutput {
         buf.put_u16(0x00);
         buf.put_u8(0x00);
         match upstream.host() {
-            Host::Ip(ip) => match ip {
-                IpAddr::V4(ip4) => {
-                    buf.put_u8(0x01);
-                    buf.put_slice(&ip4.octets());
-                    buf.put_u16(upstream.port());
-                }
-                IpAddr::V6(ip6) => match ip6.to_ipv4_mapped() {
-                    Some(ip4) => {
-                        buf.put_u8(0x01);
-                        buf.put_slice(&ip4.octets());
-                        buf.put_u16(upstream.port());
-                    }
-                    None => {
-                        buf.put_u8(0x04);
-                        buf.put_slice(&ip6.octets());
-                        buf.put_u16(upstream.port());
-                    }
-                },
-            },
+            Host::Ip(ip) => Self::put_addr(buf, *ip, upstream.port()),
             Host::Domain(domain) => {
                 buf.put_u8(0x03);
                 let domain_len = domain.len().max(u8::MAX as usize) as u8;
@@ -141,6 +123,34 @@ impl UdpOutput {
                 buf.put_slice(&domain.as_bytes()[0..domain_len as usize]);
                 buf.put_u16(upstream.port());
             }
+        }
+    }
+
+    pub(crate) fn generate_header2(mut buf: &mut [u8], addr: SocketAddr) {
+        buf.put_u16(0x00);
+        buf.put_u8(0x00);
+        Self::put_addr(buf, addr.ip(), addr.port());
+    }
+
+    fn put_addr(mut buf: &mut [u8], ip: IpAddr, port: u16) {
+        match ip {
+            IpAddr::V4(ip4) => {
+                buf.put_u8(0x01);
+                buf.put_slice(&ip4.octets());
+                buf.put_u16(port);
+            }
+            IpAddr::V6(ip6) => match ip6.to_ipv4_mapped() {
+                Some(ip4) => {
+                    buf.put_u8(0x01);
+                    buf.put_slice(&ip4.octets());
+                    buf.put_u16(port);
+                }
+                None => {
+                    buf.put_u8(0x04);
+                    buf.put_slice(&ip6.octets());
+                    buf.put_u16(port);
+                }
+            },
         }
     }
 }
