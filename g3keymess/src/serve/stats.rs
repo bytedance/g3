@@ -322,13 +322,6 @@ fn create_duration_pair(
     } else {
         Arc::new(HistogramStats::with_quantiles(quantile))
     };
-    let s = stats.clone();
-    tokio::spawn(async move {
-        let mut h = h;
-        while let Some(v) = h.recv().await {
-            let _ = h.refresh(Some(v));
-            stats.update(h.inner());
-        }
-    });
-    (Arc::new(r), s)
+    h.spawn_refresh(stats.clone());
+    (Arc::new(r), stats)
 }

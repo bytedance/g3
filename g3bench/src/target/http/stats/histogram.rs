@@ -54,10 +54,10 @@ impl HttpHistogram {
 
 impl BenchHistogram for HttpHistogram {
     fn refresh(&mut self) {
-        self.send_hdr_time.refresh(None).unwrap();
-        self.recv_hdr_time.refresh(None).unwrap();
-        self.total_time.refresh(None).unwrap();
-        self.conn_reuse_count.refresh(None).unwrap();
+        self.send_hdr_time.refresh().unwrap();
+        self.recv_hdr_time.refresh().unwrap();
+        self.total_time.refresh().unwrap();
+        self.conn_reuse_count.refresh().unwrap();
     }
 
     fn emit(&self, client: &StatsdClient) {

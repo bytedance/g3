@@ -39,7 +39,7 @@ impl SslHistogram {
 
 impl BenchHistogram for SslHistogram {
     fn refresh(&mut self) {
-        self.total_time.refresh(None).unwrap();
+        self.total_time.refresh().unwrap();
     }
 
     fn emit(&self, client: &StatsdClient) {

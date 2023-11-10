@@ -14,8 +14,12 @@
  * limitations under the License.
  */
 
+use std::sync::Arc;
+
 use hdrhistogram::{Counter, CreationError, Histogram, RecordError};
 use tokio::sync::mpsc;
+
+use crate::HistogramStats;
 
 pub struct DurationHistogram<T: Counter> {
     inner: Histogram<T>,
@@ -70,17 +74,9 @@ impl<T: Counter> DurationHistogram<T> {
         self.inner.auto(enabled);
     }
 
-    // TODO use recv_many
-    pub async fn recv(&mut self) -> Option<T> {
-        self.receiver.recv().await
-    }
-
-    pub fn refresh(&mut self, v: Option<T>) -> Result<(), RecordError> {
+    pub fn refresh(&mut self) -> Result<(), RecordError> {
         use mpsc::error::TryRecvError;
 
-        if let Some(v) = v {
-            self.inner.record(v.as_u64())?;
-        }
         loop {
             match self.receiver.try_recv() {
                 Ok(v) => self.inner.record(v.as_u64())?,
@@ -92,6 +88,29 @@ impl<T: Counter> DurationHistogram<T> {
 
     pub fn inner(&self) -> &Histogram<T> {
         &self.inner
+    }
+}
+
+impl<T> DurationHistogram<T>
+where
+    T: Counter + Send + 'static,
+{
+    pub fn spawn_refresh(mut self, stats: Arc<HistogramStats>) {
+        tokio::spawn(async move {
+            const BATCH_SIZE: usize = 16;
+
+            let mut buf = Vec::with_capacity(BATCH_SIZE);
+            loop {
+                let count = self.receiver.recv_many(&mut buf, BATCH_SIZE).await;
+                if count == 0 {
+                    break;
+                }
+                for v in buf.iter().take(count) {
+                    let _ = self.inner.record(v.as_u64());
+                }
+                stats.update(self.inner());
+            }
+        });
     }
 }
 

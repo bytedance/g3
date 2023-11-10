@@ -84,14 +84,7 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
         ))
     };
     let (histogram, recorder) = DurationHistogram::<u64>::new();
-    let stats = duration_stats.clone();
-    tokio::spawn(async move {
-        let mut histogram = histogram;
-        while let Some(v) = histogram.recv().await {
-            let _ = histogram.refresh(Some(v));
-            stats.update(histogram.inner());
-        }
-    });
+    histogram.spawn_refresh(duration_stats.clone());
 
     let workers = g3_daemon::runtime::worker::foreach(|h| {
         let backend = OpensslBackend::new(&backend_config, &backend_stats)
