@@ -14,21 +14,12 @@
  * limitations under the License.
  */
 
-cfg_if::cfg_if! {
-    if #[cfg(any(target_os = "android", target_os = "linux"))] {
-        mod linux;
-        pub use linux::CpuAffinity;
-    } else if #[cfg(any(target_os = "freebsd", target_os = "dragonfly"))] {
-        mod freebsd;
-        pub use freebsd::CpuAffinity;
-    } else if #[cfg(target_os = "netbsd")] {
-        mod netbsd;
-        pub use netbsd::CpuAffinity;
-    } else if #[cfg(target_os = "macos")] {
-        mod macos;
-        pub use macos::CpuAffinity;
-    } else {
-        mod other;
-        pub use other::CpuAffinity;
-    }
-}
+#[cfg_attr(any(target_os = "linux", target_os = "android"), path = "linux.rs")]
+#[cfg_attr(
+    any(target_os = "freebsd", target_os = "dragonfly"),
+    path = "freebsd.rs"
+)]
+#[cfg_attr(target_os = "netbsd", path = "netbsd.rs")]
+#[cfg_attr(target_os = "macos", path = "macos.rs")]
+mod os;
+pub use os::CpuAffinity;

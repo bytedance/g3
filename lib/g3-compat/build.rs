@@ -46,11 +46,9 @@ fn build_other() {
 }
 
 fn main() {
-    cfg_if::cfg_if! {
-        if #[cfg(target_os = "linux")] {
-            build_linux();
-        } else {
-            build_other();
-        }
+    if cfg!(target_os = "linux") {
+        build_linux();
+    } else {
+        build_other();
     }
 }
