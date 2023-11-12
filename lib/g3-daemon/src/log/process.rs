@@ -26,13 +26,14 @@ const PROCESS_LOG_THREAD_NAME: &str = "log-process";
 pub fn setup(args: &DaemonArgs) -> Result<GlobalLoggerGuard, log::SetLoggerError> {
     let async_conf = AsyncLogConfig::with_name(PROCESS_LOG_THREAD_NAME);
     let logger = if args.with_systemd {
-        if cfg!(target_os = "linux") {
-            let journal_conf =
-                g3_journal::JournalConfig::with_ident(args.process_name).append_code_position();
-            let drain = g3_journal::new_async_logger(&async_conf, journal_conf);
-            slog::Logger::root(drain.fuse(), slog_o!())
-        } else {
-            unreachable!()
+        cfg_if::cfg_if! {
+            if #[cfg(target_os = "linux")] {
+                let journal_conf = g3_journal::JournalConfig::with_ident(args.process_name).append_code_position();
+                let drain = g3_journal::new_async_logger(&async_conf, journal_conf);
+                slog::Logger::root(drain.fuse(), slog_o!())
+            } else {
+                unreachable!()
+            }
         }
     } else if args.daemon_mode {
         let drain =

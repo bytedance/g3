@@ -11,3 +11,4 @@ libc.workspace = true
 
 [build-dependencies]
 cc = "1.0"
+cfg-if.workspace = true

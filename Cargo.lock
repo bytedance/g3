@@ -783,6 +783,7 @@ name = "g3-compat"
 version = "0.1.0"
 dependencies = [
  "cc",
+ "cfg-if",
  "libc",
 ]
 
@@ -805,6 +806,7 @@ dependencies = [
  "cadence-with-flush",
  "capnp",
  "capnp-rpc",
+ "cfg-if",
  "chrono",
  "clap",
  "daemonize",
@@ -1780,9 +1782,9 @@ checksum = "f93e7192158dbcda357bdec5fb5788eebf8bbac027f3f33e719d29135ae84156"
 
 [[package]]
 name = "hdrhistogram"
-version = "7.5.2"
+version = "7.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f19b9f54f7c7f55e31401bb647626ce0cf0f67b0004982ce815b3ee72a02aa8"
+checksum = "a5b38e5c02b7c7be48c8dc5217c4f1634af2ea221caae2e024bffc7a7651c691"
 dependencies = [
  "byteorder",
  "num-traits",
