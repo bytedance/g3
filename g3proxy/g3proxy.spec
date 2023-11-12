@@ -43,7 +43,7 @@ LUA_FEATURE=lua$LUA_VERSION
 SSL_FEATURE=$(sh scripts/package/detect_openssl_feature.sh)
 CARES_FEATURE=$(sh scripts/package/detect_c-ares_feature.sh)
 export CMAKE="%{cmake_real}"
-cargo build --frozen --offline --profile %{build_profile} --no-default-features --features $LUA_FEATURE,$SSL_FEATURE,$CARES_FEATURE,geoip --package g3proxy --package g3proxy-ctl --package g3proxy-ftp --package g3proxy-lua --package g3proxy-geoip
+cargo build --frozen --offline --profile %{build_profile} --no-default-features --features $LUA_FEATURE,$SSL_FEATURE,$CARES_FEATURE,hickory,geoip --package g3proxy --package g3proxy-ctl --package g3proxy-ftp --package g3proxy-lua --package g3proxy-geoip
 sh %{name}/service/generate_systemd.sh
 
 

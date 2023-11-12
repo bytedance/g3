@@ -21,6 +21,7 @@ use g3_yaml::YamlDocPosition;
 
 #[cfg(feature = "c-ares")]
 use super::c_ares;
+#[cfg(feature = "hickory")]
 use super::hickory;
 
 use super::deny_all;
@@ -48,6 +49,7 @@ pub(crate) trait ResolverConfig {
 pub(crate) enum AnyResolverConfig {
     #[cfg(feature = "c-ares")]
     CAres(c_ares::CAresResolverConfig),
+    #[cfg(feature = "hickory")]
     Hickory(hickory::HickoryResolverConfig),
     DenyAll(deny_all::DenyAllResolverConfig),
     FailOver(fail_over::FailOverResolverConfig),
@@ -59,6 +61,7 @@ macro_rules! impl_transparent0 {
             match self {
                 #[cfg(feature = "c-ares")]
                 AnyResolverConfig::CAres(r) => r.$f(),
+                #[cfg(feature = "hickory")]
                 AnyResolverConfig::Hickory(r) => r.$f(),
                 AnyResolverConfig::DenyAll(r) => r.$f(),
                 AnyResolverConfig::FailOver(r) => r.$f(),
@@ -73,6 +76,7 @@ macro_rules! impl_transparent1 {
             match self {
                 #[cfg(feature = "c-ares")]
                 AnyResolverConfig::CAres(r) => r.$f(p),
+                #[cfg(feature = "hickory")]
                 AnyResolverConfig::Hickory(r) => r.$f(p),
                 AnyResolverConfig::DenyAll(r) => r.$f(p),
                 AnyResolverConfig::FailOver(r) => r.$f(p),

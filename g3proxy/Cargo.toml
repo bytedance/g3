@@ -73,7 +73,7 @@ g3-yaml = { workspace = true, features = ["resolve", "rustls", "openssl", "acl-r
 g3-json = { workspace = true, features = ["acl-rule", "resolve", "http", "rustls", "openssl", "proxy"] }
 g3-msgpack.workspace = true
 g3-io-ext.workspace = true
-g3-resolver = { workspace = true, features = ["hickory"] }
+g3-resolver.workspace = true
 g3-xcrypt.workspace = true
 g3-ftp-client.workspace = true
 g3-http.workspace = true
@@ -93,7 +93,7 @@ tokio-util = { workspace = true, features = ["io"] }
 rustc_version.workspace = true
 
 [features]
-default = ["lua54", "python", "c-ares", "geoip"]
+default = ["lua54", "python", "c-ares", "hickory", "geoip"]
 lua = ["mlua"]
 luajit = ["lua", "mlua/luajit"]
 lua51 = ["lua", "mlua/lua51"]
@@ -101,6 +101,7 @@ lua53 = ["lua", "mlua/lua53"]
 lua54 = ["lua", "mlua/lua54"]
 python = ["pyo3"]
 c-ares = ["g3-resolver/c-ares"]
+hickory = ["g3-resolver/hickory"]
 geoip = ["g3-geoip", "g3-yaml/geoip", "fixedbitset", "rustc-hash", "fnv"]
 vendored-openssl = ["openssl/vendored", "dep:openssl-probe"]
 vendored-tongsuo = ["openssl/tongsuo", "dep:openssl-probe", "g3-yaml/vendored-tongsuo", "g3-json/vendored-tongsuo"]

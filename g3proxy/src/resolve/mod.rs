@@ -39,6 +39,7 @@ pub(crate) use registry::{foreach as foreach_resolver, get_handle, get_names};
 
 #[cfg(feature = "c-ares")]
 mod c_ares;
+#[cfg(feature = "hickory")]
 mod hickory;
 
 mod deny_all;
