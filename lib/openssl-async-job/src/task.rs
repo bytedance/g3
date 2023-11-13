@@ -18,10 +18,14 @@ use std::future::Future;
 use std::io;
 use std::os::fd::RawFd;
 use std::pin::Pin;
+#[cfg(ossl300)]
+use std::sync::Arc;
 use std::task::{ready, Context, Poll};
 use std::{mem, ptr};
 
 use anyhow::anyhow;
+#[cfg(ossl300)]
+use atomic_waker::AtomicWaker;
 use libc::{c_int, c_void};
 use openssl::error::ErrorStack;
 use openssl::foreign_types::ForeignType;
@@ -55,7 +59,9 @@ pub enum OpensslAsyncTaskError {
 
 pub struct OpensslAsyncTask<T> {
     job: *mut ffi::ASYNC_JOB,
-    wait_ctx: AsyncWaitCtx,
+    wait_ctx: AsyncWaitCtx, // should be dropped before atomic_waker
+    #[cfg(ossl300)]
+    atomic_waker: Arc<AtomicWaker>,
     operation: T,
 }
 
@@ -69,11 +75,25 @@ struct CallbackValue<'a, T: AsyncOperation> {
 }
 
 impl<T: AsyncOperation> OpensslAsyncTask<T> {
+    #[cfg(not(ossl300))]
     pub(crate) fn new(operation: T) -> Result<Self, ErrorStack> {
         let wait_ctx = AsyncWaitCtx::new()?;
         Ok(OpensslAsyncTask {
             job: ptr::null_mut(),
             wait_ctx,
+            operation,
+        })
+    }
+
+    #[cfg(ossl300)]
+    pub(crate) fn new(operation: T) -> Result<Self, ErrorStack> {
+        let atomic_waker = Arc::new(AtomicWaker::new());
+        let wait_ctx = AsyncWaitCtx::new()?;
+        wait_ctx.set_callback(&atomic_waker)?;
+        Ok(OpensslAsyncTask {
+            job: ptr::null_mut(),
+            wait_ctx,
+            atomic_waker,
             operation,
         })
     }
@@ -133,7 +153,7 @@ impl<T: AsyncOperation> OpensslAsyncTask<T> {
     fn poll_run(&mut self, cx: &mut Context<'_>) -> Poll<Result<T::Output, OpensslAsyncTaskError>> {
         let mut ret: c_int = 0;
 
-        self.wait_ctx.set_callback(cx.waker())?;
+        self.atomic_waker.register(cx.waker());
 
         loop {
             let mut value = CallbackValue {

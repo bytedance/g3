@@ -16,12 +16,8 @@
 
 use std::os::fd::RawFd;
 use std::ptr;
-#[cfg(ossl300)]
-use std::task::Waker;
 
 use libc::c_int;
-#[cfg(ossl300)]
-use libc::c_void;
 use openssl::error::ErrorStack;
 use openssl::foreign_types::foreign_type;
 
@@ -44,23 +40,6 @@ impl AsyncWaitCtx {
         } else {
             Ok(AsyncWaitCtx(wait_ctx))
         }
-    }
-
-    #[cfg(ossl300)]
-    pub fn set_callback(&self, waker: &Waker) -> Result<(), ErrorStack> {
-        let r = unsafe {
-            ffi::ASYNC_WAIT_CTX_set_callback(self.0, Some(wake), waker as *const _ as *mut c_void)
-        };
-        if r != 1 {
-            Err(ErrorStack::get())
-        } else {
-            Ok(())
-        }
-    }
-
-    #[cfg(ossl300)]
-    pub fn get_callback_status(&self) -> c_int {
-        unsafe { ffi::ASYNC_WAIT_CTX_get_status(self.0) }
     }
 
     pub fn get_all_fds(&self) -> Result<Vec<RawFd>, ErrorStack> {
@@ -122,9 +101,39 @@ impl AsyncWaitCtx {
 }
 
 #[cfg(ossl300)]
-extern "C" fn wake(arg: *mut c_void) -> c_int {
-    let ptr = ptr::NonNull::new(arg as *mut Waker).unwrap();
-    let waker = unsafe { ptr.as_ref() };
-    waker.wake_by_ref();
-    0
+mod ossl3 {
+    use std::sync::Arc;
+
+    use atomic_waker::AtomicWaker;
+    use libc::{c_int, c_void};
+    use openssl::error::ErrorStack;
+
+    use super::{ffi, AsyncWaitCtx};
+
+    impl AsyncWaitCtx {
+        pub fn set_callback(&self, waker: &Arc<AtomicWaker>) -> Result<(), ErrorStack> {
+            let r = unsafe {
+                ffi::ASYNC_WAIT_CTX_set_callback(
+                    self.0,
+                    Some(wake),
+                    Arc::as_ptr(waker) as *mut c_void,
+                )
+            };
+            if r != 1 {
+                Err(ErrorStack::get())
+            } else {
+                Ok(())
+            }
+        }
+
+        pub fn get_callback_status(&self) -> c_int {
+            unsafe { ffi::ASYNC_WAIT_CTX_get_status(self.0) }
+        }
+    }
+
+    extern "C" fn wake(arg: *mut c_void) -> c_int {
+        let waker = unsafe { &*(arg as *const AtomicWaker) };
+        waker.wake();
+        0
+    }
 }
