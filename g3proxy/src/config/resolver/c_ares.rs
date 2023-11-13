@@ -103,6 +103,11 @@ impl CAresResolverConfig {
                 self.driver.set_each_tries(g3_yaml::value::as_u32(v)?);
                 Ok(())
             }
+            #[cfg(cares1_20)]
+            "udp_max_quires" => {
+                self.driver.set_udp_max_queries(g3_yaml::value::as_i32(v)?);
+                Ok(())
+            }
             "round_robin" => {
                 self.driver.set_round_robin(g3_yaml::value::as_bool(v)?);
                 Ok(())

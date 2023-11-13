@@ -43,6 +43,20 @@ The number of tries the resolver will try contacting each name server before giv
 
 .. versionchanged:: 1.7.27 change default value from 2 to 3 to match default values set in c-ares 1.20.1
 
+udp_max_quires
+--------------
+
+**optional**, **type**: int
+
+The maximum number of udp queries that can be sent on a single ephemeral port to a given DNS server before a new
+ephemeral port is assigned.
+
+**notes**: This requires at least c-ares 1.20.
+
+**default**: 0, which is unlimited
+
+.. versionadded:: 1.7.29
+
 round_robin
 -----------
 
