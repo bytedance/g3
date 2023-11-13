@@ -96,10 +96,10 @@ impl KeylessCloudflareArgs {
         if let Some(tls_client) = &self.tls.client {
             let ssl_stream = self.tls_connect_to_target(tls_client, tcp_stream).await?;
             let (r, w) = tokio::io::split(ssl_stream);
-            Ok(MultiplexTransfer::start(r, w, local_addr, self.timeout).await)
+            Ok(MultiplexTransfer::start(r, w, local_addr, self.timeout))
         } else {
             let (r, w) = tcp_stream.into_split();
-            Ok(MultiplexTransfer::start(r, w, local_addr, self.timeout).await)
+            Ok(MultiplexTransfer::start(r, w, local_addr, self.timeout))
         }
     }
 

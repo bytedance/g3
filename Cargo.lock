@@ -1350,6 +1350,7 @@ dependencies = [
  "ahash",
  "anyhow",
  "async-trait",
+ "atomic-waker",
  "bytes",
  "cadence-with-flush",
  "clap",

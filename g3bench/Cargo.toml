@@ -24,6 +24,7 @@ h3-quinn.workspace = true
 quinn = { workspace = true, features = ["tls-rustls", "runtime-tokio"] }
 bytes.workspace = true
 futures-util.workspace = true
+atomic-waker.workspace = true
 tokio-openssl.workspace = true
 openssl.workspace = true
 openssl-probe = { workspace = true, optional = true }
