@@ -126,7 +126,7 @@ impl UdpOutput {
         }
     }
 
-    pub(crate) fn generate_header2(mut buf: &mut [u8], addr: SocketAddr) {
+    pub fn generate_header2(mut buf: &mut [u8], addr: SocketAddr) {
         buf.put_u16(0x00);
         buf.put_u8(0x00);
         Self::put_addr(buf, addr.ip(), addr.port());
