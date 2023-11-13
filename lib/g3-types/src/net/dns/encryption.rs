@@ -18,7 +18,7 @@ use std::str::FromStr;
 
 use anyhow::anyhow;
 #[cfg(feature = "rustls")]
-use rustls::ServerName;
+use rustls_pki_types::ServerName;
 
 #[cfg(feature = "rustls")]
 use crate::net::{RustlsClientConfig, RustlsClientConfigBuilder};
@@ -81,7 +81,7 @@ impl DnsEncryptionProtocol {
 #[cfg(feature = "rustls")]
 pub struct DnsEncryptionConfig {
     protocol: DnsEncryptionProtocol,
-    tls_name: ServerName,
+    tls_name: ServerName<'static>,
     tls_client: RustlsClientConfig,
 }
 
@@ -93,7 +93,7 @@ impl DnsEncryptionConfig {
     }
 
     #[inline]
-    pub fn tls_name(&self) -> &ServerName {
+    pub fn tls_name(&self) -> &ServerName<'static> {
         &self.tls_name
     }
 
@@ -107,13 +107,13 @@ impl DnsEncryptionConfig {
 #[cfg(feature = "rustls")]
 pub struct DnsEncryptionConfigBuilder {
     protocol: DnsEncryptionProtocol,
-    tls_name: ServerName,
+    tls_name: ServerName<'static>,
     tls_config: RustlsClientConfigBuilder,
 }
 
 #[cfg(feature = "rustls")]
 impl DnsEncryptionConfigBuilder {
-    pub fn new(tls_name: ServerName) -> Self {
+    pub fn new(tls_name: ServerName<'static>) -> Self {
         DnsEncryptionConfigBuilder {
             protocol: DnsEncryptionProtocol::Tls,
             tls_name,
@@ -130,17 +130,31 @@ impl DnsEncryptionConfigBuilder {
         self.protocol
     }
 
-    pub fn set_tls_name(&mut self, name: ServerName) {
+    pub fn set_tls_name(&mut self, name: ServerName<'static>) {
         self.tls_name = name;
     }
 
     #[inline]
-    pub fn tls_name(&self) -> &ServerName {
+    pub fn tls_name(&self) -> &ServerName<'static> {
         &self.tls_name
     }
 
     pub fn set_tls_client_config(&mut self, config_builder: RustlsClientConfigBuilder) {
         self.tls_config = config_builder;
+    }
+
+    pub fn summary(&self) -> String {
+        match &self.tls_name {
+            ServerName::DnsName(n) => format!("{}({})", self.protocol.as_str(), n.as_ref()),
+            ServerName::IpAddress(ip) => {
+                format!(
+                    "{}({})",
+                    self.protocol.as_str(),
+                    std::net::IpAddr::from(*ip)
+                )
+            }
+            _ => format!("{}(other)", self.protocol.as_str()), // FIXME support other server name variants
+        }
     }
 
     pub fn build_tls_client_config(&self) -> anyhow::Result<RustlsClientConfig> {
@@ -154,13 +168,5 @@ impl DnsEncryptionConfigBuilder {
             tls_name: self.tls_name.clone(),
             tls_client,
         })
-    }
-
-    pub fn summary(&self) -> String {
-        match &self.tls_name {
-            ServerName::DnsName(n) => format!("{}({})", self.protocol.as_str(), n.as_ref()),
-            ServerName::IpAddress(ip) => format!("{}({ip})", self.protocol.as_str()),
-            _ => format!("{}(other)", self.protocol.as_str()), // FIXME support other server name variants
-        }
     }
 }

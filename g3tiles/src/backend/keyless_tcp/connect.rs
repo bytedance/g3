@@ -21,7 +21,7 @@ use std::time::Duration;
 use anyhow::anyhow;
 use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
-use rustls::ServerName;
+use rustls_pki_types::ServerName;
 use tokio::io::{ReadHalf, WriteHalf};
 use tokio::net::{tcp, TcpStream};
 use tokio::sync::broadcast;
@@ -151,7 +151,7 @@ impl KeylessUpstreamConnect for KeylessTlsUpstreamConnector {
             .config
             .tls_name
             .clone()
-            .unwrap_or_else(|| ServerName::IpAddress(peer.ip()));
+            .unwrap_or_else(|| ServerName::IpAddress(peer.ip().into()));
         let tls_connector = TlsConnector::from(self.tls.driver.clone());
         match tokio::time::timeout(
             self.tls.handshake_timeout,
