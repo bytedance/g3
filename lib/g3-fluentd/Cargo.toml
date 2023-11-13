@@ -19,6 +19,7 @@ rmp-serde.workspace = true
 serde.workspace = true
 tokio = { workspace = true, features = ["rt", "net", "time", "macros"] }
 tokio-rustls.workspace = true
+rustls-pki-types.workspace = true
 rand.workspace = true
 digest.workspace = true
 sha2.workspace = true

@@ -18,7 +18,7 @@ url.workspace = true
 rand.workspace = true
 ip_network = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
-rustls = { workspace = true, optional = true }
+rustls-pki-types = { workspace = true, optional = true }
 rustls-pemfile = { workspace = true, optional = true }
 openssl = { workspace = true, optional = true }
 http = { workspace = true, optional = true }
@@ -43,7 +43,7 @@ fluentd = ["dep:g3-fluentd", "rustls"]
 statsd = ["dep:g3-statsd-client"]
 histogram = ["dep:g3-histogram"]
 resolve = ["g3-types/resolve"]
-rustls = ["g3-types/rustls", "dep:rustls", "dep:rustls-pemfile"]
+rustls = ["g3-types/rustls", "dep:rustls-pki-types", "dep:rustls-pemfile"]
 openssl = ["g3-types/openssl", "dep:openssl"]
 tongsuo = ["openssl", "g3-types/tongsuo"]
 http = ["g3-types/http", "dep:http"]

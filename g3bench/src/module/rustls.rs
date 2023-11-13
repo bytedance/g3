@@ -20,14 +20,14 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
-use rustls::{Certificate, PrivateKey, ServerName};
+use rustls_pki_types::{CertificateDer, PrivateKeyDer, ServerName};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_rustls::client::TlsStream;
 use tokio_rustls::TlsConnector;
 
 use g3_types::net::{
-    AlpnProtocol, RustlsCertificatePair, RustlsClientConfig, RustlsClientConfigBuilder,
-    UpstreamAddr,
+    AlpnProtocol, RustlsCertificatePair, RustlsCertificatePairBuilder, RustlsClientConfig,
+    RustlsClientConfigBuilder, UpstreamAddr,
 };
 
 const TLS_ARG_CA_CERT: &str = "tls-ca-cert";
@@ -53,8 +53,8 @@ pub(crate) trait AppendRustlsArgs {
 pub(crate) struct RustlsTlsClientArgs {
     pub(crate) config: Option<RustlsClientConfigBuilder>,
     pub(crate) client: Option<RustlsClientConfig>,
-    pub(crate) tls_name: Option<ServerName>,
-    pub(crate) cert_pair: RustlsCertificatePair,
+    pub(crate) tls_name: Option<ServerName<'static>>,
+    pub(crate) cert_pair: Option<RustlsCertificatePair>,
     pub(crate) alpn_protocol: Option<AlpnProtocol>,
 }
 
@@ -86,7 +86,7 @@ impl RustlsTlsClientArgs {
         if let Some(name) = args.get_one::<String>(id) {
             let tls_name = ServerName::try_from(name.as_str())
                 .map_err(|e| anyhow!("invalid tls server name {name}: {e}"))?;
-            self.tls_name = Some(tls_name);
+            self.tls_name = Some(tls_name.to_owned());
         }
         Ok(())
     }
@@ -112,19 +112,29 @@ impl RustlsTlsClientArgs {
         cert_id: &str,
         key_id: &str,
     ) -> anyhow::Result<()> {
+        let mut set_cert_pair = false;
+        let mut cert_pair_builder = RustlsCertificatePairBuilder::default();
         if let Some(file) = args.get_one::<PathBuf>(cert_id) {
             let certs = load_certs(file).context(format!(
                 "failed to load client certificate from file {}",
                 file.display()
             ))?;
-            self.cert_pair.certs = certs;
+            cert_pair_builder.set_certs(certs);
+            set_cert_pair = true;
         }
         if let Some(file) = args.get_one::<PathBuf>(key_id) {
             let key = load_key(file).context(format!(
                 "failed to load client private key from file {}",
                 file.display()
             ))?;
-            self.cert_pair.key = key;
+            cert_pair_builder.set_key(key);
+            set_cert_pair = true;
+        }
+        if set_cert_pair {
+            let cert_pair = cert_pair_builder
+                .build()
+                .context("failed to build client auth cert pair")?;
+            self.cert_pair = Some(cert_pair);
         }
         Ok(())
     }
@@ -156,8 +166,8 @@ impl RustlsTlsClientArgs {
             .config
             .as_mut()
             .ok_or_else(|| anyhow!("no tls config found"))?;
-        if self.cert_pair.is_set() {
-            tls_config.set_cert_pair(self.cert_pair.clone());
+        if let Some(cert_pair) = &self.cert_pair {
+            tls_config.set_cert_pair(cert_pair.clone());
         }
 
         tls_config.check().context("invalid tls config")?;
@@ -200,22 +210,25 @@ impl RustlsTlsClientArgs {
     }
 }
 
-pub(crate) fn load_certs(path: &Path) -> anyhow::Result<Vec<Certificate>> {
+pub(crate) fn load_certs(path: &Path) -> anyhow::Result<Vec<CertificateDer<'static>>> {
     let file =
         File::open(path).map_err(|e| anyhow!("unable to open file {}: {e}", path.display()))?;
-    let certs = rustls_pemfile::certs(&mut BufReader::new(file))
-        .map_err(|e| anyhow!("failed to read certs from file {}: {e}", path.display()))?;
+    let mut certs = Vec::new();
+    let mut buf_reader = BufReader::new(file);
+    let results = rustls_pemfile::certs(&mut buf_reader);
+    for (i, cert) in results.enumerate() {
+        let cert =
+            cert.map_err(|e| anyhow!("invalid certificate #{i} in file {}: {e}", path.display()))?;
+        certs.push(cert);
+    }
     if certs.is_empty() {
-        Err(anyhow!(
-            "no valid certificate found in file {}",
-            path.display()
-        ))
+        Err(anyhow!("no valid cert found in file {}", path.display()))
     } else {
-        Ok(certs.into_iter().map(Certificate).collect())
+        Ok(certs)
     }
 }
 
-pub(crate) fn load_key(path: &Path) -> anyhow::Result<PrivateKey> {
+pub(crate) fn load_key(path: &Path) -> anyhow::Result<PrivateKeyDer<'static>> {
     use rustls_pemfile::Item;
 
     let file =
@@ -226,9 +239,9 @@ pub(crate) fn load_key(path: &Path) -> anyhow::Result<PrivateKey> {
             path.display()
         )
     })? {
-        Some(Item::PKCS8Key(d)) => Ok(PrivateKey(d)),
-        Some(Item::RSAKey(d)) => Ok(PrivateKey(d)),
-        Some(Item::ECKey(d)) => Ok(PrivateKey(d)),
+        Some(Item::Pkcs1Key(d)) => Ok(PrivateKeyDer::Pkcs1(d)),
+        Some(Item::Sec1Key(d)) => Ok(PrivateKeyDer::Sec1(d)),
+        Some(Item::Pkcs8Key(d)) => Ok(PrivateKeyDer::Pkcs8(d)),
         Some(item) => Err(anyhow!(
             "unsupported item in file {}: {item:?}",
             path.display()

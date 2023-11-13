@@ -27,7 +27,8 @@ use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
 use hickory_client::client::AsyncClient;
 use hickory_proto::iocompat::AsyncIoTokioAsStd;
-use rustls::{ClientConfig, ServerName};
+use rustls::ClientConfig;
+use rustls_pki_types::ServerName;
 use tokio::net::{TcpStream, UdpSocket};
 
 use g3_types::net::{DnsEncryptionProtocol, RustlsClientConfigBuilder};

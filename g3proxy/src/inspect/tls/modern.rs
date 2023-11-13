@@ -141,6 +141,7 @@ where
                     "failed to get fake upstream certificate"
                 ))
             })?;
+        let (clt_cert, clt_key) = cert_pair.into_inner();
 
         // set certificate and private key
         let clt_ssl = lazy_acceptor.ssl_mut();

@@ -18,8 +18,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
-use rustls::server::AllowAnyAuthenticatedClient;
-use rustls::{Certificate, RootCertStore, ServerConfig, Ticketer};
+use rustls::crypto::ring::Ticketer;
+use rustls::server::WebPkiClientVerifier;
+use rustls::{RootCertStore, ServerConfig};
+use rustls_pki_types::CertificateDer;
 use yaml_rust::Yaml;
 
 use g3_types::collection::NamedValue;
@@ -36,7 +38,7 @@ pub(crate) struct RustlsHostConfig {
     name: String,
     cert_pairs: Vec<RustlsCertificatePair>,
     client_auth: bool,
-    client_auth_certs: Vec<Certificate>,
+    client_auth_certs: Vec<CertificateDer<'static>>,
     use_session_ticket: bool,
     pub(crate) accept_timeout: Duration,
     pub(crate) request_alive_max: Option<usize>,
@@ -79,25 +81,27 @@ impl NamedValue for RustlsHostConfig {
 
 impl RustlsHostConfig {
     pub(crate) fn build_tls_config(&self) -> anyhow::Result<Arc<ServerConfig>> {
-        let config_builder = ServerConfig::builder().with_safe_defaults();
+        let config_builder = ServerConfig::builder();
         let config_builder = if self.client_auth {
             let mut root_store = RootCertStore::empty();
             if self.client_auth_certs.is_empty() {
                 let certs = g3_types::net::load_native_certs_for_rustls()?;
-                for (i, cert) in certs.iter().enumerate() {
+                for (i, cert) in certs.into_iter().enumerate() {
                     root_store.add(cert).map_err(|e| {
                         anyhow!("failed to add openssl ca cert {i} as root certs for client auth: {e:?}",)
                     })?;
                 }
             } else {
                 for (i, cert) in self.client_auth_certs.iter().enumerate() {
-                    root_store.add(cert).map_err(|e| {
+                    root_store.add(cert.clone()).map_err(|e| {
                         anyhow!("failed to add cert {i} as root certs for client auth: {e:?}",)
                     })?;
                 }
             }
-            config_builder
-                .with_client_cert_verifier(Arc::new(AllowAnyAuthenticatedClient::new(root_store)))
+            let client_verifier = WebPkiClientVerifier::builder(Arc::new(root_store))
+                .build()
+                .map_err(|e| anyhow!("failed to build client cert verifier: {e}"))?;
+            config_builder.with_client_cert_verifier(client_verifier)
         } else {
             config_builder.with_no_client_auth()
         };

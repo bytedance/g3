@@ -21,7 +21,7 @@ use std::time::Duration;
 use anyhow::{anyhow, Context};
 use hickory_resolver::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts};
 use hickory_resolver::TokioAsyncResolver;
-use rustls::ServerName;
+use rustls_pki_types::ServerName;
 
 use g3_types::net::{DnsEncryptionConfigBuilder, DnsEncryptionProtocol};
 
@@ -80,10 +80,10 @@ impl TryFrom<&HickoryDriverConfig> for NameServerConfigGroup {
 
     fn try_from(c: &HickoryDriverConfig) -> anyhow::Result<Self> {
         let g = if let Some(ec) = &c.encryption {
-            let tls_name = match ec.tls_name() {
-                ServerName::DnsName(n) => n.as_ref().to_string(),
-                ServerName::IpAddress(ip) => ip.to_string(),
-                v => return Err(anyhow!("unsupported tls server name: {v:?}")), // FIXME add after hickory support it
+            let tls_name = match &ec.tls_name() {
+                ServerName::DnsName(domain) => domain.as_ref().to_string(),
+                ServerName::IpAddress(ip) => IpAddr::from(*ip).to_string(),
+                _ => return Err(anyhow!("unsupported tls server name type")),
             };
 
             let mut g = match ec.protocol() {

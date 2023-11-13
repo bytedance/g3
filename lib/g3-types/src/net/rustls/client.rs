@@ -19,7 +19,8 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use rustls::client::Resumption;
-use rustls::{Certificate, ClientConfig, OwnedTrustAnchor, RootCertStore};
+use rustls::{ClientConfig, RootCertStore};
+use rustls_pki_types::CertificateDer;
 
 use super::RustlsCertificatePair;
 use crate::net::tls::AlpnProtocol;
@@ -39,7 +40,7 @@ pub struct RustlsClientConfigBuilder {
     disable_sni: bool,
     max_fragment_size: Option<usize>,
     client_cert_pair: Option<RustlsCertificatePair>,
-    ca_certs: Vec<Certificate>,
+    ca_certs: Vec<CertificateDer<'static>>,
     no_default_ca_certs: bool,
     use_builtin_ca_certs: bool,
     handshake_timeout: Duration,
@@ -62,10 +63,6 @@ impl Default for RustlsClientConfigBuilder {
 
 impl RustlsClientConfigBuilder {
     pub fn check(&mut self) -> anyhow::Result<()> {
-        if let Some(cert_pair) = &self.client_cert_pair {
-            cert_pair.check()?;
-        }
-
         if self.handshake_timeout < MINIMAL_HANDSHAKE_TIMEOUT {
             self.handshake_timeout = MINIMAL_HANDSHAKE_TIMEOUT;
         }
@@ -89,7 +86,7 @@ impl RustlsClientConfigBuilder {
         self.client_cert_pair.replace(pair)
     }
 
-    pub fn set_ca_certificates(&mut self, certs: Vec<Certificate>) {
+    pub fn set_ca_certificates(&mut self, certs: Vec<CertificateDer<'static>>) {
         self.ca_certs = certs;
     }
 
@@ -109,21 +106,15 @@ impl RustlsClientConfigBuilder {
         &self,
         alpn_protocols: Option<Vec<AlpnProtocol>>,
     ) -> anyhow::Result<RustlsClientConfig> {
-        let config_builder = ClientConfig::builder().with_safe_defaults();
+        let config_builder = ClientConfig::builder();
 
         let mut root_store = RootCertStore::empty();
         if !self.no_default_ca_certs {
             if self.use_builtin_ca_certs {
-                root_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-                    OwnedTrustAnchor::from_subject_spki_name_constraints(
-                        ta.subject,
-                        ta.spki,
-                        ta.name_constraints,
-                    )
-                }));
+                root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
             } else {
                 let certs = super::load_native_certs_for_rustls()?;
-                for (i, cert) in certs.iter().enumerate() {
+                for (i, cert) in certs.into_iter().enumerate() {
                     root_store.add(cert).map_err(|e| {
                         anyhow!("failed to add openssl ca cert {i} as root certs for client auth: {e:?}",)
                     })?;
@@ -131,7 +122,7 @@ impl RustlsClientConfigBuilder {
             }
         }
         for (i, cert) in self.ca_certs.iter().enumerate() {
-            root_store.add(cert).map_err(|e| {
+            root_store.add(cert.clone()).map_err(|e| {
                 anyhow!("failed to add cert {i} as root certs for server auth: {e:?}",)
             })?;
         }
@@ -140,7 +131,7 @@ impl RustlsClientConfigBuilder {
 
         let mut config = if let Some(pair) = &self.client_cert_pair {
             config_builder
-                .with_client_auth_cert(pair.certs.clone(), pair.key.clone())
+                .with_client_auth_cert(pair.certs_owned(), pair.key_owned())
                 .map_err(|e| anyhow!("unable to add client auth certificate: {e:?}"))?
         } else {
             config_builder.with_no_client_auth()

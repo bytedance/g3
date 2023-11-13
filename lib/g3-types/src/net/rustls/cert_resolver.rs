@@ -17,12 +17,13 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use rustls::crypto::ring::sign::any_supported_type;
 use rustls::server::{ClientHello, ResolvesServerCert};
-use rustls::sign::{any_supported_type, CertifiedKey};
+use rustls::sign::CertifiedKey;
 
 use super::RustlsCertificatePair;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct MultipleCertResolver {
     keys: Vec<Arc<CertifiedKey>>,
 }
@@ -35,9 +36,9 @@ impl MultipleCertResolver {
     }
 
     pub fn push_cert_pair(&mut self, pair: &RustlsCertificatePair) -> anyhow::Result<()> {
-        let signing_key =
-            any_supported_type(&pair.key).map_err(|e| anyhow!("failed to add cert pair: {e}"))?;
-        let ck = CertifiedKey::new(pair.certs.clone(), signing_key);
+        let signing_key = any_supported_type(&pair.key_borrowed())
+            .map_err(|e| anyhow!("failed to add cert pair: {e}"))?;
+        let ck = CertifiedKey::new(pair.certs_owned(), signing_key);
         self.keys.push(Arc::new(ck));
         Ok(())
     }

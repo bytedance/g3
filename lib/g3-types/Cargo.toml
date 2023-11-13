@@ -36,9 +36,10 @@ once_cell = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
 radix_trie = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
-webpki-roots = { version = "0.25", optional = true }
+rustls-pki-types = { workspace = true, optional = true }
+webpki-roots = { version = "0.26", optional = true }
+rustls-native-certs = { version = "0.7", optional = true }
 rustls-pemfile = { workspace = true, optional = true }
-rustls-native-certs = { workspace = true, optional = true }
 openssl = { workspace = true, optional = true }
 lru = { workspace = true, optional = true }
 bytes = { workspace = true, optional = true }
@@ -54,7 +55,7 @@ brotli = { workspace = true, optional = true }
 default = []
 auth-crypt = ["dep:digest", "dep:md-5", "dep:sha-1", "dep:blake3", "dep:hex"]
 resolve = ["dep:ahash", "dep:radix_trie", "dep:fastrand"]
-rustls = ["dep:rustls", "dep:webpki-roots", "dep:rustls-pemfile", "dep:rustls-native-certs", "dep:ahash", "dep:lru"]
+rustls = ["dep:rustls", "dep:rustls-pki-types", "dep:webpki-roots", "dep:rustls-pemfile", "dep:rustls-native-certs", "dep:ahash", "dep:lru"]
 openssl = ["dep:openssl", "dep:ahash", "dep:lru", "dep:bytes"]
 tongsuo = ["openssl", "openssl/tongsuo", "dep:brotli"]
 aws-lc = ["openssl", "openssl/aws-lc", "dep:brotli"]

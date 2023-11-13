@@ -107,6 +107,7 @@ impl QueryRuntime {
                 "cert" => {
                     certs = g3_msgpack::value::as_openssl_certificates(&v)
                         .context(format!("invalid tls certificate value for key {key}"))?;
+                    cert_pair_builder.set_certs(certs);
                 }
                 "key" => {
                     let key = g3_msgpack::value::as_openssl_private_key(&v)

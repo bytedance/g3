@@ -73,10 +73,6 @@ impl HickoryResolverConfig {
         self.driver.get_server_port()
     }
 
-    pub(crate) fn get_encryption_summary(&self) -> Option<String> {
-        self.driver.get_encryption().map(|c| c.summary())
-    }
-
     pub(crate) fn parse(
         map: &yaml::Hash,
         position: Option<YamlDocPosition>,
