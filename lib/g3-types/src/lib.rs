@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+extern crate core;
+
 pub mod auth;
 pub mod collection;
 pub mod error;

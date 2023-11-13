@@ -32,6 +32,7 @@ futures-util.workspace = true
 openssl.workspace = true
 openssl-probe = { workspace = true, optional = true }
 rustls.workspace = true
+rustls-pki-types.workspace = true
 quinn = { workspace = true, optional = true, features = ["tls-rustls", "runtime-tokio"] }
 tokio-rustls.workspace = true
 governor = { workspace = true, features = ["std", "jitter"] }

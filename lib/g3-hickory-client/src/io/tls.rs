@@ -21,13 +21,14 @@ use hickory_proto::error::ProtoError;
 use hickory_proto::iocompat::AsyncIoTokioAsStd;
 use hickory_proto::tcp::{DnsTcpStream, TcpClientStream, TcpStream};
 use hickory_proto::xfer::StreamReceiver;
-use rustls::{ClientConfig, ServerName};
+use rustls::ClientConfig;
+use rustls_pki_types::ServerName;
 
 pub async fn connect(
     name_server: SocketAddr,
     bind_addr: Option<SocketAddr>,
     tls_config: ClientConfig,
-    tls_name: ServerName,
+    tls_name: ServerName<'static>,
     outbound_messages: StreamReceiver,
     connect_timeout: Duration,
 ) -> Result<TcpClientStream<impl DnsTcpStream>, ProtoError> {

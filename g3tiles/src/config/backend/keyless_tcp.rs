@@ -18,7 +18,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
-use rustls::ServerName;
+use rustls_pki_types::ServerName;
 use yaml_rust::{yaml, Yaml};
 
 use g3_histogram::HistogramMetricsConfig;
@@ -39,7 +39,7 @@ pub(crate) struct KeylessTcpBackendConfig {
     pub(crate) discover_data: DiscoverRegisterData,
     pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
     pub(crate) tls_client: Option<RustlsClientConfigBuilder>,
-    pub(crate) tls_name: Option<ServerName>,
+    pub(crate) tls_name: Option<ServerName<'static>>,
     pub(crate) duration_stats: HistogramMetricsConfig,
 
     pub(crate) request_buffer_size: usize,

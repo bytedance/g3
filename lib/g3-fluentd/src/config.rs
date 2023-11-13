@@ -21,9 +21,9 @@ use anyhow::{anyhow, Context};
 use digest::Digest;
 use rand::Rng;
 use rmp::encode::ValueWriteError;
+use rustls_pki_types::ServerName;
 use sha2::Sha512;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use tokio_rustls::rustls::ServerName;
 use tokio_rustls::TlsConnector;
 
 use g3_types::net::{RustlsClientConfig, RustlsClientConfigBuilder, TcpKeepAliveConfig};
@@ -41,7 +41,7 @@ pub struct FluentdClientConfig {
     password: String,
     tcp_keepalive: TcpKeepAliveConfig,
     tls_client: Option<RustlsClientConfig>,
-    tls_name: Option<ServerName>,
+    tls_name: Option<ServerName<'static>>,
     hostname: String,
     pub(super) connect_timeout: Duration,
     pub(super) connect_delay: Duration,
@@ -117,7 +117,7 @@ impl FluentdClientConfig {
         Ok(())
     }
 
-    pub fn set_tls_name(&mut self, tls_name: ServerName) {
+    pub fn set_tls_name(&mut self, tls_name: ServerName<'static>) {
         self.tls_name = Some(tls_name);
     }
 
@@ -159,7 +159,7 @@ impl FluentdClientConfig {
             let tls_name = self
                 .tls_name
                 .clone()
-                .unwrap_or_else(|| ServerName::IpAddress(self.server_addr.ip()));
+                .unwrap_or_else(|| ServerName::IpAddress(self.server_addr.ip().into()));
             let tls_connect =
                 TlsConnector::from(tls_client.driver.clone()).connect(tls_name, tcp_stream);
 

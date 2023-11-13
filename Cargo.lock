@@ -1093,6 +1093,7 @@ dependencies = [
  "rmp",
  "rmp-serde",
  "rustix",
+ "rustls-pki-types",
  "serde",
  "sha2",
  "slog",
@@ -1157,7 +1158,8 @@ dependencies = [
  "hickory-proto",
  "http",
  "quinn",
- "rustls",
+ "rustls 0.23.5",
+ "rustls-pki-types",
  "thiserror",
  "tokio",
  "tokio-rustls",
@@ -1271,8 +1273,8 @@ dependencies = [
  "ip_network",
  "rand",
  "regex",
- "rustls",
- "rustls-pemfile",
+ "rustls-pemfile 2.1.2",
+ "rustls-pki-types",
  "serde_json",
  "variant-ssl",
 ]
@@ -1286,8 +1288,9 @@ dependencies = [
  "chrono",
  "g3-types",
  "rmpv",
- "rustls",
- "rustls-pemfile",
+ "rustls 0.23.5",
+ "rustls-pemfile 2.1.2",
+ "rustls-pki-types",
  "uuid",
  "variant-ssl",
 ]
@@ -1322,7 +1325,8 @@ dependencies = [
  "hickory-proto",
  "indexmap",
  "log",
- "rustls",
+ "rustls 0.23.5",
+ "rustls-pki-types",
  "thiserror",
  "tokio",
  "tokio-util",
@@ -1489,9 +1493,10 @@ dependencies = [
  "rand",
  "regex",
  "rustc-hash",
- "rustls",
- "rustls-native-certs",
- "rustls-pemfile",
+ "rustls 0.23.5",
+ "rustls-native-certs 0.7.0",
+ "rustls-pemfile 2.1.2",
+ "rustls-pki-types",
  "sha-1",
  "slog",
  "smallvec",
@@ -1552,8 +1557,8 @@ dependencies = [
  "ip_network",
  "rand",
  "regex",
- "rustls",
- "rustls-pemfile",
+ "rustls-pemfile 2.1.2",
+ "rustls-pki-types",
  "url",
  "variant-ssl",
  "yaml-rust2",
@@ -1599,8 +1604,9 @@ dependencies = [
  "quinn",
  "rustc-hash",
  "rustc_version",
- "rustls",
- "rustls-pemfile",
+ "rustls 0.23.5",
+ "rustls-pemfile 2.1.2",
+ "rustls-pki-types",
  "thiserror",
  "tokio",
  "tokio-rustls",
@@ -1790,7 +1796,7 @@ dependencies = [
  "rmpv",
  "rustc-hash",
  "rustc_version",
- "rustls",
+ "rustls 0.23.5",
  "serde_json",
  "slog",
  "thiserror",
@@ -1904,7 +1910,8 @@ dependencies = [
  "rand",
  "rustc-hash",
  "rustc_version",
- "rustls",
+ "rustls 0.23.5",
+ "rustls-pki-types",
  "serde_json",
  "slog",
  "thiserror",
@@ -2788,7 +2795,7 @@ dependencies = [
  "quinn-proto",
  "quinn-udp",
  "rustc-hash",
- "rustls",
+ "rustls 0.21.12",
  "thiserror",
  "tokio",
  "tracing",
@@ -2803,8 +2810,8 @@ dependencies = [
  "rand",
  "ring",
  "rustc-hash",
- "rustls",
- "rustls-native-certs",
+ "rustls 0.21.12",
+ "rustls-native-certs 0.6.3",
  "slab",
  "thiserror",
  "tinyvec",
@@ -3021,10 +3028,23 @@ version = "0.21.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f56a14d1f48b391359b22f731fd4bd7e43c97f3c50eee276f3aa09c94784d3e"
 dependencies = [
- "log",
  "ring",
- "rustls-webpki",
+ "rustls-webpki 0.101.7",
  "sct",
+]
+
+[[package]]
+name = "rustls"
+version = "0.23.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "afabcee0551bd1aa3e18e5adbf2c0544722014b899adb31bd186ec638d3da97e"
+dependencies = [
+ "once_cell",
+ "ring",
+ "rustls-pki-types",
+ "rustls-webpki 0.102.3",
+ "subtle",
+ "zeroize",
 ]
 
 [[package]]
@@ -3034,7 +3054,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a9aace74cb666635c918e9c12bc0d348266037aa8eb599b5cba565709a8dff00"
 dependencies = [
  "openssl-probe",
- "rustls-pemfile",
+ "rustls-pemfile 1.0.4",
+ "schannel",
+ "security-framework",
+]
+
+[[package]]
+name = "rustls-native-certs"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f1fb85efa936c42c6d5fc28d2629bb51e4b2f4b8a5211e297d599cc5a093792"
+dependencies = [
+ "openssl-probe",
+ "rustls-pemfile 2.1.2",
+ "rustls-pki-types",
  "schannel",
  "security-framework",
 ]
@@ -3049,12 +3082,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustls-pemfile"
+version = "2.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "29993a25686778eb88d4189742cd713c9bce943bc54251a33509dc63cbacf73d"
+dependencies = [
+ "base64 0.22.1",
+ "rustls-pki-types",
+]
+
+[[package]]
+name = "rustls-pki-types"
+version = "1.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "976295e77ce332211c0d24d92c0e83e50f5c5f046d11082cea19f3df13a3562d"
+
+[[package]]
 name = "rustls-webpki"
 version = "0.101.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b6275d1ee7a1cd780b64aca7726599a1dbc893b1e64144529e55c3c2f745765"
 dependencies = [
  "ring",
+ "untrusted",
+]
+
+[[package]]
+name = "rustls-webpki"
+version = "0.102.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3bce581c0dd41bce533ce695a1437fa16a7ab5ac3ccfa99fe1a620a7885eabf"
+dependencies = [
+ "ring",
+ "rustls-pki-types",
  "untrusted",
 ]
 
@@ -3282,6 +3342,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
+name = "subtle"
+version = "2.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
+
+[[package]]
 name = "syn"
 version = "1.0.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3428,11 +3494,12 @@ dependencies = [
 
 [[package]]
 name = "tokio-rustls"
-version = "0.24.1"
+version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c28327cf380ac148141087fbfb9de9d7bd4e84ab5d2c28fbc911d753de8a7081"
+checksum = "0c7bc40d0e5a97695bb96e27995cd3a08538541b0a846f65bba7a359f36700d4"
 dependencies = [
- "rustls",
+ "rustls 0.23.5",
+ "rustls-pki-types",
  "tokio",
 ]
 
@@ -3724,9 +3791,12 @@ checksum = "af190c94f2773fdb3729c55b007a722abb5384da03bc0986df4c289bf5567e96"
 
 [[package]]
 name = "webpki-roots"
-version = "0.25.4"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f20c57d8d7db6d3b86154206ae5d8fba62dd39573114de97c2cb0578251f8e1"
+checksum = "b3de34ae270483955a94f4b21bdaaeb83d508bb84a01435f393818edb0012009"
+dependencies = [
+ "rustls-pki-types",
+]
 
 [[package]]
 name = "which"
@@ -3936,6 +4006,12 @@ dependencies = [
  "quote",
  "syn 2.0.61",
 ]
+
+[[package]]
+name = "zeroize"
+version = "1.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "525b4ec142c6b68a2d10f01f7bbf6755599ca3f81ea53b8431b7dd348f5fdb2d"
 
 [[package]]
 name = "zip"
