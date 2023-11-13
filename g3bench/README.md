@@ -19,6 +19,7 @@ Benchmark tool for HTTP 1.x / HTTP 2 / HTTP 3 / TLS Handshake / DNS / Cloudflare
   * Socks5 Proxy / Http Proxy / Https Proxy
   * PROXY Protocol
   * Socket Speed limit and IO stats (HTTP layer)
+  * 国密《GB/T 38636-2020》（TLCP）(require feature vendored-tongsuo)
 
 - *HTTP 2*
 
@@ -27,6 +28,7 @@ Benchmark tool for HTTP 1.x / HTTP 2 / HTTP 3 / TLS Handshake / DNS / Cloudflare
   * Connection Pool
   * PROXY Protocol
   * Socket Speed limit and IO stats (H2 layer)
+  * 国密《GB/T 38636-2020》（TLCP）(require feature vendored-tongsuo)
 
 - *HTTP 3*
 
@@ -38,6 +40,7 @@ Benchmark tool for HTTP 1.x / HTTP 2 / HTTP 3 / TLS Handshake / DNS / Cloudflare
 - *TLS Handshake*
 
   * PROXY Protocol
+  * 国密《GB/T 38636-2020》（TLCP）(require feature vendored-tongsuo)
 
 - *DNS*
 
@@ -52,6 +55,7 @@ Benchmark tool for HTTP 1.x / HTTP 2 / HTTP 3 / TLS Handshake / DNS / Cloudflare
 
   * Connection Pool
   * Multiplex Connection / Simplex Connection
+  * 国密《GB/T 38636-2020》（TLCP）(require feature vendored-tongsuo)
 
 ### Metrics
 
