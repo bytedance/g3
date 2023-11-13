@@ -28,6 +28,7 @@ openssl.workspace = true
 openssl-probe = { workspace = true, optional = true }
 rustls.workspace = true
 rustls-pemfile.workspace = true
+rustls-pki-types.workspace = true
 tokio-rustls.workspace = true
 hdrhistogram.workspace = true
 ahash.workspace = true

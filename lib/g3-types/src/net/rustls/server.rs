@@ -18,8 +18,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
-use rustls::server::AllowAnyAuthenticatedClient;
-use rustls::{Certificate, RootCertStore, ServerConfig, Ticketer};
+use rustls::crypto::ring::Ticketer;
+use rustls::server::WebPkiClientVerifier;
+use rustls::{RootCertStore, ServerConfig};
+use rustls_pki_types::CertificateDer;
 
 use super::{MultipleCertResolver, RustlsCertificatePair, RustlsServerSessionCache};
 use crate::net::tls::AlpnProtocol;
@@ -34,7 +36,7 @@ pub struct RustlsServerConfig {
 pub struct RustlsServerConfigBuilder {
     cert_pairs: Vec<RustlsCertificatePair>,
     client_auth: bool,
-    client_auth_certs: Option<Vec<Certificate>>,
+    client_auth_certs: Option<Vec<CertificateDer<'static>>>,
     use_session_ticket: bool,
     accept_timeout: Duration,
 }
@@ -66,14 +68,12 @@ impl RustlsServerConfigBuilder {
         self.client_auth = true;
     }
 
-    pub fn set_client_auth_certificates(&mut self, certs: Vec<Certificate>) {
+    pub fn set_client_auth_certificates(&mut self, certs: Vec<CertificateDer<'static>>) {
         self.client_auth_certs = Some(certs);
     }
 
-    pub fn push_cert_pair(&mut self, cert_pair: RustlsCertificatePair) -> anyhow::Result<()> {
-        cert_pair.check()?;
+    pub fn push_cert_pair(&mut self, cert_pair: RustlsCertificatePair) {
         self.cert_pairs.push(cert_pair);
-        Ok(())
     }
 
     #[inline]
@@ -90,25 +90,27 @@ impl RustlsServerConfigBuilder {
         &self,
         alpn_protocols: Option<Vec<AlpnProtocol>>,
     ) -> anyhow::Result<RustlsServerConfig> {
-        let config_builder = ServerConfig::builder().with_safe_defaults();
+        let config_builder = ServerConfig::builder();
         let config_builder = if self.client_auth {
             let mut root_store = RootCertStore::empty();
             if let Some(certs) = &self.client_auth_certs {
                 for (i, cert) in certs.iter().enumerate() {
-                    root_store.add(cert).map_err(|e| {
+                    root_store.add(cert.clone()).map_err(|e| {
                         anyhow!("failed to add cert {i} as root certs for client auth: {e:?}",)
                     })?;
                 }
             } else {
                 let certs = super::load_native_certs_for_rustls()?;
-                for (i, cert) in certs.iter().enumerate() {
+                for (i, cert) in certs.into_iter().enumerate() {
                     root_store.add(cert).map_err(|e| {
                         anyhow!("failed to add openssl ca cert {i} as root certs for client auth: {e:?}",)
                     })?;
                 }
             };
-            config_builder
-                .with_client_cert_verifier(AllowAnyAuthenticatedClient::new(root_store).boxed())
+            let client_verifier = WebPkiClientVerifier::builder(Arc::new(root_store))
+                .build()
+                .map_err(|e| anyhow!("failed to build client cert verifier: {e}"))?;
+            config_builder.with_client_cert_verifier(client_verifier)
         } else {
             config_builder.with_no_client_auth()
         };
@@ -118,7 +120,7 @@ impl RustlsServerConfigBuilder {
             1 => {
                 let cert_pair = &self.cert_pairs[0];
                 config_builder
-                    .with_single_cert(cert_pair.certs.clone(), cert_pair.key.clone())
+                    .with_single_cert(cert_pair.certs_owned(), cert_pair.key_owned())
                     .map_err(|e| anyhow!("failed to set server cert pair: {e:?}"))?
             }
             n => {

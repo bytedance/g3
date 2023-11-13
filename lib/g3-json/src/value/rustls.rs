@@ -17,15 +17,19 @@
 use std::io::{BufRead, BufReader};
 
 use anyhow::{anyhow, Context};
-use rustls::{Certificate, PrivateKey, ServerName};
 use rustls_pemfile::Item;
+use rustls_pki_types::{CertificateDer, PrivateKeyDer, ServerName};
 use serde_json::Value;
 
-use g3_types::net::{RustlsCertificatePair, RustlsClientConfigBuilder, RustlsServerConfigBuilder};
+use g3_types::net::{
+    RustlsCertificatePair, RustlsCertificatePairBuilder, RustlsClientConfigBuilder,
+    RustlsServerConfigBuilder,
+};
 
-pub fn as_rustls_server_name(value: &Value) -> anyhow::Result<ServerName> {
+pub fn as_rustls_server_name(value: &Value) -> anyhow::Result<ServerName<'static>> {
     if let Value::String(s) = value {
         ServerName::try_from(s.as_str())
+            .map(|r| r.to_owned())
             .map_err(|e| anyhow!("invalid rustls server name string: {e}"))
     } else {
         Err(anyhow!(
@@ -34,21 +38,26 @@ pub fn as_rustls_server_name(value: &Value) -> anyhow::Result<ServerName> {
     }
 }
 
-fn as_certificates_from_single_element(value: &Value) -> anyhow::Result<Vec<Certificate>> {
+fn as_certificates_from_single_element(
+    value: &Value,
+) -> anyhow::Result<Vec<CertificateDer<'static>>> {
     if let Value::String(s) = value {
-        let certs = rustls_pemfile::certs(&mut BufReader::new(s.as_bytes()))
-            .map_err(|e| anyhow!("invalid certificate string: {e:?}"))?;
+        let mut certs = Vec::new();
+        for (i, r) in rustls_pemfile::certs(&mut BufReader::new(s.as_bytes())).enumerate() {
+            let cert = r.map_err(|e| anyhow!("invalid certificate #{i}: {e}"))?;
+            certs.push(cert);
+        }
         if certs.is_empty() {
             Err(anyhow!("no valid certificate found"))
         } else {
-            Ok(certs.into_iter().map(Certificate).collect())
+            Ok(certs)
         }
     } else {
         Err(anyhow!("json value type 'certificates' should be 'string'"))
     }
 }
 
-pub fn as_rustls_certificates(value: &Value) -> anyhow::Result<Vec<Certificate>> {
+pub fn as_rustls_certificates(value: &Value) -> anyhow::Result<Vec<CertificateDer<'static>>> {
     if let Value::Array(seq) = value {
         let mut certs = Vec::new();
         for (i, v) in seq.iter().enumerate() {
@@ -62,7 +71,7 @@ pub fn as_rustls_certificates(value: &Value) -> anyhow::Result<Vec<Certificate>>
     }
 }
 
-fn read_first_private_key<R>(reader: &mut R) -> anyhow::Result<PrivateKey>
+fn read_first_private_key<R>(reader: &mut R) -> anyhow::Result<PrivateKeyDer<'static>>
 where
     R: BufRead,
 {
@@ -70,16 +79,16 @@ where
         match rustls_pemfile::read_one(reader)
             .map_err(|e| anyhow!("read private key failed: {e:?}"))?
         {
-            Some(Item::PKCS8Key(d)) => return Ok(PrivateKey(d)),
-            Some(Item::RSAKey(d)) => return Ok(PrivateKey(d)),
-            Some(Item::ECKey(d)) => return Ok(PrivateKey(d)),
+            Some(Item::Pkcs1Key(d)) => return Ok(PrivateKeyDer::Pkcs1(d)),
+            Some(Item::Pkcs8Key(d)) => return Ok(PrivateKeyDer::Pkcs8(d)),
+            Some(Item::Sec1Key(d)) => return Ok(PrivateKeyDer::Sec1(d)),
             Some(_) => continue,
             None => return Err(anyhow!("no valid private key found")),
         }
     }
 }
 
-pub fn as_rustls_private_key(value: &Value) -> anyhow::Result<PrivateKey> {
+pub fn as_rustls_private_key(value: &Value) -> anyhow::Result<PrivateKeyDer<'static>> {
     if let Value::String(s) = value {
         read_first_private_key(&mut BufReader::new(s.as_bytes()))
             .context("invalid private key string")
@@ -92,24 +101,23 @@ pub fn as_rustls_private_key(value: &Value) -> anyhow::Result<PrivateKey> {
 
 pub fn as_rustls_certificate_pair(value: &Value) -> anyhow::Result<RustlsCertificatePair> {
     if let Value::Object(map) = value {
-        let mut pair = RustlsCertificatePair::default();
-
+        let mut pair_builder = RustlsCertificatePairBuilder::default();
         for (k, v) in map {
             match crate::key::normalize(k).as_str() {
                 "certificate" | "cert" => {
-                    pair.certs = as_rustls_certificates(v)
+                    let certs = as_rustls_certificates(v)
                         .context(format!("invalid certificates value for key {k}"))?;
+                    pair_builder.set_certs(certs);
                 }
                 "private_key" | "key" => {
-                    pair.key = as_rustls_private_key(v)
+                    let key = as_rustls_private_key(v)
                         .context(format!("invalid private key value for key {k}"))?;
+                    pair_builder.set_key(key);
                 }
                 _ => return Err(anyhow!("invalid key {k}")),
             }
         }
-
-        pair.check()?;
-        Ok(pair)
+        pair_builder.build()
     } else {
         Err(anyhow!(
             "json value type for rustls certificate pair should be 'map'"
@@ -120,7 +128,7 @@ pub fn as_rustls_certificate_pair(value: &Value) -> anyhow::Result<RustlsCertifi
 pub fn as_rustls_client_config_builder(value: &Value) -> anyhow::Result<RustlsClientConfigBuilder> {
     if let Value::Object(map) = value {
         let mut builder = RustlsClientConfigBuilder::default();
-        let mut cert_pair = RustlsCertificatePair::default();
+        let mut cert_pair_builder = RustlsCertificatePairBuilder::default();
 
         for (k, v) in map {
             match crate::key::normalize(k).as_str() {
@@ -144,12 +152,14 @@ pub fn as_rustls_client_config_builder(value: &Value) -> anyhow::Result<RustlsCl
                     builder.set_max_fragment_size(mtu);
                 }
                 "certificate" | "cert" => {
-                    cert_pair.certs = as_rustls_certificates(v)
+                    let certs = as_rustls_certificates(v)
                         .context(format!("invalid certificates value for key {k}"))?;
+                    cert_pair_builder.set_certs(certs);
                 }
                 "private_key" | "key" => {
-                    cert_pair.key = as_rustls_private_key(v)
+                    let key = as_rustls_private_key(v)
                         .context(format!("invalid private key value for key {k}"))?;
+                    cert_pair_builder.set_key(key);
                 }
                 "cert_pair" => {
                     let pair = as_rustls_certificate_pair(v)
@@ -184,8 +194,10 @@ pub fn as_rustls_client_config_builder(value: &Value) -> anyhow::Result<RustlsCl
             }
         }
 
-        if cert_pair.is_set() && builder.set_cert_pair(cert_pair).is_some() {
-            return Err(anyhow!("found duplicate client certificate config"));
+        if let Ok(cert_pair) = cert_pair_builder.build() {
+            if builder.set_cert_pair(cert_pair).is_some() {
+                return Err(anyhow!("found duplicate client certificate config"));
+            }
         }
 
         builder.check()?;
@@ -200,7 +212,7 @@ pub fn as_rustls_client_config_builder(value: &Value) -> anyhow::Result<RustlsCl
 pub fn as_rustls_server_config_builder(value: &Value) -> anyhow::Result<RustlsServerConfigBuilder> {
     if let Value::Object(map) = value {
         let mut builder = RustlsServerConfigBuilder::empty();
-        let mut cert_pair = RustlsCertificatePair::default();
+        let mut cert_pair_builder = RustlsCertificatePairBuilder::default();
 
         for (k, v) in map {
             match crate::key::normalize(k).as_str() {
@@ -209,25 +221,23 @@ pub fn as_rustls_server_config_builder(value: &Value) -> anyhow::Result<RustlsSe
                         for (i, v) in seq.iter().enumerate() {
                             let pair = as_rustls_certificate_pair(v)
                                 .context(format!("invalid rustls cert pair value for {k}#{i}"))?;
-                            builder
-                                .push_cert_pair(pair)
-                                .context(format!("invalid rustls cert pair value for {k}#{i}"))?;
+                            builder.push_cert_pair(pair);
                         }
                     } else {
                         let pair = as_rustls_certificate_pair(value)
                             .context(format!("invalid rustls cert pair value for key {k}"))?;
-                        builder
-                            .push_cert_pair(pair)
-                            .context(format!("invalid rustls cert pair value for key {k}"))?;
+                        builder.push_cert_pair(pair);
                     }
                 }
                 "certificate" | "cert" => {
-                    cert_pair.certs =
+                    let certs =
                         as_rustls_certificates(v).context(format!("invalid value for key {k}"))?;
+                    cert_pair_builder.set_certs(certs);
                 }
                 "private_key" | "key" => {
-                    cert_pair.key =
+                    let key =
                         as_rustls_private_key(v).context(format!("invalid value for key {k}"))?;
+                    cert_pair_builder.set_key(key);
                 }
                 "enable_client_auth" => {
                     let enable =
@@ -255,9 +265,9 @@ pub fn as_rustls_server_config_builder(value: &Value) -> anyhow::Result<RustlsSe
             }
         }
 
-        builder
-            .push_cert_pair(cert_pair)
-            .context("invalid certificate / private_key value")?;
+        if let Ok(cert_pair) = cert_pair_builder.build() {
+            builder.push_cert_pair(cert_pair);
+        }
 
         builder.check()?;
         Ok(builder)
