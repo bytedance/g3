@@ -2,6 +2,9 @@
 v1.7.29:
  - Feature: add OpenSSL based NativeTlsPort server
  - Feature: allow to chain TcpStream after ports server
+ - Feature: make hickory-dns as an optional feature
+ - Feature: add new max_udp_queries config option to c-ares resolver
+ - Optimization: use sendmmsg / recvmmsg for UDP io
 
 v1.7.28:
  - BUG FIX: fix server ingress net acl check for traffic from extra tls ports
