@@ -1,4 +1,9 @@
 
+v0.8.5:
+ - Feature: emit histogram duration metrics
+ - Feature: add socks5 proxy support to h3 target
+ - Feature: add options to config udp socket speed limit and stats
+
 v0.8.4:
  - BUG FIX: fix keyless openssl sign action
  - Feature: support dns over http/3 in dns target
