@@ -190,7 +190,7 @@ const ALL_COUNTRY_NAMES: &[&str] = &[
     "Norfolk Island",
     "Nigeria",
     "Nicaragua",
-    "Netherlands",
+    "The Netherlands",
     "Norway",
     "Nepal",
     "Nauru",
@@ -445,7 +445,7 @@ const ALL_ALPHA2_CODES: &[&str] = &[
     "NF", /* Norfolk Island */
     "NG", /* Nigeria */
     "NI", /* Nicaragua */
-    "NL", /* Netherlands */
+    "NL", /* The Netherlands */
     "NO", /* Norway */
     "NP", /* Nepal */
     "NR", /* Nauru */
@@ -700,7 +700,7 @@ const ALL_ALPHA3_CODES: &[&str] = &[
     "NFK", /* Norfolk Island */
     "NGA", /* Nigeria */
     "NIC", /* Nicaragua */
-    "NLD", /* Netherlands */
+    "NLD", /* The Netherlands */
     "NOR", /* Norway */
     "NPL", /* Nepal */
     "NRU", /* Nauru */
@@ -1636,7 +1636,7 @@ pub enum IsoCountryCode {
     NF, /* NFK - Norfolk Island */
     NG, /* NGA - Nigeria */
     NI, /* NIC - Nicaragua */
-    NL, /* NLD - Netherlands */
+    NL, /* NLD - The Netherlands */
     NO, /* NOR - Norway */
     NP, /* NPL - Nepal */
     NR, /* NRU - Nauru */
