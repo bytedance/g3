@@ -17,7 +17,7 @@ ascii.workspace = true
 rand.workspace = true
 ip_network = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
-rustls = { workspace = true, optional = true }
+rustls-pki-types = { workspace = true, optional = true }
 rustls-pemfile = { workspace = true, optional = true }
 openssl = { workspace = true, optional = true }
 g3-types.workspace = true
@@ -28,7 +28,7 @@ default = []
 resolve = ["g3-types/resolve"]
 acl-rule = ["g3-types/acl-rule", "dep:ip_network", "dep:regex"]
 http = ["g3-types/http"]
-rustls = ["g3-types/rustls", "dep:rustls", "dep:rustls-pemfile"]
+rustls = ["g3-types/rustls", "dep:rustls-pki-types", "dep:rustls-pemfile"]
 openssl = ["g3-types/openssl", "dep:openssl"]
 tongsuo = ["openssl", "g3-types/tongsuo"]
 route = ["g3-types/route"]

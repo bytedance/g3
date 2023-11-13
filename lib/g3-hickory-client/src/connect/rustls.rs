@@ -18,7 +18,8 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use hickory_proto::error::ProtoError;
-use rustls::{ClientConfig, ServerName};
+use rustls::ClientConfig;
+use rustls_pki_types::ServerName;
 use tokio::net::{TcpSocket, TcpStream};
 use tokio_rustls::client::TlsStream;
 use tokio_rustls::TlsConnector;
@@ -27,7 +28,7 @@ pub(crate) async fn tls_connect(
     name_server: SocketAddr,
     bind_addr: Option<SocketAddr>,
     mut tls_config: ClientConfig,
-    tls_name: ServerName,
+    tls_name: ServerName<'static>,
     alpn_protocol: &'static [u8],
 ) -> Result<TlsStream<TcpStream>, ProtoError> {
     let socket = match name_server {

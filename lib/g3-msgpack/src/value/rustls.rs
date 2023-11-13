@@ -18,10 +18,12 @@ use std::io::{BufRead, BufReader};
 
 use anyhow::{anyhow, Context};
 use rmpv::ValueRef;
-use rustls::{Certificate, PrivateKey};
 use rustls_pemfile::Item;
+use rustls_pki_types::{CertificateDer, PrivateKeyDer};
 
-fn as_certificates_from_single_element(value: &ValueRef) -> anyhow::Result<Vec<Certificate>> {
+fn as_certificates_from_single_element(
+    value: &ValueRef,
+) -> anyhow::Result<Vec<CertificateDer<'static>>> {
     let bytes = match value {
         ValueRef::String(s) => s.as_bytes(),
         ValueRef::Binary(b) => *b,
@@ -31,16 +33,21 @@ fn as_certificates_from_single_element(value: &ValueRef) -> anyhow::Result<Vec<C
             ));
         }
     };
-    let certs = rustls_pemfile::certs(&mut BufReader::new(bytes))
-        .map_err(|e| anyhow!("invalid certificate string: {e:?}"))?;
+    let mut certs = Vec::new();
+    let mut buf_reader = BufReader::new(bytes);
+    let results = rustls_pemfile::certs(&mut buf_reader);
+    for (i, r) in results.enumerate() {
+        let cert = r.map_err(|e| anyhow!("invalid certificate #{i}: {e}"))?;
+        certs.push(cert);
+    }
     if certs.is_empty() {
         Err(anyhow!("no valid certificate found"))
     } else {
-        Ok(certs.into_iter().map(Certificate).collect())
+        Ok(certs)
     }
 }
 
-pub fn as_rustls_certificates(value: &ValueRef) -> anyhow::Result<Vec<Certificate>> {
+pub fn as_rustls_certificates(value: &ValueRef) -> anyhow::Result<Vec<CertificateDer<'static>>> {
     if let ValueRef::Array(seq) = value {
         let mut certs = Vec::with_capacity(seq.len());
         for (i, v) in seq.iter().enumerate() {
@@ -54,7 +61,7 @@ pub fn as_rustls_certificates(value: &ValueRef) -> anyhow::Result<Vec<Certificat
     }
 }
 
-fn read_first_private_key<R>(reader: &mut R) -> anyhow::Result<PrivateKey>
+fn read_first_private_key<R>(reader: &mut R) -> anyhow::Result<PrivateKeyDer<'static>>
 where
     R: BufRead,
 {
@@ -62,16 +69,16 @@ where
         match rustls_pemfile::read_one(reader)
             .map_err(|e| anyhow!("read private key failed: {e:?}"))?
         {
-            Some(Item::PKCS8Key(d)) => return Ok(PrivateKey(d)),
-            Some(Item::RSAKey(d)) => return Ok(PrivateKey(d)),
-            Some(Item::ECKey(d)) => return Ok(PrivateKey(d)),
+            Some(Item::Pkcs1Key(d)) => return Ok(PrivateKeyDer::Pkcs1(d)),
+            Some(Item::Pkcs8Key(d)) => return Ok(PrivateKeyDer::Pkcs8(d)),
+            Some(Item::Sec1Key(d)) => return Ok(PrivateKeyDer::Sec1(d)),
             Some(_) => continue,
             None => return Err(anyhow!("no valid private key found")),
         }
     }
 }
 
-pub fn as_rustls_private_key(value: &ValueRef) -> anyhow::Result<PrivateKey> {
+pub fn as_rustls_private_key(value: &ValueRef) -> anyhow::Result<PrivateKeyDer<'static>> {
     let bytes = match value {
         ValueRef::String(s) => s.as_bytes(),
         ValueRef::Binary(b) => *b,
