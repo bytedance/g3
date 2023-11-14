@@ -160,7 +160,8 @@ The code should comply to these, but should be more compliant to existing popula
 
  - [rfc8446](https://datatracker.ietf.org/doc/html/rfc8446)
     : The Transport Layer Security (TLS) Protocol Version 1.3
-
+ - [rfc8998](https://datatracker.ietf.org/doc/html/rfc8998)
+    : ShangMi (SM) Cipher Suites for TLS 1.3
  - [GB/T 38636-2020](https://openstd.samr.gov.cn/bzgk/gb/newGbInfo?hcno=778097598DA2761E94A5FF3F77BD66DA)
     : Information security technology—Transport layer cryptography protocol(TLCP)
 
