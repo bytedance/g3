@@ -14,7 +14,5 @@
  * limitations under the License.
  */
 
-#[cfg(feature = "icap")]
 mod icap;
-#[cfg(feature = "icap")]
 pub use icap::{as_icap_reqmod_service_config, as_icap_respmod_service_config};

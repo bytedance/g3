@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-mod audit;
 mod auth;
 mod collection;
 mod datetime;
@@ -26,7 +25,6 @@ mod random;
 mod rate_limit;
 mod speed_limit;
 
-pub use audit::*;
 pub use auth::{as_password, as_username};
 pub use collection::as_selective_pick_policy;
 pub use datetime::as_rfc3339_datetime;
@@ -41,6 +39,11 @@ pub use primary::{
 pub use random::as_random_ratio;
 pub use rate_limit::as_rate_limit_quota;
 pub use speed_limit::{as_tcp_sock_speed_limit, as_udp_sock_speed_limit};
+
+#[cfg(feature = "audit")]
+mod audit;
+#[cfg(feature = "audit")]
+pub use audit::{as_icap_reqmod_service_config, as_icap_respmod_service_config};
 
 #[cfg(feature = "acl-rule")]
 pub mod acl;

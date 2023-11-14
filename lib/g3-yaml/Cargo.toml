@@ -1,6 +1,6 @@
 [package]
 name = "g3-yaml"
-version = "0.4.1"
+version = "0.5.0"
 license.workspace = true
 edition.workspace = true
 rust-version = "1.66.0"
@@ -52,5 +52,5 @@ route = ["g3-types/route"]
 ftp-client = ["g3-ftp-client"]
 sched = ["g3-runtime", "g3-compat"]
 dpi = ["g3-dpi", "g3-tls-cert"]
-icap = ["g3-icap-client", "http"]
+audit = ["g3-icap-client", "http"]
 geoip = ["g3-geoip"]
