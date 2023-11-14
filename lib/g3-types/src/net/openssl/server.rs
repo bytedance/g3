@@ -30,6 +30,7 @@ use super::OpensslCertificatePair;
 use super::OpensslTlcpCertificatePair;
 use crate::net::AlpnProtocol;
 
+#[cfg(feature = "vendored-tongsuo")]
 const TLS_DEFAULT_CIPHER_SUITES: &str =
     "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_SM4_GCM_SM3";
 #[cfg(feature = "vendored-tongsuo")]
@@ -126,6 +127,7 @@ impl OpensslServerConfigBuilder {
         let mut ssl_builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::tls_server())
             .map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
 
+        #[cfg(feature = "vendored-tongsuo")]
         ssl_builder
             .set_ciphersuites(TLS_DEFAULT_CIPHER_SUITES)
             .map_err(|e| anyhow!("failed to set tls1.3 cipher suites: {e}"))?;

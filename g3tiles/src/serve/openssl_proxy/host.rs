@@ -31,6 +31,14 @@ use g3_types::route::{AlpnMatch, HostMatch};
 use super::OpensslService;
 use crate::config::server::openssl_proxy::OpensslHostConfig;
 
+#[cfg(feature = "vendored-tongsuo")]
+const TLS_DEFAULT_CIPHER_SUITES: &str =
+    "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_SM4_GCM_SM3";
+#[cfg(feature = "vendored-tongsuo")]
+const TLCP_DEFAULT_CIPHER_LIST: &str = "ECDHE-SM2-WITH-SM4-SM3:ECC-SM2-WITH-SM4-SM3:\
+    ECDHE-SM2-SM4-CBC-SM3:ECDHE-SM2-SM4-GCM-SM3:ECC-SM2-SM4-CBC-SM3:ECC-SM2-SM4-GCM-SM3:\
+    RSA-SM4-CBC-SM3:RSA-SM4-GCM-SM3:RSA-SM4-CBC-SHA256:RSA-SM4-GCM-SHA256";
+
 pub(super) fn build_ssl_acceptor(
     hosts: Arc<HostMatch<Arc<OpensslHost>>>,
     host_index: Index<Ssl, Arc<OpensslHost>>,
@@ -47,6 +55,11 @@ pub(super) fn build_ssl_acceptor(
         //  Openssl 1.1.1j: https://github.com/openssl/openssl/pull/13305
         builder.set_psk_server_callback(|_ssl, _a, _b| Ok(0));
     }
+
+    #[cfg(feature = "vendored-tongsuo")]
+    builder
+        .set_ciphersuites(TLS_DEFAULT_CIPHER_SUITES)
+        .map_err(|e| anyhow!("failed to set tls1.3 cipher suites: {e}"))?;
 
     builder.set_servername_callback(move |ssl, alert| {
         let sni_err = if alert_unrecognized_name {
@@ -114,12 +127,9 @@ pub(super) fn build_tlcp_context(
         .map_err(|e| anyhow!("failed to get ssl context builder: {e}"))?;
     builder.enable_force_ntls();
 
-    builder.set_cipher_list(
-        "ECDHE-SM2-WITH-SM4-SM3:ECC-SM2-WITH-SM4-SM3:\
-         ECDHE-SM2-SM4-CBC-SM3:ECDHE-SM2-SM4-GCM-SM3:ECC-SM2-SM4-CBC-SM3:ECC-SM2-SM4-GCM-SM3:\
-         IBSDH-SM9-SM4-CBC-SM3:IBSDH-SM9-SM4-GCM-SM3:IBC-SM9-SM4-CBC-SM3:IBC-SM9-SM4-GCM-SM3:\
-         RSA-SM4-CBC-SM3:RSA-SM4-GCM-SM3:RSA-SM4-CBC-SHA256:RSA-SM4-GCM-SHA256",
-    )?;
+    builder
+        .set_cipher_list(TLCP_DEFAULT_CIPHER_LIST)
+        .map_err(|e| anyhow!("failed to set tlcp cipher list: {e}"))?;
 
     builder.set_servername_callback(move |ssl, alert| {
         let sni_err = if alert_unrecognized_name {
