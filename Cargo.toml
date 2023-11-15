@@ -153,6 +153,8 @@ quinn = { version = "0.10", default-features = false, features = ["native-certs"
 #
 flume = { version = "0.11", default-features = false }
 #
+c-ares = { version = "8.1", default-features = false }
+c-ares-resolver = { version = "8.1", default-features = false }
 hickory-resolver = { version = "0.24.0", default-features = false }
 hickory-proto = { version = "0.24.0", default-features = false }
 hickory-client = { version = "0.24.0", default-features = false }

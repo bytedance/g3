@@ -103,6 +103,11 @@ impl CAresResolverConfig {
                 self.driver.set_each_tries(g3_yaml::value::as_u32(v)?);
                 Ok(())
             }
+            #[cfg(cares1_22)]
+            "max_timeout" => {
+                self.driver.set_max_timeout(g3_yaml::value::as_i32(v)?);
+                Ok(())
+            }
             #[cfg(cares1_20)]
             "udp_max_quires" => {
                 self.driver.set_udp_max_queries(g3_yaml::value::as_i32(v)?);

@@ -43,6 +43,20 @@ The number of tries the resolver will try contacting each name server before giv
 
 .. versionchanged:: 1.7.27 change default value from 2 to 3 to match default values set in c-ares 1.20.1
 
+max_timeout
+-----------
+
+**optional**, **type**: int, **unit**: ms
+
+The upper bound for timeout between sequential retry attempts. When retrying queries, the timeout is increased
+from the requested timeout parameter, this caps the value.
+
+**notes**: This requires at least c-ares 1.22.
+
+**default**: 0, which is not explicitly set
+
+.. versionadded:: 1.7.30
+
 udp_max_quires
 --------------
 

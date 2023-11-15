@@ -28,6 +28,8 @@ pub struct CAresDriverConfig {
     flags: c_ares::Flags,
     each_timeout: u32,
     each_tries: u32,
+    #[cfg(cares1_22)]
+    max_timeout: i32,
     #[cfg(cares1_20)]
     udp_max_queries: i32,
     round_robin: bool,
@@ -46,6 +48,8 @@ impl Default for CAresDriverConfig {
             flags: c_ares::Flags::empty() | c_ares::Flags::NOCHECKRESP,
             each_timeout: 2000,
             each_tries: 3,
+            #[cfg(cares1_22)]
+            max_timeout: 0,
             #[cfg(cares1_20)]
             udp_max_queries: 0,
             round_robin: false,
@@ -115,7 +119,12 @@ impl CAresDriverConfig {
 
     #[cfg(cares1_20)]
     pub fn set_udp_max_queries(&mut self, max: i32) {
-        self.udp_max_queries = max;
+        self.udp_max_queries = max.max(0);
+    }
+
+    #[cfg(cares1_22)]
+    pub fn set_max_timeout(&mut self, timeout_ms: i32) {
+        self.max_timeout = Some(timeout_ms.max(0));
     }
 
     pub fn is_unspecified(&self) -> bool {
@@ -133,6 +142,8 @@ impl CAresDriverConfig {
             .set_tries(self.each_tries);
         #[cfg(cares1_20)]
         opts.set_udp_max_queries(self.udp_max_queries);
+        #[cfg(cares1_22)]
+        opts.set_max_timeout(self.max_timeout);
         if self.round_robin {
             opts.set_rotate();
         } else {
