@@ -21,6 +21,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use log::debug;
+use quinn::Connection;
 use slog::Logger;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
@@ -463,5 +464,13 @@ impl Server for HttpRProxyServer {
         }
 
         self.spawn_stream_task(stream, cc_info, ctx).await;
+    }
+
+    async fn run_quic_task(
+        &self,
+        _connection: Connection,
+        _cc_info: ClientConnectionInfo,
+        _ctx: ServerRunContext,
+    ) {
     }
 }

@@ -436,7 +436,7 @@ impl<'a> FtpOverHttpTask<'a> {
         // set client side socket options
         self.ctx
             .cc_info
-            .sock_set_raw_opts(&tcp_client_misc_opts, true)
+            .tcp_sock_set_raw_opts(&tcp_client_misc_opts, true)
             .map_err(|_| {
                 ServerTaskError::InternalServerError("failed to set client socket options")
             })?;

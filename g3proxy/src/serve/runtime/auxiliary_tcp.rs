@@ -18,7 +18,6 @@ use std::os::fd::AsRawFd;
 use std::sync::Arc;
 
 use log::{info, warn};
-use tokio::net::TcpStream;
 use tokio::runtime::Handle;
 use tokio::sync::{broadcast, watch};
 
@@ -26,23 +25,11 @@ use g3_daemon::listen::ListenStats;
 use g3_daemon::server::ClientConnectionInfo;
 use g3_io_ext::LimitedTcpListener;
 use g3_socket::util::native_socket_addr;
-use g3_types::metrics::MetricsName;
 use g3_types::net::TcpListenConfig;
 
+use super::AuxiliaryServerConfig;
 use crate::config::server::ServerConfig;
 use crate::serve::{ArcServer, ServerReloadCommand, ServerRunContext};
-
-pub(crate) trait AuxiliaryServerConfig {
-    fn next_server(&self) -> &MetricsName;
-    fn run_tcp_task(
-        &self,
-        rt_handle: Handle,
-        next_server: ArcServer,
-        stream: TcpStream,
-        cc_info: ClientConnectionInfo,
-        ctx: ServerRunContext,
-    );
-}
 
 #[derive(Clone)]
 pub(crate) struct AuxiliaryTcpPortRuntime {
@@ -99,8 +86,8 @@ impl AuxiliaryTcpPortRuntime {
     }
 
     fn rt_handle(&self) -> (Handle, Option<usize>) {
-        if let Some(id) = self.worker_id {
-            (Handle::current(), Some(id))
+        if let Some(worker_id) = self.worker_id {
+            (Handle::current(), Some(worker_id))
         } else if let Some(rt) = g3_daemon::runtime::worker::select_handle() {
             (rt.handle, Some(rt.id))
         } else {
@@ -124,7 +111,11 @@ impl AuxiliaryTcpPortRuntime {
         let mut next_server_name = aux_config.next_server().clone();
         let (mut next_server, mut next_server_reload_channel) =
             crate::serve::get_with_notifier(&next_server_name);
-        let run_ctx = ServerRunContext::new();
+        let mut run_ctx = ServerRunContext::new(
+            next_server.escaper(),
+            next_server.user_group(),
+            next_server.auditor(),
+        );
 
         loop {
             let mut reload_next_server = false;
@@ -172,6 +163,24 @@ impl AuxiliaryTcpPortRuntime {
                                 self.server.name(), self.server_version, self.instance_id);
                             reload_next_server = true;
                         }
+                        Ok(ServerReloadCommand::ReloadEscaper) => {
+                            let escaper_name = next_server.escaper();
+                            info!("SRT[{}_v{}#{}] will reload escaper {escaper_name}",
+                                self.server.name(), self.server_version, self.instance_id);
+                            run_ctx.update_escaper(escaper_name);
+                        },
+                        Ok(ServerReloadCommand::ReloadUserGroup) => {
+                            let user_group_name = next_server.user_group();
+                            info!("SRT[{}_v{}#{}] will reload user group {user_group_name}",
+                                self.server.name(), self.server_version, self.instance_id);
+                            run_ctx.update_user_group(user_group_name);
+                        },
+                        Ok(ServerReloadCommand::ReloadAuditor) => {
+                            let auditor_name = next_server.auditor();
+                            info!("SRT[{}_v{}#{}] will reload auditor {auditor_name}",
+                                self.server.name(), self.server_version, self.instance_id);
+                            run_ctx.update_audit_handle(auditor_name);
+                        },
                         Ok(ServerReloadCommand::QuitRuntime) | Err(RecvError::Closed) => {
                             info!("SRT[{}_v{}#{}] next server {next_server_name} quit, reload it",
                                 self.server.name(), self.server_version, self.instance_id);
@@ -228,6 +237,33 @@ impl AuxiliaryTcpPortRuntime {
                 let result = crate::serve::get_with_notifier(&next_server_name);
                 next_server = result.0;
                 next_server_reload_channel = result.1;
+
+                // if escaper changed, reload it
+                let old_escaper = run_ctx.current_escaper();
+                let new_escaper = next_server.escaper();
+                if old_escaper.ne(new_escaper) {
+                    info!("SRT[{}_v{}#{}] will use escaper '{new_escaper}' instead of '{old_escaper}'",
+                                        self.server.name(), self.server_version, self.instance_id);
+                    run_ctx.update_escaper(new_escaper);
+                }
+
+                // if user group changed, reload it
+                let old_user_group = run_ctx.current_user_group();
+                let new_user_group = next_server.user_group();
+                if old_user_group.ne(new_user_group) {
+                    info!("SRT[{}_v{}#{}] will use user group '{new_user_group}' instead of '{old_user_group}'",
+                                        self.server.name(), self.server_version, self.instance_id);
+                    run_ctx.update_user_group(new_user_group);
+                }
+
+                // if auditor changed, reload it
+                let old_auditor = run_ctx.current_auditor();
+                let new_auditor = next_server.auditor();
+                if old_auditor.ne(new_auditor) {
+                    info!("SRT[{}_v{}#{}] will use auditor '{new_auditor}' instead of '{old_auditor}'",
+                                        self.server.name(), self.server_version, self.instance_id);
+                    run_ctx.update_audit_handle(new_auditor);
+                }
             }
         }
         self.post_stop();

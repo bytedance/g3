@@ -29,12 +29,14 @@ use super::util::AddressFamily;
 pub fn new_std_listener(config: &TcpListenConfig) -> io::Result<std::net::TcpListener> {
     let addr = config.address();
     let socket = new_tcp_socket(AddressFamily::from(&addr))?;
-    socket.set_reuse_port(true)?;
-    let addr: SockAddr = addr.into();
+    if addr.port() != 0 {
+        socket.set_reuse_port(true)?;
+    }
     if config.is_ipv6only() {
         socket.set_only_v6(true)?;
     }
-    socket.bind(&addr)?;
+    let bind_addr: SockAddr = addr.into();
+    socket.bind(&bind_addr)?;
     socket.listen(config.backlog() as i32)?;
     Ok(std::net::TcpListener::from(socket))
 }

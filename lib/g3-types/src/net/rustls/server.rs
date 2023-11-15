@@ -78,8 +78,14 @@ impl RustlsServerConfigBuilder {
         Ok(())
     }
 
+    #[inline]
     pub fn set_accept_timeout(&mut self, timeout: Duration) {
         self.accept_timeout = timeout;
+    }
+
+    #[inline]
+    pub fn accept_timeout(&self) -> Duration {
+        self.accept_timeout
     }
 
     pub fn build_with_alpn_protocols(

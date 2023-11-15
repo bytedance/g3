@@ -376,7 +376,8 @@ impl IntelliProxyListen {
         let detection_timeout = self.config.protocol_detection_timeout;
         let proxy_protocol = self.config.proxy_protocol;
         let proxy_protocol_read_timeout = self.config.proxy_protocol_read_timeout;
-        let mut cc_info = ClientConnectionInfo::new(peer_addr, local_addr, stream.as_raw_fd());
+        let mut cc_info = ClientConnectionInfo::new(peer_addr, local_addr);
+        cc_info.set_tcp_raw_fd(stream.as_raw_fd());
         tokio::spawn(async move {
             let mut stream = stream;
             match proxy_protocol {

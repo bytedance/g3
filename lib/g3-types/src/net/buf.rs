@@ -21,6 +21,13 @@ pub struct SocketBufferConfig {
 }
 
 impl SocketBufferConfig {
+    pub fn new(size: usize) -> Self {
+        SocketBufferConfig {
+            recv: Some(size),
+            send: Some(size),
+        }
+    }
+
     #[inline]
     pub fn set_recv_size(&mut self, size: usize) {
         self.recv = Some(size);

@@ -19,7 +19,6 @@ use std::time::Duration;
 
 use log::debug;
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio::net::TcpStream;
 
 use g3_daemon::stat::task::TcpStreamTaskStats;
 use g3_io_ext::{LimitedReader, LimitedWriter};
@@ -64,25 +63,13 @@ impl TcpStreamTask {
         }
     }
 
-    pub(super) async fn tcp_into_running(self, stream: TcpStream) {
-        let (clt_r, clt_w) = self.split_tcp_clt(stream);
-        self.into_running(clt_r, clt_w).await;
-    }
-
-    pub(super) async fn stream_into_running<T>(self, stream: T)
-    where
-        T: AsyncRead + AsyncWrite + Send + Sync + 'static,
-    {
-        let (clt_r, clt_w) = self.split_stream_clt(stream);
-        self.into_running(clt_r, clt_w).await;
-    }
-
-    async fn into_running<CR, CW>(mut self, clt_r: CR, clt_w: CW)
+    pub(super) async fn into_running<CR, CW>(mut self, clt_r: CR, clt_w: CW)
     where
         CR: AsyncRead + Send + Sync + Unpin + 'static,
         CW: AsyncWrite + Send + Sync + Unpin + 'static,
     {
         self.pre_start();
+        let (clt_r, clt_w) = self.setup_limit_and_stats(clt_r, clt_w);
         match self.run(clt_r, clt_w).await {
             Ok(_) => self
                 .get_log_context()
@@ -116,7 +103,7 @@ impl TcpStreamTask {
         // set client side socket options
         self.ctx
             .cc_info
-            .sock_set_raw_opts(&self.ctx.server_config.tcp_misc_opts, true)
+            .tcp_sock_set_raw_opts(&self.ctx.server_config.tcp_misc_opts, true)
             .map_err(|_| {
                 ServerTaskError::InternalServerError("failed to set client socket options")
             })?;
@@ -222,31 +209,6 @@ impl TcpStreamTask {
             )
             .await
         }
-    }
-
-    fn split_tcp_clt(
-        &self,
-        clt_stream: TcpStream,
-    ) -> (
-        LimitedReader<impl AsyncRead>,
-        LimitedWriter<impl AsyncWrite>,
-    ) {
-        let (clt_r, clt_w) = clt_stream.into_split();
-        self.setup_limit_and_stats(clt_r, clt_w)
-    }
-
-    fn split_stream_clt<T>(
-        &self,
-        clt_stream: T,
-    ) -> (
-        LimitedReader<impl AsyncRead>,
-        LimitedWriter<impl AsyncWrite>,
-    )
-    where
-        T: AsyncRead + AsyncWrite,
-    {
-        let (clt_r, clt_w) = tokio::io::split(clt_stream);
-        self.setup_limit_and_stats(clt_r, clt_w)
     }
 
     fn setup_limit_and_stats<CR, CW>(

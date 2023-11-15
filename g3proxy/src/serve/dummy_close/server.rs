@@ -18,6 +18,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
+use quinn::Connection;
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 use tokio_openssl::SslStream;
@@ -180,6 +181,14 @@ impl Server for DummyCloseServer {
     async fn run_openssl_task(
         &self,
         _stream: SslStream<TcpStream>,
+        _cc_info: ClientConnectionInfo,
+        _ctx: ServerRunContext,
+    ) {
+    }
+
+    async fn run_quic_task(
+        &self,
+        _connection: Connection,
         _cc_info: ClientConnectionInfo,
         _ctx: ServerRunContext,
     ) {

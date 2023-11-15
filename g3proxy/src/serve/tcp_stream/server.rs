@@ -19,6 +19,8 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
+use log::debug;
+use quinn::Connection;
 use slog::Logger;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
@@ -204,8 +206,9 @@ impl TcpStreamServer {
     ) {
         let (ctx, upstream) = self.get_ctx_and_upstream(cc_info, run_ctx);
 
+        let (clt_r, clt_w) = stream.into_split();
         TcpStreamTask::new(ctx, upstream)
-            .tcp_into_running(stream)
+            .into_running(clt_r, clt_w)
             .await;
     }
 
@@ -219,9 +222,22 @@ impl TcpStreamServer {
     {
         let (ctx, upstream) = self.get_ctx_and_upstream(cc_info, run_ctx);
 
+        let (clt_r, clt_w) = tokio::io::split(stream);
         TcpStreamTask::new(ctx, upstream)
-            .stream_into_running(stream)
+            .into_running(clt_r, clt_w)
             .await;
+    }
+
+    fn run_task_with_quic_stream(
+        &self,
+        send_stream: quinn::SendStream,
+        recv_stream: quinn::RecvStream,
+        cc_info: ClientConnectionInfo,
+        run_ctx: ServerRunContext,
+    ) {
+        let (ctx, upstream) = self.get_ctx_and_upstream(cc_info, run_ctx);
+
+        tokio::spawn(TcpStreamTask::new(ctx, upstream).into_running(recv_stream, send_stream));
     }
 }
 
@@ -368,5 +384,38 @@ impl Server for TcpStreamServer {
         }
 
         self.run_task_with_stream(stream, cc_info, ctx).await
+    }
+
+    async fn run_quic_task(
+        &self,
+        connection: Connection,
+        cc_info: ClientConnectionInfo,
+        ctx: ServerRunContext,
+    ) {
+        let client_addr = cc_info.client_addr();
+        self.server_stats.add_conn(client_addr);
+        if self.drop_early(client_addr) {
+            return;
+        }
+
+        loop {
+            // TODO update ctx and quit gracefully
+            match connection.accept_bi().await {
+                Ok((send_stream, recv_stream)) => self.run_task_with_quic_stream(
+                    send_stream,
+                    recv_stream,
+                    cc_info.clone(),
+                    ctx.clone(),
+                ),
+                Err(e) => {
+                    debug!(
+                        "{} - {} quic connection error: {e:?}",
+                        cc_info.sock_local_addr(),
+                        cc_info.sock_peer_addr()
+                    );
+                    break;
+                }
+            }
+        }
     }
 }

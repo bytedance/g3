@@ -14,10 +14,15 @@
  * limitations under the License.
  */
 
+mod auxiliary;
+pub(crate) use auxiliary::AuxiliaryServerConfig;
+
 mod auxiliary_context;
-mod auxiliary_tcp_port;
-mod ordinary_tcp_port;
+mod auxiliary_quic;
+mod auxiliary_tcp;
+mod ordinary_tcp;
 
 pub(crate) use auxiliary_context::AuxiliaryRunContext;
-pub(crate) use auxiliary_tcp_port::{AuxiliaryServerConfig, AuxiliaryTcpPortRuntime};
-pub(crate) use ordinary_tcp_port::OrdinaryTcpServerRuntime;
+pub(crate) use auxiliary_quic::AuxiliaryQuicPortRuntime;
+pub(crate) use auxiliary_tcp::AuxiliaryTcpPortRuntime;
+pub(crate) use ordinary_tcp::OrdinaryTcpServerRuntime;

@@ -20,7 +20,7 @@ use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
 use socket2::{Domain, SockAddr, Socket, Type};
 
-use g3_types::net::{PortRange, SocketBufferConfig, UdpMiscSockOpts};
+use g3_types::net::{PortRange, SocketBufferConfig, UdpListenConfig, UdpMiscSockOpts};
 
 use super::sockopt::set_bind_address_no_port;
 use super::util::AddressFamily;
@@ -44,7 +44,7 @@ pub fn new_std_socket_to(
         let addr: SockAddr = SocketAddr::new(ip, 0).into();
         socket.bind(&addr)?;
     }
-    set_misc_opts(&socket, misc_opts)?;
+    set_misc_opts(&socket, *misc_opts)?;
     Ok(UdpSocket::from(socket))
 }
 
@@ -58,7 +58,7 @@ pub fn new_std_bind_connect(
         None => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
     };
     let socket = new_udp_socket(AddressFamily::from(&bind_addr), buf_conf)?;
-    set_misc_opts(&socket, misc_opts)?;
+    set_misc_opts(&socket, *misc_opts)?;
     let bind_addr = SockAddr::from(bind_addr);
     socket.bind(&bind_addr)?;
     let socket = UdpSocket::from(socket);
@@ -79,7 +79,7 @@ pub fn new_std_in_range_bind_connect(
     debug_assert!(port_start < port_end);
 
     let socket = new_udp_socket(AddressFamily::from(&bind_ip), buf_conf)?;
-    set_misc_opts(&socket, misc_opts)?;
+    set_misc_opts(&socket, *misc_opts)?;
 
     // like what's has been done in dante/sockd/sockd_request.c
     let tries = port.count().min(10);
@@ -124,18 +124,54 @@ pub fn new_std_bind_relay(
     let socket = new_udp_socket(AddressFamily::from(&bind_addr), buf_conf)?;
     let bind_addr = SockAddr::from(bind_addr);
     socket.bind(&bind_addr)?;
-    set_misc_opts(&socket, misc_opts)?;
+    set_misc_opts(&socket, *misc_opts)?;
+    Ok(UdpSocket::from(socket))
+}
+
+pub fn new_std_bind_listen(config: &UdpListenConfig) -> io::Result<UdpSocket> {
+    let addr = config.address();
+    let socket = new_udp_socket(AddressFamily::from(&addr), config.socket_buffer())?;
+    if addr.port() != 0 {
+        socket.set_reuse_port(true)?;
+    }
+    if config.is_ipv6only() {
+        socket.set_only_v6(true)?;
+    }
+    let bind_addr = SockAddr::from(addr);
+    socket.bind(&bind_addr)?;
+    set_misc_opts(&socket, config.socket_misc_opts())?;
+    Ok(UdpSocket::from(socket))
+}
+
+pub fn new_std_rebind_listen(config: &UdpListenConfig, addr: SocketAddr) -> io::Result<UdpSocket> {
+    let socket = new_udp_socket(AddressFamily::from(&addr), config.socket_buffer())?;
+    if addr.port() != 0 {
+        socket.set_reuse_port(true)?;
+    }
+    if config.is_ipv6only() {
+        socket.set_only_v6(true)?;
+    }
+    let bind_addr = SockAddr::from(addr);
+    socket.bind(&bind_addr)?;
+    set_misc_opts(&socket, config.socket_misc_opts())?;
     Ok(UdpSocket::from(socket))
 }
 
 pub fn set_raw_opts(fd: RawFd, misc_opts: &UdpMiscSockOpts) -> io::Result<()> {
     let socket = unsafe { Socket::from_raw_fd(fd) };
-    set_misc_opts(&socket, misc_opts)?;
+    set_misc_opts(&socket, *misc_opts)?;
     let _ = socket.into_raw_fd();
     Ok(())
 }
 
-fn set_misc_opts(socket: &Socket, misc_opts: &UdpMiscSockOpts) -> io::Result<()> {
+pub fn set_raw_buf_opts(fd: RawFd, buf_conf: SocketBufferConfig) -> io::Result<()> {
+    let socket = unsafe { Socket::from_raw_fd(fd) };
+    set_buf_opts(&socket, buf_conf)?;
+    let _ = socket.into_raw_fd();
+    Ok(())
+}
+
+fn set_misc_opts(socket: &Socket, misc_opts: UdpMiscSockOpts) -> io::Result<()> {
     if let Some(ttl) = misc_opts.time_to_live {
         socket.set_ttl(ttl)?;
     }
@@ -151,13 +187,18 @@ fn set_misc_opts(socket: &Socket, misc_opts: &UdpMiscSockOpts) -> io::Result<()>
 
 fn new_udp_socket(family: AddressFamily, buf_conf: SocketBufferConfig) -> io::Result<Socket> {
     let socket = new_nonblocking_udp_socket(family)?;
+    set_buf_opts(&socket, buf_conf)?;
+    Ok(socket)
+}
+
+fn set_buf_opts(socket: &Socket, buf_conf: SocketBufferConfig) -> io::Result<()> {
     if let Some(size) = buf_conf.recv_size() {
         socket.set_recv_buffer_size(size)?;
     }
     if let Some(size) = buf_conf.send_size() {
         socket.set_send_buffer_size(size)?;
     }
-    Ok(socket)
+    Ok(())
 }
 
 #[cfg(target_os = "macos")]

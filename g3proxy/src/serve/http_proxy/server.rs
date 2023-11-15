@@ -21,6 +21,7 @@ use std::time::Duration;
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use log::debug;
+use quinn::Connection;
 use slog::Logger;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
@@ -253,6 +254,36 @@ impl HttpProxyServer {
         tokio::spawn(r_task.into_running());
         w_task.into_running().await
     }
+
+    fn spawn_quic_stream_task(
+        &self,
+        send_stream: quinn::SendStream,
+        recv_stream: quinn::RecvStream,
+        cc_info: ClientConnectionInfo,
+        run_ctx: ServerRunContext,
+    ) {
+        let ctx = self.get_common_task_context(
+            cc_info,
+            run_ctx.escaper,
+            run_ctx.audit_handle,
+            run_ctx.worker_id,
+        );
+        let pipeline_stats = Arc::new(HttpProxyPipelineStats::default());
+        let (task_sender, task_receiver) = mpsc::channel(ctx.server_config.pipeline_size);
+
+        let r_task =
+            HttpProxyPipelineReaderTask::new(&ctx, task_sender, recv_stream, &pipeline_stats);
+        tokio::spawn(r_task.into_running());
+
+        let w_task = HttpProxyPipelineWriterTask::new(
+            &ctx,
+            run_ctx.user_group,
+            task_receiver,
+            send_stream,
+            &pipeline_stats,
+        );
+        tokio::spawn(w_task.into_running());
+    }
 }
 
 impl ServerInternal for HttpProxyServer {
@@ -426,5 +457,38 @@ impl Server for HttpProxyServer {
         }
 
         self.spawn_stream_task(stream, cc_info, ctx).await;
+    }
+
+    async fn run_quic_task(
+        &self,
+        connection: Connection,
+        cc_info: ClientConnectionInfo,
+        ctx: ServerRunContext,
+    ) {
+        let client_addr = cc_info.client_addr();
+        self.server_stats.add_conn(client_addr);
+        if self.drop_early(client_addr) {
+            return;
+        }
+
+        loop {
+            // TODO update ctx and quit gracefully
+            match connection.accept_bi().await {
+                Ok((send_stream, recv_stream)) => self.spawn_quic_stream_task(
+                    send_stream,
+                    recv_stream,
+                    cc_info.clone(),
+                    ctx.clone(),
+                ),
+                Err(e) => {
+                    debug!(
+                        "{} - {} quic connection error: {e:?}",
+                        cc_info.sock_local_addr(),
+                        cc_info.sock_peer_addr()
+                    );
+                    break;
+                }
+            }
+        }
     }
 }

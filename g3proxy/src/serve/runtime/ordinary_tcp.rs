@@ -237,7 +237,8 @@ impl OrdinaryTcpServerRuntime {
     ) {
         let server = Arc::clone(&self.server);
 
-        let cc_info = ClientConnectionInfo::new(peer_addr, local_addr, stream.as_raw_fd());
+        let mut cc_info = ClientConnectionInfo::new(peer_addr, local_addr);
+        cc_info.set_tcp_raw_fd(stream.as_raw_fd());
         if let Some(worker_id) = self.worker_id {
             run_ctx.worker_id = Some(worker_id);
             tokio::spawn(async move {

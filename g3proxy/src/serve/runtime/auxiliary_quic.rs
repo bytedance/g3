@@ -14,53 +14,51 @@
  * limitations under the License.
  */
 
-use std::os::fd::AsRawFd;
+use std::io;
+use std::net::{SocketAddr, UdpSocket};
+use std::os::fd::{AsRawFd, RawFd};
 use std::sync::Arc;
 
 use log::{info, warn};
-use tokio::net::TcpStream;
+use quinn::Endpoint;
 use tokio::runtime::Handle;
 use tokio::sync::{broadcast, watch};
 
 use g3_daemon::listen::ListenStats;
 use g3_daemon::server::ClientConnectionInfo;
-use g3_io_ext::LimitedTcpListener;
 use g3_socket::util::native_socket_addr;
-use g3_types::metrics::MetricsName;
-use g3_types::net::TcpListenConfig;
+use g3_types::net::UdpListenConfig;
 
+use super::AuxiliaryServerConfig;
 use crate::config::server::ServerConfig;
 use crate::serve::{ArcServer, ServerReloadCommand, ServerRunContext};
 
-pub(crate) trait AuxiliaryServerConfig {
-    fn next_server(&self) -> &MetricsName;
-    fn run_tcp_task(
-        &self,
-        rt_handle: Handle,
-        next_server: ArcServer,
-        stream: TcpStream,
-        cc_info: ClientConnectionInfo,
-        ctx: ServerRunContext,
-    );
-}
-
 #[derive(Clone)]
-pub(crate) struct AuxiliaryTcpPortRuntime {
+pub(crate) struct AuxiliaryQuicPortRuntime {
     server: ArcServer,
     server_type: &'static str,
     server_version: usize,
     worker_id: Option<usize>,
+    listen_config: UdpListenConfig,
+    rebind_port: Option<u16>,
     listen_stats: Arc<ListenStats>,
     instance_id: usize,
 }
 
-impl AuxiliaryTcpPortRuntime {
-    pub(crate) fn new<C: ServerConfig>(server: &ArcServer, server_config: &C) -> Self {
-        AuxiliaryTcpPortRuntime {
+impl AuxiliaryQuicPortRuntime {
+    pub(crate) fn new<C: ServerConfig>(
+        server: &ArcServer,
+        server_config: &C,
+        listen_config: UdpListenConfig,
+        rebind_port: Option<u16>,
+    ) -> Self {
+        AuxiliaryQuicPortRuntime {
             server: Arc::clone(server),
             server_type: server_config.server_type(),
             server_version: server.version(),
             worker_id: None,
+            listen_config,
+            rebind_port,
             listen_stats: server.get_listen_stats(),
             instance_id: 0,
         }
@@ -109,11 +107,13 @@ impl AuxiliaryTcpPortRuntime {
     }
 
     async fn run<C>(
-        self,
-        mut listener: LimitedTcpListener,
+        mut self,
+        listener: Endpoint,
+        mut listen_addr: SocketAddr,
+        mut sock_raw_fd: RawFd,
         mut cfg_receiver: watch::Receiver<Option<C>>,
     ) where
-        C: AuxiliaryServerConfig + Clone,
+        C: AuxiliaryServerConfig + Send + Clone + 'static,
     {
         use broadcast::error::RecvError;
 
@@ -141,6 +141,7 @@ impl AuxiliaryTcpPortRuntime {
                     if ev.is_err() {
                         warn!("SRT[{}_v{}#{}] quit as cfg channel closed",
                             self.server.name(), self.server_version, self.instance_id);
+                        self.goto_close(listener);
                         break;
                     }
                     let value = cfg_receiver.borrow().clone();
@@ -149,14 +150,8 @@ impl AuxiliaryTcpPortRuntime {
                             info!("SRT[{}_v{}#{}] will go offline",
                                 self.server.name(), self.server_version, self.instance_id);
                             self.pre_stop();
-                            let accept_again = listener.set_offline();
-                            if accept_again {
-                                info!("SRT[{}_v{}#{}] will accept all pending connections",
-                                    self.server.name(), self.server_version, self.instance_id);
-                                continue;
-                            } else {
-                                break;
-                            }
+                            self.goto_offline(listener, listen_addr);
+                            break;
                         }
                         Some(config) => {
                             aux_config = config;
@@ -165,6 +160,21 @@ impl AuxiliaryTcpPortRuntime {
                                     self.server.name(), self.server_version, self.instance_id, aux_config.next_server());
                                 next_server_name = aux_config.next_server().clone();
                                 reload_next_server = true;
+                            }
+
+                            if let Some(quinn_config) = aux_config.take_quinn_config() {
+                                listener.set_server_config(Some(quinn_config));
+                            }
+                            if let Some(listen_config) = aux_config.take_udp_listen_config() {
+                                self.listen_config = listen_config;
+                                if self.listen_config.address() != listen_addr {
+                                    if let Ok((fd, addr)) = self.rebind_socket(&listener) {
+                                        sock_raw_fd = fd;
+                                        listen_addr = addr;
+                                    }
+                                } else {
+                                    self.update_socket_opts(sock_raw_fd);
+                                }
                             }
                         }
                     }
@@ -207,42 +217,24 @@ impl AuxiliaryTcpPortRuntime {
                     }
                 }
                 result = listener.accept() => {
-                    if listener.accept_current_available(result, |result| {
-                        match result {
-                            Ok(Some((stream, peer_addr, local_addr))) => {
-                                self.listen_stats.add_accepted();
-                                let (rt_handle, worker_id) = self.rt_handle();
-                                let mut run_ctx = run_ctx.clone();
-                                run_ctx.worker_id = worker_id;
-                                let cc_info = ClientConnectionInfo::new(
-                                    native_socket_addr(peer_addr),
-                                    native_socket_addr(local_addr),
-                                    stream.as_raw_fd(),
-                                );
-                                aux_config.run_tcp_task(
-                                    rt_handle,
-                                    next_server.clone(),
-                                    stream,
-                                    cc_info,
-                                    run_ctx,
-                                );
-                                Ok(())
-                            }
-                            Ok(None) => {
-                                info!("SRT[{}_v{}#{}] offline",
-                                    self.server.name(), self.server_version, self.instance_id);
-                                Err(())
-                            }
-                            Err(e) => {
-                                self.listen_stats.add_failed();
-                                warn!("SRT[{}_v{}#{}] accept: {e:?}",
-                                    self.server.name(), self.server_version, self.instance_id);
-                                Ok(())
-                            }
-                        }
-                    }).await.is_err() {
-                        break;
-                    }
+                    let Some(connecting) = result else {
+                        continue;
+                    };
+
+                    let peer_addr = connecting.remote_address();
+                    let local_addr = connecting
+                        .local_ip()
+                        .map(|ip| SocketAddr::new(ip, listen_addr.port()))
+                        .unwrap_or(listen_addr);
+                    let cc_info = ClientConnectionInfo::new(
+                        native_socket_addr(peer_addr),
+                        native_socket_addr(local_addr),
+                    );
+                    let (rt_handle, worker_id) = self.rt_handle();
+                    let mut run_ctx = run_ctx.clone();
+                    run_ctx.worker_id = worker_id;
+
+                    aux_config.run_quic_task(rt_handle, next_server.clone(), connecting, cc_info, run_ctx);
                 }
             }
 
@@ -282,6 +274,109 @@ impl AuxiliaryTcpPortRuntime {
         self.post_stop();
     }
 
+    fn update_socket_opts(&self, raw_fd: RawFd) {
+        if let Err(e) = g3_socket::udp::set_raw_opts(raw_fd, &self.listen_config.socket_misc_opts())
+        {
+            warn!(
+                "SRT[{}_v{}#{}] update socket misc opts failed: {e}",
+                self.server.name(),
+                self.server_version,
+                self.instance_id,
+            );
+        }
+        if let Err(e) = g3_socket::udp::set_raw_buf_opts(raw_fd, self.listen_config.socket_buffer())
+        {
+            warn!(
+                "SRT[{}_v{}#{}] update socket buf opts failed: {e}",
+                self.server.name(),
+                self.server_version,
+                self.instance_id,
+            );
+        }
+    }
+
+    fn rebind_socket(&self, listener: &Endpoint) -> io::Result<(RawFd, SocketAddr)> {
+        match g3_socket::udp::new_std_bind_listen(&self.listen_config) {
+            Ok(socket) => {
+                let raw_fd = socket.as_raw_fd();
+                match listener.rebind(socket) {
+                    Ok(_) => Ok((raw_fd, listener.local_addr().unwrap())),
+                    Err(e) => {
+                        warn!(
+                            "SRT[{}_v{}#{}] reload rebind {} failed: {e}",
+                            self.server.name(),
+                            self.server_version,
+                            self.instance_id,
+                            self.listen_config.address()
+                        );
+                        Err(e)
+                    }
+                }
+            }
+            Err(e) => {
+                warn!(
+                    "SRT[{}_v{}#{}] reload create new socket {} failed: {e}",
+                    self.server.name(),
+                    self.server_version,
+                    self.instance_id,
+                    self.listen_config.address()
+                );
+                Err(e)
+            }
+        }
+    }
+
+    fn goto_offline(&self, listener: Endpoint, listen_addr: SocketAddr) {
+        if let Some(port) = self.rebind_port {
+            let rebind_addr = SocketAddr::new(listen_addr.ip(), port);
+            match g3_socket::udp::new_std_rebind_listen(
+                &self.listen_config,
+                SocketAddr::new(listen_addr.ip(), port),
+            ) {
+                Ok(socket) => match listener.rebind(socket) {
+                    Ok(_) => {
+                        info!(
+                            "SRT[{}_v{}#{}] re-bound to: {rebind_addr}",
+                            self.server.name(),
+                            self.server_version,
+                            self.instance_id
+                        );
+                        listener.reject_new_connections();
+                        tokio::spawn(async move { listener.wait_idle().await });
+                        return;
+                    }
+                    Err(e) => {
+                        warn!(
+                            "SRT[{}_v{}#{}] rebind failed: {e}",
+                            self.server.name(),
+                            self.server_version,
+                            self.instance_id
+                        );
+                    }
+                },
+                Err(e) => {
+                    warn!(
+                        "SRT[{}_v{}#{}] create rebind socket failed: {e}",
+                        self.server.name(),
+                        self.server_version,
+                        self.instance_id
+                    );
+                }
+            }
+        }
+        self.goto_close(listener);
+    }
+
+    fn goto_close(&self, listener: Endpoint) {
+        info!(
+            "SRT[{}_v{}#{}] will close all quic connections immediately",
+            self.server.name(),
+            self.server_version,
+            self.instance_id
+        );
+        listener.close(quinn::VarInt::default(), b"close as server shutdown");
+    }
+
     fn get_rt_handle(&mut self, listen_in_worker: bool) -> Handle {
         if listen_in_worker {
             if let Some(rt) = g3_daemon::runtime::worker::select_listen_handle() {
@@ -294,7 +389,9 @@ impl AuxiliaryTcpPortRuntime {
 
     fn into_running<C>(
         mut self,
-        listener: std::net::TcpListener,
+        socket: UdpSocket,
+        listen_addr: SocketAddr,
+        config: quinn::ServerConfig,
         listen_in_worker: bool,
         cfg_receiver: watch::Receiver<Option<C>>,
     ) where
@@ -302,11 +399,17 @@ impl AuxiliaryTcpPortRuntime {
     {
         let handle = self.get_rt_handle(listen_in_worker);
         handle.spawn(async move {
+            let sock_raw_fd = socket.as_raw_fd();
             // make sure the listen socket associated with the correct reactor
-            match tokio::net::TcpListener::from_std(listener) {
-                Ok(listener) => {
+            match Endpoint::new(
+                Default::default(),
+                Some(config),
+                socket,
+                Arc::new(quinn::TokioRuntime),
+            ) {
+                Ok(endpoint) => {
                     self.pre_start();
-                    self.run(LimitedTcpListener::new(listener), cfg_receiver)
+                    self.run(endpoint, listen_addr, sock_raw_fd, cfg_receiver)
                         .await;
                 }
                 Err(e) => {
@@ -323,14 +426,14 @@ impl AuxiliaryTcpPortRuntime {
 
     pub(crate) fn run_all_instances<C>(
         &self,
-        listen_config: &TcpListenConfig,
         listen_in_worker: bool,
+        quic_config: &quinn::ServerConfig,
         cfg_receiver: &watch::Sender<Option<C>>,
     ) -> anyhow::Result<()>
     where
         C: AuxiliaryServerConfig + Clone + Send + Sync + 'static,
     {
-        let mut instance_count = listen_config.instance();
+        let mut instance_count = self.listen_config.instance();
         if listen_in_worker {
             let worker_count = g3_daemon::runtime::worker::worker_count();
             if worker_count > 0 {
@@ -342,8 +445,15 @@ impl AuxiliaryTcpPortRuntime {
             let mut runtime = self.clone();
             runtime.instance_id = i;
 
-            let listener = g3_socket::tcp::new_std_listener(listen_config)?;
-            runtime.into_running(listener, listen_in_worker, cfg_receiver.subscribe());
+            let socket = g3_socket::udp::new_std_bind_listen(&self.listen_config)?;
+            let listen_addr = socket.local_addr()?;
+            runtime.into_running(
+                socket,
+                listen_addr,
+                quic_config.clone(),
+                listen_in_worker,
+                cfg_receiver.subscribe(),
+            );
         }
         Ok(())
     }

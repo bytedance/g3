@@ -57,7 +57,7 @@ pub use socks::SocksAuth;
 pub use tcp::*;
 pub use tls::*;
 pub use tlv::{T1L2BVParse, TlvParse};
-pub use udp::UdpMiscSockOpts;
+pub use udp::{UdpListenConfig, UdpMiscSockOpts};
 pub use upstream::{UpstreamAddr, UpstreamHostRef, WeightedUpstreamAddr};
 pub use websocket::WebSocketSubProtocol;
 

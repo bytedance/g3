@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
-mod sockopt;
+mod listen;
+pub use listen::UdpListenConfig;
 
+mod sockopt;
 pub use sockopt::UdpMiscSockOpts;

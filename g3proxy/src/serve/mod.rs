@@ -18,6 +18,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use log::warn;
+use quinn::Connection;
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 use tokio_openssl::SslStream;
@@ -39,11 +40,15 @@ mod idle_check;
 pub(crate) use idle_check::ServerIdleChecker;
 
 mod runtime;
-use runtime::{AuxiliaryServerConfig, AuxiliaryTcpPortRuntime, OrdinaryTcpServerRuntime};
+use runtime::{
+    AuxiliaryQuicPortRuntime, AuxiliaryServerConfig, AuxiliaryTcpPortRuntime,
+    OrdinaryTcpServerRuntime,
+};
 
 mod dummy_close;
 mod intelli_proxy;
 mod native_tls_port;
+mod plain_quic_port;
 mod plain_tcp_port;
 mod plain_tls_port;
 
@@ -204,6 +209,13 @@ pub(crate) trait Server: ServerInternal {
     async fn run_openssl_task(
         &self,
         stream: SslStream<TcpStream>,
+        cc_info: ClientConnectionInfo,
+        ctx: ServerRunContext,
+    );
+
+    async fn run_quic_task(
+        &self,
+        connection: Connection,
         cc_info: ClientConnectionInfo,
         ctx: ServerRunContext,
     );

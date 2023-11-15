@@ -20,6 +20,7 @@ use anyhow::{anyhow, Context};
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use log::debug;
+use quinn::Connection;
 use tokio::net::TcpStream;
 use tokio::runtime::Handle;
 use tokio::sync::{broadcast, watch};
@@ -344,6 +345,14 @@ impl Server for PlainTlsPort {
     async fn run_openssl_task(
         &self,
         _stream: SslStream<TcpStream>,
+        _cc_info: ClientConnectionInfo,
+        _ctx: ServerRunContext,
+    ) {
+    }
+
+    async fn run_quic_task(
+        &self,
+        _connection: Connection,
         _cc_info: ClientConnectionInfo,
         _ctx: ServerRunContext,
     ) {

@@ -14,10 +14,13 @@
  * limitations under the License.
  */
 
+use std::net::SocketAddr;
+use std::str::FromStr;
+
 use anyhow::{anyhow, Context};
 use yaml_rust::Yaml;
 
-use g3_types::net::UdpMiscSockOpts;
+use g3_types::net::{UdpListenConfig, UdpMiscSockOpts};
 
 pub fn as_udp_misc_sock_opts(v: &Yaml) -> anyhow::Result<UdpMiscSockOpts> {
     let mut config = UdpMiscSockOpts::default();
@@ -51,4 +54,106 @@ pub fn as_udp_misc_sock_opts(v: &Yaml) -> anyhow::Result<UdpMiscSockOpts> {
             "yaml value type for 'UdpMiscSockOpts' should be 'map'"
         ))
     }
+}
+
+fn set_udp_listen_scale(config: &mut UdpListenConfig, v: &Yaml) -> anyhow::Result<()> {
+    match v {
+        Yaml::String(s) => {
+            if s.ends_with('%') {
+                let Ok(v) = f64::from_str(&s[..s.len() - 1]) else {
+                    return Err(anyhow!("invalid percentage value {s}"));
+                };
+                config
+                    .set_scale(v / 100.0)
+                    .context(format!("unsupported percentage value {s}"))
+            } else if let Some((n, d)) = s.split_once('/') {
+                let Ok(n) = usize::from_str(n.trim()) else {
+                    return Err(anyhow!("invalid fractional value {s}: invalid numerator"))?;
+                };
+                let Ok(d) = usize::from_str(d.trim()) else {
+                    return Err(anyhow!("invalid fractional value {s}: invalid denominator"))?;
+                };
+                config.set_fraction_scale(n, d);
+                Ok(())
+            } else {
+                let Ok(v) = f64::from_str(s) else {
+                    return Err(anyhow!("invalid float value: {s}"));
+                };
+                config
+                    .set_scale(v)
+                    .context(format!("unsupported float value {s}"))
+            }
+        }
+        Yaml::Integer(i) => config
+            .set_scale(*i as f64)
+            .context(format!("unsupported integer value {i}")),
+        Yaml::Real(s) => {
+            let Ok(v) = f64::from_str(s) else {
+                return Err(anyhow!("invalid float value: {s}"));
+            };
+            config
+                .set_scale(v)
+                .context(format!("unsupported float value {s}"))
+        }
+        _ => Err(anyhow!(
+            "yaml value type for udp listen scale value should be 'str' or 'float'"
+        )),
+    }
+}
+
+pub fn as_udp_listen_config(value: &Yaml) -> anyhow::Result<UdpListenConfig> {
+    let mut config = UdpListenConfig::default();
+
+    match value {
+        Yaml::Integer(i) => {
+            let port = u16::try_from(*i).map_err(|e| anyhow!("out of range u16 value: {e}"))?;
+            config.set_port(port);
+        }
+        Yaml::String(s) => {
+            let addr =
+                SocketAddr::from_str(s).map_err(|e| anyhow!("invalid socket address: {e}"))?;
+            config.set_socket_address(addr);
+        }
+        Yaml::Hash(map) => {
+            crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
+                "addr" | "address" => {
+                    let addr = crate::value::as_sockaddr(v)
+                        .context(format!("invalid SocketAddr value for key {k}"))?;
+                    config.set_socket_address(addr);
+                    Ok(())
+                }
+                "ipv6only" | "ipv6_only" => {
+                    let ipv6only = crate::value::as_bool(v)
+                        .context(format!("invalid bool value for key {k}"))?;
+                    config.set_ipv6_only(ipv6only);
+                    Ok(())
+                }
+                "socket_buffer" => {
+                    let buf_conf = crate::value::as_socket_buffer_config(v)
+                        .context(format!("invalid socket buffer config value for key {k}"))?;
+                    config.set_socket_buffer(buf_conf);
+                    Ok(())
+                }
+                "socket_misc_opts" => {
+                    let misc_opts = as_udp_misc_sock_opts(v)
+                        .context(format!("invalid udp socket misc opts value for key {k}"))?;
+                    config.set_socket_misc_opts(misc_opts);
+                    Ok(())
+                }
+                "instance" | "instance_count" => {
+                    let instance = crate::value::as_usize(v)
+                        .context(format!("invalid usize value for key {k}"))?;
+                    config.set_instance(instance);
+                    Ok(())
+                }
+                "scale" => set_udp_listen_scale(&mut config, v)
+                    .context(format!("invalid scale value for key {k}")),
+                _ => Err(anyhow!("invalid key {k}")),
+            })?;
+        }
+        _ => return Err(anyhow!("invalid value type")),
+    }
+
+    config.check()?;
+    Ok(config)
 }
