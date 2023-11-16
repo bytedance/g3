@@ -205,7 +205,7 @@ impl NativeTlsPort {
             let server = NativeTlsPort::new(config, listen_stats, 1)?;
             Ok(Arc::new(server))
         } else {
-            Err(anyhow!("invalid config type for PlainTcpPort server"))
+            Err(anyhow!("invalid config type for NativeTcpPort server"))
         }
     }
 
@@ -259,7 +259,7 @@ impl ServerInternal for NativeTlsPort {
             self.config.store(config);
             Ok(())
         } else {
-            Err(anyhow!("invalid config type for PlainTcpPort server"))
+            Err(anyhow!("invalid config type for NativeTcpPort server"))
         }
     }
 
