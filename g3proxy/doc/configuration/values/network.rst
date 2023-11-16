@@ -189,7 +189,7 @@ tcp listen
 
 **yaml value**: mix
 
-It consists of 4 fields:
+It consists of the following fields:
 
 * address
 
@@ -293,6 +293,91 @@ It consists of 2 fields:
   Set the max timeout for each connection to the resolved addr of the upstream.
 
   **default**: 30s
+
+.. _conf_value_udp_listen:
+
+udp listen
+==========
+
+**yaml value**: mix
+
+It consists of the following fields:
+
+* address
+
+  **required**, **type**: :ref:`sockaddr str <conf_value_sockaddr_str>`
+
+  Set the listen socket address.
+
+  **default**: [::]:0, which has empty port
+
+* ipv6_only
+
+  **optional**, **type**: bool
+
+  Listen only to ipv6 address only if address is set to [::].
+
+  **default**: false
+
+* socket_buffer
+
+  **optional**, **type**: :ref:`socket buffer config <conf_value_socket_buffer_config>`
+
+  Set an explicit socket buffer config.
+
+  **default**: not set
+
+* socket_misc_opts
+
+  **optional**, **type**: :ref:`udp misc sock opts <conf_value_udp_misc_sock_opts>`
+
+  Set misc UDP socket options.
+
+  **default**: not set
+
+* instance
+
+  **optional**, **type**: int
+
+  Set how many listen instances. If *scale* is set, this will be the least value.
+
+  **default**: 1
+
+* scale
+
+  **optional**, **type**: float | string
+
+  Set the listen instance count scaled according to available parallelism.
+
+  For string value, it could be in percentage (n%) or fractional (n/d) format.
+
+  Example:
+
+  .. code-block:: yaml
+
+    scale: 1/2
+    # or
+    scale: 0.5
+    # or
+    scale: 50%
+
+  **default**: 0
+
+The yaml value for *listen* can be in the following formats:
+
+* int
+
+  Set the port only.
+
+* :ref:`sockaddr str <conf_value_sockaddr_str>`
+
+  Set ip and port. The port field is required.
+
+* map
+
+  The keys of this map are the fields as described above.
+
+.. versionadded:: 1.7.30
 
 .. _conf_value_happy_eyeballs:
 
