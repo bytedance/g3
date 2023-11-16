@@ -133,13 +133,11 @@ impl ProxyFloatEscaper {
         Ok(Arc::new(escaper))
     }
 
-    pub(super) async fn prepare_initial(config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::ProxyFloat(config) = config {
-            let stats = Arc::new(ProxyFloatEscaperStats::new(config.name()));
-            ProxyFloatEscaper::new_obj(config, stats, None).await
-        } else {
-            Err(anyhow!("invalid escaper config type"))
-        }
+    pub(super) async fn prepare_initial(
+        config: ProxyFloatEscaperConfig,
+    ) -> anyhow::Result<ArcEscaper> {
+        let stats = Arc::new(ProxyFloatEscaperStats::new(config.name()));
+        ProxyFloatEscaper::new_obj(config, stats, None).await
     }
 
     async fn prepare_reload(

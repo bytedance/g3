@@ -250,18 +250,18 @@ fn reload_old_unlocked(old: AnyServerConfig, new: AnyServerConfig) -> anyhow::Re
 fn spawn_new_unlocked(config: AnyServerConfig) -> anyhow::Result<()> {
     let name = config.name().clone();
     let server = match config {
-        AnyServerConfig::DummyClose(_) => DummyCloseServer::prepare_initial(config)?,
-        AnyServerConfig::PlainTcpPort(_) => PlainTcpPort::prepare_initial(config)?,
-        AnyServerConfig::PlainTlsPort(_) => PlainTlsPort::prepare_initial(config)?,
-        AnyServerConfig::NativeTlsPort(_) => NativeTlsPort::prepare_initial(config)?,
-        AnyServerConfig::PlainQuicPort(_) => PlainQuicPort::prepare_initial(config)?,
-        AnyServerConfig::IntelliProxy(_) => IntelliProxy::prepare_initial(config)?,
-        AnyServerConfig::TcpStream(_) => TcpStreamServer::prepare_initial(config)?,
-        AnyServerConfig::TlsStream(_) => TlsStreamServer::prepare_initial(config)?,
-        AnyServerConfig::SniProxy(_) => SniProxyServer::prepare_initial(config)?,
-        AnyServerConfig::SocksProxy(_) => SocksProxyServer::prepare_initial(config)?,
-        AnyServerConfig::HttpProxy(_) => HttpProxyServer::prepare_initial(config)?,
-        AnyServerConfig::HttpRProxy(_) => HttpRProxyServer::prepare_initial(config)?,
+        AnyServerConfig::DummyClose(c) => DummyCloseServer::prepare_initial(c)?,
+        AnyServerConfig::PlainTcpPort(c) => PlainTcpPort::prepare_initial(c)?,
+        AnyServerConfig::PlainTlsPort(c) => PlainTlsPort::prepare_initial(c)?,
+        AnyServerConfig::NativeTlsPort(c) => NativeTlsPort::prepare_initial(c)?,
+        AnyServerConfig::PlainQuicPort(c) => PlainQuicPort::prepare_initial(c)?,
+        AnyServerConfig::IntelliProxy(c) => IntelliProxy::prepare_initial(c)?,
+        AnyServerConfig::TcpStream(c) => TcpStreamServer::prepare_initial(*c)?,
+        AnyServerConfig::TlsStream(c) => TlsStreamServer::prepare_initial(*c)?,
+        AnyServerConfig::SniProxy(c) => SniProxyServer::prepare_initial(*c)?,
+        AnyServerConfig::SocksProxy(c) => SocksProxyServer::prepare_initial(*c)?,
+        AnyServerConfig::HttpProxy(c) => HttpProxyServer::prepare_initial(*c)?,
+        AnyServerConfig::HttpRProxy(c) => HttpRProxyServer::prepare_initial(*c)?,
     };
     registry::add(name, server)?;
     Ok(())

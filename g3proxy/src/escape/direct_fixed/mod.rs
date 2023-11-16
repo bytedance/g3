@@ -102,13 +102,9 @@ impl DirectFixedEscaper {
         Ok(Arc::new(escaper))
     }
 
-    pub(super) fn prepare_initial(config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::DirectFixed(config) = config {
-            let stats = Arc::new(DirectFixedEscaperStats::new(config.name()));
-            DirectFixedEscaper::new_obj(*config, stats)
-        } else {
-            Err(anyhow!("invalid escaper config type"))
-        }
+    pub(super) fn prepare_initial(config: DirectFixedEscaperConfig) -> anyhow::Result<ArcEscaper> {
+        let stats = Arc::new(DirectFixedEscaperStats::new(config.name()));
+        DirectFixedEscaper::new_obj(config, stats)
     }
 
     fn prepare_reload(

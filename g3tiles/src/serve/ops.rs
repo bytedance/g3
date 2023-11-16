@@ -170,10 +170,10 @@ fn reload_old_unlocked(old: AnyServerConfig, new: AnyServerConfig) -> anyhow::Re
 fn spawn_new_unlocked(config: AnyServerConfig) -> anyhow::Result<()> {
     let name = config.name().clone();
     let server = match config {
-        AnyServerConfig::DummyClose(_) => DummyCloseServer::prepare_initial(config)?,
-        AnyServerConfig::PlainTcpPort(_) => PlainTcpPort::prepare_initial(config)?,
-        AnyServerConfig::OpensslProxy(_) => OpensslProxyServer::prepare_initial(config)?,
-        AnyServerConfig::RustlsProxy(_) => RustlsProxyServer::prepare_initial(config)?,
+        AnyServerConfig::DummyClose(c) => DummyCloseServer::prepare_initial(c)?,
+        AnyServerConfig::PlainTcpPort(c) => PlainTcpPort::prepare_initial(c)?,
+        AnyServerConfig::OpensslProxy(c) => OpensslProxyServer::prepare_initial(c)?,
+        AnyServerConfig::RustlsProxy(c) => RustlsProxyServer::prepare_initial(c)?,
     };
     registry::add(name, server)?;
     Ok(())

@@ -61,13 +61,9 @@ impl DummyDenyEscaper {
         Arc::new(escaper)
     }
 
-    pub(super) fn prepare_initial(config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::DummyDeny(config) = config {
-            let stats = Arc::new(DummyDenyEscaperStats::new(config.name()));
-            Ok(DummyDenyEscaper::new_obj(config, stats))
-        } else {
-            Err(anyhow!("invalid escaper config type"))
-        }
+    pub(super) fn prepare_initial(config: DummyDenyEscaperConfig) -> anyhow::Result<ArcEscaper> {
+        let stats = Arc::new(DummyDenyEscaperStats::new(config.name()));
+        Ok(DummyDenyEscaper::new_obj(config, stats))
     }
 
     pub(super) fn prepare_default(name: &MetricsName) -> ArcEscaper {

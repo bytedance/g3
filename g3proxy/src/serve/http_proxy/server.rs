@@ -124,17 +124,13 @@ impl HttpProxyServer {
         Ok(server)
     }
 
-    pub(crate) fn prepare_initial(config: AnyServerConfig) -> anyhow::Result<ArcServer> {
-        if let AnyServerConfig::HttpProxy(config) = config {
-            let config = Arc::new(*config);
-            let server_stats = Arc::new(HttpProxyServerStats::new(config.name()));
-            let listen_stats = Arc::new(ListenStats::new(config.name()));
+    pub(crate) fn prepare_initial(config: HttpProxyServerConfig) -> anyhow::Result<ArcServer> {
+        let config = Arc::new(config);
+        let server_stats = Arc::new(HttpProxyServerStats::new(config.name()));
+        let listen_stats = Arc::new(ListenStats::new(config.name()));
 
-            let server = HttpProxyServer::new(config, server_stats, listen_stats, 1)?;
-            Ok(Arc::new(server))
-        } else {
-            Err(anyhow!("invalid config type for HttpProxy server"))
-        }
+        let server = HttpProxyServer::new(config, server_stats, listen_stats, 1)?;
+        Ok(Arc::new(server))
     }
 
     fn prepare_reload(&self, config: AnyServerConfig) -> anyhow::Result<HttpProxyServer> {

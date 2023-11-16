@@ -51,15 +51,11 @@ impl DummyCloseServer {
         }
     }
 
-    pub(crate) fn prepare_initial(config: AnyServerConfig) -> anyhow::Result<ArcServer> {
-        if let AnyServerConfig::DummyClose(config) = config {
-            let listen_stats = Arc::new(ListenStats::new(config.name()));
+    pub(crate) fn prepare_initial(config: DummyCloseServerConfig) -> anyhow::Result<ArcServer> {
+        let listen_stats = Arc::new(ListenStats::new(config.name()));
 
-            let server = DummyCloseServer::new(config, listen_stats);
-            Ok(Arc::new(server))
-        } else {
-            Err(anyhow!("invalid config type for DummyClose server"))
-        }
+        let server = DummyCloseServer::new(config, listen_stats);
+        Ok(Arc::new(server))
     }
 
     pub(crate) fn prepare_default(name: &MetricsName) -> ArcServer {

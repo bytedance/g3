@@ -37,24 +37,20 @@ pub(crate) struct CAresResolver {
 }
 
 impl CAresResolver {
-    pub(crate) fn new_obj(config: AnyResolverConfig) -> anyhow::Result<BoxResolver> {
-        if let AnyResolverConfig::CAres(config) = config {
-            let mut builder = g3_resolver::ResolverBuilder::new((&config).into());
-            builder.thread_name(format!("res-{}", config.name()));
-            let resolver = builder.build()?;
+    pub(crate) fn new_obj(config: CAresResolverConfig) -> anyhow::Result<BoxResolver> {
+        let mut builder = g3_resolver::ResolverBuilder::new((&config).into());
+        builder.thread_name(format!("res-{}", config.name()));
+        let resolver = builder.build()?;
 
-            let logger = crate::log::resolve::get_logger(config.resolver_type(), config.name());
-            let stats = ResolverStats::new(config.name(), resolver.get_stats());
+        let logger = crate::log::resolve::get_logger(config.resolver_type(), config.name());
+        let stats = ResolverStats::new(config.name(), resolver.get_stats());
 
-            Ok(Box::new(CAresResolver {
-                config: Arc::new(config),
-                inner: resolver,
-                stats: Arc::new(stats),
-                logger: Arc::new(logger),
-            }))
-        } else {
-            Err(anyhow!("invalid config type for CAresResolver"))
-        }
+        Ok(Box::new(CAresResolver {
+            config: Arc::new(config),
+            inner: resolver,
+            stats: Arc::new(stats),
+            logger: Arc::new(logger),
+        }))
     }
 }
 

@@ -37,17 +37,13 @@ pub(super) struct DenyAllResolver {
 }
 
 impl DenyAllResolver {
-    pub(super) fn new_obj(config: AnyResolverConfig) -> anyhow::Result<BoxResolver> {
-        if let AnyResolverConfig::DenyAll(config) = config {
-            let stats = g3_resolver::ResolverStats::default();
-            let stats = ResolverStats::new(config.name(), Arc::new(stats));
-            Ok(Box::new(DenyAllResolver {
-                config: Arc::new(config),
-                stats: Arc::new(stats),
-            }))
-        } else {
-            Err(anyhow!("invalid config type for DenyAllResolver"))
-        }
+    pub(super) fn new_obj(config: DenyAllResolverConfig) -> anyhow::Result<BoxResolver> {
+        let stats = g3_resolver::ResolverStats::default();
+        let stats = ResolverStats::new(config.name(), Arc::new(stats));
+        Ok(Box::new(DenyAllResolver {
+            config: Arc::new(config),
+            stats: Arc::new(stats),
+        }))
     }
 }
 

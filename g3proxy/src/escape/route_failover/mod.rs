@@ -75,13 +75,11 @@ impl RouteFailoverEscaper {
         Ok(Arc::new(escaper))
     }
 
-    pub(super) fn prepare_initial(config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::RouteFailover(config) = config {
-            let stats = Arc::new(RouteEscaperStats::new(config.name()));
-            RouteFailoverEscaper::new_obj(config, stats)
-        } else {
-            Err(anyhow!("invalid escaper config type"))
-        }
+    pub(super) fn prepare_initial(
+        config: RouteFailoverEscaperConfig,
+    ) -> anyhow::Result<ArcEscaper> {
+        let stats = Arc::new(RouteEscaperStats::new(config.name()));
+        RouteFailoverEscaper::new_obj(config, stats)
     }
 
     fn prepare_reload(

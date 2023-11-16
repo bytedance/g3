@@ -150,13 +150,11 @@ impl DirectFloatEscaper {
         Ok(Arc::new(escaper))
     }
 
-    pub(super) async fn prepare_initial(config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::DirectFloat(config) = config {
-            let stats = Arc::new(DirectFixedEscaperStats::new(config.name()));
-            DirectFloatEscaper::new_obj(*config, stats, None, None).await
-        } else {
-            Err(anyhow!("invalid escaper config type"))
-        }
+    pub(super) async fn prepare_initial(
+        config: DirectFloatEscaperConfig,
+    ) -> anyhow::Result<ArcEscaper> {
+        let stats = Arc::new(DirectFixedEscaperStats::new(config.name()));
+        DirectFloatEscaper::new_obj(config, stats, None, None).await
     }
 
     async fn prepare_reload(

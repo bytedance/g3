@@ -92,13 +92,11 @@ impl RouteQueryEscaper {
         Ok(Arc::new(escaper))
     }
 
-    pub(super) async fn prepare_initial(config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::RouteQuery(config) = config {
-            let stats = Arc::new(RouteEscaperStats::new(config.name()));
-            RouteQueryEscaper::new_obj(Arc::new(config), stats).await
-        } else {
-            Err(anyhow!("invalid escaper config type"))
-        }
+    pub(super) async fn prepare_initial(
+        config: RouteQueryEscaperConfig,
+    ) -> anyhow::Result<ArcEscaper> {
+        let stats = Arc::new(RouteEscaperStats::new(config.name()));
+        RouteQueryEscaper::new_obj(Arc::new(config), stats).await
     }
 
     async fn prepare_reload(

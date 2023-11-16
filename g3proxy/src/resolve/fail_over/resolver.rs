@@ -39,40 +39,36 @@ pub(crate) struct FailOverResolver {
 }
 
 impl FailOverResolver {
-    pub(crate) fn new_obj(config: AnyResolverConfig) -> anyhow::Result<BoxResolver> {
-        if let AnyResolverConfig::FailOver(config) = config {
-            let mut driver_config = FailOverDriverConfig::default();
+    pub(crate) fn new_obj(config: FailOverResolverConfig) -> anyhow::Result<BoxResolver> {
+        let mut driver_config = FailOverDriverConfig::default();
 
-            let primary_handle = crate::resolve::get_handle(&config.primary)
-                .context("failed to get primary resolver handle")?;
-            let standby_handle = crate::resolve::get_handle(&config.standby)
-                .context("failed to get standby resolver handle")?;
-            driver_config.set_primary_handle(primary_handle.clone_inner());
-            driver_config.set_standby_handle(standby_handle.clone_inner());
-            driver_config.set_static_config(config.static_conf);
+        let primary_handle = crate::resolve::get_handle(&config.primary)
+            .context("failed to get primary resolver handle")?;
+        let standby_handle = crate::resolve::get_handle(&config.standby)
+            .context("failed to get standby resolver handle")?;
+        driver_config.set_primary_handle(primary_handle.clone_inner());
+        driver_config.set_standby_handle(standby_handle.clone_inner());
+        driver_config.set_static_config(config.static_conf);
 
-            let inner_config = g3_resolver::ResolverConfig {
-                name: config.name().to_string(),
-                runtime: config.runtime.clone(),
-                driver: g3_resolver::AnyResolveDriverConfig::FailOver(driver_config.clone()),
-            };
-            let mut builder = g3_resolver::ResolverBuilder::new(inner_config);
-            builder.thread_name(format!("res-{}", config.name()));
-            let resolver = builder.build()?;
+        let inner_config = g3_resolver::ResolverConfig {
+            name: config.name().to_string(),
+            runtime: config.runtime.clone(),
+            driver: g3_resolver::AnyResolveDriverConfig::FailOver(driver_config.clone()),
+        };
+        let mut builder = g3_resolver::ResolverBuilder::new(inner_config);
+        builder.thread_name(format!("res-{}", config.name()));
+        let resolver = builder.build()?;
 
-            let logger = crate::log::resolve::get_logger(config.resolver_type(), config.name());
-            let stats = ResolverStats::new(config.name(), resolver.get_stats());
+        let logger = crate::log::resolve::get_logger(config.resolver_type(), config.name());
+        let stats = ResolverStats::new(config.name(), resolver.get_stats());
 
-            Ok(Box::new(FailOverResolver {
-                config: Arc::new(config),
-                driver_config,
-                inner: resolver,
-                stats: Arc::new(stats),
-                logger: Arc::new(logger),
-            }))
-        } else {
-            Err(anyhow!("invalid config type for FailOverResolver"))
-        }
+        Ok(Box::new(FailOverResolver {
+            config: Arc::new(config),
+            driver_config,
+            inner: resolver,
+            stats: Arc::new(stats),
+            logger: Arc::new(logger),
+        }))
     }
 }
 

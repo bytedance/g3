@@ -105,13 +105,9 @@ impl ProxySocks5Escaper {
         Ok(Arc::new(escaper))
     }
 
-    pub(super) fn prepare_initial(config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::ProxySocks5(config) = config {
-            let stats = Arc::new(ProxySocks5EscaperStats::new(config.name()));
-            ProxySocks5Escaper::new_obj(config, stats)
-        } else {
-            Err(anyhow!("invalid escaper config type"))
-        }
+    pub(super) fn prepare_initial(config: ProxySocks5EscaperConfig) -> anyhow::Result<ArcEscaper> {
+        let stats = Arc::new(ProxySocks5EscaperStats::new(config.name()));
+        ProxySocks5Escaper::new_obj(config, stats)
     }
 
     fn prepare_reload(

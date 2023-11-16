@@ -102,13 +102,9 @@ impl ProxyHttpEscaper {
         Ok(Arc::new(escaper))
     }
 
-    pub(super) fn prepare_initial(config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::ProxyHttp(config) = config {
-            let stats = Arc::new(ProxyHttpEscaperStats::new(config.name()));
-            ProxyHttpEscaper::new_obj(*config, stats)
-        } else {
-            Err(anyhow!("invalid escaper config type"))
-        }
+    pub(super) fn prepare_initial(config: ProxyHttpEscaperConfig) -> anyhow::Result<ArcEscaper> {
+        let stats = Arc::new(ProxyHttpEscaperStats::new(config.name()));
+        ProxyHttpEscaper::new_obj(config, stats)
     }
 
     fn prepare_reload(

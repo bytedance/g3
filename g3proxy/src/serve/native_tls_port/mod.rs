@@ -197,16 +197,12 @@ impl NativeTlsPort {
         })
     }
 
-    pub(crate) fn prepare_initial(config: AnyServerConfig) -> anyhow::Result<ArcServer> {
-        if let AnyServerConfig::NativeTlsPort(config) = config {
-            let config = Arc::new(config);
-            let listen_stats = Arc::new(ListenStats::new(config.name()));
+    pub(crate) fn prepare_initial(config: NativeTlsPortConfig) -> anyhow::Result<ArcServer> {
+        let config = Arc::new(config);
+        let listen_stats = Arc::new(ListenStats::new(config.name()));
 
-            let server = NativeTlsPort::new(config, listen_stats, 1)?;
-            Ok(Arc::new(server))
-        } else {
-            Err(anyhow!("invalid config type for NativeTcpPort server"))
-        }
+        let server = NativeTlsPort::new(config, listen_stats, 1)?;
+        Ok(Arc::new(server))
     }
 
     fn prepare_reload(&self, config: AnyServerConfig) -> anyhow::Result<NativeTlsPort> {

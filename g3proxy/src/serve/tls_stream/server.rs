@@ -120,17 +120,13 @@ impl TlsStreamServer {
         Ok(server)
     }
 
-    pub(crate) fn prepare_initial(config: AnyServerConfig) -> anyhow::Result<ArcServer> {
-        if let AnyServerConfig::TlsStream(config) = config {
-            let config = Arc::new(*config);
-            let server_stats = Arc::new(TcpStreamServerStats::new(config.name()));
-            let listen_stats = Arc::new(ListenStats::new(config.name()));
+    pub(crate) fn prepare_initial(config: TlsStreamServerConfig) -> anyhow::Result<ArcServer> {
+        let config = Arc::new(config);
+        let server_stats = Arc::new(TcpStreamServerStats::new(config.name()));
+        let listen_stats = Arc::new(ListenStats::new(config.name()));
 
-            let server = TlsStreamServer::new(config, server_stats, listen_stats, 1)?;
-            Ok(Arc::new(server))
-        } else {
-            Err(anyhow!("invalid config type for TlsStream server"))
-        }
+        let server = TlsStreamServer::new(config, server_stats, listen_stats, 1)?;
+        Ok(Arc::new(server))
     }
 
     fn prepare_reload(&self, config: AnyServerConfig) -> anyhow::Result<Self> {

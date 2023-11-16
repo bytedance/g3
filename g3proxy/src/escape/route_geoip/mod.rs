@@ -142,13 +142,9 @@ impl RouteGeoIpEscaper {
         Ok(Arc::new(escaper))
     }
 
-    pub(super) fn prepare_initial(config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::RouteGeoIp(config) = config {
-            let stats = Arc::new(RouteEscaperStats::new(config.name()));
-            RouteGeoIpEscaper::new_obj(config, stats)
-        } else {
-            Err(anyhow!("invalid escaper config type"))
-        }
+    pub(super) fn prepare_initial(config: RouteGeoIpEscaperConfig) -> anyhow::Result<ArcEscaper> {
+        let stats = Arc::new(RouteEscaperStats::new(config.name()));
+        RouteGeoIpEscaper::new_obj(config, stats)
     }
 
     fn prepare_reload(
