@@ -39,7 +39,7 @@ use g3_types::net::{OpensslServerConfig, ProxyProtocolVersion};
 use crate::config::server::native_tls_port::NativeTlsPortConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::serve::{
-    ArcServer, AuxiliaryServerConfig, AuxiliaryTcpPortRuntime, Server, ServerInternal,
+    ArcServer, AuxTcpServerConfig, AuxiliaryTcpPortRuntime, Server, ServerInternal,
     ServerQuitPolicy, ServerReloadCommand, ServerRunContext,
 };
 
@@ -51,7 +51,7 @@ struct NativeTlsPortAuxConfig {
     listen_stats: Arc<ListenStats>,
 }
 
-impl AuxiliaryServerConfig for NativeTlsPortAuxConfig {
+impl AuxTcpServerConfig for NativeTlsPortAuxConfig {
     fn next_server(&self) -> &MetricsName {
         &self.config.server
     }

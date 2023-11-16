@@ -20,18 +20,37 @@ use std::os::fd::{AsRawFd, RawFd};
 use std::sync::Arc;
 
 use log::{info, warn};
-use quinn::Endpoint;
+use quinn::{Connecting, Endpoint};
 use tokio::runtime::Handle;
 use tokio::sync::{broadcast, watch};
 
 use g3_daemon::listen::ListenStats;
 use g3_daemon::server::ClientConnectionInfo;
 use g3_socket::util::native_socket_addr;
+use g3_types::metrics::MetricsName;
 use g3_types::net::UdpListenConfig;
 
-use super::AuxiliaryServerConfig;
 use crate::config::server::ServerConfig;
 use crate::serve::{ArcServer, ServerReloadCommand, ServerRunContext};
+
+pub(crate) trait AuxQuicServerConfig {
+    fn next_server(&self) -> &MetricsName;
+
+    fn run_quic_task(
+        &self,
+        _rt_handle: Handle,
+        _next_server: ArcServer,
+        _connecting: Connecting,
+        _cc_info: ClientConnectionInfo,
+        _ctx: ServerRunContext,
+    );
+
+    fn take_udp_listen_config(&mut self) -> Option<UdpListenConfig>;
+
+    fn take_quinn_config(&mut self) -> Option<quinn::ServerConfig>;
+
+    fn offline_rebind_port(&self) -> Option<u16>;
+}
 
 #[derive(Clone)]
 pub(crate) struct AuxiliaryQuicPortRuntime {
@@ -40,7 +59,6 @@ pub(crate) struct AuxiliaryQuicPortRuntime {
     server_version: usize,
     worker_id: Option<usize>,
     listen_config: UdpListenConfig,
-    rebind_port: Option<u16>,
     listen_stats: Arc<ListenStats>,
     instance_id: usize,
 }
@@ -50,7 +68,6 @@ impl AuxiliaryQuicPortRuntime {
         server: &ArcServer,
         server_config: &C,
         listen_config: UdpListenConfig,
-        rebind_port: Option<u16>,
     ) -> Self {
         AuxiliaryQuicPortRuntime {
             server: Arc::clone(server),
@@ -58,7 +75,6 @@ impl AuxiliaryQuicPortRuntime {
             server_version: server.version(),
             worker_id: None,
             listen_config,
-            rebind_port,
             listen_stats: server.get_listen_stats(),
             instance_id: 0,
         }
@@ -113,7 +129,7 @@ impl AuxiliaryQuicPortRuntime {
         mut sock_raw_fd: RawFd,
         mut cfg_receiver: watch::Receiver<Option<C>>,
     ) where
-        C: AuxiliaryServerConfig + Send + Clone + 'static,
+        C: AuxQuicServerConfig + Send + Clone + 'static,
     {
         use broadcast::error::RecvError;
 
@@ -150,7 +166,7 @@ impl AuxiliaryQuicPortRuntime {
                             info!("SRT[{}_v{}#{}] will go offline",
                                 self.server.name(), self.server_version, self.instance_id);
                             self.pre_stop();
-                            self.goto_offline(listener, listen_addr);
+                            self.goto_offline(listener, listen_addr, aux_config.offline_rebind_port());
                             break;
                         }
                         Some(config) => {
@@ -326,8 +342,8 @@ impl AuxiliaryQuicPortRuntime {
         }
     }
 
-    fn goto_offline(&self, listener: Endpoint, listen_addr: SocketAddr) {
-        if let Some(port) = self.rebind_port {
+    fn goto_offline(&self, listener: Endpoint, listen_addr: SocketAddr, rebind_port: Option<u16>) {
+        if let Some(port) = rebind_port {
             let rebind_addr = SocketAddr::new(listen_addr.ip(), port);
             match g3_socket::udp::new_std_rebind_listen(
                 &self.listen_config,
@@ -395,7 +411,7 @@ impl AuxiliaryQuicPortRuntime {
         listen_in_worker: bool,
         cfg_receiver: watch::Receiver<Option<C>>,
     ) where
-        C: AuxiliaryServerConfig + Clone + Send + Sync + 'static,
+        C: AuxQuicServerConfig + Clone + Send + Sync + 'static,
     {
         let handle = self.get_rt_handle(listen_in_worker);
         handle.spawn(async move {
@@ -431,7 +447,7 @@ impl AuxiliaryQuicPortRuntime {
         cfg_receiver: &watch::Sender<Option<C>>,
     ) -> anyhow::Result<()>
     where
-        C: AuxiliaryServerConfig + Clone + Send + Sync + 'static,
+        C: AuxQuicServerConfig + Clone + Send + Sync + 'static,
     {
         let mut instance_count = self.listen_config.instance();
         if listen_in_worker {

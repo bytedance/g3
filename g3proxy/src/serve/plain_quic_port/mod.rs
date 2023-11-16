@@ -37,7 +37,7 @@ use g3_types::net::UdpListenConfig;
 use crate::config::server::plain_quic_port::{PlainQuicPortConfig, PlainQuicPortUpdateFlags};
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::serve::{
-    ArcServer, AuxiliaryQuicPortRuntime, AuxiliaryServerConfig, Server, ServerInternal,
+    ArcServer, AuxQuicServerConfig, AuxiliaryQuicPortRuntime, Server, ServerInternal,
     ServerQuitPolicy, ServerReloadCommand, ServerRunContext,
 };
 
@@ -49,9 +49,10 @@ struct PlainQuicPortAuxConfig {
     listen_config: Option<UdpListenConfig>,
     quinn_config: Option<quinn::ServerConfig>,
     accept_timeout: Duration,
+    offline_rebind_port: Option<u16>,
 }
 
-impl AuxiliaryServerConfig for PlainQuicPortAuxConfig {
+impl AuxQuicServerConfig for PlainQuicPortAuxConfig {
     fn next_server(&self) -> &MetricsName {
         &self.config.server
     }
@@ -106,12 +107,19 @@ impl AuxiliaryServerConfig for PlainQuicPortAuxConfig {
         });
     }
 
+    #[inline]
     fn take_udp_listen_config(&mut self) -> Option<UdpListenConfig> {
         self.listen_config.take()
     }
 
+    #[inline]
     fn take_quinn_config(&mut self) -> Option<quinn::ServerConfig> {
         self.quinn_config.take()
+    }
+
+    #[inline]
+    fn offline_rebind_port(&self) -> Option<u16> {
+        self.offline_rebind_port
     }
 }
 
@@ -150,6 +158,7 @@ impl PlainQuicPort {
             listen_config: None,
             quinn_config: None,
             accept_timeout: tls_server.accept_timeout,
+            offline_rebind_port: config.offline_rebind_port,
         };
         let (cfg_sender, _cfg_receiver) = watch::channel(Some(aux_config));
 
@@ -228,6 +237,7 @@ impl ServerInternal for PlainQuicPort {
                 listen_config,
                 quinn_config,
                 accept_timeout: config.tls_server.accept_timeout(),
+                offline_rebind_port: config.offline_rebind_port,
             };
             self.cfg_sender.send_replace(Some(aux_config));
             self.config.store(config);
@@ -261,12 +271,8 @@ impl ServerInternal for PlainQuicPort {
 
     fn _start_runtime(&self, server: &ArcServer) -> anyhow::Result<()> {
         let cur_config = self.config.load();
-        let runtime = AuxiliaryQuicPortRuntime::new(
-            server,
-            cur_config.as_ref(),
-            cur_config.listen.clone(),
-            None, // TODO set rebind port
-        );
+        let runtime =
+            AuxiliaryQuicPortRuntime::new(server, cur_config.as_ref(), cur_config.listen.clone());
         let listen_in_worker = cur_config.listen_in_worker;
         drop(cur_config);
         runtime.run_all_instances(listen_in_worker, &self.quinn_config, &self.cfg_sender)

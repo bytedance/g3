@@ -18,6 +18,7 @@ use std::os::fd::AsRawFd;
 use std::sync::Arc;
 
 use log::{info, warn};
+use tokio::net::TcpStream;
 use tokio::runtime::Handle;
 use tokio::sync::{broadcast, watch};
 
@@ -25,11 +26,23 @@ use g3_daemon::listen::ListenStats;
 use g3_daemon::server::ClientConnectionInfo;
 use g3_io_ext::LimitedTcpListener;
 use g3_socket::util::native_socket_addr;
+use g3_types::metrics::MetricsName;
 use g3_types::net::TcpListenConfig;
 
-use super::AuxiliaryServerConfig;
 use crate::config::server::ServerConfig;
 use crate::serve::{ArcServer, ServerReloadCommand, ServerRunContext};
+
+pub(crate) trait AuxTcpServerConfig {
+    fn next_server(&self) -> &MetricsName;
+    fn run_tcp_task(
+        &self,
+        _rt_handle: Handle,
+        _next_server: ArcServer,
+        _stream: TcpStream,
+        _cc_info: ClientConnectionInfo,
+        _ctx: ServerRunContext,
+    );
+}
 
 #[derive(Clone)]
 pub(crate) struct AuxiliaryTcpPortRuntime {
@@ -100,7 +113,7 @@ impl AuxiliaryTcpPortRuntime {
         mut listener: LimitedTcpListener,
         mut cfg_receiver: watch::Receiver<Option<C>>,
     ) where
-        C: AuxiliaryServerConfig + Clone,
+        C: AuxTcpServerConfig + Clone,
     {
         use broadcast::error::RecvError;
 
@@ -285,7 +298,7 @@ impl AuxiliaryTcpPortRuntime {
         listen_in_worker: bool,
         cfg_receiver: watch::Receiver<Option<C>>,
     ) where
-        C: AuxiliaryServerConfig + Clone + Send + Sync + 'static,
+        C: AuxTcpServerConfig + Clone + Send + Sync + 'static,
     {
         let handle = self.get_rt_handle(listen_in_worker);
         handle.spawn(async move {
@@ -315,7 +328,7 @@ impl AuxiliaryTcpPortRuntime {
         cfg_receiver: &watch::Sender<Option<C>>,
     ) -> anyhow::Result<()>
     where
-        C: AuxiliaryServerConfig + Clone + Send + Sync + 'static,
+        C: AuxTcpServerConfig + Clone + Send + Sync + 'static,
     {
         let mut instance_count = listen_config.instance();
         if listen_in_worker {

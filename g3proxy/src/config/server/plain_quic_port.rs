@@ -46,6 +46,7 @@ pub(crate) struct PlainQuicPortConfig {
     pub(crate) tls_server: RustlsServerConfigBuilder,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) server: MetricsName,
+    pub(crate) offline_rebind_port: Option<u16>,
 }
 
 impl PlainQuicPortConfig {
@@ -58,6 +59,7 @@ impl PlainQuicPortConfig {
             tls_server: RustlsServerConfigBuilder::empty(),
             ingress_net_filter: None,
             server: MetricsName::default(),
+            offline_rebind_port: None,
         }
     }
 
@@ -87,6 +89,11 @@ impl PlainQuicPortConfig {
             }
             "listen_in_worker" => {
                 self.listen_in_worker = g3_yaml::value::as_bool(v)?;
+                Ok(())
+            }
+            "offline_rebind_port" => {
+                let port = g3_yaml::value::as_u16(v)?;
+                self.offline_rebind_port = Some(port);
                 Ok(())
             }
             "quic_server" => {

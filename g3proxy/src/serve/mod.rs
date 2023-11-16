@@ -41,7 +41,7 @@ pub(crate) use idle_check::ServerIdleChecker;
 
 mod runtime;
 use runtime::{
-    AuxiliaryQuicPortRuntime, AuxiliaryServerConfig, AuxiliaryTcpPortRuntime,
+    AuxQuicServerConfig, AuxTcpServerConfig, AuxiliaryQuicPortRuntime, AuxiliaryTcpPortRuntime,
     OrdinaryTcpServerRuntime,
 };
 
