@@ -56,7 +56,7 @@ impl AsyncWrite for H2StreamWriter {
                         if e.is_io() {
                             Poll::Ready(Err(e.into_io().unwrap()))
                         } else {
-                            Poll::Ready(Err(io::Error::new(io::ErrorKind::Other, e)))
+                            Poll::Ready(Err(io::Error::other(e)))
                         }
                     }
                 }
@@ -65,7 +65,7 @@ impl AsyncWrite for H2StreamWriter {
                 if e.is_io() {
                     Poll::Ready(Err(e.into_io().unwrap()))
                 } else {
-                    Poll::Ready(Err(io::Error::new(io::ErrorKind::Other, e)))
+                    Poll::Ready(Err(io::Error::other(e)))
                 }
             }
             None => Poll::Ready(Err(io::Error::new(
@@ -84,7 +84,7 @@ impl AsyncWrite for H2StreamWriter {
             if e.is_io() {
                 Poll::Ready(Err(e.into_io().unwrap()))
             } else {
-                Poll::Ready(Err(io::Error::new(io::ErrorKind::Other, e)))
+                Poll::Ready(Err(io::Error::other(e)))
             }
         } else {
             Poll::Ready(Ok(()))

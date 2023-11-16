@@ -176,13 +176,10 @@ impl ChunkedDecodeReaderInternal {
                         None => {
                             let len = r_buf.len();
                             if self.chunk_header.len() + len > self.body_line_max_size {
-                                return Poll::Ready(Err(io::Error::new(
-                                    io::ErrorKind::Other,
-                                    format!(
-                                        "chunk header line too long (> {})",
-                                        self.body_line_max_size
-                                    ),
-                                )));
+                                return Poll::Ready(Err(io::Error::other(format!(
+                                    "chunk header line too long (> {})",
+                                    self.body_line_max_size
+                                ))));
                             }
                             self.chunk_header.put_slice(r_buf);
                             reader.as_mut().consume(len);

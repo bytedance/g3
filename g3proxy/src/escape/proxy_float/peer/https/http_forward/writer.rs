@@ -111,10 +111,7 @@ where
         if let Some(expire) = &self.config.expire_instant {
             let now = Instant::now();
             if expire.checked_duration_since(now).is_none() {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "connection has expired",
-                ));
+                return Err(io::Error::other("connection has expired"));
             }
         }
         send_req_header_via_proxy(
@@ -195,10 +192,7 @@ where
         if let Some(expire) = &self.config.expire_instant {
             let now = Instant::now();
             if expire.checked_duration_since(now).is_none() {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "connection has expired",
-                ));
+                return Err(io::Error::other("connection has expired"));
             }
         }
         send_req_header_to_origin(&mut self.inner, req).await

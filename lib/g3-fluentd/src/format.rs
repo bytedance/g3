@@ -67,12 +67,7 @@ impl FluentdFormatter {
             // #2
             rmp::encode::write_ext_meta(&mut buf, 8, 0)?;
             let sec = u32::try_from(datetime_now.timestamp())
-                .map_err(|_| {
-                    slog::Error::Io(io::Error::new(
-                        io::ErrorKind::Other,
-                        "out of range unix timestamp",
-                    ))
-                })?
+                .map_err(|_| slog::Error::Io(io::Error::other("out of range unix timestamp")))?
                 .to_be_bytes();
             buf.extend_from_slice(&sec);
             let nano = datetime_now
@@ -202,10 +197,7 @@ impl<'a> Serializer for FormatterKv<'a> {
         self.write_key(key)?;
         let mut serializer = rmp_serde::Serializer::new(&mut self.0);
         value.as_serde().serialize(&mut serializer).map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                format!("serde serialization error for key {key}: {e}"),
-            )
+            io::Error::other(format!("serde serialization error for key {key}: {e}"))
         })?;
         Ok(())
     }

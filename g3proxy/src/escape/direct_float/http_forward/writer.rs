@@ -113,11 +113,9 @@ where
         req: &'a HttpProxyClientRequest,
     ) -> io::Result<()> {
         if self.bind.is_expired() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "connection has expired",
-            ));
+            Err(io::Error::other("connection has expired"))
+        } else {
+            send_req_header_to_origin(&mut self.inner, req).await
         }
-        send_req_header_to_origin(&mut self.inner, req).await
     }
 }

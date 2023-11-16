@@ -62,7 +62,7 @@ impl AsyncRead for H2StreamReader {
                         if e.is_io() {
                             Poll::Ready(Err(e.into_io().unwrap()))
                         } else {
-                            Poll::Ready(Err(io::Error::new(io::ErrorKind::Other, e)))
+                            Poll::Ready(Err(io::Error::other(e)))
                         }
                     }
                 };
@@ -78,7 +78,7 @@ impl AsyncRead for H2StreamReader {
                         return if e.is_io() {
                             Poll::Ready(Err(e.into_io().unwrap()))
                         } else {
-                            Poll::Ready(Err(io::Error::new(io::ErrorKind::Other, e)))
+                            Poll::Ready(Err(io::Error::other(e)))
                         }
                     }
                     None => return Poll::Ready(Ok(())),

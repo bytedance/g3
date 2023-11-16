@@ -105,13 +105,13 @@ impl ProxyFloatSocks5Peer {
         let (mut r, mut w) = self
             .tcp_new_connection(tcp_notes, task_notes)
             .await
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+            .map_err(io::Error::other)?;
         let local_tcp_addr = tcp_notes
             .local
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "no local tcp address"))?;
+            .ok_or_else(|| io::Error::other("no local tcp address"))?;
         let peer_tcp_addr = tcp_notes
             .next
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "no peer tcp address"))?;
+            .ok_or_else(|| io::Error::other("no peer tcp address"))?;
 
         // bind early and send listen_addr if configured ?
         let send_udp_ip = match local_tcp_addr.ip() {
@@ -127,7 +127,7 @@ impl ProxyFloatSocks5Peer {
             send_udp_addr,
         )
         .await
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        .map_err(io::Error::other)?;
         let peer_udp_addr = self.transmute_udp_peer_addr(peer_udp_addr, peer_tcp_addr.ip());
         let socket = g3_socket::udp::new_std_socket_to(
             peer_udp_addr,
@@ -141,9 +141,7 @@ impl ProxyFloatSocks5Peer {
 
         let r = r.into_inner();
         let w = w.into_inner();
-        let stream = r
-            .reunite(w)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        let stream = r.reunite(w).map_err(io::Error::other)?;
 
         let (mut tcp_close_sender, tcp_close_receiver) = oneshot::channel::<Option<io::Error>>();
         tokio::spawn(async move {
@@ -156,10 +154,7 @@ impl ProxyFloatSocks5Peer {
                 r = tcp_stream.read(&mut buf) => {
                     let e = match r {
                         Ok(0) => None,
-                        Ok(_) => Some(io::Error::new(
-                            io::ErrorKind::Other,
-                            "unexpected data received in the tcp connection",
-                        )),
+                        Ok(_) => Some(io::Error::other("unexpected data received in the tcp connection")),
                         Err(e) => Some(e),
                     };
                     let _ = tcp_close_sender.send(e);

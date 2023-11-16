@@ -3,6 +3,7 @@ name = "g3-resolver"
 version = "0.5.0"
 license.workspace = true
 edition.workspace = true
+rust-version = "1.74.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

@@ -32,12 +32,9 @@ pub(super) struct SerdeFormatterKV<S: serde::Serializer> {
 impl<S: serde::Serializer> SerdeFormatterKV<S> {
     /// Start serializing map of values
     pub(super) fn start(ser: S, len: Option<usize>) -> Result<Self, slog::Error> {
-        let ser_map = ser.serialize_map(len).map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                format!("serde serialization error: {e}"),
-            )
-        })?;
+        let ser_map = ser
+            .serialize_map(len)
+            .map_err(|e| io::Error::other(format!("serde serialization error: {e}")))?;
         Ok(SerdeFormatterKV { ser_map })
     }
 
@@ -51,7 +48,7 @@ macro_rules! impl_m(
     ($s:expr, $key:expr, $val:expr) => ({
         let k_s:  &str = $key.as_ref();
         $s.ser_map.serialize_entry(k_s, $val)
-             .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("serde serialization error: {e}")))?;
+             .map_err(|e| io::Error::other(format!("serde serialization error: {e}")))?;
         Ok(())
     });
 );
@@ -118,10 +115,7 @@ impl<S: serde::Serializer> Serializer for SerdeFormatterKV<S> {
         self.ser_map
             .serialize_entry(key, value.as_serde())
             .map_err(|e| {
-                io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("serde serialization error for key {key}: {e}"),
-                )
+                io::Error::other(format!("serde serialization error for key {key}: {e}"))
             })?;
         Ok(())
     }

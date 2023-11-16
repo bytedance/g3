@@ -66,10 +66,7 @@ impl Socks5UdpTokioRuntime {
                 r = stream.read(&mut buf) => {
                     let e = match r {
                         Ok(0) => None,
-                        Ok(_) => Some(Arc::new(io::Error::new(
-                            io::ErrorKind::Other,
-                            "unexpected data received in the ctl connection",
-                        ))),
+                        Ok(_) => Some(Arc::new(io::Error::other("unexpected data received in the ctl connection"))),
                         Err(e) => Some(Arc::new(e)),
                     };
                     let _ = ctl_close_sender.send(e);
@@ -283,22 +280,13 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         match Pin::new(ctl_close_receiver).poll(cx) {
             Poll::Pending => {}
             Poll::Ready(Ok(Some(e))) => {
-                return Poll::Ready(Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("ctl socket closed: {e:?}"),
-                )));
+                return Poll::Ready(Err(io::Error::other(format!("ctl socket closed: {e:?}"))));
             }
             Poll::Ready(Ok(None)) => {
-                return Poll::Ready(Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "ctl socket closed",
-                )));
+                return Poll::Ready(Err(io::Error::other("ctl socket closed")));
             }
             Poll::Ready(Err(_)) => {
-                return Poll::Ready(Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "ctl socket closed",
-                )));
+                return Poll::Ready(Err(io::Error::other("ctl socket closed")));
             }
         }
 
@@ -335,8 +323,8 @@ impl AsyncUdpSocket for Socks5UdpSocket {
                         continue;
                     }
 
-                    let (off, ups) = UdpInput::parse_header(socks_header.as_ref())
-                        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+                    let (off, ups) =
+                        UdpInput::parse_header(socks_header.as_ref()).map_err(io::Error::other)?;
                     assert_eq!(socks_header_len, off);
                     let ip = match ups.host() {
                         Host::Ip(ip) => *ip,
@@ -379,22 +367,13 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         match Pin::new(ctl_close_receiver).poll(cx) {
             Poll::Pending => {}
             Poll::Ready(Ok(Some(e))) => {
-                return Poll::Ready(Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("ctl socket closed: {e:?}"),
-                )));
+                return Poll::Ready(Err(io::Error::other(format!("ctl socket closed: {e:?}"))));
             }
             Poll::Ready(Ok(None)) => {
-                return Poll::Ready(Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "ctl socket closed",
-                )));
+                return Poll::Ready(Err(io::Error::other("ctl socket closed")));
             }
             Poll::Ready(Err(_)) => {
-                return Poll::Ready(Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "ctl socket closed",
-                )));
+                return Poll::Ready(Err(io::Error::other("ctl socket closed")));
             }
         }
 
@@ -423,8 +402,8 @@ impl AsyncUdpSocket for Socks5UdpSocket {
             return Poll::Ready(Ok(1));
         }
 
-        let (off, ups) = UdpInput::parse_header(recv_socks_header.as_ref())
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        let (off, ups) =
+            UdpInput::parse_header(recv_socks_header.as_ref()).map_err(io::Error::other)?;
         assert_eq!(socks_header_len, off);
         let ip = match ups.host() {
             Host::Ip(ip) => *ip,

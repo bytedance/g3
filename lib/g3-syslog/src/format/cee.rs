@@ -128,9 +128,7 @@ fn format_content_as_json(
 
     kv_formatter.emit_arguments("msg", record.msg())?;
 
-    kv_formatter
-        .end()
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    kv_formatter.end().map_err(io::Error::other)?;
 
     Ok(())
 }

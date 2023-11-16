@@ -113,16 +113,11 @@ impl Resolver {
             ));
         }
 
-        match self
-            .ctl_sender
+        self.ctl_sender
             .send(ResolverCommand::Update(Box::new(config.clone())))
-        {
-            Ok(_) => {
-                self.config = config;
-                Ok(())
-            }
-            Err(e) => Err(io::Error::new(io::ErrorKind::Other, e)),
-        }
+            .map_err(io::Error::other)?;
+        self.config = config;
+        Ok(())
     }
 
     fn stop(&self) {

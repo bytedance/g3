@@ -59,13 +59,10 @@ impl CpuAffinity {
                 io::ErrorKind::Unsupported,
                 "thread_policy_set() is not supported",
             )),
-            n => Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "thread_policy_set({}) returned error code {n}",
-                    self.cpu_tag
-                ),
-            )),
+            n => Err(io::Error::other(format!(
+                "thread_policy_set({}) returned error code {n}",
+                self.cpu_tag
+            ))),
         }
     }
 }

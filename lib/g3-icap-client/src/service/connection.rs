@@ -46,9 +46,9 @@ impl IcapConnectionCreator {
         match upstream.host() {
             Host::Domain(domain) => {
                 let mut addrs = tokio::net::lookup_host((domain.as_str(), upstream.port())).await?;
-                addrs.next().ok_or_else(|| {
-                    io::Error::new(io::ErrorKind::Other, "no resolved socket address")
-                })
+                addrs
+                    .next()
+                    .ok_or_else(|| io::Error::other("no resolved socket address"))
             }
             Host::Ip(ip) => Ok(SocketAddr::new(*ip, upstream.port())),
         }

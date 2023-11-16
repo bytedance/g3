@@ -36,10 +36,10 @@ impl UdpDgramFrontend {
     pub(crate) async fn send_rsp(&self, data: &[u8], peer: SocketAddr) -> io::Result<()> {
         let nw = self.socket.send_to(data, peer).await?;
         if nw != data.len() {
-            Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!("not all data written, only {nw}/{}", data.len()),
-            ))
+            Err(io::Error::other(format!(
+                "not all data written, only {nw}/{}",
+                data.len()
+            )))
         } else {
             Ok(())
         }

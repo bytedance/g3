@@ -3,6 +3,7 @@ name = "g3-h2"
 version = "0.1.0"
 license.workspace = true
 edition.workspace = true
+rust-version = "1.74.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

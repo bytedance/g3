@@ -67,17 +67,11 @@ macro_rules! impl_serde_with_tls {
 
                 let mut serializer = serde_json::Serializer::new(buf.deref_mut());
                 value.as_serde().serialize(&mut serializer).map_err(|e| {
-                    io::Error::new(
-                        io::ErrorKind::Other,
-                        format!("serde serialization error for key {key}: {e}"),
-                    )
+                    io::Error::other(format!("serde serialization error for key {key}: {e}"))
                 })?;
 
                 let v = std::str::from_utf8(&buf).map_err(|e| {
-                    io::Error::new(
-                        io::ErrorKind::Other,
-                        format!("invalid utf-8 value for key {key}: {e}"),
-                    )
+                    io::Error::other(format!("invalid utf-8 value for key {key}: {e}"))
                 })?;
                 self.emit_str(key, v)
             })
