@@ -101,7 +101,7 @@ pub(super) async fn spawn(config: &Arc<RouteQueryEscaperConfig>) -> anyhow::Resu
     use anyhow::Context;
 
     let (socket, _addr) =
-        g3_socket::udp::new_std_bind_connect(None, config.query_socket_buffer, &Default::default())
+        g3_socket::udp::new_std_bind_connect(None, config.query_socket_buffer, Default::default())
             .context("failed to setup udp socket")?;
     socket.connect(config.query_peer_addr).map_err(|e| {
         anyhow!(

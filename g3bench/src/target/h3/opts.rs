@@ -144,7 +144,7 @@ impl BenchH3Args {
                 peer,
                 self.bind,
                 Default::default(),
-                &Default::default(),
+                Default::default(),
             )
             .map_err(|e| anyhow!("failed to setup local udp socket: {e}"))?;
 
@@ -187,7 +187,7 @@ impl BenchH3Args {
                 quic_peer,
                 self.bind,
                 Default::default(),
-                &Default::default(),
+                Default::default(),
             )
             .map_err(|e| anyhow!("failed to setup local udp socket: {e}"))?;
             socket

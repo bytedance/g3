@@ -98,7 +98,7 @@ impl DirectFloatEscaper {
             Some(bind.ip),
             family,
             udp_notes.buf_conf,
-            &misc_opts,
+            misc_opts,
         )
         .map_err(UdpRelaySetupError::SetupSocketFailed)?;
         let bind_addr = socket

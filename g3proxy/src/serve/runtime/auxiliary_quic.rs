@@ -291,7 +291,7 @@ impl AuxiliaryQuicPortRuntime {
     }
 
     fn update_socket_opts(&self, raw_fd: RawFd) {
-        if let Err(e) = g3_socket::udp::set_raw_opts(raw_fd, &self.listen_config.socket_misc_opts())
+        if let Err(e) = g3_socket::udp::set_raw_opts(raw_fd, self.listen_config.socket_misc_opts())
         {
             warn!(
                 "SRT[{}_v{}#{}] update socket misc opts failed: {e}",

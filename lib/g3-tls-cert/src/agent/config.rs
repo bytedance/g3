@@ -90,7 +90,7 @@ impl CertAgentConfig {
         let (socket, _addr) = g3_socket::udp::new_std_bind_connect(
             None,
             self.query_socket_buffer,
-            &Default::default(),
+            Default::default(),
         )
         .context("failed to setup udp socket")?;
         socket.connect(self.query_peer_addr).map_err(|e| {

@@ -129,7 +129,7 @@ impl ProxySocks5Escaper {
             peer_udp_addr,
             Some(local_tcp_addr.ip()),
             buf_conf,
-            &self.config.udp_misc_opts,
+            self.config.udp_misc_opts,
         )?;
         let socket = UdpSocket::from_std(socket)?;
         socket.connect(peer_udp_addr).await?;

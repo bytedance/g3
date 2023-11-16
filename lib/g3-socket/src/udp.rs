@@ -29,7 +29,7 @@ pub fn new_std_socket_to(
     peer_addr: SocketAddr,
     bind_ip: Option<IpAddr>,
     buf_conf: SocketBufferConfig,
-    misc_opts: &UdpMiscSockOpts,
+    misc_opts: UdpMiscSockOpts,
 ) -> io::Result<UdpSocket> {
     let peer_family = AddressFamily::from(&peer_addr);
     let socket = new_udp_socket(peer_family, buf_conf)?;
@@ -44,21 +44,21 @@ pub fn new_std_socket_to(
         let addr: SockAddr = SocketAddr::new(ip, 0).into();
         socket.bind(&addr)?;
     }
-    set_misc_opts(&socket, *misc_opts)?;
+    set_misc_opts(&socket, misc_opts)?;
     Ok(UdpSocket::from(socket))
 }
 
 pub fn new_std_bind_connect(
     bind_ip: Option<IpAddr>,
     buf_conf: SocketBufferConfig,
-    misc_opts: &UdpMiscSockOpts,
+    misc_opts: UdpMiscSockOpts,
 ) -> io::Result<(UdpSocket, SocketAddr)> {
     let bind_addr = match bind_ip {
         Some(ip) => SocketAddr::new(ip, 0),
         None => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
     };
     let socket = new_udp_socket(AddressFamily::from(&bind_addr), buf_conf)?;
-    set_misc_opts(&socket, *misc_opts)?;
+    set_misc_opts(&socket, misc_opts)?;
     let bind_addr = SockAddr::from(bind_addr);
     socket.bind(&bind_addr)?;
     let socket = UdpSocket::from(socket);
@@ -71,7 +71,7 @@ pub fn new_std_in_range_bind_connect(
     bind_ip: IpAddr,
     port: PortRange,
     buf_conf: SocketBufferConfig,
-    misc_opts: &UdpMiscSockOpts,
+    misc_opts: UdpMiscSockOpts,
 ) -> io::Result<(UdpSocket, SocketAddr)> {
     let port_start = port.start();
     let port_end = port.end();
@@ -79,7 +79,7 @@ pub fn new_std_in_range_bind_connect(
     debug_assert!(port_start < port_end);
 
     let socket = new_udp_socket(AddressFamily::from(&bind_ip), buf_conf)?;
-    set_misc_opts(&socket, *misc_opts)?;
+    set_misc_opts(&socket, misc_opts)?;
 
     // like what's has been done in dante/sockd/sockd_request.c
     let tries = port.count().min(10);
@@ -112,7 +112,7 @@ pub fn new_std_bind_relay(
     bind_ip: Option<IpAddr>,
     family: AddressFamily,
     buf_conf: SocketBufferConfig,
-    misc_opts: &UdpMiscSockOpts,
+    misc_opts: UdpMiscSockOpts,
 ) -> io::Result<UdpSocket> {
     let bind_addr = match bind_ip {
         Some(ip) => SocketAddr::new(ip, 0),
@@ -124,7 +124,7 @@ pub fn new_std_bind_relay(
     let socket = new_udp_socket(AddressFamily::from(&bind_addr), buf_conf)?;
     let bind_addr = SockAddr::from(bind_addr);
     socket.bind(&bind_addr)?;
-    set_misc_opts(&socket, *misc_opts)?;
+    set_misc_opts(&socket, misc_opts)?;
     Ok(UdpSocket::from(socket))
 }
 
@@ -157,9 +157,9 @@ pub fn new_std_rebind_listen(config: &UdpListenConfig, addr: SocketAddr) -> io::
     Ok(UdpSocket::from(socket))
 }
 
-pub fn set_raw_opts(fd: RawFd, misc_opts: &UdpMiscSockOpts) -> io::Result<()> {
+pub fn set_raw_opts(fd: RawFd, misc_opts: UdpMiscSockOpts) -> io::Result<()> {
     let socket = unsafe { Socket::from_raw_fd(fd) };
-    set_misc_opts(&socket, *misc_opts)?;
+    set_misc_opts(&socket, misc_opts)?;
     let _ = socket.into_raw_fd();
     Ok(())
 }
@@ -231,7 +231,7 @@ mod tests {
             peer_addr,
             Some(IpAddr::V4(Ipv4Addr::UNSPECIFIED)),
             SocketBufferConfig::default(),
-            &Default::default(),
+            Default::default(),
         )
         .unwrap();
         let local_addr = socket.local_addr().unwrap();
@@ -246,7 +246,7 @@ mod tests {
         let (_socket, local_addr) = new_std_bind_connect(
             Some(IpAddr::V4(Ipv4Addr::UNSPECIFIED)),
             SocketBufferConfig::default(),
-            &Default::default(),
+            Default::default(),
         )
         .unwrap();
         assert_ne!(local_addr.port(), 0);
@@ -265,7 +265,7 @@ mod tests {
                 ip,
                 range,
                 SocketBufferConfig::default(),
-                &Default::default(),
+                Default::default(),
             )
             .unwrap();
             let port_real = local_addr.port();

@@ -97,7 +97,7 @@ impl DirectFloatEscaper {
             peer_addr,
             udp_notes.bind,
             udp_notes.buf_conf,
-            &misc_opts,
+            misc_opts,
         )
         .map_err(UdpConnectError::SetupSocketFailed)?;
         socket

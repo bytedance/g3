@@ -97,7 +97,7 @@ impl DirectFixedEscaper {
         };
 
         let socket =
-            g3_socket::udp::new_std_bind_relay(bind_ip, family, udp_notes.buf_conf, &misc_opts)
+            g3_socket::udp::new_std_bind_relay(bind_ip, family, udp_notes.buf_conf, misc_opts)
                 .map_err(UdpRelaySetupError::SetupSocketFailed)?;
         let bind_addr = socket
             .local_addr()

@@ -95,7 +95,7 @@ impl DirectFixedEscaper {
         };
 
         let socket =
-            g3_socket::udp::new_std_socket_to(peer_addr, bind_ip, udp_notes.buf_conf, &misc_opts)
+            g3_socket::udp::new_std_socket_to(peer_addr, bind_ip, udp_notes.buf_conf, misc_opts)
                 .map_err(UdpConnectError::SetupSocketFailed)?;
         socket
             .connect(peer_addr)

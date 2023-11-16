@@ -133,7 +133,7 @@ impl ProxyFloatSocks5Peer {
             peer_udp_addr,
             Some(local_tcp_addr.ip()),
             buf_conf,
-            &self.escaper_config.udp_misc_opts,
+            self.escaper_config.udp_misc_opts,
         )?;
         let socket = UdpSocket::from_std(socket)?;
         socket.connect(peer_udp_addr).await?;
