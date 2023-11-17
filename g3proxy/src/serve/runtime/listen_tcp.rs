@@ -14,37 +14,26 @@
  * limitations under the License.
  */
 
+use std::net::SocketAddr;
 use std::os::fd::AsRawFd;
 use std::sync::Arc;
 
 use log::{info, warn};
 use tokio::net::TcpStream;
 use tokio::runtime::Handle;
-use tokio::sync::{broadcast, watch};
+use tokio::sync::broadcast;
 
 use g3_daemon::listen::ListenStats;
 use g3_daemon::server::ClientConnectionInfo;
 use g3_io_ext::LimitedTcpListener;
 use g3_socket::util::native_socket_addr;
-use g3_types::metrics::MetricsName;
 use g3_types::net::TcpListenConfig;
 
 use crate::config::server::ServerConfig;
 use crate::serve::{ArcServer, ServerReloadCommand};
 
-pub(crate) trait AuxTcpServerConfig {
-    fn next_server(&self) -> &MetricsName;
-    fn run_tcp_task(
-        &self,
-        rt_handle: Handle,
-        next_server: ArcServer,
-        stream: TcpStream,
-        cc_info: ClientConnectionInfo,
-    );
-}
-
 #[derive(Clone)]
-pub(crate) struct AuxiliaryTcpPortRuntime {
+pub(crate) struct ListenTcpRuntime {
     server: ArcServer,
     server_type: &'static str,
     server_version: usize,
@@ -53,9 +42,9 @@ pub(crate) struct AuxiliaryTcpPortRuntime {
     instance_id: usize,
 }
 
-impl AuxiliaryTcpPortRuntime {
+impl ListenTcpRuntime {
     pub(crate) fn new<C: ServerConfig>(server: &ArcServer, server_config: &C) -> Self {
-        AuxiliaryTcpPortRuntime {
+        ListenTcpRuntime {
             server: Arc::clone(server),
             server_type: server_config.server_type(),
             server_version: server.version(),
@@ -97,89 +86,53 @@ impl AuxiliaryTcpPortRuntime {
         self.listen_stats.del_running_runtime();
     }
 
-    fn rt_handle(&self) -> (Handle, Option<usize>) {
-        if let Some(worker_id) = self.worker_id {
-            (Handle::current(), Some(worker_id))
-        } else if let Some(rt) = g3_daemon::runtime::worker::select_handle() {
-            (rt.handle, Some(rt.id))
-        } else {
-            (Handle::current(), None)
-        }
-    }
-
-    async fn run<C>(
-        self,
+    async fn run(
+        mut self,
         mut listener: LimitedTcpListener,
-        mut cfg_receiver: watch::Receiver<Option<C>>,
-    ) where
-        C: AuxTcpServerConfig + Clone,
-    {
+        mut server_reload_channel: broadcast::Receiver<ServerReloadCommand>,
+    ) {
         use broadcast::error::RecvError;
 
-        let mut aux_config = match cfg_receiver.borrow().clone() {
-            Some(c) => c,
-            None => return,
-        };
-        let mut next_server_name = aux_config.next_server().clone();
-        let (mut next_server, mut next_server_reload_channel) =
-            crate::serve::get_with_notifier(&next_server_name);
-
         loop {
-            let mut reload_next_server = false;
-
             tokio::select! {
                 biased;
 
-                // use update in place channel instead of common server reload channel for local config reload
-                ev = cfg_receiver.changed() => {
-                    if ev.is_err() {
-                        warn!("SRT[{}_v{}#{}] quit as cfg channel closed",
-                            self.server.name(), self.server_version, self.instance_id);
-                        break;
-                    }
-                    let value = cfg_receiver.borrow().clone();
-                    match value {
-                        None => {
-                            info!("SRT[{}_v{}#{}] will go offline",
-                                self.server.name(), self.server_version, self.instance_id);
-                            self.pre_stop();
-                            let accept_again = listener.set_offline();
-                            if accept_again {
-                                info!("SRT[{}_v{}#{}] will accept all pending connections",
-                                    self.server.name(), self.server_version, self.instance_id);
-                                continue;
-                            } else {
-                                break;
-                            }
-                        }
-                        Some(config) => {
-                            aux_config = config;
-                            if aux_config.next_server().ne(&next_server_name) {
-                                info!("SRT[{}_v{}#{}] will use next server '{}' instead of '{next_server_name}'",
-                                    self.server.name(), self.server_version, self.instance_id, aux_config.next_server());
-                                next_server_name = aux_config.next_server().clone();
-                                reload_next_server = true;
-                            }
-                        }
-                    }
-                }
-                ev = next_server_reload_channel.recv() => {
-                    match ev {
+                ev = server_reload_channel.recv() => {
+                   match ev {
                         Ok(ServerReloadCommand::ReloadVersion(version)) => {
-                            info!("SRT[{}_v{}#{}] reload next server {next_server_name} to v{version}",
+                            info!("SRT[{}_v{}#{}] received reload request from v{version}",
                                 self.server.name(), self.server_version, self.instance_id);
-                            reload_next_server = true;
+                            match crate::serve::get_server(self.server.name()) {
+                                Ok(server) => {
+                                    self.server_version = server.version();
+                                    self.server = server;
+                                    continue;
+                                }
+                                Err(_) => {
+                                    info!("SRT[{}_v{}#{}] will quit as no server v{version}+ found",
+                                        self.server.name(), self.server_version, self.instance_id);
+                                }
+                            }
                         }
-                        Ok(ServerReloadCommand::QuitRuntime) | Err(RecvError::Closed) => {
-                            info!("SRT[{}_v{}#{}] next server {next_server_name} quit, reload it",
-                                self.server.name(), self.server_version, self.instance_id);
-                            reload_next_server = true;
-                        }
+                        Ok(ServerReloadCommand::QuitRuntime) => {},
+                        Err(RecvError::Closed) => {},
                         Err(RecvError::Lagged(dropped)) => {
-                            warn!("SRT[{}_v{}#{}] next server {next_server_name} reload notify channel overflowed, {dropped} msg dropped",
-                                self.server.name(), self.server_version, self.instance_id);
-                            continue
+                            warn!("SRT[{}_v{}#{}] server {} reload notify channel overflowed, {dropped} msg dropped",
+                                self.server.name(), self.server_version, self.instance_id, self.server.name());
+                            continue;
                         },
+                    }
+
+                    info!("SRT[{}_v{}#{}] will go offline",
+                        self.server.name(), self.server_version, self.instance_id);
+                    self.pre_stop();
+                    let accept_again = listener.set_offline();
+                    if accept_again {
+                        info!("SRT[{}_v{}#{}] will accept all pending connections",
+                            self.server.name(), self.server_version, self.instance_id);
+                        continue;
+                    } else {
+                        break;
                     }
                 }
                 result = listener.accept() => {
@@ -187,18 +140,10 @@ impl AuxiliaryTcpPortRuntime {
                         match result {
                             Ok(Some((stream, peer_addr, local_addr))) => {
                                 self.listen_stats.add_accepted();
-                                let (rt_handle, worker_id) = self.rt_handle();
-                                let mut cc_info = ClientConnectionInfo::new(
+                                self.run_task(
+                                    stream,
                                     native_socket_addr(peer_addr),
                                     native_socket_addr(local_addr),
-                                );
-                                cc_info.set_tcp_raw_fd(stream.as_raw_fd());
-                                cc_info.set_worker_id(worker_id);
-                                aux_config.run_tcp_task(
-                                    rt_handle,
-                                    next_server.clone(),
-                                    stream,
-                                    cc_info,
                                 );
                                 Ok(())
                             }
@@ -219,14 +164,30 @@ impl AuxiliaryTcpPortRuntime {
                     }
                 }
             }
-
-            if reload_next_server {
-                let result = crate::serve::get_with_notifier(&next_server_name);
-                next_server = result.0;
-                next_server_reload_channel = result.1;
-            }
         }
         self.post_stop();
+    }
+
+    fn run_task(&self, stream: TcpStream, peer_addr: SocketAddr, local_addr: SocketAddr) {
+        let server = Arc::clone(&self.server);
+
+        let mut cc_info = ClientConnectionInfo::new(peer_addr, local_addr);
+        cc_info.set_tcp_raw_fd(stream.as_raw_fd());
+        if let Some(worker_id) = self.worker_id {
+            cc_info.set_worker_id(Some(worker_id));
+            tokio::spawn(async move {
+                server.run_tcp_task(stream, cc_info).await;
+            });
+        } else if let Some(rt) = g3_daemon::runtime::worker::select_handle() {
+            cc_info.set_worker_id(Some(rt.id));
+            rt.handle.spawn(async move {
+                server.run_tcp_task(stream, cc_info).await;
+            });
+        } else {
+            tokio::spawn(async move {
+                server.run_tcp_task(stream, cc_info).await;
+            });
+        }
     }
 
     fn get_rt_handle(&mut self, listen_in_worker: bool) -> Handle {
@@ -239,21 +200,19 @@ impl AuxiliaryTcpPortRuntime {
         Handle::current()
     }
 
-    fn into_running<C>(
+    fn into_running(
         mut self,
         listener: std::net::TcpListener,
         listen_in_worker: bool,
-        cfg_receiver: watch::Receiver<Option<C>>,
-    ) where
-        C: AuxTcpServerConfig + Clone + Send + Sync + 'static,
-    {
+        server_reload_channel: broadcast::Receiver<ServerReloadCommand>,
+    ) {
         let handle = self.get_rt_handle(listen_in_worker);
         handle.spawn(async move {
             // make sure the listen socket associated with the correct reactor
             match tokio::net::TcpListener::from_std(listener) {
                 Ok(listener) => {
                     self.pre_start();
-                    self.run(LimitedTcpListener::new(listener), cfg_receiver)
+                    self.run(LimitedTcpListener::new(listener), server_reload_channel)
                         .await;
                 }
                 Err(e) => {
@@ -268,15 +227,12 @@ impl AuxiliaryTcpPortRuntime {
         });
     }
 
-    pub(crate) fn run_all_instances<C>(
+    pub(crate) fn run_all_instances(
         &self,
         listen_config: &TcpListenConfig,
         listen_in_worker: bool,
-        cfg_receiver: &watch::Sender<Option<C>>,
-    ) -> anyhow::Result<()>
-    where
-        C: AuxTcpServerConfig + Clone + Send + Sync + 'static,
-    {
+        server_reload_sender: &broadcast::Sender<ServerReloadCommand>,
+    ) -> anyhow::Result<()> {
         let mut instance_count = listen_config.instance();
         if listen_in_worker {
             let worker_count = g3_daemon::runtime::worker::worker_count();
@@ -290,7 +246,7 @@ impl AuxiliaryTcpPortRuntime {
             runtime.instance_id = i;
 
             let listener = g3_socket::tcp::new_std_listener(listen_config)?;
-            runtime.into_running(listener, listen_in_worker, cfg_receiver.subscribe());
+            runtime.into_running(listener, listen_in_worker, server_reload_sender.subscribe());
         }
         Ok(())
     }

@@ -134,6 +134,16 @@ pub(super) fn reload_only_config(
     Ok(())
 }
 
+pub(crate) fn reload_next_servers(name: &MetricsName) -> anyhow::Result<()> {
+    let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
+    let Some(server) = ht.get(name) else {
+        return Err(anyhow!("no server with name {name} found"));
+    };
+
+    server._update_next_servers_in_place();
+    Ok(())
+}
+
 pub(crate) fn reload_only_escaper(name: &MetricsName) -> anyhow::Result<()> {
     let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     let Some(server) = ht.get(name) else {
@@ -190,6 +200,13 @@ where
     for (name, server) in ht.iter() {
         f(name, server)
     }
+}
+
+pub(crate) fn get_or_insert_default(name: &MetricsName) -> ArcServer {
+    let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
+    ht.entry(name.clone())
+        .or_insert_with(|| DummyCloseServer::prepare_default(name))
+        .clone()
 }
 
 /// the notifier should be got while holding the lock

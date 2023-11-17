@@ -164,7 +164,7 @@ impl ServerConfig for PlainTcpPortConfig {
             return ServerConfigDiffAction::ReloadAndRespawn;
         }
 
-        ServerConfigDiffAction::UpdateInPlace(0)
+        ServerConfigDiffAction::ReloadOnlyConfig
     }
 
     fn dependent_server(&self) -> Option<BTreeSet<MetricsName>> {

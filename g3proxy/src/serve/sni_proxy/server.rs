@@ -39,7 +39,7 @@ use crate::config::server::sni_proxy::SniProxyServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::escape::ArcEscaper;
 use crate::serve::{
-    ArcServer, ArcServerStats, OrdinaryTcpServerRuntime, Server, ServerInternal, ServerQuitPolicy,
+    ArcServer, ArcServerStats, ListenTcpRuntime, Server, ServerInternal, ServerQuitPolicy,
     ServerReloadCommand, ServerStats,
 };
 
@@ -170,6 +170,10 @@ impl ServerInternal for SniProxyServer {
         Ok(())
     }
 
+    fn _depend_on_server(&self, _name: &MetricsName) -> bool {
+        false
+    }
+
     fn _get_reload_notifier(&self) -> broadcast::Receiver<ServerReloadCommand> {
         self.reload_sender.subscribe()
     }
@@ -178,6 +182,8 @@ impl ServerInternal for SniProxyServer {
         let cmd = ServerReloadCommand::ReloadVersion(self.reload_version);
         let _ = self.reload_sender.send(cmd);
     }
+
+    fn _update_next_servers_in_place(&self) {}
 
     fn _update_escaper_in_place(&self) {
         let escaper = crate::escape::get_or_insert_default(self.config.escaper());
@@ -207,7 +213,7 @@ impl ServerInternal for SniProxyServer {
         let Some(listen_config) = &self.config.listen else {
             return Ok(());
         };
-        let runtime = OrdinaryTcpServerRuntime::new(server, &*self.config);
+        let runtime = ListenTcpRuntime::new(server, &*self.config);
         runtime
             .run_all_instances(
                 listen_config,

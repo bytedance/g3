@@ -30,16 +30,15 @@ use g3_types::metrics::MetricsName;
 use crate::config::server::AnyServerConfig;
 
 mod registry;
-pub(crate) use registry::{foreach_online as foreach_server, get_names, get_with_notifier};
+pub(crate) use registry::{
+    foreach_online as foreach_server, get_names, get_or_insert_default, get_with_notifier,
+};
 
 mod idle_check;
 pub(crate) use idle_check::ServerIdleChecker;
 
 mod runtime;
-use runtime::{
-    AuxQuicServerConfig, AuxTcpServerConfig, AuxiliaryQuicPortRuntime, AuxiliaryTcpPortRuntime,
-    OrdinaryTcpServerRuntime,
-};
+use runtime::{AuxQuicServerConfig, AuxiliaryQuicPortRuntime, ListenTcpRuntime};
 
 mod dummy_close;
 mod intelli_proxy;
@@ -84,8 +83,10 @@ pub(crate) trait ServerInternal {
     fn _clone_config(&self) -> AnyServerConfig;
     fn _update_config_in_place(&self, flags: u64, config: AnyServerConfig) -> anyhow::Result<()>;
 
+    fn _depend_on_server(&self, name: &MetricsName) -> bool;
     fn _get_reload_notifier(&self) -> broadcast::Receiver<ServerReloadCommand>;
     fn _reload_config_notify_runtime(&self);
+    fn _update_next_servers_in_place(&self);
     fn _update_escaper_in_place(&self);
     fn _update_user_group_in_place(&self);
     fn _update_audit_handle_in_place(&self) -> anyhow::Result<()>;

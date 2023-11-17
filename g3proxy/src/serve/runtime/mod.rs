@@ -16,10 +16,11 @@
 
 mod auxiliary_context;
 mod auxiliary_quic;
-mod auxiliary_tcp;
-mod ordinary_tcp;
 
 pub(crate) use auxiliary_context::AuxiliaryRunContext;
 pub(crate) use auxiliary_quic::{AuxQuicServerConfig, AuxiliaryQuicPortRuntime};
-pub(crate) use auxiliary_tcp::{AuxTcpServerConfig, AuxiliaryTcpPortRuntime};
-pub(crate) use ordinary_tcp::OrdinaryTcpServerRuntime;
+
+mod listen_tcp;
+pub(crate) use listen_tcp::ListenTcpRuntime;
+
+mod listen_quic;

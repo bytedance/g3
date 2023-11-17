@@ -82,7 +82,7 @@ pub async fn spawn_all() -> anyhow::Result<()> {
     for name in &registry::get_names() {
         if !new_names.contains(name) {
             debug!("deleting server {name}");
-            registry::del(name);
+            delete_existed_unlocked(name);
             debug!("server {name} deleted");
         }
     }
@@ -146,6 +146,28 @@ pub(crate) async fn reload(
     reload_old_unlocked(old_config, config)?;
     debug!("server {name} reload OK");
     Ok(())
+}
+
+pub(crate) fn update_dependency_to_server_unlocked(target: &MetricsName, status: &str) {
+    let mut names = Vec::<MetricsName>::new();
+
+    registry::foreach_online(|name, server| {
+        if server._depend_on_server(target) {
+            names.push(name.clone());
+        }
+    });
+
+    if names.is_empty() {
+        return;
+    }
+
+    debug!("server {target} changed({status}), will reload server(s) {names:?}");
+    for name in names.iter() {
+        debug!("server {name}: will reload next servers as it's using server {target}");
+        if let Err(e) = registry::reload_next_servers(name) {
+            warn!("failed to reload server {name}: {e:?}");
+        }
+    }
 }
 
 pub(crate) async fn update_dependency_to_escaper(escaper: &MetricsName, status: &str) {
@@ -233,17 +255,26 @@ fn reload_old_unlocked(old: AnyServerConfig, new: AnyServerConfig) -> anyhow::Re
         }
         ServerConfigDiffAction::ReloadOnlyConfig => {
             debug!("server {name} reload: will only reload config");
-            registry::reload_only_config(name, new)
+            registry::reload_only_config(name, new)?;
+            update_dependency_to_server_unlocked(name, "reloaded");
+            Ok(())
         }
         ServerConfigDiffAction::ReloadAndRespawn => {
             debug!("server {name} reload: will respawn with old stats");
-            registry::reload_and_respawn(name, new)
+            registry::reload_and_respawn(name, new)?;
+            update_dependency_to_server_unlocked(name, "reloaded");
+            Ok(())
         }
         ServerConfigDiffAction::UpdateInPlace(flags) => {
             debug!("server {name} reload: will update the existed in place");
             registry::update_config_in_place(name, flags, new)
         }
     }
+}
+
+fn delete_existed_unlocked(name: &MetricsName) {
+    registry::del(name);
+    update_dependency_to_server_unlocked(&name, "deleted");
 }
 
 // use async fn to allow tokio schedule
@@ -263,7 +294,8 @@ fn spawn_new_unlocked(config: AnyServerConfig) -> anyhow::Result<()> {
         AnyServerConfig::HttpProxy(c) => HttpProxyServer::prepare_initial(*c)?,
         AnyServerConfig::HttpRProxy(c) => HttpRProxyServer::prepare_initial(*c)?,
     };
-    registry::add(name, server)?;
+    registry::add(name.clone(), server)?;
+    update_dependency_to_server_unlocked(&name, "spawned");
     Ok(())
 }
 

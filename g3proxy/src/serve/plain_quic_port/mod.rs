@@ -242,12 +242,24 @@ impl ServerInternal for PlainQuicPort {
         }
     }
 
+    fn _depend_on_server(&self, name: &MetricsName) -> bool {
+        let config = self.config.load();
+        let config = config.as_ref();
+        config.server.eq(name)
+    }
+
     fn _get_reload_notifier(&self) -> broadcast::Receiver<ServerReloadCommand> {
         self.reload_sender.subscribe()
     }
 
     // PlainTcpPort do not support reload with old runtime/notifier
     fn _reload_config_notify_runtime(&self) {}
+
+    fn _update_next_servers_in_place(&self) {
+        // TODO
+        todo!()
+    }
+
     fn _update_escaper_in_place(&self) {}
     fn _update_user_group_in_place(&self) {}
     fn _update_audit_handle_in_place(&self) -> anyhow::Result<()> {

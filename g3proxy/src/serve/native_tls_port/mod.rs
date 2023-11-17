@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 
@@ -24,8 +25,7 @@ use log::debug;
 use openssl::ssl::Ssl;
 use quinn::Connection;
 use tokio::net::TcpStream;
-use tokio::runtime::Handle;
-use tokio::sync::{broadcast, watch};
+use tokio::sync::broadcast;
 use tokio_openssl::SslStream;
 use tokio_rustls::server::TlsStream;
 
@@ -39,126 +39,25 @@ use g3_types::net::{OpensslServerConfig, ProxyProtocolVersion};
 use crate::config::server::native_tls_port::NativeTlsPortConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::serve::{
-    ArcServer, AuxTcpServerConfig, AuxiliaryTcpPortRuntime, Server, ServerInternal,
-    ServerQuitPolicy, ServerReloadCommand,
+    ArcServer, ListenTcpRuntime, Server, ServerInternal, ServerQuitPolicy, ServerReloadCommand,
 };
-
-#[derive(Clone)]
-struct NativeTlsPortAuxConfig {
-    config: Arc<NativeTlsPortConfig>,
-    tls_server_config: OpensslServerConfig,
-    ingress_net_filter: Option<Arc<AclNetworkRule>>,
-    listen_stats: Arc<ListenStats>,
-}
-
-impl AuxTcpServerConfig for NativeTlsPortAuxConfig {
-    fn next_server(&self) -> &MetricsName {
-        &self.config.server
-    }
-
-    fn run_tcp_task(
-        &self,
-        rt_handle: Handle,
-        next_server: ArcServer,
-        stream: TcpStream,
-        cc_info: ClientConnectionInfo,
-    ) {
-        let Ok(ssl) = Ssl::new(&self.tls_server_config.ssl_context) else {
-            self.listen_stats.add_dropped();
-            return;
-        };
-
-        let tls_accept_timeout = self.tls_server_config.accept_timeout;
-        let ingress_net_filter = self.ingress_net_filter.clone();
-        let listen_stats = Arc::clone(&self.listen_stats);
-        let proxy_protocol = self.config.proxy_protocol;
-        let proxy_protocol_read_timeout = self.config.proxy_protocol_read_timeout;
-
-        rt_handle.spawn(async move {
-            if let Some(filter) = ingress_net_filter {
-                let (_, action) = filter.check(cc_info.sock_peer_ip());
-                match action {
-                    AclAction::Permit | AclAction::PermitAndLog => {}
-                    AclAction::Forbid | AclAction::ForbidAndLog => {
-                        listen_stats.add_dropped();
-                        return;
-                    }
-                }
-            }
-
-            let mut stream = stream;
-            let mut cc_info = cc_info;
-            match proxy_protocol {
-                Some(ProxyProtocolVersion::V1) => {
-                    let mut parser = ProxyProtocolV1Reader::new(proxy_protocol_read_timeout);
-                    match parser.read_proxy_protocol_v1_for_tcp(&mut stream).await {
-                        Ok(Some(a)) => cc_info.set_proxy_addr(a),
-                        Ok(None) => {}
-                        Err(e) => {
-                            listen_stats.add_by_proxy_protocol_error(e);
-                            return;
-                        }
-                    }
-                }
-                Some(ProxyProtocolVersion::V2) => {
-                    let mut parser = ProxyProtocolV2Reader::new(proxy_protocol_read_timeout);
-                    match parser.read_proxy_protocol_v2_for_tcp(&mut stream).await {
-                        Ok(Some(a)) => cc_info.set_proxy_addr(a),
-                        Ok(None) => {}
-                        Err(e) => {
-                            listen_stats.add_by_proxy_protocol_error(e);
-                            return;
-                        }
-                    }
-                }
-                None => {}
-            }
-
-            let Ok(mut ssl_stream) = SslStream::new(ssl, stream) else {
-                listen_stats.add_dropped();
-                return;
-            };
-            match tokio::time::timeout(tls_accept_timeout, Pin::new(&mut ssl_stream).accept()).await
-            {
-                Ok(Ok(_)) => next_server.run_openssl_task(ssl_stream, cc_info).await,
-                Ok(Err(e)) => {
-                    listen_stats.add_failed();
-                    debug!(
-                        "{} - {} tls error: {e:?}",
-                        cc_info.sock_local_addr(),
-                        cc_info.sock_peer_addr()
-                    );
-                    // TODO record tls failure and add some sec policy
-                }
-                Err(_) => {
-                    listen_stats.add_timeout();
-                    debug!(
-                        "{} - {} tls timeout",
-                        cc_info.sock_local_addr(),
-                        cc_info.sock_peer_addr()
-                    );
-                    // TODO record tls failure and add some sec policy
-                }
-            }
-        });
-    }
-}
 
 pub(crate) struct NativeTlsPort {
     name: MetricsName,
-    config: ArcSwap<NativeTlsPortConfig>,
+    config: NativeTlsPortConfig,
     listen_stats: Arc<ListenStats>,
+    tls_server_config: OpensslServerConfig,
+    ingress_net_filter: Option<Arc<AclNetworkRule>>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
 
-    cfg_sender: watch::Sender<Option<NativeTlsPortAuxConfig>>,
-
+    next_server: ArcSwap<ArcServer>,
     quit_policy: Arc<ServerQuitPolicy>,
     reload_version: usize,
 }
 
 impl NativeTlsPort {
     fn new(
-        config: Arc<NativeTlsPortConfig>,
+        config: NativeTlsPortConfig,
         listen_stats: Arc<ListenStats>,
         reload_version: usize,
     ) -> anyhow::Result<Self> {
@@ -177,27 +76,22 @@ impl NativeTlsPort {
             .as_ref()
             .map(|builder| Arc::new(builder.build()));
 
-        let aux_config = NativeTlsPortAuxConfig {
-            config: Arc::clone(&config),
-            tls_server_config,
-            ingress_net_filter,
-            listen_stats: Arc::clone(&listen_stats),
-        };
-        let (cfg_sender, _cfg_receiver) = watch::channel(Some(aux_config));
+        let next_server = Arc::new(crate::serve::get_or_insert_default(&config.server));
 
         Ok(NativeTlsPort {
             name: config.name().clone(),
-            config: ArcSwap::new(config),
+            config,
             listen_stats,
+            tls_server_config,
+            ingress_net_filter,
             reload_sender,
-            cfg_sender,
+            next_server: ArcSwap::new(next_server),
             quit_policy: Arc::new(ServerQuitPolicy::default()),
             reload_version,
         })
     }
 
     pub(crate) fn prepare_initial(config: NativeTlsPortConfig) -> anyhow::Result<ArcServer> {
-        let config = Arc::new(config);
         let listen_stats = Arc::new(ListenStats::new(config.name()));
 
         let server = NativeTlsPort::new(config, listen_stats, 1)?;
@@ -206,64 +100,132 @@ impl NativeTlsPort {
 
     fn prepare_reload(&self, config: AnyServerConfig) -> anyhow::Result<NativeTlsPort> {
         if let AnyServerConfig::NativeTlsPort(config) = config {
-            let config = Arc::new(config);
             let listen_stats = Arc::clone(&self.listen_stats);
 
             NativeTlsPort::new(config, listen_stats, self.reload_version + 1)
         } else {
-            let cur_config = self.config.load();
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
-                cur_config.server_type(),
+                self.config.server_type(),
                 config.server_type()
             ))
+        }
+    }
+
+    fn drop_early(&self, client_addr: SocketAddr) -> bool {
+        if let Some(ingress_net_filter) = &self.ingress_net_filter {
+            let (_, action) = ingress_net_filter.check(client_addr.ip());
+            match action {
+                AclAction::Permit | AclAction::PermitAndLog => {}
+                AclAction::Forbid | AclAction::ForbidAndLog => {
+                    self.listen_stats.add_dropped();
+                    return true;
+                }
+            }
+        }
+
+        // TODO add cps limit
+
+        false
+    }
+
+    async fn run_task(&self, mut stream: TcpStream, mut cc_info: ClientConnectionInfo) {
+        let Ok(ssl) = Ssl::new(&self.tls_server_config.ssl_context) else {
+            self.listen_stats.add_dropped();
+            return;
+        };
+
+        match self.config.proxy_protocol {
+            Some(ProxyProtocolVersion::V1) => {
+                let mut parser =
+                    ProxyProtocolV1Reader::new(self.config.proxy_protocol_read_timeout);
+                match parser.read_proxy_protocol_v1_for_tcp(&mut stream).await {
+                    Ok(Some(a)) => cc_info.set_proxy_addr(a),
+                    Ok(None) => {}
+                    Err(e) => {
+                        self.listen_stats.add_by_proxy_protocol_error(e);
+                        return;
+                    }
+                }
+            }
+            Some(ProxyProtocolVersion::V2) => {
+                let mut parser =
+                    ProxyProtocolV2Reader::new(self.config.proxy_protocol_read_timeout);
+                match parser.read_proxy_protocol_v2_for_tcp(&mut stream).await {
+                    Ok(Some(a)) => cc_info.set_proxy_addr(a),
+                    Ok(None) => {}
+                    Err(e) => {
+                        self.listen_stats.add_by_proxy_protocol_error(e);
+                        return;
+                    }
+                }
+            }
+            None => {}
+        }
+
+        let Ok(mut ssl_stream) = SslStream::new(ssl, stream) else {
+            self.listen_stats.add_dropped();
+            return;
+        };
+        match tokio::time::timeout(
+            self.tls_server_config.accept_timeout,
+            Pin::new(&mut ssl_stream).accept(),
+        )
+        .await
+        {
+            Ok(Ok(_)) => {
+                let next_server = self.next_server.load().as_ref().clone();
+                next_server.run_openssl_task(ssl_stream, cc_info).await
+            }
+            Ok(Err(e)) => {
+                self.listen_stats.add_failed();
+                debug!(
+                    "{} - {} tls error: {e:?}",
+                    cc_info.sock_local_addr(),
+                    cc_info.sock_peer_addr()
+                );
+                // TODO record tls failure and add some sec policy
+            }
+            Err(_) => {
+                self.listen_stats.add_timeout();
+                debug!(
+                    "{} - {} tls timeout",
+                    cc_info.sock_local_addr(),
+                    cc_info.sock_peer_addr()
+                );
+                // TODO record tls failure and add some sec policy
+            }
         }
     }
 }
 
 impl ServerInternal for NativeTlsPort {
     fn _clone_config(&self) -> AnyServerConfig {
-        let cur_config = self.config.load();
-        AnyServerConfig::NativeTlsPort(cur_config.as_ref().clone())
+        AnyServerConfig::NativeTlsPort(self.config.clone())
     }
 
-    fn _update_config_in_place(&self, _flags: u64, config: AnyServerConfig) -> anyhow::Result<()> {
-        if let AnyServerConfig::NativeTlsPort(config) = config {
-            let config = Arc::new(config);
+    fn _update_config_in_place(&self, _flags: u64, _config: AnyServerConfig) -> anyhow::Result<()> {
+        Ok(())
+    }
 
-            let tls_server_config = if let Some(builder) = &config.server_tls_config {
-                builder
-                    .build()
-                    .context("failed to build tls server config")?
-            } else {
-                return Err(anyhow!("no tls server config set"));
-            };
-
-            let ingress_net_filter = config
-                .ingress_net_filter
-                .as_ref()
-                .map(|builder| Arc::new(builder.build()));
-
-            let aux_config = NativeTlsPortAuxConfig {
-                config: Arc::clone(&config),
-                tls_server_config,
-                ingress_net_filter,
-                listen_stats: Arc::clone(&self.listen_stats),
-            };
-            self.cfg_sender.send_replace(Some(aux_config));
-            self.config.store(config);
-            Ok(())
-        } else {
-            Err(anyhow!("invalid config type for NativeTcpPort server"))
-        }
+    fn _depend_on_server(&self, name: &MetricsName) -> bool {
+        self.config.server.eq(name)
     }
 
     fn _get_reload_notifier(&self) -> broadcast::Receiver<ServerReloadCommand> {
         self.reload_sender.subscribe()
     }
 
-    // PlainTlsPort do not support reload with old runtime/notifier
-    fn _reload_config_notify_runtime(&self) {}
+    fn _reload_config_notify_runtime(&self) {
+        let cmd = ServerReloadCommand::ReloadVersion(self.reload_version);
+        let _ = self.reload_sender.send(cmd);
+    }
+
+    fn _update_next_servers_in_place(&self) {
+        let next_server = crate::serve::get_or_insert_default(&self.config.server);
+        self.next_server.store(Arc::new(next_server));
+    }
+
     fn _update_escaper_in_place(&self) {}
     fn _update_user_group_in_place(&self) {}
     fn _update_audit_handle_in_place(&self) -> anyhow::Result<()> {
@@ -271,10 +233,9 @@ impl ServerInternal for NativeTlsPort {
     }
 
     fn _reload_with_old_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
-        Err(anyhow!(
-            "this {} server doesn't support reload with old notifier",
-            config.server_type()
-        ))
+        let mut server = self.prepare_reload(config)?;
+        server.reload_sender = self.reload_sender.clone();
+        Ok(Arc::new(server))
     }
 
     fn _reload_with_new_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
@@ -283,17 +244,16 @@ impl ServerInternal for NativeTlsPort {
     }
 
     fn _start_runtime(&self, server: &ArcServer) -> anyhow::Result<()> {
-        let cur_config = self.config.load();
-        let runtime = AuxiliaryTcpPortRuntime::new(server, cur_config.as_ref());
-        let listen_config = cur_config.listen.clone();
-        let listen_in_worker = cur_config.listen_in_worker;
-        drop(cur_config);
-        runtime.run_all_instances(&listen_config, listen_in_worker, &self.cfg_sender)
+        let runtime = ListenTcpRuntime::new(server, &self.config);
+        runtime.run_all_instances(
+            &self.config.listen,
+            self.config.listen_in_worker,
+            &self.reload_sender,
+        )
     }
 
     fn _abort_runtime(&self) {
         let _ = self.reload_sender.send(ServerReloadCommand::QuitRuntime);
-        self.cfg_sender.send_replace(None);
     }
 }
 
@@ -334,7 +294,14 @@ impl Server for NativeTlsPort {
         &self.quit_policy
     }
 
-    async fn run_tcp_task(&self, _stream: TcpStream, _cc_info: ClientConnectionInfo) {}
+    async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
+        let client_addr = cc_info.client_addr();
+        if self.drop_early(client_addr) {
+            return;
+        }
+
+        self.run_task(stream, cc_info).await
+    }
 
     async fn run_rustls_task(&self, _stream: TlsStream<TcpStream>, _cc_info: ClientConnectionInfo) {
     }

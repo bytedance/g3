@@ -90,12 +90,18 @@ impl ServerInternal for DummyCloseServer {
         Ok(())
     }
 
+    fn _depend_on_server(&self, _name: &MetricsName) -> bool {
+        false
+    }
+
     fn _get_reload_notifier(&self) -> broadcast::Receiver<ServerReloadCommand> {
         self.reload_sender.subscribe()
     }
 
     // DummyClose server do not support reload with old runtime/notifier
     fn _reload_config_notify_runtime(&self) {}
+
+    fn _update_next_servers_in_place(&self) {}
 
     fn _update_escaper_in_place(&self) {}
 
