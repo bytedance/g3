@@ -39,9 +39,7 @@ pub(crate) struct IntelliProxyConfig {
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) http_server: MetricsName,
     pub(crate) socks_server: MetricsName,
-    pub(crate) protocol_detection_channel_size: usize,
     pub(crate) protocol_detection_timeout: Duration,
-    pub(crate) protocol_detection_max_jobs: usize,
     pub(crate) proxy_protocol: Option<ProxyProtocolVersion>,
     pub(crate) proxy_protocol_read_timeout: Duration,
 }
@@ -56,9 +54,7 @@ impl IntelliProxyConfig {
             ingress_net_filter: None,
             http_server: MetricsName::default(),
             socks_server: MetricsName::default(),
-            protocol_detection_channel_size: 4096,
             protocol_detection_timeout: Duration::from_secs(4),
-            protocol_detection_max_jobs: 4096,
             proxy_protocol: None,
             proxy_protocol_read_timeout: Duration::from_secs(5),
         }
@@ -107,21 +103,13 @@ impl IntelliProxyConfig {
                 self.socks_server = g3_yaml::value::as_metrics_name(v)?;
                 Ok(())
             }
-            "protocol_detection_channel_size" => {
-                self.protocol_detection_channel_size = g3_yaml::value::as_usize(v)
-                    .context(format!("invalid usize value for key {k}"))?;
-                Ok(())
-            }
+            "protocol_detection_channel_size" => Ok(()),
             "protocol_detection_timeout" => {
                 self.protocol_detection_timeout = g3_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
-            "protocol_detection_max_jobs" => {
-                self.protocol_detection_max_jobs = g3_yaml::value::as_usize(v)
-                    .context(format!("invalid usize value for key {k}"))?;
-                Ok(())
-            }
+            "protocol_detection_max_jobs" => Ok(()),
             "proxy_protocol" => {
                 let p = g3_yaml::value::as_proxy_protocol_version(v)
                     .context(format!("invalid proxy protocol version value for key {k}"))?;
@@ -191,9 +179,6 @@ impl ServerConfig for IntelliProxyConfig {
         }
 
         if self.listen != new.listen {
-            return ServerConfigDiffAction::ReloadAndRespawn;
-        }
-        if self.protocol_detection_channel_size != new.protocol_detection_channel_size {
             return ServerConfigDiffAction::ReloadAndRespawn;
         }
 

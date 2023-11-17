@@ -33,17 +33,6 @@ socks_server
 
 Set name of the next socks_proxy server to send the accepted connections to.
 
-protocol_detection_channel_size
--------------------------------
-
-**optional**, **type**: usize
-
-The connection will be send to a task channel after it's protocol is detected. This config option set the channel size.
-
-If the channel is full, the connection will be closed silently.
-
-**default**: 4096
-
 protocol_detection_timeout
 --------------------------
 
@@ -54,17 +43,6 @@ Set the timeout duration that we wait to check the protocol of each connection.
 If timeout, the connection will be closed silently.
 
 **default**: 4s
-
-protocol_detection_max_jobs
----------------------------
-
-**optional**, **type**: usize
-
-Set the limit of protocol detection jobs.
-
-If the limit is reached, the connection will be closed silently.
-
-**default**: 4096
 
 proxy_protocol
 --------------

@@ -161,6 +161,10 @@ pub(crate) fn update_dependency_to_server_unlocked(target: &MetricsName, status:
         return;
     }
 
+    debug!(
+        "escaper {target} changed({status}), will reload {} server(s)",
+        servers.len()
+    );
     for server in servers.iter() {
         debug!(
             "server {}: will reload next servers as it's using server {target}",
