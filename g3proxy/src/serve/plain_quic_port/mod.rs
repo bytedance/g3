@@ -37,36 +37,32 @@ use g3_types::net::UdpListenConfig;
 use crate::config::server::plain_quic_port::{PlainQuicPortConfig, PlainQuicPortUpdateFlags};
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::serve::{
-    ArcServer, AuxQuicServerConfig, AuxiliaryQuicPortRuntime, Server, ServerInternal,
-    ServerQuitPolicy, ServerReloadCommand,
+    ArcServer, ListenQuicConf, ListenQuicRuntime, Server, ServerInternal, ServerQuitPolicy,
+    ServerReloadCommand,
 };
 
 #[derive(Clone)]
 struct PlainQuicPortAuxConfig {
-    config: Arc<PlainQuicPortConfig>,
     ingress_net_filter: Option<Arc<AclNetworkRule>>,
     listen_stats: Arc<ListenStats>,
     listen_config: Option<UdpListenConfig>,
     quinn_config: Option<quinn::ServerConfig>,
     accept_timeout: Duration,
     offline_rebind_port: Option<u16>,
+    next_server: Arc<ArcSwap<ArcServer>>,
 }
 
-impl AuxQuicServerConfig for PlainQuicPortAuxConfig {
-    fn next_server(&self) -> &MetricsName {
-        &self.config.server
-    }
-
+impl ListenQuicConf for PlainQuicPortAuxConfig {
     fn run_quic_task(
         &self,
         rt_handle: Handle,
-        next_server: ArcServer,
         connecting: Connecting,
         cc_info: ClientConnectionInfo,
     ) {
         let ingress_net_filter = self.ingress_net_filter.clone();
         let listen_stats = self.listen_stats.clone();
         let accept_timeout = self.accept_timeout;
+        let next_server = self.next_server.load().as_ref().clone();
         rt_handle.spawn(async move {
             if let Some(filter) = ingress_net_filter {
                 let (_, action) = filter.check(cc_info.sock_peer_ip());
@@ -129,8 +125,9 @@ pub(crate) struct PlainQuicPort {
     listen_stats: Arc<ListenStats>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
 
-    cfg_sender: watch::Sender<Option<PlainQuicPortAuxConfig>>,
+    cfg_sender: watch::Sender<PlainQuicPortAuxConfig>,
 
+    next_server: Arc<ArcSwap<ArcServer>>,
     quit_policy: Arc<ServerQuitPolicy>,
     reload_version: usize,
 }
@@ -150,16 +147,19 @@ impl PlainQuicPort {
             .as_ref()
             .map(|builder| Arc::new(builder.build()));
 
+        let next_server = Arc::new(crate::serve::get_or_insert_default(&config.server));
+        let next_server = Arc::new(ArcSwap::new(next_server));
+
         let aux_config = PlainQuicPortAuxConfig {
-            config: Arc::clone(&config),
             ingress_net_filter,
             listen_stats: Arc::clone(&listen_stats),
             listen_config: None,
             quinn_config: None,
             accept_timeout: tls_server.accept_timeout,
             offline_rebind_port: config.offline_rebind_port,
+            next_server: next_server.clone(),
         };
-        let (cfg_sender, _cfg_receiver) = watch::channel(Some(aux_config));
+        let (cfg_sender, _cfg_receiver) = watch::channel(aux_config);
 
         Ok(PlainQuicPort {
             name: config.name().clone(),
@@ -168,25 +168,24 @@ impl PlainQuicPort {
             listen_stats,
             reload_sender,
             cfg_sender,
+            next_server,
             quit_policy: Arc::new(ServerQuitPolicy::default()),
             reload_version,
         })
     }
 
     pub(crate) fn prepare_initial(config: PlainQuicPortConfig) -> anyhow::Result<ArcServer> {
-        let config = Arc::new(config);
         let listen_stats = Arc::new(ListenStats::new(config.name()));
 
-        let server = PlainQuicPort::new(config, listen_stats, 1)?;
+        let server = PlainQuicPort::new(Arc::new(config), listen_stats, 1)?;
         Ok(Arc::new(server))
     }
 
     fn prepare_reload(&self, config: AnyServerConfig) -> anyhow::Result<PlainQuicPort> {
         if let AnyServerConfig::PlainQuicPort(config) = config {
-            let config = Arc::new(config);
             let listen_stats = Arc::clone(&self.listen_stats);
 
-            PlainQuicPort::new(config, listen_stats, self.reload_version + 1)
+            PlainQuicPort::new(Arc::new(config), listen_stats, self.reload_version + 1)
         } else {
             let cur_config = self.config.load();
             Err(anyhow!(
@@ -200,8 +199,8 @@ impl PlainQuicPort {
 
 impl ServerInternal for PlainQuicPort {
     fn _clone_config(&self) -> AnyServerConfig {
-        let cur_config = self.config.load();
-        AnyServerConfig::PlainQuicPort(cur_config.as_ref().clone())
+        let config = self.config.load();
+        AnyServerConfig::PlainQuicPort(config.as_ref().clone())
     }
 
     fn _update_config_in_place(&self, flags: u64, config: AnyServerConfig) -> anyhow::Result<()> {
@@ -226,15 +225,15 @@ impl ServerInternal for PlainQuicPort {
                 .as_ref()
                 .map(|builder| Arc::new(builder.build()));
             let aux_config = PlainQuicPortAuxConfig {
-                config: Arc::clone(&config),
                 ingress_net_filter,
                 listen_stats: Arc::clone(&self.listen_stats),
                 listen_config,
                 quinn_config,
                 accept_timeout: config.tls_server.accept_timeout(),
                 offline_rebind_port: config.offline_rebind_port,
+                next_server: self.next_server.clone(),
             };
-            self.cfg_sender.send_replace(Some(aux_config));
+            self.cfg_sender.send_replace(aux_config);
             self.config.store(config);
             Ok(())
         } else {
@@ -244,7 +243,6 @@ impl ServerInternal for PlainQuicPort {
 
     fn _depend_on_server(&self, name: &MetricsName) -> bool {
         let config = self.config.load();
-        let config = config.as_ref();
         config.server.eq(name)
     }
 
@@ -252,12 +250,14 @@ impl ServerInternal for PlainQuicPort {
         self.reload_sender.subscribe()
     }
 
-    // PlainTcpPort do not support reload with old runtime/notifier
-    fn _reload_config_notify_runtime(&self) {}
+    fn _reload_config_notify_runtime(&self) {
+        let cmd = ServerReloadCommand::ReloadVersion(self.reload_version);
+        let _ = self.reload_sender.send(cmd);
+    }
 
     fn _update_next_servers_in_place(&self) {
-        // TODO
-        todo!()
+        let next_server = crate::serve::get_or_insert_default(&self.config.load().server);
+        self.next_server.store(Arc::new(next_server));
     }
 
     fn _update_escaper_in_place(&self) {}
@@ -267,10 +267,9 @@ impl ServerInternal for PlainQuicPort {
     }
 
     fn _reload_with_old_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
-        Err(anyhow!(
-            "this {} server doesn't support reload with old notifier",
-            config.server_type()
-        ))
+        let mut server = self.prepare_reload(config)?;
+        server.reload_sender = self.reload_sender.clone();
+        Ok(Arc::new(server))
     }
 
     fn _reload_with_new_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
@@ -279,17 +278,18 @@ impl ServerInternal for PlainQuicPort {
     }
 
     fn _start_runtime(&self, server: &ArcServer) -> anyhow::Result<()> {
-        let cur_config = self.config.load();
-        let runtime =
-            AuxiliaryQuicPortRuntime::new(server, cur_config.as_ref(), cur_config.listen.clone());
-        let listen_in_worker = cur_config.listen_in_worker;
-        drop(cur_config);
-        runtime.run_all_instances(listen_in_worker, &self.quinn_config, &self.cfg_sender)
+        let config = self.config.load();
+        let runtime = ListenQuicRuntime::new(server, config.as_ref(), config.listen.clone());
+        runtime.run_all_instances(
+            config.listen_in_worker,
+            &self.quinn_config,
+            &self.reload_sender,
+            &self.cfg_sender,
+        )
     }
 
     fn _abort_runtime(&self) {
         let _ = self.reload_sender.send(ServerReloadCommand::QuitRuntime);
-        self.cfg_sender.send_replace(None);
     }
 }
 

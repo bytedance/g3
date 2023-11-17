@@ -15,12 +15,10 @@
  */
 
 mod auxiliary_context;
-mod auxiliary_quic;
-
 pub(crate) use auxiliary_context::AuxiliaryRunContext;
-pub(crate) use auxiliary_quic::{AuxQuicServerConfig, AuxiliaryQuicPortRuntime};
 
 mod listen_tcp;
 pub(crate) use listen_tcp::ListenTcpRuntime;
 
 mod listen_quic;
+pub(crate) use listen_quic::{ListenQuicConf, ListenQuicRuntime};

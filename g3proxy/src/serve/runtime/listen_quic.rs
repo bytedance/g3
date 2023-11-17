@@ -27,19 +27,15 @@ use tokio::sync::{broadcast, watch};
 use g3_daemon::listen::ListenStats;
 use g3_daemon::server::ClientConnectionInfo;
 use g3_socket::util::native_socket_addr;
-use g3_types::metrics::MetricsName;
 use g3_types::net::UdpListenConfig;
 
 use crate::config::server::ServerConfig;
 use crate::serve::{ArcServer, ServerReloadCommand};
 
-pub(crate) trait AuxQuicServerConfig {
-    fn next_server(&self) -> &MetricsName;
-
+pub(crate) trait ListenQuicConf {
     fn run_quic_task(
         &self,
         rt_handle: Handle,
-        next_server: ArcServer,
         connecting: Connecting,
         cc_info: ClientConnectionInfo,
     );
@@ -52,7 +48,7 @@ pub(crate) trait AuxQuicServerConfig {
 }
 
 #[derive(Clone)]
-pub(crate) struct AuxiliaryQuicPortRuntime {
+pub(crate) struct ListenQuicRuntime {
     server: ArcServer,
     server_type: &'static str,
     server_version: usize,
@@ -62,13 +58,13 @@ pub(crate) struct AuxiliaryQuicPortRuntime {
     instance_id: usize,
 }
 
-impl AuxiliaryQuicPortRuntime {
+impl ListenQuicRuntime {
     pub(crate) fn new<C: ServerConfig>(
         server: &ArcServer,
         server_config: &C,
         listen_config: UdpListenConfig,
     ) -> Self {
-        AuxiliaryQuicPortRuntime {
+        ListenQuicRuntime {
             server: Arc::clone(server),
             server_type: server_config.server_type(),
             server_version: server.version(),
@@ -126,116 +122,103 @@ impl AuxiliaryQuicPortRuntime {
         listener: Endpoint,
         mut listen_addr: SocketAddr,
         mut sock_raw_fd: RawFd,
-        mut cfg_receiver: watch::Receiver<Option<C>>,
+        mut server_reload_channel: broadcast::Receiver<ServerReloadCommand>,
+        mut quic_cfg_receiver: watch::Receiver<C>,
     ) where
-        C: AuxQuicServerConfig + Send + Clone + 'static,
+        C: ListenQuicConf + Send + Clone + 'static,
     {
         use broadcast::error::RecvError;
 
-        let mut aux_config = match cfg_receiver.borrow().clone() {
-            Some(c) => c,
-            None => return,
-        };
-        let mut next_server_name = aux_config.next_server().clone();
-        let (mut next_server, mut next_server_reload_channel) =
-            crate::serve::get_with_notifier(&next_server_name);
+        let mut aux_config = quic_cfg_receiver.borrow().clone();
 
         loop {
-            let mut reload_next_server = false;
-
             tokio::select! {
                 biased;
 
-                // use update in place channel instead of common server reload channel for local config reload
-                ev = cfg_receiver.changed() => {
+                ev = server_reload_channel.recv() => {
+                   match ev {
+                        Ok(ServerReloadCommand::ReloadVersion(version)) => {
+                            info!("SRT[{}_v{}#{}] received reload request from v{version}",
+                                self.server.name(), self.server_version, self.instance_id);
+                            match crate::serve::get_server(self.server.name()) {
+                                Ok(server) => {
+                                    self.server_version = server.version();
+                                    self.server = server;
+                                    continue;
+                                }
+                                Err(_) => {
+                                    info!("SRT[{}_v{}#{}] will quit as no server v{version}+ found",
+                                        self.server.name(), self.server_version, self.instance_id);
+                                }
+                            }
+                        }
+                        Ok(ServerReloadCommand::QuitRuntime) => {},
+                        Err(RecvError::Closed) => {},
+                        Err(RecvError::Lagged(dropped)) => {
+                            warn!("SRT[{}_v{}#{}] server {} reload notify channel overflowed, {dropped} msg dropped",
+                                self.server.name(), self.server_version, self.instance_id, self.server.name());
+                            continue;
+                        },
+                    }
+
+                    info!("SRT[{}_v{}#{}] will go offline",
+                        self.server.name(), self.server_version, self.instance_id);
+                    self.pre_stop();
+                    self.goto_offline(listener, listen_addr, aux_config.offline_rebind_port());
+                    break;
+                }
+                ev = quic_cfg_receiver.changed() => {
                     if ev.is_err() {
-                        warn!("SRT[{}_v{}#{}] quit as cfg channel closed",
+                        warn!("SRT[{}_v{}#{}] quit as quic cfg channel closed",
                             self.server.name(), self.server_version, self.instance_id);
                         self.goto_close(listener);
                         break;
                     }
-                    let value = cfg_receiver.borrow().clone();
-                    match value {
-                        None => {
-                            info!("SRT[{}_v{}#{}] will go offline",
-                                self.server.name(), self.server_version, self.instance_id);
-                            self.pre_stop();
-                            self.goto_offline(listener, listen_addr, aux_config.offline_rebind_port());
-                            break;
-                        }
-                        Some(config) => {
-                            aux_config = config;
-                            if aux_config.next_server().ne(&next_server_name) {
-                                info!("SRT[{}_v{}#{}] will use next server '{}' instead of '{next_server_name}'",
-                                    self.server.name(), self.server_version, self.instance_id, aux_config.next_server());
-                                next_server_name = aux_config.next_server().clone();
-                                reload_next_server = true;
-                            }
-
-                            if let Some(quinn_config) = aux_config.take_quinn_config() {
-                                listener.set_server_config(Some(quinn_config));
-                            }
-                            if let Some(listen_config) = aux_config.take_udp_listen_config() {
-                                self.listen_config = listen_config;
-                                if self.listen_config.address() != listen_addr {
-                                    if let Ok((fd, addr)) = self.rebind_socket(&listener) {
-                                        sock_raw_fd = fd;
-                                        listen_addr = addr;
-                                    }
-                                } else {
-                                    self.update_socket_opts(sock_raw_fd);
-                                }
-                            }
-                        }
+                    aux_config = quic_cfg_receiver.borrow().clone();
+                    if let Some(quinn_config) = aux_config.take_quinn_config() {
+                        listener.set_server_config(Some(quinn_config));
                     }
-                }
-                ev = next_server_reload_channel.recv() => {
-                    match ev {
-                        Ok(ServerReloadCommand::ReloadVersion(version)) => {
-                            info!("SRT[{}_v{}#{}] reload next server {next_server_name} to v{version}",
-                                self.server.name(), self.server_version, self.instance_id);
-                            reload_next_server = true;
+                    if let Some(listen_config) = aux_config.take_udp_listen_config() {
+                        self.listen_config = listen_config;
+                        if self.listen_config.address() != listen_addr {
+                            if let Ok((fd, addr)) = self.rebind_socket(&listener) {
+                                sock_raw_fd = fd;
+                                listen_addr = addr;
+                            }
+                        } else {
+                            self.update_socket_opts(sock_raw_fd);
                         }
-                        Ok(ServerReloadCommand::QuitRuntime) | Err(RecvError::Closed) => {
-                            info!("SRT[{}_v{}#{}] next server {next_server_name} quit, reload it",
-                                self.server.name(), self.server_version, self.instance_id);
-                            reload_next_server = true;
-                        }
-                        Err(RecvError::Lagged(dropped)) => {
-                            warn!("SRT[{}_v{}#{}] next server {next_server_name} reload notify channel overflowed, {dropped} msg dropped",
-                                self.server.name(), self.server_version, self.instance_id);
-                            continue
-                        },
                     }
                 }
                 result = listener.accept() => {
                     let Some(connecting) = result else {
                         continue;
                     };
-
-                    let peer_addr = connecting.remote_address();
-                    let local_addr = connecting
-                        .local_ip()
-                        .map(|ip| SocketAddr::new(ip, listen_addr.port()))
-                        .unwrap_or(listen_addr);
-                    let (rt_handle, worker_id) = self.rt_handle();
-                    let mut cc_info = ClientConnectionInfo::new(
-                        native_socket_addr(peer_addr),
-                        native_socket_addr(local_addr),
-                    );
-                    cc_info.set_worker_id(worker_id);
-
-                    aux_config.run_quic_task(rt_handle, next_server.clone(), connecting, cc_info);
+                    self.listen_stats.add_accepted();
+                    self.run_task(connecting, listen_addr, &aux_config);
                 }
-            }
-
-            if reload_next_server {
-                let result = crate::serve::get_with_notifier(&next_server_name);
-                next_server = result.0;
-                next_server_reload_channel = result.1;
             }
         }
         self.post_stop();
+    }
+
+    fn run_task<C>(&self, connecting: Connecting, listen_addr: SocketAddr, quic_config: &C)
+    where
+        C: ListenQuicConf + Send + Clone + 'static,
+    {
+        let peer_addr = connecting.remote_address();
+        let local_addr = connecting
+            .local_ip()
+            .map(|ip| SocketAddr::new(ip, listen_addr.port()))
+            .unwrap_or(listen_addr);
+        let (rt_handle, worker_id) = self.rt_handle();
+        let mut cc_info = ClientConnectionInfo::new(
+            native_socket_addr(peer_addr),
+            native_socket_addr(local_addr),
+        );
+        cc_info.set_worker_id(worker_id);
+
+        quic_config.run_quic_task(rt_handle, connecting, cc_info);
     }
 
     fn update_socket_opts(&self, raw_fd: RawFd) {
@@ -357,9 +340,10 @@ impl AuxiliaryQuicPortRuntime {
         listen_addr: SocketAddr,
         config: quinn::ServerConfig,
         listen_in_worker: bool,
-        cfg_receiver: watch::Receiver<Option<C>>,
+        server_reload_channel: broadcast::Receiver<ServerReloadCommand>,
+        quic_cfg_receiver: watch::Receiver<C>,
     ) where
-        C: AuxQuicServerConfig + Clone + Send + Sync + 'static,
+        C: ListenQuicConf + Clone + Send + Sync + 'static,
     {
         let handle = self.get_rt_handle(listen_in_worker);
         handle.spawn(async move {
@@ -373,8 +357,14 @@ impl AuxiliaryQuicPortRuntime {
             ) {
                 Ok(endpoint) => {
                     self.pre_start();
-                    self.run(endpoint, listen_addr, sock_raw_fd, cfg_receiver)
-                        .await;
+                    self.run(
+                        endpoint,
+                        listen_addr,
+                        sock_raw_fd,
+                        server_reload_channel,
+                        quic_cfg_receiver,
+                    )
+                    .await;
                 }
                 Err(e) => {
                     warn!(
@@ -392,10 +382,11 @@ impl AuxiliaryQuicPortRuntime {
         &self,
         listen_in_worker: bool,
         quic_config: &quinn::ServerConfig,
-        cfg_receiver: &watch::Sender<Option<C>>,
+        server_reload_sender: &broadcast::Sender<ServerReloadCommand>,
+        quic_cfg_receiver: &watch::Sender<C>,
     ) -> anyhow::Result<()>
     where
-        C: AuxQuicServerConfig + Clone + Send + Sync + 'static,
+        C: ListenQuicConf + Clone + Send + Sync + 'static,
     {
         let mut instance_count = self.listen_config.instance();
         if listen_in_worker {
@@ -416,7 +407,8 @@ impl AuxiliaryQuicPortRuntime {
                 listen_addr,
                 quic_config.clone(),
                 listen_in_worker,
-                cfg_receiver.subscribe(),
+                server_reload_sender.subscribe(),
+                quic_cfg_receiver.subscribe(),
             );
         }
         Ok(())
