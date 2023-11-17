@@ -60,7 +60,6 @@ pub(crate) enum ServerConfigDiffAction {
     SpawnNew,
     ReloadOnlyConfig,
     ReloadAndRespawn,
-    #[allow(unused)]
     UpdateInPlace(u64), // to support server custom hot update, take a flags param
 }
 
