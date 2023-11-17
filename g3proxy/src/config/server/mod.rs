@@ -29,6 +29,9 @@ use g3_io_ext::LimitedCopyConfig;
 use g3_types::metrics::MetricsName;
 use g3_yaml::{HybridParser, YamlDocPosition};
 
+use crate::audit::AuditHandle;
+use crate::auth::UserGroup;
+
 pub(crate) mod dummy_close;
 pub(crate) mod intelli_proxy;
 pub(crate) mod native_tls_port;
@@ -94,6 +97,26 @@ pub(crate) trait ServerConfig {
     }
     fn task_max_idle_count(&self) -> i32 {
         1
+    }
+
+    fn get_user_group(&self) -> Option<Arc<UserGroup>> {
+        if self.user_group().is_empty() {
+            None
+        } else {
+            Some(crate::auth::get_or_insert_default(self.user_group()))
+        }
+    }
+
+    fn get_audit_handle(&self) -> anyhow::Result<Option<Arc<AuditHandle>>> {
+        if self.auditor().is_empty() {
+            Ok(None)
+        } else {
+            let auditor = crate::audit::get_or_insert_default(self.auditor());
+            let handle = auditor
+                .build_handle()
+                .context("failed to build audit handle")?;
+            Ok(Some(handle))
+        }
     }
 }
 

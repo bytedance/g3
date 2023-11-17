@@ -30,7 +30,7 @@ use g3_socket::util::native_socket_addr;
 use g3_types::net::TcpListenConfig;
 
 use crate::config::server::ServerConfig;
-use crate::serve::{ArcServer, ServerReloadCommand, ServerRunContext};
+use crate::serve::{ArcServer, ServerReloadCommand};
 
 #[derive(Clone)]
 pub(crate) struct OrdinaryTcpServerRuntime {
@@ -93,8 +93,6 @@ impl OrdinaryTcpServerRuntime {
     ) {
         use broadcast::error::RecvError;
 
-        let run_ctx = ServerRunContext::new();
-
         loop {
             tokio::select! {
                 biased;
@@ -152,7 +150,6 @@ impl OrdinaryTcpServerRuntime {
                                     stream,
                                     native_socket_addr(peer_addr),
                                     native_socket_addr(local_addr),
-                                    run_ctx.clone(),
                                 );
                                 Ok(())
                             }
@@ -177,30 +174,24 @@ impl OrdinaryTcpServerRuntime {
         self.post_stop();
     }
 
-    fn run_task(
-        &self,
-        stream: TcpStream,
-        peer_addr: SocketAddr,
-        local_addr: SocketAddr,
-        mut run_ctx: ServerRunContext,
-    ) {
+    fn run_task(&self, stream: TcpStream, peer_addr: SocketAddr, local_addr: SocketAddr) {
         let server = Arc::clone(&self.server);
 
         let mut cc_info = ClientConnectionInfo::new(peer_addr, local_addr);
         cc_info.set_tcp_raw_fd(stream.as_raw_fd());
         if let Some(worker_id) = self.worker_id {
-            run_ctx.worker_id = Some(worker_id);
+            cc_info.set_worker_id(Some(worker_id));
             tokio::spawn(async move {
-                server.run_tcp_task(stream, cc_info, run_ctx).await;
+                server.run_tcp_task(stream, cc_info).await;
             });
         } else if let Some(rt) = g3_daemon::runtime::worker::select_handle() {
-            run_ctx.worker_id = Some(rt.id);
+            cc_info.set_worker_id(Some(rt.id));
             rt.handle.spawn(async move {
-                server.run_tcp_task(stream, cc_info, run_ctx).await;
+                server.run_tcp_task(stream, cc_info).await;
             });
         } else {
             tokio::spawn(async move {
-                server.run_tcp_task(stream, cc_info, run_ctx).await;
+                server.run_tcp_task(stream, cc_info).await;
             });
         }
     }

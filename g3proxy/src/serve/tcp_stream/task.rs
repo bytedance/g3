@@ -41,8 +41,7 @@ pub(super) struct TcpStreamTask {
 
 impl TcpStreamTask {
     pub(super) fn new(ctx: CommonTaskContext, upstream: &UpstreamAddr) -> Self {
-        let task_notes =
-            ServerTaskNotes::new(ctx.worker_id, ctx.cc_info.clone(), None, Duration::ZERO);
+        let task_notes = ServerTaskNotes::new(ctx.cc_info.clone(), None, Duration::ZERO);
         TcpStreamTask {
             ctx,
             tcp_notes: TcpConnectTaskNotes::new(upstream.clone()),

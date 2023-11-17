@@ -41,7 +41,6 @@ pub(crate) struct CommonTaskContext {
     pub(crate) dst_host_filter: Option<Arc<AclDstHostRuleSet>>,
     pub(crate) cc_info: ClientConnectionInfo,
     pub(crate) task_logger: Logger,
-    pub(crate) worker_id: Option<usize>,
 }
 
 impl CommonTaskContext {

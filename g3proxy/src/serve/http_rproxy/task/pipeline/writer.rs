@@ -274,7 +274,6 @@ where
     ) -> LoopAction {
         let path_selection = self.get_egress_path_selection(user_ctx.as_ref());
         let task_notes = ServerTaskNotes::with_path_selection(
-            self.ctx.worker_id,
             self.ctx.cc_info.clone(),
             user_ctx,
             req.time_accepted.elapsed(),

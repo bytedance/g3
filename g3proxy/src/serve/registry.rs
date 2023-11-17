@@ -140,7 +140,7 @@ pub(crate) fn reload_only_escaper(name: &MetricsName) -> anyhow::Result<()> {
         return Err(anyhow!("no server with name {name} found"));
     };
 
-    server._reload_escaper_notify_runtime();
+    server._update_escaper_in_place();
     Ok(())
 }
 
@@ -150,7 +150,7 @@ pub(crate) fn reload_only_user_group(name: &MetricsName) -> anyhow::Result<()> {
         return Err(anyhow!("no server with name {name} found"));
     };
 
-    server._reload_user_group_notify_runtime();
+    server._update_user_group_in_place();
     Ok(())
 }
 
@@ -160,7 +160,7 @@ pub(crate) fn reload_only_auditor(name: &MetricsName) -> anyhow::Result<()> {
         return Err(anyhow!("no server with name {name} found"));
     };
 
-    server._reload_auditor_notify_runtime();
+    server._update_audit_handle_in_place()?;
     Ok(())
 }
 

@@ -27,9 +27,7 @@ use g3_types::metrics::MetricsName;
 
 use crate::config::server::dummy_close::DummyCloseServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
-use crate::serve::{
-    ArcServer, Server, ServerInternal, ServerQuitPolicy, ServerReloadCommand, ServerRunContext,
-};
+use crate::serve::{ArcServer, Server, ServerInternal, ServerQuitPolicy, ServerReloadCommand};
 
 pub(crate) struct DummyCloseServer {
     config: DummyCloseServerConfig,
@@ -140,11 +138,5 @@ impl Server for DummyCloseServer {
         &self.quit_policy
     }
 
-    async fn run_tcp_task(
-        &self,
-        _stream: TcpStream,
-        _cc_info: ClientConnectionInfo,
-        _ctx: ServerRunContext,
-    ) {
-    }
+    async fn run_tcp_task(&self, _stream: TcpStream, _cc_info: ClientConnectionInfo) {}
 }

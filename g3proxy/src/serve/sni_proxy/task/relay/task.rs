@@ -50,7 +50,7 @@ impl TcpStreamTask {
         wait_time: Duration,
         pre_handshake_stats: TcpStreamConnectionStats,
     ) -> Self {
-        let task_notes = ServerTaskNotes::new(ctx.worker_id, ctx.cc_info.clone(), None, wait_time);
+        let task_notes = ServerTaskNotes::new(ctx.cc_info.clone(), None, wait_time);
         TcpStreamTask {
             ctx,
             protocol,

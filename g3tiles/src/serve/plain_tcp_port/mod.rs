@@ -34,7 +34,7 @@ use crate::config::server::plain_tcp_port::PlainTcpPortConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::serve::{
     ArcServer, AuxiliaryServerConfig, AuxiliaryTcpPortRuntime, Server, ServerInternal,
-    ServerQuitPolicy, ServerReloadCommand, ServerRunContext,
+    ServerQuitPolicy, ServerReloadCommand,
 };
 
 #[derive(Clone)]
@@ -55,7 +55,6 @@ impl AuxiliaryServerConfig for PlainTcpPortAuxConfig {
         next_server: ArcServer,
         stream: TcpStream,
         cc_info: ClientConnectionInfo,
-        ctx: ServerRunContext,
     ) {
         let ingress_net_filter = self.ingress_net_filter.clone();
         let listen_stats = self.listen_stats.clone();
@@ -86,13 +85,13 @@ impl AuxiliaryServerConfig for PlainTcpPortAuxConfig {
                     match parser.read_proxy_protocol_v2_for_tcp(&mut stream).await {
                         Ok(Some(a)) => {
                             cc_info.set_proxy_addr(a);
-                            next_server.run_tcp_task(stream, cc_info, ctx).await
+                            next_server.run_tcp_task(stream, cc_info).await
                         }
-                        Ok(None) => next_server.run_tcp_task(stream, cc_info, ctx).await,
+                        Ok(None) => next_server.run_tcp_task(stream, cc_info).await,
                         Err(e) => listen_stats.add_by_proxy_protocol_error(e),
                     }
                 }
-                None => next_server.run_tcp_task(stream, cc_info, ctx).await,
+                None => next_server.run_tcp_task(stream, cc_info).await,
             }
         });
     }
@@ -251,11 +250,5 @@ impl Server for PlainTcpPort {
         &self.quit_policy
     }
 
-    async fn run_tcp_task(
-        &self,
-        _stream: TcpStream,
-        _cc_info: ClientConnectionInfo,
-        _ctx: ServerRunContext,
-    ) {
-    }
+    async fn run_tcp_task(&self, _stream: TcpStream, _cc_info: ClientConnectionInfo) {}
 }

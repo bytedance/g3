@@ -74,8 +74,7 @@ pub async fn load_all() -> anyhow::Result<()> {
     for name in &registry::get_names() {
         if !new_names.contains(name) {
             debug!("deleting escaper {name}");
-            registry::del(name);
-            crate::serve::update_dependency_to_escaper(name, "deleted").await;
+            delete_existed_unlocked(name).await;
             debug!("escaper {name} deleted");
         }
     }
@@ -129,7 +128,6 @@ pub(crate) async fn reload(
     debug!("reloading escaper {name} from position {position}");
     reload_unlocked(old_config, config).await?;
     debug!("escaper {name} reload OK");
-    update_dependency_to_escaper_unlocked(name).await;
     Ok(())
 }
 
@@ -158,7 +156,7 @@ pub(crate) async fn update_dependency_to_resolver(resolver: &MetricsName, status
 }
 
 #[async_recursion]
-async fn update_dependency_to_escaper_unlocked(target: &MetricsName) {
+async fn update_dependency_to_escaper_unlocked(target: &MetricsName, status: &str) {
     let mut names = Vec::<MetricsName>::new();
 
     registry::foreach(|name, escaper| {
@@ -169,7 +167,9 @@ async fn update_dependency_to_escaper_unlocked(target: &MetricsName) {
         }
     });
 
-    debug!("escaper {target} changed, will reload escaper(s) {names:?} which depend on it");
+    debug!(
+        "escaper {target} changed({status}), will reload escaper(s) {names:?} which depend on it"
+    );
     for name in names.iter() {
         debug!("escaper {name}: will reload as it depends on escaper {target}");
         if let Err(e) = reload_existed_unlocked(name, None).await {
@@ -179,7 +179,7 @@ async fn update_dependency_to_escaper_unlocked(target: &MetricsName) {
 
     // finish those in the same level first, then go in depth
     for name in names.iter() {
-        update_dependency_to_escaper_unlocked(name).await;
+        update_dependency_to_escaper_unlocked(name, "reloaded").await;
     }
 }
 
@@ -205,16 +205,29 @@ async fn reload_unlocked(old: AnyEscaperConfig, new: AnyEscaperConfig) -> anyhow
     }
 }
 
+async fn delete_existed_unlocked(name: &MetricsName) {
+    const STATUS: &str = "deleted";
+
+    registry::del(name);
+    update_dependency_to_escaper_unlocked(&name, STATUS).await;
+    crate::serve::update_dependency_to_escaper(name, STATUS).await;
+}
+
 async fn reload_existed_unlocked(
     name: &MetricsName,
     new: Option<AnyEscaperConfig>,
 ) -> anyhow::Result<()> {
+    const STATUS: &str = "reloaded";
+
     registry::reload_existed(name, new).await?;
-    crate::serve::update_dependency_to_escaper(name, "reloaded").await;
+    update_dependency_to_escaper_unlocked(&name, STATUS).await;
+    crate::serve::update_dependency_to_escaper(name, STATUS).await;
     Ok(())
 }
 
 async fn spawn_new_unlocked(config: AnyEscaperConfig) -> anyhow::Result<()> {
+    const STATUS: &str = "spawned";
+
     let name = config.name().clone();
     let escaper = match config {
         AnyEscaperConfig::DirectFixed(c) => DirectFixedEscaper::prepare_initial(*c)?,
@@ -236,6 +249,7 @@ async fn spawn_new_unlocked(config: AnyEscaperConfig) -> anyhow::Result<()> {
         AnyEscaperConfig::TrickFloat(c) => TrickFloatEscaper::prepare_initial(c)?,
     };
     registry::add(name.clone(), escaper);
-    crate::serve::update_dependency_to_escaper(&name, "spawned").await;
+    update_dependency_to_escaper_unlocked(&name, STATUS).await;
+    crate::serve::update_dependency_to_escaper(&name, STATUS).await;
     Ok(())
 }

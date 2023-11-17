@@ -32,9 +32,7 @@ use g3_types::metrics::MetricsName;
 use super::runtime::IntelliProxyRuntime;
 use crate::config::server::intelli_proxy::IntelliProxyConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
-use crate::serve::{
-    ArcServer, Server, ServerInternal, ServerQuitPolicy, ServerReloadCommand, ServerRunContext,
-};
+use crate::serve::{ArcServer, Server, ServerInternal, ServerQuitPolicy, ServerReloadCommand};
 
 pub(crate) struct IntelliProxy {
     name: MetricsName,
@@ -121,9 +119,11 @@ impl ServerInternal for IntelliProxy {
 
     // IntelliProxy do not support reload with old runtime/notifier
     fn _reload_config_notify_runtime(&self) {}
-    fn _reload_escaper_notify_runtime(&self) {}
-    fn _reload_user_group_notify_runtime(&self) {}
-    fn _reload_auditor_notify_runtime(&self) {}
+    fn _update_escaper_in_place(&self) {}
+    fn _update_user_group_in_place(&self) {}
+    fn _update_audit_handle_in_place(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
 
     fn _reload_with_old_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
         Err(anyhow!(
@@ -190,35 +190,17 @@ impl Server for IntelliProxy {
         &self.quit_policy
     }
 
-    async fn run_tcp_task(
-        &self,
-        _stream: TcpStream,
-        _cc_info: ClientConnectionInfo,
-        _ctx: ServerRunContext,
-    ) {
-    }
+    async fn run_tcp_task(&self, _stream: TcpStream, _cc_info: ClientConnectionInfo) {}
 
-    async fn run_rustls_task(
-        &self,
-        _stream: TlsStream<TcpStream>,
-        _cc_info: ClientConnectionInfo,
-        _ctx: ServerRunContext,
-    ) {
+    async fn run_rustls_task(&self, _stream: TlsStream<TcpStream>, _cc_info: ClientConnectionInfo) {
     }
 
     async fn run_openssl_task(
         &self,
         _stream: SslStream<TcpStream>,
         _cc_info: ClientConnectionInfo,
-        _ctx: ServerRunContext,
     ) {
     }
 
-    async fn run_quic_task(
-        &self,
-        _connection: Connection,
-        _cc_info: ClientConnectionInfo,
-        _ctx: ServerRunContext,
-    ) {
-    }
+    async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
 }

@@ -18,6 +18,7 @@ use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
+use arc_swap::{ArcSwap, ArcSwapOption};
 use async_trait::async_trait;
 use log::debug;
 use quinn::Connection;
@@ -38,11 +39,13 @@ use g3_types::net::{OpensslClientConfig, UpstreamAddr, WeightedUpstreamAddr};
 use super::common::CommonTaskContext;
 use super::stats::TcpStreamServerStats;
 use super::task::TcpStreamTask;
+use crate::audit::AuditHandle;
 use crate::config::server::tcp_stream::TcpStreamServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
+use crate::escape::ArcEscaper;
 use crate::serve::{
     ArcServer, ArcServerStats, OrdinaryTcpServerRuntime, Server, ServerInternal, ServerQuitPolicy,
-    ServerReloadCommand, ServerRunContext, ServerStats,
+    ServerReloadCommand, ServerStats,
 };
 
 pub(crate) struct TcpStreamServer {
@@ -55,6 +58,8 @@ pub(crate) struct TcpStreamServer {
     reload_sender: broadcast::Sender<ServerReloadCommand>,
     task_logger: Logger,
 
+    escaper: ArcSwap<ArcEscaper>,
+    audit_handle: ArcSwapOption<AuditHandle>,
     quit_policy: Arc<ServerQuitPolicy>,
     reload_version: usize,
 }
@@ -94,6 +99,9 @@ impl TcpStreamServer {
 
         server_stats.set_extra_tags(config.extra_metrics_tags.clone());
 
+        let escaper = Arc::new(crate::escape::get_or_insert_default(config.escaper()));
+        let audit_handle = config.get_audit_handle()?;
+
         let server = TcpStreamServer {
             config,
             server_stats,
@@ -103,6 +111,8 @@ impl TcpStreamServer {
             ingress_net_filter,
             reload_sender,
             task_logger,
+            escaper: ArcSwap::new(escaper),
+            audit_handle: ArcSwapOption::new(audit_handle),
             quit_policy: Arc::new(ServerQuitPolicy::default()),
             reload_version: version,
         };
@@ -157,19 +167,17 @@ impl TcpStreamServer {
     fn get_ctx_and_upstream(
         &self,
         cc_info: ClientConnectionInfo,
-        run_ctx: ServerRunContext,
     ) -> (CommonTaskContext, &UpstreamAddr) {
         let client_ip = cc_info.client_ip();
         let ctx = CommonTaskContext {
             server_config: Arc::clone(&self.config),
             server_stats: Arc::clone(&self.server_stats),
             server_quit_policy: Arc::clone(&self.quit_policy),
-            escaper: run_ctx.escaper,
-            audit_handle: run_ctx.audit_handle,
+            escaper: self.escaper.load().as_ref().clone(),
+            audit_handle: self.audit_handle.load_full(),
             cc_info,
             tls_client_config: self.tls_client_config.clone(),
             task_logger: self.task_logger.clone(),
-            worker_id: run_ctx.worker_id,
         };
 
         #[derive(Hash)]
@@ -194,13 +202,8 @@ impl TcpStreamServer {
         (ctx, upstream.inner())
     }
 
-    async fn run_task_with_tcp(
-        &self,
-        stream: TcpStream,
-        cc_info: ClientConnectionInfo,
-        run_ctx: ServerRunContext,
-    ) {
-        let (ctx, upstream) = self.get_ctx_and_upstream(cc_info, run_ctx);
+    async fn run_task_with_tcp(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
+        let (ctx, upstream) = self.get_ctx_and_upstream(cc_info);
 
         let (clt_r, clt_w) = stream.into_split();
         TcpStreamTask::new(ctx, upstream)
@@ -208,15 +211,11 @@ impl TcpStreamServer {
             .await;
     }
 
-    async fn run_task_with_stream<T>(
-        &self,
-        stream: T,
-        cc_info: ClientConnectionInfo,
-        run_ctx: ServerRunContext,
-    ) where
+    async fn run_task_with_stream<T>(&self, stream: T, cc_info: ClientConnectionInfo)
+    where
         T: AsyncRead + AsyncWrite + Send + Sync + 'static,
     {
-        let (ctx, upstream) = self.get_ctx_and_upstream(cc_info, run_ctx);
+        let (ctx, upstream) = self.get_ctx_and_upstream(cc_info);
 
         let (clt_r, clt_w) = tokio::io::split(stream);
         TcpStreamTask::new(ctx, upstream)
@@ -229,9 +228,8 @@ impl TcpStreamServer {
         send_stream: quinn::SendStream,
         recv_stream: quinn::RecvStream,
         cc_info: ClientConnectionInfo,
-        run_ctx: ServerRunContext,
     ) {
-        let (ctx, upstream) = self.get_ctx_and_upstream(cc_info, run_ctx);
+        let (ctx, upstream) = self.get_ctx_and_upstream(cc_info);
 
         tokio::spawn(TcpStreamTask::new(ctx, upstream).into_running(recv_stream, send_stream));
     }
@@ -255,14 +253,17 @@ impl ServerInternal for TcpStreamServer {
         let _ = self.reload_sender.send(cmd);
     }
 
-    fn _reload_escaper_notify_runtime(&self) {
-        let _ = self.reload_sender.send(ServerReloadCommand::ReloadEscaper);
+    fn _update_escaper_in_place(&self) {
+        let escaper = crate::escape::get_or_insert_default(self.config.escaper());
+        self.escaper.store(Arc::new(escaper));
     }
 
-    fn _reload_user_group_notify_runtime(&self) {}
+    fn _update_user_group_in_place(&self) {}
 
-    fn _reload_auditor_notify_runtime(&self) {
-        let _ = self.reload_sender.send(ServerReloadCommand::ReloadAuditor);
+    fn _update_audit_handle_in_place(&self) -> anyhow::Result<()> {
+        let audit_handle = self.config.get_audit_handle()?;
+        self.audit_handle.store(audit_handle);
+        Ok(())
     }
 
     fn _reload_with_old_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
@@ -337,57 +338,37 @@ impl Server for TcpStreamServer {
         &self.quit_policy
     }
 
-    async fn run_tcp_task(
-        &self,
-        stream: TcpStream,
-        cc_info: ClientConnectionInfo,
-        ctx: ServerRunContext,
-    ) {
+    async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
         let client_addr = cc_info.client_addr();
         self.server_stats.add_conn(client_addr);
         if self.drop_early(client_addr) {
             return;
         }
 
-        self.run_task_with_tcp(stream, cc_info, ctx).await
+        self.run_task_with_tcp(stream, cc_info).await
     }
 
-    async fn run_rustls_task(
-        &self,
-        stream: TlsStream<TcpStream>,
-        cc_info: ClientConnectionInfo,
-        ctx: ServerRunContext,
-    ) {
+    async fn run_rustls_task(&self, stream: TlsStream<TcpStream>, cc_info: ClientConnectionInfo) {
         let client_addr = cc_info.client_addr();
         self.server_stats.add_conn(client_addr);
         if self.drop_early(client_addr) {
             return;
         }
 
-        self.run_task_with_stream(stream, cc_info, ctx).await
+        self.run_task_with_stream(stream, cc_info).await
     }
 
-    async fn run_openssl_task(
-        &self,
-        stream: SslStream<TcpStream>,
-        cc_info: ClientConnectionInfo,
-        ctx: ServerRunContext,
-    ) {
+    async fn run_openssl_task(&self, stream: SslStream<TcpStream>, cc_info: ClientConnectionInfo) {
         let client_addr = cc_info.client_addr();
         self.server_stats.add_conn(client_addr);
         if self.drop_early(client_addr) {
             return;
         }
 
-        self.run_task_with_stream(stream, cc_info, ctx).await
+        self.run_task_with_stream(stream, cc_info).await
     }
 
-    async fn run_quic_task(
-        &self,
-        connection: Connection,
-        cc_info: ClientConnectionInfo,
-        ctx: ServerRunContext,
-    ) {
+    async fn run_quic_task(&self, connection: Connection, cc_info: ClientConnectionInfo) {
         let client_addr = cc_info.client_addr();
         self.server_stats.add_conn(client_addr);
         if self.drop_early(client_addr) {
@@ -397,12 +378,9 @@ impl Server for TcpStreamServer {
         loop {
             // TODO update ctx and quit gracefully
             match connection.accept_bi().await {
-                Ok((send_stream, recv_stream)) => self.run_task_with_quic_stream(
-                    send_stream,
-                    recv_stream,
-                    cc_info.clone(),
-                    ctx.clone(),
-                ),
+                Ok((send_stream, recv_stream)) => {
+                    self.run_task_with_quic_stream(send_stream, recv_stream, cc_info.clone())
+                }
                 Err(e) => {
                     debug!(
                         "{} - {} quic connection error: {e:?}",

@@ -35,7 +35,7 @@ use crate::config::server::rustls_proxy::RustlsProxyServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::serve::{
     ArcServer, ArcServerStats, OrdinaryTcpServerRuntime, Server, ServerInternal, ServerQuitPolicy,
-    ServerReloadCommand, ServerRunContext, ServerStats,
+    ServerReloadCommand, ServerStats,
 };
 
 pub(crate) struct RustlsProxyServer {
@@ -148,12 +148,7 @@ impl RustlsProxyServer {
         false
     }
 
-    async fn run_task(
-        &self,
-        stream: TcpStream,
-        cc_info: ClientConnectionInfo,
-        _run_ctx: ServerRunContext,
-    ) {
+    async fn run_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
         let ctx = CommonTaskContext {
             server_config: Arc::clone(&self.config),
             server_stats: Arc::clone(&self.server_stats),
@@ -246,18 +241,13 @@ impl Server for RustlsProxyServer {
         &self.quit_policy
     }
 
-    async fn run_tcp_task(
-        &self,
-        stream: TcpStream,
-        cc_info: ClientConnectionInfo,
-        ctx: ServerRunContext,
-    ) {
+    async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
         let client_addr = cc_info.client_addr();
         self.server_stats.add_conn(client_addr);
         if self.drop_early(client_addr) {
             return;
         }
 
-        self.run_task(stream, cc_info, ctx).await
+        self.run_task(stream, cc_info).await
     }
 }

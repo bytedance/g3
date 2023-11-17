@@ -61,8 +61,6 @@ impl ServerTaskStage {
 /// it can be reset if the connection is consisted of many tasks.
 /// Do not share this struct between different client connections.
 pub(crate) struct ServerTaskNotes {
-    #[allow(unused)]
-    pub(crate) worker_id: Option<usize>,
     cc_info: ClientConnectionInfo,
     pub(crate) stage: ServerTaskStage,
     pub(crate) start_at: DateTime<Utc>,
@@ -78,24 +76,16 @@ pub(crate) struct ServerTaskNotes {
 
 impl ServerTaskNotes {
     pub(crate) fn new(
-        worker_id: Option<usize>,
         cc_info: ClientConnectionInfo,
         user_ctx: Option<UserContext>,
         wait_time: Duration,
     ) -> Self {
         let path_selection =
             DEFAULT_PATH_SELECTION.get_or_init(|| Arc::new(EgressPathSelection::Default));
-        ServerTaskNotes::with_path_selection(
-            worker_id,
-            cc_info,
-            user_ctx,
-            wait_time,
-            path_selection.clone(),
-        )
+        ServerTaskNotes::with_path_selection(cc_info, user_ctx, wait_time, path_selection.clone())
     }
 
     pub(crate) fn with_path_selection(
-        worker_id: Option<usize>,
         cc_info: ClientConnectionInfo,
         user_ctx: Option<UserContext>,
         wait_time: Duration,
@@ -104,7 +94,6 @@ impl ServerTaskNotes {
         let started = Utc::now();
         let uuid = g3_daemon::server::task::generate_uuid(&started);
         ServerTaskNotes {
-            worker_id,
             cc_info,
             stage: ServerTaskStage::Created,
             start_at: started,

@@ -30,7 +30,7 @@ use g3_types::metrics::MetricsName;
 use g3_types::net::TcpListenConfig;
 
 use crate::config::server::ServerConfig;
-use crate::serve::{ArcServer, ServerReloadCommand, ServerRunContext};
+use crate::serve::{ArcServer, ServerReloadCommand};
 
 pub(crate) trait AuxiliaryServerConfig {
     fn next_server(&self) -> &MetricsName;
@@ -40,7 +40,6 @@ pub(crate) trait AuxiliaryServerConfig {
         next_server: ArcServer,
         stream: TcpStream,
         cc_info: ClientConnectionInfo,
-        ctx: ServerRunContext,
     );
 }
 
@@ -124,7 +123,6 @@ impl AuxiliaryTcpPortRuntime {
         let mut next_server_name = aux_config.next_server().clone();
         let (mut next_server, mut next_server_reload_channel) =
             crate::serve::get_with_notifier(&next_server_name);
-        let run_ctx = ServerRunContext::new();
 
         loop {
             let mut reload_next_server = false;
@@ -190,19 +188,17 @@ impl AuxiliaryTcpPortRuntime {
                             Ok(Some((stream, peer_addr, local_addr))) => {
                                 self.listen_stats.add_accepted();
                                 let (rt_handle, worker_id) = self.rt_handle();
-                                let mut run_ctx = run_ctx.clone();
-                                run_ctx.worker_id = worker_id;
                                 let mut cc_info = ClientConnectionInfo::new(
                                     native_socket_addr(peer_addr),
                                     native_socket_addr(local_addr),
                                 );
                                 cc_info.set_tcp_raw_fd(stream.as_raw_fd());
+                                cc_info.set_worker_id(worker_id);
                                 aux_config.run_tcp_task(
                                     rt_handle,
                                     next_server.clone(),
                                     stream,
                                     cc_info,
-                                    run_ctx,
                                 );
                                 Ok(())
                             }

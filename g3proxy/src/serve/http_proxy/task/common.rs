@@ -43,7 +43,6 @@ pub(crate) struct CommonTaskContext {
     pub(crate) cc_info: ClientConnectionInfo,
     pub(crate) tls_client_config: Arc<OpensslClientConfig>,
     pub(crate) task_logger: Logger,
-    pub(crate) worker_id: Option<usize>,
 
     pub(crate) dst_host_filter: Option<Arc<AclDstHostRuleSet>>,
 }

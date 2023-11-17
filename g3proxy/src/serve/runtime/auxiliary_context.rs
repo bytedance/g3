@@ -23,60 +23,26 @@ use tokio::sync::broadcast;
 
 use g3_types::metrics::MetricsName;
 
-use crate::serve::{ArcServer, ServerReloadCommand, ServerRunContext};
+use crate::serve::{ArcServer, ServerReloadCommand};
 
 struct ContextValue {
     server: ArcServer,
     server_notifier: broadcast::Receiver<ServerReloadCommand>,
-    server_context: ServerRunContext,
 }
 
 impl ContextValue {
     fn new(name: &MetricsName) -> Self {
         let (server, receiver) = crate::serve::get_with_notifier(name);
-        let context =
-            ServerRunContext::new(server.escaper(), server.user_group(), server.auditor());
         ContextValue {
             server,
             server_notifier: receiver,
-            server_context: context,
         }
     }
 
-    fn reload(&mut self, log_prefix: &str, name: &MetricsName) {
+    fn reload(&mut self, name: &MetricsName) {
         let (server, receiver) = crate::serve::get_with_notifier(name);
         self.server = server;
         self.server_notifier = receiver;
-
-        // if escaper changed, reload it
-        let old_escaper = self.server_context.current_escaper();
-        let new_escaper = self.server.escaper();
-        if old_escaper.ne(new_escaper) {
-            info!(
-                "{log_prefix}/{name} will use escaper '{new_escaper}' instead of '{old_escaper}'"
-            );
-            self.server_context.update_escaper(new_escaper);
-        }
-
-        // if user group changed, reload it
-        let old_user_group = self.server_context.current_user_group();
-        let new_user_group = self.server.user_group();
-        if old_user_group.ne(new_user_group) {
-            info!(
-                "{log_prefix}/{name} will use user group '{new_user_group}' instead of '{old_user_group}'"
-            );
-            self.server_context.update_user_group(new_user_group);
-        }
-
-        // if auditor changed, reload it
-        let old_auditor = self.server_context.current_auditor();
-        let new_auditor = self.server.auditor();
-        if old_auditor.ne(new_auditor) {
-            info!(
-                "{log_prefix}/{name} will use auditor '{new_auditor}' instead of '{old_auditor}'"
-            );
-            self.server_context.update_audit_handle(new_auditor);
-        }
     }
 }
 
@@ -105,14 +71,14 @@ impl AuxiliaryRunContext {
     /// # Safety
     ///
     /// The index should be returned by method `add_server`.
-    pub(crate) unsafe fn get_unchecked(&self, index: usize) -> (ArcServer, ServerRunContext) {
+    pub(crate) unsafe fn get_unchecked(&self, index: usize) -> ArcServer {
         let v = self.lists.get_unchecked(index);
-        (v.server.clone(), v.server_context.clone())
+        v.server.clone()
     }
 
     pub(crate) fn reload(&mut self, index: usize, name: &MetricsName) {
         if let Some(v) = self.lists.get_mut(index) {
-            v.reload(&self.log_prefix, name);
+            v.reload(name);
         }
     }
 
@@ -130,35 +96,11 @@ impl AuxiliaryRunContext {
         match cmd {
             Ok(ServerReloadCommand::ReloadVersion(version)) => {
                 info!("{}/{name} reload to v{version}", self.log_prefix);
-                v.reload(&self.log_prefix, &name);
-            }
-            Ok(ServerReloadCommand::ReloadEscaper) => {
-                let escaper_name = v.server.escaper();
-                info!(
-                    "{}/{name} will reload escaper {escaper_name}",
-                    self.log_prefix
-                );
-                v.server_context.update_escaper(escaper_name);
-            }
-            Ok(ServerReloadCommand::ReloadUserGroup) => {
-                let user_group_name = v.server.user_group();
-                info!(
-                    "{}/{name} will reload user group {user_group_name}",
-                    self.log_prefix
-                );
-                v.server_context.update_user_group(user_group_name);
-            }
-            Ok(ServerReloadCommand::ReloadAuditor) => {
-                let auditor_name = v.server.auditor();
-                info!(
-                    "{}/{name} will reload auditor {auditor_name}",
-                    self.log_prefix
-                );
-                v.server_context.update_audit_handle(auditor_name);
+                v.reload(&name);
             }
             Ok(ServerReloadCommand::QuitRuntime) | Err(broadcast::error::RecvError::Closed) => {
                 info!("{}/{name} server quit, reload it", self.log_prefix);
-                v.reload(&self.log_prefix, &name);
+                v.reload(&name);
             }
             Err(broadcast::error::RecvError::Lagged(dropped)) => {
                 warn!(

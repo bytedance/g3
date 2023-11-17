@@ -31,18 +31,17 @@ use g3_types::metrics::MetricsName;
 use g3_types::net::UdpListenConfig;
 
 use crate::config::server::ServerConfig;
-use crate::serve::{ArcServer, ServerReloadCommand, ServerRunContext};
+use crate::serve::{ArcServer, ServerReloadCommand};
 
 pub(crate) trait AuxQuicServerConfig {
     fn next_server(&self) -> &MetricsName;
 
     fn run_quic_task(
         &self,
-        _rt_handle: Handle,
-        _next_server: ArcServer,
-        _connecting: Connecting,
-        _cc_info: ClientConnectionInfo,
-        _ctx: ServerRunContext,
+        rt_handle: Handle,
+        next_server: ArcServer,
+        connecting: Connecting,
+        cc_info: ClientConnectionInfo,
     );
 
     fn take_udp_listen_config(&mut self) -> Option<UdpListenConfig>;
@@ -140,11 +139,6 @@ impl AuxiliaryQuicPortRuntime {
         let mut next_server_name = aux_config.next_server().clone();
         let (mut next_server, mut next_server_reload_channel) =
             crate::serve::get_with_notifier(&next_server_name);
-        let mut run_ctx = ServerRunContext::new(
-            next_server.escaper(),
-            next_server.user_group(),
-            next_server.auditor(),
-        );
 
         loop {
             let mut reload_next_server = false;
@@ -202,24 +196,6 @@ impl AuxiliaryQuicPortRuntime {
                                 self.server.name(), self.server_version, self.instance_id);
                             reload_next_server = true;
                         }
-                        Ok(ServerReloadCommand::ReloadEscaper) => {
-                            let escaper_name = next_server.escaper();
-                            info!("SRT[{}_v{}#{}] will reload escaper {escaper_name}",
-                                self.server.name(), self.server_version, self.instance_id);
-                            run_ctx.update_escaper(escaper_name);
-                        },
-                        Ok(ServerReloadCommand::ReloadUserGroup) => {
-                            let user_group_name = next_server.user_group();
-                            info!("SRT[{}_v{}#{}] will reload user group {user_group_name}",
-                                self.server.name(), self.server_version, self.instance_id);
-                            run_ctx.update_user_group(user_group_name);
-                        },
-                        Ok(ServerReloadCommand::ReloadAuditor) => {
-                            let auditor_name = next_server.auditor();
-                            info!("SRT[{}_v{}#{}] will reload auditor {auditor_name}",
-                                self.server.name(), self.server_version, self.instance_id);
-                            run_ctx.update_audit_handle(auditor_name);
-                        },
                         Ok(ServerReloadCommand::QuitRuntime) | Err(RecvError::Closed) => {
                             info!("SRT[{}_v{}#{}] next server {next_server_name} quit, reload it",
                                 self.server.name(), self.server_version, self.instance_id);
@@ -242,15 +218,14 @@ impl AuxiliaryQuicPortRuntime {
                         .local_ip()
                         .map(|ip| SocketAddr::new(ip, listen_addr.port()))
                         .unwrap_or(listen_addr);
-                    let cc_info = ClientConnectionInfo::new(
+                    let (rt_handle, worker_id) = self.rt_handle();
+                    let mut cc_info = ClientConnectionInfo::new(
                         native_socket_addr(peer_addr),
                         native_socket_addr(local_addr),
                     );
-                    let (rt_handle, worker_id) = self.rt_handle();
-                    let mut run_ctx = run_ctx.clone();
-                    run_ctx.worker_id = worker_id;
+                    cc_info.set_worker_id(worker_id);
 
-                    aux_config.run_quic_task(rt_handle, next_server.clone(), connecting, cc_info, run_ctx);
+                    aux_config.run_quic_task(rt_handle, next_server.clone(), connecting, cc_info);
                 }
             }
 
@@ -258,33 +233,6 @@ impl AuxiliaryQuicPortRuntime {
                 let result = crate::serve::get_with_notifier(&next_server_name);
                 next_server = result.0;
                 next_server_reload_channel = result.1;
-
-                // if escaper changed, reload it
-                let old_escaper = run_ctx.current_escaper();
-                let new_escaper = next_server.escaper();
-                if old_escaper.ne(new_escaper) {
-                    info!("SRT[{}_v{}#{}] will use escaper '{new_escaper}' instead of '{old_escaper}'",
-                                        self.server.name(), self.server_version, self.instance_id);
-                    run_ctx.update_escaper(new_escaper);
-                }
-
-                // if user group changed, reload it
-                let old_user_group = run_ctx.current_user_group();
-                let new_user_group = next_server.user_group();
-                if old_user_group.ne(new_user_group) {
-                    info!("SRT[{}_v{}#{}] will use user group '{new_user_group}' instead of '{old_user_group}'",
-                                        self.server.name(), self.server_version, self.instance_id);
-                    run_ctx.update_user_group(new_user_group);
-                }
-
-                // if auditor changed, reload it
-                let old_auditor = run_ctx.current_auditor();
-                let new_auditor = next_server.auditor();
-                if old_auditor.ne(new_auditor) {
-                    info!("SRT[{}_v{}#{}] will use auditor '{new_auditor}' instead of '{old_auditor}'",
-                                        self.server.name(), self.server_version, self.instance_id);
-                    run_ctx.update_audit_handle(new_auditor);
-                }
             }
         }
         self.post_stop();

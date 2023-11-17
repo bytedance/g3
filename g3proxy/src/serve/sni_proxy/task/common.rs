@@ -36,7 +36,6 @@ pub(crate) struct CommonTaskContext {
     pub(crate) audit_handle: Option<Arc<AuditHandle>>,
     pub(crate) cc_info: ClientConnectionInfo,
     pub(crate) task_logger: Logger,
-    pub(crate) worker_id: Option<usize>,
 
     pub(crate) server_tcp_portmap: Arc<ProtocolPortMap>,
     pub(crate) client_tcp_portmap: Arc<ProtocolPortMap>,

@@ -19,6 +19,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
+use arc_swap::{ArcSwap, ArcSwapOption};
 use async_trait::async_trait;
 use log::debug;
 use quinn::Connection;
@@ -37,12 +38,14 @@ use g3_types::net::{OpensslClientConfig, WeightedUpstreamAddr};
 
 use super::common::CommonTaskContext;
 use super::task::TlsStreamTask;
+use crate::audit::AuditHandle;
 use crate::config::server::tls_stream::TlsStreamServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
+use crate::escape::ArcEscaper;
 use crate::serve::tcp_stream::TcpStreamServerStats;
 use crate::serve::{
     ArcServer, ArcServerStats, OrdinaryTcpServerRuntime, Server, ServerInternal, ServerQuitPolicy,
-    ServerReloadCommand, ServerRunContext, ServerStats,
+    ServerReloadCommand, ServerStats,
 };
 
 pub(crate) struct TlsStreamServer {
@@ -57,6 +60,8 @@ pub(crate) struct TlsStreamServer {
     reload_sender: broadcast::Sender<ServerReloadCommand>,
     task_logger: Logger,
 
+    escaper: ArcSwap<ArcEscaper>,
+    audit_handle: ArcSwapOption<AuditHandle>,
     quit_policy: Arc<ServerQuitPolicy>,
     reload_version: usize,
 }
@@ -102,6 +107,9 @@ impl TlsStreamServer {
 
         server_stats.set_extra_tags(config.extra_metrics_tags.clone());
 
+        let escaper = Arc::new(crate::escape::get_or_insert_default(config.escaper()));
+        let audit_handle = config.get_audit_handle()?;
+
         let server = TlsStreamServer {
             config,
             server_stats,
@@ -113,6 +121,8 @@ impl TlsStreamServer {
             ingress_net_filter,
             reload_sender,
             task_logger,
+            escaper: ArcSwap::new(escaper),
+            audit_handle: ArcSwapOption::new(audit_handle),
             quit_policy: Arc::new(ServerQuitPolicy::default()),
             reload_version: version,
         };
@@ -164,23 +174,17 @@ impl TlsStreamServer {
         false
     }
 
-    async fn run_task(
-        &self,
-        stream: TlsStream<TcpStream>,
-        cc_info: ClientConnectionInfo,
-        run_ctx: ServerRunContext,
-    ) {
+    async fn run_task(&self, stream: TlsStream<TcpStream>, cc_info: ClientConnectionInfo) {
         let client_ip = cc_info.client_ip();
         let ctx = CommonTaskContext {
             server_config: Arc::clone(&self.config),
             server_stats: Arc::clone(&self.server_stats),
             server_quit_policy: Arc::clone(&self.quit_policy),
-            escaper: run_ctx.escaper,
-            audit_handle: run_ctx.audit_handle,
+            escaper: self.escaper.load().as_ref().clone(),
+            audit_handle: self.audit_handle.load_full(),
             cc_info,
             tls_client_config: self.tls_client_config.clone(),
             task_logger: self.task_logger.clone(),
-            worker_id: run_ctx.worker_id,
         };
 
         #[derive(Hash)]
@@ -226,14 +230,17 @@ impl ServerInternal for TlsStreamServer {
         let _ = self.reload_sender.send(cmd);
     }
 
-    fn _reload_escaper_notify_runtime(&self) {
-        let _ = self.reload_sender.send(ServerReloadCommand::ReloadEscaper);
+    fn _update_escaper_in_place(&self) {
+        let escaper = crate::escape::get_or_insert_default(self.config.escaper());
+        self.escaper.store(Arc::new(escaper));
     }
 
-    fn _reload_user_group_notify_runtime(&self) {}
+    fn _update_user_group_in_place(&self) {}
 
-    fn _reload_auditor_notify_runtime(&self) {
-        let _ = self.reload_sender.send(ServerReloadCommand::ReloadAuditor);
+    fn _update_audit_handle_in_place(&self) -> anyhow::Result<()> {
+        let audit_handle = self.config.get_audit_handle()?;
+        self.audit_handle.store(audit_handle);
+        Ok(())
     }
 
     fn _reload_with_old_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
@@ -308,12 +315,7 @@ impl Server for TlsStreamServer {
         &self.quit_policy
     }
 
-    async fn run_tcp_task(
-        &self,
-        stream: TcpStream,
-        cc_info: ClientConnectionInfo,
-        ctx: ServerRunContext,
-    ) {
+    async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
         let client_addr = cc_info.client_addr();
         self.server_stats.add_conn(client_addr);
         if self.drop_early(client_addr) {
@@ -322,7 +324,7 @@ impl Server for TlsStreamServer {
 
         match tokio::time::timeout(self.tls_accept_timeout, self.tls_acceptor.accept(stream)).await
         {
-            Ok(Ok(stream)) => self.run_task(stream, cc_info, ctx).await,
+            Ok(Ok(stream)) => self.run_task(stream, cc_info).await,
             Ok(Err(e)) => {
                 self.listen_stats.add_failed();
                 debug!(
@@ -344,27 +346,15 @@ impl Server for TlsStreamServer {
         }
     }
 
-    async fn run_rustls_task(
-        &self,
-        _stream: TlsStream<TcpStream>,
-        _cc_info: ClientConnectionInfo,
-        _ctx: ServerRunContext,
-    ) {
+    async fn run_rustls_task(&self, _stream: TlsStream<TcpStream>, _cc_info: ClientConnectionInfo) {
     }
 
     async fn run_openssl_task(
         &self,
         _stream: SslStream<TcpStream>,
         _cc_info: ClientConnectionInfo,
-        _ctx: ServerRunContext,
     ) {
     }
 
-    async fn run_quic_task(
-        &self,
-        _connection: Connection,
-        _cc_info: ClientConnectionInfo,
-        _ctx: ServerRunContext,
-    ) {
-    }
+    async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
 }

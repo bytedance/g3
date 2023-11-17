@@ -37,7 +37,6 @@ pub(super) struct CommonTaskContext {
     pub(super) cc_info: ClientConnectionInfo,
     pub(super) tls_client_config: Option<Arc<OpensslClientConfig>>,
     pub(super) task_logger: Logger,
-    pub(super) worker_id: Option<usize>,
 }
 
 impl CommonTaskContext {

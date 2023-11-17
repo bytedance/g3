@@ -60,17 +60,6 @@ pub(crate) enum ServerReloadCommand {
     ReloadVersion(usize),
 }
 
-#[derive(Clone)]
-pub(crate) struct ServerRunContext {
-    pub(crate) worker_id: Option<usize>,
-}
-
-impl ServerRunContext {
-    pub(crate) fn new() -> Self {
-        ServerRunContext { worker_id: None }
-    }
-}
-
 pub(crate) trait ServerInternal {
     fn _clone_config(&self) -> AnyServerConfig;
     fn _update_config_in_place(&self, flags: u64, config: AnyServerConfig) -> anyhow::Result<()>;
@@ -98,12 +87,7 @@ pub(crate) trait Server: ServerInternal {
     fn alive_count(&self) -> i32;
     fn quit_policy(&self) -> &Arc<ServerQuitPolicy>;
 
-    async fn run_tcp_task(
-        &self,
-        stream: TcpStream,
-        cc_info: ClientConnectionInfo,
-        ctx: ServerRunContext,
-    );
+    async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo);
 }
 
 pub(crate) type ArcServer = Arc<dyn Server + Send + Sync>;

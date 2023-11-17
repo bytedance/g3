@@ -35,7 +35,7 @@ use super::{detect_tcp_proxy_protocol, DetectedProxyProtocol};
 use crate::config::server::intelli_proxy::IntelliProxyConfig;
 use crate::config::server::ServerConfig;
 use crate::serve::runtime::AuxiliaryRunContext;
-use crate::serve::{ArcServer, ListenStats, ServerRunContext};
+use crate::serve::{ArcServer, ListenStats};
 
 struct DetectedTcpStream {
     stream: TcpStream,
@@ -161,8 +161,8 @@ impl IntelliProxyRuntime {
                                 DetectedProxyProtocol::Socks => socks_server_id,
                                 _ => continue,
                             };
-                            let (task_server, task_run_ctx) = unsafe { run_ctx.get_unchecked(id) };
-                            self.run_task(d, task_server, task_run_ctx);
+                            let task_server = unsafe { run_ctx.get_unchecked(id) };
+                            self.run_task(d, task_server);
                         }
                         None => {
                             info!("SRT[{}_v{}#{}] quit after all connections handled",
@@ -176,15 +176,15 @@ impl IntelliProxyRuntime {
         self.post_stop();
     }
 
-    fn run_task(&self, d: DetectedTcpStream, server: ArcServer, mut ctx: ServerRunContext) {
+    fn run_task(&self, mut d: DetectedTcpStream, server: ArcServer) {
         let ingress_net_filter = self.ingress_net_filter.clone();
         let listen_stats = self.listen_stats.clone();
 
         let rt_handle = if let Some(worker_id) = self.worker_id {
-            ctx.worker_id = Some(worker_id);
+            d.cc_info.set_worker_id(Some(worker_id));
             Handle::current()
         } else if let Some(rt) = g3_daemon::runtime::worker::select_handle() {
-            ctx.worker_id = Some(rt.id);
+            d.cc_info.set_worker_id(Some(rt.id));
             rt.handle
         } else {
             Handle::current()
@@ -202,7 +202,7 @@ impl IntelliProxyRuntime {
                 }
             }
 
-            server.run_tcp_task(d.stream, d.cc_info, ctx).await
+            server.run_tcp_task(d.stream, d.cc_info).await
         });
     }
 

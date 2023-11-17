@@ -86,10 +86,6 @@ impl Drop for UserGroup {
 }
 
 impl UserGroup {
-    pub(crate) fn name(&self) -> &MetricsName {
-        self.config.name()
-    }
-
     fn new_without_users(config: UserGroupConfig) -> Self {
         UserGroup {
             config: Arc::new(config),

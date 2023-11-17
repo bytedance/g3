@@ -40,7 +40,7 @@ use crate::config::server::native_tls_port::NativeTlsPortConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::serve::{
     ArcServer, AuxTcpServerConfig, AuxiliaryTcpPortRuntime, Server, ServerInternal,
-    ServerQuitPolicy, ServerReloadCommand, ServerRunContext,
+    ServerQuitPolicy, ServerReloadCommand,
 };
 
 #[derive(Clone)]
@@ -62,7 +62,6 @@ impl AuxTcpServerConfig for NativeTlsPortAuxConfig {
         next_server: ArcServer,
         stream: TcpStream,
         cc_info: ClientConnectionInfo,
-        ctx: ServerRunContext,
     ) {
         let Ok(ssl) = Ssl::new(&self.tls_server_config.ssl_context) else {
             self.listen_stats.add_dropped();
@@ -121,7 +120,7 @@ impl AuxTcpServerConfig for NativeTlsPortAuxConfig {
             };
             match tokio::time::timeout(tls_accept_timeout, Pin::new(&mut ssl_stream).accept()).await
             {
-                Ok(Ok(_)) => next_server.run_openssl_task(ssl_stream, cc_info, ctx).await,
+                Ok(Ok(_)) => next_server.run_openssl_task(ssl_stream, cc_info).await,
                 Ok(Err(e)) => {
                     listen_stats.add_failed();
                     debug!(
@@ -265,9 +264,11 @@ impl ServerInternal for NativeTlsPort {
 
     // PlainTlsPort do not support reload with old runtime/notifier
     fn _reload_config_notify_runtime(&self) {}
-    fn _reload_escaper_notify_runtime(&self) {}
-    fn _reload_user_group_notify_runtime(&self) {}
-    fn _reload_auditor_notify_runtime(&self) {}
+    fn _update_escaper_in_place(&self) {}
+    fn _update_user_group_in_place(&self) {}
+    fn _update_audit_handle_in_place(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
 
     fn _reload_with_old_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
         Err(anyhow!(
@@ -333,35 +334,17 @@ impl Server for NativeTlsPort {
         &self.quit_policy
     }
 
-    async fn run_tcp_task(
-        &self,
-        _stream: TcpStream,
-        _cc_info: ClientConnectionInfo,
-        _ctx: ServerRunContext,
-    ) {
-    }
+    async fn run_tcp_task(&self, _stream: TcpStream, _cc_info: ClientConnectionInfo) {}
 
-    async fn run_rustls_task(
-        &self,
-        _stream: TlsStream<TcpStream>,
-        _cc_info: ClientConnectionInfo,
-        _ctx: ServerRunContext,
-    ) {
+    async fn run_rustls_task(&self, _stream: TlsStream<TcpStream>, _cc_info: ClientConnectionInfo) {
     }
 
     async fn run_openssl_task(
         &self,
         _stream: SslStream<TcpStream>,
         _cc_info: ClientConnectionInfo,
-        _ctx: ServerRunContext,
     ) {
     }
 
-    async fn run_quic_task(
-        &self,
-        _connection: Connection,
-        _cc_info: ClientConnectionInfo,
-        _ctx: ServerRunContext,
-    ) {
-    }
+    async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
 }

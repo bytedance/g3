@@ -19,6 +19,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
+use arc_swap::{ArcSwap, ArcSwapOption};
 use async_trait::async_trait;
 use log::debug;
 use quinn::Connection;
@@ -42,12 +43,13 @@ use super::task::{
     HttpRProxyPipelineWriterTask,
 };
 use super::{HttpHost, HttpRProxyServerStats};
+use crate::auth::UserGroup;
 use crate::config::server::http_rproxy::HttpRProxyServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::escape::ArcEscaper;
 use crate::serve::{
     ArcServer, ArcServerStats, OrdinaryTcpServerRuntime, Server, ServerInternal, ServerQuitPolicy,
-    ServerReloadCommand, ServerRunContext, ServerStats,
+    ServerReloadCommand, ServerStats,
 };
 
 pub(crate) struct HttpRProxyServer {
@@ -60,6 +62,8 @@ pub(crate) struct HttpRProxyServer {
     task_logger: Logger,
     hosts: HostMatch<Arc<HttpHost>>,
 
+    escaper: ArcSwap<ArcEscaper>,
+    user_group: ArcSwapOption<UserGroup>,
     quit_policy: Arc<ServerQuitPolicy>,
     reload_version: usize,
 }
@@ -94,6 +98,9 @@ impl HttpRProxyServer {
         // always update extra metrics tags
         server_stats.set_extra_tags(config.extra_metrics_tags.clone());
 
+        let escaper = Arc::new(crate::escape::get_or_insert_default(config.escaper()));
+        let user_group = config.get_user_group();
+
         let server = HttpRProxyServer {
             config,
             server_stats,
@@ -103,6 +110,8 @@ impl HttpRProxyServer {
             reload_sender,
             task_logger,
             hosts,
+            escaper: ArcSwap::new(escaper),
+            user_group: ArcSwapOption::new(user_group),
             quit_policy: Arc::new(ServerQuitPolicy::default()),
             reload_version: version,
         };
@@ -147,20 +156,14 @@ impl HttpRProxyServer {
         }
     }
 
-    fn get_common_task_context(
-        &self,
-        cc_info: ClientConnectionInfo,
-        escaper: ArcEscaper,
-        worker_id: Option<usize>,
-    ) -> Arc<CommonTaskContext> {
+    fn get_common_task_context(&self, cc_info: ClientConnectionInfo) -> Arc<CommonTaskContext> {
         Arc::new(CommonTaskContext {
             server_config: Arc::clone(&self.config),
             server_stats: Arc::clone(&self.server_stats),
             server_quit_policy: Arc::clone(&self.quit_policy),
-            escaper,
+            escaper: self.escaper.load().as_ref().clone(),
             cc_info,
             task_logger: self.task_logger.clone(),
-            worker_id,
         })
     }
 
@@ -181,15 +184,11 @@ impl HttpRProxyServer {
         false
     }
 
-    async fn spawn_stream_task<T>(
-        &self,
-        stream: T,
-        cc_info: ClientConnectionInfo,
-        run_ctx: ServerRunContext,
-    ) where
+    async fn spawn_stream_task<T>(&self, stream: T, cc_info: ClientConnectionInfo)
+    where
         T: AsyncRead + AsyncWrite + Send + Sync + 'static,
     {
-        let ctx = self.get_common_task_context(cc_info, run_ctx.escaper, run_ctx.worker_id);
+        let ctx = self.get_common_task_context(cc_info);
         let pipeline_stats = Arc::new(HttpRProxyPipelineStats::default());
         let (task_sender, task_receiver) = mpsc::channel(ctx.server_config.pipeline_size);
 
@@ -199,7 +198,7 @@ impl HttpRProxyServer {
         let r_task = HttpRProxyPipelineReaderTask::new(&ctx, task_sender, clt_r, &pipeline_stats);
         let w_task = HttpRProxyPipelineWriterTask::new(
             &ctx,
-            run_ctx.user_group,
+            self.user_group.load_full(),
             task_receiver,
             clt_w,
             &pipeline_stats,
@@ -209,13 +208,8 @@ impl HttpRProxyServer {
         w_task.into_running(&self.hosts).await
     }
 
-    async fn spawn_tcp_task(
-        &self,
-        stream: TcpStream,
-        cc_info: ClientConnectionInfo,
-        run_ctx: ServerRunContext,
-    ) {
-        let ctx = self.get_common_task_context(cc_info, run_ctx.escaper, run_ctx.worker_id);
+    async fn spawn_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
+        let ctx = self.get_common_task_context(cc_info);
         let pipeline_stats = Arc::new(HttpRProxyPipelineStats::default());
         let (task_sender, task_receiver) = mpsc::channel(ctx.server_config.pipeline_size);
 
@@ -223,7 +217,7 @@ impl HttpRProxyServer {
         let r_task = HttpRProxyPipelineReaderTask::new(&ctx, task_sender, clt_r, &pipeline_stats);
         let w_task = HttpRProxyPipelineWriterTask::new(
             &ctx,
-            run_ctx.user_group,
+            self.user_group.load_full(),
             task_receiver,
             clt_w,
             &pipeline_stats,
@@ -252,18 +246,17 @@ impl ServerInternal for HttpRProxyServer {
         let _ = self.reload_sender.send(cmd);
     }
 
-    fn _reload_escaper_notify_runtime(&self) {
-        let _ = self.reload_sender.send(ServerReloadCommand::ReloadEscaper);
+    fn _update_escaper_in_place(&self) {
+        let escaper = crate::escape::get_or_insert_default(self.config.escaper());
+        self.escaper.store(Arc::new(escaper));
     }
 
-    fn _reload_user_group_notify_runtime(&self) {
-        let _ = self
-            .reload_sender
-            .send(ServerReloadCommand::ReloadUserGroup);
+    fn _update_user_group_in_place(&self) {
+        self.user_group.store(self.config.get_user_group());
     }
 
-    fn _reload_auditor_notify_runtime(&self) {
-        let _ = self.reload_sender.send(ServerReloadCommand::ReloadAuditor);
+    fn _update_audit_handle_in_place(&self) -> anyhow::Result<()> {
+        Ok(())
     }
 
     fn _reload_with_old_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
@@ -338,12 +331,7 @@ impl Server for HttpRProxyServer {
         &self.quit_policy
     }
 
-    async fn run_tcp_task(
-        &self,
-        stream: TcpStream,
-        cc_info: ClientConnectionInfo,
-        ctx: ServerRunContext,
-    ) {
+    async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
         let client_addr = cc_info.client_addr();
         self.server_stats.add_conn(client_addr);
         if self.drop_early(client_addr) {
@@ -374,9 +362,7 @@ impl Server for HttpRProxyServer {
                             )
                             .await
                             {
-                                Ok(Ok(stream)) => {
-                                    self.spawn_stream_task(stream, cc_info, ctx).await
-                                }
+                                Ok(Ok(stream)) => self.spawn_stream_task(stream, cc_info).await,
                                 Ok(Err(e)) => {
                                     self.listen_stats.add_failed();
                                     debug!(
@@ -428,45 +414,29 @@ impl Server for HttpRProxyServer {
                 }
             }
         } else {
-            self.spawn_tcp_task(stream, cc_info, ctx).await;
+            self.spawn_tcp_task(stream, cc_info).await;
         }
     }
 
-    async fn run_rustls_task(
-        &self,
-        stream: TlsStream<TcpStream>,
-        cc_info: ClientConnectionInfo,
-        ctx: ServerRunContext,
-    ) {
+    async fn run_rustls_task(&self, stream: TlsStream<TcpStream>, cc_info: ClientConnectionInfo) {
         let client_addr = cc_info.client_addr();
         self.server_stats.add_conn(client_addr);
         if self.drop_early(client_addr) {
             return;
         }
 
-        self.spawn_stream_task(stream, cc_info, ctx).await;
+        self.spawn_stream_task(stream, cc_info).await;
     }
 
-    async fn run_openssl_task(
-        &self,
-        stream: SslStream<TcpStream>,
-        cc_info: ClientConnectionInfo,
-        ctx: ServerRunContext,
-    ) {
+    async fn run_openssl_task(&self, stream: SslStream<TcpStream>, cc_info: ClientConnectionInfo) {
         let client_addr = cc_info.client_addr();
         self.server_stats.add_conn(client_addr);
         if self.drop_early(client_addr) {
             return;
         }
 
-        self.spawn_stream_task(stream, cc_info, ctx).await;
+        self.spawn_stream_task(stream, cc_info).await;
     }
 
-    async fn run_quic_task(
-        &self,
-        _connection: Connection,
-        _cc_info: ClientConnectionInfo,
-        _ctx: ServerRunContext,
-    ) {
-    }
+    async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
 }

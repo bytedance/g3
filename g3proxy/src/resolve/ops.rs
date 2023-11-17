@@ -64,11 +64,7 @@ pub async fn spawn_all() -> anyhow::Result<()> {
     for name in &registry::get_names() {
         if !new_names.contains(name) {
             debug!("deleting resolver {name}");
-            let old_resolver = registry::del(name);
-            crate::escape::update_dependency_to_resolver(name, "deleted").await;
-            if let Some(mut resolver) = old_resolver {
-                resolver._shutdown().await;
-            }
+            delete_existed_unlocked(name).await;
             debug!("resolver {name} deleted");
         }
     }
@@ -115,12 +111,11 @@ pub(crate) async fn reload(
     debug!("reloading resolver {name} from position {position}");
     reload_old_unlocked(old_config, config).await?;
     debug!("resolver {name} reload OK");
-    update_dependency_to_resolver_unlocked(name).await;
     Ok(())
 }
 
 #[async_recursion]
-async fn update_dependency_to_resolver_unlocked(target: &MetricsName) {
+async fn update_dependency_to_resolver_unlocked(target: &MetricsName, status: &str) {
     let mut names = Vec::<MetricsName>::new();
 
     registry::foreach(|name, resolver| {
@@ -131,7 +126,7 @@ async fn update_dependency_to_resolver_unlocked(target: &MetricsName) {
         }
     });
 
-    debug!("resolver {target} changed, will reload resolvers(s) {names:?} which depend on it");
+    debug!("resolver {target} changed({status}), will reload resolvers(s) {names:?} which depend on it");
     for name in names.iter() {
         debug!("resolver {name}: will reload as it depends on resolver {target}");
         if let Err(e) = registry::update_dependency(name, target) {
@@ -141,7 +136,7 @@ async fn update_dependency_to_resolver_unlocked(target: &MetricsName) {
 
     // finish those in the same level first, then go in depth
     for name in names.iter() {
-        update_dependency_to_resolver_unlocked(name).await;
+        update_dependency_to_resolver_unlocked(name, "reloaded").await;
     }
 }
 
@@ -163,7 +158,20 @@ async fn reload_old_unlocked(old: AnyResolverConfig, new: AnyResolverConfig) -> 
     }
 }
 
+async fn delete_existed_unlocked(name: &MetricsName) {
+    const STATUS: &str = "deleted";
+
+    let old_resolver = registry::del(name);
+    update_dependency_to_resolver_unlocked(name, STATUS).await;
+    crate::escape::update_dependency_to_resolver(name, STATUS).await;
+    if let Some(mut resolver) = old_resolver {
+        resolver._shutdown().await;
+    }
+}
+
 async fn spawn_new_unlocked(config: AnyResolverConfig) -> anyhow::Result<()> {
+    const STATUS: &str = "spawned";
+
     let name = config.name().clone();
     let resolver = match config {
         #[cfg(feature = "c-ares")]
@@ -174,7 +182,8 @@ async fn spawn_new_unlocked(config: AnyResolverConfig) -> anyhow::Result<()> {
         AnyResolverConfig::FailOver(c) => FailOverResolver::new_obj(c)?,
     };
     let old_resolver = registry::add(name.clone(), resolver);
-    crate::escape::update_dependency_to_resolver(&name, "spawned").await;
+    update_dependency_to_resolver_unlocked(&name, STATUS).await;
+    crate::escape::update_dependency_to_resolver(&name, STATUS).await;
     if let Some(mut resolver) = old_resolver {
         resolver._shutdown().await;
     }

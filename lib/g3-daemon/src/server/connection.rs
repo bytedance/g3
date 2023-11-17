@@ -23,6 +23,7 @@ use g3_types::net::TcpMiscSockOpts;
 
 #[derive(Clone, Debug)]
 pub struct ClientConnectionInfo {
+    worker_id: Option<usize>,
     client_addr: SocketAddr,
     server_addr: SocketAddr,
     sock_peer_addr: SocketAddr,
@@ -34,6 +35,7 @@ pub struct ClientConnectionInfo {
 impl ClientConnectionInfo {
     pub fn new(peer_addr: SocketAddr, local_addr: SocketAddr) -> Self {
         ClientConnectionInfo {
+            worker_id: None,
             client_addr: peer_addr,
             server_addr: local_addr,
             sock_peer_addr: peer_addr,
@@ -54,10 +56,21 @@ impl ClientConnectionInfo {
     }
 
     #[inline]
+    pub fn set_worker_id(&mut self, worker_id: Option<usize>) {
+        self.worker_id = worker_id;
+    }
+
+    #[inline]
+    pub fn worker_id(&self) -> Option<usize> {
+        self.worker_id
+    }
+
+    #[inline]
     pub fn client_addr(&self) -> SocketAddr {
         self.client_addr
     }
 
+    #[inline]
     pub fn client_ip(&self) -> IpAddr {
         self.client_addr.ip()
     }
@@ -67,6 +80,7 @@ impl ClientConnectionInfo {
         self.server_addr
     }
 
+    #[inline]
     pub fn server_ip(&self) -> IpAddr {
         self.server_addr.ip()
     }

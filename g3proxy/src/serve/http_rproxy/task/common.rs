@@ -33,7 +33,6 @@ pub(crate) struct CommonTaskContext {
     pub(crate) escaper: ArcEscaper,
     pub(crate) cc_info: ClientConnectionInfo,
     pub(crate) task_logger: Logger,
-    pub(crate) worker_id: Option<usize>,
 }
 
 impl CommonTaskContext {

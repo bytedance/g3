@@ -17,7 +17,6 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use log::warn;
 use quinn::Connection;
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
@@ -28,10 +27,7 @@ use g3_daemon::listen::ListenStats;
 use g3_daemon::server::{ClientConnectionInfo, ServerQuitPolicy};
 use g3_types::metrics::MetricsName;
 
-use crate::audit::AuditHandle;
-use crate::auth::UserGroup;
 use crate::config::server::AnyServerConfig;
-use crate::escape::ArcEscaper;
 
 mod registry;
 pub(crate) use registry::{foreach_online as foreach_server, get_names, get_with_notifier};
@@ -82,81 +78,6 @@ pub(crate) use stats::{
 pub(crate) enum ServerReloadCommand {
     QuitRuntime,
     ReloadVersion(usize),
-    ReloadEscaper,
-    ReloadUserGroup,
-    ReloadAuditor,
-}
-
-#[derive(Clone)]
-pub(crate) struct ServerRunContext {
-    pub(crate) escaper: ArcEscaper,
-    pub(crate) user_group: Option<Arc<UserGroup>>,
-    pub(crate) audit_handle: Option<Arc<AuditHandle>>,
-    pub(crate) worker_id: Option<usize>,
-}
-
-impl ServerRunContext {
-    pub(crate) fn new(
-        escaper: &MetricsName,
-        user_group: &MetricsName,
-        auditor: &MetricsName,
-    ) -> Self {
-        let mut ctx = ServerRunContext {
-            escaper: crate::escape::get_or_insert_default(escaper),
-            user_group: None,
-            audit_handle: None,
-            worker_id: None,
-        };
-        ctx.update_user_group(user_group);
-        ctx.update_audit_handle(auditor);
-        ctx
-    }
-
-    pub(crate) fn current_escaper(&self) -> &MetricsName {
-        self.escaper.name()
-    }
-
-    pub(crate) fn update_escaper(&mut self, escaper: &MetricsName) {
-        self.escaper = crate::escape::get_or_insert_default(escaper);
-    }
-
-    pub(crate) fn current_user_group(&self) -> &MetricsName {
-        self.user_group
-            .as_ref()
-            .map(|ug| ug.name())
-            .unwrap_or_default()
-    }
-
-    pub(crate) fn update_user_group(&mut self, user_group: &MetricsName) {
-        if user_group.is_empty() {
-            self.user_group = None;
-        } else {
-            let user_group = crate::auth::get_or_insert_default(user_group);
-            self.user_group = Some(user_group);
-        }
-    }
-
-    pub(crate) fn current_auditor(&self) -> &MetricsName {
-        self.audit_handle
-            .as_ref()
-            .map(|h| h.name())
-            .unwrap_or_default()
-    }
-
-    pub(crate) fn update_audit_handle(&mut self, auditor_name: &MetricsName) {
-        if auditor_name.is_empty() {
-            self.audit_handle = None;
-        } else {
-            let auditor = crate::audit::get_or_insert_default(auditor_name);
-            match auditor.build_handle() {
-                Ok(handle) => self.audit_handle = Some(handle),
-                Err(e) => {
-                    warn!("error when build audit handle for auditor {auditor_name}: {e:?}",);
-                    self.audit_handle = None;
-                }
-            }
-        }
-    }
 }
 
 pub(crate) trait ServerInternal {
@@ -165,9 +86,9 @@ pub(crate) trait ServerInternal {
 
     fn _get_reload_notifier(&self) -> broadcast::Receiver<ServerReloadCommand>;
     fn _reload_config_notify_runtime(&self);
-    fn _reload_escaper_notify_runtime(&self);
-    fn _reload_user_group_notify_runtime(&self);
-    fn _reload_auditor_notify_runtime(&self);
+    fn _update_escaper_in_place(&self);
+    fn _update_user_group_in_place(&self);
+    fn _update_audit_handle_in_place(&self) -> anyhow::Result<()>;
 
     fn _reload_with_old_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer>;
     fn _reload_with_new_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer>;
@@ -192,33 +113,13 @@ pub(crate) trait Server: ServerInternal {
     fn alive_count(&self) -> i32;
     fn quit_policy(&self) -> &Arc<ServerQuitPolicy>;
 
-    async fn run_tcp_task(
-        &self,
-        stream: TcpStream,
-        cc_info: ClientConnectionInfo,
-        ctx: ServerRunContext,
-    );
+    async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo);
 
-    async fn run_rustls_task(
-        &self,
-        stream: TlsStream<TcpStream>,
-        cc_info: ClientConnectionInfo,
-        ctx: ServerRunContext,
-    );
+    async fn run_rustls_task(&self, stream: TlsStream<TcpStream>, cc_info: ClientConnectionInfo);
 
-    async fn run_openssl_task(
-        &self,
-        stream: SslStream<TcpStream>,
-        cc_info: ClientConnectionInfo,
-        ctx: ServerRunContext,
-    );
+    async fn run_openssl_task(&self, stream: SslStream<TcpStream>, cc_info: ClientConnectionInfo);
 
-    async fn run_quic_task(
-        &self,
-        connection: Connection,
-        cc_info: ClientConnectionInfo,
-        ctx: ServerRunContext,
-    );
+    async fn run_quic_task(&self, connection: Connection, cc_info: ClientConnectionInfo);
 }
 
 pub(crate) type ArcServer = Arc<dyn Server + Send + Sync>;
