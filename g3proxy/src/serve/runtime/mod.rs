@@ -14,9 +14,6 @@
  * limitations under the License.
  */
 
-mod auxiliary_context;
-pub(crate) use auxiliary_context::AuxiliaryRunContext;
-
 mod listen_tcp;
 pub(crate) use listen_tcp::ListenTcpRuntime;
 

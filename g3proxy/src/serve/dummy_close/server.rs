@@ -94,10 +94,6 @@ impl ServerInternal for DummyCloseServer {
         false
     }
 
-    fn _get_reload_notifier(&self) -> broadcast::Receiver<ServerReloadCommand> {
-        self.reload_sender.subscribe()
-    }
-
     // DummyClose server do not support reload with old runtime/notifier
     fn _reload_config_notify_runtime(&self) {}
 

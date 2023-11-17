@@ -209,7 +209,7 @@ async fn delete_existed_unlocked(name: &MetricsName) {
     const STATUS: &str = "deleted";
 
     registry::del(name);
-    update_dependency_to_escaper_unlocked(&name, STATUS).await;
+    update_dependency_to_escaper_unlocked(name, STATUS).await;
     crate::serve::update_dependency_to_escaper(name, STATUS).await;
 }
 
@@ -220,7 +220,7 @@ async fn reload_existed_unlocked(
     const STATUS: &str = "reloaded";
 
     registry::reload_existed(name, new).await?;
-    update_dependency_to_escaper_unlocked(&name, STATUS).await;
+    update_dependency_to_escaper_unlocked(name, STATUS).await;
     crate::serve::update_dependency_to_escaper(name, STATUS).await;
     Ok(())
 }

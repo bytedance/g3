@@ -197,7 +197,7 @@ impl ServerConfig for IntelliProxyConfig {
             return ServerConfigDiffAction::ReloadAndRespawn;
         }
 
-        ServerConfigDiffAction::UpdateInPlace(0)
+        ServerConfigDiffAction::ReloadOnlyConfig
     }
 
     fn dependent_server(&self) -> Option<BTreeSet<MetricsName>> {

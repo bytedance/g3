@@ -225,10 +225,6 @@ impl ServerInternal for TlsStreamServer {
         false
     }
 
-    fn _get_reload_notifier(&self) -> broadcast::Receiver<ServerReloadCommand> {
-        self.reload_sender.subscribe()
-    }
-
     fn _reload_config_notify_runtime(&self) {
         let cmd = ServerReloadCommand::ReloadVersion(self.reload_version);
         let _ = self.reload_sender.send(cmd);

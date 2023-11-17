@@ -274,7 +274,7 @@ fn reload_old_unlocked(old: AnyServerConfig, new: AnyServerConfig) -> anyhow::Re
 
 fn delete_existed_unlocked(name: &MetricsName) {
     registry::del(name);
-    update_dependency_to_server_unlocked(&name, "deleted");
+    update_dependency_to_server_unlocked(name, "deleted");
 }
 
 // use async fn to allow tokio schedule

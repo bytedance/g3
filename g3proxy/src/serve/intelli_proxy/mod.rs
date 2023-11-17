@@ -14,9 +14,7 @@
  * limitations under the License.
  */
 
-mod runtime;
 mod server;
-
 pub(super) use server::IntelliProxy;
 
 mod detection;
