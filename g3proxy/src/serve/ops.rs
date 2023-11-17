@@ -149,24 +149,24 @@ pub(crate) async fn reload(
 }
 
 pub(crate) fn update_dependency_to_server_unlocked(target: &MetricsName, status: &str) {
-    let mut names = Vec::<MetricsName>::new();
+    let mut servers = Vec::<ArcServer>::new();
 
-    registry::foreach_online(|name, server| {
+    registry::foreach_online(|_name, server| {
         if server._depend_on_server(target) {
-            names.push(name.clone());
+            servers.push(server.clone());
         }
     });
 
-    if names.is_empty() {
+    if servers.is_empty() {
         return;
     }
 
-    debug!("server {target} changed({status}), will reload server(s) {names:?}");
-    for name in names.iter() {
-        debug!("server {name}: will reload next servers as it's using server {target}");
-        if let Err(e) = registry::reload_next_servers(name) {
-            warn!("failed to reload server {name}: {e:?}");
-        }
+    for server in servers.iter() {
+        debug!(
+            "server {}: will reload next servers as it's using server {target}",
+            server.name()
+        );
+        server._update_next_servers_in_place();
     }
 }
 

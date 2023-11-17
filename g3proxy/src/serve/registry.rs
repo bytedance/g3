@@ -133,16 +133,6 @@ pub(super) fn reload_only_config(
     Ok(())
 }
 
-pub(crate) fn reload_next_servers(name: &MetricsName) -> anyhow::Result<()> {
-    let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
-    let Some(server) = ht.get(name) else {
-        return Err(anyhow!("no server with name {name} found"));
-    };
-
-    server._update_next_servers_in_place();
-    Ok(())
-}
-
 pub(crate) fn reload_only_escaper(name: &MetricsName) -> anyhow::Result<()> {
     let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     let Some(server) = ht.get(name) else {
