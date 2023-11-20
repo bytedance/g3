@@ -34,6 +34,7 @@ tokio-util = { workspace = true, features = ["compat"] }
 http = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 clap.workspace = true
+quinn = { workspace = true, optional = true }
 g3-types = { workspace = true, features = ["async-log"] }
 g3-stdlog.workspace = true
 g3-syslog.workspace = true
@@ -51,3 +52,4 @@ g3-journal.workspace = true
 [features]
 default = []
 register = ["g3-yaml/http", "dep:http", "dep:serde_json", "g3-http"]
+quic = ["dep:quinn"]

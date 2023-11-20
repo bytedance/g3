@@ -900,6 +900,7 @@ dependencies = [
  "log",
  "once_cell",
  "petgraph",
+ "quinn",
  "rand",
  "serde_json",
  "slog",
