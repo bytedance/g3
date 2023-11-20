@@ -27,7 +27,10 @@ use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 use tokio_rustls::server::TlsStream;
 
-use g3_daemon::listen::{AcceptTcpServer, ArcAcceptTcpServer, ListenStats, ListenTcpRuntime};
+use g3_daemon::listen::{
+    AcceptQuicServer, AcceptTcpServer, ArcAcceptQuicServer, ArcAcceptTcpServer, ListenStats,
+    ListenTcpRuntime,
+};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
@@ -269,6 +272,16 @@ impl AcceptTcpServer for SocksProxyServer {
 }
 
 #[async_trait]
+impl AcceptQuicServer for SocksProxyServer {
+    #[cfg(feature = "quic")]
+    async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
+
+    fn get_reloaded(&self) -> ArcAcceptQuicServer {
+        crate::serve::get_or_insert_default(self.config.name())
+    }
+}
+
+#[async_trait]
 impl Server for SocksProxyServer {
     fn escaper(&self) -> &MetricsName {
         self.config.escaper()
@@ -308,7 +321,4 @@ impl Server for SocksProxyServer {
         self.server_stats.add_conn(cc_info.client_addr());
         self.listen_stats.add_dropped();
     }
-
-    #[cfg(feature = "quic")]
-    async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
 }

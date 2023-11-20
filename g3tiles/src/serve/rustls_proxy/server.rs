@@ -20,11 +20,15 @@ use std::sync::Arc;
 use ahash::AHashMap;
 use anyhow::anyhow;
 use async_trait::async_trait;
+use quinn::Connection;
 use slog::Logger;
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 
-use g3_daemon::listen::{AcceptTcpServer, ArcAcceptTcpServer, ListenStats, ListenTcpRuntime};
+use g3_daemon::listen::{
+    AcceptQuicServer, AcceptTcpServer, ArcAcceptQuicServer, ArcAcceptTcpServer, ListenStats,
+    ListenTcpRuntime,
+};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::MetricsName;
@@ -245,6 +249,15 @@ impl AcceptTcpServer for RustlsProxyServer {
     }
 
     fn get_reloaded(&self) -> ArcAcceptTcpServer {
+        crate::serve::get_or_insert_default(self.config.name())
+    }
+}
+
+#[async_trait]
+impl AcceptQuicServer for RustlsProxyServer {
+    async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
+
+    fn get_reloaded(&self) -> ArcAcceptQuicServer {
         crate::serve::get_or_insert_default(self.config.name())
     }
 }

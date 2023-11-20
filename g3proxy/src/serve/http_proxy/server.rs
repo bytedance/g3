@@ -30,7 +30,10 @@ use tokio::net::TcpStream;
 use tokio::sync::{broadcast, mpsc};
 use tokio_rustls::{server::TlsStream, TlsAcceptor};
 
-use g3_daemon::listen::{AcceptTcpServer, ArcAcceptTcpServer, ListenStats, ListenTcpRuntime};
+use g3_daemon::listen::{
+    AcceptQuicServer, AcceptTcpServer, ArcAcceptQuicServer, ArcAcceptTcpServer, ListenStats,
+    ListenTcpRuntime,
+};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
@@ -388,6 +391,39 @@ impl AcceptTcpServer for HttpProxyServer {
 }
 
 #[async_trait]
+impl AcceptQuicServer for HttpProxyServer {
+    #[cfg(feature = "quic")]
+    async fn run_quic_task(&self, connection: Connection, cc_info: ClientConnectionInfo) {
+        let client_addr = cc_info.client_addr();
+        self.server_stats.add_conn(client_addr);
+        if self.drop_early(client_addr) {
+            return;
+        }
+
+        loop {
+            // TODO update ctx and quit gracefully
+            match connection.accept_bi().await {
+                Ok((send_stream, recv_stream)) => {
+                    self.spawn_quic_stream_task(send_stream, recv_stream, cc_info.clone())
+                }
+                Err(e) => {
+                    debug!(
+                        "{} - {} quic connection error: {e:?}",
+                        cc_info.sock_local_addr(),
+                        cc_info.sock_peer_addr()
+                    );
+                    break;
+                }
+            }
+        }
+    }
+
+    fn get_reloaded(&self) -> ArcAcceptQuicServer {
+        crate::serve::get_or_insert_default(self.config.name())
+    }
+}
+
+#[async_trait]
 impl Server for HttpProxyServer {
     fn escaper(&self) -> &MetricsName {
         self.config.escaper()
@@ -436,31 +472,5 @@ impl Server for HttpProxyServer {
         }
 
         self.spawn_stream_task(stream, cc_info).await;
-    }
-
-    #[cfg(feature = "quic")]
-    async fn run_quic_task(&self, connection: Connection, cc_info: ClientConnectionInfo) {
-        let client_addr = cc_info.client_addr();
-        self.server_stats.add_conn(client_addr);
-        if self.drop_early(client_addr) {
-            return;
-        }
-
-        loop {
-            // TODO update ctx and quit gracefully
-            match connection.accept_bi().await {
-                Ok((send_stream, recv_stream)) => {
-                    self.spawn_quic_stream_task(send_stream, recv_stream, cc_info.clone())
-                }
-                Err(e) => {
-                    debug!(
-                        "{} - {} quic connection error: {e:?}",
-                        cc_info.sock_local_addr(),
-                        cc_info.sock_peer_addr()
-                    );
-                    break;
-                }
-            }
-        }
     }
 }

@@ -28,7 +28,10 @@ use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 use tokio_rustls::{server::TlsStream, TlsAcceptor};
 
-use g3_daemon::listen::{AcceptTcpServer, ArcAcceptTcpServer, ListenStats, ListenTcpRuntime};
+use g3_daemon::listen::{
+    AcceptQuicServer, AcceptTcpServer, ArcAcceptQuicServer, ArcAcceptTcpServer, ListenStats,
+    ListenTcpRuntime,
+};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_io_ext::haproxy::{ProxyProtocolV1Reader, ProxyProtocolV2Reader};
 use g3_openssl::SslStream;
@@ -272,6 +275,16 @@ impl AcceptTcpServer for PlainTlsPort {
 }
 
 #[async_trait]
+impl AcceptQuicServer for PlainTlsPort {
+    #[cfg(feature = "quic")]
+    async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
+
+    fn get_reloaded(&self) -> ArcAcceptQuicServer {
+        crate::serve::get_or_insert_default(self.config.name())
+    }
+}
+
+#[async_trait]
 impl Server for PlainTlsPort {
     fn escaper(&self) -> &MetricsName {
         Default::default()
@@ -307,7 +320,4 @@ impl Server for PlainTlsPort {
         _cc_info: ClientConnectionInfo,
     ) {
     }
-
-    #[cfg(feature = "quic")]
-    async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
 }

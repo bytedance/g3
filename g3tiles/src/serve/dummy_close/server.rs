@@ -18,10 +18,13 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
+use quinn::Connection;
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 
-use g3_daemon::listen::{AcceptTcpServer, ArcAcceptTcpServer, ListenStats};
+use g3_daemon::listen::{
+    AcceptQuicServer, AcceptTcpServer, ArcAcceptQuicServer, ArcAcceptTcpServer, ListenStats,
+};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_types::metrics::MetricsName;
 
@@ -136,6 +139,15 @@ impl AcceptTcpServer for DummyCloseServer {
     async fn run_tcp_task(&self, _stream: TcpStream, _cc_info: ClientConnectionInfo) {}
 
     fn get_reloaded(&self) -> ArcAcceptTcpServer {
+        crate::serve::get_or_insert_default(self.config.name())
+    }
+}
+
+#[async_trait]
+impl AcceptQuicServer for DummyCloseServer {
+    async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
+
+    fn get_reloaded(&self) -> ArcAcceptQuicServer {
         crate::serve::get_or_insert_default(self.config.name())
     }
 }

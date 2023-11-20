@@ -31,7 +31,10 @@ use tokio::sync::{broadcast, mpsc};
 use tokio_rustls::server::TlsStream;
 use tokio_rustls::LazyConfigAcceptor;
 
-use g3_daemon::listen::{AcceptTcpServer, ArcAcceptTcpServer, ListenStats, ListenTcpRuntime};
+use g3_daemon::listen::{
+    AcceptQuicServer, AcceptTcpServer, ArcAcceptQuicServer, ArcAcceptTcpServer, ListenStats,
+    ListenTcpRuntime,
+};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
@@ -404,6 +407,16 @@ impl AcceptTcpServer for HttpRProxyServer {
 }
 
 #[async_trait]
+impl AcceptQuicServer for HttpRProxyServer {
+    #[cfg(feature = "quic")]
+    async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
+
+    fn get_reloaded(&self) -> ArcAcceptQuicServer {
+        crate::serve::get_or_insert_default(self.config.name())
+    }
+}
+
+#[async_trait]
 impl Server for HttpRProxyServer {
     fn escaper(&self) -> &MetricsName {
         self.config.escaper()
@@ -453,7 +466,4 @@ impl Server for HttpRProxyServer {
 
         self.spawn_stream_task(stream, cc_info).await;
     }
-
-    #[cfg(feature = "quic")]
-    async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
 }

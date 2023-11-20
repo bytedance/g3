@@ -17,13 +17,11 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-#[cfg(feature = "quic")]
-use quinn::Connection;
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 use tokio_rustls::server::TlsStream;
 
-use g3_daemon::listen::{AcceptTcpServer, ListenStats};
+use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerQuitPolicy, ServerReloadCommand};
 use g3_openssl::SslStream;
 use g3_types::metrics::MetricsName;
@@ -35,11 +33,6 @@ pub(crate) use registry::{foreach_online as foreach_server, get_names, get_or_in
 
 mod idle_check;
 pub(crate) use idle_check::ServerIdleChecker;
-
-#[cfg(feature = "quic")]
-mod runtime;
-#[cfg(feature = "quic")]
-use runtime::ListenQuicRuntime;
 
 mod dummy_close;
 mod intelli_proxy;
@@ -101,7 +94,9 @@ pub(crate) trait ServerInternal {
 }
 
 #[async_trait]
-pub(crate) trait Server: ServerInternal + BaseServer + AcceptTcpServer {
+pub(crate) trait Server:
+    ServerInternal + BaseServer + AcceptTcpServer + AcceptQuicServer
+{
     fn escaper(&self) -> &MetricsName;
     fn user_group(&self) -> &MetricsName;
     fn auditor(&self) -> &MetricsName;
@@ -117,9 +112,6 @@ pub(crate) trait Server: ServerInternal + BaseServer + AcceptTcpServer {
     async fn run_rustls_task(&self, stream: TlsStream<TcpStream>, cc_info: ClientConnectionInfo);
 
     async fn run_openssl_task(&self, stream: SslStream<TcpStream>, cc_info: ClientConnectionInfo);
-
-    #[cfg(feature = "quic")]
-    async fn run_quic_task(&self, connection: Connection, cc_info: ClientConnectionInfo);
 }
 
 pub(crate) type ArcServer = Arc<dyn Server + Send + Sync>;

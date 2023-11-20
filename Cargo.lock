@@ -1742,6 +1742,7 @@ dependencies = [
  "log",
  "once_cell",
  "openssl-probe",
+ "quinn",
  "rand",
  "rustc_version",
  "rustls",
