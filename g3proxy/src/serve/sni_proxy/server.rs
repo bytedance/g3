@@ -27,8 +27,8 @@ use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 use tokio_rustls::server::TlsStream;
 
-use g3_daemon::listen::ListenStats;
-use g3_daemon::server::{ClientConnectionInfo, ServerReloadCommand};
+use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
+use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_dpi::ProtocolPortMap;
 use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
@@ -40,8 +40,7 @@ use crate::config::server::sni_proxy::SniProxyServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::escape::ArcEscaper;
 use crate::serve::{
-    ArcServer, ArcServerStats, ListenTcpRuntime, Server, ServerInternal, ServerQuitPolicy,
-    ServerStats,
+    ArcServer, ArcServerStats, Server, ServerInternal, ServerQuitPolicy, ServerStats, WrapArcServer,
 };
 
 pub(crate) struct SniProxyServer {
@@ -210,7 +209,8 @@ impl ServerInternal for SniProxyServer {
         let Some(listen_config) = &self.config.listen else {
             return Ok(());
         };
-        let runtime = ListenTcpRuntime::new(server, &*self.config);
+        let runtime =
+            ListenTcpRuntime::new(WrapArcServer(server.clone()), server.get_listen_stats());
         runtime
             .run_all_instances(
                 listen_config,
@@ -226,18 +226,44 @@ impl ServerInternal for SniProxyServer {
     }
 }
 
-#[async_trait]
-impl Server for SniProxyServer {
+impl BaseServer for SniProxyServer {
     #[inline]
     fn name(&self) -> &MetricsName {
         self.config.name()
     }
 
     #[inline]
+    fn server_type(&self) -> &'static str {
+        self.config.server_type()
+    }
+
+    #[inline]
     fn version(&self) -> usize {
         self.reload_version
     }
+}
 
+#[async_trait]
+impl AcceptTcpServer for SniProxyServer {
+    async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
+        let client_addr = cc_info.client_addr();
+        self.server_stats.add_conn(client_addr);
+        if self.drop_early(client_addr) {
+            return;
+        }
+
+        self.run_task(stream, cc_info).await
+    }
+}
+
+#[async_trait]
+impl AcceptQuicServer for SniProxyServer {
+    #[cfg(feature = "quic")]
+    async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
+}
+
+#[async_trait]
+impl Server for SniProxyServer {
     fn escaper(&self) -> &MetricsName {
         self.config.escaper()
     }
@@ -267,16 +293,6 @@ impl Server for SniProxyServer {
         &self.quit_policy
     }
 
-    async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
-        let client_addr = cc_info.client_addr();
-        self.server_stats.add_conn(client_addr);
-        if self.drop_early(client_addr) {
-            return;
-        }
-
-        self.run_task(stream, cc_info).await
-    }
-
     async fn run_rustls_task(&self, _stream: TlsStream<TcpStream>, _cc_info: ClientConnectionInfo) {
     }
 
@@ -286,7 +302,4 @@ impl Server for SniProxyServer {
         _cc_info: ClientConnectionInfo,
     ) {
     }
-
-    #[cfg(feature = "quic")]
-    async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
 }

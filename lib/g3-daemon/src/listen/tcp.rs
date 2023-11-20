@@ -34,14 +34,15 @@ use crate::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 #[async_trait]
 pub trait AcceptTcpServer: BaseServer {
     async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo);
-    fn get_reloaded(&self) -> ArcAcceptTcpServer;
 }
 
-pub type ArcAcceptTcpServer = Arc<dyn AcceptTcpServer + Send + Sync>;
+pub trait ReloadTcpServer: AcceptTcpServer {
+    fn get_reloaded(&self) -> Self;
+}
 
 #[derive(Clone)]
-pub struct ListenTcpRuntime {
-    server: ArcAcceptTcpServer,
+pub struct ListenTcpRuntime<S> {
+    server: S,
     server_type: &'static str,
     server_version: usize,
     worker_id: Option<usize>,
@@ -49,12 +50,17 @@ pub struct ListenTcpRuntime {
     instance_id: usize,
 }
 
-impl ListenTcpRuntime {
-    pub fn new(server: &ArcAcceptTcpServer, listen_stats: Arc<ListenStats>) -> Self {
+impl<S> ListenTcpRuntime<S>
+where
+    S: ReloadTcpServer + Clone + Send + Sync + 'static,
+{
+    pub fn new(server: S, listen_stats: Arc<ListenStats>) -> Self {
+        let server_type = server.server_type();
+        let server_version = server.version();
         ListenTcpRuntime {
-            server: Arc::clone(server),
-            server_type: server.server_type(),
-            server_version: server.version(),
+            server,
+            server_type,
+            server_version,
             worker_id: None,
             listen_stats,
             instance_id: 0,
@@ -169,7 +175,7 @@ impl ListenTcpRuntime {
     }
 
     fn run_task(&self, stream: TcpStream, peer_addr: SocketAddr, local_addr: SocketAddr) {
-        let server = Arc::clone(&self.server);
+        let server = self.server.clone();
 
         let mut cc_info = ClientConnectionInfo::new(peer_addr, local_addr);
         cc_info.set_tcp_raw_fd(stream.as_raw_fd());

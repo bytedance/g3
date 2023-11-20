@@ -51,4 +51,4 @@ g3-journal.workspace = true
 [features]
 default = []
 register = ["g3-yaml/http", "dep:http", "dep:serde_json", "dep:g3-http"]
-quic = ["dep:quinn"]
+quic = ["dep:quinn", "g3-types/acl-rule"]

@@ -18,9 +18,9 @@ mod stats;
 pub use stats::{ListenSnapshot, ListenStats};
 
 mod tcp;
-pub use tcp::{AcceptTcpServer, ArcAcceptTcpServer, ListenTcpRuntime};
+pub use tcp::{AcceptTcpServer, ListenTcpRuntime, ReloadTcpServer};
 
 #[cfg_attr(feature = "quic", path = "quic.rs")]
 #[cfg_attr(not(feature = "quic"), path = "no_quic.rs")]
 mod quic;
-pub use quic::{AcceptQuicServer, ArcAcceptQuicServer, ListenQuicConf, ListenQuicRuntime};
+pub use quic::{AcceptQuicServer, ListenQuicConf, ListenQuicRuntime, ReloadQuicServer};

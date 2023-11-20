@@ -27,8 +27,8 @@ use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 use tokio_rustls::server::TlsStream;
 
-use g3_daemon::listen::ListenStats;
-use g3_daemon::server::{ClientConnectionInfo, ServerReloadCommand};
+use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
+use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::MetricsName;
@@ -41,8 +41,7 @@ use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::escape::ArcEscaper;
 use crate::serve::tcp_stream::TcpStreamServerStats;
 use crate::serve::{
-    ArcServer, ArcServerStats, ListenTcpRuntime, Server, ServerInternal, ServerQuitPolicy,
-    ServerStats,
+    ArcServer, ArcServerStats, Server, ServerInternal, ServerQuitPolicy, ServerStats, WrapArcServer,
 };
 
 pub(crate) struct TcpTProxyServer {
@@ -200,7 +199,8 @@ impl ServerInternal for TcpTProxyServer {
     }
 
     fn _start_runtime(&self, server: &ArcServer) -> anyhow::Result<()> {
-        let runtime = ListenTcpRuntime::new(server, &*self.config);
+        let runtime =
+            ListenTcpRuntime::new(WrapArcServer(server.clone()), server.get_listen_stats());
         runtime
             .run_all_instances(
                 &self.config.listen,
@@ -216,18 +216,44 @@ impl ServerInternal for TcpTProxyServer {
     }
 }
 
-#[async_trait]
-impl Server for TcpTProxyServer {
+impl BaseServer for TcpTProxyServer {
     #[inline]
     fn name(&self) -> &MetricsName {
         self.config.name()
     }
 
     #[inline]
+    fn server_type(&self) -> &'static str {
+        self.config.server_type()
+    }
+
+    #[inline]
     fn version(&self) -> usize {
         self.reload_version
     }
+}
 
+#[async_trait]
+impl AcceptTcpServer for TcpTProxyServer {
+    async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
+        let client_addr = cc_info.client_addr();
+        self.server_stats.add_conn(client_addr);
+        if self.drop_early(client_addr) {
+            return;
+        }
+
+        self.run_task(stream, cc_info).await
+    }
+}
+
+#[async_trait]
+impl AcceptQuicServer for TcpTProxyServer {
+    #[cfg(feature = "quic")]
+    async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
+}
+
+#[async_trait]
+impl Server for TcpTProxyServer {
     fn escaper(&self) -> &MetricsName {
         self.config.escaper()
     }
@@ -257,16 +283,6 @@ impl Server for TcpTProxyServer {
         &self.quit_policy
     }
 
-    async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
-        let client_addr = cc_info.client_addr();
-        self.server_stats.add_conn(client_addr);
-        if self.drop_early(client_addr) {
-            return;
-        }
-
-        self.run_task(stream, cc_info).await
-    }
-
     async fn run_rustls_task(&self, _stream: TlsStream<TcpStream>, _cc_info: ClientConnectionInfo) {
     }
 
@@ -276,7 +292,4 @@ impl Server for TcpTProxyServer {
         _cc_info: ClientConnectionInfo,
     ) {
     }
-
-    #[cfg(feature = "quic")]
-    async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
 }

@@ -24,8 +24,8 @@ use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 use tokio_rustls::server::TlsStream;
 
-use g3_daemon::listen::ListenStats;
-use g3_daemon::server::{ClientConnectionInfo, ServerReloadCommand};
+use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats};
+use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_openssl::SslStream;
 use g3_types::metrics::MetricsName;
 
@@ -129,16 +129,33 @@ impl ServerInternal for DummyCloseServer {
     }
 }
 
-#[async_trait]
-impl Server for DummyCloseServer {
+impl BaseServer for DummyCloseServer {
     fn name(&self) -> &MetricsName {
         self.config.name()
+    }
+
+    fn server_type(&self) -> &'static str {
+        self.config.server_type()
     }
 
     fn version(&self) -> usize {
         0
     }
+}
 
+#[async_trait]
+impl AcceptTcpServer for DummyCloseServer {
+    async fn run_tcp_task(&self, _stream: TcpStream, _cc_info: ClientConnectionInfo) {}
+}
+
+#[async_trait]
+impl AcceptQuicServer for DummyCloseServer {
+    #[cfg(feature = "quic")]
+    async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
+}
+
+#[async_trait]
+impl Server for DummyCloseServer {
     fn escaper(&self) -> &MetricsName {
         Default::default()
     }
@@ -164,8 +181,6 @@ impl Server for DummyCloseServer {
         &self.quit_policy
     }
 
-    async fn run_tcp_task(&self, _stream: TcpStream, _cc_info: ClientConnectionInfo) {}
-
     async fn run_rustls_task(&self, _stream: TlsStream<TcpStream>, _cc_info: ClientConnectionInfo) {
     }
 
@@ -175,7 +190,4 @@ impl Server for DummyCloseServer {
         _cc_info: ClientConnectionInfo,
     ) {
     }
-
-    #[cfg(feature = "quic")]
-    async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
 }

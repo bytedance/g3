@@ -36,11 +36,11 @@ use crate::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 #[async_trait]
 pub trait AcceptQuicServer: BaseServer {
     async fn run_quic_task(&self, connection: Connection, cc_info: ClientConnectionInfo);
-
-    fn get_reloaded(&self) -> ArcAcceptQuicServer;
 }
 
-pub type ArcAcceptQuicServer = Arc<dyn AcceptQuicServer + Send + Sync>;
+pub trait ReloadQuicServer: AcceptQuicServer {
+    fn get_reloaded(&self) -> Self;
+}
 
 pub trait ListenQuicConf {
     fn take_udp_listen_config(&mut self) -> Option<UdpListenConfig>;
@@ -55,8 +55,8 @@ pub trait ListenQuicConf {
 }
 
 #[derive(Clone)]
-pub struct ListenQuicRuntime {
-    server: ArcAcceptQuicServer,
+pub struct ListenQuicRuntime<S> {
+    server: S,
     server_type: &'static str,
     server_version: usize,
     worker_id: Option<usize>,
@@ -65,12 +65,11 @@ pub struct ListenQuicRuntime {
     instance_id: usize,
 }
 
-impl ListenQuicRuntime {
-    pub fn new(
-        server: ArcAcceptQuicServer,
-        listen_stats: Arc<ListenStats>,
-        listen_config: UdpListenConfig,
-    ) -> Self {
+impl<S> ListenQuicRuntime<S>
+where
+    S: ReloadQuicServer + Clone + Send + Sync + 'static,
+{
+    pub fn new(server: S, listen_stats: Arc<ListenStats>, listen_config: UdpListenConfig) -> Self {
         let server_type = server.server_type();
         let server_version = server.version();
         ListenQuicRuntime {
@@ -261,7 +260,7 @@ impl ListenQuicRuntime {
     }
 
     async fn accept_connection_and_run(
-        server: ArcAcceptQuicServer,
+        server: S,
         connecting: Connecting,
         cc_info: ClientConnectionInfo,
         timeout: Duration,

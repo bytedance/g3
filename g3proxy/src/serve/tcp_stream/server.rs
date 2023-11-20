@@ -28,8 +28,8 @@ use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 use tokio_rustls::server::TlsStream;
 
-use g3_daemon::listen::ListenStats;
-use g3_daemon::server::{ClientConnectionInfo, ServerReloadCommand};
+use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
+use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::collection::{SelectivePickPolicy, SelectiveVec, SelectiveVecBuilder};
@@ -44,8 +44,7 @@ use crate::config::server::tcp_stream::TcpStreamServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::escape::ArcEscaper;
 use crate::serve::{
-    ArcServer, ArcServerStats, ListenTcpRuntime, Server, ServerInternal, ServerQuitPolicy,
-    ServerStats,
+    ArcServer, ArcServerStats, Server, ServerInternal, ServerQuitPolicy, ServerStats, WrapArcServer,
 };
 
 pub(crate) struct TcpStreamServer {
@@ -284,7 +283,8 @@ impl ServerInternal for TcpStreamServer {
         let Some(listen_config) = &self.config.listen else {
             return Ok(());
         };
-        let runtime = ListenTcpRuntime::new(server, &*self.config);
+        let runtime =
+            ListenTcpRuntime::new(WrapArcServer(server.clone()), server.get_listen_stats());
         runtime
             .run_all_instances(
                 listen_config,
@@ -300,18 +300,69 @@ impl ServerInternal for TcpStreamServer {
     }
 }
 
-#[async_trait]
-impl Server for TcpStreamServer {
+impl BaseServer for TcpStreamServer {
     #[inline]
     fn name(&self) -> &MetricsName {
         self.config.name()
     }
 
     #[inline]
+    fn server_type(&self) -> &'static str {
+        self.config.server_type()
+    }
+
+    #[inline]
     fn version(&self) -> usize {
         self.reload_version
     }
+}
 
+#[async_trait]
+impl AcceptTcpServer for TcpStreamServer {
+    async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
+        let client_addr = cc_info.client_addr();
+        self.server_stats.add_conn(client_addr);
+        if self.drop_early(client_addr) {
+            return;
+        }
+
+        self.run_task_with_tcp(stream, cc_info).await
+    }
+}
+
+#[async_trait]
+impl AcceptQuicServer for TcpStreamServer {
+    #[cfg(feature = "quic")]
+    async fn run_quic_task(&self, connection: Connection, cc_info: ClientConnectionInfo) {
+        use log::debug;
+
+        let client_addr = cc_info.client_addr();
+        self.server_stats.add_conn(client_addr);
+        if self.drop_early(client_addr) {
+            return;
+        }
+
+        loop {
+            // TODO update ctx and quit gracefully
+            match connection.accept_bi().await {
+                Ok((send_stream, recv_stream)) => {
+                    self.run_task_with_quic_stream(send_stream, recv_stream, cc_info.clone())
+                }
+                Err(e) => {
+                    debug!(
+                        "{} - {} quic connection error: {e:?}",
+                        cc_info.sock_local_addr(),
+                        cc_info.sock_peer_addr()
+                    );
+                    break;
+                }
+            }
+        }
+    }
+}
+
+#[async_trait]
+impl Server for TcpStreamServer {
     fn escaper(&self) -> &MetricsName {
         self.config.escaper()
     }
@@ -341,16 +392,6 @@ impl Server for TcpStreamServer {
         &self.quit_policy
     }
 
-    async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
-        let client_addr = cc_info.client_addr();
-        self.server_stats.add_conn(client_addr);
-        if self.drop_early(client_addr) {
-            return;
-        }
-
-        self.run_task_with_tcp(stream, cc_info).await
-    }
-
     async fn run_rustls_task(&self, stream: TlsStream<TcpStream>, cc_info: ClientConnectionInfo) {
         let client_addr = cc_info.client_addr();
         self.server_stats.add_conn(client_addr);
@@ -369,33 +410,5 @@ impl Server for TcpStreamServer {
         }
 
         self.run_task_with_stream(stream, cc_info).await
-    }
-
-    #[cfg(feature = "quic")]
-    async fn run_quic_task(&self, connection: Connection, cc_info: ClientConnectionInfo) {
-        use log::debug;
-
-        let client_addr = cc_info.client_addr();
-        self.server_stats.add_conn(client_addr);
-        if self.drop_early(client_addr) {
-            return;
-        }
-
-        loop {
-            // TODO update ctx and quit gracefully
-            match connection.accept_bi().await {
-                Ok((send_stream, recv_stream)) => {
-                    self.run_task_with_quic_stream(send_stream, recv_stream, cc_info.clone())
-                }
-                Err(e) => {
-                    debug!(
-                        "{} - {} quic connection error: {e:?}",
-                        cc_info.sock_local_addr(),
-                        cc_info.sock_peer_addr()
-                    );
-                    break;
-                }
-            }
-        }
     }
 }

@@ -18,11 +18,13 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
+#[cfg(feature = "quic")]
+use quinn::Connection;
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 
-use g3_daemon::listen::ListenStats;
-use g3_daemon::server::{ClientConnectionInfo, ServerReloadCommand};
+use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats};
+use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_types::metrics::MetricsName;
 
 use crate::config::server::dummy_close::DummyCloseServerConfig;
@@ -117,16 +119,33 @@ impl ServerInternal for DummyCloseServer {
     }
 }
 
-#[async_trait]
-impl Server for DummyCloseServer {
+impl BaseServer for DummyCloseServer {
     fn name(&self) -> &MetricsName {
         self.config.name()
+    }
+
+    fn server_type(&self) -> &'static str {
+        self.config.server_type()
     }
 
     fn version(&self) -> usize {
         0
     }
+}
 
+#[async_trait]
+impl AcceptTcpServer for DummyCloseServer {
+    async fn run_tcp_task(&self, _stream: TcpStream, _cc_info: ClientConnectionInfo) {}
+}
+
+#[async_trait]
+impl AcceptQuicServer for DummyCloseServer {
+    #[cfg(feature = "quic")]
+    async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
+}
+
+#[async_trait]
+impl Server for DummyCloseServer {
     fn get_listen_stats(&self) -> Arc<ListenStats> {
         Arc::clone(&self.listen_stats)
     }
@@ -141,6 +160,4 @@ impl Server for DummyCloseServer {
     }
 
     fn update_backend(&self, _name: &MetricsName) {}
-
-    async fn run_tcp_task(&self, _stream: TcpStream, _cc_info: ClientConnectionInfo) {}
 }

@@ -31,8 +31,8 @@ use tokio::sync::{broadcast, mpsc};
 use tokio_rustls::server::TlsStream;
 use tokio_rustls::LazyConfigAcceptor;
 
-use g3_daemon::listen::ListenStats;
-use g3_daemon::server::{ClientConnectionInfo, ServerReloadCommand};
+use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
+use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::MetricsName;
@@ -49,8 +49,7 @@ use crate::config::server::http_rproxy::HttpRProxyServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::escape::ArcEscaper;
 use crate::serve::{
-    ArcServer, ArcServerStats, ListenTcpRuntime, Server, ServerInternal, ServerQuitPolicy,
-    ServerStats,
+    ArcServer, ArcServerStats, Server, ServerInternal, ServerQuitPolicy, ServerStats, WrapArcServer,
 };
 
 pub(crate) struct HttpRProxyServer {
@@ -277,7 +276,8 @@ impl ServerInternal for HttpRProxyServer {
         let Some(listen_config) = &self.config.listen else {
             return Ok(());
         };
-        let runtime = ListenTcpRuntime::new(server, &*self.config);
+        let runtime =
+            ListenTcpRuntime::new(WrapArcServer(server.clone()), server.get_listen_stats());
         runtime
             .run_all_instances(
                 listen_config,
@@ -293,47 +293,25 @@ impl ServerInternal for HttpRProxyServer {
     }
 }
 
-#[async_trait]
-impl Server for HttpRProxyServer {
+impl BaseServer for HttpRProxyServer {
     #[inline]
     fn name(&self) -> &MetricsName {
         self.config.name()
     }
 
     #[inline]
-    fn version(&self) -> usize {
-        self.reload_version
-    }
-
-    fn escaper(&self) -> &MetricsName {
-        self.config.escaper()
-    }
-
-    fn user_group(&self) -> &MetricsName {
-        self.config.user_group()
-    }
-
-    fn auditor(&self) -> &MetricsName {
-        self.config.auditor()
-    }
-
-    fn get_server_stats(&self) -> Option<ArcServerStats> {
-        Some(Arc::clone(&self.server_stats) as _)
-    }
-
-    fn get_listen_stats(&self) -> Arc<ListenStats> {
-        Arc::clone(&self.listen_stats)
-    }
-
-    fn alive_count(&self) -> i32 {
-        self.server_stats.get_alive_count()
+    fn server_type(&self) -> &'static str {
+        self.config.server_type()
     }
 
     #[inline]
-    fn quit_policy(&self) -> &Arc<ServerQuitPolicy> {
-        &self.quit_policy
+    fn version(&self) -> usize {
+        self.reload_version
     }
+}
 
+#[async_trait]
+impl AcceptTcpServer for HttpRProxyServer {
     async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
         let client_addr = cc_info.client_addr();
         self.server_stats.add_conn(client_addr);
@@ -420,6 +398,44 @@ impl Server for HttpRProxyServer {
             self.spawn_tcp_task(stream, cc_info).await;
         }
     }
+}
+
+#[async_trait]
+impl AcceptQuicServer for HttpRProxyServer {
+    #[cfg(feature = "quic")]
+    async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
+}
+
+#[async_trait]
+impl Server for HttpRProxyServer {
+    fn escaper(&self) -> &MetricsName {
+        self.config.escaper()
+    }
+
+    fn user_group(&self) -> &MetricsName {
+        self.config.user_group()
+    }
+
+    fn auditor(&self) -> &MetricsName {
+        self.config.auditor()
+    }
+
+    fn get_server_stats(&self) -> Option<ArcServerStats> {
+        Some(Arc::clone(&self.server_stats) as _)
+    }
+
+    fn get_listen_stats(&self) -> Arc<ListenStats> {
+        Arc::clone(&self.listen_stats)
+    }
+
+    fn alive_count(&self) -> i32 {
+        self.server_stats.get_alive_count()
+    }
+
+    #[inline]
+    fn quit_policy(&self) -> &Arc<ServerQuitPolicy> {
+        &self.quit_policy
+    }
 
     async fn run_rustls_task(&self, stream: TlsStream<TcpStream>, cc_info: ClientConnectionInfo) {
         let client_addr = cc_info.client_addr();
@@ -440,7 +456,4 @@ impl Server for HttpRProxyServer {
 
         self.spawn_stream_task(stream, cc_info).await;
     }
-
-    #[cfg(feature = "quic")]
-    async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
 }

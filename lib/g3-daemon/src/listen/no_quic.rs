@@ -21,11 +21,11 @@ use async_trait::async_trait;
 use crate::server::BaseServer;
 
 #[async_trait]
-pub trait AcceptQuicServer: BaseServer {
-    fn get_reloaded(&self) -> ArcAcceptQuicServer;
-}
+pub trait AcceptQuicServer: BaseServer {}
 
-pub type ArcAcceptQuicServer = Arc<dyn AcceptQuicServer + Send + Sync>;
+pub trait ReloadQuicServer: AcceptQuicServer {
+    fn get_reloaded(&self) -> Self;
+}
 
 pub trait ListenQuicConf {}
 
