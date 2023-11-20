@@ -22,12 +22,12 @@ use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 
 use g3_daemon::listen::ListenStats;
-use g3_daemon::server::ClientConnectionInfo;
+use g3_daemon::server::{ClientConnectionInfo, ServerReloadCommand};
 use g3_types::metrics::MetricsName;
 
 use crate::config::server::dummy_close::DummyCloseServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
-use crate::serve::{ArcServer, Server, ServerInternal, ServerQuitPolicy, ServerReloadCommand};
+use crate::serve::{ArcServer, Server, ServerInternal, ServerQuitPolicy};
 
 pub(crate) struct DummyCloseServer {
     config: DummyCloseServerConfig,
@@ -87,12 +87,14 @@ impl ServerInternal for DummyCloseServer {
         Ok(())
     }
 
-    fn _get_reload_notifier(&self) -> broadcast::Receiver<ServerReloadCommand> {
-        self.reload_sender.subscribe()
+    fn _depend_on_server(&self, _name: &MetricsName) -> bool {
+        false
     }
 
     // DummyClose server do not support reload with old runtime/notifier
     fn _reload_config_notify_runtime(&self) {}
+
+    fn _update_next_servers_in_place(&self) {}
 
     fn _reload_with_old_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
         Err(anyhow!(

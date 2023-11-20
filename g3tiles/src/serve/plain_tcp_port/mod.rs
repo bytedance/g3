@@ -14,104 +14,40 @@
  * limitations under the License.
  */
 
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::anyhow;
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use tokio::net::TcpStream;
-use tokio::runtime::Handle;
-use tokio::sync::{broadcast, watch};
+use tokio::sync::broadcast;
 
 use g3_daemon::listen::ListenStats;
-use g3_daemon::server::ClientConnectionInfo;
-use g3_io_ext::haproxy::ProxyProtocolV2Reader;
+use g3_daemon::server::{ClientConnectionInfo, ServerReloadCommand};
+use g3_io_ext::haproxy::{ProxyProtocolV1Reader, ProxyProtocolV2Reader};
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::MetricsName;
 use g3_types::net::ProxyProtocolVersion;
 
 use crate::config::server::plain_tcp_port::PlainTcpPortConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
-use crate::serve::{
-    ArcServer, AuxiliaryServerConfig, AuxiliaryTcpPortRuntime, Server, ServerInternal,
-    ServerQuitPolicy, ServerReloadCommand,
-};
-
-#[derive(Clone)]
-struct PlainTcpPortAuxConfig {
-    config: Arc<PlainTcpPortConfig>,
-    ingress_net_filter: Option<Arc<AclNetworkRule>>,
-    listen_stats: Arc<ListenStats>,
-}
-
-impl AuxiliaryServerConfig for PlainTcpPortAuxConfig {
-    fn next_server(&self) -> &MetricsName {
-        &self.config.server
-    }
-
-    fn run_tcp_task(
-        &self,
-        rt_handle: Handle,
-        next_server: ArcServer,
-        stream: TcpStream,
-        cc_info: ClientConnectionInfo,
-    ) {
-        let ingress_net_filter = self.ingress_net_filter.clone();
-        let listen_stats = self.listen_stats.clone();
-        let proxy_protocol = self.config.proxy_protocol;
-        let proxy_protocol_read_timeout = self.config.proxy_protocol_read_timeout;
-
-        rt_handle.spawn(async move {
-            if let Some(filter) = ingress_net_filter {
-                let (_, action) = filter.check(cc_info.sock_peer_ip());
-                match action {
-                    AclAction::Permit | AclAction::PermitAndLog => {}
-                    AclAction::Forbid | AclAction::ForbidAndLog => {
-                        listen_stats.add_dropped();
-                        return;
-                    }
-                }
-            }
-
-            let mut cc_info = cc_info;
-            match proxy_protocol {
-                Some(ProxyProtocolVersion::V1) => {
-                    // TODO support proxy protocol v1
-                    listen_stats.add_dropped();
-                }
-                Some(ProxyProtocolVersion::V2) => {
-                    let mut stream = stream;
-                    let mut parser = ProxyProtocolV2Reader::new(proxy_protocol_read_timeout);
-                    match parser.read_proxy_protocol_v2_for_tcp(&mut stream).await {
-                        Ok(Some(a)) => {
-                            cc_info.set_proxy_addr(a);
-                            next_server.run_tcp_task(stream, cc_info).await
-                        }
-                        Ok(None) => next_server.run_tcp_task(stream, cc_info).await,
-                        Err(e) => listen_stats.add_by_proxy_protocol_error(e),
-                    }
-                }
-                None => next_server.run_tcp_task(stream, cc_info).await,
-            }
-        });
-    }
-}
+use crate::serve::{ArcServer, ListenTcpRuntime, Server, ServerInternal, ServerQuitPolicy};
 
 pub(crate) struct PlainTcpPort {
-    name: MetricsName,
-    config: ArcSwap<PlainTcpPortConfig>,
+    config: PlainTcpPortConfig,
     listen_stats: Arc<ListenStats>,
+    ingress_net_filter: Option<Arc<AclNetworkRule>>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
 
-    cfg_sender: watch::Sender<Option<PlainTcpPortAuxConfig>>,
-
+    next_server: ArcSwap<ArcServer>,
     quit_policy: Arc<ServerQuitPolicy>,
     reload_version: usize,
 }
 
 impl PlainTcpPort {
     fn new(
-        config: Arc<PlainTcpPortConfig>,
+        config: PlainTcpPortConfig,
         listen_stats: Arc<ListenStats>,
         reload_version: usize,
     ) -> anyhow::Result<Self> {
@@ -122,26 +58,20 @@ impl PlainTcpPort {
             .as_ref()
             .map(|builder| Arc::new(builder.build()));
 
-        let aux_config = PlainTcpPortAuxConfig {
-            config: Arc::clone(&config),
-            ingress_net_filter,
-            listen_stats: Arc::clone(&listen_stats),
-        };
-        let (cfg_sender, _cfg_receiver) = watch::channel(Some(aux_config));
+        let next_server = Arc::new(crate::serve::get_or_insert_default(config.name()));
 
         Ok(PlainTcpPort {
-            name: config.name().clone(),
-            config: ArcSwap::new(config),
+            config,
             listen_stats,
             reload_sender,
-            cfg_sender,
+            ingress_net_filter,
+            next_server: ArcSwap::new(next_server),
             quit_policy: Arc::new(ServerQuitPolicy::default()),
             reload_version,
         })
     }
 
     pub(crate) fn prepare_initial(config: PlainTcpPortConfig) -> anyhow::Result<ArcServer> {
-        let config = Arc::new(config);
         let listen_stats = Arc::new(ListenStats::new(config.name()));
 
         let server = PlainTcpPort::new(config, listen_stats, 1)?;
@@ -150,59 +80,95 @@ impl PlainTcpPort {
 
     fn prepare_reload(&self, config: AnyServerConfig) -> anyhow::Result<PlainTcpPort> {
         if let AnyServerConfig::PlainTcpPort(config) = config {
-            let config = Arc::new(config);
             let listen_stats = Arc::clone(&self.listen_stats);
 
             PlainTcpPort::new(config, listen_stats, self.reload_version + 1)
         } else {
-            let cur_config = self.config.load();
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
-                cur_config.server_type(),
+                self.config.server_type(),
                 config.server_type()
             ))
+        }
+    }
+
+    fn drop_early(&self, client_addr: SocketAddr) -> bool {
+        if let Some(ingress_net_filter) = &self.ingress_net_filter {
+            let (_, action) = ingress_net_filter.check(client_addr.ip());
+            match action {
+                AclAction::Permit | AclAction::PermitAndLog => {}
+                AclAction::Forbid | AclAction::ForbidAndLog => {
+                    self.listen_stats.add_dropped();
+                    return true;
+                }
+            }
+        }
+
+        // TODO add cps limit
+
+        false
+    }
+
+    async fn run_task(&self, mut stream: TcpStream, mut cc_info: ClientConnectionInfo) {
+        let next_server = self.next_server.load().as_ref().clone();
+
+        match self.config.proxy_protocol {
+            Some(ProxyProtocolVersion::V1) => {
+                let mut parser =
+                    ProxyProtocolV1Reader::new(self.config.proxy_protocol_read_timeout);
+                match parser.read_proxy_protocol_v1_for_tcp(&mut stream).await {
+                    Ok(Some(a)) => {
+                        cc_info.set_proxy_addr(a);
+                        next_server.run_tcp_task(stream, cc_info).await
+                    }
+                    Ok(None) => next_server.run_tcp_task(stream, cc_info).await,
+                    Err(e) => self.listen_stats.add_by_proxy_protocol_error(e),
+                }
+            }
+            Some(ProxyProtocolVersion::V2) => {
+                let mut parser =
+                    ProxyProtocolV2Reader::new(self.config.proxy_protocol_read_timeout);
+                match parser.read_proxy_protocol_v2_for_tcp(&mut stream).await {
+                    Ok(Some(a)) => {
+                        cc_info.set_proxy_addr(a);
+                        next_server.run_tcp_task(stream, cc_info).await
+                    }
+                    Ok(None) => next_server.run_tcp_task(stream, cc_info).await,
+                    Err(e) => self.listen_stats.add_by_proxy_protocol_error(e),
+                }
+            }
+            None => next_server.run_tcp_task(stream, cc_info).await,
         }
     }
 }
 
 impl ServerInternal for PlainTcpPort {
     fn _clone_config(&self) -> AnyServerConfig {
-        let cur_config = self.config.load();
-        AnyServerConfig::PlainTcpPort(cur_config.as_ref().clone())
+        AnyServerConfig::PlainTcpPort(self.config.clone())
     }
 
-    fn _update_config_in_place(&self, _flags: u64, config: AnyServerConfig) -> anyhow::Result<()> {
-        if let AnyServerConfig::PlainTcpPort(config) = config {
-            let config = Arc::new(config);
-            let ingress_net_filter = config
-                .ingress_net_filter
-                .as_ref()
-                .map(|builder| Arc::new(builder.build()));
-            let aux_config = PlainTcpPortAuxConfig {
-                config: Arc::clone(&config),
-                ingress_net_filter,
-                listen_stats: Arc::clone(&self.listen_stats),
-            };
-            self.cfg_sender.send_replace(Some(aux_config));
-            self.config.store(config);
-            Ok(())
-        } else {
-            Err(anyhow!("invalid config type for PlainTcpPort server"))
-        }
+    fn _update_config_in_place(&self, _flags: u64, _config: AnyServerConfig) -> anyhow::Result<()> {
+        Ok(())
     }
 
-    fn _get_reload_notifier(&self) -> broadcast::Receiver<ServerReloadCommand> {
-        self.reload_sender.subscribe()
+    fn _depend_on_server(&self, name: &MetricsName) -> bool {
+        self.config.server.eq(name)
     }
 
-    // PlainTcpPort do not support reload with old runtime/notifier
-    fn _reload_config_notify_runtime(&self) {}
+    fn _reload_config_notify_runtime(&self) {
+        let cmd = ServerReloadCommand::ReloadVersion(self.reload_version);
+        let _ = self.reload_sender.send(cmd);
+    }
+
+    fn _update_next_servers_in_place(&self) {
+        let next_server = crate::serve::get_or_insert_default(&self.config.server);
+        self.next_server.store(Arc::new(next_server));
+    }
 
     fn _reload_with_old_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
-        Err(anyhow!(
-            "this {} server doesn't support reload with old notifier",
-            config.server_type()
-        ))
+        let mut server = self.prepare_reload(config)?;
+        server.reload_sender = self.reload_sender.clone();
+        Ok(Arc::new(server))
     }
 
     fn _reload_with_new_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
@@ -211,17 +177,16 @@ impl ServerInternal for PlainTcpPort {
     }
 
     fn _start_runtime(&self, server: &ArcServer) -> anyhow::Result<()> {
-        let cur_config = self.config.load();
-        let runtime = AuxiliaryTcpPortRuntime::new(server, cur_config.as_ref());
-        let listen_config = cur_config.listen.clone();
-        let listen_in_worker = cur_config.listen_in_worker;
-        drop(cur_config);
-        runtime.run_all_instances(&listen_config, listen_in_worker, &self.cfg_sender)
+        let runtime = ListenTcpRuntime::new(server, &self.config);
+        runtime.run_all_instances(
+            &self.config.listen,
+            self.config.listen_in_worker,
+            &self.reload_sender,
+        )
     }
 
     fn _abort_runtime(&self) {
         let _ = self.reload_sender.send(ServerReloadCommand::QuitRuntime);
-        self.cfg_sender.send_replace(None);
     }
 }
 
@@ -229,7 +194,7 @@ impl ServerInternal for PlainTcpPort {
 impl Server for PlainTcpPort {
     #[inline]
     fn name(&self) -> &MetricsName {
-        &self.name
+        self.config.name()
     }
 
     #[inline]
@@ -250,5 +215,12 @@ impl Server for PlainTcpPort {
         &self.quit_policy
     }
 
-    async fn run_tcp_task(&self, _stream: TcpStream, _cc_info: ClientConnectionInfo) {}
+    async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
+        let client_addr = cc_info.client_addr();
+        if self.drop_early(client_addr) {
+            return;
+        }
+
+        self.run_task(stream, cc_info).await
+    }
 }

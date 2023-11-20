@@ -28,7 +28,7 @@ use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 
 use g3_daemon::listen::ListenStats;
-use g3_daemon::server::ClientConnectionInfo;
+use g3_daemon::server::{ClientConnectionInfo, ServerReloadCommand};
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::MetricsName;
 use g3_types::route::HostMatch;
@@ -37,8 +37,8 @@ use super::{CommonTaskContext, OpensslAcceptTask, OpensslHost, OpensslProxyServe
 use crate::config::server::openssl_proxy::OpensslProxyServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::serve::{
-    ArcServer, ArcServerStats, OrdinaryTcpServerRuntime, Server, ServerInternal, ServerQuitPolicy,
-    ServerReloadCommand, ServerStats,
+    ArcServer, ArcServerStats, ListenTcpRuntime, Server, ServerInternal, ServerQuitPolicy,
+    ServerStats,
 };
 
 pub(crate) struct OpensslProxyServer {
@@ -270,14 +270,16 @@ impl ServerInternal for OpensslProxyServer {
         Ok(())
     }
 
-    fn _get_reload_notifier(&self) -> broadcast::Receiver<ServerReloadCommand> {
-        self.reload_sender.subscribe()
+    fn _depend_on_server(&self, _name: &MetricsName) -> bool {
+        false
     }
 
     fn _reload_config_notify_runtime(&self) {
         let cmd = ServerReloadCommand::ReloadVersion(self.reload_version);
         let _ = self.reload_sender.send(cmd);
     }
+
+    fn _update_next_servers_in_place(&self) {}
 
     fn _reload_with_old_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
         let mut server = self.prepare_reload(config)?;
@@ -291,7 +293,7 @@ impl ServerInternal for OpensslProxyServer {
     }
 
     fn _start_runtime(&self, server: &ArcServer) -> anyhow::Result<()> {
-        let runtime = OrdinaryTcpServerRuntime::new(server, &*self.config);
+        let runtime = ListenTcpRuntime::new(server, &*self.config);
         runtime
             .run_all_instances(
                 &self.config.listen,

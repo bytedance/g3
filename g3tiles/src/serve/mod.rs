@@ -21,19 +21,19 @@ use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 
 use g3_daemon::listen::ListenStats;
-use g3_daemon::server::{ClientConnectionInfo, ServerQuitPolicy};
+use g3_daemon::server::{ClientConnectionInfo, ServerQuitPolicy, ServerReloadCommand};
 use g3_types::metrics::MetricsName;
 
 use crate::config::server::AnyServerConfig;
 
 mod registry;
-pub(crate) use registry::{foreach_online as foreach_server, get_names, get_with_notifier};
+pub(crate) use registry::{foreach_online as foreach_server, get_names, get_or_insert_default};
 
 mod error;
 pub(crate) use error::{ServerTaskError, ServerTaskResult};
 
 mod runtime;
-use runtime::{AuxiliaryServerConfig, AuxiliaryTcpPortRuntime, OrdinaryTcpServerRuntime};
+use runtime::ListenTcpRuntime;
 
 mod dummy_close;
 mod plain_tcp_port;
@@ -54,18 +54,13 @@ pub(crate) use task::{ServerTaskNotes, ServerTaskStage};
 mod stats;
 pub(crate) use stats::{ArcServerStats, ServerStats};
 
-#[derive(Clone)]
-pub(crate) enum ServerReloadCommand {
-    QuitRuntime,
-    ReloadVersion(usize),
-}
-
 pub(crate) trait ServerInternal {
     fn _clone_config(&self) -> AnyServerConfig;
     fn _update_config_in_place(&self, flags: u64, config: AnyServerConfig) -> anyhow::Result<()>;
 
-    fn _get_reload_notifier(&self) -> broadcast::Receiver<ServerReloadCommand>;
+    fn _depend_on_server(&self, name: &MetricsName) -> bool;
     fn _reload_config_notify_runtime(&self);
+    fn _update_next_servers_in_place(&self);
 
     fn _reload_with_old_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer>;
     fn _reload_with_new_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer>;
