@@ -12,7 +12,7 @@ jobs:
     strategy:
       matrix:
         rust:
-        - stable
+          #- stable
         - beta
         - nightly
     steps:
@@ -38,7 +38,7 @@ jobs:
     - name: Checkout sources
       uses: actions/checkout@v4
     - name: Install rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@beta
       with:
         components: clippy
     - name: Install dependencies
