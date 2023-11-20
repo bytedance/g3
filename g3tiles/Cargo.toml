@@ -32,12 +32,13 @@ openssl.workspace = true
 openssl-probe = { workspace = true, optional = true }
 tokio-openssl.workspace = true
 rustls.workspace = true
+quinn.workspace = true
 tokio-rustls.workspace = true
 governor = { workspace = true, features = ["std", "jitter"] }
 chrono = { workspace = true, features = ["clock"] }
 uuid.workspace = true
 g3-compat.workspace = true
-g3-daemon.workspace = true
+g3-daemon = { workspace = true, features = ["quic"] }
 g3-signal.workspace = true
 g3-yaml = { workspace = true, features = ["acl-rule", "route", "openssl", "rustls"] }
 g3-types = { workspace = true, features = ["acl-rule", "route", "openssl", "rustls"] }

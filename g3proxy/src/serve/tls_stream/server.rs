@@ -29,7 +29,10 @@ use tokio::sync::broadcast;
 use tokio_openssl::SslStream;
 use tokio_rustls::{server::TlsStream, TlsAcceptor};
 
-use g3_daemon::listen::{AcceptTcpServer, ArcAcceptTcpServer, ListenStats, ListenTcpRuntime};
+use g3_daemon::listen::{
+    AcceptQuicServer, AcceptTcpServer, ArcAcceptQuicServer, ArcAcceptTcpServer, ListenStats,
+    ListenTcpRuntime,
+};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::collection::{SelectivePickPolicy, SelectiveVec, SelectiveVecBuilder};
@@ -331,6 +334,15 @@ impl AcceptTcpServer for TlsStreamServer {
 }
 
 #[async_trait]
+impl AcceptQuicServer for TlsStreamServer {
+    async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
+
+    fn get_reloaded(&self) -> ArcAcceptQuicServer {
+        crate::serve::get_or_insert_default(self.config.name())
+    }
+}
+
+#[async_trait]
 impl Server for TlsStreamServer {
     fn escaper(&self) -> &MetricsName {
         self.config.escaper()
@@ -370,6 +382,4 @@ impl Server for TlsStreamServer {
         _cc_info: ClientConnectionInfo,
     ) {
     }
-
-    async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
 }

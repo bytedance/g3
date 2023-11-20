@@ -26,7 +26,10 @@ use tokio::sync::{broadcast, watch};
 use tokio_openssl::SslStream;
 use tokio_rustls::server::TlsStream;
 
-use g3_daemon::listen::{AcceptTcpServer, ArcAcceptTcpServer, ListenStats, ListenQuicConf};
+use g3_daemon::listen::{
+    AcceptQuicServer, AcceptTcpServer, ArcAcceptQuicServer, ArcAcceptTcpServer, ListenQuicConf,
+    ListenQuicRuntime, ListenStats,
+};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_types::acl::AclNetworkRule;
 use g3_types::metrics::MetricsName;
@@ -34,7 +37,7 @@ use g3_types::net::UdpListenConfig;
 
 use crate::config::server::plain_quic_port::{PlainQuicPortConfig, PlainQuicPortUpdateFlags};
 use crate::config::server::{AnyServerConfig, ServerConfig};
-use crate::serve::{ArcServer, ListenQuicRuntime, Server, ServerInternal, ServerQuitPolicy};
+use crate::serve::{ArcServer, Server, ServerInternal, ServerQuitPolicy};
 
 #[derive(Clone)]
 struct PlainQuicPortAuxConfig {
@@ -229,7 +232,11 @@ impl ServerInternal for PlainQuicPort {
 
     fn _start_runtime(&self, server: &ArcServer) -> anyhow::Result<()> {
         let config = self.config.load();
-        let runtime = ListenQuicRuntime::new(server, config.as_ref(), config.listen.clone());
+        let runtime = ListenQuicRuntime::new(
+            server.clone(),
+            server.get_listen_stats(),
+            config.listen.clone(),
+        );
         runtime.run_all_instances(
             config.listen_in_worker,
             &self.quinn_config,
@@ -270,6 +277,18 @@ impl AcceptTcpServer for PlainQuicPort {
 }
 
 #[async_trait]
+impl AcceptQuicServer for PlainQuicPort {
+    async fn run_quic_task(&self, connection: Connection, cc_info: ClientConnectionInfo) {
+        let next_server = self.next_server.load().as_ref().clone();
+        next_server.run_quic_task(connection, cc_info).await
+    }
+
+    fn get_reloaded(&self) -> ArcAcceptQuicServer {
+        crate::serve::get_or_insert_default(&self.name)
+    }
+}
+
+#[async_trait]
 impl Server for PlainQuicPort {
     fn escaper(&self) -> &MetricsName {
         Default::default()
@@ -304,10 +323,5 @@ impl Server for PlainQuicPort {
         _stream: SslStream<TcpStream>,
         _cc_info: ClientConnectionInfo,
     ) {
-    }
-
-    async fn run_quic_task(&self, connection: Connection, cc_info: ClientConnectionInfo) {
-        let next_server = self.next_server.load().as_ref().clone();
-        next_server.run_quic_task(connection, cc_info).await;
     }
 }

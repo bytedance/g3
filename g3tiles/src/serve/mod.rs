@@ -19,7 +19,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::broadcast;
 
-use g3_daemon::listen::{AcceptTcpServer, ListenStats};
+use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats};
 use g3_daemon::server::{BaseServer, ServerQuitPolicy, ServerReloadCommand};
 use g3_types::metrics::MetricsName;
 
@@ -66,7 +66,9 @@ pub(crate) trait ServerInternal {
 }
 
 #[async_trait]
-pub(crate) trait Server: ServerInternal + BaseServer + AcceptTcpServer {
+pub(crate) trait Server:
+    ServerInternal + BaseServer + AcceptTcpServer + AcceptQuicServer
+{
     fn get_server_stats(&self) -> Option<ArcServerStats> {
         None
     }
