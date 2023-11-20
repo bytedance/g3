@@ -27,7 +27,7 @@ use tokio_openssl::SslStream;
 use tokio_rustls::server::TlsStream;
 
 use g3_daemon::listen::ListenStats;
-use g3_daemon::server::ClientConnectionInfo;
+use g3_daemon::server::{ClientConnectionInfo, ServerReloadCommand};
 use g3_io_ext::haproxy::{ProxyProtocolV1Reader, ProxyProtocolV2Reader};
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::MetricsName;
@@ -36,9 +36,7 @@ use g3_types::net::ProxyProtocolVersion;
 use super::{detect_tcp_proxy_protocol, DetectedProxyProtocol};
 use crate::config::server::intelli_proxy::IntelliProxyConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
-use crate::serve::{
-    ArcServer, ListenTcpRuntime, Server, ServerInternal, ServerQuitPolicy, ServerReloadCommand,
-};
+use crate::serve::{ArcServer, ListenTcpRuntime, Server, ServerInternal, ServerQuitPolicy};
 
 pub(crate) struct IntelliProxy {
     name: MetricsName,

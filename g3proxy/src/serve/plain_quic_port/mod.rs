@@ -29,7 +29,7 @@ use tokio_openssl::SslStream;
 use tokio_rustls::server::TlsStream;
 
 use g3_daemon::listen::ListenStats;
-use g3_daemon::server::ClientConnectionInfo;
+use g3_daemon::server::{ClientConnectionInfo, ServerReloadCommand};
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::MetricsName;
 use g3_types::net::UdpListenConfig;
@@ -38,7 +38,6 @@ use crate::config::server::plain_quic_port::{PlainQuicPortConfig, PlainQuicPortU
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::serve::{
     ArcServer, ListenQuicConf, ListenQuicRuntime, Server, ServerInternal, ServerQuitPolicy,
-    ServerReloadCommand,
 };
 
 #[derive(Clone)]

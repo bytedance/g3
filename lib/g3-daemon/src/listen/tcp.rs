@@ -18,23 +18,30 @@ use std::net::SocketAddr;
 use std::os::fd::AsRawFd;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use log::{info, warn};
 use tokio::net::TcpStream;
 use tokio::runtime::Handle;
 use tokio::sync::broadcast;
 
-use g3_daemon::listen::ListenStats;
-use g3_daemon::server::{ClientConnectionInfo, ServerReloadCommand};
 use g3_io_ext::LimitedTcpListener;
 use g3_socket::util::native_socket_addr;
 use g3_types::net::TcpListenConfig;
 
-use crate::config::server::ServerConfig;
-use crate::serve::ArcServer;
+use crate::listen::ListenStats;
+use crate::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
+
+#[async_trait]
+pub trait AcceptTcpServer: BaseServer {
+    async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo);
+    fn get_reloaded(&self) -> ArcAcceptTcpServer;
+}
+
+pub type ArcAcceptTcpServer = Arc<dyn AcceptTcpServer + Send + Sync>;
 
 #[derive(Clone)]
-pub(crate) struct ListenTcpRuntime {
-    server: ArcServer,
+pub struct ListenTcpRuntime {
+    server: ArcAcceptTcpServer,
     server_type: &'static str,
     server_version: usize,
     worker_id: Option<usize>,
@@ -43,13 +50,13 @@ pub(crate) struct ListenTcpRuntime {
 }
 
 impl ListenTcpRuntime {
-    pub(crate) fn new<C: ServerConfig>(server: &ArcServer, server_config: &C) -> Self {
+    pub fn new(server: &ArcAcceptTcpServer, listen_stats: Arc<ListenStats>) -> Self {
         ListenTcpRuntime {
             server: Arc::clone(server),
-            server_type: server_config.server_type(),
+            server_type: server.server_type(),
             server_version: server.version(),
             worker_id: None,
-            listen_stats: server.get_listen_stats(),
+            listen_stats,
             instance_id: 0,
         }
     }
@@ -102,17 +109,10 @@ impl ListenTcpRuntime {
                         Ok(ServerReloadCommand::ReloadVersion(version)) => {
                             info!("SRT[{}_v{}#{}] received reload request from v{version}",
                                 self.server.name(), self.server_version, self.instance_id);
-                            match crate::serve::get_server(self.server.name()) {
-                                Ok(server) => {
-                                    self.server_version = server.version();
-                                    self.server = server;
-                                    continue;
-                                }
-                                Err(_) => {
-                                    info!("SRT[{}_v{}#{}] will quit as no server v{version}+ found",
-                                        self.server.name(), self.server_version, self.instance_id);
-                                }
-                            }
+                            let new_server = self.server.get_reloaded();
+                            self.server_version = new_server.version();
+                            self.server = new_server;
+                            continue;
                         }
                         Ok(ServerReloadCommand::QuitRuntime) => {},
                         Err(RecvError::Closed) => {},
@@ -178,7 +178,7 @@ impl ListenTcpRuntime {
             tokio::spawn(async move {
                 server.run_tcp_task(stream, cc_info).await;
             });
-        } else if let Some(rt) = g3_daemon::runtime::worker::select_handle() {
+        } else if let Some(rt) = crate::runtime::worker::select_handle() {
             cc_info.set_worker_id(Some(rt.id));
             rt.handle.spawn(async move {
                 server.run_tcp_task(stream, cc_info).await;
@@ -192,7 +192,7 @@ impl ListenTcpRuntime {
 
     fn get_rt_handle(&mut self, listen_in_worker: bool) -> Handle {
         if listen_in_worker {
-            if let Some(rt) = g3_daemon::runtime::worker::select_listen_handle() {
+            if let Some(rt) = crate::runtime::worker::select_listen_handle() {
                 self.worker_id = Some(rt.id);
                 return rt.handle;
             }
@@ -227,7 +227,7 @@ impl ListenTcpRuntime {
         });
     }
 
-    pub(crate) fn run_all_instances(
+    pub fn run_all_instances(
         &self,
         listen_config: &TcpListenConfig,
         listen_in_worker: bool,
@@ -235,7 +235,7 @@ impl ListenTcpRuntime {
     ) -> anyhow::Result<()> {
         let mut instance_count = listen_config.instance();
         if listen_in_worker {
-            let worker_count = g3_daemon::runtime::worker::worker_count();
+            let worker_count = crate::runtime::worker::worker_count();
             if worker_count > 0 {
                 instance_count = worker_count;
             }

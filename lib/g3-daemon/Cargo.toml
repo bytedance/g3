@@ -16,6 +16,7 @@ slog-scope = "4"
 slog-stdlog = "4.1"
 daemonize = "0.5"
 futures-util.workspace = true
+async-trait.workspace = true
 yaml-rust.workspace = true
 petgraph = "0.6"
 once_cell.workspace = true

@@ -27,7 +27,7 @@ use tokio_openssl::SslStream;
 use tokio_rustls::server::TlsStream;
 
 use g3_daemon::listen::ListenStats;
-use g3_daemon::server::ClientConnectionInfo;
+use g3_daemon::server::{ClientConnectionInfo, ServerReloadCommand};
 use g3_io_ext::haproxy::{ProxyProtocolV1Reader, ProxyProtocolV2Reader};
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::MetricsName;
@@ -35,9 +35,7 @@ use g3_types::net::ProxyProtocolVersion;
 
 use crate::config::server::plain_tcp_port::PlainTcpPortConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
-use crate::serve::{
-    ArcServer, ListenTcpRuntime, Server, ServerInternal, ServerQuitPolicy, ServerReloadCommand,
-};
+use crate::serve::{ArcServer, ListenTcpRuntime, Server, ServerInternal, ServerQuitPolicy};
 
 pub(crate) struct PlainTcpPort {
     name: MetricsName,

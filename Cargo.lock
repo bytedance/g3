@@ -874,6 +874,7 @@ version = "0.1.0"
 dependencies = [
  "ahash",
  "anyhow",
+ "async-trait",
  "cadence-with-flush",
  "capnp",
  "capnp-rpc",

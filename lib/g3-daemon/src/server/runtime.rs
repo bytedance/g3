@@ -14,13 +14,16 @@
  * limitations under the License.
  */
 
-mod quit_policy;
-pub use quit_policy::ServerQuitPolicy;
+use g3_types::metrics::MetricsName;
 
-pub mod task;
+#[derive(Clone)]
+pub enum ServerReloadCommand {
+    QuitRuntime,
+    ReloadVersion(usize),
+}
 
-mod connection;
-pub use connection::ClientConnectionInfo;
-
-mod runtime;
-pub use runtime::{BaseServer, ServerReloadCommand};
+pub trait BaseServer {
+    fn name(&self) -> &MetricsName;
+    fn server_type(&self) -> &'static str;
+    fn version(&self) -> usize;
+}

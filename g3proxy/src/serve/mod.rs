@@ -24,7 +24,7 @@ use tokio_openssl::SslStream;
 use tokio_rustls::server::TlsStream;
 
 use g3_daemon::listen::ListenStats;
-use g3_daemon::server::{ClientConnectionInfo, ServerQuitPolicy};
+use g3_daemon::server::{ClientConnectionInfo, ServerQuitPolicy, ServerReloadCommand};
 use g3_types::metrics::MetricsName;
 
 use crate::config::server::AnyServerConfig;
@@ -70,12 +70,6 @@ mod stats;
 pub(crate) use stats::{
     ArcServerStats, ServerForbiddenSnapshot, ServerForbiddenStats, ServerPerTaskStats, ServerStats,
 };
-
-#[derive(Clone)]
-pub(crate) enum ServerReloadCommand {
-    QuitRuntime,
-    ReloadVersion(usize),
-}
 
 pub(crate) trait ServerInternal {
     fn _clone_config(&self) -> AnyServerConfig;

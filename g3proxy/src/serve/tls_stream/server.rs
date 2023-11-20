@@ -30,7 +30,7 @@ use tokio_openssl::SslStream;
 use tokio_rustls::{server::TlsStream, TlsAcceptor};
 
 use g3_daemon::listen::ListenStats;
-use g3_daemon::server::ClientConnectionInfo;
+use g3_daemon::server::{ClientConnectionInfo, ServerReloadCommand};
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::collection::{SelectivePickPolicy, SelectiveVec, SelectiveVecBuilder};
 use g3_types::metrics::MetricsName;
@@ -45,7 +45,7 @@ use crate::escape::ArcEscaper;
 use crate::serve::tcp_stream::TcpStreamServerStats;
 use crate::serve::{
     ArcServer, ArcServerStats, ListenTcpRuntime, Server, ServerInternal, ServerQuitPolicy,
-    ServerReloadCommand, ServerStats,
+    ServerStats,
 };
 
 pub(crate) struct TlsStreamServer {
