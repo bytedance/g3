@@ -57,7 +57,7 @@ pub(crate) struct HttpRProxyServer {
     server_stats: Arc<HttpRProxyServerStats>,
     listen_stats: Arc<ListenStats>,
     global_tls_server: Option<RustlsServerConfig>,
-    ingress_net_filter: Option<Arc<AclNetworkRule>>,
+    ingress_net_filter: Option<AclNetworkRule>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
     task_logger: Logger,
     hosts: HostMatch<Arc<HttpHost>>,
@@ -91,7 +91,7 @@ impl HttpRProxyServer {
         let ingress_net_filter = config
             .ingress_net_filter
             .as_ref()
-            .map(|builder| Arc::new(builder.build()));
+            .map(|builder| builder.build());
 
         let task_logger = config.get_task_logger();
 

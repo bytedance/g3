@@ -37,7 +37,7 @@ use crate::serve::{ArcServer, ListenTcpRuntime, Server, ServerInternal, ServerQu
 pub(crate) struct PlainTcpPort {
     config: PlainTcpPortConfig,
     listen_stats: Arc<ListenStats>,
-    ingress_net_filter: Option<Arc<AclNetworkRule>>,
+    ingress_net_filter: Option<AclNetworkRule>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
 
     next_server: ArcSwap<ArcServer>,
@@ -56,7 +56,7 @@ impl PlainTcpPort {
         let ingress_net_filter = config
             .ingress_net_filter
             .as_ref()
-            .map(|builder| Arc::new(builder.build()));
+            .map(|builder| builder.build());
 
         let next_server = Arc::new(crate::serve::get_or_insert_default(config.name()));
 

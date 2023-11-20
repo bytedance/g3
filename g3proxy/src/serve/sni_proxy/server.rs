@@ -47,7 +47,7 @@ pub(crate) struct SniProxyServer {
     config: Arc<SniProxyServerConfig>,
     server_stats: Arc<TcpStreamServerStats>,
     listen_stats: Arc<ListenStats>,
-    ingress_net_filter: Option<Arc<AclNetworkRule>>,
+    ingress_net_filter: Option<AclNetworkRule>,
     server_tcp_portmap: Arc<ProtocolPortMap>,
     client_tcp_portmap: Arc<ProtocolPortMap>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
@@ -71,7 +71,7 @@ impl SniProxyServer {
         let ingress_net_filter = config
             .ingress_net_filter
             .as_ref()
-            .map(|builder| Arc::new(builder.build()));
+            .map(|builder| builder.build());
 
         let server_tcp_portmap = Arc::new(config.server_tcp_portmap.clone());
         let client_tcp_portmap = Arc::new(config.client_tcp_portmap.clone());

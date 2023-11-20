@@ -56,7 +56,7 @@ pub(crate) struct TlsStreamServer {
     tls_acceptor: TlsAcceptor,
     tls_accept_timeout: Duration,
     tls_client_config: Option<Arc<OpensslClientConfig>>,
-    ingress_net_filter: Option<Arc<AclNetworkRule>>,
+    ingress_net_filter: Option<AclNetworkRule>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
     task_logger: Logger,
 
@@ -101,7 +101,7 @@ impl TlsStreamServer {
         let ingress_net_filter = config
             .ingress_net_filter
             .as_ref()
-            .map(|builder| Arc::new(builder.build()));
+            .map(|builder| builder.build());
 
         let task_logger = config.get_task_logger();
 

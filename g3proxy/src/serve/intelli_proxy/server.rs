@@ -42,7 +42,7 @@ pub(crate) struct IntelliProxy {
     name: MetricsName,
     config: IntelliProxyConfig,
     listen_stats: Arc<ListenStats>,
-    ingress_net_filter: Option<Arc<AclNetworkRule>>,
+    ingress_net_filter: Option<AclNetworkRule>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
 
     http_server: ArcSwap<ArcServer>,
@@ -62,7 +62,7 @@ impl IntelliProxy {
         let ingress_net_filter = config
             .ingress_net_filter
             .as_ref()
-            .map(|builder| Arc::new(builder.build()));
+            .map(|builder| builder.build());
 
         let http_server = Arc::new(crate::serve::get_or_insert_default(&config.http_server));
         let socks_server = Arc::new(crate::serve::get_or_insert_default(&config.socks_server));

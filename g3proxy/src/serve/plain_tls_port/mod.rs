@@ -45,7 +45,7 @@ pub(crate) struct PlainTlsPort {
     listen_stats: Arc<ListenStats>,
     tls_acceptor: TlsAcceptor,
     tls_accept_timeout: Duration,
-    ingress_net_filter: Option<Arc<AclNetworkRule>>,
+    ingress_net_filter: Option<AclNetworkRule>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
 
     next_server: ArcSwap<ArcServer>,
@@ -72,7 +72,7 @@ impl PlainTlsPort {
         let ingress_net_filter = config
             .ingress_net_filter
             .as_ref()
-            .map(|builder| Arc::new(builder.build()));
+            .map(|builder| builder.build());
 
         let next_server = Arc::new(crate::serve::get_or_insert_default(&config.server));
 

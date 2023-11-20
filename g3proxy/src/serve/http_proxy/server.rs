@@ -59,7 +59,7 @@ pub(crate) struct HttpProxyServer {
     tls_acceptor: Option<TlsAcceptor>,
     tls_accept_timeout: Duration,
     tls_client_config: Arc<OpensslClientConfig>,
-    ingress_net_filter: Option<Arc<AclNetworkRule>>,
+    ingress_net_filter: Option<AclNetworkRule>,
     dst_host_filter: Option<Arc<AclDstHostRuleSet>>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
     task_logger: Logger,
@@ -99,7 +99,7 @@ impl HttpProxyServer {
         let ingress_net_filter = config
             .ingress_net_filter
             .as_ref()
-            .map(|builder| Arc::new(builder.build()));
+            .map(|builder| builder.build());
 
         let dst_host_filter = config
             .dst_host_filter
