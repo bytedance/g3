@@ -18,34 +18,21 @@ use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::os::fd::{AsRawFd, RawFd};
 use std::sync::Arc;
+use std::time::Duration;
 
 use log::{info, warn};
 use quinn::{Connecting, Endpoint};
 use tokio::runtime::Handle;
 use tokio::sync::{broadcast, watch};
 
-use g3_daemon::listen::ListenStats;
+use g3_daemon::listen::{ListenQuicConf, ListenStats};
 use g3_daemon::server::{ClientConnectionInfo, ServerReloadCommand};
 use g3_socket::util::native_socket_addr;
+use g3_types::acl::AclAction;
 use g3_types::net::UdpListenConfig;
 
 use crate::config::server::ServerConfig;
 use crate::serve::ArcServer;
-
-pub(crate) trait ListenQuicConf {
-    fn run_quic_task(
-        &self,
-        rt_handle: Handle,
-        connecting: Connecting,
-        cc_info: ClientConnectionInfo,
-    );
-
-    fn take_udp_listen_config(&mut self) -> Option<UdpListenConfig>;
-
-    fn take_quinn_config(&mut self) -> Option<quinn::ServerConfig>;
-
-    fn offline_rebind_port(&self) -> Option<u16>;
-}
 
 #[derive(Clone)]
 pub(crate) struct ListenQuicRuntime {
@@ -105,16 +92,6 @@ impl ListenQuicRuntime {
             self.instance_id,
         );
         self.listen_stats.del_running_runtime();
-    }
-
-    fn rt_handle(&self) -> (Handle, Option<usize>) {
-        if let Some(worker_id) = self.worker_id {
-            (Handle::current(), Some(worker_id))
-        } else if let Some(rt) = g3_daemon::runtime::worker::select_handle() {
-            (rt.handle, Some(rt.id))
-        } else {
-            (Handle::current(), None)
-        }
     }
 
     async fn run<C>(
@@ -202,23 +179,93 @@ impl ListenQuicRuntime {
         self.post_stop();
     }
 
-    fn run_task<C>(&self, connecting: Connecting, listen_addr: SocketAddr, quic_config: &C)
+    fn run_task<C>(&self, connecting: Connecting, listen_addr: SocketAddr, aux_config: &C)
     where
         C: ListenQuicConf + Send + Clone + 'static,
     {
         let peer_addr = connecting.remote_address();
+        if let Some(filter) = aux_config.ingress_network_acl() {
+            let (_, action) = filter.check(peer_addr.ip());
+            match action {
+                AclAction::Permit | AclAction::PermitAndLog => {}
+                AclAction::Forbid | AclAction::ForbidAndLog => {
+                    self.listen_stats.add_dropped();
+                    return;
+                }
+            }
+        }
+
         let local_addr = connecting
             .local_ip()
             .map(|ip| SocketAddr::new(ip, listen_addr.port()))
             .unwrap_or(listen_addr);
-        let (rt_handle, worker_id) = self.rt_handle();
         let mut cc_info = ClientConnectionInfo::new(
             native_socket_addr(peer_addr),
             native_socket_addr(local_addr),
         );
-        cc_info.set_worker_id(worker_id);
 
-        quic_config.run_quic_task(rt_handle, connecting, cc_info);
+        let server = self.server.clone();
+        let listen_stats = self.listen_stats.clone();
+        let accept_timeout = aux_config.accept_timeout();
+        if let Some(worker_id) = self.worker_id {
+            cc_info.set_worker_id(Some(worker_id));
+            tokio::spawn(async move {
+                Self::accept_connection_and_run(
+                    server,
+                    connecting,
+                    cc_info,
+                    accept_timeout,
+                    listen_stats,
+                )
+                .await
+            });
+        } else if let Some(rt) = g3_daemon::runtime::worker::select_handle() {
+            cc_info.set_worker_id(Some(rt.id));
+            rt.handle.spawn(async move {
+                Self::accept_connection_and_run(
+                    server,
+                    connecting,
+                    cc_info,
+                    accept_timeout,
+                    listen_stats,
+                )
+                .await
+            });
+        } else {
+            tokio::spawn(async move {
+                Self::accept_connection_and_run(
+                    server,
+                    connecting,
+                    cc_info,
+                    accept_timeout,
+                    listen_stats,
+                )
+                .await
+            });
+        }
+    }
+
+    async fn accept_connection_and_run(
+        server: ArcServer,
+        connecting: Connecting,
+        cc_info: ClientConnectionInfo,
+        timeout: Duration,
+        listen_stats: Arc<ListenStats>,
+    ) {
+        match tokio::time::timeout(timeout, connecting).await {
+            Ok(Ok(c)) => {
+                listen_stats.add_accepted();
+                server.run_quic_task(c, cc_info).await;
+            }
+            Ok(Err(_e)) => {
+                listen_stats.add_failed();
+                // TODO may be attack
+            }
+            Err(_) => {
+                listen_stats.add_failed();
+                // TODO may be attack
+            }
+        }
     }
 
     fn update_socket_opts(&self, raw_fd: RawFd) {

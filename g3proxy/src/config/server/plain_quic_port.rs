@@ -34,6 +34,7 @@ bitflags! {
     pub(crate) struct PlainQuicPortUpdateFlags: u64 {
         const LISTEN = 0b0001;
         const QUINN = 0b0010;
+        const NEXT_SERVER = 0b0100;
     }
 }
 
@@ -167,12 +168,19 @@ impl ServerConfig for PlainQuicPortConfig {
             return ServerConfigDiffAction::NoAction;
         }
 
+        if self.listen_in_worker != new.listen_in_worker {
+            return ServerConfigDiffAction::ReloadAndRespawn;
+        }
+
         let mut flags = PlainQuicPortUpdateFlags::empty();
         if self.listen != new.listen {
             flags.set(PlainQuicPortUpdateFlags::LISTEN, true);
         }
         if self.tls_server != new.tls_server {
             flags.set(PlainQuicPortUpdateFlags::QUINN, true);
+        }
+        if self.server != new.server {
+            flags.set(PlainQuicPortUpdateFlags::NEXT_SERVER, true);
         }
 
         ServerConfigDiffAction::UpdateInPlace(flags.bits())

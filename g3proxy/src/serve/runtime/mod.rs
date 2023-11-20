@@ -18,4 +18,4 @@ mod listen_tcp;
 pub(crate) use listen_tcp::ListenTcpRuntime;
 
 mod listen_quic;
-pub(crate) use listen_quic::{ListenQuicConf, ListenQuicRuntime};
+pub(crate) use listen_quic::ListenQuicRuntime;

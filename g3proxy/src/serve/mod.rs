@@ -36,7 +36,7 @@ mod idle_check;
 pub(crate) use idle_check::ServerIdleChecker;
 
 mod runtime;
-use runtime::{ListenQuicConf, ListenQuicRuntime, ListenTcpRuntime};
+use runtime::{ListenQuicRuntime, ListenTcpRuntime};
 
 mod dummy_close;
 mod intelli_proxy;

@@ -27,6 +27,7 @@ use tokio::runtime::Handle;
 use tokio::sync::{broadcast, watch};
 
 use g3_socket::util::native_socket_addr;
+use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::net::UdpListenConfig;
 
 use crate::listen::ListenStats;
@@ -47,6 +48,8 @@ pub trait ListenQuicConf {
     fn take_quinn_config(&mut self) -> Option<quinn::ServerConfig>;
 
     fn offline_rebind_port(&self) -> Option<u16>;
+
+    fn ingress_network_acl(&self) -> Option<&AclNetworkRule>;
 
     fn accept_timeout(&self) -> Duration;
 }
@@ -184,15 +187,29 @@ impl ListenQuicRuntime {
                         continue;
                     };
                     self.listen_stats.add_accepted();
-                    self.run_task(connecting, listen_addr, aux_config.accept_timeout());
+                    self.run_task(connecting, listen_addr, &aux_config);
                 }
             }
         }
         self.post_stop();
     }
 
-    fn run_task(&self, connecting: Connecting, listen_addr: SocketAddr, accept_timeout: Duration) {
+    fn run_task<C>(&self, connecting: Connecting, listen_addr: SocketAddr, aux_config: &C)
+    where
+        C: ListenQuicConf + Send + Clone + 'static,
+    {
         let peer_addr = connecting.remote_address();
+        if let Some(filter) = aux_config.ingress_network_acl() {
+            let (_, action) = filter.check(peer_addr.ip());
+            match action {
+                AclAction::Permit | AclAction::PermitAndLog => {}
+                AclAction::Forbid | AclAction::ForbidAndLog => {
+                    self.listen_stats.add_dropped();
+                    return;
+                }
+            }
+        }
+
         let local_addr = connecting
             .local_ip()
             .map(|ip| SocketAddr::new(ip, listen_addr.port()))
@@ -204,6 +221,7 @@ impl ListenQuicRuntime {
 
         let server = self.server.clone();
         let listen_stats = self.listen_stats.clone();
+        let accept_timeout = aux_config.accept_timeout();
         if let Some(worker_id) = self.worker_id {
             cc_info.set_worker_id(Some(worker_id));
             tokio::spawn(async move {

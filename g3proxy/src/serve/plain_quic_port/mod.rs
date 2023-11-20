@@ -20,87 +20,32 @@ use std::time::Duration;
 use anyhow::anyhow;
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
-use log::debug;
-use quinn::{Connecting, Connection};
+use quinn::Connection;
 use tokio::net::TcpStream;
-use tokio::runtime::Handle;
 use tokio::sync::{broadcast, watch};
 use tokio_openssl::SslStream;
 use tokio_rustls::server::TlsStream;
 
-use g3_daemon::listen::ListenStats;
+use g3_daemon::listen::{ListenQuicConf, ListenStats};
 use g3_daemon::server::{ClientConnectionInfo, ServerReloadCommand};
-use g3_types::acl::{AclAction, AclNetworkRule};
+use g3_types::acl::AclNetworkRule;
 use g3_types::metrics::MetricsName;
 use g3_types::net::UdpListenConfig;
 
 use crate::config::server::plain_quic_port::{PlainQuicPortConfig, PlainQuicPortUpdateFlags};
 use crate::config::server::{AnyServerConfig, ServerConfig};
-use crate::serve::{
-    ArcServer, ListenQuicConf, ListenQuicRuntime, Server, ServerInternal, ServerQuitPolicy,
-};
+use crate::serve::{ArcServer, ListenQuicRuntime, Server, ServerInternal, ServerQuitPolicy};
 
 #[derive(Clone)]
 struct PlainQuicPortAuxConfig {
     ingress_net_filter: Option<Arc<AclNetworkRule>>,
-    listen_stats: Arc<ListenStats>,
     listen_config: Option<UdpListenConfig>,
     quinn_config: Option<quinn::ServerConfig>,
     accept_timeout: Duration,
     offline_rebind_port: Option<u16>,
-    next_server: Arc<ArcSwap<ArcServer>>,
 }
 
 impl ListenQuicConf for PlainQuicPortAuxConfig {
-    fn run_quic_task(
-        &self,
-        rt_handle: Handle,
-        connecting: Connecting,
-        cc_info: ClientConnectionInfo,
-    ) {
-        let ingress_net_filter = self.ingress_net_filter.clone();
-        let listen_stats = self.listen_stats.clone();
-        let accept_timeout = self.accept_timeout;
-        let next_server = self.next_server.load().as_ref().clone();
-        rt_handle.spawn(async move {
-            if let Some(filter) = ingress_net_filter {
-                let (_, action) = filter.check(cc_info.sock_peer_ip());
-                match action {
-                    AclAction::Permit | AclAction::PermitAndLog => {}
-                    AclAction::Forbid | AclAction::ForbidAndLog => {
-                        listen_stats.add_dropped();
-                        return;
-                    }
-                }
-            }
-
-            match tokio::time::timeout(accept_timeout, connecting).await {
-                Ok(Ok(connection)) => {
-                    listen_stats.add_accepted();
-                    next_server.run_quic_task(connection, cc_info).await
-                }
-                Ok(Err(e)) => {
-                    listen_stats.add_failed();
-                    // TODO may be attack
-                    debug!(
-                        "{} - {} quic accept error: {e:?}",
-                        cc_info.sock_local_addr(),
-                        cc_info.sock_peer_addr()
-                    );
-                }
-                Err(_) => {
-                    listen_stats.add_failed();
-                    // TODO may be attack
-                    debug!(
-                        "{} - {} quic accept timeout",
-                        cc_info.sock_local_addr(),
-                        cc_info.sock_peer_addr()
-                    );
-                }
-            }
-        });
-    }
-
     #[inline]
     fn take_udp_listen_config(&mut self) -> Option<UdpListenConfig> {
         self.listen_config.take()
@@ -115,6 +60,16 @@ impl ListenQuicConf for PlainQuicPortAuxConfig {
     fn offline_rebind_port(&self) -> Option<u16> {
         self.offline_rebind_port
     }
+
+    #[inline]
+    fn ingress_network_acl(&self) -> Option<&AclNetworkRule> {
+        self.ingress_net_filter.as_ref().map(|v| v.as_ref())
+    }
+
+    #[inline]
+    fn accept_timeout(&self) -> Duration {
+        self.accept_timeout
+    }
 }
 
 pub(crate) struct PlainQuicPort {
@@ -126,7 +81,7 @@ pub(crate) struct PlainQuicPort {
 
     cfg_sender: watch::Sender<PlainQuicPortAuxConfig>,
 
-    next_server: Arc<ArcSwap<ArcServer>>,
+    next_server: ArcSwap<ArcServer>,
     quit_policy: Arc<ServerQuitPolicy>,
     reload_version: usize,
 }
@@ -147,16 +102,13 @@ impl PlainQuicPort {
             .map(|builder| Arc::new(builder.build()));
 
         let next_server = Arc::new(crate::serve::get_or_insert_default(&config.server));
-        let next_server = Arc::new(ArcSwap::new(next_server));
 
         let aux_config = PlainQuicPortAuxConfig {
             ingress_net_filter,
-            listen_stats: Arc::clone(&listen_stats),
             listen_config: None,
             quinn_config: None,
             accept_timeout: tls_server.accept_timeout,
             offline_rebind_port: config.offline_rebind_port,
-            next_server: next_server.clone(),
         };
         let (cfg_sender, _cfg_receiver) = watch::channel(aux_config);
 
@@ -167,7 +119,7 @@ impl PlainQuicPort {
             listen_stats,
             reload_sender,
             cfg_sender,
-            next_server,
+            next_server: ArcSwap::new(next_server),
             quit_policy: Arc::new(ServerQuitPolicy::default()),
             reload_version,
         })
@@ -208,6 +160,7 @@ impl ServerInternal for PlainQuicPort {
             let Some(flags) = PlainQuicPortUpdateFlags::from_bits(flags) else {
                 return Err(anyhow!("unknown update flags: {flags}"));
             };
+
             let quinn_config = if flags.contains(PlainQuicPortUpdateFlags::QUINN) {
                 let tls_config = config.tls_server.build()?;
                 Some(quinn::ServerConfig::with_crypto(tls_config.driver))
@@ -225,15 +178,17 @@ impl ServerInternal for PlainQuicPort {
                 .map(|builder| Arc::new(builder.build()));
             let aux_config = PlainQuicPortAuxConfig {
                 ingress_net_filter,
-                listen_stats: Arc::clone(&self.listen_stats),
                 listen_config,
                 quinn_config,
                 accept_timeout: config.tls_server.accept_timeout(),
                 offline_rebind_port: config.offline_rebind_port,
-                next_server: self.next_server.clone(),
             };
             self.cfg_sender.send_replace(aux_config);
             self.config.store(config);
+
+            if flags.contains(PlainQuicPortUpdateFlags::NEXT_SERVER) {
+                self._update_next_servers_in_place();
+            }
             Ok(())
         } else {
             Err(anyhow!("invalid config type for PlainQuicPort server"))
@@ -337,5 +292,8 @@ impl Server for PlainQuicPort {
     ) {
     }
 
-    async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
+    async fn run_quic_task(&self, connection: Connection, cc_info: ClientConnectionInfo) {
+        let next_server = self.next_server.load().as_ref().clone();
+        next_server.run_quic_task(connection, cc_info).await;
+    }
 }
