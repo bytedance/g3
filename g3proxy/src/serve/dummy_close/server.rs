@@ -24,8 +24,8 @@ use tokio::sync::broadcast;
 use tokio_openssl::SslStream;
 use tokio_rustls::server::TlsStream;
 
-use g3_daemon::listen::ListenStats;
-use g3_daemon::server::{ClientConnectionInfo, ServerReloadCommand};
+use g3_daemon::listen::{AcceptTcpServer, ArcAcceptTcpServer, ListenStats};
+use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_types::metrics::MetricsName;
 
 use crate::config::server::dummy_close::DummyCloseServerConfig;
@@ -128,16 +128,31 @@ impl ServerInternal for DummyCloseServer {
     }
 }
 
-#[async_trait]
-impl Server for DummyCloseServer {
+impl BaseServer for DummyCloseServer {
     fn name(&self) -> &MetricsName {
         self.config.name()
+    }
+
+    fn server_type(&self) -> &'static str {
+        self.config.server_type()
     }
 
     fn version(&self) -> usize {
         0
     }
+}
 
+#[async_trait]
+impl AcceptTcpServer for DummyCloseServer {
+    async fn run_tcp_task(&self, _stream: TcpStream, _cc_info: ClientConnectionInfo) {}
+
+    fn get_reloaded(&self) -> ArcAcceptTcpServer {
+        crate::serve::get_or_insert_default(self.config.name())
+    }
+}
+
+#[async_trait]
+impl Server for DummyCloseServer {
     fn escaper(&self) -> &MetricsName {
         Default::default()
     }
@@ -162,8 +177,6 @@ impl Server for DummyCloseServer {
     fn quit_policy(&self) -> &Arc<ServerQuitPolicy> {
         &self.quit_policy
     }
-
-    async fn run_tcp_task(&self, _stream: TcpStream, _cc_info: ClientConnectionInfo) {}
 
     async fn run_rustls_task(&self, _stream: TlsStream<TcpStream>, _cc_info: ClientConnectionInfo) {
     }

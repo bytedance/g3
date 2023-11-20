@@ -26,8 +26,8 @@ use tokio::sync::{broadcast, watch};
 use tokio_openssl::SslStream;
 use tokio_rustls::server::TlsStream;
 
-use g3_daemon::listen::{ListenQuicConf, ListenStats};
-use g3_daemon::server::{ClientConnectionInfo, ServerReloadCommand};
+use g3_daemon::listen::{AcceptTcpServer, ArcAcceptTcpServer, ListenStats, ListenQuicConf};
+use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_types::acl::AclNetworkRule;
 use g3_types::metrics::MetricsName;
 use g3_types::net::UdpListenConfig;
@@ -243,18 +243,34 @@ impl ServerInternal for PlainQuicPort {
     }
 }
 
-#[async_trait]
-impl Server for PlainQuicPort {
+impl BaseServer for PlainQuicPort {
     #[inline]
     fn name(&self) -> &MetricsName {
         &self.name
+    }
+
+    fn server_type(&self) -> &'static str {
+        let config = self.config.load();
+        config.server_type()
     }
 
     #[inline]
     fn version(&self) -> usize {
         self.reload_version
     }
+}
 
+#[async_trait]
+impl AcceptTcpServer for PlainQuicPort {
+    async fn run_tcp_task(&self, _stream: TcpStream, _cc_info: ClientConnectionInfo) {}
+
+    fn get_reloaded(&self) -> ArcAcceptTcpServer {
+        crate::serve::get_or_insert_default(&self.name)
+    }
+}
+
+#[async_trait]
+impl Server for PlainQuicPort {
     fn escaper(&self) -> &MetricsName {
         Default::default()
     }
@@ -279,8 +295,6 @@ impl Server for PlainQuicPort {
     fn quit_policy(&self) -> &Arc<ServerQuitPolicy> {
         &self.quit_policy
     }
-
-    async fn run_tcp_task(&self, _stream: TcpStream, _cc_info: ClientConnectionInfo) {}
 
     async fn run_rustls_task(&self, _stream: TlsStream<TcpStream>, _cc_info: ClientConnectionInfo) {
     }

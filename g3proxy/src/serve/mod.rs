@@ -23,8 +23,8 @@ use tokio::sync::broadcast;
 use tokio_openssl::SslStream;
 use tokio_rustls::server::TlsStream;
 
-use g3_daemon::listen::ListenStats;
-use g3_daemon::server::{ClientConnectionInfo, ServerQuitPolicy, ServerReloadCommand};
+use g3_daemon::listen::{AcceptTcpServer, ListenStats};
+use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerQuitPolicy, ServerReloadCommand};
 use g3_types::metrics::MetricsName;
 
 use crate::config::server::AnyServerConfig;
@@ -36,7 +36,7 @@ mod idle_check;
 pub(crate) use idle_check::ServerIdleChecker;
 
 mod runtime;
-use runtime::{ListenQuicRuntime, ListenTcpRuntime};
+use runtime::ListenQuicRuntime;
 
 mod dummy_close;
 mod intelli_proxy;
@@ -90,9 +90,7 @@ pub(crate) trait ServerInternal {
 }
 
 #[async_trait]
-pub(crate) trait Server: ServerInternal {
-    fn name(&self) -> &MetricsName;
-    fn version(&self) -> usize;
+pub(crate) trait Server: ServerInternal + BaseServer + AcceptTcpServer {
     fn escaper(&self) -> &MetricsName;
     fn user_group(&self) -> &MetricsName;
     fn auditor(&self) -> &MetricsName;
@@ -104,8 +102,6 @@ pub(crate) trait Server: ServerInternal {
 
     fn alive_count(&self) -> i32;
     fn quit_policy(&self) -> &Arc<ServerQuitPolicy>;
-
-    async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo);
 
     async fn run_rustls_task(&self, stream: TlsStream<TcpStream>, cc_info: ClientConnectionInfo);
 

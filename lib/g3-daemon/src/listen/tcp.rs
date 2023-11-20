@@ -50,11 +50,13 @@ pub struct ListenTcpRuntime {
 }
 
 impl ListenTcpRuntime {
-    pub fn new(server: &ArcAcceptTcpServer, listen_stats: Arc<ListenStats>) -> Self {
+    pub fn new(server: ArcAcceptTcpServer, listen_stats: Arc<ListenStats>) -> Self {
+        let server_type = server.server_type();
+        let server_version = server.version();
         ListenTcpRuntime {
-            server: Arc::clone(server),
-            server_type: server.server_type(),
-            server_version: server.version(),
+            server,
+            server_type,
+            server_version,
             worker_id: None,
             listen_stats,
             instance_id: 0,
