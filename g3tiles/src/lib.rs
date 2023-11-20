@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#![feature(trait_upcasting)]
+
 pub mod config;
 pub mod control;
 pub mod opts;

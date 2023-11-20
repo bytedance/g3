@@ -17,11 +17,10 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 
-use g3_daemon::listen::ListenStats;
-use g3_daemon::server::{ClientConnectionInfo, ServerQuitPolicy, ServerReloadCommand};
+use g3_daemon::listen::{AcceptTcpServer, ListenStats};
+use g3_daemon::server::{BaseServer, ServerQuitPolicy, ServerReloadCommand};
 use g3_types::metrics::MetricsName;
 
 use crate::config::server::AnyServerConfig;
@@ -31,9 +30,6 @@ pub(crate) use registry::{foreach_online as foreach_server, get_names, get_or_in
 
 mod error;
 pub(crate) use error::{ServerTaskError, ServerTaskResult};
-
-mod runtime;
-use runtime::ListenTcpRuntime;
 
 mod dummy_close;
 mod plain_tcp_port;
@@ -70,10 +66,7 @@ pub(crate) trait ServerInternal {
 }
 
 #[async_trait]
-pub(crate) trait Server: ServerInternal {
-    fn name(&self) -> &MetricsName;
-    fn version(&self) -> usize;
-
+pub(crate) trait Server: ServerInternal + BaseServer + AcceptTcpServer {
     fn get_server_stats(&self) -> Option<ArcServerStats> {
         None
     }
@@ -81,8 +74,6 @@ pub(crate) trait Server: ServerInternal {
 
     fn alive_count(&self) -> i32;
     fn quit_policy(&self) -> &Arc<ServerQuitPolicy>;
-
-    async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo);
 }
 
 pub(crate) type ArcServer = Arc<dyn Server + Send + Sync>;
