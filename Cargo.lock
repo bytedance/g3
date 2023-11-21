@@ -668,15 +668,6 @@ dependencies = [
 
 [[package]]
 name = "fastrand"
-version = "1.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e51093e27b0797c359783294ca4f0a911c270184cb10f85783b118614a1501be"
-dependencies = [
- "instant",
-]
-
-[[package]]
-name = "fastrand"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "25cbce373ec4653f1a01a31e8a5e5ec0c622dc27ff9c4e6606eefef5cbbed4a5"
@@ -882,7 +873,7 @@ dependencies = [
  "chrono",
  "clap",
  "daemonize",
- "fastrand 2.0.1",
+ "fastrand",
  "futures-util",
  "g3-fluentd",
  "g3-http",
@@ -1057,7 +1048,7 @@ version = "0.6.0"
 dependencies = [
  "ahash",
  "bytes",
- "fastrand 2.0.1",
+ "fastrand",
  "futures-util",
  "g3-resolver",
  "g3-types",
@@ -1177,7 +1168,7 @@ dependencies = [
 name = "g3-socket"
 version = "0.4.0"
 dependencies = [
- "fastrand 2.0.1",
+ "fastrand",
  "g3-types",
  "libc",
  "socket2",
@@ -1267,7 +1258,7 @@ dependencies = [
  "blake3",
  "bytes",
  "digest",
- "fastrand 2.0.1",
+ "fastrand",
  "flume",
  "fnv",
  "governor",
@@ -1288,7 +1279,7 @@ dependencies = [
  "radix_trie",
  "rand",
  "regex",
- "ring 0.17.5",
+ "ring",
  "rustc-hash",
  "rustls",
  "rustls-native-certs",
@@ -1372,8 +1363,8 @@ dependencies = [
  "g3-tls-cert",
  "g3-types",
  "h2",
- "h3 0.0.3",
- "h3-quinn 0.0.4",
+ "h3",
+ "h3-quinn",
  "hdrhistogram",
  "hex",
  "hickory-client",
@@ -1526,7 +1517,7 @@ dependencies = [
  "chrono",
  "clap",
  "clap_complete",
- "fastrand 2.0.1",
+ "fastrand",
  "fixedbitset",
  "fnv",
  "futures-util",
@@ -1788,45 +1779,17 @@ dependencies = [
 
 [[package]]
 name = "h3"
-version = "0.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6de6ca43eed186fd055214af06967b0a7a68336cefec7e8a4004e96efeaccb9e"
-dependencies = [
- "bytes",
- "fastrand 1.9.0",
- "futures-util",
- "http",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "h3"
 version = "0.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b83e1915177ea624b5bbbdb16bc54f0c106c9664892c695f995e53f5c6793b80"
 dependencies = [
  "bytes",
- "fastrand 2.0.1",
+ "fastrand",
  "futures-util",
  "http",
  "pin-project-lite",
  "tokio",
  "tracing",
-]
-
-[[package]]
-name = "h3-quinn"
-version = "0.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d4a1a1763e4f3e82ee9f1ecf2cf862b22cc7316ebe14684e42f94532b5ec64d"
-dependencies = [
- "bytes",
- "futures",
- "h3 0.0.2",
- "quinn",
- "quinn-proto",
- "tokio-util",
 ]
 
 [[package]]
@@ -1837,7 +1800,7 @@ checksum = "ac9675014d703c3d516a121757bbc02e53f1ee838e0729fc7534b35024a81ae4"
 dependencies = [
  "bytes",
  "futures",
- "h3 0.0.3",
+ "h3",
  "quinn",
  "quinn-proto",
  "tokio",
@@ -1901,8 +1864,7 @@ dependencies = [
 [[package]]
 name = "hickory-proto"
 version = "0.24.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "091a6fbccf4860009355e3efc52ff4acf37a63489aad7435372d44ceeb6fbbcf"
+source = "git+https://github.com/hickory-dns/hickory-dns.git?rev=b0c0566#b0c05664837684d74d396dae8cceb6171ea4c556"
 dependencies = [
  "async-trait",
  "bytes",
@@ -1913,15 +1875,15 @@ dependencies = [
  "futures-io",
  "futures-util",
  "h2",
- "h3 0.0.2",
- "h3-quinn 0.0.3",
+ "h3",
+ "h3-quinn",
  "http",
  "idna",
  "ipnet",
  "once_cell",
  "quinn",
  "rand",
- "ring 0.16.20",
+ "ring",
  "rustls",
  "rustls-native-certs",
  "rustls-pemfile",
@@ -2599,12 +2561,11 @@ dependencies = [
 [[package]]
 name = "quinn-proto"
 version = "0.10.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "141bf7dfde2fbc246bfd3fe12f2455aa24b0fbd9af535d8c86c7bd1381ff2b1a"
+source = "git+https://github.com/zh-jq/quinn.git?branch=ring-0.17#4a6978bdee67b244ae66241cc35abd0542765544"
 dependencies = [
  "bytes",
  "rand",
- "ring 0.16.20",
+ "ring",
  "rustc-hash",
  "rustls",
  "rustls-native-certs",
@@ -2739,19 +2700,6 @@ checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
 
 [[package]]
 name = "ring"
-version = "0.16.20"
-source = "git+https://github.com/zh-jq/ring-repack.git?branch=patch-0.16#35ab046435e73b6e08328e9056db52bf235d31a0"
-dependencies = [
- "cc",
- "getrandom",
- "libc",
- "once_cell",
- "spin",
- "untrusted 0.7.1",
-]
-
-[[package]]
-name = "ring"
 version = "0.17.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fb0205304757e5d899b9c2e448b867ffd03ae7f988002e47cd24954391394d0b"
@@ -2760,7 +2708,7 @@ dependencies = [
  "getrandom",
  "libc",
  "spin",
- "untrusted 0.9.0",
+ "untrusted",
  "windows-sys",
 ]
 
@@ -2847,7 +2795,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "629648aced5775d558af50b2b4c7b02983a04b312126d45eeead26e7caa498b9"
 dependencies = [
  "log",
- "ring 0.17.5",
+ "ring",
  "rustls-webpki",
  "sct",
 ]
@@ -2879,8 +2827,8 @@ version = "0.101.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b6275d1ee7a1cd780b64aca7726599a1dbc893b1e64144529e55c3c2f745765"
 dependencies = [
- "ring 0.17.5",
- "untrusted 0.9.0",
+ "ring",
+ "untrusted",
 ]
 
 [[package]]
@@ -2910,8 +2858,8 @@ version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da046153aa2352493d6cb7da4b6e5c0c057d8a1d0a9aa8560baffdd945acd414"
 dependencies = [
- "ring 0.17.5",
- "untrusted 0.9.0",
+ "ring",
+ "untrusted",
 ]
 
 [[package]]
@@ -3421,12 +3369,6 @@ name = "unindent"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c7de7d73e1754487cb58364ee906a499937a0dfabd86bcb980fa99ec8c8fa2ce"
-
-[[package]]
-name = "untrusted"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a156c684c91ea7d62626509bce3cb4e1d9ed5c4d978f7b4352658f96a4c26b4a"
 
 [[package]]
 name = "untrusted"
