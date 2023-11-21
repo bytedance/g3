@@ -20,7 +20,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context};
 use arc_swap::{ArcSwap, ArcSwapOption};
 use async_trait::async_trait;
-use log::debug;
+#[cfg(feature = "quic")]
 use quinn::Connection;
 use slog::Logger;
 use tokio::io::{AsyncRead, AsyncWrite};
@@ -223,6 +223,7 @@ impl TcpStreamServer {
             .await;
     }
 
+    #[cfg(feature = "quic")]
     fn run_task_with_quic_stream(
         &self,
         send_stream: quinn::SendStream,
@@ -370,7 +371,10 @@ impl Server for TcpStreamServer {
         self.run_task_with_stream(stream, cc_info).await
     }
 
+    #[cfg(feature = "quic")]
     async fn run_quic_task(&self, connection: Connection, cc_info: ClientConnectionInfo) {
+        use log::debug;
+
         let client_addr = cc_info.client_addr();
         self.server_stats.add_conn(client_addr);
         if self.drop_early(client_addr) {
