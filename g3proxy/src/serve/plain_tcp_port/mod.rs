@@ -20,7 +20,6 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
-#[cfg(feature = "quic")]
 use quinn::Connection;
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
@@ -258,6 +257,5 @@ impl Server for PlainTcpPort {
     ) {
     }
 
-    #[cfg(feature = "quic")]
     async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
 }

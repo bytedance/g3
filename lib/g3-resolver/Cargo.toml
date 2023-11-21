@@ -17,7 +17,7 @@ indexmap.workspace = true
 ahash.workspace = true
 c-ares = { workspace = true, optional = true, features = ["build-cmake"] }
 c-ares-resolver = { workspace = true, optional = true }
-hickory-resolver = { workspace = true, optional = true, features = ["tokio-runtime", "dns-over-rustls", "dns-over-https-rustls", "native-certs"] }
+hickory-resolver = { workspace = true, optional = true, features = ["tokio-runtime", "dns-over-rustls", "dns-over-https-rustls", "dns-over-quic", "dns-over-h3", "native-certs"] }
 hickory-proto = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
 g3-types = { workspace = true, optional = true }
@@ -27,4 +27,3 @@ default = []
 c-ares = ["dep:c-ares", "dep:c-ares-resolver"]
 vendored-c-ares = ["c-ares", "c-ares-resolver/vendored", "c-ares/vendored"]
 hickory = ["dep:hickory-resolver", "dep:hickory-proto", "g3-types/rustls", "dep:rustls"]
-quic = ["hickory", "g3-types/quic", "hickory-resolver/dns-over-quic", "hickory-resolver/dns-over-h3"]

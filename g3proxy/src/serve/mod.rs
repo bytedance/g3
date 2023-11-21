@@ -17,7 +17,6 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-#[cfg(feature = "quic")]
 use quinn::Connection;
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
@@ -37,14 +36,11 @@ mod idle_check;
 pub(crate) use idle_check::ServerIdleChecker;
 
 mod runtime;
-#[cfg(feature = "quic")]
-use runtime::ListenQuicRuntime;
-use runtime::ListenTcpRuntime;
+use runtime::{ListenQuicRuntime, ListenTcpRuntime};
 
 mod dummy_close;
 mod intelli_proxy;
 mod native_tls_port;
-#[cfg(feature = "quic")]
 mod plain_quic_port;
 mod plain_tcp_port;
 mod plain_tls_port;
@@ -115,7 +111,6 @@ pub(crate) trait Server: ServerInternal {
 
     async fn run_openssl_task(&self, stream: SslStream<TcpStream>, cc_info: ClientConnectionInfo);
 
-    #[cfg(feature = "quic")]
     async fn run_quic_task(&self, connection: Connection, cc_info: ClientConnectionInfo);
 }
 

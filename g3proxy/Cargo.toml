@@ -25,7 +25,7 @@ tokio = { workspace = true, features = ["rt-multi-thread", "rt", "signal", "sync
 tokio-util = { workspace = true, features = ["time"] }
 tokio-rustls.workspace = true
 rustls.workspace = true
-quinn = { workspace = true, optional = true }
+quinn.workspace = true
 tokio-openssl.workspace = true
 openssl.workspace = true
 openssl-probe = { workspace = true, optional = true }
@@ -66,7 +66,7 @@ pyo3 = { workspace = true, features = ["auto-initialize"], optional = true }
 g3-compat.workspace = true
 g3-types = { workspace = true, features = ["auth-crypt", "rustls", "openssl", "acl-rule", "http", "route", "async-log", "json"] }
 g3-socket.workspace = true
-g3-daemon.workspace = true
+g3-daemon = { workspace = true, features = ["quic"] }
 g3-signal.workspace = true
 g3-datetime.workspace = true
 g3-statsd.workspace = true
@@ -95,7 +95,7 @@ tokio-util = { workspace = true, features = ["io"] }
 rustc_version.workspace = true
 
 [features]
-default = ["lua54", "python", "c-ares", "hickory", "geoip", "quic"]
+default = ["lua54", "python", "c-ares", "hickory", "geoip"]
 lua = ["mlua"]
 luajit = ["lua", "mlua/luajit"]
 lua51 = ["lua", "mlua/lua51"]
@@ -105,7 +105,6 @@ python = ["pyo3"]
 c-ares = ["g3-resolver/c-ares"]
 hickory = ["g3-resolver/hickory"]
 geoip = ["g3-geoip", "g3-yaml/geoip", "fixedbitset", "rustc-hash", "fnv"]
-quic = ["g3-daemon/quic", "g3-resolver/quic", "dep:quinn"]
 vendored-openssl = ["openssl/vendored", "dep:openssl-probe"]
 vendored-tongsuo = ["openssl/tongsuo", "dep:openssl-probe", "g3-yaml/vendored-tongsuo", "g3-json/vendored-tongsuo"]
 vendored-c-ares = ["c-ares", "g3-resolver/vendored-c-ares"]

@@ -88,8 +88,4 @@ fn main() {
     if env::var("CARGO_FEATURE_GEOIP").is_ok() {
         println!("cargo:rustc-env=G3_GEOIP_FEATURE=geoip");
     }
-
-    if env::var("CARGO_FEATURE_QUIC").is_ok() {
-        println!("cargo:rustc-env=G3_QUIC_FEATURE=quinn");
-    }
 }

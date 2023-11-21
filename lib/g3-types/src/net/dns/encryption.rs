@@ -27,9 +27,7 @@ use crate::net::{RustlsClientConfig, RustlsClientConfigBuilder};
 pub enum DnsEncryptionProtocol {
     Tls,
     Https,
-    #[cfg(feature = "quic")]
     H3,
-    #[cfg(feature = "quic")]
     Quic,
 }
 
@@ -42,11 +40,9 @@ impl FromStr for DnsEncryptionProtocol {
             "https" | "h2" | "dns_over_https" | "dnsoverhttps" | "doh" => {
                 Ok(DnsEncryptionProtocol::Https)
             }
-            #[cfg(feature = "quic")]
             "h3" | "http/3" | "dns_over_http/3" | "dnsoverhttp/3" | "doh3" => {
                 Ok(DnsEncryptionProtocol::H3)
             }
-            #[cfg(feature = "quic")]
             "quic" | "dns_over_quic" | "dnsoverquic" | "doq" => Ok(DnsEncryptionProtocol::Quic),
             _ => Err(anyhow!("unknown protocol {}", s)),
         }
@@ -58,9 +54,7 @@ impl DnsEncryptionProtocol {
         match self {
             DnsEncryptionProtocol::Tls => "DnsOverTls",
             DnsEncryptionProtocol::Https => "DnsOverHttps",
-            #[cfg(feature = "quic")]
             DnsEncryptionProtocol::H3 => "DnsOverHttp/3",
-            #[cfg(feature = "quic")]
             DnsEncryptionProtocol::Quic => "DnsOverQuic",
         }
     }
@@ -69,9 +63,7 @@ impl DnsEncryptionProtocol {
         match self {
             DnsEncryptionProtocol::Tls => 853,
             DnsEncryptionProtocol::Https => 443,
-            #[cfg(feature = "quic")]
             DnsEncryptionProtocol::H3 => 443,
-            #[cfg(feature = "quic")]
             DnsEncryptionProtocol::Quic => 853,
         }
     }

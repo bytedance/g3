@@ -22,7 +22,6 @@ use anyhow::{anyhow, Context};
 use arc_swap::{ArcSwap, ArcSwapOption};
 use async_trait::async_trait;
 use log::debug;
-#[cfg(feature = "quic")]
 use quinn::Connection;
 use slog::Logger;
 use tokio::net::TcpStream;
@@ -359,6 +358,5 @@ impl Server for TlsStreamServer {
     ) {
     }
 
-    #[cfg(feature = "quic")]
     async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
 }

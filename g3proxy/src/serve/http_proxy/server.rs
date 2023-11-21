@@ -22,7 +22,6 @@ use anyhow::{anyhow, Context};
 use arc_swap::{ArcSwap, ArcSwapOption};
 use async_trait::async_trait;
 use log::debug;
-#[cfg(feature = "quic")]
 use quinn::Connection;
 use slog::Logger;
 use tokio::io::{AsyncRead, AsyncWrite};
@@ -238,7 +237,6 @@ impl HttpProxyServer {
         w_task.into_running().await
     }
 
-    #[cfg(feature = "quic")]
     fn spawn_quic_stream_task(
         &self,
         send_stream: quinn::SendStream,
@@ -425,7 +423,6 @@ impl Server for HttpProxyServer {
         self.spawn_stream_task(stream, cc_info).await;
     }
 
-    #[cfg(feature = "quic")]
     async fn run_quic_task(&self, connection: Connection, cc_info: ClientConnectionInfo) {
         let client_addr = cc_info.client_addr();
         self.server_stats.add_conn(client_addr);
