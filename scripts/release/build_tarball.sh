@@ -45,6 +45,10 @@ BUILD_DIR=$(mktemp -d "/tmp/build.${SOURCE_NAME}-${SOURCE_VERSION}.XXX")
 echo "==> Use temp build dir ${BUILD_DIR}"
 
 
+echo "==> cleaning local cargo checkouts"
+cargo cache --autoclean
+
+
 echo "==> adding source code from git"
 git archive --format=tar --prefix="${SOURCE_NAME}-${PKG_VERSION}/" "${GIT_REVISION}" | tar -C "${BUILD_DIR}" -xf -
 
@@ -96,23 +100,6 @@ useless_patches=$(cargo tree 2>&1 >/dev/null | awk -f "${SCRIPT_DIR}"/useless_pa
 [ -z "${useless_patches}" ] || "${SCRIPT_DIR}"/prune_patch.py --input Cargo.toml --output Cargo.toml ${useless_patches}
 
 
-echo "==> cleaning local cargo checkouts"
-for _file in $(cargo metadata --format-version 1 | jq -r '.packages[]["manifest_path"]|select(test("/tmp/build")|not)')
-do
-	_dir=$(dirname "${_file}")
-	while [ -f "${_dir}/../Cargo.toml" ]
-	do
-		_dir=$(realpath "${_dir}/../")
-	done
-
-	if [ -f "${_dir}/Cargo.toml" ]
-	then
-		echo "   Cleaning ${_dir}"
-		rm -rf "${_dir}"
-	fi
-done
-
-
 echo "==> adding vendor code from cargo"
 [ -d "${CARGO_CONFIG_DIR}" ] || mkdir "${CARGO_CONFIG_DIR}"
 if [ -f "${CARGO_CONFIG_FILE}" ]
@@ -122,7 +109,7 @@ else
 	: > "${CARGO_CONFIG_FILE}"
 fi
 mkdir "${CARGO_VENDOR_DIR}"
-cargo vendor --locked "${CARGO_VENDOR_DIR}" | tee -a "${CARGO_CONFIG_FILE}"
+cargo vendor --offline "${CARGO_VENDOR_DIR}" | tee -a "${CARGO_CONFIG_FILE}"
 
 
 echo "==> generate license files for bundled crates"

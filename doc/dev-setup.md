@@ -97,6 +97,10 @@ The following plugins is recommended:
 
   To run llvm-tools installed via rustup.
 
+- cargo-cache
+
+  To clean cargo caches.
+
 # IDE
 
 ## JetBrains
