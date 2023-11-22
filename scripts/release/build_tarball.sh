@@ -109,7 +109,7 @@ else
 	: > "${CARGO_CONFIG_FILE}"
 fi
 mkdir "${CARGO_VENDOR_DIR}"
-cargo vendor --offline "${CARGO_VENDOR_DIR}" | tee -a "${CARGO_CONFIG_FILE}"
+cargo vendor "${CARGO_VENDOR_DIR}" | tee -a "${CARGO_CONFIG_FILE}"
 
 
 echo "==> generate license files for bundled crates"
