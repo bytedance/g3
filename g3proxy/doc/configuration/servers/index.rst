@@ -127,9 +127,9 @@ ingress_network_filter
 
 Set the network filter for clients.
 
-The used client address will always be the real socket peer address for servers that support PROXY Protocol.
-
-If a server is chained after a PROXY Protocol server, the used client address will be the one in the PROXY Protocol message.
+The used client address will always be the interpreted client address, which means it will be the raw socket peer addr
+for servers that listen directly, and it will be the address set in the PROXY Protocol message for serverw chained after
+the server that support PROXY Protocol.
 
 **default**: not set
 

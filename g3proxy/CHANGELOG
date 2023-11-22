@@ -1,4 +1,9 @@
 
+v1.7.30:
+ - Feature: add new max_timeout config option to c-ares resolver
+ - Feature: support listen to quic port for HttpProxy and TcpStream server
+ - Feature: use atomic swap for reload of dependency server
+
 v1.7.29:
  - Feature: add OpenSSL based NativeTlsPort server
  - Feature: allow to chain TcpStream after ports server
