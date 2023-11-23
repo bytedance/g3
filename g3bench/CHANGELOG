@@ -1,4 +1,7 @@
 
+v0.8.6:
+ - Compatibility: update build dependencies
+
 v0.8.5:
  - Feature: emit histogram duration metrics
  - Feature: add socks5 proxy support to h3 target
