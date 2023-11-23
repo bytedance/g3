@@ -173,10 +173,8 @@ impl OpensslServerConfigBuilder {
         ssl_builder.enable_ntls();
 
         ssl_builder
-            .set_cipher_list(concat!(
-                TLS_DEFAULT_CIPHER_LIST,
-                ":",
-                TLCP_DEFAULT_CIPHER_LIST
+            .set_cipher_list(&format!(
+                "{TLS_DEFAULT_CIPHER_LIST}:{TLCP_DEFAULT_CIPHER_LIST}"
             ))
             .map_err(|e| anyhow!("failed to set tls1.2 / tlcp cipher list: {e}"))?;
         ssl_builder

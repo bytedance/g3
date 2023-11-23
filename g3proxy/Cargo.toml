@@ -25,7 +25,7 @@ tokio = { workspace = true, features = ["rt-multi-thread", "rt", "signal", "sync
 tokio-util = { workspace = true, features = ["time"] }
 tokio-rustls.workspace = true
 rustls.workspace = true
-quinn.workspace = true
+quinn = { workspace = true, features = ["tls-rustls", "runtime-tokio"] }
 tokio-openssl.workspace = true
 openssl.workspace = true
 openssl-probe = { workspace = true, optional = true }
