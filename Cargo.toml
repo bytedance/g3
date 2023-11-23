@@ -116,7 +116,7 @@ sha-1 = "0.10.0"
 blake3 = { version = "1.4", default-features = false }
 hex = "0.4.2"
 #
-idna = "0.4"
+idna = "0.5"
 url = "2.1"
 mime = "0.3"
 percent-encoding = "2.1"
