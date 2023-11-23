@@ -1,4 +1,7 @@
 
+v0.8.7:
+ - Compatibility: require openssl version 3.0
+
 v0.8.6:
  - Compatibility: update build dependencies
 
