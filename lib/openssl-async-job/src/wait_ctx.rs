@@ -16,8 +16,10 @@
 
 use std::os::fd::RawFd;
 use std::ptr;
+use std::sync::Arc;
 
-use libc::c_int;
+use atomic_waker::AtomicWaker;
+use libc::{c_int, c_void};
 use openssl::error::ErrorStack;
 use openssl::foreign_types::foreign_type;
 
@@ -98,42 +100,25 @@ impl AsyncWaitCtx {
             del_fds.into_iter().map(RawFd::from).collect(),
         ))
     }
+
+    pub fn set_callback(&self, waker: &Arc<AtomicWaker>) -> Result<(), ErrorStack> {
+        let r = unsafe {
+            ffi::ASYNC_WAIT_CTX_set_callback(self.0, Some(wake), Arc::as_ptr(waker) as *mut c_void)
+        };
+        if r != 1 {
+            Err(ErrorStack::get())
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn get_callback_status(&self) -> c_int {
+        unsafe { ffi::ASYNC_WAIT_CTX_get_status(self.0) }
+    }
 }
 
-#[cfg(ossl300)]
-mod ossl3 {
-    use std::sync::Arc;
-
-    use atomic_waker::AtomicWaker;
-    use libc::{c_int, c_void};
-    use openssl::error::ErrorStack;
-
-    use super::{ffi, AsyncWaitCtx};
-
-    impl AsyncWaitCtx {
-        pub fn set_callback(&self, waker: &Arc<AtomicWaker>) -> Result<(), ErrorStack> {
-            let r = unsafe {
-                ffi::ASYNC_WAIT_CTX_set_callback(
-                    self.0,
-                    Some(wake),
-                    Arc::as_ptr(waker) as *mut c_void,
-                )
-            };
-            if r != 1 {
-                Err(ErrorStack::get())
-            } else {
-                Ok(())
-            }
-        }
-
-        pub fn get_callback_status(&self) -> c_int {
-            unsafe { ffi::ASYNC_WAIT_CTX_get_status(self.0) }
-        }
-    }
-
-    extern "C" fn wake(arg: *mut c_void) -> c_int {
-        let waker = unsafe { &*(arg as *const AtomicWaker) };
-        waker.wake();
-        0
-    }
+extern "C" fn wake(arg: *mut c_void) -> c_int {
+    let waker = unsafe { &*(arg as *const AtomicWaker) };
+    waker.wake();
+    0
 }

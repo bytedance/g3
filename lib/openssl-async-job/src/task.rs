@@ -19,13 +19,11 @@ use std::future::Future;
 use std::io;
 use std::os::fd::RawFd;
 use std::pin::Pin;
-#[cfg(ossl300)]
 use std::sync::Arc;
 use std::task::{ready, Context, Poll};
 use std::{mem, ptr};
 
 use anyhow::anyhow;
-#[cfg(ossl300)]
 use atomic_waker::AtomicWaker;
 use libc::{c_int, c_void};
 use openssl::error::ErrorStack;
@@ -66,7 +64,6 @@ struct Action<T: AsyncOperation> {
 pub struct OpensslAsyncTask<T: AsyncOperation> {
     job: *mut ffi::ASYNC_JOB,
     wait_ctx: AsyncWaitCtx, // should be dropped before atomic_waker
-    #[cfg(ossl300)]
     atomic_waker: Arc<AtomicWaker>,
     action: Box<UnsafeCell<Action<T>>>,
 }
@@ -76,20 +73,6 @@ pub struct OpensslAsyncTask<T: AsyncOperation> {
 unsafe impl<T: AsyncOperation + Send> Send for OpensslAsyncTask<T> {}
 
 impl<T: AsyncOperation> OpensslAsyncTask<T> {
-    #[cfg(not(ossl300))]
-    pub(crate) fn new(operation: T) -> Result<Self, ErrorStack> {
-        let wait_ctx = AsyncWaitCtx::new()?;
-        Ok(OpensslAsyncTask {
-            job: ptr::null_mut(),
-            wait_ctx,
-            action: Box::new(UnsafeCell::new(Action {
-                operation,
-                result: Err(anyhow!("not run yet")),
-            })),
-        })
-    }
-
-    #[cfg(ossl300)]
     pub(crate) fn new(operation: T) -> Result<Self, ErrorStack> {
         let atomic_waker = Arc::new(AtomicWaker::new());
         let wait_ctx = AsyncWaitCtx::new()?;
@@ -105,56 +88,6 @@ impl<T: AsyncOperation> OpensslAsyncTask<T> {
         })
     }
 
-    #[cfg(not(ossl300))]
-    fn poll_run(&mut self, cx: &mut Context<'_>) -> Poll<Result<T::Output, OpensslAsyncTaskError>> {
-        let mut ret: c_int = 0;
-
-        loop {
-            let mut param = self.action.get();
-            let r = unsafe {
-                ffi::ASYNC_start_job(
-                    &mut self.job,
-                    self.wait_ctx.as_ptr(),
-                    &mut ret,
-                    Some(start_job::<T>),
-                    &mut param as *mut _ as *mut c_void,
-                    mem::size_of::<*mut Action<T>>(),
-                )
-            };
-
-            match r {
-                ffi::ASYNC_ERR => return Poll::Ready(Err(ErrorStack::get().into())),
-                ffi::ASYNC_NO_JOBS => {
-                    // no available jobs, yield now and wake later
-                    cx.waker().wake_by_ref();
-                    return Poll::Pending;
-                }
-                ffi::ASYNC_PAUSE => {
-                    let action = unsafe { &mut *self.action.get() };
-                    let (add, del) = self.wait_ctx.get_changed_fds()?;
-                    for fd in add {
-                        action.operation.track_raw_fd(fd)?;
-                    }
-                    for fd in del {
-                        action.operation.untrack_raw_fd(fd);
-                    }
-                    ready!(action.operation.poll_ready_fds(cx))?;
-                }
-                ffi::ASYNC_FINISH => {
-                    let action = unsafe { &mut *self.action.get() };
-                    let r = mem::replace(&mut action.result, Err(anyhow!("")));
-                    return Poll::Ready(r.map_err(OpensslAsyncTaskError::Operation));
-                }
-                r => {
-                    return Poll::Ready(Err(OpensslAsyncTaskError::Unexpected(format!(
-                        "ASYNC_start_job returned {r}"
-                    ))));
-                }
-            }
-        }
-    }
-
-    #[cfg(ossl300)]
     fn poll_run(&mut self, cx: &mut Context<'_>) -> Poll<Result<T::Output, OpensslAsyncTaskError>> {
         let mut ret: c_int = 0;
 

@@ -25,7 +25,6 @@ pub enum ASYNC_JOB {}
 pub enum ASYNC_WAIT_CTX {}
 
 #[allow(non_camel_case_types)]
-#[cfg(ossl300)]
 pub type ASYNC_callback_fn = Option<unsafe extern "C" fn(arg: *mut c_void) -> c_int>;
 
 pub const ASYNC_ERR: c_int = 0;
@@ -92,20 +91,16 @@ extern "C" {
         numdelfds: *mut usize,
     ) -> c_int;
     pub fn ASYNC_WAIT_CTX_clear_fd(ctx: *mut ASYNC_WAIT_CTX, key: *const c_void) -> c_int;
-    #[cfg(ossl300)]
     pub fn ASYNC_WAIT_CTX_get_callback(
         ctx: *mut ASYNC_WAIT_CTX,
         callback: *mut ASYNC_callback_fn,
         callback_arg: *mut *mut c_void,
     ) -> c_int;
-    #[cfg(ossl300)]
     pub fn ASYNC_WAIT_CTX_set_callback(
         ctx: *mut ASYNC_WAIT_CTX,
         callback: ASYNC_callback_fn,
         callback_arg: *mut c_void,
     ) -> c_int;
-    #[cfg(ossl300)]
     pub fn ASYNC_WAIT_CTX_set_status(ctx: *mut ASYNC_WAIT_CTX, status: c_int) -> c_int;
-    #[cfg(ossl300)]
     pub fn ASYNC_WAIT_CTX_get_status(ctx: *mut ASYNC_WAIT_CTX) -> c_int;
 }
