@@ -40,7 +40,7 @@ hickory-client = { workspace = true, features = ["dns-over-rustls", "dns-over-ht
 hickory-proto = { workspace = true, features = ["dns-over-h3"] }
 g3-runtime = { workspace = true, features = ["openssl"] }
 g3-signal.workspace = true
-g3-types = { workspace = true, features = ["proxy", "openssl", "rustls"] }
+g3-types = { workspace = true, features = ["proxy", "openssl", "rustls", "quic"] }
 g3-clap.workspace = true
 g3-socket.workspace = true
 g3-http.workspace = true
