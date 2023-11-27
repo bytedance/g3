@@ -35,6 +35,7 @@ use crate::auth::UserGroup;
 pub(crate) mod dummy_close;
 pub(crate) mod intelli_proxy;
 pub(crate) mod native_tls_port;
+#[cfg(feature = "quic")]
 pub(crate) mod plain_quic_port;
 pub(crate) mod plain_tcp_port;
 pub(crate) mod plain_tls_port;
@@ -60,6 +61,7 @@ pub(crate) enum ServerConfigDiffAction {
     SpawnNew,
     ReloadOnlyConfig,
     ReloadAndRespawn,
+    #[allow(unused)]
     UpdateInPlace(u64), // to support server custom hot update, take a flags param
 }
 
@@ -125,6 +127,7 @@ pub(crate) enum AnyServerConfig {
     PlainTcpPort(plain_tcp_port::PlainTcpPortConfig),
     PlainTlsPort(plain_tls_port::PlainTlsPortConfig),
     NativeTlsPort(native_tls_port::NativeTlsPortConfig),
+    #[cfg(feature = "quic")]
     PlainQuicPort(plain_quic_port::PlainQuicPortConfig),
     IntelliProxy(intelli_proxy::IntelliProxyConfig),
     TcpStream(Box<tcp_stream::TcpStreamServerConfig>),
@@ -143,6 +146,7 @@ macro_rules! impl_transparent0 {
                 AnyServerConfig::PlainTcpPort(s) => s.$f(),
                 AnyServerConfig::PlainTlsPort(s) => s.$f(),
                 AnyServerConfig::NativeTlsPort(s) => s.$f(),
+                #[cfg(feature = "quic")]
                 AnyServerConfig::PlainQuicPort(s) => s.$f(),
                 AnyServerConfig::IntelliProxy(s) => s.$f(),
                 AnyServerConfig::TcpStream(s) => s.$f(),
@@ -164,6 +168,7 @@ macro_rules! impl_transparent1 {
                 AnyServerConfig::PlainTcpPort(s) => s.$f(p),
                 AnyServerConfig::PlainTlsPort(s) => s.$f(p),
                 AnyServerConfig::NativeTlsPort(s) => s.$f(p),
+                #[cfg(feature = "quic")]
                 AnyServerConfig::PlainQuicPort(s) => s.$f(p),
                 AnyServerConfig::IntelliProxy(s) => s.$f(p),
                 AnyServerConfig::TcpStream(s) => s.$f(p),
@@ -237,6 +242,7 @@ fn load_server(
                 .context("failed to load this NativeTlsPort server")?;
             Ok(AnyServerConfig::NativeTlsPort(server))
         }
+        #[cfg(feature = "quic")]
         "plain_quic_port" | "plainquicport" | "plain_quic" | "plainquic" => {
             let server = plain_quic_port::PlainQuicPortConfig::parse(map, position)
                 .context("failed to load this PlainQuicPort server")?;

@@ -17,5 +17,7 @@
 mod listen_tcp;
 pub(crate) use listen_tcp::ListenTcpRuntime;
 
+#[cfg(feature = "quic")]
 mod listen_quic;
+#[cfg(feature = "quic")]
 pub(crate) use listen_quic::ListenQuicRuntime;
