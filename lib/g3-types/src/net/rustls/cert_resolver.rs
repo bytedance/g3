@@ -36,7 +36,7 @@ impl MultipleCertResolver {
     }
 
     pub fn push_cert_pair(&mut self, pair: &RustlsCertificatePair) -> anyhow::Result<()> {
-        let signing_key = any_supported_type(&pair.key_borrowed())
+        let signing_key = any_supported_type(pair.key_ref())
             .map_err(|e| anyhow!("failed to add cert pair: {e}"))?;
         let ck = CertifiedKey::new(pair.certs_owned(), signing_key);
         self.keys.push(Arc::new(ck));

@@ -15,61 +15,7 @@
  */
 
 use anyhow::anyhow;
-use rustls_pki_types::{
-    CertificateDer, PrivateKeyDer, PrivatePkcs1KeyDer, PrivatePkcs8KeyDer, PrivateSec1KeyDer,
-};
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum PrivateKey {
-    Pkcs1(Vec<u8>),
-    Sec1(Vec<u8>),
-    Pkcs8(Vec<u8>),
-}
-
-impl PrivateKey {
-    fn borrowed(&self) -> PrivateKeyDer<'_> {
-        match self {
-            PrivateKey::Pkcs1(v) => PrivateKeyDer::Pkcs1(PrivatePkcs1KeyDer::from(v.as_ref())),
-            PrivateKey::Sec1(v) => PrivateKeyDer::Sec1(PrivateSec1KeyDer::from(v.as_ref())),
-            PrivateKey::Pkcs8(v) => PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(v.as_ref())),
-        }
-    }
-}
-
-impl TryFrom<PrivateKeyDer<'_>> for PrivateKey {
-    type Error = anyhow::Error;
-
-    fn try_from(value: PrivateKeyDer<'_>) -> anyhow::Result<Self> {
-        match value {
-            PrivateKeyDer::Pkcs1(d) => Ok(PrivateKey::Pkcs1(d.secret_pkcs1_der().to_vec())),
-            PrivateKeyDer::Sec1(d) => Ok(PrivateKey::Sec1(d.secret_sec1_der().to_vec())),
-            PrivateKeyDer::Pkcs8(d) => Ok(PrivateKey::Pkcs8(d.secret_pkcs8_der().to_vec())),
-            _ => Err(anyhow!(
-                "unsupported private key type, this code should be updated"
-            )),
-        }
-    }
-}
-
-impl From<&PrivateKey> for PrivateKeyDer<'static> {
-    fn from(value: &PrivateKey) -> Self {
-        match value {
-            PrivateKey::Pkcs1(v) => PrivateKeyDer::Pkcs1(PrivatePkcs1KeyDer::from(v.clone())),
-            PrivateKey::Sec1(v) => PrivateKeyDer::Sec1(PrivateSec1KeyDer::from(v.clone())),
-            PrivateKey::Pkcs8(v) => PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(v.clone())),
-        }
-    }
-}
-
-impl From<PrivateKey> for PrivateKeyDer<'static> {
-    fn from(value: PrivateKey) -> Self {
-        match value {
-            PrivateKey::Pkcs1(v) => PrivateKeyDer::Pkcs1(PrivatePkcs1KeyDer::from(v)),
-            PrivateKey::Sec1(v) => PrivateKeyDer::Sec1(PrivateSec1KeyDer::from(v)),
-            PrivateKey::Pkcs8(v) => PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(v)),
-        }
-    }
-}
+use rustls_pki_types::{CertificateDer, PrivateKeyDer};
 
 #[derive(Default)]
 pub struct RustlsCertificatePairBuilder {
@@ -93,7 +39,6 @@ impl RustlsCertificatePairBuilder {
         let Some(key) = self.key else {
             return Err(anyhow!("no private key set"));
         };
-        let key = PrivateKey::try_from(key)?;
         Ok(RustlsCertificatePair {
             certs: self.certs,
             key,
@@ -101,10 +46,19 @@ impl RustlsCertificatePairBuilder {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct RustlsCertificatePair {
     certs: Vec<CertificateDer<'static>>,
-    key: PrivateKey,
+    key: PrivateKeyDer<'static>,
+}
+
+impl Clone for RustlsCertificatePair {
+    fn clone(&self) -> Self {
+        RustlsCertificatePair {
+            certs: self.certs.clone(),
+            key: self.key.clone_key(),
+        }
+    }
 }
 
 impl RustlsCertificatePair {
@@ -113,14 +67,14 @@ impl RustlsCertificatePair {
     }
 
     pub fn key_owned(&self) -> PrivateKeyDer<'static> {
-        PrivateKeyDer::from(&self.key)
+        self.key.clone_key()
     }
 
-    pub fn key_borrowed(&self) -> PrivateKeyDer<'_> {
-        self.key.borrowed()
+    pub fn key_ref(&self) -> &PrivateKeyDer<'_> {
+        &self.key
     }
 
     pub fn into_inner(self) -> (Vec<CertificateDer<'static>>, PrivateKeyDer<'static>) {
-        (self.certs, self.key.into())
+        (self.certs, self.key)
     }
 }
