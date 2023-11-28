@@ -14,13 +14,19 @@
  * limitations under the License.
  */
 
-mod stats;
-pub use stats::{ListenSnapshot, ListenStats};
+use std::sync::Arc;
 
-mod tcp;
-pub use tcp::{AcceptTcpServer, ArcAcceptTcpServer, ListenTcpRuntime};
+use async_trait::async_trait;
 
-#[cfg_attr(feature = "quic", path = "quic.rs")]
-#[cfg_attr(not(feature = "quic"), path = "no_quic.rs")]
-mod quic;
-pub use quic::{AcceptQuicServer, ArcAcceptQuicServer, ListenQuicConf, ListenQuicRuntime};
+use crate::server::BaseServer;
+
+#[async_trait]
+pub trait AcceptQuicServer: BaseServer {
+    fn get_reloaded(&self) -> ArcAcceptQuicServer;
+}
+
+pub type ArcAcceptQuicServer = Arc<dyn AcceptQuicServer + Send + Sync>;
+
+pub trait ListenQuicConf {}
+
+pub struct ListenQuicRuntime {}
