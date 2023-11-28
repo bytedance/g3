@@ -48,4 +48,12 @@ fn main() {
     if let Ok(v) = env::var("G3_PACKAGE_VERSION") {
         println!("cargo:rustc-env=G3_PACKAGE_VERSION={v}");
     }
+
+    if env::var("CARGO_FEATURE_HICKORY").is_ok() {
+        println!("cargo:rustc-env=G3_HICKORY_FEATURE=hickory-dns");
+    }
+
+    if env::var("CARGO_FEATURE_QUIC").is_ok() {
+        println!("cargo:rustc-env=G3_QUIC_FEATURE=quinn");
+    }
 }

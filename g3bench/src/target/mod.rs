@@ -39,15 +39,19 @@ mod openssl;
 use self::openssl::{AppendOpensslArgs, OpensslTlsClientArgs};
 
 mod rustls;
+#[allow(unused_imports)]
 use self::rustls::{AppendRustlsArgs, RustlsTlsClientArgs};
 
 mod http;
 
-pub mod dns;
 pub mod h1;
 pub mod h2;
 pub mod keyless;
 pub mod ssl;
+
+#[cfg_attr(feature = "hickory", path = "dns/mod.rs")]
+#[cfg_attr(not(feature = "hickory"), path = "no_dns.rs")]
+pub mod dns;
 
 #[cfg_attr(feature = "quic", path = "h3/mod.rs")]
 #[cfg_attr(not(feature = "quic"), path = "no_h3.rs")]

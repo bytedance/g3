@@ -15,7 +15,7 @@ override_dh_auto_clean:
 override_dh_auto_build:
 	G3_PACKAGE_VERSION=$(DEB_VERSION) \
 	  cargo build --frozen --offline --profile $(BUILD_PROFILE) \
-	    --no-default-features --features $(SSL_FEATURE), \
+	    --no-default-features --features $(SSL_FEATURE),hickory,quic \
 	    --package g3bench
 
 override_dh_auto_install:

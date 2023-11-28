@@ -36,8 +36,8 @@ ahash.workspace = true
 rustc-hash.workspace = true
 concurrent-queue = "2.2"
 hex.workspace = true
-hickory-client = { workspace = true, features = ["dns-over-rustls", "dns-over-https-rustls", "native-certs"] }
-hickory-proto.workspace = true
+hickory-client = { workspace = true, optional = true, features = ["dns-over-rustls", "dns-over-https-rustls", "native-certs"] }
+hickory-proto = { workspace = true, optional = true }
 g3-runtime = { workspace = true, features = ["openssl"] }
 g3-signal.workspace = true
 g3-types = { workspace = true, features = ["proxy", "openssl", "rustls"] }
@@ -55,7 +55,8 @@ openssl-async-job.workspace = true
 rustc_version.workspace = true
 
 [features]
-default = ["quic"]
-quic = ["g3-types/quic", "g3-socks/quic", "g3-io-ext/quic", "hickory-client/dns-over-quic", "hickory-proto/dns-over-h3"]
+default = ["hickory", "quic"]
+hickory = ["dep:hickory-client", "dep:hickory-proto"]
+quic = ["g3-types/quic", "g3-socks/quic", "g3-io-ext/quic", "hickory-client?/dns-over-quic", "hickory-proto?/dns-over-h3"]
 vendored-openssl = ["openssl/vendored", "dep:openssl-probe"]
 vendored-tongsuo = ["openssl/tongsuo", "dep:openssl-probe", "g3-types/vendored-tongsuo"]

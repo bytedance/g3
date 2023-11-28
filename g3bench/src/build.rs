@@ -28,8 +28,19 @@ const BUILD_DEBUG: &str = env!("G3_BUILD_DEBUG");
 
 const PACKAGE_VERSION: Option<&str> = option_env!("G3_PACKAGE_VERSION");
 
+const HICKORY_FEATURE: Option<&str> = option_env!("G3_HICKORY_FEATURE");
+const QUIC_FEATURE: Option<&str> = option_env!("G3_QUIC_FEATURE");
+
 pub fn print_version() {
     println!("{PKG_NAME} {VERSION}");
+    print!("Features:");
+    if let Some(hickory) = HICKORY_FEATURE {
+        print!(" {hickory}");
+    }
+    if let Some(quic) = QUIC_FEATURE {
+        print!(" {quic}");
+    }
+    println!();
     println!("Compiler: {RUSTC_VERSION} ({RUSTC_CHANNEL})");
     println!("Host: {BUILD_HOST}, Target: {BUILD_TARGET}");
     println!("Profile: {BUILD_PROFILE}, Opt Level: {BUILD_OPT_LEVEL}, Debug: {BUILD_DEBUG}");
