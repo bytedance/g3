@@ -45,6 +45,7 @@ struct HttpTcpIoStats {
 
 enum HttpIoStats {
     Tcp(HttpTcpIoStats),
+    #[allow(unused)]
     Udp(HttpUdpIoStats),
 }
 
@@ -69,6 +70,7 @@ impl HttpRuntimeStats {
         HttpRuntimeStats::with_io(target, HttpIoStats::Tcp(HttpTcpIoStats::default()))
     }
 
+    #[allow(unused)]
     pub(crate) fn new_udp(target: &'static str) -> Self {
         HttpRuntimeStats::with_io(target, HttpIoStats::Udp(HttpUdpIoStats::default()))
     }

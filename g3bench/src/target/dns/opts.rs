@@ -46,7 +46,10 @@ const DNS_ARG_QUERY_REQUESTS: &str = "query-requests";
 const DNS_ARG_DUMP_RESULT: &str = "dump-result";
 const DNS_ARG_ITER_GLOBAL: &str = "iter-global";
 
+#[cfg(feature = "quic")]
 const DNS_ENCRYPTION_PROTOCOLS: [&str; 4] = ["dot", "doh", "doh3", "doq"];
+#[cfg(not(feature = "quic"))]
+const DNS_ENCRYPTION_PROTOCOLS: [&str; 2] = ["dot", "doh"];
 
 #[derive(Default)]
 pub(super) struct GlobalRequestPicker {
@@ -137,10 +140,12 @@ impl BenchDnsArgs {
                     self.new_dns_over_h2_client(tls_client.driver.clone(), tls_name)
                         .await
                 }
+                #[cfg(feature = "quic")]
                 DnsEncryptionProtocol::H3 => {
                     self.new_dns_over_h3_client(tls_client.driver.as_ref(), tls_name)
                         .await
                 }
+                #[cfg(feature = "quic")]
                 DnsEncryptionProtocol::Quic => {
                     self.new_dns_over_quic_client(tls_client.driver.as_ref(), tls_name)
                         .await
@@ -219,6 +224,7 @@ impl BenchDnsArgs {
         Ok(client)
     }
 
+    #[cfg(feature = "quic")]
     async fn new_dns_over_h3_client(
         &self,
         tls_client: &ClientConfig,
@@ -238,6 +244,7 @@ impl BenchDnsArgs {
         Ok(client)
     }
 
+    #[cfg(feature = "quic")]
     async fn new_dns_over_quic_client(
         &self,
         tls_client: &ClientConfig,

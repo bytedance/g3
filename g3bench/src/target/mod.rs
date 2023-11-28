@@ -46,9 +46,12 @@ mod http;
 pub mod dns;
 pub mod h1;
 pub mod h2;
-pub mod h3;
 pub mod keyless;
 pub mod ssl;
+
+#[cfg_attr(feature = "quic", path = "h3/mod.rs")]
+#[cfg_attr(not(feature = "quic"), path = "no_h3.rs")]
+pub mod h3;
 
 const QUANTILE: &str = "quantile";
 
