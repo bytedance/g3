@@ -23,6 +23,7 @@ use async_trait::async_trait;
 use log::warn;
 use openssl::ex_data::Index;
 use openssl::ssl::{Ssl, SslContext};
+#[cfg(feature = "quic")]
 use quinn::Connection;
 use slog::Logger;
 use tokio::net::TcpStream;
@@ -348,6 +349,7 @@ impl AcceptTcpServer for OpensslProxyServer {
 
 #[async_trait]
 impl AcceptQuicServer for OpensslProxyServer {
+    #[cfg(feature = "quic")]
     async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
 
     fn get_reloaded(&self) -> ArcAcceptQuicServer {

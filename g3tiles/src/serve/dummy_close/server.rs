@@ -18,6 +18,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
+#[cfg(feature = "quic")]
 use quinn::Connection;
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
@@ -145,6 +146,7 @@ impl AcceptTcpServer for DummyCloseServer {
 
 #[async_trait]
 impl AcceptQuicServer for DummyCloseServer {
+    #[cfg(feature = "quic")]
     async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
 
     fn get_reloaded(&self) -> ArcAcceptQuicServer {

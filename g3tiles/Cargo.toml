@@ -30,13 +30,13 @@ tokio = { workspace = true, features = ["net", "sync", "time"] }
 openssl.workspace = true
 openssl-probe = { workspace = true, optional = true }
 rustls.workspace = true
-quinn = { workspace = true, features = ["tls-rustls", "runtime-tokio"] }
+quinn = { workspace = true, optional = true, features = ["tls-rustls", "runtime-tokio"] }
 tokio-rustls.workspace = true
 governor = { workspace = true, features = ["std", "jitter"] }
 chrono = { workspace = true, features = ["clock"] }
 uuid.workspace = true
 g3-compat.workspace = true
-g3-daemon = { workspace = true, features = ["quic"] }
+g3-daemon.workspace = true
 g3-signal.workspace = true
 g3-yaml = { workspace = true, features = ["acl-rule", "route", "openssl", "rustls"] }
 g3-types = { workspace = true, features = ["acl-rule", "route", "openssl", "rustls"] }
@@ -51,7 +51,8 @@ g3tiles-proto = { path = "proto" }
 rustc_version.workspace = true
 
 [features]
-default = []
+default = ["quic"]
+quic = ["g3-daemon/quic", "dep:quinn"]
 vendored-openssl = ["openssl/vendored", "openssl-probe"]
 vendored-tongsuo = ["openssl/tongsuo", "openssl-probe", "g3-yaml/tongsuo", "g3-types/tongsuo"]
 vendored-aws-lc = ["openssl/aws-lc", "openssl-probe"]

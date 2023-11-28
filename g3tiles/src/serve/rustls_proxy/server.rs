@@ -20,6 +20,7 @@ use std::sync::Arc;
 use ahash::AHashMap;
 use anyhow::anyhow;
 use async_trait::async_trait;
+#[cfg(feature = "quic")]
 use quinn::Connection;
 use slog::Logger;
 use tokio::net::TcpStream;
@@ -255,6 +256,7 @@ impl AcceptTcpServer for RustlsProxyServer {
 
 #[async_trait]
 impl AcceptQuicServer for RustlsProxyServer {
+    #[cfg(feature = "quic")]
     async fn run_quic_task(&self, _connection: Connection, _cc_info: ClientConnectionInfo) {}
 
     fn get_reloaded(&self) -> ArcAcceptQuicServer {
