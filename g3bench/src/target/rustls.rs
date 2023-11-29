@@ -151,7 +151,6 @@ impl RustlsTlsClientArgs {
         Ok(())
     }
 
-    #[allow(unused)]
     pub(crate) fn parse_tls_args(&mut self, args: &ArgMatches) -> anyhow::Result<()> {
         if self.config.is_none() {
             return Ok(());

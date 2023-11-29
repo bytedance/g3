@@ -19,17 +19,17 @@ tokio = { workspace = true, features = ["rt", "net", "macros"] }
 http.workspace = true
 url.workspace = true
 h2.workspace = true
-h3.workspace = true
-h3-quinn.workspace = true
-quinn = { workspace = true, features = ["tls-rustls", "runtime-tokio"] }
+h3 = { workspace = true, optional = true }
+h3-quinn = { workspace = true, optional = true }
+quinn = { workspace = true, optional = true, features = ["tls-rustls", "runtime-tokio"] }
 bytes.workspace = true
 futures-util.workspace = true
 atomic-waker.workspace = true
 tokio-openssl.workspace = true
 openssl.workspace = true
 openssl-probe = { workspace = true, optional = true }
-rustls.workspace = true
-rustls-pemfile.workspace = true
+rustls = { workspace = true, optional = true }
+rustls-pemfile = { workspace = true, optional = true }
 cadence.workspace = true
 hdrhistogram.workspace = true
 ahash.workspace = true
@@ -40,7 +40,7 @@ hickory-client = { workspace = true, optional = true, features = ["dns-over-rust
 hickory-proto = { workspace = true, optional = true }
 g3-runtime = { workspace = true, features = ["openssl"] }
 g3-signal.workspace = true
-g3-types = { workspace = true, features = ["proxy", "openssl", "rustls"] }
+g3-types = { workspace = true, features = ["proxy", "openssl"] }
 g3-clap.workspace = true
 g3-socket.workspace = true
 g3-http.workspace = true
@@ -56,7 +56,8 @@ rustc_version.workspace = true
 
 [features]
 default = ["hickory", "quic"]
-hickory = ["dep:hickory-client", "dep:hickory-proto"]
-quic = ["g3-types/quic", "g3-socks/quic", "g3-io-ext/quic", "hickory-client?/dns-over-quic", "hickory-proto?/dns-over-h3"]
+rustls = ["g3-types/rustls", "dep:rustls", "dep:rustls-pemfile"]
+hickory = ["rustls", "dep:hickory-client", "dep:hickory-proto"]
+quic = ["rustls", "g3-types/quic", "g3-socks/quic", "g3-io-ext/quic", "dep:quinn", "dep:h3", "dep:h3-quinn", "hickory-client?/dns-over-quic", "hickory-proto?/dns-over-h3"]
 vendored-openssl = ["openssl/vendored", "dep:openssl-probe"]
 vendored-tongsuo = ["openssl/tongsuo", "dep:openssl-probe", "g3-types/vendored-tongsuo"]

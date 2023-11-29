@@ -38,8 +38,9 @@ use proxy_protocol::{AppendProxyProtocolArgs, ProxyProtocolArgs};
 mod openssl;
 use self::openssl::{AppendOpensslArgs, OpensslTlsClientArgs};
 
+#[cfg(feature = "rustls")]
 mod rustls;
-#[allow(unused_imports)]
+#[cfg(feature = "rustls")]
 use self::rustls::{AppendRustlsArgs, RustlsTlsClientArgs};
 
 mod http;
