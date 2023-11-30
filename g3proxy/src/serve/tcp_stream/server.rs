@@ -79,7 +79,7 @@ impl TcpStreamServer {
         }
         let upstream = nodes_builder
             .build()
-            .map_err(|e| anyhow!("failed to build upstream selector: {e:?}"))?;
+            .ok_or_else(|| anyhow!("no upstream addr set"))?;
 
         let tls_client_config = if let Some(builder) = &config.client_tls_config {
             let tls_config = builder

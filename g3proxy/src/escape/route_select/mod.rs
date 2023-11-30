@@ -83,7 +83,7 @@ impl RouteSelectEscaper {
 
         let select_nodes = select_nodes_builder
             .build()
-            .map_err(|e| anyhow!("failed to build next escaper selector: {e:?}"))?;
+            .ok_or_else(|| anyhow!("no next escaper set"))?;
 
         let escaper = RouteSelectEscaper {
             config,
@@ -122,7 +122,7 @@ impl RouteSelectEscaper {
         }
         next_nodes
             .build()
-            .map_err(|e| anyhow!("failed to build selective vec: {e}"))
+            .ok_or_else(|| anyhow!("no next escaper set"))
     }
 
     fn select_next_from_egress_path(

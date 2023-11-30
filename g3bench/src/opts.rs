@@ -183,7 +183,7 @@ impl ProcArgs {
         }
         builder
             .build()
-            .map_err(|e| anyhow!("failed to build vec: {e}"))
+            .ok_or_else(|| anyhow!("no resolved address"))
     }
 
     pub(super) fn select_peer<'a, T>(&'a self, peers: &'a SelectiveVec<WeightedValue<T>>) -> &'a T {

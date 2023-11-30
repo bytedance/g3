@@ -54,7 +54,7 @@ pub(super) struct KeylessCloudflareArgs {
     pub(super) tls: OpensslTlsClientArgs,
     proxy_protocol: ProxyProtocolArgs,
 
-    target_addrs: SelectiveVec<WeightedValue<SocketAddr>>,
+    target_addrs: Option<SelectiveVec<WeightedValue<SocketAddr>>>,
 }
 
 impl KeylessCloudflareArgs {
@@ -73,7 +73,7 @@ impl KeylessCloudflareArgs {
             connect_timeout: Duration::from_secs(10),
             tls,
             proxy_protocol: ProxyProtocolArgs::default(),
-            target_addrs: SelectiveVec::empty(),
+            target_addrs: None,
         }
     }
 
@@ -81,7 +81,8 @@ impl KeylessCloudflareArgs {
         &mut self,
         proc_args: &ProcArgs,
     ) -> anyhow::Result<()> {
-        self.target_addrs = proc_args.resolve(&self.target).await?;
+        let addrs = proc_args.resolve(&self.target).await?;
+        self.target_addrs = Some(addrs);
         Ok(())
     }
 
@@ -122,7 +123,11 @@ impl KeylessCloudflareArgs {
     }
 
     async fn new_tcp_connection(&self, proc_args: &ProcArgs) -> anyhow::Result<TcpStream> {
-        let peer = *proc_args.select_peer(&self.target_addrs);
+        let addrs = self
+            .target_addrs
+            .as_ref()
+            .ok_or_else(|| anyhow!("no target addr set"))?;
+        let peer = *proc_args.select_peer(addrs);
 
         let socket = g3_socket::tcp::new_socket_to(
             peer.ip(),

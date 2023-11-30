@@ -65,8 +65,8 @@ pub(super) struct BenchH3Args {
 
     host: UpstreamAddr,
     auth: HttpAuth,
-    proxy_peer_addrs: SelectiveVec<WeightedValue<SocketAddr>>,
-    quic_peer_addrs: SelectiveVec<WeightedValue<SocketAddr>>,
+    proxy_peer_addrs: Option<SelectiveVec<WeightedValue<SocketAddr>>>,
+    quic_peer_addrs: Option<SelectiveVec<WeightedValue<SocketAddr>>>,
 }
 
 impl BenchH3Args {
@@ -94,8 +94,8 @@ impl BenchH3Args {
             target_tls: tls,
             host: upstream,
             auth,
-            proxy_peer_addrs: SelectiveVec::empty(),
-            quic_peer_addrs: SelectiveVec::empty(),
+            proxy_peer_addrs: None,
+            quic_peer_addrs: None,
         })
     }
 
@@ -104,9 +104,11 @@ impl BenchH3Args {
         proc_args: &ProcArgs,
     ) -> anyhow::Result<()> {
         if let Some(proxy) = &self.socks_proxy {
-            self.proxy_peer_addrs = proc_args.resolve(proxy.peer()).await?;
+            let addrs = proc_args.resolve(proxy.peer()).await?;
+            self.proxy_peer_addrs = Some(addrs);
         };
-        self.quic_peer_addrs = proc_args.resolve(&self.host).await?;
+        let addrs = proc_args.resolve(&self.host).await?;
+        self.quic_peer_addrs = Some(addrs);
         Ok(())
     }
 
@@ -132,7 +134,11 @@ impl BenchH3Args {
         quic_peer: SocketAddr,
     ) -> anyhow::Result<Endpoint> {
         if let Some(socks5_proxy) = &self.socks_proxy {
-            let peer = *proc_args.select_peer(&self.proxy_peer_addrs);
+            let proxy_addrs = self
+                .proxy_peer_addrs
+                .as_ref()
+                .ok_or_else(|| anyhow!("no proxy addr set"))?;
+            let peer = *proc_args.select_peer(proxy_addrs);
 
             let stream = self.new_tcp_connection(peer).await.context(format!(
                 "failed to connect to socks5 proxy {}",
@@ -216,7 +222,11 @@ impl BenchH3Args {
     ) -> anyhow::Result<h3_quinn::Connection> {
         use quinn::{ClientConfig, TransportConfig, VarInt};
 
-        let quic_peer = *proc_args.select_peer(&self.quic_peer_addrs);
+        let addrs = self
+            .quic_peer_addrs
+            .as_ref()
+            .ok_or_else(|| anyhow!("no peer addr set"))?;
+        let quic_peer = *proc_args.select_peer(addrs);
         let endpoint = self.new_quic_endpoint(stats, proc_args, quic_peer).await?;
 
         let Some(tls_client) = &self.target_tls.client else {

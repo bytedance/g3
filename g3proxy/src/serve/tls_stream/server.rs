@@ -82,7 +82,7 @@ impl TlsStreamServer {
         }
         let upstream = nodes_builder
             .build()
-            .map_err(|e| anyhow!("failed to build upstream selector: {e:?}"))?;
+            .ok_or_else(|| anyhow!("no upstream addr set"))?;
 
         let tls_server_config = config
             .server_tls_config

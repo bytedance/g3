@@ -80,7 +80,7 @@ impl ProxyHttpsEscaper {
         }
         let proxy_nodes = nodes_builder
             .build()
-            .map_err(|e| anyhow!("failed to build proxy_addr selector: {e:?}"))?;
+            .ok_or_else(|| anyhow!("no next proxy node set"))?;
 
         let tls_config = config
             .tls_config

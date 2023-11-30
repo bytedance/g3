@@ -70,7 +70,7 @@ pub(super) struct BenchH2Args {
 
     host: UpstreamAddr,
     auth: HttpAuth,
-    peer_addrs: SelectiveVec<WeightedValue<SocketAddr>>,
+    peer_addrs: Option<SelectiveVec<WeightedValue<SocketAddr>>>,
 }
 
 impl BenchH2Args {
@@ -100,7 +100,7 @@ impl BenchH2Args {
             proxy_protocol: ProxyProtocolArgs::default(),
             host: upstream,
             auth,
-            peer_addrs: SelectiveVec::empty(),
+            peer_addrs: None,
         })
     }
 
@@ -113,12 +113,17 @@ impl BenchH2Args {
         } else {
             &self.host
         };
-        self.peer_addrs = proc_args.resolve(host).await?;
+        let addrs = proc_args.resolve(host).await?;
+        self.peer_addrs = Some(addrs);
         Ok(())
     }
 
     async fn new_tcp_connection(&self, proc_args: &ProcArgs) -> anyhow::Result<TcpStream> {
-        let peer = *proc_args.select_peer(&self.peer_addrs);
+        let addrs = self
+            .peer_addrs
+            .as_ref()
+            .ok_or_else(|| anyhow!("no peer address set"))?;
+        let peer = *proc_args.select_peer(addrs);
 
         let socket = g3_socket::tcp::new_socket_to(
             peer.ip(),

@@ -17,7 +17,7 @@
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
-use anyhow::Context;
+use anyhow::anyhow;
 
 use g3_types::collection::{SelectivePickPolicy, SelectiveVec, SelectiveVecBuilder, WeightedValue};
 
@@ -42,7 +42,7 @@ impl OpensslService {
         for v in &config.addrs {
             builder.insert(*v);
         }
-        let addrs = builder.build().context("failed to build selective vec")?;
+        let addrs = builder.build().ok_or_else(|| anyhow!("no next addr set"))?;
         Ok(OpensslService {
             addrs,
             pick_policy: config.pick_policy,

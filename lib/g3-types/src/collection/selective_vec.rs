@@ -22,7 +22,6 @@ use std::sync::atomic;
 use metrohash::MetroHash64;
 use rand::seq::SliceRandom;
 use smallvec::SmallVec;
-use thiserror::Error;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SelectivePickPolicy {
@@ -60,14 +59,6 @@ pub struct SelectiveVecBuilder<T> {
     inner: Vec<T>,
 }
 
-#[derive(Debug, Error)]
-pub enum SelectiveVecBuildError {
-    #[error("no node has been added")]
-    Empty,
-    #[error("some nodes is not sortable")]
-    NotSortable,
-}
-
 impl<T: SelectiveItem> SelectiveVecBuilder<T> {
     pub fn new() -> Self {
         SelectiveVecBuilder { inner: Vec::new() }
@@ -83,9 +74,9 @@ impl<T: SelectiveItem> SelectiveVecBuilder<T> {
         self.inner.push(value);
     }
 
-    pub fn build(self) -> Result<SelectiveVec<T>, SelectiveVecBuildError> {
+    pub fn build(self) -> Option<SelectiveVec<T>> {
         if self.inner.is_empty() {
-            return Err(SelectiveVecBuildError::Empty);
+            return None;
         }
 
         let mut weighted = false;
@@ -98,19 +89,14 @@ impl<T: SelectiveItem> SelectiveVecBuilder<T> {
         }
 
         let mut nodes = self.inner;
-        let mut sort_ok = true;
         // reserve order for equal nodes
         nodes.sort_by(|a, b| {
-            b.weight().partial_cmp(&a.weight()).unwrap_or_else(|| {
-                sort_ok = false;
-                Ordering::Equal
-            })
+            b.weight()
+                .partial_cmp(&a.weight())
+                .unwrap_or(Ordering::Equal)
         });
-        if !sort_ok {
-            return Err(SelectiveVecBuildError::NotSortable);
-        }
 
-        Ok(SelectiveVec {
+        Some(SelectiveVec {
             weighted,
             inner: nodes,
             rr_id: atomic::AtomicUsize::new(0),
@@ -128,20 +114,6 @@ pub struct SelectiveVec<T: SelectiveItem> {
     weighted: bool,
     inner: Vec<T>,
     rr_id: atomic::AtomicUsize,
-}
-
-impl<T: SelectiveItem> SelectiveVec<T> {
-    pub fn empty() -> Self {
-        SelectiveVec {
-            weighted: false,
-            inner: Vec::new(),
-            rr_id: atomic::AtomicUsize::new(0),
-        }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.inner.is_empty()
-    }
 }
 
 macro_rules! panic_on_empty {

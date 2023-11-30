@@ -177,10 +177,16 @@ impl QueryRuntime {
                     for node in nodes {
                         builder.insert(node);
                     }
-                    let nodes = builder.build().unwrap_or_else(|_| SelectiveVec::empty());
+                    let result = builder
+                        .build()
+                        .map(|nodes| {
+                            EffectiveCacheData::new(nodes, ttl, self.config.cache_vanish_wait)
+                        })
+                        .unwrap_or_else(|| {
+                            EffectiveCacheData::empty(ttl, self.config.cache_vanish_wait)
+                        });
 
                     self.key_id_map.remove(&req);
-                    let result = EffectiveCacheData::new(nodes, ttl, self.config.cache_vanish_wait);
                     self.query_handle.send_rsp_data(req, result, false);
                 }
             };
