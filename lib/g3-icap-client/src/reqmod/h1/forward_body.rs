@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-use std::io::Write;
+use std::io::{IoSlice, Write};
 
 use bytes::BufMut;
-use tokio::io::{AsyncBufRead, AsyncWriteExt};
+use tokio::io::AsyncBufRead;
 
 use g3_http::{ChunkedTransfer, HttpBodyType};
-use g3_io_ext::IdleCheck;
+use g3_io_ext::{IdleCheck, LimitedWriteExt};
 
 use super::{
     BidirectionalRecvHttpRequest, BidirectionalRecvIcapResponse, H1ReqmodAdaptationError,
@@ -72,11 +72,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
 
         let icap_w = &mut self.icap_connection.0;
         icap_w
-            .write_all(&icap_header)
-            .await
-            .map_err(H1ReqmodAdaptationError::IcapServerWriteFailed)?;
-        icap_w
-            .write_all(&http_header)
+            .write_all_vectored([IoSlice::new(&icap_header), IoSlice::new(&http_header)])
             .await
             .map_err(H1ReqmodAdaptationError::IcapServerWriteFailed)?;
 

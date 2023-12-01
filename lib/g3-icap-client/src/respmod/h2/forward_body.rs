@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-use std::io::Write;
+use std::io::{IoSlice, Write};
 
 use bytes::BufMut;
 use h2::RecvStream;
 use http::{Request, Response};
-use tokio::io::AsyncWriteExt;
 
 use g3_h2::{H2StreamToChunkedTransfer, RequestExt, ResponseExt};
-use g3_io_ext::IdleCheck;
+use g3_io_ext::{IdleCheck, LimitedWriteExt};
 
 use super::{
     BidirectionalRecvHttpResponse, BidirectionalRecvIcapResponse, H2RespmodAdaptationError,
@@ -77,15 +76,11 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
 
         let icap_w = &mut self.icap_connection.0;
         icap_w
-            .write_all(&icap_header)
-            .await
-            .map_err(H2RespmodAdaptationError::IcapServerWriteFailed)?;
-        icap_w
-            .write_all(&http_req_header)
-            .await
-            .map_err(H2RespmodAdaptationError::IcapServerWriteFailed)?;
-        icap_w
-            .write_all(&http_rsp_header)
+            .write_all_vectored([
+                IoSlice::new(&icap_header),
+                IoSlice::new(&http_req_header),
+                IoSlice::new(&http_rsp_header),
+            ])
             .await
             .map_err(H2RespmodAdaptationError::IcapServerWriteFailed)?;
 
