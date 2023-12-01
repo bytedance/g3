@@ -14,15 +14,22 @@
  * limitations under the License.
  */
 
-mod fill_wait_data;
-mod fill_wait_eof;
-mod limited_read_buf_until;
-mod limited_read_until;
-mod limited_skip_until;
-mod write_all_vectored;
+use std::io::IoSlice;
 
-mod limited_buf_read_ext;
-mod limited_write_ext;
+use tokio::io::AsyncWrite;
 
-pub use limited_buf_read_ext::LimitedBufReadExt;
-pub use limited_write_ext::LimitedWriteExt;
+use super::write_all_vectored::WriteAllVectored;
+
+pub trait LimitedWriteExt: AsyncWrite {
+    fn write_all_vectored<'a, 'b, const N: usize>(
+        &'a mut self,
+        bufs: [IoSlice<'b>; N],
+    ) -> WriteAllVectored<'a, 'b, Self, N>
+    where
+        Self: Unpin,
+    {
+        WriteAllVectored::new(self, bufs)
+    }
+}
+
+impl<W: AsyncWrite + ?Sized> LimitedWriteExt for W {}

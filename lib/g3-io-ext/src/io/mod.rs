@@ -34,7 +34,7 @@ mod buf;
 pub use buf::{FlexBufReader, LimitedBufReader, OnceBufReader};
 
 mod ext;
-pub use ext::LimitedBufReadExt;
+pub use ext::{LimitedBufReadExt, LimitedWriteExt};
 
 mod idle;
 pub use idle::{IdleCheck, IdleForceQuitReason};
