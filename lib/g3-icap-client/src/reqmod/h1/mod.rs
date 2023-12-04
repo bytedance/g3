@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-use std::io::{self, Write};
+use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use bytes::BufMut;
 use http::Method;
 use tokio::io::{AsyncBufRead, AsyncWrite};
 use tokio::time::Instant;
@@ -153,13 +152,10 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
 
     fn push_extended_headers(&self, data: &mut Vec<u8>) {
         if let Some(addr) = self.client_addr {
-            let _ = write!(data, "X-Client-IP: {}\r\n", addr.ip());
-            let _ = write!(data, "X-Client-Port: {}\r\n", addr.port());
+            crate::serialize::add_client_addr(data, addr);
         }
         if let Some(user) = &self.client_username {
-            data.put_slice(b"X-Client-Username: ");
-            data.put_slice(user.as_bytes());
-            data.put_slice(b"\r\n");
+            crate::serialize::add_client_username(data, user);
         }
     }
 

@@ -14,17 +14,5 @@
  * limitations under the License.
  */
 
-mod parse;
-mod serialize;
-
-pub mod reqmod;
-
-pub mod respmod;
-
-mod options;
-pub use options::IcapServiceOptions;
-
-mod service;
-
-use service::{IcapClientConnection, IcapClientReader, IcapClientWriter};
-pub use service::{IcapConnectionPoolConfig, IcapMethod, IcapServiceClient, IcapServiceConfig};
+mod header;
+pub(crate) use header::*;

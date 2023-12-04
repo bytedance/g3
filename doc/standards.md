@@ -323,6 +323,8 @@ The code should comply to these, but should be more compliant to existing popula
     : Internet Content Adaptation Protocol (ICAP)
  - [draft-icap-ext-partial-content-07](http://www.icap-forum.org/documents/specification/draft-icap-ext-partial-content-07.txt)
     : ICAP Partial Content Extension
+ - [draft-stecher-icap-subid-00](https://www.icap-forum.org/documents/specification/draft-stecher-icap-subid-00.txt)
+    : ICAP Extensions
 
 ## WCCP
 

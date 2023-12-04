@@ -1027,6 +1027,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "atoi",
+ "base64",
  "bytes",
  "flume",
  "g3-h2",

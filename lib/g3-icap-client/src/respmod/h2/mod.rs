@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::io::Write;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -153,22 +152,15 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
     }
 
     fn push_extended_headers(&self, data: &mut Vec<u8>) {
+        data.put_slice(b"X-Transformed-From: HTTP/2.0\r\n");
         if let Some(addr) = self.client_addr {
-            let _ = write!(data, "X-Client-IP: {}\r\n", addr.ip());
-            let _ = write!(data, "X-Client-Port: {}\r\n", addr.port());
+            crate::serialize::add_client_addr(data, addr);
         }
         if let Some(user) = &self.client_username {
-            data.put_slice(b"X-Client-Username: ");
-            data.put_slice(user.as_bytes());
-            data.put_slice(b"\r\n");
+            crate::serialize::add_client_username(data, user);
         }
         if let Some(map) = &self.respond_shared_headers {
-            map.for_each(|name, value| {
-                data.put_slice(name.as_str().as_bytes());
-                data.put_slice(b": ");
-                data.put_slice(value.as_bytes());
-                data.put_slice(b"\r\n");
-            });
+            crate::serialize::add_shared(data, map);
         }
     }
 

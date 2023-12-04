@@ -35,7 +35,7 @@ impl<T> ResponseExt for Response<T> {
             .status()
             .canonical_reason()
             .unwrap_or("NOT STANDARD STATUS CODE");
-        let _ = write!(buf, "HTTP/2 {} {}\r\n", status.as_u16(), reason,);
+        let _ = write!(buf, "HTTP/1.1 {} {}\r\n", status.as_u16(), reason,);
 
         for (name, value) in self.headers() {
             if matches!(name, &http::header::TRAILER) {
