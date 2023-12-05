@@ -16,9 +16,8 @@
 
 use std::time::Duration;
 
-use cadence::StatsdClient;
-
 use g3_histogram::{DurationHistogram, HistogramRecorder};
+use g3_statsd_client::StatsdClient;
 use g3_types::ext::DurationExt;
 
 use crate::target::BenchHistogram;
@@ -42,7 +41,7 @@ impl BenchHistogram for DnsHistogram {
         self.total_time.refresh().unwrap();
     }
 
-    fn emit(&self, client: &StatsdClient) {
+    fn emit(&self, client: &mut StatsdClient) {
         self.emit_histogram(client, self.total_time.inner(), "dns.time.total");
     }
 

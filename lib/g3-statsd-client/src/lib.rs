@@ -14,18 +14,14 @@
  * limitations under the License.
  */
 
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::path::PathBuf;
+mod sink;
+use sink::StatsdMetricsSink;
 
-#[derive(Debug, Clone)]
-pub enum StatsdBackend {
-    Udp(SocketAddr, Option<IpAddr>),
-    Unix(PathBuf),
-}
+mod client;
+pub use client::StatsdClient;
 
-impl Default for StatsdBackend {
-    fn default() -> Self {
-        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), cadence::DEFAULT_PORT);
-        StatsdBackend::Udp(addr, None)
-    }
-}
+mod tag;
+pub use tag::StatsdTagGroup;
+
+mod config;
+pub use config::{StatsdBackend, StatsdClientConfig};

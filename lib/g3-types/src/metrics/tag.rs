@@ -35,6 +35,12 @@ impl MetricsTagName {
     }
 }
 
+impl AsRef<str> for MetricsTagName {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
 impl FromStr for MetricsTagName {
     type Err = ParseError;
 
@@ -54,6 +60,12 @@ impl MetricsTagValue {
     #[inline]
     pub fn as_str(&self) -> &str {
         self.0.as_str()
+    }
+}
+
+impl AsRef<str> for MetricsTagValue {
+    fn as_ref(&self) -> &str {
+        self.as_str()
     }
 }
 

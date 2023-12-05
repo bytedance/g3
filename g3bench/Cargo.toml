@@ -30,12 +30,12 @@ openssl.workspace = true
 openssl-probe = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
 rustls-pemfile = { workspace = true, optional = true }
-cadence.workspace = true
 hdrhistogram.workspace = true
 ahash.workspace = true
 rustc-hash.workspace = true
 concurrent-queue = "2.2"
 hex.workspace = true
+itoa.workspace = true
 hickory-client = { workspace = true, optional = true, features = ["dns-over-rustls", "dns-over-https-rustls", "native-certs"] }
 hickory-proto = { workspace = true, optional = true }
 g3-runtime = { workspace = true, features = ["openssl"] }
@@ -46,7 +46,7 @@ g3-socket.workspace = true
 g3-http.workspace = true
 g3-socks.workspace = true
 g3-io-ext.workspace = true
-g3-statsd.workspace = true
+g3-statsd-client.workspace = true
 g3-histogram.workspace = true
 g3-tls-cert.workspace = true
 openssl-async-job.workspace = true

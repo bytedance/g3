@@ -20,7 +20,6 @@ clap.workspace = true
 clap_complete.workspace = true
 indexmap.workspace = true
 arc-swap.workspace = true
-cadence.workspace = true
 ahash.workspace = true
 itoa.workspace = true
 ascii.workspace = true
@@ -43,7 +42,7 @@ g3-yaml = { workspace = true, features = ["acl-rule", "route", "openssl", "rustl
 g3-types = { workspace = true, features = ["acl-rule", "route", "openssl", "rustls"] }
 g3-socket.workspace = true
 g3-io-ext.workspace = true
-g3-statsd.workspace = true
+g3-statsd-client.workspace = true
 g3-slog-types.workspace = true
 g3tiles-proto = { path = "proto" }
 

@@ -14,10 +14,20 @@
  * limitations under the License.
  */
 
-mod backend;
-mod config;
-mod error;
+use std::io;
+use std::net::{SocketAddr, UdpSocket};
 
-pub use backend::StatsdBackend;
-pub use config::StatsdClientConfig;
-pub use error::StatsdClientBuildError;
+pub(super) struct UdpMetricsSink {
+    addr: SocketAddr,
+    socket: UdpSocket,
+}
+
+impl UdpMetricsSink {
+    pub(super) fn new(addr: SocketAddr, socket: UdpSocket) -> Self {
+        UdpMetricsSink { addr, socket }
+    }
+
+    pub(super) fn send_msg(&self, msg: &[u8]) -> io::Result<usize> {
+        self.socket.send_to(msg, self.addr)
+    }
+}

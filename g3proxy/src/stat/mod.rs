@@ -19,10 +19,8 @@ use std::thread::JoinHandle;
 use std::time::Instant;
 
 use anyhow::{anyhow, Context};
-use cadence::StatsdClient;
-use log::warn;
 
-use g3_statsd::client::StatsdClientConfig;
+use g3_statsd_client::{StatsdClient, StatsdClientConfig};
 
 pub(crate) mod types;
 
@@ -32,30 +30,17 @@ pub(crate) use metrics::user_site;
 static QUIT_STAT_THREAD: AtomicBool = AtomicBool::new(false);
 
 fn build_statsd_client(config: &StatsdClientConfig) -> anyhow::Result<StatsdClient> {
-    let builder = config.build().context("failed to build statsd client")?;
-
-    let start_instant = Instant::now();
-    let client = builder
-        .with_tag(
-            g3_daemon::metric::TAG_KEY_DAEMON_GROUP,
-            crate::opts::daemon_group(),
-        )
-        .with_error_handler(move |e| {
-            static mut LAST_REPORT_TIME_SLICE: u64 = 0;
-            let time_slice = start_instant.elapsed().as_secs().rotate_right(6); // every 64s
-            unsafe {
-                if LAST_REPORT_TIME_SLICE != time_slice {
-                    warn!("sending metrics error: {e:?}");
-                    LAST_REPORT_TIME_SLICE = time_slice;
-                }
-            }
-        })
-        .build();
-    Ok(client)
+    let client = config
+        .build()
+        .map_err(|e| anyhow!("failed to build statsd client: {e}"))?;
+    Ok(client.with_tag(
+        g3_daemon::metric::TAG_KEY_DAEMON_GROUP,
+        crate::opts::daemon_group(),
+    ))
 }
 
 fn spawn_main_thread(config: &StatsdClientConfig) -> anyhow::Result<JoinHandle<()>> {
-    let client = build_statsd_client(config).context("failed to build statsd client")?;
+    let mut client = build_statsd_client(config)?;
 
     let emit_duration = config.emit_duration;
     let handle = std::thread::Builder::new()
@@ -69,11 +54,11 @@ fn spawn_main_thread(config: &StatsdClientConfig) -> anyhow::Result<JoinHandle<(
             metrics::user::sync_stats();
             g3_daemon::log::metric::sync_stats();
 
-            metrics::server::emit_stats(&client);
-            metrics::escaper::emit_stats(&client);
-            metrics::resolver::emit_stats(&client);
-            metrics::user::emit_stats(&client);
-            g3_daemon::log::metric::emit_stats(&client);
+            metrics::server::emit_stats(&mut client);
+            metrics::escaper::emit_stats(&mut client);
+            metrics::resolver::emit_stats(&mut client);
+            metrics::user::emit_stats(&mut client);
+            g3_daemon::log::metric::emit_stats(&mut client);
 
             client.flush_sink();
 
@@ -88,7 +73,7 @@ fn spawn_main_thread(config: &StatsdClientConfig) -> anyhow::Result<JoinHandle<(
 }
 
 fn spawn_user_site_thread(config: &StatsdClientConfig) -> anyhow::Result<JoinHandle<()>> {
-    let client = build_statsd_client(config).context("failed to build statsd client")?;
+    let mut client = build_statsd_client(config)?;
 
     let emit_duration = config.emit_duration;
     let handle = std::thread::Builder::new()
@@ -97,7 +82,7 @@ fn spawn_user_site_thread(config: &StatsdClientConfig) -> anyhow::Result<JoinHan
             let instant_start = Instant::now();
 
             user_site::sync_stats();
-            user_site::emit_stats(&client);
+            user_site::emit_stats(&mut client);
 
             client.flush_sink();
 

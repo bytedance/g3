@@ -80,9 +80,9 @@ impl HistogramStats {
         }
     }
 
-    pub fn foreach_stat<F>(&self, call: F)
+    pub fn foreach_stat<F>(&self, mut call: F)
     where
-        F: Fn(Option<f64>, &str, f64),
+        F: FnMut(Option<f64>, &str, f64),
     {
         let min = self.min.load(Ordering::Relaxed);
         call(None, "min", min as f64);

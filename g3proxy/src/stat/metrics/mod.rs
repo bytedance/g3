@@ -40,6 +40,12 @@ impl MetricUserConnectionType {
     }
 }
 
+impl AsRef<str> for MetricUserConnectionType {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
 #[derive(Copy, Clone)]
 enum MetricUserRequestType {
     HttpForward,
@@ -62,5 +68,11 @@ impl MetricUserRequestType {
             MetricUserRequestType::SocksUdpConnect => "socks_udp_connect",
             MetricUserRequestType::SocksUdpAssociate => "socks_udp_associate",
         }
+    }
+}
+
+impl AsRef<str> for MetricUserRequestType {
+    fn as_ref(&self) -> &str {
+        self.as_str()
     }
 }

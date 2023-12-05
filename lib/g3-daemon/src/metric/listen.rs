@@ -16,7 +16,7 @@
 
 use std::sync::Arc;
 
-use cadence::{Counted, Gauged, StatsdClient};
+use g3_statsd_client::{StatsdClient, StatsdTagGroup};
 
 use super::ServerMetricExt;
 use crate::listen::{ListenSnapshot, ListenStats};
@@ -28,59 +28,53 @@ const METRIC_NAME_LISTEN_TIMEOUT: &str = "listen.timeout";
 const METRIC_NAME_LISTEN_FAILED: &str = "listen.failed";
 
 pub fn emit_listen_stats(
-    client: &StatsdClient,
+    client: &mut StatsdClient,
     stats: &Arc<ListenStats>,
     snap: &mut ListenSnapshot,
 ) {
-    let online_value = if stats.is_running() { "y" } else { "n" };
-    let server = stats.name();
-    let mut buffer = itoa::Buffer::new();
-    let stat_id = buffer.format(stats.stat_id().as_u64());
+    let mut common_tags = StatsdTagGroup::default();
+    common_tags.add_server_tags(stats.name(), stats.is_running(), stats.stat_id());
 
     client
         .gauge_with_tags(
             METRIC_NAME_LISTEN_INSTANCE_COUNT,
-            stats.get_running_runtime_count() as f64,
+            stats.get_running_runtime_count(),
+            &common_tags,
         )
-        .add_server_tags(server, online_value, stat_id)
         .send();
 
     let new_value = stats.get_accepted();
     if new_value != 0 || snap.accepted != 0 {
-        let diff_value = i64::try_from(new_value.wrapping_sub(snap.accepted)).unwrap_or(i64::MAX);
+        let diff_value = new_value.wrapping_sub(snap.accepted);
         client
-            .count_with_tags(METRIC_NAME_LISTEN_ACCEPTED, diff_value)
-            .add_server_tags(server, online_value, stat_id)
+            .count_with_tags(METRIC_NAME_LISTEN_ACCEPTED, diff_value, &common_tags)
             .send();
         snap.accepted = new_value;
     }
 
     let new_value = stats.get_dropped();
     if new_value != 0 || snap.dropped != 0 {
-        let diff_value = i64::try_from(new_value.wrapping_sub(snap.dropped)).unwrap_or(i64::MAX);
+        let diff_value = new_value.wrapping_sub(snap.dropped);
         client
-            .count_with_tags(METRIC_NAME_LISTEN_DROPPED, diff_value)
-            .add_server_tags(server, online_value, stat_id)
+            .count_with_tags(METRIC_NAME_LISTEN_DROPPED, diff_value, &common_tags)
             .send();
         snap.dropped = new_value;
     }
 
     let new_value = stats.get_timeout();
     if new_value != 0 || snap.timeout != 0 {
-        let diff_value = i64::try_from(new_value.wrapping_sub(snap.timeout)).unwrap_or(i64::MAX);
+        let diff_value = new_value.wrapping_sub(snap.timeout);
         client
-            .count_with_tags(METRIC_NAME_LISTEN_TIMEOUT, diff_value)
-            .add_server_tags(server, online_value, stat_id)
+            .count_with_tags(METRIC_NAME_LISTEN_TIMEOUT, diff_value, &common_tags)
             .send();
         snap.timeout = new_value;
     }
 
     let new_value = stats.get_failed();
     if new_value != 0 || snap.failed != 0 {
-        let diff_value = i64::try_from(new_value.wrapping_sub(snap.failed)).unwrap_or(i64::MAX);
+        let diff_value = new_value.wrapping_sub(snap.failed);
         client
-            .count_with_tags(METRIC_NAME_LISTEN_FAILED, diff_value)
-            .add_server_tags(server, online_value, stat_id)
+            .count_with_tags(METRIC_NAME_LISTEN_FAILED, diff_value, &common_tags)
             .send();
         snap.failed = new_value;
     }

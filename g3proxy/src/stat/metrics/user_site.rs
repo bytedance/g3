@@ -18,9 +18,9 @@ use std::hash::Hash;
 use std::sync::{Arc, Mutex};
 
 use ahash::AHashMap;
-use cadence::StatsdClient;
 use once_cell::sync::Lazy;
 
+use g3_statsd_client::StatsdClient;
 use g3_types::metrics::MetricsName;
 use g3_types::stats::StatId;
 
@@ -196,7 +196,7 @@ pub(in crate::stat) fn sync_stats() {
     );
 }
 
-pub(in crate::stat) fn emit_stats(client: &StatsdClient) {
+pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
     let mut req_stats_map = USER_SITE_REQUEST_STATS_MAP.lock().unwrap();
     req_stats_map.retain(|_, v| {
         let names = RequestStatsNamesRef {

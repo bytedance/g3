@@ -16,9 +16,10 @@
 
 use std::str::FromStr;
 
+use anyhow::anyhow;
 use yaml_rust::Yaml;
 
-use g3_statsd::client::StatsdClientConfig;
+use g3_statsd_client::StatsdClientConfig;
 use g3_types::metrics::MetricsName;
 
 static mut GLOBAL_STAT_CONFIG: Option<StatsdClientConfig> = None;
@@ -32,7 +33,8 @@ fn set_global_stat_config(config: StatsdClientConfig) {
 }
 
 pub fn load(v: &Yaml, prefix: &'static str) -> anyhow::Result<()> {
-    let prefix = MetricsName::from_str(prefix).unwrap();
+    let prefix = MetricsName::from_str(prefix)
+        .map_err(|e| anyhow!("invalid default metrics prefix: {e}"))?;
     let config = g3_yaml::value::as_statsd_client_config(v, prefix)?;
     set_global_stat_config(config);
     Ok(())
