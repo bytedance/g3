@@ -53,6 +53,13 @@ impl<T> RequestExt for Request<T> {
             buf.put_slice(value.as_bytes());
             buf.put_slice(b"\r\n");
         }
+        if !self.headers().contains_key(http::header::HOST) {
+            if let Some(host) = uri.host() {
+                buf.put_slice(b"Host: ");
+                buf.put_slice(host.as_bytes());
+                buf.put_slice(b"\r\n");
+            }
+        }
         buf.put_slice(b"\r\n");
         buf
     }
