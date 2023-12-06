@@ -468,7 +468,7 @@ impl SocksProxyUdpConnectTask {
             // set user site by using the upstream address of the first packet
             user_ctx.check_in_site(
                 self.ctx.server_config.name(),
-                self.ctx.server_stats.extra_tags(),
+                self.ctx.server_stats.share_extra_tags(),
                 &upstream,
             );
 
@@ -482,7 +482,7 @@ impl SocksProxyUdpConnectTask {
                 UdpConnectTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
             let user_io_stats = user_ctx.fetch_traffic_stats(
                 self.ctx.server_config.name(),
-                self.ctx.server_stats.extra_tags(),
+                self.ctx.server_stats.share_extra_tags(),
             );
 
             let p1_size = buf_nr - buf_off;

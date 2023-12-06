@@ -210,7 +210,7 @@ impl SocksProxyNegotiationTask {
                             user,
                             user_type,
                             self.ctx.server_config.name(),
-                            self.ctx.server_stats.extra_tags(),
+                            self.ctx.server_stats.share_extra_tags(),
                         );
                         user_ctx.req_stats().conn_total.add_socks();
                         Some(user_ctx)
@@ -230,7 +230,7 @@ impl SocksProxyNegotiationTask {
                             user,
                             user_type,
                             self.ctx.server_config.name(),
-                            self.ctx.server_stats.extra_tags(),
+                            self.ctx.server_stats.share_extra_tags(),
                         );
                         match user_ctx.check_password(password.as_original()) {
                             Ok(_) => {

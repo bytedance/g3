@@ -31,7 +31,7 @@ pub(crate) trait EscaperStats: EscaperInternalStats {
     fn name(&self) -> &MetricsName;
     fn stat_id(&self) -> StatId;
     fn load_extra_tags(&self) -> Option<Arc<StaticMetricsTags>>;
-    fn extra_tags(&self) -> &Arc<ArcSwapOption<StaticMetricsTags>>;
+    fn share_extra_tags(&self) -> &Arc<ArcSwapOption<StaticMetricsTags>>;
 
     /// count for tasks
     fn get_task_total(&self) -> u64;

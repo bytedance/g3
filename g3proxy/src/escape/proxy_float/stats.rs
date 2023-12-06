@@ -81,7 +81,7 @@ impl EscaperStats for ProxyFloatEscaperStats {
         self.extra_metrics_tags.load_full()
     }
 
-    fn extra_tags(&self) -> &Arc<ArcSwapOption<StaticMetricsTags>> {
+    fn share_extra_tags(&self) -> &Arc<ArcSwapOption<StaticMetricsTags>> {
         &self.extra_metrics_tags
     }
 

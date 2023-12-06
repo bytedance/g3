@@ -112,7 +112,7 @@ impl ServerStats for TcpStreamServerStats {
     }
 
     #[inline]
-    fn extra_tags(&self) -> &Arc<ArcSwapOption<StaticMetricsTags>> {
+    fn share_extra_tags(&self) -> &Arc<ArcSwapOption<StaticMetricsTags>> {
         &self.extra_metrics_tags
     }
 

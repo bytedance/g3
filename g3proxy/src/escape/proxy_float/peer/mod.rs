@@ -93,7 +93,10 @@ pub(super) trait NextProxyPeerInternal {
             .user_ctx()
             .map(|ctx| {
                 let escaper_stats = self.escaper_stats();
-                ctx.fetch_upstream_traffic_stats(escaper_stats.name(), escaper_stats.extra_tags())
+                ctx.fetch_upstream_traffic_stats(
+                    escaper_stats.name(),
+                    escaper_stats.share_extra_tags(),
+                )
             })
             .unwrap_or_default()
     }

@@ -153,7 +153,7 @@ impl ProxyHttpsEscaper {
     ) -> Vec<Arc<UserUpstreamTrafficStats>> {
         task_notes
             .user_ctx()
-            .map(|ctx| ctx.fetch_upstream_traffic_stats(self.name(), self.stats.extra_tags()))
+            .map(|ctx| ctx.fetch_upstream_traffic_stats(self.name(), self.stats.share_extra_tags()))
             .unwrap_or_default()
     }
 }

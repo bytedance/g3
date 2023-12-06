@@ -88,7 +88,7 @@ impl HttpForwardContext for DirectHttpForwardContext {
             .map(|ctx| {
                 self.escaper
                     .get_escape_stats()
-                    .map(|s| ctx.fetch_upstream_traffic_stats(s.name(), s.extra_tags()))
+                    .map(|s| ctx.fetch_upstream_traffic_stats(s.name(), s.share_extra_tags()))
                     .unwrap_or_default()
             })
             .unwrap_or_default();
