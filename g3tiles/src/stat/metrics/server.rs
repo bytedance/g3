@@ -95,12 +95,9 @@ pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
 fn emit_server_stats(client: &mut StatsdClient, stats: &ArcServerStats, snap: &mut ServerSnapshot) {
     let mut common_tags = StatsdTagGroup::default();
     common_tags.add_server_tags(stats.name(), stats.is_online(), stats.stat_id());
-
-    let guard = stats.extra_tags().load();
-    let server_extra_tags = guard.as_ref().map(Arc::clone);
-    drop(guard);
-
-    common_tags.add_server_extra_tags(server_extra_tags.as_deref());
+    if let Some(tags) = stats.load_extra_tags() {
+        common_tags.add_static_tags(&tags);
+    }
 
     let new_value = stats.get_conn_total();
     let diff_value = new_value.wrapping_sub(snap.conn_total);

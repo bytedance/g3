@@ -128,12 +128,9 @@ fn emit_server_stats(
 ) {
     let mut common_tags = StatsdTagGroup::default();
     common_tags.add_server_tags(stats.name(), stats.is_online(), stats.stat_id());
-
-    let guard = stats.extra_tags().load();
-    let server_extra_tags = guard.as_ref().map(Arc::clone);
-    drop(guard);
-
-    common_tags.add_server_extra_tags(server_extra_tags.as_deref());
+    if let Some(tags) = stats.load_extra_tags() {
+        common_tags.add_static_tags(&tags);
+    }
 
     let new_value = stats.get_task_total();
     let diff_value = new_value.wrapping_sub(snap.task_total);
@@ -228,12 +225,9 @@ fn emit_server_request_stats(
 fn emit_server_duration_stats(client: &mut StatsdClient, stats: &Arc<KeyServerDurationStats>) {
     let mut common_tags = StatsdTagGroup::default();
     common_tags.add_server_tags(stats.name(), stats.is_online(), stats.stat_id());
-
-    let guard = stats.extra_tags().load();
-    let server_extra_tags = guard.as_ref().map(Arc::clone);
-    drop(guard);
-
-    common_tags.add_server_extra_tags(server_extra_tags.as_deref());
+    if let Some(tags) = stats.load_extra_tags() {
+        common_tags.add_static_tags(&tags);
+    }
 
     macro_rules! emit_request_stats_u64 {
         ($id:ident, $request:expr) => {

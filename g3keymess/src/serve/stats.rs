@@ -187,8 +187,9 @@ impl KeyServerStats {
         self.extra_metrics_tags.store(tags);
     }
 
-    pub(crate) fn extra_tags(&self) -> &Arc<ArcSwapOption<StaticMetricsTags>> {
-        &self.extra_metrics_tags
+    #[inline]
+    pub(crate) fn load_extra_tags(&self) -> Option<Arc<StaticMetricsTags>> {
+        self.extra_metrics_tags.load_full()
     }
 
     pub(crate) fn add_task(&self) {
@@ -247,8 +248,9 @@ impl KeyServerDurationStats {
         self.extra_metrics_tags.store(tags);
     }
 
-    pub(crate) fn extra_tags(&self) -> &Arc<ArcSwapOption<StaticMetricsTags>> {
-        &self.extra_metrics_tags
+    #[inline]
+    pub(crate) fn load_extra_tags(&self) -> Option<Arc<StaticMetricsTags>> {
+        self.extra_metrics_tags.load_full()
     }
 
     pub(crate) fn set_online(&self) {

@@ -113,9 +113,9 @@ impl UserForbiddenStats {
         &self.server
     }
 
+    #[inline]
     pub(crate) fn server_extra_tags(&self) -> Option<Arc<StaticMetricsTags>> {
-        let guard = self.server_extra_tags.load();
-        (*guard).as_ref().map(Arc::clone)
+        self.server_extra_tags.load_full()
     }
 
     pub(crate) fn snapshot(&self) -> UserForbiddenSnapshot {

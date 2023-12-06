@@ -163,8 +163,7 @@ impl KeyServer {
         self.dynamic_metrics_tags
             .store(Arc::new(dynamic_tags.clone()));
 
-        let m = self.server_stats.extra_tags().load().clone();
-        match m {
+        match self.server_stats.load_extra_tags() {
             Some(extra) => {
                 let mut extra = (*extra).clone();
                 extra.extend(dynamic_tags);

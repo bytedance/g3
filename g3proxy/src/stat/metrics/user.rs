@@ -272,7 +272,6 @@ fn emit_user_forbidden_stats(
         stats.server(),
         stats.stat_id(),
     );
-
     if let Some(server_extra_tags) = stats.server_extra_tags() {
         common_tags.add_static_tags(&server_extra_tags);
     }
@@ -319,7 +318,6 @@ pub(super) fn emit_user_request_stats<'a>(
         stats.server(),
         stats.stat_id(),
     );
-
     if let Some(server_extra_tags) = stats.server_extra_tags() {
         common_tags.add_static_tags(&server_extra_tags);
     }
@@ -392,7 +390,6 @@ pub(super) fn emit_user_traffic_stats<'a>(
         stats.server(),
         stats.stat_id(),
     );
-
     if let Some(server_extra_tags) = stats.server_extra_tags() {
         common_tags.add_static_tags(&server_extra_tags);
     }
@@ -419,7 +416,6 @@ pub(super) fn emit_user_upstream_traffic_stats<'a>(
         stats.escaper(),
         stats.stat_id(),
     );
-
     if let Some(escaper_extra_tags) = stats.escaper_extra_tags() {
         common_tags.add_static_tags(&escaper_extra_tags);
     }

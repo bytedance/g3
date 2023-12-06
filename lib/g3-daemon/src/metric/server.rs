@@ -15,7 +15,7 @@
  */
 
 use g3_statsd_client::StatsdTagGroup;
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::MetricsName;
 use g3_types::stats::StatId;
 
 use super::TAG_KEY_STAT_ID;
@@ -25,7 +25,6 @@ pub const TAG_KEY_ONLINE: &str = "online";
 
 pub trait ServerMetricExt {
     fn add_server_tags(&mut self, server: &MetricsName, online: bool, stat_id: StatId);
-    fn add_server_extra_tags(&mut self, tags: Option<&StaticMetricsTags>);
 }
 
 impl ServerMetricExt for StatsdTagGroup {
@@ -38,11 +37,5 @@ impl ServerMetricExt for StatsdTagGroup {
         let online_value = if online { "y" } else { "n" };
         self.add_tag(TAG_KEY_ONLINE, online_value);
         self.add_tag(TAG_KEY_STAT_ID, stat_id);
-    }
-
-    fn add_server_extra_tags(&mut self, tags: Option<&StaticMetricsTags>) {
-        if let Some(tags) = tags {
-            self.add_static_tags(tags);
-        }
     }
 }

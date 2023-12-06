@@ -86,9 +86,9 @@ impl UserTrafficStats {
         &self.server
     }
 
+    #[inline]
     pub(crate) fn server_extra_tags(&self) -> Option<Arc<StaticMetricsTags>> {
-        let guard = self.server_extra_tags.load();
-        (*guard).as_ref().map(Arc::clone)
+        self.server_extra_tags.load_full()
     }
 }
 
@@ -151,9 +151,9 @@ impl UserUpstreamTrafficStats {
         &self.escaper
     }
 
+    #[inline]
     pub(crate) fn escaper_extra_tags(&self) -> Option<Arc<StaticMetricsTags>> {
-        let guard = self.escaper_extra_tags.load();
-        (*guard).as_ref().map(Arc::clone)
+        self.escaper_extra_tags.load_full()
     }
 }
 

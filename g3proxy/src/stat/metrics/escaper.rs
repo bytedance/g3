@@ -23,7 +23,7 @@ use g3_daemon::metric::{
     TAG_KEY_STAT_ID, TAG_KEY_TRANSPORT, TRANSPORT_TYPE_TCP, TRANSPORT_TYPE_UDP,
 };
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::MetricsName;
 use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
 
 use super::TAG_KEY_ESCAPER;
@@ -53,7 +53,6 @@ static ROUTE_STATS_MAP: Lazy<Mutex<AHashMap<StatId, RouterStatsValue>>> =
 
 trait EscaperMetricExt {
     fn add_escaper_tags(&mut self, escaper: &MetricsName, stat_id: StatId);
-    fn add_escaper_extra_tags(&mut self, tags: Option<&StaticMetricsTags>);
 }
 
 impl EscaperMetricExt for StatsdTagGroup {
@@ -62,12 +61,6 @@ impl EscaperMetricExt for StatsdTagGroup {
         let stat_id = buffer.format(stat_id.as_u64());
         self.add_tag(TAG_KEY_ESCAPER, escaper);
         self.add_tag(TAG_KEY_STAT_ID, stat_id);
-    }
-
-    fn add_escaper_extra_tags(&mut self, tags: Option<&StaticMetricsTags>) {
-        if let Some(tags) = tags {
-            self.add_static_tags(tags);
-        }
     }
 }
 
@@ -130,12 +123,9 @@ fn emit_escaper_stats(
 ) {
     let mut common_tags = StatsdTagGroup::default();
     common_tags.add_escaper_tags(stats.name(), stats.stat_id());
-
-    let guard = stats.extra_tags().load();
-    let escaper_extra_tags = guard.as_ref().map(Arc::clone);
-    drop(guard);
-
-    common_tags.add_escaper_extra_tags(escaper_extra_tags.as_deref());
+    if let Some(tags) = stats.load_extra_tags() {
+        common_tags.add_static_tags(&tags);
+    }
 
     let new_value = stats.get_task_total();
     let diff_value = new_value.wrapping_sub(snap.task_total);
