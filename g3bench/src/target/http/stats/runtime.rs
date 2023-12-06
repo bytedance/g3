@@ -17,9 +17,8 @@
 use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 use std::time::Duration;
 
-use cadence::{Counted, Gauged, StatsdClient};
-
 use g3_io_ext::{LimitedReaderStats, LimitedRecvStats, LimitedSendStats, LimitedWriterStats};
+use g3_statsd_client::StatsdClient;
 
 use crate::target::BenchRuntimeStats;
 
@@ -174,15 +173,14 @@ impl LimitedRecvStats for HttpRuntimeStats {
 }
 
 impl BenchRuntimeStats for HttpRuntimeStats {
-    fn emit(&self, client: &StatsdClient) {
+    fn emit(&self, client: &mut StatsdClient) {
         const TAG_NAME_TARGET: &str = "target";
 
         macro_rules! emit_count {
             ($field:ident, $name:literal) => {
                 let $field = self.$field.swap(0, Ordering::Relaxed);
-                let v = i64::try_from($field).unwrap_or(i64::MAX);
                 client
-                    .count_with_tags(concat!("http.", $name), v)
+                    .count(concat!("http.", $name), $field)
                     .with_tag(TAG_NAME_TARGET, self.target)
                     .send();
             };
@@ -190,7 +188,7 @@ impl BenchRuntimeStats for HttpRuntimeStats {
 
         let task_alive = self.task_alive.load(Ordering::Relaxed);
         client
-            .gauge_with_tags("http.task.alive", task_alive as f64)
+            .gauge("http.task.alive", task_alive)
             .with_tag(TAG_NAME_TARGET, self.target)
             .send();
 
@@ -207,9 +205,8 @@ impl BenchRuntimeStats for HttpRuntimeStats {
         macro_rules! emit_io_count {
             ($obj:ident, $field:ident, $name:literal) => {
                 let $field = $obj.$field.swap(0, Ordering::Relaxed);
-                let v = i64::try_from($field).unwrap_or(i64::MAX);
                 client
-                    .count_with_tags(concat!("http.", $name), v)
+                    .count(concat!("http.", $name), $field)
                     .with_tag(TAG_NAME_TARGET, self.target)
                     .send();
             };

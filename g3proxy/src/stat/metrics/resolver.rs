@@ -14,17 +14,16 @@
  * limitations under the License.
  */
 
-use std::convert::TryFrom;
 use std::sync::{Arc, Mutex};
 
 use ahash::AHashMap;
-use cadence::{Counted, Gauged, Metric, MetricBuilder, StatsdClient};
 use once_cell::sync::Lazy;
 
 use g3_daemon::metric::TAG_KEY_STAT_ID;
 use g3_resolver::{
     ResolveQueryType, ResolverMemorySnapshot, ResolverQuerySnapshot, ResolverSnapshot,
 };
+use g3_statsd_client::{StatsdClient, StatsdTagGroup};
 use g3_types::metrics::MetricsName;
 use g3_types::stats::StatId;
 
@@ -53,28 +52,16 @@ type ResolverStatsValue = (Arc<ResolverStats>, ResolverSnapshot);
 static RESOLVER_STATS_MAP: Lazy<Mutex<AHashMap<StatId, ResolverStatsValue>>> =
     Lazy::new(|| Mutex::new(AHashMap::new()));
 
-trait ResolverMetricExt<'m> {
-    fn add_resolver_tags(
-        self,
-        resolver: &'m MetricsName,
-        rr_type: &'m str,
-        stat_id: &'m str,
-    ) -> Self;
+trait ResolverMetricExt {
+    fn add_resolver_tags(&mut self, resolver: &MetricsName, stat_id: StatId);
 }
 
-impl<'m, 'c, T> ResolverMetricExt<'m> for MetricBuilder<'m, 'c, T>
-where
-    T: Metric + From<String>,
-{
-    fn add_resolver_tags(
-        self,
-        resolver: &'m MetricsName,
-        rr_type: &'m str,
-        stat_id: &'m str,
-    ) -> Self {
-        self.with_tag(TAG_KEY_RESOLVER, resolver.as_str())
-            .with_tag(TAG_KEY_RR_TYPE, rr_type)
-            .with_tag(TAG_KEY_STAT_ID, stat_id)
+impl ResolverMetricExt for StatsdTagGroup {
+    fn add_resolver_tags(&mut self, resolver: &MetricsName, stat_id: StatId) {
+        let mut buffer = itoa::Buffer::new();
+        let stat_id = buffer.format(stat_id.as_u64());
+        self.add_tag(TAG_KEY_RESOLVER, resolver);
+        self.add_tag(TAG_KEY_STAT_ID, stat_id);
     }
 }
 
@@ -89,7 +76,7 @@ pub(in crate::stat) fn sync_stats() {
     });
 }
 
-pub(in crate::stat) fn emit_stats(client: &StatsdClient) {
+pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
     let mut stats_map = RESOLVER_STATS_MAP.lock().unwrap();
     stats_map.retain(|_, (stats, snap)| {
         emit_to_statsd(client, stats, snap);
@@ -98,10 +85,9 @@ pub(in crate::stat) fn emit_stats(client: &StatsdClient) {
     });
 }
 
-fn emit_to_statsd(client: &StatsdClient, stats: &ResolverStats, snap: &mut ResolverSnapshot) {
-    let resolver = stats.name();
-    let mut buffer = itoa::Buffer::new();
-    let stat_id = buffer.format(stats.stat_id().as_u64());
+fn emit_to_statsd(client: &mut StatsdClient, stats: &ResolverStats, snap: &mut ResolverSnapshot) {
+    let mut common_tags = StatsdTagGroup::default();
+    common_tags.add_resolver_tags(stats.name(), stats.stat_id());
 
     let inner_stats = stats.inner().snapshot();
 
@@ -109,44 +95,39 @@ fn emit_to_statsd(client: &StatsdClient, stats: &ResolverStats, snap: &mut Resol
         client,
         &inner_stats.query_a,
         &mut snap.query_a,
-        resolver,
+        &common_tags,
         ResolveQueryType::A,
-        stat_id,
     );
 
     emit_query_stats_to_statsd(
         client,
         &inner_stats.query_aaaa,
         &mut snap.query_aaaa,
-        resolver,
+        &common_tags,
         ResolveQueryType::Aaaa,
-        stat_id,
     );
 
     emit_memory_stats_to_statsd(
         client,
         &inner_stats.memory_a,
-        resolver,
+        &common_tags,
         ResolveQueryType::A,
-        stat_id,
     );
 
     emit_memory_stats_to_statsd(
         client,
         &inner_stats.memory_aaaa,
-        resolver,
+        &common_tags,
         ResolveQueryType::Aaaa,
-        stat_id,
     );
 }
 
 fn emit_query_stats_to_statsd(
-    client: &StatsdClient,
+    client: &mut StatsdClient,
     stats: &ResolverQuerySnapshot,
     snap: &mut ResolverQuerySnapshot,
-    resolver: &MetricsName,
+    common_tags: &StatsdTagGroup,
     rr_type: ResolveQueryType,
-    stat_id: &str,
 ) {
     let rr_type = rr_type.as_str();
 
@@ -154,10 +135,10 @@ fn emit_query_stats_to_statsd(
     if new_value == 0 && snap.total == 0 {
         return;
     }
-    let diff_value = i64::try_from(new_value.wrapping_sub(snap.total)).unwrap_or(i64::MAX);
+    let diff_value = new_value.wrapping_sub(snap.total);
     client
-        .count_with_tags(METRIC_NAME_QUERY_TOTAL, diff_value)
-        .add_resolver_tags(resolver, rr_type, stat_id)
+        .count_with_tags(METRIC_NAME_QUERY_TOTAL, diff_value, common_tags)
+        .with_tag(TAG_KEY_RR_TYPE, rr_type)
         .send();
     snap.total = new_value;
 
@@ -165,11 +146,10 @@ fn emit_query_stats_to_statsd(
         ($id:ident, $name:expr) => {
             let new_value = stats.$id;
             if new_value != 0 || snap.$id != 0 {
-                let diff_value =
-                    i64::try_from(new_value.wrapping_sub(snap.$id)).unwrap_or(i64::MAX);
+                let diff_value = new_value.wrapping_sub(snap.$id);
                 client
-                    .count_with_tags($name, diff_value)
-                    .add_resolver_tags(resolver, rr_type, stat_id)
+                    .count_with_tags($name, diff_value, common_tags)
+                    .with_tag(TAG_KEY_RR_TYPE, rr_type)
                     .send();
                 snap.$id = new_value;
             }
@@ -188,28 +168,41 @@ fn emit_query_stats_to_statsd(
 }
 
 fn emit_memory_stats_to_statsd(
-    client: &StatsdClient,
+    client: &mut StatsdClient,
     stats: &ResolverMemorySnapshot,
-    resolver: &MetricsName,
+    common_tags: &StatsdTagGroup,
     rr_type: ResolveQueryType,
-    stat_id: &str,
 ) {
-    let rr_type = rr_type.as_str();
-
     client
-        .gauge_with_tags(METRIC_NAME_MEMORY_CACHE_CAPACITY, stats.cap_cache as u64)
-        .add_resolver_tags(resolver, rr_type, stat_id)
+        .gauge_with_tags(
+            METRIC_NAME_MEMORY_CACHE_CAPACITY,
+            stats.cap_cache,
+            common_tags,
+        )
+        .with_tag(TAG_KEY_RR_TYPE, rr_type)
         .send();
     client
-        .gauge_with_tags(METRIC_NAME_MEMORY_CACHE_LENGTH, stats.len_cache as u64)
-        .add_resolver_tags(resolver, rr_type, stat_id)
+        .gauge_with_tags(
+            METRIC_NAME_MEMORY_CACHE_LENGTH,
+            stats.len_cache,
+            common_tags,
+        )
+        .with_tag(TAG_KEY_RR_TYPE, rr_type)
         .send();
     client
-        .gauge_with_tags(METRIC_NAME_MEMORY_DOING_CAPACITY, stats.cap_doing as u64)
-        .add_resolver_tags(resolver, rr_type, stat_id)
+        .gauge_with_tags(
+            METRIC_NAME_MEMORY_DOING_CAPACITY,
+            stats.cap_doing,
+            common_tags,
+        )
+        .with_tag(TAG_KEY_RR_TYPE, rr_type)
         .send();
     client
-        .gauge_with_tags(METRIC_NAME_MEMORY_DOING_LENGTH, stats.len_doing as u64)
-        .add_resolver_tags(resolver, rr_type, stat_id)
+        .gauge_with_tags(
+            METRIC_NAME_MEMORY_DOING_LENGTH,
+            stats.len_doing,
+            common_tags,
+        )
+        .with_tag(TAG_KEY_RR_TYPE, rr_type)
         .send();
 }

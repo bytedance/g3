@@ -17,9 +17,8 @@
 use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 use std::time::Duration;
 
-use cadence::{Counted, Gauged, StatsdClient};
-
 use g3_io_ext::{LimitedReaderStats, LimitedWriterStats};
+use g3_statsd_client::StatsdClient;
 
 use crate::target::BenchRuntimeStats;
 
@@ -93,19 +92,16 @@ impl LimitedWriterStats for SslRuntimeStats {
 }
 
 impl BenchRuntimeStats for SslRuntimeStats {
-    fn emit(&self, client: &StatsdClient) {
+    fn emit(&self, client: &mut StatsdClient) {
         macro_rules! emit_count {
             ($field:ident, $name:literal) => {
                 let $field = self.$field.swap(0, Ordering::Relaxed);
-                let v = i64::try_from($field).unwrap_or(i64::MAX);
-                client.count_with_tags(concat!("ssl.", $name), v).send();
+                client.count(concat!("ssl.", $name), $field).send();
             };
         }
 
         let task_alive = self.task_alive.load(Ordering::Relaxed);
-        client
-            .gauge_with_tags("ssl.task.alive", task_alive as f64)
-            .send();
+        client.gauge("ssl.task.alive", task_alive).send();
 
         emit_count!(task_total, "task.total");
         emit_count!(task_passed, "task.passed");

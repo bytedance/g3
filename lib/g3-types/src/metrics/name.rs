@@ -35,8 +35,18 @@ impl MetricsName {
     }
 
     #[inline]
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    #[inline]
     pub fn as_str(&self) -> &str {
         self.0.as_str()
+    }
+
+    #[inline]
+    pub fn as_bytes(&self) -> &[u8] {
+        self.0.as_bytes()
     }
 
     /// Get a MetricsName from a String value
@@ -64,6 +74,12 @@ impl FromStr for MetricsName {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         chars_allowed_in_opentsdb(s)?;
         Ok(MetricsName(s.to_string()))
+    }
+}
+
+impl AsRef<str> for MetricsName {
+    fn as_ref(&self) -> &str {
+        self.as_str()
     }
 }
 

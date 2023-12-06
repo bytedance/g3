@@ -14,15 +14,30 @@
  * limitations under the License.
  */
 
-use std::net::{IpAddr, Ipv6Addr, SocketAddr, UdpSocket};
+use std::io;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
 use std::os::unix::net::UnixDatagram;
+use std::path::PathBuf;
 use std::time::Duration;
-
-use cadence::{BufferedUdpMetricSink, BufferedUnixMetricSink, StatsdClient, StatsdClientBuilder};
 
 use g3_types::metrics::MetricsName;
 
-use super::{StatsdBackend, StatsdClientBuildError};
+use crate::{StatsdClient, StatsdMetricsSink};
+
+const UDP_DEFAULT_PORT: u16 = 8125;
+
+#[derive(Debug, Clone)]
+pub enum StatsdBackend {
+    Udp(SocketAddr, Option<IpAddr>),
+    Unix(PathBuf),
+}
+
+impl Default for StatsdBackend {
+    fn default() -> Self {
+        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), UDP_DEFAULT_PORT);
+        StatsdBackend::Udp(addr, None)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct StatsdClientConfig {
@@ -54,24 +69,22 @@ impl StatsdClientConfig {
         self.prefix = prefix;
     }
 
-    pub fn build(&self) -> Result<StatsdClientBuilder, StatsdClientBuildError> {
-        let builder = match &self.backend {
+    pub fn build(&self) -> io::Result<StatsdClient> {
+        let sink = match &self.backend {
             StatsdBackend::Udp(addr, bind) => {
-                let bind_ip = bind.unwrap_or(IpAddr::V6(Ipv6Addr::UNSPECIFIED));
-                let socket = UdpSocket::bind(SocketAddr::new(bind_ip, 0))
-                    .map_err(StatsdClientBuildError::SocketError)?;
-                let sink = BufferedUdpMetricSink::with_capacity(addr, socket, 1024)
-                    .map_err(StatsdClientBuildError::SinkError)?;
-                StatsdClient::builder(self.prefix.as_str(), sink)
+                let bind_ip = bind.unwrap_or_else(|| match addr {
+                    SocketAddr::V4(_) => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+                    SocketAddr::V6(_) => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
+                });
+                let socket = UdpSocket::bind(SocketAddr::new(bind_ip, 0))?;
+                StatsdMetricsSink::udp_with_capacity(*addr, socket, 1024)
             }
             StatsdBackend::Unix(path) => {
-                let socket =
-                    UnixDatagram::unbound().map_err(StatsdClientBuildError::SocketError)?;
-                let sink = BufferedUnixMetricSink::with_capacity(path, socket, 4096);
-                StatsdClient::builder(self.prefix.as_str(), sink)
+                let socket = UnixDatagram::unbound()?;
+                StatsdMetricsSink::unix_with_capacity(path.clone(), socket, 4096)
             }
         };
 
-        Ok(builder)
+        Ok(StatsdClient::new(self.prefix.clone(), sink))
     }
 }

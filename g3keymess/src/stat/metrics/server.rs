@@ -17,13 +17,12 @@
 use std::sync::{Arc, Mutex};
 
 use ahash::AHashMap;
-use cadence::{Counted, Gauged, StatsdClient};
 use once_cell::sync::Lazy;
 
 use g3_daemon::listen::{ListenSnapshot, ListenStats};
 use g3_daemon::metric::ServerMetricExt;
 use g3_histogram::HistogramStats;
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_statsd_client::{StatsdClient, StatsdTagGroup};
 use g3_types::stats::StatId;
 
 use crate::serve::{
@@ -96,7 +95,7 @@ pub(in crate::stat) fn sync_stats() {
     drop(duration_stats_map);
 }
 
-pub(in crate::stat) fn emit_stats(client: &StatsdClient) {
+pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
     let mut server_stats_map = SERVER_STATS_MAP.lock().unwrap();
     server_stats_map.retain(|_, (stats, snap)| {
         emit_server_stats(client, stats, snap);
@@ -123,43 +122,34 @@ pub(in crate::stat) fn emit_stats(client: &StatsdClient) {
 }
 
 fn emit_server_stats(
-    client: &StatsdClient,
+    client: &mut StatsdClient,
     stats: &Arc<KeyServerStats>,
     snap: &mut KeyServerSnapshot,
 ) {
-    let online_value = if stats.is_online() { "y" } else { "n" };
-    let server = stats.name();
-    let mut buffer = itoa::Buffer::new();
-    let stat_id = buffer.format(stats.stat_id().as_u64());
+    let mut common_tags = StatsdTagGroup::default();
+    common_tags.add_server_tags(stats.name(), stats.is_online(), stats.stat_id());
 
     let guard = stats.extra_tags().load();
     let server_extra_tags = guard.as_ref().map(Arc::clone);
     drop(guard);
 
+    common_tags.add_server_extra_tags(server_extra_tags.as_deref());
+
     let new_value = stats.get_task_total();
-    let diff_value = i64::try_from(new_value.wrapping_sub(snap.task_total)).unwrap_or(i64::MAX);
+    let diff_value = new_value.wrapping_sub(snap.task_total);
     client
-        .count_with_tags(METRIC_NAME_SERVER_TASK_TOTAL, diff_value)
-        .add_server_tags(server, online_value, stat_id)
-        .add_server_extra_tags(&server_extra_tags)
+        .count_with_tags(METRIC_NAME_SERVER_TASK_TOTAL, diff_value, &common_tags)
         .send();
     snap.task_total = new_value;
 
     client
         .gauge_with_tags(
             METRIC_NAME_SERVER_TASK_ALIVE,
-            stats.get_alive_count() as f64,
+            stats.get_alive_count(),
+            &common_tags,
         )
-        .add_server_tags(server, online_value, stat_id)
-        .add_server_extra_tags(&server_extra_tags)
         .send();
 
-    let common = CommonParams {
-        online_value,
-        server,
-        server_extra_tags: &server_extra_tags,
-        stat_id,
-    };
     macro_rules! emit_request_stats_u64 {
         ($id:ident, $request:expr) => {
             emit_server_request_stats(
@@ -167,7 +157,7 @@ fn emit_server_stats(
                 $request,
                 stats.$id.snapshot(),
                 &mut snap.$id,
-                &common,
+                &common_tags,
             );
         };
     }
@@ -179,46 +169,37 @@ fn emit_server_stats(
     emit_request_stats_u64!(ed25519_sign, REQUEST_TYPE_ED25519_SIGN);
 }
 
-struct CommonParams<'a> {
-    online_value: &'a str,
-    server: &'a MetricsName,
-    server_extra_tags: &'a Option<Arc<StaticMetricsTags>>,
-    stat_id: &'a str,
-}
-
 fn emit_server_request_stats(
-    client: &StatsdClient,
+    client: &mut StatsdClient,
     request: &str,
     stats: KeyServerRequestSnapshot,
     snap: &mut KeyServerRequestSnapshot,
-    p: &CommonParams,
+    common_tags: &StatsdTagGroup,
 ) {
     let new_value = stats.total;
     if new_value == 0 && snap.total == 0 {
         return;
     }
-    let diff_value = i64::try_from(new_value.wrapping_sub(snap.total)).unwrap_or(i64::MAX);
+    let diff_value = new_value.wrapping_sub(snap.total);
     client
-        .count_with_tags(METRIC_NAME_SERVER_REQUEST_TOTAL, diff_value)
-        .add_server_tags(p.server, p.online_value, p.stat_id)
-        .add_server_extra_tags(p.server_extra_tags)
+        .count_with_tags(METRIC_NAME_SERVER_REQUEST_TOTAL, diff_value, common_tags)
         .with_tag(TAG_KEY_REQUEST, request)
         .send();
     snap.total = new_value;
 
     client
-        .gauge_with_tags(METRIC_NAME_SERVER_REQUEST_ALIVE, stats.alive_count as f64)
-        .add_server_tags(p.server, p.online_value, p.stat_id)
-        .add_server_extra_tags(p.server_extra_tags)
+        .gauge_with_tags(
+            METRIC_NAME_SERVER_REQUEST_ALIVE,
+            stats.alive_count,
+            common_tags,
+        )
         .with_tag(TAG_KEY_REQUEST, request)
         .send();
 
     let new_value = stats.passed;
-    let diff_value = i64::try_from(new_value.wrapping_sub(snap.passed)).unwrap_or(i64::MAX);
+    let diff_value = new_value.wrapping_sub(snap.passed);
     client
-        .count_with_tags(METRIC_NAME_SERVER_REQUEST_PASSED, diff_value)
-        .add_server_tags(p.server, p.online_value, p.stat_id)
-        .add_server_extra_tags(p.server_extra_tags)
+        .count_with_tags(METRIC_NAME_SERVER_REQUEST_PASSED, diff_value, common_tags)
         .with_tag(TAG_KEY_REQUEST, request)
         .send();
     snap.passed = new_value;
@@ -227,12 +208,9 @@ fn emit_server_request_stats(
         ($id:ident, $reason:expr) => {
             let new_value = stats.$id;
             if new_value != 0 || snap.$id != 0 {
-                let diff_value =
-                    i64::try_from(new_value.wrapping_sub(snap.$id)).unwrap_or(i64::MAX);
+                let diff_value = new_value.wrapping_sub(snap.$id);
                 client
-                    .count_with_tags(METRIC_NAME_SERVER_REQUEST_FAILED, diff_value)
-                    .add_server_tags(p.server, p.online_value, p.stat_id)
-                    .add_server_extra_tags(p.server_extra_tags)
+                    .count_with_tags(METRIC_NAME_SERVER_REQUEST_FAILED, diff_value, common_tags)
                     .with_tag(TAG_KEY_REQUEST, request)
                     .with_tag(TAG_KEY_REASON, $reason)
                     .send();
@@ -247,25 +225,19 @@ fn emit_server_request_stats(
     emit_failed_stats_u64!(other_fail, FAIL_REASON_OTHER_FAIL);
 }
 
-fn emit_server_duration_stats(client: &StatsdClient, stats: &Arc<KeyServerDurationStats>) {
-    let online_value = if stats.is_online() { "y" } else { "n" };
-    let server = stats.name();
-    let mut buffer = itoa::Buffer::new();
-    let stat_id = buffer.format(stats.stat_id().as_u64());
+fn emit_server_duration_stats(client: &mut StatsdClient, stats: &Arc<KeyServerDurationStats>) {
+    let mut common_tags = StatsdTagGroup::default();
+    common_tags.add_server_tags(stats.name(), stats.is_online(), stats.stat_id());
 
     let guard = stats.extra_tags().load();
     let server_extra_tags = guard.as_ref().map(Arc::clone);
     drop(guard);
 
-    let common = CommonParams {
-        online_value,
-        server,
-        server_extra_tags: &server_extra_tags,
-        stat_id,
-    };
+    common_tags.add_server_extra_tags(server_extra_tags.as_deref());
+
     macro_rules! emit_request_stats_u64 {
         ($id:ident, $request:expr) => {
-            emit_server_request_duration_stats(client, $request, &stats.$id, &common);
+            emit_server_request_duration_stats(client, $request, &stats.$id, &common_tags);
         };
     }
     emit_request_stats_u64!(ping_pong, REQUEST_TYPE_PING_PONG);
@@ -277,17 +249,15 @@ fn emit_server_duration_stats(client: &StatsdClient, stats: &Arc<KeyServerDurati
 }
 
 fn emit_server_request_duration_stats(
-    client: &StatsdClient,
+    client: &mut StatsdClient,
     request: &str,
     stats: &HistogramStats,
-    p: &CommonParams,
+    common_tags: &StatsdTagGroup,
 ) {
     stats.foreach_stat(|_, qs, v| {
         if v > 0_f64 {
             client
-                .gauge_with_tags(METRIC_NAME_SERVER_REQUEST_DURATION, v)
-                .add_server_tags(p.server, p.online_value, p.stat_id)
-                .add_server_extra_tags(p.server_extra_tags)
+                .gauge_float_with_tags(METRIC_NAME_SERVER_REQUEST_DURATION, v, common_tags)
                 .with_tag(TAG_KEY_REQUEST, request)
                 .with_tag(TAG_KEY_QUANTILE, qs)
                 .send();

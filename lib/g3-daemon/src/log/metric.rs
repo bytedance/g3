@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-use std::convert::TryFrom;
 use std::sync::{Arc, Mutex};
 
 use ahash::AHashMap;
-use cadence::{Counted, Metric, MetricBuilder, StatsdClient};
 use once_cell::sync::Lazy;
 
+use g3_statsd_client::{StatsdClient, StatsdTagGroup};
 use g3_types::log::{LogDropSnapshot, LogDropType, LogIoSnapshot, LogSnapshot};
 use g3_types::stats::StatId;
 
@@ -40,23 +39,17 @@ type LoggerStatsValue = (Arc<LoggerStats>, LogSnapshot);
 static LOGGER_STATS_MAP: Lazy<Mutex<AHashMap<StatId, LoggerStatsValue>>> =
     Lazy::new(|| Mutex::new(AHashMap::new()));
 
-trait LoggerMetricExt<'m> {
-    fn add_logger_tags(self, logger: &'m str, stat_id: &'m str) -> Self;
-    fn add_drop_tags(self, logger: &'m str, stat_id: &'m str, drop_type: LogDropType) -> Self;
+trait LoggerMetricExt {
+    fn add_logger_tags(&mut self, logger: &str, stat_id: StatId);
 }
 
-impl<'m, 'c, T> LoggerMetricExt<'m> for MetricBuilder<'m, 'c, T>
-where
-    T: Metric + From<String>,
-{
-    fn add_logger_tags(self, logger: &'m str, stat_id: &'m str) -> Self {
-        self.with_tag(TAG_KEY_LOGGER, logger)
-            .with_tag(TAG_KEY_STAT_ID, stat_id)
-    }
+impl LoggerMetricExt for StatsdTagGroup {
+    fn add_logger_tags(&mut self, logger: &str, stat_id: StatId) {
+        let mut buffer = itoa::Buffer::new();
+        let stat_id = buffer.format(stat_id.as_u64());
 
-    fn add_drop_tags(self, logger: &'m str, stat_id: &'m str, drop_type: LogDropType) -> Self {
-        self.add_logger_tags(logger, stat_id)
-            .with_tag(TAG_KEY_DROP_TYPE, drop_type.as_str())
+        self.add_tag(TAG_KEY_LOGGER, logger);
+        self.add_tag(TAG_KEY_STAT_ID, stat_id);
     }
 }
 
@@ -70,7 +63,7 @@ pub fn sync_stats() {
     });
 }
 
-pub fn emit_stats(client: &StatsdClient) {
+pub fn emit_stats(client: &mut StatsdClient) {
     let mut stats_map = LOGGER_STATS_MAP.lock().unwrap();
     stats_map.retain(|_, (stats, snap)| {
         emit_to_statsd(client, stats, snap);
@@ -79,97 +72,88 @@ pub fn emit_stats(client: &StatsdClient) {
     });
 }
 
-fn emit_to_statsd(client: &StatsdClient, stats: &LoggerStats, snap: &mut LogSnapshot) {
-    let logger = stats.name();
-    let mut buffer = itoa::Buffer::new();
-    let stat_id = buffer.format(stats.stat_id().as_u64());
-
+fn emit_to_statsd(client: &mut StatsdClient, stats: &LoggerStats, snap: &mut LogSnapshot) {
     let log_stats = stats.inner().snapshot();
 
-    emit_io_stats_to_statsd(client, &log_stats.io, &mut snap.io, logger, stat_id);
+    let mut common_tags = StatsdTagGroup::default();
+    common_tags.add_logger_tags(stats.name(), stats.stat_id());
 
-    emit_drop_stats_to_statsd(client, &log_stats.drop, &mut snap.drop, logger, stat_id);
+    emit_io_stats_to_statsd(client, &log_stats.io, &mut snap.io, &common_tags);
+
+    emit_drop_stats_to_statsd(client, &log_stats.drop, &mut snap.drop, &common_tags);
 }
 
 fn emit_io_stats_to_statsd(
-    client: &StatsdClient,
+    client: &mut StatsdClient,
     stats: &LogIoSnapshot,
     snap: &mut LogIoSnapshot,
-    logger: &str,
-    stat_id: &str,
+    common_tags: &StatsdTagGroup,
 ) {
     let new_value = stats.total;
-    let diff_value = i64::try_from(new_value.wrapping_sub(snap.total)).unwrap_or(i64::MAX);
+    let diff_value = new_value.wrapping_sub(snap.total);
     client
-        .count_with_tags(METRIC_NAME_MESSAGE_TOTAL, diff_value)
-        .add_logger_tags(logger, stat_id)
+        .count_with_tags(METRIC_NAME_MESSAGE_TOTAL, diff_value, common_tags)
         .send();
+
     snap.total = new_value;
 
     let new_value = stats.passed;
-    let diff_value = i64::try_from(new_value.wrapping_sub(snap.passed)).unwrap_or(i64::MAX);
+    let diff_value = new_value.wrapping_sub(snap.passed);
     client
-        .count_with_tags(METRIC_NAME_MESSAGE_PASS, diff_value)
-        .add_logger_tags(logger, stat_id)
+        .count_with_tags(METRIC_NAME_MESSAGE_PASS, diff_value, common_tags)
         .send();
     snap.passed = new_value;
 
     let new_value = stats.size;
-    let diff_value = i64::try_from(new_value.wrapping_sub(snap.size)).unwrap_or(i64::MAX);
+    let diff_value = new_value.wrapping_sub(snap.size);
     client
-        .count_with_tags(METRIC_NAME_TRAFFIC_PASS, diff_value)
-        .add_logger_tags(logger, stat_id)
+        .count_with_tags(METRIC_NAME_TRAFFIC_PASS, diff_value, common_tags)
         .send();
     snap.size = new_value;
 }
 
 fn emit_drop_stats_to_statsd(
-    client: &StatsdClient,
+    client: &mut StatsdClient,
     stats: &LogDropSnapshot,
     snap: &mut LogDropSnapshot,
-    logger: &str,
-    stat_id: &str,
+    common_tags: &StatsdTagGroup,
 ) {
     let new_value = stats.format_failed;
     if new_value != 0 || snap.format_failed != 0 {
-        let diff_value =
-            i64::try_from(new_value.wrapping_sub(snap.format_failed)).unwrap_or(i64::MAX);
+        let diff_value = new_value.wrapping_sub(snap.format_failed);
         client
-            .count_with_tags(METRIC_NAME_MESSAGE_DROP, diff_value)
-            .add_drop_tags(logger, stat_id, LogDropType::FormatFailed)
+            .count_with_tags(METRIC_NAME_MESSAGE_DROP, diff_value, common_tags)
+            .with_tag(TAG_KEY_DROP_TYPE, LogDropType::FormatFailed)
             .send();
         snap.format_failed = new_value;
     }
 
     let new_value = stats.channel_closed;
     if new_value != 0 || snap.channel_closed != 0 {
-        let diff_value =
-            i64::try_from(new_value.wrapping_sub(snap.channel_closed)).unwrap_or(i64::MAX);
+        let diff_value = new_value.wrapping_sub(snap.channel_closed);
         client
-            .count_with_tags(METRIC_NAME_MESSAGE_DROP, diff_value)
-            .add_drop_tags(logger, stat_id, LogDropType::ChannelClosed)
+            .count_with_tags(METRIC_NAME_MESSAGE_DROP, diff_value, common_tags)
+            .with_tag(TAG_KEY_DROP_TYPE, LogDropType::ChannelClosed)
             .send();
         snap.channel_closed = new_value;
     }
 
     let new_value = stats.channel_overflow;
     if new_value != 0 || snap.channel_overflow != 0 {
-        let diff_value =
-            i64::try_from(new_value.wrapping_sub(snap.channel_overflow)).unwrap_or(i64::MAX);
+        let diff_value = new_value.wrapping_sub(snap.channel_overflow);
         client
-            .count_with_tags(METRIC_NAME_MESSAGE_DROP, diff_value)
-            .add_drop_tags(logger, stat_id, LogDropType::ChannelOverflow)
+            .count_with_tags(METRIC_NAME_MESSAGE_DROP, diff_value, common_tags)
+            .with_tag(TAG_KEY_DROP_TYPE, LogDropType::ChannelOverflow)
             .send();
         snap.channel_overflow = new_value;
     }
 
     let new_value = stats.peer_unreachable;
     if new_value != 0 || snap.peer_unreachable != 0 {
-        let diff_value =
-            i64::try_from(new_value.wrapping_sub(snap.peer_unreachable)).unwrap_or(i64::MAX);
+        let diff_value = new_value.wrapping_sub(snap.peer_unreachable);
         client
-            .count_with_tags(METRIC_NAME_MESSAGE_DROP, diff_value)
-            .add_drop_tags(logger, stat_id, LogDropType::PeerUnreachable)
+            .count_with_tags(METRIC_NAME_MESSAGE_DROP, diff_value, common_tags)
+            .with_tag(TAG_KEY_DROP_TYPE, LogDropType::PeerUnreachable)
             .send();
         snap.peer_unreachable = new_value;
     }

@@ -16,6 +16,7 @@
 
 use std::fmt;
 
+#[derive(Clone, Copy)]
 pub enum ResolveQueryType {
     A,
     Aaaa,
@@ -27,6 +28,12 @@ impl ResolveQueryType {
             ResolveQueryType::A => "A",
             ResolveQueryType::Aaaa => "AAAA",
         }
+    }
+}
+
+impl AsRef<str> for ResolveQueryType {
+    fn as_ref(&self) -> &str {
+        self.as_str()
     }
 }
 

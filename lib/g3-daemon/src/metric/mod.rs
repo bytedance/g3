@@ -44,3 +44,9 @@ impl MetricTransportType {
         }
     }
 }
+
+impl AsRef<str> for MetricTransportType {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}

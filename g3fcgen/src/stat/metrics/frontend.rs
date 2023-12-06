@@ -14,17 +14,15 @@
  * limitations under the License.
  */
 
-use cadence::{Counted, StatsdClient};
+use g3_statsd_client::StatsdClient;
 
 use crate::FrontendStats;
 
-pub(crate) fn emit_stats(client: &StatsdClient, s: &FrontendStats) {
+pub(crate) fn emit_stats(client: &mut StatsdClient, s: &FrontendStats) {
     macro_rules! emit_count {
         ($take:ident, $name:literal) => {
-            let v = i64::try_from(s.$take()).unwrap_or(i64::MAX);
-            client
-                .count_with_tags(concat!("frontend.", $name), v)
-                .send();
+            let v = s.$take();
+            client.count(concat!("frontend.", $name), v).send();
         };
     }
 

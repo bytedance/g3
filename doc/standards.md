@@ -51,6 +51,11 @@ The code should comply to these, but should be more compliant to existing popula
  - [Forward-Protocol-Specification-v1](https://github.com/fluent/fluentd/wiki/Forward-Protocol-Specification-v1)
     : Forward Protocol Specification v1
 
+## StatsD
+
+ - [the-dogstatsd-protocol](https://docs.datadoghq.com/developers/dogstatsd/datagram_shell?tab=metrics#the-dogstatsd-protocol)
+    : The DogStatsD protocol
+
 ## PEN
 
  - [PRIVATE ENTERPRISE NUMBERS](https://www.iana.org/assignments/enterprise-numbers/enterprise-numbers)

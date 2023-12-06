@@ -16,9 +16,8 @@
 
 use std::time::Duration;
 
-use cadence::StatsdClient;
-
 use g3_histogram::{DurationHistogram, HistogramRecorder};
+use g3_statsd_client::StatsdClient;
 use g3_types::ext::DurationExt;
 
 use crate::target::BenchHistogram;
@@ -60,7 +59,7 @@ impl BenchHistogram for HttpHistogram {
         self.conn_reuse_count.refresh().unwrap();
     }
 
-    fn emit(&self, client: &StatsdClient) {
+    fn emit(&self, client: &mut StatsdClient) {
         self.emit_histogram(client, self.send_hdr_time.inner(), "http.time.send_hdr");
         self.emit_histogram(client, self.recv_hdr_time.inner(), "http.time.recv_hdr");
         self.emit_histogram(client, self.total_time.inner(), "http.time.total");

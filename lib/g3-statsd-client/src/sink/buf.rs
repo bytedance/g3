@@ -15,14 +15,21 @@
  */
 
 use std::io;
+use std::rc::Rc;
+use std::sync::Mutex;
 
-use cadence::MetricError;
-use thiserror::Error;
+pub(super) struct BufMetricsSink {
+    buf: Rc<Mutex<Vec<u8>>>,
+}
 
-#[derive(Debug, Error)]
-pub enum StatsdClientBuildError {
-    #[error("socket setup failed: {0}")]
-    SocketError(io::Error),
-    #[error("sink setup failed: {0}")]
-    SinkError(MetricError),
+impl BufMetricsSink {
+    pub(super) fn new(buf: Rc<Mutex<Vec<u8>>>) -> Self {
+        BufMetricsSink { buf }
+    }
+
+    pub(super) fn send_msg(&self, msg: &[u8]) -> io::Result<usize> {
+        let mut buf = self.buf.lock().unwrap();
+        buf.extend_from_slice(msg);
+        Ok(msg.len())
+    }
 }

@@ -18,35 +18,14 @@ use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Instant;
 
-use anyhow::{anyhow, Context};
-use cadence::StatsdClient;
-use log::warn;
+use anyhow::anyhow;
 
 use g3_histogram::HistogramStats;
-use g3_statsd::client::StatsdClientConfig;
+use g3_statsd_client::StatsdClientConfig;
 
 mod metrics;
 
 use super::{BackendStats, FrontendStats};
-
-fn build_statsd_client(config: &StatsdClientConfig) -> anyhow::Result<StatsdClient> {
-    let builder = config.build().context("failed to build statsd client")?;
-
-    let start_instant = Instant::now();
-    let client = builder
-        .with_error_handler(move |e| {
-            static mut LAST_REPORT_TIME_SLICE: u64 = 0;
-            let time_slice = start_instant.elapsed().as_secs().rotate_right(6); // every 64s
-            unsafe {
-                if LAST_REPORT_TIME_SLICE != time_slice {
-                    warn!("sending metrics error: {e:?}");
-                    LAST_REPORT_TIME_SLICE = time_slice;
-                }
-            }
-        })
-        .build();
-    Ok(client)
-}
 
 pub(crate) fn spawn_working_thread(
     config: StatsdClientConfig,
@@ -54,16 +33,18 @@ pub(crate) fn spawn_working_thread(
     backend_duration_stats: Arc<HistogramStats>,
     frontend_stats: Arc<FrontendStats>,
 ) -> anyhow::Result<JoinHandle<()>> {
-    let client = build_statsd_client(&config).context("failed to build statsd client")?;
+    let mut client = config
+        .build()
+        .map_err(|e| anyhow!("failed to build statsd client: {e}"))?;
 
     let handle = std::thread::Builder::new()
         .name("stat-main".to_string())
         .spawn(move || loop {
             let instant_start = Instant::now();
 
-            metrics::backend::emit_stats(&client, &backend_stats);
-            metrics::backend::emit_duration_stats(&client, &backend_duration_stats);
-            metrics::frontend::emit_stats(&client, &frontend_stats);
+            metrics::backend::emit_stats(&mut client, &backend_stats);
+            metrics::backend::emit_duration_stats(&mut client, &backend_duration_stats);
+            metrics::frontend::emit_stats(&mut client, &frontend_stats);
 
             client.flush_sink();
 

@@ -25,7 +25,7 @@ http = { workspace = true, optional = true }
 g3-types.workspace = true
 g3-syslog = { workspace = true, optional = true }
 g3-fluentd = { workspace = true, optional = true }
-g3-statsd = { workspace = true, optional = true }
+g3-statsd-client = { workspace = true, optional = true }
 g3-histogram = { workspace = true, optional = true }
 g3-ftp-client = { workspace = true, optional = true }
 g3-runtime = { workspace = true, optional = true }
@@ -37,10 +37,10 @@ g3-geoip = { workspace = true, optional = true }
 
 [features]
 default = []
-syslog = ["g3-syslog"]
-fluentd = ["g3-fluentd", "openssl"]
-statsd = ["g3-statsd"]
-histogram = ["g3-histogram"]
+syslog = ["dep:g3-syslog"]
+fluentd = ["dep:g3-fluentd", "openssl"]
+statsd = ["dep:g3-statsd-client"]
+histogram = ["dep:g3-histogram"]
 resolve = ["g3-types/resolve"]
 rustls = ["g3-types/rustls", "dep:rustls", "dep:rustls-pemfile"]
 openssl = ["g3-types/openssl", "dep:openssl"]
@@ -50,7 +50,7 @@ proxy = ["g3-types/proxy"]
 acl-rule = ["g3-types/acl-rule", "dep:ip_network", "dep:regex", "proxy"]
 route = ["g3-types/route"]
 ftp-client = ["g3-ftp-client"]
-sched = ["g3-runtime", "g3-compat"]
-dpi = ["g3-dpi", "g3-tls-cert"]
-audit = ["g3-icap-client", "http"]
-geoip = ["g3-geoip"]
+sched = ["dep:g3-runtime", "dep:g3-compat"]
+dpi = ["dep:g3-dpi", "dep:g3-tls-cert"]
+audit = ["dep:g3-icap-client", "http"]
+geoip = ["dep:g3-geoip"]

@@ -1,5 +1,5 @@
 [package]
-name = "g3-statsd"
+name = "g3-statsd-client"
 version = "0.1.0"
 license.workspace = true
 edition.workspace = true
@@ -7,6 +7,8 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-thiserror.workspace = true
-cadence.workspace = true
+itoa.workspace = true
+ryu.workspace = true
+smallvec.workspace = true
+log.workspace = true
 g3-types.workspace = true

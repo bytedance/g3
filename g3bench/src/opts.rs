@@ -18,16 +18,15 @@ use std::io::{stderr, IsTerminal};
 use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use ahash::AHashMap;
 use anyhow::{anyhow, Context};
-use cadence::StatsdClient;
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
 
 use g3_runtime::blended::BlendedRuntimeConfig;
 use g3_runtime::unaided::UnaidedRuntimeConfig;
-use g3_statsd::client::{StatsdBackend, StatsdClientConfig};
+use g3_statsd_client::{StatsdBackend, StatsdClient, StatsdClientConfig};
 use g3_types::collection::{SelectivePickPolicy, SelectiveVec, SelectiveVecBuilder, WeightedValue};
 use g3_types::metrics::MetricsName;
 use g3_types::net::{TcpSockSpeedLimitConfig, UdpSockSpeedLimitConfig, UpstreamAddr};
@@ -123,21 +122,10 @@ impl ProcArgs {
     pub(super) fn new_statsd_client(&self) -> Option<(StatsdClient, Duration)> {
         if let Some(config) = &self.statsd_client_config {
             match config.build() {
-                Ok(builder) => {
-                    let start_instant = Instant::now();
-                    let client = builder
-                        .with_error_handler(move |e| {
-                            static mut LAST_REPORT_TIME_SLICE: u64 = 0;
-                            let time_slice = start_instant.elapsed().as_secs().rotate_right(6); // every 64s
-                            unsafe {
-                                if LAST_REPORT_TIME_SLICE != time_slice {
-                                    eprintln!("sending metrics error: {e:?}");
-                                    LAST_REPORT_TIME_SLICE = time_slice;
-                                }
-                            }
-                        })
-                        .with_tag("pid", std::process::id())
-                        .build();
+                Ok(client) => {
+                    let pid = std::process::id();
+                    let mut buffer = itoa::Buffer::new();
+                    let client = client.with_tag("pid", buffer.format(pid));
                     Some((client, config.emit_duration))
                 }
                 Err(e) => {
