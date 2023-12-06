@@ -55,7 +55,7 @@ g3tiles-proto = { path = "proto" }
 rustc_version.workspace = true
 
 [features]
-default = ["quic"]
+default = []
 quic = ["g3-daemon/quic", "dep:quinn"]
 vendored-openssl = ["openssl/vendored", "openssl-probe"]
 vendored-tongsuo = ["openssl/tongsuo", "openssl-probe", "g3-yaml/tongsuo", "g3-types/tongsuo"]
