@@ -174,7 +174,7 @@ rmp-serde = "1"
 rmp = "0.8"
 rmpv = "1.0"
 #
-redis = { version = "0.23", default-features = false }
+redis = { version = "0.24", default-features = false }
 #
 flate2 = "1.0"
 zip = { version = "0.6", default-features = false }
