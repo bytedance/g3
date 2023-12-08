@@ -80,15 +80,18 @@ impl ProxyProtocolArgs {
             return Ok(());
         };
 
-        let r: Vec<&str> = v.splitn(2, ',').collect();
-        if r.len() != 2 {
-            return Err(anyhow!("invalid proxy protocol address value"));
-        }
+        let mut addrs = v.splitn(2, ',');
+        let Some(addr) = addrs.next() else {
+            return Err(anyhow!("no client address found"));
+        };
+        let client_addr = SocketAddr::from_str(addr)
+            .map_err(|e| anyhow!("invalid client socket address: {e}"))?;
 
-        let client_addr =
-            SocketAddr::from_str(r[1]).map_err(|e| anyhow!("invalid client address: {e}"))?;
-        let server_addr =
-            SocketAddr::from_str(r[2]).map_err(|e| anyhow!("invalid server address: {e}"))?;
+        let Some(addr) = addrs.next() else {
+            return Err(anyhow!("no server address found"));
+        };
+        let server_addr = SocketAddr::from_str(addr)
+            .map_err(|e| anyhow!("invalid server socket address: {e}"))?;
 
         let mut encoder = ProxyProtocolEncoder::new(self.version);
         let buf = encoder
