@@ -53,11 +53,7 @@ impl WrappedKeylessRequest {
     ) -> Self {
         let err_rsp = match req.verify_opcode() {
             Ok(_) => None,
-            Err(r) => {
-                server_stats.noop.add_total();
-                server_stats.noop.add_by_error_code(r.error_code());
-                Some(r)
-            }
+            Err(r) => Some(r),
         };
         let (stats, duration_recorder) = match req.action {
             KeylessAction::Ping => (
