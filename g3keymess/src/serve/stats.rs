@@ -144,6 +144,7 @@ pub(crate) struct KeyServerSnapshot {
     pub(crate) rsa_pss_sign: KeyServerRequestSnapshot,
     pub(crate) ecdsa_sign: KeyServerRequestSnapshot,
     pub(crate) ed25519_sign: KeyServerRequestSnapshot,
+    pub(crate) noop: KeyServerRequestSnapshot,
 }
 
 impl KeyServerStats {
