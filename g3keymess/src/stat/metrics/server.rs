@@ -42,6 +42,7 @@ const METRIC_NAME_SERVER_REQUEST_PASSED: &str = "server.request.passed";
 const METRIC_NAME_SERVER_REQUEST_FAILED: &str = "server.request.failed";
 const METRIC_NAME_SERVER_REQUEST_DURATION: &str = "server.request.duration";
 
+const REQUEST_TYPE_NO_OP: &str = "no_op";
 const REQUEST_TYPE_PING_PONG: &str = "ping_pong";
 const REQUEST_TYPE_RSA_DECRYPT: &str = "rsa_decrypt";
 const REQUEST_TYPE_RSA_SIGN: &str = "rsa_sign";
@@ -158,6 +159,7 @@ fn emit_server_stats(
             );
         };
     }
+    emit_request_stats_u64!(noop, REQUEST_TYPE_NO_OP);
     emit_request_stats_u64!(ping_pong, REQUEST_TYPE_PING_PONG);
     emit_request_stats_u64!(rsa_decrypt, REQUEST_TYPE_RSA_DECRYPT);
     emit_request_stats_u64!(rsa_sign, REQUEST_TYPE_RSA_SIGN);
