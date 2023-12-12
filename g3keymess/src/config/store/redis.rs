@@ -16,7 +16,6 @@
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use openssl::pkey::{PKey, Private};
 use url::Url;
 use yaml_rust::{yaml, Yaml};
 
@@ -87,7 +86,7 @@ impl KeyStoreConfig for RedisKeyStoreConfig {
         &self.name
     }
 
-    async fn load_certs(&self) -> anyhow::Result<Vec<PKey<Private>>> {
+    async fn load_keys(&self) -> anyhow::Result<()> {
         unimplemented!()
     }
 }

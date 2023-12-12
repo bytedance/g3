@@ -18,6 +18,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::anyhow;
 use async_trait::async_trait;
+use log::warn;
 use openssl::pkey::{PKey, Private};
 use tokio::sync::oneshot;
 use yaml_rust::{yaml, Yaml};
@@ -95,11 +96,14 @@ impl KeyStoreConfig for LocalKeyStoreConfig {
         &self.name
     }
 
-    async fn load_certs(&self) -> anyhow::Result<Vec<PKey<Private>>> {
-        let mut keys = Vec::with_capacity(128);
+    async fn load_keys(&self) -> anyhow::Result<()> {
+        const BATCH_SIZE: usize = 128;
+
         let mut dir = tokio::fs::read_dir(&self.dir_path)
             .await
             .map_err(|e| anyhow!("failed to open {}: {e}", self.dir_path.display()))?;
+
+        let mut count = 0;
         while let Some(entry) = dir
             .next_entry()
             .await
@@ -112,11 +116,25 @@ impl KeyStoreConfig for LocalKeyStoreConfig {
                 continue;
             }
 
-            if let Some(key) = load_key(entry.path()).await? {
-                keys.push(key);
+            let path = entry.path();
+            match load_key(&path).await {
+                Ok(Some(key)) => {
+                    if let Err(e) = crate::store::add_global(key) {
+                        warn!("failed to add key from file {}: {e}", path.display());
+                    }
+                }
+                Ok(None) => {}
+                Err(e) => {
+                    warn!("failed to load key from file {}: {e}", path.display());
+                }
+            }
+
+            count += 1;
+            if count >= BATCH_SIZE {
+                tokio::task::yield_now().await;
             }
         }
-        Ok(keys)
+        Ok(())
     }
 
     #[cfg(target_os = "linux")]

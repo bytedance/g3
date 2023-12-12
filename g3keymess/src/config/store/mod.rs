@@ -18,7 +18,6 @@ use std::path::Path;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use openssl::pkey::{PKey, Private};
 use tokio::sync::oneshot;
 use yaml_rust::{yaml, Yaml};
 
@@ -36,7 +35,7 @@ const CONFIG_KEY_STORE_TYPE: &str = "type";
 #[async_trait]
 pub trait KeyStoreConfig {
     fn name(&self) -> &MetricsName;
-    async fn load_certs(&self) -> anyhow::Result<Vec<PKey<Private>>>;
+    async fn load_keys(&self) -> anyhow::Result<()>;
     fn spawn_subscriber(&self) -> anyhow::Result<Option<oneshot::Sender<()>>> {
         Ok(None)
     }
@@ -72,7 +71,7 @@ pub enum AnyKeyStoreConfig {
 
 impl AnyKeyStoreConfig {
     impl_transparent0!(name, &MetricsName);
-    impl_async_transparent0!(load_certs, anyhow::Result<Vec<PKey<Private>>>);
+    impl_async_transparent0!(load_keys, anyhow::Result<()>);
     impl_transparent0!(
         spawn_subscriber,
         anyhow::Result<Option<oneshot::Sender<()>>>

@@ -15,7 +15,6 @@
  */
 
 use std::collections::HashSet;
-use std::sync::Arc;
 
 use anyhow::Context;
 use tokio::sync::Mutex;
@@ -23,7 +22,6 @@ use tokio::sync::Mutex;
 use g3_types::metrics::MetricsName;
 
 use super::registry;
-use crate::config::store::AnyKeyStoreConfig;
 
 static KEY_STORE_OPS_LOCK: Mutex<()> = Mutex::const_new(());
 
@@ -33,7 +31,10 @@ pub async fn load_all() -> anyhow::Result<()> {
     let all_config = crate::config::store::get_all();
     for config in all_config {
         let name = config.name().clone();
-        load_blocked(config.clone()).await?;
+        config
+            .load_keys()
+            .await
+            .context(format!("failed to load keys for key store {name}"))?;
 
         if let Some(sender) = config
             .spawn_subscriber()
@@ -55,7 +56,10 @@ pub async fn reload_all() -> anyhow::Result<()> {
     for config in all_config {
         let name = config.name().clone();
         new_names.insert(name.clone());
-        load_batched(config.clone()).await?;
+        config
+            .load_keys()
+            .await
+            .context(format!("failed to load keys for key store {name}"))?;
 
         if let Some(sender) = config
             .spawn_subscriber()
@@ -68,33 +72,6 @@ pub async fn reload_all() -> anyhow::Result<()> {
     for name in &registry::all_subscribers() {
         if !new_names.contains(name) {
             registry::del_subscriber(name);
-        }
-    }
-
-    Ok(())
-}
-
-async fn load_blocked(config: Arc<AnyKeyStoreConfig>) -> anyhow::Result<()> {
-    let keys = config.load_certs().await?;
-
-    for key in keys {
-        super::add_global(key)?;
-    }
-
-    Ok(())
-}
-
-async fn load_batched(config: Arc<AnyKeyStoreConfig>) -> anyhow::Result<()> {
-    const YIELD_SIZE: usize = 16;
-
-    let keys = config.load_certs().await?;
-
-    let mut next_yield = YIELD_SIZE;
-    for (i, key) in keys.into_iter().enumerate() {
-        super::add_global(key)?;
-        if i > next_yield {
-            tokio::task::yield_now().await;
-            next_yield += YIELD_SIZE;
         }
     }
 
