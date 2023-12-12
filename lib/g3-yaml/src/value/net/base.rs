@@ -29,10 +29,7 @@ use g3_types::net::{Host, UpstreamAddr, WeightedUpstreamAddr};
 
 pub fn as_env_sockaddr(value: &Yaml) -> anyhow::Result<SocketAddr> {
     if let Yaml::String(s) = value {
-        if s.starts_with("$") {
-            let Some(var) = s.strip_prefix("$") else {
-                return Err(anyhow!("invalid environment var value"));
-            };
+        if let Some(var) = s.strip_prefix('$') {
             let s = std::env::var(var)
                 .map_err(|e| anyhow!("failed to get environment var {var}: {e}"))?;
             SocketAddr::from_str(&s).map_err(|e| {
