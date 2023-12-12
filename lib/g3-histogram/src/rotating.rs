@@ -112,7 +112,7 @@ where
                         }
                     }
                     _ = rotate_interval.tick() => {
-                        if self.inner.len() > 0 {
+                        if !self.inner.is_empty() {
                             stats.update(&self.inner);
                             self.inner.reset();
                         }
