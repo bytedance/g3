@@ -71,7 +71,7 @@ The key for rendezvous/jump hash is *<client-ip>*.
 query_peer_addr
 ---------------
 
-**optional**, **type**: :ref:`sockaddr str <conf_value_sockaddr_str>`
+**optional**, **type**: :ref:`env sockaddr str <conf_value_env_sockaddr_str>`
 
 Set the socket address of the service that we should send queries to.
 

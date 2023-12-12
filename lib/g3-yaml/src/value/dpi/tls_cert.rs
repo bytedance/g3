@@ -20,7 +20,7 @@ use yaml_rust::Yaml;
 use g3_tls_cert::agent::CertAgentConfig;
 
 fn set_query_peer_addr(config: &mut CertAgentConfig, value: &Yaml) -> anyhow::Result<()> {
-    let addr = crate::value::as_sockaddr(value)?;
+    let addr = crate::value::as_env_sockaddr(value)?;
     config.set_query_peer_addr(addr);
     Ok(())
 }

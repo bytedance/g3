@@ -27,10 +27,30 @@ use ip_network::IpNetwork;
 use g3_types::collection::WeightedValue;
 use g3_types::net::{Host, UpstreamAddr, WeightedUpstreamAddr};
 
+pub fn as_env_sockaddr(value: &Yaml) -> anyhow::Result<SocketAddr> {
+    if let Yaml::String(s) = value {
+        if s.starts_with("$") {
+            let Some(var) = s.strip_prefix("$") else {
+                return Err(anyhow!("invalid environment var value"));
+            };
+            let s = std::env::var(var)
+                .map_err(|e| anyhow!("failed to get environment var {var}: {e}"))?;
+            SocketAddr::from_str(&s).map_err(|e| {
+                anyhow!("invalid socket address {s} set in environment var {var}: {e}")
+            })
+        } else {
+            SocketAddr::from_str(s).map_err(|e| anyhow!("invalid socket address: {e}"))
+        }
+    } else {
+        Err(anyhow!(
+            "yaml value type for 'SocketAddr' should be 'string'"
+        ))
+    }
+}
+
 pub fn as_sockaddr(value: &Yaml) -> anyhow::Result<SocketAddr> {
     if let Yaml::String(s) = value {
-        let addr = SocketAddr::from_str(s).map_err(|e| anyhow!("invalid socket address: {e}"))?;
-        Ok(addr)
+        SocketAddr::from_str(s).map_err(|e| anyhow!("invalid socket address: {e}"))
     } else {
         Err(anyhow!(
             "yaml value type for 'SocketAddr' should be 'string'"

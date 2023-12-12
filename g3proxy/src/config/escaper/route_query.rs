@@ -126,8 +126,9 @@ impl RouteQueryEscaperConfig {
                 Ok(())
             }
             "query_peer_addr" | "query_peer_address" => {
-                self.query_peer_addr = g3_yaml::value::as_sockaddr(v)
-                    .context(format!("invalid socket address value for key {k}"))?;
+                self.query_peer_addr = g3_yaml::value::as_env_sockaddr(v).context(format!(
+                    "invalid query peer socket address value for key {k}"
+                ))?;
                 Ok(())
             }
             "query_socket_buffer" => {

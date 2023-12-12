@@ -86,8 +86,9 @@ pub fn as_tcp_listen_config(value: &Yaml) -> anyhow::Result<TcpListenConfig> {
         Yaml::Hash(map) => {
             crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
                 "addr" | "address" => {
-                    let addr = crate::value::as_sockaddr(v)
-                        .context(format!("invalid SocketAddr value for key {k}"))?;
+                    let addr = crate::value::as_env_sockaddr(v).context(format!(
+                        "invalid tcp listen socket address value for key {k}"
+                    ))?;
                     config.set_socket_address(addr);
                     Ok(())
                 }

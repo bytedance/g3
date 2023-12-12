@@ -66,10 +66,9 @@ fn as_syslog_backend_udp(value: &Yaml) -> anyhow::Result<SyslogBackendBuilder> {
 
             crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
                 "address" | "addr" => {
-                    addr = Some(
-                        crate::value::as_sockaddr(v)
-                            .context(format!("invalid value for key {k}"))?,
-                    );
+                    addr = Some(crate::value::as_env_sockaddr(v).context(format!(
+                        "invalid syslog udp peer socket address value for key {k}"
+                    ))?);
                     Ok(())
                 }
                 "bind_ip" | "bind" => {

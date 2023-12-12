@@ -31,7 +31,7 @@ pub fn as_fluentd_client_config(
 
             crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
                 "address" | "addr" => {
-                    let addr = crate::value::as_sockaddr(v)?;
+                    let addr = crate::value::as_env_sockaddr(v)?;
                     config.set_server_addr(addr);
                     Ok(())
                 }
@@ -107,7 +107,7 @@ pub fn as_fluentd_client_config(
             Ok(config)
         }
         Yaml::String(_) => {
-            let addr = crate::value::as_sockaddr(value)?;
+            let addr = crate::value::as_env_sockaddr(value)?;
             let config = FluentdClientConfig::new(addr);
             Ok(config)
         }

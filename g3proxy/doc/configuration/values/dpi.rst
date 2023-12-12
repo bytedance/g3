@@ -200,7 +200,7 @@ The keys are:
 
 * query_peer_addr
 
-  **optional**, **type**: :ref:`sockaddr str <conf_value_sockaddr_str>`
+  **optional**, **type**: :ref:`env sockaddr str <conf_value_env_sockaddr_str>`
 
   Set the peer udp socket address.
 

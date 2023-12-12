@@ -18,7 +18,7 @@ The keys are described below.
 address
 -------
 
-**optional**, **type**: :ref:`sockaddr str <conf_value_sockaddr_str>`
+**optional**, **type**: :ref:`env sockaddr str <conf_value_env_sockaddr_str>`
 
 Set the tcp address of the fluentd server.
 

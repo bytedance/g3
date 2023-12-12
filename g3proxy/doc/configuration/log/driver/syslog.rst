@@ -47,7 +47,7 @@ The value can be a map, with the following keys:
 
 * address
 
-  **required**, **type**: :ref:`sockaddr str <conf_value_sockaddr_str>`
+  **required**, **type**: :ref:`env sockaddr str <conf_value_env_sockaddr_str>`
 
   Set the remote socket address.
 

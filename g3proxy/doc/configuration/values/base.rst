@@ -5,6 +5,17 @@
 Base
 ****
 
+.. _conf_value_env_var:
+
+env var
+=======
+
+**yaml value**: str
+
+Set a environment variable, in the form '$' + variable name, E.g. $TCP_LISTEN_ADDR.
+
+The value of the environment variable will be parsed just as you write this value as *yaml string* directly there.
+
 .. _conf_value_nonzero_u32:
 
 nonzero u32

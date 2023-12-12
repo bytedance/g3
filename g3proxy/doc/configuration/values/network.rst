@@ -14,6 +14,17 @@ sockaddr str
 
 The string should be in *<ip>[:<port>]* format, in which the port may be omitted if a default value is available.
 
+.. _conf_value_env_sockaddr_str:
+
+env sockaddr str
+================
+
+**yaml value**: :ref:`sockaddr str <conf_value_sockaddr_str>` or :ref:`env var <conf_value_env_var>`
+
+The string should be in *<ip>[:<port>]* format, in which the port may be omitted if a default value is available.
+
+.. versionadded:: 1.7.31
+
 .. _conf_value_ip_addr_str:
 
 ip addr str
@@ -193,7 +204,7 @@ It consists of the following fields:
 
 * address
 
-  **required**, **type**: :ref:`sockaddr str <conf_value_sockaddr_str>`
+  **required**, **type**: :ref:`env sockaddr str <conf_value_env_sockaddr_str>`
 
   Set the listen socket address.
 
@@ -305,7 +316,7 @@ It consists of the following fields:
 
 * address
 
-  **required**, **type**: :ref:`sockaddr str <conf_value_sockaddr_str>`
+  **required**, **type**: :ref:`env sockaddr str <conf_value_env_sockaddr_str>`
 
   Set the listen socket address.
 
