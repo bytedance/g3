@@ -16,19 +16,19 @@
 
 use std::time::Duration;
 
-use g3_histogram::{DurationHistogram, HistogramRecorder};
+use g3_histogram::{HistogramRecorder, KeepingHistogram};
 use g3_statsd_client::StatsdClient;
 use g3_types::ext::DurationExt;
 
 use crate::target::BenchHistogram;
 
 pub(crate) struct DnsHistogram {
-    total_time: DurationHistogram<u64>,
+    total_time: KeepingHistogram<u64>,
 }
 
 impl DnsHistogram {
     pub(crate) fn new() -> (Self, DnsHistogramRecorder) {
-        let (h, r) = DurationHistogram::new();
+        let (h, r) = KeepingHistogram::new();
         (
             DnsHistogram { total_time: h },
             DnsHistogramRecorder { total_time: r },

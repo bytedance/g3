@@ -16,19 +16,19 @@
 
 use std::time::Duration;
 
-use g3_histogram::{DurationHistogram, HistogramRecorder};
+use g3_histogram::{HistogramRecorder, KeepingHistogram};
 use g3_statsd_client::StatsdClient;
 use g3_types::ext::DurationExt;
 
 use crate::target::BenchHistogram;
 
 pub(crate) struct SslHistogram {
-    total_time: DurationHistogram<u64>,
+    total_time: KeepingHistogram<u64>,
 }
 
 impl SslHistogram {
     pub(crate) fn new() -> (Self, SslHistogramRecorder) {
-        let (h, r) = DurationHistogram::new();
+        let (h, r) = KeepingHistogram::new();
         (
             SslHistogram { total_time: h },
             SslHistogramRecorder { total_time: r },

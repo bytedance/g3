@@ -14,17 +14,20 @@
  * limitations under the License.
  */
 
-mod recorder;
-pub use recorder::HistogramRecorder;
+use hdrhistogram::Counter;
+use tokio::sync::mpsc;
 
-mod rotating;
-pub use rotating::RotatingHistogram;
+#[derive(Clone)]
+pub struct HistogramRecorder<T: Counter> {
+    sender: mpsc::UnboundedSender<T>,
+}
 
-mod keeping;
-pub use keeping::KeepingHistogram;
+impl<T: Counter> HistogramRecorder<T> {
+    pub(crate) fn new(sender: mpsc::UnboundedSender<T>) -> Self {
+        HistogramRecorder { sender }
+    }
 
-mod stats;
-pub use stats::HistogramStats;
-
-mod quantile;
-pub use quantile::Quantile;
+    pub fn record(&self, v: T) -> Result<(), mpsc::error::SendError<T>> {
+        self.sender.send(v)
+    }
+}

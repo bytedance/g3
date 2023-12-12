@@ -42,6 +42,7 @@ pub(crate) struct KeyServerConfig {
     pub(crate) multiplex_queue_depth: usize,
     pub(crate) request_read_timeout: Duration,
     pub(crate) request_duration_quantile: BTreeSet<Quantile>,
+    pub(crate) request_duration_rotate: Duration,
     pub(crate) async_op_timeout: Duration,
     pub(crate) concurrency_limit: usize,
     pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
@@ -57,6 +58,7 @@ impl KeyServerConfig {
             multiplex_queue_depth: 0,
             request_read_timeout: Duration::from_millis(100),
             request_duration_quantile: BTreeSet::new(),
+            request_duration_rotate: Duration::from_secs(4),
             async_op_timeout: Duration::from_millis(10),
             concurrency_limit: 0,
             extra_metrics_tags: None,
@@ -117,6 +119,10 @@ impl KeyServerConfig {
             }
             "request_duration_quantile" => {
                 self.request_duration_quantile = g3_yaml::value::as_quantile_list(v)?;
+                Ok(())
+            }
+            "request_duration_rotate" => {
+                self.request_duration_rotate = g3_yaml::humanize::as_duration(v)?;
                 Ok(())
             }
             "async_op_timeout" => {

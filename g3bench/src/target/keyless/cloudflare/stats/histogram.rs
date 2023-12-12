@@ -16,21 +16,21 @@
 
 use std::time::Duration;
 
-use g3_histogram::{DurationHistogram, HistogramRecorder};
+use g3_histogram::{HistogramRecorder, KeepingHistogram};
 use g3_statsd_client::StatsdClient;
 use g3_types::ext::DurationExt;
 
 use crate::target::BenchHistogram;
 
 pub(crate) struct KeylessHistogram {
-    total_time: DurationHistogram<u64>,
-    conn_reuse_count: DurationHistogram<u64>,
+    total_time: KeepingHistogram<u64>,
+    conn_reuse_count: KeepingHistogram<u64>,
 }
 
 impl KeylessHistogram {
     pub(crate) fn new() -> (Self, KeylessHistogramRecorder) {
-        let (total_time_h, total_time_r) = DurationHistogram::new();
-        let (conn_reuse_count_h, conn_reuse_count_r) = DurationHistogram::new();
+        let (total_time_h, total_time_r) = KeepingHistogram::new();
+        let (conn_reuse_count_h, conn_reuse_count_r) = KeepingHistogram::new();
         let h = KeylessHistogram {
             total_time: total_time_h,
             conn_reuse_count: conn_reuse_count_h,

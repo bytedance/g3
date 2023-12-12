@@ -94,8 +94,11 @@ impl KeyServer {
     pub(crate) fn prepare_initial(config: KeyServerConfig) -> KeyServer {
         let server_stats = KeyServerStats::new(config.name());
         let listen_stats = ListenStats::new(config.name());
-        let (duration_recorder, duration_stats) =
-            KeyServerDurationRecorder::new(config.name(), &config.request_duration_quantile);
+        let (duration_recorder, duration_stats) = KeyServerDurationRecorder::new(
+            config.name(),
+            &config.request_duration_quantile,
+            config.request_duration_rotate,
+        );
         let concurrency_limit = if config.concurrency_limit > 0 {
             Some(Arc::new(Semaphore::new(config.concurrency_limit)))
         } else {

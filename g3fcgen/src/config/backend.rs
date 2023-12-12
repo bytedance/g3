@@ -17,6 +17,7 @@
 use std::collections::BTreeSet;
 use std::sync::Arc;
 use std::sync::OnceLock;
+use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use openssl::pkey::{PKey, Private};
@@ -36,6 +37,7 @@ pub(crate) struct OpensslBackendConfig {
     pub(crate) ca_key: PKey<Private>,
     pub(crate) ca_cert_pem: Vec<u8>,
     pub(crate) request_duration_quantile: BTreeSet<Quantile>,
+    pub(crate) request_duration_rotate: Duration,
 }
 
 pub(super) fn load_config(value: &Yaml) -> anyhow::Result<()> {
@@ -45,6 +47,7 @@ pub(super) fn load_config(value: &Yaml) -> anyhow::Result<()> {
         let mut ca_cert: Option<X509> = None;
         let mut ca_key: Option<PKey<Private>> = None;
         let mut request_duration_quantile = BTreeSet::new();
+        let mut request_duration_rotate = Duration::from_secs(4);
         let lookup_dir = g3_daemon::config::get_lookup_dir(None)?;
 
         g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
@@ -79,6 +82,10 @@ pub(super) fn load_config(value: &Yaml) -> anyhow::Result<()> {
                 request_duration_quantile = g3_yaml::value::as_quantile_list(v)?;
                 Ok(())
             }
+            "request_duration_rotate" => {
+                request_duration_rotate = g3_yaml::humanize::as_duration(v)?;
+                Ok(())
+            }
             _ => Err(anyhow!("invalid key {k}")),
         })?;
 
@@ -98,6 +105,7 @@ pub(super) fn load_config(value: &Yaml) -> anyhow::Result<()> {
                 ca_key,
                 ca_cert_pem,
                 request_duration_quantile,
+                request_duration_rotate,
             }))
             .map_err(|_| anyhow!("duplicate backend config"))?;
         Ok(())

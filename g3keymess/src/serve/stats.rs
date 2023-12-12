@@ -17,10 +17,11 @@
 use std::collections::BTreeSet;
 use std::sync::atomic::{AtomicI32, AtomicIsize, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 
 use arc_swap::ArcSwapOption;
 
-use g3_histogram::{DurationHistogram, HistogramRecorder, HistogramStats, Quantile};
+use g3_histogram::{HistogramRecorder, HistogramStats, Quantile, RotatingHistogram};
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::StatId;
 
@@ -282,14 +283,15 @@ impl KeyServerDurationRecorder {
     pub(crate) fn new(
         name: &MetricsName,
         quantile: &BTreeSet<Quantile>,
+        rotate_interval: Duration,
     ) -> (KeyServerDurationRecorder, KeyServerDurationStats) {
-        let (ping_pong_r, ping_pong_s) = create_duration_pair(quantile);
-        let (rsa_decrypt_r, rsa_decrypt_s) = create_duration_pair(quantile);
-        let (rsa_sign_r, rsa_sign_s) = create_duration_pair(quantile);
-        let (rsa_pss_sign_r, rsa_pss_sign_s) = create_duration_pair(quantile);
-        let (ecdsa_sign_r, ecdsa_sign_s) = create_duration_pair(quantile);
-        let (ed25519_sign_r, ed25519_sign_s) = create_duration_pair(quantile);
-        let (_, noop_r) = DurationHistogram::new();
+        let (ping_pong_r, ping_pong_s) = create_duration_pair(quantile, rotate_interval);
+        let (rsa_decrypt_r, rsa_decrypt_s) = create_duration_pair(quantile, rotate_interval);
+        let (rsa_sign_r, rsa_sign_s) = create_duration_pair(quantile, rotate_interval);
+        let (rsa_pss_sign_r, rsa_pss_sign_s) = create_duration_pair(quantile, rotate_interval);
+        let (ecdsa_sign_r, ecdsa_sign_s) = create_duration_pair(quantile, rotate_interval);
+        let (ed25519_sign_r, ed25519_sign_s) = create_duration_pair(quantile, rotate_interval);
+        let (_, noop_r) = RotatingHistogram::new(rotate_interval);
 
         let r = KeyServerDurationRecorder {
             ping_pong: ping_pong_r,
@@ -318,8 +320,9 @@ impl KeyServerDurationRecorder {
 
 fn create_duration_pair(
     quantile: &BTreeSet<Quantile>,
+    rotate_interval: Duration,
 ) -> (Arc<HistogramRecorder<u64>>, Arc<HistogramStats>) {
-    let (h, r) = DurationHistogram::new();
+    let (h, r) = RotatingHistogram::new(rotate_interval);
     let stats = if quantile.is_empty() {
         Arc::new(HistogramStats::default())
     } else {

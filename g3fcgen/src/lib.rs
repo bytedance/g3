@@ -22,7 +22,7 @@ use anyhow::{anyhow, Context};
 use tokio::runtime::Handle;
 use tokio::time::Instant;
 
-use g3_histogram::{DurationHistogram, HistogramStats};
+use g3_histogram::{HistogramStats, RotatingHistogram};
 
 pub mod config;
 
@@ -83,7 +83,8 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
             &backend_config.request_duration_quantile,
         ))
     };
-    let (histogram, recorder) = DurationHistogram::<u64>::new();
+    let (histogram, recorder) =
+        RotatingHistogram::<u64>::new(backend_config.request_duration_rotate);
     histogram.spawn_refresh(duration_stats.clone());
 
     let workers = g3_daemon::runtime::worker::foreach(|h| {

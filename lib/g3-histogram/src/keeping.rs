@@ -19,29 +19,24 @@ use std::sync::Arc;
 use hdrhistogram::{Counter, CreationError, Histogram, RecordError};
 use tokio::sync::mpsc;
 
-use crate::HistogramStats;
+use crate::{HistogramRecorder, HistogramStats};
 
-pub struct DurationHistogram<T: Counter> {
+pub struct KeepingHistogram<T: Counter> {
     inner: Histogram<T>,
     receiver: mpsc::UnboundedReceiver<T>,
 }
 
-#[derive(Clone)]
-pub struct HistogramRecorder<T: Counter> {
-    sender: mpsc::UnboundedSender<T>,
-}
-
-impl<T: Counter> DurationHistogram<T> {
+impl<T: Counter> KeepingHistogram<T> {
     pub fn new() -> (Self, HistogramRecorder<T>) {
-        DurationHistogram::with_sigfig(3).unwrap()
+        KeepingHistogram::with_sigfig(3).unwrap()
     }
 
     pub fn with_sigfig(sigfig: u8) -> Result<(Self, HistogramRecorder<T>), CreationError> {
         let inner = Histogram::new(sigfig)?;
         let (sender, receiver) = mpsc::unbounded_channel();
         Ok((
-            DurationHistogram { inner, receiver },
-            HistogramRecorder { sender },
+            KeepingHistogram { inner, receiver },
+            HistogramRecorder::new(sender),
         ))
     }
 
@@ -52,8 +47,8 @@ impl<T: Counter> DurationHistogram<T> {
         let inner = Histogram::new_with_max(high, sigfig)?;
         let (sender, receiver) = mpsc::unbounded_channel();
         Ok((
-            DurationHistogram { inner, receiver },
-            HistogramRecorder { sender },
+            KeepingHistogram { inner, receiver },
+            HistogramRecorder::new(sender),
         ))
     }
 
@@ -65,8 +60,8 @@ impl<T: Counter> DurationHistogram<T> {
         let inner = Histogram::new_with_bounds(low, high, sigfig)?;
         let (sender, receiver) = mpsc::unbounded_channel();
         Ok((
-            DurationHistogram { inner, receiver },
-            HistogramRecorder { sender },
+            KeepingHistogram { inner, receiver },
+            HistogramRecorder::new(sender),
         ))
     }
 
@@ -91,7 +86,7 @@ impl<T: Counter> DurationHistogram<T> {
     }
 }
 
-impl<T> DurationHistogram<T>
+impl<T> KeepingHistogram<T>
 where
     T: Counter + Send + 'static,
 {
@@ -111,11 +106,5 @@ where
                 stats.update(self.inner());
             }
         });
-    }
-}
-
-impl<T: Counter> HistogramRecorder<T> {
-    pub fn record(&self, v: T) -> Result<(), mpsc::error::SendError<T>> {
-        self.sender.send(v)
     }
 }
