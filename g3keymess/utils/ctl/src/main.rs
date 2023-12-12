@@ -33,6 +33,8 @@ mod proc;
 
 mod server;
 
+mod local;
+
 const DEFAULT_SYS_CONTROL_DIR: &str = "/run/g3keymess";
 const DEFAULT_TMP_CONTROL_DIR: &str = "/tmp/g3";
 
@@ -132,6 +134,7 @@ fn build_cli_args() -> Command {
         .subcommand(proc::commands::publish_key())
         .subcommand(proc::commands::check_key())
         .subcommand(server::command())
+        .subcommand(local::commands::check_dup())
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -175,6 +178,7 @@ async fn main() -> anyhow::Result<()> {
                 proc::COMMAND_PUBLISH_KEY => proc::publish_key(&proc_control, args).await,
                 proc::COMMAND_CHECK_KEY => proc::check_key(&proc_control, args).await,
                 server::COMMAND => server::run(&proc_control, args).await,
+                local::COMMAND_CHECK_DUP => local::check_dup(args),
                 _ => unreachable!(),
             }
         })
