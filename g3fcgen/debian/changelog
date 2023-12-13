@@ -1,5 +1,5 @@
-g3fcgen (0.6.0-1) UNRELEASED; urgency=medium
+g3fcgen (0.6.1-1) UNRELEASED; urgency=medium
 
   * New upstream release.
 
- -- G3fcgen Maintainers <g3fcgen-maintainers@devel.machine>  Fri, 13 Oct 2023 16:39:37 +0800
+ -- G3fcgen Maintainers <g3fcgen-maintainers@devel.machine>  Wed, 13 Dec 2023 10:47:49 +0800

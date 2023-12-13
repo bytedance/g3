@@ -1,4 +1,10 @@
 
+v0.6.1:
+ - BUG FIX: fix inspect of listen addr in environment variable
+ - Feature: add request duration histogram metrics
+ - Feature: allow no worker set in config file
+ - Feature: more efficient sending of statsd metrics
+
 v0.6.0:
  - BUG FIX: fix load of intermediate ca certs
  - Feature: add config file and reduce command line options
