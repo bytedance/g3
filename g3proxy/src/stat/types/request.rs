@@ -47,11 +47,11 @@ impl RequestStats {
         }
     }
 
-    pub(crate) fn get_http_forward(&self) -> u64 {
+    pub(crate) fn http_forward(&self) -> u64 {
         self.http_forward.load(Ordering::Relaxed)
     }
 
-    pub(crate) fn get_https_forward(&self) -> u64 {
+    pub(crate) fn https_forward(&self) -> u64 {
         self.https_forward.load(Ordering::Relaxed)
     }
 
@@ -59,7 +59,7 @@ impl RequestStats {
         self.http_connect.fetch_add(1, Ordering::Relaxed);
     }
 
-    pub(crate) fn get_http_connect(&self) -> u64 {
+    pub(crate) fn http_connect(&self) -> u64 {
         self.http_connect.load(Ordering::Relaxed)
     }
 
@@ -67,7 +67,7 @@ impl RequestStats {
         self.ftp_over_http.fetch_add(1, Ordering::Relaxed);
     }
 
-    pub(crate) fn get_ftp_over_http(&self) -> u64 {
+    pub(crate) fn ftp_over_http(&self) -> u64 {
         self.ftp_over_http.load(Ordering::Relaxed)
     }
 
@@ -75,7 +75,7 @@ impl RequestStats {
         self.socks_tcp_connect.fetch_add(1, Ordering::Relaxed);
     }
 
-    pub(crate) fn get_socks_tcp_connect(&self) -> u64 {
+    pub(crate) fn socks_tcp_connect(&self) -> u64 {
         self.socks_tcp_connect.load(Ordering::Relaxed)
     }
 
@@ -83,7 +83,7 @@ impl RequestStats {
         self.socks_udp_connect.fetch_add(1, Ordering::Relaxed);
     }
 
-    pub(crate) fn get_socks_udp_connect(&self) -> u64 {
+    pub(crate) fn socks_udp_connect(&self) -> u64 {
         self.socks_udp_connect.load(Ordering::Relaxed)
     }
 
@@ -91,7 +91,7 @@ impl RequestStats {
         self.socks_udp_associate.fetch_add(1, Ordering::Relaxed);
     }
 
-    pub(crate) fn get_socks_udp_associate(&self) -> u64 {
+    pub(crate) fn socks_udp_associate(&self) -> u64 {
         self.socks_udp_associate.load(Ordering::Relaxed)
     }
 }
@@ -117,11 +117,11 @@ impl KeepaliveRequestStats {
         }
     }
 
-    pub(crate) fn get_http_forward(&self) -> u64 {
+    pub(crate) fn http_forward(&self) -> u64 {
         self.http_forward.load(Ordering::Relaxed)
     }
 
-    pub(crate) fn get_https_forward(&self) -> u64 {
+    pub(crate) fn https_forward(&self) -> u64 {
         self.https_forward.load(Ordering::Relaxed)
     }
 }
@@ -154,11 +154,11 @@ impl RequestAliveStats {
         }
     }
 
-    pub(crate) fn get_http_forward(&self) -> i32 {
+    pub(crate) fn http_forward(&self) -> i32 {
         self.http_forward.load(Ordering::Relaxed)
     }
 
-    pub(crate) fn get_https_forward(&self) -> i32 {
+    pub(crate) fn https_forward(&self) -> i32 {
         self.https_forward.load(Ordering::Relaxed)
     }
 
@@ -170,7 +170,7 @@ impl RequestAliveStats {
         self.http_connect.fetch_sub(1, Ordering::Relaxed);
     }
 
-    pub(crate) fn get_http_connect(&self) -> i32 {
+    pub(crate) fn http_connect(&self) -> i32 {
         self.http_connect.load(Ordering::Relaxed)
     }
 
@@ -182,7 +182,7 @@ impl RequestAliveStats {
         self.ftp_over_http.fetch_sub(1, Ordering::Relaxed);
     }
 
-    pub(crate) fn get_ftp_over_http(&self) -> i32 {
+    pub(crate) fn ftp_over_http(&self) -> i32 {
         self.ftp_over_http.load(Ordering::Relaxed)
     }
 
@@ -194,7 +194,7 @@ impl RequestAliveStats {
         self.socks_tcp_connect.fetch_sub(1, Ordering::Relaxed);
     }
 
-    pub(crate) fn get_socks_tcp_connect(&self) -> i32 {
+    pub(crate) fn socks_tcp_connect(&self) -> i32 {
         self.socks_tcp_connect.load(Ordering::Relaxed)
     }
 
@@ -206,7 +206,7 @@ impl RequestAliveStats {
         self.socks_udp_connect.fetch_sub(1, Ordering::Relaxed);
     }
 
-    pub(crate) fn get_socks_udp_connect(&self) -> i32 {
+    pub(crate) fn socks_udp_connect(&self) -> i32 {
         self.socks_udp_connect.load(Ordering::Relaxed)
     }
 
@@ -218,7 +218,7 @@ impl RequestAliveStats {
         self.socks_udp_associate.fetch_sub(1, Ordering::Relaxed);
     }
 
-    pub(crate) fn get_socks_udp_associate(&self) -> i32 {
+    pub(crate) fn socks_udp_associate(&self) -> i32 {
         self.socks_udp_associate.load(Ordering::Relaxed)
     }
 }

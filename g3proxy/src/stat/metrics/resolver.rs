@@ -129,12 +129,13 @@ fn emit_query_stats_to_statsd(
     common_tags: &StatsdTagGroup,
     rr_type: ResolveQueryType,
 ) {
+    if stats.total == 0 && snap.total == 0 {
+        return;
+    }
+
     let rr_type = rr_type.as_str();
 
     let new_value = stats.total;
-    if new_value == 0 && snap.total == 0 {
-        return;
-    }
     let diff_value = new_value.wrapping_sub(snap.total);
     client
         .count_with_tags(METRIC_NAME_QUERY_TOTAL, diff_value, common_tags)
@@ -169,40 +170,21 @@ fn emit_query_stats_to_statsd(
 
 fn emit_memory_stats_to_statsd(
     client: &mut StatsdClient,
-    stats: &ResolverMemorySnapshot,
+    snap: &ResolverMemorySnapshot,
     common_tags: &StatsdTagGroup,
     rr_type: ResolveQueryType,
 ) {
-    client
-        .gauge_with_tags(
-            METRIC_NAME_MEMORY_CACHE_CAPACITY,
-            stats.cap_cache,
-            common_tags,
-        )
-        .with_tag(TAG_KEY_RR_TYPE, rr_type)
-        .send();
-    client
-        .gauge_with_tags(
-            METRIC_NAME_MEMORY_CACHE_LENGTH,
-            stats.len_cache,
-            common_tags,
-        )
-        .with_tag(TAG_KEY_RR_TYPE, rr_type)
-        .send();
-    client
-        .gauge_with_tags(
-            METRIC_NAME_MEMORY_DOING_CAPACITY,
-            stats.cap_doing,
-            common_tags,
-        )
-        .with_tag(TAG_KEY_RR_TYPE, rr_type)
-        .send();
-    client
-        .gauge_with_tags(
-            METRIC_NAME_MEMORY_DOING_LENGTH,
-            stats.len_doing,
-            common_tags,
-        )
-        .with_tag(TAG_KEY_RR_TYPE, rr_type)
-        .send();
+    macro_rules! emit_field {
+        ($field:ident, $name:expr) => {
+            client
+                .gauge_with_tags($name, snap.$field, common_tags)
+                .with_tag(TAG_KEY_RR_TYPE, rr_type)
+                .send();
+        };
+    }
+
+    emit_field!(cap_cache, METRIC_NAME_MEMORY_CACHE_CAPACITY);
+    emit_field!(len_cache, METRIC_NAME_MEMORY_CACHE_LENGTH);
+    emit_field!(cap_doing, METRIC_NAME_MEMORY_DOING_CAPACITY);
+    emit_field!(len_doing, METRIC_NAME_MEMORY_DOING_LENGTH);
 }

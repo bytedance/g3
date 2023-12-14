@@ -458,80 +458,47 @@ fn find_req_stat<F>(stats: &RequestStats, snap: &mut RequestSnapshot, mut emit: 
 where
     F: FnMut(u64, MetricUserRequestType),
 {
-    let new_value = stats.get_http_forward();
-    if new_value != 0 || snap.http_forward != 0 {
-        let diff_value = new_value.wrapping_sub(snap.http_forward);
-        emit(diff_value, MetricUserRequestType::HttpForward);
-        snap.http_forward = new_value;
+    macro_rules! emit_field {
+        ($field:ident, $request:expr) => {
+            let new_value = stats.$field();
+            if new_value != 0 || snap.$field != 0 {
+                let diff_value = new_value.wrapping_sub(snap.$field);
+                emit(diff_value, $request);
+                snap.$field = new_value;
+            }
+        };
     }
 
-    let new_value = stats.get_https_forward();
-    if new_value != 0 || snap.https_forward != 0 {
-        let diff_value = new_value.wrapping_sub(snap.https_forward);
-        emit(diff_value, MetricUserRequestType::HttpsForward);
-        snap.https_forward = new_value;
-    }
-
-    let new_value = stats.get_http_connect();
-    if new_value != 0 || snap.http_connect != 0 {
-        let diff_value = new_value.wrapping_sub(snap.http_connect);
-        emit(diff_value, MetricUserRequestType::HttpConnect);
-        snap.http_connect = new_value;
-    }
-
-    let new_value = stats.get_ftp_over_http();
-    if new_value != 0 || snap.ftp_over_http != 0 {
-        let diff_value = new_value.wrapping_sub(snap.ftp_over_http);
-        emit(diff_value, MetricUserRequestType::FtpOverHttp);
-        snap.ftp_over_http = new_value;
-    }
-
-    let new_value = stats.get_socks_tcp_connect();
-    if new_value != 0 || snap.socks_tcp_connect != 0 {
-        let diff_value = new_value.wrapping_sub(snap.socks_tcp_connect);
-        emit(diff_value, MetricUserRequestType::SocksTcpConnect);
-        snap.socks_tcp_connect = new_value;
-    }
-
-    let new_value = stats.get_socks_udp_connect();
-    if new_value != 0 || snap.socks_udp_connect != 0 {
-        let diff_value = new_value.wrapping_sub(snap.socks_udp_connect);
-        emit(diff_value, MetricUserRequestType::SocksUdpConnect);
-        snap.socks_udp_connect = new_value;
-    }
-
-    let new_value = stats.get_socks_udp_associate();
-    if new_value != 0 || snap.socks_udp_associate != 0 {
-        let diff_value = new_value.wrapping_sub(snap.socks_udp_associate);
-        emit(diff_value, MetricUserRequestType::SocksUdpAssociate);
-        snap.socks_udp_associate = new_value;
-    }
+    emit_field!(http_forward, MetricUserRequestType::HttpForward);
+    emit_field!(https_forward, MetricUserRequestType::HttpsForward);
+    emit_field!(http_connect, MetricUserRequestType::HttpConnect);
+    emit_field!(ftp_over_http, MetricUserRequestType::FtpOverHttp);
+    emit_field!(socks_tcp_connect, MetricUserRequestType::SocksTcpConnect);
+    emit_field!(socks_udp_connect, MetricUserRequestType::SocksUdpConnect);
+    emit_field!(
+        socks_udp_associate,
+        MetricUserRequestType::SocksUdpAssociate
+    );
 }
 
 fn find_req_alive_stat<F>(stats: &RequestAliveStats, mut emit: F)
 where
     F: FnMut(i32, MetricUserRequestType),
 {
-    emit(stats.get_http_forward(), MetricUserRequestType::HttpForward);
+    emit(stats.http_forward(), MetricUserRequestType::HttpForward);
+    emit(stats.https_forward(), MetricUserRequestType::HttpsForward);
+    emit(stats.http_connect(), MetricUserRequestType::HttpConnect);
+    emit(stats.ftp_over_http(), MetricUserRequestType::FtpOverHttp);
     emit(
-        stats.get_https_forward(),
-        MetricUserRequestType::HttpsForward,
-    );
-    emit(stats.get_http_connect(), MetricUserRequestType::HttpConnect);
-    emit(
-        stats.get_ftp_over_http(),
-        MetricUserRequestType::FtpOverHttp,
-    );
-    emit(
-        stats.get_socks_tcp_connect(),
+        stats.socks_tcp_connect(),
         MetricUserRequestType::SocksTcpConnect,
     );
     emit(
-        stats.get_socks_udp_connect(),
+        stats.socks_udp_connect(),
         MetricUserRequestType::SocksUdpConnect,
     );
     emit(
-        stats.get_socks_udp_associate(),
+        stats.socks_udp_associate(),
         MetricUserRequestType::SocksUdpAssociate,
     );
 }
@@ -543,19 +510,19 @@ fn find_keepalive_req_stat<F>(
 ) where
     F: FnMut(u64, MetricUserRequestType),
 {
-    let new_value = stats.get_http_forward();
-    if new_value != 0 || snap.http_forward != 0 {
-        let diff_value = new_value.wrapping_sub(snap.http_forward);
-        emit(diff_value, MetricUserRequestType::HttpForward);
-        snap.http_forward = new_value;
+    macro_rules! emit_field {
+        ($field:ident, $request:expr) => {
+            let new_value = stats.$field();
+            if new_value != 0 || snap.$field != 0 {
+                let diff_value = new_value.wrapping_sub(snap.$field);
+                emit(diff_value, $request);
+                snap.$field = new_value;
+            }
+        };
     }
 
-    let new_value = stats.get_https_forward();
-    if new_value != 0 || snap.https_forward != 0 {
-        let diff_value = new_value.wrapping_sub(snap.https_forward);
-        emit(diff_value, MetricUserRequestType::HttpsForward);
-        snap.https_forward = new_value;
-    }
+    emit_field!(http_forward, MetricUserRequestType::HttpForward);
+    emit_field!(https_forward, MetricUserRequestType::HttpsForward);
 }
 
 fn find_io_stat<'a, F>(
@@ -566,60 +533,40 @@ fn find_io_stat<'a, F>(
 ) where
     F: FnMut(&'a str, u64, MetricUserRequestType),
 {
-    find_tcp_io_stat(
-        stats.http_forward.snapshot(),
-        &mut snap.http_forward,
-        names,
-        MetricUserRequestType::HttpForward,
-        &mut emit,
-    );
+    macro_rules! emit_tcp_field {
+        ($field:ident, $request:expr) => {
+            find_tcp_io_stat(
+                stats.$field.snapshot(),
+                &mut snap.$field,
+                names,
+                $request,
+                &mut emit,
+            );
+        };
+    }
 
-    find_tcp_io_stat(
-        stats.https_forward.snapshot(),
-        &mut snap.https_forward,
-        names,
-        MetricUserRequestType::HttpsForward,
-        &mut emit,
-    );
+    emit_tcp_field!(http_forward, MetricUserRequestType::HttpForward);
+    emit_tcp_field!(https_forward, MetricUserRequestType::HttpsForward);
+    emit_tcp_field!(http_connect, MetricUserRequestType::HttpConnect);
+    emit_tcp_field!(ftp_over_http, MetricUserRequestType::FtpOverHttp);
+    emit_tcp_field!(socks_tcp_connect, MetricUserRequestType::SocksTcpConnect);
 
-    find_tcp_io_stat(
-        stats.http_connect.snapshot(),
-        &mut snap.http_connect,
-        names,
-        MetricUserRequestType::HttpConnect,
-        &mut emit,
-    );
+    macro_rules! emit_udp_field {
+        ($field:ident, $request:expr) => {
+            find_udp_io_stat(
+                stats.$field.snapshot(),
+                &mut snap.$field,
+                names,
+                $request,
+                &mut emit,
+            );
+        };
+    }
 
-    find_tcp_io_stat(
-        stats.ftp_over_http.snapshot(),
-        &mut snap.ftp_over_http,
-        names,
-        MetricUserRequestType::FtpOverHttp,
-        &mut emit,
-    );
-
-    find_tcp_io_stat(
-        stats.socks_tcp_connect.snapshot(),
-        &mut snap.socks_tcp_connect,
-        names,
-        MetricUserRequestType::SocksTcpConnect,
-        &mut emit,
-    );
-
-    find_udp_io_stat(
-        stats.socks_udp_connect.snapshot(),
-        &mut snap.socks_udp_connect,
-        names,
-        MetricUserRequestType::SocksUdpConnect,
-        &mut emit,
-    );
-
-    find_udp_io_stat(
-        stats.socks_udp_associate.snapshot(),
-        &mut snap.socks_udp_associate,
-        names,
-        MetricUserRequestType::SocksUdpAssociate,
-        &mut emit,
+    emit_udp_field!(socks_udp_connect, MetricUserRequestType::SocksUdpConnect);
+    emit_udp_field!(
+        socks_udp_associate,
+        MetricUserRequestType::SocksUdpAssociate
     );
 }
 
@@ -632,17 +579,21 @@ fn find_tcp_io_stat<'a, F>(
 ) where
     F: FnMut(&'a str, u64, MetricUserRequestType),
 {
-    let new_value = stats.in_bytes;
-    if new_value != 0 || snap.in_bytes != 0 {
-        let diff_value = new_value.wrapping_sub(snap.in_bytes);
-        emit(names.in_bytes, diff_value, req_type);
-        snap.in_bytes = new_value;
-
-        let new_value = stats.out_bytes;
-        let diff_value = new_value.wrapping_sub(snap.out_bytes);
-        emit(names.out_bytes, diff_value, req_type);
-        snap.out_bytes = new_value;
+    if stats.in_bytes == 0 && snap.in_bytes == 0 {
+        return;
     }
+
+    macro_rules! emit_field {
+        ($field:ident) => {
+            let new_value = stats.$field;
+            let diff_value = new_value.wrapping_sub(snap.$field);
+            emit(names.$field, diff_value, req_type);
+            snap.$field = new_value;
+        };
+    }
+
+    emit_field!(in_bytes);
+    emit_field!(out_bytes);
 }
 
 fn find_udp_io_stat<'a, F>(
@@ -654,27 +605,23 @@ fn find_udp_io_stat<'a, F>(
 ) where
     F: FnMut(&'a str, u64, MetricUserRequestType),
 {
-    let new_value = stats.in_packets;
-    if new_value != 0 || snap.in_packets != 0 {
-        let diff_value = new_value.wrapping_sub(snap.in_packets);
-        emit(names.in_packets, diff_value, req_type);
-        snap.in_packets = new_value;
-
-        let new_value = stats.in_bytes;
-        let diff_value = new_value.wrapping_sub(snap.in_bytes);
-        emit(names.in_bytes, diff_value, req_type);
-        snap.in_bytes = new_value;
-
-        let new_value = stats.out_packets;
-        let diff_value = new_value.wrapping_sub(snap.out_packets);
-        emit(names.out_packets, diff_value, req_type);
-        snap.out_packets = new_value;
-
-        let new_value = stats.out_bytes;
-        let diff_value = new_value.wrapping_sub(snap.out_bytes);
-        emit(names.out_bytes, diff_value, req_type);
-        snap.out_bytes = new_value;
+    if stats.in_packets == 0 && snap.in_packets == 0 {
+        return;
     }
+
+    macro_rules! emit_field {
+        ($field:ident) => {
+            let new_value = stats.$field;
+            let diff_value = new_value.wrapping_sub(snap.$field);
+            emit(names.$field, diff_value, req_type);
+            snap.$field = new_value;
+        };
+    }
+
+    emit_field!(in_packets);
+    emit_field!(in_bytes);
+    emit_field!(out_packets);
+    emit_field!(out_bytes);
 }
 
 fn find_ups_io_stat<'a, F>(
@@ -697,19 +644,21 @@ fn find_ups_tcp_io_stat<'a, F>(
 ) where
     F: FnMut(&'a str, u64, MetricTransportType),
 {
-    let trans_type = MetricTransportType::Tcp;
-
-    let new_value = stats.in_bytes;
-    if new_value != 0 || snap.in_bytes != 0 {
-        let diff_value = new_value.wrapping_sub(snap.in_bytes);
-        emit(names.in_bytes, diff_value, trans_type);
-        snap.in_bytes = new_value;
-
-        let new_value = stats.out_bytes;
-        let diff_value = new_value.wrapping_sub(snap.out_bytes);
-        emit(names.out_bytes, diff_value, trans_type);
-        snap.out_bytes = new_value;
+    if stats.out_bytes == 0 && snap.out_bytes == 0 {
+        return;
     }
+
+    macro_rules! emit_field {
+        ($field:ident) => {
+            let new_value = stats.$field;
+            let diff_value = new_value.wrapping_sub(snap.$field);
+            emit(names.$field, diff_value, MetricTransportType::Tcp);
+            snap.$field = new_value;
+        };
+    }
+
+    emit_field!(out_bytes);
+    emit_field!(in_bytes);
 }
 
 fn find_ups_udp_io_stat<'a, F>(
@@ -720,27 +669,21 @@ fn find_ups_udp_io_stat<'a, F>(
 ) where
     F: FnMut(&'a str, u64, MetricTransportType),
 {
-    let trans_type = MetricTransportType::Udp;
-
-    let new_value = stats.in_packets;
-    if new_value != 0 || snap.in_packets != 0 {
-        let diff_value = new_value.wrapping_sub(snap.in_packets);
-        emit(names.in_packets, diff_value, trans_type);
-        snap.in_packets = new_value;
-
-        let new_value = stats.in_bytes;
-        let diff_value = new_value.wrapping_sub(snap.in_bytes);
-        emit(names.in_bytes, diff_value, trans_type);
-        snap.in_bytes = new_value;
-
-        let new_value = stats.out_packets;
-        let diff_value = new_value.wrapping_sub(snap.out_packets);
-        emit(names.out_packets, diff_value, trans_type);
-        snap.out_packets = new_value;
-
-        let new_value = stats.out_bytes;
-        let diff_value = new_value.wrapping_sub(snap.out_bytes);
-        emit(names.out_bytes, diff_value, trans_type);
-        snap.out_bytes = new_value;
+    if stats.out_packets == 0 && snap.out_packets == 0 {
+        return;
     }
+
+    macro_rules! emit_field {
+        ($field:ident) => {
+            let new_value = stats.$field;
+            let diff_value = new_value.wrapping_sub(snap.$field);
+            emit(names.$field, diff_value, MetricTransportType::Udp);
+            snap.$field = new_value;
+        };
+    }
+
+    emit_field!(out_packets);
+    emit_field!(out_bytes);
+    emit_field!(in_packets);
+    emit_field!(in_bytes);
 }

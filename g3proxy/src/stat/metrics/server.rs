@@ -180,24 +180,24 @@ fn emit_tcp_io_to_statsd(
     snap: &mut TcpIoSnapshot,
     common_tags: &StatsdTagGroup,
 ) {
-    let new_value = stats.in_bytes;
-    if new_value == 0 && snap.in_bytes == 0 {
+    if stats.in_bytes == 0 && snap.in_bytes == 0 {
         return;
     }
-    let diff_value = new_value.wrapping_sub(snap.in_bytes);
-    client
-        .count_with_tags(METRIC_NAME_SERVER_IO_IN_BYTES, diff_value, common_tags)
-        .with_tag(TAG_KEY_TRANSPORT, TRANSPORT_TYPE_TCP)
-        .send();
-    snap.in_bytes = new_value;
 
-    let new_value = stats.out_bytes;
-    let diff_value = new_value.wrapping_sub(snap.out_bytes);
-    client
-        .count_with_tags(METRIC_NAME_SERVER_IO_OUT_BYTES, diff_value, common_tags)
-        .with_tag(TAG_KEY_TRANSPORT, TRANSPORT_TYPE_TCP)
-        .send();
-    snap.out_bytes = new_value;
+    macro_rules! emit_field {
+        ($field:ident, $name:expr) => {
+            let new_value = stats.$field;
+            let diff_value = new_value.wrapping_sub(snap.$field);
+            client
+                .count_with_tags($name, diff_value, common_tags)
+                .with_tag(TAG_KEY_TRANSPORT, TRANSPORT_TYPE_TCP)
+                .send();
+            snap.$field = new_value;
+        };
+    }
+
+    emit_field!(in_bytes, METRIC_NAME_SERVER_IO_IN_BYTES);
+    emit_field!(out_bytes, METRIC_NAME_SERVER_IO_OUT_BYTES);
 }
 
 fn emit_udp_io_to_statsd(
@@ -206,40 +206,26 @@ fn emit_udp_io_to_statsd(
     snap: &mut UdpIoSnapshot,
     common_tags: &StatsdTagGroup,
 ) {
-    let new_value = stats.in_packets;
-    if new_value == 0 && snap.in_packets == 0 {
+    if stats.in_packets == 0 && snap.in_packets == 0 {
         return;
     }
-    let diff_value = new_value.wrapping_sub(snap.in_packets);
-    client
-        .count_with_tags(METRIC_NAME_SERVER_IO_IN_PACKETS, diff_value, common_tags)
-        .with_tag(TAG_KEY_TRANSPORT, TRANSPORT_TYPE_UDP)
-        .send();
-    snap.in_packets = new_value;
 
-    let new_value = stats.in_bytes;
-    let diff_value = new_value.wrapping_sub(snap.in_bytes);
-    client
-        .count_with_tags(METRIC_NAME_SERVER_IO_IN_BYTES, diff_value, common_tags)
-        .with_tag(TAG_KEY_TRANSPORT, TRANSPORT_TYPE_UDP)
-        .send();
-    snap.in_bytes = new_value;
+    macro_rules! emit_field {
+        ($field:ident, $name:expr) => {
+            let new_value = stats.$field;
+            let diff_value = new_value.wrapping_sub(snap.$field);
+            client
+                .count_with_tags($name, diff_value, common_tags)
+                .with_tag(TAG_KEY_TRANSPORT, TRANSPORT_TYPE_UDP)
+                .send();
+            snap.$field = new_value;
+        };
+    }
 
-    let new_value = stats.out_packets;
-    let diff_value = new_value.wrapping_sub(snap.out_packets);
-    client
-        .count_with_tags(METRIC_NAME_SERVER_IO_OUT_PACKETS, diff_value, common_tags)
-        .with_tag(TAG_KEY_TRANSPORT, TRANSPORT_TYPE_UDP)
-        .send();
-    snap.out_packets = new_value;
-
-    let new_value = stats.out_bytes;
-    let diff_value = new_value.wrapping_sub(snap.out_bytes);
-    client
-        .count_with_tags(METRIC_NAME_SERVER_IO_OUT_BYTES, diff_value, common_tags)
-        .with_tag(TAG_KEY_TRANSPORT, TRANSPORT_TYPE_UDP)
-        .send();
-    snap.out_bytes = new_value;
+    emit_field!(in_packets, METRIC_NAME_SERVER_IO_IN_PACKETS);
+    emit_field!(in_bytes, METRIC_NAME_SERVER_IO_IN_BYTES);
+    emit_field!(out_packets, METRIC_NAME_SERVER_IO_OUT_PACKETS);
+    emit_field!(out_bytes, METRIC_NAME_SERVER_IO_OUT_BYTES);
 }
 
 fn emit_untrusted_stats(
