@@ -1,4 +1,9 @@
 
+v0.8.8:
+ - BUG FIX: fix the parsing of PROXY Protocol address
+ - Feature: make quic and hickory as optional features
+ - Optimization: more efficient sending of StatsD metrics
+
 v0.8.7:
  - Compatibility: require openssl version 3.0
 
