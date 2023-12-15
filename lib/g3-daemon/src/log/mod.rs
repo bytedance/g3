@@ -20,9 +20,9 @@ mod report;
 pub use report::ReportLogIoError;
 
 mod stats;
-use stats::LoggerStats;
+pub(crate) use stats::LoggerStats;
 
-pub mod metric;
+pub mod metrics;
 
 mod registry;
 

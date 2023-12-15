@@ -19,7 +19,7 @@ use std::sync::{Arc, Mutex};
 use ahash::AHashMap;
 use once_cell::sync::Lazy;
 
-use g3_daemon::metric::{
+use g3_daemon::metrics::{
     TAG_KEY_STAT_ID, TAG_KEY_TRANSPORT, TRANSPORT_TYPE_TCP, TRANSPORT_TYPE_UDP,
 };
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};

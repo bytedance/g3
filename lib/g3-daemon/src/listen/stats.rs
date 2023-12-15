@@ -80,28 +80,28 @@ impl ListenStats {
     pub fn add_accepted(&self) {
         self.accepted.fetch_add(1, Ordering::Relaxed);
     }
-    pub fn get_accepted(&self) -> u64 {
+    pub fn accepted(&self) -> u64 {
         self.accepted.load(Ordering::Relaxed)
     }
 
     pub fn add_dropped(&self) {
         self.dropped.fetch_add(1, Ordering::Relaxed);
     }
-    pub fn get_dropped(&self) -> u64 {
+    pub fn dropped(&self) -> u64 {
         self.dropped.load(Ordering::Relaxed)
     }
 
     pub fn add_timeout(&self) {
         self.timeout.fetch_add(1, Ordering::Relaxed);
     }
-    pub fn get_timeout(&self) -> u64 {
+    pub fn timeout(&self) -> u64 {
         self.timeout.load(Ordering::Relaxed)
     }
 
     pub fn add_failed(&self) {
         self.failed.fetch_add(1, Ordering::Relaxed);
     }
-    pub fn get_failed(&self) -> u64 {
+    pub fn failed(&self) -> u64 {
         self.failed.load(Ordering::Relaxed)
     }
 

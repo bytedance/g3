@@ -34,7 +34,7 @@ fn build_statsd_client(config: &StatsdClientConfig) -> anyhow::Result<StatsdClie
         .build()
         .map_err(|e| anyhow!("failed to build statsd client: {e}"))?;
     Ok(client.with_tag(
-        g3_daemon::metric::TAG_KEY_DAEMON_GROUP,
+        g3_daemon::metrics::TAG_KEY_DAEMON_GROUP,
         crate::opts::daemon_group(),
     ))
 }
@@ -52,13 +52,13 @@ fn spawn_main_thread(config: &StatsdClientConfig) -> anyhow::Result<JoinHandle<(
             metrics::escaper::sync_stats();
             metrics::resolver::sync_stats();
             metrics::user::sync_stats();
-            g3_daemon::log::metric::sync_stats();
+            g3_daemon::log::metrics::sync_stats();
 
             metrics::server::emit_stats(&mut client);
             metrics::escaper::emit_stats(&mut client);
             metrics::resolver::emit_stats(&mut client);
             metrics::user::emit_stats(&mut client);
-            g3_daemon::log::metric::emit_stats(&mut client);
+            g3_daemon::log::metrics::emit_stats(&mut client);
 
             client.flush_sink();
 

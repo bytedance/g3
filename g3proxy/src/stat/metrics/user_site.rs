@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::hash::Hash;
 use std::sync::{Arc, Mutex};
 
 use ahash::AHashMap;
@@ -144,25 +143,6 @@ impl UpstreamTrafficStatsValue {
     }
 }
 
-fn move_ht<K, V>(in_ht_lock: &Mutex<AHashMap<K, V>>, out_ht_lock: &Mutex<AHashMap<K, V>>)
-where
-    K: Hash + Eq,
-{
-    let mut tmp_req_map = AHashMap::new();
-    let mut in_req_map = in_ht_lock.lock().unwrap();
-    for (k, v) in in_req_map.drain() {
-        tmp_req_map.insert(k, v);
-    }
-    drop(in_req_map); // drop early
-
-    if !tmp_req_map.is_empty() {
-        let mut out_req_map = out_ht_lock.lock().unwrap();
-        for (k, v) in tmp_req_map.drain() {
-            out_req_map.insert(k, v);
-        }
-    }
-}
-
 pub(crate) fn push_request_stats(stats: Arc<UserRequestStats>, site_id: &MetricsName) {
     let k = stats.stat_id();
     let v = RequestStatsValue::new(stats, site_id);
@@ -188,6 +168,8 @@ pub(crate) fn push_upstream_traffic_stats(
 }
 
 pub(in crate::stat) fn sync_stats() {
+    use g3_daemon::metrics::helper::move_ht;
+
     move_ht(&STORE_REQUEST_STATS_MAP, &USER_SITE_REQUEST_STATS_MAP);
     move_ht(&STORE_TRAFFIC_STATS_MAP, &USER_SITE_TRAFFIC_STATS_MAP);
     move_ht(

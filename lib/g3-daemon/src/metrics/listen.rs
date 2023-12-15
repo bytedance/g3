@@ -43,39 +43,21 @@ pub fn emit_listen_stats(
         )
         .send();
 
-    let new_value = stats.get_accepted();
-    if new_value != 0 || snap.accepted != 0 {
-        let diff_value = new_value.wrapping_sub(snap.accepted);
-        client
-            .count_with_tags(METRIC_NAME_LISTEN_ACCEPTED, diff_value, &common_tags)
-            .send();
-        snap.accepted = new_value;
+    macro_rules! emit_field {
+        ($field:ident, $name:expr) => {
+            let new_value = stats.$field();
+            if new_value != 0 || snap.$field != 0 {
+                let diff_value = new_value.wrapping_sub(snap.$field);
+                client
+                    .count_with_tags($name, diff_value, &common_tags)
+                    .send();
+                snap.$field = new_value;
+            }
+        };
     }
 
-    let new_value = stats.get_dropped();
-    if new_value != 0 || snap.dropped != 0 {
-        let diff_value = new_value.wrapping_sub(snap.dropped);
-        client
-            .count_with_tags(METRIC_NAME_LISTEN_DROPPED, diff_value, &common_tags)
-            .send();
-        snap.dropped = new_value;
-    }
-
-    let new_value = stats.get_timeout();
-    if new_value != 0 || snap.timeout != 0 {
-        let diff_value = new_value.wrapping_sub(snap.timeout);
-        client
-            .count_with_tags(METRIC_NAME_LISTEN_TIMEOUT, diff_value, &common_tags)
-            .send();
-        snap.timeout = new_value;
-    }
-
-    let new_value = stats.get_failed();
-    if new_value != 0 || snap.failed != 0 {
-        let diff_value = new_value.wrapping_sub(snap.failed);
-        client
-            .count_with_tags(METRIC_NAME_LISTEN_FAILED, diff_value, &common_tags)
-            .send();
-        snap.failed = new_value;
-    }
+    emit_field!(accepted, METRIC_NAME_LISTEN_ACCEPTED);
+    emit_field!(dropped, METRIC_NAME_LISTEN_DROPPED);
+    emit_field!(timeout, METRIC_NAME_LISTEN_TIMEOUT);
+    emit_field!(failed, METRIC_NAME_LISTEN_FAILED);
 }
