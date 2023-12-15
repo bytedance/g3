@@ -1,4 +1,14 @@
 
+v1.7.31:
+ - Feature: allow to read from environment variable when setting:
+     - StatsD udp peer addr
+     - Fluentd udp peer addr
+     - Syslog udp peer addr
+     - TLS cert generator udp peer addr
+     - Route query agent udp peer addr
+ - Feature: make quic feature optional
+ - Optimization: more efficient sending of StatsD metrics
+
 v1.7.30:
  - Feature: add new max_timeout config option to c-ares resolver
  - Feature: support listen to quic port for HttpProxy and TcpStream server
