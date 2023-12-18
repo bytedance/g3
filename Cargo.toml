@@ -31,6 +31,7 @@ members = [
     "lib/g3-slog-types",
     "lib/g3-geoip",
     "lib/openssl-async-job",
+    "lib/g3-openssl",
     "g3bench",
     "g3fcgen",
     "g3mkcert",
@@ -205,6 +206,7 @@ g3-runtime = { version = "0.3", path = "lib/g3-runtime" }
 g3-signal = { version = "0.3", path = "lib/g3-signal" }
 g3-socket = { version = "0.4", path = "lib/g3-socket" }
 g3-socks = { version = "0.1", path = "lib/g3-socks" }
+g3-openssl = { version = "0.1", path = "lib/g3-openssl" }
 g3-statsd-client = { version = "0.1", path = "lib/g3-statsd-client" }
 g3-histogram = { version = "0.1", path = "lib/g3-histogram" }
 g3-stdlog = { version = "0.1", path = "lib/g3-stdlog" }

@@ -29,7 +29,6 @@ capnp-rpc.workspace = true
 tokio = { workspace = true, features = ["net", "sync", "time"] }
 openssl.workspace = true
 openssl-probe = { workspace = true, optional = true }
-tokio-openssl.workspace = true
 rustls.workspace = true
 tokio-rustls.workspace = true
 governor = { workspace = true, features = ["std", "jitter"] }
@@ -42,6 +41,7 @@ g3-yaml = { workspace = true, features = ["acl-rule", "route", "openssl", "rustl
 g3-types = { workspace = true, features = ["acl-rule", "route", "openssl", "rustls"] }
 g3-socket.workspace = true
 g3-io-ext.workspace = true
+g3-openssl.workspace = true
 g3-statsd-client.workspace = true
 g3-slog-types.workspace = true
 g3tiles-proto = { path = "proto" }

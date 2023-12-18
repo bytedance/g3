@@ -21,10 +21,10 @@ use anyhow::anyhow;
 use log::debug;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::time::Instant;
-use tokio_openssl::SslStream;
 
 use g3_daemon::stat::task::{TcpStreamConnectionStats, TcpStreamTaskStats};
 use g3_io_ext::{LimitedCopy, LimitedCopyConfig, LimitedCopyError, LimitedStream};
+use g3_openssl::SslStream;
 
 use super::{CommonTaskContext, OpensslRelayTaskCltWrapperStats};
 use crate::config::server::ServerConfig;
@@ -73,7 +73,7 @@ impl OpensslRelayTask {
 
     pub(crate) async fn into_running<S>(mut self, ssl_stream: SslStream<LimitedStream<S>>)
     where
-        S: AsyncRead + AsyncWrite,
+        S: AsyncRead + AsyncWrite + Unpin,
     {
         self.pre_start();
         if let Err(e) = self.run(ssl_stream).await {
@@ -99,7 +99,7 @@ impl OpensslRelayTask {
 
     async fn run<S>(&mut self, ssl_stream: SslStream<LimitedStream<S>>) -> ServerTaskResult<()>
     where
-        S: AsyncRead + AsyncWrite,
+        S: AsyncRead + AsyncWrite + Unpin,
     {
         self.task_notes.stage = ServerTaskStage::Preparing;
 
@@ -140,7 +140,7 @@ impl OpensslRelayTask {
         ups_w: UW,
     ) -> ServerTaskResult<()>
     where
-        S: AsyncRead + AsyncWrite,
+        S: AsyncRead + AsyncWrite + Unpin,
         UR: AsyncRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
@@ -155,7 +155,7 @@ impl OpensslRelayTask {
         mut ups_w: UW,
     ) -> ServerTaskResult<()>
     where
-        S: AsyncRead + AsyncWrite,
+        S: AsyncRead + AsyncWrite + Unpin,
         UR: AsyncRead + Unpin,
         UW: AsyncWrite + Unpin,
     {

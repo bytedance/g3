@@ -1096,6 +1096,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "g3-openssl"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "atomic-waker",
+ "libc",
+ "thiserror",
+ "tokio",
+ "tongsuo",
+ "tongsuo-sys",
+]
+
+[[package]]
 name = "g3-resolver"
 version = "0.5.0"
 dependencies = [
@@ -1641,6 +1654,7 @@ dependencies = [
  "g3-compat",
  "g3-daemon",
  "g3-io-ext",
+ "g3-openssl",
  "g3-signal",
  "g3-slog-types",
  "g3-socket",
@@ -1661,7 +1675,6 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-rustls",
- "tokio-tongsuo",
  "tongsuo",
  "uuid",
  "yaml-rust",

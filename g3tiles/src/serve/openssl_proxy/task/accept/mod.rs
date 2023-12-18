@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::pin::Pin;
 use std::sync::Arc;
 
 use log::debug;
@@ -23,10 +22,10 @@ use openssl::ssl::Ssl;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::time::Instant;
-use tokio_openssl::SslStream;
 
 use g3_daemon::stat::task::TcpStreamConnectionStats;
 use g3_io_ext::LimitedStream;
+use g3_openssl::{SslAcceptor, SslStream};
 
 use super::{CommonTaskContext, OpensslRelayTask};
 use crate::serve::openssl_proxy::host::OpensslHost;
@@ -92,14 +91,9 @@ impl OpensslAcceptTask {
     where
         S: AsyncRead + AsyncWrite + Unpin,
     {
-        let mut ssl_stream = SslStream::new(ssl, stream).unwrap();
-        match tokio::time::timeout(
-            self.ctx.server_config.accept_timeout,
-            Pin::new(&mut ssl_stream).accept(),
-        )
-        .await
-        {
-            Ok(Ok(_)) => Some(ssl_stream),
+        let acceptor = SslAcceptor::new(ssl, stream).unwrap();
+        match tokio::time::timeout(self.ctx.server_config.accept_timeout, acceptor.accept()).await {
+            Ok(Ok(ssl_stream)) => Some(ssl_stream),
             Ok(Err(e)) => {
                 debug!("failed to accept ssl handshake: {e}");
                 None
