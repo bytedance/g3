@@ -17,7 +17,9 @@
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
-use openssl::ssl::{SslAcceptor, SslContext, SslMethod, SslSessionCacheMode, SslVerifyMode};
+use openssl::ssl::{
+    SslAcceptor, SslContext, SslContextBuilder, SslMethod, SslSessionCacheMode, SslVerifyMode,
+};
 use openssl::stack::Stack;
 use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::X509;
@@ -73,21 +75,15 @@ impl OpensslHostConfig {
         Ok(())
     }
 
-    pub(crate) fn build_ssl_context(&self) -> anyhow::Result<Option<SslContext>> {
-        if self.cert_pairs.is_empty() {
-            return Ok(None);
-        }
-
-        let mut ssl_builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::tls_server())
-            .map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
-
-        ssl_builder.set_session_cache_mode(SslSessionCacheMode::SERVER); // TODO use external cache?
-
+    fn set_client_auth(&self, ssl_builder: &mut SslContextBuilder) -> anyhow::Result<()> {
         if self.client_auth {
             ssl_builder.set_verify(SslVerifyMode::PEER | SslVerifyMode::FAIL_IF_NO_PEER_CERT);
 
             let mut store_builder = X509StoreBuilder::new()
                 .map_err(|e| anyhow!("failed to create ca cert store builder: {e}"))?;
+            let mut ca_stack =
+                Stack::new().map_err(|e| anyhow!("failed to get new ca name stack: {e}"))?;
+
             if self.client_auth_certs.is_empty() {
                 store_builder
                     .set_default_paths()
@@ -98,29 +94,41 @@ impl OpensslHostConfig {
                     store_builder
                         .add_cert(ca_cert)
                         .map_err(|e| anyhow!("[#{i}] failed to add ca certificate: {e}"))?;
+                    let name = ca_cert
+                        .subject_name()
+                        .to_owned()
+                        .map_err(|e| anyhow!("[#{i}] failed to get ca subject name: {e}"))?;
+                    ca_stack
+                        .push(name)
+                        .map_err(|e| anyhow!("[#{i}] failed to push to ca name stack: {e}"))?;
                 }
             }
             let store = store_builder.build();
 
-            let mut ca_stack =
-                Stack::new().map_err(|e| anyhow!("failed to get new ca name stack: {e}"))?;
-            for (i, cert) in store.all_certificates().iter().enumerate() {
-                let name = cert
-                    .subject_name()
-                    .to_owned()
-                    .map_err(|e| anyhow!("[#{i}] failed to get subject name: {e}"))?;
-                ca_stack
-                    .push(name)
-                    .map_err(|e| anyhow!("[#{i}] failed to push to ca name stack: {e}"))?;
-            }
-
-            ssl_builder.set_client_ca_list(ca_stack);
             ssl_builder
                 .set_verify_cert_store(store)
                 .map_err(|e| anyhow!("failed to set ca certs: {e}"))?;
+            if !ca_stack.is_empty() {
+                ssl_builder.set_client_ca_list(ca_stack);
+            }
         } else {
             ssl_builder.set_verify(SslVerifyMode::NONE);
         }
+
+        Ok(())
+    }
+
+    pub(crate) fn build_ssl_context(&self) -> anyhow::Result<Option<SslContext>> {
+        if self.cert_pairs.is_empty() {
+            return Ok(None);
+        }
+
+        let mut ssl_builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::tls_server())
+            .map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
+
+        ssl_builder.set_session_cache_mode(SslSessionCacheMode::SERVER); // TODO use external cache?
+
+        self.set_client_auth(&mut ssl_builder)?;
 
         // ssl_builder.set_mode() // TODO do we need it?
         // ssl_builder.set_options() // TODO do we need it?
@@ -170,46 +178,7 @@ impl OpensslHostConfig {
 
         ssl_builder.set_session_cache_mode(SslSessionCacheMode::SERVER); // TODO use external cache?
 
-        if self.client_auth {
-            ssl_builder.set_verify(SslVerifyMode::PEER | SslVerifyMode::FAIL_IF_NO_PEER_CERT);
-
-            let mut store_builder = X509StoreBuilder::new()
-                .map_err(|e| anyhow!("failed to create ca cert store builder: {e}"))?;
-            if self.client_auth_certs.is_empty() {
-                store_builder
-                    .set_default_paths()
-                    .map_err(|e| anyhow!("failed to load default ca certs: {e}"))?;
-            } else {
-                for (i, cert) in self.client_auth_certs.iter().enumerate() {
-                    let ca_cert = X509::from_der(cert.as_slice()).unwrap();
-                    store_builder
-                        .add_cert(ca_cert)
-                        .map_err(|e| anyhow!("failed to add ca certificate #{i}: {e}"))?;
-                }
-            }
-            let store = store_builder.build();
-
-            let mut ca_stack =
-                Stack::new().map_err(|e| anyhow!("failed to get new ca name stack: {e}"))?;
-            for (i, cert) in store.all_certificates().iter().enumerate() {
-                let der = cert
-                    .subject_name()
-                    .to_der()
-                    .map_err(|e| anyhow!("[#{i}] failed to convert subject name: {e}"))?;
-                let name = X509Name::from_der(&der)
-                    .map_err(|e| anyhow!("[#{i}] failed to convert back subject name: {e}"))?;
-                ca_stack
-                    .push(name)
-                    .map_err(|e| anyhow!("[#{i}] failed to push to ca name stack: {e}"))?;
-            }
-
-            ssl_builder.set_client_ca_list(ca_stack);
-            ssl_builder
-                .set_verify_cert_store(store)
-                .map_err(|e| anyhow!("failed to set ca certs: {e}"))?;
-        } else {
-            ssl_builder.set_verify(SslVerifyMode::NONE);
-        }
+        self.set_client_auth(&mut ssl_builder)?;
 
         for (i, pair) in self.tlcp_cert_pairs.iter().enumerate() {
             pair.add_to_ssl_context(&mut ssl_builder)

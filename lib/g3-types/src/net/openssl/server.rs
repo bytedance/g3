@@ -23,7 +23,7 @@ use openssl::ssl::{
 };
 use openssl::stack::Stack;
 use openssl::x509::store::X509StoreBuilder;
-use openssl::x509::X509;
+use openssl::x509::{X509StoreContext, X509};
 
 use super::OpensslCertificatePair;
 #[cfg(feature = "vendored-tongsuo")]
@@ -211,6 +211,9 @@ impl OpensslServerConfigBuilder {
 
             let mut store_builder = X509StoreBuilder::new()
                 .map_err(|e| anyhow!("failed to create ca cert store builder: {e}"))?;
+            let mut ca_stack =
+                Stack::new().map_err(|e| anyhow!("failed to get new ca name stack: {e}"))?;
+
             if self.client_auth_certs.is_empty() {
                 store_builder
                     .set_default_paths()
@@ -221,26 +224,23 @@ impl OpensslServerConfigBuilder {
                     store_builder
                         .add_cert(ca_cert)
                         .map_err(|e| anyhow!("[#{i}] failed to add ca certificate: {e}"))?;
+                    let name = ca_cert
+                        .subject_name()
+                        .to_owned()
+                        .map_err(|e| anyhow!("[#{i}] failed to get ca subject name: {e}"))?;
+                    ca_stack
+                        .push(name)
+                        .map_err(|e| anyhow!("[#{i}] failed to push to ca name stack: {e}"))?;
                 }
             }
             let store = store_builder.build();
 
-            let mut ca_stack =
-                Stack::new().map_err(|e| anyhow!("failed to get new ca name stack: {e}"))?;
-            for (i, cert) in store.all_certificates().iter().enumerate() {
-                let name = cert
-                    .subject_name()
-                    .to_owned()
-                    .map_err(|e| anyhow!("[#{i}] failed to get subject name: {e}"))?;
-                ca_stack
-                    .push(name)
-                    .map_err(|e| anyhow!("[#{i}] failed to push to ca name stack: {e}"))?;
-            }
-
-            ssl_builder.set_client_ca_list(ca_stack);
             ssl_builder
                 .set_verify_cert_store(store)
                 .map_err(|e| anyhow!("failed to set ca certs: {e}"))?;
+            if !ca_stack.is_empty() {
+                ssl_builder.set_client_ca_list(ca_stack);
+            }
         } else {
             ssl_builder.set_verify(SslVerifyMode::NONE);
         }
