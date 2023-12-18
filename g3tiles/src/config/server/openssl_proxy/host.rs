@@ -81,7 +81,7 @@ impl OpensslHostConfig {
 
             let mut store_builder = X509StoreBuilder::new()
                 .map_err(|e| anyhow!("failed to create ca cert store builder: {e}"))?;
-            let mut ca_stack =
+            let mut subject_stack =
                 Stack::new().map_err(|e| anyhow!("failed to get new ca name stack: {e}"))?;
 
             if self.client_auth_certs.is_empty() {
@@ -91,15 +91,15 @@ impl OpensslHostConfig {
             } else {
                 for (i, cert) in self.client_auth_certs.iter().enumerate() {
                     let ca_cert = X509::from_der(cert.as_slice()).unwrap();
-                    store_builder
-                        .add_cert(ca_cert)
-                        .map_err(|e| anyhow!("[#{i}] failed to add ca certificate: {e}"))?;
-                    let name = ca_cert
+                    let subject = ca_cert
                         .subject_name()
                         .to_owned()
                         .map_err(|e| anyhow!("[#{i}] failed to get ca subject name: {e}"))?;
-                    ca_stack
-                        .push(name)
+                    store_builder
+                        .add_cert(ca_cert)
+                        .map_err(|e| anyhow!("[#{i}] failed to add ca certificate: {e}"))?;
+                    subject_stack
+                        .push(subject)
                         .map_err(|e| anyhow!("[#{i}] failed to push to ca name stack: {e}"))?;
                 }
             }
@@ -108,8 +108,8 @@ impl OpensslHostConfig {
             ssl_builder
                 .set_verify_cert_store(store)
                 .map_err(|e| anyhow!("failed to set ca certs: {e}"))?;
-            if !ca_stack.is_empty() {
-                ssl_builder.set_client_ca_list(ca_stack);
+            if !subject_stack.is_empty() {
+                ssl_builder.set_client_ca_list(subject_stack);
             }
         } else {
             ssl_builder.set_verify(SslVerifyMode::NONE);
