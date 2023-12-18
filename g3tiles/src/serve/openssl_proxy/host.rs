@@ -48,6 +48,14 @@ pub(super) fn build_ssl_acceptor(
     let mut builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::tls_server())
         .map_err(|e| anyhow!("failed to get ssl acceptor builder: {e}"))?;
 
+    if openssl::version::number() < 0x101010a0 {
+        // workaround bug https://github.com/openssl/openssl/issues/13291 to enable TLS1.3
+        // which is fixed in
+        //  Openssl 3.x: https://github.com/openssl/openssl/pull/13304
+        //  Openssl 1.1.1j: https://github.com/openssl/openssl/pull/13305
+        builder.set_psk_server_callback(|_ssl, _a, _b| Ok(0));
+    }
+
     #[cfg(feature = "vendored-tongsuo")]
     builder
         .set_ciphersuites(TLS_DEFAULT_CIPHER_SUITES)
