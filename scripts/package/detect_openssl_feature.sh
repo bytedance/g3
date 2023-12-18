@@ -2,7 +2,7 @@
 
 set -e
 
-if $(pkg-config --atleast-version 3.0.0 libssl)
+if $(pkg-config --atleast-version 1.1.1 libssl)
 then
 	:
 else

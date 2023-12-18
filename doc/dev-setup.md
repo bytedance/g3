@@ -192,7 +192,7 @@ ln -s /usr/pkg/bin/python3.10 /usr/pkg/bin/python3
 
 For *g3proxy*:
 ```text
-openssl >= 3.0.0
+openssl >= 1.1.1
 c-ares >= 1.12.0
 lua
 python3 >= 3.7
