@@ -80,9 +80,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> AsyncRead for SslStream<S> {
                         return Poll::Pending;
                     }
                     _ => {
-                        return Poll::Ready(Err(e
-                            .into_io_error()
-                            .unwrap_or_else(|e| io::Error::other(e))))
+                        return Poll::Ready(Err(e.into_io_error().unwrap_or_else(io::Error::other)))
                     }
                 },
             }
@@ -119,9 +117,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> AsyncWrite for SslStream<S> {
                         return Poll::Pending;
                     }
                     _ => {
-                        return Poll::Ready(Err(e
-                            .into_io_error()
-                            .unwrap_or_else(|e| io::Error::other(e))))
+                        return Poll::Ready(Err(e.into_io_error().unwrap_or_else(io::Error::other)))
                     }
                 },
             }
@@ -148,9 +144,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> AsyncWrite for SslStream<S> {
                     return Poll::Pending;
                 }
                 _ => {
-                    return Poll::Ready(Err(e
-                        .into_io_error()
-                        .unwrap_or_else(|e| io::Error::other(e))));
+                    return Poll::Ready(Err(e.into_io_error().unwrap_or_else(io::Error::other)));
                 }
             }
         }
