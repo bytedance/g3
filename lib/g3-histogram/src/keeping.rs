@@ -103,6 +103,7 @@ where
                 for v in buf.iter().take(count) {
                     let _ = self.inner.record(v.as_u64());
                 }
+                buf.clear();
                 stats.update(self.inner());
             }
         });

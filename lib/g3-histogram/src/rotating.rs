@@ -110,6 +110,7 @@ where
                         for v in buf.iter().take(n) {
                             let _ = self.inner.record(v.as_u64());
                         }
+                        buf.clear();
                     }
                     _ = rotate_interval.tick() => {
                         if !self.inner.is_empty() {
