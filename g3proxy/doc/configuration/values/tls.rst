@@ -347,7 +347,7 @@ The map is consists of the following fields:
 
   **optional**, **type**: str
 
-  Set session id context. This is required if you want to enable session reuse when client auth is enabled.
+  A string that will be added to the prefix when calculate the session id context sha1 hash.
 
   .. versionadded:: 1.7.32
 

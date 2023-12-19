@@ -30,6 +30,9 @@ use super::OpensslCertificatePair;
 use super::OpensslTlcpCertificatePair;
 use crate::net::AlpnProtocol;
 
+mod session;
+pub use session::OpensslSessionIdContext;
+
 #[cfg(feature = "vendored-tongsuo")]
 const TLS_DEFAULT_CIPHER_SUITES: &str =
     "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_SM4_GCM_SM3";
@@ -129,7 +132,10 @@ impl OpensslServerConfigBuilder {
         self.accept_timeout = timeout;
     }
 
-    fn build_tls_acceptor(&self) -> anyhow::Result<SslAcceptorBuilder> {
+    fn build_tls_acceptor(
+        &self,
+        id_ctx: &mut OpensslSessionIdContext,
+    ) -> anyhow::Result<SslAcceptorBuilder> {
         let mut ssl_builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::tls_server())
             .map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
 
@@ -139,7 +145,7 @@ impl OpensslServerConfigBuilder {
             .map_err(|e| anyhow!("failed to set tls1.3 cipher suites: {e}"))?;
 
         for (i, pair) in self.cert_pairs.iter().enumerate() {
-            pair.add_to_ssl_context(&mut ssl_builder)
+            pair.add_to_server_ssl_context(&mut ssl_builder, id_ctx)
                 .context(format!("failed to add cert pair #{i} to ssl context"))?;
         }
 
@@ -147,7 +153,10 @@ impl OpensslServerConfigBuilder {
     }
 
     #[cfg(feature = "vendored-tongsuo")]
-    fn build_tlcp_acceptor(&self) -> anyhow::Result<SslAcceptorBuilder> {
+    fn build_tlcp_acceptor(
+        &self,
+        id_ctx: &mut OpensslSessionIdContext,
+    ) -> anyhow::Result<SslAcceptorBuilder> {
         let mut ssl_builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::ntls_server())
             .map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
         ssl_builder.enable_force_ntls();
@@ -157,7 +166,7 @@ impl OpensslServerConfigBuilder {
             .map_err(|e| anyhow!("failed to set tlcp cipher list: {e}"))?;
 
         for (i, pair) in self.tlcp_cert_pairs.iter().enumerate() {
-            pair.add_to_ssl_context(&mut ssl_builder)
+            pair.add_to_server_ssl_context(&mut ssl_builder, id_ctx)
                 .context(format!("failed to add cert pair #{i} to ssl context"))?;
         }
 
@@ -165,13 +174,16 @@ impl OpensslServerConfigBuilder {
     }
 
     #[cfg(feature = "vendored-tongsuo")]
-    fn build_acceptor(&self) -> anyhow::Result<SslAcceptorBuilder> {
+    fn build_acceptor(
+        &self,
+        id_ctx: &mut OpensslSessionIdContext,
+    ) -> anyhow::Result<SslAcceptorBuilder> {
         if self.tlcp_cert_pairs.is_empty() {
-            return self.build_tls_acceptor();
+            return self.build_tls_acceptor(id_ctx);
         }
 
         if self.cert_pairs.is_empty() {
-            return self.build_tlcp_acceptor();
+            return self.build_tlcp_acceptor(id_ctx);
         }
 
         let mut ssl_builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::ntls_server())
@@ -188,11 +200,11 @@ impl OpensslServerConfigBuilder {
             .map_err(|e| anyhow!("failed to set tls1.3 cipher suites: {e}"))?;
 
         for (i, pair) in self.tlcp_cert_pairs.iter().enumerate() {
-            pair.add_to_ssl_context(&mut ssl_builder)
+            pair.add_to_server_ssl_context(&mut ssl_builder, id_ctx)
                 .context(format!("failed to add cert pair #{i} to ssl context"))?;
         }
         for (i, pair) in self.cert_pairs.iter().enumerate() {
-            pair.add_to_ssl_context(&mut ssl_builder)
+            pair.add_to_server_ssl_context(&mut ssl_builder, id_ctx)
                 .context(format!("failed to add cert pair #{i} to ssl context"))?;
         }
 
@@ -200,15 +212,26 @@ impl OpensslServerConfigBuilder {
     }
 
     #[cfg(not(feature = "vendored-tongsuo"))]
-    fn build_acceptor(&self) -> anyhow::Result<SslAcceptorBuilder> {
-        self.build_tls_acceptor()
+    fn build_acceptor(
+        &self,
+        id_ctx: &mut OpensslSessionIdContext,
+    ) -> anyhow::Result<SslAcceptorBuilder> {
+        self.build_tls_acceptor(id_ctx)
     }
 
     pub fn build_with_alpn_protocols(
         &self,
         alpn_protocols: Option<Vec<AlpnProtocol>>,
     ) -> anyhow::Result<OpensslServerConfig> {
-        let mut ssl_builder = self.build_acceptor()?;
+        let mut id_ctx = OpensslSessionIdContext::new()
+            .map_err(|e| anyhow!("failed to create session id context builder: {e}"))?;
+        if !self.session_id_context.is_empty() {
+            id_ctx
+                .add_text(&self.session_id_context)
+                .map_err(|e| anyhow!("failed to add session id context text: {e}"))?;
+        }
+
+        let mut ssl_builder = self.build_acceptor(&mut id_ctx)?;
 
         ssl_builder.set_session_cache_mode(SslSessionCacheMode::SERVER);
 
@@ -231,6 +254,9 @@ impl OpensslServerConfigBuilder {
                         .subject_name()
                         .to_owned()
                         .map_err(|e| anyhow!("[#{i}] failed to get ca subject name: {e}"))?;
+                    id_ctx
+                        .add_cert(&ca_cert)
+                        .map_err(|e| anyhow!("[#{i}] failed to add to session id context: {e}"))?;
                     store_builder
                         .add_cert(ca_cert)
                         .map_err(|e| anyhow!("[#{i}] failed to add ca certificate: {e}"))?;
@@ -251,17 +277,9 @@ impl OpensslServerConfigBuilder {
             ssl_builder.set_verify(SslVerifyMode::NONE);
         }
 
-        if !self.session_id_context.is_empty() {
-            // session id context is required for session reuse when client auth is enabled
-            ssl_builder
-                .set_session_id_context(self.session_id_context.as_bytes())
-                .map_err(|e| {
-                    anyhow!(
-                        "failed to set session id context to {}: {e}",
-                        self.session_id_context
-                    )
-                })?;
-        }
+        id_ctx
+            .build_set(&mut ssl_builder)
+            .map_err(|e| anyhow!("failed to set session id context: {e}"))?;
 
         // ssl_builder.set_mode() // TODO do we need it?
         // ssl_builder.set_options() // TODO do we need it?

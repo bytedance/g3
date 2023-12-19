@@ -206,7 +206,7 @@ impl OpensslClientConfigBuilder {
 
         let mut use_dhe = false;
         if let Some(cert_pair) = &self.client_tlcp_cert_pair {
-            cert_pair.add_to_ssl_context(&mut ctx_builder)?;
+            cert_pair.add_to_client_ssl_context(&mut ctx_builder)?;
             use_dhe = true;
         }
 
@@ -254,7 +254,7 @@ impl OpensslClientConfigBuilder {
         }
 
         if let Some(cert_pair) = &self.client_cert_pair {
-            cert_pair.add_to_ssl_context(&mut ctx_builder)?;
+            cert_pair.add_to_client_ssl_context(&mut ctx_builder)?;
         }
 
         Ok(ctx_builder)
@@ -280,7 +280,7 @@ impl OpensslClientConfigBuilder {
         }
 
         if let Some(cert_pair) = &self.client_cert_pair {
-            cert_pair.add_to_ssl_context(&mut ctx_builder)?;
+            cert_pair.add_to_client_ssl_context(&mut ctx_builder)?;
         }
 
         Ok(ctx_builder)
@@ -292,7 +292,7 @@ impl OpensslClientConfigBuilder {
         ctx_builder.set_verify(SslVerifyMode::PEER);
 
         if let Some(cert_pair) = &self.client_cert_pair {
-            cert_pair.add_to_ssl_context(&mut ctx_builder)?;
+            cert_pair.add_to_client_ssl_context(&mut ctx_builder)?;
         }
 
         Ok(ctx_builder)

@@ -19,6 +19,8 @@ use openssl::pkey::{PKey, Private};
 use openssl::ssl::SslContextBuilder;
 use openssl::x509::X509;
 
+use super::OpensslSessionIdContext;
+
 #[derive(Default, Clone, Debug, Eq, PartialEq)]
 pub struct OpensslCertificatePair {
     leaf_cert: Vec<u8>,
@@ -73,12 +75,35 @@ impl OpensslCertificatePair {
         Ok(())
     }
 
-    pub fn add_to_ssl_context(&self, ssl_builder: &mut SslContextBuilder) -> anyhow::Result<()> {
+    pub fn add_to_client_ssl_context(
+        &self,
+        ssl_builder: &mut SslContextBuilder,
+    ) -> anyhow::Result<()> {
         let leaf_cert = X509::from_der(self.leaf_cert.as_slice()).unwrap();
         ssl_builder
             .set_certificate(&leaf_cert)
             .map_err(|e| anyhow!("failed to set certificate: {e}"))?;
 
+        self.add_to_ssl_context(ssl_builder)
+    }
+
+    pub fn add_to_server_ssl_context(
+        &self,
+        ssl_builder: &mut SslContextBuilder,
+        id_ctx: &mut OpensslSessionIdContext,
+    ) -> anyhow::Result<()> {
+        let leaf_cert = X509::from_der(self.leaf_cert.as_slice()).unwrap();
+        ssl_builder
+            .set_certificate(&leaf_cert)
+            .map_err(|e| anyhow!("failed to set certificate: {e}"))?;
+        id_ctx
+            .add_cert(&leaf_cert)
+            .map_err(|e| anyhow!("failed to add cert to session id context: {e}"))?;
+
+        self.add_to_ssl_context(ssl_builder)
+    }
+
+    fn add_to_ssl_context(&self, ssl_builder: &mut SslContextBuilder) -> anyhow::Result<()> {
         for (i, cert) in self.chain_certs.iter().enumerate() {
             let chain_cert = X509::from_der(cert.as_slice()).unwrap();
             ssl_builder
