@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-use std::pin::Pin;
 use std::sync::Arc;
 
 use anyhow::anyhow;
 
 use g3_dpi::{Protocol, ProtocolInspector};
 use g3_io_ext::{AggregatedIo, FlexBufReader, OnceBufReader};
+use g3_openssl::SslConnector;
 use g3_types::net::AlpnProtocol;
 
 use super::{TlsInterceptIo, TlsInterceptObject, TlsInterceptionError};
@@ -104,14 +104,13 @@ where
             tokio::spawn(async move { tls_interception.cert_agent.fetch(hostname).await });
 
         // handshake with upstream server
-        let mut ups_tls_stream = tokio_openssl::SslStream::new(
-            ups_ssl,
-            AggregatedIo::new(ups_r, ups_w),
-        )
-        .map_err(|e| {
-            TlsInterceptionError::UpstreamPrepareFailed(anyhow!("failed to get ssl stream: {e}"))
-        })?;
-        tokio::time::timeout(handshake_timeout, Pin::new(&mut ups_tls_stream).connect())
+        let ups_tls_connector = SslConnector::new(ups_ssl, AggregatedIo::new(ups_r, ups_w))
+            .map_err(|e| {
+                TlsInterceptionError::UpstreamPrepareFailed(anyhow!(
+                    "failed to get ssl stream: {e}"
+                ))
+            })?;
+        let ups_tls_stream = tokio::time::timeout(handshake_timeout, ups_tls_connector.connect())
             .await
             .map_err(|_| TlsInterceptionError::UpstreamHandshakeTimeout)?
             .map_err(|e| {

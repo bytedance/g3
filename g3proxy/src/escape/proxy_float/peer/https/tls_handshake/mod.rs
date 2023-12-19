@@ -14,13 +14,11 @@
  * limitations under the License.
  */
 
-use std::pin::Pin;
-
 use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio_openssl::SslStream;
 
 use g3_io_ext::AggregatedIo;
+use g3_openssl::SslConnector;
 use g3_types::net::UpstreamAddr;
 
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};
@@ -41,7 +39,7 @@ impl ProxyFloatHttpsPeer {
             .tls_config
             .build_ssl(&self.tls_name, self.addr.port())
             .map_err(TcpConnectError::InternalTlsClientError)?;
-        let mut stream = SslStream::new(
+        let connector = SslConnector::new(
             ssl,
             AggregatedIo {
                 reader: r,
@@ -50,15 +48,9 @@ impl ProxyFloatHttpsPeer {
         )
         .map_err(|e| TcpConnectError::InternalTlsClientError(anyhow::Error::new(e)))?;
 
-        match tokio::time::timeout(
-            self.tls_config.handshake_timeout,
-            Pin::new(&mut stream).connect(),
-        )
-        .await
-        {
-            Ok(Ok(_)) => {
+        match tokio::time::timeout(self.tls_config.handshake_timeout, connector.connect()).await {
+            Ok(Ok(stream)) => {
                 let (r, w) = tokio::io::split(stream);
-
                 Ok((r, w))
             }
             Ok(Err(e)) => {

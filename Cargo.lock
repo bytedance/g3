@@ -1526,6 +1526,7 @@ dependencies = [
  "g3-io-ext",
  "g3-json",
  "g3-msgpack",
+ "g3-openssl",
  "g3-resolver",
  "g3-signal",
  "g3-slog-types",
@@ -1567,7 +1568,6 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-rustls",
- "tokio-tongsuo",
  "tokio-util",
  "tongsuo",
  "url",
@@ -3199,18 +3199,6 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
-]
-
-[[package]]
-name = "tokio-tongsuo"
-version = "0.6.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ba486ca03b2dfd06097fe0baecf6d3c34f6216d1d6f7ece2b71a00f5cd34776"
-dependencies = [
- "futures-util",
- "tokio",
- "tongsuo",
- "tongsuo-sys",
 ]
 
 [[package]]

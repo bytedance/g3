@@ -26,11 +26,11 @@ use slog::Logger;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
-use tokio_openssl::SslStream;
 use tokio_rustls::server::TlsStream;
 
 use g3_daemon::listen::ListenStats;
 use g3_daemon::server::{ClientConnectionInfo, ServerReloadCommand};
+use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::collection::{SelectivePickPolicy, SelectiveVec, SelectiveVecBuilder};
 use g3_types::metrics::MetricsName;

@@ -26,7 +26,6 @@ tokio-util = { workspace = true, features = ["time"] }
 tokio-rustls.workspace = true
 rustls.workspace = true
 quinn = { workspace = true, optional = true, features = ["tls-rustls", "runtime-tokio"] }
-tokio-openssl.workspace = true
 openssl.workspace = true
 openssl-probe = { workspace = true, optional = true }
 indexmap.workspace = true
@@ -82,6 +81,7 @@ g3-h2.workspace = true
 g3-socks.workspace = true
 g3-dpi.workspace = true
 g3-tls-cert.workspace = true
+g3-openssl.workspace = true
 g3-icap-client.workspace = true
 g3-geoip = { workspace = true, optional = true }
 g3proxy-proto = { path = "proto" }

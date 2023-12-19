@@ -14,19 +14,18 @@
  * limitations under the License.
  */
 
-use std::pin::Pin;
 use std::sync::Arc;
 
 use anyhow::anyhow;
 use tokio::io::BufReader;
 use tokio::net::tcp;
-use tokio_openssl::SslStream;
 
 use g3_daemon::stat::remote::{
     ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStatsWrapper,
 };
 use g3_http::connect::{HttpConnectRequest, HttpConnectResponse};
 use g3_io_ext::{AggregatedIo, LimitedReader, LimitedWriter};
+use g3_openssl::{SslConnector, SslStream};
 use g3_types::net::OpensslClientConfig;
 
 use super::{NextProxyPeerInternal, ProxyFloatHttpPeer};
@@ -135,7 +134,7 @@ impl ProxyFloatHttpPeer {
         let ssl = tls_config
             .build_ssl(tls_name, tcp_notes.upstream.port())
             .map_err(TcpConnectError::InternalTlsClientError)?;
-        let mut stream = SslStream::new(
+        let connector = SslConnector::new(
             ssl,
             AggregatedIo {
                 reader: ups_r,
@@ -144,13 +143,8 @@ impl ProxyFloatHttpPeer {
         )
         .map_err(|e| TcpConnectError::InternalTlsClientError(anyhow::Error::new(e)))?;
 
-        match tokio::time::timeout(
-            tls_config.handshake_timeout,
-            Pin::new(&mut stream).connect(),
-        )
-        .await
-        {
-            Ok(Ok(_)) => Ok(stream),
+        match tokio::time::timeout(tls_config.handshake_timeout, connector.connect()).await {
+            Ok(Ok(stream)) => Ok(stream),
             Ok(Err(e)) => {
                 let e = anyhow::Error::new(e);
                 EscapeLogForTlsHandshake {

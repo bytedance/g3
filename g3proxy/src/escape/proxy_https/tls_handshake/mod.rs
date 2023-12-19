@@ -15,13 +15,12 @@
  */
 
 use std::borrow::Cow;
-use std::pin::Pin;
 
 use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio_openssl::SslStream;
 
 use g3_io_ext::AggregatedIo;
+use g3_openssl::SslConnector;
 
 use super::ProxyHttpsEscaper;
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};
@@ -46,7 +45,7 @@ impl ProxyHttpsEscaper {
             .tls_config
             .build_ssl(&tls_name, peer.port())
             .map_err(TcpConnectError::InternalTlsClientError)?;
-        let mut stream = SslStream::new(
+        let connector = SslConnector::new(
             ssl,
             AggregatedIo {
                 reader: ups_r,
@@ -55,15 +54,9 @@ impl ProxyHttpsEscaper {
         )
         .map_err(|e| TcpConnectError::InternalTlsClientError(anyhow::Error::new(e)))?;
 
-        match tokio::time::timeout(
-            self.tls_config.handshake_timeout,
-            Pin::new(&mut stream).connect(),
-        )
-        .await
-        {
-            Ok(Ok(_)) => {
+        match tokio::time::timeout(self.tls_config.handshake_timeout, connector.connect()).await {
+            Ok(Ok(stream)) => {
                 let (r, w) = tokio::io::split(stream);
-
                 Ok((r, w))
             }
             Ok(Err(e)) => {
