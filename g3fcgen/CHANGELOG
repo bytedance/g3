@@ -1,4 +1,7 @@
 
+v0.6.2:
+ - BUG FIX: fix memory usage in histogram stats
+
 v0.6.1:
  - BUG FIX: fix inspect of listen addr in environment variable
  - Feature: add request duration histogram metrics
