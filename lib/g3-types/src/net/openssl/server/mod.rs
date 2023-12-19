@@ -56,6 +56,7 @@ pub struct OpensslServerConfigBuilder {
     tlcp_cert_pairs: Vec<OpensslTlcpCertificatePair>,
     client_auth: bool,
     client_auth_certs: Vec<Vec<u8>>,
+    session_id_context: String,
     accept_timeout: Duration,
 }
 
@@ -67,6 +68,7 @@ impl OpensslServerConfigBuilder {
             tlcp_cert_pairs: Vec::with_capacity(1),
             client_auth: false,
             client_auth_certs: Vec::new(),
+            session_id_context: String::new(),
             accept_timeout: Duration::from_secs(10),
         }
     }
@@ -101,6 +103,10 @@ impl OpensslServerConfigBuilder {
             self.client_auth_certs.push(bytes);
         }
         Ok(())
+    }
+
+    pub fn set_session_id_context(&mut self, context: String) {
+        self.session_id_context = context;
     }
 
     pub fn push_cert_pair(&mut self, cert_pair: OpensslCertificatePair) -> anyhow::Result<()> {
@@ -243,6 +249,18 @@ impl OpensslServerConfigBuilder {
             }
         } else {
             ssl_builder.set_verify(SslVerifyMode::NONE);
+        }
+
+        if !self.session_id_context.is_empty() {
+            // session id context is required for session reuse when client auth is enabled
+            ssl_builder
+                .set_session_id_context(self.session_id_context.as_bytes())
+                .map_err(|e| {
+                    anyhow!(
+                        "failed to set session id context to {}: {e}",
+                        self.session_id_context
+                    )
+                })?;
         }
 
         // ssl_builder.set_mode() // TODO do we need it?

@@ -33,6 +33,3 @@ pub use tlcp_cert_pair::OpensslTlcpCertificatePair;
 
 mod protocol;
 pub use protocol::OpensslProtocol;
-
-mod session;
-use session::{OpensslClientSessionCache, OpensslSessionCacheConfig};

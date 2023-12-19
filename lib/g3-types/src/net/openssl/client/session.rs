@@ -36,7 +36,7 @@ enum OpensslSessionCacheMethod {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) struct OpensslSessionCacheConfig {
+pub(in crate::net::openssl) struct OpensslSessionCacheConfig {
     method: OpensslSessionCacheMethod,
     sites_count: NonZeroUsize,
     each_capacity: NonZeroUsize,
@@ -53,41 +53,41 @@ impl Default for OpensslSessionCacheConfig {
 }
 
 impl OpensslSessionCacheConfig {
-    pub(super) fn new_for_one() -> Self {
+    pub(in crate::net::openssl) fn new_for_one() -> Self {
         OpensslSessionCacheConfig {
             method: OpensslSessionCacheMethod::ForOne,
             ..Default::default()
         }
     }
 
-    pub(super) fn new_for_many() -> Self {
+    pub(in crate::net::openssl) fn new_for_many() -> Self {
         OpensslSessionCacheConfig {
             method: OpensslSessionCacheMethod::ForMany,
             ..Default::default()
         }
     }
 
-    pub(super) fn set_no_session_cache(&mut self) {
+    pub(in crate::net::openssl) fn set_no_session_cache(&mut self) {
         self.method = OpensslSessionCacheMethod::Off;
     }
 
-    pub(super) fn set_use_builtin_session_cache(&mut self) {
+    pub(in crate::net::openssl) fn set_use_builtin_session_cache(&mut self) {
         self.method = OpensslSessionCacheMethod::Builtin;
     }
 
-    pub(super) fn set_sites_count(&mut self, max: usize) {
+    pub(in crate::net::openssl) fn set_sites_count(&mut self, max: usize) {
         if let Some(max) = NonZeroUsize::new(max) {
             self.sites_count = max;
         }
     }
 
-    pub(super) fn set_each_capacity(&mut self, cap: usize) {
+    pub(in crate::net::openssl) fn set_each_capacity(&mut self, cap: usize) {
         if let Some(cap) = NonZeroUsize::new(cap) {
             self.each_capacity = cap;
         }
     }
 
-    pub(super) fn set_for_client(
+    pub(in crate::net::openssl) fn set_for_client(
         &self,
         ctx_builder: &mut SslContextBuilder,
     ) -> anyhow::Result<Option<OpensslClientSessionCache>> {
@@ -180,13 +180,13 @@ impl SessionCaches {
 }
 
 #[derive(Clone, Copy)]
-pub(super) struct OpensslClientSessionCache {
+pub(in crate::net::openssl) struct OpensslClientSessionCache {
     session_cache_index: Index<SslContext, SessionCaches>,
     session_key_index: Index<Ssl, String>,
 }
 
 impl OpensslClientSessionCache {
-    pub(super) fn new() -> anyhow::Result<Self> {
+    pub(in crate::net::openssl) fn new() -> anyhow::Result<Self> {
         let cache_index = SslContext::new_ex_index().map_err(anyhow::Error::new)?;
         let key_index = Ssl::new_ex_index().map_err(anyhow::Error::new)?;
         Ok(OpensslClientSessionCache {
@@ -219,7 +219,7 @@ impl OpensslClientSessionCache {
         ctx_builder.set_ex_data(session_cache.session_cache_index, caches);
     }
 
-    pub(super) fn find_and_set_cache(
+    pub(in crate::net::openssl) fn find_and_set_cache(
         &self,
         ssl: &mut Ssl,
         tls_name: &str,

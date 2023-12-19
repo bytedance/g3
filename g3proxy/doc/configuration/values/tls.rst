@@ -343,6 +343,14 @@ The map is consists of the following fields:
 
   **default**: disabled
 
+* session_id_context
+
+  **optional**, **type**: str
+
+  Set session id context. This is required if you want to enable session reuse when client auth is enabled.
+
+  .. versionadded:: 1.7.32
+
 * ca_certificate | client_auth_certificate
 
   **optional**, **type**: :ref:`tls certificates <conf_value_tls_certificates>`
