@@ -14,9 +14,7 @@
  * limitations under the License.
  */
 
-use std::borrow::Cow;
 use std::net::{IpAddr, SocketAddr};
-use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -26,13 +24,12 @@ use bytes::Bytes;
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
 use h2::client::SendRequest;
 use http::{HeaderValue, Method, StatusCode};
-use openssl::ssl::SslVerifyMode;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
-use tokio_openssl::SslStream;
 use url::Url;
 
 use g3_io_ext::{AggregatedIo, LimitedStream};
+use g3_openssl::SslStream;
 use g3_types::collection::{SelectiveVec, WeightedValue};
 use g3_types::net::{
     AlpnProtocol, HttpAuth, OpensslClientConfig, OpensslClientConfigBuilder, Proxy, UpstreamAddr,
@@ -309,24 +306,10 @@ impl BenchH2Args {
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
-        let tls_name = self
+        let tls_stream = self
             .target_tls
-            .tls_name
-            .as_ref()
-            .map(|v| Cow::Borrowed(v.as_str()))
-            .unwrap_or_else(|| self.host.host_str());
-        let mut ssl = tls_client
-            .build_ssl(&tls_name, self.host.port())
-            .context("failed to build ssl context")?;
-        if self.target_tls.no_verify {
-            ssl.set_verify(SslVerifyMode::NONE);
-        }
-        let mut tls_stream = SslStream::new(ssl, stream)
-            .map_err(|e| anyhow!("tls connect to {tls_name} failed: {e}"))?;
-        Pin::new(&mut tls_stream)
-            .connect()
-            .await
-            .map_err(|e| anyhow!("tls connect to {tls_name} failed: {e}"))?;
+            .connect_target(tls_client, stream, &self.host)
+            .await?;
         if let Some(alpn) = tls_stream.ssl().selected_alpn_protocol() {
             if AlpnProtocol::from_buf(alpn) != Some(AlpnProtocol::Http2) {
                 return Err(anyhow!("invalid returned alpn protocol: {:?}", alpn));
@@ -341,26 +324,9 @@ impl BenchH2Args {
         peer: &UpstreamAddr,
         stream: TcpStream,
     ) -> anyhow::Result<SslStream<TcpStream>> {
-        let tls_name = self
-            .proxy_tls
-            .tls_name
-            .as_ref()
-            .map(|v| Cow::Borrowed(v.as_str()))
-            .unwrap_or_else(|| peer.host_str());
-        let mut ssl = tls_client
-            .build_ssl(&tls_name, peer.port())
-            .context("failed to build ssl context")?;
-        if self.proxy_tls.no_verify {
-            ssl.set_verify(SslVerifyMode::NONE);
-        }
-        let mut tls_stream = SslStream::new(ssl, stream)
-            .map_err(|e| anyhow!("tls connect to {tls_name} failed: {e}"))?;
-        Pin::new(&mut tls_stream)
-            .connect()
+        self.proxy_tls
+            .connect_target(tls_client, stream, peer)
             .await
-            .map_err(|e| anyhow!("tls connect to {tls_name} failed: {e}"))?;
-
-        Ok(tls_stream)
     }
 
     pub(super) fn build_pre_request_header(&self) -> anyhow::Result<H2PreRequest> {

@@ -14,18 +14,15 @@
  * limitations under the License.
  */
 
-use std::borrow::Cow;
 use std::net::{IpAddr, SocketAddr};
-use std::pin::Pin;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgMatches, Command};
-use openssl::ssl::SslVerifyMode;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
-use tokio_openssl::SslStream;
 
+use g3_openssl::SslStream;
 use g3_types::collection::{SelectiveVec, WeightedValue};
 use g3_types::net::{OpensslClientConfig, OpensslClientConfigBuilder, UpstreamAddr};
 
@@ -117,25 +114,9 @@ impl BenchSslArgs {
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
-        let tls_name = self
-            .tls
-            .tls_name
-            .as_ref()
-            .map(|v| Cow::Borrowed(v.as_str()))
-            .unwrap_or_else(|| self.target.host_str());
-        let mut ssl = tls_client
-            .build_ssl(&tls_name, self.target.port())
-            .context("failed to build ssl context")?;
-        if self.tls.no_verify {
-            ssl.set_verify(SslVerifyMode::NONE);
-        }
-        let mut tls_stream = SslStream::new(ssl, stream)
-            .map_err(|e| anyhow!("tls connect to {tls_name} failed: {e}"))?;
-        Pin::new(&mut tls_stream)
-            .connect()
+        self.tls
+            .connect_target(tls_client, stream, &self.target)
             .await
-            .map_err(|e| anyhow!("tls connect to {tls_name} failed: {e}"))?;
-        Ok(tls_stream)
     }
 }
 

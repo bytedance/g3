@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::borrow::Cow;
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -22,11 +23,14 @@ use std::str::FromStr;
 use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
 use openssl::pkey::{PKey, Private};
+use openssl::ssl::SslVerifyMode;
 use openssl::x509::X509;
+use tokio::io::{AsyncRead, AsyncWrite};
 
+use g3_openssl::{SslConnector, SslStream};
 use g3_types::net::{
     AlpnProtocol, OpensslCertificatePair, OpensslClientConfig, OpensslClientConfigBuilder,
-    OpensslProtocol,
+    OpensslProtocol, UpstreamAddr,
 };
 
 const TLS_ARG_CA_CERT: &str = "tls-ca-cert";
@@ -71,6 +75,35 @@ pub(crate) struct OpensslTlsClientArgs {
 }
 
 impl OpensslTlsClientArgs {
+    pub(crate) async fn connect_target<S>(
+        &self,
+        tls_client: &OpensslClientConfig,
+        stream: S,
+        target: &UpstreamAddr,
+    ) -> anyhow::Result<SslStream<S>>
+    where
+        S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+    {
+        let tls_name = self
+            .tls_name
+            .as_ref()
+            .map(|v| Cow::Borrowed(v.as_str()))
+            .unwrap_or_else(|| target.host_str());
+        let mut ssl = tls_client
+            .build_ssl(&tls_name, target.port())
+            .context("failed to build ssl context")?;
+        if self.no_verify {
+            ssl.set_verify(SslVerifyMode::NONE);
+        }
+        let tls_connector = SslConnector::new(ssl, stream)
+            .map_err(|e| anyhow!("tls connector create failed: {e}"))?;
+        let tls_stream = tls_connector
+            .connect()
+            .await
+            .map_err(|e| anyhow!("tls connect to {tls_name} failed: {e}"))?;
+        Ok(tls_stream)
+    }
+
     fn parse_tls_name(&mut self, args: &ArgMatches, id: &str) {
         if let Some(name) = args.get_one::<String>(id) {
             self.tls_name = Some(name.to_string());

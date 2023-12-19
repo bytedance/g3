@@ -15,7 +15,6 @@
  */
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::pin::Pin;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
@@ -24,8 +23,8 @@ use rand::Rng;
 use rmp::encode::ValueWriteError;
 use sha2::Sha512;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use tokio_openssl::SslStream;
 
+use g3_openssl::SslConnector;
 use g3_types::net::{OpensslClientConfig, OpensslClientConfigBuilder, TcpKeepAliveConfig};
 
 use super::FluentdConnection;
@@ -155,9 +154,9 @@ impl FluentdClientConfig {
             let tls = tls_client
                 .build_ssl(&tls_name, self.server_addr.port())
                 .map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
-            let mut tls_stream = SslStream::new(tls, tcp_stream)
+            let tls_connector = SslConnector::new(tls, tcp_stream)
                 .map_err(|e| anyhow!("failed to setup ssl context: {e}"))?;
-            Pin::new(&mut tls_stream)
+            let tls_stream = tls_connector
                 .connect()
                 .await
                 .map_err(|e| anyhow!("failed to tls connect to peer {tls_name}: {e}"))?;

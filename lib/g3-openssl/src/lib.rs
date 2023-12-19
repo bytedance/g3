@@ -24,3 +24,6 @@ pub use stream::SslStream;
 
 mod accept;
 pub use accept::SslAcceptor;
+
+mod connect;
+pub use connect::SslConnector;

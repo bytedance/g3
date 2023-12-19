@@ -23,8 +23,8 @@ use flume::Receiver;
 use log::warn;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
-use tokio_openssl::SslStream;
 
+use g3_openssl::SslStream;
 use g3_types::log::{AsyncLogConfig, AsyncLogger, LogStats};
 
 mod config;
