@@ -63,11 +63,8 @@ impl From<&SocketAddr> for AddressFamily {
 
 pub fn native_socket_addr(orig: SocketAddr) -> SocketAddr {
     if let SocketAddr::V6(a6) = orig {
-        if let Some(ip4) = a6.ip().to_ipv4_mapped() {
-            SocketAddr::new(IpAddr::V4(ip4), a6.port())
-        } else {
-            orig
-        }
+        // convert back ipv4 mapped address to ipv4
+        SocketAddr::new(a6.ip().to_canonical(), a6.port())
     } else {
         orig
     }
