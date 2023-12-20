@@ -118,7 +118,7 @@ where
 
     fn update_next_read_size(&mut self) {
         const MAX_USIZE: usize = usize::MAX;
-        assert_eq!(self.next_read_size, 0);
+        debug_assert_eq!(self.next_read_size, 0);
         if self.left_total_size > MAX_USIZE as u64 {
             self.next_read_size = MAX_USIZE;
             self.left_total_size -= MAX_USIZE as u64;
@@ -277,7 +277,7 @@ where
         buf: &mut [u8],
         char: u8,
     ) -> Poll<io::Result<usize>> {
-        assert!(b"\r\n".contains(&char));
+        debug_assert!(b"\r\n".contains(&char));
 
         let mut reader = Pin::new(&mut *self.stream);
         let cache = ready!(reader.as_mut().poll_fill_buf(cx))?;

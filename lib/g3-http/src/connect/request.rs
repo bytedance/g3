@@ -37,7 +37,7 @@ impl<'a> HttpConnectRequest<'a> {
     }
 
     pub fn append_dyn_header(&mut self, line: String) {
-        assert!(line.ends_with("\r\n"));
+        debug_assert!(line.ends_with("\r\n"));
         self.dyn_headers.push(line);
     }
 
@@ -55,7 +55,7 @@ impl<'a> HttpConnectRequest<'a> {
             .await?;
         buf_writer.write_all(b"Connection: keep-alive\r\n").await?;
         for line in self.static_headers {
-            assert!(line.ends_with("\r\n"));
+            debug_assert!(line.ends_with("\r\n"));
             buf_writer.write_all(line.as_bytes()).await?;
         }
         for line in &self.dyn_headers {

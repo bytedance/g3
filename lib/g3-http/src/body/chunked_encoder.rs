@@ -101,7 +101,7 @@ impl ChunkedEncodeTransferInternal {
                     .as_mut()
                     .poll_fill_buf(cx)
                     .map_err(LimitedCopyError::ReadFailed))?;
-                assert!(self.left_chunk_size <= data.len());
+                debug_assert!(self.left_chunk_size <= data.len());
                 let nw = ready!(writer
                     .as_mut()
                     .poll_write(cx, &data[..self.left_chunk_size]))

@@ -204,7 +204,7 @@ pub(crate) fn get_all_sorted() -> anyhow::Result<Vec<Arc<AnyServerConfig>>> {
 
     for conf in all_config.iter() {
         let (index, ok) = all_names.insert_full(conf.name().clone());
-        assert!(ok);
+        debug_assert!(ok);
         map_config.insert(index, Arc::clone(conf));
     }
 
