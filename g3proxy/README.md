@@ -180,6 +180,8 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
   - Json based Egress Path Selection
   - Explicit Site Config
     * match by exact ip / exact domain / wildcard domain / subnet
+    * request / client traffic / remote traffic metrics
+    * task duration histogram metrics
 
 ### Audit
 

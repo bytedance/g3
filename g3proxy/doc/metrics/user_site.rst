@@ -141,6 +141,30 @@ The metric names are:
   Show the total datagram packets sent to client.
   Note that this is not available for stream type transport protocols.
 
+Duration
+========
+
+The following tags are set for metrics in this section:
+
+* server
+
+  Set the server name that received the request.
+
+Extra tags set at server side will also be added.
+
+The following tag is also set:
+
+* :ref:`quantile <metrics_tag_quantile>`
+
+The metric names are:
+
+* user.<site_id>.task.ready.duration
+
+  **type**: gauge
+
+  Show the histogram stats for task ready duration, which is corresponding to the
+  :ref:`ready_time <log_task_ready_time>` field in logs.
+
 Upstream Traffic
 ================
 

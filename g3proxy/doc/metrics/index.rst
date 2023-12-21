@@ -52,6 +52,27 @@ The following is the common tags for all metrics:
   - socks_udp_connect
   - socks_udp_associate
 
+.. _metrics_tag_quantile:
+
+* quantile
+
+  Show the quantile value for histogram stats.
+
+  The following values are always persent:
+
+  - min
+  - max
+  - mean
+
+  Values can be added by :ref:`histogram metrics <conf_value_histogram_metrics>` config.
+  If not set, the following values are added by default:
+
+  - 0.50
+  - 0.80
+  - 0.90
+  - 0.95
+  - 0.99
+
 .. toctree::
 
    server

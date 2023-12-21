@@ -124,6 +124,8 @@ Show how many time spent from the acceptation of the request to the creation of 
 For requests that reuse old connection, the start time will be the time we start to polling the next request,
 so you may see very large wait_time in logs. This behaviour may change in future.
 
+.. _log_task_ready_time:
+
 ready_time
 ----------
 
