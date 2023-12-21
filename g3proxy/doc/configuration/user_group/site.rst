@@ -56,6 +56,17 @@ See :ref:`user site metrics <metrics_user_site>` for the definition of metrics.
 
 **default**: false
 
+duration_stats
+--------------
+
+**optional**, **type**: :ref:`histogram metrics <conf_value_histogram_metrics>`
+
+Histogram metrics config for the site level duration stats.
+
+**default**: set with default value
+
+.. versionadded:: 1.7.32
+
 resolve_strategy
 ----------------
 

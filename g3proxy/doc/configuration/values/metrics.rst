@@ -40,6 +40,51 @@ metrics name
 
 The metrics name
 
+.. _conf_value_metrics_quantile:
+
+metrics quantile
+================
+
+**yaml value**: str | float
+
+A quantile value, should be in range 0.0 - 1.0.
+
+It's string value will be used as the value of quantile tag. You should prefer to use str form if you want the tag value
+to be the same as you typed in the config file.
+
+.. _conf_value_histogram_metrics:
+
+histogram metrics
+=================
+
+**yaml value**: map | :ref:`rotate <conf_value_histogram_metrics_rotate>`
+
+Config histogram metrics, such as the quantiles and rotate interval.
+
+The keys are:
+
+quantile
+--------
+
+**optional**, **type**: seq
+
+Set quantile list.
+
+Should be a sequence of :ref:`metrics quantile <conf_value_metrics_quantile>` or a string of them delimited by ','.
+
+**default**: 0.50, 0.80, 0.90, 0.95, 0.99
+
+.. _conf_value_histogram_metrics_rotate:
+
+rotate
+------
+
+**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+Set the rotate interval.
+
+**default**: 4s
+
 .. _conf_value_statsd_client_config:
 
 Statsd Client Config
