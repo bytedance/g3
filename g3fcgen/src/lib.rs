@@ -22,8 +22,6 @@ use anyhow::{anyhow, Context};
 use tokio::runtime::Handle;
 use tokio::time::Instant;
 
-use g3_histogram::{HistogramStats, RotatingHistogram};
-
 pub mod config;
 
 mod build;
@@ -76,16 +74,7 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
         config::get_backend_config().ok_or_else(|| anyhow!("no backend config available"))?;
     let backend_stats = Arc::new(BackendStats::default());
 
-    let duration_stats = if backend_config.request_duration_quantile.is_empty() {
-        Arc::new(HistogramStats::new())
-    } else {
-        Arc::new(HistogramStats::with_quantiles(
-            &backend_config.request_duration_quantile,
-        ))
-    };
-    let (histogram, recorder) =
-        RotatingHistogram::<u64>::new(backend_config.request_duration_rotate);
-    histogram.spawn_refresh(duration_stats.clone());
+    let (duration_recorder, duration_stats) = backend_config.duration_stats.build_spawned();
 
     let workers = g3_daemon::runtime::worker::foreach(|h| {
         let backend = OpensslBackend::new(&backend_config, &backend_stats)
@@ -142,7 +131,7 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
                                 frontend_stats.add_response_total();
                                 match frontend.send_rsp(buf.as_slice(), rsp.peer).await {
                                     Ok(_) => {
-                                        let _ = recorder.record(rsp.duration());
+                                        let _ = duration_recorder.record(rsp.duration());
                                     }
                                     Err(e) => {
                                         frontend_stats.add_response_fail();

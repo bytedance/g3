@@ -20,6 +20,7 @@ use std::net::IpAddr;
 use anyhow::anyhow;
 use ip_network::IpNetwork;
 
+use g3_histogram::HistogramMetricsConfig;
 use g3_types::metrics::MetricsName;
 use g3_types::net::Host;
 use g3_types::resolve::ResolveStrategy;
@@ -36,6 +37,7 @@ pub(crate) struct UserSiteConfig {
     pub(crate) child_match_domain: BTreeSet<String>,
     pub(crate) emit_stats: bool,
     pub(crate) resolve_strategy: Option<ResolveStrategy>,
+    pub(crate) duration_stats: HistogramMetricsConfig,
 }
 
 impl UserSiteConfig {

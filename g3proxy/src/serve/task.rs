@@ -149,5 +149,8 @@ impl ServerTaskNotes {
     pub(crate) fn mark_relaying(&mut self) {
         self.stage = ServerTaskStage::Relaying;
         self.ready_time = self.create_ins.elapsed();
+        if let Some(user_ctx) = &self.user_ctx {
+            user_ctx.record_task_ready(self.ready_time);
+        }
     }
 }

@@ -20,7 +20,7 @@ use ahash::AHashMap;
 use once_cell::sync::Lazy;
 
 use g3_daemon::listen::{ListenSnapshot, ListenStats};
-use g3_daemon::metrics::ServerMetricExt;
+use g3_daemon::metrics::{ServerMetricExt, TAG_KEY_QUANTILE, TAG_KEY_REQUEST};
 use g3_histogram::HistogramStats;
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
 use g3_types::stats::StatId;
@@ -29,9 +29,7 @@ use crate::serve::{
     KeyServerDurationStats, KeyServerRequestSnapshot, KeyServerSnapshot, KeyServerStats,
 };
 
-const TAG_KEY_REQUEST: &str = "request";
 const TAG_KEY_REASON: &str = "reason";
-const TAG_KEY_QUANTILE: &str = "quantile";
 
 const METRIC_NAME_SERVER_TASK_TOTAL: &str = "server.task.total";
 const METRIC_NAME_SERVER_TASK_ALIVE: &str = "server.task.alive";

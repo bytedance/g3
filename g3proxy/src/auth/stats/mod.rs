@@ -27,3 +27,6 @@ pub(crate) use traffic::{
 
 mod site;
 pub(crate) use site::UserSiteStats;
+
+mod duration;
+pub(crate) use duration::{UserSiteDurationRecorder, UserSiteDurationStats};

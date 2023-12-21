@@ -64,9 +64,15 @@ impl UserSiteConfig {
                 }
                 Ok(())
             }
-            "emit_stats" => {
+            "emit_stats" | "emit_metrics" => {
                 self.emit_stats = g3_json::value::as_bool(v)
                     .context(format!("invalid bool value for key {k}"))?;
+                Ok(())
+            }
+            "duration_stats" | "duration_metrics" => {
+                self.duration_stats = g3_json::value::as_histogram_metrics_config(v).context(
+                    format!("invalid histogram metrics config value for key {k}"),
+                )?;
                 Ok(())
             }
             "resolve_strategy" => {

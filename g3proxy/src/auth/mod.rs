@@ -45,8 +45,8 @@ pub(crate) use user::{User, UserContext};
 mod stats;
 pub(crate) use stats::{
     UserForbiddenSnapshot, UserForbiddenStats, UserRequestSnapshot, UserRequestStats,
-    UserSiteStats, UserTrafficSnapshot, UserTrafficStats, UserUpstreamTrafficSnapshot,
-    UserUpstreamTrafficStats,
+    UserSiteDurationRecorder, UserSiteDurationStats, UserSiteStats, UserTrafficSnapshot,
+    UserTrafficStats, UserUpstreamTrafficSnapshot, UserUpstreamTrafficStats,
 };
 
 mod source;

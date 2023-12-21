@@ -19,19 +19,22 @@ use std::sync::{Arc, Mutex};
 use ahash::AHashMap;
 use once_cell::sync::Lazy;
 
-use g3_statsd_client::StatsdClient;
+use g3_daemon::metrics::TAG_KEY_QUANTILE;
+use g3_statsd_client::{StatsdClient, StatsdTagGroup};
 use g3_types::metrics::MetricsName;
 use g3_types::stats::StatId;
 
-use super::{RequestStatsNamesRef, TrafficStatsNamesRef};
+use super::{RequestStatsNamesRef, TrafficStatsNamesRef, UserMetricExt};
 use crate::auth::{
-    UserRequestSnapshot, UserRequestStats, UserTrafficSnapshot, UserTrafficStats,
-    UserUpstreamTrafficSnapshot, UserUpstreamTrafficStats,
+    UserRequestSnapshot, UserRequestStats, UserSiteDurationStats, UserTrafficSnapshot,
+    UserTrafficStats, UserUpstreamTrafficSnapshot, UserUpstreamTrafficStats,
 };
 
 static STORE_REQUEST_STATS_MAP: Lazy<Mutex<AHashMap<StatId, RequestStatsValue>>> =
     Lazy::new(|| Mutex::new(AHashMap::new()));
 static STORE_TRAFFIC_STATS_MAP: Lazy<Mutex<AHashMap<StatId, TrafficStatsValue>>> =
+    Lazy::new(|| Mutex::new(AHashMap::new()));
+static STORE_DURATION_STATS_MAP: Lazy<Mutex<AHashMap<StatId, DurationStatsValue>>> =
     Lazy::new(|| Mutex::new(AHashMap::new()));
 static STORE_UPSTREAM_TRAFFIC_STATS_MAP: Lazy<Mutex<AHashMap<StatId, UpstreamTrafficStatsValue>>> =
     Lazy::new(|| Mutex::new(AHashMap::new()));
@@ -39,6 +42,8 @@ static STORE_UPSTREAM_TRAFFIC_STATS_MAP: Lazy<Mutex<AHashMap<StatId, UpstreamTra
 static USER_SITE_REQUEST_STATS_MAP: Lazy<Mutex<AHashMap<StatId, RequestStatsValue>>> =
     Lazy::new(|| Mutex::new(AHashMap::new()));
 static USER_SITE_TRAFFIC_STATS_MAP: Lazy<Mutex<AHashMap<StatId, TrafficStatsValue>>> =
+    Lazy::new(|| Mutex::new(AHashMap::new()));
+static USER_SITE_DURATION_STATS_MAP: Lazy<Mutex<AHashMap<StatId, DurationStatsValue>>> =
     Lazy::new(|| Mutex::new(AHashMap::new()));
 static USER_SITE_UPSTREAM_TRAFFIC_STATS_MAP: Lazy<
     Mutex<AHashMap<StatId, UpstreamTrafficStatsValue>>,
@@ -95,6 +100,18 @@ impl TrafficStatsNames {
     }
 }
 
+struct DurationStatsNames {
+    task_ready: String,
+}
+
+impl DurationStatsNames {
+    fn new_for_client(site_id: &MetricsName) -> Self {
+        DurationStatsNames {
+            task_ready: format!("user.site.{site_id}.task.ready.duration"),
+        }
+    }
+}
+
 struct RequestStatsValue {
     stats: Arc<UserRequestStats>,
     snap: UserRequestSnapshot,
@@ -123,6 +140,20 @@ impl TrafficStatsValue {
             stats,
             snap: Default::default(),
             names: TrafficStatsNames::new_for_client(site_id),
+        }
+    }
+}
+
+struct DurationStatsValue {
+    stats: Arc<UserSiteDurationStats>,
+    names: DurationStatsNames,
+}
+
+impl DurationStatsValue {
+    fn new(stats: Arc<UserSiteDurationStats>, site_id: &MetricsName) -> Self {
+        DurationStatsValue {
+            stats,
+            names: DurationStatsNames::new_for_client(site_id),
         }
     }
 }
@@ -157,6 +188,13 @@ pub(crate) fn push_traffic_stats(stats: Arc<UserTrafficStats>, site_id: &Metrics
     ht.insert(k, v);
 }
 
+pub(crate) fn push_duration_stats(stats: Arc<UserSiteDurationStats>, site_id: &MetricsName) {
+    let k = stats.stat_id();
+    let v = DurationStatsValue::new(stats, site_id);
+    let mut ht = STORE_DURATION_STATS_MAP.lock().unwrap();
+    ht.insert(k, v);
+}
+
 pub(crate) fn push_upstream_traffic_stats(
     stats: Arc<UserUpstreamTrafficStats>,
     site_id: &MetricsName,
@@ -172,6 +210,7 @@ pub(in crate::stat) fn sync_stats() {
 
     move_ht(&STORE_REQUEST_STATS_MAP, &USER_SITE_REQUEST_STATS_MAP);
     move_ht(&STORE_TRAFFIC_STATS_MAP, &USER_SITE_TRAFFIC_STATS_MAP);
+    move_ht(&STORE_DURATION_STATS_MAP, &USER_SITE_DURATION_STATS_MAP);
     move_ht(
         &STORE_UPSTREAM_TRAFFIC_STATS_MAP,
         &USER_SITE_UPSTREAM_TRAFFIC_STATS_MAP,
@@ -210,6 +249,14 @@ pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
     });
     drop(io_stats_map);
 
+    let mut dur_stats_map = USER_SITE_DURATION_STATS_MAP.lock().unwrap();
+    dur_stats_map.retain(|_, v| {
+        emit_site_duration_stats(client, &v.stats, &v.names);
+        // use Arc instead of Weak here, as we should emit the final metrics before drop it
+        Arc::strong_count(&v.stats) > 1
+    });
+    drop(dur_stats_map);
+
     let mut upstream_io_stats_map = USER_SITE_UPSTREAM_TRAFFIC_STATS_MAP.lock().unwrap();
     upstream_io_stats_map.retain(|_, v| {
         let names = TrafficStatsNamesRef {
@@ -223,4 +270,29 @@ pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
         Arc::strong_count(&v.stats) > 1
     });
     drop(upstream_io_stats_map);
+}
+
+fn emit_site_duration_stats<'a>(
+    client: &'a mut StatsdClient,
+    stats: &'a UserSiteDurationStats,
+    names: &'a DurationStatsNames,
+) {
+    let mut common_tags = StatsdTagGroup::default();
+    common_tags.add_user_request_tags(
+        stats.user_group(),
+        stats.user(),
+        stats.user_type(),
+        stats.server(),
+        stats.stat_id(),
+    );
+    if let Some(server_extra_tags) = stats.server_extra_tags() {
+        common_tags.add_static_tags(&server_extra_tags);
+    }
+
+    stats.task_ready.foreach_stat(|_, quantile, v| {
+        client
+            .gauge_float_with_tags(&names.task_ready, v, &common_tags)
+            .with_tag(TAG_KEY_QUANTILE, quantile)
+            .send();
+    });
 }

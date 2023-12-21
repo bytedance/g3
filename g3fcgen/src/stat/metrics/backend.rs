@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use g3_daemon::metrics::TAG_KEY_QUANTILE;
 use g3_histogram::HistogramStats;
 use g3_statsd_client::StatsdClient;
 
@@ -37,7 +38,7 @@ pub(crate) fn emit_duration_stats(client: &mut StatsdClient, s: &HistogramStats)
     s.foreach_stat(|_, qs, v| {
         client
             .gauge_float("backend.request_duration", v)
-            .with_tag("quantile", qs)
+            .with_tag(TAG_KEY_QUANTILE, qs)
             .send();
     });
 }

@@ -110,7 +110,7 @@ static USER_TRAFFIC_STATS_MAP: Lazy<Mutex<AHashMap<StatId, TrafficStatsValue>>> 
 static USER_UPSTREAM_TRAFFIC_STATS_MAP: Lazy<Mutex<AHashMap<StatId, UpstreamTrafficStatsValue>>> =
     Lazy::new(|| Mutex::new(AHashMap::new()));
 
-trait UserMetricExt {
+pub(super) trait UserMetricExt {
     fn add_user_request_tags(
         &mut self,
         user_group: &MetricsName,

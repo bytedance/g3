@@ -66,3 +66,8 @@ pub use self::openssl::{
 mod route;
 #[cfg(feature = "route")]
 pub use route::*;
+
+#[cfg(feature = "histogram")]
+mod histogram;
+#[cfg(feature = "histogram")]
+pub use histogram::{as_histogram_metrics_config, as_quantile, as_quantile_list};

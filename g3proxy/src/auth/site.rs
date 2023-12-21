@@ -16,22 +16,31 @@
 
 use std::iter::Iterator;
 use std::net::IpAddr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use ahash::AHashMap;
+use arc_swap::ArcSwapOption;
 use ip_network_table::IpNetworkTable;
 use radix_trie::Trie;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::net::{Host, UpstreamAddr};
 use g3_types::resolve::ResolveStrategy;
 
-use crate::auth::stats::UserSiteStats;
+use super::stats::{UserSiteDurationRecorder, UserSiteStats};
+use super::{UserSiteDurationStats, UserType};
 use crate::config::auth::UserSiteConfig;
+
+struct DurationValue {
+    recorder: Arc<UserSiteDurationRecorder>,
+    // we have to keep a reference here, or it will be dropped in metrics
+    _stats: Arc<UserSiteDurationStats>,
+}
 
 pub(super) struct UserSite {
     config: Arc<UserSiteConfig>,
     stats: Arc<UserSiteStats>,
+    duration_recorder: Arc<Mutex<AHashMap<String, DurationValue>>>,
 }
 
 impl UserSite {
@@ -39,13 +48,23 @@ impl UserSite {
         UserSite {
             config: Arc::clone(config),
             stats: Arc::new(UserSiteStats::new(user, user_group, &config.id)),
+            duration_recorder: Arc::new(Mutex::new(AHashMap::new())),
         }
     }
 
     fn new_for_reload(&self, config: &Arc<UserSiteConfig>) -> Self {
-        UserSite {
-            config: Arc::clone(config),
-            stats: self.stats.clone(),
+        if self.config.duration_stats != config.duration_stats {
+            UserSite {
+                config: Arc::clone(config),
+                stats: self.stats.clone(),
+                duration_recorder: Arc::new(Mutex::new(AHashMap::new())),
+            }
+        } else {
+            UserSite {
+                config: Arc::clone(config),
+                stats: self.stats.clone(),
+                duration_recorder: self.duration_recorder.clone(),
+            }
         }
     }
 
@@ -62,6 +81,43 @@ impl UserSite {
     #[inline]
     pub(super) fn resolve_strategy(&self) -> Option<ResolveStrategy> {
         self.config.resolve_strategy
+    }
+
+    pub(crate) fn fetch_duration_recorder(
+        &self,
+        user_type: UserType,
+        server: &MetricsName,
+        server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+    ) -> Arc<UserSiteDurationRecorder> {
+        let mut new_stats = None;
+
+        let mut map = self.duration_recorder.lock().unwrap();
+        let recorder = map
+            .entry(server.to_string())
+            .or_insert_with(|| {
+                let (recorder, stats) = UserSiteDurationRecorder::new(
+                    self.stats.user_group(),
+                    self.stats.user(),
+                    user_type,
+                    server,
+                    server_extra_tags,
+                    &self.config.duration_stats,
+                );
+                new_stats = Some(stats.clone());
+                DurationValue {
+                    recorder: Arc::new(recorder),
+                    _stats: stats,
+                }
+            })
+            .recorder
+            .clone();
+        drop(map);
+
+        if let Some(stats) = new_stats {
+            crate::stat::user_site::push_duration_stats(stats, &self.config.id);
+        }
+
+        recorder
     }
 }
 

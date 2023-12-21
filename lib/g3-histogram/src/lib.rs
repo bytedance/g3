@@ -28,3 +28,6 @@ pub use stats::HistogramStats;
 
 mod quantile;
 pub use quantile::Quantile;
+
+mod config;
+pub use config::HistogramMetricsConfig;

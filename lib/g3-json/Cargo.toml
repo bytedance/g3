@@ -21,6 +21,7 @@ rustls = { workspace = true, optional = true }
 rustls-pemfile = { workspace = true, optional = true }
 openssl = { workspace = true, optional = true }
 g3-types.workspace = true
+g3-histogram = { workspace = true, optional = true }
 
 [features]
 default = []
@@ -32,3 +33,4 @@ rustls = ["g3-types/rustls", "dep:rustls", "dep:rustls-pemfile"]
 openssl = ["g3-types/openssl", "dep:openssl"]
 vendored-tongsuo = ["openssl", "g3-types/vendored-tongsuo"]
 route = ["g3-types/route"]
+histogram = ["dep:g3-histogram"]

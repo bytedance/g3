@@ -45,6 +45,16 @@ impl UserSiteStats {
         }
     }
 
+    #[inline]
+    pub(crate) fn user_group(&self) -> &MetricsName {
+        &self.user_group
+    }
+
+    #[inline]
+    pub(crate) fn user(&self) -> &str {
+        &self.user
+    }
+
     pub(crate) fn fetch_request_stats(
         &self,
         user_type: UserType,

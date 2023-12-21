@@ -14,17 +14,15 @@
  * limitations under the License.
  */
 
-use std::collections::BTreeSet;
 use std::sync::Arc;
 use std::sync::OnceLock;
-use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
 use yaml_rust::Yaml;
 
-use g3_histogram::Quantile;
+use g3_histogram::HistogramMetricsConfig;
 
 static BACKEND_CONFIG_LOCK: OnceLock<Arc<OpensslBackendConfig>> = OnceLock::new();
 
@@ -36,8 +34,7 @@ pub(crate) struct OpensslBackendConfig {
     pub(crate) ca_cert: X509,
     pub(crate) ca_key: PKey<Private>,
     pub(crate) ca_cert_pem: Vec<u8>,
-    pub(crate) request_duration_quantile: BTreeSet<Quantile>,
-    pub(crate) request_duration_rotate: Duration,
+    pub(crate) duration_stats: HistogramMetricsConfig,
 }
 
 pub(super) fn load_config(value: &Yaml) -> anyhow::Result<()> {
@@ -46,8 +43,7 @@ pub(super) fn load_config(value: &Yaml) -> anyhow::Result<()> {
         let mut ca_cert_pem = Vec::new();
         let mut ca_cert: Option<X509> = None;
         let mut ca_key: Option<PKey<Private>> = None;
-        let mut request_duration_quantile = BTreeSet::new();
-        let mut request_duration_rotate = Duration::from_secs(4);
+        let mut duration_stats = HistogramMetricsConfig::default();
         let lookup_dir = g3_daemon::config::get_lookup_dir(None)?;
 
         g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
@@ -78,12 +74,10 @@ pub(super) fn load_config(value: &Yaml) -> anyhow::Result<()> {
                 no_append_ca_cert = g3_yaml::value::as_bool(v)?;
                 Ok(())
             }
-            "request_duration_quantile" => {
-                request_duration_quantile = g3_yaml::value::as_quantile_list(v)?;
-                Ok(())
-            }
-            "request_duration_rotate" => {
-                request_duration_rotate = g3_yaml::humanize::as_duration(v)?;
+            "duration_stats" | "duration_metrics" => {
+                duration_stats = g3_yaml::value::as_histogram_metrics_config(v).context(
+                    format!("invalid histogram metrics config value for key {k}"),
+                )?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
@@ -104,8 +98,7 @@ pub(super) fn load_config(value: &Yaml) -> anyhow::Result<()> {
                 ca_cert,
                 ca_key,
                 ca_cert_pem,
-                request_duration_quantile,
-                request_duration_rotate,
+                duration_stats,
             }))
             .map_err(|_| anyhow!("duplicate backend config"))?;
         Ok(())

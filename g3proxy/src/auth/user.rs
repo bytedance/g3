@@ -18,6 +18,7 @@ use std::cmp::PartialEq;
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use ahash::AHashMap;
 use arc_swap::ArcSwapOption;
@@ -34,8 +35,8 @@ use g3_types::net::{HttpHeaderMap, ProxyRequestType, UpstreamAddr};
 use g3_types::resolve::{ResolveRedirection, ResolveStrategy};
 
 use super::{
-    UserForbiddenStats, UserRequestStats, UserSite, UserSiteStats, UserSites, UserTrafficStats,
-    UserType, UserUpstreamTrafficStats,
+    UserForbiddenStats, UserRequestStats, UserSite, UserSiteDurationRecorder, UserSiteStats,
+    UserSites, UserTrafficStats, UserType, UserUpstreamTrafficStats,
 };
 use crate::config::auth::{UserAuditConfig, UserConfig};
 
@@ -557,6 +558,7 @@ pub(crate) struct UserContext {
     req_stats: Arc<UserRequestStats>,
     site_stats: Option<Arc<UserSiteStats>>,
     site_req_stats: Option<Arc<UserRequestStats>>,
+    site_duration_recorder: Option<Arc<UserSiteDurationRecorder>>,
     reused_client_connection: bool,
 }
 
@@ -579,6 +581,7 @@ impl UserContext {
             req_stats,
             site_stats: None,
             site_req_stats: None,
+            site_duration_recorder: None,
             reused_client_connection: false,
         }
     }
@@ -602,6 +605,11 @@ impl UserContext {
                     server_extra_tags,
                 ));
                 self.site_stats = Some(user_site_stats);
+                self.site_duration_recorder = Some(user_site.fetch_duration_recorder(
+                    self.user_type,
+                    server,
+                    server_extra_tags,
+                ));
             }
 
             self.user_site = Some(user_site);
@@ -701,6 +709,12 @@ impl UserContext {
         }
 
         all_stats
+    }
+
+    pub(crate) fn record_task_ready(&self, dur: Duration) {
+        if let Some(r) = &self.site_duration_recorder {
+            r.record_task_ready(dur);
+        }
     }
 
     #[inline]

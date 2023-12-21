@@ -68,7 +68,7 @@ pub use statsd::as_statsd_client_config;
 #[cfg(feature = "histogram")]
 mod histogram;
 #[cfg(feature = "histogram")]
-pub use histogram::{as_quantile, as_quantile_list};
+pub use histogram::{as_histogram_metrics_config, as_quantile, as_quantile_list};
 
 #[cfg(feature = "resolve")]
 mod resolve;

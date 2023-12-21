@@ -14,14 +14,12 @@
  * limitations under the License.
  */
 
-use std::collections::BTreeSet;
 use std::sync::atomic::{AtomicI32, AtomicIsize, AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
 
 use arc_swap::ArcSwapOption;
 
-use g3_histogram::{HistogramRecorder, HistogramStats, Quantile, RotatingHistogram};
+use g3_histogram::{HistogramMetricsConfig, HistogramRecorder, HistogramStats, RotatingHistogram};
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::StatId;
 
@@ -282,24 +280,23 @@ pub(crate) struct KeyServerDurationRecorder {
 impl KeyServerDurationRecorder {
     pub(crate) fn new(
         name: &MetricsName,
-        quantile: &BTreeSet<Quantile>,
-        rotate_interval: Duration,
-    ) -> (KeyServerDurationRecorder, KeyServerDurationStats) {
-        let (ping_pong_r, ping_pong_s) = create_duration_pair(quantile, rotate_interval);
-        let (rsa_decrypt_r, rsa_decrypt_s) = create_duration_pair(quantile, rotate_interval);
-        let (rsa_sign_r, rsa_sign_s) = create_duration_pair(quantile, rotate_interval);
-        let (rsa_pss_sign_r, rsa_pss_sign_s) = create_duration_pair(quantile, rotate_interval);
-        let (ecdsa_sign_r, ecdsa_sign_s) = create_duration_pair(quantile, rotate_interval);
-        let (ed25519_sign_r, ed25519_sign_s) = create_duration_pair(quantile, rotate_interval);
-        let (_, noop_r) = RotatingHistogram::new(rotate_interval);
+        config: &HistogramMetricsConfig,
+    ) -> (KeyServerDurationRecorder, Arc<KeyServerDurationStats>) {
+        let (ping_pong_r, ping_pong_s) = config.build_spawned();
+        let (rsa_decrypt_r, rsa_decrypt_s) = config.build_spawned();
+        let (rsa_sign_r, rsa_sign_s) = config.build_spawned();
+        let (rsa_pss_sign_r, rsa_pss_sign_s) = config.build_spawned();
+        let (ecdsa_sign_r, ecdsa_sign_s) = config.build_spawned();
+        let (ed25519_sign_r, ed25519_sign_s) = config.build_spawned();
+        let (_, noop_r) = RotatingHistogram::new(config.rotate_interval());
 
         let r = KeyServerDurationRecorder {
-            ping_pong: ping_pong_r,
-            rsa_decrypt: rsa_decrypt_r,
-            rsa_sign: rsa_sign_r,
-            rsa_pss_sign: rsa_pss_sign_r,
-            ecdsa_sign: ecdsa_sign_r,
-            ed25519_sign: ed25519_sign_r,
+            ping_pong: Arc::new(ping_pong_r),
+            rsa_decrypt: Arc::new(rsa_decrypt_r),
+            rsa_sign: Arc::new(rsa_sign_r),
+            rsa_pss_sign: Arc::new(rsa_pss_sign_r),
+            ecdsa_sign: Arc::new(ecdsa_sign_r),
+            ed25519_sign: Arc::new(ed25519_sign_r),
             noop: Arc::new(noop_r),
         };
         let s = KeyServerDurationStats {
@@ -314,20 +311,6 @@ impl KeyServerDurationRecorder {
             ecdsa_sign: ecdsa_sign_s,
             ed25519_sign: ed25519_sign_s,
         };
-        (r, s)
+        (r, Arc::new(s))
     }
-}
-
-fn create_duration_pair(
-    quantile: &BTreeSet<Quantile>,
-    rotate_interval: Duration,
-) -> (Arc<HistogramRecorder<u64>>, Arc<HistogramStats>) {
-    let (h, r) = RotatingHistogram::new(rotate_interval);
-    let stats = if quantile.is_empty() {
-        Arc::new(HistogramStats::default())
-    } else {
-        Arc::new(HistogramStats::with_quantiles(quantile))
-    };
-    h.spawn_refresh(stats.clone());
-    (Arc::new(r), stats)
 }

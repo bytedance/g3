@@ -31,6 +31,7 @@ pub const TAG_KEY_STAT_ID: &str = "stat_id";
 pub const TAG_KEY_TRANSPORT: &str = "transport";
 pub const TAG_KEY_CONNECTION: &str = "connection";
 pub const TAG_KEY_REQUEST: &str = "request";
+pub const TAG_KEY_QUANTILE: &str = "quantile";
 
 pub const TRANSPORT_TYPE_TCP: &str = "tcp";
 pub const TRANSPORT_TYPE_UDP: &str = "udp";

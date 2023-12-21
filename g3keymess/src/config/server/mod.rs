@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::collections::BTreeSet;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
@@ -24,7 +23,7 @@ use ascii::AsciiString;
 use slog::Logger;
 use yaml_rust::{yaml, Yaml};
 
-use g3_histogram::Quantile;
+use g3_histogram::HistogramMetricsConfig;
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::net::TcpListenConfig;
 use g3_yaml::{HybridParser, YamlDocPosition};
@@ -41,8 +40,7 @@ pub(crate) struct KeyServerConfig {
     pub(crate) listen: TcpListenConfig,
     pub(crate) multiplex_queue_depth: usize,
     pub(crate) request_read_timeout: Duration,
-    pub(crate) request_duration_quantile: BTreeSet<Quantile>,
-    pub(crate) request_duration_rotate: Duration,
+    pub(crate) duration_stats: HistogramMetricsConfig,
     pub(crate) async_op_timeout: Duration,
     pub(crate) concurrency_limit: usize,
     pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
@@ -57,8 +55,7 @@ impl KeyServerConfig {
             listen: TcpListenConfig::default(),
             multiplex_queue_depth: 0,
             request_read_timeout: Duration::from_millis(100),
-            request_duration_quantile: BTreeSet::new(),
-            request_duration_rotate: Duration::from_secs(4),
+            duration_stats: HistogramMetricsConfig::default(),
             async_op_timeout: Duration::from_millis(10),
             concurrency_limit: 0,
             extra_metrics_tags: None,
@@ -117,12 +114,10 @@ impl KeyServerConfig {
                 self.request_read_timeout = g3_yaml::humanize::as_duration(v)?;
                 Ok(())
             }
-            "request_duration_quantile" => {
-                self.request_duration_quantile = g3_yaml::value::as_quantile_list(v)?;
-                Ok(())
-            }
-            "request_duration_rotate" => {
-                self.request_duration_rotate = g3_yaml::humanize::as_duration(v)?;
+            "duration_stats" | "duration_metrics" => {
+                self.duration_stats = g3_yaml::value::as_histogram_metrics_config(v).context(
+                    format!("invalid histogram metrics config value for key {k}"),
+                )?;
                 Ok(())
             }
             "async_op_timeout" => {
