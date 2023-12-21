@@ -74,7 +74,7 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
         config::get_backend_config().ok_or_else(|| anyhow!("no backend config available"))?;
     let backend_stats = Arc::new(BackendStats::default());
 
-    let (duration_recorder, duration_stats) = backend_config.duration_stats.build_spawned();
+    let (duration_recorder, duration_stats) = backend_config.duration_stats.build_spawned(None);
 
     let workers = g3_daemon::runtime::worker::foreach(|h| {
         let backend = OpensslBackend::new(&backend_config, &backend_stats)

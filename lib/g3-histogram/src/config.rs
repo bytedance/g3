@@ -19,6 +19,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use hdrhistogram::Counter;
+use tokio::runtime::Handle;
 
 use crate::{HistogramRecorder, HistogramStats, Quantile, RotatingHistogram};
 
@@ -51,7 +52,10 @@ impl HistogramMetricsConfig {
         self.rotate_interval
     }
 
-    pub fn build_spawned<T>(&self) -> (HistogramRecorder<T>, Arc<HistogramStats>)
+    pub fn build_spawned<T>(
+        &self,
+        handle: Option<Handle>,
+    ) -> (HistogramRecorder<T>, Arc<HistogramStats>)
     where
         T: Counter + Send + 'static,
     {
@@ -61,7 +65,7 @@ impl HistogramMetricsConfig {
         } else {
             Arc::new(HistogramStats::with_quantiles(&self.quantile_list))
         };
-        h.spawn_refresh(Arc::clone(&stats));
+        h.spawn_refresh(Arc::clone(&stats), handle);
         (r, stats)
     }
 }

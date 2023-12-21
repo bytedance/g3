@@ -51,7 +51,7 @@ where
     T: Send + 'static,
     F: Future<Output = anyhow::Result<T>> + Send + 'static,
 {
-    g3_daemon::control::bridge::main_runtime_handle()
+    g3_daemon::runtime::main_handle()
         .ok_or(anyhow!("unable to get main runtime handle"))?
         .spawn(future)
         .await

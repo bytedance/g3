@@ -100,7 +100,8 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
     rt.block_on(async {
         let ret: anyhow::Result<()> = Ok(());
 
-        g3_daemon::control::bridge::set_main_runtime_handle();
+        g3_daemon::runtime::set_main_handle();
+
         let ctl_thread_handler = g3proxy::control::capnp::spawn_working_thread().await?;
 
         let unique_ctl = g3proxy::control::UniqueController::start()

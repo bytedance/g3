@@ -20,7 +20,7 @@ mod reload;
 pub(super) use reload::reload_server;
 
 pub(crate) async fn offline() -> anyhow::Result<()> {
-    g3_daemon::control::bridge::main_runtime_handle()
+    g3_daemon::runtime::main_handle()
         .ok_or(anyhow!("unable to get main runtime handle"))?
         .spawn(async move { crate::control::DaemonController::abort().await })
         .await

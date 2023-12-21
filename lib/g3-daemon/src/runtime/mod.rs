@@ -14,5 +14,18 @@
  * limitations under the License.
  */
 
+use tokio::runtime::Handle;
+
 pub mod config;
 pub mod worker;
+
+static mut MAIN_HANDLE: Option<Handle> = None;
+
+pub fn main_handle() -> Option<&'static Handle> {
+    unsafe { MAIN_HANDLE.as_ref() }
+}
+
+pub fn set_main_handle() {
+    let handle = Handle::current();
+    unsafe { MAIN_HANDLE = Some(handle) }
+}

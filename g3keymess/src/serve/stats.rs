@@ -282,12 +282,12 @@ impl KeyServerDurationRecorder {
         name: &MetricsName,
         config: &HistogramMetricsConfig,
     ) -> (KeyServerDurationRecorder, Arc<KeyServerDurationStats>) {
-        let (ping_pong_r, ping_pong_s) = config.build_spawned();
-        let (rsa_decrypt_r, rsa_decrypt_s) = config.build_spawned();
-        let (rsa_sign_r, rsa_sign_s) = config.build_spawned();
-        let (rsa_pss_sign_r, rsa_pss_sign_s) = config.build_spawned();
-        let (ecdsa_sign_r, ecdsa_sign_s) = config.build_spawned();
-        let (ed25519_sign_r, ed25519_sign_s) = config.build_spawned();
+        let (ping_pong_r, ping_pong_s) = config.build_spawned(None);
+        let (rsa_decrypt_r, rsa_decrypt_s) = config.build_spawned(None);
+        let (rsa_sign_r, rsa_sign_s) = config.build_spawned(None);
+        let (rsa_pss_sign_r, rsa_pss_sign_s) = config.build_spawned(None);
+        let (ecdsa_sign_r, ecdsa_sign_s) = config.build_spawned(None);
+        let (ed25519_sign_r, ed25519_sign_s) = config.build_spawned(None);
         let (_, noop_r) = RotatingHistogram::new(config.rotate_interval());
 
         let r = KeyServerDurationRecorder {

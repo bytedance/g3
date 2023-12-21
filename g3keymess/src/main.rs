@@ -103,7 +103,8 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
     rt.block_on(async {
         let ret: anyhow::Result<()> = Ok(());
 
-        g3_daemon::control::bridge::set_main_runtime_handle();
+        g3_daemon::runtime::set_main_handle();
+
         let ctl_thread_handler = g3keymess::control::capnp::spawn_working_thread().await?;
 
         let unique_controller = g3keymess::control::UniqueController::create()
