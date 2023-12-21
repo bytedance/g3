@@ -95,7 +95,7 @@ where
     T: Counter + Send + 'static,
 {
     pub fn spawn_refresh(mut self, stats: Arc<HistogramStats>, handle: Option<Handle>) {
-        let handle = handle.unwrap_or_else(|| Handle::current());
+        let handle = handle.unwrap_or_else(Handle::current);
         handle.spawn(async move {
             const BATCH_SIZE: usize = 16;
             let mut buf = Vec::with_capacity(BATCH_SIZE);
