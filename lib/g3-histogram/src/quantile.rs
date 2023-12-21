@@ -20,8 +20,7 @@ use std::num::ParseFloatError;
 use std::str::FromStr;
 use std::string::ToString;
 
-use num_traits::FromPrimitive;
-use rust_decimal::Decimal;
+use ryu::Buffer;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -88,9 +87,8 @@ impl TryFrom<f64> for Quantile {
 
     fn try_from(v: f64) -> Result<Self, Self::Error> {
         quantile_in_range(v)?;
-        let s = Decimal::from_f64(v)
-            .map(|d| d.to_string())
-            .unwrap_or_else(|| v.to_string());
+        let mut b = Buffer::new();
+        let s = b.format_finite(v).to_string();
         Ok(Quantile {
             v,
             s: Cow::Owned(s),
@@ -128,5 +126,37 @@ impl PartialOrd for Quantile {
 impl Ord for Quantile {
     fn cmp(&self, other: &Self) -> Ordering {
         self.v.total_cmp(&other.v)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fmt_f64() {
+        let quantile = Quantile::try_from(1.0).unwrap();
+        assert_eq!(quantile.as_str(), "1.0");
+
+        let quantile = Quantile::try_from(0.5).unwrap();
+        assert_eq!(quantile.as_str(), "0.5");
+
+        let quantile = Quantile::try_from(0.999).unwrap();
+        assert_eq!(quantile.as_str(), "0.999");
+    }
+
+    #[test]
+    fn fmt_str() {
+        let quantile = Quantile::from_str("1.0").unwrap();
+        assert_eq!(quantile.value(), 1.0);
+        assert_eq!(quantile.as_str(), "1.0");
+
+        let quantile = Quantile::from_str("0.50").unwrap();
+        assert_eq!(quantile.value(), 0.5);
+        assert_eq!(quantile.as_str(), "0.50");
+
+        let quantile = Quantile::from_str("0.999").unwrap();
+        assert_eq!(quantile.value(), 0.999);
+        assert_eq!(quantile.as_str(), "0.999");
     }
 }

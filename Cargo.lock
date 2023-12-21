@@ -973,9 +973,8 @@ name = "g3-histogram"
 version = "0.1.0"
 dependencies = [
  "hdrhistogram",
- "num-traits",
  "portable-atomic",
- "rust_decimal",
+ "ryu",
  "thiserror",
  "tokio",
 ]
@@ -2744,16 +2743,6 @@ checksum = "2e0e0214a4a2b444ecce41a4025792fc31f77c7bb89c46d253953ea8c65701ec"
 dependencies = [
  "num-traits",
  "rmp",
-]
-
-[[package]]
-name = "rust_decimal"
-version = "1.33.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06676aec5ccb8fc1da723cc8c0f9a46549f21ebb8753d3915c6c41db1e7f1dc4"
-dependencies = [
- "arrayvec",
- "num-traits",
 ]
 
 [[package]]
