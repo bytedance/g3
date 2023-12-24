@@ -15,18 +15,12 @@
  */
 
 use libc::{c_int, c_uchar, c_uint};
-use openssl_sys::{ASN1_OBJECT, EVP_MD, EVP_PKEY, RSA, X509, X509_ALGOR};
+use openssl_sys::{ASN1_OBJECT, EVP_PKEY, RSA, X509, X509_ALGOR};
 
 #[allow(non_camel_case_types)]
 pub enum X509_PUBKEY {}
 
 extern "C" {
-    pub fn X509_pubkey_digest(
-        data: *const X509,
-        type_: *const EVP_MD,
-        md: *mut c_uchar,
-        len: *mut c_uint,
-    ) -> c_int;
     pub fn X509_get_X509_PUBKEY(x: *const X509) -> *mut X509_PUBKEY;
 
     pub fn X509_PUBKEY_set(x: *mut *mut X509_PUBKEY, pkey: *mut EVP_PKEY) -> c_int;

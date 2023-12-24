@@ -18,11 +18,9 @@ use std::future;
 use std::task::{Context, Poll};
 
 use openssl::error::ErrorStack;
-use openssl::ssl::{self, Ssl};
-use openssl_sys::{SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE};
+use openssl::ssl::{self, ErrorCode, Ssl};
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use super::error::{SSL_ERROR_WANT_ASYNC, SSL_ERROR_WANT_ASYNC_JOB};
 use super::{SslIoWrapper, SslStream};
 
 pub struct SslConnector<S> {
@@ -42,13 +40,13 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslConnector<S> {
 
         match self.inner.connect() {
             Ok(_) => Poll::Ready(Ok(())),
-            Err(e) => match e.code().as_raw() {
-                SSL_ERROR_WANT_READ | SSL_ERROR_WANT_WRITE => Poll::Pending,
-                SSL_ERROR_WANT_ASYNC => {
+            Err(e) => match e.code() {
+                ErrorCode::WANT_READ | ErrorCode::WANT_WRITE => Poll::Pending,
+                ErrorCode::WANT_ASYNC => {
                     // TODO
                     todo!()
                 }
-                SSL_ERROR_WANT_ASYNC_JOB => {
+                ErrorCode::WANT_ASYNC_JOB => {
                     cx.waker().wake_by_ref();
                     Poll::Pending
                 }

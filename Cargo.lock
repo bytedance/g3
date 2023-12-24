@@ -523,9 +523,9 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-utils"
-version = "0.8.17"
+version = "0.8.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c06d96137f14f244c37f989d9fff8f95e6c18b918e71f36638f8c49112e4c78f"
+checksum = "c3a430a770ebd84726f584a90ee7f020d28db52c6d02138900f22341f866d39c"
 dependencies = [
  "cfg-if",
 ]
@@ -2312,9 +2312,9 @@ checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
 
 [[package]]
 name = "object"
-version = "0.32.1"
+version = "0.32.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9cf5f9dd3933bd50a9e1f149ec995f39ae2c496d31fd772c1fd45ebc27e902b0"
+checksum = "a6a622008b6e321afc04970976f62ee297fdbaa6f95318ca343e3eebb9648441"
 dependencies = [
  "memchr",
 ]
@@ -3244,9 +3244,9 @@ dependencies = [
 
 [[package]]
 name = "tongsuo"
-version = "0.10.61"
+version = "0.10.62"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "780bc75bfa1601cf6cb8536ee916cf9008fde5096c1cc5cb4228ad1dd46e9065"
+checksum = "a2b93845cf4a99d285afdbd553252d3043d42f8e881769583914d4120bb8a80e"
 dependencies = [
  "bitflags 2.4.1",
  "cfg-if",
@@ -3268,9 +3268,9 @@ dependencies = [
 
 [[package]]
 name = "tongsuo-sys"
-version = "0.9.97"
+version = "0.9.98"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b871c752d66fdc9972cfe551561e8509e7bad2fc0977bb0711824d3fe09ac6d3"
+checksum = "7ca81332d15219b571dd1afcff7f352a909caebd13095d4341f58cc37d7591b6"
 dependencies = [
  "cc",
  "libc",

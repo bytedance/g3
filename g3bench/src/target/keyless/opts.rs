@@ -27,7 +27,7 @@ use openssl::pkey::{Id, PKey, Private, Public};
 use openssl::pkey_ctx::PkeyCtx;
 use openssl::rsa::Padding;
 
-use g3_tls_cert::ext::{PublicKeyExt, X509Ext};
+use g3_tls_cert::ext::PublicKeyExt;
 
 const ARG_CERT: &str = "cert";
 const ARG_PKEY: &str = "key";
@@ -191,6 +191,7 @@ impl KeylessGlobalArgs {
             } else {
                 cert.pubkey_digest(MessageDigest::sha1())
                     .map_err(|e| anyhow!("failed to get sha1 hash of pubkey digest: {e}"))?
+                    .to_vec()
             };
             public_key_ski = Some(ski);
 

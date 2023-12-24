@@ -18,11 +18,9 @@ use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use openssl::ssl::{self, SslRef};
-use openssl_sys::{SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE, SSL_ERROR_ZERO_RETURN};
+use openssl::ssl::{self, ErrorCode, SslRef};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
-use super::error::{SSL_ERROR_WANT_ASYNC, SSL_ERROR_WANT_ASYNC_JOB};
 use super::SslIoWrapper;
 
 pub struct SslStream<S> {
@@ -61,21 +59,21 @@ impl<S: AsyncRead + AsyncWrite + Unpin> AsyncRead for SslStream<S> {
                     buf.advance(n);
                     return Poll::Ready(Ok(()));
                 }
-                Err(e) => match e.code().as_raw() {
-                    SSL_ERROR_ZERO_RETURN => return Poll::Ready(Ok(())),
-                    SSL_ERROR_WANT_READ => {
+                Err(e) => match e.code() {
+                    ErrorCode::ZERO_RETURN => return Poll::Ready(Ok(())),
+                    ErrorCode::WANT_READ => {
                         if e.io_error().is_none() {
                             continue;
                         } else {
                             return Poll::Pending;
                         }
                     }
-                    SSL_ERROR_WANT_WRITE => return Poll::Pending,
-                    SSL_ERROR_WANT_ASYNC => {
+                    ErrorCode::WANT_WRITE => return Poll::Pending,
+                    ErrorCode::WANT_ASYNC => {
                         // TODO
                         todo!()
                     }
-                    SSL_ERROR_WANT_ASYNC_JOB => {
+                    ErrorCode::WANT_ASYNC_JOB => {
                         cx.waker().wake_by_ref();
                         return Poll::Pending;
                     }
@@ -99,20 +97,20 @@ impl<S: AsyncRead + AsyncWrite + Unpin> AsyncWrite for SslStream<S> {
         loop {
             match self.inner.ssl_write(buf) {
                 Ok(n) => return Poll::Ready(Ok(n)),
-                Err(e) => match e.code().as_raw() {
-                    SSL_ERROR_WANT_READ => {
+                Err(e) => match e.code() {
+                    ErrorCode::WANT_READ => {
                         if e.io_error().is_none() {
                             continue;
                         } else {
                             return Poll::Pending;
                         }
                     }
-                    SSL_ERROR_WANT_WRITE => return Poll::Pending,
-                    SSL_ERROR_WANT_ASYNC => {
+                    ErrorCode::WANT_WRITE => return Poll::Pending,
+                    ErrorCode::WANT_ASYNC => {
                         // TODO
                         todo!()
                     }
-                    SSL_ERROR_WANT_ASYNC_JOB => {
+                    ErrorCode::WANT_ASYNC_JOB => {
                         cx.waker().wake_by_ref();
                         return Poll::Pending;
                     }
@@ -132,14 +130,14 @@ impl<S: AsyncRead + AsyncWrite + Unpin> AsyncWrite for SslStream<S> {
         self.inner.get_mut().set_cx(cx);
 
         if let Err(e) = self.inner.shutdown() {
-            match e.code().as_raw() {
-                SSL_ERROR_ZERO_RETURN => {}
-                SSL_ERROR_WANT_READ | SSL_ERROR_WANT_WRITE => return Poll::Pending,
-                SSL_ERROR_WANT_ASYNC => {
+            match e.code() {
+                ErrorCode::ZERO_RETURN => {}
+                ErrorCode::WANT_READ | ErrorCode::WANT_WRITE => return Poll::Pending,
+                ErrorCode::WANT_ASYNC => {
                     // TODO
                     todo!()
                 }
-                SSL_ERROR_WANT_ASYNC_JOB => {
+                ErrorCode::WANT_ASYNC_JOB => {
                     cx.waker().wake_by_ref();
                     return Poll::Pending;
                 }

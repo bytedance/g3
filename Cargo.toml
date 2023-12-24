@@ -144,8 +144,8 @@ pin-project = "1.1"
 #
 rustls = "0.21.5"
 tokio-rustls = "0.24"
-openssl = { package = "tongsuo", version = "0.10.55", default-features = false }
-openssl-sys = { package = "tongsuo-sys", version = "0.9.93" }
+openssl = { package = "tongsuo", version = "0.10.62", default-features = false }
+openssl-sys = { package = "tongsuo-sys", version = "0.9.98" }
 openssl-probe = "0.1"
 rustls-pemfile = "1.0"
 rustls-native-certs = "0.6"

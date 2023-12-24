@@ -17,8 +17,6 @@
 mod wrapper;
 use wrapper::SslIoWrapper;
 
-mod error;
-
 mod stream;
 pub use stream::SslStream;
 
