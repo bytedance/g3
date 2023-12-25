@@ -37,7 +37,7 @@ jobs:
     steps:
     - name: Checkout sources
       uses: actions/checkout@v4
-    - name: Install rust toolchain
+    - name: Install stable toolchain
       uses: dtolnay/rust-toolchain@stable
       with:
         components: clippy
@@ -47,3 +47,26 @@ jobs:
         sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
     - name: Cargo clippy
       run: cargo clippy --tests --all -- --deny warnings
+
+  build-vendored:
+    name: Build vendored
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        feature:
+          - vendored-openssl
+          - vendored-tongsuo
+          - vendored-c-ares
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
+      - name: Cargo build
+        run: cargo build --no-default-features --features ${{ matrix.feature }}
+      - name: Cargo clippy
+        run: cargo clippy --no-default-features --features ${{ matrix.feature }} -- --deny warnings
