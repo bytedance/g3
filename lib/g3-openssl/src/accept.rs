@@ -15,48 +15,80 @@
  */
 
 use std::future;
-use std::task::{Context, Poll};
+use std::io;
+use std::task::{ready, Context, Poll};
 
 use openssl::error::ErrorStack;
 use openssl::ssl::{self, ErrorCode, Ssl};
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use super::{SslIoWrapper, SslStream};
+use super::{AsyncEnginePoller, SslIoWrapper, SslStream};
 
 pub struct SslAcceptor<S> {
     inner: ssl::SslStream<SslIoWrapper<S>>,
+    async_engine: Option<AsyncEnginePoller>,
 }
 
 impl<S: AsyncRead + AsyncWrite + Unpin> SslAcceptor<S> {
+    #[cfg(not(ossl300))]
     pub fn new(ssl: Ssl, stream: S) -> Result<Self, ErrorStack> {
         let wrapper = SslIoWrapper::new(stream);
-        ssl::SslStream::new(ssl, wrapper).map(|inner| SslAcceptor { inner })
+        let async_engine = AsyncEnginePoller::new(&ssl);
+
+        ssl::SslStream::new(ssl, wrapper).map(|inner| SslAcceptor {
+            inner,
+            async_engine,
+        })
+    }
+
+    #[cfg(ossl300)]
+    pub fn new(ssl: Ssl, stream: S) -> Result<Self, ErrorStack> {
+        let wrapper = SslIoWrapper::new(stream);
+        let async_engine = AsyncEnginePoller::new(&ssl)?;
+
+        ssl::SslStream::new(ssl, wrapper).map(|inner| SslAcceptor {
+            inner,
+            async_engine,
+        })
     }
 }
 
 impl<S: AsyncRead + AsyncWrite + Unpin> SslAcceptor<S> {
-    pub fn poll_accept(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), ssl::Error>> {
+    pub fn poll_accept(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         self.inner.get_mut().set_cx(cx);
+        #[cfg(ossl300)]
+        if let Some(async_engine) = &self.async_engine {
+            async_engine.set_cx(cx);
+        }
 
-        match self.inner.accept() {
-            Ok(_) => Poll::Ready(Ok(())),
-            Err(e) => match e.code() {
-                ErrorCode::WANT_READ | ErrorCode::WANT_WRITE => Poll::Pending,
-                ErrorCode::WANT_ASYNC => {
-                    // TODO
-                    todo!()
-                }
-                ErrorCode::WANT_ASYNC_JOB => {
-                    cx.waker().wake_by_ref();
-                    Poll::Pending
-                }
-                _ => Poll::Ready(Err(e)),
-            },
+        loop {
+            match self.inner.accept() {
+                Ok(_) => return Poll::Ready(Ok(())),
+                Err(e) => match e.code() {
+                    ErrorCode::WANT_READ | ErrorCode::WANT_WRITE => return Poll::Pending,
+                    ErrorCode::WANT_ASYNC => {
+                        if let Some(async_engine) = &mut self.async_engine {
+                            ready!(async_engine.poll_ready(self.inner.ssl(), cx))?
+                        } else {
+                            return Poll::Ready(Err(io::Error::other(
+                                "async engine poller is not set",
+                            )));
+                        }
+                    }
+                    ErrorCode::WANT_ASYNC_JOB => {
+                        cx.waker().wake_by_ref();
+                        return Poll::Pending;
+                    }
+                    _ => {
+                        return Poll::Ready(Err(e.into_io_error().unwrap_or_else(io::Error::other)))
+                    }
+                },
+            }
         }
     }
 
-    pub async fn accept(mut self) -> Result<SslStream<S>, ssl::Error> {
+    pub async fn accept(mut self) -> io::Result<SslStream<S>> {
         future::poll_fn(|cx| self.poll_accept(cx)).await?;
-        Ok(SslStream::new(self.inner))
+        Ok(SslStream::new(self.inner, self.async_engine))
     }
 }
