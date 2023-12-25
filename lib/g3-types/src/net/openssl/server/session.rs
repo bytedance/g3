@@ -17,7 +17,7 @@
 use openssl::error::ErrorStack;
 use openssl::hash::{Hasher, MessageDigest};
 use openssl::ssl::SslContextBuilder;
-use openssl::x509::X509Ref;
+use openssl::x509::{X509NameRef, X509Ref};
 
 pub struct OpensslSessionIdContext {
     hasher: Hasher,
@@ -36,6 +36,11 @@ impl OpensslSessionIdContext {
     pub fn add_cert(&mut self, cert: &X509Ref) -> Result<(), ErrorStack> {
         let cert_digest = cert.digest(MessageDigest::sha1())?;
         self.hasher.update(cert_digest.as_ref())
+    }
+
+    pub fn add_ca_subject(&mut self, name: &X509NameRef) -> Result<(), ErrorStack> {
+        let name_digest = name.digest(MessageDigest::sha1())?;
+        self.hasher.update(name_digest.as_ref())
     }
 
     pub fn build_set(mut self, ssl_builder: &mut SslContextBuilder) -> Result<(), ErrorStack> {

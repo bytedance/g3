@@ -255,7 +255,7 @@ impl OpensslServerConfigBuilder {
                         .to_owned()
                         .map_err(|e| anyhow!("[#{i}] failed to get ca subject name: {e}"))?;
                     id_ctx
-                        .add_cert(&ca_cert)
+                        .add_ca_subject(&subject)
                         .map_err(|e| anyhow!("[#{i}] failed to add to session id context: {e}"))?;
                     store_builder
                         .add_cert(ca_cert)
