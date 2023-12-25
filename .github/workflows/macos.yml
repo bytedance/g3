@@ -49,6 +49,12 @@ jobs:
   build-vendored:
     name: Build vendored
     runs-on: macos-latest
+    strategy:
+      matrix:
+        feature:
+          - vendored-openssl
+          - vendored-tongsuo
+          - vendored-c-ares
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
