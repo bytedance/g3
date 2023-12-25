@@ -15,6 +15,7 @@
  */
 
 use std::os::fd::RawFd;
+#[cfg(ossl300)]
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::{io, ptr};
