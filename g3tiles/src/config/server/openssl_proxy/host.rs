@@ -180,8 +180,6 @@ impl OpensslHostConfig {
 
     #[cfg(feature = "vendored-tongsuo")]
     pub(crate) fn build_tlcp_context(&self) -> anyhow::Result<Option<SslContext>> {
-        use openssl::x509::X509Name;
-
         if self.tlcp_cert_pairs.is_empty() {
             return Ok(None);
         }
