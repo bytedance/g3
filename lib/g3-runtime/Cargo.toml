@@ -12,8 +12,8 @@ anyhow.workspace = true
 log.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "rt", "sync", "net"] }
 g3-compat.workspace = true
-openssl-async-job = { workspace = true, optional = true }
+g3-openssl = { workspace = true, optional = true }
 
 [features]
 default = []
-openssl = ["openssl-async-job"]
+openssl = ["dep:g3-openssl"]

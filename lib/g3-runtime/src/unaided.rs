@@ -104,7 +104,7 @@ impl UnaidedRuntimeConfig {
 
     #[cfg(feature = "openssl")]
     pub fn set_openssl_async_job_size(&mut self, size: usize) {
-        if openssl_async_job::async_is_capable() {
+        if g3_openssl::async_job::async_is_capable() {
             self.openssl_async_job_size = size;
         } else if size > 0 {
             warn!("openssl async job is not supported");
@@ -152,7 +152,7 @@ impl UnaidedRuntimeConfig {
                     #[cfg(feature = "openssl")]
                     if openssl_async_job_size > 0 {
                         builder.on_thread_start(move || {
-                            if let Err(e) = openssl_async_job::async_thread_init(
+                            if let Err(e) = g3_openssl::async_job::async_thread_init(
                                 openssl_async_job_size,
                                 openssl_async_job_size,
                             ) {
@@ -161,7 +161,7 @@ impl UnaidedRuntimeConfig {
                             );
                             }
                         });
-                        builder.on_thread_stop(openssl_async_job::async_thread_cleanup);
+                        builder.on_thread_stop(g3_openssl::async_job::async_thread_cleanup);
                     }
 
                     match builder.build() {

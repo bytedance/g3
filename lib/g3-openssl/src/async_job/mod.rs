@@ -16,7 +16,7 @@
 
 use openssl::error::ErrorStack;
 
-mod ffi;
+use crate::ffi;
 
 mod wait_ctx;
 pub use wait_ctx::AsyncWaitCtx;

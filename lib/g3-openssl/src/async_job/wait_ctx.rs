@@ -21,7 +21,7 @@ use libc::c_int;
 use openssl::error::ErrorStack;
 use openssl::foreign_types::foreign_type;
 
-use super::ffi;
+use crate::ffi;
 
 foreign_type! {
     ///

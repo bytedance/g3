@@ -17,7 +17,8 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use openssl_async_job::{SyncOperation, TokioAsyncOperation};
+
+use g3_openssl::async_job::{SyncOperation, TokioAsyncOperation};
 
 use super::KeylessOpensslArgs;
 

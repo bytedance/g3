@@ -455,7 +455,7 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
         }
     }
     if let Some(n) = args.get_one::<usize>(GLOBAL_ARG_OPENSSL_ASYNC_JOBS) {
-        if *n > 0 && !openssl_async_job::async_is_capable() {
+        if *n > 0 && !g3_openssl::async_job::async_is_capable() {
             return Err(anyhow!("openssl async job is not supported"));
         }
         proc_args.openssl_async_job_size = *n;

@@ -15,11 +15,11 @@
  */
 
 use openssl::pkey::{PKey, Private};
-use openssl_async_job::{SyncOperation, TokioAsyncOperation};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::{broadcast, mpsc};
 
 use g3_io_ext::LimitedBufReadExt;
+use g3_openssl::async_job::{SyncOperation, TokioAsyncOperation};
 use g3_types::ext::DurationExt;
 
 use super::{KeylessTask, WrappedKeylessRequest};

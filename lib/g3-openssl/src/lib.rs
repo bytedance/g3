@@ -16,17 +16,7 @@
 
 mod ffi;
 
-mod wrapper;
-use wrapper::SslIoWrapper;
+mod ssl;
+pub use ssl::{SslAcceptor, SslConnector, SslStream};
 
-mod async_mode;
-use async_mode::AsyncEnginePoller;
-
-mod stream;
-pub use stream::SslStream;
-
-mod accept;
-pub use accept::SslAcceptor;
-
-mod connect;
-pub use connect::SslConnector;
+pub mod async_job;

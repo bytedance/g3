@@ -42,7 +42,7 @@ g3-slog-types.workspace = true
 g3-statsd-client.workspace = true
 g3-histogram.workspace = true
 g3-compat.workspace = true
-openssl-async-job.workspace = true
+g3-openssl.workspace = true
 g3keymess-proto = { path = "proto" }
 
 [target.'cfg(target_os = "linux")'.dependencies]

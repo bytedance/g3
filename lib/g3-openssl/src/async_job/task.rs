@@ -32,7 +32,8 @@ use openssl::error::ErrorStack;
 use openssl::foreign_types::ForeignType;
 use thiserror::Error;
 
-use super::{ffi, AsyncWaitCtx};
+use super::AsyncWaitCtx;
+use crate::ffi;
 
 pub trait SyncOperation {
     type Output;

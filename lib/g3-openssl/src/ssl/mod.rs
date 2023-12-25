@@ -14,15 +14,17 @@
  * limitations under the License.
  */
 
-use std::env;
+mod wrapper;
+use wrapper::SslIoWrapper;
 
-#[allow(clippy::unusual_byte_groupings)]
-fn main() {
-    if let Ok(version) = env::var("DEP_OPENSSL_VERSION_NUMBER") {
-        let version = u64::from_str_radix(&version, 16).unwrap();
+mod async_mode;
+use async_mode::AsyncEnginePoller;
 
-        if version >= 0x3_00_00_00_0 {
-            println!("cargo:rustc-cfg=ossl300");
-        }
-    }
-}
+mod stream;
+pub use stream::SslStream;
+
+mod accept;
+pub use accept::SslAcceptor;
+
+mod connect;
+pub use connect::SslConnector;
