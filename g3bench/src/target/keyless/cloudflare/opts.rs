@@ -35,6 +35,7 @@ use crate::target::{
 
 const ARG_CONNECTION_POOL: &str = "connection-pool";
 const ARG_TARGET: &str = "target";
+const ARG_NO_TLS: &str = "no-tls";
 const ARG_LOCAL_ADDRESS: &str = "local-address";
 const ARG_CONNECT_TIMEOUT: &str = "connect-timeout";
 const ARG_TIMEOUT: &str = "timeout";
@@ -55,10 +56,14 @@ pub(super) struct KeylessCloudflareArgs {
 }
 
 impl KeylessCloudflareArgs {
-    fn new(global_args: KeylessGlobalArgs, target: UpstreamAddr) -> Self {
-        let tls = OpensslTlsClientArgs {
-            config: Some(OpensslClientConfigBuilder::with_cache_for_one_site()),
-            ..Default::default()
+    fn new(global_args: KeylessGlobalArgs, target: UpstreamAddr, no_tls: bool) -> Self {
+        let tls = if no_tls {
+            OpensslTlsClientArgs::default()
+        } else {
+            OpensslTlsClientArgs {
+                config: Some(OpensslClientConfigBuilder::with_cache_for_one_site()),
+                ..Default::default()
+            }
         };
         KeylessCloudflareArgs {
             global: global_args,
@@ -174,6 +179,13 @@ pub(super) fn add_cloudflare_args(app: Command) -> Command {
             .value_parser(value_parser!(UpstreamAddr)),
     )
     .arg(
+        Arg::new(ARG_NO_TLS)
+            .help("Use no tls")
+            .long(ARG_NO_TLS)
+            .action(ArgAction::SetTrue)
+            .num_args(0),
+    )
+    .arg(
         Arg::new(ARG_CONNECTION_POOL)
             .help(
                 "Set the number of pooled underlying keyless connections.\n\
@@ -229,11 +241,12 @@ pub(super) fn parse_cloudflare_args(args: &ArgMatches) -> anyhow::Result<Keyless
     } else {
         return Err(anyhow!("no target set"));
     };
+    let no_tls = args.get_flag(ARG_NO_TLS);
 
     let global_args =
         KeylessGlobalArgs::parse_args(args).context("failed to parse global keyless args")?;
 
-    let mut cf_args = KeylessCloudflareArgs::new(global_args, target);
+    let mut cf_args = KeylessCloudflareArgs::new(global_args, target, no_tls);
 
     if let Some(c) = args.get_one::<usize>(ARG_CONNECTION_POOL) {
         if *c > 0 {
