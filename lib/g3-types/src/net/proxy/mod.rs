@@ -44,6 +44,7 @@ pub enum ProxyParseError {
     InvalidTlsConfig(anyhow::Error),
 }
 
+#[allow(clippy::large_enum_variant)]
 pub enum Proxy {
     Http(HttpProxy),
     Socks4(Socks4Proxy),
