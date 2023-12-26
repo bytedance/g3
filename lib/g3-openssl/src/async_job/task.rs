@@ -261,8 +261,9 @@ where
     type Output = Result<T::Output, OpensslAsyncTaskError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let r = ready!(self.get_mut().poll_run(cx));
-        self.job = ptr::null_mut(); // reset
+        let me = self.get_mut();
+        let r = ready!(me.poll_run(cx));
+        me.job = ptr::null_mut(); // reset
         Poll::Ready(r)
     }
 }
