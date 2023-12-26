@@ -62,6 +62,8 @@ jobs:
         uses: actions/checkout@v4
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
       - name: Install dependencies
         run: |
           sudo apt-get update

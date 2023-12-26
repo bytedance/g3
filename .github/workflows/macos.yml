@@ -60,6 +60,8 @@ jobs:
         uses: actions/checkout@v4
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
       - name: Install dependencies
         run: |
           brew install capnp openssl c-ares lua
