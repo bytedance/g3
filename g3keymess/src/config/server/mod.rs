@@ -56,7 +56,7 @@ impl KeyServerConfig {
             multiplex_queue_depth: 0,
             request_read_timeout: Duration::from_millis(100),
             duration_stats: HistogramMetricsConfig::default(),
-            async_op_timeout: Duration::from_millis(10),
+            async_op_timeout: Duration::from_secs(1),
             concurrency_limit: 0,
             extra_metrics_tags: None,
         }
