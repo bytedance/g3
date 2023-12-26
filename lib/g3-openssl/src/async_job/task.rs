@@ -72,26 +72,6 @@ pub struct OpensslAsyncTask<T: AsyncOperation> {
     action: Box<UnsafeCell<Action<T>>>,
 }
 
-impl<T: AsyncOperation> Drop for OpensslAsyncTask<T> {
-    fn drop(&mut self) {
-        if !self.job.is_null() {
-            let mut ret: c_int = 0;
-
-            // reset ctx in job to be null before we drop it
-            unsafe {
-                ffi::ASYNC_start_job(
-                    &mut self.job,
-                    ptr::null_mut(),
-                    &mut ret,
-                    None,            // ignored
-                    ptr::null_mut(), // ignored
-                    0,               // ignored
-                )
-            };
-        }
-    }
-}
-
 /// NOTE: OpensslAsyncTask in fact is not Send,
 /// make sure you call it in a single threaded async runtime
 unsafe impl<T: AsyncOperation + Send> Send for OpensslAsyncTask<T> {}
@@ -261,9 +241,6 @@ where
     type Output = Result<T::Output, OpensslAsyncTaskError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let me = self.get_mut();
-        let r = ready!(me.poll_run(cx));
-        me.job = ptr::null_mut(); // reset
-        Poll::Ready(r)
+        self.get_mut().poll_run(cx)
     }
 }
