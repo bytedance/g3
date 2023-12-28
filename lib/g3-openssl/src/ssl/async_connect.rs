@@ -16,11 +16,14 @@
 
 use std::future;
 use std::io;
+use std::sync::Arc;
 use std::task::{ready, Context, Poll};
 
 use openssl::error::ErrorStack;
 use openssl::ssl::{self, ErrorCode, Ssl};
 use tokio::io::{AsyncRead, AsyncWrite};
+
+use g3_types::net::ClientHelloRewriteRule;
 
 use super::{AsyncEnginePoller, SslIoWrapper, SslStream};
 
@@ -50,6 +53,10 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslConnector<S> {
             inner,
             async_engine,
         })
+    }
+
+    pub fn enable_client_hello_rewrite(&mut self, rule: Arc<ClientHelloRewriteRule>) {
+        self.inner.get_mut().set_client_hello_rewriter(Some(rule));
     }
 }
 

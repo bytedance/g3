@@ -19,6 +19,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
@@ -29,8 +30,8 @@ use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_openssl::{SslConnector, SslStream};
 use g3_types::net::{
-    AlpnProtocol, OpensslCertificatePair, OpensslClientConfig, OpensslClientConfigBuilder,
-    OpensslProtocol, UpstreamAddr,
+    AlpnProtocol, ClientHelloRewriteRule, OpensslCertificatePair, OpensslClientConfig,
+    OpensslClientConfigBuilder, OpensslProtocol, UpstreamAddr,
 };
 
 const TLS_ARG_CA_CERT: &str = "tls-ca-cert";
@@ -42,6 +43,7 @@ const TLS_ARG_NO_VERIFY: &str = "tls-no-verify";
 const TLS_ARG_NO_SNI: &str = "tls-no-sni";
 const TLS_ARG_PROTOCOL: &str = "tls-protocol";
 const TLS_ARG_CIPHERS: &str = "tls-ciphers";
+const TLS_ARG_EXT_LIST: &str = "tls-ext-list";
 
 const PROXY_TLS_ARG_CA_CERT: &str = "proxy-tls-ca-cert";
 const PROXY_TLS_ARG_CERT: &str = "proxy-tls-cert";
@@ -52,6 +54,7 @@ const PROXY_TLS_ARG_NO_VERIFY: &str = "proxy-tls-no-verify";
 const PROXY_TLS_ARG_NO_SNI: &str = "proxy-tls-no-sni";
 const PROXY_TLS_ARG_PROTOCOL: &str = "proxy-tls-protocol";
 const PROXY_TLS_ARG_CIPHERS: &str = "proxy-tls-ciphers";
+const PROXY_TLS_ARG_EXT_LIST: &str = "proxy-tls-ext-list";
 
 const SESSION_CACHE_VALUES: [&str; 2] = ["off", "builtin"];
 #[cfg(not(feature = "vendored-tongsuo"))]
@@ -71,6 +74,7 @@ pub(crate) struct OpensslTlsClientArgs {
     pub(crate) tls_name: Option<String>,
     pub(crate) cert_pair: OpensslCertificatePair,
     pub(crate) no_verify: bool,
+    pub(crate) client_hello_rewrite: Option<Arc<ClientHelloRewriteRule>>,
     pub(crate) alpn_protocol: Option<AlpnProtocol>,
 }
 
@@ -95,8 +99,11 @@ impl OpensslTlsClientArgs {
         if self.no_verify {
             ssl.set_verify(SslVerifyMode::NONE);
         }
-        let tls_connector = SslConnector::new(ssl, stream)
+        let mut tls_connector = SslConnector::new(ssl, stream)
             .map_err(|e| anyhow!("tls connector create failed: {e}"))?;
+        if let Some(rule) = &self.client_hello_rewrite {
+            tls_connector.enable_client_hello_rewrite(rule.clone());
+        }
         let tls_stream = tls_connector
             .connect()
             .await
@@ -212,6 +219,16 @@ impl OpensslTlsClientArgs {
         Ok(())
     }
 
+    fn parse_ext_list(&mut self, args: &ArgMatches, id: &str) -> anyhow::Result<()> {
+        if let Some(s) = args.get_one::<String>(id) {
+            let mut rule = ClientHelloRewriteRule::default();
+            rule.push_ext_action_str(s)
+                .context(format!("failed to parse value of {id}"))?;
+            self.client_hello_rewrite = Some(Arc::new(rule));
+        }
+        Ok(())
+    }
+
     fn build_client(&mut self) -> anyhow::Result<()> {
         let tls_config = self
             .config
@@ -245,6 +262,7 @@ impl OpensslTlsClientArgs {
         self.parse_session_cache(args, TLS_ARG_SESSION_CACHE)?;
         self.parse_no_verify(args, TLS_ARG_NO_VERIFY);
         self.parse_no_sni(args, TLS_ARG_NO_SNI)?;
+        self.parse_ext_list(args, TLS_ARG_EXT_LIST)?;
         self.build_client()
     }
 
@@ -260,6 +278,7 @@ impl OpensslTlsClientArgs {
         self.parse_session_cache(args, PROXY_TLS_ARG_SESSION_CACHE)?;
         self.parse_no_verify(args, PROXY_TLS_ARG_NO_VERIFY);
         self.parse_no_sni(args, PROXY_TLS_ARG_NO_SNI)?;
+        self.parse_ext_list(args, PROXY_TLS_ARG_EXT_LIST)?;
         self.build_client()
     }
 }
@@ -379,6 +398,12 @@ pub(crate) fn append_tls_args(cmd: Command) -> Command {
             .num_args(1)
             .requires(TLS_ARG_PROTOCOL),
     )
+    .arg(
+        Arg::new(TLS_ARG_EXT_LIST)
+            .help("Set tls ext list in ClientHello message to target site")
+            .long(TLS_ARG_EXT_LIST)
+            .num_args(1),
+    )
 }
 
 pub(crate) fn append_proxy_tls_args(cmd: Command) -> Command {
@@ -453,5 +478,11 @@ pub(crate) fn append_proxy_tls_args(cmd: Command) -> Command {
             .long(PROXY_TLS_ARG_CIPHERS)
             .num_args(1)
             .requires(PROXY_TLS_ARG_PROTOCOL),
+    )
+    .arg(
+        Arg::new(PROXY_TLS_ARG_EXT_LIST)
+            .help("Set tls ext list in ClientHello message to proxy")
+            .long(PROXY_TLS_ARG_EXT_LIST)
+            .num_args(1),
     )
 }
