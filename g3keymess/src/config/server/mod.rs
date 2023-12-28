@@ -38,9 +38,11 @@ pub(crate) struct KeyServerConfig {
     position: Option<YamlDocPosition>,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) listen: TcpListenConfig,
+    #[cfg(feature = "openssl-async-job")]
     pub(crate) multiplex_queue_depth: usize,
     pub(crate) request_read_timeout: Duration,
     pub(crate) duration_stats: HistogramMetricsConfig,
+    #[cfg(feature = "openssl-async-job")]
     pub(crate) async_op_timeout: Duration,
     pub(crate) concurrency_limit: usize,
     pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
@@ -53,9 +55,11 @@ impl KeyServerConfig {
             position,
             shared_logger: None,
             listen: TcpListenConfig::default(),
+            #[cfg(feature = "openssl-async-job")]
             multiplex_queue_depth: 0,
             request_read_timeout: Duration::from_millis(100),
             duration_stats: HistogramMetricsConfig::default(),
+            #[cfg(feature = "openssl-async-job")]
             async_op_timeout: Duration::from_secs(1),
             concurrency_limit: 0,
             extra_metrics_tags: None,
@@ -106,6 +110,7 @@ impl KeyServerConfig {
                     .context(format!("invalid tcp listen config value for key {k}"))?;
                 Ok(())
             }
+            #[cfg(feature = "openssl-async-job")]
             "multiplex_queue_depth" => {
                 self.multiplex_queue_depth = g3_yaml::value::as_usize(v)?;
                 Ok(())
@@ -120,6 +125,7 @@ impl KeyServerConfig {
                 )?;
                 Ok(())
             }
+            #[cfg(feature = "openssl-async-job")]
             "async_op_timeout" => {
                 self.async_op_timeout = g3_yaml::humanize::as_duration(v)?;
                 Ok(())

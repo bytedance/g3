@@ -30,7 +30,9 @@ use task::KeylessOpensslTaskContext;
 mod opts;
 use opts::KeylessOpensslArgs;
 
+#[cfg(feature = "openssl-async-job")]
 mod async_job;
+#[cfg(feature = "openssl-async-job")]
 use async_job::KeylessOpensslAsyncJob;
 
 pub(super) const COMMAND: &str = "openssl";

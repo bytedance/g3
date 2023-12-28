@@ -16,20 +16,30 @@
 
 use std::io;
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+#[cfg(feature = "async-job")]
+use std::task::ready;
+use std::task::{Context, Poll};
 
 use openssl::ssl::{self, ErrorCode, SslRef};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
-use super::{AsyncEnginePoller, SslIoWrapper};
+#[cfg(feature = "async-job")]
+use super::AsyncEnginePoller;
+use super::SslIoWrapper;
 
 pub struct SslStream<S> {
     inner: ssl::SslStream<SslIoWrapper<S>>,
+    #[cfg(feature = "async-job")]
     async_engine: Option<AsyncEnginePoller>,
 }
 
 impl<S> SslStream<S> {
-    #[inline]
+    #[cfg(not(feature = "async-job"))]
+    pub(crate) fn new(inner: ssl::SslStream<SslIoWrapper<S>>) -> Self {
+        SslStream { inner }
+    }
+
+    #[cfg(feature = "async-job")]
     pub(crate) fn new(
         inner: ssl::SslStream<SslIoWrapper<S>>,
         async_engine: Option<AsyncEnginePoller>,
@@ -52,12 +62,13 @@ impl<S> SslStream<S> {
 
     fn set_cx(&mut self, cx: &mut Context<'_>) {
         self.inner.get_mut().set_cx(cx);
-        #[cfg(ossl300)]
+        #[cfg(all(feature = "async-job", ossl300))]
         if let Some(async_engine) = &self.async_engine {
             async_engine.set_cx(cx);
         }
     }
 
+    #[cfg(feature = "async-job")]
     fn poll_async_engine(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         if let Some(async_engine) = &mut self.async_engine {
             async_engine.poll_ready(self.inner.ssl(), cx)
@@ -92,7 +103,9 @@ impl<S: AsyncRead + AsyncWrite> SslStream<S> {
                         }
                     }
                     ErrorCode::WANT_WRITE => return Poll::Pending,
+                    #[cfg(feature = "async-job")]
                     ErrorCode::WANT_ASYNC => ready!(self.poll_async_engine(cx))?,
+                    #[cfg(feature = "async-job")]
                     ErrorCode::WANT_ASYNC_JOB => {
                         cx.waker().wake_by_ref();
                         return Poll::Pending;
@@ -120,7 +133,9 @@ impl<S: AsyncRead + AsyncWrite> SslStream<S> {
                         }
                     }
                     ErrorCode::WANT_WRITE => return Poll::Pending,
+                    #[cfg(feature = "async-job")]
                     ErrorCode::WANT_ASYNC => ready!(self.poll_async_engine(cx))?,
+                    #[cfg(feature = "async-job")]
                     ErrorCode::WANT_ASYNC_JOB => {
                         cx.waker().wake_by_ref();
                         return Poll::Pending;
@@ -141,7 +156,9 @@ impl<S: AsyncRead + AsyncWrite> SslStream<S> {
                 match e.code() {
                     ErrorCode::ZERO_RETURN => break,
                     ErrorCode::WANT_READ | ErrorCode::WANT_WRITE => return Poll::Pending,
+                    #[cfg(feature = "async-job")]
                     ErrorCode::WANT_ASYNC => ready!(self.poll_async_engine(cx))?,
+                    #[cfg(feature = "async-job")]
                     ErrorCode::WANT_ASYNC_JOB => {
                         cx.waker().wake_by_ref();
                         return Poll::Pending;

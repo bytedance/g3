@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::env;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::OnceLock;
@@ -50,7 +49,10 @@ impl Default for ProcArgs {
 }
 
 impl ProcArgs {
+    #[cfg(feature = "openssl-async-job")]
     fn check_openssl_async_job(&mut self) {
+        use std::env;
+
         if env::var("OPENSSL_CONF").is_ok() {
             let s = env::var("OPENSSL_ASYNC_JOB_SIZE").unwrap_or("1024".to_string());
             let async_job_size = usize::from_str(&s).unwrap_or(1024);
@@ -158,6 +160,7 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
         }
     }
 
+    #[cfg(feature = "openssl-async-job")]
     proc_args.check_openssl_async_job();
     Ok(Some(proc_args))
 }

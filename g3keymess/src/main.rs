@@ -87,6 +87,7 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
     let mut rt_builder = tokio::runtime::Builder::new_current_thread();
     rt_builder.enable_all();
 
+    #[cfg(feature = "openssl-async-job")]
     if let Some(async_job_size) = args.openssl_async_job {
         info!("will init {async_job_size} openssl async jobs");
         rt_builder.on_thread_start(move || {

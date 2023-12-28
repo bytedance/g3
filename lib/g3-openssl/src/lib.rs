@@ -19,4 +19,5 @@ mod ffi;
 mod ssl;
 pub use ssl::{SslAcceptor, SslConnector, SslStream};
 
+#[cfg(feature = "async-job")]
 pub mod async_job;

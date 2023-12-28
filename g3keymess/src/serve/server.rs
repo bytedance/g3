@@ -231,10 +231,15 @@ impl KeyServer {
 
         let (r, w) = stream.into_split();
         let task = KeylessTask::new(ctx);
+
+        #[cfg(feature = "openssl-async-job")]
         if self.config.multiplex_queue_depth > 1 {
             task.into_multiplex_running(r, w).await
         } else {
             task.into_simplex_running(r, w).await
         }
+
+        #[cfg(not(feature = "openssl-async-job"))]
+        task.into_simplex_running(r, w).await
     }
 }

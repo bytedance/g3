@@ -37,7 +37,7 @@ hex.workspace = true
 itoa.workspace = true
 hickory-client = { workspace = true, optional = true, features = ["dns-over-rustls", "dns-over-https-rustls", "native-certs"] }
 hickory-proto = { workspace = true, optional = true }
-g3-runtime = { workspace = true, features = ["openssl"] }
+g3-runtime.workspace = true
 g3-signal.workspace = true
 g3-types = { workspace = true, features = ["proxy", "openssl"] }
 g3-clap.workspace = true
@@ -60,3 +60,4 @@ hickory = ["rustls", "dep:hickory-client", "dep:hickory-proto"]
 quic = ["rustls", "g3-types/quic", "g3-socks/quic", "g3-io-ext/quic", "dep:quinn", "dep:h3", "dep:h3-quinn", "hickory-client?/dns-over-quic", "hickory-proto?/dns-over-h3"]
 vendored-openssl = ["openssl/vendored", "dep:openssl-probe"]
 vendored-tongsuo = ["openssl/tongsuo", "dep:openssl-probe", "g3-types/vendored-tongsuo"]
+openssl-async-job = ["g3-openssl/async-job", "g3-runtime/openssl-async-job"]

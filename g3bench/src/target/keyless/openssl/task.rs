@@ -19,14 +19,16 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::time::Instant;
 
+#[cfg(feature = "openssl-async-job")]
+use super::KeylessOpensslAsyncJob;
 use super::{
-    BenchTaskContext, KeylessHistogramRecorder, KeylessOpensslArgs, KeylessOpensslAsyncJob,
-    KeylessRuntimeStats, ProcArgs,
+    BenchTaskContext, KeylessHistogramRecorder, KeylessOpensslArgs, KeylessRuntimeStats, ProcArgs,
 };
 use crate::target::BenchError;
 
 pub(super) struct KeylessOpensslTaskContext {
     args: Arc<KeylessOpensslArgs>,
+    #[allow(unused)]
     proc_args: Arc<ProcArgs>,
 
     runtime_stats: Arc<KeylessRuntimeStats>,
@@ -48,12 +50,18 @@ impl KeylessOpensslTaskContext {
         })
     }
 
+    #[cfg(feature = "openssl-async-job")]
     async fn run_action(&self) -> anyhow::Result<Vec<u8>> {
         if self.proc_args.use_unaided_worker && self.proc_args.openssl_async_job_size > 0 {
             KeylessOpensslAsyncJob::new(self.args.clone()).run().await
         } else {
             self.args.handle_action()
         }
+    }
+
+    #[cfg(not(feature = "openssl-async-job"))]
+    async fn run_action(&self) -> anyhow::Result<Vec<u8>> {
+        self.args.handle_action()
     }
 }
 

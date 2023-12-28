@@ -16,4 +16,4 @@ g3-openssl = { workspace = true, optional = true }
 
 [features]
 default = []
-openssl = ["dep:g3-openssl"]
+openssl-async-job = ["g3-openssl/async-job"]

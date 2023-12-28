@@ -14,3 +14,7 @@ openssl-sys.workspace = true
 openssl.workspace = true
 tokio = { workspace = true, features = ["net", "rt"] }
 atomic-waker.workspace = true
+
+[features]
+default = []
+async-job = []

@@ -34,6 +34,7 @@ use crate::serve::{
     ServerTaskError,
 };
 
+#[cfg(feature = "openssl-async-job")]
 mod multiplex;
 mod simplex;
 

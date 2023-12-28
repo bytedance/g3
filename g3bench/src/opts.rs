@@ -69,6 +69,7 @@ pub struct ProcArgs {
     pub(super) use_unaided_worker: bool,
     thread_number: Option<usize>,
     thread_stack_size: Option<usize>,
+    #[cfg(feature = "openssl-async-job")]
     pub(super) openssl_async_job_size: usize,
 
     statsd_client_config: Option<StatsdClientConfig>,
@@ -93,6 +94,7 @@ impl Default for ProcArgs {
             use_unaided_worker: false,
             thread_number: None,
             thread_stack_size: None,
+            #[cfg(feature = "openssl-async-job")]
             openssl_async_job_size: 0,
             statsd_client_config: None,
             no_progress_bar: false,
@@ -203,6 +205,7 @@ impl ProcArgs {
     pub fn worker_runtime(&self) -> Option<UnaidedRuntimeConfig> {
         if self.use_unaided_worker {
             let mut runtime = UnaidedRuntimeConfig::new();
+            #[cfg(feature = "openssl-async-job")]
             runtime.set_openssl_async_job_size(self.openssl_async_job_size);
             if let Some(thread_number) = self.thread_number {
                 runtime.set_thread_number(thread_number);
@@ -454,6 +457,7 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
             proc_args.thread_stack_size = Some(stack_size);
         }
     }
+    #[cfg(feature = "openssl-async-job")]
     if let Some(n) = args.get_one::<usize>(GLOBAL_ARG_OPENSSL_ASYNC_JOBS) {
         if *n > 0 && !g3_openssl::async_job::async_is_capable() {
             return Err(anyhow!("openssl async job is not supported"));

@@ -48,7 +48,10 @@ impl KeylessTask {
                             }
                             msg_count += 1;
                         }
-                        Ok(false) => break,
+                        Ok(false) => {
+                            self.log_task_ok();
+                            break;
+                        }
                         Err(e) => {
                             if msg_count == 0 {
                                 self.log_task_err(ServerTaskError::ConnectionClosedEarly);
