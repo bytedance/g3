@@ -111,9 +111,19 @@ impl ClientHelloRewriteRule {
             }
         }
 
+        // rewrite extension length
         let ext_len = output.len() - client_hello.ext_offset - 2;
         output[client_hello.ext_offset] = ((ext_len >> 8) & 0xFF) as u8;
         output[client_hello.ext_offset + 1] = (ext_len & 0xFF) as u8;
+
+        let record_len = output.len() - 5;
+        output[3] = ((record_len >> 8) & 0xFF) as u8;
+        output[4] = (record_len & 0xFF) as u8;
+
+        let msg_len = record_len - 4;
+        output[6] = 0;
+        output[7] = ((msg_len >> 8) & 0xFF) as u8;
+        output[8] = (msg_len & 0xFF) as u8;
 
         Some(output)
     }
