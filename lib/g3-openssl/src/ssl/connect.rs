@@ -50,6 +50,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslConnector<S> {
 
     pub async fn connect(mut self) -> io::Result<SslStream<S>> {
         future::poll_fn(|cx| self.poll_connect(cx)).await?;
+        self.inner.get_mut().set_client_hello_rewriter(None);
         Ok(SslStream::new(self.inner))
     }
 }

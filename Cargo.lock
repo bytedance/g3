@@ -1100,6 +1100,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "atomic-waker",
+ "g3-types",
  "libc",
  "thiserror",
  "tokio",

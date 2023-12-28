@@ -21,13 +21,13 @@ smallvec.workspace = true
 memchr.workspace = true
 url.workspace = true
 num-traits.workspace = true
+hex.workspace = true
 fastrand = { workspace = true, optional = true }
 governor = { workspace = true, features = ["std", "jitter"] }
 digest = { workspace = true, optional = true }
 md-5 = { workspace = true, optional = true }
 sha-1 = { workspace = true, optional = true }
 blake3 = { workspace = true, optional = true }
-hex = { workspace = true, optional = true }
 ahash = { workspace = true, optional = true }
 ip_network = { workspace = true, optional = true }
 ip_network_table = { workspace = true, optional = true }
@@ -52,7 +52,7 @@ arc-swap = { workspace = true, optional = true }
 
 [features]
 default = []
-auth-crypt = ["dep:digest", "dep:md-5", "dep:sha-1", "dep:blake3", "dep:hex"]
+auth-crypt = ["dep:digest", "dep:md-5", "dep:sha-1", "dep:blake3"]
 resolve = ["dep:ahash", "dep:radix_trie", "dep:fastrand"]
 rustls = ["dep:rustls", "dep:webpki-roots", "dep:rustls-pemfile", "dep:rustls-native-certs", "dep:ahash", "dep:lru", "dep:ring", "dep:arc-swap"]
 openssl = ["dep:openssl", "dep:ahash", "dep:lru", "dep:bytes"]

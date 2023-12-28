@@ -15,5 +15,7 @@
  */
 
 mod alpn;
-
 pub use alpn::AlpnProtocol;
+
+mod client_hello;
+pub use client_hello::{ClientHelloExtAction, ClientHelloRewriteRule};
