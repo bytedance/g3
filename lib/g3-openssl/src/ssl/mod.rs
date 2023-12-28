@@ -25,8 +25,12 @@ use async_mode::AsyncEnginePoller;
 mod stream;
 pub use stream::SslStream;
 
+#[cfg_attr(not(feature = "async-job"), path = "accept.rs")]
+#[cfg_attr(feature = "async-job", path = "async_accept.rs")]
 mod accept;
 pub use accept::SslAcceptor;
 
+#[cfg_attr(not(feature = "async-job"), path = "connect.rs")]
+#[cfg_attr(feature = "async-job", path = "async_connect.rs")]
 mod connect;
 pub use connect::SslConnector;
