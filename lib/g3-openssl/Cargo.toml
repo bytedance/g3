@@ -19,3 +19,4 @@ atomic-waker.workspace = true
 default = []
 async-job = []
 aws-lc = ["openssl/aws-lc"]
+boringssl = ["openssl/boringssl"]

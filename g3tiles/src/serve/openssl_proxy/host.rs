@@ -58,7 +58,11 @@ pub(super) fn build_lazy_ssl_context(
     Ok(builder.build().into_context())
 }
 
-#[cfg(not(any(feature = "vendored-tongsuo", feature = "vendored-aws-lc")))]
+#[cfg(not(any(
+    feature = "vendored-tongsuo",
+    feature = "vendored-aws-lc",
+    feature = "vendored-boringssl"
+)))]
 pub(super) fn build_lazy_ssl_context(
     host_name_index: Index<Ssl, Host>,
 ) -> anyhow::Result<SslContext> {
@@ -79,7 +83,7 @@ pub(super) fn build_lazy_ssl_context(
     Ok(builder.build().into_context())
 }
 
-#[cfg(feature = "vendored-aws-lc")]
+#[cfg(any(feature = "vendored-aws-lc", feature = "vendored-boringssl"))]
 pub(super) fn build_lazy_ssl_context(
     host_name_index: Index<Ssl, Host>,
 ) -> anyhow::Result<SslContext> {

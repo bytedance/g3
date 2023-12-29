@@ -274,6 +274,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "bssl-sys"
+version = "0.1.0"
+
+[[package]]
 name = "bstr"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3571,6 +3575,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6779648fb36c20b1132c678a4b8f450b6f0d91bb0098fc0f062f493ebbd63be3"
 dependencies = [
  "aws-lc-sys",
+ "bssl-sys",
  "cc",
  "libc",
  "openssl-src",
