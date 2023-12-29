@@ -78,7 +78,7 @@ impl<S> SslStream<S> {
     }
 }
 
-impl<S: AsyncRead + AsyncWrite> SslStream<S> {
+impl<S: AsyncRead + AsyncWrite + Unpin> SslStream<S> {
     fn poll_read_unpin(
         &mut self,
         cx: &mut Context<'_>,
