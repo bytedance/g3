@@ -20,7 +20,7 @@ use anyhow::anyhow;
 use openssl::ssl::{
     Ssl, SslConnector, SslConnectorBuilder, SslContext, SslMethod, SslVerifyMode, SslVersion,
 };
-#[cfg(not(feature = "aws-lc"))]
+#[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
 use openssl::ssl::{SslCtValidationMode, StatusType};
 use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::X509;
@@ -237,12 +237,12 @@ impl OpensslClientConfigBuilder {
     }
 
     #[inline]
-    #[cfg(feature = "aws-lc")]
+    #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
     pub fn set_enable_grease(&mut self, enable: bool) {
         self.enable_grease = enable;
     }
 
-    #[cfg(not(feature = "aws-lc"))]
+    #[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
     pub fn set_enable_grease(&mut self, _enable: bool) {
         log::warn!("grease can only be set for BoringSSL variants");
     }
@@ -284,6 +284,7 @@ impl OpensslClientConfigBuilder {
         Ok(ctx_builder)
     }
 
+    #[cfg(not(feature = "boringssl"))]
     fn new_tls13_builder(&self) -> anyhow::Result<SslConnectorBuilder> {
         let mut ctx_builder = SslConnector::builder(SslMethod::tls_client())
             .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
@@ -300,6 +301,33 @@ impl OpensslClientConfigBuilder {
             let ciphersuites = self.ciphers.join(":");
             ctx_builder
                 .set_ciphersuites(&ciphersuites)
+                .map_err(|e| anyhow!("failed to set ciphersuites: {e}"))?;
+        }
+
+        if let Some(cert_pair) = &self.client_cert_pair {
+            cert_pair.add_to_client_ssl_context(&mut ctx_builder)?;
+        }
+
+        Ok(ctx_builder)
+    }
+
+    #[cfg(feature = "boringssl")]
+    fn new_tls13_builder(&self) -> anyhow::Result<SslConnectorBuilder> {
+        let mut ctx_builder = SslConnector::builder(SslMethod::tls_client())
+            .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
+        ctx_builder.set_verify(SslVerifyMode::PEER);
+
+        ctx_builder
+            .set_min_proto_version(Some(SslVersion::TLS1_3))
+            .map_err(|e| anyhow!("failed to set min protocol version: {e}"))?;
+        ctx_builder
+            .set_max_proto_version(Some(SslVersion::TLS1_3))
+            .map_err(|e| anyhow!("failed to set max protocol version: {e}"))?;
+
+        if !self.ciphers.is_empty() {
+            let ciphersuites = self.ciphers.join(":");
+            ctx_builder
+                .set_cipher_list(&ciphersuites)
                 .map_err(|e| anyhow!("failed to set ciphersuites: {e}"))?;
         }
 
@@ -370,26 +398,26 @@ impl OpensslClientConfigBuilder {
         }
 
         if self.use_ocsp_stapling {
-            #[cfg(not(feature = "aws-lc"))]
+            #[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
             ctx_builder
                 .set_status_type(StatusType::OCSP)
                 .map_err(|e| anyhow!("failed to enable OCSP status request: {e}"))?;
-            #[cfg(feature = "aws-lc")]
+            #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
             ctx_builder.enable_ocsp_stapling();
             // TODO check OCSP response
         }
 
         if self.enable_sct {
-            #[cfg(not(feature = "aws-lc"))]
+            #[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
             ctx_builder
                 .enable_ct(SslCtValidationMode::PERMISSIVE)
                 .map_err(|e| anyhow!("failed to enable SCT: {e}"))?;
-            #[cfg(feature = "aws-lc")]
+            #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
             ctx_builder.enable_signed_cert_timestamps();
             // TODO check SCT list for AWS-LC or BoringSSL
         }
 
-        #[cfg(feature = "aws-lc")]
+        #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
         if self.enable_grease {
             ctx_builder.set_grease_enabled(true);
         }
@@ -407,9 +435,12 @@ impl OpensslClientConfigBuilder {
                 .add_cert(ca_cert)
                 .map_err(|e| anyhow!("failed to add ca certificate #{i}: {e}"))?;
         }
+        #[cfg(not(feature = "boringssl"))]
         ctx_builder
             .set_verify_cert_store(store_builder.build())
             .map_err(|e| anyhow!("failed to set ca certs: {e}"))?;
+        #[cfg(feature = "boringssl")]
+        ctx_builder.set_cert_store(store_builder.build());
 
         let session_cache = self.session_cache.set_for_client(&mut ctx_builder)?;
 

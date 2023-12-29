@@ -252,10 +252,12 @@ impl OpensslServerConfigBuilder {
                 }
             }
             let store = store_builder.build();
-
+            #[cfg(not(feature = "boringssl"))]
             ssl_builder
                 .set_verify_cert_store(store)
                 .map_err(|e| anyhow!("failed to set ca certs: {e}"))?;
+            #[cfg(feature = "boringssl")]
+            ssl_builder.set_cert_store(store);
             if !subject_stack.is_empty() {
                 ssl_builder.set_client_ca_list(subject_stack);
             }

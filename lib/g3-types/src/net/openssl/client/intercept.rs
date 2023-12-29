@@ -18,7 +18,7 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use openssl::ssl::{Ssl, SslConnector, SslContext, SslMethod, SslVerifyMode};
-#[cfg(not(feature = "aws-lc"))]
+#[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
 use openssl::ssl::{SslCtValidationMode, StatusType};
 use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::X509;
@@ -80,7 +80,7 @@ pub struct OpensslInterceptionClientConfigBuilder {
     supported_groups: String,
     use_ocsp_stapling: bool,
     enable_sct: bool,
-    #[cfg(feature = "aws-lc")]
+    #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
     enable_grease: bool,
 }
 
@@ -94,7 +94,7 @@ impl Default for OpensslInterceptionClientConfigBuilder {
             supported_groups: String::default(),
             use_ocsp_stapling: false,
             enable_sct: false,
-            #[cfg(feature = "aws-lc")]
+            #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
             enable_grease: false,
         }
     }
@@ -160,12 +160,12 @@ impl OpensslInterceptionClientConfigBuilder {
     }
 
     #[inline]
-    #[cfg(feature = "aws-lc")]
+    #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
     pub fn set_enable_grease(&mut self, enable: bool) {
         self.enable_grease = enable;
     }
 
-    #[cfg(not(feature = "aws-lc"))]
+    #[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
     pub fn set_enable_grease(&mut self, _enable: bool) {
         log::warn!("grease can only be set for BoringSSL variants");
     }
@@ -182,26 +182,26 @@ impl OpensslInterceptionClientConfigBuilder {
         }
 
         if self.use_ocsp_stapling {
-            #[cfg(not(feature = "aws-lc"))]
+            #[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
             ctx_builder
                 .set_status_type(StatusType::OCSP)
                 .map_err(|e| anyhow!("failed to enable OCSP status request: {e}"))?;
-            #[cfg(feature = "aws-lc")]
+            #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
             ctx_builder.enable_ocsp_stapling();
             // TODO check OCSP response
         }
 
         if self.enable_sct {
-            #[cfg(not(feature = "aws-lc"))]
+            #[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
             ctx_builder
                 .enable_ct(SslCtValidationMode::PERMISSIVE)
                 .map_err(|e| anyhow!("failed to enable SCT: {e}"))?;
-            #[cfg(feature = "aws-lc")]
+            #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
             ctx_builder.enable_signed_cert_timestamps();
             // TODO check SCT list for AWS-LC or BoringSSL
         }
 
-        #[cfg(feature = "aws-lc")]
+        #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
         if self.enable_grease {
             ctx_builder.set_grease_enabled(true);
         }
@@ -219,9 +219,12 @@ impl OpensslInterceptionClientConfigBuilder {
                 .add_cert(ca_cert)
                 .map_err(|e| anyhow!("failed to add ca certificate #{i}: {e}"))?;
         }
+        #[cfg(not(feature = "boringssl"))]
         ctx_builder
             .set_verify_cert_store(store_builder.build())
             .map_err(|e| anyhow!("failed to set ca certs: {e}"))?;
+        #[cfg(feature = "boringssl")]
+        ctx_builder.set_cert_store(store_builder.build());
 
         let session_cache = self.session_cache.set_for_client(&mut ctx_builder)?;
 

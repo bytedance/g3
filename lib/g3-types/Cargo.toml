@@ -59,6 +59,7 @@ rustls = ["dep:rustls", "dep:webpki-roots", "dep:rustls-pemfile", "dep:rustls-na
 openssl = ["dep:openssl", "dep:ahash", "dep:lru", "dep:bytes"]
 tongsuo = ["openssl", "openssl/tongsuo"]
 aws-lc = ["openssl", "openssl/aws-lc"]
+boringssl = ["openssl", "openssl/boringssl"]
 acl-rule = ["resolve", "dep:ahash", "dep:ip_network", "dep:ip_network_table", "dep:once_cell", "dep:regex", "dep:radix_trie"]
 http = ["dep:http", "dep:bytes", "dep:base64"]
 route = ["dep:ahash", "dep:radix_trie", "dep:indexmap", "resolve"]
