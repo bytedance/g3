@@ -28,7 +28,7 @@ use g3_types::net::{
     OpensslProtocol, OpensslServerConfigBuilder,
 };
 
-#[cfg(feature = "vendored-tongsuo")]
+#[cfg(feature = "tongsuo")]
 use g3_types::net::OpensslTlcpCertificatePair;
 
 fn as_certificates_from_single_element(
@@ -139,7 +139,7 @@ pub fn as_openssl_certificate_pair(
     }
 }
 
-#[cfg(feature = "vendored-tongsuo")]
+#[cfg(feature = "tongsuo")]
 pub fn as_openssl_tlcp_certificate_pair(
     value: &Yaml,
     lookup_dir: Option<&Path>,
@@ -274,7 +274,7 @@ fn set_openssl_tls_client_config_builder(
                 builder.set_cert_pair(pair);
                 Ok(())
             }
-            #[cfg(feature = "vendored-tongsuo")]
+            #[cfg(feature = "tongsuo")]
             "tlcp_cert_pair" => {
                 let pair = as_openssl_tlcp_certificate_pair(v, lookup_dir)
                     .context(format!("invalid tlcp certificate pair value for key {k}"))?;
@@ -451,7 +451,7 @@ pub fn as_openssl_tls_server_config_builder(
                 }
                 Ok(())
             }
-            #[cfg(feature = "vendored-tongsuo")]
+            #[cfg(feature = "tongsuo")]
             "tlcp_cert_pairs" => {
                 if let Yaml::Array(seq) = v {
                     for (i, v) in seq.iter().enumerate() {

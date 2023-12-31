@@ -23,7 +23,7 @@ use serde_json::Value;
 
 use g3_types::net::{OpensslCertificatePair, OpensslClientConfigBuilder, OpensslProtocol};
 
-#[cfg(feature = "vendored-tongsuo")]
+#[cfg(feature = "tongsuo")]
 use g3_types::net::OpensslTlcpCertificatePair;
 
 fn as_certificates_from_single_element(value: &Value) -> anyhow::Result<Vec<X509>> {
@@ -96,7 +96,7 @@ pub fn as_openssl_certificate_pair(value: &Value) -> anyhow::Result<OpensslCerti
     }
 }
 
-#[cfg(feature = "vendored-tongsuo")]
+#[cfg(feature = "tongsuo")]
 pub fn as_openssl_tlcp_certificate_pair(
     value: &Value,
 ) -> anyhow::Result<OpensslTlcpCertificatePair> {
@@ -222,7 +222,7 @@ fn set_openssl_tls_client_config_builder(
                         .context(format!("invalid cert pair value for key {k}"))?;
                     builder.set_cert_pair(pair);
                 }
-                #[cfg(feature = "vendored-tongsuo")]
+                #[cfg(feature = "tongsuo")]
                 "tlcp_cert_pair" => {
                     let pair = as_openssl_tlcp_certificate_pair(v)
                         .context(format!("invalid tlcp certificate pair value for key {k}"))?;

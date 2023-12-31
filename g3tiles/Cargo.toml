@@ -52,4 +52,4 @@ rustc_version.workspace = true
 [features]
 default = []
 vendored-openssl = ["openssl/vendored", "dep:openssl-probe"]
-vendored-tongsuo = ["openssl/tongsuo", "dep:openssl-probe", "g3-yaml/vendored-tongsuo", "g3-types/vendored-tongsuo"]
+vendored-tongsuo = ["openssl/tongsuo", "dep:openssl-probe", "g3-yaml/tongsuo", "g3-types/tongsuo"]

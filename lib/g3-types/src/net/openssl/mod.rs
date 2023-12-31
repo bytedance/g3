@@ -26,9 +26,9 @@ pub use server::{OpensslServerConfig, OpensslServerConfigBuilder, OpensslSession
 mod cert_pair;
 pub use cert_pair::OpensslCertificatePair;
 
-#[cfg(feature = "vendored-tongsuo")]
+#[cfg(feature = "tongsuo")]
 mod tlcp_cert_pair;
-#[cfg(feature = "vendored-tongsuo")]
+#[cfg(feature = "tongsuo")]
 pub use tlcp_cert_pair::OpensslTlcpCertificatePair;
 
 mod protocol;

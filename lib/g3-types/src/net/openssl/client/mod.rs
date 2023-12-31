@@ -26,7 +26,7 @@ use openssl::x509::X509;
 use super::{OpensslCertificatePair, OpensslProtocol};
 use crate::net::tls::AlpnProtocol;
 
-#[cfg(feature = "vendored-tongsuo")]
+#[cfg(feature = "tongsuo")]
 use super::OpensslTlcpCertificatePair;
 
 mod intercept;
@@ -69,7 +69,7 @@ pub struct OpensslClientConfigBuilder {
     ca_certs: Vec<Vec<u8>>,
     no_default_ca_certs: bool,
     client_cert_pair: Option<OpensslCertificatePair>,
-    #[cfg(feature = "vendored-tongsuo")]
+    #[cfg(feature = "tongsuo")]
     client_tlcp_cert_pair: Option<OpensslTlcpCertificatePair>,
     handshake_timeout: Duration,
     session_cache: OpensslSessionCacheConfig,
@@ -84,7 +84,7 @@ impl Default for OpensslClientConfigBuilder {
             ca_certs: Vec::new(),
             no_default_ca_certs: false,
             client_cert_pair: None,
-            #[cfg(feature = "vendored-tongsuo")]
+            #[cfg(feature = "tongsuo")]
             client_tlcp_cert_pair: None,
             handshake_timeout: DEFAULT_HANDSHAKE_TIMEOUT,
             session_cache: OpensslSessionCacheConfig::default(),
@@ -112,7 +112,7 @@ impl OpensslClientConfigBuilder {
             cert_pair.check()?;
         }
 
-        #[cfg(feature = "vendored-tongsuo")]
+        #[cfg(feature = "tongsuo")]
         if let Some(tlcp_cert_pair) = &self.client_tlcp_cert_pair {
             tlcp_cert_pair.check()?;
         }
@@ -169,7 +169,7 @@ impl OpensslClientConfigBuilder {
         self.client_cert_pair.replace(pair)
     }
 
-    #[cfg(feature = "vendored-tongsuo")]
+    #[cfg(feature = "tongsuo")]
     pub fn set_tlcp_cert_pair(
         &mut self,
         pair: OpensslTlcpCertificatePair,
@@ -197,7 +197,7 @@ impl OpensslClientConfigBuilder {
         self.session_cache.set_each_capacity(cap);
     }
 
-    #[cfg(feature = "vendored-tongsuo")]
+    #[cfg(feature = "tongsuo")]
     fn new_tlcp_builder(&self) -> anyhow::Result<SslConnectorBuilder> {
         let mut ctx_builder = SslConnector::builder(SslMethod::ntls_client())
             .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
@@ -308,7 +308,7 @@ impl OpensslClientConfigBuilder {
             Some(OpensslProtocol::Tls11) => self.new_versioned_builder(SslVersion::TLS1_1)?,
             Some(OpensslProtocol::Tls12) => self.new_versioned_builder(SslVersion::TLS1_2)?,
             Some(OpensslProtocol::Tls13) => self.new_tls13_builder()?,
-            #[cfg(feature = "vendored-tongsuo")]
+            #[cfg(feature = "tongsuo")]
             Some(OpensslProtocol::Tlcp11) => self.new_tlcp_builder()?,
             None => self.new_default_builder()?,
         };

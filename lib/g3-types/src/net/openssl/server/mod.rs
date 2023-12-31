@@ -26,22 +26,22 @@ use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::X509;
 
 use super::OpensslCertificatePair;
-#[cfg(feature = "vendored-tongsuo")]
+#[cfg(feature = "tongsuo")]
 use super::OpensslTlcpCertificatePair;
 use crate::net::AlpnProtocol;
 
 mod session;
 pub use session::OpensslSessionIdContext;
 
-#[cfg(feature = "vendored-tongsuo")]
+#[cfg(feature = "tongsuo")]
 const TLS_DEFAULT_CIPHER_SUITES: &str =
     "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_SM4_GCM_SM3";
-#[cfg(feature = "vendored-tongsuo")]
+#[cfg(feature = "tongsuo")]
 const TLS_DEFAULT_CIPHER_LIST: &str =
     "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:\
      ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:\
      DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384";
-#[cfg(feature = "vendored-tongsuo")]
+#[cfg(feature = "tongsuo")]
 const TLCP_DEFAULT_CIPHER_LIST: &str = "ECDHE-SM2-WITH-SM4-SM3:ECC-SM2-WITH-SM4-SM3:\
      ECDHE-SM2-SM4-CBC-SM3:ECDHE-SM2-SM4-GCM-SM3:ECC-SM2-SM4-CBC-SM3:ECC-SM2-SM4-GCM-SM3:\
      RSA-SM4-CBC-SM3:RSA-SM4-GCM-SM3:RSA-SM4-CBC-SHA256:RSA-SM4-GCM-SHA256";
@@ -55,7 +55,7 @@ pub struct OpensslServerConfig {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OpensslServerConfigBuilder {
     cert_pairs: Vec<OpensslCertificatePair>,
-    #[cfg(feature = "vendored-tongsuo")]
+    #[cfg(feature = "tongsuo")]
     tlcp_cert_pairs: Vec<OpensslTlcpCertificatePair>,
     client_auth: bool,
     client_auth_certs: Vec<Vec<u8>>,
@@ -67,7 +67,7 @@ impl OpensslServerConfigBuilder {
     pub fn empty() -> Self {
         OpensslServerConfigBuilder {
             cert_pairs: Vec::with_capacity(1),
-            #[cfg(feature = "vendored-tongsuo")]
+            #[cfg(feature = "tongsuo")]
             tlcp_cert_pairs: Vec::with_capacity(1),
             client_auth: false,
             client_auth_certs: Vec::new(),
@@ -76,7 +76,7 @@ impl OpensslServerConfigBuilder {
         }
     }
 
-    #[cfg(not(feature = "vendored-tongsuo"))]
+    #[cfg(not(feature = "tongsuo"))]
     pub fn check(&self) -> anyhow::Result<()> {
         if self.cert_pairs.is_empty() {
             return Err(anyhow!("no cert pair is set"));
@@ -85,7 +85,7 @@ impl OpensslServerConfigBuilder {
         Ok(())
     }
 
-    #[cfg(feature = "vendored-tongsuo")]
+    #[cfg(feature = "tongsuo")]
     pub fn check(&self) -> anyhow::Result<()> {
         if self.cert_pairs.is_empty() && self.tlcp_cert_pairs.is_empty() {
             return Err(anyhow!("no cert pair is set"));
@@ -118,7 +118,7 @@ impl OpensslServerConfigBuilder {
         Ok(())
     }
 
-    #[cfg(feature = "vendored-tongsuo")]
+    #[cfg(feature = "tongsuo")]
     pub fn push_tlcp_cert_pair(
         &mut self,
         cert_pair: OpensslTlcpCertificatePair,
@@ -139,7 +139,7 @@ impl OpensslServerConfigBuilder {
         let mut ssl_builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::tls_server())
             .map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
 
-        #[cfg(feature = "vendored-tongsuo")]
+        #[cfg(feature = "tongsuo")]
         ssl_builder
             .set_ciphersuites(TLS_DEFAULT_CIPHER_SUITES)
             .map_err(|e| anyhow!("failed to set tls1.3 cipher suites: {e}"))?;
@@ -152,7 +152,7 @@ impl OpensslServerConfigBuilder {
         Ok(ssl_builder)
     }
 
-    #[cfg(feature = "vendored-tongsuo")]
+    #[cfg(feature = "tongsuo")]
     fn build_tlcp_acceptor(
         &self,
         id_ctx: &mut OpensslSessionIdContext,
@@ -173,7 +173,7 @@ impl OpensslServerConfigBuilder {
         Ok(ssl_builder)
     }
 
-    #[cfg(feature = "vendored-tongsuo")]
+    #[cfg(feature = "tongsuo")]
     fn build_acceptor(
         &self,
         id_ctx: &mut OpensslSessionIdContext,
@@ -211,7 +211,7 @@ impl OpensslServerConfigBuilder {
         Ok(ssl_builder)
     }
 
-    #[cfg(not(feature = "vendored-tongsuo"))]
+    #[cfg(not(feature = "tongsuo"))]
     fn build_acceptor(
         &self,
         id_ctx: &mut OpensslSessionIdContext,

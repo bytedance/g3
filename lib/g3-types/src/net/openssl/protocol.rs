@@ -25,7 +25,7 @@ pub enum OpensslProtocol {
     Tls11,
     Tls12,
     Tls13,
-    #[cfg(feature = "vendored-tongsuo")]
+    #[cfg(feature = "tongsuo")]
     Tlcp11,
 }
 
@@ -39,7 +39,7 @@ impl FromStr for OpensslProtocol {
             "tls11" | "tls1.1" | "tls1_1" => Ok(OpensslProtocol::Tls11),
             "tls12" | "tls1.2" | "tls1_2" => Ok(OpensslProtocol::Tls12),
             "tls13" | "tls1.3" | "tls1_3" => Ok(OpensslProtocol::Tls13),
-            #[cfg(feature = "vendored-tongsuo")]
+            #[cfg(feature = "tongsuo")]
             "tlcp" | "tlcp1.1" | "tlcp1_1" => Ok(OpensslProtocol::Tlcp11),
             _ => Err(anyhow!("")),
         }
