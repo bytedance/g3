@@ -50,6 +50,7 @@ pub(crate) struct OpensslProxyServer {
     task_logger: Logger,
     hosts: Arc<HostMatch<Arc<OpensslHost>>>,
     host_index: Index<Ssl, Arc<OpensslHost>>,
+    worker_index: Index<Ssl, usize>,
     ssl_accept_context: SslContext,
     #[cfg(feature = "vendored-tongsuo")]
     tlcp_accept_context: SslContext,
@@ -68,11 +69,14 @@ impl OpensslProxyServer {
     ) -> anyhow::Result<Self> {
         let reload_sender = crate::serve::new_reload_notify_channel();
 
+        let worker_index =
+            Ssl::new_ex_index().map_err(|e| anyhow!("failed to get worker index: {e}"))?;
         let host_index =
             Ssl::new_ex_index().map_err(|e| anyhow!("failed to get host index: {e}"))?;
         let sema_index =
             Ssl::new_ex_index().map_err(|e| anyhow!("failed to get sema index: {e}"))?;
         let ssl_acceptor = super::host::build_ssl_acceptor(
+            worker_index,
             hosts.clone(),
             host_index,
             sema_index,
@@ -84,6 +88,7 @@ impl OpensslProxyServer {
 
         #[cfg(feature = "vendored-tongsuo")]
         let tlcp_accept_context = super::host::build_tlcp_context(
+            worker_index,
             hosts.clone(),
             host_index,
             sema_index,
@@ -109,6 +114,7 @@ impl OpensslProxyServer {
             task_logger,
             hosts,
             host_index,
+            worker_index,
             ssl_accept_context,
             #[cfg(feature = "vendored-tongsuo")]
             tlcp_accept_context,
@@ -227,7 +233,7 @@ impl OpensslProxyServer {
 
     async fn run_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
         #[cfg(not(feature = "vendored-tongsuo"))]
-        let ssl = match Ssl::new(&self.ssl_accept_context) {
+        let mut ssl = match Ssl::new(&self.ssl_accept_context) {
             Ok(v) => v,
             Err(e) => {
                 warn!("failed to build ssl context when accepting connections: {e}");
@@ -235,10 +241,14 @@ impl OpensslProxyServer {
             }
         };
         #[cfg(feature = "vendored-tongsuo")]
-        let Ok(ssl) = self.build_ssl(&stream).await
+        let Ok(mut ssl) = self.build_ssl(&stream).await
         else {
             return;
         };
+
+        if let Some(worker_id) = cc_info.worker_id() {
+            ssl.set_ex_data(self.worker_index, worker_id);
+        }
 
         let ctx = CommonTaskContext {
             server_config: Arc::clone(&self.config),

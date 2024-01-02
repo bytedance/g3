@@ -40,6 +40,7 @@ const TLCP_DEFAULT_CIPHER_LIST: &str = "ECDHE-SM2-WITH-SM4-SM3:ECC-SM2-WITH-SM4-
     RSA-SM4-CBC-SM3:RSA-SM4-GCM-SM3:RSA-SM4-CBC-SHA256:RSA-SM4-GCM-SHA256";
 
 pub(super) fn build_ssl_acceptor(
+    worker_index: Index<Ssl, usize>,
     hosts: Arc<HostMatch<Arc<OpensslHost>>>,
     host_index: Index<Ssl, Arc<OpensslHost>>,
     sema_index: Index<Ssl, Option<GaugeSemaphorePermit>>,
@@ -78,7 +79,8 @@ pub(super) fn build_ssl_acceptor(
                 return Err(sni_err);
             };
 
-            let Some(ssl_context) = &host.ssl_context else {
+            let worker_id = ssl.ex_data(worker_index).copied();
+            let Some(ssl_context) = host.select_ssl_context(worker_id) else {
                 return Err(sni_err);
             };
 
@@ -118,6 +120,7 @@ pub(super) fn build_ssl_acceptor(
 
 #[cfg(feature = "vendored-tongsuo")]
 pub(super) fn build_tlcp_context(
+    worker_index: Index<Ssl, usize>,
     hosts: Arc<HostMatch<Arc<OpensslHost>>>,
     host_index: Index<Ssl, Arc<OpensslHost>>,
     sema_index: Index<Ssl, Option<GaugeSemaphorePermit>>,
@@ -148,7 +151,8 @@ pub(super) fn build_tlcp_context(
                 return Err(sni_err);
             };
 
-            let Some(ssl_context) = &host.tlcp_context else {
+            let worker_id = ssl.ex_data(worker_index).copied();
+            let Some(ssl_context) = host.select_tlcp_context(worker_id) else {
                 return Err(sni_err);
             };
 
@@ -188,9 +192,9 @@ pub(super) fn build_tlcp_context(
 
 pub(crate) struct OpensslHost {
     pub(super) config: Arc<OpensslHostConfig>,
-    ssl_context: Option<SslContext>,
+    ssl_context: Vec<SslContext>,
     #[cfg(feature = "vendored-tongsuo")]
-    tlcp_context: Option<SslContext>,
+    tlcp_context: Vec<SslContext>,
     req_alive_sem: Option<GaugeSemaphore>,
     request_rate_limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
     session_cache: OpensslServerSessionCache,
@@ -209,10 +213,6 @@ impl OpensslHost {
     pub(super) fn build_new(config: Arc<OpensslHostConfig>) -> anyhow::Result<Self> {
         let session_cache = OpensslServerSessionCache::new(config.session_cache_size)?;
 
-        let ssl_context = config.build_ssl_context(&session_cache)?;
-        #[cfg(feature = "vendored-tongsuo")]
-        let tlcp_context = config.build_tlcp_context(&session_cache)?;
-
         let services = (&config.services).try_into()?;
 
         let request_rate_limit = config
@@ -221,25 +221,23 @@ impl OpensslHost {
             .map(|quota| Arc::new(RateLimiter::direct(quota.get_inner())));
         let req_alive_sem = config.request_alive_max.map(GaugeSemaphore::new);
 
-        Ok(OpensslHost {
+        let mut host = OpensslHost {
             config,
-            ssl_context,
+            ssl_context: Vec::new(),
             #[cfg(feature = "vendored-tongsuo")]
-            tlcp_context,
+            tlcp_context: Vec::new(),
             req_alive_sem,
             request_rate_limit,
             session_cache,
             services,
-        })
+        };
+        host.set_ssl_context()?;
+        #[cfg(feature = "vendored-tongsuo")]
+        host.set_tlcp_context()?;
+        Ok(host)
     }
 
     pub(super) fn new_for_reload(&self, config: Arc<OpensslHostConfig>) -> anyhow::Result<Self> {
-        let session_cache = self.session_cache.clone();
-
-        let ssl_context = config.build_ssl_context(&session_cache)?;
-        #[cfg(feature = "vendored-tongsuo")]
-        let tlcp_context = config.build_tlcp_context(&session_cache)?;
-
         let services = (&config.services).try_into()?;
 
         let request_rate_limit = if let Some(quota) = &config.request_rate_limit {
@@ -271,16 +269,64 @@ impl OpensslHost {
             None
         };
 
-        Ok(OpensslHost {
+        let mut host = OpensslHost {
             config,
-            ssl_context,
+            ssl_context: Vec::new(),
             #[cfg(feature = "vendored-tongsuo")]
-            tlcp_context,
+            tlcp_context: Vec::new(),
             req_alive_sem,
             request_rate_limit,
-            session_cache,
+            session_cache: self.session_cache.clone(),
             services,
-        })
+        };
+        host.set_ssl_context()?;
+        #[cfg(feature = "vendored-tongsuo")]
+        host.set_tlcp_context()?;
+        Ok(host)
+    }
+
+    fn set_ssl_context(&mut self) -> anyhow::Result<()> {
+        let ctx_count = g3_daemon::runtime::worker::worker_count().min(1);
+        let mut ssl_context = Vec::with_capacity(ctx_count);
+        for _ in 0..ctx_count {
+            if let Some(ctx) = self.config.build_ssl_context(&self.session_cache)? {
+                ssl_context.push(ctx);
+            }
+        }
+        self.ssl_context = ssl_context;
+        Ok(())
+    }
+
+    fn select_ssl_context(&self, worker_id: Option<usize>) -> Option<&SslContext> {
+        if let Some(id) = worker_id {
+            self.ssl_context.get(id)
+        } else {
+            // TODO select random
+            self.ssl_context.first()
+        }
+    }
+
+    #[cfg(feature = "vendored-tongsuo")]
+    fn set_tlcp_context(&mut self) -> anyhow::Result<()> {
+        let ctx_count = g3_daemon::runtime::worker::worker_count().min(1);
+        let mut tlcp_context = Vec::with_capacity(ctx_count);
+        for _ in 0..ctx_count {
+            if let Some(ctx) = self.config.build_tlcp_context(&self.session_cache)? {
+                tlcp_context.push(ctx);
+            }
+        }
+        self.tlcp_context = tlcp_context;
+        Ok(())
+    }
+
+    #[cfg(feature = "vendored-tongsuo")]
+    fn select_tlcp_context(&self, worker_id: Option<usize>) -> Option<&SslContext> {
+        if let Some(id) = worker_id {
+            self.tlcp_context.get(id)
+        } else {
+            // TODO select random
+            self.tlcp_context.first()
+        }
     }
 
     pub(super) fn check_rate_limit(&self) -> Result<(), ()> {
