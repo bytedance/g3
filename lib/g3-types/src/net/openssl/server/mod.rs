@@ -31,7 +31,7 @@ use super::OpensslTlcpCertificatePair;
 use crate::net::AlpnProtocol;
 
 mod session;
-pub use session::OpensslSessionIdContext;
+pub use session::{OpensslServerSessionCache, OpensslSessionIdContext};
 
 #[cfg(feature = "tongsuo")]
 const TLS_DEFAULT_CIPHER_SUITES: &str =

@@ -14,9 +14,14 @@
  * limitations under the License.
  */
 
+use std::num::NonZeroUsize;
+use std::sync::{Arc, Mutex};
+
+use lru::LruCache;
 use openssl::error::ErrorStack;
+use openssl::ex_data::Index;
 use openssl::hash::{Hasher, MessageDigest};
-use openssl::ssl::SslContextBuilder;
+use openssl::ssl::{SslContext, SslContextBuilder, SslSession, SslSessionCacheMode};
 use openssl::x509::{X509NameRef, X509Ref};
 
 pub struct OpensslSessionIdContext {
@@ -46,5 +51,119 @@ impl OpensslSessionIdContext {
     pub fn build_set(mut self, ssl_builder: &mut SslContextBuilder) -> Result<(), ErrorStack> {
         let digest = self.hasher.finish()?;
         ssl_builder.set_session_id_context(digest.as_ref())
+    }
+}
+
+struct CacheSlot {
+    inner: Mutex<LruCache<Vec<u8>, SslSession, ahash::RandomState>>,
+}
+
+impl CacheSlot {
+    fn new(size: NonZeroUsize) -> Self {
+        CacheSlot {
+            inner: Mutex::new(LruCache::with_hasher(size, ahash::RandomState::new())),
+        }
+    }
+}
+
+struct SessionCache {
+    slots: [CacheSlot; 16],
+}
+
+impl Default for SessionCache {
+    fn default() -> Self {
+        SessionCache::new(256)
+    }
+}
+
+impl SessionCache {
+    fn new(each_size: usize) -> Self {
+        let each_size = NonZeroUsize::new(each_size)
+            .unwrap_or_else(|| unsafe { NonZeroUsize::new_unchecked(256) });
+        SessionCache {
+            slots: [
+                CacheSlot::new(each_size),
+                CacheSlot::new(each_size),
+                CacheSlot::new(each_size),
+                CacheSlot::new(each_size),
+                CacheSlot::new(each_size),
+                CacheSlot::new(each_size),
+                CacheSlot::new(each_size),
+                CacheSlot::new(each_size),
+                CacheSlot::new(each_size),
+                CacheSlot::new(each_size),
+                CacheSlot::new(each_size),
+                CacheSlot::new(each_size),
+                CacheSlot::new(each_size),
+                CacheSlot::new(each_size),
+                CacheSlot::new(each_size),
+                CacheSlot::new(each_size),
+            ],
+        }
+    }
+
+    fn push(&self, session: SslSession) {
+        let key = session.id();
+        let Some(c) = key.first() else {
+            return;
+        };
+        let id = *c & 0x0F;
+        let slot = unsafe { self.slots.get_unchecked(id as usize) };
+
+        let mut cache = slot.inner.lock().unwrap();
+        cache.push(key.to_vec(), session);
+    }
+
+    fn pop(&self, key: &[u8]) -> Option<SslSession> {
+        let c = key.first()?;
+        let id = *c & 0x0F;
+        let slot = unsafe { self.slots.get_unchecked(id as usize) };
+
+        let mut cache = slot.inner.lock().unwrap();
+        cache.pop(key)
+    }
+}
+
+pub struct OpensslServerSessionCache {
+    cache: Arc<SessionCache>,
+    session_cache_index: Index<SslContext, Arc<SessionCache>>,
+}
+
+impl OpensslServerSessionCache {
+    pub fn new(each_size: usize) -> anyhow::Result<Self> {
+        let cache = SessionCache::new(each_size);
+        let cache_index = SslContext::new_ex_index().map_err(anyhow::Error::new)?;
+        Ok(OpensslServerSessionCache {
+            cache: Arc::new(cache),
+            session_cache_index: cache_index,
+        })
+    }
+
+    pub fn add_to_context(&self, ctx_builder: &mut SslContextBuilder) {
+        ctx_builder.set_session_cache_mode(
+            SslSessionCacheMode::SERVER
+                | SslSessionCacheMode::NO_INTERNAL
+                | SslSessionCacheMode::NO_AUTO_CLEAR,
+        );
+
+        let session_cache_index = self.session_cache_index;
+        ctx_builder.set_new_session_callback(move |ssl, session| {
+            if let Some(cache) = ssl.ssl_context().ex_data(session_cache_index) {
+                cache.push(session);
+            }
+        });
+
+        let session_cache_index = self.session_cache_index;
+        unsafe {
+            ctx_builder.set_get_session_callback(move |ssl, id| {
+                if let Some(cache) = ssl.ssl_context().ex_data(session_cache_index) {
+                    cache.pop(id)
+                } else {
+                    None
+                }
+            })
+        }
+
+        ctx_builder.set_ex_data(self.session_cache_index, self.cache.clone());
     }
 }

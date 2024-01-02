@@ -21,7 +21,10 @@ pub use client::{
 };
 
 mod server;
-pub use server::{OpensslServerConfig, OpensslServerConfigBuilder, OpensslSessionIdContext};
+pub use server::{
+    OpensslServerConfig, OpensslServerConfigBuilder, OpensslServerSessionCache,
+    OpensslSessionIdContext,
+};
 
 mod cert_pair;
 pub use cert_pair::OpensslCertificatePair;
