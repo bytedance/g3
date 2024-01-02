@@ -58,6 +58,9 @@ async fn do_reload() {
     if let Err(e) = crate::auth::load_all().await {
         error!("failed to reload all user groups: {e:?}");
     }
+    if let Err(e) = crate::audit::load_all().await {
+        error!("failed to reload all auditors: {e:?}");
+    }
     if let Err(e) = crate::serve::spawn_all().await {
         error!("failed to reload all servers: {e:?}");
     }
