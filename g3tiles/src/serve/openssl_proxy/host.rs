@@ -286,7 +286,7 @@ impl OpensslHost {
     }
 
     fn set_ssl_context(&mut self) -> anyhow::Result<()> {
-        let ctx_count = g3_daemon::runtime::worker::worker_count().min(1);
+        let ctx_count = g3_daemon::runtime::worker::worker_count().max(1);
         let mut ssl_context = Vec::with_capacity(ctx_count);
         for _ in 0..ctx_count {
             if let Some(ctx) = self.config.build_ssl_context(&self.session_cache)? {
@@ -308,7 +308,7 @@ impl OpensslHost {
 
     #[cfg(feature = "vendored-tongsuo")]
     fn set_tlcp_context(&mut self) -> anyhow::Result<()> {
-        let ctx_count = g3_daemon::runtime::worker::worker_count().min(1);
+        let ctx_count = g3_daemon::runtime::worker::worker_count().max(1);
         let mut tlcp_context = Vec::with_capacity(ctx_count);
         for _ in 0..ctx_count {
             if let Some(ctx) = self.config.build_tlcp_context(&self.session_cache)? {
