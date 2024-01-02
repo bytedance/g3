@@ -140,11 +140,7 @@ impl OpensslServerSessionCache {
     }
 
     pub fn add_to_context(&self, ctx_builder: &mut SslContextBuilder) {
-        ctx_builder.set_session_cache_mode(
-            SslSessionCacheMode::SERVER
-                | SslSessionCacheMode::NO_INTERNAL
-                | SslSessionCacheMode::NO_AUTO_CLEAR,
-        );
+        ctx_builder.set_session_cache_mode(SslSessionCacheMode::SERVER);
 
         let session_cache_index = self.session_cache_index;
         ctx_builder.set_new_session_callback(move |ssl, session| {
@@ -163,6 +159,13 @@ impl OpensslServerSessionCache {
                 }
             })
         }
+
+        let session_cache_index = self.session_cache_index;
+        ctx_builder.set_remove_session_callback(move |ctx, session| {
+            if let Some(cache) = ctx.ex_data(session_cache_index) {
+                cache.pop(session.id());
+            }
+        });
 
         ctx_builder.set_ex_data(self.session_cache_index, self.cache.clone());
     }
