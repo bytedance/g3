@@ -17,9 +17,7 @@
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
-use openssl::ssl::{
-    SslAcceptor, SslContext, SslContextBuilder, SslMethod, SslSessionCacheMode, SslVerifyMode,
-};
+use openssl::ssl::{SslAcceptor, SslContext, SslContextBuilder, SslMethod, SslVerifyMode};
 use openssl::stack::Stack;
 use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::X509;
@@ -27,7 +25,10 @@ use yaml_rust::Yaml;
 
 use g3_types::collection::NamedValue;
 use g3_types::limit::RateLimitQuotaConfig;
-use g3_types::net::{OpensslCertificatePair, OpensslSessionIdContext, TcpSockSpeedLimitConfig};
+use g3_types::net::{
+    OpensslCertificatePair, OpensslServerSessionCache, OpensslSessionIdContext,
+    TcpSockSpeedLimitConfig,
+};
 use g3_types::route::AlpnMatch;
 use g3_yaml::{YamlDocPosition, YamlMapCallback};
 
@@ -36,7 +37,7 @@ use g3_types::net::OpensslTlcpCertificatePair;
 
 use super::OpensslServiceConfig;
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct OpensslHostConfig {
     name: String,
     cert_pairs: Vec<OpensslCertificatePair>,
@@ -45,11 +46,32 @@ pub(crate) struct OpensslHostConfig {
     client_auth: bool,
     client_auth_certs: Vec<Vec<u8>>,
     session_id_context: String,
+    pub(crate) session_cache_size: usize,
     pub(crate) request_alive_max: Option<usize>,
     pub(crate) request_rate_limit: Option<RateLimitQuotaConfig>,
     pub(crate) tcp_sock_speed_limit: Option<TcpSockSpeedLimitConfig>,
     pub(crate) task_idle_max_count: Option<i32>,
     pub(crate) services: AlpnMatch<Arc<OpensslServiceConfig>>,
+}
+
+impl Default for OpensslHostConfig {
+    fn default() -> Self {
+        OpensslHostConfig {
+            name: String::new(),
+            cert_pairs: Vec::new(),
+            #[cfg(feature = "vendored-tongsuo")]
+            tlcp_cert_pairs: Vec::new(),
+            client_auth: false,
+            client_auth_certs: Vec::new(),
+            session_id_context: String::new(),
+            session_cache_size: 256,
+            request_alive_max: None,
+            request_rate_limit: None,
+            tcp_sock_speed_limit: None,
+            task_idle_max_count: None,
+            services: Default::default(),
+        }
+    }
 }
 
 impl NamedValue for OpensslHostConfig {
@@ -126,7 +148,10 @@ impl OpensslHostConfig {
         Ok(())
     }
 
-    pub(crate) fn build_ssl_context(&self) -> anyhow::Result<Option<SslContext>> {
+    pub(crate) fn build_ssl_context(
+        &self,
+        session_cache: &OpensslServerSessionCache,
+    ) -> anyhow::Result<Option<SslContext>> {
         if self.cert_pairs.is_empty() {
             return Ok(None);
         }
@@ -142,7 +167,7 @@ impl OpensslHostConfig {
         let mut ssl_builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::tls_server())
             .map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
 
-        ssl_builder.set_session_cache_mode(SslSessionCacheMode::SERVER); // TODO use external cache?
+        session_cache.add_to_context(&mut ssl_builder);
 
         self.set_client_auth(&mut ssl_builder, &mut id_ctx)?;
 
@@ -179,7 +204,10 @@ impl OpensslHostConfig {
     }
 
     #[cfg(feature = "vendored-tongsuo")]
-    pub(crate) fn build_tlcp_context(&self) -> anyhow::Result<Option<SslContext>> {
+    pub(crate) fn build_tlcp_context(
+        &self,
+        session_cache: &OpensslServerSessionCache,
+    ) -> anyhow::Result<Option<SslContext>> {
         if self.tlcp_cert_pairs.is_empty() {
             return Ok(None);
         }
@@ -202,7 +230,7 @@ impl OpensslHostConfig {
              RSA-SM4-CBC-SM3:RSA-SM4-GCM-SM3:RSA-SM4-CBC-SHA256:RSA-SM4-GCM-SHA256",
         )?;
 
-        ssl_builder.set_session_cache_mode(SslSessionCacheMode::SERVER); // TODO use external cache?
+        session_cache.add_to_context(&mut ssl_builder);
 
         self.set_client_auth(&mut ssl_builder, &mut id_ctx)?;
 
@@ -278,6 +306,10 @@ impl YamlMapCallback for OpensslHostConfig {
             }
             "session_id_context" => {
                 self.session_id_context = g3_yaml::value::as_string(value)?;
+                Ok(())
+            }
+            "session_cache_size" => {
+                self.session_cache_size = g3_yaml::value::as_usize(value)?;
                 Ok(())
             }
             "ca_certificate" | "ca_cert" | "client_auth_certificate" | "client_auth_cert" => {

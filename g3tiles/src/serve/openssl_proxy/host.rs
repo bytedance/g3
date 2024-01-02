@@ -25,7 +25,7 @@ use openssl::ssl::{NameType, SniError, Ssl, SslAcceptor, SslAlert, SslContext, S
 
 use g3_types::collection::NamedValue;
 use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit};
-use g3_types::net::Host;
+use g3_types::net::{Host, OpensslServerSessionCache};
 use g3_types::route::{AlpnMatch, HostMatch};
 
 use super::OpensslService;
@@ -193,6 +193,7 @@ pub(crate) struct OpensslHost {
     tlcp_context: Option<SslContext>,
     req_alive_sem: Option<GaugeSemaphore>,
     request_rate_limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
+    session_cache: OpensslServerSessionCache,
     pub(crate) services: AlpnMatch<Arc<OpensslService>>,
 }
 
@@ -206,9 +207,11 @@ impl TryFrom<&Arc<OpensslHostConfig>> for OpensslHost {
 
 impl OpensslHost {
     pub(super) fn build_new(config: Arc<OpensslHostConfig>) -> anyhow::Result<Self> {
-        let ssl_context = config.build_ssl_context()?;
+        let session_cache = OpensslServerSessionCache::new(config.session_cache_size)?;
+
+        let ssl_context = config.build_ssl_context(&session_cache)?;
         #[cfg(feature = "vendored-tongsuo")]
-        let tlcp_context = config.build_tlcp_context()?;
+        let tlcp_context = config.build_tlcp_context(&session_cache)?;
 
         let services = (&config.services).try_into()?;
 
@@ -225,14 +228,17 @@ impl OpensslHost {
             tlcp_context,
             req_alive_sem,
             request_rate_limit,
+            session_cache,
             services,
         })
     }
 
     pub(super) fn new_for_reload(&self, config: Arc<OpensslHostConfig>) -> anyhow::Result<Self> {
-        let ssl_context = config.build_ssl_context()?;
+        let session_cache = self.session_cache.clone();
+
+        let ssl_context = config.build_ssl_context(&session_cache)?;
         #[cfg(feature = "vendored-tongsuo")]
-        let tlcp_context = config.build_tlcp_context()?;
+        let tlcp_context = config.build_tlcp_context(&session_cache)?;
 
         let services = (&config.services).try_into()?;
 
@@ -272,6 +278,7 @@ impl OpensslHost {
             tlcp_context,
             req_alive_sem,
             request_rate_limit,
+            session_cache,
             services,
         })
     }
