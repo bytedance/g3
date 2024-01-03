@@ -17,8 +17,7 @@
 use openssl::error::ErrorStack;
 use openssl::hash::{DigestBytes, MessageDigest};
 use openssl::pkey::{HasPublic, PKey};
-
-use super::X509Pubkey;
+use openssl::x509::X509Pubkey;
 
 pub trait PublicKeyExt {
     fn ski(&self) -> Result<DigestBytes, ErrorStack>;
