@@ -44,6 +44,7 @@ pub fn new_ec521() -> anyhow::Result<PKey<Private>> {
     new_ec(&group)
 }
 
+#[cfg(not(feature = "no-sm2"))]
 pub fn new_sm2() -> anyhow::Result<PKey<Private>> {
     let group = EcGroup::from_curve_name(Nid::SM2)
         .map_err(|e| anyhow!("failed to get SM2 ec group: {e}"))?;

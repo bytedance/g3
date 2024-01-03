@@ -49,7 +49,14 @@ impl RootCertBuilder {
     impl_new!(new_ec256);
     impl_new!(new_ec384);
     impl_new!(new_ec521);
+
+    #[cfg(not(feature = "no-sm2"))]
     impl_new!(new_sm2);
+    #[cfg(feature = "no-sm2")]
+    pub fn new_sm2() -> anyhow::Result<Self> {
+        Err(anyhow!("SM2 is not supported"))
+    }
+
     impl_new!(new_ed25519);
     impl_new!(new_ed448);
 

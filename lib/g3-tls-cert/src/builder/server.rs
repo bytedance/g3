@@ -42,6 +42,15 @@ pub struct ServerCertBuilder {
 
 pub struct TlsServerCertBuilder {}
 
+#[cfg(feature = "no-sm2")]
+macro_rules! impl_no {
+    ($f:ident, $a:literal) => {
+        pub fn $f() -> anyhow::Result<ServerCertBuilder> {
+            Err(anyhow!("{} is not supported", $a))
+        }
+    };
+}
+
 macro_rules! tls_impl_new {
     ($f:ident) => {
         pub fn $f() -> anyhow::Result<ServerCertBuilder> {
@@ -56,7 +65,11 @@ impl TlsServerCertBuilder {
     tls_impl_new!(new_ec256);
     tls_impl_new!(new_ec384);
     tls_impl_new!(new_ec521);
+
+    #[cfg(not(feature = "no-sm2"))]
     tls_impl_new!(new_sm2);
+    #[cfg(feature = "no-sm2")]
+    impl_no!(new_sm2, "SM2");
 
     pub fn new_ed25519() -> anyhow::Result<ServerCertBuilder> {
         let pkey = super::pkey::new_ed25519()?;
@@ -117,17 +130,14 @@ impl TlsServerCertBuilder {
 
 pub struct TlcpServerSignCertBuilder {}
 
-macro_rules! tlcp_sign_impl_new {
-    ($f:ident) => {
-        pub fn $f() -> anyhow::Result<ServerCertBuilder> {
-            let pkey = super::pkey::$f()?;
-            TlcpServerSignCertBuilder::with_pkey(pkey)
-        }
-    };
-}
-
 impl TlcpServerSignCertBuilder {
-    tlcp_sign_impl_new!(new_sm2);
+    #[cfg(not(feature = "no-sm2"))]
+    pub fn new_sm2() -> anyhow::Result<ServerCertBuilder> {
+        let pkey = super::pkey::new_sm2()?;
+        TlcpServerSignCertBuilder::with_pkey(pkey)
+    }
+    #[cfg(feature = "no-sm2")]
+    impl_no!(new_sm2, "SM2");
 
     pub fn new_rsa(bits: u32) -> anyhow::Result<ServerCertBuilder> {
         let pkey = super::pkey::new_rsa(bits)?;
@@ -146,17 +156,14 @@ impl TlcpServerSignCertBuilder {
 
 pub struct TlcpServerEncCertBuilder {}
 
-macro_rules! tlcp_enc_impl_new {
-    ($f:ident) => {
-        pub fn $f() -> anyhow::Result<ServerCertBuilder> {
-            let pkey = super::pkey::$f()?;
-            TlcpServerEncCertBuilder::with_pkey(pkey)
-        }
-    };
-}
-
 impl TlcpServerEncCertBuilder {
-    tlcp_enc_impl_new!(new_sm2);
+    #[cfg(not(feature = "no-sm2"))]
+    pub fn new_sm2() -> anyhow::Result<ServerCertBuilder> {
+        let pkey = super::pkey::new_sm2()?;
+        TlcpServerEncCertBuilder::with_pkey(pkey)
+    }
+    #[cfg(feature = "no-sm2")]
+    impl_no!(new_sm2, "SM2");
 
     pub fn new_rsa(bits: u32) -> anyhow::Result<ServerCertBuilder> {
         let pkey = super::pkey::new_rsa(bits)?;
@@ -237,7 +244,10 @@ impl ServerCertBuilder {
     impl_refresh_pkey!(refresh_ec256, new_ec256);
     impl_refresh_pkey!(refresh_ec384, new_ec384);
     impl_refresh_pkey!(refresh_ec521, new_ec521);
+
+    #[cfg(not(feature = "no-sm2"))]
     impl_refresh_pkey!(refresh_sm2, new_sm2);
+
     impl_refresh_pkey!(refresh_ed25519, new_ed25519);
     impl_refresh_pkey!(refresh_ed448, new_ed448);
     impl_refresh_pkey!(refresh_x25519, new_x25519);

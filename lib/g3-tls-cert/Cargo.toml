@@ -21,3 +21,7 @@ g3-msgpack = { workspace = true, features = ["rustls"] }
 g3-socket.workspace = true
 g3-io-ext.workspace = true
 g3-datetime.workspace = true
+
+[features]
+default = []
+no-sm2 = []
