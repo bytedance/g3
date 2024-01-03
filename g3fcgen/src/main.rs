@@ -25,7 +25,7 @@ use log::{debug, error, info};
 use g3fcgen::opts::ProcArgs;
 
 fn main() -> anyhow::Result<()> {
-    #[cfg(any(feature = "vendored-openssl", feature = "vendored-tongsuo"))]
+    #[cfg(feature = "openssl-probe")]
     openssl_probe::init_ssl_cert_env_vars();
     openssl::init();
 

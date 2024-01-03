@@ -52,6 +52,6 @@ rustc_version.workspace = true
 
 [features]
 default = []
-vendored-openssl = ["openssl/vendored", "dep:openssl-probe"]
-vendored-tongsuo = ["openssl/tongsuo", "dep:openssl-probe"]
+vendored-openssl = ["openssl/vendored", "openssl-probe"]
+vendored-tongsuo = ["openssl/tongsuo", "openssl-probe"]
 openssl-async-job = ["g3-openssl/async-job"]
