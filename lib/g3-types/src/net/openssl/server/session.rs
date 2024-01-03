@@ -124,6 +124,7 @@ impl SessionCache {
     }
 }
 
+#[derive(Clone)]
 pub struct OpensslServerSessionCache {
     cache: Arc<SessionCache>,
     session_cache_index: Index<SslContext, Arc<SessionCache>>,
