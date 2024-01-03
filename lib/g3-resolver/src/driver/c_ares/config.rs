@@ -124,7 +124,7 @@ impl CAresDriverConfig {
 
     #[cfg(cares1_22)]
     pub fn set_max_timeout(&mut self, timeout_ms: i32) {
-        self.max_timeout = Some(timeout_ms.max(0));
+        self.max_timeout = timeout_ms.max(0);
     }
 
     pub fn is_unspecified(&self) -> bool {
