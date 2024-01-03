@@ -59,6 +59,7 @@ rustc-hash = { workspace = true, optional = true }
 fnv = { workspace = true, optional = true }
 governor = { workspace = true, features = ["std", "jitter"] }
 rmpv.workspace = true
+c-ares-sys = { workspace = true, optional = true } # for DEP_ version check
 mlua = { workspace = true, features = ["send"], optional = true }
 pyo3 = { workspace = true, features = ["auto-initialize"], optional = true }
 g3-compat.workspace = true
@@ -102,7 +103,7 @@ lua51 = ["lua", "mlua/lua51"]
 lua53 = ["lua", "mlua/lua53"]
 lua54 = ["lua", "mlua/lua54"]
 python = ["pyo3"]
-c-ares = ["g3-resolver/c-ares"]
+c-ares = ["g3-resolver/c-ares", "dep:c-ares-sys"]
 hickory = ["g3-resolver/hickory"]
 geoip = ["g3-geoip", "g3-yaml/geoip", "fixedbitset", "rustc-hash", "fnv"]
 quic = ["g3-daemon/quic", "g3-resolver/quic", "dep:quinn"]
