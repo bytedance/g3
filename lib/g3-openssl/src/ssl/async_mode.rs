@@ -27,7 +27,7 @@ use libc::c_int;
 use libc::c_void;
 use openssl::error::ErrorStack;
 use openssl::foreign_types::ForeignTypeRef;
-use openssl::ssl::SslRef;
+use openssl::ssl::{SslMode, SslRef};
 #[cfg(ossl300)]
 use openssl_sys::SSL;
 use tokio::io::unix::AsyncFd;
@@ -47,7 +47,7 @@ pub trait SslAsyncModeExt {
 
 impl SslAsyncModeExt for SslRef {
     fn is_async(&self) -> bool {
-        unsafe { (ffi::SSL_get_mode(self.as_ptr()) & 0x00000100) != 0 }
+        (self.mode() & SslMode::ASYNC) == SslMode::ASYNC
     }
 
     fn waiting_for_async(&self) -> bool {

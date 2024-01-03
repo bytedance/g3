@@ -25,3 +25,4 @@ g3-datetime.workspace = true
 [features]
 default = []
 no-sm2 = []
+aws-lc = ["openssl/aws-lc", "no-sm2"]

@@ -19,7 +19,7 @@
 use std::ptr;
 
 use libc::{c_int, c_long, c_void};
-use openssl_sys::{SSL_ctrl, SSL, SSL_CTRL_MODE, SSL_CTX};
+use openssl_sys::{SSL, SSL_CTX};
 
 pub const ASYNC_ERR: c_int = 0;
 pub const ASYNC_NO_JOBS: c_int = 1;
@@ -136,9 +136,4 @@ extern "C" {
     pub fn SSL_set_async_callback_arg(s: *mut SSL, arg: *mut c_void) -> c_int;
     #[cfg(ossl300)]
     pub fn SSL_get_async_status(s: *mut SSL) -> c_int;
-}
-
-#[allow(non_snake_case)]
-pub unsafe fn SSL_get_mode(ctx: *mut SSL) -> c_long {
-    SSL_ctrl(ctx, SSL_CTRL_MODE, 0, ptr::null_mut())
 }
