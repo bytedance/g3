@@ -21,13 +21,13 @@ use lru::LruCache;
 use rustls::server::StoresServerSessions;
 
 struct CacheSlot {
-    inner: Mutex<LruCache<Vec<u8>, Vec<u8>, ahash::RandomState>>,
+    local: Mutex<LruCache<Vec<u8>, Vec<u8>, ahash::RandomState>>,
 }
 
 impl CacheSlot {
     fn new(size: NonZeroUsize) -> Self {
         CacheSlot {
-            inner: Mutex::new(LruCache::with_hasher(size, ahash::RandomState::new())),
+            local: Mutex::new(LruCache::with_hasher(size, ahash::RandomState::new())),
         }
     }
 }
@@ -77,7 +77,7 @@ impl StoresServerSessions for RustlsServerSessionCache {
         let id = *c & 0x0F;
         let slot = unsafe { self.slots.get_unchecked(id as usize) };
 
-        let mut cache = slot.inner.lock().unwrap();
+        let mut cache = slot.local.lock().unwrap();
         cache.put(key, value);
         true
     }
@@ -87,7 +87,7 @@ impl StoresServerSessions for RustlsServerSessionCache {
         let id = *c & 0x0F;
         let slot = unsafe { self.slots.get_unchecked(id as usize) };
 
-        let mut cache = slot.inner.lock().unwrap();
+        let mut cache = slot.local.lock().unwrap();
         cache.get(key).cloned()
     }
 
@@ -96,7 +96,7 @@ impl StoresServerSessions for RustlsServerSessionCache {
         let id = *c & 0x0F;
         let slot = unsafe { self.slots.get_unchecked(id as usize) };
 
-        let mut cache = slot.inner.lock().unwrap();
+        let mut cache = slot.local.lock().unwrap();
         cache.pop(key)
     }
 
