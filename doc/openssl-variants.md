@@ -93,3 +93,28 @@ You can build packages by using the build scripts after  BoringSSL is built
 in `boringssl/build` directory.
 
 Release tarball creation is still not supported yet.
+
+# AWS-LC
+
+See [AWS-LC](https://github.com/aws/aws-lc) for more introduction.
+
+## When
+
+OpenSSL below 3.0 is not supported anymore, but the 3.0 - 3.2 versions all have significant performance degradation.
+As an alternative, you can switch to use AWS-LC as a solution on AWS EC2 hosts.
+
+## How
+
+AWS-LC is supported in branch `rel/boringssl`.
+
+### Build
+
+- Make sure you have `cmake`, `pkg-config` and `go` installed
+
+- Build with `--features vendored-aws-lc` cargo option
+
+### Package
+
+You can build packages by using the build scripts.
+
+Release tarball creation is still not supported yet.
