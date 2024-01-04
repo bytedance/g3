@@ -1077,7 +1077,7 @@ dependencies = [
  "rustls",
  "rustls-pemfile",
  "serde_json",
- "tongsuo",
+ "variant-ssl",
 ]
 
 [[package]]
@@ -1103,8 +1103,8 @@ dependencies = [
  "libc",
  "thiserror",
  "tokio",
- "tongsuo",
- "tongsuo-sys",
+ "variant-ssl",
+ "variant-ssl-sys",
 ]
 
 [[package]]
@@ -1239,8 +1239,8 @@ dependencies = [
  "rmpv",
  "rustls",
  "tokio",
- "tongsuo",
- "tongsuo-sys",
+ "variant-ssl",
+ "variant-ssl-sys",
 ]
 
 [[package]]
@@ -1285,8 +1285,8 @@ dependencies = [
  "slog",
  "smallvec",
  "thiserror",
- "tongsuo",
  "url",
+ "variant-ssl",
  "webpki-roots",
 ]
 
@@ -1328,8 +1328,8 @@ dependencies = [
  "regex",
  "rustls",
  "rustls-pemfile",
- "tongsuo",
  "url",
+ "variant-ssl",
  "yaml-rust",
 ]
 
@@ -1375,8 +1375,8 @@ dependencies = [
  "rustls-pemfile",
  "thiserror",
  "tokio",
- "tongsuo",
  "url",
+ "variant-ssl",
 ]
 
 [[package]]
@@ -1401,7 +1401,7 @@ dependencies = [
  "rmpv",
  "rustc_version",
  "tokio",
- "tongsuo",
+ "variant-ssl",
  "yaml-rust",
 ]
 
@@ -1441,9 +1441,9 @@ dependencies = [
  "slog",
  "thiserror",
  "tokio",
- "tongsuo",
  "url",
  "uuid",
+ "variant-ssl",
  "yaml-rust",
 ]
 
@@ -1464,7 +1464,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-util",
- "tongsuo",
+ "variant-ssl",
 ]
 
 [[package]]
@@ -1486,7 +1486,7 @@ dependencies = [
  "g3-types",
  "openssl-probe",
  "rustc_version",
- "tongsuo",
+ "variant-ssl",
 ]
 
 [[package]]
@@ -1568,9 +1568,9 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "tokio-util",
- "tongsuo",
  "url",
  "uuid",
+ "variant-ssl",
  "yaml-rust",
 ]
 
@@ -1674,8 +1674,8 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-rustls",
- "tongsuo",
  "uuid",
+ "variant-ssl",
  "yaml-rust",
 ]
 
@@ -3228,41 +3228,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "tongsuo"
-version = "0.10.62"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2b93845cf4a99d285afdbd553252d3043d42f8e881769583914d4120bb8a80e"
-dependencies = [
- "bitflags 2.4.1",
- "cfg-if",
- "foreign-types",
- "libc",
- "once_cell",
- "openssl-macros",
- "tongsuo-sys",
-]
-
-[[package]]
 name = "tongsuo-src"
 version = "840.1.1+8.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0486f4388f4ee59899a4ed995f08be67c70b93688f780830c558311875893aa6"
 dependencies = [
  "cc",
-]
-
-[[package]]
-name = "tongsuo-sys"
-version = "0.9.98"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ca81332d15219b571dd1afcff7f352a909caebd13095d4341f58cc37d7591b6"
-dependencies = [
- "cc",
- "libc",
- "openssl-src",
- "pkg-config",
- "tongsuo-src",
- "vcpkg",
 ]
 
 [[package]]
@@ -3367,6 +3338,35 @@ checksum = "5e395fcf16a7a3d8127ec99782007af141946b4795001f876d54fb0d55978560"
 dependencies = [
  "atomic",
  "getrandom",
+]
+
+[[package]]
+name = "variant-ssl"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce5e358214fc552fb189607a527a92de05584b2c27a430db2eb643999c1b9ac0"
+dependencies = [
+ "bitflags 2.4.1",
+ "cfg-if",
+ "foreign-types",
+ "libc",
+ "once_cell",
+ "openssl-macros",
+ "variant-ssl-sys",
+]
+
+[[package]]
+name = "variant-ssl-sys"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5a32723e2fddca0d48d251355a9f3b94554eca35595fa12f3762bc2581b92bd"
+dependencies = [
+ "cc",
+ "libc",
+ "openssl-src",
+ "pkg-config",
+ "tongsuo-src",
+ "vcpkg",
 ]
 
 [[package]]
