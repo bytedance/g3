@@ -38,6 +38,12 @@ fi
 
 SOURCE_NAME=$(echo "${RELEASE_TAG}" | sed 's/\(.*[^-]\)-v[0-9].*/\1/')
 SOURCE_VERSION=$(echo "${RELEASE_TAG}" | sed 's/.*[^-]-v\([0-9].*\)/\1/')
+if [ "${SOURCE_NAME}" = "${SOURCE_VERSION}" ]
+then
+	# no -v<version> found
+	SOURCE_VERSION=$(cargo metadata --format-version 1 | jq -r ".packages[]|select(.name == \"$SOURCE_NAME\")|.version")
+	echo "source version is not supplied and we will use ${SOURCE_VERSION}"
+fi
 PKG_VERSION=$(echo "${SOURCE_VERSION}" | tr '-' '.')
 SOURCE_TIMESTAMP=$(git show -s --pretty="format:%ct" "${GIT_REVISION}^{commit}")
 

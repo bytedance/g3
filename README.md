@@ -71,7 +71,10 @@ If you want to do a release build:
  1. generate a release tarball
 
     ```shell
+    # if we have a tag <name>-v<version>
     ./scripts/release/build_tarball.sh <name>-v<version>
+    # if no tags usable, you need to specify the git revision (e.g. HEAD)
+    ./scripts/release/build_tarball.sh <name> <rev>
     ```
 
     All vendor sources will be added to the source tarball, so you can save the source tarball and build it offline at
