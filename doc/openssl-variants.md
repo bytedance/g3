@@ -109,12 +109,10 @@ AWS-LC is supported in branch `rel/boringssl`.
 
 ### Build
 
-- Make sure you have `cmake`, `pkg-config` and `go` installed
-
-- Build with `--features vendored-aws-lc` cargo option
+Use `--features vendored-aws-lc` cargo build option.
 
 ### Package
 
-You can build packages by using the build scripts.
+- Install a recent version of [go](https://go.dev/dl/).
 
-Release tarball creation is still not supported yet.
+- Switch to branch `rel/aws-lc`, then run the build script or create the release tarball as usual.
