@@ -56,6 +56,7 @@ jobs:
         feature:
           - vendored-openssl
           - vendored-tongsuo
+          - vendored-aws-lc
           - vendored-c-ares
     steps:
       - name: Checkout sources
