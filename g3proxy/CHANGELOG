@@ -1,4 +1,12 @@
 
+v1.7.32:
+ - BUG FIX: fix session resumption for NativeTlsPort when client auth is enabled
+ - BUG FIX: do session resumption only once for NativeTlsPort tls1.3 connections
+ - BUG FIX: fix batch reload of auditor
+ - BUG FIX: fix detection of c-ares features
+ - Feature: send task_ready histogram duration metrics for user sites
+ - Feature: support use AWS-LC instead of OpenSSL
+
 v1.7.31:
  - Feature: allow to read from environment variable when setting:
      - StatsD udp peer addr
