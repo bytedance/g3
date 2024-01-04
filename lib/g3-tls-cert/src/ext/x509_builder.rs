@@ -51,7 +51,7 @@ impl X509BuilderExt for X509Builder {
         key: &PKeyRef<T>,
         digest: Option<MessageDigest>,
     ) -> Result<(), ErrorStack> {
-        let digest = digest.unwrap_or_else(|| MessageDigest::sha256());
+        let digest = digest.unwrap_or_else(MessageDigest::sha256);
         self.sign(key, digest)
     }
 }
