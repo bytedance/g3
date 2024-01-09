@@ -1,4 +1,7 @@
 
+v1.7.33:
+ - BUG FIX: fix dead looping when shutdown ssl connections
+
 v1.7.32:
  - BUG FIX: fix session resumption for NativeTlsPort when client auth is enabled
  - BUG FIX: do session resumption only once for NativeTlsPort tls1.3 connections
