@@ -19,6 +19,7 @@ Servers
 
    dummy_close
    tcp_stream
+   tcp_tproxy
    tls_stream
    http_proxy
    socks_proxy

@@ -42,6 +42,8 @@ use super::http_rproxy::HttpRProxyServer;
 use super::sni_proxy::SniProxyServer;
 use super::socks_proxy::SocksProxyServer;
 use super::tcp_stream::TcpStreamServer;
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+use super::tcp_tproxy::TcpTProxyServer;
 use super::tls_stream::TlsStreamServer;
 
 static SERVER_OPS_LOCK: Mutex<()> = Mutex::const_new(());
@@ -294,6 +296,8 @@ fn spawn_new_unlocked(config: AnyServerConfig) -> anyhow::Result<()> {
         AnyServerConfig::PlainQuicPort(c) => PlainQuicPort::prepare_initial(c)?,
         AnyServerConfig::IntelliProxy(c) => IntelliProxy::prepare_initial(c)?,
         AnyServerConfig::TcpStream(c) => TcpStreamServer::prepare_initial(*c)?,
+        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+        AnyServerConfig::TcpTProxy(c) => TcpTProxyServer::prepare_initial(c)?,
         AnyServerConfig::TlsStream(c) => TlsStreamServer::prepare_initial(*c)?,
         AnyServerConfig::SniProxy(c) => SniProxyServer::prepare_initial(*c)?,
         AnyServerConfig::SocksProxy(c) => SocksProxyServer::prepare_initial(*c)?,

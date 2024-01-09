@@ -54,6 +54,8 @@ mod http_rproxy;
 mod sni_proxy;
 mod socks_proxy;
 mod tcp_stream;
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+mod tcp_tproxy;
 mod tls_stream;
 
 mod error;

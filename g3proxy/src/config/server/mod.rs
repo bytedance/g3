@@ -45,6 +45,8 @@ pub(crate) mod http_rproxy;
 pub(crate) mod sni_proxy;
 pub(crate) mod socks_proxy;
 pub(crate) mod tcp_stream;
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+pub(crate) mod tcp_tproxy;
 pub(crate) mod tls_stream;
 
 mod registry;
@@ -131,6 +133,8 @@ pub(crate) enum AnyServerConfig {
     PlainQuicPort(plain_quic_port::PlainQuicPortConfig),
     IntelliProxy(intelli_proxy::IntelliProxyConfig),
     TcpStream(Box<tcp_stream::TcpStreamServerConfig>),
+    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+    TcpTProxy(tcp_tproxy::TcpTProxyServerConfig),
     TlsStream(Box<tls_stream::TlsStreamServerConfig>),
     SniProxy(Box<sni_proxy::SniProxyServerConfig>),
     SocksProxy(Box<socks_proxy::SocksProxyServerConfig>),
@@ -150,6 +154,8 @@ macro_rules! impl_transparent0 {
                 AnyServerConfig::PlainQuicPort(s) => s.$f(),
                 AnyServerConfig::IntelliProxy(s) => s.$f(),
                 AnyServerConfig::TcpStream(s) => s.$f(),
+                #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+                AnyServerConfig::TcpTProxy(s) => s.$f(),
                 AnyServerConfig::TlsStream(s) => s.$f(),
                 AnyServerConfig::SniProxy(s) => s.$f(),
                 AnyServerConfig::SocksProxy(s) => s.$f(),
@@ -172,6 +178,8 @@ macro_rules! impl_transparent1 {
                 AnyServerConfig::PlainQuicPort(s) => s.$f(p),
                 AnyServerConfig::IntelliProxy(s) => s.$f(p),
                 AnyServerConfig::TcpStream(s) => s.$f(p),
+                #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+                AnyServerConfig::TcpTProxy(s) => s.$f(p),
                 AnyServerConfig::TlsStream(s) => s.$f(p),
                 AnyServerConfig::SniProxy(s) => s.$f(p),
                 AnyServerConfig::SocksProxy(s) => s.$f(p),
@@ -258,6 +266,12 @@ fn load_server(
             let server = tcp_stream::TcpStreamServerConfig::parse(map, position)
                 .context("failed to load this TcpStream server")?;
             Ok(AnyServerConfig::TcpStream(Box::new(server)))
+        }
+        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+        "tcp_tproxy" | "tcptproxy" => {
+            let server = tcp_tproxy::TcpTProxyServerConfig::parse(map, position)
+                .context("failed to load this TcpTProxy server")?;
+            Ok(AnyServerConfig::TcpTProxy(server))
         }
         "tls_stream" | "tlsstream" => {
             let server = tls_stream::TlsStreamServerConfig::parse(map, position)

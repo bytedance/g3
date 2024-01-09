@@ -26,6 +26,8 @@ const MINIMAL_LISTEN_BACKLOG: u32 = 8;
 pub struct TcpListenConfig {
     address: SocketAddr,
     ipv6only: bool,
+    #[cfg(target_os = "linux")]
+    transparent: bool,
     backlog: u32,
     instance: usize,
     scale: usize,
@@ -36,6 +38,8 @@ impl Default for TcpListenConfig {
         TcpListenConfig {
             address: SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
             ipv6only: false,
+            #[cfg(target_os = "linux")]
+            transparent: false,
             backlog: DEFAULT_LISTEN_BACKLOG,
             instance: 1,
             scale: 0,
@@ -62,6 +66,12 @@ impl TcpListenConfig {
         self.ipv6only
     }
 
+    #[cfg(target_os = "linux")]
+    #[inline]
+    pub fn transparent(&self) -> bool {
+        self.transparent
+    }
+
     #[inline]
     pub fn backlog(&self) -> u32 {
         self.backlog
@@ -85,6 +95,11 @@ impl TcpListenConfig {
     #[inline]
     pub fn set_ipv6_only(&mut self, ipv6only: bool) {
         self.ipv6only = ipv6only;
+    }
+
+    #[cfg(target_os = "linux")]
+    pub fn set_transparent(&mut self) {
+        self.transparent = true;
     }
 
     #[inline]
