@@ -148,6 +148,24 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslStream<S> {
         }
     }
 
+    #[cfg(not(feature = "async-job"))]
+    fn poll_shutdown_unpin(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        self.set_cx(cx);
+
+        if let Err(e) = self.inner.shutdown() {
+            match e.code() {
+                ErrorCode::ZERO_RETURN => {}
+                ErrorCode::WANT_READ | ErrorCode::WANT_WRITE => return Poll::Pending,
+                _ => {
+                    return Poll::Ready(Err(e.into_io_error().unwrap_or_else(io::Error::other)));
+                }
+            }
+        }
+
+        self.inner.get_mut().get_pin_mut().poll_shutdown(cx)
+    }
+
+    #[cfg(feature = "async-job")]
     fn poll_shutdown_unpin(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         self.set_cx(cx);
 
@@ -155,9 +173,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslStream<S> {
             match e.code() {
                 ErrorCode::ZERO_RETURN => break,
                 ErrorCode::WANT_READ | ErrorCode::WANT_WRITE => return Poll::Pending,
-                #[cfg(feature = "async-job")]
                 ErrorCode::WANT_ASYNC => ready!(self.poll_async_engine(cx))?,
-                #[cfg(feature = "async-job")]
                 ErrorCode::WANT_ASYNC_JOB => {
                     cx.waker().wake_by_ref();
                     return Poll::Pending;
