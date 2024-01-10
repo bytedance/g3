@@ -75,6 +75,14 @@ mod tests {
 
     #[test]
     fn no_reason() {
+        let s = HttpStatusLine::parse(b"HTTP/1.1 200 \r\n").unwrap();
+        assert_eq!(s.version, 1);
+        assert_eq!(s.code, 200);
+        assert_eq!(s.reason, "");
+    }
+
+    #[test]
+    fn no_reason_no_sp() {
         let s = HttpStatusLine::parse(b"HTTP/1.1 200\r\n").unwrap();
         assert_eq!(s.version, 1);
         assert_eq!(s.code, 200);
