@@ -23,7 +23,8 @@ use std::task::{ready, Context, Poll};
     target_os = "linux",
     target_os = "android",
     target_os = "freebsd",
-    target_os = "netbsd"
+    target_os = "netbsd",
+    target_os = "openbsd",
 ))]
 use nix::sys::socket::{recvmmsg, sendmmsg, MultiHeaders};
 use nix::sys::socket::{recvmsg, sendmsg, MsgFlags, SockaddrStorage};
@@ -97,7 +98,8 @@ pub trait UdpSocketExt {
         target_os = "linux",
         target_os = "android",
         target_os = "freebsd",
-        target_os = "netbsd"
+        target_os = "netbsd",
+        target_os = "openbsd",
     ))]
     fn poll_batch_sendmsg<const C: usize>(
         &self,
@@ -109,7 +111,8 @@ pub trait UdpSocketExt {
         target_os = "linux",
         target_os = "android",
         target_os = "freebsd",
-        target_os = "netbsd"
+        target_os = "netbsd",
+        target_os = "openbsd",
     ))]
     fn poll_batch_recvmsg<const C: usize>(
         &self,
@@ -130,7 +133,9 @@ impl UdpSocketExt for UdpSocket {
             target_os = "linux",
             target_os = "android",
             target_os = "freebsd",
-            target_os = "netbsd"
+            target_os = "dragonfly",
+            target_os = "netbsd",
+            target_os = "openbsd",
         ))]
         let flags: MsgFlags = MsgFlags::MSG_DONTWAIT | MsgFlags::MSG_NOSIGNAL;
         #[cfg(target_os = "macos")]
@@ -194,7 +199,8 @@ impl UdpSocketExt for UdpSocket {
         target_os = "linux",
         target_os = "android",
         target_os = "freebsd",
-        target_os = "netbsd"
+        target_os = "netbsd",
+        target_os = "openbsd",
     ))]
     fn poll_batch_sendmsg<const C: usize>(
         &self,
@@ -230,7 +236,8 @@ impl UdpSocketExt for UdpSocket {
         target_os = "linux",
         target_os = "android",
         target_os = "freebsd",
-        target_os = "netbsd"
+        target_os = "netbsd",
+        target_os = "openbsd",
     ))]
     fn poll_batch_recvmsg<const C: usize>(
         &self,

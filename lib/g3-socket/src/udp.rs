@@ -212,7 +212,9 @@ fn new_nonblocking_udp_socket(family: AddressFamily) -> io::Result<Socket> {
     target_os = "linux",
     target_os = "android",
     target_os = "freebsd",
-    target_os = "netbsd"
+    target_os = "dragonfly",
+    target_os = "netbsd",
+    target_os = "openbsd",
 ))]
 fn new_nonblocking_udp_socket(family: AddressFamily) -> io::Result<Socket> {
     Socket::new(Domain::from(family), Type::DGRAM.nonblocking(), None)

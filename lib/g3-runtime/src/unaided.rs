@@ -73,7 +73,8 @@ impl UnaidedRuntimeConfig {
         target_os = "linux",
         target_os = "android",
         target_os = "freebsd",
-        target_os = "netbsd"
+        target_os = "dragonfly",
+        target_os = "netbsd",
     ))]
     pub fn set_mapped_sched_affinity(&mut self) -> anyhow::Result<()> {
         let n = self.num_threads();

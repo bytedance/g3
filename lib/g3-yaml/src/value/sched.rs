@@ -22,7 +22,8 @@ use g3_compat::CpuAffinity;
     target_os = "linux",
     target_os = "android",
     target_os = "freebsd",
-    target_os = "netbsd"
+    target_os = "dragonfly",
+    target_os = "netbsd",
 ))]
 pub fn as_cpu_set(v: &Yaml) -> anyhow::Result<CpuAffinity> {
     use anyhow::{anyhow, Context};

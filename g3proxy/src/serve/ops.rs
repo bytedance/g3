@@ -42,7 +42,12 @@ use super::http_rproxy::HttpRProxyServer;
 use super::sni_proxy::SniProxyServer;
 use super::socks_proxy::SocksProxyServer;
 use super::tcp_stream::TcpStreamServer;
-#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+#[cfg(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    target_os = "dragonfly",
+    target_os = "openbsd"
+))]
 use super::tcp_tproxy::TcpTProxyServer;
 use super::tls_stream::TlsStreamServer;
 
@@ -296,7 +301,12 @@ fn spawn_new_unlocked(config: AnyServerConfig) -> anyhow::Result<()> {
         AnyServerConfig::PlainQuicPort(c) => PlainQuicPort::prepare_initial(c)?,
         AnyServerConfig::IntelliProxy(c) => IntelliProxy::prepare_initial(c)?,
         AnyServerConfig::TcpStream(c) => TcpStreamServer::prepare_initial(*c)?,
-        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "freebsd",
+            target_os = "dragonfly",
+            target_os = "openbsd"
+        ))]
         AnyServerConfig::TcpTProxy(c) => TcpTProxyServer::prepare_initial(c)?,
         AnyServerConfig::TlsStream(c) => TlsStreamServer::prepare_initial(*c)?,
         AnyServerConfig::SniProxy(c) => SniProxyServer::prepare_initial(*c)?,

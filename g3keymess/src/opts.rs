@@ -137,7 +137,8 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
             target_os = "linux",
             target_os = "android",
             target_os = "freebsd",
-            target_os = "netbsd"
+            target_os = "dragonfly",
+            target_os = "netbsd",
         ))]
         if let Some(s) = group_name.strip_prefix("core") {
             let mut cpu = CpuAffinity::default();

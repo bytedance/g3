@@ -180,7 +180,8 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         target_os = "linux",
         target_os = "android",
         target_os = "freebsd",
-        target_os = "netbsd"
+        target_os = "netbsd",
+        target_os = "openbsd",
     ))]
     fn poll_send(
         &self,
@@ -266,7 +267,8 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         target_os = "linux",
         target_os = "android",
         target_os = "freebsd",
-        target_os = "netbsd"
+        target_os = "netbsd",
+        target_os = "openbsd",
     ))]
     fn poll_recv(
         &self,

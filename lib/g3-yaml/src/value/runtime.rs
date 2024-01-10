@@ -45,7 +45,8 @@ pub fn as_unaided_runtime_config(v: &Yaml) -> anyhow::Result<UnaidedRuntimeConfi
                             target_os = "linux",
                             target_os = "android",
                             target_os = "freebsd",
-                            target_os = "netbsd"
+                            target_os = "dragonfly",
+                            target_os = "netbsd",
                         ))]
                         let cpu = crate::value::as_cpu_set(iv)
                             .context(format!("invalid cpu set value for {k}/{id}"))?;

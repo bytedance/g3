@@ -27,7 +27,8 @@ use g3_types::net::UpstreamAddr;
     target_os = "linux",
     target_os = "android",
     target_os = "freebsd",
-    target_os = "netbsd"
+    target_os = "netbsd",
+    target_os = "openbsd",
 ))]
 use super::UdpRelayPacket;
 
@@ -72,7 +73,8 @@ pub trait UdpRelayRemoteRecv {
         target_os = "linux",
         target_os = "android",
         target_os = "freebsd",
-        target_os = "netbsd"
+        target_os = "netbsd",
+        target_os = "openbsd",
     ))]
     fn poll_recv_packets(
         &mut self,
@@ -94,7 +96,8 @@ pub trait UdpRelayRemoteSend {
         target_os = "linux",
         target_os = "android",
         target_os = "freebsd",
-        target_os = "netbsd"
+        target_os = "netbsd",
+        target_os = "openbsd",
     ))]
     fn poll_send_packets(
         &mut self,

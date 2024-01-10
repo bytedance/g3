@@ -24,7 +24,8 @@ use g3_io_ext::{AsyncUdpRecv, UdpRelayClientError, UdpRelayClientRecv};
     target_os = "linux",
     target_os = "android",
     target_os = "freebsd",
-    target_os = "netbsd"
+    target_os = "netbsd",
+    target_os = "openbsd",
 ))]
 use g3_io_ext::{RecvMsgBuf, RecvMsgHdr, UdpRelayPacket};
 use g3_socks::v5::UdpInput;
@@ -237,7 +238,8 @@ where
         target_os = "linux",
         target_os = "android",
         target_os = "freebsd",
-        target_os = "netbsd"
+        target_os = "netbsd",
+        target_os = "openbsd",
     ))]
     fn poll_recv_packets(
         &mut self,

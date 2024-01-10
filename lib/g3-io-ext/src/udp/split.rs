@@ -20,7 +20,8 @@ use std::fmt;
     target_os = "linux",
     target_os = "android",
     target_os = "freebsd",
-    target_os = "netbsd"
+    target_os = "netbsd",
+    target_os = "openbsd",
 ))]
 use std::io::IoSliceMut;
 use std::io::{self, IoSlice};
@@ -36,7 +37,8 @@ use super::{AsyncUdpRecv, AsyncUdpSend, UdpSocketExt};
     target_os = "linux",
     target_os = "android",
     target_os = "freebsd",
-    target_os = "netbsd"
+    target_os = "netbsd",
+    target_os = "openbsd",
 ))]
 use super::{RecvMsgBuf, RecvMsgHdr, SendMsgHdr};
 
@@ -113,7 +115,8 @@ impl AsyncUdpSend for SendHalf {
         target_os = "linux",
         target_os = "android",
         target_os = "freebsd",
-        target_os = "netbsd"
+        target_os = "netbsd",
+        target_os = "openbsd",
     ))]
     fn poll_batch_sendmsg<const C: usize>(
         &mut self,
@@ -155,7 +158,8 @@ impl AsyncUdpRecv for RecvHalf {
         target_os = "linux",
         target_os = "android",
         target_os = "freebsd",
-        target_os = "netbsd"
+        target_os = "netbsd",
+        target_os = "openbsd",
     ))]
     fn poll_batch_recvmsg(
         &mut self,

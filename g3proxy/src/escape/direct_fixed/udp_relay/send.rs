@@ -24,7 +24,8 @@ use g3_io_ext::{AsyncUdpSend, UdpRelayRemoteError, UdpRelayRemoteSend};
     target_os = "linux",
     target_os = "android",
     target_os = "freebsd",
-    target_os = "netbsd"
+    target_os = "netbsd",
+    target_os = "openbsd",
 ))]
 use g3_io_ext::{SendMsgHdr, UdpRelayPacket};
 use g3_resolver::{ResolveError, ResolveLocalError};
@@ -269,7 +270,8 @@ where
         target_os = "linux",
         target_os = "android",
         target_os = "freebsd",
-        target_os = "netbsd"
+        target_os = "netbsd",
+        target_os = "openbsd",
     ))]
     fn poll_send_packets(
         inner: &mut T,
@@ -319,7 +321,8 @@ where
         target_os = "linux",
         target_os = "android",
         target_os = "freebsd",
-        target_os = "netbsd"
+        target_os = "netbsd",
+        target_os = "openbsd",
     ))]
     fn poll_send_packets(
         &mut self,

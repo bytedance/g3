@@ -54,7 +54,12 @@ mod http_rproxy;
 mod sni_proxy;
 mod socks_proxy;
 mod tcp_stream;
-#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+#[cfg(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    target_os = "dragonfly",
+    target_os = "openbsd"
+))]
 mod tcp_tproxy;
 mod tls_stream;
 
