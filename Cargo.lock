@@ -352,9 +352,9 @@ dependencies = [
 
 [[package]]
 name = "capnp"
-version = "0.18.11"
+version = "0.18.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2959ab3b31b6cb88cf8b22f3d3ef7a1ef7a6560d0a96153468d0f6c424e65bc"
+checksum = "a545c9f8dd9d62b7ab6a0091f682e20737e353495d912a46cc3dd42476696dc1"
 dependencies = [
  "embedded-io",
 ]
@@ -382,9 +382,9 @@ dependencies = [
 
 [[package]]
 name = "capnpc"
-version = "0.18.0"
+version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5067f3c8ee94d993d03150153e9a57a6ff330127b1c1ad76475051e1cef79c2d"
+checksum = "a642faaaa78187e70bdcc0014c593c213553cfeda3b15054426d0d596048b131"
 dependencies = [
  "capnp",
 ]
@@ -1817,9 +1817,9 @@ dependencies = [
 
 [[package]]
 name = "h2"
-version = "0.3.22"
+version = "0.3.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d6250322ef6e60f93f9a2162799302cd6f68f79f6e5d85c8c16f14d1d958178"
+checksum = "b553656127a00601c8ae5590fcfdc118e4083a7924b6cf4ffc1ea4b99dc429d7"
 dependencies = [
  "bytes",
  "fnv",
@@ -3738,9 +3738,9 @@ checksum = "dff9641d1cd4be8d1a070daf9e3773c5f67e78b4d9d42263020c057706765c04"
 
 [[package]]
 name = "winnow"
-version = "0.5.33"
+version = "0.5.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7520bbdec7211caa7c4e682eb1fbe07abe20cee6756b6e00f537c82c11816aa"
+checksum = "b7cf47b659b318dccbd69cc4797a39ae128f533dce7902a1096044d1967b9c16"
 dependencies = [
  "memchr",
 ]
