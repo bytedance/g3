@@ -201,7 +201,12 @@ where
                     Box::new(ups_r),
                     Box::new(ups_w),
                 );
-                Ok(StreamInspection::StreamUnknown(stream_obj))
+                if selected_alpn_protocol.is_some() {
+                    // unknown ALPN means we have no support for it
+                    Ok(StreamInspection::StreamUnknown(stream_obj))
+                } else {
+                    Ok(StreamInspection::StreamInspect(stream_obj))
+                }
             }
         }
     }
