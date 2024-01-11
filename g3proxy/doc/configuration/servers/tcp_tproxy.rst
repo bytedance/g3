@@ -7,6 +7,8 @@ tcp_tproxy
 
 A simple tcp tproxy server, which will just forward traffic to the targeted remote address.
 
+See :ref:`transparent proxy <protocol_setup_transparent_proxy>` for how to setup the host firewall / route table.
+
 The following common keys are supported:
 
 * :ref:`escaper <conf_server_common_escaper>`

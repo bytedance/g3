@@ -117,7 +117,7 @@ Set the maximum cache ttl for query results.
 
 **default**: 1800
 
-.. _configuration_escaper_route_query_vanish_after_expired:
+.. _configuration_escaper_route_query_cache_vanish_wait:
 
 cache_vanish_wait
 -----------------

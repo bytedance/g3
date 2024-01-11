@@ -81,6 +81,6 @@ If 0, the :ref:`protective cache ttl <configuration_escaper_route_query_protecti
 take effect
 
 .. note:: expired records will be cached some more time before cleared, see
- :ref:`vanish_after_expired <configuration_escaper_route_query_vanish_after_expired>` for more info.
+ :ref:`cache_vanish_wait <configuration_escaper_route_query_cache_vanish_wait>` for more info.
 
 **default**: 0

@@ -222,6 +222,8 @@ The keys are:
 
   **default**: 400ms
 
+.. _conf_value_dpi_tls_cert_agent_protective_cache_ttl:
+
 * protective_cache_ttl
 
   **optional**, **type**: u32
@@ -253,6 +255,8 @@ The keys are:
   Set the request timeout for the caller.
 
   **default**: 800ms
+
+.. _conf_value_dpi_tls_cert_agent_cache_vanish_wait:
 
 * cache_vanish_wait
 
