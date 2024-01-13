@@ -286,6 +286,7 @@ where
                 let mut stream_obj =
                     crate::inspect::stream::StreamInspectObject::new(ctx, upstream);
                 stream_obj.set_io(clt_r, clt_w, ups_r, ups_w);
+                // Just treat it as unknown. Unknown protocol should be forbidden if needed.
                 Ok(StreamInspection::StreamUnknown(stream_obj))
             }
         }

@@ -226,6 +226,7 @@ where
                 let ups_r = H2StreamReader::new(ups_r);
                 let ups_w = H2StreamWriter::new(ups_w);
 
+                // Just treat it as unknown. Unknown protocol should be forbidden if needed.
                 if let Err(e) = self.ctx.transit_unknown(clt_r, clt_w, ups_r, ups_w).await {
                     intercept_log!(self, "stream transfer error: {e}");
                 } else {
