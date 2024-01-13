@@ -286,7 +286,7 @@ where
                 let mut stream_obj =
                     crate::inspect::stream::StreamInspectObject::new(ctx, upstream);
                 stream_obj.set_io(clt_r, clt_w, ups_r, ups_w);
-                Ok(StreamInspection::StreamUnknown(stream_obj))
+                Ok(StreamInspection::StreamInspect(stream_obj))
             }
         }
     }
