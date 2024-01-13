@@ -147,7 +147,7 @@ where
                 ))
             })?;
         let mut protocol = Protocol::Unknown;
-        let mut has_alpn = if let Some(alpn_protocol) = selected_alpn_protocol {
+        let has_alpn = if let Some(alpn_protocol) = selected_alpn_protocol {
             if let Some(p) = AlpnProtocol::from_buf(alpn_protocol) {
                 inspector.push_alpn_protocol(p);
                 protocol = Protocol::from(p);
