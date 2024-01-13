@@ -147,14 +147,17 @@ where
                 ))
             })?;
         let mut protocol = Protocol::Unknown;
-        if let Some(alpn_protocol) = selected_alpn_protocol {
+        let mut has_alpn = if let Some(alpn_protocol) = selected_alpn_protocol {
             if let Some(p) = AlpnProtocol::from_buf(alpn_protocol) {
                 inspector.push_alpn_protocol(p);
                 protocol = Protocol::from(p);
             }
 
             clt_server_config.alpn_protocols = vec![alpn_protocol.to_owned()];
-        }
+            true
+        } else {
+            false
+        };
         let clt_tls_stream = tokio::time::timeout(
             handshake_timeout,
             client_handshake.into_stream(Arc::new(clt_server_config)),
@@ -201,8 +204,13 @@ where
                     Box::new(ups_r),
                     Box::new(ups_w),
                 );
-                // always inspect protocol that we have no standalone inspection support
-                Ok(StreamInspection::StreamInspect(stream_obj))
+                if has_alpn {
+                    // Just treat it as unknown. Unknown protocol should be forbidden if needed.
+                    Ok(StreamInspection::StreamUnknown(stream_obj))
+                } else {
+                    // Inspect if no ALPN is set
+                    Ok(StreamInspection::StreamInspect(stream_obj))
+                }
             }
         }
     }
