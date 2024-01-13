@@ -209,27 +209,6 @@ where
         clt_send_rsp: SendResponse<Bytes>,
         h2s: SendRequest<Bytes>,
     ) {
-        let upstream = if let Some(u) = self.upstream.clone() {
-            u
-        } else {
-            match get_host(&clt_req) {
-                Ok(Some(d)) => d,
-                Ok(None) => {
-                    self.reply_bad_request(clt_send_rsp);
-                    intercept_log!(
-                        self,
-                        "no Host header found in unknown extended connect request"
-                    );
-                    return;
-                }
-                Err(e) => {
-                    self.reply_bad_request(clt_send_rsp);
-                    intercept_log!(self, "invalid request: {e}");
-                    return;
-                }
-            }
-        };
-
         let mut exchange_head = ExchangeHead::new(&self.ctx, &mut self.http_notes);
         let exchange_head_result = exchange_head.run(clt_req, clt_send_rsp, h2s).await;
         self.ups_stream_id = exchange_head.ups_stream_id.take();
@@ -247,17 +226,7 @@ where
                 let ups_r = H2StreamReader::new(ups_r);
                 let ups_w = H2StreamWriter::new(ups_w);
 
-                if let Err(e) = crate::inspect::stream::transit_with_inspection(
-                    clt_r,
-                    clt_w,
-                    ups_r,
-                    ups_w,
-                    self.ctx.clone(),
-                    upstream,
-                    None,
-                )
-                .await
-                {
+                if let Err(e) = self.ctx.transit_unknown(clt_r, clt_w, ups_r, ups_w).await {
                     intercept_log!(self, "stream transfer error: {e}");
                 } else {
                     intercept_log!(self, "finished");
