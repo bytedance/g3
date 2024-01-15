@@ -1,0 +1,15 @@
+[package]
+name = "g3-udpdump"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+log.workspace = true
+tokio = { workspace = true, features = ["rt", "net", "sync"] }
+g3-types.workspace = true
+g3-socket.workspace = true
+g3-io-ext.workspace = true
+g3-runtime.workspace = true

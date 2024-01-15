@@ -25,6 +25,7 @@ members = [
     "lib/g3-http",
     "lib/g3-h2",
     "lib/g3-icap-client",
+    "lib/g3-udpdump",
     "lib/g3-socks",
     "lib/g3-dpi",
     "lib/g3-tls-cert",

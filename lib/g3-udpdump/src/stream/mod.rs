@@ -1,0 +1,54 @@
+/*
+ * Copyright 2024 ByteDance and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+use std::io;
+
+use tokio::net::UdpSocket;
+use tokio::sync::mpsc;
+
+mod config;
+pub use config::StreamDumpConfig;
+
+mod sink;
+use sink::Sinker;
+
+mod header;
+use header::PduHeader;
+
+mod write;
+pub use write::StreamDumpWriter;
+
+pub struct StreamDumper {
+    config: StreamDumpConfig,
+    sender: mpsc::UnboundedSender<Vec<u8>>,
+}
+
+impl StreamDumper {
+    pub fn new(config: StreamDumpConfig) -> io::Result<Self> {
+        let socket =
+            g3_socket::udp::new_std_socket_to(config.peer, None, config.buffer, config.opts)?;
+        socket.connect(config.peer)?;
+
+        let (sender, receiver) = mpsc::unbounded_channel();
+
+        tokio::spawn(async move {
+            let socket = UdpSocket::from_std(socket).unwrap();
+            Sinker::new(receiver, socket).into_running().await;
+        });
+
+        Ok(StreamDumper { config, sender })
+    }
+}
