@@ -133,6 +133,8 @@ The code should comply to these, but should be more compliant to existing popula
 
 ## DNS
 
+ - [rfc1035](https://datatracker.ietf.org/doc/html/rfc1035)
+    :  DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION
  - [rfc2181](https://datatracker.ietf.org/doc/html/rfc2181)
     : Clarifications to the DNS Specification
  - [rfc4343](https://datatracker.ietf.org/doc/html/rfc4343)

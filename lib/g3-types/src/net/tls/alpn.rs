@@ -22,6 +22,14 @@ pub enum AlpnProtocol {
     Http11,
     Http2,
     Http3,
+    Ftp,
+    Imap,
+    Pop3,
+    Nntp,
+    Nnsp,
+    Mqtt,
+    DnsOverTls,
+    DnsOverQuic,
 }
 
 impl fmt::Display for AlpnProtocol {
@@ -37,6 +45,14 @@ impl AlpnProtocol {
             Self::Http11 => "http/1.1",
             Self::Http2 => "h2",
             Self::Http3 => "h3",
+            Self::Ftp => "ftp",
+            Self::Imap => "imap",
+            Self::Pop3 => "pop3",
+            Self::Nntp => "nntp",
+            Self::Nnsp => "nnsp",
+            Self::Mqtt => "mqtt",
+            Self::DnsOverTls => "dot",
+            Self::DnsOverQuic => "doq",
         }
     }
 
@@ -46,6 +62,14 @@ impl AlpnProtocol {
             Self::Http11 => b"\x08http/1.1",
             Self::Http2 => b"\x02h2",
             Self::Http3 => b"\x02h3",
+            Self::Ftp => b"\x03ftp",
+            Self::Imap => b"\x04imap",
+            Self::Pop3 => b"\x04pop3",
+            Self::Nntp => b"\x04nntp",
+            Self::Nnsp => b"\x04nnsp",
+            Self::Mqtt => b"\x04mqtt",
+            Self::DnsOverTls => b"\x03dot",
+            Self::DnsOverQuic => b"\x03doq",
         }
     }
 
@@ -65,6 +89,14 @@ impl AlpnProtocol {
             b"http/1.1" => Some(AlpnProtocol::Http11),
             b"h2" => Some(AlpnProtocol::Http2),
             b"h3" => Some(AlpnProtocol::Http3),
+            b"ftp" => Some(AlpnProtocol::Ftp),
+            b"imap" => Some(AlpnProtocol::Imap),
+            b"pop3" => Some(AlpnProtocol::Pop3),
+            b"nntp" => Some(AlpnProtocol::Nntp),
+            b"nnsp" => Some(AlpnProtocol::Nnsp),
+            b"mqtt" => Some(AlpnProtocol::Mqtt),
+            b"dot" => Some(AlpnProtocol::DnsOverTls),
+            b"doq" => Some(AlpnProtocol::DnsOverQuic),
             _ => None,
         }
     }

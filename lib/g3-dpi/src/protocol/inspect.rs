@@ -99,6 +99,7 @@ impl ProtocolInspectState {
         self.current = Some(proto);
         match proto {
             MaybeProtocol::Ssh => self.check_ssh_client_protocol_version_exchange(data),
+            MaybeProtocol::Dns => self.check_dns_tcp_request_message(data),
             MaybeProtocol::Http => self.check_http_request(data, size_limit),
             MaybeProtocol::Ssl => self.check_ssl_client_hello(data),
             MaybeProtocol::Rtsp => self.check_rtsp_client_setup_request(data),
@@ -111,6 +112,7 @@ impl ProtocolInspectState {
             | MaybeProtocol::Smtp
             | MaybeProtocol::Pop3
             | MaybeProtocol::Nntp
+            | MaybeProtocol::Nnsp
             | MaybeProtocol::Imap
             | MaybeProtocol::Nats => {
                 self.exclude_current();
@@ -124,6 +126,7 @@ impl ProtocolInspectState {
             | MaybeProtocol::SecureMqtt
             | MaybeProtocol::Ssmpp
             | MaybeProtocol::Rtmps
+            | MaybeProtocol::DnsOverTls
             | MaybeProtocol::_MaxSize => {
                 unreachable!()
             }
@@ -145,11 +148,12 @@ impl ProtocolInspectState {
             MaybeProtocol::Ssh => self.check_ssh_server_protocol_version_exchange(data),
             MaybeProtocol::Smtp => self.check_smtp_server_greeting(data, size_limit),
             MaybeProtocol::Pop3 => self.check_pop3_server_greeting(data),
-            MaybeProtocol::Nntp => self.check_nntp_server_greeting(data),
+            MaybeProtocol::Nntp | MaybeProtocol::Nnsp => self.check_nntp_server_greeting(data),
             MaybeProtocol::Imap => self.check_imap_server_greeting(data, size_limit),
             MaybeProtocol::Nats => self.check_nats_server_info_msg(data, size_limit),
             MaybeProtocol::BitTorrent => self.check_bittorrent_handshake(data),
-            MaybeProtocol::Ssl
+            MaybeProtocol::Dns
+            | MaybeProtocol::Ssl
             | MaybeProtocol::Http
             | MaybeProtocol::Rtsp
             | MaybeProtocol::Mqtt
@@ -167,6 +171,7 @@ impl ProtocolInspectState {
             | MaybeProtocol::SecureMqtt
             | MaybeProtocol::Ssmpp
             | MaybeProtocol::Rtmps
+            | MaybeProtocol::DnsOverTls
             | MaybeProtocol::_MaxSize => {
                 unreachable!()
             }

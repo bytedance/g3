@@ -33,8 +33,10 @@ pub enum MaybeProtocol {
     Smtp,
     Ssh,
     Ftp,
+    Dns,
     Pop3,
     Nntp,
+    Nnsp,
     Imap,
     Rtsp,
     Mqtt,
@@ -52,6 +54,7 @@ pub enum MaybeProtocol {
     SecureMqtt,
     Ssmpp,
     Rtmps,
+    DnsOverTls,
 
     Ssl,
 
@@ -71,6 +74,7 @@ impl MaybeProtocol {
                 | MaybeProtocol::SecureMqtt
                 | MaybeProtocol::Ssmpp
                 | MaybeProtocol::Rtmps
+                | MaybeProtocol::DnsOverTls
         )
     }
 }
@@ -86,6 +90,7 @@ impl FromStr for MaybeProtocol {
             "ftp" => Ok(MaybeProtocol::Ftp),
             "pop3" => Ok(MaybeProtocol::Pop3),
             "nntp" => Ok(MaybeProtocol::Nntp),
+            "nnsp" => Ok(MaybeProtocol::Nnsp),
             "imap" => Ok(MaybeProtocol::Imap),
             "rtsp" => Ok(MaybeProtocol::Rtsp),
             "mqtt" => Ok(MaybeProtocol::Mqtt),
@@ -96,12 +101,13 @@ impl FromStr for MaybeProtocol {
             "bittorrent" | "bt" => Ok(MaybeProtocol::BitTorrent),
             "https" | "http+tls" => Ok(MaybeProtocol::Https),
             "pop3s" | "pop3+tls" => Ok(MaybeProtocol::Pop3s),
-            "nntps" | "nntp+tls" => Ok(MaybeProtocol::Nntps),
+            "nntps" | "nntp+tls" | "snntp" => Ok(MaybeProtocol::Nntps),
             "imaps" | "imap+tls" => Ok(MaybeProtocol::Imaps),
             "rtsps" | "rtsp+tls" => Ok(MaybeProtocol::Rtsps),
             "secure-mqtt" => Ok(MaybeProtocol::SecureMqtt),
             "ssmpp" | "smpps" | "secure smpp" => Ok(MaybeProtocol::Ssmpp),
             "rtmps" | "rtmp+tls" => Ok(MaybeProtocol::Rtmps),
+            "dot" | "dnsovertls" | "dns-over-tls" => Ok(MaybeProtocol::DnsOverTls),
             "ssl" | "tls" => Ok(MaybeProtocol::Ssl),
             _ => Err(()),
         }
@@ -115,6 +121,14 @@ impl From<AlpnProtocol> for MaybeProtocol {
             | AlpnProtocol::Http11
             | AlpnProtocol::Http2
             | AlpnProtocol::Http3 => MaybeProtocol::Http,
+            AlpnProtocol::Ftp => MaybeProtocol::Ftp,
+            AlpnProtocol::Imap => MaybeProtocol::Imap,
+            AlpnProtocol::Pop3 => MaybeProtocol::Pop3,
+            AlpnProtocol::Nntp => MaybeProtocol::Nntp,
+            AlpnProtocol::Nnsp => MaybeProtocol::Nnsp,
+            AlpnProtocol::Mqtt => MaybeProtocol::Mqtt,
+            AlpnProtocol::DnsOverTls => MaybeProtocol::Dns,
+            AlpnProtocol::DnsOverQuic => MaybeProtocol::Dns,
         }
     }
 }
@@ -146,6 +160,7 @@ pub enum Protocol {
     FtpControl,
     Pop3,
     Nntp,
+    Nnsp,
     Imap,
     Rtsp,
     Mqtt,
@@ -155,6 +170,7 @@ pub enum Protocol {
     Nats,
     BitTorrent,
     Websocket,
+    Dns,
 }
 
 impl Protocol {
@@ -174,6 +190,7 @@ impl Protocol {
             Protocol::FtpControl => "ftp_control",
             Protocol::Pop3 => "pop3",
             Protocol::Nntp => "nntp",
+            Protocol::Nnsp => "nnsp",
             Protocol::Imap => "imap",
             Protocol::Rtsp => "rtsp",
             Protocol::Mqtt => "mqtt",
@@ -183,6 +200,7 @@ impl Protocol {
             Protocol::Nats => "nats",
             Protocol::BitTorrent => "bittorrent",
             Protocol::Websocket => "websocket",
+            Protocol::Dns => "dns",
         }
     }
 }
@@ -193,6 +211,14 @@ impl From<AlpnProtocol> for Protocol {
             AlpnProtocol::Http10 | AlpnProtocol::Http11 => Protocol::Http1,
             AlpnProtocol::Http2 => Protocol::Http2,
             AlpnProtocol::Http3 => Protocol::Http3,
+            AlpnProtocol::Ftp => Protocol::FtpControl,
+            AlpnProtocol::Imap => Protocol::Imap,
+            AlpnProtocol::Pop3 => Protocol::Pop3,
+            AlpnProtocol::Nntp => Protocol::Nntp,
+            AlpnProtocol::Nnsp => Protocol::Nnsp,
+            AlpnProtocol::Mqtt => Protocol::Mqtt,
+            AlpnProtocol::DnsOverTls => Protocol::Dns,
+            AlpnProtocol::DnsOverQuic => Protocol::Dns,
         }
     }
 }
@@ -204,6 +230,7 @@ impl fmt::Display for Protocol {
 }
 
 mod bittorrent;
+mod dns;
 mod ftp;
 mod http;
 mod imap;
