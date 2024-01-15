@@ -47,7 +47,7 @@ impl user_group_control::Server for UserGroupControlImpl {
         let v = self.user_group.all_static_users();
         let mut builder = results.get().init_result(v.len() as u32);
         for (i, name) in v.into_iter().enumerate() {
-            builder.set(i as u32, name.into());
+            builder.set(i as u32, name);
         }
         Promise::ok(())
     }
@@ -60,7 +60,7 @@ impl user_group_control::Server for UserGroupControlImpl {
         let v = self.user_group.all_dynamic_users();
         let mut builder = results.get().init_result(v.len() as u32);
         for (i, name) in v.iter().enumerate() {
-            builder.set(i as u32, name.as_str().into());
+            builder.set(i as u32, name);
         }
         Promise::ok(())
     }

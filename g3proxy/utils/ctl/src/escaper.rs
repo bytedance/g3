@@ -84,7 +84,7 @@ async fn publish(client: &escaper_control::Client, args: &ArgMatches) -> Command
     }
 
     let mut req = client.publish_request();
-    req.get().set_data(data.as_str().into());
+    req.get().set_data(data.as_str());
     let rsp = req.send().promise.await?;
     parse_operation_result(rsp.get()?.get_result()?)
 }

@@ -82,7 +82,7 @@ impl server_control::Server for ServerControlImpl {
         mut results: server_control::GetListenAddrResults,
     ) -> Promise<(), capnp::Error> {
         let addr = self.server.listen_addr().to_string();
-        results.get().set_addr(addr.as_str().into());
+        results.get().set_addr(addr.as_str());
         Promise::ok(())
     }
 }

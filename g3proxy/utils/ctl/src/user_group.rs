@@ -104,7 +104,7 @@ async fn publish_dynamic_user(
     }
 
     let mut req = client.publish_dynamic_user_request();
-    req.get().set_contents(data.as_str().into());
+    req.get().set_contents(data.as_str());
     let rsp = req.send().promise.await?;
     parse_operation_result(rsp.get()?.get_result()?)
 }

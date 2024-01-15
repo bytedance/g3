@@ -36,7 +36,7 @@ impl proc_control::Server for ProcControlImpl {
         _params: proc_control::VersionParams,
         mut results: proc_control::VersionResults,
     ) -> Promise<(), capnp::Error> {
-        results.get().set_version(crate::build::VERSION.into());
+        results.get().set_version(crate::build::VERSION);
         Promise::ok(())
     }
 
@@ -60,7 +60,7 @@ impl proc_control::Server for ProcControlImpl {
         let set = crate::auth::get_names();
         let mut builder = results.get().init_result(set.len() as u32);
         for (i, name) in set.iter().enumerate() {
-            builder.set(i as u32, name.as_str().into());
+            builder.set(i as u32, name.as_str());
         }
         Promise::ok(())
     }
@@ -73,7 +73,7 @@ impl proc_control::Server for ProcControlImpl {
         let set = crate::resolve::get_names();
         let mut builder = results.get().init_result(set.len() as u32);
         for (i, name) in set.iter().enumerate() {
-            builder.set(i as u32, name.as_str().into());
+            builder.set(i as u32, name.as_str());
         }
         Promise::ok(())
     }
@@ -86,7 +86,7 @@ impl proc_control::Server for ProcControlImpl {
         let set = crate::audit::get_names();
         let mut builder = results.get().init_result(set.len() as u32);
         for (i, name) in set.iter().enumerate() {
-            builder.set(i as u32, name.as_str().into());
+            builder.set(i as u32, name.as_str());
         }
         Promise::ok(())
     }
@@ -99,7 +99,7 @@ impl proc_control::Server for ProcControlImpl {
         let set = crate::escape::get_names();
         let mut builder = results.get().init_result(set.len() as u32);
         for (i, name) in set.iter().enumerate() {
-            builder.set(i as u32, name.as_str().into());
+            builder.set(i as u32, name.as_str());
         }
         Promise::ok(())
     }
@@ -112,7 +112,7 @@ impl proc_control::Server for ProcControlImpl {
         let set = crate::serve::get_names();
         let mut builder = results.get().init_result(set.len() as u32);
         for (i, name) in set.iter().enumerate() {
-            builder.set(i as u32, name.as_str().into());
+            builder.set(i as u32, name.as_str());
         }
         Promise::ok(())
     }
@@ -241,7 +241,7 @@ impl proc_control::Server for ProcControlImpl {
         mut results: proc_control::ForceQuitOfflineServersResults,
     ) -> Promise<(), capnp::Error> {
         crate::serve::force_quit_offline_servers();
-        results.get().init_result().set_ok("success".into());
+        results.get().init_result().set_ok("success");
         Promise::ok(())
     }
 
@@ -253,7 +253,7 @@ impl proc_control::Server for ProcControlImpl {
         let server = pry!(pry!(pry!(params.get()).get_name()).to_str());
         let server = unsafe { MetricsName::from_str_unchecked(server) };
         crate::serve::force_quit_offline_server(&server);
-        results.get().init_result().set_ok("success".into());
+        results.get().init_result().set_ok("success");
         Promise::ok(())
     }
 }
@@ -270,7 +270,7 @@ where
         Err(e) => {
             let mut ev = builder.init_err();
             ev.set_code(-1);
-            ev.set_reason(format!("{e:?}").as_str().into());
+            ev.set_reason(format!("{e:?}").as_str());
             Ok(())
         }
     }

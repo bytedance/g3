@@ -126,7 +126,7 @@ pub(crate) async fn get_server(
     name: &str,
 ) -> CommandResult<server_control::Client> {
     let mut req = client.get_server_request();
-    req.get().set_name(name.into());
+    req.get().set_name(name);
     let rsp = req.send().promise.await?;
     parse_fetch_result(rsp.get()?.get_server()?)
 }
@@ -140,7 +140,7 @@ pub async fn publish_key(client: &proc_control::Client, args: &ArgMatches) -> Co
         ))
     })?;
     let mut req = client.publish_key_request();
-    req.get().set_pem(content.as_str().into());
+    req.get().set_pem(content.as_str());
     let rsp = req.send().promise.await?;
     parse_operation_result(rsp.get()?.get_result()?)
 }

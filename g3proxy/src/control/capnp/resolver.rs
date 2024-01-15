@@ -62,11 +62,10 @@ impl resolver_control::Server for ResolverControlImpl {
             ) {
                 Ok(job) => job,
                 Err(e) => {
-                    results.get().init_result().set_err(
-                        format!("failed to create resolve job: {e:?}")
-                            .as_str()
-                            .into(),
-                    );
+                    results
+                        .get()
+                        .init_result()
+                        .set_err(format!("failed to create resolve job: {e:?}").as_str());
                     return Ok(());
                 }
             };
@@ -77,13 +76,13 @@ impl resolver_control::Server for ResolverControlImpl {
                 Ok(ips) => {
                     let mut ips_builder = results.get().init_result().init_ip(ips.len() as u32);
                     for (i, ip) in ips.iter().enumerate() {
-                        ips_builder.set(i as u32, ip.to_string().as_str().into());
+                        ips_builder.set(i as u32, ip.to_string().as_str());
                     }
                 }
                 Err(e) => results
                     .get()
                     .init_result()
-                    .set_err(format!("{e:?}").as_str().into()),
+                    .set_err(format!("{e:?}").as_str()),
             }
             Ok(())
         })

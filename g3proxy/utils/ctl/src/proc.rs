@@ -128,7 +128,7 @@ pub async fn offline(client: &proc_control::Client) -> CommandResult<()> {
 pub async fn force_quit(client: &proc_control::Client, args: &ArgMatches) -> CommandResult<()> {
     let name = args.get_one::<String>(SUBCOMMAND_ARG_NAME).unwrap();
     let mut req = client.force_quit_offline_server_request();
-    req.get().set_name(name.as_str().into());
+    req.get().set_name(name);
     let rsp = req.send().promise.await?;
     parse_operation_result(rsp.get()?.get_result()?)
 }
@@ -190,7 +190,7 @@ pub async fn reload_user_group(
 ) -> CommandResult<()> {
     let name = args.get_one::<String>(SUBCOMMAND_ARG_NAME).unwrap();
     let mut req = client.reload_user_group_request();
-    req.get().set_name(name.as_str().into());
+    req.get().set_name(name);
     let rsp = req.send().promise.await?;
     parse_operation_result(rsp.get()?.get_result()?)
 }
@@ -201,7 +201,7 @@ pub async fn reload_resolver(
 ) -> CommandResult<()> {
     let name = args.get_one::<String>(SUBCOMMAND_ARG_NAME).unwrap();
     let mut req = client.reload_resolver_request();
-    req.get().set_name(name.as_str().into());
+    req.get().set_name(name);
     let rsp = req.send().promise.await?;
     parse_operation_result(rsp.get()?.get_result()?)
 }
@@ -209,7 +209,7 @@ pub async fn reload_resolver(
 pub async fn reload_auditor(client: &proc_control::Client, args: &ArgMatches) -> CommandResult<()> {
     let name = args.get_one::<String>(SUBCOMMAND_ARG_NAME).unwrap();
     let mut req = client.reload_auditor_request();
-    req.get().set_name(name.as_str().into());
+    req.get().set_name(name);
     let rsp = req.send().promise.await?;
     parse_operation_result(rsp.get()?.get_result()?)
 }
@@ -217,7 +217,7 @@ pub async fn reload_auditor(client: &proc_control::Client, args: &ArgMatches) ->
 pub async fn reload_escaper(client: &proc_control::Client, args: &ArgMatches) -> CommandResult<()> {
     let name = args.get_one::<String>(SUBCOMMAND_ARG_NAME).unwrap();
     let mut req = client.reload_escaper_request();
-    req.get().set_name(name.as_str().into());
+    req.get().set_name(name);
     let rsp = req.send().promise.await?;
     parse_operation_result(rsp.get()?.get_result()?)
 }
@@ -225,7 +225,7 @@ pub async fn reload_escaper(client: &proc_control::Client, args: &ArgMatches) ->
 pub async fn reload_server(client: &proc_control::Client, args: &ArgMatches) -> CommandResult<()> {
     let name = args.get_one::<String>(SUBCOMMAND_ARG_NAME).unwrap();
     let mut req = client.reload_server_request();
-    req.get().set_name(name.as_str().into());
+    req.get().set_name(name);
     let rsp = req.send().promise.await?;
     parse_operation_result(rsp.get()?.get_result()?)
 }
@@ -235,7 +235,7 @@ pub(crate) async fn get_user_group(
     name: &str,
 ) -> CommandResult<user_group_control::Client> {
     let mut req = client.get_user_group_request();
-    req.get().set_name(name.into());
+    req.get().set_name(name);
     let rsp = req.send().promise.await?;
     parse_fetch_result(rsp.get()?.get_user_group()?)
 }
@@ -245,7 +245,7 @@ pub(crate) async fn get_resolver(
     name: &str,
 ) -> CommandResult<resolver_control::Client> {
     let mut req = client.get_resolver_request();
-    req.get().set_name(name.into());
+    req.get().set_name(name);
     let rsp = req.send().promise.await?;
     parse_fetch_result(rsp.get()?.get_resolver()?)
 }
@@ -255,7 +255,7 @@ pub(crate) async fn get_escaper(
     name: &str,
 ) -> CommandResult<escaper_control::Client> {
     let mut req = client.get_escaper_request();
-    req.get().set_name(name.into());
+    req.get().set_name(name);
     let rsp = req.send().promise.await?;
     parse_fetch_result(rsp.get()?.get_escaper()?)
 }
@@ -265,7 +265,7 @@ pub(crate) async fn get_server(
     name: &str,
 ) -> CommandResult<server_control::Client> {
     let mut req = client.get_server_request();
-    req.get().set_name(name.into());
+    req.get().set_name(name);
     let rsp = req.send().promise.await?;
     parse_fetch_result(rsp.get()?.get_server()?)
 }

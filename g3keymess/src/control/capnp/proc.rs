@@ -36,7 +36,7 @@ impl proc_control::Server for ProcControlImpl {
         _params: proc_control::VersionParams,
         mut results: proc_control::VersionResults,
     ) -> Promise<(), capnp::Error> {
-        results.get().set_version(crate::build::VERSION.into());
+        results.get().set_version(crate::build::VERSION);
         Promise::ok(())
     }
 
@@ -60,7 +60,7 @@ impl proc_control::Server for ProcControlImpl {
         let set = crate::serve::get_names();
         let mut builder = results.get().init_result(set.len() as u32);
         for (i, name) in set.iter().enumerate() {
-            builder.set(i as u32, name.as_str().into());
+            builder.set(i as u32, name.as_str());
         }
         Promise::ok(())
     }
@@ -161,7 +161,7 @@ where
         Err(e) => {
             let mut ev = builder.init_err();
             ev.set_code(-1);
-            ev.set_reason(format!("{e:?}").as_str().into());
+            ev.set_reason(format!("{e:?}").as_str());
             Ok(())
         }
     }

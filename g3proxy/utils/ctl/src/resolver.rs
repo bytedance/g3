@@ -64,7 +64,7 @@ pub fn command() -> Command {
 async fn query_domain(client: &resolver_control::Client, args: &ArgMatches) -> CommandResult<()> {
     let domain = args.get_one::<String>(SUBCOMMAND_QUERY_ARG_DOMAIN).unwrap();
     let mut req = client.query_request();
-    req.get().set_domain(domain.as_str().into());
+    req.get().set_domain(domain);
 
     if let Some(delay) = args.get_one::<u16>(SUBCOMMAND_QUERY_ARG_RESOLUTION_DELAY) {
         req.get().set_resolution_delay(*delay);

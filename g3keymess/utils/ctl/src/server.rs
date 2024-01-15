@@ -75,8 +75,8 @@ async fn add_metrics_tag(client: &server_control::Client, args: &ArgMatches) -> 
     let value = args.get_one::<String>(SUBCOMMAND_ARG_VALUE).unwrap();
 
     let mut req = client.add_metrics_tag_request();
-    req.get().set_name(name.as_str().into());
-    req.get().set_value(value.as_str().into());
+    req.get().set_name(name);
+    req.get().set_value(value);
     let rsp = req.send().promise.await?;
     parse_operation_result(rsp.get()?.get_result()?)
 }

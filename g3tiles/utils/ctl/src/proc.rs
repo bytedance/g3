@@ -91,7 +91,7 @@ pub async fn offline(client: &proc_control::Client) -> CommandResult<()> {
 pub async fn force_quit(client: &proc_control::Client, args: &ArgMatches) -> CommandResult<()> {
     let name = args.get_one::<String>(SUBCOMMAND_ARG_NAME).unwrap();
     let mut req = client.force_quit_offline_server_request();
-    req.get().set_name(name.as_str().into());
+    req.get().set_name(name);
     let rsp = req.send().promise.await?;
     parse_operation_result(rsp.get()?.get_result()?)
 }
@@ -122,7 +122,7 @@ async fn list_server(client: &proc_control::Client) -> CommandResult<()> {
 pub async fn reload_server(client: &proc_control::Client, args: &ArgMatches) -> CommandResult<()> {
     let name = args.get_one::<String>(SUBCOMMAND_ARG_NAME).unwrap();
     let mut req = client.reload_server_request();
-    req.get().set_name(name.as_str().into());
+    req.get().set_name(name);
     let rsp = req.send().promise.await?;
     parse_operation_result(rsp.get()?.get_result()?)
 }
@@ -132,7 +132,7 @@ pub(crate) async fn get_server(
     name: &str,
 ) -> CommandResult<server_control::Client> {
     let mut req = client.get_server_request();
-    req.get().set_name(name.into());
+    req.get().set_name(name);
     let rsp = req.send().promise.await?;
     parse_fetch_result(rsp.get()?.get_server()?)
 }
