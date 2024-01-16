@@ -16,12 +16,15 @@
 
 use std::sync::Arc;
 
+use anyhow::anyhow;
 use slog::slog_info;
+use tokio::runtime::Handle;
 
 use g3_io_ext::OnceBufReader;
 use g3_slog_types::{LtUpstreamAddr, LtUuid};
 use g3_tls_cert::agent::CertAgentHandle;
 use g3_types::net::{OpensslInterceptionClientConfig, UpstreamAddr};
+use g3_udpdump::{StreamDumpConfig, StreamDumper};
 
 use super::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext};
 use crate::config::server::ServerConfig;
@@ -35,17 +38,57 @@ mod modern;
 pub(crate) struct TlsInterceptionContext {
     cert_agent: Arc<CertAgentHandle>,
     client_config: Arc<OpensslInterceptionClientConfig>,
+    stream_dumper: Arc<Vec<StreamDumper>>,
 }
 
 impl TlsInterceptionContext {
     pub(crate) fn new(
         cert_agent: CertAgentHandle,
         client_config: OpensslInterceptionClientConfig,
-    ) -> Self {
-        TlsInterceptionContext {
+        dump_config: Option<StreamDumpConfig>,
+    ) -> anyhow::Result<Self> {
+        let mut stream_dumper = Vec::new();
+        if let Some(dump) = dump_config {
+            g3_daemon::runtime::worker::foreach(|h| {
+                let dumper = StreamDumper::new(dump, &h.handle).map_err(|e| {
+                    anyhow!("failed to create tls stream dumper in worker {}: {e}", h.id)
+                })?;
+                stream_dumper.push(dumper);
+                Ok::<(), anyhow::Error>(())
+            })?;
+
+            if stream_dumper.is_empty() {
+                let dump_count =
+                    g3_daemon::runtime::config::get_runtime_config().intended_thread_number();
+                let handle = Handle::current();
+                for i in 0..dump_count {
+                    let dumper = StreamDumper::new(dump, &handle).map_err(|e| {
+                        anyhow!("failed to create tls stream dumper #{i} in main runtime: {e}")
+                    })?;
+                    stream_dumper.push(dumper);
+                }
+            }
+        }
+
+        Ok(TlsInterceptionContext {
             cert_agent: Arc::new(cert_agent),
             client_config: Arc::new(client_config),
+            stream_dumper: Arc::new(stream_dumper),
+        })
+    }
+
+    fn get_stream_dumper(&self, worker_id: Option<usize>) -> Option<&StreamDumper> {
+        if self.stream_dumper.is_empty() {
+            return None;
         }
+
+        if let Some(id) = worker_id {
+            if let Some(d) = self.stream_dumper.get(id) {
+                return Some(d);
+            }
+        }
+
+        fastrand::choice(self.stream_dumper.iter())
     }
 }
 

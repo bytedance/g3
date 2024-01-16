@@ -51,6 +51,8 @@ pub(super) struct StreamInspectUserContext {
 pub(super) struct StreamInspectTaskNotes {
     task_id: Uuid,
     client_addr: SocketAddr,
+    server_addr: SocketAddr,
+    worker_id: Option<usize>,
     user_ctx: Option<StreamInspectUserContext>,
 }
 
@@ -59,6 +61,8 @@ impl From<&ServerTaskNotes> for StreamInspectTaskNotes {
         StreamInspectTaskNotes {
             task_id: task_notes.id,
             client_addr: task_notes.client_addr(),
+            server_addr: task_notes.server_addr(),
+            worker_id: task_notes.worker_id(),
             user_ctx: task_notes.user_ctx().map(|ctx| StreamInspectUserContext {
                 raw_user_name: ctx.raw_user_name().map(|s| s.to_string()),
                 user: ctx.user().clone(),

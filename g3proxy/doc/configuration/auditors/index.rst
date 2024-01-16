@@ -62,6 +62,17 @@ Set the tls client config for server handshake in TLS interception.
 
 **default**: set with default value
 
+tls_stream_dump
+---------------
+
+**optional**, **type**: :ref:`stream dump <conf_value_dpi_stream_dump>`
+
+Set this to dump the intercepted inner tls streams to a remote service.
+
+**default**: not set
+
+.. versionadded:: 1.7.34
+
 log_uri_max_chars
 -----------------
 

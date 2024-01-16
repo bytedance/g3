@@ -41,7 +41,7 @@ pub struct StreamDumper {
 }
 
 impl StreamDumper {
-    pub fn new(config: StreamDumpConfig, runtime: Handle) -> io::Result<Self> {
+    pub fn new(config: StreamDumpConfig, runtime: &Handle) -> io::Result<Self> {
         let socket =
             g3_socket::udp::new_std_socket_to(config.peer, None, config.buffer, config.opts)?;
         socket.connect(config.peer)?;

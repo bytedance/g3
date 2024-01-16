@@ -103,7 +103,11 @@ impl Auditor {
                 .tls_interception_client
                 .build()
                 .context("failed to build tls client config")?;
-            let ctx = TlsInterceptionContext::new(cert_agent, client_config);
+            let ctx = TlsInterceptionContext::new(
+                cert_agent,
+                client_config,
+                self.config.tls_stream_dump,
+            )?;
             handle.set_tls_interception(ctx);
         }
 

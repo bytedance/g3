@@ -123,6 +123,11 @@ impl ServerTaskNotes {
     }
 
     #[inline]
+    pub(crate) fn worker_id(&self) -> Option<usize> {
+        self.cc_info.worker_id()
+    }
+
+    #[inline]
     pub(crate) fn user_ctx(&self) -> Option<&UserContext> {
         self.user_ctx.as_ref()
     }

@@ -42,6 +42,16 @@ impl BlendedRuntimeConfig {
         }
     }
 
+    pub fn intended_thread_number(&self) -> usize {
+        self.thread_number
+            .unwrap_or_else(|| {
+                std::thread::available_parallelism()
+                    .map(|v| v.get())
+                    .unwrap_or(1)
+            })
+            .max(1)
+    }
+
     pub fn set_thread_number(&mut self, num: usize) {
         self.thread_number = Some(num);
     }

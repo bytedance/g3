@@ -1607,6 +1607,7 @@ dependencies = [
  "g3-statsd-client",
  "g3-tls-cert",
  "g3-types",
+ "g3-udpdump",
  "g3-xcrypt",
  "g3-yaml",
  "g3proxy-proto",

@@ -187,6 +187,7 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 
 - TCP Protocol Inspection
 - TLS Interception
+- TLS Stream Dump
 - Http / H2 Interception
 - ICAP Adaptation & Sampling
 

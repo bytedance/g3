@@ -17,6 +17,7 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_dpi::{Protocol, ProtocolInspector};
 use g3_io_ext::{AggregatedIo, FlexBufReader, OnceBufReader};
@@ -171,6 +172,38 @@ where
         let (clt_r, clt_w) = tokio::io::split(clt_tls_stream);
         let (ups_r, ups_w) = tokio::io::split(ups_tls_stream);
 
+        let obj = if let Some(stream_dumper) = self
+            .tls_interception
+            .get_stream_dumper(self.ctx.task_notes.worker_id)
+        {
+            let (clt_w, ups_w) = stream_dumper.wrap_io(
+                self.ctx.task_notes.client_addr,
+                self.ctx.task_notes.server_addr,
+                clt_w,
+                ups_w,
+            );
+            self.inspect_inner(protocol, has_alpn, clt_r, clt_w, ups_r, ups_w)
+        } else {
+            self.inspect_inner(protocol, has_alpn, clt_r, clt_w, ups_r, ups_w)
+        };
+        Ok(obj)
+    }
+
+    fn inspect_inner<CR, CW, UR, UW>(
+        &self,
+        protocol: Protocol,
+        has_alpn: bool,
+        clt_r: CR,
+        clt_w: CW,
+        ups_r: UR,
+        ups_w: UW,
+    ) -> StreamInspection<SC>
+    where
+        CR: AsyncRead + Send + Unpin + 'static,
+        CW: AsyncWrite + Send + Unpin + 'static,
+        UR: AsyncRead + Send + Unpin + 'static,
+        UW: AsyncWrite + Send + Unpin + 'static,
+    {
         let mut ctx = self.ctx.clone();
         ctx.increase_inspection_depth();
         StreamInspectLog::new(&ctx).log(InspectSource::TlsAlpn, protocol);
@@ -183,7 +216,7 @@ where
                     Box::new(ups_r),
                     Box::new(ups_w),
                 );
-                Ok(StreamInspection::H1(h1_obj))
+                StreamInspection::H1(h1_obj)
             }
             Protocol::Http2 => {
                 let mut h2_obj = crate::inspect::http::H2InterceptObject::new(ctx);
@@ -193,7 +226,7 @@ where
                     Box::new(ups_r),
                     Box::new(ups_w),
                 );
-                Ok(StreamInspection::H2(h2_obj))
+                StreamInspection::H2(h2_obj)
             }
             _ => {
                 let mut stream_obj =
@@ -206,10 +239,10 @@ where
                 );
                 if has_alpn {
                     // Just treat it as unknown. Unknown protocol should be forbidden if needed.
-                    Ok(StreamInspection::StreamUnknown(stream_obj))
+                    StreamInspection::StreamUnknown(stream_obj)
                 } else {
                     // Inspect if no ALPN is set
-                    Ok(StreamInspection::StreamInspect(stream_obj))
+                    StreamInspection::StreamInspect(stream_obj)
                 }
             }
         }
