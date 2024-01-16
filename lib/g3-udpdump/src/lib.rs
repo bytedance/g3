@@ -15,4 +15,6 @@
  */
 
 mod stream;
-pub use stream::StreamDumper;
+pub use stream::{
+    StreamDumpConfig, StreamDumper, ToClientStreamDumpWriter, ToRemoteStreamDumpWriter,
+};

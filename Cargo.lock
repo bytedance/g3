@@ -1392,6 +1392,7 @@ dependencies = [
  "g3-syslog",
  "g3-tls-cert",
  "g3-types",
+ "g3-udpdump",
  "http",
  "humanize-rs",
  "idna 0.5.0",

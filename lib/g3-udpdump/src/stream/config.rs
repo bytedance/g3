@@ -14,13 +14,25 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use g3_types::net::{SocketBufferConfig, UdpMiscSockOpts};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct StreamDumpConfig {
-    pub(crate) peer: SocketAddr,
-    pub(crate) buffer: SocketBufferConfig,
-    pub(crate) opts: UdpMiscSockOpts,
+    pub peer: SocketAddr,
+    pub buffer: SocketBufferConfig,
+    pub opts: UdpMiscSockOpts,
+    pub packet_size: usize,
+}
+
+impl Default for StreamDumpConfig {
+    fn default() -> Self {
+        StreamDumpConfig {
+            peer: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 5555),
+            buffer: SocketBufferConfig::default(),
+            opts: UdpMiscSockOpts::default(),
+            packet_size: 1480,
+        }
+    }
 }

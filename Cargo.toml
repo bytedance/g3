@@ -25,9 +25,9 @@ members = [
     "lib/g3-http",
     "lib/g3-h2",
     "lib/g3-icap-client",
-    "lib/g3-udpdump",
     "lib/g3-socks",
     "lib/g3-dpi",
+    "lib/g3-udpdump",
     "lib/g3-tls-cert",
     "lib/g3-slog-types",
     "lib/g3-geoip",
@@ -192,6 +192,7 @@ g3-daemon = { version = "0.1", path = "lib/g3-daemon" }
 g3-ctl = { version = "0.1", path = "lib/g3-ctl" }
 g3-datetime = { version = "0.1", path = "lib/g3-datetime" }
 g3-dpi = { version = "0.1", path = "lib/g3-dpi" }
+g3-udpdump = { version = "0.1", path = "lib/g3-udpdump" }
 g3-fluentd = { version = "0.1", path = "lib/g3-fluentd" }
 g3-ftp-client = { version = "0.3", path = "lib/g3-ftp-client" }
 g3-h2 = { version = "0.1", path = "lib/g3-h2" }

@@ -22,7 +22,10 @@ use std::task::{ready, Context, Poll};
 use tokio::io::AsyncWrite;
 use tokio::sync::mpsc;
 
-use super::PduHeader;
+use super::{PduHeader, ToClientPduHeader, ToRemotePduHeader};
+
+pub type ToClientStreamDumpWriter<W> = StreamDumpWriter<W, ToClientPduHeader>;
+pub type ToRemoteStreamDumpWriter<W> = StreamDumpWriter<W, ToRemotePduHeader>;
 
 pub struct StreamDumpWriter<W, H> {
     writer: W,

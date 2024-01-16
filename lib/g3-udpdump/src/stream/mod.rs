@@ -15,8 +15,11 @@
  */
 
 use std::io;
+use std::net::SocketAddr;
 
+use tokio::io::AsyncWrite;
 use tokio::net::UdpSocket;
+use tokio::runtime::Handle;
 use tokio::sync::mpsc;
 
 mod config;
@@ -27,9 +30,10 @@ use sink::Sinker;
 
 mod header;
 use header::PduHeader;
+pub use header::{ToClientPduHeader, ToRemotePduHeader};
 
 mod write;
-pub use write::StreamDumpWriter;
+pub use write::{StreamDumpWriter, ToClientStreamDumpWriter, ToRemoteStreamDumpWriter};
 
 pub struct StreamDumper {
     config: StreamDumpConfig,
@@ -37,18 +41,45 @@ pub struct StreamDumper {
 }
 
 impl StreamDumper {
-    pub fn new(config: StreamDumpConfig) -> io::Result<Self> {
+    pub fn new(config: StreamDumpConfig, runtime: Handle) -> io::Result<Self> {
         let socket =
             g3_socket::udp::new_std_socket_to(config.peer, None, config.buffer, config.opts)?;
         socket.connect(config.peer)?;
 
         let (sender, receiver) = mpsc::unbounded_channel();
 
-        tokio::spawn(async move {
+        runtime.spawn(async move {
             let socket = UdpSocket::from_std(socket).unwrap();
             Sinker::new(receiver, socket).into_running().await;
         });
 
         Ok(StreamDumper { config, sender })
+    }
+
+    pub fn wrap_io<CW, RW>(
+        &self,
+        client_addr: SocketAddr,
+        remote_addr: SocketAddr,
+        client_writer: CW,
+        remote_writer: RW,
+    ) -> (ToClientStreamDumpWriter<CW>, ToRemoteStreamDumpWriter<RW>)
+    where
+        CW: AsyncWrite,
+        RW: AsyncWrite,
+    {
+        let (to_c, to_r) = header::new_pair(client_addr, remote_addr);
+        let cw = StreamDumpWriter::new(
+            client_writer,
+            to_c,
+            self.sender.clone(),
+            self.config.packet_size,
+        );
+        let rw = StreamDumpWriter::new(
+            remote_writer,
+            to_r,
+            self.sender.clone(),
+            self.config.packet_size,
+        );
+        (cw, rw)
     }
 }

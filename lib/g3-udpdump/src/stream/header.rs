@@ -68,7 +68,7 @@ pub trait PduHeader {
     fn record_written_data(&self, data_len: usize);
 }
 
-pub(super) struct ToClientPduHeader {
+pub struct ToClientPduHeader {
     client: SocketAddr,
     remote: SocketAddr,
     tcp_dissector_stats: Arc<TcpDissectorStats>,
@@ -122,7 +122,7 @@ impl PduHeader for ToClientPduHeader {
     }
 }
 
-pub(super) struct ToRemotePduHeader {
+pub struct ToRemotePduHeader {
     client: SocketAddr,
     remote: SocketAddr,
     tcp_dissector_stats: Arc<TcpDissectorStats>,
