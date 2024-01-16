@@ -30,5 +30,5 @@ fn port6881_demo() {
     let protocol = inspector
         .check_client_initial_data(&config, 6881, DATA)
         .unwrap();
-    assert_eq!(protocol, Protocol::BitTorrent);
+    assert_eq!(protocol, Protocol::BitTorrentOverTcp);
 }

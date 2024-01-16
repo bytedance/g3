@@ -1,0 +1,8 @@
+---
+
+runtime:
+  thread_number: 1
+
+backend:
+  ca_certificate: G3-test.crt
+  ca_private_key: G3-test.key

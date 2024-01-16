@@ -18,13 +18,16 @@ use std::net::{IpAddr, SocketAddr};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
+use g3_dpi::Protocol;
+
 pub(super) fn new_pair(
     client: SocketAddr,
     remote: SocketAddr,
+    protocol: Protocol,
 ) -> (ToClientPduHeader, ToRemotePduHeader) {
     let stats = Arc::new(TcpDissectorStats::default());
-    let to_client = ToClientPduHeader::new(client, remote, stats.clone());
-    let to_remote = ToRemotePduHeader::new(client, remote, stats);
+    let to_client = ToClientPduHeader::new(client, remote, protocol, stats.clone());
+    let to_remote = ToRemotePduHeader::new(client, remote, protocol, stats);
     (to_client, to_remote)
 }
 
@@ -71,6 +74,7 @@ pub trait PduHeader {
 pub struct ToClientPduHeader {
     client: SocketAddr,
     remote: SocketAddr,
+    protocol: Protocol,
     tcp_dissector_stats: Arc<TcpDissectorStats>,
     tcp_dissector_offset: usize,
     total_len: usize,
@@ -80,11 +84,13 @@ impl ToClientPduHeader {
     fn new(
         client: SocketAddr,
         remote: SocketAddr,
+        protocol: Protocol,
         tcp_dissector_stats: Arc<TcpDissectorStats>,
     ) -> Self {
         ToClientPduHeader {
             client,
             remote,
+            protocol,
             tcp_dissector_stats,
             tcp_dissector_offset: 0,
             total_len: 0,
@@ -94,7 +100,7 @@ impl ToClientPduHeader {
 
 impl PduHeader for ToClientPduHeader {
     fn new_header(&mut self, pkt_size: usize) -> Vec<u8> {
-        let mut hdr = new_fixed_header(pkt_size, self.remote, self.client);
+        let mut hdr = new_fixed_header(pkt_size, self.remote, self.client, self.protocol);
         self.tcp_dissector_offset = hdr.len();
         push_var_header(&mut hdr);
         self.total_len = hdr.len();
@@ -125,6 +131,7 @@ impl PduHeader for ToClientPduHeader {
 pub struct ToRemotePduHeader {
     client: SocketAddr,
     remote: SocketAddr,
+    protocol: Protocol,
     tcp_dissector_stats: Arc<TcpDissectorStats>,
     tcp_dissector_offset: usize,
     total_len: usize,
@@ -134,11 +141,13 @@ impl ToRemotePduHeader {
     fn new(
         client: SocketAddr,
         remote: SocketAddr,
+        protocol: Protocol,
         tcp_dissector_stats: Arc<TcpDissectorStats>,
     ) -> Self {
         ToRemotePduHeader {
             client,
             remote,
+            protocol,
             tcp_dissector_stats,
             tcp_dissector_offset: 0,
             total_len: 0,
@@ -148,7 +157,7 @@ impl ToRemotePduHeader {
 
 impl PduHeader for ToRemotePduHeader {
     fn new_header(&mut self, pkt_size: usize) -> Vec<u8> {
-        let mut hdr = new_fixed_header(pkt_size, self.client, self.remote);
+        let mut hdr = new_fixed_header(pkt_size, self.client, self.remote, self.protocol);
         self.tcp_dissector_offset = hdr.len();
         push_var_header(&mut hdr);
         self.total_len = hdr.len();
@@ -176,8 +185,21 @@ impl PduHeader for ToRemotePduHeader {
     }
 }
 
-fn new_fixed_header(pkt_size: usize, src_addr: SocketAddr, dst_addr: SocketAddr) -> Vec<u8> {
+fn new_fixed_header(
+    pkt_size: usize,
+    src_addr: SocketAddr,
+    dst_addr: SocketAddr,
+    protocol: Protocol,
+) -> Vec<u8> {
     let mut buf = Vec::with_capacity(pkt_size);
+
+    let dissector = protocol.wireshark_dissector();
+    if !dissector.is_empty() {
+        buf.extend_from_slice(&[0x00, 0x0c]);
+        let len = (dissector.len() & 0xFFFF) as u16;
+        buf.extend_from_slice(&len.to_be_bytes());
+        buf.extend_from_slice(dissector.as_bytes());
+    }
 
     // src ip
     match src_addr.ip() {

@@ -1354,6 +1354,7 @@ dependencies = [
 name = "g3-udpdump"
 version = "0.1.0"
 dependencies = [
+ "g3-dpi",
  "g3-io-ext",
  "g3-runtime",
  "g3-socket",

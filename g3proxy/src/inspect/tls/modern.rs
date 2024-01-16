@@ -179,6 +179,7 @@ where
             let (clt_w, ups_w) = stream_dumper.wrap_io(
                 self.ctx.task_notes.client_addr,
                 self.ctx.task_notes.server_addr,
+                protocol,
                 clt_w,
                 ups_w,
             );

@@ -106,8 +106,8 @@ impl ProtocolInspectState {
             MaybeProtocol::Mqtt => self.check_mqtt_client_connect_request(data),
             MaybeProtocol::Stomp => self.check_stomp_client_connect_request(data),
             MaybeProtocol::Smpp => self.check_smpp_session_request(data),
-            MaybeProtocol::Rtmp => self.check_rtmp_client_handshake(data),
-            MaybeProtocol::BitTorrent => self.check_bittorrent_handshake(data),
+            MaybeProtocol::Rtmp => self.check_rtmp_tcp_client_handshake(data),
+            MaybeProtocol::BitTorrent => self.check_bittorrent_tcp_handshake(data),
             MaybeProtocol::Ftp
             | MaybeProtocol::Smtp
             | MaybeProtocol::Pop3
@@ -151,7 +151,7 @@ impl ProtocolInspectState {
             MaybeProtocol::Nntp | MaybeProtocol::Nnsp => self.check_nntp_server_greeting(data),
             MaybeProtocol::Imap => self.check_imap_server_greeting(data, size_limit),
             MaybeProtocol::Nats => self.check_nats_server_info_msg(data, size_limit),
-            MaybeProtocol::BitTorrent => self.check_bittorrent_handshake(data),
+            MaybeProtocol::BitTorrent => self.check_bittorrent_tcp_handshake(data),
             MaybeProtocol::Dns
             | MaybeProtocol::Ssl
             | MaybeProtocol::Http

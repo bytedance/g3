@@ -17,7 +17,7 @@
 use super::{MaybeProtocol, Protocol, ProtocolInspectError, ProtocolInspectState};
 
 impl ProtocolInspectState {
-    pub(crate) fn check_rtmp_client_handshake(
+    pub(crate) fn check_rtmp_tcp_client_handshake(
         &mut self,
         data: &[u8],
     ) -> Result<Option<Protocol>, ProtocolInspectError> {
@@ -61,6 +61,6 @@ impl ProtocolInspectState {
             ));
         }
 
-        Ok(Some(Protocol::Rtmp))
+        Ok(Some(Protocol::RtmpOverTcp))
     }
 }

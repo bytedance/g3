@@ -17,7 +17,7 @@
 use super::{MaybeProtocol, Protocol, ProtocolInspectError, ProtocolInspectState};
 
 impl ProtocolInspectState {
-    pub(crate) fn check_bittorrent_handshake(
+    pub(crate) fn check_bittorrent_tcp_handshake(
         &mut self,
         data: &[u8],
     ) -> Result<Option<Protocol>, ProtocolInspectError> {
@@ -52,7 +52,7 @@ impl ProtocolInspectState {
         self.exclude_other(MaybeProtocol::Nats);
 
         if data[1..].starts_with(b"BitTorrent protocol") {
-            Ok(Some(Protocol::BitTorrent))
+            Ok(Some(Protocol::BitTorrentOverTcp))
         } else {
             self.exclude_current();
             Ok(None)

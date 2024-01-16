@@ -166,9 +166,11 @@ pub enum Protocol {
     Mqtt,
     Stomp,
     Smpp,
-    Rtmp,
+    RtmpOverTcp,
+    RtmpOverHttp,
     Nats,
-    BitTorrent,
+    BitTorrentOverTcp,
+    BitTorrentOverUtp,
     Websocket,
     Dns,
 }
@@ -196,9 +198,63 @@ impl Protocol {
             Protocol::Mqtt => "mqtt",
             Protocol::Stomp => "stomp",
             Protocol::Smpp => "smpp",
-            Protocol::Rtmp => "rtmp",
+            Protocol::RtmpOverTcp | Protocol::RtmpOverHttp => "rtmp",
             Protocol::Nats => "nats",
-            Protocol::BitTorrent => "bittorrent",
+            Protocol::BitTorrentOverTcp | Protocol::BitTorrentOverUtp => "bittorrent",
+            Protocol::Websocket => "websocket",
+            Protocol::Dns => "dns",
+        }
+    }
+
+    pub const fn wireshark_dissector(&self) -> &'static str {
+        match self {
+            Protocol::Unknown => "",
+            Protocol::SslLegacy | Protocol::TlsLegacy | Protocol::TlsModern => "tls",
+            Protocol::TlsTlcp => "tls",
+            Protocol::Http1 => "http",
+            Protocol::Http2 => "http2",
+            Protocol::Http3 => "http3",
+            Protocol::Smtp => "smtp",
+            Protocol::SshLegacy | Protocol::Ssh => "ssh",
+            Protocol::FtpControl => "ftp",
+            Protocol::Pop3 => "pop",
+            Protocol::Nntp | Protocol::Nnsp => "nntp",
+            Protocol::Imap => "imap",
+            Protocol::Rtsp => "rtsp",
+            Protocol::Mqtt => "mqtt",
+            Protocol::Stomp => "stomp", // not officially supported
+            Protocol::Smpp => "smpp",
+            Protocol::RtmpOverTcp => "rtmpt.tcp",
+            Protocol::RtmpOverHttp => "rtmpt.http",
+            Protocol::Nats => "nats", // not officially supported
+            Protocol::BitTorrentOverTcp => "bittorrent.tcp",
+            Protocol::BitTorrentOverUtp => "bittorrent.utp",
+            Protocol::Websocket => "websocket",
+            Protocol::Dns => "dns",
+        }
+    }
+
+    pub const fn wireshark_protocol(&self) -> &'static str {
+        match self {
+            Protocol::Unknown => "",
+            Protocol::SslLegacy | Protocol::TlsLegacy | Protocol::TlsModern => "tls",
+            Protocol::TlsTlcp => "tls",
+            Protocol::Http1 => "http",
+            Protocol::Http2 => "http2",
+            Protocol::Http3 => "http3",
+            Protocol::Smtp => "smtp",
+            Protocol::SshLegacy | Protocol::Ssh => "ssh",
+            Protocol::FtpControl => "ftp",
+            Protocol::Pop3 => "pop",
+            Protocol::Nntp | Protocol::Nnsp => "nntp",
+            Protocol::Imap => "imap",
+            Protocol::Rtsp => "rtsp",
+            Protocol::Mqtt => "mqtt",
+            Protocol::Stomp => "stomp", // not officially supported
+            Protocol::Smpp => "smpp",
+            Protocol::RtmpOverTcp | Protocol::RtmpOverHttp => "rtmpt",
+            Protocol::Nats => "nats", // not officially supported
+            Protocol::BitTorrentOverTcp | Protocol::BitTorrentOverUtp => "bittorrent",
             Protocol::Websocket => "websocket",
             Protocol::Dns => "dns",
         }

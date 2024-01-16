@@ -2,17 +2,13 @@
 runtime:
   thread_number: 2
 
-log: fluentd
-
-controller:
-  local:
-    recv_timeout: 30
-    send_timeout: 1
+log: journal
 
 auditor:
   - name: default
     protocol_inspection: {}
     tls_cert_generator: {}
+    tls_stream_dump: {}
     # icap_reqmod_service: icap://127.0.0.1:1344/echo
 
 server:
