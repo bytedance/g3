@@ -22,7 +22,7 @@ use tokio::net::UdpSocket;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc;
 
-use g3_dpi::Protocol;
+use crate::ExportedPduDissectorHint;
 
 mod config;
 pub use config::StreamDumpConfig;
@@ -62,7 +62,7 @@ impl StreamDumper {
         &self,
         client_addr: SocketAddr,
         remote_addr: SocketAddr,
-        protocol: Protocol,
+        dissector_hint: ExportedPduDissectorHint,
         client_writer: CW,
         remote_writer: RW,
     ) -> (ToClientStreamDumpWriter<CW>, ToRemoteStreamDumpWriter<RW>)
@@ -70,7 +70,7 @@ impl StreamDumper {
         CW: AsyncWrite,
         RW: AsyncWrite,
     {
-        let (to_c, to_r) = header::new_pair(client_addr, remote_addr, protocol);
+        let (to_c, to_r) = header::new_pair(client_addr, remote_addr, dissector_hint);
         let cw = StreamDumpWriter::new(
             client_writer,
             to_c,

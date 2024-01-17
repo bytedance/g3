@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+mod dissector;
+pub use dissector::ExportedPduDissectorHint;
+
 mod stream;
 pub use stream::{
     StreamDumpConfig, StreamDumper, ToClientStreamDumpWriter, ToRemoteStreamDumpWriter,

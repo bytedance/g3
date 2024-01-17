@@ -23,6 +23,7 @@ use g3_dpi::{Protocol, ProtocolInspector};
 use g3_io_ext::{AggregatedIo, FlexBufReader, OnceBufReader};
 use g3_openssl::SslConnector;
 use g3_types::net::AlpnProtocol;
+use g3_udpdump::ExportedPduDissectorHint;
 
 use super::{TlsInterceptIo, TlsInterceptObject, TlsInterceptionError};
 use crate::config::server::ServerConfig;
@@ -176,10 +177,15 @@ where
             .tls_interception
             .get_stream_dumper(self.ctx.task_notes.worker_id)
         {
+            let dissector_hint = if !protocol.wireshark_dissector().is_empty() {
+                ExportedPduDissectorHint::Protocol(protocol)
+            } else {
+                ExportedPduDissectorHint::TlsPort(self.upstream.port())
+            };
             let (clt_w, ups_w) = stream_dumper.wrap_io(
                 self.ctx.task_notes.client_addr,
                 self.ctx.task_notes.server_addr,
-                protocol,
+                dissector_hint,
                 clt_w,
                 ups_w,
             );
