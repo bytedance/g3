@@ -16,6 +16,7 @@
 
 pub mod config;
 pub mod control;
+pub mod discover;
 pub mod opts;
 pub mod serve;
 pub mod signal;

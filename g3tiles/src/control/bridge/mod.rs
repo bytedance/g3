@@ -17,7 +17,7 @@
 use anyhow::anyhow;
 
 mod reload;
-pub(super) use reload::reload_server;
+pub(super) use reload::{reload_discover, reload_server};
 
 pub(crate) async fn offline() -> anyhow::Result<()> {
     g3_daemon::runtime::main_handle()

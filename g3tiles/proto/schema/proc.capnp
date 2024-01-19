@@ -16,4 +16,7 @@ interface ProcControl {
 
   forceQuitOfflineServers @5 () -> (result :Types.OperationResult);
   forceQuitOfflineServer @6 (name :Text) -> (result :Types.OperationResult);
+
+  reloadDiscover @7 (name :Text) -> (result :Types.OperationResult);
+  listDiscover @8 () -> (result :List(Text));
 }

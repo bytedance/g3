@@ -109,6 +109,32 @@ impl proc_control::Server for ProcControlImpl {
         results.get().init_result().set_ok("success");
         Promise::ok(())
     }
+
+    fn reload_discover(
+        &mut self,
+        params: proc_control::ReloadDiscoverParams,
+        mut results: proc_control::ReloadDiscoverResults,
+    ) -> Promise<(), capnp::Error> {
+        let discover = pry!(pry!(pry!(params.get()).get_name()).to_string());
+        Promise::from_future(async move {
+            let r = crate::control::bridge::reload_discover(discover, None).await;
+            set_operation_result(results.get().init_result(), r);
+            Ok(())
+        })
+    }
+
+    fn list_discover(
+        &mut self,
+        _params: proc_control::ListDiscoverParams,
+        mut results: proc_control::ListDiscoverResults,
+    ) -> Promise<(), capnp::Error> {
+        let set = crate::discover::get_names();
+        let mut builder = results.get().init_result(set.len() as u32);
+        for (i, name) in set.iter().enumerate() {
+            builder.set(i as u32, name.as_str());
+        }
+        Promise::ok(())
+    }
 }
 
 fn set_fetch_result<'a, T>(

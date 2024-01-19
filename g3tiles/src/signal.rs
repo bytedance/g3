@@ -49,17 +49,9 @@ async fn do_reload() {
         warn!("reload aborted");
     }
 
-    /*
-    if let Err(e) = crate::resolve::spawn_all().await {
-        error!("failed to reload all resolvers: {e:?}");
+    if let Err(e) = crate::discover::load_all().await {
+        error!("failed to reload all discovers: {e}");
     }
-    if let Err(e) = crate::escape::load_all().await {
-        error!("failed to reload all escapers: {e:?}");
-    }
-    if let Err(e) = crate::auth::load_all().await {
-        error!("failed to reload all user groups: {e:?}");
-    }
-    */
     if let Err(e) = crate::serve::spawn_all().await {
         error!("failed to reload all servers: {e:?}");
     }

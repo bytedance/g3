@@ -1746,6 +1746,7 @@ dependencies = [
  "rand",
  "rustc_version",
  "rustls",
+ "serde_json",
  "slog",
  "thiserror",
  "tokio",

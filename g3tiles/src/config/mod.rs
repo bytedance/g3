@@ -21,6 +21,7 @@ use yaml_rust::{yaml, Yaml};
 
 pub(crate) mod log;
 
+pub(crate) mod discover;
 pub(crate) mod server;
 
 pub fn load() -> anyhow::Result<&'static Path> {
@@ -38,6 +39,7 @@ pub fn load() -> anyhow::Result<&'static Path> {
 
 fn clear_all() {
     server::clear();
+    discover::clear();
 }
 
 pub(crate) async fn reload() -> anyhow::Result<()> {
@@ -64,6 +66,7 @@ fn reload_doc(map: &yaml::Hash) -> anyhow::Result<()> {
     g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
         "runtime" | "worker" | "log" | "stat" | "controller" => Ok(()),
         "server" => server::load_all(v, conf_dir),
+        "discover" => discover::load_all(v, conf_dir),
         _ => Ok(()),
     })?;
     Ok(())
@@ -79,6 +82,7 @@ fn load_doc(map: &yaml::Hash) -> anyhow::Result<()> {
         "stat" => g3_daemon::stat::config::load(v, crate::build::PKG_NAME),
         "controller" => g3_daemon::control::config::load(v),
         "server" => server::load_all(v, conf_dir),
+        "discover" => discover::load_all(v, conf_dir),
         _ => Err(anyhow!("invalid key {k} in main conf")),
     })?;
     Ok(())

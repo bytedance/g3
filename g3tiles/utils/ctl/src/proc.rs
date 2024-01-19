@@ -33,8 +33,10 @@ pub const COMMAND_LIST: &str = "list";
 
 const COMMAND_LIST_ARG_RESOURCE: &str = "resource";
 const RESOURCE_VALUE_SERVER: &str = "server";
+const RESOURCE_VALUE_DISCOVER: &str = "discover";
 
 pub const COMMAND_RELOAD_SERVER: &str = "reload-server";
+pub const COMMAND_RELOAD_DISCOVER: &str = "reload-discover";
 
 const SUBCOMMAND_ARG_NAME: &str = "name";
 
@@ -65,13 +67,18 @@ pub mod commands {
             Arg::new(COMMAND_LIST_ARG_RESOURCE)
                 .required(true)
                 .num_args(1)
-                .value_parser([RESOURCE_VALUE_SERVER])
+                .value_parser([RESOURCE_VALUE_SERVER, RESOURCE_VALUE_DISCOVER])
                 .ignore_case(true),
         )
     }
 
     pub fn reload_server() -> Command {
         Command::new(COMMAND_RELOAD_SERVER)
+            .arg(Arg::new(SUBCOMMAND_ARG_NAME).required(true).num_args(1))
+    }
+
+    pub fn reload_discover() -> Command {
+        Command::new(COMMAND_RELOAD_DISCOVER)
             .arg(Arg::new(SUBCOMMAND_ARG_NAME).required(true).num_args(1))
     }
 }
@@ -109,6 +116,7 @@ pub async fn list(client: &proc_control::Client, args: &ArgMatches) -> CommandRe
         .as_str()
     {
         RESOURCE_VALUE_SERVER => list_server(client).await,
+        RESOURCE_VALUE_DISCOVER => list_discover(client).await,
         _ => unreachable!(),
     }
 }
@@ -119,9 +127,26 @@ async fn list_server(client: &proc_control::Client) -> CommandResult<()> {
     g3_ctl::print_result_list(rsp.get()?.get_result()?)
 }
 
+async fn list_discover(client: &proc_control::Client) -> CommandResult<()> {
+    let req = client.list_discover_request();
+    let rsp = req.send().promise.await?;
+    g3_ctl::print_result_list(rsp.get()?.get_result()?)
+}
+
 pub async fn reload_server(client: &proc_control::Client, args: &ArgMatches) -> CommandResult<()> {
     let name = args.get_one::<String>(SUBCOMMAND_ARG_NAME).unwrap();
     let mut req = client.reload_server_request();
+    req.get().set_name(name);
+    let rsp = req.send().promise.await?;
+    parse_operation_result(rsp.get()?.get_result()?)
+}
+
+pub async fn reload_discover(
+    client: &proc_control::Client,
+    args: &ArgMatches,
+) -> CommandResult<()> {
+    let name = args.get_one::<String>(SUBCOMMAND_ARG_NAME).unwrap();
+    let mut req = client.reload_discover_request();
     req.get().set_name(name);
     let rsp = req.send().promise.await?;
     parse_operation_result(rsp.get()?.get_result()?)

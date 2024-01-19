@@ -102,8 +102,9 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
 
         g3tiles::signal::setup_and_spawn().context("failed to setup signal handler")?;
 
-        // TODO
-
+        g3tiles::discover::load_all()
+            .await
+            .context("failed to load all discovers")?;
         let _workers_guard = g3_daemon::runtime::worker::spawn_workers()
             .await
             .context("failed to spawn workers")?;
