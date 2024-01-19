@@ -36,6 +36,7 @@
     + [动态代理串联](#动态代理串联)
     + [用户特定站点监控](#用户特定站点监控)
     + [流量审计](#流量审计)
+    + [TLS解密流量导出](#TLS解密流量导出)
     + [性能优化](#性能优化)
 - [场景设计](#场景设计)
     + [多区域加速](#多区域加速)
@@ -679,6 +680,12 @@ auditor:
     icap_respmod_service: icap://xxx # ICAP RESPMOD服务配置
     application_audit_ratio: 1.0     # 应用流量审计比例，按客户端代理请求匹配，若审计则进行协议识别及TLS劫持
 ```
+
+### TLS解密流量导出
+
+开启流量审计功能，并启用TLS劫持后，可配置导出TLS解密流量至[udpdump](https://www.wireshark.org/docs/man-pages/udpdump.html)。
+
+具体配置参考[examples/inspect_http_proxy](examples/inspect_http_proxy)。
 
 ### 性能优化
 

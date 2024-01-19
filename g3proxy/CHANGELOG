@@ -1,4 +1,9 @@
 
+v1.7.34:
+ - BUG FIX: do protocol inspection for tls decrypted stream if ALPN is missing
+ - Feature: add tcp_tproxy server
+ - Feature: allow to dump tls decrypted stream to wireshark udpdump receiver
+
 v1.7.33:
  - BUG FIX: fix dead looping when shutdown ssl connections
 
