@@ -1,6 +1,6 @@
 [package]
 name = "g3-types"
-version = "0.3.0"
+version = "0.4.0"
 rust-version = "1.73.0"
 license.workspace = true
 edition.workspace = true
@@ -57,9 +57,8 @@ resolve = ["dep:ahash", "dep:radix_trie", "dep:fastrand"]
 rustls = ["dep:rustls", "dep:webpki-roots", "dep:rustls-pemfile", "dep:rustls-native-certs", "dep:ahash", "dep:lru", "dep:ring", "dep:arc-swap"]
 openssl = ["dep:openssl", "dep:ahash", "dep:lru", "dep:bytes"]
 tongsuo = ["openssl", "openssl/tongsuo"]
-acl-rule = ["resolve", "dep:ahash", "dep:ip_network", "dep:ip_network_table", "dep:once_cell", "dep:regex", "dep:radix_trie", "proxy"]
+acl-rule = ["resolve", "dep:ahash", "dep:ip_network", "dep:ip_network_table", "dep:once_cell", "dep:regex", "dep:radix_trie"]
 http = ["dep:http", "dep:bytes", "dep:base64"]
-proxy = ["http", "openssl"]
 route = ["dep:ahash", "dep:radix_trie", "dep:indexmap", "resolve"]
 async-log = ["dep:flume", "dep:slog"]
 json = ["dep:serde_json"]

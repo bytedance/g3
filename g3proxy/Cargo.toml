@@ -71,8 +71,8 @@ g3-datetime.workspace = true
 g3-statsd-client.workspace = true
 g3-histogram.workspace = true
 g3-slog-types = { workspace = true, features = ["http"] }
-g3-yaml = { workspace = true, features = ["resolve", "rustls", "openssl", "acl-rule", "http", "ftp-client", "proxy", "route", "dpi", "audit", "histogram"] }
-g3-json = { workspace = true, features = ["acl-rule", "resolve", "http", "rustls", "openssl", "proxy", "histogram"] }
+g3-yaml = { workspace = true, features = ["resolve", "rustls", "openssl", "acl-rule", "http", "ftp-client", "route", "dpi", "audit", "histogram"] }
+g3-json = { workspace = true, features = ["acl-rule", "resolve", "http", "rustls", "openssl", "histogram"] }
 g3-msgpack.workspace = true
 g3-io-ext.workspace = true
 g3-resolver.workspace = true

@@ -215,7 +215,7 @@ g3-syslog = { version = "0.6", path = "lib/g3-syslog" }
 g3-slog-types = { version = "0.1", path = "lib/g3-slog-types" }
 g3-geoip = { version = "0.1", path = "lib/g3-geoip" }
 g3-tls-cert = { version = "0.4", path = "lib/g3-tls-cert" }
-g3-types = { version = "0.3", path = "lib/g3-types" }
+g3-types = { version = "0.4", path = "lib/g3-types" }
 g3-xcrypt = { version = "0.1", path = "lib/g3-xcrypt" }
 g3-yaml = { version = "0.5.0", path = "lib/g3-yaml" }
 

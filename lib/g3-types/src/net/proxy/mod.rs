@@ -23,7 +23,9 @@ use crate::net::UpstreamAddr;
 mod common;
 pub use common::ProxyRequestType;
 
+#[cfg(feature = "http")]
 mod http;
+#[cfg(feature = "http")]
 pub use self::http::HttpProxy;
 
 mod socks4;
@@ -46,6 +48,7 @@ pub enum ProxyParseError {
 
 #[allow(clippy::large_enum_variant)]
 pub enum Proxy {
+    #[cfg(feature = "http")]
     Http(HttpProxy),
     Socks4(Socks4Proxy),
     Socks5(Socks5Proxy),
@@ -54,6 +57,7 @@ pub enum Proxy {
 impl Proxy {
     pub fn peer(&self) -> &UpstreamAddr {
         match self {
+            #[cfg(feature = "http")]
             Proxy::Http(p) => p.peer(),
             Proxy::Socks4(p) => p.peer(),
             Proxy::Socks5(p) => p.peer(),
@@ -66,10 +70,12 @@ impl TryFrom<&Url> for Proxy {
 
     fn try_from(value: &Url) -> Result<Self, Self::Error> {
         match value.scheme().to_ascii_lowercase().as_str() {
+            #[cfg(feature = "http")]
             "http" => {
                 let p = HttpProxy::from_url_authority(value)?;
                 Ok(Proxy::Http(p))
             }
+            #[cfg(all(feature = "http", feature = "openssl"))]
             "https" => {
                 let p = HttpProxy::from_url_authority_with_tls(value)?;
                 Ok(Proxy::Http(p))

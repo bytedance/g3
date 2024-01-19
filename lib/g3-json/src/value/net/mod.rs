@@ -16,17 +16,16 @@
 
 mod base;
 mod ports;
+mod proxy;
 mod tcp;
 mod udp;
 
 #[cfg(feature = "http")]
 mod http;
 
-#[cfg(feature = "proxy")]
-mod proxy;
-
 pub use base::{as_domain, as_egress_area, as_host, as_ipaddr, as_upstream_addr};
 pub use ports::as_ports;
+pub use proxy::as_proxy_request_type;
 pub use tcp::{as_tcp_connect_config, as_tcp_keepalive_config, as_tcp_misc_sock_opts};
 pub use udp::as_udp_misc_sock_opts;
 
@@ -35,6 +34,3 @@ pub use base::as_ip_network;
 
 #[cfg(feature = "http")]
 pub use http::as_http_keepalive_config;
-
-#[cfg(feature = "proxy")]
-pub use proxy::as_proxy_request_type;

@@ -19,11 +19,13 @@ use url::Url;
 use super::ProxyParseError;
 use crate::net::{HttpAuth, UpstreamAddr};
 
+#[cfg(feature = "openssl")]
 use crate::net::OpensslClientConfigBuilder;
 
 pub struct HttpProxy {
     peer: UpstreamAddr,
     pub auth: HttpAuth,
+    #[cfg(feature = "openssl")]
     pub tls_config: Option<OpensslClientConfigBuilder>,
 }
 
@@ -47,6 +49,7 @@ impl HttpProxy {
         })
     }
 
+    #[cfg(feature = "openssl")]
     pub(super) fn from_url_authority_with_tls(url: &Url) -> Result<Self, ProxyParseError> {
         let mut v = HttpProxy::from_url_authority(url)?;
         let tls_config = OpensslClientConfigBuilder::with_cache_for_one_site();
@@ -64,6 +67,7 @@ impl TryFrom<&Url> for HttpProxy {
     fn try_from(value: &Url) -> Result<Self, Self::Error> {
         match value.scheme().to_ascii_lowercase().as_str() {
             "http" => HttpProxy::from_url_authority(value),
+            #[cfg(feature = "openssl")]
             "https" => HttpProxy::from_url_authority_with_tls(value),
             _ => Err(ProxyParseError::InvalidScheme),
         }

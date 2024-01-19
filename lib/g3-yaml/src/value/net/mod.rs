@@ -18,6 +18,7 @@ mod base;
 mod buf;
 mod haproxy;
 mod port;
+mod proxy;
 mod tcp;
 mod udp;
 
@@ -30,9 +31,6 @@ mod ftp;
 #[cfg(feature = "rustls")]
 mod dns;
 
-#[cfg(feature = "proxy")]
-mod proxy;
-
 pub use base::{
     as_domain, as_env_sockaddr, as_host, as_ipaddr, as_ipv4addr, as_ipv6addr, as_sockaddr,
     as_upstream_addr, as_url, as_weighted_sockaddr, as_weighted_upstream_addr,
@@ -40,6 +38,7 @@ pub use base::{
 pub use buf::as_socket_buffer_config;
 pub use haproxy::as_proxy_protocol_version;
 pub use port::{as_port_range, as_ports};
+pub use proxy::as_proxy_request_type;
 pub use tcp::{
     as_happy_eyeballs_config, as_tcp_connect_config, as_tcp_keepalive_config, as_tcp_listen_config,
     as_tcp_misc_sock_opts,
@@ -60,6 +59,3 @@ pub use ftp::as_ftp_client_config;
 
 #[cfg(feature = "rustls")]
 pub use dns::as_dns_encryption_protocol_builder;
-
-#[cfg(feature = "proxy")]
-pub use proxy::as_proxy_request_type;

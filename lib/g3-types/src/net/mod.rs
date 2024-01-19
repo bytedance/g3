@@ -21,6 +21,7 @@ mod error;
 mod haproxy;
 mod host;
 mod port;
+mod proxy;
 mod rate_limit;
 mod socks;
 mod tcp;
@@ -32,9 +33,6 @@ mod websocket;
 
 #[cfg(feature = "http")]
 mod http;
-
-#[cfg(feature = "proxy")]
-mod proxy;
 
 #[cfg(feature = "rustls")]
 mod rustls;
@@ -49,6 +47,7 @@ pub use error::ConnectError;
 pub use haproxy::{ProxyProtocolEncodeError, ProxyProtocolEncoder, ProxyProtocolVersion};
 pub use host::Host;
 pub use port::{PortRange, Ports};
+pub use proxy::{HttpProxy, Proxy, ProxyParseError, ProxyRequestType, Socks4Proxy, Socks5Proxy};
 pub use rate_limit::{
     TcpSockSpeedLimitConfig, UdpSockSpeedLimitConfig, RATE_LIMIT_SHIFT_MILLIS_DEFAULT,
     RATE_LIMIT_SHIFT_MILLIS_MAX,
@@ -63,9 +62,6 @@ pub use websocket::WebSocketSubProtocol;
 
 #[cfg(feature = "http")]
 pub use self::http::*;
-
-#[cfg(feature = "proxy")]
-pub use proxy::{HttpProxy, Proxy, ProxyParseError, ProxyRequestType, Socks4Proxy, Socks5Proxy};
 
 #[cfg(feature = "rustls")]
 pub use self::rustls::*;
