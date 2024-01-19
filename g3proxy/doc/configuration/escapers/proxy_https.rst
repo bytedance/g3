@@ -64,8 +64,6 @@ Set the tls server name to verify tls certificate for all peers.
 
 If not set, the host part of each peer will be used.
 
-.. note:: IP address is not supported by now
-
 **default**: not set
 
 proxy_username

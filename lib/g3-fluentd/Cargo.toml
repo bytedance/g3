@@ -18,11 +18,11 @@ rmp.workspace = true
 rmp-serde.workspace = true
 serde.workspace = true
 tokio = { workspace = true, features = ["rt", "net", "time", "macros"] }
+tokio-rustls.workspace = true
 rand.workspace = true
 digest.workspace = true
 sha2.workspace = true
 hex.workspace = true
 log.workspace = true
-g3-types = { workspace = true, features = ["async-log", "openssl"] }
+g3-types = { workspace = true, features = ["async-log", "rustls"] }
 g3-socket.workspace = true
-g3-openssl.workspace = true

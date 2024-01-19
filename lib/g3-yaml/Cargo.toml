@@ -39,7 +39,7 @@ g3-geoip = { workspace = true, optional = true }
 [features]
 default = []
 syslog = ["dep:g3-syslog"]
-fluentd = ["dep:g3-fluentd", "openssl"]
+fluentd = ["dep:g3-fluentd", "rustls"]
 statsd = ["dep:g3-statsd-client"]
 histogram = ["dep:g3-histogram"]
 resolve = ["g3-types/resolve"]

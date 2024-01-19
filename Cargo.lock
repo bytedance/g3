@@ -970,7 +970,6 @@ dependencies = [
  "chrono",
  "digest",
  "flume",
- "g3-openssl",
  "g3-socket",
  "g3-types",
  "hex",
@@ -984,6 +983,7 @@ dependencies = [
  "slog",
  "thiserror",
  "tokio",
+ "tokio-rustls",
 ]
 
 [[package]]

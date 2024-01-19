@@ -23,8 +23,8 @@ use flume::Receiver;
 use log::warn;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
+use tokio_rustls::client::TlsStream;
 
-use g3_openssl::SslStream;
 use g3_types::log::{AsyncLogConfig, AsyncLogger, LogStats};
 
 mod config;
@@ -71,7 +71,7 @@ pub fn new_async_logger(
 
 enum FluentdConnection {
     Tcp(TcpStream),
-    Tls(SslStream<TcpStream>),
+    Tls(TlsStream<TcpStream>),
 }
 
 struct AsyncIoThread {

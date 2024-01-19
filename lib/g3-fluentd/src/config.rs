@@ -23,9 +23,10 @@ use rand::Rng;
 use rmp::encode::ValueWriteError;
 use sha2::Sha512;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio_rustls::rustls::ServerName;
+use tokio_rustls::TlsConnector;
 
-use g3_openssl::SslConnector;
-use g3_types::net::{OpensslClientConfig, OpensslClientConfigBuilder, TcpKeepAliveConfig};
+use g3_types::net::{RustlsClientConfig, RustlsClientConfigBuilder, TcpKeepAliveConfig};
 
 use super::FluentdConnection;
 
@@ -39,7 +40,8 @@ pub struct FluentdClientConfig {
     username: String,
     password: String,
     tcp_keepalive: TcpKeepAliveConfig,
-    tls_client: Option<OpensslClientConfig>,
+    tls_client: Option<RustlsClientConfig>,
+    tls_name: Option<ServerName>,
     hostname: String,
     pub(super) connect_timeout: Duration,
     pub(super) connect_delay: Duration,
@@ -70,6 +72,7 @@ impl FluentdClientConfig {
             password: String::new(),
             tcp_keepalive: TcpKeepAliveConfig::default_enabled(),
             tls_client: None,
+            tls_name: None,
             hostname,
             connect_timeout: Duration::from_secs(10),
             connect_delay: Duration::from_secs(10),
@@ -107,12 +110,16 @@ impl FluentdClientConfig {
         self.tcp_keepalive = keepalive;
     }
 
-    pub fn set_tls_client(&mut self, tls_config: OpensslClientConfigBuilder) -> anyhow::Result<()> {
+    pub fn set_tls_client(&mut self, tls_config: RustlsClientConfigBuilder) -> anyhow::Result<()> {
         let tls_client = tls_config
             .build()
             .context("failed to build tls client config")?;
         self.tls_client = Some(tls_client);
         Ok(())
+    }
+
+    pub fn set_tls_name(&mut self, tls_name: ServerName) {
+        self.tls_name = Some(tls_name);
     }
 
     pub fn set_connect_timeout(&mut self, timeout: Duration) {
@@ -150,21 +157,18 @@ impl FluentdClientConfig {
             .map_err(|e| anyhow!("failed to tcp connect to peer {}: {e:?}", self.server_addr))?;
 
         if let Some(tls_client) = &self.tls_client {
-            let tls_name = self.server_addr.ip().to_string();
-            let tls = tls_client
-                .build_ssl(&tls_name, self.server_addr.port())
-                .map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
-            let tls_connector = SslConnector::new(tls, tcp_stream)
-                .map_err(|e| anyhow!("failed to setup ssl context: {e}"))?;
-            let tls_stream = tls_connector
-                .connect()
-                .await
-                .map_err(|e| anyhow!("failed to tls connect to peer {tls_name}: {e}"))?;
-            let tls_stream = self
-                .handshake(tls_stream)
-                .await
-                .context("fluentd handshake failed")?;
-            Ok(FluentdConnection::Tls(tls_stream))
+            let tls_name = self
+                .tls_name
+                .clone()
+                .unwrap_or_else(|| ServerName::IpAddress(self.server_addr.ip()));
+            let tls_connect =
+                TlsConnector::from(tls_client.driver.clone()).connect(tls_name, tcp_stream);
+
+            match tokio::time::timeout(tls_client.handshake_timeout, tls_connect).await {
+                Ok(Ok(stream)) => Ok(FluentdConnection::Tls(stream)),
+                Ok(Err(e)) => Err(anyhow!("failed to tls connect to peer: {e}")),
+                Err(_) => Err(anyhow!("tls connect to peer timedout")),
+            }
         } else {
             let tcp_stream = self
                 .handshake(tcp_stream)

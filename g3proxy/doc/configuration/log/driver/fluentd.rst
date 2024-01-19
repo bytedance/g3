@@ -87,11 +87,26 @@ Set the tcp keepalive config for the connection to fluentd server.
 tls_client
 ----------
 
-**optional**, **type**: :ref:`openssl tls client config <conf_value_openssl_tls_client_config>`
+**optional**, **type**: :ref:`rustls client config <conf_value_rustls_client_config>`
 
 Enable tls and set the config.
 
 **default**: not set
+
+.. versionchanged:: 1.7.35
+
+   change to use rustls
+
+tls_name
+--------
+
+**optional**, **type**: :ref:`tls name <conf_value_tls_name>`
+
+Set the tls server name to verify peer certificate.
+
+**default**: not set
+
+.. versionadded:: 1.7.35
 
 connect_timeout
 ---------------

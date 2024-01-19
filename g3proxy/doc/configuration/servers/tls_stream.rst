@@ -81,6 +81,4 @@ Set an explicit tls server name to do upstream tls certificate verification.
 
 If not set, the host of upstream address will be used.
 
-.. note:: IP address is not supported by now
-
 **default**: not set

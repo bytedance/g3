@@ -67,14 +67,19 @@ pub fn as_fluentd_client_config(
                     Ok(())
                 }
                 "tls_client" => {
-                    let tls_config =
-                        crate::value::as_to_one_openssl_tls_client_config_builder(v, lookup_dir)
-                            .context(format!(
-                                "invalid openssl tls client config value for key {k}"
-                            ))?;
+                    let tls_config = crate::value::as_rustls_client_config_builder(v, lookup_dir)
+                        .context(format!(
+                        "invalid rustls tls client config value for key {k}"
+                    ))?;
                     config
                         .set_tls_client(tls_config)
                         .context("failed to set tls client config")?;
+                    Ok(())
+                }
+                "tls_name" => {
+                    let tls_name = crate::value::as_rustls_server_name(v)
+                        .context(format!("invalid rustls server name value for key {k}"))?;
+                    config.set_tls_name(tls_name);
                     Ok(())
                 }
                 "connect_timeout" => {
