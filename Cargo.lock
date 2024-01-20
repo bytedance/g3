@@ -469,9 +469,9 @@ dependencies = [
 
 [[package]]
 name = "clap_complete"
-version = "4.4.7"
+version = "4.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dfb0d4825b75ff281318c393e8e1b80c4da9fb75a6b1d98547d389d6fe1f48d2"
+checksum = "eaf7dcb7c21d8ca1a2482ee0f1d341f437c9a7af6ca6da359dc5e1b164e98215"
 dependencies = [
  "clap",
 ]
@@ -3128,9 +3128,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.13.0"
+version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b187f0231d56fe41bfb12034819dd2bf336422a5866de41bc3fec4b2e3883e8"
+checksum = "e6ecd384b10a64542d77071bd64bd7b231f4ed5940fba55e98c3de13824cf3d7"
 
 [[package]]
 name = "socket2"
@@ -3488,9 +3488,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl"
-version = "0.11.0"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce5e358214fc552fb189607a527a92de05584b2c27a430db2eb643999c1b9ac0"
+checksum = "60d1b50d8a00c4bb6da0686e8842fde477b6be5607d677fa0adbe524876522b1"
 dependencies = [
  "bitflags 2.4.2",
  "cfg-if",
@@ -3503,9 +3503,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl-sys"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5a32723e2fddca0d48d251355a9f3b94554eca35595fa12f3762bc2581b92bd"
+checksum = "d65cc3e2af8bb98736b07c4fbfa6c33b5fd7a3ad972d4f3c8dc6fcb76b1c3c6b"
 dependencies = [
  "aws-lc-sys",
  "cc",
