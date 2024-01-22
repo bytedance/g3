@@ -30,7 +30,6 @@ mod static_addr;
 
 mod ops;
 pub use ops::load_all;
-#[allow(unused)]
 pub(crate) use ops::{get_discover, reload};
 
 mod registry;

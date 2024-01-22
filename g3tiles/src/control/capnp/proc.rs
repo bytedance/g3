@@ -135,6 +135,32 @@ impl proc_control::Server for ProcControlImpl {
         }
         Promise::ok(())
     }
+
+    fn reload_backend(
+        &mut self,
+        params: proc_control::ReloadBackendParams,
+        mut results: proc_control::ReloadBackendResults,
+    ) -> Promise<(), capnp::Error> {
+        let connector = pry!(pry!(pry!(params.get()).get_name()).to_string());
+        Promise::from_future(async move {
+            let r = crate::control::bridge::reload_backend(connector, None).await;
+            set_operation_result(results.get().init_result(), r);
+            Ok(())
+        })
+    }
+
+    fn list_backend(
+        &mut self,
+        _params: proc_control::ListBackendParams,
+        mut results: proc_control::ListBackendResults,
+    ) -> Promise<(), capnp::Error> {
+        let set = crate::backend::get_names();
+        let mut builder = results.get().init_result(set.len() as u32);
+        for (i, name) in set.iter().enumerate() {
+            builder.set(i as u32, name.as_str());
+        }
+        Promise::ok(())
+    }
 }
 
 fn set_fetch_result<'a, T>(

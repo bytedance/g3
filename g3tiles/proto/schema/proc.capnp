@@ -19,4 +19,7 @@ interface ProcControl {
 
   reloadDiscover @7 (name :Text) -> (result :Types.OperationResult);
   listDiscover @8 () -> (result :List(Text));
+
+  reloadBackend @9 (name :Text) -> (result :Types.OperationResult);
+  listBackend @10 () -> (result :List(Text));
 }

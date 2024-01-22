@@ -1728,6 +1728,7 @@ dependencies = [
  "clap_complete",
  "g3-compat",
  "g3-daemon",
+ "g3-histogram",
  "g3-io-ext",
  "g3-openssl",
  "g3-signal",

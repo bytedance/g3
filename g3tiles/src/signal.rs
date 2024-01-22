@@ -52,6 +52,9 @@ async fn do_reload() {
     if let Err(e) = crate::discover::load_all().await {
         error!("failed to reload all discovers: {e}");
     }
+    if let Err(e) = crate::backend::load_all().await {
+        error!("failed to reload all backends: {e}");
+    }
     if let Err(e) = crate::serve::spawn_all().await {
         error!("failed to reload all servers: {e:?}");
     }

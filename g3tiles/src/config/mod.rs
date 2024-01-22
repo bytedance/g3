@@ -21,6 +21,7 @@ use yaml_rust::{yaml, Yaml};
 
 pub(crate) mod log;
 
+pub(crate) mod backend;
 pub(crate) mod discover;
 pub(crate) mod server;
 
@@ -40,6 +41,7 @@ pub fn load() -> anyhow::Result<&'static Path> {
 fn clear_all() {
     server::clear();
     discover::clear();
+    backend::clear();
 }
 
 pub(crate) async fn reload() -> anyhow::Result<()> {
@@ -67,6 +69,7 @@ fn reload_doc(map: &yaml::Hash) -> anyhow::Result<()> {
         "runtime" | "worker" | "log" | "stat" | "controller" => Ok(()),
         "server" => server::load_all(v, conf_dir),
         "discover" => discover::load_all(v, conf_dir),
+        "connector" => backend::load_all(v, conf_dir),
         _ => Ok(()),
     })?;
     Ok(())
@@ -83,6 +86,7 @@ fn load_doc(map: &yaml::Hash) -> anyhow::Result<()> {
         "controller" => g3_daemon::control::config::load(v),
         "server" => server::load_all(v, conf_dir),
         "discover" => discover::load_all(v, conf_dir),
+        "connector" => backend::load_all(v, conf_dir),
         _ => Err(anyhow!("invalid key {k} in main conf")),
     })?;
     Ok(())

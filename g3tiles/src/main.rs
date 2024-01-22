@@ -105,6 +105,9 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
         g3tiles::discover::load_all()
             .await
             .context("failed to load all discovers")?;
+        g3tiles::backend::load_all()
+            .await
+            .context("failed to load all connectors")?;
         let _workers_guard = g3_daemon::runtime::worker::spawn_workers()
             .await
             .context("failed to spawn workers")?;

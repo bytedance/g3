@@ -133,6 +133,7 @@ fn build_cli_args() -> Command {
         .subcommand(proc::commands::list())
         .subcommand(proc::commands::reload_server())
         .subcommand(proc::commands::reload_discover())
+        .subcommand(proc::commands::reload_backend())
         .subcommand(server::command())
 }
 
@@ -178,6 +179,7 @@ async fn main() -> anyhow::Result<()> {
                 proc::COMMAND_LIST => proc::list(&proc_control, args).await,
                 proc::COMMAND_RELOAD_SERVER => proc::reload_server(&proc_control, args).await,
                 proc::COMMAND_RELOAD_DISCOVER => proc::reload_discover(&proc_control, args).await,
+                proc::COMMAND_RELOAD_BACKEND => proc::reload_backend(&proc_control, args).await,
                 server::COMMAND => server::run(&proc_control, args).await,
                 _ => unreachable!(),
             }

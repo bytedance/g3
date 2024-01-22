@@ -44,6 +44,7 @@ g3-socket.workspace = true
 g3-io-ext.workspace = true
 g3-openssl.workspace = true
 g3-statsd-client.workspace = true
+g3-histogram.workspace = true
 g3-slog-types.workspace = true
 g3tiles-proto = { path = "proto" }
 
