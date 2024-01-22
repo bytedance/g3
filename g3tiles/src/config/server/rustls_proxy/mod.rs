@@ -34,9 +34,6 @@ use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
 mod host;
 pub(crate) use host::RustlsHostConfig;
 
-mod service;
-pub(crate) use service::RustlsServiceConfig;
-
 const SERVER_CONFIG_TYPE: &str = "RustlsProxy";
 
 #[derive(Clone, Debug, PartialEq)]

@@ -19,6 +19,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context};
 use yaml_rust::Yaml;
 
+use g3_types::metrics::MetricsName;
 use g3_types::route::AlpnMatch;
 
 use crate::{YamlDocPosition, YamlMapCallback};
@@ -108,6 +109,73 @@ where
         let type_name = target.type_name();
         add_alpn_matched_value(&mut obj, value, target, doc)
             .context(format!("invalid alpn matched {type_name} value"))?;
+    }
+
+    Ok(obj)
+}
+
+fn add_alpn_matched_backend(obj: &mut AlpnMatch<MetricsName>, value: &Yaml) -> anyhow::Result<()> {
+    if let Yaml::Hash(map) = value {
+        let mut protocol_vs = vec![];
+        let mut set_default = false;
+        let mut name = MetricsName::default();
+
+        crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
+            "set_default" => {
+                set_default =
+                    crate::value::as_bool(v).context(format!("invalid bool value for key {k}"))?;
+                Ok(())
+            }
+            "protocol" => {
+                if let Yaml::Array(seq) = v {
+                    for (i, v) in seq.iter().enumerate() {
+                        let protocol = crate::value::as_string(v)
+                            .context(format!("invalid string value for {k}#{i}"))?;
+                        protocol_vs.push(protocol);
+                    }
+                } else {
+                    let protocol = crate::value::as_string(v)
+                        .context(format!("invalid string value for {k}"))?;
+                    protocol_vs.push(protocol);
+                }
+                Ok(())
+            }
+            "backend" => {
+                name = crate::value::as_metrics_name(v)?;
+                Ok(())
+            }
+            _ => Err(anyhow!("invalid key {k}")),
+        })?;
+
+        let mut auto_default = true;
+        for protocol in protocol_vs {
+            if obj.add_protocol(protocol.clone(), name.clone()).is_some() {
+                return Err(anyhow!("duplicate value for protocol {protocol}"));
+            }
+            auto_default = false;
+        }
+        if (set_default || auto_default) && obj.set_default(name).is_some() {
+            return Err(anyhow!("a default value has already been set"));
+        }
+
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "yaml type for 'alpn matched name value' should be 'map'"
+        ))
+    }
+}
+
+pub fn as_alpn_matched_backends(value: &Yaml) -> anyhow::Result<AlpnMatch<MetricsName>> {
+    let mut obj = AlpnMatch::<MetricsName>::default();
+
+    if let Yaml::Array(seq) = value {
+        for (i, v) in seq.iter().enumerate() {
+            add_alpn_matched_backend(&mut obj, v)
+                .context(format!("invalid alpn matched name value for element #{i}"))?;
+        }
+    } else {
+        add_alpn_matched_backend(&mut obj, value).context("invalid alpn matched name value")?;
     }
 
     Ok(obj)

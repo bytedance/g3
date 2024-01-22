@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-use std::sync::Arc;
-
 use anyhow::{anyhow, Context};
 use openssl::ssl::{
     SslAcceptor, SslContext, SslContextBuilder, SslMethod, SslSessionCacheMode, SslVerifyMode,
@@ -27,14 +25,13 @@ use yaml_rust::Yaml;
 
 use g3_types::collection::NamedValue;
 use g3_types::limit::RateLimitQuotaConfig;
+use g3_types::metrics::MetricsName;
 use g3_types::net::{OpensslCertificatePair, OpensslSessionIdContext, TcpSockSpeedLimitConfig};
 use g3_types::route::AlpnMatch;
 use g3_yaml::{YamlDocPosition, YamlMapCallback};
 
 #[cfg(feature = "vendored-tongsuo")]
 use g3_types::net::OpensslTlcpCertificatePair;
-
-use super::OpensslServiceConfig;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct OpensslHostConfig {
@@ -49,7 +46,7 @@ pub(crate) struct OpensslHostConfig {
     pub(crate) request_rate_limit: Option<RateLimitQuotaConfig>,
     pub(crate) tcp_sock_speed_limit: Option<TcpSockSpeedLimitConfig>,
     pub(crate) task_idle_max_count: Option<i32>,
-    pub(crate) services: AlpnMatch<Arc<OpensslServiceConfig>>,
+    pub(crate) backends: AlpnMatch<MetricsName>,
 }
 
 impl NamedValue for OpensslHostConfig {
@@ -158,9 +155,9 @@ impl OpensslHostConfig {
             .build_set(&mut ssl_builder)
             .map_err(|e| anyhow!("failed to set session id context: {e}"))?;
 
-        if !self.services.is_empty() {
+        if !self.backends.is_empty() {
             let mut buf = Vec::with_capacity(32);
-            self.services.protocols().iter().for_each(|p| {
+            self.backends.protocols().iter().for_each(|p| {
                 if let Ok(len) = u8::try_from(p.len()) {
                     buf.push(len);
                     buf.extend_from_slice(p.as_bytes());
@@ -215,9 +212,9 @@ impl OpensslHostConfig {
             .build_set(&mut ssl_builder)
             .map_err(|e| anyhow!("failed to set session id context: {e}"))?;
 
-        if !self.services.is_empty() {
+        if !self.backends.is_empty() {
             let mut buf = Vec::with_capacity(32);
-            self.services.protocols().iter().for_each(|p| {
+            self.backends.protocols().iter().for_each(|p| {
                 if let Ok(len) = u8::try_from(p.len()) {
                     buf.push(len);
                     buf.extend_from_slice(p.as_bytes());
@@ -311,8 +308,8 @@ impl YamlMapCallback for OpensslHostConfig {
                 self.task_idle_max_count = Some(max_count);
                 Ok(())
             }
-            "services" => {
-                self.services = g3_yaml::value::as_alpn_matched_obj(value, doc)?;
+            "backends" => {
+                self.backends = g3_yaml::value::as_alpn_matched_backends(value)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {key}")),
@@ -331,7 +328,7 @@ impl YamlMapCallback for OpensslHostConfig {
         if self.cert_pairs.is_empty() && self.tlcp_cert_pairs.is_empty() {
             return Err(anyhow!("neither tls nor tlcp certificate set"));
         }
-        if self.services.is_empty() {
+        if self.backends.is_empty() {
             return Err(anyhow!("no backend service set"));
         }
         Ok(())

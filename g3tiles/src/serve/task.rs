@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
@@ -81,6 +81,11 @@ impl ServerTaskNotes {
     #[inline]
     pub(crate) fn client_addr(&self) -> SocketAddr {
         self.cc_info.client_addr()
+    }
+
+    #[inline]
+    pub(crate) fn client_ip(&self) -> IpAddr {
+        self.cc_info.client_ip()
     }
 
     #[inline]

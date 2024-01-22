@@ -19,6 +19,10 @@ use std::time::Duration;
 
 use thiserror::Error;
 
+use g3_types::net::ConnectError;
+
+use crate::module::stream::StreamConnectError;
+
 #[derive(Error, Debug)]
 pub(crate) enum ServerTaskError {
     #[error("internal server error: {0}")]
@@ -27,6 +31,10 @@ pub(crate) enum ServerTaskError {
     ClientTcpReadFailed(io::Error),
     #[error("tcp write to client: {0:?}")]
     ClientTcpWriteFailed(io::Error),
+    #[error("upstream not resolved")]
+    UpstreamNotResolved,
+    #[error("upstream not connected: {0}")]
+    UpstreamNotConnected(ConnectError),
     #[error("read from upstream: {0:?}")]
     UpstreamReadFailed(io::Error),
     #[error("write to upstream: {0:?}")]
@@ -52,6 +60,8 @@ impl ServerTaskError {
             ServerTaskError::InternalServerError(_) => "InternalServerError",
             ServerTaskError::ClientTcpReadFailed(_) => "ClientTcpReadFailed",
             ServerTaskError::ClientTcpWriteFailed(_) => "ClientTcpWriteFailed",
+            ServerTaskError::UpstreamNotResolved => "UpstreamNotResolved",
+            ServerTaskError::UpstreamNotConnected(_) => "UpstreamNotConnected",
             ServerTaskError::UpstreamReadFailed(_) => "UpstreamReadFailed",
             ServerTaskError::UpstreamWriteFailed(_) => "UpstreamWriteFailed",
             ServerTaskError::ClosedByUpstream => "ClosedByUpstream",
@@ -65,3 +75,15 @@ impl ServerTaskError {
 }
 
 pub(crate) type ServerTaskResult<T> = Result<T, ServerTaskError>;
+
+impl From<StreamConnectError> for ServerTaskError {
+    fn from(value: StreamConnectError) -> Self {
+        match value {
+            StreamConnectError::UpstreamNotResolved => ServerTaskError::UpstreamNotResolved,
+            StreamConnectError::SetupSocketFailed(_) => ServerTaskError::InternalServerError(
+                "failed to setup local socket for remote connection",
+            ),
+            StreamConnectError::ConnectFailed(e) => ServerTaskError::UpstreamNotConnected(e),
+        }
+    }
+}

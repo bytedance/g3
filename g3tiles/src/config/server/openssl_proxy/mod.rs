@@ -34,9 +34,6 @@ use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
 mod host;
 pub(crate) use host::OpensslHostConfig;
 
-mod service;
-pub(crate) use service::OpensslServiceConfig;
-
 const SERVER_CONFIG_TYPE: &str = "OpensslProxy";
 
 #[derive(Clone, Debug, PartialEq)]

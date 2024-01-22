@@ -14,5 +14,16 @@
  * limitations under the License.
  */
 
+use tokio::io::{AsyncRead, AsyncWrite};
+
 mod stats;
 pub(crate) use stats::{StreamBackendDurationRecorder, StreamBackendDurationStats};
+
+mod error;
+pub(crate) use error::StreamConnectError;
+
+pub(crate) type ConnectedStream = (
+    Box<dyn AsyncRead + Unpin + Send + Sync>,
+    Box<dyn AsyncWrite + Unpin + Send + Sync>,
+);
+pub(crate) type StreamConnectResult = Result<ConnectedStream, StreamConnectError>;

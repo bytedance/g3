@@ -24,11 +24,16 @@ use futures_util::future::{AbortHandle, Abortable};
 
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder, WeightedValue};
 use g3_types::metrics::MetricsName;
+use g3_types::net::ConnectError;
 
-use super::{ArcBackend, Backend};
+use super::{ArcBackend, Backend, BackendExt};
 use crate::config::backend::stream_tcp::StreamTcpBackendConfig;
 use crate::config::backend::{AnyBackendConfig, BackendConfig};
-use crate::module::stream::{StreamBackendDurationRecorder, StreamBackendDurationStats};
+use crate::module::stream::{
+    StreamBackendDurationRecorder, StreamBackendDurationStats, StreamConnectError,
+    StreamConnectResult,
+};
+use crate::serve::ServerTaskNotes;
 
 mod stats;
 pub(crate) use stats::StreamTcpBackendStats;
@@ -95,7 +100,19 @@ impl StreamTcpBackend {
             self.duration_stats.clone(),
         )
     }
+
+    fn select_peer(&self, task_notes: &ServerTaskNotes) -> Option<SocketAddr> {
+        let guard = self.peer_addrs.load();
+        let Some(peers) = &*guard else {
+            return None;
+        };
+
+        let v = self.select_consistent(peers.as_ref(), self.config.peer_pick_policy, task_notes);
+        Some(*v.inner())
+    }
 }
+
+impl BackendExt for StreamTcpBackend {}
 
 #[async_trait]
 impl Backend for StreamTcpBackend {
@@ -160,5 +177,26 @@ impl Backend for StreamTcpBackend {
         tokio::spawn(abort_fut);
 
         Ok(())
+    }
+
+    async fn stream_connect(&self, task_notes: &ServerTaskNotes) -> StreamConnectResult {
+        let Some(next_addr) = self.select_peer(task_notes) else {
+            return Err(StreamConnectError::UpstreamNotResolved);
+        };
+
+        let socket = g3_socket::tcp::new_socket_to(
+            next_addr.ip(),
+            None,
+            &Default::default(),
+            &Default::default(),
+            true,
+        )
+        .map_err(StreamConnectError::SetupSocketFailed)?;
+        let stream = socket
+            .connect(next_addr)
+            .await
+            .map_err(ConnectError::from)?;
+        let (ups_r, ups_w) = stream.into_split();
+        Ok((Box::new(ups_r), Box::new(ups_w)))
     }
 }

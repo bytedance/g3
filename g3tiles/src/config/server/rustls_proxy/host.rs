@@ -24,14 +24,13 @@ use yaml_rust::Yaml;
 
 use g3_types::collection::NamedValue;
 use g3_types::limit::RateLimitQuotaConfig;
+use g3_types::metrics::MetricsName;
 use g3_types::net::{
     MultipleCertResolver, RustlsCertificatePair, RustlsServerSessionCache, RustlsSessionTicketer,
     TcpSockSpeedLimitConfig,
 };
 use g3_types::route::AlpnMatch;
 use g3_yaml::{YamlDocPosition, YamlMapCallback};
-
-use super::RustlsServiceConfig;
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct RustlsHostConfig {
@@ -45,7 +44,7 @@ pub(crate) struct RustlsHostConfig {
     pub(crate) request_rate_limit: Option<RateLimitQuotaConfig>,
     pub(crate) tcp_sock_speed_limit: Option<TcpSockSpeedLimitConfig>,
     pub(crate) task_idle_max_count: Option<i32>,
-    pub(crate) services: AlpnMatch<Arc<RustlsServiceConfig>>,
+    pub(crate) backends: AlpnMatch<MetricsName>,
 }
 
 impl Default for RustlsHostConfig {
@@ -61,7 +60,7 @@ impl Default for RustlsHostConfig {
             request_rate_limit: None,
             tcp_sock_speed_limit: None,
             task_idle_max_count: None,
-            services: AlpnMatch::default(),
+            backends: AlpnMatch::default(),
         }
     }
 }
@@ -119,8 +118,8 @@ impl RustlsHostConfig {
             config.ticketer = Arc::new(ticketer);
         }
 
-        if !self.services.is_empty() {
-            for protocol in self.services.protocols() {
+        if !self.backends.is_empty() {
+            for protocol in self.backends.protocols() {
                 config.alpn_protocols.push(protocol.clone().into_bytes());
             }
         }
@@ -202,8 +201,8 @@ impl YamlMapCallback for RustlsHostConfig {
                 self.task_idle_max_count = Some(max_count);
                 Ok(())
             }
-            "services" => {
-                self.services = g3_yaml::value::as_alpn_matched_obj(value, doc)?;
+            "backends" => {
+                self.backends = g3_yaml::value::as_alpn_matched_backends(value)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {key}")),
@@ -217,7 +216,7 @@ impl YamlMapCallback for RustlsHostConfig {
         if self.cert_pairs.is_empty() {
             return Err(anyhow!("no certificate set"));
         }
-        if self.services.is_empty() {
+        if self.backends.is_empty() {
             return Err(anyhow!("no backend service set"));
         }
         Ok(())

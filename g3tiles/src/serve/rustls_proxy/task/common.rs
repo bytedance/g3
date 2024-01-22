@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use slog::Logger;
@@ -37,10 +37,5 @@ impl CommonTaskContext {
     #[inline]
     pub(super) fn client_addr(&self) -> SocketAddr {
         self.cc_info.client_addr()
-    }
-
-    #[inline]
-    pub(super) fn client_ip(&self) -> IpAddr {
-        self.cc_info.client_ip()
     }
 }

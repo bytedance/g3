@@ -20,6 +20,7 @@ use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
 
 use g3_histogram::HistogramMetricsConfig;
+use g3_types::collection::SelectivePickPolicy;
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_yaml::YamlDocPosition;
 
@@ -34,6 +35,7 @@ pub(crate) struct StreamTcpBackendConfig {
     position: Option<YamlDocPosition>,
     pub(crate) discover: MetricsName,
     pub(crate) discover_data: DiscoverRegisterData,
+    pub(crate) peer_pick_policy: SelectivePickPolicy,
     pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
     pub(crate) duration_stats: HistogramMetricsConfig,
 }
@@ -45,6 +47,7 @@ impl StreamTcpBackendConfig {
             position,
             discover: MetricsName::default(),
             discover_data: DiscoverRegisterData::Null,
+            peer_pick_policy: SelectivePickPolicy::Random,
             extra_metrics_tags: None,
             duration_stats: HistogramMetricsConfig::default(),
         }
@@ -86,6 +89,10 @@ impl StreamTcpBackendConfig {
             }
             "discover_data" => {
                 self.discover_data = DiscoverRegisterData::Yaml(v.clone());
+                Ok(())
+            }
+            "peer_pick_policy" => {
+                self.peer_pick_policy = g3_yaml::value::as_selective_pick_policy(v)?;
                 Ok(())
             }
             "extra_metrics_tags" => {

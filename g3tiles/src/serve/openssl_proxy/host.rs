@@ -28,7 +28,7 @@ use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit};
 use g3_types::net::Host;
 use g3_types::route::{AlpnMatch, HostMatch};
 
-use super::OpensslService;
+use crate::backend::ArcBackend;
 use crate::config::server::openssl_proxy::OpensslHostConfig;
 
 #[cfg(feature = "vendored-tongsuo")]
@@ -193,7 +193,7 @@ pub(crate) struct OpensslHost {
     tlcp_context: Option<SslContext>,
     req_alive_sem: Option<GaugeSemaphore>,
     request_rate_limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
-    pub(crate) services: AlpnMatch<Arc<OpensslService>>,
+    pub(crate) backends: AlpnMatch<ArcBackend>,
 }
 
 impl TryFrom<&Arc<OpensslHostConfig>> for OpensslHost {
@@ -210,7 +210,7 @@ impl OpensslHost {
         #[cfg(feature = "vendored-tongsuo")]
         let tlcp_context = config.build_tlcp_context()?;
 
-        let services = (&config.services).try_into()?;
+        let backends = config.backends.build(crate::backend::get_or_insert_default);
 
         let request_rate_limit = config
             .request_rate_limit
@@ -225,7 +225,7 @@ impl OpensslHost {
             tlcp_context,
             req_alive_sem,
             request_rate_limit,
-            services,
+            backends,
         })
     }
 
@@ -234,7 +234,7 @@ impl OpensslHost {
         #[cfg(feature = "vendored-tongsuo")]
         let tlcp_context = config.build_tlcp_context()?;
 
-        let services = (&config.services).try_into()?;
+        let backends = config.backends.build(crate::backend::get_or_insert_default);
 
         let request_rate_limit = if let Some(quota) = &config.request_rate_limit {
             if let Some(old_limiter) = &self.request_rate_limit {
@@ -272,7 +272,7 @@ impl OpensslHost {
             tlcp_context,
             req_alive_sem,
             request_rate_limit,
-            services,
+            backends,
         })
     }
 

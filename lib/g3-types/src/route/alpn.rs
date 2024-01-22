@@ -19,6 +19,8 @@ use std::sync::Arc;
 use ahash::AHashMap;
 use indexmap::IndexSet;
 
+use crate::metrics::MetricsName;
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct AlpnMatch<T> {
     all_protocols: IndexSet<String>,
@@ -153,5 +155,42 @@ where
         }
 
         Ok(dst)
+    }
+}
+
+impl AlpnMatch<MetricsName> {
+    pub fn build<T, F>(&self, find: F) -> AlpnMatch<T>
+    where
+        F: Fn(&MetricsName) -> T,
+    {
+        let mut dst = AlpnMatch {
+            all_protocols: self.all_protocols.clone(),
+            ..Default::default()
+        };
+
+        if let Some(ht) = &self.full_match {
+            let mut dst_ht = AHashMap::with_capacity(ht.len());
+            for (k, name) in ht {
+                let dv = find(name);
+                dst_ht.insert(k.to_string(), dv);
+            }
+            dst.full_match = Some(dst_ht);
+        }
+
+        if let Some(ht) = &self.main_match {
+            let mut dst_ht = AHashMap::with_capacity(ht.len());
+            for (k, name) in ht {
+                let dv = find(name);
+                dst_ht.insert(k.to_string(), dv);
+            }
+            dst.main_match = Some(dst_ht);
+        }
+
+        if let Some(default) = &self.default {
+            let dv = find(default);
+            dst.default = Some(dv);
+        }
+
+        dst
     }
 }

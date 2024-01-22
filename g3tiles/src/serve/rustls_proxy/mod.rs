@@ -25,6 +25,3 @@ use task::{CommonTaskContext, RustlsAcceptTask};
 
 mod host;
 use host::RustlsHost;
-
-mod service;
-use service::RustlsService;

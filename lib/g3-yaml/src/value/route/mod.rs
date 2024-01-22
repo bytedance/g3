@@ -21,4 +21,4 @@ mod uri_path;
 pub use uri_path::as_url_path_matched_obj;
 
 mod alpn;
-pub use alpn::as_alpn_matched_obj;
+pub use alpn::{as_alpn_matched_backends, as_alpn_matched_obj};

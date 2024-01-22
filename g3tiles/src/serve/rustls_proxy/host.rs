@@ -23,7 +23,7 @@ use g3_types::collection::NamedValue;
 use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit};
 use g3_types::route::AlpnMatch;
 
-use super::RustlsService;
+use crate::backend::ArcBackend;
 use crate::config::server::rustls_proxy::RustlsHostConfig;
 
 pub(crate) struct RustlsHost {
@@ -31,7 +31,7 @@ pub(crate) struct RustlsHost {
     pub(super) tls_config: Arc<ServerConfig>,
     req_alive_sem: Option<GaugeSemaphore>,
     request_rate_limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
-    pub(crate) services: AlpnMatch<Arc<RustlsService>>,
+    pub(crate) backends: AlpnMatch<ArcBackend>,
 }
 
 impl TryFrom<&Arc<RustlsHostConfig>> for RustlsHost {
@@ -46,7 +46,7 @@ impl RustlsHost {
     pub(super) fn build_new(config: Arc<RustlsHostConfig>) -> anyhow::Result<Self> {
         let tls_config = config.build_tls_config()?;
 
-        let services = (&config.services).try_into()?;
+        let backends = config.backends.build(crate::backend::get_or_insert_default);
 
         let request_rate_limit = config
             .request_rate_limit
@@ -59,14 +59,14 @@ impl RustlsHost {
             tls_config,
             req_alive_sem,
             request_rate_limit,
-            services,
+            backends,
         })
     }
 
     pub(super) fn new_for_reload(&self, config: Arc<RustlsHostConfig>) -> anyhow::Result<Self> {
         let tls_config = config.build_tls_config()?;
 
-        let services = (&config.services).try_into()?;
+        let backends = config.backends.build(crate::backend::get_or_insert_default);
 
         let request_rate_limit = if let Some(quota) = &config.request_rate_limit {
             if let Some(old_limiter) = &self.request_rate_limit {
@@ -102,7 +102,7 @@ impl RustlsHost {
             tls_config,
             req_alive_sem,
             request_rate_limit,
-            services,
+            backends,
         })
     }
 

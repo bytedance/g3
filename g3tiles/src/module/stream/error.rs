@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,18 @@
  * limitations under the License.
  */
 
-mod server;
-pub(super) use server::OpensslProxyServer;
+use std::io;
 
-mod task;
-use task::{CommonTaskContext, OpensslAcceptTask};
+use thiserror::Error;
 
-mod stats;
-use stats::OpensslProxyServerStats;
+use g3_types::net::ConnectError;
 
-mod host;
-use host::OpensslHost;
+#[derive(Debug, Error)]
+pub(crate) enum StreamConnectError {
+    #[error("upstream not resolved")]
+    UpstreamNotResolved,
+    #[error("setup socket failed: {0:?}")]
+    SetupSocketFailed(io::Error),
+    #[error("connect failed: {0}")]
+    ConnectFailed(#[from] ConnectError),
+}

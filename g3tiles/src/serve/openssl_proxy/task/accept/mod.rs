@@ -61,13 +61,13 @@ impl OpensslAcceptTask {
 
         if let Some(mut ssl_stream) = self.handshake(stream, ssl).await {
             if let Some(host) = ssl_stream.ssl().ex_data(self.host_index) {
-                let service = if let Some(alpn) = ssl_stream.ssl().selected_alpn_protocol() {
+                let backend = if let Some(alpn) = ssl_stream.ssl().selected_alpn_protocol() {
                     let protocol = unsafe { std::str::from_utf8_unchecked(alpn) };
-                    host.services.get(protocol)
+                    host.backends.get(protocol)
                 } else {
-                    host.services.get_default()
+                    host.backends.get_default()
                 };
-                let Some(service) = service else {
+                let Some(backend) = backend else {
                     let _ = ssl_stream.shutdown().await;
                     return;
                 };
@@ -75,7 +75,7 @@ impl OpensslAcceptTask {
                 OpensslRelayTask::new(
                     self.ctx,
                     Arc::clone(host),
-                    Arc::clone(service),
+                    backend.clone(),
                     time_accepted.elapsed(),
                     pre_handshake_stats,
                 )

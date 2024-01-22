@@ -70,14 +70,14 @@ impl RustlsAcceptTask {
         );
 
         if let Some((mut tls_stream, host)) = self.handshake(stream, hosts).await {
-            let service = if let Some(alpn) = tls_stream.get_ref().1.alpn_protocol() {
+            let backend = if let Some(alpn) = tls_stream.get_ref().1.alpn_protocol() {
                 let protocol = unsafe { std::str::from_utf8_unchecked(alpn) };
-                host.services.get(protocol)
+                host.backends.get(protocol)
             } else {
-                host.services.get_default()
+                host.backends.get_default()
             };
 
-            let Some(service) = service.cloned() else {
+            let Some(backend) = backend.cloned() else {
                 let _ = tls_stream.shutdown().await;
                 return;
             };
@@ -85,7 +85,7 @@ impl RustlsAcceptTask {
             RustlsRelayTask::new(
                 self.ctx,
                 host,
-                service,
+                backend.clone(),
                 time_accepted.elapsed(),
                 pre_handshake_stats,
             )
