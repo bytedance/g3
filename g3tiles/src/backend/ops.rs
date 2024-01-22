@@ -17,7 +17,7 @@
 use std::collections::HashSet;
 
 use anyhow::{anyhow, Context};
-use log::debug;
+use log::{debug, warn};
 use tokio::sync::Mutex;
 
 use g3_types::metrics::MetricsName;
@@ -106,6 +106,30 @@ pub(crate) async fn reload(
     reload_unlocked(old_config, config).await?;
     debug!("backend {name} reload OK");
     Ok(())
+}
+
+pub(crate) async fn update_dependency_to_discover(discover: &MetricsName, status: &str) {
+    let _guard = BACKEND_OPS_LOCK.lock().await;
+
+    let mut names = Vec::<MetricsName>::new();
+
+    registry::foreach(|name, backend| {
+        if backend.discover().eq(discover) {
+            names.push(name.clone());
+        }
+    });
+
+    if names.is_empty() {
+        return;
+    }
+
+    debug!("discover {discover} changed({status}), will reload backend(s) {names:?}");
+    for name in names.iter() {
+        debug!("backend {name}: will update discover");
+        if let Err(e) = registry::update_discover(name) {
+            warn!("failed to update discover for backend {name}: {e:?}");
+        }
+    }
 }
 
 async fn reload_unlocked(old: AnyBackendConfig, new: AnyBackendConfig) -> anyhow::Result<()> {

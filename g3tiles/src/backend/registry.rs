@@ -44,6 +44,16 @@ pub(super) fn del(name: &MetricsName) {
     if let Some(_old) = ht.remove(name) {}
 }
 
+pub(crate) fn foreach<F>(mut f: F)
+where
+    F: FnMut(&MetricsName, &ArcBackend),
+{
+    let ht = RUNTIME_BACKEND_REGISTRY.lock().unwrap();
+    for (name, backend) in ht.iter() {
+        f(name, backend)
+    }
+}
+
 pub(crate) fn get_names() -> HashSet<MetricsName> {
     let mut names = HashSet::new();
     let ht = RUNTIME_BACKEND_REGISTRY.lock().unwrap();
@@ -56,6 +66,15 @@ pub(crate) fn get_names() -> HashSet<MetricsName> {
 pub(super) fn get_config(name: &MetricsName) -> Option<AnyBackendConfig> {
     let ht = RUNTIME_BACKEND_REGISTRY.lock().unwrap();
     ht.get(name).map(|g| g._clone_config())
+}
+
+pub(super) fn update_discover(name: &MetricsName) -> anyhow::Result<()> {
+    let ht = RUNTIME_BACKEND_REGISTRY.lock().unwrap();
+    if let Some(backend) = ht.get(name) {
+        backend._update_discover()
+    } else {
+        Err(anyhow!("no backend with name {name} found"))
+    }
 }
 
 pub(super) fn update_config_in_place(

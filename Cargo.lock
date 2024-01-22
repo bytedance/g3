@@ -1726,6 +1726,7 @@ dependencies = [
  "chrono",
  "clap",
  "clap_complete",
+ "futures-util",
  "g3-compat",
  "g3-daemon",
  "g3-histogram",

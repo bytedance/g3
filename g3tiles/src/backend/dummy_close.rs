@@ -75,4 +75,11 @@ impl Backend for DummyCloseBackend {
     fn name(&self) -> &MetricsName {
         self.config.name()
     }
+
+    fn discover(&self) -> &MetricsName {
+        Default::default()
+    }
+    fn _update_discover(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
 }

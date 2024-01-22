@@ -62,7 +62,10 @@ impl Discover for HostResolverDiscover {
                     }
                     Err(e) => sender.send_replace(Err(anyhow::Error::new(e))),
                 };
-                tokio::time::sleep(Duration::from_secs(60)).await;
+                match tokio::time::timeout(Duration::from_secs(60), sender.closed()).await {
+                    Ok(_) => break,
+                    Err(_) => continue,
+                }
             }
         });
         Ok(receiver)

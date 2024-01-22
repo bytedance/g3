@@ -27,7 +27,7 @@ mod stream_tcp;
 
 mod ops;
 pub use ops::load_all;
-pub(crate) use ops::reload;
+pub(crate) use ops::{reload, update_dependency_to_discover};
 
 mod registry;
 pub(crate) use registry::{get_names, get_or_insert_default};
@@ -41,6 +41,9 @@ pub(crate) trait Backend {
     async fn _lock_safe_reload(&self, config: AnyBackendConfig) -> anyhow::Result<ArcBackend>;
 
     fn name(&self) -> &MetricsName;
+
+    fn discover(&self) -> &MetricsName;
+    fn _update_discover(&self) -> anyhow::Result<()>;
 }
 
 pub(crate) type ArcBackend = Arc<dyn Backend + Send + Sync>;

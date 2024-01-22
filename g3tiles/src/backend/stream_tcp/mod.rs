@@ -15,11 +15,12 @@
  */
 
 use std::net::SocketAddr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use anyhow::{anyhow, Context};
 use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
+use futures_util::future::{AbortHandle, Abortable};
 
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder, WeightedValue};
 use g3_types::metrics::MetricsName;
@@ -38,46 +39,33 @@ pub(crate) struct StreamTcpBackend {
     duration_recorder: Arc<StreamBackendDurationRecorder>,
     duration_stats: Arc<StreamBackendDurationStats>,
     peer_addrs: Arc<ArcSwapOption<SelectiveVec<WeightedValue<SocketAddr>>>>,
+    discover_handle: Mutex<Option<AbortHandle>>,
 }
 
 impl StreamTcpBackend {
     fn new_obj(
         config: Arc<StreamTcpBackendConfig>,
-        site_stats: Arc<StreamTcpBackendStats>,
+        stats: Arc<StreamTcpBackendStats>,
         duration_recorder: Arc<StreamBackendDurationRecorder>,
         duration_stats: Arc<StreamBackendDurationStats>,
     ) -> anyhow::Result<ArcBackend> {
-        let peer_addrs_container = Arc::new(ArcSwapOption::new(None));
-
-        let discover = crate::discover::get_discover(&config.discover)?;
-        let mut discover_receiver = discover
-            .register_data(&config.discover_data)
-            .context("failed to register to discover")?;
+        let peer_addrs = Arc::new(ArcSwapOption::new(None));
 
         // always update extra metrics tags
-        site_stats.set_extra_tags(config.extra_metrics_tags.clone());
+        stats.set_extra_tags(config.extra_metrics_tags.clone());
         duration_stats.set_extra_tags(config.extra_metrics_tags.clone());
 
-        let peer_addrs = peer_addrs_container.clone();
-        tokio::spawn(async move {
-            while discover_receiver.changed().await.is_ok() {
-                if let Ok(data) = discover_receiver.borrow().as_ref() {
-                    let mut builder = SelectiveVecBuilder::new();
-                    for v in data {
-                        builder.insert(*v);
-                    }
-                    peer_addrs_container.store(builder.build().map(Arc::new));
-                }
-            }
-        });
-
-        Ok(Arc::new(StreamTcpBackend {
+        let backend = Arc::new(StreamTcpBackend {
             config,
-            stats: site_stats,
+            stats,
             duration_recorder,
             duration_stats,
             peer_addrs,
-        }))
+            discover_handle: Mutex::new(None),
+        });
+        backend._update_discover()?;
+
+        Ok(backend)
     }
 
     pub(super) fn prepare_initial(config: StreamTcpBackendConfig) -> anyhow::Result<ArcBackend> {
@@ -134,5 +122,43 @@ impl Backend for StreamTcpBackend {
     #[inline]
     fn name(&self) -> &MetricsName {
         self.config.name()
+    }
+
+    fn discover(&self) -> &MetricsName {
+        &self.config.discover
+    }
+    fn _update_discover(&self) -> anyhow::Result<()> {
+        let discover = &self.config.discover;
+        let discover = crate::discover::get_discover(discover)?;
+        let mut discover_receiver = discover
+            .register_data(&self.config.discover_data)
+            .context("failed to register to discover {discover}")?;
+
+        let peer_addrs_container = self.peer_addrs.clone();
+        let (abort_handle, abort_reg) = AbortHandle::new_pair();
+        let abort_fut = Abortable::new(
+            async move {
+                while discover_receiver.changed().await.is_ok() {
+                    if let Ok(data) = discover_receiver.borrow().as_ref() {
+                        let mut builder = SelectiveVecBuilder::new();
+                        for v in data {
+                            builder.insert(*v);
+                        }
+                        peer_addrs_container.store(builder.build().map(Arc::new));
+                    }
+                }
+            },
+            abort_reg,
+        );
+
+        let mut guard = self.discover_handle.lock().unwrap();
+        if let Some(old_handle) = guard.replace(abort_handle) {
+            old_handle.abort();
+        }
+        drop(guard);
+
+        tokio::spawn(abort_fut);
+
+        Ok(())
     }
 }

@@ -58,7 +58,7 @@ pub async fn load_all() -> anyhow::Result<()> {
         if !new_names.contains(name) {
             debug!("deleting discover {name}");
             registry::del(name);
-            // crate::serve::update_dependency_to_site(name, "deleted").await;
+            crate::backend::update_dependency_to_discover(name, "deleted").await;
             debug!("discover {name} deleted");
         }
     }
@@ -140,6 +140,6 @@ async fn spawn_new_unlocked(config: AnyDiscoverConfig) -> anyhow::Result<()> {
         AnyDiscoverConfig::HostResolver(c) => HostResolverDiscover::new_obj(c),
     };
     registry::add(name.clone(), discover);
-    // crate::serve::update_dependency_to_site(&name, "spawned").await;
+    crate::backend::update_dependency_to_discover(&name, "spawned").await;
     Ok(())
 }
