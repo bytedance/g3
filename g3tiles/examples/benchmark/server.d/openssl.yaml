@@ -1,0 +1,16 @@
+---
+
+name: openssl
+type: OpensslProxy
+listen:
+  address: "[::]:9093"
+listen_in_worker: true
+
+hosts:
+  name: bench
+  exact_match: bench.example.net
+  cert_pairs:
+    certificate: bench.example.net-ec256.crt
+    private_key: bench.example.net-ec256.key
+  backends:
+    - http

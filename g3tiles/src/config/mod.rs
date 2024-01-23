@@ -69,7 +69,7 @@ fn reload_doc(map: &yaml::Hash) -> anyhow::Result<()> {
         "runtime" | "worker" | "log" | "stat" | "controller" => Ok(()),
         "server" => server::load_all(v, conf_dir),
         "discover" => discover::load_all(v, conf_dir),
-        "connector" => backend::load_all(v, conf_dir),
+        "backend" => backend::load_all(v, conf_dir),
         _ => Ok(()),
     })?;
     Ok(())
@@ -86,7 +86,7 @@ fn load_doc(map: &yaml::Hash) -> anyhow::Result<()> {
         "controller" => g3_daemon::control::config::load(v),
         "server" => server::load_all(v, conf_dir),
         "discover" => discover::load_all(v, conf_dir),
-        "connector" => backend::load_all(v, conf_dir),
+        "backend" => backend::load_all(v, conf_dir),
         _ => Err(anyhow!("invalid key {k} in main conf")),
     })?;
     Ok(())

@@ -1,0 +1,27 @@
+---
+
+runtime:
+  thread_number: 2
+
+worker: {}
+
+discover:
+  - name: static
+    type: static_addr
+
+backend:
+  - name: http
+    type: stream_tcp
+    discover: static
+    discover_data:
+      - "127.0.0.1:80"
+
+server: server.d
+
+log: discard
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+  prefix: g3tiles
+  emit_duration: 200ms

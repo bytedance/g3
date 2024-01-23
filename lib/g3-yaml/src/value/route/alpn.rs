@@ -115,11 +115,11 @@ where
 }
 
 fn add_alpn_matched_backend(obj: &mut AlpnMatch<MetricsName>, value: &Yaml) -> anyhow::Result<()> {
-    if let Yaml::Hash(map) = value {
-        let mut protocol_vs = vec![];
-        let mut set_default = false;
-        let mut name = MetricsName::default();
+    let mut protocol_vs = vec![];
+    let mut set_default = false;
+    let mut name = MetricsName::default();
 
+    if let Yaml::Hash(map) = value {
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
             "set_default" => {
                 set_default =
@@ -146,24 +146,21 @@ fn add_alpn_matched_backend(obj: &mut AlpnMatch<MetricsName>, value: &Yaml) -> a
             }
             _ => Err(anyhow!("invalid key {k}")),
         })?;
-
-        let mut auto_default = true;
-        for protocol in protocol_vs {
-            if obj.add_protocol(protocol.clone(), name.clone()).is_some() {
-                return Err(anyhow!("duplicate value for protocol {protocol}"));
-            }
-            auto_default = false;
-        }
-        if (set_default || auto_default) && obj.set_default(name).is_some() {
-            return Err(anyhow!("a default value has already been set"));
-        }
-
-        Ok(())
     } else {
-        Err(anyhow!(
-            "yaml type for 'alpn matched name value' should be 'map'"
-        ))
+        name = crate::value::as_metrics_name(value)?;
     }
+
+    let mut auto_default = true;
+    for protocol in protocol_vs {
+        if obj.add_protocol(protocol.clone(), name.clone()).is_some() {
+            return Err(anyhow!("duplicate value for protocol {protocol}"));
+        }
+        auto_default = false;
+    }
+    if (set_default || auto_default) && obj.set_default(name).is_some() {
+        return Err(anyhow!("a default value has already been set"));
+    }
+    Ok(())
 }
 
 pub fn as_alpn_matched_backends(value: &Yaml) -> anyhow::Result<AlpnMatch<MetricsName>> {
