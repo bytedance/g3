@@ -21,6 +21,7 @@ use anyhow::{anyhow, Context};
 use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
 use futures_util::future::{AbortHandle, Abortable};
+use tokio::time::Instant;
 
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder, WeightedValue};
 use g3_types::metrics::MetricsName;
@@ -30,17 +31,14 @@ use super::{ArcBackend, Backend, BackendExt};
 use crate::config::backend::stream_tcp::StreamTcpBackendConfig;
 use crate::config::backend::{AnyBackendConfig, BackendConfig};
 use crate::module::stream::{
-    StreamBackendDurationRecorder, StreamBackendDurationStats, StreamConnectError,
-    StreamConnectResult,
+    StreamBackendDurationRecorder, StreamBackendDurationStats, StreamBackendStats,
+    StreamConnectError, StreamConnectResult,
 };
 use crate::serve::ServerTaskNotes;
 
-mod stats;
-pub(crate) use stats::StreamTcpBackendStats;
-
 pub(crate) struct StreamTcpBackend {
     config: Arc<StreamTcpBackendConfig>,
-    stats: Arc<StreamTcpBackendStats>,
+    stats: Arc<StreamBackendStats>,
     duration_recorder: Arc<StreamBackendDurationRecorder>,
     duration_stats: Arc<StreamBackendDurationStats>,
     peer_addrs: Arc<ArcSwapOption<SelectiveVec<WeightedValue<SocketAddr>>>>,
@@ -50,7 +48,7 @@ pub(crate) struct StreamTcpBackend {
 impl StreamTcpBackend {
     fn new_obj(
         config: Arc<StreamTcpBackendConfig>,
-        stats: Arc<StreamTcpBackendStats>,
+        stats: Arc<StreamBackendStats>,
         duration_recorder: Arc<StreamBackendDurationRecorder>,
         duration_stats: Arc<StreamBackendDurationStats>,
     ) -> anyhow::Result<ArcBackend> {
@@ -74,17 +72,17 @@ impl StreamTcpBackend {
     }
 
     pub(super) fn prepare_initial(config: StreamTcpBackendConfig) -> anyhow::Result<ArcBackend> {
-        let site_stats = Arc::new(StreamTcpBackendStats::new(config.name()));
+        let stats = Arc::new(StreamBackendStats::new(config.name()));
         let (duration_recorder, duration_stats) =
             StreamBackendDurationRecorder::new(config.name(), &config.duration_stats);
         let duration_stats = Arc::new(duration_stats);
 
-        // crate::stat::metrics::connector::keyless::push_connector_stats(site_stats.clone());
-        // crate::stat::metrics::connector::keyless::push_duration_stats(duration_stats.clone());
+        crate::stat::metrics::backend::stream::push_stream_stats(stats.clone());
+        crate::stat::metrics::backend::stream::push_stream_duration_stats(duration_stats.clone());
 
         StreamTcpBackend::new_obj(
             Arc::new(config),
-            site_stats,
+            stats,
             Arc::new(duration_recorder),
             duration_stats,
         )
@@ -193,11 +191,15 @@ impl Backend for StreamTcpBackend {
             true,
         )
         .map_err(StreamConnectError::SetupSocketFailed)?;
+
+        let time_now = Instant::now();
         let stream = socket
             .connect(next_addr)
             .await
             .map_err(ConnectError::from)?;
+        let connect_dur = time_now.elapsed();
         self.stats.add_conn_established();
+        self.duration_recorder.record_connect_time(connect_dur);
 
         let (ups_r, ups_w) = stream.into_split();
         Ok((Box::new(ups_r), Box::new(ups_w)))

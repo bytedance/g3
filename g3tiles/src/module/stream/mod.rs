@@ -17,7 +17,9 @@
 use tokio::io::{AsyncRead, AsyncWrite};
 
 mod stats;
-pub(crate) use stats::{StreamBackendDurationRecorder, StreamBackendDurationStats};
+pub(crate) use stats::{
+    StreamBackendDurationRecorder, StreamBackendDurationStats, StreamBackendStats,
+};
 
 mod error;
 pub(crate) use error::StreamConnectError;

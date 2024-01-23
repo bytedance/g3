@@ -22,7 +22,7 @@ use anyhow::{anyhow, Context};
 
 use g3_statsd_client::{StatsdClient, StatsdClientConfig};
 
-mod metrics;
+pub(crate) mod metrics;
 
 static QUIT_STAT_THREAD: AtomicBool = AtomicBool::new(false);
 
@@ -46,9 +46,11 @@ fn spawn_main_thread(config: &StatsdClientConfig) -> anyhow::Result<JoinHandle<(
         .spawn(move || loop {
             let instant_start = Instant::now();
 
+            metrics::backend::sync_stats();
             metrics::server::sync_stats();
             g3_daemon::log::metrics::sync_stats();
 
+            metrics::backend::emit_stats(&mut client);
             metrics::server::emit_stats(&mut client);
             g3_daemon::log::metrics::emit_stats(&mut client);
 
