@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#![allow(unused)]
+
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 

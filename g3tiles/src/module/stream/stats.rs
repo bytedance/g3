@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#![allow(unused)]
+
 use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
