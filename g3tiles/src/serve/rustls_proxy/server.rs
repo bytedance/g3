@@ -89,7 +89,7 @@ impl RustlsProxyServer {
         let server_stats = Arc::new(RustlsProxyServerStats::new(config.name()));
         let listen_stats = Arc::new(ListenStats::new(config.name()));
 
-        let hosts = (&config.hosts).try_into()?;
+        let hosts = config.hosts.try_build_arc(RustlsHost::try_build)?;
 
         let server = RustlsProxyServer::new(config, server_stats, listen_stats, hosts, 1);
         Ok(Arc::new(server))
@@ -108,7 +108,7 @@ impl RustlsProxyServer {
                 let host = if let Some(old_host) = old_hosts_map.get(&name) {
                     old_host.new_for_reload(conf)?
                 } else {
-                    RustlsHost::build_new(conf)?
+                    RustlsHost::try_build(&conf)?
                 };
                 new_hosts_map.insert(name, Arc::new(host));
             }
@@ -241,6 +241,15 @@ impl Server for RustlsProxyServer {
     #[inline]
     fn quit_policy(&self) -> &Arc<ServerQuitPolicy> {
         &self.quit_policy
+    }
+
+    fn update_backend(&self, name: &MetricsName) {
+        let host_map = self.hosts.get_all_values();
+        for host in host_map.values() {
+            if host.use_backend(name) {
+                host.update_backends();
+            }
+        }
     }
 
     async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {

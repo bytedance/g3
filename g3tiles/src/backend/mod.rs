@@ -47,7 +47,7 @@ pub(crate) trait Backend {
     fn name(&self) -> &MetricsName;
 
     fn discover(&self) -> &MetricsName;
-    fn _update_discover(&self) -> anyhow::Result<()>;
+    fn update_discover(&self) -> anyhow::Result<()>;
 
     async fn stream_connect(&self, task_notes: &ServerTaskNotes) -> StreamConnectResult;
 }

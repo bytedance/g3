@@ -15,5 +15,4 @@
  */
 
 mod server;
-
 pub(super) use server::DummyCloseServer;

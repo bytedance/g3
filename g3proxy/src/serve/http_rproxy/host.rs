@@ -28,16 +28,8 @@ pub(crate) struct HttpHost {
     pub(super) tls_client: Option<OpensslClientConfig>,
 }
 
-impl TryFrom<&Arc<HttpHostConfig>> for HttpHost {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &Arc<HttpHostConfig>) -> Result<Self, Self::Error> {
-        HttpHost::build(value)
-    }
-}
-
 impl HttpHost {
-    fn build(config: &Arc<HttpHostConfig>) -> anyhow::Result<Self> {
+    pub(super) fn try_build(config: &Arc<HttpHostConfig>) -> anyhow::Result<Self> {
         let tls_server = if let Some(builder) = &config.tls_server_builder {
             let server = builder.build().context("failed to build tls server")?;
             Some(server)

@@ -140,5 +140,7 @@ impl Server for DummyCloseServer {
         &self.quit_policy
     }
 
+    fn update_backend(&self, _name: &MetricsName) {}
+
     async fn run_tcp_task(&self, _stream: TcpStream, _cc_info: ClientConnectionInfo) {}
 }

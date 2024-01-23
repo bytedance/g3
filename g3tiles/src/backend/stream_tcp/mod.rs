@@ -68,7 +68,7 @@ impl StreamTcpBackend {
             peer_addrs,
             discover_handle: Mutex::new(None),
         });
-        backend._update_discover()?;
+        backend.update_discover()?;
 
         Ok(backend)
     }
@@ -144,7 +144,7 @@ impl Backend for StreamTcpBackend {
     fn discover(&self) -> &MetricsName {
         &self.config.discover
     }
-    fn _update_discover(&self) -> anyhow::Result<()> {
+    fn update_discover(&self) -> anyhow::Result<()> {
         let discover = &self.config.discover;
         let discover = crate::discover::get_discover(discover)?;
         let mut discover_receiver = discover
@@ -184,6 +184,7 @@ impl Backend for StreamTcpBackend {
             return Err(StreamConnectError::UpstreamNotResolved);
         };
 
+        self.stats.add_conn_attempt();
         let socket = g3_socket::tcp::new_socket_to(
             next_addr.ip(),
             None,
@@ -196,6 +197,8 @@ impl Backend for StreamTcpBackend {
             .connect(next_addr)
             .await
             .map_err(ConnectError::from)?;
+        self.stats.add_conn_established();
+
         let (ups_r, ups_w) = stream.into_split();
         Ok((Box::new(ups_r), Box::new(ups_w)))
     }

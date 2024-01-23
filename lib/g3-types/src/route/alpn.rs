@@ -19,8 +19,6 @@ use std::sync::Arc;
 use ahash::AHashMap;
 use indexmap::IndexSet;
 
-use crate::metrics::MetricsName;
-
 #[derive(Clone, Debug, PartialEq)]
 pub struct AlpnMatch<T> {
     all_protocols: IndexSet<String>,
@@ -94,74 +92,10 @@ impl<T> AlpnMatch<T> {
     pub fn protocols(&self) -> &IndexSet<String> {
         &self.all_protocols
     }
-}
 
-impl<'a, S, D, E> TryFrom<&'a AlpnMatch<Arc<S>>> for AlpnMatch<Arc<D>>
-where
-    D: TryFrom<&'a Arc<S>, Error = E>,
-{
-    type Error = E;
-
-    fn try_from(src: &'a AlpnMatch<Arc<S>>) -> Result<Self, Self::Error> {
-        use std::collections::hash_map::Entry;
-
-        let mut dst = AlpnMatch {
-            all_protocols: src.all_protocols.clone(),
-            ..Default::default()
-        };
-
-        let mut tmp_ht = AHashMap::new();
-
-        let mut get_tmp = |v| {
-            let v_index = Arc::as_ptr(v) as usize;
-            let dv = match tmp_ht.entry(v_index) {
-                Entry::Occupied(oe) => Arc::clone(oe.get()),
-                Entry::Vacant(ve) => {
-                    let dv = D::try_from(v)?;
-                    let dv = Arc::new(dv);
-                    ve.insert(dv.clone());
-                    dv
-                }
-            };
-            Ok(dv)
-        };
-
-        if let Some(ht) = &src.full_match {
-            let mut dst_ht = AHashMap::with_capacity(ht.len());
-            for (k, v) in ht {
-                let dv = get_tmp(v)?;
-                dst_ht.insert(k.to_string(), dv);
-            }
-            dst.full_match = Some(dst_ht);
-        }
-
-        if let Some(ht) = &src.main_match {
-            let mut dst_ht = AHashMap::with_capacity(ht.len());
-            for (k, v) in ht {
-                let dv = get_tmp(v)?;
-                dst_ht.insert(k.to_string(), dv);
-            }
-            dst.main_match = Some(dst_ht);
-        }
-
-        if let Some(default) = &src.default {
-            let v_index = Arc::as_ptr(default) as usize;
-            if let Some(dv) = tmp_ht.get(&v_index) {
-                dst.default = Some(Arc::clone(dv));
-            } else {
-                let dv = D::try_from(default)?;
-                dst.default = Some(Arc::new(dv));
-            }
-        }
-
-        Ok(dst)
-    }
-}
-
-impl AlpnMatch<MetricsName> {
-    pub fn build<T, F>(&self, find: F) -> AlpnMatch<T>
+    pub fn build<R, F>(&self, find: F) -> AlpnMatch<R>
     where
-        F: Fn(&MetricsName) -> T,
+        F: Fn(&T) -> R,
     {
         let mut dst = AlpnMatch {
             all_protocols: self.all_protocols.clone(),
@@ -192,5 +126,93 @@ impl AlpnMatch<MetricsName> {
         }
 
         dst
+    }
+}
+
+impl<T: PartialEq> AlpnMatch<T> {
+    pub fn contains_value(&self, value: &T) -> bool {
+        if let Some(ht) = &self.full_match {
+            for v in ht.values() {
+                if v.eq(value) {
+                    return true;
+                }
+            }
+        }
+
+        if let Some(ht) = &self.main_match {
+            for v in ht.values() {
+                if v.eq(value) {
+                    return true;
+                }
+            }
+        }
+
+        if let Some(v) = &self.default {
+            if v.eq(value) {
+                return true;
+            }
+        }
+
+        false
+    }
+}
+
+impl<T> AlpnMatch<Arc<T>> {
+    pub fn try_build_arc<R, E, F>(&self, try_find: F) -> Result<AlpnMatch<Arc<R>>, E>
+    where
+        F: Fn(&Arc<T>) -> Result<R, E>,
+    {
+        use std::collections::hash_map::Entry;
+
+        let mut dst = AlpnMatch {
+            all_protocols: self.all_protocols.clone(),
+            ..Default::default()
+        };
+
+        let mut tmp_ht = AHashMap::new();
+
+        let mut get_tmp = |v| {
+            let v_index = Arc::as_ptr(v) as usize;
+            let dv = match tmp_ht.entry(v_index) {
+                Entry::Occupied(oe) => Arc::clone(oe.get()),
+                Entry::Vacant(ve) => {
+                    let dv = try_find(v)?;
+                    let dv = Arc::new(dv);
+                    ve.insert(dv.clone());
+                    dv
+                }
+            };
+            Ok(dv)
+        };
+
+        if let Some(ht) = &self.full_match {
+            let mut dst_ht = AHashMap::with_capacity(ht.len());
+            for (k, v) in ht {
+                let dv = get_tmp(v)?;
+                dst_ht.insert(k.to_string(), dv);
+            }
+            dst.full_match = Some(dst_ht);
+        }
+
+        if let Some(ht) = &self.main_match {
+            let mut dst_ht = AHashMap::with_capacity(ht.len());
+            for (k, v) in ht {
+                let dv = get_tmp(v)?;
+                dst_ht.insert(k.to_string(), dv);
+            }
+            dst.main_match = Some(dst_ht);
+        }
+
+        if let Some(default) = &self.default {
+            let v_index = Arc::as_ptr(default) as usize;
+            if let Some(dv) = tmp_ht.get(&v_index) {
+                dst.default = Some(Arc::clone(dv));
+            } else {
+                let dv = try_find(default)?;
+                dst.default = Some(Arc::new(dv));
+            }
+        }
+
+        Ok(dst)
     }
 }

@@ -108,13 +108,11 @@ impl<T> HostMatch<T> {
     }
 }
 
-impl<'a, S, D, E> TryFrom<&'a HostMatch<Arc<S>>> for HostMatch<Arc<D>>
-where
-    D: TryFrom<&'a Arc<S>, Error = E>,
-{
-    type Error = E;
-
-    fn try_from(src: &'a HostMatch<Arc<S>>) -> Result<Self, Self::Error> {
+impl<T> HostMatch<Arc<T>> {
+    pub fn try_build_arc<R, E, F>(&self, try_build: F) -> Result<HostMatch<Arc<R>>, E>
+    where
+        F: Fn(&Arc<T>) -> Result<R, E>,
+    {
         use std::collections::hash_map::Entry;
 
         let mut dst = HostMatch::default();
@@ -126,7 +124,7 @@ where
             let dv = match tmp_ht.entry(v_index) {
                 Entry::Occupied(oe) => Arc::clone(oe.get()),
                 Entry::Vacant(ve) => {
-                    let dv = D::try_from(v)?;
+                    let dv = try_build(v)?;
                     let dv = Arc::new(dv);
                     ve.insert(dv.clone());
                     dv
@@ -135,7 +133,7 @@ where
             Ok(dv)
         };
 
-        if let Some(ht) = &src.exact_domain {
+        if let Some(ht) = &self.exact_domain {
             let mut dst_ht = AHashMap::with_capacity(ht.len());
             for (k, v) in ht {
                 let dv = get_tmp(v)?;
@@ -144,7 +142,7 @@ where
             dst.exact_domain = Some(dst_ht);
         }
 
-        if let Some(ht) = &src.exact_ip {
+        if let Some(ht) = &self.exact_ip {
             let mut dst_ht = AHashMap::with_capacity(ht.len());
             for (k, v) in ht {
                 let dv = get_tmp(v)?;
@@ -153,7 +151,7 @@ where
             dst.exact_ip = Some(dst_ht);
         }
 
-        if let Some(trie) = &src.child_domain {
+        if let Some(trie) = &self.child_domain {
             let mut dst_trie = Trie::new();
             for (prefix, v) in trie.iter() {
                 let dv = get_tmp(v)?;
@@ -162,12 +160,12 @@ where
             dst.child_domain = Some(dst_trie);
         }
 
-        if let Some(default) = &src.default {
+        if let Some(default) = &self.default {
             let v_index = Arc::as_ptr(default) as usize;
             if let Some(dv) = tmp_ht.get(&v_index) {
                 dst.default = Some(Arc::clone(dv));
             } else {
-                let dv = D::try_from(default)?;
+                let dv = try_build(default)?;
                 dst.default = Some(Arc::new(dv));
             }
         }

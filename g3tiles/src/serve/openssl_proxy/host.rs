@@ -18,6 +18,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use arc_swap::ArcSwap;
 use governor::{clock::DefaultClock, state::InMemoryState, state::NotKeyed, RateLimiter};
 use log::debug;
 use openssl::ex_data::Index;
@@ -25,6 +26,7 @@ use openssl::ssl::{NameType, SniError, Ssl, SslAcceptor, SslAlert, SslContext, S
 
 use g3_types::collection::NamedValue;
 use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit};
+use g3_types::metrics::MetricsName;
 use g3_types::net::Host;
 use g3_types::route::{AlpnMatch, HostMatch};
 
@@ -193,19 +195,11 @@ pub(crate) struct OpensslHost {
     tlcp_context: Option<SslContext>,
     req_alive_sem: Option<GaugeSemaphore>,
     request_rate_limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
-    pub(crate) backends: AlpnMatch<ArcBackend>,
-}
-
-impl TryFrom<&Arc<OpensslHostConfig>> for OpensslHost {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &Arc<OpensslHostConfig>) -> Result<Self, Self::Error> {
-        OpensslHost::build_new(value.clone())
-    }
+    pub(crate) backends: Arc<ArcSwap<AlpnMatch<ArcBackend>>>,
 }
 
 impl OpensslHost {
-    pub(super) fn build_new(config: Arc<OpensslHostConfig>) -> anyhow::Result<Self> {
+    pub(super) fn try_build(config: &Arc<OpensslHostConfig>) -> anyhow::Result<Self> {
         let ssl_context = config.build_ssl_context()?;
         #[cfg(feature = "vendored-tongsuo")]
         let tlcp_context = config.build_tlcp_context()?;
@@ -219,13 +213,13 @@ impl OpensslHost {
         let req_alive_sem = config.request_alive_max.map(GaugeSemaphore::new);
 
         Ok(OpensslHost {
-            config,
+            config: config.clone(),
             ssl_context,
             #[cfg(feature = "vendored-tongsuo")]
             tlcp_context,
             req_alive_sem,
             request_rate_limit,
-            backends,
+            backends: Arc::new(ArcSwap::new(Arc::new(backends))),
         })
     }
 
@@ -233,8 +227,6 @@ impl OpensslHost {
         let ssl_context = config.build_ssl_context()?;
         #[cfg(feature = "vendored-tongsuo")]
         let tlcp_context = config.build_tlcp_context()?;
-
-        let backends = config.backends.build(crate::backend::get_or_insert_default);
 
         let request_rate_limit = if let Some(quota) = &config.request_rate_limit {
             if let Some(old_limiter) = &self.request_rate_limit {
@@ -265,15 +257,17 @@ impl OpensslHost {
             None
         };
 
-        Ok(OpensslHost {
+        let new_host = OpensslHost {
             config,
             ssl_context,
             #[cfg(feature = "vendored-tongsuo")]
             tlcp_context,
             req_alive_sem,
             request_rate_limit,
-            backends,
-        })
+            backends: self.backends.clone(), // use the old container
+        };
+        new_host.update_backends(); // update backends using the new config
+        Ok(new_host)
     }
 
     pub(super) fn check_rate_limit(&self) -> Result<(), ()> {
@@ -291,6 +285,26 @@ impl OpensslHost {
             .as_ref()
             .map(|sem| sem.try_acquire().map_err(|_| {}))
             .transpose()
+    }
+
+    pub(super) fn get_backend(&self, protocol: &str) -> Option<ArcBackend> {
+        self.backends.load().get(protocol).cloned()
+    }
+
+    pub(super) fn get_default_backend(&self) -> Option<ArcBackend> {
+        self.backends.load().get_default().cloned()
+    }
+
+    pub(super) fn use_backend(&self, name: &MetricsName) -> bool {
+        self.config.backends.contains_value(name)
+    }
+
+    pub(super) fn update_backends(&self) {
+        let backends = self
+            .config
+            .backends
+            .build(crate::backend::get_or_insert_default);
+        self.backends.store(Arc::new(backends));
     }
 }
 

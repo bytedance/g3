@@ -215,6 +215,8 @@ impl Server for PlainTcpPort {
         &self.quit_policy
     }
 
+    fn update_backend(&self, _name: &MetricsName) {}
+
     async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
         let client_addr = cc_info.client_addr();
         if self.drop_early(client_addr) {

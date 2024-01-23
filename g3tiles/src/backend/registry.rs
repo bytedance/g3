@@ -68,15 +68,6 @@ pub(super) fn get_config(name: &MetricsName) -> Option<AnyBackendConfig> {
     ht.get(name).map(|g| g._clone_config())
 }
 
-pub(super) fn update_discover(name: &MetricsName) -> anyhow::Result<()> {
-    let ht = RUNTIME_BACKEND_REGISTRY.lock().unwrap();
-    if let Some(backend) = ht.get(name) {
-        backend._update_discover()
-    } else {
-        Err(anyhow!("no backend with name {name} found"))
-    }
-}
-
 pub(super) fn update_config_in_place(
     name: &MetricsName,
     flags: u64,

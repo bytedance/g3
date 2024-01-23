@@ -140,6 +140,19 @@ pub(crate) async fn reload(
     Ok(())
 }
 
+pub(crate) async fn update_dependency_to_backend(target: &MetricsName, status: &str) {
+    let mut servers = Vec::<ArcServer>::new();
+
+    registry::foreach_online(|_name, server| {
+        servers.push(server.clone());
+    });
+
+    debug!("backend {target} changed({status}), will reload server(s)");
+    for server in servers.iter() {
+        server.update_backend(target);
+    }
+}
+
 pub(crate) fn update_dependency_to_server_unlocked(target: &MetricsName, status: &str) {
     let mut servers = Vec::<ArcServer>::new();
 
@@ -154,7 +167,7 @@ pub(crate) fn update_dependency_to_server_unlocked(target: &MetricsName, status:
     }
 
     debug!(
-        "escaper {target} changed({status}), will reload {} server(s)",
+        "server {target} changed({status}), will reload {} server(s)",
         servers.len()
     );
     for server in servers.iter() {

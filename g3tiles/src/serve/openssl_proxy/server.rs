@@ -122,7 +122,7 @@ impl OpensslProxyServer {
         let server_stats = Arc::new(OpensslProxyServerStats::new(config.name()));
         let listen_stats = Arc::new(ListenStats::new(config.name()));
 
-        let hosts = (&config.hosts).try_into()?;
+        let hosts = config.hosts.try_build_arc(OpensslHost::try_build)?;
 
         let server =
             OpensslProxyServer::new(config, server_stats, listen_stats, Arc::new(hosts), 1)?;
@@ -142,7 +142,7 @@ impl OpensslProxyServer {
                 let host = if let Some(old_host) = old_hosts_map.get(&name) {
                     old_host.new_for_reload(conf)?
                 } else {
-                    OpensslHost::build_new(conf)?
+                    OpensslHost::try_build(&conf)?
                 };
                 new_hosts_map.insert(name, Arc::new(host));
             }
@@ -334,6 +334,15 @@ impl Server for OpensslProxyServer {
     #[inline]
     fn quit_policy(&self) -> &Arc<ServerQuitPolicy> {
         &self.quit_policy
+    }
+
+    fn update_backend(&self, name: &MetricsName) {
+        let host_map = self.hosts.get_all_values();
+        for host in host_map.values() {
+            if host.use_backend(name) {
+                host.update_backends();
+            }
+        }
     }
 
     async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {

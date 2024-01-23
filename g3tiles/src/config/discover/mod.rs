@@ -31,7 +31,6 @@ pub(crate) mod static_addr;
 const CONFIG_KEY_DISCOVER_TYPE: &str = "type";
 const CONFIG_KEY_DISCOVER_NAME: &str = "name";
 
-#[allow(unused)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum DiscoverRegisterData {
     Null,

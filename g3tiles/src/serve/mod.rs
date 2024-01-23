@@ -44,7 +44,7 @@ mod rustls_proxy;
 mod ops;
 pub(crate) use ops::{
     force_quit_offline_server, force_quit_offline_servers, get_server, reload, stop_all,
-    wait_all_tasks,
+    update_dependency_to_backend, wait_all_tasks,
 };
 pub use ops::{spawn_all, spawn_offline_clean};
 
@@ -81,6 +81,8 @@ pub(crate) trait Server: ServerInternal {
 
     fn alive_count(&self) -> i32;
     fn quit_policy(&self) -> &Arc<ServerQuitPolicy>;
+
+    fn update_backend(&self, name: &MetricsName);
 
     async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo);
 }

@@ -24,7 +24,7 @@ use g3_types::metrics::MetricsName;
 use super::{ArcBackend, Backend};
 use crate::config::backend::dummy_close::DummyCloseBackendConfig;
 use crate::config::backend::{AnyBackendConfig, BackendConfig};
-use crate::module::stream::StreamConnectResult;
+use crate::module::stream::{StreamConnectError, StreamConnectResult};
 use crate::serve::ServerTaskNotes;
 
 pub(crate) struct DummyCloseBackend {
@@ -81,11 +81,11 @@ impl Backend for DummyCloseBackend {
     fn discover(&self) -> &MetricsName {
         Default::default()
     }
-    fn _update_discover(&self) -> anyhow::Result<()> {
+    fn update_discover(&self) -> anyhow::Result<()> {
         Ok(())
     }
 
     async fn stream_connect(&self, _task_notes: &ServerTaskNotes) -> StreamConnectResult {
-        todo!()
+        Err(StreamConnectError::UpstreamNotResolved)
     }
 }

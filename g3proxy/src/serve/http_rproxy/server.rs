@@ -125,7 +125,7 @@ impl HttpRProxyServer {
         let server_stats = Arc::new(HttpRProxyServerStats::new(config.name()));
         let listen_stats = Arc::new(ListenStats::new(config.name()));
 
-        let hosts = (&config.hosts).try_into()?;
+        let hosts = config.hosts.try_build_arc(HttpHost::try_build)?;
 
         let server = HttpRProxyServer::new(config, server_stats, listen_stats, hosts, 1)?;
         Ok(Arc::new(server))
@@ -138,7 +138,7 @@ impl HttpRProxyServer {
             let listen_stats = Arc::clone(&self.listen_stats);
 
             // TODO do update if host has runtime state
-            let hosts = (&config.hosts).try_into()?;
+            let hosts = config.hosts.try_build_arc(HttpHost::try_build)?;
 
             let server = HttpRProxyServer::new(
                 config,

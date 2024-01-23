@@ -72,12 +72,12 @@ impl RustlsAcceptTask {
         if let Some((mut tls_stream, host)) = self.handshake(stream, hosts).await {
             let backend = if let Some(alpn) = tls_stream.get_ref().1.alpn_protocol() {
                 let protocol = unsafe { std::str::from_utf8_unchecked(alpn) };
-                host.backends.get(protocol)
+                host.get_backend(protocol)
             } else {
-                host.backends.get_default()
+                host.get_default_backend()
             };
 
-            let Some(backend) = backend.cloned() else {
+            let Some(backend) = backend else {
                 let _ = tls_stream.shutdown().await;
                 return;
             };

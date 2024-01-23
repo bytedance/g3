@@ -23,7 +23,7 @@ use tokio::sync::Mutex;
 use g3_types::metrics::MetricsName;
 use g3_yaml::YamlDocPosition;
 
-use super::registry;
+use super::{registry, ArcBackend};
 use crate::config::backend::{AnyBackendConfig, BackendConfigDiffAction};
 
 use super::dummy_close::DummyCloseBackend;
@@ -58,7 +58,7 @@ pub async fn load_all() -> anyhow::Result<()> {
         if !new_names.contains(name) {
             debug!("deleting backend {name}");
             registry::del(name);
-            // crate::serve::update_dependency_to_site(name, "deleted").await;
+            crate::serve::update_dependency_to_backend(name, "deleted").await;
             debug!("backend {name} deleted");
         }
     }
@@ -111,23 +111,24 @@ pub(crate) async fn reload(
 pub(crate) async fn update_dependency_to_discover(discover: &MetricsName, status: &str) {
     let _guard = BACKEND_OPS_LOCK.lock().await;
 
-    let mut names = Vec::<MetricsName>::new();
+    let mut backends = Vec::<ArcBackend>::new();
 
-    registry::foreach(|name, backend| {
+    registry::foreach(|_name, backend| {
         if backend.discover().eq(discover) {
-            names.push(name.clone());
+            backends.push(backend.clone());
         }
     });
 
-    if names.is_empty() {
+    if backends.is_empty() {
         return;
     }
 
-    debug!("discover {discover} changed({status}), will reload backend(s) {names:?}");
-    for name in names.iter() {
-        debug!("backend {name}: will update discover");
-        if let Err(e) = registry::update_discover(name) {
-            warn!("failed to update discover for backend {name}: {e:?}");
+    debug!("discover {discover} changed({status}), will reload backend(s)");
+    for backend in backends {
+        let name = backend.name();
+        debug!("backend {name}: will update discover {discover}");
+        if let Err(e) = backend.update_discover() {
+            warn!("failed to update discover {discover} for backend {name}: {e:?}",);
         }
     }
 }
@@ -159,7 +160,7 @@ async fn reload_existed_unlocked(
     new: Option<AnyBackendConfig>,
 ) -> anyhow::Result<()> {
     registry::reload_existed(name, new).await?;
-    // crate::serve::update_dependency_to_site(name, "reloaded").await;
+    crate::serve::update_dependency_to_backend(name, "reloaded").await;
     Ok(())
 }
 
@@ -170,6 +171,6 @@ async fn spawn_new_unlocked(config: AnyBackendConfig) -> anyhow::Result<()> {
         AnyBackendConfig::StreamTcp(c) => StreamTcpBackend::prepare_initial(c)?,
     };
     registry::add(name.clone(), site);
-    // crate::serve::update_dependency_to_site(&name, "spawned").await;
+    crate::serve::update_dependency_to_backend(&name, "spawned").await;
     Ok(())
 }
