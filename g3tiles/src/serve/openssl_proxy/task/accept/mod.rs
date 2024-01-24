@@ -18,14 +18,16 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use log::debug;
-use openssl::ssl::{Ssl, SslVersion};
+use openssl::ssl::Ssl;
+#[cfg(feature = "vendored-tongsuo")]
+use openssl::ssl::SslVersion;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::time::Instant;
 
 use g3_daemon::stat::task::TcpStreamConnectionStats;
 use g3_io_ext::LimitedStream;
-use g3_openssl::{SslAcceptor, SslLazyAcceptor, SslStream};
+use g3_openssl::SslStream;
 use g3_types::limit::GaugeSemaphorePermit;
 
 use super::{CommonTaskContext, OpensslRelayTask};
@@ -108,11 +110,12 @@ impl OpensslAcceptTask {
         }
     }
 
+    #[cfg(feature = "vendored-tongsuo")]
     async fn handshake<S>(&mut self, stream: S, ssl: Ssl) -> anyhow::Result<SslStream<S>>
     where
         S: AsyncRead + AsyncWrite + Unpin,
     {
-        let mut lazy_acceptor = SslLazyAcceptor::new(ssl, stream).unwrap();
+        let mut lazy_acceptor = g3_openssl::SslLazyAcceptor::new(ssl, stream).unwrap();
         match tokio::time::timeout(
             self.ctx.server_config.client_hello_recv_timeout,
             lazy_acceptor.accept(),
@@ -135,52 +138,33 @@ impl OpensslAcceptTask {
         else {
             return Err(anyhow!("no client hello version found"));
         };
-        let acceptor = self.get_acceptor(lazy_acceptor, client_hello_version)?;
-
-        match tokio::time::timeout(self.ctx.server_config.accept_timeout, acceptor.accept()).await {
-            Ok(Ok(ssl_stream)) => Ok(ssl_stream),
-            Ok(Err(e)) => {
-                // TODO free host and sema
-                Err(anyhow!("failed to accept ssl handshake: {e}"))
-            }
-            Err(_) => {
-                // TODO free host and sema
-                Err(anyhow!("timeout to accept ssl handshake"))
-            }
-        }
-    }
-
-    #[cfg(feature = "vendored-tongsuo")]
-    fn get_acceptor<S>(
-        &self,
-        lazy_acceptor: SslLazyAcceptor<S>,
-        client_hello_version: SslVersion,
-    ) -> anyhow::Result<SslAcceptor<S>>
-    where
-        S: AsyncRead + AsyncWrite + Unpin,
-    {
-        if client_hello_version == SslVersion::NTLS1_1 {
+        let acceptor = if client_hello_version == SslVersion::NTLS1_1 {
             lazy_acceptor
                 .into_acceptor(&self.ctx.tlcp_context)
-                .map_err(|e| anyhow!("failed to set tlcp context: {e}"))
+                .map_err(|e| anyhow!("failed to set tlcp context: {e}"))?
         } else {
             lazy_acceptor
                 .into_acceptor(&self.ctx.ssl_context)
-                .map_err(|e| anyhow!("failed to set tlcp context: {e}"))
+                .map_err(|e| anyhow!("failed to set tlcp context: {e}"))?
+        };
+
+        match tokio::time::timeout(self.ctx.server_config.accept_timeout, acceptor.accept()).await {
+            Ok(Ok(ssl_stream)) => Ok(ssl_stream),
+            Ok(Err(e)) => Err(anyhow!("failed to accept ssl handshake: {e}")),
+            Err(_) => Err(anyhow!("timeout to accept ssl handshake")),
         }
     }
 
     #[cfg(not(feature = "vendored-tongsuo"))]
-    fn get_acceptor<S>(
-        &self,
-        lazy_acceptor: SslLazyAcceptor<S>,
-        _client_hello_version: SslVersion,
-    ) -> anyhow::Result<SslAcceptor<S>>
+    async fn handshake<S>(&mut self, stream: S, ssl: Ssl) -> anyhow::Result<SslStream<S>>
     where
         S: AsyncRead + AsyncWrite + Unpin,
     {
-        lazy_acceptor
-            .into_acceptor(&self.ctx.ssl_context)
-            .map_err(|e| anyhow!("failed to set tlcp context: {e}"))
+        let acceptor = g3_openssl::SslAcceptor::new(ssl, stream).unwrap();
+        match tokio::time::timeout(self.ctx.server_config.accept_timeout, acceptor.accept()).await {
+            Ok(Ok(ssl_stream)) => Ok(ssl_stream),
+            Ok(Err(e)) => Err(anyhow!("failed to accept ssl handshake: {e}")),
+            Err(_) => Err(anyhow!("timeout to accept ssl handshake")),
+        }
     }
 }

@@ -18,7 +18,9 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use openssl::ex_data::Index;
-use openssl::ssl::{Ssl, SslContext, SslVersion};
+use openssl::ssl::Ssl;
+#[cfg(feature = "vendored-tongsuo")]
+use openssl::ssl::{SslContext, SslVersion};
 use slog::Logger;
 
 use g3_daemon::server::ClientConnectionInfo;
@@ -36,9 +38,11 @@ pub(crate) struct CommonTaskContext {
     pub cc_info: ClientConnectionInfo,
     pub task_logger: Logger,
 
+    #[cfg(feature = "vendored-tongsuo")]
     pub client_hello_version_index: Index<Ssl, SslVersion>,
     pub host_index: Index<Ssl, Option<Arc<OpensslHost>>>,
     pub alive_permit_index: Index<Ssl, Option<GaugeSemaphorePermit>>,
+    #[cfg(feature = "vendored-tongsuo")]
     pub ssl_context: Arc<SslContext>,
     #[cfg(feature = "vendored-tongsuo")]
     pub tlcp_context: Arc<SslContext>,

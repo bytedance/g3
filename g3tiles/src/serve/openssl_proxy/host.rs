@@ -22,10 +22,9 @@ use arc_swap::ArcSwap;
 use governor::{clock::DefaultClock, state::InMemoryState, state::NotKeyed, RateLimiter};
 use log::debug;
 use openssl::ex_data::Index;
-use openssl::ssl::{
-    ClientHelloResponse, NameType, SniError, Ssl, SslAcceptor, SslContext, SslMethod, SslRef,
-    SslVersion,
-};
+#[cfg(feature = "vendored-tongsuo")]
+use openssl::ssl::{ClientHelloResponse, SslVersion};
+use openssl::ssl::{NameType, SniError, Ssl, SslAcceptor, SslContext, SslMethod, SslRef};
 
 use g3_types::collection::NamedValue;
 use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit};
@@ -40,33 +39,10 @@ use crate::config::server::openssl_proxy::OpensslHostConfig;
 const TLS_DEFAULT_CIPHER_SUITES: &str =
     "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_SM4_GCM_SM3";
 
-#[cfg(not(feature = "vendored-tongsuo"))]
-pub(super) fn build_ssl_acceptor(
-    version_index: Index<Ssl, SslVersion>,
-) -> anyhow::Result<SslAcceptor> {
-    let mut builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::tls_server())
-        .map_err(|e| anyhow!("failed to get ssl acceptor builder: {e}"))?;
-
-    if openssl::version::number() < 0x101010a0 {
-        // workaround bug https://github.com/openssl/openssl/issues/13291 to enable TLS1.3
-        // which is fixed in
-        //  Openssl 3.x: https://github.com/openssl/openssl/pull/13304
-        //  Openssl 1.1.1j: https://github.com/openssl/openssl/pull/13305
-        builder.set_psk_server_callback(|_ssl, _a, _b| Ok(0));
-    }
-
-    builder.set_client_hello_callback(move |ssl, _alert| {
-        let client_hello_version = ssl.client_hello_legacy_version().unwrap();
-        ssl.set_ex_data(version_index, client_hello_version);
-        Ok(ClientHelloResponse::RETRY)
-    });
-    Ok(builder.build())
-}
-
 #[cfg(feature = "vendored-tongsuo")]
-pub(super) fn build_ssl_acceptor(
+pub(super) fn build_lazy_ssl_context(
     version_index: Index<Ssl, SslVersion>,
-) -> anyhow::Result<SslAcceptor> {
+) -> anyhow::Result<SslContext> {
     let mut builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::ntls_server())
         .map_err(|e| anyhow!("failed to get ssl acceptor builder: {e}"))?;
     builder
@@ -79,7 +55,7 @@ pub(super) fn build_ssl_acceptor(
         ssl.set_ex_data(version_index, client_hello_version);
         Ok(ClientHelloResponse::RETRY)
     });
-    Ok(builder.build())
+    Ok(builder.build().into_context())
 }
 
 pub(super) fn build_ssl_context(

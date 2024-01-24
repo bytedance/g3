@@ -22,7 +22,9 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use log::warn;
 use openssl::ex_data::Index;
-use openssl::ssl::{Ssl, SslContext, SslVersion};
+#[cfg(feature = "vendored-tongsuo")]
+use openssl::ssl::SslVersion;
+use openssl::ssl::{Ssl, SslContext};
 use slog::Logger;
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
@@ -50,8 +52,10 @@ pub(crate) struct OpensslProxyServer {
     reload_sender: broadcast::Sender<ServerReloadCommand>,
     task_logger: Logger,
     hosts: Arc<HostMatch<Arc<OpensslHost>>>,
+    #[cfg(feature = "vendored-tongsuo")]
     client_hello_version_index: Index<Ssl, SslVersion>,
-    ssl_accept_context: SslContext,
+    #[cfg(feature = "vendored-tongsuo")]
+    lazy_ssl_context: SslContext,
     host_index: Index<Ssl, Option<Arc<OpensslHost>>>,
     alive_permit_index: Index<Ssl, Option<GaugeSemaphorePermit>>,
     ssl_context: Arc<SslContext>,
@@ -72,10 +76,11 @@ impl OpensslProxyServer {
     ) -> anyhow::Result<Self> {
         let reload_sender = crate::serve::new_reload_notify_channel();
 
+        #[cfg(feature = "vendored-tongsuo")]
         let client_hello_version_index =
             Ssl::new_ex_index().map_err(|e| anyhow!("failed to create ex index: {e}"))?;
-        let ssl_acceptor = super::host::build_ssl_acceptor(client_hello_version_index)?;
-        let ssl_accept_context = ssl_acceptor.into_context();
+        #[cfg(feature = "vendored-tongsuo")]
+        let lazy_ssl_context = super::host::build_lazy_ssl_context(client_hello_version_index)?;
 
         let host_index =
             Ssl::new_ex_index().map_err(|e| anyhow!("failed to create ex index: {e}"))?;
@@ -113,8 +118,10 @@ impl OpensslProxyServer {
             reload_sender,
             task_logger,
             hosts,
+            #[cfg(feature = "vendored-tongsuo")]
             client_hello_version_index,
-            ssl_accept_context,
+            #[cfg(feature = "vendored-tongsuo")]
+            lazy_ssl_context,
             host_index,
             alive_permit_index,
             ssl_context: Arc::new(ssl_context),
@@ -191,7 +198,16 @@ impl OpensslProxyServer {
     }
 
     async fn run_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
-        let ssl = match Ssl::new(&self.ssl_accept_context) {
+        #[cfg(feature = "vendored-tongsuo")]
+        let ssl = match Ssl::new(&self.lazy_ssl_context) {
+            Ok(v) => v,
+            Err(e) => {
+                warn!("failed to build ssl context when accepting connections: {e}");
+                return;
+            }
+        };
+        #[cfg(not(feature = "vendored-tongsuo"))]
+        let ssl = match Ssl::new(&self.ssl_context) {
             Ok(v) => v,
             Err(e) => {
                 warn!("failed to build ssl context when accepting connections: {e}");
@@ -206,9 +222,11 @@ impl OpensslProxyServer {
             cc_info,
             task_logger: self.task_logger.clone(),
 
+            #[cfg(feature = "vendored-tongsuo")]
             client_hello_version_index: self.client_hello_version_index,
             host_index: self.host_index,
             alive_permit_index: self.alive_permit_index,
+            #[cfg(feature = "vendored-tongsuo")]
             ssl_context: self.ssl_context.clone(),
             #[cfg(feature = "vendored-tongsuo")]
             tlcp_context: self.tlcp_context.clone(),

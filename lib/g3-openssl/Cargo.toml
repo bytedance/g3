@@ -18,3 +18,4 @@ atomic-waker.workspace = true
 [features]
 default = []
 async-job = []
+tongsuo = ["openssl/tongsuo"]
