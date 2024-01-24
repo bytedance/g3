@@ -22,7 +22,10 @@ use arc_swap::ArcSwap;
 use governor::{clock::DefaultClock, state::InMemoryState, state::NotKeyed, RateLimiter};
 use log::debug;
 use openssl::ex_data::Index;
-use openssl::ssl::{NameType, SniError, Ssl, SslAcceptor, SslAlert, SslContext, SslMethod, SslRef};
+use openssl::ssl::{
+    ClientHelloResponse, NameType, SniError, Ssl, SslAcceptor, SslContext, SslMethod, SslRef,
+    SslVersion,
+};
 
 use g3_types::collection::NamedValue;
 use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit};
@@ -36,17 +39,55 @@ use crate::config::server::openssl_proxy::OpensslHostConfig;
 #[cfg(feature = "vendored-tongsuo")]
 const TLS_DEFAULT_CIPHER_SUITES: &str =
     "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_SM4_GCM_SM3";
-#[cfg(feature = "vendored-tongsuo")]
-const TLCP_DEFAULT_CIPHER_LIST: &str = "ECDHE-SM2-WITH-SM4-SM3:ECC-SM2-WITH-SM4-SM3:\
-    ECDHE-SM2-SM4-CBC-SM3:ECDHE-SM2-SM4-GCM-SM3:ECC-SM2-SM4-CBC-SM3:ECC-SM2-SM4-GCM-SM3:\
-    RSA-SM4-CBC-SM3:RSA-SM4-GCM-SM3:RSA-SM4-CBC-SHA256:RSA-SM4-GCM-SHA256";
 
+#[cfg(not(feature = "vendored-tongsuo"))]
 pub(super) fn build_ssl_acceptor(
-    hosts: Arc<HostMatch<Arc<OpensslHost>>>,
-    host_index: Index<Ssl, Arc<OpensslHost>>,
-    sema_index: Index<Ssl, Option<GaugeSemaphorePermit>>,
-    alert_unrecognized_name: bool,
+    version_index: Index<Ssl, SslVersion>,
 ) -> anyhow::Result<SslAcceptor> {
+    let mut builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::tls_server())
+        .map_err(|e| anyhow!("failed to get ssl acceptor builder: {e}"))?;
+
+    if openssl::version::number() < 0x101010a0 {
+        // workaround bug https://github.com/openssl/openssl/issues/13291 to enable TLS1.3
+        // which is fixed in
+        //  Openssl 3.x: https://github.com/openssl/openssl/pull/13304
+        //  Openssl 1.1.1j: https://github.com/openssl/openssl/pull/13305
+        builder.set_psk_server_callback(|_ssl, _a, _b| Ok(0));
+    }
+
+    builder.set_client_hello_callback(move |ssl, _alert| {
+        let client_hello_version = ssl.client_hello_legacy_version().unwrap();
+        ssl.set_ex_data(version_index, client_hello_version);
+        Ok(ClientHelloResponse::RETRY)
+    });
+    Ok(builder.build())
+}
+
+#[cfg(feature = "vendored-tongsuo")]
+pub(super) fn build_ssl_acceptor(
+    version_index: Index<Ssl, SslVersion>,
+) -> anyhow::Result<SslAcceptor> {
+    let mut builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::ntls_server())
+        .map_err(|e| anyhow!("failed to get ssl acceptor builder: {e}"))?;
+    builder
+        .set_ciphersuites(TLS_DEFAULT_CIPHER_SUITES)
+        .map_err(|e| anyhow!("failed to set tls1.3 cipher suites: {e}"))?;
+    builder.enable_ntls();
+
+    builder.set_client_hello_callback(move |ssl, _alert| {
+        let client_hello_version = ssl.client_hello_legacy_version().unwrap();
+        ssl.set_ex_data(version_index, client_hello_version);
+        Ok(ClientHelloResponse::RETRY)
+    });
+    Ok(builder.build())
+}
+
+pub(super) fn build_ssl_context(
+    hosts: Arc<HostMatch<Arc<OpensslHost>>>,
+    host_index: Index<Ssl, Option<Arc<OpensslHost>>>,
+    alive_permit_index: Index<Ssl, Option<GaugeSemaphorePermit>>,
+    alert_unrecognized_name: bool,
+) -> anyhow::Result<SslContext> {
     let mut builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::tls_server())
         .map_err(|e| anyhow!("failed to get ssl acceptor builder: {e}"))?;
 
@@ -63,9 +104,8 @@ pub(super) fn build_ssl_acceptor(
         .set_ciphersuites(TLS_DEFAULT_CIPHER_SUITES)
         .map_err(|e| anyhow!("failed to set tls1.3 cipher suites: {e}"))?;
 
-    builder.set_servername_callback(move |ssl, alert| {
+    builder.set_servername_callback(move |ssl, _alert| {
         let sni_err = if alert_unrecognized_name {
-            *alert = SslAlert::UNRECOGNIZED_NAME;
             SniError::ALERT_FATAL
         } else {
             SniError::NOACK
@@ -76,7 +116,7 @@ pub(super) fn build_ssl_acceptor(
                 return Err(sni_err);
             }
             // we do not check request alive sema here
-            let Ok(sema) = host.acquire_request_semaphore() else {
+            let Ok(permit) = host.acquire_request_semaphore() else {
                 return Err(sni_err);
             };
 
@@ -88,8 +128,8 @@ pub(super) fn build_ssl_acceptor(
                 debug!("failed to set ssl context for host: {e}"); // TODO print host name
                 Err(sni_err)
             } else {
-                ssl.set_ex_data(host_index, host.clone());
-                ssl.set_ex_data(sema_index, sema);
+                ssl.set_ex_data(host_index, Some(host.clone()));
+                ssl.set_ex_data(alive_permit_index, permit);
                 Ok(())
             }
         };
@@ -115,27 +155,21 @@ pub(super) fn build_ssl_acceptor(
         }
     });
 
-    Ok(builder.build())
+    Ok(builder.build().into_context())
 }
 
 #[cfg(feature = "vendored-tongsuo")]
 pub(super) fn build_tlcp_context(
     hosts: Arc<HostMatch<Arc<OpensslHost>>>,
-    host_index: Index<Ssl, Arc<OpensslHost>>,
-    sema_index: Index<Ssl, Option<GaugeSemaphorePermit>>,
+    host_index: Index<Ssl, Option<Arc<OpensslHost>>>,
+    alive_permit_index: Index<Ssl, Option<GaugeSemaphorePermit>>,
     alert_unrecognized_name: bool,
 ) -> anyhow::Result<SslContext> {
-    let mut builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::ntls_server())
-        .map_err(|e| anyhow!("failed to get ssl context builder: {e}"))?;
-    builder.enable_force_ntls();
+    let mut builder =
+        SslAcceptor::tlcp().map_err(|e| anyhow!("failed to get ssl acceptor builder: {e}"))?;
 
-    builder
-        .set_cipher_list(TLCP_DEFAULT_CIPHER_LIST)
-        .map_err(|e| anyhow!("failed to set tlcp cipher list: {e}"))?;
-
-    builder.set_servername_callback(move |ssl, alert| {
+    builder.set_servername_callback(move |ssl, _alert| {
         let sni_err = if alert_unrecognized_name {
-            *alert = SslAlert::UNRECOGNIZED_NAME;
             SniError::ALERT_FATAL
         } else {
             SniError::NOACK
@@ -146,7 +180,7 @@ pub(super) fn build_tlcp_context(
                 return Err(sni_err);
             }
             // we do not check request alive sema here
-            let Ok(sema) = host.acquire_request_semaphore() else {
+            let Ok(permit) = host.acquire_request_semaphore() else {
                 return Err(sni_err);
             };
 
@@ -158,8 +192,8 @@ pub(super) fn build_tlcp_context(
                 debug!("failed to set tlcp ssl context for host: {e}"); // TODO print host name
                 Err(sni_err)
             } else {
-                ssl.set_ex_data(host_index, host.clone());
-                ssl.set_ex_data(sema_index, sema);
+                ssl.set_ex_data(host_index, Some(host.clone()));
+                ssl.set_ex_data(alive_permit_index, permit);
                 Ok(())
             }
         };

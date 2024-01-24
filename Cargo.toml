@@ -144,8 +144,8 @@ pin-project = "1.1"
 #
 rustls = "0.21.5"
 tokio-rustls = "0.24"
-openssl = { package = "variant-ssl", version = "0.11.0" }
-openssl-sys = { package = "variant-ssl-sys", version = "0.10.0" }
+openssl = { package = "variant-ssl", version = "0.11.2" }
+openssl-sys = { package = "variant-ssl-sys", version = "0.10.2" }
 openssl-probe = "0.1"
 rustls-pemfile = "1.0"
 rustls-native-certs = "0.6"

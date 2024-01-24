@@ -56,6 +56,11 @@ impl<S> SslStream<S> {
     }
 
     #[inline]
+    pub fn ssl_mut(&mut self) -> &mut SslRef {
+        self.inner.ssl_mut()
+    }
+
+    #[inline]
     pub fn get_mut(&mut self) -> &mut S {
         self.inner.get_mut().get_mut()
     }

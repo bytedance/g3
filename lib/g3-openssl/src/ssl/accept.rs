@@ -25,7 +25,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use super::{SslIoWrapper, SslStream};
 
 pub struct SslAcceptor<S> {
-    inner: ssl::SslStream<SslIoWrapper<S>>,
+    pub(crate) inner: ssl::SslStream<SslIoWrapper<S>>,
 }
 
 impl<S: AsyncRead + AsyncWrite + Unpin> SslAcceptor<S> {

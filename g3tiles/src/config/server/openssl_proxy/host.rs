@@ -189,15 +189,8 @@ impl OpensslHostConfig {
                 .map_err(|e| anyhow!("failed to add session id context text: {e}"))?;
         }
 
-        let mut ssl_builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::ntls_server())
-            .map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
-        ssl_builder.enable_ntls();
-
-        ssl_builder.set_cipher_list(
-            "ECDHE-SM2-WITH-SM4-SM3:ECC-SM2-WITH-SM4-SM3:\
-             ECDHE-SM2-SM4-CBC-SM3:ECDHE-SM2-SM4-GCM-SM3:ECC-SM2-SM4-CBC-SM3:ECC-SM2-SM4-GCM-SM3:\
-             RSA-SM4-CBC-SM3:RSA-SM4-GCM-SM3:RSA-SM4-CBC-SHA256:RSA-SM4-GCM-SHA256",
-        )?;
+        let mut ssl_builder =
+            SslAcceptor::tlcp().map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
 
         ssl_builder.set_session_cache_mode(SslSessionCacheMode::SERVER); // TODO use external cache?
 

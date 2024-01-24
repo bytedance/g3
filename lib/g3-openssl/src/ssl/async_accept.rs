@@ -25,23 +25,11 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use super::{AsyncEnginePoller, SslIoWrapper, SslStream};
 
 pub struct SslAcceptor<S> {
-    inner: ssl::SslStream<SslIoWrapper<S>>,
-    async_engine: Option<AsyncEnginePoller>,
+    pub(crate) inner: ssl::SslStream<SslIoWrapper<S>>,
+    pub(crate) async_engine: Option<AsyncEnginePoller>,
 }
 
 impl<S: AsyncRead + AsyncWrite + Unpin> SslAcceptor<S> {
-    #[cfg(not(ossl300))]
-    pub fn new(ssl: Ssl, stream: S) -> Result<Self, ErrorStack> {
-        let wrapper = SslIoWrapper::new(stream);
-        let async_engine = AsyncEnginePoller::new(&ssl);
-
-        ssl::SslStream::new(ssl, wrapper).map(|inner| SslAcceptor {
-            inner,
-            async_engine,
-        })
-    }
-
-    #[cfg(ossl300)]
     pub fn new(ssl: Ssl, stream: S) -> Result<Self, ErrorStack> {
         let wrapper = SslIoWrapper::new(stream);
         let async_engine = AsyncEnginePoller::new(&ssl)?;

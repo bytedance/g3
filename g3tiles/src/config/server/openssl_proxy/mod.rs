@@ -45,6 +45,7 @@ pub(crate) struct OpensslProxyServerConfig {
     pub(crate) listen_in_worker: bool,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) client_hello_recv_timeout: Duration,
     pub(crate) accept_timeout: Duration,
     pub(crate) hosts: HostMatch<Arc<OpensslHostConfig>>,
     pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
@@ -66,6 +67,7 @@ impl OpensslProxyServerConfig {
             listen_in_worker: false,
             ingress_net_filter: None,
             extra_metrics_tags: None,
+            client_hello_recv_timeout: Duration::from_secs(10),
             accept_timeout: Duration::from_secs(60),
             hosts: HostMatch::default(),
             tcp_sock_speed_limit: TcpSockSpeedLimitConfig::default(),
@@ -135,6 +137,12 @@ impl OpensslProxyServerConfig {
                     format!("invalid ingress network acl rule value for key {k}"),
                 )?;
                 self.ingress_net_filter = Some(filter);
+                Ok(())
+            }
+            "client_hello_recv_timeout" => {
+                let timeout = g3_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                self.client_hello_recv_timeout = timeout;
                 Ok(())
             }
             "accept_timeout" | "handshake_timeout" | "negotiation_timeout" => {

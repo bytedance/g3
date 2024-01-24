@@ -88,6 +88,7 @@ impl RustlsAcceptTask {
                 backend.clone(),
                 time_accepted.elapsed(),
                 pre_handshake_stats,
+                self.alive_permit,
             )
             .into_running(tls_stream)
             .await;

@@ -42,8 +42,8 @@ const TLS_DEFAULT_CIPHER_LIST: &str =
      ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:\
      DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384";
 #[cfg(feature = "tongsuo")]
-const TLCP_DEFAULT_CIPHER_LIST: &str = "ECDHE-SM2-WITH-SM4-SM3:ECC-SM2-WITH-SM4-SM3:\
-     ECDHE-SM2-SM4-CBC-SM3:ECDHE-SM2-SM4-GCM-SM3:ECC-SM2-SM4-CBC-SM3:ECC-SM2-SM4-GCM-SM3:\
+const TLCP_DEFAULT_CIPHER_LIST: &str =
+    "ECDHE-SM2-SM4-CBC-SM3:ECDHE-SM2-SM4-GCM-SM3:ECC-SM2-SM4-CBC-SM3:ECC-SM2-SM4-GCM-SM3:\
      RSA-SM4-CBC-SM3:RSA-SM4-GCM-SM3:RSA-SM4-CBC-SHA256:RSA-SM4-GCM-SHA256";
 
 #[derive(Clone)]
@@ -157,13 +157,8 @@ impl OpensslServerConfigBuilder {
         &self,
         id_ctx: &mut OpensslSessionIdContext,
     ) -> anyhow::Result<SslAcceptorBuilder> {
-        let mut ssl_builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::ntls_server())
-            .map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
-        ssl_builder.enable_force_ntls();
-
-        ssl_builder
-            .set_cipher_list(TLCP_DEFAULT_CIPHER_LIST)
-            .map_err(|e| anyhow!("failed to set tlcp cipher list: {e}"))?;
+        let mut ssl_builder =
+            SslAcceptor::tlcp().map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
 
         for (i, pair) in self.tlcp_cert_pairs.iter().enumerate() {
             pair.add_to_server_ssl_context(&mut ssl_builder, id_ctx)

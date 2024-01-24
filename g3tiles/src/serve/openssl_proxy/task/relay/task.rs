@@ -24,6 +24,7 @@ use tokio::time::Instant;
 use g3_daemon::stat::task::{TcpStreamConnectionStats, TcpStreamTaskStats};
 use g3_io_ext::{LimitedCopy, LimitedCopyConfig, LimitedCopyError, LimitedStream};
 use g3_openssl::SslStream;
+use g3_types::limit::GaugeSemaphorePermit;
 
 use super::{CommonTaskContext, OpensslRelayTaskCltWrapperStats};
 use crate::backend::ArcBackend;
@@ -38,6 +39,7 @@ pub(crate) struct OpensslRelayTask {
     backend: ArcBackend,
     task_notes: ServerTaskNotes,
     task_stats: Arc<TcpStreamTaskStats>,
+    alive_permit: Option<GaugeSemaphorePermit>,
 }
 
 impl OpensslRelayTask {
@@ -47,6 +49,7 @@ impl OpensslRelayTask {
         backend: ArcBackend,
         wait_time: Duration,
         pre_handshake_stats: Arc<TcpStreamConnectionStats>,
+        alive_permit: Option<GaugeSemaphorePermit>,
     ) -> Self {
         let task_notes = ServerTaskNotes::new(ctx.cc_info.clone(), wait_time);
         OpensslRelayTask {
@@ -57,6 +60,7 @@ impl OpensslRelayTask {
             task_stats: Arc::new(TcpStreamTaskStats::with_clt_stats(
                 pre_handshake_stats.as_ref().clone(),
             )),
+            alive_permit,
         }
     }
 
@@ -93,7 +97,10 @@ impl OpensslRelayTask {
         self.ctx.server_stats.inc_alive_task();
     }
 
-    fn pre_stop(&self) {
+    fn pre_stop(&mut self) {
+        if let Some(permit) = self.alive_permit.take() {
+            drop(permit);
+        }
         self.ctx.server_stats.dec_alive_task();
     }
 
