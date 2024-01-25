@@ -51,10 +51,21 @@ impl OpensslClientConfig {
     pub fn build_ssl(&self, tls_name: &Host, port: u16) -> anyhow::Result<Ssl> {
         let mut ssl =
             Ssl::new(&self.ssl_context).map_err(|e| anyhow!("failed to get new Ssl state: {e}"))?;
-        if !self.disable_sni {
-            if let Host::Domain(domain) = tls_name {
-                ssl.set_hostname(domain)
-                    .map_err(|e| anyhow!("failed to set sni hostname: {e}"))?;
+        let verify_param = ssl.param_mut();
+        match tls_name {
+            Host::Domain(domain) => {
+                verify_param
+                    .set_host(domain)
+                    .map_err(|e| anyhow!("failed to set cert verify domain: {e}"))?;
+                if !self.disable_sni {
+                    ssl.set_hostname(domain)
+                        .map_err(|e| anyhow!("failed to set sni hostname: {e}"))?;
+                }
+            }
+            Host::Ip(ip) => {
+                verify_param
+                    .set_ip(*ip)
+                    .map_err(|e| anyhow!("failed to set cert verify ip: {e}"))?;
             }
         }
         if let Some(cache) = &self.session_cache {
