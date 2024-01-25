@@ -91,12 +91,7 @@ where
         let ups_ssl = self
             .tls_interception
             .client_config
-            .build_ssl(
-                sni_hostname,
-                &self.upstream,
-                client_hello.server_name().is_none(),
-                client_hello.alpn(),
-            )
+            .build_ssl(sni_hostname, &self.upstream, client_hello.alpn())
             .map_err(|e| {
                 TlsInterceptionError::UpstreamPrepareFailed(anyhow!(
                     "failed to build ssl context: {e}"
