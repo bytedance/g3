@@ -1,5 +1,5 @@
-g3bench (0.8.8-1) UNRELEASED; urgency=medium
+g3bench (0.8.9-1) UNRELEASED; urgency=medium
 
   * New upstream release.
 
- -- G3bench Maintainers <g3bench-maintainers@devel.machine>  Fri, 15 Dec 2023 17:03:54 +0800
+ -- G3bench Maintainers <g3bench-maintainers@devel.machine>  Thu, 25 Jan 2024 16:05:45 +0800

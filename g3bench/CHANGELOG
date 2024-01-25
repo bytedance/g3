@@ -1,4 +1,10 @@
 
+v0.8.9:
+ - Feature: always verify tls server name in cert
+ - Feature: allow to disable tls in keyless connection
+ - Feature: disable openssl async job support by default as it's unsound
+ - Feature: allow to compile against AWS-LC instead of OpenSSL
+
 v0.8.8:
  - BUG FIX: fix the parsing of PROXY Protocol address
  - Feature: make quic and hickory as optional features
