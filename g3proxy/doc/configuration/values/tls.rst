@@ -10,10 +10,10 @@ TLS
 tls name
 ========
 
-**yaml type**: string
+**yaml type**: :ref:`host <conf_value_host>`
 
 Set the dns name / ip address for server certificate verification.
-If not set, the corresponding peer address will be used.
+If not set, the corresponding upstream address will be used.
 
 .. versionchanged:: IP address is supported since version 1.7.15
 
