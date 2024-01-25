@@ -18,7 +18,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 
-use g3_types::net::{HttpForwardCapability, OpensslClientConfig, UpstreamAddr};
+use g3_types::net::{Host, HttpForwardCapability, OpensslClientConfig, UpstreamAddr};
 
 use super::{ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpConnectionEofPoller};
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
@@ -63,7 +63,7 @@ pub(crate) trait HttpForwardContext {
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
         tls_config: &'a OpensslClientConfig,
-        tls_name: &'a str,
+        tls_name: &'a Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError>;
     fn save_alive_connection(&mut self, c: BoxHttpForwardConnection);
     fn fetch_tcp_notes(&self, tcp_notes: &mut TcpConnectTaskNotes);

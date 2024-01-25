@@ -17,15 +17,15 @@
 use slog::{slog_info, Logger};
 use uuid::Uuid;
 
-use g3_slog_types::{LtDateTime, LtIpAddr, LtUpstreamAddr, LtUuid};
-use g3_types::net::UpstreamAddr;
+use g3_slog_types::{LtDateTime, LtHost, LtIpAddr, LtUpstreamAddr, LtUuid};
+use g3_types::net::{Host, UpstreamAddr};
 
 use crate::module::tcp_connect::TcpConnectTaskNotes;
 
 pub(crate) struct EscapeLogForTlsHandshake<'a> {
     pub(crate) tcp_notes: &'a TcpConnectTaskNotes,
     pub(crate) task_id: &'a Uuid,
-    pub(crate) tls_name: &'a str,
+    pub(crate) tls_name: &'a Host,
     pub(crate) tls_peer: &'a UpstreamAddr,
     pub(crate) tls_application: TlsApplication,
 }
@@ -56,7 +56,7 @@ impl EscapeLogForTlsHandshake<'_> {
             "next_bound_addr" => self.tcp_notes.local,
             "next_peer_addr" => self.tcp_notes.next,
             "next_expire" => self.tcp_notes.expire.as_ref().map(LtDateTime),
-            "tls_name" => self.tls_name,
+            "tls_name" => LtHost(self.tls_name),
             "tls_peer" => LtUpstreamAddr(self.tls_peer),
             "tls_application" => self.tls_application.as_str(),
         )

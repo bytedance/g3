@@ -55,6 +55,10 @@ impl UpstreamAddr {
         self.host.is_empty()
     }
 
+    pub fn set_host(&mut self, host: Host) {
+        self.host = host;
+    }
+
     #[inline]
     pub fn host(&self) -> &Host {
         &self.host

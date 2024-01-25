@@ -690,14 +690,14 @@ impl<'a> HttpProxyForwardTask<'a> {
                 .host
                 .as_ref()
                 .unwrap_or(&self.tcp_notes.upstream)
-                .host_str();
+                .host();
 
             fwd_ctx
                 .make_new_https_connection(
                     &self.task_notes,
                     self.task_stats.clone() as _,
                     &self.ctx.tls_client_config,
-                    &tls_name,
+                    tls_name,
                 )
                 .await
         } else {

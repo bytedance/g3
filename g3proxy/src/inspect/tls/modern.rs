@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -22,7 +23,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use g3_dpi::{Protocol, ProtocolInspector};
 use g3_io_ext::{AggregatedIo, FlexBufReader, OnceBufReader};
 use g3_openssl::SslConnector;
-use g3_types::net::AlpnProtocol;
+use g3_types::net::{AlpnProtocol, Host};
 use g3_udpdump::ExportedPduDissectorHint;
 
 use super::{TlsInterceptIo, TlsInterceptObject, TlsInterceptionError};
@@ -81,16 +82,18 @@ where
         let client_hello = client_handshake.client_hello();
 
         // build to server ssl context based on client hello
-        let hostname = client_hello
-            .server_name()
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| self.upstream.host().to_string());
+        let sni_hostname = client_hello.server_name();
+        if let Some(domain) = sni_hostname {
+            if let Ok(host) = Host::from_str(domain) {
+                self.upstream.set_host(host);
+            }
+        }
         let ups_ssl = self
             .tls_interception
             .client_config
             .build_ssl(
-                &hostname,
-                self.upstream.port(),
+                sni_hostname,
+                &self.upstream,
                 client_hello.server_name().is_none(),
                 client_hello.alpn(),
             )
@@ -102,8 +105,11 @@ where
 
         // fetch fake server cert early in the background
         let tls_interception = self.tls_interception.clone();
+        let cert_domain = sni_hostname
+            .map(|v| v.to_string())
+            .unwrap_or_else(|| self.upstream.host().to_string());
         let clt_cert_handle =
-            tokio::spawn(async move { tls_interception.cert_agent.fetch(hostname).await });
+            tokio::spawn(async move { tls_interception.cert_agent.fetch(cert_domain).await });
 
         // handshake with upstream server
         let ups_tls_connector = SslConnector::new(ups_ssl, AggregatedIo::new(ups_r, ups_w))

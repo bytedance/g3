@@ -50,7 +50,7 @@ pub(crate) struct ProxyHttpsEscaperConfig {
     pub(crate) no_ipv4: bool,
     pub(crate) no_ipv6: bool,
     pub(crate) tls_config: OpensslClientConfigBuilder,
-    pub(crate) tls_name: Option<String>,
+    pub(crate) tls_name: Option<Host>,
     pub(crate) resolver: MetricsName,
     pub(crate) resolve_strategy: ResolveStrategy,
     pub(crate) general: GeneralEscaperConfig,
@@ -209,7 +209,7 @@ impl ProxyHttpsEscaperConfig {
                 Ok(())
             }
             "tls_name" => {
-                let name = g3_yaml::value::as_string(v)
+                let name = g3_yaml::value::as_host(v)
                     .context(format!("invalid tls server name value for key {k}"))?;
                 self.tls_name = Some(name);
                 Ok(())

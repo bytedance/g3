@@ -196,7 +196,7 @@ impl Escaper for ProxyHttpsEscaper {
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
         tls_config: &'a OpensslClientConfig,
-        tls_name: &'a str,
+        tls_name: &'a Host,
     ) -> TcpConnectResult {
         self.stats.interface.add_tls_connect_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
@@ -302,7 +302,7 @@ impl EscaperInternal for ProxyHttpsEscaper {
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
         tls_config: &'a OpensslClientConfig,
-        tls_name: &'a str,
+        tls_name: &'a Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.stats
             .interface

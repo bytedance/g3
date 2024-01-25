@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::borrow::Cow;
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -29,7 +28,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_openssl::{SslConnector, SslStream};
 use g3_types::net::{
-    AlpnProtocol, OpensslCertificatePair, OpensslClientConfig, OpensslClientConfigBuilder,
+    AlpnProtocol, Host, OpensslCertificatePair, OpensslClientConfig, OpensslClientConfigBuilder,
     OpensslProtocol, UpstreamAddr,
 };
 
@@ -68,7 +67,7 @@ pub(crate) trait AppendOpensslArgs {
 pub(crate) struct OpensslTlsClientArgs {
     pub(crate) config: Option<OpensslClientConfigBuilder>,
     pub(crate) client: Option<OpensslClientConfig>,
-    pub(crate) tls_name: Option<String>,
+    pub(crate) tls_name: Option<Host>,
     pub(crate) cert_pair: OpensslCertificatePair,
     pub(crate) no_verify: bool,
     pub(crate) alpn_protocol: Option<AlpnProtocol>,
@@ -84,13 +83,9 @@ impl OpensslTlsClientArgs {
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
-        let tls_name = self
-            .tls_name
-            .as_ref()
-            .map(|v| Cow::Borrowed(v.as_str()))
-            .unwrap_or_else(|| target.host_str());
+        let tls_name = self.tls_name.as_ref().unwrap_or_else(|| target.host());
         let mut ssl = tls_client
-            .build_ssl(&tls_name, target.port())
+            .build_ssl(tls_name, target.port())
             .context("failed to build ssl context")?;
         if self.no_verify {
             ssl.set_verify(SslVerifyMode::NONE);
@@ -104,10 +99,12 @@ impl OpensslTlsClientArgs {
         Ok(tls_stream)
     }
 
-    fn parse_tls_name(&mut self, args: &ArgMatches, id: &str) {
+    fn parse_tls_name(&mut self, args: &ArgMatches, id: &str) -> anyhow::Result<()> {
         if let Some(name) = args.get_one::<String>(id) {
-            self.tls_name = Some(name.to_string());
+            let host = Host::from_str(name).context(format!("invalid host name {name}"))?;
+            self.tls_name = Some(host);
         }
+        Ok(())
     }
 
     fn parse_ca_cert(&mut self, args: &ArgMatches, id: &str) -> anyhow::Result<()> {
@@ -238,7 +235,7 @@ impl OpensslTlsClientArgs {
             return Ok(());
         }
 
-        self.parse_tls_name(args, TLS_ARG_NAME);
+        self.parse_tls_name(args, TLS_ARG_NAME)?;
         self.parse_ca_cert(args, TLS_ARG_CA_CERT)?;
         self.parse_client_auth(args, TLS_ARG_CERT, TLS_ARG_KEY)?;
         self.parse_protocol_and_args(args, TLS_ARG_PROTOCOL, TLS_ARG_CIPHERS)?;
@@ -253,7 +250,7 @@ impl OpensslTlsClientArgs {
             return Ok(());
         }
 
-        self.parse_tls_name(args, PROXY_TLS_ARG_NAME);
+        self.parse_tls_name(args, PROXY_TLS_ARG_NAME)?;
         self.parse_ca_cert(args, PROXY_TLS_ARG_CA_CERT)?;
         self.parse_client_auth(args, PROXY_TLS_ARG_CERT, PROXY_TLS_ARG_KEY)?;
         self.parse_protocol_and_args(args, PROXY_TLS_ARG_PROTOCOL, PROXY_TLS_ARG_CIPHERS)?;

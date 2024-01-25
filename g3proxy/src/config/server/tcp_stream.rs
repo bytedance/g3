@@ -26,7 +26,7 @@ use g3_types::acl::AclNetworkRuleBuilder;
 use g3_types::collection::SelectivePickPolicy;
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::net::{
-    OpensslClientConfigBuilder, TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig,
+    Host, OpensslClientConfigBuilder, TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig,
     WeightedUpstreamAddr,
 };
 use g3_yaml::YamlDocPosition;
@@ -48,7 +48,7 @@ pub(crate) struct TcpStreamServerConfig {
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) upstream: Vec<WeightedUpstreamAddr>,
     pub(crate) upstream_pick_policy: SelectivePickPolicy,
-    pub(crate) upstream_tls_name: Option<String>,
+    pub(crate) upstream_tls_name: Option<Host>,
     pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
     pub(crate) task_idle_check_duration: Duration,
     pub(crate) task_idle_max_count: i32,
@@ -168,7 +168,7 @@ impl TcpStreamServerConfig {
                 Ok(())
             }
             "upstream_tls_name" => {
-                let tls_name = g3_yaml::value::as_string(v)
+                let tls_name = g3_yaml::value::as_host(v)
                     .context(format!("invalid tls server name value for key {k}"))?;
                 self.upstream_tls_name = Some(tls_name);
                 Ok(())
@@ -224,7 +224,7 @@ impl TcpStreamServerConfig {
         }
         if self.client_tls_config.is_some() && self.upstream_tls_name.is_none() {
             if let Some(upstream) = self.upstream.first() {
-                self.upstream_tls_name = Some(upstream.inner().host().to_string());
+                self.upstream_tls_name = Some(upstream.inner().host().to_owned());
             }
         }
 

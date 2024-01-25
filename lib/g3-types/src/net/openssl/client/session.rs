@@ -23,6 +23,8 @@ use lru::LruCache;
 use openssl::ex_data::Index;
 use openssl::ssl::{Ssl, SslContext, SslContextBuilder, SslSession, SslSessionCacheMode};
 
+use crate::net::Host;
+
 const SESSION_CACHE_DEFAULT_SITES_COUNT: NonZeroUsize = unsafe { NonZeroUsize::new_unchecked(128) };
 const SESSION_CACHE_DEFAULT_EACH_CAPACITY: NonZeroUsize =
     unsafe { NonZeroUsize::new_unchecked(16) };
@@ -222,7 +224,7 @@ impl OpensslClientSessionCache {
     pub(in crate::net::openssl) fn find_and_set_cache(
         &self,
         ssl: &mut Ssl,
-        tls_name: &str,
+        tls_name: &Host,
         port: u16,
     ) -> anyhow::Result<()> {
         if let Some(caches) = ssl.ssl_context().ex_data(self.session_cache_index) {

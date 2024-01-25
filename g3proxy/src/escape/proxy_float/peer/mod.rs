@@ -28,7 +28,7 @@ use slog::Logger;
 use tokio::time::Instant;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_types::net::{EgressArea, OpensslClientConfig, TcpSockSpeedLimitConfig};
+use g3_types::net::{EgressArea, Host, OpensslClientConfig, TcpSockSpeedLimitConfig};
 
 use super::{ProxyFloatEscaperConfig, ProxyFloatEscaperStats};
 use crate::auth::UserUpstreamTrafficStats;
@@ -117,7 +117,7 @@ pub(super) trait NextProxyPeer: NextProxyPeerInternal {
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
         tls_config: &'a OpensslClientConfig,
-        tls_name: &'a str,
+        tls_name: &'a Host,
     ) -> TcpConnectResult;
 
     async fn new_http_forward_connection<'a>(
@@ -133,7 +133,7 @@ pub(super) trait NextProxyPeer: NextProxyPeerInternal {
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
         tls_config: &'a OpensslClientConfig,
-        tls_name: &'a str,
+        tls_name: &'a Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError>;
 
     async fn udp_setup_connection<'a>(

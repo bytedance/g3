@@ -36,6 +36,7 @@ use crate::serve::{ServerTaskError, ServerTaskNotes, ServerTaskResult, ServerTas
 
 pub(super) struct TlsStreamTask {
     ctx: CommonTaskContext,
+    upstream: UpstreamAddr,
     tcp_notes: TcpConnectTaskNotes,
     task_notes: ServerTaskNotes,
     task_stats: Arc<TcpStreamTaskStats>,
@@ -46,6 +47,7 @@ impl TlsStreamTask {
         let task_notes = ServerTaskNotes::new(ctx.cc_info.clone(), None, Duration::ZERO);
         TlsStreamTask {
             ctx,
+            upstream: upstream.clone(),
             tcp_notes: TcpConnectTaskNotes::new(upstream.clone()),
             task_notes,
             task_stats: Arc::new(TcpStreamTaskStats::default()),
@@ -102,30 +104,22 @@ impl TlsStreamTask {
 
         self.task_notes.stage = ServerTaskStage::Connecting;
         let (ups_r, ups_w) = if let Some(tls_client_config) = &self.ctx.tls_client_config {
-            if let Some(tls_name) = &self.ctx.server_config.upstream_tls_name {
-                self.ctx
-                    .escaper
-                    .tls_setup_connection(
-                        &mut self.tcp_notes,
-                        &self.task_notes,
-                        self.task_stats.clone() as _,
-                        tls_client_config,
-                        tls_name,
-                    )
-                    .await?
-            } else {
-                let tls_name = self.tcp_notes.upstream.host().to_string();
-                self.ctx
-                    .escaper
-                    .tls_setup_connection(
-                        &mut self.tcp_notes,
-                        &self.task_notes,
-                        self.task_stats.clone() as _,
-                        tls_client_config,
-                        &tls_name,
-                    )
-                    .await?
-            }
+            let tls_name = self
+                .ctx
+                .server_config
+                .upstream_tls_name
+                .as_ref()
+                .unwrap_or_else(|| self.upstream.host());
+            self.ctx
+                .escaper
+                .tls_setup_connection(
+                    &mut self.tcp_notes,
+                    &self.task_notes,
+                    self.task_stats.clone() as _,
+                    tls_client_config,
+                    tls_name,
+                )
+                .await?
         } else {
             self.ctx
                 .escaper

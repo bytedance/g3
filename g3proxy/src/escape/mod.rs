@@ -112,7 +112,7 @@ pub(crate) trait EscaperInternal {
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
         tls_config: &'a OpensslClientConfig,
-        tls_name: &'a str,
+        tls_name: &'a Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError>;
 
     async fn _new_ftp_control_connection<'a>(
@@ -161,7 +161,7 @@ pub(crate) trait Escaper: EscaperInternal {
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
         tls_config: &'a OpensslClientConfig,
-        tls_name: &'a str,
+        tls_name: &'a Host,
     ) -> TcpConnectResult;
 
     async fn udp_setup_connection<'a>(

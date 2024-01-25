@@ -26,7 +26,7 @@ use tokio::time::Instant;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::auth::{Password, Username};
-use g3_types::net::{EgressArea, EgressInfo, OpensslClientConfig, TcpSockSpeedLimitConfig};
+use g3_types::net::{EgressArea, EgressInfo, Host, OpensslClientConfig, TcpSockSpeedLimitConfig};
 
 use super::{
     ArcNextProxyPeer, NextProxyPeer, NextProxyPeerInternal, ProxyFloatEscaperConfig,
@@ -75,7 +75,7 @@ pub(super) struct ProxyFloatHttpsPeer {
     escape_logger: Logger,
     addr: SocketAddr,
     tls_config: Arc<OpensslClientConfig>,
-    tls_name: String,
+    tls_name: Host,
     username: Username,
     password: Password,
     egress_info: EgressInfo,
@@ -97,7 +97,7 @@ impl ProxyFloatHttpsPeer {
             escape_logger,
             addr,
             tls_config,
-            tls_name: addr.ip().to_string(),
+            tls_name: Host::Ip(addr.ip()),
             username: Username::empty(),
             password: Password::empty(),
             egress_info: Default::default(),
@@ -144,7 +144,7 @@ impl NextProxyPeerInternal for ProxyFloatHttpsPeer {
                 Ok(())
             }
             "tls_name" => {
-                self.tls_name = g3_json::value::as_string(v)
+                self.tls_name = g3_json::value::as_host(v)
                     .context(format!("invalid tls server name value for key {k}"))?;
                 Ok(())
             }
@@ -176,7 +176,7 @@ impl NextProxyPeerInternal for ProxyFloatHttpsPeer {
             shared_config.set_user(&self.username, &self.password);
         }
         if self.tls_name.is_empty() {
-            self.tls_name = self.addr.ip().to_string();
+            self.tls_name = Host::Ip(self.addr.ip());
         }
         Ok(())
     }
@@ -210,7 +210,7 @@ impl NextProxyPeer for ProxyFloatHttpsPeer {
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
         tls_config: &'a OpensslClientConfig,
-        tls_name: &'a str,
+        tls_name: &'a Host,
     ) -> TcpConnectResult {
         self.http_connect_new_tls_connection(
             tcp_notes, task_notes, task_stats, tls_config, tls_name,
@@ -234,7 +234,7 @@ impl NextProxyPeer for ProxyFloatHttpsPeer {
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
         tls_config: &'a OpensslClientConfig,
-        tls_name: &'a str,
+        tls_name: &'a Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.https_forward_new_connection(tcp_notes, task_notes, task_stats, tls_config, tls_name)
             .await

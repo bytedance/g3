@@ -19,7 +19,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use tokio::time::Instant;
 
-use g3_types::net::{HttpForwardCapability, OpensslClientConfig, UpstreamAddr};
+use g3_types::net::{Host, HttpForwardCapability, OpensslClientConfig, UpstreamAddr};
 
 use crate::escape::{ArcEscaper, ArcEscaperInternalStats};
 use crate::module::http_forward::{
@@ -133,7 +133,7 @@ impl HttpForwardContext for ProxyHttpForwardContext {
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
         tls_config: &'a OpensslClientConfig,
-        tls_name: &'a str,
+        tls_name: &'a Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.last_is_tls = true;
         self.escaper

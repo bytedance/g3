@@ -17,7 +17,7 @@
 use std::sync::Arc;
 
 use g3_io_ext::{LimitedBufReader, LimitedWriter, NilLimitedReaderStats};
-use g3_types::net::OpensslClientConfig;
+use g3_types::net::{Host, OpensslClientConfig};
 
 use super::{
     NextProxyPeerInternal, ProxyFloatEscaperStats, ProxyFloatSocks5Peer,
@@ -73,7 +73,7 @@ impl ProxyFloatSocks5Peer {
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
         tls_config: &'a OpensslClientConfig,
-        tls_name: &'a str,
+        tls_name: &'a Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         let tls_stream = self
             .socks5_connect_tls_connect_to(

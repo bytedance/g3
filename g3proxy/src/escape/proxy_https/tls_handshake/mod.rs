@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-use std::borrow::Cow;
-
 use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncWrite};
 
@@ -35,15 +33,10 @@ impl ProxyHttpsEscaper {
     ) -> Result<(impl AsyncRead, impl AsyncWrite), TcpConnectError> {
         let (peer, ups_r, ups_w) = self.tcp_new_connection(tcp_notes, task_notes).await?;
 
-        let tls_name = self
-            .config
-            .tls_name
-            .as_ref()
-            .map(|v| Cow::Borrowed(v.as_str()))
-            .unwrap_or_else(|| peer.host_str());
+        let tls_name = self.config.tls_name.as_ref().unwrap_or_else(|| peer.host());
         let ssl = self
             .tls_config
-            .build_ssl(&tls_name, peer.port())
+            .build_ssl(tls_name, peer.port())
             .map_err(TcpConnectError::InternalTlsClientError)?;
         let connector = SslConnector::new(
             ssl,
@@ -64,7 +57,7 @@ impl ProxyHttpsEscaper {
                 EscapeLogForTlsHandshake {
                     tcp_notes,
                     task_id: &task_notes.id,
-                    tls_name: &tls_name,
+                    tls_name,
                     tls_peer: &peer,
                     tls_application: TlsApplication::HttpProxy,
                 }
@@ -76,7 +69,7 @@ impl ProxyHttpsEscaper {
                 EscapeLogForTlsHandshake {
                     tcp_notes,
                     task_id: &task_notes.id,
-                    tls_name: &tls_name,
+                    tls_name,
                     tls_peer: &peer,
                     tls_application: TlsApplication::HttpProxy,
                 }

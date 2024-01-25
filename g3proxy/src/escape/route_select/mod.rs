@@ -26,7 +26,7 @@ use serde_json::Value;
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder, WeightedValue};
 use g3_types::metrics::MetricsName;
-use g3_types::net::{OpensslClientConfig, UpstreamAddr};
+use g3_types::net::{Host, OpensslClientConfig, UpstreamAddr};
 
 use super::{ArcEscaper, Escaper, EscaperExt, EscaperInternal, RouteEscaperStats};
 use crate::config::escaper::route_select::RouteSelectEscaperConfig;
@@ -219,7 +219,7 @@ impl Escaper for RouteSelectEscaper {
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
         tls_config: &'a OpensslClientConfig,
-        tls_name: &'a str,
+        tls_name: &'a Host,
     ) -> TcpConnectResult {
         tcp_notes.escaper.clone_from(&self.config.name);
         match self.select_next(task_notes, &tcp_notes.upstream) {
@@ -371,7 +371,7 @@ impl EscaperInternal for RouteSelectEscaper {
         _task_notes: &'a ServerTaskNotes,
         _task_stats: ArcHttpForwardTaskRemoteStats,
         _tls_config: &'a OpensslClientConfig,
-        _tls_name: &'a str,
+        _tls_name: &'a Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         tcp_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)

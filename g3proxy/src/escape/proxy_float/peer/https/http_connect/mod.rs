@@ -25,7 +25,7 @@ use g3_daemon::stat::remote::{
 use g3_http::connect::{HttpConnectRequest, HttpConnectResponse};
 use g3_io_ext::{AggregatedIo, LimitedReader, LimitedWriter};
 use g3_openssl::{SslConnector, SslStream};
-use g3_types::net::OpensslClientConfig;
+use g3_types::net::{Host, OpensslClientConfig};
 
 use super::{NextProxyPeerInternal, ProxyFloatHttpsPeer};
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};
@@ -101,7 +101,7 @@ impl ProxyFloatHttpsPeer {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         tls_config: &'a OpensslClientConfig,
-        tls_name: &'a str,
+        tls_name: &'a Host,
         tls_application: TlsApplication,
     ) -> Result<SslStream<AggregatedIo<BufReader<impl AsyncRead>, impl AsyncWrite>>, TcpConnectError>
     {
@@ -156,7 +156,7 @@ impl ProxyFloatHttpsPeer {
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
         tls_config: &'a OpensslClientConfig,
-        tls_name: &'a str,
+        tls_name: &'a Host,
     ) -> TcpConnectResult {
         let tls_stream = self
             .http_connect_tls_connect_to(

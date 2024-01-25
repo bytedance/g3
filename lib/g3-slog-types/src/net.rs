@@ -18,7 +18,7 @@ use std::net::IpAddr;
 
 use slog::{Record, Serializer, Value};
 
-use g3_types::net::UpstreamAddr;
+use g3_types::net::{Host, UpstreamAddr};
 
 pub struct LtIpAddr(pub IpAddr);
 
@@ -46,6 +46,26 @@ impl<'a> Value for LtUpstreamAddr<'a> {
             serializer.emit_none(key)
         } else {
             serializer.emit_arguments(key, &format_args!("{}", &self.0))
+        }
+    }
+}
+
+pub struct LtHost<'a>(pub &'a Host);
+
+impl<'a> Value for LtHost<'a> {
+    fn serialize(
+        &self,
+        _record: &Record,
+        key: slog::Key,
+        serializer: &mut dyn Serializer,
+    ) -> slog::Result {
+        if self.0.is_empty() {
+            serializer.emit_none(key)
+        } else {
+            match self.0 {
+                Host::Domain(s) => serializer.emit_str(key, s),
+                Host::Ip(ip) => serializer.emit_arguments(key, &format_args!("{ip}")),
+            }
         }
     }
 }

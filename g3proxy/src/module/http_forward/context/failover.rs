@@ -22,7 +22,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use tokio::time::Instant;
 
-use g3_types::net::{HttpForwardCapability, OpensslClientConfig, UpstreamAddr};
+use g3_types::net::{Host, HttpForwardCapability, OpensslClientConfig, UpstreamAddr};
 
 use super::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpConnectionEofPoller,
@@ -75,7 +75,7 @@ impl HttpConnectFailoverContext {
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
         tls_config: &OpensslClientConfig,
-        tls_name: &str,
+        tls_name: &Host,
     ) -> Result<Self, Self> {
         match self
             .escaper
@@ -306,7 +306,7 @@ impl HttpForwardContext for FailoverHttpForwardContext {
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
         tls_config: &'a OpensslClientConfig,
-        tls_name: &'a str,
+        tls_name: &'a Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.last_is_tls = true;
 
