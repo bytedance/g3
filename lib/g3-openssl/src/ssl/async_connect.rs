@@ -30,18 +30,6 @@ pub struct SslConnector<S> {
 }
 
 impl<S: AsyncRead + AsyncWrite + Unpin> SslConnector<S> {
-    #[cfg(not(ossl300))]
-    pub fn new(ssl: Ssl, stream: S) -> Result<Self, ErrorStack> {
-        let wrapper = SslIoWrapper::new(stream);
-        let async_engine = AsyncEnginePoller::new(&ssl);
-
-        ssl::SslStream::new(ssl, wrapper).map(|inner| SslConnector {
-            inner,
-            async_engine,
-        })
-    }
-
-    #[cfg(ossl300)]
     pub fn new(ssl: Ssl, stream: S) -> Result<Self, ErrorStack> {
         let wrapper = SslIoWrapper::new(stream);
         let async_engine = AsyncEnginePoller::new(&ssl)?;
