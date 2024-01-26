@@ -17,6 +17,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+#[cfg(feature = "quic")]
 use quinn::Connection;
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
