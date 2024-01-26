@@ -3094,9 +3094,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.112"
+version = "1.0.113"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d1bd37ce2324cf3bf85e5a25f96eb4baf0d5aa6eba43e7ae8958870c4ec48ed"
+checksum = "69801b70b1c3dac963ecb03a364ba0ceda9cf60c71cfe475e99864759c8b8a79"
 dependencies = [
  "itoa",
  "ryu",
@@ -3551,9 +3551,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl"
-version = "0.11.3"
+version = "0.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c3f63dcf67892227ba95dea48aa95da8535e40752ece60304eb2bba542e372e"
+checksum = "59f5af55089c6442c6d161e309a3c576eb057668b6b0ef92b926bd6cbf2c3e0c"
 dependencies = [
  "bitflags 2.4.2",
  "cfg-if",
@@ -3566,9 +3566,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl-sys"
-version = "0.10.3"
+version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a2d2d110f11d23c03e921a0c303922cdecc775d2bff7be431e3313ee685efd5"
+checksum = "d9e3641783316b8bd792321a8ae1fc277916ea54b22f3ced1b3bc9db4953c7eb"
 dependencies = [
  "aws-lc-sys",
  "cc",

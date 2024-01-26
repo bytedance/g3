@@ -34,8 +34,8 @@ use tokio::sync::broadcast;
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_types::acl::{AclAction, AclNetworkRule};
-use g3_types::limit::GaugeSemaphorePermit;
 use g3_types::metrics::MetricsName;
+use g3_types::net::Host;
 use g3_types::route::HostMatch;
 
 use super::{CommonTaskContext, OpensslAcceptTask, OpensslHost, OpensslProxyServerStats};
@@ -55,13 +55,8 @@ pub(crate) struct OpensslProxyServer {
     hosts: Arc<HostMatch<Arc<OpensslHost>>>,
     #[cfg(feature = "vendored-tongsuo")]
     client_hello_version_index: Index<Ssl, SslVersion>,
-    #[cfg(feature = "vendored-tongsuo")]
+    host_name_index: Index<Ssl, Host>,
     lazy_ssl_context: SslContext,
-    host_index: Index<Ssl, Option<Arc<OpensslHost>>>,
-    alive_permit_index: Index<Ssl, Option<GaugeSemaphorePermit>>,
-    ssl_context: Arc<SslContext>,
-    #[cfg(feature = "vendored-tongsuo")]
-    tlcp_context: Arc<SslContext>,
 
     quit_policy: Arc<ServerQuitPolicy>,
     reload_version: usize,
@@ -77,29 +72,16 @@ impl OpensslProxyServer {
     ) -> anyhow::Result<Self> {
         let reload_sender = crate::serve::new_reload_notify_channel();
 
+        let host_name_index =
+            Ssl::new_ex_index().map_err(|e| anyhow!("failed to create ex index: {e}"))?;
         #[cfg(feature = "vendored-tongsuo")]
         let client_hello_version_index =
             Ssl::new_ex_index().map_err(|e| anyhow!("failed to create ex index: {e}"))?;
         #[cfg(feature = "vendored-tongsuo")]
-        let lazy_ssl_context = super::host::build_lazy_ssl_context(client_hello_version_index)?;
-
-        let host_index =
-            Ssl::new_ex_index().map_err(|e| anyhow!("failed to create ex index: {e}"))?;
-        let alive_permit_index =
-            Ssl::new_ex_index().map_err(|e| anyhow!("failed to create ex index: {e}"))?;
-        let ssl_context = super::host::build_ssl_context(
-            hosts.clone(),
-            host_index,
-            alive_permit_index,
-            config.alert_unrecognized_name,
-        )?;
-        #[cfg(feature = "vendored-tongsuo")]
-        let tlcp_context = super::host::build_tlcp_context(
-            hosts.clone(),
-            host_index,
-            alive_permit_index,
-            config.alert_unrecognized_name,
-        )?;
+        let lazy_ssl_context =
+            super::host::build_lazy_ssl_context(client_hello_version_index, host_name_index)?;
+        #[cfg(not(feature = "vendored-tongsuo"))]
+        let lazy_ssl_context = super::host::build_lazy_ssl_context(host_name_index)?;
 
         let ingress_net_filter = config
             .ingress_net_filter
@@ -121,13 +103,8 @@ impl OpensslProxyServer {
             hosts,
             #[cfg(feature = "vendored-tongsuo")]
             client_hello_version_index,
-            #[cfg(feature = "vendored-tongsuo")]
+            host_name_index,
             lazy_ssl_context,
-            host_index,
-            alive_permit_index,
-            ssl_context: Arc::new(ssl_context),
-            #[cfg(feature = "vendored-tongsuo")]
-            tlcp_context: Arc::new(tlcp_context),
             quit_policy: Arc::new(ServerQuitPolicy::default()),
             reload_version: version,
         })
@@ -199,16 +176,7 @@ impl OpensslProxyServer {
     }
 
     async fn run_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
-        #[cfg(feature = "vendored-tongsuo")]
         let ssl = match Ssl::new(&self.lazy_ssl_context) {
-            Ok(v) => v,
-            Err(e) => {
-                warn!("failed to build ssl context when accepting connections: {e}");
-                return;
-            }
-        };
-        #[cfg(not(feature = "vendored-tongsuo"))]
-        let ssl = match Ssl::new(&self.ssl_context) {
             Ok(v) => v,
             Err(e) => {
                 warn!("failed to build ssl context when accepting connections: {e}");
@@ -225,18 +193,18 @@ impl OpensslProxyServer {
 
             #[cfg(feature = "vendored-tongsuo")]
             client_hello_version_index: self.client_hello_version_index,
-            host_index: self.host_index,
-            alive_permit_index: self.alive_permit_index,
-            #[cfg(feature = "vendored-tongsuo")]
-            ssl_context: self.ssl_context.clone(),
-            #[cfg(feature = "vendored-tongsuo")]
-            tlcp_context: self.tlcp_context.clone(),
+            host_name_index: self.host_name_index,
         };
 
         if self.config.spawn_task_unconstrained {
-            tokio::task::unconstrained(OpensslAcceptTask::new(ctx).into_running(stream, ssl)).await
+            tokio::task::unconstrained(
+                OpensslAcceptTask::new(ctx, self.hosts.clone()).into_running(stream, ssl),
+            )
+            .await
         } else {
-            OpensslAcceptTask::new(ctx).into_running(stream, ssl).await;
+            OpensslAcceptTask::new(ctx, self.hosts.clone())
+                .into_running(stream, ssl)
+                .await;
         }
     }
 }

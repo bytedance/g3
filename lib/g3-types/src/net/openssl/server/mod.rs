@@ -19,7 +19,7 @@ use std::time::Duration;
 use anyhow::{anyhow, Context};
 use bytes::BufMut;
 use openssl::ssl::{
-    SslAcceptor, SslAcceptorBuilder, SslContext, SslMethod, SslSessionCacheMode, SslVerifyMode,
+    SslAcceptor, SslAcceptorBuilder, SslContext, SslSessionCacheMode, SslVerifyMode,
 };
 use openssl::stack::Stack;
 use openssl::x509::store::X509StoreBuilder;
@@ -32,19 +32,6 @@ use crate::net::AlpnProtocol;
 
 mod session;
 pub use session::{OpensslServerSessionCache, OpensslSessionIdContext};
-
-#[cfg(feature = "tongsuo")]
-const TLS_DEFAULT_CIPHER_SUITES: &str =
-    "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_SM4_GCM_SM3";
-#[cfg(feature = "tongsuo")]
-const TLS_DEFAULT_CIPHER_LIST: &str =
-    "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:\
-     ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:\
-     DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384";
-#[cfg(feature = "tongsuo")]
-const TLCP_DEFAULT_CIPHER_LIST: &str =
-    "ECDHE-SM2-SM4-CBC-SM3:ECDHE-SM2-SM4-GCM-SM3:ECC-SM2-SM4-CBC-SM3:ECC-SM2-SM4-GCM-SM3:\
-     RSA-SM4-CBC-SM3:RSA-SM4-GCM-SM3:RSA-SM4-CBC-SHA256:RSA-SM4-GCM-SHA256";
 
 #[derive(Clone)]
 pub struct OpensslServerConfig {
@@ -132,17 +119,31 @@ impl OpensslServerConfigBuilder {
         self.accept_timeout = timeout;
     }
 
+    #[cfg(not(feature = "tongsuo"))]
     fn build_tls_acceptor(
         &self,
         id_ctx: &mut OpensslSessionIdContext,
     ) -> anyhow::Result<SslAcceptorBuilder> {
+        use openssl::ssl::SslMethod;
+
         let mut ssl_builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::tls_server())
             .map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
 
-        #[cfg(feature = "tongsuo")]
-        ssl_builder
-            .set_ciphersuites(TLS_DEFAULT_CIPHER_SUITES)
-            .map_err(|e| anyhow!("failed to set tls1.3 cipher suites: {e}"))?;
+        for (i, pair) in self.cert_pairs.iter().enumerate() {
+            pair.add_to_server_ssl_context(&mut ssl_builder, id_ctx)
+                .context(format!("failed to add cert pair #{i} to ssl context"))?;
+        }
+
+        Ok(ssl_builder)
+    }
+
+    #[cfg(feature = "tongsuo")]
+    fn build_tls_acceptor(
+        &self,
+        id_ctx: &mut OpensslSessionIdContext,
+    ) -> anyhow::Result<SslAcceptorBuilder> {
+        let mut ssl_builder =
+            SslAcceptor::tongsuo_tls().map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
 
         for (i, pair) in self.cert_pairs.iter().enumerate() {
             pair.add_to_server_ssl_context(&mut ssl_builder, id_ctx)
@@ -158,7 +159,7 @@ impl OpensslServerConfigBuilder {
         id_ctx: &mut OpensslSessionIdContext,
     ) -> anyhow::Result<SslAcceptorBuilder> {
         let mut ssl_builder =
-            SslAcceptor::tlcp().map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
+            SslAcceptor::tongsuo_tlcp().map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
 
         for (i, pair) in self.tlcp_cert_pairs.iter().enumerate() {
             pair.add_to_server_ssl_context(&mut ssl_builder, id_ctx)
@@ -181,18 +182,8 @@ impl OpensslServerConfigBuilder {
             return self.build_tlcp_acceptor(id_ctx);
         }
 
-        let mut ssl_builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::ntls_server())
-            .map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
-        ssl_builder.enable_ntls();
-
-        ssl_builder
-            .set_cipher_list(&format!(
-                "{TLS_DEFAULT_CIPHER_LIST}:{TLCP_DEFAULT_CIPHER_LIST}"
-            ))
-            .map_err(|e| anyhow!("failed to set tls1.2 / tlcp cipher list: {e}"))?;
-        ssl_builder
-            .set_ciphersuites(TLS_DEFAULT_CIPHER_SUITES)
-            .map_err(|e| anyhow!("failed to set tls1.3 cipher suites: {e}"))?;
+        let mut ssl_builder =
+            SslAcceptor::tongsuo_auto().map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
 
         for (i, pair) in self.tlcp_cert_pairs.iter().enumerate() {
             pair.add_to_server_ssl_context(&mut ssl_builder, id_ctx)

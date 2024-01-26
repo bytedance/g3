@@ -18,9 +18,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use log::debug;
-use openssl::ssl::Ssl;
-#[cfg(feature = "vendored-tongsuo")]
-use openssl::ssl::SslVersion;
+use openssl::ssl::{Ssl, SslContext, SslRef};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::time::Instant;
@@ -29,21 +27,25 @@ use g3_daemon::stat::task::TcpStreamConnectionStats;
 use g3_io_ext::LimitedStream;
 use g3_openssl::SslStream;
 use g3_types::limit::GaugeSemaphorePermit;
+use g3_types::route::HostMatch;
 
 use super::{CommonTaskContext, OpensslRelayTask};
 
 mod stats;
+use crate::serve::openssl_proxy::host::OpensslHost;
 use stats::OpensslAcceptTaskCltWrapperStats;
 
 pub(crate) struct OpensslAcceptTask {
     ctx: CommonTaskContext,
+    hosts: Arc<HostMatch<Arc<OpensslHost>>>,
     alive_permit: Option<GaugeSemaphorePermit>,
 }
 
 impl OpensslAcceptTask {
-    pub(crate) fn new(ctx: CommonTaskContext) -> Self {
+    pub(crate) fn new(ctx: CommonTaskContext, hosts: Arc<HostMatch<Arc<OpensslHost>>>) -> Self {
         OpensslAcceptTask {
             ctx,
+            hosts,
             alive_permit: None,
         }
     }
@@ -65,23 +67,7 @@ impl OpensslAcceptTask {
         );
 
         match self.handshake(stream, ssl).await {
-            Ok(mut ssl_stream) => {
-                let Some(host) = ssl_stream.ssl_mut().ex_data_mut(self.ctx.host_index) else {
-                    return;
-                };
-                let Some(host) = host.take() else {
-                    return;
-                };
-
-                if let Some(sema) = ssl_stream
-                    .ssl_mut()
-                    .ex_data_mut(self.ctx.alive_permit_index)
-                {
-                    // This is not necessary, as the ex_data will also be dropped.
-                    // But we can drop it early by taking it out
-                    self.alive_permit = sema.take();
-                }
-
+            Ok((mut ssl_stream, host)) => {
                 let backend = if let Some(alpn) = ssl_stream.ssl().selected_alpn_protocol() {
                     let protocol = unsafe { std::str::from_utf8_unchecked(alpn) };
                     host.get_backend(protocol)
@@ -110,8 +96,11 @@ impl OpensslAcceptTask {
         }
     }
 
-    #[cfg(feature = "vendored-tongsuo")]
-    async fn handshake<S>(&mut self, stream: S, ssl: Ssl) -> anyhow::Result<SslStream<S>>
+    async fn handshake<S>(
+        &mut self,
+        stream: S,
+        ssl: Ssl,
+    ) -> anyhow::Result<(SslStream<S>, Arc<OpensslHost>)>
     where
         S: AsyncRead + AsyncWrite + Unpin,
     {
@@ -131,40 +120,69 @@ impl OpensslAcceptTask {
             }
         }
 
-        let Some(client_hello_version) = lazy_acceptor
-            .ssl()
-            .ex_data(self.ctx.client_hello_version_index)
-            .copied()
-        else {
-            return Err(anyhow!("no client hello version found"));
+        let Some(host) = self.get_host(lazy_acceptor.ssl()) else {
+            return Err(anyhow!("no matched host config found"));
         };
-        let acceptor = if client_hello_version == SslVersion::NTLS1_1 {
-            lazy_acceptor
-                .into_acceptor(&self.ctx.tlcp_context)
-                .map_err(|e| anyhow!("failed to set tlcp context: {e}"))?
-        } else {
-            lazy_acceptor
-                .into_acceptor(&self.ctx.ssl_context)
-                .map_err(|e| anyhow!("failed to set tlcp context: {e}"))?
+        #[cfg(feature = "vendored-tongsuo")]
+        let host_ssl_context = self.get_host_ssl_context(lazy_acceptor.ssl(), &host)?;
+        #[cfg(not(feature = "vendored-tongsuo"))]
+        let host_ssl_context = self.get_host_ssl_context(&host);
+        let Some(ssl_context) = host_ssl_context else {
+            return Err(anyhow!("no matched host ssl context found"));
         };
 
+        host.check_rate_limit()
+            .map_err(|_| anyhow!("host level rate limit reached"))?;
+        self.alive_permit = host
+            .acquire_request_semaphore()
+            .map_err(|_| anyhow!("host level alive limit reached"))?;
+
+        let acceptor = lazy_acceptor
+            .into_acceptor(ssl_context)
+            .map_err(|e| anyhow!("failed to set final ssl context: {e}"))?;
+
         match tokio::time::timeout(self.ctx.server_config.accept_timeout, acceptor.accept()).await {
-            Ok(Ok(ssl_stream)) => Ok(ssl_stream),
+            Ok(Ok(ssl_stream)) => Ok((ssl_stream, host)),
             Ok(Err(e)) => Err(anyhow!("failed to accept ssl handshake: {e}")),
             Err(_) => Err(anyhow!("timeout to accept ssl handshake")),
         }
     }
 
-    #[cfg(not(feature = "vendored-tongsuo"))]
-    async fn handshake<S>(&mut self, stream: S, ssl: Ssl) -> anyhow::Result<SslStream<S>>
-    where
-        S: AsyncRead + AsyncWrite + Unpin,
-    {
-        let acceptor = g3_openssl::SslAcceptor::new(ssl, stream).unwrap();
-        match tokio::time::timeout(self.ctx.server_config.accept_timeout, acceptor.accept()).await {
-            Ok(Ok(ssl_stream)) => Ok(ssl_stream),
-            Ok(Err(e)) => Err(anyhow!("failed to accept ssl handshake: {e}")),
-            Err(_) => Err(anyhow!("timeout to accept ssl handshake")),
+    fn get_host(&self, lazy_ssl: &SslRef) -> Option<Arc<OpensslHost>> {
+        if let Some(host) = lazy_ssl.ex_data(self.ctx.host_name_index) {
+            self.hosts.get(host).cloned()
+        } else {
+            self.hosts.get_default().cloned()
         }
+    }
+
+    #[cfg(feature = "vendored-tongsuo")]
+    fn get_host_ssl_context<'a, 'b>(
+        &self,
+        lazy_ssl: &'a SslRef,
+        host: &'b Arc<OpensslHost>,
+    ) -> anyhow::Result<Option<&'b SslContext>> {
+        use openssl::ssl::SslVersion;
+
+        let Some(client_hello_version) = lazy_ssl
+            .ex_data(self.ctx.client_hello_version_index)
+            .copied()
+        else {
+            return Err(anyhow!("no client hello version found"));
+        };
+        let host_ssl_context = if client_hello_version == SslVersion::NTLS1_1 {
+            host.tlcp_context.as_ref()
+        } else {
+            host.ssl_context.as_ref()
+        };
+        Ok(host_ssl_context)
+    }
+
+    #[cfg(not(feature = "vendored-tongsuo"))]
+    fn get_host_ssl_context<'a, 'b>(
+        &'a self,
+        host: &'b Arc<OpensslHost>,
+    ) -> Option<&'b SslContext> {
+        host.ssl_context.as_ref()
     }
 }

@@ -30,9 +30,7 @@ pub use stream::SslStream;
 mod accept;
 pub use accept::SslAcceptor;
 
-#[cfg(feature = "tongsuo")]
 mod lazy_accept;
-#[cfg(feature = "tongsuo")]
 pub use lazy_accept::SslLazyAcceptor;
 
 #[cfg_attr(not(feature = "async-job"), path = "connect.rs")]

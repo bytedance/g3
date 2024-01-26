@@ -16,7 +16,7 @@
 
 use anyhow::{anyhow, Context};
 use openssl::ssl::{
-    SslAcceptor, SslContext, SslContextBuilder, SslMethod, SslSessionCacheMode, SslVerifyMode,
+    SslAcceptor, SslContext, SslContextBuilder, SslSessionCacheMode, SslVerifyMode,
 };
 use openssl::stack::Stack;
 use openssl::x509::store::X509StoreBuilder;
@@ -136,8 +136,13 @@ impl OpensslHostConfig {
                 .map_err(|e| anyhow!("failed to add session id context text: {e}"))?;
         }
 
-        let mut ssl_builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::tls_server())
-            .map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
+        #[cfg(not(feature = "vendored-tongsuo"))]
+        let mut ssl_builder =
+            SslAcceptor::mozilla_intermediate_v5(openssl::ssl::SslMethod::tls_server())
+                .map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
+        #[cfg(feature = "vendored-tongsuo")]
+        let mut ssl_builder =
+            SslAcceptor::tongsuo_tls().map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
 
         ssl_builder.set_session_cache_mode(SslSessionCacheMode::SERVER); // TODO use external cache?
 
@@ -190,7 +195,7 @@ impl OpensslHostConfig {
         }
 
         let mut ssl_builder =
-            SslAcceptor::tlcp().map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
+            SslAcceptor::tongsuo_tlcp().map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
 
         ssl_builder.set_session_cache_mode(SslSessionCacheMode::SERVER); // TODO use external cache?
 
