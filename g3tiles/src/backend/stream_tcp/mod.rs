@@ -101,9 +101,7 @@ impl StreamTcpBackend {
 
     fn select_peer(&self, task_notes: &ServerTaskNotes) -> Option<SocketAddr> {
         let guard = self.peer_addrs.load();
-        let Some(peers) = &*guard else {
-            return None;
-        };
+        let peers = (*guard).as_ref()?;
 
         let v = self.select_consistent(peers.as_ref(), self.config.peer_pick_policy, task_notes);
         Some(*v.inner())

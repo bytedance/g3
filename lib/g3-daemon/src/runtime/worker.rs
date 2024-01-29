@@ -47,7 +47,7 @@ pub async fn spawn_workers() -> anyhow::Result<Option<WorkersGuard>> {
 
 #[inline]
 fn handles() -> &'static [WorkerHandle] {
-    unsafe { &WORKER_HANDLERS }
+    unsafe { WORKER_HANDLERS.as_slice() }
 }
 
 pub fn worker_count() -> usize {

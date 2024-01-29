@@ -34,7 +34,7 @@ pub(super) fn add(name: MetricsName, auditor: Arc<Auditor>) {
 
 pub(super) fn get(name: &MetricsName) -> Option<Arc<Auditor>> {
     let ht = RUNTIME_AUDITOR_REGISTRY.lock().unwrap();
-    ht.get(name).map(Arc::clone)
+    ht.get(name).cloned()
 }
 
 pub(super) fn del(name: &MetricsName) {

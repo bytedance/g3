@@ -113,9 +113,7 @@ impl RustlsAcceptTask {
             Ok(Ok(d)) => {
                 let client_hello = d.client_hello();
 
-                let Some(host) = self.get_host(&client_hello, hosts) else {
-                    return None;
-                };
+                let host = self.get_host(&client_hello, hosts)?;
 
                 if host.check_rate_limit().is_err() {
                     return None;

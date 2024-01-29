@@ -99,7 +99,7 @@ pub(super) fn get_config(name: &MetricsName) -> Option<AnyServerConfig> {
 
 pub(crate) fn get_server(name: &MetricsName) -> Option<ArcServer> {
     let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
-    ht.get(name).map(Arc::clone)
+    ht.get(name).cloned()
 }
 
 pub(super) fn update_config_in_place(

@@ -52,7 +52,7 @@ pub(super) fn add(name: MetricsName, group: Arc<UserGroup>) {
 
 pub(super) fn get(name: &MetricsName) -> Option<Arc<UserGroup>> {
     let ht = RUNTIME_USER_GROUP_REGISTRY.lock().unwrap();
-    ht.get(name).map(Arc::clone)
+    ht.get(name).cloned()
 }
 
 pub(super) fn del(name: &MetricsName) {

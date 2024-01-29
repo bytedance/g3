@@ -15,7 +15,7 @@
  */
 
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 use anyhow::anyhow;
 use once_cell::sync::Lazy;
@@ -32,11 +32,6 @@ static RUNTIME_ESCAPER_REGISTRY: Lazy<Mutex<HashMap<MetricsName, ArcEscaper>>> =
 pub(super) fn add(name: MetricsName, escaper: ArcEscaper) {
     let mut ht = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
     if let Some(_old_escaper) = ht.insert(name, escaper) {}
-}
-
-fn get(name: &MetricsName) -> Option<ArcEscaper> {
-    let ht = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
-    ht.get(name).map(Arc::clone)
 }
 
 pub(super) fn del(name: &MetricsName) {
@@ -65,7 +60,7 @@ pub(crate) fn get_names() -> HashSet<MetricsName> {
 
 pub(super) fn get_escaper(name: &MetricsName) -> Option<ArcEscaper> {
     let ht = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
-    ht.get(name).map(Arc::clone)
+    ht.get(name).cloned()
 }
 
 pub(super) fn get_config(name: &MetricsName) -> Option<AnyEscaperConfig> {
@@ -90,7 +85,7 @@ pub(super) async fn reload_existed(
     name: &MetricsName,
     config: Option<AnyEscaperConfig>,
 ) -> anyhow::Result<()> {
-    let Some(old_escaper) = get(name) else {
+    let Some(old_escaper) = get_escaper(name) else {
         return Err(anyhow!("no escaper with name {name} found"));
     };
     let config = config.unwrap_or_else(|| old_escaper._clone_config());

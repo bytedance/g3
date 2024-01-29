@@ -15,7 +15,7 @@
  */
 
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 use anyhow::anyhow;
 use once_cell::sync::Lazy;
@@ -35,7 +35,7 @@ pub(super) fn add(name: MetricsName, discover: ArcDiscover) {
 
 pub(crate) fn get(name: &MetricsName) -> Option<ArcDiscover> {
     let ht = RUNTIME_DISCOVER_REGISTRY.lock().unwrap();
-    ht.get(name).map(Arc::clone)
+    ht.get(name).cloned()
 }
 
 pub(super) fn del(name: &MetricsName) {

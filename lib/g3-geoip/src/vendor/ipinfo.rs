@@ -205,9 +205,7 @@ fn parse_network(
 ) -> Option<IpNetwork> {
     macro_rules! get_ip_field {
         ($field:ident, $index:expr) => {
-            let Some($field) = record.get($index) else {
-                return None;
-            };
+            let $field = record.get($index)?;
             let Ok($field) = IpAddr::from_str($field) else {
                 return None;
             };

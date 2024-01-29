@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::ptr::addr_of;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
@@ -30,7 +31,7 @@ static mut TASK_QUIT_TIMEOUT_DURATION: Duration = Duration::from_secs(1800); // 
 static mut TASK_WAIT_DELAY_DURATION: Duration = Duration::from_secs(2);
 
 pub fn get_runtime_config() -> &'static BlendedRuntimeConfig {
-    unsafe { &RUNTIME_CONFIG }
+    unsafe { &*addr_of!(RUNTIME_CONFIG) }
 }
 
 pub fn get_worker_config() -> Option<&'static UnaidedRuntimeConfig> {

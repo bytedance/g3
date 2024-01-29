@@ -104,6 +104,6 @@ impl UserRequestStats {
 
     pub(crate) fn server_extra_tags(&self) -> Option<Arc<StaticMetricsTags>> {
         let guard = self.server_extra_tags.load();
-        (*guard).as_ref().map(Arc::clone)
+        (*guard).as_ref().cloned()
     }
 }
