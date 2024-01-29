@@ -157,9 +157,9 @@ impl OpensslAcceptTask {
     }
 
     #[cfg(feature = "vendored-tongsuo")]
-    fn get_host_ssl_context<'a, 'b>(
+    fn get_host_ssl_context<'b>(
         &self,
-        lazy_ssl: &'a SslRef,
+        lazy_ssl: &SslRef,
         host: &'b Arc<OpensslHost>,
     ) -> anyhow::Result<Option<&'b SslContext>> {
         use openssl::ssl::SslVersion;
@@ -179,10 +179,7 @@ impl OpensslAcceptTask {
     }
 
     #[cfg(not(feature = "vendored-tongsuo"))]
-    fn get_host_ssl_context<'a, 'b>(
-        &'a self,
-        host: &'b Arc<OpensslHost>,
-    ) -> Option<&'b SslContext> {
+    fn get_host_ssl_context<'b>(&self, host: &'b Arc<OpensslHost>) -> Option<&'b SslContext> {
         host.ssl_context.as_ref()
     }
 }
