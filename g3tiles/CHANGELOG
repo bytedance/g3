@@ -1,4 +1,10 @@
 
+v0.3.0:
+ - BUG FIX: fix session resumption for OpensslProxy when client auth is enabled
+ - Feature: introduce discover and backend
+ - Feature: use lazy acceptor when checking in openssl host config
+ - Optimization: more efficient sending of StatsD metrics
+
 v0.2.7:
  - BUG FIX: fix logger io stats in various AsyncLogger backends
  - Feature: various improvements to journal logging
