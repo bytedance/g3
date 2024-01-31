@@ -87,6 +87,7 @@ pub struct OpensslClientConfigBuilder {
     client_tlcp_cert_pair: Option<OpensslTlcpCertificatePair>,
     handshake_timeout: Duration,
     session_cache: OpensslSessionCacheConfig,
+    supported_groups: String,
 }
 
 impl Default for OpensslClientConfigBuilder {
@@ -102,6 +103,7 @@ impl Default for OpensslClientConfigBuilder {
             client_tlcp_cert_pair: None,
             handshake_timeout: DEFAULT_HANDSHAKE_TIMEOUT,
             session_cache: OpensslSessionCacheConfig::default(),
+            supported_groups: String::default(),
         }
     }
 }
@@ -209,6 +211,11 @@ impl OpensslClientConfigBuilder {
     #[inline]
     pub fn set_session_cache_each_capacity(&mut self, cap: usize) {
         self.session_cache.set_each_capacity(cap);
+    }
+
+    #[inline]
+    pub fn set_supported_groups(&mut self, groups: String) {
+        self.supported_groups = groups;
     }
 
     #[cfg(feature = "tongsuo")]
@@ -326,6 +333,12 @@ impl OpensslClientConfigBuilder {
             Some(OpensslProtocol::Tlcp11) => self.new_tlcp_builder()?,
             None => self.new_default_builder()?,
         };
+
+        if !self.supported_groups.is_empty() {
+            ctx_builder
+                .set_groups_list(&self.supported_groups)
+                .map_err(|e| anyhow!("failed to set supported elliptic curve groups: {e}"))?;
+        }
 
         let mut store_builder = X509StoreBuilder::new()
             .map_err(|e| anyhow!("failed to create ca cert store builder: {e}"))?;

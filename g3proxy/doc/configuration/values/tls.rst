@@ -302,6 +302,16 @@ The map is consists of the following fields:
 
   **default**: 16
 
+* supported_groups
+
+  **optional**, **type**: str
+
+  Set the supported elliptic curve groups.
+
+  **default**: not set
+
+  .. versionadded:: 1.7.35
+
 .. versionadded:: 1.1.4
 
 .. _conf_value_openssl_server_config:

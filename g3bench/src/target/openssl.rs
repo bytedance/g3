@@ -41,6 +41,7 @@ const TLS_ARG_NO_VERIFY: &str = "tls-no-verify";
 const TLS_ARG_NO_SNI: &str = "tls-no-sni";
 const TLS_ARG_PROTOCOL: &str = "tls-protocol";
 const TLS_ARG_CIPHERS: &str = "tls-ciphers";
+const TLS_ARG_SUPPORTED_GROUPS: &str = "tls-supported-groups";
 
 const PROXY_TLS_ARG_CA_CERT: &str = "proxy-tls-ca-cert";
 const PROXY_TLS_ARG_CERT: &str = "proxy-tls-cert";
@@ -51,6 +52,7 @@ const PROXY_TLS_ARG_NO_VERIFY: &str = "proxy-tls-no-verify";
 const PROXY_TLS_ARG_NO_SNI: &str = "proxy-tls-no-sni";
 const PROXY_TLS_ARG_PROTOCOL: &str = "proxy-tls-protocol";
 const PROXY_TLS_ARG_CIPHERS: &str = "proxy-tls-ciphers";
+const PROXY_TLS_ARG_SUPPORTED_GROUPS: &str = "proxy-tls-supported-groups";
 
 const SESSION_CACHE_VALUES: [&str; 2] = ["off", "builtin"];
 #[cfg(not(feature = "vendored-tongsuo"))]
@@ -209,6 +211,17 @@ impl OpensslTlsClientArgs {
         Ok(())
     }
 
+    fn parse_supported_groups(&mut self, args: &ArgMatches, id: &str) -> anyhow::Result<()> {
+        let tls_config = self
+            .config
+            .as_mut()
+            .ok_or_else(|| anyhow!("no tls config found"))?;
+        if let Some(groups) = args.get_one::<String>(id) {
+            tls_config.set_supported_groups(groups.to_string());
+        }
+        Ok(())
+    }
+
     fn build_client(&mut self) -> anyhow::Result<()> {
         let tls_config = self
             .config
@@ -242,6 +255,7 @@ impl OpensslTlsClientArgs {
         self.parse_session_cache(args, TLS_ARG_SESSION_CACHE)?;
         self.parse_no_verify(args, TLS_ARG_NO_VERIFY);
         self.parse_no_sni(args, TLS_ARG_NO_SNI)?;
+        self.parse_supported_groups(args, TLS_ARG_SUPPORTED_GROUPS)?;
         self.build_client()
     }
 
@@ -257,6 +271,7 @@ impl OpensslTlsClientArgs {
         self.parse_session_cache(args, PROXY_TLS_ARG_SESSION_CACHE)?;
         self.parse_no_verify(args, PROXY_TLS_ARG_NO_VERIFY);
         self.parse_no_sni(args, PROXY_TLS_ARG_NO_SNI)?;
+        self.parse_supported_groups(args, PROXY_TLS_ARG_SUPPORTED_GROUPS)?;
         self.build_client()
     }
 }
@@ -361,6 +376,12 @@ pub(crate) fn append_tls_args(cmd: Command) -> Command {
             .long(TLS_ARG_NO_SNI),
     )
     .arg(
+        Arg::new(TLS_ARG_SUPPORTED_GROUPS)
+            .help("Set the supported elliptic curve groups for target site")
+            .long(TLS_ARG_SUPPORTED_GROUPS)
+            .num_args(1),
+    )
+    .arg(
         Arg::new(TLS_ARG_PROTOCOL)
             .help("Set tls protocol for target site")
             .value_name("PROTOCOL")
@@ -434,6 +455,12 @@ pub(crate) fn append_proxy_tls_args(cmd: Command) -> Command {
             .help("Disable TLS SNI for proxy")
             .action(ArgAction::SetTrue)
             .long(PROXY_TLS_ARG_NO_SNI),
+    )
+    .arg(
+        Arg::new(PROXY_TLS_ARG_SUPPORTED_GROUPS)
+            .help("Set the supported elliptic curve groups for proxy")
+            .long(PROXY_TLS_ARG_SUPPORTED_GROUPS)
+            .num_args(1),
     )
     .arg(
         Arg::new(PROXY_TLS_ARG_PROTOCOL)

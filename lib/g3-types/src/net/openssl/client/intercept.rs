@@ -75,6 +75,7 @@ pub struct OpensslInterceptionClientConfigBuilder {
     no_default_ca_certs: bool,
     handshake_timeout: Duration,
     session_cache: OpensslSessionCacheConfig,
+    supported_groups: String,
 }
 
 impl Default for OpensslInterceptionClientConfigBuilder {
@@ -84,6 +85,7 @@ impl Default for OpensslInterceptionClientConfigBuilder {
             no_default_ca_certs: false,
             handshake_timeout: DEFAULT_HANDSHAKE_TIMEOUT,
             session_cache: OpensslSessionCacheConfig::default(),
+            supported_groups: String::default(),
         }
     }
 }
@@ -132,10 +134,21 @@ impl OpensslInterceptionClientConfigBuilder {
         self.session_cache.set_each_capacity(cap);
     }
 
+    #[inline]
+    pub fn set_supported_groups(&mut self, groups: String) {
+        self.supported_groups = groups;
+    }
+
     pub fn build(&self) -> anyhow::Result<OpensslInterceptionClientConfig> {
         let mut ctx_builder = SslConnector::builder(SslMethod::tls_client())
             .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
         ctx_builder.set_verify(SslVerifyMode::PEER);
+
+        if !self.supported_groups.is_empty() {
+            ctx_builder
+                .set_groups_list(&self.supported_groups)
+                .map_err(|e| anyhow!("failed to set supported elliptic curve groups: {e}"))?;
+        }
 
         let mut store_builder = X509StoreBuilder::new()
             .map_err(|e| anyhow!("failed to create ca cert store builder: {e}"))?;

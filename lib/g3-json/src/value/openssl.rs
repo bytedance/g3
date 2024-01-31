@@ -271,6 +271,10 @@ fn set_openssl_tls_client_config_builder(
                         .context(format!("invalid usize value for key {k}"))?;
                     builder.set_session_cache_each_capacity(cap);
                 }
+                "supported_groups" => {
+                    let groups = crate::value::as_string(v)?;
+                    builder.set_supported_groups(groups);
+                }
                 _ => return Err(anyhow!("invalid key {k}")),
             }
         }

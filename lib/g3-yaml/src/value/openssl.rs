@@ -331,6 +331,11 @@ fn set_openssl_tls_client_config_builder(
                 builder.set_session_cache_each_capacity(cap);
                 Ok(())
             }
+            "supported_groups" => {
+                let groups = crate::value::as_string(v)?;
+                builder.set_supported_groups(groups);
+                Ok(())
+            }
             _ => Err(anyhow!("invalid key {k}")),
         })?;
 
@@ -411,6 +416,11 @@ pub fn as_tls_interception_client_config_builder(
                 let cap = crate::value::as_usize(v)
                     .context(format!("invalid usize value for key {k}"))?;
                 builder.set_session_cache_each_capacity(cap);
+                Ok(())
+            }
+            "supported_groups" => {
+                let groups = crate::value::as_string(v)?;
+                builder.set_supported_groups(groups);
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

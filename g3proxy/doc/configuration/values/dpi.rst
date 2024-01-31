@@ -374,6 +374,16 @@ The keys are:
 
   **default**: 16
 
+* supported_groups
+
+  **optional**, **type**: str
+
+  Set the supported elliptic curve groups.
+
+  **default**: not set
+
+  .. versionadded:: 1.7.35
+
 HTTP Interception
 =================
 
