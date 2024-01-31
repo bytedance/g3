@@ -56,6 +56,13 @@ jobs:
           - vendored-tongsuo
           - vendored-aws-lc
           - vendored-c-ares
+        component:
+          - g3proxy
+          - g3bench
+          - g3tiles
+          - g3fcgen
+          - g3mkcert
+          - g3keymess
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -67,6 +74,6 @@ jobs:
         run: |
           brew install capnp openssl c-ares lua
       - name: Cargo build
-        run: cargo build --no-default-features --features ${{ matrix.feature }}
+        run: cargo build --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }}
       - name: Cargo clippy
-        run: cargo clippy --no-default-features --features ${{ matrix.feature }} -- --deny warnings
+        run: cargo clippy --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }} -- --deny warnings
