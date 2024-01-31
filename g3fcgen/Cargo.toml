@@ -22,7 +22,7 @@ yaml-rust.workspace = true
 g3-types.workspace = true
 g3-runtime.workspace = true
 g3-msgpack.workspace = true
-g3-yaml = { workspace = true, features = ["histogram"] }
+g3-yaml = { workspace = true, features = ["histogram", "openssl"] }
 g3-daemon.workspace = true
 g3-statsd-client.workspace = true
 g3-histogram.workspace = true
