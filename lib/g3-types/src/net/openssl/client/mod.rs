@@ -17,6 +17,8 @@
 use std::time::Duration;
 
 use anyhow::anyhow;
+#[cfg(not(feature = "aws-lc"))]
+use openssl::ssl::StatusType;
 use openssl::ssl::{
     Ssl, SslConnector, SslConnectorBuilder, SslContext, SslMethod, SslVerifyMode, SslVersion,
 };
@@ -88,6 +90,7 @@ pub struct OpensslClientConfigBuilder {
     handshake_timeout: Duration,
     session_cache: OpensslSessionCacheConfig,
     supported_groups: String,
+    use_ocsp_stapling: bool,
 }
 
 impl Default for OpensslClientConfigBuilder {
@@ -104,6 +107,7 @@ impl Default for OpensslClientConfigBuilder {
             handshake_timeout: DEFAULT_HANDSHAKE_TIMEOUT,
             session_cache: OpensslSessionCacheConfig::default(),
             supported_groups: String::default(),
+            use_ocsp_stapling: false,
         }
     }
 }
@@ -216,6 +220,11 @@ impl OpensslClientConfigBuilder {
     #[inline]
     pub fn set_supported_groups(&mut self, groups: String) {
         self.supported_groups = groups;
+    }
+
+    #[inline]
+    pub fn set_use_ocsp_stapling(&mut self, enable: bool) {
+        self.use_ocsp_stapling = enable;
     }
 
     #[cfg(feature = "tongsuo")]
@@ -338,6 +347,21 @@ impl OpensslClientConfigBuilder {
             ctx_builder
                 .set_groups_list(&self.supported_groups)
                 .map_err(|e| anyhow!("failed to set supported elliptic curve groups: {e}"))?;
+        }
+
+        if self.use_ocsp_stapling {
+            #[cfg(not(feature = "aws-lc"))]
+            ctx_builder
+                .set_status_type(StatusType::OCSP)
+                .map_err(|e| anyhow!("failed to enable OCSP status request: {e}"))?;
+            #[cfg(feature = "aws-lc")]
+            ctx_builder.enable_ocsp_stapling();
+            ctx_builder
+                .set_status_callback(|_ssl| {
+                    // TODO really check
+                    Ok(true)
+                })
+                .map_err(|e| anyhow!("failed to set ocsp response check callback: {e}"))?;
         }
 
         let mut store_builder = X509StoreBuilder::new()

@@ -312,6 +312,18 @@ The map is consists of the following fields:
 
   .. versionadded:: 1.7.35
 
+* use_ocsp_stapling
+
+  **optional**, **type**: bool
+
+  Set this to true to request a stapled OCSP response from the server.
+
+  Verify of this response is still not implemented.
+
+  **default**: false
+
+  .. versionadded:: 1.7.35
+
 .. versionadded:: 1.1.4
 
 .. _conf_value_openssl_server_config:

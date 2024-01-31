@@ -17,6 +17,8 @@
 use std::time::Duration;
 
 use anyhow::anyhow;
+#[cfg(not(feature = "aws-lc"))]
+use openssl::ssl::StatusType;
 use openssl::ssl::{Ssl, SslConnector, SslContext, SslMethod, SslVerifyMode};
 use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::X509;
@@ -32,6 +34,8 @@ pub struct OpensslInterceptionClientConfig {
     ssl_context: SslContext,
     pub handshake_timeout: Duration,
     session_cache: Option<OpensslClientSessionCache>,
+    #[cfg(feature = "aws-lc")]
+    pub use_ocsp_stapling: bool,
 }
 
 impl OpensslInterceptionClientConfig {
@@ -76,6 +80,7 @@ pub struct OpensslInterceptionClientConfigBuilder {
     handshake_timeout: Duration,
     session_cache: OpensslSessionCacheConfig,
     supported_groups: String,
+    use_ocsp_stapling: bool,
 }
 
 impl Default for OpensslInterceptionClientConfigBuilder {
@@ -86,6 +91,7 @@ impl Default for OpensslInterceptionClientConfigBuilder {
             handshake_timeout: DEFAULT_HANDSHAKE_TIMEOUT,
             session_cache: OpensslSessionCacheConfig::default(),
             supported_groups: String::default(),
+            use_ocsp_stapling: false,
         }
     }
 }
@@ -139,6 +145,11 @@ impl OpensslInterceptionClientConfigBuilder {
         self.supported_groups = groups;
     }
 
+    #[inline]
+    pub fn set_use_ocsp_stapling(&mut self, enable: bool) {
+        self.use_ocsp_stapling = enable;
+    }
+
     pub fn build(&self) -> anyhow::Result<OpensslInterceptionClientConfig> {
         let mut ctx_builder = SslConnector::builder(SslMethod::tls_client())
             .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
@@ -148,6 +159,21 @@ impl OpensslInterceptionClientConfigBuilder {
             ctx_builder
                 .set_groups_list(&self.supported_groups)
                 .map_err(|e| anyhow!("failed to set supported elliptic curve groups: {e}"))?;
+        }
+
+        if self.use_ocsp_stapling {
+            #[cfg(not(feature = "aws-lc"))]
+            ctx_builder
+                .set_status_type(StatusType::OCSP)
+                .map_err(|e| anyhow!("failed to enable OCSP status request: {e}"))?;
+            #[cfg(feature = "aws-lc")]
+            ctx_builder.enable_ocsp_stapling();
+            ctx_builder
+                .set_status_callback(|_ssl| {
+                    // TODO really check
+                    Ok(true)
+                })
+                .map_err(|e| anyhow!("failed to set ocsp response check callback: {e}"))?;
         }
 
         let mut store_builder = X509StoreBuilder::new()
@@ -173,6 +199,8 @@ impl OpensslInterceptionClientConfigBuilder {
             ssl_context: ctx_builder.build().into_context(),
             handshake_timeout: self.handshake_timeout,
             session_cache,
+            #[cfg(feature = "aws-lc")]
+            use_ocsp_stapling: self.use_ocsp_stapling,
         })
     }
 }

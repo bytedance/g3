@@ -42,6 +42,7 @@ const TLS_ARG_NO_SNI: &str = "tls-no-sni";
 const TLS_ARG_PROTOCOL: &str = "tls-protocol";
 const TLS_ARG_CIPHERS: &str = "tls-ciphers";
 const TLS_ARG_SUPPORTED_GROUPS: &str = "tls-supported-groups";
+const TLS_ARG_USE_OCSP_STAPLING: &str = "tls-use-ocsp-stapling";
 
 const PROXY_TLS_ARG_CA_CERT: &str = "proxy-tls-ca-cert";
 const PROXY_TLS_ARG_CERT: &str = "proxy-tls-cert";
@@ -53,6 +54,7 @@ const PROXY_TLS_ARG_NO_SNI: &str = "proxy-tls-no-sni";
 const PROXY_TLS_ARG_PROTOCOL: &str = "proxy-tls-protocol";
 const PROXY_TLS_ARG_CIPHERS: &str = "proxy-tls-ciphers";
 const PROXY_TLS_ARG_SUPPORTED_GROUPS: &str = "proxy-tls-supported-groups";
+const PROXY_TLS_ARG_USE_OCSP_STAPLING: &str = "proxy-tls-use-ocsp-stapling";
 
 const SESSION_CACHE_VALUES: [&str; 2] = ["off", "builtin"];
 #[cfg(not(feature = "vendored-tongsuo"))]
@@ -222,6 +224,17 @@ impl OpensslTlsClientArgs {
         Ok(())
     }
 
+    fn parse_use_ocsp_stapling(&mut self, args: &ArgMatches, id: &str) -> anyhow::Result<()> {
+        let tls_config = self
+            .config
+            .as_mut()
+            .ok_or_else(|| anyhow!("no tls config found"))?;
+        if args.get_flag(id) {
+            tls_config.set_use_ocsp_stapling(true);
+        }
+        Ok(())
+    }
+
     fn build_client(&mut self) -> anyhow::Result<()> {
         let tls_config = self
             .config
@@ -256,6 +269,7 @@ impl OpensslTlsClientArgs {
         self.parse_no_verify(args, TLS_ARG_NO_VERIFY);
         self.parse_no_sni(args, TLS_ARG_NO_SNI)?;
         self.parse_supported_groups(args, TLS_ARG_SUPPORTED_GROUPS)?;
+        self.parse_use_ocsp_stapling(args, TLS_ARG_USE_OCSP_STAPLING)?;
         self.build_client()
     }
 
@@ -272,6 +286,7 @@ impl OpensslTlsClientArgs {
         self.parse_no_verify(args, PROXY_TLS_ARG_NO_VERIFY);
         self.parse_no_sni(args, PROXY_TLS_ARG_NO_SNI)?;
         self.parse_supported_groups(args, PROXY_TLS_ARG_SUPPORTED_GROUPS)?;
+        self.parse_use_ocsp_stapling(args, PROXY_TLS_ARG_USE_OCSP_STAPLING)?;
         self.build_client()
     }
 }
@@ -382,6 +397,12 @@ pub(crate) fn append_tls_args(cmd: Command) -> Command {
             .num_args(1),
     )
     .arg(
+        Arg::new(TLS_ARG_USE_OCSP_STAPLING)
+            .help("Set to use OCSP stapling for target site")
+            .action(ArgAction::SetTrue)
+            .long(TLS_ARG_USE_OCSP_STAPLING),
+    )
+    .arg(
         Arg::new(TLS_ARG_PROTOCOL)
             .help("Set tls protocol for target site")
             .value_name("PROTOCOL")
@@ -461,6 +482,12 @@ pub(crate) fn append_proxy_tls_args(cmd: Command) -> Command {
             .help("Set the supported elliptic curve groups for proxy")
             .long(PROXY_TLS_ARG_SUPPORTED_GROUPS)
             .num_args(1),
+    )
+    .arg(
+        Arg::new(PROXY_TLS_ARG_USE_OCSP_STAPLING)
+            .help("Set to use OCSP stapling for proxy")
+            .action(ArgAction::SetTrue)
+            .long(PROXY_TLS_ARG_USE_OCSP_STAPLING),
     )
     .arg(
         Arg::new(PROXY_TLS_ARG_PROTOCOL)

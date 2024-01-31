@@ -275,6 +275,10 @@ fn set_openssl_tls_client_config_builder(
                     let groups = crate::value::as_string(v)?;
                     builder.set_supported_groups(groups);
                 }
+                "use_ocsp_stapling" => {
+                    let enable = crate::value::as_bool(v)?;
+                    builder.set_use_ocsp_stapling(enable);
+                }
                 _ => return Err(anyhow!("invalid key {k}")),
             }
         }

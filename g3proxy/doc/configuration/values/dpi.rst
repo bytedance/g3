@@ -384,6 +384,18 @@ The keys are:
 
   .. versionadded:: 1.7.35
 
+* use_ocsp_stapling
+
+  **optional**, **type**: bool
+
+  Set this to true to request a stapled OCSP response from the server.
+
+  Verify of this response is still not implemented.
+
+  **default**: false
+
+  .. versionadded:: 1.7.35
+
 HTTP Interception
 =================
 
