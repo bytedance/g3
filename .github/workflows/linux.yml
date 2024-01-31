@@ -57,7 +57,6 @@ jobs:
           - vendored-openssl
           - vendored-tongsuo
           - vendored-aws-lc
-          - vendored-c-ares
         component:
           - g3proxy
           - g3bench
@@ -65,6 +64,9 @@ jobs:
           - g3fcgen
           - g3mkcert
           - g3keymess
+        include:
+          - feature: vendored-c-ares
+            component: g3proxy
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
