@@ -122,9 +122,19 @@ impl CAresDriverConfig {
         self.udp_max_queries = max.max(0);
     }
 
+    #[cfg(not(cares1_20))]
+    pub fn set_udp_max_queries(&mut self, _max: i32) {
+        log::warn!("option udp_max_queries requires c-ares version 1.20");
+    }
+
     #[cfg(cares1_22)]
     pub fn set_max_timeout(&mut self, timeout_ms: i32) {
         self.max_timeout = timeout_ms.max(0);
+    }
+
+    #[cfg(not(cares1_22))]
+    pub fn set_max_timeout(&mut self, _timeout_ms: i32) {
+        log::warn!("option max_timeout requires c-ares version 1.22");
     }
 
     pub fn is_unspecified(&self) -> bool {

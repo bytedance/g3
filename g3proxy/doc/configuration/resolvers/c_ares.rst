@@ -51,11 +51,11 @@ max_timeout
 The upper bound for timeout between sequential retry attempts. When retrying queries, the timeout is increased
 from the requested timeout parameter, this caps the value.
 
-**notes**: This requires at least c-ares 1.22.
+**notes**: This will only have effect if link or build with c-ares 1.22.
 
 **default**: 0, which is not explicitly set
 
-.. versionadded:: 1.7.30
+.. versionadded:: 1.7.35
 
 udp_max_quires
 --------------
@@ -65,11 +65,11 @@ udp_max_quires
 The maximum number of udp queries that can be sent on a single ephemeral port to a given DNS server before a new
 ephemeral port is assigned.
 
-**notes**: This requires at least c-ares 1.20.
+**notes**: This will only have effect if link or build with c-ares 1.20.
 
 **default**: 0, which is unlimited
 
-.. versionadded:: 1.7.29
+.. versionadded:: 1.7.35
 
 round_robin
 -----------
