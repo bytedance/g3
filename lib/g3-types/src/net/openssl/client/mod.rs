@@ -17,11 +17,11 @@
 use std::time::Duration;
 
 use anyhow::anyhow;
-#[cfg(not(feature = "aws-lc"))]
-use openssl::ssl::StatusType;
 use openssl::ssl::{
     Ssl, SslConnector, SslConnectorBuilder, SslContext, SslMethod, SslVerifyMode, SslVersion,
 };
+#[cfg(not(feature = "aws-lc"))]
+use openssl::ssl::{SslCtValidationMode, StatusType};
 use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::X509;
 
@@ -91,6 +91,8 @@ pub struct OpensslClientConfigBuilder {
     session_cache: OpensslSessionCacheConfig,
     supported_groups: String,
     use_ocsp_stapling: bool,
+    enable_sct: bool,
+    enable_grease: bool,
 }
 
 impl Default for OpensslClientConfigBuilder {
@@ -108,6 +110,8 @@ impl Default for OpensslClientConfigBuilder {
             session_cache: OpensslSessionCacheConfig::default(),
             supported_groups: String::default(),
             use_ocsp_stapling: false,
+            enable_sct: false,
+            enable_grease: false,
         }
     }
 }
@@ -225,6 +229,22 @@ impl OpensslClientConfigBuilder {
     #[inline]
     pub fn set_use_ocsp_stapling(&mut self, enable: bool) {
         self.use_ocsp_stapling = enable;
+    }
+
+    #[inline]
+    pub fn set_enable_sct(&mut self, enable: bool) {
+        self.enable_sct = enable;
+    }
+
+    #[inline]
+    #[cfg(feature = "aws-lc")]
+    pub fn set_enable_grease(&mut self, enable: bool) {
+        self.enable_grease = enable;
+    }
+
+    #[cfg(not(feature = "aws-lc"))]
+    pub fn set_enable_grease(&mut self, _enable: bool) {
+        log::warn!("grease can only be set for BoringSSL variants");
     }
 
     #[cfg(feature = "tongsuo")]
@@ -356,12 +376,22 @@ impl OpensslClientConfigBuilder {
                 .map_err(|e| anyhow!("failed to enable OCSP status request: {e}"))?;
             #[cfg(feature = "aws-lc")]
             ctx_builder.enable_ocsp_stapling();
+            // TODO check OCSP response
+        }
+
+        if self.enable_sct {
+            #[cfg(not(feature = "aws-lc"))]
             ctx_builder
-                .set_status_callback(|_ssl| {
-                    // TODO really check
-                    Ok(true)
-                })
-                .map_err(|e| anyhow!("failed to set ocsp response check callback: {e}"))?;
+                .enable_ct(SslCtValidationMode::PERMISSIVE)
+                .map_err(|e| anyhow!("failed to enable SCT: {e}"))?;
+            #[cfg(feature = "aws-lc")]
+            ctx_builder.enable_signed_cert_timestamps();
+            // TODO check SCT list for AWS-LC or BoringSSL
+        }
+
+        #[cfg(feature = "aws-lc")]
+        if self.enable_grease {
+            ctx_builder.set_grease_enabled(true);
         }
 
         let mut store_builder = X509StoreBuilder::new()

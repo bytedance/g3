@@ -10,6 +10,7 @@ edition.workspace = true
 [dependencies]
 anyhow.workspace = true
 thiserror.workspace = true
+log.workspace = true
 idna.workspace = true
 libc.workspace = true
 percent-encoding.workspace = true
