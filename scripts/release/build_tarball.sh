@@ -57,6 +57,11 @@ cargo cache --autoclean
 
 echo "==> adding source code from git"
 git archive --format=tar --prefix="${SOURCE_NAME}-${PKG_VERSION}/" "${GIT_REVISION}" | tar -C "${BUILD_DIR}" -xf -
+git submodule foreach "
+    echo \"--> adding source code for submodule \${name}\"
+    DIR=${BUILD_DIR}/${SOURCE_NAME}-${PKG_VERSION}/\${name}
+    git archive --format=tar HEAD | tar -C \"\${DIR}\" -xf -
+"
 
 cd "${BUILD_DIR}/${SOURCE_NAME}-${PKG_VERSION}"
 
