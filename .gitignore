@@ -19,6 +19,3 @@ g3proxy/service/g3proxy@.service
 g3tiles/service/g3tiles@.service
 g3keymess/service/g3keymess@.service
 
-# submodules in other branches
-boringssl
-
