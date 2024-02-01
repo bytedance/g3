@@ -34,8 +34,6 @@ pub struct OpensslInterceptionClientConfig {
     ssl_context: SslContext,
     pub handshake_timeout: Duration,
     session_cache: Option<OpensslClientSessionCache>,
-    #[cfg(feature = "aws-lc")]
-    pub use_ocsp_stapling: bool,
 }
 
 impl OpensslInterceptionClientConfig {
@@ -231,8 +229,6 @@ impl OpensslInterceptionClientConfigBuilder {
             ssl_context: ctx_builder.build().into_context(),
             handshake_timeout: self.handshake_timeout,
             session_cache,
-            #[cfg(feature = "aws-lc")]
-            use_ocsp_stapling: self.use_ocsp_stapling,
         })
     }
 }
