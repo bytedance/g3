@@ -65,6 +65,8 @@ git submodule foreach "
 
 cd "${BUILD_DIR}/${SOURCE_NAME}-${PKG_VERSION}"
 
+echo "==> adding incorporating source for BoringSSL"
+./scripts/generate/boringssl/incorporate.sh
 
 echo "==> cleaning useless source files"
 SOURCE_PATH="$(pwd)/${SOURCE_NAME}"
