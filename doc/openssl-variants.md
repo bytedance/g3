@@ -50,49 +50,24 @@ BoringSSL is supported in branch `rel/boringssl`.
 
 - Make sure you have `cmake`, `pkg-config` and `go` installed
 
-- Install bindgen
+- Generate the incorporating code
 
   ```shell
-  cargo install bindgen-cli
+  ./scripts/generate/boringssl/incorporate.sh
   ```
-
-- Set `CC` and `CXXFLAGS` to the environment variable if you want
-
-  you may find `-Wno-error=attributes` helpful.
-
-- Get the target triple:
-
-  ```shell
-  TARGET_TRIPLE=$(cargo -V -v | awk '$1 == "host:" {print $2}')
-  ```
-
-- Build BoringSSL
-
-  - Build with Makefile:
-  
-    ```shell
-    cmake -DRUST_BINDINGS=$TARGET_TRIPLE -B boringssl/build/ -S boringssl/ -DCMAKE_BUILD_TYPE=Release
-    cd boringssl/build
-    make
-    cd -
-    ```
-
-  - Build with Ninja:
-    ```shell
-    cmake -DRUST_BINDINGS=$TARGET_TRIPLE -B boringssl/build/ -S boringssl/ -DCMAKE_BUILD_TYPE=Release -GNinja
-    cd boringssl/build
-    ninja
-    cd -
-    ```
 
 - Build with `--features vendored-boringssl` cargo option
 
 ### Package
 
-You can build packages by using the build scripts after  BoringSSL is built
-in `boringssl/build` directory.
+- Install a recent version of [go](https://go.dev/dl/), which is only needed if you want to
 
-Release tarball creation is still not supported yet.
+  * build packages directly from git
+  * generate release tarball
+
+- Switch to branch `rel/boringssl`, then run the build script or create the release tarball as usual.
+
+- Copy the release tarball anywhere to build the final package, this doesn't require the go build dependency.
 
 # AWS-LC
 
