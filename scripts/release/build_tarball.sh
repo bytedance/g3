@@ -10,15 +10,6 @@ CARGO_VENDOR_DIR="vendor"
 CARGO_CONFIG_DIR=".cargo"
 CARGO_CONFIG_FILE="${CARGO_CONFIG_DIR}/config.toml"
 
-lib_dependency()
-{
-	_path=$1
-
-	cargo metadata --format-version 1 | \
-		jq -r --arg path "${_path}" '.packages[]|select(.manifest_path|test($path))|.dependencies[].path|select(. != null and test("/lib/"))' | \
-		sed 's/\(.*\/lib\/\)//' | sort | uniq
-}
-
 clear_build_dir()
 {
 	[ -n "${BUILD_DIR}" ] || return
@@ -69,38 +60,17 @@ echo "==> adding incorporating source for BoringSSL"
 ./scripts/generate/boringssl/incorporate.sh
 
 echo "==> cleaning useless source files"
-SOURCE_PATH="$(pwd)/${SOURCE_NAME}"
-lib_crates=$(lib_dependency "${SOURCE_PATH}")
-
-next_check_crates="${lib_crates}"
-while [ -n "${next_check_crates}" ]
+local_dep_crates=$("${SCRIPT_DIR}"/list_local_deps.py --lock-file Cargo.lock --component "${SOURCE_NAME}")
+local_lib_crates=
+for dep in ${local_dep_crates}
 do
-	this_check_crates="${next_check_crates}"
-	next_check_crates=""
-	for _lib in ${this_check_crates}
-	do
-		nested_lib_crates=$(lib_dependency "${_lib}")
-		for _nested_lib in ${nested_lib_crates}
-		do
-			_found=0
-			for _e in ${lib_crates}
-			do
-				if [ "${_e}" = "${_nested_lib}" ]
-				then
-					_found=1
-					break
-				fi
-			done
-			if [ $_found -eq 0 ]
-			then
-				lib_crates="${lib_crates} ${_nested_lib}"
-				next_check_crates="${next_check_crates} ${_nested_lib}"
-			fi
-		done
-	done
+	if [ -d "lib/${dep}" ]
+	then
+		local_lib_crates="${local_lib_crates} ${dep}"
+	fi
 done
 
-useless_crates=$("${SCRIPT_DIR}"/prune_workspace.py --input Cargo.toml --output Cargo.toml --component ${SOURCE_NAME} ${lib_crates})
+useless_crates=$("${SCRIPT_DIR}"/prune_workspace.py --input Cargo.toml --output Cargo.toml --component ${SOURCE_NAME} ${local_lib_crates})
 for _path in ${useless_crates}
 do
 	echo "    delete crate with path ${_path}"
