@@ -1,0 +1,8 @@
+
+!.gitignore
+!src
+!util
+/**/
+CMakeLists.txt
+*.c
+*.cc

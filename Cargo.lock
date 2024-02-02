@@ -276,6 +276,11 @@ dependencies = [
 [[package]]
 name = "bssl-sys"
 version = "0.1.0"
+dependencies = [
+ "bindgen",
+ "cc",
+ "cmake",
+]
 
 [[package]]
 name = "bstr"
