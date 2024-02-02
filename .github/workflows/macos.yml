@@ -1,6 +1,12 @@
 name: MacOS-CI
 
-on: [push, pull_request]
+on:
+  push:
+    paths-ignore:
+      - 'ansible/**'
+      - 'doc/**'
+      - 'demo/**'
+      - 'scripts/**'
 
 env:
   CARGO_TERM_COLOR: always
