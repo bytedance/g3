@@ -61,6 +61,7 @@ jobs:
           - vendored-openssl
           - vendored-tongsuo
           - vendored-aws-lc
+          - vendored-boringssl
         component:
           - g3proxy
           - g3bench
@@ -84,6 +85,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
+      - name: Prepare BoringSSL incorporating code
+        run: |
+          sh scripts/generate/boringssl/incorporate.sh
+        if: matrix.feature == 'vendored-boringssl'
       - name: Cargo build
         run: cargo build --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }}
       - name: Cargo clippy
