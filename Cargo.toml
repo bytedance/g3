@@ -180,6 +180,7 @@ redis = { version = "0.24", default-features = false, features = ["tcp_nodelay"]
 #
 flate2 = "1.0"
 zip = { version = "0.6", default-features = false }
+brotli = { version = "3.4", default-features = false, features = ["std"] }
 #
 mlua = "0.9"
 pyo3 = "0.20"

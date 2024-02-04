@@ -50,6 +50,7 @@ slog = { workspace = true, optional = true }
 indexmap = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 arc-swap = { workspace = true, optional = true }
+brotli = { workspace = true, optional = true }
 
 [features]
 default = []
@@ -57,9 +58,9 @@ auth-crypt = ["dep:digest", "dep:md-5", "dep:sha-1", "dep:blake3", "dep:hex"]
 resolve = ["dep:ahash", "dep:radix_trie", "dep:fastrand"]
 rustls = ["dep:rustls", "dep:webpki-roots", "dep:rustls-pemfile", "dep:rustls-native-certs", "dep:ahash", "dep:lru", "dep:ring", "dep:arc-swap"]
 openssl = ["dep:openssl", "dep:ahash", "dep:lru", "dep:bytes"]
-tongsuo = ["openssl", "openssl/tongsuo"]
-aws-lc = ["openssl", "openssl/aws-lc"]
-boringssl = ["openssl", "openssl/boringssl"]
+tongsuo = ["openssl", "openssl/tongsuo", "dep:brotli"]
+aws-lc = ["openssl", "openssl/aws-lc", "dep:brotli"]
+boringssl = ["openssl", "openssl/boringssl", "dep:brotli"]
 acl-rule = ["resolve", "dep:ahash", "dep:ip_network", "dep:ip_network_table", "dep:once_cell", "dep:regex", "dep:radix_trie"]
 http = ["dep:http", "dep:bytes", "dep:base64"]
 route = ["dep:ahash", "dep:radix_trie", "dep:indexmap", "resolve"]

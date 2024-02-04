@@ -17,6 +17,8 @@
 use std::time::Duration;
 
 use anyhow::anyhow;
+#[cfg(any(feature = "aws-lc", feature = "boringssl", feature = "tongsuo"))]
+use openssl::ssl::CertCompressionAlgorithm;
 use openssl::ssl::{Ssl, SslConnector, SslContext, SslMethod, SslVerifyMode};
 #[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
 use openssl::ssl::{SslCtValidationMode, StatusType};
@@ -205,6 +207,17 @@ impl OpensslInterceptionClientConfigBuilder {
         if self.enable_grease {
             ctx_builder.set_grease_enabled(true);
         }
+
+        #[cfg(any(feature = "aws-lc", feature = "boringssl", feature = "tongsuo"))]
+        ctx_builder
+            .add_cert_decompression_alg(CertCompressionAlgorithm::BROTLI, |in_buf, out_buf| {
+                use std::io::Read;
+
+                brotli::Decompressor::new(in_buf, 4096)
+                    .read(out_buf)
+                    .unwrap_or_else(|_| 0)
+            })
+            .map_err(|e| anyhow!("failed to set cert decompression algorithm: {e}"))?;
 
         let mut store_builder = X509StoreBuilder::new()
             .map_err(|e| anyhow!("failed to create ca cert store builder: {e}"))?;
