@@ -431,7 +431,7 @@ impl OpensslClientConfigBuilder {
 
                 brotli::Decompressor::new(in_buf, 4096)
                     .read(out_buf)
-                    .unwrap_or_else(|_| 0)
+                    .unwrap_or(0)
             })
             .map_err(|e| anyhow!("failed to set cert decompression algorithm: {e}"))?;
 
