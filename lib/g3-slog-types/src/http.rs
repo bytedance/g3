@@ -17,8 +17,8 @@
 use std::fmt;
 
 use h2::StreamId;
-use http::{Method, Uri};
-use slog::{Record, Serializer, Value};
+use http::{HeaderValue, Method, Uri};
+use slog::{Key, Record, Serializer, Value};
 
 pub struct LtHttpMethod<'a>(pub &'a Method);
 
@@ -109,6 +109,22 @@ impl<'a> Value for LtHttpUri<'a> {
             } else {
                 serializer.emit_str(key, &uri)
             }
+        }
+    }
+}
+
+pub struct LtHttpHeaderValue<'a>(pub &'a HeaderValue);
+
+impl<'a> Value for LtHttpHeaderValue<'a> {
+    fn serialize(
+        &self,
+        _record: &Record,
+        key: Key,
+        serializer: &mut dyn Serializer,
+    ) -> slog::Result {
+        match self.0.to_str() {
+            Ok(v) => serializer.emit_str(key, v),
+            Err(e) => serializer.emit_arguments(key, &format_args!("invalid header value: {e}")),
         }
     }
 }

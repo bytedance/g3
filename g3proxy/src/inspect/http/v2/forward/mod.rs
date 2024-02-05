@@ -23,7 +23,7 @@ use chrono::{DateTime, Utc};
 use h2::client::SendRequest;
 use h2::server::SendResponse;
 use h2::{Reason, RecvStream, StreamId};
-use http::{Method, Request, Response, StatusCode, Uri, Version};
+use http::{HeaderValue, Method, Request, Response, StatusCode, Uri, Version};
 use slog::slog_info;
 use tokio::time::Instant;
 
@@ -35,7 +35,9 @@ use g3_icap_client::reqmod::h2::{
 use g3_icap_client::respmod::h2::{
     H2ResponseAdapter, RespmodAdaptationEndState, RespmodAdaptationRunState,
 };
-use g3_slog_types::{LtDateTime, LtDuration, LtH2StreamId, LtHttpMethod, LtHttpUri, LtUuid};
+use g3_slog_types::{
+    LtDateTime, LtDuration, LtH2StreamId, LtHttpHeaderValue, LtHttpMethod, LtHttpUri, LtUuid,
+};
 use g3_types::net::HttpHeaderMap;
 
 use super::{H2BodyTransfer, H2ConcurrencyStats, H2StreamTransferError};
@@ -54,6 +56,7 @@ macro_rules! intercept_log {
             "started_at" => LtDateTime(&$obj.http_notes.started_datetime),
             "method" => LtHttpMethod(&$obj.http_notes.method),
             "uri" => LtHttpUri::new(&$obj.http_notes.uri, $obj.ctx.log_uri_max_chars()),
+            "host" => $obj.http_notes.host_header.as_ref().map(LtHttpHeaderValue),
             "ready_time" => LtDuration($obj.http_notes.ready_time),
             "rsp_status" => $obj.http_notes.rsp_status,
             "origin_status" => $obj.http_notes.origin_status,
@@ -77,10 +80,11 @@ struct HttpForwardTaskNotes {
     dur_req_send_all: Duration,
     dur_rsp_recv_hdr: Duration,
     dur_rsp_recv_all: Duration,
+    host_header: Option<HeaderValue>,
 }
 
 impl HttpForwardTaskNotes {
-    fn new(method: Method, uri: Uri) -> Self {
+    fn new(method: Method, uri: Uri, host_header: Option<HeaderValue>) -> Self {
         HttpForwardTaskNotes {
             method,
             uri,
@@ -93,6 +97,7 @@ impl HttpForwardTaskNotes {
             dur_req_send_all: Duration::default(),
             dur_rsp_recv_hdr: Duration::default(),
             dur_rsp_recv_all: Duration::default(),
+            host_header,
         }
     }
 
@@ -144,7 +149,11 @@ where
         cstats: Arc<H2ConcurrencyStats>,
         req: &Request<RecvStream>,
     ) -> Self {
-        let http_notes = HttpForwardTaskNotes::new(req.method().clone(), req.uri().clone());
+        let http_notes = HttpForwardTaskNotes::new(
+            req.method().clone(),
+            req.uri().clone(),
+            req.headers().get(http::header::HOST).cloned(),
+        );
         H2ForwardTask {
             ctx,
             clt_stream_id,
