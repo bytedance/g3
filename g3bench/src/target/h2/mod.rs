@@ -104,7 +104,6 @@ pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Re
 struct H2PreRequest {
     method: Method,
     uri: Uri,
-    host: HeaderValue,
     auth: Option<HeaderValue>,
 }
 
@@ -116,8 +115,6 @@ impl H2PreRequest {
             .uri(self.uri.clone())
             .body(())
             .map_err(|e| anyhow!("failed to build request: {e:?}"))?;
-        req.headers_mut()
-            .insert(http::header::HOST, self.host.clone());
         if let Some(v) = &self.auth {
             req.headers_mut()
                 .insert(http::header::AUTHORIZATION, v.clone());

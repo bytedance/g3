@@ -342,10 +342,6 @@ impl BenchH2Args {
             .build()
             .map_err(|e| anyhow!("failed to build request: {e:?}"))?;
 
-        let host_str = self.host.to_string();
-        let host =
-            HeaderValue::from_str(&host_str).map_err(|e| anyhow!("invalid host value: {e:?}"))?;
-
         let auth = match &self.auth {
             HttpAuth::None => None,
             HttpAuth::Basic(basic) => {
@@ -359,7 +355,6 @@ impl BenchH2Args {
         Ok(H2PreRequest {
             method: self.method.clone(),
             uri,
-            host,
             auth,
         })
     }
