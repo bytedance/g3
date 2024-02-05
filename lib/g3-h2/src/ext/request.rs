@@ -17,6 +17,7 @@
 use std::io::Write;
 
 use bytes::BufMut;
+use http::uri::Authority;
 use http::{Method, Request, Uri};
 
 use g3_http::server::HttpAdaptedRequest;
@@ -75,6 +76,21 @@ impl<T> RequestExt for Request<T> {
         let mut uri_parts = other.uri.clone().into_parts();
         uri_parts.scheme = parts.uri.scheme().cloned();
         uri_parts.authority = parts.uri.authority().cloned();
+        if let Some(host) = headers.remove(http::header::HOST) {
+            // we should always remove the Host header to be compatible with Google
+            if uri_parts.authority.is_none() {
+                match Authority::from_maybe_shared(host.clone()) {
+                    Ok(authority) => {
+                        //update the authority field
+                        uri_parts.authority = Some(authority);
+                    }
+                    Err(_) => {
+                        // reset the host header if it's not valid
+                        headers.insert(http::header::HOST, host);
+                    }
+                }
+            }
+        }
         if let Ok(new_uri) = Uri::from_parts(uri_parts) {
             parts.uri = new_uri;
         }
