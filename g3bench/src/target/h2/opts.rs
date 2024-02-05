@@ -289,7 +289,8 @@ impl BenchH2Args {
 
         let mut client_builder = h2::client::Builder::new();
         client_builder.max_concurrent_streams(0).enable_push(false);
-        let (h2s, h2s_connection) = h2::client::handshake(stream)
+        let (h2s, h2s_connection) = client_builder
+            .handshake(stream)
             .await
             .map_err(|e| anyhow!("h2 handshake failed: {e:?}"))?;
         tokio::spawn(async move {
