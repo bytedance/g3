@@ -37,7 +37,7 @@ regex = { workspace = true, optional = true }
 radix_trie = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
 ring = { version = "0.17", optional = true }
-webpki-roots = { version = "0.25", optional = true }
+webpki-roots = { version = "0.26", optional = true }
 rustls-pemfile = { workspace = true, optional = true }
 rustls-native-certs = { workspace = true, optional = true }
 openssl = { workspace = true, optional = true }
