@@ -1,4 +1,15 @@
 
+v1.7.35:
+ - BUG FIX: the presence of the h2 Host header in the sent request will be same as the client
+ - Feature: always verify tls server name in cert when run OpenSSL client
+ - Feature: support use BoringSSL
+ - Feature: add more config options to OpenSSL client:
+     - supported_groups
+     - use_ocsp_stapling
+     - enable_sct
+     - enable_grease, only for AWS-LC and BoringSSL
+ - Feature: enable brotli cert decompression for AWS-LC, BoringSSL and Tongsuo
+
 v1.7.34:
  - BUG FIX: do protocol inspection for tls decrypted stream if ALPN is missing
  - Feature: add tcp_tproxy server
