@@ -19,29 +19,27 @@ use std::sync::Arc;
 use clap::{ArgMatches, Command};
 
 use super::{BenchTarget, BenchTaskContext, ProcArgs};
+use crate::module::ssl::{SslHistogram, SslHistogramRecorder, SslRuntimeStats};
 
 mod opts;
-use opts::BenchSslArgs;
-
-mod stats;
-pub(crate) use stats::{SslHistogram, SslHistogramRecorder, SslRuntimeStats};
+use opts::BenchOpensslArgs;
 
 mod task;
-use task::SslTaskContext;
+use task::OpensslTaskContext;
 
-pub const COMMAND: &str = "ssl";
+pub const COMMAND: &str = "openssl";
 
-struct SslTarget {
-    args: Arc<BenchSslArgs>,
+struct OpensslTarget {
+    args: Arc<BenchOpensslArgs>,
     proc_args: Arc<ProcArgs>,
     stats: Arc<SslRuntimeStats>,
     histogram: Option<SslHistogram>,
     histogram_recorder: SslHistogramRecorder,
 }
 
-impl BenchTarget<SslRuntimeStats, SslHistogram, SslTaskContext> for SslTarget {
-    fn new_context(&self) -> anyhow::Result<SslTaskContext> {
-        SslTaskContext::new(
+impl BenchTarget<SslRuntimeStats, SslHistogram, OpensslTaskContext> for OpensslTarget {
+    fn new_context(&self) -> anyhow::Result<OpensslTaskContext> {
+        OpensslTaskContext::new(
             &self.args,
             &self.proc_args,
             &self.stats,
@@ -67,7 +65,7 @@ pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Re
     ssl_args.resolve_target_address(proc_args).await?;
 
     let (histogram, histogram_recorder) = SslHistogram::new();
-    let target = SslTarget {
+    let target = OpensslTarget {
         args: Arc::new(ssl_args),
         proc_args: Arc::clone(proc_args),
         stats: Arc::new(SslRuntimeStats::default()),

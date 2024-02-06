@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,25 +24,25 @@ use tokio::time::Instant;
 
 use g3_io_ext::LimitedStream;
 
-use super::{BenchSslArgs, BenchTaskContext, ProcArgs, SslHistogramRecorder, SslRuntimeStats};
+use super::{BenchRustlsArgs, BenchTaskContext, ProcArgs, SslHistogramRecorder, SslRuntimeStats};
 use crate::target::BenchError;
 
-pub(super) struct SslTaskContext {
-    args: Arc<BenchSslArgs>,
+pub(super) struct RustlsTaskContext {
+    args: Arc<BenchRustlsArgs>,
     proc_args: Arc<ProcArgs>,
 
     runtime_stats: Arc<SslRuntimeStats>,
     histogram_recorder: SslHistogramRecorder,
 }
 
-impl SslTaskContext {
+impl RustlsTaskContext {
     pub(super) fn new(
-        args: &Arc<BenchSslArgs>,
+        args: &Arc<BenchRustlsArgs>,
         proc_args: &Arc<ProcArgs>,
         runtime_stats: &Arc<SslRuntimeStats>,
         histogram_recorder: SslHistogramRecorder,
     ) -> anyhow::Result<Self> {
-        Ok(SslTaskContext {
+        Ok(RustlsTaskContext {
             args: Arc::clone(args),
             proc_args: Arc::clone(proc_args),
             runtime_stats: Arc::clone(runtime_stats),
@@ -75,7 +75,7 @@ impl SslTaskContext {
     }
 }
 
-impl BenchTaskContext for SslTaskContext {
+impl BenchTaskContext for RustlsTaskContext {
     fn mark_task_start(&self) {
         self.runtime_stats.add_task_total();
         self.runtime_stats.inc_task_alive();

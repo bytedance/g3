@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,39 +21,38 @@ use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgMatches, Command};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
+use tokio_rustls::client::TlsStream;
 
-use g3_openssl::SslStream;
 use g3_types::collection::{SelectiveVec, WeightedValue};
-use g3_types::net::{OpensslClientConfig, OpensslClientConfigBuilder, UpstreamAddr};
+use g3_types::net::{RustlsClientConfig, RustlsClientConfigBuilder, UpstreamAddr};
 
 use super::ProcArgs;
-use crate::target::{
-    AppendOpensslArgs, AppendProxyProtocolArgs, OpensslTlsClientArgs, ProxyProtocolArgs,
-};
+use crate::module::proxy_protocol::{AppendProxyProtocolArgs, ProxyProtocolArgs};
+use crate::module::rustls::{AppendRustlsArgs, RustlsTlsClientArgs};
 
 const SSL_ARG_TARGET: &str = "target";
 const SSL_ARG_LOCAL_ADDRESS: &str = "local-address";
 const SSL_ARG_TIMEOUT: &str = "timeout";
 const SSL_ARG_CONNECT_TIMEOUT: &str = "connect-timeout";
 
-pub(super) struct BenchSslArgs {
+pub(super) struct BenchRustlsArgs {
     target: UpstreamAddr,
     bind: Option<IpAddr>,
     pub(super) timeout: Duration,
     pub(super) connect_timeout: Duration,
-    pub(super) tls: OpensslTlsClientArgs,
+    pub(super) tls: RustlsTlsClientArgs,
     proxy_protocol: ProxyProtocolArgs,
 
     target_addrs: Option<SelectiveVec<WeightedValue<SocketAddr>>>,
 }
 
-impl BenchSslArgs {
+impl BenchRustlsArgs {
     fn new(target: UpstreamAddr) -> Self {
-        let tls = OpensslTlsClientArgs {
-            config: Some(OpensslClientConfigBuilder::with_cache_for_one_site()),
+        let tls = RustlsTlsClientArgs {
+            config: Some(RustlsClientConfigBuilder::default()),
             ..Default::default()
         };
-        BenchSslArgs {
+        BenchRustlsArgs {
             target,
             bind: None,
             timeout: Duration::from_secs(10),
@@ -108,9 +107,9 @@ impl BenchSslArgs {
 
     pub(super) async fn tls_connect_to_target<S>(
         &self,
-        tls_client: &OpensslClientConfig,
+        tls_client: &RustlsClientConfig,
         stream: S,
-    ) -> anyhow::Result<SslStream<S>>
+    ) -> anyhow::Result<TlsStream<S>>
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
@@ -138,7 +137,7 @@ pub(super) fn add_ssl_args(app: Command) -> Command {
     .arg(
         Arg::new(SSL_ARG_TIMEOUT)
             .value_name("TIMEOUT DURATION")
-            .help("SSL handshake timeout")
+            .help("TLS handshake timeout")
             .default_value("10s")
             .long(SSL_ARG_TIMEOUT)
             .num_args(1),
@@ -151,18 +150,18 @@ pub(super) fn add_ssl_args(app: Command) -> Command {
             .long(SSL_ARG_CONNECT_TIMEOUT)
             .num_args(1),
     )
-    .append_openssl_args()
+    .append_rustls_args()
     .append_proxy_protocol_args()
 }
 
-pub(super) fn parse_ssl_args(args: &ArgMatches) -> anyhow::Result<BenchSslArgs> {
+pub(super) fn parse_ssl_args(args: &ArgMatches) -> anyhow::Result<BenchRustlsArgs> {
     let target = if let Some(v) = args.get_one::<UpstreamAddr>(SSL_ARG_TARGET) {
         v.clone()
     } else {
         return Err(anyhow!("no target set"));
     };
 
-    let mut ssl_args = BenchSslArgs::new(target);
+    let mut ssl_args = BenchRustlsArgs::new(target);
 
     if let Some(ip) = args.get_one::<IpAddr>(SSL_ARG_LOCAL_ADDRESS) {
         ssl_args.bind = Some(*ip);

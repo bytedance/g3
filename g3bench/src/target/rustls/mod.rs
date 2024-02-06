@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,30 +19,27 @@ use std::sync::Arc;
 use clap::{ArgMatches, Command};
 
 use super::{BenchTarget, BenchTaskContext, ProcArgs};
-use crate::module::http::{HttpHistogram, HttpHistogramRecorder, HttpRuntimeStats};
-
-mod connection;
-use connection::{BoxHttpForwardConnection, SavedHttpForwardConnection};
+use crate::module::ssl::{SslHistogram, SslHistogramRecorder, SslRuntimeStats};
 
 mod opts;
-use opts::BenchHttpArgs;
+use opts::BenchRustlsArgs;
 
 mod task;
-use task::HttpTaskContext;
+use task::RustlsTaskContext;
 
-pub const COMMAND: &str = "h1";
+pub const COMMAND: &str = "rustls";
 
-struct HttpTarget {
-    args: Arc<BenchHttpArgs>,
+struct RustlsTarget {
+    args: Arc<BenchRustlsArgs>,
     proc_args: Arc<ProcArgs>,
-    stats: Arc<HttpRuntimeStats>,
-    histogram: Option<HttpHistogram>,
-    histogram_recorder: HttpHistogramRecorder,
+    stats: Arc<SslRuntimeStats>,
+    histogram: Option<SslHistogram>,
+    histogram_recorder: SslHistogramRecorder,
 }
 
-impl BenchTarget<HttpRuntimeStats, HttpHistogram, HttpTaskContext> for HttpTarget {
-    fn new_context(&self) -> anyhow::Result<HttpTaskContext> {
-        HttpTaskContext::new(
+impl BenchTarget<SslRuntimeStats, SslHistogram, RustlsTaskContext> for RustlsTarget {
+    fn new_context(&self) -> anyhow::Result<RustlsTaskContext> {
+        RustlsTaskContext::new(
             &self.args,
             &self.proc_args,
             &self.stats,
@@ -50,28 +47,28 @@ impl BenchTarget<HttpRuntimeStats, HttpHistogram, HttpTaskContext> for HttpTarge
         )
     }
 
-    fn fetch_runtime_stats(&self) -> Arc<HttpRuntimeStats> {
+    fn fetch_runtime_stats(&self) -> Arc<SslRuntimeStats> {
         self.stats.clone()
     }
 
-    fn take_histogram(&mut self) -> Option<HttpHistogram> {
+    fn take_histogram(&mut self) -> Option<SslHistogram> {
         self.histogram.take()
     }
 }
 
 pub fn command() -> Command {
-    opts::add_http_args(Command::new(COMMAND))
+    opts::add_ssl_args(Command::new(COMMAND))
 }
 
 pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Result<()> {
-    let mut http_args = opts::parse_http_args(cmd_args)?;
-    http_args.resolve_target_address(proc_args).await?;
+    let mut ssl_args = opts::parse_ssl_args(cmd_args)?;
+    ssl_args.resolve_target_address(proc_args).await?;
 
-    let (histogram, histogram_recorder) = HttpHistogram::new();
-    let target = HttpTarget {
-        args: Arc::new(http_args),
+    let (histogram, histogram_recorder) = SslHistogram::new();
+    let target = RustlsTarget {
+        args: Arc::new(ssl_args),
         proc_args: Arc::clone(proc_args),
-        stats: Arc::new(HttpRuntimeStats::new_tcp(COMMAND)),
+        stats: Arc::new(SslRuntimeStats::default()),
         histogram: Some(histogram),
         histogram_recorder,
     };

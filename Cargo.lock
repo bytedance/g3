@@ -1495,6 +1495,7 @@ dependencies = [
  "rustls-pemfile",
  "thiserror",
  "tokio",
+ "tokio-rustls",
  "url",
  "variant-ssl",
 ]

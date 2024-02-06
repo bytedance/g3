@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::borrow::Cow;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 use std::sync::Arc;
@@ -27,6 +26,7 @@ use h3::client::SendRequest;
 use h3_quinn::OpenStreams;
 use http::{HeaderValue, Method, StatusCode};
 use quinn::{Endpoint, TokioRuntime};
+use rustls::ServerName;
 use tokio::net::TcpStream;
 use url::Url;
 
@@ -38,7 +38,7 @@ use g3_types::net::{
 };
 
 use super::{H3PreRequest, HttpRuntimeStats, ProcArgs};
-use crate::target::{AppendRustlsArgs, RustlsTlsClientArgs};
+use crate::module::rustls::{AppendRustlsArgs, RustlsTlsClientArgs};
 
 const HTTP_ARG_CONNECTION_POOL: &str = "connection-pool";
 const HTTP_ARG_URI: &str = "uri";
@@ -242,12 +242,12 @@ impl BenchH3Args {
         let mut client_config = ClientConfig::new(tls_client.driver.clone());
         client_config.transport_config(Arc::new(transport));
 
-        let tls_name = self
-            .target_tls
-            .tls_name
-            .as_ref()
-            .map(|s| Cow::Borrowed(s.as_str()))
-            .unwrap_or(self.host.host_str());
+        let tls_name = match &self.target_tls.tls_name {
+            Some(ServerName::DnsName(domain)) => domain.as_ref().to_string(),
+            Some(ServerName::IpAddress(ip)) => ip.to_string(),
+            Some(_) => return Err(anyhow!("unsupported tls server name type")),
+            None => self.host.to_string(),
+        };
         let conn = endpoint
             .connect_with(client_config, quic_peer, &tls_name)
             .map_err(|e| anyhow!("failed to create quic client: {e}"))?

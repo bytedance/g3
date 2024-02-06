@@ -27,11 +27,10 @@ use g3_types::collection::{SelectiveVec, WeightedValue};
 use g3_types::net::{OpensslClientConfig, OpensslClientConfigBuilder, UpstreamAddr};
 
 use super::{MultiplexTransfer, SimplexTransfer};
+use crate::module::openssl::{AppendOpensslArgs, OpensslTlsClientArgs};
+use crate::module::proxy_protocol::{AppendProxyProtocolArgs, ProxyProtocolArgs};
 use crate::opts::ProcArgs;
 use crate::target::keyless::{AppendKeylessArgs, KeylessGlobalArgs};
-use crate::target::{
-    AppendOpensslArgs, AppendProxyProtocolArgs, OpensslTlsClientArgs, ProxyProtocolArgs,
-};
 
 const ARG_CONNECTION_POOL: &str = "connection-pool";
 const ARG_TARGET: &str = "target";

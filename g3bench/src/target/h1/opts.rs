@@ -34,9 +34,8 @@ use g3_types::net::{
 };
 
 use super::{BoxHttpForwardConnection, ProcArgs};
-use crate::target::{
-    AppendOpensslArgs, AppendProxyProtocolArgs, OpensslTlsClientArgs, ProxyProtocolArgs,
-};
+use crate::module::openssl::{AppendOpensslArgs, OpensslTlsClientArgs};
+use crate::module::proxy_protocol::{AppendProxyProtocolArgs, ProxyProtocolArgs};
 
 const HTTP_ARG_URL: &str = "url";
 const HTTP_ARG_METHOD: &str = "method";

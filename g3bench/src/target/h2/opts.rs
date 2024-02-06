@@ -36,9 +36,8 @@ use g3_types::net::{
 };
 
 use super::{H2PreRequest, HttpRuntimeStats, ProcArgs};
-use crate::target::{
-    AppendOpensslArgs, AppendProxyProtocolArgs, OpensslTlsClientArgs, ProxyProtocolArgs,
-};
+use crate::module::openssl::{AppendOpensslArgs, OpensslTlsClientArgs};
+use crate::module::proxy_protocol::{AppendProxyProtocolArgs, ProxyProtocolArgs};
 
 const HTTP_ARG_CONNECTION_POOL: &str = "connection-pool";
 const HTTP_ARG_URI: &str = "uri";

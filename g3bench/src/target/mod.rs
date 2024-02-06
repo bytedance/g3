@@ -32,23 +32,11 @@ use super::ProcArgs;
 
 mod stats;
 
-mod proxy_protocol;
-use proxy_protocol::{AppendProxyProtocolArgs, ProxyProtocolArgs};
-
-mod openssl;
-use self::openssl::{AppendOpensslArgs, OpensslTlsClientArgs};
-
-#[cfg(feature = "rustls")]
-mod rustls;
-#[cfg(feature = "rustls")]
-use self::rustls::{AppendRustlsArgs, RustlsTlsClientArgs};
-
-mod http;
-
 pub mod h1;
 pub mod h2;
 pub mod keyless;
-pub mod ssl;
+pub mod openssl;
+pub mod rustls;
 
 #[cfg_attr(feature = "hickory", path = "dns/mod.rs")]
 #[cfg_attr(not(feature = "hickory"), path = "no_dns.rs")]
@@ -60,7 +48,7 @@ pub mod h3;
 
 const QUANTILE: &str = "quantile";
 
-trait BenchHistogram {
+pub(crate) trait BenchHistogram {
     fn refresh(&mut self);
     fn emit(&self, client: &mut StatsdClient);
 
@@ -147,7 +135,7 @@ trait BenchHistogram {
     }
 }
 
-trait BenchRuntimeStats {
+pub(crate) trait BenchRuntimeStats {
     fn emit(&self, client: &mut StatsdClient);
     fn summary(&self, total_time: Duration);
 }

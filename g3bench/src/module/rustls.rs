@@ -20,10 +20,14 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
-use rustls::{Certificate, PrivateKey};
+use rustls::{Certificate, PrivateKey, ServerName};
+use tokio::io::{AsyncRead, AsyncWrite};
+use tokio_rustls::client::TlsStream;
+use tokio_rustls::TlsConnector;
 
 use g3_types::net::{
     AlpnProtocol, RustlsCertificatePair, RustlsClientConfig, RustlsClientConfigBuilder,
+    UpstreamAddr,
 };
 
 const TLS_ARG_CA_CERT: &str = "tls-ca-cert";
@@ -31,7 +35,6 @@ const TLS_ARG_CERT: &str = "tls-cert";
 const TLS_ARG_KEY: &str = "tls-key";
 const TLS_ARG_NAME: &str = "tls-name";
 const TLS_ARG_NO_SESSION_CACHE: &str = "tls-no-session-cache";
-const TLS_ARG_NO_VERIFY: &str = "tls-no-verify";
 const TLS_ARG_NO_SNI: &str = "tls-no-sni";
 
 const PROXY_TLS_ARG_CA_CERT: &str = "proxy-tls-ca-cert";
@@ -39,7 +42,6 @@ const PROXY_TLS_ARG_CERT: &str = "proxy-tls-cert";
 const PROXY_TLS_ARG_KEY: &str = "proxy-tls-key";
 const PROXY_TLS_ARG_NAME: &str = "proxy-tls-name";
 const PROXY_TLS_ARG_NO_SESSION_CACHE: &str = "proxy-tls-no-session-cache";
-const PROXY_TLS_ARG_NO_VERIFY: &str = "proxy-tls-no-verify";
 const PROXY_TLS_ARG_NO_SNI: &str = "proxy-tls-no-sni";
 
 pub(crate) trait AppendRustlsArgs {
@@ -51,17 +53,42 @@ pub(crate) trait AppendRustlsArgs {
 pub(crate) struct RustlsTlsClientArgs {
     pub(crate) config: Option<RustlsClientConfigBuilder>,
     pub(crate) client: Option<RustlsClientConfig>,
-    pub(crate) tls_name: Option<String>,
+    pub(crate) tls_name: Option<ServerName>,
     pub(crate) cert_pair: RustlsCertificatePair,
-    pub(crate) no_verify: bool,
     pub(crate) alpn_protocol: Option<AlpnProtocol>,
 }
 
 impl RustlsTlsClientArgs {
-    fn parse_tls_name(&mut self, args: &ArgMatches, id: &str) {
-        if let Some(name) = args.get_one::<String>(id) {
-            self.tls_name = Some(name.to_string());
+    pub(crate) async fn connect_target<S>(
+        &self,
+        tls_client: &RustlsClientConfig,
+        stream: S,
+        target: &UpstreamAddr,
+    ) -> anyhow::Result<TlsStream<S>>
+    where
+        S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+    {
+        let tls_name = match &self.tls_name {
+            Some(n) => n.clone(),
+            None => ServerName::try_from(target.host())
+                .map_err(|e| anyhow!("invalid tls server name P{}: {e}", target.host()))?,
+        };
+        let tls_connect = TlsConnector::from(tls_client.driver.clone()).connect(tls_name, stream);
+
+        match tokio::time::timeout(tls_client.handshake_timeout, tls_connect).await {
+            Ok(Ok(stream)) => Ok(stream),
+            Ok(Err(e)) => Err(anyhow!("failed to tls connect to peer: {e}")),
+            Err(_) => Err(anyhow!("tls connect to peer timedout")),
         }
+    }
+
+    fn parse_tls_name(&mut self, args: &ArgMatches, id: &str) -> anyhow::Result<()> {
+        if let Some(name) = args.get_one::<String>(id) {
+            let tls_name = ServerName::try_from(name.as_str())
+                .map_err(|e| anyhow!("invalid tls server name {name}: {e}"))?;
+            self.tls_name = Some(tls_name);
+        }
+        Ok(())
     }
 
     fn parse_ca_cert(&mut self, args: &ArgMatches, id: &str) -> anyhow::Result<()> {
@@ -113,12 +140,6 @@ impl RustlsTlsClientArgs {
         Ok(())
     }
 
-    fn parse_no_verify(&mut self, args: &ArgMatches, id: &str) {
-        if args.get_flag(id) {
-            self.no_verify = true;
-        }
-    }
-
     fn parse_no_sni(&mut self, args: &ArgMatches, id: &str) -> anyhow::Result<()> {
         let tls_config = self
             .config
@@ -156,11 +177,10 @@ impl RustlsTlsClientArgs {
             return Ok(());
         }
 
-        self.parse_tls_name(args, TLS_ARG_NAME);
+        self.parse_tls_name(args, TLS_ARG_NAME)?;
         self.parse_ca_cert(args, TLS_ARG_CA_CERT)?;
         self.parse_client_auth(args, TLS_ARG_CERT, TLS_ARG_KEY)?;
         self.parse_no_session_cache(args, TLS_ARG_NO_SESSION_CACHE)?;
-        self.parse_no_verify(args, TLS_ARG_NO_VERIFY);
         self.parse_no_sni(args, TLS_ARG_NO_SNI)?;
         self.build_client()
     }
@@ -171,11 +191,10 @@ impl RustlsTlsClientArgs {
             return Ok(());
         }
 
-        self.parse_tls_name(args, PROXY_TLS_ARG_NAME);
+        self.parse_tls_name(args, PROXY_TLS_ARG_NAME)?;
         self.parse_ca_cert(args, PROXY_TLS_ARG_CA_CERT)?;
         self.parse_client_auth(args, PROXY_TLS_ARG_CERT, PROXY_TLS_ARG_KEY)?;
         self.parse_no_session_cache(args, PROXY_TLS_ARG_NO_SESSION_CACHE)?;
-        self.parse_no_verify(args, PROXY_TLS_ARG_NO_VERIFY);
         self.parse_no_sni(args, PROXY_TLS_ARG_NO_SNI)?;
         self.build_client()
     }
@@ -272,12 +291,6 @@ pub(crate) fn append_tls_args(cmd: Command) -> Command {
             .long(TLS_ARG_NO_SESSION_CACHE),
     )
     .arg(
-        Arg::new(TLS_ARG_NO_VERIFY)
-            .help("Skip TLS verify for target site")
-            .action(ArgAction::SetTrue)
-            .long(TLS_ARG_NO_VERIFY),
-    )
-    .arg(
         Arg::new(TLS_ARG_NO_SNI)
             .help("Disable TLS SNI for target site")
             .action(ArgAction::SetTrue)
@@ -327,12 +340,6 @@ pub(crate) fn append_proxy_tls_args(cmd: Command) -> Command {
             .help("Disable TLS session cache for proxy")
             .action(ArgAction::SetTrue)
             .long(PROXY_TLS_ARG_NO_SESSION_CACHE),
-    )
-    .arg(
-        Arg::new(PROXY_TLS_ARG_NO_VERIFY)
-            .help("Skip TLS verify for proxy")
-            .action(ArgAction::SetTrue)
-            .long(PROXY_TLS_ARG_NO_VERIFY),
     )
     .arg(
         Arg::new(PROXY_TLS_ARG_NO_SNI)

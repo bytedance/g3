@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,5 +14,8 @@
  * limitations under the License.
  */
 
-mod stats;
-pub(super) use stats::{HttpHistogram, HttpHistogramRecorder, HttpRuntimeStats};
+pub(crate) mod http;
+pub(crate) mod openssl;
+pub(crate) mod proxy_protocol;
+pub(crate) mod rustls;
+pub(crate) mod ssl;

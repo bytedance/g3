@@ -21,7 +21,7 @@ use clap::{ArgMatches, Command};
 use http::{HeaderValue, Method, Request, Uri, Version};
 
 use super::{BenchTarget, BenchTaskContext, ProcArgs};
-use crate::target::http::{HttpHistogram, HttpHistogramRecorder, HttpRuntimeStats};
+use crate::module::http::{HttpHistogram, HttpHistogramRecorder, HttpRuntimeStats};
 
 mod opts;
 use opts::BenchH2Args;

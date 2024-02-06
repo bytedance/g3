@@ -181,7 +181,7 @@ impl KeylessGlobalArgs {
         let mut public_key_ski = None;
 
         let cert = if let Some(file) = args.get_one::<PathBuf>(ARG_CERT) {
-            let cert = crate::target::openssl::load_certs(file)?
+            let cert = crate::module::openssl::load_certs(file)?
                 .into_iter()
                 .next()
                 .unwrap();
@@ -201,7 +201,7 @@ impl KeylessGlobalArgs {
         };
 
         let private_key = if let Some(file) = args.get_one::<PathBuf>(ARG_PKEY) {
-            let key = crate::target::openssl::load_key(file)?;
+            let key = crate::module::openssl::load_key(file)?;
 
             // verify SKI match
             let ski = key

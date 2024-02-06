@@ -27,13 +27,13 @@ use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
 use hickory_client::client::AsyncClient;
 use hickory_proto::iocompat::AsyncIoTokioAsStd;
-use rustls::ClientConfig;
+use rustls::{ClientConfig, ServerName};
 use tokio::net::{TcpStream, UdpSocket};
 
 use g3_types::net::{DnsEncryptionProtocol, RustlsClientConfigBuilder};
 
 use super::{DnsRequest, DnsRequestPickState};
-use crate::target::{AppendRustlsArgs, RustlsTlsClientArgs};
+use crate::module::rustls::{AppendRustlsArgs, RustlsTlsClientArgs};
 
 const DNS_ARG_TARGET: &str = "target";
 const DNS_ARG_LOCAL_ADDRESS: &str = "local-address";
@@ -125,11 +125,12 @@ impl BenchDnsArgs {
     pub(super) async fn new_dns_client(&self) -> anyhow::Result<AsyncClient> {
         if let Some(p) = self.encryption {
             let tls_client = self.tls.client.as_ref().ok_or_else(|| anyhow!(""))?;
-            let tls_name = self
-                .tls
-                .tls_name
-                .clone()
-                .unwrap_or_else(|| self.target.ip().to_string());
+            let tls_name = match &self.tls.tls_name {
+                Some(ServerName::DnsName(domain)) => domain.as_ref().to_string(),
+                Some(ServerName::IpAddress(ip)) => ip.to_string(),
+                Some(_) => return Err(anyhow!("unsupported tls server name type")),
+                None => self.target.ip().to_string(),
+            };
 
             match p {
                 DnsEncryptionProtocol::Tls => {
