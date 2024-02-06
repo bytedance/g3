@@ -1355,7 +1355,6 @@ version = "0.4.0"
 dependencies = [
  "ahash",
  "anyhow",
- "arc-swap",
  "base64",
  "blake3",
  "brotli",
@@ -1383,7 +1382,6 @@ dependencies = [
  "radix_trie",
  "rand",
  "regex",
- "ring",
  "rustc-hash",
  "rustls",
  "rustls-native-certs",
