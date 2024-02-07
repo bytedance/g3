@@ -1,4 +1,15 @@
 
+v0.9.0:
+ - BUG FIX: do not send Host header in h2 and h3 target, to be compatible with Google sites
+ - Feature: allow to set max request rate limit
+ - Feature: add new rustls target for tls handshake, and rename the original ssl target to openssl
+ - Feature: add more config options for openssl client:
+     - supported-groups
+     - use-ocsp-stapling
+     - enable-sct
+     - enable-grease, only for BoringSSL and AWS-LC
+ - Feature: default to enable cert compression for BoringSSL, AWS-LC and Tongsuo
+
 v0.8.9:
  - Feature: always verify tls server name in cert
  - Feature: allow to disable tls in keyless connection
