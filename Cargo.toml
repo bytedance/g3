@@ -12,6 +12,7 @@ members = [
     "lib/g3-json",
     "lib/g3-msgpack",
     "lib/g3-runtime",
+    "lib/g3-hickory-client",
     "lib/g3-resolver",
     "lib/g3-datetime",
     "lib/g3-stdlog",

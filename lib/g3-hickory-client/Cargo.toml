@@ -1,0 +1,23 @@
+[package]
+name = "g3-hickory-client"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+hickory-client.workspace = true
+hickory-proto = { workspace  = true, features = ["dns-over-https"] }
+futures-util.workspace = true
+async-trait.workspace = true
+http.workspace = true
+h2.workspace = true
+bytes.workspace = true
+log.workspace = true
+tokio.workspace = true
+rustls.workspace = true
+tokio-rustls.workspace = true
+
+[features]
+default = []

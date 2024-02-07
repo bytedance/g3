@@ -1084,6 +1084,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "g3-hickory-client"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "futures-util",
+ "h2 0.4.2",
+ "hickory-client",
+ "hickory-proto",
+ "http 1.0.0",
+ "log",
+ "rustls",
+ "tokio",
+ "tokio-rustls",
+]
+
+[[package]]
 name = "g3-histogram"
 version = "0.1.0"
 dependencies = [
