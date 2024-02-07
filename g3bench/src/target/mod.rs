@@ -20,6 +20,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
+use governor::RateLimiter;
 use hdrhistogram::Histogram;
 use tokio::signal::unix::SignalKind;
 use tokio::sync::{mpsc, Barrier, Semaphore};
@@ -195,6 +196,10 @@ where
             .map_err(|e| anyhow!("failed to set handler for SIGINT: {e:?}"))?,
     );
 
+    let rate_limit = proc_args
+        .rate_limit
+        .as_ref()
+        .map(|c| Arc::new(RateLimiter::direct(c.get_inner())));
     for i in 0..proc_args.concurrency {
         let sem = Arc::clone(&sync_sem);
         let barrier = Arc::clone(&sync_barrier);
@@ -208,6 +213,7 @@ where
         let task_unconstrained = proc_args.task_unconstrained;
         let latency = proc_args.latency;
         let ignore_fatal_error = proc_args.ignore_fatal_error;
+        let rate_limit = rate_limit.clone();
         let rt = super::worker::select_handle(i).unwrap_or_else(tokio::runtime::Handle::current);
         rt.spawn(async move {
             sem.add_permits(1);
@@ -226,6 +232,12 @@ where
             while let Some(task_id) = global_state.fetch_request() {
                 if let Some(latency) = &mut latency_interval {
                     latency.tick().await;
+                }
+
+                if let Some(r) = &rate_limit {
+                    while let Err(t) = r.check() {
+                        tokio::time::sleep_until(t.earliest_possible().into()).await;
+                    }
                 }
 
                 let time_start = Instant::now();

@@ -35,6 +35,7 @@ rustc-hash.workspace = true
 concurrent-queue = "2.2"
 hex.workspace = true
 itoa.workspace = true
+governor = { workspace = true, features = ["std", "jitter"] }
 hickory-client = { workspace = true, optional = true, features = ["dns-over-rustls", "dns-over-https-rustls", "native-certs"] }
 hickory-proto = { workspace = true, optional = true }
 g3-runtime.workspace = true

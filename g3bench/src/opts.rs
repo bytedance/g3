@@ -28,6 +28,7 @@ use g3_runtime::blended::BlendedRuntimeConfig;
 use g3_runtime::unaided::UnaidedRuntimeConfig;
 use g3_statsd_client::{StatsdBackend, StatsdClient, StatsdClientConfig};
 use g3_types::collection::{SelectivePickPolicy, SelectiveVec, SelectiveVecBuilder, WeightedValue};
+use g3_types::limit::RateLimitQuotaConfig;
 use g3_types::metrics::MetricsName;
 use g3_types::net::{TcpSockSpeedLimitConfig, UdpSockSpeedLimitConfig, UpstreamAddr};
 
@@ -41,6 +42,7 @@ const GLOBAL_ARG_OPENSSL_ASYNC_JOBS: &str = "openssl-async-jobs";
 const GLOBAL_ARG_CONCURRENCY: &str = "concurrency";
 const GLOBAL_ARG_LATENCY: &str = "latency";
 const GLOBAL_ARG_TIME_LIMIT: &str = "time-limit";
+const GLOBAL_ARG_RATE_LIMIT: &str = "rate-limit";
 const GLOBAL_ARG_REQUESTS: &str = "requests";
 const GLOBAL_ARG_RESOLVE: &str = "resolve";
 const GLOBAL_ARG_LOG_ERROR: &str = "log-error";
@@ -62,6 +64,7 @@ pub struct ProcArgs {
     pub(super) latency: Option<Duration>,
     pub(super) requests: Option<usize>,
     pub(super) time_limit: Option<Duration>,
+    pub(super) rate_limit: Option<RateLimitQuotaConfig>,
     pub(super) log_error_count: usize,
     pub(super) ignore_fatal_error: bool,
     pub(super) task_unconstrained: bool,
@@ -87,6 +90,7 @@ impl Default for ProcArgs {
             latency: None,
             requests: None,
             time_limit: None,
+            rate_limit: None,
             log_error_count: 0,
             ignore_fatal_error: false,
             task_unconstrained: false,
@@ -249,6 +253,15 @@ pub fn add_global_args(app: Command) -> Command {
             .global(true)
             .short('t')
             .long(GLOBAL_ARG_TIME_LIMIT)
+            .num_args(1),
+    )
+    .arg(
+        Arg::new(GLOBAL_ARG_RATE_LIMIT)
+            .help("Maximum request rate limit")
+            .value_name("RATE LIMIT")
+            .global(true)
+            .short('r')
+            .long(GLOBAL_ARG_RATE_LIMIT)
             .num_args(1),
     )
     .arg(
@@ -442,6 +455,12 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
     }
 
     proc_args.time_limit = g3_clap::humanize::get_duration(args, GLOBAL_ARG_TIME_LIMIT)?;
+
+    if let Some(v) = args.get_one::<String>(GLOBAL_ARG_RATE_LIMIT) {
+        let rate_limit =
+            RateLimitQuotaConfig::from_str(v).context("invalid request rate limit value")?;
+        proc_args.rate_limit = Some(rate_limit);
+    }
 
     if args.get_flag(GLOBAL_ARG_UNAIDED) {
         proc_args.use_unaided_worker = true;

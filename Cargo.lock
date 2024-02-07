@@ -1477,6 +1477,7 @@ dependencies = [
  "g3-statsd-client",
  "g3-tls-cert",
  "g3-types",
+ "governor",
  "h2 0.4.2",
  "h3 0.0.4",
  "h3-quinn 0.0.5",
