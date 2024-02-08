@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-pub mod h2;
-pub mod tls;
+const MIME_APPLICATION_DNS: &str = "application/dns-message";
+const DNS_QUERY_PATH: &str = "/dns-query";
 
-mod http;
+pub mod request;
+pub mod response;

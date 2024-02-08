@@ -1087,7 +1087,6 @@ dependencies = [
 name = "g3-hickory-client"
 version = "0.1.0"
 dependencies = [
- "async-trait",
  "bytes",
  "futures-util",
  "h2 0.4.2",
@@ -1096,6 +1095,7 @@ dependencies = [
  "http 1.0.0",
  "log",
  "rustls",
+ "thiserror",
  "tokio",
  "tokio-rustls",
 ]

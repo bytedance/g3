@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
+use std::future::Future;
 use std::io;
+use std::pin::Pin;
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use hickory_proto::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
 use hickory_proto::tcp::Connect;
 use rustls::{ClientConfig, ServerName};
@@ -31,7 +32,6 @@ pub struct RustlsConnector {
     pub tls_name: ServerName,
 }
 
-#[async_trait]
 impl<S: Connect> TlsConnect<S> for RustlsConnector {
     type TlsStream = AsyncIoTokioAsStd<TlsStream<AsyncIoStdAsTokio<S>>>;
 
@@ -43,11 +43,23 @@ impl<S: Connect> TlsConnect<S> for RustlsConnector {
         }
     }
 
-    async fn tls_connect(&self, stream: S) -> io::Result<Self::TlsStream> {
-        let connector = TlsConnector::from(self.config.clone());
-        connector
-            .connect(self.tls_name.clone(), AsyncIoStdAsTokio(stream))
-            .await
-            .map(|s| AsyncIoTokioAsStd(s))
+    fn tls_connect(
+        &self,
+        stream: S,
+    ) -> Pin<Box<dyn Future<Output = io::Result<Self::TlsStream>> + Send + 'static>> {
+        let connect = connect_tls(self.config.clone(), self.tls_name.clone(), stream);
+        Box::pin(connect)
     }
+}
+
+async fn connect_tls<S: Connect>(
+    config: Arc<ClientConfig>,
+    tls_name: ServerName,
+    stream: S,
+) -> io::Result<AsyncIoTokioAsStd<TlsStream<AsyncIoStdAsTokio<S>>>> {
+    let connector = TlsConnector::from(config);
+    connector
+        .connect(tls_name, AsyncIoStdAsTokio(stream))
+        .await
+        .map(|s| AsyncIoTokioAsStd(s))
 }
