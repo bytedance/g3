@@ -14,18 +14,21 @@
  * limitations under the License.
  */
 
+use std::future::Future;
 use std::io;
+use std::pin::Pin;
 
-use async_trait::async_trait;
 use hickory_proto::tcp::{Connect, DnsTcpStream};
 
 pub mod rustls;
 
-#[async_trait]
 pub trait TlsConnect<S: Connect> {
     type TlsStream: DnsTcpStream;
 
     fn server_name(&self) -> String;
 
-    async fn tls_connect(&self, stream: S) -> io::Result<Self::TlsStream>;
+    fn tls_connect(
+        &self,
+        stream: S,
+    ) -> Pin<Box<dyn Future<Output = io::Result<Self::TlsStream>> + Send + 'static>>;
 }

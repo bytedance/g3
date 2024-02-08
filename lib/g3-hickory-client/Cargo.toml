@@ -8,13 +8,13 @@ edition.workspace = true
 
 [dependencies]
 hickory-client.workspace = true
-hickory-proto = { workspace  = true, features = ["dns-over-https"] }
+hickory-proto = { workspace  = true, features = ["tokio-runtime"] }
 futures-util.workspace = true
-async-trait.workspace = true
 http.workspace = true
 h2.workspace = true
 bytes.workspace = true
 log.workspace = true
+thiserror.workspace = true
 tokio.workspace = true
 rustls.workspace = true
 tokio-rustls.workspace = true
