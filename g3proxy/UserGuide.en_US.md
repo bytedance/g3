@@ -122,6 +122,7 @@ stat:
     # unix: /run/statsd.sock
   prefix: g3proxy       # Metric name prefix, for example, server.task.total will be transformed to g3proxy.server.task.total
   emit_duration: 200ms  # Interval between metrics
+```
 
 The specific metrics are defined in the [metrics](doc/metrics) folder. It is recommended to generate the Sphinx HTML documentation and view it.
 
@@ -784,7 +785,7 @@ Each node's Proxy is configured with the following functions:
     - name: relay
       type: http_proxy
       escaper: local
-      tls_server: {} # 配置TLS参数
+      tls_server: {} # Configure TLS parameters
   ```
 
 - route
