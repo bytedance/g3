@@ -5,7 +5,7 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 
 ## User Guide
 
-[中文版](UserGuide.zh_CN.md)
+[中文](UserGuide.zh_CN.md) | [English](UserGuide.en_US.md)
 
 ## Features
 

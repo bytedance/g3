@@ -123,6 +123,10 @@ For testing purpose, we have built and uploaded some packages to
 
 See [Static Linking](doc/static-linking.md).
 
+### Build with different OpenSSL variants
+
+See [OpenSSL Variants](doc/openssl-variants.md).
+
 ## Contribution
 
 Please check [Contributing](CONTRIBUTING.md) for more details.

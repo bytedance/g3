@@ -116,6 +116,10 @@ Cloudflare Keyless Server的简单实现。
 
 参考 [Static Linking](doc/static-linking.md)。
 
+### 使用OpenSSL变种编译
+
+参考 [OpenSSL Variants](doc/openssl-variants.md)。
+
 ## 贡献指南
 
 参考 [Contributing](CONTRIBUTING.md)。

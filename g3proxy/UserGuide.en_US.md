@@ -19,28 +19,28 @@
     + [Proxy Chaining](#proxy-chaining)
     + [Connection Throttling](#connection-throttling)
     + [Secure Resolution](#secure-resolution)
-    + [Resilient Resolution](#resilient-resolution)
+    + [Fault-Tolerant Resolution](#fault-tolerant-resolution)
     + [User Authentication and Authorization](#user-authentication-and-authorization)
     + [User Rate Limiting and Throttling](#user-rate-limiting-and-throttling)
 - [Advanced Usage](#advanced-usage)
     + [mTLS Client](#mtls-client)
-    + [SM2 TLCP Protocol Offloading](#sm2-tlcp-protocol-offloading)
-    + [Multiprotocol Entry Multiplexing](#multiprotocol-entry-multiplexing)
+    + [Unloading the Guomi TLCP Protocol](#unloading-the-guomi-tlcp-protocol)
+    + [Multi-Protocol Listen on One Port](#multi-protocol-listen-on-one-port)
     + [Listening on Multiple Ports](#listening-on-multiple-ports)
     + [Enabling PROXY Protocol on Listening Ports](#enabling-proxy-protocol-on-listening-ports)
-    + [SM2 TLCP Protocol Encapsulation](#sm2-tlcp-protocol-encapsulation)
+    + [Guomi TLCP Protocol Encapsulation](#guomi-tlcp-protocol-encapsulation)
     + [Socks5 UDP IP Mapping](#socks5-udp-ip-mapping)
     + [Secure Reverse Proxy](#secure-reverse-proxy)
-    + [Domain Resolution Hijacking](#domain-resolution-hijacking)
+    + [Domain Name Resolution Hijacking](#domain-name-resolution-hijacking)
     + [Dynamic Route Binding](#dynamic-route-binding)
     + [Dynamic Proxy Chaining](#dynamic-proxy-chaining)
-    + [Monitoring Specific User Sites](#monitoring-specific-user-sites)
-    + [Traffic Auditing](#traffic-auditing)
-    + [TLS Decrypted Traffic Export](#tls-decrypted-traffic-export)
+    + [Monitoring Specific Sites for Users](#monitoring-specific-sites-for-users)
+    + [Traffic Audit](#traffic-audit)
+    + [Exporting Decrypted TLS Traffic](#exporting-decrypted-tls-traffic)
     + [Performance Optimization](#performance-optimization)
 - [Scenario Design](#scenario-design)
     + [Multi-Region Acceleration](#multi-region-acceleration)
-    + [Dual Egress Resilience](#dual-egress-resilience)
+    + [Dual Exit Disaster Recovery](#dual-exit-disaster-recovery)
 
 ## Installation
 
@@ -57,7 +57,7 @@ and each process group has a Unix socket file for local RPC management.
 Each service has an entry configuration file in YAML format, with a customizable suffix, but all referenced configuration files must have the same suffix. In the following text, *main.yml* will be used to refer to the entry configuration file.
 
 For installations using native distribution packages, systemd parameterized service configuration files are already installed. The parameter is the process group name,
-and the corresponding entry configuration file is located at `/etc/<daemon_group>/main.yml`.
+and the corresponding entry configuration file is located at `/etc/g3proxy/<daemon_group>/main.yml`.
 
 For installations without using packages, you can refer to [g3proxy@.service](service/g3proxy@.latest.service) to design your own service usage.
 
@@ -77,12 +77,12 @@ The hot upgrade mechanism is similar to nginx reload. Due to operating system li
 
 g3proxy adopts a modular approach for functionality design, mainly consisting of the following functional modules:
 
-1. Entry | Server
+1. Server
 
     Responsible for accepting client requests and processing them, invoking the functionalities of the Egress, User, and Audit modules.
     Entry of type *Port* can be placed before non-port type entries for chaining.
 
-2. Egress | Escaper
+2. Escaper
 
     Responsible for connecting to and controlling the target address, invoking the functionalities of the Resolver module.
     Egress of type *Route* can be placed before other egresses for chaining.
@@ -92,11 +92,11 @@ g3proxy adopts a modular approach for functionality design, mainly consisting of
     Provides domain name resolution functionality.
     Failover resolution can be placed before other resolvers for chaining.
 
-4. User Group | UserGroup
+4. UserGroup
 
    Provides user authentication and authorization functionality.
 
-5. Audit | Auditor
+5. Auditor
 
    Provides traffic auditing functionality.
 
@@ -453,7 +453,7 @@ server:
     # Use the global_tls_server parameter to set the default tls service configuration, which takes effect for hosts that do not have the tls_server parameter set
 ```
 
-### Multiprotocol Entry Reuse
+### Multi-Protocol Listen on One Port
 
 If you need to use a single port for both HttpProxy and SocksProxy, you can use the IntelliProxy Port entry:
 
