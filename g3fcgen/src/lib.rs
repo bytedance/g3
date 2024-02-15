@@ -22,6 +22,8 @@ use anyhow::{anyhow, Context};
 use tokio::runtime::Handle;
 use tokio::time::Instant;
 
+use g3_types::ext::DurationExt;
+
 pub mod config;
 
 mod build;
@@ -36,7 +38,6 @@ use backend::{BackendStats, OpensslBackend};
 
 mod frontend;
 use frontend::{FrontendStats, ResponseData, UdpDgramFrontend};
-use g3_types::ext::DurationExt;
 
 struct BackendRequest {
     host: String,
@@ -98,55 +99,51 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
         )?;
     }
 
-    if let Some(addr) = proc_args.udp_addr {
-        let frontend = UdpDgramFrontend::new(addr).await?;
+    let udp_listen_addr = proc_args.udp_listen_addr();
+    let frontend = UdpDgramFrontend::new(udp_listen_addr).await?;
 
-        let mut rcv_buf = [0u8; 1024];
-
-        loop {
-            tokio::select! {
-                r = frontend.recv_req(&mut rcv_buf) => {
-                    frontend_stats.add_request_total();
-                    let recv_time = Instant::now();
-                    match r {
-                        Ok((len, peer)) => match crate::frontend::decode_req(&rcv_buf[0..len]) {
-                            Ok(host) => {
-                                let req = BackendRequest {host, peer, recv_time};
-                                if let Err(e) = req_sender.send_async(req).await {
-                                    return Err(anyhow!("failed to send request to backend: {e}"));
-                                }
-                            }
-                            Err(e) => {
-                                frontend_stats.add_request_invalid();
-                                warn!("invalid request from peer {peer}: {e:?}");
+    let mut rcv_buf = [0u8; 1024];
+    loop {
+        tokio::select! {
+            r = frontend.recv_req(&mut rcv_buf) => {
+                frontend_stats.add_request_total();
+                let recv_time = Instant::now();
+                match r {
+                    Ok((len, peer)) => match frontend::decode_req(&rcv_buf[0..len]) {
+                        Ok(host) => {
+                            let req = BackendRequest {host, peer, recv_time};
+                            if let Err(e) = req_sender.send_async(req).await {
+                                return Err(anyhow!("failed to send request to backend: {e}"));
                             }
                         }
-                        Err(e) => return Err(anyhow!("frontend recv error: {e:?}")),
+                        Err(e) => {
+                            frontend_stats.add_request_invalid();
+                            warn!("invalid request from peer {peer}: {e:?}");
+                        }
                     }
+                    Err(e) => return Err(anyhow!("frontend recv error: {e:?}")),
                 }
-                r = rsp_receiver.recv_async() => {
-                    match r {
-                        Ok(rsp) => match rsp.data.encode() {
-                            Ok(buf) => {
-                                frontend_stats.add_response_total();
-                                match frontend.send_rsp(buf.as_slice(), rsp.peer).await {
-                                    Ok(_) => {
-                                        let _ = duration_recorder.record(rsp.duration());
-                                    }
-                                    Err(e) => {
-                                        frontend_stats.add_response_fail();
-                                        warn!("write response back error: {e:?}");
-                                    }
+            }
+            r = rsp_receiver.recv_async() => {
+                match r {
+                    Ok(rsp) => match rsp.data.encode() {
+                        Ok(buf) => {
+                            frontend_stats.add_response_total();
+                            match frontend.send_rsp(buf.as_slice(), rsp.peer).await {
+                                Ok(_) => {
+                                    let _ = duration_recorder.record(rsp.duration());
+                                }
+                                Err(e) => {
+                                    frontend_stats.add_response_fail();
+                                    warn!("write response back error: {e:?}");
                                 }
                             }
-                            Err(e) => return Err(anyhow!("response encode error: {e:?}")),
                         }
-                        Err(e) => return Err(anyhow!("recv from backend failed: {e}")),
+                        Err(e) => return Err(anyhow!("response encode error: {e:?}")),
                     }
+                    Err(e) => return Err(anyhow!("recv from backend failed: {e}")),
                 }
             }
         }
-    } else {
-        Err(anyhow!("no frontend found"))
     }
 }

@@ -15,7 +15,7 @@
  */
 
 use std::env;
-use std::net::{IpAddr, Ipv6Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::OnceLock;
@@ -34,7 +34,7 @@ static DAEMON_GROUP: OnceLock<String> = OnceLock::new();
 #[derive(Debug)]
 pub struct ProcArgs {
     pub daemon_config: DaemonArgs,
-    pub(crate) udp_addr: Option<SocketAddr>,
+    udp_addr: Option<SocketAddr>,
 }
 
 impl Default for ProcArgs {
@@ -43,6 +43,13 @@ impl Default for ProcArgs {
             daemon_config: DaemonArgs::new(crate::build::PKG_NAME),
             udp_addr: None,
         }
+    }
+}
+
+impl ProcArgs {
+    pub(crate) fn udp_listen_addr(&self) -> SocketAddr {
+        self.udp_addr
+            .unwrap_or_else(|| SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 2999))
     }
 }
 
