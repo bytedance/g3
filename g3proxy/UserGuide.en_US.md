@@ -139,7 +139,7 @@ server:
     type: http_proxy
     listen:
       address: "[::]:8080"
-    tls_client: {}   # Open 7th layer https forward forwarding support
+    tls_client: {}   # Open layer-7 https forward forwarding support
 ```
 ### SOCKS Proxy
 
@@ -386,7 +386,7 @@ This feature requires enabling the vendored-tongsuo feature at compile time.
 
 In some scenarios, it may be necessary to use the Guomi protocol for access. Many clients do not support the Guomi protocol, so you can use g3proxy for protocol conversion:
 
-* TLCP to 4-layer TCP
+* TLCP to layer-4 TCP
 
 ```yaml
 server:
@@ -400,7 +400,7 @@ server:
       # Additional configuration for mTLS, etc.
     upstream_tls_name: target.host.domain # Target domain name, used to verify the target identity (if the upstream url contains the domain name, it can be omitted)
 ```
-* TLCP to 4-layer TLS
+* TLCP to layer-4 TLS
 
 ```yaml
 server:
@@ -413,7 +413,7 @@ server:
     # Other configurations same as above tcp_stream
 ```
 
-* TLCP to 7-layer HTTP
+* TLCP to layer-7 HTTP
 
 ```yaml
 server:
@@ -430,7 +430,7 @@ server:
         tls_name: target.host.domain # Target domain name, used to verify the target identity (if the upstream url contains the domain name, it can be omitted)
 ```
 
-* TLCP to 7-layer HTTPS
+* TLCP to layer-7 HTTPS
 
 ```yaml
 server:
@@ -498,7 +498,7 @@ server:
     escaper: default # Required, can be any type of exit
     type: http_proxy
     listen: "[::]:8080"
-    tls_client: {}   # Open 7th layer https forward forwarding support
+    tls_client: {}   # Open layer-7 https forward forwarding support
   - name: tls
     type: plain_tls_port
     listen: "[::]:8443"
@@ -664,7 +664,7 @@ To enable traffic audit, refer to the complete configuration in [examples/inspec
 auditor:
   - name: default
     protocol_inspection: {} # Enable protocol recognition, use default parameters
-    tls_cert_generator: {}  # Enable TLS hijacking, use default parameters
+    tls_cert_generator: {}  # Enable TLS hijacking, use default parameters, peer address will be 127.0.0.1:2999
     tls_interception_client: {} # Can configure proxy to target address TLS connection parameters
     h1_interception: {}         # HTTP/1.0 parsing parameters
     h2_interception: {}         # HTTP/2 parsing parameters
@@ -672,6 +672,8 @@ auditor:
     icap_respmod_service: icap://xxx # ICAP RESPMOD service configuration
     application_audit_ratio: 1.0     # Application traffic audit ratio, matched according to client proxy request, if audit then perform protocol recognition and TLS hijacking
 ```
+
+Note that you will need to run the `tls cert generator` first, such as [g3fcgen](/g3fcgen) which is a reference implementation, see [g3fcgen simple conf](/g3fcgen/examples/simple) for an example conf.
 
 ### Exporting Decrypted TLS Traffic
 
@@ -760,7 +762,7 @@ Each node's Proxy is configured with the following functions:
 
 - GW
 
-  Handles local user requests and can use [SNI Proxy](#sni-proxy) for Layer 4 acceleration or [HTTP Reverse Proxy](#secure-reverse-proxy) for Layer 7 acceleration.
+  Handles local user requests and can use [SNI Proxy](#sni-proxy) for Layer-4 acceleration or [HTTP Reverse Proxy](#secure-reverse-proxy) for Layer-7 acceleration.
 
   Simplified configuration:
 

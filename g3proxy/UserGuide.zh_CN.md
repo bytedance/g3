@@ -672,7 +672,7 @@ explicit_sites:
 auditor:
   - name: default
     protocol_inspection: {} # 开启协议识别，使用默认参数
-    tls_cert_generator: {}  # 开启TLS劫持，使用默认参数
+    tls_cert_generator: {}  # 开启TLS劫持，使用默认参数，Peer地址为127.0.0.1:2999
     tls_interception_client: {} # 可配置代理对目标地址TLS连接参数
     h1_interception: {}         # HTTP/1.0 解析参数
     h2_interception: {}         # HTTP/2 解析参数
@@ -680,6 +680,8 @@ auditor:
     icap_respmod_service: icap://xxx # ICAP RESPMOD服务配置
     application_audit_ratio: 1.0     # 应用流量审计比例，按客户端代理请求匹配，若审计则进行协议识别及TLS劫持
 ```
+
+注意该功能需搭配tls cert generator使用，参考实现为[g3fcgen](/g3fcgen)，示例配置参考[g3fcgen simple conf](/g3fcgen/examples/simple)。
 
 ### TLS解密流量导出
 
