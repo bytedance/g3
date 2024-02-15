@@ -57,7 +57,7 @@
 每个服务有一个入口配置文件，yaml格式，后缀可更改，但需要保持所有引用的配置文件均具有相同的后缀。下文将使用*main.yml*指代入口配置文件。
 
 使用发行版原生安装包安装的，已经安装了systemd参数化服务配置文件，参数就是进程组名称，
-对应的入口配置文件存放路径为`/etc/<daemon_group>/main.yml`。
+对应的入口配置文件存放路径为`/etc/g3proxy/<daemon_group>/main.yml`。
 
 未使用安装包安装的，可以参考[g3proxy@.service](service/g3proxy@.latest.service)自行设计服务化使用方式。
 
