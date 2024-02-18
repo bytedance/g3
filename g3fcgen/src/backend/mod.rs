@@ -56,14 +56,14 @@ impl OpensslBackend {
         self.stats.add_refresh_total();
         self.builder.refresh_datetime()?;
         self.builder.refresh_ec256()?;
-        self.builder.refresh_serial()?;
         self.stats.add_refresh_ok();
         Ok(())
     }
 
-    pub(crate) fn generate(&self, host: &str) -> anyhow::Result<ResponseData> {
+    pub(crate) fn generate(&mut self, host: &str) -> anyhow::Result<ResponseData> {
         self.stats.add_request_total();
         let host = Host::from_str(host)?;
+        self.builder.refresh_serial()?;
         let cert =
             self.builder
                 .build_fake(&host, &self.config.ca_cert, &self.config.ca_key, None)?;
