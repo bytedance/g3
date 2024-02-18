@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::anyhow;
@@ -40,7 +39,7 @@ use g3_slog_types::{
 };
 use g3_types::net::HttpHeaderMap;
 
-use super::{H2BodyTransfer, H2ConcurrencyStats, H2StreamTransferError};
+use super::{H2BodyTransfer, H2StreamTransferError};
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
 use crate::serve::ServerIdleChecker;
@@ -135,7 +134,6 @@ pub(crate) struct H2ForwardTask<SC: ServerConfig> {
     clt_stream_id: StreamId,
     ups_stream_id: Option<StreamId>,
     send_error_response: bool,
-    cstats: Arc<H2ConcurrencyStats>,
     http_notes: HttpForwardTaskNotes,
 }
 
@@ -146,7 +144,6 @@ where
     pub(crate) fn new(
         ctx: StreamInspectContext<SC>,
         clt_stream_id: StreamId,
-        cstats: Arc<H2ConcurrencyStats>,
         req: &Request<RecvStream>,
     ) -> Self {
         let http_notes = HttpForwardTaskNotes::new(
@@ -159,7 +156,6 @@ where
             clt_stream_id,
             ups_stream_id: None,
             send_error_response: false,
-            cstats,
             http_notes,
         }
     }
@@ -415,20 +411,12 @@ where
     ) -> Result<(), H2StreamTransferError> {
         let orig_req = ups_req.clone_header();
 
-        let send_push_promise = ups_req.method().eq(&Method::GET); // only forward push promise for GET
-
-        let (mut ups_rsp_fut, _) = ups_send_req
+        let (ups_rsp_fut, _) = ups_send_req
             .send_request(ups_req, true)
             .map_err(H2StreamTransferError::RequestHeadSendFailed)?; // do not send REFUSED_STREAM, use the default rst in h2
         self.ups_stream_id = Some(ups_rsp_fut.stream_id());
         self.http_notes.mark_req_send_hdr();
         self.http_notes.mark_req_no_body();
-
-        let ups_push = if send_push_promise {
-            Some(ups_rsp_fut.push_promises())
-        } else {
-            None
-        };
 
         // there shouldn't be 100 response in this case
         let ups_rsp = match tokio::time::timeout(
@@ -444,28 +432,6 @@ where
             Ok(Err(e)) => return Err(H2StreamTransferError::ResponseHeadRecvFailed(e)),
             Err(_) => return Err(H2StreamTransferError::ResponseHeadRecvTimeout),
         };
-
-        if let Some(mut ups_push) = ups_push {
-            loop {
-                match ups_push.push_promise().await {
-                    Some(Ok(p)) => {
-                        if super::push::push_request(
-                            p,
-                            clt_send_rsp,
-                            &self.ctx,
-                            self.cstats.clone(),
-                        )
-                        .await
-                        .is_err()
-                        {
-                            break;
-                        }
-                    }
-                    Some(Err(e)) => return Err(H2StreamTransferError::PushWaitError(e)),
-                    None => break,
-                }
-            }
-        }
 
         self.send_response(orig_req, ups_rsp, clt_send_rsp, None)
             .await

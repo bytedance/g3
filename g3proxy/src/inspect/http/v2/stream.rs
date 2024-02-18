@@ -15,7 +15,6 @@
  */
 
 use std::str::FromStr;
-use std::sync::Arc;
 
 use bytes::Bytes;
 use h2::client::SendRequest;
@@ -26,7 +25,7 @@ use http::{Method, Request};
 use g3_dpi::Protocol;
 use g3_types::net::HttpUpgradeToken;
 
-use super::{H2ConcurrencyStats, H2ConnectTask, H2ExtendedConnectTask, H2ForwardTask};
+use super::{H2ConnectTask, H2ExtendedConnectTask, H2ForwardTask};
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
 
@@ -35,7 +34,6 @@ pub(super) async fn transfer<SC>(
     clt_send_rsp: SendResponse<Bytes>,
     h2s: SendRequest<Bytes>,
     ctx: StreamInspectContext<SC>,
-    cstats: Arc<H2ConcurrencyStats>,
 ) where
     SC: ServerConfig + Send + Sync + 'static,
 {
@@ -52,7 +50,7 @@ pub(super) async fn transfer<SC>(
             connect_task.into_running(clt_req, clt_send_rsp, h2s).await
         };
     } else {
-        let forward_task = H2ForwardTask::new(ctx, clt_stream_id, cstats, &clt_req);
+        let forward_task = H2ForwardTask::new(ctx, clt_stream_id, &clt_req);
         forward_task.forward(clt_req, clt_send_rsp, h2s).await
     }
 }

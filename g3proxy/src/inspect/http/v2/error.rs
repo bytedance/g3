@@ -118,8 +118,6 @@ pub(crate) enum H2StreamTransferError {
     HttpUpstreamWriteIdle,
     #[error("idle after {0:?} x {1}")]
     Idle(Duration, i32),
-    #[error("push wait error: {0}")]
-    PushWaitError(h2::Error),
 }
 
 impl H2StreamTransferError {

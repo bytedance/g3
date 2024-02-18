@@ -45,8 +45,6 @@ use connect::{H2ConnectTask, H2ExtendedConnectTask};
 mod forward;
 use forward::H2ForwardTask;
 
-mod push;
-
 struct H2InterceptIo {
     clt_r: OnceBufReader<BoxAsyncRead>,
     clt_w: BoxAsyncWrite,
@@ -128,6 +126,7 @@ where
         let http_config = self.ctx.h2_interception();
         let mut client_builder = h2::client::Builder::new();
         client_builder
+            .enable_push(false) // server push is deprecated by chrome and nginx
             .max_header_list_size(http_config.max_header_list_size)
             .max_concurrent_streams(http_config.max_concurrent_streams)
             .max_frame_size(http_config.max_frame_size)
@@ -216,7 +215,7 @@ where
                             let stats = self.stats.clone();
                             stats.add_task();
                             tokio::spawn(async move {
-                                stream::transfer(clt_req, clt_send_rsp, h2s, ctx, stats.clone()).await;
+                                stream::transfer(clt_req, clt_send_rsp, h2s, ctx).await;
                                 stats.del_task();
                             });
                             continue;
