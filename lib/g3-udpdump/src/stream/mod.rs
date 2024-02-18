@@ -17,7 +17,7 @@
 use std::io;
 use std::net::SocketAddr;
 
-use tokio::io::AsyncWrite;
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::UdpSocket;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc;
@@ -34,8 +34,14 @@ mod header;
 use header::PduHeader;
 pub use header::{ToClientPduHeader, ToRemotePduHeader};
 
+mod state;
+use state::StreamDumpState;
+
 mod write;
 pub use write::{StreamDumpWriter, ToClientStreamDumpWriter, ToRemoteStreamDumpWriter};
+
+mod read;
+pub use read::{FromClientStreamDumpReader, FromRemoteStreamDumpReader, StreamDumpReader};
 
 pub struct StreamDumper {
     config: StreamDumpConfig,
@@ -58,7 +64,7 @@ impl StreamDumper {
         Ok(StreamDumper { config, sender })
     }
 
-    pub fn wrap_io<CW, RW>(
+    pub fn wrap_writer<CW, RW>(
         &self,
         client_addr: SocketAddr,
         remote_addr: SocketAddr,
@@ -84,5 +90,61 @@ impl StreamDumper {
             self.config.packet_size,
         );
         (cw, rw)
+    }
+
+    pub fn wrap_remote_io<R, W>(
+        &self,
+        client_addr: SocketAddr,
+        remote_addr: SocketAddr,
+        dissector_hint: ExportedPduDissectorHint,
+        remote_reader: R,
+        remote_writer: W,
+    ) -> (FromRemoteStreamDumpReader<R>, ToRemoteStreamDumpWriter<W>)
+    where
+        R: AsyncRead,
+        W: AsyncWrite,
+    {
+        let (to_c, to_r) = header::new_pair(client_addr, remote_addr, dissector_hint);
+        let r = StreamDumpReader::new(
+            remote_reader,
+            to_c,
+            self.sender.clone(),
+            self.config.packet_size,
+        );
+        let w = StreamDumpWriter::new(
+            remote_writer,
+            to_r,
+            self.sender.clone(),
+            self.config.packet_size,
+        );
+        (r, w)
+    }
+
+    pub fn wrap_client_io<R, W>(
+        &self,
+        client_addr: SocketAddr,
+        remote_addr: SocketAddr,
+        dissector_hint: ExportedPduDissectorHint,
+        client_reader: R,
+        client_writer: W,
+    ) -> (FromClientStreamDumpReader<R>, ToClientStreamDumpWriter<W>)
+    where
+        R: AsyncRead,
+        W: AsyncWrite,
+    {
+        let (to_c, to_r) = header::new_pair(client_addr, remote_addr, dissector_hint);
+        let r = StreamDumpReader::new(
+            client_reader,
+            to_r,
+            self.sender.clone(),
+            self.config.packet_size,
+        );
+        let w = StreamDumpWriter::new(
+            client_writer,
+            to_c,
+            self.sender.clone(),
+            self.config.packet_size,
+        );
+        (r, w)
     }
 }

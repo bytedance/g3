@@ -183,11 +183,11 @@ where
             } else {
                 ExportedPduDissectorHint::TlsPort(self.upstream.port())
             };
-            let (clt_w, ups_w) = stream_dumper.wrap_io(
+            let (ups_r, ups_w) = stream_dumper.wrap_remote_io(
                 self.ctx.task_notes.client_addr,
                 self.ctx.task_notes.server_addr,
                 dissector_hint,
-                clt_w,
+                ups_r,
                 ups_w,
             );
             self.inspect_inner(protocol, has_alpn, clt_r, clt_w, ups_r, ups_w)
