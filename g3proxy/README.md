@@ -13,26 +13,26 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 
 - **General**
 
-  * Ingress network filter / Target Host filter / Target Port filter
-  * Socket Speed Limit / Request Rate Limit / IDLE Check
-  * Protocol Inspection / TLS Interception / ICAP Adaptation (experimental)
-  * Various TCP / UDP socket config options
-  * Rustls TLS Server (default) / Openssl TLS Server
-  * Openssl TLS Client
-  * 国密《GB/T 38636-2020》（TLCP） client / server (require feature vendored-tongsuo)
+  * Ingress network filter | Target Host filter | Target Port filter
+  * Socket Speed Limit | Request Rate Limit | IDLE Check
+  * Protocol Inspection | TLS Interception | ICAP Adaptation (experimental)
+  * Various TCP & UDP socket config options
+  * Rustls TLS Server
+  * Openssl/BoringSSL/AWS-LC/Tongsuo TLS Server & Client
+  * Tongsuo TLCP Server & Client (国密《GB/T 38636-2020》)
 
 - **Forward Proxy**
 
   - Http(s) Proxy
 
     * TLS / mTLS
-    * Http Forward / Https Forward / Http CONNECT / Ftp over HTTP
+    * Http Forward | Https Forward | Http CONNECT | Ftp over HTTP
     * Basic User Authentication
     * Port Hiding
 
   - Socks Proxy
 
-    * Socks4 Tcp Connect / Socks5 Tcp Connect / Socks5 UDP Associate
+    * Socks4 Tcp Connect | Socks5 Tcp Connect | Socks5 UDP Associate
     * User Authentication
     * Client side UDP IP Binding / IP Map / Ranged Port
 
@@ -40,8 +40,10 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 
   - SNI Proxy
 
-    * Multiple Protocol: TLS SNI extension / HTTP Host Header
+    * Multiple Protocol: TLS SNI extension | HTTP Host Header
     * Host Redirection / Host ACL
+
+  - TCP TPROXY
 
 - **Reverse Proxy**
 
@@ -76,9 +78,9 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
   - Native TLS Port
     * PROXY Protocol
     * mTLS
-    * based on OpenSSL
+    * based on OpenSSL/BoringSSL/AWS-LC/Tongsuo
   - Intelli Proxy
-    * Multiple protocol: Http Proxy / Socks Proxy
+    * Multiple protocol: Http Proxy | Socks Proxy
     * PROXY Protocol
 
 ### Escaper
@@ -87,21 +89,21 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 
   * Happy Eyeballs
   * Socket Speed Limit
-  * Various TCP / UDP socket config options
+  * Various TCP & UDP socket config options
   * IP Bind
 
 - **Direct Connect**
 
-  - Fixed
+  - DirectFixed
 
-    * TCP Connect / TLS Connect / HTTP(s) Forward / UDP Associate
+    * TCP Connect | TLS Connect | HTTP(s) Forward | UDP Associate
     * Egress network filter
     * Resolve redirection
     * Index based Egress Path Selection
 
-  - Float
+  - DirectFloat
 
-    * TCP Connect / TLS Connect / HTTP(s) Forward / UDP Associate
+    * TCP Connect | TLS Connect | HTTP(s) Forward | UDP Associate
     * Egress network filter
     * Resolve redirection
     * Dynamic IP Bind
@@ -111,14 +113,14 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 
   - Http Proxy
 
-    * TCP Connect / TLS Connect / HTTP(s) Forward
+    * TCP Connect | TLS Connect | HTTP(s) Forward
     * PROXY Protocol
     * Load Balance: RR / Random / Rendezvous / Jump Hash
     * Basic User Authentication
 
   - Https Proxy
 
-    * TCP Connect / TLS Connect / HTTP(s) Forward
+    * TCP Connect | TLS Connect | HTTP(s) Forward
     * PROXY Protocol
     * Load Balance: RR / Random / Rendezvous / Jump Hash
     * Basic User Authentication
@@ -126,13 +128,13 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 
   - Socks5 Proxy
 
-    * TCP Connect / TLS Connect / HTTP(s) Forward / UDP Associate
+    * TCP Connect | TLS Connect | HTTP(s) Forward | UDP Associate
     * Load Balance: RR / Random / Rendezvous / Jump Hash
     * Basic User Authentication
 
-  - Float
+  - ProxyFloat
 
-    * Dynamic Proxy: Http Proxy / Https Proxy / Socks5 Proxy
+    * Dynamic Proxy: Http Proxy | Https Proxy | Socks5 Proxy
     * Json based Egress Path Selection
 
 #### Router
@@ -173,23 +175,25 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 
 - **User Authentication and Authorization**
 
-  - ACL: Proxy Request / Target Host / Target Port / User Agent
-  - Socket Speed Limit / Request Rate Limit / Request Alive Limit / IDLE Check
-  - Auto Expire / Block
+  - ACL: Proxy Request | Target Host | Target Port | User Agent
+  - Socket Speed Limit | Request Rate Limit | Request Alive Limit | IDLE Check
+  - Auto Expire | Block
   - Anonymous user
   - Json based Egress Path Selection
   - Explicit Site Config
-    * match by exact ip / exact domain / wildcard domain / subnet
-    * request / client traffic / remote traffic metrics
+    * match by exact ip | exact domain | wildcard domain | subnet
+    * request | client traffic | remote traffic metrics
     * task duration histogram metrics
 
 ### Audit
 
 - TCP Protocol Inspection
+- Task Level Sampling
 - TLS Interception
+- External TLS Certificate Generator
 - TLS Stream Dump
-- Http / H2 Interception
-- ICAP Adaptation & Sampling
+- Http1 & Http2 Interception
+- ICAP Adaptation
 
 ### Logging
 
@@ -198,7 +202,7 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
   * Escaper: escape error log
   * Resolver: resolve error log
   * Audit: inspect & intercept log
-- Backend: journald / syslog / fluentd
+- Backend: journald | syslog | fluentd
 
 ### Metrics
 
