@@ -119,9 +119,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.79"
+version = "1.0.80"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "080e9890a082662b09c1ad45f567faeeb47f22b5fb23895fbe1e651e718e25ca"
+checksum = "5ad32ce52e4161730f7098c077cd2ed6229b5804ccf99e5366be1ab72a98b4e1"
 
 [[package]]
 name = "arc-swap"
@@ -3066,9 +3066,9 @@ dependencies = [
 
 [[package]]
 name = "ryu"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f98d2aa92eebf49b69786be48e4477826b256916e84a57ff2a4f21923b48eb4c"
+checksum = "e86697c916019a8588c99b5fac3cead74ec0b4b819707a682fd4d23fa0ce1ba1"
 
 [[package]]
 name = "schannel"
@@ -3120,9 +3120,9 @@ dependencies = [
 
 [[package]]
 name = "semver"
-version = "1.0.21"
+version = "1.0.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b97ed7a9823b74f99c7742f5336af7be5ecd3eeafcb1507d1fa93347b1d589b0"
+checksum = "92d43fe69e652f3df9bdc2b85b2854a0825b86e4fb76bc44d945137d053639ca"
 
 [[package]]
 name = "serde"
@@ -3499,9 +3499,9 @@ dependencies = [
 
 [[package]]
 name = "tongsuo-src"
-version = "840.2.0+8.4.0"
+version = "833.0.1+8.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af535e8c7789184a74b418ba80bbb9583ae63ad78c81625d50870a04cba91506"
+checksum = "18a185fa556b97aca972a9ba6e0da4cd10ccf1ae3262d4dc92c1c57fd632adbb"
 dependencies = [
  "cc",
 ]
@@ -3612,9 +3612,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl"
-version = "0.11.9"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4a3d6a65cd477f493b192b0b2b792e432939636d4d53f2ec82a99a619b00590"
+checksum = "d7a4fa26efad74013a5cbf184c41357b292ed7b75f4a8e97adb60d9d9349753d"
 dependencies = [
  "bitflags 2.4.2",
  "cfg-if",
@@ -3627,9 +3627,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl-sys"
-version = "0.10.9"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24cc812160992186c524c9c25b0e57195e7a9b608f4942a823125cd6d727c4c9"
+checksum = "be740b01802dc12441a811ee905cfd00fc80ae1fd345ddd7bd0c15dae315cdf7"
 dependencies = [
  "aws-lc-sys",
  "bssl-sys",
