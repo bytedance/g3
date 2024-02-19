@@ -81,6 +81,8 @@ fn main() {
 
     let target = env::var("TARGET").unwrap();
 
+    // TODO switch to bindgen's static inline support after bindgen get rid of winapi
+    // see https://github.com/google/boringssl/commit/cb47fdc0e18b771e669882c865c6db81e3bd6bb4
     // compile rust_wrapper
     println!("cargo:rerun-if-changed=rust_wrapper.c");
     println!("cargo:rerun-if-changed=rust_wrapper.h");
@@ -99,6 +101,8 @@ fn main() {
         .use_core()
         .default_macro_constant_type(MacroTypeVariation::Signed)
         .rustified_enum("point_conversion_form_t")
+        .allowlist_file(".*[[:punct:]]include[[:punct:]]openssl[[:punct:]].*\\.h")
+        .allowlist_file(".*[[:punct:]]rust_wrapper\\.h")
         .clang_args([
             format!("-I{}", include_dir.display()),
             format!("--target={target}"),
