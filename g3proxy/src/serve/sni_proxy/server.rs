@@ -145,13 +145,25 @@ impl SniProxyServer {
         false
     }
 
+    fn load_audit_handle(&self) -> Option<Arc<AuditHandle>> {
+        if let Some(handle) = &*self.audit_handle.load() {
+            if handle.do_task_audit() {
+                Some(handle.clone())
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
     async fn run_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
         let ctx = CommonTaskContext {
             server_config: Arc::clone(&self.config),
             server_stats: Arc::clone(&self.server_stats),
             server_quit_policy: Arc::clone(&self.quit_policy),
             escaper: self.escaper.load().as_ref().clone(),
-            audit_handle: self.audit_handle.load_full(),
+            audit_handle: self.load_audit_handle(),
             cc_info,
             task_logger: self.task_logger.clone(),
             server_tcp_portmap: Arc::clone(&self.server_tcp_portmap),

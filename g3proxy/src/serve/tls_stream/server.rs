@@ -174,6 +174,18 @@ impl TlsStreamServer {
         false
     }
 
+    fn load_audit_handle(&self) -> Option<Arc<AuditHandle>> {
+        if let Some(handle) = &*self.audit_handle.load() {
+            if handle.do_task_audit() {
+                Some(handle.clone())
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
     async fn run_task(&self, stream: TlsStream<TcpStream>, cc_info: ClientConnectionInfo) {
         let client_ip = cc_info.client_ip();
         let ctx = CommonTaskContext {
@@ -181,7 +193,7 @@ impl TlsStreamServer {
             server_stats: Arc::clone(&self.server_stats),
             server_quit_policy: Arc::clone(&self.quit_policy),
             escaper: self.escaper.load().as_ref().clone(),
-            audit_handle: self.audit_handle.load_full(),
+            audit_handle: self.load_audit_handle(),
             cc_info,
             tls_client_config: self.tls_client_config.clone(),
             task_logger: self.task_logger.clone(),

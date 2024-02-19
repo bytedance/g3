@@ -163,6 +163,18 @@ impl TcpStreamServer {
         false
     }
 
+    fn load_audit_handle(&self) -> Option<Arc<AuditHandle>> {
+        if let Some(handle) = &*self.audit_handle.load() {
+            if handle.do_task_audit() {
+                Some(handle.clone())
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
     fn get_ctx_and_upstream(
         &self,
         cc_info: ClientConnectionInfo,
@@ -173,7 +185,7 @@ impl TcpStreamServer {
             server_stats: Arc::clone(&self.server_stats),
             server_quit_policy: Arc::clone(&self.quit_policy),
             escaper: self.escaper.load().as_ref().clone(),
-            audit_handle: self.audit_handle.load_full(),
+            audit_handle: self.load_audit_handle(),
             cc_info,
             tls_client_config: self.tls_client_config.clone(),
             task_logger: self.task_logger.clone(),

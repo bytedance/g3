@@ -75,8 +75,7 @@ impl<'a> HttpProxyForwardTask<'a> {
     ) -> Self {
         let uri_log_max_chars = task_notes
             .user_ctx()
-            .map(|c| c.user_config().log_uri_max_chars)
-            .flatten()
+            .and_then(|c| c.user_config().log_uri_max_chars)
             .unwrap_or(ctx.server_config.log_uri_max_chars);
         let http_notes = HttpForwardTaskNotes::new(
             req.time_received,
