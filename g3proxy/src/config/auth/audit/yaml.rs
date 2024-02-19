@@ -31,10 +31,10 @@ impl UserAuditConfig {
                     self.prohibit_unknown_protocol = g3_yaml::value::as_bool(v)?;
                     Ok(())
                 }
-                "application_audit_ratio" => {
+                "task_audit_ratio" | "application_audit_ratio" => {
                     let ratio = g3_yaml::value::as_random_ratio(v)
                         .context(format!("invalid random ratio value for key {k}"))?;
-                    self.application_audit_ratio = Some(ratio);
+                    self.task_audit_ratio = Some(ratio);
                     Ok(())
                 }
                 _ => Err(anyhow!("invalid key {k}")),

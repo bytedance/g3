@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-use anyhow::anyhow;
 use std::sync::Arc;
 
+use anyhow::anyhow;
 use futures_util::FutureExt;
 use log::debug;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
@@ -64,7 +64,6 @@ pub(crate) struct HttpProxyForwardTask<'a> {
     http_notes: HttpForwardTaskNotes,
     tcp_notes: TcpConnectTaskNotes,
     task_stats: Arc<HttpForwardTaskStats>,
-    do_application_audit: bool,
 }
 
 impl<'a> HttpProxyForwardTask<'a> {
@@ -74,22 +73,11 @@ impl<'a> HttpProxyForwardTask<'a> {
         is_https: bool,
         task_notes: ServerTaskNotes,
     ) -> Self {
-        let mut uri_log_max_chars = ctx.server_config.log_uri_max_chars;
-        let mut do_application_audit = false;
-        if let Some(user_ctx) = task_notes.user_ctx() {
-            let user_config = &user_ctx.user_config();
-            if let Some(max_chars) = user_config.log_uri_max_chars {
-                uri_log_max_chars = max_chars; // overwrite
-            }
-            if let Some(audit_handle) = &ctx.audit_handle {
-                do_application_audit = user_config
-                    .audit
-                    .do_application_audit()
-                    .unwrap_or_else(|| audit_handle.do_application_audit());
-            }
-        } else if let Some(audit_handle) = &ctx.audit_handle {
-            do_application_audit = audit_handle.do_application_audit();
-        }
+        let uri_log_max_chars = task_notes
+            .user_ctx()
+            .map(|c| c.user_config().log_uri_max_chars)
+            .flatten()
+            .unwrap_or(ctx.server_config.log_uri_max_chars);
         let http_notes = HttpForwardTaskNotes::new(
             req.time_received,
             task_notes.task_created_instant(),
@@ -107,7 +95,6 @@ impl<'a> HttpProxyForwardTask<'a> {
             http_notes,
             tcp_notes: TcpConnectTaskNotes::new(req.upstream.clone()),
             task_stats: Arc::new(HttpForwardTaskStats::default()),
-            do_application_audit,
         }
     }
 
@@ -537,6 +524,7 @@ impl<'a> HttpProxyForwardTask<'a> {
     {
         let mut upstream_keepalive = self.ctx.server_config.http_forward_upstream_keepalive;
         let mut tcp_client_misc_opts = self.ctx.server_config.tcp_misc_opts;
+        let mut audit_task = false;
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             let user_ctx = user_ctx.clone();
@@ -576,11 +564,19 @@ impl<'a> HttpProxyForwardTask<'a> {
                 self.handle_user_ua_acl_action(action, clt_w).await?;
             }
 
-            upstream_keepalive =
-                upstream_keepalive.adjust_to(user_ctx.user_config().http_upstream_keepalive);
-            tcp_client_misc_opts = user_ctx
-                .user_config()
-                .tcp_client_misc_opts(&tcp_client_misc_opts);
+            let user_config = user_ctx.user_config();
+
+            upstream_keepalive = upstream_keepalive.adjust_to(user_config.http_upstream_keepalive);
+            tcp_client_misc_opts = user_config.tcp_client_misc_opts(&tcp_client_misc_opts);
+
+            if let Some(audit_handle) = &self.ctx.audit_handle {
+                audit_task = user_config
+                    .audit
+                    .do_task_audit()
+                    .unwrap_or_else(|| audit_handle.do_task_audit());
+            }
+        } else if let Some(audit_handle) = &self.ctx.audit_handle {
+            audit_task = audit_handle.do_task_audit();
         }
 
         // server level dst host/port acl rules
@@ -617,7 +613,7 @@ impl<'a> HttpProxyForwardTask<'a> {
             }
 
             let r = self
-                .run_with_connection(clt_r, clt_w, connection, true)
+                .run_with_connection(clt_r, clt_w, connection, true, audit_task)
                 .await;
             match r {
                 Ok(r) => {
@@ -652,7 +648,7 @@ impl<'a> HttpProxyForwardTask<'a> {
                 fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
 
                 let r = self
-                    .run_with_connection(clt_r, clt_w, connection, false)
+                    .run_with_connection(clt_r, clt_w, connection, false, audit_task)
                     .await;
                 // handle result
                 match r {
@@ -720,6 +716,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         clt_w: &'f mut HttpClientWriter<CDW>,
         mut ups_c: BoxHttpForwardConnection,
         reused_connection: bool,
+        audit_task: bool,
     ) -> ServerTaskResult<Option<BoxHttpForwardConnection>>
     where
         CDR: AsyncRead + Send + Unpin,
@@ -737,7 +734,7 @@ impl<'a> HttpProxyForwardTask<'a> {
             .0
             .prepare_new(&self.task_notes, &self.tcp_notes.upstream);
 
-        if self.do_application_audit {
+        if audit_task {
             if let Some(audit_handle) = &self.ctx.audit_handle {
                 if let Some(reqmod) = audit_handle.icap_reqmod_client() {
                     match reqmod
@@ -926,6 +923,7 @@ impl<'a> HttpProxyForwardTask<'a> {
             clt_w,
             ups_r,
             &mut rsp_header,
+            true,
             adaptation_state.take_respond_shared_headers(),
         )
         .await?;
@@ -1013,7 +1011,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         };
         self.http_notes.mark_rsp_recv_hdr();
 
-        self.send_response(clt_w, ups_r, &mut rsp_header, None)
+        self.send_response(clt_w, ups_r, &mut rsp_header, false, None)
             .await?;
 
         self.task_notes.stage = ServerTaskStage::Finished;
@@ -1168,7 +1166,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         };
         self.http_notes.mark_rsp_recv_hdr();
 
-        self.send_response(clt_w, ups_r, &mut rsp_header, None)
+        self.send_response(clt_w, ups_r, &mut rsp_header, false, None)
             .await?;
 
         self.task_notes.stage = ServerTaskStage::Finished;
@@ -1235,6 +1233,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         clt_w: &mut W,
         ups_r: &mut R,
         rsp_header: &mut HttpForwardRemoteResponse,
+        audit_task: bool,
         adaptation_respond_shared_headers: Option<HttpHeaderMap>,
     ) -> ServerTaskResult<()>
     where
@@ -1251,7 +1250,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         self.http_notes.rsp_status = 0;
         self.update_response_header(rsp_header);
 
-        if self.do_application_audit {
+        if audit_task {
             if let Some(audit_handle) = &self.ctx.audit_handle {
                 if let Some(respmod) = audit_handle.icap_respmod_client() {
                     match respmod

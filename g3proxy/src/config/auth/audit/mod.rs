@@ -23,12 +23,12 @@ mod yaml;
 pub(crate) struct UserAuditConfig {
     pub(crate) enable_protocol_inspection: bool,
     pub(crate) prohibit_unknown_protocol: bool,
-    application_audit_ratio: Option<Bernoulli>,
+    task_audit_ratio: Option<Bernoulli>,
 }
 
 impl UserAuditConfig {
-    pub(crate) fn do_application_audit(&self) -> Option<bool> {
-        if let Some(ratio) = &self.application_audit_ratio {
+    pub(crate) fn do_task_audit(&self) -> Option<bool> {
+        if let Some(ratio) = &self.task_audit_ratio {
             let mut rng = rand::thread_rng();
             Some(ratio.sample(&mut rng))
         } else {

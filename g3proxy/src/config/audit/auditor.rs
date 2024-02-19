@@ -45,7 +45,7 @@ pub(crate) struct AuditorConfig {
     pub(crate) h2_interception: H2InterceptionConfig,
     pub(crate) icap_reqmod_service: Option<Arc<IcapServiceConfig>>,
     pub(crate) icap_respmod_service: Option<Arc<IcapServiceConfig>>,
-    pub(crate) application_audit_ratio: Bernoulli,
+    pub(crate) task_audit_ratio: Bernoulli,
 }
 
 impl AuditorConfig {
@@ -72,7 +72,7 @@ impl AuditorConfig {
             h2_interception: Default::default(),
             icap_reqmod_service: None,
             icap_respmod_service: None,
-            application_audit_ratio: Bernoulli::new(1.0).unwrap(),
+            task_audit_ratio: Bernoulli::new(1.0).unwrap(),
         }
     }
 
@@ -172,8 +172,8 @@ impl AuditorConfig {
                 self.icap_respmod_service = Some(Arc::new(service));
                 Ok(())
             }
-            "application_audit_ratio" => {
-                self.application_audit_ratio = g3_yaml::value::as_random_ratio(v)
+            "task_audit_ratio" | "application_audit_ratio" => {
+                self.task_audit_ratio = g3_yaml::value::as_random_ratio(v)
                     .context(format!("invalid random ratio value for key {k}"))?;
                 Ok(())
             }

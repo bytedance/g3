@@ -368,19 +368,19 @@ impl SocksProxyTcpConnectTask {
         self.update_clt(&mut clt_r, &mut clt_w);
 
         if let Some(audit_handle) = &self.ctx.audit_handle {
-            let do_protocol_inspection = self
+            let audit_task = self
                 .task_notes
                 .user_ctx()
                 .map(|ctx| {
                     let user_config = &ctx.user_config().audit;
                     user_config.enable_protocol_inspection
                         && user_config
-                            .do_application_audit()
-                            .unwrap_or_else(|| audit_handle.do_application_audit())
+                            .do_task_audit()
+                            .unwrap_or_else(|| audit_handle.do_task_audit())
                 })
-                .unwrap_or_else(|| audit_handle.do_application_audit());
+                .unwrap_or_else(|| audit_handle.do_task_audit());
 
-            if do_protocol_inspection {
+            if audit_task {
                 let ctx = StreamInspectContext::new(
                     audit_handle.clone(),
                     self.ctx.server_config.clone(),

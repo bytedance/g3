@@ -120,10 +120,10 @@ impl AuditHandle {
         self.icap_respmod_client.as_ref()
     }
 
-    pub(crate) fn do_application_audit(&self) -> bool {
+    pub(crate) fn do_task_audit(&self) -> bool {
         use rand::distributions::Distribution;
 
         let mut rng = rand::thread_rng();
-        self.auditor_config.application_audit_ratio.sample(&mut rng)
+        self.auditor_config.task_audit_ratio.sample(&mut rng)
     }
 }

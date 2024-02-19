@@ -28,17 +28,17 @@ Whether unknown protocol will be prohibited when protocol inspection is enabled.
 
 **default**: false
 
-application_audit_ratio
------------------------
+task_audit_ratio
+----------------
 
 **optional**, **type**: :ref:`random ratio <conf_value_random_ratio>`
 
-Set the application audit (like ICAP REQMOD/RESPMOD) ratio for incoming user requests.
+Set the task audit (like ICAP REQMOD/RESPMOD) ratio for incoming user requests.
 
 This also controls whether protocol inspection is really enabled for a specific user request.
 
-If set, this will override the :ref:`application audit ratio <conf_auditor_application_audit_ratio>` config at auditor side.
+If set, this will override the :ref:`task audit ratio <conf_auditor_task_audit_ratio>` config at auditor side.
 
-**default**: not set
+**default**: not set, **alias**: application_audit_ratio
 
 .. versionadded:: 1.7.4
