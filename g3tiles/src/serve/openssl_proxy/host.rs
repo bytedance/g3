@@ -38,7 +38,7 @@ pub(super) fn build_lazy_ssl_context(
     version_index: Index<Ssl, SslVersion>,
     host_name_index: Index<Ssl, Host>,
 ) -> anyhow::Result<SslContext> {
-    use openssl::ssl::ClientHelloResponse;
+    use openssl::ssl::ClientHelloError;
 
     let mut builder = SslAcceptor::tongsuo_auto()
         .map_err(|e| anyhow!("failed to get ssl acceptor builder: {e}"))?;
@@ -53,7 +53,7 @@ pub(super) fn build_lazy_ssl_context(
             }
         }
 
-        Ok(ClientHelloResponse::RETRY)
+        Err(ClientHelloError::RETRY)
     });
     Ok(builder.build().into_context())
 }
@@ -66,7 +66,7 @@ pub(super) fn build_lazy_ssl_context(
 pub(super) fn build_lazy_ssl_context(
     host_name_index: Index<Ssl, Host>,
 ) -> anyhow::Result<SslContext> {
-    use openssl::ssl::{ClientHelloResponse, SslMethod};
+    use openssl::ssl::{ClientHelloError, SslMethod};
 
     let mut builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::tls_server())
         .map_err(|e| anyhow!("failed to get ssl acceptor builder: {e}"))?;
@@ -78,7 +78,7 @@ pub(super) fn build_lazy_ssl_context(
             }
         }
 
-        Ok(ClientHelloResponse::RETRY)
+        Err(ClientHelloError::RETRY)
     });
     Ok(builder.build().into_context())
 }
