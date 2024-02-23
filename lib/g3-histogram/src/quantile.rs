@@ -110,7 +110,7 @@ impl FromStr for Quantile {
 
 impl PartialEq for Quantile {
     fn eq(&self, other: &Self) -> bool {
-        self.v.eq(&other.v)
+        self.v == other.v
     }
 }
 
