@@ -1198,6 +1198,7 @@ dependencies = [
  "rustls",
  "rustls-pemfile",
  "uuid",
+ "variant-ssl",
 ]
 
 [[package]]
@@ -1343,7 +1344,6 @@ dependencies = [
  "libc",
  "log",
  "rmpv",
- "rustls",
  "tokio",
  "variant-ssl",
  "variant-ssl-sys",
@@ -3612,9 +3612,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl"
-version = "0.13.0"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "358aaedaa785b5f803c21f93dc11682dc2dbbec3ec2106ea75d48f70bbfa4993"
+checksum = "76179cfe714bb140b92eb13ab3867155697033851809d92272896e0e597b0df8"
 dependencies = [
  "bitflags 2.4.2",
  "cfg-if",

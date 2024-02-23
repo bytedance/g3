@@ -19,6 +19,9 @@ mod metrics;
 mod primary;
 mod uuid;
 
+#[cfg(feature = "openssl")]
+mod openssl;
+
 #[cfg(feature = "rustls")]
 mod rustls;
 
@@ -27,5 +30,7 @@ pub use datetime::as_rfc3339_datetime;
 pub use metrics::{as_metrics_name, as_weighted_metrics_name};
 pub use primary::{as_f64, as_string, as_u32, as_weighted_name_string};
 
+pub use openssl::{as_openssl_certificates, as_openssl_private_key};
+
 #[cfg(feature = "rustls")]
-pub use self::rustls::{as_certificates, as_private_key};
+pub use self::rustls::{as_rustls_certificates, as_rustls_private_key};

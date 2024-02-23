@@ -62,6 +62,15 @@ Set the tls client config for server handshake in TLS interception.
 
 **default**: set with default value
 
+tls_interception_server
+-----------------------
+
+**optional**, **type**: :ref:`tls interception server <conf_value_dpi_tls_interception_server>`
+
+Set the tls server config for client handshake in TLS interception.
+
+**default**: set with default value
+
 tls_stream_dump
 ---------------
 

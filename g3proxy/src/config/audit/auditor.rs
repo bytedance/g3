@@ -26,7 +26,9 @@ use g3_dpi::{
 use g3_icap_client::IcapServiceConfig;
 use g3_tls_cert::agent::CertAgentConfig;
 use g3_types::metrics::MetricsName;
-use g3_types::net::OpensslInterceptionClientConfigBuilder;
+use g3_types::net::{
+    OpensslInterceptionClientConfigBuilder, OpensslInterceptionServerConfigBuilder,
+};
 use g3_udpdump::StreamDumpConfig;
 use g3_yaml::YamlDocPosition;
 
@@ -39,6 +41,7 @@ pub(crate) struct AuditorConfig {
     pub(crate) client_tcp_portmap: ProtocolPortMap,
     pub(crate) tls_cert_agent: Option<CertAgentConfig>,
     pub(crate) tls_interception_client: OpensslInterceptionClientConfigBuilder,
+    pub(crate) tls_interception_server: OpensslInterceptionServerConfigBuilder,
     pub(crate) tls_stream_dump: Option<StreamDumpConfig>,
     pub(crate) log_uri_max_chars: usize,
     pub(crate) h1_interception: H1InterceptionConfig,
@@ -66,6 +69,7 @@ impl AuditorConfig {
             client_tcp_portmap: ProtocolPortMap::tcp_client(),
             tls_cert_agent: None,
             tls_interception_client: Default::default(),
+            tls_interception_server: Default::default(),
             tls_stream_dump: None,
             log_uri_max_chars: 1024,
             h1_interception: Default::default(),
@@ -135,6 +139,14 @@ impl AuditorConfig {
                             "invalid tls interception client config value for key {k}"
                         ))?;
                 self.tls_interception_client = builder;
+                Ok(())
+            }
+            "tls_interception_server" => {
+                let builder = g3_yaml::value::as_tls_interception_server_config_builder(v)
+                    .context(format!(
+                        "invalid tls interception server config value for key {k}"
+                    ))?;
+                self.tls_interception_server = builder;
                 Ok(())
             }
             "tls_stream_dump" => {

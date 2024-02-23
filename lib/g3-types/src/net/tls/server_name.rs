@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-use std::str;
 use std::str::Utf8Error;
+use std::{fmt, str};
 
 use thiserror::Error;
 
@@ -35,6 +35,7 @@ pub enum TlsServerNameError {
     InvalidHostName(Utf8Error),
 }
 
+#[derive(Clone)]
 pub struct TlsServerName {
     host_name: String,
 }
@@ -70,8 +71,26 @@ impl TlsServerName {
     }
 }
 
+impl AsRef<str> for TlsServerName {
+    fn as_ref(&self) -> &str {
+        self.host_name.as_str()
+    }
+}
+
 impl From<TlsServerName> for Host {
     fn from(value: TlsServerName) -> Self {
         Host::Domain(value.host_name)
+    }
+}
+
+impl From<&TlsServerName> for Host {
+    fn from(value: &TlsServerName) -> Self {
+        Host::Domain(value.host_name.to_string())
+    }
+}
+
+impl fmt::Display for TlsServerName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.host_name)
     }
 }

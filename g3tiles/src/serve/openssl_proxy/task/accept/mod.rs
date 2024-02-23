@@ -138,7 +138,7 @@ impl OpensslAcceptTask {
             .map_err(|_| anyhow!("host level alive limit reached"))?;
 
         let acceptor = lazy_acceptor
-            .into_acceptor(ssl_context)
+            .into_acceptor(Some(ssl_context))
             .map_err(|e| anyhow!("failed to set final ssl context: {e}"))?;
 
         match tokio::time::timeout(self.ctx.server_config.accept_timeout, acceptor.accept()).await {

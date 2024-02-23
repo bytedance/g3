@@ -18,18 +18,24 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use slog::slog_info;
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::runtime::Handle;
 
-use g3_io_ext::OnceBufReader;
+use g3_dpi::Protocol;
+use g3_io_ext::{FlexBufReader, OnceBufReader};
 use g3_slog_types::{LtUpstreamAddr, LtUuid};
 use g3_tls_cert::agent::CertAgentHandle;
-use g3_types::net::{OpensslInterceptionClientConfig, UpstreamAddr};
-use g3_udpdump::{StreamDumpConfig, StreamDumper};
+use g3_types::net::{
+    OpensslInterceptionClientConfig, OpensslInterceptionServerConfig, UpstreamAddr,
+};
+use g3_udpdump::{ExportedPduDissectorHint, StreamDumpConfig, StreamDumper};
 
-use super::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext};
+use super::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext, StreamInspection};
 use crate::config::server::ServerConfig;
+use crate::log::inspect::{stream::StreamInspectLog, InspectSource};
 
 mod error;
+
 pub(crate) use error::TlsInterceptionError;
 
 mod modern;
@@ -38,6 +44,7 @@ mod modern;
 pub(crate) struct TlsInterceptionContext {
     cert_agent: Arc<CertAgentHandle>,
     client_config: Arc<OpensslInterceptionClientConfig>,
+    server_config: Arc<OpensslInterceptionServerConfig>,
     stream_dumper: Arc<Vec<StreamDumper>>,
 }
 
@@ -45,6 +52,7 @@ impl TlsInterceptionContext {
     pub(crate) fn new(
         cert_agent: CertAgentHandle,
         client_config: OpensslInterceptionClientConfig,
+        server_config: OpensslInterceptionServerConfig,
         dump_config: Option<StreamDumpConfig>,
     ) -> anyhow::Result<Self> {
         let mut stream_dumper = Vec::new();
@@ -73,6 +81,7 @@ impl TlsInterceptionContext {
         Ok(TlsInterceptionContext {
             cert_agent: Arc::new(cert_agent),
             client_config: Arc::new(client_config),
+            server_config: Arc::new(server_config),
             stream_dumper: Arc::new(stream_dumper),
         })
     }
@@ -153,5 +162,105 @@ impl<SC: ServerConfig> TlsInterceptObject<SC> {
 
     fn log_err(&self, e: &TlsInterceptionError) {
         intercept_log!(self, "{e}");
+    }
+}
+
+impl<SC> TlsInterceptObject<SC>
+where
+    SC: ServerConfig + Send + Sync + 'static,
+{
+    fn transfer_connected<CS, US>(
+        &self,
+        protocol: Protocol,
+        has_alpn: bool,
+        clt_s: CS,
+        ups_s: US,
+    ) -> StreamInspection<SC>
+    where
+        CS: AsyncRead + AsyncWrite + Send + Unpin + 'static,
+        US: AsyncRead + AsyncWrite + Send + Unpin + 'static,
+    {
+        let (clt_r, clt_w) = tokio::io::split(clt_s);
+        let (ups_r, ups_w) = tokio::io::split(ups_s);
+
+        if let Some(stream_dumper) = self
+            .tls_interception
+            .get_stream_dumper(self.ctx.task_notes.worker_id)
+        {
+            let dissector_hint = if !protocol.wireshark_dissector().is_empty() {
+                ExportedPduDissectorHint::Protocol(protocol)
+            } else {
+                ExportedPduDissectorHint::TlsPort(self.upstream.port())
+            };
+            let (ups_r, ups_w) = stream_dumper.wrap_remote_io(
+                self.ctx.task_notes.client_addr,
+                self.ctx.task_notes.server_addr,
+                dissector_hint,
+                ups_r,
+                ups_w,
+            );
+            self.inspect_inner(protocol, has_alpn, clt_r, clt_w, ups_r, ups_w)
+        } else {
+            self.inspect_inner(protocol, has_alpn, clt_r, clt_w, ups_r, ups_w)
+        }
+    }
+
+    fn inspect_inner<CR, CW, UR, UW>(
+        &self,
+        protocol: Protocol,
+        has_alpn: bool,
+        clt_r: CR,
+        clt_w: CW,
+        ups_r: UR,
+        ups_w: UW,
+    ) -> StreamInspection<SC>
+    where
+        CR: AsyncRead + Send + Unpin + 'static,
+        CW: AsyncWrite + Send + Unpin + 'static,
+        UR: AsyncRead + Send + Unpin + 'static,
+        UW: AsyncWrite + Send + Unpin + 'static,
+    {
+        let mut ctx = self.ctx.clone();
+        ctx.increase_inspection_depth();
+        StreamInspectLog::new(&ctx).log(InspectSource::TlsAlpn, protocol);
+        match protocol {
+            Protocol::Http1 => {
+                let mut h1_obj = crate::inspect::http::H1InterceptObject::new(ctx);
+                h1_obj.set_io(
+                    FlexBufReader::new(Box::new(clt_r)),
+                    Box::new(clt_w),
+                    Box::new(ups_r),
+                    Box::new(ups_w),
+                );
+                StreamInspection::H1(h1_obj)
+            }
+            Protocol::Http2 => {
+                let mut h2_obj = crate::inspect::http::H2InterceptObject::new(ctx);
+                h2_obj.set_io(
+                    OnceBufReader::with_no_buf(Box::new(clt_r)),
+                    Box::new(clt_w),
+                    Box::new(ups_r),
+                    Box::new(ups_w),
+                );
+                StreamInspection::H2(h2_obj)
+            }
+            _ => {
+                let mut stream_obj =
+                    crate::inspect::stream::StreamInspectObject::new(ctx, self.upstream.clone());
+                stream_obj.set_io(
+                    Box::new(clt_r),
+                    Box::new(clt_w),
+                    Box::new(ups_r),
+                    Box::new(ups_w),
+                );
+                if has_alpn {
+                    // Just treat it as unknown. Unknown protocol should be forbidden if needed.
+                    StreamInspection::StreamUnknown(stream_obj)
+                } else {
+                    // Inspect if no ALPN is set
+                    StreamInspection::StreamInspect(stream_obj)
+                }
+            }
+        }
     }
 }

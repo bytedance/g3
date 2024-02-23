@@ -15,7 +15,7 @@
  */
 
 mod alpn;
-pub use alpn::AlpnProtocol;
+pub use alpn::{AlpnProtocol, TlsAlpn};
 
 mod server_name;
 pub use server_name::TlsServerName;

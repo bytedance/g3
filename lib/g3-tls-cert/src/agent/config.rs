@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-use anyhow::anyhow;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
+use anyhow::anyhow;
 use tokio::net::UdpSocket;
 
 use g3_types::net::SocketBufferConfig;

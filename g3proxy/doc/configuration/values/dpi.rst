@@ -420,6 +420,29 @@ The keys are:
 
   .. _RFC 8701: https://datatracker.ietf.org/doc/rfc8701/
 
+.. _conf_value_dpi_tls_interception_server:
+
+tls interception server
+-----------------------
+
+.. versionadded:: 1.7.36
+
+**type**: map
+
+Set the tls server config for tls interception.
+
+The keys are:
+
+* accept_timeout
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Set the timeout for client tls handshake.
+
+  This timeout value is also used for accepting the initial ClientHello message.
+
+  **default**: 10s, **alias**: handshake_timeout
+
 HTTP Interception
 =================
 

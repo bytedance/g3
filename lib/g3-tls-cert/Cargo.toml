@@ -10,14 +10,13 @@ edition.workspace = true
 anyhow.workspace = true
 log.workspace = true
 tokio = { workspace = true, features = ["net"] }
-rustls.workspace = true
 openssl.workspace = true
 openssl-sys.workspace = true
 libc.workspace = true
 chrono = { workspace = true, features = ["clock"] }
 rmpv.workspace = true
 g3-types = { workspace = true, features = ["openssl"] }
-g3-msgpack = { workspace = true, features = ["rustls"] }
+g3-msgpack = { workspace = true, features = ["openssl"] }
 g3-socket.workspace = true
 g3-io-ext.workspace = true
 g3-datetime.workspace = true

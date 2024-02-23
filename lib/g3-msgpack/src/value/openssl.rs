@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,35 +14,34 @@
  * limitations under the License.
  */
 
-use std::io::{BufRead, BufReader};
-
 use anyhow::{anyhow, Context};
+use openssl::pkey::{PKey, Private};
+use openssl::x509::X509;
 use rmpv::ValueRef;
-use rustls::{Certificate, PrivateKey};
-use rustls_pemfile::Item;
 
-fn as_certificates_from_single_element(value: &ValueRef) -> anyhow::Result<Vec<Certificate>> {
+fn as_certificates_from_single_element(value: &ValueRef) -> anyhow::Result<Vec<X509>> {
     let bytes = match value {
         ValueRef::String(s) => s.as_bytes(),
         ValueRef::Binary(b) => *b,
         _ => {
             return Err(anyhow!(
                 "msgpack value type 'certificates' should be 'string' or 'binary'"
-            ));
+            ))
         }
     };
-    let certs = rustls_pemfile::certs(&mut BufReader::new(bytes))
-        .map_err(|e| anyhow!("invalid certificate string: {e:?}"))?;
+
+    let certs =
+        X509::stack_from_pem(bytes).map_err(|e| anyhow!("invalid certificate string: {e}"))?;
     if certs.is_empty() {
         Err(anyhow!("no valid certificate found"))
     } else {
-        Ok(certs.into_iter().map(Certificate).collect())
+        Ok(certs)
     }
 }
 
-pub fn as_rustls_certificates(value: &ValueRef) -> anyhow::Result<Vec<Certificate>> {
+pub fn as_openssl_certificates(value: &ValueRef) -> anyhow::Result<Vec<X509>> {
     if let ValueRef::Array(seq) = value {
-        let mut certs = Vec::with_capacity(seq.len());
+        let mut certs = Vec::new();
         for (i, v) in seq.iter().enumerate() {
             let this_certs = as_certificates_from_single_element(v)
                 .context(format!("invalid certificates value for element #{i}"))?;
@@ -54,24 +53,7 @@ pub fn as_rustls_certificates(value: &ValueRef) -> anyhow::Result<Vec<Certificat
     }
 }
 
-fn read_first_private_key<R>(reader: &mut R) -> anyhow::Result<PrivateKey>
-where
-    R: BufRead,
-{
-    loop {
-        match rustls_pemfile::read_one(reader)
-            .map_err(|e| anyhow!("read private key failed: {e:?}"))?
-        {
-            Some(Item::PKCS8Key(d)) => return Ok(PrivateKey(d)),
-            Some(Item::RSAKey(d)) => return Ok(PrivateKey(d)),
-            Some(Item::ECKey(d)) => return Ok(PrivateKey(d)),
-            Some(_) => continue,
-            None => return Err(anyhow!("no valid private key found")),
-        }
-    }
-}
-
-pub fn as_rustls_private_key(value: &ValueRef) -> anyhow::Result<PrivateKey> {
+pub fn as_openssl_private_key(value: &ValueRef) -> anyhow::Result<PKey<Private>> {
     let bytes = match value {
         ValueRef::String(s) => s.as_bytes(),
         ValueRef::Binary(b) => *b,
@@ -81,5 +63,6 @@ pub fn as_rustls_private_key(value: &ValueRef) -> anyhow::Result<PrivateKey> {
             ));
         }
     };
-    read_first_private_key(&mut BufReader::new(bytes))
+
+    PKey::private_key_from_pem(bytes).map_err(|e| anyhow!("invalid private key string: {e}"))
 }

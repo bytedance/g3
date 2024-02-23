@@ -30,8 +30,14 @@ use super::OpensslCertificatePair;
 use super::OpensslTlcpCertificatePair;
 use crate::net::AlpnProtocol;
 
+mod intercept;
+pub use intercept::{OpensslInterceptionServerConfig, OpensslInterceptionServerConfigBuilder};
+
 mod session;
 pub use session::{OpensslServerSessionCache, OpensslSessionIdContext};
+
+const MINIMAL_ACCEPT_TIMEOUT: Duration = Duration::from_millis(100);
+const DEFAULT_ACCEPT_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Clone)]
 pub struct OpensslServerConfig {
@@ -59,7 +65,7 @@ impl OpensslServerConfigBuilder {
             client_auth: false,
             client_auth_certs: Vec::new(),
             session_id_context: String::new(),
-            accept_timeout: Duration::from_secs(10),
+            accept_timeout: DEFAULT_ACCEPT_TIMEOUT,
         }
     }
 

@@ -18,6 +18,8 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub(crate) enum TlsInterceptionError {
+    #[error("internal openssl server error: {0}")]
+    InternalOpensslServerError(anyhow::Error),
     #[error("client handshake timeout")]
     ClientHandshakeTimeout,
     #[error("client handshake failed: {0:?}")]

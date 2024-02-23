@@ -24,7 +24,8 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use log::warn;
-use rustls::{Certificate, PrivateKey};
+use openssl::pkey::{PKey, Private};
+use openssl::x509::X509;
 use tokio::io::ReadBuf;
 use tokio::net::UdpSocket;
 
@@ -34,7 +35,7 @@ use super::{CacheQueryKey, CertAgentConfig};
 
 pub(super) struct QueryRuntime {
     socket: UdpSocket,
-    query_handle: EffectiveQueryHandle<CacheQueryKey, (Vec<Certificate>, PrivateKey)>,
+    query_handle: EffectiveQueryHandle<CacheQueryKey, (Vec<X509>, PKey<Private>)>,
     read_buffer: Box<[u8]>,
     write_queue: VecDeque<(Arc<CacheQueryKey>, Vec<u8>)>,
     protective_ttl: u32,
@@ -47,7 +48,7 @@ impl QueryRuntime {
     pub(super) fn new(
         config: &CertAgentConfig,
         socket: UdpSocket,
-        query_handle: EffectiveQueryHandle<CacheQueryKey, (Vec<Certificate>, PrivateKey)>,
+        query_handle: EffectiveQueryHandle<CacheQueryKey, (Vec<X509>, PKey<Private>)>,
     ) -> Self {
         QueryRuntime {
             socket,
@@ -89,12 +90,12 @@ impl QueryRuntime {
 
     fn parse_rsp(
         map: Vec<(rmpv::ValueRef, rmpv::ValueRef)>,
-    ) -> anyhow::Result<(Arc<CacheQueryKey>, Vec<Certificate>, PrivateKey, u32)> {
+    ) -> anyhow::Result<(Arc<CacheQueryKey>, Vec<X509>, PKey<Private>, u32)> {
         use anyhow::Context;
 
         let mut host = String::new();
         let mut cert = Vec::new();
-        let mut pkey = PrivateKey(Vec::new());
+        let mut pkey: Option<PKey<Private>> = None;
         let mut ttl: u32 = 0;
 
         for (k, v) in map {
@@ -105,12 +106,13 @@ impl QueryRuntime {
                         .context(format!("invalid string value for key {key}"))?;
                 }
                 "cert" => {
-                    cert = g3_msgpack::value::as_certificates(&v)
+                    cert = g3_msgpack::value::as_openssl_certificates(&v)
                         .context(format!("invalid tls certificate value for key {key}"))?;
                 }
                 "key" => {
-                    pkey = g3_msgpack::value::as_private_key(&v)
+                    let key = g3_msgpack::value::as_openssl_private_key(&v)
                         .context(format!("invalid tls private key value for key {key}"))?;
+                    pkey = Some(key);
                 }
                 "ttl" => {
                     ttl = g3_msgpack::value::as_u32(&v)
@@ -126,9 +128,9 @@ impl QueryRuntime {
         if cert.is_empty() {
             return Err(anyhow!("no required cert key found"));
         }
-        if pkey.0.is_empty() {
+        let Some(pkey) = pkey else {
             return Err(anyhow!("no required pkey key found"));
-        }
+        };
 
         Ok((Arc::new(CacheQueryKey { host }), cert, pkey, ttl))
     }

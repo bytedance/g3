@@ -25,7 +25,7 @@ use yaml_rust::Yaml;
 
 use g3_types::net::{
     OpensslCertificatePair, OpensslClientConfigBuilder, OpensslInterceptionClientConfigBuilder,
-    OpensslProtocol, OpensslServerConfigBuilder,
+    OpensslInterceptionServerConfigBuilder, OpensslProtocol, OpensslServerConfigBuilder,
 };
 
 #[cfg(feature = "tongsuo")]
@@ -542,6 +542,31 @@ pub fn as_openssl_tls_server_config_builder(
     } else {
         Err(anyhow!(
             "yaml value type for 'openssl server config builder' should be 'map'"
+        ))
+    }
+}
+
+pub fn as_tls_interception_server_config_builder(
+    value: &Yaml,
+) -> anyhow::Result<OpensslInterceptionServerConfigBuilder> {
+    if let Yaml::Hash(map) = value {
+        let mut builder = OpensslInterceptionServerConfigBuilder::default();
+
+        crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
+            "handshake_timeout" | "negotiation_timeout" | "accept_timeout" => {
+                let timeout = crate::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                builder.set_accept_timeout(timeout);
+                Ok(())
+            }
+            _ => Err(anyhow!("invalid key {k}")),
+        })?;
+
+        builder.check()?;
+        Ok(builder)
+    } else {
+        Err(anyhow!(
+            "yaml value type for 'openssl tls interception server config builder' should be 'map'"
         ))
     }
 }

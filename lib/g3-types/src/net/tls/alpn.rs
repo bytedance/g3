@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
+use std::cmp::Ordering;
 use std::fmt;
+
+use thiserror::Error;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AlpnProtocol {
@@ -99,5 +102,59 @@ impl AlpnProtocol {
             b"doq" => Some(AlpnProtocol::DnsOverQuic),
             _ => None,
         }
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum TlsAlpnError {
+    #[error("not enough data: {0}")]
+    NotEnoughData(usize),
+    #[error("invalid list length {0}")]
+    InvalidListLength(u16),
+    #[error("empty protocol name")]
+    EmptyProtocolName,
+    #[error("truncated protocol name")]
+    TruncatedProtocolName,
+}
+
+pub struct TlsAlpn {
+    raw_list: Vec<u8>,
+}
+
+impl TlsAlpn {
+    pub fn from_extension_value(buf: &[u8]) -> Result<TlsAlpn, TlsAlpnError> {
+        let buf_len = buf.len();
+        if buf_len < 2 {
+            return Err(TlsAlpnError::NotEnoughData(buf_len));
+        }
+
+        let list_len = u16::from_be_bytes([buf[0], buf[1]]);
+        if list_len as usize + 2 != buf_len {
+            return Err(TlsAlpnError::InvalidListLength(list_len));
+        }
+
+        let mut offset = 2;
+        loop {
+            match buf.len().cmp(&offset) {
+                Ordering::Equal => break,
+                Ordering::Less => return Err(TlsAlpnError::TruncatedProtocolName),
+                Ordering::Greater => {
+                    let name_len = buf[offset] as usize;
+                    if name_len == 0 {
+                        return Err(TlsAlpnError::EmptyProtocolName);
+                    }
+                    offset += 1 + name_len;
+                }
+            }
+        }
+
+        Ok(TlsAlpn {
+            raw_list: Vec::from(&buf[2..]),
+        })
+    }
+
+    #[inline]
+    pub fn wired_list_sequence(&self) -> &[u8] {
+        self.raw_list.as_slice()
     }
 }
