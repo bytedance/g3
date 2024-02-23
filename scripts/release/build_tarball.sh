@@ -45,8 +45,9 @@ echo "==> Use temp build dir ${BUILD_DIR}"
 echo "==> cleaning local cargo checkouts"
 cargo cache --autoclean
 
-
+ 
 echo "==> adding source code from git"
+git submodule update --init --recursive
 git archive --format=tar --prefix="${SOURCE_NAME}-${PKG_VERSION}/" "${GIT_REVISION}" | tar -C "${BUILD_DIR}" -xf -
 git submodule foreach "
     echo \"--> adding source code for submodule \${name}\"
