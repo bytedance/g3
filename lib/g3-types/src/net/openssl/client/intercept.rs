@@ -39,8 +39,8 @@ pub struct OpensslInterceptionClientConfig {
 }
 
 impl OpensslInterceptionClientConfig {
-    pub fn build_ssl<'a>(
-        &'a self,
+    pub fn build_ssl(
+        &self,
         server_name: Option<&TlsServerName>,
         upstream: &UpstreamAddr,
         alpn_ext: Option<&TlsAlpn>,

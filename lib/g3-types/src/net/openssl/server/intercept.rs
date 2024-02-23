@@ -97,7 +97,7 @@ impl OpensslInterceptionServerConfigBuilder {
 
             if let Some(sni_ext) = ssl.client_hello_ext(TlsExtType::SERVER_NAME) {
                 if let Ok(name) = TlsServerName::from_extension_value(sni_ext) {
-                    ssl.set_ex_data(sni_index, name.into());
+                    ssl.set_ex_data(sni_index, name);
                 } else {
                     *alert = SslAlert::DECODE_ERROR;
                     return Err(ClientHelloError::ERROR);
@@ -125,7 +125,7 @@ impl OpensslInterceptionServerConfigBuilder {
 
             if let Some(sni_ext) = ch.get_extension(TlsExtType::SERVER_NAME) {
                 if let Ok(name) = TlsServerName::from_extension_value(sni_ext) {
-                    ch.ssl_mut().set_ex_data(sni_index, name.into());
+                    ch.ssl_mut().set_ex_data(sni_index, name);
                 } else {
                     return Err(SelectCertError::ERROR);
                 }
