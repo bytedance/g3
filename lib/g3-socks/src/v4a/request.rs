@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::convert::TryFrom;
 use std::io;
 use std::net::{IpAddr, Ipv4Addr};
 

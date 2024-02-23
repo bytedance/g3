@@ -15,7 +15,6 @@
  */
 
 use std::collections::BTreeSet;
-use std::convert::From;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::str::FromStr;
 

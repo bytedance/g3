@@ -18,7 +18,6 @@ use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::num::ParseFloatError;
 use std::str::FromStr;
-use std::string::ToString;
 
 use ryu::Buffer;
 use thiserror::Error;

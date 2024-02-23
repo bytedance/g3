@@ -15,7 +15,6 @@
  */
 
 use std::collections::BTreeSet;
-use std::convert::TryFrom;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context};

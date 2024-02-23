@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::convert::From;
 use std::fmt;
 
 #[derive(PartialOrd, PartialEq, Ord, Eq)]

@@ -15,7 +15,6 @@
  */
 
 use std::collections::HashMap;
-use std::convert::TryFrom;
 use std::hash::Hash;
 use std::num::NonZeroU32;
 use std::str::FromStr;

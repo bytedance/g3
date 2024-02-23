@@ -15,7 +15,6 @@
  */
 
 use std::collections::BTreeSet;
-use std::convert::TryFrom;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 

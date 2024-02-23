@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::convert::TryFrom;
 use std::net::SocketAddr;
 use std::str::FromStr;
 

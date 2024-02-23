@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::iter::Iterator;
 use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
 

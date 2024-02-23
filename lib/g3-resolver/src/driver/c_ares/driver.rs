@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::convert::TryFrom;
 use std::net::IpAddr;
 use std::time::Duration;
 
