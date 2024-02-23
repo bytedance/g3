@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 
+use anyhow::anyhow;
+use openssl::pkey::{PKey, Private};
+use openssl::ssl::SslRef;
+use openssl::x509::X509;
+
 mod query;
 use query::QueryRuntime;
 
@@ -26,4 +31,29 @@ pub use handle::CertAgentHandle;
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
 pub(crate) struct CacheQueryKey {
     pub(crate) host: String,
+}
+
+#[derive(Clone)]
+pub struct FakeCertPair {
+    certs: Vec<X509>,
+    key: PKey<Private>,
+}
+
+impl FakeCertPair {
+    pub fn add_to_ssl(self, ssl: &mut SslRef) -> anyhow::Result<()> {
+        let FakeCertPair { certs, key } = self;
+        let mut certs_iter = certs.into_iter();
+        let Some(leaf_cert) = certs_iter.next() else {
+            return Err(anyhow!("no certificate found"));
+        };
+        ssl.set_certificate(&leaf_cert)
+            .map_err(|e| anyhow!("failed to set certificate: {e}"))?;
+        for cert in certs_iter {
+            ssl.add_chain_cert(cert)
+                .map_err(|e| anyhow!("failed to add chain cert: {e}"))?;
+        }
+        ssl.set_private_key(&key)
+            .map_err(|e| anyhow!("failed to set private key: {e}"))?;
+        Ok(())
+    }
 }

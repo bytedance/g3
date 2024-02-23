@@ -25,17 +25,16 @@ use std::time::Duration;
 use anyhow::anyhow;
 use log::warn;
 use openssl::pkey::{PKey, Private};
-use openssl::x509::X509;
 use tokio::io::ReadBuf;
 use tokio::net::UdpSocket;
 
 use g3_io_ext::{EffectiveCacheData, EffectiveQueryHandle};
 
-use super::{CacheQueryKey, CertAgentConfig};
+use super::{CacheQueryKey, CertAgentConfig, FakeCertPair};
 
 pub(super) struct QueryRuntime {
     socket: UdpSocket,
-    query_handle: EffectiveQueryHandle<CacheQueryKey, (Vec<X509>, PKey<Private>)>,
+    query_handle: EffectiveQueryHandle<CacheQueryKey, FakeCertPair>,
     read_buffer: Box<[u8]>,
     write_queue: VecDeque<(Arc<CacheQueryKey>, Vec<u8>)>,
     protective_ttl: u32,
@@ -48,7 +47,7 @@ impl QueryRuntime {
     pub(super) fn new(
         config: &CertAgentConfig,
         socket: UdpSocket,
-        query_handle: EffectiveQueryHandle<CacheQueryKey, (Vec<X509>, PKey<Private>)>,
+        query_handle: EffectiveQueryHandle<CacheQueryKey, FakeCertPair>,
     ) -> Self {
         QueryRuntime {
             socket,
@@ -90,11 +89,11 @@ impl QueryRuntime {
 
     fn parse_rsp(
         map: Vec<(rmpv::ValueRef, rmpv::ValueRef)>,
-    ) -> anyhow::Result<(Arc<CacheQueryKey>, Vec<X509>, PKey<Private>, u32)> {
+    ) -> anyhow::Result<(Arc<CacheQueryKey>, FakeCertPair, u32)> {
         use anyhow::Context;
 
         let mut host = String::new();
-        let mut cert = Vec::new();
+        let mut certs = Vec::new();
         let mut pkey: Option<PKey<Private>> = None;
         let mut ttl: u32 = 0;
 
@@ -106,7 +105,7 @@ impl QueryRuntime {
                         .context(format!("invalid string value for key {key}"))?;
                 }
                 "cert" => {
-                    cert = g3_msgpack::value::as_openssl_certificates(&v)
+                    certs = g3_msgpack::value::as_openssl_certificates(&v)
                         .context(format!("invalid tls certificate value for key {key}"))?;
                 }
                 "key" => {
@@ -125,14 +124,18 @@ impl QueryRuntime {
         if host.is_empty() {
             return Err(anyhow!("no required host key found"));
         }
-        if cert.is_empty() {
+        if certs.is_empty() {
             return Err(anyhow!("no required cert key found"));
         }
-        let Some(pkey) = pkey else {
+        let Some(key) = pkey else {
             return Err(anyhow!("no required pkey key found"));
         };
 
-        Ok((Arc::new(CacheQueryKey { host }), cert, pkey, ttl))
+        Ok((
+            Arc::new(CacheQueryKey { host }),
+            FakeCertPair { certs, key },
+            ttl,
+        ))
     }
 
     fn handle_rsp(&mut self, len: usize) {
@@ -141,14 +144,14 @@ impl QueryRuntime {
         let mut buf = &self.read_buffer[..len];
         if let Ok(ValueRef::Map(map)) = rmpv::decode::read_value_ref(&mut buf) {
             match Self::parse_rsp(map) {
-                Ok((req_key, cert, key, mut ttl)) => {
+                Ok((req_key, pair, mut ttl)) => {
                     if ttl == 0 {
                         ttl = self.protective_ttl;
                     } else if ttl > self.maximum_ttl {
                         ttl = self.maximum_ttl;
                     }
 
-                    let result = EffectiveCacheData::new((cert, key), ttl, self.vanish_wait);
+                    let result = EffectiveCacheData::new(pair, ttl, self.vanish_wait);
                     self.query_handle.send_rsp_data(req_key, result, false);
                 }
                 Err(e) => {

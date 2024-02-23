@@ -17,22 +17,19 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use openssl::pkey::{PKey, Private};
-use openssl::x509::X509;
-
 use g3_io_ext::EffectiveCacheHandle;
 
-use super::CacheQueryKey;
+use super::{CacheQueryKey, FakeCertPair};
 
 #[derive(Clone)]
 pub struct CertAgentHandle {
-    inner: EffectiveCacheHandle<CacheQueryKey, (Vec<X509>, PKey<Private>)>,
+    inner: EffectiveCacheHandle<CacheQueryKey, FakeCertPair>,
     request_timeout: Duration,
 }
 
 impl CertAgentHandle {
     pub(crate) fn new(
-        inner: EffectiveCacheHandle<CacheQueryKey, (Vec<X509>, PKey<Private>)>,
+        inner: EffectiveCacheHandle<CacheQueryKey, FakeCertPair>,
         request_timeout: Duration,
     ) -> Self {
         CertAgentHandle {
@@ -41,7 +38,7 @@ impl CertAgentHandle {
         }
     }
 
-    pub async fn fetch(&self, host: String) -> Option<(Vec<X509>, PKey<Private>)> {
+    pub async fn fetch(&self, host: String) -> Option<FakeCertPair> {
         let query_key = CacheQueryKey { host };
 
         self.inner

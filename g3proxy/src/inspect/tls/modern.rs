@@ -129,7 +129,7 @@ where
             })?;
 
         // fetch fake server cert
-        let (clt_cert, clt_key) = clt_cert_handle
+        let cert_pair = clt_cert_handle
             .await
             .map_err(|e| {
                 TlsInterceptionError::NoFakeCertGenerated(anyhow!(
@@ -144,30 +144,8 @@ where
 
         // set certificate and private key
         let clt_ssl = lazy_acceptor.ssl_mut();
-        let mut certs_iter = clt_cert.into_iter();
-        let Some(leaf_cert) = certs_iter.next() else {
-            return Err(TlsInterceptionError::NoFakeCertGenerated(anyhow!(
-                "no certificate found"
-            )));
-        };
-        clt_ssl.set_certificate(&leaf_cert).map_err(|e| {
-            TlsInterceptionError::InternalOpensslServerError(anyhow!(
-                "failed to set certificate: {e}"
-            ))
-        })?;
-        for cert in certs_iter {
-            clt_ssl.add_chain_cert(cert).map_err(|e| {
-                TlsInterceptionError::InternalOpensslServerError(anyhow!(
-                    "failed to add chain cert: {e}"
-                ))
-            })?;
-        }
-        clt_ssl.set_private_key(&clt_key).map_err(|e| {
-            TlsInterceptionError::InternalOpensslServerError(anyhow!(
-                "failed to set private key: {e}"
-            ))
-        })?;
-
+        cert_pair.add_to_ssl(clt_ssl).map_err(TlsInterceptionError::InternalOpensslServerError)?;
+        // set alpn
         if let Some(alpn_protocol) = ups_tls_stream.ssl().selected_alpn_protocol() {
             self.tls_interception
                 .server_config
