@@ -1138,10 +1138,11 @@ dependencies = [
  "g3-resolver",
  "g3-types",
  "governor",
+ "libc",
  "memchr",
- "nix",
  "pin-project",
  "quinn",
+ "rustix",
  "thiserror",
  "tokio",
  "tokio-rustls",
@@ -2481,18 +2482,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77a5d83df9f36fe23f0c3648c6bbb8b0298bb5f1939c8f2704431371f4b84d43"
 dependencies = [
  "smallvec",
-]
-
-[[package]]
-name = "nix"
-version = "0.27.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2eb04e9c688eff1c89d72b407f168cf79bb9e867a9d3323ed6c01519eb9cc053"
-dependencies = [
- "bitflags 2.4.2",
- "cfg-if",
- "libc",
- "memoffset",
 ]
 
 [[package]]

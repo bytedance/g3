@@ -196,16 +196,16 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         for transmit in transmits {
             assert_eq!(self.quic_peer_addr, transmit.destination);
 
-            msgs.push(SendMsgHdr {
-                iov: [
+            msgs.push(SendMsgHdr::new(
+                [
                     IoSlice::new(self.send_socks_header.as_ref()),
                     IoSlice::new(&transmit.contents),
                 ],
-                addr: None,
-            })
+                None,
+            ))
         }
 
-        self.io.poll_batch_sendmsg(cx, &msgs)
+        self.io.poll_batch_sendmsg(cx, &mut msgs)
     }
 
     #[cfg(target_os = "macos")]
@@ -297,21 +297,19 @@ impl AsyncUdpSocket for Socks5UdpSocket {
             recv_socks_headers.resize(bufs.len(), SocksHeaderBuffer::new(self.quic_peer_addr));
         }
 
-        let slices: Vec<[IoSliceMut<'_>; 2]> = bufs
-            .iter_mut()
-            .zip(recv_socks_headers.iter_mut())
-            .map(|(v, b)| [IoSliceMut::new(b.as_mut()), IoSliceMut::new(v.as_mut())])
-            .collect();
-        let mut recv_hdrs = vec![RecvMsgHdr::default(); meta.len()];
-        match ready!(self.io.poll_batch_recvmsg(cx, &slices, &mut recv_hdrs)) {
+        let mut hdr_v = Vec::with_capacity(meta.len());
+        for (b, s) in bufs.iter_mut().zip(recv_socks_headers.iter_mut()) {
+            hdr_v.push(RecvMsgHdr::new([
+                IoSliceMut::new(s.as_mut()),
+                IoSliceMut::new(b.as_mut()),
+            ]))
+        }
+
+        match ready!(self.io.poll_batch_recvmsg(cx, &mut hdr_v)) {
             Ok(count) => {
-                for ((m, r), socks_header) in meta
-                    .iter_mut()
-                    .take(count)
-                    .zip(recv_hdrs)
-                    .zip(recv_socks_headers)
-                {
-                    let mut len = r.len;
+                for (h, m) in hdr_v.iter_mut().take(count).zip(meta.iter_mut()) {
+                    let mut len = h.n_recv;
+                    let socks_header = &h.iov[0];
                     let socks_header_len = socks_header.as_ref().len();
                     if len <= socks_header_len {
                         // ignore invalid packets
@@ -390,8 +388,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
             IoSliceMut::new(buf),
         ];
 
-        let r = ready!(self.io.poll_recvmsg(cx, &mut iov))?;
-        let mut len = r.len;
+        let (mut len, _) = ready!(self.io.poll_recvmsg(cx, &mut iov))?;
         let socks_header_len = recv_socks_header.as_ref().len();
         if len <= socks_header_len {
             meta[0] = RecvMeta {

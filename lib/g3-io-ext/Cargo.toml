@@ -18,7 +18,8 @@ memchr.workspace = true
 fastrand.workspace = true
 bytes.workspace = true
 ahash.workspace = true
-nix = { workspace = true, features = ["socket", "net", "uio"] }
+rustix = { workspace = true, features = ["std", "net"] }
+libc.workspace = true
 quinn = { workspace = true, optional = true }
 g3-types.workspace = true
 g3-resolver.workspace = true

@@ -61,7 +61,7 @@ pub trait AsyncUdpSend {
     fn poll_batch_sendmsg<const C: usize>(
         &mut self,
         cx: &mut Context<'_>,
-        msgs: &[SendMsgHdr<'_, C>],
+        msgs: &mut [SendMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>>;
 }
 
@@ -198,20 +198,15 @@ where
     fn poll_batch_sendmsg<const C: usize>(
         &mut self,
         cx: &mut Context<'_>,
-        msgs: &[SendMsgHdr<'_, C>],
+        msgs: &mut [SendMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>> {
         if self.limit.is_set() {
             let dur_millis = self.started.elapsed().as_millis() as u64;
-            let len = msgs.iter().flat_map(|h| h.iov).map(|v| v.len()).sum();
+            let len = msgs.iter().map(|h| h.n_send).sum();
             match self.limit.check_packet(dur_millis, len) {
                 DatagramLimitResult::Advance(n) => {
-                    let count = ready!(self.inner.poll_batch_sendmsg(cx, &msgs[0..n]))?;
-                    let len = msgs
-                        .iter()
-                        .take(count)
-                        .flat_map(|h| h.iov)
-                        .map(|v| v.len())
-                        .sum();
+                    let count = ready!(self.inner.poll_batch_sendmsg(cx, &mut msgs[0..n]))?;
+                    let len = msgs.iter().take(count).map(|h| h.n_send).sum();
                     self.limit.set_advance(count, len);
                     self.stats.add_send_packets(count);
                     self.stats.add_send_bytes(len);
@@ -227,13 +222,8 @@ where
         } else {
             let count = ready!(self.inner.poll_batch_sendmsg(cx, msgs))?;
             self.stats.add_send_packets(count);
-            self.stats.add_send_bytes(
-                msgs.iter()
-                    .take(count)
-                    .flat_map(|h| h.iov)
-                    .map(|v| v.len())
-                    .sum(),
-            );
+            self.stats
+                .add_send_bytes(msgs.iter().take(count).map(|h| h.n_send).sum());
             Poll::Ready(Ok(count))
         }
     }

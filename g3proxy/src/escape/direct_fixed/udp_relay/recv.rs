@@ -25,7 +25,7 @@ use g3_io_ext::{AsyncUdpRecv, UdpRelayRemoteError, UdpRelayRemoteRecv};
     target_os = "netbsd",
     target_os = "openbsd",
 ))]
-use g3_io_ext::{RecvMsgBuf, RecvMsgHdr, UdpRelayPacket};
+use g3_io_ext::{RecvMsgHdr, UdpRelayPacket};
 use g3_types::net::UpstreamAddr;
 
 pub(crate) struct DirectUdpRelayRemoteRecv<T> {
@@ -108,22 +108,31 @@ where
         cx: &mut Context<'_>,
         packets: &mut [UdpRelayPacket],
     ) -> Poll<Result<usize, UdpRelayRemoteError>> {
-        let mut meta = vec![RecvMsgHdr::default(); packets.len()];
-        let mut bufs: Vec<_> = packets
+        use std::io::IoSliceMut;
+
+        let mut hdr_v: Vec<RecvMsgHdr<1>> = packets
             .iter_mut()
-            .map(|p| RecvMsgBuf::new(p.buf_mut()))
+            .map(|p| RecvMsgHdr::new([IoSliceMut::new(p.buf_mut())]))
             .collect();
 
-        let count = ready!(inner.poll_batch_recvmsg(cx, &mut bufs, &mut meta))
+        let count = ready!(inner.poll_batch_recvmsg(cx, &mut hdr_v))
             .map_err(|e| UdpRelayRemoteError::RecvFailed(bind_addr, e))?;
 
-        for (p, m) in packets.iter_mut().take(count).zip(meta) {
-            let addr = m.addr.unwrap_or_else(|| match bind_addr {
-                SocketAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
-                SocketAddr::V6(_) => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
-            });
+        let r = hdr_v
+            .into_iter()
+            .take(count)
+            .map(|h| {
+                let addr = h.addr().unwrap_or_else(|| match bind_addr {
+                    SocketAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
+                    SocketAddr::V6(_) => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
+                });
+                (addr, h.n_recv)
+            })
+            .collect::<Vec<_>>();
+
+        for ((addr, l), p) in r.into_iter().zip(packets.iter_mut()) {
             p.set_offset(0);
-            p.set_length(m.len);
+            p.set_length(l);
             p.set_upstream(UpstreamAddr::from(addr));
         }
 
