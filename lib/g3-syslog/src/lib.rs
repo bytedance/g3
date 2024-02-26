@@ -95,11 +95,8 @@ impl SyslogBuilder {
 
     pub fn start_async(self, async_conf: &AsyncLogConfig) -> AsyncSyslogStreamer {
         let hostname = if self.emit_hostname {
-            if let Ok(r) = nix::unistd::gethostname() {
-                r.into_string().ok()
-            } else {
-                None
-            }
+            let uname = rustix::system::uname();
+            Some(uname.nodename().to_string_lossy().to_string())
         } else {
             None
         };

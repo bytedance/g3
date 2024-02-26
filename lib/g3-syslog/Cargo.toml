@@ -10,7 +10,7 @@ rust-version = "1.74.0"
 [dependencies]
 slog = { workspace = true, features = ["nested-values"] }
 chrono = { workspace = true, features = ["clock"] }
-nix = { workspace = true, features = ["hostname"] }
+rustix = { workspace = true, features = ["system"] }
 itoa.workspace = true
 ryu.workspace = true
 flume.workspace = true

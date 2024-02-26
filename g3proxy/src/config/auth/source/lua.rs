@@ -19,7 +19,6 @@ use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use log::warn;
-use nix::NixPath;
 use yaml_rust::{yaml, Yaml};
 
 use g3_types::fs::ConfigFileFormat;
@@ -97,10 +96,10 @@ impl UserDynamicLuaSource {
     }
 
     fn check(&self) -> anyhow::Result<()> {
-        if self.fetch_script.is_empty() {
+        if self.fetch_script.as_os_str().is_empty() {
             return Err(anyhow!("no fetch script is set"));
         }
-        if self.cache_file.is_empty() {
+        if self.cache_file.as_os_str().is_empty() {
             return Err(anyhow!("no cache file is set"));
         }
 
@@ -108,7 +107,7 @@ impl UserDynamicLuaSource {
     }
 
     pub(crate) fn real_cache_path<'a>(&'a self, cache: &'a Path) -> &'a Path {
-        if cache.is_empty() {
+        if cache.as_os_str().is_empty() {
             self.cache_file.as_path()
         } else {
             cache

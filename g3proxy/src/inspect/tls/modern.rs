@@ -144,7 +144,9 @@ where
 
         // set certificate and private key
         let clt_ssl = lazy_acceptor.ssl_mut();
-        cert_pair.add_to_ssl(clt_ssl).map_err(TlsInterceptionError::InternalOpensslServerError)?;
+        cert_pair
+            .add_to_ssl(clt_ssl)
+            .map_err(TlsInterceptionError::InternalOpensslServerError)?;
         // set alpn
         if let Some(alpn_protocol) = ups_tls_stream.ssl().selected_alpn_protocol() {
             self.tls_interception

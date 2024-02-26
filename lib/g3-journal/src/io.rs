@@ -17,14 +17,17 @@
 use std::ffi::CStr;
 use std::fs::File;
 use std::io::Write;
-use std::os::fd::AsRawFd;
+use std::os::fd::AsFd;
 use std::os::unix::net::UnixDatagram;
 
 use anyhow::{anyhow, Context};
-use nix::fcntl::{fcntl, FcntlArg, SealFlag};
-use nix::sys::memfd::{memfd_create, MemFdCreateFlag};
-use nix::sys::socket::{sendmsg, ControlMessage, MsgFlags, UnixAddr};
 use once_cell::sync::OnceCell;
+use rustix::cmsg_space;
+use rustix::fs::{fcntl_add_seals, memfd_create, MemfdFlags, SealFlags};
+use rustix::io::Errno;
+use rustix::net::{
+    sendmsg_unix, SendAncillaryBuffer, SendAncillaryMessage, SendFlags, SocketAddrUnix,
+};
 
 /// Default path of the systemd-journald `AF_UNIX` datagram socket.
 const SD_JOURNAL_SOCK_PATH: &str = "/run/systemd/journal/socket";
@@ -49,7 +52,7 @@ pub(crate) fn journal_send(data: &[u8]) -> anyhow::Result<()> {
 
 fn send_payload(sock: &UnixDatagram, data: &[u8]) -> anyhow::Result<()> {
     if let Err(e) = sock.send_to(data, SD_JOURNAL_SOCK_PATH) {
-        if e.raw_os_error() == Some(nix::libc::EMSGSIZE) {
+        if e.raw_os_error() == Some(Errno::MSGSIZE.raw_os_error()) {
             // fallback if size limit reached
             send_memfd_payload(sock, data).context("sending with memfd failed")
         } else {
@@ -66,7 +69,7 @@ fn send_payload(sock: &UnixDatagram, data: &[u8]) -> anyhow::Result<()> {
 /// in a UNIX datagram. Payload is thus written to a memfd, which is sent as ancillary
 /// data.
 fn send_memfd_payload(sock: &UnixDatagram, data: &[u8]) -> anyhow::Result<()> {
-    let tmpfd = memfd_create(MEM_FD_NAME, MemFdCreateFlag::MFD_ALLOW_SEALING)
+    let tmpfd = memfd_create(MEM_FD_NAME, MemfdFlags::ALLOW_SEALING)
         .map_err(|e| anyhow!("unable to create memfd: {e}"))?;
 
     let mut mem_file = File::from(tmpfd);
@@ -75,21 +78,17 @@ fn send_memfd_payload(sock: &UnixDatagram, data: &[u8]) -> anyhow::Result<()> {
         .map_err(|e| anyhow!("failed to write to memfd: {e}"))?;
 
     // Seal the memfd, so that journald knows it can safely mmap/read it.
-    fcntl(mem_file.as_raw_fd(), FcntlArg::F_ADD_SEALS(SealFlag::all()))
+    fcntl_add_seals(mem_file.as_fd(), SealFlags::all())
         .map_err(|e| anyhow!("unable to seal memfd: {e}"))?;
 
-    let fds = &[mem_file.as_raw_fd()];
-    let ancillary = [ControlMessage::ScmRights(fds)];
-    let path = UnixAddr::new(SD_JOURNAL_SOCK_PATH)
+    let fds = &[mem_file.as_fd()];
+    let mut space = [0; cmsg_space!(ScmRights(1))];
+    let mut control = SendAncillaryBuffer::new(&mut space);
+    control.push(SendAncillaryMessage::ScmRights(fds));
+    let addr = SocketAddrUnix::new(SD_JOURNAL_SOCK_PATH)
         .map_err(|e| anyhow!("unable to create new unix address: {e}"))?;
-    sendmsg(
-        sock.as_raw_fd(),
-        &[],
-        &ancillary,
-        MsgFlags::empty(),
-        Some(&path),
-    )
-    .map_err(|e| anyhow!("sendmsg failed: {e}"))?;
+    sendmsg_unix(sock.as_fd(), &addr, &[], &mut control, SendFlags::empty())
+        .map_err(|e| anyhow!("sendmsg failed: {e}"))?;
 
     // Close our side of the memfd after we send it to systemd.
     drop(mem_file);
