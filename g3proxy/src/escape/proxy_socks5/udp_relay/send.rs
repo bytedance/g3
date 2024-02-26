@@ -96,16 +96,16 @@ where
         }
         let mut msgs = Vec::with_capacity(packets.len());
         for (p, h) in packets.iter().zip(self.socks_headers.iter_mut()) {
-            msgs.push(SendMsgHdr {
-                iov: [
+            msgs.push(SendMsgHdr::new(
+                [
                     IoSlice::new(h.encode(p.upstream())),
                     IoSlice::new(p.payload()),
                 ],
-                addr: None,
-            });
+                None,
+            ));
         }
 
-        let count = ready!(self.inner.poll_batch_sendmsg(cx, &msgs))
+        let count = ready!(self.inner.poll_batch_sendmsg(cx, &mut msgs))
             .map_err(|e| UdpRelayRemoteError::SendFailed(self.local_addr, self.peer_addr, e))?;
         if count == 0 {
             Poll::Ready(Err(UdpRelayRemoteError::SendFailed(

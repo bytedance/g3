@@ -16,14 +16,6 @@
 
 use std::error::Error;
 use std::fmt;
-#[cfg(any(
-    target_os = "linux",
-    target_os = "android",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd",
-))]
-use std::io::IoSliceMut;
 use std::io::{self, IoSlice};
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -40,7 +32,7 @@ use super::{AsyncUdpRecv, AsyncUdpSend, UdpSocketExt};
     target_os = "netbsd",
     target_os = "openbsd",
 ))]
-use super::{RecvMsgBuf, RecvMsgHdr, SendMsgHdr};
+use super::{RecvMsgHdr, SendMsgHdr};
 
 #[derive(Debug)]
 pub struct SendHalf(Arc<UdpSocket>);
@@ -121,7 +113,7 @@ impl AsyncUdpSend for SendHalf {
     fn poll_batch_sendmsg<const C: usize>(
         &mut self,
         cx: &mut Context<'_>,
-        msgs: &[SendMsgHdr<'_, C>],
+        msgs: &mut [SendMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>> {
         self.0.poll_batch_sendmsg(cx, msgs)
     }
@@ -161,16 +153,11 @@ impl AsyncUdpRecv for RecvHalf {
         target_os = "netbsd",
         target_os = "openbsd",
     ))]
-    fn poll_batch_recvmsg(
+    fn poll_batch_recvmsg<const C: usize>(
         &mut self,
         cx: &mut Context<'_>,
-        bufs: &mut [RecvMsgBuf<'_>],
-        meta: &mut [RecvMsgHdr],
+        hdr_v: &mut [RecvMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>> {
-        let slices: Vec<[IoSliceMut<'_>; 1]> = bufs
-            .iter_mut()
-            .map(|v| [IoSliceMut::new(v.as_mut())])
-            .collect();
-        self.0.poll_batch_recvmsg(cx, &slices, meta)
+        self.0.poll_batch_recvmsg(cx, hdr_v)
     }
 }

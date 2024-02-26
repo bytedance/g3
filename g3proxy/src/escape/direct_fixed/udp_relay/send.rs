@@ -281,17 +281,15 @@ where
     ) -> Poll<Result<usize, UdpRelayRemoteError>> {
         use std::io::IoSlice;
 
-        let msgs: Vec<SendMsgHdr<1>> = packets
+        let mut msgs: Vec<SendMsgHdr<1>> = packets
             .iter()
             .map(|p| {
                 let addr = SocketAddr::try_from(p.upstream()).unwrap();
-                SendMsgHdr {
-                    iov: [IoSlice::new(p.payload())],
-                    addr: Some(addr),
-                }
+                SendMsgHdr::new([IoSlice::new(p.payload())], Some(addr))
             })
             .collect();
-        let count = ready!(inner.poll_batch_sendmsg(cx, &msgs))
+
+        let count = ready!(inner.poll_batch_sendmsg(cx, &mut msgs))
             .map_err(|e| UdpRelayRemoteError::BatchSendFailed(bind_addr, e))?;
         if count == 0 {
             Poll::Ready(Err(UdpRelayRemoteError::BatchSendFailed(

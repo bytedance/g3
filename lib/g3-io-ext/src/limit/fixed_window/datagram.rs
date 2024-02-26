@@ -17,7 +17,7 @@
 use std::io::{IoSlice, IoSliceMut};
 
 use super::FixedWindow;
-use crate::RecvMsgBuf;
+use crate::RecvMsgHdr;
 
 pub trait HasPacketSize {
     fn packet_size(&self) -> usize;
@@ -35,9 +35,9 @@ impl<'a> HasPacketSize for IoSliceMut<'a> {
     }
 }
 
-impl<'a> HasPacketSize for RecvMsgBuf<'a> {
+impl<'a, const C: usize> HasPacketSize for RecvMsgHdr<'a, C> {
     fn packet_size(&self) -> usize {
-        self.len()
+        self.n_recv
     }
 }
 

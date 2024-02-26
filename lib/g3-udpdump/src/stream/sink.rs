@@ -59,16 +59,13 @@ impl Sinker {
         use std::future::poll_fn;
         use std::io::IoSlice;
 
-        let msgs: Vec<_> = packets
+        let mut msgs: Vec<_> = packets
             .iter()
-            .map(|v| SendMsgHdr {
-                iov: [IoSlice::new(v.as_slice())],
-                addr: None,
-            })
+            .map(|v| SendMsgHdr::new([IoSlice::new(v.as_slice())], None))
             .collect();
         let mut offset = 0;
         while offset < msgs.len() {
-            offset += poll_fn(|cx| self.socket.poll_batch_sendmsg(cx, &msgs[offset..])).await?;
+            offset += poll_fn(|cx| self.socket.poll_batch_sendmsg(cx, &mut msgs[offset..])).await?;
         }
         Ok(())
     }

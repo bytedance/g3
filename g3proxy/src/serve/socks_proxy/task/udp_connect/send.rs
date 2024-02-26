@@ -86,14 +86,17 @@ where
         cx: &mut Context<'_>,
         packets: &[UdpCopyPacket],
     ) -> Poll<Result<usize, UdpCopyClientError>> {
-        let mut msgs = Vec::with_capacity(packets.len());
-        for p in packets {
-            msgs.push(SendMsgHdr {
-                iov: [IoSlice::new(&self.socks5_header), IoSlice::new(p.payload())],
-                addr: None,
-            });
-        }
-        let count = ready!(self.inner.poll_batch_sendmsg(cx, &msgs))
+        let mut msgs: Vec<SendMsgHdr<2>> = packets
+            .iter()
+            .map(|p| {
+                SendMsgHdr::new(
+                    [IoSlice::new(&self.socks5_header), IoSlice::new(p.payload())],
+                    None,
+                )
+            })
+            .collect();
+
+        let count = ready!(self.inner.poll_batch_sendmsg(cx, &mut msgs))
             .map_err(UdpCopyClientError::SendFailed)?;
         if count == 0 {
             Poll::Ready(Err(UdpCopyClientError::SendFailed(io::Error::new(

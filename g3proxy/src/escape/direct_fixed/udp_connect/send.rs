@@ -74,14 +74,12 @@ where
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
         use std::io::IoSlice;
 
-        let msgs: Vec<SendMsgHdr<1>> = packets
+        let mut msgs: Vec<SendMsgHdr<1>> = packets
             .iter()
-            .map(|p| SendMsgHdr {
-                iov: [IoSlice::new(p.payload())],
-                addr: None,
-            })
+            .map(|p| SendMsgHdr::new([IoSlice::new(p.payload())], None))
             .collect();
-        let count = ready!(self.inner.poll_batch_sendmsg(cx, &msgs))
+
+        let count = ready!(self.inner.poll_batch_sendmsg(cx, &mut msgs))
             .map_err(UdpCopyRemoteError::SendFailed)?;
         if count == 0 {
             Poll::Ready(Err(UdpCopyRemoteError::SendFailed(io::Error::new(

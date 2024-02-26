@@ -30,7 +30,7 @@ use tokio::time::{Instant, Sleep};
     target_os = "netbsd",
     target_os = "openbsd",
 ))]
-use super::{RecvMsgBuf, RecvMsgHdr};
+use super::RecvMsgHdr;
 use crate::limit::{DatagramLimitInfo, DatagramLimitResult};
 use crate::ArcLimitedRecvStats;
 
@@ -50,11 +50,10 @@ pub trait AsyncUdpRecv {
         target_os = "netbsd",
         target_os = "openbsd",
     ))]
-    fn poll_batch_recvmsg(
+    fn poll_batch_recvmsg<const C: usize>(
         &mut self,
         cx: &mut Context<'_>,
-        bufs: &mut [RecvMsgBuf<'_>],
-        meta: &mut [RecvMsgHdr],
+        hdr_v: &mut [RecvMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>>;
 }
 
@@ -161,22 +160,17 @@ where
         target_os = "netbsd",
         target_os = "openbsd",
     ))]
-    fn poll_batch_recvmsg(
+    fn poll_batch_recvmsg<const C: usize>(
         &mut self,
         cx: &mut Context<'_>,
-        bufs: &mut [RecvMsgBuf<'_>],
-        meta: &mut [RecvMsgHdr],
+        hdr_v: &mut [RecvMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>> {
         if self.limit.is_set() {
             let dur_millis = self.started.elapsed().as_millis() as u64;
-            match self.limit.check_packets(dur_millis, bufs) {
+            match self.limit.check_packets(dur_millis, hdr_v) {
                 DatagramLimitResult::Advance(n) => {
-                    let count = ready!(self.inner.poll_batch_recvmsg(
-                        cx,
-                        &mut bufs[0..n],
-                        &mut meta[0..n]
-                    ))?;
-                    let len = meta.iter().take(count).map(|h| h.len).sum();
+                    let count = ready!(self.inner.poll_batch_recvmsg(cx, &mut hdr_v[0..n]))?;
+                    let len = hdr_v.iter().take(count).map(|h| h.n_recv).sum();
                     self.limit.set_advance(count, len);
                     self.stats.add_recv_packets(count);
                     self.stats.add_recv_bytes(len);
@@ -190,10 +184,10 @@ where
                 }
             }
         } else {
-            let count = ready!(self.inner.poll_batch_recvmsg(cx, bufs, meta))?;
+            let count = ready!(self.inner.poll_batch_recvmsg(cx, hdr_v))?;
             self.stats.add_recv_packets(count);
             self.stats
-                .add_recv_bytes(meta.iter().take(count).map(|h| h.len).sum());
+                .add_recv_bytes(hdr_v.iter().take(count).map(|h| h.n_recv).sum());
             Poll::Ready(Ok(count))
         }
     }
