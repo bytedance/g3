@@ -1,4 +1,8 @@
 
+v0.6.3:
+ - BUG FIX: use different serial for each cert
+ - Optimization: default to use 127.0.0.1:2999 as frontend listen address
+
 v0.6.2:
  - BUG FIX: fix memory usage in histogram stats
 
