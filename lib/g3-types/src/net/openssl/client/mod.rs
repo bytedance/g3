@@ -94,7 +94,10 @@ pub struct OpensslClientConfigBuilder {
     supported_groups: String,
     use_ocsp_stapling: bool,
     enable_sct: bool,
+    #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
     enable_grease: bool,
+    #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+    permute_extensions: bool,
 }
 
 impl Default for OpensslClientConfigBuilder {
@@ -113,7 +116,10 @@ impl Default for OpensslClientConfigBuilder {
             supported_groups: String::default(),
             use_ocsp_stapling: false,
             enable_sct: false,
+            #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
             enable_grease: false,
+            #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+            permute_extensions: false,
         }
     }
 }
@@ -247,6 +253,16 @@ impl OpensslClientConfigBuilder {
     #[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
     pub fn set_enable_grease(&mut self, _enable: bool) {
         log::warn!("grease can only be set for BoringSSL variants");
+    }
+
+    #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+    pub fn set_permute_extensions(&mut self, enable: bool) {
+        self.permute_extensions = enable;
+    }
+
+    #[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
+    pub fn set_permute_extensions(&mut self, _enable: bool) {
+        log::warn!("permute extensions can only be set for BoringSSL variants");
     }
 
     #[cfg(feature = "tongsuo")]
@@ -422,6 +438,10 @@ impl OpensslClientConfigBuilder {
         #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
         if self.enable_grease {
             ctx_builder.set_grease_enabled(true);
+        }
+        #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+        if self.permute_extensions {
+            ctx_builder.set_permute_extensions(true);
         }
 
         #[cfg(any(feature = "aws-lc", feature = "boringssl", feature = "tongsuo"))]

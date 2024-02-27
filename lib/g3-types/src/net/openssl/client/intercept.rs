@@ -77,6 +77,8 @@ pub struct OpensslInterceptionClientConfigBuilder {
     enable_sct: bool,
     #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
     enable_grease: bool,
+    #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+    permute_extensions: bool,
 }
 
 impl Default for OpensslInterceptionClientConfigBuilder {
@@ -91,6 +93,8 @@ impl Default for OpensslInterceptionClientConfigBuilder {
             enable_sct: false,
             #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
             enable_grease: false,
+            #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+            permute_extensions: false,
         }
     }
 }
@@ -165,6 +169,16 @@ impl OpensslInterceptionClientConfigBuilder {
         log::warn!("grease can only be set for BoringSSL variants");
     }
 
+    #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+    pub fn set_permute_extensions(&mut self, enable: bool) {
+        self.permute_extensions = enable;
+    }
+
+    #[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
+    pub fn set_permute_extensions(&mut self, _enable: bool) {
+        log::warn!("permute extensions can only be set for BoringSSL variants");
+    }
+
     pub fn build(&self) -> anyhow::Result<OpensslInterceptionClientConfig> {
         let mut ctx_builder = SslConnector::builder(SslMethod::tls_client())
             .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
@@ -199,6 +213,10 @@ impl OpensslInterceptionClientConfigBuilder {
         #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
         if self.enable_grease {
             ctx_builder.set_grease_enabled(true);
+        }
+        #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+        if self.permute_extensions {
+            ctx_builder.set_permute_extensions(true);
         }
 
         #[cfg(any(feature = "aws-lc", feature = "boringssl", feature = "tongsuo"))]

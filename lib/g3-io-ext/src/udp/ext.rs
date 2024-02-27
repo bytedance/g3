@@ -520,7 +520,9 @@ mod tests {
 
         let mut recv_msg2 = [0u8; 16];
         let mut recv_iov = [IoSliceMut::new(&mut recv_msg2)];
-        let (len, addr) = poll_fn(|cx| s_sock.poll_recvmsg(cx, &mut recv_iov)).await.unwrap();
+        let (len, addr) = poll_fn(|cx| s_sock.poll_recvmsg(cx, &mut recv_iov))
+            .await
+            .unwrap();
         assert_eq!(len, msg_2.len());
         assert_eq!(addr, Some(c_addr));
         assert_eq!(&recv_iov[0][..len], msg_2);

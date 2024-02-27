@@ -348,6 +348,16 @@ The map is consists of the following fields:
 
   .. _RFC 8701: https://datatracker.ietf.org/doc/rfc8701/
 
+* permute_extensions
+
+  **optional**, **type**: bool
+
+  Whether to permute TLS extensions.
+
+  **default**: not set, the default value may vary between different OpenSSL variants
+
+  .. versionadded:: 1.7.36
+
 .. versionadded:: 1.1.4
 
 .. _conf_value_openssl_server_config:

@@ -287,6 +287,10 @@ fn set_openssl_tls_client_config_builder(
                     let enable = crate::value::as_bool(v)?;
                     builder.set_enable_grease(enable);
                 }
+                "permute_extensions" => {
+                    let enable = crate::value::as_bool(v)?;
+                    builder.set_permute_extensions(enable);
+                }
                 _ => return Err(anyhow!("invalid key {k}")),
             }
         }

@@ -45,6 +45,7 @@ const TLS_ARG_SUPPORTED_GROUPS: &str = "tls-supported-groups";
 const TLS_ARG_USE_OCSP_STAPLING: &str = "tls-use-ocsp-stapling";
 const TLS_ARG_ENABLE_SCT: &str = "tls-enable-sct";
 const TLS_ARG_ENABLE_GREASE: &str = "tls-enable-grease";
+const TLS_ARG_PERMUTE_EXTENSIONS: &str = "tls-permute-extensions";
 
 const PROXY_TLS_ARG_CA_CERT: &str = "proxy-tls-ca-cert";
 const PROXY_TLS_ARG_CERT: &str = "proxy-tls-cert";
@@ -59,6 +60,7 @@ const PROXY_TLS_ARG_SUPPORTED_GROUPS: &str = "proxy-tls-supported-groups";
 const PROXY_TLS_ARG_USE_OCSP_STAPLING: &str = "proxy-tls-use-ocsp-stapling";
 const PROXY_TLS_ARG_ENABLE_SCT: &str = "proxy-tls-enable-sct";
 const PROXY_TLS_ARG_ENABLE_GREASE: &str = "proxy-tls-enable-grease";
+const PROXY_TLS_ARG_PERMUTE_EXTENSIONS: &str = "proxy-tls-permute-extensions";
 
 const SESSION_CACHE_VALUES: [&str; 2] = ["off", "builtin"];
 #[cfg(not(feature = "vendored-tongsuo"))]
@@ -261,6 +263,17 @@ impl OpensslTlsClientArgs {
         Ok(())
     }
 
+    fn parse_permute_extensions(&mut self, args: &ArgMatches, id: &str) -> anyhow::Result<()> {
+        let tls_config = self
+            .config
+            .as_mut()
+            .ok_or_else(|| anyhow!("no tls config found"))?;
+        if args.get_flag(id) {
+            tls_config.set_permute_extensions(true);
+        }
+        Ok(())
+    }
+
     fn build_client(&mut self) -> anyhow::Result<()> {
         let tls_config = self
             .config
@@ -298,6 +311,7 @@ impl OpensslTlsClientArgs {
         self.parse_use_ocsp_stapling(args, TLS_ARG_USE_OCSP_STAPLING)?;
         self.parse_enable_sct(args, TLS_ARG_ENABLE_SCT)?;
         self.parse_enable_grease(args, TLS_ARG_ENABLE_GREASE)?;
+        self.parse_permute_extensions(args, TLS_ARG_PERMUTE_EXTENSIONS)?;
         self.build_client()
     }
 
@@ -315,8 +329,9 @@ impl OpensslTlsClientArgs {
         self.parse_no_sni(args, PROXY_TLS_ARG_NO_SNI)?;
         self.parse_supported_groups(args, PROXY_TLS_ARG_SUPPORTED_GROUPS)?;
         self.parse_use_ocsp_stapling(args, PROXY_TLS_ARG_USE_OCSP_STAPLING)?;
-        self.parse_enable_sct(args, TLS_ARG_ENABLE_SCT)?;
-        self.parse_enable_grease(args, TLS_ARG_ENABLE_GREASE)?;
+        self.parse_enable_sct(args, PROXY_TLS_ARG_ENABLE_SCT)?;
+        self.parse_enable_grease(args, PROXY_TLS_ARG_ENABLE_GREASE)?;
+        self.parse_permute_extensions(args, PROXY_TLS_ARG_PERMUTE_EXTENSIONS)?;
         self.build_client()
     }
 }
@@ -445,6 +460,12 @@ pub(crate) fn append_tls_args(cmd: Command) -> Command {
             .long(TLS_ARG_ENABLE_GREASE),
     )
     .arg(
+        Arg::new(TLS_ARG_PERMUTE_EXTENSIONS)
+            .help("Permute TLS extensions for target site")
+            .action(ArgAction::SetTrue)
+            .long(TLS_ARG_PERMUTE_EXTENSIONS),
+    )
+    .arg(
         Arg::new(TLS_ARG_PROTOCOL)
             .help("Set tls protocol for target site")
             .value_name("PROTOCOL")
@@ -542,6 +563,12 @@ pub(crate) fn append_proxy_tls_args(cmd: Command) -> Command {
             .help("Enable GREASE for proxy")
             .action(ArgAction::SetTrue)
             .long(PROXY_TLS_ARG_ENABLE_GREASE),
+    )
+    .arg(
+        Arg::new(PROXY_TLS_ARG_PERMUTE_EXTENSIONS)
+            .help("Permute TLS extensions for proxy")
+            .action(ArgAction::SetTrue)
+            .long(PROXY_TLS_ARG_PERMUTE_EXTENSIONS),
     )
     .arg(
         Arg::new(PROXY_TLS_ARG_PROTOCOL)
