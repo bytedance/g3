@@ -25,6 +25,7 @@ g3-types.workspace = true
 g3-resolver.workspace = true
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["macros"] }
 tokio-util = { workspace = true, features = ["io"] }
 tokio-stream.workspace = true
 governor = { workspace = true, features = ["std", "jitter"] }
