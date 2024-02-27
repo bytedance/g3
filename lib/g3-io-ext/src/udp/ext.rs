@@ -419,3 +419,110 @@ impl UdpSocketExt for UdpSocket {
         Poll::Ready(Ok(count))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::future::poll_fn;
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+    ))]
+    #[tokio::test]
+    async fn batch_msg_connect() {
+        let s_sock = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let s_addr = s_sock.local_addr().unwrap();
+
+        let c_sock = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let c_addr = c_sock.local_addr().unwrap();
+        c_sock.connect(&s_addr).await.unwrap();
+
+        let msg_1 = b"abcd";
+        let msg_2 = b"test";
+
+        let mut msgs = [
+            SendMsgHdr::new([IoSlice::new(msg_1)], None),
+            SendMsgHdr::new([IoSlice::new(msg_2)], None),
+        ];
+
+        let count = poll_fn(|cx| c_sock.poll_batch_sendmsg(cx, &mut msgs))
+            .await
+            .unwrap();
+        assert_eq!(count, 2);
+        assert_eq!(msgs[0].n_send, msg_1.len());
+        assert_eq!(msgs[1].n_send, msg_2.len());
+
+        let mut recv_msg1 = [0u8; 16];
+        let mut recv_msg2 = [0u8; 16];
+        let mut hdr_v = [
+            RecvMsgHdr::new([IoSliceMut::new(&mut recv_msg1)]),
+            RecvMsgHdr::new([IoSliceMut::new(&mut recv_msg2)]),
+        ];
+        let count = poll_fn(|cx| s_sock.poll_batch_recvmsg(cx, &mut hdr_v))
+            .await
+            .unwrap();
+        assert_eq!(count, 2);
+        assert_eq!(hdr_v[0].n_recv, msg_1.len());
+        assert_eq!(hdr_v[0].addr(), Some(c_addr));
+        assert_eq!(hdr_v[1].n_recv, msg_2.len());
+        assert_eq!(hdr_v[1].addr(), Some(c_addr));
+
+        drop(hdr_v);
+        assert_eq!(&recv_msg1[..msg_1.len()], msg_1);
+        assert_eq!(&recv_msg2[..msg_2.len()], msg_2);
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+    ))]
+    #[tokio::test]
+    async fn batch_msg_no_connect() {
+        let s_sock = UdpSocket::bind("[::1]:0").await.unwrap();
+        let s_addr = s_sock.local_addr().unwrap();
+
+        let c_sock = UdpSocket::bind("[::1]:0").await.unwrap();
+        let c_addr = c_sock.local_addr().unwrap();
+
+        let msg_1 = b"abcd";
+        let msg_2 = b"test";
+
+        let mut msgs = [
+            SendMsgHdr::new([IoSlice::new(msg_1)], Some(s_addr)),
+            SendMsgHdr::new([IoSlice::new(msg_2)], Some(s_addr)),
+        ];
+
+        let count = poll_fn(|cx| c_sock.poll_batch_sendmsg(cx, &mut msgs))
+            .await
+            .unwrap();
+        assert_eq!(count, 2);
+        assert_eq!(msgs[0].n_send, msg_1.len());
+        assert_eq!(msgs[1].n_send, msg_2.len());
+
+        let mut recv_msg1 = [0u8; 16];
+        let mut hdr_v = [RecvMsgHdr::new([IoSliceMut::new(&mut recv_msg1)])];
+        let count = poll_fn(|cx| s_sock.poll_batch_recvmsg(cx, &mut hdr_v))
+            .await
+            .unwrap();
+        assert_eq!(count, 1);
+        assert_eq!(hdr_v[0].n_recv, msg_1.len());
+        assert_eq!(hdr_v[0].addr(), Some(c_addr));
+
+        drop(hdr_v);
+        assert_eq!(&recv_msg1[..msg_1.len()], msg_1);
+
+        let mut recv_msg2 = [0u8; 16];
+        let mut recv_iov = [IoSliceMut::new(&mut recv_msg2)];
+        let (len, addr) = poll_fn(|cx| s_sock.poll_recvmsg(cx, &mut recv_iov)).await.unwrap();
+        assert_eq!(len, msg_2.len());
+        assert_eq!(addr, Some(c_addr));
+        assert_eq!(&recv_iov[0][..len], msg_2);
+    }
+}
