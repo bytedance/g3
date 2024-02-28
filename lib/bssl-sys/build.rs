@@ -88,10 +88,17 @@ fn main() {
     println!("cargo:rerun-if-changed=rust_wrapper.h");
     cc::Build::new()
         .cargo_metadata(true)
-        .cpp(true) // now the boringssl code requires a C++ stdlib, such as libstd++ or libc++
         .include(&include_dir)
         .file("rust_wrapper.c")
         .compile("rustc_wrapper");
+
+    // libssl requires a C++ runtime, such as libstdc++ or libc++
+    println!("cargo:rerun-if-changed=link_runtime.cpp");
+    cc::Build::new()
+        .cargo_metadata(true)
+        .cpp(true)
+        .file("link_runtime.cpp")
+        .compile("link_runtime");
 
     // bindgen
     let binding = bindgen::Builder::default()
