@@ -1,4 +1,12 @@
 
+v1.7.36:
+ - BUG FIX: fix h2 interception by removing server push code
+ - Optimization: always dump the remote side of the tls decrypted traffic
+ - Optimization: rename application_audit_ratio config option to task_audit_ratio
+ - Feature: support task_audit_ratio in all servers that have audit feature
+ - Feature: switch to openssl for tls interception server
+ - Feature: add permute-extensions option to boringssl/aws-lc client config
+
 v1.7.35:
  - BUG FIX: the presence of the h2 Host header in the sent request will be same as the client
  - Feature: always verify tls server name in cert when run OpenSSL client
