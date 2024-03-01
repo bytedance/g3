@@ -1,0 +1,14 @@
+name: Sphinx-Build
+on:
+  push:
+    paths:
+      - "g3proxy/doc"
+
+jobs:
+  g3proxy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ammaraskar/sphinx-action@master
+        with:
+          docs-folder: "g3proxy/doc/"
