@@ -191,9 +191,7 @@ stream dump
 
 **type**: map | str
 
-Set stream dump config. You can use this to dump streams to `wireshark udpdump`_.
-
-.. _wireshark udpdump: https://www.wireshark.org/docs/man-pages/udpdump.html
+Set stream dump config. You can use this to dump streams to :ref:`wireshark udpdump <protocol_setup_wireshark_udpdump>`.
 
 The keys are:
 
