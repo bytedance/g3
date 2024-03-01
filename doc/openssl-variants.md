@@ -80,7 +80,7 @@ As an alternative, you can switch to use AWS-LC as a solution on AWS EC2 hosts.
 
 ## How
 
-AWS-LC is supported in branch `rel/boringssl`.
+AWS-LC is supported in branch `rel/aws-lc`.
 
 ### Build
 
