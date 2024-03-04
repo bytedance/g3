@@ -39,6 +39,10 @@ pub fn new_std_listener(config: &TcpListenConfig) -> io::Result<std::net::TcpLis
     if config.transparent() {
         socket.set_ip_transparent(true)?;
     }
+    #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux"))]
+    if let Some(mark) = config.mark() {
+        socket.set_mark(mark)?;
+    }
     let bind_addr: SockAddr = addr.into();
     socket.bind(&bind_addr)?;
     socket.listen(config.backlog() as i32)?;
