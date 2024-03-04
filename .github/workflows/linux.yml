@@ -8,6 +8,10 @@ on:
       - 'demo/**'
       - 'scripts/**'
       - 'g3proxy/doc/**'
+  pull_request:
+    branches:
+      - master
+      - 'rel/**'
 
 env:
   CARGO_TERM_COLOR: always
