@@ -984,7 +984,7 @@ dependencies = [
  "g3-syslog",
  "g3-types",
  "g3-yaml",
- "http 1.0.0",
+ "http",
  "itoa",
  "log",
  "once_cell",
@@ -1080,8 +1080,8 @@ dependencies = [
  "bytes",
  "g3-http",
  "g3-io-ext",
- "h2 0.4.2",
- "http 1.0.0",
+ "h2",
+ "http",
  "thiserror",
  "tokio",
 ]
@@ -1107,7 +1107,7 @@ dependencies = [
  "bytes",
  "g3-io-ext",
  "g3-types",
- "http 1.0.0",
+ "http",
  "httparse",
  "memchr",
  "mime",
@@ -1131,8 +1131,8 @@ dependencies = [
  "g3-io-ext",
  "g3-socket",
  "g3-types",
- "h2 0.4.2",
- "http 1.0.0",
+ "h2",
+ "http",
  "memchr",
  "thiserror",
  "tokio",
@@ -1189,7 +1189,7 @@ dependencies = [
  "g3-histogram",
  "g3-types",
  "humanize-rs",
- "idna 0.5.0",
+ "idna",
  "ip_network",
  "rand",
  "regex",
@@ -1271,8 +1271,8 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "g3-types",
- "h2 0.4.2",
- "http 1.0.0",
+ "h2",
+ "http",
  "memchr",
  "slog",
  "uuid",
@@ -1378,8 +1378,8 @@ dependencies = [
  "fnv",
  "governor",
  "hex",
- "http 1.0.0",
- "idna 0.5.0",
+ "http",
+ "idna",
  "indexmap",
  "ip_network",
  "ip_network_table",
@@ -1453,9 +1453,9 @@ dependencies = [
  "g3-tls-cert",
  "g3-types",
  "g3-udpdump",
- "http 1.0.0",
+ "http",
  "humanize-rs",
- "idna 0.5.0",
+ "idna",
  "ip_network",
  "rand",
  "regex",
@@ -1491,14 +1491,14 @@ dependencies = [
  "g3-tls-cert",
  "g3-types",
  "governor",
- "h2 0.4.2",
- "h3 0.0.4",
- "h3-quinn 0.0.5",
+ "h2",
+ "h3",
+ "h3-quinn",
  "hdrhistogram",
  "hex",
  "hickory-client",
  "hickory-proto",
- "http 1.0.0",
+ "http",
  "indicatif",
  "itoa",
  "openssl-probe",
@@ -1673,8 +1673,8 @@ dependencies = [
  "g3-yaml",
  "g3proxy-proto",
  "governor",
- "h2 0.4.2",
- "http 1.0.0",
+ "h2",
+ "http",
  "indexmap",
  "ip_network",
  "ip_network_table",
@@ -1897,25 +1897,6 @@ dependencies = [
 
 [[package]]
 name = "h2"
-version = "0.3.24"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb2c4422095b67ee78da96fbb51a4cc413b3b25883c7717ff7ca1ab31022c9c9"
-dependencies = [
- "bytes",
- "fnv",
- "futures-core",
- "futures-sink",
- "futures-util",
- "http 0.2.11",
- "indexmap",
- "slab",
- "tokio",
- "tokio-util",
- "tracing",
-]
-
-[[package]]
-name = "h2"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "31d030e59af851932b72ceebadf4a2b5986dba4c3b99dd2493f8273a0f151943"
@@ -1925,26 +1906,11 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "futures-util",
- "http 1.0.0",
+ "http",
  "indexmap",
  "slab",
  "tokio",
  "tokio-util",
- "tracing",
-]
-
-[[package]]
-name = "h3"
-version = "0.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b83e1915177ea624b5bbbdb16bc54f0c106c9664892c695f995e53f5c6793b80"
-dependencies = [
- "bytes",
- "fastrand",
- "futures-util",
- "http 0.2.11",
- "pin-project-lite",
- "tokio",
  "tracing",
 ]
 
@@ -1957,25 +1923,10 @@ dependencies = [
  "bytes",
  "fastrand",
  "futures-util",
- "http 1.0.0",
+ "http",
  "pin-project-lite",
  "tokio",
  "tracing",
-]
-
-[[package]]
-name = "h3-quinn"
-version = "0.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac9675014d703c3d516a121757bbc02e53f1ee838e0729fc7534b35024a81ae4"
-dependencies = [
- "bytes",
- "futures",
- "h3 0.0.3",
- "quinn",
- "quinn-proto",
- "tokio",
- "tokio-util",
 ]
 
 [[package]]
@@ -1986,7 +1937,7 @@ checksum = "73786bcc0e4c2692ba62c650f7b950ac236e5300c5de3b1d26330555e2322046"
 dependencies = [
  "bytes",
  "futures",
- "h3 0.0.4",
+ "h3",
  "quinn",
  "quinn-proto",
  "tokio",
@@ -2050,7 +2001,7 @@ dependencies = [
 [[package]]
 name = "hickory-proto"
 version = "0.24.0"
-source = "git+https://github.com/hickory-dns/hickory-dns.git?rev=b0c0566#b0c05664837684d74d396dae8cceb6171ea4c556"
+source = "git+https://github.com/hickory-dns/hickory-dns.git?rev=976ba89#976ba893d23513dc407907ad30b83d7856c6f71e"
 dependencies = [
  "async-trait",
  "bytes",
@@ -2060,11 +2011,11 @@ dependencies = [
  "futures-channel",
  "futures-io",
  "futures-util",
- "h2 0.3.24",
- "h3 0.0.3",
- "h3-quinn 0.0.4",
- "http 0.2.11",
- "idna 0.4.0",
+ "h2",
+ "h3",
+ "h3-quinn",
+ "http",
+ "idna",
  "ipnet",
  "once_cell",
  "quinn",
@@ -2114,17 +2065,6 @@ dependencies = [
 
 [[package]]
 name = "http"
-version = "0.2.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8947b1a6fad4393052c7ba1f4cd97bed3e953a95c79c92ad9b051a04611d9fbb"
-dependencies = [
- "bytes",
- "fnv",
- "itoa",
-]
-
-[[package]]
-name = "http"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b32afd38673a8016f7c9ae69e5af41a58f81b1d31689040f2f1959594ce194ea"
@@ -2167,16 +2107,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f31827a206f56af32e590ba56d5d2d085f558508192593743f16b2306495269f"
 dependencies = [
  "cc",
-]
-
-[[package]]
-name = "idna"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d20d6b07bfbc108882d88ed8e37d39636dcc260e15e30c45e6ba089610b917c"
-dependencies = [
- "unicode-bidi",
- "unicode-normalization",
 ]
 
 [[package]]
@@ -3583,7 +3513,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "31e6302e3bb753d46e83516cae55ae196fc0c309407cf11ab35cc51a4c2a4633"
 dependencies = [
  "form_urlencoded",
- "idna 0.5.0",
+ "idna",
  "percent-encoding",
 ]
 
