@@ -109,6 +109,13 @@ pub fn as_tcp_listen_config(value: &Yaml) -> anyhow::Result<TcpListenConfig> {
                     config.set_instance(instance);
                     Ok(())
                 }
+                #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux"))]
+                "netfilter_mark" | "fwmark" | "mark" => {
+                    let mark = crate::value::as_u32(v)
+                        .context(format!("invalid u32 value for key {k}"))?;
+                    config.set_mark(mark);
+                    Ok(())
+                }
                 "scale" => set_tcp_listen_scale(&mut config, v)
                     .context(format!("invalid scale value for key {k}")),
                 _ => Err(anyhow!("invalid key {k}")),

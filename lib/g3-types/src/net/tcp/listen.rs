@@ -28,6 +28,8 @@ pub struct TcpListenConfig {
     ipv6only: bool,
     #[cfg(target_os = "linux")]
     transparent: bool,
+    #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux"))]
+    mark: Option<u32>,
     backlog: u32,
     instance: usize,
     scale: usize,
@@ -40,6 +42,8 @@ impl Default for TcpListenConfig {
             ipv6only: false,
             #[cfg(target_os = "linux")]
             transparent: false,
+            #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux"))]
+            mark: None,
             backlog: DEFAULT_LISTEN_BACKLOG,
             instance: 1,
             scale: 0,
@@ -72,6 +76,12 @@ impl TcpListenConfig {
         self.transparent
     }
 
+    #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux"))]
+    #[inline]
+    pub fn mark(&self) -> Option<u32> {
+        self.mark
+    }
+
     #[inline]
     pub fn backlog(&self) -> u32 {
         self.backlog
@@ -98,8 +108,15 @@ impl TcpListenConfig {
     }
 
     #[cfg(target_os = "linux")]
+    #[inline]
     pub fn set_transparent(&mut self) {
         self.transparent = true;
+    }
+
+    #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux"))]
+    #[inline]
+    pub fn set_mark(&mut self, mark: u32) {
+        self.mark = Some(mark);
     }
 
     #[inline]

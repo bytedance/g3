@@ -223,6 +223,13 @@ It consists of the following fields:
     If the backlog argument is greater than the value in /proc/sys/net/core/somaxconn, then it is silently truncated
     to that value. Since Linux 5.4, the default in this file is 4096; in earlier kernels, the default value is 128.
 
+* netfilter_mark
+
+  **optional**, **type**: unsigned int
+
+  Set the netfilter mark (SOL_SOCKET, SO_MARK) value for the listening socket. If this field not present,
+  the mark value will not be touch. This value can be used for advanced routing policy or netfilter rules.
+
 * ipv6_only
 
   **optional**, **type**: bool
