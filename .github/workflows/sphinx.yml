@@ -1,6 +1,10 @@
 name: Sphinx-Build
+
 on:
   push:
+    paths:
+      - 'g3proxy/doc/**'
+  pull_request:
     paths:
       - 'g3proxy/doc/**'
 
