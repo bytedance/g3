@@ -18,11 +18,10 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use bytes::BytesMut;
+use bytes::{Bytes, BytesMut};
 use futures_util::Stream;
 use hickory_proto::error::{ProtoError, ProtoErrorKind};
 use hickory_proto::op::Message;
-use hickory_proto::serialize::binary::{BinEncodable, BinEncoder};
 use hickory_proto::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
 use quinn::{Connection, RecvStream, VarInt};
 use rustls::ClientConfig;
@@ -101,25 +100,16 @@ async fn quic_send_recv(
     let (mut send_stream, recv_stream) = connection
         .open_bi()
         .await
-        .map_err(|e| ProtoError::from(format!("quic open_bi error: {e}")))?;
+        .map_err(|e| format!("quic open_bi error: {e}"))?;
 
     // prepare the buffer
-    let mut buffer = Vec::with_capacity(512);
-    buffer.push(b'\0');
-    buffer.push(b'\0');
-    {
-        let mut encoder = BinEncoder::new(&mut buffer);
-        message.emit(&mut encoder)?;
-    }
-    let message_len = buffer.len() - 2;
-    let message_len = u16::try_from(message_len)
-        .map_err(|_| ProtoErrorKind::MaxBufferSizeExceeded(message_len))?;
-    let len = message_len.to_be_bytes();
-    buffer[0] = len[0];
-    buffer[1] = len[1];
+    let buffer = Bytes::from(message.to_vec()?);
+    let message_len = u16::try_from(buffer.len())
+        .map_err(|_| ProtoErrorKind::MaxBufferSizeExceeded(buffer.len()))?;
+    let len = Bytes::from(message_len.to_be_bytes().to_vec());
 
     send_stream
-        .write_all(&buffer)
+        .write_all_chunks(&mut [len, buffer])
         .await
         .map_err(|e| format!("quic write request error: {e}"))?;
     // The client MUST send the DNS query over the selected stream,
@@ -145,7 +135,7 @@ async fn quic_recv(mut recv_stream: RecvStream) -> Result<DnsResponse, ProtoErro
     recv_stream
         .read_exact(&mut buffer)
         .await
-        .map_err(|e| ProtoError::from(format!("quic read message error: {e}")))?;
+        .map_err(|e| format!("quic read message error: {e}"))?;
     let message = Message::from_vec(&buffer)?;
     if message.id() != 0 {
         return Err(ProtoError::from("quic response message id is not zero"));

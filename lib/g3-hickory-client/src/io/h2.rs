@@ -57,7 +57,7 @@ pub async fn connect(
     let (send_request, connection) = client_builder
         .handshake(tls_stream)
         .await
-        .map_err(|e| ProtoError::from(format!("h2 handshake error: {e}")))?;
+        .map_err(|e| format!("h2 handshake error: {e}"))?;
 
     tokio::spawn(async move {
         let _ = connection.await;
@@ -148,7 +148,7 @@ async fn h2_send_recv(
     let mut h2 = h2
         .ready()
         .await
-        .map_err(|e| ProtoError::from(format!("h2 wait send_request error: {e}")))?;
+        .map_err(|e| format!("h2 wait send_request error: {e}"))?;
 
     // build up the http request
     let request = request_builder.post(message.remaining());
@@ -156,21 +156,20 @@ async fn h2_send_recv(
     // Send the request
     let (response_future, mut send_stream) = h2
         .send_request(request, false)
-        .map_err(|e| ProtoError::from(format!("h2 send_request error: {e}")))?;
+        .map_err(|e| format!("h2 send_request error: {e}"))?;
     send_stream
         .send_data(message, true)
-        .map_err(|e| ProtoError::from(format!("h2 send_data error: {e}")))?;
+        .map_err(|e| format!("h2 send_data error: {e}"))?;
 
     let response_stream = response_future
         .await
-        .map_err(|e| ProtoError::from(format!("received a stream error: {e}")))?;
+        .map_err(|e| format!("received a stream error: {e}"))?;
     let (parts, mut recv_stream) = response_stream.into_parts();
 
     let mut rsp = HttpDnsResponse::new(Response::from_parts(parts, ()))?;
 
     while let Some(partial_bytes) = recv_stream.data().await {
-        let partial_bytes =
-            partial_bytes.map_err(|e| ProtoError::from(format!("bad http request: {e}")))?;
+        let partial_bytes = partial_bytes.map_err(|e| format!("bad http request: {e}"))?;
 
         rsp.push_body(partial_bytes);
         if rsp.body_end() {
