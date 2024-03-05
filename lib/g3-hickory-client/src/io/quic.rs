@@ -27,7 +27,7 @@ use hickory_proto::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponse
 use quinn::{Connection, RecvStream, VarInt};
 use rustls::ClientConfig;
 
-pub async fn connect_with_bind_addr(
+pub async fn connect(
     name_server: SocketAddr,
     bind_addr: Option<SocketAddr>,
     tls_config: ClientConfig,

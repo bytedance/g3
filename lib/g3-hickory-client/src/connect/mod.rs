@@ -18,3 +18,5 @@ pub mod tls;
 
 #[cfg(feature = "quic")]
 pub(crate) mod quinn;
+
+pub(crate) mod rustls;
