@@ -97,7 +97,10 @@ async fn quic_send_recv(
     message: DnsRequest,
 ) -> Result<DnsResponse, ProtoError> {
     let message = message.into_parts().0;
-    let (mut send_stream, recv_stream) = connection.open_bi().await?;
+    let (mut send_stream, recv_stream) = connection
+        .open_bi()
+        .await
+        .map_err(|e| ProtoError::from(format!("quic open_bi error: {e}")))?;
 
     // prepare the buffer
     let mut buffer = Vec::with_capacity(512);
@@ -114,25 +117,37 @@ async fn quic_send_recv(
     buffer[0] = len[0];
     buffer[1] = len[1];
 
-    send_stream.write_all(&buffer).await?;
+    send_stream
+        .write_all(&buffer)
+        .await
+        .map_err(|e| format!("quic write request error: {e}"))?;
     // The client MUST send the DNS query over the selected stream,
     // and MUST indicate through the STREAM FIN mechanism that no further data will be sent on that stream.
-    send_stream.finish().await?;
+    send_stream
+        .finish()
+        .await
+        .map_err(|e| format!("quic mark finish error: {e}"))?;
 
     quic_recv(recv_stream).await
 }
 
 async fn quic_recv(mut recv_stream: RecvStream) -> Result<DnsResponse, ProtoError> {
     let mut len_buf = [0u8; 2];
-    recv_stream.read_exact(&mut len_buf).await?;
+    recv_stream
+        .read_exact(&mut len_buf)
+        .await
+        .map_err(|e| format!("quic read len error: {e}"))?;
     let message_len = u16::from_be_bytes(len_buf) as usize;
 
     let mut buffer = BytesMut::with_capacity(message_len);
     buffer.resize(message_len, 0);
-    recv_stream.read_exact(&mut buffer).await?;
+    recv_stream
+        .read_exact(&mut buffer)
+        .await
+        .map_err(|e| ProtoError::from(format!("quic read message error: {e}")))?;
     let message = Message::from_vec(&buffer)?;
     if message.id() != 0 {
-        return Err(ProtoErrorKind::QuicMessageIdNot0(message.id()).into());
+        return Err(ProtoError::from("quic response message id is not zero"));
     }
 
     Ok(DnsResponse::new(message, buffer.to_vec()))

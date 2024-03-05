@@ -13,7 +13,6 @@ futures-util.workspace = true
 http.workspace = true
 h2.workspace = true
 bytes.workspace = true
-log.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 rustls.workspace = true
@@ -24,4 +23,4 @@ h3-quinn = { workspace = true, optional = true }
 
 [features]
 default = []
-quic = ["hickory-proto/quinn", "dep:quinn", "dep:h3", "dep:h3-quinn"]
+quic = ["dep:quinn", "dep:h3", "dep:h3-quinn"]

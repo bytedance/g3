@@ -61,5 +61,5 @@ async fn connect_tls<S: Connect>(
     connector
         .connect(tls_name, AsyncIoStdAsTokio(stream))
         .await
-        .map(|s| AsyncIoTokioAsStd(s))
+        .map(AsyncIoTokioAsStd)
 }
