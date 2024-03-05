@@ -14,174 +14,84 @@
  * limitations under the License.
  */
 
-use std::future::Future;
-use std::io;
 use std::net::SocketAddr;
-use std::ops::DerefMut;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use bytes::{Buf, Bytes};
-use futures_util::future::{FutureExt, TryFutureExt};
-use futures_util::{ready, Stream};
-use h2::client::{Connection, SendRequest};
+use futures_util::Stream;
+use h2::client::SendRequest;
 use hickory_proto::error::ProtoError;
 use hickory_proto::iocompat::AsyncIoStdAsTokio;
 use hickory_proto::tcp::{Connect, DnsTcpStream};
 use hickory_proto::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
 use http::{Response, Version};
-use log::{debug, warn};
+use rustls::{ClientConfig, ServerName};
 
 use super::http::request::HttpDnsRequestBuilder;
 use super::http::response::HttpDnsResponse;
 use crate::connect::tls::TlsConnect;
 
-pub fn connect_with_bind_addr<S: Connect, TC: TlsConnect<S> + Send + 'static>(
+pub async fn connect(
+    name_server: SocketAddr,
+    bind_addr: Option<SocketAddr>,
+    tls_config: Arc<ClientConfig>,
+    tls_name: ServerName,
+) -> Result<HttpsClientStream, ProtoError> {
+    let server_name = match &tls_name {
+        ServerName::DnsName(domain) => domain.as_ref().to_string(),
+        ServerName::IpAddress(ip) => ip.to_string(),
+        _ => {
+            return Err(ProtoError::from(format!(
+                "unsupported tls name: {:?}",
+                tls_name
+            )))
+        }
+    };
+
+    let tls_stream =
+        crate::connect::rustls::tls_connect(name_server, bind_addr, tls_config, tls_name).await?;
+
+    let mut client_builder = h2::client::Builder::new();
+    client_builder.enable_push(false);
+
+    let (send_request, connection) = client_builder
+        .handshake(tls_stream)
+        .await
+        .map_err(|e| ProtoError::from(format!("h2 handshake error: {e}")))?;
+
+    tokio::spawn(async move {
+        let _ = connection.await;
+    });
+
+    HttpsClientStream::new(&server_name, send_request)
+}
+
+pub async fn connect_general<S: Connect, TC: TlsConnect<S> + Send + 'static>(
     name_server: SocketAddr,
     bind_addr: Option<SocketAddr>,
     tls_connector: TC,
-) -> HttpsClientConnect<S, TC>
+) -> Result<HttpsClientStream, ProtoError>
 where
     TC::TlsStream: DnsTcpStream,
 {
-    let connect = S::connect_with_bind(name_server, bind_addr);
+    let tcp_stream = S::connect_with_bind(name_server, bind_addr).await?;
+    let tls_stream = tls_connector.tls_connect(tcp_stream).await?;
 
-    HttpsClientConnect::<S, TC>(HttpsClientConnectState::TcpConnecting {
-        connect,
-        name_server,
-        tls: Some(tls_connector),
-    })
-}
+    let mut client_builder = h2::client::Builder::new();
+    client_builder.enable_push(false);
 
-pub struct HttpsClientConnect<S, TC>(HttpsClientConnectState<S, TC>)
-where
-    S: Connect,
-    TC: TlsConnect<S>;
+    let (send_request, connection) = client_builder
+        .handshake(AsyncIoStdAsTokio(tls_stream))
+        .await
+        .map_err(|e| ProtoError::from(format!("h2 handshake error: {e}")))?;
 
-impl<S, TC> Future for HttpsClientConnect<S, TC>
-where
-    S: Connect,
-    TC: TlsConnect<S> + Unpin,
-{
-    type Output = Result<HttpsClientStream, ProtoError>;
+    tokio::spawn(async move {
+        let _ = connection.await;
+    });
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.0.poll_unpin(cx)
-    }
-}
-
-enum HttpsClientConnectState<S, TC>
-where
-    S: Connect,
-    TC: TlsConnect<S>,
-{
-    TcpConnecting {
-        connect: Pin<Box<dyn Future<Output = io::Result<S>> + Send>>,
-        name_server: SocketAddr,
-        tls: Option<TC>,
-    },
-    TlsConnecting {
-        // TODO: also abstract away Tokio TLS in RuntimeProvider.
-        tls: Pin<Box<dyn Future<Output = io::Result<TC::TlsStream>> + Send>>,
-        name_server_name: Arc<str>,
-        name_server: SocketAddr,
-    },
-    H2Handshake {
-        handshake: Pin<
-            Box<
-                dyn Future<
-                        Output = Result<
-                            (
-                                SendRequest<Bytes>,
-                                Connection<AsyncIoStdAsTokio<TC::TlsStream>, Bytes>,
-                            ),
-                            h2::Error,
-                        >,
-                    > + Send,
-            >,
-        >,
-        name_server_name: Arc<str>,
-        name_server: SocketAddr,
-    },
-    Connected(Option<HttpsClientStream>),
-}
-
-impl<S, TC> Future for HttpsClientConnectState<S, TC>
-where
-    S: Connect,
-    TC: TlsConnect<S> + Unpin,
-{
-    type Output = Result<HttpsClientStream, ProtoError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        loop {
-            let next = match *self {
-                Self::TcpConnecting {
-                    ref mut connect,
-                    name_server,
-                    ref mut tls,
-                } => {
-                    let tcp = ready!(connect.poll_unpin(cx))?;
-
-                    debug!("tcp connection established to: {}", name_server);
-                    let tls = tls
-                        .take()
-                        .expect("programming error, tls should not be None here");
-                    let name_server_name = Arc::from(tls.server_name());
-
-                    let tls_connect = tls.tls_connect(tcp);
-                    Self::TlsConnecting {
-                        name_server_name,
-                        name_server,
-                        tls: tls_connect,
-                    }
-                }
-                Self::TlsConnecting {
-                    ref name_server_name,
-                    name_server,
-                    ref mut tls,
-                } => {
-                    let tls = ready!(tls.poll_unpin(cx))?;
-                    debug!("tls connection established to: {}", name_server);
-                    let mut handshake = h2::client::Builder::new();
-                    handshake.enable_push(false);
-
-                    let handshake = handshake.handshake(AsyncIoStdAsTokio(tls));
-                    Self::H2Handshake {
-                        name_server_name: Arc::clone(name_server_name),
-                        name_server,
-                        handshake: Box::pin(handshake),
-                    }
-                }
-                Self::H2Handshake {
-                    ref name_server_name,
-                    name_server,
-                    ref mut handshake,
-                } => {
-                    let (send_request, connection) = ready!(handshake
-                        .poll_unpin(cx)
-                        .map_err(|e| ProtoError::from(format!("h2 handshake error: {e}"))))?;
-
-                    // TODO: hand this back for others to run rather than spawning here?
-                    debug!("h2 connection established to: {}", name_server);
-                    tokio::spawn(
-                        connection
-                            .map_err(|e| warn!("h2 connection failed: {e}"))
-                            .map(|_: Result<(), ()>| ()),
-                    );
-
-                    let client_stream = HttpsClientStream::new(name_server_name, send_request)?;
-                    Self::Connected(Some(client_stream))
-                }
-                Self::Connected(ref mut conn) => {
-                    return Poll::Ready(Ok(conn.take().expect("cannot poll after complete")))
-                }
-            };
-
-            *self.as_mut().deref_mut() = next;
-        }
-    }
+    HttpsClientStream::new(&tls_connector.server_name(), send_request)
 }
 
 /// A DNS client connection for DNS-over-HTTPS
@@ -263,13 +173,10 @@ async fn h2_send_recv(
     message: Bytes,
     request_builder: Arc<HttpDnsRequestBuilder>,
 ) -> Result<DnsResponse, ProtoError> {
-    let mut h2 = match h2.ready().await {
-        Ok(h2) => h2,
-        Err(e) => {
-            // TODO: make specific error
-            return Err(ProtoError::from(format!("h2 send_request error: {e}")));
-        }
-    };
+    let mut h2 = h2
+        .ready()
+        .await
+        .map_err(|e| ProtoError::from(format!("h2 wait send_request error: {e}")))?;
 
     // build up the http request
     let request = request_builder.post(message.remaining());

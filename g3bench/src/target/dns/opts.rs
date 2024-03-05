@@ -25,7 +25,6 @@ use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
-use g3_hickory_client::connect::tls::rustls::RustlsConnector;
 use hickory_client::client::AsyncClient;
 use hickory_proto::iocompat::AsyncIoTokioAsStd;
 use rustls::{ClientConfig, ServerName};
@@ -192,21 +191,24 @@ impl BenchDnsArgs {
         &self,
         tls_client: Arc<ClientConfig>,
     ) -> anyhow::Result<AsyncClient> {
+        use hickory_proto::BufDnsStreamHandle;
+
+        let (message_sender, outbound_messages) = BufDnsStreamHandle::new(self.target);
+
         let tls_name = self
             .tls
             .tls_name
             .clone()
             .unwrap_or_else(|| ServerName::IpAddress(self.target.ip()));
-        let tls_connector = RustlsConnector {
-            config: tls_client,
+        let tls_connect = g3_hickory_client::io::tls::connect(
+            self.target,
+            self.bind,
+            tls_client,
             tls_name,
-        };
-        let (stream, sender) = g3_hickory_client::io::tls::connect_with_bind_addr::<
-            AsyncIoTokioAsStd<TcpStream>,
-            RustlsConnector,
-        >(self.target, self.bind, tls_connector);
+            outbound_messages,
+        );
 
-        let (client, bg) = AsyncClient::new(stream, sender, None)
+        let (client, bg) = AsyncClient::new(Box::pin(tls_connect), message_sender, None)
             .await
             .map_err(|e| anyhow!("failed to create tls async client: {e}"))?;
         tokio::spawn(bg);
@@ -222,16 +224,11 @@ impl BenchDnsArgs {
             .tls_name
             .clone()
             .unwrap_or_else(|| ServerName::IpAddress(self.target.ip()));
-        let tls_connector = RustlsConnector {
-            config: tls_client,
-            tls_name,
-        };
-        let client_connect = g3_hickory_client::io::h2::connect_with_bind_addr::<
-            AsyncIoTokioAsStd<TcpStream>,
-            RustlsConnector,
-        >(self.target, self.bind, tls_connector);
 
-        let (client, bg) = AsyncClient::connect(client_connect)
+        let client_connect =
+            g3_hickory_client::io::h2::connect(self.target, self.bind, tls_client, tls_name);
+
+        let (client, bg) = AsyncClient::connect(Box::pin(client_connect))
             .await
             .map_err(|e| anyhow!("failed to create h2 async client: {e}"))?;
         tokio::spawn(bg);
@@ -250,7 +247,7 @@ impl BenchDnsArgs {
             None => self.target.ip().to_string(),
         };
 
-        let client_connect = g3_hickory_client::io::h3::connect_with_bind_addr(
+        let client_connect = g3_hickory_client::io::h3::connect(
             self.target,
             self.bind,
             tls_client.clone(),
@@ -276,7 +273,7 @@ impl BenchDnsArgs {
             None => self.target.ip().to_string(),
         };
 
-        let client_connect = g3_hickory_client::io::quic::connect_with_bind_addr(
+        let client_connect = g3_hickory_client::io::quic::connect(
             self.target,
             self.bind,
             tls_client.clone(),

@@ -14,83 +14,44 @@
  * limitations under the License.
  */
 
-use std::future::Future;
-use std::io;
 use std::net::SocketAddr;
-use std::pin::Pin;
+use std::sync::Arc;
 
-use futures_util::future::TryFutureExt;
 use hickory_proto::error::ProtoError;
+use hickory_proto::iocompat::AsyncIoTokioAsStd;
 use hickory_proto::tcp::{Connect, DnsTcpStream, TcpClientStream, TcpStream};
 use hickory_proto::xfer::StreamReceiver;
-use hickory_proto::BufDnsStreamHandle;
+use rustls::{ClientConfig, ServerName};
 
 use crate::connect::tls::TlsConnect;
 
-pub fn connect_with_bind_addr<S: Connect, TC: TlsConnect<S> + Send + 'static>(
+pub async fn connect(
     name_server: SocketAddr,
     bind_addr: Option<SocketAddr>,
-    tls_connector: TC,
-) -> (
-    Pin<
-        Box<dyn Future<Output = Result<TcpClientStream<TC::TlsStream>, ProtoError>> + Send + Unpin>,
-    >,
-    BufDnsStreamHandle,
-)
-where
-    TC::TlsStream: DnsTcpStream,
-{
-    let (stream_future, sender) = tls_connect_with_bind_addr(name_server, bind_addr, tls_connector);
+    tls_config: Arc<ClientConfig>,
+    tls_name: ServerName,
+    outbound_messages: StreamReceiver,
+) -> Result<TcpClientStream<impl DnsTcpStream>, ProtoError> {
+    let tls_stream =
+        crate::connect::rustls::tls_connect(name_server, bind_addr, tls_config, tls_name).await?;
 
-    let new_future = Box::pin(
-        stream_future
-            .map_ok(TcpClientStream::from_stream)
-            .map_err(ProtoError::from),
-    );
-
-    (new_future, sender)
-}
-
-pub fn tls_connect_with_bind_addr<S: Connect, TC: TlsConnect<S> + Send + 'static>(
-    name_server: SocketAddr,
-    bind_addr: Option<SocketAddr>,
-    tls_connector: TC,
-) -> (
-    Pin<Box<dyn Future<Output = Result<TcpStream<TC::TlsStream>, io::Error>> + Send>>,
-    BufDnsStreamHandle,
-)
-where
-    TC::TlsStream: DnsTcpStream,
-{
-    let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
-
-    // This set of futures collapses the next tcp socket into a stream which can be used for
-    //  sending and receiving tcp packets.
-    let stream = Box::pin(connect_tls(
+    let stream = TcpStream::from_stream_with_receiver(
+        AsyncIoTokioAsStd(tls_stream),
         name_server,
-        bind_addr,
-        tls_connector,
         outbound_messages,
-    ));
-
-    (stream, message_sender)
+    );
+    Ok(TcpClientStream::from_stream(stream))
 }
 
-async fn connect_tls<S: Connect, TC: TlsConnect<S> + Send + 'static>(
+pub async fn connect_general<S: Connect, TC: TlsConnect<S> + Send + 'static>(
     name_server: SocketAddr,
     bind_addr: Option<SocketAddr>,
     tls_connector: TC,
     outbound_messages: StreamReceiver,
-) -> io::Result<TcpStream<TC::TlsStream>>
-where
-    TC::TlsStream: DnsTcpStream,
-{
-    let stream = S::connect_with_bind(name_server, bind_addr).await?;
-    let tls_stream = tls_connector.tls_connect(stream).await?;
+) -> Result<TcpClientStream<TC::TlsStream>, ProtoError> {
+    let tcp_stream = S::connect_with_bind(name_server, bind_addr).await?;
+    let tls_stream = tls_connector.tls_connect(tcp_stream).await?;
 
-    Ok(TcpStream::from_stream_with_receiver(
-        tls_stream,
-        name_server,
-        outbound_messages,
-    ))
+    let stream = TcpStream::from_stream_with_receiver(tls_stream, name_server, outbound_messages);
+    Ok(TcpClientStream::from_stream(stream))
 }
