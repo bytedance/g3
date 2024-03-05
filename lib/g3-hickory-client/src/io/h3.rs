@@ -43,7 +43,7 @@ pub async fn connect(
     let h3_connection = h3_quinn::Connection::new(connection);
     let (driver, send_request) = h3::client::new(h3_connection)
         .await
-        .map_err(|e| ProtoError::from(format!("h3 connection failed: {e}")))?;
+        .map_err(|e| format!("h3 connection failed: {e}"))?;
 
     H3ClientStream::new(&tls_name, driver, send_request)
 }
@@ -139,26 +139,26 @@ async fn h3_send_recv(
     let mut send_stream = h3
         .send_request(request)
         .await
-        .map_err(|e| ProtoError::from(format!("h3 send_request error: {e}")))?;
+        .map_err(|e| format!("h3 send_request error: {e}"))?;
     send_stream
         .send_data(message)
         .await
-        .map_err(|e| ProtoError::from(format!("h3 send_data error: {e}")))?;
+        .map_err(|e| format!("h3 send_data error: {e}"))?;
     send_stream
         .finish()
         .await
-        .map_err(|e| ProtoError::from(format!("h3 finish send stream error: {e}")))?;
+        .map_err(|e| format!("h3 finish send stream error: {e}"))?;
 
     let response = send_stream
         .recv_response()
         .await
-        .map_err(|e| ProtoError::from(format!("h3 recv_response error: {e}")))?;
+        .map_err(|e| format!("h3 recv_response error: {e}"))?;
     let mut rsp = HttpDnsResponse::new(response)?;
 
     while let Some(partial_bytes) = send_stream
         .recv_data()
         .await
-        .map_err(|e| ProtoError::from(format!("h3 recv_data error: {e}")))?
+        .map_err(|e| format!("h3 recv_data error: {e}"))?
     {
         rsp.push_body(partial_bytes);
         if rsp.body_end() {

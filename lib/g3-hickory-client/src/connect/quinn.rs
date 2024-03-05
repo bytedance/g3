@@ -47,8 +47,8 @@ pub(crate) async fn quic_connect(
 
     let connection = endpoint
         .connect(name_server, tls_name)
-        .map_err(|e| ProtoError::from(format!("quinn endpoint create error: {e}")))?
+        .map_err(|e| format!("quinn endpoint create error: {e}"))?
         .await
-        .map_err(|e| ProtoError::from(format!("quinn endpoint connect error: {e}")))?;
+        .map_err(|e| format!("quinn endpoint connect error: {e}"))?;
     Ok(connection)
 }
