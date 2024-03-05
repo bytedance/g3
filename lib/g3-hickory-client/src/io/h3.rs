@@ -34,17 +34,17 @@ pub async fn connect_with_bind_addr(
     name_server: SocketAddr,
     bind_addr: Option<SocketAddr>,
     tls_config: ClientConfig,
-    tls_name: &str,
+    tls_name: String,
 ) -> Result<H3ClientStream, ProtoError> {
     let connection =
-        crate::connect::quinn::quic_connect(name_server, bind_addr, tls_config, tls_name).await?;
+        crate::connect::quinn::quic_connect(name_server, bind_addr, tls_config, &tls_name).await?;
 
     let h3_connection = h3_quinn::Connection::new(connection);
     let (driver, send_request) = h3::client::new(h3_connection)
         .await
         .map_err(|e| ProtoError::from(format!("h3 connection failed: {e}")))?;
 
-    H3ClientStream::new(tls_name, driver, send_request)
+    H3ClientStream::new(&tls_name, driver, send_request)
 }
 
 /// A DNS client connection for DNS-over-HTTP/3

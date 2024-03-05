@@ -25,6 +25,7 @@ use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
+use g3_hickory_client::connect::tls::rustls::RustlsConnector;
 use hickory_client::client::AsyncClient;
 use hickory_proto::iocompat::AsyncIoTokioAsStd;
 use rustls::{ClientConfig, ServerName};
@@ -124,31 +125,28 @@ impl BenchDnsArgs {
 
     pub(super) async fn new_dns_client(&self) -> anyhow::Result<AsyncClient> {
         if let Some(p) = self.encryption {
-            let tls_client = self.tls.client.as_ref().ok_or_else(|| anyhow!(""))?;
-            let tls_name = match &self.tls.tls_name {
-                Some(ServerName::DnsName(domain)) => domain.as_ref().to_string(),
-                Some(ServerName::IpAddress(ip)) => ip.to_string(),
-                Some(_) => return Err(anyhow!("unsupported tls server name type")),
-                None => self.target.ip().to_string(),
-            };
+            let tls_client = self
+                .tls
+                .client
+                .as_ref()
+                .ok_or_else(|| anyhow!("no valid tls client config found"))?;
 
             match p {
                 DnsEncryptionProtocol::Tls => {
-                    self.new_dns_over_tls_client(tls_client.driver.clone(), tls_name)
+                    self.new_dns_over_tls_client(tls_client.driver.clone())
                         .await
                 }
                 DnsEncryptionProtocol::Https => {
-                    self.new_dns_over_h2_client(tls_client.driver.clone(), tls_name)
-                        .await
+                    self.new_dns_over_h2_client(tls_client.driver.clone()).await
                 }
                 #[cfg(feature = "quic")]
                 DnsEncryptionProtocol::H3 => {
-                    self.new_dns_over_h3_client(tls_client.driver.as_ref(), tls_name)
+                    self.new_dns_over_h3_client(tls_client.driver.as_ref())
                         .await
                 }
                 #[cfg(feature = "quic")]
                 DnsEncryptionProtocol::Quic => {
-                    self.new_dns_over_quic_client(tls_client.driver.as_ref(), tls_name)
+                    self.new_dns_over_quic_client(tls_client.driver.as_ref())
                         .await
                 }
             }
@@ -193,11 +191,20 @@ impl BenchDnsArgs {
     async fn new_dns_over_tls_client(
         &self,
         tls_client: Arc<ClientConfig>,
-        tls_name: String,
     ) -> anyhow::Result<AsyncClient> {
-        let (stream, sender) = hickory_proto::rustls::tls_client_connect_with_bind_addr::<
+        let tls_name = self
+            .tls
+            .tls_name
+            .clone()
+            .unwrap_or_else(|| ServerName::IpAddress(self.target.ip()));
+        let tls_connector = RustlsConnector {
+            config: tls_client,
+            tls_name,
+        };
+        let (stream, sender) = g3_hickory_client::io::tls::connect_with_bind_addr::<
             AsyncIoTokioAsStd<TcpStream>,
-        >(self.target, self.bind, tls_name, tls_client);
+            RustlsConnector,
+        >(self.target, self.bind, tls_connector);
 
         let (client, bg) = AsyncClient::new(stream, sender, None)
             .await
@@ -209,14 +216,20 @@ impl BenchDnsArgs {
     async fn new_dns_over_h2_client(
         &self,
         tls_client: Arc<ClientConfig>,
-        tls_name: String,
     ) -> anyhow::Result<AsyncClient> {
-        let mut builder =
-            hickory_proto::h2::HttpsClientStreamBuilder::with_client_config(tls_client);
-        if let Some(addr) = self.bind {
-            builder.bind_addr(addr);
-        }
-        let client_connect = builder.build::<AsyncIoTokioAsStd<TcpStream>>(self.target, tls_name);
+        let tls_name = self
+            .tls
+            .tls_name
+            .clone()
+            .unwrap_or_else(|| ServerName::IpAddress(self.target.ip()));
+        let tls_connector = RustlsConnector {
+            config: tls_client,
+            tls_name,
+        };
+        let client_connect = g3_hickory_client::io::h2::connect_with_bind_addr::<
+            AsyncIoTokioAsStd<TcpStream>,
+            RustlsConnector,
+        >(self.target, self.bind, tls_connector);
 
         let (client, bg) = AsyncClient::connect(client_connect)
             .await
@@ -229,16 +242,22 @@ impl BenchDnsArgs {
     async fn new_dns_over_h3_client(
         &self,
         tls_client: &ClientConfig,
-        tls_name: String,
     ) -> anyhow::Result<AsyncClient> {
-        let mut builder = hickory_proto::h3::H3ClientStream::builder();
-        builder.crypto_config(tls_client.clone());
-        if let Some(addr) = self.bind {
-            builder.bind_addr(addr);
-        }
-        let client_connect = builder.build(self.target, tls_name);
+        let tls_name = match &self.tls.tls_name {
+            Some(ServerName::DnsName(domain)) => domain.as_ref().to_string(),
+            Some(ServerName::IpAddress(ip)) => ip.to_string(),
+            Some(_) => return Err(anyhow!("unsupported tls server name type")),
+            None => self.target.ip().to_string(),
+        };
 
-        let (client, bg) = AsyncClient::connect(client_connect)
+        let client_connect = g3_hickory_client::io::h3::connect_with_bind_addr(
+            self.target,
+            self.bind,
+            tls_client.clone(),
+            tls_name,
+        );
+
+        let (client, bg) = AsyncClient::connect(Box::pin(client_connect))
             .await
             .map_err(|e| anyhow!("failed to create h3 async client: {e}"))?;
         tokio::spawn(bg);
@@ -249,16 +268,22 @@ impl BenchDnsArgs {
     async fn new_dns_over_quic_client(
         &self,
         tls_client: &ClientConfig,
-        tls_name: String,
     ) -> anyhow::Result<AsyncClient> {
-        let mut builder = hickory_proto::quic::QuicClientStream::builder();
-        builder.crypto_config(tls_client.clone());
-        if let Some(addr) = self.bind {
-            builder.bind_addr(addr);
-        }
-        let client_connect = builder.build(self.target, tls_name);
+        let tls_name = match &self.tls.tls_name {
+            Some(ServerName::DnsName(domain)) => domain.as_ref().to_string(),
+            Some(ServerName::IpAddress(ip)) => ip.to_string(),
+            Some(_) => return Err(anyhow!("unsupported tls server name type")),
+            None => self.target.ip().to_string(),
+        };
 
-        let (client, bg) = AsyncClient::connect(client_connect)
+        let client_connect = g3_hickory_client::io::quic::connect_with_bind_addr(
+            self.target,
+            self.bind,
+            tls_client.clone(),
+            tls_name,
+        );
+
+        let (client, bg) = AsyncClient::connect(Box::pin(client_connect))
             .await
             .map_err(|e| anyhow!("failed to create udp async client: {e}"))?;
         tokio::spawn(bg);

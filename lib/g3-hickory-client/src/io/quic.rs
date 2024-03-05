@@ -31,10 +31,10 @@ pub async fn connect_with_bind_addr(
     name_server: SocketAddr,
     bind_addr: Option<SocketAddr>,
     tls_config: ClientConfig,
-    tls_name: &str,
+    tls_name: String,
 ) -> Result<QuicClientStream, ProtoError> {
     let connection =
-        crate::connect::quinn::quic_connect(name_server, bind_addr, tls_config, tls_name).await?;
+        crate::connect::quinn::quic_connect(name_server, bind_addr, tls_config, &tls_name).await?;
     Ok(QuicClientStream::new(connection))
 }
 

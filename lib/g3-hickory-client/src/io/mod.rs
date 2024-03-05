@@ -15,7 +15,9 @@
  */
 
 pub mod h2;
+#[cfg(feature = "quic")]
 pub mod h3;
+#[cfg(feature = "quic")]
 pub mod quic;
 pub mod tls;
 
