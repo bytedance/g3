@@ -12,6 +12,8 @@ hickory-proto = { workspace  = true, features = ["tokio-runtime", "quinn"] }
 futures-util.workspace = true
 http.workspace = true
 h2.workspace = true
+h3.workspace = true
+h3-quinn.workspace = true
 bytes.workspace = true
 log.workspace = true
 thiserror.workspace = true

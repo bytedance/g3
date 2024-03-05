@@ -1090,6 +1090,8 @@ dependencies = [
  "bytes",
  "futures-util",
  "h2 0.4.2",
+ "h3 0.0.4",
+ "h3-quinn 0.0.5",
  "hickory-client",
  "hickory-proto",
  "http 1.1.0",
