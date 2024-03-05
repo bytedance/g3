@@ -1095,7 +1095,6 @@ dependencies = [
  "hickory-client",
  "hickory-proto",
  "http 1.1.0",
- "log",
  "quinn",
  "rustls",
  "thiserror",
