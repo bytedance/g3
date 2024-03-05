@@ -205,6 +205,7 @@ g3-io-ext = { version = "0.6", path = "lib/g3-io-ext" }
 g3-journal = { version = "0.2", path = "lib/g3-journal" }
 g3-json = { version = "0.3", path = "lib/g3-json" }
 g3-msgpack = { version = "0.1", path = "lib/g3-msgpack" }
+g3-hickory-client = { version = "0.1", path = "lib/g3-hickory-client" }
 g3-resolver = { version = "0.5", path = "lib/g3-resolver" }
 g3-runtime = { version = "0.3", path = "lib/g3-runtime" }
 g3-signal = { version = "0.3", path = "lib/g3-signal" }

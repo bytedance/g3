@@ -8,19 +8,20 @@ edition.workspace = true
 
 [dependencies]
 hickory-client.workspace = true
-hickory-proto = { workspace  = true, features = ["tokio-runtime", "quinn"] }
+hickory-proto = { workspace  = true, features = ["tokio-runtime"] }
 futures-util.workspace = true
 http.workspace = true
 h2.workspace = true
-h3.workspace = true
-h3-quinn.workspace = true
 bytes.workspace = true
 log.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 rustls.workspace = true
 tokio-rustls.workspace = true
-quinn = { workspace = true, features = ["runtime-tokio", "tls-rustls"] }
+quinn = { workspace = true, optional = true, features = ["runtime-tokio", "tls-rustls"] }
+h3 = { workspace = true, optional = true }
+h3-quinn = { workspace = true, optional = true }
 
 [features]
 default = []
+quic = ["hickory-proto/quinn", "dep:quinn", "dep:h3", "dep:h3-quinn"]
