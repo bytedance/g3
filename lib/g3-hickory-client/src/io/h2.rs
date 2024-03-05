@@ -22,21 +22,20 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use bytes::{Buf, Bytes, BytesMut};
+use bytes::{Buf, Bytes};
 use futures_util::future::{FutureExt, TryFutureExt};
 use futures_util::{ready, Stream};
 use h2::client::{Connection, SendRequest};
 use hickory_proto::error::ProtoError;
 use hickory_proto::iocompat::AsyncIoStdAsTokio;
-use hickory_proto::op::Message;
 use hickory_proto::tcp::{Connect, DnsTcpStream};
 use hickory_proto::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
 use http::{Response, Version};
 use log::{debug, warn};
 
 use super::http::request::HttpDnsRequestBuilder;
+use super::http::response::HttpDnsResponse;
 use crate::connect::tls::TlsConnect;
-use crate::io::http::response::HttpDnsResponse;
 
 pub fn connect_with_bind_addr<S: Connect, TC: TlsConnect<S> + Send + 'static>(
     name_server: SocketAddr,
@@ -172,8 +171,7 @@ where
                             .map(|_: Result<(), ()>| ()),
                     );
 
-                    let client_stream =
-                        HttpsClientStream::new(Arc::clone(name_server_name), send_request)?;
+                    let client_stream = HttpsClientStream::new(name_server_name, send_request)?;
                     Self::Connected(Some(client_stream))
                 }
                 Self::Connected(ref mut conn) => {
@@ -196,9 +194,8 @@ pub struct HttpsClientStream {
 }
 
 impl HttpsClientStream {
-    pub fn new(name_server_name: Arc<str>, h2: SendRequest<Bytes>) -> Result<Self, ProtoError> {
-        let request_builder =
-            HttpDnsRequestBuilder::new(Version::HTTP_2, name_server_name.as_ref())?;
+    pub fn new(name_server_name: &str, h2: SendRequest<Bytes>) -> Result<Self, ProtoError> {
+        let request_builder = HttpDnsRequestBuilder::new(Version::HTTP_2, name_server_name)?;
         Ok(HttpsClientStream {
             request_builder: Arc::new(request_builder),
             h2,
@@ -268,9 +265,9 @@ async fn h2_send_recv(
 ) -> Result<DnsResponse, ProtoError> {
     let mut h2 = match h2.ready().await {
         Ok(h2) => h2,
-        Err(err) => {
+        Err(e) => {
             // TODO: make specific error
-            return Err(ProtoError::from(format!("h2 send_request error: {err}")));
+            return Err(ProtoError::from(format!("h2 send_request error: {e}")));
         }
     };
 
@@ -280,67 +277,27 @@ async fn h2_send_recv(
     // Send the request
     let (response_future, mut send_stream) = h2
         .send_request(request, false)
-        .map_err(|err| ProtoError::from(format!("h2 send_request error: {err}")))?;
+        .map_err(|e| ProtoError::from(format!("h2 send_request error: {e}")))?;
     send_stream
         .send_data(message, true)
         .map_err(|e| ProtoError::from(format!("h2 send_data error: {e}")))?;
 
     let response_stream = response_future
         .await
-        .map_err(|err| ProtoError::from(format!("received a stream error: {err}")))?;
+        .map_err(|e| ProtoError::from(format!("received a stream error: {e}")))?;
     let (parts, mut recv_stream) = response_stream.into_parts();
 
-    let rsp = HttpDnsResponse::new(Response::from_parts(parts, ()))?;
-
-    // get the length of packet
-    let content_length = rsp.content_length();
-
-    // TODO: what is a good max here?
-    // clamp(512, 4096) says make sure it is at least 512 bytes, and min 4096 says it is at most 4k
-    // just a little protection from malicious actors.
-    let mut response_bytes =
-        BytesMut::with_capacity(content_length.unwrap_or(512).clamp(512, 4096));
+    let mut rsp = HttpDnsResponse::new(Response::from_parts(parts, ()))?;
 
     while let Some(partial_bytes) = recv_stream.data().await {
         let partial_bytes =
             partial_bytes.map_err(|e| ProtoError::from(format!("bad http request: {e}")))?;
 
-        debug!("got bytes: {}", partial_bytes.len());
-        response_bytes.extend(partial_bytes);
-
-        // assert the length
-        if let Some(content_length) = content_length {
-            if response_bytes.len() >= content_length {
-                break;
-            }
+        rsp.push_body(partial_bytes);
+        if rsp.body_end() {
+            break;
         }
     }
 
-    // assert the length
-    if let Some(content_length) = content_length {
-        if response_bytes.len() != content_length {
-            // TODO: make explicit error type
-            return Err(ProtoError::from(format!(
-                "expected byte length: {}, got: {}",
-                content_length,
-                response_bytes.len()
-            )));
-        }
-    }
-
-    // Was it a successful request?
-    if !rsp.status().is_success() {
-        let error_string = String::from_utf8_lossy(response_bytes.as_ref());
-
-        // TODO: make explicit error type
-        return Err(ProtoError::from(format!(
-            "http unsuccessful code: {}, message: {}",
-            rsp.status(),
-            error_string
-        )));
-    }
-
-    // and finally convert the bytes into a DNS message
-    let message = Message::from_vec(&response_bytes)?;
-    Ok(DnsResponse::new(message, response_bytes.to_vec()))
+    rsp.into_dns_response()
 }

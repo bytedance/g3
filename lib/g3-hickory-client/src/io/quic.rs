@@ -14,60 +14,28 @@
  * limitations under the License.
  */
 
-use std::future::Future;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
+use std::net::SocketAddr;
 use std::pin::Pin;
-use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use bytes::BytesMut;
-use futures_util::{FutureExt, Stream};
+use futures_util::Stream;
 use hickory_proto::error::{ProtoError, ProtoErrorKind};
 use hickory_proto::op::Message;
 use hickory_proto::serialize::binary::{BinEncodable, BinEncoder};
 use hickory_proto::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
-use quinn::{Connection, Endpoint, EndpointConfig, RecvStream, TokioRuntime, VarInt};
+use quinn::{Connection, RecvStream, VarInt};
 use rustls::ClientConfig;
 
 pub async fn connect_with_bind_addr(
     name_server: SocketAddr,
     bind_addr: Option<SocketAddr>,
-    mut tls_config: ClientConfig,
+    tls_config: ClientConfig,
     tls_name: &str,
 ) -> Result<QuicClientStream, ProtoError> {
-    let bind_addr = bind_addr.unwrap_or_else(|| match name_server {
-        SocketAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
-        SocketAddr::V6(_) => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
-    });
-    let sock = UdpSocket::bind(bind_addr)?;
-    sock.connect(name_server)?;
-
-    let endpoint_config = EndpointConfig::default(); // TODO set max payload size
-    let mut endpoint = Endpoint::new(endpoint_config, None, sock, Arc::new(TokioRuntime))?;
-
-    if tls_config.alpn_protocols.is_empty() {
-        tls_config.alpn_protocols = vec![b"doq".to_vec()];
-    }
-    let quinn_config = quinn::ClientConfig::new(Arc::new(tls_config));
-    // TODO set transport config
-    endpoint.set_default_client_config(quinn_config);
-
-    let connection = endpoint.connect(name_server, tls_name)?.await?;
-
+    let connection =
+        crate::connect::quinn::quic_connect(name_server, bind_addr, tls_config, tls_name).await?;
     Ok(QuicClientStream::new(connection))
-}
-
-/// A future that resolves to an QuicClientStream
-pub struct QuicClientConnect(
-    Pin<Box<dyn Future<Output = Result<QuicClientStream, ProtoError>> + Send>>,
-);
-
-impl Future for QuicClientConnect {
-    type Output = Result<QuicClientStream, ProtoError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.0.poll_unpin(cx)
-    }
 }
 
 /// A DNS client connection for DNS-over-QUIC

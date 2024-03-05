@@ -16,12 +16,16 @@
 
 use std::str::FromStr;
 
+use bytes::{Buf, BufMut, BytesMut};
 use hickory_proto::error::ProtoError;
-use http::{header, Response, StatusCode};
+use hickory_proto::op::Message;
+use hickory_proto::xfer::DnsResponse;
+use http::{header, Response};
 
 pub struct HttpDnsResponse {
     rsp: Response<()>,
     content_length: Option<usize>,
+    body: BytesMut,
 }
 
 impl HttpDnsResponse {
@@ -48,19 +52,59 @@ impl HttpDnsResponse {
             None
         };
 
+        // TODO: what is a good max here?
+        // clamp(512, 4096) says make sure it is at least 512 bytes, and min 4096 says it is at most 4k
+        // just a little protection from malicious actors.
+        let response_bytes =
+            BytesMut::with_capacity(content_length.unwrap_or(512).clamp(512, 4096));
+
         Ok(HttpDnsResponse {
             rsp,
             content_length,
+            body: response_bytes,
         })
     }
 
-    #[inline]
-    pub fn content_length(&self) -> Option<usize> {
-        self.content_length
+    pub fn push_body<T: Buf>(&mut self, buf: T) {
+        self.body.put(buf);
     }
 
-    #[inline]
-    pub fn status(&self) -> StatusCode {
-        self.rsp.status()
+    pub fn body_end(&self) -> bool {
+        if let Some(content_length) = self.content_length {
+            if self.body.len() >= content_length {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn into_dns_response(self) -> Result<DnsResponse, ProtoError> {
+        // assert the length
+        if let Some(content_length) = self.content_length {
+            if self.body.len() != content_length {
+                // TODO: make explicit error type
+                return Err(ProtoError::from(format!(
+                    "expected byte length: {}, got: {}",
+                    content_length,
+                    self.body.len()
+                )));
+            }
+        }
+
+        // Was it a successful request?
+        if !self.rsp.status().is_success() {
+            let error_string = String::from_utf8_lossy(self.body.as_ref());
+
+            // TODO: make explicit error type
+            return Err(ProtoError::from(format!(
+                "http unsuccessful code: {}, message: {}",
+                self.rsp.status(),
+                error_string
+            )));
+        }
+
+        // and finally convert the bytes into a DNS message
+        let message = Message::from_vec(&self.body)?;
+        Ok(DnsResponse::new(message, self.body.to_vec()))
     }
 }
