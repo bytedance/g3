@@ -8,7 +8,7 @@ edition.workspace = true
 
 [dependencies]
 hickory-client.workspace = true
-hickory-proto = { workspace  = true, features = ["tokio-runtime"] }
+hickory-proto = { workspace  = true, features = ["tokio-runtime", "quinn"] }
 futures-util.workspace = true
 http.workspace = true
 h2.workspace = true
@@ -18,6 +18,7 @@ thiserror.workspace = true
 tokio.workspace = true
 rustls.workspace = true
 tokio-rustls.workspace = true
+quinn = { workspace = true, features = ["runtime-tokio", "tls-rustls"] }
 
 [features]
 default = []
