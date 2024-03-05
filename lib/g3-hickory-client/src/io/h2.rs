@@ -23,20 +23,17 @@ use bytes::{Buf, Bytes};
 use futures_util::Stream;
 use h2::client::SendRequest;
 use hickory_proto::error::ProtoError;
-use hickory_proto::iocompat::AsyncIoStdAsTokio;
-use hickory_proto::tcp::{Connect, DnsTcpStream};
 use hickory_proto::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
 use http::{Response, Version};
 use rustls::{ClientConfig, ServerName};
 
 use super::http::request::HttpDnsRequestBuilder;
 use super::http::response::HttpDnsResponse;
-use crate::connect::tls::TlsConnect;
 
 pub async fn connect(
     name_server: SocketAddr,
     bind_addr: Option<SocketAddr>,
-    tls_config: Arc<ClientConfig>,
+    tls_config: ClientConfig,
     tls_name: ServerName,
 ) -> Result<HttpsClientStream, ProtoError> {
     let server_name = match &tls_name {
@@ -51,7 +48,8 @@ pub async fn connect(
     };
 
     let tls_stream =
-        crate::connect::rustls::tls_connect(name_server, bind_addr, tls_config, tls_name).await?;
+        crate::connect::rustls::tls_connect(name_server, bind_addr, tls_config, tls_name, b"h2")
+            .await?;
 
     let mut client_builder = h2::client::Builder::new();
     client_builder.enable_push(false);
@@ -66,32 +64,6 @@ pub async fn connect(
     });
 
     HttpsClientStream::new(&server_name, send_request)
-}
-
-pub async fn connect_general<S: Connect, TC: TlsConnect<S> + Send + 'static>(
-    name_server: SocketAddr,
-    bind_addr: Option<SocketAddr>,
-    tls_connector: TC,
-) -> Result<HttpsClientStream, ProtoError>
-where
-    TC::TlsStream: DnsTcpStream,
-{
-    let tcp_stream = S::connect_with_bind(name_server, bind_addr).await?;
-    let tls_stream = tls_connector.tls_connect(tcp_stream).await?;
-
-    let mut client_builder = h2::client::Builder::new();
-    client_builder.enable_push(false);
-
-    let (send_request, connection) = client_builder
-        .handshake(AsyncIoStdAsTokio(tls_stream))
-        .await
-        .map_err(|e| ProtoError::from(format!("h2 handshake error: {e}")))?;
-
-    tokio::spawn(async move {
-        let _ = connection.await;
-    });
-
-    HttpsClientStream::new(&tls_connector.server_name(), send_request)
 }
 
 /// A DNS client connection for DNS-over-HTTPS

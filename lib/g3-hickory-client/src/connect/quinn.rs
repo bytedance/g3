@@ -26,6 +26,7 @@ pub(crate) async fn quic_connect(
     bind_addr: Option<SocketAddr>,
     mut tls_config: ClientConfig,
     tls_name: &str,
+    alpn_protocol: &'static [u8],
 ) -> Result<Connection, ProtoError> {
     let bind_addr = bind_addr.unwrap_or_else(|| match name_server {
         SocketAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
@@ -38,7 +39,7 @@ pub(crate) async fn quic_connect(
     let mut endpoint = Endpoint::new(endpoint_config, None, sock, Arc::new(TokioRuntime))?;
 
     if tls_config.alpn_protocols.is_empty() {
-        tls_config.alpn_protocols = vec![b"doq".to_vec()];
+        tls_config.alpn_protocols = vec![alpn_protocol.to_vec()];
     }
     let quinn_config = quinn::ClientConfig::new(Arc::new(tls_config));
     // TODO set transport config

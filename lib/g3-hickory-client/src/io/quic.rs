@@ -34,7 +34,8 @@ pub async fn connect(
     tls_name: String,
 ) -> Result<QuicClientStream, ProtoError> {
     let connection =
-        crate::connect::quinn::quic_connect(name_server, bind_addr, tls_config, &tls_name).await?;
+        crate::connect::quinn::quic_connect(name_server, bind_addr, tls_config, &tls_name, b"doq")
+            .await?;
     Ok(QuicClientStream::new(connection))
 }
 
