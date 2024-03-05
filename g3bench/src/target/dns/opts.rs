@@ -20,7 +20,6 @@ use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
@@ -132,20 +131,21 @@ impl BenchDnsArgs {
 
             match p {
                 DnsEncryptionProtocol::Tls => {
-                    self.new_dns_over_tls_client(tls_client.driver.clone())
+                    self.new_dns_over_tls_client(tls_client.driver.as_ref().clone())
                         .await
                 }
                 DnsEncryptionProtocol::Https => {
-                    self.new_dns_over_h2_client(tls_client.driver.clone()).await
+                    self.new_dns_over_h2_client(tls_client.driver.as_ref().clone())
+                        .await
                 }
                 #[cfg(feature = "quic")]
                 DnsEncryptionProtocol::H3 => {
-                    self.new_dns_over_h3_client(tls_client.driver.as_ref())
+                    self.new_dns_over_h3_client(tls_client.driver.as_ref().clone())
                         .await
                 }
                 #[cfg(feature = "quic")]
                 DnsEncryptionProtocol::Quic => {
-                    self.new_dns_over_quic_client(tls_client.driver.as_ref())
+                    self.new_dns_over_quic_client(tls_client.driver.as_ref().clone())
                         .await
                 }
             }
@@ -189,7 +189,7 @@ impl BenchDnsArgs {
 
     async fn new_dns_over_tls_client(
         &self,
-        tls_client: Arc<ClientConfig>,
+        tls_client: ClientConfig,
     ) -> anyhow::Result<AsyncClient> {
         use hickory_proto::BufDnsStreamHandle;
 
@@ -217,7 +217,7 @@ impl BenchDnsArgs {
 
     async fn new_dns_over_h2_client(
         &self,
-        tls_client: Arc<ClientConfig>,
+        tls_client: ClientConfig,
     ) -> anyhow::Result<AsyncClient> {
         let tls_name = self
             .tls
@@ -238,7 +238,7 @@ impl BenchDnsArgs {
     #[cfg(feature = "quic")]
     async fn new_dns_over_h3_client(
         &self,
-        tls_client: &ClientConfig,
+        tls_client: ClientConfig,
     ) -> anyhow::Result<AsyncClient> {
         let tls_name = match &self.tls.tls_name {
             Some(ServerName::DnsName(domain)) => domain.as_ref().to_string(),
@@ -247,12 +247,8 @@ impl BenchDnsArgs {
             None => self.target.ip().to_string(),
         };
 
-        let client_connect = g3_hickory_client::io::h3::connect(
-            self.target,
-            self.bind,
-            tls_client.clone(),
-            tls_name,
-        );
+        let client_connect =
+            g3_hickory_client::io::h3::connect(self.target, self.bind, tls_client, tls_name);
 
         let (client, bg) = AsyncClient::connect(Box::pin(client_connect))
             .await
@@ -264,7 +260,7 @@ impl BenchDnsArgs {
     #[cfg(feature = "quic")]
     async fn new_dns_over_quic_client(
         &self,
-        tls_client: &ClientConfig,
+        tls_client: ClientConfig,
     ) -> anyhow::Result<AsyncClient> {
         let tls_name = match &self.tls.tls_name {
             Some(ServerName::DnsName(domain)) => domain.as_ref().to_string(),
@@ -273,12 +269,8 @@ impl BenchDnsArgs {
             None => self.target.ip().to_string(),
         };
 
-        let client_connect = g3_hickory_client::io::quic::connect(
-            self.target,
-            self.bind,
-            tls_client.clone(),
-            tls_name,
-        );
+        let client_connect =
+            g3_hickory_client::io::quic::connect(self.target, self.bind, tls_client, tls_name);
 
         let (client, bg) = AsyncClient::connect(Box::pin(client_connect))
             .await

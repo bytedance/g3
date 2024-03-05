@@ -14,9 +14,7 @@
  * limitations under the License.
  */
 
-pub mod tls;
+pub(crate) mod rustls;
 
 #[cfg(feature = "quic")]
 pub(crate) mod quinn;
-
-pub(crate) mod rustls;
