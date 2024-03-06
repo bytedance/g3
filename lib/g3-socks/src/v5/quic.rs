@@ -110,10 +110,6 @@ impl Runtime for Socks5UdpTokioRuntime {
             quic_peer_addr: self.quic_peer_addr,
             ctl_close_receiver: UnsafeCell::new(receiver),
             send_socks_header: self.send_socks_header,
-            recv_socks_headers: UnsafeCell::new(vec![
-                SocksHeaderBuffer::new(self.quic_peer_addr);
-                4
-            ]),
         }))
     }
 }
@@ -140,7 +136,7 @@ impl SocksHeaderBuffer {
         }
     }
 
-    fn new(addr: SocketAddr) -> Self {
+    const fn new(addr: SocketAddr) -> Self {
         match addr {
             SocketAddr::V4(_) => SocksHeaderBuffer::V4([0u8; UDP_HEADER_LEN_IPV4]),
             SocketAddr::V6(_) => SocksHeaderBuffer::V6([0u8; UDP_HEADER_LEN_IPV6]),
@@ -172,7 +168,6 @@ pub struct Socks5UdpSocket {
     quic_peer_addr: SocketAddr,
     ctl_close_receiver: UnsafeCell<oneshot::Receiver<Option<io::Error>>>,
     send_socks_header: SocksHeaderBuffer,
-    recv_socks_headers: UnsafeCell<Vec<SocksHeaderBuffer>>,
 }
 
 impl AsyncUdpSocket for Socks5UdpSocket {
@@ -292,11 +287,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
             }
         }
 
-        let recv_socks_headers = unsafe { &mut *self.recv_socks_headers.get() };
-        if bufs.len() > recv_socks_headers.len() {
-            recv_socks_headers.resize(bufs.len(), SocksHeaderBuffer::new(self.quic_peer_addr));
-        }
-
+        let mut recv_socks_headers = [SocksHeaderBuffer::new(self.quic_peer_addr); 8];
         let mut hdr_v = Vec::with_capacity(meta.len());
         for (b, s) in bufs.iter_mut().zip(recv_socks_headers.iter_mut()) {
             hdr_v.push(RecvMsgHdr::new([
@@ -378,10 +369,9 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         }
 
         let Some(buf) = bufs.get_mut(0) else {
-            return Poll::Ready(Err(io::Error::new(io::ErrorKind::InvalidInput, "no buf")));
+            return Poll::Ready(Ok(0));
         };
-        let recv_socks_headers = unsafe { &mut *self.recv_socks_headers.get() };
-        let recv_socks_header = recv_socks_headers.get_mut(0).unwrap();
+        let recv_socks_header = SocksHeaderBuffer::new(self.quic_peer_addr);
 
         let mut iov = [
             IoSliceMut::new(recv_socks_header.as_mut()),
@@ -430,7 +420,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
     }
 
     fn local_addr(&self) -> io::Result<SocketAddr> {
-        Ok(self.quic_peer_addr)
+        self.io.local_addr()
     }
 
     fn may_fragment(&self) -> bool {
