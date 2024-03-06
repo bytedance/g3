@@ -76,6 +76,17 @@ impl ResolvedRecord {
         )
     }
 
+    pub fn resolved(domain: String, ttl: u32, ips: Vec<IpAddr>) -> Self {
+        let created = Instant::now();
+        let expire = created.checked_add(Duration::from_secs(ttl as u64));
+        ResolvedRecord {
+            domain,
+            created,
+            expire,
+            result: Ok(ips),
+        }
+    }
+
     pub fn failed(domain: String, protective_cache_ttl: u32, err: ResolveError) -> Self {
         let created = Instant::now();
         let expire = created.checked_add(Duration::from_secs(protective_cache_ttl as u64));

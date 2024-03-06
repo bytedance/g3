@@ -162,7 +162,7 @@ impl BenchDnsArgs {
             hickory_client::udp::UdpClientStream::<UdpSocket>::with_bind_addr_and_timeout(
                 self.target,
                 self.bind,
-                self.connect_timeout,
+                self.timeout,
             );
 
         let (client, bg) = AsyncClient::connect(client_connect)
@@ -180,7 +180,7 @@ impl BenchDnsArgs {
                 self.connect_timeout,
             );
 
-        let (client, bg) = AsyncClient::new(stream, sender, None)
+        let (client, bg) = AsyncClient::with_timeout(stream, sender, self.timeout, None)
             .await
             .map_err(|e| anyhow!("failed to create tcp async client: {e}"))?;
         tokio::spawn(bg);
@@ -206,11 +206,13 @@ impl BenchDnsArgs {
             tls_client,
             tls_name,
             outbound_messages,
+            self.connect_timeout,
         );
 
-        let (client, bg) = AsyncClient::new(Box::pin(tls_connect), message_sender, None)
-            .await
-            .map_err(|e| anyhow!("failed to create tls async client: {e}"))?;
+        let (client, bg) =
+            AsyncClient::with_timeout(Box::pin(tls_connect), message_sender, self.timeout, None)
+                .await
+                .map_err(|e| anyhow!("failed to create tls async client: {e}"))?;
         tokio::spawn(bg);
         Ok(client)
     }
@@ -225,8 +227,14 @@ impl BenchDnsArgs {
             .clone()
             .unwrap_or_else(|| ServerName::IpAddress(self.target.ip()));
 
-        let client_connect =
-            g3_hickory_client::io::h2::connect(self.target, self.bind, tls_client, tls_name);
+        let client_connect = g3_hickory_client::io::h2::connect(
+            self.target,
+            self.bind,
+            tls_client,
+            tls_name,
+            self.connect_timeout,
+            self.timeout,
+        );
 
         let (client, bg) = AsyncClient::connect(Box::pin(client_connect))
             .await
@@ -247,8 +255,14 @@ impl BenchDnsArgs {
             None => self.target.ip().to_string(),
         };
 
-        let client_connect =
-            g3_hickory_client::io::h3::connect(self.target, self.bind, tls_client, tls_name);
+        let client_connect = g3_hickory_client::io::h3::connect(
+            self.target,
+            self.bind,
+            tls_client,
+            tls_name,
+            self.connect_timeout,
+            self.timeout,
+        );
 
         let (client, bg) = AsyncClient::connect(Box::pin(client_connect))
             .await
@@ -269,8 +283,14 @@ impl BenchDnsArgs {
             None => self.target.ip().to_string(),
         };
 
-        let client_connect =
-            g3_hickory_client::io::quic::connect(self.target, self.bind, tls_client, tls_name);
+        let client_connect = g3_hickory_client::io::quic::connect(
+            self.target,
+            self.bind,
+            tls_client,
+            tls_name,
+            self.connect_timeout,
+            self.timeout,
+        );
 
         let (client, bg) = AsyncClient::connect(Box::pin(client_connect))
             .await

@@ -77,12 +77,38 @@ impl DnsEncryptionProtocol {
     }
 }
 
+#[derive(Clone)]
+#[cfg(feature = "rustls")]
+pub struct DnsEncryptionConfig {
+    protocol: DnsEncryptionProtocol,
+    tls_name: ServerName,
+    tls_client: RustlsClientConfig,
+}
+
+#[cfg(feature = "rustls")]
+impl DnsEncryptionConfig {
+    #[inline]
+    pub fn protocol(&self) -> DnsEncryptionProtocol {
+        self.protocol
+    }
+
+    #[inline]
+    pub fn tls_name(&self) -> &ServerName {
+        &self.tls_name
+    }
+
+    #[inline]
+    pub fn tls_client(&self) -> &RustlsClientConfig {
+        &self.tls_client
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg(feature = "rustls")]
 pub struct DnsEncryptionConfigBuilder {
     protocol: DnsEncryptionProtocol,
     tls_name: ServerName,
-    tls_config: Option<RustlsClientConfigBuilder>,
+    tls_config: RustlsClientConfigBuilder,
 }
 
 #[cfg(feature = "rustls")]
@@ -91,7 +117,7 @@ impl DnsEncryptionConfigBuilder {
         DnsEncryptionConfigBuilder {
             protocol: DnsEncryptionProtocol::Tls,
             tls_name,
-            tls_config: None,
+            tls_config: RustlsClientConfigBuilder::default(),
         }
     }
 
@@ -114,16 +140,20 @@ impl DnsEncryptionConfigBuilder {
     }
 
     pub fn set_tls_client_config(&mut self, config_builder: RustlsClientConfigBuilder) {
-        self.tls_config = Some(config_builder);
+        self.tls_config = config_builder;
     }
 
-    pub fn build_tls_client_config(&self) -> anyhow::Result<Option<RustlsClientConfig>> {
-        if let Some(builder) = &self.tls_config {
-            let config = builder.build()?;
-            Ok(Some(config))
-        } else {
-            Ok(None)
-        }
+    pub fn build_tls_client_config(&self) -> anyhow::Result<RustlsClientConfig> {
+        self.tls_config.build()
+    }
+
+    pub fn build(&self) -> anyhow::Result<DnsEncryptionConfig> {
+        let tls_client = self.tls_config.build()?;
+        Ok(DnsEncryptionConfig {
+            protocol: self.protocol,
+            tls_name: self.tls_name.clone(),
+            tls_client,
+        })
     }
 
     pub fn summary(&self) -> String {

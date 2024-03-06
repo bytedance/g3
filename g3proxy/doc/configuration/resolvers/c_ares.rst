@@ -112,21 +112,35 @@ bind_ipv6
 
 Set the IPv6 bind ip for the resolver while setting up sockets.
 
-negative_ttl
-------------
+negative_min_ttl
+----------------
 
 **optional**, **type**: u32
 
 Time-to-Live (TTL) for negative caching of failed DNS lookups.
-This also sets the lower cache limit on positive lookups.
 
-**default**: 30
+**default**: 30, **alias**: negative_ttl
 
-positive_ttl
-------------
+.. versionchanged:: 1.7.37 renamed from negative_ttl to negative_min_ttl
+
+positive_min_ttl
+----------------
 
 **optional**, **type**: u32
 
-Upper limit on how long we will cache positive DNS responses. It should long than *negative_ttl*.
+Lower limit on how long we will cache positive DNS responses.
 
-**default**: 3600
+**default**: 30
+
+.. versionadded:: 1.7.37
+
+positive_max_ttl
+----------------
+
+**optional**, **type**: u32
+
+Upper limit on how long we will cache positive DNS responses. It should be longer than *positive_min_ttl*.
+
+**default**: 3600, **alias**: positive_ttl
+
+.. versionchanged:: 1.7.37 renamed from positive_ttl to positive_max_ttl

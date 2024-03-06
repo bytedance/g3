@@ -29,14 +29,16 @@ use crate::{ResolveDriver, ResolveError, ResolvedRecord};
 pub(super) struct CAresResolver {
     pub(super) inner: FutureResolver,
     pub(super) negative_ttl: u32,
-    pub(super) positive_ttl: u32,
+    pub(super) positive_min_ttl: u32,
+    pub(super) positive_max_ttl: u32,
 }
 
 #[derive(Clone, Copy)]
 struct JobConfig {
     timeout: Duration,
     negative_ttl: u32,
-    positive_ttl: u32,
+    positive_min_ttl: u32,
+    positive_max_ttl: u32,
 }
 
 impl CAresResolver {
@@ -44,7 +46,8 @@ impl CAresResolver {
         JobConfig {
             timeout: rc.protective_query_timeout,
             negative_ttl: self.negative_ttl,
-            positive_ttl: self.positive_ttl,
+            positive_min_ttl: self.positive_min_ttl,
+            positive_max_ttl: self.positive_max_ttl,
         }
     }
 }
@@ -89,13 +92,7 @@ where
     match query_future.await {
         Ok(results) => {
             let (ttl, addrs) = results.finalize();
-
-            let ttl = if config.negative_ttl < config.positive_ttl {
-                ttl.clamp(config.negative_ttl, config.positive_ttl)
-            } else {
-                ttl.min(config.positive_ttl)
-            };
-
+            let ttl = ttl.clamp(config.positive_min_ttl, config.positive_max_ttl);
             let expire = created.checked_add(Duration::from_secs(ttl as u64));
             ResolvedRecord {
                 domain: domain.to_string(),

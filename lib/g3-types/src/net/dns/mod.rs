@@ -16,6 +16,6 @@
 
 mod encryption;
 
-#[cfg(feature = "rustls")]
-pub use encryption::DnsEncryptionConfigBuilder;
 pub use encryption::DnsEncryptionProtocol;
+#[cfg(feature = "rustls")]
+pub use encryption::{DnsEncryptionConfig, DnsEncryptionConfigBuilder};

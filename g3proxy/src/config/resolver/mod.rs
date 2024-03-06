@@ -97,7 +97,7 @@ fn load_resolver(
         "hickory" | "hickory_dns" | "hickorydns" | "trust_dns" | "trustdns" => {
             let resolver = hickory::HickoryResolverConfig::parse(map, position)
                 .context("failed to load this hickory resolver")?;
-            Ok(AnyResolverConfig::Hickory(resolver))
+            Ok(AnyResolverConfig::Hickory(Box::new(resolver)))
         }
         "deny_all" | "denyall" => {
             let resolver = deny_all::DenyAllResolverConfig::parse(map, position)

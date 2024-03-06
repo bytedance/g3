@@ -17,6 +17,7 @@
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::task::{Context, Poll};
+use std::time::Duration;
 
 use bytes::{Bytes, BytesMut};
 use futures_util::Stream;
@@ -31,24 +32,31 @@ pub async fn connect(
     bind_addr: Option<SocketAddr>,
     tls_config: ClientConfig,
     tls_name: String,
+    connect_timeout: Duration,
+    request_timeout: Duration,
 ) -> Result<QuicClientStream, ProtoError> {
-    let connection =
-        crate::connect::quinn::quic_connect(name_server, bind_addr, tls_config, &tls_name, b"doq")
-            .await?;
-    Ok(QuicClientStream::new(connection))
+    let connection = tokio::time::timeout(
+        connect_timeout,
+        crate::connect::quinn::quic_connect(name_server, bind_addr, tls_config, &tls_name, b"doq"),
+    )
+    .await
+    .map_err(|_| ProtoError::from("quic connect timed out"))??;
+    Ok(QuicClientStream::new(connection, request_timeout))
 }
 
 /// A DNS client connection for DNS-over-QUIC
 #[must_use = "futures do nothing unless polled"]
 pub struct QuicClientStream {
     quic_connection: Connection,
+    request_timeout: Duration,
     is_shutdown: bool,
 }
 
 impl QuicClientStream {
-    pub fn new(connection: Connection) -> Self {
+    pub fn new(connection: Connection, request_timeout: Duration) -> Self {
         QuicClientStream {
             quic_connection: connection,
+            request_timeout,
             is_shutdown: false,
         }
     }
@@ -66,7 +74,12 @@ impl DnsRequestSender for QuicClientStream {
         // per the RFC, the DNS Message ID MUST be set to zero
         message.set_id(0);
 
-        Box::pin(quic_send_recv(self.quic_connection.clone(), message)).into()
+        Box::pin(timed_quic_send_recv(
+            self.quic_connection.clone(),
+            message,
+            self.request_timeout,
+        ))
+        .into()
     }
 
     fn shutdown(&mut self) {
@@ -90,6 +103,16 @@ impl Stream for QuicClientStream {
             Poll::Ready(Some(Ok(())))
         }
     }
+}
+
+async fn timed_quic_send_recv(
+    connection: Connection,
+    message: DnsRequest,
+    request_timeout: Duration,
+) -> Result<DnsResponse, ProtoError> {
+    tokio::time::timeout(request_timeout, quic_send_recv(connection, message))
+        .await
+        .map_err(|_| ProtoErrorKind::Timeout)?
 }
 
 async fn quic_send_recv(
