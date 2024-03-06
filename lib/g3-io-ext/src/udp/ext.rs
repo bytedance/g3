@@ -318,8 +318,6 @@ impl UdpSocketExt for UdpSocket {
     ) -> Poll<io::Result<usize>> {
         use std::os::fd::AsRawFd;
 
-        ready!(self.poll_send_ready(cx))?;
-
         let mut msgvec = Vec::with_capacity(msgs.len());
         for m in msgs.iter_mut() {
             msgvec.push(libc::mmsghdr {
@@ -329,7 +327,7 @@ impl UdpSocketExt for UdpSocket {
         }
 
         let raw_fd = self.as_raw_fd();
-        let sendmmsg = || {
+        let mut sendmmsg = || {
             let r = unsafe {
                 libc::sendmmsg(
                     raw_fd,
@@ -345,18 +343,21 @@ impl UdpSocketExt for UdpSocket {
             }
         };
 
-        match self.try_io(Interest::WRITABLE, sendmmsg) {
-            Ok(count) => {
-                for (m, h) in msgs.iter_mut().take(count).zip(msgvec) {
-                    m.n_send = h.msg_len as usize;
+        loop {
+            ready!(self.poll_send_ready(cx))?;
+            match self.try_io(Interest::WRITABLE, &mut sendmmsg) {
+                Ok(count) => {
+                    for (m, h) in msgs.iter_mut().take(count).zip(msgvec) {
+                        m.n_send = h.msg_len as usize;
+                    }
+                    return Poll::Ready(Ok(count));
                 }
-                Poll::Ready(Ok(count))
-            }
-            Err(e) => {
-                if e.kind() == io::ErrorKind::WouldBlock {
-                    self.poll_batch_sendmsg(cx, msgs)
-                } else {
-                    Poll::Ready(Err(e))
+                Err(e) => {
+                    if e.kind() == io::ErrorKind::WouldBlock {
+                        continue;
+                    } else {
+                        return Poll::Ready(Err(e));
+                    }
                 }
             }
         }
@@ -376,8 +377,6 @@ impl UdpSocketExt for UdpSocket {
     ) -> Poll<io::Result<usize>> {
         use std::os::fd::AsRawFd;
 
-        ready!(self.poll_recv_ready(cx))?;
-
         let mut msgvec = Vec::with_capacity(hdr_v.len());
         for m in hdr_v.iter_mut() {
             msgvec.push(libc::mmsghdr {
@@ -387,7 +386,7 @@ impl UdpSocketExt for UdpSocket {
         }
 
         let raw_fd = self.as_raw_fd();
-        let recvmmsg = || {
+        let mut recvmmsg = || {
             let r = unsafe {
                 libc::recvmmsg(
                     raw_fd,
@@ -404,18 +403,21 @@ impl UdpSocketExt for UdpSocket {
             }
         };
 
-        match self.try_io(Interest::READABLE, recvmmsg) {
-            Ok(count) => {
-                for (m, h) in hdr_v.iter_mut().take(count).zip(msgvec) {
-                    m.n_recv = h.msg_len as usize;
+        loop {
+            ready!(self.poll_recv_ready(cx))?;
+            match self.try_io(Interest::READABLE, &mut recvmmsg) {
+                Ok(count) => {
+                    for (m, h) in hdr_v.iter_mut().take(count).zip(msgvec) {
+                        m.n_recv = h.msg_len as usize;
+                    }
+                    return Poll::Ready(Ok(count));
                 }
-                Poll::Ready(Ok(count))
-            }
-            Err(e) => {
-                if e.kind() == io::ErrorKind::WouldBlock {
-                    self.poll_batch_recvmsg(cx, hdr_v)
-                } else {
-                    Poll::Ready(Err(e))
+                Err(e) => {
+                    if e.kind() == io::ErrorKind::WouldBlock {
+                        continue;
+                    } else {
+                        return Poll::Ready(Err(e));
+                    }
                 }
             }
         }

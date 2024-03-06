@@ -371,7 +371,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         let Some(buf) = bufs.get_mut(0) else {
             return Poll::Ready(Ok(0));
         };
-        let recv_socks_header = SocksHeaderBuffer::new(self.quic_peer_addr);
+        let mut recv_socks_header = SocksHeaderBuffer::new(self.quic_peer_addr);
 
         let mut iov = [
             IoSliceMut::new(recv_socks_header.as_mut()),
