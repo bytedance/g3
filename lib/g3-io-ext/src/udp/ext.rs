@@ -338,29 +338,28 @@ impl UdpSocketExt for UdpSocket {
                     libc::MSG_DONTWAIT | libc::MSG_NOSIGNAL,
                 )
             };
-            Ok(r)
+            if r < 0 {
+                Err(io::Error::last_os_error())
+            } else {
+                Ok(r as usize)
+            }
         };
 
-        let r = self.try_io(Interest::WRITABLE, sendmmsg)?;
-        if r < 0 {
-            let err = io::Error::last_os_error();
-            return if err.kind() == io::ErrorKind::WouldBlock {
-                // should be rarely if the socket is not used in parallel
-                self.poll_batch_sendmsg(cx, msgs)
-            } else {
-                Poll::Ready(Err(err))
-            };
-        }
-
-        let mut count = 0;
-        for (m, h) in msgs.iter_mut().zip(msgvec) {
-            if h.msg_len == 0 {
-                break;
+        match self.try_io(Interest::WRITABLE, sendmmsg) {
+            Ok(count) => {
+                for (m, h) in msgs.iter_mut().take(count).zip(msgvec) {
+                    m.n_send = h.msg_len as usize;
+                }
+                Poll::Ready(Ok(count))
             }
-            m.n_send = h.msg_len as usize;
-            count += 1;
+            Err(e) => {
+                if e.kind() == io::ErrorKind::WouldBlock {
+                    self.poll_batch_sendmsg(cx, msgs)
+                } else {
+                    Poll::Ready(Err(e))
+                }
+            }
         }
-        Poll::Ready(Ok(count))
     }
 
     #[cfg(any(
@@ -398,25 +397,28 @@ impl UdpSocketExt for UdpSocket {
                     ptr::null_mut(),
                 )
             };
-            Ok(r)
+            if r < 0 {
+                Err(io::Error::last_os_error())
+            } else {
+                Ok(r as usize)
+            }
         };
 
-        let r = self.try_io(Interest::READABLE, recvmmsg)?;
-        if r < 0 {
-            let err = io::Error::last_os_error();
-            return if err.kind() == io::ErrorKind::WouldBlock {
-                // should be rarely if the socket is not used in parallel
-                self.poll_batch_recvmsg(cx, hdr_v)
-            } else {
-                Poll::Ready(Err(err))
-            };
+        match self.try_io(Interest::READABLE, recvmmsg) {
+            Ok(count) => {
+                for (m, h) in hdr_v.iter_mut().take(count).zip(msgvec) {
+                    m.n_recv = h.msg_len as usize;
+                }
+                Poll::Ready(Ok(count))
+            }
+            Err(e) => {
+                if e.kind() == io::ErrorKind::WouldBlock {
+                    self.poll_batch_recvmsg(cx, hdr_v)
+                } else {
+                    Poll::Ready(Err(e))
+                }
+            }
         }
-
-        let count = r as usize;
-        for (m, h) in hdr_v.iter_mut().take(count).zip(msgvec) {
-            m.n_recv = h.msg_len as usize;
-        }
-        Poll::Ready(Ok(count))
     }
 }
 
