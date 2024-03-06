@@ -316,9 +316,10 @@ impl UdpSocketExt for UdpSocket {
         cx: &mut Context<'_>,
         msgs: &mut [SendMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>> {
+        use smallvec::SmallVec;
         use std::os::fd::AsRawFd;
 
-        let mut msgvec = Vec::with_capacity(msgs.len());
+        let mut msgvec: SmallVec<[_; 32]> = SmallVec::with_capacity(msgs.len());
         for m in msgs.iter_mut() {
             msgvec.push(libc::mmsghdr {
                 msg_hdr: unsafe { m.to_msghdr() },
@@ -375,9 +376,10 @@ impl UdpSocketExt for UdpSocket {
         cx: &mut Context<'_>,
         hdr_v: &mut [RecvMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>> {
+        use smallvec::SmallVec;
         use std::os::fd::AsRawFd;
 
-        let mut msgvec = Vec::with_capacity(hdr_v.len());
+        let mut msgvec: SmallVec<[_; 32]> = SmallVec::with_capacity(hdr_v.len());
         for m in hdr_v.iter_mut() {
             msgvec.push(libc::mmsghdr {
                 msg_hdr: unsafe { m.to_msghdr() },

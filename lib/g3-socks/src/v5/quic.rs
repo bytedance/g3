@@ -272,6 +272,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         meta: &mut [RecvMeta],
     ) -> Poll<io::Result<usize>> {
         use g3_io_ext::RecvMsgHdr;
+        use smallvec::{smallvec, SmallVec};
 
         let ctl_close_receiver = unsafe { &mut *self.ctl_close_receiver.get() };
         match Pin::new(ctl_close_receiver).poll(cx) {
@@ -287,7 +288,8 @@ impl AsyncUdpSocket for Socks5UdpSocket {
             }
         }
 
-        let mut recv_socks_headers = [SocksHeaderBuffer::new(self.quic_peer_addr); 8];
+        let mut recv_socks_headers: SmallVec<[_; 32]> =
+            smallvec![SocksHeaderBuffer::new(self.quic_peer_addr); bufs.len()];
         let mut hdr_v = Vec::with_capacity(meta.len());
         for (b, s) in bufs.iter_mut().zip(recv_socks_headers.iter_mut()) {
             hdr_v.push(RecvMsgHdr::new([

@@ -18,6 +18,7 @@ memchr.workspace = true
 fastrand.workspace = true
 bytes.workspace = true
 ahash.workspace = true
+smallvec.workspace = true
 rustix = { workspace = true, features = ["std", "net"] }
 libc.workspace = true
 quinn = { workspace = true, optional = true }

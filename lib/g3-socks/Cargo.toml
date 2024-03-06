@@ -10,6 +10,7 @@ rust-version = "1.74.0"
 [dependencies]
 thiserror.workspace = true
 bytes.workspace = true
+smallvec.workspace = true
 tokio.workspace = true
 quinn = { workspace = true, optional = true, features = ["runtime-tokio"] }
 g3-types.workspace = true

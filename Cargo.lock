@@ -1171,6 +1171,7 @@ dependencies = [
  "pin-project",
  "quinn",
  "rustix",
+ "smallvec",
  "thiserror",
  "tokio",
  "tokio-rustls",
@@ -1313,6 +1314,7 @@ dependencies = [
  "g3-io-ext",
  "g3-types",
  "quinn",
+ "smallvec",
  "thiserror",
  "tokio",
 ]
