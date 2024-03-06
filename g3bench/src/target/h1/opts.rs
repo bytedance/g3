@@ -64,7 +64,7 @@ pub(super) struct BenchHttpArgs {
     proxy_tls: OpensslTlsClientArgs,
     proxy_protocol: ProxyProtocolArgs,
 
-    host: UpstreamAddr,
+    target: UpstreamAddr,
     auth: HttpAuth,
     peer_addrs: Option<SelectiveVec<WeightedValue<SocketAddr>>>,
 }
@@ -94,7 +94,7 @@ impl BenchHttpArgs {
             target_tls,
             proxy_tls: OpensslTlsClientArgs::default(),
             proxy_protocol: ProxyProtocolArgs::default(),
-            host: upstream,
+            target: upstream,
             auth,
             peer_addrs: None,
         })
@@ -109,7 +109,7 @@ impl BenchHttpArgs {
         } else if let Some(proxy) = &self.forward_proxy {
             proxy.peer()
         } else {
-            &self.host
+            &self.target
         };
         let addrs = proc_args.resolve(host).await?;
         self.peer_addrs = Some(addrs);
@@ -173,7 +173,7 @@ impl BenchHttpArgs {
                             &mut buf_r,
                             &mut w,
                             &http_proxy.auth,
-                            &self.host,
+                            &self.target,
                         )
                         .await
                         .map_err(|e| {
@@ -197,7 +197,7 @@ impl BenchHttpArgs {
                             &mut buf_r,
                             &mut w,
                             &http_proxy.auth,
-                            &self.host,
+                            &self.target,
                         )
                         .await
                         .map_err(|e| {
@@ -222,7 +222,7 @@ impl BenchHttpArgs {
                     ))?;
                     let (mut r, mut w) = stream.into_split();
 
-                    g3_socks::v4a::client::socks4a_connect_to(&mut r, &mut w, &self.host)
+                    g3_socks::v4a::client::socks4a_connect_to(&mut r, &mut w, &self.target)
                         .await
                         .map_err(|e| {
                             anyhow!("socks4a connect to {} failed: {e}", socks4_proxy.peer())
@@ -246,7 +246,7 @@ impl BenchHttpArgs {
                         &mut r,
                         &mut w,
                         &socks5_proxy.auth,
-                        &self.host,
+                        &self.target,
                     )
                     .await
                     .map_err(|e| {
@@ -282,7 +282,7 @@ impl BenchHttpArgs {
             let stream = self
                 .new_tcp_connection(proc_args)
                 .await
-                .context(format!("failed to connect to target host {}", self.host))?;
+                .context(format!("failed to connect to target host {}", self.target))?;
 
             if let Some(tls_client) = &self.target_tls.client {
                 self.tls_connect_to_peer(tls_client, stream).await
@@ -303,7 +303,7 @@ impl BenchHttpArgs {
     {
         let tls_stream = self
             .target_tls
-            .connect_target(tls_client, stream, &self.host)
+            .connect_target(tls_client, stream, &self.target)
             .await?;
         let (r, w) = tokio::io::split(tls_stream);
         Ok((Box::new(r), Box::new(w)))
@@ -323,7 +323,7 @@ impl BenchHttpArgs {
     fn write_request_line<W: io::Write>(&self, buf: &mut W) -> io::Result<()> {
         write!(buf, "{} ", self.method)?;
         if self.forward_proxy.is_some() {
-            write!(buf, "{}://{}", self.target_url.scheme(), self.host)?;
+            write!(buf, "{}://{}", self.target_url.scheme(), self.target)?;
         }
         buf.write_all(self.target_url.path().as_bytes())?;
         if let Some(s) = self.target_url.query() {
@@ -337,7 +337,7 @@ impl BenchHttpArgs {
     pub(super) fn write_fixed_request_header<W: io::Write>(&self, buf: &mut W) -> io::Result<()> {
         self.write_request_line(buf)?;
 
-        write!(buf, "Host: {}\r\n", self.host)?;
+        write!(buf, "Host: {}\r\n", self.target)?;
 
         if let Some(p) = &self.forward_proxy {
             match &p.auth {

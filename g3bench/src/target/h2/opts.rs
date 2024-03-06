@@ -64,7 +64,7 @@ pub(super) struct BenchH2Args {
     proxy_tls: OpensslTlsClientArgs,
     proxy_protocol: ProxyProtocolArgs,
 
-    host: UpstreamAddr,
+    target: UpstreamAddr,
     auth: HttpAuth,
     peer_addrs: Option<SelectiveVec<WeightedValue<SocketAddr>>>,
 }
@@ -94,7 +94,7 @@ impl BenchH2Args {
             target_tls,
             proxy_tls: OpensslTlsClientArgs::default(),
             proxy_protocol: ProxyProtocolArgs::default(),
-            host: upstream,
+            target: upstream,
             auth,
             peer_addrs: None,
         })
@@ -107,7 +107,7 @@ impl BenchH2Args {
         let host = if let Some(proxy) = &self.connect_proxy {
             proxy.peer()
         } else {
-            &self.host
+            &self.target
         };
         let addrs = proc_args.resolve(host).await?;
         self.peer_addrs = Some(addrs);
@@ -169,7 +169,7 @@ impl BenchH2Args {
                             &mut buf_r,
                             &mut w,
                             &http_proxy.auth,
-                            &self.host,
+                            &self.target,
                         )
                         .await
                         .map_err(|e| {
@@ -186,7 +186,7 @@ impl BenchH2Args {
                             &mut buf_r,
                             &mut w,
                             &http_proxy.auth,
-                            &self.host,
+                            &self.target,
                         )
                         .await
                         .map_err(|e| {
@@ -204,7 +204,7 @@ impl BenchH2Args {
                     ))?;
                     let (mut r, mut w) = stream.into_split();
 
-                    g3_socks::v4a::client::socks4a_connect_to(&mut r, &mut w, &self.host)
+                    g3_socks::v4a::client::socks4a_connect_to(&mut r, &mut w, &self.target)
                         .await
                         .map_err(|e| {
                             anyhow!("socks4a connect to {} failed: {e}", socks4_proxy.peer())
@@ -224,7 +224,7 @@ impl BenchH2Args {
                         &mut r,
                         &mut w,
                         &socks5_proxy.auth,
-                        &self.host,
+                        &self.target,
                     )
                     .await
                     .map_err(|e| {
@@ -239,7 +239,7 @@ impl BenchH2Args {
             let stream = self
                 .new_tcp_connection(proc_args)
                 .await
-                .context(format!("failed to connect to target host {}", self.host))?;
+                .context(format!("failed to connect to target host {}", self.target))?;
             self.connect_to_target(proc_args, stream, stats).await
         }
     }
@@ -308,7 +308,7 @@ impl BenchH2Args {
     {
         let tls_stream = self
             .target_tls
-            .connect_target(tls_client, stream, &self.host)
+            .connect_target(tls_client, stream, &self.target)
             .await?;
         if let Some(alpn) = tls_stream.ssl().selected_alpn_protocol() {
             if AlpnProtocol::from_buf(alpn) != Some(AlpnProtocol::Http2) {
@@ -337,7 +337,7 @@ impl BenchH2Args {
         };
         let uri = http::Uri::builder()
             .scheme(self.target_url.scheme())
-            .authority(self.host.to_string())
+            .authority(self.target.to_string())
             .path_and_query(path_and_query)
             .build()
             .map_err(|e| anyhow!("failed to build request: {e:?}"))?;

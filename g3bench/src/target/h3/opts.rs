@@ -63,7 +63,7 @@ pub(super) struct BenchH3Args {
 
     target_tls: RustlsTlsClientArgs,
 
-    host: UpstreamAddr,
+    target: UpstreamAddr,
     auth: HttpAuth,
     proxy_peer_addrs: Option<SelectiveVec<WeightedValue<SocketAddr>>>,
     quic_peer_addrs: Option<SelectiveVec<WeightedValue<SocketAddr>>>,
@@ -92,7 +92,7 @@ impl BenchH3Args {
             timeout: Duration::from_secs(30),
             connect_timeout: Duration::from_secs(15),
             target_tls: tls,
-            host: upstream,
+            target: upstream,
             auth,
             proxy_peer_addrs: None,
             quic_peer_addrs: None,
@@ -107,7 +107,7 @@ impl BenchH3Args {
             let addrs = proc_args.resolve(proxy.peer()).await?;
             self.proxy_peer_addrs = Some(addrs);
         };
-        let addrs = proc_args.resolve(&self.host).await?;
+        let addrs = proc_args.resolve(&self.target).await?;
         self.quic_peer_addrs = Some(addrs);
         Ok(())
     }
@@ -246,7 +246,7 @@ impl BenchH3Args {
             Some(ServerName::DnsName(domain)) => domain.as_ref().to_string(),
             Some(ServerName::IpAddress(ip)) => ip.to_string(),
             Some(_) => return Err(anyhow!("unsupported tls server name type")),
-            None => self.host.to_string(),
+            None => self.target.host().to_string(),
         };
         let conn = endpoint
             .connect_with(client_config, quic_peer, &tls_name)
@@ -284,7 +284,7 @@ impl BenchH3Args {
         };
         let uri = http::Uri::builder()
             .scheme(self.target_url.scheme())
-            .authority(self.host.to_string())
+            .authority(self.target.to_string())
             .path_and_query(path_and_query)
             .build()
             .map_err(|e| anyhow!("failed to build request: {e:?}"))?;
