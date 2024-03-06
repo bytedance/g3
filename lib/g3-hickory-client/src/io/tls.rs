@@ -15,6 +15,7 @@
  */
 
 use std::net::SocketAddr;
+use std::time::Duration;
 
 use hickory_proto::error::ProtoError;
 use hickory_proto::iocompat::AsyncIoTokioAsStd;
@@ -28,10 +29,14 @@ pub async fn connect(
     tls_config: ClientConfig,
     tls_name: ServerName,
     outbound_messages: StreamReceiver,
+    connect_timeout: Duration,
 ) -> Result<TcpClientStream<impl DnsTcpStream>, ProtoError> {
-    let tls_stream =
-        crate::connect::rustls::tls_connect(name_server, bind_addr, tls_config, tls_name, b"dot")
-            .await?;
+    let tls_stream = tokio::time::timeout(
+        connect_timeout,
+        crate::connect::rustls::tls_connect(name_server, bind_addr, tls_config, tls_name, b"dot"),
+    )
+    .await
+    .map_err(|_| ProtoError::from("tls connect timed out"))??;
 
     let stream = TcpStream::from_stream_with_receiver(
         AsyncIoTokioAsStd(tls_stream),

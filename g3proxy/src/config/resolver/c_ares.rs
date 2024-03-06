@@ -132,14 +132,19 @@ impl CAresResolverConfig {
                 self.driver.set_bind_ipv6(ip6);
                 Ok(())
             }
-            "negative_ttl" | "protective_cache_ttl" => {
+            "negative_min_ttl" | "negative_ttl" | "protective_cache_ttl" => {
                 let ttl = g3_yaml::value::as_u32(v)?;
                 self.driver.set_negative_ttl(ttl);
                 Ok(())
             }
-            "positive_ttl" | "max_cache_ttl" | "maximum_cache_ttl" => {
+            "positive_min_ttl" => {
                 let ttl = g3_yaml::value::as_u32(v)?;
-                self.driver.set_positive_ttl(ttl);
+                self.driver.set_positive_min_ttl(ttl);
+                Ok(())
+            }
+            "positive_max_ttl" | "positive_ttl" | "max_cache_ttl" | "maximum_cache_ttl" => {
+                let ttl = g3_yaml::value::as_u32(v)?;
+                self.driver.set_positive_max_ttl(ttl);
                 Ok(())
             }
             "graceful_stop_wait" => {
@@ -199,15 +204,11 @@ impl CAresResolverConfig {
         Ok(())
     }
 
-    fn check(&self) -> anyhow::Result<()> {
+    fn check(&mut self) -> anyhow::Result<()> {
         if self.name.is_empty() {
             return Err(anyhow!("name is not set"));
         }
-        if self.driver.is_unspecified() {
-            return Err(anyhow!("no dns server has been set"));
-        }
-
-        Ok(())
+        self.driver.check()
     }
 }
 

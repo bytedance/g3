@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,13 @@
  * limitations under the License.
  */
 
+mod config;
+pub use config::HickoryDriverConfig;
+
+mod client;
+use client::{DnsRequest, HickoryClient, HickoryClientConfig};
+
 mod driver;
 use driver::HickoryResolver;
 
 mod error;
-
-mod config;
-pub use config::HickoryDriverConfig;

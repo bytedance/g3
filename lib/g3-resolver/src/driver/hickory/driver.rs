@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,87 +14,22 @@
  * limitations under the License.
  */
 
-use std::future::Future;
-use std::net::IpAddr;
-use std::sync::Arc;
 use std::time::Duration;
 
-use hickory_resolver::lookup::{Ipv4Lookup, Ipv6Lookup};
-use hickory_resolver::TokioAsyncResolver;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 
+use super::DnsRequest;
 use crate::config::ResolverRuntimeConfig;
 use crate::message::ResolveDriverResponse;
-use crate::{ResolveDriver, ResolvedRecord};
+use crate::{ResolveDriver, ResolveDriverError, ResolveLocalError, ResolvedRecord};
 
-pub(super) struct HickoryResolver {
-    pub(super) inner: Arc<TokioAsyncResolver>,
-    pub(super) protective_cache_ttl: u32,
-}
-
-struct JobConfig {
-    timeout: Duration,
-    protective_cache_ttl: u32,
-}
-
-impl HickoryResolver {
-    fn build_job_config(&self, rc: &ResolverRuntimeConfig) -> JobConfig {
-        JobConfig {
-            timeout: rc.protective_query_timeout,
-            protective_cache_ttl: self.protective_cache_ttl,
-        }
-    }
-}
-
-trait ResultConverter {
-    fn finalize(self) -> (Instant, Vec<IpAddr>);
-}
-
-impl ResultConverter for Ipv4Lookup {
-    fn finalize(self) -> (Instant, Vec<IpAddr>) {
-        let mut addrs = Vec::<IpAddr>::new();
-        for ip4 in self.iter() {
-            addrs.push(IpAddr::V4(ip4.0));
-        }
-
-        (Instant::from_std(self.valid_until()), addrs)
-    }
-}
-
-impl ResultConverter for Ipv6Lookup {
-    fn finalize(self) -> (Instant, Vec<IpAddr>) {
-        let mut addrs = Vec::<IpAddr>::new();
-        for ip6 in self.iter() {
-            addrs.push(IpAddr::V6(ip6.0));
-        }
-
-        (Instant::from_std(self.valid_until()), addrs)
-    }
-}
-
-async fn resolve_protective<F, T>(
-    query_future: F,
-    domain: String,
-    config: JobConfig,
-) -> ResolvedRecord
-where
-    F: Future<Output = Result<T, hickory_resolver::error::ResolveError>>,
-    T: ResultConverter,
-{
-    match tokio::time::timeout(config.timeout, query_future).await {
-        Ok(Ok(r)) => {
-            let (expire, addrs) = r.finalize();
-            ResolvedRecord {
-                domain,
-                created: Instant::now(),
-                expire: Some(expire),
-                result: Ok(addrs),
-            }
-        }
-        Ok(Err(e)) => ResolvedRecord::failed(domain, config.protective_cache_ttl, e.into()),
-        Err(_) => ResolvedRecord::timed_out(domain, config.protective_cache_ttl),
-    }
+#[derive(Clone)]
+pub struct HickoryResolver {
+    each_timeout: Duration,
+    retry_interval: Duration,
+    negative_min_ttl: u32,
+    clients: Vec<flume::Sender<(DnsRequest, mpsc::Sender<ResolvedRecord>)>>,
 }
 
 impl ResolveDriver for HickoryResolver {
@@ -104,13 +39,13 @@ impl ResolveDriver for HickoryResolver {
         config: &ResolverRuntimeConfig,
         sender: mpsc::UnboundedSender<ResolveDriverResponse>,
     ) {
-        let resolver = Arc::clone(&self.inner);
-        let job_config = self.build_job_config(config);
-        tokio::spawn(async move {
-            let query = resolver.ipv4_lookup(format!("{domain}.")); // add trailing '.' to avoid search
-            let record = resolve_protective(query, domain, job_config).await;
+        let request = DnsRequest::query_ipv4(&domain);
 
-            let _ = sender.send(ResolveDriverResponse::V4(record)); // TODO log error
+        let job = self.clone();
+        let timeout = config.protective_query_timeout;
+        tokio::spawn(async move {
+            let r = run_timed(job, timeout, domain, request).await;
+            let _ = sender.send(ResolveDriverResponse::V4(r));
         });
     }
 
@@ -120,13 +55,124 @@ impl ResolveDriver for HickoryResolver {
         config: &ResolverRuntimeConfig,
         sender: mpsc::UnboundedSender<ResolveDriverResponse>,
     ) {
-        let resolver = Arc::clone(&self.inner);
-        let job_config = self.build_job_config(config);
-        tokio::spawn(async move {
-            let query = resolver.ipv6_lookup(format!("{domain}.")); // add trailing '.' to avoid search
-            let record = resolve_protective(query, domain, job_config).await;
+        let request = DnsRequest::query_ipv6(&domain);
 
-            let _ = sender.send(ResolveDriverResponse::V4(record)); // TODO log error
+        let job = self.clone();
+        let timeout = config.protective_query_timeout;
+        tokio::spawn(async move {
+            let r = run_timed(job, timeout, domain, request).await;
+            let _ = sender.send(ResolveDriverResponse::V6(r));
         });
+    }
+}
+
+async fn run_timed(
+    job: HickoryResolver,
+    timeout: Duration,
+    domain: String,
+    request: DnsRequest,
+) -> ResolvedRecord {
+    let error_ttl = job.negative_min_ttl;
+    match tokio::time::timeout(timeout, job.run(domain.clone(), request)).await {
+        Ok(r) => r,
+        Err(_) => ResolvedRecord::timed_out(domain, error_ttl),
+    }
+}
+
+impl HickoryResolver {
+    pub(super) fn new(
+        each_timeout: Duration,
+        retry_interval: Duration,
+        negative_min_ttl: u32,
+    ) -> Self {
+        HickoryResolver {
+            each_timeout,
+            retry_interval,
+            negative_min_ttl,
+            clients: Vec::with_capacity(2),
+        }
+    }
+
+    pub(super) fn push_client(
+        &mut self,
+        req_sender: flume::Sender<(DnsRequest, mpsc::Sender<ResolvedRecord>)>,
+    ) {
+        self.clients.push(req_sender);
+    }
+
+    async fn run(self, domain: String, request: DnsRequest) -> ResolvedRecord {
+        let (rsp_sender, mut rsp_receiver) = mpsc::channel::<ResolvedRecord>(1);
+
+        let mut wait_left = self.clients.len();
+        let mut clients = self.clients.into_iter();
+        let Some(client) = clients.next() else {
+            return ResolvedRecord::failed(
+                domain,
+                self.negative_min_ttl,
+                ResolveLocalError::NoResolverRunning.into(),
+            );
+        };
+        if client
+            .send_async((request.clone(), rsp_sender.clone()))
+            .await
+            .is_err()
+        {
+            wait_left -= 1;
+        }
+
+        let mut last_err: Option<ResolvedRecord> = None;
+        let mut interval =
+            tokio::time::interval_at(Instant::now() + self.retry_interval, self.retry_interval);
+        loop {
+            tokio::select! {
+                biased;
+
+                r = rsp_receiver.recv() => {
+                    wait_left -= 1;
+                    match r {
+                        Some(v) => {
+                            if v.is_ok() || wait_left == 0 {
+                                return v;
+                            }
+                            last_err = Some(v);
+                        }
+                        None => unreachable!(), // as we keep a rsp_sender here
+                    }
+                }
+                _ = interval.tick() => {
+                    if let Some(client) = clients.next() {
+                        if client.try_send((request.clone(), rsp_sender.clone())).is_err() {
+                            wait_left -= 1;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+
+        drop(rsp_sender);
+        let end_err = if let Some(d) = self.each_timeout.checked_sub(self.retry_interval) {
+            match tokio::time::timeout(d, rsp_receiver.recv()).await {
+                Ok(Some(v)) => return v,
+                Ok(None) => ResolvedRecord::failed(
+                    domain,
+                    self.negative_min_ttl,
+                    ResolveDriverError::Internal("no response received".to_string()).into(),
+                ),
+                Err(_) => ResolvedRecord::failed(
+                    domain,
+                    self.negative_min_ttl,
+                    ResolveDriverError::Timeout.into(),
+                ),
+            }
+        } else {
+            ResolvedRecord::failed(
+                domain,
+                self.negative_min_ttl,
+                ResolveDriverError::Timeout.into(),
+            )
+        };
+        last_err.unwrap_or(end_err)
     }
 }

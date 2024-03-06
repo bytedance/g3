@@ -50,7 +50,7 @@ pub(crate) enum AnyResolverConfig {
     #[cfg(feature = "c-ares")]
     CAres(c_ares::CAresResolverConfig),
     #[cfg(feature = "hickory")]
-    Hickory(hickory::HickoryResolverConfig),
+    Hickory(Box<hickory::HickoryResolverConfig>),
     DenyAll(deny_all::DenyAllResolverConfig),
     FailOver(fail_over::FailOverResolverConfig),
 }

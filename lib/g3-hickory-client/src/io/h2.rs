@@ -18,11 +18,12 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
+use std::time::Duration;
 
 use bytes::{Buf, Bytes};
 use futures_util::Stream;
 use h2::client::SendRequest;
-use hickory_proto::error::ProtoError;
+use hickory_proto::error::{ProtoError, ProtoErrorKind};
 use hickory_proto::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
 use http::{Response, Version};
 use rustls::{ClientConfig, ServerName};
@@ -35,6 +36,8 @@ pub async fn connect(
     bind_addr: Option<SocketAddr>,
     tls_config: ClientConfig,
     tls_name: ServerName,
+    connect_timeout: Duration,
+    request_timeout: Duration,
 ) -> Result<HttpsClientStream, ProtoError> {
     let server_name = match &tls_name {
         ServerName::DnsName(domain) => domain.as_ref().to_string(),
@@ -47,9 +50,12 @@ pub async fn connect(
         }
     };
 
-    let tls_stream =
-        crate::connect::rustls::tls_connect(name_server, bind_addr, tls_config, tls_name, b"h2")
-            .await?;
+    let tls_stream = tokio::time::timeout(
+        connect_timeout,
+        crate::connect::rustls::tls_connect(name_server, bind_addr, tls_config, tls_name, b"h2"),
+    )
+    .await
+    .map_err(|_| ProtoError::from("tls connect timed out"))??;
 
     let mut client_builder = h2::client::Builder::new();
     client_builder.enable_push(false);
@@ -63,7 +69,7 @@ pub async fn connect(
         let _ = connection.await;
     });
 
-    HttpsClientStream::new(&server_name, send_request)
+    HttpsClientStream::new(&server_name, send_request, request_timeout)
 }
 
 /// A DNS client connection for DNS-over-HTTPS
@@ -71,15 +77,21 @@ pub async fn connect(
 #[must_use = "futures do nothing unless polled"]
 pub struct HttpsClientStream {
     request_builder: Arc<HttpDnsRequestBuilder>,
+    request_timeout: Duration,
     h2: SendRequest<Bytes>,
     is_shutdown: bool,
 }
 
 impl HttpsClientStream {
-    pub fn new(name_server_name: &str, h2: SendRequest<Bytes>) -> Result<Self, ProtoError> {
+    pub fn new(
+        name_server_name: &str,
+        h2: SendRequest<Bytes>,
+        request_timeout: Duration,
+    ) -> Result<Self, ProtoError> {
         let request_builder = HttpDnsRequestBuilder::new(Version::HTTP_2, name_server_name)?;
         Ok(HttpsClientStream {
             request_builder: Arc::new(request_builder),
+            request_timeout,
             h2,
             is_shutdown: false,
         })
@@ -104,10 +116,11 @@ impl DnsRequestSender for HttpsClientStream {
             Err(err) => return err.into(),
         };
 
-        Box::pin(h2_send_recv(
+        Box::pin(timed_h2_send_recv(
             self.h2.clone(),
             Bytes::from(bytes),
             Arc::clone(&self.request_builder),
+            self.request_timeout,
         ))
         .into()
     }
@@ -138,6 +151,17 @@ impl Stream for HttpsClientStream {
             ))))),
         }
     }
+}
+
+async fn timed_h2_send_recv(
+    h2: SendRequest<Bytes>,
+    message: Bytes,
+    request_builder: Arc<HttpDnsRequestBuilder>,
+    request_timeout: Duration,
+) -> Result<DnsResponse, ProtoError> {
+    tokio::time::timeout(request_timeout, h2_send_recv(h2, message, request_builder))
+        .await
+        .map_err(|_| ProtoErrorKind::Timeout)?
 }
 
 async fn h2_send_recv(

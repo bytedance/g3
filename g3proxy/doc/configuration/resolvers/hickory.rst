@@ -12,7 +12,7 @@ server
 
 **required**, **type**: str | seq
 
-Set the nameservers.
+Set the nameservers. All server will be tried before get a positive server response.
 
 For *str* value, it may be one or more :ref:`ip addr str <conf_value_ip_addr_str>` joined with whitespace characters.
 
@@ -36,23 +36,62 @@ Set the encryption config.
 
 **default**: not set
 
+connect_timeout
+---------------
+
+**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+Specify the TCP/TLS/QUIC connect timeout value when connecting to the target server.
+
+**default**: 10s
+
+.. versionadded:: 1.7.37
+
+request_timeout
+---------------
+
+**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+Specify response wait timeout value after a specific request has been to the target server.
+
+**default**: 10s
+
+.. versionadded:: 1.7.37
+
+each_tries
+----------
+
+**optional**, **type**: i32
+
+The number of tries for one specific target server if no valid responses received from previous connection.
+
+.. note:: negative response is also considered valid
+
+**default**: 2
+
+.. versionchanged:: 1.7.37 this only control retries to a specific target server
+
 each_timeout
 ------------
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Specify the timeout for a request.
+Specify the timeout for waiting all responses from one specific target server.
 
 **default**: 5s
 
-retry_attempts
+retry_interval
 --------------
 
-**optional**, **type**: usize
+**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Number of retries after lookup failure before giving up.
+Set retry interval between different target servers.
 
-**default**: 2
+We will always receive responses from previous tried servers, and the first positive one will be used.
+
+**default**: 1s
+
+.. versionadded:: 1.7.37
 
 bind_ip
 -------
@@ -75,7 +114,7 @@ positive_max_ttl
 
 **optional**, **type**: u32
 
-Maximum TTL for positive responses.
+Maximum TTL for positive responses. It should be longer than *positive_min_ttl*.
 
 **default**: 3600
 
@@ -86,13 +125,4 @@ negative_min_ttl
 
 Minimum TTL for negative responses.
 
-**default**: 30
-
-negative_max_ttl
-----------------
-
-**optional**, **type**: u32
-
-Maximum TTL for negative responses.
-
-**default**: 3600
+**default**: 30, **alias**: negative_ttl

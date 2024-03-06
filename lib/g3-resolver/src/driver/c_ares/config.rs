@@ -39,7 +39,8 @@ pub struct CAresDriverConfig {
     bind_v4: Option<Ipv4Addr>,
     bind_v6: Option<Ipv6Addr>,
     negative_ttl: u32,
-    positive_ttl: u32,
+    positive_min_ttl: u32,
+    positive_max_ttl: u32,
 }
 
 impl Default for CAresDriverConfig {
@@ -59,12 +60,24 @@ impl Default for CAresDriverConfig {
             bind_v4: None,
             bind_v6: None,
             negative_ttl: crate::config::RESOLVER_MINIMUM_CACHE_TTL,
-            positive_ttl: crate::config::RESOLVER_MAXIMUM_CACHE_TTL,
+            positive_min_ttl: crate::config::RESOLVER_MAXIMUM_CACHE_TTL,
+            positive_max_ttl: crate::config::RESOLVER_MAXIMUM_CACHE_TTL,
         }
     }
 }
 
 impl CAresDriverConfig {
+    pub fn check(&mut self) -> anyhow::Result<()> {
+        if self.servers.is_empty() {
+            return Err(anyhow!("no dns server set"));
+        }
+        if self.positive_max_ttl < self.negative_ttl {
+            self.positive_max_ttl = self.negative_ttl;
+        }
+
+        Ok(())
+    }
+
     pub fn add_server(&mut self, server: SocketAddr) {
         self.servers.insert(server);
     }
@@ -113,8 +126,12 @@ impl CAresDriverConfig {
         self.negative_ttl = ttl;
     }
 
-    pub fn set_positive_ttl(&mut self, ttl: u32) {
-        self.positive_ttl = ttl;
+    pub fn set_positive_min_ttl(&mut self, ttl: u32) {
+        self.positive_min_ttl = ttl;
+    }
+
+    pub fn set_positive_max_ttl(&mut self, ttl: u32) {
+        self.positive_max_ttl = ttl;
     }
 
     #[cfg(cares1_20)]
@@ -137,15 +154,7 @@ impl CAresDriverConfig {
         log::warn!("option max_timeout requires c-ares version 1.22");
     }
 
-    pub fn is_unspecified(&self) -> bool {
-        self.servers.is_empty()
-    }
-
     pub(crate) fn spawn_resolver_driver(&self) -> anyhow::Result<BoxResolverDriver> {
-        if self.is_unspecified() {
-            return Err(anyhow!("resolver config is empty"));
-        }
-
         let mut opts = c_ares_resolver::Options::new();
         opts.set_flags(self.flags)
             .set_timeout(self.each_timeout)
@@ -188,7 +197,8 @@ impl CAresDriverConfig {
         Ok(Box::new(CAresResolver {
             inner: resolver,
             negative_ttl: self.negative_ttl,
-            positive_ttl: self.positive_ttl,
+            positive_min_ttl: self.positive_min_ttl,
+            positive_max_ttl: self.positive_max_ttl,
         }))
     }
 }

@@ -14,7 +14,7 @@ http.workspace = true
 h2.workspace = true
 bytes.workspace = true
 thiserror.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["net", "time"] }
 rustls.workspace = true
 tokio-rustls.workspace = true
 quinn = { workspace = true, optional = true, features = ["runtime-tokio", "tls-rustls"] }

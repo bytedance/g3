@@ -46,7 +46,7 @@ fn main() {
         .unwrap();
     rt.block_on(async {
         let mut config = HickoryDriverConfig::default();
-        config.add_server(IpAddr::from_str("223.5.5.5").unwrap());
+        config.add_server(IpAddr::from_str("127.0.0.1").unwrap());
         let config = ResolverConfig {
             name: String::new(),
             driver: AnyResolveDriverConfig::Hickory(Box::new(config)),
@@ -56,9 +56,9 @@ fn main() {
         let handle = resolver.get_handle();
         let mut job = handle.get_v4("www.xjtu.edu.cn".to_string()).unwrap();
         let data = job.recv().await;
-        info!("data: {:?}", data);
-        let mut job = handle.get_v4("www.xjtu.edu.cn".to_string()).unwrap();
+        info!("v4 data: {:?}", data);
+        let mut job = handle.get_v6("www.xjtu.edu.cn".to_string()).unwrap();
         let data = job.recv().await;
-        info!("data: {:?}", data);
+        info!("v6 data: {:?}", data);
     });
 }

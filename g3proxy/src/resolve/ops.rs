@@ -177,7 +177,7 @@ async fn spawn_new_unlocked(config: AnyResolverConfig) -> anyhow::Result<()> {
         #[cfg(feature = "c-ares")]
         AnyResolverConfig::CAres(c) => CAresResolver::new_obj(c)?,
         #[cfg(feature = "hickory")]
-        AnyResolverConfig::Hickory(c) => HickoryResolver::new_obj(c)?,
+        AnyResolverConfig::Hickory(c) => HickoryResolver::new_obj(*c)?,
         AnyResolverConfig::DenyAll(c) => DenyAllResolver::new_obj(c)?,
         AnyResolverConfig::FailOver(c) => FailOverResolver::new_obj(c)?,
     };

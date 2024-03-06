@@ -61,7 +61,7 @@ impl ResolverInternal for HickoryResolver {
     }
 
     fn _clone_config(&self) -> AnyResolverConfig {
-        AnyResolverConfig::Hickory(self.config.as_ref().clone())
+        AnyResolverConfig::Hickory(Box::new(self.config.as_ref().clone()))
     }
 
     fn _update_config(
@@ -71,9 +71,9 @@ impl ResolverInternal for HickoryResolver {
     ) -> anyhow::Result<()> {
         if let AnyResolverConfig::Hickory(config) = config {
             self.inner
-                .update_config((&config).into())
+                .update_config(config.as_ref().into())
                 .context("failed to update inner hickory resolver config")?;
-            self.config = Arc::new(config);
+            self.config = Arc::new(*config);
             Ok(())
         } else {
             Err(anyhow!("invalid config type for HickoryResolver"))

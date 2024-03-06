@@ -114,15 +114,27 @@ impl HickoryResolverConfig {
                 self.driver.set_encryption(config);
                 Ok(())
             }
+            "connect_timeout" => {
+                let timeout = g3_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                self.driver.set_connect_timeout(timeout);
+                Ok(())
+            }
+            "request_timeout" => {
+                let timeout = g3_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                self.driver.set_request_timeout(timeout);
+                Ok(())
+            }
             "each_timeout" => {
                 let timeout = g3_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 self.driver.set_each_timeout(timeout);
                 Ok(())
             }
-            "retry_attempts" => {
-                let attempts = g3_yaml::value::as_usize(v)?;
-                self.driver.set_retry_attempts(attempts);
+            "each_tries" | "retry_attempts" => {
+                let attempts = g3_yaml::value::as_i32(v)?;
+                self.driver.set_each_tries(attempts);
                 Ok(())
             }
             "bind_ip" => {
@@ -140,16 +152,12 @@ impl HickoryResolverConfig {
                 self.driver.set_positive_max_ttl(ttl);
                 Ok(())
             }
-            "negative_min_ttl" => {
+            "negative_min_ttl" | "negative_ttl" => {
                 let ttl = g3_yaml::value::as_u32(v)?;
-                self.driver.set_negative_min_ttl(ttl);
+                self.driver.set_negative_ttl(ttl);
                 Ok(())
             }
-            "negative_max_ttl" => {
-                let ttl = g3_yaml::value::as_u32(v)?;
-                self.driver.set_negative_max_ttl(ttl);
-                Ok(())
-            }
+            "negative_max_ttl" => Ok(()),
             "graceful_stop_wait" => {
                 self.runtime.graceful_stop_wait = g3_yaml::humanize::as_duration(v)?;
                 Ok(())
@@ -189,15 +197,11 @@ impl HickoryResolverConfig {
         Ok(())
     }
 
-    fn check(&self) -> anyhow::Result<()> {
+    fn check(&mut self) -> anyhow::Result<()> {
         if self.name.is_empty() {
             return Err(anyhow!("name is not set"));
         }
-        if self.driver.is_unspecified() {
-            return Err(anyhow!("no dns server has been set"));
-        }
-
-        Ok(())
+        self.driver.check()
     }
 }
 

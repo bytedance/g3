@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,27 +15,25 @@
  */
 
 use std::net::{IpAddr, SocketAddr};
-use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
-use hickory_resolver::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts};
-use hickory_resolver::TokioAsyncResolver;
-use rustls::ServerName;
+use anyhow::anyhow;
 
-use g3_types::net::{DnsEncryptionConfigBuilder, DnsEncryptionProtocol};
+use g3_types::net::DnsEncryptionConfigBuilder;
 
-use super::HickoryResolver;
-use crate::BoxResolverDriver;
+use super::{HickoryClient, HickoryClientConfig, HickoryResolver};
+use crate::driver::BoxResolverDriver;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HickoryDriverConfig {
+    connect_timeout: Duration,
+    request_timeout: Duration,
     each_timeout: Duration,
-    retry_attempts: usize,
+    each_tries: i32,
+    retry_interval: Duration,
     positive_min_ttl: u32,
     positive_max_ttl: u32,
-    negative_min_ttl: u32,
-    negative_max_ttl: u32,
+    negative_ttl: u32,
     servers: Vec<IpAddr>,
     server_port: Option<u16>,
     bind_ip: Option<IpAddr>,
@@ -45,12 +43,14 @@ pub struct HickoryDriverConfig {
 impl Default for HickoryDriverConfig {
     fn default() -> Self {
         HickoryDriverConfig {
+            connect_timeout: Duration::from_secs(10),
+            request_timeout: Duration::from_secs(5),
             each_timeout: Duration::from_secs(5),
-            retry_attempts: 2,
+            each_tries: 2,
+            retry_interval: Duration::from_secs(1),
             positive_min_ttl: crate::config::RESOLVER_MINIMUM_CACHE_TTL,
             positive_max_ttl: crate::config::RESOLVER_MAXIMUM_CACHE_TTL,
-            negative_min_ttl: crate::config::RESOLVER_MINIMUM_CACHE_TTL,
-            negative_max_ttl: crate::config::RESOLVER_MAXIMUM_CACHE_TTL,
+            negative_ttl: crate::config::RESOLVER_MINIMUM_CACHE_TTL,
             servers: vec![],
             server_port: None,
             bind_ip: None,
@@ -59,83 +59,18 @@ impl Default for HickoryDriverConfig {
     }
 }
 
-impl From<&HickoryDriverConfig> for ResolverOpts {
-    fn from(c: &HickoryDriverConfig) -> Self {
-        let mut opts = ResolverOpts::default();
-        opts.timeout = c.each_timeout;
-        opts.attempts = c.retry_attempts;
-        opts.cache_size = 0;
-        opts.use_hosts_file = false;
-        opts.positive_min_ttl = Some(Duration::from_secs(c.positive_min_ttl as u64));
-        opts.negative_min_ttl = Some(Duration::from_secs(c.negative_min_ttl as u64));
-        opts.positive_max_ttl = Some(Duration::from_secs(c.positive_max_ttl as u64));
-        opts.negative_max_ttl = Some(Duration::from_secs(c.negative_max_ttl as u64));
-        opts.preserve_intermediates = false;
-        opts
-    }
-}
-
-impl TryFrom<&HickoryDriverConfig> for NameServerConfigGroup {
-    type Error = anyhow::Error;
-
-    fn try_from(c: &HickoryDriverConfig) -> anyhow::Result<Self> {
-        let g = if let Some(ec) = &c.encryption {
-            let tls_name = match ec.tls_name() {
-                ServerName::DnsName(n) => n.as_ref().to_string(),
-                ServerName::IpAddress(ip) => ip.to_string(),
-                v => return Err(anyhow!("unsupported tls server name: {v:?}")), // FIXME add after hickory support it
-            };
-
-            let mut g = match ec.protocol() {
-                DnsEncryptionProtocol::Tls => NameServerConfigGroup::from_ips_tls(
-                    &c.servers,
-                    c.server_port.unwrap_or(853),
-                    tls_name,
-                    false,
-                ),
-                DnsEncryptionProtocol::Https => NameServerConfigGroup::from_ips_https(
-                    &c.servers,
-                    c.server_port.unwrap_or(443),
-                    tls_name,
-                    false,
-                ),
-                #[cfg(feature = "quic")]
-                DnsEncryptionProtocol::H3 => NameServerConfigGroup::from_ips_h3(
-                    &c.servers,
-                    c.server_port.unwrap_or(443),
-                    tls_name,
-                    false,
-                ),
-                #[cfg(feature = "quic")]
-                DnsEncryptionProtocol::Quic => NameServerConfigGroup::from_ips_quic(
-                    &c.servers,
-                    c.server_port.unwrap_or(853),
-                    tls_name,
-                    false,
-                ),
-            };
-
-            if let Some(config) = ec
-                .build_tls_client_config()
-                .context("unable to build tls client config")?
-            {
-                g = g.with_client_config(config.driver);
-            }
-
-            g
-        } else {
-            NameServerConfigGroup::from_ips_clear(&c.servers, c.server_port.unwrap_or(53), false)
-        };
-
-        if let Some(ip) = &c.bind_ip {
-            Ok(g.with_bind_addr(Some(SocketAddr::new(*ip, 0))))
-        } else {
-            Ok(g)
-        }
-    }
-}
-
 impl HickoryDriverConfig {
+    pub fn check(&mut self) -> anyhow::Result<()> {
+        if self.servers.is_empty() {
+            return Err(anyhow!("no dns server set"));
+        }
+        if self.positive_max_ttl < self.positive_min_ttl {
+            self.positive_max_ttl = self.positive_min_ttl;
+        }
+
+        Ok(())
+    }
+
     pub fn add_server(&mut self, ip: IpAddr) {
         self.servers.push(ip);
     }
@@ -163,12 +98,20 @@ impl HickoryDriverConfig {
         self.encryption.as_ref()
     }
 
+    pub fn set_connect_timeout(&mut self, timeout: Duration) {
+        self.connect_timeout = timeout;
+    }
+
+    pub fn set_request_timeout(&mut self, timeout: Duration) {
+        self.request_timeout = timeout;
+    }
+
     pub fn set_each_timeout(&mut self, timeout: Duration) {
         self.each_timeout = timeout;
     }
 
-    pub fn set_retry_attempts(&mut self, attempts: usize) {
-        self.retry_attempts = attempts;
+    pub fn set_each_tries(&mut self, attempts: i32) {
+        self.each_tries = attempts;
     }
 
     pub fn set_bind_ip(&mut self, ip: IpAddr) {
@@ -188,29 +131,46 @@ impl HickoryDriverConfig {
         self.positive_max_ttl = ttl;
     }
 
-    pub fn set_negative_min_ttl(&mut self, ttl: u32) {
-        self.negative_min_ttl = ttl;
-    }
-
-    pub fn set_negative_max_ttl(&mut self, ttl: u32) {
-        self.negative_max_ttl = ttl;
-    }
-
-    pub fn is_unspecified(&self) -> bool {
-        self.servers.is_empty()
+    pub fn set_negative_ttl(&mut self, ttl: u32) {
+        self.negative_ttl = ttl;
     }
 
     pub(crate) fn spawn_resolver_driver(&self) -> anyhow::Result<BoxResolverDriver> {
-        let name_servers = NameServerConfigGroup::try_from(self)?;
-        let d_config = ResolverConfig::from_parts(None, vec![], name_servers);
-        let d_opts = ResolverOpts::from(self);
-
-        let d_resolver = TokioAsyncResolver::tokio(d_config, d_opts);
-
-        let resolver = HickoryResolver {
-            inner: Arc::new(d_resolver),
-            protective_cache_ttl: self.negative_min_ttl,
+        let mut driver =
+            HickoryResolver::new(self.each_timeout, self.retry_interval, self.negative_ttl);
+        let port = self.server_port.unwrap_or_else(|| {
+            self.encryption
+                .as_ref()
+                .map(|v| v.protocol().default_port())
+                .unwrap_or(53)
+        });
+        let bind = self.bind_ip.map(|ip| SocketAddr::new(ip, 0));
+        let encryption = if let Some(ec) = &self.encryption {
+            Some(ec.build()?)
+        } else {
+            None
         };
-        Ok(Box::new(resolver))
+
+        for ip in &self.servers {
+            let client_config = HickoryClientConfig {
+                target: SocketAddr::new(*ip, port),
+                bind,
+                encryption: encryption.clone(),
+                connect_timeout: self.connect_timeout,
+                request_timeout: self.request_timeout,
+                each_tries: self.each_tries,
+                positive_min_ttl: self.positive_min_ttl,
+                positive_max_ttl: self.positive_max_ttl,
+                negative_ttl: self.negative_ttl,
+            };
+            let (req_sender, req_receiver) = flume::unbounded();
+            driver.push_client(req_sender);
+            tokio::spawn(async move {
+                let client = HickoryClient::new(client_config).await.unwrap(); // TODO
+                client.run(req_receiver).await;
+            });
+        }
+
+        Ok(Box::new(driver))
     }
 }
