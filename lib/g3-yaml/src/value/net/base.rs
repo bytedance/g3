@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs};
 use std::str::FromStr;
 
 use anyhow::{anyhow, Context};
@@ -32,11 +32,15 @@ pub fn as_env_sockaddr(value: &Yaml) -> anyhow::Result<SocketAddr> {
         if let Some(var) = s.strip_prefix('$') {
             let s = std::env::var(var)
                 .map_err(|e| anyhow!("failed to get environment var {var}: {e}"))?;
-            SocketAddr::from_str(&s).map_err(|e| {
-                anyhow!("invalid socket address {s} set in environment var {var}: {e}")
-            })
+            s.to_socket_addrs()
+                .map_err(|e| anyhow!("failed to resolve socket address {s} set in environment var {var}: {e}"))?
+                .next()
+                .ok_or_else(|| anyhow!("invalid socket address {s} set in environment var {var}"))
         } else {
-            SocketAddr::from_str(s).map_err(|e| anyhow!("invalid socket address: {e}"))
+            s.to_socket_addrs()
+                .map_err(|e| anyhow!("failed to resolve socket address {s}: {e}"))?
+                .next()
+                .ok_or_else(|| anyhow!("invalid or no socket address: {s}"))
         }
     } else {
         Err(anyhow!(
@@ -47,7 +51,10 @@ pub fn as_env_sockaddr(value: &Yaml) -> anyhow::Result<SocketAddr> {
 
 pub fn as_sockaddr(value: &Yaml) -> anyhow::Result<SocketAddr> {
     if let Yaml::String(s) = value {
-        SocketAddr::from_str(s).map_err(|e| anyhow!("invalid socket address: {e}"))
+        s.to_socket_addrs()
+            .map_err(|e| anyhow!("failed to resolve socket address {s}: {e}"))?
+            .next()
+            .ok_or_else(|| anyhow!("invalid or no socket address: {s}"))
     } else {
         Err(anyhow!(
             "yaml value type for 'SocketAddr' should be 'string'"
@@ -238,6 +245,17 @@ mod tests {
         let addr_str = "192.168.255.250.3:80";
         let value = Yaml::String(String::from(addr_str));
         assert!(as_sockaddr(&value).is_err());
+    }
+
+    #[test]
+    fn as_sockaddr_correct_host_port() {
+        let addr_str = "localhost:80";
+        let value = Yaml::String(String::from(addr_str));
+        let addr = as_sockaddr(&value).unwrap();
+        assert_eq!(
+            addr,
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 80)
+        );
     }
 
     #[test]

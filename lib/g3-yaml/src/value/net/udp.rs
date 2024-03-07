@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
 use std::str::FromStr;
 
 use anyhow::{anyhow, Context};
@@ -109,9 +108,9 @@ pub fn as_udp_listen_config(value: &Yaml) -> anyhow::Result<UdpListenConfig> {
             let port = u16::try_from(*i).map_err(|e| anyhow!("out of range u16 value: {e}"))?;
             config.set_port(port);
         }
-        Yaml::String(s) => {
-            let addr =
-                SocketAddr::from_str(s).map_err(|e| anyhow!("invalid socket address: {e}"))?;
+        Yaml::String(_) => {
+            let addr = crate::value::as_sockaddr(value)
+                .map_err(|e| anyhow!("invalid socket address: {}", e))?;
             config.set_socket_address(addr);
         }
         Yaml::Hash(map) => {
