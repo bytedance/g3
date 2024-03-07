@@ -74,7 +74,7 @@ impl ProxyFloatEscaperConfig {
             tcp_keepalive: TcpKeepAliveConfig::default_enabled(),
             tcp_misc_opts: Default::default(),
             udp_misc_opts: Default::default(),
-            expire_guard_duration: chrono::Duration::seconds(5),
+            expire_guard_duration: chrono::Duration::try_seconds(5).unwrap(),
             peer_negotiation_timeout: Duration::from_secs(10),
             extra_metrics_tags: None,
         }
