@@ -71,8 +71,8 @@ impl CAresDriverConfig {
         if self.servers.is_empty() {
             return Err(anyhow!("no dns server set"));
         }
-        if self.positive_max_ttl < self.negative_ttl {
-            self.positive_max_ttl = self.negative_ttl;
+        if self.positive_max_ttl < self.positive_min_ttl {
+            self.positive_max_ttl = self.positive_min_ttl;
         }
 
         Ok(())
