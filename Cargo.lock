@@ -1266,6 +1266,7 @@ dependencies = [
  "hickory-proto",
  "indexmap",
  "log",
+ "rustls 0.23.1",
  "rustls-pki-types",
  "thiserror",
  "tokio",

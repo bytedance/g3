@@ -143,6 +143,20 @@ impl DnsEncryptionConfigBuilder {
         self.tls_config = config_builder;
     }
 
+    pub fn summary(&self) -> String {
+        match &self.tls_name {
+            ServerName::DnsName(n) => format!("{}({})", self.protocol.as_str(), n.as_ref()),
+            ServerName::IpAddress(ip) => {
+                format!(
+                    "{}({})",
+                    self.protocol.as_str(),
+                    std::net::IpAddr::from(*ip)
+                )
+            }
+            _ => format!("{}(other)", self.protocol.as_str()), // FIXME support other server name variants
+        }
+    }
+
     pub fn build_tls_client_config(&self) -> anyhow::Result<RustlsClientConfig> {
         self.tls_config.build()
     }

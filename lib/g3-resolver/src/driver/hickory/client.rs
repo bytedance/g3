@@ -24,7 +24,8 @@ use async_recursion::async_recursion;
 use hickory_client::client::{AsyncClient, ClientHandle};
 use hickory_proto::iocompat::AsyncIoTokioAsStd;
 use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
-use rustls::{ClientConfig, ServerName};
+use rustls::ClientConfig;
+use rustls_pki_types::ServerName;
 use tokio::net::{TcpStream, UdpSocket};
 use tokio::sync::mpsc;
 
@@ -307,7 +308,7 @@ impl HickoryClientConfig {
     async fn new_dns_over_tls_client(
         &self,
         tls_client: ClientConfig,
-        tls_name: ServerName,
+        tls_name: ServerName<'static>,
     ) -> anyhow::Result<AsyncClient> {
         use hickory_proto::BufDnsStreamHandle;
 
@@ -337,7 +338,7 @@ impl HickoryClientConfig {
     async fn new_dns_over_h2_client(
         &self,
         tls_client: ClientConfig,
-        tls_name: ServerName,
+        tls_name: ServerName<'static>,
     ) -> anyhow::Result<AsyncClient> {
         let client_connect = g3_hickory_client::io::h2::connect(
             self.target,
@@ -359,7 +360,7 @@ impl HickoryClientConfig {
     async fn new_dns_over_quic_client(
         &self,
         tls_client: ClientConfig,
-        tls_name: &ServerName,
+        tls_name: &ServerName<'static>,
     ) -> anyhow::Result<AsyncClient> {
         let tls_name = match tls_name {
             ServerName::DnsName(domain) => domain.as_ref().to_string(),
@@ -387,7 +388,7 @@ impl HickoryClientConfig {
     async fn new_dns_over_h3_client(
         &self,
         tls_client: ClientConfig,
-        tls_name: &ServerName,
+        tls_name: &ServerName<'static>,
     ) -> anyhow::Result<AsyncClient> {
         let tls_name = match tls_name {
             ServerName::DnsName(domain) => domain.as_ref().to_string(),
