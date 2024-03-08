@@ -165,7 +165,7 @@ impl RouteGeoIpEscaper {
                 let mut resolver_job = HappyEyeballsResolveJob::new_dyn(
                     self.config.resolve_strategy,
                     &self.resolver_handle,
-                    domain,
+                    Arc::from(domain.as_str()),
                 )?;
                 let v = resolver_job
                     .get_r1_or_first(self.config.resolution_delay, usize::MAX)

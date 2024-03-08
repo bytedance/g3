@@ -43,12 +43,12 @@ pub(crate) struct ResolverRuntime {
     ctl_receiver: mpsc::UnboundedReceiver<ResolverCommand>,
     rsp_receiver: mpsc::UnboundedReceiver<ResolveDriverResponse>,
     rsp_sender: mpsc::UnboundedSender<ResolveDriverResponse>,
-    expired_v4: DelayQueue<String>,
-    expired_v6: DelayQueue<String>,
-    cache_v4: AHashMap<String, CachedRecord>,
-    cache_v6: AHashMap<String, CachedRecord>,
-    doing_v4: AHashMap<String, Vec<oneshot::Sender<(ArcResolvedRecord, ResolvedRecordSource)>>>,
-    doing_v6: AHashMap<String, Vec<oneshot::Sender<(ArcResolvedRecord, ResolvedRecordSource)>>>,
+    expired_v4: DelayQueue<Arc<str>>,
+    expired_v6: DelayQueue<Arc<str>>,
+    cache_v4: AHashMap<Arc<str>, CachedRecord>,
+    cache_v6: AHashMap<Arc<str>, CachedRecord>,
+    doing_v4: AHashMap<Arc<str>, Vec<oneshot::Sender<(ArcResolvedRecord, ResolvedRecordSource)>>>,
+    doing_v6: AHashMap<Arc<str>, Vec<oneshot::Sender<(ArcResolvedRecord, ResolvedRecordSource)>>>,
     driver: Option<BoxResolverDriver>,
 }
 
@@ -101,12 +101,12 @@ impl ResolverRuntime {
     }
 
     fn update_cache(
-        cache: &mut AHashMap<String, CachedRecord>,
-        expire_queue: &mut DelayQueue<String>,
+        cache: &mut AHashMap<Arc<str>, CachedRecord>,
+        expire_queue: &mut DelayQueue<Arc<str>>,
         record: ArcResolvedRecord,
         expire_at: Instant,
     ) {
-        match cache.entry(record.domain.to_owned()) {
+        match cache.entry(record.domain.clone()) {
             hash_map::Entry::Occupied(mut o) => {
                 let v = o.get_mut();
                 let expire_key = match v.expire_key.take() {
@@ -114,7 +114,7 @@ impl ResolverRuntime {
                         expire_queue.reset_at(&expire_key, expire_at);
                         expire_key
                     }
-                    None => expire_queue.insert_at(record.domain.to_owned(), expire_at),
+                    None => expire_queue.insert_at(record.domain.clone(), expire_at),
                 };
                 v.inner = record;
                 v.expire_at = expire_at;

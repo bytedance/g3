@@ -136,7 +136,7 @@ where
                                     let resolver_job = ArriveFirstResolveJob::new(
                                         &self.resolver_handle,
                                         self.resolve_strategy,
-                                        &domain,
+                                        Arc::from(domain),
                                     )?;
                                     self.resolver_job = Some(resolver_job);
                                     // no retry by leaving resolve_retry_domain to None
@@ -168,7 +168,7 @@ where
                 let resolver_job = ArriveFirstResolveJob::new(
                     &self.resolver_handle,
                     self.resolve_strategy,
-                    domain,
+                    Arc::from(domain.as_str()),
                 )?;
                 self.resolver_job = Some(resolver_job);
                 self.resolve_retry_domain = Some(domain.to_string());

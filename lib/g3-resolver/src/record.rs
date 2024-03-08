@@ -47,7 +47,7 @@ impl fmt::Display for ResolvedRecordSource {
 
 #[derive(Clone, Debug)]
 pub struct ResolvedRecord {
-    pub domain: String,
+    pub domain: Arc<str>,
     pub created: Instant,
     pub expire: Option<Instant>,
     pub result: Result<Vec<IpAddr>, ResolveError>,
@@ -68,7 +68,7 @@ impl ResolvedRecord {
         self.result.is_err()
     }
 
-    pub fn timed_out(domain: String, protective_cache_ttl: u32) -> Self {
+    pub fn timed_out(domain: Arc<str>, protective_cache_ttl: u32) -> Self {
         ResolvedRecord::failed(
             domain,
             protective_cache_ttl,
@@ -76,7 +76,7 @@ impl ResolvedRecord {
         )
     }
 
-    pub fn resolved(domain: String, ttl: u32, ips: Vec<IpAddr>) -> Self {
+    pub fn resolved(domain: Arc<str>, ttl: u32, ips: Vec<IpAddr>) -> Self {
         let created = Instant::now();
         let expire = created.checked_add(Duration::from_secs(ttl as u64));
         ResolvedRecord {
@@ -87,7 +87,7 @@ impl ResolvedRecord {
         }
     }
 
-    pub fn failed(domain: String, protective_cache_ttl: u32, err: ResolveError) -> Self {
+    pub fn failed(domain: Arc<str>, protective_cache_ttl: u32, err: ResolveError) -> Self {
         let created = Instant::now();
         let expire = created.checked_add(Duration::from_secs(protective_cache_ttl as u64));
         ResolvedRecord {

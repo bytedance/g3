@@ -114,13 +114,13 @@ impl IntegratedResolverHandle for DenyAllResolverHandle {
         false
     }
 
-    fn query_v4(&self, _domain: String) -> Result<BoxLoggedResolveJob, ResolveError> {
+    fn query_v4(&self, _domain: Arc<str>) -> Result<BoxLoggedResolveJob, ResolveError> {
         Ok(Box::new(ErrorResolveJob::with_error(
             ResolveLocalError::NoResolverRunning.into(),
         )))
     }
 
-    fn query_v6(&self, _domain: String) -> Result<BoxLoggedResolveJob, ResolveError> {
+    fn query_v6(&self, _domain: Arc<str>) -> Result<BoxLoggedResolveJob, ResolveError> {
         Ok(Box::new(ErrorResolveJob::with_error(
             ResolveLocalError::NoResolverRunning.into(),
         )))

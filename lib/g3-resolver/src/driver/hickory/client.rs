@@ -34,21 +34,21 @@ use crate::{ResolveDriverError, ResolveError, ResolvedRecord};
 
 #[derive(Clone)]
 pub(super) struct DnsRequest {
-    domain: String,
+    domain: Arc<str>,
     rtype: RecordType,
 }
 
 impl DnsRequest {
-    pub(super) fn query_ipv6(domain: &str) -> Self {
+    pub(super) fn query_ipv6(domain: Arc<str>) -> Self {
         DnsRequest {
-            domain: domain.to_string(),
+            domain,
             rtype: RecordType::AAAA,
         }
     }
 
-    pub(super) fn query_ipv4(domain: &str) -> Self {
+    pub(super) fn query_ipv4(domain: Arc<str>) -> Self {
         DnsRequest {
-            domain: domain.to_string(),
+            domain,
             rtype: RecordType::A,
         }
     }

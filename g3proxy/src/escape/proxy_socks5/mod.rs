@@ -137,7 +137,11 @@ impl ProxySocks5Escaper {
 
     fn resolve_happy(&self, domain: &str) -> Result<HappyEyeballsResolveJob, ResolveError> {
         if let Some(resolver_handle) = &self.resolver_handle {
-            HappyEyeballsResolveJob::new_dyn(self.config.resolve_strategy, resolver_handle, domain)
+            HappyEyeballsResolveJob::new_dyn(
+                self.config.resolve_strategy,
+                resolver_handle,
+                Arc::from(domain),
+            )
         } else {
             Err(ResolveLocalError::NoResolverSet.into())
         }

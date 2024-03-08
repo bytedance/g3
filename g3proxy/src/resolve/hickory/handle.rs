@@ -58,7 +58,7 @@ impl IntegratedResolverHandle for HickoryResolverHandle {
         self.inner.is_closed()
     }
 
-    fn query_v4(&self, domain: String) -> Result<BoxLoggedResolveJob, ResolveError> {
+    fn query_v4(&self, domain: Arc<str>) -> Result<BoxLoggedResolveJob, ResolveError> {
         let job = self.inner.get_v4(domain.clone())?;
         Ok(Box::new(HickoryResolverJob {
             config: Arc::clone(&self.config),
@@ -70,7 +70,7 @@ impl IntegratedResolverHandle for HickoryResolverHandle {
         }))
     }
 
-    fn query_v6(&self, domain: String) -> Result<BoxLoggedResolveJob, ResolveError> {
+    fn query_v6(&self, domain: Arc<str>) -> Result<BoxLoggedResolveJob, ResolveError> {
         let job = self.inner.get_v6(domain.clone())?;
         Ok(Box::new(HickoryResolverJob {
             config: Arc::clone(&self.config),
@@ -89,7 +89,7 @@ impl IntegratedResolverHandle for HickoryResolverHandle {
 
 struct HickoryResolverJob {
     config: Arc<HickoryResolverConfig>,
-    domain: String,
+    domain: Arc<str>,
     query_type: ResolveQueryType,
     inner: g3_resolver::ResolveJob,
     logger: Arc<Logger>,
