@@ -15,6 +15,7 @@
  */
 
 use std::net::IpAddr;
+use std::sync::Arc;
 use std::time::Duration;
 
 use c_ares::{AAAAResults, AResults};
@@ -84,7 +85,11 @@ impl ResultConverter for AAAAResults {
     }
 }
 
-async fn resolve<T>(query_future: CAresFuture<T>, domain: &str, config: JobConfig) -> ResolvedRecord
+async fn resolve<T>(
+    query_future: CAresFuture<T>,
+    domain: Arc<str>,
+    config: JobConfig,
+) -> ResolvedRecord
 where
     T: ResultConverter,
 {
@@ -95,7 +100,7 @@ where
             let ttl = ttl.clamp(config.positive_min_ttl, config.positive_max_ttl);
             let expire = created.checked_add(Duration::from_secs(ttl as u64));
             ResolvedRecord {
-                domain: domain.to_string(),
+                domain,
                 created,
                 expire,
                 result: Ok(addrs),
@@ -105,14 +110,14 @@ where
             let expire = created.checked_add(Duration::from_secs(config.negative_ttl as u64));
             if let Some(e) = ResolveError::from_cares_error(e) {
                 ResolvedRecord {
-                    domain: domain.to_string(),
+                    domain,
                     created,
                     expire,
                     result: Err(e),
                 }
             } else {
                 ResolvedRecord {
-                    domain: domain.to_string(),
+                    domain,
                     created,
                     expire,
                     result: Ok(Vec::new()),
@@ -124,21 +129,24 @@ where
 
 async fn resolve_protective<T>(
     query_future: CAresFuture<T>,
-    domain: String,
+    domain: Arc<str>,
     config: JobConfig,
 ) -> ResolvedRecord
 where
     T: ResultConverter,
 {
-    tokio::time::timeout(config.timeout, resolve(query_future, &domain, config))
-        .await
-        .unwrap_or_else(|_| ResolvedRecord::timed_out(domain, config.negative_ttl))
+    tokio::time::timeout(
+        config.timeout,
+        resolve(query_future, domain.clone(), config),
+    )
+    .await
+    .unwrap_or_else(|_| ResolvedRecord::timed_out(domain, config.negative_ttl))
 }
 
 impl ResolveDriver for CAresResolver {
     fn query_v4(
         &self,
-        domain: String,
+        domain: Arc<str>,
         config: &ResolverRuntimeConfig,
         sender: mpsc::UnboundedSender<ResolveDriverResponse>,
     ) {
@@ -153,7 +161,7 @@ impl ResolveDriver for CAresResolver {
 
     fn query_v6(
         &self,
-        domain: String,
+        domain: Arc<str>,
         config: &ResolverRuntimeConfig,
         sender: mpsc::UnboundedSender<ResolveDriverResponse>,
     ) {

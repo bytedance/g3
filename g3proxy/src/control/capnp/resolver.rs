@@ -58,7 +58,7 @@ impl resolver_control::Server for ResolverControlImpl {
             let mut job = match HappyEyeballsResolveJob::new_dyn(
                 resolver_strategy,
                 &resolver_handler,
-                &domain,
+                Arc::from(domain),
             ) {
                 Ok(job) => job,
                 Err(e) => {

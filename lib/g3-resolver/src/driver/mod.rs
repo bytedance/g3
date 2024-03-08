@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+use std::sync::Arc;
+
 use tokio::sync::mpsc;
 
 use crate::config::ResolverRuntimeConfig;
@@ -51,13 +53,13 @@ impl AnyResolveDriverConfig {
 pub(crate) trait ResolveDriver {
     fn query_v4(
         &self,
-        domain: String,
+        domain: Arc<str>,
         config: &ResolverRuntimeConfig,
         sender: mpsc::UnboundedSender<ResolveDriverResponse>,
     );
     fn query_v6(
         &self,
-        domain: String,
+        domain: Arc<str>,
         config: &ResolverRuntimeConfig,
         sender: mpsc::UnboundedSender<ResolveDriverResponse>,
     );

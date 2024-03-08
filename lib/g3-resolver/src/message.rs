@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+use std::sync::Arc;
+
 use tokio::sync::oneshot;
 
 use super::{ArcResolvedRecord, ResolvedRecord, ResolvedRecordSource, ResolverConfig};
@@ -26,11 +28,11 @@ pub(crate) enum ResolverCommand {
 
 pub(crate) enum ResolveDriverRequest {
     GetV4(
-        String,
+        Arc<str>,
         oneshot::Sender<(ArcResolvedRecord, ResolvedRecordSource)>,
     ),
     GetV6(
-        String,
+        Arc<str>,
         oneshot::Sender<(ArcResolvedRecord, ResolvedRecordSource)>,
     ),
 }

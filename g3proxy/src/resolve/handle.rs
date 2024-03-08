@@ -51,8 +51,8 @@ macro_rules! impl_logged_poll_query {
 pub(crate) trait IntegratedResolverHandle {
     fn name(&self) -> &MetricsName;
     fn is_closed(&self) -> bool;
-    fn query_v4(&self, domain: String) -> Result<BoxLoggedResolveJob, ResolveError>;
-    fn query_v6(&self, domain: String) -> Result<BoxLoggedResolveJob, ResolveError>;
+    fn query_v4(&self, domain: Arc<str>) -> Result<BoxLoggedResolveJob, ResolveError>;
+    fn query_v6(&self, domain: Arc<str>) -> Result<BoxLoggedResolveJob, ResolveError>;
 
     fn clone_inner(&self) -> Option<g3_resolver::ResolverHandle>;
 }
@@ -105,7 +105,7 @@ impl HappyEyeballsResolveJob {
         v: ResolveRedirectionValue,
     ) -> Result<Self, ResolveError> {
         match v {
-            ResolveRedirectionValue::Domain(d) => Self::new_dyn(s, h, &d),
+            ResolveRedirectionValue::Domain(d) => Self::new_dyn(s, h, Arc::from(d)),
             ResolveRedirectionValue::Ip((ip4, ip6)) => {
                 let mut job = HappyEyeballsResolveJob {
                     r1: None,
@@ -153,14 +153,14 @@ impl HappyEyeballsResolveJob {
     pub(crate) fn new_dyn(
         s: ResolveStrategy,
         h: &ArcIntegratedResolverHandle,
-        domain: &str,
+        domain: Arc<str>,
     ) -> Result<Self, ResolveError> {
         if domain.is_empty() {
             return Err(ResolveError::EmptyDomain);
         }
         match s.query {
             QueryStrategy::Ipv4Only => {
-                let h1 = h.query_v4(domain.to_string())?;
+                let h1 = h.query_v4(domain)?;
                 let h2 = Box::new(NeverResolveJob {});
                 Ok(HappyEyeballsResolveJob {
                     r1: None,
@@ -174,8 +174,8 @@ impl HappyEyeballsResolveJob {
                 })
             }
             QueryStrategy::Ipv4First => {
-                let h1 = h.query_v4(domain.to_string())?;
-                let h2 = h.query_v6(domain.to_string())?;
+                let h1 = h.query_v4(domain.clone())?;
+                let h2 = h.query_v6(domain)?;
                 Ok(HappyEyeballsResolveJob {
                     r1: None,
                     r2: None,
@@ -188,7 +188,7 @@ impl HappyEyeballsResolveJob {
                 })
             }
             QueryStrategy::Ipv6Only => {
-                let h1 = h.query_v6(domain.to_string())?;
+                let h1 = h.query_v6(domain)?;
                 let h2 = Box::new(NeverResolveJob {});
                 Ok(HappyEyeballsResolveJob {
                     r1: None,
@@ -202,8 +202,8 @@ impl HappyEyeballsResolveJob {
                 })
             }
             QueryStrategy::Ipv6First => {
-                let h1 = h.query_v6(domain.to_string())?;
-                let h2 = h.query_v4(domain.to_string())?;
+                let h1 = h.query_v6(domain.clone())?;
+                let h2 = h.query_v4(domain)?;
                 Ok(HappyEyeballsResolveJob {
                     r1: None,
                     r2: None,
@@ -361,25 +361,25 @@ impl ArriveFirstResolveJob {
     pub(crate) fn new(
         handle: &ArcIntegratedResolverHandle,
         strategy: ResolveStrategy,
-        domain: &str,
+        domain: Arc<str>,
     ) -> Result<Self, ResolveError> {
         if domain.is_empty() {
             return Err(ResolveError::EmptyDomain);
         }
         let inner = match strategy.query {
             QueryStrategy::Ipv4Only => {
-                ArriveFirstResolveJobInner::OnlyOne(handle.query_v4(domain.to_string())?)
+                ArriveFirstResolveJobInner::OnlyOne(handle.query_v4(domain)?)
             }
             QueryStrategy::Ipv6Only => {
-                ArriveFirstResolveJobInner::OnlyOne(handle.query_v6(domain.to_string())?)
+                ArriveFirstResolveJobInner::OnlyOne(handle.query_v6(domain)?)
             }
             QueryStrategy::Ipv4First => ArriveFirstResolveJobInner::First(
-                handle.query_v4(domain.to_string())?,
-                handle.query_v6(domain.to_string())?,
+                handle.query_v4(domain.clone())?,
+                handle.query_v6(domain)?,
             ),
             QueryStrategy::Ipv6First => ArriveFirstResolveJobInner::First(
-                handle.query_v6(domain.to_string())?,
-                handle.query_v4(domain.to_string())?,
+                handle.query_v6(domain.clone())?,
+                handle.query_v4(domain)?,
             ),
         };
         Ok(ArriveFirstResolveJob {

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::sync::mpsc;
@@ -42,14 +43,12 @@ struct FailOverResolverJob {
 impl FailOverResolverJob {
     fn normalize_job_recv_result(
         &self,
-        domain: &str,
+        domain: Arc<str>,
         result: ResolveJobRecvResult,
     ) -> ResolvedRecord {
         match result {
             Ok((r, _)) => r.as_ref().clone(),
-            Err(e) => {
-                ResolvedRecord::failed(domain.to_string(), self.config.negative_ttl, e.into())
-            }
+            Err(e) => ResolvedRecord::failed(domain, self.config.negative_ttl, e.into()),
         }
     }
 
@@ -61,7 +60,7 @@ impl FailOverResolverJob {
         }
     }
 
-    async fn resolve(mut self, domain: &str) -> ResolvedRecord {
+    async fn resolve(mut self, domain: Arc<str>) -> ResolvedRecord {
         let primary = self.primary.take();
         let standby = self.standby.take();
         match (primary, standby) {
@@ -121,9 +120,9 @@ impl FailOverResolverJob {
         }
     }
 
-    async fn resolve_protective(self, domain: String) -> ResolvedRecord {
+    async fn resolve_protective(self, domain: Arc<str>) -> ResolvedRecord {
         let protective_cache_ttl = self.config.negative_ttl;
-        tokio::time::timeout(self.job_timeout, self.resolve(&domain))
+        tokio::time::timeout(self.job_timeout, self.resolve(domain.clone()))
             .await
             .unwrap_or_else(|_| ResolvedRecord::timed_out(domain, protective_cache_ttl))
     }
@@ -132,7 +131,7 @@ impl FailOverResolverJob {
 impl ResolveDriver for FailOverResolver {
     fn query_v4(
         &self,
-        domain: String,
+        domain: Arc<str>,
         config: &ResolverRuntimeConfig,
         sender: mpsc::UnboundedSender<ResolveDriverResponse>,
     ) {
@@ -160,7 +159,7 @@ impl ResolveDriver for FailOverResolver {
 
     fn query_v6(
         &self,
-        domain: String,
+        domain: Arc<str>,
         config: &ResolverRuntimeConfig,
         sender: mpsc::UnboundedSender<ResolveDriverResponse>,
     ) {

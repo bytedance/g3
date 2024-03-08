@@ -178,7 +178,7 @@ impl DirectFixedEscaper {
             }
         }
 
-        HappyEyeballsResolveJob::new_dyn(strategy, &self.resolver_handle, domain)
+        HappyEyeballsResolveJob::new_dyn(strategy, &self.resolver_handle, Arc::from(domain))
     }
 
     async fn resolve_best(
@@ -187,7 +187,7 @@ impl DirectFixedEscaper {
         strategy: ResolveStrategy,
     ) -> Result<IpAddr, ResolveError> {
         let mut resolver_job =
-            HappyEyeballsResolveJob::new_dyn(strategy, &self.resolver_handle, domain)?;
+            HappyEyeballsResolveJob::new_dyn(strategy, &self.resolver_handle, Arc::from(domain))?;
         let ips = resolver_job
             .get_r1_or_first(self.config.happy_eyeballs.resolution_delay(), usize::MAX)
             .await?;
