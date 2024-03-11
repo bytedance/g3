@@ -242,12 +242,12 @@ impl User {
         {
             user.update_ingress_net_filter();
         } else {
-            user.ingress_net_filter = self.ingress_net_filter.clone();
+            user.ingress_net_filter.clone_from(&self.ingress_net_filter);
         }
         if self.config.dst_host_filter.ne(&config.dst_host_filter) {
             user.update_dst_host_filter();
         } else {
-            user.dst_host_filter = self.dst_host_filter.clone();
+            user.dst_host_filter.clone_from(&self.dst_host_filter);
         }
         user.update_resolve_redirection();
         user

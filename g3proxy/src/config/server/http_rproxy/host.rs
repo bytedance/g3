@@ -98,7 +98,7 @@ impl YamlMapCallback for HttpHostConfig {
             return Err(anyhow!("upstream is empty"));
         }
         if self.tls_name.is_empty() {
-            self.tls_name = self.upstream.host().to_owned();
+            self.upstream.host().clone_into(&mut self.tls_name);
         }
         Ok(())
     }

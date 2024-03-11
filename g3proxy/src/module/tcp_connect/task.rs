@@ -94,7 +94,7 @@ impl TcpConnectTaskNotes {
         self.tries = other.tries;
         self.local = other.local;
         self.expire = other.expire;
-        self.egress = other.egress.clone();
+        self.egress.clone_from(&other.egress);
         self.chained.clone_from(&other.chained);
         self.duration = other.duration;
     }

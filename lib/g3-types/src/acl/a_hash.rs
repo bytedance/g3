@@ -60,10 +60,10 @@ where
         self.missed_action = action;
     }
 
-    pub fn check<Q: ?Sized>(&self, node: &Q) -> (bool, AclAction)
+    pub fn check<Q>(&self, node: &Q) -> (bool, AclAction)
     where
         K: Borrow<Q>,
-        Q: Hash + Eq,
+        Q: Hash + Eq + ?Sized,
     {
         if let Some(action) = self.inner.get(node) {
             (true, *action)

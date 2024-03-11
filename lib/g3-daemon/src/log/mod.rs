@@ -36,6 +36,12 @@ pub struct LogConfigContainer {
     inner: Option<LogConfig>,
 }
 
+impl Default for LogConfigContainer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LogConfigContainer {
     pub const fn new() -> Self {
         LogConfigContainer { inner: None }
