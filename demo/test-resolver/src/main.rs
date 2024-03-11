@@ -16,6 +16,7 @@
 
 use std::net::IpAddr;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use log::info;
 use slog::{slog_o, Drain};
@@ -54,10 +55,10 @@ fn main() {
         };
         let resolver = ResolverBuilder::new(config).build().unwrap();
         let handle = resolver.get_handle();
-        let mut job = handle.get_v4("www.xjtu.edu.cn".to_string()).unwrap();
+        let mut job = handle.get_v4(Arc::from("www.xjtu.edu.cn")).unwrap();
         let data = job.recv().await;
         info!("v4 data: {:?}", data);
-        let mut job = handle.get_v6("www.xjtu.edu.cn".to_string()).unwrap();
+        let mut job = handle.get_v6(Arc::from("www.xjtu.edu.cn")).unwrap();
         let data = job.recv().await;
         info!("v6 data: {:?}", data);
     });

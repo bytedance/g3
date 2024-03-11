@@ -49,7 +49,7 @@ pub(crate) struct DirectUdpRelayRemoteSend<T> {
     resolver_handle: ArcIntegratedResolverHandle,
     resolve_strategy: ResolveStrategy,
     resolver_job: Option<ArriveFirstResolveJob>,
-    resolve_retry_domain: Option<String>,
+    resolve_retry_domain: Option<Arc<str>>,
     resolved_port: u16,
     resolved_ip: Option<IpAddr>,
 }
@@ -136,7 +136,7 @@ where
                                     let resolver_job = ArriveFirstResolveJob::new(
                                         &self.resolver_handle,
                                         self.resolve_strategy,
-                                        Arc::from(domain),
+                                        domain,
                                     )?;
                                     self.resolver_job = Some(resolver_job);
                                     // no retry by leaving resolve_retry_domain to None
@@ -165,13 +165,14 @@ where
             }
             Host::Domain(domain) => {
                 self.resolved_port = to.port();
+                let domain: Arc<str> = Arc::from(domain.as_str());
                 let resolver_job = ArriveFirstResolveJob::new(
                     &self.resolver_handle,
                     self.resolve_strategy,
-                    Arc::from(domain.as_str()),
+                    domain.clone(),
                 )?;
                 self.resolver_job = Some(resolver_job);
-                self.resolve_retry_domain = Some(domain.to_string());
+                self.resolve_retry_domain = Some(domain);
                 self.poll_send_packet(cx, buf, to)
             }
         }

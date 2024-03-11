@@ -177,30 +177,40 @@ impl HickoryClientJob {
                     let mut ttl = 0;
                     for r in msg.take_answers() {
                         ttl = r.ttl();
-                        match r.data() {
-                            Some(RData::A(v)) => {
+                        let Some(rdata) = r.data() else {
+                            continue;
+                        };
+                        match rdata {
+                            RData::A(v) => {
                                 if req.rtype == RecordType::A {
                                     ips.push(IpAddr::V4(v.0));
                                 }
                             }
-                            Some(RData::AAAA(v)) => {
+                            RData::AAAA(v) => {
                                 if req.rtype == RecordType::AAAA {
                                     ips.push(IpAddr::V6(v.0))
                                 }
                             }
-                            Some(RData::CNAME(v)) => {
-                                has_cname = true;
-                                name = v.0.clone();
+                            RData::CNAME(v) => {
+                                if name.eq(r.name()) {
+                                    has_cname = true;
+                                    name = v.0.clone();
+                                }
                             }
                             _ => {}
                         }
                     }
-                    if has_cname {
-                        self.try_truncated = true;
-                        continue;
-                    }
-                    let ttl = ttl.clamp(self.config.positive_min_ttl, self.config.positive_max_ttl);
-                    return ResolvedRecord::resolved(req.domain, ttl, ips);
+                    return if ips.is_empty() {
+                        if has_cname {
+                            self.try_truncated = true;
+                            continue;
+                        }
+                        ResolvedRecord::resolved(req.domain, self.config.negative_ttl, ips)
+                    } else {
+                        let ttl =
+                            ttl.clamp(self.config.positive_min_ttl, self.config.positive_max_ttl);
+                        ResolvedRecord::resolved(req.domain, ttl, ips)
+                    };
                 }
                 Err(e) => {
                     self.state.add_failed();
