@@ -13,7 +13,7 @@
 %define build_profile release-lto
 
 Name:           g3proxy
-Version:        1.7.36
+Version:        1.7.37
 Release:        1%{?dist}
 Summary:        Generic proxy for G3 Project
 
@@ -71,5 +71,5 @@ install -m 644 -D %{name}/service/g3proxy@.service %{buildroot}/lib/systemd/syst
 
 
 %changelog
-* Wed Feb 28 2024 G3proxy Maintainers <g3proxy-maintainers@devel.machine> - 1.7.36-1
+* Mon Mar 11 2024 G3proxy Maintainers <g3proxy-maintainers@devel.machine> - 1.7.37-1
 - New upstream release

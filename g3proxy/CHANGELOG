@@ -1,4 +1,9 @@
 
+v1.7.37:
+ - BUG FIX: fix UDP sendmmsg & recvmmsg
+ - Feature: allow to set Netfilter Mark for listening sockets on Linux
+ - Feature: rewrite hickory resolver and add more config options
+
 v1.7.36:
  - BUG FIX: fix h2 interception by removing server push code
  - Optimization: always dump the remote side of the tls decrypted traffic
