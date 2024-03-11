@@ -5,6 +5,8 @@ BEGIN {
 
 $1 == "Version:" {
 	OLD_VERSION = $2;
+	# escape '+' in version string
+	sub("[+]", "[+]", OLD_VERSION)
 	sub(OLD_VERSION, VERSION, $0)
 	print $0;
 	next;
