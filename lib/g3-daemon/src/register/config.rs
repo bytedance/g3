@@ -17,7 +17,6 @@
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
-
 use http::uri::PathAndQuery;
 use yaml_rust::{yaml, Yaml};
 
