@@ -108,9 +108,8 @@ impl EscaperConfig for TrickFloatEscaperConfig {
     }
 
     fn diff_action(&self, new: &AnyEscaperConfig) -> EscaperConfigDiffAction {
-        let new = match new {
-            AnyEscaperConfig::TrickFloat(config) => config,
-            _ => return EscaperConfigDiffAction::SpawnNew,
+        let AnyEscaperConfig::TrickFloat(new) = new else {
+            return EscaperConfigDiffAction::SpawnNew;
         };
 
         if self.eq(new) {

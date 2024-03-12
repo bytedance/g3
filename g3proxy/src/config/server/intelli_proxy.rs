@@ -169,9 +169,8 @@ impl ServerConfig for IntelliProxyConfig {
     }
 
     fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction {
-        let new = match new {
-            AnyServerConfig::IntelliProxy(config) => config,
-            _ => return ServerConfigDiffAction::SpawnNew,
+        let AnyServerConfig::IntelliProxy(new) = new else {
+            return ServerConfigDiffAction::SpawnNew;
         };
 
         if self.eq(new) {

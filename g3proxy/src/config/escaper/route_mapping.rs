@@ -112,9 +112,8 @@ impl EscaperConfig for RouteMappingEscaperConfig {
     }
 
     fn diff_action(&self, new: &AnyEscaperConfig) -> EscaperConfigDiffAction {
-        let new = match new {
-            AnyEscaperConfig::RouteMapping(config) => config,
-            _ => return EscaperConfigDiffAction::SpawnNew,
+        let AnyEscaperConfig::RouteMapping(new) = new else {
+            return EscaperConfigDiffAction::SpawnNew;
         };
 
         if self.eq(new) {

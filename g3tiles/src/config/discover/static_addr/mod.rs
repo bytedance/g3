@@ -31,7 +31,7 @@ mod yaml;
 
 const DISCOVER_CONFIG_TYPE: &str = "StaticAddr";
 
-#[derive(Default)]
+#[derive(Default, PartialEq, Eq)]
 pub(crate) struct StaticAddrDiscoverInput {
     pub(crate) inner: Vec<WeightedValue<SocketAddr>>,
 }
@@ -75,9 +75,8 @@ impl DiscoverConfig for StaticAddrDiscoverConfig {
     }
 
     fn diff_action(&self, new: &AnyDiscoverConfig) -> DiscoverConfigDiffAction {
-        let _ = match new {
-            AnyDiscoverConfig::StaticAddr(config) => config,
-            _ => return DiscoverConfigDiffAction::SpawnNew,
+        let AnyDiscoverConfig::StaticAddr(_new) = new else {
+            return DiscoverConfigDiffAction::SpawnNew;
         };
 
         DiscoverConfigDiffAction::NoAction

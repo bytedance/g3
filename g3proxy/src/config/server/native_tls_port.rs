@@ -164,9 +164,8 @@ impl ServerConfig for NativeTlsPortConfig {
     }
 
     fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction {
-        let new = match new {
-            AnyServerConfig::NativeTlsPort(config) => config,
-            _ => return ServerConfigDiffAction::SpawnNew,
+        let AnyServerConfig::NativeTlsPort(new) = new else {
+            return ServerConfigDiffAction::SpawnNew;
         };
 
         if self.eq(new) {

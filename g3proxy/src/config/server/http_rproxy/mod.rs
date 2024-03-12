@@ -367,9 +367,8 @@ impl ServerConfig for HttpRProxyServerConfig {
     }
 
     fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction {
-        let new = match new {
-            AnyServerConfig::HttpRProxy(config) => config,
-            _ => return ServerConfigDiffAction::SpawnNew,
+        let AnyServerConfig::HttpRProxy(new) = new else {
+            return ServerConfigDiffAction::SpawnNew;
         };
 
         if self.eq(new) {

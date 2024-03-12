@@ -358,9 +358,8 @@ impl ServerConfig for SocksProxyServerConfig {
     }
 
     fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction {
-        let new = match new {
-            AnyServerConfig::SocksProxy(config) => config,
-            _ => return ServerConfigDiffAction::SpawnNew,
+        let AnyServerConfig::SocksProxy(new) = new else {
+            return ServerConfigDiffAction::SpawnNew;
         };
 
         if self.eq(new) {

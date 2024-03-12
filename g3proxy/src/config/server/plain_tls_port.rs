@@ -163,9 +163,8 @@ impl ServerConfig for PlainTlsPortConfig {
     }
 
     fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction {
-        let new = match new {
-            AnyServerConfig::PlainTlsPort(config) => config,
-            _ => return ServerConfigDiffAction::SpawnNew,
+        let AnyServerConfig::PlainTlsPort(new) = new else {
+            return ServerConfigDiffAction::SpawnNew;
         };
 
         if self.eq(new) {

@@ -97,9 +97,8 @@ impl ServerConfig for DummyCloseServerConfig {
     }
 
     fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction {
-        let _ = match new {
-            AnyServerConfig::DummyClose(config) => config,
-            _ => return ServerConfigDiffAction::SpawnNew,
+        let AnyServerConfig::DummyClose(_new) = new else {
+            return ServerConfigDiffAction::SpawnNew;
         };
 
         ServerConfigDiffAction::NoAction

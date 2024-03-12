@@ -309,9 +309,8 @@ impl EscaperConfig for RouteUpstreamEscaperConfig {
     }
 
     fn diff_action(&self, new: &AnyEscaperConfig) -> EscaperConfigDiffAction {
-        let new = match new {
-            AnyEscaperConfig::RouteUpstream(config) => config,
-            _ => return EscaperConfigDiffAction::SpawnNew,
+        let AnyEscaperConfig::RouteUpstream(new) = new else {
+            return EscaperConfigDiffAction::SpawnNew;
         };
 
         if self.eq(new) {

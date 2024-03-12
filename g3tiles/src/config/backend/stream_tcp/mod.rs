@@ -126,10 +126,13 @@ impl BackendConfig for StreamTcpBackendConfig {
     }
 
     fn diff_action(&self, new: &AnyBackendConfig) -> BackendConfigDiffAction {
-        let _ = match new {
-            AnyBackendConfig::StreamTcp(config) => config,
-            _ => return BackendConfigDiffAction::SpawnNew,
+        let AnyBackendConfig::StreamTcp(new) = new else {
+            return BackendConfigDiffAction::SpawnNew;
         };
+
+        if self.eq(new) {
+            return BackendConfigDiffAction::NoAction;
+        }
 
         BackendConfigDiffAction::Reload
     }

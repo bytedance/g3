@@ -219,9 +219,8 @@ impl super::ResolverConfig for HickoryResolverConfig {
     }
 
     fn diff_action(&self, new: &AnyResolverConfig) -> ResolverConfigDiffAction {
-        let new = match new {
-            AnyResolverConfig::Hickory(new) => new,
-            _ => return ResolverConfigDiffAction::SpawnNew,
+        let AnyResolverConfig::Hickory(new) = new else {
+            return ResolverConfigDiffAction::SpawnNew;
         };
 
         if self.eq(new) {

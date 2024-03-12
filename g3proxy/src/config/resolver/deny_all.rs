@@ -82,10 +82,11 @@ impl ResolverConfig for DenyAllResolverConfig {
     }
 
     fn diff_action(&self, new: &AnyResolverConfig) -> ResolverConfigDiffAction {
-        match new {
-            AnyResolverConfig::DenyAll(_) => ResolverConfigDiffAction::NoAction,
-            _ => ResolverConfigDiffAction::SpawnNew,
-        }
+        let AnyResolverConfig::DenyAll(_new) = new else {
+            return ResolverConfigDiffAction::SpawnNew;
+        };
+
+        ResolverConfigDiffAction::NoAction
     }
 
     fn dependent_resolver(&self) -> Option<BTreeSet<MetricsName>> {

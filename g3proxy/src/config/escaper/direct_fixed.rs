@@ -238,9 +238,8 @@ impl EscaperConfig for DirectFixedEscaperConfig {
     }
 
     fn diff_action(&self, new: &AnyEscaperConfig) -> EscaperConfigDiffAction {
-        let new = match new {
-            AnyEscaperConfig::DirectFixed(config) => config,
-            _ => return EscaperConfigDiffAction::SpawnNew,
+        let AnyEscaperConfig::DirectFixed(new) = new else {
+            return EscaperConfigDiffAction::SpawnNew;
         };
 
         if self.eq(new) {

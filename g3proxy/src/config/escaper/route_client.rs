@@ -205,9 +205,8 @@ impl EscaperConfig for RouteClientEscaperConfig {
     }
 
     fn diff_action(&self, new: &AnyEscaperConfig) -> EscaperConfigDiffAction {
-        let new = match new {
-            AnyEscaperConfig::RouteClient(config) => config,
-            _ => return EscaperConfigDiffAction::SpawnNew,
+        let AnyEscaperConfig::RouteClient(new) = new else {
+            return EscaperConfigDiffAction::SpawnNew;
         };
 
         if self.eq(new) {

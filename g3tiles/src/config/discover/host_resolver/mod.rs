@@ -33,7 +33,7 @@ pub(crate) struct HostResolverDiscoverInput {
     pub(crate) addr: UpstreamAddr,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub(crate) struct HostResolverDiscoverConfig {
     name: MetricsName,
     position: Option<YamlDocPosition>,
@@ -72,9 +72,8 @@ impl DiscoverConfig for HostResolverDiscoverConfig {
     }
 
     fn diff_action(&self, new: &AnyDiscoverConfig) -> DiscoverConfigDiffAction {
-        let _ = match new {
-            AnyDiscoverConfig::HostResolver(config) => config,
-            _ => return DiscoverConfigDiffAction::SpawnNew,
+        let AnyDiscoverConfig::HostResolver(_new) = new else {
+            return DiscoverConfigDiffAction::SpawnNew;
         };
 
         DiscoverConfigDiffAction::NoAction

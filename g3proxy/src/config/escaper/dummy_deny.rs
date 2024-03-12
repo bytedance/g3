@@ -102,9 +102,8 @@ impl EscaperConfig for DummyDenyEscaperConfig {
     }
 
     fn diff_action(&self, new: &AnyEscaperConfig) -> EscaperConfigDiffAction {
-        let _ = match new {
-            AnyEscaperConfig::DummyDeny(config) => config,
-            _ => return EscaperConfigDiffAction::SpawnNew,
+        let AnyEscaperConfig::DummyDeny(_new) = new else {
+            return EscaperConfigDiffAction::SpawnNew;
         };
 
         EscaperConfigDiffAction::NoAction

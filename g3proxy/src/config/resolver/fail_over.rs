@@ -138,9 +138,8 @@ impl ResolverConfig for FailOverResolverConfig {
     }
 
     fn diff_action(&self, new: &AnyResolverConfig) -> ResolverConfigDiffAction {
-        let new = match new {
-            AnyResolverConfig::FailOver(new) => new,
-            _ => return ResolverConfigDiffAction::SpawnNew,
+        let AnyResolverConfig::FailOver(new) = new else {
+            return ResolverConfigDiffAction::SpawnNew;
         };
 
         if self.eq(new) {

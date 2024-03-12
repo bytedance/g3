@@ -84,9 +84,8 @@ impl BackendConfig for DummyCloseBackendConfig {
     }
 
     fn diff_action(&self, new: &AnyBackendConfig) -> BackendConfigDiffAction {
-        let _ = match new {
-            AnyBackendConfig::DummyClose(config) => config,
-            _ => return BackendConfigDiffAction::SpawnNew,
+        let AnyBackendConfig::DummyClose(_new) = new else {
+            return BackendConfigDiffAction::SpawnNew;
         };
 
         BackendConfigDiffAction::NoAction

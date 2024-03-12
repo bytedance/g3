@@ -226,9 +226,8 @@ impl super::ResolverConfig for CAresResolverConfig {
     }
 
     fn diff_action(&self, new: &AnyResolverConfig) -> ResolverConfigDiffAction {
-        let new = match new {
-            AnyResolverConfig::CAres(new) => new,
-            _ => return ResolverConfigDiffAction::SpawnNew,
+        let AnyResolverConfig::CAres(new) = new else {
+            return ResolverConfigDiffAction::SpawnNew;
         };
 
         if self.eq(new) {
