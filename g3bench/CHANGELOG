@@ -1,4 +1,8 @@
 
+v0.9.1:
+ - BUG FIX: fix the set of default tls server name for h3 target
+ - Feature: add tls-permute-extensions config option for openssl client (BoringSSL/AWS-LC)
+
 v0.9.0:
  - BUG FIX: do not send Host header in h2 and h3 target, to be compatible with Google sites
  - Feature: allow to set max request rate limit

@@ -1,6 +1,6 @@
 [package]
 name = "g3bench"
-version = "0.9.0"
+version = "0.9.1"
 license.workspace = true
 edition.workspace = true
 rust-version = "1.75.0"
