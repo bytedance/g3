@@ -138,6 +138,10 @@ See [Static Linking](doc/static-linking.md).
 
 See [OpenSSL Variants](doc/openssl-variants.md).
 
+### LTS Version
+
+See [Long-Term Support](doc/long-term_support.md).
+
 ## Contribution
 
 Please check [Contributing](CONTRIBUTING.md) for more details.

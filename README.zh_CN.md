@@ -131,6 +131,10 @@ Cloudflare Keyless Server的简单实现。
 
 参考 [OpenSSL Variants](doc/openssl-variants.md)。
 
+### 长期支持版本
+
+参考 [Long-Term Support](doc/long-term_support.md).
+
 ## 贡献指南
 
 参考 [Contributing](CONTRIBUTING.md)。
