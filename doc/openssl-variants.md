@@ -41,33 +41,13 @@ BoringSSL is supported in branch `rel/boringssl`.
 
 ### Build
 
-- Checkout the `boringssl` submodule
-
-  ```shell
-  git submodule init
-  git submodule update
-  ```
-
-- Make sure you have `cmake`, `pkg-config` and `go` installed
-
-- Generate the incorporating code
-
-  ```shell
-  ./scripts/generate/boringssl/incorporate.sh
-  ```
+- Make sure you have `cmake`, `pkg-config`installed
 
 - Build with `--features vendored-boringssl` cargo option
 
 ### Package
 
-- Install a recent version of [go](https://go.dev/dl/), which is only needed if you want to
-
-  * build packages directly from git
-  * generate release tarball
-
-- Switch to branch `rel/boringssl`, then run the build script or create the release tarball as usual.
-
-- Copy the release tarball anywhere to build the final package, this doesn't require the go build dependency.
+Switch to branch `rel/boringssl`, then run the build script or create the release tarball as usual.
 
 # AWS-LC
 
