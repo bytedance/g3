@@ -35,8 +35,10 @@ async fn connect_to_redis_cluster(
             },
         })
     }
-    let mut client_builder =
-        redis::cluster::ClusterClientBuilder::new(initial_nodes).read_from_replicas();
+    let mut client_builder = redis::cluster::ClusterClientBuilder::new(initial_nodes)
+        .read_from_replicas()
+        .connection_timeout(source.connect_timeout)
+        .response_timeout(source.read_timeout);
     if let Some(username) = &source.username {
         client_builder = client_builder.username(username.to_string());
     }
@@ -47,16 +49,15 @@ async fn connect_to_redis_cluster(
         .build()
         .map_err(|e| anyhow!("failed to build redis cluster client: {e}"))?;
 
-    match tokio::time::timeout(source.connect_timeout, client.get_async_connection()).await {
-        Ok(Ok(con)) => Ok(con),
-        Ok(Err(e)) => Err(anyhow!("connect failed: {e}")),
-        Err(_) => Err(anyhow!("connect timeout")),
-    }
+    client
+        .get_async_connection()
+        .await
+        .map_err(|e| anyhow!("connect to redis cluster failed: {e}"))
 }
 
 pub(super) async fn fetch_records(
     source: &Arc<ProxyFloatRedisClusterSource>,
 ) -> anyhow::Result<Vec<serde_json::Value>> {
     let con = connect_to_redis_cluster(source).await?;
-    super::redis::get_members(con, source.read_timeout, &source.sets_key).await
+    super::redis::get_members(con, &source.sets_key).await
 }

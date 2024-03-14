@@ -135,7 +135,7 @@ impl ProxyFloatRedisSource {
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
-            "read_timeout" => {
+            "read_timeout" | "response_timeout" => {
                 self.read_timeout = g3_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())

@@ -15,7 +15,6 @@
  */
 
 use std::sync::Arc;
-use std::time::Duration;
 
 use anyhow::anyhow;
 use redis::AsyncCommands;
@@ -27,32 +26,28 @@ async fn connect_to_redis(
 ) -> anyhow::Result<impl AsyncCommands> {
     let client = redis::Client::open(source.as_ref())
         .map_err(|e| anyhow!("redis client open failed: {e}"))?;
-    match tokio::time::timeout(source.connect_timeout, client.get_async_connection()).await {
-        Ok(Ok(con)) => Ok(con),
-        Ok(Err(e)) => Err(anyhow!("connect failed: {e:}")),
-        Err(_) => Err(anyhow!("connect timeout")),
-    }
+    client
+        .get_multiplexed_async_connection()
+        .await
+        .map_err(|e| anyhow!("connect to redis failed: {e}"))
 }
 
 pub(super) async fn get_members<C: AsyncCommands>(
     mut con: C,
-    timeout: Duration,
     sets_key: &str,
 ) -> anyhow::Result<Vec<serde_json::Value>> {
-    let members: Vec<String> = match tokio::time::timeout(timeout, con.smembers(sets_key)).await {
-        Ok(Ok(v)) => v,
-        Ok(Err(e)) => {
-            return Err(anyhow!(
-                "failed to get all members for sets {sets_key}: {e}"
-            ))
-        }
-        Err(_) => return Err(anyhow!("timeout to get all members for sets {sets_key}",)),
-    };
+    let members: Vec<redis::Value> = con
+        .smembers(sets_key)
+        .await
+        .map_err(|e| anyhow!("failed to get all members of sets {sets_key}: {e}"))?;
 
     let mut records = Vec::<serde_json::Value>::new();
     for member in &members {
-        let record =
-            serde_json::from_str(member).map_err(|e| anyhow!("found invalid member: {e}"))?;
+        let redis::Value::Data(b) = member else {
+            return Err(anyhow!("invalid member data type in set {sets_key}"));
+        };
+        let record = serde_json::from_slice(b)
+            .map_err(|e| anyhow!("invalid member in set {sets_key}: {e}"))?;
         records.push(record);
     }
     Ok(records)
@@ -62,5 +57,5 @@ pub(super) async fn fetch_records(
     source: &Arc<ProxyFloatRedisSource>,
 ) -> anyhow::Result<Vec<serde_json::Value>> {
     let con = connect_to_redis(source).await?;
-    get_members(con, source.read_timeout, &source.sets_key).await
+    get_members(con, &source.sets_key).await
 }
