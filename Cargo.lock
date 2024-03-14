@@ -316,8 +316,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "bssl-sys"
-version = "0.1.0"
+name = "bssl-cmake-sys"
+version = "0.1.2403142"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7406ba72d49eb70ead6444a8d522fd580a82cc53beef2e465c0356da8e66b919"
 dependencies = [
  "bindgen",
  "cc",
@@ -3524,9 +3526,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl"
-version = "0.13.2"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4e0a53fdaf9dc0a95517b09613cecfc82fed058bf4e5d90438de06505f32ea8"
+checksum = "f1da9f6902cc09df62c80cb1b8e680e3005f5bd65243e4607d8ad94050cb8cb7"
 dependencies = [
  "bitflags 2.4.2",
  "cfg-if",
@@ -3539,12 +3541,12 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl-sys"
-version = "0.12.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1865dcbc1c072dfdd0c001122becc51ca8a3d8b462ba517eee00a04d07625a94"
+checksum = "ccd231a4e7250e0c0ce33c401471b784e53c98b458076b43fa950595d590a005"
 dependencies = [
  "aws-lc-sys",
- "bssl-sys",
+ "bssl-cmake-sys",
  "cc",
  "libc",
  "openssl-src",
