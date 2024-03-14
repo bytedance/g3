@@ -27,7 +27,7 @@ async fn connect_to_redis(
     let client = redis::Client::open(source.as_ref())
         .map_err(|e| anyhow!("redis client open failed: {e}"))?;
     client
-        .get_multiplexed_async_connection()
+        .get_multiplexed_async_connection_with_timeouts(source.read_timeout, source.connect_timeout)
         .await
         .map_err(|e| anyhow!("connect to redis failed: {e}"))
 }
