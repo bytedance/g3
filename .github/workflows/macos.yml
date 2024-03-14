@@ -96,10 +96,6 @@ jobs:
       - name: Install dependencies
         run: |
           brew install capnp openssl c-ares lua
-      - name: Prepare BoringSSL incorporating code
-        run: |
-          sh scripts/generate/boringssl/incorporate.sh
-        if: matrix.feature == 'vendored-boringssl'
       - name: Cargo build
         run: cargo build --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }}
       - name: Cargo clippy
