@@ -1,4 +1,7 @@
 
+v1.8.0:
+ - Policy: LTS version
+
 v1.7.37:
  - BUG FIX: fix UDP sendmmsg & recvmmsg
  - Feature: allow to set Netfilter Mark for listening sockets on Linux

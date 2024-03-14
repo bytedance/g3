@@ -1650,7 +1650,7 @@ dependencies = [
 
 [[package]]
 name = "g3proxy"
-version = "1.7.37"
+version = "1.8.0"
 dependencies = [
  "ahash",
  "anyhow",
