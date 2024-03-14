@@ -146,7 +146,7 @@ pin-project = "1.1"
 rustls = { version = "0.23.0", default-features = false, features = ["std", "tls12", "ring"] }
 rustls-pki-types = "1"
 rustls-pemfile = "2"
-tokio-rustls = { version = "0.25", default-features = false, features = ["tls12", "ring"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["tls12", "ring"] }
 quinn = { version = "0.10", default-features = false, features = ["native-certs"] }
 #
 openssl = { package = "variant-ssl", version = "0.14.2" }
@@ -235,4 +235,3 @@ debug-assertions = false
 
 [patch.crates-io]
 quinn-proto = { version = "0.10.6", git = "https://github.com/zh-jq/quinn.git", branch = "ring-0.17" }
-tokio-rustls = { version = "0.25.0", git = "https://github.com/rustls/tokio-rustls.git", branch = "main" }
