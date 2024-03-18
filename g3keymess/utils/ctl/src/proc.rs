@@ -21,8 +21,8 @@ use clap::ArgMatches;
 use openssl::pkey::PKey;
 
 use g3_ctl::{CommandError, CommandResult};
-
 use g3_tls_cert::ext::PublicKeyExt;
+
 use g3keymess_proto::proc_capnp::proc_control;
 use g3keymess_proto::server_capnp::server_control;
 
