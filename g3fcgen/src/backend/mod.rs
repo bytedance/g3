@@ -31,7 +31,7 @@ pub(crate) use stats::BackendStats;
 
 use super::{BackendRequest, BackendResponse};
 use crate::config::OpensslBackendConfig;
-use crate::frontend::ResponseData;
+use crate::frontend::{GeneratedData, Request};
 
 pub(crate) struct OpensslBackend {
     config: Arc<OpensslBackendConfig>,
@@ -60,13 +60,17 @@ impl OpensslBackend {
         Ok(())
     }
 
-    pub(crate) fn generate(&mut self, host: &str) -> anyhow::Result<ResponseData> {
+    fn generate(&mut self, req: &Request) -> anyhow::Result<GeneratedData> {
         self.stats.add_request_total();
-        let host = Host::from_str(host)?;
+        let host = Host::from_str(req.host.as_ref())?;
         self.builder.refresh_serial()?;
-        let cert =
+        let cert = if let Some(mimic_cert) = &req.cert {
             self.builder
-                .build_fake(&host, &self.config.ca_cert, &self.config.ca_key, None)?;
+                .build_mimic(mimic_cert, &self.config.ca_cert, &self.config.ca_key, None)?
+        } else {
+            self.builder
+                .build_fake(&host, &self.config.ca_cert, &self.config.ca_key, None)?
+        };
         let mut cert_pem = cert
             .to_pem()
             .map_err(|e| anyhow!("failed to encode cert: {e}"))?;
@@ -79,8 +83,7 @@ impl OpensslBackend {
             .private_key_to_pem_pkcs8()
             .map_err(|e| anyhow!("failed to encode pkey: {e}"))?;
 
-        let data = ResponseData {
-            host: host.to_string(),
+        let data = GeneratedData {
             cert: unsafe { String::from_utf8_unchecked(cert_pem) },
             key: unsafe { String::from_utf8_unchecked(key_pem) },
             ttl: 300,
@@ -111,18 +114,19 @@ impl OpensslBackend {
                             break
                         };
 
-                        match self.generate(&req.host) {
+                        let host = req.user_req.host.clone();
+                        match self.generate(&req.user_req) {
                             Ok(data) => {
-                                debug!("Worker#{id} got certificate for host {}", req.host);
-                                if let Err(e) = rsp_sender.send_async(req.response(data)).await {
+                                debug!("Worker#{id} got certificate for host {host}");
+                                if let Err(e) = rsp_sender.send_async(req.into_response(data)).await {
                                     error!(
-                                        "Worker#{id} failed to send certificate for host {} to frontend: {e}", req.host
+                                        "Worker#{id} failed to send certificate for host {host} to frontend: {e}"
                                     );
                                     break;
                                 }
                             }
                             Err(e) => {
-                                warn!("Worker#{id} generate for {} failed: {e:?}", req.host);
+                                warn!("Worker#{id} generate for {host} failed: {e:?}");
                             }
                         }
                     }

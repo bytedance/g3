@@ -37,24 +37,26 @@ mod backend;
 use backend::{BackendStats, OpensslBackend};
 
 mod frontend;
-use frontend::{FrontendStats, ResponseData, UdpDgramFrontend};
+use frontend::{FrontendStats, GeneratedData, Request, UdpDgramFrontend};
 
 struct BackendRequest {
-    host: String,
+    user_req: Request,
     peer: SocketAddr,
     recv_time: Instant,
 }
 
 struct BackendResponse {
-    data: ResponseData,
+    user_req: Request,
+    generated: GeneratedData,
     peer: SocketAddr,
     recv_time: Instant,
 }
 
 impl BackendRequest {
-    fn response(&self, data: ResponseData) -> BackendResponse {
+    fn into_response(self, generated: GeneratedData) -> BackendResponse {
         BackendResponse {
-            data,
+            user_req: self.user_req,
+            generated,
             peer: self.peer,
             recv_time: self.recv_time,
         }
@@ -102,16 +104,16 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
     let udp_listen_addr = proc_args.udp_listen_addr();
     let frontend = UdpDgramFrontend::new(udp_listen_addr).await?;
 
-    let mut rcv_buf = [0u8; 1024];
+    let mut rcv_buf = [0u8; 16384];
     loop {
         tokio::select! {
             r = frontend.recv_req(&mut rcv_buf) => {
                 frontend_stats.add_request_total();
                 let recv_time = Instant::now();
                 match r {
-                    Ok((len, peer)) => match frontend::decode_req(&rcv_buf[0..len]) {
-                        Ok(host) => {
-                            let req = BackendRequest {host, peer, recv_time};
+                    Ok((len, peer)) => match Request::parse_req(&rcv_buf[0..len]) {
+                        Ok(user_req) => {
+                            let req = BackendRequest {user_req, peer, recv_time};
                             if let Err(e) = req_sender.send_async(req).await {
                                 return Err(anyhow!("failed to send request to backend: {e}"));
                             }
@@ -126,20 +128,22 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
             }
             r = rsp_receiver.recv_async() => {
                 match r {
-                    Ok(rsp) => match rsp.data.encode() {
-                        Ok(buf) => {
-                            frontend_stats.add_response_total();
-                            match frontend.send_rsp(buf.as_slice(), rsp.peer).await {
-                                Ok(_) => {
-                                    let _ = duration_recorder.record(rsp.duration());
-                                }
-                                Err(e) => {
-                                    frontend_stats.add_response_fail();
-                                    warn!("write response back error: {e:?}");
+                    Ok(rsp) =>{
+                        match rsp.user_req.encode_rsp(&rsp.generated) {
+                            Ok(buf) => {
+                                frontend_stats.add_response_total();
+                                match frontend.send_rsp(buf.as_slice(), rsp.peer).await {
+                                    Ok(_) => {
+                                        let _ = duration_recorder.record(rsp.duration());
+                                    }
+                                    Err(e) => {
+                                        frontend_stats.add_response_fail();
+                                        warn!("write response back error: {e:?}");
+                                    }
                                 }
                             }
+                            Err(e) => return Err(anyhow!("response encode error: {e:?}")),
                         }
-                        Err(e) => return Err(anyhow!("response encode error: {e:?}")),
                     }
                     Err(e) => return Err(anyhow!("recv from backend failed: {e}")),
                 }
