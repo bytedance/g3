@@ -94,6 +94,13 @@ The code should comply to these, but should be more compliant to existing popula
  - [SEC2-v2](https://www.secg.org/sec2-v2.pdf)
     : SEC 2: Recommended Elliptic Curve Domain Parameters
 
+## Electronic Mail
+
+ - [rfc5322](https://datatracker.ietf.org/doc/html/rfc5322)
+    : Internet Message Format
+ - [rfc7817](https://datatracker.ietf.org/doc/html/rfc7817)
+    : Updated Transport Layer Security (TLS) Server Identity Check Procedure for Email-Related Protocols
+
 # Network Protocol
 
 ## Happy Eyeballs
@@ -276,6 +283,8 @@ The code should comply to these, but should be more compliant to existing popula
 
  - [rfc5321](https://datatracker.ietf.org/doc/html/rfc5321)
     : Simple Mail Transfer Protocol
+ - [rfc3207](https://datatracker.ietf.org/doc/html/rfc3207)
+    : SMTP Service Extension for Secure SMTP over Transport Layer Security
 
 ## POP3
 
