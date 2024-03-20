@@ -29,6 +29,7 @@ use tokio::io::ReadBuf;
 use tokio::net::UdpSocket;
 
 use g3_io_ext::{EffectiveCacheData, EffectiveQueryHandle};
+use g3_types::net::TlsServiceType;
 
 use super::{CacheQueryKey, CertAgentConfig, FakeCertPair};
 
@@ -73,13 +74,29 @@ impl QueryRuntime {
             .query_handle
             .should_send_raw_query(req.clone(), self.query_wait)
         {
-            let map = vec![(
+            let mut map = Vec::with_capacity(3);
+            map.push((
                 ValueRef::String("host".into()),
-                ValueRef::String(req.host.as_str().into()),
-            )];
-            let mut buf = Vec::with_capacity(32);
-            let v = ValueRef::Map(map);
-            if rmpv::encode::write_value_ref(&mut buf, &v).is_err() {
+                ValueRef::String(req.host().into()),
+            ));
+            map.push((
+                ValueRef::String("service".into()),
+                ValueRef::String(req.service().into()),
+            ));
+            if let Some(cert) = &req.mimic_cert {
+                if let Ok(pem) = cert.to_pem() {
+                    map.push((ValueRef::String("cert".into()), ValueRef::Binary(&pem)));
+                    let mut buf = Vec::with_capacity(320 + pem.len());
+                    if rmpv::encode::write_value_ref(&mut buf, &ValueRef::Map(map)).is_err() {
+                        self.send_empty_result(req, false);
+                        return;
+                    }
+                    self.write_queue.push_back((req, buf));
+                    return;
+                };
+            }
+            let mut buf = Vec::with_capacity(320);
+            if rmpv::encode::write_value_ref(&mut buf, &ValueRef::Map(map)).is_err() {
                 self.send_empty_result(req, false);
                 return;
             }
@@ -96,6 +113,7 @@ impl QueryRuntime {
         let mut certs = Vec::new();
         let mut pkey: Option<PKey<Private>> = None;
         let mut ttl: u32 = 0;
+        let mut service = TlsServiceType::Http;
 
         for (k, v) in map {
             let key = g3_msgpack::value::as_string(&k)?;
@@ -103,6 +121,10 @@ impl QueryRuntime {
                 "host" => {
                     host = g3_msgpack::value::as_string(&v)
                         .context(format!("invalid string value for key {key}"))?;
+                }
+                "service" => {
+                    service = g3_msgpack::value::as_tls_service_type(&v)
+                        .context(format!("invalid tls service type value for key {key}"))?;
                 }
                 "cert" => {
                     certs = g3_msgpack::value::as_openssl_certificates(&v)
@@ -117,7 +139,7 @@ impl QueryRuntime {
                     ttl = g3_msgpack::value::as_u32(&v)
                         .context(format!("invalid u32 value for key {key}"))?;
                 }
-                _ => return Err(anyhow!("invalid key {key}")),
+                _ => {} // ignore unknown keys
             }
         }
 
@@ -131,8 +153,9 @@ impl QueryRuntime {
             return Err(anyhow!("no required pkey key found"));
         };
 
+        let host = Arc::from(host);
         Ok((
-            Arc::new(CacheQueryKey { host }),
+            Arc::new(CacheQueryKey::new(service, host)),
             FakeCertPair { certs, key },
             ttl,
         ))

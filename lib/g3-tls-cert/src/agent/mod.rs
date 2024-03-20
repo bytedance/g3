@@ -14,10 +14,15 @@
  * limitations under the License.
  */
 
+use std::hash::{Hash, Hasher};
+use std::sync::Arc;
+
 use anyhow::anyhow;
 use openssl::pkey::{PKey, Private};
 use openssl::ssl::SslRef;
 use openssl::x509::X509;
+
+use g3_types::net::TlsServiceType;
 
 mod query;
 use query::QueryRuntime;
@@ -29,9 +34,51 @@ mod handle;
 pub use handle::CertAgentHandle;
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
-pub(crate) struct CacheQueryKey {
-    pub(crate) host: String,
+struct CacheIndexKey {
+    service: TlsServiceType,
+    host: Arc<str>,
 }
+
+#[derive(Clone, Debug)]
+struct CacheQueryKey {
+    index: CacheIndexKey,
+    mimic_cert: Option<X509>,
+}
+
+impl CacheQueryKey {
+    fn new(service: TlsServiceType, host: Arc<str>) -> Self {
+        CacheQueryKey {
+            index: CacheIndexKey { service, host },
+            mimic_cert: None,
+        }
+    }
+
+    fn host(&self) -> &str {
+        self.index.host.as_ref()
+    }
+
+    fn service(&self) -> &'static str {
+        self.index.service.as_str()
+    }
+
+    fn set_mimic_cert(&mut self, cert: X509) {
+        self.mimic_cert = Some(cert);
+    }
+}
+
+impl Hash for CacheQueryKey {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.index.hash(state);
+    }
+}
+
+impl PartialEq for CacheQueryKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.index.eq(&other.index)
+    }
+}
+
+impl Eq for CacheQueryKey {}
 
 #[derive(Clone)]
 pub struct FakeCertPair {

@@ -17,6 +17,7 @@
 mod datetime;
 mod metrics;
 mod primary;
+mod tls;
 mod uuid;
 
 #[cfg(feature = "openssl")]
@@ -29,6 +30,7 @@ pub use self::uuid::as_uuid;
 pub use datetime::as_rfc3339_datetime;
 pub use metrics::{as_metrics_name, as_weighted_metrics_name};
 pub use primary::{as_f64, as_string, as_u32, as_weighted_name_string};
+pub use tls::as_tls_service_type;
 
 pub use openssl::{as_openssl_certificates, as_openssl_private_key};
 

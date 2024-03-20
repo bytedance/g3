@@ -28,6 +28,26 @@ host
 
 Set the hostname of the target tls server. May be a domain or an IP address.
 
+service
+-------
+
+**optional**, **type**: string
+
+Set the tls service type. It should be returned in response.
+
+**default**: http
+
+.. versionadded:: 1.9.0
+
+cert
+----
+
+**optional**, **type**: string
+
+The real upstream cert.
+
+.. versionadded:: 1.9.0
+
 response
 ========
 
@@ -37,6 +57,17 @@ host
 **required**, **type**: string
 
 The hostname as specified in the request.
+
+service
+-------
+
+**optional**, **type**: string
+
+Set the tls service type. It should be the same value as in the request.
+
+**default**: http
+
+.. versionadded:: 1.9.0
 
 cert
 ----

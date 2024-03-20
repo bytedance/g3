@@ -14,13 +14,15 @@
  * limitations under the License.
  */
 
+use std::sync::Arc;
+
 use anyhow::anyhow;
 use openssl::ssl::Ssl;
 
 use g3_dpi::{Protocol, ProtocolInspector};
 use g3_io_ext::AggregatedIo;
 use g3_openssl::{SslConnector, SslLazyAcceptor};
-use g3_types::net::{AlpnProtocol, Host};
+use g3_types::net::{AlpnProtocol, Host, TlsServiceType};
 
 use super::{TlsInterceptIo, TlsInterceptObject, TlsInterceptionError};
 use crate::config::server::ServerConfig;
@@ -109,8 +111,14 @@ where
         let cert_domain = sni_hostname
             .map(|v| v.to_string())
             .unwrap_or_else(|| self.upstream.host().to_string());
-        let clt_cert_handle =
-            tokio::spawn(async move { tls_interception.cert_agent.fetch(cert_domain).await });
+        let cert_domain: Arc<str> = Arc::from(cert_domain);
+        let cert_domain2 = cert_domain.clone();
+        let pre_fetch_handle = tokio::spawn(async move {
+            tls_interception
+                .cert_agent
+                .pre_fetch(TlsServiceType::Http, cert_domain2)
+                .await
+        });
 
         // handshake with upstream server
         let ups_tls_connector = SslConnector::new(ups_ssl, AggregatedIo::new(ups_r, ups_w))
@@ -128,19 +136,34 @@ where
                 ))
             })?;
 
-        // fetch fake server cert
-        let cert_pair = clt_cert_handle
-            .await
-            .map_err(|e| {
-                TlsInterceptionError::NoFakeCertGenerated(anyhow!(
-                    "join client cert handle failed: {e}"
-                ))
-            })?
-            .ok_or_else(|| {
-                TlsInterceptionError::NoFakeCertGenerated(anyhow!(
-                    "failed to get fake upstream certificate"
-                ))
-            })?;
+        let pre_fetch_pair = pre_fetch_handle.await.map_err(|e| {
+            TlsInterceptionError::NoFakeCertGenerated(anyhow!(
+                "join client cert handle failed: {e}"
+            ))
+        })?;
+
+        let cert_pair = match pre_fetch_pair {
+            Some(pair) => {
+                // TODO compair cert?
+                pair
+            }
+            None => {
+                let upstream_cert = ups_tls_stream.ssl().peer_certificate().ok_or_else(|| {
+                    TlsInterceptionError::NoFakeCertGenerated(anyhow!(
+                        "failed to get upstream certificate"
+                    ))
+                })?;
+                self.tls_interception
+                    .cert_agent
+                    .fetch(TlsServiceType::Http, cert_domain, upstream_cert)
+                    .await
+                    .ok_or_else(|| {
+                        TlsInterceptionError::NoFakeCertGenerated(anyhow!(
+                            "failed to get fake upstream certificate"
+                        ))
+                    })?
+            }
+        };
 
         // set certificate and private key
         let clt_ssl = lazy_acceptor.ssl_mut();
