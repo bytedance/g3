@@ -18,6 +18,7 @@ use anyhow::{anyhow, Context};
 use chrono::{Days, Utc};
 use openssl::asn1::{Asn1Integer, Asn1Time};
 use openssl::hash::MessageDigest;
+use openssl::nid::Nid;
 use openssl::pkey::{PKey, Private};
 use openssl::x509::extension::{
     AuthorityKeyIdentifier, ExtendedKeyUsage, KeyUsage, SubjectAlternativeName,
@@ -379,6 +380,111 @@ impl ServerCertBuilder {
         builder
             .append_extension(aki)
             .map_err(|e| anyhow!("failed to append AuthorityKeyIdentifier extension: {e}"))?;
+
+        builder
+            .set_issuer_name(ca_cert.subject_name())
+            .map_err(|e| anyhow!("failed to set issuer name: {e}"))?;
+        builder
+            .sign_with_optional_digest(ca_key, sign_digest)
+            .map_err(|e| anyhow!("failed to sign: {e}"))?;
+
+        Ok(builder.build())
+    }
+
+    pub fn build_mimic(
+        &self,
+        cert: &X509Ref,
+        ca_cert: &X509Ref,
+        ca_key: &PKey<Private>,
+        sign_digest: Option<MessageDigest>,
+    ) -> anyhow::Result<X509> {
+        let mut builder =
+            X509Builder::new().map_err(|e| anyhow!("failed to create x509 builder {e}"))?;
+        builder
+            .set_pubkey(&self.pkey)
+            .map_err(|e| anyhow!("failed to set pub key: {e}"))?;
+        builder
+            .set_serial_number(&self.serial)
+            .map_err(|e| anyhow!("failed to set serial number: {e}"))?;
+
+        let not_before = if ca_cert.not_before() > self.not_after {
+            ca_cert.not_before()
+        } else {
+            &self.not_before
+        };
+        builder
+            .set_not_before(not_before)
+            .map_err(|e| anyhow!("failed to set NotBefore: {e}"))?;
+        let not_after = if ca_cert.not_after() < self.not_after {
+            ca_cert.not_after()
+        } else {
+            &self.not_after
+        };
+        builder
+            .set_not_after(not_after)
+            .map_err(|e| anyhow!("failed to set NotAfter: {e}"))?;
+
+        let cert_version = cert.version();
+        builder
+            .set_version(cert_version)
+            .map_err(|e| anyhow!("failed to set x509 version 3: {e}"))?;
+        builder
+            .append_extension2(&self.key_usage)
+            .map_err(|e| anyhow!("failed to append KeyUsage extension: {e}"))?;
+        builder
+            .append_extension2(&self.ext_key_usage)
+            .map_err(|e| anyhow!("failed to append ExtendedKeyUsage extension: {e}"))?;
+
+        builder
+            .set_subject_name(cert.subject_name())
+            .map_err(|e| anyhow!("failed to set subject name: {e}"))?;
+        if let Some(stack) = cert.subject_alt_names() {
+            let san = X509Extension::new_subject_alt_name(stack, false)
+                .map_err(|e| anyhow!("failed to create SubjectAlternativeName extension: {e}"))?;
+            builder
+                .append_extension(san)
+                .map_err(|e| anyhow!("failed to append SubjectAlternativeName extension: {e}"))?;
+        }
+
+        if cert_version >= 2 {
+            // X509v3
+            let v3_ctx = builder.x509v3_context(Some(ca_cert), None);
+            let ski_ext = if cert
+                .get_extension_location(Nid::SUBJECT_KEY_IDENTIFIER, None)
+                .is_some()
+            {
+                let ski = SubjectKeyIdentifier::new()
+                    .build(&v3_ctx)
+                    .map_err(|e| anyhow!("failed to build SubjectKeyIdentifier extension: {e} "))?;
+                Some(ski)
+            } else {
+                None
+            };
+            let aki_ext = if cert
+                .get_extension_location(Nid::AUTHORITY_KEY_IDENTIFIER, None)
+                .is_some()
+            {
+                let mut aki_builder = AuthorityKeyIdentifier::new();
+                aki_builder.keyid(false);
+                let aki = aki_builder.build(&v3_ctx).map_err(|e| {
+                    anyhow!("failed to build AuthorityKeyIdentifier extension: {e}")
+                })?;
+                Some(aki)
+            } else {
+                None
+            };
+
+            if let Some(ski) = ski_ext {
+                builder
+                    .append_extension(ski)
+                    .map_err(|e| anyhow!("failed to append SubjectKeyIdentifier extension: {e}"))?;
+            }
+            if let Some(aki) = aki_ext {
+                builder.append_extension(aki).map_err(|e| {
+                    anyhow!("failed to append AuthorityKeyIdentifier extension: {e}")
+                })?;
+            }
+        }
 
         builder
             .set_issuer_name(ca_cert.subject_name())
