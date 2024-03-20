@@ -117,7 +117,7 @@ impl<K: Hash + Eq, R: Send + Sync> EffectiveCacheRuntime<K, R> {
                     }
                 }
             }
-        } else {
+        } else if !req.query_cache_only {
             match self.doing.entry(Arc::clone(&req.cache_key)) {
                 hash_map::Entry::Occupied(mut o) => {
                     o.get_mut().push(Some(req));

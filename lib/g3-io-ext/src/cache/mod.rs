@@ -68,6 +68,7 @@ impl<R> EffectiveCacheData<R> {
 
 pub struct CacheQueryRequest<K, R> {
     cache_key: Arc<K>,
+    query_cache_only: bool,
     notifier: oneshot::Sender<Arc<EffectiveCacheData<R>>>,
 }
 
