@@ -52,9 +52,9 @@ impl Request {
                             .context(format!("invalid tls service type value for key {key}"))?;
                     }
                     "cert" => {
-                        let certs = g3_msgpack::value::as_openssl_certificates(&v)
+                        let c = g3_msgpack::value::as_openssl_certificate(&v)
                             .context(format!("invalid mimic cert value for key {key}"))?;
-                        cert = certs.into_iter().next();
+                        cert = Some(c);
                     }
                     _ => return Err(anyhow!("invalid key {key}")),
                 }
@@ -89,7 +89,7 @@ impl Request {
             ),
             (
                 ValueRef::String("key".into()),
-                ValueRef::String(generated.key.as_str().into()),
+                ValueRef::Binary(&generated.key),
             ),
             (
                 ValueRef::String("ttl".into()),

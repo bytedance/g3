@@ -73,19 +73,19 @@ impl OpensslBackend {
         };
         let mut cert_pem = cert
             .to_pem()
-            .map_err(|e| anyhow!("failed to encode cert: {e}"))?;
+            .map_err(|e| anyhow!("failed to encode cert to PEM format: {e}"))?;
         if !self.config.ca_cert_pem.is_empty() {
             cert_pem.extend_from_slice(&self.config.ca_cert_pem);
         }
-        let key_pem = self
+        let key = self
             .builder
             .pkey()
-            .private_key_to_pem_pkcs8()
-            .map_err(|e| anyhow!("failed to encode pkey: {e}"))?;
+            .private_key_to_der()
+            .map_err(|e| anyhow!("failed to encode pkey to DER format: {e}"))?;
 
         let data = GeneratedData {
             cert: unsafe { String::from_utf8_unchecked(cert_pem) },
-            key: unsafe { String::from_utf8_unchecked(key_pem) },
+            key,
             ttl: 300,
         };
         self.stats.add_request_ok();

@@ -26,6 +26,6 @@ pub(crate) use request::Request;
 #[derive(Debug)]
 pub(crate) struct GeneratedData {
     pub(crate) cert: String,
-    pub(crate) key: String,
+    pub(crate) key: Vec<u8>,
     pub(crate) ttl: u32,
 }

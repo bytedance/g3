@@ -84,9 +84,9 @@ impl QueryRuntime {
                 ValueRef::String(req.service().into()),
             ));
             if let Some(cert) = &req.mimic_cert {
-                if let Ok(pem) = cert.to_pem() {
-                    map.push((ValueRef::String("cert".into()), ValueRef::Binary(&pem)));
-                    let mut buf = Vec::with_capacity(320 + pem.len());
+                if let Ok(der) = cert.to_der() {
+                    map.push((ValueRef::String("cert".into()), ValueRef::Binary(&der)));
+                    let mut buf = Vec::with_capacity(320 + der.len());
                     if rmpv::encode::write_value_ref(&mut buf, &ValueRef::Map(map)).is_err() {
                         self.send_empty_result(req, false);
                         return;

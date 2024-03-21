@@ -42,9 +42,9 @@ Set the tls service type. It should be returned in response.
 cert
 ----
 
-**optional**, **type**: string
+**optional**, **type**: pem string or der binary
 
-The real upstream cert.
+The real upstream leaf cert in PEM string format or DER binary format.
 
 .. versionadded:: 1.9.0
 
@@ -72,16 +72,16 @@ Set the tls service type. It should be the same value as in the request.
 cert
 ----
 
-**required**, **type**: string
+**required**, **type**: pem string
 
-The generated fake certificate in PEM format.
+The generated fake certificate (chain) in PEM format.
 
 key
 ---
 
-**required**, **type**: string
+**required**, **type**: pem string or der binary
 
-The generated fake private key in PEM format.
+The generated fake private key in PEM string format or in DER binary format.
 
 ttl
 ---
