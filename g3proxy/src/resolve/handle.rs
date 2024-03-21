@@ -446,9 +446,7 @@ impl ArriveFirstResolveJob {
     ) -> Poll<Result<IpAddr, ResolveError>> {
         let ips = ready!(self.poll_all_addrs(cx))?;
         let ip = self.strategy.pick_best(ips).ok_or_else(|| {
-            ResolveError::UnexpectedError(
-                "resolver job return ok but with no ip can be selected".to_string(),
-            )
+            ResolveError::UnexpectedError("resolver job return ok but with no ip can be selected")
         })?;
         Poll::Ready(Ok(ip))
     }

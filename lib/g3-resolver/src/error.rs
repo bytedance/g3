@@ -105,7 +105,7 @@ pub enum ResolveError {
     #[error("local error: {0}")]
     FromLocal(#[from] ResolveLocalError),
     #[error("unexpected error: {0}")]
-    UnexpectedError(String),
+    UnexpectedError(&'static str),
 }
 
 impl ResolveError {

@@ -38,7 +38,7 @@ impl IcapRespmodResponsePayload {
             .ok_or(IcapRespmodParseError::InvalidHeaderValue("Encapsulated"))?;
         if value.ne("0") {
             return Err(IcapRespmodParseError::UnsupportedBody(
-                "invalid hdr byte-offsets value".to_string(),
+                "invalid hdr byte-offsets value",
             ));
         }
 
@@ -47,33 +47,29 @@ impl IcapRespmodResponsePayload {
                 let body_part = parts
                     .next()
                     .ok_or_else(|| {
-                        IcapRespmodParseError::UnsupportedBody(
-                            "no body byte-offsets pair found".to_string(),
-                        )
+                        IcapRespmodParseError::UnsupportedBody("no body byte-offsets pair found")
                     })?
                     .trim();
                 let (name, value) = body_part.split_once('=').ok_or_else(|| {
-                    IcapRespmodParseError::UnsupportedBody(
-                        "invalid body byte-offsets pair".to_string(),
-                    )
+                    IcapRespmodParseError::UnsupportedBody("invalid body byte-offsets pair")
                 })?;
                 let (hdr_len, offset) = usize::from_radix_10(value.as_bytes());
                 if offset != value.len() {
                     return Err(IcapRespmodParseError::UnsupportedBody(
-                        "invalid body byte-offsets value".to_string(),
+                        "invalid body byte-offsets value",
                     ));
                 }
                 match name.to_lowercase().as_str() {
                     "res-body" => Ok(IcapRespmodResponsePayload::HttpResponseWithBody(hdr_len)),
                     "null-body" => Ok(IcapRespmodResponsePayload::HttpResponseWithoutBody(hdr_len)),
                     _ => Err(IcapRespmodParseError::UnsupportedBody(
-                        "invalid body byte-offsets name".to_string(),
+                        "invalid body byte-offsets name",
                     )),
                 }
             }
             "null-body" => Ok(IcapRespmodResponsePayload::NoPayload),
             _ => Err(IcapRespmodParseError::UnsupportedBody(
-                "invalid hdr byte-offsets value".to_string(),
+                "invalid hdr byte-offsets value",
             )),
         }
     }

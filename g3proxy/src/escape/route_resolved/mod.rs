@@ -126,7 +126,7 @@ impl RouteResolvedEscaper {
                     .await?;
                 self.config.resolve_strategy.pick_best(v).ok_or_else(|| {
                     ResolveError::UnexpectedError(
-                        "resolver job return ok but with no ip can be selected".to_string(),
+                        "resolver job return ok but with no ip can be selected",
                     )
                 })
             }

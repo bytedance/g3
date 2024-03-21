@@ -191,9 +191,9 @@ impl DirectFixedEscaper {
         let ips = resolver_job
             .get_r1_or_first(self.config.happy_eyeballs.resolution_delay(), usize::MAX)
             .await?;
-        strategy.pick_best(ips).ok_or_else(|| {
-            ResolveError::UnexpectedError("no upstream ip can be selected".to_string())
-        })
+        strategy
+            .pick_best(ips)
+            .ok_or_else(|| ResolveError::UnexpectedError("no upstream ip can be selected"))
     }
 
     async fn redirect_get_best(
