@@ -52,7 +52,7 @@ impl FromStr for MetricsTagName {
 
 impl fmt::Display for MetricsTagName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
+        f.write_str(self.as_str())
     }
 }
 
@@ -80,7 +80,7 @@ impl FromStr for MetricsTagValue {
 
 impl fmt::Display for MetricsTagValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
+        f.write_str(self.as_str())
     }
 }
 

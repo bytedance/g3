@@ -56,7 +56,7 @@ impl fmt::Display for Host {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Host::Ip(ip) => write!(f, "{ip}"),
-            Host::Domain(domain) => write!(f, "{domain}"),
+            Host::Domain(domain) => f.write_str(domain.as_str()),
         }
     }
 }

@@ -26,7 +26,7 @@ pub struct FtpCommand(&'static str);
 
 impl fmt::Display for FtpCommand {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
+        f.write_str(self.0)
     }
 }
 
