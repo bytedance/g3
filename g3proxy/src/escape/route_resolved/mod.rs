@@ -124,11 +124,12 @@ impl RouteResolvedEscaper {
                 let v = resolver_job
                     .get_r1_or_first(self.config.resolution_delay, usize::MAX)
                     .await?;
-                self.config.resolve_strategy.pick_best(v).ok_or_else(|| {
-                    ResolveError::UnexpectedError(
+                self.config
+                    .resolve_strategy
+                    .pick_best(v)
+                    .ok_or(ResolveError::UnexpectedError(
                         "resolver job return ok but with no ip can be selected",
-                    )
-                })
+                    ))
             }
         }
     }
