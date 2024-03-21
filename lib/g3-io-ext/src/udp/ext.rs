@@ -131,15 +131,12 @@ impl<'a, const C: usize> SendMsgHdr<'a, C> {
             None => (ptr::null_mut(), 0),
         };
 
-        libc::msghdr {
-            msg_name: c_addr as _,
-            msg_namelen: c_addr_len as _,
-            msg_iov: self.iov.as_ptr() as _,
-            msg_iovlen: C as _,
-            msg_control: ptr::null_mut(),
-            msg_controllen: 0,
-            msg_flags: 0,
-        }
+        let mut h = mem::zeroed::<libc::msghdr>();
+        h.msg_name = c_addr as _;
+        h.msg_namelen = c_addr_len as _;
+        h.msg_iov = self.iov.as_ptr() as _;
+        h.msg_iovlen = C as _;
+        h
     }
 }
 
@@ -176,15 +173,12 @@ impl<'a, const C: usize> RecvMsgHdr<'a, C> {
         let c_addr = &mut *self.c_addr.get();
         let (c_addr, c_addr_len) = c_addr.get_ptr_and_size();
 
-        libc::msghdr {
-            msg_name: c_addr as _,
-            msg_namelen: c_addr_len as _,
-            msg_iov: self.iov.as_ptr() as _,
-            msg_iovlen: C as _,
-            msg_control: ptr::null_mut(),
-            msg_controllen: 0,
-            msg_flags: 0,
-        }
+        let mut h = mem::zeroed::<libc::msghdr>();
+        h.msg_name = c_addr as _;
+        h.msg_namelen = c_addr_len as _;
+        h.msg_iov = self.iov.as_ptr() as _;
+        h.msg_iovlen = C as _;
+        h
     }
 }
 
@@ -328,14 +322,10 @@ impl UdpSocketExt for UdpSocket {
         }
 
         let raw_fd = self.as_raw_fd();
+        let flags = libc::MSG_DONTWAIT | libc::MSG_NOSIGNAL;
         let mut sendmmsg = || {
             let r = unsafe {
-                libc::sendmmsg(
-                    raw_fd,
-                    msgvec.as_mut_ptr(),
-                    msgvec.len() as _,
-                    libc::MSG_DONTWAIT | libc::MSG_NOSIGNAL,
-                )
+                libc::sendmmsg(raw_fd, msgvec.as_mut_ptr(), msgvec.len() as _, flags as _)
             };
             if r < 0 {
                 Err(io::Error::last_os_error())
@@ -394,7 +384,7 @@ impl UdpSocketExt for UdpSocket {
                     raw_fd,
                     msgvec.as_mut_ptr(),
                     msgvec.len() as _,
-                    libc::MSG_DONTWAIT,
+                    libc::MSG_DONTWAIT as _,
                     ptr::null_mut(),
                 )
             };
