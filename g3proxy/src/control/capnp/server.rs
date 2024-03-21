@@ -28,7 +28,7 @@ pub(super) struct ServerControlImpl {
 
 impl ServerControlImpl {
     pub(super) fn new_client(name: &str) -> anyhow::Result<server_control::Client> {
-        let name = unsafe { MetricsName::from_str_unchecked(name) };
+        let name = unsafe { MetricsName::new_unchecked(name) };
         let server = crate::serve::get_server(&name)?;
         Ok(capnp_rpc::new_client(ServerControlImpl { server }))
     }

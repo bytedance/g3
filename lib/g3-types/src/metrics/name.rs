@@ -18,10 +18,12 @@ use std::borrow::Borrow;
 use std::fmt;
 use std::str::FromStr;
 
+use smol_str::SmolStr;
+
 use super::{chars_allowed_in_opentsdb, ParseError};
 
 #[derive(Clone, Debug, Default, PartialEq, PartialOrd, Eq, Ord, Hash)]
-pub struct MetricsName(String);
+pub struct MetricsName(SmolStr);
 
 impl MetricsName {
     #[inline]
@@ -31,7 +33,7 @@ impl MetricsName {
 
     #[inline]
     pub fn clear(&mut self) {
-        self.0.clear()
+        self.0 = SmolStr::default();
     }
 
     #[inline]
@@ -49,22 +51,13 @@ impl MetricsName {
         self.0.as_bytes()
     }
 
-    /// Get a MetricsName from a String value
-    ///
-    /// # Safety
-    ///
-    /// Call this only if you need not use the value in metrics
-    pub unsafe fn from_unchecked(name: String) -> Self {
-        MetricsName(name)
-    }
-
     /// Get a MetricsName from a str value
     ///
     /// # Safety
     ///
     /// Call this only if you need not use the value in metrics
-    pub unsafe fn from_str_unchecked(name: &str) -> Self {
-        Self::from_unchecked(name.to_string())
+    pub unsafe fn new_unchecked<T: AsRef<str>>(name: T) -> Self {
+        MetricsName(SmolStr::new(name))
     }
 }
 
@@ -73,7 +66,7 @@ impl FromStr for MetricsName {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         chars_allowed_in_opentsdb(s)?;
-        Ok(MetricsName(s.to_string()))
+        Ok(MetricsName(s.into()))
     }
 }
 
@@ -91,7 +84,7 @@ impl fmt::Display for MetricsName {
 
 impl<'a> Default for &'a MetricsName {
     fn default() -> &'a MetricsName {
-        static VALUE: MetricsName = MetricsName(String::new());
+        static VALUE: MetricsName = MetricsName(SmolStr::new_static(""));
         &VALUE
     }
 }

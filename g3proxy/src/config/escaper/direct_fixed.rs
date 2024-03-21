@@ -198,7 +198,7 @@ impl DirectFixedEscaperConfig {
         }
         self.resolve_strategy
             .update_query_strategy(self.no_ipv4, self.no_ipv6)
-            .context("found incompatible resolver strategy".to_string())?;
+            .context("found incompatible resolver strategy")?;
 
         if !self.no_ipv4 && !self.no_ipv6 {
             match self.resolve_strategy.query {

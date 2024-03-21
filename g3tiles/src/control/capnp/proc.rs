@@ -104,7 +104,7 @@ impl proc_control::Server for ProcControlImpl {
         mut results: proc_control::ForceQuitOfflineServerResults,
     ) -> Promise<(), capnp::Error> {
         let server = pry!(pry!(pry!(params.get()).get_name()).to_str());
-        let server = unsafe { MetricsName::from_str_unchecked(server) };
+        let server = unsafe { MetricsName::new_unchecked(server) };
         crate::serve::force_quit_offline_server(&server);
         results.get().init_result().set_ok("success");
         Promise::ok(())

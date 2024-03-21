@@ -32,7 +32,7 @@ pub(super) struct UserGroupControlImpl {
 
 impl UserGroupControlImpl {
     pub(super) fn new_client(name: &str) -> user_group_control::Client {
-        let name = unsafe { MetricsName::from_str_unchecked(name) };
+        let name = unsafe { MetricsName::new_unchecked(name) };
         let user_group = crate::auth::get_or_insert_default(&name);
         capnp_rpc::new_client(UserGroupControlImpl { user_group })
     }

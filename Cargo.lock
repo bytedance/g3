@@ -1426,6 +1426,7 @@ dependencies = [
  "sha-1",
  "slog",
  "smallvec",
+ "smol_str",
  "thiserror",
  "url",
  "variant-ssl",
@@ -3167,6 +3168,12 @@ name = "smallvec"
 version = "1.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
+
+[[package]]
+name = "smol_str"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6845563ada680337a52d43bb0b29f396f2d911616f6573012645b9e3d048a49"
 
 [[package]]
 name = "socket2"

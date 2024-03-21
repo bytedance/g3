@@ -18,13 +18,15 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::str::FromStr;
 
+use smol_str::SmolStr;
+
 use super::{chars_allowed_in_opentsdb, ParseError};
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]
-pub struct MetricsTagName(String);
+pub struct MetricsTagName(SmolStr);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct MetricsTagValue(String);
+pub struct MetricsTagValue(SmolStr);
 
 pub type StaticMetricsTags = BTreeMap<MetricsTagName, MetricsTagValue>;
 
@@ -46,7 +48,7 @@ impl FromStr for MetricsTagName {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         chars_allowed_in_opentsdb(s)?;
-        Ok(MetricsTagName(s.to_string()))
+        Ok(MetricsTagName(s.into()))
     }
 }
 
@@ -74,7 +76,7 @@ impl FromStr for MetricsTagValue {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         chars_allowed_in_opentsdb(s)?;
-        Ok(MetricsTagValue(s.to_string()))
+        Ok(MetricsTagValue(s.into()))
     }
 }
 
@@ -90,10 +92,7 @@ mod tests {
 
     #[test]
     fn t_metrics_name() {
-        assert_eq!(
-            MetricsTagName::from_str("abc-1").unwrap(),
-            MetricsTagName("abc-1".to_string())
-        );
+        assert_eq!(MetricsTagName::from_str("abc-1").unwrap().as_str(), "abc-1");
 
         assert!(MetricsTagName::from_str("a=b").is_err());
     }
@@ -101,8 +100,8 @@ mod tests {
     #[test]
     fn t_metrics_value() {
         assert_eq!(
-            MetricsTagValue::from_str("abc-1").unwrap(),
-            MetricsTagValue("abc-1".to_string())
+            MetricsTagValue::from_str("abc-1").unwrap().as_str(),
+            "abc-1"
         );
 
         assert!(MetricsTagValue::from_str("a=b").is_err());
