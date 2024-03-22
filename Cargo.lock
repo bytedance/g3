@@ -772,9 +772,9 @@ checksum = "0ce7134b9999ecaf8bcd65542e436736ef32ddca1b3e06094cb6ec5755203b80"
 
 [[package]]
 name = "fixedbitset"
-version = "0.5.4"
+version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "439f3d9767ae6466036a0c188ce394202322569d8f8dd0fc1bf74ca393a1ee0d"
+checksum = "9136484f6695ea36060b406c9a15c3b5f5d4724645bba172e2101e9d15398864"
 
 [[package]]
 name = "flate2"
@@ -1012,7 +1012,7 @@ name = "g3-dpi"
 version = "0.1.0"
 dependencies = [
  "bytes",
- "fixedbitset 0.5.4",
+ "fixedbitset 0.5.5",
  "fnv",
  "g3-types",
  "memchr",
@@ -1668,7 +1668,7 @@ dependencies = [
  "clap",
  "clap_complete",
  "fastrand",
- "fixedbitset 0.5.4",
+ "fixedbitset 0.5.5",
  "fnv",
  "futures-util",
  "g3-compat",
