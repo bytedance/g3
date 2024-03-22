@@ -33,7 +33,7 @@ use rustix::net::{
 const SD_JOURNAL_SOCK_PATH: &str = "/run/systemd/journal/socket";
 /// The name is used as a filename in /proc/self/fd/, always prefixed with memfd.
 /// Multiple memfd files can have the same name without any side effects.
-const MEM_FD_NAME: &CStr = unsafe { CStr::from_bytes_with_nul_unchecked(b"journal-logging\0") };
+const MEM_FD_NAME: &CStr = c"journal-logging";
 
 thread_local! {
     static SD_SOCK: OnceCell<UnixDatagram> = const { OnceCell::new() };
