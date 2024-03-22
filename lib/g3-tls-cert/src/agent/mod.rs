@@ -24,6 +24,12 @@ use openssl::x509::X509;
 
 use g3_types::net::TlsServiceType;
 
+mod protocol;
+pub use protocol::*;
+
+mod response;
+use response::Response;
+
 mod query;
 use query::QueryRuntime;
 

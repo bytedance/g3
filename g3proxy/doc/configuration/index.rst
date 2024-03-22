@@ -11,9 +11,6 @@ is make up of the following entries:
 +-----------+----------+-------+------------------------------------------------+
 |Key        |Type      |Reload |Description                                     |
 +===========+==========+=======+================================================+
-|group_name |Str       |no     |Process group name, default to be empty, can be |
-|           |          |       |overridden by the *-G* command line option.     |
-+-----------+----------+-------+------------------------------------------------+
 |runtime    |Map       |no     |Runtime config, see :doc:`runtime`              |
 +-----------+----------+-------+------------------------------------------------+
 |worker     |Map [#w]_ |no     |An unaided runtime will be started if present.  |

@@ -24,14 +24,12 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use log::warn;
-use openssl::pkey::{PKey, Private};
 use tokio::io::ReadBuf;
 use tokio::net::UdpSocket;
 
 use g3_io_ext::{EffectiveCacheData, EffectiveQueryHandle};
-use g3_types::net::TlsServiceType;
 
-use super::{CacheQueryKey, CertAgentConfig, FakeCertPair};
+use super::{request_key_id, CacheQueryKey, CertAgentConfig, FakeCertPair, Response};
 
 pub(super) struct QueryRuntime {
     socket: UdpSocket,
@@ -76,16 +74,19 @@ impl QueryRuntime {
         {
             let mut map = Vec::with_capacity(3);
             map.push((
-                ValueRef::String("host".into()),
+                ValueRef::Integer(request_key_id::HOST.into()),
                 ValueRef::String(req.host().into()),
             ));
             map.push((
-                ValueRef::String("service".into()),
+                ValueRef::Integer(request_key_id::SERVICE.into()),
                 ValueRef::String(req.service().into()),
             ));
             if let Some(cert) = &req.mimic_cert {
                 if let Ok(der) = cert.to_der() {
-                    map.push((ValueRef::String("cert".into()), ValueRef::Binary(&der)));
+                    map.push((
+                        ValueRef::Integer(request_key_id::CERT.into()),
+                        ValueRef::Binary(&der),
+                    ));
                     let mut buf = Vec::with_capacity(320 + der.len());
                     if rmpv::encode::write_value_ref(&mut buf, &ValueRef::Map(map)).is_err() {
                         self.send_empty_result(req, false);
@@ -104,82 +105,26 @@ impl QueryRuntime {
         }
     }
 
-    fn parse_rsp(
-        map: Vec<(rmpv::ValueRef, rmpv::ValueRef)>,
-    ) -> anyhow::Result<(Arc<CacheQueryKey>, FakeCertPair, u32)> {
-        use anyhow::Context;
-
-        let mut host = String::new();
-        let mut certs = Vec::new();
-        let mut pkey: Option<PKey<Private>> = None;
-        let mut ttl: u32 = 0;
-        let mut service = TlsServiceType::Http;
-
-        for (k, v) in map {
-            let key = g3_msgpack::value::as_string(&k)?;
-            match g3_msgpack::key::normalize(key.as_str()).as_str() {
-                "host" => {
-                    host = g3_msgpack::value::as_string(&v)
-                        .context(format!("invalid string value for key {key}"))?;
-                }
-                "service" => {
-                    service = g3_msgpack::value::as_tls_service_type(&v)
-                        .context(format!("invalid tls service type value for key {key}"))?;
-                }
-                "cert" => {
-                    certs = g3_msgpack::value::as_openssl_certificates(&v)
-                        .context(format!("invalid tls certificate value for key {key}"))?;
-                }
-                "key" => {
-                    let key = g3_msgpack::value::as_openssl_private_key(&v)
-                        .context(format!("invalid tls private key value for key {key}"))?;
-                    pkey = Some(key);
-                }
-                "ttl" => {
-                    ttl = g3_msgpack::value::as_u32(&v)
-                        .context(format!("invalid u32 value for key {key}"))?;
-                }
-                _ => {} // ignore unknown keys
-            }
-        }
-
-        if host.is_empty() {
-            return Err(anyhow!("no required host key found"));
-        }
-        if certs.is_empty() {
-            return Err(anyhow!("no required cert key found"));
-        }
-        let Some(key) = pkey else {
-            return Err(anyhow!("no required pkey key found"));
-        };
-
-        let host = Arc::from(host);
-        Ok((
-            Arc::new(CacheQueryKey::new(service, host)),
-            FakeCertPair { certs, key },
-            ttl,
-        ))
-    }
-
     fn handle_rsp(&mut self, len: usize) {
-        use rmpv::ValueRef;
-
         let mut buf = &self.read_buffer[..len];
-        if let Ok(ValueRef::Map(map)) = rmpv::decode::read_value_ref(&mut buf) {
-            match Self::parse_rsp(map) {
-                Ok((req_key, pair, mut ttl)) => {
-                    if ttl == 0 {
-                        ttl = self.protective_ttl;
-                    } else if ttl > self.maximum_ttl {
-                        ttl = self.maximum_ttl;
-                    }
+        match rmpv::decode::read_value_ref(&mut buf)
+            .map_err(|e| anyhow!("invalid msgpack response data: {e}"))
+            .and_then(|v| Response::parse(v, self.protective_ttl))
+            .and_then(|r| r.into_parts())
+        {
+            Ok((req_key, pair, mut ttl)) => {
+                if ttl == 0 {
+                    ttl = self.protective_ttl;
+                } else if ttl > self.maximum_ttl {
+                    ttl = self.maximum_ttl;
+                }
 
-                    let result = EffectiveCacheData::new(pair, ttl, self.vanish_wait);
-                    self.query_handle.send_rsp_data(req_key, result, false);
-                }
-                Err(e) => {
-                    warn!("parse cert generator rsp error: {e:?}");
-                }
+                let result = EffectiveCacheData::new(pair, ttl, self.vanish_wait);
+                self.query_handle
+                    .send_rsp_data(Arc::new(req_key), result, false);
+            }
+            Err(e) => {
+                warn!("parse cert generator rsp error: {e:?}");
             }
         }
     }

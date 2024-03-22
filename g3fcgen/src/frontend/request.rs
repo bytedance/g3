@@ -20,6 +20,7 @@ use anyhow::{anyhow, Context};
 use openssl::x509::X509;
 use rmpv::ValueRef;
 
+use g3_tls_cert::agent::{request_key, request_key_id, response_key_id};
 use g3_types::net::TlsServiceType;
 
 use super::GeneratedData;
@@ -30,69 +31,118 @@ pub(crate) struct Request {
     pub(crate) cert: Option<X509>,
 }
 
+impl Default for Request {
+    fn default() -> Self {
+        Request {
+            host: Arc::from(""),
+            service: TlsServiceType::Http,
+            cert: None,
+        }
+    }
+}
+
 impl Request {
+    fn check(&self) -> anyhow::Result<()> {
+        if self.host.is_empty() {
+            return Err(anyhow!("no host value set"));
+        }
+        Ok(())
+    }
+
+    fn set(&mut self, k: ValueRef, v: ValueRef) -> anyhow::Result<()> {
+        match k {
+            ValueRef::String(s) => {
+                let key = s
+                    .as_str()
+                    .ok_or_else(|| anyhow!("invalid string key {k}"))?;
+                match g3_msgpack::key::normalize(key).as_str() {
+                    request_key::HOST => self
+                        .set_host_value(v)
+                        .context(format!("invalid string value for key {key}")),
+                    request_key::SERVICE => {
+                        self.service = g3_msgpack::value::as_tls_service_type(&v)
+                            .context(format!("invalid tls service type value for key {key}"))?;
+                        Ok(())
+                    }
+                    request_key::CERT => {
+                        let cert = g3_msgpack::value::as_openssl_certificate(&v)
+                            .context(format!("invalid mimic cert value for key {key}"))?;
+                        self.cert = Some(cert);
+                        Ok(())
+                    }
+                    _ => Err(anyhow!("invalid key {key}")),
+                }
+            }
+            ValueRef::Integer(i) => {
+                let key_id = i.as_u64().ok_or_else(|| anyhow!("invalid u64 key {k}"))?;
+                match key_id {
+                    request_key_id::HOST => self
+                        .set_host_value(v)
+                        .context(format!("invalid host string value for key id {key_id}")),
+                    request_key_id::SERVICE => {
+                        self.service = g3_msgpack::value::as_tls_service_type(&v).context(
+                            format!("invalid tls service type value for key id {key_id}"),
+                        )?;
+                        Ok(())
+                    }
+                    request_key_id::CERT => {
+                        let cert = g3_msgpack::value::as_openssl_certificate(&v)
+                            .context(format!("invalid mimic cert value for key id {key_id}"))?;
+                        self.cert = Some(cert);
+                        Ok(())
+                    }
+                    _ => Err(anyhow!("invalid key id {key_id}")),
+                }
+            }
+            _ => Err(anyhow!("unsupported key type: {k}")),
+        }
+    }
+
+    fn set_host_value(&mut self, v: ValueRef) -> anyhow::Result<()> {
+        let host = g3_msgpack::value::as_string(&v)?;
+        self.host = Arc::from(host);
+        Ok(())
+    }
+
     pub(crate) fn parse_req(mut data: &[u8]) -> anyhow::Result<Self> {
         let v = rmpv::decode::read_value_ref(&mut data)
             .map_err(|e| anyhow!("invalid req data: {e}"))?;
 
+        let mut request = Request::default();
         if let ValueRef::Map(map) = v {
-            let mut host = String::default();
-            let mut service = TlsServiceType::Http;
-            let mut cert = None;
-
             for (k, v) in map {
-                let key = g3_msgpack::value::as_string(&k)?;
-                match g3_msgpack::key::normalize(key.as_str()).as_str() {
-                    "host" => {
-                        host = g3_msgpack::value::as_string(&v)
-                            .context(format!("invalid string value for key {key}"))?;
-                    }
-                    "service" => {
-                        service = g3_msgpack::value::as_tls_service_type(&v)
-                            .context(format!("invalid tls service type value for key {key}"))?;
-                    }
-                    "cert" => {
-                        let c = g3_msgpack::value::as_openssl_certificate(&v)
-                            .context(format!("invalid mimic cert value for key {key}"))?;
-                        cert = Some(c);
-                    }
-                    _ => return Err(anyhow!("invalid key {key}")),
-                }
+                request.set(k, v)?;
             }
-
-            if host.is_empty() {
-                return Err(anyhow!("invalid host value"));
-            }
-            Ok(Request {
-                host: Arc::from(host),
-                service,
-                cert,
-            })
         } else {
-            Err(anyhow!("the req root data type should be map"))
+            request
+                .set_host_value(v)
+                .context("invalid single host string value")?;
         }
+
+        request.check()?;
+        Ok(request)
     }
 
     pub(crate) fn encode_rsp(&self, generated: &GeneratedData) -> anyhow::Result<Vec<u8>> {
         let map = vec![
             (
-                ValueRef::String("host".into()),
+                ValueRef::Integer(response_key_id::HOST.into()),
                 ValueRef::String(self.host.as_ref().into()),
             ),
             (
-                ValueRef::String("service".into()),
+                ValueRef::Integer(response_key_id::SERVICE.into()),
                 ValueRef::String(self.service.as_str().into()),
             ),
             (
-                ValueRef::String("cert".into()),
+                ValueRef::Integer(response_key_id::CERT_CHAIN.into()),
                 ValueRef::String(generated.cert.as_str().into()),
             ),
             (
-                ValueRef::String("key".into()),
+                ValueRef::Integer(response_key_id::PRIVATE_KEY.into()),
                 ValueRef::Binary(&generated.key),
             ),
             (
-                ValueRef::String("ttl".into()),
+                ValueRef::Integer(response_key_id::TTL.into()),
                 ValueRef::Integer(generated.ttl.into()),
             ),
         ];

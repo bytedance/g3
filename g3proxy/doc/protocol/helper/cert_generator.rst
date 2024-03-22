@@ -16,7 +16,8 @@ Both the request and the response are structured data and should be encoded in `
 
 .. _msgpack: https://msgpack.org/
 
-The root of the request and the response should be a map, we will describe the keys of them in the following.
+The root of the request and the response should be a map, the key may be a `key str` or a `key id`,
+we will describe the keys of them in the following.
 
 request
 =======
@@ -24,14 +25,14 @@ request
 host
 ----
 
-**required**, **type**: string
+**required**, **id**: 1, **type**: string
 
 Set the hostname of the target tls server. May be a domain or an IP address.
 
 service
 -------
 
-**optional**, **type**: string
+**optional**, **id**: 2, **type**: string
 
 Set the tls service type. It should be returned in response.
 
@@ -42,7 +43,7 @@ Set the tls service type. It should be returned in response.
 cert
 ----
 
-**optional**, **type**: pem string or der binary
+**optional**, **id**: 3, **type**: pem string or der binary
 
 The real upstream leaf cert in PEM string format or DER binary format.
 
@@ -54,14 +55,14 @@ response
 host
 ----
 
-**required**, **type**: string
+**required**, **id**: 1, **type**: string
 
 The hostname as specified in the request.
 
 service
 -------
 
-**optional**, **type**: string
+**optional**, **id**: 2, **type**: string
 
 Set the tls service type. It should be the same value as in the request.
 
@@ -72,21 +73,21 @@ Set the tls service type. It should be the same value as in the request.
 cert
 ----
 
-**required**, **type**: pem string
+**required**, **id**: 3, **type**: pem string
 
 The generated fake certificate (chain) in PEM format.
 
 key
 ---
 
-**required**, **type**: pem string or der binary
+**required**, **id**: 4, **type**: pem string or der binary
 
 The generated fake private key in PEM string format or in DER binary format.
 
 ttl
 ---
 
-**optional**, **type**: u32
+**optional**, **id**: 5, **type**: u32
 
 Set the expire ttl of this response.
 
