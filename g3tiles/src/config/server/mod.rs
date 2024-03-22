@@ -29,6 +29,8 @@ use g3_types::metrics::MetricsName;
 use g3_yaml::{HybridParser, YamlDocPosition};
 
 pub(crate) mod dummy_close;
+#[cfg(feature = "quic")]
+pub(crate) mod plain_quic_port;
 pub(crate) mod plain_tcp_port;
 
 pub(crate) mod openssl_proxy;
@@ -79,6 +81,8 @@ pub(crate) trait ServerConfig {
 pub(crate) enum AnyServerConfig {
     DummyClose(dummy_close::DummyCloseServerConfig),
     PlainTcpPort(plain_tcp_port::PlainTcpPortConfig),
+    #[cfg(feature = "quic")]
+    PlainQuicPort(plain_quic_port::PlainQuicPortConfig),
     OpensslProxy(openssl_proxy::OpensslProxyServerConfig),
     RustlsProxy(rustls_proxy::RustlsProxyServerConfig),
 }
@@ -89,6 +93,8 @@ macro_rules! impl_transparent0 {
             match self {
                 AnyServerConfig::DummyClose(s) => s.$f(),
                 AnyServerConfig::PlainTcpPort(s) => s.$f(),
+                #[cfg(feature = "quic")]
+                AnyServerConfig::PlainQuicPort(s) => s.$f(),
                 AnyServerConfig::OpensslProxy(s) => s.$f(),
                 AnyServerConfig::RustlsProxy(s) => s.$f(),
             }
@@ -102,6 +108,8 @@ macro_rules! impl_transparent1 {
             match self {
                 AnyServerConfig::DummyClose(s) => s.$f(p),
                 AnyServerConfig::PlainTcpPort(s) => s.$f(p),
+                #[cfg(feature = "quic")]
+                AnyServerConfig::PlainQuicPort(s) => s.$f(p),
                 AnyServerConfig::OpensslProxy(s) => s.$f(p),
                 AnyServerConfig::RustlsProxy(s) => s.$f(p),
             }
@@ -155,6 +163,12 @@ fn load_server(
             let server = plain_tcp_port::PlainTcpPortConfig::parse(map, position)
                 .context("failed to load this PlainTcpPort server")?;
             Ok(AnyServerConfig::PlainTcpPort(server))
+        }
+        #[cfg(feature = "quic")]
+        "plain_quic_port" | "plainquicport" | "plain_quic" | "plainquic" => {
+            let server = plain_quic_port::PlainQuicPortConfig::parse(map, position)
+                .context("failed to load this PlainQuicPort server")?;
+            Ok(AnyServerConfig::PlainQuicPort(server))
         }
         "openssl_proxy" | "opensslproxy" => {
             let server = openssl_proxy::OpensslProxyServerConfig::parse(map, position)

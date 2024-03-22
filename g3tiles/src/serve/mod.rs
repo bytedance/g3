@@ -37,6 +37,8 @@ mod error;
 pub(crate) use error::{ServerTaskError, ServerTaskResult};
 
 mod dummy_close;
+#[cfg(feature = "quic")]
+mod plain_quic_port;
 mod plain_tcp_port;
 
 mod openssl_proxy;

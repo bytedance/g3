@@ -1804,6 +1804,7 @@ dependencies = [
  "arc-swap",
  "ascii",
  "async-trait",
+ "bitflags 2.5.0",
  "capnp",
  "capnp-rpc",
  "chrono",
