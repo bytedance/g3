@@ -43,9 +43,9 @@ impl server_control::Server for ServerControlImpl {
         if let Some(stats) = self.server.get_server_stats() {
             let mut builder = results.get().init_status();
             builder.set_online(stats.is_online());
-            builder.set_alive_task_count(stats.get_alive_count());
-            builder.set_total_conn_count(stats.get_conn_total());
-            builder.set_total_task_count(stats.get_task_total());
+            builder.set_alive_task_count(stats.alive_count());
+            builder.set_total_conn_count(stats.conn_total());
+            builder.set_total_task_count(stats.task_total());
             Promise::ok(())
         } else {
             Promise::err(capnp::Error::failed(

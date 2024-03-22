@@ -114,15 +114,15 @@ impl ServerStats for OpensslProxyServerStats {
         self.online.load(Ordering::Relaxed) > 0
     }
 
-    fn get_conn_total(&self) -> u64 {
+    fn conn_total(&self) -> u64 {
         self.conn_total.load(Ordering::Relaxed)
     }
 
-    fn get_task_total(&self) -> u64 {
+    fn task_total(&self) -> u64 {
         self.task_total.load(Ordering::Relaxed)
     }
 
-    fn get_alive_count(&self) -> i32 {
+    fn alive_count(&self) -> i32 {
         self.task_alive_count.load(Ordering::Relaxed)
     }
 

@@ -33,6 +33,7 @@ pub(crate) mod dummy_close;
 pub(crate) mod plain_quic_port;
 pub(crate) mod plain_tcp_port;
 
+pub(crate) mod keyless_proxy;
 pub(crate) mod openssl_proxy;
 pub(crate) mod rustls_proxy;
 
@@ -85,6 +86,7 @@ pub(crate) enum AnyServerConfig {
     PlainQuicPort(plain_quic_port::PlainQuicPortConfig),
     OpensslProxy(openssl_proxy::OpensslProxyServerConfig),
     RustlsProxy(rustls_proxy::RustlsProxyServerConfig),
+    KeylessProxy(keyless_proxy::KeylessProxyServerConfig),
 }
 
 macro_rules! impl_transparent0 {
@@ -97,6 +99,7 @@ macro_rules! impl_transparent0 {
                 AnyServerConfig::PlainQuicPort(s) => s.$f(),
                 AnyServerConfig::OpensslProxy(s) => s.$f(),
                 AnyServerConfig::RustlsProxy(s) => s.$f(),
+                AnyServerConfig::KeylessProxy(s) => s.$f(),
             }
         }
     };
@@ -112,6 +115,7 @@ macro_rules! impl_transparent1 {
                 AnyServerConfig::PlainQuicPort(s) => s.$f(p),
                 AnyServerConfig::OpensslProxy(s) => s.$f(p),
                 AnyServerConfig::RustlsProxy(s) => s.$f(p),
+                AnyServerConfig::KeylessProxy(s) => s.$f(p),
             }
         }
     };
@@ -179,6 +183,11 @@ fn load_server(
             let server = rustls_proxy::RustlsProxyServerConfig::parse(map, position)
                 .context("failed to load this RustlsProxy server")?;
             Ok(AnyServerConfig::RustlsProxy(server))
+        }
+        "keyless_proxy" | "keylessproxy" => {
+            let server = keyless_proxy::KeylessProxyServerConfig::parse(map, position)
+                .context("failed to load this KeylessProxy server")?;
+            Ok(AnyServerConfig::KeylessProxy(server))
         }
         _ => Err(anyhow!("unsupported server type {}", server_type)),
     }

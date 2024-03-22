@@ -31,6 +31,8 @@ pub(crate) enum ServerTaskError {
     ClientTcpReadFailed(io::Error),
     #[error("tcp write to client: {0:?}")]
     ClientTcpWriteFailed(io::Error),
+    #[error("invalid client protocol: {0}")]
+    InvalidClientProtocol(&'static str),
     #[error("upstream not resolved")]
     UpstreamNotResolved,
     #[error("upstream not connected: {0}")]
@@ -60,6 +62,7 @@ impl ServerTaskError {
             ServerTaskError::InternalServerError(_) => "InternalServerError",
             ServerTaskError::ClientTcpReadFailed(_) => "ClientTcpReadFailed",
             ServerTaskError::ClientTcpWriteFailed(_) => "ClientTcpWriteFailed",
+            ServerTaskError::InvalidClientProtocol(_) => "InvalidClientProtocol",
             ServerTaskError::UpstreamNotResolved => "UpstreamNotResolved",
             ServerTaskError::UpstreamNotConnected(_) => "UpstreamNotConnected",
             ServerTaskError::UpstreamReadFailed(_) => "UpstreamReadFailed",

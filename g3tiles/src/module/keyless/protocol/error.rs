@@ -14,6 +14,18 @@
  * limitations under the License.
  */
 
-pub(crate) mod stream;
+use std::io;
 
-pub(crate) mod keyless;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub(crate) enum KeylessRecvMessageError {
+    #[error("io failed: {0:?}")]
+    IoFailed(#[from] io::Error),
+    #[error("io closed")]
+    IoClosed,
+    #[error("invalid header length {0}")]
+    InvalidHeaderLength(usize),
+    #[error("invalid payload length, only received {0} of {1}")]
+    InvalidPayloadLength(usize, usize),
+}

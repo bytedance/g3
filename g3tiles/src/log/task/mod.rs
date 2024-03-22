@@ -22,6 +22,8 @@ use super::shared::SharedLoggerType;
 
 pub(crate) mod tcp_connect;
 
+pub(crate) mod keyless;
+
 pub(crate) fn get_logger(server_type: &str, server_name: &MetricsName) -> Logger {
     let config = crate::config::log::get_task_default_config();
     let logger_name = format!("lt-{server_name}");

@@ -23,6 +23,7 @@ use g3_types::collection::{SelectiveHash, SelectiveItem, SelectivePickPolicy, Se
 use g3_types::metrics::MetricsName;
 
 use crate::config::backend::AnyBackendConfig;
+use crate::module::keyless::{KeylessRequest, KeylessResponse};
 use crate::module::stream::StreamConnectResult;
 use crate::serve::ServerTaskNotes;
 
@@ -50,6 +51,10 @@ pub(crate) trait Backend {
     fn update_discover(&self) -> anyhow::Result<()>;
 
     async fn stream_connect(&self, task_notes: &ServerTaskNotes) -> StreamConnectResult;
+
+    async fn keyless(&self, req: &KeylessRequest) -> KeylessResponse {
+        KeylessResponse::not_implemented(req.header())
+    }
 }
 
 pub(crate) type ArcBackend = Arc<dyn Backend + Send + Sync>;

@@ -14,6 +14,15 @@
  * limitations under the License.
  */
 
-pub(crate) mod stream;
+mod error;
+pub(crate) use error::KeylessRecvMessageError;
 
-pub(crate) mod keyless;
+mod header;
+mod request;
+mod response;
+
+const KEYLESS_HEADER_LEN: usize = 8;
+
+pub(crate) use header::KeylessHeader;
+pub(crate) use request::KeylessRequest;
+pub(crate) use response::{KeylessInternalErrorResponse, KeylessResponse, KeylessUpstreamResponse};

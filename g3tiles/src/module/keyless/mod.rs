@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
-pub(crate) mod stream;
+mod protocol;
+pub(crate) use protocol::*;
 
-pub(crate) mod keyless;
+mod stats;
+pub(crate) use stats::{KeylessRelaySnapshot, KeylessRelayStats};

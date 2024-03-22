@@ -67,7 +67,6 @@ impl OpensslRelayTask {
     fn get_log_context(&self) -> TaskLogForTcpConnect {
         TaskLogForTcpConnect {
             task_notes: &self.task_notes,
-            total_time: self.task_notes.time_elapsed(),
             client_rd_bytes: self.task_stats.clt.read.get_bytes(),
             client_wr_bytes: self.task_stats.clt.write.get_bytes(),
             remote_rd_bytes: self.task_stats.ups.read.get_bytes(),

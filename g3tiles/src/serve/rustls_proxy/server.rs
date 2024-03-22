@@ -265,7 +265,7 @@ impl Server for RustlsProxyServer {
     }
 
     fn alive_count(&self) -> i32 {
-        self.server_stats.get_alive_count()
+        self.server_stats.alive_count()
     }
 
     #[inline]

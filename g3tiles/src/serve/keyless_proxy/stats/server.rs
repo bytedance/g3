@@ -21,11 +21,12 @@ use std::sync::Arc;
 use arc_swap::ArcSwapOption;
 
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
-use g3_types::stats::{StatId, TcpIoSnapshot, TcpIoStats};
+use g3_types::stats::StatId;
 
+use crate::module::keyless::KeylessRelayStats;
 use crate::serve::ServerStats;
 
-pub(crate) struct RustlsProxyServerStats {
+pub(crate) struct KeylessProxyServerStats {
     name: MetricsName,
     id: StatId,
 
@@ -37,13 +38,12 @@ pub(crate) struct RustlsProxyServerStats {
     task_total: AtomicU64,
     task_alive_count: AtomicI32,
 
-    tcp: TcpIoStats,
-    // pub(crate) forbidden: ServerForbiddenStats,
+    pub(crate) relay: KeylessRelayStats,
 }
 
-impl RustlsProxyServerStats {
+impl KeylessProxyServerStats {
     pub(crate) fn new(name: &MetricsName) -> Self {
-        RustlsProxyServerStats {
+        KeylessProxyServerStats {
             name: name.clone(),
             id: StatId::new(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
@@ -51,7 +51,7 @@ impl RustlsProxyServerStats {
             conn_total: AtomicU64::new(0),
             task_total: AtomicU64::new(0),
             task_alive_count: AtomicI32::new(0),
-            tcp: Default::default(),
+            relay: KeylessRelayStats::default(),
         }
     }
 
@@ -75,16 +75,6 @@ impl RustlsProxyServerStats {
         self.task_total.fetch_add(1, Ordering::Relaxed);
     }
 
-    #[inline]
-    pub(crate) fn add_read(&self, size: u64) {
-        self.tcp.add_in_bytes(size);
-    }
-
-    #[inline]
-    pub(crate) fn add_write(&self, size: u64) {
-        self.tcp.add_out_bytes(size);
-    }
-
     pub(crate) fn inc_alive_task(&self) {
         self.task_alive_count.fetch_add(1, Ordering::Relaxed);
     }
@@ -94,7 +84,7 @@ impl RustlsProxyServerStats {
     }
 }
 
-impl ServerStats for RustlsProxyServerStats {
+impl ServerStats for KeylessProxyServerStats {
     #[inline]
     fn name(&self) -> &MetricsName {
         &self.name
@@ -124,9 +114,5 @@ impl ServerStats for RustlsProxyServerStats {
 
     fn alive_count(&self) -> i32 {
         self.task_alive_count.load(Ordering::Relaxed)
-    }
-
-    fn tcp_io_snapshot(&self) -> Option<TcpIoSnapshot> {
-        Some(self.tcp.snapshot())
     }
 }

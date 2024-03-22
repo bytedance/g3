@@ -99,14 +99,14 @@ fn emit_server_stats(client: &mut StatsdClient, stats: &ArcServerStats, snap: &m
         common_tags.add_static_tags(&tags);
     }
 
-    let new_value = stats.get_conn_total();
+    let new_value = stats.conn_total();
     let diff_value = new_value.wrapping_sub(snap.conn_total);
     client
         .count_with_tags(METRIC_NAME_SERVER_CONN_TOTAL, diff_value, &common_tags)
         .send();
     snap.conn_total = new_value;
 
-    let new_value = stats.get_task_total();
+    let new_value = stats.task_total();
     let diff_value = new_value.wrapping_sub(snap.task_total);
     client
         .count_with_tags(METRIC_NAME_SERVER_TASK_TOTAL, diff_value, &common_tags)
@@ -116,7 +116,7 @@ fn emit_server_stats(client: &mut StatsdClient, stats: &ArcServerStats, snap: &m
     client
         .gauge_with_tags(
             METRIC_NAME_SERVER_TASK_ALIVE,
-            stats.get_alive_count(),
+            stats.alive_count(),
             &common_tags,
         )
         .send();
