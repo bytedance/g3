@@ -22,6 +22,8 @@ use socket2::{Domain, SockAddr, Socket, Type};
 
 use g3_types::net::{PortRange, SocketBufferConfig, UdpListenConfig, UdpMiscSockOpts};
 
+use crate::guard::RawFdGuard;
+
 use super::sockopt::set_bind_address_no_port;
 use super::util::AddressFamily;
 
@@ -158,17 +160,13 @@ pub fn new_std_rebind_listen(config: &UdpListenConfig, addr: SocketAddr) -> io::
 }
 
 pub fn set_raw_opts(fd: RawFd, misc_opts: UdpMiscSockOpts) -> io::Result<()> {
-    let socket = unsafe { Socket::from_raw_fd(fd) };
-    set_misc_opts(&socket, misc_opts)?;
-    let _ = socket.into_raw_fd();
-    Ok(())
+    let socket = RawFdGuard::<Socket>::new(fd);
+    set_misc_opts(&socket, misc_opts)
 }
 
 pub fn set_raw_buf_opts(fd: RawFd, buf_conf: SocketBufferConfig) -> io::Result<()> {
-    let socket = unsafe { Socket::from_raw_fd(fd) };
-    set_buf_opts(&socket, buf_conf)?;
-    let _ = socket.into_raw_fd();
-    Ok(())
+    let socket = RawFdGuard::<Socket>::new(fd);
+    set_buf_opts(&socket, buf_conf)
 }
 
 fn set_misc_opts(socket: &Socket, misc_opts: UdpMiscSockOpts) -> io::Result<()> {
