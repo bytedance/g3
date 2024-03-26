@@ -57,7 +57,7 @@ pub(crate) trait Backend {
         Err(StreamConnectError::UpstreamNotResolved) // TODO
     }
 
-    async fn keyless(&self, req: &KeylessRequest) -> KeylessResponse {
+    async fn keyless(&self, req: KeylessRequest) -> KeylessResponse {
         KeylessResponse::not_implemented(req.header())
     }
 }

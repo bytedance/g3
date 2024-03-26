@@ -15,6 +15,7 @@
  */
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
@@ -40,8 +41,10 @@ pub(crate) struct KeylessQuicBackendConfig {
     pub(crate) tls_name: Option<String>,
     pub(crate) duration_stats: HistogramMetricsConfig,
 
-    pub(crate) pool_idle_count: usize,
-    pub(crate) single_queue_size: usize,
+    pub(crate) response_timeout: Duration,
+    pub(crate) idle_connection_min: usize,
+    pub(crate) idle_connection_max: usize,
+    pub(crate) concurrent_streams: usize,
     pub(crate) socket_buffer: SocketBufferConfig,
 }
 
@@ -56,8 +59,10 @@ impl KeylessQuicBackendConfig {
             tls_client: RustlsClientConfigBuilder::default(),
             tls_name: None,
             duration_stats: HistogramMetricsConfig::default(),
-            pool_idle_count: 32,
-            single_queue_size: 256,
+            response_timeout: Duration::from_secs(10),
+            idle_connection_min: 32,
+            idle_connection_max: 1024,
+            concurrent_streams: 4,
             socket_buffer: SocketBufferConfig::default(),
         }
     }
@@ -72,7 +77,7 @@ impl KeylessQuicBackendConfig {
         Ok(site)
     }
 
-    fn check(&self) -> anyhow::Result<()> {
+    fn check(&mut self) -> anyhow::Result<()> {
         if self.name.is_empty() {
             return Err(anyhow!("name is not set"));
         }
@@ -81,6 +86,12 @@ impl KeylessQuicBackendConfig {
         }
         if matches!(self.discover_data, DiscoverRegisterData::Null) {
             return Err(anyhow!("no discover data set"));
+        }
+        if self.idle_connection_max < self.idle_connection_min {
+            self.idle_connection_max = self.idle_connection_min;
+        }
+        if self.concurrent_streams == 0 {
+            self.concurrent_streams = 1;
         }
         Ok(())
     }
@@ -123,12 +134,21 @@ impl KeylessQuicBackendConfig {
                 )?;
                 Ok(())
             }
-            "pool_idle_count" => {
-                self.pool_idle_count = g3_yaml::value::as_usize(v)?;
+            "response_timeout" => {
+                self.response_timeout = g3_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
-            "single_queue_size" => {
-                self.single_queue_size = g3_yaml::value::as_usize(v)?;
+            "idle_connection_min" => {
+                self.idle_connection_min = g3_yaml::value::as_usize(v)?;
+                Ok(())
+            }
+            "idle_connection_max" => {
+                self.idle_connection_max = g3_yaml::value::as_usize(v)?;
+                Ok(())
+            }
+            "concurrent_streams" => {
+                self.concurrent_streams = g3_yaml::value::as_usize(v)?;
                 Ok(())
             }
             "socket_buffer" => {

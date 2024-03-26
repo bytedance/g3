@@ -188,7 +188,7 @@ impl KeylessForwardTask {
         let task_stats = self.stats.clone();
         let rsp_sender = rsp_sender.clone();
         tokio::spawn(async move {
-            let rsp = backend.keyless(&req).await;
+            let rsp = backend.keyless(req).await;
             match rsp {
                 KeylessResponse::Upstream(_) => {
                     server_stats.relay.add_req_pass();

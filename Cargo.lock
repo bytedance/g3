@@ -1832,6 +1832,7 @@ dependencies = [
  "openssl-probe",
  "quinn",
  "rand",
+ "rustc-hash",
  "rustc_version",
  "rustls",
  "serde_json",

@@ -39,6 +39,7 @@ chrono = { workspace = true, features = ["clock"] }
 uuid.workspace = true
 bitflags.workspace = true
 flume.workspace = true
+rustc-hash.workspace = true
 g3-compat.workspace = true
 g3-daemon.workspace = true
 g3-signal.workspace = true

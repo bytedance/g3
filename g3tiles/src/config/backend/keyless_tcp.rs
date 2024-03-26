@@ -15,6 +15,7 @@
  */
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
@@ -38,8 +39,9 @@ pub(crate) struct KeylessTcpBackendConfig {
     pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
     pub(crate) duration_stats: HistogramMetricsConfig,
 
-    pub(crate) pool_idle_count: usize,
-    pub(crate) single_queue_size: usize,
+    pub(crate) response_timeout: Duration,
+    pub(crate) idle_connection_min: usize,
+    pub(crate) idle_connection_max: usize,
     pub(crate) tcp_keepalive: TcpKeepAliveConfig,
 }
 
@@ -52,8 +54,9 @@ impl KeylessTcpBackendConfig {
             discover_data: DiscoverRegisterData::Null,
             extra_metrics_tags: None,
             duration_stats: HistogramMetricsConfig::default(),
-            pool_idle_count: 128,
-            single_queue_size: 64,
+            response_timeout: Duration::from_secs(10),
+            idle_connection_min: 128,
+            idle_connection_max: 4096,
             tcp_keepalive: TcpKeepAliveConfig::default(),
         }
     }
@@ -68,7 +71,7 @@ impl KeylessTcpBackendConfig {
         Ok(site)
     }
 
-    fn check(&self) -> anyhow::Result<()> {
+    fn check(&mut self) -> anyhow::Result<()> {
         if self.name.is_empty() {
             return Err(anyhow!("name is not set"));
         }
@@ -77,6 +80,9 @@ impl KeylessTcpBackendConfig {
         }
         if matches!(self.discover_data, DiscoverRegisterData::Null) {
             return Err(anyhow!("no discover data set"));
+        }
+        if self.idle_connection_max < self.idle_connection_min {
+            self.idle_connection_max = self.idle_connection_min;
         }
         Ok(())
     }
@@ -108,12 +114,17 @@ impl KeylessTcpBackendConfig {
                 )?;
                 Ok(())
             }
-            "pool_idle_count" => {
-                self.pool_idle_count = g3_yaml::value::as_usize(v)?;
+            "response_timeout" => {
+                self.response_timeout = g3_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
-            "single_queue_size" => {
-                self.single_queue_size = g3_yaml::value::as_usize(v)?;
+            "idle_connection_min" => {
+                self.idle_connection_min = g3_yaml::value::as_usize(v)?;
+                Ok(())
+            }
+            "idle_connection_max" => {
+                self.idle_connection_max = g3_yaml::value::as_usize(v)?;
                 Ok(())
             }
             "tcp_keepalive" => {

@@ -23,20 +23,20 @@ use async_trait::async_trait;
 use log::debug;
 use tokio::sync::{broadcast, mpsc};
 
-use crate::module::keyless::KeylessRequest;
+use super::KeylessForwardRequest;
 
 pub(crate) trait KeylessUpstreamConnection {
-    fn run(
-        self,
-        req_receiver: flume::Receiver<KeylessRequest>,
-        quit_notifier: broadcast::Receiver<Duration>,
-    ) -> impl Future<Output = anyhow::Result<()>> + Send;
+    fn run(self) -> impl Future<Output = anyhow::Result<()>> + Send;
 }
 
 #[async_trait]
 pub(crate) trait KeylessUpstreamConnect {
     type Connection: KeylessUpstreamConnection;
-    async fn new_connection(&self) -> anyhow::Result<Self::Connection>;
+    async fn new_connection(
+        &self,
+        req_receiver: flume::Receiver<KeylessForwardRequest>,
+        quit_notifier: broadcast::Receiver<Duration>,
+    ) -> anyhow::Result<Self::Connection>;
 }
 pub(crate) type ArcKeylessUpstreamConnect<C> =
     Arc<dyn KeylessUpstreamConnect<Connection = C> + Send + Sync>;
@@ -46,6 +46,7 @@ enum KeylessPoolCmd {
     Close,
 }
 
+#[derive(Clone)]
 pub(crate) struct KeylessConnectionPoolHandle {
     cmd_sender: mpsc::Sender<KeylessPoolCmd>,
 }
@@ -87,16 +88,18 @@ impl PoolStats {
 
 pub(crate) struct KeylessConnectionPool<C: KeylessUpstreamConnection> {
     connector: ArcKeylessUpstreamConnect<C>,
-    max_connection: usize,
-    min_connection: usize,
+    idle_connection_min: usize,
+    idle_connection_max: usize,
     stats: Arc<PoolStats>,
 
-    keyless_request_receiver: flume::Receiver<KeylessRequest>,
+    keyless_request_receiver: flume::Receiver<KeylessForwardRequest>,
 
     connection_id: u64,
     connection_close_receiver: mpsc::Receiver<u64>,
     connection_close_sender: mpsc::Sender<u64>,
-    connection_clean_notifier: broadcast::Sender<Duration>,
+
+    connection_quit_notifier: broadcast::Sender<Duration>,
+    graceful_close_wait: Duration,
 }
 
 impl<C> KeylessConnectionPool<C>
@@ -105,36 +108,40 @@ where
 {
     fn new(
         connector: ArcKeylessUpstreamConnect<C>,
-        max_connection: usize,
-        min_connection: usize,
-        keyless_request_receiver: flume::Receiver<KeylessRequest>,
+        idle_connection_min: usize,
+        idle_connection_max: usize,
+        keyless_request_receiver: flume::Receiver<KeylessForwardRequest>,
+        graceful_close_wait: Duration,
     ) -> Self {
         let (connection_close_sender, connection_close_receiver) = mpsc::channel(1);
-        let connection_clean_notifier = broadcast::Sender::new(max_connection);
+        let connection_quit_notifier = broadcast::Sender::new(idle_connection_max);
         KeylessConnectionPool {
             connector,
-            max_connection,
-            min_connection,
+            idle_connection_min,
+            idle_connection_max,
             stats: Arc::new(PoolStats::default()),
             keyless_request_receiver,
             connection_id: 0,
             connection_close_receiver,
             connection_close_sender,
-            connection_clean_notifier,
+            connection_quit_notifier,
+            graceful_close_wait,
         }
     }
 
     pub(crate) fn spawn(
         connector: ArcKeylessUpstreamConnect<C>,
-        max_connection: usize,
-        min_connection: usize,
-        keyless_request_receiver: flume::Receiver<KeylessRequest>,
+        idle_connection_min: usize,
+        idle_connection_max: usize,
+        keyless_request_receiver: flume::Receiver<KeylessForwardRequest>,
+        graceful_close_wait: Duration,
     ) -> KeylessConnectionPoolHandle {
         let pool = KeylessConnectionPool::new(
             connector,
-            max_connection,
-            min_connection,
+            idle_connection_min,
+            idle_connection_max,
             keyless_request_receiver,
+            graceful_close_wait,
         );
         let (cmd_sender, cmd_receiver) = mpsc::channel(16);
         tokio::spawn(async move {
@@ -153,18 +160,18 @@ where
 
                     match cmd {
                         KeylessPoolCmd::UpdatePeers => {
-                            let _ = self.connection_clean_notifier.send(Duration::from_secs(30)); // TODO config
-                            self.connection_clean_notifier = broadcast::Sender::new(self.max_connection);
+                            let _ = self.connection_quit_notifier.send(self.graceful_close_wait);
+                            self.connection_quit_notifier = broadcast::Sender::new(self.idle_connection_max);
                             self.check_create_connection(0, self.stats.alive_count());
                         }
                         KeylessPoolCmd::Close => {
-                            let _ = self.connection_clean_notifier.send(Duration::from_secs(30)); // TODO config
+                            let _ = self.connection_quit_notifier.send(self.graceful_close_wait);
                             break;
                         }
                     }
                 }
-                r = self.connection_close_receiver.recv() => {
-                    self.check_create_connection(self.stats.alive_count(), self.min_connection);
+                _ = self.connection_close_receiver.recv() => {
+                    self.check_create_connection(self.stats.alive_count(), self.idle_connection_min);
                 }
             }
         }
@@ -184,16 +191,16 @@ where
         let connection_id = self.connection_id;
         let keyless_request_receiver = self.keyless_request_receiver.clone();
         let connection_close_sender = self.connection_close_sender.clone();
-        let connection_clean_notifier = self.connection_clean_notifier.subscribe();
+        let connection_quit_notifier = self.connection_quit_notifier.subscribe();
         let pool_stats = self.stats.clone();
         pool_stats.add_connection();
         tokio::spawn(async move {
-            match connector.new_connection().await {
+            match connector
+                .new_connection(keyless_request_receiver, connection_quit_notifier)
+                .await
+            {
                 Ok(connection) => {
-                    if let Err(e) = connection
-                        .run(keyless_request_receiver, connection_clean_notifier)
-                        .await
-                    {
+                    if let Err(e) = connection.run().await {
                         debug!("connection closed with error: {e}");
                     }
                 }

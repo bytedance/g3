@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+use tokio::sync::oneshot;
+
+use crate::module::keyless::{KeylessRequest, KeylessResponse};
+
 mod stats;
 pub(crate) use stats::{
     KeylessBackendStats, KeylessUpstreamDurationRecorder, KeylessUpstreamDurationStats,
@@ -24,3 +28,11 @@ pub(crate) use pool::{
     KeylessConnectionPool, KeylessConnectionPoolHandle, KeylessUpstreamConnect,
     KeylessUpstreamConnection,
 };
+
+mod multiplex;
+pub(crate) use multiplex::MultiplexedUpstreamConnection;
+
+pub(crate) struct KeylessForwardRequest {
+    pub(crate) req: KeylessRequest,
+    pub(crate) rsp_sender: oneshot::Sender<KeylessResponse>,
+}

@@ -22,5 +22,7 @@ pub(crate) use stats::{KeylessRelaySnapshot, KeylessRelayStats};
 
 mod backend;
 pub(crate) use backend::{
-    KeylessBackendStats, KeylessUpstreamDurationRecorder, KeylessUpstreamDurationStats,
+    KeylessBackendStats, KeylessConnectionPool, KeylessConnectionPoolHandle, KeylessForwardRequest,
+    KeylessUpstreamConnect, KeylessUpstreamConnection, KeylessUpstreamDurationRecorder,
+    KeylessUpstreamDurationStats, MultiplexedUpstreamConnection,
 };
