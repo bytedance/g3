@@ -16,6 +16,7 @@
 
 mod sockopt;
 
+pub mod guard;
 pub mod tcp;
 pub mod udp;
 pub mod util;

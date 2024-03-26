@@ -16,13 +16,14 @@
 
 use std::io;
 use std::net::{IpAddr, SocketAddr};
-use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
+use std::os::fd::{AsRawFd, RawFd};
 
 use socket2::{Domain, SockAddr, Socket, TcpKeepalive, Type};
 use tokio::net::{TcpListener, TcpSocket};
 
 use g3_types::net::{TcpKeepAliveConfig, TcpListenConfig, TcpMiscSockOpts};
 
+use super::guard::RawFdGuard;
 use super::sockopt::{set_bind_address_no_port, set_only_ipv6};
 use super::util::AddressFamily;
 
@@ -89,10 +90,8 @@ pub fn set_raw_opts(
     misc_opts: &TcpMiscSockOpts,
     default_set_nodelay: bool,
 ) -> io::Result<()> {
-    let socket = unsafe { Socket::from_raw_fd(fd) };
-    set_misc_opts(&socket, misc_opts, default_set_nodelay)?;
-    let _ = socket.into_raw_fd();
-    Ok(())
+    let socket = RawFdGuard::<Socket>::new(fd);
+    set_misc_opts(&socket, misc_opts, default_set_nodelay)
 }
 
 fn set_misc_opts(
