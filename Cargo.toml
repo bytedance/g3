@@ -183,7 +183,7 @@ zip = { version = "0.6", default-features = false }
 brotli = { version = "3.4", default-features = false, features = ["std"] }
 #
 mlua = "0.9"
-pyo3 = "0.20"
+pyo3 = { version = "0.21", default-features = false, features = ["auto-initialize"] }
 #
 rustc_version = "0.4"
 cfg-if = "1.0"

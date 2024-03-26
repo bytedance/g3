@@ -134,7 +134,7 @@ async fn call_python_fetch(script: PathBuf) -> anyhow::Result<String> {
 
     tokio::task::spawn_blocking(move || {
         Python::with_gil(|py| {
-            let code = PyModule::from_code(py, code.as_str(), "", "").map_err(|e| {
+            let code = PyModule::from_code_bound(py, code.as_str(), "", "").map_err(|e| {
                 anyhow!(
                     "failed to load code from script file {}: {e:?}",
                     script.display(),
@@ -181,7 +181,7 @@ async fn call_python_report_ok(script: PathBuf) -> anyhow::Result<()> {
 
     tokio::task::spawn_blocking(move || {
         Python::with_gil(|py| {
-            let code = PyModule::from_code(py, code.as_str(), "", "").map_err(|e| {
+            let code = PyModule::from_code_bound(py, code.as_str(), "", "").map_err(|e| {
                 anyhow!(
                     "failed to load code from script file {}: {e:?}",
                     script.display(),
@@ -214,7 +214,7 @@ async fn call_python_report_err(script: PathBuf, e: String) -> anyhow::Result<()
 
     tokio::task::spawn_blocking(move || {
         Python::with_gil(|py| {
-            let code = PyModule::from_code(py, code.as_str(), "", "").map_err(|e| {
+            let code = PyModule::from_code_bound(py, code.as_str(), "", "").map_err(|e| {
                 anyhow!(
                     "failed to load code from script file {}: {e:?}",
                     script.display(),
@@ -222,7 +222,7 @@ async fn call_python_report_err(script: PathBuf, e: String) -> anyhow::Result<()
             })?;
 
             if let Ok(report_ok) = code.getattr(FN_NAME_REPORT_ERR) {
-                let tup = PyTuple::new(py, [e]);
+                let tup = PyTuple::new_bound(py, [e]);
                 report_ok.call1(tup).map_err(|e| {
                     anyhow!(
                         "failed to call {}::{FN_NAME_REPORT_ERR}(err_msg): {e:?}",
