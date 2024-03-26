@@ -150,6 +150,7 @@ impl KeylessProxyServer {
         }
     }
 
+    #[cfg(feature = "quic")]
     fn spawn_task<R, W>(&self, clt_r: R, clt_w: W, cc_info: ClientConnectionInfo)
     where
         R: AsyncRead + Send + Unpin + 'static,
