@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-mod protocol;
-pub(crate) use protocol::*;
-
 mod stats;
-pub(crate) use stats::{KeylessRelaySnapshot, KeylessRelayStats};
-
-mod backend;
-pub(crate) use backend::{
+pub(crate) use stats::{
     KeylessBackendStats, KeylessUpstreamDurationRecorder, KeylessUpstreamDurationStats,
+};
+
+mod pool;
+pub(crate) use pool::{
+    KeylessConnectionPool, KeylessConnectionPoolHandle, KeylessUpstreamConnect,
+    KeylessUpstreamConnection,
 };

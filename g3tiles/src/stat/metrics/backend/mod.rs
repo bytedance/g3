@@ -19,6 +19,7 @@ use g3_statsd_client::{StatsdClient, StatsdTagGroup};
 use g3_types::metrics::MetricsName;
 use g3_types::stats::StatId;
 
+pub(crate) mod keyless;
 pub(crate) mod stream;
 
 const TAG_KEY_BACKEND: &str = "backend";
@@ -38,8 +39,10 @@ impl BackendMetricExt for StatsdTagGroup {
 
 pub(in crate::stat) fn sync_stats() {
     stream::sync_stats();
+    keyless::sync_stats();
 }
 
 pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
     stream::emit_stats(client);
+    keyless::emit_stats(client);
 }

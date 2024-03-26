@@ -24,10 +24,13 @@ use g3_types::metrics::MetricsName;
 
 use crate::config::backend::AnyBackendConfig;
 use crate::module::keyless::{KeylessRequest, KeylessResponse};
-use crate::module::stream::StreamConnectResult;
+use crate::module::stream::{StreamConnectError, StreamConnectResult};
 use crate::serve::ServerTaskNotes;
 
 mod dummy_close;
+#[cfg(feature = "quic")]
+mod keyless_quic;
+mod keyless_tcp;
 mod stream_tcp;
 
 mod ops;
@@ -50,7 +53,9 @@ pub(crate) trait Backend {
     fn discover(&self) -> &MetricsName;
     fn update_discover(&self) -> anyhow::Result<()>;
 
-    async fn stream_connect(&self, task_notes: &ServerTaskNotes) -> StreamConnectResult;
+    async fn stream_connect(&self, _task_notes: &ServerTaskNotes) -> StreamConnectResult {
+        Err(StreamConnectError::UpstreamNotResolved) // TODO
+    }
 
     async fn keyless(&self, req: &KeylessRequest) -> KeylessResponse {
         KeylessResponse::not_implemented(req.header())

@@ -23,6 +23,9 @@ use g3_types::metrics::MetricsName;
 use g3_yaml::{HybridParser, YamlDocPosition};
 
 pub(crate) mod dummy_close;
+#[cfg(feature = "quic")]
+pub(crate) mod keyless_quic;
+pub(crate) mod keyless_tcp;
 pub(crate) mod stream_tcp;
 
 mod registry;
@@ -51,6 +54,9 @@ pub(crate) trait BackendConfig {
 pub(crate) enum AnyBackendConfig {
     DummyClose(dummy_close::DummyCloseBackendConfig),
     StreamTcp(stream_tcp::StreamTcpBackendConfig),
+    KeylessTcp(keyless_tcp::KeylessTcpBackendConfig),
+    #[cfg(feature = "quic")]
+    KeylessQuic(keyless_quic::KeylessQuicBackendConfig),
 }
 
 macro_rules! impl_transparent0 {
@@ -59,6 +65,9 @@ macro_rules! impl_transparent0 {
             match self {
                 AnyBackendConfig::DummyClose(s) => s.$f(),
                 AnyBackendConfig::StreamTcp(s) => s.$f(),
+                AnyBackendConfig::KeylessTcp(s) => s.$f(),
+                #[cfg(feature = "quic")]
+                AnyBackendConfig::KeylessQuic(s) => s.$f(),
             }
         }
     };
@@ -70,6 +79,9 @@ macro_rules! impl_transparent1 {
             match self {
                 AnyBackendConfig::DummyClose(s) => s.$f(p),
                 AnyBackendConfig::StreamTcp(s) => s.$f(p),
+                AnyBackendConfig::KeylessTcp(s) => s.$f(p),
+                #[cfg(feature = "quic")]
+                AnyBackendConfig::KeylessQuic(s) => s.$f(p),
             }
         }
     };
@@ -118,6 +130,17 @@ fn load_backend(
             let backend = stream_tcp::StreamTcpBackendConfig::parse(map, position)
                 .context("failed to load this StreamTcp backend")?;
             Ok(AnyBackendConfig::StreamTcp(backend))
+        }
+        "keyless_tcp" | "keylesstcp" => {
+            let backend = keyless_tcp::KeylessTcpBackendConfig::parse(map, position)
+                .context("failed to load this KeylessTcp backend")?;
+            Ok(AnyBackendConfig::KeylessTcp(backend))
+        }
+        #[cfg(feature = "quic")]
+        "keyless_quic" | "keylessquic" => {
+            let backend = keyless_quic::KeylessQuicBackendConfig::parse(map, position)
+                .context("failed to load this KeylessQuic backend")?;
+            Ok(AnyBackendConfig::KeylessQuic(backend))
         }
         _ => Err(anyhow!("unsupported backend type {}", backend_type)),
     }

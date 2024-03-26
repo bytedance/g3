@@ -27,6 +27,9 @@ use super::{registry, ArcBackend};
 use crate::config::backend::{AnyBackendConfig, BackendConfigDiffAction};
 
 use super::dummy_close::DummyCloseBackend;
+#[cfg(feature = "quic")]
+use super::keyless_quic::KeylessQuicBackend;
+use super::keyless_tcp::KeylessTcpBackend;
 use super::stream_tcp::StreamTcpBackend;
 
 static BACKEND_OPS_LOCK: Mutex<()> = Mutex::const_new(());
@@ -169,6 +172,9 @@ async fn spawn_new_unlocked(config: AnyBackendConfig) -> anyhow::Result<()> {
     let site = match config {
         AnyBackendConfig::DummyClose(c) => DummyCloseBackend::prepare_initial(c)?,
         AnyBackendConfig::StreamTcp(c) => StreamTcpBackend::prepare_initial(c)?,
+        AnyBackendConfig::KeylessTcp(c) => KeylessTcpBackend::prepare_initial(c)?,
+        #[cfg(feature = "quic")]
+        AnyBackendConfig::KeylessQuic(c) => KeylessQuicBackend::prepare_initial(c)?,
     };
     registry::add(name.clone(), site);
     crate::serve::update_dependency_to_backend(&name, "spawned").await;

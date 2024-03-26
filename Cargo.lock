@@ -1810,6 +1810,7 @@ dependencies = [
  "chrono",
  "clap",
  "clap_complete",
+ "flume",
  "futures-util",
  "g3-compat",
  "g3-daemon",
