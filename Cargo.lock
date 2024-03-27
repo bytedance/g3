@@ -317,9 +317,9 @@ dependencies = [
 
 [[package]]
 name = "bssl-cmake-sys"
-version = "0.1.2403180"
+version = "0.1.2403260"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67ec3f977de244655fe0bc9b37d171e016d71d97b279fcbcc4350358864d4fb8"
+checksum = "eb9aadc8d0f2f3513db08f7906df215907ecb04cc8dd6a7b2ff6984aa533fa69"
 dependencies = [
  "bindgen",
  "cc",
