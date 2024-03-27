@@ -1,0 +1,21 @@
+
+log: journal
+
+discover:
+  - name: static
+    type: static_addr
+
+backend:
+  - name: local_tcp
+    type: keyless_tcp
+    discover: static
+    discover_data: "127.0.0.1:1300"
+
+server:
+  - name: keyless
+    type: keyless_proxy
+    backend: local_tcp
+  - name: listen1400
+    type: plain_tcp_port
+    listen: "127.0.0.1:1400"
+    server: keyless

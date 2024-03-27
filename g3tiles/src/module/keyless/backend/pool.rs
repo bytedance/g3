@@ -175,7 +175,8 @@ where
                                 tokio::time::sleep(graceful_close_wait).await;
                                 let _ = old_quit_notifier.send(graceful_close_wait);
                             });
-                            self.check_create_connection(0, self.stats.alive_count());
+                            let target = self.stats.alive_count().max(self.idle_connection_min);
+                            self.check_create_connection(0, target);
                         }
                         KeylessPoolCmd::CloseGraceful => {
                             tokio::time::sleep(self.graceful_close_wait).await;

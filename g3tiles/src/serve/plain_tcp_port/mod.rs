@@ -60,7 +60,7 @@ impl PlainTcpPort {
             .as_ref()
             .map(|builder| builder.build());
 
-        let next_server = Arc::new(crate::serve::get_or_insert_default(config.name()));
+        let next_server = Arc::new(crate::serve::get_or_insert_default(&config.server));
 
         Ok(PlainTcpPort {
             config,
