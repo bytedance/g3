@@ -91,7 +91,7 @@ impl KeylessUpstreamRecvTask {
                     }
                 }
                 r = self.quit_notifier.recv() => {
-                    let wait = r.unwrap_or(Duration::from_secs(10));
+                    let wait = r.unwrap_or(self.rsp_timeout);
                     return tokio::time::timeout(wait, self.recv_all_pending(buf_reader))
                         .await
                         .unwrap_or_else(|_| Ok(()));

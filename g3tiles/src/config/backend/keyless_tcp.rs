@@ -39,7 +39,9 @@ pub(crate) struct KeylessTcpBackendConfig {
     pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
     pub(crate) duration_stats: HistogramMetricsConfig,
 
+    pub(crate) request_buffer_size: usize,
     pub(crate) response_timeout: Duration,
+    pub(crate) graceful_close_wait: Duration,
     pub(crate) idle_connection_min: usize,
     pub(crate) idle_connection_max: usize,
     pub(crate) tcp_keepalive: TcpKeepAliveConfig,
@@ -54,7 +56,9 @@ impl KeylessTcpBackendConfig {
             discover_data: DiscoverRegisterData::Null,
             extra_metrics_tags: None,
             duration_stats: HistogramMetricsConfig::default(),
-            response_timeout: Duration::from_secs(10),
+            request_buffer_size: 128,
+            response_timeout: Duration::from_secs(4),
+            graceful_close_wait: Duration::from_secs(10),
             idle_connection_min: 128,
             idle_connection_max: 4096,
             tcp_keepalive: TcpKeepAliveConfig::default(),
@@ -114,8 +118,17 @@ impl KeylessTcpBackendConfig {
                 )?;
                 Ok(())
             }
+            "request_buffer_size" => {
+                self.request_buffer_size = g3_yaml::value::as_usize(v)?;
+                Ok(())
+            }
             "response_timeout" => {
                 self.response_timeout = g3_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                Ok(())
+            }
+            "graceful_close_wait" => {
+                self.graceful_close_wait = g3_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }

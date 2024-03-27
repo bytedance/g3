@@ -23,6 +23,7 @@ use async_trait::async_trait;
 #[cfg(feature = "quic")]
 use quinn::Connection;
 use slog::Logger;
+#[cfg(feature = "quic")]
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;

@@ -88,10 +88,8 @@ impl KeylessUpstreamSendTask {
                 }
                 r = &mut self.reader_close_receiver => {
                     return match r {
-                        Ok(e) => {
-                            Err(anyhow!("reader side closed with error {e}"))
-                        }
-                        Err(_) => Err(anyhow!("reader dropped")),
+                        Ok(e) => Err(anyhow!("reader side closed with error {e}")),
+                        Err(_) => Ok(None), // reader closed without error
                     };
                 }
             }

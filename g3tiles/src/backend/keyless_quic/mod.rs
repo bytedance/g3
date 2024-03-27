@@ -62,7 +62,8 @@ impl KeylessQuicBackend {
         stats.set_extra_tags(config.extra_metrics_tags.clone());
         duration_stats.set_extra_tags(config.extra_metrics_tags.clone());
 
-        let (keyless_request_sender, keyless_request_receiver) = flume::unbounded();
+        let (keyless_request_sender, keyless_request_receiver) =
+            flume::bounded(config.request_buffer_size);
         let connector = KeylessQuicUpstreamConnector::new(
             config.clone(),
             stats.clone(),
@@ -74,7 +75,7 @@ impl KeylessQuicBackend {
             config.idle_connection_min,
             config.idle_connection_max,
             keyless_request_receiver,
-            config.response_timeout,
+            config.graceful_close_wait,
         );
 
         let backend = Arc::new(KeylessQuicBackend {
@@ -117,11 +118,7 @@ impl KeylessQuicBackend {
             self.duration_stats.clone(),
         )?;
         let pool_handle = self.pool_handle.clone();
-        let wait = self.config.response_timeout;
-        tokio::spawn(async move {
-            tokio::time::sleep(wait).await; // keep the old pool run for some time
-            pool_handle.close().await
-        });
+        tokio::spawn(async move { pool_handle.close_graceful().await });
         Ok(new)
     }
 }
@@ -200,12 +197,21 @@ impl Backend for KeylessQuicBackend {
         let (rsp_sender, rsp_receiver) = oneshot::channel();
         let err = KeylessInternalErrorResponse::new(req.header());
         let req = KeylessForwardRequest { req, rsp_sender };
-        match self.keyless_request_sender.send_async(req).await {
-            Ok(_) => rsp_receiver.await.unwrap_or(KeylessResponse::Local(err)),
-            Err(_) => {
-                self.stats.add_request_drop();
-                KeylessResponse::Local(err)
+        if let Err(e) = self.keyless_request_sender.try_send(req) {
+            match e {
+                flume::TrySendError::Full(req) => {
+                    self.pool_handle.request_new_connection();
+                    if self.keyless_request_sender.send_async(req).await.is_err() {
+                        self.stats.add_request_drop();
+                        return KeylessResponse::Local(err);
+                    }
+                }
+                flume::TrySendError::Disconnected(_req) => {
+                    self.stats.add_request_drop();
+                    return KeylessResponse::Local(err);
+                }
             }
         }
+        rsp_receiver.await.unwrap_or(KeylessResponse::Local(err))
     }
 }

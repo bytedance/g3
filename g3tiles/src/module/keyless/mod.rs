@@ -21,8 +21,10 @@ mod stats;
 pub(crate) use stats::{KeylessRelaySnapshot, KeylessRelayStats};
 
 mod backend;
+#[cfg(feature = "quic")]
+pub(crate) use backend::KeylessUpstreamConnection;
 pub(crate) use backend::{
     KeylessBackendStats, KeylessConnectionPool, KeylessConnectionPoolHandle, KeylessForwardRequest,
-    KeylessUpstreamConnect, KeylessUpstreamConnection, KeylessUpstreamDurationRecorder,
-    KeylessUpstreamDurationStats, MultiplexedUpstreamConnection,
+    KeylessUpstreamConnect, KeylessUpstreamDurationRecorder, KeylessUpstreamDurationStats,
+    MultiplexedUpstreamConnection,
 };

@@ -15,6 +15,7 @@
  */
 
 use std::future::Future;
+use std::mem;
 use std::sync::atomic::{AtomicIsize, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -41,9 +42,12 @@ pub(crate) trait KeylessUpstreamConnect {
 pub(crate) type ArcKeylessUpstreamConnect<C> =
     Arc<dyn KeylessUpstreamConnect<Connection = C> + Send + Sync>;
 
+const CMD_CHANNEL_SIZE: usize = 16;
+
 enum KeylessPoolCmd {
     UpdatePeers,
-    Close,
+    CloseGraceful,
+    NewConnection,
 }
 
 #[derive(Clone)]
@@ -56,8 +60,12 @@ impl KeylessConnectionPoolHandle {
         let _ = self.cmd_sender.send(KeylessPoolCmd::UpdatePeers).await;
     }
 
-    pub(crate) async fn close(&self) {
-        let _ = self.cmd_sender.send(KeylessPoolCmd::Close).await;
+    pub(crate) async fn close_graceful(&self) {
+        let _ = self.cmd_sender.send(KeylessPoolCmd::CloseGraceful).await;
+    }
+
+    pub(crate) fn request_new_connection(&self) {
+        let _ = self.cmd_sender.try_send(KeylessPoolCmd::NewConnection);
     }
 }
 
@@ -114,7 +122,7 @@ where
         graceful_close_wait: Duration,
     ) -> Self {
         let (connection_close_sender, connection_close_receiver) = mpsc::channel(1);
-        let connection_quit_notifier = broadcast::Sender::new(idle_connection_max);
+        let connection_quit_notifier = broadcast::Sender::new(1);
         KeylessConnectionPool {
             connector,
             idle_connection_min,
@@ -143,7 +151,7 @@ where
             keyless_request_receiver,
             graceful_close_wait,
         );
-        let (cmd_sender, cmd_receiver) = mpsc::channel(16);
+        let (cmd_sender, cmd_receiver) = mpsc::channel(CMD_CHANNEL_SIZE);
         tokio::spawn(async move {
             pool.into_running(cmd_receiver).await;
         });
@@ -160,13 +168,24 @@ where
 
                     match cmd {
                         KeylessPoolCmd::UpdatePeers => {
-                            let _ = self.connection_quit_notifier.send(self.graceful_close_wait);
-                            self.connection_quit_notifier = broadcast::Sender::new(self.idle_connection_max);
+                            let new_quit_notifier = broadcast::Sender::new(1);
+                            let old_quit_notifier = mem::replace(&mut self.connection_quit_notifier, new_quit_notifier);
+                            let graceful_close_wait = self.graceful_close_wait;
+                            tokio::spawn(async move {
+                                tokio::time::sleep(graceful_close_wait).await;
+                                let _ = old_quit_notifier.send(graceful_close_wait);
+                            });
                             self.check_create_connection(0, self.stats.alive_count());
                         }
-                        KeylessPoolCmd::Close => {
+                        KeylessPoolCmd::CloseGraceful => {
+                            tokio::time::sleep(self.graceful_close_wait).await;
                             let _ = self.connection_quit_notifier.send(self.graceful_close_wait);
                             break;
+                        }
+                        KeylessPoolCmd::NewConnection => {
+                            if self.stats.alive_count() < self.idle_connection_max {
+                                self.create_connection();
+                            }
                         }
                     }
                 }
