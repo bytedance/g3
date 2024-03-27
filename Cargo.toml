@@ -170,7 +170,7 @@ rustix = { version = "0.38", default-features = false }
 inotify = "0.10"
 #
 serde = "1.0"
-yaml-rust = "0.4"
+yaml-rust = { package = "yaml-rust2", version = "0.8" }
 serde_json = "1.0"
 rmp-serde = "1"
 rmp = "0.8"
