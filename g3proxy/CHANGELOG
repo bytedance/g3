@@ -1,4 +1,8 @@
 
+v1.8.1:
+ - BUG FIX: fix build with musl
+ - BUG FIX: fix unexpected close of socket fd when setsockopt failed
+
 v1.8.0:
  - Policy: LTS version
 
