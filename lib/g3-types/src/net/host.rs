@@ -19,6 +19,8 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 
 use anyhow::anyhow;
+#[cfg(feature = "rustls")]
+use rustls_pki_types::ServerName;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Host {
@@ -117,15 +119,16 @@ impl FromStr for Host {
 }
 
 #[cfg(feature = "rustls")]
-impl TryFrom<&Host> for rustls::ServerName {
+impl TryFrom<&Host> for ServerName<'static> {
     type Error = std::io::Error;
 
     fn try_from(value: &Host) -> Result<Self, Self::Error> {
         use std::io;
 
         match value {
-            Host::Ip(ip) => Ok(rustls::ServerName::IpAddress(*ip)),
-            Host::Domain(domain) => rustls::ServerName::try_from(domain.as_str())
+            Host::Ip(ip) => Ok(ServerName::IpAddress((*ip).into())),
+            Host::Domain(domain) => ServerName::try_from(domain.as_str())
+                .map(|r| r.to_owned())
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e)),
         }
     }

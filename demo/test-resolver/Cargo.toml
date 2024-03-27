@@ -13,5 +13,13 @@ slog = { workspace = true, features = ["max_level_trace", "release_max_level_inf
 slog-scope = "4"
 slog-stdlog = "4"
 g3-types = { workspace = true, features = ["async-log"] }
-g3-resolver = { workspace = true, features = ["hickory"] }
+g3-resolver.workspace = true
 g3-stdlog.workspace = true
+
+[features]
+default = []
+hickory = [ "g3-resolver/hickory" ]
+
+[[bin]]
+name = "test-resolver"
+required-features = ["g3-resolver/hickory"]

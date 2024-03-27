@@ -24,7 +24,7 @@ mod cache;
 pub use cache::RustlsServerSessionCache;
 
 mod cert_pair;
-pub use cert_pair::RustlsCertificatePair;
+pub use cert_pair::{RustlsCertificatePair, RustlsCertificatePairBuilder};
 
 mod cert_resolver;
 pub use cert_resolver::MultipleCertResolver;
