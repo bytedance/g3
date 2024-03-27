@@ -11,10 +11,12 @@ on:
     branches:
       - 'master'
       - 'rel/**'
+      - 'g3proxy-v1.8'
   pull_request:
     branches:
       - 'master'
       - 'rel/**'
+      - 'g3proxy-v1.8''
 
 env:
   CARGO_TERM_COLOR: always
