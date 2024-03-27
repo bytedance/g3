@@ -27,7 +27,6 @@ use crate::config::server::keyless_proxy::KeylessProxyServerConfig;
 use crate::serve::keyless_proxy::KeylessProxyServerStats;
 use crate::serve::ServerQuitPolicy;
 
-#[allow(unused)]
 #[derive(Clone)]
 pub(crate) struct CommonTaskContext {
     pub server_config: Arc<KeylessProxyServerConfig>,

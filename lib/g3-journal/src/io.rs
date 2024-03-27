@@ -39,7 +39,6 @@ thread_local! {
     static SD_SOCK: OnceCell<UnixDatagram> = const { OnceCell::new() };
 }
 
-#[allow(unused)]
 pub(crate) fn journal_send(data: &[u8]) -> anyhow::Result<()> {
     SD_SOCK.with(|cell| {
         cell.get_or_try_init(|| {
