@@ -22,8 +22,13 @@ use anyhow::anyhow;
 use tokio::io::AsyncWrite;
 use tokio::sync::{broadcast, oneshot};
 
+use g3_types::ext::DurationExt;
+
 use super::StreamSharedState;
-use crate::module::keyless::{KeylessBackendStats, KeylessForwardRequest, KeylessRecvMessageError};
+use crate::module::keyless::{
+    KeylessBackendStats, KeylessForwardRequest, KeylessRecvMessageError,
+    KeylessUpstreamDurationRecorder,
+};
 
 pub(super) struct KeylessUpstreamSendTask {
     stats: Arc<KeylessBackendStats>,
@@ -31,6 +36,7 @@ pub(super) struct KeylessUpstreamSendTask {
     quit_notifier: broadcast::Receiver<Duration>,
     reader_close_receiver: oneshot::Receiver<KeylessRecvMessageError>,
     shared_state: Arc<StreamSharedState>,
+    duration_recorder: Arc<KeylessUpstreamDurationRecorder>,
     message_id: u32,
 }
 
@@ -41,6 +47,7 @@ impl KeylessUpstreamSendTask {
         quit_notifier: broadcast::Receiver<Duration>,
         reader_close_receiver: oneshot::Receiver<KeylessRecvMessageError>,
         shared_state: Arc<StreamSharedState>,
+        duration_recorder: Arc<KeylessUpstreamDurationRecorder>,
     ) -> Self {
         KeylessUpstreamSendTask {
             stats,
@@ -48,6 +55,7 @@ impl KeylessUpstreamSendTask {
             quit_notifier,
             reader_close_receiver,
             shared_state,
+            duration_recorder,
             message_id: 0,
         }
     }
@@ -100,6 +108,11 @@ impl KeylessUpstreamSendTask {
     where
         W: AsyncWrite + Unpin,
     {
+        let _ = self
+            .duration_recorder
+            .wait
+            .record(data.created.elapsed().as_nanos_u64());
+
         let orig_hdr = data.req.header();
         let req = data.req.refresh(self.message_id);
         let rsp_sender = data.rsp_sender;

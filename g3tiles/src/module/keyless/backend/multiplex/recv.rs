@@ -128,7 +128,7 @@ impl KeylessUpstreamRecvTask {
         if let Some(v) = self.shared_state.fetch_request(rsp_id) {
             let _ = self
                 .duration_recorder
-                .general
+                .response
                 .record(v.elapsed().as_nanos_u64());
             match v.send_upstream_rsp(rsp) {
                 Ok(_) => self.stats.add_response_send(),

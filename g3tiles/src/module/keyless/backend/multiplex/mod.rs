@@ -80,6 +80,7 @@ where
             self.quit_notifier.resubscribe(),
             reader_close_receiver,
             shared_state.clone(),
+            self.duration_recorder.clone(),
         );
         let recv_task = KeylessUpstreamRecvTask::new(
             self.rsp_timeout,

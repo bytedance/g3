@@ -20,7 +20,6 @@ use ahash::AHashMap;
 use once_cell::sync::Lazy;
 
 use g3_daemon::metrics::TAG_KEY_QUANTILE;
-use g3_histogram::HistogramStats;
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
 use g3_types::stats::StatId;
 
@@ -36,6 +35,7 @@ const METRIC_NAME_KEYLESS_RESPONSE_RECV: &str = "backend.keyless.response.recv";
 const METRIC_NAME_KEYLESS_RESPONSE_SEND: &str = "backend.keyless.response.send";
 const METRIC_NAME_KEYLESS_RESPONSE_DROP: &str = "backend.keyless.response.drop";
 
+const METRIC_NAME_KEYLESS_WAIT_DURATION: &str = "backend.keyless.wait.duration";
 const METRIC_NAME_KEYLESS_RESPONSE_DURATION: &str = "backend.keyless.response.duration";
 
 type KeylessBackendStatsValue = (Arc<KeylessBackendStats>, KeylessBackendSnapshot);
@@ -147,20 +147,19 @@ fn emit_keyless_duration_stats(
         common_tags.add_static_tags(&tags);
     }
 
-    emit_keyless_response_duration_stats(client, &stats.general, &common_tags);
-}
+    macro_rules! emit_duration {
+        ($field:ident, $name:expr) => {
+            stats.$field.foreach_stat(|_, qs, v| {
+                if v > 0_f64 {
+                    client
+                        .gauge_float_with_tags($name, v, &common_tags)
+                        .with_tag(TAG_KEY_QUANTILE, qs)
+                        .send();
+                }
+            })
+        };
+    }
 
-fn emit_keyless_response_duration_stats(
-    client: &mut StatsdClient,
-    stats: &HistogramStats,
-    common_tags: &StatsdTagGroup,
-) {
-    stats.foreach_stat(|_, qs, v| {
-        if v > 0_f64 {
-            client
-                .gauge_float_with_tags(METRIC_NAME_KEYLESS_RESPONSE_DURATION, v, common_tags)
-                .with_tag(TAG_KEY_QUANTILE, qs)
-                .send();
-        }
-    })
+    emit_duration!(wait, METRIC_NAME_KEYLESS_WAIT_DURATION);
+    emit_duration!(response, METRIC_NAME_KEYLESS_RESPONSE_DURATION);
 }

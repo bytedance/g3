@@ -196,7 +196,7 @@ impl Backend for KeylessTcpBackend {
     async fn keyless(&self, req: KeylessRequest) -> KeylessResponse {
         let (rsp_sender, rsp_receiver) = oneshot::channel();
         let err = KeylessInternalErrorResponse::new(req.header());
-        let req = KeylessForwardRequest { req, rsp_sender };
+        let req = KeylessForwardRequest::new(req, rsp_sender);
         if let Err(e) = self.keyless_request_sender.try_send(req) {
             match e {
                 flume::TrySendError::Full(req) => {

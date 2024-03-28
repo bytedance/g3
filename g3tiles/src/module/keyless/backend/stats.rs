@@ -144,7 +144,8 @@ pub(crate) struct KeylessUpstreamDurationStats {
     id: StatId,
     extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
 
-    pub(crate) general: Arc<HistogramStats>,
+    pub(crate) wait: Arc<HistogramStats>,
+    pub(crate) response: Arc<HistogramStats>,
 }
 
 impl KeylessUpstreamDurationStats {
@@ -168,7 +169,8 @@ impl KeylessUpstreamDurationStats {
 }
 
 pub(crate) struct KeylessUpstreamDurationRecorder {
-    pub(crate) general: HistogramRecorder<u64>,
+    pub(crate) wait: HistogramRecorder<u64>,
+    pub(crate) response: HistogramRecorder<u64>,
 }
 
 impl KeylessUpstreamDurationRecorder {
@@ -179,14 +181,19 @@ impl KeylessUpstreamDurationRecorder {
         KeylessUpstreamDurationRecorder,
         KeylessUpstreamDurationStats,
     ) {
-        let (general_r, general_s) =
+        let (wait_r, wait_s) = config.build_spawned(g3_daemon::runtime::main_handle().cloned());
+        let (response_r, response_s) =
             config.build_spawned(g3_daemon::runtime::main_handle().cloned());
-        let r = KeylessUpstreamDurationRecorder { general: general_r };
+        let r = KeylessUpstreamDurationRecorder {
+            wait: wait_r,
+            response: response_r,
+        };
         let s = KeylessUpstreamDurationStats {
             name: name.clone(),
             id: StatId::new(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
-            general: general_s,
+            wait: wait_s,
+            response: response_s,
         };
         (r, s)
     }

@@ -27,7 +27,7 @@ use crate::module::keyless::{
 };
 
 pub(super) struct CachedValue {
-    create_at: Instant,
+    send_started: Instant,
     req_header: KeylessHeader,
     rsp_sender: oneshot::Sender<KeylessResponse>,
 }
@@ -38,14 +38,14 @@ impl CachedValue {
         rsp_sender: oneshot::Sender<KeylessResponse>,
     ) -> Self {
         CachedValue {
-            create_at: Instant::now(),
+            send_started: Instant::now(),
             req_header,
             rsp_sender,
         }
     }
 
     pub(super) fn elapsed(&self) -> Duration {
-        self.create_at.elapsed()
+        self.send_started.elapsed()
     }
 
     pub(super) fn send_upstream_rsp(self, rsp: KeylessUpstreamResponse) -> Result<(), ()> {
