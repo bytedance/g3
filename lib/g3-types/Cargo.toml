@@ -18,6 +18,7 @@ rand.workspace = true
 rustc-hash.workspace = true
 fnv.workspace = true
 metrohash = "1.0"
+crc32fast = "1.4"
 smallvec.workspace = true
 smol_str.workspace = true
 memchr.workspace = true

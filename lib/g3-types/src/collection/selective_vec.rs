@@ -28,6 +28,7 @@ pub enum SelectivePickPolicy {
     Random,
     Serial,
     RoundRobin,
+    Ketama,
     Rendezvous,
     JumpHash,
 }
@@ -40,6 +41,7 @@ impl FromStr for SelectivePickPolicy {
             "random" => Ok(SelectivePickPolicy::Random),
             "serial" | "sequence" => Ok(SelectivePickPolicy::Serial),
             "roundrobin" | "rr" | "round_robin" => Ok(SelectivePickPolicy::RoundRobin),
+            "ketama" => Ok(SelectivePickPolicy::Ketama),
             "rendezvous" => Ok(SelectivePickPolicy::Rendezvous),
             "jump" | "jumphash" | "jump_hash" => Ok(SelectivePickPolicy::JumpHash),
             _ => Err(()),
@@ -49,6 +51,9 @@ impl FromStr for SelectivePickPolicy {
 
 pub trait SelectiveItem {
     fn weight(&self) -> f64;
+    fn weight_u32(&self) -> u32 {
+        self.weight().round() as u32
+    }
     fn selective_hash<H: Hasher>(&self, state: &mut H);
 }
 
@@ -93,12 +98,46 @@ impl<T: SelectiveItem> SelectiveVecBuilder<T> {
                 .unwrap_or(Ordering::Equal)
         });
 
+        let ketama_ring = ketama_ring_create(&nodes);
+
         Some(SelectiveVec {
             weighted,
             inner: nodes,
             rr_id: atomic::AtomicUsize::new(0),
+            ketama_ring,
         })
     }
+}
+
+fn ketama_ring_create<T: SelectiveItem>(nodes: &[T]) -> Vec<(usize, u32)> {
+    // This constant is copied from nginx. It will create 160 points per weight unit. For
+    // example, a weight of 2 will create 320 points on the ring.
+    const POINT_MULTIPLE: u32 = 160;
+    let total_weights: u32 = nodes.iter().map(|v| v.weight_u32()).sum();
+    let mut ring = Vec::with_capacity((total_weights * POINT_MULTIPLE) as usize);
+
+    for (i, node) in nodes.iter().enumerate() {
+        let mut hasher = crc32fast::Hasher::new();
+        node.selective_hash(&mut hasher);
+
+        let num_points = node.weight_u32() * POINT_MULTIPLE;
+
+        let mut prev_hash: u32 = 0;
+        for _ in 0..num_points {
+            let mut hasher = hasher.clone();
+            hasher.update(&prev_hash.to_le_bytes());
+
+            let hash = hasher.finalize();
+            ring.push((i, hash));
+            prev_hash = hash;
+        }
+    }
+
+    // Sort and remove any duplicates.
+    ring.sort_unstable_by(|v1, v2| v1.1.cmp(&v2.1));
+    ring.dedup_by(|v1, v2| v1.1 == v2.1);
+
+    ring
 }
 
 impl<T: SelectiveItem> Default for SelectiveVecBuilder<T> {
@@ -111,6 +150,7 @@ pub struct SelectiveVec<T: SelectiveItem> {
     weighted: bool,
     inner: Vec<T>,
     rr_id: atomic::AtomicUsize,
+    ketama_ring: Vec<(usize, u32)>,
 }
 
 macro_rules! panic_on_empty {
@@ -229,22 +269,20 @@ impl<T: SelectiveItem> SelectiveVec<T> {
                         atomic::Ordering::Acquire,
                     ) {
                         Ok(_) => {
-                            return if next <= id {
-                                let mut r = Vec::with_capacity(n);
+                            let mut r = Vec::with_capacity(n);
+                            if next <= id {
                                 for item in &self.inner.as_slice()[id..] {
                                     r.push(item);
                                 }
                                 for item in &self.inner.as_slice()[0..next] {
                                     r.push(item);
                                 }
-                                r
                             } else {
-                                let mut r = Vec::with_capacity(n);
                                 for item in &self.inner.as_slice()[id..next] {
                                     r.push(item);
                                 }
-                                r
                             }
+                            return r;
                         }
                         Err(n) => id = n,
                     }
@@ -371,6 +409,55 @@ impl<T: SelectiveItem> SelectiveVec<T> {
             }
         }
     }
+
+    fn ketama_ring_idx<K>(&self, key: &K) -> usize
+    where
+        K: Hash + ?Sized,
+    {
+        let mut hasher = crc32fast::Hasher::new();
+        key.hash(&mut hasher);
+        let hash = hasher.finalize();
+
+        match self.ketama_ring.binary_search_by(|v| v.1.cmp(&hash)) {
+            Ok(i) => i, // found
+            Err(i) => {
+                // will be inserted here
+                if i >= self.ketama_ring.len() {
+                    // make sure we always get a valid node
+                    0
+                } else {
+                    i
+                }
+            }
+        }
+    }
+
+    pub fn pick_ketama<K>(&self, key: &K) -> &T
+    where
+        K: Hash + ?Sized,
+    {
+        let idx = self.ketama_ring_idx(key);
+        let node = &self.ketama_ring[idx];
+        &self.inner[node.0]
+    }
+
+    pub fn pick_ketama_n<K>(&self, key: &K, n: usize) -> Vec<&T>
+    where
+        K: Hash + ?Sized,
+    {
+        let mut idx = self.ketama_ring_idx(key);
+
+        let mut r = Vec::with_capacity(n);
+        for _ in 0..n {
+            let node = &self.ketama_ring[idx];
+            r.push(&self.inner[node.0]);
+            idx += 1;
+            if idx > self.inner.len() {
+                idx = 1;
+            }
+        }
+        r
+    }
 }
 
 #[cfg(test)]
@@ -415,10 +502,10 @@ mod tests {
         assert!(node.eq(vec.pick_random()));
         assert!(node.eq(vec.pick_rendezvous("k")));
         assert!(node.eq(vec.pick_jump("k")));
+        assert!(node.eq(vec.pick_ketama("k")));
     }
 
     #[test]
-    #[ignore]
     fn pick_one_from_two() {
         let node1 = Node {
             name: "node1".to_string(),
@@ -438,6 +525,7 @@ mod tests {
         assert!(node1.eq(vec.pick_round_robin()));
         assert!(node2.eq(vec.pick_round_robin()));
 
+        /*
         let mut see1 = false;
         let mut see2 = false;
         for _ in 0..100 {
@@ -451,6 +539,7 @@ mod tests {
         }
         assert!(see1);
         assert!(see2);
+         */
 
         let prev = vec.pick_rendezvous("k");
         let next = vec.pick_rendezvous("k");
@@ -459,10 +548,13 @@ mod tests {
         let prev = vec.pick_jump("k");
         let next = vec.pick_jump("k");
         assert!(prev.eq(next));
+
+        let prev = vec.pick_ketama("k");
+        let next = vec.pick_ketama("k");
+        assert!(prev.eq(next));
     }
 
     #[test]
-    #[ignore]
     fn pick_one_from_weighted_two() {
         let node1 = Node {
             name: "node1".to_string(),
@@ -481,6 +573,7 @@ mod tests {
         assert!(node2.eq(vec.pick_serial()));
         assert!(node2.eq(vec.pick_round_robin()));
 
+        /*
         let mut see1 = 0usize;
         let mut see2 = 0usize;
         for _ in 0..100 {
@@ -493,6 +586,7 @@ mod tests {
             }
         }
         assert!(see2 > see1);
+         */
 
         let prev = vec.pick_rendezvous("k");
         let next = vec.pick_rendezvous("k");
@@ -501,10 +595,13 @@ mod tests {
         let prev = vec.pick_jump("k");
         let next = vec.pick_jump("k");
         assert!(prev.eq(next));
+
+        let prev = vec.pick_ketama("k");
+        let next = vec.pick_ketama("k");
+        assert!(prev.eq(next));
     }
 
     #[test]
-    #[ignore]
     fn pick_two_from_two() {
         let node1 = Node {
             name: "node1".to_string(),
@@ -530,6 +627,7 @@ mod tests {
         assert!(r[0].eq(&node1));
         assert!(r[1].eq(&node2));
 
+        /*
         let mut see1 = false;
         let mut see2 = false;
         let r = vec.pick_random_n(2);
@@ -545,6 +643,7 @@ mod tests {
         }
         assert!(see1);
         assert!(see2);
+         */
 
         let r1 = vec.pick_rendezvous_n("k", 2);
         let r2 = vec.pick_rendezvous_n("k", 2);
@@ -552,11 +651,17 @@ mod tests {
         assert_eq!(r2.len(), 2);
         assert!(r1[0].ne(r1[1]));
         assert!(r1[0].eq(r2[0]));
-        assert!(r2[1].eq(r2[1]));
+        assert!(r1[1].eq(r2[1]));
+
+        let r1 = vec.pick_ketama_n("k", 2);
+        let r2 = vec.pick_ketama_n("k", 2);
+        assert_eq!(r1.len(), 2);
+        assert_eq!(r2.len(), 2);
+        assert!(r1[0].eq(r2[0]));
+        assert!(r1[1].eq(r2[1]));
     }
 
     #[test]
-    #[ignore]
     fn pick_two_from_weighted_two() {
         let node1 = Node {
             name: "node1".to_string(),
@@ -582,6 +687,7 @@ mod tests {
         assert!(r[0].eq(&node2));
         assert!(r[1].eq(&node1));
 
+        /*
         let mut see1 = false;
         let mut see2 = false;
         let r = vec.pick_random_n(2);
@@ -597,6 +703,7 @@ mod tests {
         }
         assert!(see1);
         assert!(see2);
+         */
 
         let r1 = vec.pick_rendezvous_n("k", 2);
         let r2 = vec.pick_rendezvous_n("k", 2);
@@ -604,11 +711,17 @@ mod tests {
         assert_eq!(r2.len(), 2);
         assert!(r1[0].ne(r1[1]));
         assert!(r1[0].eq(r2[0]));
-        assert!(r2[1].eq(r2[1]));
+        assert!(r1[1].eq(r2[1]));
+
+        let r1 = vec.pick_ketama_n("k", 2);
+        let r2 = vec.pick_ketama_n("k", 2);
+        assert_eq!(r1.len(), 2);
+        assert_eq!(r2.len(), 2);
+        assert!(r1[0].eq(r2[0]));
+        assert!(r1[1].eq(r2[1]));
     }
 
     #[test]
-    #[ignore]
     fn pick_two_from_three() {
         let node1 = Node {
             name: "node1".to_string(),
@@ -644,6 +757,7 @@ mod tests {
         assert!(r[0].eq(&node3));
         assert!(r[1].eq(&node1));
 
+        /*
         let mut see1 = false;
         let mut see2 = false;
         for _ in 0..100 {
@@ -661,6 +775,7 @@ mod tests {
         }
         assert!(see1);
         assert!(see2);
+         */
 
         let r1 = vec.pick_rendezvous_n("k", 2);
         let r2 = vec.pick_rendezvous_n("k", 2);
@@ -668,11 +783,17 @@ mod tests {
         assert_eq!(r2.len(), 2);
         assert!(r1[0].ne(r1[1]));
         assert!(r1[0].eq(r2[0]));
-        assert!(r2[1].eq(r2[1]));
+        assert!(r1[1].eq(r2[1]));
+
+        let r1 = vec.pick_ketama_n("k", 2);
+        let r2 = vec.pick_ketama_n("k", 2);
+        assert_eq!(r1.len(), 2);
+        assert_eq!(r2.len(), 2);
+        assert!(r1[0].eq(r2[0]));
+        assert!(r1[1].eq(r2[1]));
     }
 
     #[test]
-    #[ignore]
     fn pick_two_from_weighted_three() {
         let node1 = Node {
             name: "node1".to_string(),
@@ -708,6 +829,7 @@ mod tests {
         assert!(r[0].eq(&node1));
         assert!(r[1].eq(&node3));
 
+        /*
         let mut see1 = 0usize;
         let mut see2 = 0usize;
         let mut see3 = 0usize;
@@ -729,6 +851,7 @@ mod tests {
         }
         assert!(see3 > see2);
         assert!(see2 > see1);
+         */
 
         let r1 = vec.pick_rendezvous_n("k", 2);
         let r2 = vec.pick_rendezvous_n("k", 2);
@@ -736,6 +859,13 @@ mod tests {
         assert_eq!(r2.len(), 2);
         assert!(r1[0].ne(r1[1]));
         assert!(r1[0].eq(r2[0]));
-        assert!(r2[1].eq(r2[1]));
+        assert!(r1[1].eq(r2[1]));
+
+        let r1 = vec.pick_ketama_n("k", 2);
+        let r2 = vec.pick_ketama_n("k", 2);
+        assert_eq!(r1.len(), 2);
+        assert_eq!(r2.len(), 2);
+        assert!(r1[0].eq(r2[0]));
+        assert!(r1[1].eq(r2[1]));
     }
 }

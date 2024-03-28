@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
@@ -29,10 +29,10 @@ use tokio::sync::broadcast;
 use tokio_rustls::server::TlsStream;
 
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
-use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
+use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerExt, ServerReloadCommand};
 use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
-use g3_types::collection::{SelectivePickPolicy, SelectiveVec, SelectiveVecBuilder};
+use g3_types::collection::{SelectiveVec, SelectiveVecBuilder};
 use g3_types::metrics::MetricsName;
 use g3_types::net::{OpensslClientConfig, UpstreamAddr, WeightedUpstreamAddr};
 
@@ -179,7 +179,9 @@ impl TcpStreamServer {
         &self,
         cc_info: ClientConnectionInfo,
     ) -> (CommonTaskContext, &UpstreamAddr) {
-        let client_ip = cc_info.client_ip();
+        let upstream =
+            self.select_consistent(&self.upstream, self.config.upstream_pick_policy, &cc_info);
+
         let ctx = CommonTaskContext {
             server_config: Arc::clone(&self.config),
             server_stats: Arc::clone(&self.server_stats),
@@ -189,25 +191,6 @@ impl TcpStreamServer {
             cc_info,
             tls_client_config: self.tls_client_config.clone(),
             task_logger: self.task_logger.clone(),
-        };
-
-        #[derive(Hash)]
-        struct ConsistentKey {
-            client_ip: IpAddr,
-        }
-
-        let upstream = match self.config.upstream_pick_policy {
-            SelectivePickPolicy::Random => self.upstream.pick_random(),
-            SelectivePickPolicy::Serial => self.upstream.pick_serial(),
-            SelectivePickPolicy::RoundRobin => self.upstream.pick_round_robin(),
-            SelectivePickPolicy::Rendezvous => {
-                let key = ConsistentKey { client_ip };
-                self.upstream.pick_rendezvous(&key)
-            }
-            SelectivePickPolicy::JumpHash => {
-                let key = ConsistentKey { client_ip };
-                self.upstream.pick_jump(&key)
-            }
         };
 
         (ctx, upstream.inner())
@@ -328,6 +311,8 @@ impl BaseServer for TcpStreamServer {
         self.reload_version
     }
 }
+
+impl ServerExt for TcpStreamServer {}
 
 #[async_trait]
 impl AcceptTcpServer for TcpStreamServer {

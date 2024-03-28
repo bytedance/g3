@@ -83,6 +83,12 @@ pub(crate) trait BackendExt: Backend {
             SelectivePickPolicy::Random => nodes.pick_random(),
             SelectivePickPolicy::Serial => nodes.pick_serial(),
             SelectivePickPolicy::RoundRobin => nodes.pick_round_robin(),
+            SelectivePickPolicy::Ketama => {
+                let key = ConsistentKey {
+                    client_ip: task_notes.client_ip(),
+                };
+                nodes.pick_ketama(&key)
+            }
             SelectivePickPolicy::Rendezvous => {
                 let key = ConsistentKey {
                     client_ip: task_notes.client_ip(),

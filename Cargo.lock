@@ -1416,6 +1416,7 @@ dependencies = [
  "blake3",
  "brotli",
  "bytes",
+ "crc32fast",
  "digest",
  "fastrand",
  "flume",

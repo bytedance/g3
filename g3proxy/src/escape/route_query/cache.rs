@@ -76,6 +76,12 @@ impl CacheHandle {
                         SelectivePickPolicy::Random => nodes.pick_random(),
                         SelectivePickPolicy::Serial => nodes.pick_serial(),
                         SelectivePickPolicy::RoundRobin => nodes.pick_round_robin(),
+                        SelectivePickPolicy::Ketama => {
+                            let select_key = CacheQueryConsistentKey {
+                                client_ip: task_notes.client_ip(),
+                            };
+                            nodes.pick_ketama(&select_key)
+                        }
                         SelectivePickPolicy::Rendezvous => {
                             let select_key = CacheQueryConsistentKey {
                                 client_ip: task_notes.client_ip(),

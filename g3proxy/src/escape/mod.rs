@@ -212,6 +212,14 @@ pub(crate) trait EscaperExt: Escaper {
             SelectivePickPolicy::Random => nodes.pick_random(),
             SelectivePickPolicy::Serial => nodes.pick_serial(),
             SelectivePickPolicy::RoundRobin => nodes.pick_round_robin(),
+            SelectivePickPolicy::Ketama => {
+                let key = ConsistentKey {
+                    client_ip: task_notes.client_ip(),
+                    user: task_notes.raw_user_name(),
+                    host,
+                };
+                nodes.pick_ketama(&key)
+            }
             SelectivePickPolicy::Rendezvous => {
                 let key = ConsistentKey {
                     client_ip: task_notes.client_ip(),

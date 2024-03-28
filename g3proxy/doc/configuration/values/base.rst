@@ -150,6 +150,10 @@ The following values are supported:
 
   For nodes with the same weights, the order is kept as in the config.
 
+* ketama
+
+  Ketama Consistent Hash. The key format is defined in the context of each selective vector.
+
 * rendezvous
 
   Rendezvous Hash. The key format is defined in the context of each selective vector.

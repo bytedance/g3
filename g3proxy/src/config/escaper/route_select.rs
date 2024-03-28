@@ -41,7 +41,7 @@ impl RouteSelectEscaperConfig {
             name: MetricsName::default(),
             position,
             next_nodes: Vec::new(),
-            next_pick_policy: SelectivePickPolicy::Rendezvous,
+            next_pick_policy: SelectivePickPolicy::Ketama,
         }
     }
 

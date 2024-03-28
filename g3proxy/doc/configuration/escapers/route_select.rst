@@ -36,6 +36,6 @@ next_pick_policy
 
 Set the policy to select next proxy address.
 
-The key for rendezvous/jump hash is *<client-ip>[-<username>]-<upstream-host>*.
+The key for ketama/rendezvous/jump hash is *<client-ip>[-<username>]-<upstream-host>*.
 
-**default**: rendezvous
+**default**: ketama
