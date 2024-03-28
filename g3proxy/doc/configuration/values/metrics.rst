@@ -62,10 +62,7 @@ The map consists 2 fields:
   **optional**, **type**: f64
 
   The weight of the name.
-
-  This value will be converted to u32 when working with ketama consistent hash, the convert rule is:
-  - value between (0.0..1.0) will be converted to 1
-  - value larger than 1.0 will be rounded to the nearest integer value
+  It may be converted to the smallest u32 greater than or equal to the f64 value when used.
 
   **default**: 1.0
 
