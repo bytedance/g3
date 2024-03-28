@@ -21,7 +21,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_types::collection::{SelectiveHash, SelectiveItem, SelectivePickPolicy, SelectiveVec};
+use g3_types::collection::{SelectiveItem, SelectivePickPolicy, SelectiveVec};
 use g3_types::metrics::MetricsName;
 use g3_types::net::{Host, HttpForwardCapability, OpensslClientConfig, UpstreamAddr};
 
@@ -191,15 +191,15 @@ pub(crate) trait Escaper: EscaperInternal {
 pub(crate) type ArcEscaper = Arc<dyn Escaper + Send + Sync>;
 
 pub(crate) trait EscaperExt: Escaper {
-    fn select_consistent<'a, T>(
+    fn select_consistent<'a, 'b, T>(
         &'a self,
-        nodes: &'a SelectiveVec<T>,
+        nodes: &'b SelectiveVec<T>,
         pick_policy: SelectivePickPolicy,
         task_notes: &'a ServerTaskNotes,
         host: &'a Host,
-    ) -> &'a T
+    ) -> &'b T
     where
-        T: SelectiveItem + SelectiveHash,
+        T: SelectiveItem,
     {
         #[derive(Hash)]
         struct ConsistentKey<'a> {

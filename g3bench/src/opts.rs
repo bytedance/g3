@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::hash::Hash;
 use std::io::{stderr, IsTerminal};
 use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
@@ -180,7 +181,10 @@ impl ProcArgs {
             .ok_or_else(|| anyhow!("no resolved address"))
     }
 
-    pub(super) fn select_peer<'a, T>(&'a self, peers: &'a SelectiveVec<WeightedValue<T>>) -> &'a T {
+    pub(super) fn select_peer<'a, T: Hash>(
+        &self,
+        peers: &'a SelectiveVec<WeightedValue<T>>,
+    ) -> &'a T {
         match self.peer_pick_policy {
             SelectivePickPolicy::Random => peers.pick_random().inner(),
             SelectivePickPolicy::Serial => peers.pick_serial().inner(),

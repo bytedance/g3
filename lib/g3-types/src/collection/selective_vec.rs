@@ -49,9 +49,6 @@ impl FromStr for SelectivePickPolicy {
 
 pub trait SelectiveItem {
     fn weight(&self) -> f64;
-}
-
-pub trait SelectiveHash {
     fn selective_hash<H: Hasher>(&self, state: &mut H);
 }
 
@@ -288,12 +285,7 @@ impl<T: SelectiveItem> SelectiveVec<T> {
             }
         }
     }
-}
 
-impl<T> SelectiveVec<T>
-where
-    T: SelectiveItem + SelectiveHash,
-{
     fn rendezvous_hash<K>(item: &T, key: &K) -> u64
     where
         K: Hash + ?Sized,
@@ -395,9 +387,7 @@ mod tests {
         fn weight(&self) -> f64 {
             self.weight
         }
-    }
 
-    impl SelectiveHash for Node {
         fn selective_hash<H: Hasher>(&self, state: &mut H) {
             self.name.hash(state);
         }

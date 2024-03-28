@@ -19,7 +19,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use g3_types::collection::{SelectiveHash, SelectiveItem, SelectivePickPolicy, SelectiveVec};
+use g3_types::collection::{SelectiveItem, SelectivePickPolicy, SelectiveVec};
 use g3_types::metrics::MetricsName;
 
 use crate::config::backend::AnyBackendConfig;
@@ -66,13 +66,13 @@ pub(crate) type ArcBackend = Arc<dyn Backend + Send + Sync>;
 
 pub(crate) trait BackendExt: Backend {
     fn select_consistent<'a, T>(
-        &'a self,
+        &self,
         nodes: &'a SelectiveVec<T>,
         pick_policy: SelectivePickPolicy,
-        task_notes: &'a ServerTaskNotes,
+        task_notes: &ServerTaskNotes,
     ) -> &'a T
     where
-        T: SelectiveItem + SelectiveHash,
+        T: SelectiveItem,
     {
         #[derive(Hash)]
         struct ConsistentKey {
