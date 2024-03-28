@@ -63,6 +63,10 @@ The map consists 2 fields:
 
   The weight of the name.
 
+  This value will be converted to u32 when working with ketama consistent hash, the convert rule is:
+  - value between (0.0..1.0) will be converted to 1
+  - value larger than 1.0 will be rounded to the nearest integer value
+
   **default**: 1.0
 
 If the value type is string, then it's value will be the *name* field, with *weight* set to default value.

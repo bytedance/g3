@@ -52,7 +52,17 @@ impl FromStr for SelectivePickPolicy {
 pub trait SelectiveItem {
     fn weight(&self) -> f64;
     fn weight_u32(&self) -> u32 {
-        self.weight().round() as u32
+        let f = self.weight();
+        let u = f.round() as u32;
+        if u == 0 {
+            if f > 0.0 {
+                1
+            } else {
+                0
+            }
+        } else {
+            u
+        }
     }
     fn selective_hash<H: Hasher>(&self, state: &mut H);
 }
