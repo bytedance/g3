@@ -185,33 +185,6 @@ The map consists 2 fields:
 
 If the value type is string, then it's value will be the *addr* field, with *weight* set to default value.
 
-.. _conf_value_weighted_name_str:
-
-weighted name str
-=================
-
-**yaml value**: map | string
-
-A name string with weight set, which make can be grouped into selective vector.
-
-The map consists 2 fields:
-
-* name
-
-  **required**, **type**: string
-
-  The name. The meaning of the name is depending on the config context.
-
-* weight
-
-  **optional**, **type**: f64
-
-  The weight of the name.
-
-  **default**: 1.0
-
-If the value type is string, then it's value will be the *name* field, with *weight* set to default value.
-
 .. _conf_value_list:
 
 list

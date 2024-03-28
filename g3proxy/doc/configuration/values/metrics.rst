@@ -40,6 +40,33 @@ metrics name
 
 The metrics name
 
+.. _conf_value_weighted_metrics_name:
+
+weighted metrics name
+=====================
+
+**yaml value**: map | :ref:`metrics name <conf_value_metrics_name>`
+
+A metrics name with weight set, which make can be grouped into selective vector.
+
+The map consists 2 fields:
+
+* name
+
+  **required**, **type**: :ref:`metrics name <conf_value_metrics_name>`
+
+  The name. The meaning of the name is depending on the config context.
+
+* weight
+
+  **optional**, **type**: f64
+
+  The weight of the name.
+
+  **default**: 1.0
+
+If the value type is string, then it's value will be the *name* field, with *weight* set to default value.
+
 .. _conf_value_metrics_quantile:
 
 metrics quantile
