@@ -115,6 +115,8 @@ pub(crate) enum KeylessResponseErrorCode {
     CertNotFound = 9,
     #[error("sealing key expired")]
     Expired = 10,
+    #[error("the remote keyserver was not configured correctly")]
+    RemoteConfiguration = 11,
 }
 
 #[derive(Clone, Copy)]
@@ -151,6 +153,7 @@ impl KeylessErrorResponse {
             8 => KeylessResponseErrorCode::InternalError,
             9 => KeylessResponseErrorCode::CertNotFound,
             10 => KeylessResponseErrorCode::Expired,
+            11 => KeylessResponseErrorCode::RemoteConfiguration,
             _ => unreachable!(),
         }
     }
