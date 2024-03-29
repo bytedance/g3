@@ -253,33 +253,32 @@ impl<T: SelectiveItem> SelectiveVec<T> {
         match self.inner.len() {
             0 => panic_on_empty!(),
             1 => vec![&self.inner[0]],
-            _ => {
-                let len = self.inner.len();
+            len => {
                 let n = n.min(len);
                 let mut id = self.rr_id.load(atomic::Ordering::Acquire);
                 loop {
-                    let mut next = id + n;
-                    if next >= len {
-                        next -= len;
+                    let mut end = id + n;
+                    if end >= len {
+                        end = end % len;
                     }
 
                     match self.rr_id.compare_exchange(
                         id,
-                        next,
+                        end,
                         atomic::Ordering::AcqRel,
                         atomic::Ordering::Acquire,
                     ) {
                         Ok(_) => {
                             let mut r = Vec::with_capacity(n);
-                            if next <= id {
+                            if end <= id {
                                 for item in &self.inner.as_slice()[id..] {
                                     r.push(item);
                                 }
-                                for item in &self.inner.as_slice()[0..next] {
+                                for item in &self.inner.as_slice()[0..end] {
                                     r.push(item);
                                 }
                             } else {
-                                for item in &self.inner.as_slice()[id..next] {
+                                for item in &self.inner.as_slice()[id..end] {
                                     r.push(item);
                                 }
                             }
@@ -437,27 +436,15 @@ impl<T: SelectiveItem> SelectiveVec<T> {
     where
         K: Hash + ?Sized,
     {
-        let idx = self.ketama_ring_idx(key);
-        let node = &self.ketama_ring[idx];
-        &self.inner[node.0]
-    }
-
-    pub fn pick_ketama_n<K>(&self, key: &K, n: usize) -> Vec<&T>
-    where
-        K: Hash + ?Sized,
-    {
-        let mut idx = self.ketama_ring_idx(key);
-
-        let mut r = Vec::with_capacity(n);
-        for _ in 0..n {
-            let node = &self.ketama_ring[idx];
-            r.push(&self.inner[node.0]);
-            idx += 1;
-            if idx > self.inner.len() {
-                idx = 1;
+        match self.inner.len() {
+            0 => panic_on_empty!(),
+            1 => &self.inner[0],
+            _ => {
+                let idx = self.ketama_ring_idx(key);
+                let node = &self.ketama_ring[idx];
+                &self.inner[node.0]
             }
         }
-        r
     }
 }
 
@@ -653,13 +640,6 @@ mod tests {
         assert!(r1[0].ne(r1[1]));
         assert!(r1[0].eq(r2[0]));
         assert!(r1[1].eq(r2[1]));
-
-        let r1 = vec.pick_ketama_n("k", 2);
-        let r2 = vec.pick_ketama_n("k", 2);
-        assert_eq!(r1.len(), 2);
-        assert_eq!(r2.len(), 2);
-        assert!(r1[0].eq(r2[0]));
-        assert!(r1[1].eq(r2[1]));
     }
 
     #[test]
@@ -711,13 +691,6 @@ mod tests {
         assert_eq!(r1.len(), 2);
         assert_eq!(r2.len(), 2);
         assert!(r1[0].ne(r1[1]));
-        assert!(r1[0].eq(r2[0]));
-        assert!(r1[1].eq(r2[1]));
-
-        let r1 = vec.pick_ketama_n("k", 2);
-        let r2 = vec.pick_ketama_n("k", 2);
-        assert_eq!(r1.len(), 2);
-        assert_eq!(r2.len(), 2);
         assert!(r1[0].eq(r2[0]));
         assert!(r1[1].eq(r2[1]));
     }
@@ -783,13 +756,6 @@ mod tests {
         assert_eq!(r1.len(), 2);
         assert_eq!(r2.len(), 2);
         assert!(r1[0].ne(r1[1]));
-        assert!(r1[0].eq(r2[0]));
-        assert!(r1[1].eq(r2[1]));
-
-        let r1 = vec.pick_ketama_n("k", 2);
-        let r2 = vec.pick_ketama_n("k", 2);
-        assert_eq!(r1.len(), 2);
-        assert_eq!(r2.len(), 2);
         assert!(r1[0].eq(r2[0]));
         assert!(r1[1].eq(r2[1]));
     }
@@ -859,13 +825,6 @@ mod tests {
         assert_eq!(r1.len(), 2);
         assert_eq!(r2.len(), 2);
         assert!(r1[0].ne(r1[1]));
-        assert!(r1[0].eq(r2[0]));
-        assert!(r1[1].eq(r2[1]));
-
-        let r1 = vec.pick_ketama_n("k", 2);
-        let r2 = vec.pick_ketama_n("k", 2);
-        assert_eq!(r1.len(), 2);
-        assert_eq!(r2.len(), 2);
         assert!(r1[0].eq(r2[0]));
         assert!(r1[1].eq(r2[1]));
     }
