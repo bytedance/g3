@@ -259,7 +259,7 @@ impl<T: SelectiveItem> SelectiveVec<T> {
                 loop {
                     let mut end = id + n;
                     if end >= len {
-                        end = end % len;
+                        end %= len;
                     }
 
                     match self.rr_id.compare_exchange(
