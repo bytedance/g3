@@ -134,7 +134,7 @@ hdrhistogram = { version = "7.5", default-features = false }
 clap = "4.4.0"
 clap_complete = "4.4.0"
 #
-tokio = "1.34"
+tokio = "1.37"
 tokio-util = "0.7"
 tokio-stream = "0.1"
 futures-util = "0.3"
