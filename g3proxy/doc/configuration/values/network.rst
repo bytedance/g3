@@ -14,12 +14,26 @@ sockaddr str
 
 The string should be in *<ip>[:<port>]* format, in which the port may be omitted if a default value is available.
 
+.. _conf_value_static_sockaddr_str:
+
+static sockaddr str
+===================
+
+**yaml value**: str
+
+The string should be in *@<domain>:<port>* or *@<ip>:<port>* format.
+
+It is different from :ref:`upstream str <conf_value_upstream_str>` as:
+
+- It will be resolved when we load the config files
+- The domain is only allowed to be resolved to just 1 IP address
+
 .. _conf_value_env_sockaddr_str:
 
 env sockaddr str
 ================
 
-**yaml value**: :ref:`sockaddr str <conf_value_sockaddr_str>` or :ref:`env var <conf_value_env_var>`
+**yaml value**: :ref:`sockaddr str <conf_value_sockaddr_str>` or :ref:`static sockaddr str <conf_value_static_sockaddr_str>` or :ref:`env var <conf_value_env_var>`
 
 The string should be in *<ip>[:<port>]* format, in which the port may be omitted if a default value is available.
 
