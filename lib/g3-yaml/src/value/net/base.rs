@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs};
 use std::str::FromStr;
 
 use anyhow::{anyhow, Context};
@@ -35,6 +35,18 @@ pub fn as_env_sockaddr(value: &Yaml) -> anyhow::Result<SocketAddr> {
             SocketAddr::from_str(&s).map_err(|e| {
                 anyhow!("invalid socket address {s} set in environment var {var}: {e}")
             })
+        } else if let Some(addr) = s.strip_prefix('@') {
+            let addrs: Vec<SocketAddr> = addr
+                .to_socket_addrs()
+                .map_err(|e| anyhow!("failed to resolve socket address string {addr}: {e}"))?
+                .collect();
+            if addrs.len() > 1 {
+                return Err(anyhow!("{addr} resolved to too many addresses({addrs:?})"));
+            }
+            addrs
+                .into_iter()
+                .next()
+                .ok_or_else(|| anyhow!("can not resolve {addr}"))
         } else {
             SocketAddr::from_str(s).map_err(|e| anyhow!("invalid socket address: {e}"))
         }
