@@ -273,6 +273,9 @@ where
                 StreamInspection::Websocket(websocket) => {
                     return websocket.intercept().await;
                 }
+                StreamInspection::Smtp(smtp) => {
+                    return smtp.intercept().await;
+                }
                 StreamInspection::End => break,
             }
         }

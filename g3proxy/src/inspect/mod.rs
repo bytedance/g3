@@ -40,6 +40,8 @@ use tls::TlsInterceptionContext;
 pub(crate) mod http;
 mod websocket;
 
+pub(crate) mod smtp;
+
 #[derive(Clone)]
 pub(super) struct StreamInspectUserContext {
     raw_user_name: Option<String>,
@@ -235,6 +237,7 @@ pub(crate) enum StreamInspection<SC: ServerConfig> {
     H1(http::H1InterceptObject<SC>),
     H2(http::H2InterceptObject<SC>),
     Websocket(websocket::H1WebsocketInterceptObject<SC>),
+    Smtp(smtp::SmtpInterceptObject<SC>),
 }
 
 type BoxAsyncRead = Box<dyn AsyncRead + Send + Unpin + 'static>;

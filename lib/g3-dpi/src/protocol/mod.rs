@@ -122,6 +122,7 @@ impl From<AlpnProtocol> for MaybeProtocol {
             | AlpnProtocol::Http2
             | AlpnProtocol::Http3 => MaybeProtocol::Http,
             AlpnProtocol::Ftp => MaybeProtocol::Ftp,
+            AlpnProtocol::Smtp => MaybeProtocol::Smtp,
             AlpnProtocol::Imap => MaybeProtocol::Imap,
             AlpnProtocol::Pop3 => MaybeProtocol::Pop3,
             AlpnProtocol::Nntp => MaybeProtocol::Nntp,
@@ -268,6 +269,7 @@ impl From<AlpnProtocol> for Protocol {
             AlpnProtocol::Http2 => Protocol::Http2,
             AlpnProtocol::Http3 => Protocol::Http3,
             AlpnProtocol::Ftp => Protocol::FtpControl,
+            AlpnProtocol::Smtp => Protocol::Smtp,
             AlpnProtocol::Imap => Protocol::Imap,
             AlpnProtocol::Pop3 => Protocol::Pop3,
             AlpnProtocol::Nntp => Protocol::Nntp,

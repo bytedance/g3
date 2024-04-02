@@ -285,6 +285,12 @@ The code should comply to these, but should be more compliant to existing popula
     : Simple Mail Transfer Protocol
  - [rfc3207](https://datatracker.ietf.org/doc/html/rfc3207)
     : SMTP Service Extension for Secure SMTP over Transport Layer Security
+ - [rfc2034](https://datatracker.ietf.org/doc/html/rfc2034)
+    : SMTP Service Extension for Returning Enhanced Error Codes
+ - [rfc2920](https://datatracker.ietf.org/doc/html/rfc2920)
+    : SMTP Service Extension for Command Pipelining
+ - [exim-the_smtp_transport](https://www.exim.org/exim-html-current/doc/html/spec_html/ch-the_smtp_transport.html)
+    : The smtp transport
 
 ## POP3
 
