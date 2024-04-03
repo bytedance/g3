@@ -17,11 +17,17 @@
 use slog::slog_info;
 
 use g3_io_ext::OnceBufReader;
-use g3_slog_types::LtUuid;
+use g3_slog_types::{LtHost, LtUuid};
+use g3_types::net::Host;
 
 use crate::config::server::ServerConfig;
 use crate::inspect::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext};
 use crate::serve::ServerTaskResult;
+
+mod greeting;
+use greeting::Greeting;
+
+mod initiation;
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
@@ -29,6 +35,7 @@ macro_rules! intercept_log {
             "intercept_type" => "SMTP",
             "task_id" => LtUuid($obj.ctx.server_task_id()),
             "depth" => $obj.ctx.inspection_depth,
+            "upstream_host" => $obj.upstream_host.as_ref().map(LtHost),
         )
     };
 }
@@ -43,11 +50,16 @@ struct SmtpIo {
 pub(crate) struct SmtpInterceptObject<SC: ServerConfig> {
     io: Option<SmtpIo>,
     pub(crate) ctx: StreamInspectContext<SC>,
+    upstream_host: Option<Host>,
 }
 
 impl<SC: ServerConfig> SmtpInterceptObject<SC> {
     pub(crate) fn new(ctx: StreamInspectContext<SC>) -> Self {
-        SmtpInterceptObject { io: None, ctx }
+        SmtpInterceptObject {
+            io: None,
+            ctx,
+            upstream_host: None,
+        }
     }
 
     pub(crate) fn set_io(
@@ -79,10 +91,28 @@ impl<SC: ServerConfig> SmtpInterceptObject<SC> {
     async fn do_intercept(&mut self) -> ServerTaskResult<()> {
         let SmtpIo {
             clt_r,
-            clt_w,
+            mut clt_w,
             ups_r,
             ups_w,
         } = self.io.take().unwrap();
+
+        let interception_config = self.ctx.smtp_interception();
+
+        let mut greeting = Greeting::new();
+        let ups_r = match greeting
+            .relay(ups_r, &mut clt_w, interception_config.greeting_timeout)
+            .await
+        {
+            Ok(ups_r) => ups_r,
+            Err(e) => {
+                greeting
+                    .reply_no_service(&e, &mut clt_w, &self.ctx.task_notes)
+                    .await;
+                return Err(e.into());
+            }
+        };
+        let (_, host) = greeting.into_parts();
+        self.upstream_host = Some(host);
 
         crate::inspect::stream::transit_transparent(
             clt_r,

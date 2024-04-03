@@ -22,6 +22,7 @@ use yaml_rust::{yaml, Yaml};
 
 use g3_dpi::{
     H1InterceptionConfig, H2InterceptionConfig, ProtocolInspectionConfig, ProtocolPortMap,
+    SmtpInterceptionConfig,
 };
 use g3_icap_client::IcapServiceConfig;
 use g3_tls_cert::agent::CertAgentConfig;
@@ -46,6 +47,7 @@ pub(crate) struct AuditorConfig {
     pub(crate) log_uri_max_chars: usize,
     pub(crate) h1_interception: H1InterceptionConfig,
     pub(crate) h2_interception: H2InterceptionConfig,
+    pub(crate) smtp_interception: SmtpInterceptionConfig,
     pub(crate) icap_reqmod_service: Option<Arc<IcapServiceConfig>>,
     pub(crate) icap_respmod_service: Option<Arc<IcapServiceConfig>>,
     pub(crate) task_audit_ratio: Bernoulli,
@@ -74,6 +76,7 @@ impl AuditorConfig {
             log_uri_max_chars: 1024,
             h1_interception: Default::default(),
             h2_interception: Default::default(),
+            smtp_interception: Default::default(),
             icap_reqmod_service: None,
             icap_respmod_service: None,
             task_audit_ratio: Bernoulli::new(1.0).unwrap(),
@@ -168,6 +171,11 @@ impl AuditorConfig {
             "h2_interception" => {
                 self.h2_interception = g3_yaml::value::as_h2_interception_config(v)
                     .context(format!("invalid h1 interception value for key {k}"))?;
+                Ok(())
+            }
+            "smtp_interception" => {
+                self.smtp_interception = g3_yaml::value::as_smtp_interception_config(v)
+                    .context(format!("invalid smtp interception value for key {k}"))?;
                 Ok(())
             }
             "icap_reqmod_service" => {

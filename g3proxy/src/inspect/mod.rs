@@ -22,7 +22,10 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use uuid::Uuid;
 
 use g3_daemon::server::ServerQuitPolicy;
-use g3_dpi::{H1InterceptionConfig, H2InterceptionConfig, MaybeProtocol, ProtocolInspector};
+use g3_dpi::{
+    H1InterceptionConfig, H2InterceptionConfig, MaybeProtocol, ProtocolInspector,
+    SmtpInterceptionConfig,
+};
 
 use crate::audit::AuditHandle;
 use crate::auth::{User, UserForbiddenStats};
@@ -213,6 +216,11 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     #[inline]
     fn h2_interception(&self) -> &H2InterceptionConfig {
         self.audit_handle.h2_interception()
+    }
+
+    #[inline]
+    fn smtp_interception(&self) -> &SmtpInterceptionConfig {
+        self.audit_handle.smtp_interception()
     }
 
     #[inline]

@@ -23,6 +23,9 @@ pub use size_limit::ProtocolInspectionSizeLimit;
 mod http;
 pub use http::{H1InterceptionConfig, H2InterceptionConfig};
 
+mod smtp;
+pub use smtp::SmtpInterceptionConfig;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProtocolInspectionConfig {
     inspect_max_depth: usize,
