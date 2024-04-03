@@ -61,6 +61,8 @@ The keys ars:
 
   **default**: 512
 
+  .. deprecated:: 1.9.0 not used anymore, the max SMTP reply line length should be 512
+
 .. _conf_value_dpi_protocol_inspection:
 
 protocol inspection

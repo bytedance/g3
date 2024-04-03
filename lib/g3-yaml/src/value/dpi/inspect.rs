@@ -49,12 +49,7 @@ pub fn parse_inspect_size_limit(
                 config.set_nats_server_info_line(size);
                 Ok(())
             }
-            "smtp_greeting_msg" | "smtp_server_greeting_msg" => {
-                let size = crate::humanize::as_usize(v)
-                    .context(format!("invalid humanize usize value for key {k}"))?;
-                config.set_smtp_server_greeting_msg(size);
-                Ok(())
-            }
+            "smtp_greeting_msg" | "smtp_server_greeting_msg" => Ok(()),
             _ => Err(anyhow!("invalid key {k}")),
         })
     } else {

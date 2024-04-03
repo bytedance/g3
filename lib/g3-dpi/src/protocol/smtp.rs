@@ -14,16 +14,18 @@
  * limitations under the License.
  */
 
+use g3_types::net::Host;
+
 use super::{MaybeProtocol, Protocol, ProtocolInspectError, ProtocolInspectState};
-use crate::ProtocolInspectionSizeLimit;
+
+const REPLY_LINE_MAX_SIZE: usize = 512;
 
 impl ProtocolInspectState {
     pub(crate) fn check_smtp_server_greeting(
         &mut self,
         data: &[u8],
-        size_limit: &ProtocolInspectionSizeLimit,
     ) -> Result<Option<Protocol>, ProtocolInspectError> {
-        // at least XYZ <M>\r\n
+        // at least XYZ <address>\r\n
         const MINIMUM_DATA_LEN: usize = 7;
 
         let data_len = data.len();
@@ -46,7 +48,7 @@ impl ProtocolInspectState {
 
                 if data[2] == b'0' {
                     // may be FTP
-                    return self.check_smtp_after_code(data, size_limit);
+                    return self.check_smtp_after_code(data);
                 }
             }
             b'5' => {
@@ -56,7 +58,7 @@ impl ProtocolInspectState {
                 self.exclude_other(MaybeProtocol::Nntp);
 
                 if &data[0..3] == b"554" {
-                    return self.check_smtp_after_code(data, size_limit);
+                    return self.check_smtp_after_code(data);
                 }
             }
             _ => {}
@@ -77,7 +79,6 @@ impl ProtocolInspectState {
     fn check_smtp_after_code(
         &mut self,
         data: &[u8],
-        size_limit: &ProtocolInspectionSizeLimit,
     ) -> Result<Option<Protocol>, ProtocolInspectError> {
         if !matches!(data[3], b' ' | b'-') {
             self.exclude_current();
@@ -86,16 +87,34 @@ impl ProtocolInspectState {
 
         let left = &data[4..];
         if let Some(p) = memchr::memchr(b'\n', left) {
-            if p > 1 && left[p - 1] == b'\r' {
-                return Ok(Some(Protocol::Smtp));
+            if p < 1 {
+                // at lease "<addr>\n"
+                self.exclude_current();
+                return Ok(None);
             }
-        }
 
-        if left.len() > size_limit.smtp_server_greeting_msg {
-            self.exclude_current();
-            Ok(None)
+            let host_b = match memchr::memchr(b' ', left) {
+                Some(d) => &left[..d],
+                None => {
+                    if left[p - 1] == b'\r' {
+                        &left[..p - 1]
+                    } else {
+                        &left[..p]
+                    }
+                }
+            };
+            if Host::parse_smtp_host_address(host_b).is_some() {
+                Ok(Some(Protocol::Smtp))
+            } else {
+                Ok(None)
+            }
         } else {
-            Err(ProtocolInspectError::NeedMoreData(1))
+            if left.len() > REPLY_LINE_MAX_SIZE {
+                self.exclude_current();
+                Ok(None)
+            } else {
+                Err(ProtocolInspectError::NeedMoreData(1))
+            }
         }
     }
 }
