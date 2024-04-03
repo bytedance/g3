@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::io::{self, Error, Write};
+use std::io::{self, Write};
 
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
@@ -26,8 +26,11 @@ const CHUNKED_BUF_TAIL_RESERVED: usize = 2;
 pub(super) trait ListWriter: FtpLineDataReceiver {
     fn take_io_error(&mut self) -> Option<io::Error>;
     async fn flush_buf(&mut self) -> io::Result<()>;
+    #[allow(unused)]
     fn is_idle(&self) -> bool;
+    #[allow(unused)]
     fn reset_active(&mut self);
+    #[allow(unused)]
     fn no_cached_data(&self) -> bool;
 }
 
@@ -102,7 +105,7 @@ where
     W: AsyncWrite + Send + Unpin,
 {
     #[inline]
-    fn take_io_error(&mut self) -> Option<Error> {
+    fn take_io_error(&mut self) -> Option<io::Error> {
         self.io_error.take()
     }
 
