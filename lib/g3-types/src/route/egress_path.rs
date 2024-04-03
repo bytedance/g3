@@ -78,7 +78,6 @@ impl FromStr for EgressPathSelection {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::str::FromStr;
 
     #[test]
     fn from_str() {

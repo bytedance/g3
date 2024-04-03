@@ -169,7 +169,6 @@ impl ProxyProtocolV1Reader {
 mod tests {
     use super::*;
     use g3_types::net::{ProxyProtocolEncoder, ProxyProtocolVersion};
-    use std::str::FromStr;
 
     async fn run_t(client: SocketAddr, server: SocketAddr) {
         let mut encoder = ProxyProtocolEncoder::new(ProxyProtocolVersion::V1);

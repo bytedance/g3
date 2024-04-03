@@ -101,7 +101,6 @@ impl Extend<u16> for Ports {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::str::FromStr;
 
     #[test]
     fn test_simple_str() {

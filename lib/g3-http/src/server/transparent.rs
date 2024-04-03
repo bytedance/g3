@@ -503,8 +503,6 @@ impl HttpTransparentRequestAcceptor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytes::Bytes;
-    use http::Method;
     use tokio::io::{BufReader, Result};
     use tokio_util::io::StreamReader;
 

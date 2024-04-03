@@ -309,7 +309,6 @@ impl<'a> Serializer for FormatterKv<'a> {
 mod tests {
     use super::*;
     use crate::Facility;
-    use chrono::{DateTime, Utc};
 
     #[test]
     fn format_header() {
