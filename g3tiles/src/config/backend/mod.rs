@@ -42,6 +42,7 @@ pub(crate) enum BackendConfigDiffAction {
 pub(crate) trait BackendConfig {
     fn name(&self) -> &MetricsName;
     fn position(&self) -> Option<YamlDocPosition>;
+    #[allow(unused)]
     fn backend_type(&self) -> &'static str;
 
     fn diff_action(&self, new: &AnyBackendConfig) -> BackendConfigDiffAction;

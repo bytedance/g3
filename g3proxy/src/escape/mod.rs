@@ -138,6 +138,7 @@ pub(crate) trait EscaperInternal {
 #[async_trait]
 pub(crate) trait Escaper: EscaperInternal {
     fn name(&self) -> &MetricsName;
+    #[allow(unused)]
     fn escaper_type(&self) -> &str;
     fn get_escape_stats(&self) -> Option<ArcEscaperStats> {
         None

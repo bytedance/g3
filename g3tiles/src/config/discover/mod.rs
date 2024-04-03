@@ -49,6 +49,7 @@ pub(crate) enum DiscoverConfigDiffAction {
 pub(crate) trait DiscoverConfig {
     fn name(&self) -> &MetricsName;
     fn position(&self) -> Option<YamlDocPosition>;
+    #[allow(unused)]
     fn discover_type(&self) -> &'static str;
 
     fn diff_action(&self, new: &AnyDiscoverConfig) -> DiscoverConfigDiffAction;
