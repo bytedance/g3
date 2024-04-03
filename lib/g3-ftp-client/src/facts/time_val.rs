@@ -27,7 +27,6 @@ pub(crate) fn parse_from_str(s: &str) -> ParseResult<DateTime<Utc>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{DateTime, Utc};
 
     #[test]
     fn parse_no_dot() {

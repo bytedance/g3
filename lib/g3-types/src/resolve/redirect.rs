@@ -171,7 +171,6 @@ impl ResolveRedirection {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::net::IpAddr;
     use std::str::FromStr;
 
     const DOMAIN1: &str = "www.example1.com";

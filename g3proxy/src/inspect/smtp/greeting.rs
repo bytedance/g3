@@ -78,6 +78,9 @@ impl Greeting {
                                 Some(d) => &msg[..d],
                                 None => msg,
                             };
+                            if host_d.is_empty() {
+                                return Err(GreetingError::NoHostField);
+                            }
                             self.host = Host::parse_smtp_host_address(host_d)
                                 .ok_or(GreetingError::UnsupportedHostFormat)?;
                         }

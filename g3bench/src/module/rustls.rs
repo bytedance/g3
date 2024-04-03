@@ -46,6 +46,7 @@ const PROXY_TLS_ARG_NO_SNI: &str = "proxy-tls-no-sni";
 
 pub(crate) trait AppendRustlsArgs {
     fn append_rustls_args(self) -> Self;
+    #[allow(unused)]
     fn append_proxy_rustls_args(self) -> Self;
 }
 
@@ -298,6 +299,7 @@ pub(crate) fn append_tls_args(cmd: Command) -> Command {
     )
 }
 
+#[allow(unused)]
 pub(crate) fn append_proxy_tls_args(cmd: Command) -> Command {
     cmd.arg(
         Arg::new(PROXY_TLS_ARG_NAME)

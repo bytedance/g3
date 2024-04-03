@@ -502,7 +502,6 @@ impl HttpProxyClientRequest {
 mod tests {
     use super::*;
     use bytes::Bytes;
-    use http::{Method, Version};
     use tokio::io::{BufReader, Result};
     use tokio_util::io::StreamReader;
 

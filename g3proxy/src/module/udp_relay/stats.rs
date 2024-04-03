@@ -23,11 +23,13 @@ use crate::auth::UserUpstreamTrafficStats;
 /// task related stats used at escaper side
 pub(crate) trait UdpRelayTaskRemoteStats {
     fn add_recv_bytes(&self, size: u64);
+    #[allow(unused)]
     fn add_recv_packet(&self) {
         self.add_recv_packets(1);
     }
     fn add_recv_packets(&self, n: usize);
     fn add_send_bytes(&self, size: u64);
+    #[allow(unused)]
     fn add_send_packet(&self) {
         self.add_send_packets(1);
     }

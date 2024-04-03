@@ -232,7 +232,6 @@ pub fn as_weighted_upstream_addr(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::net::Ipv4Addr;
 
     #[test]
     fn as_sockaddr_correct_ipv4() {

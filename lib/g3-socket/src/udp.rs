@@ -220,7 +220,6 @@ fn new_nonblocking_udp_socket(family: AddressFamily) -> io::Result<Socket> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::net::{IpAddr, Ipv4Addr};
     use std::str::FromStr;
 
     #[test]

@@ -119,7 +119,7 @@ pub fn as_weighted_name_string(v: &ValueRef) -> anyhow::Result<WeightedValue<Str
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rmpv::{Integer, Utf8StringRef, ValueRef};
+    use rmpv::{Integer, Utf8StringRef};
 
     #[test]
     fn t_string() {
