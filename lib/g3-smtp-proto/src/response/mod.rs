@@ -68,6 +68,10 @@ impl ReplyCode {
     fn is_set(&self) -> bool {
         self.a != 0
     }
+
+    pub fn as_u16(&self) -> u16 {
+        (self.a - b'0') as u16 * 100 + (self.b - b'0') as u16 * 10 + (self.c - b'0') as u16
+    }
 }
 
 impl fmt::Display for ReplyCode {
@@ -86,11 +90,16 @@ impl Response {
     pub const MAX_LINE_SIZE: usize = 512;
 
     pub fn feed_line<'a>(&mut self, line: &'a [u8]) -> Result<&'a [u8], ResponseLineError> {
-        if self.code.is_set() {
-            self.feed_following_line(line)
+        let msg = if self.code.is_set() {
+            self.feed_following_line(line)?
         } else {
-            self.feed_first_line(line)
-        }
+            self.feed_first_line(line)?
+        };
+        let msg = msg
+            .strip_suffix(b"\r\n")
+            .or_else(|| msg.strip_suffix(b"\n"))
+            .unwrap_or(msg);
+        Ok(msg)
     }
 
     fn feed_first_line<'a>(&mut self, line: &'a [u8]) -> Result<&'a [u8], ResponseLineError> {
@@ -156,32 +165,32 @@ mod tests {
 
     #[test]
     fn simple_line() {
-        let line = "220 foo.com Simple Mail Transfer Service Ready\r\n";
+        let line = b"220 foo.com Simple Mail Transfer Service Ready\r\n";
         let mut rsp = Response::default();
-        let msg = rsp.feed_first_line(line).unwrap();
-        assert_eq!(rsp.code, 220);
-        assert_eq!(msg, "foo.com Simple Mail Transfer Service Ready");
+        let msg = rsp.feed_line(line).unwrap();
+        assert_eq!(rsp.code.as_u16(), 220);
+        assert_eq!(msg, b"foo.com Simple Mail Transfer Service Ready");
         assert!(rsp.finished());
     }
 
     #[test]
     fn simple_multiline() {
-        let line1 = "250-foo.com greets bar.com\r\n";
-        let line2 = "250-8BITMIME\r\n";
-        let line3 = "250 HELP\r\n";
+        let line1 = b"250-foo.com greets bar.com\r\n";
+        let line2 = b"250-8BITMIME\r\n";
+        let line3 = b"250 HELP\r\n";
         let mut rsp = Response::default();
 
-        let msg = rsp.feed_first_line(line1).unwrap();
-        assert_eq!(rsp.code, 250);
-        assert_eq!(msg, "foo.com greets bar.com");
+        let msg = rsp.feed_line(line1).unwrap();
+        assert_eq!(rsp.code.as_u16(), 250);
+        assert_eq!(msg, b"foo.com greets bar.com");
         assert!(!rsp.finished());
 
-        let msg = rsp.feed_following_line(line2).unwrap();
-        assert_eq!(msg, "8BITMIME");
+        let msg = rsp.feed_line(line2).unwrap();
+        assert_eq!(msg, b"8BITMIME");
         assert!(!rsp.finished());
 
-        let msg = rsp.feed_following_line(line3).unwrap();
-        assert_eq!(msg, "HELP");
+        let msg = rsp.feed_line(line3).unwrap();
+        assert_eq!(msg, b"HELP");
         assert!(rsp.finished());
     }
 
@@ -189,28 +198,28 @@ mod tests {
     fn invalid_code() {
         let line = "测试啊 foo.com Simple Mail Transfer Service Ready\r\n";
         let mut rsp = Response::default();
-        let err = rsp.feed_first_line(line).unwrap_err();
+        let err = rsp.feed_line(line.as_bytes()).unwrap_err();
         assert_eq!(err, ResponseLineError::InvalidCode);
     }
 
     #[test]
     fn empty_end() {
-        let line1 = "250-foo.com greets bar.com\r\n";
-        let line2 = "250-8BITMIME\r\n";
-        let line3 = "250 \r\n";
+        let line1 = b"250-foo.com greets bar.com\r\n";
+        let line2 = b"250-8BITMIME\r\n";
+        let line3 = b"250 \r\n";
         let mut rsp = Response::default();
 
-        let msg = rsp.feed_first_line(line1).unwrap();
-        assert_eq!(rsp.code, 250);
-        assert_eq!(msg, "foo.com greets bar.com");
+        let msg = rsp.feed_line(line1).unwrap();
+        assert_eq!(rsp.code.as_u16(), 250);
+        assert_eq!(msg, b"foo.com greets bar.com");
         assert!(!rsp.finished());
 
-        let msg = rsp.feed_following_line(line2).unwrap();
-        assert_eq!(msg, "8BITMIME");
+        let msg = rsp.feed_line(line2).unwrap();
+        assert_eq!(msg, b"8BITMIME");
         assert!(!rsp.finished());
 
-        let msg = rsp.feed_following_line(line3).unwrap();
-        assert_eq!(msg, "");
+        let msg = rsp.feed_line(line3).unwrap();
+        assert_eq!(msg, b"");
         assert!(rsp.finished());
     }
 }

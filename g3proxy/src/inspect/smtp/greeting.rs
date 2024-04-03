@@ -76,18 +76,7 @@ impl Greeting {
                         if self.host.is_empty() {
                             let host_d = match memchr::memchr(b' ', msg) {
                                 Some(d) => &msg[..d],
-                                None => {
-                                    if msg.len() < 2 {
-                                        // at lease "<addr>\n"
-                                        return Err(GreetingError::NoHostField);
-                                    }
-                                    let end = msg.len() - 1;
-                                    if msg[end - 1] == b'\r' {
-                                        &msg[..end - 1]
-                                    } else {
-                                        &msg[..end]
-                                    }
-                                }
+                                None => msg,
                             };
                             self.host = Host::parse_smtp_host_address(host_d)
                                 .ok_or(GreetingError::UnsupportedHostFormat)?;
