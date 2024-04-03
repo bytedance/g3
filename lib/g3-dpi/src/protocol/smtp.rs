@@ -108,13 +108,11 @@ impl ProtocolInspectState {
             } else {
                 Ok(None)
             }
+        } else if left.len() > REPLY_LINE_MAX_SIZE {
+            self.exclude_current();
+            Ok(None)
         } else {
-            if left.len() > REPLY_LINE_MAX_SIZE {
-                self.exclude_current();
-                Ok(None)
-            } else {
-                Err(ProtocolInspectError::NeedMoreData(1))
-            }
+            Err(ProtocolInspectError::NeedMoreData(1))
         }
     }
 }
