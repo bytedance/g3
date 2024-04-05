@@ -20,7 +20,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   MUSL_TARGET: x86_64-unknown-linux-musl
-  MUSL_FEATURES: --no-default-features --features vendored-openssl,quic,vendored-c-ares,hickory
+  MUSL_FEATURES: --no-default-features --features vendored-openssl,vendored-c-ares,hickory
 
 jobs:
   build:
