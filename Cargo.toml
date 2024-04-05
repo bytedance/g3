@@ -177,7 +177,7 @@ rmp-serde = "1"
 rmp = "0.8"
 rmpv = "1.0"
 #
-redis = { version = "0.25.1", default-features = false, features = ["tcp_nodelay"] }
+redis = { version = "0.25.3", default-features = false, features = ["tcp_nodelay"] }
 #
 flate2 = "1.0"
 zip = { version = "0.6", default-features = false }
