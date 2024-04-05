@@ -57,7 +57,7 @@ g3-hickory-client.workspace = true
 rustc_version.workspace = true
 
 [features]
-default = ["quic"]
+default = []
 quic = ["g3-types/quic", "g3-socks/quic", "g3-io-ext/quic", "g3-hickory-client/quic", "dep:quinn", "dep:h3", "dep:h3-quinn"]
 vendored-openssl = ["openssl/vendored", "openssl-probe"]
 vendored-tongsuo = ["openssl/tongsuo", "openssl-probe", "g3-types/tongsuo"]

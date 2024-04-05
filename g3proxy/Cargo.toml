@@ -96,7 +96,7 @@ tokio-util = { workspace = true, features = ["io"] }
 rustc_version.workspace = true
 
 [features]
-default = ["lua54", "python", "c-ares", "hickory", "geoip", "quic"]
+default = ["lua54", "python", "c-ares", "hickory", "geoip"]
 lua = ["mlua"]
 luajit = ["lua", "mlua/luajit"]
 lua51 = ["lua", "mlua/lua51"]
