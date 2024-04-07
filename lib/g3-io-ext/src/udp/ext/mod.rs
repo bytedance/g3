@@ -36,6 +36,8 @@ pub trait UdpSocketExt {
         target: Option<SocketAddr>,
     ) -> Poll<io::Result<usize>>;
 
+    fn try_sendmsg(&self, iov: &[IoSlice<'_>], target: Option<SocketAddr>) -> io::Result<usize>;
+
     #[cfg(unix)]
     fn poll_recvmsg(
         &self,

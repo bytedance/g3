@@ -48,4 +48,8 @@ impl UdpSocketExt for UdpSocket {
             }
         }
     }
+
+    fn try_sendmsg(&self, iov: &[IoSlice<'_>], target: Option<SocketAddr>) -> io::Result<usize> {
+        self.try_io(Interest::WRITABLE, || socket.sendmsg(iov, target))
+    }
 }

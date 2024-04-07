@@ -21,7 +21,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use log::{info, warn};
-use quinn::{Connecting, Connection, Endpoint};
+use quinn::{Connection, Endpoint, Incoming};
 use tokio::runtime::Handle;
 use tokio::sync::{broadcast, watch};
 
@@ -182,22 +182,22 @@ where
                     }
                 }
                 result = listener.accept() => {
-                    let Some(connecting) = result else {
+                    let Some(incoming) = result else {
                         continue;
                     };
                     self.listen_stats.add_accepted();
-                    self.run_task(connecting, listen_addr, &aux_config);
+                    self.run_task(incoming, listen_addr, &aux_config);
                 }
             }
         }
         self.post_stop();
     }
 
-    fn run_task<C>(&self, connecting: Connecting, listen_addr: SocketAddr, aux_config: &C)
+    fn run_task<C>(&self, incoming: Incoming, listen_addr: SocketAddr, aux_config: &C)
     where
         C: ListenQuicConf + Send + Clone + 'static,
     {
-        let peer_addr = connecting.remote_address();
+        let peer_addr = incoming.remote_address();
         if let Some(filter) = aux_config.ingress_network_acl() {
             let (_, action) = filter.check(peer_addr.ip());
             match action {
@@ -209,7 +209,7 @@ where
             }
         }
 
-        let local_addr = connecting
+        let local_addr = incoming
             .local_ip()
             .map(|ip| SocketAddr::new(ip, listen_addr.port()))
             .unwrap_or(listen_addr);
@@ -226,7 +226,7 @@ where
             tokio::spawn(async move {
                 Self::accept_connection_and_run(
                     server,
-                    connecting,
+                    incoming,
                     cc_info,
                     accept_timeout,
                     listen_stats,
@@ -238,7 +238,7 @@ where
             rt.handle.spawn(async move {
                 Self::accept_connection_and_run(
                     server,
-                    connecting,
+                    incoming,
                     cc_info,
                     accept_timeout,
                     listen_stats,
@@ -249,7 +249,7 @@ where
             tokio::spawn(async move {
                 Self::accept_connection_and_run(
                     server,
-                    connecting,
+                    incoming,
                     cc_info,
                     accept_timeout,
                     listen_stats,
@@ -261,11 +261,19 @@ where
 
     async fn accept_connection_and_run(
         server: S,
-        connecting: Connecting,
+        incoming: Incoming,
         cc_info: ClientConnectionInfo,
         timeout: Duration,
         listen_stats: Arc<ListenStats>,
     ) {
+        let connecting = match incoming.accept() {
+            Ok(c) => c,
+            Err(_e) => {
+                listen_stats.add_failed();
+                // TODO may be attack
+                return;
+            }
+        };
         match tokio::time::timeout(timeout, connecting).await {
             Ok(Ok(c)) => {
                 listen_stats.add_accepted();
@@ -347,7 +355,7 @@ where
                             self.server_version,
                             self.instance_id
                         );
-                        listener.reject_new_connections();
+                        // listener.reject_new_connections();
                         tokio::spawn(async move { listener.wait_idle().await });
                         return;
                     }

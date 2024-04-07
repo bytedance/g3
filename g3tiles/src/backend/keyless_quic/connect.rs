@@ -28,7 +28,7 @@ use tokio::time::Instant;
 
 use g3_types::collection::{SelectiveVec, WeightedValue};
 use g3_types::ext::DurationExt;
-use g3_types::net::RustlsClientConfig;
+use g3_types::net::RustlsQuicClientConfig;
 
 use crate::config::backend::keyless_quic::KeylessQuicBackendConfig;
 use crate::module::keyless::{
@@ -41,7 +41,7 @@ pub(super) struct KeylessQuicUpstreamConnector {
     stats: Arc<KeylessBackendStats>,
     duration_recorder: Arc<KeylessUpstreamDurationRecorder>,
     peer_addrs: Arc<ArcSwapOption<SelectiveVec<WeightedValue<SocketAddr>>>>,
-    tls_client: RustlsClientConfig,
+    tls_client: RustlsQuicClientConfig,
 }
 
 impl KeylessQuicUpstreamConnector {
@@ -51,7 +51,7 @@ impl KeylessQuicUpstreamConnector {
         duration_recorder: Arc<KeylessUpstreamDurationRecorder>,
         peer_addrs_container: Arc<ArcSwapOption<SelectiveVec<WeightedValue<SocketAddr>>>>,
     ) -> anyhow::Result<Self> {
-        let tls_client = config.tls_client.build()?;
+        let tls_client = config.tls_client.build_quic()?;
         Ok(KeylessQuicUpstreamConnector {
             config,
             stats,

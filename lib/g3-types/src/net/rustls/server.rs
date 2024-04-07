@@ -18,6 +18,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
+#[cfg(feature = "quinn")]
+use quinn::crypto::rustls::QuicServerConfig;
 use rustls::crypto::ring::Ticketer;
 use rustls::server::WebPkiClientVerifier;
 use rustls::{RootCertStore, ServerConfig};
@@ -29,6 +31,13 @@ use crate::net::tls::AlpnProtocol;
 #[derive(Clone)]
 pub struct RustlsServerConfig {
     pub driver: Arc<ServerConfig>,
+    pub accept_timeout: Duration,
+}
+
+#[cfg(feature = "quinn")]
+#[derive(Clone)]
+pub struct RustlsQuicServerConfig {
+    pub driver: Arc<QuicServerConfig>,
     pub accept_timeout: Duration,
 }
 
@@ -86,10 +95,10 @@ impl RustlsServerConfigBuilder {
         self.accept_timeout
     }
 
-    pub fn build_with_alpn_protocols(
+    fn build_server_config(
         &self,
         alpn_protocols: Option<Vec<AlpnProtocol>>,
-    ) -> anyhow::Result<RustlsServerConfig> {
+    ) -> anyhow::Result<ServerConfig> {
         let config_builder = ServerConfig::builder();
         let config_builder = if self.client_auth {
             let mut root_store = RootCertStore::empty();
@@ -148,6 +157,14 @@ impl RustlsServerConfigBuilder {
             }
         }
 
+        Ok(config)
+    }
+
+    pub fn build_with_alpn_protocols(
+        &self,
+        alpn_protocols: Option<Vec<AlpnProtocol>>,
+    ) -> anyhow::Result<RustlsServerConfig> {
+        let config = self.build_server_config(alpn_protocols)?;
         Ok(RustlsServerConfig {
             driver: Arc::new(config),
             accept_timeout: self.accept_timeout,
@@ -156,5 +173,24 @@ impl RustlsServerConfigBuilder {
 
     pub fn build(&self) -> anyhow::Result<RustlsServerConfig> {
         self.build_with_alpn_protocols(None)
+    }
+
+    #[cfg(feature = "quinn")]
+    pub fn build_quic_with_alpn_protocols(
+        &self,
+        alpn_protocols: Option<Vec<AlpnProtocol>>,
+    ) -> anyhow::Result<RustlsQuicServerConfig> {
+        let config = self.build_server_config(alpn_protocols)?;
+        let quic_config = QuicServerConfig::try_from(config)
+            .map_err(|e| anyhow!("invalid quic tls config: {e}"))?;
+        Ok(RustlsQuicServerConfig {
+            driver: Arc::new(quic_config),
+            accept_timeout: self.accept_timeout,
+        })
+    }
+
+    #[cfg(feature = "quinn")]
+    pub fn build_quic(&self) -> anyhow::Result<RustlsQuicServerConfig> {
+        self.build_quic_with_alpn_protocols(None)
     }
 }

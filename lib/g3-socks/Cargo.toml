@@ -13,6 +13,7 @@ bytes.workspace = true
 smallvec.workspace = true
 tokio.workspace = true
 quinn = { workspace = true, optional = true, features = ["runtime-tokio"] }
+pin-project-lite.workspace = true
 g3-types.workspace = true
 g3-io-ext.workspace = true
 
