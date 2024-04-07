@@ -15,9 +15,13 @@
  */
 
 mod client;
+#[cfg(feature = "quinn")]
+pub use client::RustlsQuicClientConfig;
 pub use client::{RustlsClientConfig, RustlsClientConfigBuilder};
 
 mod server;
+#[cfg(feature = "quinn")]
+pub use server::RustlsQuicServerConfig;
 pub use server::{RustlsServerConfig, RustlsServerConfigBuilder};
 
 mod cache;

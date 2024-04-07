@@ -94,7 +94,7 @@ impl PlainQuicPort {
     ) -> anyhow::Result<Self> {
         let reload_sender = crate::serve::new_reload_notify_channel();
 
-        let tls_server = config.tls_server.build()?;
+        let quic_server = config.tls_server.build_quic()?;
 
         let ingress_net_filter = config
             .ingress_net_filter
@@ -107,7 +107,7 @@ impl PlainQuicPort {
             ingress_net_filter,
             listen_config: None,
             quinn_config: None,
-            accept_timeout: tls_server.accept_timeout,
+            accept_timeout: quic_server.accept_timeout,
             offline_rebind_port: config.offline_rebind_port,
         };
         let (cfg_sender, _cfg_receiver) = watch::channel(aux_config);
@@ -115,7 +115,7 @@ impl PlainQuicPort {
         Ok(PlainQuicPort {
             name: config.name().clone(),
             config: ArcSwap::new(config),
-            quinn_config: quinn::ServerConfig::with_crypto(tls_server.driver),
+            quinn_config: quinn::ServerConfig::with_crypto(quic_server.driver),
             listen_stats,
             reload_sender,
             cfg_sender,
@@ -162,8 +162,8 @@ impl ServerInternal for PlainQuicPort {
             };
 
             let quinn_config = if flags.contains(PlainQuicPortUpdateFlags::QUINN) {
-                let tls_config = config.tls_server.build()?;
-                Some(quinn::ServerConfig::with_crypto(tls_config.driver))
+                let quic_config = config.tls_server.build_quic()?;
+                Some(quinn::ServerConfig::with_crypto(quic_config.driver))
             } else {
                 None
             };

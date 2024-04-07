@@ -24,7 +24,7 @@ tokio = { workspace = true, features = ["rt-multi-thread", "rt", "signal", "sync
 tokio-util = { workspace = true, features = ["time"] }
 tokio-rustls.workspace = true
 rustls.workspace = true
-quinn = { workspace = true, optional = true, features = ["tls-rustls", "runtime-tokio"] }
+quinn = { workspace = true, optional = true, features = ["rustls"] }
 openssl.workspace = true
 openssl-probe = { workspace = true, optional = true }
 indexmap.workspace = true
@@ -96,7 +96,7 @@ tokio-util = { workspace = true, features = ["io"] }
 rustc_version.workspace = true
 
 [features]
-default = ["lua54", "python", "c-ares", "hickory", "geoip"]
+default = ["lua54", "python", "c-ares", "hickory", "geoip", "quic"]
 lua = ["mlua"]
 luajit = ["lua", "mlua/luajit"]
 lua51 = ["lua", "mlua/lua51"]

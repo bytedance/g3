@@ -190,6 +190,8 @@ pub trait UdpSocketExt {
         target: Option<SocketAddr>,
     ) -> Poll<io::Result<usize>>;
 
+    fn try_sendmsg(&self, iov: &[IoSlice<'_>], target: Option<SocketAddr>) -> io::Result<usize>;
+
     fn poll_recvmsg(
         &self,
         cx: &mut Context<'_>,
@@ -265,6 +267,33 @@ impl UdpSocketExt for UdpSocket {
                 }
             }
         }
+    }
+
+    fn try_sendmsg(&self, iov: &[IoSlice<'_>], target: Option<SocketAddr>) -> io::Result<usize> {
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "freebsd",
+            target_os = "dragonfly",
+            target_os = "netbsd",
+            target_os = "openbsd",
+        ))]
+        let flags: SendFlags = SendFlags::DONTWAIT | SendFlags::NOSIGNAL;
+        #[cfg(target_os = "macos")]
+        let flags: SendFlags = SendFlags::DONTWAIT;
+
+        let fd = self.as_fd();
+        let mut control = SendAncillaryBuffer::default();
+
+        self.try_io(Interest::WRITABLE, || match target {
+            Some(SocketAddr::V4(a4)) => {
+                sendmsg_v4(fd, &a4, iov, &mut control, flags).map_err(io::Error::from)
+            }
+            Some(SocketAddr::V6(a6)) => {
+                sendmsg_v6(fd, &a6, iov, &mut control, flags).map_err(io::Error::from)
+            }
+            None => sendmsg(fd, iov, &mut control, flags).map_err(io::Error::from),
+        })
     }
 
     fn poll_recvmsg(

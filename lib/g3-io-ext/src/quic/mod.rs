@@ -19,13 +19,13 @@ use std::fmt;
 use std::future::Future;
 use std::io::{self, IoSliceMut};
 use std::pin::Pin;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::task::{ready, Context, Poll};
 use std::time::Duration;
 
 use futures_util::FutureExt;
 use quinn::udp;
-use quinn::{AsyncTimer, AsyncUdpSocket, Runtime};
+use quinn::{AsyncTimer, AsyncUdpSocket, Runtime, UdpPoller};
 use tokio::time::{Instant, Sleep};
 
 use crate::limit::{DatagramLimitInfo, DatagramLimitResult};
@@ -96,10 +96,10 @@ where
         self.inner.spawn(future);
     }
 
-    fn wrap_udp_socket(&self, sock: std::net::UdpSocket) -> io::Result<Box<dyn AsyncUdpSocket>> {
+    fn wrap_udp_socket(&self, sock: std::net::UdpSocket) -> io::Result<Arc<dyn AsyncUdpSocket>> {
         let inner = self.inner.wrap_udp_socket(sock)?;
         if let Some(limit) = &self.limit {
-            Ok(Box::new(LimitedUdpSocket::new(
+            Ok(Arc::new(LimitedUdpSocket::new(
                 inner,
                 limit.shift_millis,
                 limit.max_send_packets,
@@ -109,7 +109,7 @@ where
                 self.stats.clone(),
             )))
         } else {
-            Ok(Box::new(LimitedUdpSocket::new_unlimited(
+            Ok(Arc::new(LimitedUdpSocket::new_unlimited(
                 inner,
                 self.stats.clone(),
             )))
@@ -117,10 +117,15 @@ where
     }
 }
 
-struct LimitedSendState {
+struct LimitedSendLimitState {
     delay: Pin<Box<Sleep>>,
-    started: Instant,
+    poll_delay: bool,
     limit: DatagramLimitInfo,
+}
+
+struct LimitedSendState {
+    started: Instant,
+    limit: Option<Arc<Mutex<LimitedSendLimitState>>>,
     stats: ArcLimitedSendStats,
 }
 
@@ -132,19 +137,22 @@ impl LimitedSendState {
         max_bytes: usize,
         stats: ArcLimitedSendStats,
     ) -> Self {
-        LimitedSendState {
+        let limit = LimitedSendLimitState {
             delay: Box::pin(tokio::time::sleep(Duration::from_millis(0))),
-            started,
+            poll_delay: false,
             limit: DatagramLimitInfo::new(shift_millis, max_packets, max_bytes),
+        };
+        LimitedSendState {
+            started,
+            limit: Some(Arc::new(Mutex::new(limit))),
             stats,
         }
     }
 
     fn new_unlimited(started: Instant, stats: ArcLimitedSendStats) -> Self {
         LimitedSendState {
-            delay: Box::pin(tokio::time::sleep(Duration::from_millis(0))),
             started,
-            limit: DatagramLimitInfo::default(),
+            limit: None,
             stats,
         }
     }
@@ -183,15 +191,42 @@ impl LimitedRecvState {
     }
 }
 
+struct LimitedUdpPoller {
+    inner: Pin<Box<dyn UdpPoller>>,
+    limit: Option<Arc<Mutex<LimitedSendLimitState>>>,
+}
+
+impl fmt::Debug for LimitedUdpPoller {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.inner.fmt(f)
+    }
+}
+
+impl UdpPoller for LimitedUdpPoller {
+    fn poll_writable(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<io::Result<()>> {
+        if let Some(l) = &self.limit {
+            let mut l = l.lock().unwrap();
+            if l.poll_delay {
+                ready!(Future::poll(l.delay.as_mut(), cx));
+                l.poll_delay = false;
+                return Poll::Ready(Ok(()));
+            }
+        }
+        self.inner.as_mut().poll_writable(cx)
+    }
+}
+
 pub struct LimitedUdpSocket {
-    inner: Box<dyn AsyncUdpSocket>,
-    send_state: UnsafeCell<LimitedSendState>,
+    inner: Arc<dyn AsyncUdpSocket>,
+    send_state: LimitedSendState,
     recv_state: UnsafeCell<LimitedRecvState>,
 }
 
+unsafe impl Sync for LimitedUdpSocket {}
+
 impl LimitedUdpSocket {
     fn new<ST>(
-        inner: Box<dyn AsyncUdpSocket>,
+        inner: Arc<dyn AsyncUdpSocket>,
         shift_millis: u8,
         max_send_packets: usize,
         max_send_bytes: usize,
@@ -219,12 +254,12 @@ impl LimitedUdpSocket {
         );
         LimitedUdpSocket {
             inner,
-            send_state: UnsafeCell::new(send_state),
+            send_state,
             recv_state: UnsafeCell::new(recv_state),
         }
     }
 
-    fn new_unlimited<ST>(inner: Box<dyn AsyncUdpSocket>, stats: Arc<ST>) -> Self
+    fn new_unlimited<ST>(inner: Arc<dyn AsyncUdpSocket>, stats: Arc<ST>) -> Self
     where
         ST: LimitedSendStats + LimitedRecvStats + Send + Sync + 'static,
     {
@@ -233,7 +268,7 @@ impl LimitedUdpSocket {
         let recv_state = LimitedRecvState::new_unlimited(started, stats as _);
         LimitedUdpSocket {
             inner,
-            send_state: UnsafeCell::new(send_state),
+            send_state,
             recv_state: UnsafeCell::new(recv_state),
         }
     }
@@ -246,37 +281,42 @@ impl fmt::Debug for LimitedUdpSocket {
 }
 
 impl AsyncUdpSocket for LimitedUdpSocket {
-    fn poll_send(
-        &self,
-        state: &udp::UdpState,
-        cx: &mut Context,
-        transmits: &[udp::Transmit],
-    ) -> Poll<io::Result<usize>> {
-        let l = unsafe { &mut *self.send_state.get() };
-        if l.limit.is_set() {
-            let dur_millis = l.started.elapsed().as_millis() as u64;
-            match l.limit.check_packets(dur_millis, transmits) {
-                DatagramLimitResult::Advance(n) => {
-                    let nw = ready!(self.inner.poll_send(state, cx, &transmits[0..n]))?;
-                    let len = transmits.iter().take(nw).map(|v| v.contents.len()).sum();
-                    l.limit.set_advance(nw, len);
-                    l.stats.add_send_packets(nw);
-                    l.stats.add_send_bytes(len);
-                    Poll::Ready(Ok(nw))
+    fn create_io_poller(self: Arc<Self>) -> Pin<Box<dyn UdpPoller>> {
+        Box::pin(LimitedUdpPoller {
+            inner: self.inner.clone().create_io_poller(),
+            limit: self.send_state.limit.clone(),
+        })
+    }
+
+    fn try_send(&self, transmit: &udp::Transmit) -> io::Result<()> {
+        let len = transmit.contents.len();
+        if let Some(l) = &self.send_state.limit {
+            let dur_millis = self.send_state.started.elapsed().as_millis() as u64;
+            let mut l = l.lock().unwrap();
+            match l.limit.check_packet(dur_millis, len) {
+                DatagramLimitResult::Advance(_) => {
+                    self.inner.try_send(transmit)?;
+                    l.limit.set_advance(1, len);
+                    self.send_state.stats.add_send_packet();
+                    self.send_state.stats.add_send_bytes(len);
+                    Ok(())
                 }
                 DatagramLimitResult::DelayFor(ms) => {
                     l.delay
                         .as_mut()
-                        .reset(l.started + Duration::from_millis(dur_millis + ms));
-                    l.delay.poll_unpin(cx).map(|_| Ok(0))
+                        .reset(self.send_state.started + Duration::from_millis(dur_millis + ms));
+                    l.poll_delay = true;
+                    Err(io::Error::new(
+                        io::ErrorKind::WouldBlock,
+                        "delayed by rate limiter",
+                    ))
                 }
             }
         } else {
-            let nw = ready!(self.inner.poll_send(state, cx, transmits))?;
-            let len = transmits.iter().take(nw).map(|v| v.contents.len()).sum();
-            l.stats.add_send_packets(nw);
-            l.stats.add_send_bytes(len);
-            Poll::Ready(Ok(nw))
+            self.inner.try_send(transmit)?;
+            self.send_state.stats.add_send_packet();
+            self.send_state.stats.add_send_bytes(len);
+            Ok(())
         }
     }
 
@@ -316,6 +356,14 @@ impl AsyncUdpSocket for LimitedUdpSocket {
 
     fn local_addr(&self) -> io::Result<std::net::SocketAddr> {
         self.inner.local_addr()
+    }
+
+    fn max_transmit_segments(&self) -> usize {
+        self.inner.max_transmit_segments()
+    }
+
+    fn max_receive_segments(&self) -> usize {
+        self.inner.max_receive_segments()
     }
 
     fn may_fragment(&self) -> bool {
