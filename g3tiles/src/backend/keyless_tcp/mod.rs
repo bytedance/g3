@@ -36,7 +36,7 @@ use crate::module::keyless::{
 };
 
 mod connect;
-use connect::KeylessTcpUpstreamConnector;
+use connect::{KeylessTcpUpstreamConnector, KeylessTlsUpstreamConnector};
 
 pub(crate) struct KeylessTcpBackend {
     config: Arc<KeylessTcpBackendConfig>,
@@ -64,19 +64,31 @@ impl KeylessTcpBackend {
 
         let (keyless_request_sender, keyless_request_receiver) =
             flume::bounded(config.request_buffer_size);
-        let connector = KeylessTcpUpstreamConnector::new(
+        let tcp_connector = KeylessTcpUpstreamConnector::new(
             config.clone(),
             stats.clone(),
             duration_recorder.clone(),
             peer_addrs.clone(),
         );
-        let pool_handle = KeylessConnectionPool::spawn(
-            Arc::new(connector),
-            config.idle_connection_min,
-            config.idle_connection_max,
-            keyless_request_receiver,
-            config.graceful_close_wait,
-        );
+        let pool_handle = if let Some(tls_builder) = &config.tls_client {
+            let tls_client = tls_builder.build()?;
+            let tls_connector = KeylessTlsUpstreamConnector::new(tcp_connector, tls_client);
+            KeylessConnectionPool::spawn(
+                Arc::new(tls_connector),
+                config.idle_connection_min,
+                config.idle_connection_max,
+                keyless_request_receiver,
+                config.graceful_close_wait,
+            )
+        } else {
+            KeylessConnectionPool::spawn(
+                Arc::new(tcp_connector),
+                config.idle_connection_min,
+                config.idle_connection_max,
+                keyless_request_receiver,
+                config.graceful_close_wait,
+            )
+        };
 
         let backend = Arc::new(KeylessTcpBackend {
             config,

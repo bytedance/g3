@@ -18,11 +18,12 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
+use rustls::ServerName;
 use yaml_rust::{yaml, Yaml};
 
 use g3_histogram::HistogramMetricsConfig;
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
-use g3_types::net::TcpKeepAliveConfig;
+use g3_types::net::{RustlsClientConfigBuilder, TcpKeepAliveConfig};
 use g3_yaml::YamlDocPosition;
 
 use super::{AnyBackendConfig, BackendConfig, BackendConfigDiffAction};
@@ -37,6 +38,8 @@ pub(crate) struct KeylessTcpBackendConfig {
     pub(crate) discover: MetricsName,
     pub(crate) discover_data: DiscoverRegisterData,
     pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) tls_client: Option<RustlsClientConfigBuilder>,
+    pub(crate) tls_name: Option<ServerName>,
     pub(crate) duration_stats: HistogramMetricsConfig,
 
     pub(crate) request_buffer_size: usize,
@@ -55,6 +58,8 @@ impl KeylessTcpBackendConfig {
             discover: MetricsName::default(),
             discover_data: DiscoverRegisterData::Null,
             extra_metrics_tags: None,
+            tls_client: None,
+            tls_name: None,
             duration_stats: HistogramMetricsConfig::default(),
             request_buffer_size: 128,
             response_timeout: Duration::from_secs(4),
@@ -110,6 +115,18 @@ impl KeylessTcpBackendConfig {
                 let tags = g3_yaml::value::as_static_metrics_tags(v)
                     .context(format!("invalid static metrics tags value for key {k}"))?;
                 self.extra_metrics_tags = Some(Arc::new(tags));
+                Ok(())
+            }
+            "tls_client" => {
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let tls_client =
+                    g3_yaml::value::as_rustls_client_config_builder(v, Some(lookup_dir))?;
+                self.tls_client = Some(tls_client);
+                Ok(())
+            }
+            "tls_name" => {
+                let name = g3_yaml::value::as_rustls_server_name(v)?;
+                self.tls_name = Some(name);
                 Ok(())
             }
             "duration_stats" | "duration_metrics" => {
