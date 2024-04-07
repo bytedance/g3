@@ -25,8 +25,9 @@ use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
 use h3::client::SendRequest;
 use h3_quinn::OpenStreams;
 use http::{HeaderValue, Method, StatusCode};
-use quinn::{Endpoint, TokioRuntime};
-use rustls::ServerName;
+use quinn::crypto::rustls::QuicClientConfig;
+use quinn::{ClientConfig, Endpoint, TokioRuntime, TransportConfig, VarInt};
+use rustls_pki_types::ServerName;
 use tokio::net::TcpStream;
 use url::Url;
 
@@ -220,8 +221,6 @@ impl BenchH3Args {
         stats: &Arc<HttpRuntimeStats>,
         proc_args: &ProcArgs,
     ) -> anyhow::Result<h3_quinn::Connection> {
-        use quinn::{ClientConfig, TransportConfig, VarInt};
-
         let addrs = self
             .quic_peer_addrs
             .as_ref()
@@ -239,12 +238,14 @@ impl BenchH3Args {
         //   https://http3-explained.haxx.se/en/h3/h3-streams
         // transport.max_concurrent_uni_streams(VarInt::from_u32(0));
         // TODO add more transport settings
-        let mut client_config = ClientConfig::new(tls_client.driver.clone());
+        let quic_config = QuicClientConfig::try_from(tls_client.driver.as_ref().clone())
+            .map_err(|e| anyhow!("invalid quic tls config: {e}"))?;
+        let mut client_config = ClientConfig::new(Arc::new(quic_config));
         client_config.transport_config(Arc::new(transport));
 
         let tls_name = match &self.target_tls.tls_name {
             Some(ServerName::DnsName(domain)) => domain.as_ref().to_string(),
-            Some(ServerName::IpAddress(ip)) => ip.to_string(),
+            Some(ServerName::IpAddress(ip)) => IpAddr::from(*ip).to_string(),
             Some(_) => return Err(anyhow!("unsupported tls server name type")),
             None => self.target.host().to_string(),
         };

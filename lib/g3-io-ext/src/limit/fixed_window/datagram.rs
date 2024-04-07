@@ -44,7 +44,7 @@ impl<'a, const C: usize> HasPacketSize for RecvMsgHdr<'a, C> {
 }
 
 #[cfg(feature = "quic")]
-impl HasPacketSize for quinn::udp::Transmit {
+impl<'a> HasPacketSize for quinn::udp::Transmit<'a> {
     fn packet_size(&self) -> usize {
         self.contents.len()
     }

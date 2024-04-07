@@ -364,7 +364,7 @@ impl HickoryClientConfig {
     ) -> anyhow::Result<AsyncClient> {
         let tls_name = match tls_name {
             ServerName::DnsName(domain) => domain.as_ref().to_string(),
-            ServerName::IpAddress(ip) => ip.to_string(),
+            ServerName::IpAddress(ip) => IpAddr::from(*ip).to_string(),
             _ => return Err(anyhow!("unsupported tls server name type")),
         };
 
@@ -392,7 +392,7 @@ impl HickoryClientConfig {
     ) -> anyhow::Result<AsyncClient> {
         let tls_name = match tls_name {
             ServerName::DnsName(domain) => domain.as_ref().to_string(),
-            ServerName::IpAddress(ip) => ip.to_string(),
+            ServerName::IpAddress(ip) => IpAddr::from(*ip).to_string(),
             _ => return Err(anyhow!("unsupported tls server name type")),
         };
 

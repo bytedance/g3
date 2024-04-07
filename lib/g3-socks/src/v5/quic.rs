@@ -23,13 +23,13 @@ use std::sync::Arc;
 use std::task::{ready, Context, Poll};
 use std::time::Instant;
 
-use quinn::udp::{RecvMeta, Transmit, UdpState};
-use quinn::{AsyncTimer, AsyncUdpSocket, Runtime};
+use quinn::udp::{RecvMeta, Transmit};
+use quinn::{AsyncTimer, AsyncUdpSocket, Runtime, UdpPoller};
 use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::sync::{broadcast, oneshot};
 use tokio::time::sleep_until;
 
-use g3_io_ext::UdpSocketExt;
+use g3_io_ext::{QuinnUdpPollHelper, UdpSocketExt};
 use g3_types::net::Host;
 
 use super::udp_io::{UDP_HEADER_LEN_IPV4, UDP_HEADER_LEN_IPV6};
@@ -94,7 +94,7 @@ impl Runtime for Socks5UdpTokioRuntime {
         tokio::spawn(future);
     }
 
-    fn wrap_udp_socket(&self, t: UdpSocket) -> io::Result<Box<dyn AsyncUdpSocket>> {
+    fn wrap_udp_socket(&self, t: UdpSocket) -> io::Result<Arc<dyn AsyncUdpSocket>> {
         let (sender, receiver) = oneshot::channel();
         let mut ctl_close_receiver = self.ctl_close_receiver.resubscribe();
         tokio::spawn(async move {
@@ -105,7 +105,7 @@ impl Runtime for Socks5UdpTokioRuntime {
             }
         });
         let io = tokio::net::UdpSocket::from_std(t)?;
-        Ok(Box::new(Socks5UdpSocket {
+        Ok(Arc::new(Socks5UdpSocket {
             io,
             quic_peer_addr: self.quic_peer_addr,
             ctl_close_receiver: UnsafeCell::new(receiver),
@@ -170,92 +170,28 @@ pub struct Socks5UdpSocket {
     send_socks_header: SocksHeaderBuffer,
 }
 
+unsafe impl Sync for Socks5UdpSocket {}
+
 impl AsyncUdpSocket for Socks5UdpSocket {
-    #[cfg(any(
-        target_os = "linux",
-        target_os = "android",
-        target_os = "freebsd",
-        target_os = "netbsd",
-        target_os = "openbsd",
-    ))]
-    fn poll_send(
-        &self,
-        _state: &UdpState,
-        cx: &mut Context,
-        transmits: &[Transmit],
-    ) -> Poll<io::Result<usize>> {
-        use g3_io_ext::SendMsgHdr;
-
-        let mut msgs = Vec::with_capacity(transmits.len());
-
-        for transmit in transmits {
-            assert_eq!(self.quic_peer_addr, transmit.destination);
-
-            msgs.push(SendMsgHdr::new(
-                [
-                    IoSlice::new(self.send_socks_header.as_ref()),
-                    IoSlice::new(&transmit.contents),
-                ],
-                None,
-            ))
-        }
-
-        self.io.poll_batch_sendmsg(cx, &mut msgs)
+    fn create_io_poller(self: Arc<Self>) -> Pin<Box<dyn UdpPoller>> {
+        Box::pin(QuinnUdpPollHelper::new(move || {
+            let socket = self.clone();
+            async move { socket.io.writable().await }
+        }))
     }
 
-    #[cfg(target_os = "macos")]
-    fn poll_send(
-        &self,
-        _state: &UdpState,
-        cx: &mut Context,
-        transmits: &[Transmit],
-    ) -> Poll<io::Result<usize>> {
-        // logics from quinn-udp::fallback.rs
-        let mut sent = 0;
-        for transmit in transmits {
-            assert_eq!(self.quic_peer_addr, transmit.destination);
+    fn try_send(&self, transmit: &Transmit) -> io::Result<()> {
+        assert_eq!(self.quic_peer_addr, transmit.destination);
 
-            match self.io.poll_sendmsg(
-                cx,
+        self.io
+            .try_sendmsg(
                 &[
                     IoSlice::new(self.send_socks_header.as_ref()),
-                    IoSlice::new(&transmit.contents),
+                    IoSlice::new(transmit.contents),
                 ],
                 None,
-            ) {
-                Poll::Ready(ready) => match ready {
-                    Ok(_) => {
-                        sent += 1;
-                    }
-                    // We need to report that some packets were sent in this case, so we rely on
-                    // errors being either harmlessly transient (in the case of WouldBlock) or
-                    // recurring on the next call.
-                    Err(_) if sent != 0 => return Poll::Ready(Ok(sent)),
-                    Err(e) => {
-                        if e.kind() == io::ErrorKind::WouldBlock {
-                            return Poll::Ready(Err(e));
-                        }
-
-                        // Other errors are ignored, since they will ususally be handled
-                        // by higher level retransmits and timeouts.
-                        // - PermissionDenied errors have been observed due to iptable rules.
-                        //   Those are not fatal errors, since the
-                        //   configuration can be dynamically changed.
-                        // - Destination unreachable errors have been observed for other
-                        // log_sendmsg_error(&mut self.last_send_error, e, transmit);
-                        sent += 1;
-                    }
-                },
-                Poll::Pending => {
-                    return if sent == 0 {
-                        Poll::Pending
-                    } else {
-                        Poll::Ready(Ok(sent))
-                    }
-                }
-            }
-        }
-        Poll::Ready(Ok(sent))
+            )
+            .map(|_| ())
     }
 
     #[cfg(any(

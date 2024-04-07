@@ -139,7 +139,6 @@ async fn quic_send_recv(
     // and MUST indicate through the STREAM FIN mechanism that no further data will be sent on that stream.
     send_stream
         .finish()
-        .await
         .map_err(|e| format!("quic mark finish error: {e}"))?;
 
     quic_recv(recv_stream).await
