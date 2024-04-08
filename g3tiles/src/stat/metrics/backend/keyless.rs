@@ -35,6 +35,7 @@ const METRIC_NAME_KEYLESS_RESPONSE_RECV: &str = "backend.keyless.response.recv";
 const METRIC_NAME_KEYLESS_RESPONSE_SEND: &str = "backend.keyless.response.send";
 const METRIC_NAME_KEYLESS_RESPONSE_DROP: &str = "backend.keyless.response.drop";
 
+const METRIC_NAME_KEYLESS_CONNECT_DURATION: &str = "backend.keyless.connect.duration";
 const METRIC_NAME_KEYLESS_WAIT_DURATION: &str = "backend.keyless.wait.duration";
 const METRIC_NAME_KEYLESS_RESPONSE_DURATION: &str = "backend.keyless.response.duration";
 
@@ -160,6 +161,7 @@ fn emit_keyless_duration_stats(
         };
     }
 
+    emit_duration!(connect, METRIC_NAME_KEYLESS_CONNECT_DURATION);
     emit_duration!(wait, METRIC_NAME_KEYLESS_WAIT_DURATION);
     emit_duration!(response, METRIC_NAME_KEYLESS_RESPONSE_DURATION);
 }

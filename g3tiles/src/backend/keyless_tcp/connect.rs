@@ -25,10 +25,12 @@ use rustls::ServerName;
 use tokio::io::{ReadHalf, WriteHalf};
 use tokio::net::{tcp, TcpStream};
 use tokio::sync::broadcast;
+use tokio::time::Instant;
 use tokio_rustls::client::TlsStream;
 use tokio_rustls::TlsConnector;
 
 use g3_types::collection::{SelectiveVec, WeightedValue};
+use g3_types::ext::DurationExt;
 use g3_types::net::RustlsClientConfig;
 
 use crate::config::backend::keyless_tcp::KeylessTcpBackendConfig;
@@ -97,7 +99,12 @@ impl KeylessUpstreamConnect for KeylessTcpUpstreamConnector {
         req_receiver: flume::Receiver<KeylessForwardRequest>,
         quit_notifier: broadcast::Receiver<Duration>,
     ) -> anyhow::Result<Self::Connection> {
+        let start = Instant::now();
         let (stream, _peer) = self.connect().await?;
+        let _ = self
+            .duration_recorder
+            .connect
+            .record(start.elapsed().as_nanos_u64());
         let (clt_r, clt_w) = stream.into_split();
 
         Ok(MultiplexedUpstreamConnection::new(
@@ -136,6 +143,7 @@ impl KeylessUpstreamConnect for KeylessTlsUpstreamConnector {
         req_receiver: flume::Receiver<KeylessForwardRequest>,
         quit_notifier: broadcast::Receiver<Duration>,
     ) -> anyhow::Result<Self::Connection> {
+        let start = Instant::now();
         let (tcp_stream, peer) = self.tcp.connect().await?;
 
         let tls_name = self
@@ -152,6 +160,11 @@ impl KeylessUpstreamConnect for KeylessTlsUpstreamConnector {
         .await
         {
             Ok(Ok(tls_stream)) => {
+                let _ = self
+                    .tcp
+                    .duration_recorder
+                    .connect
+                    .record(start.elapsed().as_nanos_u64());
                 let (clt_r, clt_w) = tokio::io::split(tls_stream);
 
                 Ok(MultiplexedUpstreamConnection::new(

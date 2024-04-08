@@ -24,8 +24,10 @@ use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
 use quinn::{ClientConfig, Connection, Endpoint, TokioRuntime};
 use tokio::sync::broadcast;
+use tokio::time::Instant;
 
 use g3_types::collection::{SelectiveVec, WeightedValue};
+use g3_types::ext::DurationExt;
 use g3_types::net::RustlsClientConfig;
 
 use crate::config::backend::keyless_quic::KeylessQuicBackendConfig;
@@ -58,17 +60,8 @@ impl KeylessQuicUpstreamConnector {
             tls_client,
         })
     }
-}
 
-#[async_trait]
-impl KeylessUpstreamConnect for KeylessQuicUpstreamConnector {
-    type Connection = KeylessQuicUpstreamConnection;
-
-    async fn new_connection(
-        &self,
-        req_receiver: flume::Receiver<KeylessForwardRequest>,
-        quit_notifier: broadcast::Receiver<Duration>,
-    ) -> anyhow::Result<Self::Connection> {
+    async fn connect(&self) -> anyhow::Result<Connection> {
         let Some(peer) = self.peer_addrs.load().as_ref().map(|peers| {
             let v = peers.pick_random();
             *v.inner()
@@ -108,6 +101,26 @@ impl KeylessUpstreamConnect for KeylessQuicUpstreamConnector {
             .map_err(|_| anyhow!("quic connect to peer {peer} time out"))?
             .map_err(|e| anyhow!("quic connect to peer {peer} failed: {e}"))?;
         self.stats.add_conn_established();
+
+        Ok(conn)
+    }
+}
+
+#[async_trait]
+impl KeylessUpstreamConnect for KeylessQuicUpstreamConnector {
+    type Connection = KeylessQuicUpstreamConnection;
+
+    async fn new_connection(
+        &self,
+        req_receiver: flume::Receiver<KeylessForwardRequest>,
+        quit_notifier: broadcast::Receiver<Duration>,
+    ) -> anyhow::Result<Self::Connection> {
+        let start = Instant::now();
+        let conn = self.connect().await?;
+        let _ = self
+            .duration_recorder
+            .connect
+            .record(start.elapsed().as_nanos_u64());
 
         for _ in 0..self.config.concurrent_streams {
             let Ok((send_stream, recv_stream)) = conn.open_bi().await else {

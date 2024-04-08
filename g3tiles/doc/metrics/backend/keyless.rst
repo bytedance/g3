@@ -71,6 +71,12 @@ The following tag is also set:
 
 The metric names are:
 
+* backend.keyless.connect.duration
+
+  **type**: gauge
+
+  Show the connect duration stats.
+
 * backend.keyless.wait.duration
 
   **type**: gauge
