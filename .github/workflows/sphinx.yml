@@ -1,18 +1,25 @@
-name: Sphinx-Build
+name: Sphinx-Doc
 
 on:
   push:
     paths:
       - 'g3proxy/doc/**'
+      - 'g3tiles/doc/**'
   pull_request:
     paths:
       - 'g3proxy/doc/**'
+      - 'g3tiles/doc/**'
 
 jobs:
-  g3proxy:
+  build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component:
+        - g3proxy
+        - g3tiles
     steps:
       - uses: actions/checkout@v4
       - uses: ammaraskar/sphinx-action@master
         with:
-          docs-folder: "g3proxy/doc/"
+          docs-folder: "${{ matrix.component }}/doc/"

@@ -6,7 +6,7 @@ listen:
   address: "[::]:9095"
 listen_in_worker: true
 
-hosts:
+virtual_hosts:
   name: bench
   exact_match: bench.example.net
   cert_pairs:

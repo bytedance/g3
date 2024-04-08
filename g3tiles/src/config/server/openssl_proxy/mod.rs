@@ -150,7 +150,7 @@ impl OpensslProxyServerConfig {
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
-            "hosts" => {
+            "virtual_hosts" | "hosts" => {
                 self.hosts = g3_yaml::value::as_host_matched_obj(v, self.position.as_ref())?;
                 Ok(())
             }

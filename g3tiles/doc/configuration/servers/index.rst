@@ -18,18 +18,11 @@ Servers
    :maxdepth: 2
 
    dummy_close
-   tcp_stream
-   tcp_tproxy
-   tls_stream
-   http_proxy
-   socks_proxy
-   http_rproxy
-   sni_proxy
+   openssl_proxy
+   rustls_proxy
+   keyless_proxy
    plain_tcp_port
-   plain_tls_port
-   native_tls_port
    plain_quic_port
-   intelli_proxy
 
 Common Keys
 ===========
@@ -47,43 +40,6 @@ Set the name of the server.
 **required**, **type**: str
 
 Set the type of the server.
-
-.. _conf_server_common_escaper:
-
-escaper
--------
-
-**required**, **type**: str
-
-Set the escaper to use with this server.
-
-If the specified escaper doesn't exist in configure, a default DummyDeny escaper will be used.
-
-.. _conf_server_common_auditor:
-
-auditor
--------
-
-**optional**, **type**: str
-
-Set the auditor to use with this server.
-
-If the specified auditor doesn't exist in configure, a default auditor will be used.
-
-.. versionadded:: 1.7.0
-
-.. _conf_server_common_user_group:
-
-user_group
-----------
-
-**optional**, **type**: str
-
-Set the user group for auth.
-
-If the specified user group doesn't exist in configure, a default user group with no users will be used.
-
-**default**: no auth enabled
 
 .. _conf_server_common_shared_logger:
 
@@ -109,19 +65,6 @@ The listen instance count will be the same with the worker number count.
 
 **default**: false
 
-.. versionadded:: 1.7.8
-
-.. _conf_server_common_tls_server:
-
-tls_server
-----------
-
-**optional**, **type**: :ref:`rustls server config <conf_value_rustls_server_config>`
-
-Enable TLS on the listening socket and set TLS parameters.
-
-**default**: disabled
-
 .. _conf_server_common_ingress_network_filter:
 
 ingress_network_filter
@@ -137,30 +80,6 @@ the server that support PROXY Protocol.
 
 **default**: not set
 
-.. _conf_server_common_dst_host_filter_set:
-
-dst_host_filter_set
--------------------
-
-**optional**, **type**: :ref:`dst host acl rule set <conf_value_dst_host_acl_rule_set>`
-
-Set the filter for dst host of each request.
-
-.. note:: This won't limit the Host header in http protocol.
-
-**default**: not set
-
-.. _conf_server_common_dst_port_filter:
-
-dst_port_filter
----------------
-
-**optional**, **type**: :ref:`exact port acl rule <conf_value_exact_port_acl_rule>`
-
-Set the filter for dst port of each request.
-
-**default**: not set
-
 .. _conf_server_common_tcp_sock_speed_limit:
 
 tcp_sock_speed_limit
@@ -170,9 +89,7 @@ tcp_sock_speed_limit
 
 Set speed limit for each tcp socket.
 
-**default**: no limit, **alias**: tcp_conn_speed_limit | tcp_conn_limit
-
-.. versionchanged:: 1.4.0 changed name to tcp_sock_speed_limit
+**default**: no limit
 
 .. _conf_server_common_udp_sock_speed_limit:
 
@@ -183,9 +100,7 @@ udp_sock_speed_limit
 
 Set speed limit for each udp socket.
 
-**default**: no limit, **alias**: udp_relay_speed_limit | udp_relay_limit
-
-.. versionchanged:: 1.4.0 changed name to udp_sock_speed_limit
+**default**: no limit
 
 .. _conf_server_common_tcp_copy_buffer_size:
 
@@ -208,41 +123,6 @@ tcp_copy_yield_size
 Set the yield out size for the internal copy task.
 
 **default**: 1M, **minimal**: 256K
-
-.. _conf_server_common_udp_relay_packet_size:
-
-udp_relay_packet_size
----------------------
-
-**optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
-
-Set the udp packet size for udp relay.
-
-**default**: 4K, **maximum**: 16K
-
-.. _conf_server_common_udp_relay_yield_size:
-
-udp_relay_yield_size
---------------------
-
-**optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
-
-Set the yield out size for the internal relay task.
-
-**default**: 1M, **maximum**: 256K
-
-.. _conf_server_common_udp_relay_batch_size:
-
-udp_relay_batch_size
---------------------
-
-**optional**, **type**: usize
-
-Set the batch recvmsg / sendmsg size.
-
-**default**: 8
-
-.. versionadded:: 1.7.29
 
 .. _conf_server_common_tcp_misc_opts:
 
@@ -285,8 +165,6 @@ task_idle_max_count
 **optional**, **type**: i32
 
 The task will be closed if the idle check return IDLE the times as this value.
-
-.. note:: The value set at user side will overwrite this.
 
 **default**: 1
 

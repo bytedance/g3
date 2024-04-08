@@ -6,17 +6,15 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'g3proxy'
+project = 'g3tiles'
 copyright = '2024, Zhang Jingqiang'
 author = 'Zhang Jingqiang'
-release = '1.8.0'
+release = '0.3.0'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = [
-    "sphinx.ext.graphviz",
-]
+extensions = []
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
@@ -27,14 +25,3 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 html_theme = 'alabaster'
 html_static_path = ['_static']
-
-
-# -- Custom Options ----------------------------------------------------------
-
-# Set the master document, which contains the root toctree directive.
-# The default changed from 'contents' to 'index' from sphinx version 2.0,
-# so we need to explicitly set it in order to be compatible with old versions.
-master_doc = 'index'
-
-# Use 'svg' format for graphviz
-graphviz_output_format = 'svg'
