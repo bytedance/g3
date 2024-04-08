@@ -8,6 +8,7 @@ on:
       - 'demo/**'
       - 'scripts/**'
       - 'g3proxy/doc/**'
+      - 'g3tiles/doc/**'
     branches:
       - 'master'
       - 'rel/**'
