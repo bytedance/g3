@@ -21,10 +21,8 @@ use anyhow::{anyhow, Context};
 use ascii::AsciiString;
 use yaml_rust::{yaml, Yaml};
 
-use g3_io_ext::LimitedCopyConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
-use g3_types::net::{TcpMiscSockOpts, TcpSockSpeedLimitConfig};
 use g3_yaml::YamlDocPosition;
 
 use super::{ServerConfig, IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_MAXIMUM_DURATION};
@@ -39,11 +37,8 @@ pub(crate) struct KeylessProxyServerConfig {
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
-    pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
     pub(crate) task_idle_check_duration: Duration,
     pub(crate) task_idle_max_count: i32,
-    pub(crate) tcp_copy: LimitedCopyConfig,
-    pub(crate) tcp_misc_opts: TcpMiscSockOpts,
     pub(crate) spawn_task_unconstrained: bool,
     pub(crate) backend: MetricsName,
 }
@@ -56,11 +51,8 @@ impl KeylessProxyServerConfig {
             shared_logger: None,
             ingress_net_filter: None,
             extra_metrics_tags: None,
-            tcp_sock_speed_limit: TcpSockSpeedLimitConfig::default(),
             task_idle_check_duration: IDLE_CHECK_DEFAULT_DURATION,
             task_idle_max_count: 1,
-            tcp_copy: Default::default(),
-            tcp_misc_opts: Default::default(),
             spawn_task_unconstrained: false,
             backend: MetricsName::default(),
         }
@@ -116,11 +108,6 @@ impl KeylessProxyServerConfig {
                 self.ingress_net_filter = Some(filter);
                 Ok(())
             }
-            "tcp_sock_speed_limit" | "tcp_conn_speed_limit" => {
-                self.tcp_sock_speed_limit = g3_yaml::value::as_tcp_sock_speed_limit(v)
-                    .context(format!("invalid tcp socket speed limit value for key {k}"))?;
-                Ok(())
-            }
             "task_idle_check_duration" => {
                 self.task_idle_check_duration = g3_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
@@ -129,23 +116,6 @@ impl KeylessProxyServerConfig {
             "task_idle_max_count" => {
                 self.task_idle_max_count =
                     g3_yaml::value::as_i32(v).context(format!("invalid i32 value for key {k}"))?;
-                Ok(())
-            }
-            "tcp_copy_buffer_size" => {
-                let buffer_size = g3_yaml::humanize::as_usize(v)
-                    .context(format!("invalid humanize usize value for key {k}"))?;
-                self.tcp_copy.set_buffer_size(buffer_size);
-                Ok(())
-            }
-            "tcp_copy_yield_size" => {
-                let yield_size = g3_yaml::humanize::as_usize(v)
-                    .context(format!("invalid humanize usize value for key {k}"))?;
-                self.tcp_copy.set_yield_size(yield_size);
-                Ok(())
-            }
-            "tcp_misc_opts" => {
-                self.tcp_misc_opts = g3_yaml::value::as_tcp_misc_sock_opts(v)
-                    .context(format!("invalid tcp misc sock opts value for key {k}"))?;
                 Ok(())
             }
             "spawn_task_unconstrained" | "task_unconstrained" => {

@@ -15,8 +15,6 @@ tls name
 Set the dns name / ip address for server certificate verification.
 If not set, the corresponding upstream address will be used.
 
-.. versionchanged:: IP address is supported since version 1.7.15
-
 .. _conf_value_tls_certificates:
 
 tls certificates
@@ -41,8 +39,6 @@ Set the private key file, which should be in PKCS#8(`openssl-genpkey(1)`_) or tr
 
 If relative, it will be searched in the directory that contains current config file.
 The last one in the file will be used if many keys are found.
-
-.. versionchanged:: support traditional PEM format since version 1.3.2
 
 .. _openssl-genpkey(1): https://www.openssl.org/docs/manmaster/man1/openssl-genpkey.html
 
@@ -74,8 +70,6 @@ The keys are:
   Client certificates are also needed if client auth is needed.
 
   **default**: not set
-
-.. versionadded:: 1.7.7
 
 .. _conf_value_tlcp_cert_pair:
 
@@ -124,8 +118,6 @@ The keys are:
 
   **default**: not set
 
-.. versionadded:: 1.7.23
-
 .. _conf_value_openssl_protocol:
 
 openssl protocol
@@ -141,8 +133,6 @@ Current supported values are:
 - tls1.3
 - tlcp (only if vendored-tongsuo feature is enabled)
 
-.. versionadded:: 1.7.7
-
 .. _conf_value_openssl_ciphers:
 
 openssl ciphers
@@ -157,8 +147,6 @@ Values can be obtained from `openssl ciphers -v` command.
 For string value, it can be ciphers joined by ':'.
 
 For seq value, each one should be a cipher string.
-
-.. versionadded:: 1.7.7
 
 .. _conf_value_openssl_tls_client_config:
 
@@ -179,8 +167,6 @@ The map is consists of the following fields:
 
   **default**: not set
 
-  .. versionadded:: 1.7.7
-
 * ciphers
 
   **optional**, **type**: :ref:`openssl ciphers <conf_value_openssl_ciphers>`
@@ -189,8 +175,6 @@ The map is consists of the following fields:
   Set to use a specific set of ciphers for the specified protocol version.
 
   **default**: not set
-
-  .. versionadded:: 1.7.7
 
 * disable_sni
 
@@ -209,36 +193,12 @@ The map is consists of the following fields:
 
   **default**: not set
 
-  .. versionadded:: 1.7.7
-
 * tlcp_cert_pair
 
   **optional**, **type**: :ref:`tlcp cert pair <conf_value_tlcp_cert_pair>`
 
   Set the client certificate and private key pair for TLCP protocol.
   This will be in effect only if protocol is set to tlcp.
-
-  **default**: not set
-
-  .. versionadded:: 1.7.23
-
-* certificate
-
-  **optional**, **type**: :ref:`tls certificates <conf_value_tls_certificates>`
-  **conflict**: cert_pair
-
-  Set client certificates if client auth is needed by remote server.
-  Private key must also be set if client auth is needed.
-
-  **default**: not set
-
-* private_key
-
-  **optional**, **type**: :ref:`tls private_key <conf_value_tls_private_key>`
-  **conflict**: cert_pair
-
-  Set the private key for client if client auth is needed by remote server.
-  Client certificates are also needed if client auth is needed.
 
   **default**: not set
 
@@ -282,8 +242,6 @@ The map is consists of the following fields:
 
   **default**: false
 
-  .. versionadded:: 1.7.7
-
 * session_cache_lru_max_sites
 
   **optional**, **type**: usize
@@ -310,8 +268,6 @@ The map is consists of the following fields:
 
   **default**: not set
 
-  .. versionadded:: 1.7.35
-
 * use_ocsp_stapling
 
   **optional**, **type**: bool
@@ -321,8 +277,6 @@ The map is consists of the following fields:
   Verify of this response is still not implemented.
 
   **default**: not set, the default value may vary between different OpenSSL variants
-
-  .. versionadded:: 1.7.35
 
 * enable_sct
 
@@ -334,8 +288,6 @@ The map is consists of the following fields:
 
   **default**: not set, the default value may vary between different OpenSSL variants
 
-  .. versionadded:: 1.7.35
-
 * enable_grease
 
   **optional**, **type**: bool
@@ -343,8 +295,6 @@ The map is consists of the following fields:
   Enable GREASE. See `RFC 8701`_.
 
   **default**: not set, the default value may vary between different OpenSSL variants
-
-  .. versionadded:: 1.7.35
 
   .. _RFC 8701: https://datatracker.ietf.org/doc/rfc8701/
 
@@ -355,77 +305,6 @@ The map is consists of the following fields:
   Whether to permute TLS extensions.
 
   **default**: not set, the default value may vary between different OpenSSL variants
-
-  .. versionadded:: 1.7.36
-
-.. versionadded:: 1.1.4
-
-.. _conf_value_openssl_server_config:
-
-openssl server config
-=====================
-
-**yaml value**: map
-
-The tls config to be used as a openssl tls server.
-
-The map is consists of the following fields:
-
-* cert_pairs
-
-  **optional**, **type**: :ref:`tls cert pair <conf_value_tls_cert_pair>` or seq
-
-  Set certificate and private key pairs for this TLS server.
-
-  If not set, TLS protocol will be disabled.
-
-  **default**: not set
-
-* tlcp_cert_pairs
-
-  **optional**, **type**: :ref:`tlcp cert pair <conf_value_tlcp_cert_pair>` or seq
-
-  Set certificate and private key pairs for this TLCP server.
-
-  If not set, TLCP protocol will be disabled.
-
-  **default**: not set
-
-* enable_client_auth
-
-  **optional**, **type**: bool
-
-  Set if you want to enable client auth.
-
-  **default**: disabled
-
-* session_id_context
-
-  **optional**, **type**: str
-
-  A string that will be added to the prefix when calculate the session id context sha1 hash.
-
-  **default**: not set
-
-  .. versionadded:: 1.7.32
-
-* ca_certificate | client_auth_certificate
-
-  **optional**, **type**: :ref:`tls certificates <conf_value_tls_certificates>`
-
-  A list of certificates for client auth. If not set, the system default ca certificates will be used.
-
-  **default**: not set
-
-* handshake_timeout
-
-  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
-
-  Set the tls handshake timeout value.
-
-  **default**: 10s
-
-.. versionadded:: 1.7.29
 
 .. _conf_value_rustls_client_config:
 
@@ -446,8 +325,6 @@ The map is consists of the following fields:
 
   **default**: false
 
-  .. versionadded:: 1.1.4
-
 * disable_sni
 
   **optional**, **type**: bool
@@ -455,8 +332,6 @@ The map is consists of the following fields:
   Whether to send the Server Name Indication (SNI) extension during the client handshake.
 
   **default**: false
-
-  .. versionadded:: 1.1.4
 
 * max_fragment_size
 
@@ -475,26 +350,6 @@ The map is consists of the following fields:
 
   **default**: not set
 
-  .. versionadded:: 1.7.8
-
-* certificate
-
-  **optional**, **type**: :ref:`tls certificates <conf_value_tls_certificates>`
-
-  Set client certificates if client auth is needed by remote server.
-  Private key must also be set if client auth is needed.
-
-  **default**: not set
-
-* private_key
-
-  **optional**, **type**: :ref:`tls private_key <conf_value_tls_private_key>`
-
-  Set the private key for client if client auth is needed by remote server.
-  Client certificates are also needed if client auth is needed.
-
-  **default**: not set
-
 * ca_certificate | server_auth_certificate
 
   **optional**, **type**: :ref:`tls certificates <conf_value_tls_certificates>`
@@ -510,8 +365,6 @@ The map is consists of the following fields:
   Set if you don't want to load default ca certificates.
 
   **default**: false
-
-  .. versionadded:: 1.1.4
 
 * use_builtin_ca_certificate
 
@@ -548,24 +401,6 @@ The map is consists of the following fields:
 
   .. note:: At least set this or certificate & private_key.
 
-  .. versionadded:: 1.7.8
-
-* certificate
-
-  **optional**, **type**: :ref:`tls certificates <conf_value_tls_certificates>`
-
-  Set the certificates for this TLS server.
-
-  .. note:: At least set this or cert_pairs
-
-* private_key
-
-  **optional**, **type**: :ref:`tls private_key <conf_value_tls_private_key>`
-
-  Set the private key for this TLS server.
-
-  .. note:: At least set this or cert_pairs
-
 * enable_client_auth
 
   **optional**, **type**: bool
@@ -579,8 +414,6 @@ The map is consists of the following fields:
   **optional**, **type**: bool
 
   Set if we should enable TLS session ticket to do TLS Session Resumption without Server-Side State.
-
-  .. versionchanged:: 1.7.28
 
   **default**: disabled
 

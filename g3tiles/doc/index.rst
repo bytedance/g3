@@ -10,7 +10,9 @@ Welcome to g3tiles's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-
+   configuration/index
+   metrics/index
+   log/index
 
 Indices and tables
 ==================
