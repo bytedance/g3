@@ -95,6 +95,34 @@ A domain value. The string value should be able to convert to a IDNA domain.
 
 Leading '.' is not allowed.
 
+.. _conf_value_weighted_sockaddr:
+
+weighted sockaddr
+=================
+
+**yaml value**: map | string
+
+A socket addr str with weight set, which make can be grouped into selective vector.
+
+The map consists 2 fields:
+
+* addr
+
+  **required**, **type**: :ref:`sockaddr str <conf_value_sockaddr_str>`
+
+  The real value.
+
+* weight
+
+  **optional**, **type**: f64
+
+  The weight of the real value.
+  It may be converted to the smallest u32 greater than or equal to the f64 value when used.
+
+  **default**: 1.0
+
+If the value type is string, then it's value will be the *addr* field, with *weight* set to default value.
+
 .. _conf_value_socket_buffer_config:
 
 socket buffer config

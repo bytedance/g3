@@ -27,7 +27,7 @@ Servers
 Common Keys
 ===========
 
-This section describes the common keys, they may be used by many escapers.
+This section describes the common keys, they may be used by many servers.
 
 .. _conf_server_common_name:
 
