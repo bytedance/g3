@@ -64,7 +64,7 @@ nodes
 
 Set the next escaper(s) those can be selected.
 
-For *seq* value, each of its element must be :ref:`weighted name str <conf_value_weighted_name_str>`.
+For *seq* value, each of its element must be :ref:`weighted metrics name <conf_value_weighted_metrics_name>`.
 
 If empty, the :ref:`fallback node <configuration_escaper_route_query_fallback_node>` escaper config will take effect.
 

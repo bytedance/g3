@@ -6,8 +6,8 @@ Server
 
 The type for each server config is *map*, with two always required keys:
 
-* *name*, which specify the name of the escaper.
-* *type*, which specify the real type of the escaper, decides how to parse other keys.
+* :ref:`name <conf_server_common_name>`, which specify the name of the server.
+* :ref:`type <conf_server_common_type>`, which specify the real type of the server, decides how to parse other keys.
 
 There are many types of server, each with a section below.
 
@@ -35,6 +35,18 @@ Common Keys
 ===========
 
 This section describes the common keys, they may be used by many escapers.
+
+.. _conf_server_common_name:
+
+**required**, **type**: :ref:`metrics name <conf_value_metrics_name>`
+
+Set the name of the server.
+
+.. _conf_server_common_type:
+
+**required**, **type**: str
+
+Set the type of the server.
 
 .. _conf_server_common_escaper:
 

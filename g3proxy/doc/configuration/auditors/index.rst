@@ -9,7 +9,7 @@ The type for each auditor config is *map*, the keys are as follows:
 name
 ----
 
-**required**, **type**: str
+**required**, **type**: :ref:`metrics name <conf_value_metrics_name>`
 
 Set the auditor name, which will can be referenced in :ref:`server config <conf_server_common_auditor>`.
 

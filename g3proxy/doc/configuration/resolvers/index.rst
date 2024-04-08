@@ -6,8 +6,8 @@ Resolver
 
 The type for each resolver config is *map*, with two always required keys:
 
-* *name*, which specify the name of the resolver.
-* *type*, which specify the real type of the resolver, decides how to parse other keys.
+* :ref:`name <conf_resolver_common_name>`, which specify the name of the resolver.
+* :ref:`type <conf_resolver_common_type>`, which specify the real type of the resolver, decides how to parse other keys.
 
 There are many types of resolver, each with a section below.
 
@@ -28,6 +28,24 @@ Common Keys
 This section describes the common keys, they may be used by many resolvers.
 
 Most of them are the runtime (of the standalone resolver thread) config.
+
+.. _conf_resolver_common_name:
+
+name
+----
+
+**required**, **type**: :ref:`metrics name <conf_value_metrics_name>`
+
+Set the name of the resolver.
+
+.. _conf_resolver_common_type:
+
+type
+----
+
+**required**, **type**: str
+
+Set the type of the resolver.
 
 graceful_stop_wait
 ------------------
