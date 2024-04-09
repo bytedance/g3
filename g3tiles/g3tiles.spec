@@ -37,7 +37,7 @@ Generic reverse proxy for G3 Project
 G3_PACKAGE_VERSION="%{version}-%{release}"
 export G3_PACKAGE_VERSION
 SSL_FEATURE=$(sh scripts/package/detect_openssl_feature.sh)
-cargo build --frozen --offline --profile %{build_profile} --no-default-features --features $SSL_FEATURE, --package g3tiles --package g3tiles-ctl
+cargo build --frozen --offline --profile %{build_profile} --no-default-features --features $SSL_FEATURE,quic --package g3tiles --package g3tiles-ctl
 sh %{name}/service/generate_systemd.sh
 
 
