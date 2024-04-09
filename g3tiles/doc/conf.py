@@ -9,7 +9,7 @@
 project = 'g3tiles'
 copyright = '2024, Zhang Jingqiang'
 author = 'Zhang Jingqiang'
-release = '0.3.0'
+release = '0.3.1'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -25,3 +25,11 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 html_theme = 'alabaster'
 html_static_path = ['_static']
+
+
+# -- Custom Options ----------------------------------------------------------
+
+# Set the master document, which contains the root toctree directive.
+# The default changed from 'contents' to 'index' from sphinx version 2.0,
+# so we need to explicitly set it in order to be compatible with old versions.
+master_doc = 'index'

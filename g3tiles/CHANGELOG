@@ -1,4 +1,9 @@
 
+v0.3.1:
+ - Feature: add keyless proxy
+ - Feature: add quic listen port
+ - Feature: add sphinx doc
+
 v0.3.0:
  - BUG FIX: fix session resumption for OpensslProxy when client auth is enabled
  - Feature: introduce discover and backend
