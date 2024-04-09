@@ -231,7 +231,8 @@ where
                 d
             }
             Ok(Err(e)) => {
-                clt_send_rsp.send_reset(Reason::REFUSED_STREAM);
+                let reason = e.reason().unwrap_or(Reason::REFUSED_STREAM);
+                clt_send_rsp.send_reset(reason);
                 return Err(H2StreamTransferError::UpstreamStreamOpenFailed(e));
             }
             Err(_) => {
