@@ -121,6 +121,7 @@ pub enum TlsAlpnError {
     TruncatedProtocolName,
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct TlsAlpn {
     raw_list: Vec<u8>,
 }
@@ -160,5 +161,52 @@ impl TlsAlpn {
     #[inline]
     pub fn wired_list_sequence(&self) -> &[u8] {
         self.raw_list.as_slice()
+    }
+
+    pub fn retain_clone<F>(&self, retain: F) -> Self
+    where
+        F: Fn(&[u8]) -> bool,
+    {
+        let mut new = Vec::with_capacity(self.raw_list.len());
+        let mut offset = 0usize;
+
+        while offset < self.raw_list.len() {
+            let len = self.raw_list[offset] as usize;
+            if offset + len > self.raw_list.len() {
+                break;
+            }
+            let start = offset + 1;
+            let end = start + len;
+            if retain(&self.raw_list[start..end]) {
+                new.extend_from_slice(&self.raw_list[offset..end]);
+            }
+            offset = end;
+        }
+
+        TlsAlpn { raw_list: new }
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.raw_list.is_empty()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn filer() {
+        let v = b"\x00\x0C\x02h2\x08http/1.0";
+
+        let alpn = TlsAlpn::from_extension_value(v).unwrap();
+        let filtered = alpn.retain_clone(|b| b != b"h2");
+        assert!(!filtered.is_empty());
+
+        let v = b"\x00\x09\x08http/1.0";
+        let alpn2 = TlsAlpn::from_extension_value(v).unwrap();
+
+        assert_eq!(filtered, alpn2);
     }
 }
