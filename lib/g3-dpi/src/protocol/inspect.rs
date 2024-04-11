@@ -119,6 +119,7 @@ impl ProtocolInspectState {
                 Ok(None)
             }
             MaybeProtocol::Https
+            | MaybeProtocol::Submissions
             | MaybeProtocol::Pop3s
             | MaybeProtocol::Nntps
             | MaybeProtocol::Imaps
@@ -164,6 +165,7 @@ impl ProtocolInspectState {
                 Ok(None)
             }
             MaybeProtocol::Https
+            | MaybeProtocol::Submissions
             | MaybeProtocol::Pop3s
             | MaybeProtocol::Nntps
             | MaybeProtocol::Imaps

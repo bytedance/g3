@@ -47,6 +47,7 @@ pub enum MaybeProtocol {
     BitTorrent,
 
     Https,
+    Submissions,
     Pop3s,
     Nntps,
     Imaps,
@@ -67,6 +68,7 @@ impl MaybeProtocol {
             self,
             MaybeProtocol::Ssl
                 | MaybeProtocol::Https
+                | MaybeProtocol::Submissions
                 | MaybeProtocol::Pop3s
                 | MaybeProtocol::Nntps
                 | MaybeProtocol::Imaps
@@ -100,6 +102,7 @@ impl FromStr for MaybeProtocol {
             "nats" => Ok(MaybeProtocol::Nats),
             "bittorrent" | "bt" => Ok(MaybeProtocol::BitTorrent),
             "https" | "http+tls" => Ok(MaybeProtocol::Https),
+            "submissions" | "smtps" => Ok(MaybeProtocol::Submissions),
             "pop3s" | "pop3+tls" => Ok(MaybeProtocol::Pop3s),
             "nntps" | "nntp+tls" | "snntp" => Ok(MaybeProtocol::Nntps),
             "imaps" | "imap+tls" => Ok(MaybeProtocol::Imaps),

@@ -100,6 +100,8 @@ The code should comply to these, but should be more compliant to existing popula
     : Internet Message Format
  - [rfc7817](https://datatracker.ietf.org/doc/html/rfc7817)
     : Updated Transport Layer Security (TLS) Server Identity Check Procedure for Email-Related Protocols
+ - [rfc8314](https://datatracker.ietf.org/doc/html/rfc8314)
+    : Cleartext Considered Obsolete: Use of Transport Layer Security (TLS) for Email Submission and Access
 
 # Network Protocol
 
@@ -283,6 +285,8 @@ The code should comply to these, but should be more compliant to existing popula
 
  - [rfc5321](https://datatracker.ietf.org/doc/html/rfc5321)
     : Simple Mail Transfer Protocol
+ - [rfc6409](https://datatracker.ietf.org/doc/html/rfc6409)
+    : Message Submission for Mail
  - [rfc3207](https://datatracker.ietf.org/doc/html/rfc3207)
     : SMTP Service Extension for Secure SMTP over Transport Layer Security
  - [rfc4954](https://datatracker.ietf.org/doc/html/rfc4954)
