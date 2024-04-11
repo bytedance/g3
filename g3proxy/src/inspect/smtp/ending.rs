@@ -170,6 +170,6 @@ impl EndWaitClient {
         }
 
         let _ = clt_w.shutdown().await;
-        return Ok(());
+        Ok(())
     }
 }
