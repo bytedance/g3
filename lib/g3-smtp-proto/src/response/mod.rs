@@ -20,6 +20,8 @@ use thiserror::Error;
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum ResponseLineError {
+    #[error("no trailing sequence")]
+    NoTrailingSequence,
     #[error("too short")]
     TooShort,
     #[error("invalid code")]
@@ -90,16 +92,14 @@ impl Response {
     pub const MAX_LINE_SIZE: usize = 512;
 
     pub fn feed_line<'a>(&mut self, line: &'a [u8]) -> Result<&'a [u8], ResponseLineError> {
-        let msg = if self.code.is_set() {
-            self.feed_following_line(line)?
-        } else {
-            self.feed_first_line(line)?
-        };
-        let msg = msg
+        let line = line
             .strip_suffix(b"\r\n")
-            .or_else(|| msg.strip_suffix(b"\n"))
-            .unwrap_or(msg);
-        Ok(msg)
+            .ok_or(ResponseLineError::NoTrailingSequence)?;
+        if self.code.is_set() {
+            self.feed_following_line(line)
+        } else {
+            self.feed_first_line(line)
+        }
     }
 
     fn feed_first_line<'a>(&mut self, line: &'a [u8]) -> Result<&'a [u8], ResponseLineError> {
@@ -115,7 +115,7 @@ impl Response {
             return Ok(&line[3..]);
         }
         match line[3] {
-            b' ' | b'\r' | b'\n' => self.multiline = false,
+            b' ' => self.multiline = false,
             b'-' => self.multiline = true,
             _ => return Err(ResponseLineError::InvalidDelimiter),
         }
@@ -142,7 +142,7 @@ impl Response {
             return Ok(&line[3..]);
         }
         match line[3] {
-            b' ' | b'\r' | b'\n' => self.multiline = false,
+            b' ' => self.multiline = false,
             b'-' => {}
             _ => return Err(ResponseLineError::InvalidDelimiter),
         }

@@ -92,18 +92,13 @@ impl ProtocolInspectState {
                 self.exclude_current();
                 return Ok(None);
             }
+            if left[p - 1] != b'\r' {
+                self.exclude_current();
+                return Ok(None);
+            }
 
-            let host_b = match memchr::memchr(b' ', left) {
-                Some(d) => &left[..d],
-                None => {
-                    if left[p - 1] == b'\r' {
-                        &left[..p - 1]
-                    } else {
-                        &left[..p]
-                    }
-                }
-            };
-            if Host::parse_smtp_host_address(host_b).is_some() {
+            let end_host = memchr::memchr(b' ', left).unwrap_or(p - 1);
+            if Host::parse_smtp_host_address(&left[..end_host]).is_some() {
                 Ok(Some(Protocol::Smtp))
             } else {
                 Ok(None)
