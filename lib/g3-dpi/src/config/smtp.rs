@@ -18,17 +18,15 @@ use std::time::Duration;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SmtpInterceptionConfig {
-    pub cmd_line_max_len: usize,
-    pub text_line_max_len: usize,
     pub greeting_timeout: Duration,
+    pub quit_wait_timeout: Duration,
 }
 
 impl Default for SmtpInterceptionConfig {
     fn default() -> Self {
         SmtpInterceptionConfig {
-            cmd_line_max_len: 512,
-            text_line_max_len: 1000,
             greeting_timeout: Duration::from_secs(300),
+            quit_wait_timeout: Duration::from_secs(60),
         }
     }
 }

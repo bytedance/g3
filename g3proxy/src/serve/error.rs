@@ -91,6 +91,8 @@ pub(crate) enum ServerTaskError {
     ClientAuthFailed,
     #[error("client app timeout: {0}")]
     ClientAppTimeout(&'static str),
+    #[error("client app error: {0:?}")]
+    ClientAppError(anyhow::Error), // may contain client app timeout error
     #[error("upstream not resolved: {0}")]
     UpstreamNotResolved(ResolveError),
     #[error("upstream not connected: {0}")]
@@ -152,6 +154,7 @@ impl ServerTaskError {
             ServerTaskError::ClientUdpSendFailed(_) => "ClientUdpSendFailed",
             ServerTaskError::ClientAuthFailed => "ClientAuthFailed",
             ServerTaskError::ClientAppTimeout(_) => "ClientAppTimeout",
+            ServerTaskError::ClientAppError(_) => "ClientAppError",
             ServerTaskError::UpstreamNotResolved(_) => "UpstreamNotResolved",
             ServerTaskError::UpstreamNotConnected(_) => "UpstreamNotConnected",
             ServerTaskError::UpstreamNotAvailable => "UpstreamNotAvailable",

@@ -24,18 +24,13 @@ pub fn as_smtp_interception_config(value: &Yaml) -> anyhow::Result<SmtpIntercept
         let mut config = SmtpInterceptionConfig::default();
 
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
-            "cmd_line_max_len" => {
-                config.cmd_line_max_len = crate::humanize::as_usize(v)
-                    .context(format!("invalid humanize u32 value for key {k}"))?;
-                Ok(())
-            }
-            "text_line_max_len" => {
-                config.text_line_max_len = crate::humanize::as_usize(v)
-                    .context(format!("invalid humanize u32 value for key {k}"))?;
-                Ok(())
-            }
             "greeting_timeout" => {
                 config.greeting_timeout = crate::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                Ok(())
+            }
+            "quit_wait_timeout" => {
+                config.quit_wait_timeout = crate::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }

@@ -15,15 +15,14 @@
  */
 
 use std::io;
-use std::net::IpAddr;
 use std::time::Duration;
 
 use anyhow::anyhow;
 use thiserror::Error;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufWriter};
 
 use g3_io_ext::OnceBufReader;
-use g3_smtp_proto::response::{ReplyCode, Response, ResponseLineError};
+use g3_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseLineError, ResponseParser};
 use g3_types::net::Host;
 
 use crate::inspect::StreamInspectTaskNotes;
@@ -31,7 +30,7 @@ use crate::serve::ServerTaskError;
 
 pub(super) struct Greeting {
     host: Host,
-    rsp: Response,
+    rsp: ResponseParser,
     end: bool,
     total_to_write: usize,
 }
@@ -46,7 +45,7 @@ impl Greeting {
     pub(super) fn new() -> Self {
         Greeting {
             host: Host::empty(),
-            rsp: Response::default(),
+            rsp: ResponseParser::default(),
             end: false,
             total_to_write: 0,
         }
@@ -112,7 +111,7 @@ impl Greeting {
         CW: AsyncWrite + Unpin,
     {
         let mut offset = 0;
-        let mut recv_buf = [0u8; Response::MAX_LINE_SIZE];
+        let mut recv_buf = [0u8; ResponseParser::MAX_LINE_SIZE];
 
         if let Some(buf) = ups_r.take_buf() {
             let nw = self.relay_buf(&buf, clt_w).await?;
@@ -132,8 +131,15 @@ impl Greeting {
                 .read_buf(&mut b)
                 .await
                 .map_err(GreetingError::UpstreamReadFailed)?;
+            if nr == 0 {
+                return Err(GreetingError::UpstreamClosed);
+            }
             let len = offset + nr;
             let nw = self.relay_buf(&recv_buf[..len], clt_w).await?;
+            if nw == 0 {
+                // no data written because we don't find a valid line
+                return Err(GreetingError::TooLongResponseLine);
+            }
             if self.end {
                 return Ok(ups_r);
             }
@@ -156,9 +162,25 @@ impl Greeting {
         UR: AsyncRead + Unpin,
         CW: AsyncWrite + Unpin,
     {
-        tokio::time::timeout(timeout, self.do_relay(ups_r, clt_w))
-            .await
-            .map_err(|_| GreetingError::Timeout)?
+        let mut buf_writer = BufWriter::with_capacity(1024, clt_w);
+        match tokio::time::timeout(timeout, self.do_relay(ups_r, &mut buf_writer)).await {
+            Ok(Ok(ups_r)) => {
+                let _ = buf_writer.flush().await;
+                Ok(ups_r)
+            }
+            Ok(Err(e)) => {
+                if let GreetingError::ClientWriteFailed(e) = e {
+                    Err(GreetingError::ClientWriteFailed(e))
+                } else {
+                    let _ = buf_writer.flush().await;
+                    Err(e)
+                }
+            }
+            Err(_) => {
+                let _ = buf_writer.flush().await;
+                Err(GreetingError::Timeout)
+            }
+        }
     }
 
     pub(super) async fn reply_no_service<CW>(
@@ -177,13 +199,13 @@ impl Greeting {
             GreetingError::InvalidResponseLine(_) => "invalid response",
             GreetingError::UnexpectedReplyCode(_) => "unexpected reply code",
             GreetingError::UpstreamReadFailed(_) => "read failed",
+            GreetingError::UpstreamClosed => "connection closed",
             _ => return,
         };
-        let msg = match task_notes.server_addr.ip() {
-            IpAddr::V4(v4) => format!("554 [{v4}] upstream service not ready - {reason}\r\n"),
-            IpAddr::V6(v6) => format!("554 Ipv6:{v6} upstream service not ready - {reason}\r\n"),
-        };
-        let _ = clt_w.write_all(msg.as_bytes()).await;
+        let rsp = ResponseEncoder::upstream_service_not_ready(task_notes.server_addr.ip(), reason);
+        let _ = clt_w.write_all(rsp.as_bytes()).await;
+        let _ = clt_w.flush().await;
+        let _ = clt_w.shutdown().await;
     }
 }
 
@@ -193,6 +215,8 @@ pub(super) enum GreetingError {
     Timeout,
     #[error("invalid greeting response line: {0}")]
     InvalidResponseLine(#[from] ResponseLineError),
+    #[error("response line too long")]
+    TooLongResponseLine,
     #[error("unexpected reply code {0} in greeting stage")]
     UnexpectedReplyCode(ReplyCode),
     #[error("no host field in greeting message")]
@@ -203,6 +227,8 @@ pub(super) enum GreetingError {
     ClientWriteFailed(io::Error),
     #[error("read from upstream failed: {0:?}")]
     UpstreamReadFailed(io::Error),
+    #[error("upstream closed connection")]
+    UpstreamClosed,
 }
 
 impl From<GreetingError> for ServerTaskError {
@@ -211,6 +237,9 @@ impl From<GreetingError> for ServerTaskError {
             GreetingError::Timeout => ServerTaskError::UpstreamAppTimeout("smtp greeting timeout"),
             GreetingError::InvalidResponseLine(e) => {
                 ServerTaskError::UpstreamAppError(anyhow!("invalid greeting response line: {e}"))
+            }
+            GreetingError::TooLongResponseLine => {
+                ServerTaskError::UpstreamAppError(anyhow!("response line too long"))
             }
             GreetingError::UnexpectedReplyCode(c) => ServerTaskError::UpstreamAppError(anyhow!(
                 "unknown reply code {c} in greeting stage",
@@ -223,6 +252,7 @@ impl From<GreetingError> for ServerTaskError {
             )),
             GreetingError::ClientWriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
             GreetingError::UpstreamReadFailed(e) => ServerTaskError::UpstreamReadFailed(e),
+            GreetingError::UpstreamClosed => ServerTaskError::ClosedByUpstream,
         }
     }
 }

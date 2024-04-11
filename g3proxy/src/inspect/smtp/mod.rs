@@ -18,6 +18,7 @@ use slog::slog_info;
 
 use g3_io_ext::OnceBufReader;
 use g3_slog_types::{LtHost, LtUuid};
+use g3_smtp_proto::response::ReplyCode;
 use g3_types::net::Host;
 
 use crate::config::server::ServerConfig;
@@ -26,6 +27,9 @@ use crate::serve::ServerTaskResult;
 
 mod greeting;
 use greeting::Greeting;
+
+mod ending;
+use ending::{EndQuitServer, EndWaitClient};
 
 mod initiation;
 
@@ -111,8 +115,15 @@ impl<SC: ServerConfig> SmtpInterceptObject<SC> {
                 return Err(e.into());
             }
         };
-        let (_, host) = greeting.into_parts();
+        let (code, host) = greeting.into_parts();
         self.upstream_host = Some(host);
+        if code == ReplyCode::NO_SERVICE {
+            let timeout = interception_config.quit_wait_timeout;
+            tokio::spawn(async move {
+                let _ = EndQuitServer::run_to_end(ups_r, ups_w, timeout).await;
+            });
+            return EndWaitClient::run_to_end(clt_r, clt_w, &self.ctx.task_notes).await;
+        }
 
         crate::inspect::stream::transit_transparent(
             clt_r,

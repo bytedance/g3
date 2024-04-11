@@ -18,6 +18,12 @@ use std::fmt;
 
 use thiserror::Error;
 
+mod parser;
+pub use parser::ResponseParser;
+
+mod encoder;
+pub use encoder::ResponseEncoder;
+
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum ResponseLineError {
     #[error("no trailing sequence")]
@@ -51,7 +57,9 @@ macro_rules! def_const_code {
 
 impl ReplyCode {
     def_const_code!(SERVICE_READY, b'2', b'2', b'0');
+    def_const_code!(SERVICE_CLOSING, b'2', b'2', b'1');
 
+    def_const_code!(BAD_SEQUENCE_OF_COMMANDS, b'5', b'0', b'3');
     def_const_code!(NO_SERVICE, b'5', b'5', b'4');
 
     fn new(a: u8, b: u8, c: u8) -> Option<Self> {
@@ -79,147 +87,5 @@ impl ReplyCode {
 impl fmt::Display for ReplyCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}{}{}", self.a as char, self.b as char, self.c as char)
-    }
-}
-
-#[derive(Default)]
-pub struct Response {
-    code: ReplyCode,
-    multiline: bool,
-}
-
-impl Response {
-    pub const MAX_LINE_SIZE: usize = 512;
-
-    pub fn feed_line<'a>(&mut self, line: &'a [u8]) -> Result<&'a [u8], ResponseLineError> {
-        let line = line
-            .strip_suffix(b"\r\n")
-            .ok_or(ResponseLineError::NoTrailingSequence)?;
-        if self.code.is_set() {
-            self.feed_following_line(line)
-        } else {
-            self.feed_first_line(line)
-        }
-    }
-
-    fn feed_first_line<'a>(&mut self, line: &'a [u8]) -> Result<&'a [u8], ResponseLineError> {
-        if line.len() < 3 {
-            return Err(ResponseLineError::TooShort);
-        }
-
-        self.code =
-            ReplyCode::new(line[0], line[1], line[2]).ok_or(ResponseLineError::InvalidCode)?;
-
-        if line.len() == 3 {
-            self.multiline = false;
-            return Ok(&line[3..]);
-        }
-        match line[3] {
-            b' ' => self.multiline = false,
-            b'-' => self.multiline = true,
-            _ => return Err(ResponseLineError::InvalidDelimiter),
-        }
-        Ok(&line[4..])
-    }
-
-    fn feed_following_line<'a>(&mut self, line: &'a [u8]) -> Result<&'a [u8], ResponseLineError> {
-        if !self.multiline {
-            return Err(ResponseLineError::Finished);
-        }
-
-        if line.len() < 3 {
-            return Err(ResponseLineError::TooShort);
-        }
-
-        let code =
-            ReplyCode::new(line[0], line[1], line[2]).ok_or(ResponseLineError::InvalidCode)?;
-        if code != self.code {
-            return Err(ResponseLineError::InvalidCode);
-        }
-
-        if line.len() == 3 {
-            self.multiline = false;
-            return Ok(&line[3..]);
-        }
-        match line[3] {
-            b' ' => self.multiline = false,
-            b'-' => {}
-            _ => return Err(ResponseLineError::InvalidDelimiter),
-        }
-        Ok(&line[4..])
-    }
-
-    pub fn finished(&self) -> bool {
-        self.code.is_set() && !self.multiline
-    }
-
-    #[inline]
-    pub fn code(&self) -> ReplyCode {
-        self.code
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn simple_line() {
-        let line = b"220 foo.com Simple Mail Transfer Service Ready\r\n";
-        let mut rsp = Response::default();
-        let msg = rsp.feed_line(line).unwrap();
-        assert_eq!(rsp.code.as_u16(), 220);
-        assert_eq!(msg, b"foo.com Simple Mail Transfer Service Ready");
-        assert!(rsp.finished());
-    }
-
-    #[test]
-    fn simple_multiline() {
-        let line1 = b"250-foo.com greets bar.com\r\n";
-        let line2 = b"250-8BITMIME\r\n";
-        let line3 = b"250 HELP\r\n";
-        let mut rsp = Response::default();
-
-        let msg = rsp.feed_line(line1).unwrap();
-        assert_eq!(rsp.code.as_u16(), 250);
-        assert_eq!(msg, b"foo.com greets bar.com");
-        assert!(!rsp.finished());
-
-        let msg = rsp.feed_line(line2).unwrap();
-        assert_eq!(msg, b"8BITMIME");
-        assert!(!rsp.finished());
-
-        let msg = rsp.feed_line(line3).unwrap();
-        assert_eq!(msg, b"HELP");
-        assert!(rsp.finished());
-    }
-
-    #[test]
-    fn invalid_code() {
-        let line = "测试啊 foo.com Simple Mail Transfer Service Ready\r\n";
-        let mut rsp = Response::default();
-        let err = rsp.feed_line(line.as_bytes()).unwrap_err();
-        assert_eq!(err, ResponseLineError::InvalidCode);
-    }
-
-    #[test]
-    fn empty_end() {
-        let line1 = b"250-foo.com greets bar.com\r\n";
-        let line2 = b"250-8BITMIME\r\n";
-        let line3 = b"250 \r\n";
-        let mut rsp = Response::default();
-
-        let msg = rsp.feed_line(line1).unwrap();
-        assert_eq!(rsp.code.as_u16(), 250);
-        assert_eq!(msg, b"foo.com greets bar.com");
-        assert!(!rsp.finished());
-
-        let msg = rsp.feed_line(line2).unwrap();
-        assert_eq!(msg, b"8BITMIME");
-        assert!(!rsp.finished());
-
-        let msg = rsp.feed_line(line3).unwrap();
-        assert_eq!(msg, b"");
-        assert!(rsp.finished());
     }
 }

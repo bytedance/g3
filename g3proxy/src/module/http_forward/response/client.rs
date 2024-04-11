@@ -351,6 +351,9 @@ impl HttpProxyClientResponse {
             ServerTaskError::InvalidClientProtocol(_) => {
                 HttpProxyClientResponse::from_standard(StatusCode::BAD_REQUEST, version, true)
             }
+            ServerTaskError::ClientAppError(_) => {
+                HttpProxyClientResponse::from_standard(StatusCode::BAD_REQUEST, version, true)
+            }
             ServerTaskError::UnimplementedProtocol => {
                 HttpProxyClientResponse::from_standard(StatusCode::NOT_IMPLEMENTED, version, true)
             }

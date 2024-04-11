@@ -1325,7 +1325,10 @@ dependencies = [
 name = "g3-smtp-proto"
 version = "0.1.0"
 dependencies = [
+ "g3-types",
+ "memchr",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]

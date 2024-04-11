@@ -1,0 +1,175 @@
+/*
+ * Copyright 2024 ByteDance and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+use std::time::Duration;
+
+use anyhow::anyhow;
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+
+use g3_smtp_proto::command::Command;
+use g3_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseParser};
+
+use crate::inspect::StreamInspectTaskNotes;
+use crate::serve::{ServerTaskError, ServerTaskResult};
+
+pub(super) struct EndQuitServer {}
+
+impl EndQuitServer {
+    pub(super) async fn run_to_end<R, W>(
+        ups_r: R,
+        mut ups_w: W,
+        timeout: Duration,
+    ) -> ServerTaskResult<()>
+    where
+        R: AsyncRead + Unpin,
+        W: AsyncWrite + Unpin,
+    {
+        ups_w
+            .write_all(b"QUIT\r\n")
+            .await
+            .map_err(ServerTaskError::UpstreamWriteFailed)?;
+        ups_w
+            .flush()
+            .await
+            .map_err(ServerTaskError::UpstreamWriteFailed)?;
+
+        tokio::time::timeout(timeout, EndQuitServer::wait_quit_reply(ups_r))
+            .await
+            .map_err(|_| {
+                ServerTaskError::UpstreamAppTimeout("timeout to wait SMTP QUIT response")
+            })?
+    }
+
+    async fn wait_quit_reply<R>(mut ups_r: R) -> ServerTaskResult<()>
+    where
+        R: AsyncRead + Unpin,
+    {
+        let mut recv_buf = [0u8; ResponseParser::MAX_LINE_SIZE];
+
+        let mut rsp = ResponseParser::default();
+        let mut offset = 0usize;
+        loop {
+            let mut b = &mut recv_buf[offset..];
+            let nr = ups_r
+                .read_buf(&mut b)
+                .await
+                .map_err(ServerTaskError::UpstreamReadFailed)?;
+            if nr == 0 {
+                return Err(ServerTaskError::ClosedByUpstream);
+            }
+
+            let len = offset + nr;
+            let end = memchr::memchr(b'\n', &recv_buf[0..len]).ok_or_else(|| {
+                ServerTaskError::UpstreamAppError(anyhow!("SMTP response line too long"))
+            })?;
+
+            rsp.feed_line(&recv_buf[0..end]).map_err(|e| {
+                ServerTaskError::UpstreamAppError(anyhow!("invalid SMTP QUIT response line: {e}"))
+            })?;
+            if rsp.code() != ReplyCode::SERVICE_CLOSING {
+                return Err(ServerTaskError::UpstreamAppError(anyhow!(
+                    "invalid SMTP QUIT response code: {}",
+                    rsp.code()
+                )));
+            }
+
+            if rsp.finished() {
+                break;
+            }
+            if end < len {
+                recv_buf.copy_within(end..len, 0);
+                offset = len - end;
+            } else {
+                offset = 0;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+pub(super) struct EndWaitClient {}
+
+impl EndWaitClient {
+    pub(super) async fn run_to_end<R, W>(
+        mut clt_r: R,
+        mut clt_w: W,
+        task_notes: &StreamInspectTaskNotes,
+    ) -> ServerTaskResult<()>
+    where
+        R: AsyncRead + Unpin,
+        W: AsyncWrite + Unpin,
+    {
+        let mut recv_buf = [0u8; Command::MAX_LINE_SIZE];
+        let mut offset = 0usize;
+        loop {
+            let mut b = &mut recv_buf[offset..];
+            let nr = clt_r
+                .read_buf(&mut b)
+                .await
+                .map_err(ServerTaskError::ClientTcpReadFailed)?;
+            if nr == 0 {
+                return Err(ServerTaskError::ClosedByClient);
+            }
+
+            let len = offset + nr;
+            let end = match memchr::memchr(b'\n', &recv_buf[0..len]) {
+                Some(p) => p,
+                None => {
+                    let _ = ResponseEncoder::COMMAND_LINE_TOO_LONG
+                        .write(&mut clt_w)
+                        .await;
+                    return Err(ServerTaskError::ClientAppError(anyhow!(
+                        "SMTP command line too long"
+                    )));
+                }
+            };
+
+            let cmd = match Command::parse_line(&recv_buf[..end]) {
+                Ok(cmd) => cmd,
+                Err(e) => {
+                    let _ = ResponseEncoder::from(&e).write(&mut clt_w).await;
+                    return Err(ServerTaskError::ClientAppError(anyhow!(
+                        "invalid SMTP command line: {e}"
+                    )));
+                }
+            };
+            if cmd == Command::QUIT {
+                ResponseEncoder::local_service_closing(task_notes.server_addr.ip())
+                    .write(&mut clt_w)
+                    .await
+                    .map_err(ServerTaskError::ClientTcpWriteFailed)?;
+
+                break;
+            } else {
+                ResponseEncoder::BAD_SEQUENCE_OF_COMMANDS
+                    .write(&mut clt_w)
+                    .await
+                    .map_err(ServerTaskError::ClientTcpWriteFailed)?;
+            }
+
+            if end < len {
+                recv_buf.copy_within(end..len, 0);
+                offset = len - end;
+            } else {
+                offset = 0;
+            }
+        }
+
+        let _ = clt_w.shutdown().await;
+        return Ok(());
+    }
+}
