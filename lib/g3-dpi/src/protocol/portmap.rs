@@ -53,6 +53,10 @@ impl ProtocolPortMapValue {
                 self.check_ssl = true;
                 MaybeProtocol::Http
             }
+            MaybeProtocol::Submissions => {
+                self.check_ssl = true;
+                MaybeProtocol::Smtp
+            }
             MaybeProtocol::Pop3s => {
                 self.check_ssl = true;
                 MaybeProtocol::Pop3
