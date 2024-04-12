@@ -30,14 +30,18 @@ pub enum RecvLineError {
 }
 
 pub struct LineRecvBuf<const MAX_LINE_SIZE: usize> {
-    offset: usize,
+    length: usize,
+    line_start: usize,
+    line_end: usize,
     buf: [u8; MAX_LINE_SIZE],
 }
 
 impl<const MAX_LINE_SIZE: usize> Default for LineRecvBuf<MAX_LINE_SIZE> {
     fn default() -> Self {
         LineRecvBuf {
-            offset: 0,
+            length: 0,
+            line_start: 0,
+            line_end: 0,
             buf: [0u8; MAX_LINE_SIZE],
         }
     }
@@ -48,16 +52,19 @@ impl<const MAX_LINE_SIZE: usize> LineRecvBuf<MAX_LINE_SIZE> {
     where
         R: AsyncRead + Unpin,
     {
-        let end = self.read_line_size(reader).await?;
-        Ok(&self.buf[..=end])
+        self.read_line_size(reader).await?;
+        Ok(&self.buf[self.line_start..self.line_end])
     }
 
-    async fn read_line_size<R>(&mut self, reader: &mut R) -> Result<usize, RecvLineError>
+    async fn read_line_size<R>(&mut self, reader: &mut R) -> Result<(), RecvLineError>
     where
         R: AsyncRead + Unpin,
     {
+        if let Some(end) = self.get_line() {
+            return Ok(end);
+        }
         loop {
-            let mut unfilled = &mut self.buf[self.offset..];
+            let mut unfilled = &mut self.buf[self.length..];
             if unfilled.is_empty() {
                 return self.get_line().ok_or(RecvLineError::LineTooLong);
             }
@@ -65,28 +72,51 @@ impl<const MAX_LINE_SIZE: usize> LineRecvBuf<MAX_LINE_SIZE> {
             if nr == 0 {
                 return self.get_line().ok_or(RecvLineError::IoClosed);
             }
-            self.offset += nr;
+            self.length += nr;
             if let Some(line) = self.get_line() {
                 return Ok(line);
             }
         }
     }
 
-    fn get_line(&self) -> Option<usize> {
-        memchr::memchr(b'\n', &self.buf[0..self.offset])
-    }
-
-    pub fn consume(&mut self, len: usize) {
-        if len < self.offset {
-            self.buf.copy_within(len..self.offset, 0);
-            self.offset -= len;
-        } else {
-            self.offset = 0;
+    fn get_line(&mut self) -> Option<()> {
+        if self.line_end > self.line_start {
+            return Some(());
+        }
+        if self.line_start >= self.length {
+            return None;
+        }
+        match memchr::memchr(b'\n', &self.buf[self.line_start..self.length]) {
+            Some(p) => {
+                self.line_end = self.line_start + p + 1;
+                Some(())
+            }
+            None => None,
         }
     }
 
+    pub fn buffered_line(&mut self) -> Option<&[u8]> {
+        self.get_line()?;
+        Some(&self.buf[self.line_start..self.line_end])
+    }
+
+    pub fn consume_line(&mut self) {
+        self.line_start = self.line_end;
+        if self.get_line().is_some() {
+            return;
+        }
+        if self.line_start < self.length {
+            self.buf.copy_within(self.line_start..self.length, 0);
+            self.length -= self.line_start;
+        } else {
+            self.length = 0;
+        }
+        self.line_start = 0;
+        self.line_end = 0;
+    }
+
     pub fn is_empty(&self) -> bool {
-        self.offset == 0
+        self.length == 0
     }
 }
 
@@ -105,8 +135,7 @@ mod tests {
         let mut b: LineRecvBuf<512> = LineRecvBuf::default();
         let line = b.read_line(&mut reader).await.unwrap();
         assert_eq!(line, data);
-        let len = line.len();
-        b.consume(len);
+        b.consume_line();
         assert!(b.is_empty());
 
         let r = b.read_line(&mut reader).await;
@@ -123,14 +152,12 @@ mod tests {
         let mut b: LineRecvBuf<512> = LineRecvBuf::default();
         let line1 = b.read_line(&mut reader).await.unwrap();
         assert_eq!(line1, b"123 test line\r\n");
-        let len = line1.len();
-        b.consume(len);
+        b.consume_line();
         assert!(!b.is_empty());
 
         let line2 = b.read_line(&mut reader).await.unwrap();
         assert_eq!(line2, b"456 second line\r\n");
-        let len = line2.len();
-        b.consume(len);
+        b.consume_line();
         assert!(!b.is_empty());
 
         let r = b.read_line(&mut reader).await;
@@ -153,14 +180,12 @@ mod tests {
         let mut b: LineRecvBuf<512> = LineRecvBuf::default();
         let line1 = b.read_line(&mut reader).await.unwrap();
         assert_eq!(line1, b"123 test line\r\n");
-        let len = line1.len();
-        b.consume(len);
+        b.consume_line();
         assert!(b.is_empty());
 
         let line2 = b.read_line(&mut reader).await.unwrap();
         assert_eq!(line2, b"456 second line\r\n");
-        let len = line2.len();
-        b.consume(len);
+        b.consume_line();
         assert!(!b.is_empty());
 
         let r = b.read_line(&mut reader).await;

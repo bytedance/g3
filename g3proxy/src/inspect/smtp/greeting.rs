@@ -19,9 +19,9 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use thiserror::Error;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufWriter};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufWriter};
 
-use g3_io_ext::OnceBufReader;
+use g3_io_ext::{LineRecvBuf, OnceBufReader, RecvLineError};
 use g3_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseLineError, ResponseParser};
 use g3_types::net::Host;
 
@@ -31,7 +31,6 @@ use crate::serve::ServerTaskError;
 pub(super) struct Greeting {
     host: Host,
     rsp: ResponseParser,
-    end: bool,
     total_to_write: usize,
 }
 
@@ -46,59 +45,12 @@ impl Greeting {
         Greeting {
             host: Host::empty(),
             rsp: ResponseParser::default(),
-            end: false,
             total_to_write: 0,
         }
     }
 
     pub(super) fn into_parts(self) -> (ReplyCode, Host) {
         (self.rsp.code(), self.host)
-    }
-
-    async fn relay_buf<CW>(&mut self, buf: &[u8], clt_w: &mut CW) -> Result<usize, GreetingError>
-    where
-        CW: AsyncWrite + Unpin,
-    {
-        let mut offset = 0usize;
-        while offset < buf.len() {
-            if let Some(d) = memchr::memchr(b'\n', &buf[offset..]) {
-                let line = &buf[offset..=offset + d];
-                let msg = self.rsp.feed_line(&buf[offset..=offset + d])?;
-                self.total_to_write += line.len();
-                clt_w
-                    .write_all(line)
-                    .await
-                    .map_err(GreetingError::ClientWriteFailed)?;
-                offset += line.len();
-                match self.rsp.code() {
-                    ReplyCode::SERVICE_READY => {
-                        if self.host.is_empty() {
-                            let host_d = match memchr::memchr(b' ', msg) {
-                                Some(d) => &msg[..d],
-                                None => msg,
-                            };
-                            if host_d.is_empty() {
-                                return Err(GreetingError::NoHostField);
-                            }
-                            self.host = Host::parse_smtp_host_address(host_d)
-                                .ok_or(GreetingError::UnsupportedHostFormat)?;
-                        }
-                        if self.rsp.finished() {
-                            self.end = true;
-                            return Ok(offset);
-                        }
-                    }
-                    ReplyCode::NO_SERVICE => {
-                        if self.rsp.finished() {
-                            self.end = true;
-                            return Ok(offset);
-                        }
-                    }
-                    c => return Err(GreetingError::UnexpectedReplyCode(c)),
-                }
-            }
-        }
-        Ok(offset)
     }
 
     pub(super) async fn do_relay<UR, CW>(
@@ -110,45 +62,48 @@ impl Greeting {
         UR: AsyncRead + Unpin,
         CW: AsyncWrite + Unpin,
     {
-        let mut offset = 0;
-        let mut recv_buf = [0u8; ResponseParser::MAX_LINE_SIZE];
+        let mut recv_buf = LineRecvBuf::<{ ResponseParser::MAX_LINE_SIZE }>::default();
 
-        if let Some(buf) = ups_r.take_buf() {
-            let nw = self.relay_buf(&buf, clt_w).await?;
-            if self.end {
-                return Ok(ups_r.into_inner());
-            }
-            if nw < buf.len() {
-                recv_buf.copy_from_slice(&buf[nw..]);
-                offset = buf.len() - nw;
-            }
-        }
-
-        let mut ups_r = ups_r.into_inner();
         loop {
-            let mut b = &mut recv_buf[offset..];
-            let nr = ups_r
-                .read_buf(&mut b)
+            let line = recv_buf.read_line(&mut ups_r).await.map_err(|e| match e {
+                RecvLineError::IoError(e) => GreetingError::UpstreamReadFailed(e),
+                RecvLineError::IoClosed => GreetingError::UpstreamClosed,
+                RecvLineError::LineTooLong => GreetingError::TooLongResponseLine,
+            })?;
+
+            let msg = self.rsp.feed_line(line)?;
+            self.total_to_write += line.len();
+            clt_w
+                .write_all(line)
                 .await
-                .map_err(GreetingError::UpstreamReadFailed)?;
-            if nr == 0 {
-                return Err(GreetingError::UpstreamClosed);
+                .map_err(GreetingError::ClientWriteFailed)?;
+
+            match self.rsp.code() {
+                ReplyCode::SERVICE_READY => {
+                    if self.host.is_empty() {
+                        let host_d = match memchr::memchr(b' ', msg) {
+                            Some(d) => &msg[..d],
+                            None => msg,
+                        };
+                        if host_d.is_empty() {
+                            return Err(GreetingError::NoHostField);
+                        }
+                        self.host = Host::parse_smtp_host_address(host_d)
+                            .ok_or(GreetingError::UnsupportedHostFormat)?;
+                    }
+                    if self.rsp.finished() {
+                        return Ok(ups_r.into_inner());
+                    }
+                }
+                ReplyCode::NO_SERVICE => {
+                    if self.rsp.finished() {
+                        return Ok(ups_r.into_inner());
+                    }
+                }
+                c => return Err(GreetingError::UnexpectedReplyCode(c)),
             }
-            let len = offset + nr;
-            let nw = self.relay_buf(&recv_buf[..len], clt_w).await?;
-            if nw == 0 {
-                // no data written because we don't find a valid line
-                return Err(GreetingError::TooLongResponseLine);
-            }
-            if self.end {
-                return Ok(ups_r);
-            }
-            if nw < len {
-                recv_buf.copy_within(nw..len, 0);
-                offset = len - nw;
-            } else {
-                offset = 0;
-            }
+
+            recv_buf.consume_line();
         }
     }
 

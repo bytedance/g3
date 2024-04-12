@@ -83,8 +83,7 @@ impl EndQuitServer {
                 break;
             }
 
-            let len = line.len();
-            recv_buf.consume(len);
+            recv_buf.consume_line();
         }
 
         Ok(())
@@ -145,8 +144,7 @@ impl EndWaitClient {
                     .map_err(ServerTaskError::ClientTcpWriteFailed)?;
             }
 
-            let len = line.len();
-            recv_buf.consume(len);
+            recv_buf.consume_line();
         }
 
         let _ = clt_w.shutdown().await;
