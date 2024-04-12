@@ -122,7 +122,7 @@ impl EndWaitClient {
                 }
             };
 
-            let cmd = match Command::parse_line(&line) {
+            let cmd = match Command::parse_line(line) {
                 Ok(cmd) => cmd,
                 Err(e) => {
                     let _ = ResponseEncoder::from(&e).write(&mut clt_w).await;

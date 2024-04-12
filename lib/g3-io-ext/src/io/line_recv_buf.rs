@@ -72,7 +72,7 @@ impl<const MAX_LINE_SIZE: usize> LineRecvBuf<MAX_LINE_SIZE> {
         }
     }
 
-    fn get_line<'a>(&self) -> Option<usize> {
+    fn get_line(&self) -> Option<usize> {
         memchr::memchr(b'\n', &self.buf[0..self.offset])
     }
 
