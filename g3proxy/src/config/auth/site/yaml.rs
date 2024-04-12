@@ -17,13 +17,15 @@
 use anyhow::{anyhow, Context};
 use yaml_rust::Yaml;
 
+use g3_yaml::YamlDocPosition;
+
 use super::UserSiteConfig;
 
 impl UserSiteConfig {
-    pub(crate) fn parse_yaml(v: &Yaml) -> anyhow::Result<Self> {
+    pub(crate) fn parse_yaml(v: &Yaml, position: Option<&YamlDocPosition>) -> anyhow::Result<Self> {
         if let Yaml::Hash(map) = v {
             let mut config = UserSiteConfig::default();
-            g3_yaml::foreach_kv(map, |k, v| config.set_yaml(k, v))?;
+            g3_yaml::foreach_kv(map, |k, v| config.set_yaml(k, v, position))?;
             config.check()?;
             Ok(config)
         } else {
@@ -31,7 +33,12 @@ impl UserSiteConfig {
         }
     }
 
-    fn set_yaml(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
+    fn set_yaml(
+        &mut self,
+        k: &str,
+        v: &Yaml,
+        position: Option<&YamlDocPosition>,
+    ) -> anyhow::Result<()> {
         match g3_yaml::key::normalize(k).as_str() {
             "id" | "name" => {
                 self.id = g3_yaml::value::as_metrics_name(v)
@@ -77,6 +84,16 @@ impl UserSiteConfig {
                 let strategy = g3_yaml::value::as_resolve_strategy(v)
                     .context(format!("invalid resolve strategy value for key {k}"))?;
                 self.resolve_strategy = Some(strategy);
+                Ok(())
+            }
+            "tls_client" => {
+                let lookup_dir = g3_daemon::config::get_lookup_dir(position)?;
+                let builder = g3_yaml::value::as_to_one_openssl_tls_client_config_builder(
+                    v,
+                    Some(lookup_dir),
+                )
+                .context(format!("invalid tls client config value for key {k}"))?;
+                self.tls_client = Some(builder);
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

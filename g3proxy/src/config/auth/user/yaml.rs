@@ -21,18 +21,27 @@ use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
 
 use g3_types::route::EgressPathSelection;
+use g3_yaml::YamlDocPosition;
 
 use super::{PasswordToken, UserConfig, UserSiteConfig};
 
 impl UserConfig {
-    pub(crate) fn parse_yaml(map: &yaml::Hash) -> anyhow::Result<Self> {
+    pub(crate) fn parse_yaml(
+        map: &yaml::Hash,
+        position: Option<&YamlDocPosition>,
+    ) -> anyhow::Result<Self> {
         let mut config = UserConfig::default();
-        g3_yaml::foreach_kv(map, |k, v| config.set_yaml(k, v))?;
+        g3_yaml::foreach_kv(map, |k, v| config.set_yaml(k, v, position))?;
         config.check()?;
         Ok(config)
     }
 
-    fn set_yaml(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
+    fn set_yaml(
+        &mut self,
+        k: &str,
+        v: &Yaml,
+        position: Option<&YamlDocPosition>,
+    ) -> anyhow::Result<()> {
         match g3_yaml::key::normalize(k).as_str() {
             "name" => {
                 self.name =
@@ -191,7 +200,7 @@ impl UserConfig {
             "explicit_sites" => {
                 if let Yaml::Array(seq) = v {
                     for (i, v) in seq.iter().enumerate() {
-                        let site_group = UserSiteConfig::parse_yaml(v)
+                        let site_group = UserSiteConfig::parse_yaml(v, position)
                             .context(format!("invalid user site group value for {k}#{i}"))?;
                         self.add_site_group(site_group)?;
                     }

@@ -79,3 +79,16 @@ Not all escapers support this, see the documentation for each escaper for more i
 **default**: not custom resolve strategy is set
 
 .. versionadded:: 1.7.10
+
+tls_client
+----------
+
+**optional**, **type**: :ref:`tls client <conf_value_openssl_tls_client_config>`
+
+Set the tls client config for server handshake in TLS interception.
+
+This will overwrite the auditor level `tls_interception_client <conf_auditor_tls_interception_client>`.
+
+**default**: not set
+
+.. versionadded:: 1.9.0

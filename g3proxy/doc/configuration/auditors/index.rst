@@ -53,6 +53,8 @@ If not set, TLS interception will be disabled.
 
 **default**: not set, **alias**: tls_cert_generator
 
+.. _conf_auditor_tls_interception_client:
+
 tls_interception_client
 -----------------------
 

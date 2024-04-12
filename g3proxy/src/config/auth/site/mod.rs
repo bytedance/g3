@@ -22,7 +22,7 @@ use ip_network::IpNetwork;
 
 use g3_histogram::HistogramMetricsConfig;
 use g3_types::metrics::MetricsName;
-use g3_types::net::Host;
+use g3_types::net::{Host, OpensslClientConfigBuilder};
 use g3_types::resolve::ResolveStrategy;
 
 mod json;
@@ -38,6 +38,7 @@ pub(crate) struct UserSiteConfig {
     pub(crate) emit_stats: bool,
     pub(crate) resolve_strategy: Option<ResolveStrategy>,
     pub(crate) duration_stats: HistogramMetricsConfig,
+    pub(crate) tls_client: Option<OpensslClientConfigBuilder>,
 }
 
 impl UserSiteConfig {

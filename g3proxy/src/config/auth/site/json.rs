@@ -81,6 +81,12 @@ impl UserSiteConfig {
                 self.resolve_strategy = Some(strategy);
                 Ok(())
             }
+            "tls_client" => {
+                let builder = g3_json::value::as_to_one_openssl_tls_client_config_builder(v)
+                    .context(format!("invalid tls client config value for key {k}"))?;
+                self.tls_client = Some(builder);
+                Ok(())
+            }
             _ => Err(anyhow!("invalid key {k}")),
         }
     }

@@ -18,12 +18,13 @@ use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
 
 use ahash::AHashMap;
+use anyhow::Context;
 use arc_swap::ArcSwapOption;
 use ip_network_table::IpNetworkTable;
 use radix_trie::Trie;
 
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
-use g3_types::net::{Host, UpstreamAddr};
+use g3_types::net::{Host, OpensslClientConfig, UpstreamAddr};
 use g3_types::resolve::ResolveStrategy;
 
 use super::stats::{UserSiteDurationRecorder, UserSiteStats};
@@ -36,35 +37,62 @@ struct DurationValue {
     _stats: Arc<UserSiteDurationStats>,
 }
 
-pub(super) struct UserSite {
+pub(crate) struct UserSite {
     config: Arc<UserSiteConfig>,
     stats: Arc<UserSiteStats>,
     duration_recorder: Arc<Mutex<AHashMap<String, DurationValue>>>,
+    tls_client: Option<OpensslClientConfig>,
 }
 
 impl UserSite {
-    fn new(config: &Arc<UserSiteConfig>, user: &str, user_group: &MetricsName) -> Self {
-        UserSite {
+    fn new(
+        config: &Arc<UserSiteConfig>,
+        user: &str,
+        user_group: &MetricsName,
+    ) -> anyhow::Result<Self> {
+        let tls_client = match &config.tls_client {
+            Some(builder) => {
+                let c = builder
+                    .build()
+                    .context("failed to build tls client config")?;
+                Some(c)
+            }
+            None => None,
+        };
+        Ok(UserSite {
             config: Arc::clone(config),
             stats: Arc::new(UserSiteStats::new(user, user_group, &config.id)),
             duration_recorder: Arc::new(Mutex::new(AHashMap::new())),
-        }
+            tls_client,
+        })
     }
 
-    fn new_for_reload(&self, config: &Arc<UserSiteConfig>) -> Self {
-        if self.config.duration_stats != config.duration_stats {
+    fn new_for_reload(&self, config: &Arc<UserSiteConfig>) -> anyhow::Result<Self> {
+        let tls_client = match &config.tls_client {
+            Some(builder) => {
+                let c = builder
+                    .build()
+                    .context("failed to build tls client config")?;
+                Some(c)
+            }
+            None => None,
+        };
+        let site = if self.config.duration_stats != config.duration_stats {
             UserSite {
                 config: Arc::clone(config),
                 stats: self.stats.clone(),
                 duration_recorder: Arc::new(Mutex::new(AHashMap::new())),
+                tls_client,
             }
         } else {
             UserSite {
                 config: Arc::clone(config),
                 stats: self.stats.clone(),
                 duration_recorder: self.duration_recorder.clone(),
+                tls_client,
             }
-        }
+        };
+        Ok(site)
     }
 
     #[inline]
@@ -80,6 +108,11 @@ impl UserSite {
     #[inline]
     pub(super) fn resolve_strategy(&self) -> Option<ResolveStrategy> {
         self.config.resolve_strategy
+    }
+
+    #[inline]
+    pub(crate) fn tls_client(&self) -> Option<&OpensslClientConfig> {
+        self.tls_client.as_ref()
     }
 
     pub(crate) fn fetch_duration_recorder(
@@ -133,9 +166,9 @@ impl UserSites {
     fn build<'a, T: Iterator<Item = &'a Arc<UserSiteConfig>>, F>(
         sites: T,
         build_user_site: F,
-    ) -> Self
+    ) -> anyhow::Result<Self>
     where
-        F: Fn(&Arc<UserSiteConfig>) -> UserSite,
+        F: Fn(&Arc<UserSiteConfig>) -> anyhow::Result<UserSite>,
     {
         let mut all_sites = AHashMap::new();
         let mut exact_match_ipaddr = AHashMap::new();
@@ -145,7 +178,9 @@ impl UserSites {
         let mut subnet_match_ipaddr = IpNetworkTable::new();
 
         for site_config in sites {
-            let site = Arc::new(build_user_site(site_config));
+            let site = build_user_site(site_config)
+                .context(format!("failed to build site {}", site_config.id))?;
+            let site = Arc::new(site);
 
             all_sites.insert(site_config.id.clone(), site.clone());
             for ip in &site_config.exact_match_ipaddr {
@@ -186,20 +221,20 @@ impl UserSites {
             Some(subnet_match_ipaddr)
         };
 
-        UserSites {
+        Ok(UserSites {
             all_sites,
             exact_match_ipaddr,
             exact_match_domain,
             child_match_domain,
             subnet_match_ipaddr,
-        }
+        })
     }
 
     pub(super) fn new<'a, T: Iterator<Item = &'a Arc<UserSiteConfig>>>(
         sites: T,
         user: &str,
         user_group: &MetricsName,
-    ) -> Self {
+    ) -> anyhow::Result<Self> {
         Self::build(sites, |site_config| {
             UserSite::new(site_config, user, user_group)
         })
@@ -210,7 +245,7 @@ impl UserSites {
         sites: T,
         user: &str,
         user_group: &MetricsName,
-    ) -> Self {
+    ) -> anyhow::Result<Self> {
         Self::build(sites, |site_config| {
             if let Some(old) = self.all_sites.get(&site_config.id) {
                 old.new_for_reload(site_config)

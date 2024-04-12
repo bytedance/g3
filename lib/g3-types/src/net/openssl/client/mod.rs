@@ -29,7 +29,7 @@ use openssl::x509::X509;
 
 use super::{OpensslCertificatePair, OpensslProtocol};
 use crate::net::tls::AlpnProtocol;
-use crate::net::Host;
+use crate::net::{Host, TlsAlpn, TlsServerName, UpstreamAddr};
 
 #[cfg(feature = "tongsuo")]
 use super::OpensslTlcpCertificatePair;
@@ -74,6 +74,32 @@ impl OpensslClientConfig {
         }
         if let Some(cache) = &self.session_cache {
             cache.find_and_set_cache(&mut ssl, tls_name, port)?;
+        }
+        Ok(ssl)
+    }
+
+    pub fn build_mimic_ssl(
+        &self,
+        server_name: Option<&TlsServerName>,
+        upstream: &UpstreamAddr,
+        alpn_ext: Option<&TlsAlpn>,
+    ) -> anyhow::Result<Ssl> {
+        let mut ssl =
+            Ssl::new(&self.ssl_context).map_err(|e| anyhow!("failed to get new Ssl state: {e}"))?;
+        if let Some(name) = server_name {
+            let verify_param = ssl.param_mut();
+            verify_param
+                .set_host(name.as_ref())
+                .map_err(|e| anyhow!("failed to set cert verify domain: {e}"))?;
+            ssl.set_hostname(name.as_ref())
+                .map_err(|e| anyhow!("failed to set sni hostname: {e}"))?;
+        }
+        if let Some(cache) = &self.session_cache {
+            cache.find_and_set_cache(&mut ssl, upstream.host(), upstream.port())?;
+        }
+        if let Some(v) = alpn_ext {
+            ssl.set_alpn_protos(v.wired_list_sequence())
+                .map_err(|e| anyhow!("failed to set alpn protocols: {e}"))?;
         }
         Ok(ssl)
     }

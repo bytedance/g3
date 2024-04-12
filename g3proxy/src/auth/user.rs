@@ -20,6 +20,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use ahash::AHashMap;
+use anyhow::Context;
 use arc_swap::ArcSwapOption;
 use chrono::{DateTime, Utc};
 use governor::{clock::DefaultClock, state::InMemoryState, state::NotKeyed, RateLimiter};
@@ -93,7 +94,7 @@ impl User {
         group: &MetricsName,
         config: &Arc<UserConfig>,
         datetime_now: &DateTime<Utc>,
-    ) -> Self {
+    ) -> anyhow::Result<Self> {
         let request_rate_limit = config
             .request_rate_limit
             .as_ref()
@@ -110,7 +111,8 @@ impl User {
         let is_expired = AtomicBool::new(config.is_expired(datetime_now));
         let is_blocked = Arc::new(AtomicBool::new(config.block_and_delay.is_some()));
 
-        let explicit_sites = UserSites::new(config.explicit_sites.values(), config.name(), group);
+        let explicit_sites = UserSites::new(config.explicit_sites.values(), config.name(), group)
+            .context("failed to build sites config")?;
 
         let mut user = User {
             config: Arc::clone(config),
@@ -134,14 +136,14 @@ impl User {
         user.update_ingress_net_filter();
         user.update_dst_host_filter();
         user.update_resolve_redirection();
-        user
+        Ok(user)
     }
 
     pub(super) fn new_for_reload(
         &self,
         config: &Arc<UserConfig>,
         datetime_now: &DateTime<Utc>,
-    ) -> Self {
+    ) -> anyhow::Result<Self> {
         let request_rate_limit = if let Some(quota) = &config.request_rate_limit {
             if let Some(old_limiter) = &self.request_rate_limit {
                 if let Some(old_quota) = &self.config.request_rate_limit {
@@ -210,11 +212,10 @@ impl User {
         }
         let is_blocked = Arc::clone(&self.is_blocked);
 
-        let explicit_sites = self.explicit_sites.new_for_reload(
-            config.explicit_sites.values(),
-            config.name(),
-            &self.group,
-        );
+        let explicit_sites = self
+            .explicit_sites
+            .new_for_reload(config.explicit_sites.values(), config.name(), &self.group)
+            .context("failed to build sites config")?;
 
         let mut user = User {
             config: Arc::clone(config),
@@ -250,7 +251,7 @@ impl User {
             user.dst_host_filter.clone_from(&self.dst_host_filter);
         }
         user.update_resolve_redirection();
-        user
+        Ok(user)
     }
 
     /// for user blocked check in idle checking
@@ -633,6 +634,11 @@ impl UserContext {
     #[inline]
     pub(crate) fn user_config(&self) -> &UserConfig {
         &self.user.config
+    }
+
+    #[inline]
+    pub(crate) fn user_site(&self) -> Option<&Arc<UserSite>> {
+        self.user_site.as_ref()
     }
 
     pub(crate) fn resolve_strategy(&self) -> Option<ResolveStrategy> {

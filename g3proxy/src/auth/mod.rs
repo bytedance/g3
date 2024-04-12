@@ -36,7 +36,8 @@ mod registry;
 pub(crate) use registry::{get_all_groups, get_names, get_or_insert_default};
 
 mod site;
-use site::{UserSite, UserSites};
+pub(crate) use site::UserSite;
+use site::UserSites;
 
 mod user;
 pub(crate) use user::{User, UserContext};
@@ -104,14 +105,17 @@ impl UserGroup {
         let datetime_now = Utc::now();
         let mut users = AHashMap::new();
         for (username, user_config) in &config.static_users {
-            let user = User::new(config.name(), user_config, &datetime_now);
+            let user = User::new(config.name(), user_config, &datetime_now)?;
             users.insert(username.to_string(), Arc::new(user));
         }
 
-        let anonymous_user = config
-            .anonymous_user
-            .as_ref()
-            .map(|user_config| User::new(config.name(), user_config, &datetime_now));
+        let anonymous_user = match &config.anonymous_user {
+            Some(user_config) => {
+                let user = User::new(config.name(), user_config, &datetime_now)?;
+                Some(Arc::new(user))
+            }
+            None => None,
+        };
 
         let mut group = Self::new_without_users(config);
         group.static_users = Arc::new(users);
@@ -134,7 +138,7 @@ impl UserGroup {
             }
         }
 
-        group.anonymous_user = anonymous_user.map(Arc::new);
+        group.anonymous_user = anonymous_user;
 
         group.dynamic_job_handler = Some(source::new_job(
             &group.config,
@@ -150,19 +154,24 @@ impl UserGroup {
         let mut static_users = AHashMap::new();
         for (username, user_config) in &config.static_users {
             let user = if let Some(user) = self.static_users.get(username) {
-                user.new_for_reload(user_config, &datetime_now)
+                user.new_for_reload(user_config, &datetime_now)?
             } else {
-                User::new(config.name(), user_config, &datetime_now)
+                User::new(config.name(), user_config, &datetime_now)?
             };
             static_users.insert(username.to_string(), Arc::new(user));
         }
 
-        let anonymous_user = config.anonymous_user.as_ref().map(|user_config| {
-            self.anonymous_user
-                .as_ref()
-                .map(|old| old.new_for_reload(user_config, &datetime_now))
-                .unwrap_or_else(|| User::new(config.name(), user_config, &datetime_now))
-        });
+        let anonymous_user = match &config.anonymous_user {
+            Some(user_config) => {
+                let user = if let Some(old) = &self.anonymous_user {
+                    old.new_for_reload(user_config, &datetime_now)?
+                } else {
+                    User::new(config.name(), user_config, &datetime_now)?
+                };
+                Some(Arc::new(user))
+            }
+            None => None,
+        };
 
         let mut dynamic_users = AHashMap::new();
         if self.config.dynamic_source.is_some() && config.dynamic_source.is_some() {
@@ -179,7 +188,7 @@ impl UserGroup {
             group.dynamic_users.store(Arc::new(dynamic_users));
         }
 
-        group.anonymous_user = anonymous_user.map(Arc::new);
+        group.anonymous_user = anonymous_user;
 
         group.dynamic_job_handler = Some(source::new_job(
             &group.config,
@@ -270,7 +279,6 @@ impl UserGroup {
             }
         }
 
-        source::publish_dynamic_users(self.config.as_ref(), user_config, &self.dynamic_users);
-        Ok(())
+        source::publish_dynamic_users(self.config.as_ref(), user_config, &self.dynamic_users)
     }
 }

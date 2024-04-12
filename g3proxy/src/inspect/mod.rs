@@ -26,9 +26,10 @@ use g3_dpi::{
     H1InterceptionConfig, H2InterceptionConfig, MaybeProtocol, ProtocolInspector,
     SmtpInterceptionConfig,
 };
+use g3_types::net::OpensslClientConfig;
 
 use crate::audit::AuditHandle;
-use crate::auth::{User, UserForbiddenStats};
+use crate::auth::{User, UserForbiddenStats, UserSite};
 use crate::config::server::ServerConfig;
 use crate::serve::{ArcServerStats, ServerIdleChecker, ServerTaskNotes};
 
@@ -49,6 +50,7 @@ pub(crate) mod smtp;
 pub(super) struct StreamInspectUserContext {
     raw_user_name: Option<String>,
     user: Arc<User>,
+    user_site: Option<Arc<UserSite>>,
     forbidden_stats: Arc<UserForbiddenStats>,
 }
 
@@ -71,6 +73,7 @@ impl From<&ServerTaskNotes> for StreamInspectTaskNotes {
             user_ctx: task_notes.user_ctx().map(|ctx| StreamInspectUserContext {
                 raw_user_name: ctx.raw_user_name().map(|s| s.to_string()),
                 user: ctx.user().clone(),
+                user_site: ctx.user_site().cloned(),
                 forbidden_stats: ctx.forbidden_stats().clone(),
             }),
         }
@@ -198,6 +201,14 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     #[inline]
     pub(crate) fn tls_interception(&self) -> Option<TlsInterceptionContext> {
         self.audit_handle.tls_interception()
+    }
+
+    pub(crate) fn user_site_tls_client(&self) -> Option<&OpensslClientConfig> {
+        self.task_notes
+            .user_ctx
+            .as_ref()
+            .and_then(|v| v.user_site.as_ref())
+            .and_then(|v| v.tls_client())
     }
 
     fn log_uri_max_chars(&self) -> usize {

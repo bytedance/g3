@@ -90,21 +90,31 @@ where
             .server_config
             .server_name(lazy_acceptor.ssl());
         if let Some(domain) = sni_hostname {
+            // TODO also fetch user-site config here?
             self.upstream.set_host(Host::from(domain));
         }
         let alpn_ext = self
             .tls_interception
             .server_config
             .alpn_extension(lazy_acceptor.ssl());
-        let ups_ssl = self
-            .tls_interception
-            .client_config
-            .build_ssl(sni_hostname, &self.upstream, alpn_ext)
-            .map_err(|e| {
-                TlsInterceptionError::UpstreamPrepareFailed(anyhow!(
-                    "failed to build ssl context: {e}"
-                ))
-            })?;
+        let ups_ssl = match self.ctx.user_site_tls_client() {
+            Some(c) => c
+                .build_mimic_ssl(sni_hostname, &self.upstream, alpn_ext)
+                .map_err(|e| {
+                    TlsInterceptionError::UpstreamPrepareFailed(anyhow!(
+                        "failed to build user-site ssl context: {e}"
+                    ))
+                })?,
+            None => self
+                .tls_interception
+                .client_config
+                .build_ssl(sni_hostname, &self.upstream, alpn_ext)
+                .map_err(|e| {
+                    TlsInterceptionError::UpstreamPrepareFailed(anyhow!(
+                        "failed to build general ssl context: {e}"
+                    ))
+                })?,
+        };
 
         // fetch fake server cert early in the background
         let tls_interception = self.tls_interception.clone();

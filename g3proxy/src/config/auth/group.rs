@@ -97,7 +97,8 @@ impl UserGroupConfig {
                 if let Yaml::Array(seq) = v {
                     for (i, obj) in seq.iter().enumerate() {
                         if let Yaml::Hash(map) = obj {
-                            let user = Arc::new(UserConfig::parse_yaml(map)?);
+                            let user =
+                                Arc::new(UserConfig::parse_yaml(map, self.position.as_ref())?);
                             let username = user.name().to_string();
                             if let Some(old) = self.static_users.insert(username, user) {
                                 return Err(anyhow!(
@@ -136,7 +137,7 @@ impl UserGroupConfig {
             }
             "anonymous_user" => {
                 if let Yaml::Hash(map) = v {
-                    let mut user = UserConfig::parse_yaml(map)?;
+                    let mut user = UserConfig::parse_yaml(map, self.position.as_ref())?;
                     user.set_no_password();
                     self.anonymous_user = Some(Arc::new(user));
                     Ok(())

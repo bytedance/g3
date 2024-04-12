@@ -47,7 +47,7 @@ pub(crate) fn parse_yaml(docs: &[yaml_rust::Yaml]) -> anyhow::Result<Vec<UserCon
     for (di, doc) in docs.iter().enumerate() {
         match doc {
             Yaml::Hash(map) => {
-                let user = UserConfig::parse_yaml(map)
+                let user = UserConfig::parse_yaml(map, None)
                     .context(format!("invalid user config value for doc #{di}"))?;
                 users.push(user);
             }
@@ -55,7 +55,7 @@ pub(crate) fn parse_yaml(docs: &[yaml_rust::Yaml]) -> anyhow::Result<Vec<UserCon
                 for (i, v) in seq.iter().enumerate() {
                     match v {
                         Yaml::Hash(map) => {
-                            let user = UserConfig::parse_yaml(map).context(format!(
+                            let user = UserConfig::parse_yaml(map, None).context(format!(
                                 "invalid user config value for doc #{di} record #{i}"
                             ))?;
                             users.push(user);
