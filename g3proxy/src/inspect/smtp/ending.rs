@@ -17,8 +17,9 @@
 use std::time::Duration;
 
 use anyhow::anyhow;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
+use g3_io_ext::{LineRecvBuf, RecvLineError};
 use g3_smtp_proto::command::Command;
 use g3_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseParser};
 
@@ -57,26 +58,19 @@ impl EndQuitServer {
     where
         R: AsyncRead + Unpin,
     {
-        let mut recv_buf = [0u8; ResponseParser::MAX_LINE_SIZE];
+        let mut recv_buf = LineRecvBuf::<{ ResponseParser::MAX_LINE_SIZE }>::default();
 
         let mut rsp = ResponseParser::default();
-        let mut offset = 0usize;
         loop {
-            let mut b = &mut recv_buf[offset..];
-            let nr = ups_r
-                .read_buf(&mut b)
-                .await
-                .map_err(ServerTaskError::UpstreamReadFailed)?;
-            if nr == 0 {
-                return Err(ServerTaskError::ClosedByUpstream);
-            }
-
-            let len = offset + nr;
-            let end = memchr::memchr(b'\n', &recv_buf[0..len]).ok_or_else(|| {
-                ServerTaskError::UpstreamAppError(anyhow!("SMTP response line too long"))
+            let line = recv_buf.read_line(&mut ups_r).await.map_err(|e| match e {
+                RecvLineError::IoError(e) => ServerTaskError::UpstreamReadFailed(e),
+                RecvLineError::IoClosed => ServerTaskError::ClosedByUpstream,
+                RecvLineError::LineTooLong => {
+                    ServerTaskError::UpstreamAppError(anyhow!("SMTP response line too long"))
+                }
             })?;
 
-            rsp.feed_line(&recv_buf[0..end]).map_err(|e| {
+            rsp.feed_line(line).map_err(|e| {
                 ServerTaskError::UpstreamAppError(anyhow!("invalid SMTP QUIT response line: {e}"))
             })?;
             if rsp.code() != ReplyCode::SERVICE_CLOSING {
@@ -85,16 +79,12 @@ impl EndQuitServer {
                     rsp.code()
                 )));
             }
-
             if rsp.finished() {
                 break;
             }
-            if end < len {
-                recv_buf.copy_within(end..len, 0);
-                offset = len - end;
-            } else {
-                offset = 0;
-            }
+
+            let len = line.len();
+            recv_buf.consume(len);
         }
 
         Ok(())
@@ -113,32 +103,26 @@ impl EndWaitClient {
         R: AsyncRead + Unpin,
         W: AsyncWrite + Unpin,
     {
-        let mut recv_buf = [0u8; Command::MAX_LINE_SIZE];
-        let mut offset = 0usize;
+        let mut recv_buf = LineRecvBuf::<{ Command::MAX_LINE_SIZE }>::default();
         loop {
-            let mut b = &mut recv_buf[offset..];
-            let nr = clt_r
-                .read_buf(&mut b)
-                .await
-                .map_err(ServerTaskError::ClientTcpReadFailed)?;
-            if nr == 0 {
-                return Err(ServerTaskError::ClosedByClient);
-            }
-
-            let len = offset + nr;
-            let end = match memchr::memchr(b'\n', &recv_buf[0..len]) {
-                Some(p) => p,
-                None => {
-                    let _ = ResponseEncoder::COMMAND_LINE_TOO_LONG
-                        .write(&mut clt_w)
-                        .await;
-                    return Err(ServerTaskError::ClientAppError(anyhow!(
-                        "SMTP command line too long"
-                    )));
+            let line = match recv_buf.read_line(&mut clt_r).await {
+                Ok(line) => line,
+                Err(e) => {
+                    let e = match e {
+                        RecvLineError::IoError(e) => ServerTaskError::ClientTcpReadFailed(e),
+                        RecvLineError::IoClosed => ServerTaskError::ClosedByClient,
+                        RecvLineError::LineTooLong => {
+                            let _ = ResponseEncoder::COMMAND_LINE_TOO_LONG
+                                .write(&mut clt_w)
+                                .await;
+                            ServerTaskError::ClientAppError(anyhow!("SMTP command line too long"))
+                        }
+                    };
+                    return Err(e);
                 }
             };
 
-            let cmd = match Command::parse_line(&recv_buf[..end]) {
+            let cmd = match Command::parse_line(&line) {
                 Ok(cmd) => cmd,
                 Err(e) => {
                     let _ = ResponseEncoder::from(&e).write(&mut clt_w).await;
@@ -161,12 +145,8 @@ impl EndWaitClient {
                     .map_err(ServerTaskError::ClientTcpWriteFailed)?;
             }
 
-            if end < len {
-                recv_buf.copy_within(end..len, 0);
-                offset = len - end;
-            } else {
-                offset = 0;
-            }
+            let len = line.len();
+            recv_buf.consume(len);
         }
 
         let _ = clt_w.shutdown().await;

@@ -33,6 +33,9 @@ pub use limited_write::{
 mod buf;
 pub use buf::{FlexBufReader, LimitedBufReader, OnceBufReader};
 
+mod line_recv_buf;
+pub use line_recv_buf::{LineRecvBuf, RecvLineError};
+
 mod ext;
 pub use ext::{LimitedBufReadExt, LimitedWriteExt};
 
