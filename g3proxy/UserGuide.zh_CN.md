@@ -35,6 +35,7 @@
     + [动态线路绑定](#动态线路绑定)
     + [动态代理串联](#动态代理串联)
     + [用户特定站点监控](#用户特定站点监控)
+    + [用户站点tls劫持自定义配置](#用户站点tls劫持自定义配置)
     + [流量审计](#流量审计)
     + [TLS解密流量导出](#TLS解密流量导出)
     + [性能优化](#性能优化)
@@ -662,6 +663,22 @@ explicit_sites:
     emit_stats: true           # 建立独立的监控，id字段会作为监控条目名称的一部分
     resolve_strategy:          # 可配置单独的解析策略
       query: ipv4only          # 仅解析ipv4地址
+```
+
+### 用户站点TLS劫持自定义配置
+
+在用户-站点配置中，可对TLS劫持时的TLS Client行为进行设置：
+
+```yaml
+explicit_sites:
+  - id: example-net
+    child_match: example.net
+    tls_client:
+      ca_certificate: xxx      # PEM格式CA证书
+      cert_pairs:
+        certificate: xxx       # PEM格式客户端证书
+        private_key: xxx       # PEM格式客户端私钥
+      # 其他TLS客户端配置
 ```
 
 ### 流量审计

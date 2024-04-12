@@ -35,6 +35,7 @@
     + [Dynamic Route Binding](#dynamic-route-binding)
     + [Dynamic Proxy Chaining](#dynamic-proxy-chaining)
     + [Monitoring Specific Sites for Users](#monitoring-specific-sites-for-users)
+    + [Custom User-Site MITM TLS Client Config](#custom-user-site-mitm-tls-client-config)
     + [Traffic Audit](#traffic-audit)
     + [Exporting Decrypted TLS Traffic](#exporting-decrypted-tls-traffic)
     + [Performance Optimization](#performance-optimization)
@@ -654,6 +655,23 @@ explicit_sites:
     emit_stats: true           # Establish independent monitoring, the id field will be part of the monitoring entry name
     resolve_strategy:          # Can configure separate resolution strategies
       query: ipv4only          # Only resolve ipv4 addresses
+```
+
+### Custom User-Site MITM TLS Client Config
+
+In the user-site configuration, you can set tls_client params to control the TLS behaviour in TLS MITM hijacking. 
+在用户-站点配置中，可对TLS劫持时的TLS Client行为进行设置：
+
+```yaml
+explicit_sites:
+  - id: example-net
+    child_match: example.net
+    tls_client:
+      ca_certificate: xxx      # CA Certificate in PEM format
+      cert_pairs:
+        certificate: xxx       # Client Certificate in PEM format
+        private_key: xxx       # Client Private Key in PEM format
+      # other tls client config
 ```
 
 ### Traffic Audit
