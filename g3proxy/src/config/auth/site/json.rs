@@ -82,7 +82,7 @@ impl UserSiteConfig {
                 Ok(())
             }
             "tls_client" => {
-                let builder = g3_json::value::as_to_one_openssl_tls_client_config_builder(v)
+                let builder = g3_json::value::as_to_many_openssl_tls_client_config_builder(v)
                     .context(format!("invalid tls client config value for key {k}"))?;
                 self.tls_client = Some(builder);
                 Ok(())

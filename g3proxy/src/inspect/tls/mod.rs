@@ -35,7 +35,6 @@ use crate::config::server::ServerConfig;
 use crate::log::inspect::{stream::StreamInspectLog, InspectSource};
 
 mod error;
-
 pub(crate) use error::TlsInterceptionError;
 
 mod modern;

@@ -88,7 +88,7 @@ impl UserSiteConfig {
             }
             "tls_client" => {
                 let lookup_dir = g3_daemon::config::get_lookup_dir(position)?;
-                let builder = g3_yaml::value::as_to_one_openssl_tls_client_config_builder(
+                let builder = g3_yaml::value::as_to_many_openssl_tls_client_config_builder(
                     v,
                     Some(lookup_dir),
                 )
