@@ -42,7 +42,7 @@ mod connect;
 use connect::H1ConnectTask;
 
 mod forward;
-use forward::H1ForwardTask;
+use forward::{H1ForwardTask, HttpRequestWriterForAdaptation};
 
 mod upgrade;
 use upgrade::H1UpgradeTask;
@@ -170,8 +170,16 @@ where
                 HttpRecvRequest::RequestWithIO(r, mut req_io, io_sender) => {
                     if r.inner.method == Method::CONNECT {
                         let mut connect_task = H1ConnectTask::new(self.ctx.clone(), r, self.req_id);
-                        // TODO check if allowed by adapter
-                        if let Some(upstream) = connect_task.recv_connect(&mut rsp_io).await {
+                        let r = if let Some(reqmod_client) =
+                            self.ctx.audit_handle.icap_reqmod_client()
+                        {
+                            connect_task
+                                .forward(&mut req_io, &mut rsp_io, reqmod_client)
+                                .await
+                        } else {
+                            connect_task.recv_response(&mut rsp_io).await
+                        };
+                        if let Some(upstream) = r {
                             pipeline_stats.del_task();
 
                             let next_obj = connect_task.into_connect(req_io, rsp_io, upstream);
@@ -185,10 +193,16 @@ where
                         }
                     } else if r.inner.upgrade {
                         let mut upgrade_task = H1UpgradeTask::new(self.ctx.clone(), r, self.req_id);
-                        // TODO check if allowed by adapter
-                        if let Some((protocol, upstream)) =
-                            upgrade_task.recv_upgrade(&mut rsp_io).await
+                        let r = if let Some(reqmod_client) =
+                            self.ctx.audit_handle.icap_reqmod_client()
                         {
+                            upgrade_task
+                                .forward(&mut req_io, &mut rsp_io, reqmod_client)
+                                .await
+                        } else {
+                            upgrade_task.recv_response(&mut rsp_io).await
+                        };
+                        if let Some((protocol, upstream)) = r {
                             pipeline_stats.del_task();
 
                             let next_obj =

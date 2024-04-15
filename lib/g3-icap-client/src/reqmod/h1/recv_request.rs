@@ -22,7 +22,8 @@ use g3_io_ext::{IdleCheck, LimitedCopy, LimitedCopyError};
 
 use super::{
     H1ReqmodAdaptationError, HttpAdaptedRequest, HttpRequestAdapter, HttpRequestForAdaptation,
-    HttpRequestUpstreamWriter, ReqmodAdaptationEndState, ReqmodAdaptationRunState,
+    HttpRequestUpstreamWriter, ReqmodAdaptationEndState, ReqmodAdaptationMidState,
+    ReqmodAdaptationRunState,
 };
 use crate::reqmod::response::ReqmodResponse;
 use crate::reqmod::IcapReqmodResponsePayload;
@@ -126,6 +127,29 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             self.icap_client.save_connection(self.icap_connection).await;
         }
         Ok(ReqmodAdaptationEndState::OriginalTransferred)
+    }
+
+    pub(super) async fn recv_icap_http_request_without_body<H>(
+        mut self,
+        icap_rsp: ReqmodResponse,
+        http_header_size: usize,
+        orig_http_request: &H,
+    ) -> Result<ReqmodAdaptationMidState<H>, H1ReqmodAdaptationError>
+    where
+        H: HttpRequestForAdaptation,
+    {
+        let http_req = HttpAdaptedRequest::parse(
+            &mut self.icap_connection.1,
+            http_header_size,
+            self.http_req_add_no_via_header,
+        )
+        .await?;
+        let final_req = orig_http_request.adapt_to(http_req);
+
+        if icap_rsp.keep_alive {
+            self.icap_client.save_connection(self.icap_connection).await;
+        }
+        Ok(ReqmodAdaptationMidState::AdaptedRequest(final_req))
     }
 
     pub(super) async fn handle_icap_http_request_without_body<H, UW>(

@@ -46,6 +46,7 @@ use crate::module::http_forward::HttpProxyClientResponse;
 use crate::serve::{ServerIdleChecker, ServerTaskError, ServerTaskResult};
 
 mod adaptation;
+pub(crate) use adaptation::HttpRequestWriterForAdaptation;
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
@@ -303,8 +304,6 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         UR: AsyncRead + Unpin,
         UW: AsyncWrite + Send + Unpin,
     {
-        use adaptation::HttpRequestWriterForAdaptation;
-
         let mut ups_w_adaptation = HttpRequestWriterForAdaptation {
             inner: &mut req_io.ups_w,
         };
