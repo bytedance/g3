@@ -16,6 +16,7 @@
 
 use std::time::Duration;
 
+use anyhow::anyhow;
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use slog::slog_info;
@@ -24,14 +25,21 @@ use tokio::time::Instant;
 
 use g3_http::client::HttpTransparentResponse;
 use g3_http::server::{HttpTransparentRequest, UriExt};
+use g3_icap_client::reqmod::h1::{
+    H1ReqmodAdaptationError, HttpAdapterErrorResponse, HttpRequestAdapter,
+    HttpRequestUpstreamWriter, ReqmodAdaptationMidState, ReqmodAdaptationRunState,
+    ReqmodRecvHttpResponseBody,
+};
+use g3_icap_client::reqmod::IcapReqmodClient;
+use g3_io_ext::{LimitedCopy, LimitedCopyError};
 use g3_slog_types::{LtDateTime, LtDuration, LtUpstreamAddr, LtUuid};
 use g3_types::net::UpstreamAddr;
 
-use super::{HttpRequest, HttpRequestIo, HttpResponseIo};
+use super::{HttpRequest, HttpRequestIo, HttpRequestWriterForAdaptation, HttpResponseIo};
 use crate::config::server::ServerConfig;
 use crate::inspect::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext, StreamInspection};
 use crate::module::http_forward::HttpProxyClientResponse;
-use crate::serve::{ServerTaskError, ServerTaskResult};
+use crate::serve::{ServerIdleChecker, ServerTaskError, ServerTaskResult};
 
 macro_rules! intercept_log {
     ($obj:tt, $r:expr, $($args:tt)+) => {
@@ -77,6 +85,10 @@ impl HttpForwardTaskNotes {
             dur_req_pipeline,
             dur_rsp_recv_hdr: Duration::default(),
         }
+    }
+
+    fn mark_ups_send_header(&mut self) {
+        self.dur_req_send_hdr = self.receive_ins.elapsed();
     }
 
     pub(crate) fn mark_rsp_recv_hdr(&mut self) {
@@ -137,15 +149,19 @@ where
         }
     }
 
-    pub(super) async fn recv_connect<CW, UR>(
+    pub(super) async fn forward<CR, CW, UR, UW>(
         &mut self,
+        req_io: &mut HttpRequestIo<CR, UW>,
         rsp_io: &mut HttpResponseIo<UR, CW>,
+        reqmod_client: &IcapReqmodClient,
     ) -> Option<UpstreamAddr>
     where
-        CW: AsyncWrite + Unpin,
+        CR: AsyncRead + Send + Unpin,
+        CW: AsyncWrite + Send + Unpin,
         UR: AsyncRead + Unpin,
+        UW: AsyncWrite + Send + Unpin,
     {
-        match self.do_recv_connect(rsp_io).await {
+        match self.do_forward(req_io, rsp_io, reqmod_client).await {
             Ok(v) => {
                 intercept_log!(self, &v, "ok");
                 v
@@ -160,7 +176,167 @@ where
         }
     }
 
-    async fn do_recv_connect<CW, UR>(
+    pub(super) async fn recv_response<CW, UR>(
+        &mut self,
+        rsp_io: &mut HttpResponseIo<UR, CW>,
+    ) -> Option<UpstreamAddr>
+    where
+        CW: AsyncWrite + Unpin,
+        UR: AsyncRead + Unpin,
+    {
+        match self.do_recv_response(rsp_io).await {
+            Ok(v) => {
+                intercept_log!(self, &v, "ok");
+                v
+            }
+            Err(e) => {
+                if self.send_error_response {
+                    self.reply_task_err(&e, &mut rsp_io.clt_w).await;
+                }
+                intercept_log!(self, &None, "{e}");
+                None
+            }
+        }
+    }
+
+    async fn do_forward<CR, CW, UR, UW>(
+        &mut self,
+        req_io: &mut HttpRequestIo<CR, UW>,
+        rsp_io: &mut HttpResponseIo<UR, CW>,
+        reqmod_client: &IcapReqmodClient,
+    ) -> ServerTaskResult<Option<UpstreamAddr>>
+    where
+        CR: AsyncRead + Send + Unpin,
+        CW: AsyncWrite + Send + Unpin,
+        UR: AsyncRead + Unpin,
+        UW: AsyncWrite + Send + Unpin,
+    {
+        match reqmod_client
+            .h1_adapter(
+                self.ctx.server_config.limited_copy_config(),
+                self.ctx.h1_interception().body_line_max_len,
+                true,
+                self.ctx.idle_checker(),
+            )
+            .await
+        {
+            Ok(mut adapter) => {
+                adapter.set_client_addr(self.ctx.task_notes.client_addr);
+                if let Some(username) = self.ctx.raw_user_name() {
+                    adapter.set_client_username(username);
+                }
+                let mut adaptation_state =
+                    ReqmodAdaptationRunState::new(self.http_notes.receive_ins);
+                self.forward_with_adaptation(req_io, rsp_io, adapter, &mut adaptation_state)
+                    .await
+            }
+            Err(e) => {
+                if reqmod_client.bypass() {
+                    self.send_request(None, req_io, rsp_io).await
+                } else {
+                    Err(ServerTaskError::InternalAdapterError(e))
+                }
+            }
+        }
+    }
+
+    async fn forward_with_adaptation<CR, CW, UR, UW>(
+        &mut self,
+        req_io: &mut HttpRequestIo<CR, UW>,
+        rsp_io: &mut HttpResponseIo<UR, CW>,
+        icap_adapter: HttpRequestAdapter<ServerIdleChecker>,
+        adaptation_state: &mut ReqmodAdaptationRunState,
+    ) -> ServerTaskResult<Option<UpstreamAddr>>
+    where
+        CR: AsyncRead + Send + Unpin,
+        CW: AsyncWrite + Send + Unpin,
+        UR: AsyncRead + Unpin,
+        UW: AsyncWrite + Send + Unpin,
+    {
+        match icap_adapter.xfer_connect(adaptation_state, &self.req).await {
+            Ok(ReqmodAdaptationMidState::OriginalRequest) => {
+                self.send_request(None, req_io, rsp_io).await
+            }
+            Ok(ReqmodAdaptationMidState::AdaptedRequest(final_req)) => {
+                self.send_request(Some(final_req), req_io, rsp_io).await
+            }
+            Ok(ReqmodAdaptationMidState::HttpErrResponse(rsp, rsp_body)) => {
+                self.send_adaptation_error_response(&mut rsp_io.clt_w, rsp, rsp_body)
+                    .await?;
+                Ok(None)
+            }
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    async fn send_adaptation_error_response<W>(
+        &mut self,
+        clt_w: &mut W,
+        rsp: HttpAdapterErrorResponse,
+        rsp_recv_body: Option<ReqmodRecvHttpResponseBody>,
+    ) -> ServerTaskResult<()>
+    where
+        W: AsyncWrite + Unpin,
+    {
+        self.should_close = true;
+
+        let buf = rsp.serialize(self.should_close);
+        self.send_error_response = false;
+        clt_w
+            .write_all(buf.as_ref())
+            .await
+            .map_err(ServerTaskError::ClientTcpWriteFailed)?;
+        self.http_notes.rsp_status = rsp.status.as_u16();
+
+        if let Some(mut recv_body) = rsp_recv_body {
+            let mut body_reader = recv_body.body_reader();
+            let copy_to_clt = LimitedCopy::new(
+                &mut body_reader,
+                clt_w,
+                &self.ctx.server_config.limited_copy_config(),
+            );
+            copy_to_clt.await.map_err(|e| match e {
+                LimitedCopyError::ReadFailed(e) => ServerTaskError::InternalAdapterError(anyhow!(
+                    "read http error response from adapter failed: {e:?}"
+                )),
+                LimitedCopyError::WriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
+            })?;
+            recv_body.save_connection().await;
+        }
+
+        Ok(())
+    }
+
+    async fn send_request<CR, CW, UR, UW>(
+        &mut self,
+        adapted_req: Option<HttpTransparentRequest>,
+        req_io: &mut HttpRequestIo<CR, UW>,
+        rsp_io: &mut HttpResponseIo<UR, CW>,
+    ) -> ServerTaskResult<Option<UpstreamAddr>>
+    where
+        CR: AsyncRead + Send + Unpin,
+        CW: AsyncWrite + Send + Unpin,
+        UR: AsyncRead + Unpin,
+        UW: AsyncWrite + Send + Unpin,
+    {
+        let mut ups_w_adaptation = HttpRequestWriterForAdaptation {
+            inner: &mut req_io.ups_w,
+        };
+        let req = adapted_req.as_ref().unwrap_or(&self.req);
+        ups_w_adaptation
+            .send_request_header(req)
+            .await
+            .map_err(H1ReqmodAdaptationError::HttpUpstreamWriteFailed)?;
+        ups_w_adaptation
+            .flush()
+            .await
+            .map_err(H1ReqmodAdaptationError::HttpUpstreamWriteFailed)?;
+        self.http_notes.mark_ups_send_header();
+
+        self.do_recv_response(rsp_io).await
+    }
+
+    async fn do_recv_response<CW, UR>(
         &mut self,
         rsp_io: &mut HttpResponseIo<UR, CW>,
     ) -> ServerTaskResult<Option<UpstreamAddr>>

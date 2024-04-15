@@ -40,13 +40,11 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         ))
     }
 
-    pub(super) async fn handle_icap_http_response_with_body<H>(
+    pub(super) async fn handle_icap_http_response_with_body(
         mut self,
         mut icap_rsp: ReqmodResponse,
         http_header_size: usize,
-    ) -> Result<ReqmodAdaptationEndState<H>, H1ReqmodAdaptationError>
-    where
-        H: HttpRequestForAdaptation,
+    ) -> Result<(HttpAdapterErrorResponse, ReqmodRecvHttpResponseBody), H1ReqmodAdaptationError>
     {
         let mut http_rsp =
             HttpAdapterErrorResponse::parse(&mut self.icap_connection.1, http_header_size).await?;
@@ -64,25 +62,19 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             icap_connection: self.icap_connection,
             has_trailer,
         };
-        Ok(ReqmodAdaptationEndState::HttpErrResponse(
-            http_rsp,
-            Some(recv_body),
-        ))
+        Ok((http_rsp, recv_body))
     }
 
-    pub(super) async fn handle_icap_http_response_without_body<H>(
+    pub(super) async fn handle_icap_http_response_without_body(
         mut self,
         icap_rsp: ReqmodResponse,
         http_header_size: usize,
-    ) -> Result<ReqmodAdaptationEndState<H>, H1ReqmodAdaptationError>
-    where
-        H: HttpRequestForAdaptation,
-    {
+    ) -> Result<HttpAdapterErrorResponse, H1ReqmodAdaptationError> {
         let http_rsp =
             HttpAdapterErrorResponse::parse(&mut self.icap_connection.1, http_header_size).await?;
         if icap_rsp.keep_alive {
             self.icap_client.save_connection(self.icap_connection).await;
         }
-        Ok(ReqmodAdaptationEndState::HttpErrResponse(http_rsp, None))
+        Ok(http_rsp)
     }
 }
