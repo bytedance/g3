@@ -204,14 +204,16 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                             Ok(r)
                         }
                     }
-                    IcapReqmodResponsePayload::HttpResponseWithoutBody(header_size) => {
-                        self.handle_icap_http_response_without_body(rsp, header_size)
-                            .await
-                    }
-                    IcapReqmodResponsePayload::HttpResponseWithBody(header_size) => {
-                        self.handle_icap_http_response_with_body(rsp, header_size)
-                            .await
-                    }
+                    IcapReqmodResponsePayload::HttpResponseWithoutBody(header_size) => self
+                        .handle_icap_http_response_without_body(rsp, header_size)
+                        .await
+                        .map(|rsp| ReqmodAdaptationEndState::HttpErrResponse(rsp, None)),
+                    IcapReqmodResponsePayload::HttpResponseWithBody(header_size) => self
+                        .handle_icap_http_response_with_body(rsp, header_size)
+                        .await
+                        .map(|(rsp, body)| {
+                            ReqmodAdaptationEndState::HttpErrResponse(rsp, Some(body))
+                        }),
                 }
             }
             204 => {
@@ -250,14 +252,14 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                     )
                     .await
                 }
-                IcapReqmodResponsePayload::HttpResponseWithoutBody(header_size) => {
-                    self.handle_icap_http_response_without_body(rsp, header_size)
-                        .await
-                }
-                IcapReqmodResponsePayload::HttpResponseWithBody(header_size) => {
-                    self.handle_icap_http_response_with_body(rsp, header_size)
-                        .await
-                }
+                IcapReqmodResponsePayload::HttpResponseWithoutBody(header_size) => self
+                    .handle_icap_http_response_without_body(rsp, header_size)
+                    .await
+                    .map(|rsp| ReqmodAdaptationEndState::HttpErrResponse(rsp, None)),
+                IcapReqmodResponsePayload::HttpResponseWithBody(header_size) => self
+                    .handle_icap_http_response_with_body(rsp, header_size)
+                    .await
+                    .map(|(rsp, body)| ReqmodAdaptationEndState::HttpErrResponse(rsp, Some(body))),
             },
             _ => {
                 if rsp.keep_alive && rsp.payload == IcapReqmodResponsePayload::NoPayload {

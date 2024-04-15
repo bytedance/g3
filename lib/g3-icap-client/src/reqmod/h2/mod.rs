@@ -182,6 +182,12 @@ pub enum ReqmodAdaptationEndState {
     HttpErrResponse(HttpAdapterErrorResponse, Option<ReqmodRecvHttpResponseBody>),
 }
 
+pub enum ReqmodAdaptationMidState {
+    OriginalRequest(Request<()>),
+    AdaptedRequest(HttpAdaptedRequest, Request<()>),
+    HttpErrResponse(HttpAdapterErrorResponse, Option<ReqmodRecvHttpResponseBody>),
+}
+
 pub struct ReqmodRecvHttpResponseBody {
     icap_client: Arc<IcapServiceClient>,
     icap_keepalive: bool,
