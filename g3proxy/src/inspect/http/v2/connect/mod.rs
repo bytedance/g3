@@ -16,17 +16,26 @@
 
 use std::time::Duration;
 
+use anyhow::anyhow;
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use h2::client::SendRequest;
 use h2::server::SendResponse;
 use h2::{Reason, RecvStream, SendStream, StreamId};
-use http::{Request, Response};
+use http::{Request, Response, Version};
 use tokio::time::Instant;
+
+use g3_h2::{H2StreamBodyTransferError, H2StreamFromChunkedTransferError};
+use g3_icap_client::reqmod::h1::HttpAdapterErrorResponse;
+use g3_icap_client::reqmod::h2::{
+    H2RequestAdapter, ReqmodAdaptationMidState, ReqmodAdaptationRunState,
+    ReqmodRecvHttpResponseBody,
+};
 
 use super::H2StreamTransferError;
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
+use crate::serve::ServerIdleChecker;
 
 mod standard;
 pub(super) use standard::H2ConnectTask;
@@ -124,11 +133,10 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
         H2StreamTransferError,
     > {
         let (parts, clt_r) = clt_req.into_parts();
-        let ups_req = Request::from_parts(parts, ());
 
         let http_config = self.ctx.h2_interception();
 
-        let mut ups_send_req =
+        let ups_send_req =
             match tokio::time::timeout(http_config.upstream_stream_open_timeout, h2s.ready()).await
             {
                 Ok(Ok(d)) => {
@@ -147,22 +155,160 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
             };
 
         self.send_error_response = true;
+        let ups_req = Request::from_parts(parts, ());
 
+        if let Some(reqmod) = self.ctx.audit_handle.icap_reqmod_client() {
+            match reqmod
+                .h2_adapter(
+                    self.ctx.server_config.limited_copy_config(),
+                    self.ctx.h1_interception().body_line_max_len,
+                    self.ctx.h2_interception().max_header_list_size as usize,
+                    self.ctx.h2_interception().rsp_head_recv_timeout,
+                    true,
+                    self.ctx.idle_checker(),
+                )
+                .await
+            {
+                Ok(mut adapter) => {
+                    let mut adaptation_state =
+                        ReqmodAdaptationRunState::new(self.http_notes.started_ins);
+                    adapter.set_client_addr(self.ctx.task_notes.client_addr);
+                    if let Some(username) = self.ctx.raw_user_name() {
+                        adapter.set_client_username(username);
+                    }
+                    return self
+                        .forward_with_adaptation(
+                            ups_send_req,
+                            ups_req,
+                            clt_r,
+                            clt_send_rsp,
+                            adapter,
+                            &mut adaptation_state,
+                        )
+                        .await;
+                }
+                Err(e) => {
+                    if !reqmod.bypass() {
+                        return Err(H2StreamTransferError::InternalAdapterError(e));
+                    }
+                }
+            }
+        }
+
+        self.send_request(ups_send_req, ups_req, clt_r, clt_send_rsp)
+            .await
+    }
+
+    async fn forward_with_adaptation(
+        &mut self,
+        ups_send_req: SendRequest<Bytes>,
+        ups_req: Request<()>,
+        clt_r: RecvStream,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+        icap_adapter: H2RequestAdapter<ServerIdleChecker>,
+        adaptation_state: &mut ReqmodAdaptationRunState,
+    ) -> Result<
+        Option<(RecvStream, SendStream<Bytes>, RecvStream, SendStream<Bytes>)>,
+        H2StreamTransferError,
+    > {
+        match icap_adapter.xfer_connect(adaptation_state, ups_req).await {
+            Ok(ReqmodAdaptationMidState::OriginalRequest(orig_req)) => {
+                self.send_request(ups_send_req, orig_req, clt_r, clt_send_rsp)
+                    .await
+            }
+            Ok(ReqmodAdaptationMidState::AdaptedRequest(_http_req, final_req)) => {
+                self.send_request(ups_send_req, final_req, clt_r, clt_send_rsp)
+                    .await
+            }
+            Ok(ReqmodAdaptationMidState::HttpErrResponse(err_rsp, recv_body)) => {
+                self.send_adaptation_error_response(clt_send_rsp, err_rsp, recv_body)
+                    .await?;
+                Ok(None)
+            }
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    async fn send_adaptation_error_response(
+        &mut self,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+        rsp: HttpAdapterErrorResponse,
+        rsp_recv_body: Option<ReqmodRecvHttpResponseBody>,
+    ) -> Result<(), H2StreamTransferError> {
+        let response = Response::new(());
+        let (mut parts, _) = response.into_parts();
+        parts.version = Version::HTTP_2;
+        parts.status = rsp.status;
+        parts.headers = rsp.headers.into_h2_map();
+        let response = Response::from_parts(parts, ());
+
+        self.send_error_response = false;
+        let rsp_status = response.status().as_u16();
+        if let Some(mut recv_body) = rsp_recv_body {
+            let mut clt_send_stream = clt_send_rsp
+                .send_response(response, false)
+                .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+            self.http_notes.rsp_status = rsp_status;
+
+            let body_transfer = recv_body.body_transfer(&mut clt_send_stream);
+            body_transfer.await.map_err(|e| match e {
+                H2StreamFromChunkedTransferError::ReadError(e) => {
+                    H2StreamTransferError::InternalAdapterError(anyhow!(
+                        "read http error response from adapter failed: {e:?}"
+                    ))
+                }
+                H2StreamFromChunkedTransferError::SendDataFailed(e) => {
+                    H2StreamTransferError::ResponseBodyTransferFailed(
+                        H2StreamBodyTransferError::SendDataFailed(e),
+                    )
+                }
+                H2StreamFromChunkedTransferError::SendTrailerFailed(e) => {
+                    H2StreamTransferError::ResponseBodyTransferFailed(
+                        H2StreamBodyTransferError::SendTrailersFailed(e),
+                    )
+                }
+            })?;
+
+            recv_body.save_connection().await;
+        } else {
+            clt_send_rsp
+                .send_response(response, true)
+                .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+            self.http_notes.rsp_status = rsp_status;
+        }
+
+        Ok(())
+    }
+
+    async fn send_request(
+        &mut self,
+        mut ups_send_req: SendRequest<Bytes>,
+        ups_req: Request<()>,
+        clt_r: RecvStream,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+    ) -> Result<
+        Option<(RecvStream, SendStream<Bytes>, RecvStream, SendStream<Bytes>)>,
+        H2StreamTransferError,
+    > {
         let (ups_response_fut, ups_w) = ups_send_req
             .send_request(ups_req, false)
             .map_err(H2StreamTransferError::RequestHeadSendFailed)?;
         self.ups_stream_id = Some(ups_response_fut.stream_id());
         self.http_notes.mark_req_send_hdr();
 
-        let ups_rsp =
-            match tokio::time::timeout(http_config.rsp_head_recv_timeout, ups_response_fut).await {
-                Ok(Ok(d)) => {
-                    self.http_notes.mark_rsp_recv_hdr();
-                    d
-                }
-                Ok(Err(e)) => return Err(H2StreamTransferError::ResponseHeadRecvFailed(e)),
-                Err(_) => return Err(H2StreamTransferError::ResponseHeadRecvTimeout),
-            };
+        let ups_rsp = match tokio::time::timeout(
+            self.ctx.h2_interception().rsp_head_recv_timeout,
+            ups_response_fut,
+        )
+        .await
+        {
+            Ok(Ok(d)) => {
+                self.http_notes.mark_rsp_recv_hdr();
+                d
+            }
+            Ok(Err(e)) => return Err(H2StreamTransferError::ResponseHeadRecvFailed(e)),
+            Err(_) => return Err(H2StreamTransferError::ResponseHeadRecvTimeout),
+        };
         let (parts, ups_r) = ups_rsp.into_parts();
         let ups_rsp = Response::from_parts(parts, ());
 

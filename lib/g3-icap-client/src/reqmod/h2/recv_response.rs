@@ -41,7 +41,8 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         mut self,
         mut icap_rsp: ReqmodResponse,
         http_header_size: usize,
-    ) -> Result<ReqmodAdaptationEndState, H2ReqmodAdaptationError> {
+    ) -> Result<(HttpAdapterErrorResponse, ReqmodRecvHttpResponseBody), H2ReqmodAdaptationError>
+    {
         let mut http_rsp =
             HttpAdapterErrorResponse::parse(&mut self.icap_connection.1, http_header_size).await?;
         let trailers = icap_rsp.take_trailers();
@@ -56,22 +57,19 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
             http_trailer_max_size: self.http_trailer_max_size,
             has_trailer,
         };
-        Ok(ReqmodAdaptationEndState::HttpErrResponse(
-            http_rsp,
-            Some(recv_body),
-        ))
+        Ok((http_rsp, recv_body))
     }
 
     pub(super) async fn handle_icap_http_response_without_body(
         mut self,
         icap_rsp: ReqmodResponse,
         http_header_size: usize,
-    ) -> Result<ReqmodAdaptationEndState, H2ReqmodAdaptationError> {
+    ) -> Result<HttpAdapterErrorResponse, H2ReqmodAdaptationError> {
         let http_rsp =
             HttpAdapterErrorResponse::parse(&mut self.icap_connection.1, http_header_size).await?;
         if icap_rsp.keep_alive {
             self.icap_client.save_connection(self.icap_connection).await;
         }
-        Ok(ReqmodAdaptationEndState::HttpErrResponse(http_rsp, None))
+        Ok(http_rsp)
     }
 }
