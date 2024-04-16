@@ -775,7 +775,6 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         UR: AsyncBufRead + Unpin,
         CW: AsyncWrite + Unpin,
     {
-        let header_len = header.len() as u64;
         let mut body_reader = HttpBodyReader::new(
             ups_r,
             body_type,
@@ -807,9 +806,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                             Ok(())
                         }
                         Err(LimitedCopyError::ReadFailed(e)) => {
-                            if ups_to_clt.copied_size() < header_len {
-                                let _ = ups_to_clt.write_flush().await; // flush rsp header to client
-                            }
+                            let _ = ups_to_clt.write_flush().await;
                             Err(ServerTaskError::UpstreamReadFailed(e))
                         }
                         Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
@@ -831,16 +828,12 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                     }
 
                     if self.ctx.belongs_to_blocked_user() {
-                        if ups_to_clt.copied_size() < header_len {
-                            let _ = ups_to_clt.write_flush().await; // flush rsp header to client
-                        }
+                        let _ = ups_to_clt.write_flush().await;
                         return Err(ServerTaskError::CanceledAsUserBlocked);
                     }
 
                     if self.ctx.server_force_quit() {
-                        if ups_to_clt.copied_size() < header_len {
-                            let _ = ups_to_clt.write_flush().await; // flush rsp header to client
-                        }
+                        let _ = ups_to_clt.write_flush().await;
                         return Err(ServerTaskError::CanceledAsServerQuit)
                     }
                 }

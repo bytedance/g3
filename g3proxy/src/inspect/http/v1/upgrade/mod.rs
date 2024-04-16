@@ -27,6 +27,7 @@ use tokio::time::Instant;
 use g3_dpi::Protocol;
 use g3_http::client::HttpTransparentResponse;
 use g3_http::server::{HttpTransparentRequest, UriExt};
+use g3_http::{HttpBodyReader, HttpBodyType};
 use g3_icap_client::reqmod::h1::{
     H1ReqmodAdaptationError, HttpAdapterErrorResponse, HttpRequestAdapter,
     HttpRequestUpstreamWriter, ReqmodAdaptationMidState, ReqmodAdaptationRunState,
@@ -363,15 +364,7 @@ where
         )
         .await
         {
-            Ok(Ok((rsp, head_bytes))) => {
-                self.send_error_response = false;
-                self.http_notes.origin_status = rsp.code;
-                self.http_notes.mark_rsp_recv_hdr();
-                if !rsp.keep_alive() {
-                    self.should_close = true;
-                }
-                self.handle_response(rsp, head_bytes, rsp_io).await
-            }
+            Ok(Ok((rsp, head_bytes))) => self.send_response(rsp, head_bytes, rsp_io).await,
             Ok(Err(e)) => Err(e.into()),
             Err(_) => Err(ServerTaskError::UpstreamAppTimeout(
                 "timeout to receive response header",
@@ -379,7 +372,7 @@ where
         }
     }
 
-    async fn handle_response<CW, UR>(
+    async fn send_response<CW, UR>(
         &mut self,
         rsp: HttpTransparentResponse,
         rsp_head: Bytes,
@@ -389,6 +382,13 @@ where
         CW: AsyncWrite + Unpin,
         UR: AsyncRead + Unpin,
     {
+        self.send_error_response = false;
+        self.http_notes.origin_status = rsp.code;
+        self.http_notes.mark_rsp_recv_hdr();
+        if !rsp.keep_alive() {
+            self.should_close = true;
+        }
+
         rsp_io
             .clt_w
             .write_all(&rsp_head)
@@ -422,8 +422,84 @@ where
             };
 
             Ok(Some((upgrade_protocol, upstream)))
+        } else if let Some(body_type) = rsp.body_type(&self.req.method) {
+            self.send_response_body(rsp_io, body_type).await?;
+            Ok(None)
         } else {
             Ok(None)
+        }
+    }
+
+    async fn send_response_body<UR, CW>(
+        &mut self,
+        rsp_io: &mut HttpResponseIo<UR, CW>,
+        body_type: HttpBodyType,
+    ) -> ServerTaskResult<()>
+    where
+        UR: AsyncRead + Unpin,
+        CW: AsyncWrite + Unpin,
+    {
+        let mut body_reader = HttpBodyReader::new(
+            &mut rsp_io.ups_r,
+            body_type,
+            self.ctx.h1_interception().body_line_max_len,
+        );
+
+        let mut ups_to_clt = LimitedCopy::new(
+            &mut body_reader,
+            &mut rsp_io.clt_w,
+            &self.ctx.server_config.limited_copy_config(),
+        );
+
+        let idle_duration = self.ctx.server_config.task_idle_check_duration();
+        let mut idle_interval =
+            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_count = 0;
+        let max_idle_count = self.ctx.task_max_idle_count();
+
+        loop {
+            tokio::select! {
+                biased;
+
+                r = &mut ups_to_clt => {
+                    return match r {
+                        Ok(_) => {
+                            // clt_w is already flushed
+                            Ok(())
+                        }
+                        Err(LimitedCopyError::ReadFailed(e)) => {
+                            let _ = ups_to_clt.write_flush().await;
+                            Err(ServerTaskError::UpstreamReadFailed(e))
+                        }
+                        Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
+                    };
+                }
+                _ = idle_interval.tick() => {
+                    if ups_to_clt.is_idle() {
+                        idle_count += 1;
+                        if idle_count >= max_idle_count {
+                            return if ups_to_clt.no_cached_data() {
+                                Err(ServerTaskError::UpstreamAppTimeout("idle while reading response body"))
+                            } else {
+                                Err(ServerTaskError::ClientAppTimeout("idle while sending response body"))
+                            };
+                        }
+                    } else {
+                        idle_count = 0;
+                        ups_to_clt.reset_active();
+                    }
+
+                    if self.ctx.belongs_to_blocked_user() {
+                        let _ = ups_to_clt.write_flush().await;
+                        return Err(ServerTaskError::CanceledAsUserBlocked);
+                    }
+
+                    if self.ctx.server_force_quit() {
+                        let _ = ups_to_clt.write_flush().await;
+                        return Err(ServerTaskError::CanceledAsServerQuit)
+                    }
+                }
+            }
         }
     }
 

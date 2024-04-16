@@ -25,7 +25,7 @@ use h2::{Reason, RecvStream, SendStream, StreamId};
 use http::{Request, Response, Version};
 use tokio::time::Instant;
 
-use g3_h2::{H2StreamBodyTransferError, H2StreamFromChunkedTransferError};
+use g3_h2::{H2BodyTransfer, H2StreamBodyTransferError, H2StreamFromChunkedTransferError};
 use g3_icap_client::reqmod::h1::HttpAdapterErrorResponse;
 use g3_icap_client::reqmod::h2::{
     H2RequestAdapter, ReqmodAdaptationMidState, ReqmodAdaptationRunState,
@@ -296,24 +296,56 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
         self.ups_stream_id = Some(ups_response_fut.stream_id());
         self.http_notes.mark_req_send_hdr();
 
-        let ups_rsp = match tokio::time::timeout(
+        match tokio::time::timeout(
             self.ctx.h2_interception().rsp_head_recv_timeout,
             ups_response_fut,
         )
         .await
         {
-            Ok(Ok(d)) => {
+            Ok(Ok(ups_rsp)) => {
                 self.http_notes.mark_rsp_recv_hdr();
-                d
+                self.send_response(ups_rsp, ups_w, clt_r, clt_send_rsp)
+                    .await
             }
-            Ok(Err(e)) => return Err(H2StreamTransferError::ResponseHeadRecvFailed(e)),
-            Err(_) => return Err(H2StreamTransferError::ResponseHeadRecvTimeout),
-        };
-        let (parts, ups_r) = ups_rsp.into_parts();
-        let ups_rsp = Response::from_parts(parts, ());
+            Ok(Err(e)) => Err(H2StreamTransferError::ResponseHeadRecvFailed(e)),
+            Err(_) => Err(H2StreamTransferError::ResponseHeadRecvTimeout),
+        }
+    }
 
+    async fn send_response(
+        &mut self,
+        ups_rsp: Response<RecvStream>,
+        ups_w: SendStream<Bytes>,
+        clt_r: RecvStream,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+    ) -> Result<
+        Option<(RecvStream, SendStream<Bytes>, RecvStream, SendStream<Bytes>)>,
+        H2StreamTransferError,
+    > {
         self.send_error_response = false;
         self.http_notes.origin_status = ups_rsp.status().as_u16();
+
+        if ups_rsp.status().is_success() {
+            self.send_ok_response(ups_rsp, ups_w, clt_r, clt_send_rsp)
+                .await
+        } else {
+            self.send_err_response(ups_rsp, clt_send_rsp).await?;
+            Ok(None)
+        }
+    }
+
+    async fn send_ok_response(
+        &mut self,
+        ups_rsp: Response<RecvStream>,
+        ups_w: SendStream<Bytes>,
+        clt_r: RecvStream,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+    ) -> Result<
+        Option<(RecvStream, SendStream<Bytes>, RecvStream, SendStream<Bytes>)>,
+        H2StreamTransferError,
+    > {
+        let (parts, ups_r) = ups_rsp.into_parts();
+        let ups_rsp = Response::from_parts(parts, ());
 
         if ups_r.is_end_stream() {
             let _ = clt_send_rsp
@@ -328,5 +360,74 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
             self.http_notes.rsp_status = self.http_notes.origin_status;
             Ok(Some((clt_r, clt_w, ups_r, ups_w)))
         }
+    }
+
+    async fn send_err_response(
+        &mut self,
+        ups_rsp: Response<RecvStream>,
+        clt_send_rsp: &mut SendResponse<Bytes>,
+    ) -> Result<(), H2StreamTransferError> {
+        let (parts, ups_r) = ups_rsp.into_parts();
+        let ups_rsp = Response::from_parts(parts, ());
+
+        if ups_r.is_end_stream() {
+            let _ = clt_send_rsp
+                .send_response(ups_rsp, true)
+                .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+            self.http_notes.rsp_status = self.http_notes.origin_status;
+        } else {
+            let clt_send_stream = clt_send_rsp
+                .send_response(ups_rsp, false)
+                .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+            self.http_notes.rsp_status = self.http_notes.origin_status;
+
+            let mut rsp_body_transfer = H2BodyTransfer::new(
+                ups_r,
+                clt_send_stream,
+                self.ctx.server_config.limited_copy_config().yield_size(),
+            );
+
+            let idle_duration = self.ctx.server_config.task_idle_check_duration();
+            let mut idle_interval =
+                tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+            let mut idle_count = 0;
+            let max_idle_count = self.ctx.task_max_idle_count();
+
+            loop {
+                tokio::select! {
+                    biased;
+
+                    r = &mut rsp_body_transfer => {
+                        match r {
+                            Ok(_) => break,
+                            Err(e) => return Err(H2StreamTransferError::ResponseBodyTransferFailed(e)),
+                        }
+                    }
+                    _ = idle_interval.tick() => {
+                        if rsp_body_transfer.is_idle() {
+                            idle_count += 1;
+
+                            if idle_count > max_idle_count {
+                                return Err(H2StreamTransferError::Idle(idle_duration, idle_count));
+                            }
+                        } else {
+                            idle_count = 0;
+
+                            rsp_body_transfer.reset_active();
+                        }
+
+                        if self.ctx.belongs_to_blocked_user() {
+                            return Err(H2StreamTransferError::CanceledAsUserBlocked);
+                        }
+
+                        if self.ctx.server_force_quit() {
+                            return Err(H2StreamTransferError::CanceledAsServerQuit)
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(())
     }
 }
