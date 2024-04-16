@@ -24,6 +24,6 @@ pub use protocol::{
 
 mod config;
 pub use config::{
-    H1InterceptionConfig, H2InterceptionConfig, ProtocolInspectionConfig,
+    H1InterceptionConfig, H2InterceptionConfig, ProtocolInspectPolicy, ProtocolInspectionConfig,
     ProtocolInspectionSizeLimit, SmtpInterceptionConfig,
 };

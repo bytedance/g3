@@ -96,10 +96,20 @@ where
         let alpn_ext = self
             .tls_interception
             .server_config
-            .alpn_extension(lazy_acceptor.ssl());
+            .alpn_extension(lazy_acceptor.ssl())
+            .map(|ext| {
+                let new_ext = ext.retain_clone(|p| self.retain_alpn_protocol(p));
+                if new_ext.is_empty() {
+                    // don't block traffic here, return error at the application layer
+                    ext.clone()
+                } else {
+                    // make sure there are still at least 1 client accepted protocol
+                    new_ext
+                }
+            });
         let ups_ssl = match self.ctx.user_site_tls_client() {
             Some(c) => c
-                .build_mimic_ssl(sni_hostname, &self.upstream, alpn_ext)
+                .build_mimic_ssl(sni_hostname, &self.upstream, alpn_ext.as_ref())
                 .map_err(|e| {
                     TlsInterceptionError::UpstreamPrepareFailed(anyhow!(
                         "failed to build user-site ssl context: {e}"
@@ -108,7 +118,7 @@ where
             None => self
                 .tls_interception
                 .client_config
-                .build_ssl(sni_hostname, &self.upstream, alpn_ext)
+                .build_ssl(sni_hostname, &self.upstream, alpn_ext.as_ref())
                 .map_err(|e| {
                     TlsInterceptionError::UpstreamPrepareFailed(anyhow!(
                         "failed to build general ssl context: {e}"

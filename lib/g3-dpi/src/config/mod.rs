@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::str::FromStr;
 use std::time::Duration;
 
 mod size_limit;
@@ -25,6 +26,27 @@ pub use http::{H1InterceptionConfig, H2InterceptionConfig};
 
 mod smtp;
 pub use smtp::SmtpInterceptionConfig;
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ProtocolInspectPolicy {
+    #[default]
+    Intercept,
+    Bypass,
+    Block,
+}
+
+impl FromStr for ProtocolInspectPolicy {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "intercept" => Ok(ProtocolInspectPolicy::Intercept),
+            "bypass" => Ok(ProtocolInspectPolicy::Bypass),
+            "block" => Ok(ProtocolInspectPolicy::Block),
+            _ => Err(()),
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProtocolInspectionConfig {

@@ -19,8 +19,8 @@ use std::sync::Arc;
 use slog::Logger;
 
 use g3_dpi::{
-    H1InterceptionConfig, H2InterceptionConfig, ProtocolInspectionConfig, ProtocolPortMap,
-    SmtpInterceptionConfig,
+    H1InterceptionConfig, H2InterceptionConfig, ProtocolInspectPolicy, ProtocolInspectionConfig,
+    ProtocolPortMap, SmtpInterceptionConfig,
 };
 use g3_icap_client::reqmod::IcapReqmodClient;
 use g3_icap_client::respmod::IcapRespmodClient;
@@ -107,8 +107,18 @@ impl AuditHandle {
     }
 
     #[inline]
+    pub(crate) fn h2_inspect_policy(&self) -> ProtocolInspectPolicy {
+        self.auditor_config.h2_inspect_policy
+    }
+
+    #[inline]
     pub(crate) fn h2_interception(&self) -> &H2InterceptionConfig {
         &self.auditor_config.h2_interception
+    }
+
+    #[inline]
+    pub(crate) fn smtp_inspect_policy(&self) -> ProtocolInspectPolicy {
+        self.auditor_config.smtp_inspect_policy
     }
 
     #[inline]
