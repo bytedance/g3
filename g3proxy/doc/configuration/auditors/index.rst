@@ -102,6 +102,17 @@ Set http 1.x interception config.
 
 **default**: set with default value
 
+h2_inspect_policy
+-----------------
+
+**optional**, **type**: :ref:`protocol inspect policy <conf_value_dpi_protocol_inspect_policy>`
+
+Set what we should do with HTTP/2.0 traffic.
+
+**default**: intercept
+
+.. versionadded:: 1.9.0
+
 h2_interception
 ---------------
 
@@ -110,6 +121,17 @@ h2_interception
 Set http 2.0 interception config.
 
 **default**: set with default value
+
+smtp_inspect_policy
+-------------------
+
+**optional**, **type**: :ref:`protocol inspect policy <conf_value_dpi_protocol_inspect_policy>`
+
+Set what we should do with SMTP traffic.
+
+**default**: intercept
+
+.. versionadded:: 1.9.0
 
 icap_reqmod_service
 -------------------

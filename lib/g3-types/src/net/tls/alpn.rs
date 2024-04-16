@@ -121,7 +121,7 @@ pub enum TlsAlpnError {
     TruncatedProtocolName,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TlsAlpn {
     raw_list: Vec<u8>,
 }

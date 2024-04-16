@@ -51,6 +51,14 @@ impl ResponseEncoder {
         ResponseEncoder::Owned(msg)
     }
 
+    pub fn local_service_blocked(local_ip: IpAddr) -> Self {
+        let msg = match local_ip {
+            IpAddr::V4(v4) => format!("554 [{v4}] service not ready - protocol blocked\r\n"),
+            IpAddr::V6(v6) => format!("554 Ipv6:{v6} service not ready - protocol blocked\r\n"),
+        };
+        ResponseEncoder::Owned(msg)
+    }
+
     pub fn upstream_service_not_ready(local_ip: IpAddr, reason: &str) -> Self {
         let msg = match local_ip {
             IpAddr::V4(v4) => format!("554 [{v4}] upstream service not ready - {reason}\r\n"),

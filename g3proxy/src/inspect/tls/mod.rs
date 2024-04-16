@@ -21,12 +21,12 @@ use slog::slog_info;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::runtime::Handle;
 
-use g3_dpi::Protocol;
+use g3_dpi::{Protocol, ProtocolInspectPolicy};
 use g3_io_ext::{FlexBufReader, OnceBufReader};
 use g3_slog_types::{LtUpstreamAddr, LtUuid};
 use g3_tls_cert::agent::CertAgentHandle;
 use g3_types::net::{
-    OpensslInterceptionClientConfig, OpensslInterceptionServerConfig, UpstreamAddr,
+    AlpnProtocol, OpensslInterceptionClientConfig, OpensslInterceptionServerConfig, UpstreamAddr,
 };
 use g3_udpdump::{ExportedPduDissectorHint, StreamDumpConfig, StreamDumper};
 
@@ -161,6 +161,16 @@ impl<SC: ServerConfig> TlsInterceptObject<SC> {
 
     fn log_err(&self, e: &TlsInterceptionError) {
         intercept_log!(self, "{e}");
+    }
+
+    fn retain_alpn_protocol(&self, p: &[u8]) -> bool {
+        if self.ctx.h2_inspect_policy() == ProtocolInspectPolicy::Block {
+            return p != AlpnProtocol::Http2.identification_sequence();
+        }
+        if self.ctx.smtp_inspect_policy() == ProtocolInspectPolicy::Block {
+            return p != AlpnProtocol::Smtp.identification_sequence();
+        }
+        true
     }
 }
 

@@ -18,11 +18,13 @@ use std::future::poll_fn;
 use std::sync::Arc;
 
 use async_recursion::async_recursion;
+use bytes::Bytes;
 use h2::Reason;
 use slog::slog_info;
+use tokio::io::AsyncWriteExt;
 use tokio::time::Instant;
 
-use g3_dpi::Protocol;
+use g3_dpi::{Protocol, ProtocolInspectPolicy};
 use g3_h2::H2BodyTransfer;
 use g3_io_ext::{AggregatedIo, OnceBufReader};
 use g3_slog_types::LtUuid;
@@ -102,16 +104,82 @@ where
     SC: ServerConfig + Send + Sync + 'static,
 {
     pub(crate) async fn intercept(mut self) -> ServerTaskResult<()> {
-        match self.do_intercept().await {
-            Ok(_) => {
-                intercept_log!(self, "finished");
-                Ok(())
-            }
-            Err(e) => {
-                intercept_log!(self, "{e}");
-                Err(InterceptionError::H2(e).into_server_task_error(Protocol::Http2))
-            }
+        match self.ctx.h2_inspect_policy() {
+            ProtocolInspectPolicy::Bypass => self.do_bypass().await,
+            ProtocolInspectPolicy::Intercept => match self.do_intercept().await {
+                Ok(_) => {
+                    intercept_log!(self, "finished");
+                    Ok(())
+                }
+                Err(e) => {
+                    intercept_log!(self, "{e}");
+                    Err(InterceptionError::H2(e).into_server_task_error(Protocol::Http2))
+                }
+            },
+            ProtocolInspectPolicy::Block => self
+                .do_block()
+                .await
+                .map_err(|e| InterceptionError::H2(e).into_server_task_error(Protocol::Http2)),
         }
+    }
+
+    async fn do_bypass(&mut self) -> ServerTaskResult<()> {
+        let H2InterceptIo {
+            clt_r,
+            clt_w,
+            ups_r,
+            ups_w,
+        } = self.io.take().unwrap();
+
+        crate::inspect::stream::transit_transparent(
+            clt_r,
+            clt_w,
+            ups_r,
+            ups_w,
+            &self.ctx.server_config,
+            &self.ctx.server_quit_policy,
+            self.ctx.user(),
+        )
+        .await
+    }
+
+    async fn do_block(&mut self) -> Result<(), H2InterceptionError> {
+        let H2InterceptIo {
+            clt_r,
+            clt_w,
+            ups_r: _,
+            mut ups_w,
+        } = self.io.take().unwrap();
+
+        tokio::spawn(async move {
+            let _ = ups_w.shutdown().await;
+        });
+
+        let http_config = self.ctx.h2_interception();
+        let mut server_builder = h2::server::Builder::new();
+        server_builder
+            .max_header_list_size(http_config.max_header_list_size)
+            .max_concurrent_streams(1)
+            .max_frame_size(http_config.max_frame_size)
+            .max_send_buffer_size(http_config.max_send_buffer_size);
+
+        let mut h2c = match tokio::time::timeout(
+            http_config.client_handshake_timeout,
+            server_builder.handshake::<AggregatedIo<_, _>, Bytes>(AggregatedIo::new(clt_r, clt_w)),
+        )
+        .await
+        {
+            Ok(Ok(d)) => d,
+            Ok(Err(e)) => return Err(H2InterceptionError::client_handshake_failed(e)),
+            Err(_) => return Err(H2InterceptionError::ClientHandshakeTimeout),
+        };
+
+        h2c.abrupt_shutdown(Reason::HTTP_1_1_REQUIRED);
+
+        // TODO add timeout
+        let _ = poll_fn(|ctx| h2c.poll_closed(ctx)).await;
+
+        Err(H2InterceptionError::ClientConnectionBlocked)
     }
 
     #[async_recursion]

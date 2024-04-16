@@ -63,6 +63,31 @@ The keys ars:
 
   .. deprecated:: 1.9.0 not used anymore, the max SMTP reply line length should be 512
 
+.. _conf_value_dpi_protocol_inspect_policy:
+
+protocol inspect policy
+-----------------------
+
+**type**: string
+
+Set what we should do to a specific application protocol.
+
+The possible value are:
+
+- intercept
+
+  Intercept the traffic. This is the default value.
+
+- bypass
+
+  Bypass the interception. The traffic will be transferred transparently.
+
+- block
+
+  Block the traffic. And we will try to send application level error code to the client.
+
+.. versionadded:: 1.9.0
+
 .. _conf_value_dpi_protocol_inspection:
 
 protocol inspection
