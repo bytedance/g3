@@ -25,6 +25,9 @@ use crate::config::server::ServerConfig;
 use crate::inspect::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext};
 use crate::serve::ServerTaskResult;
 
+mod ext;
+use ext::{CommandLineRecvExt, ResponseLineRecvExt, ResponseParseExt};
+
 mod greeting;
 use greeting::Greeting;
 
@@ -32,6 +35,7 @@ mod ending;
 use ending::{EndQuitServer, EndWaitClient};
 
 mod initiation;
+use initiation::Initiation;
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
@@ -94,24 +98,23 @@ impl<SC: ServerConfig> SmtpInterceptObject<SC> {
 
     async fn do_intercept(&mut self) -> ServerTaskResult<()> {
         let SmtpIo {
-            clt_r,
+            mut clt_r,
             mut clt_w,
             ups_r,
-            ups_w,
+            mut ups_w,
         } = self.io.take().unwrap();
 
         let interception_config = self.ctx.smtp_interception();
+        let local_ip = self.ctx.task_notes.server_addr.ip();
 
-        let mut greeting = Greeting::new();
-        let ups_r = match greeting
+        let mut greeting = Greeting::new(local_ip);
+        let mut ups_r = match greeting
             .relay(ups_r, &mut clt_w, interception_config.greeting_timeout)
             .await
         {
             Ok(ups_r) => ups_r,
             Err(e) => {
-                greeting
-                    .reply_no_service(&e, &mut clt_w, &self.ctx.task_notes)
-                    .await;
+                greeting.reply_no_service(&e, &mut clt_w).await;
                 return Err(e.into());
             }
         };
@@ -122,8 +125,13 @@ impl<SC: ServerConfig> SmtpInterceptObject<SC> {
             tokio::spawn(async move {
                 let _ = EndQuitServer::run_to_end(ups_r, ups_w, timeout).await;
             });
-            return EndWaitClient::run_to_end(clt_r, clt_w, &self.ctx.task_notes).await;
+            return EndWaitClient::new(local_ip).run_to_end(clt_r, clt_w).await;
         }
+
+        let initiation = Initiation::new(local_ip);
+        initiation
+            .relay(&mut clt_r, &mut clt_w, &mut ups_r, &mut ups_w)
+            .await?;
 
         crate::inspect::stream::transit_transparent(
             clt_r,

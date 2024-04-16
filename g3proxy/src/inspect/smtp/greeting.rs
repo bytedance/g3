@@ -15,6 +15,7 @@
  */
 
 use std::io;
+use std::net::IpAddr;
 use std::time::Duration;
 
 use anyhow::anyhow;
@@ -25,32 +26,27 @@ use g3_io_ext::{LineRecvBuf, OnceBufReader, RecvLineError};
 use g3_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseLineError, ResponseParser};
 use g3_types::net::Host;
 
-use crate::inspect::StreamInspectTaskNotes;
 use crate::serve::ServerTaskError;
 
 pub(super) struct Greeting {
-    host: Host,
+    local_ip: IpAddr,
+    upstream_host: Host,
     rsp: ResponseParser,
     total_to_write: usize,
 }
 
-impl Default for Greeting {
-    fn default() -> Self {
-        Greeting::new()
-    }
-}
-
 impl Greeting {
-    pub(super) fn new() -> Self {
+    pub(super) fn new(local_ip: IpAddr) -> Self {
         Greeting {
-            host: Host::empty(),
+            local_ip,
+            upstream_host: Host::empty(),
             rsp: ResponseParser::default(),
             total_to_write: 0,
         }
     }
 
     pub(super) fn into_parts(self) -> (ReplyCode, Host) {
-        (self.rsp.code(), self.host)
+        (self.rsp.code(), self.upstream_host)
     }
 
     pub(super) async fn do_relay<UR, CW>(
@@ -80,7 +76,7 @@ impl Greeting {
 
             match self.rsp.code() {
                 ReplyCode::SERVICE_READY => {
-                    if self.host.is_empty() {
+                    if self.upstream_host.is_empty() {
                         let host_d = match memchr::memchr(b' ', msg) {
                             Some(d) => &msg[..d],
                             None => msg,
@@ -88,7 +84,7 @@ impl Greeting {
                         if host_d.is_empty() {
                             return Err(GreetingError::NoHostField);
                         }
-                        self.host = Host::parse_smtp_host_address(host_d)
+                        self.upstream_host = Host::parse_smtp_host_address(host_d)
                             .ok_or(GreetingError::UnsupportedHostFormat)?;
                     }
                     if self.rsp.finished() {
@@ -138,12 +134,8 @@ impl Greeting {
         }
     }
 
-    pub(super) async fn reply_no_service<CW>(
-        &self,
-        e: &GreetingError,
-        clt_w: &mut CW,
-        task_notes: &StreamInspectTaskNotes,
-    ) where
+    pub(super) async fn reply_no_service<CW>(self, e: &GreetingError, clt_w: &mut CW)
+    where
         CW: AsyncWrite + Unpin,
     {
         if self.total_to_write > 0 {
@@ -157,7 +149,7 @@ impl Greeting {
             GreetingError::UpstreamClosed => "connection closed",
             _ => return,
         };
-        let rsp = ResponseEncoder::upstream_service_not_ready(task_notes.server_addr.ip(), reason);
+        let rsp = ResponseEncoder::upstream_service_not_ready(self.local_ip, reason);
         let _ = clt_w.write_all(rsp.as_bytes()).await;
         let _ = clt_w.flush().await;
         let _ = clt_w.shutdown().await;

@@ -19,6 +19,8 @@ use std::net::IpAddr;
 
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
+use crate::response::ResponseLineError;
+
 pub enum ResponseEncoder {
     Static(&'static str),
     Owned(String),
@@ -53,6 +55,38 @@ impl ResponseEncoder {
         let msg = match local_ip {
             IpAddr::V4(v4) => format!("554 [{v4}] upstream service not ready - {reason}\r\n"),
             IpAddr::V6(v6) => format!("554 Ipv6:{v6} upstream service not ready - {reason}\r\n"),
+        };
+        ResponseEncoder::Owned(msg)
+    }
+
+    pub fn upstream_io_error(local_ip: IpAddr, e: &io::Error) -> Self {
+        let msg = match local_ip {
+            IpAddr::V4(v4) => format!("554 [{v4}] upstream io error: {e}\r\n"),
+            IpAddr::V6(v6) => format!("554 Ipv6:{v6} upstream io error: {e}\r\n"),
+        };
+        ResponseEncoder::Owned(msg)
+    }
+
+    pub fn upstream_io_closed(local_ip: IpAddr) -> Self {
+        let msg = match local_ip {
+            IpAddr::V4(v4) => format!("554 [{v4}] upstream io closed\r\n"),
+            IpAddr::V6(v6) => format!("554 Ipv6:{v6} upstream io closed\r\n"),
+        };
+        ResponseEncoder::Owned(msg)
+    }
+
+    pub fn upstream_line_too_long(local_ip: IpAddr) -> Self {
+        let msg = match local_ip {
+            IpAddr::V4(v4) => format!("554 [{v4}] upstream io closed\r\n"),
+            IpAddr::V6(v6) => format!("554 Ipv6:{v6} upstream io closed\r\n"),
+        };
+        ResponseEncoder::Owned(msg)
+    }
+
+    pub fn upstream_response_error(local_ip: IpAddr, e: &ResponseLineError) -> Self {
+        let msg = match local_ip {
+            IpAddr::V4(v4) => format!("554 [{v4}] upstream response error: {e}\r\n"),
+            IpAddr::V6(v6) => format!("554 Ipv6:{v6} upstream response error: {e}\r\n"),
         };
         ResponseEncoder::Owned(msg)
     }

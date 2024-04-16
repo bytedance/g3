@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::net::IpAddr;
 use std::time::Duration;
 
 use anyhow::anyhow;
@@ -23,7 +24,6 @@ use g3_io_ext::{LineRecvBuf, RecvLineError};
 use g3_smtp_proto::command::Command;
 use g3_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseParser};
 
-use crate::inspect::StreamInspectTaskNotes;
 use crate::serve::{ServerTaskError, ServerTaskResult};
 
 pub(super) struct EndQuitServer {}
@@ -90,14 +90,16 @@ impl EndQuitServer {
     }
 }
 
-pub(super) struct EndWaitClient {}
+pub(super) struct EndWaitClient {
+    local_ip: IpAddr,
+}
 
 impl EndWaitClient {
-    pub(super) async fn run_to_end<R, W>(
-        mut clt_r: R,
-        mut clt_w: W,
-        task_notes: &StreamInspectTaskNotes,
-    ) -> ServerTaskResult<()>
+    pub(super) fn new(local_ip: IpAddr) -> Self {
+        EndWaitClient { local_ip }
+    }
+
+    pub(super) async fn run_to_end<R, W>(self, mut clt_r: R, mut clt_w: W) -> ServerTaskResult<()>
     where
         R: AsyncRead + Unpin,
         W: AsyncWrite + Unpin,
@@ -131,7 +133,7 @@ impl EndWaitClient {
                 }
             };
             if cmd == Command::QUIT {
-                ResponseEncoder::local_service_closing(task_notes.server_addr.ip())
+                ResponseEncoder::local_service_closing(self.local_ip)
                     .write(&mut clt_w)
                     .await
                     .map_err(ServerTaskError::ClientTcpWriteFailed)?;

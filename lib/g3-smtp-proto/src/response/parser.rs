@@ -52,6 +52,7 @@ macro_rules! def_const_code {
 impl ReplyCode {
     def_const_code!(SERVICE_READY, b'2', b'2', b'0');
     def_const_code!(SERVICE_CLOSING, b'2', b'2', b'1');
+    def_const_code!(OK, b'2', b'5', b'0');
 
     def_const_code!(BAD_SEQUENCE_OF_COMMANDS, b'5', b'0', b'3');
     def_const_code!(NO_SERVICE, b'5', b'5', b'4');
@@ -88,6 +89,7 @@ impl fmt::Display for ReplyCode {
 pub struct ResponseParser {
     code: ReplyCode,
     multiline: bool,
+    line_count: usize,
 }
 
 impl ResponseParser {
@@ -121,6 +123,7 @@ impl ResponseParser {
             b'-' => self.multiline = true,
             _ => return Err(ResponseLineError::InvalidDelimiter),
         }
+        self.line_count = 1;
         Ok(&line[4..])
     }
 
@@ -148,7 +151,12 @@ impl ResponseParser {
             b'-' => {}
             _ => return Err(ResponseLineError::InvalidDelimiter),
         }
+        self.line_count += 1;
         Ok(&line[4..])
+    }
+
+    pub fn is_first_line(&self) -> bool {
+        self.line_count == 1
     }
 
     pub fn finished(&self) -> bool {
