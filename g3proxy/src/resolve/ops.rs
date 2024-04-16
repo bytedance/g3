@@ -165,7 +165,9 @@ async fn delete_existed_unlocked(name: &MetricsName) {
     update_dependency_to_resolver_unlocked(name, STATUS).await;
     crate::escape::update_dependency_to_resolver(name, STATUS).await;
     if let Some(mut resolver) = old_resolver {
-        resolver._shutdown().await;
+        tokio::spawn(async move {
+            resolver._shutdown().await;
+        });
     }
 }
 
@@ -185,7 +187,9 @@ async fn spawn_new_unlocked(config: AnyResolverConfig) -> anyhow::Result<()> {
     update_dependency_to_resolver_unlocked(&name, STATUS).await;
     crate::escape::update_dependency_to_resolver(&name, STATUS).await;
     if let Some(mut resolver) = old_resolver {
-        resolver._shutdown().await;
+        tokio::spawn(async move {
+            resolver._shutdown().await;
+        });
     }
     Ok(())
 }
