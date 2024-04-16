@@ -46,6 +46,7 @@ macro_rules! intercept_log {
             "task_id" => LtUuid($obj.ctx.server_task_id()),
             "depth" => $obj.ctx.inspection_depth,
             "upstream_host" => $obj.upstream_host.as_ref().map(LtHost),
+            "client_host" => $obj.client_host.as_ref().map(LtHost),
         )
     };
 }
@@ -61,6 +62,7 @@ pub(crate) struct SmtpInterceptObject<SC: ServerConfig> {
     io: Option<SmtpIo>,
     pub(crate) ctx: StreamInspectContext<SC>,
     upstream_host: Option<Host>,
+    client_host: Option<Host>,
 }
 
 impl<SC: ServerConfig> SmtpInterceptObject<SC> {
@@ -69,6 +71,7 @@ impl<SC: ServerConfig> SmtpInterceptObject<SC> {
             io: None,
             ctx,
             upstream_host: None,
+            client_host: None,
         }
     }
 
@@ -147,17 +150,17 @@ impl<SC: ServerConfig> SmtpInterceptObject<SC> {
 
     async fn do_intercept(&mut self) -> ServerTaskResult<()> {
         let SmtpIo {
-            mut clt_r,
+            clt_r,
             mut clt_w,
             ups_r,
-            mut ups_w,
+            ups_w,
         } = self.io.take().unwrap();
 
         let interception_config = self.ctx.smtp_interception();
         let local_ip = self.ctx.task_notes.server_addr.ip();
 
         let mut greeting = Greeting::new(local_ip);
-        let mut ups_r = match greeting
+        let ups_r = match greeting
             .relay(ups_r, &mut clt_w, interception_config.greeting_timeout)
             .await
         {
@@ -177,10 +180,23 @@ impl<SC: ServerConfig> SmtpInterceptObject<SC> {
             return EndWaitClient::new(local_ip).run_to_end(clt_r, clt_w).await;
         }
 
-        let initiation = Initiation::new(local_ip);
+        self.start_initiation(clt_r, clt_w, ups_r, ups_w).await
+    }
+
+    async fn start_initiation(
+        &mut self,
+        mut clt_r: BoxAsyncRead,
+        mut clt_w: BoxAsyncWrite,
+        mut ups_r: BoxAsyncRead,
+        mut ups_w: BoxAsyncWrite,
+    ) -> ServerTaskResult<()> {
+        let local_ip = self.ctx.task_notes.server_addr.ip();
+
+        let mut initiation = Initiation::new(local_ip);
         initiation
             .relay(&mut clt_r, &mut clt_w, &mut ups_r, &mut ups_w)
             .await?;
+        self.client_host = Some(initiation.into_parts());
 
         crate::inspect::stream::transit_transparent(
             clt_r,

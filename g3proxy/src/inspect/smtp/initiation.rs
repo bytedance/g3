@@ -39,8 +39,12 @@ impl Initiation {
         }
     }
 
+    pub(super) fn into_parts(self) -> Host {
+        self.client_host
+    }
+
     pub(super) async fn relay<CR, CW, UR, UW>(
-        mut self,
+        &mut self,
         clt_r: &mut CR,
         clt_w: &mut CW,
         ups_r: &mut UR,
