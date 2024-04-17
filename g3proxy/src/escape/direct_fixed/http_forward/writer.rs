@@ -27,36 +27,37 @@ use g3_http::server::HttpProxyClientRequest;
 use g3_io_ext::LimitedWriter;
 use g3_types::net::UpstreamAddr;
 
-use super::DirectFixedEscaperStats;
 use crate::auth::UserUpstreamTrafficStats;
 use crate::module::http_forward::{
     send_req_header_to_origin, ArcHttpForwardTaskRemoteStats, HttpForwardRemoteWrapperStats,
-    HttpForwardTaskRemoteWrapperStats, HttpForwardWrite,
+    HttpForwardTaskRemoteStats, HttpForwardTaskRemoteWrapperStats, HttpForwardWrite,
 };
 use crate::serve::ServerTaskNotes;
 
 #[pin_project]
-pub(super) struct DirectFixedHttpForwardWriter<W: AsyncWrite> {
+pub(crate) struct DirectHttpForwardWriter<W: AsyncWrite, S: HttpForwardTaskRemoteStats> {
     #[pin]
     inner: W,
-    escaper_stats: Option<Arc<DirectFixedEscaperStats>>,
+    escaper_stats: Option<Arc<S>>,
 }
 
-impl<W> DirectFixedHttpForwardWriter<W>
+impl<W, S> DirectHttpForwardWriter<W, S>
 where
     W: AsyncWrite,
+    S: HttpForwardTaskRemoteStats,
 {
-    pub(super) fn new(ups_w: W, escaper_stats: Option<Arc<DirectFixedEscaperStats>>) -> Self {
-        DirectFixedHttpForwardWriter {
+    pub(crate) fn new(ups_w: W, escaper_stats: Option<Arc<S>>) -> Self {
+        DirectHttpForwardWriter {
             inner: ups_w,
             escaper_stats,
         }
     }
 }
 
-impl<W> AsyncWrite for DirectFixedHttpForwardWriter<W>
+impl<W, S> AsyncWrite for DirectHttpForwardWriter<W, S>
 where
     W: AsyncWrite,
+    S: HttpForwardTaskRemoteStats,
 {
     fn poll_write(
         self: Pin<&mut Self>,
@@ -79,9 +80,10 @@ where
 }
 
 #[async_trait]
-impl<W> HttpForwardWrite for DirectFixedHttpForwardWriter<LimitedWriter<W>>
+impl<W, S> HttpForwardWrite for DirectHttpForwardWriter<LimitedWriter<W>, S>
 where
     W: AsyncWrite + Send + Unpin,
+    S: HttpForwardTaskRemoteStats + Send + Sync + 'static,
 {
     fn prepare_new(&mut self, _task_notes: &ServerTaskNotes, _upstream: &UpstreamAddr) {}
 

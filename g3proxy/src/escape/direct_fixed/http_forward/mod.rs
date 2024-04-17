@@ -31,8 +31,8 @@ use crate::serve::ServerTaskNotes;
 mod reader;
 mod writer;
 
-use reader::DirectFixedHttpForwardReader;
-use writer::DirectFixedHttpForwardWriter;
+pub(crate) use reader::DirectHttpForwardReader;
+pub(crate) use writer::DirectHttpForwardWriter;
 
 impl DirectFixedEscaper {
     pub(super) async fn http_forward_new_connection<'a>(
@@ -66,8 +66,8 @@ impl DirectFixedEscaper {
             Arc::new(w_wrapper_stats) as _,
         );
 
-        let writer = DirectFixedHttpForwardWriter::new(ups_w, Some(Arc::clone(&self.stats)));
-        let reader = DirectFixedHttpForwardReader::new(ups_r);
+        let writer = DirectHttpForwardWriter::new(ups_w, Some(Arc::clone(&self.stats)));
+        let reader = DirectHttpForwardReader::new(ups_r);
         Ok((Box::new(writer), Box::new(reader)))
     }
 
@@ -103,8 +103,8 @@ impl DirectFixedEscaper {
         );
         let ups_w = LimitedWriter::new_unlimited(ups_w, wrapper_stats as _);
 
-        let writer = DirectFixedHttpForwardWriter::new(ups_w, None);
-        let reader = DirectFixedHttpForwardReader::new(ups_r);
+        let writer = DirectHttpForwardWriter::<_, DirectFixedEscaperStats>::new(ups_w, None);
+        let reader = DirectHttpForwardReader::new(ups_r);
         Ok((Box::new(writer), Box::new(reader)))
     }
 }

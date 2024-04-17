@@ -20,6 +20,7 @@ use g3_io_ext::{LimitedBufReader, LimitedWriter, NilLimitedReaderStats};
 use g3_types::net::{Host, OpensslClientConfig};
 
 use super::{DirectFloatBindIp, DirectFloatEscaper};
+use crate::escape::direct_fixed::http_forward::DirectHttpForwardReader;
 use crate::log::escape::tls_handshake::TlsApplication;
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpForwardRemoteWrapperStats,
@@ -28,10 +29,7 @@ use crate::module::http_forward::{
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
 use crate::serve::ServerTaskNotes;
 
-mod reader;
 mod writer;
-
-use reader::DirectFloatHttpForwardReader;
 use writer::DirectFloatHttpForwardWriter;
 
 impl DirectFloatEscaper {
@@ -67,7 +65,7 @@ impl DirectFloatEscaper {
         );
 
         let writer = DirectFloatHttpForwardWriter::new(ups_w, Some(Arc::clone(&self.stats)), bind);
-        let reader = DirectFloatHttpForwardReader::new(ups_r);
+        let reader = DirectHttpForwardReader::new(ups_r);
         Ok((Box::new(writer), Box::new(reader)))
     }
 
@@ -104,7 +102,7 @@ impl DirectFloatEscaper {
         let ups_w = LimitedWriter::new_unlimited(ups_w, wrapper_stats as _);
 
         let writer = DirectFloatHttpForwardWriter::new(ups_w, None, bind);
-        let reader = DirectFloatHttpForwardReader::new(ups_r);
+        let reader = DirectHttpForwardReader::new(ups_r);
         Ok((Box::new(writer), Box::new(reader)))
     }
 }

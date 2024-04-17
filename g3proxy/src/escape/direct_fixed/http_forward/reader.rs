@@ -34,17 +34,17 @@ use crate::module::http_forward::{
 };
 
 #[pin_project]
-pub(super) struct DirectFixedHttpForwardReader<R: AsyncRead> {
+pub(crate) struct DirectHttpForwardReader<R: AsyncRead> {
     #[pin]
     inner: LimitedBufReader<R>,
 }
 
-impl<R> DirectFixedHttpForwardReader<R>
+impl<R> DirectHttpForwardReader<R>
 where
     R: AsyncRead + Unpin,
 {
-    pub(super) fn new(ups_r: LimitedBufReader<R>) -> Self {
-        DirectFixedHttpForwardReader { inner: ups_r }
+    pub(crate) fn new(ups_r: LimitedBufReader<R>) -> Self {
+        DirectHttpForwardReader { inner: ups_r }
     }
 
     async fn get_rsp_header(
@@ -63,7 +63,7 @@ where
     }
 }
 
-impl<R> AsyncRead for DirectFixedHttpForwardReader<R>
+impl<R> AsyncRead for DirectHttpForwardReader<R>
 where
     R: AsyncRead,
 {
@@ -77,7 +77,7 @@ where
     }
 }
 
-impl<R> AsyncBufRead for DirectFixedHttpForwardReader<R>
+impl<R> AsyncBufRead for DirectHttpForwardReader<R>
 where
     R: AsyncRead,
 {
@@ -93,7 +93,7 @@ where
 }
 
 #[async_trait]
-impl<R> HttpForwardRead for DirectFixedHttpForwardReader<R>
+impl<R> HttpForwardRead for DirectHttpForwardReader<R>
 where
     R: AsyncRead + Send + Unpin,
 {

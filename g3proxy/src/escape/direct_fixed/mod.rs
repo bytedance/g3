@@ -58,7 +58,7 @@ mod stats;
 pub(crate) use stats::DirectFixedEscaperStats;
 
 mod ftp_connect;
-mod http_forward;
+pub(crate) mod http_forward;
 mod tcp_connect;
 mod tls_connect;
 pub(crate) mod udp_connect;

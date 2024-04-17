@@ -23,6 +23,7 @@ use super::{
     NextProxyPeerInternal, ProxyFloatEscaperStats, ProxyFloatSocks5Peer,
     ProxyFloatSocks5PeerSharedConfig,
 };
+use crate::escape::direct_fixed::http_forward::DirectHttpForwardReader;
 use crate::log::escape::tls_handshake::TlsApplication;
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpForwardRemoteWrapperStats,
@@ -31,10 +32,7 @@ use crate::module::http_forward::{
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
 use crate::serve::ServerTaskNotes;
 
-mod reader;
 mod writer;
-
-use reader::Socks5PeerHttpForwardReader;
 use writer::Socks5PeerHttpForwardWriter;
 
 impl ProxyFloatSocks5Peer {
@@ -63,7 +61,7 @@ impl ProxyFloatSocks5Peer {
             Some(Arc::clone(&self.escaper_stats)),
             &self.shared_config,
         );
-        let reader = Socks5PeerHttpForwardReader::new(ups_r);
+        let reader = DirectHttpForwardReader::new(ups_r);
         Ok((Box::new(writer), Box::new(reader)))
     }
 
@@ -100,7 +98,7 @@ impl ProxyFloatSocks5Peer {
         let ups_w = LimitedWriter::new_unlimited(ups_w, wrapper_stats as _);
 
         let writer = Socks5PeerHttpForwardWriter::new(ups_w, None, &self.shared_config);
-        let reader = Socks5PeerHttpForwardReader::new(ups_r);
+        let reader = DirectHttpForwardReader::new(ups_r);
         Ok((Box::new(writer), Box::new(reader)))
     }
 }
