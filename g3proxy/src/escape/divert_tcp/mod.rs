@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,13 +25,11 @@ use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_resolver::{ResolveError, ResolveLocalError};
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder};
 use g3_types::metrics::MetricsName;
-use g3_types::net::{
-    Host, HttpForwardCapability, OpensslClientConfig, UpstreamAddr, WeightedUpstreamAddr,
-};
+use g3_types::net::{Host, OpensslClientConfig, UpstreamAddr, WeightedUpstreamAddr};
 
 use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperExt, EscaperInternal, EscaperStats};
 use crate::auth::UserUpstreamTrafficStats;
-use crate::config::escaper::proxy_http::ProxyHttpEscaperConfig;
+use crate::config::escaper::divert_tcp::DivertTcpEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
 use crate::module::ftp_over_http::{
     AnyFtpConnectContextParam, ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats,
@@ -40,7 +38,7 @@ use crate::module::ftp_over_http::{
 };
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, BoxHttpForwardContext,
-    ProxyHttpForwardContext,
+    DirectHttpForwardContext,
 };
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
 use crate::module::udp_connect::{
@@ -53,24 +51,24 @@ use crate::resolve::{ArcIntegratedResolverHandle, HappyEyeballsResolveJob};
 use crate::serve::ServerTaskNotes;
 
 mod stats;
-use stats::ProxyHttpEscaperStats;
+use stats::DivertTcpEscaperStats;
 
-mod http_connect;
 mod http_forward;
 mod tcp_connect;
+mod tls_connect;
 
-pub(super) struct ProxyHttpEscaper {
-    config: Arc<ProxyHttpEscaperConfig>,
-    stats: Arc<ProxyHttpEscaperStats>,
+pub(super) struct DivertTcpEscaper {
+    config: Arc<DivertTcpEscaperConfig>,
+    stats: Arc<DivertTcpEscaperStats>,
     proxy_nodes: SelectiveVec<WeightedUpstreamAddr>,
     resolver_handle: Option<ArcIntegratedResolverHandle>,
     escape_logger: Logger,
 }
 
-impl ProxyHttpEscaper {
+impl DivertTcpEscaper {
     fn new_obj(
-        config: ProxyHttpEscaperConfig,
-        stats: Arc<ProxyHttpEscaperStats>,
+        config: DivertTcpEscaperConfig,
+        stats: Arc<DivertTcpEscaperStats>,
     ) -> anyhow::Result<ArcEscaper> {
         let mut nodes_builder = SelectiveVecBuilder::new();
         for node in &config.proxy_nodes {
@@ -91,7 +89,7 @@ impl ProxyHttpEscaper {
 
         stats.set_extra_tags(config.extra_metrics_tags.clone());
 
-        let escaper = ProxyHttpEscaper {
+        let escaper = DivertTcpEscaper {
             config: Arc::new(config),
             stats,
             proxy_nodes,
@@ -102,17 +100,17 @@ impl ProxyHttpEscaper {
         Ok(Arc::new(escaper))
     }
 
-    pub(super) fn prepare_initial(config: ProxyHttpEscaperConfig) -> anyhow::Result<ArcEscaper> {
-        let stats = Arc::new(ProxyHttpEscaperStats::new(config.name()));
-        ProxyHttpEscaper::new_obj(config, stats)
+    pub(super) fn prepare_initial(config: DivertTcpEscaperConfig) -> anyhow::Result<ArcEscaper> {
+        let stats = Arc::new(DivertTcpEscaperStats::new(config.name()));
+        DivertTcpEscaper::new_obj(config, stats)
     }
 
     fn prepare_reload(
         config: AnyEscaperConfig,
-        stats: Arc<ProxyHttpEscaperStats>,
+        stats: Arc<DivertTcpEscaperStats>,
     ) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::ProxyHttp(config) = config {
-            ProxyHttpEscaper::new_obj(*config, stats)
+        if let AnyEscaperConfig::DivertTcp(config) = config {
+            DivertTcpEscaper::new_obj(config, stats)
         } else {
             Err(anyhow!("invalid escaper config type"))
         }
@@ -155,10 +153,10 @@ impl ProxyHttpEscaper {
     }
 }
 
-impl EscaperExt for ProxyHttpEscaper {}
+impl EscaperExt for DivertTcpEscaper {}
 
 #[async_trait]
-impl Escaper for ProxyHttpEscaper {
+impl Escaper for DivertTcpEscaper {
     fn name(&self) -> &MetricsName {
         self.config.name()
     }
@@ -183,7 +181,7 @@ impl Escaper for ProxyHttpEscaper {
     ) -> TcpConnectResult {
         self.stats.interface.add_tcp_connect_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
-        self.http_connect_new_tcp_connection(tcp_notes, task_notes, task_stats)
+        self.tcp_new_connection(tcp_notes, task_notes, task_stats)
             .await
     }
 
@@ -197,10 +195,8 @@ impl Escaper for ProxyHttpEscaper {
     ) -> TcpConnectResult {
         self.stats.interface.add_tls_connect_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
-        self.http_connect_new_tls_connection(
-            tcp_notes, task_notes, task_stats, tls_config, tls_name,
-        )
-        .await
+        self.tls_new_connection(tcp_notes, task_notes, task_stats, tls_config, tls_name)
+            .await
     }
 
     async fn udp_setup_connection<'a>(
@@ -226,7 +222,7 @@ impl Escaper for ProxyHttpEscaper {
     }
 
     fn new_http_forward_context(&self, escaper: ArcEscaper) -> BoxHttpForwardContext {
-        let ctx = ProxyHttpForwardContext::new(Arc::clone(&self.stats) as _, escaper);
+        let ctx = DirectHttpForwardContext::new(Arc::clone(&self.stats) as _, escaper);
         Box::new(ctx)
     }
 
@@ -241,7 +237,7 @@ impl Escaper for ProxyHttpEscaper {
 }
 
 #[async_trait]
-impl EscaperInternal for ProxyHttpEscaper {
+impl EscaperInternal for DivertTcpEscaper {
     fn _resolver(&self) -> &MetricsName {
         self.config.resolver()
     }
@@ -251,8 +247,7 @@ impl EscaperInternal for ProxyHttpEscaper {
     }
 
     fn _clone_config(&self) -> AnyEscaperConfig {
-        let config = &*self.config;
-        AnyEscaperConfig::ProxyHttp(Box::new(config.clone()))
+        AnyEscaperConfig::DivertTcp(self.config.as_ref().clone())
     }
 
     fn _update_config_in_place(
@@ -265,12 +260,7 @@ impl EscaperInternal for ProxyHttpEscaper {
 
     async fn _lock_safe_reload(&self, config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::clone(&self.stats);
-        ProxyHttpEscaper::prepare_reload(config, stats)
-    }
-
-    #[inline]
-    fn _local_http_forward_capability(&self) -> HttpForwardCapability {
-        self.config.http_forward_capability
+        DivertTcpEscaper::prepare_reload(config, stats)
     }
 
     async fn _new_http_forward_connection<'a>(

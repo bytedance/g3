@@ -30,6 +30,7 @@ use g3_yaml::{HybridParser, YamlDocPosition};
 
 pub(crate) mod direct_fixed;
 pub(crate) mod direct_float;
+pub(crate) mod divert_tcp;
 pub(crate) mod dummy_deny;
 pub(crate) mod proxy_float;
 pub(crate) mod proxy_http;
@@ -97,6 +98,7 @@ pub(crate) struct GeneralEscaperConfig {
 pub(crate) enum AnyEscaperConfig {
     DirectFixed(Box<direct_fixed::DirectFixedEscaperConfig>),
     DirectFloat(Box<direct_float::DirectFloatEscaperConfig>),
+    DivertTcp(divert_tcp::DivertTcpEscaperConfig),
     DummyDeny(dummy_deny::DummyDenyEscaperConfig),
     ProxyFloat(proxy_float::ProxyFloatEscaperConfig),
     ProxyHttp(Box<proxy_http::ProxyHttpEscaperConfig>),
@@ -120,6 +122,7 @@ macro_rules! impl_transparent0 {
             match self {
                 AnyEscaperConfig::DirectFixed(s) => s.$f(),
                 AnyEscaperConfig::DirectFloat(s) => s.$f(),
+                AnyEscaperConfig::DivertTcp(s) => s.$f(),
                 AnyEscaperConfig::DummyDeny(s) => s.$f(),
                 AnyEscaperConfig::ProxyFloat(s) => s.$f(),
                 AnyEscaperConfig::ProxyHttp(s) => s.$f(),
@@ -146,6 +149,7 @@ macro_rules! impl_transparent1 {
             match self {
                 AnyEscaperConfig::DirectFixed(s) => s.$f(p),
                 AnyEscaperConfig::DirectFloat(s) => s.$f(p),
+                AnyEscaperConfig::DivertTcp(s) => s.$f(p),
                 AnyEscaperConfig::DummyDeny(s) => s.$f(p),
                 AnyEscaperConfig::ProxyFloat(s) => s.$f(p),
                 AnyEscaperConfig::ProxyHttp(s) => s.$f(p),
@@ -227,6 +231,10 @@ fn load_escaper(
         "direct_float" | "directfloat" | "direct_dynamic" | "directdynamic" => {
             let config = direct_float::DirectFloatEscaperConfig::parse(map, position)?;
             Ok(AnyEscaperConfig::DirectFloat(Box::new(config)))
+        }
+        "divert_tcp" | "diverttcp" => {
+            let config = divert_tcp::DivertTcpEscaperConfig::parse(map, position)?;
+            Ok(AnyEscaperConfig::DivertTcp(config))
         }
         "dummy_deny" | "dummydeny" => {
             let config = dummy_deny::DummyDenyEscaperConfig::parse(map, position, None)?;

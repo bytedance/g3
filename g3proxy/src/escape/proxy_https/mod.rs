@@ -280,14 +280,6 @@ impl EscaperInternal for ProxyHttpsEscaper {
         self.config.http_forward_capability
     }
 
-    async fn _check_out_next_escaper(
-        &self,
-        _task_notes: &ServerTaskNotes,
-        _upstream: &UpstreamAddr,
-    ) -> Option<ArcEscaper> {
-        None
-    }
-
     async fn _new_http_forward_connection<'a>(
         &'a self,
         tcp_notes: &'a mut TcpConnectTaskNotes,

@@ -54,6 +54,7 @@ pub(crate) use stats::{
 
 mod direct_fixed;
 mod direct_float;
+mod divert_tcp;
 mod dummy_deny;
 mod proxy_float;
 mod proxy_http;
@@ -95,9 +96,11 @@ pub(crate) trait EscaperInternal {
 
     async fn _check_out_next_escaper(
         &self,
-        task_notes: &ServerTaskNotes,
-        upstream: &UpstreamAddr,
-    ) -> Option<ArcEscaper>;
+        _task_notes: &ServerTaskNotes,
+        _upstream: &UpstreamAddr,
+    ) -> Option<ArcEscaper> {
+        None
+    }
 
     async fn _new_http_forward_connection<'a>(
         &'a self,

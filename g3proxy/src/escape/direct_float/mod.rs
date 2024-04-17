@@ -537,14 +537,6 @@ impl EscaperInternal for DirectFloatEscaper {
         DirectFloatEscaper::prepare_reload(config, stats, Some(bind_v4), Some(bind_v6)).await
     }
 
-    async fn _check_out_next_escaper(
-        &self,
-        _task_notes: &ServerTaskNotes,
-        _upstream: &UpstreamAddr,
-    ) -> Option<ArcEscaper> {
-        None
-    }
-
     async fn _new_http_forward_connection<'a>(
         &'a self,
         tcp_notes: &'a mut TcpConnectTaskNotes,

@@ -30,6 +30,7 @@ use crate::escape::ArcEscaper;
 
 use super::direct_fixed::DirectFixedEscaper;
 use super::direct_float::DirectFloatEscaper;
+use super::divert_tcp::DivertTcpEscaper;
 use super::dummy_deny::DummyDenyEscaper;
 use super::proxy_float::ProxyFloatEscaper;
 use super::proxy_http::ProxyHttpEscaper;
@@ -232,6 +233,7 @@ async fn spawn_new_unlocked(config: AnyEscaperConfig) -> anyhow::Result<()> {
     let escaper = match config {
         AnyEscaperConfig::DirectFixed(c) => DirectFixedEscaper::prepare_initial(*c)?,
         AnyEscaperConfig::DirectFloat(c) => DirectFloatEscaper::prepare_initial(*c).await?,
+        AnyEscaperConfig::DivertTcp(c) => DivertTcpEscaper::prepare_initial(c)?,
         AnyEscaperConfig::DummyDeny(c) => DummyDenyEscaper::prepare_initial(c)?,
         AnyEscaperConfig::ProxyFloat(c) => ProxyFloatEscaper::prepare_initial(c).await?,
         AnyEscaperConfig::ProxyHttp(c) => ProxyHttpEscaper::prepare_initial(*c)?,
