@@ -15,6 +15,7 @@
  */
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::anyhow;
 use futures_util::FutureExt;
@@ -791,6 +792,13 @@ impl<'a> HttpProxyForwardTask<'a> {
         self.run_without_adaptation(clt_r, clt_w, ups_c).await
     }
 
+    fn rsp_hdr_recv_timeout(&self) -> Duration {
+        self.task_notes
+            .user_ctx()
+            .and_then(|ctx| ctx.http_rsp_header_recv_timeout())
+            .unwrap_or(self.ctx.server_config.timeout.recv_rsp_header)
+    }
+
     async fn run_without_adaptation<'f, CDR, CDW>(
         &'f mut self,
         clt_r: &'f mut Option<HttpClientReader<CDR>>,
@@ -911,7 +919,7 @@ impl<'a> HttpProxyForwardTask<'a> {
             }
             None => {
                 match tokio::time::timeout(
-                    self.ctx.server_config.timeout.recv_rsp_header,
+                    self.rsp_hdr_recv_timeout(),
                     self.recv_final_response_header(ups_r, clt_w),
                 )
                 .await
@@ -1005,7 +1013,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         self.http_notes.retry_new_connection = false;
 
         let mut rsp_header = match tokio::time::timeout(
-            self.ctx.server_config.timeout.recv_rsp_header,
+            self.rsp_hdr_recv_timeout(),
             self.recv_response_header(ups_r),
         )
         .await
@@ -1161,7 +1169,7 @@ impl<'a> HttpProxyForwardTask<'a> {
             }
             None => {
                 match tokio::time::timeout(
-                    self.ctx.server_config.timeout.recv_rsp_header,
+                    self.rsp_hdr_recv_timeout(),
                     self.recv_final_response_header(ups_r, clt_w),
                 )
                 .await

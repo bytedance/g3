@@ -16,6 +16,7 @@
 
 use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use ahash::AHashMap;
 use anyhow::Context;
@@ -113,6 +114,11 @@ impl UserSite {
     #[inline]
     pub(crate) fn tls_client(&self) -> Option<&OpensslClientConfig> {
         self.tls_client.as_ref()
+    }
+
+    #[inline]
+    pub(crate) fn http_rsp_hdr_recv_timeout(&self) -> Option<Duration> {
+        self.config.http_rsp_hdr_recv_timeout
     }
 
     pub(crate) fn fetch_duration_recorder(

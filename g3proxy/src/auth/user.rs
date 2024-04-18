@@ -539,6 +539,11 @@ impl User {
         self.resolve_redirection.as_ref()
     }
 
+    #[inline]
+    pub(crate) fn http_rsp_hdr_recv_timeout(&self) -> Option<Duration> {
+        self.config.http_rsp_hdr_recv_timeout
+    }
+
     pub(crate) fn audit(&self) -> &UserAuditConfig {
         &self.config.audit
     }
@@ -771,5 +776,12 @@ impl UserContext {
     #[inline]
     pub(crate) fn add_ip_blocked(&self) {
         self.forbid_stats.add_ip_blocked();
+    }
+
+    pub(crate) fn http_rsp_header_recv_timeout(&self) -> Option<Duration> {
+        self.user_site
+            .as_ref()
+            .and_then(|site| site.http_rsp_hdr_recv_timeout())
+            .or(self.user.config.http_rsp_hdr_recv_timeout)
     }
 }

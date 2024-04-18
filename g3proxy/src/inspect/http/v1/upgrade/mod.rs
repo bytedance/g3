@@ -352,14 +352,13 @@ where
         CW: AsyncWrite + Unpin,
         UR: AsyncRead + Unpin,
     {
-        let http_config = self.ctx.h1_interception();
         match tokio::time::timeout(
-            http_config.rsp_head_recv_timeout,
+            self.ctx.h1_rsp_hdr_recv_timeout(),
             HttpTransparentResponse::parse(
                 &mut rsp_io.ups_r,
                 &self.req.method,
                 self.req.keep_alive(),
-                http_config.rsp_head_max_size,
+                self.ctx.h1_interception().rsp_head_max_size,
             ),
         )
         .await

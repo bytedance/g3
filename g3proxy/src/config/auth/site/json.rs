@@ -87,6 +87,12 @@ impl UserSiteConfig {
                 self.tls_client = Some(builder);
                 Ok(())
             }
+            "http_rsp_header_recv_timeout" => {
+                let timeout = g3_json::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                self.http_rsp_hdr_recv_timeout = Some(timeout);
+                Ok(())
+            }
             _ => Err(anyhow!("invalid key {k}")),
         }
     }

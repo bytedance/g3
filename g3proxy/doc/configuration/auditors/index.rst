@@ -93,6 +93,8 @@ Set the max chars for the log of URI.
 
 **default**: 1024
 
+.. _conf_auditor_h1_interception:
+
 h1_interception
 ---------------
 
@@ -112,6 +114,8 @@ Set what we should do with HTTP/2.0 traffic.
 **default**: intercept
 
 .. versionadded:: 1.9.0
+
+.. _conf_auditor_h2_interception:
 
 h2_interception
 ---------------

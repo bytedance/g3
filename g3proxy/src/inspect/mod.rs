@@ -16,6 +16,7 @@
 
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use slog::Logger;
 use tokio::io::{AsyncRead, AsyncWrite};
@@ -52,6 +53,15 @@ pub(super) struct StreamInspectUserContext {
     user: Arc<User>,
     user_site: Option<Arc<UserSite>>,
     forbidden_stats: Arc<UserForbiddenStats>,
+}
+
+impl StreamInspectUserContext {
+    fn http_rsp_hdr_recv_timeout(&self) -> Option<Duration> {
+        self.user_site
+            .as_ref()
+            .and_then(|site| site.http_rsp_hdr_recv_timeout())
+            .or(self.user.http_rsp_hdr_recv_timeout())
+    }
 }
 
 #[derive(Clone)]
@@ -224,6 +234,14 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
         self.audit_handle.h1_interception()
     }
 
+    fn h1_rsp_hdr_recv_timeout(&self) -> Duration {
+        self.task_notes
+            .user_ctx
+            .as_ref()
+            .and_then(|ctx| ctx.http_rsp_hdr_recv_timeout())
+            .unwrap_or(self.h1_interception().rsp_head_recv_timeout)
+    }
+
     #[inline]
     fn h2_inspect_policy(&self) -> ProtocolInspectPolicy {
         self.audit_handle.h2_inspect_policy()
@@ -232,6 +250,14 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     #[inline]
     fn h2_interception(&self) -> &H2InterceptionConfig {
         self.audit_handle.h2_interception()
+    }
+
+    fn h2_rsp_hdr_recv_timeout(&self) -> Duration {
+        self.task_notes
+            .user_ctx
+            .as_ref()
+            .and_then(|ctx| ctx.http_rsp_hdr_recv_timeout())
+            .unwrap_or(self.h2_interception().rsp_head_recv_timeout)
     }
 
     #[inline]

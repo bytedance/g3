@@ -16,6 +16,7 @@
 
 use std::collections::BTreeSet;
 use std::net::IpAddr;
+use std::time::Duration;
 
 use anyhow::anyhow;
 use ip_network::IpNetwork;
@@ -39,6 +40,7 @@ pub(crate) struct UserSiteConfig {
     pub(crate) resolve_strategy: Option<ResolveStrategy>,
     pub(crate) duration_stats: HistogramMetricsConfig,
     pub(crate) tls_client: Option<OpensslClientConfigBuilder>,
+    pub(crate) http_rsp_hdr_recv_timeout: Option<Duration>,
 }
 
 impl UserSiteConfig {

@@ -67,7 +67,7 @@ Set the auth realm.
 
 **default**: proxy
 
-.. _config_server_http_proxy_tls_client:
+.. _conf_server_http_proxy_tls_client:
 
 tls_client
 ----------
@@ -95,6 +95,8 @@ req_header_recv_timeout
 Set the max time to wait a full request header after the client connection become readable.
 
 **default**: 30s
+
+.. _conf_server_http_proxy_rsp_header_recv_timeout:
 
 rsp_header_recv_timeout
 -----------------------

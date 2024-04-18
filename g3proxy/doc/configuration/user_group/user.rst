@@ -220,6 +220,29 @@ Set http keepalive config at user level.
 
 **default**: set with default value
 
+.. _conf_user_http_rsp_header_recv_timeout:
+
+http_rsp_header_recv_timeout
+----------------------------
+
+**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+Set a custom http response receive timeout value for this user.
+
+This will overwrite:
+
+- http proxy server :ref:`rsp_header_recv_timeout <conf_server_http_proxy_rsp_header_recv_timeout>`
+- auditor :ref:`h1 interception <conf_auditor_h1_interception>`
+- auditor :ref:`h2 interception <conf_auditor_h1_interception>`
+
+This will be overwritten by:
+
+- user-site :ref:`http_rsp_header_recv_timeout <conf_user_site_http_rsp_header_recv_timeout>`
+
+**default**: not set
+
+.. versionadded:: 1.9.0
+
 tcp_conn_rate_limit
 -------------------
 

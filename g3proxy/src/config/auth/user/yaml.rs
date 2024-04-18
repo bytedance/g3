@@ -115,6 +115,12 @@ impl UserConfig {
                     .context(format!("invalid http keepalive config value for key {k}"))?;
                 Ok(())
             }
+            "http_rsp_header_recv_timeout" => {
+                let timeout = g3_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                self.http_rsp_hdr_recv_timeout = Some(timeout);
+                Ok(())
+            }
             "tcp_conn_rate_limit" | "tcp_conn_limit_quota" => {
                 let quota = g3_yaml::value::as_rate_limit_quota(v)
                     .context(format!("invalid request quota value for key {k}"))?;

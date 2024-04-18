@@ -163,7 +163,7 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
                     self.ctx.server_config.limited_copy_config(),
                     self.ctx.h1_interception().body_line_max_len,
                     self.ctx.h2_interception().max_header_list_size as usize,
-                    self.ctx.h2_interception().rsp_head_recv_timeout,
+                    self.ctx.h2_rsp_hdr_recv_timeout(),
                     true,
                     self.ctx.idle_checker(),
                 )
@@ -296,12 +296,7 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
         self.ups_stream_id = Some(ups_response_fut.stream_id());
         self.http_notes.mark_req_send_hdr();
 
-        match tokio::time::timeout(
-            self.ctx.h2_interception().rsp_head_recv_timeout,
-            ups_response_fut,
-        )
-        .await
-        {
+        match tokio::time::timeout(self.ctx.h2_rsp_hdr_recv_timeout(), ups_response_fut).await {
             Ok(Ok(ups_rsp)) => {
                 self.http_notes.mark_rsp_recv_hdr();
                 self.send_response(ups_rsp, ups_w, clt_r, clt_send_rsp)

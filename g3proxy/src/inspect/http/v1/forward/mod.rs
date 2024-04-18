@@ -370,7 +370,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
             }
             None => {
                 match tokio::time::timeout(
-                    self.ctx.h1_interception().rsp_head_recv_timeout,
+                    self.ctx.h1_rsp_hdr_recv_timeout(),
                     self.recv_final_response_header(rsp_io),
                 )
                 .await
@@ -443,14 +443,13 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         UR: AsyncRead + Unpin,
         CW: AsyncWrite + Send + Unpin,
     {
-        let http_config = self.ctx.h1_interception();
         match tokio::time::timeout(
-            http_config.rsp_head_recv_timeout,
+            self.ctx.h1_rsp_hdr_recv_timeout(),
             HttpTransparentResponse::parse(
                 &mut rsp_io.ups_r,
                 &self.req.method,
                 self.req.keep_alive(),
-                http_config.rsp_head_max_size,
+                self.ctx.h1_interception().rsp_head_max_size,
             ),
         )
         .await
@@ -567,7 +566,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
             }
             None => {
                 match tokio::time::timeout(
-                    self.ctx.h1_interception().rsp_head_recv_timeout,
+                    self.ctx.h1_rsp_hdr_recv_timeout(),
                     self.recv_final_response_header(rsp_io),
                 )
                 .await
