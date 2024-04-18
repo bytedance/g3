@@ -67,6 +67,8 @@ Set the auth realm.
 
 **default**: proxy
 
+.. _config_server_http_proxy_tls_client:
+
 tls_client
 ----------
 

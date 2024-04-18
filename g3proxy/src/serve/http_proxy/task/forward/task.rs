@@ -687,11 +687,18 @@ impl<'a> HttpProxyForwardTask<'a> {
                 .unwrap_or(&self.tcp_notes.upstream)
                 .host();
 
+            let tls_client = self
+                .task_notes
+                .user_ctx()
+                .and_then(|ctx| ctx.user_site())
+                .and_then(|site| site.tls_client())
+                .unwrap_or(&self.ctx.tls_client_config);
+
             fwd_ctx
                 .make_new_https_connection(
                     &self.task_notes,
                     self.task_stats.clone() as _,
-                    &self.ctx.tls_client_config,
+                    tls_client,
                     tls_name,
                 )
                 .await

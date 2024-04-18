@@ -87,7 +87,10 @@ tls_client
 
 Set the tls client config for server handshake in TLS interception.
 
-This will overwrite the auditor level `tls_interception_client <conf_auditor_tls_interception_client>`.
+This will overwrite:
+
+- auditor `tls_interception_client <conf_auditor_tls_interception_client>` if tls interception is enabled
+- http_proxy server `tls_client <config_server_http_proxy_tls_client>` if https forward is enabled
 
 **default**: not set
 
