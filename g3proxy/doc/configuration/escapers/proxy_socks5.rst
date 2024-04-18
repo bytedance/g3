@@ -24,6 +24,7 @@ The following common keys are supported:
 * :ref:`no_ipv4 <conf_escaper_common_no_ipv4>`
 * :ref:`no_ipv6 <conf_escaper_common_no_ipv6>`
 * :ref:`tcp_connect <conf_escaper_common_tcp_connect>`
+* :ref:`happy eyeballs <conf_escaper_common_happy_eyeballs>`
 * :ref:`tcp_misc_opts <conf_escaper_common_tcp_misc_opts>`
 * :ref:`udp_misc_opts <conf_escaper_common_udp_misc_opts>`
 * :ref:`peer negotiation timeout <conf_escaper_common_peer_negotiation_timeout>`

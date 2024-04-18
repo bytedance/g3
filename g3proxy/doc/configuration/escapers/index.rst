@@ -20,6 +20,7 @@ Escapers
    dummy_deny
    direct_fixed
    direct_float
+   divert_tcp
    proxy_float
    proxy_http
    proxy_https
@@ -146,6 +147,19 @@ tcp_connect
 Set tcp connect params.
 
 .. note:: For *direct* type escapers, the user level tcp connect params will be taken to limit the final value.
+
+.. _conf_escaper_common_happy_eyeballs:
+
+happy_eyeballs
+--------------
+
+**optional**, **type**: :ref:`happy eyeballs <conf_value_happy_eyeballs>`
+
+Set the HappyEyeballs config.
+
+**default**: default HappyEyeballs config
+
+.. versionadded:: 1.5.3
 
 .. _conf_escaper_common_tcp_misc_opts:
 

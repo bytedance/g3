@@ -1,9 +1,30 @@
-.. _configuration_escaper_proxy_http:
+.. _configuration_escaper_divert_tcp:
 
-proxy_http
+divert_tcp
 ==========
 
-This escaper will access the target upstream through another http proxy.
+This escaper will redirect all streams to a next proxy server by sending a PROXY Protocol V2 message first.
+
+The PPv2 Type-Values are:
+
+* 0xE0 | Upstream Address
+
+  The target upstream address, encoded in UTF-8 without trailing '\0'.
+  This will always be set. And the next proxy server should connect to this upstream address.
+
+* 0xE1 | TLS Verify Name
+
+  The TLS verify name, encoded in UTF-8 without trailing '\0'.
+  This will be set only if the TLS handshake is started on our side.
+
+* 0xE2 | Username
+
+  The username of the client, encoded in UTF-8 without trailing '\0'.
+  This will be set only if client auth is enabled on our side.
+
+* 0xE3 | Task ID
+
+  The task id in UUID binary format. This will always be set.
 
 The following interfaces are supported:
 
@@ -23,9 +44,6 @@ The following common keys are supported:
 * :ref:`tcp_connect <conf_escaper_common_tcp_connect>`
 * :ref:`happy eyeballs <conf_escaper_common_happy_eyeballs>`
 * :ref:`tcp_misc_opts <conf_escaper_common_tcp_misc_opts>`
-* :ref:`pass_proxy_userid <conf_escaper_common_pass_proxy_userid>`
-* :ref:`use_proxy_protocol <conf_escaper_common_use_proxy_protocol>`
-* :ref:`peer negotiation timeout <conf_escaper_common_peer_negotiation_timeout>`
 * :ref:`extra_metrics_tags <conf_escaper_common_extra_metrics_tags>`
 
 proxy_addr
@@ -48,24 +66,6 @@ The key for ketama/rendezvous/jump hash is *<client-ip>[-<username>]-<upstream-h
 
 **default**: random
 
-proxy_username
---------------
-
-**optional**, **type**: :ref:`username <conf_value_username>`
-
-Set the proxy username. The Basic auth scheme is used by default.
-
-.. note::
-
-  Conflict with :ref:`pass_proxy_userid <conf_escaper_common_pass_proxy_userid>`
-
-proxy_password
---------------
-
-**optional**, **type**: :ref:`password <conf_value_password>`
-
-Set the proxy password. Required if username is present.
-
 bind_ipv4
 ---------
 
@@ -83,24 +83,6 @@ bind_ipv6
 Set the bind ip address for inet6 sockets.
 
 **default**: not set
-
-http_forward_capability
------------------------
-
-**optional**, **type**: :ref:`http forward capability <conf_value_http_forward_capability>`
-
-Set the http forward capability if the next proxy.
-
-**default**: all capability disabled
-
-http_connect_rsp_header_max_size
---------------------------------
-
-**optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
-
-Set the max header size for received CONNECT response.
-
-**default**: 4KiB
 
 tcp_keepalive
 -------------
