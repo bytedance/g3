@@ -739,12 +739,15 @@ impl<'a> HttpRProxyForwardTask<'a> {
                         Ok(true) => {
                             // we got some data from upstream
                             let hdr = self.recv_response_header(ups_r).await?;
-                            if hdr.code == 100 { // HTTP CONTINUE
-                                self.send_response_header(clt_w, &hdr).await?;
-                                // continue
-                            } else {
-                                rsp_header = Some(hdr);
-                                break;
+                            match hdr.code {
+                                100 | 103 => {
+                                    // CONTINUE | Early Hints
+                                    self.send_response_header(clt_w, &hdr).await?;
+                                }
+                                _ => {
+                                    rsp_header = Some(hdr);
+                                    break;
+                                }
                             }
                         }
                         Ok(false) => return Err(ServerTaskError::ClosedByUpstream),
@@ -854,14 +857,23 @@ impl<'a> HttpRProxyForwardTask<'a> {
     where
         W: AsyncWrite + Unpin,
     {
-        let hdr = self.recv_response_header(ups_r).await?;
-        if hdr.code == 100 {
-            // HTTP CONTINUE
-            self.send_response_header(clt_w, &hdr).await?;
-            // recv the final response header
-            self.recv_response_header(ups_r).await
-        } else {
-            Ok(hdr)
+        loop {
+            let hdr = self.recv_response_header(ups_r).await?;
+            match hdr.code {
+                100 => {
+                    // HTTP CONTINUE
+                    self.send_response_header(clt_w, &hdr).await?;
+                    // recv the final response header
+                    return self.recv_response_header(ups_r).await;
+                }
+                103 => {
+                    // HTTP Early Hints
+                    self.send_response_header(clt_w, &hdr).await?;
+                }
+                _ => {
+                    return Ok(hdr);
+                }
+            }
         }
     }
 

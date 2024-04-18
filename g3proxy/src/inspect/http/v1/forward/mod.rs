@@ -326,12 +326,15 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                         Ok(true) => {
                             // we got some data from upstream
                             let (rsp, bytes) = self.recv_response_header(&mut rsp_io.ups_r).await?;
-                            if rsp.code == 100 { // HTTP CONTINUE
-                                self.send_response_header(&mut rsp_io.clt_w, bytes).await?;
-                                // continue
-                            } else {
-                                rsp_head = Some((rsp, bytes));
-                                break;
+                            match rsp.code {
+                                100 | 103 => {
+                                    // CONTINUE | Early Hints
+                                    self.send_response_header(&mut rsp_io.clt_w, bytes).await?;
+                                }
+                                _ => {
+                                    rsp_head = Some((rsp, bytes));
+                                    break;
+                                }
                             }
                         }
                         Ok(false) => return Err(ServerTaskError::ClosedByUpstream),
@@ -500,12 +503,15 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                         Ok(true) => {
                             // we got some data from upstream
                             let (rsp, bytes) = self.recv_response_header(&mut rsp_io.ups_r).await?;
-                            if rsp.code == 100 { // HTTP CONTINUE
-                                self.send_response_header(&mut rsp_io.clt_w, bytes).await?;
-                                // continue
-                            } else {
-                                rsp_head = Some((rsp, bytes));
-                                break;
+                            match rsp.code {
+                                100 | 103 => {
+                                    // CONTINUE | Early Hints
+                                    self.send_response_header(&mut rsp_io.clt_w, bytes).await?;
+                                }
+                                _ => {
+                                    rsp_head = Some((rsp, bytes));
+                                    break;
+                                }
                             }
                         }
                         Ok(false) => return Err(ServerTaskError::ClosedByUpstream),
@@ -608,14 +614,23 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         UR: AsyncRead + Unpin,
         CW: AsyncWrite + Unpin,
     {
-        let (rsp, bytes) = self.recv_response_header(&mut rsp_io.ups_r).await?;
-        if rsp.code == 100 {
-            // HTTP CONTINUE
-            self.send_response_header(&mut rsp_io.clt_w, bytes).await?;
-            // recv the final response header
-            self.recv_response_header(&mut rsp_io.ups_r).await
-        } else {
-            Ok((rsp, bytes))
+        loop {
+            let (rsp, bytes) = self.recv_response_header(&mut rsp_io.ups_r).await?;
+            match rsp.code {
+                100 => {
+                    // HTTP CONTINUE
+                    self.send_response_header(&mut rsp_io.clt_w, bytes).await?;
+                    // recv the final response header
+                    return self.recv_response_header(&mut rsp_io.ups_r).await;
+                }
+                103 => {
+                    // HTTP Early Hints
+                    self.send_response_header(&mut rsp_io.clt_w, bytes).await?;
+                }
+                _ => {
+                    return Ok((rsp, bytes));
+                }
+            }
         }
     }
 

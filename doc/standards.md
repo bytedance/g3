@@ -208,6 +208,8 @@ The code should comply to these, but should be more compliant to existing popula
     : The 'Basic' HTTP Authentication Scheme
  - [rfc7239](https://datatracker.ietf.org/doc/html/rfc7239)
     : Forwarded HTTP Extension
+ - [rfc8297](https://datatracker.ietf.org/doc/html/rfc8297)
+    : An HTTP Status Code for Indicating Hints
  - [iana-http-methods](https://www.iana.org/assignments/http-methods)
     : Hypertext Transfer Protocol (HTTP) Method Registry
  - [iana-http-status-codes](https://www.iana.org/assignments/http-status-codes/http-status-codes)
