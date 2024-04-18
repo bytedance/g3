@@ -44,7 +44,10 @@ pub use buf::SocketBufferConfig;
 pub use dns::*;
 pub use egress::{EgressArea, EgressInfo};
 pub use error::ConnectError;
-pub use haproxy::{ProxyProtocolEncodeError, ProxyProtocolEncoder, ProxyProtocolVersion};
+pub use haproxy::{
+    ProxyProtocolEncodeError, ProxyProtocolEncoder, ProxyProtocolTlvEncoder,
+    ProxyProtocolV2Encoder, ProxyProtocolVersion,
+};
 pub use host::Host;
 pub use port::{PortRange, Ports};
 pub use proxy::{Proxy, ProxyParseError, ProxyRequestType, Socks4Proxy, Socks5Proxy};

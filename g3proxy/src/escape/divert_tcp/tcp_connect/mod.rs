@@ -21,7 +21,7 @@ use tokio::net::{TcpSocket, TcpStream};
 use tokio::task::JoinSet;
 use tokio::time::Instant;
 
-use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
+use g3_daemon::stat::remote::{ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStats};
 use g3_io_ext::{LimitedReader, LimitedWriter};
 use g3_types::net::{ConnectError, Host};
 
@@ -298,7 +298,12 @@ impl DivertTcpEscaper {
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
         let stream = self.tcp_connect_to(tcp_notes, task_notes).await?;
-        let (r, w) = stream.into_split();
+        let (r, mut w) = stream.into_split();
+
+        let nw = self
+            .send_pp2_header(&mut w, tcp_notes, task_notes, None)
+            .await?;
+        self.stats.add_write_bytes(nw);
 
         let mut wrapper_stats = TcpConnectRemoteWrapperStats::new(&self.stats, task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
@@ -317,8 +322,6 @@ impl DivertTcpEscaper {
             limit_config.max_north,
             wrapper_stats as _,
         );
-
-        // TODO send PPv2 header
 
         Ok((Box::new(r), Box::new(w)))
     }

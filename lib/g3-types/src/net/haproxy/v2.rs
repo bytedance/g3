@@ -17,6 +17,7 @@
 use std::net::SocketAddr;
 
 use super::ProxyProtocolEncodeError;
+use crate::net::{Host, UpstreamAddr};
 
 const V2_MAGIC_HEADER: &[u8] = b"\x0d\x0a\x0d\x0a\x00\x0d\x0a\x51\x55\x49\x54\x0a";
 
@@ -47,21 +48,40 @@ const BYTE14_TCP6: u8 = AF_INET6 | PROTO_STREAM;
 
 pub struct ProxyProtocolV2Encoder([u8; V2_BUF_CAP]);
 
+impl Default for ProxyProtocolV2Encoder {
+    fn default() -> Self {
+        ProxyProtocolV2Encoder::new()
+    }
+}
+
 impl ProxyProtocolV2Encoder {
     pub fn new() -> Self {
         ProxyProtocolV2Encoder([0u8; V2_BUF_CAP])
     }
 
+    #[inline]
     pub fn encode_tcp(
         &mut self,
         client_addr: SocketAddr,
         server_addr: SocketAddr,
     ) -> Result<&[u8], ProxyProtocolEncodeError> {
+        self.encode_tcp_with_tlv(client_addr, server_addr, 0)
+    }
+
+    pub fn encode_tcp_with_tlv(
+        &mut self,
+        client_addr: SocketAddr,
+        server_addr: SocketAddr,
+        tlv_len: usize,
+    ) -> Result<&[u8], ProxyProtocolEncodeError> {
         self.0[..12].copy_from_slice(V2_MAGIC_HEADER);
 
         match (client_addr, server_addr) {
             (SocketAddr::V4(c4), SocketAddr::V4(s4)) => {
-                self.0[12..16].copy_from_slice(&[BYTE_13_PROXY, BYTE14_TCP4, 0x00, 12]);
+                let len = tlv_len + 12;
+                let len = u16::try_from(len).map_err(ProxyProtocolEncodeError::InvalidLength)?;
+                let l = len.to_be_bytes();
+                self.0[12..16].copy_from_slice(&[BYTE_13_PROXY, BYTE14_TCP4, l[0], l[1]]);
                 self.0[16..20].copy_from_slice(&c4.ip().octets());
                 self.0[20..24].copy_from_slice(&s4.ip().octets());
                 self.0[24..26].copy_from_slice(&c4.port().to_be_bytes());
@@ -69,7 +89,10 @@ impl ProxyProtocolV2Encoder {
                 Ok(&self.0[..28])
             }
             (SocketAddr::V6(c6), SocketAddr::V6(s6)) => {
-                self.0[12..16].copy_from_slice(&[BYTE_13_PROXY, BYTE14_TCP6, 0x00, 36]);
+                let len = tlv_len + 36;
+                let len = u16::try_from(len).map_err(ProxyProtocolEncodeError::InvalidLength)?;
+                let l = len.to_be_bytes();
+                self.0[12..16].copy_from_slice(&[BYTE_13_PROXY, BYTE14_TCP6, l[0], l[1]]);
                 self.0[16..32].copy_from_slice(&c6.ip().octets());
                 self.0[32..48].copy_from_slice(&s6.ip().octets());
                 self.0[48..50].copy_from_slice(&c6.port().to_be_bytes());
@@ -81,9 +104,62 @@ impl ProxyProtocolV2Encoder {
     }
 }
 
-impl Default for ProxyProtocolV2Encoder {
+pub struct ProxyProtocolTlvEncoder {
+    buf: Vec<u8>,
+}
+
+impl Default for ProxyProtocolTlvEncoder {
     fn default() -> Self {
-        ProxyProtocolV2Encoder::new()
+        ProxyProtocolTlvEncoder {
+            buf: Vec::with_capacity(576),
+        }
+    }
+}
+
+impl ProxyProtocolTlvEncoder {
+    const PP2_TYPE_CUSTOM_UPSTREAM: u8 = 0xE0;
+    const PP2_TYPE_CUSTOM_TLS_NAME: u8 = 0xE1;
+    const PP2_TYPE_CUSTOM_USERNAME: u8 = 0xE2;
+    const PP2_TYPE_CUSTOM_TASK_ID: u8 = 0xE3;
+
+    pub fn push(&mut self, key: u8, value: &[u8]) -> Result<(), ProxyProtocolEncodeError> {
+        let len = u16::try_from(value.len()).map_err(ProxyProtocolEncodeError::InvalidLength)?;
+        let len_b = len.to_be_bytes();
+        self.buf.push(key);
+        self.buf.extend_from_slice(&len_b);
+        self.buf.extend_from_slice(value);
+        Ok(())
+    }
+
+    pub fn push_upstream(
+        &mut self,
+        upstream: &UpstreamAddr,
+    ) -> Result<(), ProxyProtocolEncodeError> {
+        let value = upstream.to_string();
+        self.push(Self::PP2_TYPE_CUSTOM_UPSTREAM, value.as_bytes())
+    }
+
+    pub fn push_tls_name(&mut self, tls_name: &Host) -> Result<(), ProxyProtocolEncodeError> {
+        match tls_name {
+            Host::Domain(s) => self.push(Self::PP2_TYPE_CUSTOM_TLS_NAME, s.as_bytes()),
+            Host::Ip(ip) => {
+                let ip = ip.to_string();
+                self.push(Self::PP2_TYPE_CUSTOM_TLS_NAME, ip.as_bytes())
+            }
+        }
+    }
+
+    pub fn push_username(&mut self, name: &str) -> Result<(), ProxyProtocolEncodeError> {
+        self.push(Self::PP2_TYPE_CUSTOM_USERNAME, name.as_bytes())
+    }
+
+    pub fn push_task_id(&mut self, id: &[u8]) -> Result<(), ProxyProtocolEncodeError> {
+        self.push(Self::PP2_TYPE_CUSTOM_TASK_ID, id)
+    }
+
+    #[inline]
+    pub fn as_bytes(&self) -> &[u8] {
+        self.buf.as_slice()
     }
 }
 

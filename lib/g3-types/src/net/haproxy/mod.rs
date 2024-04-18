@@ -15,6 +15,7 @@
  */
 
 use std::net::SocketAddr;
+use std::num::TryFromIntError;
 use std::str::FromStr;
 
 use anyhow::anyhow;
@@ -24,7 +25,7 @@ mod v1;
 mod v2;
 
 use v1::ProxyProtocolV1Encoder;
-use v2::ProxyProtocolV2Encoder;
+pub use v2::{ProxyProtocolTlvEncoder, ProxyProtocolV2Encoder};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ProxyProtocolVersion {
@@ -48,6 +49,8 @@ impl FromStr for ProxyProtocolVersion {
 pub enum ProxyProtocolEncodeError {
     #[error("address family not match")]
     AddressFamilyNotMatch,
+    #[error("invalid length: {0}")]
+    InvalidLength(TryFromIntError),
 }
 
 pub enum ProxyProtocolEncoder {

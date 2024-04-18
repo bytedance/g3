@@ -56,14 +56,15 @@ impl DivertTcpEscaper {
             limit_config.max_south,
             self.stats.clone() as _,
         );
-        let ups_w = LimitedWriter::new(
+        let mut ups_w = LimitedWriter::new(
             ups_w,
             limit_config.shift_millis,
             limit_config.max_north,
             self.stats.clone() as _,
         );
 
-        // TODO send PPv2 header
+        self.send_pp2_header(&mut ups_w, tcp_notes, task_notes, Some(tls_name))
+            .await?;
 
         let ssl = tls_config
             .build_ssl(tls_name, tcp_notes.upstream.port())
