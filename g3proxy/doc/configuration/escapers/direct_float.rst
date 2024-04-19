@@ -29,11 +29,11 @@ The Cap'n Proto RPC publish command is supported on this escaper, the published 
 
 The following egress path selection methods is supported:
 
-* :ref:`by id map <proto_egress_path_selection_by_id_map>`
+* :ref:`by map <proto_egress_path_selection_by_map>`
 
   If matched, a `bind_ip <config_escaper_dynamic_bind_ip>` with the same `ID` will be used.
 
-  .. versionadded:: 1.9.0
+  .. versionadded:: 1.7.22
 
 Config Keys
 ===========

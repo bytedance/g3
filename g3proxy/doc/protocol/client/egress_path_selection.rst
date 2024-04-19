@@ -46,7 +46,7 @@ user support
 
 User level egress path selection can be enabled via :ref:`egress_path <config_user_egress_path>` config option.
 
-The supported method is :ref:`by id map <proto_egress_path_selection_by_id_map>`.
+The supported method is :ref:`by map <proto_egress_path_selection_by_map>`.
 
 selection methods
 =================
@@ -63,10 +63,10 @@ For escapers with multiple nodes (may be next escapers or ip addresses), the nod
 The value will be wrapped into range *1 - len(nodes)*.
 **NOTE*** the start value is *1*, *0* is the same as *len(nodes) - 1*.
 
-.. _proto_egress_path_selection_by_id_map:
+.. _proto_egress_path_selection_by_map:
 
-by id map
----------
+by map
+------
 
 **value**: json object
 
@@ -74,4 +74,4 @@ The root value should be a json map.
 
 The key should be the escaper name, so the corresponding value will be handled by that escaper.
 
-The value should be a `ID` string value, which the meaning will be different on each type of escaper.
+The value should be a `ID` string value, and it's meaning will be different on each type of escaper.

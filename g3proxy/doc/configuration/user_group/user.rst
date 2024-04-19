@@ -372,7 +372,7 @@ Set explicit sites for this user.
 egress_path
 -----------
 
-**optional**, **type**: :ref:`by json egress path <proto_egress_path_selection_by_json>`
+**optional**, **type**: :ref:`by map egress path <proto_egress_path_selection_by_map>`
 
 Set egress path selection for this user.
 
