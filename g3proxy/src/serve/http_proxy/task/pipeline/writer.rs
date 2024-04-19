@@ -240,18 +240,16 @@ where
     fn get_egress_path_selection(
         &self,
         headers: &mut HttpHeaderMap,
-        user_ctx: Option<&UserContext>,
-    ) -> Arc<EgressPathSelection> {
+    ) -> Option<EgressPathSelection> {
         if let Some(header) = &self.ctx.server_config.egress_path_selection_header {
             // check and remove the custom header
             if let Some(value) = headers.remove(header) {
-                let egress = EgressPathSelection::from_str(value.to_str()).unwrap_or_default();
-                return Arc::new(egress);
+                if let Ok(egress) = EgressPathSelection::from_str(value.to_str()) {
+                    return Some(egress);
+                }
             }
         }
-        user_ctx
-            .map(|ctx| ctx.user_config().egress_path_selection.clone())
-            .unwrap_or_default()
+        None
     }
 
     async fn run(
@@ -259,8 +257,7 @@ where
         mut req: HttpProxyRequest<CDR>,
         user_ctx: Option<UserContext>,
     ) -> LoopAction {
-        let path_selection =
-            self.get_egress_path_selection(&mut req.inner.end_to_end_headers, user_ctx.as_ref());
+        let path_selection = self.get_egress_path_selection(&mut req.inner.end_to_end_headers);
         let task_notes = ServerTaskNotes::with_path_selection(
             self.ctx.cc_info.clone(),
             user_ctx,

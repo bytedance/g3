@@ -15,7 +15,6 @@
  */
 
 use std::net::{IpAddr, SocketAddr};
-use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
@@ -27,8 +26,6 @@ use g3_types::limit::GaugeSemaphorePermit;
 
 use crate::auth::UserContext;
 use crate::escape::EgressPathSelection;
-
-static DEFAULT_PATH_SELECTION: OnceLock<Arc<EgressPathSelection>> = OnceLock::new();
 
 #[derive(Clone, Copy)]
 pub(crate) enum ServerTaskStage {
@@ -69,7 +66,7 @@ pub(crate) struct ServerTaskNotes {
     user_ctx: Option<UserContext>,
     pub(crate) wait_time: Duration,
     pub(crate) ready_time: Duration,
-    pub(crate) egress_path_selection: Arc<EgressPathSelection>,
+    pub(crate) egress_path_selection: Option<EgressPathSelection>,
     /// the following fields should not be cloned
     pub(crate) user_req_alive_permit: Option<GaugeSemaphorePermit>,
 }
@@ -80,16 +77,14 @@ impl ServerTaskNotes {
         user_ctx: Option<UserContext>,
         wait_time: Duration,
     ) -> Self {
-        let path_selection =
-            DEFAULT_PATH_SELECTION.get_or_init(|| Arc::new(EgressPathSelection::Default));
-        ServerTaskNotes::with_path_selection(cc_info, user_ctx, wait_time, path_selection.clone())
+        ServerTaskNotes::with_path_selection(cc_info, user_ctx, wait_time, None)
     }
 
     pub(crate) fn with_path_selection(
         cc_info: ClientConnectionInfo,
         user_ctx: Option<UserContext>,
         wait_time: Duration,
-        egress_path_selection: Arc<EgressPathSelection>,
+        egress_path_selection: Option<EgressPathSelection>,
     ) -> Self {
         let started = Utc::now();
         let uuid = g3_daemon::server::task::generate_uuid(&started);
@@ -139,6 +134,13 @@ impl ServerTaskNotes {
 
     pub(crate) fn raw_user_name(&self) -> Option<&str> {
         self.user_ctx.as_ref().and_then(|c| c.raw_user_name())
+    }
+
+    pub(crate) fn egress_path(&self) -> Option<&EgressPathSelection> {
+        self.user_ctx
+            .as_ref()
+            .and_then(|ctx| ctx.user_config().egress_path_selection.as_ref())
+            .or(self.egress_path_selection.as_ref())
     }
 
     #[inline]

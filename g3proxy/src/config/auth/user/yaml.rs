@@ -14,9 +14,7 @@
  * limitations under the License.
  */
 
-use std::str::FromStr;
-use std::sync::Arc;
-
+use ahash::AHashMap;
 use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
 
@@ -222,14 +220,16 @@ impl UserConfig {
                 .parse_yaml(v)
                 .context(format!("invalid user audit config value for key {k}")),
             "egress_path" => {
-                if let Yaml::String(s) = v {
-                    let v = serde_json::Value::from_str(s)
-                        .map_err(|e| anyhow!("invalid json string value for key {k}: {e}"))?;
-                    self.egress_path_selection = Arc::new(EgressPathSelection::JsonValue(v));
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid json string value for key {k}"))
-                }
+                let id_map = g3_yaml::value::as_hashmap(
+                    v,
+                    g3_yaml::value::as_metrics_name,
+                    g3_yaml::value::as_string,
+                )
+                .context(format!("invalid egress path id map value for key {k}"))?;
+                self.egress_path_selection = Some(EgressPathSelection::MatchId(
+                    id_map.into_iter().collect::<AHashMap<_, _>>(),
+                ));
+                Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
         }

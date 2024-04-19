@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-use std::sync::Arc;
+use std::str::FromStr;
 
+use ahash::AHashMap;
 use anyhow::{anyhow, Context};
+use g3_types::metrics::MetricsName;
 use serde_json::{Map, Value};
 
 use super::{PasswordToken, UserConfig, UserSiteConfig};
@@ -213,7 +215,15 @@ impl UserConfig {
                 .parse_json(v)
                 .context(format!("invalid user audit config value for key {k}")),
             "egress_path" => {
-                self.egress_path_selection = Arc::new(EgressPathSelection::JsonValue(v.clone()));
+                let id_map = g3_json::value::as_hashmap(
+                    v,
+                    |v| MetricsName::from_str(v).map_err(|e| anyhow!("invalid metrics name: {e}")),
+                    g3_json::value::as_string,
+                )
+                .context(format!("invalid egress path id map value for key {k}"))?;
+                self.egress_path_selection = Some(EgressPathSelection::MatchId(
+                    id_map.into_iter().collect::<AHashMap<_, _>>(),
+                ));
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

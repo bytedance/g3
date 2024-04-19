@@ -83,7 +83,7 @@ impl DirectFixedEscaper {
         self.handle_udp_target_ip_acl_action(action, task_notes)?;
 
         let family = AddressFamily::from(&peer_addr);
-        let bind_ip = self.get_bind_random(family, &task_notes.egress_path_selection);
+        let bind_ip = self.get_bind_random(family, task_notes.egress_path());
         udp_notes.bind = bind_ip;
 
         let misc_opts = if let Some(user_ctx) = task_notes.user_ctx() {

@@ -33,7 +33,6 @@ use super::{
 };
 use crate::auth::{UserContext, UserGroup, UserRequestStats};
 use crate::config::server::ServerConfig;
-use crate::escape::EgressPathSelection;
 use crate::module::http_forward::{BoxHttpForwardContext, HttpProxyClientResponse};
 use crate::serve::http_rproxy::host::HttpHost;
 use crate::serve::{ServerStats, ServerTaskNotes};
@@ -258,27 +257,16 @@ where
         }
     }
 
-    fn get_egress_path_selection(
-        &self,
-        user_ctx: Option<&UserContext>,
-    ) -> Arc<EgressPathSelection> {
-        user_ctx
-            .map(|ctx| ctx.user_config().egress_path_selection.clone())
-            .unwrap_or_default()
-    }
-
     async fn run(
         &mut self,
         req: HttpRProxyRequest<CDR>,
         user_ctx: Option<UserContext>,
         host: Arc<HttpHost>,
     ) -> LoopAction {
-        let path_selection = self.get_egress_path_selection(user_ctx.as_ref());
-        let task_notes = ServerTaskNotes::with_path_selection(
+        let task_notes = ServerTaskNotes::new(
             self.ctx.cc_info.clone(),
             user_ctx,
             req.time_accepted.elapsed(),
-            path_selection,
         );
 
         if let Some(mut stream_w) = self.stream_writer.take() {

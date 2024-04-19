@@ -22,8 +22,6 @@ use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use futures_util::future::AbortHandle;
 use log::warn;
-use rand::seq::IteratorRandom;
-use serde_json::Value;
 use slog::Logger;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
@@ -156,75 +154,23 @@ impl ProxyFloatEscaper {
         peer_set.select_random_peer()
     }
 
-    fn select_peer_from_egress_path(&self, value: &Value) -> anyhow::Result<ArcNextProxyPeer> {
-        let peer =
-            match value {
-                Value::Array(seq) => {
-                    let Some(v) = seq.first() else {
-                        return Err(anyhow!("empty peer array in egress path"));
-                    };
-                    if let Value::Object(_) = v {
-                        let peer_set = peer::parse_peers(
-                            &self.config,
-                            &self.stats,
-                            &self.escape_logger,
-                            seq,
-                            self.tls_config.as_ref(),
-                        )?;
-                        peer_set.select_random_peer()
-                    } else {
-                        let peer_set = self.peers.load();
-                        seq.iter()
-                            .filter_map(|v| {
-                                let Value::String(s) = v else {
-                                    return None;
-                                };
-                                let peer = peer_set.select_named_peer(s)?;
-                                if peer.is_expired() {
-                                    None
-                                } else {
-                                    Some(peer)
-                                }
-                            })
-                            .choose(&mut rand::thread_rng())
-                    }
-                }
-                Value::Object(_) => {
-                    let peer = peer::parse_peer(
-                        &self.config,
-                        &self.stats,
-                        &self.escape_logger,
-                        value,
-                        self.tls_config.as_ref(),
-                    )?;
-                    peer.and_then(|v| if v.is_expired() { None } else { Some(v) })
-                }
-                Value::String(id) => {
-                    let peer_set = self.peers.load();
-                    peer_set.select_named_peer(id).and_then(|v| {
-                        if v.is_expired() {
-                            None
-                        } else {
-                            Some(v)
-                        }
-                    })
-                }
-                _ => return Err(anyhow!("unsupported json value type for peer selection")),
-            };
-        peer.ok_or_else(|| anyhow!("no peer available in egress path"))
-    }
-
     fn select_peer(&self, task_notes: &ServerTaskNotes) -> anyhow::Result<ArcNextProxyPeer> {
-        if let Some(v) = task_notes
-            .egress_path_selection
-            .select_json_value_by_key(self.name().as_str())
-        {
-            self.select_peer_from_egress_path(v)
-                .context("failed to select peer from egress path")
-        } else {
-            self.select_peer_from_escaper()
-                .ok_or_else(|| anyhow!("no peer can be selected from escaper config"))
+        if let Some(path_selection) = task_notes.egress_path() {
+            if let Some(id) = path_selection.select_matched_id(self.name().as_str()) {
+                let peer_set = self.peers.load();
+                let peer = peer_set
+                    .select_named_peer(id)
+                    .ok_or_else(|| anyhow!("no peer with id {id} found in local cache"))?;
+                return if peer.is_expired() {
+                    Err(anyhow!("peer {id} is expired"))
+                } else {
+                    Ok(peer)
+                };
+            }
         }
+
+        self.select_peer_from_escaper()
+            .ok_or_else(|| anyhow!("no peer can be selected from escaper config"))
     }
 }
 

@@ -19,9 +19,8 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use ahash::AHashMap;
-use anyhow::{anyhow, Context};
+use anyhow::anyhow;
 use async_trait::async_trait;
-use serde_json::Value;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder, WeightedValue};
@@ -75,10 +74,12 @@ impl RouteSelectEscaper {
         for v in &config.next_nodes {
             let escaper = super::registry::get_or_insert_default(v.inner());
             all_nodes.insert(escaper.name().clone(), escaper.clone());
-            select_nodes_builder.insert(WeightedValue::with_weight(
-                EscaperWrapper { escaper },
-                v.weight(),
-            ));
+            if v.weight() > 0f64 {
+                select_nodes_builder.insert(WeightedValue::with_weight(
+                    EscaperWrapper { escaper },
+                    v.weight(),
+                ));
+            }
         }
 
         let select_nodes = select_nodes_builder
@@ -111,64 +112,28 @@ impl RouteSelectEscaper {
         }
     }
 
-    fn parse_nodes_from_egress_path(
-        value: &Value,
-    ) -> anyhow::Result<SelectiveVec<WeightedValue<MetricsName>>> {
-        let mut next_nodes = SelectiveVecBuilder::new();
-        let items = g3_json::value::as_list(value, g3_json::value::as_weighted_metrics_name)
-            .context("invalid weighted metrics name list value")?;
-        for item in items {
-            next_nodes.insert(item);
-        }
-        next_nodes
-            .build()
-            .ok_or_else(|| anyhow!("no next escaper set"))
-    }
-
-    fn select_next_from_egress_path(
-        &self,
-        value: &Value,
-        task_notes: &ServerTaskNotes,
-        upstream: &UpstreamAddr,
-    ) -> anyhow::Result<ArcEscaper> {
-        let next_nodes = RouteSelectEscaper::parse_nodes_from_egress_path(value)
-            .context("invalid json value")?;
-        let v = self.select_consistent(
-            &next_nodes,
-            self.config.next_pick_policy,
-            task_notes,
-            upstream.host(),
-        );
-
-        match self.all_nodes.get(v.inner()) {
-            Some(v) => Ok(v.clone()),
-            None => Err(anyhow!(
-                "no next escaper {} found in escaper config",
-                v.inner()
-            )),
-        }
-    }
-
     fn select_next(
         &self,
         task_notes: &ServerTaskNotes,
         upstream: &UpstreamAddr,
     ) -> anyhow::Result<ArcEscaper> {
-        if let Some(v) = task_notes
-            .egress_path_selection
-            .select_json_value_by_key(self.name().as_str())
-        {
-            self.select_next_from_egress_path(v, task_notes, upstream)
-                .context("failed to select next escaper from egress path")
-        } else {
-            let v = self.select_consistent(
-                &self.select_nodes,
-                self.config.next_pick_policy,
-                task_notes,
-                upstream.host(),
-            );
-            Ok(v.inner().escaper.clone())
+        if let Some(path_selection) = task_notes.egress_path() {
+            if let Some(id) = path_selection.select_matched_id(self.name().as_str()) {
+                return self
+                    .all_nodes
+                    .get(id)
+                    .cloned()
+                    .ok_or_else(|| anyhow!("no next escaper {id} found in local cache"));
+            }
         }
+
+        let v = self.select_consistent(
+            &self.select_nodes,
+            self.config.next_pick_policy,
+            task_notes,
+            upstream.host(),
+        );
+        Ok(v.inner().escaper.clone())
     }
 }
 

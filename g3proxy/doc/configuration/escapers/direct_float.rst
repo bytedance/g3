@@ -29,19 +29,11 @@ The Cap'n Proto RPC publish command is supported on this escaper, the published 
 
 The following egress path selection methods is supported:
 
-* :ref:`by json <proto_egress_path_selection_by_json>`
+* :ref:`by id map <proto_egress_path_selection_by_id_map>`
 
-  The json value will be either of:
+  If matched, a `bind_ip <config_escaper_dynamic_bind_ip>` with the same `ID` will be used.
 
-  - just one :ref:`Bind IP <config_escaper_dynamic_bind_ip>`
-  - an array of  :ref:`Bind IP <config_escaper_dynamic_bind_ip>`, a random one will be selected
-  - just one :ref:`Bind IP ID <config_escaper_dynamic_bind_ip_id>`, the ID should be present in escaper config
-  - an array of :ref:`Bind IP ID <config_escaper_dynamic_bind_ip_id>`, a usable ID will be selected randomly
-
-  .. note:: you should consider disable ipv4 / ipv6 at escaper level if the value in the egress path selection doesn't
-            support ipv4 / ipv6
-
-  .. versionadded:: 1.7.22
+  .. versionadded:: 1.9.0
 
 Config Keys
 ===========

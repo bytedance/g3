@@ -16,14 +16,14 @@
 
 use std::str::FromStr;
 
-use serde_json::Value;
+use ahash::AHashMap;
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+use g3_types::metrics::MetricsName;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum EgressPathSelection {
-    #[default]
-    Default,
     Index(usize),
-    JsonValue(Value),
+    MatchId(AHashMap<MetricsName, String>),
 }
 
 impl EgressPathSelection {
@@ -46,13 +46,12 @@ impl EgressPathSelection {
         }
     }
 
-    pub(crate) fn select_json_value_by_key(&self, key: &str) -> Option<&Value> {
-        if let EgressPathSelection::JsonValue(Value::Object(map)) = self {
-            if let Some(v) = map.get(key) {
-                return Some(v);
-            }
+    pub(crate) fn select_matched_id(&self, escaper: &str) -> Option<&str> {
+        if let EgressPathSelection::MatchId(map) = self {
+            map.get(escaper).map(|v| v.as_str())
+        } else {
+            None
         }
-        None
     }
 }
 
@@ -60,10 +59,6 @@ impl FromStr for EgressPathSelection {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.eq("default") {
-            return Ok(EgressPathSelection::Default);
-        };
-
         if let Ok(index) = usize::from_str(s) {
             return Ok(EgressPathSelection::Index(index));
         }

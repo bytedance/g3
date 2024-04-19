@@ -122,7 +122,7 @@ impl DirectFixedEscaper {
     fn get_bind_random(
         &self,
         family: AddressFamily,
-        path_selection: &EgressPathSelection,
+        path_selection: Option<&EgressPathSelection>,
     ) -> Option<IpAddr> {
         let vec = match family {
             AddressFamily::Ipv4 => &self.config.bind4,
@@ -133,8 +133,10 @@ impl DirectFixedEscaper {
             1 => Some(vec[0]),
             n => {
                 if self.config.enable_path_selection {
-                    if let Some(i) = path_selection.select_by_index(n) {
-                        return Some(vec[i]);
+                    if let Some(path_selection) = path_selection {
+                        if let Some(i) = path_selection.select_by_index(n) {
+                            return Some(vec[i]);
+                        }
                     }
                 }
 

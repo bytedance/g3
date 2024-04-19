@@ -7,12 +7,15 @@ This escaper allows to select a next escaper based on the specified pick policy.
 
 The following egress path selection methods is supported:
 
-* :ref:`by json <proto_egress_path_selection_by_json>`
+* :ref:`by id map <proto_egress_path_selection_by_id_map>`
 
-  The json value will be parsed as :ref:`next_nodes <conf_escaper_route_select_next_nodes>` as below.
-  The select policy can only be set by :ref:`next_pick_policy <conf_escaper_route_select_next_pick_policy>`.
+  If matched, an escaper registered in :ref:`next_nodes <conf_escaper_route_select_next_nodes>` which
+  the name is the same with `ID` will be used.
 
-  .. versionadded:: 1.7.22
+  The escaper with name `ID` must be present in :ref:`next_nodes <conf_escaper_route_select_next_nodes>`.
+  You can set the weight to 0 to avoid a default selection.
+
+  .. versionadded:: 1.9.0
 
 No common keys are supported.
 
