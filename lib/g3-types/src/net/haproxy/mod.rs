@@ -55,6 +55,7 @@ pub enum ProxyProtocolEncodeError {
     TotalLengthOverflow,
 }
 
+#[allow(clippy::large_enum_variant)]
 pub enum ProxyProtocolEncoder {
     V1(ProxyProtocolV1Encoder),
     V2(ProxyProtocolV2Encoder),
