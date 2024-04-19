@@ -1,4 +1,14 @@
 
+v1.9.0:
+ - BUG FIX: fix sending of upstream error CONNECT and upgrade response body
+ - Feature: add divert_tcp escaper to redirect streams to another server
+ - Feature: send HTTP CONNECT and upgrade request to ICAP reqmod service
+ - Feature: allow to set custom tls client config in user-site level
+ - Feature: allow to set http response header receive timeout in user-site level
+ - Feature: allow to use domain value as static socket address
+ - Feature: add support for ketama consistent hash
+ - Feature: send mimic cert to cert generator in tls interception
+
 v1.8.0:
  - Policy: LTS version
 
