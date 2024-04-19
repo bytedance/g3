@@ -21,7 +21,8 @@ use crate::net::{Host, UpstreamAddr};
 
 const V2_MAGIC_HEADER: &[u8] = b"\x0d\x0a\x0d\x0a\x00\x0d\x0a\x51\x55\x49\x54\x0a";
 
-const V2_BUF_CAP: usize = 52;
+const V2_BUF_CAP: usize = 536;
+const V2_HDR_LEN: usize = 16;
 
 const BITS_VERSION: u8 = 0x20;
 
@@ -46,88 +47,78 @@ const BYTE14_TCP6: u8 = AF_INET6 | PROTO_STREAM;
 // const V2_HEADER_TCP4: &[u8] = concat_bytes!(V2_MAGIC_HEADER, &[BYTE_13_PROXY, BYTE14_TCP4, 0x00, 12]);
 // const V2_HEADER_TCP6: &[u8] = concat_bytes!(V2_MAGIC_HEADER, &[BYTE_13_PROXY, BYTE14_TCP6, 0x00, 36]);
 
-pub struct ProxyProtocolV2Encoder([u8; V2_BUF_CAP]);
+const PP2_TYPE_CUSTOM_UPSTREAM: u8 = 0xE0;
+const PP2_TYPE_CUSTOM_TLS_NAME: u8 = 0xE1;
+const PP2_TYPE_CUSTOM_USERNAME: u8 = 0xE2;
+const PP2_TYPE_CUSTOM_TASK_ID: u8 = 0xE3;
 
-impl Default for ProxyProtocolV2Encoder {
-    fn default() -> Self {
-        ProxyProtocolV2Encoder::new()
-    }
+pub struct ProxyProtocolV2Encoder {
+    buf: [u8; V2_BUF_CAP],
+    len: usize,
 }
 
 impl ProxyProtocolV2Encoder {
-    pub fn new() -> Self {
-        ProxyProtocolV2Encoder([0u8; V2_BUF_CAP])
+    pub(super) fn new() -> Self {
+        ProxyProtocolV2Encoder {
+            buf: [0u8; V2_BUF_CAP],
+            len: 0,
+        }
     }
 
-    #[inline]
-    pub fn encode_tcp(
+    pub fn new_tcp(
+        client_addr: SocketAddr,
+        server_addr: SocketAddr,
+    ) -> Result<Self, ProxyProtocolEncodeError> {
+        let mut encoder = ProxyProtocolV2Encoder::new();
+        encoder.encode_tcp(client_addr, server_addr)?;
+        Ok(encoder)
+    }
+
+    pub(super) fn encode_tcp(
         &mut self,
         client_addr: SocketAddr,
         server_addr: SocketAddr,
     ) -> Result<&[u8], ProxyProtocolEncodeError> {
-        self.encode_tcp_with_tlv(client_addr, server_addr, 0)
-    }
-
-    pub fn encode_tcp_with_tlv(
-        &mut self,
-        client_addr: SocketAddr,
-        server_addr: SocketAddr,
-        tlv_len: usize,
-    ) -> Result<&[u8], ProxyProtocolEncodeError> {
-        self.0[..12].copy_from_slice(V2_MAGIC_HEADER);
+        self.buf[..12].copy_from_slice(V2_MAGIC_HEADER);
 
         match (client_addr, server_addr) {
             (SocketAddr::V4(c4), SocketAddr::V4(s4)) => {
-                let len = tlv_len + 12;
-                let len = u16::try_from(len).map_err(ProxyProtocolEncodeError::InvalidLength)?;
-                let l = len.to_be_bytes();
-                self.0[12..16].copy_from_slice(&[BYTE_13_PROXY, BYTE14_TCP4, l[0], l[1]]);
-                self.0[16..20].copy_from_slice(&c4.ip().octets());
-                self.0[20..24].copy_from_slice(&s4.ip().octets());
-                self.0[24..26].copy_from_slice(&c4.port().to_be_bytes());
-                self.0[26..28].copy_from_slice(&s4.port().to_be_bytes());
-                Ok(&self.0[..28])
+                self.buf[12..16].copy_from_slice(&[BYTE_13_PROXY, BYTE14_TCP4, 0, 12]);
+                self.buf[16..20].copy_from_slice(&c4.ip().octets());
+                self.buf[20..24].copy_from_slice(&s4.ip().octets());
+                self.buf[24..26].copy_from_slice(&c4.port().to_be_bytes());
+                self.buf[26..28].copy_from_slice(&s4.port().to_be_bytes());
+                self.len = 28;
+                Ok(&self.buf[..self.len])
             }
             (SocketAddr::V6(c6), SocketAddr::V6(s6)) => {
-                let len = tlv_len + 36;
-                let len = u16::try_from(len).map_err(ProxyProtocolEncodeError::InvalidLength)?;
-                let l = len.to_be_bytes();
-                self.0[12..16].copy_from_slice(&[BYTE_13_PROXY, BYTE14_TCP6, l[0], l[1]]);
-                self.0[16..32].copy_from_slice(&c6.ip().octets());
-                self.0[32..48].copy_from_slice(&s6.ip().octets());
-                self.0[48..50].copy_from_slice(&c6.port().to_be_bytes());
-                self.0[50..52].copy_from_slice(&s6.port().to_be_bytes());
-                Ok(&self.0[..52])
+                self.buf[12..16].copy_from_slice(&[BYTE_13_PROXY, BYTE14_TCP6, 0, 36]);
+                self.buf[16..32].copy_from_slice(&c6.ip().octets());
+                self.buf[32..48].copy_from_slice(&s6.ip().octets());
+                self.buf[48..50].copy_from_slice(&c6.port().to_be_bytes());
+                self.buf[50..52].copy_from_slice(&s6.port().to_be_bytes());
+                self.len = 52;
+                Ok(&self.buf[..self.len])
             }
             _ => Err(ProxyProtocolEncodeError::AddressFamilyNotMatch),
         }
     }
-}
 
-pub struct ProxyProtocolTlvEncoder {
-    buf: Vec<u8>,
-}
-
-impl Default for ProxyProtocolTlvEncoder {
-    fn default() -> Self {
-        ProxyProtocolTlvEncoder {
-            buf: Vec::with_capacity(576),
-        }
-    }
-}
-
-impl ProxyProtocolTlvEncoder {
-    const PP2_TYPE_CUSTOM_UPSTREAM: u8 = 0xE0;
-    const PP2_TYPE_CUSTOM_TLS_NAME: u8 = 0xE1;
-    const PP2_TYPE_CUSTOM_USERNAME: u8 = 0xE2;
-    const PP2_TYPE_CUSTOM_TASK_ID: u8 = 0xE3;
-
-    pub fn push(&mut self, key: u8, value: &[u8]) -> Result<(), ProxyProtocolEncodeError> {
-        let len = u16::try_from(value.len()).map_err(ProxyProtocolEncodeError::InvalidLength)?;
+    pub fn push_tlv(&mut self, key: u8, value: &[u8]) -> Result<(), ProxyProtocolEncodeError> {
+        let v_len = value.len();
+        let len = u16::try_from(value.len()).map_err(ProxyProtocolEncodeError::InvalidU16Length)?;
         let len_b = len.to_be_bytes();
-        self.buf.push(key);
-        self.buf.extend_from_slice(&len_b);
-        self.buf.extend_from_slice(value);
+        let mut offset = self.len;
+        self.len += 3 + v_len;
+        if self.len > V2_BUF_CAP {
+            self.len = offset;
+            return Err(ProxyProtocolEncodeError::TotalLengthOverflow);
+        }
+        self.buf[offset] = key;
+        offset += 1;
+        self.buf[offset..offset + 2].copy_from_slice(&len_b);
+        offset += 2;
+        self.buf[offset..offset + v_len].copy_from_slice(value);
         Ok(())
     }
 
@@ -136,30 +127,32 @@ impl ProxyProtocolTlvEncoder {
         upstream: &UpstreamAddr,
     ) -> Result<(), ProxyProtocolEncodeError> {
         let value = upstream.to_string();
-        self.push(Self::PP2_TYPE_CUSTOM_UPSTREAM, value.as_bytes())
+        self.push_tlv(PP2_TYPE_CUSTOM_UPSTREAM, value.as_bytes())
     }
 
     pub fn push_tls_name(&mut self, tls_name: &Host) -> Result<(), ProxyProtocolEncodeError> {
         match tls_name {
-            Host::Domain(s) => self.push(Self::PP2_TYPE_CUSTOM_TLS_NAME, s.as_bytes()),
+            Host::Domain(s) => self.push_tlv(PP2_TYPE_CUSTOM_TLS_NAME, s.as_bytes()),
             Host::Ip(ip) => {
                 let ip = ip.to_string();
-                self.push(Self::PP2_TYPE_CUSTOM_TLS_NAME, ip.as_bytes())
+                self.push_tlv(PP2_TYPE_CUSTOM_TLS_NAME, ip.as_bytes())
             }
         }
     }
 
     pub fn push_username(&mut self, name: &str) -> Result<(), ProxyProtocolEncodeError> {
-        self.push(Self::PP2_TYPE_CUSTOM_USERNAME, name.as_bytes())
+        self.push_tlv(PP2_TYPE_CUSTOM_USERNAME, name.as_bytes())
     }
 
     pub fn push_task_id(&mut self, id: &[u8]) -> Result<(), ProxyProtocolEncodeError> {
-        self.push(Self::PP2_TYPE_CUSTOM_TASK_ID, id)
+        self.push_tlv(PP2_TYPE_CUSTOM_TASK_ID, id)
     }
 
-    #[inline]
-    pub fn as_bytes(&self) -> &[u8] {
-        self.buf.as_slice()
+    pub fn finalize(&mut self) -> &[u8] {
+        let data_len = (self.len - V2_HDR_LEN) as u16; // won't overlap
+        let b = data_len.to_be_bytes();
+        self.buf[14..=15].copy_from_slice(&b);
+        &self.buf[..self.len]
     }
 }
 
@@ -173,10 +166,9 @@ mod tests {
         let client = SocketAddr::from_str("192.168.0.1:56324").unwrap();
         let server = SocketAddr::from_str("192.168.0.11:443").unwrap();
 
-        let mut encoder = ProxyProtocolV2Encoder::new();
-        let encoded = encoder.encode_tcp(client, server).unwrap();
+        let mut encoder = ProxyProtocolV2Encoder::new_tcp(client, server).unwrap();
         assert_eq!(
-            encoded,
+            encoder.finalize(),
             b"\x0d\x0a\x0d\x0a\x00\x0d\x0a\x51\x55\x49\x54\x0a\
               \x21\x11\x00\x0C\
               \xC0\xA8\x00\x01\
@@ -186,19 +178,56 @@ mod tests {
     }
 
     #[test]
+    fn t_tcp4_tlv() {
+        let client = SocketAddr::from_str("192.168.0.1:56324").unwrap();
+        let server = SocketAddr::from_str("192.168.0.11:443").unwrap();
+
+        let mut encoder = ProxyProtocolV2Encoder::new_tcp(client, server).unwrap();
+        encoder.push_task_id(b"1234").unwrap();
+        assert_eq!(
+            encoder.finalize(),
+            b"\x0d\x0a\x0d\x0a\x00\x0d\x0a\x51\x55\x49\x54\x0a\
+              \x21\x11\x00\x13\
+              \xC0\xA8\x00\x01\
+              \xC0\xA8\x00\x0B\
+              \xDC\x04\x01\xBB\
+              \xE3\x00\x04\
+              1234"
+        );
+    }
+
+    #[test]
     fn t_tcp6() {
         let client = SocketAddr::from_str("[2001:db8::1]:56324").unwrap();
         let server = SocketAddr::from_str("[2001:db8::11]:443").unwrap();
 
-        let mut encoder = ProxyProtocolV2Encoder::new();
-        let encoded = encoder.encode_tcp(client, server).unwrap();
+        let mut encoder = ProxyProtocolV2Encoder::new_tcp(client, server).unwrap();
         assert_eq!(
-            encoded,
+            encoder.finalize(),
             b"\x0d\x0a\x0d\x0a\x00\x0d\x0a\x51\x55\x49\x54\x0a\
               \x21\x21\x00\x24\
               \x20\x01\x0d\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\
               \x20\x01\x0d\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\
               \xDC\x04\x01\xBB"
+        );
+    }
+
+    #[test]
+    fn t_tcp6_tlv() {
+        let client = SocketAddr::from_str("[2001:db8::1]:56324").unwrap();
+        let server = SocketAddr::from_str("[2001:db8::11]:443").unwrap();
+
+        let mut encoder = ProxyProtocolV2Encoder::new_tcp(client, server).unwrap();
+        encoder.push_username("1234").unwrap();
+        assert_eq!(
+            encoder.finalize(),
+            b"\x0d\x0a\x0d\x0a\x00\x0d\x0a\x51\x55\x49\x54\x0a\
+              \x21\x21\x00\x2B\
+              \x20\x01\x0d\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\
+              \x20\x01\x0d\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\
+              \xDC\x04\x01\xBB\
+              \xE2\x00\x04\
+              1234"
         );
     }
 }

@@ -303,7 +303,7 @@ impl DivertTcpEscaper {
         let nw = self
             .send_pp2_header(&mut w, tcp_notes, task_notes, None)
             .await?;
-        self.stats.add_write_bytes(nw);
+        self.stats.add_write_bytes(nw as u64);
 
         let mut wrapper_stats = TcpConnectRemoteWrapperStats::new(&self.stats, task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));

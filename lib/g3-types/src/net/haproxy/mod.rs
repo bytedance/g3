@@ -25,7 +25,7 @@ mod v1;
 mod v2;
 
 use v1::ProxyProtocolV1Encoder;
-pub use v2::{ProxyProtocolTlvEncoder, ProxyProtocolV2Encoder};
+pub use v2::ProxyProtocolV2Encoder;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ProxyProtocolVersion {
@@ -49,8 +49,10 @@ impl FromStr for ProxyProtocolVersion {
 pub enum ProxyProtocolEncodeError {
     #[error("address family not match")]
     AddressFamilyNotMatch,
-    #[error("invalid length: {0}")]
-    InvalidLength(TryFromIntError),
+    #[error("invalid u16 length: {0}")]
+    InvalidU16Length(TryFromIntError),
+    #[error("total length overflow")]
+    TotalLengthOverflow,
 }
 
 pub enum ProxyProtocolEncoder {

@@ -15,7 +15,6 @@
  */
 
 use std::collections::BTreeSet;
-use std::io::IoSlice;
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -24,13 +23,12 @@ use slog::Logger;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_io_ext::LimitedWriteExt;
 use g3_resolver::{ResolveError, ResolveLocalError};
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder};
 use g3_types::metrics::MetricsName;
 use g3_types::net::{
-    Host, OpensslClientConfig, ProxyProtocolEncodeError, ProxyProtocolTlvEncoder,
-    ProxyProtocolV2Encoder, UpstreamAddr, WeightedUpstreamAddr,
+    Host, OpensslClientConfig, ProxyProtocolEncodeError, ProxyProtocolV2Encoder, UpstreamAddr,
+    WeightedUpstreamAddr,
 };
 
 use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperExt, EscaperInternal, EscaperStats};
@@ -160,19 +158,19 @@ impl DivertTcpEscaper {
 
     fn encode_pp2_tlv(
         &self,
-        tlv_encoder: &mut ProxyProtocolTlvEncoder,
+        pp2_encoder: &mut ProxyProtocolV2Encoder,
         tcp_notes: &TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         tls_name: Option<&Host>,
     ) -> Result<(), ProxyProtocolEncodeError> {
-        tlv_encoder.push_upstream(&tcp_notes.upstream)?;
+        pp2_encoder.push_upstream(&tcp_notes.upstream)?;
         if let Some(tls_name) = tls_name {
-            tlv_encoder.push_tls_name(tls_name)?;
+            pp2_encoder.push_tls_name(tls_name)?;
         }
         if let Some(user_ctx) = task_notes.user_ctx() {
-            tlv_encoder.push_username(user_ctx.user_name())?;
+            pp2_encoder.push_username(user_ctx.user_name())?;
         }
-        tlv_encoder.push_task_id(task_notes.id.as_bytes())?;
+        pp2_encoder.push_task_id(task_notes.id.as_bytes())?;
         Ok(())
     }
 
@@ -182,30 +180,24 @@ impl DivertTcpEscaper {
         tcp_notes: &TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         tls_name: Option<&Host>,
-    ) -> Result<u64, TcpConnectError>
+    ) -> Result<usize, TcpConnectError>
     where
         W: AsyncWrite + Unpin,
     {
-        let mut tlv_encoder = ProxyProtocolTlvEncoder::default();
-        self.encode_pp2_tlv(&mut tlv_encoder, tcp_notes, task_notes, tls_name)?;
+        let mut pp2_encoder =
+            ProxyProtocolV2Encoder::new_tcp(task_notes.client_addr(), task_notes.server_addr())?;
+        self.encode_pp2_tlv(&mut pp2_encoder, tcp_notes, task_notes, tls_name)?;
 
-        let tlv = tlv_encoder.as_bytes();
-        let mut hdr = ProxyProtocolV2Encoder::new();
-        let hdr = hdr.encode_tcp_with_tlv(
-            task_notes.client_addr(),
-            task_notes.server_addr(),
-            tlv.len(),
-        )?;
-
-        let nw = writer
-            .write_all_vectored([IoSlice::new(hdr), IoSlice::new(tlv)])
+        let pp2_data = pp2_encoder.finalize();
+        writer
+            .write_all(pp2_data)
             .await
             .map_err(TcpConnectError::ProxyProtocolWriteFailed)?;
         writer
             .flush()
             .await
             .map_err(TcpConnectError::ProxyProtocolWriteFailed)?;
-        Ok(nw)
+        Ok(pp2_data.len())
     }
 }
 
