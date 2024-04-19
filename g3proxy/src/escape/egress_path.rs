@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,13 @@
 
 use std::str::FromStr;
 
-#[cfg(feature = "json")]
 use serde_json::Value;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub enum EgressPathSelection {
+pub(crate) enum EgressPathSelection {
     #[default]
     Default,
     Index(usize),
-    #[cfg(feature = "json")]
     JsonValue(Value),
 }
 
@@ -32,7 +30,7 @@ impl EgressPathSelection {
     /// get the selection id
     /// `len` should not be zero
     /// the returned id will be in range 0..len
-    pub fn select_by_index(&self, len: usize) -> Option<usize> {
+    pub(crate) fn select_by_index(&self, len: usize) -> Option<usize> {
         if let EgressPathSelection::Index(id) = self {
             let id = *id;
             let i = if id == 0 {
@@ -48,8 +46,7 @@ impl EgressPathSelection {
         }
     }
 
-    #[cfg(feature = "json")]
-    pub fn select_json_value_by_key(&self, key: &str) -> Option<&Value> {
+    pub(crate) fn select_json_value_by_key(&self, key: &str) -> Option<&Value> {
         if let EgressPathSelection::JsonValue(Value::Object(map)) = self {
             if let Some(v) = map.get(key) {
                 return Some(v);

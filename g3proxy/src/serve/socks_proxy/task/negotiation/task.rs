@@ -23,7 +23,6 @@ use tokio::time::Instant;
 
 use g3_io_ext::{LimitedReader, LimitedWriter};
 use g3_socks::{v4a, v5, SocksAuthMethod, SocksCommand, SocksVersion};
-use g3_types::route::EgressPathSelection;
 
 use super::tcp_connect::SocksProxyTcpConnectTask;
 use super::udp_associate::SocksProxyUdpAssociateTask;
@@ -31,6 +30,7 @@ use super::udp_connect::SocksProxyUdpConnectTask;
 use super::{CommonTaskContext, SocksProxyCltWrapperStats};
 use crate::auth::{UserContext, UserGroup};
 use crate::config::server::ServerConfig;
+use crate::escape::EgressPathSelection;
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
 };

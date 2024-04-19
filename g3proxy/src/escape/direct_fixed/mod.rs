@@ -29,9 +29,10 @@ use g3_types::acl::AclNetworkRule;
 use g3_types::metrics::MetricsName;
 use g3_types::net::{Host, OpensslClientConfig, UpstreamAddr};
 use g3_types::resolve::{ResolveRedirection, ResolveStrategy};
-use g3_types::route::EgressPathSelection;
 
-use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperInternal, EscaperStats};
+use super::{
+    ArcEscaper, ArcEscaperStats, EgressPathSelection, Escaper, EscaperInternal, EscaperStats,
+};
 use crate::auth::UserUpstreamTrafficStats;
 use crate::config::escaper::direct_fixed::DirectFixedEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};

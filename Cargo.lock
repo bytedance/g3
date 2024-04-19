@@ -1459,7 +1459,6 @@ dependencies = [
  "rustls",
  "rustls-native-certs",
  "rustls-pemfile",
- "serde_json",
  "sha-1",
  "slog",
  "smallvec",

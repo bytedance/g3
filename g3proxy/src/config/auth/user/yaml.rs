@@ -20,10 +20,10 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
 
-use g3_types::route::EgressPathSelection;
 use g3_yaml::YamlDocPosition;
 
 use super::{PasswordToken, UserConfig, UserSiteConfig};
+use crate::escape::EgressPathSelection;
 
 impl UserConfig {
     pub(crate) fn parse_yaml(

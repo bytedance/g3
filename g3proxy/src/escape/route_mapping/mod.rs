@@ -23,9 +23,8 @@ use async_trait::async_trait;
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::metrics::MetricsName;
 use g3_types::net::{Host, OpensslClientConfig, UpstreamAddr};
-use g3_types::route::EgressPathSelection;
 
-use super::{ArcEscaper, Escaper, EscaperInternal, RouteEscaperStats};
+use super::{ArcEscaper, EgressPathSelection, Escaper, EscaperInternal, RouteEscaperStats};
 use crate::config::escaper::route_mapping::RouteMappingEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
 use crate::module::ftp_over_http::{

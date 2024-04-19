@@ -52,6 +52,9 @@ pub(crate) use stats::{
     RouteEscaperSnapshot, RouteEscaperStats,
 };
 
+mod egress_path;
+pub(crate) use egress_path::EgressPathSelection;
+
 mod direct_fixed;
 mod direct_float;
 mod divert_tcp;

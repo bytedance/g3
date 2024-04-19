@@ -24,9 +24,9 @@ use uuid::Uuid;
 
 use g3_daemon::server::ClientConnectionInfo;
 use g3_types::limit::GaugeSemaphorePermit;
-use g3_types::route::EgressPathSelection;
 
 use crate::auth::UserContext;
+use crate::escape::EgressPathSelection;
 
 static DEFAULT_PATH_SELECTION: OnceLock<Arc<EgressPathSelection>> = OnceLock::new();
 

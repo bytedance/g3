@@ -24,7 +24,7 @@ use tokio::sync::mpsc;
 use g3_io_ext::{ArcLimitedWriterStats, LimitedWriter};
 use g3_types::auth::UserAuthError;
 use g3_types::net::{HttpAuth, HttpBasicAuth};
-use g3_types::route::{EgressPathSelection, HostMatch};
+use g3_types::route::HostMatch;
 
 use super::protocol::{HttpClientWriter, HttpRProxyRequest};
 use super::{
@@ -33,6 +33,7 @@ use super::{
 };
 use crate::auth::{UserContext, UserGroup, UserRequestStats};
 use crate::config::server::ServerConfig;
+use crate::escape::EgressPathSelection;
 use crate::module::http_forward::{BoxHttpForwardContext, HttpProxyClientResponse};
 use crate::serve::http_rproxy::host::HttpHost;
 use crate::serve::{ServerStats, ServerTaskNotes};

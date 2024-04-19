@@ -19,9 +19,8 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context};
 use serde_json::{Map, Value};
 
-use g3_types::route::EgressPathSelection;
-
 use super::{PasswordToken, UserConfig, UserSiteConfig};
+use crate::escape::EgressPathSelection;
 
 impl UserConfig {
     pub(crate) fn parse_json(map: &Map<String, Value>) -> anyhow::Result<Self> {

@@ -32,9 +32,9 @@ use g3_types::net::{
     TcpSockSpeedLimitConfig, UdpMiscSockOpts, UdpSockSpeedLimitConfig,
 };
 use g3_types::resolve::{ResolveRedirectionBuilder, ResolveStrategy};
-use g3_types::route::EgressPathSelection;
 
 use super::{PasswordToken, UserAuditConfig, UserSiteConfig};
+use crate::escape::EgressPathSelection;
 
 mod json;
 mod yaml;
