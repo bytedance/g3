@@ -38,3 +38,6 @@ pub use root::RootCertBuilder;
 
 mod intermediate;
 pub use intermediate::IntermediateCertBuilder;
+
+mod mimic;
+pub use mimic::MimicCertBuilder;
