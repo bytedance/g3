@@ -78,7 +78,8 @@ impl OpensslBackend {
     }
 
     fn generate_mimic(&self, mimic_cert: &X509) -> anyhow::Result<GeneratedData> {
-        let mimic_builder = MimicCertBuilder::new(mimic_cert)?;
+        let mut mimic_builder = MimicCertBuilder::new(mimic_cert)?;
+        mimic_builder.set_keep_serial(self.config.keep_serial);
         let cert = mimic_builder.build(&self.config.ca_cert, &self.config.ca_key, None)?;
         let ttl = mimic_builder.valid_seconds()?;
 
@@ -91,7 +92,7 @@ impl OpensslBackend {
         pkey: &PKey<Private>,
         ttl: i32,
     ) -> anyhow::Result<GeneratedData> {
-        let ttl = ttl.clamp(0, 24 * 3600) as u32; // max to 1day
+        let ttl = ttl.clamp(0, self.config.max_ttl) as u32;
         let mut cert_pem = cert
             .to_pem()
             .map_err(|e| anyhow!("failed to encode cert to PEM format: {e}"))?;
