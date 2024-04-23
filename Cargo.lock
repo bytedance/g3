@@ -339,9 +339,9 @@ dependencies = [
 
 [[package]]
 name = "bssl-cmake-sys"
-version = "0.1.2404150"
+version = "0.1.2404220"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92a6aa5aeadab4f22438e50c95df19f06284e13e54f01af67a1a66e45be473b5"
+checksum = "da4650f2ec1102eba68397a683510a22ff55e834f2e60237e5a3429a92d68aab"
 dependencies = [
  "bindgen",
  "cc",
@@ -2319,9 +2319,9 @@ dependencies = [
 
 [[package]]
 name = "jobserver"
-version = "0.1.30"
+version = "0.1.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "685a7d121ee3f65ae4fddd72b25a04bb36b6af81bc0828f7d5434c0fe60fa3a2"
+checksum = "d2b099aaa34a9751c5bf0878add70444e1ed2dd73f347be99003d4577277de6e"
 dependencies = [
  "libc",
 ]
@@ -2669,9 +2669,9 @@ checksum = "d231b230927b5e4ad203db57bbcbee2802f6bce620b1e4a9024a07d94e2907ec"
 
 [[package]]
 name = "polling"
-version = "3.6.0"
+version = "3.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0c976a60b2d7e99d6f229e414670a9b85d13ac305cc6d1e9c134de58c5aaaf6"
+checksum = "645493cf344456ef24219d02a768cf1fb92ddf8c92161679ae3d91b91a637be3"
 dependencies = [
  "cfg-if",
  "concurrent-queue",
@@ -2976,9 +2976,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.38.33"
+version = "0.38.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3cc72858054fcff6d7dea32df2aeaee6a7c24227366d7ea429aada2f26b16ad"
+checksum = "70dc5ec042f7a43c4a73241207cecc9873a06d45debb38b329f8541d85c2730f"
 dependencies = [
  "bitflags 2.5.0",
  "errno",
@@ -3577,9 +3577,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl"
-version = "0.14.2"
+version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0843f5dab9b00f53b2645de5ab38db442ab907776882b2877573465f060506fc"
+checksum = "4505e06de2dea41015a6077b4f006bf1481e6b85afa4b17282edfbefc951db81"
 dependencies = [
  "bitflags 2.5.0",
  "cfg-if",
