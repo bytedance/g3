@@ -21,13 +21,14 @@ use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
 use rmpv::ValueRef;
 
-use g3_types::net::TlsServiceType;
+use g3_types::net::{TlsCertUsage, TlsServiceType};
 
 use super::{response_key, response_key_id, CacheQueryKey, FakeCertPair};
 
 pub(super) struct Response {
     host: String,
     service: TlsServiceType,
+    usage: TlsCertUsage,
     certs: Vec<X509>,
     key: Option<PKey<Private>>,
     ttl: u32,
@@ -38,6 +39,7 @@ impl Response {
         Response {
             host: String::default(),
             service: TlsServiceType::Http,
+            usage: TlsCertUsage::TlsServer,
             certs: Vec::new(),
             key: None,
             ttl: protective_ttl,
@@ -58,6 +60,10 @@ impl Response {
                     response_key::SERVICE => {
                         self.service = g3_msgpack::value::as_tls_service_type(&v)
                             .context(format!("invalid tls service type value for key {key}"))?;
+                    }
+                    response_key::USAGE => {
+                        self.usage = g3_msgpack::value::as_tls_cert_usage(&v)
+                            .context(format!("invalid tls cert usage value for key {key}"))?;
                     }
                     response_key::CERT_CHAIN => {
                         self.certs = g3_msgpack::value::as_openssl_certificates(&v)
@@ -86,6 +92,10 @@ impl Response {
                         self.service = g3_msgpack::value::as_tls_service_type(&v).context(
                             format!("invalid tls service type value for key id {key_id}"),
                         )?;
+                    }
+                    response_key_id::USAGE => {
+                        self.usage = g3_msgpack::value::as_tls_cert_usage(&v)
+                            .context(format!("invalid tls cert usage value for key id {key_id}"))?;
                     }
                     response_key_id::CERT_CHAIN => {
                         self.certs = g3_msgpack::value::as_openssl_certificates(&v).context(
@@ -128,7 +138,7 @@ impl Response {
         }
         let key = self.key.ok_or_else(|| anyhow!("no private key set"))?;
         Ok((
-            CacheQueryKey::new(self.service, Arc::from(self.host)),
+            CacheQueryKey::new(self.service, self.usage, Arc::from(self.host)),
             FakeCertPair {
                 certs: self.certs,
                 key,

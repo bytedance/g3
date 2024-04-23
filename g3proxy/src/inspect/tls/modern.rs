@@ -22,7 +22,7 @@ use openssl::ssl::Ssl;
 use g3_dpi::{Protocol, ProtocolInspector};
 use g3_io_ext::AggregatedIo;
 use g3_openssl::{SslConnector, SslLazyAcceptor};
-use g3_types::net::{AlpnProtocol, Host, TlsServiceType};
+use g3_types::net::{AlpnProtocol, Host, TlsCertUsage, TlsServiceType};
 
 use super::{TlsInterceptIo, TlsInterceptObject, TlsInterceptionError};
 use crate::config::server::ServerConfig;
@@ -136,7 +136,7 @@ where
         let pre_fetch_handle = tokio::spawn(async move {
             tls_interception
                 .cert_agent
-                .pre_fetch(TlsServiceType::Http, cert_domain2)
+                .pre_fetch(TlsServiceType::Http, TlsCertUsage::TlsServer, cert_domain2)
                 .await
         });
 
@@ -175,7 +175,12 @@ where
                 })?;
                 self.tls_interception
                     .cert_agent
-                    .fetch(TlsServiceType::Http, cert_domain, upstream_cert)
+                    .fetch(
+                        TlsServiceType::Http,
+                        TlsCertUsage::TlsServer,
+                        cert_domain,
+                        upstream_cert,
+                    )
                     .await
                     .ok_or_else(|| {
                         TlsInterceptionError::NoFakeCertGenerated(anyhow!(

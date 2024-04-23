@@ -20,7 +20,7 @@ use std::time::Duration;
 use openssl::x509::X509;
 
 use g3_io_ext::EffectiveCacheHandle;
-use g3_types::net::TlsServiceType;
+use g3_types::net::{TlsCertUsage, TlsServiceType};
 
 use super::{CacheQueryKey, FakeCertPair};
 
@@ -41,8 +41,13 @@ impl CertAgentHandle {
         }
     }
 
-    pub async fn pre_fetch(&self, service: TlsServiceType, host: Arc<str>) -> Option<FakeCertPair> {
-        let query_key = CacheQueryKey::new(service, host);
+    pub async fn pre_fetch(
+        &self,
+        service: TlsServiceType,
+        usage: TlsCertUsage,
+        host: Arc<str>,
+    ) -> Option<FakeCertPair> {
+        let query_key = CacheQueryKey::new(service, usage, host);
         self.inner
             .fetch_cache_only(Arc::new(query_key), self.request_timeout)
             .await
@@ -52,10 +57,11 @@ impl CertAgentHandle {
     pub async fn fetch(
         &self,
         service: TlsServiceType,
+        usage: TlsCertUsage,
         host: Arc<str>,
         mimic_cert: X509,
     ) -> Option<FakeCertPair> {
-        let mut query_key = CacheQueryKey::new(service, host);
+        let mut query_key = CacheQueryKey::new(service, usage, host);
         query_key.set_mimic_cert(mimic_cert);
         self.inner
             .fetch(Arc::new(query_key), self.request_timeout)

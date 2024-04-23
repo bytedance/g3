@@ -22,3 +22,6 @@ pub use server_name::TlsServerName;
 
 mod service_type;
 pub use service_type::TlsServiceType;
+
+mod cert_usage;
+pub use cert_usage::TlsCertUsage;

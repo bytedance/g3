@@ -32,13 +32,24 @@ Set the hostname of the target tls server. May be a domain or an IP address.
 service
 -------
 
-**optional**, **id**: 2, **type**: string
+**optional**, **id**: 2, **type**: string | u8
 
 Set the tls service type. It should be returned in response.
 
 **default**: http
 
 .. versionadded:: 1.9.0
+
+usage
+-----
+
+**optional**, **id**: 4, **type**: string | u8
+
+Set the tls certificate usage type. It should be returned in response.
+
+**default**: tls_server
+
+.. versionadded:: 1.9.1
 
 cert
 ----
@@ -62,13 +73,24 @@ The hostname as specified in the request.
 service
 -------
 
-**optional**, **id**: 2, **type**: string
+**optional**, **id**: 2, **type**: string | u8
 
 Set the tls service type. It should be the same value as in the request.
 
 **default**: http
 
 .. versionadded:: 1.9.0
+
+usage
+-----
+
+**optional**, **id**: 6, **type**: string | u8
+
+Set the tls certificate usage type. It should be the same value as in the request.
+
+**default**: tls_server
+
+.. versionadded:: 1.9.1
 
 cert
 ----

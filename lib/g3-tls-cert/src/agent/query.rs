@@ -29,7 +29,7 @@ use tokio::net::UdpSocket;
 
 use g3_io_ext::{EffectiveCacheData, EffectiveQueryHandle};
 
-use super::{request_key_id, CacheQueryKey, CertAgentConfig, FakeCertPair, Response};
+use super::{CacheQueryKey, CertAgentConfig, FakeCertPair, Response};
 
 pub(super) struct QueryRuntime {
     socket: UdpSocket,
@@ -66,42 +66,14 @@ impl QueryRuntime {
     }
 
     fn handle_req(&mut self, req: Arc<CacheQueryKey>) {
-        use rmpv::ValueRef;
-
         if self
             .query_handle
             .should_send_raw_query(req.clone(), self.query_wait)
         {
-            let mut map = Vec::with_capacity(3);
-            map.push((
-                ValueRef::Integer(request_key_id::HOST.into()),
-                ValueRef::String(req.host().into()),
-            ));
-            map.push((
-                ValueRef::Integer(request_key_id::SERVICE.into()),
-                ValueRef::String(req.service().into()),
-            ));
-            if let Some(cert) = &req.mimic_cert {
-                if let Ok(der) = cert.to_der() {
-                    map.push((
-                        ValueRef::Integer(request_key_id::CERT.into()),
-                        ValueRef::Binary(&der),
-                    ));
-                    let mut buf = Vec::with_capacity(320 + der.len());
-                    if rmpv::encode::write_value_ref(&mut buf, &ValueRef::Map(map)).is_err() {
-                        self.send_empty_result(req, false);
-                        return;
-                    }
-                    self.write_queue.push_back((req, buf));
-                    return;
-                };
+            match req.encode() {
+                Ok(buf) => self.write_queue.push_back((req, buf)),
+                Err(_) => self.send_empty_result(req, false),
             }
-            let mut buf = Vec::with_capacity(320);
-            if rmpv::encode::write_value_ref(&mut buf, &ValueRef::Map(map)).is_err() {
-                self.send_empty_result(req, false);
-                return;
-            }
-            self.write_queue.push_back((req, buf));
         }
     }
 

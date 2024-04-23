@@ -22,6 +22,7 @@ use anyhow::{anyhow, Context};
 use tokio::runtime::Handle;
 use tokio::time::Instant;
 
+use g3_tls_cert::agent::Request;
 use g3_types::ext::DurationExt;
 
 pub mod config;
@@ -37,7 +38,7 @@ mod backend;
 use backend::{BackendStats, OpensslBackend};
 
 mod frontend;
-use frontend::{FrontendStats, GeneratedData, Request, UdpDgramFrontend};
+use frontend::{FrontendStats, GeneratedData, UdpDgramFrontend};
 
 struct BackendRequest {
     user_req: Request,
@@ -129,7 +130,7 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
             r = rsp_receiver.recv_async() => {
                 match r {
                     Ok(rsp) =>{
-                        match rsp.user_req.encode_rsp(&rsp.generated) {
+                        match rsp.user_req.encode_rsp(&rsp.generated.cert, &rsp.generated.key, rsp.generated.ttl) {
                             Ok(buf) => {
                                 frontend_stats.add_response_total();
                                 match frontend.send_rsp(buf.as_slice(), rsp.peer).await {

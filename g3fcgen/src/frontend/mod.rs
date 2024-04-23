@@ -20,9 +20,6 @@ pub(crate) use stats::FrontendStats;
 mod udp_dgram;
 pub(crate) use udp_dgram::UdpDgramFrontend;
 
-mod request;
-pub(crate) use request::Request;
-
 #[derive(Debug)]
 pub(crate) struct GeneratedData {
     pub(crate) cert: String,

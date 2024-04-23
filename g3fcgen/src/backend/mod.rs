@@ -25,6 +25,7 @@ use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
 use tokio::runtime::Handle;
 
+use g3_tls_cert::agent::Request;
 use g3_tls_cert::builder::{MimicCertBuilder, ServerCertBuilder, TlsServerCertBuilder};
 use g3_types::net::Host;
 
@@ -33,7 +34,7 @@ pub(crate) use stats::BackendStats;
 
 use super::{BackendRequest, BackendResponse};
 use crate::config::OpensslBackendConfig;
-use crate::frontend::{GeneratedData, Request};
+use crate::frontend::GeneratedData;
 
 pub(crate) struct OpensslBackend {
     config: Arc<OpensslBackendConfig>,
@@ -64,10 +65,10 @@ impl OpensslBackend {
 
     fn generate(&mut self, req: &Request) -> anyhow::Result<GeneratedData> {
         self.stats.add_request_total();
-        if let Some(mimic_cert) = &req.cert {
+        if let Some(mimic_cert) = req.cert() {
             self.generate_mimic(mimic_cert)
         } else {
-            let host = Host::from_str(req.host.as_ref())?;
+            let host = Host::from_str(req.host_str())?;
             self.builder.refresh_serial()?;
             let cert =
                 self.builder
@@ -134,7 +135,7 @@ impl OpensslBackend {
                             break
                         };
 
-                        let host = req.user_req.host.clone();
+                        let host = req.user_req.host();
                         match self.generate(&req.user_req) {
                             Ok(data) => {
                                 debug!("Worker#{id} got certificate for host {host}");

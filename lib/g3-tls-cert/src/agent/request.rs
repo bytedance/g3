@@ -20,14 +20,14 @@ use anyhow::{anyhow, Context};
 use openssl::x509::X509;
 use rmpv::ValueRef;
 
-use g3_tls_cert::agent::{request_key, request_key_id, response_key_id};
-use g3_types::net::TlsServiceType;
+use g3_types::net::{TlsCertUsage, TlsServiceType};
 
-use super::GeneratedData;
+use super::{request_key, request_key_id, response_key_id};
 
-pub(crate) struct Request {
+pub struct Request {
     pub(crate) host: Arc<str>,
     service: TlsServiceType,
+    usage: TlsCertUsage,
     pub(crate) cert: Option<X509>,
 }
 
@@ -36,12 +36,28 @@ impl Default for Request {
         Request {
             host: Arc::from(""),
             service: TlsServiceType::Http,
+            usage: TlsCertUsage::TlsServer,
             cert: None,
         }
     }
 }
 
 impl Request {
+    #[inline]
+    pub fn host(&self) -> Arc<str> {
+        self.host.clone()
+    }
+
+    #[inline]
+    pub fn host_str(&self) -> &str {
+        self.host.as_ref()
+    }
+
+    #[inline]
+    pub fn cert(&self) -> Option<&X509> {
+        self.cert.as_ref()
+    }
+
     fn check(&self) -> anyhow::Result<()> {
         if self.host.is_empty() {
             return Err(anyhow!("no host value set"));
@@ -62,6 +78,11 @@ impl Request {
                     request_key::SERVICE => {
                         self.service = g3_msgpack::value::as_tls_service_type(&v)
                             .context(format!("invalid tls service type value for key {key}"))?;
+                        Ok(())
+                    }
+                    request_key::USAGE => {
+                        self.usage = g3_msgpack::value::as_tls_cert_usage(&v)
+                            .context(format!("invalid tls cert usage value for key {key}"))?;
                         Ok(())
                     }
                     request_key::CERT => {
@@ -85,6 +106,11 @@ impl Request {
                         )?;
                         Ok(())
                     }
+                    request_key_id::USAGE => {
+                        self.usage = g3_msgpack::value::as_tls_cert_usage(&v)
+                            .context(format!("invalid tls cert usage value for key id {key_id}"))?;
+                        Ok(())
+                    }
                     request_key_id::CERT => {
                         let cert = g3_msgpack::value::as_openssl_certificate(&v)
                             .context(format!("invalid mimic cert value for key id {key_id}"))?;
@@ -104,7 +130,7 @@ impl Request {
         Ok(())
     }
 
-    pub(crate) fn parse_req(mut data: &[u8]) -> anyhow::Result<Self> {
+    pub fn parse_req(mut data: &[u8]) -> anyhow::Result<Self> {
         let v = rmpv::decode::read_value_ref(&mut data)
             .map_err(|e| anyhow!("invalid req data: {e}"))?;
 
@@ -123,7 +149,7 @@ impl Request {
         Ok(request)
     }
 
-    pub(crate) fn encode_rsp(&self, generated: &GeneratedData) -> anyhow::Result<Vec<u8>> {
+    pub fn encode_rsp(&self, pem_cert: &str, der_key: &[u8], ttl: u32) -> anyhow::Result<Vec<u8>> {
         let map = vec![
             (
                 ValueRef::Integer(response_key_id::HOST.into()),
@@ -131,19 +157,23 @@ impl Request {
             ),
             (
                 ValueRef::Integer(response_key_id::SERVICE.into()),
-                ValueRef::String(self.service.as_str().into()),
+                ValueRef::Integer((self.service as u8).into()),
+            ),
+            (
+                ValueRef::Integer(response_key_id::USAGE.into()),
+                ValueRef::Integer((self.usage as u8).into()),
             ),
             (
                 ValueRef::Integer(response_key_id::CERT_CHAIN.into()),
-                ValueRef::String(generated.cert.as_str().into()),
+                ValueRef::String(pem_cert.into()),
             ),
             (
                 ValueRef::Integer(response_key_id::PRIVATE_KEY.into()),
-                ValueRef::Binary(&generated.key),
+                ValueRef::Binary(der_key),
             ),
             (
                 ValueRef::Integer(response_key_id::TTL.into()),
-                ValueRef::Integer(generated.ttl.into()),
+                ValueRef::Integer(ttl.into()),
             ),
         ];
         let mut buf = Vec::with_capacity(4096);

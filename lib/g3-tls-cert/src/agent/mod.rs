@@ -22,13 +22,16 @@ use openssl::pkey::{PKey, Private};
 use openssl::ssl::SslRef;
 use openssl::x509::X509;
 
-use g3_types::net::TlsServiceType;
+use g3_types::net::{TlsCertUsage, TlsServiceType};
 
 mod protocol;
 pub use protocol::*;
 
 mod response;
 use response::Response;
+
+mod request;
+pub use request::Request;
 
 mod query;
 use query::QueryRuntime;
@@ -42,6 +45,7 @@ pub use handle::CertAgentHandle;
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
 struct CacheIndexKey {
     service: TlsServiceType,
+    usage: TlsCertUsage,
     host: Arc<str>,
 }
 
@@ -52,9 +56,13 @@ struct CacheQueryKey {
 }
 
 impl CacheQueryKey {
-    fn new(service: TlsServiceType, host: Arc<str>) -> Self {
+    fn new(service: TlsServiceType, usage: TlsCertUsage, host: Arc<str>) -> Self {
         CacheQueryKey {
-            index: CacheIndexKey { service, host },
+            index: CacheIndexKey {
+                service,
+                usage,
+                host,
+            },
             mimic_cert: None,
         }
     }
@@ -63,12 +71,40 @@ impl CacheQueryKey {
         self.index.host.as_ref()
     }
 
-    fn service(&self) -> &'static str {
-        self.index.service.as_str()
-    }
-
     fn set_mimic_cert(&mut self, cert: X509) {
         self.mimic_cert = Some(cert);
+    }
+
+    fn encode(&self) -> Result<Vec<u8>, ()> {
+        use rmpv::ValueRef;
+
+        let mut map = Vec::with_capacity(4);
+        map.push((
+            ValueRef::Integer(request_key_id::HOST.into()),
+            ValueRef::String(self.host().into()),
+        ));
+        map.push((
+            ValueRef::Integer(request_key_id::SERVICE.into()),
+            ValueRef::Integer((self.index.service as u8).into()),
+        ));
+        map.push((
+            ValueRef::Integer(request_key_id::USAGE.into()),
+            ValueRef::Integer((self.index.usage as u8).into()),
+        ));
+        if let Some(cert) = &self.mimic_cert {
+            if let Ok(der) = cert.to_der() {
+                map.push((
+                    ValueRef::Integer(request_key_id::CERT.into()),
+                    ValueRef::Binary(&der),
+                ));
+                let mut buf = Vec::with_capacity(320 + der.len());
+                rmpv::encode::write_value_ref(&mut buf, &ValueRef::Map(map)).map_err(|_| ())?;
+                return Ok(buf);
+            };
+        }
+        let mut buf = Vec::with_capacity(320);
+        rmpv::encode::write_value_ref(&mut buf, &ValueRef::Map(map)).map_err(|_| ())?;
+        Ok(buf)
     }
 }
 
