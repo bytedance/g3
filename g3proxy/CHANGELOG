@@ -1,4 +1,9 @@
 
+v1.8.2:
+ - BUG FIX: send remote HTTP CONNECT and Upgrade request to ICAP reqmod service
+ - BUG FIX: make sure remote HTTP CONNECT and Upgrade error response body transferred
+ - BUG FIX: fix panic when h2 sender stream not in send state
+
 v1.8.1:
  - BUG FIX: fix build with musl
  - BUG FIX: fix unexpected close of socket fd when setsockopt failed
