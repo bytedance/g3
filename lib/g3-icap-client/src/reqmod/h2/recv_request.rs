@@ -101,6 +101,9 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                 | H2StreamBodyTransferError::GracefulCloseError(e) => {
                     H2ReqmodAdaptationError::HttpUpstreamSendDataFailed(e)
                 }
+                H2StreamBodyTransferError::SenderNotInSendState => {
+                    H2ReqmodAdaptationError::HttpUpstreamNotInSendState
+                }
             }
         }
 
