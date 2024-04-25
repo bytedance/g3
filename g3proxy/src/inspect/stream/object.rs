@@ -153,6 +153,18 @@ where
                     return Ok(StreamInspection::TlsModern(tls_obj));
                 }
             }
+            #[cfg(feature = "vendored-tongsuo")]
+            Protocol::TlsTlcp => {
+                if let Some(tls_interception) = self.ctx.tls_interception() {
+                    let mut tls_obj = crate::inspect::tls::TlsInterceptObject::new(
+                        self.ctx,
+                        self.upstream,
+                        tls_interception,
+                    );
+                    tls_obj.set_io(OnceBufReader::new(clt_r, clt_r_buf), clt_w, ups_r, ups_w);
+                    return Ok(StreamInspection::TlsTlcp(tls_obj));
+                }
+            }
             Protocol::Http1 => {
                 let mut h1_obj = crate::inspect::http::H1InterceptObject::new(self.ctx);
                 h1_obj.set_io(

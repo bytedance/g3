@@ -38,6 +38,8 @@ mod error;
 pub(crate) use error::TlsInterceptionError;
 
 mod modern;
+#[cfg(feature = "vendored-tongsuo")]
+mod tlcp;
 
 #[derive(Clone)]
 pub(crate) struct TlsInterceptionContext {

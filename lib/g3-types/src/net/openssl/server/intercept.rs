@@ -18,7 +18,9 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use openssl::ex_data::Index;
-use openssl::ssl::{AlpnError, Ssl, SslAcceptor, SslContext, SslMethod, SslRef, TlsExtType};
+use openssl::ssl::{
+    AlpnError, Ssl, SslAcceptor, SslAcceptorBuilder, SslContext, SslRef, TlsExtType,
+};
 
 use super::{DEFAULT_ACCEPT_TIMEOUT, MINIMAL_ACCEPT_TIMEOUT};
 use crate::net::{TlsAlpn, TlsServerName};
@@ -28,17 +30,19 @@ pub struct OpensslInterceptionServerConfig {
     alpn_index: Index<Ssl, TlsAlpn>,
     alpn_name_index: Index<Ssl, Vec<u8>>,
     pub ssl_context: SslContext,
+    #[cfg(feature = "tongsuo")]
+    pub tlcp_context: SslContext,
     pub accept_timeout: Duration,
 }
 
 impl OpensslInterceptionServerConfig {
     #[inline]
-    pub fn server_name<'a>(&self, ssl: &'a SslRef) -> Option<&'a TlsServerName> {
+    pub fn fetch_server_name<'a>(&self, ssl: &'a SslRef) -> Option<&'a TlsServerName> {
         ssl.ex_data(self.sni_index)
     }
 
     #[inline]
-    pub fn alpn_extension<'a>(&self, ssl: &'a SslRef) -> Option<&'a TlsAlpn> {
+    pub fn fetch_alpn_extension<'a>(&self, ssl: &'a SslRef) -> Option<&'a TlsAlpn> {
         ssl.ex_data(self.alpn_index)
     }
 
@@ -83,65 +87,147 @@ impl OpensslInterceptionServerConfigBuilder {
         let alpn_name_index: Index<Ssl, Vec<u8>> =
             Ssl::new_ex_index().map_err(|e| anyhow!("failed to create ex index: {e}"))?;
 
-        let mut builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::tls_server())
-            .map_err(|e| anyhow!("failed to get ssl acceptor builder: {e}"))?;
+        Ok(OpensslInterceptionServerConfig {
+            sni_index,
+            alpn_index,
+            alpn_name_index,
+            ssl_context: build_tls_context(retry_index, sni_index, alpn_index, alpn_name_index)?,
+            #[cfg(feature = "tongsuo")]
+            tlcp_context: build_tlcp_context(retry_index, sni_index, alpn_index, alpn_name_index)?,
+            accept_timeout: self.accept_timeout,
+        })
+    }
+}
 
-        #[cfg(not(any(feature = "boringssl", feature = "aws-lc")))]
-        builder.set_client_hello_callback(move |ssl, alert| {
-            use openssl::ssl::{ClientHelloError, SslAlert};
+#[cfg(not(feature = "tongsuo"))]
+fn build_tls_context(
+    retry_index: Index<Ssl, ()>,
+    sni_index: Index<Ssl, TlsServerName>,
+    alpn_index: Index<Ssl, TlsAlpn>,
+    alpn_name_index: Index<Ssl, Vec<u8>>,
+) -> anyhow::Result<SslContext> {
+    use openssl::ssl::SslMethod;
 
-            if ssl.ex_data(retry_index).is_some() {
-                return Ok(());
+    let mut builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::tls_server())
+        .map_err(|e| anyhow!("failed to get ssl acceptor builder: {e}"))?;
+
+    #[cfg(not(any(feature = "boringssl", feature = "aws-lc")))]
+    set_client_hello_callback(&mut builder, retry_index, sni_index, alpn_index);
+    #[cfg(any(feature = "boringssl", feature = "aws-lc"))]
+    set_select_certificate_callback(&mut builder, retry_index, sni_index, alpn_index);
+    set_alpn_select_callback(&mut builder, alpn_name_index);
+
+    Ok(builder.build().into_context())
+}
+
+#[cfg(feature = "tongsuo")]
+fn build_tls_context(
+    retry_index: Index<Ssl, ()>,
+    sni_index: Index<Ssl, TlsServerName>,
+    alpn_index: Index<Ssl, TlsAlpn>,
+    alpn_name_index: Index<Ssl, Vec<u8>>,
+) -> anyhow::Result<SslContext> {
+    let mut builder = SslAcceptor::tongsuo_tls()
+        .map_err(|e| anyhow!("failed to get tls acceptor builder: {e}"))?;
+
+    set_client_hello_callback(&mut builder, retry_index, sni_index, alpn_index);
+    set_alpn_select_callback(&mut builder, alpn_name_index);
+
+    Ok(builder.build().into_context())
+}
+
+#[cfg(feature = "tongsuo")]
+fn build_tlcp_context(
+    retry_index: Index<Ssl, ()>,
+    sni_index: Index<Ssl, TlsServerName>,
+    alpn_index: Index<Ssl, TlsAlpn>,
+    alpn_name_index: Index<Ssl, Vec<u8>>,
+) -> anyhow::Result<SslContext> {
+    let mut builder = SslAcceptor::tongsuo_tlcp()
+        .map_err(|e| anyhow!("failed to get tlcp acceptor builder: {e}"))?;
+
+    set_client_hello_callback(&mut builder, retry_index, sni_index, alpn_index);
+    set_alpn_select_callback(&mut builder, alpn_name_index);
+
+    Ok(builder.build().into_context())
+}
+
+#[cfg(not(any(feature = "boringssl", feature = "aws-lc")))]
+fn set_client_hello_callback(
+    builder: &mut SslAcceptorBuilder,
+    retry_index: Index<Ssl, ()>,
+    sni_index: Index<Ssl, TlsServerName>,
+    alpn_index: Index<Ssl, TlsAlpn>,
+) {
+    builder.set_client_hello_callback(move |ssl, alert| {
+        use openssl::ssl::{ClientHelloError, SslAlert};
+
+        if ssl.ex_data(retry_index).is_some() {
+            return Ok(());
+        }
+        ssl.set_ex_data(retry_index, ());
+
+        if let Some(sni_ext) = ssl.client_hello_ext(TlsExtType::SERVER_NAME) {
+            if let Ok(name) = TlsServerName::from_extension_value(sni_ext) {
+                ssl.set_ex_data(sni_index, name);
+            } else {
+                *alert = SslAlert::DECODE_ERROR;
+                return Err(ClientHelloError::ERROR);
             }
-            ssl.set_ex_data(retry_index, ());
-
-            if let Some(sni_ext) = ssl.client_hello_ext(TlsExtType::SERVER_NAME) {
-                if let Ok(name) = TlsServerName::from_extension_value(sni_ext) {
-                    ssl.set_ex_data(sni_index, name);
-                } else {
-                    *alert = SslAlert::DECODE_ERROR;
-                    return Err(ClientHelloError::ERROR);
-                }
+        }
+        if let Some(alpn_ext) = ssl.client_hello_ext(TlsExtType::ALPN) {
+            if let Ok(alpn) = TlsAlpn::from_extension_value(alpn_ext) {
+                ssl.set_ex_data(alpn_index, alpn);
+            } else {
+                *alert = SslAlert::DECODE_ERROR;
+                return Err(ClientHelloError::ERROR);
             }
-            if let Some(alpn_ext) = ssl.client_hello_ext(TlsExtType::ALPN) {
-                if let Ok(alpn) = TlsAlpn::from_extension_value(alpn_ext) {
-                    ssl.set_ex_data(alpn_index, alpn);
-                } else {
-                    *alert = SslAlert::DECODE_ERROR;
-                    return Err(ClientHelloError::ERROR);
-                }
+        }
+
+        Err(ClientHelloError::RETRY)
+    });
+}
+
+#[cfg(any(feature = "boringssl", feature = "aws-lc"))]
+fn set_select_certificate_callback(
+    builder: &mut SslAcceptorBuilder,
+    retry_index: Index<Ssl, ()>,
+    sni_index: Index<Ssl, TlsServerName>,
+    alpn_index: Index<Ssl, TlsAlpn>,
+) {
+    builder.set_select_certificate_callback(move |mut ch| {
+        use openssl::ssl::SelectCertError;
+
+        if ch.ssl().ex_data(retry_index).is_some() {
+            return Ok(());
+        }
+        ch.ssl_mut().set_ex_data(retry_index, ());
+
+        if let Some(sni_ext) = ch.get_extension(TlsExtType::SERVER_NAME) {
+            if let Ok(name) = TlsServerName::from_extension_value(sni_ext) {
+                ch.ssl_mut().set_ex_data(sni_index, name);
+            } else {
+                return Err(SelectCertError::ERROR);
             }
-
-            Err(ClientHelloError::RETRY)
-        });
-        #[cfg(any(feature = "boringssl", feature = "aws-lc"))]
-        builder.set_select_certificate_callback(move |mut ch| {
-            use openssl::ssl::SelectCertError;
-
-            if ch.ssl().ex_data(retry_index).is_some() {
-                return Ok(());
+        }
+        if let Some(alpn_ext) = ch.get_extension(TlsExtType::ALPN) {
+            if let Ok(alpn) = TlsAlpn::from_extension_value(alpn_ext) {
+                ch.ssl_mut().set_ex_data(alpn_index, alpn);
+            } else {
+                return Err(SelectCertError::ERROR);
             }
-            ch.ssl_mut().set_ex_data(retry_index, ());
+        }
 
-            if let Some(sni_ext) = ch.get_extension(TlsExtType::SERVER_NAME) {
-                if let Ok(name) = TlsServerName::from_extension_value(sni_ext) {
-                    ch.ssl_mut().set_ex_data(sni_index, name);
-                } else {
-                    return Err(SelectCertError::ERROR);
-                }
-            }
-            if let Some(alpn_ext) = ch.get_extension(TlsExtType::ALPN) {
-                if let Ok(alpn) = TlsAlpn::from_extension_value(alpn_ext) {
-                    ch.ssl_mut().set_ex_data(alpn_index, alpn);
-                } else {
-                    return Err(SelectCertError::ERROR);
-                }
-            }
+        Err(SelectCertError::RETRY)
+    });
+}
 
-            Err(SelectCertError::RETRY)
-        });
-
-        builder.set_alpn_select_callback(move |ssl, client_p| match ssl.ex_data(alpn_name_index) {
+fn set_alpn_select_callback(
+    builder: &mut SslAcceptorBuilder,
+    alpn_name_index: Index<Ssl, Vec<u8>>,
+) {
+    builder.set_alpn_select_callback(move |ssl: &mut SslRef, client_p: &[u8]| {
+        match ssl.ex_data(alpn_name_index) {
             Some(protocol_name) => {
                 let mut offset = 0;
                 while offset < client_p.len() {
@@ -160,14 +246,6 @@ impl OpensslInterceptionServerConfigBuilder {
                 Err(AlpnError::ALERT_FATAL)
             }
             None => Err(AlpnError::NOACK),
-        });
-
-        Ok(OpensslInterceptionServerConfig {
-            sni_index,
-            alpn_index,
-            alpn_name_index,
-            ssl_context: builder.build().into_context(),
-            accept_timeout: self.accept_timeout,
-        })
-    }
+        }
+    });
 }

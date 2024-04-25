@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,23 +33,23 @@ impl<SC> TlsInterceptObject<SC>
 where
     SC: ServerConfig + Send + Sync + 'static,
 {
-    pub(crate) async fn intercept_modern(
+    pub(crate) async fn intercept_tlcp(
         mut self,
         inspector: &mut ProtocolInspector,
     ) -> ServerTaskResult<StreamInspection<SC>> {
-        match self.do_intercept_modern(inspector).await {
+        match self.do_intercept_tlcp(inspector).await {
             Ok(obj) => {
                 self.log_ok();
                 Ok(obj)
             }
             Err(e) => {
                 self.log_err(&e);
-                Err(InterceptionError::Tls(e).into_server_task_error(Protocol::TlsModern))
+                Err(InterceptionError::Tls(e).into_server_task_error(Protocol::TlsTlcp))
             }
         }
     }
 
-    async fn do_intercept_modern(
+    async fn do_intercept_tlcp(
         &mut self,
         inspector: &mut ProtocolInspector,
     ) -> Result<StreamInspection<SC>, TlsInterceptionError> {
@@ -60,9 +60,9 @@ where
             ups_w,
         } = self.io.take().unwrap();
 
-        let ssl = Ssl::new(&self.tls_interception.server_config.ssl_context).map_err(|e| {
+        let ssl = Ssl::new(&self.tls_interception.server_config.tlcp_context).map_err(|e| {
             TlsInterceptionError::InternalOpensslServerError(anyhow!(
-                "failed to get new SSL state: {e}"
+                "failed to get new TLCP SSL state: {e}"
             ))
         })?;
         let clt_io = AggregatedIo::new(clt_r, clt_w);
@@ -118,7 +118,7 @@ where
             None => self
                 .tls_interception
                 .client_config
-                .build_ssl(sni_hostname, &self.upstream, alpn_ext.as_ref())
+                .build_tlcp(sni_hostname, &self.upstream, alpn_ext.as_ref())
                 .map_err(|e| {
                     TlsInterceptionError::UpstreamPrepareFailed(anyhow!(
                         "failed to build general ssl context: {e}"
@@ -133,9 +133,24 @@ where
         let cert_domain: Arc<str> = Arc::from(cert_domain);
         let cert_domain2 = cert_domain.clone();
         let cert_agent = self.tls_interception.cert_agent.clone();
-        let pre_fetch_handle = tokio::spawn(async move {
+        let sign_pre_fetch_handle = tokio::spawn(async move {
             cert_agent
-                .pre_fetch(TlsServiceType::Http, TlsCertUsage::TlsServer, cert_domain2)
+                .pre_fetch(
+                    TlsServiceType::Http,
+                    TlsCertUsage::TlcpServerSignature,
+                    cert_domain2,
+                )
+                .await
+        });
+        let cert_domain2 = cert_domain.clone();
+        let cert_agent = self.tls_interception.cert_agent.clone();
+        let enc_pre_fetch_handle = tokio::spawn(async move {
+            cert_agent
+                .pre_fetch(
+                    TlsServiceType::Http,
+                    TlsCertUsage::TlcpServerEncryption,
+                    cert_domain2,
+                )
                 .await
         });
 
@@ -155,32 +170,61 @@ where
                 ))
             })?;
 
-        let pre_fetch_pair = pre_fetch_handle.await.map_err(|e| {
+        let sign_pre_fetch_pair = sign_pre_fetch_handle.await.map_err(|e| {
             TlsInterceptionError::NoFakeCertGenerated(anyhow!(
                 "join client cert handle failed: {e}"
             ))
         })?;
-
-        let cert_pair = match pre_fetch_pair {
+        let sign_cert_pair = match sign_pre_fetch_pair {
             Some(pair) => pair,
             None => {
                 let upstream_cert = ups_tls_stream.ssl().peer_certificate().ok_or_else(|| {
                     TlsInterceptionError::NoFakeCertGenerated(anyhow!(
-                        "failed to get upstream certificate"
+                        "failed to get upstream sign certificate"
                     ))
                 })?;
                 self.tls_interception
                     .cert_agent
                     .fetch(
                         TlsServiceType::Http,
-                        TlsCertUsage::TlsServer,
+                        TlsCertUsage::TlcpServerSignature,
+                        cert_domain.clone(),
+                        upstream_cert,
+                    )
+                    .await
+                    .ok_or_else(|| {
+                        TlsInterceptionError::NoFakeCertGenerated(anyhow!(
+                            "failed to get fake upstream sign certificate"
+                        ))
+                    })?
+            }
+        };
+
+        let enc_pre_fetch_pair = enc_pre_fetch_handle.await.map_err(|e| {
+            TlsInterceptionError::NoFakeCertGenerated(anyhow!(
+                "join client cert handle failed: {e}"
+            ))
+        })?;
+        let enc_cert_pair = match enc_pre_fetch_pair {
+            Some(pair) => pair,
+            None => {
+                let upstream_cert = ups_tls_stream.ssl().peer_certificate().ok_or_else(|| {
+                    TlsInterceptionError::NoFakeCertGenerated(anyhow!(
+                        "failed to get upstream enc certificate"
+                    ))
+                })?;
+                self.tls_interception
+                    .cert_agent
+                    .fetch(
+                        TlsServiceType::Http,
+                        TlsCertUsage::TlcpServerEncryption,
                         cert_domain,
                         upstream_cert,
                     )
                     .await
                     .ok_or_else(|| {
                         TlsInterceptionError::NoFakeCertGenerated(anyhow!(
-                            "failed to get fake upstream certificate"
+                            "failed to get fake upstream enc certificate"
                         ))
                     })?
             }
@@ -188,8 +232,11 @@ where
 
         // set certificate and private key
         let clt_ssl = lazy_acceptor.ssl_mut();
-        cert_pair
-            .add_to_ssl(clt_ssl)
+        sign_cert_pair
+            .add_sign_to_tlcp(clt_ssl)
+            .map_err(TlsInterceptionError::InternalOpensslServerError)?;
+        enc_cert_pair
+            .add_enc_to_tlcp(clt_ssl)
             .map_err(TlsInterceptionError::InternalOpensslServerError)?;
         // set alpn
         if let Some(alpn_protocol) = ups_tls_stream.ssl().selected_alpn_protocol() {

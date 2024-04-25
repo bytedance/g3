@@ -208,6 +208,25 @@ impl TcpStreamTask {
                             .await;
                     }
                 }
+                #[cfg(feature = "vendored-tongsuo")]
+                Protocol::TlsTlcp => {
+                    if let Some(tls_interception) = ctx.tls_interception() {
+                        let mut tls_obj = crate::inspect::tls::TlsInterceptObject::new(
+                            ctx,
+                            self.tcp_notes.upstream.clone(),
+                            tls_interception,
+                        );
+                        tls_obj.set_io(
+                            OnceBufReader::new(Box::new(clt_r), clt_r_buf),
+                            Box::new(clt_w),
+                            Box::new(ups_r),
+                            Box::new(ups_w),
+                        );
+                        return StreamInspection::TlsTlcp(tls_obj)
+                            .into_loop_inspection(protocol_inspector)
+                            .await;
+                    }
+                }
                 Protocol::Http1 => {
                     let mut h1_obj = crate::inspect::http::H1InterceptObject::new(ctx);
                     h1_obj.set_io(

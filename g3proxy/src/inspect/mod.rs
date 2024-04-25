@@ -289,6 +289,8 @@ pub(crate) enum StreamInspection<SC: ServerConfig> {
     StreamUnknown(stream::StreamInspectObject<SC>),
     StreamInspect(stream::StreamInspectObject<SC>),
     TlsModern(tls::TlsInterceptObject<SC>),
+    #[cfg(feature = "vendored-tongsuo")]
+    TlsTlcp(tls::TlsInterceptObject<SC>),
     H1(http::H1InterceptObject<SC>),
     H2(http::H2InterceptObject<SC>),
     Websocket(websocket::H1WebsocketInterceptObject<SC>),

@@ -145,4 +145,40 @@ impl FakeCertPair {
             .map_err(|e| anyhow!("failed to set private key: {e}"))?;
         Ok(())
     }
+
+    #[cfg(feature = "tongsuo")]
+    pub fn add_enc_to_tlcp(self, ssl: &mut SslRef) -> anyhow::Result<()> {
+        let FakeCertPair { certs, key } = self;
+        let mut certs_iter = certs.into_iter();
+        let Some(leaf_cert) = certs_iter.next() else {
+            return Err(anyhow!("no certificate found"));
+        };
+        ssl.set_enc_certificate(&leaf_cert)
+            .map_err(|e| anyhow!("failed to set enc certificate: {e}"))?;
+        for cert in certs_iter {
+            ssl.add_chain_cert(cert)
+                .map_err(|e| anyhow!("failed to add chain cert: {e}"))?;
+        }
+        ssl.set_enc_private_key(&key)
+            .map_err(|e| anyhow!("failed to set enc private key: {e}"))?;
+        Ok(())
+    }
+
+    #[cfg(feature = "tongsuo")]
+    pub fn add_sign_to_tlcp(self, ssl: &mut SslRef) -> anyhow::Result<()> {
+        let FakeCertPair { certs, key } = self;
+        let mut certs_iter = certs.into_iter();
+        let Some(leaf_cert) = certs_iter.next() else {
+            return Err(anyhow!("no certificate found"));
+        };
+        ssl.set_sign_certificate(&leaf_cert)
+            .map_err(|e| anyhow!("failed to set sign certificate: {e}"))?;
+        for cert in certs_iter {
+            ssl.add_chain_cert(cert)
+                .map_err(|e| anyhow!("failed to add chain cert: {e}"))?;
+        }
+        ssl.set_sign_private_key(&key)
+            .map_err(|e| anyhow!("failed to set sign private key: {e}"))?;
+        Ok(())
+    }
 }

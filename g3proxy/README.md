@@ -15,7 +15,7 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 
   * Ingress network filter | Target Host filter | Target Port filter
   * Socket Speed Limit | Request Rate Limit | IDLE Check
-  * Protocol Inspection | TLS Interception | ICAP Adaptation (experimental)
+  * Protocol Inspection | TLS/TLCP Interception | ICAP Adaptation
   * Various TCP & UDP socket config options
   * Rustls TLS Server
   * Openssl/BoringSSL/AWS-LC/Tongsuo TLS Server & Client
@@ -190,9 +190,9 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 
 - TCP Protocol Inspection
 - Task Level Sampling
-- TLS Interception
-- External TLS Certificate Generator
-- TLS Stream Dump
+- TLS/TLCP Interception
+- External Certificate Generator
+- TLS/TLCP Decrypted Stream Dump
 - Http1 & Http2 Interception
 - ICAP Adaptation
 
