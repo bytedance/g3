@@ -19,10 +19,10 @@ use chrono::{Days, Utc};
 use openssl::asn1::{Asn1Integer, Asn1Time};
 use openssl::hash::MessageDigest;
 use openssl::pkey::{PKey, Private};
-use openssl::x509::extension::{BasicConstraints, KeyUsage, SubjectKeyIdentifier};
+use openssl::x509::extension::{BasicConstraints, SubjectKeyIdentifier};
 use openssl::x509::{X509Builder, X509Extension, X509};
 
-use super::{asn1_time_from_chrono, SubjectNameBuilder};
+use super::{asn1_time_from_chrono, KeyUsageBuilder, SubjectNameBuilder};
 use crate::ext::X509BuilderExt;
 
 pub struct RootCertBuilder {
@@ -68,10 +68,7 @@ impl RootCertBuilder {
     fn with_pkey(pkey: PKey<Private>) -> anyhow::Result<Self> {
         let serial = super::serial::random_16()?;
 
-        let key_usage = KeyUsage::new()
-            .critical()
-            .key_cert_sign()
-            .crl_sign()
+        let key_usage = KeyUsageBuilder::ca()
             .build()
             .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
 

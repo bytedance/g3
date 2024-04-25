@@ -20,14 +20,13 @@ use openssl::asn1::{Asn1Integer, Asn1Time};
 use openssl::hash::MessageDigest;
 use openssl::pkey::{PKey, Private};
 use openssl::x509::extension::{
-    AuthorityKeyIdentifier, ExtendedKeyUsage, KeyUsage, SubjectAlternativeName,
-    SubjectKeyIdentifier,
+    AuthorityKeyIdentifier, ExtendedKeyUsage, SubjectAlternativeName, SubjectKeyIdentifier,
 };
 use openssl::x509::{X509Builder, X509Extension, X509Name, X509Ref, X509};
 
 use g3_types::net::Host;
 
-use super::{asn1_time_from_chrono, SubjectNameBuilder};
+use super::{asn1_time_from_chrono, KeyUsageBuilder, SubjectNameBuilder};
 use crate::ext::X509BuilderExt;
 
 pub struct ServerCertBuilder {
@@ -73,9 +72,7 @@ impl TlsServerCertBuilder {
 
     pub fn new_ed25519() -> anyhow::Result<ServerCertBuilder> {
         let pkey = super::pkey::new_ed25519()?;
-        let key_usage = KeyUsage::new()
-            .critical()
-            .digital_signature()
+        let key_usage = KeyUsageBuilder::ed_dsa()
             .build()
             .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
         ServerCertBuilder::new(pkey, key_usage)
@@ -83,9 +80,7 @@ impl TlsServerCertBuilder {
 
     pub fn new_ed448() -> anyhow::Result<ServerCertBuilder> {
         let pkey = super::pkey::new_ed448()?;
-        let key_usage = KeyUsage::new()
-            .critical()
-            .digital_signature()
+        let key_usage = KeyUsageBuilder::ed_dsa()
             .build()
             .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
         ServerCertBuilder::new(pkey, key_usage)
@@ -93,9 +88,7 @@ impl TlsServerCertBuilder {
 
     pub fn new_x25519() -> anyhow::Result<ServerCertBuilder> {
         let pkey = super::pkey::new_x25519()?;
-        let key_usage = KeyUsage::new()
-            .critical()
-            .key_agreement()
+        let key_usage = KeyUsageBuilder::x_dh()
             .build()
             .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
         ServerCertBuilder::new(pkey, key_usage)
@@ -103,9 +96,7 @@ impl TlsServerCertBuilder {
 
     pub fn new_x448() -> anyhow::Result<ServerCertBuilder> {
         let pkey = super::pkey::new_x448()?;
-        let key_usage = KeyUsage::new()
-            .critical()
-            .key_agreement()
+        let key_usage = KeyUsageBuilder::x_dh()
             .build()
             .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
         ServerCertBuilder::new(pkey, key_usage)
@@ -117,11 +108,7 @@ impl TlsServerCertBuilder {
     }
 
     fn with_pkey(pkey: PKey<Private>) -> anyhow::Result<ServerCertBuilder> {
-        let key_usage = KeyUsage::new()
-            .critical()
-            .key_agreement()
-            .digital_signature()
-            .key_encipherment()
+        let key_usage = KeyUsageBuilder::tls_general()
             .build()
             .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
         ServerCertBuilder::new(pkey, key_usage)
@@ -145,10 +132,7 @@ impl TlcpServerSignCertBuilder {
     }
 
     fn with_pkey(pkey: PKey<Private>) -> anyhow::Result<ServerCertBuilder> {
-        let key_usage = KeyUsage::new()
-            .critical()
-            .non_repudiation()
-            .digital_signature()
+        let key_usage = KeyUsageBuilder::tlcp_sign()
             .build()
             .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
         ServerCertBuilder::new(pkey, key_usage)
@@ -172,11 +156,7 @@ impl TlcpServerEncCertBuilder {
     }
 
     fn with_pkey(pkey: PKey<Private>) -> anyhow::Result<ServerCertBuilder> {
-        let key_usage = KeyUsage::new()
-            .critical()
-            .key_agreement()
-            .key_encipherment()
-            .data_encipherment()
+        let key_usage = KeyUsageBuilder::tlcp_enc()
             .build()
             .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
         ServerCertBuilder::new(pkey, key_usage)

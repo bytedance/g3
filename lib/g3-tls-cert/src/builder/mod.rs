@@ -17,6 +17,9 @@
 mod pkey;
 mod serial;
 
+mod key_usage;
+pub use key_usage::KeyUsageBuilder;
+
 mod subject;
 pub use subject::SubjectNameBuilder;
 
