@@ -81,7 +81,7 @@ impl OpensslBackend {
     fn generate_mimic(&self, mimic_cert: &X509) -> anyhow::Result<GeneratedData> {
         let mut mimic_builder = MimicCertBuilder::new(mimic_cert)?;
         mimic_builder.set_keep_serial(self.config.keep_serial);
-        let cert = mimic_builder.build(&self.config.ca_cert, &self.config.ca_key, None)?;
+        let cert = mimic_builder.build_tls_cert(&self.config.ca_cert, &self.config.ca_key, None)?;
         let ttl = mimic_builder.valid_seconds()?;
 
         self.pack_data(cert, mimic_builder.pkey(), ttl)

@@ -147,6 +147,7 @@ impl TlcpClientSignCertBuilder {
     fn with_pkey(pkey: PKey<Private>) -> anyhow::Result<ClientCertBuilder> {
         let key_usage = KeyUsage::new()
             .critical()
+            .non_repudiation()
             .digital_signature()
             .build()
             .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
@@ -173,7 +174,9 @@ impl TlcpClientEncCertBuilder {
     fn with_pkey(pkey: PKey<Private>) -> anyhow::Result<ClientCertBuilder> {
         let key_usage = KeyUsage::new()
             .critical()
+            .key_agreement()
             .key_encipherment()
+            .data_encipherment()
             .build()
             .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
         ClientCertBuilder::new(pkey, key_usage)

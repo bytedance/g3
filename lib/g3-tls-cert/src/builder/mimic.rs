@@ -19,8 +19,8 @@ use openssl::asn1::Asn1Time;
 use openssl::hash::MessageDigest;
 use openssl::nid::Nid;
 use openssl::pkey::{Id, PKey, Private};
-use openssl::x509::extension::{AuthorityKeyIdentifier, SubjectKeyIdentifier};
-use openssl::x509::{X509Builder, X509Extension, X509Ref, X509};
+use openssl::x509::extension::{AuthorityKeyIdentifier, KeyUsage, SubjectKeyIdentifier};
+use openssl::x509::{X509Builder, X509Extension, X509ExtensionRef, X509Ref, X509};
 
 use crate::ext::X509BuilderExt;
 
@@ -77,11 +77,12 @@ impl<'a> MimicCertBuilder<'a> {
         &self.pkey
     }
 
-    pub fn build(
+    fn build_with_usage(
         &self,
         ca_cert: &X509Ref,
         ca_key: &PKey<Private>,
         sign_digest: Option<MessageDigest>,
+        key_usage: &X509ExtensionRef,
     ) -> anyhow::Result<X509> {
         let mut builder =
             X509Builder::new().map_err(|e| anyhow!("failed to create x509 builder {e}"))?;
@@ -112,13 +113,6 @@ impl<'a> MimicCertBuilder<'a> {
             .set_version(cert_version)
             .map_err(|e| anyhow!("failed to set x509 version 3: {e}"))?;
 
-        let key_usage_loc = self
-            .mimic_cert
-            .get_extension_location(Nid::KEY_USAGE, None)
-            .ok_or_else(|| anyhow!("failed to get location of key usage extension"))?;
-        let key_usage = self.mimic_cert.get_extension(key_usage_loc).map_err(|e| {
-            anyhow!("failed to get key usage extension at location {key_usage_loc}: {e}")
-        })?;
         builder
             .append_extension2(key_usage)
             .map_err(|e| anyhow!("failed to append KeyUsage extension: {e}"))?;
@@ -200,5 +194,53 @@ impl<'a> MimicCertBuilder<'a> {
             .map_err(|e| anyhow!("failed to sign: {e}"))?;
 
         Ok(builder.build())
+    }
+
+    pub fn build_tls_cert(
+        &self,
+        ca_cert: &X509Ref,
+        ca_key: &PKey<Private>,
+        sign_digest: Option<MessageDigest>,
+    ) -> anyhow::Result<X509> {
+        let key_usage_loc = self
+            .mimic_cert
+            .get_extension_location(Nid::KEY_USAGE, None)
+            .ok_or_else(|| anyhow!("failed to get location of key usage extension"))?;
+        let key_usage = self.mimic_cert.get_extension(key_usage_loc).map_err(|e| {
+            anyhow!("failed to get key usage extension at location {key_usage_loc}: {e}")
+        })?;
+
+        self.build_with_usage(ca_cert, ca_key, sign_digest, key_usage)
+    }
+
+    pub fn build_tlcp_enc_cert(
+        &self,
+        ca_cert: &X509Ref,
+        ca_key: &PKey<Private>,
+        sign_digest: Option<MessageDigest>,
+    ) -> anyhow::Result<X509> {
+        let key_usage = KeyUsage::new()
+            .critical()
+            .key_agreement()
+            .key_encipherment()
+            .data_encipherment()
+            .build()
+            .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
+        self.build_with_usage(ca_cert, ca_key, sign_digest, &key_usage)
+    }
+
+    pub fn build_tlcp_sign_cert(
+        &self,
+        ca_cert: &X509Ref,
+        ca_key: &PKey<Private>,
+        sign_digest: Option<MessageDigest>,
+    ) -> anyhow::Result<X509> {
+        let key_usage = KeyUsage::new()
+            .critical()
+            .non_repudiation()
+            .digital_signature()
+            .build()
+            .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
+        self.build_with_usage(ca_cert, ca_key, sign_digest, &key_usage)
     }
 }
