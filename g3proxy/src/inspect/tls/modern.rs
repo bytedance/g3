@@ -29,6 +29,11 @@ use crate::config::server::ServerConfig;
 use crate::inspect::{InterceptionError, StreamInspection};
 use crate::serve::ServerTaskResult;
 
+#[cfg(not(feature = "vendored-tongsuo"))]
+const CERT_USAGE: TlsCertUsage = TlsCertUsage::TlsServer;
+#[cfg(feature = "vendored-tongsuo")]
+const CERT_USAGE: TlsCertUsage = TlsCertUsage::TLsServerTongsuo;
+
 impl<SC> TlsInterceptObject<SC>
 where
     SC: ServerConfig + Send + Sync + 'static,
@@ -135,7 +140,7 @@ where
         let cert_agent = self.tls_interception.cert_agent.clone();
         let pre_fetch_handle = tokio::spawn(async move {
             cert_agent
-                .pre_fetch(TlsServiceType::Http, TlsCertUsage::TlsServer, cert_domain2)
+                .pre_fetch(TlsServiceType::Http, CERT_USAGE, cert_domain2)
                 .await
         });
 
@@ -171,12 +176,7 @@ where
                 })?;
                 self.tls_interception
                     .cert_agent
-                    .fetch(
-                        TlsServiceType::Http,
-                        TlsCertUsage::TlsServer,
-                        cert_domain,
-                        upstream_cert,
-                    )
+                    .fetch(TlsServiceType::Http, CERT_USAGE, cert_domain, upstream_cert)
                     .await
                     .ok_or_else(|| {
                         TlsInterceptionError::NoFakeCertGenerated(anyhow!(

@@ -35,7 +35,6 @@ pub(crate) struct OpensslBackendConfig {
     pub(crate) ca_key: PKey<Private>,
     pub(crate) ca_cert_pem: Vec<u8>,
     pub(crate) keep_serial: bool,
-    pub(crate) keep_key_usage: bool,
     pub(crate) max_ttl: i32,
     pub(crate) duration_stats: HistogramMetricsConfig,
 }
@@ -47,7 +46,6 @@ pub(super) fn load_config(value: &Yaml) -> anyhow::Result<()> {
         let mut ca_cert: Option<X509> = None;
         let mut ca_key: Option<PKey<Private>> = None;
         let mut keep_serial = false;
-        let mut keep_key_usage = false;
         let mut max_ttl = 24 * 3600; // 1 day
         let mut duration_stats = HistogramMetricsConfig::default();
         let lookup_dir = g3_daemon::config::get_lookup_dir(None)?;
@@ -84,10 +82,6 @@ pub(super) fn load_config(value: &Yaml) -> anyhow::Result<()> {
                 keep_serial = g3_yaml::value::as_bool(v)?;
                 Ok(())
             }
-            "keep_key_usage" => {
-                keep_key_usage = g3_yaml::value::as_bool(v)?;
-                Ok(())
-            }
             "max_ttl" => {
                 let v = g3_yaml::value::as_i32(v)?;
                 max_ttl = v.max(300); // at least for 5 minutes
@@ -118,7 +112,6 @@ pub(super) fn load_config(value: &Yaml) -> anyhow::Result<()> {
                 ca_key,
                 ca_cert_pem,
                 keep_serial,
-                keep_key_usage,
                 max_ttl,
                 duration_stats,
             }))

@@ -88,16 +88,13 @@ impl OpensslBackend {
 
         let cert = match cert_usage {
             TlsCertUsage::TlsServer => {
-                if self.config.keep_key_usage {
-                    mimic_builder.build_tls_cert(&self.config.ca_cert, &self.config.ca_key, None)?
-                } else {
-                    mimic_builder.build_tls_cert_with_new_usage(
-                        &self.config.ca_cert,
-                        &self.config.ca_key,
-                        None,
-                    )?
-                }
+                mimic_builder.build_tls_cert(&self.config.ca_cert, &self.config.ca_key, None)?
             }
+            TlsCertUsage::TLsServerTongsuo => mimic_builder.build_tls_cert_with_new_usage(
+                &self.config.ca_cert,
+                &self.config.ca_key,
+                None,
+            )?,
             TlsCertUsage::TlcpServerEncryption => mimic_builder.build_tlcp_enc_cert(
                 &self.config.ca_cert,
                 &self.config.ca_key,

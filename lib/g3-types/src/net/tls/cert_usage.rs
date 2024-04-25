@@ -21,6 +21,7 @@ use std::str::FromStr;
 #[repr(u8)]
 pub enum TlsCertUsage {
     TlsServer = 0,
+    TLsServerTongsuo = 1,
     TlcpServerSignature = 11,
     TlcpServerEncryption = 12,
 }
@@ -29,6 +30,7 @@ impl TlsCertUsage {
     pub fn as_str(&self) -> &'static str {
         match self {
             TlsCertUsage::TlsServer => "tls_server",
+            TlsCertUsage::TLsServerTongsuo => "tls_server_tongsuo",
             TlsCertUsage::TlcpServerSignature => "tlcp_server_signature",
             TlsCertUsage::TlcpServerEncryption => "tlcp_server_encryption",
         }
@@ -55,6 +57,7 @@ impl TryFrom<u8> for TlsCertUsage {
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             0 => Ok(TlsCertUsage::TlsServer),
+            1 => Ok(TlsCertUsage::TLsServerTongsuo),
             11 => Ok(TlsCertUsage::TlcpServerSignature),
             12 => Ok(TlsCertUsage::TlcpServerEncryption),
             _ => Err(InvalidCertUsage),
@@ -68,6 +71,7 @@ impl FromStr for TlsCertUsage {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "tls_server" | "tlsserver" => Ok(TlsCertUsage::TlsServer),
+            "tls_server_tongsuo" | "tlsservertongsuo" => Ok(TlsCertUsage::TLsServerTongsuo),
             "tlcp_server_signature"
             | "tlcp_server_sign"
             | "tlcpserversignature"
