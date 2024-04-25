@@ -58,6 +58,11 @@ impl Request {
         self.cert.as_ref()
     }
 
+    #[inline]
+    pub fn cert_usage(&self) -> TlsCertUsage {
+        self.usage
+    }
+
     fn check(&self) -> anyhow::Result<()> {
         if self.host.is_empty() {
             return Err(anyhow!("no host value set"));

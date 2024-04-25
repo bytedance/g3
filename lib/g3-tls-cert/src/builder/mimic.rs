@@ -22,6 +22,7 @@ use openssl::pkey::{Id, PKey, Private};
 use openssl::x509::extension::{AuthorityKeyIdentifier, KeyUsage, SubjectKeyIdentifier};
 use openssl::x509::{X509Builder, X509Extension, X509ExtensionRef, X509Ref, X509};
 
+use super::KeyUsageBuilder;
 use crate::ext::X509BuilderExt;
 
 pub struct MimicCertBuilder<'a> {
@@ -211,6 +212,31 @@ impl<'a> MimicCertBuilder<'a> {
         })?;
 
         self.build_with_usage(ca_cert, ca_key, sign_digest, key_usage)
+    }
+
+    pub fn build_tls_cert_with_new_usage(
+        &self,
+        ca_cert: &X509Ref,
+        ca_key: &PKey<Private>,
+        sign_digest: Option<MessageDigest>,
+    ) -> anyhow::Result<X509> {
+        let pkey = self
+            .mimic_cert
+            .public_key()
+            .map_err(|e| anyhow!("failed to get key for the mimic cert: {e}"))?;
+        let key_usage_builder = match pkey.id() {
+            Id::RSA | Id::EC => KeyUsageBuilder::tls_general(),
+            #[cfg(not(feature = "no-sm2"))]
+            Id::SM2 => KeyUsageBuilder::tls_general(),
+            Id::ED448 | Id::ED25519 => KeyUsageBuilder::ed_dsa(),
+            Id::X448 | Id::X25519 => KeyUsageBuilder::x_dh(),
+            _ => return self.build_tls_cert(ca_cert, ca_key, sign_digest),
+        };
+        let key_usage = key_usage_builder
+            .build()
+            .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
+
+        self.build_with_usage(ca_cert, ca_key, sign_digest, &key_usage)
     }
 
     pub fn build_tlcp_enc_cert(

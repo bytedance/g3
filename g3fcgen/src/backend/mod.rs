@@ -27,7 +27,7 @@ use tokio::runtime::Handle;
 
 use g3_tls_cert::agent::Request;
 use g3_tls_cert::builder::{MimicCertBuilder, ServerCertBuilder, TlsServerCertBuilder};
-use g3_types::net::Host;
+use g3_types::net::{Host, TlsCertUsage};
 
 mod stats;
 pub(crate) use stats::BackendStats;
@@ -66,7 +66,7 @@ impl OpensslBackend {
     fn generate(&mut self, req: &Request) -> anyhow::Result<GeneratedData> {
         self.stats.add_request_total();
         if let Some(mimic_cert) = req.cert() {
-            self.generate_mimic(mimic_cert)
+            self.generate_mimic(mimic_cert, req.cert_usage())
         } else {
             let host = Host::from_str(req.host_str())?;
             self.builder.refresh_serial()?;
@@ -78,10 +78,38 @@ impl OpensslBackend {
         }
     }
 
-    fn generate_mimic(&self, mimic_cert: &X509) -> anyhow::Result<GeneratedData> {
+    fn generate_mimic(
+        &self,
+        mimic_cert: &X509,
+        cert_usage: TlsCertUsage,
+    ) -> anyhow::Result<GeneratedData> {
         let mut mimic_builder = MimicCertBuilder::new(mimic_cert)?;
         mimic_builder.set_keep_serial(self.config.keep_serial);
-        let cert = mimic_builder.build_tls_cert(&self.config.ca_cert, &self.config.ca_key, None)?;
+
+        let cert = match cert_usage {
+            TlsCertUsage::TlsServer => {
+                if self.config.keep_key_usage {
+                    mimic_builder.build_tls_cert(&self.config.ca_cert, &self.config.ca_key, None)?
+                } else {
+                    mimic_builder.build_tls_cert_with_new_usage(
+                        &self.config.ca_cert,
+                        &self.config.ca_key,
+                        None,
+                    )?
+                }
+            }
+            TlsCertUsage::TlcpServerEncryption => mimic_builder.build_tlcp_enc_cert(
+                &self.config.ca_cert,
+                &self.config.ca_key,
+                None,
+            )?,
+            TlsCertUsage::TlcpServerSignature => mimic_builder.build_tlcp_sign_cert(
+                &self.config.ca_cert,
+                &self.config.ca_key,
+                None,
+            )?,
+        };
+
         let ttl = mimic_builder.valid_seconds()?;
 
         self.pack_data(cert, mimic_builder.pkey(), ttl)
