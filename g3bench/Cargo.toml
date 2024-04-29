@@ -32,7 +32,7 @@ tokio-rustls.workspace = true
 hdrhistogram.workspace = true
 ahash.workspace = true
 rustc-hash.workspace = true
-concurrent-queue = "2.2"
+concurrent-queue = "2.5"
 hex.workspace = true
 itoa.workspace = true
 governor = { workspace = true, features = ["std", "jitter"] }
