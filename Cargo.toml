@@ -181,7 +181,7 @@ redis = { version = "0.25.3", default-features = false, features = ["tcp_nodelay
 #
 flate2 = "1.0"
 zip = { version = "1.2", default-features = false, features = ["deflate"] }
-brotli = { version = "5.0", default-features = false, features = ["std"] }
+brotli = { version = "6.0", default-features = false, features = ["std"] }
 #
 mlua = "0.9"
 pyo3 = { version = "0.21", default-features = false, features = ["auto-initialize"] }
