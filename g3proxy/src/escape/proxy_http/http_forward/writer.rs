@@ -20,7 +20,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use async_trait::async_trait;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use tokio::io::AsyncWrite;
 
 use g3_http::server::HttpProxyClientRequest;
@@ -35,14 +35,15 @@ use crate::module::http_forward::{
 };
 use crate::serve::ServerTaskNotes;
 
-#[pin_project]
-pub(super) struct ProxyHttpHttpForwardWriter<W: AsyncWrite> {
-    config: Arc<ProxyHttpEscaperConfig>,
-    #[pin]
-    inner: W,
-    escaper_stats: Option<Arc<ProxyHttpEscaperStats>>,
-    upstream: UpstreamAddr,
-    pass_userid: Option<String>,
+pin_project! {
+    pub(super) struct ProxyHttpHttpForwardWriter<W: AsyncWrite> {
+        config: Arc<ProxyHttpEscaperConfig>,
+        #[pin]
+        inner: W,
+        escaper_stats: Option<Arc<ProxyHttpEscaperStats>>,
+        upstream: UpstreamAddr,
+        pass_userid: Option<String>,
+    }
 }
 
 impl<W> ProxyHttpHttpForwardWriter<W>
@@ -131,12 +132,13 @@ where
     }
 }
 
-#[pin_project]
-pub(super) struct ProxyHttpHttpRequestWriter<W: AsyncWrite> {
-    config: Arc<ProxyHttpEscaperConfig>,
-    #[pin]
-    inner: W,
-    escaper_stats: Option<Arc<ProxyHttpEscaperStats>>,
+pin_project! {
+    pub(super) struct ProxyHttpHttpRequestWriter<W: AsyncWrite> {
+        config: Arc<ProxyHttpEscaperConfig>,
+        #[pin]
+        inner: W,
+        escaper_stats: Option<Arc<ProxyHttpEscaperStats>>,
+    }
 }
 
 impl<W> ProxyHttpHttpRequestWriter<W>

@@ -21,7 +21,7 @@ use std::task::{Context, Poll};
 
 use async_trait::async_trait;
 use http::Method;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use tokio::io::{AsyncBufRead, AsyncRead, ReadBuf};
 
 use g3_http::client::{HttpForwardRemoteResponse, HttpResponseParseError};
@@ -33,10 +33,11 @@ use crate::module::http_forward::{
     HttpForwardTaskRemoteWrapperStats,
 };
 
-#[pin_project]
-pub(super) struct ProxyHttpHttpForwardReader<R: AsyncRead> {
-    #[pin]
-    inner: LimitedBufReader<R>,
+pin_project! {
+    pub(super) struct ProxyHttpHttpForwardReader<R: AsyncRead> {
+        #[pin]
+        inner: LimitedBufReader<R>,
+    }
 }
 
 impl<R> ProxyHttpHttpForwardReader<R>

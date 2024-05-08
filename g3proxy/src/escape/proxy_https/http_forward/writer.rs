@@ -20,7 +20,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use async_trait::async_trait;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use tokio::io::AsyncWrite;
 
 use g3_http::server::HttpProxyClientRequest;
@@ -35,13 +35,14 @@ use crate::module::http_forward::{
 };
 use crate::serve::ServerTaskNotes;
 
-#[pin_project]
-pub(super) struct ProxyHttpsHttpForwardWriter<W: AsyncWrite> {
-    config: Arc<ProxyHttpsEscaperConfig>,
-    #[pin]
-    inner: W,
-    upstream: UpstreamAddr,
-    pass_userid: Option<String>,
+pin_project! {
+    pub(super) struct ProxyHttpsHttpForwardWriter<W: AsyncWrite> {
+        config: Arc<ProxyHttpsEscaperConfig>,
+        #[pin]
+        inner: W,
+        upstream: UpstreamAddr,
+        pass_userid: Option<String>,
+    }
 }
 
 impl<W> ProxyHttpsHttpForwardWriter<W>
@@ -122,11 +123,12 @@ where
     }
 }
 
-#[pin_project]
-pub(super) struct ProxyHttpsHttpRequestWriter<W: AsyncWrite> {
-    config: Arc<ProxyHttpsEscaperConfig>,
-    #[pin]
-    inner: W,
+pin_project! {
+    pub(super) struct ProxyHttpsHttpRequestWriter<W: AsyncWrite> {
+        config: Arc<ProxyHttpsEscaperConfig>,
+        #[pin]
+        inner: W,
+    }
 }
 
 impl<W> ProxyHttpsHttpRequestWriter<W>

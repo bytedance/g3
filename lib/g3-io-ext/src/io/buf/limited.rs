@@ -19,20 +19,21 @@ use std::io::IoSlice;
 use std::pin::Pin;
 use std::task::{ready, Context, Poll};
 
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, ReadBuf};
 
 use super::DEFAULT_BUF_SIZE;
 use crate::io::{ArcLimitedReaderStats, LimitedReader};
 
-#[pin_project]
-pub struct LimitedBufReader<R> {
-    #[pin]
-    inner: LimitedReader<R>,
-    stats: ArcLimitedReaderStats,
-    buf: Box<[u8]>,
-    pos: usize,
-    cap: usize,
+pin_project! {
+    pub struct LimitedBufReader<R> {
+        #[pin]
+        inner: LimitedReader<R>,
+        stats: ArcLimitedReaderStats,
+        buf: Box<[u8]>,
+        pos: usize,
+        cap: usize,
+    }
 }
 
 impl<R> LimitedBufReader<R>

@@ -142,7 +142,7 @@ futures-util = "0.3"
 atomic-waker = "1.1"
 async-trait = "0.1"
 async-recursion = "1.1"
-pin-project = "1.1"
+pin-project-lite = "0.2"
 #
 rustls = "0.21.12"
 tokio-rustls = "0.24"

@@ -20,7 +20,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use async_trait::async_trait;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use tokio::io::AsyncWrite;
 use tokio::time::Instant;
 
@@ -36,12 +36,13 @@ use crate::module::http_forward::{
 };
 use crate::serve::ServerTaskNotes;
 
-#[pin_project]
-pub(super) struct Socks5PeerHttpForwardWriter<W: AsyncWrite> {
-    config: Arc<ProxyFloatSocks5PeerSharedConfig>,
-    #[pin]
-    inner: W,
-    escaper_stats: Option<Arc<ProxyFloatEscaperStats>>,
+pin_project! {
+    pub(super) struct Socks5PeerHttpForwardWriter<W: AsyncWrite> {
+        config: Arc<ProxyFloatSocks5PeerSharedConfig>,
+        #[pin]
+        inner: W,
+        escaper_stats: Option<Arc<ProxyFloatEscaperStats>>,
+    }
 }
 
 impl<W> Socks5PeerHttpForwardWriter<W>

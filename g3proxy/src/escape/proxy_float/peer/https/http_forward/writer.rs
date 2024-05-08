@@ -20,7 +20,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use async_trait::async_trait;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use tokio::io::AsyncWrite;
 use tokio::time::Instant;
 
@@ -36,12 +36,13 @@ use crate::module::http_forward::{
 };
 use crate::serve::ServerTaskNotes;
 
-#[pin_project]
-pub(super) struct HttpsPeerHttpForwardWriter<W: AsyncWrite> {
-    config: Arc<ProxyFloatHttpsPeerSharedConfig>,
-    #[pin]
-    inner: W,
-    upstream: UpstreamAddr,
+pin_project! {
+    pub(super) struct HttpsPeerHttpForwardWriter<W: AsyncWrite> {
+        config: Arc<ProxyFloatHttpsPeerSharedConfig>,
+        #[pin]
+        inner: W,
+        upstream: UpstreamAddr,
+    }
 }
 
 impl<W> HttpsPeerHttpForwardWriter<W>
@@ -125,11 +126,12 @@ where
     }
 }
 
-#[pin_project]
-pub(super) struct HttpsPeerHttpRequestWriter<W: AsyncWrite> {
-    config: Arc<ProxyFloatHttpsPeerSharedConfig>,
-    #[pin]
-    inner: W,
+pin_project! {
+    pub(super) struct HttpsPeerHttpRequestWriter<W: AsyncWrite> {
+        config: Arc<ProxyFloatHttpsPeerSharedConfig>,
+        #[pin]
+        inner: W,
+    }
 }
 
 impl<W> HttpsPeerHttpRequestWriter<W>

@@ -22,7 +22,7 @@ use std::task::{ready, Context, Poll};
 use std::time::Duration;
 
 use futures_util::FutureExt;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use tokio::io::AsyncWrite;
 use tokio::time::{Instant, Sleep};
 
@@ -113,11 +113,12 @@ impl LimitedWriterState {
     }
 }
 
-#[pin_project]
-pub struct LimitedWriter<W> {
-    #[pin]
-    inner: W,
-    state: LimitedWriterState,
+pin_project! {
+    pub struct LimitedWriter<W> {
+        #[pin]
+        inner: W,
+        state: LimitedWriterState,
+    }
 }
 
 impl<W: AsyncWrite> LimitedWriter<W> {

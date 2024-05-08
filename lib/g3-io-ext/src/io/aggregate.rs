@@ -19,19 +19,16 @@ use std::io::IoSlice;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
-#[pin_project]
-pub struct AggregatedIo<R, W>
-where
-    R: AsyncRead,
-    W: AsyncWrite,
-{
-    #[pin]
-    pub reader: R,
-    #[pin]
-    pub writer: W,
+pin_project! {
+    pub struct AggregatedIo<R, W> {
+        #[pin]
+        pub reader: R,
+        #[pin]
+        pub writer: W,
+    }
 }
 
 impl<R, W> AggregatedIo<R, W>

@@ -22,7 +22,7 @@ use std::task::{ready, Context, Poll};
 use std::time::Duration;
 
 use futures_util::FutureExt;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::time::{Instant, Sleep};
 
@@ -113,11 +113,12 @@ impl LimitedReaderState {
     }
 }
 
-#[pin_project]
-pub struct LimitedReader<R> {
-    #[pin]
-    inner: R,
-    state: LimitedReaderState,
+pin_project! {
+    pub struct LimitedReader<R> {
+        #[pin]
+        inner: R,
+        state: LimitedReaderState,
+    }
 }
 
 impl<R> LimitedReader<R> {
@@ -194,12 +195,13 @@ impl<R: AsyncRead + AsyncWrite> AsyncWrite for LimitedReader<R> {
     }
 }
 
-#[pin_project]
-pub struct SizedReader<R> {
-    #[pin]
-    inner: R,
-    max_size: u64,
-    cur_size: u64,
+pin_project! {
+    pub struct SizedReader<R> {
+        #[pin]
+        inner: R,
+        max_size: u64,
+        cur_size: u64,
+    }
 }
 
 impl<R> SizedReader<R>

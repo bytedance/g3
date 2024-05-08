@@ -20,18 +20,19 @@ use std::pin::Pin;
 use std::task::{ready, Context, Poll};
 
 use bytes::BytesMut;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, ReadBuf};
 
 use super::DEFAULT_BUF_SIZE;
 
-#[pin_project]
-pub struct FlexBufReader<R> {
-    #[pin]
-    inner: R,
-    buf: Box<[u8]>,
-    pos: usize,
-    cap: usize,
+pin_project! {
+    pub struct FlexBufReader<R> {
+        #[pin]
+        inner: R,
+        buf: Box<[u8]>,
+        pos: usize,
+        cap: usize,
+    }
 }
 
 impl<R: AsyncRead> FlexBufReader<R> {

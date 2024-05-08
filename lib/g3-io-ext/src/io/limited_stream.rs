@@ -20,18 +20,19 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
 use super::limited_read::{LimitedReaderState, LimitedReaderStats};
 use super::limited_write::{LimitedWriterState, LimitedWriterStats};
 
-#[pin_project]
-pub struct LimitedStream<S> {
-    #[pin]
-    inner: S,
-    reader_state: LimitedReaderState,
-    writer_state: LimitedWriterState,
+pin_project! {
+    pub struct LimitedStream<S> {
+        #[pin]
+        inner: S,
+        reader_state: LimitedReaderState,
+        writer_state: LimitedWriterState,
+    }
 }
 
 impl<S> LimitedStream<S> {
