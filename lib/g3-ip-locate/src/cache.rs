@@ -27,7 +27,7 @@ use ip_network_table::IpNetworkTable;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 
-use g3_geoip::IpLocation;
+use g3_geoip_types::IpLocation;
 
 use super::{CacheQueryRequest, IpLocateServiceConfig, IpLocationCacheResponse};
 

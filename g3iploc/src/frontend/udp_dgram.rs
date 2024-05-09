@@ -21,7 +21,7 @@ use std::sync::Arc;
 use log::warn;
 use tokio::net::UdpSocket;
 
-use g3_geoip::IpLocationBuilder;
+use g3_geoip_types::IpLocationBuilder;
 use g3_ip_locate::{Request, Response};
 
 use super::FrontendStats;
@@ -76,7 +76,7 @@ impl UdpDgramFrontend {
 
                     let mut builder = IpLocationBuilder::default();
 
-                    if let Some(db) = g3_geoip::store::load_country() {
+                    if let Some(db) = g3_geoip_db::store::load_country() {
                         if let Some((net, v)) = db.longest_match(ip) {
                             builder.set_network(net);
                             builder.set_country(v.country);
@@ -84,7 +84,7 @@ impl UdpDgramFrontend {
                         }
                     }
 
-                    if let Some(asn_db) = g3_geoip::store::load_asn() {
+                    if let Some(asn_db) = g3_geoip_db::store::load_asn() {
                         if let Some((net, v)) = asn_db.longest_match(ip) {
                             builder.set_network(net);
                             builder.set_as_number(v.number);

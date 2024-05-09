@@ -19,7 +19,7 @@ use std::str::FromStr;
 use anyhow::{anyhow, Context};
 use yaml_rust::Yaml;
 
-use g3_geoip::{ContinentCode, IpLocation, IpLocationBuilder, IsoCountryCode};
+use g3_geoip_types::{ContinentCode, IpLocation, IpLocationBuilder, IsoCountryCode};
 use g3_ip_locate::IpLocateServiceConfig;
 
 pub fn as_iso_country_code(value: &Yaml) -> anyhow::Result<IsoCountryCode> {

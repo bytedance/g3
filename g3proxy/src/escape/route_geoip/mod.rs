@@ -26,7 +26,7 @@ use ip_network_table::IpNetworkTable;
 use rustc_hash::FxHashMap;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_geoip::{ContinentCode, IpLocation, IsoCountryCode};
+use g3_geoip_types::{ContinentCode, IpLocation, IsoCountryCode};
 use g3_ip_locate::IpLocationServiceHandle;
 use g3_resolver::ResolveError;
 use g3_types::metrics::MetricsName;

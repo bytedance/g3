@@ -19,7 +19,7 @@ use std::net::IpAddr;
 use anyhow::{anyhow, Context};
 use rmpv::ValueRef;
 
-use g3_geoip::{IpLocation, IpLocationBuilder};
+use g3_geoip_types::{IpLocation, IpLocationBuilder};
 
 use super::{response_key, response_key_id};
 

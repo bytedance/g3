@@ -19,7 +19,7 @@ use std::str::FromStr;
 use anyhow::{anyhow, Context};
 use rmpv::ValueRef;
 
-use g3_geoip::{ContinentCode, IpLocation, IpLocationBuilder, IsoCountryCode};
+use g3_geoip_types::{ContinentCode, IpLocation, IpLocationBuilder, IsoCountryCode};
 
 pub fn as_iso_country_code(value: &ValueRef) -> anyhow::Result<IsoCountryCode> {
     let s = crate::value::as_string(value)

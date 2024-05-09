@@ -25,7 +25,9 @@ use ip_network::IpNetwork;
 use ip_network_table::IpNetworkTable;
 use zip::ZipArchive;
 
-use crate::{ContinentCode, GeoIpAsnRecord, GeoIpCountryRecord, IsoCountryCode};
+use g3_geoip_types::{ContinentCode, IsoCountryCode};
+
+use crate::{GeoIpAsnRecord, GeoIpCountryRecord};
 
 const GEOLITE2_COUNTRY_LOCATIONS: &str = "GeoLite2-Country-Locations-en.csv";
 const GEOLITE2_COUNTRY_V4: &str = "GeoLite2-Country-Blocks-IPv4.csv";

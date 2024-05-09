@@ -1,10 +1,8 @@
 [package]
-name = "g3-geoip"
+name = "g3-geoip-db"
 version = "0.1.0"
 license.workspace = true
 edition.workspace = true
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow.workspace = true
@@ -12,7 +10,7 @@ arc-swap.workspace = true
 once_cell.workspace = true
 ip_network.workspace = true
 ip_network_table.workspace = true
-smol_str.workspace = true
 csv = "1.2"
 flate2.workspace = true
 zip = { workspace = true, features = ["deflate"] }
+g3-geoip-types.workspace = true

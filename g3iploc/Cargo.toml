@@ -18,7 +18,8 @@ g3-msgpack = { workspace = true, features = ["geoip"]}
 g3-yaml.workspace = true
 g3-daemon.workspace = true
 g3-statsd-client.workspace = true
-g3-geoip.workspace = true
+g3-geoip-types.workspace = true
+g3-geoip-db.workspace = true
 g3-ip-locate.workspace = true
 
 [build-dependencies]

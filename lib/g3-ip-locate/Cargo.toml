@@ -14,6 +14,6 @@ tokio-util = { workspace = true, features = ["time"] }
 ahash.workspace = true
 rmpv.workspace = true
 g3-types.workspace = true
-g3-geoip.workspace = true
+g3-geoip-types.workspace = true
 g3-msgpack = { workspace = true, features = ["geoip"] }
 g3-socket.workspace = true

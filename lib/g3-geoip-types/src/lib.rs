@@ -14,25 +14,11 @@
  * limitations under the License.
  */
 
-use super::{ContinentCode, IsoCountryCode};
+mod continent;
+pub use continent::{Continent, ContinentCode};
 
-pub struct GeoIpCountryRecord {
-    pub country: IsoCountryCode,
-    pub continent: ContinentCode,
-}
+mod country;
+pub use country::IsoCountryCode;
 
-pub struct GeoIpAsnRecord {
-    pub number: u32,
-    pub(crate) name: Option<String>,
-    pub(crate) domain: Option<String>,
-}
-
-impl GeoIpAsnRecord {
-    pub fn isp_name(&self) -> Option<&str> {
-        self.name.as_deref()
-    }
-
-    pub fn isp_domain(&self) -> Option<&str> {
-        self.domain.as_deref()
-    }
-}
+mod location;
+pub use location::{IpLocation, IpLocationBuilder};

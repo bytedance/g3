@@ -25,7 +25,9 @@ use flate2::bufread::GzDecoder;
 use ip_network::IpNetwork;
 use ip_network_table::IpNetworkTable;
 
-use crate::{GeoIpAsnRecord, GeoIpCountryRecord, IsoCountryCode};
+use g3_geoip_types::IsoCountryCode;
+
+use crate::{GeoIpAsnRecord, GeoIpCountryRecord};
 
 pub fn load_country(file: &Path) -> anyhow::Result<IpNetworkTable<GeoIpCountryRecord>> {
     if let Some(ext) = file.extension() {

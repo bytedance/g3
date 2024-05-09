@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
 use ip_network_table::IpNetworkTable;
 
-use g3_geoip::{GeoIpAsnRecord, GeoIpCountryRecord};
+use g3_geoip_db::{GeoIpAsnRecord, GeoIpCountryRecord};
 
 const ARG_NATIVE: &str = "native";
 const ARG_IPINFO: &str = "ipinfo";
@@ -124,13 +124,13 @@ fn load_country(
     db: &Path,
 ) -> anyhow::Result<IpNetworkTable<GeoIpCountryRecord>> {
     let table = if args.get_flag(ARG_NATIVE) {
-        g3_geoip::vendor::native::load_country(db)?
+        g3_geoip_db::vendor::native::load_country(db)?
     } else if args.get_flag(ARG_IPINFO) {
-        g3_geoip::vendor::ipinfo::load_country(db)?
+        g3_geoip_db::vendor::ipinfo::load_country(db)?
     } else if args.get_flag(ARG_MAXMIND) {
-        g3_geoip::vendor::maxmind::load_country(db)?
+        g3_geoip_db::vendor::maxmind::load_country(db)?
     } else if args.get_flag(ARG_IPFIRE) {
-        g3_geoip::vendor::ipfire::load_location(db)?.0
+        g3_geoip_db::vendor::ipfire::load_location(db)?.0
     } else {
         unreachable!()
     };
@@ -139,13 +139,13 @@ fn load_country(
 
 fn load_asn(args: &ArgMatches, db: &Path) -> anyhow::Result<IpNetworkTable<GeoIpAsnRecord>> {
     let table = if args.get_flag(ARG_NATIVE) {
-        g3_geoip::vendor::native::load_asn(db)?
+        g3_geoip_db::vendor::native::load_asn(db)?
     } else if args.get_flag(ARG_IPINFO) {
-        g3_geoip::vendor::ipinfo::load_asn(db)?
+        g3_geoip_db::vendor::ipinfo::load_asn(db)?
     } else if args.get_flag(ARG_MAXMIND) {
-        g3_geoip::vendor::maxmind::load_asn(db)?
+        g3_geoip_db::vendor::maxmind::load_asn(db)?
     } else if args.get_flag(ARG_IPFIRE) {
-        g3_geoip::vendor::ipfire::load_location(db)?.1
+        g3_geoip_db::vendor::ipfire::load_location(db)?.1
     } else {
         unreachable!()
     };

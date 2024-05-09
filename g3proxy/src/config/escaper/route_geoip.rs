@@ -21,7 +21,7 @@ use anyhow::{anyhow, Context};
 use ip_network::IpNetwork;
 use yaml_rust::{yaml, Yaml};
 
-use g3_geoip::{ContinentCode, IsoCountryCode};
+use g3_geoip_types::{ContinentCode, IsoCountryCode};
 use g3_ip_locate::IpLocateServiceConfig;
 use g3_types::metrics::MetricsName;
 use g3_types::resolve::ResolveStrategy;

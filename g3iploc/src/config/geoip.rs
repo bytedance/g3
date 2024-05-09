@@ -25,14 +25,14 @@ pub(crate) fn load(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
         g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
             "country" => {
                 let path = g3_yaml::value::as_file_path(v, conf_dir, false)?;
-                let db = g3_geoip::vendor::native::load_country(&path)?;
-                g3_geoip::store::store_country(Arc::new(db));
+                let db = g3_geoip_db::vendor::native::load_country(&path)?;
+                g3_geoip_db::store::store_country(Arc::new(db));
                 Ok(())
             }
             "asn" => {
                 let path = g3_yaml::value::as_file_path(v, conf_dir, false)?;
-                let db = g3_geoip::vendor::native::load_asn(&path)?;
-                g3_geoip::store::store_asn(Arc::new(db));
+                let db = g3_geoip_db::vendor::native::load_asn(&path)?;
+                g3_geoip_db::store::store_asn(Arc::new(db));
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
