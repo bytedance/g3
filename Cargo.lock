@@ -1688,6 +1688,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "g3iploc-db"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "g3-geoip-db",
+ "ip_network_table",
+]
+
+[[package]]
 name = "g3keymess"
 version = "0.3.3"
 dependencies = [
@@ -1889,16 +1899,6 @@ dependencies = [
  "g3-types",
  "log",
  "tokio",
-]
-
-[[package]]
-name = "g3proxy-geoip"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "g3-geoip-db",
- "ip_network_table",
 ]
 
 [[package]]
