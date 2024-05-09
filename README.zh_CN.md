@@ -51,6 +51,10 @@ G3 Project 由若干组件构成。
 
 适用于g3proxy TLS劫持功能的的伪造证书生成服务组件。
 
+### g3iploc
+
+适用于g3proxy GeoIP功能的IP Location查找服务组件。
+
 ### g3keymess
 
 Cloudflare Keyless Server的简单实现。

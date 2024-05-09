@@ -1,0 +1,12 @@
+Source: g3iploc
+Section: net
+Priority: optional
+Maintainer: G3iploc Maintainers <g3iploc-maintainers@devel.machine>
+Build-Depends: debhelper
+Standards-Version: 3.9.8
+Homepage: https://github.com/bytedance/g3
+
+Package: g3iploc
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: IP Locate Service for G3 Project

@@ -1657,6 +1657,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "g3iploc"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "g3-daemon",
+ "g3-geoip",
+ "g3-ip-locate",
+ "g3-msgpack",
+ "g3-runtime",
+ "g3-statsd-client",
+ "g3-types",
+ "g3-yaml",
+ "log",
+ "rmpv",
+ "rustc_version",
+ "tokio",
+ "yaml-rust2",
+]
+
+[[package]]
 name = "g3keymess"
 version = "0.3.3"
 dependencies = [

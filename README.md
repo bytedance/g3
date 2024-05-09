@@ -53,6 +53,10 @@ A tool to make root CA / intermediate CA / TLS server / TLS client certificates.
 
 Fake certificate generator for g3proxy.
 
+### g3iploc
+
+IP location lookup service for g3proxy GeoIP support.
+
 ### g3keymess
 
 A simple implementation of Cloudflare keyless server.

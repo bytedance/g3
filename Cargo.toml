@@ -37,6 +37,7 @@ members = [
     "lib/g3-openssl",
     "g3bench",
     "g3fcgen",
+    "g3iploc",
     "g3mkcert",
     "g3proxy",
     "g3proxy/proto",
@@ -58,6 +59,7 @@ members = [
 default-members = [
     "g3bench",
     "g3fcgen",
+    "g3iploc",
     "g3mkcert",
     "g3proxy",
     "g3proxy/utils/ctl",
