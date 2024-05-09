@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,17 +14,22 @@
  * limitations under the License.
  */
 
-mod continent;
-pub use continent::{Continent, ContinentCode};
+pub mod request_key {
+    pub const IP: &str = "ip";
+}
 
-mod country;
-pub use country::IsoCountryCode;
+pub mod request_key_id {
+    pub const IP: u64 = 1;
+}
 
-mod location;
-pub use location::{IpLocation, IpLocationBuilder};
+pub mod response_key {
+    pub const IP: &str = "ip";
+    pub const TTL: &str = "ttl";
+    pub const LOCATION: &str = "location";
+}
 
-mod record;
-pub use record::{GeoIpAsnRecord, GeoIpCountryRecord};
-
-pub mod store;
-pub mod vendor;
+pub mod response_key_id {
+    pub const IP: u64 = 1;
+    pub const TTL: u64 = 2;
+    pub const LOCATION: u64 = 3;
+}

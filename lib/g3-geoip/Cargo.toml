@@ -12,6 +12,7 @@ arc-swap.workspace = true
 once_cell.workspace = true
 ip_network.workspace = true
 ip_network_table.workspace = true
+smol_str.workspace = true
 csv = "1.2"
 flate2.workspace = true
 zip = { workspace = true, features = ["deflate"] }

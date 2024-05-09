@@ -1,0 +1,19 @@
+[package]
+name = "g3-ip-locate"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+log.workspace = true
+ip_network.workspace = true
+ip_network_table.workspace = true
+tokio = { workspace = true, features = ["sync", "net", "rt"] }
+tokio-util = { workspace = true, features = ["time"] }
+ahash.workspace = true
+rmpv.workspace = true
+g3-types.workspace = true
+g3-geoip.workspace = true
+g3-msgpack = { workspace = true, features = ["geoip"] }
+g3-socket.workspace = true

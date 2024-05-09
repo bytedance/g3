@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-use anyhow::anyhow;
 use std::str::FromStr;
 
+use anyhow::anyhow;
 use yaml_rust::Yaml;
 
 use g3_geoip::{ContinentCode, IsoCountryCode};

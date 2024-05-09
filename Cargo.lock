@@ -1128,6 +1128,7 @@ dependencies = [
  "ip_network",
  "ip_network_table",
  "once_cell",
+ "smol_str",
  "zip",
 ]
 
@@ -1241,6 +1242,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "g3-ip-locate"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "anyhow",
+ "g3-geoip",
+ "g3-msgpack",
+ "g3-socket",
+ "g3-types",
+ "ip_network",
+ "ip_network_table",
+ "log",
+ "rmpv",
+ "tokio",
+ "tokio-util",
+]
+
+[[package]]
 name = "g3-journal"
 version = "0.2.0"
 dependencies = [
@@ -1284,7 +1303,9 @@ dependencies = [
  "anyhow",
  "atoi",
  "chrono",
+ "g3-geoip",
  "g3-types",
+ "ip_network",
  "rmpv",
  "rustls",
  "rustls-pemfile",
