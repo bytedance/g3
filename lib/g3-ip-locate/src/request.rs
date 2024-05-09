@@ -82,12 +82,12 @@ impl Request {
         Ok(request)
     }
 
-    pub fn encode_new(ip: IpAddr) -> Result<Vec<u8>, ()> {
+    pub fn encode_new(ip: IpAddr) -> anyhow::Result<Vec<u8>> {
         let ip = ip.to_string();
         let value = ValueRef::String(ip.as_str().into());
 
         let mut buf = Vec::with_capacity(320);
-        rmpv::encode::write_value_ref(&mut buf, &value).map_err(|_| ())?;
+        rmpv::encode::write_value_ref(&mut buf, &value)?;
         Ok(buf)
     }
 }
