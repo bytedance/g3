@@ -45,8 +45,6 @@ install -m 644 -D %{name}/service/g3fcgen@.service %{buildroot}/lib/systemd/syst
 
 %files
 %{_bindir}/g3fcgen
-/lib/systemd/system/g3fcgen.service
-/lib/systemd/system-preset/90-g3fcgen.preset
 /lib/systemd/system/g3fcgen@.service
 %license LICENSE
 %license LICENSE-BUNDLED
