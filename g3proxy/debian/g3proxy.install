@@ -2,5 +2,4 @@ usr/bin/g3proxy
 usr/bin/g3proxy-ctl
 usr/bin/g3proxy-ftp
 usr/bin/g3proxy-lua
-usr/bin/g3proxy-geoip
 lib/systemd/system/

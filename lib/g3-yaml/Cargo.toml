@@ -35,6 +35,7 @@ g3-udpdump = { workspace = true, optional = true }
 g3-tls-cert = { workspace = true, optional = true }
 g3-icap-client = { workspace = true, optional = true }
 g3-geoip = { workspace = true, optional = true }
+g3-ip-locate = { workspace = true, optional = true }
 
 [features]
 default = []
@@ -53,4 +54,4 @@ ftp-client = ["g3-ftp-client"]
 sched = ["dep:g3-runtime", "dep:g3-compat"]
 dpi = ["dep:g3-dpi", "dep:g3-udpdump", "dep:g3-tls-cert"]
 audit = ["dep:g3-icap-client", "http"]
-geoip = ["dep:g3-geoip"]
+geoip = ["dep:g3-geoip", "dep:g3-ip-locate"]

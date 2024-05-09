@@ -30,7 +30,7 @@ use tokio::time::Instant;
 
 use g3_geoip::IpLocation;
 
-use super::{CacheQueryRequest, IpLocationCacheResponse, IpLocationServiceConfig};
+use super::{CacheQueryRequest, IpLocateServiceConfig, IpLocationCacheResponse};
 
 pub(crate) struct IpLocationCacheRuntime {
     request_batch_handle_count: usize,
@@ -44,7 +44,7 @@ pub(crate) struct IpLocationCacheRuntime {
 
 impl IpLocationCacheRuntime {
     pub(crate) fn new(
-        config: &IpLocationServiceConfig,
+        config: &IpLocateServiceConfig,
         req_receiver: mpsc::UnboundedReceiver<CacheQueryRequest>,
         rsp_receiver: mpsc::UnboundedReceiver<(Option<IpAddr>, IpLocationCacheResponse)>,
         query_sender: mpsc::UnboundedSender<IpAddr>,

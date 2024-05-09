@@ -32,7 +32,6 @@ const LUA_FEATURE: Option<&str> = option_env!("G3_LUA_FEATURE");
 const PYTHON_FEATURE: Option<&str> = option_env!("G3_PYTHON_FEATURE");
 const C_ARES_FEATURE: Option<&str> = option_env!("G3_C_ARES_FEATURE");
 const HICKORY_FEATURE: Option<&str> = option_env!("G3_HICKORY_FEATURE");
-const GEOIP_FEATURE: Option<&str> = option_env!("G3_GEOIP_FEATURE");
 const QUIC_FEATURE: Option<&str> = option_env!("G3_QUIC_FEATURE");
 
 pub(crate) fn print_version(verbose_level: u8) {
@@ -50,9 +49,6 @@ pub(crate) fn print_version(verbose_level: u8) {
         }
         if let Some(hickory) = HICKORY_FEATURE {
             print!(" {hickory}");
-        }
-        if let Some(geoip) = GEOIP_FEATURE {
-            print!(" {geoip}");
         }
         if let Some(quic) = QUIC_FEATURE {
             print!(" {quic}");

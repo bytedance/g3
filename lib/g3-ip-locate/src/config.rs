@@ -25,7 +25,7 @@ use g3_types::net::SocketBufferConfig;
 use super::{IpLocationQueryRuntime, IpLocationServiceHandle};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct IpLocationServiceConfig {
+pub struct IpLocateServiceConfig {
     pub(crate) cache_request_batch_count: usize,
     pub(crate) cache_request_timeout: Duration,
     pub(crate) query_peer_addr: SocketAddr,
@@ -35,9 +35,9 @@ pub struct IpLocationServiceConfig {
     pub(crate) maximum_expire_ttl: u32,
 }
 
-impl Default for IpLocationServiceConfig {
+impl Default for IpLocateServiceConfig {
     fn default() -> Self {
-        IpLocationServiceConfig {
+        IpLocateServiceConfig {
             cache_request_batch_count: 10,
             cache_request_timeout: Duration::from_millis(800),
             query_peer_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 2888),
@@ -49,7 +49,7 @@ impl Default for IpLocationServiceConfig {
     }
 }
 
-impl IpLocationServiceConfig {
+impl IpLocateServiceConfig {
     pub fn set_cache_request_batch_count(&mut self, count: usize) {
         self.cache_request_batch_count = count;
     }
@@ -78,7 +78,7 @@ impl IpLocationServiceConfig {
         self.maximum_expire_ttl = ttl;
     }
 
-    pub fn spawn_cert_agent(&self) -> anyhow::Result<IpLocationServiceHandle> {
+    pub fn spawn_ip_locate_agent(&self) -> anyhow::Result<IpLocationServiceHandle> {
         use anyhow::Context;
 
         let (socket, _addr) = g3_socket::udp::new_std_bind_connect(

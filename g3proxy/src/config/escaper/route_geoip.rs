@@ -22,6 +22,7 @@ use ip_network::IpNetwork;
 use yaml_rust::{yaml, Yaml};
 
 use g3_geoip::{ContinentCode, IsoCountryCode};
+use g3_ip_locate::IpLocateServiceConfig;
 use g3_types::metrics::MetricsName;
 use g3_types::resolve::ResolveStrategy;
 use g3_yaml::YamlDocPosition;
@@ -37,6 +38,7 @@ pub(crate) struct RouteGeoIpEscaperConfig {
     pub(crate) resolver: MetricsName,
     pub(crate) resolve_strategy: ResolveStrategy,
     pub(crate) resolution_delay: Duration,
+    pub(crate) ip_locate_service: IpLocateServiceConfig,
     pub(crate) lpm_rules: BTreeMap<MetricsName, BTreeSet<IpNetwork>>,
     pub(crate) asn_rules: BTreeMap<MetricsName, BTreeSet<u32>>,
     pub(crate) country_rules: BTreeMap<MetricsName, BTreeSet<IsoCountryCode>>,
@@ -52,6 +54,7 @@ impl RouteGeoIpEscaperConfig {
             resolver: MetricsName::default(),
             resolve_strategy: Default::default(),
             resolution_delay: Duration::from_millis(50),
+            ip_locate_service: IpLocateServiceConfig::default(),
             lpm_rules: BTreeMap::new(),
             asn_rules: BTreeMap::new(),
             country_rules: BTreeMap::new(),
@@ -90,6 +93,12 @@ impl RouteGeoIpEscaperConfig {
             "resolution_delay" => {
                 self.resolution_delay = g3_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
+                Ok(())
+            }
+            "ip_locate_service" => {
+                self.ip_locate_service = g3_yaml::value::as_ip_locate_service_config(v).context(
+                    format!("invalid ip locate service config value for key {k}"),
+                )?;
                 Ok(())
             }
             "geo_rules" | "geo_match" => {

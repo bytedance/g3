@@ -27,7 +27,7 @@ use log::warn;
 use tokio::io::ReadBuf;
 use tokio::net::UdpSocket;
 
-use super::{IpLocationCacheResponse, IpLocationQueryHandle, IpLocationServiceConfig, Response};
+use super::{IpLocateServiceConfig, IpLocationCacheResponse, IpLocationQueryHandle, Response};
 
 pub(crate) struct IpLocationQueryRuntime {
     socket: UdpSocket,
@@ -41,7 +41,7 @@ pub(crate) struct IpLocationQueryRuntime {
 
 impl IpLocationQueryRuntime {
     pub(crate) fn new(
-        config: &IpLocationServiceConfig,
+        config: &IpLocateServiceConfig,
         socket: UdpSocket,
         query_handle: IpLocationQueryHandle,
     ) -> Self {

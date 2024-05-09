@@ -14,8 +14,14 @@ cert_generator
 
 This protocol is used by auditor when do TLS interception. See :doc:`cert_generator`.
 
+ip_locate
+=========
+
+This protocol is used by route_geoip escaper to find IP locations. See :doc:`ip_locate`.
+
 .. toctree::
    :hidden:
 
    route_query
    cert_generator
+   ip_locate

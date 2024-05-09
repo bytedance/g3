@@ -43,7 +43,7 @@ LUA_FEATURE=lua$LUA_VERSION
 SSL_FEATURE=$(sh scripts/package/detect_openssl_feature.sh)
 CARES_FEATURE=$(sh scripts/package/detect_c-ares_feature.sh)
 export CMAKE="%{cmake_real}"
-cargo build --frozen --offline --profile %{build_profile} --no-default-features --features $LUA_FEATURE,$SSL_FEATURE,quic,$CARES_FEATURE,hickory,geoip --package g3proxy --package g3proxy-ctl --package g3proxy-ftp --package g3proxy-lua --package g3proxy-geoip
+cargo build --frozen --offline --profile %{build_profile} --no-default-features --features $LUA_FEATURE,$SSL_FEATURE,quic,$CARES_FEATURE,hickory --package g3proxy --package g3proxy-ctl --package g3proxy-ftp --package g3proxy-lua
 sh %{name}/service/generate_systemd.sh
 
 
@@ -53,7 +53,6 @@ install -m 755 -D target/%{build_profile}/g3proxy %{buildroot}%{_bindir}/g3proxy
 install -m 755 -D target/%{build_profile}/g3proxy-ctl %{buildroot}%{_bindir}/g3proxy-ctl
 install -m 755 -D target/%{build_profile}/g3proxy-ftp %{buildroot}%{_bindir}/g3proxy-ftp
 install -m 755 -D target/%{build_profile}/g3proxy-lua %{buildroot}%{_bindir}/g3proxy-lua
-install -m 755 -D target/%{build_profile}/g3proxy-geoip %{buildroot}%{_bindir}/g3proxy-geoip
 install -m 644 -D %{name}/service/g3proxy@.service %{buildroot}/lib/systemd/system/g3proxy@.service
 
 
@@ -62,7 +61,6 @@ install -m 644 -D %{name}/service/g3proxy@.service %{buildroot}/lib/systemd/syst
 %{_bindir}/g3proxy-ctl
 %{_bindir}/g3proxy-ftp
 %{_bindir}/g3proxy-lua
-%{_bindir}/g3proxy-geoip
 /lib/systemd/system/g3proxy@.service
 %license LICENSE
 %license LICENSE-BUNDLED

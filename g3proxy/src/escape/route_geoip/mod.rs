@@ -26,7 +26,8 @@ use ip_network_table::IpNetworkTable;
 use rustc_hash::FxHashMap;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_geoip::{ContinentCode, IsoCountryCode};
+use g3_geoip::{ContinentCode, IpLocation, IsoCountryCode};
+use g3_ip_locate::IpLocationServiceHandle;
 use g3_resolver::ResolveError;
 use g3_types::metrics::MetricsName;
 use g3_types::net::{Host, OpensslClientConfig, UpstreamAddr};
@@ -56,6 +57,7 @@ pub(super) struct RouteGeoIpEscaper {
     config: RouteGeoIpEscaperConfig,
     stats: Arc<RouteEscaperStats>,
     resolver_handle: ArcIntegratedResolverHandle,
+    ip_locate_handle: IpLocationServiceHandle,
     next_table: BTreeMap<MetricsName, ArcEscaper>,
     lpm_table: IpNetworkTable<ArcEscaper>,
     asn_table: FxHashMap<u32, ArcEscaper>,
@@ -64,8 +66,7 @@ pub(super) struct RouteGeoIpEscaper {
     continent_bitset: FixedBitSet,
     continent_table: FnvHashMap<u8, ArcEscaper>,
     default_next: ArcEscaper,
-    check_asn_db: bool,
-    check_country_db: bool,
+    check_ip_location: bool,
 }
 
 impl RouteGeoIpEscaper {
@@ -74,6 +75,7 @@ impl RouteGeoIpEscaper {
         stats: Arc<RouteEscaperStats>,
     ) -> anyhow::Result<ArcEscaper> {
         let resolver_handle = crate::resolve::get_handle(config.resolver())?;
+        let ip_locate_handle = config.ip_locate_service.spawn_ip_locate_agent()?;
 
         let mut next_table = BTreeMap::new();
         if let Some(escapers) = config.dependent_escaper() {
@@ -123,10 +125,12 @@ impl RouteGeoIpEscaper {
 
         let check_asn_db = !asn_table.is_empty();
         let check_country_db = !(country_bitset.is_empty() && country_bitset.is_empty());
+        let check_ip_location = check_asn_db || check_country_db;
         let escaper = RouteGeoIpEscaper {
             config,
             stats,
             resolver_handle,
+            ip_locate_handle,
             next_table,
             lpm_table,
             asn_table,
@@ -135,8 +139,7 @@ impl RouteGeoIpEscaper {
             continent_bitset,
             continent_table,
             default_next,
-            check_asn_db,
-            check_country_db,
+            check_ip_location,
         };
 
         Ok(Arc::new(escaper))
@@ -180,38 +183,45 @@ impl RouteGeoIpEscaper {
         }
     }
 
-    fn select_next_by_ip(&self, ip: IpAddr) -> ArcEscaper {
+    fn select_next_by_ip_location(&self, location: &IpLocation) -> Option<ArcEscaper> {
+        if !self.asn_table.is_empty() {
+            if let Some(asn) = location.network_asn() {
+                if let Some(escaper) = self.asn_table.get(&asn) {
+                    return Some(Arc::clone(escaper));
+                }
+            }
+        }
+
+        if let Some(country) = location.country() {
+            if !self.country_bitset.contains(country as usize) {
+                if let Some(escaper) = self.country_table.get(&(country as u16)) {
+                    return Some(Arc::clone(escaper));
+                }
+            }
+        }
+
+        if let Some(continent) = location.continent() {
+            if !self.continent_bitset.contains(continent as usize) {
+                if let Some(escaper) = self.continent_table.get(&(continent as u8)) {
+                    return Some(Arc::clone(escaper));
+                }
+            }
+        }
+
+        None
+    }
+
+    async fn select_next_by_ip(&self, ip: IpAddr) -> ArcEscaper {
         if !self.lpm_table.is_empty() {
             if let Some((_net, escaper)) = self.lpm_table.longest_match(ip) {
                 return Arc::clone(escaper);
             }
         }
 
-        if self.check_asn_db {
-            if let Some(asn_db) = g3_geoip::store::load_asn() {
-                if let Some((_, asn)) = asn_db.longest_match(ip) {
-                    if !self.asn_table.is_empty() {
-                        if let Some(escaper) = self.asn_table.get(&asn.number) {
-                            return Arc::clone(escaper);
-                        }
-                    }
-                }
-            }
-        }
-
-        if self.check_country_db {
-            if let Some(db) = g3_geoip::store::load_country() {
-                if let Some((_, r)) = db.longest_match(ip) {
-                    if !self.country_bitset.contains(r.country as usize) {
-                        if let Some(escaper) = self.country_table.get(&(r.country as u16)) {
-                            return Arc::clone(escaper);
-                        }
-                    }
-                    if !self.continent_bitset.contains(r.continent as usize) {
-                        if let Some(escaper) = self.continent_table.get(&(r.continent as u8)) {
-                            return Arc::clone(escaper);
-                        }
-                    }
+        if self.check_ip_location {
+            if let Some(location) = self.ip_locate_handle.fetch(ip).await {
+                if let Some(escaper) = self.select_next_by_ip_location(&location) {
+                    return escaper;
                 }
             }
         }
@@ -222,7 +232,7 @@ impl RouteGeoIpEscaper {
     async fn select_next(&self, ups: &UpstreamAddr) -> Result<ArcEscaper, ResolveError> {
         let ip = self.get_upstream_ip(ups.host()).await?;
 
-        let escaper = self.select_next_by_ip(ip);
+        let escaper = self.select_next_by_ip(ip).await;
         Ok(escaper)
     }
 }

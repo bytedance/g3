@@ -24,7 +24,7 @@ use tokio::time::Instant;
 use g3_geoip::IpLocation;
 
 mod config;
-pub use config::IpLocationServiceConfig;
+pub use config::IpLocateServiceConfig;
 
 mod handle;
 pub use handle::IpLocationServiceHandle;
@@ -79,7 +79,7 @@ impl IpLocationCacheResponse {
 }
 
 fn spawn_ip_location_cache(
-    config: &IpLocationServiceConfig,
+    config: &IpLocateServiceConfig,
 ) -> (
     IpLocationCacheRuntime,
     IpLocationCacheHandle,
