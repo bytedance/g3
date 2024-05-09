@@ -27,6 +27,8 @@ const ALL_CONTINENT_NAMES: &[&str] = &[
     "South America",
 ];
 
+const ALL_CONTINENT_CODES: &[&str] = &["AF", "AN", "AS", "EU", "NA", "OC", "SA"];
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum ContinentCode {
@@ -42,6 +44,10 @@ pub enum ContinentCode {
 impl ContinentCode {
     pub fn name(&self) -> &'static str {
         ALL_CONTINENT_NAMES[*self as usize]
+    }
+
+    pub fn code(&self) -> &'static str {
+        ALL_CONTINENT_CODES[*self as usize]
     }
 
     pub fn variant_count() -> usize {

@@ -27,13 +27,15 @@ use log::warn;
 use tokio::io::ReadBuf;
 use tokio::net::UdpSocket;
 
-use super::{IpLocateServiceConfig, IpLocationCacheResponse, IpLocationQueryHandle, Response};
+use super::{
+    IpLocateServiceConfig, IpLocationCacheResponse, IpLocationQueryHandle, Request, Response,
+};
 
 pub(crate) struct IpLocationQueryRuntime {
     socket: UdpSocket,
     query_handle: IpLocationQueryHandle,
     read_buffer: Box<[u8]>,
-    write_queue: VecDeque<IpAddr>,
+    write_queue: VecDeque<(IpAddr, Vec<u8>)>,
     default_expire_ttl: u32,
     maximum_expire_ttl: u32,
     query_wait: Duration,
@@ -68,8 +70,10 @@ impl IpLocationQueryRuntime {
 
     fn handle_req(&mut self, ip: IpAddr) {
         if self.query_handle.should_send_raw_query(ip, self.query_wait) {
-            // TODO encode request
-            self.write_queue.push_back(ip);
+            match Request::encode_new(ip) {
+                Ok(buf) => self.write_queue.push_back((ip, buf)),
+                Err(_) => self.send_empty_result(ip, self.default_expire_ttl, false),
+            }
         }
     }
 
@@ -119,14 +123,10 @@ impl IpLocationQueryRuntime {
             }
 
             // send req from write queue
-            while let Some(ip) = self.write_queue.pop_front() {
-                let r = match ip {
-                    IpAddr::V4(v4) => self.socket.poll_send(cx, &v4.octets()),
-                    IpAddr::V6(v6) => self.socket.poll_send(cx, &v6.octets()),
-                };
-                match r {
+            while let Some((ip, buf)) = self.write_queue.pop_front() {
+                match self.socket.poll_send(cx, &buf) {
                     Poll::Pending => {
-                        self.write_queue.push_front(ip);
+                        self.write_queue.push_front((ip, buf));
                         break;
                     }
                     Poll::Ready(Ok(_)) => {}

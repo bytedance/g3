@@ -19,14 +19,14 @@ use std::net::IpAddr;
 use anyhow::{anyhow, Context};
 use rmpv::ValueRef;
 
-use g3_geoip::IpLocation;
+use g3_geoip::{IpLocation, IpLocationBuilder};
 
 use super::{response_key, response_key_id};
 
 #[derive(Default)]
-pub(super) struct Response {
+pub struct Response {
     ip: Option<IpAddr>,
-    location: Option<IpLocation>,
+    location_builder: IpLocationBuilder,
     ttl: Option<u32>,
 }
 
@@ -48,10 +48,35 @@ impl Response {
                             .context(format!("invalid u32 value for key {key}"))?;
                         self.ttl = Some(ttl);
                     }
-                    response_key::LOCATION => {
-                        let location = g3_msgpack::value::as_ip_location(&v)
-                            .context(format!("invalid ip location value for key {key}"))?;
-                        self.location = Some(location);
+                    response_key::NETWORK => {
+                        let network = g3_msgpack::value::as_ip_network(&v)
+                            .context(format!("invalid ip network value for key {key}"))?;
+                        self.location_builder.set_network(network);
+                    }
+                    response_key::COUNTRY => {
+                        let country = g3_msgpack::value::as_iso_country_code(&v)
+                            .context(format!("invalid iso country code value for key {key}"))?;
+                        self.location_builder.set_country(country);
+                    }
+                    response_key::CONTINENT => {
+                        let continent = g3_msgpack::value::as_continent_code(&v)
+                            .context(format!("invalid continent code value for key {key}"))?;
+                        self.location_builder.set_continent(continent);
+                    }
+                    response_key::AS_NUMBER => {
+                        let number = g3_msgpack::value::as_u32(&v)
+                            .context(format!("invalid u32 value for key {key}"))?;
+                        self.location_builder.set_as_number(number);
+                    }
+                    response_key::ISP_NAME => {
+                        let name = g3_msgpack::value::as_string(&v)
+                            .context(format!("invalid string value for key {key}"))?;
+                        self.location_builder.set_isp_name(name);
+                    }
+                    response_key::ISP_DOMAIN => {
+                        let domain = g3_msgpack::value::as_string(&v)
+                            .context(format!("invalid string value for key {key}"))?;
+                        self.location_builder.set_isp_domain(domain);
                     }
                     _ => {} // ignore unknown keys
                 }
@@ -69,10 +94,36 @@ impl Response {
                             .context(format!("invalid u32 value for key id {key_id}"))?;
                         self.ttl = Some(ttl);
                     }
-                    response_key_id::LOCATION => {
-                        let location = g3_msgpack::value::as_ip_location(&v)
-                            .context(format!("invalid ip location value for key id {key_id}"))?;
-                        self.location = Some(location);
+                    response_key_id::NETWORK => {
+                        let network = g3_msgpack::value::as_ip_network(&v)
+                            .context(format!("invalid ip network value for key id {key_id}"))?;
+                        self.location_builder.set_network(network);
+                    }
+                    response_key_id::COUNTRY => {
+                        let country = g3_msgpack::value::as_iso_country_code(&v).context(
+                            format!("invalid iso country code value for key id {key_id}"),
+                        )?;
+                        self.location_builder.set_country(country);
+                    }
+                    response_key_id::CONTINENT => {
+                        let continent = g3_msgpack::value::as_continent_code(&v)
+                            .context(format!("invalid continent code value for key id {key_id}"))?;
+                        self.location_builder.set_continent(continent);
+                    }
+                    response_key_id::AS_NUMBER => {
+                        let number = g3_msgpack::value::as_u32(&v)
+                            .context(format!("invalid u32 value for key id {key_id}"))?;
+                        self.location_builder.set_as_number(number);
+                    }
+                    response_key_id::ISP_NAME => {
+                        let name = g3_msgpack::value::as_string(&v)
+                            .context(format!("invalid string value for key id {key_id}"))?;
+                        self.location_builder.set_isp_name(name);
+                    }
+                    response_key_id::ISP_DOMAIN => {
+                        let domain = g3_msgpack::value::as_string(&v)
+                            .context(format!("invalid string value for key id {key_id}"))?;
+                        self.location_builder.set_isp_domain(domain);
                     }
                     _ => {} // ignore unknown keys
                 }
@@ -95,6 +146,61 @@ impl Response {
     }
 
     pub(super) fn into_parts(self) -> (Option<IpAddr>, Option<IpLocation>, Option<u32>) {
-        (self.ip, self.location, self.ttl)
+        let location = self.location_builder.build().ok();
+        (self.ip, location, self.ttl)
+    }
+
+    pub fn encode_new(ip: IpAddr, location: IpLocation, ttl: u32) -> anyhow::Result<Vec<u8>> {
+        let ip = ip.to_string();
+        let network = location.network_addr().to_string();
+        let mut map = vec![
+            (
+                ValueRef::Integer(response_key_id::IP.into()),
+                ValueRef::String(ip.as_str().into()),
+            ),
+            (
+                ValueRef::Integer(response_key_id::NETWORK.into()),
+                ValueRef::String(network.as_str().into()),
+            ),
+            (
+                ValueRef::Integer(response_key_id::TTL.into()),
+                ValueRef::Integer(ttl.into()),
+            ),
+        ];
+        if let Some(country) = location.country() {
+            map.push((
+                ValueRef::Integer(response_key_id::COUNTRY.into()),
+                ValueRef::String(country.alpha2_code().into()),
+            ));
+        }
+        if let Some(continent) = location.continent() {
+            map.push((
+                ValueRef::Integer(response_key_id::CONTINENT.into()),
+                ValueRef::String(continent.code().into()),
+            ));
+        }
+        if let Some(number) = location.network_asn() {
+            map.push((
+                ValueRef::Integer(response_key_id::AS_NUMBER.into()),
+                ValueRef::Integer(number.into()),
+            ));
+        }
+        if let Some(name) = location.isp_name() {
+            map.push((
+                ValueRef::Integer(response_key_id::ISP_NAME.into()),
+                ValueRef::String(name.into()),
+            ));
+        }
+        if let Some(domain) = location.isp_domain() {
+            map.push((
+                ValueRef::Integer(response_key_id::ISP_DOMAIN.into()),
+                ValueRef::String(domain.into()),
+            ));
+        }
+        let mut buf = Vec::with_capacity(4096);
+        let v = ValueRef::Map(map);
+        rmpv::encode::write_value_ref(&mut buf, &v)
+            .map_err(|e| anyhow!("msgpack encode failed: {e}"))?;
+        Ok(buf)
     }
 }

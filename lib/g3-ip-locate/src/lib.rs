@@ -40,9 +40,10 @@ mod protocol;
 pub use protocol::{request_key, request_key_id, response_key, response_key_id};
 
 mod request;
+pub use request::Request;
 
 mod response;
-use response::Response;
+pub use response::Response;
 
 struct CacheQueryRequest {
     ip: IpAddr,

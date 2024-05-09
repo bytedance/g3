@@ -43,19 +43,54 @@ The target ip address as specified in the request.
 
 This should be present if it's a response to a request, or absent if it's a push response.
 
-location
---------
-
-**optional**, **id**: 2, **type**: :ref:`ip location <conf_value_ip_location>`
-
-Set the IP location value.
-
 ttl
 ---
 
-**optional**, **id**: 3, **type**: u32
+**optional**, **id**: 2, **type**: u32
 
 Set the expire ttl of the response.
 
 If not set, the :ref:`default expire ttl <conf_value_ip_locate_service_default_expire_ttl>` config will
 take effect.
+
+network
+-------
+
+**required**, **id**: 3, **type**: :ref:`ip network str <conf_value_ip_network_str>`
+
+Set the registered network address.
+
+country
+-------
+
+**optional**, **id**: 4, **type**: :ref:`iso country code <conf_value_iso_country_code>`
+
+Set the country.
+
+continent
+---------
+
+**optional**, **id**: 5, **type**: :ref:`continent code <conf_value_continent_code>`
+
+Set the continent
+
+as_number
+---------
+
+**optional**, **id**: 6, **type**: u32
+
+Set the AS Number.
+
+isp_name
+--------
+
+**optional**, **id**: 7, **type**: str
+
+Set the name of it's ISP.
+
+isp_domain
+----------
+
+**optional**, **id**: 8, **type**: str
+
+Set the domain of it's ISP.
