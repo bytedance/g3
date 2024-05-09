@@ -122,7 +122,7 @@ The keys are:
 
   Set the timeout for the cache runtime to wait response from the query runtime.
 
-  **default**: 400ms
+  **default**: 100ms
 
 .. _conf_value_ip_locate_service_default_expire_ttl:
 
@@ -130,7 +130,7 @@ The keys are:
 
   **optional**, **type**: u32
 
-  Set the default expire ttl for the ip locate service.
+  Set the default expire ttl for the response.
 
   **default**: 10
 
@@ -138,7 +138,7 @@ The keys are:
 
   **optional**, **type**: u32
 
-  Set the maximum expire ttl for the ip locate service.
+  Set the maximum expire ttl for the response.
 
   **default**: 300
 

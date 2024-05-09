@@ -21,7 +21,6 @@ use std::net::IpAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
-use std::time::Duration;
 
 use ahash::AHashMap;
 use ip_network_table::IpNetworkTable;
@@ -32,14 +31,18 @@ use g3_geoip::IpLocation;
 
 use super::{CacheQueryRequest, IpLocateServiceConfig, IpLocationCacheResponse};
 
+struct CacheValue {
+    valid_before: Instant,
+    location: Arc<IpLocation>,
+}
+
 pub(crate) struct IpLocationCacheRuntime {
     request_batch_handle_count: usize,
-    cache: IpNetworkTable<Arc<IpLocation>>,
+    cache: IpNetworkTable<CacheValue>,
     doing: AHashMap<IpAddr, Vec<CacheQueryRequest>>,
     req_receiver: mpsc::UnboundedReceiver<CacheQueryRequest>,
     rsp_receiver: mpsc::UnboundedReceiver<(Option<IpAddr>, IpLocationCacheResponse)>,
     query_sender: mpsc::UnboundedSender<IpAddr>,
-    expire_at: Instant,
 }
 
 impl IpLocationCacheRuntime {
@@ -56,12 +59,10 @@ impl IpLocationCacheRuntime {
             req_receiver,
             rsp_receiver,
             query_sender,
-            expire_at: Instant::now(),
         }
     }
 
     fn handle_rsp(&mut self, ip: Option<IpAddr>, mut rsp: IpLocationCacheResponse) {
-        self.expire_at = rsp.expire_at;
         if let Some(location) = rsp.value.take() {
             let net = location.network_addr();
             let location = Arc::new(location);
@@ -75,7 +76,22 @@ impl IpLocationCacheRuntime {
             }
 
             // also allow push if no doing ip found
-            self.cache.insert(net, location);
+            self.cache.insert(
+                net,
+                CacheValue {
+                    valid_before: rsp.expire_at,
+                    location,
+                },
+            );
+        } else if let Some(ip) = ip {
+            // if no new value found, just use the old expired value
+            if let Some((_net, v)) = self.cache.longest_match(ip) {
+                if let Some(vec) = self.doing.remove(&ip) {
+                    for req in vec.into_iter() {
+                        let _ = req.notifier.send(v.location.clone());
+                    }
+                }
+            }
         }
     }
 
@@ -88,12 +104,10 @@ impl IpLocationCacheRuntime {
 
     fn handle_req(&mut self, req: CacheQueryRequest) {
         if let Some((_net, v)) = self.cache.longest_match(req.ip) {
-            let _ = req.notifier.send(v.clone());
-            if self.expire_at.elapsed() != Duration::ZERO {
-                // trigger query again if expired
-                self.send_req(req.ip);
+            if v.valid_before >= Instant::now() {
+                let _ = req.notifier.send(v.location.clone());
+                return;
             }
-            return;
         }
 
         match self.doing.entry(req.ip) {

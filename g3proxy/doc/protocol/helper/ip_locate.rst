@@ -12,7 +12,7 @@ The peer service should listen on a UDP port, which may be IPv4 or IPv6 based, w
 Each UDP packet from our side to the peer service will contains exactly one request. And each UDP packet from the peer
 service should contains exactly one response.
 
-The peer service can also push location and expire ttl responses directly to our side without any prior request.
+The peer service can also push location response directly to our side without any prior request.
 
 Both the request and the response are structured data and should be encoded in `msgpack`_ format.
 
@@ -55,7 +55,7 @@ ttl
 
 **optional**, **id**: 3, **type**: u32
 
-Set the expire ttl of the peer service.
+Set the expire ttl of the response.
 
 If not set, the :ref:`default expire ttl <conf_value_ip_locate_service_default_expire_ttl>` config will
 take effect.
