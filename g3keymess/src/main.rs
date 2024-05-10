@@ -14,11 +14,6 @@
  * limitations under the License.
  */
 
-#[link(name = "g3-compat", kind = "static", modifiers = "+whole-archive")]
-extern "C" {
-    // ...
-}
-
 use anyhow::{anyhow, Context};
 use log::{debug, error, info, warn};
 

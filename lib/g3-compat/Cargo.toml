@@ -9,7 +9,3 @@ rust-version = "1.74.0"
 
 [dependencies]
 libc.workspace = true
-
-[build-dependencies]
-cc = "1.0.97"
-cfg-if.workspace = true

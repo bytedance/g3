@@ -1001,8 +1001,6 @@ dependencies = [
 name = "g3-compat"
 version = "0.1.0"
 dependencies = [
- "cc",
- "cfg-if",
  "libc",
 ]
 
@@ -1646,7 +1644,6 @@ dependencies = [
  "anyhow",
  "clap",
  "flume",
- "g3-compat",
  "g3-daemon",
  "g3-histogram",
  "g3-msgpack",
@@ -1803,7 +1800,6 @@ dependencies = [
  "fixedbitset 0.5.7",
  "fnv",
  "futures-util",
- "g3-compat",
  "g3-daemon",
  "g3-datetime",
  "g3-dpi",
@@ -1936,7 +1932,6 @@ dependencies = [
  "clap_complete",
  "flume",
  "futures-util",
- "g3-compat",
  "g3-daemon",
  "g3-histogram",
  "g3-io-ext",

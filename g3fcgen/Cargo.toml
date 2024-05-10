@@ -27,7 +27,6 @@ g3-daemon.workspace = true
 g3-statsd-client.workspace = true
 g3-histogram.workspace = true
 g3-tls-cert.workspace = true
-g3-compat.workspace = true
 
 [build-dependencies]
 rustc_version.workspace = true
