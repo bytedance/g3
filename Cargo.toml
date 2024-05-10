@@ -172,7 +172,6 @@ capnpc = "0.19"
 #
 libc = "0.2.147"
 rustix = { version = "0.38", default-features = false }
-inotify = "0.10"
 #
 serde = "1.0"
 yaml-rust = { package = "yaml-rust2", version = "0.8" }
@@ -182,10 +181,6 @@ rmp = "0.8"
 rmpv = "1.0"
 #
 redis = { version = "0.25.3", default-features = false, features = ["tcp_nodelay"] }
-#
-flate2 = "1.0"
-zip = { version = "1.2", default-features = false, features = ["deflate"] }
-brotli = { version = "6.0", default-features = false, features = ["std"] }
 #
 mlua = "0.9"
 pyo3 = { version = "0.21", default-features = false, features = ["auto-initialize"] }

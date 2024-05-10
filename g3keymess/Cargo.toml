@@ -45,7 +45,7 @@ g3-openssl.workspace = true
 g3keymess-proto = { path = "proto" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-inotify.workspace = true
+inotify = "0.10"
 
 [build-dependencies]
 rustc_version.workspace = true
