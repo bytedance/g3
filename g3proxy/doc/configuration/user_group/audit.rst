@@ -28,6 +28,19 @@ Whether unknown protocol will be prohibited when protocol inspection is enabled.
 
 **default**: false
 
+prohibit_timeout_protocol
+-------------------------
+
+**optional**, **type**: bool
+
+We need to read the initial data to check the protocol type, and we can set the timeout value via the
+:ref:`data0_read_timeout <conf_value_dpi_protocol_inspection_data0_read_timeout>` config option in
+auditor :ref:`protocol inspection <conf_auditor_protocol_inspection>` config.
+
+This config option will set if we should prohibit the protocol if the inspection process is timed out.
+
+**default**: true
+
 task_audit_ratio
 ----------------
 

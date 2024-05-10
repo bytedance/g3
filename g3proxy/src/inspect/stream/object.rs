@@ -99,15 +99,19 @@ where
         let mut clt_r_buf = BytesMut::with_capacity(inspect_buffer_size);
         let mut ups_r_buf = BytesMut::with_capacity(inspect_buffer_size);
 
+        let data0_wait_timeout = self.ctx.protocol_inspection().data0_wait_timeout();
         let data_source = match tokio::time::timeout(
-            self.ctx.protocol_inspection().data0_wait_timeout(),
+            data0_wait_timeout,
             self.wait_initial_data(&mut clt_r, &mut clt_r_buf, &mut ups_r, &mut ups_r_buf),
         )
         .await
         {
             Ok(Ok(s)) => s,
             Ok(Err(e)) => return Err(e),
-            Err(_) => return Ok(StreamInspection::StreamUnknown(self)),
+            Err(_) => {
+                // just close IDLE empty connections
+                return Err(ServerTaskError::Idle(data0_wait_timeout, 1));
+            }
         };
 
         let protocol = match tokio::time::timeout(
@@ -125,7 +129,7 @@ where
         {
             Ok(Ok(p)) => p,
             Ok(Err(e)) => return Err(e),
-            Err(_) => return Ok(StreamInspection::StreamUnknown(self)),
+            Err(_) => Protocol::Timeout,
         };
 
         self.ctx.increase_inspection_depth();
@@ -134,6 +138,17 @@ where
             Protocol::Unknown => {
                 self.ctx
                     .transit_unknown(
+                        OnceBufReader::new(clt_r, clt_r_buf),
+                        clt_w,
+                        OnceBufReader::new(ups_r, ups_r_buf),
+                        ups_w,
+                    )
+                    .await?;
+                return Ok(StreamInspection::End);
+            }
+            Protocol::Timeout => {
+                self.ctx
+                    .transit_unknown_timeout(
                         OnceBufReader::new(clt_r, clt_r_buf),
                         clt_w,
                         OnceBufReader::new(ups_r, ups_r_buf),
