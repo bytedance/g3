@@ -120,7 +120,7 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
             });
         }
 
-        g3keymess::signal::setup_and_spawn().context("failed to setup signal handler")?;
+        g3keymess::signal::register().context("failed to setup signal handler")?;
 
         g3keymess::store::load_all()
             .await

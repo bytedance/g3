@@ -5,7 +5,6 @@ members = [
     "lib/g3-daemon",
     "lib/g3-ctl",
     "lib/g3-socket",
-    "lib/g3-signal",
     "lib/g3-compat",
     "lib/g3-clap",
     "lib/g3-yaml",
@@ -52,7 +51,6 @@ members = [
     "g3keymess",
     "g3keymess/proto",
     "g3keymess/utils/ctl",
-    "demo/test-int-signal",
     "demo/test-tcp-relay",
     "demo/test-resolver",
     "demo/test-copy-yield",
@@ -208,7 +206,6 @@ g3-msgpack = { version = "0.2", path = "lib/g3-msgpack" }
 g3-hickory-client = { version = "0.1", path = "lib/g3-hickory-client" }
 g3-resolver = { version = "0.5", path = "lib/g3-resolver" }
 g3-runtime = { version = "0.3", path = "lib/g3-runtime" }
-g3-signal = { version = "0.3", path = "lib/g3-signal" }
 g3-socket = { version = "0.4", path = "lib/g3-socket" }
 g3-socks = { version = "0.1", path = "lib/g3-socks" }
 g3-openssl = { version = "0.1", path = "lib/g3-openssl" }

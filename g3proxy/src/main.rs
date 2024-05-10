@@ -111,7 +111,7 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
             });
         }
 
-        g3proxy::signal::setup_and_spawn().context("failed to setup signal handler")?;
+        g3proxy::signal::register().context("failed to setup signal handler")?;
         g3proxy::resolve::spawn_all()
             .await
             .context("failed to spawn all resolvers")?;

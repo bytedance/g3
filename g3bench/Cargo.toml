@@ -14,7 +14,7 @@ anyhow.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
 indicatif = "0.17"
-tokio = { workspace = true, features = ["rt", "net", "macros"] }
+tokio = { workspace = true, features = ["rt", "net", "macros", "signal"] }
 http.workspace = true
 url.workspace = true
 h2.workspace = true
@@ -39,7 +39,6 @@ governor = { workspace = true, features = ["std", "jitter"] }
 hickory-client.workspace = true
 hickory-proto.workspace = true
 g3-runtime.workspace = true
-g3-signal.workspace = true
 g3-types = { workspace = true, features = ["openssl", "rustls"] }
 g3-clap.workspace = true
 g3-socket.workspace = true

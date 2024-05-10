@@ -1368,13 +1368,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "g3-signal"
-version = "0.3.0"
-dependencies = [
- "tokio",
-]
-
-[[package]]
 name = "g3-slog-types"
 version = "0.1.0"
 dependencies = [
@@ -1607,7 +1600,6 @@ dependencies = [
  "g3-io-ext",
  "g3-openssl",
  "g3-runtime",
- "g3-signal",
  "g3-socket",
  "g3-socks",
  "g3-statsd-client",
@@ -1712,7 +1704,6 @@ dependencies = [
  "g3-histogram",
  "g3-io-ext",
  "g3-openssl",
- "g3-signal",
  "g3-slog-types",
  "g3-socket",
  "g3-statsd-client",
@@ -1815,7 +1806,6 @@ dependencies = [
  "g3-msgpack",
  "g3-openssl",
  "g3-resolver",
- "g3-signal",
  "g3-slog-types",
  "g3-smtp-proto",
  "g3-socket",
@@ -1936,7 +1926,6 @@ dependencies = [
  "g3-histogram",
  "g3-io-ext",
  "g3-openssl",
- "g3-signal",
  "g3-slog-types",
  "g3-socket",
  "g3-statsd-client",
@@ -3346,14 +3335,6 @@ name = "test-copy-yield"
 version = "0.1.0"
 dependencies = [
  "g3-io-ext",
- "tokio",
-]
-
-[[package]]
-name = "test-int-signal"
-version = "0.1.0"
-dependencies = [
- "g3-signal",
  "tokio",
 ]
 

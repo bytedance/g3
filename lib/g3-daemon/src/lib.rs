@@ -22,6 +22,7 @@ pub mod metrics;
 pub mod opts;
 pub mod runtime;
 pub mod server;
+pub mod signal;
 pub mod stat;
 
 #[cfg(unix)]

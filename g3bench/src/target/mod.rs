@@ -22,11 +22,9 @@ use std::time::Duration;
 use anyhow::{anyhow, Context};
 use governor::RateLimiter;
 use hdrhistogram::Histogram;
-use tokio::signal::unix::SignalKind;
 use tokio::sync::{mpsc, Barrier, Semaphore};
 use tokio::time::{Instant, MissedTickBehavior};
 
-use g3_signal::{ActionSignal, SigResult};
 use g3_statsd_client::StatsdClient;
 
 use super::ProcArgs;
@@ -169,9 +167,13 @@ where
     fn notify_finish(&mut self) {}
 }
 
-fn quit_at_sigint(_count: u32) -> SigResult {
-    stats::mark_force_quit();
-    SigResult::Break
+fn register_signal_handler() {
+    tokio::spawn(async move {
+        if let Err(e) = tokio::signal::ctrl_c().await {
+            eprintln!("error when waiting Ctrl-C: {e}");
+        }
+        stats::mark_force_quit();
+    });
 }
 
 async fn run<RS, H, C, T>(mut target: T, proc_args: &ProcArgs) -> anyhow::Result<()>
@@ -188,10 +190,7 @@ where
     let progress_counter = progress.as_ref().map(|p| p.counter());
 
     stats::init_global_state(proc_args.requests, proc_args.log_error_count);
-    tokio::spawn(
-        ActionSignal::new(SignalKind::interrupt(), &quit_at_sigint)
-            .map_err(|e| anyhow!("failed to set handler for SIGINT: {e:?}"))?,
-    );
+    register_signal_handler();
 
     let rate_limit = proc_args
         .rate_limit

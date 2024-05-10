@@ -96,7 +96,7 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
             });
         }
 
-        g3tiles::signal::setup_and_spawn().context("failed to setup signal handler")?;
+        g3tiles::signal::register().context("failed to setup signal handler")?;
 
         g3tiles::discover::load_all()
             .await

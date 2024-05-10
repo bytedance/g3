@@ -15,30 +15,11 @@
  */
 
 use log::{error, info, warn};
-use tokio::signal::unix::SignalKind;
 use tokio::sync::Mutex;
 
-use g3_signal::{ActionSignal, SigResult};
+use g3_daemon::signal::AsyncSignalAction;
 
 static RELOAD_MUTEX: Mutex<()> = Mutex::const_new(());
-
-fn do_quit(_: u32) -> SigResult {
-    info!("got quit signal");
-    tokio::spawn(crate::control::UniqueController::abort_immediately());
-    SigResult::Break
-}
-
-fn go_offline(_: u32) -> SigResult {
-    info!("got offline signal");
-    tokio::spawn(crate::control::DaemonController::abort());
-    SigResult::Break
-}
-
-fn call_reload(_: u32) -> SigResult {
-    info!("got reload signal");
-    tokio::spawn(do_reload());
-    SigResult::Continue
-}
 
 async fn do_reload() {
     let _guard = RELOAD_MUTEX.lock().await;
@@ -68,10 +49,33 @@ async fn do_reload() {
     info!("reload finished");
 }
 
-pub fn setup_and_spawn() -> anyhow::Result<()> {
-    tokio::spawn(ActionSignal::new(SignalKind::quit(), &do_quit)?);
-    tokio::spawn(ActionSignal::new(SignalKind::interrupt(), &do_quit)?);
-    tokio::spawn(ActionSignal::new(SignalKind::terminate(), &go_offline)?);
-    tokio::spawn(ActionSignal::new(SignalKind::hangup(), &call_reload)?);
-    Ok(())
+#[derive(Clone, Copy)]
+struct QuitAction {}
+
+impl AsyncSignalAction for QuitAction {
+    async fn run(&self) {
+        crate::control::UniqueController::abort_immediately().await
+    }
+}
+
+#[derive(Clone, Copy)]
+struct OfflineAction {}
+
+impl AsyncSignalAction for OfflineAction {
+    async fn run(&self) {
+        crate::control::DaemonController::abort().await
+    }
+}
+
+#[derive(Clone, Copy)]
+struct ReloadAction {}
+
+impl AsyncSignalAction for ReloadAction {
+    async fn run(&self) {
+        do_reload().await
+    }
+}
+
+pub fn register() -> anyhow::Result<()> {
+    g3_daemon::signal::register(QuitAction {}, OfflineAction {}, ReloadAction {})
 }
