@@ -32,7 +32,15 @@ pub struct IpLocationBuilder {
 
 impl IpLocationBuilder {
     pub fn set_network(&mut self, net: IpNetwork) {
-        self.net = Some(net);
+        if let Some(old_net) = self.net.take() {
+            if old_net.netmask() < net.netmask() {
+                self.net = Some(net);
+            } else {
+                self.net = Some(old_net);
+            }
+        } else {
+            self.net = Some(net);
+        }
     }
 
     pub fn set_country(&mut self, country: IsoCountryCode) {
