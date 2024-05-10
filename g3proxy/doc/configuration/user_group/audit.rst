@@ -41,6 +41,8 @@ This config option will set if we should prohibit the protocol if the inspection
 
 **default**: true
 
+.. versionadded:: 1.8.3
+
 task_audit_ratio
 ----------------
 
