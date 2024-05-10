@@ -205,6 +205,31 @@ where
         self.transit_transparent(clt_r, clt_w, ups_r, ups_w).await
     }
 
+    pub(super) async fn transit_unknown_timeout<CR, CW, UR, UW>(
+        &self,
+        clt_r: CR,
+        clt_w: CW,
+        ups_r: UR,
+        ups_w: UW,
+    ) -> ServerTaskResult<()>
+    where
+        CR: AsyncRead + Unpin,
+        CW: AsyncWrite + Unpin,
+        UR: AsyncRead + Unpin,
+        UW: AsyncWrite + Unpin,
+    {
+        if let Some(user_ctx) = &self.task_notes.user_ctx {
+            if user_ctx.user.audit().prohibit_timeout_protocol {
+                user_ctx.forbidden_stats.add_proto_banned();
+                return Err(ServerTaskError::ForbiddenByRule(
+                    ServerTaskForbiddenError::ProtoBanned,
+                ));
+            }
+        }
+
+        self.transit_transparent(clt_r, clt_w, ups_r, ups_w).await
+    }
+
     pub(super) async fn transit_transparent<CR, CW, UR, UW>(
         &self,
         clt_r: CR,

@@ -147,6 +147,7 @@ impl From<WebSocketSubProtocol> for MaybeProtocol {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Protocol {
     Unknown,
+    Timeout,
     SslLegacy,
     TlsLegacy,
     TlsModern,
@@ -178,7 +179,8 @@ pub enum Protocol {
 impl Protocol {
     pub const fn as_str(&self) -> &'static str {
         match self {
-            Protocol::Unknown => "unknown",
+            Protocol::Unknown => "_unknown",
+            Protocol::Timeout => "_timeout",
             Protocol::SslLegacy => "ssl_legacy",
             Protocol::TlsLegacy => "tls_legacy",
             Protocol::TlsModern => "tls_modern",
@@ -208,7 +210,7 @@ impl Protocol {
 
     pub const fn wireshark_dissector(&self) -> &'static str {
         match self {
-            Protocol::Unknown => "",
+            Protocol::Unknown | Protocol::Timeout => "",
             Protocol::SslLegacy | Protocol::TlsLegacy | Protocol::TlsModern => "tls",
             Protocol::TlsTlcp => "tls",
             Protocol::Http1 => "http",
@@ -236,7 +238,7 @@ impl Protocol {
 
     pub const fn wireshark_protocol(&self) -> &'static str {
         match self {
-            Protocol::Unknown => "",
+            Protocol::Unknown | Protocol::Timeout => "",
             Protocol::SslLegacy | Protocol::TlsLegacy | Protocol::TlsModern => "tls",
             Protocol::TlsTlcp => "tls",
             Protocol::Http1 => "http",
