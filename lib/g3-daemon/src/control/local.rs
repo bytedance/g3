@@ -23,19 +23,23 @@ use std::sync::Mutex;
 use anyhow::anyhow;
 use futures_util::future::{AbortHandle, Abortable};
 use log::{debug, warn};
-use tokio::io::BufReader;
-use tokio::net::{UnixListener, UnixStream};
+use tokio::io::{AsyncRead, AsyncWrite, BufReader};
+#[cfg(unix)]
+use tokio::net::UnixListener;
 
 use super::{CtlProtoCtx, CtlProtoType, LocalControllerConfig};
 
 static UNIQUE_CONTROLLER_ABORT_HANDLER: Mutex<Option<AbortHandle>> = Mutex::new(None);
 static DAEMON_CONTROLLER_ABORT_HANDLER: Mutex<Option<AbortHandle>> = Mutex::new(None);
 
-fn ctl_handle(stream: UnixStream) {
-    let (reader, writer) = tokio::io::split(stream);
+fn ctl_handle<R, W>(r: R, w: W)
+where
+    R: AsyncRead + Send + Unpin + 'static,
+    W: AsyncWrite + Send + Unpin + 'static,
+{
     let ctx = CtlProtoCtx::new(
-        BufReader::new(reader),
-        writer,
+        BufReader::new(r),
+        w,
         LocalControllerConfig::get_general(),
         CtlProtoType::Text,
     );
@@ -46,11 +50,13 @@ fn ctl_handle(stream: UnixStream) {
     });
 }
 
+#[cfg(unix)]
 pub struct LocalController {
     listen_path: PathBuf,
     listener: UnixListener,
 }
 
+#[cfg(unix)]
 impl LocalController {
     fn new(listen_path: PathBuf) -> io::Result<Self> {
         let listener = UnixListener::bind(&listen_path)?;
@@ -64,60 +70,6 @@ impl LocalController {
         self.listen_path.clone()
     }
 
-    fn start(self, mutex: &Mutex<Option<AbortHandle>>) -> anyhow::Result<impl Future> {
-        let mut abort_handler_container = mutex.lock().unwrap();
-        if abort_handler_container.is_some() {
-            return Err(anyhow!("controller already existed"));
-        }
-
-        let controller = async move {
-            loop {
-                let result = self.listener.accept().await;
-                match result {
-                    Ok((stream, addr)) => {
-                        if let Ok(ucred) = stream.peer_cred() {
-                            if let Some(addr) = addr.as_pathname() {
-                                debug!(
-                                    "new ctl client from {} uid {} pid {}",
-                                    addr.display(),
-                                    ucred.uid(),
-                                    ucred.gid(),
-                                );
-                            } else {
-                                debug!(
-                                    "new ctl client from uid {} pid {}",
-                                    ucred.uid(),
-                                    ucred.gid()
-                                );
-                            }
-                        } else {
-                            debug!("new ctl local control client");
-                        }
-
-                        ctl_handle(stream);
-                    }
-                    Err(e) => {
-                        warn!("controller {} accept: {e}", self.listen_path.display());
-                        break;
-                    }
-                }
-            }
-        };
-
-        let (abort_handle, abort_registration) = AbortHandle::new_pair();
-        let future = Abortable::new(controller, abort_registration);
-        *abort_handler_container = Some(abort_handle);
-
-        Ok(future)
-    }
-
-    fn abort(mutex: &Mutex<Option<AbortHandle>>) {
-        let mut abort_handler_container = mutex.lock().unwrap();
-        if let Some(abort_handle) = abort_handler_container.take() {
-            abort_handle.abort();
-        }
-    }
-
     pub fn create_unique(daemon_group: &str) -> anyhow::Result<Self> {
         let socket_name = format!("{daemon_group}_{}.sock", std::process::id());
         let mut listen_path = crate::opts::control_dir();
@@ -128,20 +80,6 @@ impl LocalController {
         let controller = LocalController::new(listen_path)?;
         debug!("unique controller created");
         Ok(controller)
-    }
-
-    pub fn start_as_unique(self) -> anyhow::Result<impl Future> {
-        let fut = self.start(&UNIQUE_CONTROLLER_ABORT_HANDLER)?;
-        debug!("unique controller started");
-        Ok(fut)
-    }
-
-    pub fn start_unique(daemon_group: &str) -> anyhow::Result<impl Future> {
-        LocalController::create_unique(daemon_group)?.start_as_unique()
-    }
-
-    pub fn abort_unique() {
-        LocalController::abort(&UNIQUE_CONTROLLER_ABORT_HANDLER);
     }
 
     pub fn create_daemon(daemon_group: &str) -> anyhow::Result<Self> {
@@ -160,6 +98,77 @@ impl LocalController {
         Ok(controller)
     }
 
+    async fn into_running(self) {
+        loop {
+            let result = self.listener.accept().await;
+            match result {
+                Ok((stream, addr)) => {
+                    if let Ok(ucred) = stream.peer_cred() {
+                        if let Some(addr) = addr.as_pathname() {
+                            debug!(
+                                "new ctl client from {} uid {} pid {}",
+                                addr.display(),
+                                ucred.uid(),
+                                ucred.gid(),
+                            );
+                        } else {
+                            debug!(
+                                "new ctl client from uid {} pid {}",
+                                ucred.uid(),
+                                ucred.gid()
+                            );
+                        }
+                    } else {
+                        debug!("new ctl local control client");
+                    }
+
+                    let (r, w) = stream.into_split();
+                    ctl_handle(r, w);
+                }
+                Err(e) => {
+                    warn!("controller {} accept: {e}", self.listen_path.display());
+                    break;
+                }
+            }
+        }
+    }
+}
+
+impl LocalController {
+    fn start(self, mutex: &Mutex<Option<AbortHandle>>) -> anyhow::Result<impl Future> {
+        let mut abort_handler_container = mutex.lock().unwrap();
+        if abort_handler_container.is_some() {
+            return Err(anyhow!("controller already existed"));
+        }
+
+        let (abort_handle, abort_registration) = AbortHandle::new_pair();
+        let future = Abortable::new(self.into_running(), abort_registration);
+        *abort_handler_container = Some(abort_handle);
+
+        Ok(future)
+    }
+
+    fn abort(mutex: &Mutex<Option<AbortHandle>>) {
+        let mut abort_handler_container = mutex.lock().unwrap();
+        if let Some(abort_handle) = abort_handler_container.take() {
+            abort_handle.abort();
+        }
+    }
+
+    pub fn start_as_unique(self) -> anyhow::Result<impl Future> {
+        let fut = self.start(&UNIQUE_CONTROLLER_ABORT_HANDLER)?;
+        debug!("unique controller started");
+        Ok(fut)
+    }
+
+    pub fn start_unique(daemon_group: &str) -> anyhow::Result<impl Future> {
+        LocalController::create_unique(daemon_group)?.start_as_unique()
+    }
+
+    pub fn abort_unique() {
+        LocalController::abort(&UNIQUE_CONTROLLER_ABORT_HANDLER);
+    }
+
     pub fn start_as_daemon(self) -> anyhow::Result<impl Future> {
         let fut = self.start(&DAEMON_CONTROLLER_ABORT_HANDLER)?;
         debug!("daemon controller started");
@@ -175,6 +184,7 @@ impl LocalController {
     }
 }
 
+#[cfg(unix)]
 impl Drop for LocalController {
     fn drop(&mut self) {
         if self.listen_path.exists() {
@@ -184,6 +194,7 @@ impl Drop for LocalController {
     }
 }
 
+#[cfg(unix)]
 fn check_then_finalize_path(path: &Path) -> anyhow::Result<()> {
     if path.exists() {
         return Err(anyhow!(
