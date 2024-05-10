@@ -41,6 +41,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     // enter daemon mode after config loaded
+    #[cfg(unix)]
     g3_daemon::daemonize::check_enter(&proc_args.daemon_config)?;
 
     let ret = tokio_run(&proc_args);
