@@ -13,6 +13,8 @@ name
 
 Set the auditor name, which will can be referenced in :ref:`server config <conf_server_common_auditor>`.
 
+.. _conf_auditor_protocol_inspection:
+
 protocol_inspection
 -------------------
 
