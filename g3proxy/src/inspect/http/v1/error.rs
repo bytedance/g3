@@ -31,6 +31,10 @@ pub(crate) enum H1InterceptionError {
     ClientAppTimeout(&'static str),
     #[error("invalid request: {0}")]
     InvalidRequestHeader(HttpRequestParseError),
+    #[error("closed by upstream")]
+    ClosedByUpstream,
+    #[error("upstream closed with error: {0:?}")]
+    UpstreamClosedWithError(io::Error),
     #[error("upstream write: {0:?}")]
     UpstreamWriteFailed(io::Error),
     #[error("invalid upgrade protocol: {0}")]

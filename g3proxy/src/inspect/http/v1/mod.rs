@@ -22,7 +22,7 @@ use slog::slog_info;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_dpi::Protocol;
-use g3_io_ext::FlexBufReader;
+use g3_io_ext::{FlexBufReader, LimitedBufReadExt};
 use g3_slog_types::LtUuid;
 
 use crate::config::server::ServerConfig;
@@ -143,7 +143,23 @@ where
             pipeline::new_request_handler(self.ctx.clone(), req_io, pipeline_stats.clone());
         tokio::spawn(req_forwarder.into_running());
 
-        while let Some(r) = req_acceptor.accept().await {
+        loop {
+            let r = tokio::select! {
+                biased;
+
+                r = req_acceptor.accept() => match r {
+                    Some(r) => r,
+                    None => return Ok(None),
+                },
+                r = rsp_io.ups_r.fill_wait_eof() => {
+                    req_acceptor.close();
+                    return match r {
+                        Ok(_) => Err(H1InterceptionError::ClosedByUpstream),
+                        Err(e) => Err(H1InterceptionError::UpstreamClosedWithError(e)),
+                    };
+                }
+            };
+
             self.req_id += 1;
             match r {
                 HttpRecvRequest::ClientConnectionError(e) => return Err(e),
@@ -235,8 +251,6 @@ where
                 }
             }
         }
-
-        Ok(None)
     }
 }
 
