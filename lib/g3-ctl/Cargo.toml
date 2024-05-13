@@ -9,5 +9,8 @@ edition.workspace = true
 [dependencies]
 thiserror.workspace = true
 anyhow.workspace = true
+clap.workspace = true
+clap_complete.workspace = true
 capnp.workspace = true
 hex.workspace = true
+tokio = { workspace = true, features = ["net", "io-util"] }

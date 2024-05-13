@@ -10,8 +10,7 @@ edition.workspace = true
 anyhow.workspace = true
 thiserror.workspace = true
 clap.workspace = true
-clap_complete.workspace = true
-tokio = { workspace = true, features = ["rt", "net", "macros", "io-util", "fs"] }
+tokio = { workspace = true, features = ["rt", "macros", "io-util", "fs"] }
 tokio-util = { workspace = true, features = ["compat"] }
 futures-util.workspace = true
 capnp-rpc.workspace = true

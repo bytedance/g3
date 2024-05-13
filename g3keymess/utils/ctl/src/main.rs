@@ -14,17 +14,11 @@
  * limitations under the License.
  */
 
-use std::io;
-use std::path::PathBuf;
-use std::str::FromStr;
-
 use anyhow::anyhow;
 use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
-use clap::builder::ArgPredicate;
-use clap::{value_parser, Arg, ArgMatches, Command, ValueHint};
-use clap_complete::Shell;
-use tokio::io::AsyncWriteExt;
-use tokio::net::UnixStream;
+use clap::Command;
+
+use g3_ctl::{CommandError, DaemonCtlArgs, DaemonCtlArgsExt};
 
 use g3keymess_proto::proc_capnp::proc_control;
 
@@ -35,99 +29,9 @@ mod server;
 
 mod local;
 
-const DEFAULT_SYS_CONTROL_DIR: &str = "/run/g3keymess";
-const DEFAULT_TMP_CONTROL_DIR: &str = "/tmp/g3";
-
-const GLOBAL_ARG_COMPLETION: &str = "completion";
-const GLOBAL_ARG_CONTROL_DIR: &str = "control-dir";
-const GLOBAL_ARG_GROUP: &str = "daemon-group";
-const GLOBAL_ARG_PID: &str = "pid";
-
-async fn connect_to_daemon(args: &ArgMatches) -> anyhow::Result<UnixStream> {
-    let control_dir = args.get_one::<PathBuf>(GLOBAL_ARG_CONTROL_DIR).unwrap();
-    let daemon_group = args
-        .get_one::<String>(GLOBAL_ARG_GROUP)
-        .map(|s| s.as_str())
-        .unwrap_or_default();
-
-    let socket_path = match args.get_one::<usize>(GLOBAL_ARG_PID) {
-        Some(pid) => control_dir.join(format!("{daemon_group}_{}.sock", *pid)),
-        None => control_dir.join(format!("{daemon_group}.sock")),
-    };
-
-    let mut stream = tokio::net::UnixStream::connect(&socket_path)
-        .await
-        .map_err(|e| {
-            anyhow!(
-                "failed to connect to control socket {}: {e:?}",
-                socket_path.display()
-            )
-        })?;
-    stream
-        .write_all(b"capnp\n")
-        .await
-        .map_err(|e| anyhow!("enter capnp mode failed: {e:?}"))?;
-    stream
-        .flush()
-        .await
-        .map_err(|e| anyhow!("enter capnp mod failed: {e:?}"))?;
-    Ok(stream)
-}
-
-fn dir_exist(dir: &str) -> bool {
-    let path = PathBuf::from_str(dir).unwrap();
-    std::fs::read_dir(path).is_ok()
-}
-
-fn auto_detect_control_dir() -> &'static str {
-    if dir_exist(DEFAULT_SYS_CONTROL_DIR) {
-        DEFAULT_SYS_CONTROL_DIR
-    } else {
-        DEFAULT_TMP_CONTROL_DIR
-    }
-}
-
 fn build_cli_args() -> Command {
-    Command::new("g3tiles-ctl")
-        .arg(
-            Arg::new(GLOBAL_ARG_COMPLETION)
-                .num_args(1)
-                .value_name("SHELL")
-                .long("completion")
-                .value_parser(value_parser!(Shell))
-                .exclusive(true),
-        )
-        .arg(
-            Arg::new(GLOBAL_ARG_CONTROL_DIR)
-                .help("Directory that contains the control socket")
-                .value_name("CONTROL DIR")
-                .value_hint(ValueHint::DirPath)
-                .value_parser(value_parser!(PathBuf))
-                .short('C')
-                .long("control-dir")
-                .default_value(auto_detect_control_dir())
-                .default_value_if(GLOBAL_ARG_COMPLETION, ArgPredicate::IsPresent, None),
-        )
-        .arg(
-            Arg::new(GLOBAL_ARG_GROUP)
-                .required_unless_present_any([GLOBAL_ARG_PID, GLOBAL_ARG_COMPLETION])
-                .num_args(1)
-                .value_name("GROUP NAME")
-                .help("Daemon group name")
-                .short('G')
-                .long("daemon-group"),
-        )
-        .arg(
-            Arg::new(GLOBAL_ARG_PID)
-                .help("Daemon pid")
-                .required_unless_present_any([GLOBAL_ARG_GROUP, GLOBAL_ARG_COMPLETION])
-                .num_args(1)
-                .value_name("PID")
-                .value_parser(value_parser!(usize))
-                .short('p')
-                .long("daemon-pid"),
-        )
-        .subcommand_required(true)
+    Command::new(env!("CARGO_PKG_NAME"))
+        .append_daemon_ctl_args()
         .subcommand(proc::commands::version())
         .subcommand(proc::commands::offline())
         .subcommand(proc::commands::list())
@@ -141,14 +45,12 @@ fn build_cli_args() -> Command {
 async fn main() -> anyhow::Result<()> {
     let args = build_cli_args().get_matches();
 
-    if let Some(target) = args.get_one::<Shell>(GLOBAL_ARG_COMPLETION) {
-        let mut app = build_cli_args();
-        let bin_name = app.get_name().to_string();
-        clap_complete::generate(*target, &mut app, bin_name, &mut io::stdout());
+    let mut ctl_opts = DaemonCtlArgs::parse_clap(&args);
+    if ctl_opts.generate_shell_completion(build_cli_args) {
         return Ok(());
     }
 
-    let stream = connect_to_daemon(&args).await?;
+    let stream = ctl_opts.connect_to_daemon("g3keymess").await?;
 
     let (reader, writer) = tokio::io::split(stream);
     let reader = tokio_util::compat::TokioAsyncReadCompatExt::compat(reader);
@@ -179,7 +81,9 @@ async fn main() -> anyhow::Result<()> {
                 proc::COMMAND_CHECK_KEY => proc::check_key(&proc_control, args).await,
                 server::COMMAND => server::run(&proc_control, args).await,
                 local::COMMAND_CHECK_DUP => local::check_dup(args),
-                _ => unreachable!(),
+                _ => Err(CommandError::Cli(anyhow!(
+                    "unsupported command {subcommand}"
+                ))),
             }
         })
         .await
