@@ -109,14 +109,14 @@ fn as_syslog_backend_unix(value: &Yaml) -> anyhow::Result<SyslogBackendBuilder> 
                 _ => Err(anyhow!("invalid key {k}")),
             })?;
             if let Some(path) = path.take() {
-                Ok(SyslogBackendBuilder::Unix(path))
+                Ok(SyslogBackendBuilder::Unix(Some(path)))
             } else {
                 Err(anyhow!("no path has been set"))
             }
         }
         Yaml::String(_) => {
             let path = crate::value::as_absolute_path(value)?;
-            Ok(SyslogBackendBuilder::Unix(path))
+            Ok(SyslogBackendBuilder::Unix(Some(path)))
         }
         _ => Err(anyhow!("invalid yaml value for unix syslog backend")),
     }
