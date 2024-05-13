@@ -61,8 +61,7 @@ impl Default for FluentdClientConfig {
 
 impl FluentdClientConfig {
     pub fn new(server: SocketAddr) -> Self {
-        let uname = rustix::system::uname();
-        let hostname = uname.nodename().to_string_lossy().to_string();
+        let hostname = gethostname::gethostname().to_string_lossy().to_string();
         FluentdClientConfig {
             server_addr: server,
             bind_ip: None,

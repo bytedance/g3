@@ -16,14 +16,18 @@
 
 use std::io;
 use std::net::{IpAddr, SocketAddr, UdpSocket};
+#[cfg(unix)]
 use std::os::unix::net::UnixDatagram;
+#[cfg(unix)]
 use std::path::PathBuf;
 
 mod udp;
+#[cfg(unix)]
 mod unix_datagram;
 
 pub(super) enum SyslogBackend {
     Udp(UdpSocket),
+    #[cfg(unix)]
     Unix(UnixDatagram),
 }
 
@@ -37,6 +41,7 @@ impl io::Write for SyslogBackend {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         match self {
             SyslogBackend::Udp(s) => s.send(buf),
+            #[cfg(unix)]
             SyslogBackend::Unix(s) => s.send(buf),
         }
     }
@@ -48,22 +53,39 @@ impl io::Write for SyslogBackend {
 
 #[derive(Clone, Debug)]
 pub enum SyslogBackendBuilder {
-    Default,
     /// unix socket with path
-    Unix(PathBuf),
+    #[cfg(unix)]
+    Unix(Option<PathBuf>),
     /// udp socket with optional bind ip and remote address
     Udp(Option<IpAddr>, SocketAddr),
+}
+
+#[cfg(unix)]
+impl Default for SyslogBackendBuilder {
+    fn default() -> Self {
+        SyslogBackendBuilder::Unix(None)
+    }
+}
+
+#[cfg(not(unix))]
+impl Default for SyslogBackendBuilder {
+    fn default() -> Self {
+        use std::net::Ipv4Addr;
+
+        SyslogBackendBuilder::Udp(None, SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 514))
+    }
 }
 
 impl SyslogBackendBuilder {
     pub(super) fn build(&self) -> io::Result<SyslogBackend> {
         match self {
-            SyslogBackendBuilder::Default => {
-                let socket = unix_datagram::default()?;
-                Ok(SyslogBackend::Unix(socket))
-            }
+            #[cfg(unix)]
             SyslogBackendBuilder::Unix(path) => {
-                let socket = unix_datagram::custom(path)?;
+                let socket = if let Some(path) = path {
+                    unix_datagram::custom(path)?
+                } else {
+                    unix_datagram::default()?
+                };
                 Ok(SyslogBackend::Unix(socket))
             }
             SyslogBackendBuilder::Udp(bind_ip, server) => {

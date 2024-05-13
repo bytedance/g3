@@ -35,6 +35,7 @@ clap.workspace = true
 quinn = { workspace = true, optional = true, features = ["runtime-tokio", "ring"] }
 g3-types = { workspace = true, features = ["async-log"] }
 g3-stdlog.workspace = true
+g3-syslog.workspace = true
 g3-fluentd.workspace = true
 g3-runtime.workspace = true
 g3-yaml = { workspace = true, features = ["syslog", "fluentd", "statsd", "sched"] }
@@ -45,7 +46,6 @@ g3-http = { workspace = true, optional = true }
 
 [target.'cfg(unix)'.dependencies]
 daemonize = "0.5"
-g3-syslog.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 g3-journal.workspace = true

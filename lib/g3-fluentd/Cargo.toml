@@ -12,7 +12,6 @@ anyhow.workspace = true
 thiserror.workspace = true
 slog = { workspace = true, features = ["nested-values"] }
 chrono = { workspace = true, features = ["clock"] }
-rustix = { workspace = true, features = ["system"] }
 flume = { workspace = true, features = ["async"] }
 rmp.workspace = true
 rmp-serde.workspace = true
@@ -24,5 +23,6 @@ digest.workspace = true
 sha2.workspace = true
 hex.workspace = true
 log.workspace = true
+gethostname.workspace = true
 g3-types = { workspace = true, features = ["async-log", "rustls"] }
 g3-socket.workspace = true

@@ -23,7 +23,6 @@ use yaml_rust::Yaml;
 use g3_fluentd::FluentdClientConfig;
 #[cfg(target_os = "linux")]
 use g3_journal::JournalConfig;
-#[cfg(unix)]
 use g3_syslog::SyslogBuilder;
 
 const DEFAULT_CHANNEL_SIZE: usize = 4096;
@@ -35,7 +34,6 @@ pub enum LogConfigDriver {
     Discard,
     #[cfg(target_os = "linux")]
     Journal(JournalConfig),
-    #[cfg(unix)]
     Syslog(SyslogBuilder),
     Fluentd(Arc<FluentdClientConfig>),
 }
@@ -72,7 +70,6 @@ impl LogConfig {
         )
     }
 
-    #[cfg(unix)]
     pub fn default_syslog(program_name: &'static str) -> Self {
         Self::with_driver(
             LogConfigDriver::Syslog(SyslogBuilder::with_ident(program_name)),
@@ -97,7 +94,6 @@ impl LogConfig {
                 "discard" => Ok(LogConfig::default_discard(program_name)),
                 #[cfg(target_os = "linux")]
                 "journal" => Ok(LogConfig::default_journal(program_name)),
-                #[cfg(unix)]
                 "syslog" => Ok(LogConfig::default_syslog(program_name)),
                 "fluentd" => Ok(LogConfig::default_fluentd(program_name)),
                 _ => Err(anyhow!("invalid log config")),
@@ -111,7 +107,6 @@ impl LogConfig {
                             LogConfigDriver::Journal(JournalConfig::with_ident(program_name));
                         Ok(())
                     }
-                    #[cfg(unix)]
                     "syslog" => {
                         let builder = g3_yaml::value::as_syslog_builder(v, program_name)
                             .context("invalid syslog config")?;

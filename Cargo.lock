@@ -1088,12 +1088,12 @@ dependencies = [
  "flume",
  "g3-socket",
  "g3-types",
+ "gethostname",
  "hex",
  "log",
  "rand",
  "rmp",
  "rmp-serde",
- "rustix",
  "serde",
  "sha2",
  "slog",
@@ -1451,9 +1451,9 @@ dependencies = [
  "flume",
  "g3-datetime",
  "g3-types",
+ "gethostname",
  "itoa",
  "log",
- "rustix",
  "ryu",
  "serde",
  "serde_json",
@@ -1987,6 +1987,16 @@ checksum = "85649ca51fd72272d7821adaf274ad91c288277713d9c18820d8499a7ff69e9a"
 dependencies = [
  "typenum",
  "version_check",
+]
+
+[[package]]
+name = "gethostname"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0176e0459c2e4a1fe232f984bca6890e681076abb9934f6cea7c326f3fc47818"
+dependencies = [
+ "libc",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
