@@ -1236,6 +1236,7 @@ dependencies = [
  "fastrand",
  "futures-util",
  "g3-resolver",
+ "g3-socket",
  "g3-types",
  "governor",
  "libc",

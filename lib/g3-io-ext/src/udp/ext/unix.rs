@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,8 @@ use rustix::net::{
 };
 use tokio::io::Interest;
 use tokio::net::UdpSocket;
+
+use super::UdpSocketExt;
 
 #[derive(Default)]
 struct RawSocketAddr {
@@ -180,47 +182,6 @@ impl<'a, const C: usize> RecvMsgHdr<'a, C> {
         h.msg_iovlen = C as _;
         h
     }
-}
-
-pub trait UdpSocketExt {
-    fn poll_sendmsg(
-        &self,
-        cx: &mut Context<'_>,
-        iov: &[IoSlice<'_>],
-        target: Option<SocketAddr>,
-    ) -> Poll<io::Result<usize>>;
-
-    fn poll_recvmsg(
-        &self,
-        cx: &mut Context<'_>,
-        iov: &mut [IoSliceMut<'_>],
-    ) -> Poll<io::Result<(usize, Option<SocketAddr>)>>;
-
-    #[cfg(any(
-        target_os = "linux",
-        target_os = "android",
-        target_os = "freebsd",
-        target_os = "netbsd",
-        target_os = "openbsd",
-    ))]
-    fn poll_batch_sendmsg<const C: usize>(
-        &self,
-        cx: &mut Context<'_>,
-        msgs: &mut [SendMsgHdr<'_, C>],
-    ) -> Poll<io::Result<usize>>;
-
-    #[cfg(any(
-        target_os = "linux",
-        target_os = "android",
-        target_os = "freebsd",
-        target_os = "netbsd",
-        target_os = "openbsd",
-    ))]
-    fn poll_batch_recvmsg<const C: usize>(
-        &self,
-        cx: &mut Context<'_>,
-        hdr_v: &mut [RecvMsgHdr<'_, C>],
-    ) -> Poll<io::Result<usize>>;
 }
 
 impl UdpSocketExt for UdpSocket {

@@ -14,11 +14,19 @@
  * limitations under the License.
  */
 
+use std::io;
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd};
 
-use socket2::Socket;
+use socket2::{MsgHdr, Socket};
 
 use super::RawSocket;
+
+impl RawSocket {
+    pub(super) fn do_sendmsg(&self, msg_hdr: &MsgHdr) -> io::Result<usize> {
+        let socket = self.get_inner()?;
+        socket.sendmsg(msg_hdr, 0)
+    }
+}
 
 #[cfg(unix)]
 impl Drop for RawSocket {

@@ -19,11 +19,16 @@ fastrand.workspace = true
 bytes.workspace = true
 ahash.workspace = true
 smallvec.workspace = true
-rustix = { workspace = true, features = ["std", "net"] }
-libc.workspace = true
 quinn = { workspace = true, optional = true }
 g3-types.workspace = true
 g3-resolver.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+rustix = { workspace = true, features = ["std", "net"] }
+libc.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+g3-socket.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros"] }

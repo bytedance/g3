@@ -31,10 +31,14 @@ pub struct RawSocket {
 }
 
 impl RawSocket {
+    fn get_inner(&self) -> io::Result<&Socket> {
+        self.inner
+            .as_ref()
+            .ok_or_else(|| io::Error::other("no socket set"))
+    }
+
     pub fn set_buf_opts(&self, buf_conf: SocketBufferConfig) -> io::Result<()> {
-        let Some(socket) = self.inner.as_ref() else {
-            return Err(io::Error::other(""));
-        };
+        let socket = self.get_inner()?;
         if let Some(size) = buf_conf.recv_size() {
             socket.set_recv_buffer_size(size)?;
         }
@@ -49,9 +53,7 @@ impl RawSocket {
         misc_opts: &TcpMiscSockOpts,
         default_set_nodelay: bool,
     ) -> io::Result<()> {
-        let Some(socket) = self.inner.as_ref() else {
-            return Err(io::Error::other(""));
-        };
+        let socket = self.get_inner()?;
         if let Some(no_delay) = misc_opts.no_delay {
             socket.set_nodelay(no_delay)?;
         } else if default_set_nodelay {
@@ -75,9 +77,7 @@ impl RawSocket {
     }
 
     pub fn set_udp_misc_opts(&self, misc_opts: UdpMiscSockOpts) -> io::Result<()> {
-        let Some(socket) = self.inner.as_ref() else {
-            return Err(io::Error::other(""));
-        };
+        let socket = self.get_inner()?;
         if let Some(ttl) = misc_opts.time_to_live {
             socket.set_ttl(ttl)?;
         }
