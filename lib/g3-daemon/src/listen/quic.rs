@@ -16,7 +16,6 @@
 
 use std::io;
 use std::net::{SocketAddr, UdpSocket};
-use std::os::fd::{AsRawFd, RawFd};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -27,6 +26,7 @@ use tokio::runtime::Handle;
 use tokio::sync::{broadcast, watch};
 
 use g3_socket::util::native_socket_addr;
+use g3_socket::RawSocket;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::net::UdpListenConfig;
 
@@ -119,7 +119,7 @@ where
         mut self,
         listener: Endpoint,
         mut listen_addr: SocketAddr,
-        mut sock_raw_fd: RawFd,
+        mut sock_raw_fd: RawSocket,
         mut server_reload_channel: broadcast::Receiver<ServerReloadCommand>,
         mut quic_cfg_receiver: watch::Receiver<C>,
     ) where
@@ -172,12 +172,12 @@ where
                     if let Some(listen_config) = aux_config.take_udp_listen_config() {
                         self.listen_config = listen_config;
                         if self.listen_config.address() != listen_addr {
-                            if let Ok((fd, addr)) = self.rebind_socket(&listener) {
-                                sock_raw_fd = fd;
+                            if let Ok((socket, addr)) = self.rebind_socket(&listener) {
+                                sock_raw_fd = socket;
                                 listen_addr = addr;
                             }
                         } else {
-                            self.update_socket_opts(sock_raw_fd);
+                            self.update_socket_opts(&sock_raw_fd);
                         }
                     }
                 }
@@ -282,9 +282,8 @@ where
         }
     }
 
-    fn update_socket_opts(&self, raw_fd: RawFd) {
-        if let Err(e) = g3_socket::udp::set_raw_opts(raw_fd, self.listen_config.socket_misc_opts())
-        {
+    fn update_socket_opts(&self, raw_socket: &RawSocket) {
+        if let Err(e) = raw_socket.set_udp_misc_opts(self.listen_config.socket_misc_opts()) {
             warn!(
                 "SRT[{}_v{}#{}] update socket misc opts failed: {e}",
                 self.server.name(),
@@ -292,8 +291,7 @@ where
                 self.instance_id,
             );
         }
-        if let Err(e) = g3_socket::udp::set_raw_buf_opts(raw_fd, self.listen_config.socket_buffer())
-        {
+        if let Err(e) = raw_socket.set_buf_opts(self.listen_config.socket_buffer()) {
             warn!(
                 "SRT[{}_v{}#{}] update socket buf opts failed: {e}",
                 self.server.name(),
@@ -303,12 +301,12 @@ where
         }
     }
 
-    fn rebind_socket(&self, listener: &Endpoint) -> io::Result<(RawFd, SocketAddr)> {
+    fn rebind_socket(&self, listener: &Endpoint) -> io::Result<(RawSocket, SocketAddr)> {
         match g3_socket::udp::new_std_bind_listen(&self.listen_config) {
             Ok(socket) => {
-                let raw_fd = socket.as_raw_fd();
+                let raw_socket = RawSocket::from(&socket);
                 match listener.rebind(socket) {
-                    Ok(_) => Ok((raw_fd, listener.local_addr().unwrap())),
+                    Ok(_) => Ok((raw_socket, listener.local_addr().unwrap())),
                     Err(e) => {
                         warn!(
                             "SRT[{}_v{}#{}] reload rebind {} failed: {e}",
@@ -408,7 +406,7 @@ where
     {
         let handle = self.get_rt_handle(listen_in_worker);
         handle.spawn(async move {
-            let sock_raw_fd = socket.as_raw_fd();
+            let raw_socket = RawSocket::from(&socket);
             // make sure the listen socket associated with the correct reactor
             match Endpoint::new(
                 Default::default(),
@@ -421,7 +419,7 @@ where
                     self.run(
                         endpoint,
                         listen_addr,
-                        sock_raw_fd,
+                        raw_socket,
                         server_reload_channel,
                         quic_cfg_receiver,
                     )

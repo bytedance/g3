@@ -15,7 +15,6 @@
  */
 
 use std::net::SocketAddr;
-use std::os::fd::AsRawFd;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -26,6 +25,7 @@ use tokio::sync::broadcast;
 
 use g3_io_ext::LimitedTcpListener;
 use g3_socket::util::native_socket_addr;
+use g3_socket::RawSocket;
 use g3_types::net::TcpListenConfig;
 
 use crate::listen::ListenStats;
@@ -178,7 +178,7 @@ where
         let server = self.server.clone();
 
         let mut cc_info = ClientConnectionInfo::new(peer_addr, local_addr);
-        cc_info.set_tcp_raw_fd(stream.as_raw_fd());
+        cc_info.set_tcp_raw_socket(RawSocket::from(&stream));
         if let Some(worker_id) = self.worker_id {
             cc_info.set_worker_id(Some(worker_id));
             tokio::spawn(async move {

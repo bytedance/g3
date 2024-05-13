@@ -45,6 +45,7 @@ impl HttpProxy {
         Ok(HttpProxy {
             peer,
             auth,
+            #[cfg(feature = "openssl")]
             tls_config: None,
         })
     }

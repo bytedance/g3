@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
+#[cfg(target_os = "linux")]
 mod sockopt;
 
-pub mod guard;
+mod raw;
+pub use raw::RawSocket;
+
 pub mod tcp;
 pub mod udp;
 pub mod util;

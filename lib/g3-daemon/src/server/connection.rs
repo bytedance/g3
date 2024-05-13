@@ -16,9 +16,9 @@
 
 use std::io;
 use std::net::{IpAddr, SocketAddr};
-use std::os::fd::RawFd;
 
 use g3_io_ext::haproxy::ProxyAddr;
+use g3_socket::RawSocket;
 use g3_types::net::TcpMiscSockOpts;
 
 #[derive(Clone, Debug)]
@@ -29,7 +29,7 @@ pub struct ClientConnectionInfo {
     sock_peer_addr: SocketAddr,
     #[allow(unused)]
     sock_local_addr: SocketAddr,
-    tcp_sock_raw_fd: Option<RawFd>,
+    tcp_raw_socket: Option<RawSocket>,
 }
 
 impl ClientConnectionInfo {
@@ -40,13 +40,13 @@ impl ClientConnectionInfo {
             server_addr: local_addr,
             sock_peer_addr: peer_addr,
             sock_local_addr: local_addr,
-            tcp_sock_raw_fd: None,
+            tcp_raw_socket: None,
         }
     }
 
     #[inline]
-    pub fn set_tcp_raw_fd(&mut self, raw_fd: RawFd) {
-        self.tcp_sock_raw_fd = Some(raw_fd);
+    pub fn set_tcp_raw_socket(&mut self, raw_fd: RawSocket) {
+        self.tcp_raw_socket = Some(raw_fd);
     }
 
     #[inline]
@@ -105,8 +105,8 @@ impl ClientConnectionInfo {
         opts: &TcpMiscSockOpts,
         default_set_nodelay: bool,
     ) -> io::Result<()> {
-        if let Some(raw_fd) = self.tcp_sock_raw_fd {
-            g3_socket::tcp::set_raw_opts(raw_fd, opts, default_set_nodelay)
+        if let Some(raw_socket) = &self.tcp_raw_socket {
+            raw_socket.set_tcp_misc_opts(opts, default_set_nodelay)
         } else {
             Ok(())
         }

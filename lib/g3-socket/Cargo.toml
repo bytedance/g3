@@ -8,8 +8,10 @@ rust-version = "1.75.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-libc.workspace = true
 tokio = { workspace = true, features = ["net"] }
 socket2 = { version = "0.5", features = ["all"] }
 fastrand.workspace = true
 g3-types.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc.workspace = true

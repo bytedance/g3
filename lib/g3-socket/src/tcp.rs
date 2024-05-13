@@ -16,22 +16,27 @@
 
 use std::io;
 use std::net::{IpAddr, SocketAddr};
-use std::os::fd::{AsRawFd, RawFd};
+#[cfg(target_os = "linux")]
+use std::os::unix::io::AsRawFd;
 
 use socket2::{Domain, SockAddr, Socket, TcpKeepalive, Type};
 use tokio::net::{TcpListener, TcpSocket};
 
 use g3_types::net::{TcpKeepAliveConfig, TcpListenConfig, TcpMiscSockOpts};
 
-use super::guard::RawFdGuard;
-use super::sockopt::{set_bind_address_no_port, set_only_ipv6};
+#[cfg(target_os = "linux")]
+use super::sockopt::set_bind_address_no_port;
 use super::util::AddressFamily;
+use super::RawSocket;
 
 pub fn new_std_listener(config: &TcpListenConfig) -> io::Result<std::net::TcpListener> {
     let addr = config.address();
     let socket = new_tcp_socket(AddressFamily::from(&addr))?;
     if addr.port() != 0 {
+        #[cfg(unix)]
         socket.set_reuse_port(true)?;
+        #[cfg(not(unix))]
+        socket.set_reuse_address(true)?;
     }
     if config.is_ipv6only() {
         socket.set_only_v6(true)?;
@@ -66,6 +71,7 @@ pub fn new_std_socket_to(
                 format!("peer_ip {peer_ip} and bind_ip {ip} should be of the same family",),
             ));
         }
+        #[cfg(target_os = "linux")]
         set_bind_address_no_port(socket.as_raw_fd(), true)?;
         let addr: SockAddr = SocketAddr::new(ip, 0).into();
         socket.bind(&addr)?;
@@ -76,51 +82,17 @@ pub fn new_std_socket_to(
         if let Some(interval) = keepalive.probe_interval() {
             setting = setting.with_interval(interval);
         }
+        #[cfg(unix)]
         if let Some(count) = keepalive.probe_count() {
             setting = setting.with_retries(count);
         }
         socket.set_tcp_keepalive(&setting)?;
     }
-    set_misc_opts(&socket, misc_opts, default_set_nodelay)?;
+    RawSocket::from(&socket).set_tcp_misc_opts(misc_opts, default_set_nodelay)?;
     Ok(std::net::TcpStream::from(socket))
 }
 
-pub fn set_raw_opts(
-    fd: RawFd,
-    misc_opts: &TcpMiscSockOpts,
-    default_set_nodelay: bool,
-) -> io::Result<()> {
-    let socket = RawFdGuard::<Socket>::new(fd);
-    set_misc_opts(&socket, misc_opts, default_set_nodelay)
-}
-
-fn set_misc_opts(
-    socket: &Socket,
-    misc_opts: &TcpMiscSockOpts,
-    default_set_nodelay: bool,
-) -> io::Result<()> {
-    if let Some(no_delay) = misc_opts.no_delay {
-        socket.set_nodelay(no_delay)?;
-    } else if default_set_nodelay {
-        socket.set_nodelay(true)?;
-    }
-    if let Some(mss) = misc_opts.max_segment_size {
-        socket.set_mss(mss)?;
-    }
-    if let Some(ttl) = misc_opts.time_to_live {
-        socket.set_ttl(ttl)?;
-    }
-    if let Some(tos) = misc_opts.type_of_service {
-        socket.set_tos(tos as u32)?;
-    }
-    #[cfg(target_os = "linux")]
-    if let Some(mark) = misc_opts.netfilter_mark {
-        socket.set_mark(mark)?;
-    }
-    Ok(())
-}
-
-#[cfg(target_os = "macos")]
+#[cfg(any(windows, target_os = "macos"))]
 fn new_tcp_socket(family: AddressFamily) -> io::Result<Socket> {
     let socket = Socket::new(Domain::from(family), Type::STREAM, None)?;
     socket.set_nonblocking(true)?;
@@ -140,18 +112,8 @@ fn new_tcp_socket(family: AddressFamily) -> io::Result<Socket> {
 }
 
 pub fn new_listen_to(config: &TcpListenConfig) -> io::Result<TcpListener> {
-    let addr = config.address();
-    let socket = match addr {
-        SocketAddr::V4(_) => TcpSocket::new_v4()?,
-        SocketAddr::V6(_) => TcpSocket::new_v6()?,
-    };
-    socket.set_reuseport(true)?;
-    if config.is_ipv6only() {
-        let raw_fd = socket.as_raw_fd();
-        set_only_ipv6(raw_fd, true)?;
-    }
-    socket.bind(addr)?;
-    socket.listen(config.backlog())
+    let socket = new_std_listener(config)?;
+    TcpListener::from_std(socket)
 }
 
 pub fn new_socket_to(

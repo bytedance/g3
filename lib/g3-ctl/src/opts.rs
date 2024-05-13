@@ -15,15 +15,16 @@
  */
 
 use std::io;
-#[cfg(unix)]
 use std::path::PathBuf;
 
 use anyhow::anyhow;
 use clap::{value_parser, Arg, ArgMatches, Command, ValueHint};
 use clap_complete::Shell;
 use tokio::io::AsyncWriteExt;
+#[cfg(unix)]
 use tokio::net::UnixStream;
 
+#[cfg(unix)]
 const DEFAULT_TMP_CONTROL_DIR: &str = "/tmp/g3";
 
 const GLOBAL_ARG_COMPLETION: &str = "completion";
