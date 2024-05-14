@@ -43,7 +43,6 @@ pub struct HttpProxyClientRequest {
     keep_alive: bool,
     content_length: u64,
     chunked_transfer: bool,
-    chunked_with_trailer: bool,
     has_transfer_encoding: bool,
     has_content_length: bool,
     has_trailer: bool,
@@ -65,7 +64,6 @@ impl HttpProxyClientRequest {
             keep_alive: false,
             content_length: 0,
             chunked_transfer: false,
-            chunked_with_trailer: false,
             has_transfer_encoding: false,
             has_content_length: false,
             has_trailer: false,
@@ -74,11 +72,10 @@ impl HttpProxyClientRequest {
 
     pub fn clone_by_adaptation(&self, adapted: HttpAdaptedRequest) -> Self {
         let mut hop_by_hop_headers = self.hop_by_hop_headers.clone();
-        hop_by_hop_headers.remove(http::header::TRAILER);
+        hop_by_hop_headers.remove(header::TRAILER);
         for v in adapted.trailer() {
-            hop_by_hop_headers.append(http::header::TRAILER, v.clone());
+            hop_by_hop_headers.append(header::TRAILER, v.clone());
         }
-        let chunked_with_trailer = !adapted.trailer().is_empty();
         HttpProxyClientRequest {
             version: adapted.version,
             method: adapted.method,
@@ -93,7 +90,6 @@ impl HttpProxyClientRequest {
             keep_alive: self.keep_alive,
             content_length: self.content_length,
             chunked_transfer: true,
-            chunked_with_trailer,
             has_transfer_encoding: false,
             has_content_length: false,
             has_trailer: false,
@@ -117,11 +113,7 @@ impl HttpProxyClientRequest {
 
     pub fn body_type(&self) -> Option<HttpBodyType> {
         if self.chunked_transfer {
-            if self.chunked_with_trailer {
-                Some(HttpBodyType::ChunkedWithTrailer)
-            } else {
-                Some(HttpBodyType::ChunkedWithoutTrailer)
-            }
+            Some(HttpBodyType::Chunked)
         } else if self.content_length > 0 {
             Some(HttpBodyType::ContentLength(self.content_length))
         } else {
@@ -238,7 +230,7 @@ impl HttpProxyClientRequest {
             self.hop_by_hop_headers.remove(header::TRAILER);
         }
 
-        // Don't move non standard connection headers to hop-by-hop headers, as we don't support them
+        // Don't move non-standard connection headers to hop-by-hop headers, as we don't support them
     }
 
     fn build_from_method_line(line_buf: &[u8]) -> Result<Self, HttpRequestParseError> {
@@ -373,9 +365,6 @@ impl HttpProxyClientRequest {
             }
             "trailer" => {
                 self.has_trailer = true;
-                if self.chunked_transfer {
-                    self.chunked_with_trailer = true;
-                }
                 return self.insert_hop_by_hop_header(name, &header);
             }
             "transfer-encoding" => {
@@ -391,9 +380,6 @@ impl HttpProxyClientRequest {
                 let v = header.value.to_lowercase();
                 if v.ends_with("chunked") {
                     self.chunked_transfer = true;
-                    if self.has_trailer {
-                        self.chunked_with_trailer = true;
-                    }
                 } else {
                     return Err(HttpRequestParseError::InvalidChunkedTransferEncoding);
                 }

@@ -35,7 +35,6 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         &self,
         http_request: &H,
         http_header_len: usize,
-        http_body_type: HttpBodyType,
         preview_state: &PreviewDataState,
     ) -> Vec<u8>
     where
@@ -55,9 +54,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             "Encapsulated: req-hdr=0, req-body={}\r\nPreview: {}\r\n",
             http_header_len, preview_state.preview_size
         );
-        if http_body_type == HttpBodyType::ChunkedWithTrailer {
-            http_request.append_trailer_header(&mut header);
-        }
+        http_request.append_trailer_header(&mut header);
         header.put_slice(b"\r\n");
         header
     }
@@ -104,8 +101,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                     .await
             }
         };
-        let icap_header =
-            self.build_preview_request(http_request, header_len, clt_body_type, &preview_state);
+        let icap_header = self.build_preview_request(http_request, header_len, &preview_state);
 
         let icap_w = &mut self.icap_connection.0;
         icap_w

@@ -129,8 +129,7 @@ fn push_preview_data(
                 chunked_next_size: 0,
             })
         }
-        HttpBodyType::ChunkedWithoutTrailer => push_chunked_preview_data(header, limit, buf, false),
-        HttpBodyType::ChunkedWithTrailer => push_chunked_preview_data(header, limit, buf, true),
+        HttpBodyType::Chunked => push_chunked_preview_data(header, limit, buf),
     }
 }
 
@@ -138,7 +137,6 @@ fn push_chunked_preview_data(
     header: &mut Vec<u8>,
     limit: usize,
     buf: &[u8],
-    has_trailer: bool,
 ) -> Result<PreviewDataState, PreviewError> {
     let mut consume_size = 0;
     let mut preview_size = 0;
@@ -164,17 +162,6 @@ fn push_chunked_preview_data(
         }
 
         if chunk_size == 0 {
-            if has_trailer {
-                // do not consume the ending chunk, so we can pass Trailer along with the ending chunk in the continue request
-                header.put_slice(b"0\r\n\r\n");
-                return Ok(PreviewDataState {
-                    consume_size,
-                    preview_size,
-                    preview_eof: false,
-                    chunked_next_size: 0,
-                });
-            }
-
             let end = &left[p + 1..];
             let end_len = end.len();
             if end_len >= 1 {
@@ -200,7 +187,15 @@ fn push_chunked_preview_data(
                         chunked_next_size: 0,
                     });
                 }
-                return Err(PreviewError::InvalidChunkedBody);
+
+                // do not consume the ending chunk, so we can pass Trailer along with the ending chunk in the continue request
+                header.put_slice(b"0\r\n\r\n");
+                return Ok(PreviewDataState {
+                    consume_size,
+                    preview_size,
+                    preview_eof: false,
+                    chunked_next_size: 0,
+                });
             } else {
                 // do not consume the ending chunk, send them in the continue request
                 header.put_slice(b"0\r\n\r\n");
@@ -395,13 +390,7 @@ mod tests {
     fn preview_data_chunked() {
         let mut headers = Vec::with_capacity(256);
 
-        let s = push_preview_data(
-            &mut headers,
-            HttpBodyType::ChunkedWithoutTrailer,
-            4,
-            b"1\r\n",
-        )
-        .unwrap();
+        let s = push_preview_data(&mut headers, HttpBodyType::Chunked, 4, b"1\r\n").unwrap();
         assert_eq!(s.consume_size, 0);
         assert_eq!(s.preview_size, 0);
         assert!(!s.preview_eof);
@@ -409,13 +398,7 @@ mod tests {
         assert_eq!(headers.as_slice(), b"0\r\n\r\n");
 
         headers.clear();
-        let s = push_preview_data(
-            &mut headers,
-            HttpBodyType::ChunkedWithoutTrailer,
-            4,
-            b"1\r\na",
-        )
-        .unwrap();
+        let s = push_preview_data(&mut headers, HttpBodyType::Chunked, 4, b"1\r\na").unwrap();
         assert_eq!(s.consume_size, 0);
         assert_eq!(s.preview_size, 0);
         assert!(!s.preview_eof);
@@ -423,13 +406,16 @@ mod tests {
         assert_eq!(headers.len(), 0);
 
         headers.clear();
-        let s = push_preview_data(
-            &mut headers,
-            HttpBodyType::ChunkedWithoutTrailer,
-            4,
-            b"1\r\na\r\n",
-        )
-        .unwrap();
+        let s = push_preview_data(&mut headers, HttpBodyType::Chunked, 4, b"1\r\na\r\n").unwrap();
+        assert_eq!(s.consume_size, 6);
+        assert_eq!(s.preview_size, 1);
+        assert!(!s.preview_eof);
+        assert_eq!(s.chunked_next_size, 0);
+        assert_eq!(headers.as_slice(), b"1\r\na\r\n0\r\n\r\n");
+
+        headers.clear();
+        let s =
+            push_preview_data(&mut headers, HttpBodyType::Chunked, 4, b"1\r\na\r\n1\r\n").unwrap();
         assert_eq!(s.consume_size, 6);
         assert_eq!(s.preview_size, 1);
         assert!(!s.preview_eof);
@@ -439,21 +425,7 @@ mod tests {
         headers.clear();
         let s = push_preview_data(
             &mut headers,
-            HttpBodyType::ChunkedWithoutTrailer,
-            4,
-            b"1\r\na\r\n1\r\n",
-        )
-        .unwrap();
-        assert_eq!(s.consume_size, 6);
-        assert_eq!(s.preview_size, 1);
-        assert!(!s.preview_eof);
-        assert_eq!(s.chunked_next_size, 0);
-        assert_eq!(headers.as_slice(), b"1\r\na\r\n0\r\n\r\n");
-
-        headers.clear();
-        let s = push_preview_data(
-            &mut headers,
-            HttpBodyType::ChunkedWithoutTrailer,
+            HttpBodyType::Chunked,
             4,
             b"1\r\na\r\n1\r\nb\r\n",
         )
@@ -467,7 +439,7 @@ mod tests {
         headers.clear();
         let s = push_preview_data(
             &mut headers,
-            HttpBodyType::ChunkedWithoutTrailer,
+            HttpBodyType::Chunked,
             4,
             b"1\r\na\r\n3\r\nbcd\r\n",
         )
@@ -479,13 +451,7 @@ mod tests {
         assert_eq!(headers.as_slice(), b"1\r\na\r\n3\r\nbcd\r\n0\r\n\r\n");
 
         headers.clear();
-        let s = push_preview_data(
-            &mut headers,
-            HttpBodyType::ChunkedWithoutTrailer,
-            4,
-            b"2\r\nab\r\n",
-        )
-        .unwrap();
+        let s = push_preview_data(&mut headers, HttpBodyType::Chunked, 4, b"2\r\nab\r\n").unwrap();
         assert_eq!(s.consume_size, 7);
         assert_eq!(s.preview_size, 2);
         assert!(!s.preview_eof);
@@ -493,13 +459,8 @@ mod tests {
         assert_eq!(headers.as_slice(), b"2\r\nab\r\n0\r\n\r\n");
 
         headers.clear();
-        let s = push_preview_data(
-            &mut headers,
-            HttpBodyType::ChunkedWithoutTrailer,
-            4,
-            b"4\r\nabcd\r\n",
-        )
-        .unwrap();
+        let s =
+            push_preview_data(&mut headers, HttpBodyType::Chunked, 4, b"4\r\nabcd\r\n").unwrap();
         assert_eq!(s.consume_size, 9);
         assert_eq!(s.preview_size, 4);
         assert!(!s.preview_eof);
@@ -507,13 +468,8 @@ mod tests {
         assert_eq!(headers.as_slice(), b"4\r\nabcd\r\n0\r\n\r\n");
 
         headers.clear();
-        let s = push_preview_data(
-            &mut headers,
-            HttpBodyType::ChunkedWithoutTrailer,
-            4,
-            b"5\r\nabcde\r\n",
-        )
-        .unwrap();
+        let s =
+            push_preview_data(&mut headers, HttpBodyType::Chunked, 4, b"5\r\nabcde\r\n").unwrap();
         assert_eq!(s.consume_size, 7);
         assert_eq!(s.preview_size, 4);
         assert!(!s.preview_eof);
@@ -523,7 +479,7 @@ mod tests {
         headers.clear();
         let s = push_preview_data(
             &mut headers,
-            HttpBodyType::ChunkedWithoutTrailer,
+            HttpBodyType::Chunked,
             4,
             b"1\r\na\r\n4\r\nbcde\r\n",
         )
@@ -535,13 +491,8 @@ mod tests {
         assert_eq!(headers.as_slice(), b"1\r\na\r\n3\r\nbcd\r\n0\r\n\r\n");
 
         headers.clear();
-        let s = push_preview_data(
-            &mut headers,
-            HttpBodyType::ChunkedWithoutTrailer,
-            4,
-            b"3\r\nabc\r\n0",
-        )
-        .unwrap();
+        let s =
+            push_preview_data(&mut headers, HttpBodyType::Chunked, 4, b"3\r\nabc\r\n0").unwrap();
         assert_eq!(s.consume_size, 8);
         assert_eq!(s.preview_size, 3);
         assert!(!s.preview_eof);
@@ -549,13 +500,8 @@ mod tests {
         assert_eq!(headers.as_slice(), b"3\r\nabc\r\n0\r\n\r\n");
 
         headers.clear();
-        let s = push_preview_data(
-            &mut headers,
-            HttpBodyType::ChunkedWithoutTrailer,
-            4,
-            b"4\r\nabcd\r\n0",
-        )
-        .unwrap();
+        let s =
+            push_preview_data(&mut headers, HttpBodyType::Chunked, 4, b"4\r\nabcd\r\n0").unwrap();
         assert_eq!(s.consume_size, 9);
         assert_eq!(s.preview_size, 4);
         assert!(!s.preview_eof);
@@ -565,7 +511,7 @@ mod tests {
         headers.clear();
         let s = push_preview_data(
             &mut headers,
-            HttpBodyType::ChunkedWithoutTrailer,
+            HttpBodyType::Chunked,
             4,
             b"4\r\nabcd\r\n0\r\n",
         )
@@ -579,7 +525,7 @@ mod tests {
         headers.clear();
         let s = push_preview_data(
             &mut headers,
-            HttpBodyType::ChunkedWithoutTrailer,
+            HttpBodyType::Chunked,
             4,
             b"3\r\nabc\r\n0\r\n\r\n",
         )
@@ -593,7 +539,21 @@ mod tests {
         headers.clear();
         let s = push_preview_data(
             &mut headers,
-            HttpBodyType::ChunkedWithoutTrailer,
+            HttpBodyType::Chunked,
+            4,
+            b"3\r\nabc\r\n0\r\nA: B\r\n\r\n",
+        )
+        .unwrap();
+        assert_eq!(s.consume_size, 8);
+        assert_eq!(s.preview_size, 3);
+        assert!(!s.preview_eof);
+        assert_eq!(s.chunked_next_size, 0);
+        assert_eq!(headers.as_slice(), b"3\r\nabc\r\n0\r\n\r\n");
+
+        headers.clear();
+        let s = push_preview_data(
+            &mut headers,
+            HttpBodyType::Chunked,
             4,
             b"4\r\nabcd\r\n0\r\n\r\n",
         )
@@ -607,9 +567,9 @@ mod tests {
         headers.clear();
         let s = push_preview_data(
             &mut headers,
-            HttpBodyType::ChunkedWithTrailer,
+            HttpBodyType::Chunked,
             4,
-            b"4\r\nabcd\r\n0\r\n\r\n",
+            b"4\r\nabcd\r\n0\r\nA: B\r\n\r\n",
         )
         .unwrap();
         assert_eq!(s.consume_size, 9);

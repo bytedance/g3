@@ -30,12 +30,7 @@ use super::{
 use crate::reqmod::IcapReqmodResponsePayload;
 
 impl<I: IdleCheck> HttpRequestAdapter<I> {
-    fn build_forward_all_request<H>(
-        &self,
-        http_request: &H,
-        http_header_len: usize,
-        http_body_type: HttpBodyType,
-    ) -> Vec<u8>
+    fn build_forward_all_request<H>(&self, http_request: &H, http_header_len: usize) -> Vec<u8>
     where
         H: HttpRequestForAdaptation,
     {
@@ -46,9 +41,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             header,
             "Encapsulated: req-hdr=0, req-body={http_header_len}\r\n",
         );
-        if http_body_type == HttpBodyType::ChunkedWithTrailer {
-            http_request.append_trailer_header(&mut header);
-        }
+        http_request.append_trailer_header(&mut header);
         header.put_slice(b"\r\n");
         header
     }
@@ -67,8 +60,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         UW: HttpRequestUpstreamWriter<H> + Unpin,
     {
         let http_header = http_request.serialize_for_adapter();
-        let icap_header =
-            self.build_forward_all_request(http_request, http_header.len(), clt_body_type);
+        let icap_header = self.build_forward_all_request(http_request, http_header.len());
 
         let icap_w = &mut self.icap_connection.0;
         icap_w

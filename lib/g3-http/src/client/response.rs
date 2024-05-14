@@ -40,7 +40,6 @@ pub struct HttpForwardRemoteResponse {
     keep_alive: bool,
     content_length: u64,
     chunked_transfer: bool,
-    chunked_with_trailer: bool,
     has_transfer_encoding: bool,
     has_content_length: bool,
     has_trailer: bool,
@@ -61,7 +60,6 @@ impl HttpForwardRemoteResponse {
             keep_alive: false,
             content_length: 0,
             chunked_transfer: false,
-            chunked_with_trailer: false,
             has_transfer_encoding: false,
             has_content_length: false,
             has_trailer: false,
@@ -75,7 +73,6 @@ impl HttpForwardRemoteResponse {
         for v in adapted.trailer() {
             hop_by_hop_headers.append(http::header::TRAILER, v.clone());
         }
-        let chunked_with_trailer = !adapted.trailer().is_empty();
         HttpForwardRemoteResponse {
             version: adapted.version,
             code: adapted.status.as_u16(),
@@ -88,7 +85,6 @@ impl HttpForwardRemoteResponse {
             keep_alive: self.keep_alive,
             content_length: self.content_length,
             chunked_transfer: true,
-            chunked_with_trailer,
             has_transfer_encoding: false,
             has_content_length: false,
             has_trailer: false,
@@ -124,11 +120,7 @@ impl HttpForwardRemoteResponse {
         if self.expect_no_body(method) {
             None
         } else if self.chunked_transfer {
-            if self.chunked_with_trailer {
-                Some(HttpBodyType::ChunkedWithTrailer)
-            } else {
-                Some(HttpBodyType::ChunkedWithoutTrailer)
-            }
+            Some(HttpBodyType::Chunked)
         } else if self.has_content_length {
             if self.content_length > 0 {
                 Some(HttpBodyType::ContentLength(self.content_length))
@@ -213,14 +205,14 @@ impl HttpForwardRemoteResponse {
             }
 
             if self.expect_no_body(method) {
-                // ignore the check of content-length as no body is expected
+                // ignore the check of content-length as body is unexpected
             } else if !self.has_content_length {
                 // read to end and close the connection
                 self.keep_alive = false;
             }
         }
 
-        // Don't move non standard connection headers to hop-by-hop headers, as we don't support them
+        // Don't move non-standard connection headers to hop-by-hop headers, as we don't support them
     }
 
     fn build_from_status_line(line_buf: &[u8]) -> Result<Self, HttpResponseParseError> {
@@ -302,9 +294,6 @@ impl HttpForwardRemoteResponse {
             }
             "trailer" => {
                 self.has_trailer = true;
-                if self.chunked_transfer {
-                    self.chunked_with_trailer = true;
-                }
                 return self.insert_hop_by_hop_header(name, &header);
             }
             "transfer-encoding" => {
@@ -320,9 +309,6 @@ impl HttpForwardRemoteResponse {
                 let v = header.value.to_lowercase();
                 if v.ends_with("chunked") {
                     self.chunked_transfer = true;
-                    if self.has_trailer {
-                        self.chunked_with_trailer = true;
-                    }
                 } else if v.contains("chunked") {
                     return Err(HttpResponseParseError::InvalidChunkedTransferEncoding);
                 }

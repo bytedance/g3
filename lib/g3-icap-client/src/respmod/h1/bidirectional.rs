@@ -138,11 +138,8 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpResponse<'a, I> {
         let mut http_rsp = HttpAdaptedResponse::parse(self.icap_reader, http_header_size).await?;
         http_rsp.set_chunked_encoding();
         let trailers = self.icap_rsp.take_trailers();
-        let body_type = if !trailers.is_empty() {
+        if !trailers.is_empty() {
             http_rsp.set_trailer(trailers);
-            HttpBodyType::ChunkedWithTrailer
-        } else {
-            HttpBodyType::ChunkedWithoutTrailer
         };
 
         let final_rsp = orig_http_response.adapt_to(http_rsp);
@@ -153,8 +150,11 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpResponse<'a, I> {
             .map_err(H1RespmodAdaptationError::HttpClientWriteFailed)?;
         state.mark_clt_send_header();
 
-        let mut adp_body_reader =
-            HttpBodyReader::new(self.icap_reader, body_type, self.http_body_line_max_size);
+        let mut adp_body_reader = HttpBodyReader::new(
+            self.icap_reader,
+            HttpBodyType::Chunked,
+            self.http_body_line_max_size,
+        );
         let mut adp_body_transfer =
             LimitedCopy::new(&mut adp_body_reader, clt_writer, &self.copy_config);
 

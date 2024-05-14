@@ -29,7 +29,7 @@ enum NextReadType {
     UntilEnd,
     FixedLength,
     ChunkSize,
-    ChunkEnd(u8),
+    ChunkDataEnd(u8),
     Trailer,
 }
 
@@ -65,9 +65,7 @@ where
                 content_length = *size;
                 NextReadType::FixedLength
             }
-            HttpBodyType::ChunkedWithoutTrailer | HttpBodyType::ChunkedWithTrailer => {
-                NextReadType::ChunkSize
-            }
+            HttpBodyType::Chunked => NextReadType::ChunkSize,
             HttpBodyType::ReadUntilEnd => NextReadType::UntilEnd,
         };
         let mut r = HttpBodyReader {
@@ -164,9 +162,9 @@ where
                 // all data in this chunk/slice has been read out
                 match self.body_type {
                     HttpBodyType::ContentLength(_) => self.next_read_type = NextReadType::EndOfFile,
-                    HttpBodyType::ChunkedWithTrailer | HttpBodyType::ChunkedWithoutTrailer => {
-                        // continue to next chunk
-                        self.next_read_type = NextReadType::ChunkEnd(b'\r')
+                    HttpBodyType::Chunked => {
+                        // read chunk data end
+                        self.next_read_type = NextReadType::ChunkDataEnd(b'\r')
                     }
                     _ => unreachable!(),
                 }
@@ -271,7 +269,7 @@ where
         Ok(())
     }
 
-    fn poll_chunk_end(
+    fn poll_chunk_data_end(
         &mut self,
         cx: &mut Context<'_>,
         buf: &mut [u8],
@@ -311,17 +309,17 @@ where
                     // a small trick to speed up
                     let next_char = cache[1];
                     reader.as_mut().consume(2);
-                    self.check_chunk_end_last_char(next_char)?;
+                    self.check_chunk_data_end_last_char(next_char)?;
                     buf[1] = b'\n';
                     nw = 2;
                 } else {
                     reader.as_mut().consume(1);
-                    self.next_read_type = NextReadType::ChunkEnd(b'\n');
+                    self.next_read_type = NextReadType::ChunkDataEnd(b'\n');
                 }
             }
             b'\n' => {
                 reader.as_mut().consume(1);
-                self.update_next_read_type_after_chunk_end();
+                self.update_next_read_type_after_chunk_data_end();
             }
             _ => unreachable!(),
         }
@@ -329,27 +327,19 @@ where
         Poll::Ready(Ok(nw))
     }
 
-    fn check_chunk_end_last_char(&mut self, char: u8) -> io::Result<()> {
+    fn check_chunk_data_end_last_char(&mut self, char: u8) -> io::Result<()> {
         if char != b'\n' {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 "invalid chunk ending last char",
             ));
         }
-        self.update_next_read_type_after_chunk_end();
+        self.update_next_read_type_after_chunk_data_end();
         Ok(())
     }
 
-    fn update_next_read_type_after_chunk_end(&mut self) {
-        self.next_read_type = if self.current_chunk_size == 0 {
-            match self.body_type {
-                HttpBodyType::ChunkedWithoutTrailer => NextReadType::EndOfFile,
-                HttpBodyType::ChunkedWithTrailer => NextReadType::Trailer,
-                _ => unreachable!(),
-            }
-        } else {
-            NextReadType::ChunkSize
-        };
+    fn update_next_read_type_after_chunk_data_end(&mut self) {
+        self.next_read_type = NextReadType::ChunkSize;
     }
 
     fn poll_trailer(
@@ -469,9 +459,9 @@ where
                         .poll_fixed(cx, &mut inner_buf)
                         .map_ok(|_| inner_buf.filled().len())
                 }
-                NextReadType::ChunkEnd(char) => {
+                NextReadType::ChunkDataEnd(char) => {
                     self.as_mut()
-                        .poll_chunk_end(cx, buf.initialize_unfilled(), char)
+                        .poll_chunk_data_end(cx, buf.initialize_unfilled(), char)
                 }
                 NextReadType::Trailer => self.as_mut().poll_trailer(cx, buf.initialize_unfilled()),
                 _ => unreachable!(),
@@ -514,9 +504,7 @@ where
                 NextReadType::FixedLength => self.poll_fixed(cx, buf),
                 _ => unreachable!(),
             },
-            HttpBodyType::ChunkedWithoutTrailer | HttpBodyType::ChunkedWithTrailer => {
-                self.poll_chunked(cx, buf)
-            }
+            HttpBodyType::Chunked => self.poll_chunked(cx, buf),
         }
     }
 }
@@ -629,8 +617,7 @@ mod tests {
         let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
         let stream = StreamReader::new(stream);
         let mut buf_stream = BufReader::new(stream);
-        let mut body_reader =
-            HttpBodyReader::new(&mut buf_stream, HttpBodyType::ChunkedWithoutTrailer, 1024);
+        let mut body_reader = HttpBodyReader::new(&mut buf_stream, HttpBodyType::Chunked, 1024);
 
         let mut buf = [0u8; 32];
         let len = body_reader.read(&mut buf).await.unwrap();
@@ -650,8 +637,7 @@ mod tests {
         ]);
         let stream = StreamReader::new(stream);
         let mut buf_stream = BufReader::new(stream);
-        let mut body_reader =
-            HttpBodyReader::new(&mut buf_stream, HttpBodyType::ChunkedWithoutTrailer, 1024);
+        let mut body_reader = HttpBodyReader::new(&mut buf_stream, HttpBodyType::Chunked, 1024);
 
         let mut buf = [0u8; 32];
         let len = body_reader.read(&mut buf).await.unwrap();
@@ -671,8 +657,7 @@ mod tests {
         let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
         let stream = StreamReader::new(stream);
         let mut buf_stream = BufReader::new(stream);
-        let mut body_reader =
-            HttpBodyReader::new(&mut buf_stream, HttpBodyType::ChunkedWithTrailer, 1024);
+        let mut body_reader = HttpBodyReader::new(&mut buf_stream, HttpBodyType::Chunked, 1024);
 
         let mut buf = [0u8; 64];
         let len = body_reader.read(&mut buf).await.unwrap();

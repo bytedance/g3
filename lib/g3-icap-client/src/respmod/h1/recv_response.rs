@@ -197,11 +197,8 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
             HttpAdaptedResponse::parse(&mut self.icap_connection.1, http_header_size).await?;
         http_rsp.set_chunked_encoding();
         let trailers = icap_rsp.take_trailers();
-        let body_type = if !trailers.is_empty() {
+        if !trailers.is_empty() {
             http_rsp.set_trailer(trailers);
-            HttpBodyType::ChunkedWithTrailer
-        } else {
-            HttpBodyType::ChunkedWithoutTrailer
         };
 
         let final_rsp = orig_http_response.adapt_to(http_rsp);
@@ -214,7 +211,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
 
         let mut body_reader = HttpBodyReader::new(
             &mut self.icap_connection.1,
-            body_type,
+            HttpBodyType::Chunked,
             self.http_body_line_max_size,
         );
         let mut body_copy = LimitedCopy::new(&mut body_reader, clt_writer, &self.copy_config);

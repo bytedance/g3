@@ -90,7 +90,7 @@ where
                     ChunkedNoTrailerEncodeTransfer::new(reader, writer, copy_config.yield_size());
                 ChunkedTransferState::Encode(encoder)
             }
-            HttpBodyType::ChunkedWithoutTrailer | HttpBodyType::ChunkedWithTrailer => {
+            HttpBodyType::Chunked => {
                 let body_reader = HttpBodyReader::new(reader, body_type, body_line_max_len);
                 let copy = ROwnedLimitedCopy::new(body_reader, writer, copy_config);
                 ChunkedTransferState::Copy(copy)
@@ -136,7 +136,7 @@ where
                     ChunkedNoTrailerEncodeTransfer::new(reader, writer, copy_config.yield_size());
                 ChunkedTransferState::Encode(encoder)
             }
-            HttpBodyType::ChunkedWithoutTrailer | HttpBodyType::ChunkedWithTrailer => {
+            HttpBodyType::Chunked => {
                 let next_chunk_size = preview_state.chunked_next_size;
                 if next_chunk_size > 0 {
                     let head = format!("{next_chunk_size:x}\r\n");
@@ -411,7 +411,7 @@ mod test {
         let mut body_transfer = ChunkedTransfer::new(
             &mut buf_stream,
             &mut write_buf,
-            HttpBodyType::ChunkedWithoutTrailer,
+            HttpBodyType::Chunked,
             1024,
             Default::default(),
         );
@@ -441,7 +441,7 @@ mod test {
         let mut body_transfer = ChunkedTransfer::new(
             &mut buf_stream,
             &mut write_buf,
-            HttpBodyType::ChunkedWithoutTrailer,
+            HttpBodyType::Chunked,
             1024,
             Default::default(),
         );
@@ -465,7 +465,7 @@ mod test {
         let mut body_transfer = ChunkedTransfer::new(
             &mut buf_stream,
             &mut write_buf,
-            HttpBodyType::ChunkedWithoutTrailer,
+            HttpBodyType::Chunked,
             1024,
             Default::default(),
         );

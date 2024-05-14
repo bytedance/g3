@@ -50,17 +50,13 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             HttpAdapterErrorResponse::parse(&mut self.icap_connection.1, http_header_size).await?;
         http_rsp.set_chunked_encoding();
         let trailers = icap_rsp.take_trailers();
-        let has_trailer = if trailers.is_empty() {
-            false
-        } else {
+        if !trailers.is_empty() {
             http_rsp.set_trailer(trailers);
-            true
         };
         let recv_body = ReqmodRecvHttpResponseBody {
             icap_client: self.icap_client,
             icap_keepalive: icap_rsp.keep_alive,
             icap_connection: self.icap_connection,
-            has_trailer,
         };
         Ok((http_rsp, recv_body))
     }
