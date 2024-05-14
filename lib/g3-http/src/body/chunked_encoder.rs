@@ -23,7 +23,7 @@ use tokio::io::{AsyncBufRead, AsyncWrite};
 
 use g3_io_ext::LimitedCopyError;
 
-struct ChunkedEncodeTransferInternal {
+struct ChunkedNoTrailerEncodeTransferInternal {
     yield_size: usize,
     this_chunk_size: usize,
     left_chunk_size: usize,
@@ -34,9 +34,9 @@ struct ChunkedEncodeTransferInternal {
     active: bool,
 }
 
-impl ChunkedEncodeTransferInternal {
+impl ChunkedNoTrailerEncodeTransferInternal {
     fn new(yield_size: usize) -> Self {
-        ChunkedEncodeTransferInternal {
+        ChunkedNoTrailerEncodeTransferInternal {
             yield_size,
             this_chunk_size: 0,
             left_chunk_size: 0,
@@ -69,8 +69,10 @@ impl ChunkedEncodeTransferInternal {
                 if chunk_size == 0 {
                     self.read_finished = true;
                     if self.total_write == 0 {
+                        // no trailer
                         let _ = write!(&mut self.static_header, "0\r\n\r\n");
                     } else {
+                        // no trailer
                         let _ = write!(&mut self.static_header, "\r\n0\r\n\r\n");
                     }
                 } else if self.total_write == 0 {
@@ -145,18 +147,18 @@ impl ChunkedEncodeTransferInternal {
     }
 }
 
-pub struct ChunkedEncodeTransfer<'a, R, W> {
+pub struct ChunkedNoTrailerEncodeTransfer<'a, R, W> {
     reader: &'a mut R,
     writer: &'a mut W,
-    internal: ChunkedEncodeTransferInternal,
+    internal: ChunkedNoTrailerEncodeTransferInternal,
 }
 
-impl<'a, R, W> ChunkedEncodeTransfer<'a, R, W> {
+impl<'a, R, W> ChunkedNoTrailerEncodeTransfer<'a, R, W> {
     pub fn new(reader: &'a mut R, writer: &'a mut W, yield_size: usize) -> Self {
-        ChunkedEncodeTransfer {
+        ChunkedNoTrailerEncodeTransfer {
             reader,
             writer,
-            internal: ChunkedEncodeTransferInternal::new(yield_size),
+            internal: ChunkedNoTrailerEncodeTransferInternal::new(yield_size),
         }
     }
 
@@ -181,7 +183,7 @@ impl<'a, R, W> ChunkedEncodeTransfer<'a, R, W> {
     }
 }
 
-impl<'a, R, W> Future for ChunkedEncodeTransfer<'a, R, W>
+impl<'a, R, W> Future for ChunkedNoTrailerEncodeTransfer<'a, R, W>
 where
     R: AsyncBufRead + Unpin,
     W: AsyncWrite + Unpin,
@@ -193,5 +195,57 @@ where
 
         me.internal
             .poll_encode(cx, Pin::new(&mut me.reader), Pin::new(&mut me.writer))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use bytes::Bytes;
+    use tokio::io::{BufReader, Result};
+    use tokio_util::io::StreamReader;
+
+    #[tokio::test]
+    async fn encode_two() {
+        let body_len: usize = 24;
+        let data1 = b"test\n";
+        let data2 = b"body";
+        let stream = tokio_stream::iter(vec![
+            Result::Ok(Bytes::from_static(data1)),
+            Result::Ok(Bytes::from_static(data2)),
+        ]);
+        let stream = StreamReader::new(stream);
+        let mut buf_stream = BufReader::new(stream);
+
+        let mut write_buf = Vec::with_capacity(body_len);
+
+        let mut chunked_encoder =
+            ChunkedNoTrailerEncodeTransfer::new(&mut buf_stream, &mut write_buf, 1024);
+
+        let nw = (&mut chunked_encoder).await.unwrap();
+        assert_eq!(nw, body_len as u64);
+        assert!(chunked_encoder.finished());
+
+        assert_eq!(&write_buf, b"5\r\ntest\n\r\n4\r\nbody\r\n0\r\n\r\n");
+    }
+
+    #[tokio::test]
+    async fn encode_empty() {
+        let body_len: usize = 5;
+        let data1 = b"";
+        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(data1))]);
+        let stream = StreamReader::new(stream);
+        let mut buf_stream = BufReader::new(stream);
+
+        let mut write_buf = Vec::with_capacity(body_len);
+
+        let mut chunked_encoder =
+            ChunkedNoTrailerEncodeTransfer::new(&mut buf_stream, &mut write_buf, 1024);
+
+        let nw = (&mut chunked_encoder).await.unwrap();
+        assert_eq!(nw, body_len as u64);
+        assert!(chunked_encoder.finished());
+
+        assert_eq!(&write_buf, b"0\r\n\r\n");
     }
 }
