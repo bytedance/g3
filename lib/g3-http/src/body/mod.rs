@@ -17,8 +17,7 @@
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HttpBodyType {
     ContentLength(u64),
-    ChunkedWithoutTrailer,
-    ChunkedWithTrailer,
+    Chunked,
     ReadUntilEnd,
 }
 

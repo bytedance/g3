@@ -209,11 +209,8 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         .await?;
         http_req.set_chunked_encoding();
         let trailers = icap_rsp.take_trailers();
-        let body_type = if !trailers.is_empty() {
+        if !trailers.is_empty() {
             http_req.set_trailer(trailers);
-            HttpBodyType::ChunkedWithTrailer
-        } else {
-            HttpBodyType::ChunkedWithoutTrailer
         };
 
         let final_req = orig_http_request.adapt_to(http_req);
@@ -225,7 +222,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
 
         let mut body_reader = HttpBodyReader::new(
             &mut self.icap_connection.1,
-            body_type,
+            HttpBodyType::Chunked,
             self.http_body_line_max_size,
         );
         let mut body_copy = LimitedCopy::new(&mut body_reader, ups_writer, &self.copy_config);
