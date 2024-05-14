@@ -109,7 +109,6 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
             http_rsp_header.len(),
             preview_size,
         );
-        let has_trailer = http_request.headers().contains_key(http::header::TRAILER);
 
         let icap_w = &mut self.icap_connection.0;
         icap_w
@@ -148,14 +147,12 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
                     H2StreamToChunkedTransfer::new(
                         &mut ups_body,
                         &mut self.icap_connection.0,
-                        has_trailer,
                         self.copy_config.yield_size(),
                     )
                 } else {
                     H2StreamToChunkedTransfer::with_chunk(
                         &mut ups_body,
                         &mut self.icap_connection.0,
-                        has_trailer,
                         self.copy_config.yield_size(),
                         initial_body_data,
                     )
