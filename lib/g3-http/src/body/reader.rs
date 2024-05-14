@@ -261,7 +261,7 @@ where
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         self.current_chunk_size = chunk.chunk_size;
         if chunk.chunk_size == 0 {
-            self.next_read_type = NextReadType::ChunkEnd(b'\r');
+            self.next_read_type = NextReadType::Trailer;
         } else {
             self.next_read_type = NextReadType::FixedLength;
             self.left_total_size = chunk.chunk_size;
@@ -666,8 +666,8 @@ mod tests {
 
     #[tokio::test]
     async fn read_single_trailer() {
-        let body_len: usize = 32;
-        let content = b"5\r\ntest\n\r\n4\r\nbody\r\n0\r\n\r\nA: B\r\n\r\nXX";
+        let body_len: usize = 30;
+        let content = b"5\r\ntest\n\r\n4\r\nbody\r\n0\r\nA: B\r\n\r\nXX";
         let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
         let stream = StreamReader::new(stream);
         let mut buf_stream = BufReader::new(stream);
