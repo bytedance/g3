@@ -22,9 +22,9 @@ use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncWrite};
 
 use g3_io_ext::{LimitedCopyConfig, LimitedCopyError, ROwnedLimitedCopy};
 
-use super::{ChunkedEncodeTransfer, HttpBodyReader, HttpBodyType, PreviewDataState};
+use super::{ChunkedNoTrailerEncodeTransfer, HttpBodyReader, HttpBodyType, PreviewDataState};
 
-const END_BUFFER: &[u8] = b"\r\n0\r\n\r\n";
+const NO_TRAILER_END_BUFFER: &[u8] = b"\r\n0\r\n\r\n";
 
 pub struct ChunkedTransfer<'a, R, W> {
     body_type: HttpBodyType,
@@ -49,8 +49,8 @@ struct SendEnd<'a, W> {
 enum ChunkedTransferState<'a, R, W> {
     SendHead(SendHead<'a, R, W>),
     Copy(ROwnedLimitedCopy<'a, HttpBodyReader<'a, R>, W>),
-    SendEnd(SendEnd<'a, W>),
-    Encode(ChunkedEncodeTransfer<'a, R, W>),
+    SendNoTrailerEnd(SendEnd<'a, W>),
+    Encode(ChunkedNoTrailerEncodeTransfer<'a, R, W>),
     End,
 }
 
@@ -67,6 +67,10 @@ where
         copy_config: LimitedCopyConfig,
     ) -> ChunkedTransfer<'a, R, W> {
         let state = match body_type {
+            HttpBodyType::ContentLength(0) => {
+                // just send 0 chunk size and empty trailer end
+                ChunkedTransferState::SendNoTrailerEnd(SendEnd { offset: 2, writer })
+            }
             HttpBodyType::ContentLength(len) => {
                 let head = format!("{len:x}\r\n");
                 let body_reader = HttpBodyReader::new(
@@ -82,7 +86,8 @@ where
                 })
             }
             HttpBodyType::ReadUntilEnd => {
-                let encoder = ChunkedEncodeTransfer::new(reader, writer, copy_config.yield_size());
+                let encoder =
+                    ChunkedNoTrailerEncodeTransfer::new(reader, writer, copy_config.yield_size());
                 ChunkedTransferState::Encode(encoder)
             }
             HttpBodyType::ChunkedWithoutTrailer | HttpBodyType::ChunkedWithTrailer => {
@@ -127,7 +132,8 @@ where
             }
             HttpBodyType::ReadUntilEnd => {
                 reader.consume(preview_state.consume_size);
-                let encoder = ChunkedEncodeTransfer::new(reader, writer, copy_config.yield_size());
+                let encoder =
+                    ChunkedNoTrailerEncodeTransfer::new(reader, writer, copy_config.yield_size());
                 ChunkedTransferState::Encode(encoder)
             }
             HttpBodyType::ChunkedWithoutTrailer | HttpBodyType::ChunkedWithTrailer => {
@@ -173,7 +179,7 @@ where
 
     pub fn no_cached_data(&self) -> bool {
         match &self.state {
-            ChunkedTransferState::SendHead(_) | ChunkedTransferState::SendEnd(_) => false,
+            ChunkedTransferState::SendHead(_) | ChunkedTransferState::SendNoTrailerEnd(_) => false,
             ChunkedTransferState::Copy(copy) => copy.no_cached_data(),
             ChunkedTransferState::Encode(encode) => encode.no_cached_data(),
             ChunkedTransferState::End => true,
@@ -239,7 +245,7 @@ where
                     let ChunkedTransferState::Copy(copy) = old_state else {
                         unreachable!()
                     };
-                    self.state = ChunkedTransferState::SendEnd(SendEnd {
+                    self.state = ChunkedTransferState::SendNoTrailerEnd(SendEnd {
                         offset: 0,
                         writer: copy.writer(),
                     });
@@ -249,9 +255,9 @@ where
                     Poll::Ready(Ok(()))
                 }
             }
-            ChunkedTransferState::SendEnd(send_end) => {
-                while send_end.offset < END_BUFFER.len() {
-                    let buf = &END_BUFFER[send_end.offset..];
+            ChunkedTransferState::SendNoTrailerEnd(send_end) => {
+                while send_end.offset < NO_TRAILER_END_BUFFER.len() {
+                    let buf = &NO_TRAILER_END_BUFFER[send_end.offset..];
                     let nw = ready!(Pin::new(&mut send_end.writer).poll_write(cx, buf))
                         .map_err(LimitedCopyError::WriteFailed)?;
                     send_end.offset += nw;
@@ -278,5 +284,196 @@ where
             }
             ChunkedTransferState::End => Poll::Ready(Ok(())),
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use bytes::Bytes;
+    use tokio::io::{BufReader, Result};
+    use tokio_util::io::StreamReader;
+
+    #[tokio::test]
+    async fn single_to_end() {
+        let content = b"test body";
+        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
+        let stream = StreamReader::new(stream);
+        let mut buf_stream = BufReader::new(stream);
+
+        let exp_body = b"9\r\ntest body\r\n0\r\n\r\n";
+        let mut write_buf = Vec::with_capacity(exp_body.len());
+
+        let mut body_transfer = ChunkedTransfer::new(
+            &mut buf_stream,
+            &mut write_buf,
+            HttpBodyType::ReadUntilEnd,
+            1024,
+            Default::default(),
+        );
+
+        (&mut body_transfer).await.unwrap();
+        assert!(body_transfer.finished());
+
+        assert_eq!(&write_buf, exp_body);
+    }
+
+    #[tokio::test]
+    async fn split_to_end() {
+        let content1 = b"test body";
+        let content2 = b"hello";
+        let stream = tokio_stream::iter(vec![
+            Result::Ok(Bytes::from_static(content1)),
+            Result::Ok(Bytes::from_static(content2)),
+        ]);
+        let stream = StreamReader::new(stream);
+        let mut buf_stream = BufReader::new(stream);
+
+        let exp_body = b"9\r\ntest body\r\n5\r\nhello\r\n0\r\n\r\n";
+        let mut write_buf = Vec::with_capacity(exp_body.len());
+
+        let mut body_transfer = ChunkedTransfer::new(
+            &mut buf_stream,
+            &mut write_buf,
+            HttpBodyType::ReadUntilEnd,
+            1024,
+            Default::default(),
+        );
+
+        (&mut body_transfer).await.unwrap();
+        assert!(body_transfer.finished());
+
+        assert_eq!(&write_buf, exp_body);
+    }
+
+    #[tokio::test]
+    async fn single_content_length() {
+        let content = b"test bodyXXX";
+        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
+        let stream = StreamReader::new(stream);
+        let mut buf_stream = BufReader::new(stream);
+
+        let exp_body = b"9\r\ntest body\r\n0\r\n\r\n";
+        let mut write_buf = Vec::with_capacity(exp_body.len());
+
+        let mut body_transfer = ChunkedTransfer::new(
+            &mut buf_stream,
+            &mut write_buf,
+            HttpBodyType::ContentLength(9),
+            1024,
+            Default::default(),
+        );
+
+        (&mut body_transfer).await.unwrap();
+        assert!(body_transfer.finished());
+
+        assert_eq!(&write_buf, exp_body);
+    }
+
+    #[tokio::test]
+    async fn split_content_length() {
+        let content1 = b"test body";
+        let content2 = b"- helloXXX";
+        let stream = tokio_stream::iter(vec![
+            Result::Ok(Bytes::from_static(content1)),
+            Result::Ok(Bytes::from_static(content2)),
+        ]);
+        let stream = StreamReader::new(stream);
+        let mut buf_stream = BufReader::new(stream);
+
+        let exp_body = b"10\r\ntest body- hello\r\n0\r\n\r\n";
+        let mut write_buf = Vec::with_capacity(exp_body.len());
+
+        let mut body_transfer = ChunkedTransfer::new(
+            &mut buf_stream,
+            &mut write_buf,
+            HttpBodyType::ContentLength(16),
+            1024,
+            Default::default(),
+        );
+
+        (&mut body_transfer).await.unwrap();
+        assert!(body_transfer.finished());
+
+        assert_eq!(&write_buf, exp_body);
+    }
+
+    #[tokio::test]
+    async fn single_chunked() {
+        let body_len: usize = 24;
+        let content = b"5\r\ntest\n\r\n4\r\nbody\r\n0\r\n\r\nXXX";
+        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
+        let stream = StreamReader::new(stream);
+        let mut buf_stream = BufReader::new(stream);
+
+        let mut write_buf = Vec::with_capacity(body_len);
+
+        let mut body_transfer = ChunkedTransfer::new(
+            &mut buf_stream,
+            &mut write_buf,
+            HttpBodyType::ChunkedWithoutTrailer,
+            1024,
+            Default::default(),
+        );
+
+        (&mut body_transfer).await.unwrap();
+        assert!(body_transfer.finished());
+
+        assert_eq!(write_buf.len(), body_len);
+        assert_eq!(&write_buf, &content[0..body_len]);
+    }
+
+    #[tokio::test]
+    async fn split_chunked() {
+        let body_len: usize = 24;
+        let content1 = b"5\r\ntest\n\r\n4\r";
+        let content2 = b"\nbody\r\n0\r\n\r\nXXX";
+        let stream = tokio_stream::iter(vec![
+            Result::Ok(Bytes::from_static(content1)),
+            Result::Ok(Bytes::from_static(content2)),
+        ]);
+        let stream = StreamReader::new(stream);
+        let mut buf_stream = BufReader::new(stream);
+
+        let exp_body = b"5\r\ntest\n\r\n4\r\nbody\r\n0\r\n\r\n";
+        let mut write_buf = Vec::with_capacity(body_len);
+
+        let mut body_transfer = ChunkedTransfer::new(
+            &mut buf_stream,
+            &mut write_buf,
+            HttpBodyType::ChunkedWithoutTrailer,
+            1024,
+            Default::default(),
+        );
+
+        (&mut body_transfer).await.unwrap();
+        assert!(body_transfer.finished());
+
+        assert_eq!(&write_buf, exp_body);
+    }
+
+    #[tokio::test]
+    async fn single_trailer() {
+        let body_len: usize = 30;
+        let content = b"5\r\ntest\n\r\n4\r\nbody\r\n0\r\nA: B\r\n\r\nXXX";
+        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
+        let stream = StreamReader::new(stream);
+        let mut buf_stream = BufReader::new(stream);
+
+        let mut write_buf = Vec::with_capacity(body_len);
+
+        let mut body_transfer = ChunkedTransfer::new(
+            &mut buf_stream,
+            &mut write_buf,
+            HttpBodyType::ChunkedWithoutTrailer,
+            1024,
+            Default::default(),
+        );
+
+        (&mut body_transfer).await.unwrap();
+        assert!(body_transfer.finished());
+
+        assert_eq!(write_buf.len(), body_len);
+        assert_eq!(&write_buf, &content[0..body_len]);
     }
 }
