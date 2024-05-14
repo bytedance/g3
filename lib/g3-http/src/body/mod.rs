@@ -32,7 +32,7 @@ mod chunked_transfer;
 pub use chunked_transfer::ChunkedTransfer;
 
 mod chunked_encoder;
-pub use chunked_encoder::ChunkedEncodeTransfer;
+pub use chunked_encoder::ChunkedNoTrailerEncodeTransfer;
 
 mod chunked_decoder;
 pub use chunked_decoder::ChunkedDecodeReader;
