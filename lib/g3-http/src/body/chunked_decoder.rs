@@ -23,7 +23,7 @@ use tokio::io::{AsyncBufRead, AsyncRead, ReadBuf};
 
 use crate::parse::HttpChunkedLine;
 
-struct ChunkedDecodeReaderInternal {
+struct ChunkedDataDecodeReaderInternal {
     body_line_max_size: usize,
     chunk_header: Vec<u8>,
     this_chunk_size: u64,
@@ -33,9 +33,9 @@ struct ChunkedDecodeReaderInternal {
     poll_chunk_end: bool,
 }
 
-impl ChunkedDecodeReaderInternal {
+impl ChunkedDataDecodeReaderInternal {
     fn new(body_line_max_size: usize) -> Self {
-        ChunkedDecodeReaderInternal {
+        ChunkedDataDecodeReaderInternal {
             body_line_max_size,
             chunk_header: Vec::with_capacity(32),
             this_chunk_size: 0,
@@ -44,6 +44,10 @@ impl ChunkedDecodeReaderInternal {
             poll_chunk_end_n: false,
             poll_chunk_end: false,
         }
+    }
+
+    fn finished(&self) -> bool {
+        self.poll_chunk_end && self.this_chunk_size == 0
     }
 
     fn poll_decode<R>(
@@ -192,7 +196,8 @@ impl ChunkedDecodeReaderInternal {
                 self.this_chunk_size = chunk_line.chunk_size;
                 self.left_chunk_size = chunk_line.chunk_size;
                 if self.left_chunk_size == 0 {
-                    self.poll_chunk_end_r = true;
+                    self.poll_chunk_end = true;
+                    return Poll::Ready(Ok(()));
                 }
                 self.chunk_header.clear();
             }
@@ -200,25 +205,30 @@ impl ChunkedDecodeReaderInternal {
     }
 }
 
-pub struct ChunkedDecodeReader<'a, R> {
+/// Decode chunked data, and leave the trailer fields
+pub struct ChunkedDataDecodeReader<'a, R> {
     reader: &'a mut R,
-    internal: ChunkedDecodeReaderInternal,
+    internal: ChunkedDataDecodeReaderInternal,
 }
 
-impl<'a, R> ChunkedDecodeReader<'a, R> {
+impl<'a, R> ChunkedDataDecodeReader<'a, R> {
     pub fn new(reader: &'a mut R, body_line_max_size: usize) -> Self {
-        ChunkedDecodeReader {
+        ChunkedDataDecodeReader {
             reader,
-            internal: ChunkedDecodeReaderInternal::new(body_line_max_size),
+            internal: ChunkedDataDecodeReaderInternal::new(body_line_max_size),
         }
     }
 
     pub fn into_reader(self) -> &'a mut R {
         self.reader
     }
+
+    pub fn finished(&self) -> bool {
+        self.internal.finished()
+    }
 }
 
-impl<'a, R> AsyncRead for ChunkedDecodeReader<'a, R>
+impl<'a, R> AsyncRead for ChunkedDataDecodeReader<'a, R>
 where
     R: AsyncBufRead + Unpin,
 {
@@ -240,5 +250,45 @@ where
             }
             Poll::Ready(r) => Poll::Ready(r),
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use bytes::Bytes;
+    use tokio::io::{AsyncReadExt, BufReader, Result};
+    use tokio_util::io::StreamReader;
+
+    #[tokio::test]
+    async fn read_single_chunked() {
+        let body_len: usize = 9;
+        let content = b"5\r\ntest\n\r\n4\r\nbody\r\n0\r\n\r\nXXX";
+        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
+        let stream = StreamReader::new(stream);
+        let mut buf_stream = BufReader::new(stream);
+        let mut body_deocder = ChunkedDataDecodeReader::new(&mut buf_stream, 1024);
+
+        let mut buf = [0u8; 32];
+        let len = body_deocder.read(&mut buf).await.unwrap();
+        assert_eq!(len, body_len);
+        assert_eq!(&buf[0..len], b"test\nbody");
+        assert!(body_deocder.finished());
+    }
+
+    #[tokio::test]
+    async fn read_single_tailer() {
+        let body_len: usize = 9;
+        let content = b"5\r\ntest\n\r\n4\r\nbody\r\n0\r\nA: B\r\n\r\nXXX";
+        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
+        let stream = StreamReader::new(stream);
+        let mut buf_stream = BufReader::new(stream);
+        let mut body_deocder = ChunkedDataDecodeReader::new(&mut buf_stream, 1024);
+
+        let mut buf = [0u8; 32];
+        let len = body_deocder.read(&mut buf).await.unwrap();
+        assert_eq!(len, body_len);
+        assert_eq!(&buf[0..len], b"test\nbody");
+        assert!(body_deocder.finished());
     }
 }

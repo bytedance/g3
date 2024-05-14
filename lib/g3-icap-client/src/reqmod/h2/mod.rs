@@ -195,7 +195,6 @@ pub struct ReqmodRecvHttpResponseBody {
     copy_config: LimitedCopyConfig,
     http_body_line_max_size: usize,
     http_trailer_max_size: usize,
-    has_trailer: bool,
 }
 
 impl ReqmodRecvHttpResponseBody {
@@ -209,7 +208,6 @@ impl ReqmodRecvHttpResponseBody {
             &self.copy_config,
             self.http_body_line_max_size,
             self.http_trailer_max_size,
-            self.has_trailer,
         )
     }
 

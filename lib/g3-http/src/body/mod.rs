@@ -35,7 +35,7 @@ mod chunked_encoder;
 pub use chunked_encoder::ChunkedNoTrailerEncodeTransfer;
 
 mod chunked_decoder;
-pub use chunked_decoder::ChunkedDecodeReader;
+pub use chunked_decoder::ChunkedDataDecodeReader;
 
 mod trailer_reader;
 pub use trailer_reader::{TrailerReadError, TrailerReader};

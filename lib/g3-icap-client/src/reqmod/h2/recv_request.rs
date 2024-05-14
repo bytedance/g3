@@ -242,7 +242,6 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         )
         .await?;
         let trailers = icap_rsp.take_trailers();
-        let has_trailer = !trailers.is_empty();
         http_req.set_trailer(trailers);
 
         let final_req = orig_http_request.adapt_to(&http_req);
@@ -257,7 +256,6 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
             &self.copy_config,
             self.http_body_line_max_size,
             self.http_trailer_max_size,
-            has_trailer,
         );
 
         let idle_duration = self.idle_checker.idle_duration();

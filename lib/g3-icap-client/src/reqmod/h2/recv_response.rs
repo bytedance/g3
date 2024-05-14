@@ -46,7 +46,6 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         let mut http_rsp =
             HttpAdapterErrorResponse::parse(&mut self.icap_connection.1, http_header_size).await?;
         let trailers = icap_rsp.take_trailers();
-        let has_trailer = !trailers.is_empty();
         http_rsp.set_trailer(trailers);
         let recv_body = ReqmodRecvHttpResponseBody {
             icap_client: self.icap_client,
@@ -55,7 +54,6 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
             copy_config: self.copy_config,
             http_body_line_max_size: self.http_body_line_max_size,
             http_trailer_max_size: self.http_trailer_max_size,
-            has_trailer,
         };
         Ok((http_rsp, recv_body))
     }

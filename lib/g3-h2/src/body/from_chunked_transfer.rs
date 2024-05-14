@@ -24,7 +24,7 @@ use std::task::{ready, Context, Poll};
 use thiserror::Error;
 use tokio::io::AsyncBufRead;
 
-use g3_http::{ChunkedDecodeReader, TrailerReadError, TrailerReader};
+use g3_http::{ChunkedDataDecodeReader, TrailerReadError, TrailerReader};
 use g3_io_ext::LimitedCopyConfig;
 
 use super::{H2StreamBodyEncodeTransferError, ROwnedH2BodyEncodeTransfer};
@@ -91,22 +91,27 @@ where
                 io::Error::new(io::ErrorKind::InvalidData, "too large trailer"),
             ),
         })?;
-        self.send_stream
-            .send_trailers(headers.to_h2_map())
-            .map_err(H2StreamFromChunkedTransferError::SendTrailerFailed)?;
+        if headers.is_empty() {
+            self.send_stream
+                .send_data(Bytes::new(), true)
+                .map_err(H2StreamFromChunkedTransferError::SendTrailerFailed)?;
+        } else {
+            self.send_stream
+                .send_trailers(headers.to_h2_map())
+                .map_err(H2StreamFromChunkedTransferError::SendTrailerFailed)?;
+        }
         Poll::Ready(Ok(()))
     }
 }
 
 enum TransferState<'a, R> {
-    Data(ROwnedH2BodyEncodeTransfer<'a, ChunkedDecodeReader<'a, R>>),
+    Data(ROwnedH2BodyEncodeTransfer<'a, ChunkedDataDecodeReader<'a, R>>),
     Trailer(TrailerTransfer<'a, R>),
     End,
 }
 
 pub struct H2StreamFromChunkedTransfer<'a, R> {
     state: TransferState<'a, R>,
-    has_trailer: bool,
     trailer_max_size: usize,
     active: bool,
 }
@@ -118,13 +123,11 @@ impl<'a, R> H2StreamFromChunkedTransfer<'a, R> {
         copy_config: &LimitedCopyConfig,
         body_line_max_size: usize,
         trailer_max_size: usize,
-        has_trailer: bool,
     ) -> Self {
-        let decoder = ChunkedDecodeReader::new(reader, body_line_max_size);
+        let decoder = ChunkedDataDecodeReader::new(reader, body_line_max_size);
         let encode = ROwnedH2BodyEncodeTransfer::new(decoder, send_stream, copy_config);
         H2StreamFromChunkedTransfer {
             state: TransferState::Data(encode),
-            has_trailer,
             trailer_max_size,
             active: false,
         }
@@ -205,22 +208,15 @@ where
                 let TransferState::Data(encode) = old_state else {
                     unreachable!()
                 };
-                if self.has_trailer {
-                    let (reader, send_stream) = encode.into_io();
-                    let reader = reader.into_reader();
-                    self.state = TransferState::Trailer(TrailerTransfer::new(
-                        reader,
-                        send_stream,
-                        self.trailer_max_size,
-                    ));
-                    self.poll(cx)
-                } else {
-                    let (_, send_stream) = encode.into_io();
-                    send_stream
-                        .send_data(Bytes::new(), true)
-                        .map_err(H2StreamFromChunkedTransferError::SendDataFailed)?;
-                    Poll::Ready(Ok(()))
-                }
+
+                let (reader, send_stream) = encode.into_io();
+                // read trailer (maybe empty) and send
+                self.state = TransferState::Trailer(TrailerTransfer::new(
+                    reader.into_reader(),
+                    send_stream,
+                    self.trailer_max_size,
+                ));
+                self.poll(cx)
             }
         }
     }

@@ -205,7 +205,6 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
         let mut http_rsp =
             HttpAdaptedResponse::parse(&mut self.icap_connection.1, http_header_size).await?;
         let trailers = icap_rsp.take_trailers();
-        let has_trailer = !trailers.is_empty();
         http_rsp.set_trailer(trailers);
 
         let final_rsp = orig_http_response.adapt_to(&http_rsp);
@@ -221,7 +220,6 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
             &self.copy_config,
             self.http_body_line_max_size,
             self.http_trailer_max_size,
-            has_trailer,
         );
 
         let idle_duration = self.idle_checker.idle_duration();
