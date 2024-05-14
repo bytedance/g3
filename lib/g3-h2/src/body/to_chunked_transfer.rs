@@ -42,7 +42,6 @@ enum TransferStage {
 }
 
 struct ChunkedEncodeTransferInternal {
-    has_trailer: bool,
     yield_size: usize,
     this_chunk_size: usize,
     chunk: Option<Bytes>,
@@ -57,9 +56,8 @@ struct ChunkedEncodeTransferInternal {
 }
 
 impl ChunkedEncodeTransferInternal {
-    fn new(has_trailer: bool, yield_size: usize) -> Self {
+    fn new(yield_size: usize) -> Self {
         ChunkedEncodeTransferInternal {
-            has_trailer,
             yield_size,
             this_chunk_size: 0,
             chunk: None,
@@ -74,9 +72,8 @@ impl ChunkedEncodeTransferInternal {
         }
     }
 
-    fn with_chunk(has_trailer: bool, yield_size: usize, chunk: Bytes) -> Self {
+    fn with_chunk(yield_size: usize, chunk: Bytes) -> Self {
         ChunkedEncodeTransferInternal {
-            has_trailer,
             yield_size,
             this_chunk_size: 0,
             chunk: Some(chunk),
@@ -208,9 +205,9 @@ impl ChunkedEncodeTransferInternal {
                         self.active = true;
                         self.static_header.clear();
                         if self.total_write == 0 {
-                            let _ = write!(&mut self.static_header, "0\r\n\r\n");
+                            let _ = write!(&mut self.static_header, "0\r\n");
                         } else {
-                            let _ = write!(&mut self.static_header, "\r\n0\r\n\r\n");
+                            let _ = write!(&mut self.static_header, "\r\n0\r\n");
                         }
                         self.static_offset = 0;
                         self.this_chunk_size = 0;
@@ -228,11 +225,7 @@ impl ChunkedEncodeTransferInternal {
                 self.total_write += nw as u64;
             }
             if self.read_data_finished {
-                if self.has_trailer {
-                    self.transfer_stage = TransferStage::Trailer;
-                } else {
-                    self.transfer_stage = TransferStage::End;
-                }
+                self.transfer_stage = TransferStage::Trailer;
                 return self.poll_transfer(cx, recv_stream, writer);
             }
 
@@ -294,30 +287,24 @@ pub struct H2StreamToChunkedTransfer<'a, W> {
 }
 
 impl<'a, W> H2StreamToChunkedTransfer<'a, W> {
-    pub fn new(
-        recv_stream: &'a mut RecvStream,
-        writer: &'a mut W,
-        has_trailer: bool,
-        yield_size: usize,
-    ) -> Self {
+    pub fn new(recv_stream: &'a mut RecvStream, writer: &'a mut W, yield_size: usize) -> Self {
         H2StreamToChunkedTransfer {
             recv_stream,
             writer,
-            internal: ChunkedEncodeTransferInternal::new(has_trailer, yield_size),
+            internal: ChunkedEncodeTransferInternal::new(yield_size),
         }
     }
 
     pub fn with_chunk(
         recv_stream: &'a mut RecvStream,
         writer: &'a mut W,
-        has_trailer: bool,
         yield_size: usize,
         chunk: Bytes,
     ) -> Self {
         H2StreamToChunkedTransfer {
             recv_stream,
             writer,
-            internal: ChunkedEncodeTransferInternal::with_chunk(has_trailer, yield_size, chunk),
+            internal: ChunkedEncodeTransferInternal::with_chunk(yield_size, chunk),
         }
     }
 
