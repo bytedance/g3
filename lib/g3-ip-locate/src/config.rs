@@ -81,7 +81,8 @@ impl IpLocateServiceConfig {
     pub fn spawn_ip_locate_agent(&self) -> anyhow::Result<IpLocationServiceHandle> {
         use anyhow::Context;
 
-        let (socket, _addr) = g3_socket::udp::new_std_bind_connect(
+        let socket = g3_socket::udp::new_std_socket_to(
+            self.query_peer_addr,
             None,
             self.query_socket_buffer,
             Default::default(),

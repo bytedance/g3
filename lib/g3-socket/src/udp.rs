@@ -52,7 +52,7 @@ pub fn new_std_socket_to(
     Ok(UdpSocket::from(socket))
 }
 
-pub fn new_std_bind_connect(
+pub fn new_std_bind_lazy_connect(
     bind_ip: Option<IpAddr>,
     buf_conf: SocketBufferConfig,
     misc_opts: UdpMiscSockOpts,
@@ -71,7 +71,7 @@ pub fn new_std_bind_connect(
     Ok((socket, listen_addr))
 }
 
-pub fn new_std_in_range_bind_connect(
+pub fn new_std_in_range_bind_lazy_connect(
     bind_ip: IpAddr,
     port: PortRange,
     buf_conf: SocketBufferConfig,
@@ -216,7 +216,7 @@ mod tests {
 
     #[test]
     fn bind_to_ip() {
-        let (_socket, local_addr) = new_std_bind_connect(
+        let (_socket, local_addr) = new_std_bind_lazy_connect(
             Some(IpAddr::V4(Ipv4Addr::UNSPECIFIED)),
             SocketBufferConfig::default(),
             Default::default(),
@@ -234,7 +234,7 @@ mod tests {
         let loop_len = 100usize;
         let mut v = Vec::<UdpSocket>::with_capacity(loop_len);
         for _i in 0..loop_len {
-            let (socket, local_addr) = new_std_in_range_bind_connect(
+            let (socket, local_addr) = new_std_in_range_bind_lazy_connect(
                 ip,
                 range,
                 SocketBufferConfig::default(),
