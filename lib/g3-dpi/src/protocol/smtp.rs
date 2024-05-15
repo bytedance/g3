@@ -45,6 +45,7 @@ impl ProtocolInspectState {
                     return Ok(None);
                 }
                 self.exclude_other(MaybeProtocol::Nntp);
+                self.exclude_other(MaybeProtocol::Nnsp);
 
                 if data[2] == b'0' {
                     // may be FTP
@@ -56,6 +57,7 @@ impl ProtocolInspectState {
                 self.smtp_exclude_by_byte0();
                 self.exclude_other(MaybeProtocol::Ftp);
                 self.exclude_other(MaybeProtocol::Nntp);
+                self.exclude_other(MaybeProtocol::Nnsp);
 
                 if &data[0..3] == b"554" {
                     return self.check_smtp_after_code(data);

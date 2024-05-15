@@ -45,6 +45,7 @@ impl ProtocolInspectState {
         self.exclude_other(MaybeProtocol::Odmr);
         self.exclude_other(MaybeProtocol::Pop3);
         self.exclude_other(MaybeProtocol::Nntp);
+        self.exclude_other(MaybeProtocol::Nnsp);
         self.exclude_other(MaybeProtocol::Imap);
         self.exclude_other(MaybeProtocol::BitTorrent);
 
