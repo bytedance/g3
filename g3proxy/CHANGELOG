@@ -1,4 +1,10 @@
 
+v1.8.3:
+ - BUG FIX: fix panic in stream interception code caused by idle client connections
+ - BUG FIX: fix the handle of h1 trailer headers
+ - BUG FIX: do graceful shutdown for h2 connections when upstream closed
+ - Optimization: close h1 interception client connection early when upstream closed
+
 v1.8.2:
  - BUG FIX: send remote HTTP CONNECT and Upgrade request to ICAP reqmod service
  - BUG FIX: make sure remote HTTP CONNECT and Upgrade error response body transferred
