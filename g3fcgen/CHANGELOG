@@ -1,4 +1,8 @@
 
+v0.8.0:
+ - Feature: update protocol to support tlcp certs
+ - Feature: add keep_serial backend config option
+
 v0.7.0:
  - Feature: support the use of mimic cert
  - Changed: the protocol is updated, it can not work with g3proxy < 1.9.0
