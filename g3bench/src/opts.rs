@@ -502,6 +502,7 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
         if let Some(addr) = args.get_one::<SocketAddr>(GLOBAL_ARG_STATSD_TARGET_UDP) {
             config.set_backend(StatsdBackend::Udp(*addr, None));
         }
+        #[cfg(unix)]
         if let Some(path) = args.get_one::<PathBuf>(GLOBAL_ARG_STATSD_TARGET_UNIX) {
             config.set_backend(StatsdBackend::Unix(path.clone()));
         }
