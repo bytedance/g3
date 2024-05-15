@@ -70,7 +70,7 @@ impl Sinker {
         Ok(())
     }
 
-    #[cfg(any(target_os = "macos", target_os = "dragonfly"))]
+    #[cfg(any(windows, target_os = "macos", target_os = "dragonfly"))]
     async fn send_udp(&self, packets: &[Vec<u8>]) -> io::Result<()> {
         for pkt in packets {
             self.socket.send(pkt.as_slice()).await?;
