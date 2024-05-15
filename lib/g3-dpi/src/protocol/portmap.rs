@@ -128,6 +128,7 @@ impl ProtocolPortMap {
         map.insert(119, MaybeProtocol::Nntp);
         map.insert(143, MaybeProtocol::Imap);
         map.insert(322, MaybeProtocol::Rtsps);
+        map.insert(366, MaybeProtocol::Odmr);
         map.insert(433, MaybeProtocol::Nnsp);
         map.insert(443, MaybeProtocol::Https);
         map.insert(465, MaybeProtocol::Submissions);

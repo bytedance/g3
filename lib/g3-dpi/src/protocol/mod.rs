@@ -31,6 +31,7 @@ pub use portmap::{ProtocolPortMap, ProtocolPortMapValue};
 pub enum MaybeProtocol {
     Http,
     Smtp,
+    Odmr, // On-Demand Mail Relay, a restricted profile of SMTP
     Ssh,
     Ftp,
     Dns,
@@ -88,6 +89,7 @@ impl FromStr for MaybeProtocol {
         match s.to_lowercase().as_str() {
             "http" => Ok(MaybeProtocol::Http),
             "smtp" => Ok(MaybeProtocol::Smtp),
+            "odmr" => Ok(MaybeProtocol::Odmr),
             "ssh" => Ok(MaybeProtocol::Ssh),
             "ftp" => Ok(MaybeProtocol::Ftp),
             "pop3" => Ok(MaybeProtocol::Pop3),

@@ -197,6 +197,7 @@ impl Initiation {
                 "RRVS" => true,     // Require Recipient Valid Since, RFC7293, add a RCPT param key
                 "REQUIRETLS" => true, // Require TLS, RFC8689, add a MAIL param key
                 "LIMITS" => true,   // LIMITS, RFC9422
+                "ATRN" => true,     // On-Demand Mail Relay, RFC2645, change the protocol
                 _ => false,
             }
         }

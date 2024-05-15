@@ -110,6 +110,7 @@ impl ProtocolInspectState {
             MaybeProtocol::BitTorrent => self.check_bittorrent_tcp_handshake(data),
             MaybeProtocol::Ftp
             | MaybeProtocol::Smtp
+            | MaybeProtocol::Odmr
             | MaybeProtocol::Pop3
             | MaybeProtocol::Nntp
             | MaybeProtocol::Nnsp
@@ -147,7 +148,7 @@ impl ProtocolInspectState {
         match proto {
             MaybeProtocol::Ftp => self.check_ftp_server_greeting(data, size_limit),
             MaybeProtocol::Ssh => self.check_ssh_server_protocol_version_exchange(data),
-            MaybeProtocol::Smtp => self.check_smtp_server_greeting(data),
+            MaybeProtocol::Smtp | MaybeProtocol::Odmr => self.check_smtp_server_greeting(data),
             MaybeProtocol::Pop3 => self.check_pop3_server_greeting(data),
             MaybeProtocol::Nntp | MaybeProtocol::Nnsp => self.check_nntp_server_greeting(data),
             MaybeProtocol::Imap => self.check_imap_server_greeting(data, size_limit),

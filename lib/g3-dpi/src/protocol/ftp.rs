@@ -38,6 +38,7 @@ impl ProtocolInspectState {
                 // 0x31
                 self.ftp_exclude_by_byte0();
                 self.exclude_other(MaybeProtocol::Smtp);
+                self.exclude_other(MaybeProtocol::Odmr);
                 self.exclude_other(MaybeProtocol::Nntp);
 
                 if &data[0..3] == b"120" {
@@ -63,6 +64,7 @@ impl ProtocolInspectState {
                 // 0x34
                 self.ftp_exclude_by_byte0();
                 self.exclude_other(MaybeProtocol::Smtp);
+                self.exclude_other(MaybeProtocol::Odmr);
                 self.exclude_other(MaybeProtocol::Nntp);
 
                 if &data[0..3] == b"421" {
