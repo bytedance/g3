@@ -455,7 +455,6 @@ mod tests {
         assert_eq!(hdr_v[1].n_recv, msg_2.len());
         assert_eq!(hdr_v[1].addr(), Some(c_addr));
 
-        drop(hdr_v);
         assert_eq!(&recv_msg1[..msg_1.len()], msg_1);
         assert_eq!(&recv_msg2[..msg_2.len()], msg_2);
     }
@@ -499,7 +498,6 @@ mod tests {
         assert_eq!(hdr_v[0].n_recv, msg_1.len());
         assert_eq!(hdr_v[0].addr(), Some(c_addr));
 
-        drop(hdr_v);
         assert_eq!(&recv_msg1[..msg_1.len()], msg_1);
 
         let mut recv_msg2 = [0u8; 16];

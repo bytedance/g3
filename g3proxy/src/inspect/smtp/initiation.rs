@@ -114,12 +114,7 @@ impl Initiation {
                 .await?;
 
             if rsp.code() == ReplyCode::OK {
-                if rsp.is_first_line() {
-                    clt_w
-                        .write_all(line)
-                        .await
-                        .map_err(ServerTaskError::ClientTcpWriteFailed)?;
-                } else if self.allow_extension(msg) {
+                if rsp.is_first_line() || self.allow_extension(msg) {
                     clt_w
                         .write_all(line)
                         .await
