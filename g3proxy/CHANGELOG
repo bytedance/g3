@@ -1,4 +1,13 @@
 
+v1.9.1:
+ - BUG FIX: fix panic in stream interception code caused by idle client connections
+ - BUG FIX: fix the handle of h1 trailer headers
+ - BUG FIX: do graceful shutdown for h2 connections when upstream closed
+ - Optimization: close h1 interception client connection early when upstream closed
+ - Feature: all tls usage field to tls cert generator helper protocol
+ - Feature: support interception for tlcp protocol
+ - Feature: add ip_locate helper protocol and rewrite route_geoip escaper
+
 v1.9.0:
  - BUG FIX: fix sending of upstream error CONNECT and upgrade response body
  - Feature: add divert_tcp escaper to redirect streams to another server
