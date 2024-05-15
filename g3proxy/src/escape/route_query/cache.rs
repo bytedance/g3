@@ -106,9 +106,13 @@ impl CacheHandle {
 pub(super) async fn spawn(config: &Arc<RouteQueryEscaperConfig>) -> anyhow::Result<CacheHandle> {
     use anyhow::Context;
 
-    let (socket, _addr) =
-        g3_socket::udp::new_std_bind_connect(None, config.query_socket_buffer, Default::default())
-            .context("failed to setup udp socket")?;
+    let socket = g3_socket::udp::new_std_socket_to(
+        config.query_peer_addr,
+        None,
+        config.query_socket_buffer,
+        Default::default(),
+    )
+    .context("failed to setup udp socket")?;
     socket.connect(config.query_peer_addr).map_err(|e| {
         anyhow!(
             "failed to connect to peer address {}: {e:?}",
