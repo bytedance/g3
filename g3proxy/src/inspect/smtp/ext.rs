@@ -78,28 +78,28 @@ impl<const MAX_LINE_SIZE: usize> ResponseLineRecvExt for LineRecvBuf<MAX_LINE_SI
 }
 
 pub(super) trait ResponseParseExt {
-    async fn feed_line_with_feedback<W>(
+    async fn feed_line_with_feedback<'a, W>(
         &mut self,
-        line: &[u8],
+        line: &'a [u8],
         clt_w: &mut W,
         local_ip: IpAddr,
-    ) -> ServerTaskResult<()>
+    ) -> ServerTaskResult<&'a [u8]>
     where
         W: AsyncWrite + Unpin;
 }
 
 impl ResponseParseExt for ResponseParser {
-    async fn feed_line_with_feedback<W>(
+    async fn feed_line_with_feedback<'a, W>(
         &mut self,
-        line: &[u8],
+        line: &'a [u8],
         clt_w: &mut W,
         local_ip: IpAddr,
-    ) -> ServerTaskResult<()>
+    ) -> ServerTaskResult<&'a [u8]>
     where
         W: AsyncWrite + Unpin,
     {
         match self.feed_line(line) {
-            Ok(_) => Ok(()),
+            Ok(msg) => Ok(msg),
             Err(e) => {
                 let _ = ResponseEncoder::upstream_response_error(local_ip, &e)
                     .write(clt_w)

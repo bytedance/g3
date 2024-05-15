@@ -102,6 +102,8 @@ The code should comply to these, but should be more compliant to existing popula
     : Updated Transport Layer Security (TLS) Server Identity Check Procedure for Email-Related Protocols
  - [rfc8314](https://datatracker.ietf.org/doc/html/rfc8314)
     : Cleartext Considered Obsolete: Use of Transport Layer Security (TLS) for Email Submission and Access
+ - [iana-mail-parameters](https://www.iana.org/assignments/mail-parameters/mail-parameters.xhtml)
+    : MAIL Parameters
 
 ## MIME
 
@@ -298,14 +300,46 @@ The code should comply to these, but should be more compliant to existing popula
     : Simple Mail Transfer Protocol
  - [rfc6409](https://datatracker.ietf.org/doc/html/rfc6409)
     : Message Submission for Mail
+ - [rfc6152](https://datatracker.ietf.org/doc/html/rfc6152)
+    : SMTP Service Extension for 8-bit MIME Transport
+ - [rfc3030](https://datatracker.ietf.org/doc/html/rfc3030)
+    : SMTP Service Extensions for Transmission of Large and Binary MIME Messages
+ - [rfc4468](https://datatracker.ietf.org/doc/html/rfc4468)
+    : Message Submission BURL Extension
+ - [rfc1870](https://datatracker.ietf.org/doc/html/rfc1870)
+    : SMTP Service Extension for Message Size Declaration
+ - [rfc2852](https://datatracker.ietf.org/doc/html/rfc2852)
+    : Deliver By SMTP Service Extension
  - [rfc3207](https://datatracker.ietf.org/doc/html/rfc3207)
     : SMTP Service Extension for Secure SMTP over Transport Layer Security
+ - [rfc8689](https://datatracker.ietf.org/doc/html/rfc8689)
+    : SMTP Require TLS Option
  - [rfc4954](https://datatracker.ietf.org/doc/html/rfc4954)
     : SMTP Service Extension for Authentication
  - [rfc2034](https://datatracker.ietf.org/doc/html/rfc2034)
     : SMTP Service Extension for Returning Enhanced Error Codes
  - [rfc2920](https://datatracker.ietf.org/doc/html/rfc2920)
     : SMTP Service Extension for Command Pipelining
+ - [rfc3461](https://datatracker.ietf.org/doc/html/rfc3461)
+    : Simple Mail Transfer Protocol (SMTP) Service Extension for Delivery Status Notifications (DSNs)
+ - [rfc1985](https://datatracker.ietf.org/doc/html/rfc1985)
+    : SMTP Service Extension for Remote Message Queue Starting
+ - [rfc3865](https://datatracker.ietf.org/doc/html/rfc3865)
+    : A No Soliciting Simple Mail Transfer Protocol (SMTP) Service Extension
+ - [rfc3885](https://datatracker.ietf.org/doc/html/rfc3885)
+    : SMTP Service Extension for Message Tracking
+ - [rfc4865](https://datatracker.ietf.org/doc/html/rfc4865)
+    : SMTP Submission Service Extension for Future Message Release
+ - [rfc4141](https://datatracker.ietf.org/doc/html/rfc4141)
+    : SMTP and MIME Extensions for Content Conversion
+ - [rfc6531](https://datatracker.ietf.org/doc/html/rfc6531)
+    : SMTP Extension for Internationalized Email
+ - [rfc6710](https://datatracker.ietf.org/doc/html/rfc6710)
+    : Simple Mail Transfer Protocol Extension for Message Transfer Priorities
+ - [rfc7293](https://datatracker.ietf.org/doc/html/rfc7293)
+    : The Require-Recipient-Valid-Since Header Field and SMTP Service Extension
+ - [rfc9422](https://datatracker.ietf.org/doc/html/rfc9422)
+    : The LIMITS SMTP Service Extension
  - [exim-the_smtp_transport](https://www.exim.org/exim-html-current/doc/html/spec_html/ch-the_smtp_transport.html)
     : The smtp transport
 

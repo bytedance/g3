@@ -15,6 +15,7 @@
  */
 
 use std::net::IpAddr;
+use std::str;
 
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
@@ -108,7 +109,8 @@ impl Initiation {
             let line = rsp_recv_buf
                 .read_rsp_line_with_feedback(ups_r, clt_w, self.local_ip)
                 .await?;
-            rsp.feed_line_with_feedback(line, clt_w, self.local_ip)
+            let msg = rsp
+                .feed_line_with_feedback(line, clt_w, self.local_ip)
                 .await?;
 
             if rsp.code() == ReplyCode::OK {
@@ -117,8 +119,7 @@ impl Initiation {
                         .write_all(line)
                         .await
                         .map_err(ServerTaskError::ClientTcpWriteFailed)?;
-                } else {
-                    // TODO filter out extension
+                } else if self.allow_extension(msg) {
                     clt_w
                         .write_all(line)
                         .await
@@ -145,6 +146,58 @@ impl Initiation {
                         .map_err(ServerTaskError::ClientTcpWriteFailed)?;
                     return Ok(None);
                 }
+            }
+        }
+    }
+
+    fn allow_extension(&mut self, msg: &[u8]) -> bool {
+        if let Some(p) = memchr::memchr(b' ', msg) {
+            let Ok(keyword) = str::from_utf8(&msg[..p]) else {
+                return false;
+            };
+
+            match keyword.to_uppercase().as_str() {
+                "SIZE" => true, // Message Size Declaration, RFC1870, TODO use this max message limit ?
+                "DELIVERBY" => true, // Deliver By, RFC2852, add a MAIL BY param key
+                "NO-SOLICITING" => true, // No Soliciting, RFC3865, add a MAIL param key
+                "AUTH" => true, // Authentication, RFC4954, add AUTH command
+                "BURL" => true, // BURL, RFC4468, add BURL command
+                "FUTURERELEASE" => true, // Future Message Release, RFC4865, add MAIL param keys
+                "MT-PRIORITY" => true, // Priority Message Handling, RFC6710, add a MAIL param key
+                "LIMITS" => true, // LIMITS, RFC9422
+                _ => false,
+            }
+        } else {
+            let Ok(keyword) = str::from_utf8(msg) else {
+                return false;
+            };
+
+            match keyword.to_uppercase().as_str() {
+                "EXPN" => true,                // Expand the mailing list, RFC5321, add EXPN command
+                "HELP" => true, // Supply helpful information, RFC5321, add HELP command
+                "8BITMIME" => true, // 8bit-MIMEtransport, RFC6152, add a MAIL BODY param value
+                "SIZE" => true, // Message Size Declaration, RFC1870
+                "VERB" => true, // Verbose
+                "ONEX" => true, // One message transaction only
+                "CHUNKING" => true, // CHUNKING, RFC3030, add BDAT command
+                "BINARYMIME" => true, // BINARYMIME, RFC3030, add a MAIL BODY param value, require CHUNKING
+                "DELIVERBY" => true,  // Deliver By, RFC2852, add a MAIL BY param key
+                "PIPELINING" => true, // Pipelining, RFC2920
+                "DSN" => true, // Delivery Status Notification, RFC3461, add param keys to RCPT and MAIL
+                "ETRN" => true, // Remote Queue Processing Declaration, RFC1985, add ETRN command
+                "ENHANCEDSTATUSCODES" => true, // Enhanced-Status-Codes, RFC2034, add status code preface to response
+                "STARTTLS" => true,            // STARTTLS, RFC3207, add STARTTLS command
+                "NO-SOLICITING" => true,       // No Soliciting, RFC3865, add a MAIL param key
+                "MTRK" => true, // Message Tracking, RFC3885, add a MAIL MTRK param key
+                "BURL" => true, // BURL, RFC4468, add BURL command, no param means AUTH is required
+                "CONPERM" => true, // Content-Conversion-Permission, RFC4141, add a MAIL param key
+                "CONNEG" => true, // Content-Negotiation, RFC4141, add a RCPT param key
+                "SMTPUTF8" => true, // Internationalized Email, RFC6531, add MAIL/VRFY/EXPN param key
+                "MT-PRIORITY" => true, // Priority Message Handling, RFC6710, add a MAIL param key
+                "RRVS" => true,     // Require Recipient Valid Since, RFC7293, add a RCPT param key
+                "REQUIRETLS" => true, // Require TLS, RFC8689, add a MAIL param key
+                "LIMITS" => true,   // LIMITS, RFC9422
+                _ => false,
             }
         }
     }
