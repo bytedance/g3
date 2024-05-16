@@ -15,7 +15,6 @@
  */
 
 use std::future::Future;
-use std::path::PathBuf;
 
 use log::debug;
 
@@ -28,7 +27,8 @@ pub struct DaemonController {}
 
 impl UniqueController {
     pub fn create() -> anyhow::Result<Self> {
-        let controller = LocalController::create_unique(crate::opts::daemon_group())?;
+        let controller =
+            LocalController::create_unique(crate::build::PKG_NAME, crate::opts::daemon_group())?;
         Ok(UniqueController { inner: controller })
     }
 
@@ -37,7 +37,7 @@ impl UniqueController {
     }
 
     #[inline]
-    pub fn listen_path(&self) -> PathBuf {
+    pub fn listen_path(&self) -> String {
         self.inner.listen_path()
     }
 
@@ -77,7 +77,7 @@ impl UniqueController {
 
 impl DaemonController {
     pub fn start() -> anyhow::Result<impl Future> {
-        LocalController::start_daemon(crate::opts::daemon_group())
+        LocalController::start_daemon(crate::build::PKG_NAME, crate::opts::daemon_group())
     }
 
     pub async fn abort() {

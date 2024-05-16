@@ -130,7 +130,7 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
         if let Some(config) = g3_daemon::register::get_pre_config() {
             tokio::spawn(async move {
                 g3keymess::serve::create_all_stopped().await;
-                if let Err(e) = g3keymess::register::startup(config, &unique_ctl_path).await {
+                if let Err(e) = g3keymess::register::startup(config, unique_ctl_path).await {
                     warn!("register failed: {e:?}");
                     g3keymess::control::UniqueController::abort_immediately().await;
                 } else if let Err(e) = g3keymess::serve::start_all_stopped().await {

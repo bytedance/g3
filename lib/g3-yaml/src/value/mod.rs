@@ -49,9 +49,9 @@ pub mod acl;
 #[cfg(feature = "acl-rule")]
 pub mod acl_set;
 
-#[cfg(all(unix, feature = "syslog"))]
+#[cfg(feature = "syslog")]
 mod syslog;
-#[cfg(all(unix, feature = "syslog"))]
+#[cfg(feature = "syslog")]
 pub use syslog::as_syslog_builder;
 
 #[cfg(feature = "fluentd")]
@@ -94,9 +94,9 @@ pub use self::openssl::{
     as_to_one_openssl_tls_client_config_builder,
 };
 
-#[cfg(feature = "sched")]
+#[cfg(all(unix, feature = "sched"))]
 mod sched;
-#[cfg(feature = "sched")]
+#[cfg(all(unix, feature = "sched"))]
 pub use sched::*;
 
 #[cfg(feature = "sched")]

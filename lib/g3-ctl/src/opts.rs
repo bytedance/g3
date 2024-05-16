@@ -120,12 +120,9 @@ impl DaemonCtlArgs {
         daemon_name: &'static str,
     ) -> anyhow::Result<impl AsyncRead + AsyncWrite> {
         let pipe_name = if self.pid != 0 {
-            format!(
-                r"\\.\pipe\{daemon_name}_{}_{}.pipe",
-                self.daemon_group, self.pid
-            )
+            format!(r"\\.\pipe\{daemon_name}@{}:{}", self.daemon_group, self.pid)
         } else {
-            format!(r"\\.\pipe\{daemon_name}_{}.pipe", self.daemon_group)
+            format!(r"\\.\pipe\{daemon_name}@{}", self.daemon_group)
         };
 
         let mut stream = tokio::net::windows::named_pipe::ClientOptions::new()

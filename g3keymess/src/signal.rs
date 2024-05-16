@@ -49,6 +49,7 @@ impl AsyncSignalAction for QuitAction {
     }
 }
 
+#[allow(unused)]
 #[derive(Clone, Copy)]
 struct OfflineAction {}
 
@@ -58,6 +59,7 @@ impl AsyncSignalAction for OfflineAction {
     }
 }
 
+#[allow(unused)]
 #[derive(Clone, Copy)]
 struct ReloadAction {}
 
@@ -67,6 +69,12 @@ impl AsyncSignalAction for ReloadAction {
     }
 }
 
+#[cfg(unix)]
 pub fn register() -> anyhow::Result<()> {
     g3_daemon::signal::register(QuitAction {}, OfflineAction {}, ReloadAction {})
+}
+
+#[cfg(windows)]
+pub fn register() -> anyhow::Result<()> {
+    g3_daemon::signal::register(QuitAction {})
 }

@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -23,12 +22,9 @@ use serde_json::Value;
 
 use g3_daemon::register::{RegisterConfig, RegisterTask};
 
-pub async fn startup(config: Arc<RegisterConfig>, ctl_socket: &Path) -> anyhow::Result<()> {
+pub async fn startup(config: Arc<RegisterConfig>, ctl_socket_path: String) -> anyhow::Result<()> {
     let mut data = serde_json::Map::new();
-    data.insert(
-        "ctl_local".to_string(),
-        Value::String(format!("{}", ctl_socket.display())),
-    );
+    data.insert("ctl_local".to_string(), Value::String(ctl_socket_path));
     data.insert(
         "pid".to_string(),
         Value::String(std::process::id().to_string()),

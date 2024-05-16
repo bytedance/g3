@@ -136,6 +136,7 @@ impl SocksHeaderBuffer {
         }
     }
 
+    #[cfg(unix)]
     const fn new(addr: SocketAddr) -> Self {
         match addr {
             SocketAddr::V4(_) => SocksHeaderBuffer::V4([0u8; UDP_HEADER_LEN_IPV4]),
@@ -347,6 +348,77 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         };
 
         len -= off;
+        meta[0] = RecvMeta {
+            len,
+            stride: len,
+            addr: SocketAddr::new(ip, port),
+            ecn: None,
+            dst_ip: None,
+        };
+        Poll::Ready(Ok(1))
+    }
+
+    #[cfg(windows)]
+    fn poll_recv(
+        &self,
+        cx: &mut Context,
+        bufs: &mut [IoSliceMut<'_>],
+        meta: &mut [RecvMeta],
+    ) -> Poll<io::Result<usize>> {
+        use tokio::io::ReadBuf;
+
+        // logics from quinn-udp::fallback.rs
+        let ctl_close_receiver = unsafe { &mut *self.ctl_close_receiver.get() };
+        match Pin::new(ctl_close_receiver).poll(cx) {
+            Poll::Pending => {}
+            Poll::Ready(Ok(Some(e))) => {
+                return Poll::Ready(Err(io::Error::other(format!("ctl socket closed: {e:?}"))));
+            }
+            Poll::Ready(Ok(None)) => {
+                return Poll::Ready(Err(io::Error::other("ctl socket closed")));
+            }
+            Poll::Ready(Err(_)) => {
+                return Poll::Ready(Err(io::Error::other("ctl socket closed")));
+            }
+        }
+
+        let Some(buf) = bufs.get_mut(0) else {
+            return Poll::Ready(Ok(0));
+        };
+        let mut read_buf = ReadBuf::new(buf.as_mut());
+        ready!(self.io.poll_recv(cx, &mut read_buf))?;
+        let mut len = read_buf.filled().len();
+        if len <= self.send_socks_header.as_ref().len() {
+            // the send and recv header length shoule be the same
+            meta[0] = RecvMeta {
+                len: 0,
+                stride: 0,
+                addr: self.quic_peer_addr,
+                ecn: None,
+                dst_ip: None,
+            };
+            return Poll::Ready(Ok(1));
+        }
+
+        let (off, ups) = UdpInput::parse_header(buf.as_ref()).map_err(io::Error::other)?;
+        let ip = match ups.host() {
+            Host::Ip(ip) => *ip,
+            Host::Domain(_) => {
+                // invalid reply packet, default to use the peer ip
+                self.quic_peer_addr.ip()
+            }
+        };
+        let port = ups.port();
+        let port = if port == 0 {
+            self.quic_peer_addr.port()
+        } else {
+            port
+        };
+
+        // TODO use IoSliceMut::advance instead of copy
+        buf.copy_within(off..len, 0);
+        len -= off;
+
         meta[0] = RecvMeta {
             len,
             stride: len,

@@ -15,11 +15,13 @@
  */
 
 use std::path::PathBuf;
+#[cfg(unix)]
 use std::str::FromStr;
 use std::sync::OnceLock;
 
 use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgAction, Command, ValueHint};
+#[cfg(unix)]
 use log::info;
 
 use g3_compat::CpuAffinity;

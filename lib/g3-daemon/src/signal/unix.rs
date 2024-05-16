@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-use std::future::{poll_fn, Future};
+use std::future::poll_fn;
 
 use anyhow::anyhow;
 use log::info;
+use tokio::signal::unix::{signal, SignalKind};
 
-pub trait AsyncSignalAction: Copy {
-    fn run(&self) -> impl Future<Output = ()> + Send;
-}
+use super::AsyncSignalAction;
 
 pub fn register<QUIT, OFFLINE, RELOAD>(
     do_quit: QUIT,
@@ -33,13 +32,11 @@ where
     OFFLINE: AsyncSignalAction + Send + 'static,
     RELOAD: AsyncSignalAction + Send + 'static,
 {
-    use tokio::signal::unix::{signal, SignalKind};
-
     let mut quit_sig = signal(SignalKind::quit())
         .map_err(|e| anyhow!("failed to create SIGQUIT listener: {e}"))?;
     tokio::spawn(async move {
         if poll_fn(|cx| quit_sig.poll_recv(cx)).await.is_some() {
-            info!("got offline signal");
+            info!("got quit signal");
             do_quit.run().await;
         }
     });
@@ -48,7 +45,7 @@ where
         .map_err(|e| anyhow!("failed to create SIGINT listener: {e}"))?;
     tokio::spawn(async move {
         if poll_fn(|cx| int_sig.poll_recv(cx)).await.is_some() {
-            info!("got offline signal");
+            info!("got quit signal");
             do_quit.run().await;
         }
     });
