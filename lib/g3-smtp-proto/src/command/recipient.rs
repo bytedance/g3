@@ -28,17 +28,19 @@ impl RecipientParam {
         let msg = str::from_utf8(msg).map_err(CommandLineError::InvalidUtf8Command)?;
 
         let mut iter = msg.split_ascii_whitespace();
-        let s = iter.next().ok_or_else(|| {
-            CommandLineError::InvalidCommandParam("RCPT", "no forward path present")
-        })?;
+        let s = iter.next().ok_or(CommandLineError::InvalidCommandParam(
+            "RCPT",
+            "no forward path present",
+        ))?;
 
         let forward_path = s
             .to_lowercase()
             .strip_prefix("to:")
             .map(|s| s.to_string())
-            .ok_or_else(|| {
-                CommandLineError::InvalidCommandParam("RCPT", "invalid forward path prefix")
-            })?;
+            .ok_or(CommandLineError::InvalidCommandParam(
+                "RCPT",
+                "invalid forward path prefix",
+            ))?;
 
         Ok(RecipientParam { forward_path })
     }

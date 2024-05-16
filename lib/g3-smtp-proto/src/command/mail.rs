@@ -28,17 +28,19 @@ impl MailParam {
         let msg = str::from_utf8(msg).map_err(CommandLineError::InvalidUtf8Command)?;
 
         let mut iter = msg.split_ascii_whitespace();
-        let s = iter.next().ok_or_else(|| {
-            CommandLineError::InvalidCommandParam("MAIL", "no reverse path present")
-        })?;
+        let s = iter.next().ok_or(CommandLineError::InvalidCommandParam(
+            "MAIL",
+            "no reverse path present",
+        ))?;
 
         let reverse_path = s
             .to_lowercase()
             .strip_prefix("from:")
             .map(|s| s.to_string())
-            .ok_or_else(|| {
-                CommandLineError::InvalidCommandParam("MAIL", "invalid reverse path prefix")
-            })?;
+            .ok_or(CommandLineError::InvalidCommandParam(
+                "MAIL",
+                "invalid reverse path prefix",
+            ))?;
 
         Ok(MailParam { reverse_path })
     }
