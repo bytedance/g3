@@ -25,9 +25,9 @@ use super::RawSocket;
 impl RawSocket {
     pub fn sendmsg(&self, iov: &[IoSlice<'_>], target: Option<SocketAddr>) -> io::Result<usize> {
         let msg_hdr = MsgHdr::new().with_buffers(iov);
-        let target = target.map(|v| SockAddr::from(v));
+        let target = target.map(SockAddr::from);
         let msg_hdr = if let Some(addr) = &target {
-            msg_hdr.with_addr(&addr)
+            msg_hdr.with_addr(addr)
         } else {
             msg_hdr
         };

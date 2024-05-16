@@ -16,14 +16,8 @@
 
 use std::io;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct CpuAffinity {}
-
-impl Default for CpuAffinity {
-    fn default() -> Self {
-        CpuAffinity {}
-    }
-}
 
 impl CpuAffinity {
     pub fn add_id(&mut self, _id: usize) -> io::Result<()> {
