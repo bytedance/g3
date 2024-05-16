@@ -163,6 +163,12 @@ brew install lua
 brew install python
 ```
 
+### Windows
+
+```shell
+vcpkg install capnproto openssl c-ares lua python3
+```
+
 ### FreeBSD
 
 ```shell

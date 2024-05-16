@@ -19,7 +19,8 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  WIN_FEATURES: vendored-openssl,quic,vendored-c-ares,hickory
+  VCPKG_ROOT: C:\vcpkg
+  WIN_FEATURES: quic,vendored-c-ares,hickory
 
 jobs:
   build:
@@ -32,9 +33,10 @@ jobs:
           submodules: true
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
-      - name: Install dependencies
-        run: |
-          choco install capnproto
+      - name: Install tools (choco)
+        run: choco install capnproto
+      - name: Install lib dependencies (vcpkg)
+        run: vcpkg install --triplet=x64-windows-static-md openssl
       - name: Cargo build
         run: cargo build --no-default-features --features $env:WIN_FEATURES
       - name: Cargo clippy
