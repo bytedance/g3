@@ -1,0 +1,60 @@
+name: Cross-CI
+
+on:
+  push:
+    paths-ignore:
+      - 'ansible/**'
+      - 'doc/**'
+      - 'demo/**'
+      - 'scripts/**'
+      - 'g3proxy/doc/**'
+      - 'g3tiles/doc/**'
+    branches:
+      - 'master'
+      - 'rel/**'
+  pull_request:
+    branches:
+      - 'master'
+      - 'rel/**'
+
+env:
+  CARGO_TERM_COLOR: always
+  CROSS_FEATURES: --no-default-features --features vendored-openssl,quic,vendored-c-ares,hickory
+  CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - x86_64-unknown-linux-musl
+          - aarch64-unknown-linux-gnu
+          - x86_64-pc-windows-gnu
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install capnproto
+      - name: Install musl dependencies
+        run: sudo apt-get install musl-tools
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+      - name: Install windows dependencies
+        run: sudo apt-get install gcc-mingw-w64-x86-64
+        if: matrix.target == 'x86_64-pc-windows-gnu'
+      - name: Install aarch64 toolchain
+        run: sudo apt-get install gcc-aarch64-linux-gnu
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+      - name: Cargo build
+        run: cargo build --target=${{ matrix.target }} $CROSS_FEATURES
+      - name: Cargo clippy
+        run: cargo clippy --target=${{ matrix.target }} $CROSS_FEATURES --tests -- --deny warnings
