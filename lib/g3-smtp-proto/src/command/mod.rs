@@ -22,6 +22,13 @@ use g3_types::net::Host;
 
 use crate::response::ResponseEncoder;
 
+mod hello;
+mod mail;
+mod recipient;
+
+pub use mail::MailParam;
+pub use recipient::RecipientParam;
+
 #[derive(Debug, Error)]
 pub enum CommandLineError {
     #[error("no trailing sequence")]
@@ -42,14 +49,20 @@ impl From<&CommandLineError> for ResponseEncoder {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Command {
-    QUIT,
+    Quit,
     ExtendHello(Host),
     Hello(Host),
-    Unknown(String),
+    StartTls,
+    Auth,
+    Reset,
+    Mail(MailParam),
+    Recipient(RecipientParam),
     Data,
     BinaryData(usize),
     LastBinaryData(usize),
-    ETRN,
+    DataByUrl(String),
+    KnownForward(&'static str),
+    Unknown(String),
 }
 
 impl Command {
@@ -68,15 +81,32 @@ impl Command {
             let left = &line[p + 1..];
             match upper_cmd.as_bytes() {
                 b"EHLO" => {
-                    let host = hello_parse_host(left)?;
+                    let host = hello::parse_host(left)?;
                     Ok(Command::ExtendHello(host))
                 }
                 b"HELO" => {
-                    let host = hello_parse_host(left)?;
+                    let host = hello::parse_host(left)?;
                     Ok(Command::Hello(host))
                 }
+                b"AUTH" => Ok(Command::Auth),
+                b"MAIL" => {
+                    let param = MailParam::parse(left)?;
+                    Ok(Command::Mail(param))
+                }
+                b"RCPT" => {
+                    let param = RecipientParam::parse(left)?;
+                    Ok(Command::Recipient(param))
+                }
                 b"BDAT" => binary_data_parse_param(left),
-                b"ETRN" => Ok(Command::ETRN),
+                b"BURL" => {
+                    let url = str::from_utf8(left).map_err(CommandLineError::InvalidUtf8Command)?;
+                    Ok(Command::DataByUrl(url.to_string()))
+                }
+                b"VRFY" => Ok(Command::KnownForward("VRFY")),
+                b"EXPN" => Ok(Command::KnownForward("EXPN")),
+                b"HELP" => Ok(Command::KnownForward("HELP")),
+                b"NOOP" => Ok(Command::KnownForward("NOOP")),
+                b"ETRN" => Ok(Command::KnownForward("ETRN")),
                 _ => Ok(Command::Unknown(upper_cmd)),
             }
         } else {
@@ -85,20 +115,16 @@ impl Command {
             let upper_cmd = cmd.to_uppercase();
 
             match upper_cmd.as_bytes() {
-                b"QUIT" => Ok(Command::QUIT),
+                b"QUIT" => Ok(Command::Quit),
+                b"STARTTLS" => Ok(Command::StartTls),
+                b"RSET" => Ok(Command::Reset),
+                b"HELP" => Ok(Command::KnownForward("HELP")),
+                b"NOOP" => Ok(Command::KnownForward("NOOP")),
                 b"DATA" => Ok(Command::Data),
                 _ => Ok(Command::Unknown(upper_cmd)),
             }
         }
     }
-}
-
-fn hello_parse_host(msg: &[u8]) -> Result<Host, CommandLineError> {
-    let host_b = match memchr::memchr(b' ', msg) {
-        Some(p) => &msg[..p],
-        None => msg,
-    };
-    Host::parse_smtp_host_address(host_b).ok_or(CommandLineError::InvalidClientHost)
 }
 
 fn binary_data_parse_param(msg: &[u8]) -> Result<Command, CommandLineError> {

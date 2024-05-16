@@ -39,6 +39,8 @@ use ending::{EndQuitServer, EndWaitClient};
 mod initiation;
 use initiation::Initiation;
 
+mod auth;
+
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
         slog_info!($obj.ctx.intercept_logger(), $($args)+;

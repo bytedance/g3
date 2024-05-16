@@ -132,7 +132,7 @@ impl EndWaitClient {
                     )));
                 }
             };
-            if cmd == Command::QUIT {
+            if cmd == Command::Quit {
                 ResponseEncoder::local_service_closing(self.local_ip)
                     .write(&mut clt_w)
                     .await
