@@ -31,11 +31,16 @@ use crate::serve::{ServerTaskError, ServerTaskResult};
 #[derive(Default)]
 pub(super) struct InitializedExtensions {
     odmr: bool,
+    starttls: bool,
 }
 
 impl InitializedExtensions {
     pub(super) fn allow_odmr(&self, config: &SmtpInterceptionConfig) -> bool {
         self.odmr && config.allow_on_demand_mail_relay
+    }
+
+    pub(super) fn allow_starttls(&self) -> bool {
+        self.starttls
     }
 }
 
@@ -219,7 +224,10 @@ impl<'a> Initiation<'a> {
                 // Enhanced-Status-Codes, RFC2034, add status code preface to response
                 "ENHANCEDSTATUSCODES" => false,
                 // STARTTLS, RFC3207, add STARTTLS command
-                "STARTTLS" => true,
+                "STARTTLS" => {
+                    self.server_ext.starttls = true;
+                    true
+                }
                 // No Soliciting, RFC3865, add a MAIL param key
                 "NO-SOLICITING" => true,
                 // Message Tracking, RFC3885, add a MAIL MTRK param key

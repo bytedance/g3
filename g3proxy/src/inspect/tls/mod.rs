@@ -43,9 +43,9 @@ mod tlcp;
 
 #[derive(Clone)]
 pub(crate) struct TlsInterceptionContext {
-    cert_agent: Arc<CertAgentHandle>,
-    client_config: Arc<OpensslInterceptionClientConfig>,
-    server_config: Arc<OpensslInterceptionServerConfig>,
+    pub(super) cert_agent: Arc<CertAgentHandle>,
+    pub(super) client_config: Arc<OpensslInterceptionClientConfig>,
+    pub(super) server_config: Arc<OpensslInterceptionServerConfig>,
     stream_dumper: Arc<Vec<StreamDumper>>,
 }
 
@@ -87,7 +87,7 @@ impl TlsInterceptionContext {
         })
     }
 
-    fn get_stream_dumper(&self, worker_id: Option<usize>) -> Option<&StreamDumper> {
+    pub(super) fn get_stream_dumper(&self, worker_id: Option<usize>) -> Option<&StreamDumper> {
         if self.stream_dumper.is_empty() {
             return None;
         }
@@ -256,7 +256,8 @@ where
                 StreamInspection::H2(h2_obj)
             }
             Protocol::Smtp => {
-                let mut smtp_obj = crate::inspect::smtp::SmtpInterceptObject::new(ctx);
+                let mut smtp_obj =
+                    crate::inspect::smtp::SmtpInterceptObject::new(ctx, self.upstream.clone());
                 smtp_obj.set_io(
                     Box::new(clt_r),
                     Box::new(clt_w),

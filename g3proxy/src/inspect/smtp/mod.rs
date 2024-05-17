@@ -19,12 +19,13 @@ use tokio::io::AsyncWriteExt;
 
 use g3_dpi::ProtocolInspectPolicy;
 use g3_io_ext::OnceBufReader;
-use g3_slog_types::{LtHost, LtUuid};
+use g3_slog_types::{LtHost, LtUpstreamAddr, LtUuid};
 use g3_smtp_proto::response::{ReplyCode, ResponseEncoder};
-use g3_types::net::Host;
+use g3_types::net::{Host, UpstreamAddr};
 
+use super::StartTlsProtocol;
 use crate::config::server::ServerConfig;
-use crate::inspect::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext};
+use crate::inspect::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext, StreamInspection};
 use crate::serve::{ServerTaskError, ServerTaskResult};
 
 mod ext;
@@ -48,7 +49,7 @@ macro_rules! intercept_log {
             "intercept_type" => "SMTP",
             "task_id" => LtUuid($obj.ctx.server_task_id()),
             "depth" => $obj.ctx.inspection_depth,
-            "upstream_host" => $obj.upstream_host.as_ref().map(LtHost),
+            "upstream" => LtUpstreamAddr(&$obj.upstream),
             "client_host" => $obj.client_host.as_ref().map(LtHost),
         )
     };
@@ -63,17 +64,20 @@ struct SmtpIo {
 
 pub(crate) struct SmtpInterceptObject<SC: ServerConfig> {
     io: Option<SmtpIo>,
-    pub(crate) ctx: StreamInspectContext<SC>,
-    upstream_host: Option<Host>,
+    ctx: StreamInspectContext<SC>,
+    upstream: UpstreamAddr,
     client_host: Option<Host>,
 }
 
-impl<SC: ServerConfig> SmtpInterceptObject<SC> {
-    pub(crate) fn new(ctx: StreamInspectContext<SC>) -> Self {
+impl<SC> SmtpInterceptObject<SC>
+where
+    SC: ServerConfig + Send + Sync + 'static,
+{
+    pub(crate) fn new(ctx: StreamInspectContext<SC>, upstream: UpstreamAddr) -> Self {
         SmtpInterceptObject {
             io: None,
             ctx,
-            upstream_host: None,
+            upstream,
             client_host: None,
         }
     }
@@ -94,19 +98,26 @@ impl<SC: ServerConfig> SmtpInterceptObject<SC> {
         self.io = Some(io);
     }
 
-    pub(crate) async fn intercept(mut self) -> ServerTaskResult<()> {
+    pub(crate) async fn intercept(mut self) -> ServerTaskResult<Option<StreamInspection<SC>>> {
         match self.ctx.smtp_inspect_policy() {
-            ProtocolInspectPolicy::Bypass => self.do_bypass().await,
-            ProtocolInspectPolicy::Intercept => {
-                if let Err(e) = self.do_intercept().await {
+            ProtocolInspectPolicy::Bypass => {
+                self.do_bypass().await?;
+                Ok(None)
+            }
+            ProtocolInspectPolicy::Intercept => match self.do_intercept().await {
+                Ok(obj) => {
+                    intercept_log!(self, "finished");
+                    Ok(obj)
+                }
+                Err(e) => {
                     intercept_log!(self, "{e}");
                     Err(e)
-                } else {
-                    intercept_log!(self, "finished");
-                    Ok(())
                 }
+            },
+            ProtocolInspectPolicy::Block => {
+                self.do_block().await?;
+                Ok(None)
             }
-            ProtocolInspectPolicy::Block => self.do_block().await,
         }
     }
 
@@ -151,7 +162,7 @@ impl<SC: ServerConfig> SmtpInterceptObject<SC> {
         EndWaitClient::new(local_ip).run_to_end(clt_r, clt_w).await
     }
 
-    async fn do_intercept(&mut self) -> ServerTaskResult<()> {
+    async fn do_intercept(&mut self) -> ServerTaskResult<Option<StreamInspection<SC>>> {
         let SmtpIo {
             clt_r,
             mut clt_w,
@@ -174,13 +185,16 @@ impl<SC: ServerConfig> SmtpInterceptObject<SC> {
             }
         };
         let (code, host) = greeting.into_parts();
-        self.upstream_host = Some(host);
+        self.upstream.set_host(host);
         if code == ReplyCode::NO_SERVICE {
             let timeout = interception_config.quit_wait_timeout;
             tokio::spawn(async move {
                 let _ = EndQuitServer::run_to_end(ups_r, ups_w, timeout).await;
             });
-            return EndWaitClient::new(local_ip).run_to_end(clt_r, clt_w).await;
+            return EndWaitClient::new(local_ip)
+                .run_to_end(clt_r, clt_w)
+                .await
+                .map(|_| None);
         }
 
         self.start_initiation(clt_r, clt_w, ups_r, ups_w).await
@@ -192,7 +206,7 @@ impl<SC: ServerConfig> SmtpInterceptObject<SC> {
         mut clt_w: BoxAsyncWrite,
         mut ups_r: BoxAsyncRead,
         mut ups_w: BoxAsyncWrite,
-    ) -> ServerTaskResult<()> {
+    ) -> ServerTaskResult<Option<StreamInspection<SC>>> {
         let local_ip = self.ctx.task_notes.server_addr.ip();
         let interception_config = self.ctx.smtp_interception();
 
@@ -205,13 +219,34 @@ impl<SC: ServerConfig> SmtpInterceptObject<SC> {
 
         let allow_odmr = server_ext.allow_odmr(interception_config);
 
-        let mut forward = Forward::new(local_ip, allow_odmr);
+        let mut forward = Forward::new(local_ip, allow_odmr, server_ext.allow_starttls());
         let next_action = forward
             .relay(&mut clt_r, &mut clt_w, &mut ups_r, &mut ups_w)
             .await?;
         match next_action {
             ForwardNextAction::StartTls => {
-                // TODO
+                return if let Some(tls_interception) = self.ctx.tls_interception() {
+                    let mut start_tls_obj = crate::inspect::start_tls::StartTlsInterceptObject::new(
+                        self.ctx.clone(),
+                        self.upstream.clone(),
+                        tls_interception,
+                        StartTlsProtocol::Smtp,
+                    );
+                    start_tls_obj.set_io(clt_r, clt_w, ups_r, ups_w);
+                    Ok(Some(StreamInspection::StartTls(start_tls_obj)))
+                } else {
+                    crate::inspect::stream::transit_transparent(
+                        clt_r,
+                        clt_w,
+                        ups_r,
+                        ups_w,
+                        &self.ctx.server_config,
+                        &self.ctx.server_quit_policy,
+                        self.ctx.user(),
+                    )
+                    .await
+                    .map(|_| None)
+                }
             }
             ForwardNextAction::ReverseConnection => {
                 return crate::inspect::stream::transit_transparent(
@@ -223,7 +258,8 @@ impl<SC: ServerConfig> SmtpInterceptObject<SC> {
                     &self.ctx.server_quit_policy,
                     self.ctx.user(),
                 )
-                .await;
+                .await
+                .map(|_| None);
             }
             ForwardNextAction::MailTransport(_param) => {
                 // TODO
@@ -240,5 +276,6 @@ impl<SC: ServerConfig> SmtpInterceptObject<SC> {
             self.ctx.user(),
         )
         .await
+        .map(|_| None)
     }
 }

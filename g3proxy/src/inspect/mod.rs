@@ -42,6 +42,9 @@ pub(crate) mod stream;
 pub(crate) mod tls;
 use tls::TlsInterceptionContext;
 
+pub(crate) mod start_tls;
+use start_tls::StartTlsProtocol;
+
 pub(crate) mod http;
 mod websocket;
 
@@ -291,6 +294,7 @@ pub(crate) enum StreamInspection<SC: ServerConfig> {
     TlsModern(tls::TlsInterceptObject<SC>),
     #[cfg(feature = "vendored-tongsuo")]
     TlsTlcp(tls::TlsInterceptObject<SC>),
+    StartTls(start_tls::StartTlsInterceptObject<SC>),
     H1(http::H1InterceptObject<SC>),
     H2(http::H2InterceptObject<SC>),
     Websocket(websocket::H1WebsocketInterceptObject<SC>),

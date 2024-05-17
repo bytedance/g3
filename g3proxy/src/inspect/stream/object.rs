@@ -196,7 +196,8 @@ where
                 return Ok(StreamInspection::H2(h2_obj));
             }
             Protocol::Smtp => {
-                let mut smtp_obj = crate::inspect::smtp::SmtpInterceptObject::new(self.ctx);
+                let mut smtp_obj =
+                    crate::inspect::smtp::SmtpInterceptObject::new(self.ctx, self.upstream.clone());
                 smtp_obj.set_io(clt_r, clt_w, OnceBufReader::new(ups_r, ups_r_buf), ups_w);
                 return Ok(StreamInspection::Smtp(smtp_obj));
             }

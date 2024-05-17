@@ -290,6 +290,10 @@ where
                     inspector.reset_state();
                     inspector.set_no_explicit_ssl();
                 }
+                StreamInspection::StartTls(start_tls) => {
+                    obj = start_tls.intercept().await?;
+                    // no need to reset inspector state as the protocol should be known
+                }
                 StreamInspection::H1(h1) => match h1.intercept().await? {
                     Some(new_obj) => {
                         obj = new_obj;
@@ -304,9 +308,13 @@ where
                 StreamInspection::Websocket(websocket) => {
                     return websocket.intercept().await;
                 }
-                StreamInspection::Smtp(smtp) => {
-                    return smtp.intercept().await;
-                }
+                StreamInspection::Smtp(smtp) => match smtp.intercept().await? {
+                    Some(new_obj) => {
+                        obj = new_obj;
+                        // no need to reset inspector state as the protocol should be known
+                    }
+                    None => break,
+                },
                 StreamInspection::End => break,
             }
         }

@@ -24,6 +24,8 @@ use crate::serve::ServerTaskError;
 pub(crate) enum InterceptionError {
     #[error("tls: {0}")]
     Tls(super::tls::TlsInterceptionError),
+    #[error("start tls: {0}")]
+    StartTls(super::tls::TlsInterceptionError),
     #[error("http1: {0}")]
     H1(super::http::H1InterceptionError),
     #[error("http2: {0}")]

@@ -34,14 +34,16 @@ pub(super) enum ForwardNextAction {
 pub(super) struct Forward {
     local_ip: IpAddr,
     allow_odmr: bool,
+    allow_starttls: bool,
     auth_end: bool,
 }
 
 impl Forward {
-    pub(super) fn new(local_ip: IpAddr, allow_odmr: bool) -> Self {
+    pub(super) fn new(local_ip: IpAddr, allow_odmr: bool, allow_starttls: bool) -> Self {
         Forward {
             local_ip,
             allow_odmr,
+            allow_starttls,
             auth_end: false,
         }
     }
@@ -91,6 +93,11 @@ impl Forward {
                                 }
                                 if !self.auth_end {
                                     return Some(ResponseEncoder::AUTHENTICATION_REQUIRED);
+                                }
+                            }
+                            Command::StartTls => {
+                                if !self.allow_starttls {
+                                    return Some(ResponseEncoder::COMMAND_NOT_IMPLEMENTED);
                                 }
                             }
                             _ => {}
