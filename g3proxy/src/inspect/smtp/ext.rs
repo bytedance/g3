@@ -125,7 +125,21 @@ pub(super) trait CommandLineRecvExt {
         CR: AsyncRead + Unpin,
         CW: AsyncWrite + Unpin,
         UW: AsyncWrite + Unpin,
-        F: FnMut(Command) -> bool;
+        F: FnMut(Command) -> Option<ResponseEncoder>;
+
+    async fn handle_line_error<CW>(e: RecvLineError, clt_w: &mut CW) -> ServerTaskError
+    where
+        CW: AsyncWrite + Unpin,
+    {
+        match e {
+            RecvLineError::IoError(e) => ServerTaskError::ClientTcpReadFailed(e),
+            RecvLineError::IoClosed => ServerTaskError::ClosedByClient,
+            RecvLineError::LineTooLong => {
+                let _ = ResponseEncoder::COMMAND_LINE_TOO_LONG.write(clt_w).await;
+                ServerTaskError::ClientAppError(anyhow!("SMTP command line too long"))
+            }
+        }
+    }
 }
 
 impl<const MAX_LINE_SIZE: usize> CommandLineRecvExt for LineRecvBuf<MAX_LINE_SIZE> {
@@ -134,20 +148,20 @@ impl<const MAX_LINE_SIZE: usize> CommandLineRecvExt for LineRecvBuf<MAX_LINE_SIZ
         clt_r: &mut CR,
         clt_w: &mut CW,
         ups_w: &mut UW,
-        mut is_bad_sequence: F,
+        mut check_cmd: F,
         local_ip: IpAddr,
     ) -> ServerTaskResult<Option<&[u8]>>
     where
         CR: AsyncRead + Unpin,
         CW: AsyncWrite + Unpin,
         UW: AsyncWrite + Unpin,
-        F: FnMut(Command) -> bool,
+        F: FnMut(Command) -> Option<ResponseEncoder>,
     {
         match self.read_line(clt_r).await {
             Ok(line) => match Command::parse_line(line) {
                 Ok(cmd) => {
-                    if is_bad_sequence(cmd) {
-                        ResponseEncoder::BAD_SEQUENCE_OF_COMMANDS
+                    if let Some(rsp_encoder) = check_cmd(cmd) {
+                        rsp_encoder
                             .write(clt_w)
                             .await
                             .map_err(ServerTaskError::ClientTcpWriteFailed)?;
@@ -168,16 +182,10 @@ impl<const MAX_LINE_SIZE: usize> CommandLineRecvExt for LineRecvBuf<MAX_LINE_SIZ
                     )))
                 }
             },
-            Err(e) => match e {
-                RecvLineError::IoError(e) => Err(ServerTaskError::ClientTcpReadFailed(e)),
-                RecvLineError::IoClosed => Err(ServerTaskError::ClosedByClient),
-                RecvLineError::LineTooLong => {
-                    let _ = ResponseEncoder::COMMAND_LINE_TOO_LONG.write(clt_w).await;
-                    Err(ServerTaskError::ClientAppError(anyhow!(
-                        "SMTP command line too long"
-                    )))
-                }
-            },
+            Err(e) => {
+                let e = Self::handle_line_error(e, clt_w).await;
+                Err(e)
+            }
         }
     }
 }

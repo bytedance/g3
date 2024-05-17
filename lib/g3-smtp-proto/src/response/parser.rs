@@ -52,9 +52,13 @@ macro_rules! def_const_code {
 impl ReplyCode {
     def_const_code!(SERVICE_READY, b'2', b'2', b'0');
     def_const_code!(SERVICE_CLOSING, b'2', b'2', b'1');
+    def_const_code!(AUTHENTICATION_SUCCESSFUL, b'2', b'3', b'5');
     def_const_code!(OK, b'2', b'5', b'0');
 
+    def_const_code!(AUTH_CONTINUE, b'3', b'3', b'4');
+
     def_const_code!(BAD_SEQUENCE_OF_COMMANDS, b'5', b'0', b'3');
+    def_const_code!(AUTHENTICATION_REQUIRED, b'5', b'3', b'0');
     def_const_code!(NO_SERVICE, b'5', b'5', b'4');
 
     fn new(a: u8, b: u8, c: u8) -> Option<Self> {

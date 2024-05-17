@@ -54,7 +54,9 @@ pub enum Command {
     Hello(Host),
     StartTls,
     Auth,
+    AuthenticatedTurn,
     Reset,
+    NoOperation,
     Mail(MailParam),
     Recipient(RecipientParam),
     Data,
@@ -67,6 +69,7 @@ pub enum Command {
 
 impl Command {
     pub const MAX_LINE_SIZE: usize = 512;
+    pub const MAX_CONTINUE_LINE_SIZE: usize = 12288; // for AUTH continue line
 
     pub fn parse_line(line: &[u8]) -> Result<Self, CommandLineError> {
         let line = line
@@ -89,6 +92,7 @@ impl Command {
                     Ok(Command::Hello(host))
                 }
                 b"AUTH" => Ok(Command::Auth),
+                b"ATRN" => Ok(Command::AuthenticatedTurn),
                 b"MAIL" => {
                     let param = MailParam::parse(left)?;
                     Ok(Command::Mail(param))
@@ -105,7 +109,7 @@ impl Command {
                 b"VRFY" => Ok(Command::KnownForward("VRFY")),
                 b"EXPN" => Ok(Command::KnownForward("EXPN")),
                 b"HELP" => Ok(Command::KnownForward("HELP")),
-                b"NOOP" => Ok(Command::KnownForward("NOOP")),
+                b"NOOP" => Ok(Command::NoOperation),
                 b"ETRN" => Ok(Command::KnownForward("ETRN")),
                 _ => Ok(Command::Unknown(upper_cmd)),
             }
@@ -116,10 +120,11 @@ impl Command {
 
             match upper_cmd.as_bytes() {
                 b"QUIT" => Ok(Command::Quit),
+                b"ATRN" => Ok(Command::AuthenticatedTurn),
                 b"STARTTLS" => Ok(Command::StartTls),
                 b"RSET" => Ok(Command::Reset),
                 b"HELP" => Ok(Command::KnownForward("HELP")),
-                b"NOOP" => Ok(Command::KnownForward("NOOP")),
+                b"NOOP" => Ok(Command::NoOperation),
                 b"DATA" => Ok(Command::Data),
                 _ => Ok(Command::Unknown(upper_cmd)),
             }

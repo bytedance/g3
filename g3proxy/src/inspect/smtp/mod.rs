@@ -39,7 +39,8 @@ use ending::{EndQuitServer, EndWaitClient};
 mod initiation;
 use initiation::Initiation;
 
-mod auth;
+mod forward;
+use forward::{Forward, ForwardNextAction};
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
@@ -199,6 +200,16 @@ impl<SC: ServerConfig> SmtpInterceptObject<SC> {
             .relay(&mut clt_r, &mut clt_w, &mut ups_r, &mut ups_w)
             .await?;
         self.client_host = Some(initiation.into_parts());
+
+        let mut forward = Forward::new(local_ip);
+        let next_action = forward
+            .relay(&mut clt_r, &mut clt_w, &mut ups_r, &mut ups_w)
+            .await?;
+        match next_action {
+            ForwardNextAction::StartTls => {}
+            ForwardNextAction::ReverseConnection => {}
+            ForwardNextAction::MailTransport(_param) => {}
+        }
 
         crate::inspect::stream::transit_transparent(
             clt_r,

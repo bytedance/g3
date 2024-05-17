@@ -42,6 +42,7 @@ impl ResponseEncoder {
         COMMAND_PARAMATER_NOT_IMPLEMENTED,
         "504 Command parameter not implemented\r\n"
     );
+    impl_static!(AUTHENTICATION_REQUIRED, "530 Authentication required\r\n");
 
     pub fn local_service_closing(local_ip: IpAddr) -> Self {
         let msg = match local_ip {

@@ -21,7 +21,7 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
 use g3_io_ext::LineRecvBuf;
 use g3_smtp_proto::command::Command;
-use g3_smtp_proto::response::{ReplyCode, ResponseParser};
+use g3_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseParser};
 use g3_types::net::Host;
 
 use super::{CommandLineRecvExt, ResponseLineRecvExt, ResponseParseExt};
@@ -69,13 +69,13 @@ impl Initiation {
                     |cmd| match cmd {
                         Command::ExtendHello(host) => {
                             self.client_host = host;
-                            false
+                            None
                         }
                         Command::Hello(host) => {
                             self.client_host = host;
-                            false
+                            None
                         }
-                        _ => true,
+                        _ => Some(ResponseEncoder::BAD_SEQUENCE_OF_COMMANDS),
                     },
                     self.local_ip,
                 )
@@ -85,7 +85,7 @@ impl Initiation {
             };
 
             if self
-                .relay_rsp(&mut rsp_recv_buf, ups_r, clt_w)
+                .recv_relay_check_rsp(&mut rsp_recv_buf, ups_r, clt_w)
                 .await?
                 .is_some()
             {
@@ -94,7 +94,7 @@ impl Initiation {
         }
     }
 
-    async fn relay_rsp<CW, UR>(
+    async fn recv_relay_check_rsp<CW, UR>(
         &mut self,
         rsp_recv_buf: &mut LineRecvBuf<{ ResponseParser::MAX_LINE_SIZE }>,
         ups_r: &mut UR,
@@ -152,14 +152,22 @@ impl Initiation {
             };
 
             match keyword.to_uppercase().as_str() {
-                "SIZE" => true, // Message Size Declaration, RFC1870, TODO use this max message limit ?
-                "DELIVERBY" => true, // Deliver By, RFC2852, add a MAIL BY param key
-                "NO-SOLICITING" => true, // No Soliciting, RFC3865, add a MAIL param key
-                "AUTH" => true, // Authentication, RFC4954, add AUTH command
-                "BURL" => true, // BURL, RFC4468, add BURL command
-                "FUTURERELEASE" => true, // Future Message Release, RFC4865, add MAIL param keys
-                "MT-PRIORITY" => true, // Priority Message Handling, RFC6710, add a MAIL param key
-                "LIMITS" => true, // LIMITS, RFC9422
+                // Message Size Declaration, RFC1870, TODO use this max message limit ?
+                "SIZE" => true,
+                // Deliver By, RFC2852, add a MAIL BY param key
+                "DELIVERBY" => true,
+                // No Soliciting, RFC3865, add a MAIL param key
+                "NO-SOLICITING" => true,
+                // Authentication, RFC4954, add AUTH command
+                "AUTH" => true,
+                // BURL, RFC4468, add BURL command
+                "BURL" => true,
+                // Future Message Release, RFC4865, add MAIL param keys
+                "FUTURERELEASE" => true,
+                // Priority Message Handling, RFC6710, add a MAIL param key
+                "MT-PRIORITY" => true,
+                // LIMITS, RFC9422
+                "LIMITS" => true,
                 _ => false,
             }
         } else {
@@ -168,31 +176,56 @@ impl Initiation {
             };
 
             match keyword.to_uppercase().as_str() {
-                "EXPN" => true,                // Expand the mailing list, RFC5321, add EXPN command
-                "HELP" => true, // Supply helpful information, RFC5321, add HELP command
-                "8BITMIME" => true, // 8bit-MIMEtransport, RFC6152, add a MAIL BODY param value
-                "SIZE" => true, // Message Size Declaration, RFC1870
-                "VERB" => true, // Verbose
-                "ONEX" => true, // One message transaction only
-                "CHUNKING" => true, // CHUNKING, RFC3030, add BDAT command
-                "BINARYMIME" => true, // BINARYMIME, RFC3030, add a MAIL BODY param value, require CHUNKING
-                "DELIVERBY" => true,  // Deliver By, RFC2852, add a MAIL BY param key
-                "PIPELINING" => true, // Pipelining, RFC2920
-                "DSN" => true, // Delivery Status Notification, RFC3461, add param keys to RCPT and MAIL
-                "ETRN" => true, // Remote Queue Processing Declaration, RFC1985, add ETRN command
-                "ENHANCEDSTATUSCODES" => true, // Enhanced-Status-Codes, RFC2034, add status code preface to response
-                "STARTTLS" => true,            // STARTTLS, RFC3207, add STARTTLS command
-                "NO-SOLICITING" => true,       // No Soliciting, RFC3865, add a MAIL param key
-                "MTRK" => true, // Message Tracking, RFC3885, add a MAIL MTRK param key
-                "BURL" => true, // BURL, RFC4468, add BURL command, no param means AUTH is required
-                "CONPERM" => true, // Content-Conversion-Permission, RFC4141, add a MAIL param key
-                "CONNEG" => true, // Content-Negotiation, RFC4141, add a RCPT param key
-                "SMTPUTF8" => true, // Internationalized Email, RFC6531, add MAIL/VRFY/EXPN param key
-                "MT-PRIORITY" => true, // Priority Message Handling, RFC6710, add a MAIL param key
-                "RRVS" => true,     // Require Recipient Valid Since, RFC7293, add a RCPT param key
-                "REQUIRETLS" => true, // Require TLS, RFC8689, add a MAIL param key
-                "LIMITS" => true,   // LIMITS, RFC9422
-                "ATRN" => true,     // On-Demand Mail Relay, RFC2645, change the protocol
+                // Expand the mailing list, RFC5321, add EXPN command
+                "EXPN" => true,
+                // Supply helpful information, RFC5321, add HELP command
+                "HELP" => true,
+                // 8bit-MIMEtransport, RFC6152, add a MAIL BODY param value
+                "8BITMIME" => true,
+                // Message Size Declaration, RFC1870
+                "SIZE" => true,
+                // Verbose
+                "VERB" => true,
+                // One message transaction only
+                "ONEX" => true,
+                // CHUNKING, RFC3030, add BDAT command
+                "CHUNKING" => true,
+                // BINARYMIME, RFC3030, add a MAIL BODY param value, require CHUNKING
+                "BINARYMIME" => true,
+                // Deliver By, RFC2852, add a MAIL BY param key
+                "DELIVERBY" => true,
+                // Pipelining, RFC2920
+                "PIPELINING" => true,
+                // Delivery Status Notification, RFC3461, add param keys to RCPT and MAIL
+                "DSN" => true,
+                // Remote Queue Processing Declaration, RFC1985, add ETRN command
+                "ETRN" => true,
+                // Enhanced-Status-Codes, RFC2034, add status code preface to response
+                "ENHANCEDSTATUSCODES" => false,
+                // STARTTLS, RFC3207, add STARTTLS command
+                "STARTTLS" => true,
+                // No Soliciting, RFC3865, add a MAIL param key
+                "NO-SOLICITING" => true,
+                // Message Tracking, RFC3885, add a MAIL MTRK param key
+                "MTRK" => true,
+                // BURL, RFC4468, add BURL command, no param means AUTH is required
+                "BURL" => true,
+                // Content-Conversion-Permission, RFC4141, add a MAIL param key
+                "CONPERM" => true,
+                // Content-Negotiation, RFC4141, add a RCPT param key
+                "CONNEG" => true,
+                // Internationalized Email, RFC6531, add MAIL/VRFY/EXPN param key
+                "SMTPUTF8" => true,
+                // Priority Message Handling, RFC6710, add a MAIL param key
+                "MT-PRIORITY" => true,
+                // Require Recipient Valid Since, RFC7293, add a RCPT param key
+                "RRVS" => true,
+                // Require TLS, RFC8689, add a MAIL param key
+                "REQUIRETLS" => true,
+                // LIMITS, RFC9422
+                "LIMITS" => true,
+                // On-Demand Mail Relay, RFC2645, change the protocol
+                "ATRN" => true,
                 _ => false,
             }
         }
