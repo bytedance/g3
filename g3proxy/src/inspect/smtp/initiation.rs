@@ -39,23 +39,29 @@ impl InitializedExtensions {
         self.odmr && config.allow_on_demand_mail_relay
     }
 
-    pub(super) fn allow_starttls(&self) -> bool {
-        self.starttls
+    pub(super) fn allow_starttls(&self, from_starttls: bool) -> bool {
+        self.starttls && !from_starttls
     }
 }
 
 pub(super) struct Initiation<'a> {
     config: &'a SmtpInterceptionConfig,
     local_ip: IpAddr,
+    from_starttls: bool,
     client_host: Host,
     server_ext: InitializedExtensions,
 }
 
 impl<'a> Initiation<'a> {
-    pub(super) fn new(config: &'a SmtpInterceptionConfig, local_ip: IpAddr) -> Self {
+    pub(super) fn new(
+        config: &'a SmtpInterceptionConfig,
+        local_ip: IpAddr,
+        from_starttls: bool,
+    ) -> Self {
         Initiation {
             config,
             local_ip,
+            from_starttls,
             client_host: Host::empty(),
             server_ext: InitializedExtensions::default(),
         }
@@ -226,7 +232,7 @@ impl<'a> Initiation<'a> {
                 // STARTTLS, RFC3207, add STARTTLS command
                 "STARTTLS" => {
                     self.server_ext.starttls = true;
-                    true
+                    !self.from_starttls
                 }
                 // No Soliciting, RFC3865, add a MAIL param key
                 "NO-SOLICITING" => true,

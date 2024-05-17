@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
+use std::sync::Arc;
+
 use anyhow::anyhow;
 use openssl::ssl::Ssl;
 use slog::slog_info;
-use std::sync::Arc;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_dpi::Protocol;
@@ -303,6 +304,7 @@ where
             StartTlsProtocol::Smtp => {
                 let mut smtp_obj =
                     crate::inspect::smtp::SmtpInterceptObject::new(ctx, self.upstream.clone());
+                smtp_obj.set_from_starttls();
                 smtp_obj.set_io(
                     Box::new(clt_r),
                     Box::new(clt_w),

@@ -66,6 +66,7 @@ pub(crate) struct SmtpInterceptObject<SC: ServerConfig> {
     io: Option<SmtpIo>,
     ctx: StreamInspectContext<SC>,
     upstream: UpstreamAddr,
+    from_starttls: bool,
     client_host: Option<Host>,
 }
 
@@ -78,8 +79,13 @@ where
             io: None,
             ctx,
             upstream,
+            from_starttls: false,
             client_host: None,
         }
+    }
+
+    pub(crate) fn set_from_starttls(&mut self) {
+        self.from_starttls = true;
     }
 
     pub(crate) fn set_io(
@@ -170,6 +176,12 @@ where
             ups_w,
         } = self.io.take().unwrap();
 
+        if self.from_starttls {
+            return self
+                .start_initiation(clt_r, clt_w, ups_r.into_inner(), ups_w)
+                .await;
+        }
+
         let interception_config = self.ctx.smtp_interception();
         let local_ip = self.ctx.task_notes.server_addr.ip();
 
@@ -210,7 +222,7 @@ where
         let local_ip = self.ctx.task_notes.server_addr.ip();
         let interception_config = self.ctx.smtp_interception();
 
-        let mut initiation = Initiation::new(interception_config, local_ip);
+        let mut initiation = Initiation::new(interception_config, local_ip, self.from_starttls);
         initiation
             .relay(&mut clt_r, &mut clt_w, &mut ups_r, &mut ups_w)
             .await?;
@@ -218,8 +230,9 @@ where
         self.client_host = Some(client_host);
 
         let allow_odmr = server_ext.allow_odmr(interception_config);
+        let allow_starttls = server_ext.allow_starttls(self.from_starttls);
 
-        let mut forward = Forward::new(local_ip, allow_odmr, server_ext.allow_starttls());
+        let mut forward = Forward::new(local_ip, allow_odmr, allow_starttls);
         let next_action = forward
             .relay(&mut clt_r, &mut clt_w, &mut ups_r, &mut ups_w)
             .await?;
