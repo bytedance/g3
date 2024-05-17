@@ -19,6 +19,7 @@ use std::str;
 
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
+use g3_dpi::SmtpInterceptionConfig;
 use g3_io_ext::LineRecvBuf;
 use g3_smtp_proto::command::Command;
 use g3_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseParser};
@@ -27,21 +28,36 @@ use g3_types::net::Host;
 use super::{CommandLineRecvExt, ResponseLineRecvExt, ResponseParseExt};
 use crate::serve::{ServerTaskError, ServerTaskResult};
 
-pub struct Initiation {
-    local_ip: IpAddr,
-    client_host: Host,
+#[derive(Default)]
+pub(super) struct InitializedExtensions {
+    odmr: bool,
 }
 
-impl Initiation {
-    pub(super) fn new(local_ip: IpAddr) -> Self {
+impl InitializedExtensions {
+    pub(super) fn allow_odmr(&self, config: &SmtpInterceptionConfig) -> bool {
+        self.odmr && config.allow_on_demand_mail_relay
+    }
+}
+
+pub(super) struct Initiation<'a> {
+    config: &'a SmtpInterceptionConfig,
+    local_ip: IpAddr,
+    client_host: Host,
+    server_ext: InitializedExtensions,
+}
+
+impl<'a> Initiation<'a> {
+    pub(super) fn new(config: &'a SmtpInterceptionConfig, local_ip: IpAddr) -> Self {
         Initiation {
+            config,
             local_ip,
             client_host: Host::empty(),
+            server_ext: InitializedExtensions::default(),
         }
     }
 
-    pub(super) fn into_parts(self) -> Host {
-        self.client_host
+    pub(super) fn into_parts(self) -> (Host, InitializedExtensions) {
+        (self.client_host, self.server_ext)
     }
 
     pub(super) async fn relay<CR, CW, UR, UW>(
@@ -225,7 +241,10 @@ impl Initiation {
                 // LIMITS, RFC9422
                 "LIMITS" => true,
                 // On-Demand Mail Relay, RFC2645, change the protocol
-                "ATRN" => true,
+                "ATRN" => {
+                    self.server_ext.odmr = true;
+                    self.config.allow_on_demand_mail_relay
+                }
                 _ => false,
             }
         }

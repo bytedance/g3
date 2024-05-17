@@ -33,13 +33,15 @@ pub(super) enum ForwardNextAction {
 
 pub(super) struct Forward {
     local_ip: IpAddr,
+    allow_odmr: bool,
     auth_end: bool,
 }
 
 impl Forward {
-    pub(super) fn new(local_ip: IpAddr) -> Self {
+    pub(super) fn new(local_ip: IpAddr, allow_odmr: bool) -> Self {
         Forward {
             local_ip,
+            allow_odmr,
             auth_end: false,
         }
     }
@@ -84,6 +86,9 @@ impl Forward {
                                 }
                             }
                             Command::AuthenticatedTurn => {
+                                if !self.allow_odmr {
+                                    return Some(ResponseEncoder::COMMAND_NOT_IMPLEMENTED);
+                                }
                                 if !self.auth_end {
                                     return Some(ResponseEncoder::AUTHENTICATION_REQUIRED);
                                 }
@@ -112,6 +117,7 @@ impl Forward {
                         .await?;
                 }
                 Command::AuthenticatedTurn => {
+                    // a max 10min timeout according to RFC2645
                     let rsp = self.recv_relay_rsp(&mut rsp_recv_buf, ups_r, clt_w).await?;
                     if rsp == ReplyCode::OK {
                         return Ok(ForwardNextAction::ReverseConnection);

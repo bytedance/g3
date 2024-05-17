@@ -20,6 +20,7 @@ use std::time::Duration;
 pub struct SmtpInterceptionConfig {
     pub greeting_timeout: Duration,
     pub quit_wait_timeout: Duration,
+    pub allow_on_demand_mail_relay: bool,
 }
 
 impl Default for SmtpInterceptionConfig {
@@ -27,6 +28,7 @@ impl Default for SmtpInterceptionConfig {
         SmtpInterceptionConfig {
             greeting_timeout: Duration::from_secs(300),
             quit_wait_timeout: Duration::from_secs(60),
+            allow_on_demand_mail_relay: false,
         }
     }
 }

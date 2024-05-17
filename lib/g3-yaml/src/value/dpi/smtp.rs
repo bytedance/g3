@@ -34,6 +34,10 @@ pub fn as_smtp_interception_config(value: &Yaml) -> anyhow::Result<SmtpIntercept
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
+            "allow_on_demand_mail_relay" | "allow_odmr" => {
+                config.allow_on_demand_mail_relay = crate::value::as_bool(v)?;
+                Ok(())
+            }
             _ => Err(anyhow!("invalid key {k}")),
         })?;
 

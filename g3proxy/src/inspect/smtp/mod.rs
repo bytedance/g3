@@ -194,21 +194,40 @@ impl<SC: ServerConfig> SmtpInterceptObject<SC> {
         mut ups_w: BoxAsyncWrite,
     ) -> ServerTaskResult<()> {
         let local_ip = self.ctx.task_notes.server_addr.ip();
+        let interception_config = self.ctx.smtp_interception();
 
-        let mut initiation = Initiation::new(local_ip);
+        let mut initiation = Initiation::new(interception_config, local_ip);
         initiation
             .relay(&mut clt_r, &mut clt_w, &mut ups_r, &mut ups_w)
             .await?;
-        self.client_host = Some(initiation.into_parts());
+        let (client_host, server_ext) = initiation.into_parts();
+        self.client_host = Some(client_host);
 
-        let mut forward = Forward::new(local_ip);
+        let allow_odmr = server_ext.allow_odmr(interception_config);
+
+        let mut forward = Forward::new(local_ip, allow_odmr);
         let next_action = forward
             .relay(&mut clt_r, &mut clt_w, &mut ups_r, &mut ups_w)
             .await?;
         match next_action {
-            ForwardNextAction::StartTls => {}
-            ForwardNextAction::ReverseConnection => {}
-            ForwardNextAction::MailTransport(_param) => {}
+            ForwardNextAction::StartTls => {
+                // TODO
+            }
+            ForwardNextAction::ReverseConnection => {
+                return crate::inspect::stream::transit_transparent(
+                    clt_r,
+                    clt_w,
+                    ups_r,
+                    ups_w,
+                    &self.ctx.server_config,
+                    &self.ctx.server_quit_policy,
+                    self.ctx.user(),
+                )
+                .await;
+            }
+            ForwardNextAction::MailTransport(_param) => {
+                // TODO
+            }
         }
 
         crate::inspect::stream::transit_transparent(
