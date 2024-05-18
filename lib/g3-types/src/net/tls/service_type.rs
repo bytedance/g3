@@ -22,6 +22,7 @@ use std::str::FromStr;
 pub enum TlsServiceType {
     Http = 0,
     Smtp = 1,
+    Imap = 2,
 }
 
 impl TlsServiceType {
@@ -29,6 +30,7 @@ impl TlsServiceType {
         match self {
             TlsServiceType::Http => "http",
             TlsServiceType::Smtp => "smtp",
+            TlsServiceType::Imap => "imap",
         }
     }
 }
@@ -54,6 +56,7 @@ impl TryFrom<u8> for TlsServiceType {
         match value {
             0 => Ok(TlsServiceType::Http),
             1 => Ok(TlsServiceType::Smtp),
+            2 => Ok(TlsServiceType::Imap),
             _ => Err(InvalidServiceType),
         }
     }
@@ -66,6 +69,7 @@ impl FromStr for TlsServiceType {
         match s {
             "http" | "HTTP" => Ok(TlsServiceType::Http),
             "smtp" | "SMTP" => Ok(TlsServiceType::Smtp),
+            "imap" | "IMAP" => Ok(TlsServiceType::Imap),
             _ => Err(InvalidServiceType),
         }
     }

@@ -38,6 +38,11 @@ use crate::log::inspect::stream::StreamInspectLog;
 use crate::log::inspect::InspectSource;
 use crate::serve::ServerTaskResult;
 
+#[cfg(not(feature = "vendored-tongsuo"))]
+const CERT_USAGE: TlsCertUsage = TlsCertUsage::TlsServer;
+#[cfg(feature = "vendored-tongsuo")]
+const CERT_USAGE: TlsCertUsage = TlsCertUsage::TLsServerTongsuo;
+
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
         slog_info!($obj.ctx.intercept_logger(), $($args)+;
@@ -62,6 +67,15 @@ impl From<StartTlsProtocol> for Protocol {
         match value {
             StartTlsProtocol::Smtp => Protocol::Smtp,
             StartTlsProtocol::Imap => Protocol::Imap,
+        }
+    }
+}
+
+impl From<StartTlsProtocol> for TlsServiceType {
+    fn from(value: StartTlsProtocol) -> Self {
+        match value {
+            StartTlsProtocol::Smtp => TlsServiceType::Smtp,
+            StartTlsProtocol::Imap => TlsServiceType::Imap,
         }
     }
 }
@@ -219,8 +233,8 @@ where
             .tls_interception
             .cert_agent
             .fetch(
-                TlsServiceType::Http,
-                TlsCertUsage::TlsServer,
+                TlsServiceType::from(self.protocol),
+                CERT_USAGE,
                 Arc::from(cert_domain),
                 upstream_cert,
             )
