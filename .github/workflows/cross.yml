@@ -21,6 +21,7 @@ env:
   CARGO_TERM_COLOR: always
   CROSS_FEATURES: --no-default-features --features vendored-openssl,quic,vendored-c-ares,hickory
   CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+  CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER: riscv64-linux-gnu-gcc
 
 jobs:
   build:
@@ -28,10 +29,24 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target:
-          - x86_64-unknown-linux-musl
-          - aarch64-unknown-linux-gnu
-          - x86_64-pc-windows-gnu
+        target: [
+          {
+            rustc: x86_64-unknown-linux-musl,
+            gcc: musl-tools,
+          },
+          {
+            rustc: x86_64-pc-windows-gnu,
+            gcc: gcc-mingw-w64-x86-64,
+          },
+          {
+            rustc: aarch64-unknown-linux-gnu,
+            gcc: gcc-aarch64-linux-gnu,
+          },
+          {
+            rustc: riscv64gc-unknown-linux-gnu,
+            gcc: gcc-riscv64-linux-gnu,
+          },
+        ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -40,21 +55,12 @@ jobs:
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: ${{ matrix.target.rustc }}
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install capnproto
-      - name: Install musl dependencies
-        run: sudo apt-get install musl-tools
-        if: matrix.target == 'x86_64-unknown-linux-musl'
-      - name: Install windows dependencies
-        run: sudo apt-get install gcc-mingw-w64-x86-64
-        if: matrix.target == 'x86_64-pc-windows-gnu'
-      - name: Install aarch64 toolchain
-        run: sudo apt-get install gcc-aarch64-linux-gnu
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
+          sudo apt-get install capnproto ${{ matrix.target.gcc }}
       - name: Cargo build
-        run: cargo build --target=${{ matrix.target }} $CROSS_FEATURES
+        run: cargo build --target=${{ matrix.target.rustc }} $CROSS_FEATURES
       - name: Cargo clippy
-        run: cargo clippy --target=${{ matrix.target }} $CROSS_FEATURES --tests -- --deny warnings
+        run: cargo clippy --target=${{ matrix.target.rustc }} $CROSS_FEATURES --tests -- --deny warnings
