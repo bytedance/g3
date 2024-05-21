@@ -334,9 +334,9 @@ dependencies = [
 
 [[package]]
 name = "bssl-cmake-sys"
-version = "0.1.2405130"
+version = "0.1.2405200"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e73630f436c6d4d6dde1fd811103b94d4dffd00cb1496a63362c9a92ba3d5cfe"
+checksum = "79a9a6cabbc5429667cb547ff668e1b2a6bb8704619d06e21f26ed4089f8aa21"
 dependencies = [
  "bindgen",
  "cc",
@@ -644,9 +644,9 @@ checksum = "338089f42c427b86394a5ee60ff321da23a5c89c9d89514c829687b26359fcff"
 
 [[package]]
 name = "crc32fast"
-version = "1.4.0"
+version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3855a8a784b474f333699ef2bbca9db2c4a1f6d9088a90a2d25b1eb53111eaa"
+checksum = "a97769d94ddab943e4510d138150169a2758b5ef3eb191a9ee688de3e23ef7b3"
 dependencies = [
  "cfg-if",
 ]
@@ -2066,8 +2066,9 @@ dependencies = [
 
 [[package]]
 name = "h3"
-version = "0.0.4"
-source = "git+https://github.com/zh-jq/h3.git?branch=quinn-0.11#8df1a403160124a5ba3568c47fde412b0bd02cb4"
+version = "0.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d5069de1c2ac82d9e361b07f2b8a2c582ec071750e063530fc7f3b5197e24805"
 dependencies = [
  "bytes",
  "fastrand",
@@ -2080,8 +2081,9 @@ dependencies = [
 
 [[package]]
 name = "h3-quinn"
-version = "0.0.5"
-source = "git+https://github.com/zh-jq/h3.git?branch=quinn-0.11#8df1a403160124a5ba3568c47fde412b0bd02cb4"
+version = "0.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8c01d99d7cf812fd34ddf135e6c940df9e24f2e759dbc7179fb0e54d4bd6551"
 dependencies = [
  "bytes",
  "futures",
