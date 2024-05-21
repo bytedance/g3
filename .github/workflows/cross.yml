@@ -1,4 +1,4 @@
-name: Cross-CI
+name: CrossCompiling
 
 on:
   push:
@@ -34,10 +34,6 @@ jobs:
     strategy:
       matrix:
         target: [
-          {
-            rustc: x86_64-unknown-linux-musl,
-            gcc: musl-tools,
-          },
           {
             rustc: x86_64-pc-windows-gnu,
             gcc: gcc-mingw-w64-x86-64,
