@@ -22,6 +22,8 @@ env:
   CROSS_FEATURES: --no-default-features --features vendored-openssl,quic,vendored-c-ares,hickory
   CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
   CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER: riscv64-linux-gnu-gcc
+  CARGO_TARGET_POWERPC64LE_UNKNOWN_LINUX_GNU_LINKER: powerpc64le-linux-gnu-gcc
+  CARGO_TARGET_S390X_UNKNOWN_LINUX_GNU_LINKER: s390x-linux-gnu-gcc
 
 jobs:
   build:
@@ -45,6 +47,14 @@ jobs:
           {
             rustc: riscv64gc-unknown-linux-gnu,
             gcc: gcc-riscv64-linux-gnu,
+          },
+          {
+            rustc: powerpc64le-unknown-linux-gnu,
+            gcc: gcc-powerpc64le-linux-gnu,
+          },
+          {
+            rustc: s390x-unknown-linux-gnu,
+            gcc: gcc-s390x-linux-gnu,
           },
         ]
     steps:
