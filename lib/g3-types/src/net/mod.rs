@@ -40,6 +40,8 @@ mod rustls;
 #[cfg(feature = "openssl")]
 mod openssl;
 
+mod s2n_tls;
+
 pub use buf::SocketBufferConfig;
 pub use dns::*;
 pub use egress::{EgressArea, EgressInfo};
@@ -73,3 +75,5 @@ pub use self::rustls::*;
 
 #[cfg(feature = "openssl")]
 pub use self::openssl::*;
+
+pub use self::s2n_tls::*;
