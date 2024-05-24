@@ -30,9 +30,9 @@ use g3_types::limit::GaugeSemaphorePermit;
 use g3_types::route::HostMatch;
 
 use super::{CommonTaskContext, OpensslRelayTask};
+use crate::serve::openssl_proxy::OpensslHost;
 
 mod stats;
-use crate::serve::openssl_proxy::host::OpensslHost;
 use stats::OpensslAcceptTaskCltWrapperStats;
 
 pub(crate) struct OpensslAcceptTask {
