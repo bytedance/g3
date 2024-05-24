@@ -12,5 +12,5 @@ ip_network.workspace = true
 ip_network_table.workspace = true
 csv = "1.2"
 flate2 = "1.0"
-zip = { version = "1.2", default-features = false, features = ["deflate"] }
+zip = { version = "2.0", default-features = false, features = ["deflate"] }
 g3-geoip-types.workspace = true
