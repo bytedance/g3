@@ -94,6 +94,9 @@ pub use self::openssl::{
     as_to_one_openssl_tls_client_config_builder,
 };
 
+mod s2n_tls;
+pub use s2n_tls::*;
+
 #[cfg(all(unix, feature = "sched"))]
 mod sched;
 #[cfg(all(unix, feature = "sched"))]

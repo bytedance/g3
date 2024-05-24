@@ -44,6 +44,8 @@ mod plain_tcp_port;
 mod keyless_proxy;
 mod openssl_proxy;
 mod rustls_proxy;
+#[cfg(feature = "s2n-tls")]
+mod s2n_tls_proxy;
 
 mod ops;
 pub(crate) use ops::{
