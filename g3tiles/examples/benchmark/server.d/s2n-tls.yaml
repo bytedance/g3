@@ -1,0 +1,17 @@
+---
+
+name: s2n-tls
+type: S2nTlsProxy
+listen:
+  address: "[::]:9097"
+listen_in_worker: true
+
+virtual_hosts:
+  name: bench
+  exact_match: bench.example.net
+  use_session_ticket: true
+  cert_pairs:
+    certificate: bench.example.net-ec256.crt
+    private_key: bench.example.net-ec256.key
+  backends:
+    - http
