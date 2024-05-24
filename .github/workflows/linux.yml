@@ -29,9 +29,9 @@ jobs:
     strategy:
       matrix:
         rust:
-        - stable
-        - beta
-        - nightly
+          - stable
+          - beta
+          - nightly
     steps:
     - name: Checkout sources
       uses: actions/checkout@v4
@@ -54,20 +54,20 @@ jobs:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout sources
-      uses: actions/checkout@v4
-      with:
-        submodules: true
-    - name: Install stable toolchain
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        components: clippy
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
-    - name: Cargo clippy
-      run: cargo clippy --tests -- --deny warnings
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
+      - name: Cargo clippy
+        run: cargo clippy --tests -- --deny warnings
 
   build-vendored:
     name: Build vendored
@@ -89,6 +89,8 @@ jobs:
         include:
           - feature: vendored-c-ares
             component: g3proxy
+          - feature: s2n-tls
+            component: g3tiles
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4

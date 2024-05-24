@@ -37,6 +37,8 @@ use super::plain_tcp_port::PlainTcpPort;
 use super::keyless_proxy::KeylessProxyServer;
 use super::openssl_proxy::OpensslProxyServer;
 use super::rustls_proxy::RustlsProxyServer;
+#[cfg(feature = "s2n-tls")]
+use super::s2n_tls_proxy::S2nTlsProxyServer;
 
 static SERVER_OPS_LOCK: Mutex<()> = Mutex::const_new(());
 
@@ -227,6 +229,8 @@ fn spawn_new_unlocked(config: AnyServerConfig) -> anyhow::Result<()> {
         AnyServerConfig::PlainQuicPort(c) => PlainQuicPort::prepare_initial(*c)?,
         AnyServerConfig::OpensslProxy(c) => OpensslProxyServer::prepare_initial(c)?,
         AnyServerConfig::RustlsProxy(c) => RustlsProxyServer::prepare_initial(c)?,
+        #[cfg(feature = "s2n-tls")]
+        AnyServerConfig::S2nTlsProxy(c) => S2nTlsProxyServer::prepare_initial(c)?,
         AnyServerConfig::KeylessProxy(c) => KeylessProxyServer::prepare_initial(c)?,
     };
     registry::add(name.clone(), server)?;

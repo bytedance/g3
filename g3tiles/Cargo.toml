@@ -32,6 +32,8 @@ openssl.workspace = true
 openssl-probe = { workspace = true, optional = true }
 rustls.workspace = true
 rustls-pki-types.workspace = true
+s2n-tls = { workspace = true, optional = true }
+s2n-tls-tokio = { workspace = true, optional = true }
 quinn = { workspace = true, optional = true, features = ["rustls"] }
 tokio-rustls.workspace = true
 governor = { workspace = true, features = ["std", "jitter"] }
@@ -58,8 +60,10 @@ g3-build-env.workspace = true
 [features]
 default = ["quic"]
 quic = ["g3-daemon/quic", "g3-yaml/quinn", "g3-types/quinn", "dep:quinn"]
+s2n-tls = ["dep:s2n-tls", "dep:s2n-tls-tokio", "vendored-aws-lc"]
 rustls-aws-lc = ["rustls/aws-lc-rs"]
 vendored-openssl = ["openssl/vendored", "openssl-probe"]
 vendored-tongsuo = ["openssl/tongsuo", "openssl-probe", "g3-yaml/tongsuo", "g3-types/tongsuo"]
 vendored-aws-lc = ["rustls-aws-lc", "openssl/aws-lc", "openssl-probe", "g3-types/aws-lc", "g3-openssl/aws-lc"]
 vendored-boringssl = ["openssl/boringssl", "openssl-probe", "g3-types/boringssl", "g3-openssl/boringssl"]
+
