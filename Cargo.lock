@@ -397,9 +397,9 @@ dependencies = [
 
 [[package]]
 name = "c-ares-sys"
-version = "9.2.0"
+version = "9.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c05fe8f985a69b8cff50d75adc4faf6a0d614af9f01620aabbaa626ded1f934"
+checksum = "dee8d99162db4826c1374342d5b64ed8b1af1781b40c91c03164a544109bcca7"
 dependencies = [
  "c-types",
  "cc",
@@ -2438,7 +2438,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c2a198fb6b0eada2a8df47933734e6d35d350665a33a3593d7164fa52c75c19"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.5",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
