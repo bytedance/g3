@@ -334,9 +334,9 @@ dependencies = [
 
 [[package]]
 name = "bssl-cmake-sys"
-version = "0.1.2405200"
+version = "0.1.2405270"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79a9a6cabbc5429667cb547ff668e1b2a6bb8704619d06e21f26ed4089f8aa21"
+checksum = "efc92de7724252cc5782b1932135e3b6698d77187751a84445d9e81eaaff0182"
 dependencies = [
  "bindgen",
  "cc",
@@ -373,9 +373,9 @@ checksum = "514de17de45fdb8dc022b1a7975556c53c86f9f0aa5f534b98977b171857c2c9"
 
 [[package]]
 name = "c-ares"
-version = "9.1.0"
+version = "9.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3d3dfe2ff655c102226aca7c4623e310233bd4d43b740bc33f18cd3dcf3759c"
+checksum = "84ae5995c4111ce6f122fa406cddb211b0badc7b71ab325ce2764168395ea15b"
 dependencies = [
  "bitflags 2.5.0",
  "c-ares-sys",
@@ -385,9 +385,9 @@ dependencies = [
 
 [[package]]
 name = "c-ares-resolver"
-version = "8.4.0"
+version = "8.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23f038debca90e2624754a1087a93663b994eed8d29382c0eccdcd953b58b152"
+checksum = "0845488530bf73ce48000cc77751e8ebb6b13468a89920037d1de8c4a0d3c729"
 dependencies = [
  "c-ares",
  "c-ares-sys",
@@ -397,9 +397,9 @@ dependencies = [
 
 [[package]]
 name = "c-ares-sys"
-version = "9.2.0"
+version = "9.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c05fe8f985a69b8cff50d75adc4faf6a0d614af9f01620aabbaa626ded1f934"
+checksum = "dee8d99162db4826c1374342d5b64ed8b1af1781b40c91c03164a544109bcca7"
 dependencies = [
  "c-types",
  "cc",
@@ -509,9 +509,9 @@ dependencies = [
 
 [[package]]
 name = "clang-sys"
-version = "1.7.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67523a3b4be3ce1989d607a828d036249522dd9c1c8de7f4dd2dae43a37369d1"
+checksum = "a483f3cbf7cec2e153d424d0e92329d816becc6421389bd494375c6065921b9b"
 dependencies = [
  "glob",
  "libc",
