@@ -180,7 +180,7 @@ rmp-serde = "1"
 rmp = "0.8"
 rmpv = "1.0"
 #
-redis = { version = "0.25.3", default-features = false, features = ["tcp_nodelay"] }
+redis = { version = "0.25.4", default-features = false, features = ["tcp_nodelay"] }
 #
 mlua = "0.9"
 pyo3 = { version = "0.21", default-features = false, features = ["auto-initialize"] }
