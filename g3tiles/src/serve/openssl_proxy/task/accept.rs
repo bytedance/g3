@@ -30,10 +30,8 @@ use g3_types::limit::GaugeSemaphorePermit;
 use g3_types::route::HostMatch;
 
 use super::{CommonTaskContext, OpensslRelayTask};
+use crate::module::stream::StreamAcceptTaskCltWrapperStats;
 use crate::serve::openssl_proxy::OpensslHost;
-
-mod stats;
-use stats::OpensslAcceptTaskCltWrapperStats;
 
 pub(crate) struct OpensslAcceptTask {
     ctx: CommonTaskContext,
@@ -55,7 +53,7 @@ impl OpensslAcceptTask {
 
         let pre_handshake_stats = Arc::new(TcpStreamConnectionStats::default());
         let wrapper_stats =
-            OpensslAcceptTaskCltWrapperStats::new(&self.ctx.server_stats, &pre_handshake_stats);
+            StreamAcceptTaskCltWrapperStats::new(&self.ctx.server_stats, &pre_handshake_stats);
 
         let limit_config = self.ctx.server_config.tcp_sock_speed_limit;
         let stream = LimitedStream::new(

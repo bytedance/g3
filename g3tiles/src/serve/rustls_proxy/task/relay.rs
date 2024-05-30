@@ -26,10 +26,11 @@ use g3_daemon::stat::task::{TcpStreamConnectionStats, TcpStreamTaskStats};
 use g3_io_ext::{LimitedCopy, LimitedCopyConfig, LimitedCopyError, LimitedStream};
 use g3_types::limit::GaugeSemaphorePermit;
 
-use super::{CommonTaskContext, RustlsRelayTaskCltWrapperStats};
+use super::CommonTaskContext;
 use crate::backend::ArcBackend;
 use crate::config::server::ServerConfig;
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
+use crate::module::stream::StreamRelayTaskCltWrapperStats;
 use crate::serve::rustls_proxy::RustlsHost;
 use crate::serve::{ServerTaskError, ServerTaskNotes, ServerTaskResult, ServerTaskStage};
 
@@ -231,7 +232,7 @@ impl RustlsRelayTask {
         // reset io stats
         // TODO add host level stats
         let clt_wrapper_stats =
-            RustlsRelayTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
+            StreamRelayTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
         tls_stream
             .get_mut()
             .0

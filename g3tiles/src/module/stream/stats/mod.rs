@@ -17,6 +17,9 @@
 mod server;
 pub(crate) use server::StreamServerStats;
 
+mod task;
+pub(crate) use task::{StreamAcceptTaskCltWrapperStats, StreamRelayTaskCltWrapperStats};
+
 mod backend;
 pub(crate) use backend::{
     StreamBackendDurationRecorder, StreamBackendDurationStats, StreamBackendStats,

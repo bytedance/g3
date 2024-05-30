@@ -31,10 +31,8 @@ use g3_types::net::Host;
 use g3_types::route::HostMatch;
 
 use super::{CommonTaskContext, RustlsRelayTask};
+use crate::module::stream::StreamAcceptTaskCltWrapperStats;
 use crate::serve::rustls_proxy::RustlsHost;
-
-mod stats;
-use stats::RustlsAcceptTaskCltWrapperStats;
 
 pub(crate) struct RustlsAcceptTask {
     ctx: CommonTaskContext,
@@ -58,7 +56,7 @@ impl RustlsAcceptTask {
 
         let pre_handshake_stats = Arc::new(TcpStreamConnectionStats::default());
         let wrapper_stats =
-            RustlsAcceptTaskCltWrapperStats::new(&self.ctx.server_stats, &pre_handshake_stats);
+            StreamAcceptTaskCltWrapperStats::new(&self.ctx.server_stats, &pre_handshake_stats);
 
         let limit_config = self.ctx.server_config.tcp_sock_speed_limit;
         let stream = LimitedStream::new(

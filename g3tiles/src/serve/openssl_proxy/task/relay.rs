@@ -26,10 +26,11 @@ use g3_io_ext::{LimitedCopy, LimitedCopyConfig, LimitedCopyError, LimitedStream}
 use g3_openssl::SslStream;
 use g3_types::limit::GaugeSemaphorePermit;
 
-use super::{CommonTaskContext, OpensslRelayTaskCltWrapperStats};
+use super::CommonTaskContext;
 use crate::backend::ArcBackend;
 use crate::config::server::ServerConfig;
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
+use crate::module::stream::StreamRelayTaskCltWrapperStats;
 use crate::serve::openssl_proxy::OpensslHost;
 use crate::serve::{ServerTaskError, ServerTaskNotes, ServerTaskResult, ServerTaskStage};
 
@@ -229,7 +230,7 @@ impl OpensslRelayTask {
         // reset io stats
         // TODO add host level stats
         let clt_wrapper_stats =
-            OpensslRelayTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
+            StreamRelayTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
         ssl_stream
             .get_mut()
             .reset_stats(Arc::new(clt_wrapper_stats));
