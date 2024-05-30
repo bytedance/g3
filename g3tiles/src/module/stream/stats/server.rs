@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ use g3_types::stats::{StatId, TcpIoSnapshot, TcpIoStats};
 
 use crate::serve::ServerStats;
 
-pub(crate) struct RustlsProxyServerStats {
+pub(crate) struct StreamServerStats {
     name: MetricsName,
     id: StatId,
 
@@ -41,9 +41,9 @@ pub(crate) struct RustlsProxyServerStats {
     // pub(crate) forbidden: ServerForbiddenStats,
 }
 
-impl RustlsProxyServerStats {
+impl StreamServerStats {
     pub(crate) fn new(name: &MetricsName) -> Self {
-        RustlsProxyServerStats {
+        StreamServerStats {
             name: name.clone(),
             id: StatId::new(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
@@ -94,7 +94,7 @@ impl RustlsProxyServerStats {
     }
 }
 
-impl ServerStats for RustlsProxyServerStats {
+impl ServerStats for StreamServerStats {
     #[inline]
     fn name(&self) -> &MetricsName {
         &self.name

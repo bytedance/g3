@@ -22,12 +22,12 @@ use slog::Logger;
 use g3_daemon::server::ClientConnectionInfo;
 
 use crate::config::server::rustls_proxy::RustlsProxyServerConfig;
-use crate::serve::rustls_proxy::RustlsProxyServerStats;
+use crate::module::stream::StreamServerStats;
 use crate::serve::ServerQuitPolicy;
 
 pub(crate) struct CommonTaskContext {
     pub server_config: Arc<RustlsProxyServerConfig>,
-    pub server_stats: Arc<RustlsProxyServerStats>,
+    pub server_stats: Arc<StreamServerStats>,
     pub server_quit_policy: Arc<ServerQuitPolicy>,
     pub cc_info: ClientConnectionInfo,
     pub task_logger: Logger,

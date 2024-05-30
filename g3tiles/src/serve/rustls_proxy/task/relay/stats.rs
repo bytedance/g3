@@ -19,19 +19,16 @@ use std::sync::Arc;
 use g3_daemon::stat::task::TcpStreamTaskStats;
 use g3_io_ext::{LimitedReaderStats, LimitedWriterStats};
 
-use crate::serve::rustls_proxy::RustlsProxyServerStats;
+use crate::module::stream::StreamServerStats;
 
 #[derive(Clone)]
 pub(crate) struct RustlsRelayTaskCltWrapperStats {
-    server: Arc<RustlsProxyServerStats>,
+    server: Arc<StreamServerStats>,
     task: Arc<TcpStreamTaskStats>,
 }
 
 impl RustlsRelayTaskCltWrapperStats {
-    pub(crate) fn new(
-        server: &Arc<RustlsProxyServerStats>,
-        task: &Arc<TcpStreamTaskStats>,
-    ) -> Self {
+    pub(crate) fn new(server: &Arc<StreamServerStats>, task: &Arc<TcpStreamTaskStats>) -> Self {
         RustlsRelayTaskCltWrapperStats {
             server: Arc::clone(server),
             task: Arc::clone(task),

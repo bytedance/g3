@@ -19,19 +19,16 @@ use std::sync::Arc;
 use g3_daemon::stat::task::TcpStreamTaskStats;
 use g3_io_ext::{LimitedReaderStats, LimitedWriterStats};
 
-use crate::serve::openssl_proxy::OpensslProxyServerStats;
+use crate::module::stream::StreamServerStats;
 
 #[derive(Clone)]
 pub(crate) struct OpensslRelayTaskCltWrapperStats {
-    server: Arc<OpensslProxyServerStats>,
+    server: Arc<StreamServerStats>,
     task: Arc<TcpStreamTaskStats>,
 }
 
 impl OpensslRelayTaskCltWrapperStats {
-    pub(crate) fn new(
-        server: &Arc<OpensslProxyServerStats>,
-        task: &Arc<TcpStreamTaskStats>,
-    ) -> Self {
+    pub(crate) fn new(server: &Arc<StreamServerStats>, task: &Arc<TcpStreamTaskStats>) -> Self {
         OpensslRelayTaskCltWrapperStats {
             server: Arc::clone(server),
             task: Arc::clone(task),
