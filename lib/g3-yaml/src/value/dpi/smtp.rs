@@ -38,6 +38,10 @@ pub fn as_smtp_interception_config(value: &Yaml) -> anyhow::Result<SmtpIntercept
                 config.allow_on_demand_mail_relay = crate::value::as_bool(v)?;
                 Ok(())
             }
+            "allow_burl_data" | "allow_burl" => {
+                config.allow_burl_data = crate::value::as_bool(v)?;
+                Ok(())
+            }
             _ => Err(anyhow!("invalid key {k}")),
         })?;
 

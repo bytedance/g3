@@ -18,9 +18,10 @@ use slog::slog_info;
 use tokio::io::AsyncWriteExt;
 
 use g3_dpi::ProtocolInspectPolicy;
-use g3_io_ext::OnceBufReader;
+use g3_io_ext::{LineRecvBuf, OnceBufReader};
 use g3_slog_types::{LtHost, LtUpstreamAddr, LtUuid};
-use g3_smtp_proto::response::{ReplyCode, ResponseEncoder};
+use g3_smtp_proto::command::Command;
+use g3_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseParser};
 use g3_types::net::{Host, UpstreamAddr};
 
 use super::StartTlsProtocol;
@@ -42,6 +43,15 @@ use initiation::Initiation;
 
 mod forward;
 use forward::{Forward, ForwardNextAction};
+
+mod transaction;
+use transaction::Transaction;
+
+#[derive(Default)]
+struct SmtpRelayBuf {
+    cmd_recv_buf: LineRecvBuf<{ Command::MAX_LINE_SIZE }>,
+    rsp_recv_buf: LineRecvBuf<{ ResponseParser::MAX_LINE_SIZE }>,
+}
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
@@ -231,24 +241,51 @@ where
 
         let allow_odmr = server_ext.allow_odmr(interception_config);
         let allow_starttls = server_ext.allow_starttls(self.from_starttls);
+        let allow_chunking = server_ext.allow_chunking();
+        let allow_burl = server_ext.allow_burl(interception_config);
 
-        let mut forward = Forward::new(local_ip, allow_odmr, allow_starttls);
-        let next_action = forward
-            .relay(&mut clt_r, &mut clt_w, &mut ups_r, &mut ups_w)
-            .await?;
-        match next_action {
-            ForwardNextAction::StartTls => {
-                return if let Some(tls_interception) = self.ctx.tls_interception() {
-                    let mut start_tls_obj = crate::inspect::start_tls::StartTlsInterceptObject::new(
-                        self.ctx.clone(),
-                        self.upstream.clone(),
-                        tls_interception,
-                        StartTlsProtocol::Smtp,
-                    );
-                    start_tls_obj.set_io(clt_r, clt_w, ups_r, ups_w);
-                    Ok(Some(StreamInspection::StartTls(start_tls_obj)))
-                } else {
-                    crate::inspect::stream::transit_transparent(
+        let mut relay_buf = SmtpRelayBuf::default();
+
+        loop {
+            let mut forward = Forward::new(local_ip, allow_odmr, allow_starttls);
+            let next_action = forward
+                .relay(
+                    &mut relay_buf,
+                    &mut clt_r,
+                    &mut clt_w,
+                    &mut ups_r,
+                    &mut ups_w,
+                )
+                .await?;
+            match next_action {
+                ForwardNextAction::Quit => return Ok(None),
+                ForwardNextAction::StartTls => {
+                    return if let Some(tls_interception) = self.ctx.tls_interception() {
+                        let mut start_tls_obj =
+                            crate::inspect::start_tls::StartTlsInterceptObject::new(
+                                self.ctx.clone(),
+                                self.upstream.clone(),
+                                tls_interception,
+                                StartTlsProtocol::Smtp,
+                            );
+                        start_tls_obj.set_io(clt_r, clt_w, ups_r, ups_w);
+                        Ok(Some(StreamInspection::StartTls(start_tls_obj)))
+                    } else {
+                        crate::inspect::stream::transit_transparent(
+                            clt_r,
+                            clt_w,
+                            ups_r,
+                            ups_w,
+                            &self.ctx.server_config,
+                            &self.ctx.server_quit_policy,
+                            self.ctx.user(),
+                        )
+                        .await
+                        .map(|_| None)
+                    }
+                }
+                ForwardNextAction::ReverseConnection => {
+                    return crate::inspect::stream::transit_transparent(
                         clt_r,
                         clt_w,
                         ups_r,
@@ -258,37 +295,25 @@ where
                         self.ctx.user(),
                     )
                     .await
-                    .map(|_| None)
+                    .map(|_| None);
+                }
+                ForwardNextAction::MailTransport(param) => {
+                    let mut transaction =
+                        Transaction::new(&self.ctx, local_ip, allow_chunking, allow_burl, param);
+                    transaction
+                        .relay(
+                            &mut relay_buf,
+                            &mut clt_r,
+                            &mut clt_w,
+                            &mut ups_r,
+                            &mut ups_w,
+                        )
+                        .await?;
+                    if transaction.quit() {
+                        return Ok(None);
+                    }
                 }
             }
-            ForwardNextAction::ReverseConnection => {
-                return crate::inspect::stream::transit_transparent(
-                    clt_r,
-                    clt_w,
-                    ups_r,
-                    ups_w,
-                    &self.ctx.server_config,
-                    &self.ctx.server_quit_policy,
-                    self.ctx.user(),
-                )
-                .await
-                .map(|_| None);
-            }
-            ForwardNextAction::MailTransport(_param) => {
-                // TODO
-            }
         }
-
-        crate::inspect::stream::transit_transparent(
-            clt_r,
-            clt_w,
-            ups_r,
-            ups_w,
-            &self.ctx.server_config,
-            &self.ctx.server_quit_policy,
-            self.ctx.user(),
-        )
-        .await
-        .map(|_| None)
     }
 }

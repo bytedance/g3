@@ -160,12 +160,16 @@ impl<const MAX_LINE_SIZE: usize> CommandLineRecvExt for LineRecvBuf<MAX_LINE_SIZ
         match self.read_line(clt_r).await {
             Ok(line) => match Command::parse_line(line) {
                 Ok(cmd) => {
+                    let is_burl = matches!(cmd, Command::DataByUrl(_) | Command::LastDataByUrl(_));
                     if let Some(rsp_encoder) = check_cmd(cmd) {
                         rsp_encoder
                             .write(clt_w)
                             .await
                             .map_err(ServerTaskError::ClientTcpWriteFailed)?;
                         Ok(None)
+                    } else if is_burl {
+                        // DO NOT send BURL line out, we will do it later
+                        Ok(Some(line))
                     } else if let Err(e) = send_cmd(ups_w, line).await {
                         let _ = ResponseEncoder::upstream_io_error(local_ip, &e)
                             .write(clt_w)

@@ -56,6 +56,7 @@ impl ReplyCode {
     def_const_code!(OK, b'2', b'5', b'0');
 
     def_const_code!(AUTH_CONTINUE, b'3', b'3', b'4');
+    def_const_code!(START_MAIL_INPUT, b'3', b'5', b'4');
 
     def_const_code!(BAD_SEQUENCE_OF_COMMANDS, b'5', b'0', b'3');
     def_const_code!(AUTHENTICATION_REQUIRED, b'5', b'3', b'0');

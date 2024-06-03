@@ -32,6 +32,8 @@ use crate::serve::{ServerTaskError, ServerTaskResult};
 pub(super) struct InitializedExtensions {
     odmr: bool,
     starttls: bool,
+    chunking: bool,
+    burl: bool,
 }
 
 impl InitializedExtensions {
@@ -41,6 +43,14 @@ impl InitializedExtensions {
 
     pub(super) fn allow_starttls(&self, from_starttls: bool) -> bool {
         self.starttls && !from_starttls
+    }
+
+    pub(super) fn allow_chunking(&self) -> bool {
+        self.chunking
+    }
+
+    pub(super) fn allow_burl(&self, config: &SmtpInterceptionConfig) -> bool {
+        self.burl && config.allow_burl_data
     }
 }
 
@@ -188,7 +198,10 @@ impl<'a> Initiation<'a> {
                 // Authentication, RFC4954, add AUTH command
                 "AUTH" => true,
                 // BURL, RFC4468, add BURL command
-                "BURL" => true,
+                "BURL" => {
+                    self.server_ext.burl = true;
+                    self.config.allow_burl_data
+                }
                 // Future Message Release, RFC4865, add MAIL param keys
                 "FUTURERELEASE" => true,
                 // Priority Message Handling, RFC6710, add a MAIL param key
@@ -216,7 +229,10 @@ impl<'a> Initiation<'a> {
                 // One message transaction only
                 "ONEX" => true,
                 // CHUNKING, RFC3030, add BDAT command
-                "CHUNKING" => true,
+                "CHUNKING" => {
+                    self.server_ext.chunking = true;
+                    true
+                }
                 // BINARYMIME, RFC3030, add a MAIL BODY param value, require CHUNKING
                 "BINARYMIME" => true,
                 // Deliver By, RFC2852, add a MAIL BY param key
@@ -239,7 +255,10 @@ impl<'a> Initiation<'a> {
                 // Message Tracking, RFC3885, add a MAIL MTRK param key
                 "MTRK" => true,
                 // BURL, RFC4468, add BURL command, no param means AUTH is required
-                "BURL" => true,
+                "BURL" => {
+                    self.server_ext.burl = true;
+                    self.config.allow_burl_data
+                }
                 // Content-Conversion-Permission, RFC4141, add a MAIL param key
                 "CONPERM" => true,
                 // Content-Negotiation, RFC4141, add a RCPT param key

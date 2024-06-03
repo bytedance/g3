@@ -63,6 +63,7 @@ pub enum Command {
     BinaryData(usize),
     LastBinaryData(usize),
     DataByUrl(String),
+    LastDataByUrl(String),
     KnownForward(&'static str),
     Unknown(String),
 }
@@ -102,10 +103,7 @@ impl Command {
                     Ok(Command::Recipient(param))
                 }
                 b"BDAT" => binary_data_parse_param(left),
-                b"BURL" => {
-                    let url = str::from_utf8(left).map_err(CommandLineError::InvalidUtf8Command)?;
-                    Ok(Command::DataByUrl(url.to_string()))
-                }
+                b"BURL" => burl_data_parse_param(left),
                 b"VRFY" => Ok(Command::KnownForward("VRFY")),
                 b"EXPN" => Ok(Command::KnownForward("EXPN")),
                 b"HELP" => Ok(Command::KnownForward("HELP")),
@@ -154,6 +152,30 @@ fn binary_data_parse_param(msg: &[u8]) -> Result<Command, CommandLineError> {
         let size = usize::from_str(number)
             .map_err(|_| CommandLineError::InvalidCommandParam("BDAT", "invalid chunk size"))?;
         Ok(Command::BinaryData(size))
+    }
+}
+
+fn burl_data_parse_param(msg: &[u8]) -> Result<Command, CommandLineError> {
+    // burl-param  = "imap" / ("imap://" authority)
+    // ; parameter to BURL EHLO keyword
+
+    // burl-cmd    = "BURL" SP absolute-URI [SP end-marker] CRLF
+
+    // end-marker  = "LAST"
+
+    if let Some(p) = memchr::memchr(b' ', msg) {
+        let end_marker = &msg[p + 1..];
+        if end_marker != b"LAST" {
+            return Err(CommandLineError::InvalidCommandParam(
+                "BURL",
+                "invalid end marker",
+            ));
+        }
+        let url = str::from_utf8(&msg[..p]).map_err(CommandLineError::InvalidUtf8Command)?;
+        Ok(Command::LastDataByUrl(url.to_string()))
+    } else {
+        let url = str::from_utf8(msg).map_err(CommandLineError::InvalidUtf8Command)?;
+        Ok(Command::DataByUrl(url.to_string()))
     }
 }
 

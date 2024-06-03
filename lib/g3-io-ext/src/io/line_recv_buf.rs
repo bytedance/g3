@@ -115,6 +115,24 @@ impl<const MAX_LINE_SIZE: usize> LineRecvBuf<MAX_LINE_SIZE> {
         self.line_end = 0;
     }
 
+    pub fn consume_left(&mut self, max_size: usize) -> &[u8] {
+        if self.line_start >= self.length {
+            return &[];
+        }
+        let left = self.length - self.line_start;
+        let start = self.line_start;
+        if max_size >= left {
+            let end = self.length;
+            self.length = 0;
+            self.line_start = 0;
+            self.line_end = 0;
+            &self.buf[start..end]
+        } else {
+            self.line_start += max_size;
+            &self.buf[start..self.line_start]
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.length == 0
     }
