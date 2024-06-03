@@ -12,10 +12,12 @@ on:
     branches:
       - 'master'
       - 'rel/**'
+      - 'lts/**'
   pull_request:
     branches:
       - 'master'
       - 'rel/**'
+      - 'lts/**'
 
 env:
   CARGO_TERM_COLOR: always
