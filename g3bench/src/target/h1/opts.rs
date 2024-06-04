@@ -235,15 +235,13 @@ impl BenchHttpArgs {
                     }
                 }
                 Proxy::Socks5(socks5_proxy) => {
-                    let stream = self.new_tcp_connection(proc_args).await.context(format!(
+                    let mut stream = self.new_tcp_connection(proc_args).await.context(format!(
                         "failed to connect to socks5 proxy {}",
                         socks5_proxy.peer()
                     ))?;
-                    let (mut r, mut w) = stream.into_split();
 
                     g3_socks::v5::client::socks5_connect_to(
-                        &mut r,
-                        &mut w,
+                        &mut stream,
                         &socks5_proxy.auth,
                         &self.target,
                     )
@@ -253,9 +251,9 @@ impl BenchHttpArgs {
                     })?;
 
                     if let Some(tls_client) = &self.target_tls.client {
-                        self.tls_connect_to_peer(tls_client, tokio::io::join(r, w))
-                            .await
+                        self.tls_connect_to_peer(tls_client, stream).await
                     } else {
+                        let (r, w) = stream.into_split();
                         Ok((Box::new(r), Box::new(w)))
                     }
                 }

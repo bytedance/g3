@@ -141,11 +141,10 @@ impl BenchH3Args {
                 .ok_or_else(|| anyhow!("no proxy addr set"))?;
             let peer = *proc_args.select_peer(proxy_addrs);
 
-            let stream = self.new_tcp_connection(peer).await.context(format!(
+            let mut stream = self.new_tcp_connection(peer).await.context(format!(
                 "failed to connect to socks5 proxy {}",
                 socks5_proxy.peer()
             ))?;
-            let (mut r, mut w) = stream.into_split();
 
             let socket = g3_socket::udp::new_std_socket_to(
                 peer,
@@ -159,8 +158,7 @@ impl BenchH3Args {
                 .local_addr()
                 .map_err(|e| anyhow!("failed to get local addr of udp socket: {e}"))?;
             let peer_udp_addr = g3_socks::v5::client::socks5_udp_associate(
-                &mut r,
-                &mut w,
+                &mut stream,
                 &socks5_proxy.auth,
                 local_udp_addr,
             )
@@ -176,10 +174,9 @@ impl BenchH3Args {
                 anyhow!("failed to connect local udp socket to {peer_udp_addr}: {e}")
             })?;
 
-            let tcp_stream = r.reunite(w).unwrap();
             let limit = &proc_args.udp_sock_speed_limit;
             let runtime = LimitedTokioRuntime::new(
-                Socks5UdpTokioRuntime::new(tcp_stream, quic_peer),
+                Socks5UdpTokioRuntime::new(stream, quic_peer),
                 limit.shift_millis,
                 limit.max_north_packets,
                 limit.max_north_bytes,

@@ -36,9 +36,10 @@ impl ProxySocks5Escaper {
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
-        let (ups_r, mut ups_w) = self
+        let ups_s = self
             .timed_socks5_connect_tcp_connect_to(tcp_notes, task_notes)
             .await?;
+        let (ups_r, mut ups_w) = ups_s.into_split_tcp();
 
         // add task and user stats
         let mut w_wrapper_stats = HttpForwardRemoteWrapperStats::new(&self.stats, &task_stats);

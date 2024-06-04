@@ -136,6 +136,10 @@ impl<R> LimitedReader<R> {
         }
     }
 
+    pub(crate) fn from_parts(inner: R, state: LimitedReaderState) -> Self {
+        LimitedReader { inner, state }
+    }
+
     #[inline]
     pub fn reset_stats(&mut self, stats: ArcLimitedReaderStats) {
         self.state.reset_stats(stats);

@@ -16,11 +16,11 @@
 
 use std::net::{IpAddr, SocketAddr};
 
-use tokio::net::{tcp, TcpSocket, TcpStream};
+use tokio::net::{TcpSocket, TcpStream};
 use tokio::task::JoinSet;
 use tokio::time::Instant;
 
-use g3_io_ext::{LimitedReader, LimitedWriter};
+use g3_io_ext::LimitedStream;
 use g3_types::net::{ConnectError, Host};
 
 use super::ProxySocks5Escaper;
@@ -291,30 +291,18 @@ impl ProxySocks5Escaper {
         &'a self,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
-    ) -> Result<
-        (
-            LimitedReader<tcp::OwnedReadHalf>,
-            LimitedWriter<tcp::OwnedWriteHalf>,
-        ),
-        TcpConnectError,
-    > {
+    ) -> Result<LimitedStream<TcpStream>, TcpConnectError> {
         let stream = self.tcp_connect_to(tcp_notes, task_notes).await?;
-        let (r, w) = stream.into_split();
 
         let limit_config = &self.config.general.tcp_sock_speed_limit;
-        let r = LimitedReader::new(
-            r,
+        let stream = LimitedStream::new(
+            stream,
             limit_config.shift_millis,
             limit_config.max_south,
-            self.stats.clone() as _,
-        );
-        let w = LimitedWriter::new(
-            w,
-            limit_config.shift_millis,
             limit_config.max_north,
             self.stats.clone() as _,
         );
 
-        Ok((r, w))
+        Ok(stream)
     }
 }

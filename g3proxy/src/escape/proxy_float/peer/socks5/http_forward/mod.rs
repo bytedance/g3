@@ -42,9 +42,10 @@ impl ProxyFloatSocks5Peer {
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
-        let (ups_r, mut ups_w) = self
+        let ups_s = self
             .timed_socks5_connect_tcp_connect_to(tcp_notes, task_notes)
             .await?;
+        let (ups_r, mut ups_w) = ups_s.into_split_tcp();
 
         let mut w_wrapper_stats =
             HttpForwardRemoteWrapperStats::new(&self.escaper_stats, &task_stats);

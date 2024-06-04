@@ -214,15 +214,13 @@ impl BenchH2Args {
                     self.connect_to_target(proc_args, stream, stats).await
                 }
                 Proxy::Socks5(socks5_proxy) => {
-                    let stream = self.new_tcp_connection(proc_args).await.context(format!(
+                    let mut stream = self.new_tcp_connection(proc_args).await.context(format!(
                         "failed to connect to socks5 proxy {}",
                         socks5_proxy.peer()
                     ))?;
-                    let (mut r, mut w) = stream.into_split();
 
                     g3_socks::v5::client::socks5_connect_to(
-                        &mut r,
-                        &mut w,
+                        &mut stream,
                         &socks5_proxy.auth,
                         &self.target,
                     )
@@ -231,7 +229,6 @@ impl BenchH2Args {
                         anyhow!("socks5 connect to {} failed: {e}", socks5_proxy.peer())
                     })?;
 
-                    let stream = r.reunite(w).unwrap();
                     self.connect_to_target(proc_args, stream, stats).await
                 }
             }

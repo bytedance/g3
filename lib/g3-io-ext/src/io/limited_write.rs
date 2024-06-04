@@ -136,6 +136,10 @@ impl<W: AsyncWrite> LimitedWriter<W> {
         }
     }
 
+    pub(crate) fn from_parts(inner: W, state: LimitedWriterState) -> Self {
+        LimitedWriter { inner, state }
+    }
+
     #[inline]
     pub fn reset_stats(&mut self, stats: ArcLimitedWriterStats) {
         self.state.reset_stats(stats)

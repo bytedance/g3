@@ -89,30 +89,26 @@ where
     writer.flush().await
 }
 
-pub(crate) async fn send_and_recv_method<R, W>(
-    reader: &mut R,
-    writer: &mut W,
+pub(crate) async fn send_and_recv_method<S>(
+    buf_stream: &mut S,
     auth: &SocksAuth,
 ) -> Result<SocksAuthMethod, SocksConnectError>
 where
-    R: AsyncBufRead + Unpin,
-    W: AsyncWrite + Unpin,
+    S: AsyncBufRead + AsyncWrite + Unpin,
 {
-    send_methods_to_remote(writer, auth)
+    send_methods_to_remote(buf_stream, auth)
         .await
         .map_err(SocksConnectError::WriteFailed)?;
-    recv_method_from_remote(reader).await
+    recv_method_from_remote(buf_stream).await
 }
 
-pub(crate) async fn proceed_with_user<R, W>(
-    reader: &mut R,
-    writer: &mut W,
+pub(crate) async fn proceed_with_user<S>(
+    buf_stream: &mut S,
     username: &Username,
     password: &Password,
 ) -> Result<(), SocksConnectError>
 where
-    R: AsyncBufRead + Unpin,
-    W: AsyncWrite + Unpin,
+    S: AsyncBufRead + AsyncWrite + Unpin,
 {
     let mut buf = BytesMut::with_capacity(513);
     buf.put_u8(0x01);
@@ -121,16 +117,16 @@ where
     buf.put_u8(password.len());
     buf.put_slice(password.as_original().as_bytes());
 
-    writer
+    buf_stream
         .write_all(buf.as_ref())
         .await
         .map_err(SocksConnectError::WriteFailed)?;
-    writer
+    buf_stream
         .flush()
         .await
         .map_err(SocksConnectError::WriteFailed)?;
 
-    let version = reader
+    let version = buf_stream
         .read_u8()
         .await
         .map_err(SocksConnectError::ReadFailed)?;
@@ -138,7 +134,7 @@ where
         return Err(SocksConnectError::UnsupportedAuthVersion);
     }
 
-    let status = reader
+    let status = buf_stream
         .read_u8()
         .await
         .map_err(SocksConnectError::ReadFailed)?;
