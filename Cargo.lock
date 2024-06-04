@@ -1183,7 +1183,7 @@ dependencies = [
 
 [[package]]
 name = "g3-http"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "ahash",
  "atoi",
@@ -1405,7 +1405,7 @@ dependencies = [
 
 [[package]]
 name = "g3-socks"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bytes",
  "g3-io-ext",
