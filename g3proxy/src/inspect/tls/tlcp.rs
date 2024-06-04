@@ -20,7 +20,6 @@ use anyhow::anyhow;
 use openssl::ssl::Ssl;
 
 use g3_dpi::{Protocol, ProtocolInspector};
-use g3_io_ext::AggregatedIo;
 use g3_openssl::{SslConnector, SslLazyAcceptor};
 use g3_types::net::{AlpnProtocol, Host, TlsCertUsage, TlsServiceType};
 
