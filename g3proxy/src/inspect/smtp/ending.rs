@@ -61,6 +61,9 @@ impl EndQuitServer {
             let line = recv_buf.read_line(&mut ups_r).await.map_err(|e| match e {
                 RecvLineError::IoError(e) => ServerTaskError::UpstreamReadFailed(e),
                 RecvLineError::IoClosed => ServerTaskError::ClosedByUpstream,
+                RecvLineError::Timeout => {
+                    ServerTaskError::UpstreamAppTimeout("timeout to get upstream response")
+                }
                 RecvLineError::LineTooLong => {
                     ServerTaskError::UpstreamAppError(anyhow!("SMTP response line too long"))
                 }
@@ -95,7 +98,24 @@ impl EndWaitClient {
         EndWaitClient { local_ip }
     }
 
-    pub(super) async fn run_to_end<R, W>(self, mut clt_r: R, mut clt_w: W) -> ServerTaskResult<()>
+    pub(super) async fn run_to_end<R, W>(
+        self,
+        clt_r: R,
+        clt_w: W,
+        timeout: Duration,
+    ) -> ServerTaskResult<()>
+    where
+        R: AsyncRead + Unpin,
+        W: AsyncWrite + Unpin,
+    {
+        tokio::time::timeout(timeout, self.wait_quit_command(clt_r, clt_w))
+            .await
+            .map_err(|_| {
+                ServerTaskError::ClientAppError(anyhow!("timeout to wait SMTP QUIT command"))
+            })?
+    }
+
+    async fn wait_quit_command<R, W>(self, mut clt_r: R, mut clt_w: W) -> ServerTaskResult<()>
     where
         R: AsyncRead + Unpin,
         W: AsyncWrite + Unpin,
@@ -108,6 +128,9 @@ impl EndWaitClient {
                     let e = match e {
                         RecvLineError::IoError(e) => ServerTaskError::ClientTcpReadFailed(e),
                         RecvLineError::IoClosed => ServerTaskError::ClosedByClient,
+                        RecvLineError::Timeout => {
+                            ServerTaskError::ClientAppTimeout("timeout to wait client command")
+                        }
                         RecvLineError::LineTooLong => {
                             let _ = ResponseEncoder::COMMAND_LINE_TOO_LONG
                                 .write(&mut clt_w)

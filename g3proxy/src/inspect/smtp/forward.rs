@@ -18,6 +18,7 @@ use std::net::IpAddr;
 
 use tokio::io::{AsyncRead, AsyncWrite};
 
+use g3_dpi::SmtpInterceptionConfig;
 use g3_io_ext::{LimitedWriteExt, LineRecvBuf};
 use g3_smtp_proto::command::{Command, MailParam};
 use g3_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseParser};
@@ -32,16 +33,23 @@ pub(super) enum ForwardNextAction {
     MailTransport(MailParam),
 }
 
-pub(super) struct Forward {
+pub(super) struct Forward<'a> {
+    config: &'a SmtpInterceptionConfig,
     local_ip: IpAddr,
     allow_odmr: bool,
     allow_starttls: bool,
     auth_end: bool,
 }
 
-impl Forward {
-    pub(super) fn new(local_ip: IpAddr, allow_odmr: bool, allow_starttls: bool) -> Self {
+impl<'a> Forward<'a> {
+    pub(super) fn new(
+        config: &'a SmtpInterceptionConfig,
+        local_ip: IpAddr,
+        allow_odmr: bool,
+        allow_starttls: bool,
+    ) -> Self {
         Forward {
+            config,
             local_ip,
             allow_odmr,
             allow_starttls,
@@ -68,6 +76,7 @@ impl Forward {
             let Some(_cmd_line) = buf
                 .cmd_recv_buf
                 .recv_cmd_and_relay(
+                    self.config.command_wait_timeout,
                     clt_r,
                     clt_w,
                     ups_w,
@@ -162,7 +171,12 @@ impl Forward {
         loop {
             let line = buf
                 .rsp_recv_buf
-                .read_rsp_line_with_feedback(ups_r, clt_w, self.local_ip)
+                .read_rsp_line_with_feedback(
+                    self.config.response_wait_timeout,
+                    ups_r,
+                    clt_w,
+                    self.local_ip,
+                )
                 .await?;
             let _msg = rsp
                 .feed_line_with_feedback(line, clt_w, self.local_ip)
@@ -174,7 +188,12 @@ impl Forward {
                 .map_err(ServerTaskError::ClientTcpWriteFailed)?;
 
             if rsp.finished() {
-                return Ok(rsp.code());
+                let code = rsp.code();
+                return if code == ReplyCode::SERVICE_NOT_AVAILABLE {
+                    Err(ServerTaskError::UpstreamAppUnavailable)
+                } else {
+                    Ok(code)
+                };
             }
         }
     }
@@ -205,7 +224,10 @@ impl Forward {
             }
 
             let mut recv_buf = LineRecvBuf::<{ Command::MAX_CONTINUE_LINE_SIZE }>::default();
-            match recv_buf.read_line(clt_r).await {
+            match recv_buf
+                .read_line_with_timeout(clt_r, self.config.command_wait_timeout)
+                .await
+            {
                 Ok(line) => {
                     ups_w
                         .write_all_flush(line)

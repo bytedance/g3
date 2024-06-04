@@ -15,11 +15,13 @@
  */
 
 use std::net::IpAddr;
+use std::time::Duration;
 
 use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
+use g3_dpi::SmtpInterceptionConfig;
 use g3_io_ext::{LimitedCopy, LimitedCopyError, LimitedWriteExt};
 use g3_smtp_proto::command::{Command, MailParam, RecipientParam};
 use g3_smtp_proto::io::TextDataReader;
@@ -31,6 +33,7 @@ use crate::inspect::StreamInspectContext;
 use crate::serve::{ServerTaskError, ServerTaskResult};
 
 pub(super) struct Transaction<'a, SC: ServerConfig> {
+    config: &'a SmtpInterceptionConfig,
     ctx: &'a StreamInspectContext<SC>,
     local_ip: IpAddr,
     allow_chunking: bool,
@@ -50,6 +53,7 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
         from: MailParam,
     ) -> Self {
         Transaction {
+            config: ctx.smtp_interception(),
             ctx,
             local_ip,
             allow_chunking,
@@ -86,6 +90,7 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
             let Some(cmd_line) = buf
                 .cmd_recv_buf
                 .recv_cmd_and_relay(
+                    self.config.command_wait_timeout,
                     clt_r,
                     clt_w,
                     ups_w,
@@ -124,40 +129,56 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
 
             match valid_cmd {
                 Command::Recipient(p) => {
-                    let _ = self.recv_relay_rsp(buf, ups_r, clt_w).await?;
+                    let _ = self
+                        .recv_relay_rsp(self.config.response_wait_timeout, buf, ups_r, clt_w)
+                        .await?;
                     self.mail_to.push(p);
                 }
                 Command::Data => {
-                    let rsp = self.recv_relay_rsp(buf, ups_r, clt_w).await?;
+                    let rsp = self
+                        .recv_relay_rsp(self.config.data_initiation_timeout, buf, ups_r, clt_w)
+                        .await?;
                     if rsp != ReplyCode::START_MAIL_INPUT {
                         continue;
                     }
                     self.send_txt_data(clt_r, ups_w).await?;
-                    let _ = self.recv_relay_rsp(buf, ups_r, clt_w).await?;
+                    let _ = self
+                        .recv_relay_rsp(self.config.data_termination_timeout, buf, ups_r, clt_w)
+                        .await?;
                     return Ok(());
                 }
                 Command::BinaryData(size) => {
                     self.send_bin_data(buf, clt_r, ups_w, size).await?;
-                    let _ = self.recv_relay_rsp(buf, ups_r, clt_w).await?;
+                    let _ = self
+                        .recv_relay_rsp(self.config.data_termination_timeout, buf, ups_r, clt_w)
+                        .await?;
                     in_chunking = true;
                 }
                 Command::LastBinaryData(size) => {
                     self.send_bin_data(buf, clt_r, ups_w, size).await?;
-                    let _ = self.recv_relay_rsp(buf, ups_r, clt_w).await?;
+                    let _ = self
+                        .recv_relay_rsp(self.config.data_termination_timeout, buf, ups_r, clt_w)
+                        .await?;
                     return Ok(());
                 }
                 Command::DataByUrl(url) => {
                     self.send_burl(ups_w, cmd_line, url).await?;
-                    let _ = self.recv_relay_rsp(buf, ups_r, clt_w).await?;
+                    let _ = self
+                        .recv_relay_rsp(self.config.data_termination_timeout, buf, ups_r, clt_w)
+                        .await?;
                     in_chunking = true;
                 }
                 Command::LastDataByUrl(url) => {
                     self.send_burl(ups_w, cmd_line, url).await?;
-                    let _ = self.recv_relay_rsp(buf, ups_r, clt_w).await?;
+                    let _ = self
+                        .recv_relay_rsp(self.config.data_termination_timeout, buf, ups_r, clt_w)
+                        .await?;
                     return Ok(());
                 }
                 Command::NoOperation => {
-                    let rsp = self.recv_relay_rsp(buf, ups_r, clt_w).await?;
+                    let rsp = self
+                        .recv_relay_rsp(self.config.response_wait_timeout, buf, ups_r, clt_w)
+                        .await?;
                     if rsp != ReplyCode::OK {
                         return Err(ServerTaskError::UpstreamAppError(anyhow!(
                             "unexpected NOOP reply code {rsp}"
@@ -165,7 +186,9 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
                     }
                 }
                 Command::Reset => {
-                    let rsp = self.recv_relay_rsp(buf, ups_r, clt_w).await?;
+                    let rsp = self
+                        .recv_relay_rsp(self.config.response_wait_timeout, buf, ups_r, clt_w)
+                        .await?;
                     return if rsp != ReplyCode::OK {
                         Err(ServerTaskError::UpstreamAppError(anyhow!(
                             "unexpected RESET reply code {rsp}"
@@ -175,7 +198,9 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
                     };
                 }
                 Command::Quit => {
-                    let _ = self.recv_relay_rsp(buf, ups_r, clt_w).await?;
+                    let _ = self
+                        .recv_relay_rsp(self.config.response_wait_timeout, buf, ups_r, clt_w)
+                        .await?;
                     self.quit = true;
                     return Ok(());
                 }
@@ -186,6 +211,7 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
 
     async fn recv_relay_rsp<CW, UR>(
         &mut self,
+        recv_timeout: Duration,
         buf: &mut SmtpRelayBuf,
         ups_r: &mut UR,
         clt_w: &mut CW,
@@ -198,7 +224,7 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
         loop {
             let line = buf
                 .rsp_recv_buf
-                .read_rsp_line_with_feedback(ups_r, clt_w, self.local_ip)
+                .read_rsp_line_with_feedback(recv_timeout, ups_r, clt_w, self.local_ip)
                 .await?;
             let _msg = rsp
                 .feed_line_with_feedback(line, clt_w, self.local_ip)
@@ -210,7 +236,12 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
                 .map_err(ServerTaskError::ClientTcpWriteFailed)?;
 
             if rsp.finished() {
-                return Ok(rsp.code());
+                let code = rsp.code();
+                return if code == ReplyCode::SERVICE_NOT_AVAILABLE {
+                    Err(ServerTaskError::UpstreamAppUnavailable)
+                } else {
+                    Ok(code)
+                };
             }
         }
     }

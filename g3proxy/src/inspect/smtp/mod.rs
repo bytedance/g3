@@ -175,7 +175,13 @@ where
             .write(&mut clt_w)
             .await
             .map_err(ServerTaskError::ClientTcpWriteFailed)?;
-        EndWaitClient::new(local_ip).run_to_end(clt_r, clt_w).await
+        EndWaitClient::new(local_ip)
+            .run_to_end(
+                clt_r,
+                clt_w,
+                self.ctx.smtp_interception().command_wait_timeout,
+            )
+            .await
     }
 
     async fn do_intercept(&mut self) -> ServerTaskResult<Option<StreamInspection<SC>>> {
@@ -209,12 +215,12 @@ where
         let (code, host) = greeting.into_parts();
         self.upstream.set_host(host);
         if code == ReplyCode::NO_SERVICE {
-            let timeout = interception_config.quit_wait_timeout;
+            let quit_wait_timeout = interception_config.quit_wait_timeout;
             tokio::spawn(async move {
-                let _ = EndQuitServer::run_to_end(ups_r, ups_w, timeout).await;
+                let _ = EndQuitServer::run_to_end(ups_r, ups_w, quit_wait_timeout).await;
             });
             return EndWaitClient::new(local_ip)
-                .run_to_end(clt_r, clt_w)
+                .run_to_end(clt_r, clt_w, interception_config.command_wait_timeout)
                 .await
                 .map(|_| None);
         }
@@ -247,7 +253,8 @@ where
         let mut relay_buf = SmtpRelayBuf::default();
 
         loop {
-            let mut forward = Forward::new(local_ip, allow_odmr, allow_starttls);
+            let mut forward =
+                Forward::new(interception_config, local_ip, allow_odmr, allow_starttls);
             let next_action = forward
                 .relay(
                     &mut relay_buf,

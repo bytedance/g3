@@ -64,6 +64,7 @@ impl Greeting {
             let line = recv_buf.read_line(&mut ups_r).await.map_err(|e| match e {
                 RecvLineError::IoError(e) => GreetingError::UpstreamReadFailed(e),
                 RecvLineError::IoClosed => GreetingError::UpstreamClosed,
+                RecvLineError::Timeout => GreetingError::Timeout,
                 RecvLineError::LineTooLong => GreetingError::TooLongResponseLine,
             })?;
 

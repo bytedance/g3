@@ -15,6 +15,7 @@
  */
 
 use std::io;
+use std::time::Duration;
 
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncReadExt};
@@ -25,6 +26,8 @@ pub enum RecvLineError {
     IoError(#[from] io::Error),
     #[error("io closed")]
     IoClosed,
+    #[error("read line timeout")]
+    Timeout,
     #[error("line too long")]
     LineTooLong,
 }
@@ -48,6 +51,19 @@ impl<const MAX_LINE_SIZE: usize> Default for LineRecvBuf<MAX_LINE_SIZE> {
 }
 
 impl<const MAX_LINE_SIZE: usize> LineRecvBuf<MAX_LINE_SIZE> {
+    pub async fn read_line_with_timeout<'a, R>(
+        &'a mut self,
+        reader: &mut R,
+        timeout: Duration,
+    ) -> Result<&[u8], RecvLineError>
+    where
+        R: AsyncRead + Unpin,
+    {
+        tokio::time::timeout(timeout, self.read_line(reader))
+            .await
+            .map_err(|_| RecvLineError::Timeout)?
+    }
+
     pub async fn read_line<'a, R>(&'a mut self, reader: &mut R) -> Result<&[u8], RecvLineError>
     where
         R: AsyncRead + Unpin,

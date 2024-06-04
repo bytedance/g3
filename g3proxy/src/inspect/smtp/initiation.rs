@@ -100,6 +100,7 @@ impl<'a> Initiation<'a> {
         loop {
             let Some(_cmd_line) = cmd_recv_buf
                 .recv_cmd_and_relay(
+                    self.config.command_wait_timeout,
                     clt_r,
                     clt_w,
                     ups_w,
@@ -144,39 +145,58 @@ impl<'a> Initiation<'a> {
         let mut rsp = ResponseParser::default();
         loop {
             let line = rsp_recv_buf
-                .read_rsp_line_with_feedback(ups_r, clt_w, self.local_ip)
+                .read_rsp_line_with_feedback(
+                    self.config.response_wait_timeout,
+                    ups_r,
+                    clt_w,
+                    self.local_ip,
+                )
                 .await?;
             let msg = rsp
                 .feed_line_with_feedback(line, clt_w, self.local_ip)
                 .await?;
 
-            if rsp.code() == ReplyCode::OK {
-                if rsp.is_first_line() || self.allow_extension(msg) {
+            match rsp.code() {
+                ReplyCode::OK => {
+                    if rsp.is_first_line() || self.allow_extension(msg) {
+                        clt_w
+                            .write_all(line)
+                            .await
+                            .map_err(ServerTaskError::ClientTcpWriteFailed)?;
+                    }
+
+                    if rsp.finished() {
+                        clt_w
+                            .flush()
+                            .await
+                            .map_err(ServerTaskError::ClientTcpWriteFailed)?;
+                        return Ok(Some(()));
+                    }
+                }
+                ReplyCode::SERVICE_NOT_AVAILABLE => {
                     clt_w
                         .write_all(line)
                         .await
                         .map_err(ServerTaskError::ClientTcpWriteFailed)?;
-                }
 
-                if rsp.finished() {
+                    if rsp.finished() {
+                        let _ = clt_w.flush().await;
+                        return Err(ServerTaskError::UpstreamAppUnavailable);
+                    }
+                }
+                _ => {
                     clt_w
-                        .flush()
+                        .write_all(line)
                         .await
                         .map_err(ServerTaskError::ClientTcpWriteFailed)?;
-                    return Ok(Some(()));
-                }
-            } else {
-                clt_w
-                    .write_all(line)
-                    .await
-                    .map_err(ServerTaskError::ClientTcpWriteFailed)?;
 
-                if rsp.finished() {
-                    clt_w
-                        .flush()
-                        .await
-                        .map_err(ServerTaskError::ClientTcpWriteFailed)?;
-                    return Ok(None);
+                    if rsp.finished() {
+                        clt_w
+                            .flush()
+                            .await
+                            .map_err(ServerTaskError::ClientTcpWriteFailed)?;
+                        return Ok(None);
+                    }
                 }
             }
         }

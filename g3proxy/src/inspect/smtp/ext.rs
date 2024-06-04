@@ -16,6 +16,7 @@
 
 use std::io;
 use std::net::IpAddr;
+use std::time::Duration;
 
 use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncWrite};
@@ -29,6 +30,7 @@ use crate::serve::{ServerTaskError, ServerTaskResult};
 pub(super) trait ResponseLineRecvExt {
     async fn read_rsp_line_with_feedback<'a, R, W>(
         &'a mut self,
+        recv_timeout: Duration,
         ups_r: &mut R,
         clt_w: &mut W,
         local_ip: IpAddr,
@@ -41,6 +43,7 @@ pub(super) trait ResponseLineRecvExt {
 impl<const MAX_LINE_SIZE: usize> ResponseLineRecvExt for LineRecvBuf<MAX_LINE_SIZE> {
     async fn read_rsp_line_with_feedback<'a, R, W>(
         &'a mut self,
+        recv_timeout: Duration,
         ups_r: &mut R,
         clt_w: &mut W,
         local_ip: IpAddr,
@@ -49,7 +52,7 @@ impl<const MAX_LINE_SIZE: usize> ResponseLineRecvExt for LineRecvBuf<MAX_LINE_SI
         R: AsyncRead + Unpin,
         W: AsyncWrite + Unpin,
     {
-        match self.read_line(ups_r).await {
+        match self.read_line_with_timeout(ups_r, recv_timeout).await {
             Ok(line) => Ok(line),
             Err(e) => match e {
                 RecvLineError::IoError(e) => {
@@ -63,6 +66,14 @@ impl<const MAX_LINE_SIZE: usize> ResponseLineRecvExt for LineRecvBuf<MAX_LINE_SI
                         .write(clt_w)
                         .await;
                     Err(ServerTaskError::ClosedByUpstream)
+                }
+                RecvLineError::Timeout => {
+                    let _ = ResponseEncoder::local_service_not_available(local_ip)
+                        .write(clt_w)
+                        .await;
+                    Err(ServerTaskError::UpstreamAppTimeout(
+                        "timeout to get upstream response",
+                    ))
                 }
                 RecvLineError::LineTooLong => {
                     let _ = ResponseEncoder::upstream_line_too_long(local_ip)
@@ -115,6 +126,7 @@ impl ResponseParseExt for ResponseParser {
 pub(super) trait CommandLineRecvExt {
     async fn recv_cmd_and_relay<CR, CW, UW, F>(
         &mut self,
+        recv_timeout: Duration,
         clt_r: &mut CR,
         clt_w: &mut CW,
         ups_w: &mut UW,
@@ -134,6 +146,9 @@ pub(super) trait CommandLineRecvExt {
         match e {
             RecvLineError::IoError(e) => ServerTaskError::ClientTcpReadFailed(e),
             RecvLineError::IoClosed => ServerTaskError::ClosedByClient,
+            RecvLineError::Timeout => {
+                ServerTaskError::ClientAppTimeout("timeout to wait client command")
+            }
             RecvLineError::LineTooLong => {
                 let _ = ResponseEncoder::COMMAND_LINE_TOO_LONG.write(clt_w).await;
                 ServerTaskError::ClientAppError(anyhow!("SMTP command line too long"))
@@ -145,6 +160,7 @@ pub(super) trait CommandLineRecvExt {
 impl<const MAX_LINE_SIZE: usize> CommandLineRecvExt for LineRecvBuf<MAX_LINE_SIZE> {
     async fn recv_cmd_and_relay<CR, CW, UW, F>(
         &mut self,
+        recv_timeout: Duration,
         clt_r: &mut CR,
         clt_w: &mut CW,
         ups_w: &mut UW,
@@ -157,7 +173,7 @@ impl<const MAX_LINE_SIZE: usize> CommandLineRecvExt for LineRecvBuf<MAX_LINE_SIZ
         UW: AsyncWrite + Unpin,
         F: FnMut(Command) -> Option<ResponseEncoder>,
     {
-        match self.read_line(clt_r).await {
+        match self.read_line_with_timeout(clt_r, recv_timeout).await {
             Ok(line) => match Command::parse_line(line) {
                 Ok(cmd) => {
                     let is_burl = matches!(cmd, Command::DataByUrl(_) | Command::LastDataByUrl(_));
