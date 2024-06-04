@@ -20,7 +20,7 @@ use std::time::Duration;
 use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
-use g3_io_ext::{LineRecvBuf, RecvLineError};
+use g3_io_ext::{LimitedWriteExt, LineRecvBuf, RecvLineError};
 use g3_smtp_proto::command::Command;
 use g3_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseParser};
 
@@ -39,11 +39,7 @@ impl EndQuitServer {
         W: AsyncWrite + Unpin,
     {
         ups_w
-            .write_all(b"QUIT\r\n")
-            .await
-            .map_err(ServerTaskError::UpstreamWriteFailed)?;
-        ups_w
-            .flush()
+            .write_all_flush(b"QUIT\r\n")
             .await
             .map_err(ServerTaskError::UpstreamWriteFailed)?;
 

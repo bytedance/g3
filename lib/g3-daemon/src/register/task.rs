@@ -19,12 +19,12 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use http::{Method, StatusCode};
 use serde_json::{Map, Value};
-use tokio::io::{AsyncWriteExt, BufStream};
+use tokio::io::BufStream;
 use tokio::net::TcpStream;
 
 use g3_http::client::HttpForwardRemoteResponse;
 use g3_http::HttpBodyReader;
-use g3_io_ext::LimitedBufReadExt;
+use g3_io_ext::{LimitedBufReadExt, LimitedWriteExt};
 
 use super::RegisterConfig;
 
@@ -97,11 +97,7 @@ impl RegisterTask {
 
     async fn write_request(&mut self, data: &[u8]) -> anyhow::Result<()> {
         self.stream
-            .write_all(data)
-            .await
-            .map_err(|e| anyhow!("failed to write data: {e:?}"))?;
-        self.stream
-            .flush()
+            .write_all_flush(data)
             .await
             .map_err(|e| anyhow!("failed to write data: {e:?}"))
     }

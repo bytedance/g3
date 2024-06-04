@@ -22,7 +22,7 @@ use anyhow::anyhow;
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufWriter};
 
-use g3_io_ext::{LineRecvBuf, OnceBufReader, RecvLineError};
+use g3_io_ext::{LimitedWriteExt, LineRecvBuf, OnceBufReader, RecvLineError};
 use g3_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseLineError, ResponseParser};
 use g3_types::net::Host;
 
@@ -70,7 +70,7 @@ impl Greeting {
             let msg = self.rsp.feed_line(line)?;
             self.total_to_write += line.len();
             clt_w
-                .write_all(line)
+                .write_all_flush(line)
                 .await
                 .map_err(GreetingError::ClientWriteFailed)?;
 
@@ -150,8 +150,7 @@ impl Greeting {
             _ => return,
         };
         let rsp = ResponseEncoder::upstream_service_not_ready(self.local_ip, reason);
-        let _ = clt_w.write_all(rsp.as_bytes()).await;
-        let _ = clt_w.flush().await;
+        let _ = clt_w.write_all_flush(rsp.as_bytes()).await;
         let _ = clt_w.shutdown().await;
     }
 }

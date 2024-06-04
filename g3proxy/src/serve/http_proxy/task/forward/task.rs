@@ -33,7 +33,7 @@ use g3_icap_client::reqmod::h1::{
 use g3_icap_client::respmod::h1::{
     HttpResponseAdapter, RespmodAdaptationEndState, RespmodAdaptationRunState,
 };
-use g3_io_ext::{LimitedBufReadExt, LimitedCopy, LimitedCopyError};
+use g3_io_ext::{LimitedBufReadExt, LimitedCopy, LimitedCopyError, LimitedWriteExt};
 use g3_types::acl::AclAction;
 use g3_types::net::{HttpHeaderMap, ProxyRequestType};
 
@@ -991,6 +991,11 @@ impl<'a> HttpProxyForwardTask<'a> {
                 LimitedCopyError::WriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
             })?;
             recv_body.save_connection().await;
+        } else {
+            clt_w
+                .flush()
+                .await
+                .map_err(ServerTaskError::ClientTcpWriteFailed)?;
         }
 
         Ok(())
@@ -1527,11 +1532,7 @@ impl<'a> HttpProxyForwardTask<'a> {
     {
         let buf = rsp.serialize();
         clt_w
-            .write_all(buf.as_ref())
-            .await
-            .map_err(ServerTaskError::ClientTcpWriteFailed)?;
-        clt_w
-            .flush()
+            .write_all_flush(buf.as_ref())
             .await
             .map_err(ServerTaskError::ClientTcpWriteFailed)
     }

@@ -17,11 +17,11 @@
 use std::str::SplitWhitespace;
 
 use anyhow::anyhow;
-use tokio::io::{AsyncBufRead, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncBufRead, AsyncWrite};
 use tokio::time::Duration;
 use yaml_rust::Yaml;
 
-use g3_io_ext::LimitedBufReadExt;
+use g3_io_ext::{LimitedBufReadExt, LimitedWriteExt};
 
 use super::{CtlProtoType, GeneralControllerConfig};
 
@@ -111,11 +111,12 @@ where
 
     async fn send_response(&mut self, response: &str) -> anyhow::Result<()> {
         let send_timeout = self.config.send_timeout;
-        let fut = async {
-            self.writer.write_all(response.as_bytes()).await?;
-            self.writer.flush().await
-        };
-        match tokio::time::timeout(Duration::from_secs(send_timeout), fut).await? {
+        match tokio::time::timeout(
+            Duration::from_secs(send_timeout),
+            self.writer.write_all_flush(response.as_bytes()),
+        )
+        .await?
+        {
             Ok(_) => Ok(()),
             Err(e) => Err(anyhow!("write: {e}")),
         }

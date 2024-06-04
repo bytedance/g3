@@ -16,9 +16,9 @@
 
 use std::net::IpAddr;
 
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_io_ext::LineRecvBuf;
+use g3_io_ext::{LimitedWriteExt, LineRecvBuf};
 use g3_smtp_proto::command::{Command, MailParam};
 use g3_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseParser};
 
@@ -169,11 +169,7 @@ impl Forward {
                 .await?;
 
             clt_w
-                .write_all(line)
-                .await
-                .map_err(ServerTaskError::ClientTcpWriteFailed)?;
-            clt_w
-                .flush()
+                .write_all_flush(line)
                 .await
                 .map_err(ServerTaskError::ClientTcpWriteFailed)?;
 
@@ -212,11 +208,7 @@ impl Forward {
             match recv_buf.read_line(clt_r).await {
                 Ok(line) => {
                     ups_w
-                        .write_all(line)
-                        .await
-                        .map_err(ServerTaskError::UpstreamWriteFailed)?;
-                    ups_w
-                        .flush()
+                        .write_all_flush(line)
                         .await
                         .map_err(ServerTaskError::UpstreamWriteFailed)?;
                     recv_buf.consume_line();

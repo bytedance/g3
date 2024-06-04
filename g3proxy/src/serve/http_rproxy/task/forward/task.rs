@@ -24,7 +24,7 @@ use tokio::time::Instant;
 use g3_http::client::HttpForwardRemoteResponse;
 use g3_http::server::HttpProxyClientRequest;
 use g3_http::{HttpBodyReader, HttpBodyType};
-use g3_io_ext::{LimitedBufReadExt, LimitedCopy, LimitedCopyError};
+use g3_io_ext::{LimitedBufReadExt, LimitedCopy, LimitedCopyError, LimitedWriteExt};
 use g3_types::acl::AclAction;
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpRProxyRequest};
@@ -1049,11 +1049,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
     {
         let buf = rsp.serialize();
         clt_w
-            .write_all(buf.as_ref())
-            .await
-            .map_err(ServerTaskError::ClientTcpWriteFailed)?;
-        clt_w
-            .flush()
+            .write_all_flush(buf.as_ref())
             .await
             .map_err(ServerTaskError::ClientTcpWriteFailed)
     }

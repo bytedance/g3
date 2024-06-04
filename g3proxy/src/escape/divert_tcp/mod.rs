@@ -20,9 +20,10 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use slog::Logger;
-use tokio::io::{AsyncWrite, AsyncWriteExt};
+use tokio::io::AsyncWrite;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
+use g3_io_ext::LimitedWriteExt;
 use g3_resolver::{ResolveError, ResolveLocalError};
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder};
 use g3_types::metrics::MetricsName;
@@ -190,11 +191,7 @@ impl DivertTcpEscaper {
 
         let pp2_data = pp2_encoder.finalize();
         writer
-            .write_all(pp2_data)
-            .await
-            .map_err(TcpConnectError::ProxyProtocolWriteFailed)?;
-        writer
-            .flush()
+            .write_all_flush(pp2_data)
             .await
             .map_err(TcpConnectError::ProxyProtocolWriteFailed)?;
         Ok(pp2_data.len())

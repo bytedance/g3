@@ -18,9 +18,9 @@ use std::io;
 use std::net::IpAddr;
 
 use anyhow::anyhow;
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_io_ext::{LineRecvBuf, RecvLineError};
+use g3_io_ext::{LimitedWriteExt, LineRecvBuf, RecvLineError};
 use g3_smtp_proto::command::Command;
 use g3_smtp_proto::response::{ResponseEncoder, ResponseParser};
 
@@ -198,6 +198,5 @@ async fn send_cmd<W>(ups_w: &mut W, line: &[u8]) -> io::Result<()>
 where
     W: AsyncWrite + Unpin,
 {
-    ups_w.write_all(line).await?;
-    ups_w.flush().await
+    ups_w.write_all_flush(line).await
 }

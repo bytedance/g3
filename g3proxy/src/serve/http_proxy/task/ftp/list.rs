@@ -19,6 +19,7 @@ use std::io::{self, Write};
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
 use g3_ftp_client::FtpLineDataReceiver;
+use g3_io_ext::LimitedWriteExt;
 
 const CHUNKED_BUF_HEAD_RESERVED: usize = (usize::BITS as usize >> 2) + 2;
 const CHUNKED_BUF_TAIL_RESERVED: usize = 2;
@@ -113,8 +114,7 @@ where
         if self.buf_len > CHUNKED_BUF_HEAD_RESERVED {
             self.send_buf().await?;
         }
-        self.writer.write_all(b"0\r\n\r\n").await?;
-        self.writer.flush().await
+        self.writer.write_all_flush(b"0\r\n\r\n").await
     }
 
     #[inline]

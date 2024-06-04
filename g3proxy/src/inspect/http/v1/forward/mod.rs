@@ -35,7 +35,7 @@ use g3_icap_client::reqmod::IcapReqmodClient;
 use g3_icap_client::respmod::h1::{
     HttpResponseAdapter, RespmodAdaptationEndState, RespmodAdaptationRunState,
 };
-use g3_io_ext::{LimitedBufReadExt, LimitedCopy, LimitedCopyError};
+use g3_io_ext::{LimitedBufReadExt, LimitedCopy, LimitedCopyError, LimitedWriteExt};
 use g3_slog_types::{LtDateTime, LtDuration, LtHttpMethod, LtHttpUri, LtUuid};
 use g3_types::net::HttpHeaderMap;
 
@@ -430,6 +430,11 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                 LimitedCopyError::WriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
             })?;
             recv_body.save_connection().await;
+        } else {
+            clt_w
+                .flush()
+                .await
+                .map_err(ServerTaskError::ClientTcpWriteFailed)?;
         }
 
         Ok(())
@@ -769,11 +774,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         CW: AsyncWrite + Unpin,
     {
         clt_w
-            .write_all(&head_bytes)
-            .await
-            .map_err(ServerTaskError::ClientTcpWriteFailed)?;
-        clt_w
-            .flush()
+            .write_all_flush(&head_bytes)
             .await
             .map_err(ServerTaskError::ClientTcpWriteFailed)
     }

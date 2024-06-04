@@ -20,7 +20,7 @@ use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
-use g3_io_ext::{LimitedCopy, LimitedCopyError};
+use g3_io_ext::{LimitedCopy, LimitedCopyError, LimitedWriteExt};
 use g3_smtp_proto::command::{Command, MailParam, RecipientParam};
 use g3_smtp_proto::io::TextDataReader;
 use g3_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseParser};
@@ -205,11 +205,7 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
                 .await?;
 
             clt_w
-                .write_all(line)
-                .await
-                .map_err(ServerTaskError::ClientTcpWriteFailed)?;
-            clt_w
-                .flush()
+                .write_all_flush(line)
                 .await
                 .map_err(ServerTaskError::ClientTcpWriteFailed)?;
 
@@ -331,11 +327,7 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
         UW: AsyncWrite + Unpin,
     {
         ups_w
-            .write_all(cmd_line)
-            .await
-            .map_err(ServerTaskError::UpstreamWriteFailed)?;
-        ups_w
-            .flush()
+            .write_all_flush(cmd_line)
             .await
             .map_err(ServerTaskError::UpstreamWriteFailed)?;
 

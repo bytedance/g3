@@ -202,6 +202,10 @@ impl FluentdClientConfig {
             .write_all(ping_msg.as_slice())
             .await
             .map_err(|e| anyhow!("failed to write ping msg: {e:?}"))?;
+        connection
+            .flush()
+            .await
+            .map_err(|e| anyhow!("failed to flush ping msg: {e:?}"))?;
 
         let mut pong_buf = Vec::with_capacity(1024); // TODO config
         let pong_len = connection

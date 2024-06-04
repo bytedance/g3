@@ -100,8 +100,7 @@ impl KeylessInternalErrorResponse {
     where
         W: AsyncWrite + Unpin,
     {
-        writer.write_all(&self.buf).await?;
-        writer.flush().await
+        writer.write_all_flush(&self.buf).await
     }
 }
 

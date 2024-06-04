@@ -310,6 +310,11 @@ where
                 LimitedCopyError::WriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
             })?;
             recv_body.save_connection().await;
+        } else {
+            clt_w
+                .flush()
+                .await
+                .map_err(ServerTaskError::ClientTcpWriteFailed)?;
         }
 
         Ok(())

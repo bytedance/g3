@@ -314,7 +314,7 @@ impl ProxyHttpsEscaper {
                 .encode_tcp(task_notes.client_addr(), task_notes.server_addr())
                 .map_err(TcpConnectError::ProxyProtocolEncodeError)?;
             stream
-                .write_all(bytes)
+                .write_all(bytes) // no need to flush data
                 .await
                 .map_err(TcpConnectError::ProxyProtocolWriteFailed)?;
         }

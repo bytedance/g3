@@ -18,9 +18,9 @@ use std::io;
 use std::net::{IpAddr, Ipv4Addr};
 
 use bytes::{BufMut, BytesMut};
-use tokio::io::{AsyncBufRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncBufRead, AsyncReadExt, AsyncWrite};
 
-use g3_io_ext::LimitedBufReadExt;
+use g3_io_ext::{LimitedBufReadExt, LimitedWriteExt};
 use g3_types::net::{Host, UpstreamAddr};
 
 use super::{SocksCommand, SocksNegotiationError, SocksRequestParseError};
@@ -140,7 +140,6 @@ impl SocksV4aRequest {
                 buf
             }
         };
-        writer.write_all(buf.as_ref()).await?;
-        writer.flush().await
+        writer.write_all_flush(buf.as_ref()).await
     }
 }

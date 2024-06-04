@@ -20,6 +20,7 @@ use std::io;
 use bytes::{BufMut, BytesMut};
 use tokio::io::{AsyncBufRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
+use g3_io_ext::LimitedWriteExt;
 use g3_types::auth::{Password, Username};
 use g3_types::net::SocksAuth;
 
@@ -71,8 +72,7 @@ where
     W: AsyncWrite + Unpin,
 {
     let msg = [0x05, method.code()];
-    clt_w.write_all(&msg).await?;
-    clt_w.flush().await
+    clt_w.write_all_flush(&msg).await
 }
 
 async fn send_methods_to_remote<W>(writer: &mut W, auth: &SocksAuth) -> io::Result<()>
@@ -118,11 +118,7 @@ where
     buf.put_slice(password.as_original().as_bytes());
 
     buf_stream
-        .write_all(buf.as_ref())
-        .await
-        .map_err(SocksConnectError::WriteFailed)?;
-    buf_stream
-        .flush()
+        .write_all_flush(buf.as_ref())
         .await
         .map_err(SocksConnectError::WriteFailed)?;
 
@@ -180,8 +176,7 @@ where
     W: AsyncWrite + Unpin,
 {
     let buf = [0x01, 0x00];
-    clt_w.write_all(&buf).await?;
-    clt_w.flush().await
+    clt_w.write_all_flush(&buf).await
 }
 
 pub async fn send_user_auth_failure<W>(clt_w: &mut W) -> io::Result<()>
@@ -189,6 +184,5 @@ where
     W: AsyncWrite + Unpin,
 {
     let buf = [0x01, 0x01];
-    clt_w.write_all(&buf).await?;
-    clt_w.flush().await
+    clt_w.write_all_flush(&buf).await
 }

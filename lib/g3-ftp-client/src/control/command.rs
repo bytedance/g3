@@ -17,7 +17,9 @@
 use std::fmt;
 use std::io;
 
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncWrite};
+
+use g3_io_ext::LimitedWriteExt;
 
 use super::FtpControlChannel;
 
@@ -81,8 +83,7 @@ where
         #[cfg(feature = "log-raw-io")]
         crate::debug::log_cmd(unsafe { std::str::from_utf8_unchecked(buf).trim_end() });
 
-        self.stream.write_all(buf).await?;
-        self.stream.flush().await?;
+        self.stream.write_all_flush(buf).await?;
         Ok(())
     }
 
