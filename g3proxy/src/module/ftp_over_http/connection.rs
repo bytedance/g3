@@ -14,18 +14,15 @@
  * limitations under the License.
  */
 
-use tokio::io::{AsyncRead, AsyncWrite, Join};
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
+
+use g3_io_ext::LimitedStream;
 
 pub(crate) trait FtpRemoteConnection: AsyncRead + AsyncWrite {}
 
 impl FtpRemoteConnection for TcpStream {}
 
-impl<R, W> FtpRemoteConnection for Join<R, W>
-where
-    R: AsyncRead,
-    W: AsyncWrite,
-{
-}
+impl<S> FtpRemoteConnection for LimitedStream<S> where S: AsyncRead + AsyncWrite {}
 
 pub(crate) type BoxFtpRemoteConnection = Box<dyn FtpRemoteConnection + Send + Unpin>;

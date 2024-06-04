@@ -16,7 +16,7 @@
 
 use std::sync::Arc;
 
-use g3_io_ext::{LimitedReader, LimitedWriter};
+use g3_io_ext::LimitedStream;
 
 use super::DirectFixedEscaper;
 use crate::module::ftp_over_http::{
@@ -35,27 +35,20 @@ impl DirectFixedEscaper {
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         let stream = self.tcp_connect_to(tcp_notes, task_notes).await?;
 
-        let (r, w) = stream.into_split();
-
         let mut wrapper_stats = FtpControlRemoteWrapperStats::new(&self.stats, task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
         let wrapper_stats = Arc::new(wrapper_stats);
 
         let limit_config = &self.config.general.tcp_sock_speed_limit;
-        let r = LimitedReader::new(
-            r,
+        let stream = LimitedStream::new(
+            stream,
             limit_config.shift_millis,
             limit_config.max_south,
-            wrapper_stats.clone() as _,
-        );
-        let w = LimitedWriter::new(
-            w,
-            limit_config.shift_millis,
             limit_config.max_north,
-            wrapper_stats as _,
+            wrapper_stats,
         );
 
-        Ok(Box::new(tokio::io::join(r, w)))
+        Ok(Box::new(stream))
     }
 
     pub(super) async fn new_ftp_transfer_connection<'a>(
@@ -69,26 +62,19 @@ impl DirectFixedEscaper {
             .tcp_connect_to_again(transfer_tcp_notes, control_tcp_notes, task_notes)
             .await?;
 
-        let (r, w) = stream.into_split();
-
         let mut wrapper_stats = FtpTransferRemoteWrapperStats::new(&self.stats, task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
         let wrapper_stats = Arc::new(wrapper_stats);
 
         let limit_config = &self.config.general.tcp_sock_speed_limit;
-        let r = LimitedReader::new(
-            r,
+        let stream = LimitedStream::new(
+            stream,
             limit_config.shift_millis,
             limit_config.max_south,
-            wrapper_stats.clone() as _,
-        );
-        let w = LimitedWriter::new(
-            w,
-            limit_config.shift_millis,
             limit_config.max_north,
-            wrapper_stats as _,
+            wrapper_stats,
         );
 
-        Ok(Box::new(tokio::io::join(r, w)))
+        Ok(Box::new(stream))
     }
 }

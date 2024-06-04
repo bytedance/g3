@@ -22,7 +22,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use g3_daemon::stat::remote::{
     ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStatsWrapper,
 };
-use g3_io_ext::{LimitedReader, LimitedWriter};
+use g3_io_ext::{LimitedReader, LimitedStream, LimitedWriter};
 use g3_openssl::SslConnector;
 use g3_types::net::{Host, OpensslClientConfig};
 
@@ -41,27 +41,21 @@ impl DirectFloatEscaper {
         tls_application: TlsApplication,
     ) -> Result<(impl AsyncRead + AsyncWrite, DirectFloatBindIp), TcpConnectError> {
         let (stream, bind) = self.tcp_connect_to(tcp_notes, task_notes).await?;
-        let (ups_r, ups_w) = stream.into_split();
 
         // set limit config and add escaper stats, do not count in task stats
         let limit_config = &self.config.general.tcp_sock_speed_limit;
-        let ups_r = LimitedReader::new(
-            ups_r,
+        let stream = LimitedStream::new(
+            stream,
             limit_config.shift_millis,
             limit_config.max_south,
-            self.stats.clone() as _,
-        );
-        let ups_w = LimitedWriter::new(
-            ups_w,
-            limit_config.shift_millis,
             limit_config.max_north,
-            self.stats.clone() as _,
+            self.stats.clone(),
         );
 
         let ssl = tls_config
             .build_ssl(tls_name, tcp_notes.upstream.port())
             .map_err(TcpConnectError::InternalTlsClientError)?;
-        let connector = SslConnector::new(ssl, tokio::io::join(ups_r, ups_w))
+        let connector = SslConnector::new(ssl, stream)
             .map_err(|e| TcpConnectError::InternalTlsClientError(anyhow::Error::new(e)))?;
 
         match tokio::time::timeout(tls_config.handshake_timeout, connector.connect()).await {

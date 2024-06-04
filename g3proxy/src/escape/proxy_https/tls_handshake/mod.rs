@@ -30,14 +30,14 @@ impl ProxyHttpsEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
     ) -> Result<(impl AsyncRead, impl AsyncWrite), TcpConnectError> {
-        let (peer, ups_r, ups_w) = self.tcp_new_connection(tcp_notes, task_notes).await?;
+        let (peer, ups_s) = self.tcp_new_connection(tcp_notes, task_notes).await?;
 
         let tls_name = self.config.tls_name.as_ref().unwrap_or_else(|| peer.host());
         let ssl = self
             .tls_config
             .build_ssl(tls_name, peer.port())
             .map_err(TcpConnectError::InternalTlsClientError)?;
-        let connector = SslConnector::new(ssl, tokio::io::join(ups_r, ups_w))
+        let connector = SslConnector::new(ssl, ups_s)
             .map_err(|e| TcpConnectError::InternalTlsClientError(anyhow::Error::new(e)))?;
 
         match tokio::time::timeout(self.tls_config.handshake_timeout, connector.connect()).await {

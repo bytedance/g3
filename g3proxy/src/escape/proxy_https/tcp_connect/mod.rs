@@ -17,11 +17,11 @@
 use std::net::{IpAddr, SocketAddr};
 
 use tokio::io::AsyncWriteExt;
-use tokio::net::{tcp, TcpSocket, TcpStream};
+use tokio::net::{TcpSocket, TcpStream};
 use tokio::task::JoinSet;
 use tokio::time::Instant;
 
-use g3_io_ext::{LimitedReader, LimitedWriter};
+use g3_io_ext::LimitedStream;
 use g3_types::net::{ConnectError, Host, ProxyProtocolEncoder, UpstreamAddr};
 
 use super::ProxyHttpsEscaper;
@@ -296,27 +296,14 @@ impl ProxyHttpsEscaper {
         &'a self,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
-    ) -> Result<
-        (
-            UpstreamAddr,
-            LimitedReader<tcp::OwnedReadHalf>,
-            LimitedWriter<tcp::OwnedWriteHalf>,
-        ),
-        TcpConnectError,
-    > {
+    ) -> Result<(UpstreamAddr, LimitedStream<TcpStream>), TcpConnectError> {
         let (peer, stream) = self.tcp_connect_to(tcp_notes, task_notes).await?;
-        let (r, w) = stream.into_split();
 
         let limit_config = &self.config.general.tcp_sock_speed_limit;
-        let r = LimitedReader::new(
-            r,
+        let mut stream = LimitedStream::new(
+            stream,
             limit_config.shift_millis,
             limit_config.max_south,
-            self.stats.clone() as _,
-        );
-        let mut w = LimitedWriter::new(
-            w,
-            limit_config.shift_millis,
             limit_config.max_north,
             self.stats.clone() as _,
         );
@@ -326,11 +313,12 @@ impl ProxyHttpsEscaper {
             let bytes = encoder
                 .encode_tcp(task_notes.client_addr(), task_notes.server_addr())
                 .map_err(TcpConnectError::ProxyProtocolEncodeError)?;
-            w.write_all(bytes)
+            stream
+                .write_all(bytes)
                 .await
                 .map_err(TcpConnectError::ProxyProtocolWriteFailed)?;
         }
 
-        Ok((peer, r, w))
+        Ok((peer, stream))
     }
 }

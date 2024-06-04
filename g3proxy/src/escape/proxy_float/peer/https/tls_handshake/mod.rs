@@ -32,13 +32,13 @@ impl ProxyFloatHttpsPeer {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
     ) -> Result<(impl AsyncRead, impl AsyncWrite), TcpConnectError> {
-        let (r, w) = self.tcp_new_connection(tcp_notes, task_notes).await?;
+        let stream = self.tcp_new_connection(tcp_notes, task_notes).await?;
 
         let ssl = self
             .tls_config
             .build_ssl(&self.tls_name, self.addr.port())
             .map_err(TcpConnectError::InternalTlsClientError)?;
-        let connector = SslConnector::new(ssl, tokio::io::join(r, w))
+        let connector = SslConnector::new(ssl, stream)
             .map_err(|e| TcpConnectError::InternalTlsClientError(anyhow::Error::new(e)))?;
 
         match tokio::time::timeout(self.tls_config.handshake_timeout, connector.connect()).await {
