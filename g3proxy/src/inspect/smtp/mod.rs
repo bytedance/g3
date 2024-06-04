@@ -39,7 +39,7 @@ mod ending;
 use ending::{EndQuitServer, EndWaitClient};
 
 mod initiation;
-use initiation::Initiation;
+use initiation::{InitializedExtensions, Initiation};
 
 mod forward;
 use forward::{Forward, ForwardNextAction};
@@ -242,17 +242,14 @@ where
         initiation
             .relay(&mut clt_r, &mut clt_w, &mut ups_r, &mut ups_w)
             .await?;
-        let (client_host, server_ext) = initiation.into_parts();
+        let (client_host, mut server_ext) = initiation.into_parts();
         self.client_host = Some(client_host);
-
-        let allow_odmr = server_ext.allow_odmr(interception_config);
-        let allow_starttls = server_ext.allow_starttls(self.from_starttls);
-        let allow_chunking = server_ext.allow_chunking();
-        let allow_burl = server_ext.allow_burl(interception_config);
 
         let mut relay_buf = SmtpRelayBuf::default();
 
         loop {
+            let allow_odmr = server_ext.allow_odmr(interception_config);
+            let allow_starttls = server_ext.allow_starttls(self.from_starttls);
             let mut forward =
                 Forward::new(interception_config, local_ip, allow_odmr, allow_starttls);
             let next_action = forward
@@ -304,7 +301,11 @@ where
                     .await
                     .map(|_| None);
                 }
+                ForwardNextAction::SetExtensions(ext) => server_ext = ext,
                 ForwardNextAction::MailTransport(param) => {
+                    let allow_chunking = server_ext.allow_chunking();
+                    let allow_burl = server_ext.allow_burl(interception_config);
+
                     let mut transaction =
                         Transaction::new(&self.ctx, local_ip, allow_chunking, allow_burl, param);
                     transaction

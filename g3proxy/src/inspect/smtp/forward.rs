@@ -23,13 +23,17 @@ use g3_io_ext::{LimitedWriteExt, LineRecvBuf};
 use g3_smtp_proto::command::{Command, MailParam};
 use g3_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseParser};
 
-use super::{CommandLineRecvExt, ResponseLineRecvExt, ResponseParseExt, SmtpRelayBuf};
+use super::{
+    CommandLineRecvExt, InitializedExtensions, Initiation, ResponseLineRecvExt, ResponseParseExt,
+    SmtpRelayBuf,
+};
 use crate::serve::{ServerTaskError, ServerTaskResult};
 
 pub(super) enum ForwardNextAction {
     Quit,
     StartTls,
     ReverseConnection,
+    SetExtensions(InitializedExtensions),
     MailTransport(MailParam),
 }
 
@@ -83,7 +87,6 @@ impl<'a> Forward<'a> {
                     |cmd| {
                         match &cmd {
                             Command::Hello(_)
-                            | Command::ExtendHello(_)
                             | Command::Recipient(_)
                             | Command::Data
                             | Command::BinaryData(_)
@@ -142,6 +145,17 @@ impl<'a> Forward<'a> {
                     let rsp = self.recv_relay_rsp(buf, ups_r, clt_w).await?;
                     if rsp == ReplyCode::OK {
                         return Ok(ForwardNextAction::ReverseConnection);
+                    }
+                }
+                Command::ExtendHello(_host) => {
+                    let mut initialization = Initiation::new(self.config, self.local_ip, true);
+                    if initialization
+                        .recv_relay_check_rsp(&mut buf.rsp_recv_buf, ups_r, clt_w)
+                        .await?
+                        .is_some()
+                    {
+                        let (_, extensions) = initialization.into_parts();
+                        return Ok(ForwardNextAction::SetExtensions(extensions));
                     }
                 }
                 Command::Mail(param) => {

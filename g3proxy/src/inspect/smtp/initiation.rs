@@ -132,7 +132,7 @@ impl<'a> Initiation<'a> {
         }
     }
 
-    async fn recv_relay_check_rsp<CW, UR>(
+    pub(super) async fn recv_relay_check_rsp<CW, UR>(
         &mut self,
         rsp_recv_buf: &mut LineRecvBuf<{ ResponseParser::MAX_LINE_SIZE }>,
         ups_r: &mut UR,
