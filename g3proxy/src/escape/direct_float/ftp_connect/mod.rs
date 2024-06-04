@@ -16,7 +16,7 @@
 
 use std::sync::Arc;
 
-use g3_io_ext::{AggregatedIo, LimitedReader, LimitedWriter};
+use g3_io_ext::{LimitedReader, LimitedWriter};
 
 use super::DirectFloatEscaper;
 use crate::module::ftp_over_http::{
@@ -55,10 +55,7 @@ impl DirectFloatEscaper {
             wrapper_stats as _,
         );
 
-        Ok(Box::new(AggregatedIo {
-            reader: r,
-            writer: w,
-        }))
+        Ok(Box::new(tokio::io::join(r, w)))
     }
 
     pub(super) async fn new_ftp_transfer_connection<'a>(
@@ -92,9 +89,6 @@ impl DirectFloatEscaper {
             wrapper_stats as _,
         );
 
-        Ok(Box::new(AggregatedIo {
-            reader: r,
-            writer: w,
-        }))
+        Ok(Box::new(tokio::io::join(r, w)))
     }
 }

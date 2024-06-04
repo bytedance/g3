@@ -28,7 +28,7 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use url::Url;
 
-use g3_io_ext::{AggregatedIo, LimitedStream};
+use g3_io_ext::LimitedStream;
 use g3_openssl::SslStream;
 use g3_types::collection::{SelectiveVec, WeightedValue};
 use g3_types::net::{
@@ -176,7 +176,7 @@ impl BenchH2Args {
                             anyhow!("http connect to {} failed: {e}", http_proxy.peer())
                         })?;
 
-                        let stream = AggregatedIo::new(buf_r.into_inner(), w);
+                        let stream = buf_r.into_inner().unsplit(w);
                         self.connect_to_target(proc_args, stream, stats).await
                     } else {
                         let (r, mut w) = stream.into_split();
@@ -193,7 +193,7 @@ impl BenchH2Args {
                             anyhow!("http connect to {} failed: {e}", http_proxy.peer())
                         })?;
 
-                        let stream = AggregatedIo::new(buf_r.into_inner(), w);
+                        let stream = buf_r.into_inner().reunite(w).unwrap();
                         self.connect_to_target(proc_args, stream, stats).await
                     }
                 }
@@ -210,7 +210,7 @@ impl BenchH2Args {
                             anyhow!("socks4a connect to {} failed: {e}", socks4_proxy.peer())
                         })?;
 
-                    let stream = AggregatedIo::new(r, w);
+                    let stream = r.reunite(w).unwrap();
                     self.connect_to_target(proc_args, stream, stats).await
                 }
                 Proxy::Socks5(socks5_proxy) => {
@@ -231,7 +231,7 @@ impl BenchH2Args {
                         anyhow!("socks5 connect to {} failed: {e}", socks5_proxy.peer())
                     })?;
 
-                    let stream = AggregatedIo::new(r, w);
+                    let stream = r.reunite(w).unwrap();
                     self.connect_to_target(proc_args, stream, stats).await
                 }
             }

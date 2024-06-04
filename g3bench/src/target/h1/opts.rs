@@ -26,7 +26,6 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use url::Url;
 
-use g3_io_ext::AggregatedIo;
 use g3_openssl::SslStream;
 use g3_types::collection::{SelectiveVec, WeightedValue};
 use g3_types::net::{
@@ -183,7 +182,7 @@ impl BenchHttpArgs {
                         if let Some(tls_client) = &self.target_tls.client {
                             self.tls_connect_to_peer(
                                 tls_client,
-                                AggregatedIo::new(buf_r.into_inner(), w),
+                                tokio::io::join(buf_r.into_inner(), w),
                             )
                             .await
                         } else {
@@ -207,7 +206,7 @@ impl BenchHttpArgs {
                         if let Some(tls_client) = &self.target_tls.client {
                             self.tls_connect_to_peer(
                                 tls_client,
-                                AggregatedIo::new(buf_r.into_inner(), w),
+                                tokio::io::join(buf_r.into_inner(), w),
                             )
                             .await
                         } else {
@@ -229,7 +228,7 @@ impl BenchHttpArgs {
                         })?;
 
                     if let Some(tls_client) = &self.target_tls.client {
-                        self.tls_connect_to_peer(tls_client, AggregatedIo::new(r, w))
+                        self.tls_connect_to_peer(tls_client, tokio::io::join(r, w))
                             .await
                     } else {
                         Ok((Box::new(r), Box::new(w)))
@@ -254,7 +253,7 @@ impl BenchHttpArgs {
                     })?;
 
                     if let Some(tls_client) = &self.target_tls.client {
-                        self.tls_connect_to_peer(tls_client, AggregatedIo::new(r, w))
+                        self.tls_connect_to_peer(tls_client, tokio::io::join(r, w))
                             .await
                     } else {
                         Ok((Box::new(r), Box::new(w)))

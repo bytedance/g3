@@ -17,7 +17,6 @@
 use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_io_ext::AggregatedIo;
 use g3_openssl::SslConnector;
 use g3_types::net::UpstreamAddr;
 
@@ -39,14 +38,8 @@ impl ProxyFloatHttpsPeer {
             .tls_config
             .build_ssl(&self.tls_name, self.addr.port())
             .map_err(TcpConnectError::InternalTlsClientError)?;
-        let connector = SslConnector::new(
-            ssl,
-            AggregatedIo {
-                reader: r,
-                writer: w,
-            },
-        )
-        .map_err(|e| TcpConnectError::InternalTlsClientError(anyhow::Error::new(e)))?;
+        let connector = SslConnector::new(ssl, tokio::io::join(r, w))
+            .map_err(|e| TcpConnectError::InternalTlsClientError(anyhow::Error::new(e)))?;
 
         match tokio::time::timeout(self.tls_config.handshake_timeout, connector.connect()).await {
             Ok(Ok(stream)) => {

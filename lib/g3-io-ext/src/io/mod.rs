@@ -14,13 +14,11 @@
  * limitations under the License.
  */
 
-mod aggregate;
 mod limited_copy;
 mod limited_read;
 mod limited_stream;
 mod limited_write;
 
-pub use aggregate::AggregatedIo;
 pub use limited_copy::{LimitedCopy, LimitedCopyConfig, LimitedCopyError, ROwnedLimitedCopy};
 pub use limited_read::{
     ArcLimitedReaderStats, LimitedReader, LimitedReaderStats, NilLimitedReaderStats, SizedReader,

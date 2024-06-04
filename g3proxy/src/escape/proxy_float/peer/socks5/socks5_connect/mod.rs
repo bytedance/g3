@@ -19,15 +19,15 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 use tokio::net::{tcp, UdpSocket};
 use tokio::sync::oneshot;
 
 use g3_daemon::stat::remote::{
     ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStatsWrapper,
 };
-use g3_io_ext::{AggregatedIo, LimitedReader, LimitedWriter};
-use g3_openssl::{SslConnector, SslStream};
+use g3_io_ext::{LimitedReader, LimitedWriter};
+use g3_openssl::SslConnector;
 use g3_socks::v5;
 use g3_types::net::{Host, OpensslClientConfig, SocketBufferConfig};
 
@@ -214,12 +214,7 @@ impl ProxyFloatSocks5Peer {
         tls_config: &'a OpensslClientConfig,
         tls_name: &'a Host,
         tls_application: TlsApplication,
-    ) -> Result<
-        SslStream<
-            AggregatedIo<LimitedReader<tcp::OwnedReadHalf>, LimitedWriter<tcp::OwnedWriteHalf>>,
-        >,
-        TcpConnectError,
-    > {
+    ) -> Result<impl AsyncRead + AsyncWrite, TcpConnectError> {
         let (ups_r, ups_w) = self
             .timed_socks5_connect_tcp_connect_to(tcp_notes, task_notes)
             .await?;
@@ -227,14 +222,8 @@ impl ProxyFloatSocks5Peer {
         let ssl = tls_config
             .build_ssl(tls_name, tcp_notes.upstream.port())
             .map_err(TcpConnectError::InternalTlsClientError)?;
-        let connector = SslConnector::new(
-            ssl,
-            AggregatedIo {
-                reader: ups_r,
-                writer: ups_w,
-            },
-        )
-        .map_err(|e| TcpConnectError::InternalTlsClientError(anyhow::Error::new(e)))?;
+        let connector = SslConnector::new(ssl, tokio::io::join(ups_r, ups_w))
+            .map_err(|e| TcpConnectError::InternalTlsClientError(anyhow::Error::new(e)))?;
 
         match tokio::time::timeout(tls_config.handshake_timeout, connector.connect()).await {
             Ok(Ok(stream)) => Ok(stream),

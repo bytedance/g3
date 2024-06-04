@@ -22,7 +22,7 @@ use slog::slog_info;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_dpi::Protocol;
-use g3_io_ext::{AggregatedIo, OnceBufReader};
+use g3_io_ext::OnceBufReader;
 use g3_openssl::{SslConnector, SslLazyAcceptor};
 use g3_slog_types::{LtUpstreamAddr, LtUuid};
 use g3_types::net::{Host, TlsCertUsage, TlsServiceType, UpstreamAddr};
@@ -156,12 +156,12 @@ where
                 "failed to get new SSL state: {e}"
             ))
         })?;
-        let clt_io = AggregatedIo::new(clt_r, clt_w);
-        let mut lazy_acceptor = SslLazyAcceptor::new(ssl, clt_io).map_err(|e| {
-            TlsInterceptionError::InternalOpensslServerError(anyhow!(
-                "failed to create lazy acceptor: {e}"
-            ))
-        })?;
+        let mut lazy_acceptor =
+            SslLazyAcceptor::new(ssl, tokio::io::join(clt_r, clt_w)).map_err(|e| {
+                TlsInterceptionError::InternalOpensslServerError(anyhow!(
+                    "failed to create lazy acceptor: {e}"
+                ))
+            })?;
 
         // also use upstream timeout config for client handshake
         let accept_timeout = self.tls_interception.server_config.accept_timeout;
@@ -208,8 +208,8 @@ where
         };
 
         // handshake with upstream server
-        let ups_tls_connector = SslConnector::new(ups_ssl, AggregatedIo::new(ups_r, ups_w))
-            .map_err(|e| {
+        let ups_tls_connector =
+            SslConnector::new(ups_ssl, tokio::io::join(ups_r, ups_w)).map_err(|e| {
                 TlsInterceptionError::UpstreamPrepareFailed(anyhow!(
                     "failed to get ssl stream: {e}"
                 ))

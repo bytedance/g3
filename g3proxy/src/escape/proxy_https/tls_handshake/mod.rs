@@ -17,7 +17,6 @@
 use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_io_ext::AggregatedIo;
 use g3_openssl::SslConnector;
 
 use super::ProxyHttpsEscaper;
@@ -38,14 +37,8 @@ impl ProxyHttpsEscaper {
             .tls_config
             .build_ssl(tls_name, peer.port())
             .map_err(TcpConnectError::InternalTlsClientError)?;
-        let connector = SslConnector::new(
-            ssl,
-            AggregatedIo {
-                reader: ups_r,
-                writer: ups_w,
-            },
-        )
-        .map_err(|e| TcpConnectError::InternalTlsClientError(anyhow::Error::new(e)))?;
+        let connector = SslConnector::new(ssl, tokio::io::join(ups_r, ups_w))
+            .map_err(|e| TcpConnectError::InternalTlsClientError(anyhow::Error::new(e)))?;
 
         match tokio::time::timeout(self.tls_config.handshake_timeout, connector.connect()).await {
             Ok(Ok(stream)) => {

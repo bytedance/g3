@@ -26,7 +26,7 @@ use tokio::time::Instant;
 
 use g3_dpi::{Protocol, ProtocolInspectPolicy};
 use g3_h2::H2BodyTransfer;
-use g3_io_ext::{AggregatedIo, OnceBufReader};
+use g3_io_ext::OnceBufReader;
 use g3_slog_types::LtUuid;
 
 use crate::config::server::ServerConfig;
@@ -165,7 +165,7 @@ where
 
         let mut h2c = match tokio::time::timeout(
             http_config.client_handshake_timeout,
-            server_builder.handshake::<AggregatedIo<_, _>, Bytes>(AggregatedIo::new(clt_r, clt_w)),
+            server_builder.handshake::<_, Bytes>(tokio::io::join(clt_r, clt_w)),
         )
         .await
         {
@@ -205,7 +205,7 @@ where
 
         let (h2s, mut h2s_connection) = match tokio::time::timeout(
             http_config.upstream_handshake_timeout,
-            client_builder.handshake(AggregatedIo::new(ups_r, ups_w)),
+            client_builder.handshake(tokio::io::join(ups_r, ups_w)),
         )
         .await
         {
@@ -229,7 +229,7 @@ where
 
         let mut h2c = match tokio::time::timeout(
             http_config.client_handshake_timeout,
-            server_builder.handshake(AggregatedIo::new(clt_r, clt_w)),
+            server_builder.handshake(tokio::io::join(clt_r, clt_w)),
         )
         .await
         {
