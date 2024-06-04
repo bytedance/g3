@@ -40,7 +40,8 @@ impl ProxyHttpsEscaper {
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
-        let (ups_r, ups_w) = self.tls_handshake_to_remote(tcp_notes, task_notes).await?;
+        let stream = self.tls_handshake_to_remote(tcp_notes, task_notes).await?;
+        let (ups_r, ups_w) = tokio::io::split(stream);
 
         // add task and user stats
         let mut wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(task_stats);

@@ -44,7 +44,8 @@ impl ProxyFloatHttpPeer {
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
-        let (ups_r, mut ups_w) = self.tcp_new_connection(tcp_notes, task_notes).await?;
+        let stream = self.tcp_new_connection(tcp_notes, task_notes).await?;
+        let (ups_r, mut ups_w) = stream.into_split_tcp();
 
         let mut w_wrapper_stats =
             HttpForwardRemoteWrapperStats::new(&self.escaper_stats, &task_stats);

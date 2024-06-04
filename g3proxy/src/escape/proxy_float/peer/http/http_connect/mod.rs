@@ -18,13 +18,13 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncWrite, BufReader};
-use tokio::net::tcp;
+use tokio::net::TcpStream;
 
 use g3_daemon::stat::remote::{
     ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStatsWrapper,
 };
 use g3_http::connect::{HttpConnectRequest, HttpConnectResponse};
-use g3_io_ext::{LimitedReader, LimitedWriter};
+use g3_io_ext::{LimitedReader, LimitedStream, LimitedWriter};
 use g3_openssl::SslConnector;
 use g3_types::net::{Host, OpensslClientConfig};
 
@@ -40,41 +40,30 @@ impl ProxyFloatHttpPeer {
         &'a self,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
-    ) -> Result<
-        (
-            BufReader<LimitedReader<tcp::OwnedReadHalf>>,
-            LimitedWriter<tcp::OwnedWriteHalf>,
-        ),
-        TcpConnectError,
-    > {
-        let (r, mut w) = self.tcp_new_connection(tcp_notes, task_notes).await?;
+    ) -> Result<BufReader<LimitedStream<TcpStream>>, TcpConnectError> {
+        let mut stream = self.tcp_new_connection(tcp_notes, task_notes).await?;
 
         let req =
             HttpConnectRequest::new(&tcp_notes.upstream, &self.shared_config.append_http_headers);
-        req.send(&mut w)
+        req.send(&mut stream)
             .await
             .map_err(TcpConnectError::NegotiationWriteFailed)?;
 
-        let mut r = BufReader::new(r);
-        let _ = HttpConnectResponse::recv(&mut r, self.http_connect_rsp_hdr_max_size).await?;
+        let mut buf_stream = BufReader::new(stream);
+        let _ =
+            HttpConnectResponse::recv(&mut buf_stream, self.http_connect_rsp_hdr_max_size).await?;
 
         // TODO detect and set outgoing_addr and target_addr for supported remote proxies
         // set with the registered public ip by default
 
-        Ok((r, w))
+        Ok(buf_stream)
     }
 
     pub(super) async fn timed_http_connect_tcp_connect_to<'a>(
         &'a self,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
-    ) -> Result<
-        (
-            BufReader<LimitedReader<tcp::OwnedReadHalf>>,
-            LimitedWriter<tcp::OwnedWriteHalf>,
-        ),
-        TcpConnectError,
-    > {
+    ) -> Result<BufReader<LimitedStream<TcpStream>>, TcpConnectError> {
         tokio::time::timeout(
             self.escaper_config.peer_negotiation_timeout,
             self.http_connect_tcp_connect_to(tcp_notes, task_notes),
@@ -89,12 +78,12 @@ impl ProxyFloatHttpPeer {
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
-        let (mut r, mut w) = self
+        let mut buf_stream = self
             .timed_http_connect_tcp_connect_to(tcp_notes, task_notes)
             .await?;
 
         // add in read buffered data
-        let r_buffer_size = r.buffer().len() as u64;
+        let r_buffer_size = buf_stream.buffer().len() as u64;
         task_stats.add_read_bytes(r_buffer_size);
         let mut wrapper_stats = TcpConnectRemoteWrapperStats::new(&self.escaper_stats, task_stats);
         let user_stats = self.fetch_user_upstream_io_stats(task_notes);
@@ -105,9 +94,9 @@ impl ProxyFloatHttpPeer {
         let wrapper_stats = Arc::new(wrapper_stats);
 
         // reset underlying io stats
-        r.get_mut().reset_stats(wrapper_stats.clone() as _);
-        w.reset_stats(wrapper_stats as _);
+        buf_stream.get_mut().reset_stats(wrapper_stats.clone());
 
+        let (r, w) = tokio::io::split(buf_stream);
         Ok((Box::new(r), Box::new(w)))
     }
 
@@ -119,14 +108,14 @@ impl ProxyFloatHttpPeer {
         tls_name: &'a Host,
         tls_application: TlsApplication,
     ) -> Result<impl AsyncRead + AsyncWrite, TcpConnectError> {
-        let (ups_r, ups_w) = self
+        let buf_stream = self
             .timed_http_connect_tcp_connect_to(tcp_notes, task_notes)
             .await?;
 
         let ssl = tls_config
             .build_ssl(tls_name, tcp_notes.upstream.port())
             .map_err(TcpConnectError::InternalTlsClientError)?;
-        let connector = SslConnector::new(ssl, tokio::io::join(ups_r, ups_w))
+        let connector = SslConnector::new(ssl, buf_stream.into_inner())
             .map_err(|e| TcpConnectError::InternalTlsClientError(anyhow::Error::new(e)))?;
 
         match tokio::time::timeout(tls_config.handshake_timeout, connector.connect()).await {
