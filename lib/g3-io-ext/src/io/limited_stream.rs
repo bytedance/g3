@@ -50,8 +50,8 @@ impl<S> LimitedStream<S> {
     {
         LimitedStream {
             inner,
-            reader_state: LimitedReaderState::new(shift_millis, read_max_bytes, stats.clone() as _),
-            writer_state: LimitedWriterState::new(shift_millis, write_max_bytes, stats as _),
+            reader_state: LimitedReaderState::new(shift_millis, read_max_bytes, stats.clone()),
+            writer_state: LimitedWriterState::new(shift_millis, write_max_bytes, stats),
         }
     }
 
@@ -61,8 +61,8 @@ impl<S> LimitedStream<S> {
     {
         LimitedStream {
             inner,
-            reader_state: LimitedReaderState::new_unlimited(stats.clone() as _),
-            writer_state: LimitedWriterState::new_unlimited(stats as _),
+            reader_state: LimitedReaderState::new_unlimited(stats.clone()),
+            writer_state: LimitedWriterState::new_unlimited(stats),
         }
     }
 
@@ -70,8 +70,8 @@ impl<S> LimitedStream<S> {
     where
         ST: LimitedReaderStats + LimitedWriterStats + Send + Sync + 'static,
     {
-        self.reader_state.reset_stats(stats.clone() as _);
-        self.writer_state.reset_stats(stats as _);
+        self.reader_state.reset_stats(stats.clone());
+        self.writer_state.reset_stats(stats);
     }
 
     pub fn reset_limit(&mut self, shift_millis: u8, read_max_bytes: usize, write_max_bytes: usize) {

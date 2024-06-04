@@ -54,14 +54,14 @@ impl DirectFloatEscaper {
             ups_r,
             limit_config.shift_millis,
             limit_config.max_south,
-            self.stats.clone() as _,
-            Arc::new(r_wrapper_stats) as _,
+            self.stats.clone(),
+            Arc::new(r_wrapper_stats),
         );
         let ups_w = LimitedWriter::new(
             ups_w,
             limit_config.shift_millis,
             limit_config.max_north,
-            Arc::new(w_wrapper_stats) as _,
+            Arc::new(w_wrapper_stats),
         );
 
         let writer = DirectFloatHttpForwardWriter::new(ups_w, Some(Arc::clone(&self.stats)), bind);
@@ -97,9 +97,9 @@ impl DirectFloatEscaper {
         let ups_r = LimitedBufReader::new_unlimited(
             ups_r,
             Arc::new(NilLimitedReaderStats::default()),
-            wrapper_stats.clone() as _,
+            wrapper_stats.clone(),
         );
-        let ups_w = LimitedWriter::new_unlimited(ups_w, wrapper_stats as _);
+        let ups_w = LimitedWriter::new_unlimited(ups_w, wrapper_stats);
 
         let writer = DirectFloatHttpForwardWriter::new(ups_w, None, bind);
         let reader = DirectHttpForwardReader::new(ups_r);

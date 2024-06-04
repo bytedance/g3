@@ -278,7 +278,7 @@ impl SocksProxyTcpConnectTask {
             .tcp_setup_connection(
                 &mut self.tcp_notes,
                 &self.task_notes,
-                self.task_stats.clone() as _,
+                self.task_stats.clone(),
             )
             .await
         {
@@ -439,8 +439,8 @@ impl SocksProxyTcpConnectTask {
                 clt_w.reset_limit(limit_config.shift_millis, limit_config.max_south);
             }
         }
-        let (clt_r_stats, clt_w_stats) = wrapper_stats.split();
-        clt_r.reset_stats(clt_r_stats);
-        clt_w.reset_stats(clt_w_stats);
+        let wrapper_stats = Arc::new(wrapper_stats);
+        clt_r.reset_stats(wrapper_stats.clone());
+        clt_w.reset_stats(wrapper_stats);
     }
 }

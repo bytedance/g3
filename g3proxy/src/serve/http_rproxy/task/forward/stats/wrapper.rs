@@ -71,13 +71,13 @@ impl HttpForwardTaskCltWrapperStats {
 
     pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserTrafficStats>>) {
         for s in all {
-            self.others.push(s as _);
+            self.others.push(s);
         }
     }
 
     pub(crate) fn split(self) -> (ArcLimitedReaderStats, ArcLimitedWriterStats) {
         let s = Arc::new(self);
-        (Arc::clone(&s) as _, s as _)
+        (s.clone(), s)
     }
 }
 
@@ -122,13 +122,13 @@ impl HttpsForwardTaskCltWrapperStats {
 
     pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserTrafficStats>>) {
         for s in all {
-            self.others.push(s as _);
+            self.others.push(s);
         }
     }
 
     pub(crate) fn split(self) -> (ArcLimitedReaderStats, ArcLimitedWriterStats) {
         let s = Arc::new(self);
-        (Arc::clone(&s) as _, s as _)
+        (s.clone(), s)
     }
 }
 

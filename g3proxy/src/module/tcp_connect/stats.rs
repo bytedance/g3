@@ -39,7 +39,7 @@ impl<T: TcpConnectionTaskRemoteStats> TcpConnectRemoteWrapperStats<T> {
 
     pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserUpstreamTrafficStats>>) {
         for s in all {
-            self.others.push(s as _);
+            self.others.push(s);
         }
     }
 }

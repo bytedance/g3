@@ -51,8 +51,8 @@ impl ProxyHttpEscaper {
         w_wrapper_stats.push_user_io_stats_by_ref(&user_stats);
         r_wrapper_stats.push_user_io_stats(user_stats);
 
-        ups_w.reset_stats(Arc::new(w_wrapper_stats) as _);
-        let ups_r = LimitedBufReader::new_directed(ups_r, Arc::new(r_wrapper_stats) as _);
+        ups_w.reset_stats(Arc::new(w_wrapper_stats));
+        let ups_r = LimitedBufReader::new_directed(ups_r, Arc::new(r_wrapper_stats));
 
         let writer = ProxyHttpHttpForwardWriter::new(
             ups_w,
@@ -92,9 +92,9 @@ impl ProxyHttpEscaper {
         let ups_r = LimitedBufReader::new_unlimited(
             ups_r,
             Arc::new(NilLimitedReaderStats::default()),
-            wrapper_stats.clone() as _,
+            wrapper_stats.clone(),
         );
-        let ups_w = LimitedWriter::new_unlimited(ups_w, wrapper_stats as _);
+        let ups_w = LimitedWriter::new_unlimited(ups_w, wrapper_stats);
 
         let writer = ProxyHttpHttpRequestWriter::new(ups_w, None, &self.config);
         let reader = ProxyHttpHttpForwardReader::new(ups_r);

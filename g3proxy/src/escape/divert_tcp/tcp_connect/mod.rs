@@ -314,13 +314,13 @@ impl DivertTcpEscaper {
             r,
             limit_config.shift_millis,
             limit_config.max_south,
-            wrapper_stats.clone() as _,
+            wrapper_stats.clone(),
         );
         let w = LimitedWriter::new(
             w,
             limit_config.shift_millis,
             limit_config.max_north,
-            wrapper_stats as _,
+            wrapper_stats,
         );
 
         Ok((Box::new(r), Box::new(w)))

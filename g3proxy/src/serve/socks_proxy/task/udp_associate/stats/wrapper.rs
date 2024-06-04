@@ -16,7 +16,7 @@
 
 use std::sync::Arc;
 
-use g3_io_ext::{ArcLimitedRecvStats, ArcLimitedSendStats, LimitedRecvStats, LimitedSendStats};
+use g3_io_ext::{LimitedRecvStats, LimitedSendStats};
 
 use super::{SocksProxyServerStats, UdpAssociateTaskStats};
 use crate::auth::UserTrafficStats;
@@ -77,13 +77,8 @@ impl UdpAssociateTaskCltWrapperStats {
 
     pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserTrafficStats>>) {
         for s in all {
-            self.others.push(s as _);
+            self.others.push(s);
         }
-    }
-
-    pub(crate) fn split(self) -> (ArcLimitedRecvStats, ArcLimitedSendStats) {
-        let s = Arc::new(self);
-        (Arc::clone(&s) as _, s as _)
     }
 }
 

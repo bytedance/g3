@@ -100,8 +100,8 @@ impl ProxyHttpsEscaper {
         let wrapper_stats = Arc::new(wrapper_stats);
 
         let (r, w) = tokio::io::split(buf_stream);
-        let r = LimitedReader::new_unlimited(r, wrapper_stats.clone() as _);
-        let w = LimitedWriter::new_unlimited(w, wrapper_stats as _);
+        let r = LimitedReader::new_unlimited(r, wrapper_stats.clone());
+        let w = LimitedWriter::new_unlimited(w, wrapper_stats);
 
         Ok((Box::new(r), Box::new(w)))
     }
@@ -178,8 +178,8 @@ impl ProxyHttpsEscaper {
         wrapper_stats.push_other_stats(self.fetch_user_upstream_io_stats(task_notes));
         let wrapper_stats = Arc::new(wrapper_stats);
 
-        let ups_r = LimitedReader::new_unlimited(ups_r, wrapper_stats.clone() as _);
-        let ups_w = LimitedWriter::new_unlimited(ups_w, wrapper_stats as _);
+        let ups_r = LimitedReader::new_unlimited(ups_r, wrapper_stats.clone());
+        let ups_w = LimitedWriter::new_unlimited(ups_w, wrapper_stats);
 
         Ok((Box::new(ups_r), Box::new(ups_w)))
     }

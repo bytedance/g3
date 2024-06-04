@@ -16,9 +16,7 @@
 
 use std::sync::Arc;
 
-use g3_io_ext::{
-    ArcLimitedReaderStats, ArcLimitedWriterStats, LimitedReaderStats, LimitedWriterStats,
-};
+use g3_io_ext::{LimitedReaderStats, LimitedWriterStats};
 
 use super::{FtpOverHttpTaskStats, HttpProxyServerStats};
 use crate::auth::UserTrafficStats;
@@ -61,13 +59,8 @@ impl FtpOverHttpTaskCltWrapperStats {
 
     pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserTrafficStats>>) {
         for s in all {
-            self.others.push(s as _);
+            self.others.push(s);
         }
-    }
-
-    pub(crate) fn split(self) -> (ArcLimitedReaderStats, ArcLimitedWriterStats) {
-        let s = Arc::new(self);
-        (Arc::clone(&s) as _, s as _)
     }
 }
 

@@ -110,14 +110,14 @@ impl DirectFixedEscaper {
             self.config.general.udp_sock_speed_limit.shift_millis,
             self.config.general.udp_sock_speed_limit.max_south_packets,
             self.config.general.udp_sock_speed_limit.max_south_bytes,
-            stats.clone() as _,
+            stats.clone(),
         );
         let send = LimitedUdpSend::new(
             send,
             self.config.general.udp_sock_speed_limit.shift_millis,
             self.config.general.udp_sock_speed_limit.max_north_packets,
             self.config.general.udp_sock_speed_limit.max_north_bytes,
-            stats.clone() as _,
+            stats.clone(),
         );
 
         Ok((bind_addr, recv, send))

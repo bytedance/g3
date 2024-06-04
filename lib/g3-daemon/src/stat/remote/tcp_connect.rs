@@ -45,7 +45,7 @@ impl TcpConnectionTaskRemoteStatsWrapper {
         T: TcpConnectionTaskRemoteStats + Send + Sync + 'static,
     {
         for s in all {
-            self.others.push(s as _);
+            self.others.push(s);
         }
     }
 }

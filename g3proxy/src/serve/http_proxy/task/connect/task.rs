@@ -326,7 +326,7 @@ impl HttpProxyConnectTask {
             .tcp_setup_connection(
                 &mut self.tcp_notes,
                 &self.task_notes,
-                self.task_stats.clone() as _,
+                self.task_stats.clone(),
             )
             .await
         {
@@ -529,19 +529,19 @@ impl HttpProxyConnectTask {
             self.ctx.server_config.tcp_sock_speed_limit
         };
 
-        let (clt_r_stats, clt_w_stats) = wrapper_stats.split();
+        let wrapper_stats = Arc::new(wrapper_stats);
         (
             LimitedReader::new(
                 clt_r,
                 limit_config.shift_millis,
                 limit_config.max_north,
-                clt_r_stats,
+                wrapper_stats.clone(),
             ),
             LimitedWriter::new(
                 clt_w,
                 limit_config.shift_millis,
                 limit_config.max_south,
-                clt_w_stats,
+                wrapper_stats,
             ),
         )
     }

@@ -175,7 +175,7 @@ impl Escaper for ProxyHttpsEscaper {
     }
 
     fn get_escape_stats(&self) -> Option<ArcEscaperStats> {
-        Some(Arc::clone(&self.stats) as _)
+        Some(self.stats.clone())
     }
 
     async fn publish(&self, _data: String) -> anyhow::Result<()> {
@@ -233,7 +233,7 @@ impl Escaper for ProxyHttpsEscaper {
     }
 
     fn new_http_forward_context(&self, escaper: ArcEscaper) -> BoxHttpForwardContext {
-        let ctx = ProxyHttpForwardContext::new(Arc::clone(&self.stats) as _, escaper);
+        let ctx = ProxyHttpForwardContext::new(self.stats.clone(), escaper);
         Box::new(ctx)
     }
 

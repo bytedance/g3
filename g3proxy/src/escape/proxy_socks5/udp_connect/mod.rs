@@ -63,14 +63,14 @@ impl ProxySocks5Escaper {
             self.config.general.udp_sock_speed_limit.shift_millis,
             self.config.general.udp_sock_speed_limit.max_south_packets,
             self.config.general.udp_sock_speed_limit.max_south_bytes,
-            wrapper_stats.clone() as _,
+            wrapper_stats.clone(),
         );
         let send = LimitedUdpSend::new(
             send,
             self.config.general.udp_sock_speed_limit.shift_millis,
             self.config.general.udp_sock_speed_limit.max_north_packets,
             self.config.general.udp_sock_speed_limit.max_north_bytes,
-            wrapper_stats as _,
+            wrapper_stats,
         );
 
         let recv = ProxySocks5UdpConnectRemoteRecv::new(recv, tcp_close_receiver);

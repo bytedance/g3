@@ -214,7 +214,7 @@ impl Escaper for DivertTcpEscaper {
     }
 
     fn get_escape_stats(&self) -> Option<ArcEscaperStats> {
-        Some(Arc::clone(&self.stats) as _)
+        Some(self.stats.clone())
     }
 
     async fn publish(&self, _data: String) -> anyhow::Result<()> {
@@ -270,7 +270,7 @@ impl Escaper for DivertTcpEscaper {
     }
 
     fn new_http_forward_context(&self, escaper: ArcEscaper) -> BoxHttpForwardContext {
-        let ctx = DirectHttpForwardContext::new(Arc::clone(&self.stats) as _, escaper);
+        let ctx = DirectHttpForwardContext::new(self.stats.clone(), escaper);
         Box::new(ctx)
     }
 

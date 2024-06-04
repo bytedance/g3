@@ -114,7 +114,7 @@ impl ProxyFloatSocks5Peer {
             limit_config.shift_millis,
             limit_config.max_south,
             limit_config.max_north,
-            self.escaper_stats.clone() as _,
+            self.escaper_stats.clone(),
         );
 
         Ok(stream)

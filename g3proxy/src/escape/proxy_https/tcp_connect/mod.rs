@@ -305,7 +305,7 @@ impl ProxyHttpsEscaper {
             limit_config.shift_millis,
             limit_config.max_south,
             limit_config.max_north,
-            self.stats.clone() as _,
+            self.stats.clone(),
         );
 
         if let Some(version) = self.config.use_proxy_protocol {

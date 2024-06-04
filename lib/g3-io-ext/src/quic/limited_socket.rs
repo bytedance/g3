@@ -243,14 +243,14 @@ impl LimitedUdpSocket {
             shift_millis,
             max_send_packets,
             max_send_bytes,
-            stats.clone() as _,
+            stats.clone(),
         );
         let recv_state = LimitedRecvState::new(
             started,
             shift_millis,
             max_recv_packets,
             max_recv_bytes,
-            stats as _,
+            stats,
         );
         LimitedUdpSocket {
             inner,
@@ -264,8 +264,8 @@ impl LimitedUdpSocket {
         ST: LimitedSendStats + LimitedRecvStats + Send + Sync + 'static,
     {
         let started = Instant::now();
-        let send_state = LimitedSendState::new_unlimited(started, stats.clone() as _);
-        let recv_state = LimitedRecvState::new_unlimited(started, stats as _);
+        let send_state = LimitedSendState::new_unlimited(started, stats.clone());
+        let recv_state = LimitedRecvState::new_unlimited(started, stats);
         LimitedUdpSocket {
             inner,
             send_state,

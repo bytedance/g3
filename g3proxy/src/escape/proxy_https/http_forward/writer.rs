@@ -104,7 +104,7 @@ where
     ) {
         let mut wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(Arc::clone(task_stats));
         wrapper_stats.push_user_io_stats(user_stats);
-        self.inner.reset_stats(Arc::new(wrapper_stats) as _);
+        self.inner.reset_stats(Arc::new(wrapper_stats));
     }
 
     async fn send_request_header<'a>(
@@ -181,7 +181,7 @@ where
     ) {
         let mut wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(Arc::clone(task_stats));
         wrapper_stats.push_user_io_stats(user_stats);
-        self.inner.reset_stats(Arc::new(wrapper_stats) as _);
+        self.inner.reset_stats(Arc::new(wrapper_stats));
     }
 
     async fn send_request_header<'a>(

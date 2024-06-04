@@ -300,7 +300,7 @@ impl ProxySocks5Escaper {
             limit_config.shift_millis,
             limit_config.max_south,
             limit_config.max_north,
-            self.stats.clone() as _,
+            self.stats.clone(),
         );
 
         Ok(stream)

@@ -371,10 +371,10 @@ impl<'a> FtpOverHttpTask<'a> {
             None
         };
 
-        let (clt_r_stats, clt_w_stats) = wrapper_stats.split();
+        let wrapper_stats = Arc::new(wrapper_stats);
 
-        clt_w.reset_stats(clt_w_stats);
-        clt_r.reset_buffer_stats(clt_r_stats);
+        clt_w.reset_stats(wrapper_stats.clone());
+        clt_r.reset_buffer_stats(wrapper_stats);
         if let Some(limit_config) = &limit_config {
             clt_w.reset_limit(limit_config.shift_millis, limit_config.max_south);
             clt_r.reset_limit(limit_config.shift_millis, limit_config.max_north);

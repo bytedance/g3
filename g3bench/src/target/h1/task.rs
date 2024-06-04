@@ -101,13 +101,13 @@ impl HttpTaskContext {
             r,
             self.proc_args.tcp_sock_speed_limit.shift_millis,
             self.proc_args.tcp_sock_speed_limit.max_south,
-            self.runtime_stats.clone() as _,
+            self.runtime_stats.clone(),
         );
         let w = LimitedWriter::new(
             w,
             self.proc_args.tcp_sock_speed_limit.shift_millis,
             self.proc_args.tcp_sock_speed_limit.max_north,
-            self.runtime_stats.clone() as _,
+            self.runtime_stats.clone(),
         );
         Ok(SavedHttpForwardConnection::new(BufReader::new(r), w))
     }
