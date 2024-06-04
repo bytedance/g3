@@ -20,15 +20,13 @@ use g3_types::net::{HttpAuth, UpstreamAddr};
 
 use super::{HttpConnectError, HttpConnectRequest, HttpConnectResponse};
 
-pub async fn http_connect_to<R, W>(
-    reader: &mut R,
-    writer: &mut W,
+pub async fn http_connect_to<S>(
+    buf_stream: &mut S,
     auth: &HttpAuth,
     addr: &UpstreamAddr,
 ) -> Result<(), HttpConnectError>
 where
-    R: AsyncBufRead + Unpin,
-    W: AsyncWrite + Unpin,
+    S: AsyncBufRead + AsyncWrite + Unpin,
 {
     let mut req = HttpConnectRequest::new(addr, &[]);
 
@@ -40,11 +38,11 @@ where
         }
     }
 
-    req.send(writer)
+    req.send(buf_stream)
         .await
         .map_err(HttpConnectError::WriteFailed)?;
 
-    let _ = HttpConnectResponse::recv(reader, 2048).await?;
+    let _ = HttpConnectResponse::recv(buf_stream, 2048).await?;
 
     Ok(())
 }

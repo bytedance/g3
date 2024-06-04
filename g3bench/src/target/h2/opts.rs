@@ -162,12 +162,10 @@ impl BenchH2Args {
                             .tls_connect_to_proxy(tls_config, http_proxy.peer(), stream)
                             .await?;
 
-                        let (r, mut w) = tokio::io::split(tls_stream);
-                        let mut buf_r = BufReader::new(r);
+                        let mut buf_stream = BufReader::new(tls_stream);
 
                         g3_http::connect::client::http_connect_to(
-                            &mut buf_r,
-                            &mut w,
+                            &mut buf_stream,
                             &http_proxy.auth,
                             &self.target,
                         )
@@ -176,15 +174,13 @@ impl BenchH2Args {
                             anyhow!("http connect to {} failed: {e}", http_proxy.peer())
                         })?;
 
-                        let stream = buf_r.into_inner().unsplit(w);
-                        self.connect_to_target(proc_args, stream, stats).await
+                        self.connect_to_target(proc_args, buf_stream.into_inner(), stats)
+                            .await
                     } else {
-                        let (r, mut w) = stream.into_split();
-                        let mut buf_r = BufReader::new(r);
+                        let mut buf_stream = BufReader::new(stream);
 
                         g3_http::connect::client::http_connect_to(
-                            &mut buf_r,
-                            &mut w,
+                            &mut buf_stream,
                             &http_proxy.auth,
                             &self.target,
                         )
@@ -193,24 +189,22 @@ impl BenchH2Args {
                             anyhow!("http connect to {} failed: {e}", http_proxy.peer())
                         })?;
 
-                        let stream = buf_r.into_inner().reunite(w).unwrap();
-                        self.connect_to_target(proc_args, stream, stats).await
+                        self.connect_to_target(proc_args, buf_stream.into_inner(), stats)
+                            .await
                     }
                 }
                 Proxy::Socks4(socks4_proxy) => {
-                    let stream = self.new_tcp_connection(proc_args).await.context(format!(
+                    let mut stream = self.new_tcp_connection(proc_args).await.context(format!(
                         "failed to connect to socks4 proxy {}",
                         socks4_proxy.peer()
                     ))?;
-                    let (mut r, mut w) = stream.into_split();
 
-                    g3_socks::v4a::client::socks4a_connect_to(&mut r, &mut w, &self.target)
+                    g3_socks::v4a::client::socks4a_connect_to(&mut stream, &self.target)
                         .await
                         .map_err(|e| {
                             anyhow!("socks4a connect to {} failed: {e}", socks4_proxy.peer())
                         })?;
 
-                    let stream = r.reunite(w).unwrap();
                     self.connect_to_target(proc_args, stream, stats).await
                 }
                 Proxy::Socks5(socks5_proxy) => {

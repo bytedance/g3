@@ -165,12 +165,10 @@ impl BenchHttpArgs {
                             .tls_connect_to_proxy(tls_config, http_proxy.peer(), stream)
                             .await?;
 
-                        let (r, mut w) = tokio::io::split(tls_stream);
-                        let mut buf_r = BufReader::new(r);
+                        let mut buf_stream = BufReader::new(tls_stream);
 
                         g3_http::connect::client::http_connect_to(
-                            &mut buf_r,
-                            &mut w,
+                            &mut buf_stream,
                             &http_proxy.auth,
                             &self.target,
                         )
@@ -180,21 +178,17 @@ impl BenchHttpArgs {
                         })?;
 
                         if let Some(tls_client) = &self.target_tls.client {
-                            self.tls_connect_to_peer(
-                                tls_client,
-                                tokio::io::join(buf_r.into_inner(), w),
-                            )
-                            .await
+                            self.tls_connect_to_peer(tls_client, buf_stream.into_inner())
+                                .await
                         } else {
-                            Ok((Box::new(buf_r.into_inner()), Box::new(w)))
+                            let (r, w) = tokio::io::split(buf_stream.into_inner());
+                            Ok((Box::new(r), Box::new(w)))
                         }
                     } else {
-                        let (r, mut w) = stream.into_split();
-                        let mut buf_r = BufReader::new(r);
+                        let mut buf_stream = BufReader::new(stream);
 
                         g3_http::connect::client::http_connect_to(
-                            &mut buf_r,
-                            &mut w,
+                            &mut buf_stream,
                             &http_proxy.auth,
                             &self.target,
                         )
@@ -204,33 +198,30 @@ impl BenchHttpArgs {
                         })?;
 
                         if let Some(tls_client) = &self.target_tls.client {
-                            self.tls_connect_to_peer(
-                                tls_client,
-                                tokio::io::join(buf_r.into_inner(), w),
-                            )
-                            .await
+                            self.tls_connect_to_peer(tls_client, buf_stream.into_inner())
+                                .await
                         } else {
-                            Ok((Box::new(buf_r.into_inner()), Box::new(w)))
+                            let (r, w) = buf_stream.into_inner().into_split();
+                            Ok((Box::new(r), Box::new(w)))
                         }
                     }
                 }
                 Proxy::Socks4(socks4_proxy) => {
-                    let stream = self.new_tcp_connection(proc_args).await.context(format!(
+                    let mut stream = self.new_tcp_connection(proc_args).await.context(format!(
                         "failed to connect to socks4 proxy {}",
                         socks4_proxy.peer()
                     ))?;
-                    let (mut r, mut w) = stream.into_split();
 
-                    g3_socks::v4a::client::socks4a_connect_to(&mut r, &mut w, &self.target)
+                    g3_socks::v4a::client::socks4a_connect_to(&mut stream, &self.target)
                         .await
                         .map_err(|e| {
                             anyhow!("socks4a connect to {} failed: {e}", socks4_proxy.peer())
                         })?;
 
                     if let Some(tls_client) = &self.target_tls.client {
-                        self.tls_connect_to_peer(tls_client, tokio::io::join(r, w))
-                            .await
+                        self.tls_connect_to_peer(tls_client, stream).await
                     } else {
+                        let (r, w) = stream.into_split();
                         Ok((Box::new(r), Box::new(w)))
                     }
                 }
