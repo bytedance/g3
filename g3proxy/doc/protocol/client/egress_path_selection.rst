@@ -68,9 +68,9 @@ The value will be wrapped into range *1 - len(nodes)*.
 by map
 ------
 
-**value**: json object
+**value**: map
 
-The root value should be a json map.
+The root value should be a json/yaml map.
 
 The key should be the escaper name, so the corresponding value will be handled by that escaper.
 

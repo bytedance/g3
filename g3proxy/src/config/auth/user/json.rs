@@ -18,8 +18,9 @@ use std::str::FromStr;
 
 use ahash::AHashMap;
 use anyhow::{anyhow, Context};
-use g3_types::metrics::MetricsName;
 use serde_json::{Map, Value};
+
+use g3_types::metrics::MetricsName;
 
 use super::{PasswordToken, UserConfig, UserSiteConfig};
 use crate::escape::EgressPathSelection;
