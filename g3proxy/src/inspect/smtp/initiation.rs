@@ -20,7 +20,7 @@ use std::str;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
 use g3_dpi::SmtpInterceptionConfig;
-use g3_io_ext::LineRecvBuf;
+use g3_io_ext::{LimitedWriteExt, LineRecvBuf};
 use g3_smtp_proto::command::Command;
 use g3_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseParser};
 use g3_types::net::Host;
@@ -99,29 +99,24 @@ impl<'a> Initiation<'a> {
 
         loop {
             cmd_recv_buf.consume_line();
-            let Some(_cmd_line) = cmd_recv_buf
-                .recv_cmd_and_relay(
-                    self.config.command_wait_timeout,
-                    clt_r,
-                    clt_w,
-                    ups_w,
-                    |cmd| match cmd {
-                        Command::ExtendHello(host) => {
-                            self.client_host = host;
-                            None
-                        }
-                        Command::Hello(host) => {
-                            self.client_host = host;
-                            None
-                        }
-                        _ => Some(ResponseEncoder::BAD_SEQUENCE_OF_COMMANDS),
-                    },
-                    self.local_ip,
-                )
-                .await?
-            else {
-                continue;
-            };
+            let (cmd, cmd_line) = cmd_recv_buf
+                .recv_cmd(self.config.command_wait_timeout, clt_r, clt_w)
+                .await?;
+
+            match cmd {
+                Command::ExtendHello(host) => {
+                    self.client_host = host;
+                    self.send_cmd(ups_w, clt_w, cmd_line).await?;
+                }
+                Command::Hello(host) => {
+                    self.client_host = host;
+                    self.send_cmd(ups_w, clt_w, cmd_line).await?;
+                }
+                _ => {
+                    self.send_error_to_client(clt_w, ResponseEncoder::BAD_SEQUENCE_OF_COMMANDS)
+                        .await?;
+                }
+            }
 
             if self
                 .recv_relay_check_rsp(&mut rsp_recv_buf, ups_r, clt_w)
@@ -131,6 +126,41 @@ impl<'a> Initiation<'a> {
                 return Ok(());
             }
         }
+    }
+
+    async fn send_cmd<UW, CW>(
+        &self,
+        ups_w: &mut UW,
+        clt_w: &mut CW,
+        cmd_line: &[u8],
+    ) -> ServerTaskResult<()>
+    where
+        UW: AsyncWrite + Unpin,
+        CW: AsyncWrite + Unpin,
+    {
+        match ups_w.write_all_flush(cmd_line).await {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                let _ = ResponseEncoder::upstream_io_error(self.local_ip, &e)
+                    .write(clt_w)
+                    .await;
+                Err(ServerTaskError::UpstreamWriteFailed(e))
+            }
+        }
+    }
+
+    async fn send_error_to_client<W>(
+        &self,
+        clt_w: &mut W,
+        rsp_encoder: ResponseEncoder,
+    ) -> ServerTaskResult<()>
+    where
+        W: AsyncWrite + Unpin,
+    {
+        rsp_encoder
+            .write(clt_w)
+            .await
+            .map_err(ServerTaskError::ClientTcpWriteFailed)
     }
 
     pub(super) async fn recv_relay_check_rsp<CW, UR>(

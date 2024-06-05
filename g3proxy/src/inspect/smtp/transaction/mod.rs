@@ -127,61 +127,32 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
     {
         let mut in_chunking = false;
         loop {
-            let mut valid_cmd = Command::NoOperation;
-
             buf.cmd_recv_buf.consume_line();
-            let Some(cmd_line) = buf
+            let (cmd, cmd_line) = buf
                 .cmd_recv_buf
-                .recv_cmd_and_relay(
-                    self.config.command_wait_timeout,
-                    clt_r,
-                    clt_w,
-                    ups_w,
-                    |cmd| {
-                        match &cmd {
-                            Command::Recipient(_) => {
-                                if in_chunking {
-                                    return Some(ResponseEncoder::BAD_SEQUENCE_OF_COMMANDS);
-                                }
-                            }
-                            Command::Data => {
-                                if in_chunking {
-                                    return Some(ResponseEncoder::BAD_SEQUENCE_OF_COMMANDS);
-                                }
-                            }
-                            Command::BinaryData(_) | Command::LastBinaryData(_) => {
-                                if !self.allow_chunking {
-                                    return Some(ResponseEncoder::COMMAND_NOT_IMPLEMENTED);
-                                }
-                            }
-                            Command::DataByUrl(_) | Command::LastDataByUrl(_) => {
-                                if !self.allow_burl {
-                                    return Some(ResponseEncoder::COMMAND_NOT_IMPLEMENTED);
-                                }
-                            }
-                            Command::NoOperation => {}
-                            Command::Reset => {}
-                            Command::Quit => {}
-                            _ => return Some(ResponseEncoder::BAD_SEQUENCE_OF_COMMANDS),
-                        };
-                        valid_cmd = cmd;
-                        None
-                    },
-                    self.local_ip,
-                )
-                .await?
-            else {
-                continue;
-            };
+                .recv_cmd(self.config.command_wait_timeout, clt_r, clt_w)
+                .await?;
 
-            match valid_cmd {
+            match cmd {
                 Command::Recipient(p) => {
+                    if in_chunking {
+                        self.send_error_to_client(clt_w, ResponseEncoder::BAD_SEQUENCE_OF_COMMANDS)
+                            .await?;
+                        continue;
+                    }
+                    self.send_cmd(ups_w, clt_w, cmd_line).await?;
                     let _ = self
                         .recv_relay_rsp(self.config.response_wait_timeout, buf, ups_r, clt_w)
                         .await?;
                     self.mail_to.push(p);
                 }
                 Command::Data => {
+                    if in_chunking {
+                        self.send_error_to_client(clt_w, ResponseEncoder::BAD_SEQUENCE_OF_COMMANDS)
+                            .await?;
+                        continue;
+                    }
+                    self.send_data_cmd(ups_w, clt_w, cmd_line).await?;
                     let rsp = self
                         .recv_relay_rsp(self.config.data_initiation_timeout, buf, ups_r, clt_w)
                         .await?;
@@ -195,6 +166,12 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
                     return Ok(());
                 }
                 Command::BinaryData(size) => {
+                    if !self.allow_chunking {
+                        self.send_error_to_client(clt_w, ResponseEncoder::COMMAND_NOT_IMPLEMENTED)
+                            .await?;
+                        continue;
+                    }
+                    self.send_bdat_cmd(ups_w, clt_w, cmd_line, size).await?;
                     self.send_bin_data(buf, clt_r, ups_w, size).await?;
                     let _ = self
                         .recv_relay_rsp(self.config.data_termination_timeout, buf, ups_r, clt_w)
@@ -202,6 +179,12 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
                     in_chunking = true;
                 }
                 Command::LastBinaryData(size) => {
+                    if !self.allow_chunking {
+                        self.send_error_to_client(clt_w, ResponseEncoder::COMMAND_NOT_IMPLEMENTED)
+                            .await?;
+                        continue;
+                    }
+                    self.send_bdat_cmd(ups_w, clt_w, cmd_line, size).await?;
                     self.send_bin_data(buf, clt_r, ups_w, size).await?;
                     let _ = self
                         .recv_relay_rsp(self.config.data_termination_timeout, buf, ups_r, clt_w)
@@ -209,20 +192,31 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
                     return Ok(());
                 }
                 Command::DataByUrl(url) => {
-                    self.send_burl(ups_w, cmd_line, url).await?;
+                    if !self.allow_burl || !self.allow_chunking {
+                        self.send_error_to_client(clt_w, ResponseEncoder::COMMAND_NOT_IMPLEMENTED)
+                            .await?;
+                        continue;
+                    }
+                    self.send_burl_cmd(ups_w, clt_w, cmd_line, url).await?;
                     let _ = self
                         .recv_relay_rsp(self.config.data_termination_timeout, buf, ups_r, clt_w)
                         .await?;
                     in_chunking = true;
                 }
                 Command::LastDataByUrl(url) => {
-                    self.send_burl(ups_w, cmd_line, url).await?;
+                    if !self.allow_burl {
+                        self.send_error_to_client(clt_w, ResponseEncoder::COMMAND_NOT_IMPLEMENTED)
+                            .await?;
+                        continue;
+                    }
+                    self.send_burl_cmd(ups_w, clt_w, cmd_line, url).await?;
                     let _ = self
                         .recv_relay_rsp(self.config.data_termination_timeout, buf, ups_r, clt_w)
                         .await?;
                     return Ok(());
                 }
                 Command::NoOperation => {
+                    self.send_cmd(ups_w, clt_w, cmd_line).await?;
                     let rsp = self
                         .recv_relay_rsp(self.config.response_wait_timeout, buf, ups_r, clt_w)
                         .await?;
@@ -233,6 +227,7 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
                     }
                 }
                 Command::Reset => {
+                    self.send_cmd(ups_w, clt_w, cmd_line).await?;
                     let rsp = self
                         .recv_relay_rsp(self.config.response_wait_timeout, buf, ups_r, clt_w)
                         .await?;
@@ -245,13 +240,17 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
                     };
                 }
                 Command::Quit => {
+                    self.send_cmd(ups_w, clt_w, cmd_line).await?;
                     let _ = self
                         .recv_relay_rsp(self.config.response_wait_timeout, buf, ups_r, clt_w)
                         .await?;
                     self.quit = true;
                     return Ok(());
                 }
-                _ => unreachable!(),
+                _ => {
+                    self.send_error_to_client(clt_w, ResponseEncoder::BAD_SEQUENCE_OF_COMMANDS)
+                        .await?;
+                }
             }
         }
     }
@@ -396,20 +395,79 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
         }
     }
 
-    async fn send_burl<UW>(
+    async fn send_data_cmd<UW, CW>(
         &self,
         ups_w: &mut UW,
+        clt_w: &mut CW,
+        cmd_line: &[u8],
+    ) -> ServerTaskResult<()>
+    where
+        UW: AsyncWrite + Unpin,
+        CW: AsyncWrite + Unpin,
+    {
+        self.send_cmd(ups_w, clt_w, cmd_line).await
+    }
+
+    async fn send_bdat_cmd<UW, CW>(
+        &self,
+        ups_w: &mut UW,
+        clt_w: &mut CW,
+        cmd_line: &[u8],
+        _size: usize,
+    ) -> ServerTaskResult<()>
+    where
+        UW: AsyncWrite + Unpin,
+        CW: AsyncWrite + Unpin,
+    {
+        self.send_cmd(ups_w, clt_w, cmd_line).await
+    }
+
+    async fn send_burl_cmd<UW, CW>(
+        &self,
+        ups_w: &mut UW,
+        clt_w: &mut CW,
         cmd_line: &[u8],
         _url: String,
     ) -> ServerTaskResult<()>
     where
         UW: AsyncWrite + Unpin,
+        CW: AsyncWrite + Unpin,
     {
-        ups_w
-            .write_all_flush(cmd_line)
-            .await
-            .map_err(ServerTaskError::UpstreamWriteFailed)?;
+        self.send_cmd(ups_w, clt_w, cmd_line).await
+    }
 
-        Ok(())
+    async fn send_cmd<UW, CW>(
+        &self,
+        ups_w: &mut UW,
+        clt_w: &mut CW,
+        cmd_line: &[u8],
+    ) -> ServerTaskResult<()>
+    where
+        UW: AsyncWrite + Unpin,
+        CW: AsyncWrite + Unpin,
+    {
+        match ups_w.write_all_flush(cmd_line).await {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                let _ = ResponseEncoder::upstream_io_error(self.local_ip, &e)
+                    .write(clt_w)
+                    .await;
+                Err(ServerTaskError::UpstreamWriteFailed(e))
+            }
+        }
+    }
+
+    async fn send_error_to_client<W>(
+        &self,
+        clt_w: &mut W,
+        rsp_encoder: ResponseEncoder,
+    ) -> ServerTaskResult<()>
+    where
+        W: AsyncWrite + Unpin,
+    {
+        rsp_encoder
+            .write(clt_w)
+            .await
+            .map_err(ServerTaskError::ClientTcpWriteFailed)
     }
 }

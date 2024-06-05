@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-use std::io;
 use std::net::IpAddr;
 use std::time::Duration;
 
 use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_io_ext::{LimitedWriteExt, LineRecvBuf, RecvLineError};
+use g3_io_ext::{LineRecvBuf, RecvLineError};
 use g3_smtp_proto::command::Command;
 use g3_smtp_proto::response::{ResponseEncoder, ResponseParser};
 
@@ -124,20 +123,15 @@ impl ResponseParseExt for ResponseParser {
 }
 
 pub(super) trait CommandLineRecvExt {
-    async fn recv_cmd_and_relay<CR, CW, UW, F>(
+    async fn recv_cmd<CR, CW>(
         &mut self,
         recv_timeout: Duration,
         clt_r: &mut CR,
         clt_w: &mut CW,
-        ups_w: &mut UW,
-        is_bad_sequence: F,
-        local_ip: IpAddr,
-    ) -> ServerTaskResult<Option<&[u8]>>
+    ) -> ServerTaskResult<(Command, &[u8])>
     where
         CR: AsyncRead + Unpin,
-        CW: AsyncWrite + Unpin,
-        UW: AsyncWrite + Unpin,
-        F: FnMut(Command) -> Option<ResponseEncoder>;
+        CW: AsyncWrite + Unpin;
 
     async fn handle_line_error<CW>(e: RecvLineError, clt_w: &mut CW) -> ServerTaskError
     where
@@ -158,43 +152,19 @@ pub(super) trait CommandLineRecvExt {
 }
 
 impl<const MAX_LINE_SIZE: usize> CommandLineRecvExt for LineRecvBuf<MAX_LINE_SIZE> {
-    async fn recv_cmd_and_relay<CR, CW, UW, F>(
+    async fn recv_cmd<CR, CW>(
         &mut self,
         recv_timeout: Duration,
         clt_r: &mut CR,
         clt_w: &mut CW,
-        ups_w: &mut UW,
-        mut check_cmd: F,
-        local_ip: IpAddr,
-    ) -> ServerTaskResult<Option<&[u8]>>
+    ) -> ServerTaskResult<(Command, &[u8])>
     where
         CR: AsyncRead + Unpin,
         CW: AsyncWrite + Unpin,
-        UW: AsyncWrite + Unpin,
-        F: FnMut(Command) -> Option<ResponseEncoder>,
     {
         match self.read_line_with_timeout(clt_r, recv_timeout).await {
             Ok(line) => match Command::parse_line(line) {
-                Ok(cmd) => {
-                    let is_burl = matches!(cmd, Command::DataByUrl(_) | Command::LastDataByUrl(_));
-                    if let Some(rsp_encoder) = check_cmd(cmd) {
-                        rsp_encoder
-                            .write(clt_w)
-                            .await
-                            .map_err(ServerTaskError::ClientTcpWriteFailed)?;
-                        Ok(None)
-                    } else if is_burl {
-                        // DO NOT send BURL line out, we will do it later
-                        Ok(Some(line))
-                    } else if let Err(e) = send_cmd(ups_w, line).await {
-                        let _ = ResponseEncoder::upstream_io_error(local_ip, &e)
-                            .write(clt_w)
-                            .await;
-                        Err(ServerTaskError::UpstreamReadFailed(e))
-                    } else {
-                        Ok(Some(line))
-                    }
-                }
+                Ok(cmd) => Ok((cmd, line)),
                 Err(e) => {
                     let _ = ResponseEncoder::from(&e).write(clt_w).await;
                     Err(ServerTaskError::ClientAppError(anyhow!(
@@ -208,11 +178,4 @@ impl<const MAX_LINE_SIZE: usize> CommandLineRecvExt for LineRecvBuf<MAX_LINE_SIZ
             }
         }
     }
-}
-
-async fn send_cmd<W>(ups_w: &mut W, line: &[u8]) -> io::Result<()>
-where
-    W: AsyncWrite + Unpin,
-{
-    ups_w.write_all_flush(line).await
 }

@@ -76,72 +76,58 @@ impl<'a> Forward<'a> {
         UW: AsyncWrite + Unpin,
     {
         loop {
-            let mut valid_cmd = Command::NoOperation;
             buf.cmd_recv_buf.consume_line();
-            let Some(_cmd_line) = buf
+            let (cmd, cmd_line) = buf
                 .cmd_recv_buf
-                .recv_cmd_and_relay(
-                    self.config.command_wait_timeout,
-                    clt_r,
-                    clt_w,
-                    ups_w,
-                    |cmd| {
-                        match &cmd {
-                            Command::Hello(_)
-                            | Command::Recipient(_)
-                            | Command::Data
-                            | Command::BinaryData(_)
-                            | Command::LastBinaryData(_)
-                            | Command::DataByUrl(_)
-                            | Command::LastDataByUrl(_) => {
-                                return Some(ResponseEncoder::BAD_SEQUENCE_OF_COMMANDS)
-                            }
-                            Command::Auth => {
-                                if self.auth_end {
-                                    return Some(ResponseEncoder::BAD_SEQUENCE_OF_COMMANDS);
-                                }
-                            }
-                            Command::AuthenticatedTurn => {
-                                if !self.allow_odmr {
-                                    return Some(ResponseEncoder::COMMAND_NOT_IMPLEMENTED);
-                                }
-                                if !self.auth_end {
-                                    return Some(ResponseEncoder::AUTHENTICATION_REQUIRED);
-                                }
-                            }
-                            Command::StartTls => {
-                                if !self.allow_starttls {
-                                    return Some(ResponseEncoder::COMMAND_NOT_IMPLEMENTED);
-                                }
-                            }
-                            _ => {}
-                        };
-                        valid_cmd = cmd;
-                        None
-                    },
-                    self.local_ip,
-                )
-                .await?
-            else {
-                continue;
-            };
+                .recv_cmd(self.config.command_wait_timeout, clt_r, clt_w)
+                .await?;
 
-            match valid_cmd {
+            match cmd {
+                Command::Hello(_)
+                | Command::Recipient(_)
+                | Command::Data
+                | Command::BinaryData(_)
+                | Command::LastBinaryData(_)
+                | Command::DataByUrl(_)
+                | Command::LastDataByUrl(_) => {
+                    self.send_error_to_client(clt_w, ResponseEncoder::BAD_SEQUENCE_OF_COMMANDS)
+                        .await?;
+                }
                 Command::Quit => {
+                    self.send_cmd(ups_w, clt_w, cmd_line).await?;
                     let _ = self.recv_relay_rsp(buf, ups_r, clt_w).await?;
                     return Ok(ForwardNextAction::Quit);
                 }
                 Command::StartTls => {
+                    if !self.allow_starttls {
+                        self.send_error_to_client(clt_w, ResponseEncoder::COMMAND_NOT_IMPLEMENTED)
+                            .await?;
+                    }
+                    self.send_cmd(ups_w, clt_w, cmd_line).await?;
                     let rsp = self.recv_relay_rsp(buf, ups_r, clt_w).await?;
                     if rsp == ReplyCode::SERVICE_READY {
                         return Ok(ForwardNextAction::StartTls);
                     }
                 }
                 Command::Auth => {
+                    if self.auth_end {
+                        self.send_error_to_client(clt_w, ResponseEncoder::BAD_SEQUENCE_OF_COMMANDS)
+                            .await?;
+                    }
+                    self.send_cmd(ups_w, clt_w, cmd_line).await?;
                     self.recv_relay_auth(buf, clt_r, clt_w, ups_r, ups_w)
                         .await?;
                 }
                 Command::AuthenticatedTurn => {
+                    if !self.allow_odmr {
+                        self.send_error_to_client(clt_w, ResponseEncoder::COMMAND_NOT_IMPLEMENTED)
+                            .await?;
+                    }
+                    if !self.auth_end {
+                        self.send_error_to_client(clt_w, ResponseEncoder::AUTHENTICATION_REQUIRED)
+                            .await?;
+                    }
+                    self.send_cmd(ups_w, clt_w, cmd_line).await?;
                     // a max 10min timeout according to RFC2645
                     let rsp = self.recv_relay_rsp(buf, ups_r, clt_w).await?;
                     if rsp == ReplyCode::OK {
@@ -149,6 +135,7 @@ impl<'a> Forward<'a> {
                     }
                 }
                 Command::ExtendHello(_host) => {
+                    self.send_cmd(ups_w, clt_w, cmd_line).await?;
                     let mut initialization = Initiation::new(self.config, self.local_ip, true);
                     if initialization
                         .recv_relay_check_rsp(&mut buf.rsp_recv_buf, ups_r, clt_w)
@@ -160,16 +147,53 @@ impl<'a> Forward<'a> {
                     }
                 }
                 Command::Mail(param) => {
+                    self.send_cmd(ups_w, clt_w, cmd_line).await?;
                     let rsp = self.recv_relay_rsp(buf, ups_r, clt_w).await?;
                     if rsp == ReplyCode::OK {
                         return Ok(ForwardNextAction::MailTransport(param));
                     }
                 }
                 _ => {
+                    self.send_cmd(ups_w, clt_w, cmd_line).await?;
                     self.recv_relay_rsp(buf, ups_r, clt_w).await?;
                 }
             }
         }
+    }
+
+    async fn send_cmd<UW, CW>(
+        &self,
+        ups_w: &mut UW,
+        clt_w: &mut CW,
+        cmd_line: &[u8],
+    ) -> ServerTaskResult<()>
+    where
+        UW: AsyncWrite + Unpin,
+        CW: AsyncWrite + Unpin,
+    {
+        match ups_w.write_all_flush(cmd_line).await {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                let _ = ResponseEncoder::upstream_io_error(self.local_ip, &e)
+                    .write(clt_w)
+                    .await;
+                Err(ServerTaskError::UpstreamWriteFailed(e))
+            }
+        }
+    }
+
+    async fn send_error_to_client<W>(
+        &self,
+        clt_w: &mut W,
+        rsp_encoder: ResponseEncoder,
+    ) -> ServerTaskResult<()>
+    where
+        W: AsyncWrite + Unpin,
+    {
+        rsp_encoder
+            .write(clt_w)
+            .await
+            .map_err(ServerTaskError::ClientTcpWriteFailed)
     }
 
     async fn recv_relay_rsp<CW, UR>(
