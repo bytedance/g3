@@ -77,6 +77,7 @@ impl<'a> Forward<'a> {
     {
         loop {
             let mut valid_cmd = Command::NoOperation;
+            buf.cmd_recv_buf.consume_line();
             let Some(_cmd_line) = buf
                 .cmd_recv_buf
                 .recv_cmd_and_relay(
@@ -183,6 +184,7 @@ impl<'a> Forward<'a> {
     {
         let mut rsp = ResponseParser::default();
         loop {
+            buf.rsp_recv_buf.consume_line();
             let line = buf
                 .rsp_recv_buf
                 .read_rsp_line_with_feedback(

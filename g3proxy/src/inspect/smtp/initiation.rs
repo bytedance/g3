@@ -98,6 +98,7 @@ impl<'a> Initiation<'a> {
         let mut rsp_recv_buf = LineRecvBuf::<{ ResponseParser::MAX_LINE_SIZE }>::default();
 
         loop {
+            cmd_recv_buf.consume_line();
             let Some(_cmd_line) = cmd_recv_buf
                 .recv_cmd_and_relay(
                     self.config.command_wait_timeout,
@@ -144,6 +145,7 @@ impl<'a> Initiation<'a> {
     {
         let mut rsp = ResponseParser::default();
         loop {
+            rsp_recv_buf.consume_line();
             let line = rsp_recv_buf
                 .read_rsp_line_with_feedback(
                     self.config.response_wait_timeout,

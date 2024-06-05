@@ -20,7 +20,7 @@ use std::task::{ready, Context, Poll};
 
 use tokio::io::{AsyncRead, ReadBuf};
 
-const END_CHARS: &[u8] = b"\r\n.\r\n\r\n";
+const END_CHARS: &[u8] = b"\r\n.\r\n";
 const END_SIZE: usize = 16; // big enough for END_CHARS
 
 struct EndChecker {

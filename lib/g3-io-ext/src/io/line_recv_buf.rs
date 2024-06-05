@@ -51,8 +51,8 @@ impl<const MAX_LINE_SIZE: usize> Default for LineRecvBuf<MAX_LINE_SIZE> {
 }
 
 impl<const MAX_LINE_SIZE: usize> LineRecvBuf<MAX_LINE_SIZE> {
-    pub async fn read_line_with_timeout<'a, R>(
-        &'a mut self,
+    pub async fn read_line_with_timeout<R>(
+        &mut self,
         reader: &mut R,
         timeout: Duration,
     ) -> Result<&[u8], RecvLineError>
@@ -64,7 +64,7 @@ impl<const MAX_LINE_SIZE: usize> LineRecvBuf<MAX_LINE_SIZE> {
             .map_err(|_| RecvLineError::Timeout)?
     }
 
-    pub async fn read_line<'a, R>(&'a mut self, reader: &mut R) -> Result<&[u8], RecvLineError>
+    pub async fn read_line<R>(&mut self, reader: &mut R) -> Result<&[u8], RecvLineError>
     where
         R: AsyncRead + Unpin,
     {

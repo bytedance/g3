@@ -69,7 +69,7 @@ pub enum Command {
 }
 
 impl Command {
-    pub const MAX_LINE_SIZE: usize = 512;
+    pub const MAX_LINE_SIZE: usize = 2048;
     pub const MAX_CONTINUE_LINE_SIZE: usize = 12288; // for AUTH continue line
 
     pub fn parse_line(line: &[u8]) -> Result<Self, CommandLineError> {

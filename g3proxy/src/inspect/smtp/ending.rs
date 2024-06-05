@@ -143,7 +143,10 @@ impl EndWaitClient {
             };
 
             let cmd = match Command::parse_line(line) {
-                Ok(cmd) => cmd,
+                Ok(cmd) => {
+                    recv_buf.consume_line();
+                    cmd
+                }
                 Err(e) => {
                     let _ = ResponseEncoder::from(&e).write(&mut clt_w).await;
                     return Err(ServerTaskError::ClientAppError(anyhow!(
@@ -164,8 +167,6 @@ impl EndWaitClient {
                     .await
                     .map_err(ServerTaskError::ClientTcpWriteFailed)?;
             }
-
-            recv_buf.consume_line();
         }
 
         let _ = clt_w.shutdown().await;

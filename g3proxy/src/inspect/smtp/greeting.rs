@@ -61,6 +61,7 @@ impl Greeting {
         let mut recv_buf = LineRecvBuf::<{ ResponseParser::MAX_LINE_SIZE }>::default();
 
         loop {
+            recv_buf.consume_line();
             let line = recv_buf.read_line(&mut ups_r).await.map_err(|e| match e {
                 RecvLineError::IoError(e) => GreetingError::UpstreamReadFailed(e),
                 RecvLineError::IoClosed => GreetingError::UpstreamClosed,
@@ -99,8 +100,6 @@ impl Greeting {
                 }
                 c => return Err(GreetingError::UnexpectedReplyCode(c)),
             }
-
-            recv_buf.consume_line();
         }
     }
 

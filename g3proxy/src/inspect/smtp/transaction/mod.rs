@@ -129,6 +129,7 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
         loop {
             let mut valid_cmd = Command::NoOperation;
 
+            buf.cmd_recv_buf.consume_line();
             let Some(cmd_line) = buf
                 .cmd_recv_buf
                 .recv_cmd_and_relay(
@@ -138,7 +139,11 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
                     ups_w,
                     |cmd| {
                         match &cmd {
-                            Command::Recipient(_) => {}
+                            Command::Recipient(_) => {
+                                if in_chunking {
+                                    return Some(ResponseEncoder::BAD_SEQUENCE_OF_COMMANDS);
+                                }
+                            }
                             Command::Data => {
                                 if in_chunking {
                                     return Some(ResponseEncoder::BAD_SEQUENCE_OF_COMMANDS);
@@ -264,6 +269,7 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
     {
         let mut rsp = ResponseParser::default();
         loop {
+            buf.rsp_recv_buf.consume_line();
             let line = buf
                 .rsp_recv_buf
                 .read_rsp_line_with_feedback(recv_timeout, ups_r, clt_w, self.local_ip)
