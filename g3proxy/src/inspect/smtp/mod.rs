@@ -56,11 +56,12 @@ struct SmtpRelayBuf {
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
         slog_info!($obj.ctx.intercept_logger(), $($args)+;
-            "intercept_type" => "SMTP",
+            "intercept_type" => "SmtpConnection",
             "task_id" => LtUuid($obj.ctx.server_task_id()),
             "depth" => $obj.ctx.inspection_depth,
             "upstream" => LtUpstreamAddr(&$obj.upstream),
             "client_host" => $obj.client_host.as_ref().map(LtHost),
+            "transaction_count" => $obj.transaction_count,
         )
     };
 }
@@ -78,6 +79,7 @@ pub(crate) struct SmtpInterceptObject<SC: ServerConfig> {
     upstream: UpstreamAddr,
     from_starttls: bool,
     client_host: Option<Host>,
+    transaction_count: usize,
 }
 
 impl<SC> SmtpInterceptObject<SC>
@@ -91,6 +93,7 @@ where
             upstream,
             from_starttls: false,
             client_host: None,
+            transaction_count: 0,
         }
     }
 
@@ -306,8 +309,16 @@ where
                     let allow_chunking = server_ext.allow_chunking();
                     let allow_burl = server_ext.allow_burl(interception_config);
 
-                    let mut transaction =
-                        Transaction::new(&self.ctx, local_ip, allow_chunking, allow_burl, param);
+                    let transaction_id = self.transaction_count;
+                    self.transaction_count += 1;
+                    let mut transaction = Transaction::new(
+                        &self.ctx,
+                        transaction_id,
+                        local_ip,
+                        allow_chunking,
+                        allow_burl,
+                        param,
+                    );
                     transaction
                         .relay(
                             &mut relay_buf,

@@ -24,6 +24,11 @@ pub struct MailParam {
 }
 
 impl MailParam {
+    #[inline]
+    pub fn reverse_path(&self) -> &str {
+        &self.reverse_path
+    }
+
     pub(super) fn parse(msg: &[u8]) -> Result<Self, CommandLineError> {
         let msg = str::from_utf8(msg).map_err(CommandLineError::InvalidUtf8Command)?;
 

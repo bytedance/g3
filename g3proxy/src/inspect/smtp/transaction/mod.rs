@@ -18,11 +18,13 @@ use std::net::IpAddr;
 use std::time::Duration;
 
 use anyhow::anyhow;
+use slog::slog_info;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
 use g3_dpi::SmtpInterceptionConfig;
 use g3_io_ext::{LimitedCopy, LimitedCopyError, LimitedWriteExt};
+use g3_slog_types::LtUuid;
 use g3_smtp_proto::command::{Command, MailParam, RecipientParam};
 use g3_smtp_proto::io::TextDataReader;
 use g3_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseParser};
@@ -32,13 +34,25 @@ use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
 use crate::serve::{ServerTaskError, ServerTaskResult};
 
+macro_rules! intercept_log {
+    ($obj:tt, $($args:tt)+) => {
+        slog_info!($obj.ctx.intercept_logger(), $($args)+;
+            "intercept_type" => "SmtpTransaction",
+            "task_id" => LtUuid($obj.ctx.server_task_id()),
+            "depth" => $obj.ctx.inspection_depth,
+            "transaction_id" => $obj.transaction_id,
+            "mail_from" => $obj.mail_from.reverse_path(),
+        )
+    };
+}
+
 pub(super) struct Transaction<'a, SC: ServerConfig> {
     config: &'a SmtpInterceptionConfig,
     ctx: &'a StreamInspectContext<SC>,
+    transaction_id: usize,
     local_ip: IpAddr,
     allow_chunking: bool,
     allow_burl: bool,
-    #[allow(unused)]
     mail_from: MailParam,
     mail_to: Vec<RecipientParam>,
     quit: bool,
@@ -47,6 +61,7 @@ pub(super) struct Transaction<'a, SC: ServerConfig> {
 impl<'a, SC: ServerConfig> Transaction<'a, SC> {
     pub(super) fn new(
         ctx: &'a StreamInspectContext<SC>,
+        transaction_id: usize,
         local_ip: IpAddr,
         allow_chunking: bool,
         allow_burl: bool,
@@ -55,6 +70,7 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
         Transaction {
             config: ctx.smtp_interception(),
             ctx,
+            transaction_id,
             local_ip,
             allow_chunking,
             allow_burl,
@@ -70,6 +86,32 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
     }
 
     pub(super) async fn relay<CR, CW, UR, UW>(
+        &mut self,
+        buf: &mut SmtpRelayBuf,
+        clt_r: &mut CR,
+        clt_w: &mut CW,
+        ups_r: &mut UR,
+        ups_w: &mut UW,
+    ) -> ServerTaskResult<()>
+    where
+        CR: AsyncRead + Unpin,
+        CW: AsyncWrite + Unpin,
+        UR: AsyncRead + Unpin,
+        UW: AsyncWrite + Unpin,
+    {
+        match self.do_relay(buf, clt_r, clt_w, ups_r, ups_w).await {
+            Ok(_) => {
+                intercept_log!(self, "finished");
+                Ok(())
+            }
+            Err(e) => {
+                intercept_log!(self, "{e}");
+                Err(e)
+            }
+        }
+    }
+
+    async fn do_relay<CR, CW, UR, UW>(
         &mut self,
         buf: &mut SmtpRelayBuf,
         clt_r: &mut CR,
