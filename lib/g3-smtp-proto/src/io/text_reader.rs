@@ -56,24 +56,21 @@ impl EndChecker {
                         self.check_n = false;
                         if left[0] == b'\n' {
                             self.found = true;
+                            return offset + 1;
                         }
                     } else if self.check_r_n {
                         self.check_r_n = false;
                         if left[0] == b'\r' {
                             self.check_n = true;
+                            return offset + 1;
                         }
                     } else if self.check_empty {
                         self.check_empty = false;
                         if left[0] == b'.' {
                             self.check_r_n = true;
+                            return offset + 1;
                         }
                     }
-
-                    if left[0] == b'\n' {
-                        // next read will be next line
-                        self.check_empty = true;
-                    }
-                    return offset + 1;
                 }
                 2 => {
                     if self.check_n {
@@ -86,19 +83,15 @@ impl EndChecker {
                         self.check_r_n = false;
                         if left == b"\r\n" {
                             self.found = true;
+                            return offset + 2;
                         }
                     } else if self.check_empty {
                         self.check_empty = false;
                         if left == b".\r" {
                             self.check_n = true;
+                            return offset + 2;
                         }
                     }
-
-                    if left == b"\r\n" {
-                        // next read will be next line
-                        self.check_empty = true;
-                    }
-                    return offset + 2;
                 }
                 _ => {
                     if self.check_n {
@@ -120,15 +113,15 @@ impl EndChecker {
                             return offset + 3;
                         }
                     }
-
-                    if let Some(p) = memchr::memchr(b'\n', left) {
-                        // skip to next line
-                        offset += p + 1;
-                        self.check_empty = true;
-                    } else {
-                        return offset + left.len();
-                    }
                 }
+            }
+
+            if let Some(p) = memchr::memchr(b'\n', left) {
+                // skip to next line
+                offset += p + 1;
+                self.check_empty = true;
+            } else {
+                return offset + left.len();
             }
         }
     }
