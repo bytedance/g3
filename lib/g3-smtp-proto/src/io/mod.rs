@@ -14,5 +14,8 @@
  * limitations under the License.
  */
 
-mod data;
-pub use data::TextDataReader;
+mod text_reader;
+pub use text_reader::TextDataReader;
+
+mod text_decoder;
+pub use text_decoder::TextDataDecoder;
