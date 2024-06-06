@@ -62,11 +62,7 @@ impl DataDecodeBuffer {
         if src_buf.is_empty() {
             None
         } else {
-            if let Some(p) = memchr::memchr(b'\n', src_buf) {
-                Some((self.start, self.start + p + 1))
-            } else {
-                None
-            }
+            memchr::memchr(b'\n', src_buf).map(|p| (self.start, self.start + p + 1))
         }
     }
 
