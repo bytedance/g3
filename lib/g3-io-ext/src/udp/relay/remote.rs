@@ -20,6 +20,7 @@ use std::task::{Context, Poll};
 
 use thiserror::Error;
 
+#[cfg(feature = "resolver")]
 use g3_resolver::ResolveError;
 use g3_types::net::UpstreamAddr;
 
@@ -46,6 +47,7 @@ pub enum UdpRelayRemoteError {
     InvalidPacket(SocketAddr, String),
     #[error("address not supported")]
     AddressNotSupported,
+    #[cfg(feature = "resolver")]
     #[error("domain not resolved: {0}")]
     DomainNotResolved(#[from] ResolveError),
     #[error("forbidden target ip address: {0}")]

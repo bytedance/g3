@@ -70,7 +70,7 @@ g3-slog-types = { workspace = true, features = ["http"] }
 g3-yaml = { workspace = true, features = ["resolve", "rustls", "openssl", "acl-rule", "http", "ftp-client", "route", "dpi", "audit", "histogram", "geoip"] }
 g3-json = { workspace = true, features = ["acl-rule", "resolve", "http", "rustls", "openssl", "histogram"] }
 g3-msgpack.workspace = true
-g3-io-ext.workspace = true
+g3-io-ext = { workspace = true, features = ["resolver"] }
 g3-resolver.workspace = true
 g3-xcrypt.workspace = true
 g3-ftp-client.workspace = true

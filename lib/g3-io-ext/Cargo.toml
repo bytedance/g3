@@ -21,7 +21,7 @@ ahash.workspace = true
 smallvec.workspace = true
 quinn = { workspace = true, optional = true }
 g3-types.workspace = true
-g3-resolver.workspace = true
+g3-resolver = { workspace = true, optional = true }
 
 [target.'cfg(unix)'.dependencies]
 rustix = { workspace = true, features = ["std", "net"] }
@@ -39,3 +39,4 @@ governor = { workspace = true, features = ["std", "jitter"] }
 [features]
 default = []
 quic = ["dep:quinn"]
+resolver = ["dep:g3-resolver"]
