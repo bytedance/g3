@@ -1389,6 +1389,7 @@ dependencies = [
  "bytes",
  "g3-types",
  "memchr",
+ "pin-project-lite",
  "thiserror",
  "tokio",
  "tokio-stream",

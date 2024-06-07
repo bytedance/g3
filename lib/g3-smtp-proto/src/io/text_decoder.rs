@@ -18,7 +18,8 @@ use std::io;
 use std::pin::Pin;
 use std::task::{ready, Context, Poll};
 
-use tokio::io::{AsyncRead, ReadBuf};
+use pin_project_lite::pin_project;
+use tokio::io::{AsyncBufRead, AsyncRead, ReadBuf};
 
 struct DataDecodeBuffer {
     buf: Box<[u8]>,
@@ -154,11 +155,63 @@ impl DataDecodeBuffer {
             }
         }
     }
+
+    fn poll_get_cache<R>(
+        &mut self,
+        cx: &mut Context<'_>,
+        reader: Pin<&mut R>,
+    ) -> Poll<io::Result<()>>
+    where
+        R: AsyncRead + Unpin,
+    {
+        if self.read_done {
+            return Poll::Ready(Ok(()));
+        }
+
+        if self.cache_data.is_some() {
+            return Poll::Ready(Ok(()));
+        }
+
+        let (start, end) = ready!(self.poll_line(cx, reader))?;
+        let line = &self.buf[start..end];
+        if line[0] == b'.' {
+            if line == b".\r\n" {
+                self.read_done = true;
+                return Poll::Ready(Ok(()));
+            }
+            self.cache_data = Some((start + 1, end));
+            Poll::Ready(Ok(()))
+        } else {
+            self.cache_data = Some((start, end));
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    fn cache(&self) -> &[u8] {
+        if let Some((start, end)) = &self.cache_data {
+            &self.buf[*start..*end]
+        } else {
+            &[]
+        }
+    }
+
+    fn consume_cache(&mut self, amt: usize) {
+        if let Some((start, end)) = self.cache_data.take() {
+            if amt < end - start {
+                self.cache_data = Some((start + amt, end))
+            } else {
+                self.start = end
+            }
+        }
+    }
 }
 
-pub struct TextDataDecoder<'a, R> {
-    reader: &'a mut R,
-    buf: DataDecodeBuffer,
+pin_project! {
+    pub struct TextDataDecoder<'a, R> {
+        #[pin]
+        reader: &'a mut R,
+        buf: DataDecodeBuffer,
+    }
 }
 
 impl<'a, R> TextDataDecoder<'a, R> {
@@ -179,13 +232,28 @@ where
     R: AsyncRead + Unpin,
 {
     fn poll_read(
-        mut self: Pin<&mut Self>,
+        self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        let me = &mut *self;
+        let me = self.project();
+        me.buf.poll_read(cx, me.reader, buf)
+    }
+}
 
-        me.buf.poll_read(cx, Pin::new(&mut me.reader), buf)
+impl<'a, R> AsyncBufRead for TextDataDecoder<'a, R>
+where
+    R: AsyncRead + Unpin,
+{
+    fn poll_fill_buf(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<&[u8]>> {
+        let me = self.project();
+        ready!(me.buf.poll_get_cache(cx, me.reader))?;
+
+        Poll::Ready(Ok(me.buf.cache()))
+    }
+
+    fn consume(mut self: Pin<&mut Self>, amt: usize) {
+        self.buf.consume_cache(amt)
     }
 }
 
@@ -245,10 +313,12 @@ mod test {
         let mut buf_stream = BufReader::new(stream);
         let mut body_deocder = TextDataDecoder::new(&mut buf_stream, 1024);
 
-        let mut buf = [0u8; 32];
-        let len = body_deocder.read(&mut buf).await.unwrap();
-        assert_eq!(len, body_len);
-        assert_eq!(&buf[0..len], b"Line 1\r\n\r\nLine 2\r\n");
+        let mut buf = Vec::with_capacity(body_len);
+        let len = tokio::io::copy_buf(&mut body_deocder, &mut buf)
+            .await
+            .unwrap();
+        assert_eq!(len, body_len as u64);
+        assert_eq!(&buf, b"Line 1\r\n\r\nLine 2\r\n");
         assert!(body_deocder.finished());
     }
 
@@ -269,10 +339,12 @@ mod test {
         let mut buf_stream = BufReader::new(stream);
         let mut body_deocder = TextDataDecoder::new(&mut buf_stream, 1024);
 
-        let mut buf = [0u8; 32];
-        let len = body_deocder.read(&mut buf).await.unwrap();
-        assert_eq!(len, body_len);
-        assert_eq!(&buf[0..len], b"Line 1\r\n\r\nLine 2\r\n");
+        let mut buf = Vec::with_capacity(body_len);
+        let len = tokio::io::copy_buf(&mut body_deocder, &mut buf)
+            .await
+            .unwrap();
+        assert_eq!(len, body_len as u64);
+        assert_eq!(&buf, b"Line 1\r\n\r\nLine 2\r\n");
         assert!(body_deocder.finished());
     }
 }
