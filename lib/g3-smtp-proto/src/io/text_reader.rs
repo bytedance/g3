@@ -206,4 +206,52 @@ mod test {
         assert_eq!(&buf[0..len], &content[0..len]);
         assert!(body_deocder.finished());
     }
+
+    #[tokio::test]
+    async fn read_multi_normal() {
+        let body_len: usize = 22;
+        let content1 = b"Line 1\r\n\r";
+        let content2 = b"\n.";
+        let content3 = b"Line 2";
+        let content4 = b"\r\n.\r\n";
+        let stream = tokio_stream::iter(vec![
+            Result::Ok(Bytes::from_static(content1)),
+            Result::Ok(Bytes::from_static(content2)),
+            Result::Ok(Bytes::from_static(content3)),
+            Result::Ok(Bytes::from_static(content4)),
+        ]);
+        let stream = StreamReader::new(stream);
+        let mut buf_stream = BufReader::new(stream);
+        let mut body_deocder = TextDataReader::new(&mut buf_stream);
+
+        let mut buf = Vec::with_capacity(body_len);
+        let len = tokio::io::copy(&mut body_deocder, &mut buf).await.unwrap();
+        assert_eq!(len, body_len as u64);
+        assert_eq!(&buf, b"Line 1\r\n\r\n.Line 2\r\n.\r\n");
+        assert!(body_deocder.finished());
+    }
+
+    #[tokio::test]
+    async fn read_multi_malformed() {
+        let body_len: usize = 22;
+        let content1 = b"Line 1\r\n\r";
+        let content2 = b"\n.";
+        let content3 = b"Line 2";
+        let content4 = b"\r\n.\r\n123";
+        let stream = tokio_stream::iter(vec![
+            Result::Ok(Bytes::from_static(content1)),
+            Result::Ok(Bytes::from_static(content2)),
+            Result::Ok(Bytes::from_static(content3)),
+            Result::Ok(Bytes::from_static(content4)),
+        ]);
+        let stream = StreamReader::new(stream);
+        let mut buf_stream = BufReader::new(stream);
+        let mut body_deocder = TextDataReader::new(&mut buf_stream);
+
+        let mut buf = Vec::with_capacity(body_len);
+        let len = tokio::io::copy(&mut body_deocder, &mut buf).await.unwrap();
+        assert_eq!(len, body_len as u64);
+        assert_eq!(&buf, b"Line 1\r\n\r\n.Line 2\r\n.\r\n");
+        assert!(body_deocder.finished());
+    }
 }
