@@ -29,9 +29,10 @@ use g3_http::server::HttpAdaptedRequest;
 use g3_io_ext::{IdleCheck, LimitedCopyConfig};
 use g3_types::net::HttpHeaderMap;
 
-pub use super::h1::HttpAdapterErrorResponse;
 use super::IcapReqmodClient;
-use crate::{IcapClientConnection, IcapServiceClient, IcapServiceOptions};
+use crate::{IcapClientConnection, IcapClientReader, IcapServiceClient, IcapServiceOptions};
+
+pub use crate::reqmod::h1::HttpAdapterErrorResponse;
 
 mod error;
 pub use error::H2ReqmodAdaptationError;
@@ -40,7 +41,6 @@ mod recv_request;
 mod recv_response;
 
 mod bidirectional;
-use crate::service::IcapClientReader;
 use bidirectional::{BidirectionalRecvHttpRequest, BidirectionalRecvIcapResponse};
 
 mod forward_body;

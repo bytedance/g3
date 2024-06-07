@@ -28,6 +28,7 @@ mod response;
 
 pub mod h1;
 pub mod h2;
+pub mod smtp;
 
 #[derive(Clone)]
 pub struct IcapReqmodClient {

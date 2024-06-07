@@ -16,7 +16,7 @@ url.workspace = true
 bytes.workspace = true
 base64.workspace = true
 flume = { workspace = true, features = ["async"] }
-tokio = { workspace = true, features = ["time", "io-util", "sync"] }
+tokio = { workspace = true, features = ["time", "io-util", "sync", "macros", "rt"] }
 http.workspace = true
 h2.workspace = true
 g3-types.workspace = true
@@ -24,3 +24,4 @@ g3-io-ext.workspace = true
 g3-socket.workspace = true
 g3-http.workspace = true
 g3-h2.workspace = true
+g3-smtp-proto.workspace = true

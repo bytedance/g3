@@ -1213,6 +1213,7 @@ dependencies = [
  "g3-h2",
  "g3-http",
  "g3-io-ext",
+ "g3-smtp-proto",
  "g3-socket",
  "g3-types",
  "h2",
