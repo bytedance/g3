@@ -297,7 +297,30 @@ mod test {
     }
 
     #[tokio::test]
-    async fn read_multi_normal() {
+    async fn read_multi_normal_read() {
+        let body_len: usize = 18;
+        let content1 = b"Line 1\r\n\r";
+        let content2 = b"\n.";
+        let content3 = b"Line 2";
+        let content4 = b"\r\n.\r\n";
+        let stream = tokio_stream::iter(vec![
+            Result::Ok(Bytes::from_static(content1)),
+            Result::Ok(Bytes::from_static(content2)),
+            Result::Ok(Bytes::from_static(content3)),
+            Result::Ok(Bytes::from_static(content4)),
+        ]);
+        let stream = StreamReader::new(stream);
+        let mut buf_stream = BufReader::new(stream);
+        let mut body_deocder = TextDataDecoder::new(&mut buf_stream, 1024);
+
+        let mut buf = [0u8; 32];
+        let len = body_deocder.read(&mut buf).await.unwrap();
+        assert_eq!(len, body_len);
+        assert_eq!(&buf[0..len], b"Line 1\r\n\r\nLine 2\r\n");
+    }
+
+    #[tokio::test]
+    async fn read_multi_normal_buf_copy() {
         let body_len: usize = 18;
         let content1 = b"Line 1\r\n\r";
         let content2 = b"\n.";
@@ -323,7 +346,30 @@ mod test {
     }
 
     #[tokio::test]
-    async fn read_multi_malformed() {
+    async fn read_multi_malformed_read() {
+        let body_len: usize = 18;
+        let content1 = b"Line 1\r\n\r";
+        let content2 = b"\n.";
+        let content3 = b"Line 2";
+        let content4 = b"\r\n.\r\n123";
+        let stream = tokio_stream::iter(vec![
+            Result::Ok(Bytes::from_static(content1)),
+            Result::Ok(Bytes::from_static(content2)),
+            Result::Ok(Bytes::from_static(content3)),
+            Result::Ok(Bytes::from_static(content4)),
+        ]);
+        let stream = StreamReader::new(stream);
+        let mut buf_stream = BufReader::new(stream);
+        let mut body_deocder = TextDataDecoder::new(&mut buf_stream, 1024);
+
+        let mut buf = [0u8; 32];
+        let len = body_deocder.read(&mut buf).await.unwrap();
+        assert_eq!(len, body_len);
+        assert_eq!(&buf[0..len], b"Line 1\r\n\r\nLine 2\r\n");
+    }
+
+    #[tokio::test]
+    async fn read_multi_malformed_buf_copy() {
         let body_len: usize = 18;
         let content1 = b"Line 1\r\n\r";
         let content2 = b"\n.";
