@@ -19,7 +19,7 @@ use std::sync::Arc;
 use tokio::io::AsyncBufRead;
 use tokio::time::Instant;
 
-use g3_http::{ChunkedTransfer, HttpBodyReader, HttpBodyType};
+use g3_http::{H1BodyToChunkedTransfer, HttpBodyReader, HttpBodyType};
 use g3_io_ext::{IdleCheck, LimitedBufReadExt, LimitedCopy, LimitedCopyConfig, LimitedCopyError};
 
 use super::{
@@ -38,7 +38,7 @@ pub(super) struct BidirectionalRecvIcapResponse<'a, I: IdleCheck> {
 impl<'a, I: IdleCheck> BidirectionalRecvIcapResponse<'a, I> {
     pub(super) async fn transfer_and_recv<UR>(
         self,
-        mut body_transfer: &mut ChunkedTransfer<'_, UR, IcapClientWriter>,
+        mut body_transfer: &mut H1BodyToChunkedTransfer<'_, UR, IcapClientWriter>,
     ) -> Result<RespmodResponse, H1RespmodAdaptationError>
     where
         UR: AsyncBufRead + Unpin,
@@ -125,7 +125,7 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpResponse<'a, I> {
     pub(super) async fn transfer<H, UR, CW>(
         mut self,
         state: &mut RespmodAdaptationRunState,
-        mut ups_body_transfer: &mut ChunkedTransfer<'_, UR, IcapClientWriter>,
+        mut ups_body_transfer: &mut H1BodyToChunkedTransfer<'_, UR, IcapClientWriter>,
         http_header_size: usize,
         orig_http_response: &H,
         clt_writer: &mut CW,

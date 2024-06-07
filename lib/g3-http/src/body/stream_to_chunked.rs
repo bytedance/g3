@@ -25,6 +25,7 @@ use g3_io_ext::LimitedCopyError;
 
 struct ChunkedNoTrailerEncodeTransferInternal {
     yield_size: usize,
+    no_trailer: bool,
     this_chunk_size: usize,
     left_chunk_size: usize,
     static_header: Vec<u8>,
@@ -35,9 +36,10 @@ struct ChunkedNoTrailerEncodeTransferInternal {
 }
 
 impl ChunkedNoTrailerEncodeTransferInternal {
-    fn new(yield_size: usize) -> Self {
+    fn new(yield_size: usize, no_trailer: bool) -> Self {
         ChunkedNoTrailerEncodeTransferInternal {
             yield_size,
+            no_trailer,
             this_chunk_size: 0,
             left_chunk_size: 0,
             static_header: Vec::with_capacity(16),
@@ -69,11 +71,15 @@ impl ChunkedNoTrailerEncodeTransferInternal {
                 if chunk_size == 0 {
                     self.read_finished = true;
                     if self.total_write == 0 {
-                        // no trailer
-                        let _ = write!(&mut self.static_header, "0\r\n\r\n");
-                    } else {
-                        // no trailer
+                        if self.no_trailer {
+                            let _ = write!(&mut self.static_header, "0\r\n\r\n");
+                        } else {
+                            let _ = write!(&mut self.static_header, "0\r\n");
+                        }
+                    } else if self.no_trailer {
                         let _ = write!(&mut self.static_header, "\r\n0\r\n\r\n");
+                    } else {
+                        let _ = write!(&mut self.static_header, "\r\n0\r\n");
                     }
                 } else if self.total_write == 0 {
                     let _ = write!(&mut self.static_header, "{chunk_size:x}\r\n");
@@ -147,19 +153,31 @@ impl ChunkedNoTrailerEncodeTransferInternal {
     }
 }
 
-pub struct ChunkedNoTrailerEncodeTransfer<'a, R, W> {
+pub struct StreamToChunkedTransfer<'a, R, W> {
     reader: &'a mut R,
     writer: &'a mut W,
     internal: ChunkedNoTrailerEncodeTransferInternal,
 }
 
-impl<'a, R, W> ChunkedNoTrailerEncodeTransfer<'a, R, W> {
-    pub fn new(reader: &'a mut R, writer: &'a mut W, yield_size: usize) -> Self {
-        ChunkedNoTrailerEncodeTransfer {
+impl<'a, R, W> StreamToChunkedTransfer<'a, R, W> {
+    pub fn new(reader: &'a mut R, writer: &'a mut W, yield_size: usize, no_trailer: bool) -> Self {
+        StreamToChunkedTransfer {
             reader,
             writer,
-            internal: ChunkedNoTrailerEncodeTransferInternal::new(yield_size),
+            internal: ChunkedNoTrailerEncodeTransferInternal::new(yield_size, no_trailer),
         }
+    }
+
+    pub fn new_with_no_trailer(reader: &'a mut R, writer: &'a mut W, yield_size: usize) -> Self {
+        Self::new(reader, writer, yield_size, true)
+    }
+
+    pub fn new_with_pending_trailer(
+        reader: &'a mut R,
+        writer: &'a mut W,
+        yield_size: usize,
+    ) -> Self {
+        Self::new(reader, writer, yield_size, false)
     }
 
     pub fn finished(&self) -> bool {
@@ -183,7 +201,7 @@ impl<'a, R, W> ChunkedNoTrailerEncodeTransfer<'a, R, W> {
     }
 }
 
-impl<'a, R, W> Future for ChunkedNoTrailerEncodeTransfer<'a, R, W>
+impl<'a, R, W> Future for StreamToChunkedTransfer<'a, R, W>
 where
     R: AsyncBufRead + Unpin,
     W: AsyncWrite + Unpin,
@@ -206,7 +224,7 @@ mod test {
     use tokio_util::io::StreamReader;
 
     #[tokio::test]
-    async fn encode_two() {
+    async fn encode_two_no_trailer() {
         let body_len: usize = 24;
         let data1 = b"test\n";
         let data2 = b"body";
@@ -220,7 +238,7 @@ mod test {
         let mut write_buf = Vec::with_capacity(body_len);
 
         let mut chunked_encoder =
-            ChunkedNoTrailerEncodeTransfer::new(&mut buf_stream, &mut write_buf, 1024);
+            StreamToChunkedTransfer::new_with_no_trailer(&mut buf_stream, &mut write_buf, 1024);
 
         let nw = (&mut chunked_encoder).await.unwrap();
         assert_eq!(nw, body_len as u64);
@@ -230,7 +248,34 @@ mod test {
     }
 
     #[tokio::test]
-    async fn encode_empty() {
+    async fn encode_two_pending_trailer() {
+        let body_len: usize = 22;
+        let data1 = b"test\n";
+        let data2 = b"body";
+        let stream = tokio_stream::iter(vec![
+            Result::Ok(Bytes::from_static(data1)),
+            Result::Ok(Bytes::from_static(data2)),
+        ]);
+        let stream = StreamReader::new(stream);
+        let mut buf_stream = BufReader::new(stream);
+
+        let mut write_buf = Vec::with_capacity(body_len);
+
+        let mut chunked_encoder = StreamToChunkedTransfer::new_with_pending_trailer(
+            &mut buf_stream,
+            &mut write_buf,
+            1024,
+        );
+
+        let nw = (&mut chunked_encoder).await.unwrap();
+        assert_eq!(nw, body_len as u64);
+        assert!(chunked_encoder.finished());
+
+        assert_eq!(&write_buf, b"5\r\ntest\n\r\n4\r\nbody\r\n0\r\n");
+    }
+
+    #[tokio::test]
+    async fn encode_empty_no_trailer() {
         let body_len: usize = 5;
         let data1 = b"";
         let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(data1))]);
@@ -240,12 +285,35 @@ mod test {
         let mut write_buf = Vec::with_capacity(body_len);
 
         let mut chunked_encoder =
-            ChunkedNoTrailerEncodeTransfer::new(&mut buf_stream, &mut write_buf, 1024);
+            StreamToChunkedTransfer::new_with_no_trailer(&mut buf_stream, &mut write_buf, 1024);
 
         let nw = (&mut chunked_encoder).await.unwrap();
         assert_eq!(nw, body_len as u64);
         assert!(chunked_encoder.finished());
 
         assert_eq!(&write_buf, b"0\r\n\r\n");
+    }
+
+    #[tokio::test]
+    async fn encode_empty_pending_trailer() {
+        let body_len: usize = 3;
+        let data1 = b"";
+        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(data1))]);
+        let stream = StreamReader::new(stream);
+        let mut buf_stream = BufReader::new(stream);
+
+        let mut write_buf = Vec::with_capacity(body_len);
+
+        let mut chunked_encoder = StreamToChunkedTransfer::new_with_pending_trailer(
+            &mut buf_stream,
+            &mut write_buf,
+            1024,
+        );
+
+        let nw = (&mut chunked_encoder).await.unwrap();
+        assert_eq!(nw, body_len as u64);
+        assert!(chunked_encoder.finished());
+
+        assert_eq!(&write_buf, b"0\r\n");
     }
 }

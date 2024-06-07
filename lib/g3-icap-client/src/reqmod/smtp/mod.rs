@@ -146,6 +146,7 @@ pub struct ReqmodRecvHttpResponseBody {
 
 impl ReqmodRecvHttpResponseBody {
     pub fn body_reader(&mut self) -> ChunkedDataDecodeReader<'_, impl AsyncBufRead> {
+        // TODO decode data and drain trailer
         ChunkedDataDecodeReader::new(&mut self.icap_connection.1, 1024)
     }
 

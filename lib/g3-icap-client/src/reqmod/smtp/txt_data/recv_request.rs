@@ -60,6 +60,7 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
             HttpAdaptedRequest::parse(&mut self.icap_connection.1, http_header_size, true).await?;
         // TODO check request content type?
 
+        // TODO decode data and drain trailer
         let mut body_reader =
             HttpBodyReader::new(&mut self.icap_connection.1, HttpBodyType::Chunked, 256);
         let mut msg_transfer = LimitedCopy::new(&mut body_reader, ups_writer, &self.copy_config);

@@ -27,11 +27,11 @@ pub use reader::HttpBodyReader;
 mod preview;
 pub use preview::{PreviewData, PreviewDataState, PreviewError};
 
-mod chunked_transfer;
-pub use chunked_transfer::ChunkedTransfer;
+mod body_to_chunked;
+pub use body_to_chunked::H1BodyToChunkedTransfer;
 
-mod chunked_encoder;
-pub use chunked_encoder::ChunkedNoTrailerEncodeTransfer;
+mod stream_to_chunked;
+pub use stream_to_chunked::StreamToChunkedTransfer;
 
 mod chunked_decoder;
 pub use chunked_decoder::ChunkedDataDecodeReader;

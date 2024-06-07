@@ -22,11 +22,11 @@ use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncWrite};
 
 use g3_io_ext::{LimitedCopyConfig, LimitedCopyError, ROwnedLimitedCopy};
 
-use super::{ChunkedNoTrailerEncodeTransfer, HttpBodyReader, HttpBodyType, PreviewDataState};
+use super::{HttpBodyReader, HttpBodyType, PreviewDataState, StreamToChunkedTransfer};
 
 const NO_TRAILER_END_BUFFER: &[u8] = b"\r\n0\r\n\r\n";
 
-pub struct ChunkedTransfer<'a, R, W> {
+pub struct H1BodyToChunkedTransfer<'a, R, W> {
     body_type: HttpBodyType,
     copy_config: LimitedCopyConfig,
     state: ChunkedTransferState<'a, R, W>,
@@ -50,11 +50,11 @@ enum ChunkedTransferState<'a, R, W> {
     SendHead(SendHead<'a, R, W>),
     Copy(ROwnedLimitedCopy<'a, HttpBodyReader<'a, R>, W>),
     SendNoTrailerEnd(SendEnd<'a, W>),
-    Encode(ChunkedNoTrailerEncodeTransfer<'a, R, W>),
+    Encode(StreamToChunkedTransfer<'a, R, W>),
     End,
 }
 
-impl<'a, R, W> ChunkedTransfer<'a, R, W>
+impl<'a, R, W> H1BodyToChunkedTransfer<'a, R, W>
 where
     R: AsyncBufRead + Unpin,
     W: AsyncWrite + Unpin,
@@ -65,7 +65,7 @@ where
         body_type: HttpBodyType,
         body_line_max_len: usize,
         copy_config: LimitedCopyConfig,
-    ) -> ChunkedTransfer<'a, R, W> {
+    ) -> H1BodyToChunkedTransfer<'a, R, W> {
         let state = match body_type {
             HttpBodyType::ContentLength(0) => {
                 // just send 0 chunk size and empty trailer end
@@ -86,8 +86,11 @@ where
                 })
             }
             HttpBodyType::ReadUntilEnd => {
-                let encoder =
-                    ChunkedNoTrailerEncodeTransfer::new(reader, writer, copy_config.yield_size());
+                let encoder = StreamToChunkedTransfer::new_with_no_trailer(
+                    reader,
+                    writer,
+                    copy_config.yield_size(),
+                );
                 ChunkedTransferState::Encode(encoder)
             }
             HttpBodyType::Chunked => {
@@ -96,7 +99,7 @@ where
                 ChunkedTransferState::Copy(copy)
             }
         };
-        ChunkedTransfer {
+        H1BodyToChunkedTransfer {
             body_type,
             copy_config,
             state,
@@ -112,7 +115,7 @@ where
         body_line_max_len: usize,
         copy_config: LimitedCopyConfig,
         preview_state: PreviewDataState,
-    ) -> ChunkedTransfer<'a, R, W> {
+    ) -> H1BodyToChunkedTransfer<'a, R, W> {
         let state = match body_type {
             HttpBodyType::ContentLength(len) => {
                 let left_len = len - (preview_state.preview_size as u64);
@@ -132,8 +135,11 @@ where
             }
             HttpBodyType::ReadUntilEnd => {
                 reader.consume(preview_state.consume_size);
-                let encoder =
-                    ChunkedNoTrailerEncodeTransfer::new(reader, writer, copy_config.yield_size());
+                let encoder = StreamToChunkedTransfer::new_with_no_trailer(
+                    reader,
+                    writer,
+                    copy_config.yield_size(),
+                );
                 ChunkedTransferState::Encode(encoder)
             }
             HttpBodyType::Chunked => {
@@ -160,7 +166,7 @@ where
                 }
             }
         };
-        ChunkedTransfer {
+        H1BodyToChunkedTransfer {
             body_type,
             copy_config,
             state,
@@ -196,7 +202,7 @@ where
     }
 }
 
-impl<'a, R, W> Future for ChunkedTransfer<'a, R, W>
+impl<'a, R, W> Future for H1BodyToChunkedTransfer<'a, R, W>
 where
     R: AsyncBufRead + Unpin,
     W: AsyncWrite + Unpin,
@@ -304,7 +310,7 @@ mod test {
         let exp_body = b"9\r\ntest body\r\n0\r\n\r\n";
         let mut write_buf = Vec::with_capacity(exp_body.len());
 
-        let mut body_transfer = ChunkedTransfer::new(
+        let mut body_transfer = H1BodyToChunkedTransfer::new(
             &mut buf_stream,
             &mut write_buf,
             HttpBodyType::ReadUntilEnd,
@@ -332,7 +338,7 @@ mod test {
         let exp_body = b"9\r\ntest body\r\n5\r\nhello\r\n0\r\n\r\n";
         let mut write_buf = Vec::with_capacity(exp_body.len());
 
-        let mut body_transfer = ChunkedTransfer::new(
+        let mut body_transfer = H1BodyToChunkedTransfer::new(
             &mut buf_stream,
             &mut write_buf,
             HttpBodyType::ReadUntilEnd,
@@ -356,7 +362,7 @@ mod test {
         let exp_body = b"9\r\ntest body\r\n0\r\n\r\n";
         let mut write_buf = Vec::with_capacity(exp_body.len());
 
-        let mut body_transfer = ChunkedTransfer::new(
+        let mut body_transfer = H1BodyToChunkedTransfer::new(
             &mut buf_stream,
             &mut write_buf,
             HttpBodyType::ContentLength(9),
@@ -384,7 +390,7 @@ mod test {
         let exp_body = b"10\r\ntest body- hello\r\n0\r\n\r\n";
         let mut write_buf = Vec::with_capacity(exp_body.len());
 
-        let mut body_transfer = ChunkedTransfer::new(
+        let mut body_transfer = H1BodyToChunkedTransfer::new(
             &mut buf_stream,
             &mut write_buf,
             HttpBodyType::ContentLength(16),
@@ -408,7 +414,7 @@ mod test {
 
         let mut write_buf = Vec::with_capacity(body_len);
 
-        let mut body_transfer = ChunkedTransfer::new(
+        let mut body_transfer = H1BodyToChunkedTransfer::new(
             &mut buf_stream,
             &mut write_buf,
             HttpBodyType::Chunked,
@@ -438,7 +444,7 @@ mod test {
         let exp_body = b"5\r\ntest\n\r\n4\r\nbody\r\n0\r\n\r\n";
         let mut write_buf = Vec::with_capacity(body_len);
 
-        let mut body_transfer = ChunkedTransfer::new(
+        let mut body_transfer = H1BodyToChunkedTransfer::new(
             &mut buf_stream,
             &mut write_buf,
             HttpBodyType::Chunked,
@@ -462,7 +468,7 @@ mod test {
 
         let mut write_buf = Vec::with_capacity(body_len);
 
-        let mut body_transfer = ChunkedTransfer::new(
+        let mut body_transfer = H1BodyToChunkedTransfer::new(
             &mut buf_stream,
             &mut write_buf,
             HttpBodyType::Chunked,

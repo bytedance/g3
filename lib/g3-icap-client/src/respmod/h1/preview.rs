@@ -19,7 +19,7 @@ use std::io::{IoSlice, Write};
 use bytes::BufMut;
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncWriteExt};
 
-use g3_http::{ChunkedTransfer, HttpBodyType, PreviewData, PreviewDataState};
+use g3_http::{H1BodyToChunkedTransfer, HttpBodyType, PreviewData, PreviewDataState};
 use g3_io_ext::{IdleCheck, LimitedWriteExt};
 
 use super::{
@@ -145,7 +145,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
                     ));
                 }
 
-                let mut body_transfer = ChunkedTransfer::new_after_preview(
+                let mut body_transfer = H1BodyToChunkedTransfer::new_after_preview(
                     ups_body_io,
                     &mut self.icap_connection.0,
                     ups_body_type,

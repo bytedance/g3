@@ -20,7 +20,7 @@ use tokio::io::{AsyncBufRead, AsyncWrite};
 use tokio::time::Instant;
 
 use g3_http::server::HttpAdaptedRequest;
-use g3_http::{ChunkedNoTrailerEncodeTransfer, HttpBodyReader, HttpBodyType};
+use g3_http::{HttpBodyReader, HttpBodyType, StreamToChunkedTransfer};
 use g3_io_ext::{IdleCheck, LimitedBufReadExt, LimitedCopy, LimitedCopyConfig, LimitedCopyError};
 
 use super::{ReqmodAdaptationEndState, ReqmodAdaptationRunState, SmtpAdaptationError};
@@ -36,7 +36,7 @@ pub(super) struct BidirectionalRecvIcapResponse<'a, I: IdleCheck> {
 impl<'a, I: IdleCheck> BidirectionalRecvIcapResponse<'a, I> {
     pub(super) async fn transfer_and_recv<CR>(
         self,
-        mut msg_transfer: &mut ChunkedNoTrailerEncodeTransfer<'_, CR, IcapClientWriter>,
+        mut msg_transfer: &mut StreamToChunkedTransfer<'_, CR, IcapClientWriter>,
     ) -> Result<ReqmodResponse, SmtpAdaptationError>
     where
         CR: AsyncBufRead + Unpin,
@@ -120,7 +120,7 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpRequest<'a, I> {
     pub(super) async fn transfer<CR, UW>(
         self,
         state: &mut ReqmodAdaptationRunState,
-        mut clt_msg_transfer: &mut ChunkedNoTrailerEncodeTransfer<'_, CR, IcapClientWriter>,
+        mut clt_msg_transfer: &mut StreamToChunkedTransfer<'_, CR, IcapClientWriter>,
         http_header_size: usize,
         ups_writer: &mut UW,
     ) -> Result<ReqmodAdaptationEndState, SmtpAdaptationError>
@@ -131,6 +131,7 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpRequest<'a, I> {
         let _http_req = HttpAdaptedRequest::parse(self.icap_reader, http_header_size, true).await?;
         // TODO check request content type?
 
+        // TODO decode data and drain trailer
         let mut ups_body_reader = HttpBodyReader::new(self.icap_reader, HttpBodyType::Chunked, 256);
         let mut ups_msg_transfer =
             LimitedCopy::new(&mut ups_body_reader, ups_writer, &self.copy_config);

@@ -19,7 +19,7 @@ use std::io::{IoSlice, Write};
 use bytes::BufMut;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_http::ChunkedNoTrailerEncodeTransfer;
+use g3_http::StreamToChunkedTransfer;
 use g3_io_ext::{IdleCheck, LimitedWriteExt};
 use g3_smtp_proto::io::TextDataDecoder;
 
@@ -68,7 +68,7 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
             .map_err(SmtpAdaptationError::IcapServerWriteFailed)?;
 
         let mut message_reader = TextDataDecoder::new(clt_r, self.copy_config.buffer_size());
-        let mut body_transfer = ChunkedNoTrailerEncodeTransfer::new(
+        let mut body_transfer = StreamToChunkedTransfer::new_with_no_trailer(
             &mut message_reader,
             &mut self.icap_connection.0,
             self.copy_config.yield_size(),

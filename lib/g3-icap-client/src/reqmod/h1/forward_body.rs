@@ -19,7 +19,7 @@ use std::io::{IoSlice, Write};
 use bytes::BufMut;
 use tokio::io::AsyncBufRead;
 
-use g3_http::{ChunkedTransfer, HttpBodyType};
+use g3_http::{H1BodyToChunkedTransfer, HttpBodyType};
 use g3_io_ext::{IdleCheck, LimitedWriteExt};
 
 use super::{
@@ -68,7 +68,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             .await
             .map_err(H1ReqmodAdaptationError::IcapServerWriteFailed)?;
 
-        let mut body_transfer = ChunkedTransfer::new(
+        let mut body_transfer = H1BodyToChunkedTransfer::new(
             clt_body_io,
             &mut self.icap_connection.0,
             clt_body_type,
