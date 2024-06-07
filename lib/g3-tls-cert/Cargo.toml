@@ -9,7 +9,7 @@ edition.workspace = true
 [dependencies]
 anyhow.workspace = true
 log.workspace = true
-tokio = { workspace = true, features = ["net"] }
+tokio = { workspace = true, features = ["net", "rt"] }
 openssl.workspace = true
 openssl-sys.workspace = true
 libc.workspace = true
