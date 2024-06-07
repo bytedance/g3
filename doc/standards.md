@@ -109,6 +109,8 @@ The code should comply to these, but should be more compliant to existing popula
 
  - [rfc2045](https://datatracker.ietf.org/doc/html/rfc2045)
     : Multipurpose Internet Mail Extensions (MIME) Part One: Format of Internet Message Bodies
+ - [rfc2046](https://datatracker.ietf.org/doc/html/rfc2046)
+    : Multipurpose Internet Mail Extensions (MIME) Part Two: Media Types
  - [rfc2047](https://datatracker.ietf.org/doc/html/rfc2047)
     : MIME (Multipurpose Internet Mail Extensions) Part Three: Message Header Extensions for Non-ASCII Text
  - [rfc2231](https://datatracker.ietf.org/doc/html/rfc2231)

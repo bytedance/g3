@@ -101,6 +101,7 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
     pub fn build_http_header(&self) -> Vec<u8> {
         let mut header = Vec::with_capacity(128);
         header.extend_from_slice(b"PUT / HTTP/1.1\r\n");
+        header.extend_from_slice(b"Content-Type: message/rfc822\r\n");
         header.extend_from_slice(b"\r\n");
         header
     }
