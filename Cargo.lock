@@ -373,9 +373,9 @@ checksum = "514de17de45fdb8dc022b1a7975556c53c86f9f0aa5f534b98977b171857c2c9"
 
 [[package]]
 name = "c-ares"
-version = "9.2.1"
+version = "10.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84ae5995c4111ce6f122fa406cddb211b0badc7b71ab325ce2764168395ea15b"
+checksum = "2a765ddd7643aa1d9e99c23475ef4728fd709b03a3f3958591db835b378ccfb9"
 dependencies = [
  "bitflags 2.5.0",
  "c-ares-sys",
@@ -385,9 +385,9 @@ dependencies = [
 
 [[package]]
 name = "c-ares-resolver"
-version = "8.5.1"
+version = "9.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0845488530bf73ce48000cc77751e8ebb6b13468a89920037d1de8c4a0d3c729"
+checksum = "2adaaecc084c612cf168340bc4316cb7d7ab2f48fc4146964bd8d7443a5ad6a0"
 dependencies = [
  "c-ares",
  "c-ares-sys",
@@ -397,9 +397,9 @@ dependencies = [
 
 [[package]]
 name = "c-ares-sys"
-version = "9.2.1"
+version = "9.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dee8d99162db4826c1374342d5b64ed8b1af1781b40c91c03164a544109bcca7"
+checksum = "25ade5312dc72a47d0d78c9e7f68f19cae70a0542ae096d3faca0e65e4d89adc"
 dependencies = [
  "c-types",
  "cc",
@@ -461,9 +461,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.98"
+version = "1.0.99"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41c270e7540d725e65ac7f1b212ac8ce349719624d7bcff99f8e2e488e8cf03f"
+checksum = "96c51067fd44124faa7f870b4b1c969379ad32b2ba805aa959430ceaa384f695"
 dependencies = [
  "jobserver",
  "libc",
@@ -541,9 +541,9 @@ dependencies = [
 
 [[package]]
 name = "clap_complete"
-version = "4.5.4"
+version = "4.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84733fe9ab28bdce67389f0300221a5c4cd29f6def6417636d7b7ca5e5f3e3b2"
+checksum = "d2020fa13af48afc65a9a87335bda648309ab3d154cd03c7ff95b378c7ed39c4"
 dependencies = [
  "clap",
 ]
@@ -2819,9 +2819,9 @@ dependencies = [
 
 [[package]]
 name = "quinn"
-version = "0.11.1"
+version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "904e3d3ba178131798c6d9375db2b13b34337d489b089fc5ba0825a2ff1bee73"
+checksum = "e4ceeeeabace7857413798eb1ffa1e9c905a9946a57d81fb69b4b71c4d8eb3ad"
 dependencies = [
  "bytes",
  "futures-io",
@@ -2837,9 +2837,9 @@ dependencies = [
 
 [[package]]
 name = "quinn-proto"
-version = "0.11.2"
+version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e974563a4b1c2206bbc61191ca4da9c22e4308b4c455e8906751cc7828393f08"
+checksum = "ddf517c03a109db8100448a4be38d498df8a210a99fe0e1b9eaf39e78c640efe"
 dependencies = [
  "bytes",
  "rand",
@@ -2854,9 +2854,9 @@ dependencies = [
 
 [[package]]
 name = "quinn-udp"
-version = "0.5.1"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4f0def2590301f4f667db5a77f9694fb004f82796dc1a8b1508fafa3d0e8b72"
+checksum = "9096629c45860fc7fb143e125eb826b5e721e10be3263160c7d60ca832cf8c46"
 dependencies = [
  "libc",
  "once_cell",

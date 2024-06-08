@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-use bytes::Bytes;
-use h2::SendStream;
 use std::future::Future;
 use std::io;
 use std::pin::Pin;
 use std::task::{ready, Context, Poll};
 
+use bytes::Bytes;
+use h2::SendStream;
 use thiserror::Error;
 use tokio::io::AsyncBufRead;
 

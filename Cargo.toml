@@ -158,8 +158,8 @@ openssl-probe = "0.1"
 #
 flume = { version = "0.11", default-features = false }
 #
-c-ares = { version = "9.0", default-features = false }
-c-ares-resolver = { version = "8.3", default-features = false }
+c-ares = { version = "10.0", default-features = false }
+c-ares-resolver = { version = "9.0", default-features = false }
 c-ares-sys = { version = "9.0", default-features = false }
 hickory-resolver = { version = "0.24.0", default-features = false }
 hickory-proto = { version = "0.24.0", default-features = false }
