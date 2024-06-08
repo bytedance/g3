@@ -3,7 +3,8 @@ Long-Term Support
 
 # Policy
 
-We will offer LTS branches for components that is considered to be production ready.
+We will offer LTS branches for components that is considered to be production ready,
+the branch name will be in the format **lts/<name>/<version>/<feature>**, such as *lts/g3proxy/1.8/default*.
 
 LTS branches will only get bug & security fixes, so there won't be any new features or breaking changes.
 The dependency lock file `Cargo.lock` will only get semver compatible updates when necessary.
@@ -18,5 +19,6 @@ You can ask for commercial support if you need a longer support time.
 Long-Term branch for [g3proxy](../g3proxy) 1.8.x.
 
 Minimum requirements:
+
 - MSRV: 1.75
 - Linux OS: Debian 10 and CentOS 7.9.
