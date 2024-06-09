@@ -156,7 +156,11 @@ where
 
                 match tokio::time::timeout(
                     http_config.req_head_recv_timeout,
-                    HttpTransparentRequest::parse(&mut io.clt_r, http_config.req_head_max_size),
+                    HttpTransparentRequest::parse(
+                        &mut io.clt_r,
+                        http_config.req_head_max_size,
+                        http_config.steal_forwarded_for,
+                    ),
                 )
                 .await
                 {

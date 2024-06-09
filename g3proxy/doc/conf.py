@@ -9,7 +9,7 @@
 project = 'g3proxy'
 copyright = '2024, Zhang Jingqiang'
 author = 'Zhang Jingqiang'
-release = '1.9.0'
+release = '1.9.2'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -21,13 +21,11 @@ extensions = [
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
-
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = 'alabaster'
 html_static_path = ['_static']
-
 
 # -- Custom Options ----------------------------------------------------------
 

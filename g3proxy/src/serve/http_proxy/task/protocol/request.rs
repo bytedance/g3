@@ -42,7 +42,7 @@ where
         reader: &mut HttpClientReader<CDR>,
         sender: mpsc::Sender<Option<HttpClientReader<CDR>>>,
         max_header_size: usize,
-        steal_forwarder_for: bool,
+        steal_forwarded_for: bool,
         allow_custom_host: bool,
         version: &mut Version,
     ) -> Result<(Self, bool), HttpRequestParseError> {
@@ -57,7 +57,7 @@ where
                         return req.parse_header_connection(header);
                     }
                     "forwarded" | "x-forwarded-for" => {
-                        if steal_forwarder_for {
+                        if steal_forwarded_for {
                             return Ok(());
                         }
                     }

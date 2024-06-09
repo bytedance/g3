@@ -263,4 +263,9 @@ steal_forwarded_for
 
 Set if we should delete the *Forwarded* and *X-Forwarded-For* headers from the client's request.
 
+.. note::
+
+  If you want to remove those headers from https traffic, you need to enable TLS interception and also set this in
+  auditor's :ref:`h1 interception <conf_auditor_h1_interception>` config.
+
 **default**: false

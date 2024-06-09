@@ -32,6 +32,7 @@ pub struct HttpTransparentRequest {
     pub method: Method,
     pub version: Version,
     pub uri: Uri,
+    steal_forwarded_for: bool,
     pub end_to_end_headers: HttpHeaderMap,
     pub hop_by_hop_headers: HttpHeaderMap,
     /// the port may be 0
@@ -55,6 +56,7 @@ impl HttpTransparentRequest {
             version,
             method,
             uri,
+            steal_forwarded_for: false,
             end_to_end_headers: HttpHeaderMap::default(),
             hop_by_hop_headers: HttpHeaderMap::default(),
             host: None,
@@ -82,6 +84,7 @@ impl HttpTransparentRequest {
             version: adapted.version,
             method: adapted.method,
             uri: adapted.uri,
+            steal_forwarded_for: false,
             end_to_end_headers: adapted.headers,
             hop_by_hop_headers,
             host: None,
@@ -139,6 +142,7 @@ impl HttpTransparentRequest {
     pub async fn parse<R>(
         reader: &mut R,
         max_header_size: usize,
+        steal_forwarded_for: bool,
     ) -> Result<(Self, Bytes), HttpRequestParseError>
     where
         R: AsyncBufRead + Unpin,
@@ -165,6 +169,7 @@ impl HttpTransparentRequest {
             Version::HTTP_11 => req.keep_alive = true,
             _ => {}
         }
+        req.steal_forwarded_for = steal_forwarded_for;
 
         loop {
             let header_size = head_bytes.len();
@@ -357,6 +362,11 @@ impl HttpTransparentRequest {
             "te" | "proxy-authorization" => {
                 return self.insert_hop_by_hop_header(name, &header);
             }
+            "forwarded" | "x-forwarded-for" => {
+                if self.steal_forwarded_for {
+                    return Ok(());
+                }
+            }
             // ignore "expect"
             _ => {}
         }
@@ -506,7 +516,7 @@ mod tests {
         let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
         let stream = StreamReader::new(stream);
         let mut buf_stream = BufReader::new(stream);
-        let (request, data) = HttpTransparentRequest::parse(&mut buf_stream, 4096)
+        let (request, data) = HttpTransparentRequest::parse(&mut buf_stream, 4096, false)
             .await
             .unwrap();
         assert_eq!(data.as_ref(), content.as_slice());
@@ -514,7 +524,7 @@ mod tests {
         assert!(request.keep_alive());
         assert!(request.body_type().is_none());
 
-        let result = HttpTransparentRequest::parse(&mut buf_stream, 4096).await;
+        let result = HttpTransparentRequest::parse(&mut buf_stream, 4096, false).await;
         assert!(result.is_err());
     }
 
@@ -528,7 +538,7 @@ mod tests {
         let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
         let stream = StreamReader::new(stream);
         let mut buf_stream = BufReader::new(stream);
-        let (request, data) = HttpTransparentRequest::parse(&mut buf_stream, 4096)
+        let (request, data) = HttpTransparentRequest::parse(&mut buf_stream, 4096, false)
             .await
             .unwrap();
         assert_eq!(data.as_ref(), content.as_slice());

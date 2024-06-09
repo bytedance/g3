@@ -1,4 +1,3 @@
-
 .. _configure_dpi_value_types:
 
 ***
@@ -549,6 +548,16 @@ The keys are:
   Set the max line length for lines (trailer and chunk size) in http body.
 
   **default**: 8192
+
+* steal_forwarded_for
+
+  **optional**, **type**: bool
+
+  Set if we should delete the *Forwarded* and *X-Forwarded-For* headers from the client's intercepted transparent request.
+
+  **default**: false
+
+  .. versionadded:: 1.9.2
 
 .. _conf_value_dpi_h2_interception:
 
