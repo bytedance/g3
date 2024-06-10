@@ -1657,7 +1657,6 @@ dependencies = [
  "g3-yaml",
  "log",
  "memchr",
- "openssl-probe",
  "rmpv",
  "rustc_version",
  "tokio",
