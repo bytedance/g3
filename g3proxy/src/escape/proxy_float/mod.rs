@@ -149,6 +149,17 @@ impl ProxyFloatEscaper {
         }
     }
 
+    fn parse_dyn_peer(&self, value: &serde_json::Value) -> anyhow::Result<ArcNextProxyPeer> {
+        peer::parse_peer(
+            &self.config,
+            &self.stats,
+            &self.escape_logger,
+            value,
+            self.tls_config.as_ref(),
+        )?
+        .ok_or_else(|| anyhow!("expired peer json value"))
+    }
+
     fn select_peer_from_escaper(&self) -> Option<ArcNextProxyPeer> {
         let peer_set = self.peers.load();
         peer_set.select_random_peer()
@@ -166,6 +177,10 @@ impl ProxyFloatEscaper {
                 } else {
                     Ok(peer)
                 };
+            }
+
+            if let Some(value) = path_selection.select_matched_value(self.name().as_str()) {
+                return self.parse_dyn_peer(value);
             }
         }
 

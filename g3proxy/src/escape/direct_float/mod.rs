@@ -21,8 +21,10 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
+use chrono::Utc;
 use log::warn;
 use slog::Logger;
+use tokio::time::Instant;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_resolver::ResolveError;
@@ -164,6 +166,13 @@ impl DirectFloatEscaper {
         }
     }
 
+    fn parse_dyn_bind_ip(&self, value: &serde_json::Value) -> anyhow::Result<DirectFloatBindIp> {
+        let instant_now = Instant::now();
+        let datetime_now = Utc::now();
+        DirectFloatBindIp::parse_json(value, instant_now, datetime_now)?
+            .ok_or_else(|| anyhow!("expired bind IP json value"))
+    }
+
     fn select_bind_again_from_escaper(&self, ip: IpAddr) -> anyhow::Result<DirectFloatBindIp> {
         let bind_set = match ip {
             IpAddr::V4(_) => self.bind_v4.load(),
@@ -188,6 +197,10 @@ impl DirectFloatEscaper {
                 return bind_set
                     .select_named_bind(id)
                     .ok_or_else(|| anyhow!("no bind IP with ID {id} found at escaper level"));
+            }
+
+            if let Some(value) = path_selection.select_matched_value(self.name().as_str()) {
+                return self.parse_dyn_bind_ip(value);
             }
         }
 
@@ -218,6 +231,10 @@ impl DirectFloatEscaper {
                 return bind_set
                     .select_named_bind(id)
                     .ok_or_else(|| anyhow!("no bind IP with ID {id} found at escaper level"));
+            }
+
+            if let Some(value) = path_selection.select_matched_value(self.name().as_str()) {
+                return self.parse_dyn_bind_ip(value);
             }
         }
 

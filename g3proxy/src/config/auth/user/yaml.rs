@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+use std::str::FromStr;
+
 use ahash::AHashMap;
 use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
@@ -219,7 +221,7 @@ impl UserConfig {
                 .audit
                 .parse_yaml(v)
                 .context(format!("invalid user audit config value for key {k}")),
-            "egress_path" => {
+            "egress_path_id_map" => {
                 let id_map = g3_yaml::value::as_hashmap(
                     v,
                     g3_yaml::value::as_metrics_name,
@@ -227,6 +229,17 @@ impl UserConfig {
                 )
                 .context(format!("invalid egress path id map value for key {k}"))?;
                 self.egress_path_selection = Some(EgressPathSelection::MatchId(
+                    id_map.into_iter().collect::<AHashMap<_, _>>(),
+                ));
+                Ok(())
+            }
+            "egress_path_value_map" => {
+                let id_map = g3_yaml::value::as_hashmap(v, g3_yaml::value::as_metrics_name, |v| {
+                    let v = g3_yaml::value::as_string(v)?;
+                    serde_json::Value::from_str(&v).map_err(|e| anyhow!("invalid json string: {e}"))
+                })
+                .context(format!("invalid egress path id map value for key {k}"))?;
+                self.egress_path_selection = Some(EgressPathSelection::MatchValue(
                     id_map.into_iter().collect::<AHashMap<_, _>>(),
                 ));
                 Ok(())

@@ -154,6 +154,28 @@ pub(super) trait NextProxyPeer: NextProxyPeerInternal {
 
 pub(super) type ArcNextProxyPeer = Arc<dyn NextProxyPeer + Send + Sync>;
 
+pub(super) fn parse_peer(
+    escaper_config: &Arc<ProxyFloatEscaperConfig>,
+    escaper_stats: &Arc<ProxyFloatEscaperStats>,
+    escape_logger: &Logger,
+    record: &Value,
+    tls_config: Option<&Arc<OpensslClientConfig>>,
+) -> anyhow::Result<Option<ArcNextProxyPeer>> {
+    let instant_now = Instant::now();
+    let datetime_now = Utc::now();
+
+    json::do_parse_peer(
+        record,
+        escaper_config,
+        escaper_stats,
+        escape_logger,
+        tls_config,
+        instant_now,
+        datetime_now,
+    )
+    .map(|r| r.map(|v| v.1))
+}
+
 pub(super) fn parse_peers(
     escaper_config: &Arc<ProxyFloatEscaperConfig>,
     escaper_stats: &Arc<ProxyFloatEscaperStats>,

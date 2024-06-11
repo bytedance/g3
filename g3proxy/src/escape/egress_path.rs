@@ -24,6 +24,7 @@ use g3_types::metrics::MetricsName;
 pub(crate) enum EgressPathSelection {
     Index(usize),
     MatchId(AHashMap<MetricsName, String>),
+    MatchValue(AHashMap<MetricsName, serde_json::Value>),
 }
 
 impl EgressPathSelection {
@@ -49,6 +50,14 @@ impl EgressPathSelection {
     pub(crate) fn select_matched_id(&self, escaper: &str) -> Option<&str> {
         if let EgressPathSelection::MatchId(map) = self {
             map.get(escaper).map(|v| v.as_str())
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn select_matched_value(&self, escaper: &str) -> Option<&serde_json::Value> {
+        if let EgressPathSelection::MatchValue(map) = self {
+            map.get(escaper)
         } else {
             None
         }

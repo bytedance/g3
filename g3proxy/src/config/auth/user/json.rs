@@ -215,7 +215,7 @@ impl UserConfig {
                 .audit
                 .parse_json(v)
                 .context(format!("invalid user audit config value for key {k}")),
-            "egress_path" => {
+            "egress_path_id_map" => {
                 let id_map = g3_json::value::as_hashmap(
                     v,
                     |v| MetricsName::from_str(v).map_err(|e| anyhow!("invalid metrics name: {e}")),
@@ -224,6 +224,18 @@ impl UserConfig {
                 .context(format!("invalid egress path id map value for key {k}"))?;
                 self.egress_path_selection = Some(EgressPathSelection::MatchId(
                     id_map.into_iter().collect::<AHashMap<_, _>>(),
+                ));
+                Ok(())
+            }
+            "egress_path_value_map" => {
+                let value_map = g3_json::value::as_hashmap(
+                    v,
+                    |v| MetricsName::from_str(v).map_err(|e| anyhow!("invalid metrics name: {e}")),
+                    |v| Ok(v.clone()),
+                )
+                .context(format!("invalid egress path value map value for key {k}"))?;
+                self.egress_path_selection = Some(EgressPathSelection::MatchValue(
+                    value_map.into_iter().collect::<AHashMap<_, _>>(),
                 ));
                 Ok(())
             }

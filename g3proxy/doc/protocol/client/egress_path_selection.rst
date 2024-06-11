@@ -44,9 +44,11 @@ No implementation for now.
 user support
 ============
 
-User level egress path selection can be enabled via :ref:`egress_path <config_user_egress_path>` config option.
+User level egress path selection can be enabled via:
 
-The supported method is :ref:`by map <proto_egress_path_selection_by_map>`.
+- :ref:`egress_path_id_map <config_user_egress_path_id_map>` for by-id-map egress path selection
+
+- :ref:`egress_path_value_map <config_user_egress_path_value_map>` for by-value-map egress path selection
 
 selection methods
 =================
@@ -63,10 +65,10 @@ For escapers with multiple nodes (may be next escapers or ip addresses), the nod
 The value will be wrapped into range *1 - len(nodes)*.
 **NOTE*** the start value is *1*, *0* is the same as *len(nodes) - 1*.
 
-.. _proto_egress_path_selection_by_map:
+.. _proto_egress_path_selection_by_id_map:
 
-by map
-------
+by id map
+---------
 
 **value**: map
 
@@ -75,3 +77,16 @@ The root value should be a json/yaml map.
 The key should be the escaper name, so the corresponding value will be handled by that escaper.
 
 The value should be a `ID` string value, and it's meaning will be different on each type of escaper.
+
+.. _proto_egress_path_selection_by_value_map:
+
+by value map
+------------
+
+**value**: map
+
+The root value should be a json/yaml map.
+
+The key should be the escaper name, so the corresponding value will be handled by that escaper.
+
+The value should be a `JSON MAP` object (or a JSON MAP str in yaml config), and it's meaning will be different on each type of escaper.

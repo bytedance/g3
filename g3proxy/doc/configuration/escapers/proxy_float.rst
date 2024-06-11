@@ -24,11 +24,17 @@ or just one :ref:`peer <config_escaper_dynamic_peer>`.
 
 The following egress path selection methods is supported:
 
-* :ref:`by map <proto_egress_path_selection_by_map>`
+* :ref:`by id map <proto_egress_path_selection_by_id_map>`
 
   If matched, a :ref:`peer <config_escaper_dynamic_peer>` with the same `ID` will be used.
 
-  .. versionadded:: 1.7.22
+  .. versionadded:: 1.9.2
+
+* :ref:`by value map <proto_egress_path_selection_by_value_map>`
+
+  If matched, the JSON MAP value will be parsed as a :ref:`peer <config_escaper_dynamic_peer>` and it will be used.
+
+  .. versionadded:: 1.9.2
 
 Config Keys
 ===========

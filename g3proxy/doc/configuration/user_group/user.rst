@@ -367,13 +367,24 @@ Set explicit sites for this user.
 
 .. versionadded:: 1.3.4
 
-.. _config_user_egress_path:
+.. _config_user_egress_path_id_map:
 
-egress_path
------------
+egress_path_id_map
+------------------
 
-**optional**, **type**: :ref:`by map egress path <proto_egress_path_selection_by_map>`
+**optional**, **type**: :ref:`by id map egress path <proto_egress_path_selection_by_id_map>`
 
-Set egress path selection for this user.
+Set ID based egress path selection for this user.
 
-.. versionadded:: 1.7.22
+.. versionadded:: 1.9.2
+
+.. _config_user_egress_path_value_map:
+
+egress_path_value_map
+---------------------
+
+**optional**, **type**: :ref:`by value map egress path <proto_egress_path_selection_by_value_map>`
+
+Set JSON value based egress path selection for this user.
+
+.. versionadded:: 1.9.2
