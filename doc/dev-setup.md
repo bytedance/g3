@@ -199,8 +199,6 @@ ln -s /usr/pkg/lib/pkgconfig/lua-5.4.pc /usr/pkg/lib/pkgconfig/lua5.4.pc
 # install python 3.11 or any other versions available on your system, and create links
 pkgin install python311
 ln -s /usr/pkg/bin/python3.11 /usr/pkg/bin/python3
-# build, with quic feature disabled
-cargo build --no-default-features c-ares,hickory,lua54,python
 ```
 
 ## Development Libraries

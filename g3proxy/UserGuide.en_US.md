@@ -15,6 +15,7 @@
     + [TLS Offloading](#tls-offloading)
     + [TLS Encapsulation](#tls-encapsulation)
     + [SNI Proxy](#sni-proxy)
+    + [Transparent Proxy](#transparent-proxy)
     + [Route Binding](#route-binding)
     + [Proxy Chaining](#proxy-chaining)
     + [Connection Throttling](#connection-throttling)
@@ -242,11 +243,31 @@ Automatically recognize the target address in TLS SNI / HTTP Host headers and fo
 ```yaml
 server:
   - name: sni          # The name needs to be unique, not conflicting with other entries, and should be used for logging & monitoring
-    escaper: default   # Required, can be any type of exit
+    escaper: default   # Required, can be any type of escaper
     type: sni_proxy
     listen:
       address: "[::]:443" # Listen on port 443, but can also support both TLS & HTTP protocol traffic to this port
 ```
+
+### Transparent Proxy
+
+On gateway devices, tcp connections can be configured to be forwarded to TcpTProxy server,
+then the proxy will forward those connections transparently. You can use the following config：
+
+```yaml
+server:
+  - name: transparent
+    escaper: default
+    auditor: default  # If you want to do protocol inspection and TLS interception
+    type: tcp_tproxy
+    listen: "127.0.0.1:1234"
+```
+
+The system level config should be taken is different depending on the OS type:
+
+- Linux [TPROXY](https://docs.kernel.org/networking/tproxy.html).
+- FreeBSD [ipfw fwd](https://man.freebsd.org/cgi/man.cgi?query=ipfw).
+- OpenBSD [pf divert-to](https://man.openbsd.org/pf.conf.5#divert-to).
 
 ### Route Binding
 
