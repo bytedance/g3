@@ -18,7 +18,7 @@ use std::sync::Arc;
 
 use g3_io_ext::{LimitedUdpRecv, LimitedUdpSend};
 
-use super::{NextProxyPeerInternal, ProxyFloatSocks5Peer};
+use super::{ProxyFloatEscaper, ProxyFloatSocks5Peer};
 use crate::escape::proxy_socks5::udp_relay::{
     ProxySocks5UdpRelayRemoteRecv, ProxySocks5UdpRelayRemoteSend,
 };
@@ -30,20 +30,21 @@ use crate::module::udp_relay::{
 use crate::serve::ServerTaskNotes;
 
 impl ProxyFloatSocks5Peer {
-    pub(super) async fn udp_setup_relay<'a>(
-        &'a self,
-        udp_notes: &'a UdpRelayTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    pub(super) async fn udp_setup_relay(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        udp_notes: &UdpRelayTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
         let mut tcp_notes = TcpConnectTaskNotes::empty();
         let (tcp_close_receiver, udp_socket, udp_local_addr, udp_peer_addr) = self
-            .timed_socks5_udp_associate(udp_notes.buf_conf, &mut tcp_notes, task_notes)
+            .timed_socks5_udp_associate(escaper, udp_notes.buf_conf, &mut tcp_notes, task_notes)
             .await
             .map_err(UdpRelaySetupError::SetupSocketFailed)?;
 
-        let mut wrapper_stats = UdpRelayRemoteWrapperStats::new(&self.escaper_stats, task_stats);
-        wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
+        let mut wrapper_stats = UdpRelayRemoteWrapperStats::new(&escaper.stats, task_stats);
+        wrapper_stats.push_user_io_stats(escaper.fetch_user_upstream_io_stats(task_notes));
         let wrapper_stats = Arc::new(wrapper_stats);
 
         let (recv, send) = g3_io_ext::split_udp(udp_socket);
@@ -70,6 +71,10 @@ impl ProxyFloatSocks5Peer {
         );
         let send = ProxySocks5UdpRelayRemoteSend::new(send, udp_local_addr, udp_peer_addr);
 
-        Ok((Box::new(recv), Box::new(send), self.escape_logger.clone()))
+        Ok((
+            Box::new(recv),
+            Box::new(send),
+            escaper.escape_logger.clone(),
+        ))
     }
 }

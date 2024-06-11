@@ -21,10 +21,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context};
 use chrono::{DateTime, Utc};
 use serde_json::Value;
-use slog::Logger;
 use tokio::time::Instant;
-
-use g3_types::net::OpensslClientConfig;
 
 use super::{
     ArcNextProxyPeer, CONFIG_KEY_PEER_ADDR, CONFIG_KEY_PEER_AREA, CONFIG_KEY_PEER_EIP,
@@ -32,14 +29,10 @@ use super::{
     CONFIG_KEY_PEER_TCP_SOCK_SPEED_LIMIT, CONFIG_KEY_PEER_TYPE,
 };
 use crate::config::escaper::proxy_float::ProxyFloatEscaperConfig;
-use crate::escape::proxy_float::ProxyFloatEscaperStats;
 
 pub(super) fn do_parse_peer(
     value: &Value,
     escaper_config: &Arc<ProxyFloatEscaperConfig>,
-    escaper_stats: &Arc<ProxyFloatEscaperStats>,
-    escape_logger: &Logger,
-    tls_config: Option<&Arc<OpensslClientConfig>>,
     instant_now: Instant,
     datetime_now: DateTime<Utc>,
 ) -> anyhow::Result<Option<(String, ArcNextProxyPeer)>> {
@@ -49,31 +42,9 @@ pub(super) fn do_parse_peer(
         let addr = SocketAddr::from_str(addr_str)
             .map_err(|e| anyhow!("invalid peer addr {addr_str}: {e}"))?;
         let mut peer = match peer_type {
-            "http" => super::http::ProxyFloatHttpPeer::new_obj(
-                Arc::clone(escaper_config),
-                Arc::clone(escaper_stats),
-                escape_logger.clone(),
-                addr,
-            ),
-            "https" => {
-                if let Some(tls_config) = tls_config {
-                    super::https::ProxyFloatHttpsPeer::new_obj(
-                        Arc::clone(escaper_config),
-                        Arc::clone(escaper_stats),
-                        escape_logger.clone(),
-                        addr,
-                        tls_config.clone(),
-                    )
-                } else {
-                    return Ok(None);
-                }
-            }
-            "socks5" => super::socks5::ProxyFloatSocks5Peer::new_obj(
-                Arc::clone(escaper_config),
-                Arc::clone(escaper_stats),
-                escape_logger.clone(),
-                addr,
-            ),
+            "http" => super::http::ProxyFloatHttpPeer::new_obj(addr),
+            "https" => super::https::ProxyFloatHttpsPeer::new_obj(addr),
+            "socks5" => super::socks5::ProxyFloatSocks5Peer::new_obj(addr),
             _ => return Err(anyhow!("unsupported peer type {peer_type}")),
         };
         let mut peer_id = String::new();

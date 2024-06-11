@@ -20,7 +20,7 @@ use g3_io_ext::{LimitedBufReader, LimitedWriter, NilLimitedReaderStats};
 use g3_types::net::{Host, OpensslClientConfig};
 
 use super::{
-    NextProxyPeerInternal, ProxyFloatEscaperStats, ProxyFloatSocks5Peer,
+    ProxyFloatEscaper, ProxyFloatEscaperStats, ProxyFloatSocks5Peer,
     ProxyFloatSocks5PeerSharedConfig,
 };
 use crate::escape::direct_fixed::http_forward::DirectHttpForwardReader;
@@ -36,21 +36,21 @@ mod writer;
 use writer::Socks5PeerHttpForwardWriter;
 
 impl ProxyFloatSocks5Peer {
-    pub(super) async fn http_forward_new_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    pub(super) async fn http_forward_new_connection(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         let ups_s = self
-            .timed_socks5_connect_tcp_connect_to(tcp_notes, task_notes)
+            .timed_socks5_connect_tcp_connect_to(escaper, tcp_notes, task_notes)
             .await?;
         let (ups_r, mut ups_w) = ups_s.into_split_tcp();
 
-        let mut w_wrapper_stats =
-            HttpForwardRemoteWrapperStats::new(&self.escaper_stats, &task_stats);
+        let mut w_wrapper_stats = HttpForwardRemoteWrapperStats::new(&escaper.stats, &task_stats);
         let mut r_wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(task_stats);
-        let user_stats = self.fetch_user_upstream_io_stats(task_notes);
+        let user_stats = escaper.fetch_user_upstream_io_stats(task_notes);
         w_wrapper_stats.push_user_io_stats_by_ref(&user_stats);
         r_wrapper_stats.push_user_io_stats(user_stats);
 
@@ -59,23 +59,25 @@ impl ProxyFloatSocks5Peer {
 
         let writer = Socks5PeerHttpForwardWriter::new(
             ups_w,
-            Some(Arc::clone(&self.escaper_stats)),
+            Some(escaper.stats.clone()),
             &self.shared_config,
         );
         let reader = DirectHttpForwardReader::new(ups_r);
         Ok((Box::new(writer), Box::new(reader)))
     }
 
-    pub(super) async fn https_forward_new_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    pub(super) async fn https_forward_new_connection(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
-        tls_config: &'a OpensslClientConfig,
-        tls_name: &'a Host,
+        tls_config: &OpensslClientConfig,
+        tls_name: &Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         let tls_stream = self
             .socks5_connect_tls_connect_to(
+                escaper,
                 tcp_notes,
                 task_notes,
                 tls_config,
@@ -88,7 +90,7 @@ impl ProxyFloatSocks5Peer {
 
         // add task and user stats
         let mut wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(task_stats);
-        wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
+        wrapper_stats.push_user_io_stats(escaper.fetch_user_upstream_io_stats(task_notes));
         let wrapper_stats = Arc::new(wrapper_stats);
 
         let ups_r = LimitedBufReader::new_unlimited(

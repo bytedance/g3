@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,12 +22,12 @@ use tokio::time::Instant;
 use g3_io_ext::LimitedStream;
 use g3_types::net::ConnectError;
 
-use super::ProxyFloatSocks5Peer;
+use super::{NextProxyPeer, ProxyFloatEscaper};
 use crate::log::escape::tcp_connect::EscapeLogForTcpConnect;
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
 use crate::serve::ServerTaskNotes;
 
-impl ProxyFloatSocks5Peer {
+impl ProxyFloatEscaper {
     async fn try_connect_tcp(
         &self,
         peer: SocketAddr,
@@ -37,39 +37,41 @@ impl ProxyFloatSocks5Peer {
         let sock = g3_socket::tcp::new_socket_to(
             peer.ip(),
             bind,
-            &self.escaper_config.tcp_keepalive,
-            &self.escaper_config.tcp_misc_opts,
+            &self.config.tcp_keepalive,
+            &self.config.tcp_misc_opts,
             true,
         )
         .map_err(TcpConnectError::SetupSocketFailed)?;
-        self.escaper_stats.tcp.add_connection_attempted();
+        self.stats.tcp.add_connection_attempted();
         match sock.connect(peer).await {
             Ok(ups_stream) => {
-                self.escaper_stats.tcp.add_connection_established();
+                self.stats.tcp.add_connection_established();
                 Ok(ups_stream)
             }
             Err(e) => Err(TcpConnectError::ConnectFailed(ConnectError::from(e))),
         }
     }
 
-    async fn tcp_connect_to<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn tcp_connect_to<P: NextProxyPeer>(
+        &self,
+        peer: &P,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
     ) -> Result<TcpStream, TcpConnectError> {
-        let bind = match self.addr {
-            SocketAddr::V4(_) => self.escaper_config.bind_v4,
-            SocketAddr::V6(_) => self.escaper_config.bind_v6,
+        let peer_addr = peer.peer_addr();
+        let bind = match peer_addr {
+            SocketAddr::V4(_) => self.config.bind_v4,
+            SocketAddr::V6(_) => self.config.bind_v6,
         };
         tcp_notes.bind = bind;
-        tcp_notes.next = Some(self.addr);
-        tcp_notes.expire = self.shared_config.expire_datetime;
-        tcp_notes.egress = Some(self.egress_info.clone());
+        tcp_notes.next = Some(peer_addr);
+        tcp_notes.expire = peer.expire_datetime();
+        tcp_notes.egress = Some(peer.egress_info());
         tcp_notes.tries = 1;
         let instant_now = Instant::now();
         let ret = tokio::time::timeout(
-            self.escaper_config.tcp_connect_timeout,
-            self.try_connect_tcp(self.addr, tcp_notes.bind),
+            self.config.tcp_connect_timeout,
+            self.try_connect_tcp(peer_addr, tcp_notes.bind),
         )
         .await;
         tcp_notes.duration = instant_now.elapsed();
@@ -101,20 +103,21 @@ impl ProxyFloatSocks5Peer {
         }
     }
 
-    pub(super) async fn tcp_new_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    pub(super) async fn tcp_new_connection<P: NextProxyPeer>(
+        &self,
+        peer: &P,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
     ) -> Result<LimitedStream<TcpStream>, TcpConnectError> {
-        let stream = self.tcp_connect_to(tcp_notes, task_notes).await?;
+        let stream = self.tcp_connect_to(peer, tcp_notes, task_notes).await?;
 
-        let limit_config = &self.shared_config.tcp_sock_speed_limit;
+        let limit_config = peer.tcp_sock_speed_limit();
         let stream = LimitedStream::new(
             stream,
             limit_config.shift_millis,
             limit_config.max_south,
             limit_config.max_north,
-            self.escaper_stats.clone(),
+            self.stats.clone(),
         );
 
         Ok(stream)

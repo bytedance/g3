@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
 use ahash::AHashMap;
@@ -23,15 +23,12 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use rand::seq::IteratorRandom;
 use serde_json::Value;
-use slog::Logger;
 use tokio::time::Instant;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_types::net::{EgressArea, Host, OpensslClientConfig, TcpSockSpeedLimitConfig};
+use g3_types::net::{EgressArea, EgressInfo, Host, OpensslClientConfig, TcpSockSpeedLimitConfig};
 
-use super::{ProxyFloatEscaperConfig, ProxyFloatEscaperStats};
-use crate::auth::UserUpstreamTrafficStats;
-use crate::escape::EscaperStats;
+use super::{ProxyFloatEscaper, ProxyFloatEscaperConfig, ProxyFloatEscaperStats};
 use crate::module::http_forward::{ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection};
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
 use crate::module::udp_connect::{
@@ -67,7 +64,6 @@ pub(super) trait NextProxyPeerInternal {
     fn finalize(&mut self) -> anyhow::Result<()>;
 
     fn expire_instant(&self) -> Option<Instant>;
-    fn escaper_stats(&self) -> &Arc<ProxyFloatEscaperStats>;
 
     fn is_expired(&self) -> bool {
         if let Some(expire) = self.expire_instant() {
@@ -86,68 +82,64 @@ pub(super) trait NextProxyPeerInternal {
             u64::MAX
         }
     }
-    fn fetch_user_upstream_io_stats(
-        &self,
-        task_notes: &ServerTaskNotes,
-    ) -> Vec<Arc<UserUpstreamTrafficStats>> {
-        task_notes
-            .user_ctx()
-            .map(|ctx| {
-                let escaper_stats = self.escaper_stats();
-                ctx.fetch_upstream_traffic_stats(
-                    escaper_stats.name(),
-                    escaper_stats.share_extra_tags(),
-                )
-            })
-            .unwrap_or_default()
-    }
 }
 
 #[async_trait]
 pub(super) trait NextProxyPeer: NextProxyPeerInternal {
-    async fn tcp_setup_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    fn peer_addr(&self) -> SocketAddr;
+    fn tcp_sock_speed_limit(&self) -> &TcpSockSpeedLimitConfig;
+    fn expire_datetime(&self) -> Option<DateTime<Utc>>;
+    fn egress_info(&self) -> EgressInfo;
+
+    async fn tcp_setup_connection(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult;
 
-    async fn tls_setup_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn tls_setup_connection(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        tls_config: &'a OpensslClientConfig,
-        tls_name: &'a Host,
+        tls_config: &OpensslClientConfig,
+        tls_name: &Host,
     ) -> TcpConnectResult;
 
-    async fn new_http_forward_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn new_http_forward_connection(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError>;
 
-    async fn new_https_forward_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn new_https_forward_connection(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
-        tls_config: &'a OpensslClientConfig,
-        tls_name: &'a Host,
+        tls_config: &OpensslClientConfig,
+        tls_name: &Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError>;
 
-    async fn udp_setup_connection<'a>(
-        &'a self,
-        udp_notes: &'a mut UdpConnectTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
+    async fn udp_setup_connection(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        udp_notes: &mut UdpConnectTaskNotes,
+        _task_notes: &ServerTaskNotes,
         _task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult;
 
-    async fn udp_setup_relay<'a>(
-        &'a self,
-        udp_notes: &'a mut UdpRelayTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
+    async fn udp_setup_relay(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        udp_notes: &mut UdpRelayTaskNotes,
+        _task_notes: &ServerTaskNotes,
         _task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult;
 }
@@ -156,32 +148,17 @@ pub(super) type ArcNextProxyPeer = Arc<dyn NextProxyPeer + Send + Sync>;
 
 pub(super) fn parse_peer(
     escaper_config: &Arc<ProxyFloatEscaperConfig>,
-    escaper_stats: &Arc<ProxyFloatEscaperStats>,
-    escape_logger: &Logger,
     record: &Value,
-    tls_config: Option<&Arc<OpensslClientConfig>>,
 ) -> anyhow::Result<Option<ArcNextProxyPeer>> {
     let instant_now = Instant::now();
     let datetime_now = Utc::now();
 
-    json::do_parse_peer(
-        record,
-        escaper_config,
-        escaper_stats,
-        escape_logger,
-        tls_config,
-        instant_now,
-        datetime_now,
-    )
-    .map(|r| r.map(|v| v.1))
+    json::do_parse_peer(record, escaper_config, instant_now, datetime_now).map(|r| r.map(|v| v.1))
 }
 
 pub(super) fn parse_peers(
     escaper_config: &Arc<ProxyFloatEscaperConfig>,
-    escaper_stats: &Arc<ProxyFloatEscaperStats>,
-    escape_logger: &Logger,
     records: &[Value],
-    tls_config: Option<&Arc<OpensslClientConfig>>,
 ) -> anyhow::Result<PeerSet> {
     let mut peer_set = PeerSet::default();
 
@@ -189,16 +166,9 @@ pub(super) fn parse_peers(
     let datetime_now = Utc::now();
 
     for (i, record) in records.iter().enumerate() {
-        if let Some((peer_id, peer)) = json::do_parse_peer(
-            record,
-            escaper_config,
-            escaper_stats,
-            escape_logger,
-            tls_config,
-            instant_now,
-            datetime_now,
-        )
-        .context(format!("invalid value for record #{i}"))?
+        if let Some((peer_id, peer)) =
+            json::do_parse_peer(record, escaper_config, instant_now, datetime_now)
+                .context(format!("invalid value for record #{i}"))?
         {
             if peer_id.is_empty() {
                 peer_set.push_unnamed(peer);

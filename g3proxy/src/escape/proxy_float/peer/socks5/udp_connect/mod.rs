@@ -18,7 +18,7 @@ use std::sync::Arc;
 
 use g3_io_ext::{LimitedUdpRecv, LimitedUdpSend};
 
-use super::{NextProxyPeerInternal, ProxyFloatSocks5Peer};
+use super::{ProxyFloatEscaper, ProxyFloatSocks5Peer};
 use crate::escape::proxy_socks5::udp_connect::{
     ProxySocks5UdpConnectRemoteRecv, ProxySocks5UdpConnectRemoteSend,
 };
@@ -30,10 +30,11 @@ use crate::module::udp_connect::{
 use crate::serve::ServerTaskNotes;
 
 impl ProxyFloatSocks5Peer {
-    pub(super) async fn udp_connect_to<'a>(
-        &'a self,
-        udp_notes: &'a mut UdpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    pub(super) async fn udp_connect_to(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        udp_notes: &mut UdpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
         let upstream = udp_notes
@@ -43,15 +44,15 @@ impl ProxyFloatSocks5Peer {
 
         let mut tcp_notes = TcpConnectTaskNotes::empty();
         let (tcp_close_receiver, udp_socket, udp_local_addr, udp_peer_addr) = self
-            .timed_socks5_udp_associate(udp_notes.buf_conf, &mut tcp_notes, task_notes)
+            .timed_socks5_udp_associate(escaper, udp_notes.buf_conf, &mut tcp_notes, task_notes)
             .await
             .map_err(UdpConnectError::SetupSocketFailed)?;
 
         udp_notes.local = Some(udp_local_addr);
         udp_notes.next = Some(udp_peer_addr);
 
-        let mut wrapper_stats = UdpConnectRemoteWrapperStats::new(&self.escaper_stats, task_stats);
-        wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
+        let mut wrapper_stats = UdpConnectRemoteWrapperStats::new(&escaper.stats, task_stats);
+        wrapper_stats.push_user_io_stats(escaper.fetch_user_upstream_io_stats(task_notes));
         let wrapper_stats = Arc::new(wrapper_stats);
 
         let (recv, send) = g3_io_ext::split_udp(udp_socket);
@@ -73,6 +74,10 @@ impl ProxyFloatSocks5Peer {
         let recv = ProxySocks5UdpConnectRemoteRecv::new(recv, tcp_close_receiver);
         let send = ProxySocks5UdpConnectRemoteSend::new(send, upstream);
 
-        Ok((Box::new(recv), Box::new(send), self.escape_logger.clone()))
+        Ok((
+            Box::new(recv),
+            Box::new(send),
+            escaper.escape_logger.clone(),
+        ))
     }
 }

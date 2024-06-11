@@ -23,7 +23,6 @@ use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
-use slog::Logger;
 use tokio::time::Instant;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
@@ -34,7 +33,7 @@ use g3_types::net::{
 };
 
 use super::{
-    ArcNextProxyPeer, NextProxyPeer, NextProxyPeerInternal, ProxyFloatEscaperConfig,
+    ArcNextProxyPeer, NextProxyPeer, NextProxyPeerInternal, ProxyFloatEscaper,
     ProxyFloatEscaperStats,
 };
 use crate::module::http_forward::{ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection};
@@ -49,7 +48,6 @@ use crate::serve::ServerTaskNotes;
 
 mod http_forward;
 mod socks5_connect;
-mod tcp_connect;
 mod udp_connect;
 mod udp_relay;
 
@@ -79,9 +77,6 @@ impl ProxyFloatSocks5PeerSharedConfig {
 }
 
 pub(super) struct ProxyFloatSocks5Peer {
-    escaper_config: Arc<ProxyFloatEscaperConfig>,
-    escaper_stats: Arc<ProxyFloatEscaperStats>,
-    escape_logger: Logger,
     addr: SocketAddr,
     username: Username,
     password: Password,
@@ -92,16 +87,8 @@ pub(super) struct ProxyFloatSocks5Peer {
 }
 
 impl ProxyFloatSocks5Peer {
-    pub(super) fn new_obj(
-        escaper_config: Arc<ProxyFloatEscaperConfig>,
-        escaper_stats: Arc<ProxyFloatEscaperStats>,
-        escape_logger: Logger,
-        addr: SocketAddr,
-    ) -> ArcNextProxyPeer {
+    pub(super) fn new_obj(addr: SocketAddr) -> ArcNextProxyPeer {
         Arc::new(ProxyFloatSocks5Peer {
-            escaper_config,
-            escaper_stats,
-            escape_logger,
             addr,
             username: Username::empty(),
             password: Password::empty(),
@@ -204,75 +191,101 @@ impl NextProxyPeerInternal for ProxyFloatSocks5Peer {
     fn expire_instant(&self) -> Option<Instant> {
         self.shared_config.expire_instant
     }
-
-    #[inline]
-    fn escaper_stats(&self) -> &Arc<ProxyFloatEscaperStats> {
-        &self.escaper_stats
-    }
 }
 
 #[async_trait]
 impl NextProxyPeer for ProxyFloatSocks5Peer {
-    async fn tcp_setup_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    #[inline]
+    fn peer_addr(&self) -> SocketAddr {
+        self.addr
+    }
+
+    #[inline]
+    fn tcp_sock_speed_limit(&self) -> &TcpSockSpeedLimitConfig {
+        &self.shared_config.tcp_sock_speed_limit
+    }
+
+    #[inline]
+    fn expire_datetime(&self) -> Option<DateTime<Utc>> {
+        self.shared_config.expire_datetime
+    }
+
+    #[inline]
+    fn egress_info(&self) -> EgressInfo {
+        self.egress_info.clone()
+    }
+
+    async fn tcp_setup_connection(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
-        self.socks5_new_tcp_connection(tcp_notes, task_notes, task_stats)
+        self.socks5_new_tcp_connection(escaper, tcp_notes, task_notes, task_stats)
             .await
     }
 
-    async fn tls_setup_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn tls_setup_connection(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        tls_config: &'a OpensslClientConfig,
-        tls_name: &'a Host,
+        tls_config: &OpensslClientConfig,
+        tls_name: &Host,
     ) -> TcpConnectResult {
-        self.socks5_new_tls_connection(tcp_notes, task_notes, task_stats, tls_config, tls_name)
-            .await
+        self.socks5_new_tls_connection(
+            escaper, tcp_notes, task_notes, task_stats, tls_config, tls_name,
+        )
+        .await
     }
 
-    async fn new_http_forward_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn new_http_forward_connection(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
-        self.http_forward_new_connection(tcp_notes, task_notes, task_stats)
+        self.http_forward_new_connection(escaper, tcp_notes, task_notes, task_stats)
             .await
     }
 
-    async fn new_https_forward_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn new_https_forward_connection(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
-        tls_config: &'a OpensslClientConfig,
-        tls_name: &'a Host,
+        tls_config: &OpensslClientConfig,
+        tls_name: &Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
-        self.https_forward_new_connection(tcp_notes, task_notes, task_stats, tls_config, tls_name)
-            .await
+        self.https_forward_new_connection(
+            escaper, tcp_notes, task_notes, task_stats, tls_config, tls_name,
+        )
+        .await
     }
 
-    async fn udp_setup_connection<'a>(
-        &'a self,
-        udp_notes: &'a mut UdpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn udp_setup_connection(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        udp_notes: &mut UdpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
-        self.udp_connect_to(udp_notes, task_notes, task_stats).await
+        self.udp_connect_to(escaper, udp_notes, task_notes, task_stats)
+            .await
     }
 
-    async fn udp_setup_relay<'a>(
-        &'a self,
-        udp_notes: &'a mut UdpRelayTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn udp_setup_relay(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        udp_notes: &mut UdpRelayTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
-        self.udp_setup_relay(udp_notes, task_notes, task_stats)
+        self.udp_setup_relay(escaper, udp_notes, task_notes, task_stats)
             .await
     }
 }

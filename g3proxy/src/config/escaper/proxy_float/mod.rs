@@ -45,7 +45,7 @@ pub(crate) struct ProxyFloatEscaperConfig {
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) bind_v4: Option<IpAddr>,
     pub(crate) bind_v6: Option<IpAddr>,
-    pub(crate) tls_config: Option<OpensslClientConfigBuilder>,
+    pub(crate) tls_config: OpensslClientConfigBuilder,
     pub(crate) source: ProxyFloatSource,
     pub(crate) cache_file: Option<PathBuf>,
     pub(crate) refresh_interval: Duration,
@@ -66,7 +66,7 @@ impl ProxyFloatEscaperConfig {
             shared_logger: None,
             bind_v4: None,
             bind_v6: None,
-            tls_config: None,
+            tls_config: OpensslClientConfigBuilder::with_cache_for_many_sites(),
             source: ProxyFloatSource::Passive,
             cache_file: None,
             refresh_interval: Duration::from_secs(1),
@@ -121,22 +121,15 @@ impl ProxyFloatEscaperConfig {
                 Ok(())
             }
             "tls" | "tls_client" => {
-                if let Yaml::Boolean(enable) = v {
-                    if *enable {
-                        self.tls_config =
-                            Some(OpensslClientConfigBuilder::with_cache_for_many_sites());
-                    }
-                } else {
-                    let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
-                    let builder = g3_yaml::value::as_to_many_openssl_tls_client_config_builder(
-                        v,
-                        Some(lookup_dir),
-                    )
-                    .context(format!(
-                        "invalid openssl tls client config value for key {k}"
-                    ))?;
-                    self.tls_config = Some(builder);
-                }
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let builder = g3_yaml::value::as_to_many_openssl_tls_client_config_builder(
+                    v,
+                    Some(lookup_dir),
+                )
+                .context(format!(
+                    "invalid openssl tls client config value for key {k}"
+                ))?;
+                self.tls_config = builder;
                 Ok(())
             }
             "source" => {
