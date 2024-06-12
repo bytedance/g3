@@ -82,23 +82,23 @@ struct HttpForwardTaskNotes {
 }
 
 impl HttpForwardTaskNotes {
-    fn new(
-        datetime_received: DateTime<Utc>,
-        time_received: Instant,
-        dur_req_send_hdr: Duration,
-    ) -> Self {
+    fn new(datetime_received: DateTime<Utc>, time_received: Instant) -> Self {
         let dur_req_pipeline = time_received.elapsed();
         HttpForwardTaskNotes {
             rsp_status: 0,
             origin_status: 0,
             receive_datetime: datetime_received,
             receive_ins: time_received,
-            dur_req_send_hdr,
+            dur_req_send_hdr: Duration::default(),
             dur_req_pipeline,
             dur_req_send_all: Duration::default(),
             dur_rsp_recv_hdr: Duration::default(),
             dur_rsp_recv_all: Duration::default(),
         }
+    }
+
+    pub(crate) fn mark_req_send_hdr(&mut self) {
+        self.dur_req_send_hdr = self.receive_ins.elapsed();
     }
 
     pub(crate) fn mark_req_no_body(&mut self) {
@@ -133,11 +133,7 @@ pub(super) struct H1ForwardTask<'a, SC: ServerConfig> {
 
 impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
     pub(super) fn new(ctx: StreamInspectContext<SC>, req: &'a HttpRequest, req_id: usize) -> Self {
-        let http_notes = HttpForwardTaskNotes::new(
-            req.datetime_received,
-            req.time_received,
-            req.dur_req_send_hdr,
-        );
+        let http_notes = HttpForwardTaskNotes::new(req.datetime_received, req.time_received);
         let should_close = !req.inner.keep_alive();
         H1ForwardTask {
             ctx,
@@ -180,12 +176,14 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         }
     }
 
-    pub(super) async fn forward_without_body<UR, CW>(&mut self, rsp_io: &mut HttpResponseIo<UR, CW>)
-    where
-        UR: AsyncRead + Unpin,
+    pub(super) async fn forward_without_body<CW, UR, UW>(
+        &mut self,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
+    ) where
         CW: AsyncWrite + Send + Unpin,
+        UR: AsyncRead + Unpin,
+        UW: AsyncWrite + Unpin,
     {
-        self.http_notes.mark_req_no_body();
         if let Err(e) = self.do_forward_without_body(rsp_io).await {
             if self.send_error_response {
                 self.reply_task_err(&e, &mut rsp_io.clt_w).await;
@@ -198,8 +196,8 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
 
     pub(super) async fn adapt_with_io<CR, CW, UR, UW>(
         &mut self,
-        req_io: &mut HttpRequestIo<CR, UW>,
-        rsp_io: &mut HttpResponseIo<UR, CW>,
+        req_io: &mut HttpRequestIo<CR>,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
         reqmod_client: &IcapReqmodClient,
     ) where
         CR: AsyncRead + Send + Unpin,
@@ -265,8 +263,8 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
 
     pub(super) async fn forward_with_io<CR, CW, UR, UW>(
         &mut self,
-        req_io: &mut HttpRequestIo<CR, UW>,
-        rsp_io: &mut HttpResponseIo<UR, CW>,
+        req_io: &mut HttpRequestIo<CR>,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
     ) where
         CR: AsyncRead + Unpin,
         CW: AsyncWrite + Send + Unpin,
@@ -293,8 +291,8 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
 
     async fn run_with_adaptation<CR, CW, UR, UW>(
         &mut self,
-        req_io: &mut HttpRequestIo<CR, UW>,
-        rsp_io: &mut HttpResponseIo<UR, CW>,
+        req_io: &mut HttpRequestIo<CR>,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
         icap_adapter: HttpRequestAdapter<ServerIdleChecker>,
         adaptation_state: &mut ReqmodAdaptationRunState,
     ) -> ServerTaskResult<()>
@@ -305,7 +303,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         UW: AsyncWrite + Send + Unpin,
     {
         let mut ups_w_adaptation = HttpRequestWriterForAdaptation {
-            inner: &mut req_io.ups_w,
+            inner: &mut rsp_io.ups_w,
         };
         let mut adaptation_fut = icap_adapter
             .xfer(
@@ -440,14 +438,32 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         Ok(())
     }
 
-    async fn do_forward_without_body<UR, CW>(
+    async fn send_request_header<UW>(&mut self, ups_w: &mut UW) -> ServerTaskResult<()>
+    where
+        UW: AsyncWrite + Unpin,
+    {
+        let head_bytes = self.req.serialize_for_origin();
+        ups_w
+            .write_all_flush(&head_bytes)
+            .await
+            .map_err(ServerTaskError::UpstreamWriteFailed)?;
+
+        self.http_notes.mark_req_send_hdr();
+        Ok(())
+    }
+
+    async fn do_forward_without_body<CW, UR, UW>(
         &mut self,
-        rsp_io: &mut HttpResponseIo<UR, CW>,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
     ) -> ServerTaskResult<()>
     where
         UR: AsyncRead + Unpin,
         CW: AsyncWrite + Send + Unpin,
+        UW: AsyncWrite + Unpin,
     {
+        self.send_request_header(&mut rsp_io.ups_w).await?;
+        self.http_notes.mark_req_no_body();
+
         match tokio::time::timeout(
             self.ctx.h1_rsp_hdr_recv_timeout(),
             HttpTransparentResponse::parse(
@@ -469,8 +485,8 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
 
     async fn do_forward_with_body<CR, CW, UR, UW>(
         &mut self,
-        req_io: &mut HttpRequestIo<CR, UW>,
-        rsp_io: &mut HttpResponseIo<UR, CW>,
+        req_io: &mut HttpRequestIo<CR>,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
         body_type: HttpBodyType,
     ) -> ServerTaskResult<()>
     where
@@ -479,6 +495,8 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         UR: AsyncRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
+        self.send_request_header(&mut rsp_io.ups_w).await?;
+
         let mut clt_body_reader = HttpBodyReader::new(
             &mut req_io.clt_r,
             body_type,
@@ -488,7 +506,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
 
         let mut clt_to_ups = LimitedCopy::new(
             &mut clt_body_reader,
-            &mut req_io.ups_w,
+            &mut rsp_io.ups_w,
             &self.ctx.server_config.limited_copy_config(),
         );
 
@@ -610,13 +628,14 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         .map_err(|e| e.into())
     }
 
-    async fn recv_final_response_header<UR, CW>(
+    async fn recv_final_response_header<CW, UR, UW>(
         &mut self,
-        rsp_io: &mut HttpResponseIo<UR, CW>,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
     ) -> ServerTaskResult<(HttpTransparentResponse, Bytes)>
     where
         UR: AsyncRead + Unpin,
         CW: AsyncWrite + Unpin,
+        UW: AsyncWrite + Unpin,
     {
         loop {
             let (rsp, bytes) = self.recv_response_header(&mut rsp_io.ups_r).await?;
@@ -638,16 +657,17 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         }
     }
 
-    async fn send_response<UR, CW>(
+    async fn send_response<CW, UR, UW>(
         &mut self,
         mut rsp: HttpTransparentResponse,
         rsp_head: Bytes,
-        rsp_io: &mut HttpResponseIo<UR, CW>,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
         adaptation_respond_shared_headers: Option<HttpHeaderMap>,
     ) -> ServerTaskResult<()>
     where
         UR: AsyncRead + Unpin,
         CW: AsyncWrite + Send + Unpin,
+        UW: AsyncWrite + Unpin,
     {
         if self.should_close {
             rsp.set_no_keep_alive();
@@ -702,16 +722,17 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
             .await
     }
 
-    async fn send_response_with_adaptation<UR, CW>(
+    async fn send_response_with_adaptation<CW, UR, UW>(
         &mut self,
         rsp: HttpTransparentResponse,
-        rsp_io: &mut HttpResponseIo<UR, CW>,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
         icap_adapter: HttpResponseAdapter<ServerIdleChecker>,
         adaptation_state: &mut RespmodAdaptationRunState,
     ) -> ServerTaskResult<()>
     where
         UR: AsyncRead + Unpin,
         CW: AsyncWrite + Send + Unpin,
+        UW: AsyncWrite + Unpin,
     {
         match icap_adapter
             .xfer(
@@ -735,15 +756,16 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         }
     }
 
-    async fn send_response_without_adaptation<UR, CW>(
+    async fn send_response_without_adaptation<CW, UR, UW>(
         &mut self,
         rsp: HttpTransparentResponse,
         rsp_head: Bytes,
-        rsp_io: &mut HttpResponseIo<UR, CW>,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
     ) -> ServerTaskResult<()>
     where
         UR: AsyncRead + Unpin,
         CW: AsyncWrite + Unpin,
+        UW: AsyncWrite + Unpin,
     {
         self.send_error_response = false;
 

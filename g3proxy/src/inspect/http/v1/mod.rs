@@ -42,19 +42,19 @@ mod connect;
 use connect::H1ConnectTask;
 
 mod forward;
-use forward::{H1ForwardTask, HttpRequestWriterForAdaptation};
+use forward::H1ForwardTask;
 
 mod upgrade;
 use upgrade::H1UpgradeTask;
 
-pub(crate) struct HttpRequestIo<R: AsyncRead, W: AsyncWrite> {
-    clt_r: FlexBufReader<R>,
-    ups_w: W,
+pub(crate) struct HttpRequestIo<CR: AsyncRead> {
+    clt_r: FlexBufReader<CR>,
 }
 
-pub(crate) struct HttpResponseIo<R: AsyncRead, W: AsyncWrite> {
-    ups_r: FlexBufReader<R>,
-    clt_w: W,
+pub(crate) struct HttpResponseIo<CW: AsyncWrite, UR: AsyncRead, UW: AsyncWrite> {
+    clt_w: CW,
+    ups_r: FlexBufReader<UR>,
+    ups_w: UW,
 }
 
 struct H1InterceptIo {
@@ -135,10 +135,11 @@ where
         let pipeline_stats = Arc::new(PipelineStats::default());
 
         let mut rsp_io = HttpResponseIo {
-            ups_r: FlexBufReader::new(ups_r),
             clt_w,
+            ups_r: FlexBufReader::new(ups_r),
+            ups_w,
         };
-        let req_io = HttpRequestIo { clt_r, ups_w };
+        let req_io = HttpRequestIo { clt_r };
         let (req_forwarder, mut req_acceptor) =
             pipeline::new_request_handler(self.ctx.clone(), req_io, pipeline_stats.clone());
         tokio::spawn(req_forwarder.into_running());
@@ -171,12 +172,9 @@ where
                     }
                     return Err(e.into());
                 }
-                HttpRecvRequest::UpstreamWriteError(e) => {
-                    // just close the connection
-                    return Err(e);
-                }
                 HttpRecvRequest::RequestWithoutIo(r) => {
                     let mut forward_task = H1ForwardTask::new(self.ctx.clone(), &r, self.req_id);
+                    // not ICAP in this case
                     forward_task.forward_without_body(&mut rsp_io).await;
                     pipeline_stats.del_task();
                     if forward_task.should_close() {
@@ -189,11 +187,9 @@ where
                         let r = if let Some(reqmod_client) =
                             self.ctx.audit_handle.icap_reqmod_client()
                         {
-                            connect_task
-                                .forward(&mut req_io, &mut rsp_io, reqmod_client)
-                                .await
+                            connect_task.forward_icap(&mut rsp_io, reqmod_client).await
                         } else {
-                            connect_task.recv_response(&mut rsp_io).await
+                            connect_task.forward_original(&mut rsp_io).await
                         };
                         if let Some(upstream) = r {
                             pipeline_stats.del_task();
@@ -212,11 +208,9 @@ where
                         let r = if let Some(reqmod_client) =
                             self.ctx.audit_handle.icap_reqmod_client()
                         {
-                            upgrade_task
-                                .forward(&mut req_io, &mut rsp_io, reqmod_client)
-                                .await
+                            upgrade_task.forward_icap(&mut rsp_io, reqmod_client).await
                         } else {
-                            upgrade_task.recv_response(&mut rsp_io).await
+                            upgrade_task.forward_original(&mut rsp_io).await
                         };
                         if let Some((protocol, upstream)) = r {
                             pipeline_stats.del_task();
@@ -255,11 +249,15 @@ where
 }
 
 fn convert_io(
-    req_io: HttpRequestIo<BoxAsyncRead, BoxAsyncWrite>,
-    rsp_io: HttpResponseIo<BoxAsyncRead, BoxAsyncWrite>,
+    req_io: HttpRequestIo<BoxAsyncRead>,
+    rsp_io: HttpResponseIo<BoxAsyncWrite, BoxAsyncRead, BoxAsyncWrite>,
 ) -> (BoxAsyncRead, BoxAsyncWrite, BoxAsyncRead, BoxAsyncWrite) {
-    let HttpRequestIo { clt_r, ups_w } = req_io;
-    let HttpResponseIo { ups_r, clt_w } = rsp_io;
+    let HttpRequestIo { clt_r } = req_io;
+    let HttpResponseIo {
+        clt_w,
+        ups_r,
+        ups_w,
+    } = rsp_io;
 
     let clt_r = if clt_r.buffer().is_empty() {
         clt_r.into_inner()

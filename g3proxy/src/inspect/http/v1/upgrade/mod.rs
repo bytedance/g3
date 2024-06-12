@@ -30,17 +30,15 @@ use g3_http::server::{HttpTransparentRequest, UriExt};
 use g3_http::{HttpBodyReader, HttpBodyType};
 use g3_icap_client::reqmod::h1::{
     H1ReqmodAdaptationError, HttpAdapterErrorResponse, HttpRequestAdapter,
-    HttpRequestUpstreamWriter, ReqmodAdaptationMidState, ReqmodAdaptationRunState,
-    ReqmodRecvHttpResponseBody,
+    ReqmodAdaptationMidState, ReqmodAdaptationRunState, ReqmodRecvHttpResponseBody,
 };
 use g3_icap_client::reqmod::IcapReqmodClient;
-use g3_io_ext::{LimitedCopy, LimitedCopyError, OnceBufReader};
+use g3_io_ext::{LimitedCopy, LimitedCopyError, LimitedWriteExt, OnceBufReader};
 use g3_slog_types::{LtDateTime, LtDuration, LtHttpUri, LtUpstreamAddr, LtUuid};
 use g3_types::net::{HttpUpgradeToken, UpstreamAddr};
 
 use super::{H1InterceptionError, HttpRequest, HttpRequestIo, HttpResponseIo};
 use crate::config::server::ServerConfig;
-use crate::inspect::http::v1::forward::HttpRequestWriterForAdaptation;
 use crate::inspect::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext, StreamInspection};
 use crate::log::inspect::stream::StreamInspectLog;
 use crate::log::inspect::InspectSource;
@@ -78,18 +76,14 @@ struct HttpForwardTaskNotes {
 }
 
 impl HttpForwardTaskNotes {
-    fn new(
-        datetime_received: DateTime<Utc>,
-        time_received: Instant,
-        dur_req_send_hdr: Duration,
-    ) -> Self {
+    fn new(datetime_received: DateTime<Utc>, time_received: Instant) -> Self {
         let dur_req_pipeline = time_received.elapsed();
         HttpForwardTaskNotes {
             rsp_status: 0,
             origin_status: 0,
             receive_ins: time_received,
             receive_datetime: datetime_received,
-            dur_req_send_hdr,
+            dur_req_send_hdr: Duration::default(),
             dur_req_pipeline,
             dur_rsp_recv_hdr: Duration::default(),
         }
@@ -118,11 +112,7 @@ where
     SC: ServerConfig + Send + Sync + 'static,
 {
     pub(super) fn new(ctx: StreamInspectContext<SC>, req: HttpRequest, req_id: usize) -> Self {
-        let http_notes = HttpForwardTaskNotes::new(
-            req.datetime_received,
-            req.time_received,
-            req.dur_req_send_hdr,
-        );
+        let http_notes = HttpForwardTaskNotes::new(req.datetime_received, req.time_received);
         H1UpgradeTask {
             ctx,
             req: req.inner,
@@ -157,42 +147,17 @@ where
         }
     }
 
-    pub(super) async fn forward<CR, CW, UR, UW>(
+    pub(super) async fn forward_icap<CW, UR, UW>(
         &mut self,
-        req_io: &mut HttpRequestIo<CR, UW>,
-        rsp_io: &mut HttpResponseIo<UR, CW>,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
         reqmod_client: &IcapReqmodClient,
-    ) -> Option<(HttpUpgradeToken, UpstreamAddr)>
-    where
-        CR: AsyncRead + Send + Unpin,
-        CW: AsyncWrite + Send + Unpin,
-        UR: AsyncRead + Unpin,
-        UW: AsyncWrite + Send + Unpin,
-    {
-        match self.do_forward(req_io, rsp_io, reqmod_client).await {
-            Ok(v) => {
-                intercept_log!(self, &v, "ok");
-                v
-            }
-            Err(e) => {
-                if self.send_error_response {
-                    self.reply_task_err(&e, &mut rsp_io.clt_w).await;
-                }
-                intercept_log!(self, &None::<(HttpUpgradeToken, UpstreamAddr)>, "{e}");
-                None
-            }
-        }
-    }
-
-    pub(super) async fn recv_response<CW, UR>(
-        &mut self,
-        rsp_io: &mut HttpResponseIo<UR, CW>,
     ) -> Option<(HttpUpgradeToken, UpstreamAddr)>
     where
         CW: AsyncWrite + Unpin,
         UR: AsyncRead + Unpin,
+        UW: AsyncWrite + Unpin,
     {
-        match self.do_recv_response(rsp_io).await {
+        match self.do_forward(rsp_io, reqmod_client).await {
             Ok(v) => {
                 intercept_log!(self, &v, "ok");
                 v
@@ -207,17 +172,39 @@ where
         }
     }
 
-    async fn do_forward<CR, CW, UR, UW>(
+    pub(super) async fn forward_original<CW, UR, UW>(
         &mut self,
-        req_io: &mut HttpRequestIo<CR, UW>,
-        rsp_io: &mut HttpResponseIo<UR, CW>,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
+    ) -> Option<(HttpUpgradeToken, UpstreamAddr)>
+    where
+        CW: AsyncWrite + Unpin,
+        UR: AsyncRead + Unpin,
+        UW: AsyncWrite + Unpin,
+    {
+        match self.send_request(None, rsp_io).await {
+            Ok(v) => {
+                intercept_log!(self, &v, "ok");
+                v
+            }
+            Err(e) => {
+                if self.send_error_response {
+                    self.reply_task_err(&e, &mut rsp_io.clt_w).await;
+                }
+                intercept_log!(self, &None::<(HttpUpgradeToken, UpstreamAddr)>, "{e}");
+                None
+            }
+        }
+    }
+
+    async fn do_forward<CW, UR, UW>(
+        &mut self,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
         reqmod_client: &IcapReqmodClient,
     ) -> ServerTaskResult<Option<(HttpUpgradeToken, UpstreamAddr)>>
     where
-        CR: AsyncRead + Send + Unpin,
-        CW: AsyncWrite + Send + Unpin,
+        CW: AsyncWrite + Unpin,
         UR: AsyncRead + Unpin,
-        UW: AsyncWrite + Send + Unpin,
+        UW: AsyncWrite + Unpin,
     {
         match reqmod_client
             .h1_adapter(
@@ -235,12 +222,12 @@ where
                 }
                 let mut adaptation_state =
                     ReqmodAdaptationRunState::new(self.http_notes.receive_ins);
-                self.forward_with_adaptation(req_io, rsp_io, adapter, &mut adaptation_state)
+                self.forward_with_adaptation(rsp_io, adapter, &mut adaptation_state)
                     .await
             }
             Err(e) => {
                 if reqmod_client.bypass() {
-                    self.send_request(None, req_io, rsp_io).await
+                    self.send_request(None, rsp_io).await
                 } else {
                     Err(ServerTaskError::InternalAdapterError(e))
                 }
@@ -248,25 +235,21 @@ where
         }
     }
 
-    async fn forward_with_adaptation<CR, CW, UR, UW>(
+    async fn forward_with_adaptation<CW, UR, UW>(
         &mut self,
-        req_io: &mut HttpRequestIo<CR, UW>,
-        rsp_io: &mut HttpResponseIo<UR, CW>,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
         icap_adapter: HttpRequestAdapter<ServerIdleChecker>,
         adaptation_state: &mut ReqmodAdaptationRunState,
     ) -> ServerTaskResult<Option<(HttpUpgradeToken, UpstreamAddr)>>
     where
-        CR: AsyncRead + Send + Unpin,
-        CW: AsyncWrite + Send + Unpin,
+        CW: AsyncWrite + Unpin,
         UR: AsyncRead + Unpin,
-        UW: AsyncWrite + Send + Unpin,
+        UW: AsyncWrite + Unpin,
     {
         match icap_adapter.xfer_connect(adaptation_state, &self.req).await {
-            Ok(ReqmodAdaptationMidState::OriginalRequest) => {
-                self.send_request(None, req_io, rsp_io).await
-            }
+            Ok(ReqmodAdaptationMidState::OriginalRequest) => self.send_request(None, rsp_io).await,
             Ok(ReqmodAdaptationMidState::AdaptedRequest(final_req)) => {
-                self.send_request(Some(final_req), req_io, rsp_io).await
+                self.send_request(Some(final_req), rsp_io).await
             }
             Ok(ReqmodAdaptationMidState::HttpErrResponse(rsp, rsp_body)) => {
                 self.send_adaptation_error_response(&mut rsp_io.clt_w, rsp, rsp_body)
@@ -320,42 +303,36 @@ where
         Ok(())
     }
 
-    async fn send_request<CR, CW, UR, UW>(
+    async fn send_request<CW, UR, UW>(
         &mut self,
         adapted_req: Option<HttpTransparentRequest>,
-        req_io: &mut HttpRequestIo<CR, UW>,
-        rsp_io: &mut HttpResponseIo<UR, CW>,
-    ) -> ServerTaskResult<Option<(HttpUpgradeToken, UpstreamAddr)>>
-    where
-        CR: AsyncRead + Send + Unpin,
-        CW: AsyncWrite + Send + Unpin,
-        UR: AsyncRead + Unpin,
-        UW: AsyncWrite + Send + Unpin,
-    {
-        let mut ups_w_adaptation = HttpRequestWriterForAdaptation {
-            inner: &mut req_io.ups_w,
-        };
-        let req = adapted_req.as_ref().unwrap_or(&self.req);
-        ups_w_adaptation
-            .send_request_header(req)
-            .await
-            .map_err(H1ReqmodAdaptationError::HttpUpstreamWriteFailed)?;
-        ups_w_adaptation
-            .flush()
-            .await
-            .map_err(H1ReqmodAdaptationError::HttpUpstreamWriteFailed)?;
-        self.http_notes.mark_ups_send_header();
-
-        self.do_recv_response(rsp_io).await
-    }
-
-    async fn do_recv_response<CW, UR>(
-        &mut self,
-        rsp_io: &mut HttpResponseIo<UR, CW>,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
     ) -> ServerTaskResult<Option<(HttpUpgradeToken, UpstreamAddr)>>
     where
         CW: AsyncWrite + Unpin,
         UR: AsyncRead + Unpin,
+        UW: AsyncWrite + Unpin,
+    {
+        let req = adapted_req.as_ref().unwrap_or(&self.req);
+        let head_bytes = req.serialize_for_origin();
+        rsp_io
+            .ups_w
+            .write_all_flush(&head_bytes)
+            .await
+            .map_err(H1ReqmodAdaptationError::HttpUpstreamWriteFailed)?;
+        self.http_notes.mark_ups_send_header();
+
+        self.recv_response(rsp_io).await
+    }
+
+    async fn recv_response<CW, UR, UW>(
+        &mut self,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
+    ) -> ServerTaskResult<Option<(HttpUpgradeToken, UpstreamAddr)>>
+    where
+        CW: AsyncWrite + Unpin,
+        UR: AsyncRead + Unpin,
+        UW: AsyncWrite + Unpin,
     {
         match tokio::time::timeout(
             self.ctx.h1_rsp_hdr_recv_timeout(),
@@ -376,15 +353,16 @@ where
         }
     }
 
-    async fn send_response<CW, UR>(
+    async fn send_response<CW, UR, UW>(
         &mut self,
         rsp: HttpTransparentResponse,
         rsp_head: Bytes,
-        rsp_io: &mut HttpResponseIo<UR, CW>,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
     ) -> ServerTaskResult<Option<(HttpUpgradeToken, UpstreamAddr)>>
     where
         CW: AsyncWrite + Unpin,
         UR: AsyncRead + Unpin,
+        UW: AsyncWrite + Unpin,
     {
         self.send_error_response = false;
         self.http_notes.origin_status = rsp.code;
@@ -434,14 +412,15 @@ where
         }
     }
 
-    async fn send_response_body<UR, CW>(
+    async fn send_response_body<CW, UR, UW>(
         &mut self,
-        rsp_io: &mut HttpResponseIo<UR, CW>,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
         body_type: HttpBodyType,
     ) -> ServerTaskResult<()>
     where
-        UR: AsyncRead + Unpin,
         CW: AsyncWrite + Unpin,
+        UR: AsyncRead + Unpin,
+        UW: AsyncWrite + Unpin,
     {
         let mut body_reader = HttpBodyReader::new(
             &mut rsp_io.ups_r,
@@ -509,8 +488,8 @@ where
 
     pub(super) fn into_upgrade(
         self,
-        req_io: HttpRequestIo<BoxAsyncRead, BoxAsyncWrite>,
-        rsp_io: HttpResponseIo<BoxAsyncRead, BoxAsyncWrite>,
+        req_io: HttpRequestIo<BoxAsyncRead>,
+        rsp_io: HttpResponseIo<BoxAsyncWrite, BoxAsyncRead, BoxAsyncWrite>,
         protocol: HttpUpgradeToken,
         upstream: UpstreamAddr,
     ) -> Result<StreamInspection<SC>, H1InterceptionError> {

@@ -15,10 +15,9 @@
  */
 
 use std::sync::Arc;
-use std::time::Duration;
 
 use chrono::{DateTime, Utc};
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
+use tokio::io::AsyncRead;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 
@@ -33,35 +32,32 @@ pub(crate) struct HttpRequest {
     pub(crate) inner: HttpTransparentRequest,
     pub(crate) time_received: Instant,
     pub(crate) datetime_received: DateTime<Utc>,
-    pub(crate) dur_req_send_hdr: Duration,
 }
 
-pub(crate) enum HttpRecvRequest<R: AsyncRead, W: AsyncWrite> {
+pub(crate) enum HttpRecvRequest<R: AsyncRead> {
     ClientConnectionError(H1InterceptionError),
     ClientRequestError(HttpRequestParseError),
-    UpstreamWriteError(H1InterceptionError),
     RequestWithIO(
         HttpRequest,
-        HttpRequestIo<R, W>,
-        mpsc::Sender<HttpRequestIo<R, W>>,
+        HttpRequestIo<R>,
+        mpsc::Sender<HttpRequestIo<R>>,
     ),
     RequestWithoutIo(HttpRequest),
 }
 
-pub(crate) struct HttpRequestAcceptor<R: AsyncRead, W: AsyncWrite> {
-    recv_request: mpsc::Receiver<HttpRecvRequest<R, W>>,
+pub(crate) struct HttpRequestAcceptor<R: AsyncRead> {
+    recv_request: mpsc::Receiver<HttpRecvRequest<R>>,
 }
 
-impl<R, W> HttpRequestAcceptor<R, W>
+impl<R> HttpRequestAcceptor<R>
 where
     R: AsyncRead,
-    W: AsyncWrite,
 {
-    pub(crate) fn new(recv_request: mpsc::Receiver<HttpRecvRequest<R, W>>) -> Self {
+    pub(crate) fn new(recv_request: mpsc::Receiver<HttpRecvRequest<R>>) -> Self {
         HttpRequestAcceptor { recv_request }
     }
 
-    pub(crate) async fn accept(&mut self) -> Option<HttpRecvRequest<R, W>> {
+    pub(crate) async fn accept(&mut self) -> Option<HttpRecvRequest<R>> {
         self.recv_request.recv().await
     }
 
@@ -70,23 +66,22 @@ where
     }
 }
 
-pub(crate) struct HttpRequestForwarder<SC: ServerConfig, R: AsyncRead, W: AsyncWrite> {
+pub(crate) struct HttpRequestForwarder<SC: ServerConfig, R: AsyncRead> {
     ctx: StreamInspectContext<SC>,
-    io: Option<HttpRequestIo<R, W>>,
-    send_request: mpsc::Sender<HttpRecvRequest<R, W>>,
+    io: Option<HttpRequestIo<R>>,
+    send_request: mpsc::Sender<HttpRecvRequest<R>>,
     stats: Arc<PipelineStats>,
 }
 
-impl<SC, R, W> HttpRequestForwarder<SC, R, W>
+impl<SC, R> HttpRequestForwarder<SC, R>
 where
     SC: ServerConfig,
     R: AsyncRead + Unpin,
-    W: AsyncWrite + Unpin,
 {
     pub(crate) fn new(
         ctx: StreamInspectContext<SC>,
-        req_io: HttpRequestIo<R, W>,
-        send_request: mpsc::Sender<HttpRecvRequest<R, W>>,
+        req_io: HttpRequestIo<R>,
+        send_request: mpsc::Sender<HttpRecvRequest<R>>,
         stats: Arc<PipelineStats>,
     ) -> Self {
         HttpRequestForwarder {
@@ -164,74 +159,49 @@ where
                 )
                 .await
                 {
-                    Ok(Ok((mut req, head_bytes))) => {
+                    Ok(Ok((mut req, _head_bytes))) => {
                         let datetime_received = Utc::now();
                         let time_received = Instant::now();
 
                         if self.ctx.server_offline() {
                             // According to https://datatracker.ietf.org/doc/html/rfc7230#section-6.3.2
                             // A client that pipelines requests SHOULD retry unanswered requests if
-                            // the connection closes before it receives all of the corresponding
+                            // the connection closes before it receives all the corresponding
                             // responses.
                             req.disable_keep_alive();
                         }
 
-                        if self.ctx.audit_handle.icap_reqmod_client().is_some() {
-                            // skip the fast send of header if audit is needed
-                            let recv_req = HttpRecvRequest::RequestWithIO(
+                        let recv_req = if self.ctx.audit_handle.icap_reqmod_client().is_some() {
+                            HttpRecvRequest::RequestWithIO(
                                 HttpRequest {
                                     inner: req,
                                     time_received,
                                     datetime_received,
-                                    dur_req_send_hdr: Duration::ZERO,
                                 },
                                 io,
                                 io_sender.clone(),
-                            );
+                            )
+                        } else if req.pipeline_safe() {
+                            self.io = Some(io);
+                            HttpRecvRequest::RequestWithoutIo(HttpRequest {
+                                inner: req,
+                                time_received,
+                                datetime_received,
+                            })
+                        } else {
+                            HttpRecvRequest::RequestWithIO(
+                                HttpRequest {
+                                    inner: req,
+                                    time_received,
+                                    datetime_received,
+                                },
+                                io,
+                                io_sender.clone(),
+                            )
+                        };
 
-                            let _ = self.send_request.send(recv_req).await;
-                            self.stats.add_task();
-                            continue;
-                        }
-
-                        // do a fast send of request
-                        match io.ups_w.write_all(&head_bytes).await {
-                            Ok(_) => {
-                                let dur_req_send_hdr = time_received.elapsed();
-                                let recv_req = if req.pipeline_safe() {
-                                    self.io = Some(io);
-                                    HttpRecvRequest::RequestWithoutIo(HttpRequest {
-                                        inner: req,
-                                        time_received,
-                                        datetime_received,
-                                        dur_req_send_hdr,
-                                    })
-                                } else {
-                                    HttpRecvRequest::RequestWithIO(
-                                        HttpRequest {
-                                            inner: req,
-                                            time_received,
-                                            datetime_received,
-                                            dur_req_send_hdr,
-                                        },
-                                        io,
-                                        io_sender.clone(),
-                                    )
-                                };
-
-                                let _ = self.send_request.send(recv_req).await;
-                                self.stats.add_task();
-                            }
-                            Err(e) => {
-                                let _ = self
-                                    .send_request
-                                    .send(HttpRecvRequest::UpstreamWriteError(
-                                        H1InterceptionError::UpstreamWriteFailed(e),
-                                    ))
-                                    .await;
-                                break;
-                            }
-                        }
+                        let _ = self.send_request.send(recv_req).await;
+                        self.stats.add_task();
                     }
                     Ok(Err(e)) => {
                         let _ = self

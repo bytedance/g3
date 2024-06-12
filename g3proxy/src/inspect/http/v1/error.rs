@@ -35,8 +35,6 @@ pub(crate) enum H1InterceptionError {
     ClosedByUpstream,
     #[error("upstream closed with error: {0:?}")]
     UpstreamClosedWithError(io::Error),
-    #[error("upstream write: {0:?}")]
-    UpstreamWriteFailed(io::Error),
     #[error("invalid upgrade protocol: {0}")]
     InvalidUpgradeProtocol(HttpUpgradeToken),
 }
