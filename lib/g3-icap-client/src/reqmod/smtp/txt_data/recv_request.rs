@@ -18,7 +18,7 @@ use tokio::io::AsyncWrite;
 use tokio::time::Instant;
 
 use g3_http::server::HttpAdaptedRequest;
-use g3_http::HttpBodyReader;
+use g3_http::HttpBodyDecodeReader;
 use g3_io_ext::{IdleCheck, LimitedCopy, LimitedCopyError};
 
 use super::{
@@ -60,8 +60,7 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
             HttpAdaptedRequest::parse(&mut self.icap_connection.1, http_header_size, true).await?;
         // TODO check request content type?
 
-        // TODO decode data and drain trailer
-        let mut body_reader = HttpBodyReader::new_chunked(&mut self.icap_connection.1, 256);
+        let mut body_reader = HttpBodyDecodeReader::new_chunked(&mut self.icap_connection.1, 256);
         let mut msg_transfer = LimitedCopy::new(&mut body_reader, ups_writer, &self.copy_config);
         // TODO encode to TEXT DATA
 
@@ -75,11 +74,17 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
                 biased;
 
                 r = &mut msg_transfer => {
-                    match r {
-                        Ok(_) => break,
-                        Err(LimitedCopyError::ReadFailed(e)) => return Err(SmtpAdaptationError::IcapServerReadFailed(e)),
-                        Err(LimitedCopyError::WriteFailed(e)) => return Err(SmtpAdaptationError::SmtpUpstreamWriteFailed(e)),
-                    }
+                    return match r {
+                        Ok(_) => {
+                            state.mark_ups_send_all();
+                            if icap_rsp.keep_alive && body_reader.trailer(128).await.is_ok() {
+                                self.icap_client.save_connection(self.icap_connection).await;
+                            }
+                            Ok(ReqmodAdaptationEndState::AdaptedTransferred)
+                        },
+                        Err(LimitedCopyError::ReadFailed(e)) => Err(SmtpAdaptationError::IcapServerReadFailed(e)),
+                        Err(LimitedCopyError::WriteFailed(e)) => Err(SmtpAdaptationError::SmtpUpstreamWriteFailed(e)),
+                    };
                 }
                 _ = idle_interval.tick() => {
                     if msg_transfer.is_idle() {
@@ -105,11 +110,5 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
                 }
             }
         }
-
-        state.mark_ups_send_all();
-        if icap_rsp.keep_alive {
-            self.icap_client.save_connection(self.icap_connection).await;
-        }
-        Ok(ReqmodAdaptationEndState::AdaptedTransferred)
     }
 }

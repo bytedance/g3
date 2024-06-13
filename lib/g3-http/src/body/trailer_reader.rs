@@ -114,6 +114,7 @@ impl TrailerReaderInternal {
             let value = HttpHeaderValue::from_str(header.value).map_err(|_| {
                 TrailerReadError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
             })?;
+            self.cached_line.clear();
             self.headers.append(name, value);
         }
     }
@@ -152,5 +153,40 @@ where
         let me = &mut *self;
 
         me.internal.poll_read(cx, Pin::new(&mut me.reader))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bytes::Bytes;
+    use tokio::io::{BufReader, Result};
+    use tokio_util::io::StreamReader;
+
+    #[tokio::test]
+    async fn empty() {
+        let content = b"\r\nXX";
+        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
+        let stream = StreamReader::new(stream);
+        let mut buf_stream = BufReader::new(stream);
+        let trailer_reader = TrailerReader::new(&mut buf_stream, 1024);
+
+        let headers = trailer_reader.await.unwrap();
+        assert!(headers.is_empty());
+    }
+
+    #[tokio::test]
+    async fn single() {
+        let content = b"A: B\r\n\r\nXX";
+        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
+        let stream = StreamReader::new(stream);
+        let mut buf_stream = BufReader::new(stream);
+        let trailer_reader = TrailerReader::new(&mut buf_stream, 1024);
+
+        let headers = trailer_reader.await.unwrap();
+        assert!(!headers.is_empty());
+
+        let v = headers.get("a").unwrap();
+        assert_eq!(v.as_bytes(), b"B");
     }
 }

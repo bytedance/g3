@@ -20,7 +20,7 @@ use tokio::io::{AsyncBufRead, AsyncWrite};
 use tokio::time::Instant;
 
 use g3_http::server::HttpAdaptedRequest;
-use g3_http::{HttpBodyReader, StreamToChunkedTransfer};
+use g3_http::{HttpBodyDecodeReader, StreamToChunkedTransfer};
 use g3_io_ext::{IdleCheck, LimitedBufReadExt, LimitedCopy, LimitedCopyConfig, LimitedCopyError};
 
 use super::{ReqmodAdaptationEndState, ReqmodAdaptationRunState, SmtpAdaptationError};
@@ -131,8 +131,7 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpRequest<'a, I> {
         let _http_req = HttpAdaptedRequest::parse(self.icap_reader, http_header_size, true).await?;
         // TODO check request content type?
 
-        // TODO decode data and drain trailer
-        let mut ups_body_reader = HttpBodyReader::new_chunked(self.icap_reader, 256);
+        let mut ups_body_reader = HttpBodyDecodeReader::new_chunked(self.icap_reader, 256);
         let mut ups_msg_transfer =
             LimitedCopy::new(&mut ups_body_reader, ups_writer, &self.copy_config);
         // TODO encode to TEXT DATA
@@ -150,7 +149,9 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpRequest<'a, I> {
                             match ups_msg_transfer.await {
                                 Ok(_) => {
                                     state.mark_ups_send_all();
-                                    state.icap_io_finished = true;
+                                    if ups_body_reader.trailer(128).await.is_ok() {
+                                        state.icap_io_finished = true;
+                                    }
                                     Ok(ReqmodAdaptationEndState::AdaptedTransferred)
                                 }
                                 Err(LimitedCopyError::ReadFailed(e)) => Err(SmtpAdaptationError::IcapServerReadFailed(e)),
@@ -165,7 +166,7 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpRequest<'a, I> {
                     return match r {
                         Ok(_) => {
                             state.mark_ups_send_all();
-                            if clt_msg_transfer.finished() {
+                            if clt_msg_transfer.finished() && ups_body_reader.trailer(128).await.is_ok() {
                                 state.icap_io_finished = true;
                             }
                             Ok(ReqmodAdaptationEndState::AdaptedTransferred)

@@ -24,6 +24,9 @@ pub enum HttpBodyType {
 mod reader;
 pub use reader::HttpBodyReader;
 
+mod decoder;
+pub use decoder::HttpBodyDecodeReader;
+
 mod preview;
 pub use preview::{PreviewData, PreviewDataState, PreviewError};
 
