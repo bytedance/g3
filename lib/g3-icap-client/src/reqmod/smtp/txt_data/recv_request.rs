@@ -18,7 +18,7 @@ use tokio::io::AsyncWrite;
 use tokio::time::Instant;
 
 use g3_http::server::HttpAdaptedRequest;
-use g3_http::{HttpBodyReader, HttpBodyType};
+use g3_http::HttpBodyReader;
 use g3_io_ext::{IdleCheck, LimitedCopy, LimitedCopyError};
 
 use super::{
@@ -61,8 +61,7 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
         // TODO check request content type?
 
         // TODO decode data and drain trailer
-        let mut body_reader =
-            HttpBodyReader::new(&mut self.icap_connection.1, HttpBodyType::Chunked, 256);
+        let mut body_reader = HttpBodyReader::new_chunked(&mut self.icap_connection.1, 256);
         let mut msg_transfer = LimitedCopy::new(&mut body_reader, ups_writer, &self.copy_config);
         // TODO encode to TEXT DATA
 

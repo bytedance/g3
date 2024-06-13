@@ -209,11 +209,8 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
             .map_err(H1RespmodAdaptationError::HttpClientWriteFailed)?;
         state.mark_clt_send_header();
 
-        let mut body_reader = HttpBodyReader::new(
-            &mut self.icap_connection.1,
-            HttpBodyType::Chunked,
-            self.http_body_line_max_size,
-        );
+        let mut body_reader =
+            HttpBodyReader::new_chunked(&mut self.icap_connection.1, self.http_body_line_max_size);
         let mut body_copy = LimitedCopy::new(&mut body_reader, clt_writer, &self.copy_config);
 
         let idle_duration = self.idle_checker.idle_duration();

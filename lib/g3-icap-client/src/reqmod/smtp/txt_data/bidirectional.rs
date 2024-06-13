@@ -20,7 +20,7 @@ use tokio::io::{AsyncBufRead, AsyncWrite};
 use tokio::time::Instant;
 
 use g3_http::server::HttpAdaptedRequest;
-use g3_http::{HttpBodyReader, HttpBodyType, StreamToChunkedTransfer};
+use g3_http::{HttpBodyReader, StreamToChunkedTransfer};
 use g3_io_ext::{IdleCheck, LimitedBufReadExt, LimitedCopy, LimitedCopyConfig, LimitedCopyError};
 
 use super::{ReqmodAdaptationEndState, ReqmodAdaptationRunState, SmtpAdaptationError};
@@ -132,7 +132,7 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpRequest<'a, I> {
         // TODO check request content type?
 
         // TODO decode data and drain trailer
-        let mut ups_body_reader = HttpBodyReader::new(self.icap_reader, HttpBodyType::Chunked, 256);
+        let mut ups_body_reader = HttpBodyReader::new_chunked(self.icap_reader, 256);
         let mut ups_msg_transfer =
             LimitedCopy::new(&mut ups_body_reader, ups_writer, &self.copy_config);
         // TODO encode to TEXT DATA

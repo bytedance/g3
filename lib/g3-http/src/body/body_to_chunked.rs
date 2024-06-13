@@ -73,11 +73,7 @@ where
             }
             HttpBodyType::ContentLength(len) => {
                 let head = format!("{len:x}\r\n");
-                let body_reader = HttpBodyReader::new(
-                    reader,
-                    HttpBodyType::ContentLength(len),
-                    body_line_max_len,
-                );
+                let body_reader = HttpBodyReader::new_fixed_length(reader, len);
                 ChunkedTransferState::SendHead(SendHead {
                     head,
                     offset: 0,
@@ -94,7 +90,7 @@ where
                 ChunkedTransferState::Encode(encoder)
             }
             HttpBodyType::Chunked => {
-                let body_reader = HttpBodyReader::new(reader, body_type, body_line_max_len);
+                let body_reader = HttpBodyReader::new_chunked(reader, body_line_max_len);
                 let copy = ROwnedLimitedCopy::new(body_reader, writer, copy_config);
                 ChunkedTransferState::Copy(copy)
             }
@@ -121,11 +117,7 @@ where
                 let left_len = len - (preview_state.preview_size as u64);
                 let head = format!("{left_len:x}\r\n");
                 reader.consume(preview_state.consume_size);
-                let body_reader = HttpBodyReader::new(
-                    reader,
-                    HttpBodyType::ContentLength(left_len),
-                    body_line_max_len,
-                );
+                let body_reader = HttpBodyReader::new_fixed_length(reader, left_len);
                 ChunkedTransferState::SendHead(SendHead {
                     head,
                     offset: 0,
@@ -160,7 +152,7 @@ where
                         writer,
                     })
                 } else {
-                    let body_reader = HttpBodyReader::new(reader, body_type, body_line_max_len);
+                    let body_reader = HttpBodyReader::new_chunked(reader, body_line_max_len);
                     let copy = ROwnedLimitedCopy::new(body_reader, writer, copy_config);
                     ChunkedTransferState::Copy(copy)
                 }

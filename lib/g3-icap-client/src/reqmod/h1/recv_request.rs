@@ -220,11 +220,8 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             .map_err(H1ReqmodAdaptationError::HttpUpstreamWriteFailed)?;
         state.mark_ups_send_header();
 
-        let mut body_reader = HttpBodyReader::new(
-            &mut self.icap_connection.1,
-            HttpBodyType::Chunked,
-            self.http_body_line_max_size,
-        );
+        let mut body_reader =
+            HttpBodyReader::new_chunked(&mut self.icap_connection.1, self.http_body_line_max_size);
         let mut body_copy = LimitedCopy::new(&mut body_reader, ups_writer, &self.copy_config);
 
         let idle_duration = self.idle_checker.idle_duration();

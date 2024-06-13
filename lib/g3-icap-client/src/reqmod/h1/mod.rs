@@ -218,7 +218,7 @@ pub struct ReqmodRecvHttpResponseBody {
 
 impl ReqmodRecvHttpResponseBody {
     pub fn body_reader(&mut self) -> HttpBodyReader<'_, impl AsyncBufRead> {
-        HttpBodyReader::new(&mut self.icap_connection.1, HttpBodyType::Chunked, 1024)
+        HttpBodyReader::new_chunked(&mut self.icap_connection.1, 1024)
     }
 
     pub async fn save_connection(self) {

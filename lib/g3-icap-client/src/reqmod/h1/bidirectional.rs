@@ -19,7 +19,7 @@ use std::sync::Arc;
 use tokio::io::AsyncBufRead;
 use tokio::time::Instant;
 
-use g3_http::{H1BodyToChunkedTransfer, HttpBodyReader, HttpBodyType};
+use g3_http::{H1BodyToChunkedTransfer, HttpBodyReader};
 use g3_io_ext::{IdleCheck, LimitedBufReadExt, LimitedCopy, LimitedCopyConfig, LimitedCopyError};
 
 use super::{
@@ -156,11 +156,8 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpRequest<'a, I> {
             .map_err(H1ReqmodAdaptationError::HttpUpstreamWriteFailed)?;
         state.mark_ups_send_header();
 
-        let mut ups_body_reader = HttpBodyReader::new(
-            self.icap_reader,
-            HttpBodyType::Chunked,
-            self.http_body_line_max_size,
-        );
+        let mut ups_body_reader =
+            HttpBodyReader::new_chunked(self.icap_reader, self.http_body_line_max_size);
         let mut ups_body_transfer =
             LimitedCopy::new(&mut ups_body_reader, ups_writer, &self.copy_config);
 

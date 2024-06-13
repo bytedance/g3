@@ -19,7 +19,7 @@ use std::sync::Arc;
 use tokio::io::AsyncBufRead;
 use tokio::time::Instant;
 
-use g3_http::{H1BodyToChunkedTransfer, HttpBodyReader, HttpBodyType};
+use g3_http::{H1BodyToChunkedTransfer, HttpBodyReader};
 use g3_io_ext::{IdleCheck, LimitedBufReadExt, LimitedCopy, LimitedCopyConfig, LimitedCopyError};
 
 use super::{
@@ -150,11 +150,8 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpResponse<'a, I> {
             .map_err(H1RespmodAdaptationError::HttpClientWriteFailed)?;
         state.mark_clt_send_header();
 
-        let mut adp_body_reader = HttpBodyReader::new(
-            self.icap_reader,
-            HttpBodyType::Chunked,
-            self.http_body_line_max_size,
-        );
+        let mut adp_body_reader =
+            HttpBodyReader::new_chunked(self.icap_reader, self.http_body_line_max_size);
         let mut adp_body_transfer =
             LimitedCopy::new(&mut adp_body_reader, clt_writer, &self.copy_config);
 

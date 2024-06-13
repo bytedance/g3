@@ -59,22 +59,59 @@ where
     const DEFAULT_LINE_SIZE: usize = 64;
 
     pub fn new(stream: &'a mut R, body_type: HttpBodyType, body_line_max_len: usize) -> Self {
-        let mut content_length = 0u64;
-        let next_read_type = match &body_type {
-            HttpBodyType::ContentLength(size) => {
-                content_length = *size;
-                NextReadType::FixedLength
-            }
-            HttpBodyType::Chunked => NextReadType::ChunkSize,
-            HttpBodyType::ReadUntilEnd => NextReadType::UntilEnd,
-        };
+        match body_type {
+            HttpBodyType::ReadUntilEnd => HttpBodyReader::new_read_until_end(stream),
+            HttpBodyType::ContentLength(len) => HttpBodyReader::new_fixed_length(stream, len),
+            HttpBodyType::Chunked => HttpBodyReader::new_chunked(stream, body_line_max_len),
+        }
+    }
+
+    pub fn new_read_until_end(stream: &'a mut R) -> Self {
         let mut r = HttpBodyReader {
             stream,
-            body_type,
-            next_read_type,
-            body_line_max_len,
+            body_type: HttpBodyType::ReadUntilEnd,
+            next_read_type: NextReadType::UntilEnd,
+            body_line_max_len: 1024,
+            next_read_size: 0,
+            left_total_size: 0,
+            chunk_size_line_cache: Vec::new(),
+            trailer_line_length: 0,
+            trailer_last_char: 0,
+            finished: false,
+            read_content_length: 0,
+            current_chunk_size: 0,
+        };
+        r.update_next_read_size();
+        r
+    }
+
+    pub fn new_fixed_length(stream: &'a mut R, content_length: u64) -> Self {
+        let mut r = HttpBodyReader {
+            stream,
+            body_type: HttpBodyType::ContentLength(content_length),
+            next_read_type: NextReadType::FixedLength,
+            body_line_max_len: 1024,
             next_read_size: 0,
             left_total_size: content_length,
+            chunk_size_line_cache: Vec::new(),
+            trailer_line_length: 0,
+            trailer_last_char: 0,
+            finished: false,
+            read_content_length: 0,
+            current_chunk_size: 0,
+        };
+        r.update_next_read_size();
+        r
+    }
+
+    pub fn new_chunked(stream: &'a mut R, body_line_max_len: usize) -> Self {
+        let mut r = HttpBodyReader {
+            stream,
+            body_type: HttpBodyType::Chunked,
+            next_read_type: NextReadType::ChunkSize,
+            body_line_max_len,
+            next_read_size: 0,
+            left_total_size: 0,
             chunk_size_line_cache: Vec::<u8>::with_capacity(Self::DEFAULT_LINE_SIZE),
             trailer_line_length: 0,
             trailer_last_char: 0,

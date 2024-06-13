@@ -479,11 +479,7 @@ impl<'a> FtpOverHttpTask<'a> {
                     let mut ftp_client = self.setup_ftp_client(clt_w, false).await?;
                     self.login(&mut ftp_client, clt_w).await?;
 
-                    let body_reader = HttpBodyReader::new(
-                        clt_r,
-                        HttpBodyType::ContentLength(size),
-                        self.ctx.server_config.body_line_max_len,
-                    );
+                    let body_reader = HttpBodyReader::new_fixed_length(clt_r, size);
                     self.upload(&mut ftp_client, clt_w, body_reader, size).await
                 } else {
                     self.reply_bad_request(clt_w, "allow body with fixed content-length only")
