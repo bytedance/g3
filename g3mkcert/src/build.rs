@@ -28,8 +28,13 @@ const BUILD_DEBUG: &str = env!("G3_BUILD_DEBUG");
 
 const PACKAGE_VERSION: Option<&str> = option_env!("G3_PACKAGE_VERSION");
 
+const OPENSSL_VARIANT: Option<&str> = option_env!("G3_OPENSSL_VARIANT");
+
 pub fn print_version() {
     println!("{PKG_NAME} {VERSION}");
+    if let Some(variant) = OPENSSL_VARIANT {
+        println!("OpenSSL Variant: {variant}");
+    }
     println!("Compiler: {RUSTC_VERSION} ({RUSTC_CHANNEL})");
     println!("Host: {BUILD_HOST}, Target: {BUILD_TARGET}");
     println!("Profile: {BUILD_PROFILE}, Opt Level: {BUILD_OPT_LEVEL}, Debug: {BUILD_DEBUG}");

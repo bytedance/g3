@@ -23,4 +23,4 @@ g3-geoip-db.workspace = true
 g3-ip-locate.workspace = true
 
 [build-dependencies]
-rustc_version.workspace = true
+g3-build-env.workspace = true

@@ -53,7 +53,7 @@ g3-slog-types.workspace = true
 g3tiles-proto = { path = "proto" }
 
 [build-dependencies]
-rustc_version.workspace = true
+g3-build-env.workspace = true
 
 [features]
 default = ["quic"]

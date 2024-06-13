@@ -1,0 +1,8 @@
+[package]
+name = "g3-build-env"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+
+[dependencies]
+rustc_version = "0.4"

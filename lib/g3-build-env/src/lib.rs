@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
-fn main() {
-    g3_build_env::check_basic();
-}
+mod basic;
+pub use basic::check_basic;
+
+mod openssl;
+pub use openssl::check_openssl;

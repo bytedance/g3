@@ -31,6 +31,8 @@ const PACKAGE_VERSION: Option<&str> = option_env!("G3_PACKAGE_VERSION");
 const HICKORY_FEATURE: Option<&str> = option_env!("G3_HICKORY_FEATURE");
 const QUIC_FEATURE: Option<&str> = option_env!("G3_QUIC_FEATURE");
 
+const OPENSSL_VARIANT: Option<&str> = option_env!("G3_OPENSSL_VARIANT");
+
 pub fn print_version() {
     println!("{PKG_NAME} {VERSION}");
     print!("Features:");
@@ -41,6 +43,9 @@ pub fn print_version() {
         print!(" {quic}");
     }
     println!();
+    if let Some(variant) = OPENSSL_VARIANT {
+        println!("OpenSSL Variant: {variant}");
+    }
     println!("Compiler: {RUSTC_VERSION} ({RUSTC_CHANNEL})");
     println!("Host: {BUILD_HOST}, Target: {BUILD_TARGET}");
     println!("Profile: {BUILD_PROFILE}, Opt Level: {BUILD_OPT_LEVEL}, Debug: {BUILD_DEBUG}");

@@ -47,7 +47,7 @@ g3keymess-proto = { path = "proto" }
 inotify = "0.10"
 
 [build-dependencies]
-rustc_version.workspace = true
+g3-build-env.workspace = true
 
 [features]
 default = []

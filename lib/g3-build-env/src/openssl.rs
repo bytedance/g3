@@ -14,6 +14,19 @@
  * limitations under the License.
  */
 
-fn main() {
-    g3_build_env::check_basic();
+use std::env;
+
+pub fn check_openssl() {
+    let ossl_variant = if env::var("CARGO_FEATURE_VENDORED_OPENSSL").is_ok() {
+        "openssl"
+    } else if env::var("CARGO_FEATURE_VENDORED_TONGSUO").is_ok() {
+        "tongsuo"
+    } else if env::var("CARGO_FEATURE_VENDORED_BORINGSSL").is_ok() {
+        "boringssl"
+    } else if env::var("CARGO_FEATURE_VENDORED_AWS_LC").is_ok() {
+        "aws-lc"
+    } else {
+        "default"
+    };
+    println!("cargo:rustc-env=G3_OPENSSL_VARIANT={ossl_variant}");
 }

@@ -983,6 +983,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "g3-build-env"
+version = "0.1.0"
+dependencies = [
+ "rustc_version",
+]
+
+[[package]]
 name = "g3-clap"
 version = "0.1.0"
 dependencies = [
@@ -1603,6 +1610,7 @@ dependencies = [
  "clap_complete",
  "concurrent-queue",
  "futures-util",
+ "g3-build-env",
  "g3-clap",
  "g3-hickory-client",
  "g3-histogram",
@@ -1629,7 +1637,6 @@ dependencies = [
  "openssl-probe",
  "quinn",
  "rustc-hash",
- "rustc_version",
  "rustls",
  "rustls-pemfile",
  "rustls-pki-types",
@@ -1647,6 +1654,7 @@ dependencies = [
  "anyhow",
  "clap",
  "flume",
+ "g3-build-env",
  "g3-daemon",
  "g3-histogram",
  "g3-msgpack",
@@ -1658,7 +1666,6 @@ dependencies = [
  "log",
  "memchr",
  "rmpv",
- "rustc_version",
  "tokio",
  "variant-ssl",
  "yaml-rust2",
@@ -1670,6 +1677,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "g3-build-env",
  "g3-daemon",
  "g3-geoip-db",
  "g3-geoip-types",
@@ -1681,7 +1689,6 @@ dependencies = [
  "g3-yaml",
  "log",
  "rmpv",
- "rustc_version",
  "tokio",
  "yaml-rust2",
 ]
@@ -1709,6 +1716,7 @@ dependencies = [
  "chrono",
  "clap",
  "futures-util",
+ "g3-build-env",
  "g3-compat",
  "g3-daemon",
  "g3-histogram",
@@ -1726,7 +1734,6 @@ dependencies = [
  "log",
  "once_cell",
  "openssl-probe",
- "rustc_version",
  "serde_json",
  "slog",
  "thiserror",
@@ -1771,10 +1778,10 @@ dependencies = [
  "anyhow",
  "clap",
  "clap_complete",
+ "g3-build-env",
  "g3-tls-cert",
  "g3-types",
  "openssl-probe",
- "rustc_version",
  "variant-ssl",
 ]
 
@@ -1800,6 +1807,7 @@ dependencies = [
  "fixedbitset 0.5.7",
  "fnv",
  "futures-util",
+ "g3-build-env",
  "g3-daemon",
  "g3-datetime",
  "g3-dpi",
@@ -1848,7 +1856,6 @@ dependencies = [
  "redis",
  "rmpv",
  "rustc-hash",
- "rustc_version",
  "rustls",
  "serde_json",
  "slog",
@@ -1930,6 +1937,7 @@ dependencies = [
  "clap_complete",
  "flume",
  "futures-util",
+ "g3-build-env",
  "g3-daemon",
  "g3-histogram",
  "g3-io-ext",
@@ -1949,7 +1957,6 @@ dependencies = [
  "quinn",
  "rand",
  "rustc-hash",
- "rustc_version",
  "rustls",
  "rustls-pki-types",
  "serde_json",

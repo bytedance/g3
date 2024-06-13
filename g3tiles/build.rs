@@ -17,35 +17,10 @@
 use std::env;
 
 fn main() {
-    let rustc = rustc_version::version_meta().unwrap();
-    println!(
-        "cargo:rustc-env=G3_BUILD_RUSTC_VERSION={}",
-        rustc.short_version_string
-    );
-    println!("cargo:rustc-env=G3_BUILD_RUSTC_CHANNEL={:?}", rustc.channel);
+    g3_build_env::check_basic();
+    g3_build_env::check_openssl();
 
-    println!(
-        "cargo:rustc-env=G3_BUILD_HOST={}",
-        env::var("HOST").unwrap()
-    );
-    println!(
-        "cargo:rustc-env=G3_BUILD_TARGET={}",
-        env::var("TARGET").unwrap()
-    );
-    println!(
-        "cargo:rustc-env=G3_BUILD_PROFILE={}",
-        env::var("PROFILE").unwrap()
-    );
-    println!(
-        "cargo:rustc-env=G3_BUILD_OPT_LEVEL={}",
-        env::var("OPT_LEVEL").unwrap()
-    );
-    println!(
-        "cargo:rustc-env=G3_BUILD_DEBUG={}",
-        env::var("DEBUG").unwrap()
-    );
-
-    if let Ok(v) = env::var("G3_PACKAGE_VERSION") {
-        println!("cargo:rustc-env=G3_PACKAGE_VERSION={v}");
+    if env::var("CARGO_FEATURE_QUIC").is_ok() {
+        println!("cargo:rustc-env=G3_QUIC_FEATURE=quinn");
     }
 }

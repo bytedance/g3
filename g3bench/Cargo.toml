@@ -53,7 +53,7 @@ g3-openssl.workspace = true
 g3-hickory-client.workspace = true
 
 [build-dependencies]
-rustc_version.workspace = true
+g3-build-env.workspace = true
 
 [features]
 default = ["quic"]
