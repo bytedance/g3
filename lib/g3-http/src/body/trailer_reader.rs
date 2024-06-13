@@ -114,6 +114,7 @@ impl TrailerReaderInternal {
             let value = HttpHeaderValue::from_str(header.value).map_err(|_| {
                 TrailerReadError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
             })?;
+            self.cached_line.clear();
             self.headers.append(name, value);
         }
     }
