@@ -12,6 +12,7 @@ memchr.workspace = true
 tokio = { workspace = true, features = ["io-util"] }
 pin-project-lite.workspace = true
 g3-types.workspace = true
+g3-io-ext.workspace = true
 
 [dev-dependencies]
 bytes.workspace = true

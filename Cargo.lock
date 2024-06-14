@@ -1395,6 +1395,7 @@ name = "g3-smtp-proto"
 version = "0.1.0"
 dependencies = [
  "bytes",
+ "g3-io-ext",
  "g3-types",
  "memchr",
  "pin-project-lite",

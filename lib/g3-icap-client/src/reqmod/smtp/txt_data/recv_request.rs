@@ -19,7 +19,8 @@ use tokio::time::Instant;
 
 use g3_http::server::HttpAdaptedRequest;
 use g3_http::HttpBodyDecodeReader;
-use g3_io_ext::{IdleCheck, LimitedCopy, LimitedCopyError};
+use g3_io_ext::{IdleCheck, LimitedCopyError};
+use g3_smtp_proto::io::TextDataEncodeTransfer;
 
 use super::{
     ReqmodAdaptationEndState, ReqmodAdaptationRunState, SmtpAdaptationError, SmtpMessageAdapter,
@@ -61,8 +62,8 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
         // TODO check request content type?
 
         let mut body_reader = HttpBodyDecodeReader::new_chunked(&mut self.icap_connection.1, 256);
-        let mut msg_transfer = LimitedCopy::new(&mut body_reader, ups_writer, &self.copy_config);
-        // TODO encode to TEXT DATA
+        let mut msg_transfer =
+            TextDataEncodeTransfer::new(&mut body_reader, ups_writer, self.copy_config);
 
         let idle_duration = self.idle_checker.idle_duration();
         let mut idle_interval =

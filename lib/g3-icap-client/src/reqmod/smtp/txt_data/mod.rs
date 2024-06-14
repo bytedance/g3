@@ -21,7 +21,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_http::StreamToChunkedTransfer;
 use g3_io_ext::{IdleCheck, LimitedWriteExt};
-use g3_smtp_proto::io::TextDataDecoder;
+use g3_smtp_proto::io::TextDataDecodeReader;
 
 use super::{
     HttpAdapterErrorResponse, ReqmodAdaptationEndState, ReqmodAdaptationRunState,
@@ -67,7 +67,7 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
             .await
             .map_err(SmtpAdaptationError::IcapServerWriteFailed)?;
 
-        let mut message_reader = TextDataDecoder::new(clt_r, self.copy_config.buffer_size());
+        let mut message_reader = TextDataDecodeReader::new(clt_r, self.copy_config.buffer_size());
         let mut body_transfer = StreamToChunkedTransfer::new_with_no_trailer(
             &mut message_reader,
             &mut self.icap_connection.0,

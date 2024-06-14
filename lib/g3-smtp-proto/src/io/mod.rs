@@ -18,4 +18,7 @@ mod text_reader;
 pub use text_reader::TextDataReader;
 
 mod text_decoder;
-pub use text_decoder::TextDataDecoder;
+pub use text_decoder::TextDataDecodeReader;
+
+mod text_encoder;
+pub use text_encoder::TextDataEncodeTransfer;

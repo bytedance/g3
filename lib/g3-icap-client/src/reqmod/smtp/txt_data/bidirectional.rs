@@ -21,7 +21,8 @@ use tokio::time::Instant;
 
 use g3_http::server::HttpAdaptedRequest;
 use g3_http::{HttpBodyDecodeReader, StreamToChunkedTransfer};
-use g3_io_ext::{IdleCheck, LimitedBufReadExt, LimitedCopy, LimitedCopyConfig, LimitedCopyError};
+use g3_io_ext::{IdleCheck, LimitedBufReadExt, LimitedCopyConfig, LimitedCopyError};
+use g3_smtp_proto::io::TextDataEncodeTransfer;
 
 use super::{ReqmodAdaptationEndState, ReqmodAdaptationRunState, SmtpAdaptationError};
 use crate::reqmod::response::ReqmodResponse;
@@ -133,8 +134,7 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpRequest<'a, I> {
 
         let mut ups_body_reader = HttpBodyDecodeReader::new_chunked(self.icap_reader, 256);
         let mut ups_msg_transfer =
-            LimitedCopy::new(&mut ups_body_reader, ups_writer, &self.copy_config);
-        // TODO encode to TEXT DATA
+            TextDataEncodeTransfer::new(&mut ups_body_reader, ups_writer, self.copy_config);
 
         let idle_duration = self.idle_checker.idle_duration();
         let mut idle_interval =

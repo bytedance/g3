@@ -207,16 +207,16 @@ impl DataDecodeBuffer {
 }
 
 pin_project! {
-    pub struct TextDataDecoder<'a, R> {
+    pub struct TextDataDecodeReader<'a, R> {
         #[pin]
         reader: &'a mut R,
         buf: DataDecodeBuffer,
     }
 }
 
-impl<'a, R> TextDataDecoder<'a, R> {
+impl<'a, R> TextDataDecodeReader<'a, R> {
     pub fn new(reader: &'a mut R, buf_size: usize) -> Self {
-        TextDataDecoder {
+        TextDataDecodeReader {
             reader,
             buf: DataDecodeBuffer::new(buf_size),
         }
@@ -227,7 +227,7 @@ impl<'a, R> TextDataDecoder<'a, R> {
     }
 }
 
-impl<'a, R> AsyncRead for TextDataDecoder<'a, R>
+impl<'a, R> AsyncRead for TextDataDecodeReader<'a, R>
 where
     R: AsyncRead + Unpin,
 {
@@ -241,7 +241,7 @@ where
     }
 }
 
-impl<'a, R> AsyncBufRead for TextDataDecoder<'a, R>
+impl<'a, R> AsyncBufRead for TextDataDecodeReader<'a, R>
 where
     R: AsyncRead + Unpin,
 {
@@ -271,7 +271,7 @@ mod test {
         let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
         let stream = StreamReader::new(stream);
         let mut buf_stream = BufReader::new(stream);
-        let mut body_deocder = TextDataDecoder::new(&mut buf_stream, 1024);
+        let mut body_deocder = TextDataDecodeReader::new(&mut buf_stream, 1024);
 
         let mut buf = [0u8; 32];
         let len = body_deocder.read(&mut buf).await.unwrap();
@@ -287,7 +287,7 @@ mod test {
         let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
         let stream = StreamReader::new(stream);
         let mut buf_stream = BufReader::new(stream);
-        let mut body_deocder = TextDataDecoder::new(&mut buf_stream, 1024);
+        let mut body_deocder = TextDataDecodeReader::new(&mut buf_stream, 1024);
 
         let mut buf = [0u8; 32];
         let len = body_deocder.read(&mut buf).await.unwrap();
@@ -311,7 +311,7 @@ mod test {
         ]);
         let stream = StreamReader::new(stream);
         let mut buf_stream = BufReader::new(stream);
-        let mut body_deocder = TextDataDecoder::new(&mut buf_stream, 1024);
+        let mut body_deocder = TextDataDecodeReader::new(&mut buf_stream, 1024);
 
         let mut buf = [0u8; 32];
         let len = body_deocder.read(&mut buf).await.unwrap();
@@ -334,7 +334,7 @@ mod test {
         ]);
         let stream = StreamReader::new(stream);
         let mut buf_stream = BufReader::new(stream);
-        let mut body_deocder = TextDataDecoder::new(&mut buf_stream, 1024);
+        let mut body_deocder = TextDataDecodeReader::new(&mut buf_stream, 1024);
 
         let mut buf = Vec::with_capacity(body_len);
         let len = tokio::io::copy_buf(&mut body_deocder, &mut buf)
@@ -360,7 +360,7 @@ mod test {
         ]);
         let stream = StreamReader::new(stream);
         let mut buf_stream = BufReader::new(stream);
-        let mut body_deocder = TextDataDecoder::new(&mut buf_stream, 1024);
+        let mut body_deocder = TextDataDecodeReader::new(&mut buf_stream, 1024);
 
         let mut buf = [0u8; 32];
         let len = body_deocder.read(&mut buf).await.unwrap();
@@ -383,7 +383,7 @@ mod test {
         ]);
         let stream = StreamReader::new(stream);
         let mut buf_stream = BufReader::new(stream);
-        let mut body_deocder = TextDataDecoder::new(&mut buf_stream, 1024);
+        let mut body_deocder = TextDataDecodeReader::new(&mut buf_stream, 1024);
 
         let mut buf = Vec::with_capacity(body_len);
         let len = tokio::io::copy_buf(&mut body_deocder, &mut buf)
