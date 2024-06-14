@@ -64,50 +64,62 @@ impl ResponseEncoder {
         ResponseEncoder::Owned(msg)
     }
 
+    pub fn message_blocked(local_ip: IpAddr, reason: String) -> Self {
+        let msg = match local_ip {
+            IpAddr::V4(v4) => {
+                format!("421 [{v4}] Service not available, message blocked: {reason}\r\n")
+            }
+            IpAddr::V6(v6) => {
+                format!("421 Ipv6:{v6} Service not available, message blocked: {reason}\r\n")
+            }
+        };
+        ResponseEncoder::Owned(msg)
+    }
+
     pub fn local_service_blocked(local_ip: IpAddr) -> Self {
         let msg = match local_ip {
-            IpAddr::V4(v4) => format!("554 [{v4}] service not ready - protocol blocked\r\n"),
-            IpAddr::V6(v6) => format!("554 Ipv6:{v6} service not ready - protocol blocked\r\n"),
+            IpAddr::V4(v4) => format!("554 [{v4}] Service not ready - protocol blocked\r\n"),
+            IpAddr::V6(v6) => format!("554 Ipv6:{v6} Service not ready - protocol blocked\r\n"),
         };
         ResponseEncoder::Owned(msg)
     }
 
     pub fn upstream_service_not_ready(local_ip: IpAddr, reason: &str) -> Self {
         let msg = match local_ip {
-            IpAddr::V4(v4) => format!("554 [{v4}] upstream service not ready - {reason}\r\n"),
-            IpAddr::V6(v6) => format!("554 Ipv6:{v6} upstream service not ready - {reason}\r\n"),
+            IpAddr::V4(v4) => format!("554 [{v4}] Upstream service not ready - {reason}\r\n"),
+            IpAddr::V6(v6) => format!("554 Ipv6:{v6} Upstream service not ready - {reason}\r\n"),
         };
         ResponseEncoder::Owned(msg)
     }
 
     pub fn upstream_io_error(local_ip: IpAddr, e: &io::Error) -> Self {
         let msg = match local_ip {
-            IpAddr::V4(v4) => format!("554 [{v4}] upstream io error: {e}\r\n"),
-            IpAddr::V6(v6) => format!("554 Ipv6:{v6} upstream io error: {e}\r\n"),
+            IpAddr::V4(v4) => format!("554 [{v4}] Upstream io error: {e}\r\n"),
+            IpAddr::V6(v6) => format!("554 Ipv6:{v6} Upstream io error: {e}\r\n"),
         };
         ResponseEncoder::Owned(msg)
     }
 
     pub fn upstream_io_closed(local_ip: IpAddr) -> Self {
         let msg = match local_ip {
-            IpAddr::V4(v4) => format!("554 [{v4}] upstream io closed\r\n"),
-            IpAddr::V6(v6) => format!("554 Ipv6:{v6} upstream io closed\r\n"),
+            IpAddr::V4(v4) => format!("554 [{v4}] Upstream io closed\r\n"),
+            IpAddr::V6(v6) => format!("554 Ipv6:{v6} Upstream io closed\r\n"),
         };
         ResponseEncoder::Owned(msg)
     }
 
     pub fn upstream_line_too_long(local_ip: IpAddr) -> Self {
         let msg = match local_ip {
-            IpAddr::V4(v4) => format!("554 [{v4}] upstream io closed\r\n"),
-            IpAddr::V6(v6) => format!("554 Ipv6:{v6} upstream io closed\r\n"),
+            IpAddr::V4(v4) => format!("554 [{v4}] Upstream io closed\r\n"),
+            IpAddr::V6(v6) => format!("554 Ipv6:{v6} Upstream io closed\r\n"),
         };
         ResponseEncoder::Owned(msg)
     }
 
     pub fn upstream_response_error(local_ip: IpAddr, e: &ResponseLineError) -> Self {
         let msg = match local_ip {
-            IpAddr::V4(v4) => format!("554 [{v4}] upstream response error: {e}\r\n"),
-            IpAddr::V6(v6) => format!("554 Ipv6:{v6} upstream response error: {e}\r\n"),
+            IpAddr::V4(v4) => format!("554 [{v4}] Upstream response error: {e}\r\n"),
+            IpAddr::V6(v6) => format!("554 Ipv6:{v6} Upstream response error: {e}\r\n"),
         };
         ResponseEncoder::Owned(msg)
     }

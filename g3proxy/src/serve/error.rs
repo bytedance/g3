@@ -25,6 +25,7 @@ use g3_ftp_client::FtpConnectError;
 use g3_http::client::HttpResponseParseError;
 use g3_http::server::HttpRequestParseError;
 use g3_icap_client::reqmod::h1::H1ReqmodAdaptationError;
+use g3_icap_client::reqmod::smtp::SmtpAdaptationError;
 use g3_icap_client::respmod::h1::H1RespmodAdaptationError;
 use g3_io_ext::{
     IdleForceQuitReason, UdpCopyClientError, UdpCopyError, UdpCopyRemoteError, UdpRelayClientError,
@@ -415,6 +416,32 @@ impl From<H1RespmodAdaptationError> for ServerTaskError {
                 IdleForceQuitReason::ServerQuit => ServerTaskError::CanceledAsServerQuit,
             },
             e => ServerTaskError::InternalAdapterError(anyhow!("respmod: {e}")),
+        }
+    }
+}
+
+impl From<SmtpAdaptationError> for ServerTaskError {
+    fn from(e: SmtpAdaptationError) -> Self {
+        match e {
+            SmtpAdaptationError::InternalServerError(s) => ServerTaskError::InternalServerError(s),
+            SmtpAdaptationError::SmtpClientReadFailed(e) => ServerTaskError::ClientTcpReadFailed(e),
+            SmtpAdaptationError::InvalidSmtpClientMessage => {
+                ServerTaskError::InvalidClientProtocol("invalid smtp message from client")
+            }
+            SmtpAdaptationError::SmtpUpstreamWriteFailed(e) => {
+                ServerTaskError::UpstreamWriteFailed(e)
+            }
+            SmtpAdaptationError::SmtpClientReadIdle => {
+                ServerTaskError::ClientAppTimeout("idle while reading message")
+            }
+            SmtpAdaptationError::SmtpUpstreamWriteIdle => {
+                ServerTaskError::UpstreamAppTimeout("idle while writing message")
+            }
+            SmtpAdaptationError::IdleForceQuit(reason) => match reason {
+                IdleForceQuitReason::UserBlocked => ServerTaskError::CanceledAsUserBlocked,
+                IdleForceQuitReason::ServerQuit => ServerTaskError::CanceledAsServerQuit,
+            },
+            e => ServerTaskError::InternalAdapterError(anyhow!("reqmod: {e}")),
         }
     }
 }

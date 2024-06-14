@@ -23,6 +23,9 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
 use g3_dpi::SmtpInterceptionConfig;
+use g3_icap_client::reqmod::smtp::{
+    ReqmodAdaptationEndState, ReqmodAdaptationRunState, SmtpMessageAdapter,
+};
 use g3_io_ext::{LimitedCopy, LimitedCopyError, LimitedWriteExt};
 use g3_slog_types::LtUuid;
 use g3_smtp_proto::command::{Command, MailParam, RecipientParam};
@@ -32,7 +35,7 @@ use g3_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseParser};
 use super::{CommandLineRecvExt, ResponseLineRecvExt, ResponseParseExt, SmtpRelayBuf};
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
-use crate::serve::{ServerTaskError, ServerTaskResult};
+use crate::serve::{ServerIdleChecker, ServerTaskError, ServerTaskResult};
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
@@ -159,7 +162,7 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
                     if rsp != ReplyCode::START_MAIL_INPUT {
                         continue;
                     }
-                    self.send_txt_data(clt_r, ups_w).await?;
+                    self.send_txt_data(clt_r, clt_w, ups_w).await?;
                     let _ = self
                         .recv_relay_rsp(self.config.data_termination_timeout, buf, ups_r, clt_w)
                         .await?;
@@ -293,13 +296,88 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
         }
     }
 
-    async fn send_txt_data<CR, UW>(&self, clt_r: &mut CR, ups_w: &mut UW) -> ServerTaskResult<()>
+    async fn send_txt_data<CR, CW, UW>(
+        &self,
+        clt_r: &mut CR,
+        clt_w: &mut CW,
+        ups_w: &mut UW,
+    ) -> ServerTaskResult<()>
     where
         CR: AsyncRead + Unpin,
+        CW: AsyncWrite + Unpin,
         UW: AsyncWrite + Unpin,
     {
+        if let Some(client) = self.ctx.audit_handle.icap_reqmod_client() {
+            match client
+                .smtp_message_adaptor(
+                    self.ctx.server_config.limited_copy_config(),
+                    self.ctx.idle_checker(),
+                )
+                .await
+            {
+                Ok(adapter) => {
+                    return self
+                        .send_txt_data_with_adaptation(clt_r, clt_w, ups_w, adapter)
+                        .await;
+                }
+                Err(e) => {
+                    if !client.bypass() {
+                        return Err(ServerTaskError::InternalAdapterError(e));
+                    }
+                }
+            }
+        }
+
         let mut reader = TextDataReader::new(clt_r);
         self.transfer_data(&mut reader, ups_w).await
+    }
+
+    async fn send_txt_data_with_adaptation<CR, CW, UW>(
+        &self,
+        clt_r: &mut CR,
+        clt_w: &mut CW,
+        ups_w: &mut UW,
+        mut adapter: SmtpMessageAdapter<ServerIdleChecker>,
+    ) -> ServerTaskResult<()>
+    where
+        CR: AsyncRead + Unpin,
+        CW: AsyncWrite + Unpin,
+        UW: AsyncWrite + Unpin,
+    {
+        adapter.set_client_addr(self.ctx.task_notes.client_addr);
+        if let Some(username) = self.ctx.raw_user_name() {
+            adapter.set_client_username(username);
+        }
+
+        let mut adaptation_state = ReqmodAdaptationRunState::new(Instant::now());
+        match adapter
+            .xfer_txt_data(&mut adaptation_state, clt_r, ups_w)
+            .await
+        {
+            Ok(ReqmodAdaptationEndState::OriginalTransferred) => Ok(()),
+            Ok(ReqmodAdaptationEndState::AdaptedTransferred) => Ok(()),
+            Ok(ReqmodAdaptationEndState::HttpErrResponse(rsp, body)) => {
+                if let Some(mut body) = body {
+                    let mut body_reader = body.body_reader();
+                    let mut sinker = tokio::io::sink();
+                    let _ = tokio::io::copy(&mut body_reader, &mut sinker).await;
+                    if body_reader.finished() {
+                        body.save_connection().await;
+                    }
+                }
+                let client_rsp = ResponseEncoder::message_blocked(
+                    self.local_ip,
+                    format!("ICAP Response {} {}", rsp.status, rsp.reason),
+                );
+                let _ = client_rsp.write(clt_w).await;
+                Err(ServerTaskError::InternalAdapterError(anyhow!(
+                    "blocked by icap server: {} - {}",
+                    rsp.status,
+                    rsp.reason
+                )))
+            }
+            Err(e) => Err(e.into()),
+        }
     }
 
     async fn send_bin_data<CR, UW>(

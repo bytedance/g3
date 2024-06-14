@@ -22,7 +22,7 @@ use bytes::BufMut;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite};
 use tokio::time::Instant;
 
-use g3_http::ChunkedDataDecodeReader;
+use g3_http::HttpBodyDecodeReader;
 use g3_io_ext::{IdleCheck, LimitedCopyConfig};
 
 use super::IcapReqmodClient;
@@ -145,9 +145,8 @@ pub struct ReqmodRecvHttpResponseBody {
 }
 
 impl ReqmodRecvHttpResponseBody {
-    pub fn body_reader(&mut self) -> ChunkedDataDecodeReader<'_, impl AsyncBufRead> {
-        // TODO decode data and drain trailer
-        ChunkedDataDecodeReader::new(&mut self.icap_connection.1, 1024)
+    pub fn body_reader(&mut self) -> HttpBodyDecodeReader<'_, impl AsyncBufRead> {
+        HttpBodyDecodeReader::new_chunked(&mut self.icap_connection.1, 1024)
     }
 
     pub async fn save_connection(self) {
