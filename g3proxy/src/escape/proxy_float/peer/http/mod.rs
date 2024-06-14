@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
@@ -25,7 +25,7 @@ use tokio::time::Instant;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::auth::{Password, Username};
-use g3_types::net::{EgressArea, EgressInfo, Host, OpensslClientConfig, TcpSockSpeedLimitConfig};
+use g3_types::net::{EgressInfo, Host, OpensslClientConfig, TcpSockSpeedLimitConfig};
 
 use super::{
     ArcNextProxyPeer, NextProxyPeer, NextProxyPeerInternal, ProxyFloatEscaper,
@@ -89,16 +89,8 @@ impl ProxyFloatHttpPeer {
 }
 
 impl NextProxyPeerInternal for ProxyFloatHttpPeer {
-    fn set_isp(&mut self, isp: String) {
-        self.egress_info.isp = Some(isp);
-    }
-
-    fn set_eip(&mut self, eip: IpAddr) {
-        self.egress_info.ip = Some(eip);
-    }
-
-    fn set_area(&mut self, area: EgressArea) {
-        self.egress_info.area = Some(area);
+    fn egress_info_mut(&mut self) -> &mut EgressInfo {
+        &mut self.egress_info
     }
 
     fn set_expire(&mut self, expire_datetime: DateTime<Utc>, expire_instant: Instant) {

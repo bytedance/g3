@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use ahash::AHashMap;
@@ -26,7 +26,7 @@ use serde_json::Value;
 use tokio::time::Instant;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_types::net::{EgressArea, EgressInfo, Host, OpensslClientConfig, TcpSockSpeedLimitConfig};
+use g3_types::net::{EgressInfo, Host, OpensslClientConfig, TcpSockSpeedLimitConfig};
 
 use super::{ProxyFloatEscaper, ProxyFloatEscaperConfig, ProxyFloatEscaperStats};
 use crate::module::http_forward::{ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection};
@@ -55,9 +55,7 @@ const CONFIG_KEY_PEER_AREA: &str = "area";
 const CONFIG_KEY_PEER_TCP_SOCK_SPEED_LIMIT: &str = "tcp_sock_speed_limit";
 
 pub(super) trait NextProxyPeerInternal {
-    fn set_isp(&mut self, isp: String);
-    fn set_eip(&mut self, eip: IpAddr);
-    fn set_area(&mut self, area: EgressArea);
+    fn egress_info_mut(&mut self) -> &mut EgressInfo;
     fn set_expire(&mut self, expire_datetime: DateTime<Utc>, expire_instant: Instant);
     fn set_tcp_sock_speed_limit(&mut self, speed_limit: TcpSockSpeedLimitConfig);
     fn set_kv(&mut self, k: &str, v: &Value) -> anyhow::Result<()>;

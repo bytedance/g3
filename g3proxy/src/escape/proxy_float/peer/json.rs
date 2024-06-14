@@ -57,19 +57,19 @@ pub(super) fn do_parse_peer(
                 }
                 CONFIG_KEY_PEER_ISP => {
                     if let Ok(isp) = g3_json::value::as_string(v) {
-                        peer_mut.set_isp(isp);
+                        peer_mut.egress_info_mut().set_isp(isp);
                     }
                     // not a required field, skip if value format is invalid
                 }
                 CONFIG_KEY_PEER_EIP => {
                     if let Ok(ip) = g3_json::value::as_ipaddr(v) {
-                        peer_mut.set_eip(ip);
+                        peer_mut.egress_info_mut().set_ip(ip);
                     }
                     // not a required field, skip if value format is invalid
                 }
                 CONFIG_KEY_PEER_AREA => {
                     if let Ok(area) = g3_json::value::as_egress_area(v) {
-                        peer_mut.set_area(area);
+                        peer_mut.egress_info_mut().set_area(area);
                     }
                     // not a required field, skip if value format is invalid
                 }

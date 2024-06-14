@@ -102,13 +102,13 @@ fn set_value_for_dynamic_egress_info(
     egress: &EgressInfo,
 ) {
     v.extend_from_slice(server_id.as_bytes());
-    if let Some(isp) = &egress.isp {
+    if let Some(isp) = &egress.isp() {
         let _ = write!(v, "; isp={}", BASE64_STANDARD.encode(isp));
     }
-    if let Some(ip) = &egress.ip {
+    if let Some(ip) = &egress.ip() {
         let _ = write!(v, "; ip={ip}");
     }
-    if let Some(area) = &egress.area {
+    if let Some(area) = &egress.area() {
         let _ = write!(v, "; area={}", BASE64_STANDARD.encode(area.to_string()));
     }
 }

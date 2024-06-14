@@ -64,19 +64,19 @@ impl DirectFloatBindIp {
                         }
                         CONFIG_KEY_ISP => {
                             if let Ok(isp) = g3_json::value::as_string(v) {
-                                bind.egress_info.isp = Some(isp);
+                                bind.egress_info.set_isp(isp);
                             }
                             // not a required field, skip if value format is invalid
                         }
                         CONFIG_KEY_EIP => {
                             if let Ok(ip) = g3_json::value::as_ipaddr(v) {
-                                bind.egress_info.ip = Some(ip);
+                                bind.egress_info.set_ip(ip);
                             }
                             // not a required field, skip if value format is invalid
                         }
                         CONFIG_KEY_AREA => {
                             if let Ok(area) = g3_json::value::as_egress_area(v) {
-                                bind.egress_info.area = Some(area);
+                                bind.egress_info.set_area(area);
                             }
                             // not a required field, skip if value format is invalid
                         }
