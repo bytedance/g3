@@ -91,7 +91,6 @@ impl KeylessTcpUpstreamConnector {
 
 #[async_trait]
 impl KeylessUpstreamConnect for KeylessTcpUpstreamConnector {
-    // TODO use impl TRAIT after 1.79
     type Connection = MultiplexedUpstreamConnection<tcp::OwnedReadHalf, tcp::OwnedWriteHalf>;
 
     async fn new_connection(
@@ -132,7 +131,6 @@ impl KeylessTlsUpstreamConnector {
 
 #[async_trait]
 impl KeylessUpstreamConnect for KeylessTlsUpstreamConnector {
-    // TODO use impl TRAIT after 1.79
     type Connection = MultiplexedUpstreamConnection<
         ReadHalf<TlsStream<TcpStream>>,
         WriteHalf<TlsStream<TcpStream>>,
