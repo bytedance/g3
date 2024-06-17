@@ -19,9 +19,21 @@ ip_locate
 
 This protocol is used by route_geoip escaper to find IP locations. See :doc:`ip_locate`.
 
+icap_h2
+=======
+
+This tells what's needed to enable ICAP for HTTP/2.0.
+
+icap_smtp
+=========
+
+This tells what's needed to enable ICAP for SMTP.
+
 .. toctree::
    :hidden:
 
    route_query
    cert_generator
    ip_locate
+   icap_h2
+   icap_smtp

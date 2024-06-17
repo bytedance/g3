@@ -648,3 +648,92 @@ The keys are:
 
   Set if we should drop the *Expect* http header silently.
   If not set, a *417 Expectation Failed* response will be sent to client.
+
+.. _conf_value_dpi_smtp_interception:
+
+smtp interception
+-----------------
+
+* greeting_timeout
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Set the timeout value for the forward of the upstream SMTP Greeting message.
+
+  **default**: 5min
+
+* quit_wait_timeout
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Set the timeout value for the forward of the upstream QUIT response.
+
+  **default**: 60s
+
+* command_wait_timeout
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Set the timeout value for the wait of the next client SMTP command.
+
+  **default**: 5min
+
+* response_wait_timeout
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Set the timeout value for the wait of the most of upstream SMTP command response.
+
+  **default**: 5min
+
+* data_initiation_timeout
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Set the timeout value for the initial confirm response to DATA command from upstream.
+
+  **default**: 2min
+
+* data_termination_timeout
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Set the timeout value for the final status response to DATA command from upstream.
+
+  **default**: 10min
+
+* allow_on_demand_mail_relay
+
+  **optional**, **type**: bool
+
+  Set whether we should enable `rfc2645 ODMR`_ protocol support.
+
+  .. note:: Interception for the SMTP connection inside ODMR is currently not supported.
+
+  **default**: false
+
+* allow_data_chunking
+
+  **optional**, **type**: bool
+
+  Set whether we should enable `rfc3030 BDAT`_ command support.
+
+  .. note:: ICAP integration is not available currently.
+
+  **default**: false
+
+* allow_burl_data
+
+  **optional**, **type**: bool
+
+  Set whether we should enable `rfc4468 BURL`_ command support.
+
+  .. note:: ICAP integration is not available currently.
+
+  **default**: false
+
+.. _rfc2645 ODMR: https://datatracker.ietf.org/doc/html/rfc2645
+.. _rfc3030 BDAT: https://datatracker.ietf.org/doc/html/rfc3030
+.. _rfc4468 BURL: https://datatracker.ietf.org/doc/html/rfc4468
+
+.. versionadded:: 1.9.2

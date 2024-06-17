@@ -139,6 +139,19 @@ Set what we should do with SMTP traffic.
 
 .. versionadded:: 1.9.0
 
+.. _conf_auditor_smtp_interception:
+
+smtp_interception
+-----------------
+
+**optional**, **type**: :ref:`smtp interception <conf_value_dpi_smtp_interception>`
+
+Set the SMTP Interception config options.
+
+**default**: set with default value
+
+.. versionadded:: 1.9.2
+
 icap_reqmod_service
 -------------------
 
