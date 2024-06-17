@@ -17,7 +17,7 @@
 use std::io::{IoSlice, Write};
 
 use bytes::BufMut;
-use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::io::{AsyncRead, AsyncWrite, BufWriter};
 
 use g3_http::StreamToChunkedTransfer;
 use g3_io_ext::{IdleCheck, LimitedWriteExt};
@@ -68,9 +68,10 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
             .map_err(SmtpAdaptationError::IcapServerWriteFailed)?;
 
         let mut message_reader = TextDataDecodeReader::new(clt_r, self.copy_config.buffer_size());
+        let mut buf_icap_writer = BufWriter::new(&mut self.icap_connection.0);
         let mut body_transfer = StreamToChunkedTransfer::new_with_no_trailer(
             &mut message_reader,
-            &mut self.icap_connection.0,
+            &mut buf_icap_writer,
             self.copy_config.yield_size(),
         );
 
