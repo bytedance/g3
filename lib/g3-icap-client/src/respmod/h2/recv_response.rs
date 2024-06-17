@@ -89,9 +89,22 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
             .map_err(H2RespmodAdaptationError::HttpClientSendHeadFailed)?;
         state.mark_clt_send_header();
 
+        if ups_body.is_end_stream() {
+            // no reserve of capacity, let the driver buffer it
+            clt_send_stream
+                .send_data(initial_body_data, true)
+                .map_err(H2RespmodAdaptationError::HttpClientSendDataFailed)?;
+            state.mark_clt_send_all();
+
+            if icap_rsp.keep_alive && icap_rsp.payload == IcapRespmodResponsePayload::NoPayload {
+                self.icap_client.save_connection(self.icap_connection).await;
+            }
+            return Ok(RespmodAdaptationEndState::OriginalTransferred);
+        }
+
         // no reserve of capacity, let the driver buffer it
         clt_send_stream
-            .send_data(initial_body_data, ups_body.is_end_stream())
+            .send_data(initial_body_data, false)
             .map_err(H2RespmodAdaptationError::HttpClientSendDataFailed)?;
 
         let mut body_transfer =
