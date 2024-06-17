@@ -306,7 +306,7 @@ where
                 }
                 ForwardNextAction::SetExtensions(ext) => server_ext = ext,
                 ForwardNextAction::MailTransport(param) => {
-                    let allow_chunking = server_ext.allow_chunking();
+                    let allow_chunking = server_ext.allow_chunking(interception_config);
                     let allow_burl = server_ext.allow_burl(interception_config);
 
                     let transaction_id = self.transaction_count;

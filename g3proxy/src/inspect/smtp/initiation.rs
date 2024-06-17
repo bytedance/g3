@@ -45,8 +45,8 @@ impl InitializedExtensions {
         self.starttls && !from_starttls
     }
 
-    pub(super) fn allow_chunking(&self) -> bool {
-        self.chunking
+    pub(super) fn allow_chunking(&self, config: &SmtpInterceptionConfig) -> bool {
+        self.chunking && config.allow_data_chunking
     }
 
     pub(super) fn allow_burl(&self, config: &SmtpInterceptionConfig) -> bool {
@@ -283,10 +283,10 @@ impl<'a> Initiation<'a> {
                 // CHUNKING, RFC3030, add BDAT command
                 "CHUNKING" => {
                     self.server_ext.chunking = true;
-                    true
+                    self.config.allow_data_chunking
                 }
                 // BINARYMIME, RFC3030, add a MAIL BODY param value, require CHUNKING
-                "BINARYMIME" => true,
+                "BINARYMIME" => self.config.allow_data_chunking,
                 // Deliver By, RFC2852, add a MAIL BY param key
                 "DELIVERBY" => true,
                 // Pipelining, RFC2920

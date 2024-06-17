@@ -25,6 +25,7 @@ pub struct SmtpInterceptionConfig {
     pub data_initiation_timeout: Duration,
     pub data_termination_timeout: Duration,
     pub allow_on_demand_mail_relay: bool,
+    pub allow_data_chunking: bool,
     pub allow_burl_data: bool,
 }
 
@@ -38,6 +39,7 @@ impl Default for SmtpInterceptionConfig {
             data_initiation_timeout: Duration::from_secs(120),
             data_termination_timeout: Duration::from_secs(600),
             allow_on_demand_mail_relay: false,
+            allow_data_chunking: false,
             allow_burl_data: false,
         }
     }
