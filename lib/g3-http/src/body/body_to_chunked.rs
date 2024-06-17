@@ -51,6 +51,7 @@ enum ChunkedTransferState<'a, R, W> {
     Copy(ROwnedLimitedCopy<'a, HttpBodyReader<'a, R>, W>),
     SendNoTrailerEnd(SendEnd<'a, W>),
     Encode(StreamToChunkedTransfer<'a, R, W>),
+    FlushEnd(&'a mut W),
     End,
 }
 
@@ -180,7 +181,7 @@ where
             ChunkedTransferState::SendHead(_) | ChunkedTransferState::SendNoTrailerEnd(_) => false,
             ChunkedTransferState::Copy(copy) => copy.no_cached_data(),
             ChunkedTransferState::Encode(encode) => encode.no_cached_data(),
-            ChunkedTransferState::End => true,
+            ChunkedTransferState::FlushEnd(_) | ChunkedTransferState::End => true,
         }
     }
 
@@ -260,7 +261,11 @@ where
                         .map_err(LimitedCopyError::WriteFailed)?;
                     send_end.offset += nw;
                 }
-                self.state = ChunkedTransferState::End;
+                let old_state = std::mem::replace(&mut self.state, ChunkedTransferState::End);
+                let ChunkedTransferState::SendNoTrailerEnd(send_end) = old_state else {
+                    unreachable!()
+                };
+                self.state = ChunkedTransferState::FlushEnd(send_end.writer);
                 self.active = true;
                 Poll::Ready(Ok(()))
             }
@@ -279,6 +284,10 @@ where
                     }
                     Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
                 }
+            }
+            ChunkedTransferState::FlushEnd(writer) => {
+                ready!(Pin::new(writer).poll_flush(cx)).map_err(LimitedCopyError::WriteFailed)?;
+                Poll::Ready(Ok(()))
             }
             ChunkedTransferState::End => Poll::Ready(Ok(())),
         }

@@ -101,6 +101,7 @@ impl ChunkedNoTrailerEncodeTransferInternal {
                 self.total_write += nw as u64;
             }
             if self.read_finished {
+                ready!(writer.poll_flush(cx)).map_err(LimitedCopyError::WriteFailed)?;
                 return Poll::Ready(Ok(self.total_write));
             }
 

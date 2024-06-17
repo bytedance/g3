@@ -275,7 +275,11 @@ impl ChunkedEncodeTransferInternal {
         match self.transfer_stage {
             TransferStage::Data => self.poll_transfer_data(cx, recv_stream, writer),
             TransferStage::Trailer => self.poll_transfer_trailers(cx, recv_stream, writer),
-            TransferStage::End => Poll::Ready(Ok(self.total_write)),
+            TransferStage::End => {
+                ready!(writer.poll_flush(cx))
+                    .map_err(H2StreamToChunkedTransferError::WriteError)?;
+                Poll::Ready(Ok(self.total_write))
+            }
         }
     }
 }
