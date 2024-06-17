@@ -169,7 +169,10 @@ where
     }
 
     pub fn finished(&self) -> bool {
-        matches!(self.state, ChunkedTransferState::End)
+        matches!(
+            self.state,
+            ChunkedTransferState::FlushEnd(_) | ChunkedTransferState::End
+        )
     }
 
     pub fn is_idle(&self) -> bool {
