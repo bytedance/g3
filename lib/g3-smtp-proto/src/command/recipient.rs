@@ -24,6 +24,11 @@ pub struct RecipientParam {
 }
 
 impl RecipientParam {
+    #[inline]
+    pub fn forward_path(&self) -> &str {
+        &self.forward_path
+    }
+
     pub(super) fn parse(msg: &[u8]) -> Result<Self, CommandLineError> {
         let msg = str::from_utf8(msg).map_err(CommandLineError::InvalidUtf8Command)?;
 
@@ -41,6 +46,12 @@ impl RecipientParam {
                 "RCPT",
                 "invalid forward path prefix",
             ))?;
+        if !super::path::is_valid(&forward_path) {
+            return Err(CommandLineError::InvalidCommandParam(
+                "RCPT",
+                "invalid forward path prefix",
+            ));
+        }
 
         Ok(RecipientParam { forward_path })
     }

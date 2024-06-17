@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::io::Write;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -24,6 +25,7 @@ use tokio::time::Instant;
 
 use g3_http::HttpBodyDecodeReader;
 use g3_io_ext::{IdleCheck, LimitedCopyConfig};
+use g3_smtp_proto::command::{MailParam, RecipientParam};
 
 use super::IcapReqmodClient;
 use crate::{IcapClientConnection, IcapServiceClient};
@@ -98,10 +100,14 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
         self.client_username = Some(user.to_string());
     }
 
-    pub fn build_http_header(&self) -> Vec<u8> {
+    pub fn build_http_header(&self, mail_from: &MailParam, mail_to: &[RecipientParam]) -> Vec<u8> {
         let mut header = Vec::with_capacity(128);
         header.extend_from_slice(b"PUT / HTTP/1.1\r\n");
         header.extend_from_slice(b"Content-Type: message/rfc822\r\n");
+        let _ = write!(&mut header, "X-SMTP-From: {}\r\n", mail_from.reverse_path());
+        for to in mail_to {
+            let _ = write!(&mut header, "X-SMTP-To: {}\r\n", to.forward_path());
+        }
         header.extend_from_slice(b"\r\n");
         header
     }
@@ -121,13 +127,15 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
         state: &mut ReqmodAdaptationRunState,
         clt_r: &mut CR,
         ups_w: &mut UW,
+        mail_from: &MailParam,
+        mail_to: &[RecipientParam],
     ) -> Result<ReqmodAdaptationEndState, SmtpAdaptationError>
     where
         CR: AsyncRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
         // TODO support preview?
-        self.xfer_txt_data_without_preview(state, clt_r, ups_w)
+        self.xfer_txt_data_without_preview(state, clt_r, ups_w, mail_from, mail_to)
             .await
     }
 }

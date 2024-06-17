@@ -21,6 +21,7 @@ use tokio::io::{AsyncRead, AsyncWrite, BufWriter};
 
 use g3_http::StreamToChunkedTransfer;
 use g3_io_ext::{IdleCheck, LimitedWriteExt};
+use g3_smtp_proto::command::{MailParam, RecipientParam};
 use g3_smtp_proto::io::TextDataDecodeReader;
 
 use super::{
@@ -53,12 +54,14 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
         state: &mut ReqmodAdaptationRunState,
         clt_r: &mut CR,
         ups_w: &mut UW,
+        mail_from: &MailParam,
+        mail_to: &[RecipientParam],
     ) -> Result<ReqmodAdaptationEndState, SmtpAdaptationError>
     where
         CR: AsyncRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
-        let http_header = self.build_http_header();
+        let http_header = self.build_http_header(mail_from, mail_to);
         let icap_header = self.build_forward_all_request(http_header.len());
 
         let icap_w = &mut self.icap_connection.0;

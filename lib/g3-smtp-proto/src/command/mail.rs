@@ -46,6 +46,12 @@ impl MailParam {
                 "MAIL",
                 "invalid reverse path prefix",
             ))?;
+        if !super::path::is_valid(&reverse_path) {
+            return Err(CommandLineError::InvalidCommandParam(
+                "MAIL",
+                "invalid reverse path prefix",
+            ));
+        }
 
         Ok(MailParam { reverse_path })
     }

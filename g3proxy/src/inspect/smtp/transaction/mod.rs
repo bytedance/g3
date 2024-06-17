@@ -351,7 +351,13 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
 
         let mut adaptation_state = ReqmodAdaptationRunState::new(Instant::now());
         match adapter
-            .xfer_txt_data(&mut adaptation_state, clt_r, ups_w)
+            .xfer_txt_data(
+                &mut adaptation_state,
+                clt_r,
+                ups_w,
+                &self.mail_from,
+                &self.mail_to,
+            )
             .await
         {
             Ok(ReqmodAdaptationEndState::OriginalTransferred) => Ok(()),

@@ -22,6 +22,8 @@ use g3_types::net::Host;
 
 use crate::response::ResponseEncoder;
 
+mod path;
+
 mod hello;
 mod mail;
 mod recipient;

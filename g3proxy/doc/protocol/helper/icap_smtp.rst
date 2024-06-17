@@ -21,6 +21,15 @@ The following headers will be set in the HTTP PUT request:
 
   The value will be "message/rfc822" for SMTP DATA message.
 
+- X-SMTP-From
+
+  The value will be the *reverse-path* part of the SMTP MAIL command, which will contain the sender's Mailbox address.
+
+- X-SMTP-To
+
+  The value will be the *forward-path* part of the SMTP RCPT command, which will contain the recipients' Mailbox address.
+  There will be multiple of this header if there are more than one recipients.
+
 The body of the HTTP PUT request will be the corresponding SMTP message data.
 
 Not Implemented
