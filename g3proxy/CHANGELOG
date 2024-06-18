@@ -1,4 +1,8 @@
 
+v1.8.4:
+ - BUG FIX: fix ICAP handle of H2 request with small body
+ - BUG FIX: fix read of HTTP/ICAP trailer headers
+
 v1.8.3:
  - BUG FIX: fix panic in stream interception code caused by idle client connections
  - BUG FIX: fix the handle of h1 trailer headers
