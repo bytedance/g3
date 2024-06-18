@@ -125,7 +125,7 @@ Cloudflare Keyless Server的简单实现。
 如需在生产环境使用，建议自行打包。
 
 测试环境的话，部分包已经编译上传到
-[cloudsmith](https://cloudsmith.io/~g3-oqh/repos/g3-J0E/packages/), 可参考该链接页面的说明进行安装。
+[cloudsmith](https://cloudsmith.io/~g3-oqh/repos/), 可参考该链接页面的说明进行安装。
 
 ### 静态链接
 
