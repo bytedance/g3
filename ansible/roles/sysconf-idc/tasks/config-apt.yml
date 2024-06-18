@@ -30,7 +30,7 @@
 
 - name: Import apt key for G3 repo
   ansible.builtin.get_url:
-    url: https://dl.cloudsmith.io/public/g3-oqh/g3-J0E/gpg.7E0155A319493E68.key
+    url: https://dl.cloudsmith.io/public/g3-oqh/g3-rolling/gpg.5AC77C44E1B53433.key
     dest: /etc/apt/keyrings/g3.gpg.ascii
     owner: root
     group: root
@@ -43,6 +43,6 @@
 - name: Add G3 repo
   ansible.builtin.apt_repository:
     filename: g3
-    repo: "deb [signed-by=/etc/apt/keyrings/g3.gpg] https://dl.cloudsmith.io/public/g3-oqh/g3-J0E/deb/{{ ansible_distribution|lower }} {{ ansible_distribution_release }} main"
+    repo: "deb [signed-by=/etc/apt/keyrings/g3.gpg] https://dl.cloudsmith.io/public/g3-oqh/g3-rolling/deb/{{ ansible_distribution|lower }} {{ ansible_distribution_release }} main"
     state: present
     update_cache: true
