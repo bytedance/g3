@@ -1,4 +1,13 @@
 
+v1.9.2:
+ - BUG FIX: fix ICAP handle of H2 request with small body
+ - Feature: add SMTP interception support
+ - Feature: support ICAP reqmod for SMTP DATA message
+ - Feature: support build on Windows
+ - Feature: allow to steal forwarded for http headers in h1 and h2 interception
+ - Feature: rewrite egress path selection code, now users can set id-based and JSON-based select map
+ - Feature: add openssl variant info to version message
+
 v1.9.1:
  - BUG FIX: fix panic in stream interception code caused by idle client connections
  - BUG FIX: fix the handle of h1 trailer headers
