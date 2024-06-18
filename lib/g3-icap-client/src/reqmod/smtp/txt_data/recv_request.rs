@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use tokio::io::AsyncWrite;
+use tokio::io::{AsyncWrite, BufWriter};
 use tokio::time::Instant;
 
 use g3_http::server::HttpAdaptedRequest;
@@ -62,8 +62,9 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
         // TODO check request content type?
 
         let mut body_reader = HttpBodyDecodeReader::new_chunked(&mut self.icap_connection.1, 256);
+        let mut ups_buf_writer = BufWriter::new(ups_writer);
         let mut msg_transfer =
-            TextDataEncodeTransfer::new(&mut body_reader, ups_writer, self.copy_config);
+            TextDataEncodeTransfer::new(&mut body_reader, &mut ups_buf_writer, self.copy_config);
 
         let idle_duration = self.idle_checker.idle_duration();
         let mut idle_interval =

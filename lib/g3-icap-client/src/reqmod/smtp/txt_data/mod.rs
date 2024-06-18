@@ -71,10 +71,10 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
             .map_err(SmtpAdaptationError::IcapServerWriteFailed)?;
 
         let mut message_reader = TextDataDecodeReader::new(clt_r, self.copy_config.buffer_size());
-        let mut buf_icap_writer = BufWriter::new(&mut self.icap_connection.0);
+        let mut icap_buf_writer = BufWriter::new(&mut self.icap_connection.0);
         let mut body_transfer = StreamToChunkedTransfer::new_with_no_trailer(
             &mut message_reader,
-            &mut buf_icap_writer,
+            &mut icap_buf_writer,
             self.copy_config.yield_size(),
         );
 

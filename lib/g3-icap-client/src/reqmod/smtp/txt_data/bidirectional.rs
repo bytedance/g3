@@ -137,8 +137,12 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpRequest<'a, I> {
         // TODO check request content type?
 
         let mut ups_body_reader = HttpBodyDecodeReader::new_chunked(self.icap_reader, 256);
-        let mut ups_msg_transfer =
-            TextDataEncodeTransfer::new(&mut ups_body_reader, ups_writer, self.copy_config);
+        let mut ups_buf_writer = BufWriter::new(ups_writer);
+        let mut ups_msg_transfer = TextDataEncodeTransfer::new(
+            &mut ups_body_reader,
+            &mut ups_buf_writer,
+            self.copy_config,
+        );
 
         let idle_duration = self.idle_checker.idle_duration();
         let mut idle_interval =
