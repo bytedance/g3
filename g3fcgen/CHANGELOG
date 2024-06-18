@@ -1,4 +1,8 @@
 
+v0.8.1:
+ - Feature: add openssl variant info to version message
+ - Optimization: don't probe for openssl default ca certificate path
+
 v0.8.0:
  - Feature: update protocol to support tlcp certs
  - Feature: add keep_serial backend config option
