@@ -27,7 +27,6 @@ override_dh_auto_install:
 	install -m 755 -D target/$(BUILD_PROFILE)/g3proxy-ctl debian/tmp/usr/bin/g3proxy-ctl
 	install -m 755 -D target/$(BUILD_PROFILE)/g3proxy-ftp debian/tmp/usr/bin/g3proxy-ftp
 	install -m 755 -D target/$(BUILD_PROFILE)/g3proxy-lua debian/tmp/usr/bin/g3proxy-lua
-	install -m 755 -D target/$(BUILD_PROFILE)/g3proxy-geoip debian/tmp/usr/bin/g3proxy-geoip
 	install -m 644 -D $(PACKAGE_NAME)/service/g3proxy@.service debian/tmp/lib/systemd/system/g3proxy@.service
 
 override_dh_installchangelogs:
