@@ -1,4 +1,9 @@
 
+v1.9.3:
+ - BUG FIX: fix deb package install rule
+ - BUG FIX: fix match rules in route_geoip escaper
+ - Optimization: only query http forward capabilities when needed in http_proxy server
+
 v1.9.2:
  - BUG FIX: fix ICAP handle of H2 request with small body
  - Feature: add SMTP interception support

@@ -1,6 +1,6 @@
 [package]
 name = "g3proxy"
-version = "1.9.2"
+version = "1.9.3"
 license.workspace = true
 edition.workspace = true
 rust-version = "1.75.0"
