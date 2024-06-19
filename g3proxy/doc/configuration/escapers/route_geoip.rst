@@ -33,7 +33,7 @@ geo_rules
 
 Set the GeoIP rules to select next escaper.
 
-Each rule is in *map* format, with two keys:
+Each rule is in *map* format, with the following keys:
 
 * next
 

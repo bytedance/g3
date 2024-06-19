@@ -193,7 +193,7 @@ impl RouteGeoIpEscaper {
         }
 
         if let Some(country) = location.country() {
-            if !self.country_bitset.contains(country as usize) {
+            if self.country_bitset.contains(country as usize) {
                 if let Some(escaper) = self.country_table.get(&(country as u16)) {
                     return Some(Arc::clone(escaper));
                 }
@@ -201,7 +201,7 @@ impl RouteGeoIpEscaper {
         }
 
         if let Some(continent) = location.continent() {
-            if !self.continent_bitset.contains(continent as usize) {
+            if self.continent_bitset.contains(continent as usize) {
                 if let Some(escaper) = self.continent_table.get(&(continent as u8)) {
                     return Some(Arc::clone(escaper));
                 }

@@ -1,0 +1,29 @@
+---
+
+log: journal
+
+server:
+  - name: server_default
+    escaper: route_geoip
+    type: http_proxy
+    listen:
+      address: "[::]:10086"
+
+resolver:
+  - name: default
+    type: c-ares
+    server: 127.0.0.1
+
+escaper:
+  - name: internet
+    type: direct_fixed
+    resolver: default
+  - name: deny
+    type: dummy_deny
+  - name: route_geoip
+    type: route_geoip
+    resolver: default
+    geo_rules:
+      - next: internet
+        countries: US
+    default_next: deny

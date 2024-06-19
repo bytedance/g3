@@ -1,0 +1,4 @@
+---
+
+geoip_db:
+  country: simple.csv
