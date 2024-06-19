@@ -54,7 +54,7 @@ server:
 resolver:
   - name: default
     type: c-ares
-    server: 223.5.5.5
+    server: 127.0.0.1
 
 escaper:
   - name: default
