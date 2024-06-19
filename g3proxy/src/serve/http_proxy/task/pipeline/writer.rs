@@ -265,14 +265,14 @@ where
             path_selection,
         );
 
-        let forward_capability = self
-            .forward_context
-            .check_in_final_escaper(&task_notes, &req.upstream)
-            .await;
         let remote_protocol = match req.client_protocol {
             HttpProxySubProtocol::TcpConnect => HttpProxySubProtocol::TcpConnect,
             HttpProxySubProtocol::HttpForward => HttpProxySubProtocol::HttpForward,
             HttpProxySubProtocol::HttpsForward => {
+                let forward_capability = self
+                    .forward_context
+                    .check_in_final_escaper(&task_notes, &req.upstream)
+                    .await;
                 if forward_capability.forward_https() {
                     HttpProxySubProtocol::HttpForward
                 } else {
@@ -280,6 +280,10 @@ where
                 }
             }
             HttpProxySubProtocol::FtpOverHttp => {
+                let forward_capability = self
+                    .forward_context
+                    .check_in_final_escaper(&task_notes, &req.upstream)
+                    .await;
                 if forward_capability.forward_ftp(&req.inner.method) {
                     HttpProxySubProtocol::HttpForward
                 } else {
