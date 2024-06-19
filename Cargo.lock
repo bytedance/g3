@@ -1301,7 +1301,7 @@ dependencies = [
  "g3-histogram",
  "g3-types",
  "humanize-rs",
- "idna 1.0.0",
+ "idna 1.0.1",
  "ip_network",
  "rand",
  "regex",
@@ -1509,7 +1509,7 @@ dependencies = [
  "governor",
  "hex",
  "http",
- "idna 1.0.0",
+ "idna 1.0.1",
  "indexmap",
  "ip_network",
  "ip_network_table",
@@ -1588,7 +1588,7 @@ dependencies = [
  "g3-udpdump",
  "http",
  "humanize-rs",
- "idna 1.0.0",
+ "idna 1.0.1",
  "ip_network",
  "rand",
  "regex",
@@ -2392,9 +2392,9 @@ dependencies = [
 
 [[package]]
 name = "idna"
-version = "1.0.0"
+version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4716a3a0933a1d01c2f72450e89596eb51dd34ef3c211ccd875acdf1f8fe47ed"
+checksum = "44a986806a1cc899952ba462bc1f28afbfd5850ab6cb030ccb20dd02cc527a24"
 dependencies = [
  "icu_normalizer",
  "icu_properties",
@@ -3797,7 +3797,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7c25da092f0a868cdf09e8674cd3b7ef3a7d92a24253e663a2fb85e2496de56"
 dependencies = [
  "form_urlencoded",
- "idna 1.0.0",
+ "idna 1.0.1",
  "percent-encoding",
 ]
 
