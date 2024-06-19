@@ -48,5 +48,5 @@ install -m 644 -D %{name}/service/g3iploc@.service %{buildroot}/lib/systemd/syst
 
 
 %changelog
-* Fri Apr 19 2024 G3iploc Maintainers <g3iploc-maintainers@devel.machine> - 0.1.0-1
+* Wed Jun 19 2024 G3iploc Maintainers <g3iploc-maintainers@devel.machine> - 0.1.0-1
 - New upstream release
