@@ -1,4 +1,4 @@
-name: Windows-CI
+name: StaticLinking
 
 on:
   push:
@@ -21,13 +21,19 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  VCPKG_ROOT: C:\vcpkg
-  WIN_FEATURES: quic,vendored-c-ares,hickory
+  CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -C target-feature=+crt-static
 
 jobs:
-  build:
-    name: Build
-    runs-on: windows-latest
+  musl:
+    name: musl
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        feature:
+          - vendored-openssl
+          - vendored-tongsuo
+          # - vendored-aws-lc
+          # - vendored-boringssl
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -36,20 +42,15 @@ jobs:
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy
-      - name: Install tools (choco)
-        run: choco install capnproto
-      - name: Install lib dependencies (vcpkg)
-        run: vcpkg install --triplet=x64-windows-static-md openssl
+          targets: x86_64-unknown-linux-musl
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install capnproto musl-tools
       - name: Cargo build
-        run: cargo build --no-default-features --features $env:WIN_FEATURES
-      - name: Cargo clippy
-        run: cargo clippy --no-default-features --features $env:WIN_FEATURES --tests -- --deny warnings
-      - name: Cargo test
-        run: cargo test --no-default-features --features $env:WIN_FEATURES
-
-  build-vendored:
-    name: Build vendored
+        run: cargo build --target=x86_64-unknown-linux-musl --no-default-features --features ${{ matrix.feature }},quic,vendored-c-ares,hickory
+  msvc:
+    name: msvc
     runs-on: windows-latest
     strategy:
       matrix:
@@ -58,13 +59,6 @@ jobs:
           - vendored-tongsuo
           - vendored-aws-lc
           - vendored-boringssl
-        component:
-          - g3proxy
-          - g3bench
-          - g3tiles
-          - g3fcgen
-          - g3mkcert
-          - g3keymess
     steps:
       - name: Install common tools
         run: choco install capnproto
@@ -83,6 +77,4 @@ jobs:
         with:
           components: clippy
       - name: Cargo build
-        run: cargo build --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }}
-      - name: Cargo clippy
-        run: cargo clippy --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }} -- --deny warnings
+        run: cargo build --no-default-features --features ${{ matrix.feature }},quic,vendored-c-ares,hickory
