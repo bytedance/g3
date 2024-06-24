@@ -49,7 +49,6 @@ pub(crate) enum DiscoverConfigDiffAction {
 pub(crate) trait DiscoverConfig {
     fn name(&self) -> &MetricsName;
     fn position(&self) -> Option<YamlDocPosition>;
-    #[allow(unused)]
     fn discover_type(&self) -> &'static str;
 
     fn diff_action(&self, new: &AnyDiscoverConfig) -> DiscoverConfigDiffAction;
@@ -85,6 +84,7 @@ macro_rules! impl_transparent1 {
 
 impl AnyDiscoverConfig {
     impl_transparent0!(name, &MetricsName);
+    impl_transparent0!(discover_type, &'static str);
     impl_transparent0!(position, Option<YamlDocPosition>);
 
     impl_transparent1!(diff_action, DiscoverConfigDiffAction, &Self);

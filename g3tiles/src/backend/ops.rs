@@ -45,12 +45,12 @@ pub async fn load_all() -> anyhow::Result<()> {
         new_names.insert(name.clone());
         match registry::get_config(name) {
             Some(old) => {
-                debug!("reloading backend {name}");
+                debug!("reloading backend {name}({})", config.backend_type());
                 reload_unlocked(old, config.as_ref().clone()).await?;
                 debug!("backend {name} reload OK");
             }
             None => {
-                debug!("creating backend {name}");
+                debug!("creating backend {name}({})", config.backend_type());
                 spawn_new_unlocked(config.as_ref().clone()).await?;
                 debug!("backend {name} create OK");
             }
@@ -105,7 +105,10 @@ pub(crate) async fn reload(
         ));
     }
 
-    debug!("reloading backend {name} from position {position}");
+    debug!(
+        "reloading backend {name}({}) from position {position}",
+        config.backend_type()
+    );
     reload_unlocked(old_config, config).await?;
     debug!("backend {name} reload OK");
     Ok(())

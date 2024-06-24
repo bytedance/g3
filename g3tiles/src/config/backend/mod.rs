@@ -45,7 +45,6 @@ pub(crate) enum BackendConfigDiffAction {
 pub(crate) trait BackendConfig {
     fn name(&self) -> &MetricsName;
     fn position(&self) -> Option<YamlDocPosition>;
-    #[allow(unused)]
     fn backend_type(&self) -> &'static str;
 
     fn diff_action(&self, new: &AnyBackendConfig) -> BackendConfigDiffAction;
@@ -90,6 +89,7 @@ macro_rules! impl_transparent1 {
 
 impl AnyBackendConfig {
     impl_transparent0!(name, &MetricsName);
+    impl_transparent0!(backend_type, &'static str);
     impl_transparent0!(position, Option<YamlDocPosition>);
 
     impl_transparent1!(diff_action, BackendConfigDiffAction, &Self);
