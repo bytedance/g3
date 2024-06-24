@@ -1020,7 +1020,7 @@ dependencies = [
 
 [[package]]
 name = "g3-daemon"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -1047,7 +1047,6 @@ dependencies = [
  "http",
  "itoa",
  "log",
- "once_cell",
  "petgraph",
  "quinn",
  "rand",
@@ -1122,7 +1121,7 @@ dependencies = [
 
 [[package]]
 name = "g3-geoip-db"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1131,7 +1130,6 @@ dependencies = [
  "g3-geoip-types",
  "ip_network",
  "ip_network_table",
- "once_cell",
  "zip",
 ]
 
@@ -1493,7 +1491,7 @@ dependencies = [
 
 [[package]]
 name = "g3-types"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -1520,7 +1518,6 @@ dependencies = [
  "memchr",
  "metrohash",
  "num-traits",
- "once_cell",
  "percent-encoding",
  "quinn",
  "radix_trie",
@@ -1733,7 +1730,6 @@ dependencies = [
  "inotify",
  "itoa",
  "log",
- "once_cell",
  "openssl-probe",
  "serde_json",
  "slog",
@@ -1846,7 +1842,6 @@ dependencies = [
  "memchr",
  "mime",
  "mlua",
- "once_cell",
  "openssl-probe",
  "percent-encoding",
  "pin-project-lite",
@@ -1953,7 +1948,6 @@ dependencies = [
  "indexmap",
  "itoa",
  "log",
- "once_cell",
  "openssl-probe",
  "quinn",
  "rand",
@@ -3578,7 +3572,6 @@ version = "0.1.0"
 dependencies = [
  "futures-util",
  "g3-io-ext",
- "once_cell",
  "tokio",
 ]
 

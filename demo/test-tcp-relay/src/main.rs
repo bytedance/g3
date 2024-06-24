@@ -17,27 +17,29 @@
 use std::env;
 use std::io;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use futures_util::future::try_join;
-use once_cell::sync::Lazy;
 use tokio::net::{TcpListener, TcpStream};
 
 use g3_io_ext::{LimitedReader, LimitedWriter};
 
 use test_tcp_relay::stats::{CltStats, TaskStats, UpsStats};
 
-static LISTEN_ADDR: Lazy<String> =
-    Lazy::new(|| env::var("TEST_LISTEN_ADDR").unwrap_or_else(|_| "127.0.0.1:10086".to_string()));
-static CONNECT_ADDR: Lazy<String> =
-    Lazy::new(|| env::var("TEST_CONNECT_ADDR").unwrap_or_else(|_| "127.0.0.1:5201".to_string()));
-static SHIFT_MILLIS_STR: Lazy<String> =
-    Lazy::new(|| env::var("TEST_SHIFT_MILLIS").unwrap_or_else(|_| "10".to_string()));
-static MAX_BYTES_STR: Lazy<String> =
-    Lazy::new(|| env::var("TEST_MAX_BYTES").unwrap_or_else(|_| "1000000".to_string()));
-static SHIFT_MILLIS: Lazy<u8> = Lazy::new(|| u8::from_str(SHIFT_MILLIS_STR.as_str()).unwrap_or(10));
-static MAX_BYTES: Lazy<usize> =
-    Lazy::new(|| usize::from_str(MAX_BYTES_STR.as_str()).unwrap_or(1_000_000));
+static LISTEN_ADDR: LazyLock<String> = LazyLock::new(|| {
+    env::var("TEST_LISTEN_ADDR").unwrap_or_else(|_| "127.0.0.1:10086".to_string())
+});
+static CONNECT_ADDR: LazyLock<String> = LazyLock::new(|| {
+    env::var("TEST_CONNECT_ADDR").unwrap_or_else(|_| "127.0.0.1:5201".to_string())
+});
+static SHIFT_MILLIS_STR: LazyLock<String> =
+    LazyLock::new(|| env::var("TEST_SHIFT_MILLIS").unwrap_or_else(|_| "10".to_string()));
+static MAX_BYTES_STR: LazyLock<String> =
+    LazyLock::new(|| env::var("TEST_MAX_BYTES").unwrap_or_else(|_| "1000000".to_string()));
+static SHIFT_MILLIS: LazyLock<u8> =
+    LazyLock::new(|| u8::from_str(SHIFT_MILLIS_STR.as_str()).unwrap_or(10));
+static MAX_BYTES: LazyLock<usize> =
+    LazyLock::new(|| usize::from_str(MAX_BYTES_STR.as_str()).unwrap_or(1_000_000));
 
 async fn process_socket(mut clt_stream: TcpStream) -> io::Result<()> {
     let mut ups_stream = TcpStream::connect(CONNECT_ADDR.as_str()).await?;

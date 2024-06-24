@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 
 use ahash::AHashMap;
-use once_cell::sync::Lazy;
 
 use g3_daemon::metrics::{
     TAG_KEY_STAT_ID, TAG_KEY_TRANSPORT, TRANSPORT_TYPE_TCP, TRANSPORT_TYPE_UDP,
@@ -46,10 +45,10 @@ const METRIC_NAME_ROUTE_REQUEST_FAILED: &str = "route.request.failed";
 type EscaperStatsValue = (ArcEscaperStats, EscaperSnapshotStats);
 type RouterStatsValue = (Arc<RouteEscaperStats>, RouteEscaperSnapshot);
 
-static ESCAPER_STATS_MAP: Lazy<Mutex<AHashMap<StatId, EscaperStatsValue>>> =
-    Lazy::new(|| Mutex::new(AHashMap::new()));
-static ROUTE_STATS_MAP: Lazy<Mutex<AHashMap<StatId, RouterStatsValue>>> =
-    Lazy::new(|| Mutex::new(AHashMap::new()));
+static ESCAPER_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, EscaperStatsValue>>> =
+    LazyLock::new(|| Mutex::new(AHashMap::new()));
+static ROUTE_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, RouterStatsValue>>> =
+    LazyLock::new(|| Mutex::new(AHashMap::new()));
 
 trait EscaperMetricExt {
     fn add_escaper_tags(&mut self, escaper: &MetricsName, stat_id: StatId);

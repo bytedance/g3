@@ -9,5 +9,4 @@ edition.workspace = true
 [dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "io-util"] }
 futures-util.workspace = true
-once_cell.workspace = true
 g3-io-ext.workspace = true
