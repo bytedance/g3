@@ -207,11 +207,11 @@ g3-journal = { version = "0.2", path = "lib/g3-journal" }
 g3-json = { version = "0.3", path = "lib/g3-json" }
 g3-msgpack = { version = "0.2", path = "lib/g3-msgpack" }
 g3-hickory-client = { version = "0.1", path = "lib/g3-hickory-client" }
-g3-resolver = { version = "0.5", path = "lib/g3-resolver" }
+g3-resolver = { version = "0.6", path = "lib/g3-resolver" }
 g3-runtime = { version = "0.3", path = "lib/g3-runtime" }
 g3-socket = { version = "0.4", path = "lib/g3-socket" }
 g3-socks = { version = "0.2", path = "lib/g3-socks" }
-g3-openssl = { version = "0.1", path = "lib/g3-openssl" }
+g3-openssl = { version = "0.2", path = "lib/g3-openssl" }
 g3-statsd-client = { version = "0.1", path = "lib/g3-statsd-client" }
 g3-histogram = { version = "0.1", path = "lib/g3-histogram" }
 g3-stdlog = { version = "0.1", path = "lib/g3-stdlog" }
