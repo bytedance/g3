@@ -15,15 +15,14 @@
  */
 
 use std::collections::{HashMap, HashSet};
-use std::sync::Mutex;
+use std::sync::{LazyLock, Mutex};
 
-use once_cell::sync::Lazy;
 use tokio::sync::oneshot;
 
 use g3_types::metrics::MetricsName;
 
-static KEY_STORE_SUBSCRIBER_REGISTRY: Lazy<Mutex<HashMap<MetricsName, oneshot::Sender<()>>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+static KEY_STORE_SUBSCRIBER_REGISTRY: LazyLock<Mutex<HashMap<MetricsName, oneshot::Sender<()>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub(super) fn add_subscriber(store: MetricsName, sender: oneshot::Sender<()>) {
     let mut map = KEY_STORE_SUBSCRIBER_REGISTRY.lock().unwrap();
