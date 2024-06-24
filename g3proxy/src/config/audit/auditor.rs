@@ -20,12 +20,12 @@ use anyhow::{anyhow, Context};
 use rand::distributions::Bernoulli;
 use yaml_rust::{yaml, Yaml};
 
+use g3_cert_agent::CertAgentConfig;
 use g3_dpi::{
     H1InterceptionConfig, H2InterceptionConfig, ProtocolInspectPolicy, ProtocolInspectionConfig,
     ProtocolPortMap, SmtpInterceptionConfig,
 };
 use g3_icap_client::IcapServiceConfig;
-use g3_tls_cert::agent::CertAgentConfig;
 use g3_types::metrics::MetricsName;
 use g3_types::net::{
     OpensslInterceptionClientConfigBuilder, OpensslInterceptionServerConfigBuilder,

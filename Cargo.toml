@@ -31,6 +31,7 @@ members = [
     "lib/g3-dpi",
     "lib/g3-udpdump",
     "lib/g3-tls-cert",
+    "lib/g3-cert-agent",
     "lib/g3-slog-types",
     "lib/g3-geoip-types",
     "lib/g3-geoip-db",
@@ -221,6 +222,7 @@ g3-geoip-types = { version = "0.1", path = "lib/g3-geoip-types" }
 g3-geoip-db = { version = "0.1", path = "lib/g3-geoip-db" }
 g3-ip-locate = { version = "0.1", path = "lib/g3-ip-locate" }
 g3-tls-cert = { version = "0.5", path = "lib/g3-tls-cert" }
+g3-cert-agent = { version = "0.1", path = "lib/g3-cert-agent" }
 g3-types = { version = "0.4", path = "lib/g3-types" }
 g3-xcrypt = { version = "0.1", path = "lib/g3-xcrypt" }
 g3-yaml = { version = "0.5.0", path = "lib/g3-yaml" }

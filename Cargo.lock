@@ -990,6 +990,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "g3-cert-agent"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "g3-io-ext",
+ "g3-msgpack",
+ "g3-socket",
+ "g3-types",
+ "log",
+ "rmpv",
+ "tokio",
+ "variant-ssl",
+]
+
+[[package]]
 name = "g3-clap"
 version = "0.1.0"
 dependencies = [
@@ -1479,14 +1494,8 @@ dependencies = [
  "anyhow",
  "chrono",
  "g3-datetime",
- "g3-io-ext",
- "g3-msgpack",
- "g3-socket",
  "g3-types",
  "libc",
- "log",
- "rmpv",
- "tokio",
  "variant-ssl",
  "variant-ssl-sys",
 ]
@@ -1572,6 +1581,7 @@ dependencies = [
  "anyhow",
  "ascii",
  "chrono",
+ "g3-cert-agent",
  "g3-compat",
  "g3-dpi",
  "g3-fluentd",
@@ -1583,7 +1593,6 @@ dependencies = [
  "g3-runtime",
  "g3-statsd-client",
  "g3-syslog",
- "g3-tls-cert",
  "g3-types",
  "g3-udpdump",
  "http",
@@ -1656,6 +1665,7 @@ dependencies = [
  "clap",
  "flume",
  "g3-build-env",
+ "g3-cert-agent",
  "g3-daemon",
  "g3-histogram",
  "g3-msgpack",
@@ -1809,6 +1819,7 @@ dependencies = [
  "fnv",
  "futures-util",
  "g3-build-env",
+ "g3-cert-agent",
  "g3-daemon",
  "g3-datetime",
  "g3-dpi",
@@ -1829,7 +1840,6 @@ dependencies = [
  "g3-socket",
  "g3-socks",
  "g3-statsd-client",
- "g3-tls-cert",
  "g3-types",
  "g3-udpdump",
  "g3-xcrypt",

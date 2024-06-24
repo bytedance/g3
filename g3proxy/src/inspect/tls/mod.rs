@@ -21,10 +21,10 @@ use slog::slog_info;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::runtime::Handle;
 
+use g3_cert_agent::CertAgentHandle;
 use g3_dpi::{Protocol, ProtocolInspectPolicy};
 use g3_io_ext::{FlexBufReader, OnceBufReader};
 use g3_slog_types::{LtUpstreamAddr, LtUuid};
-use g3_tls_cert::agent::CertAgentHandle;
 use g3_types::net::{
     AlpnProtocol, OpensslInterceptionClientConfig, OpensslInterceptionServerConfig, UpstreamAddr,
 };

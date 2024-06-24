@@ -26,6 +26,7 @@ g3-daemon.workspace = true
 g3-statsd-client.workspace = true
 g3-histogram.workspace = true
 g3-tls-cert.workspace = true
+g3-cert-agent.workspace = true
 
 [build-dependencies]
 g3-build-env.workspace = true
@@ -33,6 +34,6 @@ g3-build-env.workspace = true
 [features]
 default = []
 vendored-openssl = ["openssl/vendored"]
-vendored-tongsuo = ["openssl/tongsuo"]
+vendored-tongsuo = ["openssl/tongsuo", "g3-cert-agent/tongsuo"]
 vendored-aws-lc = ["openssl/aws-lc", "g3-types/aws-lc", "g3-tls-cert/aws-lc"]
 vendored-boringssl = ["openssl/boringssl", "g3-types/boringssl", "g3-tls-cert/boringssl"]

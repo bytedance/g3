@@ -1,0 +1,20 @@
+[package]
+name = "g3-cert-agent"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+log.workspace = true
+tokio = { workspace = true, features = ["net", "rt"] }
+openssl.workspace = true
+rmpv.workspace = true
+g3-types = { workspace = true, features = ["openssl"] }
+g3-msgpack = { workspace = true, features = ["openssl"] }
+g3-socket.workspace = true
+g3-io-ext.workspace = true
+
+[features]
+default = []
+tongsuo = ["openssl/tongsuo"]

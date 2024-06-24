@@ -25,7 +25,7 @@ use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
 use tokio::runtime::Handle;
 
-use g3_tls_cert::agent::Request;
+use g3_cert_agent::Request;
 use g3_tls_cert::builder::{MimicCertBuilder, ServerCertBuilder, TlsServerCertBuilder};
 use g3_types::net::{Host, TlsCertUsage};
 
