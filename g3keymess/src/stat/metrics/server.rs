@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 
 use ahash::AHashMap;
-use once_cell::sync::Lazy;
 
 use g3_daemon::listen::{ListenSnapshot, ListenStats};
 use g3_daemon::metrics::{ServerMetricExt, TAG_KEY_QUANTILE, TAG_KEY_REQUEST};
@@ -57,12 +56,12 @@ const FAIL_REASON_OTHER_FAIL: &str = "other_fail";
 type ServerStatsValue = (Arc<KeyServerStats>, KeyServerSnapshot);
 type ListenStatsValue = (Arc<ListenStats>, ListenSnapshot);
 
-static SERVER_STATS_MAP: Lazy<Mutex<AHashMap<StatId, ServerStatsValue>>> =
-    Lazy::new(|| Mutex::new(AHashMap::new()));
-static LISTEN_STATS_MAP: Lazy<Mutex<AHashMap<StatId, ListenStatsValue>>> =
-    Lazy::new(|| Mutex::new(AHashMap::new()));
-static DURATION_STATS_MAP: Lazy<Mutex<AHashMap<StatId, Arc<KeyServerDurationStats>>>> =
-    Lazy::new(|| Mutex::new(AHashMap::new()));
+static SERVER_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, ServerStatsValue>>> =
+    LazyLock::new(|| Mutex::new(AHashMap::new()));
+static LISTEN_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, ListenStatsValue>>> =
+    LazyLock::new(|| Mutex::new(AHashMap::new()));
+static DURATION_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, Arc<KeyServerDurationStats>>>> =
+    LazyLock::new(|| Mutex::new(AHashMap::new()));
 
 pub(in crate::stat) fn sync_stats() {
     let mut server_stats_map = SERVER_STATS_MAP.lock().unwrap();

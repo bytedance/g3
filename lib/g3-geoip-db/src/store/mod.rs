@@ -14,18 +14,17 @@
  * limitations under the License.
  */
 
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use arc_swap::ArcSwapOption;
 use ip_network_table::IpNetworkTable;
-use once_cell::sync::Lazy;
 
 use crate::{GeoIpAsnRecord, GeoIpCountryRecord};
 
-static GEO_COUNTRY_DB: Lazy<ArcSwapOption<IpNetworkTable<GeoIpCountryRecord>>> =
-    Lazy::new(|| ArcSwapOption::new(None));
-static GEO_ASN_DB: Lazy<ArcSwapOption<IpNetworkTable<GeoIpAsnRecord>>> =
-    Lazy::new(|| ArcSwapOption::new(None));
+static GEO_COUNTRY_DB: LazyLock<ArcSwapOption<IpNetworkTable<GeoIpCountryRecord>>> =
+    LazyLock::new(|| ArcSwapOption::new(None));
+static GEO_ASN_DB: LazyLock<ArcSwapOption<IpNetworkTable<GeoIpAsnRecord>>> =
+    LazyLock::new(|| ArcSwapOption::new(None));
 
 pub fn load_country() -> Option<Arc<IpNetworkTable<GeoIpCountryRecord>>> {
     GEO_COUNTRY_DB.load_full()

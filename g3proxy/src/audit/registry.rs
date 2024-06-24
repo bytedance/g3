@@ -15,17 +15,15 @@
  */
 
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
-
-use once_cell::sync::Lazy;
+use std::sync::{Arc, LazyLock, Mutex};
 
 use g3_types::metrics::MetricsName;
 
 use super::Auditor;
 use crate::audit::AuditorConfig;
 
-static RUNTIME_AUDITOR_REGISTRY: Lazy<Mutex<HashMap<MetricsName, Arc<Auditor>>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+static RUNTIME_AUDITOR_REGISTRY: LazyLock<Mutex<HashMap<MetricsName, Arc<Auditor>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub(super) fn add(name: MetricsName, auditor: Arc<Auditor>) {
     let mut ht = RUNTIME_AUDITOR_REGISTRY.lock().unwrap();

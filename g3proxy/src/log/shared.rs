@@ -15,13 +15,12 @@
  */
 
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{LazyLock, Mutex};
 
-use once_cell::sync::Lazy;
 use slog::Logger;
 
-static SHARED_LOGGER: Lazy<Mutex<HashMap<String, Logger>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+static SHARED_LOGGER: LazyLock<Mutex<HashMap<String, Logger>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub(super) enum SharedLoggerType {
     Task,

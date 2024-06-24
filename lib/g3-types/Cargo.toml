@@ -1,9 +1,9 @@
 [package]
 name = "g3-types"
-version = "0.4.0"
-rust-version = "1.73.0"
+version = "0.5.0"
 license.workspace = true
 edition.workspace = true
+rust-version = "1.80.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -35,7 +35,6 @@ blake3 = { workspace = true, optional = true }
 hex = { workspace = true, optional = true }
 ip_network = { workspace = true, optional = true }
 ip_network_table = { workspace = true, optional = true }
-once_cell = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
 radix_trie = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
@@ -66,7 +65,7 @@ openssl = ["dep:openssl", "dep:lru", "dep:bytes"]
 tongsuo = ["openssl", "openssl/tongsuo", "dep:brotli"]
 aws-lc = ["openssl", "openssl/aws-lc", "rustls?/aws-lc-rs", "dep:brotli"]
 boringssl = ["openssl", "openssl/boringssl", "dep:brotli"]
-acl-rule = ["resolve", "dep:ip_network", "dep:ip_network_table", "dep:once_cell", "dep:regex", "dep:radix_trie"]
+acl-rule = ["resolve", "dep:ip_network", "dep:ip_network_table", "dep:regex", "dep:radix_trie"]
 http = ["dep:http", "dep:bytes", "dep:base64"]
 route = ["dep:radix_trie", "dep:indexmap", "resolve"]
 async-log = ["dep:flume", "dep:slog"]

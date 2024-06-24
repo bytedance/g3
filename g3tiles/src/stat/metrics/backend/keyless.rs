@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 
 use ahash::AHashMap;
-use once_cell::sync::Lazy;
 
 use g3_daemon::metrics::TAG_KEY_QUANTILE;
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
@@ -41,16 +40,16 @@ const METRIC_NAME_KEYLESS_RESPONSE_DURATION: &str = "backend.keyless.response.du
 
 type KeylessBackendStatsValue = (Arc<KeylessBackendStats>, KeylessBackendSnapshot);
 
-static STORE_KEYLESS_STATS_MAP: Lazy<Mutex<AHashMap<StatId, KeylessBackendStatsValue>>> =
-    Lazy::new(|| Mutex::new(AHashMap::new()));
-static KEYLESS_STATS_MAP: Lazy<Mutex<AHashMap<StatId, KeylessBackendStatsValue>>> =
-    Lazy::new(|| Mutex::new(AHashMap::new()));
-static STORE_KEYLESS_DURATION_STATS_MAP: Lazy<
+static STORE_KEYLESS_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, KeylessBackendStatsValue>>> =
+    LazyLock::new(|| Mutex::new(AHashMap::new()));
+static KEYLESS_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, KeylessBackendStatsValue>>> =
+    LazyLock::new(|| Mutex::new(AHashMap::new()));
+static STORE_KEYLESS_DURATION_STATS_MAP: LazyLock<
     Mutex<AHashMap<StatId, Arc<KeylessUpstreamDurationStats>>>,
-> = Lazy::new(|| Mutex::new(AHashMap::new()));
-static KEYLESS_DURATION_STATS_MAP: Lazy<
+> = LazyLock::new(|| Mutex::new(AHashMap::new()));
+static KEYLESS_DURATION_STATS_MAP: LazyLock<
     Mutex<AHashMap<StatId, Arc<KeylessUpstreamDurationStats>>>,
-> = Lazy::new(|| Mutex::new(AHashMap::new()));
+> = LazyLock::new(|| Mutex::new(AHashMap::new()));
 
 #[derive(Default)]
 struct KeylessBackendSnapshot {

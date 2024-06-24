@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 
 use ahash::AHashMap;
-use once_cell::sync::Lazy;
 
 use g3_daemon::listen::{ListenSnapshot, ListenStats};
 use g3_daemon::metrics::{
@@ -39,10 +38,10 @@ const METRIC_NAME_SERVER_IO_OUT_PACKETS: &str = "server.traffic.out.packets";
 type ServerStatsValue = (ArcServerStats, ServerSnapshot);
 type ListenStatsValue = (Arc<ListenStats>, ListenSnapshot);
 
-static SERVER_STATS_MAP: Lazy<Mutex<AHashMap<StatId, ServerStatsValue>>> =
-    Lazy::new(|| Mutex::new(AHashMap::new()));
-static LISTEN_STATS_MAP: Lazy<Mutex<AHashMap<StatId, ListenStatsValue>>> =
-    Lazy::new(|| Mutex::new(AHashMap::new()));
+static SERVER_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, ServerStatsValue>>> =
+    LazyLock::new(|| Mutex::new(AHashMap::new()));
+static LISTEN_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, ListenStatsValue>>> =
+    LazyLock::new(|| Mutex::new(AHashMap::new()));
 
 #[derive(Default)]
 struct ServerSnapshot {
