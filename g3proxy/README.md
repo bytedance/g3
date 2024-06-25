@@ -146,7 +146,7 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
   * Index based Egress Path Selection
 - route-query - based on queries to external agent
 - route-resolved - based on resolved IP of target host
-- route-geoip - based on GeoIP rules if the resolved IP
+- route-geoip - based on GeoIP rules of the resolved IP
 - route-select - simple load balancer
   * RR / Random / Rendezvous / Jump Hash
   * Json based Egress Path Selection

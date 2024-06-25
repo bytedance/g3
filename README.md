@@ -36,7 +36,7 @@ as we have basic support built in.
 - Customizable load balancing and failover strategies
 - User Auth, with a rich set of config options
 - Can set differential site config for each user
-- Rich ACL rules, at ingress / egress / user level
+- Rich ACL/Limit rules, at ingress / egress / user level
 - Rich monitoring metrics, at ingress / egress / user / user-site level
 - Support for a variety of observability tools
 
