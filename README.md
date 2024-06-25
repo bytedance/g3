@@ -25,12 +25,19 @@ as we have basic support built in.
 #### Feature highlights
 
 - Async Rust: fast and reliable
-- Http1 / Socks4 / Socks5 forward proxy protocol, SNI Proxy and TCP TPROXY
+- Http1 / Socks5 forward proxy protocol, SNI Proxy and TCP TPROXY
+- Proxy Chaining, with support for dynamic selection of upstream proxies
+- Plenty of egress route selection methods, with support for custom egress selection agent
+- TCP/TLS Stream Proxy, Basic HTTP Reverse Proxy
 - TLS over OpenSSL or BoringSSL or AWS-LC or Tongsuo, and even rustls
-- TLS MITM interception, decrypted traffic dump, HTTP1 and HTTP2 interception
-- ICAP audit protocol
+- TLS MITM interception, decrypted traffic dump, HTTP1/HTTP2/SMTP interception
+- ICAP adaptation for HTTP1/HTTP2/SMTP, can integrate seamlessly with 3rd-party security products
 - Graceful reload
 - Customizable load balancing and failover strategies
+- User Auth, with a rich set of config options
+- Can set differential site config for each user
+- Rich ACL rules, at ingress / egress / user level
+- Rich monitoring metrics, at ingress / egress / user / user-site level
 - Support for a variety of observability tools
 
 See [g3proxy](g3proxy/README.md) for detailed introduction.

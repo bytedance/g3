@@ -194,7 +194,8 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 - External Certificate Generator
 - TLS/TLCP Decrypted Stream Dump
 - Http1 & Http2 Interception
-- ICAP Adaptation
+- SMTP Interception
+- ICAP Adaptation, support HTTP1/HTTP2/SMTP
 
 ### Logging
 

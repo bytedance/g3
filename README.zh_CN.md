@@ -23,12 +23,19 @@ G3 Project 由若干组件构成。
 #### 主要特性
 
 - Async Rust: 高效、稳定
-- Http1 / Socks4 / Socks5 正向代理协议, SNI Proxy and TCP TPROXY
+- Http1 / Socks5 正向代理协议, SNI Proxy and TCP TPROXY
+- 代理串联，动态下一级代理节点选择
+- 丰富的出口路由选择方法，支持接入自定义选路Agent
+- TCP/TLS反向代理，基础HTTP反向代理
 - TLS支持OpenSSL / BoringSSL / AWS-LC / Tongsuo, 部分场景支持rustls
-- TLS中间人劫持, 解密流量导出, HTTP1 and HTTP2协议解析
-- ICAP审计
+- TLS中间人劫持, 解密流量导出, HTTP1/HTTP2/SMTP协议解析
+- ICAP审计，支持HTTP1/HTTP2/SMTP，无缝集成第三方安全审计/杀毒产品
 - 优雅重载 & 热升级
 - 灵活的负载均衡&容灾策略
+- 用户认证，且支持丰富的配置选项
+- 用户配置下可细化进行差异化站点配置
+- 丰富的ACL策略，包括入口/出口/用户维度
+- 丰富的监控指标，包括入口/出口/用户/用户站点维度
 - 多种日志 & 监控解决方案集成能力
 
 更多详情参考 [g3proxy](g3proxy/README.md)。 
