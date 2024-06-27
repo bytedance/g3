@@ -369,10 +369,9 @@ impl OpensslClientConfigBuilder {
             .map_err(|e| anyhow!("failed to set max protocol version: {e}"))?;
 
         if !self.ciphers.is_empty() {
-            let ciphersuites = self.ciphers.join(":");
-            ctx_builder
-                .set_cipher_list(&ciphersuites)
-                .map_err(|e| anyhow!("failed to set ciphersuites: {e}"))?;
+            return Err(anyhow!(
+                "boringssl has no support for setting TLS ciphersuites"
+            ));
         }
 
         if let Some(cert_pair) = &self.client_cert_pair {
