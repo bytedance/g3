@@ -1,4 +1,3 @@
-
 .. _configure_tls_value_types:
 
 ***
@@ -408,6 +407,16 @@ The map is consists of the following fields:
   **default**: not set
 
   .. versionadded:: 1.7.32
+
+* no_session_ticket
+
+  **optional**, **type**: bool
+
+  Set if we should disable TLS session ticket (stateless).
+
+  **default**: false
+
+  .. versionadded:: 1.9.4
 
 * ca_certificate | client_auth_certificate
 

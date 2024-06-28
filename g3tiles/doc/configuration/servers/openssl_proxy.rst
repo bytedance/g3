@@ -143,6 +143,17 @@ A string that will be added to the prefix when calculate the session id context 
 
 **default**: not set
 
+no_session_ticket
+"""""""""""""""""
+
+**optional**, **type**: bool
+
+Set if we should disable TLS session ticket (stateless).
+
+**default**: false
+
+.. versionadded:: 0.3.3
+
 ca_certificate
 """"""""""""""
 

@@ -16,7 +16,7 @@
 
 use anyhow::{anyhow, Context};
 use openssl::ssl::{
-    SslAcceptor, SslContext, SslContextBuilder, SslSessionCacheMode, SslVerifyMode,
+    SslAcceptor, SslContext, SslContextBuilder, SslOptions, SslSessionCacheMode, SslVerifyMode,
 };
 use openssl::stack::Stack;
 use openssl::x509::store::X509StoreBuilder;
@@ -42,6 +42,7 @@ pub(crate) struct OpensslHostConfig {
     client_auth: bool,
     client_auth_certs: Vec<Vec<u8>>,
     session_id_context: String,
+    no_session_ticket: bool,
     pub(crate) request_alive_max: Option<usize>,
     pub(crate) request_rate_limit: Option<RateLimitQuotaConfig>,
     pub(crate) tcp_sock_speed_limit: Option<TcpSockSpeedLimitConfig>,
@@ -147,6 +148,9 @@ impl OpensslHostConfig {
             SslAcceptor::tongsuo_tls().map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
 
         ssl_builder.set_session_cache_mode(SslSessionCacheMode::SERVER); // TODO use external cache?
+        if self.no_session_ticket {
+            ssl_builder.set_options(SslOptions::NO_TICKET);
+        }
 
         self.set_client_auth(&mut ssl_builder, &mut id_ctx)?;
 
@@ -200,6 +204,9 @@ impl OpensslHostConfig {
             SslAcceptor::tongsuo_tlcp().map_err(|e| anyhow!("failed to build ssl context: {e}"))?;
 
         ssl_builder.set_session_cache_mode(SslSessionCacheMode::SERVER); // TODO use external cache?
+        if self.no_session_ticket {
+            ssl_builder.set_options(SslOptions::NO_TICKET);
+        }
 
         self.set_client_auth(&mut ssl_builder, &mut id_ctx)?;
 
@@ -275,6 +282,10 @@ impl YamlMapCallback for OpensslHostConfig {
             }
             "session_id_context" => {
                 self.session_id_context = g3_yaml::value::as_string(value)?;
+                Ok(())
+            }
+            "no_session_ticket" | "disable_session_ticket" => {
+                self.no_session_ticket = g3_yaml::value::as_bool(value)?;
                 Ok(())
             }
             "ca_certificate" | "ca_cert" | "client_auth_certificate" | "client_auth_cert" => {
