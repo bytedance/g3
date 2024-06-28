@@ -13,7 +13,7 @@ tokio = { workspace = true, features = ["rt", "net", "macros", "io-std", "io-uti
 clap.workspace = true
 clap_complete.workspace = true
 async-trait.workspace = true
-log = { workspace = true, features = ["max_level_debug", "release_max_level_debug"] }
+log = { workspace = true, features = ["std"] }
 g3-types.workspace = true
 g3-socket.workspace = true
 g3-ftp-client = { workspace = true, features = ["log-raw-io"] }
