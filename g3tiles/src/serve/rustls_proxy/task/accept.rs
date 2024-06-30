@@ -68,6 +68,10 @@ impl RustlsAcceptTask {
         );
 
         if let Some((mut tls_stream, host)) = self.handshake(stream, hosts).await {
+            // Quick ACK is needed with session resumption
+            #[cfg(any(target_os = "linux", target_os = "android"))]
+            self.ctx.cc_info.tcp_sock_trigger_quick_ack();
+
             let backend = if let Some(alpn) = tls_stream.get_ref().1.alpn_protocol() {
                 let protocol = unsafe { std::str::from_utf8_unchecked(alpn) };
                 host.get_backend(protocol)

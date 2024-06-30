@@ -76,6 +76,12 @@ impl RawSocket {
         Ok(())
     }
 
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    pub fn trigger_tcp_quick_ack(&self) -> io::Result<()> {
+        let socket = self.get_inner()?;
+        socket.set_quickack(true)
+    }
+
     pub fn set_udp_misc_opts(&self, misc_opts: UdpMiscSockOpts) -> io::Result<()> {
         let socket = self.get_inner()?;
         if let Some(ttl) = misc_opts.time_to_live {

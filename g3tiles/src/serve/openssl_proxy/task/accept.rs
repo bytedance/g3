@@ -66,6 +66,10 @@ impl OpensslAcceptTask {
 
         match self.handshake(stream, ssl).await {
             Ok((mut ssl_stream, host)) => {
+                // Quick ACK is needed with session resumption
+                #[cfg(any(target_os = "linux", target_os = "android"))]
+                self.ctx.cc_info.tcp_sock_trigger_quick_ack();
+
                 let backend = if let Some(alpn) = ssl_stream.ssl().selected_alpn_protocol() {
                     let protocol = unsafe { std::str::from_utf8_unchecked(alpn) };
                     host.get_backend(protocol)

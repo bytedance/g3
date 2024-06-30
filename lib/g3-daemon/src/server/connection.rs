@@ -111,4 +111,11 @@ impl ClientConnectionInfo {
             Ok(())
         }
     }
+
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    pub fn tcp_sock_trigger_quick_ack(&self) {
+        if let Some(raw_socket) = &self.tcp_raw_socket {
+            let _ = raw_socket.trigger_tcp_quick_ack();
+        }
+    }
 }
