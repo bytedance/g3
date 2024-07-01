@@ -24,6 +24,15 @@ fn main() -> anyhow::Result<()> {
     openssl_probe::init_ssl_cert_env_vars();
     openssl::init();
 
+    #[cfg(feature = "rustls-aws-lc")]
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .unwrap();
+    #[cfg(not(feature = "rustls-aws-lc"))]
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .unwrap();
+
     let Some(proc_args) =
         g3proxy::opts::parse_clap().context("failed to parse command line options")?
     else {
