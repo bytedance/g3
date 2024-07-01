@@ -20,7 +20,7 @@ use std::time::Duration;
 use log::debug;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::time::Instant;
-use tokio_rustls::TlsStream;
+use tokio_rustls::server::TlsStream;
 
 use g3_daemon::stat::task::{TcpStreamConnectionStats, TcpStreamTaskStats};
 use g3_io_ext::{LimitedCopy, LimitedCopyConfig, LimitedCopyError, LimitedStream};

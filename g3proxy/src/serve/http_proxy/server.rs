@@ -36,7 +36,7 @@ use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::acl_set::AclDstHostRuleSet;
 use g3_types::metrics::MetricsName;
-use g3_types::net::OpensslClientConfig;
+use g3_types::net::{OpensslClientConfig, RustlsServerConnectionExt};
 
 use super::task::{
     CommonTaskContext, HttpProxyPipelineReaderTask, HttpProxyPipelineStats,
@@ -358,7 +358,13 @@ impl AcceptTcpServer for HttpProxyServer {
 
         if let Some(tls_acceptor) = &self.tls_acceptor {
             match tokio::time::timeout(self.tls_accept_timeout, tls_acceptor.accept(stream)).await {
-                Ok(Ok(tls_stream)) => self.spawn_stream_task(tls_stream, cc_info).await,
+                Ok(Ok(tls_stream)) => {
+                    if tls_stream.get_ref().1.session_reused() {
+                        // Quick ACK is needed with session resumption
+                        cc_info.tcp_sock_try_quick_ack();
+                    }
+                    self.spawn_stream_task(tls_stream, cc_info).await
+                }
                 Ok(Err(e)) => {
                     self.listen_stats.add_failed();
                     debug!(

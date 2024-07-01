@@ -34,7 +34,7 @@ use g3_io_ext::haproxy::{ProxyProtocolV1Reader, ProxyProtocolV2Reader};
 use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::MetricsName;
-use g3_types::net::ProxyProtocolVersion;
+use g3_types::net::{ProxyProtocolVersion, RustlsServerConnectionExt};
 
 use crate::config::server::plain_tls_port::PlainTlsPortConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
@@ -159,6 +159,10 @@ impl PlainTlsPort {
         match tokio::time::timeout(self.tls_accept_timeout, self.tls_acceptor.accept(stream)).await
         {
             Ok(Ok(tls_stream)) => {
+                if tls_stream.get_ref().1.session_reused() {
+                    // Quick ACK is needed with session resumption
+                    cc_info.tcp_sock_try_quick_ack();
+                }
                 let next_server = self.next_server.load().as_ref().clone();
                 next_server.run_rustls_task(tls_stream, cc_info).await
             }

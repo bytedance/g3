@@ -167,6 +167,10 @@ impl NativeTlsPort {
             .await
         {
             Ok(Ok(ssl_stream)) => {
+                if ssl_stream.ssl().session_reused() {
+                    // Quick ACK is needed with session resumption
+                    cc_info.tcp_sock_try_quick_ack();
+                }
                 let next_server = self.next_server.load().as_ref().clone();
                 next_server.run_openssl_task(ssl_stream, cc_info).await
             }

@@ -35,7 +35,7 @@ use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder};
 use g3_types::metrics::MetricsName;
-use g3_types::net::{OpensslClientConfig, WeightedUpstreamAddr};
+use g3_types::net::{OpensslClientConfig, RustlsServerConnectionExt, WeightedUpstreamAddr};
 
 use super::common::CommonTaskContext;
 use super::task::TlsStreamTask;
@@ -302,7 +302,13 @@ impl AcceptTcpServer for TlsStreamServer {
 
         match tokio::time::timeout(self.tls_accept_timeout, self.tls_acceptor.accept(stream)).await
         {
-            Ok(Ok(stream)) => self.run_task(stream, cc_info).await,
+            Ok(Ok(stream)) => {
+                if stream.get_ref().1.session_reused() {
+                    // Quick ACK is needed with session resumption
+                    cc_info.tcp_sock_try_quick_ack();
+                }
+                self.run_task(stream, cc_info).await
+            }
             Ok(Err(e)) => {
                 self.listen_stats.add_failed();
                 debug!(

@@ -36,7 +36,7 @@ use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::MetricsName;
-use g3_types::net::{RustlsServerConfig, UpstreamAddr};
+use g3_types::net::{RustlsServerConfig, RustlsServerConnectionExt, UpstreamAddr};
 use g3_types::route::HostMatch;
 
 use super::task::{
@@ -343,7 +343,13 @@ impl AcceptTcpServer for HttpRProxyServer {
                             )
                             .await
                             {
-                                Ok(Ok(stream)) => self.spawn_stream_task(stream, cc_info).await,
+                                Ok(Ok(stream)) => {
+                                    if stream.get_ref().1.session_reused() {
+                                        // Quick ACK is needed with session resumption
+                                        cc_info.tcp_sock_try_quick_ack();
+                                    }
+                                    self.spawn_stream_task(stream, cc_info).await
+                                }
                                 Ok(Err(e)) => {
                                     self.listen_stats.add_failed();
                                     debug!(

@@ -22,12 +22,13 @@ use rustls::server::{Acceptor, ClientHello};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::time::Instant;
-use tokio_rustls::{LazyConfigAcceptor, TlsStream};
+use tokio_rustls::server::TlsStream;
+use tokio_rustls::LazyConfigAcceptor;
 
 use g3_daemon::stat::task::TcpStreamConnectionStats;
 use g3_io_ext::LimitedStream;
 use g3_types::limit::GaugeSemaphorePermit;
-use g3_types::net::Host;
+use g3_types::net::{Host, RustlsServerConnectionExt};
 use g3_types::route::HostMatch;
 
 use super::{CommonTaskContext, RustlsRelayTask};
@@ -68,9 +69,10 @@ impl RustlsAcceptTask {
         );
 
         if let Some((mut tls_stream, host)) = self.handshake(stream, hosts).await {
-            // Quick ACK is needed with session resumption
-            #[cfg(any(target_os = "linux", target_os = "android"))]
-            self.ctx.cc_info.tcp_sock_trigger_quick_ack();
+            if tls_stream.get_ref().1.session_reused() {
+                // Quick ACK is needed with session resumption
+                self.ctx.cc_info.tcp_sock_try_quick_ack();
+            }
 
             let backend = if let Some(alpn) = tls_stream.get_ref().1.alpn_protocol() {
                 let protocol = unsafe { std::str::from_utf8_unchecked(alpn) };
@@ -128,7 +130,7 @@ impl RustlsAcceptTask {
 
                 let accept = d.into_stream(host.tls_config.clone());
                 match tokio::time::timeout(host.config.accept_timeout, accept).await {
-                    Ok(Ok(s)) => Some((TlsStream::Server(s), host)),
+                    Ok(Ok(s)) => Some((s, host)),
                     Ok(Err(e)) => {
                         debug!("failed to accept tls handshake: {e}");
                         None

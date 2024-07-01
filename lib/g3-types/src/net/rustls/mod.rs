@@ -35,3 +35,6 @@ pub use cert_resolver::MultipleCertResolver;
 
 mod ca_certs;
 pub use ca_certs::load_native_certs_for_rustls;
+
+mod ext;
+pub use ext::RustlsServerConnectionExt;
