@@ -284,17 +284,20 @@ pub fn as_rustls_server_config_builder(
                 Ok(())
             }
             "enable_client_auth" => {
-                let enable =
-                    crate::value::as_bool(v).context(format!("invalid value for key {k}"))?;
+                let enable = crate::value::as_bool(v)?;
                 if enable {
                     builder.enable_client_auth();
                 }
                 Ok(())
             }
             "use_session_ticket" => {
-                let enable =
-                    crate::value::as_bool(v).context(format!("invalid value for key {k}"))?;
+                let enable = crate::value::as_bool(v)?;
                 builder.set_use_session_ticket(enable);
+                Ok(())
+            }
+            "no_session_cache" | "disable_session_cache" => {
+                let disable = crate::value::as_bool(v)?;
+                builder.set_disable_session_cache(disable);
                 Ok(())
             }
             "ca_certificate" | "ca_cert" | "client_auth_certificate" | "client_auth_cert" => {

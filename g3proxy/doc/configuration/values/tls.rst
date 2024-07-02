@@ -412,7 +412,17 @@ The map is consists of the following fields:
 
   **optional**, **type**: bool
 
-  Set if we should disable TLS session ticket (stateless).
+  Set if we should disable TLS session ticket (stateless session resumption by Session Ticket).
+
+  **default**: false
+
+  .. versionadded:: 1.9.4
+
+* no_session_cache
+
+  **optional**, **type**: bool
+
+  Set if we should disable TLS session cache (stateful session resumption by Session ID).
 
   **default**: false
 
@@ -587,11 +597,21 @@ The map is consists of the following fields:
 
   **optional**, **type**: bool
 
-  Set if we should enable TLS session ticket to do TLS Session Resumption without Server-Side State.
+  Set if we should enable TLS session ticket to do stateless TLS Session Resumption.
 
   .. versionchanged:: 1.7.28
 
   **default**: disabled
+
+* no_session_cache
+
+  **optional**, **type**: bool
+
+  Set if we should disable TLS session cache (stateful session resumption by Session ID).
+
+  **default**: false
+
+  .. versionadded:: 1.9.4
 
 * ca_certificate | client_auth_certificate
 

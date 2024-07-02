@@ -19,7 +19,7 @@ use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use rustls::crypto::ring::Ticketer;
-use rustls::server::WebPkiClientVerifier;
+use rustls::server::{NoServerSessionStorage, WebPkiClientVerifier};
 use rustls::{RootCertStore, ServerConfig};
 use rustls_pki_types::CertificateDer;
 use yaml_rust::Yaml;
@@ -40,6 +40,7 @@ pub(crate) struct RustlsHostConfig {
     client_auth: bool,
     client_auth_certs: Vec<CertificateDer<'static>>,
     use_session_ticket: bool,
+    no_session_cache: bool,
     pub(crate) accept_timeout: Duration,
     pub(crate) request_alive_max: Option<usize>,
     pub(crate) request_rate_limit: Option<RateLimitQuotaConfig>,
@@ -56,6 +57,7 @@ impl Default for RustlsHostConfig {
             client_auth: false,
             client_auth_certs: Vec::new(),
             use_session_ticket: false,
+            no_session_cache: false,
             accept_timeout: Duration::from_secs(60),
             request_alive_max: None,
             request_rate_limit: None,
@@ -114,7 +116,11 @@ impl RustlsHostConfig {
         }
         let mut config = config_builder.with_cert_resolver(Arc::new(cert_resolver));
 
-        config.session_storage = Arc::new(RustlsServerSessionCache::default());
+        if self.no_session_cache {
+            config.session_storage = Arc::new(NoServerSessionStorage {});
+        } else {
+            config.session_storage = Arc::new(RustlsServerSessionCache::default());
+        }
         if self.use_session_ticket {
             let ticketer =
                 Ticketer::new().map_err(|e| anyhow!("failed to create session ticketer: {e}"))?;
@@ -156,13 +162,15 @@ impl YamlMapCallback for RustlsHostConfig {
                 Ok(())
             }
             "enable_client_auth" => {
-                self.client_auth = g3_yaml::value::as_bool(value)
-                    .context(format!("invalid value for key {key}"))?;
+                self.client_auth = g3_yaml::value::as_bool(value)?;
                 Ok(())
             }
             "use_session_ticket" => {
-                self.use_session_ticket = g3_yaml::value::as_bool(value)
-                    .context(format!("invalid value for key {key}"))?;
+                self.use_session_ticket = g3_yaml::value::as_bool(value)?;
+                Ok(())
+            }
+            "no_session_cache" => {
+                self.no_session_cache = g3_yaml::value::as_bool(value)?;
                 Ok(())
             }
             "ca_certificate" | "ca_cert" | "client_auth_certificate" | "client_auth_cert" => {

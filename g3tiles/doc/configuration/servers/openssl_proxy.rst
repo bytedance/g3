@@ -148,7 +148,18 @@ no_session_ticket
 
 **optional**, **type**: bool
 
-Set if we should disable TLS session ticket (stateless).
+Set if we should disable TLS session ticket (stateless session resumption by Session Ticket).
+
+**default**: false
+
+.. versionadded:: 0.3.3
+
+no_session_cache
+""""""""""""""""
+
+**optional**, **type**: bool
+
+Set if we should disable TLS session cache (stateful session resumption by Session ID).
 
 **default**: false
 

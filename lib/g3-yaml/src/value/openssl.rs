@@ -538,6 +538,11 @@ pub fn as_openssl_tls_server_config_builder(
                 builder.set_disable_session_ticket(disable);
                 Ok(())
             }
+            "no_session_cache" | "disable_session_cache" => {
+                let disable = crate::value::as_bool(v)?;
+                builder.set_disable_session_cache(disable);
+                Ok(())
+            }
             "ca_certificate" | "ca_cert" | "client_auth_certificate" | "client_auth_cert" => {
                 let certs = as_openssl_certificates(v, lookup_dir)
                     .context(format!("invalid value for key {k}"))?;

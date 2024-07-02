@@ -21,7 +21,7 @@ use anyhow::{anyhow, Context};
 #[cfg(feature = "quinn")]
 use quinn::crypto::rustls::QuicServerConfig;
 use rustls::crypto::ring::Ticketer;
-use rustls::server::WebPkiClientVerifier;
+use rustls::server::{NoServerSessionStorage, WebPkiClientVerifier};
 use rustls::{RootCertStore, ServerConfig};
 use rustls_pki_types::CertificateDer;
 
@@ -47,6 +47,7 @@ pub struct RustlsServerConfigBuilder {
     client_auth: bool,
     client_auth_certs: Option<Vec<CertificateDer<'static>>>,
     use_session_ticket: bool,
+    no_session_cache: bool,
     accept_timeout: Duration,
 }
 
@@ -57,6 +58,7 @@ impl RustlsServerConfigBuilder {
             client_auth: false,
             client_auth_certs: None,
             use_session_ticket: false,
+            no_session_cache: false,
             accept_timeout: Duration::from_secs(10),
         }
     }
@@ -71,6 +73,10 @@ impl RustlsServerConfigBuilder {
 
     pub fn set_use_session_ticket(&mut self, enable: bool) {
         self.use_session_ticket = enable;
+    }
+
+    pub fn set_disable_session_cache(&mut self, disable: bool) {
+        self.no_session_cache = disable;
     }
 
     pub fn enable_client_auth(&mut self) {
@@ -142,7 +148,12 @@ impl RustlsServerConfigBuilder {
                 config_builder.with_cert_resolver(Arc::new(cert_resolver))
             }
         };
-        config.session_storage = Arc::new(RustlsServerSessionCache::default());
+
+        if self.no_session_cache {
+            config.session_storage = Arc::new(NoServerSessionStorage {});
+        } else {
+            config.session_storage = Arc::new(RustlsServerSessionCache::default());
+        }
         if self.use_session_ticket {
             let ticketer =
                 Ticketer::new().map_err(|e| anyhow!("failed to create session ticketer: {e}"))?;
