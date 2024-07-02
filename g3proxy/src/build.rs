@@ -29,6 +29,7 @@ const BUILD_DEBUG: &str = env!("G3_BUILD_DEBUG");
 const PACKAGE_VERSION: Option<&str> = option_env!("G3_PACKAGE_VERSION");
 
 const OPENSSL_VARIANT: Option<&str> = option_env!("G3_OPENSSL_VARIANT");
+const RUSTLS_PROVIDER: Option<&str> = option_env!("G3_RUSTLS_PROVIDER");
 
 const LUA_FEATURE: Option<&str> = option_env!("G3_LUA_FEATURE");
 const PYTHON_FEATURE: Option<&str> = option_env!("G3_PYTHON_FEATURE");
@@ -58,6 +59,9 @@ pub(crate) fn print_version(verbose_level: u8) {
         println!();
         if let Some(variant) = OPENSSL_VARIANT {
             println!("OpenSSL Variant: {variant}");
+        }
+        if let Some(provider) = RUSTLS_PROVIDER {
+            println!("Rustls Provider: {provider}");
         }
     }
     if verbose_level > 1 {

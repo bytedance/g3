@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
-mod basic;
-pub use basic::check_basic;
+use std::env;
 
-mod openssl;
-pub use openssl::check_openssl;
-
-mod rustls;
-pub use rustls::check_rustls_provider;
+pub fn check_rustls_provider() {
+    let provider = if env::var("CARGO_FEATURE_RUSTLS_AWS_LC").is_ok() {
+        "aws-lc"
+    } else {
+        "ring"
+    };
+    println!("cargo:rustc-env=G3_RUSTLS_PROVIDER={provider}");
+}

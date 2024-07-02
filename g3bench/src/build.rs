@@ -32,6 +32,7 @@ const HICKORY_FEATURE: Option<&str> = option_env!("G3_HICKORY_FEATURE");
 const QUIC_FEATURE: Option<&str> = option_env!("G3_QUIC_FEATURE");
 
 const OPENSSL_VARIANT: Option<&str> = option_env!("G3_OPENSSL_VARIANT");
+const RUSTLS_PROVIDER: Option<&str> = option_env!("G3_RUSTLS_PROVIDER");
 
 pub fn print_version() {
     println!("{PKG_NAME} {VERSION}");
@@ -45,6 +46,9 @@ pub fn print_version() {
     println!();
     if let Some(variant) = OPENSSL_VARIANT {
         println!("OpenSSL Variant: {variant}");
+    }
+    if let Some(provider) = RUSTLS_PROVIDER {
+        println!("Rustls Provider: {provider}");
     }
     println!("Compiler: {RUSTC_VERSION} ({RUSTC_CHANNEL})");
     println!("Host: {BUILD_HOST}, Target: {BUILD_TARGET}");
