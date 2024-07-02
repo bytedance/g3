@@ -20,12 +20,11 @@ use std::time::Duration;
 use anyhow::{anyhow, Context};
 #[cfg(feature = "quinn")]
 use quinn::crypto::rustls::QuicServerConfig;
-use rustls::crypto::ring::Ticketer;
-use rustls::server::{NoServerSessionStorage, WebPkiClientVerifier};
+use rustls::server::WebPkiClientVerifier;
 use rustls::{RootCertStore, ServerConfig};
 use rustls_pki_types::CertificateDer;
 
-use super::{MultipleCertResolver, RustlsCertificatePair, RustlsServerSessionCache};
+use super::{MultipleCertResolver, RustlsCertificatePair, RustlsServerConfigExt};
 use crate::net::tls::AlpnProtocol;
 
 #[derive(Clone)]
@@ -57,7 +56,7 @@ impl RustlsServerConfigBuilder {
             cert_pairs: Vec::with_capacity(1),
             client_auth: false,
             client_auth_certs: None,
-            use_session_ticket: false,
+            use_session_ticket: true,
             no_session_cache: false,
             accept_timeout: Duration::from_secs(10),
         }
@@ -73,6 +72,10 @@ impl RustlsServerConfigBuilder {
 
     pub fn set_use_session_ticket(&mut self, enable: bool) {
         self.use_session_ticket = enable;
+    }
+
+    pub fn set_disable_session_ticket(&mut self, disable: bool) {
+        self.use_session_ticket = !disable;
     }
 
     pub fn set_disable_session_cache(&mut self, disable: bool) {
@@ -149,16 +152,8 @@ impl RustlsServerConfigBuilder {
             }
         };
 
-        if self.no_session_cache {
-            config.session_storage = Arc::new(NoServerSessionStorage {});
-        } else {
-            config.session_storage = Arc::new(RustlsServerSessionCache::default());
-        }
-        if self.use_session_ticket {
-            let ticketer =
-                Ticketer::new().map_err(|e| anyhow!("failed to create session ticketer: {e}"))?;
-            config.ticketer = ticketer;
-        }
+        config.set_session_cache(self.no_session_cache);
+        config.set_session_ticketer(self.use_session_ticket)?;
 
         if let Some(protocols) = alpn_protocols {
             for proto in protocols {

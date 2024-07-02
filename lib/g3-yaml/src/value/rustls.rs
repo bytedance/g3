@@ -295,6 +295,11 @@ pub fn as_rustls_server_config_builder(
                 builder.set_use_session_ticket(enable);
                 Ok(())
             }
+            "no_session_ticket" | "disable_session_ticket" => {
+                let disable = crate::value::as_bool(v)?;
+                builder.set_disable_session_ticket(disable);
+                Ok(())
+            }
             "no_session_cache" | "disable_session_cache" => {
                 let disable = crate::value::as_bool(v)?;
                 builder.set_disable_session_cache(disable);

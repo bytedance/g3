@@ -14,7 +14,17 @@
  * limitations under the License.
  */
 
-use rustls::{HandshakeKind, ServerConnection};
+use std::sync::Arc;
+
+use anyhow::anyhow;
+#[cfg(feature = "aws-lc")]
+use rustls::crypto::aws_lc_rs::Ticketer;
+#[cfg(not(feature = "aws-lc"))]
+use rustls::crypto::ring::Ticketer;
+use rustls::server::NoServerSessionStorage;
+use rustls::{HandshakeKind, ServerConfig, ServerConnection};
+
+use super::{RustlsNoSessionTicketer, RustlsServerSessionCache};
 
 pub trait RustlsServerConnectionExt {
     fn session_reused(&self) -> bool;
@@ -23,5 +33,31 @@ pub trait RustlsServerConnectionExt {
 impl RustlsServerConnectionExt for ServerConnection {
     fn session_reused(&self) -> bool {
         matches!(self.handshake_kind(), Some(HandshakeKind::Resumed))
+    }
+}
+
+pub trait RustlsServerConfigExt {
+    fn set_session_cache(&mut self, disable: bool);
+    fn set_session_ticketer(&mut self, enable: bool) -> anyhow::Result<()>;
+}
+
+impl RustlsServerConfigExt for ServerConfig {
+    fn set_session_cache(&mut self, disable: bool) {
+        if disable {
+            self.session_storage = Arc::new(NoServerSessionStorage {});
+        } else {
+            self.session_storage = Arc::new(RustlsServerSessionCache::default());
+        }
+    }
+
+    fn set_session_ticketer(&mut self, enable: bool) -> anyhow::Result<()> {
+        if enable {
+            let ticketer =
+                Ticketer::new().map_err(|e| anyhow!("failed to create session ticketer: {e}"))?;
+            self.ticketer = ticketer;
+        } else {
+            self.ticketer = Arc::new(RustlsNoSessionTicketer {});
+        }
+        Ok(())
     }
 }

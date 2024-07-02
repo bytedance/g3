@@ -251,6 +251,11 @@ pub fn as_rustls_server_config_builder(value: &Value) -> anyhow::Result<RustlsSe
                         crate::value::as_bool(v).context(format!("invalid value for key {k}"))?;
                     builder.set_use_session_ticket(enable);
                 }
+                "no_session_ticket" | "disable_session_ticket" => {
+                    let disable =
+                        crate::value::as_bool(v).context(format!("invalid value for key {k}"))?;
+                    builder.set_disable_session_ticket(disable);
+                }
                 "no_session_cache" | "disable_session_cache" => {
                     let disable =
                         crate::value::as_bool(v).context(format!("invalid value for key {k}"))?;

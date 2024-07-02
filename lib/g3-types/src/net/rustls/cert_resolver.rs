@@ -17,6 +17,9 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
+#[cfg(feature = "aws-lc")]
+use rustls::crypto::aws_lc_rs::sign::any_supported_type;
+#[cfg(not(feature = "aws-lc"))]
 use rustls::crypto::ring::sign::any_supported_type;
 use rustls::server::{ClientHello, ResolvesServerCert};
 use rustls::sign::CertifiedKey;

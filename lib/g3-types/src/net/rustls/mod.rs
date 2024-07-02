@@ -25,7 +25,10 @@ pub use server::RustlsQuicServerConfig;
 pub use server::{RustlsServerConfig, RustlsServerConfigBuilder};
 
 mod cache;
-pub use cache::RustlsServerSessionCache;
+use cache::RustlsServerSessionCache;
+
+mod ticketer;
+use ticketer::RustlsNoSessionTicketer;
 
 mod cert_pair;
 pub use cert_pair::{RustlsCertificatePair, RustlsCertificatePairBuilder};
@@ -37,4 +40,4 @@ mod ca_certs;
 pub use ca_certs::load_native_certs_for_rustls;
 
 mod ext;
-pub use ext::RustlsServerConnectionExt;
+pub use ext::{RustlsServerConfigExt, RustlsServerConnectionExt};
