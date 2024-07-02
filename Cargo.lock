@@ -482,9 +482,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.103"
+version = "1.0.104"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2755ff20a1d93490d26ba33a6f092a38a508398a5320df5d4b3014fcccce9410"
+checksum = "74b6a57f98764a267ff415d50a25e6e166f3831a5071af4995296ea97d210490"
 dependencies = [
  "jobserver",
  "libc",
@@ -1337,7 +1337,7 @@ dependencies = [
  "g3-histogram",
  "g3-types",
  "humanize-rs",
- "idna 1.0.1",
+ "idna 1.0.2",
  "ip_network",
  "rand",
  "regex",
@@ -1539,7 +1539,7 @@ dependencies = [
  "governor",
  "hex",
  "http",
- "idna 1.0.1",
+ "idna 1.0.2",
  "indexmap",
  "ip_network",
  "ip_network_table",
@@ -1618,7 +1618,7 @@ dependencies = [
  "g3-udpdump",
  "http",
  "humanize-rs",
- "idna 1.0.1",
+ "idna 1.0.2",
  "ip_network",
  "rand",
  "regex",
@@ -2109,9 +2109,9 @@ dependencies = [
 
 [[package]]
 name = "h3"
-version = "0.0.5"
+version = "0.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5069de1c2ac82d9e361b07f2b8a2c582ec071750e063530fc7f3b5197e24805"
+checksum = "5e7675a0963b47a6d12fe44c279918b4ffb19baee838ac37f48d2722ad5bc6ab"
 dependencies = [
  "bytes",
  "fastrand",
@@ -2119,14 +2119,13 @@ dependencies = [
  "http",
  "pin-project-lite",
  "tokio",
- "tracing",
 ]
 
 [[package]]
 name = "h3-quinn"
-version = "0.0.6"
+version = "0.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8c01d99d7cf812fd34ddf135e6c940df9e24f2e759dbc7179fb0e54d4bd6551"
+checksum = "17c799f413fceeea505236c4d8132f084ff4b55a652288d91439ee93dc24d855"
 dependencies = [
  "bytes",
  "futures",
@@ -2433,9 +2432,9 @@ dependencies = [
 
 [[package]]
 name = "idna"
-version = "1.0.1"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44a986806a1cc899952ba462bc1f28afbfd5850ab6cb030ccb20dd02cc527a24"
+checksum = "bd69211b9b519e98303c015e21a007e293db403b6c85b9b124e133d25e242cdd"
 dependencies = [
  "icu_normalizer",
  "icu_properties",
@@ -3378,9 +3377,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.119"
+version = "1.0.120"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8eddb61f0697cc3989c5d64b452f5488e2b8a60fd7d5076a3045076ffef8cb0"
+checksum = "4e0d21c9a8cae1235ad58a00c11cb40d4b1e5c784f1ef2c537876ed6ffd8b7c5"
 dependencies = [
  "itoa",
  "ryu",
