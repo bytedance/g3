@@ -172,6 +172,9 @@ impl<SC: ServerConfig> TlsInterceptObject<SC> {
         if self.ctx.smtp_inspect_policy() == ProtocolInspectPolicy::Block {
             return p != AlpnProtocol::Smtp.identification_sequence();
         }
+        if self.ctx.imap_inspect_policy() == ProtocolInspectPolicy::Block {
+            return p != AlpnProtocol::Imap.identification_sequence();
+        }
         true
     }
 }
