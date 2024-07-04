@@ -61,7 +61,7 @@ impl AlpnProtocol {
         }
     }
 
-    pub fn wired_identification_sequence(&self) -> &'static [u8] {
+    pub const fn wired_identification_sequence(&self) -> &'static [u8] {
         match self {
             Self::Http10 => b"\x08http/1.0",
             Self::Http11 => b"\x08http/1.1",
