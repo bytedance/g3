@@ -1,4 +1,11 @@
 
+v0.3.3:
+ - Feature: add openssl variant info to version message
+ - Feature: support aws-lc as rustls crypto provider and update version message
+ - Feature: allow to disable session cache for openssl_proxy & rustls_proxy server
+ - Feature: enable tls session ticket by default for rustls_proxy server
+ - Feature: try TCPs quick ACK after TLS accept handshake for resumed session
+
 v0.3.2:
  - Compatibility: support windows
  - Compatibility: update build dependencies
