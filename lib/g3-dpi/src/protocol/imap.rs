@@ -25,6 +25,8 @@ impl ProtocolInspectState {
     ) -> Result<Option<Protocol>, ProtocolInspectError> {
         // at least * OK <M>\r\n
         const MINIMUM_DATA_LEN: usize = 6;
+        // at least * PREAUTH\r\n
+        const PREAUTH_MIN_DATA_LEN: usize = 11;
 
         let data_len = data.len();
         if data_len < MINIMUM_DATA_LEN {
@@ -50,9 +52,42 @@ impl ProtocolInspectState {
         self.exclude_other(MaybeProtocol::Nats);
         self.exclude_other(MaybeProtocol::BitTorrent);
 
-        if &data[1..4] != b" OK" {
+        if data[1] != b' ' {
             self.exclude_current();
             return Ok(None);
+        }
+
+        match data[2] {
+            b'O' => {
+                // "OK"
+                if data[3] != b'K' {
+                    self.exclude_current();
+                    return Ok(None);
+                }
+            }
+            b'P' => {
+                // "PREAUTH"
+                if data_len < PREAUTH_MIN_DATA_LEN {
+                    return Err(ProtocolInspectError::NeedMoreData(
+                        PREAUTH_MIN_DATA_LEN - data_len,
+                    ));
+                }
+                if !data[2..].starts_with(b"PREAUTH") {
+                    self.exclude_current();
+                    return Ok(None);
+                }
+            }
+            b'B' => {
+                // "BYE"
+                if data[3] != b'Y' || data[4] != b'E' {
+                    self.exclude_current();
+                    return Ok(None);
+                }
+            }
+            _ => {
+                self.exclude_current();
+                return Ok(None);
+            }
         }
 
         if data[data_len - 1] != b'\n' {
