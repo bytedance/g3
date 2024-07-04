@@ -266,6 +266,17 @@ where
                 );
                 StreamInspection::Smtp(smtp_obj)
             }
+            Protocol::Imap => {
+                let mut imap_obj =
+                    crate::inspect::imap::ImapInterceptObject::new(ctx, self.upstream.clone());
+                imap_obj.set_io(
+                    Box::new(clt_r),
+                    Box::new(clt_w),
+                    OnceBufReader::with_no_buf(Box::new(ups_r)),
+                    Box::new(ups_w),
+                );
+                StreamInspection::Imap(imap_obj)
+            }
             _ => {
                 let mut stream_obj =
                     crate::inspect::stream::StreamInspectObject::new(ctx, self.upstream.clone());

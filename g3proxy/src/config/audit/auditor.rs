@@ -50,6 +50,7 @@ pub(crate) struct AuditorConfig {
     pub(crate) h2_interception: H2InterceptionConfig,
     pub(crate) smtp_inspect_policy: ProtocolInspectPolicy,
     pub(crate) smtp_interception: SmtpInterceptionConfig,
+    pub(crate) imap_inspect_policy: ProtocolInspectPolicy,
     pub(crate) icap_reqmod_service: Option<Arc<IcapServiceConfig>>,
     pub(crate) icap_respmod_service: Option<Arc<IcapServiceConfig>>,
     pub(crate) task_audit_ratio: Bernoulli,
@@ -81,6 +82,7 @@ impl AuditorConfig {
             h2_interception: Default::default(),
             smtp_inspect_policy: ProtocolInspectPolicy::Intercept,
             smtp_interception: Default::default(),
+            imap_inspect_policy: ProtocolInspectPolicy::Intercept,
             icap_reqmod_service: None,
             icap_respmod_service: None,
             task_audit_ratio: Bernoulli::new(1.0).unwrap(),
@@ -190,6 +192,11 @@ impl AuditorConfig {
             "smtp_interception" => {
                 self.smtp_interception = g3_yaml::value::as_smtp_interception_config(v)
                     .context(format!("invalid smtp interception value for key {k}"))?;
+                Ok(())
+            }
+            "imap_inspect_policy" => {
+                self.imap_inspect_policy = g3_yaml::value::as_protocol_inspect_policy(v)
+                    .context(format!("invalid protocol inspect policy value for key {k}"))?;
                 Ok(())
             }
             "icap_reqmod_service" => {

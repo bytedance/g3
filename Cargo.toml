@@ -24,6 +24,7 @@ members = [
     "lib/g3-xcrypt",
     "lib/g3-ftp-client",
     "lib/g3-smtp-proto",
+    "lib/g3-imap-proto",
     "lib/g3-http",
     "lib/g3-h2",
     "lib/g3-icap-client",
@@ -200,6 +201,7 @@ g3-udpdump = { version = "0.1", path = "lib/g3-udpdump" }
 g3-fluentd = { version = "0.1", path = "lib/g3-fluentd" }
 g3-ftp-client = { version = "0.3", path = "lib/g3-ftp-client" }
 g3-smtp-proto = { version = "0.1", path = "lib/g3-smtp-proto" }
+g3-imap-proto = { version = "0.1", path = "lib/g3-imap-proto" }
 g3-h2 = { version = "0.1", path = "lib/g3-h2" }
 g3-http = { version = "0.3", path = "lib/g3-http" }
 g3-icap-client = { version = "0.2", path = "lib/g3-icap-client" }

@@ -75,6 +75,7 @@ g3-resolver.workspace = true
 g3-xcrypt.workspace = true
 g3-ftp-client.workspace = true
 g3-smtp-proto.workspace = true
+g3-imap-proto.workspace = true
 g3-http.workspace = true
 g3-h2.workspace = true
 g3-socks.workspace = true

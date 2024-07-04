@@ -201,6 +201,12 @@ where
                 smtp_obj.set_io(clt_r, clt_w, OnceBufReader::new(ups_r, ups_r_buf), ups_w);
                 return Ok(StreamInspection::Smtp(smtp_obj));
             }
+            Protocol::Imap => {
+                let mut imap_obj =
+                    crate::inspect::imap::ImapInterceptObject::new(self.ctx, self.upstream.clone());
+                imap_obj.set_io(clt_r, clt_w, OnceBufReader::new(ups_r, ups_r_buf), ups_w);
+                return Ok(StreamInspection::Imap(imap_obj));
+            }
             _ => {}
         }
 

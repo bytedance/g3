@@ -152,6 +152,17 @@ Set the SMTP Interception config options.
 
 .. versionadded:: 1.9.2
 
+imap_inspect_policy
+-------------------
+
+**optional**, **type**: :ref:`protocol inspect policy <conf_value_dpi_protocol_inspect_policy>`
+
+Set what we should do with IMAP traffic.
+
+**default**: intercept
+
+.. versionadded:: 1.9.4
+
 icap_reqmod_service
 -------------------
 

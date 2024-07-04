@@ -1268,6 +1268,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "g3-imap-proto"
+version = "0.1.0"
+dependencies = [
+ "g3-io-ext",
+ "tokio",
+]
+
+[[package]]
 name = "g3-io-ext"
 version = "0.7.0"
 dependencies = [
@@ -1850,6 +1858,7 @@ dependencies = [
  "g3-histogram",
  "g3-http",
  "g3-icap-client",
+ "g3-imap-proto",
  "g3-io-ext",
  "g3-ip-locate",
  "g3-json",

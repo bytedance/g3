@@ -127,6 +127,11 @@ impl AuditHandle {
     }
 
     #[inline]
+    pub(crate) fn imap_inspect_policy(&self) -> ProtocolInspectPolicy {
+        self.auditor_config.imap_inspect_policy
+    }
+
+    #[inline]
     pub(crate) fn icap_reqmod_client(&self) -> Option<&IcapReqmodClient> {
         self.icap_reqmod_client.as_ref()
     }

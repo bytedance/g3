@@ -315,6 +315,13 @@ where
                     }
                     None => break,
                 },
+                StreamInspection::Imap(imap) => match imap.intercept().await? {
+                    Some(new_obj) => {
+                        obj = new_obj;
+                        // no need to reset inspector state as the protocol should be known
+                    }
+                    None => break,
+                },
                 StreamInspection::End => break,
             }
         }

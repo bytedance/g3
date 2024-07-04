@@ -27,7 +27,7 @@ use g3_types::net::{Host, UpstreamAddr};
 use super::StartTlsProtocol;
 use crate::config::server::ServerConfig;
 use crate::inspect::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext, StreamInspection};
-use crate::serve::{ServerTaskError, ServerTaskResult};
+use crate::serve::{ServerTaskError, ServerTaskForbiddenError, ServerTaskResult};
 
 mod ext;
 use ext::{CommandLineRecvExt, ResponseLineRecvExt, ResponseParseExt};
@@ -184,7 +184,10 @@ where
                 clt_w,
                 self.ctx.smtp_interception().command_wait_timeout,
             )
-            .await
+            .await?;
+        Err(ServerTaskError::ForbiddenByRule(
+            ServerTaskForbiddenError::ProtoBanned,
+        ))
     }
 
     async fn do_intercept(&mut self) -> ServerTaskResult<Option<StreamInspection<SC>>> {

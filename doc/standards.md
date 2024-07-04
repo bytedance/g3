@@ -354,8 +354,8 @@ The code should comply to these, but should be more compliant to existing popula
 
 ## IMAP
 
- - [rfc3501](https://datatracker.ietf.org/doc/html/rfc3501)
-    : INTERNET MESSAGE ACCESS PROTOCOL - VERSION 4rev1
+ - [rfc9051](https://datatracker.ietf.org/doc/html/rfc9051)
+    : Internet Message Access Protocol (IMAP) - Version 4rev2
  - [rfc7162](https://datatracker.ietf.org/doc/html/rfc7162)
     : IMAP Extensions: Quick Flag Changes Resynchronization (CONDSTORE) and Quick Mailbox Resynchronization (QRESYNC)
 

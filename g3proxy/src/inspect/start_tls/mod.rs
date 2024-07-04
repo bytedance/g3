@@ -327,17 +327,30 @@ where
                 );
                 StreamInspection::Smtp(smtp_obj)
             }
-            _ => {
-                let mut stream_obj =
-                    crate::inspect::stream::StreamInspectObject::new(ctx, self.upstream.clone());
-                stream_obj.set_io(
+            StartTlsProtocol::Imap => {
+                let mut imap_obj =
+                    crate::inspect::imap::ImapInterceptObject::new(ctx, self.upstream.clone());
+                imap_obj.set_from_starttls();
+                imap_obj.set_io(
                     Box::new(clt_r),
                     Box::new(clt_w),
-                    Box::new(ups_r),
+                    OnceBufReader::with_no_buf(Box::new(ups_r)),
                     Box::new(ups_w),
                 );
-                StreamInspection::StreamUnknown(stream_obj)
-            }
+                StreamInspection::Imap(imap_obj)
+            } /*
+              _ => {
+                  let mut stream_obj =
+                      crate::inspect::stream::StreamInspectObject::new(ctx, self.upstream.clone());
+                  stream_obj.set_io(
+                      Box::new(clt_r),
+                      Box::new(clt_w),
+                      Box::new(ups_r),
+                      Box::new(ups_w),
+                  );
+                  StreamInspection::StreamUnknown(stream_obj)
+              }
+               */
         }
     }
 }

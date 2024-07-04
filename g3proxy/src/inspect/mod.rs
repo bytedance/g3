@@ -48,6 +48,7 @@ use start_tls::StartTlsProtocol;
 pub(crate) mod http;
 mod websocket;
 
+pub(crate) mod imap;
 pub(crate) mod smtp;
 
 #[derive(Clone)]
@@ -274,6 +275,11 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     }
 
     #[inline]
+    fn imap_inspect_policy(&self) -> ProtocolInspectPolicy {
+        self.audit_handle.imap_inspect_policy()
+    }
+
+    #[inline]
     fn task_max_idle_count(&self) -> i32 {
         self.task_max_idle_count
     }
@@ -299,6 +305,7 @@ pub(crate) enum StreamInspection<SC: ServerConfig> {
     H2(http::H2InterceptObject<SC>),
     Websocket(websocket::H1WebsocketInterceptObject<SC>),
     Smtp(smtp::SmtpInterceptObject<SC>),
+    Imap(imap::ImapInterceptObject<SC>),
 }
 
 type BoxAsyncRead = Box<dyn AsyncRead + Send + Unpin + 'static>;
