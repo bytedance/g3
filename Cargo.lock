@@ -1737,7 +1737,7 @@ dependencies = [
 
 [[package]]
 name = "g3keymess"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "ahash",
  "anyhow",

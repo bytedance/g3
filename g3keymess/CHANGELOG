@@ -1,4 +1,10 @@
 
+v0.3.4:
+ - Feature: add more error types to request log
+ - Feature: emit request duration stats
+ - Feature: disable openssl-async-job by default
+ - BUG FIX: fix logger io stats
+
 v0.3.3:
  - Feature: allow to check key existence via g3keymess-ctl
  - BUG FIX: fix auto load of newly added keys in the local store dir
