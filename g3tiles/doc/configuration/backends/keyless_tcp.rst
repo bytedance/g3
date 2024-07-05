@@ -55,8 +55,8 @@ Set the request buffer size of the local queue. New connections will be opened w
 
 **default**: 128
 
-response_timeout
-----------------
+response_recv_timeout
+---------------------
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
@@ -65,6 +65,28 @@ Set the timeout value for the waiting of the response.
 If timeout, the request will be dropped for the local buffer and an internal error response will be send to client.
 
 **default**: 4s
+
+connection_max_request_count
+----------------------------
+
+**optional**, **type**: usize
+
+Set the max number of requests that can ben handled by a single upstream connection.
+
+**default**: 1000
+
+.. versionadded:: 0.3.4
+
+connection_alive_time
+---------------------
+
+**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+Set the max alive time for a single upstream connection.
+
+**default**: 1h
+
+.. versionadded:: 0.3.4
 
 graceful_close_wait
 -------------------

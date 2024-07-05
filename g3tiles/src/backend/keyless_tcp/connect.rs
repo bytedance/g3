@@ -16,7 +16,6 @@
 
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::time::Duration;
 
 use anyhow::anyhow;
 use arc_swap::ArcSwapOption;
@@ -96,7 +95,7 @@ impl KeylessUpstreamConnect for KeylessTcpUpstreamConnector {
     async fn new_connection(
         &self,
         req_receiver: flume::Receiver<KeylessForwardRequest>,
-        quit_notifier: broadcast::Receiver<Duration>,
+        quit_notifier: broadcast::Receiver<()>,
     ) -> anyhow::Result<Self::Connection> {
         let start = Instant::now();
         let (stream, _peer) = self.connect().await?;
@@ -107,7 +106,7 @@ impl KeylessUpstreamConnect for KeylessTcpUpstreamConnector {
         let (clt_r, clt_w) = stream.into_split();
 
         Ok(MultiplexedUpstreamConnection::new(
-            self.config.response_timeout,
+            self.config.connection_config,
             self.stats.clone(),
             self.duration_recorder.clone(),
             clt_r,
@@ -139,7 +138,7 @@ impl KeylessUpstreamConnect for KeylessTlsUpstreamConnector {
     async fn new_connection(
         &self,
         req_receiver: flume::Receiver<KeylessForwardRequest>,
-        quit_notifier: broadcast::Receiver<Duration>,
+        quit_notifier: broadcast::Receiver<()>,
     ) -> anyhow::Result<Self::Connection> {
         let start = Instant::now();
         let (tcp_stream, peer) = self.tcp.connect().await?;
@@ -166,7 +165,7 @@ impl KeylessUpstreamConnect for KeylessTlsUpstreamConnector {
                 let (clt_r, clt_w) = tokio::io::split(tls_stream);
 
                 Ok(MultiplexedUpstreamConnection::new(
-                    self.tcp.config.response_timeout,
+                    self.tcp.config.connection_config,
                     self.tcp.stats.clone(),
                     self.tcp.duration_recorder.clone(),
                     clt_r,

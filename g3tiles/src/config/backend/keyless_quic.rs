@@ -29,6 +29,7 @@ const BACKEND_CONFIG_TYPE: &str = "KeylessQuic";
 
 use super::{AnyBackendConfig, BackendConfig, BackendConfigDiffAction};
 use crate::config::discover::DiscoverRegisterData;
+use crate::module::keyless::MultiplexedUpstreamConnectionConfig;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct KeylessQuicBackendConfig {
@@ -42,7 +43,7 @@ pub(crate) struct KeylessQuicBackendConfig {
     pub(crate) duration_stats: HistogramMetricsConfig,
 
     pub(crate) request_buffer_size: usize,
-    pub(crate) response_timeout: Duration,
+    pub(crate) connection_config: MultiplexedUpstreamConnectionConfig,
     pub(crate) graceful_close_wait: Duration,
     pub(crate) idle_connection_min: usize,
     pub(crate) idle_connection_max: usize,
@@ -63,7 +64,7 @@ impl KeylessQuicBackendConfig {
             tls_name: None,
             duration_stats: HistogramMetricsConfig::default(),
             request_buffer_size: 128,
-            response_timeout: Duration::from_secs(4),
+            connection_config: Default::default(),
             graceful_close_wait: Duration::from_secs(10),
             idle_connection_min: 32,
             idle_connection_max: 1024,
@@ -144,8 +145,17 @@ impl KeylessQuicBackendConfig {
                 self.request_buffer_size = g3_yaml::value::as_usize(v)?;
                 Ok(())
             }
-            "response_timeout" => {
-                self.response_timeout = g3_yaml::humanize::as_duration(v)
+            "response_recv_timeout" | "response_timeout" => {
+                self.connection_config.response_timeout = g3_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                Ok(())
+            }
+            "connection_max_request_count" => {
+                self.connection_config.max_request_count = g3_yaml::value::as_usize(v)?;
+                Ok(())
+            }
+            "connection_alive_time" => {
+                self.connection_config.max_alive_time = g3_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }

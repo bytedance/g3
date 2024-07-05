@@ -36,7 +36,7 @@ pub(crate) trait KeylessUpstreamConnect {
     async fn new_connection(
         &self,
         req_receiver: flume::Receiver<KeylessForwardRequest>,
-        quit_notifier: broadcast::Receiver<Duration>,
+        quit_notifier: broadcast::Receiver<()>,
     ) -> anyhow::Result<Self::Connection>;
 }
 pub(crate) type ArcKeylessUpstreamConnect<C> =
@@ -107,7 +107,7 @@ pub(crate) struct KeylessConnectionPool<C: KeylessUpstreamConnection> {
     connection_close_receiver: mpsc::Receiver<u64>,
     connection_close_sender: mpsc::Sender<u64>,
 
-    connection_quit_notifier: broadcast::Sender<Duration>,
+    connection_quit_notifier: broadcast::Sender<()>,
     graceful_close_wait: Duration,
 }
 
@@ -180,14 +180,14 @@ where
                             let graceful_close_wait = self.graceful_close_wait;
                             tokio::spawn(async move {
                                 tokio::time::sleep(graceful_close_wait).await;
-                                let _ = old_quit_notifier.send(graceful_close_wait);
+                                let _ = old_quit_notifier.send(());
                             });
                             let target = self.stats.alive_count().max(self.idle_connection_min);
                             self.check_create_connection(0, target);
                         }
                         KeylessPoolCmd::CloseGraceful => {
                             tokio::time::sleep(self.graceful_close_wait).await;
-                            let _ = self.connection_quit_notifier.send(self.graceful_close_wait);
+                            let _ = self.connection_quit_notifier.send(());
                             break;
                         }
                         KeylessPoolCmd::NewConnection => {

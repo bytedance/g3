@@ -20,6 +20,7 @@ use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::{broadcast, oneshot};
 
+use super::{KeylessForwardRequest, KeylessUpstreamConnection};
 use crate::module::keyless::{KeylessBackendStats, KeylessUpstreamDurationRecorder};
 
 mod state;
@@ -31,30 +32,45 @@ use recv::KeylessUpstreamRecvTask;
 mod send;
 use send::KeylessUpstreamSendTask;
 
-use super::{KeylessForwardRequest, KeylessUpstreamConnection};
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct MultiplexedUpstreamConnectionConfig {
+    pub(crate) max_request_count: usize,
+    pub(crate) max_alive_time: Duration,
+    pub(crate) response_timeout: Duration,
+}
+
+impl Default for MultiplexedUpstreamConnectionConfig {
+    fn default() -> Self {
+        MultiplexedUpstreamConnectionConfig {
+            max_request_count: 1000,
+            max_alive_time: Duration::from_secs(3600), // 1h
+            response_timeout: Duration::from_secs(4),
+        }
+    }
+}
 
 pub(crate) struct MultiplexedUpstreamConnection<R, W> {
-    rsp_timeout: Duration,
+    config: MultiplexedUpstreamConnectionConfig,
     stats: Arc<KeylessBackendStats>,
     duration_recorder: Arc<KeylessUpstreamDurationRecorder>,
     r: R,
     w: W,
     req_receiver: flume::Receiver<KeylessForwardRequest>,
-    quit_notifier: broadcast::Receiver<Duration>,
+    quit_notifier: broadcast::Receiver<()>,
 }
 
 impl<R, W> MultiplexedUpstreamConnection<R, W> {
     pub(crate) fn new(
-        rsp_timeout: Duration,
+        config: MultiplexedUpstreamConnectionConfig,
         stats: Arc<KeylessBackendStats>,
         duration_recorder: Arc<KeylessUpstreamDurationRecorder>,
         ups_r: R,
         ups_w: W,
         req_receiver: flume::Receiver<KeylessForwardRequest>,
-        quit_notifier: broadcast::Receiver<Duration>,
+        quit_notifier: broadcast::Receiver<()>,
     ) -> Self {
         MultiplexedUpstreamConnection {
-            rsp_timeout,
+            config,
             stats,
             duration_recorder,
             r: ups_r,
@@ -75,15 +91,16 @@ where
         let (reader_close_sender, reader_close_receiver) = oneshot::channel();
 
         let send_task = KeylessUpstreamSendTask::new(
+            self.config.max_request_count,
+            self.config.max_alive_time,
             self.stats.clone(),
             self.req_receiver,
             self.quit_notifier.resubscribe(),
-            reader_close_receiver,
             shared_state.clone(),
             self.duration_recorder.clone(),
         );
         let recv_task = KeylessUpstreamRecvTask::new(
-            self.rsp_timeout,
+            self.config.response_timeout,
             self.stats,
             self.quit_notifier,
             reader_close_sender,
@@ -93,6 +110,6 @@ where
 
         let reader = self.r;
         tokio::spawn(async move { recv_task.into_running(reader).await });
-        send_task.run(self.w).await
+        send_task.run(self.w, reader_close_receiver).await
     }
 }

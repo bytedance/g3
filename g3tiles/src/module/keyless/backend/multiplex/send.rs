@@ -31,10 +31,11 @@ use crate::module::keyless::{
 };
 
 pub(super) struct KeylessUpstreamSendTask {
+    max_request_count: usize,
+    max_alive_time: Duration,
     stats: Arc<KeylessBackendStats>,
     req_receiver: flume::Receiver<KeylessForwardRequest>,
-    quit_notifier: broadcast::Receiver<Duration>,
-    reader_close_receiver: oneshot::Receiver<KeylessRecvMessageError>,
+    quit_notifier: broadcast::Receiver<()>,
     shared_state: Arc<StreamSharedState>,
     duration_recorder: Arc<KeylessUpstreamDurationRecorder>,
     message_id: u32,
@@ -42,38 +43,37 @@ pub(super) struct KeylessUpstreamSendTask {
 
 impl KeylessUpstreamSendTask {
     pub(super) fn new(
+        max_request_count: usize,
+        max_alive_time: Duration,
         stats: Arc<KeylessBackendStats>,
         req_receiver: flume::Receiver<KeylessForwardRequest>,
-        quit_notifier: broadcast::Receiver<Duration>,
-        reader_close_receiver: oneshot::Receiver<KeylessRecvMessageError>,
+        quit_notifier: broadcast::Receiver<()>,
         shared_state: Arc<StreamSharedState>,
         duration_recorder: Arc<KeylessUpstreamDurationRecorder>,
     ) -> Self {
         KeylessUpstreamSendTask {
+            max_request_count,
+            max_alive_time,
             stats,
             req_receiver,
             quit_notifier,
-            reader_close_receiver,
             shared_state,
             duration_recorder,
             message_id: 0,
         }
     }
 
-    pub(super) async fn run<W>(mut self, mut writer: W) -> anyhow::Result<()>
+    pub(super) async fn run<W>(
+        mut self,
+        mut writer: W,
+        mut reader_close_receiver: oneshot::Receiver<KeylessRecvMessageError>,
+    ) -> anyhow::Result<()>
     where
         W: AsyncWrite + Unpin,
     {
-        if let Some(wait) = self.run_online(&mut writer).await? {
-            tokio::time::sleep(wait).await;
-        }
-        Ok(())
-    }
+        let mut request_count = 0;
+        let mut alive_timeout = Box::pin(tokio::time::sleep(self.max_alive_time));
 
-    async fn run_online<W>(&mut self, writer: &mut W) -> anyhow::Result<Option<Duration>>
-    where
-        W: AsyncWrite + Unpin,
-    {
         loop {
             tokio::select! {
                 biased;
@@ -81,24 +81,28 @@ impl KeylessUpstreamSendTask {
                 r = self.req_receiver.recv_async() => {
                     match r {
                         Ok(req) => {
-                            self.send_data(writer, req)
+                            request_count += 1;
+                            self.send_data(&mut writer, req)
                                 .await
                                 .map_err(|e| anyhow!("send request failed: {e}"))?;
+                            if request_count > self.max_request_count {
+                                return Ok(());
+                            }
                         }
                         Err(_) => return Err(anyhow!("backend dropped")),
                     }
                 }
-                r = self.quit_notifier.recv() => {
-                    return match r {
-                        Ok(wait) => Ok(Some(wait)),
-                        Err(_) => Err(anyhow!("pool dropped")),
-                    };
+                _ = self.quit_notifier.recv() => {
+                    return Ok(());
                 }
-                r = &mut self.reader_close_receiver => {
+                r = &mut reader_close_receiver => {
                     return match r {
                         Ok(e) => Err(anyhow!("reader side closed with error {e}")),
-                        Err(_) => Ok(None), // reader closed without error
+                        Err(_) => Ok(()), // reader closed without error
                     };
+                }
+                _ = &mut alive_timeout => {
+                    return Ok(());
                 }
             }
         }

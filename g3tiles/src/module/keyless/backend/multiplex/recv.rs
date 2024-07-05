@@ -19,6 +19,7 @@ use std::time::Duration;
 
 use tokio::io::{AsyncRead, BufReader};
 use tokio::sync::{broadcast, oneshot};
+use tokio::time::Interval;
 
 use g3_io_ext::LimitedBufReadExt;
 use g3_types::ext::DurationExt;
@@ -30,9 +31,9 @@ use crate::module::keyless::{
 };
 
 pub(super) struct KeylessUpstreamRecvTask {
-    rsp_timeout: Duration,
+    rsp_recv_timeout: Duration,
     stats: Arc<KeylessBackendStats>,
-    quit_notifier: broadcast::Receiver<Duration>,
+    quit_notifier: broadcast::Receiver<()>,
     reader_close_sender: oneshot::Sender<KeylessRecvMessageError>,
     shared_state: Arc<StreamSharedState>,
     duration_recorder: Arc<KeylessUpstreamDurationRecorder>,
@@ -40,15 +41,15 @@ pub(super) struct KeylessUpstreamRecvTask {
 
 impl KeylessUpstreamRecvTask {
     pub(super) fn new(
-        rsp_timeout: Duration,
+        rsp_recv_timeout: Duration,
         stats: Arc<KeylessBackendStats>,
-        quit_notifier: broadcast::Receiver<Duration>,
+        quit_notifier: broadcast::Receiver<()>,
         close_sender: oneshot::Sender<KeylessRecvMessageError>,
         shared_state: Arc<StreamSharedState>,
         duration_recorder: Arc<KeylessUpstreamDurationRecorder>,
     ) -> Self {
         KeylessUpstreamRecvTask {
-            rsp_timeout,
+            rsp_recv_timeout,
             stats,
             quit_notifier,
             reader_close_sender: close_sender,
@@ -74,7 +75,7 @@ impl KeylessUpstreamRecvTask {
     where
         R: AsyncRead + Unpin,
     {
-        let mut timeout_interval = tokio::time::interval(self.rsp_timeout);
+        let mut timeout_interval = tokio::time::interval(self.rsp_recv_timeout);
         let mut buf_reader = BufReader::new(reader);
         loop {
             tokio::select! {
@@ -90,14 +91,54 @@ impl KeylessUpstreamRecvTask {
                         Err(e) => return Err(KeylessRecvMessageError::IoFailed(e)),
                     }
                 }
-                r = self.quit_notifier.recv() => {
-                    let wait = r.unwrap_or(self.rsp_timeout);
-                    return tokio::time::timeout(wait, self.recv_all_pending(buf_reader))
+                _ = self.quit_notifier.recv() => {
+                    return tokio::time::timeout(self.rsp_recv_timeout, self.recv_all_pending(buf_reader))
                         .await
                         .unwrap_or_else(|_| Ok(()));
                 }
                 _ = self.reader_close_sender.closed() => {
-                    return Ok(());
+                    return self.run_offline(buf_reader, timeout_interval).await;
+                }
+                _ = timeout_interval.tick() => {
+                    self.shared_state.rotate_timeout(|_id, v| {
+                        self.stats.add_request_drop();
+                        v.send_internal_error();
+                    });
+                }
+            }
+        }
+    }
+
+    async fn run_offline<R>(
+        &mut self,
+        mut buf_reader: BufReader<R>,
+        mut timeout_interval: Interval,
+    ) -> Result<(), KeylessRecvMessageError>
+    where
+        R: AsyncRead + Unpin,
+    {
+        loop {
+            if !self.shared_state.has_pending() {
+                return Ok(());
+            }
+
+            tokio::select! {
+                biased;
+
+                r = buf_reader.fill_wait_data() => {
+                    match r {
+                        Ok(true) => {
+                            let rsp = KeylessUpstreamResponse::recv(&mut buf_reader).await?;
+                            self.handle_rsp(rsp);
+                        }
+                        Ok(false) => return Err(KeylessRecvMessageError::IoClosed),
+                        Err(e) => return Err(KeylessRecvMessageError::IoFailed(e)),
+                    }
+                }
+                _ = self.quit_notifier.recv() => {
+                    return tokio::time::timeout(self.rsp_recv_timeout, self.recv_all_pending(buf_reader))
+                        .await
+                        .unwrap_or_else(|_| Ok(()));
                 }
                 _ = timeout_interval.tick() => {
                     self.shared_state.rotate_timeout(|_id, v| {
@@ -114,11 +155,11 @@ impl KeylessUpstreamRecvTask {
         R: AsyncRead + Unpin,
     {
         loop {
-            let rsp = KeylessUpstreamResponse::recv(&mut reader).await?;
-            self.handle_rsp(rsp);
             if !self.shared_state.has_pending() {
                 return Ok(());
             }
+            let rsp = KeylessUpstreamResponse::recv(&mut reader).await?;
+            self.handle_rsp(rsp);
         }
     }
 

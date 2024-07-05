@@ -26,5 +26,5 @@ pub(crate) use backend::KeylessUpstreamConnection;
 pub(crate) use backend::{
     KeylessBackendStats, KeylessConnectionPool, KeylessConnectionPoolHandle, KeylessForwardRequest,
     KeylessUpstreamConnect, KeylessUpstreamDurationRecorder, KeylessUpstreamDurationStats,
-    MultiplexedUpstreamConnection,
+    MultiplexedUpstreamConnection, MultiplexedUpstreamConnectionConfig,
 };

@@ -31,7 +31,7 @@ pub(crate) use pool::{
 };
 
 mod multiplex;
-pub(crate) use multiplex::MultiplexedUpstreamConnection;
+pub(crate) use multiplex::{MultiplexedUpstreamConnection, MultiplexedUpstreamConnectionConfig};
 
 pub(crate) struct KeylessForwardRequest {
     created: Instant,

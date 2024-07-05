@@ -17,7 +17,6 @@
 use std::borrow::Cow;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::time::Duration;
 
 use anyhow::anyhow;
 use arc_swap::ArcSwapOption;
@@ -113,7 +112,7 @@ impl KeylessUpstreamConnect for KeylessQuicUpstreamConnector {
     async fn new_connection(
         &self,
         req_receiver: flume::Receiver<KeylessForwardRequest>,
-        quit_notifier: broadcast::Receiver<Duration>,
+        quit_notifier: broadcast::Receiver<()>,
     ) -> anyhow::Result<Self::Connection> {
         let start = Instant::now();
         let conn = self.connect().await?;
@@ -128,7 +127,7 @@ impl KeylessUpstreamConnect for KeylessQuicUpstreamConnector {
             };
 
             let connection = MultiplexedUpstreamConnection::new(
-                self.config.response_timeout,
+                self.config.connection_config,
                 self.stats.clone(),
                 self.duration_recorder.clone(),
                 recv_stream,
@@ -150,7 +149,7 @@ impl KeylessUpstreamConnect for KeylessQuicUpstreamConnector {
 
 pub(crate) struct KeylessQuicUpstreamConnection {
     c: Connection,
-    quit_notifier: broadcast::Receiver<Duration>,
+    quit_notifier: broadcast::Receiver<()>,
 }
 
 impl KeylessUpstreamConnection for KeylessQuicUpstreamConnection {
