@@ -47,6 +47,7 @@ pub(crate) struct KeylessTcpBackendConfig {
     pub(crate) graceful_close_wait: Duration,
     pub(crate) idle_connection_min: usize,
     pub(crate) idle_connection_max: usize,
+    pub(crate) connect_check_interval: Duration,
     pub(crate) tcp_keepalive: TcpKeepAliveConfig,
 }
 
@@ -66,6 +67,7 @@ impl KeylessTcpBackendConfig {
             graceful_close_wait: Duration::from_secs(10),
             idle_connection_min: 128,
             idle_connection_max: 4096,
+            connect_check_interval: Duration::from_secs(10),
             tcp_keepalive: TcpKeepAliveConfig::default(),
         }
     }
@@ -155,6 +157,11 @@ impl KeylessTcpBackendConfig {
             }
             "idle_connection_max" => {
                 self.idle_connection_max = g3_yaml::value::as_usize(v)?;
+                Ok(())
+            }
+            "connect_check_interval" => {
+                self.connect_check_interval = g3_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "tcp_keepalive" => {

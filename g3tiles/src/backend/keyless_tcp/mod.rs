@@ -77,6 +77,7 @@ impl KeylessTcpBackend {
                 Arc::new(tls_connector),
                 config.idle_connection_min,
                 config.idle_connection_max,
+                config.connect_check_interval,
                 keyless_request_receiver,
                 config.graceful_close_wait,
             )
@@ -85,6 +86,7 @@ impl KeylessTcpBackend {
                 Arc::new(tcp_connector),
                 config.idle_connection_min,
                 config.idle_connection_max,
+                config.connect_check_interval,
                 keyless_request_receiver,
                 config.graceful_close_wait,
             )

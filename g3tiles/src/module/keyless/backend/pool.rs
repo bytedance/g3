@@ -98,6 +98,7 @@ pub(crate) struct KeylessConnectionPool<C: KeylessUpstreamConnection> {
     connector: ArcKeylessUpstreamConnect<C>,
     idle_connection_min: usize,
     idle_connection_max: usize,
+    connect_check_interval: Duration,
     stats: Arc<PoolStats>,
 
     keyless_request_receiver: flume::Receiver<KeylessForwardRequest>,
@@ -118,6 +119,7 @@ where
         connector: ArcKeylessUpstreamConnect<C>,
         idle_connection_min: usize,
         idle_connection_max: usize,
+        connect_check_interval: Duration,
         keyless_request_receiver: flume::Receiver<KeylessForwardRequest>,
         graceful_close_wait: Duration,
     ) -> Self {
@@ -127,6 +129,7 @@ where
             connector,
             idle_connection_min,
             idle_connection_max,
+            connect_check_interval,
             stats: Arc::new(PoolStats::default()),
             keyless_request_receiver,
             connection_id: 0,
@@ -141,6 +144,7 @@ where
         connector: ArcKeylessUpstreamConnect<C>,
         idle_connection_min: usize,
         idle_connection_max: usize,
+        connect_check_interval: Duration,
         keyless_request_receiver: flume::Receiver<KeylessForwardRequest>,
         graceful_close_wait: Duration,
     ) -> KeylessConnectionPoolHandle {
@@ -148,6 +152,7 @@ where
             connector,
             idle_connection_min,
             idle_connection_max,
+            connect_check_interval,
             keyless_request_receiver,
             graceful_close_wait,
         );
@@ -159,6 +164,8 @@ where
     }
 
     async fn into_running(mut self, mut cmd_receiver: mpsc::Receiver<KeylessPoolCmd>) {
+        let mut connection_check_interval = tokio::time::interval(self.connect_check_interval);
+
         loop {
             tokio::select! {
                 r = cmd_receiver.recv() => {
@@ -193,6 +200,9 @@ where
                 _ = self.connection_close_receiver.recv() => {
                     self.check_create_connection(self.stats.alive_count(), self.idle_connection_min);
                 }
+                _ = connection_check_interval.tick() => {
+                    self.check_create_connection(self.stats.alive_count(), self.idle_connection_min);
+                }
             }
         }
     }
@@ -223,13 +233,14 @@ where
                     if let Err(e) = connection.run().await {
                         debug!("connection closed with error: {e}");
                     }
+                    pool_stats.del_connection();
+                    let _ = connection_close_sender.try_send(connection_id);
                 }
                 Err(e) => {
                     debug!("failed to create new connection: {e}");
+                    pool_stats.del_connection();
                 }
             }
-            pool_stats.del_connection();
-            let _ = connection_close_sender.try_send(connection_id);
         });
     }
 }

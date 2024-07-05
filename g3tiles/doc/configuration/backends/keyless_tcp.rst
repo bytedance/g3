@@ -93,6 +93,19 @@ Set the maximum number of IDLE connections in the pool.
 
 **default**: 4096
 
+connect_check_interval
+----------------------
+
+**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+Set the time interval for the check of closed connections.
+
+Failed connections won't trigger a re-connect again until this check interval reached.
+
+**default**: 10s
+
+.. versionadded:: 0.3.4
+
 tcp_keepalive
 -------------
 

@@ -46,6 +46,7 @@ pub(crate) struct KeylessQuicBackendConfig {
     pub(crate) graceful_close_wait: Duration,
     pub(crate) idle_connection_min: usize,
     pub(crate) idle_connection_max: usize,
+    pub(crate) connect_check_interval: Duration,
     pub(crate) concurrent_streams: usize,
     pub(crate) socket_buffer: SocketBufferConfig,
 }
@@ -66,6 +67,7 @@ impl KeylessQuicBackendConfig {
             graceful_close_wait: Duration::from_secs(10),
             idle_connection_min: 32,
             idle_connection_max: 1024,
+            connect_check_interval: Duration::from_secs(10),
             concurrent_streams: 4,
             socket_buffer: SocketBufferConfig::default(),
         }
@@ -158,6 +160,11 @@ impl KeylessQuicBackendConfig {
             }
             "idle_connection_max" => {
                 self.idle_connection_max = g3_yaml::value::as_usize(v)?;
+                Ok(())
+            }
+            "connect_check_interval" => {
+                self.connect_check_interval = g3_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "concurrent_streams" => {

@@ -74,6 +74,7 @@ impl KeylessQuicBackend {
             Arc::new(connector),
             config.idle_connection_min,
             config.idle_connection_max,
+            config.connect_check_interval,
             keyless_request_receiver,
             config.graceful_close_wait,
         );
