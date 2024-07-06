@@ -174,7 +174,7 @@ capnpc = "0.19"
 #
 libc = "0.2.147"
 rustix = { version = "0.38", default-features = false }
-gethostname = "0.4"
+gethostname = "0.5"
 #
 serde = "1.0"
 yaml-rust = { package = "yaml-rust2", version = "0.8" }
