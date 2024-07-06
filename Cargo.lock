@@ -3598,38 +3598,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e1fc403891a21bcfb7c37834ba66a547a8f402146eba7265b5a6d88059c9ff2f"
 
 [[package]]
-name = "test-copy-yield"
-version = "0.1.0"
-dependencies = [
- "g3-io-ext",
- "tokio",
-]
-
-[[package]]
-name = "test-resolver"
-version = "0.1.0"
-dependencies = [
- "g3-resolver",
- "g3-stdlog",
- "g3-types",
- "log",
- "slog",
- "slog-scope",
- "slog-stdlog",
- "tokio",
-]
-
-[[package]]
-name = "test-tcp-relay"
-version = "0.1.0"
-dependencies = [
- "futures-util",
- "g3-io-ext",
- "once_cell",
- "tokio",
-]
-
-[[package]]
 name = "thiserror"
 version = "1.0.61"
 source = "registry+https://github.com/rust-lang/crates.io-index"

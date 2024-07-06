@@ -54,9 +54,6 @@ members = [
     "g3keymess",
     "g3keymess/proto",
     "g3keymess/utils/ctl",
-    "demo/test-tcp-relay",
-    "demo/test-resolver",
-    "demo/test-copy-yield",
 ]
 default-members = [
     "g3bench",
