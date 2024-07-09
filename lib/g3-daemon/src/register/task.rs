@@ -60,11 +60,13 @@ impl RegisterTask {
         let body = Value::Object(content).to_string();
         let data = format!(
             "POST {} HTTP/1.1\r\n\
+             Host: {}\r\n\
              Content-Type: application/json\r\n\
              Content-Length: {}\r\n\
              Connection: Keep-Alive\r\n\
              \r\n{body}",
             self.config.register_path,
+            self.config.upstream.host(),
             body.len()
         );
 
@@ -75,10 +77,12 @@ impl RegisterTask {
     pub async fn ping_until_end(&mut self) -> anyhow::Result<()> {
         let data = format!(
             "GET {} HTTP/1.1\r\n\
+             Host: {}\r\n\
              Content-Length: 0\r\n\
              Connection: Keep-Alive\r\n
              \r\n",
-            self.config.ping_path
+            self.config.ping_path,
+            self.config.upstream.host()
         );
 
         let mut interval = tokio::time::interval(self.config.ping_interval);
