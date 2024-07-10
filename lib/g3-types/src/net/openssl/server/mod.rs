@@ -33,6 +33,11 @@ use crate::net::AlpnProtocol;
 mod intercept;
 pub use intercept::{OpensslInterceptionServerConfig, OpensslInterceptionServerConfigBuilder};
 
+mod ticket_key;
+pub use ticket_key::OpensslTicketKey;
+
+mod ticketer;
+
 mod session;
 pub use session::{OpensslServerSessionCache, OpensslSessionIdContext};
 
