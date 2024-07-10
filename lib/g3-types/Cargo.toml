@@ -17,6 +17,7 @@ percent-encoding.workspace = true
 rand.workspace = true
 rustc-hash.workspace = true
 fnv.workspace = true
+ahash.workspace = true
 metrohash = "1.0"
 crc32fast = "1.4"
 smallvec.workspace = true
@@ -32,7 +33,6 @@ md-5 = { workspace = true, optional = true }
 sha-1 = { workspace = true, optional = true }
 blake3 = { workspace = true, optional = true }
 hex = { workspace = true, optional = true }
-ahash = { workspace = true, optional = true }
 ip_network = { workspace = true, optional = true }
 ip_network_table = { workspace = true, optional = true }
 once_cell = { workspace = true, optional = true }
@@ -59,14 +59,14 @@ brotli = { version = "6.0", optional = true , default-features = false, features
 default = []
 quic = []
 auth-crypt = ["dep:digest", "dep:md-5", "dep:sha-1", "dep:blake3", "dep:hex"]
-resolve = ["dep:ahash", "dep:radix_trie", "dep:fastrand"]
+resolve = ["dep:radix_trie", "dep:fastrand"]
 quinn = ["dep:quinn", "quic"]
-rustls = ["dep:rustls", "dep:ring", "dep:rustls-pki-types", "dep:webpki-roots", "dep:rustls-pemfile", "dep:rustls-native-certs", "dep:ahash", "dep:lru", "quinn?/rustls"]
-openssl = ["dep:openssl", "dep:ahash", "dep:lru", "dep:bytes"]
+rustls = ["dep:rustls", "dep:ring", "dep:rustls-pki-types", "dep:webpki-roots", "dep:rustls-pemfile", "dep:rustls-native-certs", "dep:lru", "quinn?/rustls"]
+openssl = ["dep:openssl", "dep:lru", "dep:bytes"]
 tongsuo = ["openssl", "openssl/tongsuo", "dep:brotli"]
 aws-lc = ["openssl", "openssl/aws-lc", "rustls?/aws-lc-rs", "dep:brotli"]
 boringssl = ["openssl", "openssl/boringssl", "dep:brotli"]
-acl-rule = ["resolve", "dep:ahash", "dep:ip_network", "dep:ip_network_table", "dep:once_cell", "dep:regex", "dep:radix_trie"]
+acl-rule = ["resolve", "dep:ip_network", "dep:ip_network_table", "dep:once_cell", "dep:regex", "dep:radix_trie"]
 http = ["dep:http", "dep:bytes", "dep:base64"]
-route = ["dep:ahash", "dep:radix_trie", "dep:indexmap", "resolve"]
+route = ["dep:radix_trie", "dep:indexmap", "resolve"]
 async-log = ["dep:flume", "dep:slog"]
