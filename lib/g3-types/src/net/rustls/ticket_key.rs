@@ -20,12 +20,12 @@ use anyhow::anyhow;
 use ring::aead;
 use ring::rand::{SecureRandom, SystemRandom};
 
-use crate::net::{RollingTicketKey, TicketKeyName, TICKET_KEY_LENGTH, TICKET_KEY_NAME_LENGTH};
+use crate::net::{RollingTicketKey, TicketKeyName, TICKET_AES_KEY_LENGTH, TICKET_KEY_NAME_LENGTH};
 
 pub struct RustlsTicketKey {
     name: TicketKeyName,
     lifetime: u32,
-    key: aead::LessSafeKey,
+    aead_key: aead::LessSafeKey,
 
     /// Tracks the largest ciphertext produced by `encrypt`, and
     /// uses it to early-reject `decrypt` queries that are too long.
@@ -39,6 +39,30 @@ pub struct RustlsTicketKey {
 }
 
 impl RustlsTicketKey {
+    pub fn new(name: &[u8], aes_key: &[u8], lifetime: u32) -> anyhow::Result<Self> {
+        if name.len() < TICKET_KEY_NAME_LENGTH {
+            return Err(anyhow!("too short ticket key name"));
+        }
+        if aes_key.len() < TICKET_AES_KEY_LENGTH {
+            return Err(anyhow!("too short ticket AES key"));
+        }
+
+        let mut key_name = [0u8; TICKET_KEY_NAME_LENGTH];
+        key_name.copy_from_slice(&name[..TICKET_KEY_NAME_LENGTH]);
+
+        let mut aes = [0u8; TICKET_AES_KEY_LENGTH];
+        aes.copy_from_slice(&aes_key[..TICKET_AES_KEY_LENGTH]);
+
+        let key = aead::UnboundKey::new(&aead::AES_256_GCM, &aes).unwrap();
+
+        Ok(RustlsTicketKey {
+            name: key_name.into(),
+            lifetime,
+            aead_key: aead::LessSafeKey::new(key),
+            maximum_ciphertext_len: AtomicUsize::new(0),
+        })
+    }
+
     /// Encrypt `message` and return the ciphertext.
     pub(super) fn encrypt(&self, message: &[u8]) -> Option<Vec<u8>> {
         // Random nonce, because a counter is a privacy leak.
@@ -57,13 +81,13 @@ impl RustlsTicketKey {
             TICKET_KEY_NAME_LENGTH
                 + nonce_buf.len()
                 + message.len()
-                + self.key.algorithm().tag_len(),
+                + self.aead_key.algorithm().tag_len(),
         );
         ciphertext.extend(self.name.as_ref());
         ciphertext.extend(nonce_buf);
         ciphertext.extend(message);
         let ciphertext = self
-            .key
+            .aead_key
             .seal_in_place_separate_tag(
                 nonce,
                 aad,
@@ -95,7 +119,7 @@ impl RustlsTicketKey {
         let mut out = Vec::from(ciphertext);
 
         let plain_len = self
-            .key
+            .aead_key
             .open_in_place(nonce, aead::Aad::from(alleged_key_name), &mut out)
             .ok()?
             .len();
@@ -114,13 +138,13 @@ fn try_split_at(slice: &[u8], mid: usize) -> Option<(&[u8], &[u8])> {
 }
 
 impl RollingTicketKey for RustlsTicketKey {
-    fn new(lifetime: u32) -> anyhow::Result<Self> {
-        let mut key = [0u8; TICKET_KEY_LENGTH];
+    fn new_random(lifetime: u32) -> anyhow::Result<Self> {
+        let mut key = [0u8; TICKET_AES_KEY_LENGTH];
         SystemRandom::new()
             .fill(&mut key)
             .map_err(|_| anyhow!("failed to generate random key"))?;
 
-        let key = aead::UnboundKey::new(&aead::AES_256_GCM, &key).unwrap();
+        let aes_key = aead::UnboundKey::new(&aead::AES_256_GCM, &key).unwrap();
 
         let mut key_name = [0u8; TICKET_KEY_NAME_LENGTH];
         SystemRandom::new()
@@ -130,7 +154,7 @@ impl RollingTicketKey for RustlsTicketKey {
         Ok(RustlsTicketKey {
             name: key_name.into(),
             lifetime,
-            key: aead::LessSafeKey::new(key),
+            aead_key: aead::LessSafeKey::new(aes_key),
             maximum_ciphertext_len: AtomicUsize::new(0),
         })
     }

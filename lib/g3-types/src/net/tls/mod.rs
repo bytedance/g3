@@ -30,4 +30,6 @@ mod ticket_name;
 pub use ticket_name::{TicketKeyName, TICKET_KEY_NAME_LENGTH};
 
 mod ticketer;
-pub use ticketer::{RollingTicketKey, RollingTicketer, TICKET_KEY_LENGTH};
+pub use ticketer::{
+    RollingTicketKey, RollingTicketer, TICKET_AES_KEY_LENGTH, TICKET_HMAC_KEY_LENGTH,
+};

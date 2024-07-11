@@ -21,10 +21,11 @@ use arc_swap::ArcSwap;
 
 use super::TicketKeyName;
 
-pub const TICKET_KEY_LENGTH: usize = 32;
+pub const TICKET_AES_KEY_LENGTH: usize = 32;
+pub const TICKET_HMAC_KEY_LENGTH: usize = 16;
 
 pub trait RollingTicketKey: Sized {
-    fn new(lifetime: u32) -> anyhow::Result<Self>;
+    fn new_random(lifetime: u32) -> anyhow::Result<Self>;
     fn name(&self) -> &TicketKeyName;
     fn lifetime(&self) -> u32;
 }
