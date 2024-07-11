@@ -134,6 +134,18 @@ Cloudflare Keyless Server的简单实现。
 测试环境的话，部分包已经编译上传到
 [cloudsmith](https://cloudsmith.io/~g3-oqh/repos/), 可参考该链接页面的说明进行安装。
 
+### 制作Docker镜像
+
+每个组件的*docker*文件夹下有可参考的Dockerfile(s)，命令如下：
+
+```shell
+# 在源码根目录可执行
+docker build -f <component>/docker/debian.Dockerfile . -t <component>:<tag>
+# 本地没有源码时，可用远程URL执行
+docker build -f <component>/docker/debian.Dockerfile github.com/bytedance/g3 -t <component>:<tag>
+# 如果已经制作了源码tar包，也可以把URL路径换成源码tar包路径
+```
+
 ### 静态链接
 
 参考 [Static Linking](doc/static-linking.md)。
