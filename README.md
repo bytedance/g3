@@ -141,6 +141,18 @@ It is recommended to build packages yourself if you want to install them in a pr
 For testing purpose, we have built and uploaded some packages to
 [cloudsmith](https://cloudsmith.io/~g3-oqh/repos/), you can find installation instructions there.
 
+### Build Docker Image
+
+You can find Dockerfile(s) under *docker* folder of each component. The build command will be like
+
+```shell
+# run this in the source root dir
+docker build -f <component>/docker/debian.Dockerfile . -t <component>:<tag>
+# build without the source code
+docker build -f <component>/docker/debian.Dockerfile github.com/bytedance/g3 -t <component>:<tag>
+# if you have a source tarball, you can also use the URL of that tarball
+```
+
 ### Static Linking
 
 See [Static Linking](doc/static-linking.md).
