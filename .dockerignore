@@ -5,3 +5,7 @@
 
 # Cargo
 target/
+
+#
+ansible
+doc
