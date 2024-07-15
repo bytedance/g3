@@ -306,9 +306,9 @@ checksum = "b048fb63fd8b5923fc5aa7b340d8e156aec7ec02f0c78fa8a6ddc2613f6f71de"
 
 [[package]]
 name = "blake3"
-version = "1.5.2"
+version = "1.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d08263faac5cde2a4d52b513dadb80846023aade56fcd8fc99ba73ba8050e92"
+checksum = "e9ec96fe9a81b5e365f9db71fe00edc4fe4ca2cc7dcb7861f0603012a7caa210"
 dependencies = [
  "arrayref",
  "arrayvec",
@@ -349,9 +349,9 @@ dependencies = [
 
 [[package]]
 name = "bssl-cmake-sys"
-version = "0.1.2406240"
+version = "0.1.2407150"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2cfd0c4f729cb6ac156957a58e0ecdd1094729aea89c22a4e425984dad93131"
+checksum = "40d401bc1f8ed375d62a505a12189c9bc6b5969ff449a1f9dd2109feb5f90eaa"
 dependencies = [
  "bindgen",
  "cc",
