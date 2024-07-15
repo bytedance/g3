@@ -48,7 +48,7 @@ struct QuitAction {}
 
 impl AsyncSignalAction for QuitAction {
     async fn run(&self) {
-        crate::control::UniqueController::abort_immediately().await
+        g3_daemon::control::quit::trigger_force_shutdown();
     }
 }
 
@@ -58,7 +58,7 @@ struct OfflineAction {}
 
 impl AsyncSignalAction for OfflineAction {
     async fn run(&self) {
-        crate::control::DaemonController::abort().await
+        g3_daemon::control::quit::start_graceful_shutdown().await;
     }
 }
 

@@ -137,6 +137,7 @@ where
                 Ok(String::new())
             }
             Some("set") => self.set(iter),
+            Some("pid") => Ok(std::process::id().to_string()),
             Some(k) => Err(anyhow!("unknown command {k}")),
             None => Ok(String::new()),
         };

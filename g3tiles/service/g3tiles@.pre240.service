@@ -8,7 +8,7 @@ Type=simple
 Environment="RUNTIME_DIRECTORY=/run/g3tiles"
 EnvironmentFile=-/etc/g3tiles/%i/env
 ExecStartPre=/bin/sh -c "[ -d $RUNTIME_DIRECTORY ] || mkdir $RUNTIME_DIRECTORY"
-ExecStartPre=/bin/sh -c "[ ! -e $RUNTIME_DIRECTORY/%i.sock ] || rm $RUNTIME_DIRECTORY/%i.sock"
+ExecStartPre=-/usr/bin/g3tiles-ctl --control-dir $RUNTIME_DIRECTORY -G %i offline
 ExecStart=/usr/bin/g3tiles -c /etc/g3tiles/%i/ --control-dir $RUNTIME_DIRECTORY -s -G %i
 ExecReload=/bin/kill -HUP $MAINPID
 ExecStop=/usr/bin/g3tiles-ctl --control-dir $RUNTIME_DIRECTORY -G %i -p $MAINPID offline

@@ -43,7 +43,31 @@ impl proc_control::Server for ProcControlImpl {
         mut results: proc_control::OfflineResults,
     ) -> Promise<(), capnp::Error> {
         Promise::from_future(async move {
-            let r = crate::control::bridge::offline().await;
+            g3_daemon::control::quit::start_graceful_shutdown().await;
+            set_operation_result(results.get().init_result(), Ok(()));
+            Ok(())
+        })
+    }
+
+    fn cancel_shutdown(
+        &mut self,
+        _params: proc_control::CancelShutdownParams,
+        mut results: proc_control::CancelShutdownResults,
+    ) -> Promise<(), capnp::Error> {
+        Promise::from_future(async move {
+            let r = g3_daemon::control::quit::cancel_graceful_shutdown().await;
+            set_operation_result(results.get().init_result(), r);
+            Ok(())
+        })
+    }
+
+    fn release_controller(
+        &mut self,
+        _params: proc_control::ReleaseControllerParams,
+        mut results: proc_control::ReleaseControllerResults,
+    ) -> Promise<(), capnp::Error> {
+        Promise::from_future(async move {
+            let r = g3_daemon::control::quit::release_controller().await;
             set_operation_result(results.get().init_result(), r);
             Ok(())
         })

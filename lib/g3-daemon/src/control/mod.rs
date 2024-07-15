@@ -20,6 +20,8 @@ use tokio::io::{AsyncBufRead, AsyncWrite};
 mod local;
 pub use local::LocalController;
 
+pub mod quit;
+
 pub mod capnp;
 
 pub mod config;

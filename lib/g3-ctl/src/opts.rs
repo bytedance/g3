@@ -18,6 +18,7 @@ use std::io;
 use std::path::PathBuf;
 
 use anyhow::anyhow;
+use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
 use clap::{value_parser, Arg, ArgMatches, Command, ValueHint};
 use clap_complete::Shell;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
@@ -81,8 +82,31 @@ impl DaemonCtlArgs {
         true
     }
 
+    pub async fn connect_rpc<T>(
+        &self,
+        daemon_name: &'static str,
+    ) -> anyhow::Result<(RpcSystem<rpc_twoparty_capnp::Side>, T)>
+    where
+        T: capnp::capability::FromClientHook,
+    {
+        let stream = self.connect_to_daemon(daemon_name).await?;
+
+        let (reader, writer) = tokio::io::split(stream);
+        let reader = tokio_util::compat::TokioAsyncReadCompatExt::compat(reader);
+        let writer = tokio_util::compat::TokioAsyncWriteCompatExt::compat_write(writer);
+        let rpc_network = Box::new(twoparty::VatNetwork::new(
+            reader,
+            writer,
+            rpc_twoparty_capnp::Side::Client,
+            Default::default(),
+        ));
+        let mut rpc_system = RpcSystem::new(rpc_network, None);
+        let client: T = rpc_system.bootstrap(rpc_twoparty_capnp::Side::Server);
+        Ok((rpc_system, client))
+    }
+
     #[cfg(unix)]
-    pub async fn connect_to_daemon(
+    async fn connect_to_daemon(
         &self,
         daemon_name: &'static str,
     ) -> anyhow::Result<impl AsyncRead + AsyncWrite> {
@@ -115,7 +139,7 @@ impl DaemonCtlArgs {
     }
 
     #[cfg(windows)]
-    pub async fn connect_to_daemon(
+    async fn connect_to_daemon(
         &self,
         daemon_name: &'static str,
     ) -> anyhow::Result<impl AsyncRead + AsyncWrite> {
