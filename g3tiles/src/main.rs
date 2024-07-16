@@ -40,11 +40,18 @@ fn main() -> anyhow::Result<()> {
     };
 
     // set up process logger early, only proc args is used inside
-    let _log_guard = g3_daemon::log::process::setup(&proc_args.daemon_config)
-        .context("failed to setup logger")?;
+    let _log_guard = g3_daemon::log::process::setup(&proc_args.daemon_config);
+    if proc_args.daemon_config.need_daemon_controller() {
+        g3tiles::control::upgrade::connect_to_old_daemon();
+    }
 
-    let config_file = g3tiles::config::load()
-        .context(format!("failed to load config, opts: {:?}", &proc_args))?;
+    let config_file = match g3tiles::config::load() {
+        Ok(c) => c,
+        Err(e) => {
+            g3tiles::control::upgrade::cancel_old_shutdown();
+            return Err(e.context(format!("failed to load config, opts: {:?}", &proc_args)));
+        }
+    };
     debug!("loaded config from {}", config_file.display());
 
     if proc_args.daemon_config.test_config {
@@ -96,30 +103,25 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
 
         let unique_ctl = g3tiles::control::UniqueController::start()
             .context("failed to start unique controller")?;
-
         if args.daemon_config.need_daemon_controller() {
+            g3tiles::control::upgrade::release_old_controller().await;
             let daemon_ctl = g3tiles::control::DaemonController::start()
                 .context("failed to start daemon controller")?;
             tokio::spawn(async move {
                 daemon_ctl.await;
             });
         }
+        g3tiles::control::QuitActor::spawn_run();
 
         g3tiles::signal::register().context("failed to setup signal handler")?;
 
-        g3tiles::discover::load_all()
-            .await
-            .context("failed to load all discovers")?;
-        g3tiles::backend::load_all()
-            .await
-            .context("failed to load all connectors")?;
-        let _workers_guard = g3_daemon::runtime::worker::spawn_workers()
-            .await
-            .context("failed to spawn workers")?;
-        g3tiles::serve::spawn_offline_clean();
-        g3tiles::serve::spawn_all()
-            .await
-            .context("failed to spawn all servers")?;
+        match load_and_spawn().await {
+            Ok(_) => {}
+            Err(e) => {
+                g3tiles::control::upgrade::cancel_old_shutdown();
+                return Err(e);
+            }
+        }
 
         unique_ctl.await;
 
@@ -128,4 +130,21 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
 
         ret
     })
+}
+
+async fn load_and_spawn() -> anyhow::Result<()> {
+    g3tiles::discover::load_all()
+        .await
+        .context("failed to load all discovers")?;
+    g3tiles::backend::load_all()
+        .await
+        .context("failed to load all connectors")?;
+    let _workers_guard = g3_daemon::runtime::worker::spawn_workers()
+        .await
+        .context("failed to spawn workers")?;
+    g3tiles::serve::spawn_offline_clean();
+    g3tiles::serve::spawn_all()
+        .await
+        .context("failed to spawn all servers")?;
+    Ok(())
 }

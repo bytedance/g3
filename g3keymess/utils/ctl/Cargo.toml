@@ -11,9 +11,7 @@ anyhow.workspace = true
 thiserror.workspace = true
 clap.workspace = true
 tokio = { workspace = true, features = ["rt", "macros", "io-util", "fs"] }
-tokio-util = { workspace = true, features = ["compat"] }
 futures-util.workspace = true
-capnp-rpc.workspace = true
 capnp.workspace = true
 hex.workspace = true
 openssl.workspace = true

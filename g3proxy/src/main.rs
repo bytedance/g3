@@ -40,11 +40,18 @@ fn main() -> anyhow::Result<()> {
     };
 
     // set up process logger early, only proc args is used inside
-    let _log_guard = g3_daemon::log::process::setup(&proc_args.daemon_config)
-        .context("failed to setup logger")?;
+    let _log_guard = g3_daemon::log::process::setup(&proc_args.daemon_config);
+    if proc_args.daemon_config.need_daemon_controller() {
+        g3proxy::control::upgrade::connect_to_old_daemon();
+    }
 
-    let config_file = g3proxy::config::load()
-        .context(format!("failed to load config, opts: {:?}", &proc_args))?;
+    let config_file = match g3proxy::config::load() {
+        Ok(c) => c,
+        Err(e) => {
+            g3proxy::control::upgrade::cancel_old_shutdown();
+            return Err(e.context(format!("failed to load config, opts: {:?}", &proc_args)));
+        }
+    };
     debug!("loaded config from {}", config_file.display());
 
     if proc_args.daemon_config.test_config {
@@ -111,35 +118,25 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
 
         let unique_ctl = g3proxy::control::UniqueController::start()
             .context("failed to start unique controller")?;
-
         if args.daemon_config.need_daemon_controller() {
+            g3proxy::control::upgrade::release_old_controller().await;
             let daemon_ctl = g3proxy::control::DaemonController::start()
                 .context("failed to start daemon controller")?;
             tokio::spawn(async move {
                 daemon_ctl.await;
             });
         }
+        g3proxy::control::QuitActor::spawn_run();
 
         g3proxy::signal::register().context("failed to setup signal handler")?;
-        g3proxy::resolve::spawn_all()
-            .await
-            .context("failed to spawn all resolvers")?;
-        g3proxy::escape::load_all()
-            .await
-            .context("failed to load all escapers")?;
-        g3proxy::auth::load_all()
-            .await
-            .context("failed to load all user groups")?;
-        g3proxy::audit::load_all()
-            .await
-            .context("failed to load all auditors")?;
-        let _workers_guard = g3_daemon::runtime::worker::spawn_workers()
-            .await
-            .context("failed to spawn workers")?;
-        g3proxy::serve::spawn_offline_clean();
-        g3proxy::serve::spawn_all()
-            .await
-            .context("failed to spawn all servers")?;
+
+        match load_and_spawn().await {
+            Ok(_) => {}
+            Err(e) => {
+                g3proxy::control::upgrade::cancel_old_shutdown();
+                return Err(e);
+            }
+        }
 
         unique_ctl.await;
 
@@ -149,5 +146,28 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
         ret
     })?;
 
+    Ok(())
+}
+
+async fn load_and_spawn() -> anyhow::Result<()> {
+    g3proxy::resolve::spawn_all()
+        .await
+        .context("failed to spawn all resolvers")?;
+    g3proxy::escape::load_all()
+        .await
+        .context("failed to load all escapers")?;
+    g3proxy::auth::load_all()
+        .await
+        .context("failed to load all user groups")?;
+    g3proxy::audit::load_all()
+        .await
+        .context("failed to load all auditors")?;
+    let _workers_guard = g3_daemon::runtime::worker::spawn_workers()
+        .await
+        .context("failed to spawn workers")?;
+    g3proxy::serve::spawn_offline_clean();
+    g3proxy::serve::spawn_all()
+        .await
+        .context("failed to spawn all servers")?;
     Ok(())
 }

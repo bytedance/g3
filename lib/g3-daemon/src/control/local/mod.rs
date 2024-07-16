@@ -18,9 +18,12 @@ use std::future::Future;
 use std::sync::Mutex;
 
 use anyhow::anyhow;
-use futures_util::future::{AbortHandle, Abortable};
+use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
 use log::{debug, warn};
-use tokio::io::{AsyncRead, AsyncWrite, BufReader};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, BufReader};
+use tokio::sync::oneshot;
+
+use g3_io_ext::LimitedWriteExt;
 
 use super::{CtlProtoCtx, CtlProtoType, LocalControllerConfig};
 
@@ -34,8 +37,12 @@ mod windows;
 #[cfg(windows)]
 use windows::LocalControllerImpl;
 
-static UNIQUE_CONTROLLER_ABORT_HANDLER: Mutex<Option<AbortHandle>> = Mutex::new(None);
-static DAEMON_CONTROLLER_ABORT_HANDLER: Mutex<Option<AbortHandle>> = Mutex::new(None);
+static UNIQUE_CONTROLLER_ABORT_CHANNEL: Mutex<
+    Option<oneshot::Sender<oneshot::Sender<LocalControllerImpl>>>,
+> = Mutex::new(None);
+static DAEMON_CONTROLLER_ABORT_CHANNEL: Mutex<
+    Option<oneshot::Sender<oneshot::Sender<LocalControllerImpl>>>,
+> = Mutex::new(None);
 
 fn ctl_handle<R, W>(r: R, w: W)
 where
@@ -60,23 +67,29 @@ pub struct LocalController {
 }
 
 impl LocalController {
-    fn start(self, mutex: &Mutex<Option<AbortHandle>>) -> anyhow::Result<impl Future> {
-        let mut abort_handler_container = mutex.lock().unwrap();
-        if abort_handler_container.is_some() {
+    fn start(
+        self,
+        mutex: &Mutex<Option<oneshot::Sender<oneshot::Sender<LocalControllerImpl>>>>,
+    ) -> anyhow::Result<impl Future> {
+        let mut abort_channel = mutex.lock().unwrap();
+        if abort_channel.is_some() {
             return Err(anyhow!("controller already existed"));
         }
 
-        let (abort_handle, abort_registration) = AbortHandle::new_pair();
-        let future = Abortable::new(self.inner.into_running(), abort_registration);
-        *abort_handler_container = Some(abort_handle);
-
-        Ok(future)
+        let (sender, receiver) = oneshot::channel();
+        *abort_channel = Some(sender);
+        let fut = async move { self.inner.into_running(receiver).await };
+        Ok(fut)
     }
 
-    fn abort(mutex: &Mutex<Option<AbortHandle>>) {
-        let mut abort_handler_container = mutex.lock().unwrap();
-        if let Some(abort_handle) = abort_handler_container.take() {
-            abort_handle.abort();
+    async fn abort(mutex: &Mutex<Option<oneshot::Sender<oneshot::Sender<LocalControllerImpl>>>>) {
+        let (sender, receiver) = oneshot::channel();
+
+        let abort_channel = mutex.lock().unwrap().take();
+        if let Some(quit_sender) = abort_channel {
+            if quit_sender.send(sender).is_ok() {
+                let _ = receiver.await;
+            }
         }
     }
 
@@ -90,7 +103,7 @@ impl LocalController {
     }
 
     pub fn start_as_unique(self) -> anyhow::Result<impl Future> {
-        let fut = self.start(&UNIQUE_CONTROLLER_ABORT_HANDLER)?;
+        let fut = self.start(&UNIQUE_CONTROLLER_ABORT_CHANNEL)?;
         debug!("unique controller started");
         Ok(fut)
     }
@@ -99,8 +112,8 @@ impl LocalController {
         LocalController::create_unique(daemon_name, daemon_group)?.start_as_unique()
     }
 
-    pub fn abort_unique() {
-        LocalController::abort(&UNIQUE_CONTROLLER_ABORT_HANDLER);
+    pub async fn abort_unique() {
+        LocalController::abort(&UNIQUE_CONTROLLER_ABORT_CHANNEL).await;
     }
 
     pub fn create_daemon(daemon_name: &str, daemon_group: &str) -> anyhow::Result<Self> {
@@ -109,7 +122,7 @@ impl LocalController {
     }
 
     pub fn start_as_daemon(self) -> anyhow::Result<impl Future> {
-        let fut = self.start(&DAEMON_CONTROLLER_ABORT_HANDLER)?;
+        let fut = self.start(&DAEMON_CONTROLLER_ABORT_CHANNEL)?;
         debug!("daemon controller started");
         Ok(fut)
     }
@@ -118,7 +131,63 @@ impl LocalController {
         LocalController::create_daemon(daemon_name, daemon_group)?.start_as_daemon()
     }
 
-    pub fn abort_daemon() {
-        LocalController::abort(&DAEMON_CONTROLLER_ABORT_HANDLER);
+    pub async fn abort_daemon() {
+        LocalController::abort(&DAEMON_CONTROLLER_ABORT_CHANNEL).await;
+    }
+
+    pub async fn send_release_controller_command(
+        daemon_name: &str,
+        daemon_group: &str,
+    ) -> anyhow::Result<()> {
+        Self::send_once_command(daemon_name, daemon_group, "release-controller\n").await
+    }
+
+    pub async fn send_cancel_shutdown_command(
+        daemon_name: &str,
+        daemon_group: &str,
+    ) -> anyhow::Result<()> {
+        Self::send_once_command(daemon_name, daemon_group, "cancel-shutdown\n").await
+    }
+
+    async fn send_once_command(
+        daemon_name: &str,
+        daemon_group: &str,
+        command: &str,
+    ) -> anyhow::Result<()> {
+        let mut stream = LocalControllerImpl::connect_to_daemon(daemon_name, daemon_group).await?;
+        stream
+            .write_all_flush(command.as_bytes())
+            .await
+            .map_err(|e| anyhow!("failed to send {} command: {e}", command.trim_end()))?;
+        let mut result = String::with_capacity(1);
+        stream.read_to_string(&mut result).await?;
+        Ok(())
+    }
+
+    pub async fn connect_rpc<T>(
+        daemon_name: &str,
+        daemon_group: &str,
+    ) -> anyhow::Result<(RpcSystem<rpc_twoparty_capnp::Side>, T)>
+    where
+        T: capnp::capability::FromClientHook,
+    {
+        let mut stream = LocalControllerImpl::connect_to_daemon(daemon_name, daemon_group).await?;
+        stream
+            .write_all_flush(b"capnp\n")
+            .await
+            .map_err(|e| anyhow!("failed to send request: {e}"))?;
+
+        let (reader, writer) = tokio::io::split(stream);
+        let reader = tokio_util::compat::TokioAsyncReadCompatExt::compat(reader);
+        let writer = tokio_util::compat::TokioAsyncWriteCompatExt::compat_write(writer);
+        let rpc_network = Box::new(twoparty::VatNetwork::new(
+            reader,
+            writer,
+            rpc_twoparty_capnp::Side::Client,
+            Default::default(),
+        ));
+        let mut rpc_system = RpcSystem::new(rpc_network, None);
+        let client: T = rpc_system.bootstrap(rpc_twoparty_capnp::Side::Server);
+        Ok((rpc_system, client))
     }
 }

@@ -1046,11 +1046,13 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "capnp",
+ "capnp-rpc",
  "clap",
  "clap_complete",
  "hex",
  "thiserror",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
@@ -1791,7 +1793,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "capnp",
- "capnp-rpc",
  "clap",
  "futures-util",
  "g3-ctl",
@@ -1800,7 +1801,6 @@ dependencies = [
  "hex",
  "thiserror",
  "tokio",
- "tokio-util",
  "variant-ssl",
 ]
 
@@ -1917,7 +1917,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "capnp",
- "capnp-rpc",
  "clap",
  "futures-util",
  "g3-ctl",
@@ -1926,7 +1925,6 @@ dependencies = [
  "serde_json",
  "thiserror",
  "tokio",
- "tokio-util",
 ]
 
 [[package]]
@@ -2017,14 +2015,12 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "capnp",
- "capnp-rpc",
  "clap",
  "futures-util",
  "g3-ctl",
  "g3tiles-proto",
  "thiserror",
  "tokio",
- "tokio-util",
 ]
 
 [[package]]

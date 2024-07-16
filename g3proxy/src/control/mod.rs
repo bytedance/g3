@@ -19,10 +19,16 @@ use std::future::Future;
 use tokio::sync::Mutex;
 
 mod bridge;
-pub mod capnp;
+
+mod quit;
+pub use quit::QuitActor;
+
+pub mod upgrade;
 
 mod local;
 pub use local::{DaemonController, UniqueController};
+
+pub mod capnp;
 
 static IO_MUTEX: Mutex<Option<Mutex<()>>> = Mutex::const_new(Some(Mutex::const_new(())));
 

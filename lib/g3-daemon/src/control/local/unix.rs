@@ -20,7 +20,9 @@ use std::path::{Path, PathBuf};
 
 use anyhow::anyhow;
 use log::{debug, warn};
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::UnixListener;
+use tokio::sync::oneshot;
 
 pub(super) struct LocalControllerImpl {
     listen_path: PathBuf,
@@ -44,6 +46,12 @@ impl LocalControllerImpl {
         let socket_name = format!("{daemon_group}_{}.sock", std::process::id());
         let mut listen_path = crate::opts::control_dir();
         listen_path.push(Path::new(&socket_name));
+        if listen_path.exists() {
+            return Err(anyhow!(
+                "control socket path {} already exists",
+                listen_path.display()
+            ));
+        }
         check_then_finalize_path(&listen_path)?;
 
         debug!("setting up unique controller {}", listen_path.display());
@@ -60,6 +68,10 @@ impl LocalControllerImpl {
         };
         let mut listen_path = crate::opts::control_dir();
         listen_path.push(Path::new(&socket_name));
+        if listen_path.exists() {
+            std::fs::remove_file(&listen_path)
+                .map_err(|e| anyhow!("failed to remove old {}: {e}", listen_path.display()))?;
+        }
         check_then_finalize_path(&listen_path)?;
 
         debug!("setting up daemon controller {}", listen_path.display());
@@ -68,35 +80,67 @@ impl LocalControllerImpl {
         Ok(controller)
     }
 
-    pub(super) async fn into_running(self) {
-        loop {
-            let result = self.listener.accept().await;
-            match result {
-                Ok((stream, addr)) => {
-                    if let Ok(ucred) = stream.peer_cred() {
-                        if let Some(addr) = addr.as_pathname() {
-                            debug!(
-                                "new ctl client from {} uid {} pid {}",
-                                addr.display(),
-                                ucred.uid(),
-                                ucred.gid(),
-                            );
-                        } else {
-                            debug!(
-                                "new ctl client from uid {} pid {}",
-                                ucred.uid(),
-                                ucred.gid()
-                            );
-                        }
-                    } else {
-                        debug!("new ctl local control client");
-                    }
+    pub(super) async fn connect_to_daemon(
+        _daemon_name: &str,
+        daemon_group: &str,
+    ) -> anyhow::Result<impl AsyncRead + AsyncWrite> {
+        let socket_name = format!("{daemon_group}.sock");
+        let mut socket_path = crate::opts::control_dir();
+        socket_path.push(Path::new(&socket_name));
 
-                    let (r, w) = stream.into_split();
-                    super::ctl_handle(r, w);
+        tokio::net::UnixStream::connect(&socket_path)
+            .await
+            .map_err(|e| {
+                anyhow!(
+                    "failed to connect to control socket {}: {e:?}",
+                    socket_path.display()
+                )
+            })
+    }
+
+    pub(super) async fn into_running(
+        self,
+        mut quit_receiver: oneshot::Receiver<oneshot::Sender<Self>>,
+    ) {
+        loop {
+            tokio::select! {
+                biased;
+
+                r = self.listener.accept() => {
+                    match r {
+                        Ok((stream, addr)) => {
+                            if let Ok(ucred) = stream.peer_cred() {
+                                if let Some(addr) = addr.as_pathname() {
+                                    debug!(
+                                        "new ctl client from {} uid {} pid {}",
+                                        addr.display(),
+                                        ucred.uid(),
+                                        ucred.gid(),
+                                    );
+                                } else {
+                                    debug!(
+                                        "new ctl client from uid {} pid {}",
+                                        ucred.uid(),
+                                        ucred.gid()
+                                    );
+                                }
+                            } else {
+                                debug!("new ctl local control client");
+                            }
+
+                            let (r, w) = stream.into_split();
+                            super::ctl_handle(r, w);
+                        }
+                        Err(e) => {
+                            warn!("controller {} accept: {e}", self.listen_path.display());
+                            break;
+                        }
+                    }
                 }
-                Err(e) => {
-                    warn!("controller {} accept: {e}", self.listen_path.display());
+                r = &mut quit_receiver => {
+                    if let Ok(v) = r {
+                        let _ = v.send(self);
+                    }
                     break;
                 }
             }
@@ -114,12 +158,6 @@ impl Drop for LocalControllerImpl {
 }
 
 fn check_then_finalize_path(path: &Path) -> anyhow::Result<()> {
-    if path.exists() {
-        return Err(anyhow!(
-            "control socket path {} already exists",
-            path.display()
-        ));
-    }
     if !path.has_root() {
         return Err(anyhow!(
             "control socket path {} is not absolute",

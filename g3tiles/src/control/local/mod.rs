@@ -29,7 +29,7 @@ impl UniqueController {
     }
 
     async fn abort(force: bool) {
-        // make sure we always shutdown protected io
+        // make sure we always shut down protected io
         // crate::control::disable_protected_io().await;
 
         debug!("stopping all servers");
@@ -49,14 +49,14 @@ impl UniqueController {
         }
 
         debug!("aborting unique controller");
-        LocalController::abort_unique();
+        LocalController::abort_unique().await;
     }
 
-    pub async fn abort_immediately() {
+    pub(super) async fn abort_immediately() {
         UniqueController::abort(true).await
     }
 
-    pub async fn abort_gracefully() {
+    pub(super) async fn abort_gracefully() {
         UniqueController::abort(false).await
     }
 }
@@ -66,21 +66,11 @@ impl DaemonController {
         LocalController::start_daemon(crate::build::PKG_NAME, crate::opts::daemon_group())
     }
 
-    pub async fn abort() {
+    pub(super) async fn abort() {
         // shutdown protected io before going to offline
         // crate::control::disable_protected_io().await;
 
         debug!("aborting daemon controller");
-        LocalController::abort_daemon();
-
-        tokio::spawn(async {
-            let delay = g3_daemon::runtime::config::get_server_offline_delay();
-            if !delay.is_zero() {
-                debug!("will stop all servers after {delay:?}");
-                tokio::time::sleep(delay).await;
-            }
-
-            UniqueController::abort_gracefully().await
-        });
+        LocalController::abort_daemon().await;
     }
 }

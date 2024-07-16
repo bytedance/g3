@@ -15,7 +15,6 @@
  */
 
 use anyhow::anyhow;
-use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
 use clap::Command;
 
 use g3_ctl::{CommandError, DaemonCtlArgs, DaemonCtlArgsExt};
@@ -35,6 +34,7 @@ fn build_cli_args() -> Command {
         .append_daemon_ctl_args()
         .subcommand(proc::commands::version())
         .subcommand(proc::commands::offline())
+        .subcommand(proc::commands::cancel_shutdown())
         .subcommand(proc::commands::force_quit())
         .subcommand(proc::commands::force_quit_all())
         .subcommand(proc::commands::list())
@@ -58,19 +58,9 @@ async fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let stream = ctl_opts.connect_to_daemon("g3proxy").await?;
-
-    let (reader, writer) = tokio::io::split(stream);
-    let reader = tokio_util::compat::TokioAsyncReadCompatExt::compat(reader);
-    let writer = tokio_util::compat::TokioAsyncWriteCompatExt::compat_write(writer);
-    let rpc_network = Box::new(twoparty::VatNetwork::new(
-        reader,
-        writer,
-        rpc_twoparty_capnp::Side::Client,
-        Default::default(),
-    ));
-    let mut rpc_system = RpcSystem::new(rpc_network, None);
-    let proc_control: proc_control::Client = rpc_system.bootstrap(rpc_twoparty_capnp::Side::Server);
+    let (rpc_system, proc_control) = ctl_opts
+        .connect_rpc::<proc_control::Client>("g3proxy")
+        .await?;
 
     tokio::task::LocalSet::new()
         .run_until(async move {
@@ -84,6 +74,7 @@ async fn main() -> anyhow::Result<()> {
             match subcommand {
                 proc::COMMAND_VERSION => proc::version(&proc_control).await,
                 proc::COMMAND_OFFLINE => proc::offline(&proc_control).await,
+                proc::COMMAND_CANCEL_SHUTDOWN => proc::cancel_shutdown(&proc_control).await,
                 proc::COMMAND_FORCE_QUIT => proc::force_quit(&proc_control, args).await,
                 proc::COMMAND_FORCE_QUIT_ALL => proc::force_quit_all(&proc_control).await,
                 proc::COMMAND_LIST => proc::list(&proc_control, args).await,

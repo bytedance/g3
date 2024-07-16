@@ -27,8 +27,7 @@ fn main() -> anyhow::Result<()> {
     };
 
     // set up process logger early, only proc args is used inside
-    let _log_guard = g3_daemon::log::process::setup(&proc_args.daemon_config)
-        .context("failed to setup logger")?;
+    let _log_guard = g3_daemon::log::process::setup(&proc_args.daemon_config);
 
     g3_daemon::runtime::config::set_default_thread_number(0); // default to use current thread
     let config_file = g3iploc::config::load()
