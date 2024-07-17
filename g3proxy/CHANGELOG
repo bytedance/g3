@@ -1,4 +1,12 @@
 
+v1.9.4:
+ - BUG FIX: fix ALPN filter in tls interception
+ - BUG FIX: update to tokio 1.38.1
+ - Feature: allow to block IMAP connection
+ - Feature: allow to disable session ticket and session cache in TLS server config
+ - Feature: use aw-ls as rustls provider when build with vendored-aws-lc feature
+ - Optimization: try quick TCP ACK after accept handshake for resumed TLS sessions
+
 v1.9.3:
  - BUG FIX: fix deb package install rule
  - BUG FIX: fix match rules in route_geoip escaper
