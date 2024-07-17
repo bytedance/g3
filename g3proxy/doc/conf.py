@@ -9,7 +9,7 @@
 project = 'g3proxy'
 copyright = '2024, Zhang Jingqiang'
 author = 'Zhang Jingqiang'
-release = '1.9.4'
+release = '1.9.5'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

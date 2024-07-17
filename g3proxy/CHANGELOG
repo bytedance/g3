@@ -1,4 +1,7 @@
 
+v1.9.5:
+ - BUG FIX: close the old process when hot restart
+
 v1.9.4:
  - BUG FIX: fix ALPN filter in tls interception
  - BUG FIX: update to tokio 1.38.1
