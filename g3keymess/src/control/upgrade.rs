@@ -32,6 +32,7 @@ static THREAD_HANDLE: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
 enum Msg {
     CancelShutdown,
     ReleaseController(oneshot::Sender<()>),
+    ConfirmShutdown,
 }
 
 pub fn cancel_old_shutdown() {
@@ -62,7 +63,7 @@ pub async fn release_old_controller() {
 pub fn finish() {
     let msg_channel = MSG_CHANNEL.lock().unwrap().take();
     if let Some(sender) = msg_channel {
-        drop(sender);
+        let _ = sender.try_send(Msg::ConfirmShutdown);
         let handle = THREAD_HANDLE.lock().unwrap().take();
         if let Some(handle) = handle {
             tokio::task::spawn_blocking(move || {
@@ -117,6 +118,11 @@ async fn connect_run(mut msg_receiver: mpsc::Receiver<Msg>) -> anyhow::Result<()
                         let rsp = req.send().promise.await?;
                         check_operation_result(rsp.get()?.get_result()?)?;
                         let _ = finish_sender.send(());
+                    }
+                    Msg::ConfirmShutdown => {
+                        let req = proc_control.offline_request();
+                        let rsp = req.send().promise.await?;
+                        return check_operation_result(rsp.get()?.get_result()?);
                     }
                 }
             }

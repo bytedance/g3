@@ -28,11 +28,11 @@ impl QuitActor {
 }
 
 impl QuitAction for QuitActor {
-    async fn release_controller(&self) {
+    async fn do_release_controller(&self) {
         DaemonController::abort().await;
     }
 
-    fn resume_controller(&self) -> anyhow::Result<()> {
+    fn do_resume_controller(&self) -> anyhow::Result<()> {
         let daemon_ctl = DaemonController::start()?;
         tokio::spawn(async move {
             daemon_ctl.await;
