@@ -116,7 +116,7 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
         g3tiles::signal::register().context("failed to setup signal handler")?;
 
         match load_and_spawn().await {
-            Ok(_) => {}
+            Ok(_) => g3tiles::control::upgrade::finish(),
             Err(e) => {
                 g3tiles::control::upgrade::cancel_old_shutdown();
                 return Err(e);

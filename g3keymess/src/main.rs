@@ -132,7 +132,7 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
         g3keymess::signal::register().context("failed to setup signal handler")?;
 
         match load_and_spawn(unique_ctl_path).await {
-            Ok(_) => {}
+            Ok(_) => g3keymess::control::upgrade::finish(),
             Err(e) => {
                 g3keymess::control::upgrade::cancel_old_shutdown();
                 return Err(e);
