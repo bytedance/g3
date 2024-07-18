@@ -8,7 +8,6 @@ Type=simple
 RuntimeDirectory=g3proxy
 RuntimeDirectoryPreserve=yes
 EnvironmentFile=-/etc/g3proxy/%i/env
-ExecStartPre=-/usr/bin/g3proxy-ctl --control-dir $RUNTIME_DIRECTORY -G %i offline
 ExecStart=/usr/bin/g3proxy -c /etc/g3proxy/%i/ --control-dir $RUNTIME_DIRECTORY -s -G %i
 ExecReload=/bin/kill -HUP $MAINPID
 ExecStop=/usr/bin/g3proxy-ctl --control-dir $RUNTIME_DIRECTORY -G %i -p $MAINPID offline

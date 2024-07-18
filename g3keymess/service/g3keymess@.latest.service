@@ -8,7 +8,6 @@ Type=simple
 RuntimeDirectory=g3keymess
 RuntimeDirectoryPreserve=yes
 EnvironmentFile=-/etc/g3keymess/%i/env
-ExecStartPre=-/usr/bin/g3keymess-ctl --control-dir $RUNTIME_DIRECTORY -G %i offline
 ExecStart=/usr/bin/g3keymess -c /etc/g3keymess/%i/ --control-dir $RUNTIME_DIRECTORY -s -G %i
 ExecReload=/bin/kill -HUP $MAINPID
 ExecStop=-/usr/bin/g3keymess-ctl --control-dir $RUNTIME_DIRECTORY -G %i -p $MAINPID offline
