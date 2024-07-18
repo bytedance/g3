@@ -66,15 +66,18 @@ pub fn trigger_force_shutdown() {
     *channel = None;
 }
 
-pub trait QuitAction: Sized + Send {
+pub trait QuitAction: Default {
     fn do_release_controller(&self) -> impl Future<Output = ()> + Send;
     fn do_resume_controller(&self) -> anyhow::Result<()>;
     fn do_graceful_shutdown(&self) -> impl Future<Output = ()> + Send;
     fn do_force_shutdown(&self) -> impl Future<Output = ()> + Send;
 
-    #[allow(async_fn_in_trait)]
-    async fn into_running(self, graceful_wait: Duration) {
-        QuitLoop::new(self, graceful_wait).run().await
+    fn tokio_spawn_run()
+    where
+        Self: Send + Sync + 'static,
+    {
+        let actor = Self::default();
+        tokio::spawn(QuitLoop::new(actor).run());
     }
 }
 
@@ -86,13 +89,13 @@ struct QuitLoop<T: QuitAction> {
 }
 
 impl<T: QuitAction> QuitLoop<T> {
-    fn new(action: T, graceful_wait: Duration) -> Self {
+    fn new(action: T) -> Self {
         let (msg_sender, msg_receiver) = mpsc::channel(4);
         set_daemon_quit_channel(msg_sender);
 
         QuitLoop {
             action,
-            graceful_wait,
+            graceful_wait: crate::runtime::config::get_server_offline_delay(),
             controller_released: false,
             msg_receiver,
         }

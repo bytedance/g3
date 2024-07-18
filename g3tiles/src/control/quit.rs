@@ -18,14 +18,8 @@ use g3_daemon::control::quit::QuitAction;
 
 use super::local::{DaemonController, UniqueController};
 
+#[derive(Default)]
 pub struct QuitActor {}
-
-impl QuitActor {
-    pub fn spawn_run() {
-        let actor = QuitActor {};
-        tokio::spawn(actor.into_running(g3_daemon::runtime::config::get_server_offline_delay()));
-    }
-}
 
 impl QuitAction for QuitActor {
     async fn do_release_controller(&self) {

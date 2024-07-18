@@ -23,7 +23,8 @@ mod bridge;
 mod quit;
 pub use quit::QuitActor;
 
-pub mod upgrade;
+mod upgrade;
+pub use upgrade::UpgradeActor;
 
 mod local;
 pub use local::{DaemonController, UniqueController};

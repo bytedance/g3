@@ -14,122 +14,48 @@
  * limitations under the License.
  */
 
-use std::sync::Mutex;
-use std::thread::JoinHandle;
+use g3_daemon::control::upgrade::UpgradeAction;
 
 use anyhow::anyhow;
-use log::warn;
-use tokio::sync::{mpsc, oneshot};
+use capnp_rpc::rpc_twoparty_capnp::Side;
+use capnp_rpc::RpcSystem;
 
 use g3proxy_proto::proc_capnp::proc_control;
 use g3proxy_proto::types_capnp::operation_result;
 
 use g3_daemon::control::LocalController;
 
-static MSG_CHANNEL: Mutex<Option<mpsc::Sender<Msg>>> = Mutex::new(None);
-static THREAD_HANDLE: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
-
-enum Msg {
-    CancelShutdown,
-    ReleaseController(oneshot::Sender<()>),
-    ConfirmShutdown,
+pub struct UpgradeActor {
+    proc_control: proc_control::Client,
 }
 
-pub fn cancel_old_shutdown() {
-    let msg_channel = MSG_CHANNEL.lock().unwrap().take();
-    if let Some(sender) = msg_channel {
-        let _ = sender.try_send(Msg::CancelShutdown);
-        let handle = THREAD_HANDLE.lock().unwrap().take();
-        if let Some(handle) = handle {
-            let _ = handle.join();
-        }
-    }
-}
-
-pub async fn release_old_controller() {
-    let msg_channel = MSG_CHANNEL.lock().unwrap().clone();
-    if let Some(sender) = msg_channel {
-        let (done_sender, done_receiver) = oneshot::channel();
-        if sender
-            .send(Msg::ReleaseController(done_sender))
-            .await
-            .is_ok()
-        {
-            let _ = done_receiver.await;
-        }
-    }
-}
-
-pub fn finish() {
-    let msg_channel = MSG_CHANNEL.lock().unwrap().take();
-    if let Some(sender) = msg_channel {
-        let _ = sender.try_send(Msg::ConfirmShutdown);
-        let handle = THREAD_HANDLE.lock().unwrap().take();
-        if let Some(handle) = handle {
-            tokio::task::spawn_blocking(move || {
-                let _ = handle.join();
-            });
-        }
-    }
-}
-
-pub fn connect_to_old_daemon() {
-    let (sender, receiver) = mpsc::channel(4);
-    let handle = std::thread::spawn(move || {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_io()
-            .build()
-            .unwrap();
-        rt.block_on(async {
-            if let Err(e) = connect_run(receiver).await {
-                warn!("upgrade channel error: {e}");
-            }
-        })
-    });
-    let mut msg_channel = MSG_CHANNEL.lock().unwrap();
-    *msg_channel = Some(sender);
-    let mut thread_handle = THREAD_HANDLE.lock().unwrap();
-    *thread_handle = Some(handle);
-}
-
-async fn connect_run(mut msg_receiver: mpsc::Receiver<Msg>) -> anyhow::Result<()> {
-    let (rpc_system, proc_control) = LocalController::connect_rpc::<proc_control::Client>(
-        crate::build::PKG_NAME,
-        crate::opts::daemon_group(),
-    )
-    .await?;
-    tokio::task::LocalSet::new()
-        .run_until(async move {
-            tokio::task::spawn_local(async move {
-                rpc_system
-                    .await
-                    .map_err(|e| warn!("upgrade rpc system error: {e:?}"))
-            });
-
-            while let Some(msg) = msg_receiver.recv().await {
-                match msg {
-                    Msg::CancelShutdown => {
-                        let req = proc_control.cancel_shutdown_request();
-                        let rsp = req.send().promise.await?;
-                        return check_operation_result(rsp.get()?.get_result()?);
-                    }
-                    Msg::ReleaseController(finish_sender) => {
-                        let req = proc_control.release_controller_request();
-                        let rsp = req.send().promise.await?;
-                        check_operation_result(rsp.get()?.get_result()?)?;
-                        let _ = finish_sender.send(());
-                    }
-                    Msg::ConfirmShutdown => {
-                        let req = proc_control.offline_request();
-                        let rsp = req.send().promise.await?;
-                        return check_operation_result(rsp.get()?.get_result()?);
-                    }
-                }
-            }
-
-            Ok(())
-        })
+impl UpgradeAction for UpgradeActor {
+    async fn connect_rpc() -> anyhow::Result<(RpcSystem<Side>, Self)> {
+        LocalController::connect_rpc::<proc_control::Client>(
+            crate::build::PKG_NAME,
+            crate::opts::daemon_group(),
+        )
         .await
+        .map(|(r, proc_control)| (r, UpgradeActor { proc_control }))
+    }
+
+    async fn cancel_shutdown(&self) -> anyhow::Result<()> {
+        let req = self.proc_control.cancel_shutdown_request();
+        let rsp = req.send().promise.await?;
+        check_operation_result(rsp.get()?.get_result()?)
+    }
+
+    async fn release_controller(&self) -> anyhow::Result<()> {
+        let req = self.proc_control.release_controller_request();
+        let rsp = req.send().promise.await?;
+        check_operation_result(rsp.get()?.get_result()?)
+    }
+
+    async fn confirm_shutdown(&self) -> anyhow::Result<()> {
+        let req = self.proc_control.offline_request();
+        let rsp = req.send().promise.await?;
+        check_operation_result(rsp.get()?.get_result()?)
+    }
 }
 
 fn check_operation_result(r: operation_result::Reader<'_>) -> anyhow::Result<()> {

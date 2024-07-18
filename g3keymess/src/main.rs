@@ -17,6 +17,8 @@
 use anyhow::{anyhow, Context};
 use log::{debug, error, info, warn};
 
+use g3_daemon::control::{QuitAction, UpgradeAction};
+
 use g3keymess::opts::ProcArgs;
 
 fn main() -> anyhow::Result<()> {
@@ -39,13 +41,13 @@ fn main() -> anyhow::Result<()> {
     // set up process logger early, only proc args is used inside
     let _log_guard = g3_daemon::log::process::setup(&proc_args.daemon_config);
     if proc_args.daemon_config.need_daemon_controller() {
-        g3keymess::control::upgrade::connect_to_old_daemon();
+        g3keymess::control::UpgradeActor::connect_to_old_daemon();
     }
 
     let config_file = match g3keymess::config::load() {
         Ok(c) => c,
         Err(e) => {
-            g3keymess::control::upgrade::cancel_old_shutdown();
+            g3_daemon::control::upgrade::cancel_old_shutdown();
             return Err(e.context("failed to load config"));
         }
     };
@@ -120,21 +122,21 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
             .start()
             .context("failed to start unique controller")?;
         if args.daemon_config.need_daemon_controller() {
-            g3keymess::control::upgrade::release_old_controller().await;
+            g3_daemon::control::upgrade::release_old_controller().await;
             let daemon_ctl = g3keymess::control::DaemonController::start()
                 .context("failed to start daemon controller")?;
             tokio::spawn(async move {
                 daemon_ctl.await;
             });
         }
-        g3keymess::control::QuitActor::spawn_run();
+        g3keymess::control::QuitActor::tokio_spawn_run();
 
         g3keymess::signal::register().context("failed to setup signal handler")?;
 
         match load_and_spawn(unique_ctl_path).await {
-            Ok(_) => g3keymess::control::upgrade::finish(),
+            Ok(_) => g3_daemon::control::upgrade::finish(),
             Err(e) => {
-                g3keymess::control::upgrade::cancel_old_shutdown();
+                g3_daemon::control::upgrade::cancel_old_shutdown();
                 return Err(e);
             }
         }

@@ -17,6 +17,8 @@
 use anyhow::Context;
 use log::{debug, error, info};
 
+use g3_daemon::control::{QuitAction, UpgradeAction};
+
 use g3proxy::opts::ProcArgs;
 
 fn main() -> anyhow::Result<()> {
@@ -42,13 +44,13 @@ fn main() -> anyhow::Result<()> {
     // set up process logger early, only proc args is used inside
     let _log_guard = g3_daemon::log::process::setup(&proc_args.daemon_config);
     if proc_args.daemon_config.need_daemon_controller() {
-        g3proxy::control::upgrade::connect_to_old_daemon();
+        g3proxy::control::UpgradeActor::connect_to_old_daemon();
     }
 
     let config_file = match g3proxy::config::load() {
         Ok(c) => c,
         Err(e) => {
-            g3proxy::control::upgrade::cancel_old_shutdown();
+            g3_daemon::control::upgrade::cancel_old_shutdown();
             return Err(e.context(format!("failed to load config, opts: {:?}", &proc_args)));
         }
     };
@@ -119,21 +121,21 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
         let unique_ctl = g3proxy::control::UniqueController::start()
             .context("failed to start unique controller")?;
         if args.daemon_config.need_daemon_controller() {
-            g3proxy::control::upgrade::release_old_controller().await;
+            g3_daemon::control::upgrade::release_old_controller().await;
             let daemon_ctl = g3proxy::control::DaemonController::start()
                 .context("failed to start daemon controller")?;
             tokio::spawn(async move {
                 daemon_ctl.await;
             });
         }
-        g3proxy::control::QuitActor::spawn_run();
+        g3proxy::control::QuitActor::tokio_spawn_run();
 
         g3proxy::signal::register().context("failed to setup signal handler")?;
 
         match load_and_spawn().await {
-            Ok(_) => g3proxy::control::upgrade::finish(),
+            Ok(_) => g3_daemon::control::upgrade::finish(),
             Err(e) => {
-                g3proxy::control::upgrade::cancel_old_shutdown();
+                g3_daemon::control::upgrade::cancel_old_shutdown();
                 return Err(e);
             }
         }
