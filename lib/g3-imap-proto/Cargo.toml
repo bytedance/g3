@@ -5,5 +5,9 @@ license.workspace = true
 edition.workspace = true
 
 [dependencies]
+thiserror.workspace = true
+smol_str.workspace = true
+memchr.workspace = true
+atoi.workspace = true
 tokio = { workspace = true, features = ["io-util"] }
 g3-io-ext.workspace = true

@@ -1264,7 +1264,11 @@ dependencies = [
 name = "g3-imap-proto"
 version = "0.1.0"
 dependencies = [
+ "atoi",
  "g3-io-ext",
+ "memchr",
+ "smol_str",
+ "thiserror",
  "tokio",
 ]
 
