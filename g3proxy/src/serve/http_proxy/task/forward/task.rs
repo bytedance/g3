@@ -501,13 +501,13 @@ impl<'a> HttpProxyForwardTask<'a> {
             br.reset_buffer_stats(clt_r_stats);
             clt_w.reset_stats(clt_w_stats);
             if let Some(limit_config) = &limit_config {
-                br.reset_limit(limit_config.shift_millis, limit_config.max_north);
-                clt_w.reset_limit(limit_config.shift_millis, limit_config.max_south);
+                br.reset_local_limit(limit_config.shift_millis, limit_config.max_north);
+                clt_w.reset_local_limit(limit_config.shift_millis, limit_config.max_south);
             }
         } else {
             clt_w.reset_stats(clt_w_stats);
             if let Some(limit_config) = &limit_config {
-                clt_w.reset_limit(limit_config.shift_millis, limit_config.max_south);
+                clt_w.reset_local_limit(limit_config.shift_millis, limit_config.max_south);
             }
         }
     }

@@ -222,9 +222,11 @@ impl OpensslRelayTask {
                 .server_config
                 .tcp_sock_speed_limit
                 .shrink_as_smaller(limit);
-            ssl_stream
-                .get_mut()
-                .reset_limit(limit.shift_millis, limit.max_north, limit.max_south);
+            ssl_stream.get_mut().reset_local_limit(
+                limit.shift_millis,
+                limit.max_north,
+                limit.max_south,
+            );
         }
 
         // reset io stats

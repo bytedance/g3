@@ -14,8 +14,11 @@
  * limitations under the License.
  */
 
+mod datagram;
+pub use datagram::{DatagramLimitAction, DatagramLimiter, HasPacketSize};
+
+mod stream;
+pub use stream::{StreamLimitAction, StreamLimiter};
+
 mod fixed_window;
-pub use fixed_window::{
-    DatagramLimitInfo, DatagramLimitResult, StreamLimitInfo, StreamLimitResult,
-    ThreadedCountLimitInfo,
-};
+pub use fixed_window::{LocalDatagramLimiter, LocalStreamLimiter, ThreadedCountLimiter};

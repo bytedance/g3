@@ -74,9 +74,16 @@ impl<S> LimitedStream<S> {
         self.writer_state.reset_stats(stats);
     }
 
-    pub fn reset_limit(&mut self, shift_millis: u8, read_max_bytes: usize, write_max_bytes: usize) {
-        self.reader_state.reset_limit(shift_millis, read_max_bytes);
-        self.writer_state.reset_limit(shift_millis, write_max_bytes);
+    pub fn reset_local_limit(
+        &mut self,
+        shift_millis: u8,
+        read_max_bytes: usize,
+        write_max_bytes: usize,
+    ) {
+        self.reader_state
+            .reset_local_limit(shift_millis, read_max_bytes);
+        self.writer_state
+            .reset_local_limit(shift_millis, write_max_bytes);
     }
 
     pub fn into_inner(self) -> S {

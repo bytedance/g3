@@ -190,7 +190,7 @@ where
                         // we can now read the next request
                         reader.reset_buffer_stats(Arc::new(NilLimitedReaderStats::default()));
                         let limit_config = &self.ctx.server_config.tcp_sock_speed_limit;
-                        reader.reset_limit(limit_config.shift_millis, limit_config.max_north);
+                        reader.reset_local_limit(limit_config.shift_millis, limit_config.max_north);
                         self.stream_reader = Some(reader);
                     }
                     None => {

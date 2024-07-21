@@ -26,7 +26,7 @@ use pin_project_lite::pin_project;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::time::{Instant, Sleep};
 
-use crate::limit::{StreamLimitInfo, StreamLimitResult};
+use crate::limit::{StreamLimitAction, StreamLimiter};
 
 pub trait LimitedReaderStats {
     fn add_read_bytes(&self, size: usize);
@@ -43,7 +43,7 @@ impl LimitedReaderStats for NilLimitedReaderStats {
 pub(crate) struct LimitedReaderState {
     delay: Pin<Box<Sleep>>,
     started: Instant,
-    limit: StreamLimitInfo,
+    limit: StreamLimiter,
     stats: ArcLimitedReaderStats,
 }
 
@@ -52,7 +52,7 @@ impl LimitedReaderState {
         LimitedReaderState {
             delay: Box::pin(tokio::time::sleep(Duration::from_millis(0))),
             started: Instant::now(),
-            limit: StreamLimitInfo::new(shift_millis, max_bytes),
+            limit: StreamLimiter::with_local(shift_millis, max_bytes),
             stats,
         }
     }
@@ -61,7 +61,7 @@ impl LimitedReaderState {
         LimitedReaderState {
             delay: Box::pin(tokio::time::sleep(Duration::from_millis(0))),
             started: Instant::now(),
-            limit: StreamLimitInfo::default(),
+            limit: StreamLimiter::default(),
             stats,
         }
     }
@@ -70,9 +70,9 @@ impl LimitedReaderState {
         self.stats = stats;
     }
 
-    pub(crate) fn reset_limit(&mut self, shift_millis: u8, max_bytes: usize) {
+    pub(crate) fn reset_local_limit(&mut self, shift_millis: u8, max_bytes: usize) {
         let dur_millis = self.started.elapsed().as_millis() as u64;
-        self.limit.reset(shift_millis, max_bytes, dur_millis);
+        self.limit.reset_local(shift_millis, max_bytes, dur_millis);
     }
 
     pub(crate) fn poll_read<R>(
@@ -87,7 +87,7 @@ impl LimitedReaderState {
         if self.limit.is_set() {
             let dur_millis = self.started.elapsed().as_millis() as u64;
             match self.limit.check(dur_millis, buf.remaining()) {
-                StreamLimitResult::AdvanceBy(len) => {
+                StreamLimitAction::AdvanceBy(len) => {
                     let mut limited_buf = ReadBuf::new(buf.initialize_unfilled_to(len));
                     ready!(reader.poll_read(cx, &mut limited_buf))?;
                     let nr = limited_buf.filled().len();
@@ -96,7 +96,7 @@ impl LimitedReaderState {
                     self.stats.add_read_bytes(nr);
                     Poll::Ready(Ok(()))
                 }
-                StreamLimitResult::DelayFor(ms) => {
+                StreamLimitAction::DelayFor(ms) => {
                     self.delay
                         .as_mut()
                         .reset(self.started + Duration::from_millis(dur_millis + ms));
@@ -146,8 +146,8 @@ impl<R> LimitedReader<R> {
     }
 
     #[inline]
-    pub fn reset_limit(&mut self, shift_millis: u8, max_bytes: usize) {
-        self.state.reset_limit(shift_millis, max_bytes);
+    pub fn reset_local_limit(&mut self, shift_millis: u8, max_bytes: usize) {
+        self.state.reset_local_limit(shift_millis, max_bytes);
     }
 
     pub fn into_inner(self) -> R {

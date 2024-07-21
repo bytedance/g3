@@ -31,7 +31,7 @@ use tokio::time::{Instant, Sleep};
     target_os = "openbsd",
 ))]
 use super::RecvMsgHdr;
-use crate::limit::{DatagramLimitInfo, DatagramLimitResult};
+use crate::limit::{DatagramLimitAction, DatagramLimiter};
 use crate::ArcLimitedRecvStats;
 
 pub trait AsyncUdpRecv {
@@ -61,7 +61,7 @@ pub struct LimitedUdpRecv<T> {
     inner: T,
     delay: Pin<Box<Sleep>>,
     started: Instant,
-    limit: DatagramLimitInfo,
+    limit: DatagramLimiter,
     stats: ArcLimitedRecvStats,
 }
 
@@ -77,7 +77,7 @@ impl<T: AsyncUdpRecv> LimitedUdpRecv<T> {
             inner,
             delay: Box::pin(tokio::time::sleep(Duration::from_millis(0))),
             started: Instant::now(),
-            limit: DatagramLimitInfo::new(shift_millis, max_packets, max_bytes),
+            limit: DatagramLimiter::with_local(shift_millis, max_packets, max_bytes),
             stats,
         }
     }
@@ -103,14 +103,14 @@ where
         if self.limit.is_set() {
             let dur_millis = self.started.elapsed().as_millis() as u64;
             match self.limit.check_packet(dur_millis, buf.len()) {
-                DatagramLimitResult::Advance(_) => {
+                DatagramLimitAction::Advance(_) => {
                     let (nr, addr) = ready!(self.inner.poll_recv_from(cx, buf))?;
                     self.limit.set_advance(1, nr);
                     self.stats.add_recv_packet();
                     self.stats.add_recv_bytes(nr);
                     Poll::Ready(Ok((nr, addr)))
                 }
-                DatagramLimitResult::DelayFor(ms) => {
+                DatagramLimitAction::DelayFor(ms) => {
                     self.delay
                         .as_mut()
                         .reset(self.started + Duration::from_millis(dur_millis + ms));
@@ -131,14 +131,14 @@ where
         if self.limit.is_set() {
             let dur_millis = self.started.elapsed().as_millis() as u64;
             match self.limit.check_packet(dur_millis, buf.len()) {
-                DatagramLimitResult::Advance(_) => {
+                DatagramLimitAction::Advance(_) => {
                     let nr = ready!(self.inner.poll_recv(cx, buf))?;
                     self.limit.set_advance(1, nr);
                     self.stats.add_recv_packet();
                     self.stats.add_recv_bytes(nr);
                     Poll::Ready(Ok(nr))
                 }
-                DatagramLimitResult::DelayFor(ms) => {
+                DatagramLimitAction::DelayFor(ms) => {
                     self.delay
                         .as_mut()
                         .reset(self.started + Duration::from_millis(dur_millis + ms));
@@ -168,7 +168,7 @@ where
         if self.limit.is_set() {
             let dur_millis = self.started.elapsed().as_millis() as u64;
             match self.limit.check_packets(dur_millis, hdr_v) {
-                DatagramLimitResult::Advance(n) => {
+                DatagramLimitAction::Advance(n) => {
                     let count = ready!(self.inner.poll_batch_recvmsg(cx, &mut hdr_v[0..n]))?;
                     let len = hdr_v.iter().take(count).map(|h| h.n_recv).sum();
                     self.limit.set_advance(count, len);
@@ -176,7 +176,7 @@ where
                     self.stats.add_recv_bytes(len);
                     Poll::Ready(Ok(count))
                 }
-                DatagramLimitResult::DelayFor(ms) => {
+                DatagramLimitAction::DelayFor(ms) => {
                     self.delay
                         .as_mut()
                         .reset(self.started + Duration::from_millis(dur_millis + ms));

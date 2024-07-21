@@ -359,7 +359,7 @@ where
     fn reset_client_writer(&mut self, mut stream_w: HttpClientWriter<CDW>) {
         stream_w.reset_stats(Arc::clone(&self.wrapper_stats));
         let limit_config = &self.ctx.server_config.tcp_sock_speed_limit;
-        stream_w.reset_limit(limit_config.shift_millis, limit_config.max_south);
+        stream_w.reset_local_limit(limit_config.shift_millis, limit_config.max_south);
         self.stream_writer = Some(stream_w);
     }
 

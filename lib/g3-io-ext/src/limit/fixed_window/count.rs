@@ -64,11 +64,11 @@ impl InnerCountLimitInfo {
 }
 
 #[derive(Clone)]
-pub struct ThreadedCountLimitInfo(Arc<Mutex<InnerCountLimitInfo>>);
+pub struct ThreadedCountLimiter(Arc<Mutex<InnerCountLimitInfo>>);
 
-impl ThreadedCountLimitInfo {
+impl ThreadedCountLimiter {
     pub fn new(shift_millis: u8, max_count: usize) -> Self {
-        ThreadedCountLimitInfo(Arc::new(Mutex::new(InnerCountLimitInfo::new(
+        ThreadedCountLimiter(Arc::new(Mutex::new(InnerCountLimitInfo::new(
             shift_millis,
             max_count,
         ))))
@@ -79,7 +79,7 @@ impl ThreadedCountLimitInfo {
         let inner = self.0.lock().unwrap();
         let mut inner = (*inner).clone();
         inner.reset(shift_millis, max_count, cur_millis);
-        ThreadedCountLimitInfo(Arc::new(Mutex::new(inner)))
+        ThreadedCountLimiter(Arc::new(Mutex::new(inner)))
     }
 
     pub fn check(&self, cur_millis: u64) -> Result<(), u64> {

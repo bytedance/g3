@@ -376,8 +376,8 @@ impl<'a> FtpOverHttpTask<'a> {
         clt_w.reset_stats(wrapper_stats.clone());
         clt_r.reset_buffer_stats(wrapper_stats);
         if let Some(limit_config) = &limit_config {
-            clt_w.reset_limit(limit_config.shift_millis, limit_config.max_south);
-            clt_r.reset_limit(limit_config.shift_millis, limit_config.max_north);
+            clt_w.reset_local_limit(limit_config.shift_millis, limit_config.max_south);
+            clt_r.reset_local_limit(limit_config.shift_millis, limit_config.max_north);
         }
     }
 

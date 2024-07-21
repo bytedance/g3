@@ -435,8 +435,8 @@ impl SocksProxyTcpConnectTask {
                 let limit_config = user_config
                     .tcp_sock_speed_limit
                     .shrink_as_smaller(&self.ctx.server_config.tcp_sock_speed_limit);
-                clt_r.reset_limit(limit_config.shift_millis, limit_config.max_north);
-                clt_w.reset_limit(limit_config.shift_millis, limit_config.max_south);
+                clt_r.reset_local_limit(limit_config.shift_millis, limit_config.max_north);
+                clt_w.reset_local_limit(limit_config.shift_millis, limit_config.max_south);
             }
         }
         let wrapper_stats = Arc::new(wrapper_stats);

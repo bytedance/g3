@@ -222,7 +222,7 @@ impl RustlsRelayTask {
                 .server_config
                 .tcp_sock_speed_limit
                 .shrink_as_smaller(limit);
-            tls_stream.get_mut().0.reset_limit(
+            tls_stream.get_mut().0.reset_local_limit(
                 limit.shift_millis,
                 limit.max_north,
                 limit.max_south,

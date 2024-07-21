@@ -14,49 +14,11 @@
  * limitations under the License.
  */
 
-use std::io::{IoSlice, IoSliceMut};
-
 use super::FixedWindow;
-#[cfg(unix)]
-use crate::RecvMsgHdr;
-
-pub trait HasPacketSize {
-    fn packet_size(&self) -> usize;
-}
-
-impl<'a> HasPacketSize for IoSlice<'a> {
-    fn packet_size(&self) -> usize {
-        self.len()
-    }
-}
-
-impl<'a> HasPacketSize for IoSliceMut<'a> {
-    fn packet_size(&self) -> usize {
-        self.len()
-    }
-}
-
-#[cfg(unix)]
-impl<'a, const C: usize> HasPacketSize for RecvMsgHdr<'a, C> {
-    fn packet_size(&self) -> usize {
-        self.n_recv
-    }
-}
-
-#[cfg(feature = "quic")]
-impl<'a> HasPacketSize for quinn::udp::Transmit<'a> {
-    fn packet_size(&self) -> usize {
-        self.contents.len()
-    }
-}
-
-pub enum DatagramLimitResult {
-    Advance(usize),
-    DelayFor(u64),
-}
+use crate::limit::{DatagramLimitAction, HasPacketSize};
 
 #[derive(Default)]
-pub struct DatagramLimitInfo {
+pub struct LocalDatagramLimiter {
     window: FixedWindow,
 
     // direct conf entry
@@ -69,9 +31,9 @@ pub struct DatagramLimitInfo {
     cur_bytes: usize,
 }
 
-impl DatagramLimitInfo {
+impl LocalDatagramLimiter {
     pub fn new(shift_millis: u8, max_packets: usize, max_bytes: usize) -> Self {
-        DatagramLimitInfo {
+        LocalDatagramLimiter {
             window: FixedWindow::new(shift_millis, None),
             max_packets,
             max_bytes,
@@ -101,7 +63,7 @@ impl DatagramLimitInfo {
         self.window.enabled()
     }
 
-    pub fn check_packet(&mut self, cur_millis: u64, buf_size: usize) -> DatagramLimitResult {
+    pub fn check_packet(&mut self, cur_millis: u64, buf_size: usize) -> DatagramLimitAction {
         let time_slice_id = self.window.slice_id(cur_millis);
         if self.time_slice_id != time_slice_id {
             self.cur_bytes = 0;
@@ -111,19 +73,19 @@ impl DatagramLimitInfo {
 
         // do packet limit first. The first packet will always pass.
         if self.max_packets > 0 && self.cur_packets > self.max_packets {
-            return DatagramLimitResult::DelayFor(self.window.delay(cur_millis));
+            return DatagramLimitAction::DelayFor(self.window.delay(cur_millis));
         }
 
         // always allow the first packet to pass
         if self.max_bytes > 0 && self.cur_bytes > 0 && self.cur_bytes + buf_size >= self.max_bytes {
-            return DatagramLimitResult::DelayFor(self.window.delay(cur_millis));
+            return DatagramLimitAction::DelayFor(self.window.delay(cur_millis));
         }
         // the real advance size should be set via set_advance_size() method by caller
 
-        DatagramLimitResult::Advance(1)
+        DatagramLimitAction::Advance(1)
     }
 
-    pub fn check_packets<P>(&mut self, cur_millis: u64, packets: &[P]) -> DatagramLimitResult
+    pub fn check_packets<P>(&mut self, cur_millis: u64, packets: &[P]) -> DatagramLimitAction
     where
         P: HasPacketSize,
     {
@@ -138,7 +100,7 @@ impl DatagramLimitInfo {
         // do packet limit first. The first packet will always pass.
         if self.max_packets > 0 {
             if self.cur_packets > self.max_packets {
-                return DatagramLimitResult::DelayFor(self.window.delay(cur_millis));
+                return DatagramLimitAction::DelayFor(self.window.delay(cur_millis));
             } else {
                 pkt_count = pkt_count.min(self.max_packets - self.cur_packets);
             }
@@ -155,16 +117,16 @@ impl DatagramLimitInfo {
 
                 if self.cur_bytes + total_size >= self.max_bytes {
                     return if i == 0 {
-                        DatagramLimitResult::DelayFor(self.window.delay(cur_millis))
+                        DatagramLimitAction::DelayFor(self.window.delay(cur_millis))
                     } else {
-                        DatagramLimitResult::Advance(i)
+                        DatagramLimitAction::Advance(i)
                     };
                 }
             }
         }
         // the real advance size should be set via set_advance_size() method by caller
 
-        DatagramLimitResult::Advance(pkt_count)
+        DatagramLimitAction::Advance(pkt_count)
     }
 
     #[inline]

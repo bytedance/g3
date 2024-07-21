@@ -31,7 +31,7 @@ use tokio::time::{Instant, Sleep};
     target_os = "openbsd",
 ))]
 use super::SendMsgHdr;
-use crate::limit::{DatagramLimitInfo, DatagramLimitResult};
+use crate::limit::{DatagramLimitAction, DatagramLimiter};
 use crate::ArcLimitedSendStats;
 
 pub trait AsyncUdpSend {
@@ -69,7 +69,7 @@ pub struct LimitedUdpSend<T> {
     inner: T,
     delay: Pin<Box<Sleep>>,
     started: Instant,
-    limit: DatagramLimitInfo,
+    limit: DatagramLimiter,
     stats: ArcLimitedSendStats,
 }
 
@@ -85,7 +85,7 @@ impl<T: AsyncUdpSend> LimitedUdpSend<T> {
             inner,
             delay: Box::pin(tokio::time::sleep(Duration::from_millis(0))),
             started: Instant::now(),
-            limit: DatagramLimitInfo::new(shift_millis, max_packets, max_bytes),
+            limit: DatagramLimiter::with_local(shift_millis, max_packets, max_bytes),
             stats,
         }
     }
@@ -108,14 +108,14 @@ where
         if self.limit.is_set() {
             let dur_millis = self.started.elapsed().as_millis() as u64;
             match self.limit.check_packet(dur_millis, buf.len()) {
-                DatagramLimitResult::Advance(_) => {
+                DatagramLimitAction::Advance(_) => {
                     let nw = ready!(self.inner.poll_send_to(cx, buf, target))?;
                     self.limit.set_advance(1, nw);
                     self.stats.add_send_packet();
                     self.stats.add_send_bytes(nw);
                     Poll::Ready(Ok(nw))
                 }
-                DatagramLimitResult::DelayFor(ms) => {
+                DatagramLimitAction::DelayFor(ms) => {
                     self.delay
                         .as_mut()
                         .reset(self.started + Duration::from_millis(dur_millis + ms));
@@ -134,14 +134,14 @@ where
         if self.limit.is_set() {
             let dur_millis = self.started.elapsed().as_millis() as u64;
             match self.limit.check_packet(dur_millis, buf.len()) {
-                DatagramLimitResult::Advance(_) => {
+                DatagramLimitAction::Advance(_) => {
                     let nw = ready!(self.inner.poll_send(cx, buf))?;
                     self.limit.set_advance(1, nw);
                     self.stats.add_send_packet();
                     self.stats.add_send_bytes(nw);
                     Poll::Ready(Ok(nw))
                 }
-                DatagramLimitResult::DelayFor(ms) => {
+                DatagramLimitAction::DelayFor(ms) => {
                     self.delay
                         .as_mut()
                         .reset(self.started + Duration::from_millis(dur_millis + ms));
@@ -166,14 +166,14 @@ where
             let dur_millis = self.started.elapsed().as_millis() as u64;
             let len = iov.iter().map(|v| v.len()).sum();
             match self.limit.check_packet(dur_millis, len) {
-                DatagramLimitResult::Advance(_) => {
+                DatagramLimitAction::Advance(_) => {
                     let nw = ready!(self.inner.poll_sendmsg(cx, iov, target))?;
                     self.limit.set_advance(1, nw);
                     self.stats.add_send_packet();
                     self.stats.add_send_bytes(nw);
                     Poll::Ready(Ok(nw))
                 }
-                DatagramLimitResult::DelayFor(ms) => {
+                DatagramLimitAction::DelayFor(ms) => {
                     self.delay
                         .as_mut()
                         .reset(self.started + Duration::from_millis(dur_millis + ms));
@@ -204,7 +204,7 @@ where
             let dur_millis = self.started.elapsed().as_millis() as u64;
             let len = msgs.iter().map(|h| h.n_send).sum();
             match self.limit.check_packet(dur_millis, len) {
-                DatagramLimitResult::Advance(n) => {
+                DatagramLimitAction::Advance(n) => {
                     let count = ready!(self.inner.poll_batch_sendmsg(cx, &mut msgs[0..n]))?;
                     let len = msgs.iter().take(count).map(|h| h.n_send).sum();
                     self.limit.set_advance(count, len);
@@ -212,7 +212,7 @@ where
                     self.stats.add_send_bytes(len);
                     Poll::Ready(Ok(count))
                 }
-                DatagramLimitResult::DelayFor(ms) => {
+                DatagramLimitAction::DelayFor(ms) => {
                     self.delay
                         .as_mut()
                         .reset(self.started + Duration::from_millis(dur_millis + ms));

@@ -28,7 +28,7 @@ use quinn::udp;
 use quinn::{AsyncTimer, AsyncUdpSocket, Runtime, UdpPoller};
 use tokio::time::{Instant, Sleep};
 
-use crate::limit::{DatagramLimitInfo, DatagramLimitResult};
+use crate::limit::{DatagramLimitAction, LocalDatagramLimiter};
 use crate::{ArcLimitedRecvStats, ArcLimitedSendStats, LimitedRecvStats, LimitedSendStats};
 
 struct LimitConf {
@@ -120,7 +120,7 @@ where
 struct LimitedSendLimitState {
     delay: Pin<Box<Sleep>>,
     poll_delay: bool,
-    limit: DatagramLimitInfo,
+    limit: LocalDatagramLimiter,
 }
 
 struct LimitedSendState {
@@ -140,7 +140,7 @@ impl LimitedSendState {
         let limit = LimitedSendLimitState {
             delay: Box::pin(tokio::time::sleep(Duration::from_millis(0))),
             poll_delay: false,
-            limit: DatagramLimitInfo::new(shift_millis, max_packets, max_bytes),
+            limit: LocalDatagramLimiter::new(shift_millis, max_packets, max_bytes),
         };
         LimitedSendState {
             started,
@@ -161,7 +161,7 @@ impl LimitedSendState {
 struct LimitedRecvState {
     delay: Pin<Box<Sleep>>,
     started: Instant,
-    limit: DatagramLimitInfo,
+    limit: LocalDatagramLimiter,
     stats: ArcLimitedRecvStats,
 }
 
@@ -176,7 +176,7 @@ impl LimitedRecvState {
         LimitedRecvState {
             delay: Box::pin(tokio::time::sleep(Duration::from_millis(0))),
             started,
-            limit: DatagramLimitInfo::new(shift_millis, max_packets, max_bytes),
+            limit: LocalDatagramLimiter::new(shift_millis, max_packets, max_bytes),
             stats,
         }
     }
@@ -185,7 +185,7 @@ impl LimitedRecvState {
         LimitedRecvState {
             delay: Box::pin(tokio::time::sleep(Duration::from_millis(0))),
             started,
-            limit: DatagramLimitInfo::default(),
+            limit: LocalDatagramLimiter::default(),
             stats,
         }
     }
@@ -294,14 +294,14 @@ impl AsyncUdpSocket for LimitedUdpSocket {
             let dur_millis = self.send_state.started.elapsed().as_millis() as u64;
             let mut l = l.lock().unwrap();
             match l.limit.check_packet(dur_millis, len) {
-                DatagramLimitResult::Advance(_) => {
+                DatagramLimitAction::Advance(_) => {
                     self.inner.try_send(transmit)?;
                     l.limit.set_advance(1, len);
                     self.send_state.stats.add_send_packet();
                     self.send_state.stats.add_send_bytes(len);
                     Ok(())
                 }
-                DatagramLimitResult::DelayFor(ms) => {
+                DatagramLimitAction::DelayFor(ms) => {
                     l.delay
                         .as_mut()
                         .reset(self.send_state.started + Duration::from_millis(dur_millis + ms));
@@ -330,7 +330,7 @@ impl AsyncUdpSocket for LimitedUdpSocket {
         if l.limit.is_set() {
             let dur_millis = l.started.elapsed().as_millis() as u64;
             match l.limit.check_packets(dur_millis, bufs) {
-                DatagramLimitResult::Advance(n) => {
+                DatagramLimitAction::Advance(n) => {
                     let nr = ready!(self.inner.poll_recv(cx, &mut bufs[0..n], &mut meta[0..n]))?;
                     let len = bufs.iter().take(nr).map(|v| v.len()).sum();
                     l.limit.set_advance(nr, len);
@@ -338,7 +338,7 @@ impl AsyncUdpSocket for LimitedUdpSocket {
                     l.stats.add_recv_bytes(len);
                     Poll::Ready(Ok(nr))
                 }
-                DatagramLimitResult::DelayFor(ms) => {
+                DatagramLimitAction::DelayFor(ms) => {
                     l.delay
                         .as_mut()
                         .reset(l.started + Duration::from_millis(dur_millis + ms));

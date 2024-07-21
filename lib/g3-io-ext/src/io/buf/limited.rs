@@ -131,8 +131,8 @@ where
         self.stats = stats;
     }
 
-    pub fn reset_limit(&mut self, shift_millis: u8, max_bytes: usize) {
-        self.inner.reset_limit(shift_millis, max_bytes);
+    pub fn reset_local_limit(&mut self, shift_millis: u8, max_bytes: usize) {
+        self.inner.reset_local_limit(shift_millis, max_bytes);
     }
 
     pub fn into_inner(self) -> R {
