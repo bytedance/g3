@@ -461,13 +461,13 @@ impl DirectFixedEscaper {
         let wrapper_stats = Arc::new(wrapper_stats);
 
         let limit_config = &self.config.general.tcp_sock_speed_limit;
-        let r = LimitedReader::new(
+        let r = LimitedReader::local_limited(
             r,
             limit_config.shift_millis,
             limit_config.max_south,
             wrapper_stats.clone(),
         );
-        let w = LimitedWriter::new(
+        let w = LimitedWriter::local_limited(
             w,
             limit_config.shift_millis,
             limit_config.max_north,

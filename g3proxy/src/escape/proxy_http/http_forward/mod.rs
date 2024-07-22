@@ -94,7 +94,7 @@ impl ProxyHttpEscaper {
             Arc::new(NilLimitedReaderStats::default()),
             wrapper_stats.clone(),
         );
-        let ups_w = LimitedWriter::new_unlimited(ups_w, wrapper_stats);
+        let ups_w = LimitedWriter::new(ups_w, wrapper_stats);
 
         let writer = ProxyHttpHttpRequestWriter::new(ups_w, None, &self.config);
         let reader = ProxyHttpHttpForwardReader::new(ups_r);

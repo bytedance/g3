@@ -44,7 +44,7 @@ impl DivertTcpEscaper {
 
         // set limit config and add escaper stats, do not count in task stats
         let limit_config = &self.config.general.tcp_sock_speed_limit;
-        let mut stream = LimitedStream::new(
+        let mut stream = LimitedStream::local_limited(
             stream,
             limit_config.shift_millis,
             limit_config.max_south,
@@ -115,8 +115,8 @@ impl DivertTcpEscaper {
         wrapper_stats.push_other_stats(self.fetch_user_upstream_io_stats(task_notes));
         let wrapper_stats = Arc::new(wrapper_stats);
 
-        let ups_r = LimitedReader::new_unlimited(ups_r, wrapper_stats.clone());
-        let ups_w = LimitedWriter::new_unlimited(ups_w, wrapper_stats);
+        let ups_r = LimitedReader::new(ups_r, wrapper_stats.clone());
+        let ups_w = LimitedWriter::new(ups_w, wrapper_stats);
 
         Ok((Box::new(ups_r), Box::new(ups_w)))
     }

@@ -84,7 +84,7 @@ where
     ) -> Self {
         let buffer = vec![0; capacity];
         LimitedBufReader {
-            inner: LimitedReader::new(inner, shift_millis, max_bytes, direct_stats),
+            inner: LimitedReader::local_limited(inner, shift_millis, max_bytes, direct_stats),
             stats: buffer_stats,
             buf: buffer.into_boxed_slice(),
             pos: 0,
@@ -115,7 +115,7 @@ where
     ) -> Self {
         let buffer = vec![0; capacity];
         LimitedBufReader {
-            inner: LimitedReader::new_unlimited(inner, direct_stats),
+            inner: LimitedReader::new(inner, direct_stats),
             stats: buffer_stats,
             buf: buffer.into_boxed_slice(),
             pos: 0,

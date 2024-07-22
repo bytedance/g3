@@ -531,13 +531,13 @@ impl HttpProxyConnectTask {
 
         let wrapper_stats = Arc::new(wrapper_stats);
         (
-            LimitedReader::new(
+            LimitedReader::local_limited(
                 clt_r,
                 limit_config.shift_millis,
                 limit_config.max_north,
                 wrapper_stats.clone(),
             ),
-            LimitedWriter::new(
+            LimitedWriter::local_limited(
                 clt_w,
                 limit_config.shift_millis,
                 limit_config.max_south,

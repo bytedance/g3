@@ -97,13 +97,13 @@ impl HttpTaskContext {
         };
         self.runtime_stats.add_conn_success();
 
-        let r = LimitedReader::new(
+        let r = LimitedReader::local_limited(
             r,
             self.proc_args.tcp_sock_speed_limit.shift_millis,
             self.proc_args.tcp_sock_speed_limit.max_south,
             self.runtime_stats.clone(),
         );
-        let w = LimitedWriter::new(
+        let w = LimitedWriter::local_limited(
             w,
             self.proc_args.tcp_sock_speed_limit.shift_millis,
             self.proc_args.tcp_sock_speed_limit.max_north,

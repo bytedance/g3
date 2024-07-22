@@ -40,7 +40,7 @@ impl DirectFixedEscaper {
         let wrapper_stats = Arc::new(wrapper_stats);
 
         let limit_config = &self.config.general.tcp_sock_speed_limit;
-        let stream = LimitedStream::new(
+        let stream = LimitedStream::local_limited(
             stream,
             limit_config.shift_millis,
             limit_config.max_south,
@@ -67,7 +67,7 @@ impl DirectFixedEscaper {
         let wrapper_stats = Arc::new(wrapper_stats);
 
         let limit_config = &self.config.general.tcp_sock_speed_limit;
-        let stream = LimitedStream::new(
+        let stream = LimitedStream::local_limited(
             stream,
             limit_config.shift_millis,
             limit_config.max_south,

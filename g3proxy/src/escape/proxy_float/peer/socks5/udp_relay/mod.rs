@@ -48,14 +48,14 @@ impl ProxyFloatSocks5Peer {
         let wrapper_stats = Arc::new(wrapper_stats);
 
         let (recv, send) = g3_io_ext::split_udp(udp_socket);
-        let recv = LimitedUdpRecv::new(
+        let recv = LimitedUdpRecv::local_limited(
             recv,
             self.udp_sock_speed_limit.shift_millis,
             self.udp_sock_speed_limit.max_south_packets,
             self.udp_sock_speed_limit.max_south_bytes,
             wrapper_stats.clone(),
         );
-        let send = LimitedUdpSend::new(
+        let send = LimitedUdpSend::local_limited(
             send,
             self.udp_sock_speed_limit.shift_millis,
             self.udp_sock_speed_limit.max_north_packets,

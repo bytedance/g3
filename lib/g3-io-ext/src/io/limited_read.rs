@@ -48,20 +48,24 @@ pub(crate) struct LimitedReaderState {
 }
 
 impl LimitedReaderState {
-    pub(crate) fn new(shift_millis: u8, max_bytes: usize, stats: ArcLimitedReaderStats) -> Self {
-        LimitedReaderState {
-            delay: Box::pin(tokio::time::sleep(Duration::from_millis(0))),
-            started: Instant::now(),
-            limit: StreamLimiter::with_local(shift_millis, max_bytes),
-            stats,
-        }
-    }
-
-    pub(crate) fn new_unlimited(stats: ArcLimitedReaderStats) -> Self {
+    pub(crate) fn new(stats: ArcLimitedReaderStats) -> Self {
         LimitedReaderState {
             delay: Box::pin(tokio::time::sleep(Duration::from_millis(0))),
             started: Instant::now(),
             limit: StreamLimiter::default(),
+            stats,
+        }
+    }
+
+    pub(crate) fn local_limited(
+        shift_millis: u8,
+        max_bytes: usize,
+        stats: ArcLimitedReaderStats,
+    ) -> Self {
+        LimitedReaderState {
+            delay: Box::pin(tokio::time::sleep(Duration::from_millis(0))),
+            started: Instant::now(),
+            limit: StreamLimiter::with_local(shift_millis, max_bytes),
             stats,
         }
     }
@@ -122,17 +126,22 @@ pin_project! {
 }
 
 impl<R> LimitedReader<R> {
-    pub fn new(inner: R, shift_millis: u8, max_bytes: usize, stats: ArcLimitedReaderStats) -> Self {
+    pub fn new(inner: R, stats: ArcLimitedReaderStats) -> Self {
         LimitedReader {
             inner,
-            state: LimitedReaderState::new(shift_millis, max_bytes, stats),
+            state: LimitedReaderState::new(stats),
         }
     }
 
-    pub fn new_unlimited(inner: R, stats: ArcLimitedReaderStats) -> Self {
+    pub fn local_limited(
+        inner: R,
+        shift_millis: u8,
+        max_bytes: usize,
+        stats: ArcLimitedReaderStats,
+    ) -> Self {
         LimitedReader {
             inner,
-            state: LimitedReaderState::new_unlimited(stats),
+            state: LimitedReaderState::local_limited(shift_millis, max_bytes, stats),
         }
     }
 

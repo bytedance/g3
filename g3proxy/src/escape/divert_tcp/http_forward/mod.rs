@@ -54,7 +54,7 @@ impl DivertTcpEscaper {
             self.stats.clone(),
             Arc::new(r_wrapper_stats),
         );
-        let ups_w = LimitedWriter::new(
+        let ups_w = LimitedWriter::local_limited(
             ups_w,
             limit_config.shift_millis,
             limit_config.max_north,
@@ -96,7 +96,7 @@ impl DivertTcpEscaper {
             Arc::new(NilLimitedReaderStats::default()),
             wrapper_stats.clone(),
         );
-        let ups_w = LimitedWriter::new_unlimited(ups_w, wrapper_stats);
+        let ups_w = LimitedWriter::new(ups_w, wrapper_stats);
 
         let writer = DirectHttpForwardWriter::<_, DivertTcpEscaperStats>::new(ups_w, None);
         let reader = DirectHttpForwardReader::new(ups_r);

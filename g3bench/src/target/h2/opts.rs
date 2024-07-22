@@ -269,7 +269,7 @@ impl BenchH2Args {
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
         let speed_limit = &proc_args.tcp_sock_speed_limit;
-        let stream = LimitedStream::new(
+        let stream = LimitedStream::local_limited(
             stream,
             speed_limit.shift_millis,
             speed_limit.max_south,

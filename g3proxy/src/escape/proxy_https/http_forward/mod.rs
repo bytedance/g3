@@ -53,7 +53,7 @@ impl ProxyHttpsEscaper {
             Arc::new(NilLimitedReaderStats::default()),
             wrapper_stats.clone(),
         );
-        let ups_w = LimitedWriter::new_unlimited(ups_w, wrapper_stats);
+        let ups_w = LimitedWriter::new(ups_w, wrapper_stats);
 
         let writer =
             ProxyHttpsHttpForwardWriter::new(ups_w, &self.config, tcp_notes.upstream.clone());
@@ -91,7 +91,7 @@ impl ProxyHttpsEscaper {
             Arc::new(NilLimitedReaderStats::default()),
             wrapper_stats.clone(),
         );
-        let ups_w = LimitedWriter::new_unlimited(ups_w, wrapper_stats);
+        let ups_w = LimitedWriter::new(ups_w, wrapper_stats);
 
         let writer = ProxyHttpsHttpRequestWriter::new(ups_w, &self.config);
         let reader = ProxyHttpsHttpForwardReader::new(ups_r);

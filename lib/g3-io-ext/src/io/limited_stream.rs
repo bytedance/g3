@@ -38,7 +38,18 @@ pin_project! {
 }
 
 impl<S> LimitedStream<S> {
-    pub fn new<ST>(
+    pub fn new<ST>(inner: S, stats: Arc<ST>) -> Self
+    where
+        ST: LimitedReaderStats + LimitedWriterStats + Send + Sync + 'static,
+    {
+        LimitedStream {
+            inner,
+            reader_state: LimitedReaderState::new(stats.clone()),
+            writer_state: LimitedWriterState::new(stats),
+        }
+    }
+
+    pub fn local_limited<ST>(
         inner: S,
         shift_millis: u8,
         read_max_bytes: usize,
@@ -50,19 +61,12 @@ impl<S> LimitedStream<S> {
     {
         LimitedStream {
             inner,
-            reader_state: LimitedReaderState::new(shift_millis, read_max_bytes, stats.clone()),
-            writer_state: LimitedWriterState::new(shift_millis, write_max_bytes, stats),
-        }
-    }
-
-    pub fn new_unlimited<ST>(inner: S, stats: Arc<ST>) -> Self
-    where
-        ST: LimitedReaderStats + LimitedWriterStats + Send + Sync + 'static,
-    {
-        LimitedStream {
-            inner,
-            reader_state: LimitedReaderState::new_unlimited(stats.clone()),
-            writer_state: LimitedWriterState::new_unlimited(stats),
+            reader_state: LimitedReaderState::local_limited(
+                shift_millis,
+                read_max_bytes,
+                stats.clone(),
+            ),
+            writer_state: LimitedWriterState::local_limited(shift_millis, write_max_bytes, stats),
         }
     }
 

@@ -48,20 +48,24 @@ pub(crate) struct LimitedWriterState {
 }
 
 impl LimitedWriterState {
-    pub(crate) fn new(shift_millis: u8, max_bytes: usize, stats: ArcLimitedWriterStats) -> Self {
-        LimitedWriterState {
-            delay: Box::pin(tokio::time::sleep(Duration::from_millis(0))),
-            started: Instant::now(),
-            limit: StreamLimiter::with_local(shift_millis, max_bytes),
-            stats,
-        }
-    }
-
-    pub(crate) fn new_unlimited(stats: ArcLimitedWriterStats) -> Self {
+    pub(crate) fn new(stats: ArcLimitedWriterStats) -> Self {
         LimitedWriterState {
             delay: Box::pin(tokio::time::sleep(Duration::from_millis(0))),
             started: Instant::now(),
             limit: StreamLimiter::default(),
+            stats,
+        }
+    }
+
+    pub(crate) fn local_limited(
+        shift_millis: u8,
+        max_bytes: usize,
+        stats: ArcLimitedWriterStats,
+    ) -> Self {
+        LimitedWriterState {
+            delay: Box::pin(tokio::time::sleep(Duration::from_millis(0))),
+            started: Instant::now(),
+            limit: StreamLimiter::with_local(shift_millis, max_bytes),
             stats,
         }
     }
@@ -122,17 +126,22 @@ pin_project! {
 }
 
 impl<W: AsyncWrite> LimitedWriter<W> {
-    pub fn new(inner: W, shift_millis: u8, max_bytes: usize, stats: ArcLimitedWriterStats) -> Self {
+    pub fn local_limited(
+        inner: W,
+        shift_millis: u8,
+        max_bytes: usize,
+        stats: ArcLimitedWriterStats,
+    ) -> Self {
         LimitedWriter {
             inner,
-            state: LimitedWriterState::new(shift_millis, max_bytes, stats),
+            state: LimitedWriterState::local_limited(shift_millis, max_bytes, stats),
         }
     }
 
-    pub fn new_unlimited(inner: W, stats: ArcLimitedWriterStats) -> Self {
+    pub fn new(inner: W, stats: ArcLimitedWriterStats) -> Self {
         LimitedWriter {
             inner,
-            state: LimitedWriterState::new_unlimited(stats),
+            state: LimitedWriterState::new(stats),
         }
     }
 

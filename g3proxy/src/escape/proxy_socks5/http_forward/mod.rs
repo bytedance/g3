@@ -86,7 +86,7 @@ impl ProxySocks5Escaper {
             Arc::new(NilLimitedReaderStats::default()),
             wrapper_stats.clone(),
         );
-        let ups_w = LimitedWriter::new_unlimited(ups_w, wrapper_stats);
+        let ups_w = LimitedWriter::new(ups_w, wrapper_stats);
 
         let writer = DirectHttpForwardWriter::<_, ProxySocks5EscaperStats>::new(ups_w, None);
         let reader = DirectHttpForwardReader::new(ups_r);

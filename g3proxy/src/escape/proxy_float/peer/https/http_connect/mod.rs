@@ -95,8 +95,8 @@ impl ProxyFloatHttpsPeer {
         let wrapper_stats = Arc::new(wrapper_stats);
 
         let (r, w) = tokio::io::split(buf_stream);
-        let r = LimitedReader::new_unlimited(r, wrapper_stats.clone());
-        let w = LimitedWriter::new_unlimited(w, wrapper_stats);
+        let r = LimitedReader::new(r, wrapper_stats.clone());
+        let w = LimitedWriter::new(w, wrapper_stats);
 
         Ok((Box::new(r), Box::new(w)))
     }

@@ -105,7 +105,7 @@ where
             .new_http_forward_context(Arc::clone(&ctx.escaper));
         let clt_w_stats = HttpRProxyCltWrapperStats::new_for_writer(&ctx.server_stats);
         let limit_config = &ctx.server_config.tcp_sock_speed_limit;
-        let clt_w = LimitedWriter::new(
+        let clt_w = LimitedWriter::local_limited(
             write_half,
             limit_config.shift_millis,
             limit_config.max_south,

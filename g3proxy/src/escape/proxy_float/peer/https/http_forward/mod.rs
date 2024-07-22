@@ -56,7 +56,7 @@ impl ProxyFloatHttpsPeer {
             Arc::new(NilLimitedReaderStats::default()),
             wrapper_stats.clone(),
         );
-        let ups_w = LimitedWriter::new_unlimited(ups_w, wrapper_stats);
+        let ups_w = LimitedWriter::new(ups_w, wrapper_stats);
 
         let writer =
             HttpsPeerHttpForwardWriter::new(ups_w, &self.shared_config, tcp_notes.upstream.clone());
@@ -96,7 +96,7 @@ impl ProxyFloatHttpsPeer {
             Arc::new(NilLimitedReaderStats::default()),
             wrapper_stats.clone(),
         );
-        let ups_w = LimitedWriter::new_unlimited(ups_w, wrapper_stats);
+        let ups_w = LimitedWriter::new(ups_w, wrapper_stats);
 
         let writer = HttpsPeerHttpRequestWriter::new(ups_w, &self.shared_config);
         let reader = HttpsPeerHttpForwardReader::new(ups_r);

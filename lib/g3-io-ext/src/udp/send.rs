@@ -74,7 +74,7 @@ pub struct LimitedUdpSend<T> {
 }
 
 impl<T: AsyncUdpSend> LimitedUdpSend<T> {
-    pub fn new(
+    pub fn local_limited(
         inner: T,
         shift_millis: u8,
         max_packets: usize,

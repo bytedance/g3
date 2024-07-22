@@ -447,7 +447,7 @@ impl SocksProxyUdpConnectTask {
             &self.task_stats,
         ));
 
-        let clt_r = LimitedUdpRecv::new(
+        let clt_r = LimitedUdpRecv::local_limited(
             clt_r,
             limit_config.shift_millis,
             limit_config.max_north_packets,
@@ -515,7 +515,7 @@ impl SocksProxyUdpConnectTask {
             .map_err(|_| {
                 ServerTaskError::InternalServerError("unable to connect the client side udp socket")
             })?;
-        let clt_w = LimitedUdpSend::new(
+        let clt_w = LimitedUdpSend::local_limited(
             clt_w,
             limit_config.shift_millis,
             limit_config.max_south_packets,

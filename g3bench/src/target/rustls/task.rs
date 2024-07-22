@@ -65,7 +65,7 @@ impl RustlsTaskContext {
         self.runtime_stats.add_conn_success();
 
         let speed_limit = &self.proc_args.tcp_sock_speed_limit;
-        Ok(LimitedStream::new(
+        Ok(LimitedStream::local_limited(
             stream,
             speed_limit.shift_millis,
             speed_limit.max_south,

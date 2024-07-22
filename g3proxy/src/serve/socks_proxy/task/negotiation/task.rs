@@ -56,13 +56,13 @@ impl SocksProxyNegotiationTask {
             SocksProxyCltWrapperStats::new_pair(&self.ctx.server_stats);
         let limit_config = &self.ctx.server_config.tcp_sock_speed_limit;
         let (clt_r, clt_w) = stream.into_split();
-        let clt_r = LimitedReader::new(
+        let clt_r = LimitedReader::local_limited(
             clt_r,
             limit_config.shift_millis,
             limit_config.max_north,
             clt_r_stats,
         );
-        let clt_w = LimitedWriter::new(
+        let clt_w = LimitedWriter::local_limited(
             clt_w,
             limit_config.shift_millis,
             limit_config.max_south,

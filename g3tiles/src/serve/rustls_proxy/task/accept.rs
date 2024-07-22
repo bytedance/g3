@@ -60,7 +60,7 @@ impl RustlsAcceptTask {
             StreamAcceptTaskCltWrapperStats::new(&self.ctx.server_stats, &pre_handshake_stats);
 
         let limit_config = self.ctx.server_config.tcp_sock_speed_limit;
-        let stream = LimitedStream::new(
+        let stream = LimitedStream::local_limited(
             stream,
             limit_config.shift_millis,
             limit_config.max_north,

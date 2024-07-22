@@ -296,7 +296,7 @@ impl ProxyHttpEscaper {
         let stream = self.tcp_connect_to(tcp_notes, task_notes).await?;
 
         let limit_config = &self.config.general.tcp_sock_speed_limit;
-        let mut stream = LimitedStream::new(
+        let mut stream = LimitedStream::local_limited(
             stream,
             limit_config.shift_millis,
             limit_config.max_south,
