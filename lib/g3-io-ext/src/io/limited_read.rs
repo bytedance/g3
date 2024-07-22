@@ -26,7 +26,7 @@ use pin_project_lite::pin_project;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::time::{Instant, Sleep};
 
-use crate::limit::{StreamLimitAction, StreamLimiter};
+use crate::limit::{GlobalStreamLimit, StreamLimitAction, StreamLimiter};
 
 pub trait LimitedReaderStats {
     fn add_read_bytes(&self, size: usize);
@@ -70,6 +70,13 @@ impl LimitedReaderState {
         }
     }
 
+    pub(crate) fn add_global_limiter<T>(&mut self, limiter: Arc<T>)
+    where
+        T: GlobalStreamLimit + Send + Sync + 'static,
+    {
+        self.limit.add_global(limiter);
+    }
+
     pub(crate) fn reset_stats(&mut self, stats: ArcLimitedReaderStats) {
         self.stats = stats;
     }
@@ -93,12 +100,23 @@ impl LimitedReaderState {
             match self.limit.check(dur_millis, buf.remaining()) {
                 StreamLimitAction::AdvanceBy(len) => {
                     let mut limited_buf = ReadBuf::new(buf.initialize_unfilled_to(len));
-                    ready!(reader.poll_read(cx, &mut limited_buf))?;
-                    let nr = limited_buf.filled().len();
-                    self.limit.set_advance(nr);
-                    buf.advance(nr);
-                    self.stats.add_read_bytes(nr);
-                    Poll::Ready(Ok(()))
+                    match reader.poll_read(cx, &mut limited_buf) {
+                        Poll::Ready(Ok(_)) => {
+                            let nr = limited_buf.filled().len();
+                            self.limit.set_advance(nr);
+                            buf.advance(nr);
+                            self.stats.add_read_bytes(nr);
+                            Poll::Ready(Ok(()))
+                        }
+                        Poll::Ready(Err(e)) => {
+                            self.limit.release_global();
+                            Poll::Ready(Err(e))
+                        }
+                        Poll::Pending => {
+                            self.limit.release_global();
+                            Poll::Pending
+                        }
+                    }
                 }
                 StreamLimitAction::DelayFor(ms) => {
                     self.delay
@@ -143,6 +161,13 @@ impl<R> LimitedReader<R> {
             inner,
             state: LimitedReaderState::local_limited(shift_millis, max_bytes, stats),
         }
+    }
+
+    pub fn add_global_limiter<T>(&mut self, limiter: Arc<T>)
+    where
+        T: GlobalStreamLimit + Send + Sync + 'static,
+    {
+        self.state.add_global_limiter(limiter);
     }
 
     pub(crate) fn from_parts(inner: R, state: LimitedReaderState) -> Self {

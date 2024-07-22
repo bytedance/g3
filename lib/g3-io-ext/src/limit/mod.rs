@@ -15,10 +15,10 @@
  */
 
 mod datagram;
-pub use datagram::{DatagramLimitAction, DatagramLimiter, HasPacketSize};
+pub use datagram::{DatagramLimitAction, DatagramLimiter, GlobalDatagramLimit, HasPacketSize};
 
 mod stream;
-pub use stream::{StreamLimitAction, StreamLimiter};
+pub use stream::{GlobalStreamLimit, StreamLimitAction, StreamLimiter};
 
 mod fixed_window;
 pub use fixed_window::{LocalDatagramLimiter, LocalStreamLimiter, ThreadedCountLimiter};

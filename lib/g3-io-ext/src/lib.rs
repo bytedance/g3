@@ -26,8 +26,9 @@ pub use cache::{
 };
 pub use io::*;
 pub use limit::{
-    DatagramLimitAction, DatagramLimiter, LocalDatagramLimiter, LocalStreamLimiter,
-    StreamLimitAction, StreamLimiter, ThreadedCountLimiter,
+    DatagramLimitAction, DatagramLimiter, GlobalDatagramLimit, GlobalStreamLimit,
+    LocalDatagramLimiter, LocalStreamLimiter, StreamLimitAction, StreamLimiter,
+    ThreadedCountLimiter,
 };
 pub use listen::{LimitedTcpListener, LimitedTlsListener};
 pub use udp::*;

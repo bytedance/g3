@@ -26,7 +26,7 @@ use pin_project_lite::pin_project;
 use tokio::io::AsyncWrite;
 use tokio::time::{Instant, Sleep};
 
-use crate::limit::{StreamLimitAction, StreamLimiter};
+use crate::limit::{GlobalStreamLimit, StreamLimitAction, StreamLimiter};
 
 pub trait LimitedWriterStats {
     fn add_write_bytes(&self, size: usize);
@@ -70,6 +70,13 @@ impl LimitedWriterState {
         }
     }
 
+    pub(crate) fn add_global_limiter<T>(&mut self, limiter: Arc<T>)
+    where
+        T: GlobalStreamLimit + Send + Sync + 'static,
+    {
+        self.limit.add_global(limiter);
+    }
+
     pub(crate) fn reset_stats(&mut self, stats: ArcLimitedWriterStats) {
         self.stats = stats;
     }
@@ -96,12 +103,21 @@ impl LimitedWriterState {
         if self.limit.is_set() {
             let dur_millis = self.started.elapsed().as_millis() as u64;
             match self.limit.check(dur_millis, buf.len()) {
-                StreamLimitAction::AdvanceBy(len) => {
-                    let nw = ready!(writer.poll_write(cx, &buf[..len]))?;
-                    self.limit.set_advance(nw);
-                    self.stats.add_write_bytes(nw);
-                    Poll::Ready(Ok(nw))
-                }
+                StreamLimitAction::AdvanceBy(len) => match writer.poll_write(cx, &buf[..len]) {
+                    Poll::Ready(Ok(nw)) => {
+                        self.limit.set_advance(nw);
+                        self.stats.add_write_bytes(nw);
+                        Poll::Ready(Ok(nw))
+                    }
+                    Poll::Ready(Err(e)) => {
+                        self.limit.release_global();
+                        Poll::Ready(Err(e))
+                    }
+                    Poll::Pending => {
+                        self.limit.release_global();
+                        Poll::Pending
+                    }
+                },
                 StreamLimitAction::DelayFor(ms) => {
                     self.delay
                         .as_mut()
@@ -126,6 +142,13 @@ pin_project! {
 }
 
 impl<W: AsyncWrite> LimitedWriter<W> {
+    pub fn new(inner: W, stats: ArcLimitedWriterStats) -> Self {
+        LimitedWriter {
+            inner,
+            state: LimitedWriterState::new(stats),
+        }
+    }
+
     pub fn local_limited(
         inner: W,
         shift_millis: u8,
@@ -138,11 +161,11 @@ impl<W: AsyncWrite> LimitedWriter<W> {
         }
     }
 
-    pub fn new(inner: W, stats: ArcLimitedWriterStats) -> Self {
-        LimitedWriter {
-            inner,
-            state: LimitedWriterState::new(stats),
-        }
+    pub fn add_global_limiter<T>(&mut self, limiter: Arc<T>)
+    where
+        T: GlobalStreamLimit + Send + Sync + 'static,
+    {
+        self.state.add_global_limiter(limiter);
     }
 
     pub(crate) fn from_parts(inner: W, state: LimitedWriterState) -> Self {

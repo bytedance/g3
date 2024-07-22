@@ -26,6 +26,7 @@ use tokio::net::{tcp, TcpStream};
 
 use super::limited_read::{LimitedReaderState, LimitedReaderStats};
 use super::limited_write::{LimitedWriterState, LimitedWriterStats};
+use crate::limit::GlobalStreamLimit;
 use crate::{LimitedReader, LimitedWriter};
 
 pin_project! {
@@ -68,6 +69,14 @@ impl<S> LimitedStream<S> {
             ),
             writer_state: LimitedWriterState::local_limited(shift_millis, write_max_bytes, stats),
         }
+    }
+
+    pub fn add_global_limiter<T>(&mut self, read_limiter: Arc<T>, write_limiter: Arc<T>)
+    where
+        T: GlobalStreamLimit + Send + Sync + 'static,
+    {
+        self.reader_state.add_global_limiter(read_limiter);
+        self.writer_state.add_global_limiter(write_limiter);
     }
 
     pub fn reset_stats<ST>(&mut self, stats: Arc<ST>)
