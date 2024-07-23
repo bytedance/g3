@@ -15,7 +15,7 @@
  */
 
 mod size;
-pub use size::{as_u32, as_usize};
+pub use size::{as_u32, as_u64, as_usize};
 
 mod time;
 pub use time::as_duration;

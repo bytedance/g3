@@ -15,21 +15,50 @@
  */
 
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 
 use arc_swap::ArcSwap;
 use tokio::time::Instant;
 
 use g3_types::limit::GlobalStreamSpeedLimitConfig;
 
-use crate::limit::{GlobalStreamLimit, StreamLimitAction};
+use crate::limit::{GlobalLimitGroup, GlobalStreamLimit, StreamLimitAction};
 
 pub struct GlobalStreamLimiter {
+    group: GlobalLimitGroup,
     config: ArcSwap<GlobalStreamSpeedLimitConfig>,
     byte_tokens: AtomicU64,
     last_updated: ArcSwap<Instant>,
 }
 
 impl GlobalStreamLimiter {
+    pub fn new(group: GlobalLimitGroup, config: GlobalStreamSpeedLimitConfig) -> Self {
+        GlobalStreamLimiter {
+            group,
+            config: ArcSwap::new(Arc::new(config)),
+            byte_tokens: AtomicU64::new(config.replenish_bytes()),
+            last_updated: ArcSwap::new(Arc::new(Instant::now())),
+        }
+    }
+
+    pub fn update(&self, config: GlobalStreamSpeedLimitConfig) {
+        self.config.store(Arc::new(config));
+    }
+
+    pub fn tokio_spawn_replenish(self: Arc<Self>) {
+        tokio::spawn(async move {
+            loop {
+                if Arc::strong_count(&self) <= 1 {
+                    break;
+                }
+                let config = *self.config.load().as_ref();
+                tokio::time::sleep(config.replenish_interval()).await;
+                self.add_bytes(config.replenish_bytes(), config.max_burst_bytes());
+                self.last_updated.store(Arc::new(Instant::now()));
+            }
+        });
+    }
+
     fn add_bytes(&self, size: u64, max_burst: u64) {
         let mut cur_tokens = self.byte_tokens.load(Ordering::Acquire);
 
@@ -58,6 +87,10 @@ impl GlobalStreamLimiter {
 }
 
 impl GlobalStreamLimit for GlobalStreamLimiter {
+    fn group(&self) -> GlobalLimitGroup {
+        self.group
+    }
+
     fn check(&self, to_advance: usize) -> StreamLimitAction {
         let mut cur_tokens = self.byte_tokens.load(Ordering::Acquire);
 

@@ -14,6 +14,13 @@
  * limitations under the License.
  */
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum GlobalLimitGroup {
+    Server,
+    User,
+    UserSite,
+}
+
 mod datagram;
 pub use datagram::{DatagramLimitAction, DatagramLimiter, GlobalDatagramLimit};
 

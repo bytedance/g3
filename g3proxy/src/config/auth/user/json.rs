@@ -75,6 +75,34 @@ impl UserConfig {
                     .context(format!("invalid udp socket speed limit value for key {k}"))?;
                 Ok(())
             }
+            "tcp_all_upload_speed_limit" => {
+                let limit = g3_json::value::as_global_stream_speed_limit(v).context(format!(
+                    "invalid global stream speed limit config value for key {k}"
+                ))?;
+                self.tcp_all_upload_speed_limit = Some(limit);
+                Ok(())
+            }
+            "tcp_all_download_speed_limit" => {
+                let limit = g3_json::value::as_global_stream_speed_limit(v).context(format!(
+                    "invalid global stream speed limit config value for key {k}"
+                ))?;
+                self.tcp_all_download_speed_limit = Some(limit);
+                Ok(())
+            }
+            "udp_all_upload_speed_limit" => {
+                let limit = g3_json::value::as_global_datagram_speed_limit(v).context(format!(
+                    "invalid global datagram speed limit config value for key {k}"
+                ))?;
+                self.udp_all_upload_speed_limit = Some(limit);
+                Ok(())
+            }
+            "udp_all_download_speed_limit" => {
+                let limit = g3_json::value::as_global_datagram_speed_limit(v).context(format!(
+                    "invalid global datagram speed limit config value for key {k}"
+                ))?;
+                self.udp_all_download_speed_limit = Some(limit);
+                Ok(())
+            }
             "tcp_remote_keepalive" => {
                 self.tcp_remote_keepalive = g3_json::value::as_tcp_keepalive_config(v)
                     .context(format!("invalid tcp keepalive config value for key {k}"))?;

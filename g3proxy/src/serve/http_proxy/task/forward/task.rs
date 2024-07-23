@@ -33,7 +33,9 @@ use g3_icap_client::reqmod::h1::{
 use g3_icap_client::respmod::h1::{
     HttpResponseAdapter, RespmodAdaptationEndState, RespmodAdaptationRunState,
 };
-use g3_io_ext::{LimitedBufReadExt, LimitedCopy, LimitedCopyError, LimitedWriteExt};
+use g3_io_ext::{
+    GlobalLimitGroup, LimitedBufReadExt, LimitedCopy, LimitedCopyError, LimitedWriteExt,
+};
 use g3_types::acl::AclAction;
 use g3_types::net::{HttpHeaderMap, ProxyRequestType};
 
@@ -497,6 +499,7 @@ impl<'a> HttpProxyForwardTask<'a> {
             (clt_r_stats, clt_w_stats, limit_config)
         };
 
+        clt_w.retain_global_limiter_by_group(GlobalLimitGroup::Server);
         if let Some(br) = clt_r {
             br.reset_buffer_stats(clt_r_stats);
             clt_w.reset_stats(clt_w_stats);
@@ -504,10 +507,24 @@ impl<'a> HttpProxyForwardTask<'a> {
                 br.reset_local_limit(limit_config.shift_millis, limit_config.max_north);
                 clt_w.reset_local_limit(limit_config.shift_millis, limit_config.max_south);
             }
+            if let Some(user_ctx) = self.task_notes.user_ctx() {
+                let user = user_ctx.user();
+                if let Some(limiter) = user.tcp_all_upload_speed_limit() {
+                    br.add_global_limiter(limiter.clone());
+                }
+                if let Some(limiter) = user.tcp_all_download_speed_limit() {
+                    clt_w.add_global_limiter(limiter.clone());
+                }
+            }
         } else {
             clt_w.reset_stats(clt_w_stats);
             if let Some(limit_config) = &limit_config {
                 clt_w.reset_local_limit(limit_config.shift_millis, limit_config.max_south);
+            }
+            if let Some(user_ctx) = self.task_notes.user_ctx() {
+                if let Some(limiter) = user_ctx.user().tcp_all_download_speed_limit() {
+                    clt_w.add_global_limiter(limiter.clone());
+                }
             }
         }
     }

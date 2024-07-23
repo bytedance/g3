@@ -15,6 +15,7 @@
  */
 
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 
 use arc_swap::ArcSwap;
 use tokio::time::Instant;
@@ -31,6 +32,34 @@ pub struct GlobalDatagramLimiter {
 }
 
 impl GlobalDatagramLimiter {
+    pub fn new(config: GlobalDatagramSpeedLimitConfig) -> Self {
+        GlobalDatagramLimiter {
+            config: ArcSwap::new(Arc::new(config)),
+            byte_tokens: AtomicU64::new(config.replenish_bytes()),
+            packet_tokens: AtomicU64::new(config.replenish_packets()),
+            last_updated: ArcSwap::new(Arc::new(Instant::now())),
+        }
+    }
+
+    pub fn update(&self, config: GlobalDatagramSpeedLimitConfig) {
+        self.config.store(Arc::new(config));
+    }
+
+    pub fn tokio_spawn_replenish(self: Arc<Self>) {
+        tokio::spawn(async move {
+            loop {
+                if Arc::strong_count(&self) <= 1 {
+                    break;
+                }
+                let config = *self.config.load().as_ref();
+                tokio::time::sleep(config.replenish_interval()).await;
+                self.add_bytes(config.replenish_bytes(), config.max_burst_bytes());
+                self.add_packets(config.replenish_packets(), config.max_burst_packets());
+                self.last_updated.store(Arc::new(Instant::now()));
+            }
+        });
+    }
+
     fn add_bytes(&self, size: u64, max_burst: u64) {
         let mut cur_tokens = self.byte_tokens.load(Ordering::Acquire);
 

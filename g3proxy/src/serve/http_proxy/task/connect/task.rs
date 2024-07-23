@@ -530,19 +530,29 @@ impl HttpProxyConnectTask {
         };
 
         let wrapper_stats = Arc::new(wrapper_stats);
-        (
-            LimitedReader::local_limited(
-                clt_r,
-                limit_config.shift_millis,
-                limit_config.max_north,
-                wrapper_stats.clone(),
-            ),
-            LimitedWriter::local_limited(
-                clt_w,
-                limit_config.shift_millis,
-                limit_config.max_south,
-                wrapper_stats,
-            ),
-        )
+        let mut clt_r = LimitedReader::local_limited(
+            clt_r,
+            limit_config.shift_millis,
+            limit_config.max_north,
+            wrapper_stats.clone(),
+        );
+        let mut clt_w = LimitedWriter::local_limited(
+            clt_w,
+            limit_config.shift_millis,
+            limit_config.max_south,
+            wrapper_stats,
+        );
+
+        if let Some(user_ctx) = self.task_notes.user_ctx() {
+            let user = user_ctx.user();
+            if let Some(limiter) = user.tcp_all_upload_speed_limit() {
+                clt_r.add_global_limiter(limiter.clone());
+            }
+            if let Some(limiter) = user.tcp_all_download_speed_limit() {
+                clt_w.add_global_limiter(limiter.clone());
+            }
+        }
+
+        (clt_r, clt_w)
     }
 }

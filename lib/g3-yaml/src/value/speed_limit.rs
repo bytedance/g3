@@ -17,6 +17,7 @@
 use anyhow::{anyhow, Context};
 use yaml_rust::Yaml;
 
+use g3_types::limit::{GlobalDatagramSpeedLimitConfig, GlobalStreamSpeedLimitConfig};
 use g3_types::net::{TcpSockSpeedLimitConfig, UdpSockSpeedLimitConfig};
 
 pub fn as_tcp_sock_speed_limit(v: &Yaml) -> anyhow::Result<TcpSockSpeedLimitConfig> {
@@ -97,4 +98,88 @@ pub fn as_udp_sock_speed_limit(v: &Yaml) -> anyhow::Result<UdpSockSpeedLimitConf
     }
     config.validate()?;
     Ok(config)
+}
+
+pub fn as_global_stream_speed_limit(v: &Yaml) -> anyhow::Result<GlobalStreamSpeedLimitConfig> {
+    match v {
+        Yaml::String(_) | Yaml::Integer(_) => {
+            let limit = crate::humanize::as_u64(v).context("invalid humanize u64 value")?;
+            Ok(GlobalStreamSpeedLimitConfig::per_second(limit))
+        }
+        Yaml::Hash(map) => {
+            let mut config = GlobalStreamSpeedLimitConfig::default();
+            crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
+                "replenish_interval" => {
+                    let interval = crate::humanize::as_duration(v)
+                        .context(format!("invalid humanize duration value for key {k}"))?;
+                    config.set_replenish_interval(interval);
+                    Ok(())
+                }
+                "replenish_bytes" => {
+                    let size = crate::humanize::as_u64(v)
+                        .context(format!("invalid humanize u64 value for key {k}"))?;
+                    config.set_replenish_bytes(size);
+                    Ok(())
+                }
+                "max_burst_bytes" => {
+                    let size = crate::humanize::as_u64(v)
+                        .context(format!("invalid humanize u64 value for key {k}"))?;
+                    config.set_max_burst_bytes(size);
+                    Ok(())
+                }
+                _ => Err(anyhow!("invalid key {k}")),
+            })?;
+            config.check()?;
+            Ok(config)
+        }
+        _ => Err(anyhow!("invalid yaml value type")),
+    }
+}
+
+pub fn as_global_datagram_speed_limit(v: &Yaml) -> anyhow::Result<GlobalDatagramSpeedLimitConfig> {
+    match v {
+        Yaml::String(_) | Yaml::Integer(_) => {
+            let limit = crate::humanize::as_u64(v).context("invalid humanize u64 value")?;
+            Ok(GlobalDatagramSpeedLimitConfig::per_second(limit))
+        }
+        Yaml::Hash(map) => {
+            let mut config = GlobalDatagramSpeedLimitConfig::default();
+            crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
+                "replenish_interval" => {
+                    let interval = crate::humanize::as_duration(v)
+                        .context(format!("invalid humanize duration value for key {k}"))?;
+                    config.set_replenish_interval(interval);
+                    Ok(())
+                }
+                "replenish_bytes" => {
+                    let size = crate::humanize::as_u64(v)
+                        .context(format!("invalid humanize u64 value for key {k}"))?;
+                    config.set_replenish_bytes(size);
+                    Ok(())
+                }
+                "replenish_packets" => {
+                    let count = crate::humanize::as_u64(v)
+                        .context(format!("invalid humanize u64 value for key {k}"))?;
+                    config.set_replenish_packets(count);
+                    Ok(())
+                }
+                "max_burst_bytes" => {
+                    let size = crate::humanize::as_u64(v)
+                        .context(format!("invalid humanize u64 value for key {k}"))?;
+                    config.set_max_burst_bytes(size);
+                    Ok(())
+                }
+                "max_burst_packets" => {
+                    let size = crate::humanize::as_u64(v)
+                        .context(format!("invalid humanize u64 value for key {k}"))?;
+                    config.set_max_burst_packets(size);
+                    Ok(())
+                }
+                _ => Err(anyhow!("invalid key {k}")),
+            })?;
+            config.check()?;
+            Ok(config)
+        }
+        _ => Err(anyhow!("invalid yaml value type")),
+    }
 }

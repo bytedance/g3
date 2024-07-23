@@ -26,6 +26,7 @@ use chrono::{DateTime, Utc};
 use governor::{clock::DefaultClock, state::InMemoryState, state::NotKeyed, RateLimiter};
 use tokio::time::Instant;
 
+use g3_io_ext::{GlobalDatagramLimiter, GlobalLimitGroup, GlobalStreamLimiter};
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::acl_set::AclDstHostRuleSet;
 use g3_types::auth::UserAuthError;
@@ -48,6 +49,10 @@ pub(crate) struct User {
     is_blocked: Arc<AtomicBool>,
     request_rate_limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
     tcp_conn_rate_limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
+    tcp_all_upload_speed_limit: Option<Arc<GlobalStreamLimiter>>,
+    tcp_all_download_speed_limit: Option<Arc<GlobalStreamLimiter>>,
+    udp_all_upload_speed_limit: Option<Arc<GlobalDatagramLimiter>>,
+    udp_all_download_speed_limit: Option<Arc<GlobalDatagramLimiter>>,
     ingress_net_filter: Option<Arc<AclNetworkRule>>,
     dst_host_filter: Option<Arc<AclDstHostRuleSet>>,
     resolve_redirection: Option<ResolveRedirection>,
@@ -108,6 +113,37 @@ impl User {
             .as_ref()
             .map(|quota| Arc::new(RateLimiter::direct(quota.get_inner())));
 
+        let tcp_all_upload_speed_limit = if let Some(config) = config.tcp_all_upload_speed_limit {
+            let limiter = Arc::new(GlobalStreamLimiter::new(GlobalLimitGroup::User, config));
+            limiter.clone().tokio_spawn_replenish();
+            Some(limiter)
+        } else {
+            None
+        };
+        let tcp_all_download_speed_limit = if let Some(config) = config.tcp_all_download_speed_limit
+        {
+            let limiter = Arc::new(GlobalStreamLimiter::new(GlobalLimitGroup::User, config));
+            limiter.clone().tokio_spawn_replenish();
+            Some(limiter)
+        } else {
+            None
+        };
+        let udp_all_upload_speed_limit = if let Some(config) = config.udp_all_upload_speed_limit {
+            let limiter = Arc::new(GlobalDatagramLimiter::new(config));
+            limiter.clone().tokio_spawn_replenish();
+            Some(limiter)
+        } else {
+            None
+        };
+        let udp_all_download_speed_limit = if let Some(config) = config.udp_all_download_speed_limit
+        {
+            let limiter = Arc::new(GlobalDatagramLimiter::new(config));
+            limiter.clone().tokio_spawn_replenish();
+            Some(limiter)
+        } else {
+            None
+        };
+
         let is_expired = AtomicBool::new(config.is_expired(datetime_now));
         let is_blocked = Arc::new(AtomicBool::new(config.block_and_delay.is_some()));
 
@@ -122,6 +158,10 @@ impl User {
             is_blocked,
             request_rate_limit,
             tcp_conn_rate_limit,
+            tcp_all_upload_speed_limit,
+            tcp_all_download_speed_limit,
+            udp_all_upload_speed_limit,
+            udp_all_download_speed_limit,
             ingress_net_filter: None,
             dst_host_filter: None,
             resolve_redirection: None,
@@ -201,6 +241,57 @@ impl User {
             None
         };
 
+        let tcp_all_upload_speed_limit = if let Some(config) = config.tcp_all_upload_speed_limit {
+            if let Some(old) = self.tcp_all_upload_speed_limit.clone() {
+                old.update(config);
+                Some(old)
+            } else {
+                let limiter = Arc::new(GlobalStreamLimiter::new(GlobalLimitGroup::User, config));
+                limiter.clone().tokio_spawn_replenish();
+                Some(limiter)
+            }
+        } else {
+            None
+        };
+        let tcp_all_download_speed_limit = if let Some(config) = config.tcp_all_download_speed_limit
+        {
+            if let Some(old) = self.tcp_all_download_speed_limit.clone() {
+                old.update(config);
+                Some(old)
+            } else {
+                let limiter = Arc::new(GlobalStreamLimiter::new(GlobalLimitGroup::User, config));
+                limiter.clone().tokio_spawn_replenish();
+                Some(limiter)
+            }
+        } else {
+            None
+        };
+        let udp_all_upload_speed_limit = if let Some(config) = config.udp_all_upload_speed_limit {
+            if let Some(old) = self.udp_all_upload_speed_limit.clone() {
+                old.update(config);
+                Some(old)
+            } else {
+                let limiter = Arc::new(GlobalDatagramLimiter::new(config));
+                limiter.clone().tokio_spawn_replenish();
+                Some(limiter)
+            }
+        } else {
+            None
+        };
+        let udp_all_download_speed_limit = if let Some(config) = config.udp_all_download_speed_limit
+        {
+            if let Some(old) = self.udp_all_download_speed_limit.clone() {
+                old.update(config);
+                Some(old)
+            } else {
+                let limiter = Arc::new(GlobalDatagramLimiter::new(config));
+                limiter.clone().tokio_spawn_replenish();
+                Some(limiter)
+            }
+        } else {
+            None
+        };
+
         // always use the expired state in new config
         let is_expired = AtomicBool::new(config.is_expired(datetime_now));
 
@@ -225,6 +316,10 @@ impl User {
             is_blocked,
             request_rate_limit,
             tcp_conn_rate_limit,
+            tcp_all_upload_speed_limit,
+            tcp_all_download_speed_limit,
+            udp_all_upload_speed_limit,
+            udp_all_download_speed_limit,
             ingress_net_filter: None,
             dst_host_filter: None,
             resolve_redirection: None,
@@ -550,6 +645,26 @@ impl User {
 
     pub(crate) fn log_uri_max_chars(&self) -> Option<usize> {
         self.config.log_uri_max_chars
+    }
+
+    #[inline]
+    pub(crate) fn tcp_all_upload_speed_limit(&self) -> Option<&Arc<GlobalStreamLimiter>> {
+        self.tcp_all_upload_speed_limit.as_ref()
+    }
+
+    #[inline]
+    pub(crate) fn tcp_all_download_speed_limit(&self) -> Option<&Arc<GlobalStreamLimiter>> {
+        self.tcp_all_download_speed_limit.as_ref()
+    }
+
+    #[inline]
+    pub(crate) fn udp_all_upload_speed_limit(&self) -> Option<&Arc<GlobalDatagramLimiter>> {
+        self.udp_all_upload_speed_limit.as_ref()
+    }
+
+    #[inline]
+    pub(crate) fn udp_all_download_speed_limit(&self) -> Option<&Arc<GlobalDatagramLimiter>> {
+        self.udp_all_download_speed_limit.as_ref()
     }
 }
 

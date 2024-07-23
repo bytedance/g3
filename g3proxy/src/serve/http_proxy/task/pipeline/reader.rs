@@ -20,7 +20,7 @@ use log::trace;
 use tokio::io::AsyncRead;
 use tokio::sync::mpsc;
 
-use g3_io_ext::{LimitedBufReadExt, LimitedBufReader, NilLimitedReaderStats};
+use g3_io_ext::{GlobalLimitGroup, LimitedBufReadExt, LimitedBufReader, NilLimitedReaderStats};
 
 use super::protocol::{HttpClientReader, HttpProxyRequest};
 use super::{CommonTaskContext, HttpProxyCltWrapperStats, HttpProxyPipelineStats};
@@ -172,6 +172,7 @@ where
                         reader.reset_buffer_stats(Arc::new(NilLimitedReaderStats::default()));
                         let limit_config = &self.ctx.server_config.tcp_sock_speed_limit;
                         reader.reset_local_limit(limit_config.shift_millis, limit_config.max_north);
+                        reader.retain_global_limiter_by_group(GlobalLimitGroup::Server);
                         self.stream_reader = Some(reader);
                     }
                     None => {

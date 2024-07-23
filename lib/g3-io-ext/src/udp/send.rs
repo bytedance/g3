@@ -17,6 +17,7 @@
 use std::io::{self, IoSlice};
 use std::net::SocketAddr;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{ready, Context, Poll};
 use std::time::Duration;
 
@@ -32,7 +33,7 @@ use tokio::time::{Instant, Sleep};
 ))]
 use super::SendMsgHdr;
 use crate::limit::{DatagramLimitAction, DatagramLimiter};
-use crate::ArcLimitedSendStats;
+use crate::{ArcLimitedSendStats, GlobalDatagramLimit};
 
 pub trait AsyncUdpSend {
     fn poll_send_to(
@@ -88,6 +89,14 @@ impl<T: AsyncUdpSend> LimitedUdpSend<T> {
             limit: DatagramLimiter::with_local(shift_millis, max_packets, max_bytes),
             stats,
         }
+    }
+
+    #[inline]
+    pub fn add_global_limiter<L>(&mut self, limiter: Arc<L>)
+    where
+        L: GlobalDatagramLimit + Send + Sync + 'static,
+    {
+        self.limit.add_global(limiter);
     }
 
     pub fn reset_stats(&mut self, stats: ArcLimitedSendStats) {

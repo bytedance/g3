@@ -399,13 +399,18 @@ impl SocksProxyUdpAssociateTask {
             &self.task_stats,
         ));
 
-        let clt_r = LimitedUdpRecv::local_limited(
+        let mut clt_r = LimitedUdpRecv::local_limited(
             clt_r,
             limit_config.shift_millis,
             limit_config.max_north_packets,
             limit_config.max_north_bytes,
             wrapper_stats.clone(),
         );
+        if let Some(user_ctx) = self.task_notes.user_ctx() {
+            if let Some(limiter) = user_ctx.user().udp_all_upload_speed_limit() {
+                clt_r.add_global_limiter(limiter.clone());
+            }
+        }
         let mut clt_w_stats = wrapper_stats;
 
         let mut clt_r = Socks5UdpAssociateClientRecv::new(
@@ -464,13 +469,19 @@ impl SocksProxyUdpAssociateTask {
             .map_err(|_| {
                 ServerTaskError::InternalServerError("unable to connect the client side udp socket")
             })?;
-        let clt_w = LimitedUdpSend::local_limited(
+
+        let mut clt_w = LimitedUdpSend::local_limited(
             clt_w,
             limit_config.shift_millis,
             limit_config.max_south_packets,
             limit_config.max_south_bytes,
             clt_w_stats,
         );
+        if let Some(user_ctx) = self.task_notes.user_ctx() {
+            if let Some(limiter) = user_ctx.user().udp_all_download_speed_limit() {
+                clt_w.add_global_limiter(limiter.clone());
+            }
+        }
 
         self.task_notes.stage = ServerTaskStage::Connecting;
         let (ups_r, mut ups_w, logger) = self

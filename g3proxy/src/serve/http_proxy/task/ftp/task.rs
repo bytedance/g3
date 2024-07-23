@@ -29,7 +29,7 @@ use g3_ftp_client::{
 };
 use g3_http::server::HttpProxyClientRequest;
 use g3_http::{HttpBodyReader, HttpBodyType};
-use g3_io_ext::{LimitedCopy, LimitedCopyError, SizedReader};
+use g3_io_ext::{GlobalLimitGroup, LimitedCopy, LimitedCopyError, SizedReader};
 use g3_types::acl::AclAction;
 use g3_types::net::ProxyRequestType;
 
@@ -343,6 +343,8 @@ impl<'a> FtpOverHttpTask<'a> {
             .read
             .add_bytes(origin_header_size);
 
+        clt_w.retain_global_limiter_by_group(GlobalLimitGroup::Server);
+
         let mut wrapper_stats =
             FtpOverHttpTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
         let limit_config = if let Some(user_ctx) = self.task_notes.user_ctx() {
@@ -354,6 +356,14 @@ impl<'a> FtpOverHttpTask<'a> {
                 s.io.ftp_over_http.add_in_bytes(origin_header_size);
             }
             wrapper_stats.push_user_io_stats(user_io_stats);
+
+            let user = user_ctx.user();
+            if let Some(limiter) = user.tcp_all_upload_speed_limit() {
+                clt_r.add_global_limiter(limiter.clone());
+            }
+            if let Some(limiter) = user.tcp_all_download_speed_limit() {
+                clt_w.add_global_limiter(limiter.clone());
+            }
 
             let user_config = user_ctx.user_config();
             if user_config

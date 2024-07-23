@@ -37,7 +37,10 @@ pub use primary::{
 };
 pub use random::as_random_ratio;
 pub use rate_limit::as_rate_limit_quota;
-pub use speed_limit::{as_tcp_sock_speed_limit, as_udp_sock_speed_limit};
+pub use speed_limit::{
+    as_global_datagram_speed_limit, as_global_stream_speed_limit, as_tcp_sock_speed_limit,
+    as_udp_sock_speed_limit,
+};
 
 #[cfg(feature = "audit")]
 mod audit;

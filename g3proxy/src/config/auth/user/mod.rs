@@ -25,7 +25,9 @@ use g3_types::acl::{
     AclExactPortRule, AclNetworkRuleBuilder, AclProxyRequestRule, AclUserAgentRule,
 };
 use g3_types::acl_set::AclDstHostRuleSetBuilder;
-use g3_types::limit::RateLimitQuotaConfig;
+use g3_types::limit::{
+    GlobalDatagramSpeedLimitConfig, GlobalStreamSpeedLimitConfig, RateLimitQuotaConfig,
+};
 use g3_types::metrics::MetricsName;
 use g3_types::net::{
     HttpKeepAliveConfig, TcpConnectConfig, TcpKeepAliveConfig, TcpMiscSockOpts,
@@ -59,6 +61,10 @@ pub(crate) struct UserConfig {
     pub(crate) tcp_conn_rate_limit: Option<RateLimitQuotaConfig>,
     pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
     pub(crate) udp_sock_speed_limit: UdpSockSpeedLimitConfig,
+    pub(crate) tcp_all_upload_speed_limit: Option<GlobalStreamSpeedLimitConfig>,
+    pub(crate) tcp_all_download_speed_limit: Option<GlobalStreamSpeedLimitConfig>,
+    pub(crate) udp_all_upload_speed_limit: Option<GlobalDatagramSpeedLimitConfig>,
+    pub(crate) udp_all_download_speed_limit: Option<GlobalDatagramSpeedLimitConfig>,
     pub(crate) log_rate_limit: Option<RateLimitQuotaConfig>,
     pub(crate) log_uri_max_chars: Option<usize>,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
@@ -95,6 +101,10 @@ impl Default for UserConfig {
             tcp_conn_rate_limit: None,
             tcp_sock_speed_limit: Default::default(),
             udp_sock_speed_limit: Default::default(),
+            tcp_all_upload_speed_limit: None,
+            tcp_all_download_speed_limit: None,
+            udp_all_upload_speed_limit: None,
+            udp_all_download_speed_limit: None,
             log_rate_limit: None,
             log_uri_max_chars: None,
             ingress_net_filter: None,

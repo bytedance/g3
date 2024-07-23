@@ -18,7 +18,7 @@ use std::sync::Arc;
 
 use tokio::time::Instant;
 
-use super::LocalStreamLimiter;
+use super::{GlobalLimitGroup, LocalStreamLimiter};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum StreamLimitAction {
@@ -28,6 +28,7 @@ pub enum StreamLimitAction {
 }
 
 pub trait GlobalStreamLimit {
+    fn group(&self) -> GlobalLimitGroup;
     fn check(&self, to_advance: usize) -> StreamLimitAction;
     fn release(&self, size: usize);
 }
@@ -45,6 +46,14 @@ impl GlobalLimiter {
         GlobalLimiter {
             inner,
             checked_bytes: None,
+        }
+    }
+}
+
+impl Drop for GlobalLimiter {
+    fn drop(&mut self) {
+        if let Some(taken) = self.checked_bytes.take() {
+            self.inner.release(taken);
         }
     }
 }
@@ -80,6 +89,14 @@ impl StreamLimiter {
     {
         self.global.push(GlobalLimiter::new(limiter));
         self.is_set = true;
+    }
+
+    pub fn remove_global_by_group(&mut self, group: GlobalLimitGroup) {
+        self.global.retain(|l| l.inner.group() != group);
+    }
+
+    pub fn retain_global_by_group(&mut self, group: GlobalLimitGroup) {
+        self.global.retain(|l| l.inner.group() == group);
     }
 
     #[inline]

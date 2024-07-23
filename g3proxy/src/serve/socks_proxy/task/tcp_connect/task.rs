@@ -438,6 +438,14 @@ impl SocksProxyTcpConnectTask {
                 clt_r.reset_local_limit(limit_config.shift_millis, limit_config.max_north);
                 clt_w.reset_local_limit(limit_config.shift_millis, limit_config.max_south);
             }
+
+            let user = user_ctx.user();
+            if let Some(limiter) = user.tcp_all_upload_speed_limit() {
+                clt_r.add_global_limiter(limiter.clone());
+            }
+            if let Some(limiter) = user.tcp_all_download_speed_limit() {
+                clt_w.add_global_limiter(limiter.clone());
+            }
         }
         let wrapper_stats = Arc::new(wrapper_stats);
         clt_r.reset_stats(wrapper_stats.clone());

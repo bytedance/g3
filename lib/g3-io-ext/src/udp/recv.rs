@@ -17,6 +17,7 @@
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{ready, Context, Poll};
 use std::time::Duration;
 
@@ -32,7 +33,7 @@ use tokio::time::{Instant, Sleep};
 ))]
 use super::RecvMsgHdr;
 use crate::limit::{DatagramLimitAction, DatagramLimiter};
-use crate::ArcLimitedRecvStats;
+use crate::{ArcLimitedRecvStats, GlobalDatagramLimit};
 
 pub trait AsyncUdpRecv {
     fn poll_recv_from(
@@ -80,6 +81,14 @@ impl<T: AsyncUdpRecv> LimitedUdpRecv<T> {
             limit: DatagramLimiter::with_local(shift_millis, max_packets, max_bytes),
             stats,
         }
+    }
+
+    #[inline]
+    pub fn add_global_limiter<L>(&mut self, limiter: Arc<L>)
+    where
+        L: GlobalDatagramLimit + Send + Sync + 'static,
+    {
+        self.limit.add_global(limiter);
     }
 
     pub fn inner(&self) -> &T {

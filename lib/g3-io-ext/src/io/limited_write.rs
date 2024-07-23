@@ -26,7 +26,7 @@ use pin_project_lite::pin_project;
 use tokio::io::AsyncWrite;
 use tokio::time::{Instant, Sleep};
 
-use crate::limit::{GlobalStreamLimit, StreamLimitAction, StreamLimiter};
+use crate::limit::{GlobalLimitGroup, GlobalStreamLimit, StreamLimitAction, StreamLimiter};
 
 pub trait LimitedWriterStats {
     fn add_write_bytes(&self, size: usize);
@@ -75,6 +75,11 @@ impl LimitedWriterState {
         T: GlobalStreamLimit + Send + Sync + 'static,
     {
         self.limit.add_global(limiter);
+    }
+
+    #[inline]
+    pub(crate) fn retain_global_limiter_by_group(&mut self, group: GlobalLimitGroup) {
+        self.limit.retain_global_by_group(group);
     }
 
     pub(crate) fn reset_stats(&mut self, stats: ArcLimitedWriterStats) {
@@ -170,6 +175,11 @@ impl<W: AsyncWrite> LimitedWriter<W> {
         T: GlobalStreamLimit + Send + Sync + 'static,
     {
         self.state.add_global_limiter(limiter);
+    }
+
+    #[inline]
+    pub fn retain_global_limiter_by_group(&mut self, group: GlobalLimitGroup) {
+        self.state.retain_global_limiter_by_group(group);
     }
 
     pub(crate) fn from_parts(inner: W, state: LimitedWriterState) -> Self {
