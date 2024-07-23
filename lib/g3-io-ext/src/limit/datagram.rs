@@ -14,49 +14,9 @@
  * limitations under the License.
  */
 
-use std::io::{IoSlice, IoSliceMut};
 use std::sync::Arc;
 
 use super::LocalDatagramLimiter;
-#[cfg(unix)]
-use crate::{RecvMsgHdr, SendMsgHdr};
-
-pub trait HasPacketSize {
-    fn packet_size(&self) -> usize;
-}
-
-impl<'a> HasPacketSize for IoSlice<'a> {
-    fn packet_size(&self) -> usize {
-        self.len()
-    }
-}
-
-impl<'a> HasPacketSize for IoSliceMut<'a> {
-    fn packet_size(&self) -> usize {
-        self.len()
-    }
-}
-
-#[cfg(unix)]
-impl<'a, const C: usize> HasPacketSize for RecvMsgHdr<'a, C> {
-    fn packet_size(&self) -> usize {
-        self.n_recv
-    }
-}
-
-#[cfg(unix)]
-impl<'a, const C: usize> HasPacketSize for SendMsgHdr<'a, C> {
-    fn packet_size(&self) -> usize {
-        self.n_send
-    }
-}
-
-#[cfg(feature = "quic")]
-impl<'a> HasPacketSize for quinn::udp::Transmit<'a> {
-    fn packet_size(&self) -> usize {
-        self.contents.len()
-    }
-}
 
 pub enum DatagramLimitAction {
     Advance(usize),
@@ -65,7 +25,7 @@ pub enum DatagramLimitAction {
 
 pub trait GlobalDatagramLimit {
     fn check_packet(&self, buf_size: usize) -> DatagramLimitAction;
-    fn check_packets(&self, packets: usize, buf_size: usize) -> DatagramLimitAction;
+    fn check_packets(&self, total_size_v: &[usize]) -> DatagramLimitAction;
     fn release_size(&self, size: usize);
     fn release_packets(&self, packets: usize);
 }
@@ -156,12 +116,12 @@ impl DatagramLimiter {
         DatagramLimitAction::Advance(1)
     }
 
-    pub fn check_packets<P>(&mut self, cur_millis: u64, packets: &[P]) -> DatagramLimitAction
-    where
-        P: HasPacketSize,
-    {
-        let target_packets = packets.len();
-        let mut to_advance = match self.local.check_packets(cur_millis, packets) {
+    pub fn check_packets(
+        &mut self,
+        cur_millis: u64,
+        total_size_v: &[usize],
+    ) -> DatagramLimitAction {
+        let mut to_advance = match self.local.check_packets(cur_millis, total_size_v) {
             DatagramLimitAction::Advance(n) => n,
             DatagramLimitAction::DelayFor(n) => return DatagramLimitAction::DelayFor(n),
         };
@@ -169,22 +129,10 @@ impl DatagramLimiter {
             return DatagramLimitAction::Advance(to_advance);
         }
 
-        let mut buf_size = packets
-            .iter()
-            .map(|v| v.packet_size())
-            .take(to_advance)
-            .sum();
         for limiter in &mut self.global {
-            match limiter.inner.check_packets(to_advance, buf_size) {
+            match limiter.inner.check_packets(&total_size_v[..to_advance]) {
                 DatagramLimitAction::Advance(n) => {
-                    if n != to_advance {
-                        to_advance = n;
-                        buf_size = packets
-                            .iter()
-                            .map(|v| v.packet_size())
-                            .take(to_advance)
-                            .sum();
-                    }
+                    to_advance = n;
                     limiter.checked_packets = Some(n);
                 }
                 DatagramLimitAction::DelayFor(n) => {
@@ -194,7 +142,8 @@ impl DatagramLimiter {
             }
         }
 
-        if target_packets > to_advance {
+        if total_size_v.len() > to_advance {
+            let buf_size = total_size_v[to_advance];
             for limiter in &mut self.global {
                 let checked = limiter.checked_packets.take().unwrap();
                 if checked > to_advance {

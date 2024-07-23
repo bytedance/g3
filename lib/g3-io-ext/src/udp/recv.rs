@@ -185,11 +185,17 @@ where
     ) -> Poll<io::Result<usize>> {
         if self.limit.is_set() {
             let dur_millis = self.started.elapsed().as_millis() as u64;
-            match self.limit.check_packets(dur_millis, hdr_v) {
+            let mut total_size_v = [0usize; C];
+            let mut total_size = 0;
+            for i in 0..C {
+                total_size += hdr_v[i].n_recv;
+                total_size_v[i] = total_size;
+            }
+            match self.limit.check_packets(dur_millis, &total_size_v) {
                 DatagramLimitAction::Advance(n) => {
                     match self.inner.poll_batch_recvmsg(cx, &mut hdr_v[0..n]) {
                         Poll::Ready(Ok(count)) => {
-                            let len = hdr_v.iter().take(count).map(|h| h.n_recv).sum();
+                            let len = total_size_v[count];
                             self.limit.set_advance(count, len);
                             self.stats.add_recv_packets(count);
                             self.stats.add_recv_bytes(len);

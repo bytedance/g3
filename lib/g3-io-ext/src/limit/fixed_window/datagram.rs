@@ -15,7 +15,7 @@
  */
 
 use super::FixedWindow;
-use crate::limit::{DatagramLimitAction, HasPacketSize};
+use crate::limit::DatagramLimitAction;
 
 #[derive(Default)]
 pub struct LocalDatagramLimiter {
@@ -85,10 +85,11 @@ impl LocalDatagramLimiter {
         DatagramLimitAction::Advance(1)
     }
 
-    pub fn check_packets<P>(&mut self, cur_millis: u64, packets: &[P]) -> DatagramLimitAction
-    where
-        P: HasPacketSize,
-    {
+    pub fn check_packets(
+        &mut self,
+        cur_millis: u64,
+        total_size_v: &[usize],
+    ) -> DatagramLimitAction {
         let time_slice_id = self.window.slice_id(cur_millis);
         if self.time_slice_id != time_slice_id {
             self.cur_bytes = 0;
@@ -96,10 +97,10 @@ impl LocalDatagramLimiter {
             self.time_slice_id = time_slice_id;
         }
 
-        let mut pkt_count = packets.len();
+        let mut pkt_count = total_size_v.len();
         // do packet limit first. The first packet will always pass.
         if self.max_packets > 0 {
-            if self.cur_packets > self.max_packets {
+            if self.cur_packets >= self.max_packets {
                 return DatagramLimitAction::DelayFor(self.window.delay(cur_millis));
             } else {
                 pkt_count = pkt_count.min(self.max_packets - self.cur_packets);
@@ -107,22 +108,23 @@ impl LocalDatagramLimiter {
         }
 
         if self.max_bytes > 0 {
-            let mut total_size = 0usize;
-            for (i, p) in packets.iter().enumerate().take(pkt_count) {
-                total_size += p.packet_size();
-                if self.cur_bytes == 0 {
-                    // always allow the first packet
-                    continue;
-                }
-
-                if self.cur_bytes + total_size >= self.max_bytes {
-                    return if i == 0 {
-                        DatagramLimitAction::DelayFor(self.window.delay(cur_millis))
-                    } else {
-                        DatagramLimitAction::Advance(i)
-                    };
-                }
+            if self.cur_bytes >= self.max_bytes {
+                return DatagramLimitAction::DelayFor(self.window.delay(cur_millis));
             }
+
+            let allowed = self.max_bytes - self.cur_bytes;
+            pkt_count = match total_size_v[..pkt_count].binary_search(&allowed) {
+                Ok(found_index) => found_index + 1,
+                Err(0) => {
+                    if self.cur_bytes == 0 {
+                        // always allow the first packet in the window
+                        1
+                    } else {
+                        return DatagramLimitAction::DelayFor(self.window.delay(cur_millis));
+                    }
+                }
+                Err(insert_index) => insert_index,
+            };
         }
         // the real advance size should be set via set_advance_size() method by caller
 

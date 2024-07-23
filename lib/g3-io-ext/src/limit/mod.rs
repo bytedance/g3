@@ -15,7 +15,7 @@
  */
 
 mod datagram;
-pub use datagram::{DatagramLimitAction, DatagramLimiter, GlobalDatagramLimit, HasPacketSize};
+pub use datagram::{DatagramLimitAction, DatagramLimiter, GlobalDatagramLimit};
 
 mod stream;
 pub use stream::{GlobalStreamLimit, StreamLimitAction, StreamLimiter};
