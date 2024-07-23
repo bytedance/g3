@@ -46,7 +46,15 @@ pub struct LimitedTokioRuntime<R, ST> {
 }
 
 impl<R, ST> LimitedTokioRuntime<R, ST> {
-    pub fn new(
+    pub fn new(inner: R, stats: Arc<ST>) -> Self {
+        LimitedTokioRuntime {
+            inner,
+            limit: None,
+            stats,
+        }
+    }
+
+    pub fn local_limited(
         inner: R,
         shift_millis: u8,
         max_send_packets: usize,
@@ -65,14 +73,6 @@ impl<R, ST> LimitedTokioRuntime<R, ST> {
         LimitedTokioRuntime {
             inner,
             limit: Some(limit),
-            stats,
-        }
-    }
-
-    pub fn new_unlimited(inner: R, stats: Arc<ST>) -> Self {
-        LimitedTokioRuntime {
-            inner,
-            limit: None,
             stats,
         }
     }

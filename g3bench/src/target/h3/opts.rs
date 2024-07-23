@@ -175,7 +175,7 @@ impl BenchH3Args {
             })?;
 
             let limit = &proc_args.udp_sock_speed_limit;
-            let runtime = LimitedTokioRuntime::new(
+            let runtime = LimitedTokioRuntime::local_limited(
                 Socks5UdpTokioRuntime::new(stream, quic_peer),
                 limit.shift_millis,
                 limit.max_north_packets,
@@ -199,7 +199,7 @@ impl BenchH3Args {
                 .map_err(|e| anyhow!("failed to connect local udp socket to {quic_peer}: {e}"))?;
 
             let limit = &proc_args.udp_sock_speed_limit;
-            let runtime = LimitedTokioRuntime::new(
+            let runtime = LimitedTokioRuntime::local_limited(
                 TokioRuntime,
                 limit.shift_millis,
                 limit.max_north_packets,
