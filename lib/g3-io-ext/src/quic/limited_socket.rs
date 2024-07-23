@@ -304,6 +304,14 @@ impl AsyncUdpSocket for LimitedUdpSocket {
                         Err(e)
                     }
                 },
+                DatagramLimitAction::DelayUntil(t) => {
+                    l.delay.as_mut().reset(t);
+                    l.poll_delay = true;
+                    Err(io::Error::new(
+                        io::ErrorKind::WouldBlock,
+                        "delayed by rate limiter",
+                    ))
+                }
                 DatagramLimitAction::DelayFor(ms) => {
                     l.delay
                         .as_mut()
@@ -334,15 +342,15 @@ impl AsyncUdpSocket for LimitedUdpSocket {
             let dur_millis = l.started.elapsed().as_millis() as u64;
             let mut total_size_v = Vec::with_capacity(meta.len());
             let mut total_size = 0;
-            for m in meta.iter() {
-                total_size += m.len;
+            for b in bufs.iter() {
+                total_size += b.len();
                 total_size_v.push(total_size);
             }
             match l.limit.check_packets(dur_millis, &total_size_v) {
                 DatagramLimitAction::Advance(n) => {
                     match self.inner.poll_recv(cx, &mut bufs[0..n], &mut meta[0..n]) {
                         Poll::Ready(Ok(nr)) => {
-                            let len = total_size_v[nr];
+                            let len = meta.iter().take(nr).map(|m| m.len).sum();
                             l.limit.set_advance(nr, len);
                             l.stats.add_recv_packets(nr);
                             l.stats.add_recv_bytes(len);
@@ -357,6 +365,10 @@ impl AsyncUdpSocket for LimitedUdpSocket {
                             Poll::Pending
                         }
                     }
+                }
+                DatagramLimitAction::DelayUntil(t) => {
+                    l.delay.as_mut().reset(t);
+                    l.delay.poll_unpin(cx).map(|_| Ok(0))
                 }
                 DatagramLimitAction::DelayFor(ms) => {
                     l.delay

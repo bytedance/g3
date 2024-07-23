@@ -106,7 +106,7 @@ impl From<SocketAddr> for RawSocketAddr {
 }
 
 pub struct SendMsgHdr<'a, const C: usize> {
-    iov: [IoSlice<'a>; C],
+    pub(crate) iov: [IoSlice<'a>; C],
     c_addr: Option<UnsafeCell<RawSocketAddr>>,
     pub n_send: usize,
 }

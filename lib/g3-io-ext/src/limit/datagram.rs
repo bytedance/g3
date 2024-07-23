@@ -16,24 +16,27 @@
 
 use std::sync::Arc;
 
+use tokio::time::Instant;
+
 use super::LocalDatagramLimiter;
 
 pub enum DatagramLimitAction {
     Advance(usize),
+    DelayUntil(Instant),
     DelayFor(u64),
 }
 
 pub trait GlobalDatagramLimit {
     fn check_packet(&self, buf_size: usize) -> DatagramLimitAction;
     fn check_packets(&self, total_size_v: &[usize]) -> DatagramLimitAction;
-    fn release_size(&self, size: usize);
-    fn release_packets(&self, packets: usize);
+    fn release_bytes(&self, size: usize);
+    fn release_packets(&self, count: usize);
 }
 
 struct GlobalLimiter {
     inner: Arc<dyn GlobalDatagramLimit + Send + Sync>,
     checked_packets: Option<usize>,
-    checked_size: Option<usize>,
+    checked_bytes: Option<usize>,
 }
 
 impl GlobalLimiter {
@@ -44,7 +47,7 @@ impl GlobalLimiter {
         GlobalLimiter {
             inner,
             checked_packets: None,
-            checked_size: None,
+            checked_bytes: None,
         }
     }
 }
@@ -97,14 +100,21 @@ impl DatagramLimiter {
     pub fn check_packet(&mut self, cur_millis: u64, buf_size: usize) -> DatagramLimitAction {
         match self.local.check_packet(cur_millis, buf_size) {
             DatagramLimitAction::Advance(_) => {}
-            DatagramLimitAction::DelayFor(n) => return DatagramLimitAction::DelayFor(n),
+            DatagramLimitAction::DelayUntil(t) => return DatagramLimitAction::DelayUntil(t),
+            DatagramLimitAction::DelayFor(n) => {
+                return DatagramLimitAction::DelayFor(n);
+            }
         };
 
         for limiter in &mut self.global {
             match limiter.inner.check_packet(buf_size) {
                 DatagramLimitAction::Advance(_) => {
                     limiter.checked_packets = Some(1);
-                    limiter.checked_size = Some(buf_size);
+                    limiter.checked_bytes = Some(buf_size);
+                }
+                DatagramLimitAction::DelayUntil(t) => {
+                    self.release_global();
+                    return DatagramLimitAction::DelayUntil(t);
                 }
                 DatagramLimitAction::DelayFor(n) => {
                     self.release_global();
@@ -123,7 +133,10 @@ impl DatagramLimiter {
     ) -> DatagramLimitAction {
         let mut to_advance = match self.local.check_packets(cur_millis, total_size_v) {
             DatagramLimitAction::Advance(n) => n,
-            DatagramLimitAction::DelayFor(n) => return DatagramLimitAction::DelayFor(n),
+            DatagramLimitAction::DelayUntil(t) => return DatagramLimitAction::DelayUntil(t),
+            DatagramLimitAction::DelayFor(n) => {
+                return DatagramLimitAction::DelayFor(n);
+            }
         };
         if self.global.is_empty() {
             return DatagramLimitAction::Advance(to_advance);
@@ -135,6 +148,10 @@ impl DatagramLimiter {
                     to_advance = n;
                     limiter.checked_packets = Some(n);
                 }
+                DatagramLimitAction::DelayUntil(t) => {
+                    self.release_global();
+                    return DatagramLimitAction::DelayUntil(t);
+                }
                 DatagramLimitAction::DelayFor(n) => {
                     self.release_global();
                     return DatagramLimitAction::DelayFor(n);
@@ -143,14 +160,17 @@ impl DatagramLimiter {
         }
 
         if total_size_v.len() > to_advance {
-            let buf_size = total_size_v[to_advance];
+            let buf_size = total_size_v[to_advance - 1];
             for limiter in &mut self.global {
                 let checked = limiter.checked_packets.take().unwrap();
                 if checked > to_advance {
                     limiter.inner.release_packets(checked - to_advance);
+                    limiter
+                        .inner
+                        .release_bytes(total_size_v[checked - 1] - buf_size);
                 }
                 limiter.checked_packets = Some(to_advance);
-                limiter.checked_size = Some(buf_size);
+                limiter.checked_bytes = Some(buf_size);
             }
         }
         DatagramLimitAction::Advance(to_advance)
@@ -162,8 +182,8 @@ impl DatagramLimiter {
                 break;
             };
             limiter.inner.release_packets(packets);
-            if let Some(size) = limiter.checked_size.take() {
-                limiter.inner.release_size(size);
+            if let Some(size) = limiter.checked_bytes.take() {
+                limiter.inner.release_bytes(size);
             }
         }
     }
@@ -180,9 +200,9 @@ impl DatagramLimiter {
                 limiter.inner.release_packets(checked - packets);
             }
 
-            if let Some(checked) = limiter.checked_size.take() {
+            if let Some(checked) = limiter.checked_bytes.take() {
                 if checked > size {
-                    limiter.inner.release_size(checked - size);
+                    limiter.inner.release_bytes(checked - size);
                 }
             }
         }

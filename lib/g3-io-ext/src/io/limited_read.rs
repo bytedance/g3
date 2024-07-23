@@ -118,6 +118,10 @@ impl LimitedReaderState {
                         }
                     }
                 }
+                StreamLimitAction::DelayUntil(t) => {
+                    self.delay.as_mut().reset(t);
+                    self.delay.poll_unpin(cx).map(|_| Ok(()))
+                }
                 StreamLimitAction::DelayFor(ms) => {
                     self.delay
                         .as_mut()

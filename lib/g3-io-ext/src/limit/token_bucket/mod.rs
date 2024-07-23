@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,8 @@
  * limitations under the License.
  */
 
-mod gauge_semaphore;
-pub use gauge_semaphore::{GaugeSemaphore, GaugeSemaphoreAcquireError, GaugeSemaphorePermit};
+mod stream;
+pub use stream::GlobalStreamLimiter;
 
-mod rate_limit_quota;
-pub use rate_limit_quota::RateLimitQuotaConfig;
-
-mod stream_speed;
-pub use stream_speed::GlobalStreamSpeedLimitConfig;
-
-mod datagram_speed;
-pub use datagram_speed::GlobalDatagramSpeedLimitConfig;
+mod datagram;
+pub use datagram::GlobalDatagramLimiter;

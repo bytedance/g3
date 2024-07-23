@@ -1281,6 +1281,7 @@ name = "g3-io-ext"
 version = "0.7.0"
 dependencies = [
  "ahash",
+ "arc-swap",
  "bytes",
  "fastrand",
  "futures-util",

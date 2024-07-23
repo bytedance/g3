@@ -16,11 +16,14 @@
 
 use std::sync::Arc;
 
+use tokio::time::Instant;
+
 use super::LocalStreamLimiter;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum StreamLimitAction {
     AdvanceBy(usize),
+    DelayUntil(Instant),
     DelayFor(u64),
 }
 
@@ -31,7 +34,7 @@ pub trait GlobalStreamLimit {
 
 struct GlobalLimiter {
     inner: Arc<dyn GlobalStreamLimit + Send + Sync>,
-    checked_size: Option<usize>,
+    checked_bytes: Option<usize>,
 }
 
 impl GlobalLimiter {
@@ -41,7 +44,7 @@ impl GlobalLimiter {
     {
         GlobalLimiter {
             inner,
-            checked_size: None,
+            checked_bytes: None,
         }
     }
 }
@@ -88,6 +91,7 @@ impl StreamLimiter {
         let target = to_advance;
         let mut to_advance = match self.local.check(cur_millis, to_advance) {
             StreamLimitAction::AdvanceBy(size) => size,
+            StreamLimitAction::DelayUntil(t) => return StreamLimitAction::DelayUntil(t),
             StreamLimitAction::DelayFor(n) => return StreamLimitAction::DelayFor(n),
         };
 
@@ -95,7 +99,11 @@ impl StreamLimiter {
             match limiter.inner.check(to_advance) {
                 StreamLimitAction::AdvanceBy(size) => {
                     to_advance = size;
-                    limiter.checked_size = Some(size);
+                    limiter.checked_bytes = Some(size);
+                }
+                StreamLimitAction::DelayUntil(t) => {
+                    self.release_global();
+                    return StreamLimitAction::DelayUntil(t);
                 }
                 StreamLimitAction::DelayFor(n) => {
                     self.release_global();
@@ -107,11 +115,11 @@ impl StreamLimiter {
         if target > to_advance {
             // shrink in time
             for limiter in &mut self.global {
-                let checked = limiter.checked_size.take().unwrap();
+                let checked = limiter.checked_bytes.take().unwrap();
                 if checked > to_advance {
                     limiter.inner.release(checked - to_advance);
                 }
-                limiter.checked_size = Some(to_advance);
+                limiter.checked_bytes = Some(to_advance);
             }
         }
         StreamLimitAction::AdvanceBy(to_advance)
@@ -119,7 +127,7 @@ impl StreamLimiter {
 
     pub fn release_global(&mut self) {
         for limiter in &mut self.global {
-            let Some(taken) = limiter.checked_size.take() else {
+            let Some(taken) = limiter.checked_bytes.take() else {
                 break;
             };
             limiter.inner.release(taken);
@@ -130,7 +138,7 @@ impl StreamLimiter {
         self.local.set_advance(size);
 
         for limiter in &mut self.global {
-            let Some(taken) = limiter.checked_size.take() else {
+            let Some(taken) = limiter.checked_bytes.take() else {
                 break;
             };
             if taken > size {

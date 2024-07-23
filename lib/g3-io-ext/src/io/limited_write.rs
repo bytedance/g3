@@ -118,6 +118,10 @@ impl LimitedWriterState {
                         Poll::Pending
                     }
                 },
+                StreamLimitAction::DelayUntil(t) => {
+                    self.delay.as_mut().reset(t);
+                    self.delay.poll_unpin(cx).map(|_| Ok(0))
+                }
                 StreamLimitAction::DelayFor(ms) => {
                     self.delay
                         .as_mut()

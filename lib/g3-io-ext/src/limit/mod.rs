@@ -22,3 +22,6 @@ pub use stream::{GlobalStreamLimit, StreamLimitAction, StreamLimiter};
 
 mod fixed_window;
 pub use fixed_window::{LocalDatagramLimiter, LocalStreamLimiter, ThreadedCountLimiter};
+
+mod token_bucket;
+pub use token_bucket::{GlobalDatagramLimiter, GlobalStreamLimiter};

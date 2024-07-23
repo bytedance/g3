@@ -124,6 +124,10 @@ where
                         Poll::Pending
                     }
                 },
+                DatagramLimitAction::DelayUntil(t) => {
+                    self.delay.as_mut().reset(t);
+                    self.delay.poll_unpin(cx).map(|_| Ok(0))
+                }
                 DatagramLimitAction::DelayFor(ms) => {
                     self.delay
                         .as_mut()
@@ -159,6 +163,10 @@ where
                         Poll::Pending
                     }
                 },
+                DatagramLimitAction::DelayUntil(t) => {
+                    self.delay.as_mut().reset(t);
+                    self.delay.poll_unpin(cx).map(|_| Ok(0))
+                }
                 DatagramLimitAction::DelayFor(ms) => {
                     self.delay
                         .as_mut()
@@ -200,6 +208,10 @@ where
                         Poll::Pending
                     }
                 },
+                DatagramLimitAction::DelayUntil(t) => {
+                    self.delay.as_mut().reset(t);
+                    self.delay.poll_unpin(cx).map(|_| Ok(0))
+                }
                 DatagramLimitAction::DelayFor(ms) => {
                     self.delay
                         .as_mut()
@@ -232,14 +244,14 @@ where
             let mut total_size_v = [0usize, C];
             let mut total_size = 0;
             for i in 0..C {
-                total_size += msgs[i].n_send;
+                total_size += msgs[i].iov.iter().map(|v| v.len()).sum::<usize>();
                 total_size_v[i] = total_size;
             }
             match self.limit.check_packets(dur_millis, &total_size_v) {
                 DatagramLimitAction::Advance(n) => {
                     match self.inner.poll_batch_sendmsg(cx, &mut msgs[0..n]) {
                         Poll::Ready(Ok(count)) => {
-                            let len = total_size_v[count];
+                            let len = msgs.iter().take(count).map(|v| v.n_send).sum();
                             self.limit.set_advance(count, len);
                             self.stats.add_send_packets(count);
                             self.stats.add_send_bytes(len);
@@ -254,6 +266,10 @@ where
                             Poll::Pending
                         }
                     }
+                }
+                DatagramLimitAction::DelayUntil(t) => {
+                    self.delay.as_mut().reset(t);
+                    self.delay.poll_unpin(cx).map(|_| Ok(0))
                 }
                 DatagramLimitAction::DelayFor(ms) => {
                     self.delay
