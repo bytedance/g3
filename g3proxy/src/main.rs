@@ -136,6 +136,9 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
             g3_daemon::runtime::metrics::add_tokio_stats(stats, "limit-schedule".to_string());
         }
 
+        let _workers_guard = g3_daemon::runtime::worker::spawn_workers()
+            .await
+            .context("failed to spawn workers")?;
         match load_and_spawn().await {
             Ok(_) => g3_daemon::control::upgrade::finish(),
             Err(e) => {
@@ -169,9 +172,6 @@ async fn load_and_spawn() -> anyhow::Result<()> {
     g3proxy::audit::load_all()
         .await
         .context("failed to load all auditors")?;
-    let _workers_guard = g3_daemon::runtime::worker::spawn_workers()
-        .await
-        .context("failed to spawn workers")?;
     g3proxy::serve::spawn_offline_clean();
     g3proxy::serve::spawn_all()
         .await

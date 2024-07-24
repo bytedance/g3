@@ -117,6 +117,9 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
 
         g3tiles::signal::register().context("failed to setup signal handler")?;
 
+        let _workers_guard = g3_daemon::runtime::worker::spawn_workers()
+            .await
+            .context("failed to spawn workers")?;
         match load_and_spawn().await {
             Ok(_) => g3_daemon::control::upgrade::finish(),
             Err(e) => {
@@ -141,9 +144,6 @@ async fn load_and_spawn() -> anyhow::Result<()> {
     g3tiles::backend::load_all()
         .await
         .context("failed to load all connectors")?;
-    let _workers_guard = g3_daemon::runtime::worker::spawn_workers()
-        .await
-        .context("failed to spawn workers")?;
     g3tiles::serve::spawn_offline_clean();
     g3tiles::serve::spawn_all()
         .await
