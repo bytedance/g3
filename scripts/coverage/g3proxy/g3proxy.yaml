@@ -6,7 +6,7 @@ runtime:
 worker:
   sched_affinity: true
 
-log: syslog
+log: journal
 
 stat:
   target:

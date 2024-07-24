@@ -163,7 +163,7 @@ This will only count in the data that will be forwarded.
 
 **default**: no limit
 
-.. versionadded:: 1.9.5
+.. versionadded:: 1.9.6
 
 tcp_all_download_speed_limit
 ----------------------------
@@ -176,7 +176,7 @@ This will only count in the data received from upstream.
 
 **default**: no limit
 
-.. versionadded:: 1.9.5
+.. versionadded:: 1.9.6
 
 udp_all_upload_speed_limit
 --------------------------
@@ -189,7 +189,7 @@ This will only count in the data that will be forwarded.
 
 **default**: no limit
 
-.. versionadded:: 1.9.5
+.. versionadded:: 1.9.6
 
 udp_all_download_speed_limit
 ----------------------------
@@ -202,7 +202,7 @@ This will only count in the data received from upstream.
 
 **default**: no limit
 
-.. versionadded:: 1.9.5
+.. versionadded:: 1.9.6
 
 tcp_remote_keepalive
 --------------------

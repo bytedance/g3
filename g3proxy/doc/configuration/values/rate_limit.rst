@@ -134,7 +134,7 @@ The yaml value type can be in varies formats:
 
   The keys of this map are the fields as described above, and the `replenish_bytes` field is always required.
 
-.. versionadded:: 1.9.5
+.. versionadded:: 1.9.6
 
 .. _conf_value_global_datagram_speed_limit:
 
@@ -196,7 +196,7 @@ The yaml value type can be in varies formats:
   The keys of this map are the fields as described above,
   and at least one of `replenish_bytes` or `replenish_packets` field should be set.
 
-.. versionadded:: 1.9.5
+.. versionadded:: 1.9.6
 
 .. _conf_value_request_limit:
 

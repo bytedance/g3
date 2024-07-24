@@ -1,4 +1,9 @@
 
+v1.9.6:
+ - BUG FIX: fix lifetime of worker threads
+ - BUG FIX: fix selection of final escaper for http forward tasks
+ - Feature: allow to set global speed limits at user level
+
 v1.9.5:
  - BUG FIX: close the old process when hot restart
 
