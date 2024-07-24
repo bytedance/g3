@@ -267,7 +267,13 @@ where
 
         let remote_protocol = match req.client_protocol {
             HttpProxySubProtocol::TcpConnect => HttpProxySubProtocol::TcpConnect,
-            HttpProxySubProtocol::HttpForward => HttpProxySubProtocol::HttpForward,
+            HttpProxySubProtocol::HttpForward => {
+                let _ = self
+                    .forward_context
+                    .check_in_final_escaper(&task_notes, &req.upstream)
+                    .await;
+                HttpProxySubProtocol::HttpForward
+            }
             HttpProxySubProtocol::HttpsForward => {
                 let forward_capability = self
                     .forward_context
