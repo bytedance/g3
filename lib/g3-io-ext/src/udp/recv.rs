@@ -222,13 +222,15 @@ where
         cx: &mut Context<'_>,
         hdr_v: &mut [RecvMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>> {
+        use smallvec::SmallVec;
+
         if self.limit.is_set() {
             let dur_millis = self.started.elapsed().as_millis() as u64;
-            let mut total_size_v = [0usize; C];
+            let mut total_size_v = SmallVec::with_capacity(hdr_v.len());
             let mut total_size = 0usize;
-            for i in 0..C {
-                total_size += hdr_v[i].iov.iter().map(|v| v.len()).sum::<usize>();
-                total_size_v[i] = total_size;
+            for hdr in hdr_v.iter() {
+                total_size += hdr.iov.iter().map(|v| v.len()).sum::<usize>();
+                total_size_v.push(total_size);
             }
             match self.limit.check_packets(dur_millis, &total_size_v) {
                 DatagramLimitAction::Advance(n) => {

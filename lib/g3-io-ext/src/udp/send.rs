@@ -284,13 +284,15 @@ where
         cx: &mut Context<'_>,
         msgs: &mut [SendMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>> {
+        use smallvec::SmallVec;
+
         if self.limit.is_set() {
             let dur_millis = self.started.elapsed().as_millis() as u64;
-            let mut total_size_v = [0usize; C];
+            let mut total_size_v = SmallVec::with_capacity(msgs.len());
             let mut total_size = 0;
-            for i in 0..C {
-                total_size += msgs[i].iov.iter().map(|v| v.len()).sum::<usize>();
-                total_size_v[i] = total_size;
+            for msg in msgs.iter() {
+                total_size += msg.iov.iter().map(|v| v.len()).sum::<usize>();
+                total_size_v.push(total_size);
             }
             match self.limit.check_packets(dur_millis, &total_size_v) {
                 DatagramLimitAction::Advance(n) => {
