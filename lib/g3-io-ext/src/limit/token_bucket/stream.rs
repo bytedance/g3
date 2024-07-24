@@ -46,7 +46,7 @@ impl GlobalStreamLimiter {
     }
 
     pub fn tokio_spawn_replenish(self: Arc<Self>) {
-        tokio::spawn(async move {
+        let fut = async move {
             loop {
                 if Arc::strong_count(&self) <= 1 {
                     break;
@@ -56,7 +56,12 @@ impl GlobalStreamLimiter {
                 self.add_bytes(config.replenish_bytes(), config.max_burst_bytes());
                 self.last_updated.store(Arc::new(Instant::now()));
             }
-        });
+        };
+        if let Some(handle) = crate::limit::get_limit_schedule_rt_handle() {
+            handle.spawn(fut);
+        } else {
+            tokio::spawn(fut);
+        }
     }
 
     fn add_bytes(&self, size: u64, max_burst: u64) {

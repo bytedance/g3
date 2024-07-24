@@ -132,6 +132,10 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
 
         g3proxy::signal::register().context("failed to setup signal handler")?;
 
+        if let Some(stats) = g3_io_ext::spawn_limit_schedule_runtime().await {
+            g3_daemon::runtime::metrics::add_tokio_stats(stats, "limit-schedule".to_string());
+        }
+
         match load_and_spawn().await {
             Ok(_) => g3_daemon::control::upgrade::finish(),
             Err(e) => {
@@ -142,6 +146,7 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
 
         unique_ctl.await;
 
+        g3_io_ext::close_limit_schedule_runtime();
         g3proxy::control::capnp::stop_working_thread();
         let _ = ctl_thread_handler.join();
 

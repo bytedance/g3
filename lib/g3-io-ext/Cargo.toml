@@ -9,7 +9,7 @@ rust-version = "1.70.0"
 
 [dependencies]
 thiserror.workspace = true
-tokio = { workspace = true, features = ["time", "net", "io-util", "sync"] }
+tokio = { workspace = true, features = ["time", "net", "io-util", "sync", "rt"] }
 tokio-util = { workspace = true, features = ["time"] }
 tokio-rustls.workspace = true
 futures-util.workspace = true
