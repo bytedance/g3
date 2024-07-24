@@ -286,7 +286,7 @@ where
     ) -> Poll<io::Result<usize>> {
         if self.limit.is_set() {
             let dur_millis = self.started.elapsed().as_millis() as u64;
-            let mut total_size_v = [0usize, C];
+            let mut total_size_v = [0usize; C];
             let mut total_size = 0;
             for i in 0..C {
                 total_size += msgs[i].iov.iter().map(|v| v.len()).sum::<usize>();
