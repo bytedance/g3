@@ -5,4 +5,4 @@ type: tcp_stream
 listen:
   address: "[::1]:10086"
 proxy_pass: "127.0.0.1:5201"
-conn_limit: 50M
+tcp_sock_speed_limit: 50M

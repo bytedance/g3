@@ -6,4 +6,4 @@ tls:
   private_key: key.pem
 listen:
   address: "[::]:10087"
-conn_limit: 100M
+tcp_sock_speed_limit: 100M

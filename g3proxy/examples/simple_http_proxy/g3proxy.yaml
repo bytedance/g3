@@ -19,7 +19,7 @@ server:
     listen:
       address: "[::]:10086"
     tls_client: {}
-    conn_limit: 100M
+    tcp_sock_speed_limit: 100M
   - name: test-tls
     tls_server:
       certificate: cert.pem
@@ -28,7 +28,7 @@ server:
     type: http_proxy
     listen:
       address: "[::]:10087"
-    conn_limit: 100M
+    tcp_sock_speed_limit: 100M
   - name: test-alias
     type: plain_tcp_port
     listen:
@@ -46,8 +46,8 @@ escaper:
     no_ipv6: true
     resolver: default
     resolve_strategy: IPv4Only
-    tcp_conn_limit: 80M
-    udp_relay_limit: 10M
+    tcp_sock_speed_limit: 80M
+    udp_sock_speed_limit: 10M
     egress_network_filter:
       default: allow
       allow:

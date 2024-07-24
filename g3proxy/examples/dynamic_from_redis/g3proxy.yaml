@@ -14,7 +14,7 @@ server:
     server_id: test_dynamic
     listen:
       address: "[::]:10086"
-    conn_limit: 100M
+    tcp_sock_speed_limit: 100M
     echo_chained_info: true
 
 escaper:

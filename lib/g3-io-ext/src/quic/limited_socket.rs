@@ -368,13 +368,25 @@ impl AsyncUdpSocket for LimitedUdpSocket {
                 }
                 DatagramLimitAction::DelayUntil(t) => {
                     l.delay.as_mut().reset(t);
-                    l.delay.poll_unpin(cx).map(|_| Ok(0))
+                    match l.delay.poll_unpin(cx) {
+                        Poll::Ready(_) => {
+                            cx.waker().wake_by_ref();
+                            Poll::Pending
+                        }
+                        Poll::Pending => Poll::Pending,
+                    }
                 }
                 DatagramLimitAction::DelayFor(ms) => {
                     l.delay
                         .as_mut()
                         .reset(l.started + Duration::from_millis(dur_millis + ms));
-                    l.delay.poll_unpin(cx).map(|_| Ok(0))
+                    match l.delay.poll_unpin(cx) {
+                        Poll::Ready(_) => {
+                            cx.waker().wake_by_ref();
+                            Poll::Pending
+                        }
+                        Poll::Pending => Poll::Pending,
+                    }
                 }
             }
         } else {

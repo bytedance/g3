@@ -14,7 +14,7 @@ server:
     listen:
       address: "[::1]:10086"
     proxy_pass: "127.0.0.1:5201"
-    conn_limit: 100M
+    tcp_sock_speed_limit: 100M
 
 resolver:
   - name: default
@@ -26,7 +26,7 @@ escaper:
     type: direct_fixed
     bind_ip: "127.0.0.1"
     resolver: default
-    tcp_conn_limit: 80M
+    tcp_sock_speed_limit: 80M
     egress_network_filter:
       default: forbid
       permit:

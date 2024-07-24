@@ -3,4 +3,4 @@ name: default
 type: direct_fixed
 bind_ip: "127.0.0.1"
 resolver: default
-tcp_conn_limit: 80M
+tcp_sock_speed_limit: 80M

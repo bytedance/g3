@@ -135,13 +135,25 @@ where
                 },
                 DatagramLimitAction::DelayUntil(t) => {
                     self.delay.as_mut().reset(t);
-                    self.delay.poll_unpin(cx).map(|_| Ok(0))
+                    match self.delay.poll_unpin(cx) {
+                        Poll::Ready(_) => {
+                            cx.waker().wake_by_ref();
+                            Poll::Pending
+                        }
+                        Poll::Pending => Poll::Pending,
+                    }
                 }
                 DatagramLimitAction::DelayFor(ms) => {
                     self.delay
                         .as_mut()
                         .reset(self.started + Duration::from_millis(dur_millis + ms));
-                    self.delay.poll_unpin(cx).map(|_| Ok(0))
+                    match self.delay.poll_unpin(cx) {
+                        Poll::Ready(_) => {
+                            cx.waker().wake_by_ref();
+                            Poll::Pending
+                        }
+                        Poll::Pending => Poll::Pending,
+                    }
                 }
             }
         } else {
@@ -174,13 +186,25 @@ where
                 },
                 DatagramLimitAction::DelayUntil(t) => {
                     self.delay.as_mut().reset(t);
-                    self.delay.poll_unpin(cx).map(|_| Ok(0))
+                    match self.delay.poll_unpin(cx) {
+                        Poll::Ready(_) => {
+                            cx.waker().wake_by_ref();
+                            Poll::Pending
+                        }
+                        Poll::Pending => Poll::Pending,
+                    }
                 }
                 DatagramLimitAction::DelayFor(ms) => {
                     self.delay
                         .as_mut()
                         .reset(self.started + Duration::from_millis(dur_millis + ms));
-                    self.delay.poll_unpin(cx).map(|_| Ok(0))
+                    match self.delay.poll_unpin(cx) {
+                        Poll::Ready(_) => {
+                            cx.waker().wake_by_ref();
+                            Poll::Pending
+                        }
+                        Poll::Pending => Poll::Pending,
+                    }
                 }
             }
         } else {
@@ -219,13 +243,25 @@ where
                 },
                 DatagramLimitAction::DelayUntil(t) => {
                     self.delay.as_mut().reset(t);
-                    self.delay.poll_unpin(cx).map(|_| Ok(0))
+                    match self.delay.poll_unpin(cx) {
+                        Poll::Ready(_) => {
+                            cx.waker().wake_by_ref();
+                            Poll::Pending
+                        }
+                        Poll::Pending => Poll::Pending,
+                    }
                 }
                 DatagramLimitAction::DelayFor(ms) => {
                     self.delay
                         .as_mut()
                         .reset(self.started + Duration::from_millis(dur_millis + ms));
-                    self.delay.poll_unpin(cx).map(|_| Ok(0))
+                    match self.delay.poll_unpin(cx) {
+                        Poll::Ready(_) => {
+                            cx.waker().wake_by_ref();
+                            Poll::Pending
+                        }
+                        Poll::Pending => Poll::Pending,
+                    }
                 }
             }
         } else {
@@ -278,13 +314,25 @@ where
                 }
                 DatagramLimitAction::DelayUntil(t) => {
                     self.delay.as_mut().reset(t);
-                    self.delay.poll_unpin(cx).map(|_| Ok(0))
+                    match self.delay.poll_unpin(cx) {
+                        Poll::Ready(_) => {
+                            cx.waker().wake_by_ref();
+                            Poll::Pending
+                        }
+                        Poll::Pending => Poll::Pending,
+                    }
                 }
                 DatagramLimitAction::DelayFor(ms) => {
                     self.delay
                         .as_mut()
                         .reset(self.started + Duration::from_millis(dur_millis + ms));
-                    self.delay.poll_unpin(cx).map(|_| Ok(0))
+                    match self.delay.poll_unpin(cx) {
+                        Poll::Ready(_) => {
+                            cx.waker().wake_by_ref();
+                            Poll::Pending
+                        }
+                        Poll::Pending => Poll::Pending,
+                    }
                 }
             }
         } else {

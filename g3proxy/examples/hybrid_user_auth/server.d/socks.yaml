@@ -4,4 +4,4 @@ user-group: default
 type: socks_proxy
 listen:
   address: "[::]:11080"
-conn_limit: 100M
+tcp_sock_speed_limit: 100M

@@ -13,7 +13,7 @@ server:
     type: http_proxy
     listen:
       address: "[::]:10086"
-    conn_limit: 100M
+    tcp_sock_speed_limit: 100M
 
 resolver:
   - name: default
@@ -26,15 +26,15 @@ escaper:
     no_ipv6: true
     resolver: default
     resolve_strategy: IPv4Only
-    tcp_conn_limit: 80M
-    udp_relay_limit: 10M
+    tcp_sock_speed_limit: 80M
+    udp_sock_speed_limit: 10M
   - name: direct2
     type: direct_fixed
     no_ipv6: true
     resolver: default
     resolve_strategy: IPv4Only
-    tcp_conn_limit: 80M
-    udp_relay_limit: 10M
+    tcp_sock_speed_limit: 80M
+    udp_sock_speed_limit: 10M
   - name: random
     type: route_select
     next_nodes:

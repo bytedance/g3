@@ -15,7 +15,7 @@ server:
     type: http_rproxy
     listen:
       address: "[::]:10080"
-    conn_limit: 100M
+    tcp_sock_speed_limit: 100M
     hosts:
       - exact_match: www.xjtu.edu.cn
         upstream: www.xjtu.edu.cn:80
@@ -31,8 +31,8 @@ escaper:
     no_ipv6: true
     resolver: default
     resolve_strategy: IPv4Only
-    tcp_conn_limit: 80M
-    udp_relay_limit: 10M
+    tcp_sock_speed_limit: 80M
+    udp_sock_speed_limit: 10M
     egress_network_filter:
       default: allow
       allow:
