@@ -19,6 +19,8 @@ use tokio::runtime::Handle;
 pub mod config;
 pub mod worker;
 
+pub mod metrics;
+
 static mut MAIN_HANDLE: Option<Handle> = None;
 
 pub fn main_handle() -> Option<&'static Handle> {
@@ -27,5 +29,6 @@ pub fn main_handle() -> Option<&'static Handle> {
 
 pub fn set_main_handle() {
     let handle = Handle::current();
+    metrics::add_tokio_stats(handle.metrics(), "main".to_string());
     unsafe { MAIN_HANDLE = Some(handle) }
 }

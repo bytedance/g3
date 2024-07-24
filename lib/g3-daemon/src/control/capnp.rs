@@ -74,6 +74,7 @@ where
                 .enable_all()
                 .build()
                 .unwrap();
+            crate::runtime::metrics::add_tokio_stats(rt.metrics(), "capnp_ctl".to_string());
             tokio::task::LocalSet::new().block_on(&rt, async move {
                 let mut receiver = receiver;
                 set_capnp_message_sender(sender);

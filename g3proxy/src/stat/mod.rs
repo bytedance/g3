@@ -58,6 +58,7 @@ fn spawn_main_thread(config: &StatsdClientConfig) -> anyhow::Result<JoinHandle<(
             metrics::escaper::emit_stats(&mut client);
             metrics::resolver::emit_stats(&mut client);
             metrics::user::emit_stats(&mut client);
+            g3_daemon::runtime::metrics::emit_stats(&mut client);
             g3_daemon::log::metrics::emit_stats(&mut client);
 
             client.flush_sink();

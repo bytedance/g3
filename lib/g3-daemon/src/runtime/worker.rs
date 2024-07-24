@@ -37,7 +37,10 @@ thread_local! {
 pub async fn spawn_workers() -> anyhow::Result<Option<WorkersGuard>> {
     if let Some(config) = crate::runtime::config::get_worker_config() {
         let guard = config
-            .start(|id, handle| unsafe { WORKER_HANDLERS.push(WorkerHandle { handle, id }) })
+            .start(|id, handle| {
+                super::metrics::add_tokio_stats(handle.metrics(), format!("worker-{id}"));
+                unsafe { WORKER_HANDLERS.push(WorkerHandle { handle, id }) }
+            })
             .await?;
         Ok(Some(guard))
     } else {
