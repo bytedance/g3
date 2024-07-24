@@ -510,6 +510,7 @@ impl<'a> HttpProxyForwardTask<'a> {
             if let Some(user_ctx) = self.task_notes.user_ctx() {
                 let user = user_ctx.user();
                 if let Some(limiter) = user.tcp_all_upload_speed_limit() {
+                    limiter.try_consume(origin_header_size);
                     br.add_global_limiter(limiter.clone());
                 }
                 if let Some(limiter) = user.tcp_all_download_speed_limit() {
@@ -522,7 +523,11 @@ impl<'a> HttpProxyForwardTask<'a> {
                 clt_w.reset_local_limit(limit_config.shift_millis, limit_config.max_south);
             }
             if let Some(user_ctx) = self.task_notes.user_ctx() {
-                if let Some(limiter) = user_ctx.user().tcp_all_download_speed_limit() {
+                let user = user_ctx.user();
+                if let Some(limiter) = user.tcp_all_upload_speed_limit() {
+                    limiter.try_consume(origin_header_size);
+                }
+                if let Some(limiter) = user.tcp_all_download_speed_limit() {
                     clt_w.add_global_limiter(limiter.clone());
                 }
             }

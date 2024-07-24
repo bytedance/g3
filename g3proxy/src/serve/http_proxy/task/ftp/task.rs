@@ -359,6 +359,7 @@ impl<'a> FtpOverHttpTask<'a> {
 
             let user = user_ctx.user();
             if let Some(limiter) = user.tcp_all_upload_speed_limit() {
+                limiter.try_consume(origin_header_size);
                 clt_r.add_global_limiter(limiter.clone());
             }
             if let Some(limiter) = user.tcp_all_download_speed_limit() {

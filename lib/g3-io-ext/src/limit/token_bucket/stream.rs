@@ -89,6 +89,26 @@ impl GlobalStreamLimiter {
         let interval = self.config.load().as_ref().replenish_interval();
         last_updated + interval
     }
+
+    pub fn try_consume(&self, size: u64) -> Option<u64> {
+        let mut cur_tokens = self.byte_tokens.load(Ordering::Acquire);
+
+        loop {
+            if cur_tokens == 0 {
+                return None;
+            }
+            let left_tokens = cur_tokens.saturating_sub(size);
+            match self.byte_tokens.compare_exchange(
+                cur_tokens,
+                left_tokens,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => return Some(cur_tokens - left_tokens),
+                Err(actual) => cur_tokens = actual,
+            }
+        }
+    }
 }
 
 impl GlobalStreamLimit for GlobalStreamLimiter {
@@ -97,22 +117,9 @@ impl GlobalStreamLimit for GlobalStreamLimiter {
     }
 
     fn check(&self, to_advance: usize) -> StreamLimitAction {
-        let mut cur_tokens = self.byte_tokens.load(Ordering::Acquire);
-
-        loop {
-            if cur_tokens == 0 {
-                return StreamLimitAction::DelayUntil(self.wait_until());
-            }
-            let left_tokens = cur_tokens.saturating_sub(to_advance as u64);
-            match self.byte_tokens.compare_exchange(
-                cur_tokens,
-                left_tokens,
-                Ordering::AcqRel,
-                Ordering::Acquire,
-            ) {
-                Ok(_) => return StreamLimitAction::AdvanceBy((cur_tokens - left_tokens) as usize),
-                Err(actual) => cur_tokens = actual,
-            }
+        match self.try_consume(to_advance as u64) {
+            Some(n) => StreamLimitAction::AdvanceBy(n as usize),
+            None => StreamLimitAction::DelayUntil(self.wait_until()),
         }
     }
 
