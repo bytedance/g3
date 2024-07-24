@@ -12,7 +12,7 @@ tcp socket speed limit
 
 **yaml value**: mix
 
-It consists of 3 fields:
+Basically it consists of 3 fields:
 
 * shift_millis | shift
 
@@ -33,7 +33,7 @@ It consists of 3 fields:
 
   This set the max download bytes in the time slice. *0* means delay forever.
 
-The yaml value for *tcp_sock_speed_limit* can be in varies formats:
+The yaml value type can be in varies formats:
 
 * :ref:`humanize usize <conf_value_humanize_usize>`
 
@@ -50,7 +50,7 @@ udp socket speed limit
 
 **yaml value**: mix
 
-It consists of 4 fields:
+Basically it consists of 4 fields:
 
 * shift_millis | shift
 
@@ -83,7 +83,7 @@ It consists of 4 fields:
 
   This set the max download packets in the time slice. *0* means no limit.
 
-The yaml value for *udp_sock_speed_limit* can be in varies formats:
+The yaml value type can be in varies formats:
 
 * :ref:`humanize usize <conf_value_humanize_usize>`
 
@@ -92,6 +92,111 @@ The yaml value for *udp_sock_speed_limit* can be in varies formats:
 * map
 
   The keys of this map are the fields as described above.
+
+.. _conf_value_global_stream_speed_limit:
+
+global stream speed limit
+=========================
+
+**yaml value**: mix
+
+Basically it consists of 3 fields:
+
+* replenish_interval
+
+  **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Set the replenish interval value.
+
+  **default**: 1s
+
+* replenish_bytes
+
+  **type**: :ref:`humanize usize <conf_value_humanize_usize>`
+
+  Set the replenish byte size to add when `replenish_interval` reached.
+
+* max_burst_bytes
+
+  **type**: :ref:`humanize usize <conf_value_humanize_usize>`
+
+  Set the max byte size.
+
+  **default**: the same as `replenish_bytes`
+
+The yaml value type can be in varies formats:
+
+* :ref:`humanize usize <conf_value_humanize_usize>`
+
+  This is the same as set `replenish_bytes` to be the same value.
+
+* map
+
+  The keys of this map are the fields as described above, and the `replenish_bytes` field is always required.
+
+.. versionadded:: 1.9.5
+
+.. _conf_value_global_datagram_speed_limit:
+
+global datagram speed limit
+===========================
+
+**yaml value**: mix
+
+Basically it consists of 5 fields:
+
+* replenish_interval
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Set the replenish interval value.
+
+  **default**: 1s
+
+* replenish_bytes
+
+  **optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
+
+  Set the replenish byte size to add when `replenish_interval` reached.
+
+  If not set, no bytes limitation will be applied.
+
+* replenish_packets
+
+  **optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
+
+  Set the replenish packet count to add when `replenish_interval` reached.
+
+  If not set, no packets limitation will be applied.
+
+* max_burst_bytes
+
+  **optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
+
+  Set the max byte size.
+
+  **default**: the same as `replenish_bytes`
+
+* max_burst_packets
+
+  **optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
+
+  Set the max packet count.
+
+  **default**: the same as `replenish_packets`
+
+The yaml value type can be in varies formats:
+
+* :ref:`humanize usize <conf_value_humanize_usize>`
+
+  This is the same as set `replenish_bytes` to be the same value.
+
+* map
+
+  The keys of this map are the fields as described above,
+  and at least one of `replenish_bytes` or `replenish_packets` field should be set.
+
+.. versionadded:: 1.9.5
 
 .. _conf_value_request_limit:
 

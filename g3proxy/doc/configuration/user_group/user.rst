@@ -152,6 +152,58 @@ Set speed limit for each udp socket.
 
 .. versionchanged:: 1.4.0 changed name to udp_sock_speed_limit
 
+tcp_all_upload_speed_limit
+--------------------------
+
+**optional**, **type**: :ref:`global stream speed limit <conf_value_global_stream_speed_limit>`
+
+Set process level upload speed limit for all client side tcp connections.
+
+This will only count in the data that will be forwarded.
+
+**default**: no limit
+
+.. versionadded:: 1.9.5
+
+tcp_all_download_speed_limit
+----------------------------
+
+**optional**, **type**: :ref:`global stream speed limit <conf_value_global_stream_speed_limit>`
+
+Set process level download speed limit for all client side tcp connections.
+
+This will only count in the data received from upstream.
+
+**default**: no limit
+
+.. versionadded:: 1.9.5
+
+udp_all_upload_speed_limit
+--------------------------
+
+**optional**, **type**: :ref:`global datagram speed limit <conf_value_global_datagram_speed_limit>`
+
+Set process level upload speed limit for all client side udp connections.
+
+This will only count in the data that will be forwarded.
+
+**default**: no limit
+
+.. versionadded:: 1.9.5
+
+udp_all_download_speed_limit
+----------------------------
+
+**optional**, **type**: :ref:`global datagram speed limit <conf_value_global_datagram_speed_limit>`
+
+Set process level download speed limit for all client side udp connections.
+
+This will only count in the data received from upstream.
+
+**default**: no limit
+
+.. versionadded:: 1.9.5
+
 tcp_remote_keepalive
 --------------------
 

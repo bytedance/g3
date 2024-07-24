@@ -12,7 +12,7 @@ tcp socket speed limit
 
 **yaml value**: mix
 
-It consists of 3 fields:
+Basically it consists of 3 fields:
 
 * shift_millis | shift
 
@@ -33,7 +33,7 @@ It consists of 3 fields:
 
   This set the max download bytes in the time slice. *0* means delay forever.
 
-The yaml value for *tcp_sock_speed_limit* can be in varies formats:
+The yaml value type can be in varies formats:
 
 * :ref:`humanize usize <conf_value_humanize_usize>`
 
@@ -50,7 +50,7 @@ udp socket speed limit
 
 **yaml value**: mix
 
-It consists of 4 fields:
+Basically it consists of 4 fields:
 
 * shift_millis | shift
 
@@ -83,7 +83,7 @@ It consists of 4 fields:
 
   This set the max download packets in the time slice. *0* means no limit.
 
-The yaml value for *udp_sock_speed_limit* can be in varies formats:
+The yaml value type can be in varies formats:
 
 * :ref:`humanize usize <conf_value_humanize_usize>`
 
