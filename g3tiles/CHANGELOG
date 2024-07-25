@@ -1,4 +1,10 @@
 
+v0.3.4:
+ - BUG FIX: avoid dead loop try of keyless connection
+ - Feature: set limit for the reuse of upstream keyless connection
+ - Feature: more robust hot restart
+ - Feature: emit tokio runtime metrics
+
 v0.3.3:
  - Feature: add openssl variant info to version message
  - Feature: support aws-lc as rustls crypto provider and update version message
