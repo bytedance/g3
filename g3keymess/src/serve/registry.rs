@@ -15,18 +15,17 @@
  */
 
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 
 use anyhow::{anyhow, Context};
-use once_cell::sync::Lazy;
 
 use g3_types::metrics::MetricsName;
 
 use super::KeyServer;
 use crate::config::server::KeyServerConfig;
 
-static RUNTIME_SERVER_REGISTRY: Lazy<Mutex<HashMap<MetricsName, Arc<KeyServer>>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+static RUNTIME_SERVER_REGISTRY: LazyLock<Mutex<HashMap<MetricsName, Arc<KeyServer>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 static OFFLINE_SERVER_SET: Mutex<Vec<Arc<KeyServer>>> = Mutex::new(Vec::new());
 
 pub(super) fn add_offline(old_server: Arc<KeyServer>) {

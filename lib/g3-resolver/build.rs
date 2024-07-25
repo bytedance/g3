@@ -15,6 +15,9 @@
  */
 
 fn main() {
+    println!("cargo:rustc-check-cfg=cfg(cares1_20)");
+    println!("cargo:rustc-check-cfg=cfg(cares1_22)");
+
     #[cfg(feature = "c-ares")]
     if let Ok(version) = std::env::var("DEP_CARES_VERSION_NUMBER") {
         // this will require a dependency on c-ares-sys crate

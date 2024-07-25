@@ -3,7 +3,7 @@ name = "g3proxy"
 version = "1.9.5"
 license.workspace = true
 edition.workspace = true
-rust-version = "1.75.0"
+rust-version = "1.80.0"
 description = "G3 generic proxy"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -16,7 +16,6 @@ async-recursion.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
 yaml-rust.workspace = true
-once_cell.workspace = true
 futures-util.workspace = true
 rand.workspace = true
 fastrand.workspace = true

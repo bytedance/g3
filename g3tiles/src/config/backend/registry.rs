@@ -15,17 +15,17 @@
  */
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 
 use anyhow::anyhow;
-use once_cell::sync::Lazy;
 
 use g3_types::metrics::MetricsName;
 
 use super::AnyBackendConfig;
 
-static INITIAL_BACKEND_CONFIG_REGISTRY: Lazy<Mutex<HashMap<MetricsName, Arc<AnyBackendConfig>>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+static INITIAL_BACKEND_CONFIG_REGISTRY: LazyLock<
+    Mutex<HashMap<MetricsName, Arc<AnyBackendConfig>>>,
+> = LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub(crate) fn clear() {
     let mut ht = INITIAL_BACKEND_CONFIG_REGISTRY.lock().unwrap();

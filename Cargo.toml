@@ -100,7 +100,6 @@ ryu = "1.0"
 num-traits = "0.2"
 #
 bytes = "1.0"
-once_cell = "1.18"
 smallvec = "1.11"
 smol_str = { version = "0.2", default-features = false }
 ahash = "0.8"
@@ -190,7 +189,7 @@ cfg-if = "1.0"
 g3-build-env = { version = "0.1", path = "lib/g3-build-env" }
 g3-clap = { version = "0.1", path = "lib/g3-clap" }
 g3-compat = { version = "0.1", path = "lib/g3-compat" }
-g3-daemon = { version = "0.1", path = "lib/g3-daemon" }
+g3-daemon = { version = "0.2", path = "lib/g3-daemon" }
 g3-ctl = { version = "0.1", path = "lib/g3-ctl" }
 g3-datetime = { version = "0.1", path = "lib/g3-datetime" }
 g3-dpi = { version = "0.1", path = "lib/g3-dpi" }
@@ -207,22 +206,22 @@ g3-journal = { version = "0.2", path = "lib/g3-journal" }
 g3-json = { version = "0.3", path = "lib/g3-json" }
 g3-msgpack = { version = "0.2", path = "lib/g3-msgpack" }
 g3-hickory-client = { version = "0.1", path = "lib/g3-hickory-client" }
-g3-resolver = { version = "0.5", path = "lib/g3-resolver" }
+g3-resolver = { version = "0.6", path = "lib/g3-resolver" }
 g3-runtime = { version = "0.3", path = "lib/g3-runtime" }
 g3-socket = { version = "0.4", path = "lib/g3-socket" }
 g3-socks = { version = "0.2", path = "lib/g3-socks" }
-g3-openssl = { version = "0.1", path = "lib/g3-openssl" }
+g3-openssl = { version = "0.2", path = "lib/g3-openssl" }
 g3-statsd-client = { version = "0.1", path = "lib/g3-statsd-client" }
 g3-histogram = { version = "0.1", path = "lib/g3-histogram" }
 g3-stdlog = { version = "0.1", path = "lib/g3-stdlog" }
 g3-syslog = { version = "0.6", path = "lib/g3-syslog" }
 g3-slog-types = { version = "0.1", path = "lib/g3-slog-types" }
 g3-geoip-types = { version = "0.1", path = "lib/g3-geoip-types" }
-g3-geoip-db = { version = "0.1", path = "lib/g3-geoip-db" }
+g3-geoip-db = { version = "0.2", path = "lib/g3-geoip-db" }
 g3-ip-locate = { version = "0.1", path = "lib/g3-ip-locate" }
 g3-tls-cert = { version = "0.5", path = "lib/g3-tls-cert" }
 g3-cert-agent = { version = "0.1", path = "lib/g3-cert-agent" }
-g3-types = { version = "0.4", path = "lib/g3-types" }
+g3-types = { version = "0.5", path = "lib/g3-types" }
 g3-xcrypt = { version = "0.1", path = "lib/g3-xcrypt" }
 g3-yaml = { version = "0.5.0", path = "lib/g3-yaml" }
 

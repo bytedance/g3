@@ -15,10 +15,9 @@
  */
 
 use std::collections::{HashMap, HashSet};
-use std::sync::Mutex;
+use std::sync::{LazyLock, Mutex};
 
 use anyhow::anyhow;
-use once_cell::sync::Lazy;
 
 use g3_types::metrics::MetricsName;
 
@@ -26,8 +25,8 @@ use super::dummy_deny::DummyDenyEscaper;
 use super::ArcEscaper;
 use crate::config::escaper::AnyEscaperConfig;
 
-static RUNTIME_ESCAPER_REGISTRY: Lazy<Mutex<HashMap<MetricsName, ArcEscaper>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+static RUNTIME_ESCAPER_REGISTRY: LazyLock<Mutex<HashMap<MetricsName, ArcEscaper>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub(super) fn add(name: MetricsName, escaper: ArcEscaper) {
     let mut ht = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();

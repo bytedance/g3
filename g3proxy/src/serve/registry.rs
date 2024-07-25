@@ -15,10 +15,9 @@
  */
 
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 
 use anyhow::anyhow;
-use once_cell::sync::Lazy;
 
 use g3_types::metrics::MetricsName;
 
@@ -26,8 +25,8 @@ use super::ArcServer;
 use crate::config::server::AnyServerConfig;
 use crate::serve::dummy_close::DummyCloseServer;
 
-static RUNTIME_SERVER_REGISTRY: Lazy<Mutex<HashMap<MetricsName, ArcServer>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+static RUNTIME_SERVER_REGISTRY: LazyLock<Mutex<HashMap<MetricsName, ArcServer>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 static OFFLINE_SERVER_SET: Mutex<Vec<ArcServer>> = Mutex::new(Vec::new());
 
 pub(super) fn add_offline(old_server: ArcServer) {

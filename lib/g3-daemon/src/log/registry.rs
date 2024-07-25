@@ -15,14 +15,12 @@
  */
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
-
-use once_cell::sync::Lazy;
+use std::sync::{Arc, LazyLock, Mutex};
 
 use super::LoggerStats;
 
-static RUNTIME_LOGGER_REGISTRY: Lazy<Mutex<HashMap<String, Arc<LoggerStats>>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+static RUNTIME_LOGGER_REGISTRY: LazyLock<Mutex<HashMap<String, Arc<LoggerStats>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub(super) fn add(name: String, stats: Arc<LoggerStats>) {
     let mut ht = RUNTIME_LOGGER_REGISTRY.lock().unwrap();

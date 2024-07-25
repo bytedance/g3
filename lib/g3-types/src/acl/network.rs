@@ -16,14 +16,14 @@
 
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::sync::LazyLock;
 
 use ip_network::IpNetwork;
 use ip_network_table::IpNetworkTable;
-use once_cell::sync::Lazy;
 
 use super::AclAction;
 
-static DEFAULT_EGRESS_RULE: Lazy<HashMap<IpNetwork, AclAction>> = Lazy::new(|| {
+static DEFAULT_EGRESS_RULE: LazyLock<HashMap<IpNetwork, AclAction>> = LazyLock::new(|| {
     let mut m = HashMap::new();
     // forbid ipv4 unspecified 0.0.0.0/32 by default
     m.insert(
@@ -63,7 +63,7 @@ static DEFAULT_EGRESS_RULE: Lazy<HashMap<IpNetwork, AclAction>> = Lazy::new(|| {
     m
 });
 
-static DEFAULT_INGRESS_RULE: Lazy<HashMap<IpNetwork, AclAction>> = Lazy::new(|| {
+static DEFAULT_INGRESS_RULE: LazyLock<HashMap<IpNetwork, AclAction>> = LazyLock::new(|| {
     let mut m = HashMap::new();
     // permit ipv4 loopback 127.0.0.1/32 by default
     m.insert(
