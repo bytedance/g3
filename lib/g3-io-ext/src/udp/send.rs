@@ -288,7 +288,7 @@ where
 
         if self.limit.is_set() {
             let dur_millis = self.started.elapsed().as_millis() as u64;
-            let mut total_size_v = SmallVec::<[usize; 16]>::with_capacity(msgs.len());
+            let mut total_size_v = SmallVec::<[usize; 32]>::with_capacity(msgs.len());
             let mut total_size = 0;
             for msg in msgs.iter() {
                 total_size += msg.iov.iter().map(|v| v.len()).sum::<usize>();

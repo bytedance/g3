@@ -226,7 +226,7 @@ where
 
         if self.limit.is_set() {
             let dur_millis = self.started.elapsed().as_millis() as u64;
-            let mut total_size_v = SmallVec::<[usize; 16]>::with_capacity(hdr_v.len());
+            let mut total_size_v = SmallVec::<[usize; 32]>::with_capacity(hdr_v.len());
             let mut total_size = 0usize;
             for hdr in hdr_v.iter() {
                 total_size += hdr.iov.iter().map(|v| v.len()).sum::<usize>();

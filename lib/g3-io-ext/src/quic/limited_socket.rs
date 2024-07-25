@@ -341,7 +341,7 @@ impl AsyncUdpSocket for LimitedUdpSocket {
         let l = unsafe { &mut *self.recv_state.get() };
         if l.limit.is_set() {
             let dur_millis = l.started.elapsed().as_millis() as u64;
-            let mut total_size_v = SmallVec::<[usize; 16]>::with_capacity(meta.len());
+            let mut total_size_v = SmallVec::<[usize; 32]>::with_capacity(meta.len());
             let mut total_size = 0;
             for b in bufs.iter() {
                 total_size += b.len();
