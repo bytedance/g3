@@ -61,6 +61,8 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
         .start()
         .context("failed to start runtime")?;
     rt.block_on(async {
+        g3_daemon::runtime::set_main_handle();
+
         // TODO setup signal handler
 
         let _workers_guard = g3_daemon::runtime::worker::spawn_workers()
