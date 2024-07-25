@@ -3,7 +3,7 @@
 
 # G3 Project
 
-[English README](README.md)
+[English README](README.md) | [日本語 README](README.ja_JP.md)
 
 ## 关于
 
