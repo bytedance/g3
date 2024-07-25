@@ -25,7 +25,7 @@ use super::{ProxyAddr, ProxyProtocolReadError};
 
 const PROXY_DATA_V1_MAX_LEN: usize = 108;
 
-const COMMON_DATA: &[u8] = &[b'P', b'R', b'O', b'X', b'Y', b' '];
+const COMMON_DATA: &[u8] = b"PROXY ";
 
 pub struct ProxyProtocolV1Reader {
     timeout: Duration,
