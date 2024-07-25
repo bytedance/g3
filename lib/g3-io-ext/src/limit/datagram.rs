@@ -55,6 +55,7 @@ impl GlobalLimiter {
 #[derive(Default)]
 pub struct DatagramLimiter {
     is_set: bool,
+    local_is_set: bool,
     local: LocalDatagramLimiter,
     global: Vec<GlobalLimiter>,
 }
@@ -62,9 +63,10 @@ pub struct DatagramLimiter {
 impl DatagramLimiter {
     pub fn with_local(shift_millis: u8, max_packets: usize, max_bytes: usize) -> Self {
         let local = LocalDatagramLimiter::new(shift_millis, max_packets, max_bytes);
-        let is_set = local.is_set();
+        let local_is_set = local.is_set();
         DatagramLimiter {
-            is_set,
+            is_set: local_is_set,
+            local_is_set,
             local,
             global: Vec::new(),
         }
@@ -79,8 +81,9 @@ impl DatagramLimiter {
     ) {
         self.local
             .reset(shift_millis, max_packets, max_bytes, cur_millis);
+        self.local_is_set = self.local.is_set();
         if self.global.is_empty() {
-            self.is_set = self.local.is_set();
+            self.is_set = self.local_is_set;
         }
     }
 
@@ -98,13 +101,15 @@ impl DatagramLimiter {
     }
 
     pub fn check_packet(&mut self, cur_millis: u64, buf_size: usize) -> DatagramLimitAction {
-        match self.local.check_packet(cur_millis, buf_size) {
-            DatagramLimitAction::Advance(_) => {}
-            DatagramLimitAction::DelayUntil(t) => return DatagramLimitAction::DelayUntil(t),
-            DatagramLimitAction::DelayFor(n) => {
-                return DatagramLimitAction::DelayFor(n);
+        if self.local_is_set {
+            match self.local.check_packet(cur_millis, buf_size) {
+                DatagramLimitAction::Advance(_) => {}
+                DatagramLimitAction::DelayUntil(t) => return DatagramLimitAction::DelayUntil(t),
+                DatagramLimitAction::DelayFor(n) => {
+                    return DatagramLimitAction::DelayFor(n);
+                }
             }
-        };
+        }
 
         for limiter in &mut self.global {
             match limiter.inner.check_packet(buf_size) {
@@ -131,12 +136,16 @@ impl DatagramLimiter {
         cur_millis: u64,
         total_size_v: &[usize],
     ) -> DatagramLimitAction {
-        let mut to_advance = match self.local.check_packets(cur_millis, total_size_v) {
-            DatagramLimitAction::Advance(n) => n,
-            DatagramLimitAction::DelayUntil(t) => return DatagramLimitAction::DelayUntil(t),
-            DatagramLimitAction::DelayFor(n) => {
-                return DatagramLimitAction::DelayFor(n);
+        let mut to_advance = if self.local_is_set {
+            match self.local.check_packets(cur_millis, total_size_v) {
+                DatagramLimitAction::Advance(n) => n,
+                DatagramLimitAction::DelayUntil(t) => return DatagramLimitAction::DelayUntil(t),
+                DatagramLimitAction::DelayFor(n) => {
+                    return DatagramLimitAction::DelayFor(n);
+                }
             }
+        } else {
+            total_size_v.len()
         };
         if self.global.is_empty() {
             return DatagramLimitAction::Advance(to_advance);
@@ -189,7 +198,9 @@ impl DatagramLimiter {
     }
 
     pub fn set_advance(&mut self, packets: usize, size: usize) {
-        self.local.set_advance(packets, size);
+        if self.local_is_set {
+            self.local.set_advance(packets, size);
+        }
 
         for limiter in &mut self.global {
             let Some(checked) = limiter.checked_packets.take() else {

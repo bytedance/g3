@@ -61,6 +61,7 @@ impl Drop for GlobalLimiter {
 #[derive(Default)]
 pub struct StreamLimiter {
     is_set: bool,
+    local_is_set: bool,
     local: LocalStreamLimiter,
     global: Vec<GlobalLimiter>,
 }
@@ -68,9 +69,10 @@ pub struct StreamLimiter {
 impl StreamLimiter {
     pub fn with_local(shift_millis: u8, max_bytes: usize) -> Self {
         let local = LocalStreamLimiter::new(shift_millis, max_bytes);
-        let is_set = local.is_set();
+        let local_is_set = local.is_set();
         StreamLimiter {
-            is_set,
+            is_set: local_is_set,
+            local_is_set,
             local,
             global: Vec::new(),
         }
@@ -78,8 +80,9 @@ impl StreamLimiter {
 
     pub fn reset_local(&mut self, shift_millis: u8, max_bytes: usize, cur_millis: u64) {
         self.local.reset(shift_millis, max_bytes, cur_millis);
+        self.local_is_set = self.local.is_set();
         if self.global.is_empty() {
-            self.is_set = self.local.is_set();
+            self.is_set = self.local_is_set;
         }
     }
 
@@ -104,13 +107,15 @@ impl StreamLimiter {
         self.is_set
     }
 
-    pub fn check(&mut self, cur_millis: u64, to_advance: usize) -> StreamLimitAction {
+    pub fn check(&mut self, cur_millis: u64, mut to_advance: usize) -> StreamLimitAction {
         let target = to_advance;
-        let mut to_advance = match self.local.check(cur_millis, to_advance) {
-            StreamLimitAction::AdvanceBy(size) => size,
-            StreamLimitAction::DelayUntil(t) => return StreamLimitAction::DelayUntil(t),
-            StreamLimitAction::DelayFor(n) => return StreamLimitAction::DelayFor(n),
-        };
+        if self.local_is_set {
+            to_advance = match self.local.check(cur_millis, to_advance) {
+                StreamLimitAction::AdvanceBy(size) => size,
+                StreamLimitAction::DelayUntil(t) => return StreamLimitAction::DelayUntil(t),
+                StreamLimitAction::DelayFor(n) => return StreamLimitAction::DelayFor(n),
+            }
+        }
 
         for limiter in &mut self.global {
             match limiter.inner.check(to_advance) {
@@ -152,7 +157,9 @@ impl StreamLimiter {
     }
 
     pub fn set_advance(&mut self, size: usize) {
-        self.local.set_advance(size);
+        if self.local_is_set {
+            self.local.set_advance(size);
+        }
 
         for limiter in &mut self.global {
             let Some(taken) = limiter.checked_bytes.take() else {
