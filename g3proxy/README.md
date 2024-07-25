@@ -7,137 +7,135 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 
 [中文](UserGuide.zh_CN.md) | [English](UserGuide.en_US.md)
 
-## Features
+## Detailed Features
 
 ### Server
 
-- **General**
+Servers will handle connections from clients. There many types of servers can be used for different purpose.
 
-  * Ingress network filter | Target Host filter | Target Port filter
-  * Socket Speed Limit | Request Rate Limit | IDLE Check
-  * Protocol Inspection | TLS/TLCP Interception | ICAP Adaptation
-  * Various TCP & UDP socket config options
-  * Rustls TLS Server
-  * Openssl/BoringSSL/AWS-LC/Tongsuo TLS Server & Client
-  * Tongsuo TLCP Server & Client (国密《GB/T 38636-2020》)
+The common features are:
+* Ingress network filter | Target Host filter | Target Port filter
+* Socket Speed Limit
+* Request Rate Limit | IDLE Check
+* Protocol Inspection | TLS/TLCP Interception | ICAP Adaptation
+* Various TCP & UDP socket config options
+* Rustls TLS Server
+* Openssl/BoringSSL/AWS-LC/Tongsuo TLS Server & Client
+* Tongsuo TLCP Server & Client (国密《GB/T 38636-2020》)
 
-- **Forward Proxy**
+#### Forward Proxy Servers
 
-  - Http(s) Proxy
+- Http(s) Proxy
+  * TLS / mTLS
+  * Http Forward | Https Forward | Http CONNECT | Ftp over HTTP
+  * Basic User Authentication
+  * Port Hiding
 
-    * TLS / mTLS
-    * Http Forward | Https Forward | Http CONNECT | Ftp over HTTP
-    * Basic User Authentication
-    * Port Hiding
+- Socks Proxy
+  * Socks4 Tcp Connect | Socks5 Tcp Connect | Socks5 UDP Associate
+  * User Authentication
+  * Client side UDP IP Binding / IP Map / Ranged Port
 
-  - Socks Proxy
+#### Transparent Proxy Servers
 
-    * Socks4 Tcp Connect | Socks5 Tcp Connect | Socks5 UDP Associate
-    * User Authentication
-    * Client side UDP IP Binding / IP Map / Ranged Port
+- SNI Proxy
+  * Multiple Protocol: TLS SNI extension | HTTP Host Header
+  * Host Redirection / Host ACL
 
-- **Transparent Proxy**
+- TCP TPROXY
+  * Linux [Netfilter TPROXY](https://docs.kernel.org/networking/tproxy.html)
+  * FreeBSD [ipfw forward](https://man.freebsd.org/cgi/man.cgi?query=ipfw)
+  * OpenBSD [pf divert-to](https://man.openbsd.org/pf.conf.5#divert-to)
 
-  - SNI Proxy
+#### Reverse Proxy Servers
 
-    * Multiple Protocol: TLS SNI extension | HTTP Host Header
-    * Host Redirection / Host ACL
+- Http(s) Reverse Proxy
+  * TLS / mTLS
+  * Basic User Authentication
+  * Port Hiding
+  * Host based Routing
 
-  - TCP TPROXY
+#### Streaming Servers
 
-- **Reverse Proxy**
+- TCP Stream
+  * Upstream TLS / mTLS
+  * Load Balance: RR / Random / Rendezvous / Jump Hash
 
-  - Http(s) Reverse Proxy
+- TLS Stream
+  * mTLS
+  * Upstream TLS / mTLS
+  * Load Balance: RR / Random / Rendezvous / Jump Hash
 
-    * TLS / mTLS
-    * Basic User Authentication
-    * Port Hiding
-    * Host based Routing
+#### Alias Port Servers
 
-- **Streaming**
+Alias port servers can be used to add extra ports to other servers.
 
-  - TCP Stream
-
-    * Upstream TLS / mTLS
-    * Load Balance: RR / Random / Rendezvous / Jump Hash
-
-  - TLS Stream
-
-    * mTLS
-    * Upstream TLS / mTLS
-    * Load Balance: RR / Random / Rendezvous / Jump Hash
-
-- **Alias Port**
-
-  - Plain TCP Port
-    * PROXY Protocol
-  - Plain TLS Port
-    * PROXY Protocol
-    * mTLS
-    * based on Rustls
-  - Native TLS Port
-    * PROXY Protocol
-    * mTLS
-    * based on OpenSSL/BoringSSL/AWS-LC/Tongsuo
-  - Intelli Proxy
-    * Multiple protocol: Http Proxy | Socks Proxy
-    * PROXY Protocol
+- Plain TCP Port
+  * PROXY Protocol
+- Plain TLS Port
+  * PROXY Protocol
+  * mTLS
+  * based on Rustls
+- Native TLS Port
+  * PROXY Protocol
+  * mTLS
+  * based on OpenSSL/BoringSSL/AWS-LC/Tongsuo
+- Intelli Proxy Proxy
+  * Multiple protocol: Http Proxy | Socks Proxy
+  * PROXY Protocol
 
 ### Escaper
 
-- **General**
+Escapers are used to define the way to connect to upstream. There are many types of escapers.
 
-  * Happy Eyeballs
-  * Socket Speed Limit
-  * Various TCP & UDP socket config options
-  * IP Bind
+The common features are:
+* Happy Eyeballs
+* Socket Speed Limit
+* Various TCP & UDP socket config options
+* IP Bind
 
-- **Direct Connect**
+#### Direct Connect Escapers
 
-  - DirectFixed
+- DirectFixed
+  * TCP Connect | TLS Connect | HTTP(s) Forward | UDP Associate
+  * Egress network filter
+  * Resolve redirection
+  * Index based Egress Path Selection
 
-    * TCP Connect | TLS Connect | HTTP(s) Forward | UDP Associate
-    * Egress network filter
-    * Resolve redirection
-    * Index based Egress Path Selection
+- DirectFloat
+  * TCP Connect | TLS Connect | HTTP(s) Forward | UDP Associate
+  * Egress network filter
+  * Resolve redirection
+  * Dynamic IP Bind
+  * Json based Egress Path Selection
 
-  - DirectFloat
+#### Proxy Chaining Escapers
 
-    * TCP Connect | TLS Connect | HTTP(s) Forward | UDP Associate
-    * Egress network filter
-    * Resolve redirection
-    * Dynamic IP Bind
-    * Json based Egress Path Selection
+- Http Proxy
+  * TCP Connect | TLS Connect | HTTP(s) Forward
+  * PROXY Protocol
+  * Load Balance: RR / Random / Rendezvous / Jump Hash
+  * Basic User Authentication
 
-- **Proxy Chaining**
+- Https Proxy
+  * TCP Connect | TLS Connect | HTTP(s) Forward
+  * PROXY Protocol
+  * Load Balance: RR / Random / Rendezvous / Jump Hash
+  * Basic User Authentication
+  * mTLS
 
-  - Http Proxy
+- Socks5 Proxy
+  * TCP Connect | TLS Connect | HTTP(s) Forward | UDP Associate
+  * Load Balance: RR / Random / Rendezvous / Jump Hash
+  * Basic User Authentication
 
-    * TCP Connect | TLS Connect | HTTP(s) Forward
-    * PROXY Protocol
-    * Load Balance: RR / Random / Rendezvous / Jump Hash
-    * Basic User Authentication
+- ProxyFloat
+  * Dynamic Proxy: Http Proxy | Https Proxy | Socks5 Proxy
+  * Json based Egress Path Selection
 
-  - Https Proxy
+#### Router Escapers
 
-    * TCP Connect | TLS Connect | HTTP(s) Forward
-    * PROXY Protocol
-    * Load Balance: RR / Random / Rendezvous / Jump Hash
-    * Basic User Authentication
-    * mTLS
-
-  - Socks5 Proxy
-
-    * TCP Connect | TLS Connect | HTTP(s) Forward | UDP Associate
-    * Load Balance: RR / Random / Rendezvous / Jump Hash
-    * Basic User Authentication
-
-  - ProxyFloat
-
-    * Dynamic Proxy: Http Proxy | Https Proxy | Socks5 Proxy
-    * Json based Egress Path Selection
-
-#### Router
+Router escaper can be used to select the real escapers, based on different route rules.
 
 - route-client - based on client addresses
   * exact ip match
@@ -173,18 +171,27 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 
 ### Auth
 
-- **User Authentication and Authorization**
+#### Auth Method
 
-  - ACL: Proxy Request | Target Host | Target Port | User Agent
-  - Socket Speed Limit | Request Rate Limit | Request Alive Limit | IDLE Check
-  - Auto Expire | Block
-  - Anonymous user
-  - Json based Egress Path Selection
-  - Explicit Site Config
-    * match by exact ip | exact domain | wildcard domain | subnet
-    * request | client traffic | remote traffic metrics
-    * task duration histogram metrics
-    * custom TLS client config
+- HTTP Basic Auth
+- Socks5 User Auth
+- Anonymous user
+
+#### User Features
+
+- ACL: Proxy Request | Target Host | Target Port | User Agent
+- Socket Speed Limit | Process Level Global Speed Limit
+- Request Rate Limit | Request Alive Limit | IDLE Check
+- Auto Expire | Block
+- Json based Egress Path Selection
+
+#### User Site Features
+
+It's also possible to set different site config for each user:
+- Match by Exact IP | Exact Domain | Wildcard Domain | Subnet
+- Request | Client Traffic | Remote Traffic Metrics
+- Task Duration Histogram Metrics
+- Custom TLS Client Config
 
 ### Audit
 
@@ -204,7 +211,11 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
   * Escaper: escape error log
   * Resolver: resolve error log
   * Audit: inspect & intercept log
-- Backend: journald | syslog | fluentd
+
+- Backend Protocol
+  * journald
+  * syslog
+  * fluentd
 
 ### Metrics
 
@@ -213,7 +224,12 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
   * Escaper level metrics
   * User level metrics
   * User-Site level metrics
-- Protocol: StatsD
+  * Resolver metrics
+  * Runtime metrics
+  * Log metrics
+
+- Backend Protocol
+  * StatsD, so it's possible to use StatsD implementations to redistribute metrics to many other TSDBs
 
 ## Documents
 
