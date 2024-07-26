@@ -1,4 +1,7 @@
 
+v1.8.5:
+ - BUG FIX: update tokio to fix timer
+
 v1.8.4:
  - BUG FIX: fix ICAP handle of H2 request with small body
  - BUG FIX: fix read of HTTP/ICAP trailer headers
