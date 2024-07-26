@@ -50,6 +50,7 @@ fn spawn_main_thread(config: &StatsdClientConfig) -> anyhow::Result<JoinHandle<(
             g3_daemon::log::metrics::sync_stats();
 
             metrics::server::emit_stats(&mut client);
+            g3_daemon::runtime::metrics::emit_stats(&mut client);
             g3_daemon::log::metrics::emit_stats(&mut client);
 
             client.flush_sink();

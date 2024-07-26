@@ -163,29 +163,42 @@ brew install lua
 brew install python
 ```
 
+### Windows
+
+```shell
+# install tools
+choco install capnproto
+# install libraries
+vcpkg install --triplet=x64-windows-static-md openssl
+# build, c-ares need to be vendored, lua and python feature need to be disabled
+cargo build --no-default-features --features quic,vendored-c-ares,hickory
+```
+
 ### FreeBSD
 
 ```shell
 pkg install pkgconf capnproto
-pkg install openssl c-ares
+pkg install gmake # for vendored build of openssl
+pkg install c-ares
 # install lua5.4 or any other versions available on your system, and create a pkgconfig link
 pkg install lua54
 ln -s /usr/local/libdata/pkgconfig/lua-5.4.pc /usr/local/libdata/pkgconfig/lua5.4.pc
 pkg install python3
+# build, with vendored openssl
+cargo build --vendored-openssl
 ```
 
 ### NetBSD
 
 ```shell
 pkgin install pkgconf capnproto
-pkgin install openssl libcares
+pkgin install libcares
 # install lua5.4 or any other versions available on your system, and create a pkgconfig link
 pkgin install lua54
 ln -s /usr/pkg/lib/pkgconfig/lua-5.4.pc /usr/pkg/lib/pkgconfig/lua5.4.pc
-# install python 3.10 or any other versions available on your system, and create links
-pkgin install python310
-ln -s /usr/pkg/lib/pkgconfig/python-3.10.pc /usr/pkg/lib/pkgconfig/python3.pc
-ln -s /usr/pkg/bin/python3.10 /usr/pkg/bin/python3
+# install python 3.11 or any other versions available on your system, and create links
+pkgin install python311
+ln -s /usr/pkg/bin/python3.11 /usr/pkg/bin/python3
 ```
 
 ## Development Libraries

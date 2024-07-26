@@ -32,13 +32,12 @@ use super::{
 use crate::net::{TlsAlpn, TlsServerName, UpstreamAddr};
 
 #[derive(Clone)]
-pub struct OpensslInterceptionClientConfig {
+struct ContextPair {
     ssl_context: SslContext,
-    pub handshake_timeout: Duration,
     session_cache: Option<OpensslClientSessionCache>,
 }
 
-impl OpensslInterceptionClientConfig {
+impl ContextPair {
     pub fn build_ssl(
         &self,
         server_name: Option<&TlsServerName>,
@@ -63,6 +62,37 @@ impl OpensslInterceptionClientConfig {
                 .map_err(|e| anyhow!("failed to set alpn protocols: {e}"))?;
         }
         Ok(ssl)
+    }
+}
+
+#[derive(Clone)]
+pub struct OpensslInterceptionClientConfig {
+    ssl_context_pair: ContextPair,
+    #[cfg(feature = "tongsuo")]
+    tlcp_context_pair: ContextPair,
+    pub handshake_timeout: Duration,
+}
+
+impl OpensslInterceptionClientConfig {
+    pub fn build_ssl(
+        &self,
+        server_name: Option<&TlsServerName>,
+        upstream: &UpstreamAddr,
+        alpn_ext: Option<&TlsAlpn>,
+    ) -> anyhow::Result<Ssl> {
+        self.ssl_context_pair
+            .build_ssl(server_name, upstream, alpn_ext)
+    }
+
+    #[cfg(feature = "tongsuo")]
+    pub fn build_tlcp(
+        &self,
+        server_name: Option<&TlsServerName>,
+        upstream: &UpstreamAddr,
+        alpn_ext: Option<&TlsAlpn>,
+    ) -> anyhow::Result<Ssl> {
+        self.tlcp_context_pair
+            .build_ssl(server_name, upstream, alpn_ext)
     }
 }
 
@@ -179,8 +209,8 @@ impl OpensslInterceptionClientConfigBuilder {
         log::warn!("permute extensions can only be set for BoringSSL variants");
     }
 
-    pub fn build(&self) -> anyhow::Result<OpensslInterceptionClientConfig> {
-        let mut ctx_builder = SslConnector::builder(SslMethod::tls_client())
+    fn build_ssl_context(&self, method: SslMethod) -> anyhow::Result<ContextPair> {
+        let mut ctx_builder = SslConnector::builder(method)
             .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
         ctx_builder.set_verify(SslVerifyMode::PEER);
 
@@ -252,10 +282,18 @@ impl OpensslInterceptionClientConfigBuilder {
 
         let session_cache = self.session_cache.set_for_client(&mut ctx_builder)?;
 
-        Ok(OpensslInterceptionClientConfig {
+        Ok(ContextPair {
             ssl_context: ctx_builder.build().into_context(),
-            handshake_timeout: self.handshake_timeout,
             session_cache,
+        })
+    }
+
+    pub fn build(&self) -> anyhow::Result<OpensslInterceptionClientConfig> {
+        Ok(OpensslInterceptionClientConfig {
+            ssl_context_pair: self.build_ssl_context(SslMethod::tls_client())?,
+            #[cfg(feature = "tongsuo")]
+            tlcp_context_pair: self.build_ssl_context(SslMethod::ntls_client())?,
+            handshake_timeout: self.handshake_timeout,
         })
     }
 }

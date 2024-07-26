@@ -89,9 +89,22 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
             .map_err(H2RespmodAdaptationError::HttpClientSendHeadFailed)?;
         state.mark_clt_send_header();
 
+        if ups_body.is_end_stream() {
+            // no reserve of capacity, let the driver buffer it
+            clt_send_stream
+                .send_data(initial_body_data, true)
+                .map_err(H2RespmodAdaptationError::HttpClientSendDataFailed)?;
+            state.mark_clt_send_all();
+
+            if icap_rsp.keep_alive && icap_rsp.payload == IcapRespmodResponsePayload::NoPayload {
+                self.icap_client.save_connection(self.icap_connection).await;
+            }
+            return Ok(RespmodAdaptationEndState::OriginalTransferred);
+        }
+
         // no reserve of capacity, let the driver buffer it
         clt_send_stream
-            .send_data(initial_body_data, ups_body.is_end_stream())
+            .send_data(initial_body_data, false)
             .map_err(H2RespmodAdaptationError::HttpClientSendDataFailed)?;
 
         let mut body_transfer =
@@ -114,6 +127,9 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
                 | H2StreamBodyTransferError::WaitSendCapacityFailed(e)
                 | H2StreamBodyTransferError::GracefulCloseError(e) => {
                     H2RespmodAdaptationError::HttpClientSendDataFailed(e)
+                }
+                H2StreamBodyTransferError::SenderNotInSendState => {
+                    H2RespmodAdaptationError::HttpClientNotInSendState
                 }
             }
         }
@@ -202,7 +218,6 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
         let mut http_rsp =
             HttpAdaptedResponse::parse(&mut self.icap_connection.1, http_header_size).await?;
         let trailers = icap_rsp.take_trailers();
-        let has_trailer = !trailers.is_empty();
         http_rsp.set_trailer(trailers);
 
         let final_rsp = orig_http_response.adapt_to(&http_rsp);
@@ -218,7 +233,6 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
             &self.copy_config,
             self.http_body_line_max_size,
             self.http_trailer_max_size,
-            has_trailer,
         );
 
         let idle_duration = self.idle_checker.idle_duration();

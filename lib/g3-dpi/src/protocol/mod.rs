@@ -31,6 +31,7 @@ pub use portmap::{ProtocolPortMap, ProtocolPortMapValue};
 pub enum MaybeProtocol {
     Http,
     Smtp,
+    Odmr, // On-Demand Mail Relay, a restricted profile of SMTP
     Ssh,
     Ftp,
     Dns,
@@ -47,6 +48,7 @@ pub enum MaybeProtocol {
     BitTorrent,
 
     Https,
+    Submissions,
     Pop3s,
     Nntps,
     Imaps,
@@ -67,6 +69,7 @@ impl MaybeProtocol {
             self,
             MaybeProtocol::Ssl
                 | MaybeProtocol::Https
+                | MaybeProtocol::Submissions
                 | MaybeProtocol::Pop3s
                 | MaybeProtocol::Nntps
                 | MaybeProtocol::Imaps
@@ -86,6 +89,7 @@ impl FromStr for MaybeProtocol {
         match s.to_lowercase().as_str() {
             "http" => Ok(MaybeProtocol::Http),
             "smtp" => Ok(MaybeProtocol::Smtp),
+            "odmr" => Ok(MaybeProtocol::Odmr),
             "ssh" => Ok(MaybeProtocol::Ssh),
             "ftp" => Ok(MaybeProtocol::Ftp),
             "pop3" => Ok(MaybeProtocol::Pop3),
@@ -100,6 +104,7 @@ impl FromStr for MaybeProtocol {
             "nats" => Ok(MaybeProtocol::Nats),
             "bittorrent" | "bt" => Ok(MaybeProtocol::BitTorrent),
             "https" | "http+tls" => Ok(MaybeProtocol::Https),
+            "submissions" | "smtps" => Ok(MaybeProtocol::Submissions),
             "pop3s" | "pop3+tls" => Ok(MaybeProtocol::Pop3s),
             "nntps" | "nntp+tls" | "snntp" => Ok(MaybeProtocol::Nntps),
             "imaps" | "imap+tls" => Ok(MaybeProtocol::Imaps),
@@ -122,6 +127,7 @@ impl From<AlpnProtocol> for MaybeProtocol {
             | AlpnProtocol::Http2
             | AlpnProtocol::Http3 => MaybeProtocol::Http,
             AlpnProtocol::Ftp => MaybeProtocol::Ftp,
+            AlpnProtocol::Smtp => MaybeProtocol::Smtp,
             AlpnProtocol::Imap => MaybeProtocol::Imap,
             AlpnProtocol::Pop3 => MaybeProtocol::Pop3,
             AlpnProtocol::Nntp => MaybeProtocol::Nntp,
@@ -147,6 +153,7 @@ impl From<WebSocketSubProtocol> for MaybeProtocol {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Protocol {
     Unknown,
+    Timeout,
     SslLegacy,
     TlsLegacy,
     TlsModern,
@@ -178,7 +185,8 @@ pub enum Protocol {
 impl Protocol {
     pub const fn as_str(&self) -> &'static str {
         match self {
-            Protocol::Unknown => "unknown",
+            Protocol::Unknown => "_unknown",
+            Protocol::Timeout => "_timeout",
             Protocol::SslLegacy => "ssl_legacy",
             Protocol::TlsLegacy => "tls_legacy",
             Protocol::TlsModern => "tls_modern",
@@ -208,7 +216,7 @@ impl Protocol {
 
     pub const fn wireshark_dissector(&self) -> &'static str {
         match self {
-            Protocol::Unknown => "",
+            Protocol::Unknown | Protocol::Timeout => "",
             Protocol::SslLegacy | Protocol::TlsLegacy | Protocol::TlsModern => "tls",
             Protocol::TlsTlcp => "tls",
             Protocol::Http1 => "http",
@@ -236,7 +244,7 @@ impl Protocol {
 
     pub const fn wireshark_protocol(&self) -> &'static str {
         match self {
-            Protocol::Unknown => "",
+            Protocol::Unknown | Protocol::Timeout => "",
             Protocol::SslLegacy | Protocol::TlsLegacy | Protocol::TlsModern => "tls",
             Protocol::TlsTlcp => "tls",
             Protocol::Http1 => "http",
@@ -268,6 +276,7 @@ impl From<AlpnProtocol> for Protocol {
             AlpnProtocol::Http2 => Protocol::Http2,
             AlpnProtocol::Http3 => Protocol::Http3,
             AlpnProtocol::Ftp => Protocol::FtpControl,
+            AlpnProtocol::Smtp => Protocol::Smtp,
             AlpnProtocol::Imap => Protocol::Imap,
             AlpnProtocol::Pop3 => Protocol::Pop3,
             AlpnProtocol::Nntp => Protocol::Nntp,
@@ -281,7 +290,7 @@ impl From<AlpnProtocol> for Protocol {
 
 impl fmt::Display for Protocol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_str())
+        f.write_str(self.as_str())
     }
 }
 

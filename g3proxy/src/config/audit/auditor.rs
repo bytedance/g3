@@ -20,11 +20,12 @@ use anyhow::{anyhow, Context};
 use rand::distributions::Bernoulli;
 use yaml_rust::{yaml, Yaml};
 
+use g3_cert_agent::CertAgentConfig;
 use g3_dpi::{
-    H1InterceptionConfig, H2InterceptionConfig, ProtocolInspectionConfig, ProtocolPortMap,
+    H1InterceptionConfig, H2InterceptionConfig, ProtocolInspectPolicy, ProtocolInspectionConfig,
+    ProtocolPortMap, SmtpInterceptionConfig,
 };
 use g3_icap_client::IcapServiceConfig;
-use g3_tls_cert::agent::CertAgentConfig;
 use g3_types::metrics::MetricsName;
 use g3_types::net::{
     OpensslInterceptionClientConfigBuilder, OpensslInterceptionServerConfigBuilder,
@@ -45,7 +46,11 @@ pub(crate) struct AuditorConfig {
     pub(crate) tls_stream_dump: Option<StreamDumpConfig>,
     pub(crate) log_uri_max_chars: usize,
     pub(crate) h1_interception: H1InterceptionConfig,
+    pub(crate) h2_inspect_policy: ProtocolInspectPolicy,
     pub(crate) h2_interception: H2InterceptionConfig,
+    pub(crate) smtp_inspect_policy: ProtocolInspectPolicy,
+    pub(crate) smtp_interception: SmtpInterceptionConfig,
+    pub(crate) imap_inspect_policy: ProtocolInspectPolicy,
     pub(crate) icap_reqmod_service: Option<Arc<IcapServiceConfig>>,
     pub(crate) icap_respmod_service: Option<Arc<IcapServiceConfig>>,
     pub(crate) task_audit_ratio: Bernoulli,
@@ -73,7 +78,11 @@ impl AuditorConfig {
             tls_stream_dump: None,
             log_uri_max_chars: 1024,
             h1_interception: Default::default(),
+            h2_inspect_policy: ProtocolInspectPolicy::Intercept,
             h2_interception: Default::default(),
+            smtp_inspect_policy: ProtocolInspectPolicy::Intercept,
+            smtp_interception: Default::default(),
+            imap_inspect_policy: ProtocolInspectPolicy::Intercept,
             icap_reqmod_service: None,
             icap_respmod_service: None,
             task_audit_ratio: Bernoulli::new(1.0).unwrap(),
@@ -165,9 +174,29 @@ impl AuditorConfig {
                     .context(format!("invalid h1 interception value for key {k}"))?;
                 Ok(())
             }
+            "h2_inspect_policy" => {
+                self.h2_inspect_policy = g3_yaml::value::as_protocol_inspect_policy(v)
+                    .context(format!("invalid protocol inspect policy value for key {k}"))?;
+                Ok(())
+            }
             "h2_interception" => {
                 self.h2_interception = g3_yaml::value::as_h2_interception_config(v)
                     .context(format!("invalid h1 interception value for key {k}"))?;
+                Ok(())
+            }
+            "smtp_inspect_policy" => {
+                self.smtp_inspect_policy = g3_yaml::value::as_protocol_inspect_policy(v)
+                    .context(format!("invalid protocol inspect policy value for key {k}"))?;
+                Ok(())
+            }
+            "smtp_interception" => {
+                self.smtp_interception = g3_yaml::value::as_smtp_interception_config(v)
+                    .context(format!("invalid smtp interception value for key {k}"))?;
+                Ok(())
+            }
+            "imap_inspect_policy" => {
+                self.imap_inspect_policy = g3_yaml::value::as_protocol_inspect_policy(v)
+                    .context(format!("invalid protocol inspect policy value for key {k}"))?;
                 Ok(())
             }
             "icap_reqmod_service" => {

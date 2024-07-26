@@ -34,7 +34,6 @@ pub fn as_rfc3339_datetime(v: &Value) -> anyhow::Result<DateTime<Utc>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::Value;
 
     #[test]
     fn utc_tz() {

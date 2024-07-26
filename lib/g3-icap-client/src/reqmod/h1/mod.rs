@@ -204,21 +204,21 @@ pub enum ReqmodAdaptationEndState<H: HttpRequestForAdaptation> {
     HttpErrResponse(HttpAdapterErrorResponse, Option<ReqmodRecvHttpResponseBody>),
 }
 
+pub enum ReqmodAdaptationMidState<H: HttpRequestForAdaptation> {
+    OriginalRequest,
+    AdaptedRequest(H),
+    HttpErrResponse(HttpAdapterErrorResponse, Option<ReqmodRecvHttpResponseBody>),
+}
+
 pub struct ReqmodRecvHttpResponseBody {
     icap_client: Arc<IcapServiceClient>,
     icap_keepalive: bool,
     icap_connection: IcapClientConnection,
-    has_trailer: bool,
 }
 
 impl ReqmodRecvHttpResponseBody {
     pub fn body_reader(&mut self) -> HttpBodyReader<'_, impl AsyncBufRead> {
-        let body_type = if self.has_trailer {
-            HttpBodyType::ChunkedWithTrailer
-        } else {
-            HttpBodyType::ChunkedWithoutTrailer
-        };
-        HttpBodyReader::new(&mut self.icap_connection.1, body_type, 1024)
+        HttpBodyReader::new_chunked(&mut self.icap_connection.1, 1024)
     }
 
     pub async fn save_connection(self) {

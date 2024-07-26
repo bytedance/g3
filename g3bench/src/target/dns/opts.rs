@@ -26,7 +26,8 @@ use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
 use hickory_client::client::AsyncClient;
 use hickory_proto::iocompat::AsyncIoTokioAsStd;
-use rustls::{ClientConfig, ServerName};
+use rustls::ClientConfig;
+use rustls_pki_types::ServerName;
 use tokio::net::{TcpStream, UdpSocket};
 
 use g3_types::net::{DnsEncryptionProtocol, RustlsClientConfigBuilder};
@@ -199,7 +200,7 @@ impl BenchDnsArgs {
             .tls
             .tls_name
             .clone()
-            .unwrap_or_else(|| ServerName::IpAddress(self.target.ip()));
+            .unwrap_or_else(|| ServerName::IpAddress(self.target.ip().into()));
         let tls_connect = g3_hickory_client::io::tls::connect(
             self.target,
             self.bind,
@@ -225,7 +226,7 @@ impl BenchDnsArgs {
             .tls
             .tls_name
             .clone()
-            .unwrap_or_else(|| ServerName::IpAddress(self.target.ip()));
+            .unwrap_or_else(|| ServerName::IpAddress(self.target.ip().into()));
 
         let client_connect = g3_hickory_client::io::h2::connect(
             self.target,
@@ -250,7 +251,7 @@ impl BenchDnsArgs {
     ) -> anyhow::Result<AsyncClient> {
         let tls_name = match &self.tls.tls_name {
             Some(ServerName::DnsName(domain)) => domain.as_ref().to_string(),
-            Some(ServerName::IpAddress(ip)) => ip.to_string(),
+            Some(ServerName::IpAddress(ip)) => IpAddr::from(*ip).to_string(),
             Some(_) => return Err(anyhow!("unsupported tls server name type")),
             None => self.target.ip().to_string(),
         };
@@ -278,7 +279,7 @@ impl BenchDnsArgs {
     ) -> anyhow::Result<AsyncClient> {
         let tls_name = match &self.tls.tls_name {
             Some(ServerName::DnsName(domain)) => domain.as_ref().to_string(),
-            Some(ServerName::IpAddress(ip)) => ip.to_string(),
+            Some(ServerName::IpAddress(ip)) => IpAddr::from(*ip).to_string(),
             Some(_) => return Err(anyhow!("unsupported tls server name type")),
             None => self.target.ip().to_string(),
         };

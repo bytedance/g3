@@ -17,9 +17,6 @@
 mod server;
 pub(super) use server::RustlsProxyServer;
 
-mod stats;
-use stats::RustlsProxyServerStats;
-
 mod task;
 use task::{CommonTaskContext, RustlsAcceptTask};
 

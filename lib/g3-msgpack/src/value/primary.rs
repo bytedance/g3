@@ -94,8 +94,7 @@ pub fn as_weighted_name_string(v: &ValueRef) -> anyhow::Result<WeightedValue<Str
                             as_string(v).context(format!("invalid string value for key {key}"))?;
                     }
                     "weight" => {
-                        let f = crate::value::as_f64(v)
-                            .context(format!("invalid f64 value for key {key}"))?;
+                        let f = as_f64(v).context(format!("invalid f64 value for key {key}"))?;
                         weight = Some(f);
                     }
                     _ => {} // ignore all other keys
@@ -120,7 +119,7 @@ pub fn as_weighted_name_string(v: &ValueRef) -> anyhow::Result<WeightedValue<Str
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rmpv::{Integer, Utf8StringRef, ValueRef};
+    use rmpv::{Integer, Utf8StringRef};
 
     #[test]
     fn t_string() {

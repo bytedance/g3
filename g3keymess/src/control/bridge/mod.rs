@@ -19,14 +19,6 @@ use std::future::Future;
 use anyhow::anyhow;
 use openssl::pkey::PKey;
 
-pub(crate) async fn offline() -> anyhow::Result<()> {
-    run_in_main_thread(async move {
-        crate::control::DaemonController::abort().await;
-        Ok(())
-    })
-    .await
-}
-
 pub(crate) async fn add_key(pem: &str) -> anyhow::Result<()> {
     let key = PKey::private_key_from_pem(pem.as_bytes())
         .map_err(|e| anyhow!("invalid private key content: {e}"))?;

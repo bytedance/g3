@@ -52,10 +52,7 @@ pub struct ReuniteError(pub SendHalf, pub RecvHalf);
 
 impl fmt::Display for ReuniteError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "tried to reunite halves that are not from the same socket"
-        )
+        f.write_str("tried to reunite halves that are not from the same socket")
     }
 }
 

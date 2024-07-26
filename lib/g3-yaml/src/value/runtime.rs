@@ -22,6 +22,7 @@ use g3_runtime::unaided::UnaidedRuntimeConfig;
 pub fn as_unaided_runtime_config(v: &Yaml) -> anyhow::Result<UnaidedRuntimeConfig> {
     if let Yaml::Hash(map) = v {
         let mut config = UnaidedRuntimeConfig::default();
+        #[cfg(unix)]
         let mut set_mapped_sched_affinity = false;
 
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
@@ -36,6 +37,7 @@ pub fn as_unaided_runtime_config(v: &Yaml) -> anyhow::Result<UnaidedRuntimeConfi
                 config.set_thread_stack_size(value);
                 Ok(())
             }
+            #[cfg(unix)]
             "sched_affinity" => {
                 if let Yaml::Hash(map) = v {
                     for (ik, iv) in map.iter() {
@@ -72,6 +74,7 @@ pub fn as_unaided_runtime_config(v: &Yaml) -> anyhow::Result<UnaidedRuntimeConfi
             _ => Err(anyhow!("invalid key {k}")),
         })?;
 
+        #[cfg(unix)]
         if set_mapped_sched_affinity {
             config
                 .set_mapped_sched_affinity()

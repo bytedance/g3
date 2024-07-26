@@ -4,4 +4,4 @@ user_group: default
 type: http_proxy
 listen:
   address: "[::]:13128"
-conn_limit: 100M
+tcp_sock_speed_limit: 100M

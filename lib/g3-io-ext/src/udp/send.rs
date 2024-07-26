@@ -17,6 +17,7 @@
 use std::io::{self, IoSlice};
 use std::net::SocketAddr;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{ready, Context, Poll};
 use std::time::Duration;
 
@@ -31,8 +32,8 @@ use tokio::time::{Instant, Sleep};
     target_os = "openbsd",
 ))]
 use super::SendMsgHdr;
-use crate::limit::{DatagramLimitInfo, DatagramLimitResult};
-use crate::ArcLimitedSendStats;
+use crate::limit::{DatagramLimitAction, DatagramLimiter};
+use crate::{ArcLimitedSendStats, GlobalDatagramLimit};
 
 pub trait AsyncUdpSend {
     fn poll_send_to(
@@ -69,12 +70,12 @@ pub struct LimitedUdpSend<T> {
     inner: T,
     delay: Pin<Box<Sleep>>,
     started: Instant,
-    limit: DatagramLimitInfo,
+    limit: DatagramLimiter,
     stats: ArcLimitedSendStats,
 }
 
 impl<T: AsyncUdpSend> LimitedUdpSend<T> {
-    pub fn new(
+    pub fn local_limited(
         inner: T,
         shift_millis: u8,
         max_packets: usize,
@@ -85,9 +86,17 @@ impl<T: AsyncUdpSend> LimitedUdpSend<T> {
             inner,
             delay: Box::pin(tokio::time::sleep(Duration::from_millis(0))),
             started: Instant::now(),
-            limit: DatagramLimitInfo::new(shift_millis, max_packets, max_bytes),
+            limit: DatagramLimiter::with_local(shift_millis, max_packets, max_bytes),
             stats,
         }
+    }
+
+    #[inline]
+    pub fn add_global_limiter<L>(&mut self, limiter: Arc<L>)
+    where
+        L: GlobalDatagramLimit + Send + Sync + 'static,
+    {
+        self.limit.add_global(limiter);
     }
 
     pub fn reset_stats(&mut self, stats: ArcLimitedSendStats) {
@@ -108,18 +117,43 @@ where
         if self.limit.is_set() {
             let dur_millis = self.started.elapsed().as_millis() as u64;
             match self.limit.check_packet(dur_millis, buf.len()) {
-                DatagramLimitResult::Advance(_) => {
-                    let nw = ready!(self.inner.poll_send_to(cx, buf, target))?;
-                    self.limit.set_advance(1, nw);
-                    self.stats.add_send_packet();
-                    self.stats.add_send_bytes(nw);
-                    Poll::Ready(Ok(nw))
+                DatagramLimitAction::Advance(_) => match self.inner.poll_send_to(cx, buf, target) {
+                    Poll::Ready(Ok(nw)) => {
+                        self.limit.set_advance(1, nw);
+                        self.stats.add_send_packet();
+                        self.stats.add_send_bytes(nw);
+                        Poll::Ready(Ok(nw))
+                    }
+                    Poll::Ready(Err(e)) => {
+                        self.limit.release_global();
+                        Poll::Ready(Err(e))
+                    }
+                    Poll::Pending => {
+                        self.limit.release_global();
+                        Poll::Pending
+                    }
+                },
+                DatagramLimitAction::DelayUntil(t) => {
+                    self.delay.as_mut().reset(t);
+                    match self.delay.poll_unpin(cx) {
+                        Poll::Ready(_) => {
+                            cx.waker().wake_by_ref();
+                            Poll::Pending
+                        }
+                        Poll::Pending => Poll::Pending,
+                    }
                 }
-                DatagramLimitResult::DelayFor(ms) => {
+                DatagramLimitAction::DelayFor(ms) => {
                     self.delay
                         .as_mut()
                         .reset(self.started + Duration::from_millis(dur_millis + ms));
-                    self.delay.poll_unpin(cx).map(|_| Ok(0))
+                    match self.delay.poll_unpin(cx) {
+                        Poll::Ready(_) => {
+                            cx.waker().wake_by_ref();
+                            Poll::Pending
+                        }
+                        Poll::Pending => Poll::Pending,
+                    }
                 }
             }
         } else {
@@ -134,18 +168,43 @@ where
         if self.limit.is_set() {
             let dur_millis = self.started.elapsed().as_millis() as u64;
             match self.limit.check_packet(dur_millis, buf.len()) {
-                DatagramLimitResult::Advance(_) => {
-                    let nw = ready!(self.inner.poll_send(cx, buf))?;
-                    self.limit.set_advance(1, nw);
-                    self.stats.add_send_packet();
-                    self.stats.add_send_bytes(nw);
-                    Poll::Ready(Ok(nw))
+                DatagramLimitAction::Advance(_) => match self.inner.poll_send(cx, buf) {
+                    Poll::Ready(Ok(nw)) => {
+                        self.limit.set_advance(1, nw);
+                        self.stats.add_send_packet();
+                        self.stats.add_send_bytes(nw);
+                        Poll::Ready(Ok(nw))
+                    }
+                    Poll::Ready(Err(e)) => {
+                        self.limit.release_global();
+                        Poll::Ready(Err(e))
+                    }
+                    Poll::Pending => {
+                        self.limit.release_global();
+                        Poll::Pending
+                    }
+                },
+                DatagramLimitAction::DelayUntil(t) => {
+                    self.delay.as_mut().reset(t);
+                    match self.delay.poll_unpin(cx) {
+                        Poll::Ready(_) => {
+                            cx.waker().wake_by_ref();
+                            Poll::Pending
+                        }
+                        Poll::Pending => Poll::Pending,
+                    }
                 }
-                DatagramLimitResult::DelayFor(ms) => {
+                DatagramLimitAction::DelayFor(ms) => {
                     self.delay
                         .as_mut()
                         .reset(self.started + Duration::from_millis(dur_millis + ms));
-                    self.delay.poll_unpin(cx).map(|_| Ok(0))
+                    match self.delay.poll_unpin(cx) {
+                        Poll::Ready(_) => {
+                            cx.waker().wake_by_ref();
+                            Poll::Pending
+                        }
+                        Poll::Pending => Poll::Pending,
+                    }
                 }
             }
         } else {
@@ -166,18 +225,43 @@ where
             let dur_millis = self.started.elapsed().as_millis() as u64;
             let len = iov.iter().map(|v| v.len()).sum();
             match self.limit.check_packet(dur_millis, len) {
-                DatagramLimitResult::Advance(_) => {
-                    let nw = ready!(self.inner.poll_sendmsg(cx, iov, target))?;
-                    self.limit.set_advance(1, nw);
-                    self.stats.add_send_packet();
-                    self.stats.add_send_bytes(nw);
-                    Poll::Ready(Ok(nw))
+                DatagramLimitAction::Advance(_) => match self.inner.poll_sendmsg(cx, iov, target) {
+                    Poll::Ready(Ok(nw)) => {
+                        self.limit.set_advance(1, nw);
+                        self.stats.add_send_packet();
+                        self.stats.add_send_bytes(nw);
+                        Poll::Ready(Ok(nw))
+                    }
+                    Poll::Ready(Err(e)) => {
+                        self.limit.release_global();
+                        Poll::Ready(Err(e))
+                    }
+                    Poll::Pending => {
+                        self.limit.release_global();
+                        Poll::Pending
+                    }
+                },
+                DatagramLimitAction::DelayUntil(t) => {
+                    self.delay.as_mut().reset(t);
+                    match self.delay.poll_unpin(cx) {
+                        Poll::Ready(_) => {
+                            cx.waker().wake_by_ref();
+                            Poll::Pending
+                        }
+                        Poll::Pending => Poll::Pending,
+                    }
                 }
-                DatagramLimitResult::DelayFor(ms) => {
+                DatagramLimitAction::DelayFor(ms) => {
                     self.delay
                         .as_mut()
                         .reset(self.started + Duration::from_millis(dur_millis + ms));
-                    self.delay.poll_unpin(cx).map(|_| Ok(0))
+                    match self.delay.poll_unpin(cx) {
+                        Poll::Ready(_) => {
+                            cx.waker().wake_by_ref();
+                            Poll::Pending
+                        }
+                        Poll::Pending => Poll::Pending,
+                    }
                 }
             }
         } else {
@@ -200,23 +284,57 @@ where
         cx: &mut Context<'_>,
         msgs: &mut [SendMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>> {
+        use smallvec::SmallVec;
+
         if self.limit.is_set() {
             let dur_millis = self.started.elapsed().as_millis() as u64;
-            let len = msgs.iter().map(|h| h.n_send).sum();
-            match self.limit.check_packet(dur_millis, len) {
-                DatagramLimitResult::Advance(n) => {
-                    let count = ready!(self.inner.poll_batch_sendmsg(cx, &mut msgs[0..n]))?;
-                    let len = msgs.iter().take(count).map(|h| h.n_send).sum();
-                    self.limit.set_advance(count, len);
-                    self.stats.add_send_packets(count);
-                    self.stats.add_send_bytes(len);
-                    Poll::Ready(Ok(count))
+            let mut total_size_v = SmallVec::<[usize; 32]>::with_capacity(msgs.len());
+            let mut total_size = 0;
+            for msg in msgs.iter() {
+                total_size += msg.iov.iter().map(|v| v.len()).sum::<usize>();
+                total_size_v.push(total_size);
+            }
+            match self.limit.check_packets(dur_millis, total_size_v.as_ref()) {
+                DatagramLimitAction::Advance(n) => {
+                    match self.inner.poll_batch_sendmsg(cx, &mut msgs[0..n]) {
+                        Poll::Ready(Ok(count)) => {
+                            let len = msgs.iter().take(count).map(|v| v.n_send).sum();
+                            self.limit.set_advance(count, len);
+                            self.stats.add_send_packets(count);
+                            self.stats.add_send_bytes(len);
+                            Poll::Ready(Ok(count))
+                        }
+                        Poll::Ready(Err(e)) => {
+                            self.limit.release_global();
+                            Poll::Ready(Err(e))
+                        }
+                        Poll::Pending => {
+                            self.limit.release_global();
+                            Poll::Pending
+                        }
+                    }
                 }
-                DatagramLimitResult::DelayFor(ms) => {
+                DatagramLimitAction::DelayUntil(t) => {
+                    self.delay.as_mut().reset(t);
+                    match self.delay.poll_unpin(cx) {
+                        Poll::Ready(_) => {
+                            cx.waker().wake_by_ref();
+                            Poll::Pending
+                        }
+                        Poll::Pending => Poll::Pending,
+                    }
+                }
+                DatagramLimitAction::DelayFor(ms) => {
                     self.delay
                         .as_mut()
                         .reset(self.started + Duration::from_millis(dur_millis + ms));
-                    self.delay.poll_unpin(cx).map(|_| Ok(0))
+                    match self.delay.poll_unpin(cx) {
+                        Poll::Ready(_) => {
+                            cx.waker().wake_by_ref();
+                            Poll::Pending
+                        }
+                        Poll::Pending => Poll::Pending,
+                    }
                 }
             }
         } else {

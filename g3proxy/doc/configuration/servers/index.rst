@@ -6,8 +6,8 @@ Server
 
 The type for each server config is *map*, with two always required keys:
 
-* *name*, which specify the name of the escaper.
-* *type*, which specify the real type of the escaper, decides how to parse other keys.
+* :ref:`name <conf_server_common_name>`, which specify the name of the server.
+* :ref:`type <conf_server_common_type>`, which specify the real type of the server, decides how to parse other keys.
 
 There are many types of server, each with a section below.
 
@@ -34,7 +34,19 @@ Servers
 Common Keys
 ===========
 
-This section describes the common keys, they may be used by many escapers.
+This section describes the common keys, they may be used by many servers.
+
+.. _conf_server_common_name:
+
+**required**, **type**: :ref:`metrics name <conf_value_metrics_name>`
+
+Set the name of the server.
+
+.. _conf_server_common_type:
+
+**required**, **type**: str
+
+Set the type of the server.
 
 .. _conf_server_common_escaper:
 
@@ -83,15 +95,6 @@ shared_logger
 Set the server to use a logger running on a shared thread.
 
 **default**: not set
-
-listen
-------
-
-**required**, **type**: :ref:`tcp listen <conf_value_tcp_listen>`
-
-Set the listen config for this server.
-
-The instance count setting will be ignored if *listen_in_worker* is correctly enabled.
 
 .. _conf_server_common_listen_in_worker:
 

@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 
 use ahash::AHashMap;
-use once_cell::sync::Lazy;
 
 use g3_daemon::metrics::TAG_KEY_QUANTILE;
 use g3_histogram::HistogramStats;
@@ -34,15 +33,16 @@ const METRIC_NAME_STREAM_CONNECT_DURATION: &str = "backend.stream.connect.durati
 
 type StreamBackendStatsValue = (Arc<StreamBackendStats>, StreamBackendSnapshot);
 
-static STORE_STREAM_STATS_MAP: Lazy<Mutex<AHashMap<StatId, StreamBackendStatsValue>>> =
-    Lazy::new(|| Mutex::new(AHashMap::new()));
-static STREAM_STATS_MAP: Lazy<Mutex<AHashMap<StatId, StreamBackendStatsValue>>> =
-    Lazy::new(|| Mutex::new(AHashMap::new()));
-static STORE_STREAM_DURATION_STATS_MAP: Lazy<
+static STORE_STREAM_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, StreamBackendStatsValue>>> =
+    LazyLock::new(|| Mutex::new(AHashMap::new()));
+static STREAM_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, StreamBackendStatsValue>>> =
+    LazyLock::new(|| Mutex::new(AHashMap::new()));
+static STORE_STREAM_DURATION_STATS_MAP: LazyLock<
     Mutex<AHashMap<StatId, Arc<StreamBackendDurationStats>>>,
-> = Lazy::new(|| Mutex::new(AHashMap::new()));
-static STREAM_DURATION_STATS_MAP: Lazy<Mutex<AHashMap<StatId, Arc<StreamBackendDurationStats>>>> =
-    Lazy::new(|| Mutex::new(AHashMap::new()));
+> = LazyLock::new(|| Mutex::new(AHashMap::new()));
+static STREAM_DURATION_STATS_MAP: LazyLock<
+    Mutex<AHashMap<StatId, Arc<StreamBackendDurationStats>>>,
+> = LazyLock::new(|| Mutex::new(AHashMap::new()));
 
 #[derive(Default)]
 struct StreamBackendSnapshot {

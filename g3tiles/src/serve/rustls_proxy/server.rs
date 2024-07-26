@@ -32,16 +32,17 @@ use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::MetricsName;
 use g3_types::route::HostMatch;
 
-use super::{CommonTaskContext, RustlsAcceptTask, RustlsHost, RustlsProxyServerStats};
+use super::{CommonTaskContext, RustlsAcceptTask, RustlsHost};
 use crate::config::server::rustls_proxy::RustlsProxyServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
+use crate::module::stream::StreamServerStats;
 use crate::serve::{
     ArcServer, ArcServerStats, Server, ServerInternal, ServerQuitPolicy, ServerStats, WrapArcServer,
 };
 
 pub(crate) struct RustlsProxyServer {
     config: Arc<RustlsProxyServerConfig>,
-    server_stats: Arc<RustlsProxyServerStats>,
+    server_stats: Arc<StreamServerStats>,
     listen_stats: Arc<ListenStats>,
     ingress_net_filter: Option<AclNetworkRule>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
@@ -55,7 +56,7 @@ pub(crate) struct RustlsProxyServer {
 impl RustlsProxyServer {
     fn new(
         config: Arc<RustlsProxyServerConfig>,
-        server_stats: Arc<RustlsProxyServerStats>,
+        server_stats: Arc<StreamServerStats>,
         listen_stats: Arc<ListenStats>,
         hosts: HostMatch<Arc<RustlsHost>>,
         version: usize,
@@ -87,7 +88,7 @@ impl RustlsProxyServer {
 
     pub(crate) fn prepare_initial(config: RustlsProxyServerConfig) -> anyhow::Result<ArcServer> {
         let config = Arc::new(config);
-        let server_stats = Arc::new(RustlsProxyServerStats::new(config.name()));
+        let server_stats = Arc::new(StreamServerStats::new(config.name()));
         let listen_stats = Arc::new(ListenStats::new(config.name()));
 
         let hosts = config.hosts.try_build_arc(RustlsHost::try_build)?;
@@ -257,7 +258,7 @@ impl AcceptQuicServer for RustlsProxyServer {
 #[async_trait]
 impl Server for RustlsProxyServer {
     fn get_server_stats(&self) -> Option<ArcServerStats> {
-        Some(Arc::clone(&self.server_stats) as _)
+        Some(self.server_stats.clone())
     }
 
     fn get_listen_stats(&self) -> Arc<ListenStats> {
@@ -265,7 +266,7 @@ impl Server for RustlsProxyServer {
     }
 
     fn alive_count(&self) -> i32 {
-        self.server_stats.get_alive_count()
+        self.server_stats.alive_count()
     }
 
     #[inline]

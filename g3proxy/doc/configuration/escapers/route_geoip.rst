@@ -15,6 +15,17 @@ The following common keys are supported:
 * :ref:`resolve_strategy <conf_escaper_common_resolve_strategy>`
 * :ref:`default_next <conf_escaper_common_default_next>`
 
+ip_locate_service
+-----------------
+
+**optional**, **type**: :ref:`ip locate service <conf_value_ip_locate_service>`
+
+Set the config for the remote IP locate service.
+
+**default**: set with default config
+
+.. versionadded:: 1.9.1
+
 geo_rules
 ---------
 
@@ -22,10 +33,7 @@ geo_rules
 
 Set the GeoIP rules to select next escaper.
 
-Remember to set :ref:`geoip_db <configuration_geoip_db>` in main conf to enable GeoIP lookup.
-If not set, this escaper will just behave like :ref:`route_resolved <configuration_escaper_route_resolved>` escaper.
-
-Each rule is in *map* format, with two keys:
+Each rule is in *map* format, with the following keys:
 
 * next
 

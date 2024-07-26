@@ -19,7 +19,7 @@ use std::sync::Arc;
 use tokio::io::AsyncBufRead;
 use tokio::time::Instant;
 
-use g3_http::{ChunkedTransfer, HttpBodyReader, HttpBodyType};
+use g3_http::{H1BodyToChunkedTransfer, HttpBodyReader};
 use g3_io_ext::{IdleCheck, LimitedBufReadExt, LimitedCopy, LimitedCopyConfig, LimitedCopyError};
 
 use super::{
@@ -38,7 +38,7 @@ pub(super) struct BidirectionalRecvIcapResponse<'a, I: IdleCheck> {
 impl<'a, I: IdleCheck> BidirectionalRecvIcapResponse<'a, I> {
     pub(super) async fn transfer_and_recv<CR>(
         self,
-        mut body_transfer: &mut ChunkedTransfer<'_, CR, IcapClientWriter>,
+        mut body_transfer: &mut H1BodyToChunkedTransfer<'_, CR, IcapClientWriter>,
     ) -> Result<ReqmodResponse, H1ReqmodAdaptationError>
     where
         CR: AsyncBufRead + Unpin,
@@ -127,7 +127,7 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpRequest<'a, I> {
     pub(super) async fn transfer<H, CR, UW>(
         mut self,
         state: &mut ReqmodAdaptationRunState,
-        mut clt_body_transfer: &mut ChunkedTransfer<'_, CR, IcapClientWriter>,
+        mut clt_body_transfer: &mut H1BodyToChunkedTransfer<'_, CR, IcapClientWriter>,
         http_header_size: usize,
         orig_http_request: &H,
         ups_writer: &mut UW,
@@ -145,11 +145,8 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpRequest<'a, I> {
         .await?;
         http_req.set_chunked_encoding();
         let trailers = self.icap_rsp.take_trailers();
-        let body_type = if !trailers.is_empty() {
+        if !trailers.is_empty() {
             http_req.set_trailer(trailers);
-            HttpBodyType::ChunkedWithTrailer
-        } else {
-            HttpBodyType::ChunkedWithoutTrailer
         };
 
         let final_req = orig_http_request.adapt_to(http_req);
@@ -160,7 +157,7 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpRequest<'a, I> {
         state.mark_ups_send_header();
 
         let mut ups_body_reader =
-            HttpBodyReader::new(self.icap_reader, body_type, self.http_body_line_max_size);
+            HttpBodyReader::new_chunked(self.icap_reader, self.http_body_line_max_size);
         let mut ups_body_transfer =
             LimitedCopy::new(&mut ups_body_reader, ups_writer, &self.copy_config);
 

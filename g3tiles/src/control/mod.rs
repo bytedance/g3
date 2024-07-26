@@ -16,6 +16,12 @@
 
 mod bridge;
 
+mod quit;
+pub use quit::QuitActor;
+
+mod upgrade;
+pub use upgrade::UpgradeActor;
+
 mod local;
 pub use local::{DaemonController, UniqueController};
 

@@ -19,6 +19,12 @@ server:
     listen:
       address: "[::]:8080"
     tls_client: {}
+  - name: socks
+    escaper: default
+    auditor: default
+    type: socks_proxy
+    listen:
+      address: "[::]:1080"
 
 resolver:
   - name: default

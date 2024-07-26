@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -26,7 +26,8 @@ use h2::client::SendRequest;
 use hickory_proto::error::{ProtoError, ProtoErrorKind};
 use hickory_proto::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
 use http::{Response, Version};
-use rustls::{ClientConfig, ServerName};
+use rustls::ClientConfig;
+use rustls_pki_types::ServerName;
 
 use super::http::request::HttpDnsRequestBuilder;
 use super::http::response::HttpDnsResponse;
@@ -35,13 +36,13 @@ pub async fn connect(
     name_server: SocketAddr,
     bind_addr: Option<SocketAddr>,
     tls_config: ClientConfig,
-    tls_name: ServerName,
+    tls_name: ServerName<'static>,
     connect_timeout: Duration,
     request_timeout: Duration,
 ) -> Result<HttpsClientStream, ProtoError> {
     let server_name = match &tls_name {
         ServerName::DnsName(domain) => domain.as_ref().to_string(),
-        ServerName::IpAddress(ip) => ip.to_string(),
+        ServerName::IpAddress(ip) => IpAddr::from(*ip).to_string(),
         _ => {
             return Err(ProtoError::from(format!(
                 "unsupported tls name: {:?}",

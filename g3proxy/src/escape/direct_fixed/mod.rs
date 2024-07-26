@@ -29,9 +29,10 @@ use g3_types::acl::AclNetworkRule;
 use g3_types::metrics::MetricsName;
 use g3_types::net::{Host, OpensslClientConfig, UpstreamAddr};
 use g3_types::resolve::{ResolveRedirection, ResolveStrategy};
-use g3_types::route::EgressPathSelection;
 
-use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperInternal, EscaperStats};
+use super::{
+    ArcEscaper, ArcEscaperStats, EgressPathSelection, Escaper, EscaperInternal, EscaperStats,
+};
 use crate::auth::UserUpstreamTrafficStats;
 use crate::config::escaper::direct_fixed::DirectFixedEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
@@ -58,7 +59,7 @@ mod stats;
 pub(crate) use stats::DirectFixedEscaperStats;
 
 mod ftp_connect;
-mod http_forward;
+pub(crate) mod http_forward;
 mod tcp_connect;
 mod tls_connect;
 pub(crate) mod udp_connect;
@@ -121,7 +122,7 @@ impl DirectFixedEscaper {
     fn get_bind_random(
         &self,
         family: AddressFamily,
-        path_selection: &EgressPathSelection,
+        path_selection: Option<&EgressPathSelection>,
     ) -> Option<IpAddr> {
         let vec = match family {
             AddressFamily::Ipv4 => &self.config.bind4,
@@ -132,8 +133,10 @@ impl DirectFixedEscaper {
             1 => Some(vec[0]),
             n => {
                 if self.config.enable_path_selection {
-                    if let Some(i) = path_selection.select_by_index(n) {
-                        return Some(vec[i]);
+                    if let Some(path_selection) = path_selection {
+                        if let Some(i) = path_selection.select_by_index(n) {
+                            return Some(vec[i]);
+                        }
                     }
                 }
 
@@ -191,9 +194,9 @@ impl DirectFixedEscaper {
         let ips = resolver_job
             .get_r1_or_first(self.config.happy_eyeballs.resolution_delay(), usize::MAX)
             .await?;
-        strategy.pick_best(ips).ok_or_else(|| {
-            ResolveError::UnexpectedError("no upstream ip can be selected".to_string())
-        })
+        strategy.pick_best(ips).ok_or(ResolveError::UnexpectedError(
+            "no upstream ip can be selected",
+        ))
     }
 
     async fn redirect_get_best(
@@ -264,7 +267,7 @@ impl Escaper for DirectFixedEscaper {
     }
 
     fn get_escape_stats(&self) -> Option<ArcEscaperStats> {
-        Some(Arc::clone(&self.stats) as _)
+        Some(self.stats.clone())
     }
 
     async fn publish(&self, _data: String) -> anyhow::Result<()> {
@@ -321,7 +324,7 @@ impl Escaper for DirectFixedEscaper {
     }
 
     fn new_http_forward_context(&self, escaper: ArcEscaper) -> BoxHttpForwardContext {
-        let ctx = DirectHttpForwardContext::new(Arc::clone(&self.stats) as _, escaper);
+        let ctx = DirectHttpForwardContext::new(self.stats.clone(), escaper);
         Box::new(ctx)
     }
 
@@ -361,14 +364,6 @@ impl EscaperInternal for DirectFixedEscaper {
     async fn _lock_safe_reload(&self, config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::clone(&self.stats);
         DirectFixedEscaper::prepare_reload(config, stats)
-    }
-
-    async fn _check_out_next_escaper(
-        &self,
-        _task_notes: &ServerTaskNotes,
-        _upstream: &UpstreamAddr,
-    ) -> Option<ArcEscaper> {
-        None
     }
 
     async fn _new_http_forward_connection<'a>(

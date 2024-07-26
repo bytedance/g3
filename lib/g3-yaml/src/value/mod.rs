@@ -34,11 +34,13 @@ pub use net::*;
 pub use primary::{
     as_ascii, as_bool, as_f64, as_hashmap, as_i32, as_i64, as_list, as_nonzero_i32,
     as_nonzero_isize, as_nonzero_u32, as_string, as_u16, as_u32, as_u64, as_u8, as_usize,
-    as_weighted_name_string,
 };
 pub use random::as_random_ratio;
 pub use rate_limit::as_rate_limit_quota;
-pub use speed_limit::{as_tcp_sock_speed_limit, as_udp_sock_speed_limit};
+pub use speed_limit::{
+    as_global_datagram_speed_limit, as_global_stream_speed_limit, as_tcp_sock_speed_limit,
+    as_udp_sock_speed_limit,
+};
 
 #[cfg(feature = "audit")]
 mod audit;
@@ -95,9 +97,9 @@ pub use self::openssl::{
     as_to_one_openssl_tls_client_config_builder,
 };
 
-#[cfg(feature = "sched")]
+#[cfg(all(unix, feature = "sched"))]
 mod sched;
-#[cfg(feature = "sched")]
+#[cfg(all(unix, feature = "sched"))]
 pub use sched::*;
 
 #[cfg(feature = "sched")]
@@ -118,4 +120,6 @@ pub use dpi::*;
 #[cfg(feature = "geoip")]
 mod geoip;
 #[cfg(feature = "geoip")]
-pub use geoip::{as_continent_code, as_iso_country_code};
+pub use geoip::{
+    as_continent_code, as_ip_locate_service_config, as_ip_location, as_iso_country_code,
+};

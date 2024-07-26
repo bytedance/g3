@@ -18,6 +18,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
 use std::sync::Arc;
 
 use hickory_proto::error::ProtoError;
+use quinn::crypto::rustls::QuicClientConfig;
 use quinn::{Connection, Endpoint, EndpointConfig, TokioRuntime};
 use rustls::ClientConfig;
 
@@ -41,9 +42,11 @@ pub(crate) async fn quic_connect(
     if tls_config.alpn_protocols.is_empty() {
         tls_config.alpn_protocols = vec![alpn_protocol.to_vec()];
     }
-    let quinn_config = quinn::ClientConfig::new(Arc::new(tls_config));
+    let quic_config = QuicClientConfig::try_from(tls_config)
+        .map_err(|e| format!("invalid quic tls config: {e}"))?;
+    let client_config = quinn::ClientConfig::new(Arc::new(quic_config));
     // TODO set transport config
-    endpoint.set_default_client_config(quinn_config);
+    endpoint.set_default_client_config(client_config);
 
     let connection = endpoint
         .connect(name_server, tls_name)

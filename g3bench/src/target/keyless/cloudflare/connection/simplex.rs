@@ -17,7 +17,9 @@
 use std::net::SocketAddr;
 
 use futures_util::FutureExt;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
+
+use g3_io_ext::LimitedWriteExt;
 
 use super::{KeylessLocalError, KeylessRequest, KeylessResponse, KeylessResponseError};
 
@@ -62,7 +64,7 @@ impl SimplexTransfer {
         self.next_req_id = self.next_req_id.wrapping_add(1);
 
         self.writer
-            .write_all(req.as_bytes())
+            .write_all_flush(req.as_bytes())
             .await
             .map_err(KeylessLocalError::WriteFailed)?;
 

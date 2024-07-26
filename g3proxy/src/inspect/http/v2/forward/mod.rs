@@ -231,7 +231,8 @@ where
                 d
             }
             Ok(Err(e)) => {
-                clt_send_rsp.send_reset(Reason::REFUSED_STREAM);
+                let reason = e.reason().unwrap_or(Reason::REFUSED_STREAM);
+                clt_send_rsp.send_reset(reason);
                 return Err(H2StreamTransferError::UpstreamStreamOpenFailed(e));
             }
             Err(_) => {
@@ -249,7 +250,7 @@ where
                     self.ctx.server_config.limited_copy_config(),
                     self.ctx.h1_interception().body_line_max_len,
                     self.ctx.h2_interception().max_header_list_size as usize,
-                    self.ctx.h2_interception().rsp_head_recv_timeout,
+                    self.ctx.h2_rsp_hdr_recv_timeout(),
                     true,
                     self.ctx.idle_checker(),
                 )
@@ -419,19 +420,15 @@ where
         self.http_notes.mark_req_no_body();
 
         // there shouldn't be 100 response in this case
-        let ups_rsp = match tokio::time::timeout(
-            self.ctx.h2_interception().rsp_head_recv_timeout,
-            ups_rsp_fut,
-        )
-        .await
-        {
-            Ok(Ok(d)) => {
-                self.http_notes.mark_rsp_recv_hdr();
-                d
-            }
-            Ok(Err(e)) => return Err(H2StreamTransferError::ResponseHeadRecvFailed(e)),
-            Err(_) => return Err(H2StreamTransferError::ResponseHeadRecvTimeout),
-        };
+        let ups_rsp =
+            match tokio::time::timeout(self.ctx.h2_rsp_hdr_recv_timeout(), ups_rsp_fut).await {
+                Ok(Ok(d)) => {
+                    self.http_notes.mark_rsp_recv_hdr();
+                    d
+                }
+                Ok(Err(e)) => return Err(H2StreamTransferError::ResponseHeadRecvFailed(e)),
+                Err(_) => return Err(H2StreamTransferError::ResponseHeadRecvTimeout),
+            };
 
         self.send_response(orig_req, ups_rsp, clt_send_rsp, None)
             .await
@@ -521,19 +518,15 @@ where
             self.send_response(orig_req, ups_rsp, clt_send_rsp, None)
                 .await
         } else {
-            let ups_rsp = match tokio::time::timeout(
-                self.ctx.h2_interception().rsp_head_recv_timeout,
-                ups_rsp_fut,
-            )
-            .await
-            {
-                Ok(Ok(d)) => {
-                    self.http_notes.mark_rsp_recv_hdr();
-                    d
-                }
-                Ok(Err(e)) => return Err(H2StreamTransferError::ResponseHeadRecvFailed(e)),
-                Err(_) => return Err(H2StreamTransferError::ResponseHeadRecvTimeout),
-            };
+            let ups_rsp =
+                match tokio::time::timeout(self.ctx.h2_rsp_hdr_recv_timeout(), ups_rsp_fut).await {
+                    Ok(Ok(d)) => {
+                        self.http_notes.mark_rsp_recv_hdr();
+                        d
+                    }
+                    Ok(Err(e)) => return Err(H2StreamTransferError::ResponseHeadRecvFailed(e)),
+                    Err(_) => return Err(H2StreamTransferError::ResponseHeadRecvTimeout),
+                };
 
             self.send_response(orig_req, ups_rsp, clt_send_rsp, None)
                 .await

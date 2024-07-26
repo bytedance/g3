@@ -30,8 +30,11 @@ use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
 use super::{registry, ArcServer};
 
 use super::dummy_close::DummyCloseServer;
+#[cfg(feature = "quic")]
+use super::plain_quic_port::PlainQuicPort;
 use super::plain_tcp_port::PlainTcpPort;
 
+use super::keyless_proxy::KeylessProxyServer;
 use super::openssl_proxy::OpensslProxyServer;
 use super::rustls_proxy::RustlsProxyServer;
 
@@ -220,8 +223,11 @@ fn spawn_new_unlocked(config: AnyServerConfig) -> anyhow::Result<()> {
     let server = match config {
         AnyServerConfig::DummyClose(c) => DummyCloseServer::prepare_initial(c)?,
         AnyServerConfig::PlainTcpPort(c) => PlainTcpPort::prepare_initial(c)?,
+        #[cfg(feature = "quic")]
+        AnyServerConfig::PlainQuicPort(c) => PlainQuicPort::prepare_initial(c)?,
         AnyServerConfig::OpensslProxy(c) => OpensslProxyServer::prepare_initial(c)?,
         AnyServerConfig::RustlsProxy(c) => RustlsProxyServer::prepare_initial(c)?,
+        AnyServerConfig::KeylessProxy(c) => KeylessProxyServer::prepare_initial(c)?,
     };
     registry::add(name.clone(), server)?;
     update_dependency_to_server_unlocked(&name, "spawned");

@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-use std::time::Duration;
-
 use slog::{slog_info, Logger};
 
 use g3_slog_types::{LtDateTime, LtDuration, LtUuid};
@@ -24,7 +22,6 @@ use crate::serve::{ServerTaskError, ServerTaskNotes};
 
 pub(crate) struct TaskLogForTcpConnect<'a> {
     pub(crate) task_notes: &'a ServerTaskNotes,
-    pub(crate) total_time: Duration,
     pub(crate) client_rd_bytes: u64,
     pub(crate) client_wr_bytes: u64,
     pub(crate) remote_rd_bytes: u64,
@@ -43,7 +40,7 @@ impl TaskLogForTcpConnect<'_> {
             "reason" => e.brief(),
             "wait_time" => LtDuration(self.task_notes.wait_time),
             "ready_time" => LtDuration(self.task_notes.ready_time),
-            "total_time" => LtDuration(self.total_time),
+            "total_time" => LtDuration(self.task_notes.time_elapsed()),
             "c_rd_bytes" => self.client_rd_bytes,
             "c_wr_bytes" => self.client_wr_bytes,
             "r_rd_bytes" => self.remote_rd_bytes,

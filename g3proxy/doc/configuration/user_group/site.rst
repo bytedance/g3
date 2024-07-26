@@ -79,3 +79,36 @@ Not all escapers support this, see the documentation for each escaper for more i
 **default**: not custom resolve strategy is set
 
 .. versionadded:: 1.7.10
+
+tls_client
+----------
+
+**optional**, **type**: :ref:`tls client <conf_value_openssl_tls_client_config>`
+
+Set the tls client config for server handshake in TLS interception.
+
+This will overwrite:
+
+- auditor `tls_interception_client <conf_auditor_tls_interception_client>` if tls interception is enabled
+- http_proxy server `tls_client <conf_server_http_proxy_tls_client>` if https forward is enabled
+
+**default**: not set
+
+.. versionadded:: 1.9.0
+
+.. _conf_user_site_http_rsp_header_recv_timeout:
+
+http_rsp_header_recv_timeout
+----------------------------
+
+**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+Set a custom http response receive timeout value for this site.
+
+This will set and overwrite:
+
+- User :ref:`http_rsp_header_recv_timeout <conf_user_http_rsp_header_recv_timeout>`
+
+**default**: not set
+
+.. versionadded:: 1.9.0

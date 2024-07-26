@@ -53,7 +53,7 @@ upstream_pick_policy
 
 Set the policy to select upstream address.
 
-The key for rendezvous/jump hash is *<client-ip>*.
+The key for ketama/rendezvous/jump hash is *<client-ip><server-ip>*.
 
 **default**: random
 

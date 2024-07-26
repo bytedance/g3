@@ -15,6 +15,7 @@
  */
 
 use std::net::{IpAddr, SocketAddr};
+#[cfg(unix)]
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -93,6 +94,7 @@ fn as_syslog_backend_udp(value: &Yaml) -> anyhow::Result<SyslogBackendBuilder> {
     }
 }
 
+#[cfg(unix)]
 fn as_syslog_backend_unix(value: &Yaml) -> anyhow::Result<SyslogBackendBuilder> {
     match value {
         Yaml::Hash(map) => {
@@ -109,14 +111,14 @@ fn as_syslog_backend_unix(value: &Yaml) -> anyhow::Result<SyslogBackendBuilder> 
                 _ => Err(anyhow!("invalid key {k}")),
             })?;
             if let Some(path) = path.take() {
-                Ok(SyslogBackendBuilder::Unix(path))
+                Ok(SyslogBackendBuilder::Unix(Some(path)))
             } else {
                 Err(anyhow!("no path has been set"))
             }
         }
         Yaml::String(_) => {
             let path = crate::value::as_absolute_path(value)?;
-            Ok(SyslogBackendBuilder::Unix(path))
+            Ok(SyslogBackendBuilder::Unix(Some(path)))
         }
         _ => Err(anyhow!("invalid yaml value for unix syslog backend")),
     }
@@ -130,6 +132,7 @@ pub fn as_syslog_builder(value: &Yaml, ident: &'static str) -> anyhow::Result<Sy
             let mut cee_event_flag: Option<String> = None;
             builder.set_facility(g3_syslog::Facility::Daemon);
             crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
+                #[cfg(unix)]
                 "target_unix" | "backend_unix" => {
                     let backend =
                         as_syslog_backend_unix(v).context(format!("invalid value for key {k}"))?;
@@ -152,6 +155,7 @@ pub fn as_syslog_builder(value: &Yaml, ident: &'static str) -> anyhow::Result<Sy
                                     builder.set_backend(backend);
                                     Ok(())
                                 }
+                                #[cfg(unix)]
                                 "unix" => {
                                     let backend = as_syslog_backend_unix(v)
                                         .context(format!("invalid value for key {k}"))?;

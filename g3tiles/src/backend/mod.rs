@@ -19,14 +19,18 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use g3_types::collection::{SelectiveHash, SelectiveItem, SelectivePickPolicy, SelectiveVec};
+use g3_types::collection::{SelectiveItem, SelectivePickPolicy, SelectiveVec};
 use g3_types::metrics::MetricsName;
 
 use crate::config::backend::AnyBackendConfig;
-use crate::module::stream::StreamConnectResult;
+use crate::module::keyless::{KeylessRequest, KeylessResponse};
+use crate::module::stream::{StreamConnectError, StreamConnectResult};
 use crate::serve::ServerTaskNotes;
 
 mod dummy_close;
+#[cfg(feature = "quic")]
+mod keyless_quic;
+mod keyless_tcp;
 mod stream_tcp;
 
 mod ops;
@@ -49,20 +53,26 @@ pub(crate) trait Backend {
     fn discover(&self) -> &MetricsName;
     fn update_discover(&self) -> anyhow::Result<()>;
 
-    async fn stream_connect(&self, task_notes: &ServerTaskNotes) -> StreamConnectResult;
+    async fn stream_connect(&self, _task_notes: &ServerTaskNotes) -> StreamConnectResult {
+        Err(StreamConnectError::UpstreamNotResolved) // TODO
+    }
+
+    async fn keyless(&self, req: KeylessRequest) -> KeylessResponse {
+        KeylessResponse::not_implemented(req.header())
+    }
 }
 
 pub(crate) type ArcBackend = Arc<dyn Backend + Send + Sync>;
 
 pub(crate) trait BackendExt: Backend {
     fn select_consistent<'a, T>(
-        &'a self,
+        &self,
         nodes: &'a SelectiveVec<T>,
         pick_policy: SelectivePickPolicy,
-        task_notes: &'a ServerTaskNotes,
+        task_notes: &ServerTaskNotes,
     ) -> &'a T
     where
-        T: SelectiveItem + SelectiveHash,
+        T: SelectiveItem,
     {
         #[derive(Hash)]
         struct ConsistentKey {
@@ -73,6 +83,12 @@ pub(crate) trait BackendExt: Backend {
             SelectivePickPolicy::Random => nodes.pick_random(),
             SelectivePickPolicy::Serial => nodes.pick_serial(),
             SelectivePickPolicy::RoundRobin => nodes.pick_round_robin(),
+            SelectivePickPolicy::Ketama => {
+                let key = ConsistentKey {
+                    client_ip: task_notes.client_ip(),
+                };
+                nodes.pick_ketama(&key)
+            }
             SelectivePickPolicy::Rendezvous => {
                 let key = ConsistentKey {
                     client_ip: task_notes.client_ip(),

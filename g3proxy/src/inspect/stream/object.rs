@@ -99,15 +99,19 @@ where
         let mut clt_r_buf = BytesMut::with_capacity(inspect_buffer_size);
         let mut ups_r_buf = BytesMut::with_capacity(inspect_buffer_size);
 
+        let data0_wait_timeout = self.ctx.protocol_inspection().data0_wait_timeout();
         let data_source = match tokio::time::timeout(
-            self.ctx.protocol_inspection().data0_wait_timeout(),
+            data0_wait_timeout,
             self.wait_initial_data(&mut clt_r, &mut clt_r_buf, &mut ups_r, &mut ups_r_buf),
         )
         .await
         {
             Ok(Ok(s)) => s,
             Ok(Err(e)) => return Err(e),
-            Err(_) => return Ok(StreamInspection::StreamUnknown(self)),
+            Err(_) => {
+                // just close IDLE empty connections
+                return Err(ServerTaskError::Idle(data0_wait_timeout, 1));
+            }
         };
 
         let protocol = match tokio::time::timeout(
@@ -125,7 +129,7 @@ where
         {
             Ok(Ok(p)) => p,
             Ok(Err(e)) => return Err(e),
-            Err(_) => return Ok(StreamInspection::StreamUnknown(self)),
+            Err(_) => Protocol::Timeout,
         };
 
         self.ctx.increase_inspection_depth();
@@ -134,6 +138,17 @@ where
             Protocol::Unknown => {
                 self.ctx
                     .transit_unknown(
+                        OnceBufReader::new(clt_r, clt_r_buf),
+                        clt_w,
+                        OnceBufReader::new(ups_r, ups_r_buf),
+                        ups_w,
+                    )
+                    .await?;
+                return Ok(StreamInspection::End);
+            }
+            Protocol::Timeout => {
+                self.ctx
+                    .transit_unknown_timeout(
                         OnceBufReader::new(clt_r, clt_r_buf),
                         clt_w,
                         OnceBufReader::new(ups_r, ups_r_buf),
@@ -153,6 +168,18 @@ where
                     return Ok(StreamInspection::TlsModern(tls_obj));
                 }
             }
+            #[cfg(feature = "vendored-tongsuo")]
+            Protocol::TlsTlcp => {
+                if let Some(tls_interception) = self.ctx.tls_interception() {
+                    let mut tls_obj = crate::inspect::tls::TlsInterceptObject::new(
+                        self.ctx,
+                        self.upstream,
+                        tls_interception,
+                    );
+                    tls_obj.set_io(OnceBufReader::new(clt_r, clt_r_buf), clt_w, ups_r, ups_w);
+                    return Ok(StreamInspection::TlsTlcp(tls_obj));
+                }
+            }
             Protocol::Http1 => {
                 let mut h1_obj = crate::inspect::http::H1InterceptObject::new(self.ctx);
                 h1_obj.set_io(
@@ -167,6 +194,18 @@ where
                 let mut h2_obj = crate::inspect::http::H2InterceptObject::new(self.ctx);
                 h2_obj.set_io(OnceBufReader::new(clt_r, clt_r_buf), clt_w, ups_r, ups_w);
                 return Ok(StreamInspection::H2(h2_obj));
+            }
+            Protocol::Smtp => {
+                let mut smtp_obj =
+                    crate::inspect::smtp::SmtpInterceptObject::new(self.ctx, self.upstream.clone());
+                smtp_obj.set_io(clt_r, clt_w, OnceBufReader::new(ups_r, ups_r_buf), ups_w);
+                return Ok(StreamInspection::Smtp(smtp_obj));
+            }
+            Protocol::Imap => {
+                let mut imap_obj =
+                    crate::inspect::imap::ImapInterceptObject::new(self.ctx, self.upstream.clone());
+                imap_obj.set_io(clt_r, clt_w, OnceBufReader::new(ups_r, ups_r_buf), ups_w);
+                return Ok(StreamInspection::Imap(imap_obj));
             }
             _ => {}
         }

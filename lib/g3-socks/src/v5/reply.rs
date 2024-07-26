@@ -18,7 +18,9 @@ use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use bytes::{BufMut, BytesMut};
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
+
+use g3_io_ext::LimitedWriteExt;
 
 use super::{SocksNegotiationError, SocksReplyParseError};
 
@@ -164,7 +166,6 @@ impl Socks5Reply {
                 buf.put_slice(&[0x00, 0x00]);
             }
         }
-        clt_w.write_all(buf.as_ref()).await?;
-        clt_w.flush().await
+        clt_w.write_all_flush(buf.as_ref()).await
     }
 }

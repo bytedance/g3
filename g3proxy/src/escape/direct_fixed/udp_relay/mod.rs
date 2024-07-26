@@ -86,7 +86,7 @@ impl DirectFixedEscaper {
         ),
         UdpRelaySetupError,
     > {
-        let bind_ip = self.get_bind_random(family, &task_notes.egress_path_selection);
+        let bind_ip = self.get_bind_random(family, task_notes.egress_path());
 
         let misc_opts = if let Some(user_ctx) = task_notes.user_ctx() {
             user_ctx
@@ -105,19 +105,19 @@ impl DirectFixedEscaper {
         let socket = UdpSocket::from_std(socket).map_err(UdpRelaySetupError::SetupSocketFailed)?;
 
         let (recv, send) = g3_io_ext::split_udp(socket);
-        let recv = LimitedUdpRecv::new(
+        let recv = LimitedUdpRecv::local_limited(
             recv,
             self.config.general.udp_sock_speed_limit.shift_millis,
             self.config.general.udp_sock_speed_limit.max_south_packets,
             self.config.general.udp_sock_speed_limit.max_south_bytes,
-            stats.clone() as _,
+            stats.clone(),
         );
-        let send = LimitedUdpSend::new(
+        let send = LimitedUdpSend::local_limited(
             send,
             self.config.general.udp_sock_speed_limit.shift_millis,
             self.config.general.udp_sock_speed_limit.max_north_packets,
             self.config.general.udp_sock_speed_limit.max_north_bytes,
-            stats.clone() as _,
+            stats.clone(),
         );
 
         Ok((bind_addr, recv, send))

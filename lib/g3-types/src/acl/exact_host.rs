@@ -16,9 +16,8 @@
 
 use std::net::IpAddr;
 
-use crate::net::Host;
-
 use super::{AclAHashRule, AclAction};
+use crate::net::Host;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AclExactHostRule {

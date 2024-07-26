@@ -25,7 +25,6 @@ use tokio::sync::mpsc;
 use g3_io_ext::{ArcLimitedWriterStats, LimitedWriter};
 use g3_types::auth::UserAuthError;
 use g3_types::net::{HttpAuth, HttpBasicAuth, HttpHeaderMap};
-use g3_types::route::EgressPathSelection;
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpProxyRequest, HttpProxySubProtocol};
 use super::{
@@ -34,6 +33,7 @@ use super::{
 };
 use crate::auth::{UserContext, UserGroup, UserRequestStats};
 use crate::config::server::ServerConfig;
+use crate::escape::EgressPathSelection;
 use crate::module::http_forward::{BoxHttpForwardContext, HttpProxyClientResponse};
 use crate::serve::{ServerStats, ServerTaskNotes};
 
@@ -105,7 +105,7 @@ where
             .new_http_forward_context(Arc::clone(&ctx.escaper));
         let clt_w_stats = HttpProxyCltWrapperStats::new_for_writer(&ctx.server_stats);
         let limit_config = &ctx.server_config.tcp_sock_speed_limit;
-        let clt_w = LimitedWriter::new(
+        let clt_w = LimitedWriter::local_limited(
             write_half,
             limit_config.shift_millis,
             limit_config.max_south,
@@ -240,18 +240,16 @@ where
     fn get_egress_path_selection(
         &self,
         headers: &mut HttpHeaderMap,
-        user_ctx: Option<&UserContext>,
-    ) -> Arc<EgressPathSelection> {
+    ) -> Option<EgressPathSelection> {
         if let Some(header) = &self.ctx.server_config.egress_path_selection_header {
             // check and remove the custom header
             if let Some(value) = headers.remove(header) {
-                let egress = EgressPathSelection::from_str(value.to_str()).unwrap_or_default();
-                return Arc::new(egress);
+                if let Ok(egress) = EgressPathSelection::from_str(value.to_str()) {
+                    return Some(egress);
+                }
             }
         }
-        user_ctx
-            .map(|ctx| ctx.user_config().egress_path_selection.clone())
-            .unwrap_or_default()
+        None
     }
 
     async fn run(
@@ -259,8 +257,7 @@ where
         mut req: HttpProxyRequest<CDR>,
         user_ctx: Option<UserContext>,
     ) -> LoopAction {
-        let path_selection =
-            self.get_egress_path_selection(&mut req.inner.end_to_end_headers, user_ctx.as_ref());
+        let path_selection = self.get_egress_path_selection(&mut req.inner.end_to_end_headers);
         let task_notes = ServerTaskNotes::with_path_selection(
             self.ctx.cc_info.clone(),
             user_ctx,
@@ -268,14 +265,20 @@ where
             path_selection,
         );
 
-        let forward_capability = self
-            .forward_context
-            .check_in_final_escaper(&task_notes, &req.upstream)
-            .await;
         let remote_protocol = match req.client_protocol {
             HttpProxySubProtocol::TcpConnect => HttpProxySubProtocol::TcpConnect,
-            HttpProxySubProtocol::HttpForward => HttpProxySubProtocol::HttpForward,
+            HttpProxySubProtocol::HttpForward => {
+                let _ = self
+                    .forward_context
+                    .check_in_final_escaper(&task_notes, &req.upstream)
+                    .await;
+                HttpProxySubProtocol::HttpForward
+            }
             HttpProxySubProtocol::HttpsForward => {
+                let forward_capability = self
+                    .forward_context
+                    .check_in_final_escaper(&task_notes, &req.upstream)
+                    .await;
                 if forward_capability.forward_https() {
                     HttpProxySubProtocol::HttpForward
                 } else {
@@ -283,6 +286,10 @@ where
                 }
             }
             HttpProxySubProtocol::FtpOverHttp => {
+                let forward_capability = self
+                    .forward_context
+                    .check_in_final_escaper(&task_notes, &req.upstream)
+                    .await;
                 if forward_capability.forward_ftp(&req.inner.method) {
                     HttpProxySubProtocol::HttpForward
                 } else {
@@ -358,7 +365,7 @@ where
     fn reset_client_writer(&mut self, mut stream_w: HttpClientWriter<CDW>) {
         stream_w.reset_stats(Arc::clone(&self.wrapper_stats));
         let limit_config = &self.ctx.server_config.tcp_sock_speed_limit;
-        stream_w.reset_limit(limit_config.shift_millis, limit_config.max_south);
+        stream_w.reset_local_limit(limit_config.shift_millis, limit_config.max_south);
         self.stream_writer = Some(stream_w);
     }
 

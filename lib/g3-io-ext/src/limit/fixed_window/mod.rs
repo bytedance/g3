@@ -17,13 +17,13 @@
 use g3_types::net::RATE_LIMIT_SHIFT_MILLIS_MAX;
 
 mod count;
-pub use count::ThreadedCountLimitInfo;
+pub use count::ThreadedCountLimiter;
 
 mod datagram;
-mod stream;
+pub use datagram::LocalDatagramLimiter;
 
-pub use datagram::{DatagramLimitInfo, DatagramLimitResult};
-pub use stream::{StreamLimitInfo, StreamLimitResult};
+mod stream;
+pub use stream::LocalStreamLimiter;
 
 #[derive(Clone, Copy)]
 struct FixedWindow {

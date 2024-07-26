@@ -35,6 +35,7 @@ The following common keys are supported:
 
   The user tcp connect params will be taken into account.
 
+* :ref:`happy eyeballs <conf_escaper_common_happy_eyeballs>`
 * :ref:`tcp_misc_opts <conf_escaper_common_tcp_misc_opts>`
 * :ref:`udp_misc_opts <conf_escaper_common_udp_misc_opts>`
 * :ref:`extra_metrics_tags <conf_escaper_common_extra_metrics_tags>`
@@ -59,17 +60,6 @@ egress_network_filter
 Set the network filter for the (resolved) remote ip address.
 
 **default**: all permitted except for loop-back and link-local addresses
-
-happy_eyeballs
---------------
-
-**optional**, **type**: :ref:`happy eyeballs <conf_value_happy_eyeballs>`
-
-Set the HappyEyeballs config.
-
-**default**: default HappyEyeballs config
-
-.. versionadded:: 1.5.3
 
 tcp_keepalive
 -------------

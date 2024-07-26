@@ -15,6 +15,7 @@
  */
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt;
 
 use anyhow::anyhow;
 
@@ -27,7 +28,7 @@ impl EscaperConfigVerifier {
         input_map: &BTreeMap<MetricsName, BTreeSet<T>>,
     ) -> anyhow::Result<()>
     where
-        T: std::fmt::Display,
+        T: fmt::Display,
     {
         let mut table = BTreeMap::<String, MetricsName>::new();
         for (escaper, set) in input_map {

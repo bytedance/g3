@@ -20,7 +20,6 @@ pub struct ProtocolInspectionSizeLimit {
     pub(crate) http_client_request_uri: usize,
     pub(crate) imap_server_greeting_msg: usize,
     pub(crate) nats_server_info_line: usize,
-    pub(crate) smtp_server_greeting_msg: usize,
 }
 
 impl Default for ProtocolInspectionSizeLimit {
@@ -30,7 +29,6 @@ impl Default for ProtocolInspectionSizeLimit {
             http_client_request_uri: 4096,
             imap_server_greeting_msg: 512,
             nats_server_info_line: 1024,
-            smtp_server_greeting_msg: 512,
         }
     }
 }
@@ -50,9 +48,5 @@ impl ProtocolInspectionSizeLimit {
 
     pub fn set_nats_server_info_line(&mut self, size: usize) {
         self.nats_server_info_line = size;
-    }
-
-    pub fn set_smtp_server_greeting_msg(&mut self, size: usize) {
-        self.smtp_server_greeting_msg = size;
     }
 }

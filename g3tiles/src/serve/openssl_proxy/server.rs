@@ -38,16 +38,17 @@ use g3_types::metrics::MetricsName;
 use g3_types::net::Host;
 use g3_types::route::HostMatch;
 
-use super::{CommonTaskContext, OpensslAcceptTask, OpensslHost, OpensslProxyServerStats};
+use super::{CommonTaskContext, OpensslAcceptTask, OpensslHost};
 use crate::config::server::openssl_proxy::OpensslProxyServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
+use crate::module::stream::StreamServerStats;
 use crate::serve::{
     ArcServer, ArcServerStats, Server, ServerInternal, ServerQuitPolicy, ServerStats, WrapArcServer,
 };
 
 pub(crate) struct OpensslProxyServer {
     config: Arc<OpensslProxyServerConfig>,
-    server_stats: Arc<OpensslProxyServerStats>,
+    server_stats: Arc<StreamServerStats>,
     listen_stats: Arc<ListenStats>,
     ingress_net_filter: Option<AclNetworkRule>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
@@ -65,7 +66,7 @@ pub(crate) struct OpensslProxyServer {
 impl OpensslProxyServer {
     fn new(
         config: Arc<OpensslProxyServerConfig>,
-        server_stats: Arc<OpensslProxyServerStats>,
+        server_stats: Arc<StreamServerStats>,
         listen_stats: Arc<ListenStats>,
         hosts: Arc<HostMatch<Arc<OpensslHost>>>,
         version: usize,
@@ -112,7 +113,7 @@ impl OpensslProxyServer {
 
     pub(crate) fn prepare_initial(config: OpensslProxyServerConfig) -> anyhow::Result<ArcServer> {
         let config = Arc::new(config);
-        let server_stats = Arc::new(OpensslProxyServerStats::new(config.name()));
+        let server_stats = Arc::new(StreamServerStats::new(config.name()));
         let listen_stats = Arc::new(ListenStats::new(config.name()));
 
         let hosts = config.hosts.try_build_arc(OpensslHost::try_build)?;
@@ -297,7 +298,7 @@ impl AcceptQuicServer for OpensslProxyServer {
 #[async_trait]
 impl Server for OpensslProxyServer {
     fn get_server_stats(&self) -> Option<ArcServerStats> {
-        Some(Arc::clone(&self.server_stats) as _)
+        Some(self.server_stats.clone())
     }
 
     fn get_listen_stats(&self) -> Arc<ListenStats> {
@@ -305,7 +306,7 @@ impl Server for OpensslProxyServer {
     }
 
     fn alive_count(&self) -> i32 {
-        self.server_stats.get_alive_count()
+        self.server_stats.alive_count()
     }
 
     #[inline]

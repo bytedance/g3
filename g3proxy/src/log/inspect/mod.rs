@@ -23,6 +23,7 @@ pub(crate) mod stream;
 pub(crate) enum InspectSource {
     StreamInspection,
     TlsAlpn,
+    StartTls,
     H2ExtendedConnect,
     HttpUpgrade,
 }
@@ -32,6 +33,7 @@ impl InspectSource {
         match self {
             InspectSource::StreamInspection => "stream inspection",
             InspectSource::TlsAlpn => "tls alpn",
+            InspectSource::StartTls => "start tls",
             InspectSource::H2ExtendedConnect => "h2 extended connect",
             InspectSource::HttpUpgrade => "http upgrade",
         }

@@ -17,22 +17,25 @@
 use std::io;
 use std::io::IoSlice;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{ready, Context, Poll};
 
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, ReadBuf};
 
 use super::DEFAULT_BUF_SIZE;
 use crate::io::{ArcLimitedReaderStats, LimitedReader};
+use crate::{GlobalLimitGroup, GlobalStreamLimit};
 
-#[pin_project]
-pub struct LimitedBufReader<R> {
-    #[pin]
-    inner: LimitedReader<R>,
-    stats: ArcLimitedReaderStats,
-    buf: Box<[u8]>,
-    pos: usize,
-    cap: usize,
+pin_project! {
+    pub struct LimitedBufReader<R> {
+        #[pin]
+        inner: LimitedReader<R>,
+        stats: ArcLimitedReaderStats,
+        buf: Box<[u8]>,
+        pos: usize,
+        cap: usize,
+    }
 }
 
 impl<R> LimitedBufReader<R>
@@ -83,7 +86,7 @@ where
     ) -> Self {
         let buffer = vec![0; capacity];
         LimitedBufReader {
-            inner: LimitedReader::new(inner, shift_millis, max_bytes, direct_stats),
+            inner: LimitedReader::local_limited(inner, shift_millis, max_bytes, direct_stats),
             stats: buffer_stats,
             buf: buffer.into_boxed_slice(),
             pos: 0,
@@ -114,7 +117,7 @@ where
     ) -> Self {
         let buffer = vec![0; capacity];
         LimitedBufReader {
-            inner: LimitedReader::new_unlimited(inner, direct_stats),
+            inner: LimitedReader::new(inner, direct_stats),
             stats: buffer_stats,
             buf: buffer.into_boxed_slice(),
             pos: 0,
@@ -122,16 +125,32 @@ where
         }
     }
 
+    #[inline]
     pub fn reset_direct_stats(&mut self, stats: ArcLimitedReaderStats) {
         self.inner.reset_stats(stats);
     }
 
+    #[inline]
     pub fn reset_buffer_stats(&mut self, stats: ArcLimitedReaderStats) {
         self.stats = stats;
     }
 
-    pub fn reset_limit(&mut self, shift_millis: u8, max_bytes: usize) {
-        self.inner.reset_limit(shift_millis, max_bytes);
+    #[inline]
+    pub fn reset_local_limit(&mut self, shift_millis: u8, max_bytes: usize) {
+        self.inner.reset_local_limit(shift_millis, max_bytes);
+    }
+
+    #[inline]
+    pub fn add_global_limiter<T>(&mut self, limiter: Arc<T>)
+    where
+        T: GlobalStreamLimit + Send + Sync + 'static,
+    {
+        self.inner.add_global_limiter(limiter);
+    }
+
+    #[inline]
+    pub fn retain_global_limiter_by_group(&mut self, group: GlobalLimitGroup) {
+        self.inner.retain_global_limiter_by_group(group);
     }
 
     pub fn into_inner(self) -> R {

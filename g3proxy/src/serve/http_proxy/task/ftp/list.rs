@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-use std::io::{self, Error, Write};
+use std::io::{self, Write};
 
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
 use g3_ftp_client::FtpLineDataReceiver;
+use g3_io_ext::LimitedWriteExt;
 
 const CHUNKED_BUF_HEAD_RESERVED: usize = (usize::BITS as usize >> 2) + 2;
 const CHUNKED_BUF_TAIL_RESERVED: usize = 2;
@@ -26,8 +27,11 @@ const CHUNKED_BUF_TAIL_RESERVED: usize = 2;
 pub(super) trait ListWriter: FtpLineDataReceiver {
     fn take_io_error(&mut self) -> Option<io::Error>;
     async fn flush_buf(&mut self) -> io::Result<()>;
+    #[allow(unused)]
     fn is_idle(&self) -> bool;
+    #[allow(unused)]
     fn reset_active(&mut self);
+    #[allow(unused)]
     fn no_cached_data(&self) -> bool;
 }
 
@@ -102,7 +106,7 @@ where
     W: AsyncWrite + Send + Unpin,
 {
     #[inline]
-    fn take_io_error(&mut self) -> Option<Error> {
+    fn take_io_error(&mut self) -> Option<io::Error> {
         self.io_error.take()
     }
 
@@ -110,8 +114,7 @@ where
         if self.buf_len > CHUNKED_BUF_HEAD_RESERVED {
             self.send_buf().await?;
         }
-        self.writer.write_all(b"0\r\n\r\n").await?;
-        self.writer.flush().await
+        self.writer.write_all_flush(b"0\r\n\r\n").await
     }
 
     #[inline]

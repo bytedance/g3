@@ -24,7 +24,9 @@ use tokio::time::Instant;
 use g3_http::client::HttpForwardRemoteResponse;
 use g3_http::server::HttpProxyClientRequest;
 use g3_http::{HttpBodyReader, HttpBodyType};
-use g3_io_ext::{LimitedBufReadExt, LimitedCopy, LimitedCopyError};
+use g3_io_ext::{
+    GlobalLimitGroup, LimitedBufReadExt, LimitedCopy, LimitedCopyError, LimitedWriteExt,
+};
 use g3_types::acl::AclAction;
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpRProxyRequest};
@@ -419,17 +421,37 @@ impl<'a> HttpRProxyForwardTask<'a> {
             (clt_r_stats, clt_w_stats, limit_config)
         };
 
+        clt_w.retain_global_limiter_by_group(GlobalLimitGroup::Server);
         if let Some(br) = clt_r {
             br.reset_buffer_stats(clt_r_stats);
             clt_w.reset_stats(clt_w_stats);
             if let Some(limit_config) = &limit_config {
-                br.reset_limit(limit_config.shift_millis, limit_config.max_north);
-                clt_w.reset_limit(limit_config.shift_millis, limit_config.max_south);
+                br.reset_local_limit(limit_config.shift_millis, limit_config.max_north);
+                clt_w.reset_local_limit(limit_config.shift_millis, limit_config.max_south);
+            }
+            if let Some(user_ctx) = self.task_notes.user_ctx() {
+                let user = user_ctx.user();
+                if let Some(limiter) = user.tcp_all_upload_speed_limit() {
+                    limiter.try_consume(origin_header_size);
+                    br.add_global_limiter(limiter.clone());
+                }
+                if let Some(limiter) = user.tcp_all_download_speed_limit() {
+                    clt_w.add_global_limiter(limiter.clone());
+                }
             }
         } else {
             clt_w.reset_stats(clt_w_stats);
             if let Some(limit_config) = &limit_config {
-                clt_w.reset_limit(limit_config.shift_millis, limit_config.max_south);
+                clt_w.reset_local_limit(limit_config.shift_millis, limit_config.max_south);
+            }
+            if let Some(user_ctx) = self.task_notes.user_ctx() {
+                let user = user_ctx.user();
+                if let Some(limiter) = user.tcp_all_upload_speed_limit() {
+                    limiter.try_consume(origin_header_size);
+                }
+                if let Some(limiter) = user.tcp_all_download_speed_limit() {
+                    clt_w.add_global_limiter(limiter.clone());
+                }
             }
         }
     }
@@ -499,7 +521,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
         if let Some(connection) = fwd_ctx
             .get_alive_connection(
                 &self.task_notes,
-                self.task_stats.clone() as _,
+                self.task_stats.clone(),
                 upstream_keepalive.idle_expire(),
             )
             .await
@@ -584,14 +606,14 @@ impl<'a> HttpRProxyForwardTask<'a> {
             fwd_ctx
                 .make_new_https_connection(
                     &self.task_notes,
-                    self.task_stats.clone() as _,
+                    self.task_stats.clone(),
                     tls_client,
                     &self.host.config.tls_name,
                 )
                 .await
         } else {
             fwd_ctx
-                .make_new_http_connection(&self.task_notes, self.task_stats.clone() as _)
+                .make_new_http_connection(&self.task_notes, self.task_stats.clone())
                 .await
         }
     }
@@ -739,12 +761,15 @@ impl<'a> HttpRProxyForwardTask<'a> {
                         Ok(true) => {
                             // we got some data from upstream
                             let hdr = self.recv_response_header(ups_r).await?;
-                            if hdr.code == 100 { // HTTP CONTINUE
-                                self.send_response_header(clt_w, &hdr).await?;
-                                // continue
-                            } else {
-                                rsp_header = Some(hdr);
-                                break;
+                            match hdr.code {
+                                100 | 103 => {
+                                    // CONTINUE | Early Hints
+                                    self.send_response_header(clt_w, &hdr).await?;
+                                }
+                                _ => {
+                                    rsp_header = Some(hdr);
+                                    break;
+                                }
                             }
                         }
                         Ok(false) => return Err(ServerTaskError::ClosedByUpstream),
@@ -854,14 +879,23 @@ impl<'a> HttpRProxyForwardTask<'a> {
     where
         W: AsyncWrite + Unpin,
     {
-        let hdr = self.recv_response_header(ups_r).await?;
-        if hdr.code == 100 {
-            // HTTP CONTINUE
-            self.send_response_header(clt_w, &hdr).await?;
-            // recv the final response header
-            self.recv_response_header(ups_r).await
-        } else {
-            Ok(hdr)
+        loop {
+            let hdr = self.recv_response_header(ups_r).await?;
+            match hdr.code {
+                100 => {
+                    // HTTP CONTINUE
+                    self.send_response_header(clt_w, &hdr).await?;
+                    // recv the final response header
+                    return self.recv_response_header(ups_r).await;
+                }
+                103 => {
+                    // HTTP Early Hints
+                    self.send_response_header(clt_w, &hdr).await?;
+                }
+                _ => {
+                    return Ok(hdr);
+                }
+            }
         }
     }
 
@@ -1037,11 +1071,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
     {
         let buf = rsp.serialize();
         clt_w
-            .write_all(buf.as_ref())
-            .await
-            .map_err(ServerTaskError::ClientTcpWriteFailed)?;
-        clt_w
-            .flush()
+            .write_all_flush(buf.as_ref())
             .await
             .map_err(ServerTaskError::ClientTcpWriteFailed)
     }

@@ -91,6 +91,6 @@ impl From<&TlsServerName> for Host {
 
 impl fmt::Display for TlsServerName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.host_name)
+        f.write_str(self.host_name.as_str())
     }
 }

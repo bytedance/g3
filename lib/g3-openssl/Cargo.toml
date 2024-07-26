@@ -1,8 +1,9 @@
 [package]
 name = "g3-openssl"
-version = "0.1.0"
+version = "0.2.0"
 license.workspace = true
 edition.workspace = true
+rust-version = "1.80.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

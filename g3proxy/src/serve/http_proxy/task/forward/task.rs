@@ -15,6 +15,7 @@
  */
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::anyhow;
 use futures_util::FutureExt;
@@ -32,7 +33,9 @@ use g3_icap_client::reqmod::h1::{
 use g3_icap_client::respmod::h1::{
     HttpResponseAdapter, RespmodAdaptationEndState, RespmodAdaptationRunState,
 };
-use g3_io_ext::{LimitedBufReadExt, LimitedCopy, LimitedCopyError};
+use g3_io_ext::{
+    GlobalLimitGroup, LimitedBufReadExt, LimitedCopy, LimitedCopyError, LimitedWriteExt,
+};
 use g3_types::acl::AclAction;
 use g3_types::net::{HttpHeaderMap, ProxyRequestType};
 
@@ -496,17 +499,37 @@ impl<'a> HttpProxyForwardTask<'a> {
             (clt_r_stats, clt_w_stats, limit_config)
         };
 
+        clt_w.retain_global_limiter_by_group(GlobalLimitGroup::Server);
         if let Some(br) = clt_r {
             br.reset_buffer_stats(clt_r_stats);
             clt_w.reset_stats(clt_w_stats);
             if let Some(limit_config) = &limit_config {
-                br.reset_limit(limit_config.shift_millis, limit_config.max_north);
-                clt_w.reset_limit(limit_config.shift_millis, limit_config.max_south);
+                br.reset_local_limit(limit_config.shift_millis, limit_config.max_north);
+                clt_w.reset_local_limit(limit_config.shift_millis, limit_config.max_south);
+            }
+            if let Some(user_ctx) = self.task_notes.user_ctx() {
+                let user = user_ctx.user();
+                if let Some(limiter) = user.tcp_all_upload_speed_limit() {
+                    limiter.try_consume(origin_header_size);
+                    br.add_global_limiter(limiter.clone());
+                }
+                if let Some(limiter) = user.tcp_all_download_speed_limit() {
+                    clt_w.add_global_limiter(limiter.clone());
+                }
             }
         } else {
             clt_w.reset_stats(clt_w_stats);
             if let Some(limit_config) = &limit_config {
-                clt_w.reset_limit(limit_config.shift_millis, limit_config.max_south);
+                clt_w.reset_local_limit(limit_config.shift_millis, limit_config.max_south);
+            }
+            if let Some(user_ctx) = self.task_notes.user_ctx() {
+                let user = user_ctx.user();
+                if let Some(limiter) = user.tcp_all_upload_speed_limit() {
+                    limiter.try_consume(origin_header_size);
+                }
+                if let Some(limiter) = user.tcp_all_download_speed_limit() {
+                    clt_w.add_global_limiter(limiter.clone());
+                }
             }
         }
     }
@@ -598,7 +621,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         if let Some(connection) = fwd_ctx
             .get_alive_connection(
                 &self.task_notes,
-                self.task_stats.clone() as _,
+                self.task_stats.clone(),
                 upstream_keepalive.idle_expire(),
             )
             .await
@@ -687,17 +710,24 @@ impl<'a> HttpProxyForwardTask<'a> {
                 .unwrap_or(&self.tcp_notes.upstream)
                 .host();
 
+            let tls_client = self
+                .task_notes
+                .user_ctx()
+                .and_then(|ctx| ctx.user_site())
+                .and_then(|site| site.tls_client())
+                .unwrap_or(&self.ctx.tls_client_config);
+
             fwd_ctx
                 .make_new_https_connection(
                     &self.task_notes,
-                    self.task_stats.clone() as _,
-                    &self.ctx.tls_client_config,
+                    self.task_stats.clone(),
+                    tls_client,
                     tls_name,
                 )
                 .await
         } else {
             fwd_ctx
-                .make_new_http_connection(&self.task_notes, self.task_stats.clone() as _)
+                .make_new_http_connection(&self.task_notes, self.task_stats.clone())
                 .await
         }
     }
@@ -784,6 +814,13 @@ impl<'a> HttpProxyForwardTask<'a> {
         self.run_without_adaptation(clt_r, clt_w, ups_c).await
     }
 
+    fn rsp_hdr_recv_timeout(&self) -> Duration {
+        self.task_notes
+            .user_ctx()
+            .and_then(|ctx| ctx.http_rsp_header_recv_timeout())
+            .unwrap_or(self.ctx.server_config.timeout.recv_rsp_header)
+    }
+
     async fn run_without_adaptation<'f, CDR, CDW>(
         &'f mut self,
         clt_r: &'f mut Option<HttpClientReader<CDR>>,
@@ -845,12 +882,15 @@ impl<'a> HttpProxyForwardTask<'a> {
                         Ok(true) => {
                             // we got some data from upstream
                             let hdr = self.recv_response_header(ups_r).await?;
-                            if hdr.code == 100 { // HTTP CONTINUE
-                                self.send_response_header(clt_w, &hdr).await?;
-                                // continue
-                            } else {
-                                rsp_header = Some(hdr);
-                                break;
+                            match hdr.code {
+                                100 | 103 => {
+                                    // CONTINUE | Early Hints
+                                    self.send_response_header(clt_w, &hdr).await?;
+                                }
+                                _ => {
+                                    rsp_header = Some(hdr);
+                                    break;
+                                }
                             }
                         }
                         Ok(false) => return Err(ServerTaskError::ClosedByUpstream),
@@ -901,7 +941,7 @@ impl<'a> HttpProxyForwardTask<'a> {
             }
             None => {
                 match tokio::time::timeout(
-                    self.ctx.server_config.timeout.recv_rsp_header,
+                    self.rsp_hdr_recv_timeout(),
                     self.recv_final_response_header(ups_r, clt_w),
                 )
                 .await
@@ -973,6 +1013,11 @@ impl<'a> HttpProxyForwardTask<'a> {
                 LimitedCopyError::WriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
             })?;
             recv_body.save_connection().await;
+        } else {
+            clt_w
+                .flush()
+                .await
+                .map_err(ServerTaskError::ClientTcpWriteFailed)?;
         }
 
         Ok(())
@@ -995,7 +1040,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         self.http_notes.retry_new_connection = false;
 
         let mut rsp_header = match tokio::time::timeout(
-            self.ctx.server_config.timeout.recv_rsp_header,
+            self.rsp_hdr_recv_timeout(),
             self.recv_response_header(ups_r),
         )
         .await
@@ -1069,12 +1114,15 @@ impl<'a> HttpProxyForwardTask<'a> {
                         Ok(true) => {
                             // we got some data from upstream
                             let hdr = self.recv_response_header(ups_r).await?;
-                            if hdr.code == 100 { // HTTP CONTINUE
-                                self.send_response_header(clt_w, &hdr).await?;
-                                // continue
-                            } else {
-                                rsp_header = Some(hdr);
-                                break;
+                            match hdr.code {
+                                100 | 103 => {
+                                    // CONTINUE | Early Hints
+                                    self.send_response_header(clt_w, &hdr).await?;
+                                }
+                                _ => {
+                                    rsp_header = Some(hdr);
+                                    break;
+                                }
                             }
                         }
                         Ok(false) => return Err(ServerTaskError::ClosedByUpstream),
@@ -1148,7 +1196,7 @@ impl<'a> HttpProxyForwardTask<'a> {
             }
             None => {
                 match tokio::time::timeout(
-                    self.ctx.server_config.timeout.recv_rsp_header,
+                    self.rsp_hdr_recv_timeout(),
                     self.recv_final_response_header(ups_r, clt_w),
                 )
                 .await
@@ -1189,14 +1237,21 @@ impl<'a> HttpProxyForwardTask<'a> {
     where
         W: AsyncWrite + Unpin,
     {
-        let hdr = self.recv_response_header(ups_r).await?;
-        if hdr.code == 100 {
-            // HTTP CONTINUE
-            self.send_response_header(clt_w, &hdr).await?;
-            // recv the final response header
-            self.recv_response_header(ups_r).await
-        } else {
-            Ok(hdr)
+        loop {
+            let hdr = self.recv_response_header(ups_r).await?;
+            match hdr.code {
+                100 => {
+                    // HTTP CONTINUE
+                    self.send_response_header(clt_w, &hdr).await?;
+                    // recv the final response header
+                    return self.recv_response_header(ups_r).await;
+                }
+                103 => {
+                    // HTTP Early Hints
+                    self.send_response_header(clt_w, &hdr).await?;
+                }
+                _ => return Ok(hdr),
+            }
         }
     }
 
@@ -1499,11 +1554,7 @@ impl<'a> HttpProxyForwardTask<'a> {
     {
         let buf = rsp.serialize();
         clt_w
-            .write_all(buf.as_ref())
-            .await
-            .map_err(ServerTaskError::ClientTcpWriteFailed)?;
-        clt_w
-            .flush()
+            .write_all_flush(buf.as_ref())
             .await
             .map_err(ServerTaskError::ClientTcpWriteFailed)
     }

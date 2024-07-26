@@ -22,6 +22,8 @@ pub enum H2StreamBodyTransferError {
     RecvDataFailed(h2::Error),
     #[error("error while wait send capacity: {0}")]
     WaitSendCapacityFailed(h2::Error),
+    #[error("sender not in send state")]
+    SenderNotInSendState,
     #[error("send data failed: {0}")]
     SendDataFailed(h2::Error),
     #[error("error while release recv capacity: {0}")]

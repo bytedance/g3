@@ -21,7 +21,7 @@ use std::task::{Context, Poll};
 
 use async_trait::async_trait;
 use http::Method;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use tokio::io::{AsyncBufRead, AsyncRead, ReadBuf};
 
 use g3_http::client::{HttpForwardRemoteResponse, HttpResponseParseError};
@@ -33,10 +33,11 @@ use crate::module::http_forward::{
     HttpForwardTaskRemoteWrapperStats,
 };
 
-#[pin_project]
-pub(super) struct HttpsPeerHttpForwardReader<R: AsyncRead> {
-    #[pin]
-    inner: LimitedBufReader<R>,
+pin_project! {
+    pub(super) struct HttpsPeerHttpForwardReader<R: AsyncRead> {
+        #[pin]
+        inner: LimitedBufReader<R>,
+    }
 }
 
 impl<R> HttpsPeerHttpForwardReader<R>
@@ -106,7 +107,7 @@ where
     ) {
         let mut wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(Arc::clone(task_stats));
         wrapper_stats.push_user_io_stats(user_stats);
-        self.inner.reset_buffer_stats(Arc::new(wrapper_stats) as _);
+        self.inner.reset_buffer_stats(Arc::new(wrapper_stats));
     }
 
     async fn recv_response_header<'a>(

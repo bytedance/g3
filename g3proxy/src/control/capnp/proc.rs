@@ -46,7 +46,31 @@ impl proc_control::Server for ProcControlImpl {
         mut results: proc_control::OfflineResults,
     ) -> Promise<(), capnp::Error> {
         Promise::from_future(async move {
-            let r = crate::control::bridge::offline().await;
+            g3_daemon::control::quit::start_graceful_shutdown().await;
+            set_operation_result(results.get().init_result(), Ok(()));
+            Ok(())
+        })
+    }
+
+    fn cancel_shutdown(
+        &mut self,
+        _params: proc_control::CancelShutdownParams,
+        mut results: proc_control::CancelShutdownResults,
+    ) -> Promise<(), capnp::Error> {
+        Promise::from_future(async move {
+            let r = g3_daemon::control::quit::cancel_graceful_shutdown().await;
+            set_operation_result(results.get().init_result(), r);
+            Ok(())
+        })
+    }
+
+    fn release_controller(
+        &mut self,
+        _params: proc_control::ReleaseControllerParams,
+        mut results: proc_control::ReleaseControllerResults,
+    ) -> Promise<(), capnp::Error> {
+        Promise::from_future(async move {
+            let r = g3_daemon::control::quit::release_controller().await;
             set_operation_result(results.get().init_result(), r);
             Ok(())
         })
@@ -251,7 +275,7 @@ impl proc_control::Server for ProcControlImpl {
         mut results: proc_control::ForceQuitOfflineServerResults,
     ) -> Promise<(), capnp::Error> {
         let server = pry!(pry!(pry!(params.get()).get_name()).to_str());
-        let server = unsafe { MetricsName::from_str_unchecked(server) };
+        let server = unsafe { MetricsName::new_unchecked(server) };
         crate::serve::force_quit_offline_server(&server);
         results.get().init_result().set_ok("success");
         Promise::ok(())

@@ -278,7 +278,7 @@ impl SocksProxyTcpConnectTask {
             .tcp_setup_connection(
                 &mut self.tcp_notes,
                 &self.task_notes,
-                self.task_stats.clone() as _,
+                self.task_stats.clone(),
             )
             .await
         {
@@ -435,12 +435,20 @@ impl SocksProxyTcpConnectTask {
                 let limit_config = user_config
                     .tcp_sock_speed_limit
                     .shrink_as_smaller(&self.ctx.server_config.tcp_sock_speed_limit);
-                clt_r.reset_limit(limit_config.shift_millis, limit_config.max_north);
-                clt_w.reset_limit(limit_config.shift_millis, limit_config.max_south);
+                clt_r.reset_local_limit(limit_config.shift_millis, limit_config.max_north);
+                clt_w.reset_local_limit(limit_config.shift_millis, limit_config.max_south);
+            }
+
+            let user = user_ctx.user();
+            if let Some(limiter) = user.tcp_all_upload_speed_limit() {
+                clt_r.add_global_limiter(limiter.clone());
+            }
+            if let Some(limiter) = user.tcp_all_download_speed_limit() {
+                clt_w.add_global_limiter(limiter.clone());
             }
         }
-        let (clt_r_stats, clt_w_stats) = wrapper_stats.split();
-        clt_r.reset_stats(clt_r_stats);
-        clt_w.reset_stats(clt_w_stats);
+        let wrapper_stats = Arc::new(wrapper_stats);
+        clt_r.reset_stats(wrapper_stats.clone());
+        clt_w.reset_stats(wrapper_stats);
     }
 }

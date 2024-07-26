@@ -1,9 +1,9 @@
-[![minimum rustc: 1.75](https://img.shields.io/badge/minimum%20rustc-1.75-green?logo=rust)](https://www.whatrustisit.com)
+[![minimum rustc: 1.80](https://img.shields.io/badge/minimum%20rustc-1.80-green?logo=rust)](https://www.whatrustisit.com)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
 
 # G3 Project
 
-[English README](README.md)
+[English README](README.md) | [日本語 README](README.ja_JP.md)
 
 ## 关于
 
@@ -23,12 +23,19 @@ G3 Project 由若干组件构成。
 #### 主要特性
 
 - Async Rust: 高效、稳定
-- Http1 / Socks4 / Socks5 正向代理协议, SNI Proxy and TCP TPROXY
+- Http1 / Socks5 正向代理协议, SNI Proxy and TCP TPROXY
+- 代理串联，动态下一级代理节点选择
+- 丰富的出口路由选择方法，支持接入自定义选路Agent
+- TCP/TLS反向代理，基础HTTP反向代理
 - TLS支持OpenSSL / BoringSSL / AWS-LC / Tongsuo, 部分场景支持rustls
-- TLS中间人劫持, 解密流量导出, HTTP1 and HTTP2协议解析
-- ICAP审计
+- TLS中间人劫持, 解密流量导出, HTTP1/HTTP2/SMTP协议解析
+- ICAP审计，支持HTTP1/HTTP2/SMTP，无缝集成第三方安全审计/杀毒产品
 - 优雅重载 & 热升级
 - 灵活的负载均衡&容灾策略
+- 用户认证，且支持丰富的配置选项
+- 用户配置下可细化进行差异化站点配置
+- 丰富的ACL/限流限速策略，包括入口/出口/用户维度
+- 丰富的监控指标，包括入口/出口/用户/用户站点维度
 - 多种日志 & 监控解决方案集成能力
 
 更多详情参考 [g3proxy](g3proxy/README.md)。 
@@ -51,13 +58,17 @@ G3 Project 由若干组件构成。
 
 适用于g3proxy TLS劫持功能的的伪造证书生成服务组件。
 
+### g3iploc
+
+适用于g3proxy GeoIP功能的IP Location查找服务组件。
+
 ### g3keymess
 
 Cloudflare Keyless Server的简单实现。
 
 ## 支持平台
 
-目前仅提供对Linux系统的完整支持，其他系统如FreeBSD、NetBSD、macOS可以编译，但是未测试过功能。
+目前仅提供对Linux系统的完整支持，其他系统如FreeBSD、NetBSD、macOS、Windows可以编译，但是未测试过功能。
 
 如果需要支持其他系统，欢迎提交PR。
 
@@ -121,7 +132,19 @@ Cloudflare Keyless Server的简单实现。
 如需在生产环境使用，建议自行打包。
 
 测试环境的话，部分包已经编译上传到
-[cloudsmith](https://cloudsmith.io/~g3-oqh/repos/g3-J0E/packages/), 可参考该链接页面的说明进行安装。
+[cloudsmith](https://cloudsmith.io/~g3-oqh/repos/), 可参考该链接页面的说明进行安装。
+
+### 制作Docker镜像
+
+每个组件的*docker*文件夹下有可参考的Dockerfile(s)，命令如下：
+
+```shell
+# 在源码根目录可执行
+docker build -f <component>/docker/debian.Dockerfile . -t <component>:<tag>
+# 本地没有源码时，可用远程URL执行
+docker build -f <component>/docker/debian.Dockerfile github.com/bytedance/g3 -t <component>:<tag>
+# 如果已经制作了源码tar包，也可以把URL路径换成源码tar包路径
+```
 
 ### 静态链接
 

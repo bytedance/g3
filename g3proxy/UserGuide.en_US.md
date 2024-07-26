@@ -15,6 +15,7 @@
     + [TLS Offloading](#tls-offloading)
     + [TLS Encapsulation](#tls-encapsulation)
     + [SNI Proxy](#sni-proxy)
+    + [Transparent Proxy](#transparent-proxy)
     + [Route Binding](#route-binding)
     + [Proxy Chaining](#proxy-chaining)
     + [Connection Throttling](#connection-throttling)
@@ -35,6 +36,7 @@
     + [Dynamic Route Binding](#dynamic-route-binding)
     + [Dynamic Proxy Chaining](#dynamic-proxy-chaining)
     + [Monitoring Specific Sites for Users](#monitoring-specific-sites-for-users)
+    + [Custom User-Site MITM TLS Client Config](#custom-user-site-mitm-tls-client-config)
     + [Traffic Audit](#traffic-audit)
     + [Exporting Decrypted TLS Traffic](#exporting-decrypted-tls-traffic)
     + [Performance Optimization](#performance-optimization)
@@ -241,11 +243,31 @@ Automatically recognize the target address in TLS SNI / HTTP Host headers and fo
 ```yaml
 server:
   - name: sni          # The name needs to be unique, not conflicting with other entries, and should be used for logging & monitoring
-    escaper: default   # Required, can be any type of exit
+    escaper: default   # Required, can be any type of escaper
     type: sni_proxy
     listen:
       address: "[::]:443" # Listen on port 443, but can also support both TLS & HTTP protocol traffic to this port
 ```
+
+### Transparent Proxy
+
+On gateway devices, tcp connections can be configured to be forwarded to TcpTProxy server,
+then the proxy will forward those connections transparently. You can use the following config：
+
+```yaml
+server:
+  - name: transparent
+    escaper: default
+    auditor: default  # If you want to do protocol inspection and TLS interception
+    type: tcp_tproxy
+    listen: "127.0.0.1:1234"
+```
+
+The system level config should be taken is different depending on the OS type:
+
+- Linux [TPROXY](https://docs.kernel.org/networking/tproxy.html).
+- FreeBSD [ipfw fwd](https://man.freebsd.org/cgi/man.cgi?query=ipfw).
+- OpenBSD [pf divert-to](https://man.openbsd.org/pf.conf.5#divert-to).
 
 ### Route Binding
 
@@ -654,6 +676,23 @@ explicit_sites:
     emit_stats: true           # Establish independent monitoring, the id field will be part of the monitoring entry name
     resolve_strategy:          # Can configure separate resolution strategies
       query: ipv4only          # Only resolve ipv4 addresses
+```
+
+### Custom User-Site MITM TLS Client Config
+
+In the user-site configuration, you can set tls_client params to control the TLS behaviour in TLS MITM hijacking. 
+在用户-站点配置中，可对TLS劫持时的TLS Client行为进行设置：
+
+```yaml
+explicit_sites:
+  - id: example-net
+    child_match: example.net
+    tls_client:
+      ca_certificate: xxx      # CA Certificate in PEM format
+      cert_pairs:
+        certificate: xxx       # Client Certificate in PEM format
+        private_key: xxx       # Client Private Key in PEM format
+      # other tls client config
 ```
 
 ### Traffic Audit

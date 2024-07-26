@@ -35,7 +35,7 @@ use g3_icap_client::reqmod::IcapReqmodClient;
 use g3_icap_client::respmod::h1::{
     HttpResponseAdapter, RespmodAdaptationEndState, RespmodAdaptationRunState,
 };
-use g3_io_ext::{LimitedBufReadExt, LimitedCopy, LimitedCopyError};
+use g3_io_ext::{LimitedBufReadExt, LimitedCopy, LimitedCopyError, LimitedWriteExt};
 use g3_slog_types::{LtDateTime, LtDuration, LtHttpMethod, LtHttpUri, LtUuid};
 use g3_types::net::HttpHeaderMap;
 
@@ -46,6 +46,7 @@ use crate::module::http_forward::HttpProxyClientResponse;
 use crate::serve::{ServerIdleChecker, ServerTaskError, ServerTaskResult};
 
 mod adaptation;
+pub(crate) use adaptation::HttpRequestWriterForAdaptation;
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
@@ -81,23 +82,23 @@ struct HttpForwardTaskNotes {
 }
 
 impl HttpForwardTaskNotes {
-    fn new(
-        datetime_received: DateTime<Utc>,
-        time_received: Instant,
-        dur_req_send_hdr: Duration,
-    ) -> Self {
+    fn new(datetime_received: DateTime<Utc>, time_received: Instant) -> Self {
         let dur_req_pipeline = time_received.elapsed();
         HttpForwardTaskNotes {
             rsp_status: 0,
             origin_status: 0,
             receive_datetime: datetime_received,
             receive_ins: time_received,
-            dur_req_send_hdr,
+            dur_req_send_hdr: Duration::default(),
             dur_req_pipeline,
             dur_req_send_all: Duration::default(),
             dur_rsp_recv_hdr: Duration::default(),
             dur_rsp_recv_all: Duration::default(),
         }
+    }
+
+    pub(crate) fn mark_req_send_hdr(&mut self) {
+        self.dur_req_send_hdr = self.receive_ins.elapsed();
     }
 
     pub(crate) fn mark_req_no_body(&mut self) {
@@ -132,11 +133,7 @@ pub(super) struct H1ForwardTask<'a, SC: ServerConfig> {
 
 impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
     pub(super) fn new(ctx: StreamInspectContext<SC>, req: &'a HttpRequest, req_id: usize) -> Self {
-        let http_notes = HttpForwardTaskNotes::new(
-            req.datetime_received,
-            req.time_received,
-            req.dur_req_send_hdr,
-        );
+        let http_notes = HttpForwardTaskNotes::new(req.datetime_received, req.time_received);
         let should_close = !req.inner.keep_alive();
         H1ForwardTask {
             ctx,
@@ -179,12 +176,14 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         }
     }
 
-    pub(super) async fn forward_without_body<UR, CW>(&mut self, rsp_io: &mut HttpResponseIo<UR, CW>)
-    where
-        UR: AsyncRead + Unpin,
+    pub(super) async fn forward_without_body<CW, UR, UW>(
+        &mut self,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
+    ) where
         CW: AsyncWrite + Send + Unpin,
+        UR: AsyncRead + Unpin,
+        UW: AsyncWrite + Unpin,
     {
-        self.http_notes.mark_req_no_body();
         if let Err(e) = self.do_forward_without_body(rsp_io).await {
             if self.send_error_response {
                 self.reply_task_err(&e, &mut rsp_io.clt_w).await;
@@ -197,8 +196,8 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
 
     pub(super) async fn adapt_with_io<CR, CW, UR, UW>(
         &mut self,
-        req_io: &mut HttpRequestIo<CR, UW>,
-        rsp_io: &mut HttpResponseIo<UR, CW>,
+        req_io: &mut HttpRequestIo<CR>,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
         reqmod_client: &IcapReqmodClient,
     ) where
         CR: AsyncRead + Send + Unpin,
@@ -264,8 +263,8 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
 
     pub(super) async fn forward_with_io<CR, CW, UR, UW>(
         &mut self,
-        req_io: &mut HttpRequestIo<CR, UW>,
-        rsp_io: &mut HttpResponseIo<UR, CW>,
+        req_io: &mut HttpRequestIo<CR>,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
     ) where
         CR: AsyncRead + Unpin,
         CW: AsyncWrite + Send + Unpin,
@@ -292,8 +291,8 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
 
     async fn run_with_adaptation<CR, CW, UR, UW>(
         &mut self,
-        req_io: &mut HttpRequestIo<CR, UW>,
-        rsp_io: &mut HttpResponseIo<UR, CW>,
+        req_io: &mut HttpRequestIo<CR>,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
         icap_adapter: HttpRequestAdapter<ServerIdleChecker>,
         adaptation_state: &mut ReqmodAdaptationRunState,
     ) -> ServerTaskResult<()>
@@ -303,10 +302,8 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         UR: AsyncRead + Unpin,
         UW: AsyncWrite + Send + Unpin,
     {
-        use adaptation::HttpRequestWriterForAdaptation;
-
         let mut ups_w_adaptation = HttpRequestWriterForAdaptation {
-            inner: &mut req_io.ups_w,
+            inner: &mut rsp_io.ups_w,
         };
         let mut adaptation_fut = icap_adapter
             .xfer(
@@ -327,12 +324,15 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                         Ok(true) => {
                             // we got some data from upstream
                             let (rsp, bytes) = self.recv_response_header(&mut rsp_io.ups_r).await?;
-                            if rsp.code == 100 { // HTTP CONTINUE
-                                self.send_response_header(&mut rsp_io.clt_w, bytes).await?;
-                                // continue
-                            } else {
-                                rsp_head = Some((rsp, bytes));
-                                break;
+                            match rsp.code {
+                                100 | 103 => {
+                                    // CONTINUE | Early Hints
+                                    self.send_response_header(&mut rsp_io.clt_w, bytes).await?;
+                                }
+                                _ => {
+                                    rsp_head = Some((rsp, bytes));
+                                    break;
+                                }
                             }
                         }
                         Ok(false) => return Err(ServerTaskError::ClosedByUpstream),
@@ -368,7 +368,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
             }
             None => {
                 match tokio::time::timeout(
-                    self.ctx.h1_interception().rsp_head_recv_timeout,
+                    self.ctx.h1_rsp_hdr_recv_timeout(),
                     self.recv_final_response_header(rsp_io),
                 )
                 .await
@@ -428,27 +428,49 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                 LimitedCopyError::WriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
             })?;
             recv_body.save_connection().await;
+        } else {
+            clt_w
+                .flush()
+                .await
+                .map_err(ServerTaskError::ClientTcpWriteFailed)?;
         }
 
         Ok(())
     }
 
-    async fn do_forward_without_body<UR, CW>(
+    async fn send_request_header<UW>(&mut self, ups_w: &mut UW) -> ServerTaskResult<()>
+    where
+        UW: AsyncWrite + Unpin,
+    {
+        let head_bytes = self.req.serialize_for_origin();
+        ups_w
+            .write_all_flush(&head_bytes)
+            .await
+            .map_err(ServerTaskError::UpstreamWriteFailed)?;
+
+        self.http_notes.mark_req_send_hdr();
+        Ok(())
+    }
+
+    async fn do_forward_without_body<CW, UR, UW>(
         &mut self,
-        rsp_io: &mut HttpResponseIo<UR, CW>,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
     ) -> ServerTaskResult<()>
     where
         UR: AsyncRead + Unpin,
         CW: AsyncWrite + Send + Unpin,
+        UW: AsyncWrite + Unpin,
     {
-        let http_config = self.ctx.h1_interception();
+        self.send_request_header(&mut rsp_io.ups_w).await?;
+        self.http_notes.mark_req_no_body();
+
         match tokio::time::timeout(
-            http_config.rsp_head_recv_timeout,
+            self.ctx.h1_rsp_hdr_recv_timeout(),
             HttpTransparentResponse::parse(
                 &mut rsp_io.ups_r,
                 &self.req.method,
                 self.req.keep_alive(),
-                http_config.rsp_head_max_size,
+                self.ctx.h1_interception().rsp_head_max_size,
             ),
         )
         .await
@@ -463,8 +485,8 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
 
     async fn do_forward_with_body<CR, CW, UR, UW>(
         &mut self,
-        req_io: &mut HttpRequestIo<CR, UW>,
-        rsp_io: &mut HttpResponseIo<UR, CW>,
+        req_io: &mut HttpRequestIo<CR>,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
         body_type: HttpBodyType,
     ) -> ServerTaskResult<()>
     where
@@ -473,6 +495,8 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         UR: AsyncRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
+        self.send_request_header(&mut rsp_io.ups_w).await?;
+
         let mut clt_body_reader = HttpBodyReader::new(
             &mut req_io.clt_r,
             body_type,
@@ -482,7 +506,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
 
         let mut clt_to_ups = LimitedCopy::new(
             &mut clt_body_reader,
-            &mut req_io.ups_w,
+            &mut rsp_io.ups_w,
             &self.ctx.server_config.limited_copy_config(),
         );
 
@@ -501,12 +525,15 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                         Ok(true) => {
                             // we got some data from upstream
                             let (rsp, bytes) = self.recv_response_header(&mut rsp_io.ups_r).await?;
-                            if rsp.code == 100 { // HTTP CONTINUE
-                                self.send_response_header(&mut rsp_io.clt_w, bytes).await?;
-                                // continue
-                            } else {
-                                rsp_head = Some((rsp, bytes));
-                                break;
+                            match rsp.code {
+                                100 | 103 => {
+                                    // CONTINUE | Early Hints
+                                    self.send_response_header(&mut rsp_io.clt_w, bytes).await?;
+                                }
+                                _ => {
+                                    rsp_head = Some((rsp, bytes));
+                                    break;
+                                }
                             }
                         }
                         Ok(false) => return Err(ServerTaskError::ClosedByUpstream),
@@ -562,7 +589,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
             }
             None => {
                 match tokio::time::timeout(
-                    self.ctx.h1_interception().rsp_head_recv_timeout,
+                    self.ctx.h1_rsp_hdr_recv_timeout(),
                     self.recv_final_response_header(rsp_io),
                 )
                 .await
@@ -601,35 +628,46 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         .map_err(|e| e.into())
     }
 
-    async fn recv_final_response_header<UR, CW>(
+    async fn recv_final_response_header<CW, UR, UW>(
         &mut self,
-        rsp_io: &mut HttpResponseIo<UR, CW>,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
     ) -> ServerTaskResult<(HttpTransparentResponse, Bytes)>
     where
         UR: AsyncRead + Unpin,
         CW: AsyncWrite + Unpin,
+        UW: AsyncWrite + Unpin,
     {
-        let (rsp, bytes) = self.recv_response_header(&mut rsp_io.ups_r).await?;
-        if rsp.code == 100 {
-            // HTTP CONTINUE
-            self.send_response_header(&mut rsp_io.clt_w, bytes).await?;
-            // recv the final response header
-            self.recv_response_header(&mut rsp_io.ups_r).await
-        } else {
-            Ok((rsp, bytes))
+        loop {
+            let (rsp, bytes) = self.recv_response_header(&mut rsp_io.ups_r).await?;
+            match rsp.code {
+                100 => {
+                    // HTTP CONTINUE
+                    self.send_response_header(&mut rsp_io.clt_w, bytes).await?;
+                    // recv the final response header
+                    return self.recv_response_header(&mut rsp_io.ups_r).await;
+                }
+                103 => {
+                    // HTTP Early Hints
+                    self.send_response_header(&mut rsp_io.clt_w, bytes).await?;
+                }
+                _ => {
+                    return Ok((rsp, bytes));
+                }
+            }
         }
     }
 
-    async fn send_response<UR, CW>(
+    async fn send_response<CW, UR, UW>(
         &mut self,
         mut rsp: HttpTransparentResponse,
         rsp_head: Bytes,
-        rsp_io: &mut HttpResponseIo<UR, CW>,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
         adaptation_respond_shared_headers: Option<HttpHeaderMap>,
     ) -> ServerTaskResult<()>
     where
         UR: AsyncRead + Unpin,
         CW: AsyncWrite + Send + Unpin,
+        UW: AsyncWrite + Unpin,
     {
         if self.should_close {
             rsp.set_no_keep_alive();
@@ -684,16 +722,17 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
             .await
     }
 
-    async fn send_response_with_adaptation<UR, CW>(
+    async fn send_response_with_adaptation<CW, UR, UW>(
         &mut self,
         rsp: HttpTransparentResponse,
-        rsp_io: &mut HttpResponseIo<UR, CW>,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
         icap_adapter: HttpResponseAdapter<ServerIdleChecker>,
         adaptation_state: &mut RespmodAdaptationRunState,
     ) -> ServerTaskResult<()>
     where
         UR: AsyncRead + Unpin,
         CW: AsyncWrite + Send + Unpin,
+        UW: AsyncWrite + Unpin,
     {
         match icap_adapter
             .xfer(
@@ -717,15 +756,16 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         }
     }
 
-    async fn send_response_without_adaptation<UR, CW>(
+    async fn send_response_without_adaptation<CW, UR, UW>(
         &mut self,
         rsp: HttpTransparentResponse,
         rsp_head: Bytes,
-        rsp_io: &mut HttpResponseIo<UR, CW>,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
     ) -> ServerTaskResult<()>
     where
         UR: AsyncRead + Unpin,
         CW: AsyncWrite + Unpin,
+        UW: AsyncWrite + Unpin,
     {
         self.send_error_response = false;
 
@@ -756,11 +796,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         CW: AsyncWrite + Unpin,
     {
         clt_w
-            .write_all(&head_bytes)
-            .await
-            .map_err(ServerTaskError::ClientTcpWriteFailed)?;
-        clt_w
-            .flush()
+            .write_all_flush(&head_bytes)
             .await
             .map_err(ServerTaskError::ClientTcpWriteFailed)
     }
@@ -776,7 +812,6 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         UR: AsyncBufRead + Unpin,
         CW: AsyncWrite + Unpin,
     {
-        let header_len = header.len() as u64;
         let mut body_reader = HttpBodyReader::new(
             ups_r,
             body_type,
@@ -808,9 +843,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                             Ok(())
                         }
                         Err(LimitedCopyError::ReadFailed(e)) => {
-                            if ups_to_clt.copied_size() < header_len {
-                                let _ = ups_to_clt.write_flush().await; // flush rsp header to client
-                            }
+                            let _ = ups_to_clt.write_flush().await;
                             Err(ServerTaskError::UpstreamReadFailed(e))
                         }
                         Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
@@ -832,16 +865,12 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                     }
 
                     if self.ctx.belongs_to_blocked_user() {
-                        if ups_to_clt.copied_size() < header_len {
-                            let _ = ups_to_clt.write_flush().await; // flush rsp header to client
-                        }
+                        let _ = ups_to_clt.write_flush().await;
                         return Err(ServerTaskError::CanceledAsUserBlocked);
                     }
 
                     if self.ctx.server_force_quit() {
-                        if ups_to_clt.copied_size() < header_len {
-                            let _ = ups_to_clt.write_flush().await; // flush rsp header to client
-                        }
+                        let _ = ups_to_clt.write_flush().await;
                         return Err(ServerTaskError::CanceledAsServerQuit)
                     }
                 }

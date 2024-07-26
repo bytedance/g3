@@ -21,12 +21,12 @@ use slog::slog_info;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::runtime::Handle;
 
-use g3_dpi::Protocol;
+use g3_cert_agent::CertAgentHandle;
+use g3_dpi::{Protocol, ProtocolInspectPolicy};
 use g3_io_ext::{FlexBufReader, OnceBufReader};
 use g3_slog_types::{LtUpstreamAddr, LtUuid};
-use g3_tls_cert::agent::CertAgentHandle;
 use g3_types::net::{
-    OpensslInterceptionClientConfig, OpensslInterceptionServerConfig, UpstreamAddr,
+    AlpnProtocol, OpensslInterceptionClientConfig, OpensslInterceptionServerConfig, UpstreamAddr,
 };
 use g3_udpdump::{ExportedPduDissectorHint, StreamDumpConfig, StreamDumper};
 
@@ -35,16 +35,17 @@ use crate::config::server::ServerConfig;
 use crate::log::inspect::{stream::StreamInspectLog, InspectSource};
 
 mod error;
-
 pub(crate) use error::TlsInterceptionError;
 
 mod modern;
+#[cfg(feature = "vendored-tongsuo")]
+mod tlcp;
 
 #[derive(Clone)]
 pub(crate) struct TlsInterceptionContext {
-    cert_agent: Arc<CertAgentHandle>,
-    client_config: Arc<OpensslInterceptionClientConfig>,
-    server_config: Arc<OpensslInterceptionServerConfig>,
+    pub(super) cert_agent: Arc<CertAgentHandle>,
+    pub(super) client_config: Arc<OpensslInterceptionClientConfig>,
+    pub(super) server_config: Arc<OpensslInterceptionServerConfig>,
     stream_dumper: Arc<Vec<StreamDumper>>,
 }
 
@@ -86,7 +87,7 @@ impl TlsInterceptionContext {
         })
     }
 
-    fn get_stream_dumper(&self, worker_id: Option<usize>) -> Option<&StreamDumper> {
+    pub(super) fn get_stream_dumper(&self, worker_id: Option<usize>) -> Option<&StreamDumper> {
         if self.stream_dumper.is_empty() {
             return None;
         }
@@ -162,6 +163,25 @@ impl<SC: ServerConfig> TlsInterceptObject<SC> {
 
     fn log_err(&self, e: &TlsInterceptionError) {
         intercept_log!(self, "{e}");
+    }
+
+    fn retain_alpn_protocol(&self, p: &[u8]) -> bool {
+        if self.ctx.h2_inspect_policy() == ProtocolInspectPolicy::Block
+            && p == AlpnProtocol::Http2.identification_sequence()
+        {
+            return false;
+        }
+        if self.ctx.smtp_inspect_policy() == ProtocolInspectPolicy::Block
+            && p == AlpnProtocol::Smtp.identification_sequence()
+        {
+            return false;
+        }
+        if self.ctx.imap_inspect_policy() == ProtocolInspectPolicy::Block
+            && p == AlpnProtocol::Imap.identification_sequence()
+        {
+            return false;
+        }
+        true
     }
 }
 
@@ -243,6 +263,28 @@ where
                     Box::new(ups_w),
                 );
                 StreamInspection::H2(h2_obj)
+            }
+            Protocol::Smtp => {
+                let mut smtp_obj =
+                    crate::inspect::smtp::SmtpInterceptObject::new(ctx, self.upstream.clone());
+                smtp_obj.set_io(
+                    Box::new(clt_r),
+                    Box::new(clt_w),
+                    OnceBufReader::with_no_buf(Box::new(ups_r)),
+                    Box::new(ups_w),
+                );
+                StreamInspection::Smtp(smtp_obj)
+            }
+            Protocol::Imap => {
+                let mut imap_obj =
+                    crate::inspect::imap::ImapInterceptObject::new(ctx, self.upstream.clone());
+                imap_obj.set_io(
+                    Box::new(clt_r),
+                    Box::new(clt_w),
+                    OnceBufReader::with_no_buf(Box::new(ups_r)),
+                    Box::new(ups_w),
+                );
+                StreamInspection::Imap(imap_obj)
             }
             _ => {
                 let mut stream_obj =

@@ -50,12 +50,22 @@ impl DaemonArgs {
         }
     }
 
-    pub fn set_with_systemd(&mut self) {
+    fn set_with_systemd(&mut self) {
         cfg_if::cfg_if! {
             if #[cfg(target_os = "linux")] {
                 self.with_systemd = true;
             } else {
                 self.with_systemd = false;
+            }
+        }
+    }
+
+    fn enable_daemon_mode(&mut self) {
+        cfg_if::cfg_if! {
+            if #[cfg(unix)] {
+                self.daemon_mode = true;
+            } else {
+                self.daemon_mode = false;
             }
         }
     }
@@ -72,7 +82,7 @@ impl DaemonArgs {
             self.test_config = true;
         }
         if args.get_flag(ARGS_DAEMON) {
-            self.daemon_mode = true;
+            self.enable_daemon_mode();
         }
         if args.get_flag(ARGS_SYSTEMD) {
             self.set_with_systemd();

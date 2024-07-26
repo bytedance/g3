@@ -25,10 +25,7 @@ pub use cache::{
     EffectiveQueryHandle,
 };
 pub use io::*;
-pub use limit::{
-    DatagramLimitInfo, DatagramLimitResult, StreamLimitInfo, StreamLimitResult,
-    ThreadedCountLimitInfo,
-};
+pub use limit::*;
 pub use listen::{LimitedTcpListener, LimitedTlsListener};
 pub use udp::*;
 

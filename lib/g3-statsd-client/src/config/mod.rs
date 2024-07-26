@@ -16,7 +16,9 @@
 
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
+#[cfg(unix)]
 use std::os::unix::net::UnixDatagram;
+#[cfg(unix)]
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -29,6 +31,7 @@ const UDP_DEFAULT_PORT: u16 = 8125;
 #[derive(Debug, Clone)]
 pub enum StatsdBackend {
     Udp(SocketAddr, Option<IpAddr>),
+    #[cfg(unix)]
     Unix(PathBuf),
 }
 
@@ -79,6 +82,7 @@ impl StatsdClientConfig {
                 let socket = UdpSocket::bind(SocketAddr::new(bind_ip, 0))?;
                 StatsdMetricsSink::udp_with_capacity(*addr, socket, 1024)
             }
+            #[cfg(unix)]
             StatsdBackend::Unix(path) => {
                 let socket = UnixDatagram::unbound()?;
                 StatsdMetricsSink::unix_with_capacity(path.clone(), socket, 4096)

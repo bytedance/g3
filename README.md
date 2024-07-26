@@ -1,9 +1,9 @@
-[![minimum rustc: 1.75](https://img.shields.io/badge/minimum%20rustc-1.75-green?logo=rust)](https://www.whatrustisit.com)
+[![minimum rustc: 1.80](https://img.shields.io/badge/minimum%20rustc-1.80-green?logo=rust)](https://www.whatrustisit.com)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
 
 # G3 Project
 
-[中文版 README](README.zh_CN.md)
+[中文版 README](README.zh_CN.md) | [日本語 README](README.ja_JP.md)
 
 ## About
 
@@ -25,12 +25,19 @@ as we have basic support built in.
 #### Feature highlights
 
 - Async Rust: fast and reliable
-- Http1 / Socks4 / Socks5 forward proxy protocol, SNI Proxy and TCP TPROXY
+- Http1 / Socks5 forward proxy protocol, SNI Proxy and TCP TPROXY
+- Proxy Chaining, with support for dynamic selection of upstream proxies
+- Plenty of egress route selection methods, with support for custom egress selection agent
+- TCP/TLS Stream Proxy, Basic HTTP Reverse Proxy
 - TLS over OpenSSL or BoringSSL or AWS-LC or Tongsuo, and even rustls
-- TLS MITM interception, decrypted traffic dump, HTTP1 and HTTP2 interception
-- ICAP audit protocol
+- TLS MITM interception, decrypted traffic dump, HTTP1/HTTP2/SMTP interception
+- ICAP adaptation for HTTP1/HTTP2/SMTP, can integrate seamlessly with 3rd-party security products
 - Graceful reload
 - Customizable load balancing and failover strategies
+- User Auth, with a rich set of config options
+- Can set differential site config for each user
+- Rich ACL/Limit rules, at ingress / egress / user level
+- Rich monitoring metrics, at ingress / egress / user / user-site level
 - Support for a variety of observability tools
 
 See [g3proxy](g3proxy/README.md) for detailed introduction.
@@ -53,13 +60,17 @@ A tool to make root CA / intermediate CA / TLS server / TLS client certificates.
 
 Fake certificate generator for g3proxy.
 
+### g3iploc
+
+IP location lookup service for g3proxy GeoIP support.
+
 ### g3keymess
 
 A simple implementation of Cloudflare keyless server.
 
 ## Target Platform
 
-Only Linux is fully supported yet. The code will compile on FreeBSD, NetBSD and macOS, but we haven't tested it there.
+Only Linux is fully supported yet. The code will compile on FreeBSD, NetBSD, macOS and Windows, but we haven't tested it there.
 
 Feel free to open PRs to add support for other platforms.
 
@@ -128,7 +139,19 @@ If you want to build a package directly from the git repo:
 It is recommended to build packages yourself if you want to install them in a production environment.
 
 For testing purpose, we have built and uploaded some packages to
-[cloudsmith](https://cloudsmith.io/~g3-oqh/repos/g3-J0E/packages/), you can find installation instructions there.
+[cloudsmith](https://cloudsmith.io/~g3-oqh/repos/), you can find installation instructions there.
+
+### Build Docker Image
+
+You can find Dockerfile(s) under *docker* folder of each component. The build command will be like
+
+```shell
+# run this in the source root dir
+docker build -f <component>/docker/debian.Dockerfile . -t <component>:<tag>
+# build without the source code
+docker build -f <component>/docker/debian.Dockerfile github.com/bytedance/g3 -t <component>:<tag>
+# if you have a source tarball, you can also use the URL of that tarball
+```
 
 ### Static Linking
 

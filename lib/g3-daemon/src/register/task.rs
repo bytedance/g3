@@ -19,12 +19,12 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use http::{Method, StatusCode};
 use serde_json::{Map, Value};
-use tokio::io::{AsyncWriteExt, BufStream};
+use tokio::io::BufStream;
 use tokio::net::TcpStream;
 
 use g3_http::client::HttpForwardRemoteResponse;
 use g3_http::HttpBodyReader;
-use g3_io_ext::LimitedBufReadExt;
+use g3_io_ext::{LimitedBufReadExt, LimitedWriteExt};
 
 use super::RegisterConfig;
 
@@ -60,11 +60,13 @@ impl RegisterTask {
         let body = Value::Object(content).to_string();
         let data = format!(
             "POST {} HTTP/1.1\r\n\
+             Host: {}\r\n\
              Content-Type: application/json\r\n\
              Content-Length: {}\r\n\
              Connection: Keep-Alive\r\n\
              \r\n{body}",
             self.config.register_path,
+            self.config.upstream.host(),
             body.len()
         );
 
@@ -75,10 +77,12 @@ impl RegisterTask {
     pub async fn ping_until_end(&mut self) -> anyhow::Result<()> {
         let data = format!(
             "GET {} HTTP/1.1\r\n\
+             Host: {}\r\n\
              Content-Length: 0\r\n\
              Connection: Keep-Alive\r\n
              \r\n",
-            self.config.ping_path
+            self.config.ping_path,
+            self.config.upstream.host()
         );
 
         let mut interval = tokio::time::interval(self.config.ping_interval);
@@ -97,11 +101,7 @@ impl RegisterTask {
 
     async fn write_request(&mut self, data: &[u8]) -> anyhow::Result<()> {
         self.stream
-            .write_all(data)
-            .await
-            .map_err(|e| anyhow!("failed to write data: {e:?}"))?;
-        self.stream
-            .flush()
+            .write_all_flush(data)
             .await
             .map_err(|e| anyhow!("failed to write data: {e:?}"))
     }

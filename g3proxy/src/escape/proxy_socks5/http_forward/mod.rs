@@ -20,6 +20,7 @@ use g3_io_ext::{LimitedBufReader, LimitedWriter, NilLimitedReaderStats};
 use g3_types::net::{Host, OpensslClientConfig};
 
 use super::{ProxySocks5Escaper, ProxySocks5EscaperStats};
+use crate::escape::direct_fixed::http_forward::{DirectHttpForwardReader, DirectHttpForwardWriter};
 use crate::log::escape::tls_handshake::TlsApplication;
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpForwardRemoteWrapperStats,
@@ -28,12 +29,6 @@ use crate::module::http_forward::{
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
 use crate::serve::ServerTaskNotes;
 
-mod reader;
-mod writer;
-
-use reader::ProxySocks5HttpForwardReader;
-use writer::ProxySocks5HttpForwardWriter;
-
 impl ProxySocks5Escaper {
     pub(super) async fn http_forward_new_connection<'a>(
         &'a self,
@@ -41,9 +36,10 @@ impl ProxySocks5Escaper {
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
-        let (ups_r, mut ups_w) = self
+        let ups_s = self
             .timed_socks5_connect_tcp_connect_to(tcp_notes, task_notes)
             .await?;
+        let (ups_r, mut ups_w) = ups_s.into_split_tcp();
 
         // add task and user stats
         let mut w_wrapper_stats = HttpForwardRemoteWrapperStats::new(&self.stats, &task_stats);
@@ -52,11 +48,11 @@ impl ProxySocks5Escaper {
         w_wrapper_stats.push_user_io_stats_by_ref(&user_stats);
         r_wrapper_stats.push_user_io_stats(user_stats);
 
-        ups_w.reset_stats(Arc::new(w_wrapper_stats) as _);
-        let ups_r = LimitedBufReader::new_directed(ups_r, Arc::new(r_wrapper_stats) as _);
+        ups_w.reset_stats(Arc::new(w_wrapper_stats));
+        let ups_r = LimitedBufReader::new_directed(ups_r, Arc::new(r_wrapper_stats));
 
-        let writer = ProxySocks5HttpForwardWriter::new(ups_w, Some(Arc::clone(&self.stats)));
-        let reader = ProxySocks5HttpForwardReader::new(ups_r);
+        let writer = DirectHttpForwardWriter::new(ups_w, Some(Arc::clone(&self.stats)));
+        let reader = DirectHttpForwardReader::new(ups_r);
         Ok((Box::new(writer), Box::new(reader)))
     }
 
@@ -88,12 +84,12 @@ impl ProxySocks5Escaper {
         let ups_r = LimitedBufReader::new_unlimited(
             ups_r,
             Arc::new(NilLimitedReaderStats::default()),
-            wrapper_stats.clone() as _,
+            wrapper_stats.clone(),
         );
-        let ups_w = LimitedWriter::new_unlimited(ups_w, wrapper_stats as _);
+        let ups_w = LimitedWriter::new(ups_w, wrapper_stats);
 
-        let writer = ProxySocks5HttpForwardWriter::new(ups_w, None);
-        let reader = ProxySocks5HttpForwardReader::new(ups_r);
+        let writer = DirectHttpForwardWriter::<_, ProxySocks5EscaperStats>::new(ups_w, None);
+        let reader = DirectHttpForwardReader::new(ups_r);
         Ok((Box::new(writer), Box::new(reader)))
     }
 }

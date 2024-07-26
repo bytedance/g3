@@ -15,10 +15,10 @@
  */
 
 use openssl::pkey::{PKey, Private};
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncRead, AsyncWrite, BufReader};
 use tokio::sync::broadcast;
 
-use g3_io_ext::LimitedBufReadExt;
+use g3_io_ext::{LimitedBufReadExt, LimitedWriteExt};
 use g3_types::ext::DurationExt;
 
 use super::{KeylessTask, WrappedKeylessRequest};
@@ -161,10 +161,10 @@ impl KeylessTask {
         RequestErrorLogContext { task_id: &self.id }.log(&self.ctx.request_logger, &rsp);
 
         writer
-            .write_all(rsp.message())
+            .write_all_flush(rsp.message())
             .await
             .map_err(ServerTaskError::WriteFailed)?;
-        writer.flush().await.map_err(ServerTaskError::WriteFailed)?;
+
         Ok(())
     }
 }

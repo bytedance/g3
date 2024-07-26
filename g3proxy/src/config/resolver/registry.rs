@@ -15,16 +15,15 @@
  */
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
-
-use once_cell::sync::Lazy;
+use std::sync::{Arc, LazyLock, Mutex};
 
 use g3_types::metrics::MetricsName;
 
 use super::AnyResolverConfig;
 
-static INITIAL_RESOLVER_CONFIG_REGISTRY: Lazy<Mutex<HashMap<MetricsName, Arc<AnyResolverConfig>>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+static INITIAL_RESOLVER_CONFIG_REGISTRY: LazyLock<
+    Mutex<HashMap<MetricsName, Arc<AnyResolverConfig>>>,
+> = LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub(crate) fn clear() {
     let mut ht = INITIAL_RESOLVER_CONFIG_REGISTRY.lock().unwrap();

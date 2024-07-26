@@ -16,7 +16,9 @@
 
 use std::io;
 use std::net::{SocketAddr, UdpSocket};
+#[cfg(unix)]
 use std::os::unix::net::UnixDatagram;
+#[cfg(unix)]
 use std::path::PathBuf;
 #[cfg(test)]
 use std::rc::Rc;
@@ -31,13 +33,16 @@ use buf::BufMetricsSink;
 mod udp;
 use udp::UdpMetricsSink;
 
+#[cfg(unix)]
 mod unix;
+#[cfg(unix)]
 use unix::UnixMetricsSink;
 
 enum MetricsSinkIo {
     #[cfg(test)]
     Buf(BufMetricsSink),
     Udp(UdpMetricsSink),
+    #[cfg(unix)]
     Unix(UnixMetricsSink),
 }
 
@@ -47,6 +52,7 @@ impl MetricsSinkIo {
             #[cfg(test)]
             MetricsSinkIo::Buf(b) => b.send_msg(buf),
             MetricsSinkIo::Udp(s) => s.send_msg(buf),
+            #[cfg(unix)]
             MetricsSinkIo::Unix(s) => s.send_msg(buf),
         }
     }
@@ -80,6 +86,7 @@ impl StatsdMetricsSink {
         }
     }
 
+    #[cfg(unix)]
     pub(crate) fn unix_with_capacity(
         path: PathBuf,
         socket: UnixDatagram,

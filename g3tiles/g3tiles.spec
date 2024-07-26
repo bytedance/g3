@@ -11,7 +11,7 @@
 %define build_profile release-lto
 
 Name:           g3tiles
-Version:        0.3.0
+Version:        0.3.4
 Release:        1%{?dist}
 Summary:        Generic reverse proxy for G3 Project
 
@@ -37,7 +37,7 @@ Generic reverse proxy for G3 Project
 G3_PACKAGE_VERSION="%{version}-%{release}"
 export G3_PACKAGE_VERSION
 SSL_FEATURE=$(sh scripts/package/detect_openssl_feature.sh)
-cargo build --frozen --offline --profile %{build_profile} --no-default-features --features $SSL_FEATURE, --package g3tiles --package g3tiles-ctl
+cargo build --frozen --offline --profile %{build_profile} --no-default-features --features $SSL_FEATURE,quic --package g3tiles --package g3tiles-ctl
 sh %{name}/service/generate_systemd.sh
 
 
@@ -58,5 +58,5 @@ install -m 644 -D %{name}/service/g3tiles@.service %{buildroot}/lib/systemd/syst
 
 
 %changelog
-* Tue Jan 30 2024 G3tiles Maintainers <g3tiles-maintainers@devel.machine> - 0.3.0-1
+* Thu Jul 25 2024 G3tiles Maintainers <g3tiles-maintainers@devel.machine> - 0.3.4-1
 - New upstream release

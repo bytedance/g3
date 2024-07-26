@@ -40,6 +40,7 @@ impl ProtocolInspectState {
         self.exclude_other(MaybeProtocol::Ftp);
         self.exclude_other(MaybeProtocol::Ssh);
         self.exclude_other(MaybeProtocol::Smtp);
+        self.exclude_other(MaybeProtocol::Odmr);
         self.exclude_other(MaybeProtocol::Pop3);
         self.exclude_other(MaybeProtocol::Imap);
         self.exclude_other(MaybeProtocol::Http);

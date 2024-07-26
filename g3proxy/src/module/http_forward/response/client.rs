@@ -24,6 +24,7 @@ use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use g3_ftp_client::FtpConnectError;
 use g3_http::server::HttpRequestParseError;
+use g3_io_ext::LimitedWriteExt;
 use g3_types::net::ConnectError;
 
 use crate::module::http_header;
@@ -351,6 +352,9 @@ impl HttpProxyClientResponse {
             ServerTaskError::InvalidClientProtocol(_) => {
                 HttpProxyClientResponse::from_standard(StatusCode::BAD_REQUEST, version, true)
             }
+            ServerTaskError::ClientAppError(_) => {
+                HttpProxyClientResponse::from_standard(StatusCode::BAD_REQUEST, version, true)
+            }
             ServerTaskError::UnimplementedProtocol => {
                 HttpProxyClientResponse::from_standard(StatusCode::NOT_IMPLEMENTED, version, true)
             }
@@ -474,8 +478,7 @@ impl HttpProxyClientResponse {
             header.extend_from_slice(line.as_bytes());
         }
         header.extend_from_slice(b"\r\n");
-        writer.write_all(header.as_ref()).await?;
-        writer.flush().await?;
+        writer.write_all_flush(header.as_ref()).await?;
         Ok(())
     }
 
@@ -506,8 +509,7 @@ impl HttpProxyClientResponse {
         W: AsyncWrite + Unpin,
     {
         let s = format!("{version:?} 100 Continue\r\n\r\n");
-        writer.write_all(s.as_bytes()).await?;
-        writer.flush().await?;
+        writer.write_all_flush(s.as_bytes()).await?;
         Ok(())
     }
 
@@ -543,8 +545,7 @@ impl HttpProxyClientResponse {
         // append body
         header.extend_from_slice(body.as_bytes());
 
-        writer.write_all(header.as_ref()).await?;
-        writer.flush().await?;
+        writer.write_all_flush(header.as_ref()).await?;
         Ok(())
     }
 

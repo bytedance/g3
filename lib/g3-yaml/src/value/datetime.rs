@@ -34,7 +34,6 @@ pub fn as_rfc3339_datetime(value: &Yaml) -> anyhow::Result<DateTime<Utc>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yaml_rust::Yaml;
 
     #[test]
     fn utc_tz() {

@@ -15,6 +15,7 @@
  */
 
 use std::net::{IpAddr, SocketAddr};
+#[cfg(unix)]
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -60,6 +61,7 @@ fn as_statsd_backend_udp(v: &Yaml) -> anyhow::Result<StatsdBackend> {
     }
 }
 
+#[cfg(unix)]
 fn as_statsd_backend_unix(v: &Yaml) -> anyhow::Result<StatsdBackend> {
     match v {
         Yaml::Hash(map) => {
@@ -103,6 +105,7 @@ pub fn as_statsd_client_config(
                 config.set_backend(target);
                 Ok(())
             }
+            #[cfg(unix)]
             "target_unix" | "backend_unix" => {
                 let target =
                     as_statsd_backend_unix(v).context(format!("invalid value for key {k}"))?;
@@ -118,6 +121,7 @@ pub fn as_statsd_client_config(
                             config.set_backend(target);
                             Ok(())
                         }
+                        #[cfg(unix)]
                         "unix" => {
                             let target = as_statsd_backend_unix(v)
                                 .context(format!("invalid value for key {k}"))?;

@@ -19,7 +19,7 @@ use std::time::Duration;
 use anyhow::{anyhow, Context};
 use bytes::BufMut;
 use openssl::ssl::{
-    SslAcceptor, SslAcceptorBuilder, SslContext, SslSessionCacheMode, SslVerifyMode,
+    SslAcceptor, SslAcceptorBuilder, SslContext, SslOptions, SslSessionCacheMode, SslVerifyMode,
 };
 use openssl::stack::Stack;
 use openssl::x509::store::X509StoreBuilder;
@@ -32,6 +32,11 @@ use crate::net::AlpnProtocol;
 
 mod intercept;
 pub use intercept::{OpensslInterceptionServerConfig, OpensslInterceptionServerConfigBuilder};
+
+mod ticket_key;
+pub use ticket_key::OpensslTicketKey;
+
+mod ticketer;
 
 mod session;
 pub use session::{OpensslServerSessionCache, OpensslSessionIdContext};
@@ -53,6 +58,8 @@ pub struct OpensslServerConfigBuilder {
     client_auth: bool,
     client_auth_certs: Vec<Vec<u8>>,
     session_id_context: String,
+    no_session_ticket: bool,
+    no_session_cache: bool,
     accept_timeout: Duration,
 }
 
@@ -65,6 +72,8 @@ impl OpensslServerConfigBuilder {
             client_auth: false,
             client_auth_certs: Vec::new(),
             session_id_context: String::new(),
+            no_session_ticket: false,
+            no_session_cache: false,
             accept_timeout: DEFAULT_ACCEPT_TIMEOUT,
         }
     }
@@ -103,6 +112,14 @@ impl OpensslServerConfigBuilder {
 
     pub fn set_session_id_context(&mut self, context: String) {
         self.session_id_context = context;
+    }
+
+    pub fn set_disable_session_ticket(&mut self, disable: bool) {
+        self.no_session_ticket = disable;
+    }
+
+    pub fn set_disable_session_cache(&mut self, disable: bool) {
+        self.no_session_cache = disable;
     }
 
     pub fn push_cert_pair(&mut self, cert_pair: OpensslCertificatePair) -> anyhow::Result<()> {
@@ -225,7 +242,14 @@ impl OpensslServerConfigBuilder {
 
         let mut ssl_builder = self.build_acceptor(&mut id_ctx)?;
 
-        ssl_builder.set_session_cache_mode(SslSessionCacheMode::SERVER);
+        if self.no_session_cache {
+            ssl_builder.set_session_cache_mode(SslSessionCacheMode::OFF);
+        } else {
+            ssl_builder.set_session_cache_mode(SslSessionCacheMode::SERVER);
+        }
+        if self.no_session_ticket {
+            ssl_builder.set_options(SslOptions::NO_TICKET);
+        }
 
         if self.client_auth {
             ssl_builder.set_verify(SslVerifyMode::PEER | SslVerifyMode::FAIL_IF_NO_PEER_CERT);

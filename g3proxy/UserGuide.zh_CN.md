@@ -15,6 +15,7 @@
     + [TLS卸载](#tls卸载)
     + [TLS封装](#tls封装)
     + [SNI代理](#sni代理)
+    + [透明代理](#透明代理)
     + [线路绑定](#线路绑定)
     + [代理串联](#代理串联)
     + [连接限速](#连接限速)
@@ -35,6 +36,7 @@
     + [动态线路绑定](#动态线路绑定)
     + [动态代理串联](#动态代理串联)
     + [用户特定站点监控](#用户特定站点监控)
+    + [用户站点tls劫持自定义配置](#用户站点tls劫持自定义配置)
     + [流量审计](#流量审计)
     + [TLS解密流量导出](#TLS解密流量导出)
     + [性能优化](#性能优化)
@@ -249,6 +251,25 @@ server:
     listen:
       address: "[::]:443" # 监听443端口，但可以同时支持发往该端口的TLS & HTTP协议流量
 ```
+
+### 透明代理
+
+在网关设备上，可以配置将需要代理的TCP连接，转发给TcpTProxy入口，由代理进行透明中转，示例如下：
+
+```yaml
+server:
+  - name: transparent
+    escaper: default
+    auditor: default  # 如果需要进行协议识别及TLS劫持等
+    type: tcp_tproxy
+    listen: "127.0.0.1:1234"
+```
+
+需要使用的系统配置取决于系统类型：
+
+- Linux [TPROXY](https://docs.kernel.org/networking/tproxy.html)。
+- FreeBSD [ipfw fwd](https://man.freebsd.org/cgi/man.cgi?query=ipfw)。
+- OpenBSD [pf divert-to](https://man.openbsd.org/pf.conf.5#divert-to)。
 
 ### 线路绑定
 
@@ -662,6 +683,22 @@ explicit_sites:
     emit_stats: true           # 建立独立的监控，id字段会作为监控条目名称的一部分
     resolve_strategy:          # 可配置单独的解析策略
       query: ipv4only          # 仅解析ipv4地址
+```
+
+### 用户站点TLS劫持自定义配置
+
+在用户-站点配置中，可对TLS劫持时的TLS Client行为进行设置：
+
+```yaml
+explicit_sites:
+  - id: example-net
+    child_match: example.net
+    tls_client:
+      ca_certificate: xxx      # PEM格式CA证书
+      cert_pairs:
+        certificate: xxx       # PEM格式客户端证书
+        private_key: xxx       # PEM格式客户端私钥
+      # 其他TLS客户端配置
 ```
 
 ### 流量审计

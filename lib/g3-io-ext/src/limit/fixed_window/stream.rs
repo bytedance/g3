@@ -15,15 +15,10 @@
  */
 
 use super::FixedWindow;
-
-#[derive(Debug, Eq, PartialEq)]
-pub enum StreamLimitResult {
-    AdvanceBy(usize),
-    DelayFor(u64),
-}
+use crate::limit::StreamLimitAction;
 
 #[derive(Default)]
-pub struct StreamLimitInfo {
+pub struct LocalStreamLimiter {
     window: FixedWindow,
 
     // direct conf entry
@@ -34,9 +29,9 @@ pub struct StreamLimitInfo {
     cur_bytes: usize,
 }
 
-impl StreamLimitInfo {
+impl LocalStreamLimiter {
     pub fn new(shift_millis: u8, max_bytes: usize) -> Self {
-        StreamLimitInfo {
+        LocalStreamLimiter {
             window: FixedWindow::new(shift_millis, None),
             max_bytes,
             time_slice_id: 0,
@@ -56,7 +51,7 @@ impl StreamLimitInfo {
         self.window.enabled()
     }
 
-    pub fn check(&mut self, cur_millis: u64, to_advance: usize) -> StreamLimitResult {
+    pub fn check(&mut self, cur_millis: u64, to_advance: usize) -> StreamLimitAction {
         let time_slice_id = self.window.slice_id(cur_millis);
         if self.time_slice_id != time_slice_id {
             self.cur_bytes = 0;
@@ -65,10 +60,10 @@ impl StreamLimitInfo {
 
         let max = self.max_bytes - self.cur_bytes;
         if max == 0 {
-            StreamLimitResult::DelayFor(self.window.delay(cur_millis))
+            StreamLimitAction::DelayFor(self.window.delay(cur_millis))
         } else {
             let min = to_advance.min(max);
-            StreamLimitResult::AdvanceBy(min)
+            StreamLimitAction::AdvanceBy(min)
         }
     }
 
@@ -84,26 +79,26 @@ mod tests {
 
     #[test]
     fn basic_routine() {
-        let mut limit = StreamLimitInfo::new(10, 1000);
+        let mut limit = LocalStreamLimiter::new(10, 1000);
         // new time slice
         // try to send 500
-        assert_eq!(limit.check(0, 500), StreamLimitResult::AdvanceBy(500));
+        assert_eq!(limit.check(0, 500), StreamLimitAction::AdvanceBy(500));
         limit.set_advance(500);
         // try to send 500
-        assert_eq!(limit.check(10, 520), StreamLimitResult::AdvanceBy(500));
+        assert_eq!(limit.check(10, 520), StreamLimitAction::AdvanceBy(500));
         limit.set_advance(500);
         // try to send 20, which should be delayed
-        assert_eq!(limit.check(20, 20), StreamLimitResult::DelayFor(1004));
+        assert_eq!(limit.check(20, 20), StreamLimitAction::DelayFor(1004));
         // delay end, new time slice
         // try to send 20
-        assert_eq!(limit.check(1024, 20), StreamLimitResult::AdvanceBy(20));
+        assert_eq!(limit.check(1024, 20), StreamLimitAction::AdvanceBy(20));
         limit.set_advance(20);
         // try to send 100
-        assert_eq!(limit.check(1050, 100), StreamLimitResult::AdvanceBy(100));
+        assert_eq!(limit.check(1050, 100), StreamLimitAction::AdvanceBy(100));
         // only 80 really sent, roll back 20
         limit.set_advance(80);
         // try to send 900
-        assert_eq!(limit.check(1100, 1000), StreamLimitResult::AdvanceBy(900));
+        assert_eq!(limit.check(1100, 1000), StreamLimitAction::AdvanceBy(900));
         limit.set_advance(900);
     }
 

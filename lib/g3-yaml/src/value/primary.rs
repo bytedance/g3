@@ -23,8 +23,6 @@ use anyhow::{anyhow, Context};
 use ascii::AsciiString;
 use yaml_rust::Yaml;
 
-use g3_types::collection::WeightedValue;
-
 pub fn as_u8(v: &Yaml) -> anyhow::Result<u8> {
     match v {
         Yaml::String(s) => Ok(u8::from_str(s)?),
@@ -216,31 +214,6 @@ where
         Ok(table)
     } else {
         Err(anyhow!("the yaml value should be a 'map'"))
-    }
-}
-
-pub fn as_weighted_name_string(value: &Yaml) -> anyhow::Result<WeightedValue<String>> {
-    const KEY_NAME: &str = "name";
-    const KEY_WEIGHT: &str = "weight";
-
-    match value {
-        Yaml::String(s) => Ok(WeightedValue::<String>::new(s.to_string())),
-        Yaml::Hash(map) => {
-            let v = crate::hash::get_required(map, KEY_NAME)?;
-            let name = as_string(v).context(format!("invalid string value for key {KEY_NAME}"))?;
-
-            if let Ok(v) = crate::hash::get_required(map, KEY_WEIGHT) {
-                let weight =
-                    as_f64(v).context(format!("invalid f64 value for key {KEY_WEIGHT}"))?;
-                Ok(WeightedValue::<String>::with_weight(name, weight))
-            } else {
-                Ok(WeightedValue::new(name))
-            }
-        }
-        _ => {
-            let s = as_string(value).context("invalid string value")?;
-            Ok(WeightedValue::new(s))
-        }
     }
 }
 

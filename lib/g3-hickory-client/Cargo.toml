@@ -16,8 +16,9 @@ bytes.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["net", "time"] }
 rustls.workspace = true
+rustls-pki-types.workspace = true
 tokio-rustls.workspace = true
-quinn = { workspace = true, optional = true, features = ["runtime-tokio", "tls-rustls"] }
+quinn = { workspace = true, optional = true, features = ["rustls"] }
 h3 = { workspace = true, optional = true }
 h3-quinn = { workspace = true, optional = true }
 

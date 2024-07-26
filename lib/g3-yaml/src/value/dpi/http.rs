@@ -58,6 +58,10 @@ pub fn as_h1_interception_config(value: &Yaml) -> anyhow::Result<H1InterceptionC
                     .context(format!("invalid usize value for key {k}"))?;
                 Ok(())
             }
+            "steal_forwarded_for" => {
+                config.steal_forwarded_for = crate::value::as_bool(v)?;
+                Ok(())
+            }
             _ => Err(anyhow!("invalid key {k}")),
         })?;
 

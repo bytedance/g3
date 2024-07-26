@@ -24,7 +24,7 @@ use tokio::sync::mpsc;
 use g3_io_ext::{ArcLimitedWriterStats, LimitedWriter};
 use g3_types::auth::UserAuthError;
 use g3_types::net::{HttpAuth, HttpBasicAuth};
-use g3_types::route::{EgressPathSelection, HostMatch};
+use g3_types::route::HostMatch;
 
 use super::protocol::{HttpClientWriter, HttpRProxyRequest};
 use super::{
@@ -105,7 +105,7 @@ where
             .new_http_forward_context(Arc::clone(&ctx.escaper));
         let clt_w_stats = HttpRProxyCltWrapperStats::new_for_writer(&ctx.server_stats);
         let limit_config = &ctx.server_config.tcp_sock_speed_limit;
-        let clt_w = LimitedWriter::new(
+        let clt_w = LimitedWriter::local_limited(
             write_half,
             limit_config.shift_millis,
             limit_config.max_south,
@@ -257,27 +257,16 @@ where
         }
     }
 
-    fn get_egress_path_selection(
-        &self,
-        user_ctx: Option<&UserContext>,
-    ) -> Arc<EgressPathSelection> {
-        user_ctx
-            .map(|ctx| ctx.user_config().egress_path_selection.clone())
-            .unwrap_or_default()
-    }
-
     async fn run(
         &mut self,
         req: HttpRProxyRequest<CDR>,
         user_ctx: Option<UserContext>,
         host: Arc<HttpHost>,
     ) -> LoopAction {
-        let path_selection = self.get_egress_path_selection(user_ctx.as_ref());
-        let task_notes = ServerTaskNotes::with_path_selection(
+        let task_notes = ServerTaskNotes::new(
             self.ctx.cc_info.clone(),
             user_ctx,
             req.time_accepted.elapsed(),
-            path_selection,
         );
 
         if let Some(mut stream_w) = self.stream_writer.take() {
@@ -302,7 +291,7 @@ where
     fn reset_client_writer(&mut self, mut stream_w: HttpClientWriter<CDW>) {
         stream_w.reset_stats(Arc::clone(&self.wrapper_stats));
         let limit_config = &self.ctx.server_config.tcp_sock_speed_limit;
-        stream_w.reset_limit(limit_config.shift_millis, limit_config.max_south);
+        stream_w.reset_local_limit(limit_config.shift_millis, limit_config.max_south);
         self.stream_writer = Some(stream_w);
     }
 

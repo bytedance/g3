@@ -205,6 +205,31 @@ where
         self.transit_transparent(clt_r, clt_w, ups_r, ups_w).await
     }
 
+    pub(super) async fn transit_unknown_timeout<CR, CW, UR, UW>(
+        &self,
+        clt_r: CR,
+        clt_w: CW,
+        ups_r: UR,
+        ups_w: UW,
+    ) -> ServerTaskResult<()>
+    where
+        CR: AsyncRead + Unpin,
+        CW: AsyncWrite + Unpin,
+        UR: AsyncRead + Unpin,
+        UW: AsyncWrite + Unpin,
+    {
+        if let Some(user_ctx) = &self.task_notes.user_ctx {
+            if user_ctx.user.audit().prohibit_timeout_protocol {
+                user_ctx.forbidden_stats.add_proto_banned();
+                return Err(ServerTaskError::ForbiddenByRule(
+                    ServerTaskForbiddenError::ProtoBanned,
+                ));
+            }
+        }
+
+        self.transit_transparent(clt_r, clt_w, ups_r, ups_w).await
+    }
+
     pub(super) async fn transit_transparent<CR, CW, UR, UW>(
         &self,
         clt_r: CR,
@@ -259,6 +284,16 @@ where
                     inspector.reset_state();
                     inspector.set_no_explicit_ssl();
                 }
+                #[cfg(feature = "vendored-tongsuo")]
+                StreamInspection::TlsTlcp(tlcp) => {
+                    obj = tlcp.intercept_tlcp(&mut inspector).await?;
+                    inspector.reset_state();
+                    inspector.set_no_explicit_ssl();
+                }
+                StreamInspection::StartTls(start_tls) => {
+                    obj = start_tls.intercept().await?;
+                    // no need to reset inspector state as the protocol should be known
+                }
                 StreamInspection::H1(h1) => match h1.intercept().await? {
                     Some(new_obj) => {
                         obj = new_obj;
@@ -273,6 +308,20 @@ where
                 StreamInspection::Websocket(websocket) => {
                     return websocket.intercept().await;
                 }
+                StreamInspection::Smtp(smtp) => match smtp.intercept().await? {
+                    Some(new_obj) => {
+                        obj = new_obj;
+                        // no need to reset inspector state as the protocol should be known
+                    }
+                    None => break,
+                },
+                StreamInspection::Imap(imap) => match imap.intercept().await? {
+                    Some(new_obj) => {
+                        obj = new_obj;
+                        // no need to reset inspector state as the protocol should be known
+                    }
+                    None => break,
+                },
                 StreamInspection::End => break,
             }
         }
