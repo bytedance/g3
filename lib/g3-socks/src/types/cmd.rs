@@ -37,9 +37,9 @@ impl SocksCommand {
 impl fmt::Display for SocksCommand {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SocksCommand::TcpConnect => write!(f, "TcpConnect"),
-            SocksCommand::TcpBind => write!(f, "TcpBind"),
-            SocksCommand::UdpAssociate => write!(f, "UdpAssociate"),
+            SocksCommand::TcpConnect => f.write_str("TcpConnect"),
+            SocksCommand::TcpBind => f.write_str("TcpBind"),
+            SocksCommand::UdpAssociate => f.write_str("UdpAssociate"),
         }
     }
 }

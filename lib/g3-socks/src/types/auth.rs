@@ -44,13 +44,13 @@ impl SocksAuthMethod {
 impl fmt::Display for SocksAuthMethod {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SocksAuthMethod::None => write!(f, "None"),
-            SocksAuthMethod::GssApi => write!(f, "GssApi"),
-            SocksAuthMethod::User => write!(f, "User"),
-            SocksAuthMethod::Chap => write!(f, "Chap"),
+            SocksAuthMethod::None => f.write_str("None"),
+            SocksAuthMethod::GssApi => f.write_str("GssApi"),
+            SocksAuthMethod::User => f.write_str("User"),
+            SocksAuthMethod::Chap => f.write_str("Chap"),
             SocksAuthMethod::OtherAssigned(v) => write!(f, "OtherAssigned({v})"),
             SocksAuthMethod::Private(v) => write!(f, "Private({v})"),
-            SocksAuthMethod::NoAcceptable => write!(f, "NoAcceptable"),
+            SocksAuthMethod::NoAcceptable => f.write_str("NoAcceptable"),
         }
     }
 }

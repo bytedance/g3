@@ -34,8 +34,8 @@ pub enum IcapReqmodParseError {
     InvalidHeaderLine(IcapLineParseError),
     #[error("no ISTag set")]
     NoServiceTagSet,
-    #[error("unsupported body")]
-    UnsupportedBody(String),
+    #[error("unsupported body: {0}")]
+    UnsupportedBody(&'static str),
     #[error("invalid value for header {0}")]
     InvalidHeaderValue(&'static str),
     #[error("io failed: {0:?}")]

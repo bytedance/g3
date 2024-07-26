@@ -61,7 +61,6 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
     ) -> Result<ReqmodAdaptationEndState, H2ReqmodAdaptationError> {
         let http_header = http_request.serialize_for_adapter();
         let icap_header = self.build_forward_all_request(&http_request, http_header.len());
-        let has_trailer = http_request.headers().contains_key(http::header::TRAILER);
 
         let icap_w = &mut self.icap_connection.0;
         icap_w
@@ -72,7 +71,6 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         let mut body_transfer = H2StreamToChunkedTransfer::new(
             &mut clt_body,
             &mut self.icap_connection.0,
-            has_trailer,
             self.copy_config.yield_size(),
         );
         let bidirectional_transfer = BidirectionalRecvIcapResponse {
@@ -138,14 +136,14 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                     Ok(r)
                 }
             }
-            IcapReqmodResponsePayload::HttpResponseWithoutBody(header_size) => {
-                self.handle_icap_http_response_without_body(rsp, header_size)
-                    .await
-            }
-            IcapReqmodResponsePayload::HttpResponseWithBody(header_size) => {
-                self.handle_icap_http_response_with_body(rsp, header_size)
-                    .await
-            }
+            IcapReqmodResponsePayload::HttpResponseWithoutBody(header_size) => self
+                .handle_icap_http_response_without_body(rsp, header_size)
+                .await
+                .map(|rsp| ReqmodAdaptationEndState::HttpErrResponse(rsp, None)),
+            IcapReqmodResponsePayload::HttpResponseWithBody(header_size) => self
+                .handle_icap_http_response_with_body(rsp, header_size)
+                .await
+                .map(|(rsp, body)| ReqmodAdaptationEndState::HttpErrResponse(rsp, Some(body))),
         }
     }
 }

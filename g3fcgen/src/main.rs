@@ -14,19 +14,12 @@
  * limitations under the License.
  */
 
-#[link(name = "g3-compat", kind = "static", modifiers = "+whole-archive")]
-extern "C" {
-    // ...
-}
-
 use anyhow::Context;
 use log::{debug, error, info};
 
 use g3fcgen::opts::ProcArgs;
 
 fn main() -> anyhow::Result<()> {
-    #[cfg(feature = "openssl-probe")]
-    openssl_probe::init_ssl_cert_env_vars();
     openssl::init();
 
     let Some(proc_args) =
@@ -36,8 +29,7 @@ fn main() -> anyhow::Result<()> {
     };
 
     // set up process logger early, only proc args is used inside
-    let _log_guard = g3_daemon::log::process::setup(&proc_args.daemon_config)
-        .context("failed to setup logger")?;
+    let _log_guard = g3_daemon::log::process::setup(&proc_args.daemon_config);
 
     g3_daemon::runtime::config::set_default_thread_number(0); // default to use current thread
     let config_file = g3fcgen::config::load()
@@ -50,6 +42,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     // enter daemon mode after config loaded
+    #[cfg(unix)]
     g3_daemon::daemonize::check_enter(&proc_args.daemon_config)?;
 
     let ret = tokio_run(&proc_args);
@@ -68,6 +61,8 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
         .start()
         .context("failed to start runtime")?;
     rt.block_on(async {
+        g3_daemon::runtime::set_main_handle();
+
         // TODO setup signal handler
 
         let _workers_guard = g3_daemon::runtime::worker::spawn_workers()

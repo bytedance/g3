@@ -15,10 +15,9 @@
  */
 
 use std::collections::{HashMap, HashSet};
-use std::sync::Mutex;
+use std::sync::{LazyLock, Mutex};
 
 use anyhow::anyhow;
-use once_cell::sync::Lazy;
 
 use g3_types::metrics::MetricsName;
 
@@ -26,8 +25,8 @@ use super::dummy_close::DummyCloseBackend;
 use super::ArcBackend;
 use crate::config::backend::AnyBackendConfig;
 
-static RUNTIME_BACKEND_REGISTRY: Lazy<Mutex<HashMap<MetricsName, ArcBackend>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+static RUNTIME_BACKEND_REGISTRY: LazyLock<Mutex<HashMap<MetricsName, ArcBackend>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub(super) fn add(name: MetricsName, connector: ArcBackend) {
     let mut ht = RUNTIME_BACKEND_REGISTRY.lock().unwrap();

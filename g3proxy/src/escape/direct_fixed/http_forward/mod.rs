@@ -31,8 +31,8 @@ use crate::serve::ServerTaskNotes;
 mod reader;
 mod writer;
 
-use reader::DirectFixedHttpForwardReader;
-use writer::DirectFixedHttpForwardWriter;
+pub(crate) use reader::DirectHttpForwardReader;
+pub(crate) use writer::DirectHttpForwardWriter;
 
 impl DirectFixedEscaper {
     pub(super) async fn http_forward_new_connection<'a>(
@@ -56,18 +56,18 @@ impl DirectFixedEscaper {
             ups_r,
             limit_config.shift_millis,
             limit_config.max_south,
-            self.stats.clone() as _,
-            Arc::new(r_wrapper_stats) as _,
+            self.stats.clone(),
+            Arc::new(r_wrapper_stats),
         );
-        let ups_w = LimitedWriter::new(
+        let ups_w = LimitedWriter::local_limited(
             ups_w,
             limit_config.shift_millis,
             limit_config.max_north,
-            Arc::new(w_wrapper_stats) as _,
+            Arc::new(w_wrapper_stats),
         );
 
-        let writer = DirectFixedHttpForwardWriter::new(ups_w, Some(Arc::clone(&self.stats)));
-        let reader = DirectFixedHttpForwardReader::new(ups_r);
+        let writer = DirectHttpForwardWriter::new(ups_w, Some(Arc::clone(&self.stats)));
+        let reader = DirectHttpForwardReader::new(ups_r);
         Ok((Box::new(writer), Box::new(reader)))
     }
 
@@ -99,12 +99,12 @@ impl DirectFixedEscaper {
         let ups_r = LimitedBufReader::new_unlimited(
             ups_r,
             Arc::new(NilLimitedReaderStats::default()),
-            wrapper_stats.clone() as _,
+            wrapper_stats.clone(),
         );
-        let ups_w = LimitedWriter::new_unlimited(ups_w, wrapper_stats as _);
+        let ups_w = LimitedWriter::new(ups_w, wrapper_stats);
 
-        let writer = DirectFixedHttpForwardWriter::new(ups_w, None);
-        let reader = DirectFixedHttpForwardReader::new(ups_r);
+        let writer = DirectHttpForwardWriter::<_, DirectFixedEscaperStats>::new(ups_w, None);
+        let reader = DirectHttpForwardReader::new(ups_r);
         Ok((Box::new(writer), Box::new(reader)))
     }
 }

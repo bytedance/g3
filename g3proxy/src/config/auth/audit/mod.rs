@@ -19,11 +19,23 @@ use rand::distributions::{Bernoulli, Distribution};
 mod json;
 mod yaml;
 
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct UserAuditConfig {
     pub(crate) enable_protocol_inspection: bool,
     pub(crate) prohibit_unknown_protocol: bool,
+    pub(crate) prohibit_timeout_protocol: bool,
     task_audit_ratio: Option<Bernoulli>,
+}
+
+impl Default for UserAuditConfig {
+    fn default() -> Self {
+        UserAuditConfig {
+            enable_protocol_inspection: false,
+            prohibit_unknown_protocol: false,
+            prohibit_timeout_protocol: true,
+            task_audit_ratio: None,
+        }
+    }
 }
 
 impl UserAuditConfig {

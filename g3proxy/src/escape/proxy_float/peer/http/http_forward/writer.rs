@@ -20,7 +20,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use async_trait::async_trait;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use tokio::io::AsyncWrite;
 use tokio::time::Instant;
 
@@ -36,13 +36,14 @@ use crate::module::http_forward::{
 };
 use crate::serve::ServerTaskNotes;
 
-#[pin_project]
-pub(super) struct HttpPeerHttpForwardWriter<W: AsyncWrite> {
-    config: Arc<ProxyFloatHttpPeerSharedConfig>,
-    #[pin]
-    inner: W,
-    upstream: UpstreamAddr,
-    escaper_stats: Option<Arc<ProxyFloatEscaperStats>>,
+pin_project! {
+    pub(super) struct HttpPeerHttpForwardWriter<W: AsyncWrite> {
+        config: Arc<ProxyFloatHttpPeerSharedConfig>,
+        #[pin]
+        inner: W,
+        upstream: UpstreamAddr,
+        escaper_stats: Option<Arc<ProxyFloatEscaperStats>>,
+    }
 }
 
 impl<W> HttpPeerHttpForwardWriter<W>
@@ -105,11 +106,11 @@ where
         if let Some(escaper_stats) = &self.escaper_stats {
             let mut wrapper_stats = HttpForwardRemoteWrapperStats::new(escaper_stats, task_stats);
             wrapper_stats.push_user_io_stats(user_stats);
-            self.inner.reset_stats(Arc::new(wrapper_stats) as _);
+            self.inner.reset_stats(Arc::new(wrapper_stats));
         } else {
             let mut wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(Arc::clone(task_stats));
             wrapper_stats.push_user_io_stats(user_stats);
-            self.inner.reset_stats(Arc::new(wrapper_stats) as _);
+            self.inner.reset_stats(Arc::new(wrapper_stats));
         }
     }
 
@@ -134,12 +135,13 @@ where
     }
 }
 
-#[pin_project]
-pub(super) struct HttpPeerHttpRequestWriter<W: AsyncWrite> {
-    config: Arc<ProxyFloatHttpPeerSharedConfig>,
-    #[pin]
-    inner: W,
-    escaper_stats: Option<Arc<ProxyFloatEscaperStats>>,
+pin_project! {
+    pub(super) struct HttpPeerHttpRequestWriter<W: AsyncWrite> {
+        config: Arc<ProxyFloatHttpPeerSharedConfig>,
+        #[pin]
+        inner: W,
+        escaper_stats: Option<Arc<ProxyFloatEscaperStats>>,
+    }
 }
 
 impl<W> HttpPeerHttpRequestWriter<W>
@@ -198,11 +200,11 @@ where
         if let Some(escaper_stats) = &self.escaper_stats {
             let mut wrapper_stats = HttpForwardRemoteWrapperStats::new(escaper_stats, task_stats);
             wrapper_stats.push_user_io_stats(user_stats);
-            self.inner.reset_stats(Arc::new(wrapper_stats) as _);
+            self.inner.reset_stats(Arc::new(wrapper_stats));
         } else {
             let mut wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(Arc::clone(task_stats));
             wrapper_stats.push_user_io_stats(user_stats);
-            self.inner.reset_stats(Arc::new(wrapper_stats) as _);
+            self.inner.reset_stats(Arc::new(wrapper_stats));
         }
     }
 

@@ -31,7 +31,6 @@ pub struct HttpConnectResponse {
     pub headers: HttpHeaderMap,
     content_length: u64,
     chunked_transfer: bool,
-    chunked_with_trailer: bool,
     has_transfer_encoding: bool,
     has_content_length: bool,
     has_trailer: bool,
@@ -45,7 +44,6 @@ impl HttpConnectResponse {
             headers: HttpHeaderMap::default(),
             content_length: 0,
             chunked_transfer: false,
-            chunked_with_trailer: false,
             has_transfer_encoding: false,
             has_content_length: false,
             has_trailer: false,
@@ -54,11 +52,7 @@ impl HttpConnectResponse {
 
     fn body_type(&self) -> Option<HttpBodyType> {
         if self.chunked_transfer {
-            if self.chunked_with_trailer {
-                Some(HttpBodyType::ChunkedWithTrailer)
-            } else {
-                Some(HttpBodyType::ChunkedWithoutTrailer)
-            }
+            Some(HttpBodyType::Chunked)
         } else if self.content_length > 0 {
             Some(HttpBodyType::ContentLength(self.content_length))
         } else {
@@ -122,7 +116,17 @@ impl HttpConnectResponse {
             rsp.parse_header_line(line_buf.as_ref())?;
         }
 
+        rsp.post_check_and_fix();
         Ok(rsp)
+    }
+
+    /// do some necessary check and fix
+    fn post_check_and_fix(&mut self) {
+        if self.has_trailer && !self.chunked_transfer {
+            self.headers.remove(http::header::TRAILER);
+        }
+
+        // Don't move non-standard connection headers to hop-by-hop headers, as we don't support them
     }
 
     fn build_from_status_line(line_buf: &[u8]) -> Result<Self, HttpConnectResponseError> {
@@ -144,12 +148,7 @@ impl HttpConnectResponse {
 
         match name.as_str() {
             "connection" | "proxy-connection" => {}
-            "trailer" => {
-                self.has_trailer = true;
-                if self.chunked_transfer {
-                    self.chunked_with_trailer = true;
-                }
-            }
+            "trailer" => self.has_trailer = true,
             "transfer-encoding" => {
                 self.has_transfer_encoding = true;
                 if self.has_content_length {
@@ -161,9 +160,6 @@ impl HttpConnectResponse {
                 let v = header.value.to_lowercase();
                 if v.ends_with("chunked") {
                     self.chunked_transfer = true;
-                    if self.has_trailer {
-                        self.chunked_with_trailer = true;
-                    }
                 } else if v.contains("chunked") {
                     return Err(HttpConnectResponseError::InvalidChunkedTransferEncoding);
                 }

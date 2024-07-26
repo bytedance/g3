@@ -115,7 +115,7 @@ impl TlsStreamTask {
                 .tls_setup_connection(
                     &mut self.tcp_notes,
                     &self.task_notes,
-                    self.task_stats.clone() as _,
+                    self.task_stats.clone(),
                     tls_client_config,
                     tls_name,
                 )
@@ -126,7 +126,7 @@ impl TlsStreamTask {
                 .tcp_setup_connection(
                     &mut self.tcp_notes,
                     &self.task_notes,
-                    self.task_stats.clone() as _,
+                    self.task_stats.clone(),
                 )
                 .await?
         };
@@ -206,13 +206,13 @@ impl TlsStreamTask {
             TcpStreamTaskCltWrapperStats::new_pair(&self.ctx.server_stats, &self.task_stats);
         let clt_speed_limit = &self.ctx.server_config.tcp_sock_speed_limit;
 
-        let clt_r = LimitedReader::new(
+        let clt_r = LimitedReader::local_limited(
             clt_r,
             clt_speed_limit.shift_millis,
             clt_speed_limit.max_north,
             clt_r_stats,
         );
-        let clt_w = LimitedWriter::new(
+        let clt_w = LimitedWriter::local_limited(
             clt_w,
             clt_speed_limit.shift_millis,
             clt_speed_limit.max_south,

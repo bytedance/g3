@@ -1,9 +1,9 @@
 [package]
 name = "g3-daemon"
-version = "0.1.0"
-rust-version = "1.73.0"
+version = "0.2.0"
 license.workspace = true
 edition.workspace = true
+rust-version = "1.80.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -14,12 +14,10 @@ cfg-if.workspace = true
 slog = { workspace = true, features = ["max_level_trace", "release_max_level_info"] }
 slog-scope = "4"
 slog-stdlog = "4.1"
-daemonize = "0.5"
 futures-util.workspace = true
 async-trait.workspace = true
 yaml-rust.workspace = true
 petgraph = "0.6"
-once_cell.workspace = true
 ahash.workspace = true
 itoa.workspace = true
 capnp.workspace = true
@@ -28,7 +26,7 @@ rand.workspace = true
 fastrand.workspace = true
 uuid = { workspace = true, features = ["v1"] }
 chrono.workspace = true
-tokio = { workspace = true, features = ["net", "io-util"] }
+tokio = { workspace = true, features = ["net", "io-util", "signal"] }
 tokio-util = { workspace = true, features = ["compat"] }
 http = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
@@ -44,6 +42,9 @@ g3-statsd-client.workspace = true
 g3-io-ext.workspace = true
 g3-socket.workspace = true
 g3-http = { workspace = true, optional = true }
+
+[target.'cfg(unix)'.dependencies]
+daemonize = "0.5"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 g3-journal.workspace = true

@@ -23,10 +23,11 @@ use g3_io_ext::{IdleCheck, LimitedWriteExt};
 
 use super::{
     H1ReqmodAdaptationError, HttpRequestAdapter, HttpRequestForAdaptation,
-    HttpRequestUpstreamWriter, ReqmodAdaptationEndState, ReqmodAdaptationRunState,
+    HttpRequestUpstreamWriter, ReqmodAdaptationEndState, ReqmodAdaptationMidState,
+    ReqmodAdaptationRunState,
 };
-use crate::reqmod::payload::IcapReqmodResponsePayload;
 use crate::reqmod::response::ReqmodResponse;
+use crate::reqmod::{IcapReqmodParseError, IcapReqmodResponsePayload};
 
 impl<I: IdleCheck> HttpRequestAdapter<I> {
     fn build_header_only_request(&self, http_header_len: usize) -> Vec<u8> {
@@ -107,14 +108,87 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                     )
                     .await
                 }
-                IcapReqmodResponsePayload::HttpResponseWithoutBody(header_size) => {
-                    self.handle_icap_http_response_without_body(rsp, header_size)
+                IcapReqmodResponsePayload::HttpResponseWithoutBody(header_size) => self
+                    .handle_icap_http_response_without_body(rsp, header_size)
+                    .await
+                    .map(|rsp| ReqmodAdaptationEndState::HttpErrResponse(rsp, None)),
+                IcapReqmodResponsePayload::HttpResponseWithBody(header_size) => self
+                    .handle_icap_http_response_with_body(rsp, header_size)
+                    .await
+                    .map(|(rsp, body)| ReqmodAdaptationEndState::HttpErrResponse(rsp, Some(body))),
+            },
+            _ => {
+                if rsp.keep_alive && rsp.payload == IcapReqmodResponsePayload::NoPayload {
+                    self.icap_client.save_connection(self.icap_connection).await;
+                }
+                Err(H1ReqmodAdaptationError::IcapServerErrorResponse(
+                    rsp.code, rsp.reason,
+                ))
+            }
+        }
+    }
+
+    pub async fn xfer_connect<H>(
+        mut self,
+        state: &mut ReqmodAdaptationRunState,
+        http_request: &H,
+    ) -> Result<ReqmodAdaptationMidState<H>, H1ReqmodAdaptationError>
+    where
+        H: HttpRequestForAdaptation,
+    {
+        let http_header = http_request.serialize_for_adapter();
+        let icap_header = self.build_header_only_request(http_header.len());
+
+        let icap_w = &mut self.icap_connection.0;
+        icap_w
+            .write_all_vectored([IoSlice::new(&icap_header), IoSlice::new(&http_header)])
+            .await
+            .map_err(H1ReqmodAdaptationError::IcapServerWriteFailed)?;
+        icap_w
+            .flush()
+            .await
+            .map_err(H1ReqmodAdaptationError::IcapServerWriteFailed)?;
+
+        let mut rsp = ReqmodResponse::parse(
+            &mut self.icap_connection.1,
+            self.icap_client.config.icap_max_header_size,
+            &self.icap_client.config.respond_shared_names,
+        )
+        .await?;
+        let shared_headers = rsp.take_shared_headers();
+        if !shared_headers.is_empty() {
+            state.respond_shared_headers = Some(shared_headers);
+        }
+
+        match rsp.code {
+            204 => {
+                if rsp.keep_alive && rsp.payload == IcapReqmodResponsePayload::NoPayload {
+                    self.icap_client.save_connection(self.icap_connection).await;
+                }
+                Ok(ReqmodAdaptationMidState::OriginalRequest)
+            }
+            n if (200..300).contains(&n) => match rsp.payload {
+                IcapReqmodResponsePayload::NoPayload => {
+                    let _ = self.handle_icap_ok_without_payload::<H>(rsp).await?;
+                    Ok(ReqmodAdaptationMidState::OriginalRequest)
+                }
+                IcapReqmodResponsePayload::HttpRequestWithoutBody(header_size) => {
+                    self.recv_icap_http_request_without_body(rsp, header_size, http_request)
                         .await
                 }
-                IcapReqmodResponsePayload::HttpResponseWithBody(header_size) => {
-                    self.handle_icap_http_response_with_body(rsp, header_size)
-                        .await
+                IcapReqmodResponsePayload::HttpRequestWithBody(_) => {
+                    Err(H1ReqmodAdaptationError::InvalidIcapServerResponse(
+                        IcapReqmodParseError::UnsupportedBody("no body is expected"),
+                    ))
                 }
+                IcapReqmodResponsePayload::HttpResponseWithoutBody(header_size) => self
+                    .handle_icap_http_response_without_body(rsp, header_size)
+                    .await
+                    .map(|rsp| ReqmodAdaptationMidState::HttpErrResponse(rsp, None)),
+                IcapReqmodResponsePayload::HttpResponseWithBody(header_size) => self
+                    .handle_icap_http_response_with_body(rsp, header_size)
+                    .await
+                    .map(|(rsp, body)| ReqmodAdaptationMidState::HttpErrResponse(rsp, Some(body))),
             },
             _ => {
                 if rsp.keep_alive && rsp.payload == IcapReqmodResponsePayload::NoPayload {

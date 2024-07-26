@@ -79,8 +79,8 @@ impl fmt::Display for HttpUpgradeToken {
         match self {
             HttpUpgradeToken::Http(v) => write!(f, "{v:?}"),
             HttpUpgradeToken::Tls(major, minor) => write!(f, "TLS/{major}.{minor}"),
-            HttpUpgradeToken::Websocket => write!(f, "websocket"),
-            HttpUpgradeToken::ConnectUdp => write!(f, "connect-udp"),
+            HttpUpgradeToken::Websocket => f.write_str("websocket"),
+            HttpUpgradeToken::ConnectUdp => f.write_str("connect-udp"),
             HttpUpgradeToken::Unsupported(s) => write!(f, "{s}"),
         }
     }

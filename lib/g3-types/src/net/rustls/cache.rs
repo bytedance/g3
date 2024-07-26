@@ -20,6 +20,7 @@ use std::sync::Mutex;
 use lru::LruCache;
 use rustls::server::StoresServerSessions;
 
+#[derive(Debug)]
 struct CacheSlot {
     local: Mutex<LruCache<Vec<u8>, Vec<u8>, ahash::RandomState>>,
 }
@@ -32,6 +33,7 @@ impl CacheSlot {
     }
 }
 
+#[derive(Debug)]
 pub struct RustlsServerSessionCache {
     slots: [CacheSlot; 16],
 }

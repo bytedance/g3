@@ -30,13 +30,17 @@ use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
 
 pub(super) async fn transfer<SC>(
-    clt_req: Request<RecvStream>,
+    mut clt_req: Request<RecvStream>,
     clt_send_rsp: SendResponse<Bytes>,
     h2s: SendRequest<Bytes>,
     ctx: StreamInspectContext<SC>,
 ) where
     SC: ServerConfig + Send + Sync + 'static,
 {
+    if ctx.h1_interception().steal_forwarded_for {
+        clt_req.headers_mut().remove(http::header::FORWARDED);
+        clt_req.headers_mut().remove("x-forwarded-for");
+    }
     let clt_stream_id = clt_send_rsp.stream_id();
     if clt_req.method().eq(&Method::CONNECT) {
         if let Some(protocol) = clt_req.extensions().get::<Protocol>() {

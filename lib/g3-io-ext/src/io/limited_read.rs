@@ -22,11 +22,11 @@ use std::task::{ready, Context, Poll};
 use std::time::Duration;
 
 use futures_util::FutureExt;
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::time::{Instant, Sleep};
 
-use crate::limit::{StreamLimitInfo, StreamLimitResult};
+use crate::limit::{GlobalLimitGroup, GlobalStreamLimit, StreamLimitAction, StreamLimiter};
 
 pub trait LimitedReaderStats {
     fn add_read_bytes(&self, size: usize);
@@ -43,36 +43,52 @@ impl LimitedReaderStats for NilLimitedReaderStats {
 pub(crate) struct LimitedReaderState {
     delay: Pin<Box<Sleep>>,
     started: Instant,
-    limit: StreamLimitInfo,
+    limit: StreamLimiter,
     stats: ArcLimitedReaderStats,
 }
 
 impl LimitedReaderState {
-    pub(crate) fn new(shift_millis: u8, max_bytes: usize, stats: ArcLimitedReaderStats) -> Self {
+    pub(crate) fn new(stats: ArcLimitedReaderStats) -> Self {
         LimitedReaderState {
             delay: Box::pin(tokio::time::sleep(Duration::from_millis(0))),
             started: Instant::now(),
-            limit: StreamLimitInfo::new(shift_millis, max_bytes),
+            limit: StreamLimiter::default(),
             stats,
         }
     }
 
-    pub(crate) fn new_unlimited(stats: ArcLimitedReaderStats) -> Self {
+    pub(crate) fn local_limited(
+        shift_millis: u8,
+        max_bytes: usize,
+        stats: ArcLimitedReaderStats,
+    ) -> Self {
         LimitedReaderState {
             delay: Box::pin(tokio::time::sleep(Duration::from_millis(0))),
             started: Instant::now(),
-            limit: StreamLimitInfo::default(),
+            limit: StreamLimiter::with_local(shift_millis, max_bytes),
             stats,
         }
+    }
+
+    pub(crate) fn add_global_limiter<T>(&mut self, limiter: Arc<T>)
+    where
+        T: GlobalStreamLimit + Send + Sync + 'static,
+    {
+        self.limit.add_global(limiter);
+    }
+
+    #[inline]
+    pub(crate) fn retain_global_limiter_by_group(&mut self, group: GlobalLimitGroup) {
+        self.limit.retain_global_by_group(group);
     }
 
     pub(crate) fn reset_stats(&mut self, stats: ArcLimitedReaderStats) {
         self.stats = stats;
     }
 
-    pub(crate) fn reset_limit(&mut self, shift_millis: u8, max_bytes: usize) {
+    pub(crate) fn reset_local_limit(&mut self, shift_millis: u8, max_bytes: usize) {
         let dur_millis = self.started.elapsed().as_millis() as u64;
-        self.limit.reset(shift_millis, max_bytes, dur_millis);
+        self.limit.reset_local(shift_millis, max_bytes, dur_millis);
     }
 
     pub(crate) fn poll_read<R>(
@@ -87,20 +103,47 @@ impl LimitedReaderState {
         if self.limit.is_set() {
             let dur_millis = self.started.elapsed().as_millis() as u64;
             match self.limit.check(dur_millis, buf.remaining()) {
-                StreamLimitResult::AdvanceBy(len) => {
+                StreamLimitAction::AdvanceBy(len) => {
                     let mut limited_buf = ReadBuf::new(buf.initialize_unfilled_to(len));
-                    ready!(reader.poll_read(cx, &mut limited_buf))?;
-                    let nr = limited_buf.filled().len();
-                    self.limit.set_advance(nr);
-                    buf.advance(nr);
-                    self.stats.add_read_bytes(nr);
-                    Poll::Ready(Ok(()))
+                    match reader.poll_read(cx, &mut limited_buf) {
+                        Poll::Ready(Ok(_)) => {
+                            let nr = limited_buf.filled().len();
+                            self.limit.set_advance(nr);
+                            buf.advance(nr);
+                            self.stats.add_read_bytes(nr);
+                            Poll::Ready(Ok(()))
+                        }
+                        Poll::Ready(Err(e)) => {
+                            self.limit.release_global();
+                            Poll::Ready(Err(e))
+                        }
+                        Poll::Pending => {
+                            self.limit.release_global();
+                            Poll::Pending
+                        }
+                    }
                 }
-                StreamLimitResult::DelayFor(ms) => {
+                StreamLimitAction::DelayUntil(t) => {
+                    self.delay.as_mut().reset(t);
+                    match self.delay.poll_unpin(cx) {
+                        Poll::Ready(_) => {
+                            cx.waker().wake_by_ref();
+                            Poll::Pending
+                        }
+                        Poll::Pending => Poll::Pending,
+                    }
+                }
+                StreamLimitAction::DelayFor(ms) => {
                     self.delay
                         .as_mut()
                         .reset(self.started + Duration::from_millis(dur_millis + ms));
-                    self.delay.poll_unpin(cx).map(|_| Ok(()))
+                    match self.delay.poll_unpin(cx) {
+                        Poll::Ready(_) => {
+                            cx.waker().wake_by_ref();
+                            Poll::Pending
+                        }
+                        Poll::Pending => Poll::Pending,
+                    }
                 }
             }
         } else {
@@ -113,26 +156,48 @@ impl LimitedReaderState {
     }
 }
 
-#[pin_project]
-pub struct LimitedReader<R> {
-    #[pin]
-    inner: R,
-    state: LimitedReaderState,
+pin_project! {
+    pub struct LimitedReader<R> {
+        #[pin]
+        inner: R,
+        state: LimitedReaderState,
+    }
 }
 
 impl<R> LimitedReader<R> {
-    pub fn new(inner: R, shift_millis: u8, max_bytes: usize, stats: ArcLimitedReaderStats) -> Self {
+    pub fn new(inner: R, stats: ArcLimitedReaderStats) -> Self {
         LimitedReader {
             inner,
-            state: LimitedReaderState::new(shift_millis, max_bytes, stats),
+            state: LimitedReaderState::new(stats),
         }
     }
 
-    pub fn new_unlimited(inner: R, stats: ArcLimitedReaderStats) -> Self {
+    pub fn local_limited(
+        inner: R,
+        shift_millis: u8,
+        max_bytes: usize,
+        stats: ArcLimitedReaderStats,
+    ) -> Self {
         LimitedReader {
             inner,
-            state: LimitedReaderState::new_unlimited(stats),
+            state: LimitedReaderState::local_limited(shift_millis, max_bytes, stats),
         }
+    }
+
+    pub fn add_global_limiter<T>(&mut self, limiter: Arc<T>)
+    where
+        T: GlobalStreamLimit + Send + Sync + 'static,
+    {
+        self.state.add_global_limiter(limiter);
+    }
+
+    #[inline]
+    pub fn retain_global_limiter_by_group(&mut self, group: GlobalLimitGroup) {
+        self.state.retain_global_limiter_by_group(group);
+    }
+
+    pub(crate) fn from_parts(inner: R, state: LimitedReaderState) -> Self {
+        LimitedReader { inner, state }
     }
 
     #[inline]
@@ -141,8 +206,8 @@ impl<R> LimitedReader<R> {
     }
 
     #[inline]
-    pub fn reset_limit(&mut self, shift_millis: u8, max_bytes: usize) {
-        self.state.reset_limit(shift_millis, max_bytes);
+    pub fn reset_local_limit(&mut self, shift_millis: u8, max_bytes: usize) {
+        self.state.reset_local_limit(shift_millis, max_bytes);
     }
 
     pub fn into_inner(self) -> R {
@@ -194,12 +259,13 @@ impl<R: AsyncRead + AsyncWrite> AsyncWrite for LimitedReader<R> {
     }
 }
 
-#[pin_project]
-pub struct SizedReader<R> {
-    #[pin]
-    inner: R,
-    max_size: u64,
-    cur_size: u64,
+pin_project! {
+    pub struct SizedReader<R> {
+        #[pin]
+        inner: R,
+        max_size: u64,
+        cur_size: u64,
+    }
 }
 
 impl<R> SizedReader<R>

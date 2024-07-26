@@ -27,6 +27,9 @@ use super::{registry, ArcBackend};
 use crate::config::backend::{AnyBackendConfig, BackendConfigDiffAction};
 
 use super::dummy_close::DummyCloseBackend;
+#[cfg(feature = "quic")]
+use super::keyless_quic::KeylessQuicBackend;
+use super::keyless_tcp::KeylessTcpBackend;
 use super::stream_tcp::StreamTcpBackend;
 
 static BACKEND_OPS_LOCK: Mutex<()> = Mutex::const_new(());
@@ -42,12 +45,12 @@ pub async fn load_all() -> anyhow::Result<()> {
         new_names.insert(name.clone());
         match registry::get_config(name) {
             Some(old) => {
-                debug!("reloading backend {name}");
+                debug!("reloading backend {name}({})", config.backend_type());
                 reload_unlocked(old, config.as_ref().clone()).await?;
                 debug!("backend {name} reload OK");
             }
             None => {
-                debug!("creating backend {name}");
+                debug!("creating backend {name}({})", config.backend_type());
                 spawn_new_unlocked(config.as_ref().clone()).await?;
                 debug!("backend {name} create OK");
             }
@@ -102,7 +105,10 @@ pub(crate) async fn reload(
         ));
     }
 
-    debug!("reloading backend {name} from position {position}");
+    debug!(
+        "reloading backend {name}({}) from position {position}",
+        config.backend_type()
+    );
     reload_unlocked(old_config, config).await?;
     debug!("backend {name} reload OK");
     Ok(())
@@ -169,6 +175,9 @@ async fn spawn_new_unlocked(config: AnyBackendConfig) -> anyhow::Result<()> {
     let site = match config {
         AnyBackendConfig::DummyClose(c) => DummyCloseBackend::prepare_initial(c)?,
         AnyBackendConfig::StreamTcp(c) => StreamTcpBackend::prepare_initial(c)?,
+        AnyBackendConfig::KeylessTcp(c) => KeylessTcpBackend::prepare_initial(c)?,
+        #[cfg(feature = "quic")]
+        AnyBackendConfig::KeylessQuic(c) => KeylessQuicBackend::prepare_initial(c)?,
     };
     registry::add(name.clone(), site);
     crate::serve::update_dependency_to_backend(&name, "spawned").await;

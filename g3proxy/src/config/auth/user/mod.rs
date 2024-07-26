@@ -25,16 +25,18 @@ use g3_types::acl::{
     AclExactPortRule, AclNetworkRuleBuilder, AclProxyRequestRule, AclUserAgentRule,
 };
 use g3_types::acl_set::AclDstHostRuleSetBuilder;
-use g3_types::limit::RateLimitQuotaConfig;
+use g3_types::limit::{
+    GlobalDatagramSpeedLimitConfig, GlobalStreamSpeedLimitConfig, RateLimitQuotaConfig,
+};
 use g3_types::metrics::MetricsName;
 use g3_types::net::{
     HttpKeepAliveConfig, TcpConnectConfig, TcpKeepAliveConfig, TcpMiscSockOpts,
     TcpSockSpeedLimitConfig, UdpMiscSockOpts, UdpSockSpeedLimitConfig,
 };
 use g3_types::resolve::{ResolveRedirectionBuilder, ResolveStrategy};
-use g3_types::route::EgressPathSelection;
 
 use super::{PasswordToken, UserAuditConfig, UserSiteConfig};
+use crate::escape::EgressPathSelection;
 
 mod json;
 mod yaml;
@@ -53,11 +55,16 @@ pub(crate) struct UserConfig {
     tcp_client_misc_opts: Option<TcpMiscSockOpts>,
     udp_client_misc_opts: Option<UdpMiscSockOpts>,
     pub(crate) http_upstream_keepalive: HttpKeepAliveConfig,
+    pub(crate) http_rsp_hdr_recv_timeout: Option<Duration>,
     pub(crate) request_alive_max: usize,
     pub(crate) request_rate_limit: Option<RateLimitQuotaConfig>,
     pub(crate) tcp_conn_rate_limit: Option<RateLimitQuotaConfig>,
     pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
     pub(crate) udp_sock_speed_limit: UdpSockSpeedLimitConfig,
+    pub(crate) tcp_all_upload_speed_limit: Option<GlobalStreamSpeedLimitConfig>,
+    pub(crate) tcp_all_download_speed_limit: Option<GlobalStreamSpeedLimitConfig>,
+    pub(crate) udp_all_upload_speed_limit: Option<GlobalDatagramSpeedLimitConfig>,
+    pub(crate) udp_all_download_speed_limit: Option<GlobalDatagramSpeedLimitConfig>,
     pub(crate) log_rate_limit: Option<RateLimitQuotaConfig>,
     pub(crate) log_uri_max_chars: Option<usize>,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
@@ -69,7 +76,7 @@ pub(crate) struct UserConfig {
     pub(crate) resolve_redirection: Option<ResolveRedirectionBuilder>,
     pub(crate) task_idle_max_count: i32,
     pub(crate) socks_use_udp_associate: bool,
-    pub(crate) egress_path_selection: Arc<EgressPathSelection>,
+    pub(crate) egress_path_selection: Option<EgressPathSelection>,
     pub(crate) explicit_sites: BTreeMap<MetricsName, Arc<UserSiteConfig>>,
 }
 
@@ -88,11 +95,16 @@ impl Default for UserConfig {
             tcp_client_misc_opts: None,
             udp_client_misc_opts: None,
             http_upstream_keepalive: Default::default(),
+            http_rsp_hdr_recv_timeout: None,
             request_alive_max: 0,
             request_rate_limit: None,
             tcp_conn_rate_limit: None,
             tcp_sock_speed_limit: Default::default(),
             udp_sock_speed_limit: Default::default(),
+            tcp_all_upload_speed_limit: None,
+            tcp_all_download_speed_limit: None,
+            udp_all_upload_speed_limit: None,
+            udp_all_download_speed_limit: None,
             log_rate_limit: None,
             log_uri_max_chars: None,
             ingress_net_filter: None,
@@ -104,7 +116,7 @@ impl Default for UserConfig {
             resolve_redirection: None,
             task_idle_max_count: 1,
             socks_use_udp_associate: false,
-            egress_path_selection: Arc::new(EgressPathSelection::Default),
+            egress_path_selection: None,
             explicit_sites: BTreeMap::new(),
         }
     }

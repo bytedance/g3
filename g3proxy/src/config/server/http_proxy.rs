@@ -112,7 +112,7 @@ impl HttpProxyServerConfig {
             listen: None,
             listen_in_worker: false,
             server_tls_config: None,
-            client_tls_config: Default::default(),
+            client_tls_config: OpensslClientConfigBuilder::with_cache_for_many_sites(),
             ftp_client_config: Arc::new(Default::default()),
             ingress_net_filter: None,
             dst_host_filter: None,

@@ -20,8 +20,5 @@ pub(super) use server::OpensslProxyServer;
 mod task;
 use task::{CommonTaskContext, OpensslAcceptTask};
 
-mod stats;
-use stats::OpensslProxyServerStats;
-
 mod host;
 use host::OpensslHost;

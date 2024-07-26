@@ -1,4 +1,26 @@
 
+v0.3.4:
+ - BUG FIX: avoid dead loop try of keyless connection
+ - Feature: set limit for the reuse of upstream keyless connection
+ - Feature: more robust hot restart
+ - Feature: emit tokio runtime metrics
+
+v0.3.3:
+ - Feature: add openssl variant info to version message
+ - Feature: support aws-lc as rustls crypto provider and update version message
+ - Feature: allow to disable session cache for openssl_proxy & rustls_proxy server
+ - Feature: enable tls session ticket by default for rustls_proxy server
+ - Feature: try TCPs quick ACK after TLS accept handshake for resumed session
+
+v0.3.2:
+ - Compatibility: support windows
+ - Compatibility: update build dependencies
+
+v0.3.1:
+ - Feature: add keyless proxy
+ - Feature: add quic listen port
+ - Feature: add sphinx doc
+
 v0.3.0:
  - BUG FIX: fix session resumption for OpensslProxy when client auth is enabled
  - Feature: introduce discover and backend

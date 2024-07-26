@@ -37,6 +37,21 @@ pub fn as_usize(v: &Value) -> anyhow::Result<usize> {
     }
 }
 
+pub fn as_u64(v: &Value) -> anyhow::Result<u64> {
+    match v {
+        Value::String(s) => {
+            let v = s.parse::<Bytes<u64>>()?;
+            Ok(v.size())
+        }
+        Value::Number(n) => n
+            .as_u64()
+            .ok_or_else(|| anyhow!("out of range json value for u64")),
+        _ => Err(anyhow!(
+            "yaml value type for humanize u64 should be 'string' or 'integer'"
+        )),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

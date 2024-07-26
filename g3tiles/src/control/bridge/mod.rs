@@ -14,16 +14,5 @@
  * limitations under the License.
  */
 
-use anyhow::anyhow;
-
 mod reload;
 pub(super) use reload::{reload_backend, reload_discover, reload_server};
-
-pub(crate) async fn offline() -> anyhow::Result<()> {
-    g3_daemon::runtime::main_handle()
-        .ok_or(anyhow!("unable to get main runtime handle"))?
-        .spawn(async move { crate::control::DaemonController::abort().await })
-        .await
-        .map_err(|e| anyhow!("failed to spawn reload task: {e}"))?;
-    Ok(())
-}

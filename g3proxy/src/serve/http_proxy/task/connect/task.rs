@@ -326,7 +326,7 @@ impl HttpProxyConnectTask {
             .tcp_setup_connection(
                 &mut self.tcp_notes,
                 &self.task_notes,
-                self.task_stats.clone() as _,
+                self.task_stats.clone(),
             )
             .await
         {
@@ -529,20 +529,30 @@ impl HttpProxyConnectTask {
             self.ctx.server_config.tcp_sock_speed_limit
         };
 
-        let (clt_r_stats, clt_w_stats) = wrapper_stats.split();
-        (
-            LimitedReader::new(
-                clt_r,
-                limit_config.shift_millis,
-                limit_config.max_north,
-                clt_r_stats,
-            ),
-            LimitedWriter::new(
-                clt_w,
-                limit_config.shift_millis,
-                limit_config.max_south,
-                clt_w_stats,
-            ),
-        )
+        let wrapper_stats = Arc::new(wrapper_stats);
+        let mut clt_r = LimitedReader::local_limited(
+            clt_r,
+            limit_config.shift_millis,
+            limit_config.max_north,
+            wrapper_stats.clone(),
+        );
+        let mut clt_w = LimitedWriter::local_limited(
+            clt_w,
+            limit_config.shift_millis,
+            limit_config.max_south,
+            wrapper_stats,
+        );
+
+        if let Some(user_ctx) = self.task_notes.user_ctx() {
+            let user = user_ctx.user();
+            if let Some(limiter) = user.tcp_all_upload_speed_limit() {
+                clt_r.add_global_limiter(limiter.clone());
+            }
+            if let Some(limiter) = user.tcp_all_download_speed_limit() {
+                clt_w.add_global_limiter(limiter.clone());
+            }
+        }
+
+        (clt_r, clt_w)
     }
 }

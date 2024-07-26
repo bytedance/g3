@@ -18,42 +18,34 @@ use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 
-use anyhow::anyhow;
-use tokio::io::AsyncReadExt;
-use tokio::net::{tcp, UdpSocket};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
+use tokio::net::{TcpStream, UdpSocket};
 use tokio::sync::oneshot;
 
-use g3_daemon::stat::remote::{
-    ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStatsWrapper,
-};
-use g3_io_ext::{AggregatedIo, LimitedReader, LimitedWriter};
-use g3_openssl::{SslConnector, SslStream};
+use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
+use g3_io_ext::LimitedStream;
 use g3_socks::v5;
 use g3_types::net::{Host, OpensslClientConfig, SocketBufferConfig};
 
-use super::{NextProxyPeerInternal, ProxyFloatSocks5Peer};
-use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};
+use super::{ProxyFloatEscaper, ProxyFloatSocks5Peer};
+use crate::log::escape::tls_handshake::TlsApplication;
 use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectRemoteWrapperStats, TcpConnectResult, TcpConnectTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
 impl ProxyFloatSocks5Peer {
-    pub(super) async fn socks5_connect_tcp_connect_to<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
-    ) -> Result<
-        (
-            LimitedReader<tcp::OwnedReadHalf>,
-            LimitedWriter<tcp::OwnedWriteHalf>,
-        ),
-        TcpConnectError,
-    > {
-        let (mut r, mut w) = self.tcp_new_connection(tcp_notes, task_notes).await?;
+    pub(super) async fn socks5_connect_tcp_connect_to(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> Result<LimitedStream<TcpStream>, TcpConnectError> {
+        let mut stream = escaper
+            .tcp_new_connection(self, tcp_notes, task_notes)
+            .await?;
         let outgoing_addr = v5::client::socks5_connect_to(
-            &mut r,
-            &mut w,
+            &mut stream,
             &self.shared_config.auth_info,
             &tcp_notes.upstream,
         )
@@ -63,23 +55,18 @@ impl ProxyFloatSocks5Peer {
         tcp_notes.chained.outgoing_addr = Some(outgoing_addr);
         // we can not determine the real upstream addr that the proxy choose to connect to
 
-        Ok((r, w))
+        Ok(stream)
     }
 
-    pub(super) async fn timed_socks5_connect_tcp_connect_to<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
-    ) -> Result<
-        (
-            LimitedReader<tcp::OwnedReadHalf>,
-            LimitedWriter<tcp::OwnedWriteHalf>,
-        ),
-        TcpConnectError,
-    > {
+    pub(super) async fn timed_socks5_connect_tcp_connect_to(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> Result<LimitedStream<TcpStream>, TcpConnectError> {
         tokio::time::timeout(
-            self.escaper_config.peer_negotiation_timeout,
-            self.socks5_connect_tcp_connect_to(tcp_notes, task_notes),
+            escaper.config.peer_negotiation_timeout,
+            self.socks5_connect_tcp_connect_to(escaper, tcp_notes, task_notes),
         )
         .await
         .map_err(|_| TcpConnectError::NegotiationPeerTimeout)?
@@ -89,6 +76,7 @@ impl ProxyFloatSocks5Peer {
     /// return (socket, listen_addr, peer_addr)
     pub(super) async fn socks5_udp_associate(
         &self,
+        escaper: &ProxyFloatEscaper,
         buf_conf: SocketBufferConfig,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
@@ -101,8 +89,8 @@ impl ProxyFloatSocks5Peer {
         ),
         io::Error,
     > {
-        let (mut r, mut w) = self
-            .tcp_new_connection(tcp_notes, task_notes)
+        let mut stream = escaper
+            .tcp_new_connection(self, tcp_notes, task_notes)
             .await
             .map_err(io::Error::other)?;
         let local_tcp_addr = tcp_notes
@@ -120,8 +108,7 @@ impl ProxyFloatSocks5Peer {
         let send_udp_addr = SocketAddr::new(send_udp_ip, 0);
 
         let peer_udp_addr = v5::client::socks5_udp_associate(
-            &mut r,
-            &mut w,
+            &mut stream,
             &self.shared_config.auth_info,
             send_udp_addr,
         )
@@ -132,16 +119,13 @@ impl ProxyFloatSocks5Peer {
             peer_udp_addr,
             Some(local_tcp_addr.ip()),
             buf_conf,
-            self.escaper_config.udp_misc_opts,
+            escaper.config.udp_misc_opts,
         )?;
         let socket = UdpSocket::from_std(socket)?;
         socket.connect(peer_udp_addr).await?;
         let listen_addr = socket.local_addr()?;
 
-        let r = r.into_inner();
-        let w = w.into_inner();
-        let stream = r.reunite(w).map_err(io::Error::other)?;
-
+        let stream = stream.into_inner();
         let (mut tcp_close_sender, tcp_close_receiver) = oneshot::channel::<Option<io::Error>>();
         tokio::spawn(async move {
             let mut tcp_stream = stream;
@@ -167,6 +151,7 @@ impl ProxyFloatSocks5Peer {
 
     pub(super) async fn timed_socks5_udp_associate(
         &self,
+        escaper: &ProxyFloatEscaper,
         buf_conf: SocketBufferConfig,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
@@ -180,119 +165,74 @@ impl ProxyFloatSocks5Peer {
         io::Error,
     > {
         tokio::time::timeout(
-            self.escaper_config.peer_negotiation_timeout,
-            self.socks5_udp_associate(buf_conf, tcp_notes, task_notes),
+            escaper.config.peer_negotiation_timeout,
+            self.socks5_udp_associate(escaper, buf_conf, tcp_notes, task_notes),
         )
         .await
         .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "peer negotiation timeout"))?
     }
 
-    pub(super) async fn socks5_new_tcp_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    pub(super) async fn socks5_new_tcp_connection(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
-        let (mut r, mut w) = self
-            .timed_socks5_connect_tcp_connect_to(tcp_notes, task_notes)
+        let mut ups_s = self
+            .timed_socks5_connect_tcp_connect_to(escaper, tcp_notes, task_notes)
             .await?;
 
-        let mut wrapper_stats = TcpConnectRemoteWrapperStats::new(&self.escaper_stats, task_stats);
-        wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
+        let mut wrapper_stats = TcpConnectRemoteWrapperStats::new(&escaper.stats, task_stats);
+        wrapper_stats.push_user_io_stats(escaper.fetch_user_upstream_io_stats(task_notes));
         let wrapper_stats = Arc::new(wrapper_stats);
 
-        r.reset_stats(wrapper_stats.clone() as _);
-        w.reset_stats(wrapper_stats as _);
+        ups_s.reset_stats(wrapper_stats);
+        let (r, w) = ups_s.into_split_tcp();
 
         Ok((Box::new(r), Box::new(w)))
     }
 
-    pub(super) async fn socks5_connect_tls_connect_to<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
-        tls_config: &'a OpensslClientConfig,
-        tls_name: &'a Host,
+    pub(super) async fn socks5_connect_tls_connect_to(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
+        tls_config: &OpensslClientConfig,
+        tls_name: &Host,
         tls_application: TlsApplication,
-    ) -> Result<
-        SslStream<
-            AggregatedIo<LimitedReader<tcp::OwnedReadHalf>, LimitedWriter<tcp::OwnedWriteHalf>>,
-        >,
-        TcpConnectError,
-    > {
-        let (ups_r, ups_w) = self
-            .timed_socks5_connect_tcp_connect_to(tcp_notes, task_notes)
+    ) -> Result<impl AsyncRead + AsyncWrite, TcpConnectError> {
+        let ups_s = self
+            .timed_socks5_connect_tcp_connect_to(escaper, tcp_notes, task_notes)
             .await?;
-
-        let ssl = tls_config
-            .build_ssl(tls_name, tcp_notes.upstream.port())
-            .map_err(TcpConnectError::InternalTlsClientError)?;
-        let connector = SslConnector::new(
-            ssl,
-            AggregatedIo {
-                reader: ups_r,
-                writer: ups_w,
-            },
-        )
-        .map_err(|e| TcpConnectError::InternalTlsClientError(anyhow::Error::new(e)))?;
-
-        match tokio::time::timeout(tls_config.handshake_timeout, connector.connect()).await {
-            Ok(Ok(stream)) => Ok(stream),
-            Ok(Err(e)) => {
-                let e = anyhow::Error::new(e);
-                EscapeLogForTlsHandshake {
-                    tcp_notes,
-                    task_id: &task_notes.id,
-                    tls_name,
-                    tls_peer: &tcp_notes.upstream,
-                    tls_application,
-                }
-                .log(&self.escape_logger, &e);
-                Err(TcpConnectError::UpstreamTlsHandshakeFailed(e))
-            }
-            Err(_) => {
-                let e = anyhow!("upstream tls handshake timed out");
-                EscapeLogForTlsHandshake {
-                    tcp_notes,
-                    task_id: &task_notes.id,
-                    tls_name,
-                    tls_peer: &tcp_notes.upstream,
-                    tls_application,
-                }
-                .log(&self.escape_logger, &e);
-                Err(TcpConnectError::UpstreamTlsHandshakeTimeout)
-            }
-        }
-    }
-
-    pub(super) async fn socks5_new_tls_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
-        task_stats: ArcTcpConnectionTaskRemoteStats,
-        tls_config: &'a OpensslClientConfig,
-        tls_name: &'a Host,
-    ) -> TcpConnectResult {
-        let tls_stream = self
-            .socks5_connect_tls_connect_to(
+        escaper
+            .tls_connect_over_tunnel(
+                ups_s,
                 tcp_notes,
                 task_notes,
                 tls_config,
                 tls_name,
-                TlsApplication::TcpStream,
+                tls_application,
             )
+            .await
+    }
+
+    pub(super) async fn socks5_new_tls_connection(
+        &self,
+        escaper: &ProxyFloatEscaper,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
+        task_stats: ArcTcpConnectionTaskRemoteStats,
+        tls_config: &OpensslClientConfig,
+        tls_name: &Host,
+    ) -> TcpConnectResult {
+        let ups_s = self
+            .timed_socks5_connect_tcp_connect_to(escaper, tcp_notes, task_notes)
             .await?;
-
-        let (ups_r, ups_w) = tokio::io::split(tls_stream);
-
-        // add task and user stats
-        let mut wrapper_stats = TcpConnectionTaskRemoteStatsWrapper::new(task_stats);
-        wrapper_stats.push_other_stats(self.fetch_user_upstream_io_stats(task_notes));
-        let wrapper_stats = Arc::new(wrapper_stats);
-
-        let ups_r = LimitedReader::new_unlimited(ups_r, wrapper_stats.clone() as _);
-        let ups_w = LimitedWriter::new_unlimited(ups_w, wrapper_stats as _);
-
-        Ok((Box::new(ups_r), Box::new(ups_w)))
+        escaper
+            .new_tls_connection_over_tunnel(
+                ups_s, tcp_notes, task_notes, task_stats, tls_config, tls_name,
+            )
+            .await
     }
 }

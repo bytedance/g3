@@ -30,6 +30,7 @@ use g3_yaml::{HybridParser, YamlDocPosition};
 
 pub(crate) mod direct_fixed;
 pub(crate) mod direct_float;
+pub(crate) mod divert_tcp;
 pub(crate) mod dummy_deny;
 pub(crate) mod proxy_float;
 pub(crate) mod proxy_http;
@@ -37,7 +38,6 @@ pub(crate) mod proxy_https;
 pub(crate) mod proxy_socks5;
 pub(crate) mod route_client;
 pub(crate) mod route_failover;
-#[cfg(feature = "geoip")]
 pub(crate) mod route_geoip;
 pub(crate) mod route_mapping;
 pub(crate) mod route_query;
@@ -97,6 +97,7 @@ pub(crate) struct GeneralEscaperConfig {
 pub(crate) enum AnyEscaperConfig {
     DirectFixed(Box<direct_fixed::DirectFixedEscaperConfig>),
     DirectFloat(Box<direct_float::DirectFloatEscaperConfig>),
+    DivertTcp(divert_tcp::DivertTcpEscaperConfig),
     DummyDeny(dummy_deny::DummyDenyEscaperConfig),
     ProxyFloat(proxy_float::ProxyFloatEscaperConfig),
     ProxyHttp(Box<proxy_http::ProxyHttpEscaperConfig>),
@@ -104,7 +105,6 @@ pub(crate) enum AnyEscaperConfig {
     ProxySocks5(proxy_socks5::ProxySocks5EscaperConfig),
     RouteFailover(route_failover::RouteFailoverEscaperConfig),
     RouteResolved(route_resolved::RouteResolvedEscaperConfig),
-    #[cfg(feature = "geoip")]
     RouteGeoIp(route_geoip::RouteGeoIpEscaperConfig),
     RouteMapping(route_mapping::RouteMappingEscaperConfig),
     RouteQuery(route_query::RouteQueryEscaperConfig),
@@ -120,6 +120,7 @@ macro_rules! impl_transparent0 {
             match self {
                 AnyEscaperConfig::DirectFixed(s) => s.$f(),
                 AnyEscaperConfig::DirectFloat(s) => s.$f(),
+                AnyEscaperConfig::DivertTcp(s) => s.$f(),
                 AnyEscaperConfig::DummyDeny(s) => s.$f(),
                 AnyEscaperConfig::ProxyFloat(s) => s.$f(),
                 AnyEscaperConfig::ProxyHttp(s) => s.$f(),
@@ -127,7 +128,6 @@ macro_rules! impl_transparent0 {
                 AnyEscaperConfig::ProxySocks5(s) => s.$f(),
                 AnyEscaperConfig::RouteFailover(s) => s.$f(),
                 AnyEscaperConfig::RouteResolved(s) => s.$f(),
-                #[cfg(feature = "geoip")]
                 AnyEscaperConfig::RouteGeoIp(s) => s.$f(),
                 AnyEscaperConfig::RouteMapping(s) => s.$f(),
                 AnyEscaperConfig::RouteQuery(s) => s.$f(),
@@ -146,6 +146,7 @@ macro_rules! impl_transparent1 {
             match self {
                 AnyEscaperConfig::DirectFixed(s) => s.$f(p),
                 AnyEscaperConfig::DirectFloat(s) => s.$f(p),
+                AnyEscaperConfig::DivertTcp(s) => s.$f(p),
                 AnyEscaperConfig::DummyDeny(s) => s.$f(p),
                 AnyEscaperConfig::ProxyFloat(s) => s.$f(p),
                 AnyEscaperConfig::ProxyHttp(s) => s.$f(p),
@@ -153,7 +154,6 @@ macro_rules! impl_transparent1 {
                 AnyEscaperConfig::ProxySocks5(s) => s.$f(p),
                 AnyEscaperConfig::RouteFailover(s) => s.$f(p),
                 AnyEscaperConfig::RouteResolved(s) => s.$f(p),
-                #[cfg(feature = "geoip")]
                 AnyEscaperConfig::RouteGeoIp(s) => s.$f(p),
                 AnyEscaperConfig::RouteMapping(s) => s.$f(p),
                 AnyEscaperConfig::RouteQuery(s) => s.$f(p),
@@ -228,6 +228,10 @@ fn load_escaper(
             let config = direct_float::DirectFloatEscaperConfig::parse(map, position)?;
             Ok(AnyEscaperConfig::DirectFloat(Box::new(config)))
         }
+        "divert_tcp" | "diverttcp" => {
+            let config = divert_tcp::DivertTcpEscaperConfig::parse(map, position)?;
+            Ok(AnyEscaperConfig::DivertTcp(config))
+        }
         "dummy_deny" | "dummydeny" => {
             let config = dummy_deny::DummyDenyEscaperConfig::parse(map, position, None)?;
             Ok(AnyEscaperConfig::DummyDeny(config))
@@ -264,7 +268,6 @@ fn load_escaper(
             let config = route_resolved::RouteResolvedEscaperConfig::parse(map, position)?;
             Ok(AnyEscaperConfig::RouteResolved(config))
         }
-        #[cfg(feature = "geoip")]
         "route_geoip" | "routegeoip" | "route_geo_ip" => {
             let config = route_geoip::RouteGeoIpEscaperConfig::parse(map, position)?;
             Ok(AnyEscaperConfig::RouteGeoIp(config))

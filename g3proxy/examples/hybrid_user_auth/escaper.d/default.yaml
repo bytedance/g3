@@ -4,5 +4,5 @@ type: direct_fixed
 no_ipv6: true
 resolver: default
 resolve_strategy: IPv4Only
-tcp_conn_limit: 80M
-udp_relay_limit: 10M
+tcp_sock_speed_limit: 80M
+udp_sock_speed_limit: 10M

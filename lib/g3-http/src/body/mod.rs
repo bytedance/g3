@@ -17,25 +17,27 @@
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HttpBodyType {
     ContentLength(u64),
-    ChunkedWithoutTrailer,
-    ChunkedWithTrailer,
+    Chunked,
     ReadUntilEnd,
 }
 
 mod reader;
 pub use reader::HttpBodyReader;
 
+mod decoder;
+pub use decoder::HttpBodyDecodeReader;
+
 mod preview;
 pub use preview::{PreviewData, PreviewDataState, PreviewError};
 
-mod chunked_transfer;
-pub use chunked_transfer::ChunkedTransfer;
+mod body_to_chunked;
+pub use body_to_chunked::H1BodyToChunkedTransfer;
 
-mod chunked_encoder;
-pub use chunked_encoder::ChunkedEncodeTransfer;
+mod stream_to_chunked;
+pub use stream_to_chunked::StreamToChunkedTransfer;
 
 mod chunked_decoder;
-pub use chunked_decoder::ChunkedDecodeReader;
+pub use chunked_decoder::ChunkedDataDecodeReader;
 
 mod trailer_reader;
 pub use trailer_reader::{TrailerReadError, TrailerReader};

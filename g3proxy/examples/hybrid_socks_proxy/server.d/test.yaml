@@ -5,5 +5,5 @@ listen:
   address: "[::]:10086"
   instance: 2
 enable_udp_associate: true
-conn_limit: 100M
-relay_limit: 10M
+tcp_sock_speed_limit: 100M
+udp_sock_speed_limit: 10M

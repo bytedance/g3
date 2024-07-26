@@ -11,9 +11,6 @@ is make up of the following entries:
 +-----------+----------+-------+------------------------------------------------+
 |Key        |Type      |Reload |Description                                     |
 +===========+==========+=======+================================================+
-|group_name |Str       |no     |Process group name, default to be empty, can be |
-|           |          |       |overridden by the *-G* command line option.     |
-+-----------+----------+-------+------------------------------------------------+
 |runtime    |Map       |no     |Runtime config, see :doc:`runtime`              |
 +-----------+----------+-------+------------------------------------------------+
 |worker     |Map [#w]_ |no     |An unaided runtime will be started if present.  |
@@ -23,8 +20,6 @@ is make up of the following entries:
 |stat       |Map       |no     |Stat config, see :doc:`stat`                    |
 +-----------+----------+-------+------------------------------------------------+
 |controller |Seq       |no     |Controller config                               |
-+-----------+----------+-------+------------------------------------------------+
-|geoip_db   |Map       |yes    |GeoIP Database                                  |
 +-----------+----------+-------+------------------------------------------------+
 |resolver   |Mix [#m]_ |yes    |Resolver config, see :doc:`resolvers/index`     |
 +-----------+----------+-------+------------------------------------------------+
@@ -51,7 +46,6 @@ Example config: :doc:`example config for rd-relay service <example>`
    runtime
    log/index
    stat
-   geoip_db
    resolvers/index
    escapers/index
    auditors/index

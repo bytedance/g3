@@ -30,6 +30,7 @@ use crate::escape::ArcEscaper;
 
 use super::direct_fixed::DirectFixedEscaper;
 use super::direct_float::DirectFloatEscaper;
+use super::divert_tcp::DivertTcpEscaper;
 use super::dummy_deny::DummyDenyEscaper;
 use super::proxy_float::ProxyFloatEscaper;
 use super::proxy_http::ProxyHttpEscaper;
@@ -37,7 +38,6 @@ use super::proxy_https::ProxyHttpsEscaper;
 use super::proxy_socks5::ProxySocks5Escaper;
 use super::route_client::RouteClientEscaper;
 use super::route_failover::RouteFailoverEscaper;
-#[cfg(feature = "geoip")]
 use super::route_geoip::RouteGeoIpEscaper;
 use super::route_mapping::RouteMappingEscaper;
 use super::route_query::RouteQueryEscaper;
@@ -232,6 +232,7 @@ async fn spawn_new_unlocked(config: AnyEscaperConfig) -> anyhow::Result<()> {
     let escaper = match config {
         AnyEscaperConfig::DirectFixed(c) => DirectFixedEscaper::prepare_initial(*c)?,
         AnyEscaperConfig::DirectFloat(c) => DirectFloatEscaper::prepare_initial(*c).await?,
+        AnyEscaperConfig::DivertTcp(c) => DivertTcpEscaper::prepare_initial(c)?,
         AnyEscaperConfig::DummyDeny(c) => DummyDenyEscaper::prepare_initial(c)?,
         AnyEscaperConfig::ProxyFloat(c) => ProxyFloatEscaper::prepare_initial(c).await?,
         AnyEscaperConfig::ProxyHttp(c) => ProxyHttpEscaper::prepare_initial(*c)?,
@@ -239,7 +240,6 @@ async fn spawn_new_unlocked(config: AnyEscaperConfig) -> anyhow::Result<()> {
         AnyEscaperConfig::ProxySocks5(c) => ProxySocks5Escaper::prepare_initial(c)?,
         AnyEscaperConfig::RouteFailover(c) => RouteFailoverEscaper::prepare_initial(c)?,
         AnyEscaperConfig::RouteResolved(c) => RouteResolvedEscaper::prepare_initial(c)?,
-        #[cfg(feature = "geoip")]
         AnyEscaperConfig::RouteGeoIp(c) => RouteGeoIpEscaper::prepare_initial(c)?,
         AnyEscaperConfig::RouteMapping(c) => RouteMappingEscaper::prepare_initial(c)?,
         AnyEscaperConfig::RouteQuery(c) => RouteQueryEscaper::prepare_initial(c).await?,

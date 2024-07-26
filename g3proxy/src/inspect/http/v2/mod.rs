@@ -18,13 +18,15 @@ use std::future::poll_fn;
 use std::sync::Arc;
 
 use async_recursion::async_recursion;
-use h2::Reason;
+use bytes::Bytes;
+use h2::{server::Connection, Reason};
 use slog::slog_info;
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
-use g3_dpi::Protocol;
+use g3_dpi::{Protocol, ProtocolInspectPolicy};
 use g3_h2::H2BodyTransfer;
-use g3_io_ext::{AggregatedIo, OnceBufReader};
+use g3_io_ext::OnceBufReader;
 use g3_slog_types::LtUuid;
 
 use crate::config::server::ServerConfig;
@@ -102,16 +104,82 @@ where
     SC: ServerConfig + Send + Sync + 'static,
 {
     pub(crate) async fn intercept(mut self) -> ServerTaskResult<()> {
-        match self.do_intercept().await {
-            Ok(_) => {
-                intercept_log!(self, "finished");
-                Ok(())
-            }
-            Err(e) => {
-                intercept_log!(self, "{e}");
-                Err(InterceptionError::H2(e).into_server_task_error(Protocol::Http2))
-            }
+        match self.ctx.h2_inspect_policy() {
+            ProtocolInspectPolicy::Bypass => self.do_bypass().await,
+            ProtocolInspectPolicy::Intercept => match self.do_intercept().await {
+                Ok(_) => {
+                    intercept_log!(self, "finished");
+                    Ok(())
+                }
+                Err(e) => {
+                    intercept_log!(self, "{e}");
+                    Err(InterceptionError::H2(e).into_server_task_error(Protocol::Http2))
+                }
+            },
+            ProtocolInspectPolicy::Block => self
+                .do_block()
+                .await
+                .map_err(|e| InterceptionError::H2(e).into_server_task_error(Protocol::Http2)),
         }
+    }
+
+    async fn do_bypass(&mut self) -> ServerTaskResult<()> {
+        let H2InterceptIo {
+            clt_r,
+            clt_w,
+            ups_r,
+            ups_w,
+        } = self.io.take().unwrap();
+
+        crate::inspect::stream::transit_transparent(
+            clt_r,
+            clt_w,
+            ups_r,
+            ups_w,
+            &self.ctx.server_config,
+            &self.ctx.server_quit_policy,
+            self.ctx.user(),
+        )
+        .await
+    }
+
+    async fn do_block(&mut self) -> Result<(), H2InterceptionError> {
+        let H2InterceptIo {
+            clt_r,
+            clt_w,
+            ups_r: _,
+            mut ups_w,
+        } = self.io.take().unwrap();
+
+        tokio::spawn(async move {
+            let _ = ups_w.shutdown().await;
+        });
+
+        let http_config = self.ctx.h2_interception();
+        let mut server_builder = h2::server::Builder::new();
+        server_builder
+            .max_header_list_size(http_config.max_header_list_size)
+            .max_concurrent_streams(1)
+            .max_frame_size(http_config.max_frame_size)
+            .max_send_buffer_size(http_config.max_send_buffer_size);
+
+        let mut h2c = match tokio::time::timeout(
+            http_config.client_handshake_timeout,
+            server_builder.handshake::<_, Bytes>(tokio::io::join(clt_r, clt_w)),
+        )
+        .await
+        {
+            Ok(Ok(d)) => d,
+            Ok(Err(e)) => return Err(H2InterceptionError::client_handshake_failed(e)),
+            Err(_) => return Err(H2InterceptionError::ClientHandshakeTimeout),
+        };
+
+        h2c.abrupt_shutdown(Reason::HTTP_1_1_REQUIRED);
+
+        // TODO add timeout
+        let _ = poll_fn(|ctx| h2c.poll_closed(ctx)).await;
+
+        Err(H2InterceptionError::ClientConnectionBlocked)
     }
 
     #[async_recursion]
@@ -137,7 +205,7 @@ where
 
         let (h2s, mut h2s_connection) = match tokio::time::timeout(
             http_config.upstream_handshake_timeout,
-            client_builder.handshake(AggregatedIo::new(ups_r, ups_w)),
+            client_builder.handshake(tokio::io::join(ups_r, ups_w)),
         )
         .await
         {
@@ -161,7 +229,7 @@ where
 
         let mut h2c = match tokio::time::timeout(
             http_config.client_handshake_timeout,
-            server_builder.handshake(AggregatedIo::new(clt_r, clt_w)),
+            server_builder.handshake(tokio::io::join(clt_r, clt_w)),
         )
         .await
         {
@@ -185,18 +253,12 @@ where
                 ups_r = &mut h2s_connection => {
                     return match ups_r {
                         Ok(_) => {
-                            // cancel and wait the h2c connection to close
-                            h2c.abrupt_shutdown(Reason::CANCEL);
-                            // TODO add timeout
-                            let _ = poll_fn(|ctx| h2c.poll_closed(ctx)).await;
+                            server_graceful_shutdown(h2c).await;
 
                             Err(H2InterceptionError::UpstreamConnectionFinished)
                         }
                         Err(e) => {
-                            // cancel and wait the h2c connection to close
-                            h2c.abrupt_shutdown(Reason::CANCEL);
-                            // TODO add timeout
-                            let _ = poll_fn(|ctx| h2c.poll_closed(ctx)).await;
+                            server_graceful_shutdown(h2c).await;
 
                             if let Some(e) = e.get_io() {
                                 if e.kind() == std::io::ErrorKind::NotConnected {
@@ -248,10 +310,7 @@ where
                         idle_count += 1;
 
                         if idle_count > max_idle_count {
-                            // cancel and wait the h2c connection to close
-                            h2c.abrupt_shutdown(Reason::CANCEL);
-                            // TODO add timeout
-                            let _ = poll_fn(|ctx| h2c.poll_closed(ctx)).await;
+                            server_abrupt_shutdown(h2c, Reason::ENHANCE_YOUR_CALM).await;
 
                             return Err(H2InterceptionError::Idle(idle_duration, idle_count));
                         }
@@ -260,19 +319,13 @@ where
                     }
 
                     if self.ctx.belongs_to_blocked_user() {
-                        // cancel and wait the h2c connection to close
-                        h2c.abrupt_shutdown(Reason::CANCEL);
-                        // TODO add timeout
-                        let _ = poll_fn(|ctx| h2c.poll_closed(ctx)).await;
+                        server_abrupt_shutdown(h2c, Reason::CANCEL).await;
 
                         return Err(H2InterceptionError::CanceledAsUserBlocked);
                     }
 
                     if self.ctx.server_force_quit() {
-                        // cancel and wait the h2c connection to close
-                        h2c.abrupt_shutdown(Reason::CANCEL);
-                        // TODO add timeout
-                        let _ = poll_fn(|ctx| h2c.poll_closed(ctx)).await;
+                        server_abrupt_shutdown(h2c, Reason::CANCEL).await;
 
                         return Err(H2InterceptionError::CanceledAsServerQuit)
                     }
@@ -282,6 +335,38 @@ where
                     }
                 }
             }
+        }
+    }
+}
+
+async fn server_graceful_shutdown<T>(mut h2c: Connection<T, Bytes>)
+where
+    T: AsyncRead + AsyncWrite + Unpin,
+{
+    h2c.graceful_shutdown();
+
+    while let Some(r) = h2c.accept().await {
+        match r {
+            Ok((_req, mut send_rsp)) => {
+                send_rsp.send_reset(Reason::REFUSED_STREAM);
+            }
+            Err(_) => break,
+        }
+    }
+}
+
+async fn server_abrupt_shutdown<T>(mut h2c: Connection<T, Bytes>, reason: Reason)
+where
+    T: AsyncRead + AsyncWrite + Unpin,
+{
+    h2c.abrupt_shutdown(reason);
+
+    while let Some(r) = h2c.accept().await {
+        match r {
+            Ok((_req, mut send_rsp)) => {
+                send_rsp.send_reset(reason);
+            }
+            Err(_) => break,
         }
     }
 }

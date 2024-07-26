@@ -16,7 +16,7 @@
 
 use std::sync::Arc;
 
-use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::io::AsyncRead;
 use tokio::sync::mpsc;
 
 use super::{H1InterceptionError, HttpRequestIo};
@@ -30,15 +30,14 @@ mod request;
 pub(super) use request::{HttpRecvRequest, HttpRequest};
 use request::{HttpRequestAcceptor, HttpRequestForwarder};
 
-pub(super) fn new_request_handler<SC, R, W>(
+pub(super) fn new_request_handler<SC, R>(
     ctx: StreamInspectContext<SC>,
-    req_io: HttpRequestIo<R, W>,
+    req_io: HttpRequestIo<R>,
     stats: Arc<PipelineStats>,
-) -> (HttpRequestForwarder<SC, R, W>, HttpRequestAcceptor<R, W>)
+) -> (HttpRequestForwarder<SC, R>, HttpRequestAcceptor<R>)
 where
     SC: ServerConfig,
     R: AsyncRead + Unpin,
-    W: AsyncWrite + Unpin,
 {
     let (send_request, recv_request) = mpsc::channel(ctx.h1_interception().pipeline_size);
 

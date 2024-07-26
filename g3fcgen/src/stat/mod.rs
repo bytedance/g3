@@ -45,6 +45,7 @@ pub(crate) fn spawn_working_thread(
             metrics::backend::emit_stats(&mut client, &backend_stats);
             metrics::backend::emit_duration_stats(&mut client, &backend_duration_stats);
             metrics::frontend::emit_stats(&mut client, &frontend_stats);
+            g3_daemon::runtime::metrics::emit_stats(&mut client);
 
             client.flush_sink();
 

@@ -8,8 +8,6 @@ rust-version = "1.74.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-libc.workspace = true
 
-[build-dependencies]
-cc = "1.0"
-cfg-if.workspace = true
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true

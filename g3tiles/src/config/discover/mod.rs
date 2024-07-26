@@ -84,6 +84,7 @@ macro_rules! impl_transparent1 {
 
 impl AnyDiscoverConfig {
     impl_transparent0!(name, &MetricsName);
+    impl_transparent0!(discover_type, &'static str);
     impl_transparent0!(position, Option<YamlDocPosition>);
 
     impl_transparent1!(diff_action, DiscoverConfigDiffAction, &Self);

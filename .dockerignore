@@ -1,0 +1,11 @@
+
+# Git
+.git
+.github
+
+# Cargo
+target/
+
+#
+ansible
+doc

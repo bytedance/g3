@@ -9,7 +9,7 @@ curl "https://download.geonames.org/export/dump/countryInfo.txt" -o ${TMP_FILE}
 
 cd "${SCRIPT_DIR}"
 
-cat << EOF > ../../../lib/g3-geoip/src/country/iso_generated.rs
+cat << EOF > ../../../lib/g3-geoip-types/src/country/iso_generated.rs
 /*
  * Copyright 2023 ByteDance and/or its affiliates.
  *

@@ -21,7 +21,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_types::collection::{SelectiveHash, SelectiveItem, SelectivePickPolicy, SelectiveVec};
+use g3_types::collection::{SelectiveItem, SelectivePickPolicy, SelectiveVec};
 use g3_types::metrics::MetricsName;
 use g3_types::net::{Host, HttpForwardCapability, OpensslClientConfig, UpstreamAddr};
 
@@ -52,8 +52,12 @@ pub(crate) use stats::{
     RouteEscaperSnapshot, RouteEscaperStats,
 };
 
+mod egress_path;
+pub(crate) use egress_path::EgressPathSelection;
+
 mod direct_fixed;
 mod direct_float;
+mod divert_tcp;
 mod dummy_deny;
 mod proxy_float;
 mod proxy_http;
@@ -61,7 +65,6 @@ mod proxy_https;
 mod proxy_socks5;
 mod route_client;
 mod route_failover;
-#[cfg(feature = "geoip")]
 mod route_geoip;
 mod route_mapping;
 mod route_query;
@@ -95,9 +98,11 @@ pub(crate) trait EscaperInternal {
 
     async fn _check_out_next_escaper(
         &self,
-        task_notes: &ServerTaskNotes,
-        upstream: &UpstreamAddr,
-    ) -> Option<ArcEscaper>;
+        _task_notes: &ServerTaskNotes,
+        _upstream: &UpstreamAddr,
+    ) -> Option<ArcEscaper> {
+        None
+    }
 
     async fn _new_http_forward_connection<'a>(
         &'a self,
@@ -138,6 +143,7 @@ pub(crate) trait EscaperInternal {
 #[async_trait]
 pub(crate) trait Escaper: EscaperInternal {
     fn name(&self) -> &MetricsName;
+    #[allow(unused)]
     fn escaper_type(&self) -> &str;
     fn get_escape_stats(&self) -> Option<ArcEscaperStats> {
         None
@@ -191,15 +197,15 @@ pub(crate) trait Escaper: EscaperInternal {
 pub(crate) type ArcEscaper = Arc<dyn Escaper + Send + Sync>;
 
 pub(crate) trait EscaperExt: Escaper {
-    fn select_consistent<'a, T>(
+    fn select_consistent<'a, 'b, T>(
         &'a self,
-        nodes: &'a SelectiveVec<T>,
+        nodes: &'b SelectiveVec<T>,
         pick_policy: SelectivePickPolicy,
         task_notes: &'a ServerTaskNotes,
         host: &'a Host,
-    ) -> &'a T
+    ) -> &'b T
     where
-        T: SelectiveItem + SelectiveHash,
+        T: SelectiveItem,
     {
         #[derive(Hash)]
         struct ConsistentKey<'a> {
@@ -212,6 +218,14 @@ pub(crate) trait EscaperExt: Escaper {
             SelectivePickPolicy::Random => nodes.pick_random(),
             SelectivePickPolicy::Serial => nodes.pick_serial(),
             SelectivePickPolicy::RoundRobin => nodes.pick_round_robin(),
+            SelectivePickPolicy::Ketama => {
+                let key = ConsistentKey {
+                    client_ip: task_notes.client_ip(),
+                    user: task_notes.raw_user_name(),
+                    host,
+                };
+                nodes.pick_ketama(&key)
+            }
             SelectivePickPolicy::Rendezvous => {
                 let key = ConsistentKey {
                     client_ip: task_notes.client_ip(),

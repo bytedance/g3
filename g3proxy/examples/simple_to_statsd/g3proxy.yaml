@@ -42,12 +42,12 @@ server:
 resolver:
   - name: default
     type: c-ares
-    server: 223.5.5.5
+    server: 127.0.0.1
 
 escaper:
   - name: default
     type: direct_fixed
     resolver: default
     resolve_strategy: IPv4First
-    tcp_conn_limit: 80M
-    udp_relay_limit: 10M
+    tcp_sock_speed_limit: 80M
+    udp_sock_speed_limit: 10M

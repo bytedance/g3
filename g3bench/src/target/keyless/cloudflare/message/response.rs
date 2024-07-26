@@ -149,7 +149,6 @@ impl<'a> KeylessResponseTlvParser<'a> {
 
 pub(crate) struct KeylessResponse {
     id: u32,
-    #[allow(unused)]
     data: Vec<u8>,
 }
 

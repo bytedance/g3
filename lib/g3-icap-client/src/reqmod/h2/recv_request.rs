@@ -30,7 +30,8 @@ use g3_http::server::HttpAdaptedRequest;
 use g3_io_ext::IdleCheck;
 
 use super::{
-    H2ReqmodAdaptationError, H2RequestAdapter, ReqmodAdaptationEndState, ReqmodAdaptationRunState,
+    H2ReqmodAdaptationError, H2RequestAdapter, ReqmodAdaptationEndState, ReqmodAdaptationMidState,
+    ReqmodAdaptationRunState,
 };
 use crate::reqmod::response::ReqmodResponse;
 use crate::reqmod::IcapReqmodResponsePayload;
@@ -74,9 +75,30 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
             .map_err(H2ReqmodAdaptationError::HttpUpstreamSendHeadFailed)?;
         state.mark_ups_send_header();
 
+        if clt_body.is_end_stream() {
+            // no reserve of capacity, let the driver buffer it
+            ups_send_stream
+                .send_data(initial_body_data, true)
+                .map_err(H2ReqmodAdaptationError::HttpUpstreamSendDataFailed)?;
+            state.mark_ups_send_all();
+
+            if icap_rsp.keep_alive && icap_rsp.payload == IcapReqmodResponsePayload::NoPayload {
+                self.icap_client.save_connection(self.icap_connection).await;
+            }
+
+            let ups_rsp = recv_ups_response_head_after_transfer(
+                ups_recv_rsp,
+                self.http_rsp_head_recv_timeout,
+            )
+            .await?;
+            state.mark_ups_recv_header();
+
+            return Ok(ReqmodAdaptationEndState::OriginalTransferred(ups_rsp));
+        }
+
         // no reserve of capacity, let the driver buffer it
         ups_send_stream
-            .send_data(initial_body_data, clt_body.is_end_stream())
+            .send_data(initial_body_data, false)
             .map_err(H2ReqmodAdaptationError::HttpUpstreamSendDataFailed)?;
 
         let mut body_transfer =
@@ -99,6 +121,9 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                 | H2StreamBodyTransferError::WaitSendCapacityFailed(e)
                 | H2StreamBodyTransferError::GracefulCloseError(e) => {
                     H2ReqmodAdaptationError::HttpUpstreamSendDataFailed(e)
+                }
+                H2StreamBodyTransferError::SenderNotInSendState => {
+                    H2ReqmodAdaptationError::HttpUpstreamNotInSendState
                 }
             }
         }
@@ -164,6 +189,29 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         Ok(ReqmodAdaptationEndState::OriginalTransferred(ups_rsp))
     }
 
+    pub(super) async fn recv_icap_http_request_without_body(
+        mut self,
+        icap_rsp: ReqmodResponse,
+        http_header_size: usize,
+        orig_http_request: Request<()>,
+    ) -> Result<ReqmodAdaptationMidState, H2ReqmodAdaptationError> {
+        let http_req = HttpAdaptedRequest::parse(
+            &mut self.icap_connection.1,
+            http_header_size,
+            self.http_req_add_no_via_header,
+        )
+        .await?;
+
+        if icap_rsp.keep_alive {
+            self.icap_client.save_connection(self.icap_connection).await;
+        }
+
+        let final_req = orig_http_request.adapt_to(&http_req);
+        Ok(ReqmodAdaptationMidState::AdaptedRequest(
+            http_req, final_req,
+        ))
+    }
+
     pub(super) async fn handle_icap_http_request_without_body(
         mut self,
         state: &mut ReqmodAdaptationRunState,
@@ -180,6 +228,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         .await?;
 
         let final_req = orig_http_request.adapt_to(&http_req);
+
         let (ups_recv_rsp, _) = ups_send_request
             .send_request(final_req, true)
             .map_err(H2ReqmodAdaptationError::HttpUpstreamSendHeadFailed)?;
@@ -214,7 +263,6 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         )
         .await?;
         let trailers = icap_rsp.take_trailers();
-        let has_trailer = !trailers.is_empty();
         http_req.set_trailer(trailers);
 
         let final_req = orig_http_request.adapt_to(&http_req);
@@ -229,7 +277,6 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
             &self.copy_config,
             self.http_body_line_max_size,
             self.http_trailer_max_size,
-            has_trailer,
         );
 
         let idle_duration = self.idle_checker.idle_duration();

@@ -19,7 +19,7 @@ use std::io::{IoSlice, Write};
 use bytes::BufMut;
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncWriteExt};
 
-use g3_http::{ChunkedTransfer, HttpBodyType, PreviewData, PreviewDataState};
+use g3_http::{H1BodyToChunkedTransfer, HttpBodyType, PreviewData, PreviewDataState};
 use g3_io_ext::{IdleCheck, LimitedWriteExt};
 
 use super::{
@@ -37,7 +37,6 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
         http_req_hdr_len: usize,
         http_response: &H,
         http_rsp_hdr_len: usize,
-        http_body_type: HttpBodyType,
         preview_state: &PreviewDataState,
     ) -> Vec<u8>
     where
@@ -58,9 +57,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
             http_req_hdr_len + http_rsp_hdr_len,
             preview_state.preview_size
         );
-        if http_body_type == HttpBodyType::ChunkedWithTrailer {
-            http_response.append_trailer_header(&mut header);
-        }
+        http_response.append_trailer_header(&mut header);
         header.put_slice(b"\r\n");
         header
     }
@@ -116,7 +113,6 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
             http_req_header.len(),
             http_response,
             http_rsp_hdr_len,
-            ups_body_type,
             &preview_state,
         );
 
@@ -149,7 +145,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
                     ));
                 }
 
-                let mut body_transfer = ChunkedTransfer::new_after_preview(
+                let mut body_transfer = H1BodyToChunkedTransfer::new_after_preview(
                     ups_body_io,
                     &mut self.icap_connection.0,
                     ups_body_type,

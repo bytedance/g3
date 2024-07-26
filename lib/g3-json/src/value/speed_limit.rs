@@ -17,6 +17,7 @@
 use anyhow::{anyhow, Context};
 use serde_json::Value;
 
+use g3_types::limit::{GlobalDatagramSpeedLimitConfig, GlobalStreamSpeedLimitConfig};
 use g3_types::net::{TcpSockSpeedLimitConfig, UdpSockSpeedLimitConfig};
 
 pub fn as_tcp_sock_speed_limit(v: &Value) -> anyhow::Result<TcpSockSpeedLimitConfig> {
@@ -93,4 +94,84 @@ pub fn as_udp_sock_speed_limit(v: &Value) -> anyhow::Result<UdpSockSpeedLimitCon
     }
     config.validate()?;
     Ok(config)
+}
+
+pub fn as_global_stream_speed_limit(v: &Value) -> anyhow::Result<GlobalStreamSpeedLimitConfig> {
+    match v {
+        Value::String(_) | Value::Number(_) => {
+            let limit = crate::humanize::as_u64(v).context("invalid humanize usize value")?;
+            Ok(GlobalStreamSpeedLimitConfig::per_second(limit))
+        }
+        Value::Object(map) => {
+            let mut config = GlobalStreamSpeedLimitConfig::default();
+            for (k, v) in map {
+                match crate::key::normalize(k).as_str() {
+                    "replenish_interval" => {
+                        let interval = crate::humanize::as_duration(v)
+                            .context(format!("invalid humanize duration value for key {k}"))?;
+                        config.set_replenish_interval(interval);
+                    }
+                    "replenish_bytes" => {
+                        let size = crate::humanize::as_u64(v)
+                            .context(format!("invalid humanize u64 value for key {k}"))?;
+                        config.set_replenish_bytes(size);
+                    }
+                    "max_burst_bytes" => {
+                        let size = crate::humanize::as_u64(v)
+                            .context(format!("invalid humanize u64 value for key {k}"))?;
+                        config.set_max_burst_bytes(size);
+                    }
+                    _ => return Err(anyhow!("invalid key {k}")),
+                }
+            }
+            config.check()?;
+            Ok(config)
+        }
+        _ => Err(anyhow!("invalid json value type")),
+    }
+}
+
+pub fn as_global_datagram_speed_limit(v: &Value) -> anyhow::Result<GlobalDatagramSpeedLimitConfig> {
+    match v {
+        Value::String(_) | Value::Number(_) => {
+            let limit = crate::humanize::as_u64(v).context("invalid humanize u64 value")?;
+            Ok(GlobalDatagramSpeedLimitConfig::per_second(limit))
+        }
+        Value::Object(map) => {
+            let mut config = GlobalDatagramSpeedLimitConfig::default();
+            for (k, v) in map {
+                match crate::key::normalize(k).as_str() {
+                    "replenish_interval" => {
+                        let interval = crate::humanize::as_duration(v)
+                            .context(format!("invalid humanize duration value for key {k}"))?;
+                        config.set_replenish_interval(interval);
+                    }
+                    "replenish_bytes" => {
+                        let size = crate::humanize::as_u64(v)
+                            .context(format!("invalid humanize u64 value for key {k}"))?;
+                        config.set_replenish_bytes(size);
+                    }
+                    "replenish_packets" => {
+                        let count = crate::humanize::as_u64(v)
+                            .context(format!("invalid humanize u64 value for key {k}"))?;
+                        config.set_replenish_packets(count);
+                    }
+                    "max_burst_bytes" => {
+                        let size = crate::humanize::as_u64(v)
+                            .context(format!("invalid humanize u64 value for key {k}"))?;
+                        config.set_max_burst_bytes(size);
+                    }
+                    "max_burst_packets" => {
+                        let count = crate::humanize::as_u64(v)
+                            .context(format!("invalid humanize u64 value for key {k}"))?;
+                        config.set_max_burst_packets(count);
+                    }
+                    _ => return Err(anyhow!("invalid key {k}")),
+                }
+            }
+            config.check()?;
+            Ok(config)
+        }
+        _ => Err(anyhow!("invalid json value type")),
+    }
 }

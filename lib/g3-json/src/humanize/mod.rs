@@ -17,5 +17,5 @@
 mod size;
 mod time;
 
-pub use size::as_usize;
+pub use size::{as_u64, as_usize};
 pub use time::as_duration;

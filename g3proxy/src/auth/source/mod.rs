@@ -56,7 +56,7 @@ pub(super) async fn load_initial_users(
     for user_config in r {
         let user_config = Arc::new(user_config);
         let username = user_config.name();
-        let user = User::new(group_config.name(), &user_config, &datetime_now);
+        let user = User::new(group_config.name(), &user_config, &datetime_now)?;
         dynamic_users.insert(username.to_string(), Arc::new(user));
     }
 
@@ -107,12 +107,14 @@ pub(super) fn new_job(
 
             if let Some(dynamic_config) = new_dynamic_config {
                 // if fetch success, update/insert/remove dynamic users
-                update_dynamic_users(
+                if let Err(e) = update_dynamic_users(
                     group_config.as_ref(),
                     &datetime_now,
                     dynamic_config,
                     &dynamic_users_container,
-                );
+                ) {
+                    warn!("failed to update dynamic users: {e:?}");
+                }
             } else {
                 // if fetch fail or no need to fetch, check expired for old dynamic users
                 check_dynamic_users(&datetime_now, &dynamic_users_container);
@@ -134,14 +136,14 @@ pub(super) fn publish_dynamic_users(
     group_config: &UserGroupConfig,
     dynamic_config: Vec<UserConfig>,
     dynamic_users_container: &Arc<ArcSwap<AHashMap<String, Arc<User>>>>,
-) {
+) -> anyhow::Result<()> {
     let datetime_now = Utc::now();
     update_dynamic_users(
         group_config,
         &datetime_now,
         dynamic_config,
         dynamic_users_container,
-    );
+    )
 }
 
 fn update_dynamic_users(
@@ -149,21 +151,22 @@ fn update_dynamic_users(
     datetime_now: &DateTime<Utc>,
     dynamic_config: Vec<UserConfig>,
     dynamic_users_container: &Arc<ArcSwap<AHashMap<String, Arc<User>>>>,
-) {
+) -> anyhow::Result<()> {
     let old_dynamic_users = dynamic_users_container.load();
     let mut new_dynamic_users = AHashMap::new();
     for user_config in dynamic_config {
         let user_config = Arc::new(user_config);
         let username = user_config.name();
         let user = if let Some(old_user) = old_dynamic_users.get(username) {
-            old_user.new_for_reload(&user_config, datetime_now)
+            old_user.new_for_reload(&user_config, datetime_now)?
         } else {
-            User::new(group_config.name(), &user_config, datetime_now)
+            User::new(group_config.name(), &user_config, datetime_now)?
         };
         new_dynamic_users.insert(username.to_string(), Arc::new(user));
     }
 
     dynamic_users_container.store(Arc::new(new_dynamic_users));
+    Ok(())
 }
 
 fn check_dynamic_users(

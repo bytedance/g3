@@ -36,14 +36,16 @@ impl<K, R> EffectiveCacheHandle<K, R> {
         EffectiveCacheHandle { req_sender }
     }
 
-    pub async fn fetch(
+    async fn do_fetch(
         &self,
         cache_key: Arc<K>,
+        query_cache_only: bool,
         timeout: Duration,
     ) -> Option<Arc<EffectiveCacheData<R>>> {
         let (rsp_sender, rsp_receiver) = oneshot::channel();
         let req = CacheQueryRequest {
             cache_key,
+            query_cache_only,
             notifier: rsp_sender,
         };
         self.req_sender.send(req).ok()?;
@@ -53,6 +55,22 @@ impl<K, R> EffectiveCacheHandle<K, R> {
             Ok(Err(_)) => None, // recv error
             Err(_) => None,     // timeout
         }
+    }
+
+    pub async fn fetch_cache_only(
+        &self,
+        cache_key: Arc<K>,
+        timeout: Duration,
+    ) -> Option<Arc<EffectiveCacheData<R>>> {
+        self.do_fetch(cache_key, true, timeout).await
+    }
+
+    pub async fn fetch(
+        &self,
+        cache_key: Arc<K>,
+        timeout: Duration,
+    ) -> Option<Arc<EffectiveCacheData<R>>> {
+        self.do_fetch(cache_key, false, timeout).await
     }
 }
 

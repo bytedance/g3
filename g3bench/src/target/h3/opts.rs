@@ -25,8 +25,9 @@ use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
 use h3::client::SendRequest;
 use h3_quinn::OpenStreams;
 use http::{HeaderValue, Method, StatusCode};
-use quinn::{Endpoint, TokioRuntime};
-use rustls::ServerName;
+use quinn::crypto::rustls::QuicClientConfig;
+use quinn::{ClientConfig, Endpoint, TokioRuntime, TransportConfig, VarInt};
+use rustls_pki_types::ServerName;
 use tokio::net::TcpStream;
 use url::Url;
 
@@ -140,11 +141,10 @@ impl BenchH3Args {
                 .ok_or_else(|| anyhow!("no proxy addr set"))?;
             let peer = *proc_args.select_peer(proxy_addrs);
 
-            let stream = self.new_tcp_connection(peer).await.context(format!(
+            let mut stream = self.new_tcp_connection(peer).await.context(format!(
                 "failed to connect to socks5 proxy {}",
                 socks5_proxy.peer()
             ))?;
-            let (mut r, mut w) = stream.into_split();
 
             let socket = g3_socket::udp::new_std_socket_to(
                 peer,
@@ -158,8 +158,7 @@ impl BenchH3Args {
                 .local_addr()
                 .map_err(|e| anyhow!("failed to get local addr of udp socket: {e}"))?;
             let peer_udp_addr = g3_socks::v5::client::socks5_udp_associate(
-                &mut r,
-                &mut w,
+                &mut stream,
                 &socks5_proxy.auth,
                 local_udp_addr,
             )
@@ -175,10 +174,9 @@ impl BenchH3Args {
                 anyhow!("failed to connect local udp socket to {peer_udp_addr}: {e}")
             })?;
 
-            let tcp_stream = r.reunite(w).unwrap();
             let limit = &proc_args.udp_sock_speed_limit;
-            let runtime = LimitedTokioRuntime::new(
-                Socks5UdpTokioRuntime::new(tcp_stream, quic_peer),
+            let runtime = LimitedTokioRuntime::local_limited(
+                Socks5UdpTokioRuntime::new(stream, quic_peer),
                 limit.shift_millis,
                 limit.max_north_packets,
                 limit.max_north_bytes,
@@ -201,7 +199,7 @@ impl BenchH3Args {
                 .map_err(|e| anyhow!("failed to connect local udp socket to {quic_peer}: {e}"))?;
 
             let limit = &proc_args.udp_sock_speed_limit;
-            let runtime = LimitedTokioRuntime::new(
+            let runtime = LimitedTokioRuntime::local_limited(
                 TokioRuntime,
                 limit.shift_millis,
                 limit.max_north_packets,
@@ -220,8 +218,6 @@ impl BenchH3Args {
         stats: &Arc<HttpRuntimeStats>,
         proc_args: &ProcArgs,
     ) -> anyhow::Result<h3_quinn::Connection> {
-        use quinn::{ClientConfig, TransportConfig, VarInt};
-
         let addrs = self
             .quic_peer_addrs
             .as_ref()
@@ -239,12 +235,14 @@ impl BenchH3Args {
         //   https://http3-explained.haxx.se/en/h3/h3-streams
         // transport.max_concurrent_uni_streams(VarInt::from_u32(0));
         // TODO add more transport settings
-        let mut client_config = ClientConfig::new(tls_client.driver.clone());
+        let quic_config = QuicClientConfig::try_from(tls_client.driver.as_ref().clone())
+            .map_err(|e| anyhow!("invalid quic tls config: {e}"))?;
+        let mut client_config = ClientConfig::new(Arc::new(quic_config));
         client_config.transport_config(Arc::new(transport));
 
         let tls_name = match &self.target_tls.tls_name {
             Some(ServerName::DnsName(domain)) => domain.as_ref().to_string(),
-            Some(ServerName::IpAddress(ip)) => ip.to_string(),
+            Some(ServerName::IpAddress(ip)) => IpAddr::from(*ip).to_string(),
             Some(_) => return Err(anyhow!("unsupported tls server name type")),
             None => self.target.host().to_string(),
         };

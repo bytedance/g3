@@ -67,6 +67,8 @@ Set the auth realm.
 
 **default**: proxy
 
+.. _conf_server_http_proxy_tls_client:
+
 tls_client
 ----------
 
@@ -93,6 +95,8 @@ req_header_recv_timeout
 Set the max time to wait a full request header after the client connection become readable.
 
 **default**: 30s
+
+.. _conf_server_http_proxy_rsp_header_recv_timeout:
 
 rsp_header_recv_timeout
 -----------------------
@@ -258,5 +262,10 @@ steal_forwarded_for
 **optional**, **type**: bool
 
 Set if we should delete the *Forwarded* and *X-Forwarded-For* headers from the client's request.
+
+.. note::
+
+  If you want to remove those headers from https traffic, you need to enable TLS interception and also set this in
+  auditor's :ref:`h1 interception <conf_auditor_h1_interception>` config.
 
 **default**: false

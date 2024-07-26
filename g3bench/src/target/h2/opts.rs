@@ -28,7 +28,7 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use url::Url;
 
-use g3_io_ext::{AggregatedIo, LimitedStream};
+use g3_io_ext::LimitedStream;
 use g3_openssl::SslStream;
 use g3_types::collection::{SelectiveVec, WeightedValue};
 use g3_types::net::{
@@ -136,7 +136,7 @@ impl BenchH2Args {
 
         if let Some(data) = self.proxy_protocol.data() {
             stream
-                .write_all(data)
+                .write_all(data) // no need to flush data
                 .await
                 .map_err(|e| anyhow!("failed to write proxy protocol data: {e:?}"))?;
         }
@@ -162,12 +162,10 @@ impl BenchH2Args {
                             .tls_connect_to_proxy(tls_config, http_proxy.peer(), stream)
                             .await?;
 
-                        let (r, mut w) = tokio::io::split(tls_stream);
-                        let mut buf_r = BufReader::new(r);
+                        let mut buf_stream = BufReader::new(tls_stream);
 
                         g3_http::connect::client::http_connect_to(
-                            &mut buf_r,
-                            &mut w,
+                            &mut buf_stream,
                             &http_proxy.auth,
                             &self.target,
                         )
@@ -176,15 +174,13 @@ impl BenchH2Args {
                             anyhow!("http connect to {} failed: {e}", http_proxy.peer())
                         })?;
 
-                        let stream = AggregatedIo::new(buf_r.into_inner(), w);
-                        self.connect_to_target(proc_args, stream, stats).await
+                        self.connect_to_target(proc_args, buf_stream.into_inner(), stats)
+                            .await
                     } else {
-                        let (r, mut w) = stream.into_split();
-                        let mut buf_r = BufReader::new(r);
+                        let mut buf_stream = BufReader::new(stream);
 
                         g3_http::connect::client::http_connect_to(
-                            &mut buf_r,
-                            &mut w,
+                            &mut buf_stream,
                             &http_proxy.auth,
                             &self.target,
                         )
@@ -193,36 +189,32 @@ impl BenchH2Args {
                             anyhow!("http connect to {} failed: {e}", http_proxy.peer())
                         })?;
 
-                        let stream = AggregatedIo::new(buf_r.into_inner(), w);
-                        self.connect_to_target(proc_args, stream, stats).await
+                        self.connect_to_target(proc_args, buf_stream.into_inner(), stats)
+                            .await
                     }
                 }
                 Proxy::Socks4(socks4_proxy) => {
-                    let stream = self.new_tcp_connection(proc_args).await.context(format!(
+                    let mut stream = self.new_tcp_connection(proc_args).await.context(format!(
                         "failed to connect to socks4 proxy {}",
                         socks4_proxy.peer()
                     ))?;
-                    let (mut r, mut w) = stream.into_split();
 
-                    g3_socks::v4a::client::socks4a_connect_to(&mut r, &mut w, &self.target)
+                    g3_socks::v4a::client::socks4a_connect_to(&mut stream, &self.target)
                         .await
                         .map_err(|e| {
                             anyhow!("socks4a connect to {} failed: {e}", socks4_proxy.peer())
                         })?;
 
-                    let stream = AggregatedIo::new(r, w);
                     self.connect_to_target(proc_args, stream, stats).await
                 }
                 Proxy::Socks5(socks5_proxy) => {
-                    let stream = self.new_tcp_connection(proc_args).await.context(format!(
+                    let mut stream = self.new_tcp_connection(proc_args).await.context(format!(
                         "failed to connect to socks5 proxy {}",
                         socks5_proxy.peer()
                     ))?;
-                    let (mut r, mut w) = stream.into_split();
 
                     g3_socks::v5::client::socks5_connect_to(
-                        &mut r,
-                        &mut w,
+                        &mut stream,
                         &socks5_proxy.auth,
                         &self.target,
                     )
@@ -231,7 +223,6 @@ impl BenchH2Args {
                         anyhow!("socks5 connect to {} failed: {e}", socks5_proxy.peer())
                     })?;
 
-                    let stream = AggregatedIo::new(r, w);
                     self.connect_to_target(proc_args, stream, stats).await
                 }
             }
@@ -278,7 +269,7 @@ impl BenchH2Args {
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
         let speed_limit = &proc_args.tcp_sock_speed_limit;
-        let stream = LimitedStream::new(
+        let stream = LimitedStream::local_limited(
             stream,
             speed_limit.shift_millis,
             speed_limit.max_south,

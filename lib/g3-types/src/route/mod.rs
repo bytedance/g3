@@ -14,9 +14,6 @@
  * limitations under the License.
  */
 
-mod egress_path;
-pub use egress_path::EgressPathSelection;
-
 mod host;
 pub use host::HostMatch;
 

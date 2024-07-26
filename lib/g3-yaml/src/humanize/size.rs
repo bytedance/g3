@@ -31,16 +31,28 @@ pub fn as_usize(v: &Yaml) -> anyhow::Result<usize> {
     }
 }
 
+pub fn as_u64(v: &Yaml) -> anyhow::Result<u64> {
+    match v {
+        Yaml::String(value) => {
+            let v = value.parse::<Bytes<u64>>()?;
+            Ok(v.size())
+        }
+        Yaml::Integer(value) => Ok(u64::try_from(*value)?),
+        _ => Err(anyhow!(
+            "yaml value type for humanize u64 should be 'string' or 'integer'"
+        )),
+    }
+}
+
 pub fn as_u32(v: &Yaml) -> anyhow::Result<u32> {
     match v {
         Yaml::String(value) => {
-            let v = value.parse::<Bytes>()?;
-            let v = u32::try_from(v.size()).map_err(|e| anyhow!("invalid u32 value: {e}"))?;
-            Ok(v)
+            let v = value.parse::<Bytes<u32>>()?;
+            Ok(v.size())
         }
         Yaml::Integer(value) => Ok(u32::try_from(*value)?),
         _ => Err(anyhow!(
-            "yaml value type for humanize usize should be 'string' or 'integer'"
+            "yaml value type for humanize u32 should be 'string' or 'integer'"
         )),
     }
 }

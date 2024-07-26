@@ -26,6 +26,7 @@ pub enum AlpnProtocol {
     Http2,
     Http3,
     Ftp,
+    Smtp,
     Imap,
     Pop3,
     Nntp,
@@ -37,7 +38,7 @@ pub enum AlpnProtocol {
 
 impl fmt::Display for AlpnProtocol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_str())
+        f.write_str(self.as_str())
     }
 }
 
@@ -49,6 +50,7 @@ impl AlpnProtocol {
             Self::Http2 => "h2",
             Self::Http3 => "h3",
             Self::Ftp => "ftp",
+            Self::Smtp => "smtp", // not a IANA standard, but at least exim use this
             Self::Imap => "imap",
             Self::Pop3 => "pop3",
             Self::Nntp => "nntp",
@@ -59,13 +61,14 @@ impl AlpnProtocol {
         }
     }
 
-    pub fn wired_identification_sequence(&self) -> &'static [u8] {
+    pub const fn wired_identification_sequence(&self) -> &'static [u8] {
         match self {
             Self::Http10 => b"\x08http/1.0",
             Self::Http11 => b"\x08http/1.1",
             Self::Http2 => b"\x02h2",
             Self::Http3 => b"\x02h3",
             Self::Ftp => b"\x03ftp",
+            Self::Smtp => b"\x04smtp",
             Self::Imap => b"\x04imap",
             Self::Pop3 => b"\x04pop3",
             Self::Nntp => b"\x04nntp",
@@ -93,6 +96,7 @@ impl AlpnProtocol {
             b"h2" => Some(AlpnProtocol::Http2),
             b"h3" => Some(AlpnProtocol::Http3),
             b"ftp" => Some(AlpnProtocol::Ftp),
+            b"smtp" => Some(AlpnProtocol::Smtp),
             b"imap" => Some(AlpnProtocol::Imap),
             b"pop3" => Some(AlpnProtocol::Pop3),
             b"nntp" => Some(AlpnProtocol::Nntp),
@@ -117,6 +121,7 @@ pub enum TlsAlpnError {
     TruncatedProtocolName,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TlsAlpn {
     raw_list: Vec<u8>,
 }
@@ -156,5 +161,52 @@ impl TlsAlpn {
     #[inline]
     pub fn wired_list_sequence(&self) -> &[u8] {
         self.raw_list.as_slice()
+    }
+
+    pub fn retain_clone<F>(&self, retain: F) -> Self
+    where
+        F: Fn(&[u8]) -> bool,
+    {
+        let mut new = Vec::with_capacity(self.raw_list.len());
+        let mut offset = 0usize;
+
+        while offset < self.raw_list.len() {
+            let len = self.raw_list[offset] as usize;
+            if offset + len > self.raw_list.len() {
+                break;
+            }
+            let start = offset + 1;
+            let end = start + len;
+            if retain(&self.raw_list[start..end]) {
+                new.extend_from_slice(&self.raw_list[offset..end]);
+            }
+            offset = end;
+        }
+
+        TlsAlpn { raw_list: new }
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.raw_list.is_empty()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn filer() {
+        let v = b"\x00\x0C\x02h2\x08http/1.0";
+
+        let alpn = TlsAlpn::from_extension_value(v).unwrap();
+        let filtered = alpn.retain_clone(|b| b != b"h2");
+        assert!(!filtered.is_empty());
+
+        let v = b"\x00\x09\x08http/1.0";
+        let alpn2 = TlsAlpn::from_extension_value(v).unwrap();
+
+        assert_eq!(filtered, alpn2);
     }
 }

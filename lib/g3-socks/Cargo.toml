@@ -1,6 +1,6 @@
 [package]
 name = "g3-socks"
-version = "0.1.0"
+version = "0.2.0"
 license.workspace = true
 edition.workspace = true
 rust-version = "1.74.0"
@@ -13,6 +13,7 @@ bytes.workspace = true
 smallvec.workspace = true
 tokio.workspace = true
 quinn = { workspace = true, optional = true, features = ["runtime-tokio"] }
+pin-project-lite.workspace = true
 g3-types.workspace = true
 g3-io-ext.workspace = true
 

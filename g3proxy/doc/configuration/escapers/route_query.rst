@@ -64,9 +64,9 @@ cache_pick_policy
 
 Set the policy to select next proxy address from the query result.
 
-The key for rendezvous/jump hash is *<client-ip>*.
+The key for ketama/rendezvous/jump hash is *<client-ip>*.
 
-**default**: rendezvous
+**default**: ketama
 
 query_peer_addr
 ---------------

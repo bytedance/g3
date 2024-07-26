@@ -20,6 +20,15 @@ static_users:
       regex:
         # for lumtest.com/myip.json
         - "lum[a-z]*[.]com$"
+  - name: test
+    # password: toor
+    token:
+      salt: 113323bdab6fd2cc
+      md5: 5c81f2becadde7fa5fde9026652ccc84
+      sha1: ff9d5c1a14328dd85ee95d4e574bd0558a1dfa96
+    tcp_sock_speed_limit: 1M
+    tcp_all_download_speed_limit: 1200K
+
 source:
   type: file
   path: dynamic_users.json

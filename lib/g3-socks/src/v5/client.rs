@@ -22,22 +22,17 @@ use g3_types::net::{SocksAuth, UpstreamAddr};
 
 use super::{auth, Socks5Reply, Socks5Request, SocksAuthMethod, SocksCommand, SocksConnectError};
 
-async fn socks5_login<R, W>(
-    reader: &mut R,
-    writer: &mut W,
-    auth: &SocksAuth,
-) -> Result<(), SocksConnectError>
+async fn socks5_login<S>(stream: &mut S, auth: &SocksAuth) -> Result<(), SocksConnectError>
 where
-    R: AsyncRead + Unpin,
-    W: AsyncWrite + Unpin,
+    S: AsyncRead + AsyncWrite + Unpin,
 {
-    let mut reader = BufReader::new(reader);
-    let auth_method = auth::send_and_recv_method(&mut reader, writer, auth).await?;
+    let mut buf_stream = BufReader::new(stream);
+    let auth_method = auth::send_and_recv_method(&mut buf_stream, auth).await?;
     match auth_method {
         SocksAuthMethod::None => {}
         SocksAuthMethod::User => {
             if let SocksAuth::User(username, password) = auth {
-                auth::proceed_with_user(&mut reader, writer, username, password).await?;
+                auth::proceed_with_user(&mut buf_stream, username, password).await?;
             } else {
                 return Err(SocksConnectError::NoAuthMethodAvailable);
             }
@@ -52,23 +47,21 @@ where
 /// tcp connect to a socks5 proxy
 ///
 /// return the local bind address at the server side
-pub async fn socks5_connect_to<R, W>(
-    reader: &mut R,
-    writer: &mut W,
+pub async fn socks5_connect_to<S>(
+    stream: &mut S,
     auth: &SocksAuth,
     addr: &UpstreamAddr,
 ) -> Result<SocketAddr, SocksConnectError>
 where
-    R: AsyncRead + Unpin,
-    W: AsyncWrite + Unpin,
+    S: AsyncRead + AsyncWrite + Unpin,
 {
-    socks5_login(reader, writer, auth).await?;
+    socks5_login(stream, auth).await?;
 
-    Socks5Request::send(writer, SocksCommand::TcpConnect, addr)
+    Socks5Request::send(stream, SocksCommand::TcpConnect, addr)
         .await
         .map_err(SocksConnectError::WriteFailed)?;
 
-    let rsp = Socks5Reply::recv(reader).await?;
+    let rsp = Socks5Reply::recv(stream).await?;
     match rsp {
         Socks5Reply::Succeeded(addr) => Ok(addr),
         Socks5Reply::ConnectionTimedOut => Err(SocksConnectError::PeerTimeout),
@@ -82,24 +75,22 @@ where
 /// udp associate to a socks5 proxy
 ///
 /// return the socket address that the client should send packets to
-pub async fn socks5_udp_associate<R, W>(
-    reader: &mut R,
-    writer: &mut W,
+pub async fn socks5_udp_associate<S>(
+    stream: &mut S,
     auth: &SocksAuth,
     local_udp_addr: SocketAddr,
 ) -> Result<SocketAddr, SocksConnectError>
 where
-    R: AsyncRead + Unpin,
-    W: AsyncWrite + Unpin,
+    S: AsyncRead + AsyncWrite + Unpin,
 {
-    socks5_login(reader, writer, auth).await?;
+    socks5_login(stream, auth).await?;
 
     let addr = UpstreamAddr::from(local_udp_addr);
-    Socks5Request::send(writer, SocksCommand::UdpAssociate, &addr)
+    Socks5Request::send(stream, SocksCommand::UdpAssociate, &addr)
         .await
         .map_err(SocksConnectError::WriteFailed)?;
 
-    let rsp = Socks5Reply::recv(reader).await?;
+    let rsp = Socks5Reply::recv(stream).await?;
     match rsp {
         Socks5Reply::Succeeded(addr) => Ok(addr),
         Socks5Reply::ConnectionTimedOut => Err(SocksConnectError::PeerTimeout),

@@ -29,19 +29,17 @@ The Cap'n Proto RPC publish command is supported on this escaper, the published 
 
 The following egress path selection methods is supported:
 
-* :ref:`by json <proto_egress_path_selection_by_json>`
+* :ref:`by id map <proto_egress_path_selection_by_id_map>`
 
-  The json value will be either of:
+  If matched, a `bind_ip <config_escaper_dynamic_bind_ip>` with the same `ID` will be used.
 
-  - just one :ref:`Bind IP <config_escaper_dynamic_bind_ip>`
-  - an array of  :ref:`Bind IP <config_escaper_dynamic_bind_ip>`, a random one will be selected
-  - just one :ref:`Bind IP ID <config_escaper_dynamic_bind_ip_id>`, the ID should be present in escaper config
-  - an array of :ref:`Bind IP ID <config_escaper_dynamic_bind_ip_id>`, a usable ID will be selected randomly
+  .. versionadded:: 1.9.2
 
-  .. note:: you should consider disable ipv4 / ipv6 at escaper level if the value in the egress path selection doesn't
-            support ipv4 / ipv6
+* :ref:`by value map <proto_egress_path_selection_by_value_map>`
 
-  .. versionadded:: 1.7.22
+  If matched, the JSON MAP value will be parsed as a `bind_ip <config_escaper_dynamic_bind_ip>` and it will be used.
+
+  .. versionadded:: 1.9.2
 
 Config Keys
 ===========
@@ -62,6 +60,7 @@ The following common keys are supported:
 
   The user tcp connect params will be taken into account.
 
+* :ref:`happy eyeballs <conf_escaper_common_happy_eyeballs>`
 * :ref:`tcp_misc_opts <conf_escaper_common_tcp_misc_opts>`
 * :ref:`udp_misc_opts <conf_escaper_common_udp_misc_opts>`
 
@@ -103,17 +102,6 @@ egress_network_filter
 Set the network filter for the (resolved) remote ip address.
 
 **default**: all permitted except for loopback and link-local addresses
-
-happy_eyeballs
---------------
-
-**optional**, **type**: :ref:`happy eyeballs <conf_value_happy_eyeballs>`
-
-Set the HappyEyeballs config.
-
-**default**: default HappyEyeballs config
-
-.. versionadded:: 1.5.3
 
 tcp_keepalive
 -------------

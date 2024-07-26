@@ -27,7 +27,7 @@ use g3_socket::util::AddressFamily;
 use super::BindSet;
 use crate::config::escaper::direct_float::DirectFloatEscaperConfig;
 
-async fn load_records_from_cache(cache_file: &Path) -> anyhow::Result<Vec<Value>> {
+async fn load_records_from_cache(cache_file: &Path) -> anyhow::Result<Value> {
     let contents = tokio::fs::read_to_string(cache_file).await.map_err(|e| {
         anyhow!(
             "failed to read content of cache file {}: {:?}",
@@ -36,19 +36,15 @@ async fn load_records_from_cache(cache_file: &Path) -> anyhow::Result<Vec<Value>
         )
     })?;
     if contents.is_empty() {
-        return Ok(Vec::new());
+        return Ok(Value::Null);
     }
-    let doc = Value::from_str(&contents).map_err(|e| {
+    Value::from_str(&contents).map_err(|e| {
         anyhow!(
             "invalid json content for cache file {}: {:?}",
             cache_file.display(),
             e
         )
-    })?;
-    match doc {
-        Value::Array(seq) => Ok(seq),
-        _ => Ok(vec![doc]),
-    }
+    })
 }
 
 pub(super) async fn load_ipv4_from_cache(
@@ -56,9 +52,9 @@ pub(super) async fn load_ipv4_from_cache(
 ) -> anyhow::Result<BindSet> {
     if let Some(cache_file) = &config.cache_ipv4 {
         let records = load_records_from_cache(cache_file).await?;
-        super::bind::parse_records(&records, AddressFamily::Ipv4)
+        BindSet::parse_json(&records, AddressFamily::Ipv4)
     } else {
-        Ok(BindSet::default())
+        Ok(BindSet::new(AddressFamily::Ipv4))
     }
 }
 
@@ -67,9 +63,9 @@ pub(super) async fn load_ipv6_from_cache(
 ) -> anyhow::Result<BindSet> {
     if let Some(cache_file) = &config.cache_ipv6 {
         let records = load_records_from_cache(cache_file).await?;
-        super::bind::parse_records(&records, AddressFamily::Ipv6)
+        BindSet::parse_json(&records, AddressFamily::Ipv6)
     } else {
-        Ok(BindSet::default())
+        Ok(BindSet::new(AddressFamily::Ipv6))
     }
 }
 
@@ -78,17 +74,10 @@ async fn parse_value(
     family: AddressFamily,
     cache_file: &Option<PathBuf>,
 ) -> anyhow::Result<BindSet> {
-    let records = if let Value::Array(vec) = value {
-        vec
-    } else {
-        vec![value]
-    };
-
-    let binds = super::bind::parse_records(&records, family)?;
+    let binds = BindSet::parse_json(&value, family)?;
 
     if let Some(cache_file) = cache_file {
-        let doc = Value::Array(records);
-        let content = serde_json::to_string_pretty(&doc).map_err(|e| {
+        let content = serde_json::to_string_pretty(&value).map_err(|e| {
             anyhow!(
                 "failed to encoding {} records as json string: {:?}",
                 family,

@@ -23,7 +23,6 @@ use tokio::time::Instant;
 
 use g3_io_ext::{LimitedReader, LimitedWriter};
 use g3_socks::{v4a, v5, SocksAuthMethod, SocksCommand, SocksVersion};
-use g3_types::route::EgressPathSelection;
 
 use super::tcp_connect::SocksProxyTcpConnectTask;
 use super::udp_associate::SocksProxyUdpAssociateTask;
@@ -57,13 +56,13 @@ impl SocksProxyNegotiationTask {
             SocksProxyCltWrapperStats::new_pair(&self.ctx.server_stats);
         let limit_config = &self.ctx.server_config.tcp_sock_speed_limit;
         let (clt_r, clt_w) = stream.into_split();
-        let clt_r = LimitedReader::new(
+        let clt_r = LimitedReader::local_limited(
             clt_r,
             limit_config.shift_millis,
             limit_config.max_north,
             clt_r_stats,
         );
-        let clt_w = LimitedWriter::new(
+        let clt_w = LimitedWriter::local_limited(
             clt_w,
             limit_config.shift_millis,
             limit_config.max_south,
@@ -114,15 +113,6 @@ impl SocksProxyNegotiationTask {
             Ok(ret) => ret,
             Err(_) => Err(ServerTaskError::ClientAppTimeout("negotiation timeout")),
         }
-    }
-
-    fn get_egress_path_selection(
-        &self,
-        user_ctx: Option<&UserContext>,
-    ) -> Arc<EgressPathSelection> {
-        user_ctx
-            .map(|ctx| ctx.user_config().egress_path_selection.clone())
-            .unwrap_or_default()
     }
 
     async fn run_v4<CDR, CDW>(
@@ -269,12 +259,10 @@ impl SocksProxyNegotiationTask {
 
         let req = v5::Socks5Request::recv(&mut clt_r).await?;
 
-        let path_selection = self.get_egress_path_selection(user_ctx.as_ref());
-        let task_notes = ServerTaskNotes::with_path_selection(
+        let task_notes = ServerTaskNotes::new(
             self.ctx.cc_info.clone(),
             user_ctx,
             self.time_accepted.elapsed(),
-            path_selection,
         );
         match req.command {
             SocksCommand::TcpConnect => {

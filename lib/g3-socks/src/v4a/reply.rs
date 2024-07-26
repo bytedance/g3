@@ -17,7 +17,9 @@
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
+
+use g3_io_ext::LimitedWriteExt;
 
 use super::{SocksNegotiationError, SocksReplyParseError};
 
@@ -91,8 +93,7 @@ impl SocksV4Reply {
         W: AsyncWrite + Unpin,
     {
         let buf: [u8; 8] = [0, self.code(), 0, 0, 0, 0, 0, 0];
-        clt_w.write_all(&buf).await?;
-        clt_w.flush().await?;
+        clt_w.write_all_flush(&buf).await?;
         Ok(())
     }
 

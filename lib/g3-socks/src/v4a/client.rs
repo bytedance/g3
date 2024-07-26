@@ -16,25 +16,23 @@
 
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use crate::SocksCommand;
 use g3_types::net::UpstreamAddr;
 
 use super::{SocksConnectError, SocksV4Reply, SocksV4aRequest};
+use crate::SocksCommand;
 
-pub async fn socks4a_connect_to<R, W>(
-    reader: &mut R,
-    writer: &mut W,
+pub async fn socks4a_connect_to<S>(
+    stream: &mut S,
     addr: &UpstreamAddr,
 ) -> Result<(), SocksConnectError>
 where
-    R: AsyncRead + Unpin,
-    W: AsyncWrite + Unpin,
+    S: AsyncRead + AsyncWrite + Unpin,
 {
-    SocksV4aRequest::send(writer, SocksCommand::TcpConnect, addr)
+    SocksV4aRequest::send(stream, SocksCommand::TcpConnect, addr)
         .await
         .map_err(SocksConnectError::WriteFailed)?;
 
-    let rsp = SocksV4Reply::recv(reader).await?;
+    let rsp = SocksV4Reply::recv(stream).await?;
     match rsp {
         SocksV4Reply::RequestGranted(_) => Ok(()),
         _ => Err(SocksConnectError::RequestFailed(format!(

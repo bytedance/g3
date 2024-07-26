@@ -25,7 +25,7 @@ macro_rules! impl_reload {
             name: String,
             position: Option<YamlDocPosition>,
         ) -> anyhow::Result<()> {
-            let name = unsafe { MetricsName::from_unchecked(name) };
+            let name = unsafe { MetricsName::new_unchecked(name) };
             g3_daemon::runtime::main_handle()
                 .ok_or(anyhow!("unable to get main runtime handle"))?
                 .spawn(async move { crate::$m::reload(&name, position).await })

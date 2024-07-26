@@ -19,6 +19,8 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 
 use anyhow::anyhow;
+#[cfg(feature = "rustls")]
+use rustls_pki_types::ServerName;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Host {
@@ -50,13 +52,48 @@ impl Host {
         let domain = idna::domain_to_ascii(domain).map_err(|e| anyhow!("invalid domain: {e}"))?;
         Ok(Host::Domain(domain))
     }
+
+    pub fn parse_smtp_host_address(buf: &[u8]) -> Option<Self> {
+        if buf.is_empty() {
+            return None;
+        }
+        if buf[0] == b'[' {
+            let end = buf.len() - 1;
+            if buf[end] != b']' {
+                return None;
+            }
+            let Ok(s) = std::str::from_utf8(&buf[1..end]) else {
+                return None;
+            };
+            Ipv4Addr::from_str(s)
+                .map(|v4| Host::Ip(IpAddr::V4(v4)))
+                .ok()
+        } else if let Some(d) = memchr::memchr(b':', buf) {
+            match &buf[0..d] {
+                b"Ipv6" => {
+                    let Ok(s) = std::str::from_utf8(&buf[d + 1..]) else {
+                        return None;
+                    };
+                    Ipv6Addr::from_str(s)
+                        .map(|v6| Host::Ip(IpAddr::V6(v6)))
+                        .ok()
+                }
+                _ => None,
+            }
+        } else {
+            let Ok(s) = std::str::from_utf8(buf) else {
+                return None;
+            };
+            Host::from_domain_str(s).ok()
+        }
+    }
 }
 
 impl fmt::Display for Host {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Host::Ip(ip) => write!(f, "{ip}"),
-            Host::Domain(domain) => write!(f, "{domain}"),
+            Host::Domain(domain) => f.write_str(domain.as_str()),
         }
     }
 }
@@ -117,16 +154,34 @@ impl FromStr for Host {
 }
 
 #[cfg(feature = "rustls")]
-impl TryFrom<&Host> for rustls::ServerName {
+impl TryFrom<&Host> for ServerName<'static> {
     type Error = std::io::Error;
 
     fn try_from(value: &Host) -> Result<Self, Self::Error> {
         use std::io;
 
         match value {
-            Host::Ip(ip) => Ok(rustls::ServerName::IpAddress(*ip)),
-            Host::Domain(domain) => rustls::ServerName::try_from(domain.as_str())
+            Host::Ip(ip) => Ok(ServerName::IpAddress((*ip).into())),
+            Host::Domain(domain) => ServerName::try_from(domain.as_str())
+                .map(|r| r.to_owned())
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn smtp_address() {
+        let host = Host::parse_smtp_host_address(b"www.example.net").unwrap();
+        assert_eq!(host, Host::Domain("www.example.net".to_string()));
+
+        let host = Host::parse_smtp_host_address(b"[123.255.37.2]").unwrap();
+        assert_eq!(host, Host::Ip(IpAddr::from_str("123.255.37.2").unwrap()));
+
+        let host = Host::parse_smtp_host_address(b"Ipv6:2001:db8::1").unwrap();
+        assert_eq!(host, Host::Ip(IpAddr::from_str("2001:db8::1").unwrap()));
     }
 }

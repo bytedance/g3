@@ -19,7 +19,7 @@ use std::io::{IoSlice, Write};
 use bytes::BufMut;
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncWriteExt};
 
-use g3_http::{ChunkedTransfer, HttpBodyType, PreviewData, PreviewDataState};
+use g3_http::{H1BodyToChunkedTransfer, HttpBodyType, PreviewData, PreviewDataState};
 use g3_io_ext::{IdleCheck, LimitedWriteExt};
 
 use super::{
@@ -35,7 +35,6 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         &self,
         http_request: &H,
         http_header_len: usize,
-        http_body_type: HttpBodyType,
         preview_state: &PreviewDataState,
     ) -> Vec<u8>
     where
@@ -55,9 +54,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             "Encapsulated: req-hdr=0, req-body={}\r\nPreview: {}\r\n",
             http_header_len, preview_state.preview_size
         );
-        if http_body_type == HttpBodyType::ChunkedWithTrailer {
-            http_request.append_trailer_header(&mut header);
-        }
+        http_request.append_trailer_header(&mut header);
         header.put_slice(b"\r\n");
         header
     }
@@ -104,8 +101,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                     .await
             }
         };
-        let icap_header =
-            self.build_preview_request(http_request, header_len, clt_body_type, &preview_state);
+        let icap_header = self.build_preview_request(http_request, header_len, &preview_state);
 
         let icap_w = &mut self.icap_connection.0;
         icap_w
@@ -137,7 +133,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                     ));
                 }
 
-                let mut body_transfer = ChunkedTransfer::new_after_preview(
+                let mut body_transfer = H1BodyToChunkedTransfer::new_after_preview(
                     clt_body_io,
                     &mut self.icap_connection.0,
                     clt_body_type,
@@ -209,14 +205,16 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                             Ok(r)
                         }
                     }
-                    IcapReqmodResponsePayload::HttpResponseWithoutBody(header_size) => {
-                        self.handle_icap_http_response_without_body(rsp, header_size)
-                            .await
-                    }
-                    IcapReqmodResponsePayload::HttpResponseWithBody(header_size) => {
-                        self.handle_icap_http_response_with_body(rsp, header_size)
-                            .await
-                    }
+                    IcapReqmodResponsePayload::HttpResponseWithoutBody(header_size) => self
+                        .handle_icap_http_response_without_body(rsp, header_size)
+                        .await
+                        .map(|rsp| ReqmodAdaptationEndState::HttpErrResponse(rsp, None)),
+                    IcapReqmodResponsePayload::HttpResponseWithBody(header_size) => self
+                        .handle_icap_http_response_with_body(rsp, header_size)
+                        .await
+                        .map(|(rsp, body)| {
+                            ReqmodAdaptationEndState::HttpErrResponse(rsp, Some(body))
+                        }),
                 }
             }
             204 => {
@@ -260,14 +258,16 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                         )
                         .await
                     }
-                    IcapReqmodResponsePayload::HttpResponseWithoutBody(header_size) => {
-                        self.handle_icap_http_response_without_body(rsp, header_size)
-                            .await
-                    }
-                    IcapReqmodResponsePayload::HttpResponseWithBody(header_size) => {
-                        self.handle_icap_http_response_with_body(rsp, header_size)
-                            .await
-                    }
+                    IcapReqmodResponsePayload::HttpResponseWithoutBody(header_size) => self
+                        .handle_icap_http_response_without_body(rsp, header_size)
+                        .await
+                        .map(|rsp| ReqmodAdaptationEndState::HttpErrResponse(rsp, None)),
+                    IcapReqmodResponsePayload::HttpResponseWithBody(header_size) => self
+                        .handle_icap_http_response_with_body(rsp, header_size)
+                        .await
+                        .map(|(rsp, body)| {
+                            ReqmodAdaptationEndState::HttpErrResponse(rsp, Some(body))
+                        }),
                 }
             }
             _ => {

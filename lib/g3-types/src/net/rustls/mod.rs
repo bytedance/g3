@@ -15,19 +15,32 @@
  */
 
 mod client;
+#[cfg(feature = "quinn")]
+pub use client::RustlsQuicClientConfig;
 pub use client::{RustlsClientConfig, RustlsClientConfigBuilder};
 
 mod server;
+#[cfg(feature = "quinn")]
+pub use server::RustlsQuicServerConfig;
 pub use server::{RustlsServerConfig, RustlsServerConfigBuilder};
 
 mod cache;
-pub use cache::RustlsServerSessionCache;
+use cache::RustlsServerSessionCache;
+
+mod ticket_key;
+pub use ticket_key::RustlsTicketKey;
+
+mod ticketer;
+use ticketer::RustlsNoSessionTicketer;
 
 mod cert_pair;
-pub use cert_pair::RustlsCertificatePair;
+pub use cert_pair::{RustlsCertificatePair, RustlsCertificatePairBuilder};
 
 mod cert_resolver;
 pub use cert_resolver::MultipleCertResolver;
 
 mod ca_certs;
 pub use ca_certs::load_native_certs_for_rustls;
+
+mod ext;
+pub use ext::{RustlsServerConfigExt, RustlsServerConnectionExt};

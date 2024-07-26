@@ -6,8 +6,8 @@ Escaper
 
 The type for each escaper config is *map*, with two always required keys:
 
-* *name*, which specify the name of the escaper.
-* *type*, which specify the real type of the escaper, decides how to parse other keys.
+* :ref:`name <conf_escaper_common_name>`, which specify the name of the escaper.
+* :ref:`type <conf_escaper_common_type>`, which specify the real type of the escaper, decides how to parse other keys.
 
 There are many types of escaper, each with a section below.
 
@@ -20,6 +20,7 @@ Escapers
    dummy_deny
    direct_fixed
    direct_float
+   divert_tcp
    proxy_float
    proxy_http
    proxy_https
@@ -38,6 +39,24 @@ Common Keys
 ===========
 
 This section describes the common keys, they may be used by many escapers.
+
+.. _conf_escaper_common_name:
+
+name
+----
+
+**required**, **type**: :ref:`metrics name <conf_value_metrics_name>`
+
+Set the name of the escaper.
+
+.. _conf_escaper_common_type:
+
+type
+----
+
+**required**, **type**: str
+
+Set the type of the escaper.
 
 .. _conf_escaper_common_shared_logger:
 
@@ -128,6 +147,19 @@ tcp_connect
 Set tcp connect params.
 
 .. note:: For *direct* type escapers, the user level tcp connect params will be taken to limit the final value.
+
+.. _conf_escaper_common_happy_eyeballs:
+
+happy_eyeballs
+--------------
+
+**optional**, **type**: :ref:`happy eyeballs <conf_value_happy_eyeballs>`
+
+Set the HappyEyeballs config.
+
+**default**: default HappyEyeballs config
+
+.. versionadded:: 1.5.3
 
 .. _conf_escaper_common_tcp_misc_opts:
 

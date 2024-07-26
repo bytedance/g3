@@ -54,7 +54,7 @@ impl SyslogBuilder {
         SyslogBuilder {
             ident,
             facility: Facility::User,
-            backend: SyslogBackendBuilder::Default,
+            backend: SyslogBackendBuilder::default(),
             format: SyslogFormatterKind::Rfc3164,
             emit_hostname: false,
             append_report_ts: false,
@@ -95,8 +95,7 @@ impl SyslogBuilder {
 
     pub fn start_async(self, async_conf: &AsyncLogConfig) -> AsyncSyslogStreamer {
         let hostname = if self.emit_hostname {
-            let uname = rustix::system::uname();
-            Some(uname.nodename().to_string_lossy().to_string())
+            Some(gethostname::gethostname().to_string_lossy().to_string())
         } else {
             None
         };
