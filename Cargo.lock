@@ -1825,7 +1825,7 @@ dependencies = [
 
 [[package]]
 name = "g3proxy"
-version = "1.9.6"
+version = "1.9.6+tongsuo"
 dependencies = [
  "ahash",
  "anyhow",
