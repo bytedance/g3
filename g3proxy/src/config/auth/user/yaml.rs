@@ -15,24 +15,33 @@
  */
 
 use std::str::FromStr;
-use std::sync::Arc;
 
+use ahash::AHashMap;
 use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
 
-use g3_types::route::EgressPathSelection;
+use g3_yaml::YamlDocPosition;
 
 use super::{PasswordToken, UserConfig, UserSiteConfig};
+use crate::escape::EgressPathSelection;
 
 impl UserConfig {
-    pub(crate) fn parse_yaml(map: &yaml::Hash) -> anyhow::Result<Self> {
+    pub(crate) fn parse_yaml(
+        map: &yaml::Hash,
+        position: Option<&YamlDocPosition>,
+    ) -> anyhow::Result<Self> {
         let mut config = UserConfig::default();
-        g3_yaml::foreach_kv(map, |k, v| config.set_yaml(k, v))?;
+        g3_yaml::foreach_kv(map, |k, v| config.set_yaml(k, v, position))?;
         config.check()?;
         Ok(config)
     }
 
-    fn set_yaml(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
+    fn set_yaml(
+        &mut self,
+        k: &str,
+        v: &Yaml,
+        position: Option<&YamlDocPosition>,
+    ) -> anyhow::Result<()> {
         match g3_yaml::key::normalize(k).as_str() {
             "name" => {
                 self.name =
@@ -72,6 +81,34 @@ impl UserConfig {
                     .context(format!("invalid udp socket speed limit value for key {k}"))?;
                 Ok(())
             }
+            "tcp_all_upload_speed_limit" => {
+                let limit = g3_yaml::value::as_global_stream_speed_limit(v).context(format!(
+                    "invalid global stream speed limit config value for key {k}"
+                ))?;
+                self.tcp_all_upload_speed_limit = Some(limit);
+                Ok(())
+            }
+            "tcp_all_download_speed_limit" => {
+                let limit = g3_yaml::value::as_global_stream_speed_limit(v).context(format!(
+                    "invalid global stream speed limit config value for key {k}"
+                ))?;
+                self.tcp_all_download_speed_limit = Some(limit);
+                Ok(())
+            }
+            "udp_all_upload_speed_limit" => {
+                let limit = g3_yaml::value::as_global_datagram_speed_limit(v).context(format!(
+                    "invalid global datagram speed limit config value for key {k}"
+                ))?;
+                self.udp_all_upload_speed_limit = Some(limit);
+                Ok(())
+            }
+            "udp_all_download_speed_limit" => {
+                let limit = g3_yaml::value::as_global_datagram_speed_limit(v).context(format!(
+                    "invalid global datagram speed limit config value for key {k}"
+                ))?;
+                self.udp_all_download_speed_limit = Some(limit);
+                Ok(())
+            }
             "tcp_remote_keepalive" => {
                 self.tcp_remote_keepalive = g3_yaml::value::as_tcp_keepalive_config(v)
                     .context(format!("invalid tcp keepalive config value for key {k}"))?;
@@ -104,6 +141,12 @@ impl UserConfig {
             "http_upstream_keepalive" => {
                 self.http_upstream_keepalive = g3_yaml::value::as_http_keepalive_config(v)
                     .context(format!("invalid http keepalive config value for key {k}"))?;
+                Ok(())
+            }
+            "http_rsp_header_recv_timeout" => {
+                let timeout = g3_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                self.http_rsp_hdr_recv_timeout = Some(timeout);
                 Ok(())
             }
             "tcp_conn_rate_limit" | "tcp_conn_limit_quota" => {
@@ -191,7 +234,7 @@ impl UserConfig {
             "explicit_sites" => {
                 if let Yaml::Array(seq) = v {
                     for (i, v) in seq.iter().enumerate() {
-                        let site_group = UserSiteConfig::parse_yaml(v)
+                        let site_group = UserSiteConfig::parse_yaml(v, position)
                             .context(format!("invalid user site group value for {k}#{i}"))?;
                         self.add_site_group(site_group)?;
                     }
@@ -206,15 +249,28 @@ impl UserConfig {
                 .audit
                 .parse_yaml(v)
                 .context(format!("invalid user audit config value for key {k}")),
-            "egress_path" => {
-                if let Yaml::String(s) = v {
-                    let v = serde_json::Value::from_str(s)
-                        .map_err(|e| anyhow!("invalid json string value for key {k}: {e}"))?;
-                    self.egress_path_selection = Arc::new(EgressPathSelection::JsonValue(v));
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid json string value for key {k}"))
-                }
+            "egress_path_id_map" => {
+                let id_map = g3_yaml::value::as_hashmap(
+                    v,
+                    g3_yaml::value::as_metrics_name,
+                    g3_yaml::value::as_string,
+                )
+                .context(format!("invalid egress path id map value for key {k}"))?;
+                self.egress_path_selection = Some(EgressPathSelection::MatchId(
+                    id_map.into_iter().collect::<AHashMap<_, _>>(),
+                ));
+                Ok(())
+            }
+            "egress_path_value_map" => {
+                let id_map = g3_yaml::value::as_hashmap(v, g3_yaml::value::as_metrics_name, |v| {
+                    let v = g3_yaml::value::as_string(v)?;
+                    serde_json::Value::from_str(&v).map_err(|e| anyhow!("invalid json string: {e}"))
+                })
+                .context(format!("invalid egress path id map value for key {k}"))?;
+                self.egress_path_selection = Some(EgressPathSelection::MatchValue(
+                    id_map.into_iter().collect::<AHashMap<_, _>>(),
+                ));
+                Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
         }

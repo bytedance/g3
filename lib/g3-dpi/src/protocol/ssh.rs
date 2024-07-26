@@ -118,8 +118,10 @@ impl ProtocolInspectState {
         // exclude impossible protocols
         self.exclude_other(MaybeProtocol::Ftp);
         self.exclude_other(MaybeProtocol::Smtp);
+        self.exclude_other(MaybeProtocol::Odmr);
         self.exclude_other(MaybeProtocol::Pop3);
         self.exclude_other(MaybeProtocol::Nntp);
+        self.exclude_other(MaybeProtocol::Nnsp);
         self.exclude_other(MaybeProtocol::Imap);
         self.exclude_other(MaybeProtocol::Nats);
         self.exclude_other(MaybeProtocol::BitTorrent);

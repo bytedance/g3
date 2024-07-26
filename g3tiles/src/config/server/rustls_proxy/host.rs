@@ -18,15 +18,16 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
-use rustls::server::AllowAnyAuthenticatedClient;
-use rustls::{Certificate, RootCertStore, ServerConfig, Ticketer};
+use rustls::server::WebPkiClientVerifier;
+use rustls::{RootCertStore, ServerConfig};
+use rustls_pki_types::CertificateDer;
 use yaml_rust::Yaml;
 
 use g3_types::collection::NamedValue;
 use g3_types::limit::RateLimitQuotaConfig;
 use g3_types::metrics::MetricsName;
 use g3_types::net::{
-    MultipleCertResolver, RustlsCertificatePair, RustlsServerSessionCache, TcpSockSpeedLimitConfig,
+    MultipleCertResolver, RustlsCertificatePair, RustlsServerConfigExt, TcpSockSpeedLimitConfig,
 };
 use g3_types::route::AlpnMatch;
 use g3_yaml::{YamlDocPosition, YamlMapCallback};
@@ -36,8 +37,9 @@ pub(crate) struct RustlsHostConfig {
     name: String,
     cert_pairs: Vec<RustlsCertificatePair>,
     client_auth: bool,
-    client_auth_certs: Vec<Certificate>,
+    client_auth_certs: Vec<CertificateDer<'static>>,
     use_session_ticket: bool,
+    no_session_cache: bool,
     pub(crate) accept_timeout: Duration,
     pub(crate) request_alive_max: Option<usize>,
     pub(crate) request_rate_limit: Option<RateLimitQuotaConfig>,
@@ -53,7 +55,8 @@ impl Default for RustlsHostConfig {
             cert_pairs: Vec::with_capacity(1),
             client_auth: false,
             client_auth_certs: Vec::new(),
-            use_session_ticket: false,
+            use_session_ticket: true,
+            no_session_cache: false,
             accept_timeout: Duration::from_secs(60),
             request_alive_max: None,
             request_rate_limit: None,
@@ -79,25 +82,27 @@ impl NamedValue for RustlsHostConfig {
 
 impl RustlsHostConfig {
     pub(crate) fn build_tls_config(&self) -> anyhow::Result<Arc<ServerConfig>> {
-        let config_builder = ServerConfig::builder().with_safe_defaults();
+        let config_builder = ServerConfig::builder();
         let config_builder = if self.client_auth {
             let mut root_store = RootCertStore::empty();
             if self.client_auth_certs.is_empty() {
                 let certs = g3_types::net::load_native_certs_for_rustls()?;
-                for (i, cert) in certs.iter().enumerate() {
+                for (i, cert) in certs.into_iter().enumerate() {
                     root_store.add(cert).map_err(|e| {
                         anyhow!("failed to add openssl ca cert {i} as root certs for client auth: {e:?}",)
                     })?;
                 }
             } else {
                 for (i, cert) in self.client_auth_certs.iter().enumerate() {
-                    root_store.add(cert).map_err(|e| {
+                    root_store.add(cert.clone()).map_err(|e| {
                         anyhow!("failed to add cert {i} as root certs for client auth: {e:?}",)
                     })?;
                 }
             }
-            config_builder
-                .with_client_cert_verifier(Arc::new(AllowAnyAuthenticatedClient::new(root_store)))
+            let client_verifier = WebPkiClientVerifier::builder(Arc::new(root_store))
+                .build()
+                .map_err(|e| anyhow!("failed to build client cert verifier: {e}"))?;
+            config_builder.with_client_cert_verifier(client_verifier)
         } else {
             config_builder.with_no_client_auth()
         };
@@ -110,12 +115,8 @@ impl RustlsHostConfig {
         }
         let mut config = config_builder.with_cert_resolver(Arc::new(cert_resolver));
 
-        config.session_storage = Arc::new(RustlsServerSessionCache::default());
-        if self.use_session_ticket {
-            let ticketer =
-                Ticketer::new().map_err(|e| anyhow!("failed to create session ticketer: {e}"))?;
-            config.ticketer = ticketer;
-        }
+        config.set_session_cache(self.no_session_cache);
+        config.set_session_ticketer(self.use_session_ticket)?;
 
         if !self.backends.is_empty() {
             for protocol in self.backends.protocols() {
@@ -152,13 +153,20 @@ impl YamlMapCallback for RustlsHostConfig {
                 Ok(())
             }
             "enable_client_auth" => {
-                self.client_auth = g3_yaml::value::as_bool(value)
-                    .context(format!("invalid value for key {key}"))?;
+                self.client_auth = g3_yaml::value::as_bool(value)?;
                 Ok(())
             }
             "use_session_ticket" => {
-                self.use_session_ticket = g3_yaml::value::as_bool(value)
-                    .context(format!("invalid value for key {key}"))?;
+                self.use_session_ticket = g3_yaml::value::as_bool(value)?;
+                Ok(())
+            }
+            "no_session_ticket" | "disable_session_ticket" => {
+                let disable = g3_yaml::value::as_bool(value)?;
+                self.use_session_ticket = !disable;
+                Ok(())
+            }
+            "no_session_cache" | "disable_session_cache" => {
+                self.no_session_cache = g3_yaml::value::as_bool(value)?;
                 Ok(())
             }
             "ca_certificate" | "ca_cert" | "client_auth_certificate" | "client_auth_cert" => {

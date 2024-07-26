@@ -50,19 +50,19 @@ impl ProxySocks5Escaper {
         let wrapper_stats = Arc::new(wrapper_stats);
 
         let (recv, send) = g3_io_ext::split_udp(udp_socket);
-        let recv = LimitedUdpRecv::new(
+        let recv = LimitedUdpRecv::local_limited(
             recv,
             self.config.general.udp_sock_speed_limit.shift_millis,
             self.config.general.udp_sock_speed_limit.max_south_packets,
             self.config.general.udp_sock_speed_limit.max_south_bytes,
-            wrapper_stats.clone() as _,
+            wrapper_stats.clone(),
         );
-        let send = LimitedUdpSend::new(
+        let send = LimitedUdpSend::local_limited(
             send,
             self.config.general.udp_sock_speed_limit.shift_millis,
             self.config.general.udp_sock_speed_limit.max_north_packets,
             self.config.general.udp_sock_speed_limit.max_north_bytes,
-            wrapper_stats as _,
+            wrapper_stats,
         );
 
         let recv = ProxySocks5UdpRelayRemoteRecv::new(

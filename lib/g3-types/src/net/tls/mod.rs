@@ -19,3 +19,17 @@ pub use alpn::{AlpnProtocol, TlsAlpn};
 
 mod server_name;
 pub use server_name::TlsServerName;
+
+mod service_type;
+pub use service_type::TlsServiceType;
+
+mod cert_usage;
+pub use cert_usage::TlsCertUsage;
+
+mod ticket_name;
+pub use ticket_name::{TicketKeyName, TICKET_KEY_NAME_LENGTH};
+
+mod ticketer;
+pub use ticketer::{
+    RollingTicketKey, RollingTicketer, TICKET_AES_KEY_LENGTH, TICKET_HMAC_KEY_LENGTH,
+};

@@ -16,16 +16,21 @@
 
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use slog::Logger;
 use tokio::io::{AsyncRead, AsyncWrite};
 use uuid::Uuid;
 
 use g3_daemon::server::ServerQuitPolicy;
-use g3_dpi::{H1InterceptionConfig, H2InterceptionConfig, MaybeProtocol, ProtocolInspector};
+use g3_dpi::{
+    H1InterceptionConfig, H2InterceptionConfig, MaybeProtocol, ProtocolInspectPolicy,
+    ProtocolInspector, SmtpInterceptionConfig,
+};
+use g3_types::net::OpensslClientConfig;
 
 use crate::audit::AuditHandle;
-use crate::auth::{User, UserForbiddenStats};
+use crate::auth::{User, UserForbiddenStats, UserSite};
 use crate::config::server::ServerConfig;
 use crate::serve::{ArcServerStats, ServerIdleChecker, ServerTaskNotes};
 
@@ -37,14 +42,30 @@ pub(crate) mod stream;
 pub(crate) mod tls;
 use tls::TlsInterceptionContext;
 
+pub(crate) mod start_tls;
+use start_tls::StartTlsProtocol;
+
 pub(crate) mod http;
 mod websocket;
+
+pub(crate) mod imap;
+pub(crate) mod smtp;
 
 #[derive(Clone)]
 pub(super) struct StreamInspectUserContext {
     raw_user_name: Option<String>,
     user: Arc<User>,
+    user_site: Option<Arc<UserSite>>,
     forbidden_stats: Arc<UserForbiddenStats>,
+}
+
+impl StreamInspectUserContext {
+    fn http_rsp_hdr_recv_timeout(&self) -> Option<Duration> {
+        self.user_site
+            .as_ref()
+            .and_then(|site| site.http_rsp_hdr_recv_timeout())
+            .or(self.user.http_rsp_hdr_recv_timeout())
+    }
 }
 
 #[derive(Clone)]
@@ -66,6 +87,7 @@ impl From<&ServerTaskNotes> for StreamInspectTaskNotes {
             user_ctx: task_notes.user_ctx().map(|ctx| StreamInspectUserContext {
                 raw_user_name: ctx.raw_user_name().map(|s| s.to_string()),
                 user: ctx.user().clone(),
+                user_site: ctx.user_site().cloned(),
                 forbidden_stats: ctx.forbidden_stats().clone(),
             }),
         }
@@ -195,6 +217,14 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
         self.audit_handle.tls_interception()
     }
 
+    pub(crate) fn user_site_tls_client(&self) -> Option<&OpensslClientConfig> {
+        self.task_notes
+            .user_ctx
+            .as_ref()
+            .and_then(|v| v.user_site.as_ref())
+            .and_then(|v| v.tls_client())
+    }
+
     fn log_uri_max_chars(&self) -> usize {
         self.task_notes
             .user_ctx
@@ -208,9 +238,45 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
         self.audit_handle.h1_interception()
     }
 
+    fn h1_rsp_hdr_recv_timeout(&self) -> Duration {
+        self.task_notes
+            .user_ctx
+            .as_ref()
+            .and_then(|ctx| ctx.http_rsp_hdr_recv_timeout())
+            .unwrap_or(self.h1_interception().rsp_head_recv_timeout)
+    }
+
+    #[inline]
+    fn h2_inspect_policy(&self) -> ProtocolInspectPolicy {
+        self.audit_handle.h2_inspect_policy()
+    }
+
     #[inline]
     fn h2_interception(&self) -> &H2InterceptionConfig {
         self.audit_handle.h2_interception()
+    }
+
+    fn h2_rsp_hdr_recv_timeout(&self) -> Duration {
+        self.task_notes
+            .user_ctx
+            .as_ref()
+            .and_then(|ctx| ctx.http_rsp_hdr_recv_timeout())
+            .unwrap_or(self.h2_interception().rsp_head_recv_timeout)
+    }
+
+    #[inline]
+    fn smtp_inspect_policy(&self) -> ProtocolInspectPolicy {
+        self.audit_handle.smtp_inspect_policy()
+    }
+
+    #[inline]
+    fn smtp_interception(&self) -> &SmtpInterceptionConfig {
+        self.audit_handle.smtp_interception()
+    }
+
+    #[inline]
+    fn imap_inspect_policy(&self) -> ProtocolInspectPolicy {
+        self.audit_handle.imap_inspect_policy()
     }
 
     #[inline]
@@ -232,9 +298,14 @@ pub(crate) enum StreamInspection<SC: ServerConfig> {
     StreamUnknown(stream::StreamInspectObject<SC>),
     StreamInspect(stream::StreamInspectObject<SC>),
     TlsModern(tls::TlsInterceptObject<SC>),
+    #[cfg(feature = "vendored-tongsuo")]
+    TlsTlcp(tls::TlsInterceptObject<SC>),
+    StartTls(start_tls::StartTlsInterceptObject<SC>),
     H1(http::H1InterceptObject<SC>),
     H2(http::H2InterceptObject<SC>),
     Websocket(websocket::H1WebsocketInterceptObject<SC>),
+    Smtp(smtp::SmtpInterceptObject<SC>),
+    Imap(imap::ImapInterceptObject<SC>),
 }
 
 type BoxAsyncRead = Box<dyn AsyncRead + Send + Unpin + 'static>;

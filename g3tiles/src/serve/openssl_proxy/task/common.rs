@@ -27,12 +27,12 @@ use g3_daemon::server::ClientConnectionInfo;
 use g3_types::net::Host;
 
 use crate::config::server::openssl_proxy::OpensslProxyServerConfig;
-use crate::serve::openssl_proxy::OpensslProxyServerStats;
+use crate::module::stream::StreamServerStats;
 use crate::serve::ServerQuitPolicy;
 
 pub(crate) struct CommonTaskContext {
     pub server_config: Arc<OpensslProxyServerConfig>,
-    pub server_stats: Arc<OpensslProxyServerStats>,
+    pub server_stats: Arc<StreamServerStats>,
     pub server_quit_policy: Arc<ServerQuitPolicy>,
     pub cc_info: ClientConnectionInfo,
     pub task_logger: Logger,

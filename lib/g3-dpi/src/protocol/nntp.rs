@@ -45,6 +45,7 @@ impl ProtocolInspectState {
         // exclude impossible protocols
         self.exclude_other(MaybeProtocol::Ssh);
         self.exclude_other(MaybeProtocol::Nntp);
+        self.exclude_other(MaybeProtocol::Nnsp);
         self.exclude_other(MaybeProtocol::Imap);
         self.exclude_other(MaybeProtocol::Nats);
         self.exclude_other(MaybeProtocol::BitTorrent);
@@ -57,6 +58,7 @@ impl ProtocolInspectState {
         // exclude impossible protocols
         self.exclude_other(MaybeProtocol::Ftp);
         self.exclude_other(MaybeProtocol::Smtp);
+        self.exclude_other(MaybeProtocol::Odmr);
 
         if !matches!(data[2], b'0' | b'1') {
             self.exclude_current();

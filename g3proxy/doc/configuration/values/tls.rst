@@ -1,4 +1,3 @@
-
 .. _configure_tls_value_types:
 
 ***
@@ -405,7 +404,29 @@ The map is consists of the following fields:
 
   A string that will be added to the prefix when calculate the session id context sha1 hash.
 
+  **default**: not set
+
   .. versionadded:: 1.7.32
+
+* no_session_ticket
+
+  **optional**, **type**: bool
+
+  Set if we should disable TLS session ticket (stateless session resumption by Session Ticket).
+
+  **default**: false
+
+  .. versionadded:: 1.9.4
+
+* no_session_cache
+
+  **optional**, **type**: bool
+
+  Set if we should disable TLS session cache (stateful session resumption by Session ID).
+
+  **default**: false
+
+  .. versionadded:: 1.9.4
 
 * ca_certificate | client_auth_certificate
 
@@ -572,15 +593,25 @@ The map is consists of the following fields:
 
   **default**: disabled
 
-* use_session_ticket
+* no_session_ticket
 
   **optional**, **type**: bool
 
-  Set if we should enable TLS session ticket to do TLS Session Resumption without Server-Side State.
+  Set if we should disable TLS session ticket (stateless session resumption by Session Ticket).
 
-  .. versionchanged:: 1.7.28
+  **default**: false
 
-  **default**: disabled
+  .. versionadded:: 1.9.4
+
+* no_session_cache
+
+  **optional**, **type**: bool
+
+  Set if we should disable TLS session cache (stateful session resumption by Session ID).
+
+  **default**: false
+
+  .. versionadded:: 1.9.4
 
 * ca_certificate | client_auth_certificate
 

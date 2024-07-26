@@ -97,7 +97,7 @@ impl BenchOpensslArgs {
 
         if let Some(data) = self.proxy_protocol.data() {
             stream
-                .write_all(data)
+                .write_all(data) // no need to flush data
                 .await
                 .map_err(|e| anyhow!("failed to write proxy protocol data: {e:?}"))?;
         }

@@ -47,7 +47,7 @@ pub(crate) enum TcpConnectError {
     #[error("forbidden remote address")]
     ForbiddenRemoteAddress,
     #[error("proxy protocol encode error: {0}")]
-    ProxyProtocolEncodeError(ProxyProtocolEncodeError),
+    ProxyProtocolEncodeError(#[from] ProxyProtocolEncodeError),
     #[error("proxy protocol write failed: {0:?}")]
     ProxyProtocolWriteFailed(io::Error),
     #[error("negotiation read failed: {0:?}")]

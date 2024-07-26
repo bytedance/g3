@@ -1,4 +1,3 @@
-
 .. _configure_dpi_value_types:
 
 ***
@@ -61,6 +60,33 @@ The keys ars:
 
   **default**: 512
 
+  .. deprecated:: 1.9.0 not used anymore, the max SMTP reply line length should be 512
+
+.. _conf_value_dpi_protocol_inspect_policy:
+
+protocol inspect policy
+-----------------------
+
+**type**: string
+
+Set what we should do to a specific application protocol.
+
+The possible value are:
+
+- intercept
+
+  Intercept the traffic. This is the default value.
+
+- bypass
+
+  Bypass the interception. The traffic will be transferred transparently.
+
+- block
+
+  Block the traffic. And we will try to send application level error code to the client.
+
+.. versionadded:: 1.9.0
+
 .. _conf_value_dpi_protocol_inspection:
 
 protocol inspection
@@ -95,6 +121,8 @@ The keys are:
   Set the wait timeout for the initial data, from either the client side or the server side.
 
   **default**: 60s
+
+.. _conf_value_dpi_protocol_inspection_data0_read_timeout:
 
 * data0_read_timeout
 
@@ -521,6 +549,16 @@ The keys are:
 
   **default**: 8192
 
+* steal_forwarded_for
+
+  **optional**, **type**: bool
+
+  Set if we should delete the *Forwarded* and *X-Forwarded-For* headers from the client's intercepted transparent request.
+
+  **default**: false
+
+  .. versionadded:: 1.9.2
+
 .. _conf_value_dpi_h2_interception:
 
 h2 interception
@@ -610,3 +648,92 @@ The keys are:
 
   Set if we should drop the *Expect* http header silently.
   If not set, a *417 Expectation Failed* response will be sent to client.
+
+.. _conf_value_dpi_smtp_interception:
+
+smtp interception
+-----------------
+
+* greeting_timeout
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Set the timeout value for the forward of the upstream SMTP Greeting message.
+
+  **default**: 5min
+
+* quit_wait_timeout
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Set the timeout value for the forward of the upstream QUIT response.
+
+  **default**: 60s
+
+* command_wait_timeout
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Set the timeout value for the wait of the next client SMTP command.
+
+  **default**: 5min
+
+* response_wait_timeout
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Set the timeout value for the wait of the most of upstream SMTP command response.
+
+  **default**: 5min
+
+* data_initiation_timeout
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Set the timeout value for the initial confirm response to DATA command from upstream.
+
+  **default**: 2min
+
+* data_termination_timeout
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Set the timeout value for the final status response to DATA command from upstream.
+
+  **default**: 10min
+
+* allow_on_demand_mail_relay
+
+  **optional**, **type**: bool
+
+  Set whether we should enable `rfc2645 ODMR`_ protocol support.
+
+  .. note:: Interception for the SMTP connection inside ODMR is currently not supported.
+
+  **default**: false
+
+* allow_data_chunking
+
+  **optional**, **type**: bool
+
+  Set whether we should enable `rfc3030 BDAT`_ command support.
+
+  .. note:: ICAP integration is not available currently.
+
+  **default**: false
+
+* allow_burl_data
+
+  **optional**, **type**: bool
+
+  Set whether we should enable `rfc4468 BURL`_ command support.
+
+  .. note:: ICAP integration is not available currently.
+
+  **default**: false
+
+.. _rfc2645 ODMR: https://datatracker.ietf.org/doc/html/rfc2645
+.. _rfc3030 BDAT: https://datatracker.ietf.org/doc/html/rfc3030
+.. _rfc4468 BURL: https://datatracker.ietf.org/doc/html/rfc4468
+
+.. versionadded:: 1.9.2

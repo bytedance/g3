@@ -24,14 +24,14 @@ use std::time::Instant;
 
 use governor::{clock::DefaultClock, state::InMemoryState, state::NotKeyed, Quota, RateLimiter};
 
-use g3_io_ext::StreamLimitInfo;
+use g3_io_ext::LocalStreamLimiter;
 
-fn test_fixed_window(limiter: &mut StreamLimitInfo, start: &Instant) {
+fn test_fixed_window(limiter: &mut LocalStreamLimiter, start: &Instant) {
     let ts = start.elapsed().as_millis() as u64;
     let _ = limiter.check(ts, 1);
 }
 
-fn test_fixed_window_3(limiter: &mut StreamLimitInfo, start: &Instant) {
+fn test_fixed_window_3(limiter: &mut LocalStreamLimiter, start: &Instant) {
     let ts = start.elapsed().as_millis() as u64;
     let _ = limiter.check(ts, 3);
 }
@@ -47,21 +47,21 @@ fn test_leaky_bucket_3(limiter: &RateLimiter<NotKeyed, InMemoryState, DefaultClo
 #[bench]
 fn fixed_window_ok1(b: &mut Bencher) {
     let start = Instant::now();
-    let mut limiter = StreamLimitInfo::new(10, 1024 * 1024 * 1024);
+    let mut limiter = LocalStreamLimiter::new(10, 1024 * 1024 * 1024);
     b.iter(|| test_fixed_window(&mut limiter, &start));
 }
 
 #[bench]
 fn fixed_window_ok3(b: &mut Bencher) {
     let start = Instant::now();
-    let mut limiter = StreamLimitInfo::new(10, 1024 * 1024 * 1024);
+    let mut limiter = LocalStreamLimiter::new(10, 1024 * 1024 * 1024);
     b.iter(|| test_fixed_window_3(&mut limiter, &start));
 }
 
 #[bench]
 fn fixed_window_empty(b: &mut Bencher) {
     let start = Instant::now();
-    let mut limiter = StreamLimitInfo::new(10, 1024);
+    let mut limiter = LocalStreamLimiter::new(10, 1024);
     b.iter(|| test_fixed_window(&mut limiter, &start));
 }
 

@@ -109,7 +109,6 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
             http_rsp_header.len(),
             preview_size,
         );
-        let has_trailer = http_request.headers().contains_key(http::header::TRAILER);
 
         let icap_w = &mut self.icap_connection.0;
         icap_w
@@ -120,7 +119,7 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
             ])
             .await
             .map_err(H2RespmodAdaptationError::IcapServerWriteFailed)?;
-        write_preview_data(icap_w, &initial_body_data[0..preview_size])
+        write_preview_data(icap_w, &initial_body_data[0..preview_size], preview_eof)
             .await
             .map_err(H2RespmodAdaptationError::IcapServerWriteFailed)?;
         icap_w
@@ -148,14 +147,12 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
                     H2StreamToChunkedTransfer::new(
                         &mut ups_body,
                         &mut self.icap_connection.0,
-                        has_trailer,
                         self.copy_config.yield_size(),
                     )
                 } else {
                     H2StreamToChunkedTransfer::with_chunk(
                         &mut ups_body,
                         &mut self.icap_connection.0,
-                        has_trailer,
                         self.copy_config.yield_size(),
                         initial_body_data,
                     )
@@ -276,16 +273,24 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
     }
 }
 
-async fn write_preview_data<W>(writer: &mut W, data: &[u8]) -> io::Result<()>
+async fn write_preview_data<W>(writer: &mut W, data: &[u8], preview_eof: bool) -> io::Result<()>
 where
     W: AsyncWrite + Unpin,
 {
+    const END_SLICE_EOF: &[u8] = b"\r\n0; ieof\r\n\r\n";
+    const END_SLICE_NO_EOF: &[u8] = b"\r\n0\r\n\r\n";
+
     let header = format!("{:x}\r\n", data.len());
+    let end_slice = if preview_eof {
+        END_SLICE_EOF
+    } else {
+        END_SLICE_NO_EOF
+    };
     writer
         .write_all_vectored([
             IoSlice::new(header.as_bytes()),
             IoSlice::new(data),
-            IoSlice::new(b"\r\n0\r\n\r\n"),
+            IoSlice::new(end_slice),
         ])
         .await?;
     Ok(())

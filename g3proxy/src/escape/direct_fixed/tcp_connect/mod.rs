@@ -90,10 +90,7 @@ impl DirectFixedEscaper {
         self.handle_tcp_target_ip_acl_action(action, task_notes)?;
 
         if bind_ip.is_none() {
-            bind_ip = self.get_bind_random(
-                AddressFamily::from(&peer_ip),
-                &task_notes.egress_path_selection,
-            );
+            bind_ip = self.get_bind_random(AddressFamily::from(&peer_ip), task_notes.egress_path());
         }
 
         let sock = g3_socket::tcp::new_socket_to(peer_ip, bind_ip, keepalive, misc_opts, true)
@@ -464,17 +461,17 @@ impl DirectFixedEscaper {
         let wrapper_stats = Arc::new(wrapper_stats);
 
         let limit_config = &self.config.general.tcp_sock_speed_limit;
-        let r = LimitedReader::new(
+        let r = LimitedReader::local_limited(
             r,
             limit_config.shift_millis,
             limit_config.max_south,
-            wrapper_stats.clone() as _,
+            wrapper_stats.clone(),
         );
-        let w = LimitedWriter::new(
+        let w = LimitedWriter::local_limited(
             w,
             limit_config.shift_millis,
             limit_config.max_north,
-            wrapper_stats as _,
+            wrapper_stats,
         );
 
         Ok((Box::new(r), Box::new(w)))

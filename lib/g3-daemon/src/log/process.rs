@@ -23,7 +23,7 @@ use crate::opts::DaemonArgs;
 
 const PROCESS_LOG_THREAD_NAME: &str = "log-process";
 
-pub fn setup(args: &DaemonArgs) -> Result<GlobalLoggerGuard, log::SetLoggerError> {
+pub fn setup(args: &DaemonArgs) -> GlobalLoggerGuard {
     let async_conf = AsyncLogConfig::with_name(PROCESS_LOG_THREAD_NAME);
     let logger = if args.with_systemd {
         cfg_if::cfg_if! {
@@ -53,6 +53,6 @@ pub fn setup(args: &DaemonArgs) -> Result<GlobalLoggerGuard, log::SetLoggerError
         _ => log::Level::Trace,
     };
 
-    slog_stdlog::init_with_level(log_level)?;
-    Ok(scope_guard)
+    slog_stdlog::init_with_level(log_level).unwrap();
+    scope_guard
 }

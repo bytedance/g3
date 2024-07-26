@@ -20,22 +20,37 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+use tokio::net::{tcp, TcpStream};
 
 use super::limited_read::{LimitedReaderState, LimitedReaderStats};
 use super::limited_write::{LimitedWriterState, LimitedWriterStats};
+use crate::limit::GlobalStreamLimit;
+use crate::{LimitedReader, LimitedWriter};
 
-#[pin_project]
-pub struct LimitedStream<S> {
-    #[pin]
-    inner: S,
-    reader_state: LimitedReaderState,
-    writer_state: LimitedWriterState,
+pin_project! {
+    pub struct LimitedStream<S> {
+        #[pin]
+        inner: S,
+        reader_state: LimitedReaderState,
+        writer_state: LimitedWriterState,
+    }
 }
 
 impl<S> LimitedStream<S> {
-    pub fn new<ST>(
+    pub fn new<ST>(inner: S, stats: Arc<ST>) -> Self
+    where
+        ST: LimitedReaderStats + LimitedWriterStats + Send + Sync + 'static,
+    {
+        LimitedStream {
+            inner,
+            reader_state: LimitedReaderState::new(stats.clone()),
+            writer_state: LimitedWriterState::new(stats),
+        }
+    }
+
+    pub fn local_limited<ST>(
         inner: S,
         shift_millis: u8,
         read_max_bytes: usize,
@@ -47,33 +62,41 @@ impl<S> LimitedStream<S> {
     {
         LimitedStream {
             inner,
-            reader_state: LimitedReaderState::new(shift_millis, read_max_bytes, stats.clone() as _),
-            writer_state: LimitedWriterState::new(shift_millis, write_max_bytes, stats as _),
+            reader_state: LimitedReaderState::local_limited(
+                shift_millis,
+                read_max_bytes,
+                stats.clone(),
+            ),
+            writer_state: LimitedWriterState::local_limited(shift_millis, write_max_bytes, stats),
         }
     }
 
-    pub fn new_unlimited<ST>(inner: S, stats: Arc<ST>) -> Self
+    pub fn add_global_limiter<T>(&mut self, read_limiter: Arc<T>, write_limiter: Arc<T>)
     where
-        ST: LimitedReaderStats + LimitedWriterStats + Send + Sync + 'static,
+        T: GlobalStreamLimit + Send + Sync + 'static,
     {
-        LimitedStream {
-            inner,
-            reader_state: LimitedReaderState::new_unlimited(stats.clone() as _),
-            writer_state: LimitedWriterState::new_unlimited(stats as _),
-        }
+        self.reader_state.add_global_limiter(read_limiter);
+        self.writer_state.add_global_limiter(write_limiter);
     }
 
     pub fn reset_stats<ST>(&mut self, stats: Arc<ST>)
     where
         ST: LimitedReaderStats + LimitedWriterStats + Send + Sync + 'static,
     {
-        self.reader_state.reset_stats(stats.clone() as _);
-        self.writer_state.reset_stats(stats as _);
+        self.reader_state.reset_stats(stats.clone());
+        self.writer_state.reset_stats(stats);
     }
 
-    pub fn reset_limit(&mut self, shift_millis: u8, read_max_bytes: usize, write_max_bytes: usize) {
-        self.reader_state.reset_limit(shift_millis, read_max_bytes);
-        self.writer_state.reset_limit(shift_millis, write_max_bytes);
+    pub fn reset_local_limit(
+        &mut self,
+        shift_millis: u8,
+        read_max_bytes: usize,
+        write_max_bytes: usize,
+    ) {
+        self.reader_state
+            .reset_local_limit(shift_millis, read_max_bytes);
+        self.writer_state
+            .reset_local_limit(shift_millis, write_max_bytes);
     }
 
     pub fn into_inner(self) -> S {
@@ -134,5 +157,20 @@ impl<W: AsyncWrite> AsyncWrite for LimitedStream<W> {
         } else {
             self.inner.is_write_vectored()
         }
+    }
+}
+
+impl LimitedStream<TcpStream> {
+    pub fn into_split_tcp(
+        self,
+    ) -> (
+        LimitedReader<tcp::OwnedReadHalf>,
+        LimitedWriter<tcp::OwnedWriteHalf>,
+    ) {
+        let (r, w) = self.inner.into_split();
+        (
+            LimitedReader::from_parts(r, self.reader_state),
+            LimitedWriter::from_parts(w, self.writer_state),
+        )
     }
 }

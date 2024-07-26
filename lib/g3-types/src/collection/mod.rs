@@ -19,7 +19,5 @@ mod selective_vec;
 mod weighted_value;
 
 pub use named_value::NamedValue;
-pub use selective_vec::{
-    SelectiveHash, SelectiveItem, SelectivePickPolicy, SelectiveVec, SelectiveVecBuilder,
-};
+pub use selective_vec::{SelectiveItem, SelectivePickPolicy, SelectiveVec, SelectiveVecBuilder};
 pub use weighted_value::WeightedValue;

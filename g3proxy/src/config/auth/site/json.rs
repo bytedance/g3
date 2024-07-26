@@ -81,6 +81,18 @@ impl UserSiteConfig {
                 self.resolve_strategy = Some(strategy);
                 Ok(())
             }
+            "tls_client" => {
+                let builder = g3_json::value::as_to_many_openssl_tls_client_config_builder(v)
+                    .context(format!("invalid tls client config value for key {k}"))?;
+                self.tls_client = Some(builder);
+                Ok(())
+            }
+            "http_rsp_header_recv_timeout" => {
+                let timeout = g3_json::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                self.http_rsp_hdr_recv_timeout = Some(timeout);
+                Ok(())
+            }
             _ => Err(anyhow!("invalid key {k}")),
         }
     }

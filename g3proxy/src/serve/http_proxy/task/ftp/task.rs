@@ -29,7 +29,7 @@ use g3_ftp_client::{
 };
 use g3_http::server::HttpProxyClientRequest;
 use g3_http::{HttpBodyReader, HttpBodyType};
-use g3_io_ext::{LimitedCopy, LimitedCopyError, SizedReader};
+use g3_io_ext::{GlobalLimitGroup, LimitedCopy, LimitedCopyError, SizedReader};
 use g3_types::acl::AclAction;
 use g3_types::net::ProxyRequestType;
 
@@ -343,6 +343,8 @@ impl<'a> FtpOverHttpTask<'a> {
             .read
             .add_bytes(origin_header_size);
 
+        clt_w.retain_global_limiter_by_group(GlobalLimitGroup::Server);
+
         let mut wrapper_stats =
             FtpOverHttpTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
         let limit_config = if let Some(user_ctx) = self.task_notes.user_ctx() {
@@ -354,6 +356,15 @@ impl<'a> FtpOverHttpTask<'a> {
                 s.io.ftp_over_http.add_in_bytes(origin_header_size);
             }
             wrapper_stats.push_user_io_stats(user_io_stats);
+
+            let user = user_ctx.user();
+            if let Some(limiter) = user.tcp_all_upload_speed_limit() {
+                limiter.try_consume(origin_header_size);
+                clt_r.add_global_limiter(limiter.clone());
+            }
+            if let Some(limiter) = user.tcp_all_download_speed_limit() {
+                clt_w.add_global_limiter(limiter.clone());
+            }
 
             let user_config = user_ctx.user_config();
             if user_config
@@ -371,13 +382,13 @@ impl<'a> FtpOverHttpTask<'a> {
             None
         };
 
-        let (clt_r_stats, clt_w_stats) = wrapper_stats.split();
+        let wrapper_stats = Arc::new(wrapper_stats);
 
-        clt_w.reset_stats(clt_w_stats);
-        clt_r.reset_buffer_stats(clt_r_stats);
+        clt_w.reset_stats(wrapper_stats.clone());
+        clt_r.reset_buffer_stats(wrapper_stats);
         if let Some(limit_config) = &limit_config {
-            clt_w.reset_limit(limit_config.shift_millis, limit_config.max_south);
-            clt_r.reset_limit(limit_config.shift_millis, limit_config.max_north);
+            clt_w.reset_local_limit(limit_config.shift_millis, limit_config.max_south);
+            clt_r.reset_local_limit(limit_config.shift_millis, limit_config.max_north);
         }
     }
 
@@ -479,11 +490,7 @@ impl<'a> FtpOverHttpTask<'a> {
                     let mut ftp_client = self.setup_ftp_client(clt_w, false).await?;
                     self.login(&mut ftp_client, clt_w).await?;
 
-                    let body_reader = HttpBodyReader::new(
-                        clt_r,
-                        HttpBodyType::ContentLength(size),
-                        self.ctx.server_config.body_line_max_len,
-                    );
+                    let body_reader = HttpBodyReader::new_fixed_length(clt_r, size);
                     self.upload(&mut ftp_client, clt_w, body_reader, size).await
                 } else {
                     self.reply_bad_request(clt_w, "allow body with fixed content-length only")

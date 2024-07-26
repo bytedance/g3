@@ -91,7 +91,7 @@ impl<'a> HttpProxyUntrustedTask<'a> {
                 if let Some(limit_config) = &self.ctx.server_config.untrusted_read_limit {
                     self.pre_start();
 
-                    br.reset_limit(limit_config.shift_millis, limit_config.max_north);
+                    br.reset_local_limit(limit_config.shift_millis, limit_config.max_north);
                     let buffer_stats =
                         UntrustedCltReadWrapperStats::new_obj(&self.ctx.server_stats);
                     br.reset_buffer_stats(buffer_stats);

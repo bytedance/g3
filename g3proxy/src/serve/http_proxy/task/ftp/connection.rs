@@ -58,7 +58,7 @@ impl FtpConnectionProvider<BoxFtpRemoteConnection, TcpConnectError, ServerTaskNo
         task_notes: &ServerTaskNotes,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         self.connect_context
-            .new_control_connection(task_notes, Arc::clone(&self.task_stats) as _)
+            .new_control_connection(task_notes, self.task_stats.clone())
             .await
     }
 
@@ -68,7 +68,7 @@ impl FtpConnectionProvider<BoxFtpRemoteConnection, TcpConnectError, ServerTaskNo
         task_notes: &ServerTaskNotes,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         self.connect_context
-            .new_transfer_connection(server_addr, task_notes, Arc::clone(&self.task_stats) as _)
+            .new_transfer_connection(server_addr, task_notes, self.task_stats.clone())
             .await
     }
 }

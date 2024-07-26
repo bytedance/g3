@@ -9,9 +9,11 @@ The type for each auditor config is *map*, the keys are as follows:
 name
 ----
 
-**required**, **type**: str
+**required**, **type**: :ref:`metrics name <conf_value_metrics_name>`
 
 Set the auditor name, which will can be referenced in :ref:`server config <conf_server_common_auditor>`.
+
+.. _conf_auditor_protocol_inspection:
 
 protocol_inspection
 -------------------
@@ -53,6 +55,8 @@ If not set, TLS interception will be disabled.
 
 **default**: not set, **alias**: tls_cert_generator
 
+.. _conf_auditor_tls_interception_client:
+
 tls_interception_client
 -----------------------
 
@@ -91,6 +95,8 @@ Set the max chars for the log of URI.
 
 **default**: 1024
 
+.. _conf_auditor_h1_interception:
+
 h1_interception
 ---------------
 
@@ -100,6 +106,19 @@ Set http 1.x interception config.
 
 **default**: set with default value
 
+h2_inspect_policy
+-----------------
+
+**optional**, **type**: :ref:`protocol inspect policy <conf_value_dpi_protocol_inspect_policy>`
+
+Set what we should do with HTTP/2.0 traffic.
+
+**default**: intercept
+
+.. versionadded:: 1.9.0
+
+.. _conf_auditor_h2_interception:
+
 h2_interception
 ---------------
 
@@ -108,6 +127,41 @@ h2_interception
 Set http 2.0 interception config.
 
 **default**: set with default value
+
+smtp_inspect_policy
+-------------------
+
+**optional**, **type**: :ref:`protocol inspect policy <conf_value_dpi_protocol_inspect_policy>`
+
+Set what we should do with SMTP traffic.
+
+**default**: intercept
+
+.. versionadded:: 1.9.0
+
+.. _conf_auditor_smtp_interception:
+
+smtp_interception
+-----------------
+
+**optional**, **type**: :ref:`smtp interception <conf_value_dpi_smtp_interception>`
+
+Set the SMTP Interception config options.
+
+**default**: set with default value
+
+.. versionadded:: 1.9.2
+
+imap_inspect_policy
+-------------------
+
+**optional**, **type**: :ref:`protocol inspect policy <conf_value_dpi_protocol_inspect_policy>`
+
+Set what we should do with IMAP traffic.
+
+**default**: intercept
+
+.. versionadded:: 1.9.4
 
 icap_reqmod_service
 -------------------

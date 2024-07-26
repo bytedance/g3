@@ -1,0 +1,57 @@
+/*
+ * Copyright 2024 ByteDance and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+use openssl::cipher_ctx::CipherCtxRef;
+use openssl::error::ErrorStack;
+use openssl::hmac::HMacCtxRef;
+use openssl::ssl::TicketKeyStatus;
+
+use super::OpensslTicketKey;
+use crate::net::{RollingTicketKey, RollingTicketer};
+
+impl RollingTicketer<OpensslTicketKey> {
+    pub fn encrypt_init(
+        &self,
+        key_name: &mut [u8],
+        iv: &[u8],
+        cipher_ctx: &mut CipherCtxRef,
+        hmac_ctx: &mut HMacCtxRef,
+    ) -> Result<TicketKeyStatus, ErrorStack> {
+        self.enc_key
+            .load()
+            .encrypt_init(key_name, iv, cipher_ctx, hmac_ctx)
+    }
+
+    pub fn decrypt_init(
+        &self,
+        key_name: &[u8],
+        iv: &[u8],
+        cipher_ctx: &mut CipherCtxRef,
+        hmac_ctx: &mut HMacCtxRef,
+    ) -> Result<TicketKeyStatus, ErrorStack> {
+        let Some(key) = self.get_decrypt_key(key_name) else {
+            return Ok(TicketKeyStatus::FAILED);
+        };
+
+        key.decrypt_init(iv, cipher_ctx, hmac_ctx)?;
+
+        if self.enc_key.load().name().constant_time_eq(key_name) {
+            Ok(TicketKeyStatus::SUCCESS)
+        } else {
+            Ok(TicketKeyStatus::SUCCESS_AND_RENEW)
+        }
+    }
+}

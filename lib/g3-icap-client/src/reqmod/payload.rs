@@ -40,7 +40,7 @@ impl IcapReqmodResponsePayload {
             .ok_or(IcapReqmodParseError::InvalidHeaderValue("Encapsulated"))?;
         if value.ne("0") {
             return Err(IcapReqmodParseError::UnsupportedBody(
-                "invalid hdr byte-offsets value".to_string(),
+                "invalid hdr byte-offsets value",
             ));
         }
 
@@ -49,27 +49,23 @@ impl IcapReqmodResponsePayload {
                 let body_part = parts
                     .next()
                     .ok_or_else(|| {
-                        IcapReqmodParseError::UnsupportedBody(
-                            "no body byte-offsets pair found".to_string(),
-                        )
+                        IcapReqmodParseError::UnsupportedBody("no body byte-offsets pair found")
                     })?
                     .trim();
                 let (name, value) = body_part.split_once('=').ok_or_else(|| {
-                    IcapReqmodParseError::UnsupportedBody(
-                        "invalid body byte-offsets pair".to_string(),
-                    )
+                    IcapReqmodParseError::UnsupportedBody("invalid body byte-offsets pair")
                 })?;
                 let (hdr_len, offset) = usize::from_radix_10(value.as_bytes());
                 if offset != value.len() {
                     return Err(IcapReqmodParseError::UnsupportedBody(
-                        "invalid body byte-offsets value".to_string(),
+                        "invalid body byte-offsets value",
                     ));
                 }
                 match name.to_lowercase().as_str() {
                     "req-body" => Ok(IcapReqmodResponsePayload::HttpRequestWithBody(hdr_len)),
                     "null-body" => Ok(IcapReqmodResponsePayload::HttpRequestWithoutBody(hdr_len)),
                     _ => Err(IcapReqmodParseError::UnsupportedBody(
-                        "invalid body byte-offsets name".to_string(),
+                        "invalid body byte-offsets name",
                     )),
                 }
             }
@@ -77,33 +73,29 @@ impl IcapReqmodResponsePayload {
                 let body_part = parts
                     .next()
                     .ok_or_else(|| {
-                        IcapReqmodParseError::UnsupportedBody(
-                            "no body byte-offsets pair found".to_string(),
-                        )
+                        IcapReqmodParseError::UnsupportedBody("no body byte-offsets pair found")
                     })?
                     .trim();
                 let (name, value) = body_part.split_once('=').ok_or_else(|| {
-                    IcapReqmodParseError::UnsupportedBody(
-                        "invalid body byte-offsets pair".to_string(),
-                    )
+                    IcapReqmodParseError::UnsupportedBody("invalid body byte-offsets pair")
                 })?;
                 let (hdr_len, offset) = usize::from_radix_10(value.as_bytes());
                 if offset != value.len() {
                     return Err(IcapReqmodParseError::UnsupportedBody(
-                        "invalid body byte-offsets value".to_string(),
+                        "invalid body byte-offsets value",
                     ));
                 }
                 match name.to_lowercase().as_str() {
                     "res-body" => Ok(IcapReqmodResponsePayload::HttpResponseWithBody(hdr_len)),
                     "null-body" => Ok(IcapReqmodResponsePayload::HttpResponseWithoutBody(hdr_len)),
                     _ => Err(IcapReqmodParseError::UnsupportedBody(
-                        "invalid body byte-offsets name".to_string(),
+                        "invalid body byte-offsets name",
                     )),
                 }
             }
             "null-body" => Ok(IcapReqmodResponsePayload::NoPayload),
             _ => Err(IcapReqmodParseError::UnsupportedBody(
-                "invalid hdr byte-offsets value".to_string(),
+                "invalid hdr byte-offsets value",
             )),
         }
     }

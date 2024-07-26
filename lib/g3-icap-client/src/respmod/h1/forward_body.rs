@@ -19,7 +19,7 @@ use std::io::{IoSlice, Write};
 use bytes::BufMut;
 use tokio::io::AsyncBufRead;
 
-use g3_http::{ChunkedTransfer, HttpBodyType};
+use g3_http::{H1BodyToChunkedTransfer, HttpBodyType};
 use g3_io_ext::{IdleCheck, LimitedWriteExt};
 
 use super::{
@@ -36,7 +36,6 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
         http_req_hdr_len: usize,
         http_response: &H,
         http_rsp_hdr_len: usize,
-        http_body_type: HttpBodyType,
     ) -> Vec<u8>
     where
         H: HttpResponseForAdaptation,
@@ -49,9 +48,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
             "Encapsulated: req-hdr=0, res-hdr={http_req_hdr_len}, res-body={}\r\n",
             http_req_hdr_len + http_rsp_hdr_len
         );
-        if http_body_type == HttpBodyType::ChunkedWithTrailer {
-            http_response.append_trailer_header(&mut header);
-        }
+        http_response.append_trailer_header(&mut header);
         header.put_slice(b"\r\n");
         header
     }
@@ -77,7 +74,6 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
             http_req_header.len(),
             http_response,
             http_rsp_header.len(),
-            ups_body_type,
         );
 
         let icap_w = &mut self.icap_connection.0;
@@ -90,7 +86,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
             .await
             .map_err(H1RespmodAdaptationError::IcapServerWriteFailed)?;
 
-        let mut body_transfer = ChunkedTransfer::new(
+        let mut body_transfer = H1BodyToChunkedTransfer::new(
             ups_body_io,
             &mut self.icap_connection.0,
             ups_body_type,

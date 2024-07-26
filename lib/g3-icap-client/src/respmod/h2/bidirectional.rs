@@ -137,7 +137,6 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpResponse<'a, I> {
     {
         let mut http_rsp = HttpAdaptedResponse::parse(self.icap_reader, http_header_size).await?;
         let trailers = self.icap_rsp.take_trailers();
-        let has_trailer = !trailers.is_empty();
         http_rsp.set_trailer(trailers);
 
         let final_rsp = orig_http_response.adapt_to(&http_rsp);
@@ -153,7 +152,6 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpResponse<'a, I> {
             &self.copy_config,
             self.http_body_line_max_size,
             self.http_trailer_max_size,
-            has_trailer,
         );
 
         let idle_duration = self.idle_checker.idle_duration();

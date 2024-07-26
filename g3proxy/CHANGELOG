@@ -1,4 +1,53 @@
 
+v1.9.6:
+ - BUG FIX: fix lifetime of worker threads
+ - BUG FIX: fix selection of final escaper for http forward tasks
+ - Feature: allow to set global speed limits at user level
+
+v1.9.5:
+ - BUG FIX: close the old process when hot restart
+
+v1.9.4:
+ - BUG FIX: fix ALPN filter in tls interception
+ - BUG FIX: update to tokio 1.38.1
+ - Feature: allow to block IMAP connection
+ - Feature: allow to disable session ticket and session cache in TLS server config
+ - Feature: use aw-ls as rustls provider when build with vendored-aws-lc feature
+ - Optimization: try quick TCP ACK after accept handshake for resumed TLS sessions
+
+v1.9.3:
+ - BUG FIX: fix deb package install rule
+ - BUG FIX: fix match rules in route_geoip escaper
+ - Optimization: only query http forward capabilities when needed in http_proxy server
+
+v1.9.2:
+ - BUG FIX: fix ICAP handle of H2 request with small body
+ - Feature: add SMTP interception support
+ - Feature: support ICAP reqmod for SMTP DATA message
+ - Feature: support build on Windows
+ - Feature: allow to steal forwarded for http headers in h1 and h2 interception
+ - Feature: rewrite egress path selection code, now users can set id-based and JSON-based select map
+ - Feature: add openssl variant info to version message
+
+v1.9.1:
+ - BUG FIX: fix panic in stream interception code caused by idle client connections
+ - BUG FIX: fix the handle of h1 trailer headers
+ - BUG FIX: do graceful shutdown for h2 connections when upstream closed
+ - Optimization: close h1 interception client connection early when upstream closed
+ - Feature: all tls usage field to tls cert generator helper protocol
+ - Feature: support interception for tlcp protocol
+ - Feature: add ip_locate helper protocol and rewrite route_geoip escaper
+
+v1.9.0:
+ - BUG FIX: fix sending of upstream error CONNECT and upgrade response body
+ - Feature: add divert_tcp escaper to redirect streams to another server
+ - Feature: send HTTP CONNECT and upgrade request to ICAP reqmod service
+ - Feature: allow to set custom tls client config in user-site level
+ - Feature: allow to set http response header receive timeout in user-site level
+ - Feature: allow to use domain value as static socket address
+ - Feature: add support for ketama consistent hash
+ - Feature: send mimic cert to cert generator in tls interception
+
 v1.8.0:
  - Policy: LTS version
 

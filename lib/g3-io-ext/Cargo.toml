@@ -1,29 +1,35 @@
 [package]
 name = "g3-io-ext"
-version = "0.6.0"
+version = "0.7.0"
 license.workspace = true
 edition.workspace = true
-rust-version = "1.65"
+rust-version = "1.70.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 thiserror.workspace = true
-tokio = { workspace = true, features = ["time", "net", "io-util", "sync"] }
+tokio = { workspace = true, features = ["time", "net", "io-util", "sync", "rt"] }
 tokio-util = { workspace = true, features = ["time"] }
 tokio-rustls.workspace = true
 futures-util.workspace = true
-pin-project.workspace = true
+pin-project-lite.workspace = true
 memchr.workspace = true
 fastrand.workspace = true
 bytes.workspace = true
 ahash.workspace = true
 smallvec.workspace = true
-rustix = { workspace = true, features = ["std", "net"] }
-libc.workspace = true
+arc-swap.workspace = true
 quinn = { workspace = true, optional = true }
 g3-types.workspace = true
-g3-resolver.workspace = true
+g3-resolver = { workspace = true, optional = true }
+
+[target.'cfg(unix)'.dependencies]
+rustix = { workspace = true, features = ["std", "net"] }
+libc.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+g3-socket.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros"] }
@@ -34,3 +40,4 @@ governor = { workspace = true, features = ["std", "jitter"] }
 [features]
 default = []
 quic = ["dep:quinn"]
+resolver = ["dep:g3-resolver"]

@@ -40,7 +40,8 @@ impl ProxyHttpsEscaper {
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
-        let (ups_r, ups_w) = self.tls_handshake_to_remote(tcp_notes, task_notes).await?;
+        let stream = self.tls_handshake_to_remote(tcp_notes, task_notes).await?;
+        let (ups_r, ups_w) = tokio::io::split(stream);
 
         // add task and user stats
         let mut wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(task_stats);
@@ -50,9 +51,9 @@ impl ProxyHttpsEscaper {
         let ups_r = LimitedBufReader::new_unlimited(
             ups_r,
             Arc::new(NilLimitedReaderStats::default()),
-            wrapper_stats.clone() as _,
+            wrapper_stats.clone(),
         );
-        let ups_w = LimitedWriter::new_unlimited(ups_w, wrapper_stats as _);
+        let ups_w = LimitedWriter::new(ups_w, wrapper_stats);
 
         let writer =
             ProxyHttpsHttpForwardWriter::new(ups_w, &self.config, tcp_notes.upstream.clone());
@@ -88,9 +89,9 @@ impl ProxyHttpsEscaper {
         let ups_r = LimitedBufReader::new_unlimited(
             ups_r,
             Arc::new(NilLimitedReaderStats::default()),
-            wrapper_stats.clone() as _,
+            wrapper_stats.clone(),
         );
-        let ups_w = LimitedWriter::new_unlimited(ups_w, wrapper_stats as _);
+        let ups_w = LimitedWriter::new(ups_w, wrapper_stats);
 
         let writer = ProxyHttpsHttpRequestWriter::new(ups_w, &self.config);
         let reader = ProxyHttpsHttpForwardReader::new(ups_r);

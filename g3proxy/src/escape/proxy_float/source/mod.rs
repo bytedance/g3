@@ -20,11 +20,8 @@ use anyhow::anyhow;
 use arc_swap::ArcSwap;
 use futures_util::future::{AbortHandle, Abortable};
 use log::warn;
-use slog::Logger;
 
-use g3_types::net::OpensslClientConfig;
-
-use super::{PeerSet, ProxyFloatEscaperStats};
+use super::PeerSet;
 use crate::config::escaper::proxy_float::{ProxyFloatEscaperConfig, ProxyFloatSource};
 
 mod file;
@@ -33,13 +30,10 @@ mod redis_cluster;
 
 pub(super) async fn load_cached_peers(
     config: &Arc<ProxyFloatEscaperConfig>,
-    stats: &Arc<ProxyFloatEscaperStats>,
-    escape_logger: &Logger,
-    tls_config: Option<&Arc<OpensslClientConfig>>,
 ) -> anyhow::Result<PeerSet> {
     if let Some(cache_file) = &config.cache_file {
         let records = file::load_peers_from_cache(cache_file).await?;
-        super::peer::parse_peers(config, stats, escape_logger, &records, tls_config)
+        super::peer::parse_peers(config, &records)
     } else {
         Ok(PeerSet::default())
     }
@@ -47,13 +41,10 @@ pub(super) async fn load_cached_peers(
 
 async fn parse_and_save_peers(
     config: &Arc<ProxyFloatEscaperConfig>,
-    stats: &Arc<ProxyFloatEscaperStats>,
-    escape_logger: &Logger,
     container: &Arc<ArcSwap<PeerSet>>,
-    tls_config: Option<&Arc<OpensslClientConfig>>,
     records: Vec<serde_json::Value>,
 ) -> anyhow::Result<()> {
-    let peers = super::peer::parse_peers(config, stats, escape_logger, &records, tls_config)
+    let peers = super::peer::parse_peers(config, &records)
         .map_err(|e| anyhow!("failed to parse peers: {e:?}"))?;
 
     container.store(Arc::new(peers));
@@ -67,10 +58,7 @@ async fn parse_and_save_peers(
 
 pub(super) async fn publish_peers(
     config: &Arc<ProxyFloatEscaperConfig>,
-    stats: &Arc<ProxyFloatEscaperStats>,
-    escape_logger: &Logger,
     peers_container: &Arc<ArcSwap<PeerSet>>,
-    tls_config: Option<&Arc<OpensslClientConfig>>,
     data: String,
 ) -> anyhow::Result<()> {
     let obj = serde_json::from_str(&data)
@@ -81,23 +69,12 @@ pub(super) async fn publish_peers(
         _ => return Err(anyhow!("invalid input json data type")),
     };
 
-    parse_and_save_peers(
-        config,
-        stats,
-        escape_logger,
-        peers_container,
-        tls_config,
-        records,
-    )
-    .await
+    parse_and_save_peers(config, peers_container, records).await
 }
 
 pub(super) fn new_job(
     config: Arc<ProxyFloatEscaperConfig>,
-    stats: Arc<ProxyFloatEscaperStats>,
-    escape_logger: Logger,
     peers_container: Arc<ArcSwap<PeerSet>>,
-    tls_config: Option<Arc<OpensslClientConfig>>,
 ) -> anyhow::Result<AbortHandle> {
     let f = async move {
         let mut interval = tokio::time::interval(config.refresh_interval);
@@ -116,16 +93,7 @@ pub(super) fn new_job(
             };
             match result {
                 Ok(records) => {
-                    if let Err(e) = parse_and_save_peers(
-                        &config,
-                        &stats,
-                        &escape_logger,
-                        &peers_container,
-                        tls_config.as_ref(),
-                        records,
-                    )
-                    .await
-                    {
+                    if let Err(e) = parse_and_save_peers(&config, &peers_container, records).await {
                         warn!("failed to update peers for escaper {}: {e:?}", config.name);
                     }
                 }

@@ -15,7 +15,7 @@
  */
 
 mod inspect;
-pub use inspect::as_protocol_inspection_config;
+pub use inspect::{as_protocol_inspect_policy, as_protocol_inspection_config};
 
 mod tls_cert;
 pub use tls_cert::as_tls_cert_agent_config;
@@ -25,6 +25,9 @@ pub use portmap::update_protocol_portmap;
 
 mod http;
 pub use self::http::{as_h1_interception_config, as_h2_interception_config};
+
+mod smtp;
+pub use smtp::as_smtp_interception_config;
 
 mod dump;
 pub use dump::as_stream_dump_config;

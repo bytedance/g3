@@ -1,6 +1,6 @@
 [package]
 name = "g3bench"
-version = "0.9.1"
+version = "0.9.2"
 license.workspace = true
 edition.workspace = true
 rust-version = "1.75.0"
@@ -14,13 +14,13 @@ anyhow.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
 indicatif = "0.17"
-tokio = { workspace = true, features = ["rt", "net", "macros"] }
+tokio = { workspace = true, features = ["rt", "net", "macros", "signal"] }
 http.workspace = true
 url.workspace = true
 h2.workspace = true
 h3 = { workspace = true, optional = true }
 h3-quinn = { workspace = true, optional = true }
-quinn = { workspace = true, optional = true, features = ["tls-rustls", "runtime-tokio"] }
+quinn = { workspace = true, optional = true, features = ["rustls"] }
 bytes.workspace = true
 futures-util.workspace = true
 atomic-waker.workspace = true
@@ -28,18 +28,18 @@ openssl.workspace = true
 openssl-probe = { workspace = true, optional = true }
 rustls.workspace = true
 rustls-pemfile.workspace = true
+rustls-pki-types.workspace = true
 tokio-rustls.workspace = true
 hdrhistogram.workspace = true
 ahash.workspace = true
 rustc-hash.workspace = true
-concurrent-queue = "2.2"
+concurrent-queue = "2.5"
 hex.workspace = true
 itoa.workspace = true
 governor = { workspace = true, features = ["std", "jitter"] }
 hickory-client.workspace = true
 hickory-proto.workspace = true
 g3-runtime.workspace = true
-g3-signal.workspace = true
 g3-types = { workspace = true, features = ["openssl", "rustls"] }
 g3-clap.workspace = true
 g3-socket.workspace = true
@@ -53,13 +53,14 @@ g3-openssl.workspace = true
 g3-hickory-client.workspace = true
 
 [build-dependencies]
-rustc_version.workspace = true
+g3-build-env.workspace = true
 
 [features]
 default = ["quic"]
 quic = ["g3-types/quic", "g3-socks/quic", "g3-io-ext/quic", "g3-hickory-client/quic", "dep:quinn", "dep:h3", "dep:h3-quinn"]
+rustls-aws-lc = ["rustls/aws-lc-rs"]
 vendored-openssl = ["openssl/vendored", "openssl-probe"]
 vendored-tongsuo = ["openssl/tongsuo", "openssl-probe", "g3-types/tongsuo"]
-vendored-aws-lc = ["openssl/aws-lc", "openssl-probe", "g3-types/aws-lc", "g3-tls-cert/aws-lc", "g3-openssl/aws-lc"]
+vendored-aws-lc = ["rustls-aws-lc", "openssl/aws-lc", "openssl-probe", "g3-types/aws-lc", "g3-tls-cert/aws-lc", "g3-openssl/aws-lc"]
 vendored-boringssl = ["openssl/boringssl", "openssl-probe", "g3-types/boringssl", "g3-tls-cert/boringssl", "g3-openssl/boringssl"]
 openssl-async-job = ["g3-openssl/async-job", "g3-runtime/openssl-async-job"]

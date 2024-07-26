@@ -95,7 +95,7 @@ impl Escaper for DummyDenyEscaper {
     }
 
     fn get_escape_stats(&self) -> Option<ArcEscaperStats> {
-        Some(Arc::clone(&self.stats) as _)
+        Some(self.stats.clone())
     }
 
     async fn publish(&self, _data: String) -> anyhow::Result<()> {
@@ -149,7 +149,7 @@ impl Escaper for DummyDenyEscaper {
     }
 
     fn new_http_forward_context(&self, escaper: ArcEscaper) -> BoxHttpForwardContext {
-        let ctx = DirectHttpForwardContext::new(Arc::clone(&self.stats) as _, escaper);
+        let ctx = DirectHttpForwardContext::new(self.stats.clone(), escaper);
         Box::new(ctx)
     }
 
@@ -188,14 +188,6 @@ impl EscaperInternal for DummyDenyEscaper {
     async fn _lock_safe_reload(&self, config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::clone(&self.stats);
         DummyDenyEscaper::prepare_reload(config, stats)
-    }
-
-    async fn _check_out_next_escaper(
-        &self,
-        _task_notes: &ServerTaskNotes,
-        _upstream: &UpstreamAddr,
-    ) -> Option<ArcEscaper> {
-        None
     }
 
     async fn _new_http_forward_connection<'a>(

@@ -152,6 +152,58 @@ Set speed limit for each udp socket.
 
 .. versionchanged:: 1.4.0 changed name to udp_sock_speed_limit
 
+tcp_all_upload_speed_limit
+--------------------------
+
+**optional**, **type**: :ref:`global stream speed limit <conf_value_global_stream_speed_limit>`
+
+Set process level upload speed limit for all client side tcp connections.
+
+This will only count in the data that will be forwarded.
+
+**default**: no limit
+
+.. versionadded:: 1.9.6
+
+tcp_all_download_speed_limit
+----------------------------
+
+**optional**, **type**: :ref:`global stream speed limit <conf_value_global_stream_speed_limit>`
+
+Set process level download speed limit for all client side tcp connections.
+
+This will only count in the data received from upstream.
+
+**default**: no limit
+
+.. versionadded:: 1.9.6
+
+udp_all_upload_speed_limit
+--------------------------
+
+**optional**, **type**: :ref:`global datagram speed limit <conf_value_global_datagram_speed_limit>`
+
+Set process level upload speed limit for all client side udp connections.
+
+This will only count in the data that will be forwarded.
+
+**default**: no limit
+
+.. versionadded:: 1.9.6
+
+udp_all_download_speed_limit
+----------------------------
+
+**optional**, **type**: :ref:`global datagram speed limit <conf_value_global_datagram_speed_limit>`
+
+Set process level download speed limit for all client side udp connections.
+
+This will only count in the data received from upstream.
+
+**default**: no limit
+
+.. versionadded:: 1.9.6
+
 tcp_remote_keepalive
 --------------------
 
@@ -219,6 +271,29 @@ http_upstream_keepalive
 Set http keepalive config at user level.
 
 **default**: set with default value
+
+.. _conf_user_http_rsp_header_recv_timeout:
+
+http_rsp_header_recv_timeout
+----------------------------
+
+**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+Set a custom http response receive timeout value for this user.
+
+This will overwrite:
+
+- http proxy server :ref:`rsp_header_recv_timeout <conf_server_http_proxy_rsp_header_recv_timeout>`
+- auditor :ref:`h1 interception <conf_auditor_h1_interception>`
+- auditor :ref:`h2 interception <conf_auditor_h1_interception>`
+
+This will be overwritten by:
+
+- user-site :ref:`http_rsp_header_recv_timeout <conf_user_site_http_rsp_header_recv_timeout>`
+
+**default**: not set
+
+.. versionadded:: 1.9.0
 
 tcp_conn_rate_limit
 -------------------
@@ -344,13 +419,24 @@ Set explicit sites for this user.
 
 .. versionadded:: 1.3.4
 
-.. _config_user_egress_path:
+.. _config_user_egress_path_id_map:
 
-egress_path
------------
+egress_path_id_map
+------------------
 
-**optional**, **type**: :ref:`by json egress path <proto_egress_path_selection_by_json>`
+**optional**, **type**: :ref:`by id map egress path <proto_egress_path_selection_by_id_map>`
 
-Set egress path selection for this user.
+Set ID based egress path selection for this user.
 
-.. versionadded:: 1.7.22
+.. versionadded:: 1.9.2
+
+.. _config_user_egress_path_value_map:
+
+egress_path_value_map
+---------------------
+
+**optional**, **type**: :ref:`by value map egress path <proto_egress_path_selection_by_value_map>`
+
+Set JSON value based egress path selection for this user.
+
+.. versionadded:: 1.9.2

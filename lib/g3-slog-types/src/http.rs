@@ -145,7 +145,6 @@ impl<'a> Value for LtH2StreamId<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use http::Uri;
     use std::str::FromStr;
 
     #[test]

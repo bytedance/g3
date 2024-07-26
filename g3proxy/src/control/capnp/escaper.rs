@@ -32,7 +32,7 @@ pub(super) struct EscaperControlImpl {
 
 impl EscaperControlImpl {
     pub(super) fn new_client(name: &str) -> anyhow::Result<escaper_control::Client> {
-        let name = unsafe { MetricsName::from_str_unchecked(name) };
+        let name = unsafe { MetricsName::new_unchecked(name) };
         let escaper = crate::escape::get_escaper(&name)?;
         Ok(capnp_rpc::new_client(EscaperControlImpl { escaper }))
     }

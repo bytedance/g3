@@ -26,7 +26,6 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use url::Url;
 
-use g3_io_ext::AggregatedIo;
 use g3_openssl::SslStream;
 use g3_types::collection::{SelectiveVec, WeightedValue};
 use g3_types::net::{
@@ -141,7 +140,7 @@ impl BenchHttpArgs {
 
         if let Some(data) = self.proxy_protocol.data() {
             stream
-                .write_all(data)
+                .write_all(data) // no need to flush data
                 .await
                 .map_err(|e| anyhow!("failed to send proxy protocol data: {e:?}"))?;
         }
@@ -166,12 +165,10 @@ impl BenchHttpArgs {
                             .tls_connect_to_proxy(tls_config, http_proxy.peer(), stream)
                             .await?;
 
-                        let (r, mut w) = tokio::io::split(tls_stream);
-                        let mut buf_r = BufReader::new(r);
+                        let mut buf_stream = BufReader::new(tls_stream);
 
                         g3_http::connect::client::http_connect_to(
-                            &mut buf_r,
-                            &mut w,
+                            &mut buf_stream,
                             &http_proxy.auth,
                             &self.target,
                         )
@@ -181,21 +178,17 @@ impl BenchHttpArgs {
                         })?;
 
                         if let Some(tls_client) = &self.target_tls.client {
-                            self.tls_connect_to_peer(
-                                tls_client,
-                                AggregatedIo::new(buf_r.into_inner(), w),
-                            )
-                            .await
+                            self.tls_connect_to_peer(tls_client, buf_stream.into_inner())
+                                .await
                         } else {
-                            Ok((Box::new(buf_r.into_inner()), Box::new(w)))
+                            let (r, w) = tokio::io::split(buf_stream.into_inner());
+                            Ok((Box::new(r), Box::new(w)))
                         }
                     } else {
-                        let (r, mut w) = stream.into_split();
-                        let mut buf_r = BufReader::new(r);
+                        let mut buf_stream = BufReader::new(stream);
 
                         g3_http::connect::client::http_connect_to(
-                            &mut buf_r,
-                            &mut w,
+                            &mut buf_stream,
                             &http_proxy.auth,
                             &self.target,
                         )
@@ -205,46 +198,41 @@ impl BenchHttpArgs {
                         })?;
 
                         if let Some(tls_client) = &self.target_tls.client {
-                            self.tls_connect_to_peer(
-                                tls_client,
-                                AggregatedIo::new(buf_r.into_inner(), w),
-                            )
-                            .await
+                            self.tls_connect_to_peer(tls_client, buf_stream.into_inner())
+                                .await
                         } else {
-                            Ok((Box::new(buf_r.into_inner()), Box::new(w)))
+                            let (r, w) = buf_stream.into_inner().into_split();
+                            Ok((Box::new(r), Box::new(w)))
                         }
                     }
                 }
                 Proxy::Socks4(socks4_proxy) => {
-                    let stream = self.new_tcp_connection(proc_args).await.context(format!(
+                    let mut stream = self.new_tcp_connection(proc_args).await.context(format!(
                         "failed to connect to socks4 proxy {}",
                         socks4_proxy.peer()
                     ))?;
-                    let (mut r, mut w) = stream.into_split();
 
-                    g3_socks::v4a::client::socks4a_connect_to(&mut r, &mut w, &self.target)
+                    g3_socks::v4a::client::socks4a_connect_to(&mut stream, &self.target)
                         .await
                         .map_err(|e| {
                             anyhow!("socks4a connect to {} failed: {e}", socks4_proxy.peer())
                         })?;
 
                     if let Some(tls_client) = &self.target_tls.client {
-                        self.tls_connect_to_peer(tls_client, AggregatedIo::new(r, w))
-                            .await
+                        self.tls_connect_to_peer(tls_client, stream).await
                     } else {
+                        let (r, w) = stream.into_split();
                         Ok((Box::new(r), Box::new(w)))
                     }
                 }
                 Proxy::Socks5(socks5_proxy) => {
-                    let stream = self.new_tcp_connection(proc_args).await.context(format!(
+                    let mut stream = self.new_tcp_connection(proc_args).await.context(format!(
                         "failed to connect to socks5 proxy {}",
                         socks5_proxy.peer()
                     ))?;
-                    let (mut r, mut w) = stream.into_split();
 
                     g3_socks::v5::client::socks5_connect_to(
-                        &mut r,
-                        &mut w,
+                        &mut stream,
                         &socks5_proxy.auth,
                         &self.target,
                     )
@@ -254,9 +242,9 @@ impl BenchHttpArgs {
                     })?;
 
                     if let Some(tls_client) = &self.target_tls.client {
-                        self.tls_connect_to_peer(tls_client, AggregatedIo::new(r, w))
-                            .await
+                        self.tls_connect_to_peer(tls_client, stream).await
                     } else {
+                        let (r, w) = stream.into_split();
                         Ok((Box::new(r), Box::new(w)))
                     }
                 }

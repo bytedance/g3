@@ -21,6 +21,7 @@ The following common keys are supported:
 * :ref:`no_ipv4 <conf_escaper_common_no_ipv4>`
 * :ref:`no_ipv6 <conf_escaper_common_no_ipv6>`
 * :ref:`tcp_connect <conf_escaper_common_tcp_connect>`
+* :ref:`happy eyeballs <conf_escaper_common_happy_eyeballs>`
 * :ref:`tcp_misc_opts <conf_escaper_common_tcp_misc_opts>`
 * :ref:`pass_proxy_userid <conf_escaper_common_pass_proxy_userid>`
 * :ref:`use_proxy_protocol <conf_escaper_common_use_proxy_protocol>`
@@ -43,7 +44,7 @@ proxy_addr_pick_policy
 
 Set the policy to select next proxy address.
 
-The key for rendezvous/jump hash is *<client-ip>[-<username>]-<upstream-host>*.
+The key for ketama/rendezvous/jump hash is *<client-ip>[-<username>]-<upstream-host>*.
 
 **default**: random
 

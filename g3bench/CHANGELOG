@@ -1,4 +1,8 @@
 
+v0.9.2:
+ - Compatibility: support windows
+ - Compatibility: update build dependencies
+
 v0.9.1:
  - BUG FIX: fix the set of default tls server name for h3 target
  - Feature: add tls-permute-extensions config option for openssl client (BoringSSL/AWS-LC)

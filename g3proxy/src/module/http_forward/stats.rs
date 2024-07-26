@@ -97,13 +97,13 @@ impl<T: HttpForwardTaskRemoteStats> HttpForwardRemoteWrapperStats<T> {
 
     pub(crate) fn push_user_io_stats_by_ref(&mut self, all: &[Arc<UserUpstreamTrafficStats>]) {
         for s in all {
-            self.others.push(s.clone() as _);
+            self.others.push(s.clone());
         }
     }
 
     pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserUpstreamTrafficStats>>) {
         for s in all {
-            self.others.push(s as _);
+            self.others.push(s);
         }
     }
 }

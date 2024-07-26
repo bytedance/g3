@@ -18,6 +18,7 @@ use std::io::IoSlice;
 
 use tokio::io::AsyncWrite;
 
+use super::write_all_flush::WriteAllFlush;
 use super::write_all_vectored::WriteAllVectored;
 
 pub trait LimitedWriteExt: AsyncWrite {
@@ -29,6 +30,13 @@ pub trait LimitedWriteExt: AsyncWrite {
         Self: Unpin,
     {
         WriteAllVectored::new(self, bufs)
+    }
+
+    fn write_all_flush<'a>(&'a mut self, buf: &'a [u8]) -> WriteAllFlush<'a, Self>
+    where
+        Self: Unpin,
+    {
+        WriteAllFlush::new(self, buf)
     }
 }
 

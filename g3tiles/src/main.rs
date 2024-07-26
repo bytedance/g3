@@ -14,13 +14,10 @@
  * limitations under the License.
  */
 
-#[link(name = "g3-compat", kind = "static", modifiers = "+whole-archive")]
-extern "C" {
-    // ...
-}
-
 use anyhow::Context;
 use log::{debug, error, info};
+
+use g3_daemon::control::{QuitAction, UpgradeAction};
 
 use g3tiles::opts::ProcArgs;
 
@@ -29,6 +26,15 @@ fn main() -> anyhow::Result<()> {
     openssl_probe::init_ssl_cert_env_vars();
     openssl::init();
 
+    #[cfg(feature = "rustls-aws-lc")]
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .unwrap();
+    #[cfg(not(feature = "rustls-aws-lc"))]
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .unwrap();
+
     let Some(proc_args) =
         g3tiles::opts::parse_clap().context("failed to parse command line options")?
     else {
@@ -36,11 +42,18 @@ fn main() -> anyhow::Result<()> {
     };
 
     // set up process logger early, only proc args is used inside
-    let _log_guard = g3_daemon::log::process::setup(&proc_args.daemon_config)
-        .context("failed to setup logger")?;
+    let _log_guard = g3_daemon::log::process::setup(&proc_args.daemon_config);
+    if proc_args.daemon_config.need_daemon_controller() {
+        g3tiles::control::UpgradeActor::connect_to_old_daemon();
+    }
 
-    let config_file = g3tiles::config::load()
-        .context(format!("failed to load config, opts: {:?}", &proc_args))?;
+    let config_file = match g3tiles::config::load() {
+        Ok(c) => c,
+        Err(e) => {
+            g3_daemon::control::upgrade::cancel_old_shutdown();
+            return Err(e.context(format!("failed to load config, opts: {:?}", &proc_args)));
+        }
+    };
     debug!("loaded config from {}", config_file.display());
 
     if proc_args.daemon_config.test_config {
@@ -49,6 +62,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     // enter daemon mode after config loaded
+    #[cfg(unix)]
     g3_daemon::daemonize::check_enter(&proc_args.daemon_config)?;
 
     let stat_join = if let Some(stat_config) = g3_daemon::stat::config::get_global_stat_config() {
@@ -91,30 +105,28 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
 
         let unique_ctl = g3tiles::control::UniqueController::start()
             .context("failed to start unique controller")?;
-
         if args.daemon_config.need_daemon_controller() {
+            g3_daemon::control::upgrade::release_old_controller().await;
             let daemon_ctl = g3tiles::control::DaemonController::start()
                 .context("failed to start daemon controller")?;
             tokio::spawn(async move {
                 daemon_ctl.await;
             });
         }
+        g3tiles::control::QuitActor::tokio_spawn_run();
 
-        g3tiles::signal::setup_and_spawn().context("failed to setup signal handler")?;
+        g3tiles::signal::register().context("failed to setup signal handler")?;
 
-        g3tiles::discover::load_all()
-            .await
-            .context("failed to load all discovers")?;
-        g3tiles::backend::load_all()
-            .await
-            .context("failed to load all connectors")?;
         let _workers_guard = g3_daemon::runtime::worker::spawn_workers()
             .await
             .context("failed to spawn workers")?;
-        g3tiles::serve::spawn_offline_clean();
-        g3tiles::serve::spawn_all()
-            .await
-            .context("failed to spawn all servers")?;
+        match load_and_spawn().await {
+            Ok(_) => g3_daemon::control::upgrade::finish(),
+            Err(e) => {
+                g3_daemon::control::upgrade::cancel_old_shutdown();
+                return Err(e);
+            }
+        }
 
         unique_ctl.await;
 
@@ -123,4 +135,18 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
 
         ret
     })
+}
+
+async fn load_and_spawn() -> anyhow::Result<()> {
+    g3tiles::discover::load_all()
+        .await
+        .context("failed to load all discovers")?;
+    g3tiles::backend::load_all()
+        .await
+        .context("failed to load all connectors")?;
+    g3tiles::serve::spawn_offline_clean();
+    g3tiles::serve::spawn_all()
+        .await
+        .context("failed to spawn all servers")?;
+    Ok(())
 }

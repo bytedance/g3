@@ -32,6 +32,7 @@ pub struct HttpTransparentRequest {
     pub method: Method,
     pub version: Version,
     pub uri: Uri,
+    steal_forwarded_for: bool,
     pub end_to_end_headers: HttpHeaderMap,
     pub hop_by_hop_headers: HttpHeaderMap,
     /// the port may be 0
@@ -44,7 +45,6 @@ pub struct HttpTransparentRequest {
     pub upgrade: bool,
     content_length: u64,
     chunked_transfer: bool,
-    chunked_with_trailer: bool,
     has_transfer_encoding: bool,
     has_content_length: bool,
     has_trailer: bool,
@@ -56,6 +56,7 @@ impl HttpTransparentRequest {
             version,
             method,
             uri,
+            steal_forwarded_for: false,
             end_to_end_headers: HttpHeaderMap::default(),
             hop_by_hop_headers: HttpHeaderMap::default(),
             host: None,
@@ -67,7 +68,6 @@ impl HttpTransparentRequest {
             upgrade: false,
             content_length: 0,
             chunked_transfer: false,
-            chunked_with_trailer: false,
             has_transfer_encoding: false,
             has_content_length: false,
             has_trailer: false,
@@ -80,11 +80,11 @@ impl HttpTransparentRequest {
         for v in adapted.trailer() {
             hop_by_hop_headers.append(http::header::TRAILER, v.clone());
         }
-        let chunked_with_trailer = !adapted.trailer().is_empty();
         HttpTransparentRequest {
             version: adapted.version,
             method: adapted.method,
             uri: adapted.uri,
+            steal_forwarded_for: false,
             end_to_end_headers: adapted.headers,
             hop_by_hop_headers,
             host: None,
@@ -96,7 +96,6 @@ impl HttpTransparentRequest {
             upgrade: self.upgrade,
             content_length: self.content_length,
             chunked_transfer: true,
-            chunked_with_trailer,
             has_transfer_encoding: false,
             has_content_length: false,
             has_trailer: false,
@@ -115,11 +114,7 @@ impl HttpTransparentRequest {
 
     pub fn body_type(&self) -> Option<HttpBodyType> {
         if self.chunked_transfer {
-            if self.chunked_with_trailer {
-                Some(HttpBodyType::ChunkedWithTrailer)
-            } else {
-                Some(HttpBodyType::ChunkedWithoutTrailer)
-            }
+            Some(HttpBodyType::Chunked)
         } else if self.content_length > 0 {
             Some(HttpBodyType::ContentLength(self.content_length))
         } else {
@@ -147,6 +142,7 @@ impl HttpTransparentRequest {
     pub async fn parse<R>(
         reader: &mut R,
         max_header_size: usize,
+        steal_forwarded_for: bool,
     ) -> Result<(Self, Bytes), HttpRequestParseError>
     where
         R: AsyncBufRead + Unpin,
@@ -173,6 +169,7 @@ impl HttpTransparentRequest {
             Version::HTTP_11 => req.keep_alive = true,
             _ => {}
         }
+        req.steal_forwarded_for = steal_forwarded_for;
 
         loop {
             let header_size = head_bytes.len();
@@ -219,7 +216,7 @@ impl HttpTransparentRequest {
             self.hop_by_hop_headers.remove(http::header::TRAILER);
         }
 
-        // Don't move non standard connection headers to hop-by-hop headers, as we don't support them
+        // Don't move non-standard connection headers to hop-by-hop headers, as we don't support them
     }
 
     fn build_from_method_line(line_buf: &[u8]) -> Result<Self, HttpRequestParseError> {
@@ -329,9 +326,6 @@ impl HttpTransparentRequest {
             }
             "trailer" => {
                 self.has_trailer = true;
-                if self.chunked_transfer {
-                    self.chunked_with_trailer = true;
-                }
                 return self.insert_hop_by_hop_header(name, &header);
             }
             "transfer-encoding" => {
@@ -345,9 +339,6 @@ impl HttpTransparentRequest {
                 let v = header.value.to_lowercase();
                 if v.ends_with("chunked") {
                     self.chunked_transfer = true;
-                    if self.has_trailer {
-                        self.chunked_with_trailer = true;
-                    }
                 } else {
                     return Err(HttpRequestParseError::InvalidChunkedTransferEncoding);
                 }
@@ -370,6 +361,11 @@ impl HttpTransparentRequest {
             }
             "te" | "proxy-authorization" => {
                 return self.insert_hop_by_hop_header(name, &header);
+            }
+            "forwarded" | "x-forwarded-for" => {
+                if self.steal_forwarded_for {
+                    return Ok(());
+                }
             }
             // ignore "expect"
             _ => {}
@@ -503,8 +499,6 @@ impl HttpTransparentRequestAcceptor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytes::Bytes;
-    use http::Method;
     use tokio::io::{BufReader, Result};
     use tokio_util::io::StreamReader;
 
@@ -522,7 +516,7 @@ mod tests {
         let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
         let stream = StreamReader::new(stream);
         let mut buf_stream = BufReader::new(stream);
-        let (request, data) = HttpTransparentRequest::parse(&mut buf_stream, 4096)
+        let (request, data) = HttpTransparentRequest::parse(&mut buf_stream, 4096, false)
             .await
             .unwrap();
         assert_eq!(data.as_ref(), content.as_slice());
@@ -530,7 +524,7 @@ mod tests {
         assert!(request.keep_alive());
         assert!(request.body_type().is_none());
 
-        let result = HttpTransparentRequest::parse(&mut buf_stream, 4096).await;
+        let result = HttpTransparentRequest::parse(&mut buf_stream, 4096, false).await;
         assert!(result.is_err());
     }
 
@@ -544,7 +538,7 @@ mod tests {
         let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
         let stream = StreamReader::new(stream);
         let mut buf_stream = BufReader::new(stream);
-        let (request, data) = HttpTransparentRequest::parse(&mut buf_stream, 4096)
+        let (request, data) = HttpTransparentRequest::parse(&mut buf_stream, 4096, false)
             .await
             .unwrap();
         assert_eq!(data.as_ref(), content.as_slice());

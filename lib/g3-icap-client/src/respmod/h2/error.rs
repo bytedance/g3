@@ -43,6 +43,8 @@ pub enum H2RespmodAdaptationError {
     HttpUpstreamRecvTrailerFailed(h2::Error),
     #[error("send head to http client failed: {0}")]
     HttpClientSendHeadFailed(h2::Error),
+    #[error("client not in send state")]
+    HttpClientNotInSendState,
     #[error("send data to http client failed: {0}")]
     HttpClientSendDataFailed(h2::Error),
     #[error("send trailer to http client failed: {0}")]

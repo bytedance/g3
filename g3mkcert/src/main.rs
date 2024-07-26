@@ -26,8 +26,8 @@ use openssl::x509::extension::SubjectAlternativeName;
 use openssl::x509::{X509Name, X509};
 
 use g3_tls_cert::builder::{
-    ClientCertBuilder, IntermediateCertBuilder, RootCertBuilder, ServerCertBuilder,
-    SubjectNameBuilder, TlcpClientEncCertBuilder, TlcpClientSignCertBuilder,
+    ClientCertBuilder, IntermediateCertBuilder, MimicCertBuilder, RootCertBuilder,
+    ServerCertBuilder, SubjectNameBuilder, TlcpClientEncCertBuilder, TlcpClientSignCertBuilder,
     TlcpServerEncCertBuilder, TlcpServerSignCertBuilder, TlsClientCertBuilder,
     TlsServerCertBuilder,
 };
@@ -60,6 +60,7 @@ const ARG_X448: &str = "x448";
 
 const ARG_CA_CERT: &str = "ca-cert";
 const ARG_CA_KEY: &str = "ca-key";
+const ARG_MIMIC: &str = "mimic";
 
 const ARG_COUNTRY: &str = "country";
 const ARG_ORGANIZATION: &str = "organization";
@@ -212,6 +213,7 @@ fn build_cli_args() -> Command {
                 .args([
                     ARG_ROOT,
                     ARG_INTERMEDIATE,
+                    ARG_MIMIC,
                     ARG_TLS_SERVER,
                     ARG_TLS_CLIENT,
                     ARG_TLCP_SERVER_SIGN,
@@ -312,6 +314,7 @@ fn build_cli_args() -> Command {
                 .help("CA Certificate file")
                 .long(ARG_CA_CERT)
                 .num_args(1)
+                .value_name("CERT FILE")
                 .value_parser(value_parser!(PathBuf))
                 .value_hint(ValueHint::FilePath),
         )
@@ -320,6 +323,16 @@ fn build_cli_args() -> Command {
                 .help("CA Private Key file")
                 .long(ARG_CA_KEY)
                 .num_args(1)
+                .value_name("KEY FILE")
+                .value_parser(value_parser!(PathBuf))
+                .value_hint(ValueHint::FilePath),
+        )
+        .arg(
+            Arg::new(ARG_MIMIC)
+                .help("Mimic the input certificate")
+                .num_args(1)
+                .long(ARG_MIMIC)
+                .value_name("CERT FILE")
                 .value_parser(value_parser!(PathBuf))
                 .value_hint(ValueHint::FilePath),
         )
@@ -420,6 +433,18 @@ fn get_ca_cert_and_key(args: &ArgMatches) -> anyhow::Result<(X509, PKey<Private>
         .map_err(|e| anyhow!("invalid ca pkey in file {}: {e}", ca_key_file.display()))?;
 
     Ok((ca_cert, ca_key))
+}
+
+fn get_mimic_cert(args: &ArgMatches) -> anyhow::Result<Option<X509>> {
+    let Some(path) = args.get_one::<PathBuf>(ARG_MIMIC) else {
+        return Ok(None);
+    };
+
+    let cert_content = std::fs::read_to_string(path)
+        .map_err(|e| anyhow!("failed to read mimic cert file {}: {e:?}", path.display()))?;
+    let cert = X509::from_pem(cert_content.as_bytes())
+        .map_err(|e| anyhow!("invalid cert in file {}: {e}", path.display()))?;
+    Ok(Some(cert))
 }
 
 fn get_output_cert_file(args: &ArgMatches) -> Option<PathBuf> {
@@ -565,6 +590,10 @@ fn generate_intermediate(args: ArgMatches) -> anyhow::Result<()> {
 }
 
 fn generate_tls_server(args: ArgMatches) -> anyhow::Result<()> {
+    if let Some(cert) = get_mimic_cert(&args)? {
+        return generate_tls_mimic(cert, args);
+    }
+
     let builder = if let Some(bits) = args.get_one::<u32>(ARG_RSA) {
         TlsServerCertBuilder::new_rsa(*bits)?
     } else if args.get_flag(ARG_X448) {
@@ -593,6 +622,10 @@ fn generate_tls_server(args: ArgMatches) -> anyhow::Result<()> {
 }
 
 fn generate_tlcp_server_sign(args: ArgMatches) -> anyhow::Result<()> {
+    if let Some(cert) = get_mimic_cert(&args)? {
+        return generate_tlcp_sign_mimic(cert, args);
+    }
+
     let builder = if let Some(bits) = args.get_one::<u32>(ARG_RSA) {
         TlcpServerSignCertBuilder::new_rsa(*bits)?
     } else if args.get_flag(ARG_SM2) {
@@ -607,6 +640,10 @@ fn generate_tlcp_server_sign(args: ArgMatches) -> anyhow::Result<()> {
 }
 
 fn generate_tlcp_server_enc(args: ArgMatches) -> anyhow::Result<()> {
+    if let Some(cert) = get_mimic_cert(&args)? {
+        return generate_tlcp_enc_mimic(cert, args);
+    }
+
     let builder = if let Some(bits) = args.get_one::<u32>(ARG_RSA) {
         TlcpServerEncCertBuilder::new_rsa(*bits)?
     } else if args.get_flag(ARG_SM2) {
@@ -641,6 +678,10 @@ fn generate_server(mut builder: ServerCertBuilder, args: ArgMatches) -> anyhow::
 }
 
 fn generate_tls_client(args: ArgMatches) -> anyhow::Result<()> {
+    if let Some(cert) = get_mimic_cert(&args)? {
+        return generate_tls_mimic(cert, args);
+    }
+
     let builder = if let Some(bits) = args.get_one::<u32>(ARG_RSA) {
         TlsClientCertBuilder::new_rsa(*bits)?
     } else if args.get_flag(ARG_X448) {
@@ -669,6 +710,10 @@ fn generate_tls_client(args: ArgMatches) -> anyhow::Result<()> {
 }
 
 fn generate_tlcp_client_sign(args: ArgMatches) -> anyhow::Result<()> {
+    if let Some(cert) = get_mimic_cert(&args)? {
+        return generate_tlcp_sign_mimic(cert, args);
+    }
+
     let builder = if let Some(bits) = args.get_one::<u32>(ARG_RSA) {
         TlcpClientSignCertBuilder::new_rsa(*bits)?
     } else if args.get_flag(ARG_SM2) {
@@ -683,6 +728,10 @@ fn generate_tlcp_client_sign(args: ArgMatches) -> anyhow::Result<()> {
 }
 
 fn generate_tlcp_client_enc(args: ArgMatches) -> anyhow::Result<()> {
+    if let Some(cert) = get_mimic_cert(&args)? {
+        return generate_tlcp_enc_mimic(cert, args);
+    }
+
     let builder = if let Some(bits) = args.get_one::<u32>(ARG_RSA) {
         TlcpClientEncCertBuilder::new_rsa(*bits)?
     } else if args.get_flag(ARG_SM2) {
@@ -717,6 +766,48 @@ fn generate_client(mut builder: ClientCertBuilder, args: ArgMatches) -> anyhow::
     Ok(())
 }
 
+fn generate_tls_mimic(mimic_cert: X509, args: ArgMatches) -> anyhow::Result<()> {
+    let (ca_cert, ca_key) = get_ca_cert_and_key(&args)?;
+    let builder = MimicCertBuilder::new(&mimic_cert)?;
+    let cert = builder
+        .build_tls_cert(&ca_cert, &ca_key, None)
+        .context("failed to build tls certificate")?;
+
+    let cert_output =
+        get_output_cert_file(&args).unwrap_or_else(|| cn2fn("tls_mimic.crt".to_string()));
+    write_certificate_file(&cert, cert_output)?;
+
+    Ok(())
+}
+
+fn generate_tlcp_enc_mimic(mimic_cert: X509, args: ArgMatches) -> anyhow::Result<()> {
+    let (ca_cert, ca_key) = get_ca_cert_and_key(&args)?;
+    let builder = MimicCertBuilder::new(&mimic_cert)?;
+    let cert = builder
+        .build_tlcp_enc_cert(&ca_cert, &ca_key, None)
+        .context("failed to build tls certificate")?;
+
+    let cert_output =
+        get_output_cert_file(&args).unwrap_or_else(|| cn2fn("tlcp_en_mimic.crt".to_string()));
+    write_certificate_file(&cert, cert_output)?;
+
+    Ok(())
+}
+
+fn generate_tlcp_sign_mimic(mimic_cert: X509, args: ArgMatches) -> anyhow::Result<()> {
+    let (ca_cert, ca_key) = get_ca_cert_and_key(&args)?;
+    let builder = MimicCertBuilder::new(&mimic_cert)?;
+    let cert = builder
+        .build_tlcp_sign_cert(&ca_cert, &ca_key, None)
+        .context("failed to build tls certificate")?;
+
+    let cert_output =
+        get_output_cert_file(&args).unwrap_or_else(|| cn2fn("tlcp_sign_mimic.crt".to_string()));
+    write_certificate_file(&cert, cert_output)?;
+
+    Ok(())
+}
+
 fn cn2fn(s: String) -> PathBuf {
     let n = s.split_whitespace().collect::<Vec<&str>>().join("_");
     PathBuf::from(n)
@@ -743,6 +834,7 @@ fn write_certificate_file<P: AsRef<Path>>(cert: &X509, path: P) -> anyhow::Resul
             path.as_ref().display()
         )
     })?;
+    println!("certificate saved to {}", path.as_ref().display());
     Ok(())
 }
 
@@ -767,5 +859,6 @@ fn write_private_key_file<P: AsRef<Path>>(key: &PKey<Private>, path: P) -> anyho
             path.as_ref().display()
         )
     })?;
+    println!("private key saved to {}", path.as_ref().display());
     Ok(())
 }

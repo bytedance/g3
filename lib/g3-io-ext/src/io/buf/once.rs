@@ -20,14 +20,15 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use bytes::{Buf, Bytes, BytesMut};
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
-#[pin_project]
-pub struct OnceBufReader<R: AsyncRead> {
-    #[pin]
-    inner: R,
-    buf: Option<Bytes>,
+pin_project! {
+    pub struct OnceBufReader<R: AsyncRead> {
+        #[pin]
+        inner: R,
+        buf: Option<Bytes>,
+    }
 }
 
 impl<R: AsyncRead> OnceBufReader<R> {

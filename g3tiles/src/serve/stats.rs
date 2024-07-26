@@ -27,11 +27,11 @@ pub(crate) trait ServerStats {
     fn is_online(&self) -> bool;
 
     /// count for all connections
-    fn get_conn_total(&self) -> u64;
+    fn conn_total(&self) -> u64;
     /// count for real tasks
-    fn get_task_total(&self) -> u64;
+    fn task_total(&self) -> u64;
     /// count for alive tasks
-    fn get_alive_count(&self) -> i32;
+    fn alive_count(&self) -> i32;
 
     fn tcp_io_snapshot(&self) -> Option<TcpIoSnapshot> {
         None

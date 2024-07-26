@@ -14,10 +14,23 @@
  * limitations under the License.
  */
 
+use std::str::FromStr;
+
 use anyhow::{anyhow, Context};
 use yaml_rust::Yaml;
 
-use g3_dpi::{ProtocolInspectionConfig, ProtocolInspectionSizeLimit};
+use g3_dpi::{ProtocolInspectPolicy, ProtocolInspectionConfig, ProtocolInspectionSizeLimit};
+
+pub fn as_protocol_inspect_policy(value: &Yaml) -> anyhow::Result<ProtocolInspectPolicy> {
+    if let Yaml::String(s) = value {
+        ProtocolInspectPolicy::from_str(s)
+            .map_err(|_| anyhow!("invalid protocol inspect policy '{s}'"))
+    } else {
+        Err(anyhow!(
+            "yaml value type for 'protocol inspect policy' should be 'string'"
+        ))
+    }
+}
 
 pub fn parse_inspect_size_limit(
     config: &mut ProtocolInspectionSizeLimit,
@@ -49,12 +62,7 @@ pub fn parse_inspect_size_limit(
                 config.set_nats_server_info_line(size);
                 Ok(())
             }
-            "smtp_greeting_msg" | "smtp_server_greeting_msg" => {
-                let size = crate::humanize::as_usize(v)
-                    .context(format!("invalid humanize usize value for key {k}"))?;
-                config.set_smtp_server_greeting_msg(size);
-                Ok(())
-            }
+            "smtp_greeting_msg" | "smtp_server_greeting_msg" => Ok(()),
             _ => Err(anyhow!("invalid key {k}")),
         })
     } else {

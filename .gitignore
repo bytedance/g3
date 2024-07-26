@@ -9,9 +9,6 @@
 # generated bundled license
 LICENSE-BUNDLED
 
-# Sphinx
-g3proxy/doc/_build
-
 # deb package
 /debian/
 

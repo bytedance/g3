@@ -52,6 +52,15 @@ fn main() -> anyhow::Result<()> {
     openssl_probe::init_ssl_cert_env_vars();
     openssl::init();
 
+    #[cfg(feature = "rustls-aws-lc")]
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .unwrap();
+    #[cfg(not(feature = "rustls-aws-lc"))]
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .unwrap();
+
     let args = build_cli_args().get_matches();
     let proc_args = g3bench::parse_global_args(&args)?;
     let proc_args = Arc::new(proc_args);

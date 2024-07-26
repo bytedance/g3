@@ -29,8 +29,11 @@ use g3_types::metrics::MetricsName;
 use g3_yaml::{HybridParser, YamlDocPosition};
 
 pub(crate) mod dummy_close;
+#[cfg(feature = "quic")]
+pub(crate) mod plain_quic_port;
 pub(crate) mod plain_tcp_port;
 
+pub(crate) mod keyless_proxy;
 pub(crate) mod openssl_proxy;
 pub(crate) mod rustls_proxy;
 
@@ -79,8 +82,11 @@ pub(crate) trait ServerConfig {
 pub(crate) enum AnyServerConfig {
     DummyClose(dummy_close::DummyCloseServerConfig),
     PlainTcpPort(plain_tcp_port::PlainTcpPortConfig),
+    #[cfg(feature = "quic")]
+    PlainQuicPort(plain_quic_port::PlainQuicPortConfig),
     OpensslProxy(openssl_proxy::OpensslProxyServerConfig),
     RustlsProxy(rustls_proxy::RustlsProxyServerConfig),
+    KeylessProxy(keyless_proxy::KeylessProxyServerConfig),
 }
 
 macro_rules! impl_transparent0 {
@@ -89,8 +95,11 @@ macro_rules! impl_transparent0 {
             match self {
                 AnyServerConfig::DummyClose(s) => s.$f(),
                 AnyServerConfig::PlainTcpPort(s) => s.$f(),
+                #[cfg(feature = "quic")]
+                AnyServerConfig::PlainQuicPort(s) => s.$f(),
                 AnyServerConfig::OpensslProxy(s) => s.$f(),
                 AnyServerConfig::RustlsProxy(s) => s.$f(),
+                AnyServerConfig::KeylessProxy(s) => s.$f(),
             }
         }
     };
@@ -102,8 +111,11 @@ macro_rules! impl_transparent1 {
             match self {
                 AnyServerConfig::DummyClose(s) => s.$f(p),
                 AnyServerConfig::PlainTcpPort(s) => s.$f(p),
+                #[cfg(feature = "quic")]
+                AnyServerConfig::PlainQuicPort(s) => s.$f(p),
                 AnyServerConfig::OpensslProxy(s) => s.$f(p),
                 AnyServerConfig::RustlsProxy(s) => s.$f(p),
+                AnyServerConfig::KeylessProxy(s) => s.$f(p),
             }
         }
     };
@@ -156,6 +168,12 @@ fn load_server(
                 .context("failed to load this PlainTcpPort server")?;
             Ok(AnyServerConfig::PlainTcpPort(server))
         }
+        #[cfg(feature = "quic")]
+        "plain_quic_port" | "plainquicport" | "plain_quic" | "plainquic" => {
+            let server = plain_quic_port::PlainQuicPortConfig::parse(map, position)
+                .context("failed to load this PlainQuicPort server")?;
+            Ok(AnyServerConfig::PlainQuicPort(server))
+        }
         "openssl_proxy" | "opensslproxy" => {
             let server = openssl_proxy::OpensslProxyServerConfig::parse(map, position)
                 .context("failed to load this OpensslProxy server")?;
@@ -165,6 +183,11 @@ fn load_server(
             let server = rustls_proxy::RustlsProxyServerConfig::parse(map, position)
                 .context("failed to load this RustlsProxy server")?;
             Ok(AnyServerConfig::RustlsProxy(server))
+        }
+        "keyless_proxy" | "keylessproxy" => {
+            let server = keyless_proxy::KeylessProxyServerConfig::parse(map, position)
+                .context("failed to load this KeylessProxy server")?;
+            Ok(AnyServerConfig::KeylessProxy(server))
         }
         _ => Err(anyhow!("unsupported server type {}", server_type)),
     }

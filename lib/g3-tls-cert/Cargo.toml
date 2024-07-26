@@ -1,6 +1,6 @@
 [package]
 name = "g3-tls-cert"
-version = "0.4.0"
+version = "0.5.0"
 license.workspace = true
 edition.workspace = true
 
@@ -8,17 +8,11 @@ edition.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-log.workspace = true
-tokio = { workspace = true, features = ["net"] }
 openssl.workspace = true
 openssl-sys.workspace = true
 libc.workspace = true
 chrono = { workspace = true, features = ["clock"] }
-rmpv.workspace = true
-g3-types = { workspace = true, features = ["openssl"] }
-g3-msgpack = { workspace = true, features = ["openssl"] }
-g3-socket.workspace = true
-g3-io-ext.workspace = true
+g3-types.workspace = true
 g3-datetime.workspace = true
 
 [features]

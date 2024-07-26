@@ -25,7 +25,7 @@
         "50000-60000"
       ]
     },
-    "tcp_conn_limit": {
+    "tcp_sock_speed_limit": {
       "shift_millis": 8,
       "north": "10M",
       "south": "10M"
@@ -38,7 +38,7 @@
       "default": "allow",
       "forbid": "ftp_over_http"
     },
-    "tcp_conn_limit": "10M",
-    "udp_relay_limit": "1M"
+    "tcp_sock_speed_limit": "10M",
+    "udp_sock_speed_limit": "1M"
   }
 ]

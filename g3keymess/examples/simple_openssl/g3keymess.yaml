@@ -10,7 +10,6 @@ stat:
 server:
   - name: default
     listen: "[::]:1300"
-    multiplex_queue_depth: 256
     extra_metrics_tags:
       cluster: default
 

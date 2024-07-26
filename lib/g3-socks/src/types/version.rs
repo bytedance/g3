@@ -38,9 +38,9 @@ impl SocksVersion {
 impl fmt::Display for SocksVersion {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SocksVersion::V4a => write!(f, "socks v4(a)"),
-            SocksVersion::V5 => write!(f, "socks v5"),
-            SocksVersion::V6 => write!(f, "socks v6"),
+            SocksVersion::V4a => f.write_str("socks v4(a)"),
+            SocksVersion::V5 => f.write_str("socks v5"),
+            SocksVersion::V6 => f.write_str("socks v6"),
         }
     }
 }

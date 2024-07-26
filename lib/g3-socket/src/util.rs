@@ -28,8 +28,8 @@ pub enum AddressFamily {
 impl fmt::Display for AddressFamily {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            AddressFamily::Ipv4 => write!(f, "Ipv4"),
-            AddressFamily::Ipv6 => write!(f, "Ipv6"),
+            AddressFamily::Ipv4 => f.write_str("Ipv4"),
+            AddressFamily::Ipv6 => f.write_str("Ipv6"),
         }
     }
 }

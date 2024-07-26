@@ -25,6 +25,7 @@ pub struct H1InterceptionConfig {
     pub req_head_max_size: usize,
     pub rsp_head_max_size: usize,
     pub body_line_max_len: usize,
+    pub steal_forwarded_for: bool,
 }
 
 impl Default for H1InterceptionConfig {
@@ -37,6 +38,7 @@ impl Default for H1InterceptionConfig {
             req_head_max_size: 65536,
             rsp_head_max_size: 65536,
             body_line_max_len: 8192,
+            steal_forwarded_for: false,
         }
     }
 }

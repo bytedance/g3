@@ -83,7 +83,7 @@ impl DirectFixedEscaper {
         self.handle_udp_target_ip_acl_action(action, task_notes)?;
 
         let family = AddressFamily::from(&peer_addr);
-        let bind_ip = self.get_bind_random(family, &task_notes.egress_path_selection);
+        let bind_ip = self.get_bind_random(family, task_notes.egress_path());
         udp_notes.bind = bind_ip;
 
         let misc_opts = if let Some(user_ctx) = task_notes.user_ctx() {
@@ -111,19 +111,19 @@ impl DirectFixedEscaper {
         let wrapper_stats = Arc::new(wrapper_stats);
 
         let (recv, send) = g3_io_ext::split_udp(socket);
-        let recv = LimitedUdpRecv::new(
+        let recv = LimitedUdpRecv::local_limited(
             recv,
             self.config.general.udp_sock_speed_limit.shift_millis,
             self.config.general.udp_sock_speed_limit.max_south_packets,
             self.config.general.udp_sock_speed_limit.max_south_bytes,
-            wrapper_stats.clone() as _,
+            wrapper_stats.clone(),
         );
-        let send = LimitedUdpSend::new(
+        let send = LimitedUdpSend::local_limited(
             send,
             self.config.general.udp_sock_speed_limit.shift_millis,
             self.config.general.udp_sock_speed_limit.max_north_packets,
             self.config.general.udp_sock_speed_limit.max_north_bytes,
-            wrapper_stats as _,
+            wrapper_stats,
         );
 
         Ok((

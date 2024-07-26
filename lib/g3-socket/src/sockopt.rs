@@ -37,19 +37,6 @@ where
     Ok(())
 }
 
-pub(crate) fn set_only_ipv6(fd: c_int, only_ipv6: bool) -> io::Result<()> {
-    unsafe {
-        setsockopt(
-            fd,
-            libc::IPPROTO_IPV6,
-            libc::IPV6_V6ONLY,
-            only_ipv6 as c_int,
-        )?;
-        Ok(())
-    }
-}
-
-#[cfg(target_os = "linux")]
 pub(crate) fn set_bind_address_no_port(fd: c_int, enable: bool) -> io::Result<()> {
     unsafe {
         setsockopt(
@@ -60,9 +47,4 @@ pub(crate) fn set_bind_address_no_port(fd: c_int, enable: bool) -> io::Result<()
         )?;
         Ok(())
     }
-}
-
-#[cfg(not(target_os = "linux"))]
-pub(crate) fn set_bind_address_no_port(_fd: c_int, _enable: bool) -> io::Result<()> {
-    Ok(())
 }

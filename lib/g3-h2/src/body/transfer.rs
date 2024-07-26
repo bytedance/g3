@@ -124,8 +124,8 @@ impl H2BodyTransfer {
                         ));
                     }
                     Poll::Ready(None) => {
-                        // only possible if the reserve capacity is 0 or not set
-                        unreachable!()
+                        self.send_chunk = Some(chunk);
+                        return Poll::Ready(Err(H2StreamBodyTransferError::SenderNotInSendState));
                     }
                     Poll::Pending => {
                         self.send_chunk = Some(chunk);

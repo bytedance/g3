@@ -18,6 +18,8 @@ use std::env;
 
 #[allow(clippy::unusual_byte_groupings)]
 fn main() {
+    println!("cargo:rustc-check-cfg=cfg(ossl300)");
+
     if let Ok(version) = env::var("DEP_OPENSSL_VERSION_NUMBER") {
         // this will require a dependency on openssl-sys crate
         let version = u64::from_str_radix(&version, 16).unwrap();

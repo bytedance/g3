@@ -15,7 +15,6 @@
  */
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -49,14 +48,6 @@ mod cache;
 mod query;
 
 use cache::CacheHandle;
-
-struct EscaperWrapper(ArcEscaper);
-
-impl Hash for EscaperWrapper {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.name().hash(state);
-    }
-}
 
 pub(super) struct RouteQueryEscaper {
     config: Arc<RouteQueryEscaperConfig>,

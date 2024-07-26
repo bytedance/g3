@@ -17,7 +17,7 @@
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
-use super::{SelectiveHash, SelectiveItem};
+use super::SelectiveItem;
 
 pub struct WeightedValue<T> {
     value: T,
@@ -88,14 +88,12 @@ impl<T: PartialEq> PartialEq for WeightedValue<T> {
 
 impl<T: PartialEq + Eq> Eq for WeightedValue<T> {}
 
-impl<T> SelectiveItem for WeightedValue<T> {
+impl<T: Hash> SelectiveItem for WeightedValue<T> {
     #[inline]
     fn weight(&self) -> f64 {
         self.weight
     }
-}
 
-impl<T: Hash> SelectiveHash for WeightedValue<T> {
     #[inline]
     fn selective_hash<H: Hasher>(&self, state: &mut H) {
         self.value.hash(state);
