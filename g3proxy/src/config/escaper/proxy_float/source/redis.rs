@@ -18,7 +18,10 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
-use redis::{ConnectionAddr, ConnectionInfo, IntoConnectionInfo, RedisConnectionInfo, RedisResult};
+use redis::{
+    ConnectionAddr, ConnectionInfo, IntoConnectionInfo, ProtocolVersion, RedisConnectionInfo,
+    RedisResult,
+};
 use url::Url;
 use yaml_rust::{yaml, Yaml};
 
@@ -157,6 +160,7 @@ impl IntoConnectionInfo for &ProxyFloatRedisSource {
                 db: self.db,
                 username: self.username.clone(),
                 password: self.password.clone(),
+                protocol: ProtocolVersion::RESP2,
             },
         })
     }

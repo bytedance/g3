@@ -17,7 +17,7 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use redis::{AsyncCommands, ConnectionAddr, ConnectionInfo, RedisConnectionInfo};
+use redis::{AsyncCommands, ConnectionAddr, ConnectionInfo, ProtocolVersion, RedisConnectionInfo};
 
 use crate::config::escaper::proxy_float::source::redis_cluster::ProxyFloatRedisClusterSource;
 
@@ -32,6 +32,7 @@ async fn connect_to_redis_cluster(
                 db: 0, // database is always 0 according to https://redis.io/docs/reference/cluster-spec/
                 username: None,
                 password: None,
+                protocol: ProtocolVersion::RESP2,
             },
         })
     }

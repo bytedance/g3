@@ -17,7 +17,7 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use redis::AsyncCommands;
+use redis::{AsyncCommands, AsyncConnectionConfig};
 
 use crate::config::escaper::proxy_float::source::redis::ProxyFloatRedisSource;
 
@@ -26,8 +26,11 @@ async fn connect_to_redis(
 ) -> anyhow::Result<impl AsyncCommands> {
     let client = redis::Client::open(source.as_ref())
         .map_err(|e| anyhow!("redis client open failed: {e}"))?;
+    let async_config = AsyncConnectionConfig::new()
+        .set_connection_timeout(source.connect_timeout)
+        .set_response_timeout(source.read_timeout);
     client
-        .get_multiplexed_async_connection_with_timeouts(source.read_timeout, source.connect_timeout)
+        .get_multiplexed_async_connection_with_config(&async_config)
         .await
         .map_err(|e| anyhow!("connect to redis failed: {e}"))
 }
@@ -43,7 +46,7 @@ pub(super) async fn get_members<C: AsyncCommands>(
 
     let mut records = Vec::<serde_json::Value>::new();
     for member in &members {
-        let redis::Value::Data(b) = member else {
+        let redis::Value::BulkString(b) = member else {
             return Err(anyhow!("invalid member data type in set {sets_key}"));
         };
         let record = serde_json::from_slice(b)
