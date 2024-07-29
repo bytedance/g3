@@ -216,60 +216,6 @@ For *url* str values, the format is:
 
     redis://[username][:<password>@]<addr>/<db>?sets_key=<sets_key>
 
-redis_cluster
--------------
-
-Fetch peers from a redis cluster.
-
-The value should be a *map*, with these keys:
-
-* initial_nodes
-
-  **required**, **type**: :ref:`upstream str <conf_value_upstream_str>`
-
-  Set the address of the startup nodes.
-
-* username
-
-  **optional**, **type**: str
-
-  Set the username.
-
-  .. versionadded:: 1.7.0
-
-* password
-
-  **optional**, **type**: str
-
-  Set the password.
-
-  **default**: not set
-
-* connect_timeout
-
-  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
-
-  Set the connect timeout.
-
-  **default**: 5s
-
-  .. versionadded:: 1.7.12
-
-* read_timeout
-
-  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
-
-  Set the timeout for redis read operation.
-
-  **default**: 2s
-
-* sets_key
-
-  **required**, **type**: str
-
-  Set the key for the sets that store the peers. Each string record in the set is a single peer.
-  See :ref:`peers <config_escaper_dynamic_peer>` for its formats.
-
 .. _config_escaper_dynamic_peer:
 
 Peers

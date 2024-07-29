@@ -48,7 +48,7 @@ arc-swap.workspace = true
 capnp-rpc.workspace = true
 capnp.workspace = true
 itoa.workspace = true
-redis = { workspace = true, features = ["aio", "tokio-comp", "cluster-async"] }
+redis = { workspace = true, features = ["aio", "tokio-comp"] }
 ascii.workspace = true
 ahash.workspace = true
 bitflags.workspace = true

@@ -21,7 +21,6 @@ use url::Url;
 use yaml_rust::Yaml;
 
 pub(crate) mod redis;
-pub(crate) mod redis_cluster;
 
 const CONFIG_KEY_SOURCE_TYPE: &str = "type";
 
@@ -29,7 +28,6 @@ const CONFIG_KEY_SOURCE_TYPE: &str = "type";
 pub(crate) enum ProxyFloatSource {
     Passive,
     Redis(Arc<redis::ProxyFloatRedisSource>),
-    RedisCluster(Arc<redis_cluster::ProxyFloatRedisClusterSource>),
 }
 
 impl ProxyFloatSource {
@@ -37,7 +35,6 @@ impl ProxyFloatSource {
         match self {
             ProxyFloatSource::Passive => true,
             ProxyFloatSource::Redis(_) => true,
-            ProxyFloatSource::RedisCluster(_) => true,
         }
     }
 
@@ -51,10 +48,6 @@ impl ProxyFloatSource {
                     "redis" => {
                         let source = redis::ProxyFloatRedisSource::parse_map(map)?;
                         Ok(ProxyFloatSource::Redis(Arc::new(source)))
-                    }
-                    "redis_cluster" | "rediscluster" => {
-                        let source = redis_cluster::ProxyFloatRedisClusterSource::parse_map(map)?;
-                        Ok(ProxyFloatSource::RedisCluster(Arc::new(source)))
                     }
                     _ => Err(anyhow!("unsupported source type {source_type}")),
                 }

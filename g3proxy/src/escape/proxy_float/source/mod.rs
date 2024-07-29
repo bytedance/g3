@@ -26,7 +26,6 @@ use crate::config::escaper::proxy_float::{ProxyFloatEscaperConfig, ProxyFloatSou
 
 mod file;
 mod redis;
-mod redis_cluster;
 
 pub(super) async fn load_cached_peers(
     config: &Arc<ProxyFloatEscaperConfig>,
@@ -87,9 +86,6 @@ pub(super) fn new_job(
                     continue;
                 }
                 ProxyFloatSource::Redis(config) => redis::fetch_records(config).await,
-                ProxyFloatSource::RedisCluster(config) => {
-                    redis_cluster::fetch_records(config).await
-                }
             };
             match result {
                 Ok(records) => {
