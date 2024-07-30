@@ -26,7 +26,7 @@ pub enum CommandLineError {
     NoTrailingSequence,
     #[error("no tag found as a prefix")]
     NotTagPrefixed,
-    #[error("invalid utf-8 command")]
+    #[error("invalid utf-8 command: {0}")]
     InvalidUtf8Command(Utf8Error),
     #[error("invalid literal format")]
     InvalidLiteralFormat,
