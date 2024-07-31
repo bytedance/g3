@@ -41,6 +41,7 @@ pub enum ResponseLineError {
     InvalidLiteralSize,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CommandResult {
     Success,
     Fail,
@@ -71,6 +72,7 @@ impl TaggedResponse {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ServerStatus {
     Information,
     Warning,
@@ -79,6 +81,7 @@ pub enum ServerStatus {
     Close,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CommandData {
     Enabled,
     Capability,
@@ -142,25 +145,33 @@ impl Response {
                 }))
             }
             _ => {
-                let Some(d) = memchr::memchr(b' ', &left[d + 1..]) else {
-                    return Err(ResponseLineError::NoResultField);
-                };
-
-                let result =
-                    str::from_utf8(&left[..d]).map_err(ResponseLineError::InvalidUtf8Response)?;
-                match result.to_uppercase().as_str() {
-                    "EXISTS" | "EXPUNGE" => Ok(Response::CommandData(UntaggedResponse {
-                        command_data: CommandData::Other,
-                        literal_data: None,
-                    })),
-                    "FETCH" => {
-                        let literal_data = check_literal_size(left)?;
-                        Ok(Response::CommandData(UntaggedResponse {
-                            command_data: CommandData::Fetch,
-                            literal_data,
-                        }))
+                let left = &left[d + 1..];
+                match memchr::memchr(b' ', left) {
+                    Some(d) => {
+                        let result = str::from_utf8(&left[..d])
+                            .map_err(ResponseLineError::InvalidUtf8Response)?;
+                        match result.to_uppercase().as_str() {
+                            "FETCH" => {
+                                let literal_data = check_literal_size(left)?;
+                                Ok(Response::CommandData(UntaggedResponse {
+                                    command_data: CommandData::Fetch,
+                                    literal_data,
+                                }))
+                            }
+                            _ => Err(ResponseLineError::UnknownUntaggedResult),
+                        }
                     }
-                    _ => Err(ResponseLineError::UnknownUntaggedResult),
+                    None => {
+                        let result =
+                            str::from_utf8(left).map_err(ResponseLineError::InvalidUtf8Response)?;
+                        match result.to_uppercase().as_str() {
+                            "EXISTS" | "EXPUNGE" => Ok(Response::CommandData(UntaggedResponse {
+                                command_data: CommandData::Other,
+                                literal_data: None,
+                            })),
+                            _ => Err(ResponseLineError::UnknownUntaggedResult),
+                        }
+                    }
                 }
             }
         }
@@ -171,7 +182,7 @@ fn check_literal_size(left: &[u8]) -> Result<Option<usize>, ResponseLineError> {
     if left.ends_with(b"}") {
         if let Some(p) = memchr::memrchr(b'{', left) {
             let size_s = &left[p + 1..left.len() - 1];
-            let (size, offset) = usize::from_radix_10_checked(&left[p + 1..left.len() - 1]);
+            let (size, offset) = usize::from_radix_10_checked(size_s);
             if offset != size_s.len() {
                 return Err(ResponseLineError::InvalidLiteralSize);
             }
@@ -182,4 +193,51 @@ fn check_literal_size(left: &[u8]) -> Result<Option<usize>, ResponseLineError> {
         }
     }
     Ok(None)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bye() {
+        let rsp = Response::parse_line(b"* BYE Autologout; idle for too long\r\n").unwrap();
+        let Response::ServerStatus(status) = rsp else {
+            panic!("parse failed")
+        };
+        assert_eq!(status, ServerStatus::Close);
+    }
+
+    #[test]
+    fn capability() {
+        let rsp = Response::parse_line(
+            b"* CAPABILITY STARTTLS AUTH=GSSAPI IMAP4rev2 LOGINDISABLED XPIG-LATIN\r\n",
+        )
+        .unwrap();
+        let Response::CommandData(r) = rsp else {
+            panic!("parse failed")
+        };
+        assert_eq!(r.command_data, CommandData::Capability);
+        assert!(r.literal_data.is_none());
+    }
+
+    #[test]
+    fn exists() {
+        let rsp = Response::parse_line(b"* 23 EXISTS\r\n").unwrap();
+        let Response::CommandData(r) = rsp else {
+            panic!("parse failed")
+        };
+        assert_eq!(r.command_data, CommandData::Other);
+        assert!(r.literal_data.is_none());
+    }
+
+    #[test]
+    fn fetch() {
+        let rsp = Response::parse_line(b"* 12 FETCH (BODY[HEADER] {342}\r\n").unwrap();
+        let Response::CommandData(r) = rsp else {
+            panic!("parse failed")
+        };
+        assert_eq!(r.command_data, CommandData::Fetch);
+        assert_eq!(r.literal_data, Some(342));
+    }
 }

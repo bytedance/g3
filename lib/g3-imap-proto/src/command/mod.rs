@@ -82,13 +82,14 @@ impl ParsedCommand {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct LiteralArgument {
     pub size: usize,
     pub wait_continuation: bool,
 }
 
 impl LiteralArgument {
-    fn parse(buf: &[u8]) -> Result<Self, CommandLineError> {
+    fn parse_size(buf: &[u8]) -> Result<Self, CommandLineError> {
         if buf.is_empty() {
             return Err(CommandLineError::InvalidLiteralFormat);
         }
@@ -115,6 +116,16 @@ impl LiteralArgument {
 
         Err(CommandLineError::InvalidLiteralFormat)
     }
+
+    fn check(left: &[u8]) -> Result<Option<Self>, CommandLineError> {
+        if left.ends_with(b"}") {
+            if let Some(p) = memchr::memrchr(b'{', left) {
+                let arg = Self::parse_size(&left[p + 1..left.len() - 1])?;
+                return Ok(Some(arg));
+            }
+        }
+        Ok(None)
+    }
 }
 
 pub struct Command {
@@ -139,22 +150,14 @@ impl Command {
             return Err(CommandLineError::NotTagPrefixed);
         }
 
-        let mut literal_arg = None;
-
         if let Some(p) = memchr::memchr(b' ', left) {
             // commands with params
             let cmd = str::from_utf8(&left[0..p]).map_err(CommandLineError::InvalidUtf8Command)?;
             let upper_cmd = cmd.to_uppercase();
 
             let left = &left[p + 1..];
-            if left.ends_with(b"}") {
-                if let Some(p) = memchr::memrchr(b'{', left) {
-                    let arg = LiteralArgument::parse(&left[p + 1..left.len() - 1])?;
-                    literal_arg = Some(arg);
-                }
-            }
-
-            let data = match upper_cmd.as_bytes() {
+            let mut literal_arg = None;
+            let parsed = match upper_cmd.as_bytes() {
                 b"AUTHENTICATE" => ParsedCommand::Auth,
                 b"LOGIN" => ParsedCommand::Login, // TODO parse username
                 b"Enable" => ParsedCommand::Enable,
@@ -167,8 +170,14 @@ impl Command {
                 b"UBSUBSCRIBE" => ParsedCommand::Unsubscribe,
                 b"LIST" => ParsedCommand::List,
                 b"STATUS" => ParsedCommand::Status,
-                b"APPEND" => ParsedCommand::Append, // with message literal
-                b"SEARCH" => ParsedCommand::Search, // maybe with text literal
+                b"APPEND" => {
+                    literal_arg = LiteralArgument::check(left)?;
+                    ParsedCommand::Append
+                }
+                b"SEARCH" => {
+                    literal_arg = LiteralArgument::check(left)?;
+                    ParsedCommand::Search
+                }
                 b"FETCH" => ParsedCommand::Fetch,
                 b"STORE" => ParsedCommand::Store,
                 b"COPY" => ParsedCommand::Copy,
@@ -179,7 +188,7 @@ impl Command {
 
             Ok(Command {
                 tag: SmolStr::from(tag),
-                parsed: data,
+                parsed,
                 literal_arg,
             })
         } else {
@@ -203,8 +212,38 @@ impl Command {
             Ok(Command {
                 tag: SmolStr::from(tag),
                 parsed: data,
-                literal_arg,
+                literal_arg: None,
             })
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn capability() {
+        let cmd = Command::parse_line(b"a441 CAPABILITY\r\n").unwrap();
+        assert_eq!(cmd.tag.as_str(), "a441");
+        assert_eq!(cmd.parsed, ParsedCommand::Capability);
+        assert!(cmd.literal_arg.is_none());
+    }
+
+    #[test]
+    fn append() {
+        let cmd = Command::parse_line(b"A003 APPEND saved-messages (\\Seen) {326}\r\n").unwrap();
+        assert_eq!(cmd.tag.as_str(), "A003");
+        assert_eq!(cmd.parsed, ParsedCommand::Append);
+        let literal = cmd.literal_arg.unwrap();
+        assert!(literal.wait_continuation);
+        assert_eq!(literal.size, 326);
+
+        let cmd = Command::parse_line(b"A003 APPEND saved-messages (\\Seen) {297+}\r\n").unwrap();
+        assert_eq!(cmd.tag.as_str(), "A003");
+        assert_eq!(cmd.parsed, ParsedCommand::Append);
+        let literal = cmd.literal_arg.unwrap();
+        assert!(!literal.wait_continuation);
+        assert_eq!(literal.size, 297);
     }
 }
