@@ -22,8 +22,8 @@ use yaml_rust::{yaml, Yaml};
 
 use g3_cert_agent::CertAgentConfig;
 use g3_dpi::{
-    H1InterceptionConfig, H2InterceptionConfig, ProtocolInspectPolicy, ProtocolInspectionConfig,
-    ProtocolPortMap, SmtpInterceptionConfig,
+    H1InterceptionConfig, H2InterceptionConfig, ImapInterceptionConfig, ProtocolInspectPolicy,
+    ProtocolInspectionConfig, ProtocolPortMap, SmtpInterceptionConfig,
 };
 use g3_icap_client::IcapServiceConfig;
 use g3_types::metrics::MetricsName;
@@ -51,6 +51,7 @@ pub(crate) struct AuditorConfig {
     pub(crate) smtp_inspect_policy: ProtocolInspectPolicy,
     pub(crate) smtp_interception: SmtpInterceptionConfig,
     pub(crate) imap_inspect_policy: ProtocolInspectPolicy,
+    pub(crate) imap_interception: ImapInterceptionConfig,
     pub(crate) icap_reqmod_service: Option<Arc<IcapServiceConfig>>,
     pub(crate) icap_respmod_service: Option<Arc<IcapServiceConfig>>,
     pub(crate) task_audit_ratio: Bernoulli,
@@ -83,6 +84,7 @@ impl AuditorConfig {
             smtp_inspect_policy: ProtocolInspectPolicy::Intercept,
             smtp_interception: Default::default(),
             imap_inspect_policy: ProtocolInspectPolicy::Intercept,
+            imap_interception: Default::default(),
             icap_reqmod_service: None,
             icap_respmod_service: None,
             task_audit_ratio: Bernoulli::new(1.0).unwrap(),
@@ -197,6 +199,11 @@ impl AuditorConfig {
             "imap_inspect_policy" => {
                 self.imap_inspect_policy = g3_yaml::value::as_protocol_inspect_policy(v)
                     .context(format!("invalid protocol inspect policy value for key {k}"))?;
+                Ok(())
+            }
+            "imap_interception" => {
+                self.imap_interception = g3_yaml::value::as_imap_interception_config(v)
+                    .context(format!("invalid imap interception value for key {k}"))?;
                 Ok(())
             }
             "icap_reqmod_service" => {

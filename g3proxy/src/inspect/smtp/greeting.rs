@@ -49,7 +49,7 @@ impl Greeting {
         (self.rsp.code(), self.upstream_host)
     }
 
-    pub(super) async fn do_relay<UR, CW>(
+    async fn do_relay<UR, CW>(
         &mut self,
         mut ups_r: OnceBufReader<UR>,
         clt_w: &mut CW,
@@ -62,12 +62,7 @@ impl Greeting {
 
         loop {
             recv_buf.consume_line();
-            let line = recv_buf.read_line(&mut ups_r).await.map_err(|e| match e {
-                RecvLineError::IoError(e) => GreetingError::UpstreamReadFailed(e),
-                RecvLineError::IoClosed => GreetingError::UpstreamClosed,
-                RecvLineError::Timeout => GreetingError::Timeout,
-                RecvLineError::LineTooLong => GreetingError::TooLongResponseLine,
-            })?;
+            let line = recv_buf.read_line(&mut ups_r).await?;
 
             let msg = self.rsp.feed_line(line)?;
             self.total_to_write += line.len();
@@ -175,6 +170,17 @@ pub(super) enum GreetingError {
     UpstreamReadFailed(io::Error),
     #[error("upstream closed connection")]
     UpstreamClosed,
+}
+
+impl From<RecvLineError> for GreetingError {
+    fn from(value: RecvLineError) -> Self {
+        match value {
+            RecvLineError::IoError(e) => GreetingError::UpstreamReadFailed(e),
+            RecvLineError::IoClosed => GreetingError::UpstreamClosed,
+            RecvLineError::Timeout => GreetingError::Timeout,
+            RecvLineError::LineTooLong => GreetingError::TooLongResponseLine,
+        }
+    }
 }
 
 impl From<GreetingError> for ServerTaskError {

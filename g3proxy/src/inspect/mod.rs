@@ -24,8 +24,8 @@ use uuid::Uuid;
 
 use g3_daemon::server::ServerQuitPolicy;
 use g3_dpi::{
-    H1InterceptionConfig, H2InterceptionConfig, MaybeProtocol, ProtocolInspectPolicy,
-    ProtocolInspector, SmtpInterceptionConfig,
+    H1InterceptionConfig, H2InterceptionConfig, ImapInterceptionConfig, MaybeProtocol,
+    ProtocolInspectPolicy, ProtocolInspector, SmtpInterceptionConfig,
 };
 use g3_types::net::OpensslClientConfig;
 
@@ -277,6 +277,11 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     #[inline]
     fn imap_inspect_policy(&self) -> ProtocolInspectPolicy {
         self.audit_handle.imap_inspect_policy()
+    }
+
+    #[inline]
+    fn imap_interception(&self) -> &ImapInterceptionConfig {
+        self.audit_handle.imap_interception()
     }
 
     #[inline]

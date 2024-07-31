@@ -58,6 +58,10 @@ impl<R: AsyncRead> OnceBufReader<R> {
     pub fn into_inner(self) -> R {
         self.inner
     }
+
+    pub fn into_parts(self) -> (Option<Bytes>, R) {
+        (self.buf, self.inner)
+    }
 }
 
 impl<R: AsyncRead> AsyncRead for OnceBufReader<R> {

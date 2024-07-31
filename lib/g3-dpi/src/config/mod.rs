@@ -27,6 +27,9 @@ pub use http::{H1InterceptionConfig, H2InterceptionConfig};
 mod smtp;
 pub use smtp::SmtpInterceptionConfig;
 
+mod imap;
+pub use imap::ImapInterceptionConfig;
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ProtocolInspectPolicy {
     #[default]

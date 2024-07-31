@@ -29,5 +29,8 @@ pub use self::http::{as_h1_interception_config, as_h2_interception_config};
 mod smtp;
 pub use smtp::as_smtp_interception_config;
 
+mod imap;
+pub use imap::as_imap_interception_config;
+
 mod dump;
 pub use dump::as_stream_dump_config;
