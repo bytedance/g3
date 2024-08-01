@@ -14,11 +14,15 @@
  * limitations under the License.
  */
 
+use std::fmt;
 use std::str::{self, Utf8Error};
 
 use atoi::FromRadix10Checked;
 use smol_str::SmolStr;
 use thiserror::Error;
+
+mod pipeline;
+pub use pipeline::CommandPipeline;
 
 #[derive(Debug, Error)]
 pub enum CommandLineError {
@@ -134,6 +138,12 @@ pub struct Command {
     pub literal_arg: Option<LiteralArgument>,
 }
 
+impl fmt::Display for Command {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}/{}", self.parsed, self.tag)
+    }
+}
+
 impl Command {
     pub fn parse_line(line: &[u8]) -> Result<Self, CommandLineError> {
         let left = line
@@ -215,6 +225,20 @@ impl Command {
                 literal_arg: None,
             })
         }
+    }
+
+    pub fn parse_continue_line(&mut self, line: &[u8]) -> Result<(), CommandLineError> {
+        let left = line
+            .strip_suffix(b"\r\n")
+            .ok_or(CommandLineError::NoTrailingSequence)?;
+
+        if left.is_empty() {
+            self.literal_arg = None;
+        } else {
+            self.literal_arg = LiteralArgument::check(left)?;
+        }
+
+        Ok(())
     }
 }
 

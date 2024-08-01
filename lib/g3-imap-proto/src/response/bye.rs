@@ -26,6 +26,7 @@ const BYE_INTERNAL_ERROR: &str = "* BYE [UNAVAILABLE] shutdown due to internal e
 const BYE_UPSTREAM_TIMEOUT: &str = "* BYE [UNAVAILABLE] timeout to recv upstream greeting\r\n";
 const BYE_UPSTREAM_PROTOCOL_ERROR: &str = "* BYE [SERVERBUG] invalid upstream protocol\r\n";
 const BYE_UPSTREAM_IO_ERROR: &str = "* BYE [UNAVAILABLE] connect to upstream failed\r\n";
+const BYE_CLIENT_PROTOCOL_ERROR: &str = "* BYE [CLIENTBUG] invalid client protocol\r\n";
 
 pub struct ByeResponse {}
 
@@ -47,4 +48,5 @@ impl ByeResponse {
     impl_method!(reply_upstream_timeout, BYE_UPSTREAM_TIMEOUT);
     impl_method!(reply_upstream_protocol_error, BYE_UPSTREAM_PROTOCOL_ERROR);
     impl_method!(reply_upstream_io_error, BYE_UPSTREAM_IO_ERROR);
+    impl_method!(reply_client_protocol_error, BYE_CLIENT_PROTOCOL_ERROR);
 }

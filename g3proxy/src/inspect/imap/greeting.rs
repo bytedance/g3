@@ -63,21 +63,27 @@ impl Greeting {
         match rsp {
             Response::ServerStatus(ServerStatus::Close) => {
                 self.write_greeting_line(clt_w, line).await?;
+                rsp_recv_buf.consume_line();
                 self.close_service = true;
                 Ok(())
             }
             Response::ServerStatus(ServerStatus::Information) => {
                 // TODO parse capability
                 self.write_greeting_line(clt_w, line).await?;
+                rsp_recv_buf.consume_line();
                 Ok(())
             }
             Response::ServerStatus(ServerStatus::Authenticated) => {
                 // TODO parse capability
                 self.write_greeting_line(clt_w, line).await?;
+                rsp_recv_buf.consume_line();
                 self.pre_authenticated = true;
                 Ok(())
             }
-            _ => Err(GreetingError::InvalidResponseType),
+            _ => {
+                rsp_recv_buf.consume_line();
+                Err(GreetingError::InvalidResponseType)
+            }
         }
     }
 

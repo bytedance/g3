@@ -18,20 +18,31 @@ use slog::slog_info;
 use tokio::io::AsyncWriteExt;
 
 use g3_dpi::ProtocolInspectPolicy;
+use g3_imap_proto::command::CommandPipeline;
 use g3_imap_proto::response::ByeResponse;
 use g3_io_ext::{LineRecvVec, OnceBufReader};
 use g3_slog_types::{LtUpstreamAddr, LtUuid};
 use g3_types::net::UpstreamAddr;
 
+use super::StartTlsProtocol;
 use crate::config::server::ServerConfig;
 use crate::inspect::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext, StreamInspection};
 use crate::serve::{ServerTaskError, ServerTaskForbiddenError, ServerTaskResult};
 
+mod ext;
+use ext::{CommandLineReceiveExt, ResponseLineReceiveExt};
+
 mod greeting;
 use greeting::Greeting;
 
+mod initiation;
+use initiation::{Initiation, InitiationStatus};
+
+mod logout;
+
 struct ImapRelayBuf {
     rsp_recv_buf: LineRecvVec,
+    cmd_recv_buf: LineRecvVec,
 }
 
 macro_rules! intercept_log {
@@ -41,6 +52,8 @@ macro_rules! intercept_log {
             "task_id" => LtUuid($obj.ctx.server_task_id()),
             "depth" => $obj.ctx.inspection_depth,
             "upstream" => LtUpstreamAddr(&$obj.upstream),
+            "server_bye" => $obj.server_bye,
+            "client_logout" => $obj.client_logout,
         )
     };
 }
@@ -57,6 +70,9 @@ pub(crate) struct ImapInterceptObject<SC: ServerConfig> {
     ctx: StreamInspectContext<SC>,
     upstream: UpstreamAddr,
     from_starttls: bool,
+    cmd_pipeline: CommandPipeline,
+    server_bye: bool,
+    client_logout: bool,
 }
 
 impl<SC> ImapInterceptObject<SC>
@@ -69,6 +85,9 @@ where
             ctx,
             upstream,
             from_starttls: false,
+            cmd_pipeline: CommandPipeline::default(),
+            server_bye: false,
+            client_logout: false,
         }
     }
 
@@ -155,6 +174,10 @@ where
         ))
     }
 
+    fn mark_close_by_server(&mut self) {
+        self.server_bye = true;
+    }
+
     async fn do_intercept(&mut self) -> ServerTaskResult<Option<StreamInspection<SC>>> {
         let ImapIo {
             clt_r,
@@ -171,7 +194,10 @@ where
         } else {
             LineRecvVec::with_capacity(interception_config.response_line_max_size)
         };
-        let mut relay_buf = ImapRelayBuf { rsp_recv_buf };
+        let mut relay_buf = ImapRelayBuf {
+            rsp_recv_buf,
+            cmd_recv_buf: LineRecvVec::with_capacity(interception_config.command_line_max_size),
+        };
 
         if self.from_starttls {
             return self
@@ -193,6 +219,7 @@ where
             return Err(e.into());
         }
         if greeting.close_service() {
+            self.mark_close_by_server();
             return Ok(None);
         }
         if greeting.pre_authenticated() {
@@ -207,24 +234,64 @@ where
 
     async fn start_initiation(
         &mut self,
-        clt_r: BoxAsyncRead,
-        clt_w: BoxAsyncWrite,
-        ups_r: BoxAsyncRead,
-        ups_w: BoxAsyncWrite,
-        _relay_buf: ImapRelayBuf,
+        mut clt_r: BoxAsyncRead,
+        mut clt_w: BoxAsyncWrite,
+        mut ups_r: BoxAsyncRead,
+        mut ups_w: BoxAsyncWrite,
+        mut relay_buf: ImapRelayBuf,
     ) -> ServerTaskResult<Option<StreamInspection<SC>>> {
-        crate::inspect::stream::transit_transparent(
-            clt_r,
-            clt_w,
-            ups_r,
-            ups_w,
-            &self.ctx.server_config,
-            &self.ctx.server_quit_policy,
-            self.ctx.user(),
-        )
-        .await?;
+        let mut initiation = Initiation::new(self.from_starttls);
 
-        Ok(None)
+        match initiation
+            .relay(
+                &mut clt_r,
+                &mut clt_w,
+                &mut ups_r,
+                &mut ups_w,
+                &mut relay_buf,
+                &mut self.cmd_pipeline,
+            )
+            .await?
+        {
+            InitiationStatus::ClientClose => {
+                self.handle_client_logout(&mut clt_w, &mut ups_r, &mut relay_buf.rsp_recv_buf)
+                    .await?;
+                Ok(None)
+            }
+            InitiationStatus::ServerClose => {
+                self.mark_close_by_server();
+                Ok(None)
+            }
+            InitiationStatus::StartTls => {
+                if let Some(tls_interception) = self.ctx.tls_interception() {
+                    let mut start_tls_obj = crate::inspect::start_tls::StartTlsInterceptObject::new(
+                        self.ctx.clone(),
+                        self.upstream.clone(),
+                        tls_interception,
+                        StartTlsProtocol::Imap,
+                    );
+                    start_tls_obj.set_io(clt_r, clt_w, ups_r, ups_w);
+                    Ok(Some(StreamInspection::StartTls(start_tls_obj)))
+                } else {
+                    crate::inspect::stream::transit_transparent(
+                        clt_r,
+                        clt_w,
+                        ups_r,
+                        ups_w,
+                        &self.ctx.server_config,
+                        &self.ctx.server_quit_policy,
+                        self.ctx.user(),
+                    )
+                    .await
+                    .map(|_| None)
+                }
+            }
+            InitiationStatus::Authenticated => {
+                self.run_authenticated(clt_r, clt_w, ups_r, ups_w, relay_buf)
+                    .await?;
+                Ok(None)
+            }
+        }
     }
 
     async fn run_authenticated(

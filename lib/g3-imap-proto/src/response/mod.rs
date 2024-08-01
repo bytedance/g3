@@ -20,6 +20,9 @@ use atoi::FromRadix10Checked;
 use smol_str::SmolStr;
 use thiserror::Error;
 
+mod bad;
+pub use bad::BadResponse;
+
 mod bye;
 pub use bye::ByeResponse;
 

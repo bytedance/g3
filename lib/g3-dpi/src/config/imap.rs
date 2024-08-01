@@ -19,6 +19,7 @@ use std::time::Duration;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ImapInterceptionConfig {
     pub greeting_timeout: Duration,
+    pub logout_wait_timeout: Duration,
     pub command_line_max_size: usize,
     pub response_line_max_size: usize,
     pub command_wait_timeout: Duration,
@@ -29,6 +30,7 @@ impl Default for ImapInterceptionConfig {
     fn default() -> Self {
         ImapInterceptionConfig {
             greeting_timeout: Duration::from_secs(300),
+            logout_wait_timeout: Duration::from_secs(10),
             command_line_max_size: 2048,
             response_line_max_size: 2048,
             command_wait_timeout: Duration::from_secs(300),
