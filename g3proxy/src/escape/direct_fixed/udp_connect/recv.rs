@@ -24,7 +24,7 @@ use g3_io_ext::{AsyncUdpRecv, UdpCopyRemoteError, UdpCopyRemoteRecv};
     target_os = "netbsd",
     target_os = "openbsd",
 ))]
-use g3_io_ext::{RecvMsgHdr, UdpCopyPacket};
+use g3_io_ext::{RecvMsgHdr, UdpCopyPacket, UdpCopyPacketMeta};
 
 pub(crate) struct DirectUdpConnectRemoteRecv<T> {
     inner: T,
@@ -68,25 +68,20 @@ where
         cx: &mut Context<'_>,
         packets: &mut [UdpCopyPacket],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
-        use std::io::IoSliceMut;
-
         let mut hdr_v: Vec<RecvMsgHdr<1>> = packets
             .iter_mut()
-            .map(|p| RecvMsgHdr::new([IoSliceMut::new(p.buf_mut())]))
+            .map(|p| RecvMsgHdr::new([std::io::IoSliceMut::new(p.buf_mut())]))
             .collect();
 
         let count = ready!(self.inner.poll_batch_recvmsg(cx, &mut hdr_v))
             .map_err(UdpCopyRemoteError::RecvFailed)?;
 
-        let len_v = hdr_v
-            .into_iter()
-            .take(count)
-            .map(|v| v.n_recv)
-            .collect::<Vec<_>>();
-
-        for (l, p) in len_v.into_iter().zip(packets.iter_mut()) {
-            p.set_offset(0);
-            p.set_length(l);
+        let mut r = Vec::with_capacity(count);
+        for h in hdr_v.into_iter().take(count) {
+            r.push(UdpCopyPacketMeta::new(&h.iov[0], 0, h.n_recv));
+        }
+        for (m, p) in r.into_iter().zip(packets.iter_mut()) {
+            m.set_packet(p);
         }
 
         Poll::Ready(Ok(count))

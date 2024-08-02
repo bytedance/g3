@@ -27,7 +27,7 @@ use g3_io_ext::{AsyncUdpRecv, UdpCopyClientError, UdpCopyClientRecv};
     target_os = "netbsd",
     target_os = "openbsd",
 ))]
-use g3_io_ext::{RecvMsgHdr, UdpCopyPacket};
+use g3_io_ext::{RecvMsgHdr, UdpCopyPacket, UdpCopyPacketMeta};
 use g3_socks::v5::UdpInput;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::net::UpstreamAddr;
@@ -172,11 +172,9 @@ where
         cx: &mut Context<'_>,
         packets: &mut [UdpCopyPacket],
     ) -> Poll<Result<usize, UdpCopyClientError>> {
-        use std::io::IoSliceMut;
-
         let mut hdr_v: Vec<RecvMsgHdr<1>> = packets
             .iter_mut()
-            .map(|p| RecvMsgHdr::new([IoSliceMut::new(p.buf_mut())]))
+            .map(|p| RecvMsgHdr::new([std::io::IoSliceMut::new(p.buf_mut())]))
             .collect();
 
         let count = ready!(self.inner.poll_batch_recvmsg(cx, &mut hdr_v))
@@ -192,12 +190,10 @@ where
                 return Poll::Ready(Err(UdpCopyClientError::VaryUpstream));
             }
 
-            r.push((off, h.n_recv))
+            r.push(UdpCopyPacketMeta::new(iov, off, h.n_recv));
         }
-
-        for ((off, l), p) in r.into_iter().zip(packets.iter_mut()) {
-            p.set_offset(off);
-            p.set_length(l);
+        for (m, p) in r.into_iter().zip(packets.iter_mut()) {
+            m.set_packet(p);
         }
 
         Poll::Ready(Ok(count))

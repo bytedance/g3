@@ -15,6 +15,7 @@
  */
 
 use std::future::Future;
+use std::io::IoSliceMut;
 use std::pin::Pin;
 use std::task::{ready, Context, Poll};
 
@@ -60,17 +61,17 @@ impl UdpRelayPacket {
     }
 
     #[inline]
-    pub fn set_offset(&mut self, off: usize) {
+    fn set_offset(&mut self, off: usize) {
         self.buf_data_off = off;
     }
 
     #[inline]
-    pub fn set_length(&mut self, len: usize) {
+    fn set_length(&mut self, len: usize) {
         self.buf_data_end = len;
     }
 
     #[inline]
-    pub fn set_upstream(&mut self, ups: UpstreamAddr) {
+    fn set_upstream(&mut self, ups: UpstreamAddr) {
         self.ups = ups;
     }
 
@@ -82,6 +83,32 @@ impl UdpRelayPacket {
     #[inline]
     pub fn payload(&self) -> &[u8] {
         &self.buf[self.buf_data_off..self.buf_data_end]
+    }
+}
+
+pub struct UdpRelayPacketMeta {
+    iov_base: *const u8,
+    data_off: usize,
+    data_len: usize,
+    ups: UpstreamAddr,
+}
+
+impl UdpRelayPacketMeta {
+    pub fn new(iov: &IoSliceMut, data_off: usize, data_len: usize, ups: UpstreamAddr) -> Self {
+        UdpRelayPacketMeta {
+            iov_base: iov.as_ptr(),
+            data_off,
+            data_len,
+            ups,
+        }
+    }
+
+    pub fn set_packet(self, p: &mut UdpRelayPacket) {
+        let iov_advance =
+            unsafe { usize::try_from(self.iov_base.offset_from(p.buf().as_ptr())).unwrap() };
+        p.set_offset(iov_advance + self.data_off);
+        p.set_length(iov_advance + self.data_len);
+        p.set_upstream(self.ups);
     }
 }
 

@@ -29,14 +29,14 @@ pub use send::{AsyncUdpSend, LimitedUdpSend};
 mod relay;
 pub use relay::{
     UdpRelayClientError, UdpRelayClientRecv, UdpRelayClientSend, UdpRelayPacket,
-    UdpRelayRemoteError, UdpRelayRemoteRecv, UdpRelayRemoteSend,
+    UdpRelayPacketMeta, UdpRelayRemoteError, UdpRelayRemoteRecv, UdpRelayRemoteSend,
 };
 pub use relay::{UdpRelayClientToRemote, UdpRelayError, UdpRelayRemoteToClient};
 
 mod copy;
 pub use copy::{
-    UdpCopyClientError, UdpCopyClientRecv, UdpCopyClientSend, UdpCopyPacket, UdpCopyRemoteError,
-    UdpCopyRemoteRecv, UdpCopyRemoteSend,
+    UdpCopyClientError, UdpCopyClientRecv, UdpCopyClientSend, UdpCopyPacket, UdpCopyPacketMeta,
+    UdpCopyRemoteError, UdpCopyRemoteRecv, UdpCopyRemoteSend,
 };
 pub use copy::{UdpCopyClientToRemote, UdpCopyError, UdpCopyRemoteToClient};
 
