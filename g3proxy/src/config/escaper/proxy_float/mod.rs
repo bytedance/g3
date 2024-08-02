@@ -133,8 +133,8 @@ impl ProxyFloatEscaperConfig {
                 Ok(())
             }
             "source" => {
-                self.source =
-                    ProxyFloatSource::parse(v).context(format!("invalid value for key {k}"))?;
+                self.source = ProxyFloatSource::parse(v, self.position.as_ref())
+                    .context(format!("invalid value for key {k}"))?;
                 Ok(())
             }
             "cache" => {

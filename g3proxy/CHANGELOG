@@ -1,4 +1,8 @@
 
+v1.9.7:
+ - Feature: support TLS redis server
+ - Removed: remove redis cluster support, a redis proxy should be used in front of the redis cluster
+
 v1.9.6:
  - BUG FIX: fix lifetime of worker threads
  - BUG FIX: fix selection of final escaper for http forward tasks

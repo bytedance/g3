@@ -1386,6 +1386,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "g3-redis-client"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "g3-socket",
+ "g3-types",
+ "redis",
+ "rustls-pki-types",
+ "tokio",
+ "tokio-rustls",
+]
+
+[[package]]
 name = "g3-resolver"
 version = "0.6.0"
 dependencies = [
@@ -1861,6 +1874,7 @@ dependencies = [
  "g3-json",
  "g3-msgpack",
  "g3-openssl",
+ "g3-redis-client",
  "g3-resolver",
  "g3-slog-types",
  "g3-smtp-proto",
@@ -3113,9 +3127,9 @@ dependencies = [
 
 [[package]]
 name = "redis"
-version = "0.26.0"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8cc5b667390cb038bc65fc4b18c06e2550469f7e06a02d886f1a018a11f63563"
+checksum = "e902a69d09078829137b4a5d9d082e0490393537badd7c91a3d69d14639e115f"
 dependencies = [
  "arc-swap",
  "async-trait",

@@ -1,0 +1,14 @@
+[package]
+name = "g3-redis-client"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+redis = { workspace = true, features = ["aio", "tokio-comp"] }
+tokio = { workspace = true, features = ["net"] }
+tokio-rustls.workspace = true
+rustls-pki-types.workspace = true
+g3-types = { workspace = true, features = ["rustls"] }
+g3-socket.workspace = true

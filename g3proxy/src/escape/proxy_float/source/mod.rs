@@ -14,18 +14,23 @@
  * limitations under the License.
  */
 
+use std::future::Future;
 use std::sync::Arc;
 
 use anyhow::anyhow;
 use arc_swap::ArcSwap;
-use futures_util::future::{AbortHandle, Abortable};
 use log::warn;
+use tokio::sync::oneshot;
 
 use super::PeerSet;
 use crate::config::escaper::proxy_float::{ProxyFloatEscaperConfig, ProxyFloatSource};
 
 mod file;
 mod redis;
+
+trait FetchJob {
+    fn fetch_records(&self) -> impl Future<Output = anyhow::Result<Vec<serde_json::Value>>> + Send;
+}
 
 pub(super) async fn load_cached_peers(
     config: &Arc<ProxyFloatEscaperConfig>,
@@ -74,21 +79,43 @@ pub(super) async fn publish_peers(
 pub(super) fn new_job(
     config: Arc<ProxyFloatEscaperConfig>,
     peers_container: Arc<ArcSwap<PeerSet>>,
-) -> anyhow::Result<AbortHandle> {
-    let f = async move {
+) -> anyhow::Result<Option<oneshot::Sender<()>>> {
+    let (quit_sender, quit_receiver) = oneshot::channel();
+
+    match &config.source {
+        ProxyFloatSource::Passive => return Ok(None),
+        ProxyFloatSource::Redis(redis) => {
+            let redis_job = redis::RedisFetchJob::new(redis)?;
+            spawn_job(config, peers_container, redis_job, quit_receiver);
+        }
+    };
+
+    Ok(Some(quit_sender))
+}
+
+fn spawn_job<T>(
+    config: Arc<ProxyFloatEscaperConfig>,
+    peers_container: Arc<ArcSwap<PeerSet>>,
+    fetch_job: T,
+    mut quit_receiver: oneshot::Receiver<()>,
+) where
+    T: FetchJob + Send + 'static,
+{
+    use oneshot::error::TryRecvError;
+
+    tokio::spawn(async move {
         let mut interval = tokio::time::interval(config.refresh_interval);
         interval.tick().await; // will tick immediately
         loop {
-            let result = match &config.source {
-                ProxyFloatSource::Passive => {
-                    // do nothing
-                    interval.tick().await;
-                    continue;
-                }
-                ProxyFloatSource::Redis(config) => redis::fetch_records(config).await,
-            };
+            let result = fetch_job.fetch_records().await;
             match result {
                 Ok(records) => {
+                    match quit_receiver.try_recv() {
+                        Ok(_) => break,
+                        Err(TryRecvError::Empty) => {}
+                        Err(TryRecvError::Closed) => break,
+                    }
+
                     if let Err(e) = parse_and_save_peers(&config, &peers_container, records).await {
                         warn!("failed to update peers for escaper {}: {e:?}", config.name);
                     }
@@ -98,10 +125,5 @@ pub(super) fn new_job(
 
             interval.tick().await;
         }
-    };
-
-    let (abort_handle, abort_registration) = AbortHandle::new_pair();
-    let future = Abortable::new(f, abort_registration);
-    tokio::spawn(future);
-    Ok(abort_handle)
+    });
 }

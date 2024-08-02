@@ -15,66 +15,48 @@
  */
 
 use std::str::FromStr;
-use std::time::Duration;
 
 use anyhow::{anyhow, Context};
-use redis::{
-    ConnectionAddr, ConnectionInfo, IntoConnectionInfo, ProtocolVersion, RedisConnectionInfo,
-    RedisResult,
-};
 use url::Url;
 use yaml_rust::{yaml, Yaml};
 
+use g3_redis_client::RedisClientConfigBuilder;
 use g3_types::net::UpstreamAddr;
+use g3_yaml::YamlDocPosition;
 
-const CONFIG_KEY_SOURCE_ADDR: &str = "addr";
-
-const REDIS_DEFAULT_PORT: u16 = 6379;
-const REDIS_DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
-const REDIS_DEFAULT_READ_TIMEOUT: Duration = Duration::from_secs(2);
-
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct ProxyFloatRedisSource {
-    addr: UpstreamAddr,
-    db: i64,
-    username: Option<String>,
-    password: Option<String>,
-    pub(crate) connect_timeout: Duration,
-    pub(crate) read_timeout: Duration,
+    pub(crate) client_builder: RedisClientConfigBuilder,
     pub(crate) sets_key: String,
 }
 
 impl ProxyFloatRedisSource {
-    fn new(addr: UpstreamAddr) -> Self {
+    fn new(server: UpstreamAddr) -> Self {
         ProxyFloatRedisSource {
-            addr,
-            db: 0,
-            password: None,
-            username: None,
-            connect_timeout: REDIS_DEFAULT_CONNECT_TIMEOUT,
-            read_timeout: REDIS_DEFAULT_READ_TIMEOUT,
+            client_builder: RedisClientConfigBuilder::new(server),
             sets_key: String::new(),
         }
     }
 
-    pub(super) fn parse_map(map: &yaml::Hash) -> anyhow::Result<Self> {
-        let v = g3_yaml::hash_get_required(map, CONFIG_KEY_SOURCE_ADDR)?;
-        let upstream = g3_yaml::value::as_upstream_addr(v, REDIS_DEFAULT_PORT).context(format!(
-            "invalid upstream addr value for key {CONFIG_KEY_SOURCE_ADDR}"
-        ))?;
-        let mut config = ProxyFloatRedisSource::new(upstream);
+    pub(super) fn parse_map(
+        map: &yaml::Hash,
+        position: Option<&YamlDocPosition>,
+    ) -> anyhow::Result<Self> {
+        let mut config = ProxyFloatRedisSource::default();
 
         g3_yaml::foreach_kv(map, |k, v| {
-            config.set(k, v).context(format!("failed to parse key {k}"))
+            config
+                .set(k, v, position)
+                .context(format!("failed to parse key {k}"))
         })?;
 
         config.check()?;
         Ok(config)
     }
 
-    pub(super) fn parse_url(url: &Url) -> anyhow::Result<Self> {
+    pub(super) fn parse_url(url: &Url, position: Option<&YamlDocPosition>) -> anyhow::Result<Self> {
         if let Some(host) = url.host_str() {
-            let port = url.port().unwrap_or(REDIS_DEFAULT_PORT);
+            let port = url.port().unwrap_or(g3_redis_client::REDIS_DEFAULT_PORT);
             let upstream = UpstreamAddr::from_host_str_and_port(host, port)?;
             let mut config = ProxyFloatRedisSource::new(upstream);
 
@@ -83,20 +65,20 @@ impl ProxyFloatRedisSource {
             if !db_str.is_empty() {
                 let db = i64::from_str(db_str)
                     .map_err(|_| anyhow!("the path should be a valid redis db number"))?;
-                config.db = db;
+                config.client_builder.set_db(db);
             }
             let username = url.username();
             if !username.is_empty() {
-                config.username = Some(username.to_string());
+                config.client_builder.set_username(username.to_string());
             }
             if let Some(password) = url.password() {
-                config.password = Some(password.to_string());
+                config.client_builder.set_password(password.to_string());
             }
 
             for (k, v) in url.query_pairs() {
                 let yaml_value = Yaml::String(v.to_string());
                 config
-                    .set(&k, &yaml_value)
+                    .set(&k, &yaml_value, position)
                     .context(format!("failed to parse query param {k}={v}"))?;
             }
 
@@ -114,33 +96,56 @@ impl ProxyFloatRedisSource {
         Ok(())
     }
 
-    fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
+    fn set(&mut self, k: &str, v: &Yaml, position: Option<&YamlDocPosition>) -> anyhow::Result<()> {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_SOURCE_TYPE => Ok(()),
-            CONFIG_KEY_SOURCE_ADDR => Ok(()),
+            "addr" | "address" => {
+                let addr = g3_yaml::value::as_upstream_addr(v, g3_redis_client::REDIS_DEFAULT_PORT)
+                    .context(format!("invalid upstream address value for key {k}"))?;
+                self.client_builder.set_addr(addr);
+                Ok(())
+            }
+            "tls" | "tls_client" => {
+                let lookup_dir = g3_daemon::config::get_lookup_dir(position)?;
+                let tls = g3_yaml::value::as_rustls_client_config_builder(v, Some(lookup_dir))
+                    .context(format!(
+                        "invalid rustls tls client config value for key {k}"
+                    ))?;
+                self.client_builder.set_tls_client(tls);
+                Ok(())
+            }
+            "tls_name" => {
+                let name = g3_yaml::value::as_rustls_server_name(v)
+                    .context(format!("invalid rustls server name value for key {k}"))?;
+                self.client_builder.set_tls_name(name);
+                Ok(())
+            }
             "db" => {
-                self.db =
+                let db =
                     g3_yaml::value::as_i64(v).context(format!("invalid int value for key {k}"))?;
+                self.client_builder.set_db(db);
                 Ok(())
             }
             "username" => {
                 let username = g3_yaml::value::as_string(v)?;
-                self.username = Some(username);
+                self.client_builder.set_username(username);
                 Ok(())
             }
             "password" => {
                 let password = g3_yaml::value::as_string(v)?;
-                self.password = Some(password);
+                self.client_builder.set_password(password);
                 Ok(())
             }
             "connect_timeout" => {
-                self.connect_timeout = g3_yaml::humanize::as_duration(v)
+                let timeout = g3_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
+                self.client_builder.set_connect_timeout(timeout);
                 Ok(())
             }
-            "read_timeout" | "response_timeout" => {
-                self.read_timeout = g3_yaml::humanize::as_duration(v)
+            "response_timeout" | "read_timeout" => {
+                let timeout = g3_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
+                self.client_builder.set_response_timeout(timeout);
                 Ok(())
             }
             "sets_key" => {
@@ -149,19 +154,5 @@ impl ProxyFloatRedisSource {
             }
             _ => Err(anyhow!("invalid key {}", k)),
         }
-    }
-}
-
-impl IntoConnectionInfo for &ProxyFloatRedisSource {
-    fn into_connection_info(self) -> RedisResult<ConnectionInfo> {
-        Ok(ConnectionInfo {
-            addr: ConnectionAddr::Tcp(self.addr.host().to_string(), self.addr.port()),
-            redis: RedisConnectionInfo {
-                db: self.db,
-                username: self.username.clone(),
-                password: self.password.clone(),
-                protocol: ProtocolVersion::RESP2,
-            },
-        })
     }
 }

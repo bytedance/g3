@@ -20,9 +20,9 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context};
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
-use futures_util::future::AbortHandle;
 use log::warn;
 use slog::Logger;
+use tokio::sync::oneshot;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::metrics::MetricsName;
@@ -63,7 +63,7 @@ mod tls_connect;
 pub(super) struct ProxyFloatEscaper {
     config: Arc<ProxyFloatEscaperConfig>,
     stats: Arc<ProxyFloatEscaperStats>,
-    source_job_handler: Option<AbortHandle>,
+    quit_job_sender: Option<oneshot::Sender<()>>,
     peers: Arc<ArcSwap<PeerSet>>,
     tls_config: Arc<OpensslClientConfig>,
     escape_logger: Logger,
@@ -71,8 +71,8 @@ pub(super) struct ProxyFloatEscaper {
 
 impl Drop for ProxyFloatEscaper {
     fn drop(&mut self) {
-        if let Some(handler) = self.source_job_handler.take() {
-            handler.abort();
+        if let Some(sender) = self.quit_job_sender.take() {
+            let _ = sender.send(());
         }
     }
 }
@@ -108,14 +108,14 @@ impl ProxyFloatEscaper {
             }
         };
         let peers = Arc::new(ArcSwap::new(peers));
-        let source_job_handler = source::new_job(Arc::clone(&config), Arc::clone(&peers))?;
+        let quit_job_sender = source::new_job(Arc::clone(&config), Arc::clone(&peers))?;
 
         stats.set_extra_tags(config.extra_metrics_tags.clone());
 
         let escaper = ProxyFloatEscaper {
             config,
             stats,
-            source_job_handler: Some(source_job_handler),
+            quit_job_sender,
             peers,
             tls_config: Arc::new(tls_config),
             escape_logger,

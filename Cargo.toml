@@ -1,47 +1,12 @@
 [workspace]
 members = [
-    "lib/g3-build-env",
-    "lib/g3-types",
-    "lib/g3-io-ext",
-    "lib/g3-daemon",
-    "lib/g3-ctl",
-    "lib/g3-socket",
-    "lib/g3-compat",
-    "lib/g3-clap",
-    "lib/g3-yaml",
-    "lib/g3-json",
-    "lib/g3-msgpack",
-    "lib/g3-runtime",
-    "lib/g3-hickory-client",
-    "lib/g3-resolver",
-    "lib/g3-datetime",
-    "lib/g3-stdlog",
-    "lib/g3-syslog",
-    "lib/g3-journal",
-    "lib/g3-fluentd",
-    "lib/g3-statsd-client",
-    "lib/g3-histogram",
-    "lib/g3-xcrypt",
-    "lib/g3-ftp-client",
-    "lib/g3-smtp-proto",
-    "lib/g3-imap-proto",
-    "lib/g3-http",
-    "lib/g3-h2",
-    "lib/g3-icap-client",
-    "lib/g3-socks",
-    "lib/g3-dpi",
-    "lib/g3-udpdump",
-    "lib/g3-tls-cert",
-    "lib/g3-cert-agent",
-    "lib/g3-slog-types",
-    "lib/g3-geoip-types",
-    "lib/g3-geoip-db",
-    "lib/g3-ip-locate",
-    "lib/g3-openssl",
     "g3bench",
     "g3fcgen",
     "g3iploc",
     "g3iploc/utils/db",
+    "g3keymess",
+    "g3keymess/proto",
+    "g3keymess/utils/ctl",
     "g3mkcert",
     "g3proxy",
     "g3proxy/proto",
@@ -51,9 +16,45 @@ members = [
     "g3tiles",
     "g3tiles/proto",
     "g3tiles/utils/ctl",
-    "g3keymess",
-    "g3keymess/proto",
-    "g3keymess/utils/ctl",
+    "lib/g3-build-env",
+    "lib/g3-cert-agent",
+    "lib/g3-clap",
+    "lib/g3-compat",
+    "lib/g3-ctl",
+    "lib/g3-daemon",
+    "lib/g3-datetime",
+    "lib/g3-dpi",
+    "lib/g3-fluentd",
+    "lib/g3-ftp-client",
+    "lib/g3-geoip-db",
+    "lib/g3-geoip-types",
+    "lib/g3-h2",
+    "lib/g3-hickory-client",
+    "lib/g3-histogram",
+    "lib/g3-http",
+    "lib/g3-icap-client",
+    "lib/g3-imap-proto",
+    "lib/g3-io-ext",
+    "lib/g3-ip-locate",
+    "lib/g3-journal",
+    "lib/g3-json",
+    "lib/g3-msgpack",
+    "lib/g3-openssl",
+    "lib/g3-redis-client",
+    "lib/g3-resolver",
+    "lib/g3-runtime",
+    "lib/g3-slog-types",
+    "lib/g3-smtp-proto",
+    "lib/g3-socket",
+    "lib/g3-socks",
+    "lib/g3-statsd-client",
+    "lib/g3-stdlog",
+    "lib/g3-syslog",
+    "lib/g3-tls-cert",
+    "lib/g3-types",
+    "lib/g3-udpdump",
+    "lib/g3-xcrypt",
+    "lib/g3-yaml",
 ]
 default-members = [
     "g3bench",
@@ -179,7 +180,7 @@ rmp-serde = "1"
 rmp = "0.8"
 rmpv = "1.0"
 #
-redis = { version = "0.26", default-features = false, features = ["tcp_nodelay"] }
+redis = { version = "0.26.1", default-features = false, features = ["tcp_nodelay"] }
 #
 mlua = "0.9"
 pyo3 = { version = "0.22", default-features = false, features = ["auto-initialize"] }
@@ -187,41 +188,42 @@ pyo3 = { version = "0.22", default-features = false, features = ["auto-initializ
 cfg-if = "1.0"
 #
 g3-build-env = { version = "0.1", path = "lib/g3-build-env" }
+g3-cert-agent = { version = "0.1", path = "lib/g3-cert-agent" }
 g3-clap = { version = "0.1", path = "lib/g3-clap" }
 g3-compat = { version = "0.1", path = "lib/g3-compat" }
-g3-daemon = { version = "0.2", path = "lib/g3-daemon" }
 g3-ctl = { version = "0.1", path = "lib/g3-ctl" }
+g3-daemon = { version = "0.2", path = "lib/g3-daemon" }
 g3-datetime = { version = "0.1", path = "lib/g3-datetime" }
 g3-dpi = { version = "0.1", path = "lib/g3-dpi" }
-g3-udpdump = { version = "0.1", path = "lib/g3-udpdump" }
 g3-fluentd = { version = "0.1", path = "lib/g3-fluentd" }
 g3-ftp-client = { version = "0.3", path = "lib/g3-ftp-client" }
-g3-smtp-proto = { version = "0.1", path = "lib/g3-smtp-proto" }
-g3-imap-proto = { version = "0.1", path = "lib/g3-imap-proto" }
+g3-geoip-db = { version = "0.2", path = "lib/g3-geoip-db" }
+g3-geoip-types = { version = "0.1", path = "lib/g3-geoip-types" }
 g3-h2 = { version = "0.1", path = "lib/g3-h2" }
+g3-hickory-client = { version = "0.1", path = "lib/g3-hickory-client" }
+g3-histogram = { version = "0.1", path = "lib/g3-histogram" }
 g3-http = { version = "0.3", path = "lib/g3-http" }
 g3-icap-client = { version = "0.2", path = "lib/g3-icap-client" }
+g3-imap-proto = { version = "0.1", path = "lib/g3-imap-proto" }
 g3-io-ext = { version = "0.7", path = "lib/g3-io-ext" }
+g3-ip-locate = { version = "0.1", path = "lib/g3-ip-locate" }
 g3-journal = { version = "0.2", path = "lib/g3-journal" }
 g3-json = { version = "0.3", path = "lib/g3-json" }
 g3-msgpack = { version = "0.2", path = "lib/g3-msgpack" }
-g3-hickory-client = { version = "0.1", path = "lib/g3-hickory-client" }
+g3-openssl = { version = "0.2", path = "lib/g3-openssl" }
+g3-redis-client = { version = "0.1", path = "lib/g3-redis-client" }
 g3-resolver = { version = "0.6", path = "lib/g3-resolver" }
 g3-runtime = { version = "0.3", path = "lib/g3-runtime" }
+g3-slog-types = { version = "0.1", path = "lib/g3-slog-types" }
+g3-smtp-proto = { version = "0.1", path = "lib/g3-smtp-proto" }
 g3-socket = { version = "0.4", path = "lib/g3-socket" }
 g3-socks = { version = "0.2", path = "lib/g3-socks" }
-g3-openssl = { version = "0.2", path = "lib/g3-openssl" }
 g3-statsd-client = { version = "0.1", path = "lib/g3-statsd-client" }
-g3-histogram = { version = "0.1", path = "lib/g3-histogram" }
 g3-stdlog = { version = "0.1", path = "lib/g3-stdlog" }
 g3-syslog = { version = "0.6", path = "lib/g3-syslog" }
-g3-slog-types = { version = "0.1", path = "lib/g3-slog-types" }
-g3-geoip-types = { version = "0.1", path = "lib/g3-geoip-types" }
-g3-geoip-db = { version = "0.2", path = "lib/g3-geoip-db" }
-g3-ip-locate = { version = "0.1", path = "lib/g3-ip-locate" }
 g3-tls-cert = { version = "0.5", path = "lib/g3-tls-cert" }
-g3-cert-agent = { version = "0.1", path = "lib/g3-cert-agent" }
 g3-types = { version = "0.5", path = "lib/g3-types" }
+g3-udpdump = { version = "0.1", path = "lib/g3-udpdump" }
 g3-xcrypt = { version = "0.1", path = "lib/g3-xcrypt" }
 g3-yaml = { version = "0.5.0", path = "lib/g3-yaml" }
 

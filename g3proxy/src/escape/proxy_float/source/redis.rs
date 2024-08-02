@@ -14,51 +14,48 @@
  * limitations under the License.
  */
 
-use std::sync::Arc;
-
 use anyhow::anyhow;
-use redis::{AsyncCommands, AsyncConnectionConfig};
+use redis::AsyncCommands;
+use serde_json::Value;
 
+use g3_redis_client::RedisClientConfig;
+
+use super::FetchJob;
 use crate::config::escaper::proxy_float::source::redis::ProxyFloatRedisSource;
 
-async fn connect_to_redis(
-    source: &Arc<ProxyFloatRedisSource>,
-) -> anyhow::Result<impl AsyncCommands> {
-    let client = redis::Client::open(source.as_ref())
-        .map_err(|e| anyhow!("redis client open failed: {e}"))?;
-    let async_config = AsyncConnectionConfig::new()
-        .set_connection_timeout(source.connect_timeout)
-        .set_response_timeout(source.read_timeout);
-    client
-        .get_multiplexed_async_connection_with_config(&async_config)
-        .await
-        .map_err(|e| anyhow!("connect to redis failed: {e}"))
+pub(super) struct RedisFetchJob {
+    client: RedisClientConfig,
+    sets_key: String,
 }
 
-pub(super) async fn get_members<C: AsyncCommands>(
-    mut con: C,
-    sets_key: &str,
-) -> anyhow::Result<Vec<serde_json::Value>> {
-    let members: Vec<redis::Value> = con
-        .smembers(sets_key)
-        .await
-        .map_err(|e| anyhow!("failed to get all members of sets {sets_key}: {e}"))?;
-
-    let mut records = Vec::<serde_json::Value>::new();
-    for member in &members {
-        let redis::Value::BulkString(b) = member else {
-            return Err(anyhow!("invalid member data type in set {sets_key}"));
-        };
-        let record = serde_json::from_slice(b)
-            .map_err(|e| anyhow!("invalid member in set {sets_key}: {e}"))?;
-        records.push(record);
+impl RedisFetchJob {
+    pub(super) fn new(config: &ProxyFloatRedisSource) -> anyhow::Result<Self> {
+        let client = config.client_builder.build()?;
+        Ok(RedisFetchJob {
+            client,
+            sets_key: config.sets_key.clone(),
+        })
     }
-    Ok(records)
 }
 
-pub(super) async fn fetch_records(
-    source: &Arc<ProxyFloatRedisSource>,
-) -> anyhow::Result<Vec<serde_json::Value>> {
-    let con = connect_to_redis(source).await?;
-    get_members(con, &source.sets_key).await
+impl FetchJob for RedisFetchJob {
+    async fn fetch_records(&self) -> anyhow::Result<Vec<Value>> {
+        let mut con = self.client.connect().await?;
+
+        let members: Vec<redis::Value> = con
+            .smembers(&self.sets_key)
+            .await
+            .map_err(|e| anyhow!("failed to get all members of sets {}: {e}", self.sets_key))?;
+
+        let mut records = Vec::<serde_json::Value>::new();
+        for member in &members {
+            let redis::Value::BulkString(b) = member else {
+                return Err(anyhow!("invalid member data type in set {}", self.sets_key));
+            };
+            let record = serde_json::from_slice(b)
+                .map_err(|e| anyhow!("invalid member in set {}: {e}", self.sets_key))?;
+            records.push(record);
+        }
+        Ok(records)
+    }
 }

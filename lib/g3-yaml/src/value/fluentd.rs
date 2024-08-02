@@ -66,7 +66,7 @@ pub fn as_fluentd_client_config(
                     config.set_tcp_keepalive(keepalive);
                     Ok(())
                 }
-                "tls_client" => {
+                "tls" | "tls_client" => {
                     let tls_config = crate::value::as_rustls_client_config_builder(v, lookup_dir)
                         .context(format!(
                         "invalid rustls tls client config value for key {k}"
