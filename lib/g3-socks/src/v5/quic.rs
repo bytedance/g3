@@ -255,7 +255,11 @@ impl AsyncUdpSocket for Socks5UdpSocket {
 
                     let (off, ups) =
                         UdpInput::parse_header(socks_header.as_ref()).map_err(io::Error::other)?;
-                    assert_eq!(socks_header_len, off);
+                    if socks_header_len != off {
+                        return Poll::Ready(Err(io::Error::other(
+                            "the first buf is not the expected socks5 udp header",
+                        )));
+                    }
                     let ip = match ups.host() {
                         Host::Ip(ip) => *ip,
                         Host::Domain(_) => {
