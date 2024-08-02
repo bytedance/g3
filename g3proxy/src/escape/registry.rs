@@ -30,12 +30,16 @@ static RUNTIME_ESCAPER_REGISTRY: LazyLock<Mutex<HashMap<MetricsName, ArcEscaper>
 
 pub(super) fn add(name: MetricsName, escaper: ArcEscaper) {
     let mut ht = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
-    if let Some(_old_escaper) = ht.insert(name, escaper) {}
+    if let Some(old_escaper) = ht.insert(name, escaper) {
+        old_escaper._clean_to_offline();
+    }
 }
 
 pub(super) fn del(name: &MetricsName) {
     let mut ht = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
-    if let Some(_old_escaper) = ht.remove(name) {}
+    if let Some(old_escaper) = ht.remove(name) {
+        old_escaper._clean_to_offline();
+    }
 }
 
 pub(crate) fn foreach<F>(mut f: F)

@@ -92,6 +92,8 @@ pub(crate) trait EscaperInternal {
     /// registry lock is allowed in this method
     async fn _lock_safe_reload(&self, config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper>;
 
+    fn _clean_to_offline(&self) {}
+
     fn _local_http_forward_capability(&self) -> HttpForwardCapability {
         HttpForwardCapability::default()
     }

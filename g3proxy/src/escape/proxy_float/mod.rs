@@ -22,7 +22,7 @@ use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use log::warn;
 use slog::Logger;
-use tokio::sync::oneshot;
+use tokio::sync::mpsc;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::metrics::MetricsName;
@@ -63,18 +63,10 @@ mod tls_connect;
 pub(super) struct ProxyFloatEscaper {
     config: Arc<ProxyFloatEscaperConfig>,
     stats: Arc<ProxyFloatEscaperStats>,
-    quit_job_sender: Option<oneshot::Sender<()>>,
+    quit_job_sender: Option<mpsc::Sender<()>>,
     peers: Arc<ArcSwap<PeerSet>>,
     tls_config: Arc<OpensslClientConfig>,
     escape_logger: Logger,
-}
-
-impl Drop for ProxyFloatEscaper {
-    fn drop(&mut self) {
-        if let Some(sender) = self.quit_job_sender.take() {
-            let _ = sender.send(());
-        }
-    }
 }
 
 impl ProxyFloatEscaper {
@@ -314,6 +306,12 @@ impl EscaperInternal for ProxyFloatEscaper {
         // as we haven't stop the old job
         let peers = self.peers.load_full();
         ProxyFloatEscaper::prepare_reload(config, stats, peers).await
+    }
+
+    fn _clean_to_offline(&self) {
+        if let Some(sender) = &self.quit_job_sender {
+            let _ = sender.try_send(());
+        }
     }
 
     async fn _new_http_forward_connection<'a>(

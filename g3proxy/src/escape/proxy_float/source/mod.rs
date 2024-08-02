@@ -20,7 +20,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use arc_swap::ArcSwap;
 use log::warn;
-use tokio::sync::oneshot;
+use tokio::sync::mpsc;
 
 use super::PeerSet;
 use crate::config::escaper::proxy_float::{ProxyFloatEscaperConfig, ProxyFloatSource};
@@ -79,8 +79,8 @@ pub(super) async fn publish_peers(
 pub(super) fn new_job(
     config: Arc<ProxyFloatEscaperConfig>,
     peers_container: Arc<ArcSwap<PeerSet>>,
-) -> anyhow::Result<Option<oneshot::Sender<()>>> {
-    let (quit_sender, quit_receiver) = oneshot::channel();
+) -> anyhow::Result<Option<mpsc::Sender<()>>> {
+    let (quit_sender, quit_receiver) = mpsc::channel(1);
 
     match &config.source {
         ProxyFloatSource::Passive => return Ok(None),
@@ -97,11 +97,11 @@ fn spawn_job<T>(
     config: Arc<ProxyFloatEscaperConfig>,
     peers_container: Arc<ArcSwap<PeerSet>>,
     fetch_job: T,
-    mut quit_receiver: oneshot::Receiver<()>,
+    mut quit_receiver: mpsc::Receiver<()>,
 ) where
     T: FetchJob + Send + 'static,
 {
-    use oneshot::error::TryRecvError;
+    use mpsc::error::TryRecvError;
 
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(config.refresh_interval);
@@ -113,7 +113,7 @@ fn spawn_job<T>(
                     match quit_receiver.try_recv() {
                         Ok(_) => break,
                         Err(TryRecvError::Empty) => {}
-                        Err(TryRecvError::Closed) => break,
+                        Err(TryRecvError::Disconnected) => break,
                     }
 
                     if let Err(e) = parse_and_save_peers(&config, &peers_container, records).await {
