@@ -21,8 +21,8 @@ use ahash::AHashMap;
 use anyhow::anyhow;
 use arc_swap::ArcSwap;
 use chrono::Utc;
-use futures_util::future::AbortHandle;
 use log::{info, warn};
+use tokio::sync::mpsc;
 
 use g3_types::metrics::MetricsName;
 
@@ -73,16 +73,8 @@ pub(crate) struct UserGroup {
     static_users: Arc<AHashMap<String, Arc<User>>>,
     dynamic_users: Arc<ArcSwap<AHashMap<String, Arc<User>>>>,
     /// the dynamic job is for both dynamic fetch and expire check
-    dynamic_job_handler: Option<AbortHandle>,
+    job_quit_sender: Option<mpsc::Sender<()>>,
     anonymous_user: Option<Arc<User>>,
-}
-
-impl Drop for UserGroup {
-    fn drop(&mut self) {
-        if let Some(handler) = self.dynamic_job_handler.take() {
-            handler.abort();
-        }
-    }
 }
 
 impl UserGroup {
@@ -91,7 +83,7 @@ impl UserGroup {
             config: Arc::new(config),
             static_users: Arc::new(AHashMap::new()),
             dynamic_users: Arc::new(ArcSwap::from_pointee(AHashMap::new())),
-            dynamic_job_handler: None,
+            job_quit_sender: None,
             anonymous_user: None,
         }
     }
@@ -140,7 +132,7 @@ impl UserGroup {
 
         group.anonymous_user = anonymous_user;
 
-        group.dynamic_job_handler = Some(source::new_job(
+        group.job_quit_sender = Some(source::new_job(
             &group.config,
             &group.static_users,
             &group.dynamic_users,
@@ -190,7 +182,7 @@ impl UserGroup {
 
         group.anonymous_user = anonymous_user;
 
-        group.dynamic_job_handler = Some(source::new_job(
+        group.job_quit_sender = Some(source::new_job(
             &group.config,
             &group.static_users,
             &group.dynamic_users,
@@ -223,6 +215,12 @@ impl UserGroup {
         }
 
         self.get_anonymous_user()
+    }
+
+    fn stop_dynamic_job(&self) {
+        if let Some(sender) = &self.job_quit_sender {
+            let _ = sender.try_send(());
+        }
     }
 
     pub(crate) fn foreach_user<F>(&self, mut f: F)

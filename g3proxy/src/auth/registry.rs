@@ -45,7 +45,9 @@ pub(crate) fn get_all_groups() -> Vec<Arc<UserGroup>> {
 
 pub(super) fn add(name: MetricsName, group: Arc<UserGroup>) {
     let mut ht = RUNTIME_USER_GROUP_REGISTRY.lock().unwrap();
-    if let Some(_old_group) = ht.insert(name, group) {}
+    if let Some(old_group) = ht.insert(name, group) {
+        old_group.stop_dynamic_job();
+    }
 }
 
 pub(super) fn get(name: &MetricsName) -> Option<Arc<UserGroup>> {
@@ -55,7 +57,9 @@ pub(super) fn get(name: &MetricsName) -> Option<Arc<UserGroup>> {
 
 pub(super) fn del(name: &MetricsName) {
     let mut ht = RUNTIME_USER_GROUP_REGISTRY.lock().unwrap();
-    if let Some(_old_group) = ht.remove(name) {}
+    if let Some(old_group) = ht.remove(name) {
+        old_group.stop_dynamic_job();
+    }
 }
 
 pub(crate) fn get_names() -> HashSet<MetricsName> {

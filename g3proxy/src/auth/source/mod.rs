@@ -19,8 +19,8 @@ use std::sync::Arc;
 use ahash::AHashMap;
 use arc_swap::ArcSwap;
 use chrono::{DateTime, Utc};
-use futures_util::future::{AbortHandle, Abortable};
 use log::warn;
+use tokio::sync::mpsc;
 
 use super::{User, UserGroupConfig};
 use crate::config::auth::{UserConfig, UserDynamicSource};
@@ -67,15 +67,25 @@ pub(super) fn new_job(
     group_config: &Arc<UserGroupConfig>,
     static_users: &Arc<AHashMap<String, Arc<User>>>,
     dynamic_users_container: &Arc<ArcSwap<AHashMap<String, Arc<User>>>>,
-) -> AbortHandle {
+) -> mpsc::Sender<()> {
+    use mpsc::error::TryRecvError;
+
     let group_config = Arc::clone(group_config);
     let static_users = Arc::clone(static_users);
     let dynamic_users_container = Arc::clone(dynamic_users_container);
 
-    let f = async move {
+    let (quit_sender, mut quit_receiver) = mpsc::channel(1);
+
+    tokio::spawn(async move {
         let mut interval = tokio::time::interval(group_config.refresh_interval);
         interval.tick().await; // will tick immediately
         loop {
+            match quit_receiver.try_recv() {
+                Ok(_) => break,
+                Err(TryRecvError::Empty) => {}
+                Err(TryRecvError::Disconnected) => break,
+            }
+
             let new_dynamic_config: Option<Vec<UserConfig>> =
                 if let Some(source) = &group_config.dynamic_source {
                     let r = match source {
@@ -124,12 +134,9 @@ pub(super) fn new_job(
 
             interval.tick().await;
         }
-    };
+    });
 
-    let (abort_handle, abort_registration) = AbortHandle::new_pair();
-    let future = Abortable::new(f, abort_registration);
-    tokio::spawn(future);
-    abort_handle
+    quit_sender
 }
 
 pub(super) fn publish_dynamic_users(
