@@ -140,7 +140,7 @@ where
             Ok(cmd) => {
                 let mut action = ClientAction::Loop;
                 match cmd.parsed {
-                    ParsedCommand::Capability | ParsedCommand::NoOperation => {
+                    ParsedCommand::Capability | ParsedCommand::NoOperation | ParsedCommand::Id => {
                         self.cmd_pipeline.insert_completed(cmd);
                     }
                     ParsedCommand::Logout => {

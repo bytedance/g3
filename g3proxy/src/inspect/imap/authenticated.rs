@@ -103,6 +103,7 @@ where
                     if let Some(mut rsp) = self.cmd_pipeline.take_ongoing_response() {
                         self.handle_rsp_continue_line(line, &mut rsp, clt_w).await?;
                         if let Some(size) = rsp.literal_data {
+                            self.cmd_pipeline.set_ongoing_response(rsp);
                             self.relay_server_literal(size, clt_w, ups_r, relay_buf).await?;
                         }
                     } else {
@@ -136,7 +137,7 @@ where
             Ok(cmd) => {
                 let mut action = ClientAction::Loop;
                 match cmd.parsed {
-                    ParsedCommand::Capability | ParsedCommand::NoOperation => {
+                    ParsedCommand::Capability | ParsedCommand::NoOperation | ParsedCommand::Id => {
                         self.cmd_pipeline.insert_completed(cmd);
                     }
                     ParsedCommand::Logout => {
@@ -159,6 +160,7 @@ where
                     | ParsedCommand::Subscribe
                     | ParsedCommand::Unsubscribe
                     | ParsedCommand::List
+                    | ParsedCommand::Lsub
                     | ParsedCommand::Status
                     | ParsedCommand::Append => {
                         if let Some(literal) = cmd.literal_arg {
@@ -171,13 +173,7 @@ where
                         }
                     }
                     ParsedCommand::Idle => {
-                        if self.mailbox_selected {
-                            BadResponse::reply_invalid_command(clt_w, cmd.tag.as_str())
-                                .await
-                                .map_err(ServerTaskError::ClientTcpWriteFailed)?;
-                            return Ok(action);
-                        }
-                        self.cmd_pipeline.insert_completed(cmd);
+                        self.cmd_pipeline.set_ongoing_command(cmd);
                         action = ClientAction::Idle;
                     }
                     ParsedCommand::Close
@@ -249,6 +245,9 @@ where
                 r = relay_buf.cmd_recv_buf.recv_cmd_line(clt_r) => {
                     let line = r?;
                     return if line == b"DONE\r\n" {
+                        ups_w.write_all_flush(line)
+                            .await
+                            .map_err(ServerTaskError::UpstreamWriteFailed)?;
                         Ok(None)
                     } else {
                         let _ = ByeResponse::reply_client_protocol_error(clt_w).await;

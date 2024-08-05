@@ -39,7 +39,7 @@ impl LineRecvVec {
 
     pub fn with_data(data: &[u8], cap: usize) -> Self {
         let mut buf = Vec::with_capacity(cap);
-        buf.copy_from_slice(data);
+        buf.extend_from_slice(data);
         if cap > data.len() {
             buf.resize(cap, 0);
         }
@@ -145,6 +145,7 @@ impl LineRecvVec {
             &self.buf[start..end]
         } else {
             self.line_start += max_size;
+            self.line_end = self.line_start;
             &self.buf[start..self.line_start]
         }
     }

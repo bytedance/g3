@@ -206,6 +206,9 @@ where
                                 "no ongoing IMAP command found when received continuation request"
                             )));
                         };
+                        if cmd.parsed == ParsedCommand::Idle {
+                            return Ok(ResponseAction::Loop);
+                        }
                         let Some(literal) = cmd.literal_arg else {
                             let _ = ByeResponse::reply_upstream_protocol_error(clt_w).await;
                             return Err(ServerTaskError::UpstreamAppError(anyhow!(

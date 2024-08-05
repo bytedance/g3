@@ -52,6 +52,7 @@ pub enum ParsedCommand {
     Subscribe,
     Unsubscribe,
     List,
+    Lsub,
     Namespace,
     Status,
     Append,
@@ -65,6 +66,7 @@ pub enum ParsedCommand {
     Copy,
     Move,
     Uid,
+    Id,
     Unknown,
 }
 
@@ -163,7 +165,7 @@ impl Command {
             let upper_cmd = cmd.to_uppercase();
 
             let left = &left[p + 1..];
-            let mut literal_arg = None;
+            let literal_arg = LiteralArgument::check(left)?;
             let parsed = match upper_cmd.as_bytes() {
                 b"AUTHENTICATE" => ParsedCommand::Auth,
                 b"LOGIN" => ParsedCommand::Login, // TODO parse username
@@ -176,20 +178,16 @@ impl Command {
                 b"SUBSCRIBE" => ParsedCommand::Subscribe,
                 b"UBSUBSCRIBE" => ParsedCommand::Unsubscribe,
                 b"LIST" => ParsedCommand::List,
+                b"LSUB" => ParsedCommand::Lsub,
                 b"STATUS" => ParsedCommand::Status,
-                b"APPEND" => {
-                    literal_arg = LiteralArgument::check(left)?;
-                    ParsedCommand::Append
-                }
-                b"SEARCH" => {
-                    literal_arg = LiteralArgument::check(left)?;
-                    ParsedCommand::Search
-                }
+                b"APPEND" => ParsedCommand::Append,
+                b"SEARCH" => ParsedCommand::Search,
                 b"FETCH" => ParsedCommand::Fetch,
                 b"STORE" => ParsedCommand::Store,
                 b"COPY" => ParsedCommand::Copy,
                 b"MOVE" => ParsedCommand::Move,
                 b"UID" => ParsedCommand::Uid,
+                b"ID" => ParsedCommand::Id,
                 _ => ParsedCommand::Unknown,
             };
 

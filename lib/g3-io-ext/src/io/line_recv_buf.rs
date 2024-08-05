@@ -145,6 +145,7 @@ impl<const MAX_LINE_SIZE: usize> LineRecvBuf<MAX_LINE_SIZE> {
             &self.buf[start..end]
         } else {
             self.line_start += max_size;
+            self.line_end = self.line_start;
             &self.buf[start..self.line_start]
         }
     }

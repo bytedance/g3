@@ -89,6 +89,7 @@ pub enum CommandData {
     Enabled,
     Capability,
     Fetch,
+    Id,
     Other,
 }
 
@@ -157,7 +158,11 @@ impl Response {
                 command_data: CommandData::Capability,
                 literal_data: None,
             })),
-            "LIST" | "NAMESPACE" | "STATUS" | "SEARCH" | "ESEARCH" | "FLAGS" => {
+            "ID" => Ok(Response::CommandData(UntaggedResponse {
+                command_data: CommandData::Id,
+                literal_data: None,
+            })),
+            "LIST" | "LSUB" | "NAMESPACE" | "STATUS" | "SEARCH" | "ESEARCH" | "FLAGS" => {
                 Ok(Response::CommandData(UntaggedResponse {
                     command_data: CommandData::Other,
                     literal_data: None,
@@ -184,10 +189,12 @@ impl Response {
                         let result =
                             str::from_utf8(left).map_err(ResponseLineError::InvalidUtf8Response)?;
                         match result.to_uppercase().as_str() {
-                            "EXISTS" | "EXPUNGE" => Ok(Response::CommandData(UntaggedResponse {
-                                command_data: CommandData::Other,
-                                literal_data: None,
-                            })),
+                            "EXISTS" | "EXPUNGE" | "RECENT" => {
+                                Ok(Response::CommandData(UntaggedResponse {
+                                    command_data: CommandData::Other,
+                                    literal_data: None,
+                                }))
+                            }
                             _ => Err(ResponseLineError::UnknownUntaggedResult),
                         }
                     }
