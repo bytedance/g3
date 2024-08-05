@@ -236,7 +236,7 @@ impl UserGroup {
         self.get_anonymous_user()
     }
 
-    fn stop_dynamic_job(&self) {
+    fn stop_fetch_job(&self) {
         if let Some(sender) = &self.fetch_quit_sender {
             let _ = sender.try_send(());
         }
