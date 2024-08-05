@@ -18,8 +18,8 @@ use slog::slog_info;
 use tokio::io::AsyncWriteExt;
 
 use g3_dpi::ProtocolInspectPolicy;
-use g3_imap_proto::command::CommandPipeline;
 use g3_imap_proto::response::ByeResponse;
+use g3_imap_proto::CommandPipeline;
 use g3_io_ext::{LineRecvVec, OnceBufReader};
 use g3_slog_types::{LtUpstreamAddr, LtUuid};
 use g3_types::net::UpstreamAddr;
@@ -35,8 +35,14 @@ use ext::{CommandLineReceiveExt, ResponseLineReceiveExt};
 mod greeting;
 use greeting::Greeting;
 
-mod initiation;
-use initiation::{Initiation, InitiationStatus};
+mod not_authenticated;
+use not_authenticated::InitiationStatus;
+
+mod authenticated;
+use authenticated::ForwardStatus;
+
+mod forward;
+use forward::ResponseAction;
 
 mod logout;
 
@@ -73,6 +79,8 @@ pub(crate) struct ImapInterceptObject<SC: ServerConfig> {
     cmd_pipeline: CommandPipeline,
     server_bye: bool,
     client_logout: bool,
+    authenticated: bool,
+    mailbox_selected: bool,
 }
 
 impl<SC> ImapInterceptObject<SC>
@@ -88,6 +96,8 @@ where
             cmd_pipeline: CommandPipeline::default(),
             server_bye: false,
             client_logout: false,
+            authenticated: false,
+            mailbox_selected: false,
         }
     }
 
@@ -223,7 +233,7 @@ where
             return Ok(None);
         }
         if greeting.pre_authenticated() {
-            self.run_authenticated(clt_r, clt_w, ups_r, ups_w, relay_buf)
+            self.enter_authenticated(clt_r, clt_w, ups_r, ups_w, relay_buf)
                 .await?;
             Ok(None)
         } else {
@@ -240,16 +250,13 @@ where
         mut ups_w: BoxAsyncWrite,
         mut relay_buf: ImapRelayBuf,
     ) -> ServerTaskResult<Option<StreamInspection<SC>>> {
-        let mut initiation = Initiation::new(self.from_starttls);
-
-        match initiation
-            .relay(
+        match self
+            .relay_not_authenticated(
                 &mut clt_r,
                 &mut clt_w,
                 &mut ups_r,
                 &mut ups_w,
                 &mut relay_buf,
-                &mut self.cmd_pipeline,
             )
             .await?
         {
@@ -287,30 +294,40 @@ where
                 }
             }
             InitiationStatus::Authenticated => {
-                self.run_authenticated(clt_r, clt_w, ups_r, ups_w, relay_buf)
+                self.enter_authenticated(clt_r, clt_w, ups_r, ups_w, relay_buf)
                     .await?;
                 Ok(None)
             }
         }
     }
 
-    async fn run_authenticated(
+    async fn enter_authenticated(
         &mut self,
-        clt_r: BoxAsyncRead,
-        clt_w: BoxAsyncWrite,
-        ups_r: BoxAsyncRead,
-        ups_w: BoxAsyncWrite,
-        _relay_buf: ImapRelayBuf,
+        mut clt_r: BoxAsyncRead,
+        mut clt_w: BoxAsyncWrite,
+        mut ups_r: BoxAsyncRead,
+        mut ups_w: BoxAsyncWrite,
+        mut relay_buf: ImapRelayBuf,
     ) -> ServerTaskResult<()> {
-        crate::inspect::stream::transit_transparent(
-            clt_r,
-            clt_w,
-            ups_r,
-            ups_w,
-            &self.ctx.server_config,
-            &self.ctx.server_quit_policy,
-            self.ctx.user(),
-        )
-        .await
+        match self
+            .relay_authenticated(
+                &mut clt_r,
+                &mut clt_w,
+                &mut ups_r,
+                &mut ups_w,
+                &mut relay_buf,
+            )
+            .await?
+        {
+            ForwardStatus::ClientClose => {
+                self.handle_client_logout(&mut clt_w, &mut ups_r, &mut relay_buf.rsp_recv_buf)
+                    .await?;
+                Ok(())
+            }
+            ForwardStatus::ServerClose => {
+                self.mark_close_by_server();
+                Ok(())
+            }
+        }
     }
 }

@@ -21,9 +21,6 @@ use atoi::FromRadix10Checked;
 use smol_str::SmolStr;
 use thiserror::Error;
 
-mod pipeline;
-pub use pipeline::CommandPipeline;
-
 #[derive(Debug, Error)]
 pub enum CommandLineError {
     #[error("no trailing sequence")]

@@ -17,11 +17,13 @@
 use ahash::AHashMap;
 use smol_str::SmolStr;
 
-use super::Command;
+use crate::command::Command;
+use crate::response::UntaggedResponse;
 
 pub struct CommandPipeline {
     cached_commands: AHashMap<SmolStr, Command>,
     ongoing_command: Option<Command>,
+    ongoing_response: Option<UntaggedResponse>,
 }
 
 impl Default for CommandPipeline {
@@ -39,6 +41,7 @@ impl CommandPipeline {
         CommandPipeline {
             cached_commands: AHashMap::with_capacity(cap),
             ongoing_command: None,
+            ongoing_response: None,
         }
     }
 
@@ -61,15 +64,27 @@ impl CommandPipeline {
         None
     }
 
-    pub fn set_ongoing(&mut self, cmd: Command) {
+    pub fn set_ongoing_command(&mut self, cmd: Command) {
         self.ongoing_command = Some(cmd);
     }
 
-    pub fn ongoing(&mut self) -> Option<&mut Command> {
+    pub fn ongoing_command(&mut self) -> Option<&mut Command> {
         self.ongoing_command.as_mut()
     }
 
-    pub fn take_ongoing(&mut self) -> Option<Command> {
+    pub fn take_ongoing_command(&mut self) -> Option<Command> {
         self.ongoing_command.take()
+    }
+
+    pub fn set_ongoing_response(&mut self, rsp: UntaggedResponse) {
+        self.ongoing_response = Some(rsp);
+    }
+
+    pub fn ongoing_response(&mut self) -> Option<&mut UntaggedResponse> {
+        self.ongoing_response.as_mut()
+    }
+
+    pub fn take_ongoing_response(&mut self) -> Option<UntaggedResponse> {
+        self.ongoing_response.take()
     }
 }

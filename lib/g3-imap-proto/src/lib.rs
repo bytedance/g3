@@ -16,3 +16,6 @@
 
 pub mod command;
 pub mod response;
+
+mod pipeline;
+pub use pipeline::CommandPipeline;

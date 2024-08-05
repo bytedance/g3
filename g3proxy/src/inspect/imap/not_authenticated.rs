@@ -15,26 +15,25 @@
  */
 
 use anyhow::anyhow;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_imap_proto::command::{Command, CommandPipeline, ParsedCommand};
+use g3_imap_proto::command::{Command, ParsedCommand};
 use g3_imap_proto::response::{BadResponse, ByeResponse, CommandResult, Response, ServerStatus};
-use g3_io_ext::{LimitedCopy, LimitedCopyError, LimitedWriteExt};
+use g3_io_ext::LimitedWriteExt;
 
-use super::{CommandLineReceiveExt, ImapRelayBuf, ResponseLineReceiveExt};
+use super::{
+    CommandLineReceiveExt, ImapInterceptObject, ImapRelayBuf, ResponseAction,
+    ResponseLineReceiveExt,
+};
+use crate::config::server::ServerConfig;
 use crate::serve::{ServerTaskError, ServerTaskResult};
 
 enum ClientAction {
     Loop,
-    Auth,
     Logout,
+    Auth,
+    StartTls,
     SendLiteral(usize),
-}
-
-enum ServerAction {
-    Loop,
-    Return(InitiationStatus),
-    SendClientLiteral(usize),
 }
 
 pub(super) enum InitiationStatus {
@@ -44,23 +43,17 @@ pub(super) enum InitiationStatus {
     Authenticated,
 }
 
-pub(super) struct Initiation {
-    from_starttls: bool,
-}
-
-impl Initiation {
-    pub(super) fn new(from_starttls: bool) -> Self {
-        Initiation { from_starttls }
-    }
-
-    pub(super) async fn relay<CR, CW, UR, UW>(
+impl<SC> ImapInterceptObject<SC>
+where
+    SC: ServerConfig + Send + Sync + 'static,
+{
+    pub(super) async fn relay_not_authenticated<CR, CW, UR, UW>(
         &mut self,
         clt_r: &mut CR,
         clt_w: &mut CW,
         ups_r: &mut UR,
         ups_w: &mut UW,
         relay_buf: &mut ImapRelayBuf,
-        cmd_pipeline: &mut CommandPipeline,
     ) -> ServerTaskResult<InitiationStatus>
     where
         CR: AsyncRead + Unpin,
@@ -74,26 +67,34 @@ impl Initiation {
             tokio::select! {
                 r = relay_buf.cmd_recv_buf.recv_cmd_line(clt_r) => {
                     let line = r?;
-                    if let Some(mut cmd) = cmd_pipeline.take_ongoing() {
+                    if let Some(mut cmd) = self.cmd_pipeline.take_ongoing_command() {
                         self.handle_cmd_continue_line(line, &mut cmd, clt_w, ups_w).await?;
                         if let Some(literal) = cmd.literal_arg {
-                            cmd_pipeline.set_ongoing(cmd);
+                            self.cmd_pipeline.set_ongoing_command(cmd);
                             if !literal.wait_continuation {
                                 self.relay_client_literal(literal.size, clt_r, ups_w, relay_buf).await?;
                             }
                         } else {
-                            cmd_pipeline.insert_completed(cmd);
+                            self.cmd_pipeline.insert_completed(cmd);
                         }
                     } else {
-                        match self.handle_cmd_line(line, cmd_pipeline, clt_w, ups_w).await? {
+                        match self.handle_not_authenticated_cmd_line(line, clt_w, ups_w).await? {
                             ClientAction::Auth => {
-                                if let Some(status) = self.relay_authenticate_response(
+                                if let Some(status) = self.wait_relay_authenticate_response(
                                     clt_r,
                                     clt_w,
                                     ups_r,
                                     ups_w,
                                     relay_buf,
-                                    cmd_pipeline
+                                ).await? {
+                                    return Ok(status);
+                                }
+                            }
+                            ClientAction::StartTls => {
+                                if let Some(status) = self.wait_relay_starttls_response(
+                                    clt_w,
+                                    ups_r,
+                                    relay_buf,
                                 ).await? {
                                     return Ok(status);
                                 }
@@ -110,10 +111,13 @@ impl Initiation {
                 }
                 r = relay_buf.rsp_recv_buf.recv_rsp_line(ups_r) => {
                     let line = r?;
-                    match self.handle_rsp_line(line, cmd_pipeline, clt_w).await? {
-                        ServerAction::Loop => {}
-                        ServerAction::Return(status) => return Ok(status),
-                        ServerAction::SendClientLiteral(size) => {
+                    match self.handle_rsp_line(line, clt_w).await? {
+                        ResponseAction::Loop => {}
+                        ResponseAction::Close => return Ok(InitiationStatus::ServerClose),
+                        ResponseAction::SendLiteral(size) => {
+                            self.relay_server_literal(size, clt_w, ups_r,  relay_buf).await?;
+                        }
+                        ResponseAction::RecvClientLiteral(size) => {
                              self.relay_client_literal(size, clt_r, ups_w, relay_buf).await?;
                         }
                     }
@@ -122,10 +126,9 @@ impl Initiation {
         }
     }
 
-    async fn handle_cmd_line<CW, UW>(
+    async fn handle_not_authenticated_cmd_line<CW, UW>(
         &mut self,
         line: &[u8],
-        pipeline: &mut CommandPipeline,
         clt_w: &mut CW,
         ups_w: &mut UW,
     ) -> ServerTaskResult<ClientAction>
@@ -137,14 +140,11 @@ impl Initiation {
             Ok(cmd) => {
                 let mut action = ClientAction::Loop;
                 match cmd.parsed {
-                    ParsedCommand::Capability => {
-                        pipeline.insert_completed(cmd);
-                    }
-                    ParsedCommand::NoOperation => {
-                        pipeline.insert_completed(cmd);
+                    ParsedCommand::Capability | ParsedCommand::NoOperation => {
+                        self.cmd_pipeline.insert_completed(cmd);
                     }
                     ParsedCommand::Logout => {
-                        pipeline.insert_completed(cmd);
+                        self.cmd_pipeline.insert_completed(cmd);
                         action = ClientAction::Logout;
                     }
                     ParsedCommand::StartTls => {
@@ -154,11 +154,12 @@ impl Initiation {
                                 .map_err(ServerTaskError::ClientTcpWriteFailed)?;
                             return Ok(action);
                         } else {
-                            pipeline.insert_completed(cmd);
+                            self.cmd_pipeline.insert_completed(cmd);
                         }
+                        action = ClientAction::StartTls;
                     }
                     ParsedCommand::Auth => {
-                        pipeline.insert_completed(cmd);
+                        self.cmd_pipeline.insert_completed(cmd);
                         action = ClientAction::Auth;
                     }
                     ParsedCommand::Login => {
@@ -166,9 +167,9 @@ impl Initiation {
                             if literal.wait_continuation {
                                 action = ClientAction::SendLiteral(literal.size);
                             }
-                            pipeline.set_ongoing(cmd);
+                            self.cmd_pipeline.set_ongoing_command(cmd);
                         } else {
-                            pipeline.insert_completed(cmd);
+                            self.cmd_pipeline.insert_completed(cmd);
                         }
                     }
                     _ => {
@@ -194,42 +195,75 @@ impl Initiation {
         }
     }
 
-    async fn handle_cmd_continue_line<CW, UW>(
+    async fn wait_relay_starttls_response<CW, UR>(
         &mut self,
-        line: &[u8],
-        cmd: &mut Command,
         clt_w: &mut CW,
-        ups_w: &mut UW,
-    ) -> ServerTaskResult<()>
+        ups_r: &mut UR,
+        relay_buf: &mut ImapRelayBuf,
+    ) -> ServerTaskResult<Option<InitiationStatus>>
     where
         CW: AsyncWrite + Unpin,
-        UW: AsyncWrite + Unpin,
+        UR: AsyncRead + Unpin,
     {
-        match cmd.parse_continue_line(line) {
-            Ok(_) => {
-                ups_w
-                    .write_all_flush(line)
-                    .await
-                    .map_err(ServerTaskError::UpstreamWriteFailed)?;
-                Ok(())
-            }
-            Err(e) => {
-                let _ = ByeResponse::reply_client_protocol_error(clt_w).await;
-                Err(ServerTaskError::ClientAppError(anyhow!(
-                    "invalid IMAP command line: {e}"
-                )))
+        loop {
+            relay_buf.rsp_recv_buf.consume_line();
+            let line = relay_buf.rsp_recv_buf.recv_rsp_line(ups_r).await?;
+            let rsp = match Response::parse_line(line) {
+                Ok(rsp) => rsp,
+                Err(e) => {
+                    let _ = ByeResponse::reply_upstream_protocol_error(clt_w).await;
+                    return Err(ServerTaskError::UpstreamAppError(anyhow!(
+                        "invalid IMAP STARTTLS response line: {e}"
+                    )));
+                }
+            };
+            clt_w
+                .write_all_flush(line)
+                .await
+                .map_err(ServerTaskError::ClientTcpWriteFailed)?;
+            match rsp {
+                Response::CommandResult(r) => {
+                    let Some(cmd) = self.cmd_pipeline.remove(&r.tag) else {
+                        let _ = ByeResponse::reply_upstream_protocol_error(clt_w).await;
+                        return Err(ServerTaskError::UpstreamAppError(anyhow!(
+                            "unexpected IMAP command result for tag {}",
+                            r.tag
+                        )));
+                    };
+                    if cmd.parsed != ParsedCommand::StartTls {
+                        let _ = ByeResponse::reply_upstream_protocol_error(clt_w).await;
+                        return Err(ServerTaskError::UpstreamAppError(anyhow!(
+                            "unexpected IMAP command result for STARTTLS command"
+                        )));
+                    }
+                    return match r.result {
+                        CommandResult::Success => Ok(Some(InitiationStatus::StartTls)),
+                        CommandResult::Fail => Ok(None),
+                        CommandResult::ProtocolError => Ok(None),
+                    };
+                }
+                Response::ServerStatus(ServerStatus::Close) => {
+                    return Ok(Some(InitiationStatus::ServerClose));
+                }
+                Response::ServerStatus(_s) => {}
+                Response::CommandData(_d) => {}
+                Response::ContinuationRequest => {
+                    let _ = ByeResponse::reply_upstream_protocol_error(clt_w).await;
+                    return Err(ServerTaskError::UpstreamAppError(anyhow!(
+                        "unexpected IMAP continuation request response for STARTTLS command",
+                    )));
+                }
             }
         }
     }
 
-    async fn relay_authenticate_response<CR, CW, UR, UW>(
+    async fn wait_relay_authenticate_response<CR, CW, UR, UW>(
         &mut self,
         clt_r: &mut CR,
         clt_w: &mut CW,
         ups_r: &mut UR,
         ups_w: &mut UW,
         relay_buf: &mut ImapRelayBuf,
-        cmd_pipeline: &mut CommandPipeline,
     ) -> ServerTaskResult<Option<InitiationStatus>>
     where
         CR: AsyncRead + Unpin,
@@ -255,7 +289,7 @@ impl Initiation {
                 .map_err(ServerTaskError::ClientTcpWriteFailed)?;
             match rsp {
                 Response::CommandResult(r) => {
-                    let Some(cmd) = cmd_pipeline.remove(&r.tag) else {
+                    let Some(cmd) = self.cmd_pipeline.remove(&r.tag) else {
                         let _ = ByeResponse::reply_upstream_protocol_error(clt_w).await;
                         return Err(ServerTaskError::UpstreamAppError(anyhow!(
                             "unexpected IMAP command result for tag {}",
@@ -270,7 +304,10 @@ impl Initiation {
                         )));
                     }
                     return match r.result {
-                        CommandResult::Success => Ok(Some(InitiationStatus::Authenticated)),
+                        CommandResult::Success => {
+                            self.authenticated = true;
+                            Ok(Some(InitiationStatus::Authenticated))
+                        }
                         CommandResult::Fail => Ok(None),
                         CommandResult::ProtocolError => Ok(None),
                     };
@@ -279,9 +316,7 @@ impl Initiation {
                     return Ok(Some(InitiationStatus::ServerClose));
                 }
                 Response::ServerStatus(_s) => {}
-                Response::CommandData(_d) => {
-                    // TODO handle CAPABILITY
-                }
+                Response::CommandData(_d) => {}
                 Response::ContinuationRequest => {
                     relay_buf.cmd_recv_buf.consume_line();
                     let line = relay_buf.cmd_recv_buf.recv_cmd_line(clt_r).await?;
@@ -292,105 +327,6 @@ impl Initiation {
                         .await
                         .map_err(ServerTaskError::UpstreamWriteFailed)?;
                 }
-            }
-        }
-    }
-
-    async fn relay_client_literal<CR, UW>(
-        &mut self,
-        literal_size: usize,
-        clt_r: &mut CR,
-        ups_w: &mut UW,
-        relay_buf: &mut ImapRelayBuf,
-    ) -> ServerTaskResult<()>
-    where
-        CR: AsyncRead + Unpin,
-        UW: AsyncWrite + Unpin,
-    {
-        relay_buf.cmd_recv_buf.consume_line();
-        let cached = relay_buf.cmd_recv_buf.consume_left(literal_size);
-        ups_w
-            .write_all(cached)
-            .await
-            .map_err(ServerTaskError::UpstreamWriteFailed)?;
-        if literal_size > cached.len() {
-            let mut clt_r = clt_r.take((literal_size - cached.len()) as u64);
-
-            // TODO add timeout limit
-            LimitedCopy::new(&mut clt_r, ups_w, &Default::default())
-                .await
-                .map_err(|e| match e {
-                    LimitedCopyError::ReadFailed(e) => ServerTaskError::ClientTcpReadFailed(e),
-                    LimitedCopyError::WriteFailed(e) => ServerTaskError::UpstreamWriteFailed(e),
-                })?;
-        }
-        ups_w
-            .flush()
-            .await
-            .map_err(ServerTaskError::UpstreamWriteFailed)
-    }
-
-    async fn handle_rsp_line<CW>(
-        &mut self,
-        line: &[u8],
-        cmd_pipeline: &mut CommandPipeline,
-        clt_w: &mut CW,
-    ) -> ServerTaskResult<ServerAction>
-    where
-        CW: AsyncWrite + Unpin,
-    {
-        match Response::parse_line(line) {
-            Ok(rsp) => {
-                clt_w
-                    .write_all_flush(line)
-                    .await
-                    .map_err(ServerTaskError::ClientTcpWriteFailed)?;
-                let mut action = ServerAction::Loop;
-                match rsp {
-                    Response::CommandResult(r) => {
-                        let Some(cmd) = cmd_pipeline.remove(&r.tag) else {
-                            let _ = ByeResponse::reply_upstream_protocol_error(clt_w).await;
-                            return Err(ServerTaskError::UpstreamAppError(anyhow!(
-                                "unexpected IMAP command result for tag {}",
-                                r.tag
-                            )));
-                        };
-                        if r.result == CommandResult::Success
-                            && cmd.parsed == ParsedCommand::StartTls
-                        {
-                            action = ServerAction::Return(InitiationStatus::StartTls);
-                        }
-                    }
-                    Response::ServerStatus(ServerStatus::Close) => {
-                        action = ServerAction::Return(InitiationStatus::ServerClose);
-                    }
-                    Response::ServerStatus(_s) => {}
-                    Response::CommandData(_d) => {
-                        // TODO parse CAPABILITY
-                    }
-                    Response::ContinuationRequest => {
-                        let Some(cmd) = cmd_pipeline.ongoing() else {
-                            let _ = ByeResponse::reply_upstream_protocol_error(clt_w).await;
-                            return Err(ServerTaskError::UpstreamAppError(anyhow!(
-                                "no ongoing IMAP command found when received continuation request"
-                            )));
-                        };
-                        let Some(literal) = cmd.literal_arg else {
-                            let _ = ByeResponse::reply_upstream_protocol_error(clt_w).await;
-                            return Err(ServerTaskError::UpstreamAppError(anyhow!(
-                                "unexpected IMAP continuation request"
-                            )));
-                        };
-                        action = ServerAction::SendClientLiteral(literal.size);
-                    }
-                }
-                Ok(action)
-            }
-            Err(e) => {
-                let _ = ByeResponse::reply_upstream_protocol_error(clt_w).await;
-                Err(ServerTaskError::UpstreamAppError(anyhow!(
-                    "invalid IMAP response line: {e}"
-                )))
             }
         }
     }

@@ -97,6 +97,22 @@ pub struct UntaggedResponse {
     pub literal_data: Option<usize>,
 }
 
+impl UntaggedResponse {
+    pub fn parse_continue_line(&mut self, line: &[u8]) -> Result<(), ResponseLineError> {
+        let left = line
+            .strip_suffix(b"\r\n")
+            .ok_or(ResponseLineError::NoTrailingSequence)?;
+
+        if left.is_empty() {
+            self.literal_data = None;
+        } else {
+            self.literal_data = check_literal_size(left)?;
+        }
+
+        Ok(())
+    }
+}
+
 pub enum Response {
     CommandResult(TaggedResponse),
     ServerStatus(ServerStatus),
