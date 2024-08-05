@@ -22,7 +22,7 @@ use anyhow::anyhow;
 use arc_swap::ArcSwap;
 use chrono::Utc;
 use log::{info, warn};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 
 use g3_types::metrics::MetricsName;
 
@@ -72,9 +72,19 @@ pub(crate) struct UserGroup {
     config: Arc<UserGroupConfig>,
     static_users: Arc<AHashMap<String, Arc<User>>>,
     dynamic_users: Arc<ArcSwap<AHashMap<String, Arc<User>>>>,
-    /// the dynamic job is for both dynamic fetch and expire check
-    job_quit_sender: Option<mpsc::Sender<()>>,
+    /// the job for dynamic fetch
+    fetch_quit_sender: Option<mpsc::Sender<()>>,
+    // the job for user expire check
+    check_quit_sender: Option<oneshot::Sender<()>>,
     anonymous_user: Option<Arc<User>>,
+}
+
+impl Drop for UserGroup {
+    fn drop(&mut self) {
+        if let Some(sender) = self.check_quit_sender.take() {
+            let _ = sender.send(());
+        }
+    }
 }
 
 impl UserGroup {
@@ -83,7 +93,8 @@ impl UserGroup {
             config: Arc::new(config),
             static_users: Arc::new(AHashMap::new()),
             dynamic_users: Arc::new(ArcSwap::from_pointee(AHashMap::new())),
-            job_quit_sender: None,
+            fetch_quit_sender: None,
+            check_quit_sender: None,
             anonymous_user: None,
         }
     }
@@ -132,10 +143,14 @@ impl UserGroup {
 
         group.anonymous_user = anonymous_user;
 
-        group.job_quit_sender = Some(source::new_job(
-            &group.config,
-            &group.static_users,
-            &group.dynamic_users,
+        group.fetch_quit_sender = Some(source::new_fetch_job(
+            group.config.clone(),
+            group.dynamic_users.clone(),
+        ));
+        group.check_quit_sender = Some(source::new_check_job(
+            group.config.refresh_interval,
+            group.static_users.clone(),
+            group.dynamic_users.clone(),
         ));
 
         Ok(Arc::new(group))
@@ -182,10 +197,14 @@ impl UserGroup {
 
         group.anonymous_user = anonymous_user;
 
-        group.job_quit_sender = Some(source::new_job(
-            &group.config,
-            &group.static_users,
-            &group.dynamic_users,
+        group.fetch_quit_sender = Some(source::new_fetch_job(
+            group.config.clone(),
+            group.dynamic_users.clone(),
+        ));
+        group.check_quit_sender = Some(source::new_check_job(
+            group.config.refresh_interval,
+            group.static_users.clone(),
+            group.dynamic_users.clone(),
         ));
 
         Ok(Arc::new(group))
@@ -218,7 +237,7 @@ impl UserGroup {
     }
 
     fn stop_dynamic_job(&self) {
-        if let Some(sender) = &self.job_quit_sender {
+        if let Some(sender) = &self.fetch_quit_sender {
             let _ = sender.try_send(());
         }
     }

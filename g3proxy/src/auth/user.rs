@@ -45,7 +45,7 @@ pub(crate) struct User {
     config: Arc<UserConfig>,
     group: MetricsName,
     started: Instant,
-    is_expired: Arc<AtomicBool>,
+    is_expired: AtomicBool,
     is_blocked: Arc<AtomicBool>,
     request_rate_limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
     tcp_conn_rate_limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
@@ -144,7 +144,7 @@ impl User {
             None
         };
 
-        let is_expired = Arc::new(AtomicBool::new(config.is_expired(datetime_now)));
+        let is_expired = AtomicBool::new(config.is_expired(datetime_now));
         let is_blocked = Arc::new(AtomicBool::new(config.block_and_delay.is_some()));
 
         let explicit_sites = UserSites::new(config.explicit_sites.values(), config.name(), group)
@@ -292,9 +292,8 @@ impl User {
             None
         };
 
-        // always update the expired state from new config
-        let is_expired = self.is_expired.clone();
-        is_expired.store(config.is_expired(datetime_now), Ordering::Relaxed);
+        // use the expired state from new config for new tasks
+        let is_expired = AtomicBool::new(config.is_expired(datetime_now));
 
         // use the latest block state in new config
         if config.block_and_delay.is_some() {
