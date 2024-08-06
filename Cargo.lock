@@ -349,9 +349,9 @@ dependencies = [
 
 [[package]]
 name = "bssl-cmake-sys"
-version = "0.1.2407220"
+version = "0.1.2408050"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "958140c7bb6010e5873202f1bff734012854c66c768bab4e832aea2f390ebc17"
+checksum = "90a5689eaa59bc87c4d3f7cea8ba4c670ec914c8872aada00ebf14698ad37efc"
 dependencies = [
  "bindgen",
  "cc",
@@ -1083,8 +1083,6 @@ dependencies = [
  "rand",
  "serde_json",
  "slog",
- "slog-scope",
- "slog-stdlog",
  "tokio",
  "tokio-util",
  "uuid",
@@ -3481,28 +3479,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8347046d4ebd943127157b94d63abb990fcf729dc4e9978927fdf4ac3c998d06"
 dependencies = [
  "erased-serde",
-]
-
-[[package]]
-name = "slog-scope"
-version = "4.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f95a4b4c3274cd2869549da82b57ccc930859bdbf5bcea0424bc5f140b3c786"
-dependencies = [
- "arc-swap",
- "lazy_static",
- "slog",
-]
-
-[[package]]
-name = "slog-stdlog"
-version = "4.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6706b2ace5bbae7291d3f8d2473e2bfab073ccd7d03670946197aec98471fa3e"
-dependencies = [
- "log",
- "slog",
- "slog-scope",
 ]
 
 [[package]]

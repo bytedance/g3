@@ -18,7 +18,6 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
 
-use log::debug;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_types::auth::{Password, Username};
@@ -414,7 +413,7 @@ where
             match self.control.pre_retrieve(path).await? {
                 FtpFilePreTransferStatus::Proceed => {}
                 FtpFilePreTransferStatus::Invalid => {
-                    debug!("invalid pre transfer for retrieve {}", path);
+                    log_msg!("invalid pre transfer for retrieve {}", path);
                 }
             }
         }
@@ -440,7 +439,7 @@ where
             match self.control.pre_store(path).await? {
                 FtpFilePreTransferStatus::Proceed => {}
                 FtpFilePreTransferStatus::Invalid => {
-                    debug!("invalid pre transfer for store {}", path);
+                    log_msg!("invalid pre transfer for store {}", path);
                 }
             }
         }

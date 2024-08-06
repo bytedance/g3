@@ -42,7 +42,7 @@ fn main() -> anyhow::Result<()> {
     };
 
     // set up process logger early, only proc args is used inside
-    let _log_guard = g3_daemon::log::process::setup(&proc_args.daemon_config);
+    g3_daemon::log::process::setup(&proc_args.daemon_config);
     if proc_args.daemon_config.need_daemon_controller() {
         g3proxy::control::UpgradeActor::connect_to_old_daemon();
     }

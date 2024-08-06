@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
-use slog::{slog_o, Drain};
-use slog_scope::GlobalLoggerGuard;
+use std::sync::OnceLock;
+
+use log::{LevelFilter, Metadata, Record};
+use slog::{slog_o, Drain, Logger};
 
 use g3_types::log::AsyncLogConfig;
 
@@ -23,14 +25,16 @@ use crate::opts::DaemonArgs;
 
 const PROCESS_LOG_THREAD_NAME: &str = "log-process";
 
-pub fn setup(args: &DaemonArgs) -> GlobalLoggerGuard {
+static PROCESS_LOGGER: OnceLock<Logger> = OnceLock::new();
+
+pub fn setup(args: &DaemonArgs) {
     let async_conf = AsyncLogConfig::with_name(PROCESS_LOG_THREAD_NAME);
     let logger = if args.with_systemd {
         cfg_if::cfg_if! {
             if #[cfg(target_os = "linux")] {
                 let journal_conf = g3_journal::JournalConfig::with_ident(args.process_name).append_code_position();
                 let drain = g3_journal::new_async_logger(&async_conf, journal_conf);
-                slog::Logger::root(drain.fuse(), slog_o!())
+                Logger::root(drain.fuse(), slog_o!())
             } else {
                 unreachable!()
             }
@@ -38,21 +42,65 @@ pub fn setup(args: &DaemonArgs) -> GlobalLoggerGuard {
     } else if args.daemon_mode {
         let drain =
             g3_syslog::SyslogBuilder::with_ident(args.process_name).start_async(&async_conf);
-        slog::Logger::root(drain.fuse(), slog_o!())
+        Logger::root(drain.fuse(), slog_o!())
     } else {
         let drain = g3_stdlog::new_async_logger(&async_conf, true);
-        slog::Logger::root(drain.fuse(), slog_o!())
+        Logger::root(drain.fuse(), slog_o!())
     };
 
-    let scope_guard = slog_scope::set_global_logger(logger);
+    let _ = PROCESS_LOGGER.set(logger);
 
     let log_level = match args.verbose_level {
-        0 => log::Level::Warn,
-        1 => log::Level::Info,
-        2 => log::Level::Debug,
-        _ => log::Level::Trace,
+        0 => LevelFilter::Warn,
+        1 => LevelFilter::Info,
+        2 => LevelFilter::Debug,
+        _ => LevelFilter::Trace,
     };
+    log::set_max_level(log_level);
+    log::set_boxed_logger(Box::new(BridgeLogger {
+        level_filter: log_level,
+    }))
+    .unwrap();
+}
 
-    slog_stdlog::init_with_level(log_level).unwrap();
-    scope_guard
+struct BridgeLogger {
+    level_filter: LevelFilter,
+}
+
+impl log::Log for BridgeLogger {
+    fn enabled(&self, metadata: &Metadata) -> bool {
+        metadata.level().to_level_filter() < self.level_filter
+    }
+
+    fn log(&self, record: &Record) {
+        let Some(logger) = PROCESS_LOGGER.get() else {
+            return;
+        };
+
+        let level = match record.level() {
+            log::Level::Trace => slog::Level::Trace,
+            log::Level::Debug => slog::Level::Debug,
+            log::Level::Info => slog::Level::Info,
+            log::Level::Warn => slog::Level::Warning,
+            log::Level::Error => slog::Level::Error,
+        };
+
+        let location = slog::RecordLocation {
+            file: record.file_static().unwrap_or("<unknown>"),
+            line: record.line().unwrap_or_default(),
+            column: 0,
+            function: "",
+            module: record.module_path_static().unwrap_or("<unknown>"),
+        };
+
+        let s = slog::RecordStatic {
+            location: &location,
+            level,
+            tag: "",
+        };
+
+        logger.log(&slog::Record::new(&s, record.args(), slog::b!()));
+    }
+
+    fn flush(&self) {}
 }

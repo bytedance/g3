@@ -12,8 +12,6 @@ anyhow.workspace = true
 log.workspace = true
 cfg-if.workspace = true
 slog = { workspace = true, features = ["max_level_trace", "release_max_level_info"] }
-slog-scope = "4"
-slog-stdlog = "4.1"
 futures-util.workspace = true
 async-trait.workspace = true
 yaml-rust.workspace = true
