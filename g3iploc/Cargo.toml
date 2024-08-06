@@ -8,7 +8,7 @@ description = "G3 IP locate service"
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
-log = { workspace = true, features = ["max_level_trace", "release_max_level_info"] }
+log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
 rmpv.workspace = true
 tokio = { workspace = true, features = ["net", "io-util", "time"] }
 yaml-rust.workspace = true

@@ -16,7 +16,7 @@
 
 use std::io;
 
-use log::debug;
+use log::trace;
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc;
 
@@ -41,7 +41,7 @@ impl Sinker {
             }
 
             if let Err(e) = self.send_udp(&buf[0..nr]).await {
-                debug!("stream dump udp send error: {e}");
+                trace!("stream dump udp send error: {e}");
             }
             buf.clear();
         }

@@ -14,7 +14,8 @@ thiserror.workspace = true
 async-trait.workspace = true
 yaml-rust.workspace = true
 serde_json.workspace = true
-log = { workspace = true, features = ["max_level_trace", "release_max_level_info"] }
+log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
+slog = { workspace = true, features = ["nested-values", "max_level_trace", "release_max_level_debug"] }
 rand.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
@@ -23,7 +24,6 @@ arc-swap.workspace = true
 ahash.workspace = true
 itoa.workspace = true
 ascii.workspace = true
-slog = { workspace = true, features = ["nested-values", "max_level_trace", "release_max_level_info"] }
 capnp.workspace = true
 capnp-rpc.workspace = true
 tokio = { workspace = true, features = ["net", "sync", "time"] }

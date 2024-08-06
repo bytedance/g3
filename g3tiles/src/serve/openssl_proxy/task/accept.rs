@@ -94,7 +94,7 @@ impl OpensslAcceptTask {
                 .await;
             }
             Err(e) => {
-                debug!("{e}");
+                debug!("openssl handshake failed: {e}");
             }
         }
     }

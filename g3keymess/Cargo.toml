@@ -12,8 +12,8 @@ description = "G3 Keyless Server"
 anyhow.workspace = true
 thiserror.workspace = true
 clap.workspace = true
-log = { workspace = true, features = ["max_level_trace", "release_max_level_info"] }
-slog = { workspace = true, features = ["nested-values", "max_level_trace", "release_max_level_info"] }
+log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
+slog = { workspace = true, features = ["nested-values", "max_level_trace", "release_max_level_debug"] }
 ascii.workspace = true
 capnp.workspace = true
 capnp-rpc.workspace = true

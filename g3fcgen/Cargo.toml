@@ -11,7 +11,7 @@ description = "G3 fake certificate generator"
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
-log = { workspace = true, features = ["max_level_trace", "release_max_level_info"] }
+log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
 rmpv.workspace = true
 memchr.workspace = true
 openssl.workspace = true
