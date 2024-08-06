@@ -9,7 +9,7 @@ rust-version = "1.80.0"
 
 [dependencies]
 anyhow.workspace = true
-log.workspace = true
+log = { workspace = true, features = ["std"] }
 cfg-if.workspace = true
 slog = { workspace = true, features = ["max_level_trace", "release_max_level_info"] }
 futures-util.workspace = true
