@@ -17,6 +17,7 @@
 use std::str::{self, Utf8Error};
 
 use atoi::FromRadix10Checked;
+use log::trace;
 use smol_str::SmolStr;
 use thiserror::Error;
 
@@ -104,6 +105,11 @@ impl UntaggedResponse {
             .strip_suffix(b"\r\n")
             .ok_or(ResponseLineError::NoTrailingSequence)?;
 
+        #[cfg(debug_assertions)]
+        if let Ok(s) = str::from_utf8(left) {
+            trace!("[IMAP] +-< {s}");
+        }
+
         if left.is_empty() {
             self.literal_data = None;
         } else {
@@ -127,6 +133,11 @@ impl Response {
             .strip_suffix(b"\r\n")
             .ok_or(ResponseLineError::NoTrailingSequence)?;
 
+        #[cfg(debug_assertions)]
+        if let Ok(s) = str::from_utf8(left) {
+            trace!("[IMAP] --< {s}");
+        }
+
         let Some(d) = memchr::memchr(b' ', left) else {
             return Err(ResponseLineError::NotTagPrefixed);
         };
@@ -143,8 +154,8 @@ impl Response {
         let Some(d) = memchr::memchr(b' ', left) else {
             return Err(ResponseLineError::NoResultField);
         };
-        let result = str::from_utf8(&left[..d]).map_err(ResponseLineError::InvalidUtf8Response)?;
-        match result.to_uppercase().as_str() {
+        let r1 = str::from_utf8(&left[..d]).map_err(ResponseLineError::InvalidUtf8Response)?;
+        match r1.to_uppercase().as_str() {
             "OK" => Ok(Response::ServerStatus(ServerStatus::Information)),
             "NO" => Ok(Response::ServerStatus(ServerStatus::Warning)),
             "BAD" => Ok(Response::ServerStatus(ServerStatus::Error)),
@@ -172,9 +183,9 @@ impl Response {
                 let left = &left[d + 1..];
                 match memchr::memchr(b' ', left) {
                     Some(d) => {
-                        let result = str::from_utf8(&left[..d])
+                        let r2 = str::from_utf8(&left[..d])
                             .map_err(ResponseLineError::InvalidUtf8Response)?;
-                        match result.to_uppercase().as_str() {
+                        match r2.to_uppercase().as_str() {
                             "FETCH" => {
                                 let literal_data = check_literal_size(left)?;
                                 Ok(Response::CommandData(UntaggedResponse {
@@ -182,20 +193,26 @@ impl Response {
                                     literal_data,
                                 }))
                             }
-                            _ => Err(ResponseLineError::UnknownUntaggedResult),
+                            _ => {
+                                trace!("unknown IMAP response line: {r1} {r2} ...");
+                                Err(ResponseLineError::UnknownUntaggedResult)
+                            }
                         }
                     }
                     None => {
-                        let result =
+                        let r2 =
                             str::from_utf8(left).map_err(ResponseLineError::InvalidUtf8Response)?;
-                        match result.to_uppercase().as_str() {
+                        match r2.to_uppercase().as_str() {
                             "EXISTS" | "EXPUNGE" | "RECENT" => {
                                 Ok(Response::CommandData(UntaggedResponse {
                                     command_data: CommandData::Other,
                                     literal_data: None,
                                 }))
                             }
-                            _ => Err(ResponseLineError::UnknownUntaggedResult),
+                            _ => {
+                                trace!("unknown IMAP response line: {r1} {r2}");
+                                Err(ResponseLineError::UnknownUntaggedResult)
+                            }
                         }
                     }
                 }

@@ -79,6 +79,11 @@ impl Command {
             .strip_suffix(b"\r\n")
             .ok_or(CommandLineError::NoTrailingSequence)?;
 
+        #[cfg(debug_assertions)]
+        if let Ok(s) = str::from_utf8(line) {
+            log::trace!("[SMTP] --> {s}");
+        }
+
         if let Some(p) = memchr::memchr(b' ', line) {
             // commands with params
             let cmd = str::from_utf8(&line[0..p]).map_err(CommandLineError::InvalidUtf8Command)?;

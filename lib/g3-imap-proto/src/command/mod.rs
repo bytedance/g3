@@ -18,6 +18,7 @@ use std::fmt;
 use std::str::{self, Utf8Error};
 
 use atoi::FromRadix10Checked;
+use log::trace;
 use smol_str::SmolStr;
 use thiserror::Error;
 
@@ -149,6 +150,11 @@ impl Command {
             .strip_suffix(b"\r\n")
             .ok_or(CommandLineError::NoTrailingSequence)?;
 
+        #[cfg(debug_assertions)]
+        if let Ok(s) = str::from_utf8(left) {
+            trace!("[IMAP] --> {s}");
+        }
+
         let Some(d) = memchr::memchr(b' ', left) else {
             return Err(CommandLineError::NotTagPrefixed);
         };
@@ -188,7 +194,10 @@ impl Command {
                 b"MOVE" => ParsedCommand::Move,
                 b"UID" => ParsedCommand::Uid,
                 b"ID" => ParsedCommand::Id,
-                _ => ParsedCommand::Unknown,
+                _ => {
+                    trace!("unknown IMAP command: {tag} {upper_cmd} ...");
+                    ParsedCommand::Unknown
+                }
             };
 
             Ok(Command {
@@ -211,7 +220,10 @@ impl Command {
                 b"CLOSE" => ParsedCommand::Close,
                 b"UNSELECT" => ParsedCommand::Unselect,
                 b"EXPUNGE" => ParsedCommand::Expunge,
-                _ => ParsedCommand::Unknown,
+                _ => {
+                    trace!("unknown IMAP command: {tag} {upper_cmd}");
+                    ParsedCommand::Unknown
+                }
             };
 
             Ok(Command {
@@ -226,6 +238,11 @@ impl Command {
         let left = line
             .strip_suffix(b"\r\n")
             .ok_or(CommandLineError::NoTrailingSequence)?;
+
+        #[cfg(debug_assertions)]
+        if let Ok(s) = str::from_utf8(left) {
+            trace!("[IMAP] +-> {s}");
+        }
 
         if left.is_empty() {
             self.literal_arg = None;

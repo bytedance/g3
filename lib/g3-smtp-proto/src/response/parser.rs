@@ -114,6 +114,11 @@ impl ResponseParser {
     }
 
     fn feed_first_line<'a>(&mut self, line: &'a [u8]) -> Result<&'a [u8], ResponseLineError> {
+        #[cfg(debug_assertions)]
+        if let Ok(s) = std::str::from_utf8(line) {
+            log::trace!("[IMAP] --< {s}");
+        }
+
         if line.len() < 3 {
             return Err(ResponseLineError::TooShort);
         }
@@ -135,6 +140,11 @@ impl ResponseParser {
     }
 
     fn feed_following_line<'a>(&mut self, line: &'a [u8]) -> Result<&'a [u8], ResponseLineError> {
+        #[cfg(debug_assertions)]
+        if let Ok(s) = std::str::from_utf8(line) {
+            log::trace!("[IMAP] +-< {s}");
+        }
+
         if !self.multiline {
             return Err(ResponseLineError::Finished);
         }
