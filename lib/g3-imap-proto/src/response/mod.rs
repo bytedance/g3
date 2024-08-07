@@ -151,69 +151,151 @@ impl Response {
     }
 
     fn parse_untagged(left: &[u8]) -> Result<Self, ResponseLineError> {
-        let Some(d) = memchr::memchr(b' ', left) else {
-            return Err(ResponseLineError::NoResultField);
-        };
-        let r1 = str::from_utf8(&left[..d]).map_err(ResponseLineError::InvalidUtf8Response)?;
-        match r1.to_uppercase().as_str() {
-            "OK" => Ok(Response::ServerStatus(ServerStatus::Information)),
-            "NO" => Ok(Response::ServerStatus(ServerStatus::Warning)),
-            "BAD" => Ok(Response::ServerStatus(ServerStatus::Error)),
-            "PREAUTH" => Ok(Response::ServerStatus(ServerStatus::Authenticated)),
-            "BYE" => Ok(Response::ServerStatus(ServerStatus::Close)),
-            "ENABLED" => Ok(Response::CommandData(UntaggedResponse {
-                command_data: CommandData::Enabled,
-                literal_data: None,
-            })),
-            "CAPABILITY" => Ok(Response::CommandData(UntaggedResponse {
-                command_data: CommandData::Capability,
-                literal_data: None,
-            })),
-            "ID" => Ok(Response::CommandData(UntaggedResponse {
-                command_data: CommandData::Id,
-                literal_data: None,
-            })),
-            "LIST" | "LSUB" | "NAMESPACE" | "STATUS" | "SEARCH" | "ESEARCH" | "FLAGS" => {
-                Ok(Response::CommandData(UntaggedResponse {
-                    command_data: CommandData::Other,
-                    literal_data: None,
-                }))
-            }
-            _ => {
-                let left = &left[d + 1..];
-                match memchr::memchr(b' ', left) {
-                    Some(d) => {
-                        let r2 = str::from_utf8(&left[..d])
-                            .map_err(ResponseLineError::InvalidUtf8Response)?;
-                        match r2.to_uppercase().as_str() {
-                            "FETCH" => {
-                                let literal_data = check_literal_size(left)?;
-                                Ok(Response::CommandData(UntaggedResponse {
-                                    command_data: CommandData::Fetch,
-                                    literal_data,
-                                }))
+        match memchr::memchr(b' ', left) {
+            Some(d) => {
+                let r1 =
+                    str::from_utf8(&left[..d]).map_err(ResponseLineError::InvalidUtf8Response)?;
+                match r1.to_uppercase().as_str() {
+                    "OK" => Ok(Response::ServerStatus(ServerStatus::Information)),
+                    "NO" => Ok(Response::ServerStatus(ServerStatus::Warning)),
+                    "BAD" => Ok(Response::ServerStatus(ServerStatus::Error)),
+                    "PREAUTH" => Ok(Response::ServerStatus(ServerStatus::Authenticated)),
+                    "BYE" => Ok(Response::ServerStatus(ServerStatus::Close)),
+                    "ENABLED" => {
+                        // rfc5161, rev2
+                        Ok(Response::CommandData(UntaggedResponse {
+                            command_data: CommandData::Enabled,
+                            literal_data: None,
+                        }))
+                    }
+                    "CAPABILITY" => Ok(Response::CommandData(UntaggedResponse {
+                        command_data: CommandData::Capability,
+                        literal_data: None,
+                    })),
+                    "ID" => {
+                        // rfc2971, rev2
+                        Ok(Response::CommandData(UntaggedResponse {
+                            command_data: CommandData::Id,
+                            literal_data: None,
+                        }))
+                    },
+                    "LIST"
+                    | "LSUB" // rev1
+                    | "NAMESPACE" // rfc2342, rev2
+                    | "STATUS" | "SEARCH"
+                    | "ESEARCH" // rfc4731, rev2
+                    | "FLAGS" => {
+                        Ok(Response::CommandData(UntaggedResponse {
+                            command_data: CommandData::Other,
+                            literal_data: None,
+                        }))
+                    }
+                    "SORT" | "THREAD" => {
+                        // rfc5256
+                        Ok(Response::CommandData(UntaggedResponse {
+                            command_data: CommandData::Other,
+                            literal_data: None,
+                        }))
+                    },
+                    "LANGUAGE" | "COMPARATOR" => {
+                        // rfc5255
+                        Ok(Response::CommandData(UntaggedResponse {
+                            command_data: CommandData::Other,
+                            literal_data: None,
+                        }))
+                    },
+                    "VANISHED" => {
+                        // rfc7162
+                        Ok(Response::CommandData(UntaggedResponse {
+                            command_data: CommandData::Other,
+                            literal_data: None,
+                        }))
+                    }
+                    "QUOTA" | "QUOTAROOT" => {
+                        // rfc9208
+                        Ok(Response::CommandData(UntaggedResponse {
+                            command_data: CommandData::Other,
+                            literal_data: None,
+                        }))
+                    },
+                    "ACL" | "LISTRIGHTS" | "MYRIGHTS" => {
+                        // rfc4314
+                        Ok(Response::CommandData(UntaggedResponse {
+                            command_data: CommandData::Other,
+                            literal_data: None,
+                        }))
+                    }
+                    "CONVERSION" | "CONVERTED" => {
+                        // rfc5259
+                        Ok(Response::CommandData(UntaggedResponse {
+                            command_data: CommandData::Other,
+                            literal_data: None,
+                        }))
+                    }
+                    "METADATA" => {
+                        // rfc5464
+                        Ok(Response::CommandData(UntaggedResponse {
+                            command_data: CommandData::Other,
+                            literal_data: None,
+                        }))
+                    }
+                    "GENURLAUTH" | "URLFETCH" => {
+                        // rfc4467
+                        Ok(Response::CommandData(UntaggedResponse {
+                            command_data: CommandData::Other,
+                            literal_data: None,
+                        }))
+                    }
+                    _ => {
+                        let left = &left[d + 1..];
+                        match memchr::memchr(b' ', left) {
+                            Some(d) => {
+                                let r2 = str::from_utf8(&left[..d])
+                                    .map_err(ResponseLineError::InvalidUtf8Response)?;
+                                match r2.to_uppercase().as_str() {
+                                    "FETCH" => {
+                                        let literal_data = check_literal_size(left)?;
+                                        Ok(Response::CommandData(UntaggedResponse {
+                                            command_data: CommandData::Fetch,
+                                            literal_data,
+                                        }))
+                                    }
+                                    _ => {
+                                        trace!("unknown IMAP response line: * {r1} {r2} ...");
+                                        Err(ResponseLineError::UnknownUntaggedResult)
+                                    }
+                                }
                             }
-                            _ => {
-                                trace!("unknown IMAP response line: {r1} {r2} ...");
-                                Err(ResponseLineError::UnknownUntaggedResult)
+                            None => {
+                                let r2 = str::from_utf8(left)
+                                    .map_err(ResponseLineError::InvalidUtf8Response)?;
+                                match r2.to_uppercase().as_str() {
+                                    "EXISTS" | "EXPUNGE" | "RECENT" => {
+                                        Ok(Response::CommandData(UntaggedResponse {
+                                            command_data: CommandData::Other,
+                                            literal_data: None,
+                                        }))
+                                    }
+                                    _ => {
+                                        trace!("unknown IMAP response line: * {r1} {r2}");
+                                        Err(ResponseLineError::UnknownUntaggedResult)
+                                    }
+                                }
                             }
                         }
                     }
-                    None => {
-                        let r2 =
-                            str::from_utf8(left).map_err(ResponseLineError::InvalidUtf8Response)?;
-                        match r2.to_uppercase().as_str() {
-                            "EXISTS" | "EXPUNGE" | "RECENT" => {
-                                Ok(Response::CommandData(UntaggedResponse {
-                                    command_data: CommandData::Other,
-                                    literal_data: None,
-                                }))
-                            }
-                            _ => {
-                                trace!("unknown IMAP response line: {r1} {r2}");
-                                Err(ResponseLineError::UnknownUntaggedResult)
-                            }
-                        }
+                }
+            }
+            None => {
+                let r1 = str::from_utf8(left).map_err(ResponseLineError::InvalidUtf8Response)?;
+                match r1.to_uppercase().as_str() {
+                    "SEARCH" => Ok(Response::CommandData(UntaggedResponse {
+                        command_data: CommandData::Other,
+                        literal_data: None,
+                    })),
+                    _ => {
+                        trace!("unknown IMAP response line: * {r1}");
+                        Err(ResponseLineError::UnknownUntaggedResult)
                     }
                 }
             }

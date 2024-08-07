@@ -354,16 +354,125 @@ The code should comply to these, but should be more compliant to existing popula
 
 ## IMAP
 
- - [rfc9051](https://datatracker.ietf.org/doc/html/rfc9051)
-    : Internet Message Access Protocol (IMAP) - Version 4rev2
- - [rfc3501](https://datatracker.ietf.org/doc/html/rfc3501)
-    : INTERNET MESSAGE ACCESS PROTOCOL - VERSION 4rev1
- - [rfc7162](https://datatracker.ietf.org/doc/html/rfc7162)
-    : IMAP Extensions: Quick Flag Changes Resynchronization (CONDSTORE) and Quick Mailbox Resynchronization (QRESYNC)
  - [iana-imap-capabilities](https://www.iana.org/assignments/imap-capabilities/imap-capabilities.xhtml)
     : Internet Message Access Protocol (IMAP) Capabilities Registry
- - [rfc2971](https://datatracker.ietf.org/doc/html/rfc2971.html)
+ - [rfc7162](https://datatracker.ietf.org/doc/html/rfc7162)
+    : IMAP Extensions: Quick Flag Changes Resynchronization (CONDSTORE) and Quick Mailbox Resynchronization (QRESYNC)
+ - [rfc9394](https://datatracker.ietf.org/doc/html/rfc9394)
+    : IMAP PARTIAL Extension for Paged SEARCH and FETCH
+ - [rfc5267](https://datatracker.ietf.org/doc/html/rfc5267)
+    : Contexts for IMAP4
+ - [rfc5256](https://datatracker.ietf.org/doc/html/rfc5256)
+    : Internet Message Access Protocol - SORT and THREAD Extensions
+ - [rfc5255](https://datatracker.ietf.org/doc/html/rfc5255)
+    : Internet Message Access Protocol Internationalization
+ - [rfc6855](https://datatracker.ietf.org/doc/html/rfc6855)
+    : IMAP Support for UTF-8
+ - [rfc7377](https://datatracker.ietf.org/doc/html/rfc7377)
+    : IMAP4 Multimailbox SEARCH Extension
+ - [rfc3502](https://datatracker.ietf.org/doc/html/rfc3502)
+    : Internet Message Access Protocol (IMAP) - MULTIAPPEND Extension
+ - [rfc3516](https://datatracker.ietf.org/doc/html/rfc3516)
+    : IMAP4 Binary Content Extension
+ - [rfc9208](https://datatracker.ietf.org/doc/html/rfc9208)
+    : IMAP QUOTA Extension
+ - [rfc4314](https://datatracker.ietf.org/doc/html/rfc4314)
+    : IMAP4 Access Control List (ACL) Extension
+ - [rfc7889](https://datatracker.ietf.org/doc/html/rfc7889)
+    : The IMAP APPENDLIMIT Extension
+ - [rfc4467](https://datatracker.ietf.org/doc/html/rfc4467)
+    : Internet Message Access Protocol (IMAP) - URLAUTH Extension
+ - [rfc5524](https://datatracker.ietf.org/doc/html/rfc5524)
+    : Extended URLFETCH for Binary and Converted Parts
+ - [rfc4469](https://datatracker.ietf.org/doc/html/rfc4469)
+    : Internet Message Access Protocol (IMAP) CATENATE Extension
+ - [rfc5550](https://datatracker.ietf.org/doc/html/rfc5550)
+    : The Internet Email to Support Diverse Service Environments (Lemonade) Profile
+  - [rfc4978](https://datatracker.ietf.org/doc/html/rfc4978)
+    : The IMAP COMPRESS Extension
+ - [rfc5259](https://datatracker.ietf.org/doc/html/rfc5259)
+    : Internet Message Access Protocol - CONVERT Extension
+ - [rfc5466](https://datatracker.ietf.org/doc/html/rfc5466)
+    : IMAP4 Extension for Named Searches (Filters)
+ - [rfc6785](https://datatracker.ietf.org/doc/html/rfc6785)
+    : Support for Internet Message Access Protocol (IMAP) Events in Sieve
+ - [rfc9585](https://datatracker.ietf.org/doc/html/rfc9585)
+    : IMAP Response Code for Command Progress Notifications
+ - [rfc9590](https://datatracker.ietf.org/doc/html/rfc9590)
+    : IMAP Extension for Returning Mailbox METADATA in Extended LIST
+ - [rfc8440](https://datatracker.ietf.org/doc/html/rfc8440)
+    : IMAP4 Extension for Returning MYRIGHTS Information in Extended LIST
+ - [rfc2221](https://datatracker.ietf.org/doc/html/rfc2221)
+    : IMAP4 Login Referrals
+ - [rfc2193](https://datatracker.ietf.org/doc/html/rfc2193)
+    : IMAP4 Mailbox Referrals
+ - [rfc5464](https://datatracker.ietf.org/doc/html/rfc5464)
+    : The IMAP METADATA Extension
+ - [rfc5465](https://datatracker.ietf.org/doc/html/rfc5465)
+    : The IMAP NOTIFY Extension
+ - [rfc8474](https://datatracker.ietf.org/doc/html/rfc8474)
+    : IMAP Extension for Object Identifiers
+ - [rfc8970](https://datatracker.ietf.org/doc/html/rfc8970)
+    : IMAP4 Extension: Message Preview Generation
+ - [rfc8508](https://datatracker.ietf.org/doc/html/rfc8508)
+    : IMAP REPLACE Extension
+ - [rfc8514](https://datatracker.ietf.org/doc/html/rfc8514)
+    : Internet Message Access Protocol (IMAP) - SAVEDATE Extension
+ - [rfc6203](https://datatracker.ietf.org/doc/html/rfc6203)
+    : IMAP4 Extension for Fuzzy Search
+ - [rfc5957](https://datatracker.ietf.org/doc/html/rfc5957)
+    : Display-Based Address Sorting for the IMAP4 SORT Extension
+ - [rfc9586](https://datatracker.ietf.org/doc/html/rfc9586)
+    : IMAP Extension for Using and Returning Unique Identifiers (UIDs) Only
+ - [rfc8437](https://datatracker.ietf.org/doc/html/rfc8437)
+    : IMAP UNAUTHENTICATE Extension for Connection Reuse
+ - [rfc5032](https://datatracker.ietf.org/doc/html/rfc5032)
+    : WITHIN Search Extension to the IMAP Protocol
+
+## IMAP4rev2
+
+ - [rfc9051](https://datatracker.ietf.org/doc/html/rfc9051)
+    : Internet Message Access Protocol (IMAP) - Version 4rev2
+
+## IMAP4rev1
+ - [rfc3501](https://datatracker.ietf.org/doc/html/rfc3501)
+    : INTERNET MESSAGE ACCESS PROTOCOL - VERSION 4rev1
+ - [rfc4315](https://datatracker.ietf.org/doc/html/rfc4315)
+    : Internet Message Access Protocol (IMAP) - UIDPLUS extension
+ - [rfc4959](https://datatracker.ietf.org/doc/html/rfc4959)
+    : IMAP Extension for Simple Authentication and Security Layer (SASL) Initial Client Response
+ - [rfc6851](https://datatracker.ietf.org/doc/html/rfc6851)
+    : Internet Message Access Protocol (IMAP) - MOVE Extension
+ - [rfc2971](https://datatracker.ietf.org/doc/html/rfc2971)
     : IMAP4 ID extension
+ - [rfc3691](https://datatracker.ietf.org/doc/html/rfc3691)
+    : Internet Message Access Protocol (IMAP) UNSELECT command
+ - [rfc3348](https://datatracker.ietf.org/doc/html/rfc3348)
+    : The Internet Message Action Protocol (IMAP4) Child Mailbox Extension
+ - [rfc2177](https://datatracker.ietf.org/doc/html/rfc2177)
+    : IMAP4 IDLE command
+ - [rfc2342](https://datatracker.ietf.org/doc/html/rfc2342)
+    : IMAP4 Namespace
+ - [rfc4731](https://datatracker.ietf.org/doc/html/rfc4731)
+    : IMAP4 Extension to SEARCH Command for Controlling What Kind of Information Is Returned
+ - [rfc4466](https://datatracker.ietf.org/doc/html/rfc4466)
+    : Collected Extensions to IMAP4 ABNF
+ - [rfc5182](https://datatracker.ietf.org/doc/html/rfc5182)
+    : IMAP Extension for Referencing the Last SEARCH Result
+ - [rfc5161](https://datatracker.ietf.org/doc/html/rfc5161)
+    : The IMAP ENABLE Extension
+ - [rfc5258](https://datatracker.ietf.org/doc/html/rfc5258)
+    : Internet Message Access Protocol version 4 - LIST Command Extensions
+ - [rfc5819](https://datatracker.ietf.org/doc/html/rfc5219)
+   : IMAP4 Extension for Returning STATUS Information in Extended LIST
+ - [rfc7888](https://datatracker.ietf.org/doc/html/rfc7888)
+    : IMAP4 Non-synchronizing Literals
+ - [rfc5530](https://datatracker.ietf.org/doc/html/rfc5530)
+    : IMAP Response Codes
+ - [rfc6154](https://datatracker.ietf.org/doc/html/rfc6154)
+    : IMAP LIST Extension for Special-Use Mailboxes
+ - [rfc8438](https://datatracker.ietf.org/doc/html/rfc8438)
+    : IMAP Extension for STATUS=SIZE
 
 ## NNTP
 

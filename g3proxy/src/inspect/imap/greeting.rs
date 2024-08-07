@@ -15,6 +15,7 @@
  */
 
 use std::io;
+use std::str::{self, Utf8Error};
 use std::time::Duration;
 
 use anyhow::anyhow;
@@ -24,6 +25,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use g3_imap_proto::response::{ByeResponse, Response, ResponseLineError, ServerStatus};
 use g3_io_ext::{LimitedWriteExt, LineRecvVec, RecvLineError};
 
+use super::Capability;
 use crate::serve::ServerTaskError;
 
 #[derive(Default)]
@@ -31,6 +33,7 @@ pub(super) struct Greeting {
     close_service: bool,
     pre_authenticated: bool,
     total_to_write: usize,
+    capability: Capability,
 }
 
 impl Greeting {
@@ -42,6 +45,11 @@ impl Greeting {
     #[inline]
     pub(super) fn pre_authenticated(&self) -> bool {
         self.pre_authenticated
+    }
+
+    #[inline]
+    pub(super) fn into_capability(self) -> Capability {
+        self.capability
     }
 
     pub(super) async fn relay<UR, CW>(
@@ -68,14 +76,26 @@ impl Greeting {
                 Ok(())
             }
             Response::ServerStatus(ServerStatus::Information) => {
-                // TODO parse capability
-                self.write_greeting_line(clt_w, line).await?;
+                match self.rewrite_capability(line)? {
+                    Some(new_line) => {
+                        self.write_greeting_line(clt_w, &new_line).await?;
+                    }
+                    None => {
+                        self.write_greeting_line(clt_w, line).await?;
+                    }
+                }
                 rsp_recv_buf.consume_line();
                 Ok(())
             }
             Response::ServerStatus(ServerStatus::Authenticated) => {
-                // TODO parse capability
-                self.write_greeting_line(clt_w, line).await?;
+                match self.rewrite_capability(line)? {
+                    Some(new_line) => {
+                        self.write_greeting_line(clt_w, &new_line).await?;
+                    }
+                    None => {
+                        self.write_greeting_line(clt_w, line).await?;
+                    }
+                }
                 rsp_recv_buf.consume_line();
                 self.pre_authenticated = true;
                 Ok(())
@@ -85,6 +105,42 @@ impl Greeting {
                 Err(GreetingError::InvalidResponseType)
             }
         }
+    }
+
+    fn rewrite_capability(&mut self, line: &[u8]) -> Result<Option<Vec<u8>>, GreetingError> {
+        let Some(a) = memchr::memchr(b'[', line) else {
+            return Ok(None);
+        };
+        let Some(b) = memchr::memchr(b']', line) else {
+            return Ok(None);
+        };
+
+        if a >= b {
+            return Ok(None);
+        }
+
+        let s = str::from_utf8(&line[a + 1..b])?;
+        let mut items = s.split_ascii_whitespace();
+        let Some(code) = items.next() else {
+            return Ok(None);
+        };
+        if code != "CAPABILITY" {
+            return Ok(None);
+        }
+
+        let mut new_line = Vec::with_capacity(line.len());
+        new_line.extend_from_slice(&line[..=a]);
+        new_line.extend_from_slice(b"CAPABILITY");
+
+        for item in items {
+            if let Some(cap) = self.capability.check_supported(item, false) {
+                new_line.push(b' ');
+                new_line.extend_from_slice(cap.as_bytes());
+            }
+        }
+
+        new_line.extend_from_slice(&line[b..]);
+        Ok(Some(new_line))
     }
 
     async fn write_greeting_line<CW>(
@@ -116,7 +172,8 @@ impl Greeting {
             }
             GreetingError::InvalidResponseLine(_)
             | GreetingError::TooLongResponseLine
-            | GreetingError::InvalidResponseType => {
+            | GreetingError::InvalidResponseType
+            | GreetingError::InvalidUtf8Line(_) => {
                 let _ = ByeResponse::reply_upstream_protocol_error(clt_w).await;
             }
             GreetingError::ClientWriteFailed(_) => {}
@@ -143,6 +200,8 @@ pub(super) enum GreetingError {
     UpstreamReadFailed(io::Error),
     #[error("upstream closed connection")]
     UpstreamClosed,
+    #[error("invalid utf-8 line: {0}")]
+    InvalidUtf8Line(#[from] Utf8Error),
 }
 
 impl From<RecvLineError> for GreetingError {
@@ -168,6 +227,9 @@ impl From<GreetingError> for ServerTaskError {
             }
             GreetingError::InvalidResponseType => {
                 ServerTaskError::UpstreamAppError(anyhow!("invalid imap greeting response type"))
+            }
+            GreetingError::InvalidUtf8Line(e) => {
+                ServerTaskError::UpstreamAppError(anyhow!("invalid IMAP utf-8 greeting line: {e}"))
             }
             GreetingError::ClientWriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
             GreetingError::UpstreamReadFailed(e) => ServerTaskError::UpstreamReadFailed(e),

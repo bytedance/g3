@@ -53,37 +53,45 @@ pub enum ParsedCommand {
     Subscribe,
     Unsubscribe,
     List,
-    Lsub,
-    Namespace,
+    Lsub,      // rev1
+    Namespace, // rfc2342, rev2
     Status,
     Append,
-    Idle,
+    Idle, // rfc2177, rev2
     Close,
-    Unselect,
+    Unselect, // rfc3691, rev2
     Expunge,
     Search,
     Fetch,
     Store,
     Copy,
-    Move,
+    Move, // rfc6851, rev2
     Uid,
-    Id,
+    Id,           // rfc2971, rev2
+    CancelUpdate, // rfc5267
+    Sort,         // rfc5256
+    Thread,       // rfc5256
+    Language,     // rfc5255
+    Comparator,   // rfc5255
+    Esearch,
+    GetQuota,       // rfc9208
+    GetQuotaRoot,   // rfc9208
+    SetQuota,       // rfc9208
+    SetAcl,         // rfc4314
+    DeleteAcl,      // rfc4314
+    GetAcl,         // rfc4314
+    ListRights,     // rfc4314
+    MyRights,       // rfc4314
+    Conversions,    // rfc5259
+    Convert,        // rfc5259
+    SetMetadata,    // rfc5464
+    GetMetadata,    // rfc5464
+    Notify,         // rfc5465
+    UnAuthenticate, // rfc8437
+    ResetKey,       // rfc4467
+    GenUrlAuth,     // rfc4467
+    UrlFetch,       // rfc4467
     Unknown,
-}
-
-impl ParsedCommand {
-    pub fn require_untagged_response(&self) -> bool {
-        matches!(
-            self,
-            ParsedCommand::Capability
-                | ParsedCommand::NoOperation
-                | ParsedCommand::Select
-                | ParsedCommand::Examine
-                | ParsedCommand::List
-                | ParsedCommand::Namespace
-                | ParsedCommand::Status
-        )
-    }
 }
 
 #[derive(Clone, Copy)]
@@ -194,6 +202,28 @@ impl Command {
                 b"MOVE" => ParsedCommand::Move,
                 b"UID" => ParsedCommand::Uid,
                 b"ID" => ParsedCommand::Id,
+                b"CANCELUPDATE" => ParsedCommand::CancelUpdate,
+                b"SORT" => ParsedCommand::Sort,
+                b"THREAD" => ParsedCommand::Thread,
+                b"LANGUAGE" => ParsedCommand::Language,
+                b"COMPARATOR" => ParsedCommand::Comparator,
+                b"ESEARCH" => ParsedCommand::Esearch,
+                b"GETQUOTA" => ParsedCommand::GetQuota,
+                b"GETQUOTAROOT" => ParsedCommand::GetQuotaRoot,
+                b"SETQUOTA" => ParsedCommand::SetQuota,
+                b"GETACL" => ParsedCommand::GetAcl,
+                b"DELETEACL" => ParsedCommand::DeleteAcl,
+                b"SETACL" => ParsedCommand::SetAcl,
+                b"LISTRIGHTS" => ParsedCommand::ListRights,
+                b"MYRIGHTS" => ParsedCommand::MyRights,
+                b"CONVERSIONS" => ParsedCommand::Conversions,
+                b"CONVERT" => ParsedCommand::Convert,
+                b"GETMETADATA" => ParsedCommand::GetMetadata,
+                b"SETMETADATA" => ParsedCommand::SetMetadata,
+                b"NOTIFY" => ParsedCommand::Notify,
+                b"RESETKEY" => ParsedCommand::ResetKey,
+                b"GENURLAUTH" => ParsedCommand::GenUrlAuth,
+                b"URLFETCH" => ParsedCommand::UrlFetch,
                 _ => {
                     trace!("unknown IMAP command: {tag} {upper_cmd} ...");
                     ParsedCommand::Unknown
@@ -220,6 +250,10 @@ impl Command {
                 b"CLOSE" => ParsedCommand::Close,
                 b"UNSELECT" => ParsedCommand::Unselect,
                 b"EXPUNGE" => ParsedCommand::Expunge,
+                b"LANGUAGE" => ParsedCommand::Language,
+                b"COMPARATOR" => ParsedCommand::Comparator,
+                b"UNAUTHENTICATE" => ParsedCommand::UnAuthenticate,
+                b"RESETKEY" => ParsedCommand::ResetKey,
                 _ => {
                     trace!("unknown IMAP command: {tag} {upper_cmd}");
                     ParsedCommand::Unknown

@@ -18,11 +18,13 @@ use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_imap_proto::command::{Command, ParsedCommand};
-use g3_imap_proto::response::{BadResponse, ByeResponse, CommandResult, Response, ServerStatus};
+use g3_imap_proto::response::{
+    BadResponse, ByeResponse, CommandData, CommandResult, Response, ServerStatus,
+};
 use g3_io_ext::LimitedWriteExt;
 
 use super::{
-    CommandLineReceiveExt, ImapInterceptObject, ImapRelayBuf, ResponseAction,
+    Capability, CommandLineReceiveExt, ImapInterceptObject, ImapRelayBuf, ResponseAction,
     ResponseLineReceiveExt,
 };
 use crate::config::server::ServerConfig;
@@ -217,10 +219,7 @@ where
                     )));
                 }
             };
-            clt_w
-                .write_all_flush(line)
-                .await
-                .map_err(ServerTaskError::ClientTcpWriteFailed)?;
+
             match rsp {
                 Response::CommandResult(r) => {
                     let Some(cmd) = self.cmd_pipeline.remove(&r.tag) else {
@@ -236,6 +235,11 @@ where
                             "unexpected IMAP command result for STARTTLS command"
                         )));
                     }
+
+                    clt_w
+                        .write_all_flush(line)
+                        .await
+                        .map_err(ServerTaskError::ClientTcpWriteFailed)?;
                     return match r.result {
                         CommandResult::Success => Ok(Some(InitiationStatus::StartTls)),
                         CommandResult::Fail => Ok(None),
@@ -243,10 +247,28 @@ where
                     };
                 }
                 Response::ServerStatus(ServerStatus::Close) => {
+                    clt_w
+                        .write_all_flush(line)
+                        .await
+                        .map_err(ServerTaskError::ClientTcpWriteFailed)?;
                     return Ok(Some(InitiationStatus::ServerClose));
                 }
-                Response::ServerStatus(_s) => {}
-                Response::CommandData(_d) => {}
+                Response::ServerStatus(_s) => {
+                    clt_w
+                        .write_all_flush(line)
+                        .await
+                        .map_err(ServerTaskError::ClientTcpWriteFailed)?;
+                }
+                Response::CommandData(d) => {
+                    if d.command_data == CommandData::Capability {
+                        self.write_capability_response(line, clt_w).await?;
+                    } else {
+                        clt_w
+                            .write_all_flush(line)
+                            .await
+                            .map_err(ServerTaskError::ClientTcpWriteFailed)?;
+                    }
+                }
                 Response::ContinuationRequest => {
                     let _ = ByeResponse::reply_upstream_protocol_error(clt_w).await;
                     return Err(ServerTaskError::UpstreamAppError(anyhow!(
@@ -283,10 +305,7 @@ where
                     )));
                 }
             };
-            clt_w
-                .write_all_flush(line)
-                .await
-                .map_err(ServerTaskError::ClientTcpWriteFailed)?;
+
             match rsp {
                 Response::CommandResult(r) => {
                     let Some(cmd) = self.cmd_pipeline.remove(&r.tag) else {
@@ -303,6 +322,11 @@ where
                             cmd
                         )));
                     }
+
+                    clt_w
+                        .write_all_flush(line)
+                        .await
+                        .map_err(ServerTaskError::ClientTcpWriteFailed)?;
                     return match r.result {
                         CommandResult::Success => {
                             self.authenticated = true;
@@ -313,11 +337,34 @@ where
                     };
                 }
                 Response::ServerStatus(ServerStatus::Close) => {
+                    clt_w
+                        .write_all_flush(line)
+                        .await
+                        .map_err(ServerTaskError::ClientTcpWriteFailed)?;
                     return Ok(Some(InitiationStatus::ServerClose));
                 }
-                Response::ServerStatus(_s) => {}
-                Response::CommandData(_d) => {}
+                Response::ServerStatus(_s) => {
+                    clt_w
+                        .write_all_flush(line)
+                        .await
+                        .map_err(ServerTaskError::ClientTcpWriteFailed)?;
+                }
+                Response::CommandData(d) => {
+                    if d.command_data == CommandData::Capability {
+                        self.write_capability_response(line, clt_w).await?;
+                    } else {
+                        clt_w
+                            .write_all_flush(line)
+                            .await
+                            .map_err(ServerTaskError::ClientTcpWriteFailed)?;
+                    }
+                }
                 Response::ContinuationRequest => {
+                    clt_w
+                        .write_all_flush(line)
+                        .await
+                        .map_err(ServerTaskError::ClientTcpWriteFailed)?;
+
                     relay_buf.cmd_recv_buf.consume_line();
                     let line = relay_buf.cmd_recv_buf.recv_cmd_line(clt_r).await?;
                     // the client may send a single "*\r\n" to cancel,
@@ -329,5 +376,50 @@ where
                 }
             }
         }
+    }
+
+    pub(super) async fn write_capability_response<CW>(
+        &mut self,
+        line: &[u8],
+        clt_w: &mut CW,
+    ) -> ServerTaskResult<()>
+    where
+        CW: AsyncWrite + Unpin,
+    {
+        let orig = match std::str::from_utf8(line) {
+            Ok(s) => s,
+            Err(e) => {
+                let _ = ByeResponse::reply_upstream_protocol_error(clt_w).await;
+                return Err(ServerTaskError::UpstreamAppError(anyhow!(
+                    "invalid IMAP response line: {e}"
+                )));
+            }
+        };
+
+        let upper = orig.to_uppercase();
+        let Some(list) = upper.strip_prefix("* CAPABILITY ") else {
+            let _ = ByeResponse::reply_upstream_protocol_error(clt_w).await;
+            return Err(ServerTaskError::UpstreamAppError(anyhow!(
+                "invalid IMAP CAPABILITY response line prefix"
+            )));
+        };
+
+        let mut new_cap = Capability::default();
+
+        let mut new_line = Vec::with_capacity(line.len());
+        for item in list.split(' ') {
+            if let Some(cap) = new_cap.check_supported(item, false) {
+                new_line.push(b' ');
+                new_line.extend_from_slice(cap.as_bytes());
+            }
+        }
+        self.capability = new_cap;
+
+        new_line.extend_from_slice(b"\r\n");
+
+        clt_w
+            .write_all_flush(&new_line)
+            .await
+            .map_err(ServerTaskError::ClientTcpWriteFailed)
     }
 }

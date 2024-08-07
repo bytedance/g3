@@ -19,7 +19,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 use g3_imap_proto::command::{Command, ParsedCommand};
 use g3_imap_proto::response::{
-    ByeResponse, CommandResult, Response, ServerStatus, UntaggedResponse,
+    ByeResponse, CommandData, CommandResult, Response, ServerStatus, UntaggedResponse,
 };
 use g3_io_ext::{LimitedCopy, LimitedCopyError, LimitedWriteExt};
 
@@ -165,10 +165,6 @@ where
     {
         match Response::parse_line(line) {
             Ok(rsp) => {
-                clt_w
-                    .write_all_flush(line)
-                    .await
-                    .map_err(ServerTaskError::ClientTcpWriteFailed)?;
                 let mut action = ResponseAction::Loop;
                 match rsp {
                     Response::CommandResult(r) => {
@@ -179,6 +175,10 @@ where
                                 r.tag
                             )));
                         };
+                        clt_w
+                            .write_all_flush(line)
+                            .await
+                            .map_err(ServerTaskError::ClientTcpWriteFailed)?;
                         if r.result == CommandResult::Success {
                             match cmd.parsed {
                                 ParsedCommand::Select | ParsedCommand::Examine => {
@@ -191,9 +191,35 @@ where
                             }
                         }
                     }
-                    Response::ServerStatus(ServerStatus::Close) => action = ResponseAction::Close,
-                    Response::ServerStatus(_s) => {}
+                    Response::ServerStatus(ServerStatus::Close) => {
+                        clt_w
+                            .write_all_flush(line)
+                            .await
+                            .map_err(ServerTaskError::ClientTcpWriteFailed)?;
+                        action = ResponseAction::Close;
+                    }
+                    Response::ServerStatus(_s) => {
+                        clt_w
+                            .write_all_flush(line)
+                            .await
+                            .map_err(ServerTaskError::ClientTcpWriteFailed)?;
+                    }
                     Response::CommandData(d) => {
+                        match d.command_data {
+                            CommandData::Capability => {
+                                self.write_capability_response(line, clt_w).await?;
+                            }
+                            CommandData::Enabled => {
+                                self.write_enabled_response(line, clt_w).await?;
+                            }
+                            _ => {
+                                clt_w
+                                    .write_all_flush(line)
+                                    .await
+                                    .map_err(ServerTaskError::ClientTcpWriteFailed)?;
+                            }
+                        }
+
                         if let Some(size) = d.literal_data {
                             self.cmd_pipeline.set_ongoing_response(d);
                             action = ResponseAction::SendLiteral(size);
@@ -206,15 +232,26 @@ where
                                 "no ongoing IMAP command found when received continuation request"
                             )));
                         };
+
                         if cmd.parsed == ParsedCommand::Idle {
+                            clt_w
+                                .write_all_flush(line)
+                                .await
+                                .map_err(ServerTaskError::ClientTcpWriteFailed)?;
                             return Ok(ResponseAction::Loop);
                         }
+
                         let Some(literal) = cmd.literal_arg else {
                             let _ = ByeResponse::reply_upstream_protocol_error(clt_w).await;
                             return Err(ServerTaskError::UpstreamAppError(anyhow!(
                                 "unexpected IMAP continuation request"
                             )));
                         };
+
+                        clt_w
+                            .write_all_flush(line)
+                            .await
+                            .map_err(ServerTaskError::ClientTcpWriteFailed)?;
                         action = ResponseAction::RecvClientLiteral(literal.size);
                     }
                 }

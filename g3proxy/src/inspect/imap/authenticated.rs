@@ -22,7 +22,7 @@ use g3_imap_proto::response::{BadResponse, ByeResponse};
 use g3_io_ext::LimitedWriteExt;
 
 use super::{
-    CommandLineReceiveExt, ImapInterceptObject, ImapRelayBuf, ResponseAction,
+    Capability, CommandLineReceiveExt, ImapInterceptObject, ImapRelayBuf, ResponseAction,
     ResponseLineReceiveExt,
 };
 use crate::config::server::ServerConfig;
@@ -150,8 +150,11 @@ where
                             .map_err(ServerTaskError::ClientTcpWriteFailed)?;
                         return Ok(action);
                     }
-                    ParsedCommand::Enable
-                    | ParsedCommand::Select
+                    ParsedCommand::Enable => {
+                        self.handle_enable_command(line, cmd, clt_w, ups_w).await?;
+                        return Ok(action);
+                    }
+                    ParsedCommand::Select
                     | ParsedCommand::Examine
                     | ParsedCommand::Namespace
                     | ParsedCommand::Create
@@ -162,7 +165,25 @@ where
                     | ParsedCommand::List
                     | ParsedCommand::Lsub
                     | ParsedCommand::Status
-                    | ParsedCommand::Append => {
+                    | ParsedCommand::Append
+                    | ParsedCommand::Language
+                    | ParsedCommand::Comparator
+                    | ParsedCommand::GetQuota
+                    | ParsedCommand::GetQuotaRoot
+                    | ParsedCommand::SetQuota
+                    | ParsedCommand::SetAcl
+                    | ParsedCommand::GetAcl
+                    | ParsedCommand::DeleteAcl
+                    | ParsedCommand::ListRights
+                    | ParsedCommand::MyRights
+                    | ParsedCommand::Conversions
+                    | ParsedCommand::Convert
+                    | ParsedCommand::GetMetadata
+                    | ParsedCommand::SetMetadata
+                    | ParsedCommand::Notify
+                    | ParsedCommand::ResetKey
+                    | ParsedCommand::UrlFetch
+                    | ParsedCommand::GenUrlAuth => {
                         if let Some(literal) = cmd.literal_arg {
                             if literal.wait_continuation {
                                 action = ClientAction::SendLiteral(literal.size);
@@ -184,7 +205,11 @@ where
                     | ParsedCommand::Store
                     | ParsedCommand::Copy
                     | ParsedCommand::Move
-                    | ParsedCommand::Uid => {
+                    | ParsedCommand::Uid
+                    | ParsedCommand::CancelUpdate
+                    | ParsedCommand::Sort
+                    | ParsedCommand::Thread
+                    | ParsedCommand::Esearch => {
                         if !self.mailbox_selected {
                             BadResponse::reply_invalid_command(clt_w, cmd.tag.as_str())
                                 .await
@@ -221,6 +246,114 @@ where
                 )))
             }
         }
+    }
+
+    async fn handle_enable_command<CW, UW>(
+        &mut self,
+        line: &[u8],
+        cmd: Command,
+        clt_w: &mut CW,
+        ups_w: &mut UW,
+    ) -> ServerTaskResult<()>
+    where
+        CW: AsyncWrite + Unpin,
+        UW: AsyncWrite + Unpin,
+    {
+        let orig = match std::str::from_utf8(line) {
+            Ok(s) => s,
+            Err(e) => {
+                let _ = ByeResponse::reply_upstream_protocol_error(clt_w).await;
+                return Err(ServerTaskError::ClientAppError(anyhow!(
+                    "invalid IMAP command line: {e}"
+                )));
+            }
+        };
+
+        let mut items = orig.split_ascii_whitespace();
+        let tag = items.next().unwrap();
+        let name = items.next().unwrap();
+
+        let mut new_line = Vec::with_capacity(line.len());
+        new_line.extend_from_slice(tag.as_bytes());
+        new_line.push(b' ');
+        new_line.extend_from_slice(name.as_bytes());
+
+        let mut all_cap = Capability::default();
+        let mut enable_cap_count = 0;
+        for item in items {
+            if let Some(cap) = all_cap.check_supported(item, false) {
+                new_line.push(b' ');
+                new_line.extend_from_slice(cap.as_bytes());
+                enable_cap_count += 1;
+            }
+        }
+
+        if enable_cap_count > 0 {
+            new_line.extend_from_slice(b"\r\n");
+
+            ups_w
+                .write_all_flush(&new_line)
+                .await
+                .map_err(ServerTaskError::UpstreamWriteFailed)?;
+            self.cmd_pipeline.insert_completed(cmd);
+        } else {
+            let rsp = format!("{tag} OK no enabled\r\n");
+            clt_w
+                .write_all_flush(rsp.as_bytes())
+                .await
+                .map_err(ServerTaskError::ClientTcpWriteFailed)?;
+        }
+
+        Ok(())
+    }
+
+    pub(super) async fn write_enabled_response<CW>(
+        &mut self,
+        line: &[u8],
+        clt_w: &mut CW,
+    ) -> ServerTaskResult<()>
+    where
+        CW: AsyncWrite + Unpin,
+    {
+        let orig = match std::str::from_utf8(line) {
+            Ok(s) => s,
+            Err(e) => {
+                let _ = ByeResponse::reply_upstream_protocol_error(clt_w).await;
+                return Err(ServerTaskError::UpstreamAppError(anyhow!(
+                    "invalid IMAP response line: {e}"
+                )));
+            }
+        };
+
+        let mut items = orig.split_ascii_whitespace();
+        let tag = items.next().unwrap();
+        let name = items.next().unwrap();
+
+        let mut new_line = Vec::with_capacity(line.len());
+        new_line.extend_from_slice(tag.as_bytes());
+        new_line.push(b' ');
+        new_line.extend_from_slice(name.as_bytes());
+
+        let mut all_cap = Capability::default();
+        let mut enable_cap_count = 0;
+        for item in items {
+            if let Some(cap) = all_cap.check_supported(item, true) {
+                new_line.push(b' ');
+                new_line.extend_from_slice(cap.as_bytes());
+                enable_cap_count += 1;
+            }
+        }
+
+        if enable_cap_count > 0 {
+            new_line.extend_from_slice(b"\r\n");
+
+            clt_w
+                .write_all_flush(&new_line)
+                .await
+                .map_err(ServerTaskError::ClientTcpWriteFailed)?;
+        }
+
+        Ok(())
     }
 
     async fn relay_until_idle_done<CR, CW, UR, UW>(

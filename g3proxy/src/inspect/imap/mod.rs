@@ -32,6 +32,9 @@ use crate::serve::{ServerTaskError, ServerTaskForbiddenError, ServerTaskResult};
 mod ext;
 use ext::{CommandLineReceiveExt, ResponseLineReceiveExt};
 
+mod capability;
+use capability::Capability;
+
 mod greeting;
 use greeting::Greeting;
 
@@ -81,6 +84,7 @@ pub(crate) struct ImapInterceptObject<SC: ServerConfig> {
     client_logout: bool,
     authenticated: bool,
     mailbox_selected: bool,
+    capability: Capability,
 }
 
 impl<SC> ImapInterceptObject<SC>
@@ -98,6 +102,7 @@ where
             client_logout: false,
             authenticated: false,
             mailbox_selected: false,
+            capability: Capability::default(),
         }
     }
 
@@ -233,10 +238,12 @@ where
             return Ok(None);
         }
         if greeting.pre_authenticated() {
+            self.capability = greeting.into_capability();
             self.enter_authenticated(clt_r, clt_w, ups_r, ups_w, relay_buf)
                 .await?;
             Ok(None)
         } else {
+            self.capability = greeting.into_capability();
             self.start_initiation(clt_r, clt_w, ups_r, ups_w, relay_buf)
                 .await
         }
