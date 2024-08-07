@@ -260,7 +260,7 @@ where
         UW: AsyncWrite + Unpin,
     {
         let orig = match std::str::from_utf8(line) {
-            Ok(s) => s,
+            Ok(s) => s.trim_end(),
             Err(e) => {
                 let _ = ByeResponse::reply_upstream_protocol_error(clt_w).await;
                 return Err(ServerTaskError::ClientAppError(anyhow!(
@@ -316,7 +316,7 @@ where
         CW: AsyncWrite + Unpin,
     {
         let orig = match std::str::from_utf8(line) {
-            Ok(s) => s,
+            Ok(s) => s.trim_end(),
             Err(e) => {
                 let _ = ByeResponse::reply_upstream_protocol_error(clt_w).await;
                 return Err(ServerTaskError::UpstreamAppError(anyhow!(

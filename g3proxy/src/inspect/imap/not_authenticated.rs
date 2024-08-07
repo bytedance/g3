@@ -387,7 +387,7 @@ where
         CW: AsyncWrite + Unpin,
     {
         let orig = match std::str::from_utf8(line) {
-            Ok(s) => s,
+            Ok(s) => s.trim_end(),
             Err(e) => {
                 let _ = ByeResponse::reply_upstream_protocol_error(clt_w).await;
                 return Err(ServerTaskError::UpstreamAppError(anyhow!(
@@ -407,6 +407,7 @@ where
         let mut new_cap = Capability::default();
 
         let mut new_line = Vec::with_capacity(line.len());
+        new_line.extend_from_slice(b"* CAPABILITY");
         for item in list.split(' ') {
             if let Some(cap) = new_cap.check_supported(item, false) {
                 new_line.push(b' ');
@@ -416,7 +417,6 @@ where
         self.capability = new_cap;
 
         new_line.extend_from_slice(b"\r\n");
-
         clt_w
             .write_all_flush(&new_line)
             .await

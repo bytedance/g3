@@ -127,3 +127,15 @@ impl Capability {
         Some(cap)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn literal() {
+        let mut cap = Capability::default();
+        let s = cap.check_supported("LITERAL+", false).unwrap();
+        assert_eq!(s, "LITERAL-")
+    }
+}

@@ -120,7 +120,7 @@ impl Greeting {
         }
 
         let s = str::from_utf8(&line[a + 1..b])?;
-        let mut items = s.split_ascii_whitespace();
+        let mut items = s.trim_end().split_ascii_whitespace();
         let Some(code) = items.next() else {
             return Ok(None);
         };
