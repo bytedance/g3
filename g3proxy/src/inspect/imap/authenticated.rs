@@ -405,6 +405,8 @@ where
         UR: AsyncRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
+        const DONE_MSG: &[u8] = b"DONE\r\n";
+
         let mut idle_count = 0;
         let max_idle_count = self.ctx.imap_interception().forward_max_idle_count;
 
@@ -417,7 +419,7 @@ where
             tokio::select! {
                 r = relay_buf.cmd_recv_buf.recv_cmd_line(clt_r) => {
                     let line = r?;
-                    return if line == b"DONE\r\n" {
+                    return if line == DONE_MSG {
                         ups_w.write_all_flush(line)
                             .await
                             .map_err(ServerTaskError::UpstreamWriteFailed)?;
@@ -455,6 +457,7 @@ where
                         idle_count += 1;
                         if idle_count >= max_idle_count {
                             let _ = ByeResponse::reply_idle_logout(clt_w).await;
+                            let _ = ups_w.write_all_flush(DONE_MSG).await;
                             return Ok(Some(CloseReason::Local(ServerTaskError::Idle(idle_interval.period(), idle_count))));
                         }
                     } else {
@@ -463,11 +466,13 @@ where
 
                     if self.ctx.belongs_to_blocked_user() {
                         let _ = ByeResponse::reply_blocked(clt_w).await;
+                        let _ = ups_w.write_all_flush(DONE_MSG).await;
                         return Ok(Some(CloseReason::Local(ServerTaskError::CanceledAsUserBlocked)));
                     }
 
                     if self.ctx.server_force_quit() {
                         let _ = ByeResponse::reply_server_quit(clt_w).await;
+                        let _ = ups_w.write_all_flush(DONE_MSG).await;
                         return Ok(Some(CloseReason::Local(ServerTaskError::CanceledAsServerQuit)));
                     }
                 }
