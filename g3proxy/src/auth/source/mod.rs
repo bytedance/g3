@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
+use std::sync::Arc;
+use std::time::Duration;
+
 use ahash::AHashMap;
 use arc_swap::ArcSwap;
 use chrono::{DateTime, Utc};
 use log::warn;
-use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 
 use super::{User, UserGroupConfig};
