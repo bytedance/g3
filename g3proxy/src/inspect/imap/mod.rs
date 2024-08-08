@@ -42,7 +42,7 @@ mod not_authenticated;
 use not_authenticated::InitiationStatus;
 
 mod authenticated;
-use authenticated::ForwardStatus;
+use authenticated::CloseReason;
 
 mod forward;
 use forward::ResponseAction;
@@ -276,6 +276,11 @@ where
                 self.mark_close_by_server();
                 Ok(None)
             }
+            InitiationStatus::LocalClose(e) => {
+                self.start_server_logout(&mut ups_r, &mut ups_w, &mut relay_buf.rsp_recv_buf)
+                    .await;
+                Err(e)
+            }
             InitiationStatus::StartTls => {
                 if let Some(tls_interception) = self.ctx.tls_interception() {
                     let mut start_tls_obj = crate::inspect::start_tls::StartTlsInterceptObject::new(
@@ -326,14 +331,19 @@ where
             )
             .await?
         {
-            ForwardStatus::ClientClose => {
+            CloseReason::Client => {
                 self.handle_client_logout(&mut clt_w, &mut ups_r, &mut relay_buf.rsp_recv_buf)
                     .await?;
                 Ok(())
             }
-            ForwardStatus::ServerClose => {
+            CloseReason::Server => {
                 self.mark_close_by_server();
                 Ok(())
+            }
+            CloseReason::Local(e) => {
+                self.start_server_logout(&mut ups_r, &mut ups_w, &mut relay_buf.rsp_recv_buf)
+                    .await;
+                Err(e)
             }
         }
     }

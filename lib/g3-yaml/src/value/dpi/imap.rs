@@ -29,6 +29,11 @@ pub fn as_imap_interception_config(value: &Yaml) -> anyhow::Result<ImapIntercept
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
+            "authenticate_timeout" => {
+                config.authenticate_timeout = crate::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                Ok(())
+            }
             "logout_wait_timeout" => {
                 config.logout_wait_timeout = crate::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;

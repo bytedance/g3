@@ -43,6 +43,7 @@ pub(super) enum InitiationStatus {
     ClientClose,
     StartTls,
     Authenticated,
+    LocalClose(ServerTaskError),
 }
 
 impl<SC> ImapInterceptObject<SC>
@@ -50,6 +51,36 @@ where
     SC: ServerConfig + Send + Sync + 'static,
 {
     pub(super) async fn relay_not_authenticated<CR, CW, UR, UW>(
+        &mut self,
+        clt_r: &mut CR,
+        clt_w: &mut CW,
+        ups_r: &mut UR,
+        ups_w: &mut UW,
+        relay_buf: &mut ImapRelayBuf,
+    ) -> ServerTaskResult<InitiationStatus>
+    where
+        CR: AsyncRead + Unpin,
+        CW: AsyncWrite + Unpin,
+        UR: AsyncRead + Unpin,
+        UW: AsyncWrite + Unpin,
+    {
+        match tokio::time::timeout(
+            self.ctx.imap_interception().authenticate_timeout,
+            self.do_relay_not_authenticated(clt_r, clt_w, ups_r, ups_w, relay_buf),
+        )
+        .await
+        {
+            Ok(v) => v,
+            Err(_) => {
+                let _ = ByeResponse::reply_blocked(clt_w).await;
+                Ok(InitiationStatus::LocalClose(
+                    ServerTaskError::ClientAppTimeout("timeout to enter IMAP authenticated state"),
+                ))
+            }
+        }
+    }
+
+    pub(super) async fn do_relay_not_authenticated<CR, CW, UR, UW>(
         &mut self,
         clt_r: &mut CR,
         clt_w: &mut CW,

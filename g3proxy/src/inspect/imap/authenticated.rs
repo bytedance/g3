@@ -16,6 +16,7 @@
 
 use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::time::{Instant, Interval};
 
 use g3_imap_proto::command::{Command, ParsedCommand};
 use g3_imap_proto::response::{BadResponse, ByeResponse};
@@ -35,9 +36,10 @@ enum ClientAction {
     SendLiteral(usize),
 }
 
-pub(super) enum ForwardStatus {
-    ServerClose,
-    ClientClose,
+pub(super) enum CloseReason {
+    Server,
+    Client,
+    Local(ServerTaskError),
 }
 
 impl<SC> ImapInterceptObject<SC>
@@ -51,13 +53,21 @@ where
         ups_r: &mut UR,
         ups_w: &mut UW,
         relay_buf: &mut ImapRelayBuf,
-    ) -> ServerTaskResult<ForwardStatus>
+    ) -> ServerTaskResult<CloseReason>
     where
         CR: AsyncRead + Unpin,
         CW: AsyncWrite + Unpin,
         UR: AsyncRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
+        let idle_duration = self.ctx.server_config.task_idle_check_duration();
+        let mut idle_interval =
+            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_count = 0;
+        let max_idle_count = self.ctx.imap_interception().forward_max_idle_count;
+
+        let mut active = false;
+
         loop {
             relay_buf.cmd_recv_buf.consume_line();
             relay_buf.rsp_recv_buf.consume_line();
@@ -65,6 +75,7 @@ where
             tokio::select! {
                 r = relay_buf.cmd_recv_buf.recv_cmd_line(clt_r) => {
                     let line = r?;
+                    active = true;
                     if let Some(mut cmd) = self.cmd_pipeline.take_ongoing_command() {
                         self.handle_cmd_continue_line(line, &mut cmd, clt_w, ups_w).await?;
                         if let Some(literal) = cmd.literal_arg {
@@ -78,7 +89,7 @@ where
                     } else {
                         match self.handle_authenticated_cmd_line(line, clt_w, ups_w).await? {
                             ClientAction::Logout => {
-                                return Ok(ForwardStatus::ClientClose);
+                                return Ok(CloseReason::Client);
                             }
                             ClientAction::Idle => {
                                 if let Some(status) = self.relay_until_idle_done(
@@ -87,6 +98,7 @@ where
                                     ups_r,
                                     ups_w,
                                     relay_buf,
+                                    &mut idle_interval,
                                 ).await? {
                                     return Ok(status);
                                 }
@@ -100,6 +112,7 @@ where
                 }
                 r = relay_buf.rsp_recv_buf.recv_rsp_line(ups_r) => {
                     let line = r?;
+                    active = true;
                     if let Some(mut rsp) = self.cmd_pipeline.take_ongoing_response() {
                         self.handle_rsp_continue_line(line, &mut rsp, clt_w).await?;
                         if let Some(size) = rsp.literal_data {
@@ -109,7 +122,7 @@ where
                     } else {
                         match self.handle_rsp_line(line, clt_w).await? {
                             ResponseAction::Loop => {}
-                            ResponseAction::Close => return Ok(ForwardStatus::ServerClose),
+                            ResponseAction::Close => return Ok(CloseReason::Server),
                             ResponseAction::SendLiteral(size) => {
                                 self.relay_server_literal(size, clt_w, ups_r,  relay_buf).await?;
                             }
@@ -117,6 +130,27 @@ where
                                  self.relay_client_literal(size, clt_r, ups_w, relay_buf).await?;
                             }
                         }
+                    }
+                }
+                 _ = idle_interval.tick() => {
+                    if !active {
+                        idle_count += 1;
+                        if idle_count >= max_idle_count {
+                            let _ = ByeResponse::reply_idle_logout(clt_w).await;
+                            return Ok(CloseReason::Local(ServerTaskError::Idle(idle_duration, idle_count)));
+                        }
+                    } else {
+                        idle_count = 0;
+                    }
+
+                    if self.ctx.belongs_to_blocked_user() {
+                        let _ = ByeResponse::reply_blocked(clt_w).await;
+                        return Ok(CloseReason::Local(ServerTaskError::CanceledAsUserBlocked));
+                    }
+
+                    if self.ctx.server_force_quit() {
+                        let _ = ByeResponse::reply_server_quit(clt_w).await;
+                        return Ok(CloseReason::Local(ServerTaskError::CanceledAsServerQuit));
                     }
                 }
             }
@@ -363,13 +397,19 @@ where
         ups_r: &mut UR,
         ups_w: &mut UW,
         relay_buf: &mut ImapRelayBuf,
-    ) -> ServerTaskResult<Option<ForwardStatus>>
+        idle_interval: &mut Interval,
+    ) -> ServerTaskResult<Option<CloseReason>>
     where
         CR: AsyncRead + Unpin,
         CW: AsyncWrite + Unpin,
         UR: AsyncRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
+        let mut idle_count = 0;
+        let max_idle_count = self.ctx.imap_interception().forward_max_idle_count;
+
+        let mut active = true;
+
         loop {
             relay_buf.cmd_recv_buf.consume_line();
             relay_buf.rsp_recv_buf.consume_line();
@@ -391,6 +431,7 @@ where
                 }
                 r = relay_buf.rsp_recv_buf.recv_rsp_line(ups_r) => {
                     let line = r?;
+                    active = true;
                     if let Some(mut rsp) = self.cmd_pipeline.take_ongoing_response() {
                         self.handle_rsp_continue_line(line, &mut rsp, clt_w).await?;
                         if let Some(size) = rsp.literal_data {
@@ -399,7 +440,7 @@ where
                     } else {
                         match self.handle_rsp_line(line, clt_w).await? {
                             ResponseAction::Loop => {}
-                            ResponseAction::Close => return Ok(Some(ForwardStatus::ServerClose)),
+                            ResponseAction::Close => return Ok(Some(CloseReason::Server)),
                             ResponseAction::SendLiteral(size) => {
                                 self.relay_server_literal(size, clt_w, ups_r,  relay_buf).await?;
                             }
@@ -407,6 +448,27 @@ where
                                  self.relay_client_literal(size, clt_r, ups_w, relay_buf).await?;
                             }
                         }
+                    }
+                }
+                _ = idle_interval.tick() => {
+                    if !active {
+                        idle_count += 1;
+                        if idle_count >= max_idle_count {
+                            let _ = ByeResponse::reply_idle_logout(clt_w).await;
+                            return Ok(Some(CloseReason::Local(ServerTaskError::Idle(idle_interval.period(), idle_count))));
+                        }
+                    } else {
+                        idle_count = 0;
+                    }
+
+                    if self.ctx.belongs_to_blocked_user() {
+                        let _ = ByeResponse::reply_blocked(clt_w).await;
+                        return Ok(Some(CloseReason::Local(ServerTaskError::CanceledAsUserBlocked)));
+                    }
+
+                    if self.ctx.server_force_quit() {
+                        let _ = ByeResponse::reply_server_quit(clt_w).await;
+                        return Ok(Some(CloseReason::Local(ServerTaskError::CanceledAsServerQuit)));
                     }
                 }
             }

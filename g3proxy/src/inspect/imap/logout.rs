@@ -49,7 +49,7 @@ where
         .map_err(|_| ServerTaskError::UpstreamAppTimeout("timeout to wait IMAP LOGOUT response"))?
     }
 
-    pub(super) async fn wait_client_logout<CW, UR>(
+    async fn wait_client_logout<CW, UR>(
         &mut self,
         clt_w: &mut CW,
         ups_r: &mut UR,
@@ -84,6 +84,46 @@ where
                         "invalid IMAP response line: {e}"
                     )));
                 }
+            }
+        }
+    }
+
+    pub(super) async fn start_server_logout<UR, UW>(
+        &mut self,
+        ups_r: &mut UR,
+        ups_w: &mut UW,
+        rsp_recv_buf: &mut LineRecvVec,
+    ) where
+        UR: AsyncRead + Unpin,
+        UW: AsyncWrite + Unpin,
+    {
+        let _ = ups_w.write_all_flush(b"XXXX LOGOUT\r\n").await;
+        let _ = tokio::time::timeout(
+            self.ctx.imap_interception().logout_wait_timeout,
+            self.wait_server_logout(ups_r, rsp_recv_buf),
+        )
+        .await;
+    }
+
+    async fn wait_server_logout<UR>(&mut self, ups_r: &mut UR, rsp_recv_buf: &mut LineRecvVec)
+    where
+        UR: AsyncRead + Unpin,
+    {
+        loop {
+            rsp_recv_buf.consume_line();
+            let Ok(line) = rsp_recv_buf.recv_rsp_line(ups_r).await else {
+                return;
+            };
+            match Response::parse_line(line) {
+                Ok(Response::CommandResult(r)) => {
+                    if r.tag.as_bytes() == b"XXXX" {
+                        return;
+                    }
+                    self.cmd_pipeline.remove(&r.tag);
+                }
+                Ok(Response::ServerStatus(ServerStatus::Close)) => {}
+                Ok(_) => {}
+                Err(_) => return,
             }
         }
     }

@@ -16,6 +16,7 @@
 
 use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::time::Instant;
 
 use g3_imap_proto::command::{Command, ParsedCommand};
 use g3_imap_proto::response::{
@@ -88,13 +89,58 @@ where
         if literal_size > cached.len() {
             let mut clt_r = clt_r.take((literal_size - cached.len()) as u64);
 
-            // TODO add timeout limit
-            LimitedCopy::new(&mut clt_r, ups_w, &Default::default())
-                .await
-                .map_err(|e| match e {
-                    LimitedCopyError::ReadFailed(e) => ServerTaskError::ClientTcpReadFailed(e),
-                    LimitedCopyError::WriteFailed(e) => ServerTaskError::UpstreamWriteFailed(e),
-                })?;
+            let idle_duration = self.ctx.server_config.task_idle_check_duration();
+            let mut idle_interval =
+                tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+            let mut idle_count = 0;
+            let max_idle_count = self.ctx.imap_interception().transfer_max_idle_count;
+
+            let mut clt_to_ups = LimitedCopy::new(&mut clt_r, ups_w, &Default::default());
+
+            loop {
+                tokio::select! {
+                    biased;
+
+                    r = &mut clt_to_ups => {
+                        return match r {
+                            Ok(_) => {
+                                // ups_w is already flushed
+                                Ok(())
+                            }
+                            Err(LimitedCopyError::ReadFailed(e)) => {
+                                let _ = clt_to_ups.write_flush().await;
+                                Err(ServerTaskError::ClientTcpReadFailed(e))
+                            }
+                            Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::UpstreamWriteFailed(e)),
+                        };
+                    }
+                    _ = idle_interval.tick() => {
+                        if clt_to_ups.is_idle() {
+                            idle_count += 1;
+                            if idle_count >= max_idle_count {
+                                return if clt_to_ups.no_cached_data() {
+                                    Err(ServerTaskError::ClientAppTimeout("idle while reading literal data"))
+                                } else {
+                                    Err(ServerTaskError::UpstreamAppTimeout("idle while sending literal data"))
+                                };
+                            }
+                        } else {
+                            idle_count = 0;
+                            clt_to_ups.reset_active();
+                        }
+
+                        if self.ctx.belongs_to_blocked_user() {
+                            let _ = clt_to_ups.write_flush().await;
+                            return Err(ServerTaskError::CanceledAsUserBlocked);
+                        }
+
+                        if self.ctx.server_force_quit() {
+                            let _ = clt_to_ups.write_flush().await;
+                            return Err(ServerTaskError::CanceledAsServerQuit)
+                        }
+                    }
+                }
+            }
         }
         ups_w
             .flush()
@@ -141,13 +187,58 @@ where
         if literal_size > cached.len() {
             let mut ups_r = ups_r.take((literal_size - cached.len()) as u64);
 
-            // TODO add timeout limit
-            LimitedCopy::new(&mut ups_r, clt_w, &Default::default())
-                .await
-                .map_err(|e| match e {
-                    LimitedCopyError::ReadFailed(e) => ServerTaskError::UpstreamReadFailed(e),
-                    LimitedCopyError::WriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
-                })?;
+            let idle_duration = self.ctx.server_config.task_idle_check_duration();
+            let mut idle_interval =
+                tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+            let mut idle_count = 0;
+            let max_idle_count = self.ctx.imap_interception().transfer_max_idle_count;
+
+            let mut ups_to_clt = LimitedCopy::new(&mut ups_r, clt_w, &Default::default());
+
+            loop {
+                tokio::select! {
+                    biased;
+
+                    r = &mut ups_to_clt => {
+                        return match r {
+                            Ok(_) => {
+                                // clt_w is already flushed
+                                Ok(())
+                            }
+                            Err(LimitedCopyError::ReadFailed(e)) => {
+                                let _ = ups_to_clt.write_flush().await;
+                                Err(ServerTaskError::UpstreamReadFailed(e))
+                            }
+                            Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
+                        };
+                    }
+                    _ = idle_interval.tick() => {
+                        if ups_to_clt.is_idle() {
+                            idle_count += 1;
+                            if idle_count >= max_idle_count {
+                                return if ups_to_clt.no_cached_data() {
+                                    Err(ServerTaskError::UpstreamAppTimeout("idle while reading literal data"))
+                                } else {
+                                    Err(ServerTaskError::ClientAppTimeout("idle while sending literal data"))
+                                };
+                            }
+                        } else {
+                            idle_count = 0;
+                            ups_to_clt.reset_active();
+                        }
+
+                        if self.ctx.belongs_to_blocked_user() {
+                            let _ = ups_to_clt.write_flush().await;
+                            return Err(ServerTaskError::CanceledAsUserBlocked);
+                        }
+
+                        if self.ctx.server_force_quit() {
+                            let _ = ups_to_clt.write_flush().await;
+                            return Err(ServerTaskError::CanceledAsServerQuit)
+                        }
+                    }
+                }
+            }
         }
         clt_w
             .flush()
