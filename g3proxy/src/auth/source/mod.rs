@@ -82,7 +82,7 @@ pub(super) fn new_fetch_job(
             }
 
             let Some(source) = &group_config.dynamic_source else {
-                continue;
+                break;
             };
 
             let r = match source {
