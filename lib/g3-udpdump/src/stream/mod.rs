@@ -64,6 +64,11 @@ impl StreamDumper {
         Ok(StreamDumper { config, sender })
     }
 
+    #[inline]
+    pub fn client_side(&self) -> bool {
+        self.config.client_side
+    }
+
     pub fn wrap_writer<CW, RW>(
         &self,
         client_addr: SocketAddr,

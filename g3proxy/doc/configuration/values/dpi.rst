@@ -255,6 +255,16 @@ The keys are:
 
   **default**: 1480
 
+* client_side
+
+  **optional**, **type**: bool
+
+  Set this to true to dump client side traffic.
+
+  **default**: false, the remote side traffic will be dumped
+
+  .. versionadded:: 1.9.7
+
 TLS Interception
 ================
 

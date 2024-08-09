@@ -24,6 +24,7 @@ pub struct StreamDumpConfig {
     pub buffer: SocketBufferConfig,
     pub opts: UdpMiscSockOpts,
     pub packet_size: usize,
+    pub client_side: bool,
 }
 
 impl Default for StreamDumpConfig {
@@ -33,6 +34,7 @@ impl Default for StreamDumpConfig {
             buffer: SocketBufferConfig::default(),
             opts: UdpMiscSockOpts::default(),
             packet_size: 1480,
+            client_side: false,
         }
     }
 }

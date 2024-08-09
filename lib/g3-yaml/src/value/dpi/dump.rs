@@ -43,6 +43,10 @@ pub fn as_stream_dump_config(value: &Yaml) -> anyhow::Result<StreamDumpConfig> {
                     config.packet_size = crate::value::as_usize(v)?;
                     Ok(())
                 }
+                "client_side" => {
+                    config.client_side = crate::value::as_bool(v)?;
+                    Ok(())
+                }
                 _ => Err(anyhow!("invalid key {k}")),
             })?;
 

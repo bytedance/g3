@@ -3,6 +3,7 @@ v1.9.7:
  - BUG FIX: clean old redis fetch job in time on reloading ProxyFloat escaper
  - BUG FIX: clean old dynamic user fetch job in time on user group reloading
  - Feature: support TLS redis server
+ - Feature: allow to dump client side TlS decrypted stream via `client-side` dump config option
  - Removed: remove redis cluster support, a redis proxy should be used in front of the redis cluster
 
 v1.9.6:

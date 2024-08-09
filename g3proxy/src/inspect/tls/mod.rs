@@ -212,14 +212,25 @@ where
             } else {
                 ExportedPduDissectorHint::TlsPort(self.upstream.port())
             };
-            let (ups_r, ups_w) = stream_dumper.wrap_remote_io(
-                self.ctx.task_notes.client_addr,
-                self.ctx.task_notes.server_addr,
-                dissector_hint,
-                ups_r,
-                ups_w,
-            );
-            self.inspect_inner(protocol, has_alpn, clt_r, clt_w, ups_r, ups_w)
+            if stream_dumper.client_side() {
+                let (clt_r, clt_w) = stream_dumper.wrap_client_io(
+                    self.ctx.task_notes.client_addr,
+                    self.ctx.task_notes.server_addr,
+                    dissector_hint,
+                    clt_r,
+                    clt_w,
+                );
+                self.inspect_inner(protocol, has_alpn, clt_r, clt_w, ups_r, ups_w)
+            } else {
+                let (ups_r, ups_w) = stream_dumper.wrap_remote_io(
+                    self.ctx.task_notes.client_addr,
+                    self.ctx.task_notes.server_addr,
+                    dissector_hint,
+                    ups_r,
+                    ups_w,
+                );
+                self.inspect_inner(protocol, has_alpn, clt_r, clt_w, ups_r, ups_w)
+            }
         } else {
             self.inspect_inner(protocol, has_alpn, clt_r, clt_w, ups_r, ups_w)
         }
