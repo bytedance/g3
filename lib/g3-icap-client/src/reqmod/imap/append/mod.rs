@@ -17,7 +17,7 @@
 use std::io::{IoSlice, Write};
 
 use bytes::BufMut;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, BufReader};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 
 use g3_io_ext::{IdleCheck, LimitedCopy, LimitedWriteExt};
 
@@ -68,6 +68,10 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
                 IoSlice::new(cached),
                 IoSlice::new(b"0\r\n\r\n"),
             ])
+            .await
+            .map_err(ImapAdaptationError::IcapServerWriteFailed)?;
+        icap_w
+            .flush()
             .await
             .map_err(ImapAdaptationError::IcapServerWriteFailed)?;
 
