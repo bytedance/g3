@@ -49,7 +49,7 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
         header
     }
 
-    pub async fn xfer_txt_data_without_preview<CR, UW>(
+    pub async fn xfer_data_without_preview<CR, UW>(
         mut self,
         state: &mut ReqmodAdaptationRunState,
         clt_r: &mut CR,

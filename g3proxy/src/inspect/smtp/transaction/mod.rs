@@ -351,7 +351,7 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
 
         let mut adaptation_state = ReqmodAdaptationRunState::new(Instant::now());
         match adapter
-            .xfer_txt_data(
+            .xfer_data(
                 &mut adaptation_state,
                 clt_r,
                 ups_w,

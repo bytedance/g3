@@ -304,6 +304,10 @@ where
         }
     }
 
+    pub fn writer(&mut self) -> &mut W {
+        self.writer
+    }
+
     #[inline]
     pub fn no_cached_data(&self) -> bool {
         self.buf.r_off == self.buf.w_off

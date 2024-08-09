@@ -25,7 +25,6 @@ use tokio::time::Instant;
 
 use g3_http::HttpBodyDecodeReader;
 use g3_io_ext::{IdleCheck, LimitedCopyConfig};
-use g3_smtp_proto::command::{MailParam, RecipientParam};
 
 use super::IcapReqmodClient;
 use crate::{IcapClientConnection, IcapServiceClient};
@@ -33,19 +32,19 @@ use crate::{IcapClientConnection, IcapServiceClient};
 pub use crate::reqmod::h1::HttpAdapterErrorResponse;
 
 mod error;
-pub use error::SmtpAdaptationError;
+pub use error::ImapAdaptationError;
 
-mod data;
+mod append;
 
 impl IcapReqmodClient {
-    pub async fn smtp_message_adaptor<I: IdleCheck>(
+    pub async fn mail_message_adaptor<I: IdleCheck>(
         &self,
         copy_config: LimitedCopyConfig,
         idle_checker: I,
-    ) -> anyhow::Result<SmtpMessageAdapter<I>> {
+    ) -> anyhow::Result<ImapMessageAdapter<I>> {
         let icap_client = self.inner.clone();
         let (icap_connection, _icap_options) = icap_client.fetch_connection().await?;
-        Ok(SmtpMessageAdapter {
+        Ok(ImapMessageAdapter {
             icap_client,
             icap_connection,
             copy_config,
@@ -81,17 +80,16 @@ impl ReqmodAdaptationRunState {
     }
 }
 
-pub struct SmtpMessageAdapter<I: IdleCheck> {
+pub struct ImapMessageAdapter<I: IdleCheck> {
     icap_client: Arc<IcapServiceClient>,
     icap_connection: IcapClientConnection,
     copy_config: LimitedCopyConfig,
-    // TODO add SMTP config
     idle_checker: I,
     client_addr: Option<SocketAddr>,
     client_username: Option<String>,
 }
 
-impl<I: IdleCheck> SmtpMessageAdapter<I> {
+impl<I: IdleCheck> ImapMessageAdapter<I> {
     pub fn set_client_addr(&mut self, addr: SocketAddr) {
         self.client_addr = Some(addr);
     }
@@ -100,20 +98,17 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
         self.client_username = Some(user.to_string());
     }
 
-    pub fn build_http_header(&self, mail_from: &MailParam, mail_to: &[RecipientParam]) -> Vec<u8> {
+    pub fn build_http_header(&self, literal_size: u64) -> Vec<u8> {
         let mut header = Vec::with_capacity(128);
         header.extend_from_slice(b"PUT / HTTP/1.1\r\n");
         header.extend_from_slice(b"Content-Type: message/rfc822\r\n");
-        let _ = write!(&mut header, "X-SMTP-From: {}\r\n", mail_from.reverse_path());
-        for to in mail_to {
-            let _ = write!(&mut header, "X-SMTP-To: {}\r\n", to.forward_path());
-        }
+        let _ = write!(header, "X-IMAP-Message-Size: {literal_size}\r\n");
         header.extend_from_slice(b"\r\n");
         header
     }
 
     fn push_extended_headers(&self, data: &mut Vec<u8>) {
-        data.put_slice(b"X-Transformed-From: SMTP\r\n");
+        data.put_slice(b"X-Transformed-From: IMAP\r\n");
         if let Some(addr) = self.client_addr {
             crate::serialize::add_client_addr(data, addr);
         }
@@ -122,20 +117,19 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
         }
     }
 
-    pub async fn xfer_data<CR, UW>(
+    pub async fn xfer_append<CR, UW>(
         self,
         state: &mut ReqmodAdaptationRunState,
         clt_r: &mut CR,
+        literal_size: u64,
         ups_w: &mut UW,
-        mail_from: &MailParam,
-        mail_to: &[RecipientParam],
-    ) -> Result<ReqmodAdaptationEndState, SmtpAdaptationError>
+    ) -> Result<ReqmodAdaptationEndState, ImapAdaptationError>
     where
         CR: AsyncRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
         // TODO support preview?
-        self.xfer_data_without_preview(state, clt_r, ups_w, mail_from, mail_to)
+        self.xfer_append_without_preview(state, clt_r, literal_size, ups_w)
             .await
     }
 }
