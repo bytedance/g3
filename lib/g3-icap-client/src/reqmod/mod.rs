@@ -28,6 +28,9 @@ mod response;
 
 pub mod h1;
 pub mod h2;
+
+pub mod mail;
+
 pub mod imap;
 pub mod smtp;
 

@@ -25,7 +25,8 @@ use g3_io_ext::{
     IdleCheck, LimitedBufReadExt, LimitedCopy, LimitedCopyConfig, LimitedCopyError, LimitedWriteExt,
 };
 
-use super::{ImapAdaptationError, ReqmodAdaptationEndState, ReqmodAdaptationRunState};
+use super::ImapAdaptationError;
+use crate::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};
 use crate::reqmod::response::ReqmodResponse;
 use crate::{IcapClientReader, IcapClientWriter, IcapServiceClient};
 

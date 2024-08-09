@@ -17,16 +17,14 @@
 use std::io::Write;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::time::Duration;
 
 use bytes::BufMut;
-use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite};
-use tokio::time::Instant;
+use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_http::HttpBodyDecodeReader;
 use g3_io_ext::{IdleCheck, LimitedCopyConfig};
 
 use super::IcapReqmodClient;
+use crate::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};
 use crate::{IcapClientConnection, IcapServiceClient};
 
 pub use crate::reqmod::h1::HttpAdapterErrorResponse;
@@ -54,31 +52,6 @@ impl IcapReqmodClient {
             client_username: None,
             literal_size,
         })
-    }
-}
-
-pub struct ReqmodAdaptationRunState {
-    task_create_instant: Instant,
-    pub dur_ups_send_all: Option<Duration>,
-    pub clt_read_finished: bool,
-    pub ups_write_finished: bool,
-    pub(crate) icap_io_finished: bool,
-}
-
-impl ReqmodAdaptationRunState {
-    pub fn new(task_create_instant: Instant) -> Self {
-        ReqmodAdaptationRunState {
-            task_create_instant,
-            dur_ups_send_all: None,
-            clt_read_finished: false,
-            ups_write_finished: false,
-            icap_io_finished: false,
-        }
-    }
-
-    pub(crate) fn mark_ups_send_all(&mut self) {
-        self.dur_ups_send_all = Some(self.task_create_instant.elapsed());
-        self.ups_write_finished = true;
     }
 }
 
@@ -139,30 +112,6 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
                 .await
         } else {
             self.xfer_append_once(state, cached, ups_w).await
-        }
-    }
-}
-
-pub enum ReqmodAdaptationEndState {
-    OriginalTransferred,
-    AdaptedTransferred,
-    HttpErrResponse(HttpAdapterErrorResponse, Option<ReqmodRecvHttpResponseBody>),
-}
-
-pub struct ReqmodRecvHttpResponseBody {
-    icap_client: Arc<IcapServiceClient>,
-    icap_keepalive: bool,
-    icap_connection: IcapClientConnection,
-}
-
-impl ReqmodRecvHttpResponseBody {
-    pub fn body_reader(&mut self) -> HttpBodyDecodeReader<'_, impl AsyncBufRead> {
-        HttpBodyDecodeReader::new_chunked(&mut self.icap_connection.1, 1024)
-    }
-
-    pub async fn save_connection(self) {
-        if self.icap_keepalive {
-            self.icap_client.save_connection(self.icap_connection).await;
         }
     }
 }

@@ -21,9 +21,8 @@ use g3_http::server::HttpAdaptedRequest;
 use g3_http::HttpBodyDecodeReader;
 use g3_io_ext::{IdleCheck, LimitedCopy, LimitedCopyError};
 
-use super::{
-    ImapAdaptationError, ImapMessageAdapter, ReqmodAdaptationEndState, ReqmodAdaptationRunState,
-};
+use super::{ImapAdaptationError, ImapMessageAdapter};
+use crate::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};
 use crate::reqmod::response::ReqmodResponse;
 
 impl<I: IdleCheck> ImapMessageAdapter<I> {

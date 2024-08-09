@@ -24,10 +24,8 @@ use g3_io_ext::{IdleCheck, LimitedWriteExt};
 use g3_smtp_proto::command::{MailParam, RecipientParam};
 use g3_smtp_proto::io::TextDataDecodeReader;
 
-use super::{
-    HttpAdapterErrorResponse, ReqmodAdaptationEndState, ReqmodAdaptationRunState,
-    ReqmodRecvHttpResponseBody, SmtpAdaptationError, SmtpMessageAdapter,
-};
+use super::{HttpAdapterErrorResponse, SmtpAdaptationError, SmtpMessageAdapter};
+use crate::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};
 use crate::reqmod::IcapReqmodResponsePayload;
 
 mod bidirectional;

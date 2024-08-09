@@ -22,9 +22,8 @@ use g3_http::HttpBodyDecodeReader;
 use g3_io_ext::{IdleCheck, LimitedCopyError};
 use g3_smtp_proto::io::TextDataEncodeTransfer;
 
-use super::{
-    ReqmodAdaptationEndState, ReqmodAdaptationRunState, SmtpAdaptationError, SmtpMessageAdapter,
-};
+use super::{SmtpAdaptationError, SmtpMessageAdapter};
+use crate::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};
 use crate::reqmod::response::ReqmodResponse;
 
 impl<I: IdleCheck> SmtpMessageAdapter<I> {

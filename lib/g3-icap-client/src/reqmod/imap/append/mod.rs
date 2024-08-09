@@ -21,10 +21,8 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 
 use g3_io_ext::{IdleCheck, LimitedCopy, LimitedWriteExt};
 
-use super::{
-    HttpAdapterErrorResponse, ImapAdaptationError, ImapMessageAdapter, ReqmodAdaptationEndState,
-    ReqmodAdaptationRunState, ReqmodRecvHttpResponseBody,
-};
+use super::{HttpAdapterErrorResponse, ImapAdaptationError, ImapMessageAdapter};
+use crate::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};
 use crate::reqmod::response::ReqmodResponse;
 use crate::reqmod::IcapReqmodResponsePayload;
 

@@ -23,9 +23,8 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
 use g3_dpi::SmtpInterceptionConfig;
-use g3_icap_client::reqmod::smtp::{
-    ReqmodAdaptationEndState, ReqmodAdaptationRunState, SmtpMessageAdapter,
-};
+use g3_icap_client::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};
+use g3_icap_client::reqmod::smtp::SmtpMessageAdapter;
 use g3_io_ext::{LimitedCopy, LimitedCopyError, LimitedWriteExt};
 use g3_slog_types::LtUuid;
 use g3_smtp_proto::command::{Command, MailParam, RecipientParam};

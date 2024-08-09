@@ -24,7 +24,8 @@ use g3_http::{HttpBodyDecodeReader, StreamToChunkedTransfer};
 use g3_io_ext::{IdleCheck, LimitedBufReadExt, LimitedCopyConfig, LimitedCopyError};
 use g3_smtp_proto::io::TextDataEncodeTransfer;
 
-use super::{ReqmodAdaptationEndState, ReqmodAdaptationRunState, SmtpAdaptationError};
+use super::SmtpAdaptationError;
+use crate::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};
 use crate::reqmod::response::ReqmodResponse;
 use crate::{IcapClientReader, IcapClientWriter, IcapServiceClient};
 

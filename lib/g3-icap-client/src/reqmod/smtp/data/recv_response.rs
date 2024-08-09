@@ -16,10 +16,8 @@
 
 use g3_io_ext::IdleCheck;
 
-use super::{
-    HttpAdapterErrorResponse, ReqmodAdaptationEndState, ReqmodRecvHttpResponseBody,
-    SmtpAdaptationError, SmtpMessageAdapter,
-};
+use super::{HttpAdapterErrorResponse, SmtpAdaptationError, SmtpMessageAdapter};
+use crate::reqmod::mail::{ReqmodAdaptationEndState, ReqmodRecvHttpResponseBody};
 use crate::reqmod::response::ReqmodResponse;
 
 impl<I: IdleCheck> SmtpMessageAdapter<I> {
