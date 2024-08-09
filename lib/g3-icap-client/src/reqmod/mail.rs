@@ -13,14 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use std::sync::Arc;
+use std::time::Duration;
+
+use tokio::io::AsyncBufRead;
+use tokio::time::Instant;
+
+use g3_http::HttpBodyDecodeReader;
+
 use crate::reqmod::h1::HttpAdapterErrorResponse;
 use crate::service::IcapClientConnection;
 use crate::IcapServiceClient;
-use g3_http::HttpBodyDecodeReader;
-use std::sync::Arc;
-use std::time::Duration;
-use tokio::io::AsyncBufRead;
-use tokio::time::Instant;
 
 pub struct ReqmodAdaptationRunState {
     task_create_instant: Instant,
