@@ -24,6 +24,11 @@ icap_h2
 
 This tells what's needed to enable ICAP for HTTP/2.0.
 
+icap_imap
+=========
+
+This tells what's needed to enable ICAP for IMAP.
+
 icap_smtp
 =========
 
@@ -36,4 +41,5 @@ This tells what's needed to enable ICAP for SMTP.
    cert_generator
    ip_locate
    icap_h2
+   icap_imap
    icap_smtp

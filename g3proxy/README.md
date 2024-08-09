@@ -202,7 +202,7 @@ It's also possible to set different site config for each user:
 - TLS/TLCP Decrypted Stream Dump
 - Http1 & Http2 Interception
 - SMTP Interception
-- ICAP Adaptation, support HTTP1/HTTP2/SMTP
+- ICAP Adaptation, support HTTP1/HTTP2/IMAP/SMTP
 
 ### Logging
 

@@ -29,7 +29,7 @@ G3 Project 由若干组件构成。
 - TCP/TLS反向代理，基础HTTP反向代理
 - TLS支持OpenSSL / BoringSSL / AWS-LC / Tongsuo, 部分场景支持rustls
 - TLS中间人劫持, 解密流量导出, HTTP1/HTTP2/SMTP协议解析
-- ICAP审计，支持HTTP1/HTTP2/SMTP，无缝集成第三方安全审计/杀毒产品
+- ICAP审计，支持HTTP1/HTTP2/IMAP/SMTP，无缝集成第三方安全审计/杀毒产品
 - 优雅重载 & 热升级
 - 灵活的负载均衡&容灾策略
 - 用户认证，且支持丰富的配置选项

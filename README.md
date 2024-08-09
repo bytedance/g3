@@ -31,7 +31,7 @@ as we have basic support built in.
 - TCP/TLS Stream Proxy, Basic HTTP Reverse Proxy
 - TLS over OpenSSL or BoringSSL or AWS-LC or Tongsuo, and even rustls
 - TLS MITM interception, decrypted traffic dump, HTTP1/HTTP2/SMTP interception
-- ICAP adaptation for HTTP1/HTTP2/SMTP, can integrate seamlessly with 3rd-party security products
+- ICAP adaptation for HTTP1/HTTP2/IMAP/SMTP, can integrate seamlessly with 3rd-party security products
 - Graceful reload
 - Customizable load balancing and failover strategies
 - User Auth, with a rich set of config options

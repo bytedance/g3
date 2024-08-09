@@ -33,7 +33,7 @@ enum ClientAction {
     Loop,
     Logout,
     Idle,
-    SendLiteral(usize),
+    SendLiteral(u64),
 }
 
 pub(super) enum CloseReason {

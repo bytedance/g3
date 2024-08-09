@@ -18,6 +18,9 @@ use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
+use g3_icap_client::reqmod::imap::{
+    ImapMessageAdapter, ReqmodAdaptationEndState, ReqmodAdaptationRunState,
+};
 use g3_imap_proto::command::{Command, ParsedCommand};
 use g3_imap_proto::response::{
     ByeResponse, CommandData, CommandResult, Response, ServerStatus, UntaggedResponse,
@@ -26,13 +29,13 @@ use g3_io_ext::{LimitedCopy, LimitedCopyError, LimitedWriteExt};
 
 use super::{ImapInterceptObject, ImapRelayBuf};
 use crate::config::server::ServerConfig;
-use crate::serve::{ServerTaskError, ServerTaskResult};
+use crate::serve::{ServerIdleChecker, ServerTaskError, ServerTaskResult};
 
 pub(super) enum ResponseAction {
     Loop,
     Close,
-    SendLiteral(usize),
-    RecvClientLiteral(usize),
+    SendLiteral(u64),
+    RecvClientLiteral(u64),
 }
 
 impl<SC> ImapInterceptObject<SC>
@@ -69,7 +72,7 @@ where
 
     pub(super) async fn relay_client_literal<CR, UW>(
         &mut self,
-        literal_size: usize,
+        literal_size: u64,
         clt_r: &mut CR,
         ups_w: &mut UW,
         relay_buf: &mut ImapRelayBuf,
@@ -78,16 +81,52 @@ where
         CR: AsyncRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
-        // TODO check for APPEND
+        let Some(cmd) = self.cmd_pipeline.ongoing_command() else {
+            return Err(ServerTaskError::InternalServerError(
+                "no ongoing IMAP command set while transferring literal data",
+            ));
+        };
+
+        if cmd.parsed == ParsedCommand::Append {
+            if let Some(client) = self.ctx.audit_handle.icap_reqmod_client() {
+                match client
+                    .imap_message_adaptor(
+                        self.ctx.server_config.limited_copy_config(),
+                        self.ctx.idle_checker(),
+                        literal_size,
+                    )
+                    .await
+                {
+                    Ok(adapter) => {
+                        return self
+                            .relay_append_literal_with_adaptation(
+                                literal_size,
+                                clt_r,
+                                ups_w,
+                                relay_buf,
+                                adapter,
+                            )
+                            .await;
+                    }
+                    Err(e) => {
+                        if !client.bypass() {
+                            return Err(ServerTaskError::InternalAdapterError(e));
+                        }
+                    }
+                }
+            }
+        }
 
         relay_buf.cmd_recv_buf.consume_line();
-        let cached = relay_buf.cmd_recv_buf.consume_left(literal_size);
+        let cached = relay_buf
+            .cmd_recv_buf
+            .consume_left(literal_size.min(usize::MAX as u64) as usize);
         ups_w
             .write_all(cached)
             .await
             .map_err(ServerTaskError::UpstreamWriteFailed)?;
-        if literal_size > cached.len() {
-            let mut clt_r = clt_r.take((literal_size - cached.len()) as u64);
+        if literal_size > cached.len() as u64 {
+            let mut clt_r = clt_r.take(literal_size - cached.len() as u64);
 
             let idle_duration = self.ctx.server_config.task_idle_check_duration();
             let mut idle_interval =
@@ -148,6 +187,55 @@ where
             .map_err(ServerTaskError::UpstreamWriteFailed)
     }
 
+    pub(super) async fn relay_append_literal_with_adaptation<CR, UW>(
+        &mut self,
+        literal_size: u64,
+        clt_r: &mut CR,
+        ups_w: &mut UW,
+        relay_buf: &mut ImapRelayBuf,
+        mut adapter: ImapMessageAdapter<ServerIdleChecker>,
+    ) -> ServerTaskResult<()>
+    where
+        CR: AsyncRead + Unpin,
+        UW: AsyncWrite + Unpin,
+    {
+        adapter.set_client_addr(self.ctx.task_notes.client_addr);
+        if let Some(username) = self.ctx.raw_user_name() {
+            adapter.set_client_username(username);
+        }
+
+        relay_buf.cmd_recv_buf.consume_line();
+        let cached = relay_buf
+            .cmd_recv_buf
+            .consume_left(literal_size.min(usize::MAX as u64) as usize);
+
+        let mut adaptation_state = ReqmodAdaptationRunState::new(Instant::now());
+        match adapter
+            .xfer_append(&mut adaptation_state, clt_r, cached, ups_w)
+            .await
+        {
+            Ok(ReqmodAdaptationEndState::OriginalTransferred) => Ok(()),
+            Ok(ReqmodAdaptationEndState::AdaptedTransferred) => Ok(()),
+            Ok(ReqmodAdaptationEndState::HttpErrResponse(rsp, body)) => {
+                if let Some(mut body) = body {
+                    let mut body_reader = body.body_reader();
+                    let mut sinker = tokio::io::sink();
+                    let _ = tokio::io::copy(&mut body_reader, &mut sinker).await;
+                    if body_reader.finished() {
+                        body.save_connection().await;
+                    }
+                }
+                // TODO write bye to client
+                Err(ServerTaskError::InternalAdapterError(anyhow!(
+                    "blocked by icap server: {} - {}",
+                    rsp.status,
+                    rsp.reason
+                )))
+            }
+            Err(e) => Err(e.into()),
+        }
+    }
+
     pub(super) async fn handle_rsp_continue_line<CW>(
         &mut self,
         line: &[u8],
@@ -169,7 +257,7 @@ where
 
     pub(super) async fn relay_server_literal<CW, UR>(
         &mut self,
-        literal_size: usize,
+        literal_size: u64,
         clt_w: &mut CW,
         ups_r: &mut UR,
         relay_buf: &mut ImapRelayBuf,
@@ -179,13 +267,15 @@ where
         UR: AsyncRead + Unpin,
     {
         relay_buf.rsp_recv_buf.consume_line();
-        let cached = relay_buf.rsp_recv_buf.consume_left(literal_size);
+        let cached = relay_buf
+            .rsp_recv_buf
+            .consume_left(literal_size.min(usize::MAX as u64) as usize);
         clt_w
             .write_all(cached)
             .await
             .map_err(ServerTaskError::UpstreamWriteFailed)?;
-        if literal_size > cached.len() {
-            let mut ups_r = ups_r.take((literal_size - cached.len()) as u64);
+        if literal_size > cached.len() as u64 {
+            let mut ups_r = ups_r.take(literal_size - cached.len() as u64);
 
             let idle_duration = self.ctx.server_config.task_idle_check_duration();
             let mut idle_interval =

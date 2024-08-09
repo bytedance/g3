@@ -25,6 +25,7 @@ use g3_ftp_client::FtpConnectError;
 use g3_http::client::HttpResponseParseError;
 use g3_http::server::HttpRequestParseError;
 use g3_icap_client::reqmod::h1::H1ReqmodAdaptationError;
+use g3_icap_client::reqmod::imap::ImapAdaptationError;
 use g3_icap_client::reqmod::smtp::SmtpAdaptationError;
 use g3_icap_client::respmod::h1::H1RespmodAdaptationError;
 use g3_io_ext::{
@@ -432,12 +433,35 @@ impl From<SmtpAdaptationError> for ServerTaskError {
                 ServerTaskError::UpstreamWriteFailed(e)
             }
             SmtpAdaptationError::SmtpClientReadIdle => {
-                ServerTaskError::ClientAppTimeout("idle while reading message")
+                ServerTaskError::ClientAppTimeout("idle while reading smtp mail message")
             }
             SmtpAdaptationError::SmtpUpstreamWriteIdle => {
-                ServerTaskError::UpstreamAppTimeout("idle while writing message")
+                ServerTaskError::UpstreamAppTimeout("idle while writing smtp mail message")
             }
             SmtpAdaptationError::IdleForceQuit(reason) => match reason {
+                IdleForceQuitReason::UserBlocked => ServerTaskError::CanceledAsUserBlocked,
+                IdleForceQuitReason::ServerQuit => ServerTaskError::CanceledAsServerQuit,
+            },
+            e => ServerTaskError::InternalAdapterError(anyhow!("reqmod: {e}")),
+        }
+    }
+}
+
+impl From<ImapAdaptationError> for ServerTaskError {
+    fn from(e: ImapAdaptationError) -> Self {
+        match e {
+            ImapAdaptationError::InternalServerError(s) => ServerTaskError::InternalServerError(s),
+            ImapAdaptationError::ImapClientReadFailed(e) => ServerTaskError::ClientTcpReadFailed(e),
+            ImapAdaptationError::ImapUpstreamWriteFailed(e) => {
+                ServerTaskError::UpstreamWriteFailed(e)
+            }
+            ImapAdaptationError::ImapClientReadIdle => {
+                ServerTaskError::ClientAppTimeout("idle while reading imap mail message")
+            }
+            ImapAdaptationError::ImapUpstreamWriteIdle => {
+                ServerTaskError::UpstreamAppTimeout("idle while writing imap mail message")
+            }
+            ImapAdaptationError::IdleForceQuit(reason) => match reason {
                 IdleForceQuitReason::UserBlocked => ServerTaskError::CanceledAsUserBlocked,
                 IdleForceQuitReason::ServerQuit => ServerTaskError::CanceledAsServerQuit,
             },

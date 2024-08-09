@@ -96,7 +96,7 @@ pub enum ParsedCommand {
 
 #[derive(Clone, Copy)]
 pub struct LiteralArgument {
-    pub size: usize,
+    pub size: u64,
     pub wait_continuation: bool,
 }
 
@@ -105,7 +105,7 @@ impl LiteralArgument {
         if buf.is_empty() {
             return Err(CommandLineError::InvalidLiteralFormat);
         }
-        let (size, offset) = usize::from_radix_10_checked(buf);
+        let (size, offset) = u64::from_radix_10_checked(buf);
         let Some(size) = size else {
             return Err(CommandLineError::InvalidLiteralSize);
         };

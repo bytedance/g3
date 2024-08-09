@@ -28,13 +28,14 @@ use super::{
 use crate::reqmod::IcapReqmodResponsePayload;
 
 mod bidirectional;
+use crate::reqmod::response::ReqmodResponse;
 use bidirectional::{BidirectionalRecvHttpRequest, BidirectionalRecvIcapResponse};
 
 mod recv_request;
 mod recv_response;
 
 impl<I: IdleCheck> ImapMessageAdapter<I> {
-    fn build_forward_all_request(&self, http_header_len: usize, literal_size: u64) -> Vec<u8> {
+    fn build_forward_all_request(&self, http_header_len: usize) -> Vec<u8> {
         let mut header = Vec::with_capacity(self.icap_client.partial_request_header.len() + 64);
         header.extend_from_slice(&self.icap_client.partial_request_header);
         self.push_extended_headers(&mut header);
@@ -43,32 +44,107 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
             "Encapsulated: req-hdr=0, req-body={http_header_len}\r\n",
         );
         header.put_slice(b"\r\n");
-        let _ = write!(header, "{literal_size:x}\r\n");
+        let _ = write!(header, "{:x}\r\n", self.literal_size);
         header
+    }
+
+    pub async fn xfer_append_once<UW>(
+        mut self,
+        state: &mut ReqmodAdaptationRunState,
+        cached: &[u8],
+        ups_w: &mut UW,
+    ) -> Result<ReqmodAdaptationEndState, ImapAdaptationError>
+    where
+        UW: AsyncWrite + Unpin,
+    {
+        let http_header = self.build_http_header();
+        let icap_header = self.build_forward_all_request(http_header.len());
+
+        let icap_w = &mut self.icap_connection.0;
+        icap_w
+            .write_all_vectored([
+                IoSlice::new(&icap_header),
+                IoSlice::new(&http_header),
+                IoSlice::new(cached),
+                IoSlice::new(b"0\r\n\r\n"),
+            ])
+            .await
+            .map_err(ImapAdaptationError::IcapServerWriteFailed)?;
+
+        let rsp = ReqmodResponse::parse(
+            &mut self.icap_connection.1,
+            self.icap_client.config.icap_max_header_size,
+            &self.icap_client.config.respond_shared_names,
+        )
+        .await?;
+
+        match rsp.code {
+            204 | 206 => {
+                return Err(ImapAdaptationError::IcapServerErrorResponse(
+                    rsp.code, rsp.reason,
+                ))
+            }
+            n if (200..300).contains(&n) => {}
+            _ => {
+                return Err(ImapAdaptationError::IcapServerErrorResponse(
+                    rsp.code, rsp.reason,
+                ))
+            }
+        }
+
+        match rsp.payload {
+            IcapReqmodResponsePayload::NoPayload => self.handle_icap_ok_without_payload(rsp).await,
+            IcapReqmodResponsePayload::HttpRequestWithoutBody(header_size) => {
+                self.handle_icap_http_request_without_body(state, rsp, header_size)
+                    .await
+            }
+            IcapReqmodResponsePayload::HttpRequestWithBody(header_size) => {
+                self.handle_icap_http_request_with_body_after_transfer(
+                    state,
+                    rsp,
+                    header_size,
+                    ups_w,
+                )
+                .await
+            }
+            IcapReqmodResponsePayload::HttpResponseWithoutBody(header_size) => self
+                .handle_icap_http_response_without_body(rsp, header_size)
+                .await
+                .map(|rsp| ReqmodAdaptationEndState::HttpErrResponse(rsp, None)),
+            IcapReqmodResponsePayload::HttpResponseWithBody(header_size) => self
+                .handle_icap_http_response_with_body(rsp, header_size)
+                .await
+                .map(|(rsp, body)| ReqmodAdaptationEndState::HttpErrResponse(rsp, Some(body))),
+        }
     }
 
     pub async fn xfer_append_without_preview<CR, UW>(
         mut self,
         state: &mut ReqmodAdaptationRunState,
         clt_r: &mut CR,
-        literal_size: u64,
+        cached: &[u8],
+        read_size: u64,
         ups_w: &mut UW,
     ) -> Result<ReqmodAdaptationEndState, ImapAdaptationError>
     where
         CR: AsyncRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
-        let http_header = self.build_http_header(literal_size);
-        let icap_header = self.build_forward_all_request(http_header.len(), literal_size);
+        let http_header = self.build_http_header();
+        let icap_header = self.build_forward_all_request(http_header.len());
 
         let icap_w = &mut self.icap_connection.0;
         icap_w
-            .write_all_vectored([IoSlice::new(&icap_header), IoSlice::new(&http_header)])
+            .write_all_vectored([
+                IoSlice::new(&icap_header),
+                IoSlice::new(&http_header),
+                IoSlice::new(cached),
+            ])
             .await
             .map_err(ImapAdaptationError::IcapServerWriteFailed)?;
 
         let mut message_reader =
-            BufReader::with_capacity(self.copy_config.buffer_size(), clt_r.take(literal_size));
+            BufReader::with_capacity(self.copy_config.buffer_size(), clt_r.take(read_size));
         let mut body_transfer = LimitedCopy::new(
             &mut message_reader,
             &mut self.icap_connection.0,

@@ -35,7 +35,7 @@ enum ClientAction {
     Logout,
     Auth,
     StartTls,
-    SendLiteral(usize),
+    SendLiteral(u64),
 }
 
 pub(super) enum InitiationStatus {

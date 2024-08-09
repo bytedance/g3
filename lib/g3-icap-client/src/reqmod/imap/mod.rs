@@ -37,10 +37,11 @@ pub use error::ImapAdaptationError;
 mod append;
 
 impl IcapReqmodClient {
-    pub async fn mail_message_adaptor<I: IdleCheck>(
+    pub async fn imap_message_adaptor<I: IdleCheck>(
         &self,
         copy_config: LimitedCopyConfig,
         idle_checker: I,
+        literal_size: u64,
     ) -> anyhow::Result<ImapMessageAdapter<I>> {
         let icap_client = self.inner.clone();
         let (icap_connection, _icap_options) = icap_client.fetch_connection().await?;
@@ -51,6 +52,7 @@ impl IcapReqmodClient {
             idle_checker,
             client_addr: None,
             client_username: None,
+            literal_size,
         })
     }
 }
@@ -87,6 +89,7 @@ pub struct ImapMessageAdapter<I: IdleCheck> {
     idle_checker: I,
     client_addr: Option<SocketAddr>,
     client_username: Option<String>,
+    literal_size: u64,
 }
 
 impl<I: IdleCheck> ImapMessageAdapter<I> {
@@ -98,11 +101,11 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
         self.client_username = Some(user.to_string());
     }
 
-    pub fn build_http_header(&self, literal_size: u64) -> Vec<u8> {
+    pub fn build_http_header(&self) -> Vec<u8> {
         let mut header = Vec::with_capacity(128);
         header.extend_from_slice(b"PUT / HTTP/1.1\r\n");
         header.extend_from_slice(b"Content-Type: message/rfc822\r\n");
-        let _ = write!(header, "X-IMAP-Message-Size: {literal_size}\r\n");
+        let _ = write!(header, "X-IMAP-Message-Size: {}\r\n", self.literal_size);
         header.extend_from_slice(b"\r\n");
         header
     }
@@ -121,16 +124,22 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
         self,
         state: &mut ReqmodAdaptationRunState,
         clt_r: &mut CR,
-        literal_size: u64,
+        cached: &[u8],
         ups_w: &mut UW,
     ) -> Result<ReqmodAdaptationEndState, ImapAdaptationError>
     where
         CR: AsyncRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
-        // TODO support preview?
-        self.xfer_append_without_preview(state, clt_r, literal_size, ups_w)
-            .await
+        if self.literal_size > cached.len() as u64 {
+            // TODO support preview?
+
+            let read_size = self.literal_size - cached.len() as u64;
+            self.xfer_append_without_preview(state, clt_r, cached, read_size, ups_w)
+                .await
+        } else {
+            self.xfer_append_once(state, cached, ups_w).await
+        }
     }
 }
 
