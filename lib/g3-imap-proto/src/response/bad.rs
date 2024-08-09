@@ -30,4 +30,12 @@ impl BadResponse {
         let message = format!("{tag} BAD invalid command\r\n");
         writer.write_all_flush(message.as_bytes()).await
     }
+
+    pub async fn reply_append_blocked<W>(writer: &mut W, tag: &str) -> io::Result<()>
+    where
+        W: AsyncWrite + Unpin,
+    {
+        let message = format!("{tag} BAD the message is blocked\r\n");
+        writer.write_all_flush(message.as_bytes()).await
+    }
 }

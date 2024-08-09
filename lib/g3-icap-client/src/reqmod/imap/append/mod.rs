@@ -25,10 +25,10 @@ use super::{
     HttpAdapterErrorResponse, ImapAdaptationError, ImapMessageAdapter, ReqmodAdaptationEndState,
     ReqmodAdaptationRunState, ReqmodRecvHttpResponseBody,
 };
+use crate::reqmod::response::ReqmodResponse;
 use crate::reqmod::IcapReqmodResponsePayload;
 
 mod bidirectional;
-use crate::reqmod::response::ReqmodResponse;
 use bidirectional::{BidirectionalRecvHttpRequest, BidirectionalRecvIcapResponse};
 
 mod recv_request;

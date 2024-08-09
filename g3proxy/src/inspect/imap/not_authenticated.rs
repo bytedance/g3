@@ -105,7 +105,7 @@ where
                         if let Some(literal) = cmd.literal_arg {
                             self.cmd_pipeline.set_ongoing_command(cmd);
                             if !literal.wait_continuation {
-                                self.relay_client_literal(literal.size, clt_r, ups_w, relay_buf).await?;
+                                self.relay_client_literal(literal.size, clt_r, clt_w, ups_w, relay_buf).await?;
                             }
                         } else {
                             self.cmd_pipeline.insert_completed(cmd);
@@ -136,7 +136,7 @@ where
                                 return Ok(InitiationStatus::ClientClose);
                             }
                             ClientAction::SendLiteral(size) => {
-                                self.relay_client_literal(size, clt_r, ups_w, relay_buf).await?;
+                                self.relay_client_literal(size, clt_r, clt_w, ups_w, relay_buf).await?;
                             }
                             ClientAction::Loop => {}
                         }
@@ -151,7 +151,7 @@ where
                             self.relay_server_literal(size, clt_w, ups_r,  relay_buf).await?;
                         }
                         ResponseAction::RecvClientLiteral(size) => {
-                             self.relay_client_literal(size, clt_r, ups_w, relay_buf).await?;
+                             self.relay_client_literal(size, clt_r, clt_w, ups_w, relay_buf).await?;
                         }
                     }
                 }

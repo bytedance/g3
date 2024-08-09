@@ -23,7 +23,7 @@ use g3_icap_client::reqmod::imap::{
 };
 use g3_imap_proto::command::{Command, ParsedCommand};
 use g3_imap_proto::response::{
-    ByeResponse, CommandData, CommandResult, Response, ServerStatus, UntaggedResponse,
+    BadResponse, ByeResponse, CommandData, CommandResult, Response, ServerStatus, UntaggedResponse,
 };
 use g3_io_ext::{LimitedCopy, LimitedCopyError, LimitedWriteExt};
 
@@ -70,15 +70,17 @@ where
         }
     }
 
-    pub(super) async fn relay_client_literal<CR, UW>(
+    pub(super) async fn relay_client_literal<CR, CW, UW>(
         &mut self,
         literal_size: u64,
         clt_r: &mut CR,
+        clt_w: &mut CW,
         ups_w: &mut UW,
         relay_buf: &mut ImapRelayBuf,
     ) -> ServerTaskResult<()>
     where
         CR: AsyncRead + Unpin,
+        CW: AsyncWrite + Unpin,
         UW: AsyncWrite + Unpin,
     {
         let Some(cmd) = self.cmd_pipeline.ongoing_command() else {
@@ -102,6 +104,7 @@ where
                             .relay_append_literal_with_adaptation(
                                 literal_size,
                                 clt_r,
+                                clt_w,
                                 ups_w,
                                 relay_buf,
                                 adapter,
@@ -187,16 +190,18 @@ where
             .map_err(ServerTaskError::UpstreamWriteFailed)
     }
 
-    pub(super) async fn relay_append_literal_with_adaptation<CR, UW>(
+    pub(super) async fn relay_append_literal_with_adaptation<CR, CW, UW>(
         &mut self,
         literal_size: u64,
         clt_r: &mut CR,
+        clt_w: &mut CW,
         ups_w: &mut UW,
         relay_buf: &mut ImapRelayBuf,
         mut adapter: ImapMessageAdapter<ServerIdleChecker>,
     ) -> ServerTaskResult<()>
     where
         CR: AsyncRead + Unpin,
+        CW: AsyncWrite + Unpin,
         UW: AsyncWrite + Unpin,
     {
         adapter.set_client_addr(self.ctx.task_notes.client_addr);
@@ -225,7 +230,14 @@ where
                         body.save_connection().await;
                     }
                 }
-                // TODO write bye to client
+                if let Some(cmd) = self.cmd_pipeline.ongoing_command() {
+                    if BadResponse::reply_append_blocked(clt_w, &cmd.tag)
+                        .await
+                        .is_ok()
+                    {
+                        let _ = ByeResponse::reply_blocked(clt_w).await;
+                    }
+                }
                 Err(ServerTaskError::InternalAdapterError(anyhow!(
                     "blocked by icap server: {} - {}",
                     rsp.status,
