@@ -117,9 +117,6 @@ impl LiteralArgument {
                 wait_continuation: true,
             });
         } else if offset + 1 == buf.len() && buf[offset] == b'+' {
-            if size > 4096 {
-                return Err(CommandLineError::InvalidLiteralSize);
-            }
             return Ok(LiteralArgument {
                 size,
                 wait_continuation: false,

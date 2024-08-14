@@ -75,11 +75,10 @@ impl Capability {
                 b"CREATE-SPECIAL-USE" | b"SPECIAL-USE" => {} // rfc6154, rev2
                 b"LITERAL+" => {
                     // rfc7888
-                    return if !self.has_non_sync_literal {
+                    if !self.has_non_sync_literal {
                         self.has_non_sync_literal = true;
-                        Some("LITERAL-")
                     } else {
-                        None
+                        return None;
                     };
                 }
                 b"LITERAL-" => {
@@ -136,6 +135,6 @@ mod tests {
     fn literal() {
         let mut cap = Capability::default();
         let s = cap.check_supported("LITERAL+", false).unwrap();
-        assert_eq!(s, "LITERAL-")
+        assert_eq!(s, "LITERAL+")
     }
 }
