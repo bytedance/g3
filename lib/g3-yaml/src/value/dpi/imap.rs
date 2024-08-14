@@ -47,14 +47,12 @@ pub fn as_imap_interception_config(value: &Yaml) -> anyhow::Result<ImapIntercept
                 config.response_line_max_size = crate::value::as_usize(v)?;
                 Ok(())
             }
-            "command_wait_timeout" => {
-                config.command_wait_timeout = crate::humanize::as_duration(v)
-                    .context(format!("invalid humanize duration value for key {k}"))?;
+            "forward_max_idle_count" => {
+                config.forward_max_idle_count = crate::value::as_i32(v)?;
                 Ok(())
             }
-            "response_wait_timeout" => {
-                config.response_wait_timeout = crate::humanize::as_duration(v)
-                    .context(format!("invalid humanize duration value for key {k}"))?;
+            "transfer_max_idle_count" => {
+                config.transfer_max_idle_count = crate::value::as_i32(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

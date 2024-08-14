@@ -163,6 +163,19 @@ Set what we should do with IMAP traffic.
 
 .. versionadded:: 1.9.4
 
+.. _conf_auditor_imap_interception:
+
+imap_interception
+-----------------
+
+**optional**, **type**: :ref:`smtp interception <conf_value_dpi_imap_interception>`
+
+Set the IMAP Interception config options.
+
+**default**: set with default value
+
+.. versionadded:: 1.9.7
+
 icap_reqmod_service
 -------------------
 

@@ -747,3 +747,70 @@ smtp interception
 .. _rfc4468 BURL: https://datatracker.ietf.org/doc/html/rfc4468
 
 .. versionadded:: 1.9.2
+
+.. _conf_value_dpi_imap_interception:
+
+imap interception
+-----------------
+
+* greeting_timeout
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Set the timeout value for the forward of the upstream IMAP Greeting message.
+
+  **default**: 5min
+
+* authenticate_timeout
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Set the total time to wait before the connection enter authenticated state.
+
+  **default**: 5min
+
+* logout_wait_timeout
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Set the timeout value for the forward of the upstream LOGOUT response.
+
+  **default**: 10s
+
+* command_line_max_size
+
+  **optional**, **type**: usize
+
+  Set the max size for a single IMAP command line.
+
+  **default**: 4096
+
+* response_line_max_size
+
+  **optional**, **type**: usize
+
+  Set the max size for a single IMAP response line.
+
+  **default**: 4096
+
+* forward_max_idle_count
+
+  **optional**, **type**: i32
+
+  Set the max IDLE count allowed when forwarding IMAP command/response lines, including IMAP IDLE state.
+
+  The IDLE check interval will be :ref:`task_idle_check_duration <conf_server_common_task_idle_check_duration>`.
+
+  **default**: 6
+
+* transfer_max_idle_count
+
+  **optional**, **type**: i32
+
+  Set the max IDLE count allowed when transferring IMAP command/response literal data.
+
+  The IDLE check interval will be :ref:`task_idle_check_duration <conf_server_common_task_idle_check_duration>`.
+
+  **default**: 1
+
+.. versionadded:: 1.9.7
