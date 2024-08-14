@@ -16,7 +16,7 @@
 
 use std::sync::Arc;
 
-use tokio::io::{AsyncBufRead, AsyncWrite, BufWriter};
+use tokio::io::{AsyncRead, AsyncWrite, BufWriter};
 use tokio::time::Instant;
 
 use g3_http::server::HttpAdaptedRequest;
@@ -42,7 +42,7 @@ impl<'a, I: IdleCheck> BidirectionalRecvIcapResponse<'a, I> {
         mut msg_transfer: &mut LimitedCopy<'_, CR, IcapClientWriter>,
     ) -> Result<ReqmodResponse, ImapAdaptationError>
     where
-        CR: AsyncBufRead + Unpin,
+        CR: AsyncRead + Unpin,
     {
         let idle_duration = self.idle_checker.idle_duration();
         let mut idle_interval =
@@ -58,7 +58,7 @@ impl<'a, I: IdleCheck> BidirectionalRecvIcapResponse<'a, I> {
                         Ok(_) => {
                             msg_transfer
                                 .writer()
-                                .write_all_flush(b"0\r\n\r\n")
+                                .write_all_flush(b"\r\n0\r\n\r\n")
                                 .await
                                 .map_err(ImapAdaptationError::IcapServerWriteFailed)?;
                             self.recv_icap_response().await
@@ -135,7 +135,7 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpRequest<'a, I> {
         ups_writer: &mut UW,
     ) -> Result<ReqmodAdaptationEndState, ImapAdaptationError>
     where
-        CR: AsyncBufRead + Unpin,
+        CR: AsyncRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
         let _http_req = HttpAdaptedRequest::parse(self.icap_reader, http_header_size, true).await?;
@@ -158,7 +158,7 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpRequest<'a, I> {
                         Ok(_) => {
                             clt_msg_transfer
                                 .writer()
-                                .write_all_flush(b"0\r\n\r\n")
+                                .write_all_flush(b"\r\n0\r\n\r\n")
                                 .await
                                 .map_err(ImapAdaptationError::IcapServerWriteFailed)?;
                             match ups_msg_transfer.await {

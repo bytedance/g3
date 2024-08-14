@@ -17,7 +17,7 @@
 use std::io::{IoSlice, Write};
 
 use bytes::BufMut;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 use g3_io_ext::{IdleCheck, LimitedCopy, LimitedWriteExt};
 
@@ -42,8 +42,11 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
             "Encapsulated: req-hdr=0, req-body={http_header_len}\r\n",
         );
         header.put_slice(b"\r\n");
-        let _ = write!(header, "{:x}\r\n", self.literal_size);
         header
+    }
+
+    fn build_chunked_header(&self) -> String {
+        format!("{:x}\r\n", self.literal_size)
     }
 
     pub async fn xfer_append_once<UW>(
@@ -57,14 +60,16 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
     {
         let http_header = self.build_http_header();
         let icap_header = self.build_forward_all_request(http_header.len());
+        let chunked_header = self.build_chunked_header();
 
         let icap_w = &mut self.icap_connection.0;
         icap_w
             .write_all_vectored([
                 IoSlice::new(&icap_header),
                 IoSlice::new(&http_header),
+                IoSlice::new(chunked_header.as_bytes()),
                 IoSlice::new(cached),
-                IoSlice::new(b"0\r\n\r\n"),
+                IoSlice::new(b"\r\n0\r\n\r\n"),
             ])
             .await
             .map_err(ImapAdaptationError::IcapServerWriteFailed)?;
@@ -134,19 +139,20 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
     {
         let http_header = self.build_http_header();
         let icap_header = self.build_forward_all_request(http_header.len());
+        let chunked_header = self.build_chunked_header();
 
         let icap_w = &mut self.icap_connection.0;
         icap_w
             .write_all_vectored([
                 IoSlice::new(&icap_header),
                 IoSlice::new(&http_header),
+                IoSlice::new(chunked_header.as_bytes()),
                 IoSlice::new(cached),
             ])
             .await
             .map_err(ImapAdaptationError::IcapServerWriteFailed)?;
 
-        let mut message_reader =
-            BufReader::with_capacity(self.copy_config.buffer_size(), clt_r.take(read_size));
+        let mut message_reader = clt_r.take(read_size);
         let mut body_transfer = LimitedCopy::new(
             &mut message_reader,
             &mut self.icap_connection.0,
@@ -190,7 +196,7 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
                     let r = bidirectional_transfer
                         .transfer(state, &mut body_transfer, header_size, ups_w)
                         .await?;
-                    if message_reader.get_ref().limit() == 0 {
+                    if message_reader.limit() == 0 {
                         state.clt_read_finished = true;
                     }
                     if icap_keepalive && state.icap_io_finished {

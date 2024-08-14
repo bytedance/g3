@@ -197,7 +197,7 @@ where
                     }
                     ParsedCommand::Login => {
                         if let Some(literal) = cmd.literal_arg {
-                            if literal.wait_continuation {
+                            if !literal.wait_continuation {
                                 action = ClientAction::SendLiteral(literal.size);
                             }
                             self.cmd_pipeline.set_ongoing_command(cmd);
