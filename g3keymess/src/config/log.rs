@@ -27,7 +27,7 @@ static mut TASK_DEFAULT_LOG_CONFIG_CONTAINER: LogConfigContainer = LogConfigCont
 pub(crate) fn load(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
     match v {
         Yaml::String(s) => {
-            let config = LogConfig::default_named(s, crate::build::PKG_NAME)?;
+            let config = LogConfig::with_driver_name(s, crate::build::PKG_NAME)?;
             unsafe {
                 REQUEST_DEFAULT_LOG_CONFIG_CONTAINER.set_default(config.clone());
                 TASK_DEFAULT_LOG_CONFIG_CONTAINER.set_default(config);
@@ -37,7 +37,7 @@ pub(crate) fn load(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
         Yaml::Hash(map) => {
             g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
                 "default" => {
-                    let config = LogConfig::parse(v, conf_dir, crate::build::PKG_NAME)
+                    let config = LogConfig::parse_yaml(v, conf_dir, crate::build::PKG_NAME)
                         .context(format!("invalid value for key {k}"))?;
                     unsafe {
                         REQUEST_DEFAULT_LOG_CONFIG_CONTAINER.set_default(config.clone());
@@ -46,7 +46,7 @@ pub(crate) fn load(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
                     Ok(())
                 }
                 "request" => {
-                    let config = LogConfig::parse(v, conf_dir, crate::build::PKG_NAME)
+                    let config = LogConfig::parse_yaml(v, conf_dir, crate::build::PKG_NAME)
                         .context(format!("invalid value for key {k}"))?;
                     unsafe {
                         REQUEST_DEFAULT_LOG_CONFIG_CONTAINER.set(config);
@@ -54,7 +54,7 @@ pub(crate) fn load(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
                     Ok(())
                 }
                 "task" => {
-                    let config = LogConfig::parse(v, conf_dir, crate::build::PKG_NAME)
+                    let config = LogConfig::parse_yaml(v, conf_dir, crate::build::PKG_NAME)
                         .context(format!("invalid value for key {k}"))?;
                     unsafe {
                         TASK_DEFAULT_LOG_CONFIG_CONTAINER.set(config);

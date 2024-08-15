@@ -49,12 +49,7 @@ where
     let logger = container
         .entry(format!("{log_type}/{logger_name}"))
         .or_insert_with(|| {
-            g3_daemon::log::create_shared_logger(
-                logger_name,
-                crate::opts::daemon_group(),
-                log_type,
-                &config,
-            )
+            config.build_shared_logger(logger_name, crate::opts::daemon_group(), log_type)
         });
     sub_logger(logger)
 }

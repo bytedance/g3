@@ -18,12 +18,16 @@ use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
+use slog::{slog_o, Logger, OwnedKV, SendSyncRefUnwindSafeKV};
 use yaml_rust::Yaml;
 
 use g3_fluentd::FluentdClientConfig;
 #[cfg(target_os = "linux")]
 use g3_journal::JournalConfig;
 use g3_syslog::SyslogBuilder;
+use g3_types::log::AsyncLogConfig;
+
+use super::{LoggerStats, ReportLogIoError};
 
 const DEFAULT_CHANNEL_SIZE: usize = 4096;
 const IO_ERROR_SAMPLING_OFFSET_MAX: usize = 16;
@@ -59,65 +63,65 @@ impl LogConfig {
         }
     }
 
-    pub fn default_named(driver: &str, program_name: &'static str) -> anyhow::Result<Self> {
+    pub fn with_driver_name(driver: &str, program_name: &'static str) -> anyhow::Result<Self> {
         match driver {
-            "discard" => Ok(LogConfig::default_discard(program_name)),
+            "discard" => Ok(LogConfig::new_discard(program_name)),
             #[cfg(target_os = "linux")]
-            "journal" => Ok(LogConfig::default_journal(program_name)),
-            "syslog" => Ok(LogConfig::default_syslog(program_name)),
-            "fluentd" => Ok(LogConfig::default_fluentd(program_name)),
-            "stdout" => Ok(LogConfig::default_stdout(program_name)),
+            "journal" => Ok(LogConfig::new_journal(program_name)),
+            "syslog" => Ok(LogConfig::new_syslog(program_name)),
+            "fluentd" => Ok(LogConfig::new_fluentd(program_name)),
+            "stdout" => Ok(LogConfig::new_stdout(program_name)),
             _ => Err(anyhow!("invalid default log config")),
         }
     }
 
-    pub fn default_discard(program_name: &'static str) -> Self {
+    pub fn new_discard(program_name: &'static str) -> Self {
         Self::with_driver(LogConfigDriver::Discard, program_name)
     }
 
     #[cfg(target_os = "linux")]
-    pub fn default_journal(program_name: &'static str) -> Self {
+    pub fn new_journal(program_name: &'static str) -> Self {
         Self::with_driver(
             LogConfigDriver::Journal(JournalConfig::with_ident(program_name)),
             program_name,
         )
     }
 
-    pub fn default_syslog(program_name: &'static str) -> Self {
+    pub fn new_syslog(program_name: &'static str) -> Self {
         Self::with_driver(
             LogConfigDriver::Syslog(SyslogBuilder::with_ident(program_name)),
             program_name,
         )
     }
 
-    pub fn default_fluentd(program_name: &'static str) -> Self {
+    pub fn new_fluentd(program_name: &'static str) -> Self {
         Self::with_driver(
             LogConfigDriver::Fluentd(Arc::new(FluentdClientConfig::default())),
             program_name,
         )
     }
 
-    pub fn default_stdout(program_name: &'static str) -> Self {
+    pub fn new_stdout(program_name: &'static str) -> Self {
         Self::with_driver(LogConfigDriver::Stdout, program_name)
     }
 
-    pub fn parse(
+    pub fn parse_yaml(
         v: &Yaml,
         conf_dir: &Path,
         program_name: &'static str,
     ) -> anyhow::Result<LogConfig> {
         match v {
             Yaml::String(s) => match s.as_str() {
-                "discard" => Ok(LogConfig::default_discard(program_name)),
+                "discard" => Ok(LogConfig::new_discard(program_name)),
                 #[cfg(target_os = "linux")]
-                "journal" => Ok(LogConfig::default_journal(program_name)),
-                "syslog" => Ok(LogConfig::default_syslog(program_name)),
-                "fluentd" => Ok(LogConfig::default_fluentd(program_name)),
-                "stdout" => Ok(LogConfig::default_stdout(program_name)),
+                "journal" => Ok(LogConfig::new_journal(program_name)),
+                "syslog" => Ok(LogConfig::new_syslog(program_name)),
+                "fluentd" => Ok(LogConfig::new_fluentd(program_name)),
+                "stdout" => Ok(LogConfig::new_stdout(program_name)),
                 _ => Err(anyhow!("invalid log config")),
             },
             Yaml::Hash(map) => {
-                let mut config = LogConfig::default_discard(program_name);
+                let mut config = LogConfig::new_discard(program_name);
                 g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
                     #[cfg(target_os = "linux")]
                     "journal" => {
@@ -166,6 +170,76 @@ impl LogConfig {
                 Ok(config)
             }
             _ => Err(anyhow!("invalid value type")),
+        }
+    }
+
+    pub fn build_shared_logger(
+        self,
+        logger_name: String,
+        daemon_group: &'static str,
+        log_type: &'static str,
+    ) -> Logger {
+        let common_values = slog_o!(
+            "daemon_name" => daemon_group,
+            "log_type" => log_type,
+            "pid" => std::process::id(),
+        );
+        self.build_logger(logger_name, log_type, common_values)
+    }
+
+    pub fn build_logger<T>(
+        self,
+        logger_name: String,
+        log_type: &'static str,
+        common_values: OwnedKV<T>,
+    ) -> Logger
+    where
+        T: SendSyncRefUnwindSafeKV + 'static,
+    {
+        let async_conf = AsyncLogConfig {
+            channel_capacity: self.async_channel_size,
+            thread_number: self.async_thread_number,
+            thread_name: logger_name.clone(),
+        };
+
+        match self.driver {
+            LogConfigDriver::Discard => {
+                let drain = slog::Discard {};
+                Logger::root(drain, common_values)
+            }
+            #[cfg(target_os = "linux")]
+            LogConfigDriver::Journal(journal_conf) => {
+                let drain = g3_journal::new_async_logger(&async_conf, journal_conf);
+                let logger_stats = LoggerStats::new(&logger_name, drain.get_stats());
+                super::registry::add(logger_name.clone(), Arc::new(logger_stats));
+                let drain = ReportLogIoError::new(drain, &logger_name, self.io_err_sampling_mask);
+                Logger::root(drain, common_values)
+            }
+            LogConfigDriver::Syslog(builder) => {
+                let drain = builder.start_async(&async_conf);
+                let logger_stats = LoggerStats::new(&logger_name, drain.get_stats());
+                super::registry::add(logger_name.clone(), Arc::new(logger_stats));
+                let drain = ReportLogIoError::new(drain, &logger_name, self.io_err_sampling_mask);
+                Logger::root(drain, common_values)
+            }
+            LogConfigDriver::Fluentd(fluentd_conf) => {
+                let drain = g3_fluentd::new_async_logger(
+                    &async_conf,
+                    &fluentd_conf,
+                    format!("{}.{log_type}", self.program_name),
+                );
+                let logger_stats = LoggerStats::new(&logger_name, drain.get_stats());
+                super::registry::add(logger_name.clone(), Arc::new(logger_stats));
+                let drain = ReportLogIoError::new(drain, &logger_name, self.io_err_sampling_mask);
+                Logger::root(drain, common_values)
+            }
+            LogConfigDriver::Stdout => {
+                let drain = g3_stdlog::new_async_logger(&async_conf, false, true);
+                let logger_stats = LoggerStats::new(&logger_name, drain.get_stats());
+                super::registry::add(logger_name.clone(), Arc::new(logger_stats));
+                let drain = slog::IgnoreResult::new(drain);
+                Logger::root(drain, common_values)
+            }
         }
     }
 }

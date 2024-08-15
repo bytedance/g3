@@ -32,7 +32,7 @@ pub(crate) fn get_logger(server_name: &MetricsName) -> Logger {
         "pid" => std::process::id(),
         "server_name" => server_name.to_string(),
     );
-    g3_daemon::log::create_logger(&config, logger_name, super::LOG_TYPE_REQUEST, common_values)
+    config.build_logger(logger_name, super::LOG_TYPE_REQUEST, common_values)
 }
 
 pub(crate) fn get_shared_logger(name: &str, server_name: &MetricsName) -> Logger {

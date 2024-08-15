@@ -34,7 +34,7 @@ pub(crate) fn get_logger(escaper_type: &str, escaper_name: &MetricsName) -> Logg
         "escaper_type" => escaper_type.to_string(),
         "escaper_name" => escaper_name.to_string(),
     );
-    g3_daemon::log::create_logger(&config, logger_name, super::LOG_TYPE_ESCAPE, common_values)
+    config.build_logger(logger_name, super::LOG_TYPE_ESCAPE, common_values)
 }
 
 pub(crate) fn get_shared_logger(

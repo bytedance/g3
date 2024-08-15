@@ -26,9 +26,6 @@ pub mod metrics;
 
 mod registry;
 
-mod runtime;
-pub use runtime::{create_logger, create_shared_logger};
-
 mod config;
 pub use config::{LogConfig, LogConfigDriver};
 
@@ -61,7 +58,7 @@ impl LogConfigContainer {
         if let Some(config) = &self.inner {
             config.clone()
         } else {
-            LogConfig::default_discard(program_name)
+            LogConfig::new_discard(program_name)
         }
     }
 }

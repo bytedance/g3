@@ -28,5 +28,5 @@ pub(crate) fn get_logger(resolver_type: &str, resolver_name: &MetricsName) -> Lo
         "resolver_type" => resolver_type.to_string(),
         "resolver_name" => resolver_name.to_string(),
     );
-    g3_daemon::log::create_logger(&config, logger_name, super::LOG_TYPE_RESOLVE, common_values)
+    config.build_logger(logger_name, super::LOG_TYPE_RESOLVE, common_values)
 }

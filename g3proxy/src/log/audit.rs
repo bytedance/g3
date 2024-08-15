@@ -27,5 +27,5 @@ pub(super) fn get_logger(log_type: &'static str, auditor_name: &MetricsName) -> 
         "pid" => std::process::id(),
         "auditor_name" => auditor_name.to_string(),
     );
-    g3_daemon::log::create_logger(&config, logger_name, log_type, common_values)
+    config.build_logger(logger_name, log_type, common_values)
 }
