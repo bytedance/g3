@@ -2,7 +2,7 @@
 runtime:
   thread_number: 2
 
-log: journal
+log: stdout
 
 auditor:
   - name: default

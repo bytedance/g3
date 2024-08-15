@@ -45,6 +45,12 @@ pub fn create_logger<T>(
 where
     T: SendSyncRefUnwindSafeKV + 'static,
 {
+    let async_conf = AsyncLogConfig {
+        channel_capacity: config.async_channel_size,
+        thread_number: config.async_thread_number,
+        thread_name: logger_name.clone(),
+    };
+
     match config.driver.clone() {
         LogConfigDriver::Discard => {
             let drain = slog::Discard {};
@@ -52,11 +58,6 @@ where
         }
         #[cfg(target_os = "linux")]
         LogConfigDriver::Journal(journal_conf) => {
-            let async_conf = AsyncLogConfig {
-                channel_capacity: config.async_channel_size,
-                thread_number: config.async_thread_number,
-                thread_name: logger_name.clone(),
-            };
             let drain = g3_journal::new_async_logger(&async_conf, journal_conf);
             let logger_stats = LoggerStats::new(&logger_name, drain.get_stats());
             super::registry::add(logger_name.clone(), Arc::new(logger_stats));
@@ -64,11 +65,6 @@ where
             Logger::root(drain, common_values)
         }
         LogConfigDriver::Syslog(builder) => {
-            let async_conf = AsyncLogConfig {
-                channel_capacity: config.async_channel_size,
-                thread_number: config.async_thread_number,
-                thread_name: logger_name.clone(),
-            };
             let drain = builder.start_async(&async_conf);
             let logger_stats = LoggerStats::new(&logger_name, drain.get_stats());
             super::registry::add(logger_name.clone(), Arc::new(logger_stats));
@@ -76,11 +72,6 @@ where
             Logger::root(drain, common_values)
         }
         LogConfigDriver::Fluentd(fluentd_conf) => {
-            let async_conf = AsyncLogConfig {
-                channel_capacity: config.async_channel_size,
-                thread_number: config.async_thread_number,
-                thread_name: logger_name.clone(),
-            };
             let drain = g3_fluentd::new_async_logger(
                 &async_conf,
                 &fluentd_conf,
@@ -89,6 +80,13 @@ where
             let logger_stats = LoggerStats::new(&logger_name, drain.get_stats());
             super::registry::add(logger_name.clone(), Arc::new(logger_stats));
             let drain = ReportLogIoError::new(drain, &logger_name, config.io_err_sampling_mask);
+            Logger::root(drain, common_values)
+        }
+        LogConfigDriver::Stdout => {
+            let drain = g3_stdlog::new_async_logger(&async_conf, false, true);
+            let logger_stats = LoggerStats::new(&logger_name, drain.get_stats());
+            super::registry::add(logger_name.clone(), Arc::new(logger_stats));
+            let drain = slog::IgnoreResult::new(drain);
             Logger::root(drain, common_values)
         }
     }

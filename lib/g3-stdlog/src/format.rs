@@ -63,6 +63,8 @@ impl AsyncLogFormatter<StdLogValue> for StdLogFormatter {
         logger_values.serialize(record, &mut kv_formatter)?;
         record.kv().serialize(record, &mut kv_formatter)?;
 
+        kv_pairs.sort();
+
         Ok(StdLogValue {
             level: record.level(),
             message: record.msg().to_string(),
