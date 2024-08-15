@@ -24,6 +24,12 @@ The value could be a simple string, which is the driver name, such as
 
   send logs to syslogd directly.
 
+- stdout
+
+  send logs to stdout.
+
+  .. versionadded:: 0.3.5
+
 In such case, a default driver is used as default log config for all loggers.
 
 The value could be a map, with the following keys:

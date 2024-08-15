@@ -27,14 +27,7 @@ static mut TASK_DEFAULT_LOG_CONFIG_CONTAINER: LogConfigContainer = LogConfigCont
 pub(crate) fn load(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
     match v {
         Yaml::String(s) => {
-            let config = match s.as_str() {
-                "discard" => LogConfig::default_discard(crate::build::PKG_NAME),
-                #[cfg(target_os = "linux")]
-                "journal" => LogConfig::default_journal(crate::build::PKG_NAME),
-                "syslog" => LogConfig::default_syslog(crate::build::PKG_NAME),
-                "fluentd" => LogConfig::default_fluentd(crate::build::PKG_NAME),
-                _ => return Err(anyhow!("invalid default log config")),
-            };
+            let config = LogConfig::default_named(s, crate::build::PKG_NAME)?;
             unsafe {
                 REQUEST_DEFAULT_LOG_CONFIG_CONTAINER.set_default(config.clone());
                 TASK_DEFAULT_LOG_CONFIG_CONTAINER.set_default(config);

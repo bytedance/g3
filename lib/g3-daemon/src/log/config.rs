@@ -36,6 +36,7 @@ pub enum LogConfigDriver {
     Journal(JournalConfig),
     Syslog(SyslogBuilder),
     Fluentd(Arc<FluentdClientConfig>),
+    Stdout,
 }
 
 #[derive(Clone)]
@@ -55,6 +56,18 @@ impl LogConfig {
             async_thread_number: 1,
             io_err_sampling_mask: (1 << IO_ERROR_SAMPLING_OFFSET_DEFAULT) - 1,
             program_name,
+        }
+    }
+
+    pub fn default_named(driver: &str, program_name: &'static str) -> anyhow::Result<Self> {
+        match driver {
+            "discard" => Ok(LogConfig::default_discard(program_name)),
+            #[cfg(target_os = "linux")]
+            "journal" => Ok(LogConfig::default_journal(program_name)),
+            "syslog" => Ok(LogConfig::default_syslog(program_name)),
+            "fluentd" => Ok(LogConfig::default_fluentd(program_name)),
+            "stdout" => Ok(LogConfig::default_stdout(program_name)),
+            _ => Err(anyhow!("invalid default log config")),
         }
     }
 
@@ -84,6 +97,10 @@ impl LogConfig {
         )
     }
 
+    pub fn default_stdout(program_name: &'static str) -> Self {
+        Self::with_driver(LogConfigDriver::Stdout, program_name)
+    }
+
     pub fn parse(
         v: &Yaml,
         conf_dir: &Path,
@@ -96,6 +113,7 @@ impl LogConfig {
                 "journal" => Ok(LogConfig::default_journal(program_name)),
                 "syslog" => Ok(LogConfig::default_syslog(program_name)),
                 "fluentd" => Ok(LogConfig::default_fluentd(program_name)),
+                "stdout" => Ok(LogConfig::default_stdout(program_name)),
                 _ => Err(anyhow!("invalid log config")),
             },
             Yaml::Hash(map) => {

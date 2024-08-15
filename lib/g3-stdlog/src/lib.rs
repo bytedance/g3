@@ -36,9 +36,20 @@ pub struct StdLogValue {
     location: Option<String>,
 }
 
+impl StdLogValue {
+    fn message_str(&self) -> &str {
+        if self.message.is_empty() {
+            "()"
+        } else {
+            &self.message
+        }
+    }
+}
+
 pub fn new_async_logger(
     async_conf: &AsyncLogConfig,
     append_code_position: bool,
+    use_stdout: bool,
 ) -> AsyncLogger<StdLogValue, StdLogFormatter> {
     let (sender, receiver) = flume::bounded::<StdLogValue>(async_conf.channel_capacity);
 
@@ -52,7 +63,11 @@ pub fn new_async_logger(
     let _detached_thread = std::thread::Builder::new()
         .name(async_conf.thread_name.clone())
         .spawn(move || {
-            io_thread.run_to_end();
+            if use_stdout {
+                io_thread.run_with_stdout();
+            } else {
+                io_thread.run_with_stderr();
+            }
         });
 
     AsyncLogger::new(sender, StdLogFormatter::new(append_code_position), stats)
@@ -71,12 +86,21 @@ impl AsyncIoThread {
         Ok(())
     }
 
-    fn run_to_end(self) {
+    fn run_with_stderr(self) {
         let stderr = io::stderr();
         if stderr.is_terminal() {
             self.run_console(stderr)
         } else {
             self.run_plain(stderr)
+        }
+    }
+
+    fn run_with_stdout(self) {
+        let stdout = io::stdout();
+        if stdout.is_terminal() {
+            self.run_console(stdout)
+        } else {
+            self.run_plain(stdout)
         }
     }
 
@@ -99,12 +123,13 @@ impl AsyncIoThread {
 
     fn write_plain<IO: Write>(&self, io: &mut IO, v: StdLogValue) -> io::Result<()> {
         self.write_time(io)?;
-        write!(io, " {} {}", v.level, v.message)?;
+        write!(io, " {}", v.level)?;
+        for (k, v) in &v.kv_pairs {
+            write!(io, " {k}: {v},")?;
+        }
+        write!(io, " {}", v.message_str())?;
         if let Some(location) = v.location {
             write!(io, " <{location}>")?;
-        }
-        for (k, v) in v.kv_pairs {
-            write!(io, ", {k}: {v}")?;
         }
         writeln!(io)?;
         io.flush()?;
@@ -154,16 +179,17 @@ impl AsyncIoThread {
         };
         write!(
             io,
-            " {}{}{} {bold_s}{}{bold_e}",
+            " {}{}{}",
             level_color.render(),
             v.level,
             level_color.render_reset(),
-            v.message,
         )?;
 
-        for (k, v) in v.kv_pairs {
-            write!(io, ", {bold_s}{k}{bold_e}={v}")?;
+        for (k, v) in &v.kv_pairs {
+            write!(io, " {bold_s}{k}{bold_e}={v},")?;
         }
+
+        write!(io, " {bold_s}{}{bold_e}", v.message_str())?;
 
         if let Some(location) = v.location {
             write!(

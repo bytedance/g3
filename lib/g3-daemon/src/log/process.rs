@@ -44,7 +44,7 @@ pub fn setup(args: &DaemonArgs) {
             g3_syslog::SyslogBuilder::with_ident(args.process_name).start_async(&async_conf);
         Logger::root(drain.fuse(), slog_o!())
     } else {
-        let drain = g3_stdlog::new_async_logger(&async_conf, true);
+        let drain = g3_stdlog::new_async_logger(&async_conf, true, false);
         Logger::root(drain.fuse(), slog_o!())
     };
 
