@@ -40,8 +40,6 @@ pub(crate) enum H2InterceptionError {
     UpstreamConnectionClosed(h2::Error),
     #[error("upstream connection disconnected")]
     UpstreamConnectionDisconnected,
-    #[error("upstream connection finished")]
-    UpstreamConnectionFinished,
     #[error("client connection blocked")]
     ClientConnectionBlocked,
     #[error("client connection closed: {0}")]

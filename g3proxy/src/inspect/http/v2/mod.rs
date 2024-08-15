@@ -255,7 +255,7 @@ where
                         Ok(_) => {
                             server_graceful_shutdown(h2c).await;
 
-                            Err(H2InterceptionError::UpstreamConnectionFinished)
+                            Ok(())
                         }
                         Err(e) => {
                             server_graceful_shutdown(h2c).await;
