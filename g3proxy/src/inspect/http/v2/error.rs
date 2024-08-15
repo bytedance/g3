@@ -44,10 +44,6 @@ pub(crate) enum H2InterceptionError {
     ClientConnectionBlocked,
     #[error("client connection closed: {0}")]
     ClientConnectionClosed(h2::Error),
-    #[error("client connection disconnected")]
-    ClientConnectionDisconnected,
-    #[error("client connection finished")]
-    ClientConnectionFinished,
     #[error("canceled as user blocked")]
     CanceledAsUserBlocked,
     #[error("canceled as server quit")]

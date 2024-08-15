@@ -290,7 +290,7 @@ where
 
                             if let Some(e) = e.get_io() {
                                 if e.kind() == std::io::ErrorKind::NotConnected {
-                                    return Err(H2InterceptionError::ClientConnectionDisconnected);
+                                    return Ok(());
                                 }
                             }
                             return Err(H2InterceptionError::ClientConnectionClosed(e));
@@ -301,7 +301,7 @@ where
                             // TODO add timeout
                             let _ = h2s_connection.await;
 
-                            return Err(H2InterceptionError::ClientConnectionFinished);
+                            return Ok(());
                         }
                     }
                 }
