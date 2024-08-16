@@ -168,7 +168,7 @@ capnp-rpc = "0.19"
 capnp = "0.19"
 capnpc = "0.19"
 #
-libc = "0.2.147"
+libc = "0.2.156"
 rustix = { version = "0.38", default-features = false }
 gethostname = "0.5"
 #
