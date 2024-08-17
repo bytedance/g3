@@ -40,11 +40,11 @@ impl Default for CertAgentConfig {
     fn default() -> Self {
         CertAgentConfig {
             cache_request_batch_count: 10,
-            cache_request_timeout: Duration::from_millis(800),
+            cache_request_timeout: Duration::from_secs(4),
             cache_vanish_wait: Duration::from_secs(300),
             query_peer_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 2999),
             query_socket_buffer: SocketBufferConfig::default(),
-            query_wait_timeout: Duration::from_millis(400),
+            query_wait_timeout: Duration::from_secs(4),
             protective_cache_ttl: 10,
             maximum_cache_ttl: 300,
         }

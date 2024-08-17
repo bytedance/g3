@@ -301,7 +301,7 @@ The keys are:
 
   Set the timeout for the cache runtime to wait response from the query runtime.
 
-  **default**: 400ms
+  **default**: 4s
 
 .. _conf_value_dpi_tls_cert_agent_protective_cache_ttl:
 
@@ -335,7 +335,7 @@ The keys are:
 
   Set the request timeout for the caller.
 
-  **default**: 800ms
+  **default**: 4s
 
 .. _conf_value_dpi_tls_cert_agent_cache_vanish_wait:
 
