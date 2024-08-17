@@ -24,7 +24,6 @@ use g3_types::net::{TlsCertUsage, TlsServiceType};
 
 use super::{CacheQueryKey, FakeCertPair};
 
-#[derive(Clone)]
 pub struct CertAgentHandle {
     inner: EffectiveCacheHandle<CacheQueryKey, FakeCertPair>,
     request_timeout: Duration,

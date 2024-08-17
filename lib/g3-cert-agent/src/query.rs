@@ -23,7 +23,7 @@ use std::task::{Context, Poll};
 use std::time::Duration;
 
 use anyhow::anyhow;
-use log::warn;
+use log::{debug, warn};
 use tokio::io::ReadBuf;
 use tokio::net::UdpSocket;
 
@@ -72,7 +72,10 @@ impl QueryRuntime {
         {
             match req.encode() {
                 Ok(buf) => self.write_queue.push_back((req, buf)),
-                Err(_) => self.send_empty_result(req, false),
+                Err(e) => {
+                    warn!("failed to encode cert generate request ro msgpack: {e}");
+                    self.send_empty_result(req, false)
+                }
             }
         }
     }
@@ -127,7 +130,10 @@ impl QueryRuntime {
                         break;
                     }
                     Poll::Ready(Ok(_)) => {}
-                    Poll::Ready(Err(_)) => self.send_empty_result(req_key, false),
+                    Poll::Ready(Err(e)) => {
+                        debug!("failed to send out cert generate request: {e}");
+                        self.send_empty_result(req_key, false)
+                    }
                 }
             }
 
@@ -136,7 +142,10 @@ impl QueryRuntime {
                 match self.query_handle.poll_query_expired(cx) {
                     Poll::Pending => break,
                     Poll::Ready(None) => break,
-                    Poll::Ready(Some(t)) => self.send_empty_result(t, true),
+                    Poll::Ready(Some(t)) => {
+                        debug!("cert generation query timeout for {}", t.index.host);
+                        self.send_empty_result(t, true)
+                    }
                 }
             }
 

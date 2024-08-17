@@ -75,7 +75,7 @@ impl CacheQueryKey {
         self.mimic_cert = Some(cert);
     }
 
-    fn encode(&self) -> Result<Vec<u8>, ()> {
+    fn encode(&self) -> Result<Vec<u8>, rmpv::encode::Error> {
         use rmpv::ValueRef;
 
         let mut map = Vec::with_capacity(4);
@@ -98,12 +98,12 @@ impl CacheQueryKey {
                     ValueRef::Binary(&der),
                 ));
                 let mut buf = Vec::with_capacity(320 + der.len());
-                rmpv::encode::write_value_ref(&mut buf, &ValueRef::Map(map)).map_err(|_| ())?;
+                rmpv::encode::write_value_ref(&mut buf, &ValueRef::Map(map))?;
                 return Ok(buf);
             };
         }
         let mut buf = Vec::with_capacity(320);
-        rmpv::encode::write_value_ref(&mut buf, &ValueRef::Map(map)).map_err(|_| ())?;
+        rmpv::encode::write_value_ref(&mut buf, &ValueRef::Map(map))?;
         Ok(buf)
     }
 }

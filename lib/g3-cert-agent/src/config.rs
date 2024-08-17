@@ -17,7 +17,7 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use tokio::net::UdpSocket;
 
 use g3_types::net::SocketBufferConfig;
@@ -85,8 +85,6 @@ impl CertAgentConfig {
     }
 
     pub fn spawn_cert_agent(&self) -> anyhow::Result<CertAgentHandle> {
-        use anyhow::Context;
-
         let socket = g3_socket::udp::new_std_socket_to(
             self.query_peer_addr,
             None,
