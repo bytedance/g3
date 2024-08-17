@@ -122,7 +122,7 @@ The keys are:
 
   Set the timeout for the cache runtime to wait response from the query runtime.
 
-  **default**: 100ms
+  **default**: 1s
 
 .. _conf_value_ip_locate_service_default_expire_ttl:
 
@@ -156,7 +156,7 @@ The keys are:
 
   Set the request timeout for the caller.
 
-  **default**: 800ms
+  **default**: 2s
 
 For *str* value, it will parsed as *query_peer_addr* and use default value for other fields.
 

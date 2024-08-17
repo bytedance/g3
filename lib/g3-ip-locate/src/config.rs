@@ -39,10 +39,10 @@ impl Default for IpLocateServiceConfig {
     fn default() -> Self {
         IpLocateServiceConfig {
             cache_request_batch_count: 10,
-            cache_request_timeout: Duration::from_millis(800),
+            cache_request_timeout: Duration::from_secs(2),
             query_peer_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 2888),
             query_socket_buffer: SocketBufferConfig::default(),
-            query_wait_timeout: Duration::from_millis(100),
+            query_wait_timeout: Duration::from_secs(1),
             default_expire_ttl: 10,
             maximum_expire_ttl: 300,
         }
