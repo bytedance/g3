@@ -17,7 +17,7 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use ::log::warn;
+use ::log::{debug, warn};
 use anyhow::{anyhow, Context};
 use tokio::runtime::Handle;
 use tokio::time::Instant;
@@ -135,7 +135,9 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
                                 frontend_stats.add_response_total();
                                 match frontend.send_rsp(buf.as_slice(), rsp.peer).await {
                                     Ok(_) => {
-                                        let _ = duration_recorder.record(rsp.duration());
+                                        let duration_nanos = rsp.duration();
+                                        debug!("{} - duration: {}ns, rsp size: {}", rsp.user_req.host(), duration_nanos, buf.len());
+                                        let _ = duration_recorder.record(duration_nanos);
                                     }
                                     Err(e) => {
                                         frontend_stats.add_response_fail();
