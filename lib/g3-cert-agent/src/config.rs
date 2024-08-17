@@ -98,14 +98,23 @@ impl CertAgentConfig {
                 self.query_peer_addr
             )
         })?;
-        let socket = UdpSocket::from_std(socket).context("failed to setup udp socket")?;
 
         let (cache_runtime, cache_handle, query_handle) =
-            g3_io_ext::spawn_effective_cache(self.cache_request_batch_count);
-        let query_runtime = QueryRuntime::new(self, socket, query_handle);
+            g3_io_ext::create_effective_cache(self.cache_request_batch_count);
 
-        tokio::spawn(query_runtime);
-        tokio::spawn(cache_runtime);
+        if let Some(rt) = crate::get_cert_generate_rt_handle() {
+            let config = self.clone();
+            rt.spawn(async move {
+                let socket = UdpSocket::from_std(socket).expect("failed to setup udp socket");
+                QueryRuntime::new(&config, socket, query_handle).await
+            });
+            rt.spawn(cache_runtime);
+        } else {
+            let socket = UdpSocket::from_std(socket).context("failed to setup udp socket")?;
+            let query_runtime = QueryRuntime::new(self, socket, query_handle);
+            tokio::spawn(query_runtime);
+            tokio::spawn(cache_runtime);
+        }
 
         Ok(CertAgentHandle::new(
             cache_handle,

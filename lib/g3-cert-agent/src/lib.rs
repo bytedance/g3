@@ -42,6 +42,9 @@ pub use config::CertAgentConfig;
 mod handle;
 pub use handle::CertAgentHandle;
 
+mod runtime;
+pub use runtime::*;
+
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
 struct CacheIndexKey {
     service: TlsServiceType,

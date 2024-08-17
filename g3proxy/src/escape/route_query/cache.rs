@@ -122,7 +122,7 @@ pub(super) async fn spawn(config: &Arc<RouteQueryEscaperConfig>) -> anyhow::Resu
     let socket = UdpSocket::from_std(socket).context("failed to setup udp socket")?;
 
     let (cache_runtime, cache_handle, query_handle) =
-        g3_io_ext::spawn_effective_cache(config.cache_request_batch_count);
+        g3_io_ext::create_effective_cache(config.cache_request_batch_count);
     let query_runtime = QueryRuntime::new(config, socket, query_handle);
 
     tokio::spawn(query_runtime);
