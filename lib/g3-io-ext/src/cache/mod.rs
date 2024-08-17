@@ -72,7 +72,7 @@ pub struct CacheQueryRequest<K, R> {
     notifier: oneshot::Sender<Arc<EffectiveCacheData<R>>>,
 }
 
-pub fn spawn_effective_cache<K: Hash + Eq, R: Send + Sync>(
+pub fn create_effective_cache<K: Hash + Eq, R: Send + Sync>(
     request_batch_handle_count: usize,
 ) -> (
     EffectiveCacheRuntime<K, R>,

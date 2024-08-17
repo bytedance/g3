@@ -94,13 +94,21 @@ impl IpLocateServiceConfig {
                 self.query_peer_addr
             )
         })?;
-        let socket = UdpSocket::from_std(socket).context("failed to setup udp socket")?;
 
-        let (cache_runtime, cache_handle, query_handle) = super::spawn_ip_location_cache(self);
-        let query_runtime = IpLocationQueryRuntime::new(self, socket, query_handle);
-
-        tokio::spawn(query_runtime);
-        tokio::spawn(cache_runtime);
+        let (cache_runtime, cache_handle, query_handle) = super::crate_ip_location_cache(self);
+        if let Some(rt) = crate::get_ip_locate_rt_handle() {
+            let config = self.clone();
+            rt.spawn(async move {
+                let socket = UdpSocket::from_std(socket).expect("failed to setup udp socket");
+                IpLocationQueryRuntime::new(&config, socket, query_handle).await
+            });
+            rt.spawn(cache_runtime);
+        } else {
+            let socket = UdpSocket::from_std(socket).context("failed to setup udp socket")?;
+            let query_runtime = IpLocationQueryRuntime::new(self, socket, query_handle);
+            tokio::spawn(query_runtime);
+            tokio::spawn(cache_runtime);
+        }
 
         Ok(IpLocationServiceHandle::new(
             cache_handle,

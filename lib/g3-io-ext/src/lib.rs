@@ -21,7 +21,7 @@ mod listen;
 mod udp;
 
 pub use cache::{
-    spawn_effective_cache, EffectiveCacheData, EffectiveCacheHandle, EffectiveCacheRuntime,
+    create_effective_cache, EffectiveCacheData, EffectiveCacheHandle, EffectiveCacheRuntime,
     EffectiveQueryHandle,
 };
 pub use io::*;

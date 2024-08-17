@@ -45,6 +45,9 @@ pub use request::Request;
 mod response;
 pub use response::Response;
 
+mod runtime;
+pub use runtime::*;
+
 struct CacheQueryRequest {
     ip: IpAddr,
     notifier: oneshot::Sender<Arc<IpLocation>>,
@@ -79,7 +82,7 @@ impl IpLocationCacheResponse {
     }
 }
 
-fn spawn_ip_location_cache(
+fn crate_ip_location_cache(
     config: &IpLocateServiceConfig,
 ) -> (
     IpLocationCacheRuntime,
