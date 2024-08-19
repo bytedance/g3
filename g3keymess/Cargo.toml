@@ -43,7 +43,7 @@ g3-openssl.workspace = true
 g3keymess-proto = { path = "proto" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-inotify = "0.10"
+inotify = "0.11"
 
 [build-dependencies]
 g3-build-env.workspace = true
