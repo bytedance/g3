@@ -161,18 +161,17 @@ impl OpensslBackend {
                         };
 
                         let host = req.user_req.host();
+                        debug!("{host} - [#{id}] start cert generation");
                         match self.generate(&req.user_req) {
                             Ok(data) => {
-                                debug!("Worker#{id} got certificate for host {host}");
+                                debug!("{host} - [#{id}] cert generated");
                                 if let Err(e) = rsp_sender.send_async(req.into_response(data)).await {
-                                    error!(
-                                        "Worker#{id} failed to send certificate for host {host} to frontend: {e}"
-                                    );
+                                    error!("{host} - [#{id}] failed to send cert to frontend: {e}");
                                     break;
                                 }
                             }
                             Err(e) => {
-                                warn!("Worker#{id} generate for {host} failed: {e:?}");
+                                warn!("{host} - [#{id}] cert generation failed: {e:?}");
                             }
                         }
                     }
