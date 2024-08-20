@@ -1,7 +1,7 @@
 FROM nickblah/lua:5.4-luarocks-alpine AS lua
 RUN apk add --no-cache build-base
 # install lua modules here.
-# this one is just an example.
+# dkjson is just an example.
 # beware: lua's c modules (e.g. cjson),
 # they need to be statically linked
 # and won't work when installing in
