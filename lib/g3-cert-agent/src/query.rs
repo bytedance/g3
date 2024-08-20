@@ -107,17 +107,19 @@ impl QueryRuntime {
     fn poll_loop(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         loop {
             // handle rsp
-            let mut buf = ReadBuf::new(&mut self.read_buffer);
-            match self.socket.poll_recv(cx, &mut buf) {
-                Poll::Pending => {}
-                Poll::Ready(Err(e)) => {
-                    warn!("socket recv error: {e:?}");
-                    return Poll::Ready(Err(e));
-                }
-                Poll::Ready(Ok(_)) => {
-                    let len = buf.filled().len();
-                    if len > 0 {
-                        self.handle_rsp(len);
+            loop {
+                let mut buf = ReadBuf::new(&mut self.read_buffer);
+                match self.socket.poll_recv(cx, &mut buf) {
+                    Poll::Pending => break,
+                    Poll::Ready(Err(e)) => {
+                        warn!("socket recv error: {e:?}");
+                        return Poll::Ready(Err(e));
+                    }
+                    Poll::Ready(Ok(_)) => {
+                        let len = buf.filled().len();
+                        if len > 0 {
+                            self.handle_rsp(len);
+                        }
                     }
                 }
             }
@@ -132,7 +134,7 @@ impl QueryRuntime {
                     Poll::Ready(Ok(_)) => {}
                     Poll::Ready(Err(e)) => {
                         debug!("failed to send out cert generate request: {e}");
-                        self.send_empty_result(req_key, false)
+                        self.send_empty_result(req_key, false);
                     }
                 }
             }
