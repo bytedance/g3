@@ -203,17 +203,16 @@ impl QueryRuntime {
     fn poll_loop(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         loop {
             // handle rsp
-            loop {
-                let mut buf = ReadBuf::new(&mut self.read_buffer);
-                match self.socket.poll_recv(cx, &mut buf) {
-                    Poll::Pending => break,
-                    Poll::Ready(Err(e)) => return Poll::Ready(Err(e)), // TODO handle error
-                    Poll::Ready(Ok(_)) => {
-                        let len = buf.filled().len();
-                        if len > 0 {
-                            self.handle_rsp(len);
-                        }
+            let mut buf = ReadBuf::new(&mut self.read_buffer);
+            match self.socket.poll_recv(cx, &mut buf) {
+                Poll::Pending => {}
+                Poll::Ready(Err(e)) => return Poll::Ready(Err(e)), // TODO handle error
+                Poll::Ready(Ok(_)) => {
+                    let len = buf.filled().len();
+                    if len > 0 {
+                        self.handle_rsp(len);
                     }
+                    continue;
                 }
             }
 
