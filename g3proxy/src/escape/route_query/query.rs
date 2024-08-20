@@ -212,6 +212,7 @@ impl QueryRuntime {
                     if len > 0 {
                         self.handle_rsp(len);
                     }
+                    continue;
                 }
             }
 
