@@ -163,6 +163,7 @@ where
 
             self.req_id += 1;
             match r {
+                HttpRecvRequest::ClientConnectionClosed => return Ok(None),
                 HttpRecvRequest::ClientConnectionError(e) => return Err(e),
                 HttpRecvRequest::ClientRequestError(e) => {
                     if let Some(rsp) =
