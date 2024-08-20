@@ -17,8 +17,8 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use ::log::{debug, warn};
 use anyhow::{anyhow, Context};
+use log::{debug, warn};
 use tokio::runtime::Handle;
 use tokio::time::Instant;
 
@@ -114,6 +114,7 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
                 match r {
                     Ok((len, peer)) => match Request::parse_req(&rcv_buf[0..len]) {
                         Ok(user_req) => {
+                            debug!("{} - request received", user_req.host());
                             let req = BackendRequest {user_req, peer, recv_time};
                             if let Err(e) = req_sender.send_async(req).await {
                                 return Err(anyhow!("failed to send request to backend: {e}"));

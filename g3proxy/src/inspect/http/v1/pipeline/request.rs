@@ -35,6 +35,7 @@ pub(crate) struct HttpRequest {
 }
 
 pub(crate) enum HttpRecvRequest<R: AsyncRead> {
+    ClientConnectionClosed,
     ClientConnectionError(H1InterceptionError),
     ClientRequestError(HttpRequestParseError),
     RequestWithIO(
@@ -117,10 +118,9 @@ where
                 {
                     Ok(Ok(true)) => {}
                     Ok(Ok(false)) => {
-                        let connection_error = H1InterceptionError::ClosedByClient;
                         let _ = self
                             .send_request
-                            .send(HttpRecvRequest::ClientConnectionError(connection_error))
+                            .send(HttpRecvRequest::ClientConnectionClosed)
                             .await;
                         break;
                     }

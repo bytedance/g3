@@ -119,6 +119,7 @@ impl QueryRuntime {
                     if len > 0 {
                         self.handle_rsp(len);
                     }
+                    continue;
                 }
             }
 
@@ -132,7 +133,7 @@ impl QueryRuntime {
                     Poll::Ready(Ok(_)) => {}
                     Poll::Ready(Err(e)) => {
                         debug!("failed to send out cert generate request: {e}");
-                        self.send_empty_result(req_key, false)
+                        self.send_empty_result(req_key, false);
                     }
                 }
             }
