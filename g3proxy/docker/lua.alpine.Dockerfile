@@ -4,8 +4,8 @@ RUN apk add --no-cache build-base
 # this one is just an example.
 # beware: lua's c modules (e.g. cjson),
 # they need to be statically linked
-# and won't work when installing like this.
-# this is because alpine uses musl libc.
+# and won't work when installing in
+# alpine, because alpine uses musl libc.
 RUN luarocks install dkjson
 
 FROM rust:alpine AS builder
