@@ -15,7 +15,7 @@ RUN apk add --no-cache musl-dev cmake capnproto-dev openssl-dev openssl-libs-sta
 ENV PKG_CONFIG_PATH=/usr/lib/pkgconfig
 RUN cargo build --profile release-lto \
  --no-default-features --features quic,c-ares,hickory,lua54 \
- -p g3proxy -p g3proxy-ctl
+ -p g3proxy -p g3proxy-ctl -p g3proxy-lua
 
 FROM alpine:latest
 RUN apk add --no-cache ca-certificates
