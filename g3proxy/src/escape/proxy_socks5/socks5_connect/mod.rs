@@ -39,7 +39,7 @@ use crate::module::tcp_connect::{
 use crate::serve::ServerTaskNotes;
 
 impl ProxySocks5Escaper {
-    pub(super) async fn socks5_connect_tcp_connect_to<'a>(
+    async fn socks5_connect_tcp_connect_to<'a>(
         &'a self,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
@@ -69,7 +69,7 @@ impl ProxySocks5Escaper {
 
     /// setup udp associate with remote proxy
     /// return (socket, listen_addr, peer_addr)
-    pub(super) async fn socks5_udp_associate(
+    async fn socks5_udp_associate(
         &self,
         buf_conf: SocketBufferConfig,
         tcp_notes: &mut TcpConnectTaskNotes,
