@@ -71,10 +71,8 @@ impl KeylessQuicBackend {
             peer_addrs.clone(),
         )?;
         let pool_handle = KeylessConnectionPool::spawn(
+            config.connection_pool,
             Arc::new(connector),
-            config.idle_connection_min,
-            config.idle_connection_max,
-            config.connect_check_interval,
             keyless_request_receiver,
             config.graceful_close_wait,
         );

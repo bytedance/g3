@@ -22,23 +22,23 @@ use tokio::io::BufReader;
 use tokio::net::tcp;
 use tokio::sync::oneshot;
 
-use crate::IcapServiceOptions;
 use g3_io_ext::LimitedBufReadExt;
 use g3_types::net::Host;
 
 use super::IcapServiceConfig;
+use crate::IcapServiceOptions;
 
 pub type IcapClientWriter = tcp::OwnedWriteHalf;
 pub type IcapClientReader = BufReader<tcp::OwnedReadHalf>;
 pub type IcapClientConnection = (IcapClientWriter, IcapClientReader);
 
-pub(super) struct IcapConnectionCreator {
+pub(super) struct IcapConnector {
     config: Arc<IcapServiceConfig>,
 }
 
-impl IcapConnectionCreator {
+impl IcapConnector {
     pub(super) fn new(config: Arc<IcapServiceConfig>) -> Self {
-        IcapConnectionCreator { config }
+        IcapConnector { config }
     }
 
     async fn select_peer_addr(&self) -> io::Result<SocketAddr> {

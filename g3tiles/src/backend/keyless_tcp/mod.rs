@@ -74,19 +74,15 @@ impl KeylessTcpBackend {
             let tls_client = tls_builder.build()?;
             let tls_connector = KeylessTlsUpstreamConnector::new(tcp_connector, tls_client);
             KeylessConnectionPool::spawn(
+                config.connection_pool,
                 Arc::new(tls_connector),
-                config.idle_connection_min,
-                config.idle_connection_max,
-                config.connect_check_interval,
                 keyless_request_receiver,
                 config.graceful_close_wait,
             )
         } else {
             KeylessConnectionPool::spawn(
+                config.connection_pool,
                 Arc::new(tcp_connector),
-                config.idle_connection_min,
-                config.idle_connection_max,
-                config.connect_check_interval,
                 keyless_request_receiver,
                 config.graceful_close_wait,
             )

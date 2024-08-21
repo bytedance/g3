@@ -17,6 +17,7 @@
 mod base;
 mod buf;
 mod haproxy;
+mod pool;
 mod port;
 mod proxy;
 mod tcp;
@@ -37,6 +38,7 @@ pub use base::{
 };
 pub use buf::as_socket_buffer_config;
 pub use haproxy::as_proxy_protocol_version;
+pub use pool::as_connection_pool_config;
 pub use port::{as_port_range, as_ports};
 pub use proxy::as_proxy_request_type;
 pub use tcp::{

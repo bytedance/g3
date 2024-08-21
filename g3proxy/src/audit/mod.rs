@@ -35,60 +35,85 @@ pub(crate) use registry::{get_names, get_or_insert_default};
 mod handle;
 pub(crate) use handle::AuditHandle;
 
+#[cfg(feature = "quic")]
+mod detour;
+#[cfg(feature = "quic")]
+use detour::StreamDetourClient;
+#[cfg(feature = "quic")]
+pub(crate) use detour::StreamDetourContext;
+
 pub(crate) struct Auditor {
     config: Arc<AuditorConfig>,
     server_tcp_portmap: Arc<ProtocolPortMap>,
     client_tcp_portmap: Arc<ProtocolPortMap>,
     icap_reqmod_service: Option<Arc<IcapServiceClient>>,
     icap_respmod_service: Option<Arc<IcapServiceClient>>,
+    #[cfg(feature = "quic")]
+    stream_detour_service: Option<Arc<StreamDetourClient>>,
 }
 
 impl Auditor {
     fn new_no_config(name: &MetricsName) -> Arc<Self> {
         let config = AuditorConfig::empty(name);
-        Auditor::new_with_config(config)
-    }
-
-    fn new_with_config(config: AuditorConfig) -> Arc<Self> {
         let server_tcp_portmap = Arc::new(config.server_tcp_portmap.clone());
         let client_tcp_portmap = Arc::new(config.client_tcp_portmap.clone());
-        let icap_reqmod_service = config
-            .icap_reqmod_service
-            .as_ref()
-            .map(|config| Arc::new(IcapServiceClient::new(config.clone())));
-        let icap_respmod_service = config
-            .icap_respmod_service
-            .as_ref()
-            .map(|config| Arc::new(IcapServiceClient::new(config.clone())));
         let auditor = Auditor {
             config: Arc::new(config),
             server_tcp_portmap,
             client_tcp_portmap,
-            icap_reqmod_service,
-            icap_respmod_service,
+            icap_reqmod_service: None,
+            icap_respmod_service: None,
+            #[cfg(feature = "quic")]
+            stream_detour_service: None,
         };
         Arc::new(auditor)
     }
 
-    fn reload(&self, config: AuditorConfig) -> Arc<Self> {
+    fn new_with_config(config: AuditorConfig) -> anyhow::Result<Arc<Self>> {
         let server_tcp_portmap = Arc::new(config.server_tcp_portmap.clone());
         let client_tcp_portmap = Arc::new(config.client_tcp_portmap.clone());
-        let icap_reqmod_service = config
-            .icap_reqmod_service
-            .as_ref()
-            .map(|config| Arc::new(IcapServiceClient::new(config.clone())));
-        let icap_respmod_service = config
-            .icap_respmod_service
-            .as_ref()
-            .map(|config| Arc::new(IcapServiceClient::new(config.clone())));
-        let auditor = Auditor {
+        let mut auditor = Auditor {
             config: Arc::new(config),
             server_tcp_portmap,
             client_tcp_portmap,
-            icap_reqmod_service,
-            icap_respmod_service,
+            icap_reqmod_service: None,
+            icap_respmod_service: None,
+            #[cfg(feature = "quic")]
+            stream_detour_service: None,
         };
-        Arc::new(auditor)
+        auditor.set_agent_clients()?;
+        Ok(Arc::new(auditor))
+    }
+
+    fn reload(&self, config: AuditorConfig) -> anyhow::Result<Arc<Self>> {
+        let server_tcp_portmap = Arc::new(config.server_tcp_portmap.clone());
+        let client_tcp_portmap = Arc::new(config.client_tcp_portmap.clone());
+        let mut auditor = Auditor {
+            config: Arc::new(config),
+            server_tcp_portmap,
+            client_tcp_portmap,
+            icap_reqmod_service: None,
+            icap_respmod_service: None,
+            #[cfg(feature = "quic")]
+            stream_detour_service: None,
+        };
+        auditor.set_agent_clients()?;
+        Ok(Arc::new(auditor))
+    }
+
+    fn set_agent_clients(&mut self) -> anyhow::Result<()> {
+        if let Some(c) = self.config.icap_reqmod_service.clone() {
+            self.icap_reqmod_service = Some(Arc::new(IcapServiceClient::new(c)));
+        }
+        if let Some(c) = self.config.icap_respmod_service.clone() {
+            self.icap_respmod_service = Some(Arc::new(IcapServiceClient::new(c)));
+        }
+        #[cfg(feature = "quic")]
+        if let Some(c) = self.config.stream_detour_service.clone() {
+            let client = StreamDetourClient::new(c)?;
+            self.stream_detour_service = Some(Arc::new(client));
+        }
+        Ok(())
     }
 
     pub(crate) fn build_handle(&self) -> anyhow::Result<Arc<AuditHandle>> {

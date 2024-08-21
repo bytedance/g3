@@ -7,13 +7,10 @@ Audit
 
 All audit value types are described here.
 
-ICAP
-====
-
 .. _conf_value_audit_icap_service_config:
 
 icap service config
--------------------
+===================
 
 **type**: map | str
 
@@ -39,7 +36,7 @@ For *map* value, the keys are:
 
 * icap_connection_pool
 
-  **optional**, **type**: :ref:`icap connection pool <conf_value_audit_icap_connection_pool>`
+  **optional**, **type**: :ref:`connection pool <conf_value_connection_pool_config>`
 
   Set the connection pool config.
 
@@ -82,36 +79,66 @@ For *map* value, the keys are:
 
   **default**: false
 
-.. _conf_value_audit_icap_connection_pool:
+.. _conf_value_audit_stream_detour_service_config:
 
-icap connection pool
---------------------
+stream detour service config
+============================
 
-**type**: map
+**type**: map | str | int
 
-The keys are:
+Config the stream detour service.
 
-* check_interval
+For *str* value, the value will be treated as *peer* as described following.
 
-  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+For *map* value, the keys are:
 
-  Set the min idle check interval.
-  New connections will be established if the idle connections are less than *min_idle_count*.
+* peer
 
-  **default**: 10s
+  **optional**, **type**: :ref:`upstream str <conf_value_upstream_str>`
 
-* max_idle_count
+  Set the peer address.
 
-  **optional*, **type**: usize
+  **default**: 127.0.0.1:2888
 
-  Set the maximum idle connections count.
+* tls_client
 
-  **default**: 128
+  **optional**, **type**: :ref:`rustls client config <conf_value_rustls_client_config>`
 
-* min_idle_count
+  Enable tls and set the config.
+
+  **default**: not set
+
+* tls_name
+
+  **optional**, **type**: :ref:`tls name <conf_value_tls_name>`
+
+  Set the tls server name to verify peer certificate.
+
+  **default**: not set
+
+* connection_pool
+
+  **optional**, **type**: :ref:`connection pool <conf_value_connection_pool_config>`
+
+  Set the connection pool config.
+
+  **default**: set with default value
+
+* connection_reuse_limit
 
   **optional**, **type**: usize
 
-  Set the minimum idle connections count.
+  Set how many times a single QUIC connection will be reused.
+  The max allowed streams on this QUIC connection should be double of this value.
 
   **default**: 16
+
+* socket_buffer
+
+  **optional**, **type**: :ref:`socket buffer config <conf_value_socket_buffer_config>`
+
+  Set the socket buffer config for the socket to peer.
+
+  **default**: not set
+
+.. versionadded:: 1.9.8

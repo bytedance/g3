@@ -1876,6 +1876,7 @@ dependencies = [
  "clap_complete",
  "fastrand",
  "fixedbitset 0.5.7",
+ "flume",
  "fnv",
  "futures-util",
  "g3-build-env",

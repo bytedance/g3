@@ -15,11 +15,11 @@
  */
 
 mod config;
-pub use config::{IcapConnectionPoolConfig, IcapServiceConfig};
+pub use config::IcapServiceConfig;
 
 mod connection;
 pub(super) use connection::{IcapClientConnection, IcapClientReader, IcapClientWriter};
-use connection::{IcapConnectionCreator, IcapConnectionEofPoller, IcapConnectionPollRequest};
+use connection::{IcapConnectionEofPoller, IcapConnectionPollRequest, IcapConnector};
 
 mod client;
 pub use client::IcapServiceClient;

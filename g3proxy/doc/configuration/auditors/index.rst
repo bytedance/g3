@@ -198,6 +198,21 @@ Set the ICAP RESPMOD service config.
 
 .. versionadded:: 1.7.3
 
+stream_detour_service
+---------------------
+
+**optional**, **type**: :ref:`stream detour service config <conf_value_audit_stream_detour_service_config>`
+
+Set the stream detour service config.
+
+You also need to change the inspect policy for each protocol to `detour` in order to really enable it.
+
+If no stream detour service config set here, the protocols that is configured to use a `detour` policy will by bypassed.
+
+**default**: not set
+
+.. versionadded:: 1.9.8
+
 .. _conf_auditor_task_audit_ratio:
 
 task_audit_ratio

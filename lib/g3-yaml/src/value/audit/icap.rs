@@ -20,38 +20,7 @@ use anyhow::{anyhow, Context};
 use url::Url;
 use yaml_rust::{yaml, Yaml};
 
-use g3_icap_client::{IcapConnectionPoolConfig, IcapMethod, IcapServiceConfig};
-
-fn set_icap_connection_pool_config(
-    config: &mut IcapConnectionPoolConfig,
-    value: &Yaml,
-) -> anyhow::Result<()> {
-    if let Yaml::Hash(map) = value {
-        crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
-            "check_interval" => {
-                let interval = crate::humanize::as_duration(v)
-                    .context(format!("invalid humanize duration value for key {k}"))?;
-                config.set_check_interval(interval);
-                Ok(())
-            }
-            "max_idle_count" => {
-                let count = crate::value::as_usize(v)?;
-                config.set_max_idle_count(count);
-                Ok(())
-            }
-            "min_idle_count" => {
-                let count = crate::value::as_usize(v)?;
-                config.set_min_idle_count(count);
-                Ok(())
-            }
-            _ => Err(anyhow!("invalid key {k}")),
-        })
-    } else {
-        Err(anyhow!(
-            "yaml value type for 'icap connection pool' should be 'map'"
-        ))
-    }
-}
+use g3_icap_client::{IcapMethod, IcapServiceConfig};
 
 fn as_icap_service_config(
     map: &yaml::Hash,
@@ -72,9 +41,9 @@ fn as_icap_service_config(
             Ok(())
         }
         "icap_connection_pool" | "connection_pool" | "pool" => {
-            set_icap_connection_pool_config(&mut config.connection_pool, v).context(format!(
-                "invalid icap connection pool config value for key {k}"
-            ))
+            config.connection_pool = crate::value::as_connection_pool_config(v)
+                .context(format!("invalid connection pool config value for key {k}"))?;
+            Ok(())
         }
         "icap_max_header_size" => {
             let size = crate::humanize::as_usize(v)

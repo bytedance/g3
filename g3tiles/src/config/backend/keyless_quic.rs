@@ -22,7 +22,7 @@ use yaml_rust::{yaml, Yaml};
 
 use g3_histogram::HistogramMetricsConfig;
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
-use g3_types::net::{RustlsClientConfigBuilder, SocketBufferConfig};
+use g3_types::net::{ConnectionPoolConfig, RustlsClientConfigBuilder, SocketBufferConfig};
 use g3_yaml::YamlDocPosition;
 
 const BACKEND_CONFIG_TYPE: &str = "KeylessQuic";
@@ -45,9 +45,7 @@ pub(crate) struct KeylessQuicBackendConfig {
     pub(crate) request_buffer_size: usize,
     pub(crate) connection_config: MultiplexedUpstreamConnectionConfig,
     pub(crate) graceful_close_wait: Duration,
-    pub(crate) idle_connection_min: usize,
-    pub(crate) idle_connection_max: usize,
-    pub(crate) connect_check_interval: Duration,
+    pub(crate) connection_pool: ConnectionPoolConfig,
     pub(crate) concurrent_streams: usize,
     pub(crate) socket_buffer: SocketBufferConfig,
 }
@@ -66,9 +64,7 @@ impl KeylessQuicBackendConfig {
             request_buffer_size: 128,
             connection_config: Default::default(),
             graceful_close_wait: Duration::from_secs(10),
-            idle_connection_min: 32,
-            idle_connection_max: 1024,
-            connect_check_interval: Duration::from_secs(10),
+            connection_pool: ConnectionPoolConfig::new(1024, 32),
             concurrent_streams: 4,
             socket_buffer: SocketBufferConfig::default(),
         }
@@ -93,9 +89,6 @@ impl KeylessQuicBackendConfig {
         }
         if matches!(self.discover_data, DiscoverRegisterData::Null) {
             return Err(anyhow!("no discover data set"));
-        }
-        if self.idle_connection_max < self.idle_connection_min {
-            self.idle_connection_max = self.idle_connection_min;
         }
         if self.concurrent_streams == 0 {
             self.concurrent_streams = 1;
@@ -164,17 +157,9 @@ impl KeylessQuicBackendConfig {
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
-            "idle_connection_min" => {
-                self.idle_connection_min = g3_yaml::value::as_usize(v)?;
-                Ok(())
-            }
-            "idle_connection_max" => {
-                self.idle_connection_max = g3_yaml::value::as_usize(v)?;
-                Ok(())
-            }
-            "connect_check_interval" => {
-                self.connect_check_interval = g3_yaml::humanize::as_duration(v)
-                    .context(format!("invalid humanize duration value for key {k}"))?;
+            "connection_pool" | "pool" => {
+                self.connection_pool = g3_yaml::value::as_connection_pool_config(v)
+                    .context(format!("invalid connection pool config value for key {k}"))?;
                 Ok(())
             }
             "concurrent_streams" => {

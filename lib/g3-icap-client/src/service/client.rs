@@ -20,7 +20,7 @@ use anyhow::anyhow;
 use tokio::sync::oneshot;
 
 use super::{
-    IcapClientConnection, IcapConnectionCreator, IcapServiceClientCommand, IcapServiceConfig,
+    IcapClientConnection, IcapConnector, IcapServiceClientCommand, IcapServiceConfig,
     IcapServicePool,
 };
 use crate::options::{IcapOptionsRequest, IcapServiceOptions};
@@ -29,13 +29,13 @@ pub struct IcapServiceClient {
     pub(crate) config: Arc<IcapServiceConfig>,
     pub(crate) partial_request_header: Vec<u8>,
     cmd_sender: flume::Sender<IcapServiceClientCommand>,
-    conn_creator: Arc<IcapConnectionCreator>,
+    conn_creator: Arc<IcapConnector>,
 }
 
 impl IcapServiceClient {
     pub fn new(config: Arc<IcapServiceConfig>) -> Self {
         let (cmd_sender, cmd_receiver) = flume::unbounded();
-        let conn_creator = Arc::new(IcapConnectionCreator::new(config.clone()));
+        let conn_creator = Arc::new(IcapConnector::new(config.clone()));
         let pool = IcapServicePool::new(config.clone(), cmd_receiver, conn_creator.clone());
         tokio::spawn(pool.into_running());
         let partial_request_header = config.build_request_header();

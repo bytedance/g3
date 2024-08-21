@@ -97,36 +97,16 @@ Set the graceful wait time duration before we close an alive connection.
 
 **default**: 10s
 
-idle_connection_min
--------------------
+connection_pool
+---------------
 
-**optional**, **type**: usize
+**optional**, **type**: :ref:`connection pool <conf_value_connection_pool_config>`
 
-Set the minimum number of IDLE connections in the pool.
+Set the connection pool config.
 
-**default**: 32
+**default**: set with default value
 
-idle_connection_max
--------------------
-
-**optional**, **type**: usize
-
-Set the maximum number of IDLE connections in the pool.
-
-**default**: 1024
-
-connect_check_interval
-----------------------
-
-**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
-
-Set the time interval for the check of closed connections.
-
-Failed connections won't trigger a re-connect again until this check interval reached.
-
-**default**: 10s
-
-.. versionadded:: 0.3.4
+.. versionadded:: 0.3.5
 
 concurrent_streams
 ------------------
