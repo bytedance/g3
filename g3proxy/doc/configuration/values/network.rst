@@ -231,7 +231,7 @@ The keys are:
 
   Set the maximum idle connections count.
 
-  **default**: 128
+  **default**: 1024
 
 * min_idle_count
 
@@ -239,7 +239,7 @@ The keys are:
 
   Set the minimum idle connections count.
 
-  **default**: 16
+  **default**: 32
 
 .. versionadded:: 1.9.8
 

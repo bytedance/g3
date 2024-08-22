@@ -25,7 +25,7 @@ pub struct ConnectionPoolConfig {
 
 impl Default for ConnectionPoolConfig {
     fn default() -> Self {
-        ConnectionPoolConfig::new(128, 16)
+        ConnectionPoolConfig::new(1024, 32)
     }
 }
 

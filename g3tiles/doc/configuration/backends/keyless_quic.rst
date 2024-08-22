@@ -104,7 +104,7 @@ connection_pool
 
 Set the connection pool config.
 
-**default**: set with default value
+**default**: set with max idle 1024 min idle 32
 
 .. versionadded:: 0.3.5
 
