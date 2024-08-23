@@ -99,6 +99,6 @@ impl StreamDetourClient {
             ServerTaskError::InternalAdapterError(anyhow!("failed to get detour stream: {e}"))
         })?;
 
-        detour_stream.relay(clt_r, clt_w, ups_r, ups_w, ctx).await
+        ctx.relay(clt_r, clt_w, ups_r, ups_w, detour_stream).await
     }
 }

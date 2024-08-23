@@ -18,9 +18,9 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use log::debug;
-use quinn::{ClientConfig, Connection, ConnectionError, Endpoint, TokioRuntime};
-use tokio::sync::oneshot;
+use log::{debug, trace};
+use quinn::{ClientConfig, Connection, ConnectionError, Endpoint, TokioRuntime, VarInt};
+use tokio::sync::{mpsc, oneshot};
 
 use g3_types::net::RustlsQuicClientConfig;
 
@@ -93,17 +93,18 @@ impl StreamDetourConnector {
         };
 
         let mut reuse_limit = self.config.connection_reuse_limit;
+        let (force_quit_sender, mut force_quit_receiver) = mpsc::channel(reuse_limit);
 
         while reuse_limit > 0 {
             tokio::select! {
                 e = connection.closed() => {
-                    debug!("detour connection closed by upstream: {e}");
-                    break;
+                    debug!("detour connection closed unexpectedly: {e}");
+                    return;
                 }
                 r = req_receiver.recv_async() => {
                     match r {
                         Ok(req) => {
-                            if let Err(e) = self.handle_req(req, &mut connection).await {
+                            if let Err(e) = self.handle_req(req, &mut connection, force_quit_sender.clone()).await {
                                 debug!("error when handle new detour request: {e}");
                                 break;
                             }
@@ -114,12 +115,35 @@ impl StreamDetourConnector {
                 }
             }
         }
+
+        tokio::spawn(async move {
+            tokio::select! {
+                e = connection.closed() => {
+                    debug!("detour connection closed unexpectedly: {e}");
+                }
+                r = force_quit_receiver.recv() => {
+                    match r {
+                        Some(_) => {
+                            trace!("detour connection force quit");
+                            connection.close(VarInt::from_u32(0), b"force-quit");
+                        }
+                        None => {
+                            trace!("detour connection finished, close it");
+                            connection.close(VarInt::from_u32(0), b"finished");
+                        }
+                    }
+                    connection.closed().await;
+                    trace!("detour connection closed");
+                }
+            }
+        });
     }
 
     async fn handle_req(
         &self,
         req: StreamDetourRequest,
         connection: &mut Connection,
+        force_quit_sender: mpsc::Sender<()>,
     ) -> Result<(), ConnectionError> {
         let c_stream = connection.open_bi().await?;
         let s_stream = connection.open_bi().await?;
@@ -129,6 +153,7 @@ impl StreamDetourConnector {
             north_recv: c_stream.1,
             south_send: s_stream.0,
             south_recv: s_stream.1,
+            force_quit_sender,
         };
         let _ = req.0.send(stream);
         Ok(())
