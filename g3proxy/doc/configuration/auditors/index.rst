@@ -113,6 +113,8 @@ h2_inspect_policy
 
 Set what we should do with HTTP/2.0 traffic.
 
+The detour protocol value will be *http_2*, no payload will be set.
+
 **default**: intercept
 
 .. versionadded:: 1.9.0
@@ -134,6 +136,8 @@ smtp_inspect_policy
 **optional**, **type**: :ref:`protocol inspect policy <conf_value_dpi_protocol_inspect_policy>`
 
 Set what we should do with SMTP traffic.
+
+The detour protocol value will be *smtp*, no payload will be set.
 
 **default**: intercept
 
@@ -158,6 +162,8 @@ imap_inspect_policy
 **optional**, **type**: :ref:`protocol inspect policy <conf_value_dpi_protocol_inspect_policy>`
 
 Set what we should do with IMAP traffic.
+
+The detour protocol value will be *imap*, no payload will be set.
 
 **default**: intercept
 
@@ -197,6 +203,8 @@ Set the ICAP RESPMOD service config.
 **default**: not set
 
 .. versionadded:: 1.7.3
+
+.. _conf_auditor_stream_detour_service:
 
 stream_detour_service
 ---------------------

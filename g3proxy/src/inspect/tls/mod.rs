@@ -266,7 +266,8 @@ where
                 StreamInspection::H1(h1_obj)
             }
             Protocol::Http2 => {
-                let mut h2_obj = crate::inspect::http::H2InterceptObject::new(ctx);
+                let mut h2_obj =
+                    crate::inspect::http::H2InterceptObject::new(ctx, self.upstream.clone());
                 h2_obj.set_io(
                     OnceBufReader::with_no_buf(Box::new(clt_r)),
                     Box::new(clt_w),

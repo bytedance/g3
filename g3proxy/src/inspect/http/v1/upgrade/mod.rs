@@ -501,7 +501,7 @@ where
         match protocol {
             HttpUpgradeToken::Http(Version::HTTP_2) => {
                 StreamInspectLog::new(&ctx).log(InspectSource::HttpUpgrade, Protocol::Http2);
-                let mut h2_obj = crate::inspect::http::H2InterceptObject::new(ctx);
+                let mut h2_obj = crate::inspect::http::H2InterceptObject::new(ctx, upstream);
                 h2_obj.set_io(OnceBufReader::with_no_buf(clt_r), clt_w, ups_r, ups_w);
                 Ok(StreamInspection::H2(h2_obj))
             }

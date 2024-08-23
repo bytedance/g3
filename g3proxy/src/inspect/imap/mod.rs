@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
+use anyhow::anyhow;
 use slog::slog_info;
 use tokio::io::AsyncWriteExt;
 
-use g3_dpi::ProtocolInspectPolicy;
+use g3_dpi::{Protocol, ProtocolInspectPolicy};
 use g3_imap_proto::response::ByeResponse;
 use g3_imap_proto::CommandPipeline;
 use g3_io_ext::{LineRecvVec, OnceBufReader};
@@ -29,7 +30,7 @@ use super::StartTlsProtocol;
 use crate::audit::StreamDetourContext;
 use crate::config::server::ServerConfig;
 use crate::inspect::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext, StreamInspection};
-use crate::serve::{ServerTaskError, ServerTaskForbiddenError, ServerTaskResult};
+use crate::serve::{ServerTaskError, ServerTaskResult};
 
 mod ext;
 use ext::{CommandLineReceiveExt, ResponseLineReceiveExt};
@@ -169,11 +170,13 @@ where
             ups_w,
         } = self.io.take().unwrap();
 
-        let ctx = StreamDetourContext {
-            server_config: &self.ctx.server_config,
-            server_quit_policy: &self.ctx.server_quit_policy,
-            user: self.ctx.user(),
-        };
+        let ctx = StreamDetourContext::new(
+            &self.ctx.server_config,
+            &self.ctx.server_quit_policy,
+            &self.ctx.task_notes,
+            &self.upstream,
+            Protocol::Imap,
+        );
 
         client.detour_relay(clt_r, clt_w, ups_r, ups_w, ctx).await
     }
@@ -213,9 +216,9 @@ where
         ByeResponse::reply_blocked(&mut clt_w)
             .await
             .map_err(ServerTaskError::ClientTcpWriteFailed)?;
-        Err(ServerTaskError::ForbiddenByRule(
-            ServerTaskForbiddenError::ProtoBanned,
-        ))
+        Err(ServerTaskError::InternalAdapterError(anyhow!(
+            "blocked by inspection policy"
+        )))
     }
 
     fn mark_close_by_server(&mut self) {

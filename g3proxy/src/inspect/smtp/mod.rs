@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
+use anyhow::anyhow;
 use slog::slog_info;
 use tokio::io::AsyncWriteExt;
 
-use g3_dpi::ProtocolInspectPolicy;
+use g3_dpi::{Protocol, ProtocolInspectPolicy};
 use g3_io_ext::{LineRecvBuf, OnceBufReader};
 use g3_slog_types::{LtHost, LtUpstreamAddr, LtUuid};
 use g3_smtp_proto::command::Command;
@@ -29,7 +30,7 @@ use super::StartTlsProtocol;
 use crate::audit::StreamDetourContext;
 use crate::config::server::ServerConfig;
 use crate::inspect::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext, StreamInspection};
-use crate::serve::{ServerTaskError, ServerTaskForbiddenError, ServerTaskResult};
+use crate::serve::{ServerTaskError, ServerTaskResult};
 
 mod ext;
 use ext::{CommandLineRecvExt, ResponseLineRecvExt, ResponseParseExt};
@@ -160,11 +161,13 @@ where
             ups_w,
         } = self.io.take().unwrap();
 
-        let ctx = StreamDetourContext {
-            server_config: &self.ctx.server_config,
-            server_quit_policy: &self.ctx.server_quit_policy,
-            user: self.ctx.user(),
-        };
+        let ctx = StreamDetourContext::new(
+            &self.ctx.server_config,
+            &self.ctx.server_quit_policy,
+            &self.ctx.task_notes,
+            &self.upstream,
+            Protocol::Smtp,
+        );
 
         client.detour_relay(clt_r, clt_w, ups_r, ups_w, ctx).await
     }
@@ -214,9 +217,9 @@ where
                 self.ctx.smtp_interception().command_wait_timeout,
             )
             .await?;
-        Err(ServerTaskError::ForbiddenByRule(
-            ServerTaskForbiddenError::ProtoBanned,
-        ))
+        Err(ServerTaskError::InternalAdapterError(anyhow!(
+            "blocked by inspection policy"
+        )))
     }
 
     async fn do_intercept(&mut self) -> ServerTaskResult<Option<StreamInspection<SC>>> {

@@ -27,7 +27,8 @@ use tokio::time::Instant;
 use g3_dpi::{Protocol, ProtocolInspectPolicy};
 use g3_h2::H2BodyTransfer;
 use g3_io_ext::OnceBufReader;
-use g3_slog_types::LtUuid;
+use g3_slog_types::{LtUpstreamAddr, LtUuid};
+use g3_types::net::UpstreamAddr;
 
 #[cfg(feature = "quic")]
 use crate::audit::StreamDetourContext;
@@ -60,15 +61,17 @@ pub(crate) struct H2InterceptObject<SC: ServerConfig> {
     io: Option<H2InterceptIo>,
     ctx: StreamInspectContext<SC>,
     stats: Arc<H2ConcurrencyStats>,
+    upstream: UpstreamAddr,
 }
 
 impl<SC: ServerConfig> H2InterceptObject<SC> {
-    pub(crate) fn new(ctx: StreamInspectContext<SC>) -> Self {
+    pub(crate) fn new(ctx: StreamInspectContext<SC>, upstream: UpstreamAddr) -> Self {
         let stats = Arc::new(H2ConcurrencyStats::default());
         H2InterceptObject {
             io: None,
             ctx,
             stats,
+            upstream,
         }
     }
 
@@ -95,6 +98,7 @@ macro_rules! intercept_log {
             "intercept_type" => "H2Connection",
             "task_id" => LtUuid($obj.ctx.server_task_id()),
             "depth" => $obj.ctx.inspection_depth,
+            "upstream" => LtUpstreamAddr(&$obj.upstream),
             "total_sub_task" => $obj.stats.get_total_task(),
             "alive_sub_task" => $obj.stats.get_alive_task(),
         )
@@ -140,11 +144,13 @@ where
             ups_w,
         } = self.io.take().unwrap();
 
-        let ctx = StreamDetourContext {
-            server_config: &self.ctx.server_config,
-            server_quit_policy: &self.ctx.server_quit_policy,
-            user: self.ctx.user(),
-        };
+        let ctx = StreamDetourContext::new(
+            &self.ctx.server_config,
+            &self.ctx.server_quit_policy,
+            &self.ctx.task_notes,
+            &self.upstream,
+            Protocol::Http2,
+        );
 
         client.detour_relay(clt_r, clt_w, ups_r, ups_w, ctx).await
     }

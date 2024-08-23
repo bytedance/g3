@@ -14,17 +14,38 @@
  * limitations under the License.
  */
 
+use std::time::Duration;
+
 use anyhow::anyhow;
 use quinn::{RecvStream, SendStream};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 
-use g3_io_ext::{LimitedCopy, LimitedCopyError};
+use g3_io_ext::{LimitedCopy, LimitedCopyError, LimitedWriteExt};
+use g3_types::net::{ProxyProtocolEncodeError, ProxyProtocolV2Encoder};
 
 use super::StreamDetourContext;
 use crate::config::server::ServerConfig;
 use crate::serve::{ServerTaskError, ServerTaskResult};
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[repr(u16)]
+enum DetourAction {
+    Continue,
+    Bypass,
+    Block,
+}
+
+impl From<u16> for DetourAction {
+    fn from(value: u16) -> Self {
+        match value {
+            0 => DetourAction::Continue,
+            1 => DetourAction::Bypass,
+            _ => DetourAction::Block,
+        }
+    }
+}
 
 pub(super) struct StreamDetourStream {
     pub(super) north_send: SendStream,
@@ -32,6 +53,7 @@ pub(super) struct StreamDetourStream {
     pub(super) south_send: SendStream,
     pub(super) south_recv: RecvStream,
     pub(super) force_quit_sender: mpsc::Sender<()>,
+    pub(super) match_id: u16,
 }
 
 impl<'a, SC> StreamDetourContext<'a, SC>
@@ -58,7 +80,37 @@ where
             mut south_send,
             mut south_recv,
             force_quit_sender,
+            match_id,
         } = d_stream;
+
+        match self
+            .send_detour_request(&mut north_send, &mut north_recv, &mut south_send, match_id)
+            .await
+        {
+            Ok(DetourAction::Continue) => {}
+            Ok(DetourAction::Bypass) => {
+                return crate::inspect::stream::transit_transparent(
+                    clt_r,
+                    clt_w,
+                    ups_r,
+                    ups_w,
+                    self.server_config,
+                    self.server_quit_policy,
+                    self.task_notes.user(),
+                )
+                .await
+            }
+            Ok(DetourAction::Block) => {
+                let _ = clt_w.shutdown().await;
+                let _ = ups_w.shutdown().await;
+                let _ = north_send.finish();
+                let _ = south_send.finish();
+                return Err(ServerTaskError::InternalAdapterError(anyhow!(
+                    "blocked by detour server"
+                )));
+            }
+            Err(e) => return Err(ServerTaskError::InternalAdapterError(e)),
+        }
 
         let copy_config = self.server_config.limited_copy_config();
 
@@ -168,7 +220,7 @@ where
                     if clt_to_d.is_idle() && d_to_clt.is_idle() && ups_to_d.is_idle() && d_to_ups.is_idle() {
                         idle_count += 1;
 
-                        let quit = if let Some(user) = self.user {
+                        let quit = if let Some(user) = self.task_notes.user() {
                             if user.is_blocked() {
                                 return Err(ServerTaskError::CanceledAsUserBlocked);
                             }
@@ -189,7 +241,7 @@ where
                         d_to_clt.reset_active();
                     }
 
-                    if let Some(user) = self.user {
+                    if let Some(user) = self.task_notes.user() {
                         if user.is_blocked() {
                             return Err(ServerTaskError::CanceledAsUserBlocked);
                         }
@@ -202,6 +254,86 @@ where
                 }
             };
         }
+    }
+
+    fn encode_client_ppv2(
+        &self,
+        match_id: u16,
+    ) -> Result<ProxyProtocolV2Encoder, ProxyProtocolEncodeError> {
+        let mut ppv2 = ProxyProtocolV2Encoder::new_tcp(
+            self.task_notes.client_addr(),
+            self.task_notes.server_addr(),
+        )?;
+        if let Some(name) = self.task_notes.raw_username() {
+            ppv2.push_username(name)?;
+        }
+        ppv2.push_task_id(self.task_notes.task_id().as_bytes())?;
+        ppv2.push_upstream(self.upstream)?;
+        ppv2.push_match_id(match_id)?;
+        ppv2.push_protocol(self.protocol.as_str())?;
+        if !self.payload.is_empty() {
+            ppv2.push_payload(&self.payload)?;
+        }
+        Ok(ppv2)
+    }
+
+    fn encode_remote_ppv2(
+        &self,
+        match_id: u16,
+    ) -> Result<ProxyProtocolV2Encoder, ProxyProtocolEncodeError> {
+        let mut ppv2 = ProxyProtocolV2Encoder::new_tcp(
+            self.task_notes.client_addr(),
+            self.task_notes.server_addr(),
+        )?;
+        ppv2.push_match_id(match_id)?;
+        Ok(ppv2)
+    }
+
+    async fn send_detour_request(
+        &self,
+        north_send: &mut SendStream,
+        north_recv: &mut RecvStream,
+        south_send: &mut SendStream,
+        match_id: u16,
+    ) -> anyhow::Result<DetourAction> {
+        let mut client_ppv2 = self
+            .encode_client_ppv2(match_id)
+            .map_err(|e| anyhow!("failed to encode ppv2 header for client stream: {e}"))?;
+        north_send
+            .write_all_flush(client_ppv2.finalize())
+            .await
+            .map_err(|e| anyhow!("failed to send ppv2 header for client stream: {e}"))?;
+
+        let detour_action;
+
+        let mut buf = [0u8; 4];
+        match tokio::time::timeout(Duration::from_secs(60), north_recv.read_exact(&mut buf)).await {
+            Ok(Ok(_)) => {
+                let rsp_match_id = u16::from_be_bytes([buf[0], buf[1]]);
+                if rsp_match_id != match_id {
+                    return Err(anyhow!(
+                        "invalid response from detour server: invalid match id"
+                    ));
+                }
+                let action = u16::from_be_bytes([buf[2], buf[3]]);
+                detour_action = DetourAction::from(action);
+                if detour_action != DetourAction::Continue {
+                    return Ok(detour_action);
+                }
+            }
+            Ok(Err(e)) => return Err(anyhow!("failed to get response from detour server: {e}")),
+            Err(_) => return Err(anyhow!("timed out to get response from detour server")),
+        }
+
+        let mut remote_ppv2 = self
+            .encode_remote_ppv2(match_id)
+            .map_err(|e| anyhow!("failed to encode ppv2 header for remote stream: {e}"))?;
+        south_send
+            .write_all_flush(remote_ppv2.finalize())
+            .await
+            .map_err(|e| anyhow!("failed to send ppv2 header for remote stream: {e}"))?;
+
+        Ok(detour_action)
     }
 
     async fn relay_after_client_closed<UW>(

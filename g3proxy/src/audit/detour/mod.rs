@@ -21,10 +21,12 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::oneshot;
 
 use g3_daemon::server::ServerQuitPolicy;
+use g3_dpi::Protocol;
+use g3_types::net::UpstreamAddr;
 
-use crate::auth::User;
 use crate::config::audit::AuditStreamDetourConfig;
 use crate::config::server::ServerConfig;
+use crate::inspect::StreamInspectTaskNotes;
 use crate::serve::{ServerTaskError, ServerTaskResult};
 
 mod connect;
@@ -37,9 +39,31 @@ mod stream;
 use stream::StreamDetourStream;
 
 pub(crate) struct StreamDetourContext<'a, SC> {
-    pub(crate) server_config: &'a Arc<SC>,
-    pub(crate) server_quit_policy: &'a Arc<ServerQuitPolicy>,
-    pub(crate) user: Option<&'a Arc<User>>,
+    server_config: &'a Arc<SC>,
+    server_quit_policy: &'a Arc<ServerQuitPolicy>,
+    task_notes: &'a StreamInspectTaskNotes,
+    upstream: &'a UpstreamAddr,
+    protocol: Protocol,
+    payload: Vec<u8>,
+}
+
+impl<'a, SC> StreamDetourContext<'a, SC> {
+    pub(crate) fn new(
+        server_config: &'a Arc<SC>,
+        server_quit_policy: &'a Arc<ServerQuitPolicy>,
+        task_notes: &'a StreamInspectTaskNotes,
+        upstream: &'a UpstreamAddr,
+        protocol: Protocol,
+    ) -> Self {
+        StreamDetourContext {
+            server_config,
+            server_quit_policy,
+            task_notes,
+            upstream,
+            protocol,
+            payload: Vec::new(),
+        }
+    }
 }
 
 pub(crate) struct StreamDetourClient {
