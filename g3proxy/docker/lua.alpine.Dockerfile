@@ -28,5 +28,6 @@ COPY --from=lua /usr/local/lib/luarocks /usr/local/lib/luarocks
 # Copy the compiled binaries from the builder stage
 COPY --from=builder /usr/src/g3/target/release-lto/g3proxy /usr/bin/g3proxy
 COPY --from=builder /usr/src/g3/target/release-lto/g3proxy-ctl /usr/bin/g3proxy-ctl
+COPY --from=builder /usr/src/g3/target/release-lto/g3proxy-ctl /usr/bin/g3proxy-lua
 ENTRYPOINT ["/usr/bin/g3proxy"]
 CMD ["-Vvv"]
