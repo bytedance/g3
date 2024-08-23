@@ -30,7 +30,7 @@ use crate::stat::types::{
 pub(crate) struct UserRequestStats {
     id: StatId,
     user_group: MetricsName,
-    user: String,
+    user: Arc<str>,
     user_type: UserType,
     server: MetricsName,
     server_extra_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
@@ -55,7 +55,7 @@ pub(crate) struct UserRequestSnapshot {
 impl UserRequestStats {
     pub(crate) fn new(
         user_group: &MetricsName,
-        user: &str,
+        user: Arc<str>,
         user_type: UserType,
         server: &MetricsName,
         server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
@@ -63,7 +63,7 @@ impl UserRequestStats {
         UserRequestStats {
             id: StatId::new(),
             user_group: user_group.clone(),
-            user: user.to_string(),
+            user,
             user_type,
             server: server.clone(),
             server_extra_tags: Arc::clone(server_extra_tags),

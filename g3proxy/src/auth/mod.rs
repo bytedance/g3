@@ -70,8 +70,8 @@ impl UserType {
 
 pub(crate) struct UserGroup {
     config: Arc<UserGroupConfig>,
-    static_users: Arc<AHashMap<String, Arc<User>>>,
-    dynamic_users: Arc<ArcSwap<AHashMap<String, Arc<User>>>>,
+    static_users: Arc<AHashMap<Arc<str>, Arc<User>>>,
+    dynamic_users: Arc<ArcSwap<AHashMap<Arc<str>, Arc<User>>>>,
     /// the job for dynamic fetch
     fetch_quit_sender: Option<mpsc::Sender<()>>,
     // the job for user expire check
@@ -109,7 +109,7 @@ impl UserGroup {
         let mut users = AHashMap::new();
         for (username, user_config) in &config.static_users {
             let user = User::new(config.name(), user_config, &datetime_now)?;
-            users.insert(username.to_string(), Arc::new(user));
+            users.insert(username.clone(), Arc::new(user));
         }
 
         let anonymous_user = match &config.anonymous_user {
@@ -165,7 +165,7 @@ impl UserGroup {
             } else {
                 User::new(config.name(), user_config, &datetime_now)?
             };
-            static_users.insert(username.to_string(), Arc::new(user));
+            static_users.insert(username.clone(), Arc::new(user));
         }
 
         let anonymous_user = match &config.anonymous_user {
@@ -185,7 +185,7 @@ impl UserGroup {
             // keep old dynamic users, even if the source may change
             let users = self.dynamic_users.load();
             for (username, user) in users.iter() {
-                dynamic_users.insert(username.to_string(), Arc::clone(user));
+                dynamic_users.insert(username.clone(), Arc::clone(user));
             }
         }
 
@@ -270,7 +270,7 @@ impl UserGroup {
     }
 
     pub(crate) fn all_static_users(&self) -> Vec<&str> {
-        self.static_users.keys().map(|k| k.as_str()).collect()
+        self.static_users.keys().map(|k| k.as_ref()).collect()
     }
 
     pub(crate) fn all_dynamic_users(&self) -> Vec<String> {

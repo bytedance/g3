@@ -400,7 +400,7 @@ impl User {
         let stats = map.entry(server.to_string()).or_insert_with(|| {
             Arc::new(UserForbiddenStats::new(
                 &self.group,
-                self.config.name(),
+                self.config.name().clone(),
                 user_type,
                 server,
                 server_extra_tags,
@@ -428,7 +428,7 @@ impl User {
         let stats = map.entry(server.to_string()).or_insert_with(|| {
             Arc::new(UserRequestStats::new(
                 &self.group,
-                self.config.name(),
+                self.config.name().clone(),
                 user_type,
                 server,
                 server_extra_tags,
@@ -456,7 +456,7 @@ impl User {
         let stats = map.entry(server.to_string()).or_insert_with(|| {
             Arc::new(UserTrafficStats::new(
                 &self.group,
-                self.config.name(),
+                self.config.name().clone(),
                 user_type,
                 server,
                 server_extra_tags,
@@ -484,7 +484,7 @@ impl User {
         let stats = map.entry(escaper.to_string()).or_insert_with(|| {
             Arc::new(UserUpstreamTrafficStats::new(
                 &self.group,
-                self.config.name(),
+                self.config.name().clone(),
                 user_type,
                 escaper,
                 escaper_extra_tags,
@@ -747,7 +747,7 @@ impl UserContext {
     }
 
     #[inline]
-    pub(crate) fn user_name(&self) -> &str {
+    pub(crate) fn user_name(&self) -> &Arc<str> {
         self.user.config.name()
     }
 

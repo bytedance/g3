@@ -48,7 +48,7 @@ pub(crate) struct UserSite {
 impl UserSite {
     fn new(
         config: &Arc<UserSiteConfig>,
-        user: &str,
+        user: Arc<str>,
         user_group: &MetricsName,
     ) -> anyhow::Result<Self> {
         let tls_client = match &config.tls_client {
@@ -238,25 +238,25 @@ impl UserSites {
 
     pub(super) fn new<'a, T: Iterator<Item = &'a Arc<UserSiteConfig>>>(
         sites: T,
-        user: &str,
+        user: &Arc<str>,
         user_group: &MetricsName,
     ) -> anyhow::Result<Self> {
         Self::build(sites, |site_config| {
-            UserSite::new(site_config, user, user_group)
+            UserSite::new(site_config, user.clone(), user_group)
         })
     }
 
     pub(super) fn new_for_reload<'a, T: Iterator<Item = &'a Arc<UserSiteConfig>>>(
         &self,
         sites: T,
-        user: &str,
+        user: &Arc<str>,
         user_group: &MetricsName,
     ) -> anyhow::Result<Self> {
         Self::build(sites, |site_config| {
             if let Some(old) = self.all_sites.get(&site_config.id) {
                 old.new_for_reload(site_config)
             } else {
-                UserSite::new(site_config, user, user_group)
+                UserSite::new(site_config, user.clone(), user_group)
             }
         })
     }
