@@ -61,7 +61,7 @@ pub struct ImapMessageAdapter<I: IdleCheck> {
     copy_config: LimitedCopyConfig,
     idle_checker: I,
     client_addr: Option<SocketAddr>,
-    client_username: Option<String>,
+    client_username: Option<Arc<str>>,
     literal_size: u64,
 }
 
@@ -70,8 +70,8 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
         self.client_addr = Some(addr);
     }
 
-    pub fn set_client_username(&mut self, user: &str) {
-        self.client_username = Some(user.to_string());
+    pub fn set_client_username(&mut self, user: Arc<str>) {
+        self.client_username = Some(user);
     }
 
     pub fn build_http_header(&self) -> Vec<u8> {

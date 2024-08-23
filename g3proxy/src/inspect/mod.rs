@@ -53,7 +53,7 @@ pub(crate) mod smtp;
 
 #[derive(Clone)]
 pub(super) struct StreamInspectUserContext {
-    raw_user_name: Option<String>,
+    raw_user_name: Option<Arc<str>>,
     user: Arc<User>,
     user_site: Option<Arc<UserSite>>,
     forbidden_stats: Arc<UserForbiddenStats>,
@@ -82,10 +82,10 @@ impl StreamInspectTaskNotes {
         self.user_ctx.as_ref().map(|ctx| &ctx.user)
     }
 
-    pub(crate) fn raw_username(&self) -> Option<&str> {
+    pub(crate) fn raw_username(&self) -> Option<&Arc<str>> {
         self.user_ctx
             .as_ref()
-            .and_then(|ctx| ctx.raw_user_name.as_deref())
+            .and_then(|ctx| ctx.raw_user_name.as_ref())
     }
 
     #[inline]
@@ -102,7 +102,7 @@ impl From<&ServerTaskNotes> for StreamInspectTaskNotes {
             server_addr: task_notes.server_addr(),
             worker_id: task_notes.worker_id(),
             user_ctx: task_notes.user_ctx().map(|ctx| StreamInspectUserContext {
-                raw_user_name: ctx.raw_user_name().map(|s| s.to_string()),
+                raw_user_name: ctx.raw_user_name().cloned(),
                 user: ctx.user().clone(),
                 user_site: ctx.user_site().cloned(),
                 forbidden_stats: ctx.forbidden_stats().clone(),
@@ -166,7 +166,7 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     }
 
     #[inline]
-    fn raw_user_name(&self) -> Option<&str> {
+    fn raw_user_name(&self) -> Option<&Arc<str>> {
         self.task_notes.raw_username()
     }
 

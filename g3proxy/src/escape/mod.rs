@@ -223,7 +223,7 @@ pub(crate) trait EscaperExt: Escaper {
             SelectivePickPolicy::Ketama => {
                 let key = ConsistentKey {
                     client_ip: task_notes.client_ip(),
-                    user: task_notes.raw_user_name(),
+                    user: task_notes.raw_user_name().map(|s| s.as_ref()),
                     host,
                 };
                 nodes.pick_ketama(&key)
@@ -231,7 +231,7 @@ pub(crate) trait EscaperExt: Escaper {
             SelectivePickPolicy::Rendezvous => {
                 let key = ConsistentKey {
                     client_ip: task_notes.client_ip(),
-                    user: task_notes.raw_user_name(),
+                    user: task_notes.raw_user_name().map(|s| s.as_ref()),
                     host,
                 };
                 nodes.pick_rendezvous(&key)
@@ -239,7 +239,7 @@ pub(crate) trait EscaperExt: Escaper {
             SelectivePickPolicy::JumpHash => {
                 let key = ConsistentKey {
                     client_ip: task_notes.client_ip(),
-                    user: task_notes.raw_user_name(),
+                    user: task_notes.raw_user_name().map(|s| s.as_ref()),
                     host,
                 };
                 nodes.pick_jump(&key)

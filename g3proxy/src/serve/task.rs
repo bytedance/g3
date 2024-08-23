@@ -15,6 +15,7 @@
  */
 
 use std::net::{IpAddr, SocketAddr};
+use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
@@ -132,7 +133,7 @@ impl ServerTaskNotes {
         self.user_ctx.as_mut()
     }
 
-    pub(crate) fn raw_user_name(&self) -> Option<&str> {
+    pub(crate) fn raw_user_name(&self) -> Option<&Arc<str>> {
         self.user_ctx.as_ref().and_then(|c| c.raw_user_name())
     }
 

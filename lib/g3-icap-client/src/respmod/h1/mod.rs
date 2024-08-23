@@ -89,7 +89,7 @@ pub struct HttpResponseAdapter<I: IdleCheck> {
     http_body_line_max_size: usize,
     idle_checker: I,
     client_addr: Option<SocketAddr>,
-    client_username: Option<String>,
+    client_username: Option<Arc<str>>,
     respond_shared_headers: Option<HttpHeaderMap>,
 }
 
@@ -154,8 +154,8 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
         self.client_addr = Some(addr);
     }
 
-    pub fn set_client_username(&mut self, user: &str) {
-        self.client_username = Some(user.to_string());
+    pub fn set_client_username(&mut self, user: Arc<str>) {
+        self.client_username = Some(user);
     }
 
     pub fn set_respond_shared_headers(&mut self, shared_headers: Option<HttpHeaderMap>) {

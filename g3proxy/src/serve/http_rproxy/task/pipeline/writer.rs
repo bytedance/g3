@@ -147,7 +147,7 @@ where
                 }) => match user_group.get_user(username.as_original()) {
                     Some((user, user_type)) => {
                         let user_ctx = UserContext::new(
-                            Some(username.as_original().to_string()),
+                            Some(Arc::from(username.as_original())),
                             user,
                             user_type,
                             self.ctx.server_config.name(),

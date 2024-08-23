@@ -670,7 +670,7 @@ impl User {
 
 #[derive(Clone)]
 pub(crate) struct UserContext {
-    raw_user_name: Option<String>,
+    raw_user_name: Option<Arc<str>>,
     user: Arc<User>,
     user_type: UserType,
     user_site: Option<Arc<UserSite>>,
@@ -684,7 +684,7 @@ pub(crate) struct UserContext {
 
 impl UserContext {
     pub(crate) fn new(
-        raw_user_name: Option<String>,
+        raw_user_name: Option<Arc<str>>,
         user: Arc<User>,
         user_type: UserType,
         server: &MetricsName,
@@ -742,8 +742,8 @@ impl UserContext {
     }
 
     #[inline]
-    pub(crate) fn raw_user_name(&self) -> Option<&str> {
-        self.raw_user_name.as_deref()
+    pub(crate) fn raw_user_name(&self) -> Option<&Arc<str>> {
+        self.raw_user_name.as_ref()
     }
 
     #[inline]

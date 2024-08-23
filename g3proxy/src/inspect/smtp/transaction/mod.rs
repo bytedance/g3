@@ -345,7 +345,7 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
     {
         adapter.set_client_addr(self.ctx.task_notes.client_addr);
         if let Some(username) = self.ctx.raw_user_name() {
-            adapter.set_client_username(username);
+            adapter.set_client_username(username.clone());
         }
 
         let mut adaptation_state = ReqmodAdaptationRunState::new(Instant::now());
