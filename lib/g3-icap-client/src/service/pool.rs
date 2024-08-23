@@ -21,8 +21,8 @@ use tokio::sync::{mpsc, oneshot};
 use tokio::time::Interval;
 
 use super::{
-    IcapClientConnection, IcapConnectionCreator, IcapConnectionEofPoller,
-    IcapConnectionPollRequest, IcapServiceConfig,
+    IcapClientConnection, IcapConnectionEofPoller, IcapConnectionPollRequest, IcapConnector,
+    IcapServiceConfig,
 };
 use crate::options::{IcapOptionsRequest, IcapServiceOptions};
 
@@ -39,7 +39,7 @@ enum IcapServicePoolCommand {
 pub(super) struct IcapServicePool {
     config: Arc<IcapServiceConfig>,
     options: Arc<IcapServiceOptions>,
-    conn_creator: Arc<IcapConnectionCreator>,
+    connector: Arc<IcapConnector>,
     check_interval: Interval,
     client_cmd_receiver: flume::Receiver<IcapServiceClientCommand>,
     pool_cmd_sender: mpsc::Sender<IcapServicePoolCommand>,
@@ -53,18 +53,18 @@ impl IcapServicePool {
     pub(super) fn new(
         config: Arc<IcapServiceConfig>,
         client_cmd_receiver: flume::Receiver<IcapServiceClientCommand>,
-        conn_creator: Arc<IcapConnectionCreator>,
+        connector: Arc<IcapConnector>,
     ) -> Self {
         let options = Arc::new(IcapServiceOptions::new_expired(config.method));
-        let check_interval = tokio::time::interval(config.connection_pool.check_interval);
+        let check_interval = tokio::time::interval(config.connection_pool.check_interval());
         let (pool_cmd_sender, pool_cmd_receiver) =
-            mpsc::channel(config.connection_pool.max_idle_count);
+            mpsc::channel(config.connection_pool.max_idle_count());
         let (conn_req_sender, conn_req_receiver) =
-            flume::bounded(config.connection_pool.max_idle_count);
+            flume::bounded(config.connection_pool.max_idle_count());
         IcapServicePool {
             config,
             options,
-            conn_creator,
+            connector,
             check_interval,
             client_cmd_receiver,
             pool_cmd_sender,
@@ -106,7 +106,7 @@ impl IcapServicePool {
     fn check(&mut self) {
         if self.options.expired() {
             let pool_sender = self.pool_cmd_sender.clone();
-            let conn_creator = self.conn_creator.clone();
+            let conn_creator = self.connector.clone();
             let config = self.config.clone();
             tokio::spawn(async move {
                 if let Ok(mut conn) = conn_creator.create().await {
@@ -130,10 +130,11 @@ impl IcapServicePool {
         }
 
         let current_idle_count = self.idle_conn_count();
-        if current_idle_count < self.config.connection_pool.min_idle_count {
-            for _i in current_idle_count..self.config.connection_pool.min_idle_count {
+        let min_idle_count = self.config.connection_pool.min_idle_count();
+        if current_idle_count < min_idle_count {
+            for _i in current_idle_count..min_idle_count {
                 let pool_sender = self.pool_cmd_sender.clone();
-                let conn_creator = self.conn_creator.clone();
+                let conn_creator = self.connector.clone();
                 tokio::spawn(async move {
                     if let Ok(conn) = conn_creator.create().await {
                         let _ = pool_sender
@@ -158,7 +159,7 @@ impl IcapServicePool {
                             .await;
                     });
                 } else {
-                    let conn_creator = self.conn_creator.clone();
+                    let conn_creator = self.connector.clone();
                     let options = self.options.clone();
                     tokio::spawn(async move {
                         if let Ok(conn) = conn_creator.create().await {
@@ -180,7 +181,7 @@ impl IcapServicePool {
 
     fn save_connection(&mut self, conn: IcapClientConnection) {
         // it's ok to skip compare_swap as we only increase the idle count in the same future context
-        if self.idle_conn_count() < self.config.connection_pool.max_idle_count {
+        if self.idle_conn_count() < self.config.connection_pool.max_idle_count() {
             let idle_count = self.idle_conn_count.clone();
             // relaxed is fine as we only increase it here in the same future context
             idle_count.fetch_add(1, Ordering::Relaxed);

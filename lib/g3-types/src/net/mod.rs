@@ -20,6 +20,7 @@ mod egress;
 mod error;
 mod haproxy;
 mod host;
+mod pool;
 mod port;
 mod proxy;
 mod rate_limit;
@@ -48,6 +49,7 @@ pub use haproxy::{
     ProxyProtocolEncodeError, ProxyProtocolEncoder, ProxyProtocolV2Encoder, ProxyProtocolVersion,
 };
 pub use host::Host;
+pub use pool::ConnectionPoolConfig;
 pub use port::{PortRange, Ports};
 pub use proxy::{Proxy, ProxyParseError, ProxyRequestType, Socks4Proxy, Socks5Proxy};
 pub use rate_limit::{

@@ -26,6 +26,8 @@ use g3_icap_client::reqmod::IcapReqmodClient;
 use g3_icap_client::respmod::IcapRespmodClient;
 
 use super::Auditor;
+#[cfg(feature = "quic")]
+use super::StreamDetourClient;
 use crate::config::audit::AuditorConfig;
 use crate::inspect::tls::TlsInterceptionContext;
 
@@ -38,6 +40,8 @@ pub(crate) struct AuditHandle {
     intercept_logger: Logger,
     icap_reqmod_client: Option<IcapReqmodClient>,
     icap_respmod_client: Option<IcapRespmodClient>,
+    #[cfg(feature = "quic")]
+    stream_detour_client: Option<Arc<StreamDetourClient>>,
 }
 
 impl AuditHandle {
@@ -59,6 +63,8 @@ impl AuditHandle {
             intercept_logger: crate::log::intercept::get_logger(auditor.config.name()),
             icap_reqmod_client: icap_reqmod_service,
             icap_respmod_client: icap_respmod_service,
+            #[cfg(feature = "quic")]
+            stream_detour_client: auditor.stream_detour_service.clone(),
         }
     }
 
@@ -144,6 +150,12 @@ impl AuditHandle {
     #[inline]
     pub(crate) fn icap_respmod_client(&self) -> Option<&IcapRespmodClient> {
         self.icap_respmod_client.as_ref()
+    }
+
+    #[cfg(feature = "quic")]
+    #[inline]
+    pub(crate) fn stream_detour_client(&self) -> Option<&Arc<StreamDetourClient>> {
+        self.stream_detour_client.as_ref()
     }
 
     pub(crate) fn do_task_audit(&self) -> bool {

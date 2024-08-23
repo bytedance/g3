@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use anyhow::anyhow;
 use slog::slog_info;
 use tokio::io::AsyncWriteExt;
 
@@ -25,9 +26,11 @@ use g3_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseParser};
 use g3_types::net::{Host, UpstreamAddr};
 
 use super::StartTlsProtocol;
+#[cfg(feature = "quic")]
+use crate::audit::StreamDetourContext;
 use crate::config::server::ServerConfig;
 use crate::inspect::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext, StreamInspection};
-use crate::serve::{ServerTaskError, ServerTaskForbiddenError, ServerTaskResult};
+use crate::serve::{ServerTaskError, ServerTaskResult};
 
 mod ext;
 use ext::{CommandLineRecvExt, ResponseLineRecvExt, ResponseParseExt};
@@ -119,10 +122,6 @@ where
 
     pub(crate) async fn intercept(mut self) -> ServerTaskResult<Option<StreamInspection<SC>>> {
         match self.ctx.smtp_inspect_policy() {
-            ProtocolInspectPolicy::Bypass => {
-                self.do_bypass().await?;
-                Ok(None)
-            }
             ProtocolInspectPolicy::Intercept => match self.do_intercept().await {
                 Ok(obj) => {
                     intercept_log!(self, "finished");
@@ -133,11 +132,44 @@ where
                     Err(e)
                 }
             },
+            #[cfg(feature = "quic")]
+            ProtocolInspectPolicy::Detour => {
+                self.do_detour().await?;
+                Ok(None)
+            }
+            ProtocolInspectPolicy::Bypass => {
+                self.do_bypass().await?;
+                Ok(None)
+            }
             ProtocolInspectPolicy::Block => {
                 self.do_block().await?;
                 Ok(None)
             }
         }
+    }
+
+    #[cfg(feature = "quic")]
+    async fn do_detour(&mut self) -> ServerTaskResult<()> {
+        let Some(client) = self.ctx.audit_handle.stream_detour_client() else {
+            return self.do_bypass().await;
+        };
+
+        let SmtpIo {
+            clt_r,
+            clt_w,
+            ups_r,
+            ups_w,
+        } = self.io.take().unwrap();
+
+        let ctx = StreamDetourContext::new(
+            &self.ctx.server_config,
+            &self.ctx.server_quit_policy,
+            &self.ctx.task_notes,
+            &self.upstream,
+            g3_dpi::Protocol::Smtp,
+        );
+
+        client.detour_relay(clt_r, clt_w, ups_r, ups_w, ctx).await
     }
 
     async fn do_bypass(&mut self) -> ServerTaskResult<()> {
@@ -185,9 +217,9 @@ where
                 self.ctx.smtp_interception().command_wait_timeout,
             )
             .await?;
-        Err(ServerTaskError::ForbiddenByRule(
-            ServerTaskForbiddenError::ProtoBanned,
-        ))
+        Err(ServerTaskError::InternalAdapterError(anyhow!(
+            "blocked by inspection policy"
+        )))
     }
 
     async fn do_intercept(&mut self) -> ServerTaskResult<Option<StreamInspection<SC>>> {

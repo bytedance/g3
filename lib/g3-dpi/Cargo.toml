@@ -12,3 +12,7 @@ bytes.workspace = true
 memchr.workspace = true
 fixedbitset.workspace = true
 g3-types.workspace = true
+
+[features]
+default = []
+quic = []

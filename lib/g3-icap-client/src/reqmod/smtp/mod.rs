@@ -61,7 +61,7 @@ pub struct SmtpMessageAdapter<I: IdleCheck> {
     // TODO add SMTP config
     idle_checker: I,
     client_addr: Option<SocketAddr>,
-    client_username: Option<String>,
+    client_username: Option<Arc<str>>,
 }
 
 impl<I: IdleCheck> SmtpMessageAdapter<I> {
@@ -69,8 +69,8 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
         self.client_addr = Some(addr);
     }
 
-    pub fn set_client_username(&mut self, user: &str) {
-        self.client_username = Some(user.to_string());
+    pub fn set_client_username(&mut self, user: Arc<str>) {
+        self.client_username = Some(user);
     }
 
     pub fn build_http_header(&self, mail_from: &MailParam, mail_to: &[RecipientParam]) -> Vec<u8> {

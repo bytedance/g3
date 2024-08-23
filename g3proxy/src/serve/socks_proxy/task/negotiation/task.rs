@@ -216,7 +216,7 @@ impl SocksProxyNegotiationTask {
                     let (username, password) = v5::auth::recv_user_from_client(&mut clt_r).await?;
                     if let Some((user, user_type)) = user_group.get_user(username.as_original()) {
                         let user_ctx = UserContext::new(
-                            Some(username.as_original().to_string()),
+                            Some(Arc::from(username.as_original())),
                             user,
                             user_type,
                             self.ctx.server_config.name(),

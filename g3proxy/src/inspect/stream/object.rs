@@ -191,7 +191,8 @@ where
                 return Ok(StreamInspection::H1(h1_obj));
             }
             Protocol::Http2 => {
-                let mut h2_obj = crate::inspect::http::H2InterceptObject::new(self.ctx);
+                let mut h2_obj =
+                    crate::inspect::http::H2InterceptObject::new(self.ctx, self.upstream.clone());
                 h2_obj.set_io(OnceBufReader::new(clt_r, clt_r_buf), clt_w, ups_r, ups_w);
                 return Ok(StreamInspection::H2(h2_obj));
             }

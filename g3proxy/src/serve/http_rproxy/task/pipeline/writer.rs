@@ -53,7 +53,7 @@ impl Drop for UserData {
 }
 
 struct RequestCount {
-    passed_users: AHashMap<String, UserData>,
+    passed_users: AHashMap<Arc<str>, UserData>,
     anonymous: usize,
     auth_failed: usize,
     invalid: usize,
@@ -147,7 +147,7 @@ where
                 }) => match user_group.get_user(username.as_original()) {
                     Some((user, user_type)) => {
                         let user_ctx = UserContext::new(
-                            Some(username.as_original().to_string()),
+                            Some(Arc::from(username.as_original())),
                             user,
                             user_type,
                             self.ctx.server_config.name(),
@@ -167,7 +167,7 @@ where
             );
             self.req_count
                 .passed_users
-                .entry(user_ctx.user_name().to_string())
+                .entry(user_ctx.user_name().clone())
                 .and_modify(|d| {
                     user_ctx.mark_reused_client_connection();
                     d.count += 1;

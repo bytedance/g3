@@ -33,7 +33,7 @@ const DEFAULT_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 pub(crate) struct UserGroupConfig {
     name: MetricsName,
     position: Option<YamlDocPosition>,
-    pub(crate) static_users: HashMap<String, Arc<UserConfig>>,
+    pub(crate) static_users: HashMap<Arc<str>, Arc<UserConfig>>,
     pub(crate) dynamic_source: Option<UserDynamicSource>,
     pub(crate) dynamic_cache: PathBuf,
     pub(crate) refresh_interval: Duration,
@@ -99,7 +99,7 @@ impl UserGroupConfig {
                         if let Yaml::Hash(map) = obj {
                             let user =
                                 Arc::new(UserConfig::parse_yaml(map, self.position.as_ref())?);
-                            let username = user.name().to_string();
+                            let username = user.name().clone();
                             if let Some(old) = self.static_users.insert(username, user) {
                                 return Err(anyhow!(
                                     "found duplicate entry for user {}",

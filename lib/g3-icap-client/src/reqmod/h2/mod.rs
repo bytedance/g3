@@ -86,7 +86,7 @@ pub struct H2RequestAdapter<I: IdleCheck> {
     http_req_add_no_via_header: bool,
     idle_checker: I,
     client_addr: Option<SocketAddr>,
-    client_username: Option<String>,
+    client_username: Option<Arc<str>>,
 }
 
 pub struct ReqmodAdaptationRunState {
@@ -136,8 +136,8 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         self.client_addr = Some(addr);
     }
 
-    pub fn set_client_username(&mut self, user: &str) {
-        self.client_username = Some(user.to_string());
+    pub fn set_client_username(&mut self, user: Arc<str>) {
+        self.client_username = Some(user);
     }
 
     fn push_extended_headers(&self, data: &mut Vec<u8>) {

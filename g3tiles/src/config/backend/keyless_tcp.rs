@@ -23,7 +23,7 @@ use yaml_rust::{yaml, Yaml};
 
 use g3_histogram::HistogramMetricsConfig;
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
-use g3_types::net::{RustlsClientConfigBuilder, TcpKeepAliveConfig};
+use g3_types::net::{ConnectionPoolConfig, RustlsClientConfigBuilder, TcpKeepAliveConfig};
 use g3_yaml::YamlDocPosition;
 
 use super::{AnyBackendConfig, BackendConfig, BackendConfigDiffAction};
@@ -46,9 +46,7 @@ pub(crate) struct KeylessTcpBackendConfig {
     pub(crate) request_buffer_size: usize,
     pub(crate) connection_config: MultiplexedUpstreamConnectionConfig,
     pub(crate) graceful_close_wait: Duration,
-    pub(crate) idle_connection_min: usize,
-    pub(crate) idle_connection_max: usize,
-    pub(crate) connect_check_interval: Duration,
+    pub(crate) connection_pool: ConnectionPoolConfig,
     pub(crate) tcp_keepalive: TcpKeepAliveConfig,
 }
 
@@ -66,9 +64,7 @@ impl KeylessTcpBackendConfig {
             request_buffer_size: 128,
             connection_config: Default::default(),
             graceful_close_wait: Duration::from_secs(10),
-            idle_connection_min: 128,
-            idle_connection_max: 4096,
-            connect_check_interval: Duration::from_secs(10),
+            connection_pool: ConnectionPoolConfig::new(4096, 128),
             tcp_keepalive: TcpKeepAliveConfig::default(),
         }
     }
@@ -92,9 +88,6 @@ impl KeylessTcpBackendConfig {
         }
         if matches!(self.discover_data, DiscoverRegisterData::Null) {
             return Err(anyhow!("no discover data set"));
-        }
-        if self.idle_connection_max < self.idle_connection_min {
-            self.idle_connection_max = self.idle_connection_min;
         }
         Ok(())
     }
@@ -161,17 +154,9 @@ impl KeylessTcpBackendConfig {
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
-            "idle_connection_min" => {
-                self.idle_connection_min = g3_yaml::value::as_usize(v)?;
-                Ok(())
-            }
-            "idle_connection_max" => {
-                self.idle_connection_max = g3_yaml::value::as_usize(v)?;
-                Ok(())
-            }
-            "connect_check_interval" => {
-                self.connect_check_interval = g3_yaml::humanize::as_duration(v)
-                    .context(format!("invalid humanize duration value for key {k}"))?;
+            "connection_pool" | "pool" => {
+                self.connection_pool = g3_yaml::value::as_connection_pool_config(v)
+                    .context(format!("invalid connection pool config value for {k}"))?;
                 Ok(())
             }
             "tcp_keepalive" => {

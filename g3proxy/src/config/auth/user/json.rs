@@ -38,8 +38,9 @@ impl UserConfig {
     fn set_json(&mut self, k: &str, v: &Value) -> anyhow::Result<()> {
         match g3_json::key::normalize(k).as_str() {
             "name" => {
-                self.name =
+                let name =
                     g3_json::value::as_string(v).context(format!("invalid value for key {k}"))?;
+                self.name = name.into();
                 Ok(())
             }
             "token" => {

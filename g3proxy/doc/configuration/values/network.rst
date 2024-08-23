@@ -207,6 +207,42 @@ The yaml value for *socket buffer config* can be in the following formats:
 
   The keys of this map are the fields as described above.
 
+.. _conf_value_connection_pool_config:
+
+connection pool config
+======================
+
+**type**: map
+
+The keys are:
+
+* check_interval
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Set the min idle check interval.
+  New connections will be established if the idle connections are less than *min_idle_count*.
+
+  **default**: 10s
+
+* max_idle_count
+
+  **optional*, **type**: usize
+
+  Set the maximum idle connections count.
+
+  **default**: 1024
+
+* min_idle_count
+
+  **optional**, **type**: usize
+
+  Set the minimum idle connections count.
+
+  **default**: 32
+
+.. versionadded:: 1.9.8
+
 .. _conf_value_tcp_listen:
 
 tcp listen

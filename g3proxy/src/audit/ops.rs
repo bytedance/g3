@@ -111,7 +111,7 @@ async fn reload_old_unlocked(old: AuditorConfig, new: AuditorConfig) -> anyhow::
     let Some(old_auditor) = registry::get(name) else {
         return Err(anyhow!("no auditor with name {name} found"));
     };
-    let new_auditor = old_auditor.reload(new);
+    let new_auditor = old_auditor.reload(new)?;
     registry::add(name.clone(), new_auditor);
     crate::serve::update_dependency_to_auditor(name, "reloaded").await;
     Ok(())
@@ -119,7 +119,7 @@ async fn reload_old_unlocked(old: AuditorConfig, new: AuditorConfig) -> anyhow::
 
 async fn spawn_new_unlocked(config: AuditorConfig) -> anyhow::Result<()> {
     let name = config.name().clone();
-    let auditor = Auditor::new_with_config(config);
+    let auditor = Auditor::new_with_config(config)?;
     registry::add(name.clone(), auditor);
     crate::serve::update_dependency_to_auditor(&name, "spawned").await;
     Ok(())

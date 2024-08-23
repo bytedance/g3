@@ -16,13 +16,15 @@
 
 use std::future::Future;
 use std::mem;
-use std::sync::atomic::{AtomicIsize, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
 use log::debug;
 use tokio::sync::{broadcast, mpsc};
+
+use g3_types::net::ConnectionPoolConfig;
+use g3_types::stats::ConnectionPoolStats;
 
 use super::KeylessForwardRequest;
 
@@ -69,37 +71,10 @@ impl KeylessConnectionPoolHandle {
     }
 }
 
-#[derive(Default)]
-struct PoolStats {
-    total_connection: AtomicU64,
-    alive_connection: AtomicIsize,
-}
-
-impl PoolStats {
-    fn add_connection(&self) {
-        self.total_connection.fetch_add(1, Ordering::Relaxed);
-        self.alive_connection.fetch_add(1, Ordering::Relaxed);
-    }
-
-    fn del_connection(&self) {
-        self.total_connection.fetch_sub(1, Ordering::Relaxed);
-        self.alive_connection.fetch_sub(1, Ordering::Relaxed);
-    }
-
-    fn alive_count(&self) -> usize {
-        self.alive_connection
-            .load(Ordering::Relaxed)
-            .try_into()
-            .unwrap_or_default()
-    }
-}
-
 pub(crate) struct KeylessConnectionPool<C: KeylessUpstreamConnection> {
+    config: ConnectionPoolConfig,
     connector: ArcKeylessUpstreamConnect<C>,
-    idle_connection_min: usize,
-    idle_connection_max: usize,
-    connect_check_interval: Duration,
-    stats: Arc<PoolStats>,
+    stats: Arc<ConnectionPoolStats>,
 
     keyless_request_receiver: flume::Receiver<KeylessForwardRequest>,
 
@@ -116,21 +91,17 @@ where
     C: KeylessUpstreamConnection + Send + 'static,
 {
     fn new(
+        config: ConnectionPoolConfig,
         connector: ArcKeylessUpstreamConnect<C>,
-        idle_connection_min: usize,
-        idle_connection_max: usize,
-        connect_check_interval: Duration,
         keyless_request_receiver: flume::Receiver<KeylessForwardRequest>,
         graceful_close_wait: Duration,
     ) -> Self {
         let (connection_close_sender, connection_close_receiver) = mpsc::channel(1);
         let connection_quit_notifier = broadcast::Sender::new(1);
         KeylessConnectionPool {
+            config,
             connector,
-            idle_connection_min,
-            idle_connection_max,
-            connect_check_interval,
-            stats: Arc::new(PoolStats::default()),
+            stats: Arc::new(ConnectionPoolStats::default()),
             keyless_request_receiver,
             connection_id: 0,
             connection_close_receiver,
@@ -141,18 +112,14 @@ where
     }
 
     pub(crate) fn spawn(
+        config: ConnectionPoolConfig,
         connector: ArcKeylessUpstreamConnect<C>,
-        idle_connection_min: usize,
-        idle_connection_max: usize,
-        connect_check_interval: Duration,
         keyless_request_receiver: flume::Receiver<KeylessForwardRequest>,
         graceful_close_wait: Duration,
     ) -> KeylessConnectionPoolHandle {
         let pool = KeylessConnectionPool::new(
+            config,
             connector,
-            idle_connection_min,
-            idle_connection_max,
-            connect_check_interval,
             keyless_request_receiver,
             graceful_close_wait,
         );
@@ -164,7 +131,7 @@ where
     }
 
     async fn into_running(mut self, mut cmd_receiver: mpsc::Receiver<KeylessPoolCmd>) {
-        let mut connection_check_interval = tokio::time::interval(self.connect_check_interval);
+        let mut connection_check_interval = tokio::time::interval(self.config.check_interval());
 
         loop {
             tokio::select! {
@@ -182,7 +149,7 @@ where
                                 tokio::time::sleep(graceful_close_wait).await;
                                 let _ = old_quit_notifier.send(());
                             });
-                            let target = self.stats.alive_count().max(self.idle_connection_min);
+                            let target = self.stats.alive_count().max(self.config.min_idle_count());
                             self.check_create_connection(0, target);
                         }
                         KeylessPoolCmd::CloseGraceful => {
@@ -191,17 +158,17 @@ where
                             break;
                         }
                         KeylessPoolCmd::NewConnection => {
-                            if self.stats.alive_count() < self.idle_connection_max {
+                            if self.stats.alive_count() < self.config.max_idle_count() {
                                 self.create_connection();
                             }
                         }
                     }
                 }
                 _ = self.connection_close_receiver.recv() => {
-                    self.check_create_connection(self.stats.alive_count(), self.idle_connection_min);
+                    self.check_create_connection(self.stats.alive_count(), self.config.min_idle_count());
                 }
                 _ = connection_check_interval.tick() => {
-                    self.check_create_connection(self.stats.alive_count(), self.idle_connection_min);
+                    self.check_create_connection(self.stats.alive_count(), self.config.min_idle_count());
                 }
             }
         }

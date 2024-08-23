@@ -27,4 +27,4 @@ pub use options::IcapServiceOptions;
 mod service;
 
 use service::{IcapClientConnection, IcapClientReader, IcapClientWriter};
-pub use service::{IcapConnectionPoolConfig, IcapMethod, IcapServiceClient, IcapServiceConfig};
+pub use service::{IcapMethod, IcapServiceClient, IcapServiceConfig};

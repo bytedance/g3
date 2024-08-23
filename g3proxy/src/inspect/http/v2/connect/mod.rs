@@ -174,7 +174,7 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
                         ReqmodAdaptationRunState::new(self.http_notes.started_ins);
                     adapter.set_client_addr(self.ctx.task_notes.client_addr);
                     if let Some(username) = self.ctx.raw_user_name() {
-                        adapter.set_client_username(username);
+                        adapter.set_client_username(username.clone());
                     }
                     return self
                         .forward_with_adaptation(

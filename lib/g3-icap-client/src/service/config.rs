@@ -22,42 +22,9 @@ use anyhow::anyhow;
 use http::HeaderName;
 use url::Url;
 
-use g3_types::net::{HttpAuth, TcpKeepAliveConfig, UpstreamAddr};
+use g3_types::net::{ConnectionPoolConfig, HttpAuth, TcpKeepAliveConfig, UpstreamAddr};
 
 use super::IcapMethod;
-
-pub struct IcapConnectionPoolConfig {
-    pub(crate) check_interval: Duration,
-    pub(crate) max_idle_count: usize,
-    pub(crate) min_idle_count: usize,
-}
-
-impl Default for IcapConnectionPoolConfig {
-    fn default() -> Self {
-        IcapConnectionPoolConfig {
-            check_interval: Duration::from_secs(10),
-            max_idle_count: 128,
-            min_idle_count: 16,
-        }
-    }
-}
-
-impl IcapConnectionPoolConfig {
-    #[inline]
-    pub fn set_check_interval(&mut self, interval: Duration) {
-        self.check_interval = interval;
-    }
-
-    #[inline]
-    pub fn set_max_idle_count(&mut self, count: usize) {
-        self.max_idle_count = count;
-    }
-
-    #[inline]
-    pub fn set_min_idle_count(&mut self, count: usize) {
-        self.min_idle_count = count;
-    }
-}
 
 pub struct IcapServiceConfig {
     pub(crate) method: IcapMethod,
@@ -65,7 +32,7 @@ pub struct IcapServiceConfig {
     auth: HttpAuth,
     user_agent: Option<String>,
     pub(crate) upstream: UpstreamAddr,
-    pub connection_pool: IcapConnectionPoolConfig,
+    pub connection_pool: ConnectionPoolConfig,
     pub(crate) tcp_keepalive: TcpKeepAliveConfig,
     pub(crate) icap_206_enable: bool,
     pub(crate) icap_max_header_size: usize,
@@ -92,7 +59,7 @@ impl IcapServiceConfig {
             auth,
             user_agent: None,
             upstream,
-            connection_pool: IcapConnectionPoolConfig::default(),
+            connection_pool: ConnectionPoolConfig::default(),
             tcp_keepalive: TcpKeepAliveConfig::default_enabled(),
             icap_206_enable: false,
             icap_max_header_size: 8192,

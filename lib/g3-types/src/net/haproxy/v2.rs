@@ -51,6 +51,9 @@ const PP2_TYPE_CUSTOM_UPSTREAM: u8 = 0xE0;
 const PP2_TYPE_CUSTOM_TLS_NAME: u8 = 0xE1;
 const PP2_TYPE_CUSTOM_USERNAME: u8 = 0xE2;
 const PP2_TYPE_CUSTOM_TASK_ID: u8 = 0xE3;
+const PP2_TYPE_CUSTOM_PROTOCOL: u8 = 0xE4;
+const PP2_TYPE_CUSTOM_MATCH_ID: u8 = 0xE5;
+const PP2_TYPE_CUSTOM_PAYLOAD: u8 = 0xE6;
 
 pub struct ProxyProtocolV2Encoder {
     buf: [u8; V2_BUF_CAP],
@@ -146,6 +149,19 @@ impl ProxyProtocolV2Encoder {
 
     pub fn push_task_id(&mut self, id: &[u8]) -> Result<(), ProxyProtocolEncodeError> {
         self.push_tlv(PP2_TYPE_CUSTOM_TASK_ID, id)
+    }
+
+    pub fn push_protocol(&mut self, protocol: &str) -> Result<(), ProxyProtocolEncodeError> {
+        self.push_tlv(PP2_TYPE_CUSTOM_PROTOCOL, protocol.as_bytes())
+    }
+
+    pub fn push_match_id(&mut self, id: u16) -> Result<(), ProxyProtocolEncodeError> {
+        let bytes = id.to_be_bytes();
+        self.push_tlv(PP2_TYPE_CUSTOM_MATCH_ID, &bytes)
+    }
+
+    pub fn push_payload(&mut self, payload: &[u8]) -> Result<(), ProxyProtocolEncodeError> {
+        self.push_tlv(PP2_TYPE_CUSTOM_PAYLOAD, payload)
     }
 
     pub fn finalize(&mut self) -> &[u8] {

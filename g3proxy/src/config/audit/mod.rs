@@ -27,6 +27,11 @@ pub(crate) use registry::{clear, get_all};
 mod auditor;
 pub(crate) use auditor::AuditorConfig;
 
+#[cfg(feature = "quic")]
+mod detour;
+#[cfg(feature = "quic")]
+pub(crate) use detour::AuditStreamDetourConfig;
+
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
     let parser = HybridParser::new(conf_dir, g3_daemon::opts::config_file_extension());
     parser.foreach_map(v, |map, position| {

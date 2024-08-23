@@ -217,7 +217,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
             Ok(mut adapter) => {
                 adapter.set_client_addr(self.ctx.task_notes.client_addr);
                 if let Some(username) = self.ctx.raw_user_name() {
-                    adapter.set_client_username(username);
+                    adapter.set_client_username(username.clone());
                 }
                 adapter
             }
@@ -695,7 +695,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                     );
                     adapter.set_client_addr(self.ctx.task_notes.client_addr);
                     if let Some(username) = self.ctx.raw_user_name() {
-                        adapter.set_client_username(username);
+                        adapter.set_client_username(username.clone());
                     }
                     adapter.set_respond_shared_headers(adaptation_respond_shared_headers);
                     let r = self

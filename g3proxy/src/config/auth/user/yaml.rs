@@ -44,8 +44,9 @@ impl UserConfig {
     ) -> anyhow::Result<()> {
         match g3_yaml::key::normalize(k).as_str() {
             "name" => {
-                self.name =
+                let name =
                     g3_yaml::value::as_string(v).context(format!("invalid value for key {k}"))?;
+                self.name = name.into();
                 Ok(())
             }
             "token" => {

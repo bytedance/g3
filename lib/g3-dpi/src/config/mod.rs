@@ -34,6 +34,8 @@ pub use imap::ImapInterceptionConfig;
 pub enum ProtocolInspectPolicy {
     #[default]
     Intercept,
+    #[cfg(feature = "quic")]
+    Detour,
     Bypass,
     Block,
 }
@@ -44,6 +46,8 @@ impl FromStr for ProtocolInspectPolicy {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "intercept" => Ok(ProtocolInspectPolicy::Intercept),
+            #[cfg(feature = "quic")]
+            "detour" => Ok(ProtocolInspectPolicy::Detour),
             "bypass" => Ok(ProtocolInspectPolicy::Bypass),
             "block" => Ok(ProtocolInspectPolicy::Block),
             _ => Err(()),

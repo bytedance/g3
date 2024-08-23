@@ -33,6 +33,9 @@ use g3_types::net::{
 use g3_udpdump::StreamDumpConfig;
 use g3_yaml::YamlDocPosition;
 
+#[cfg(feature = "quic")]
+use super::AuditStreamDetourConfig;
+
 #[derive(Clone)]
 pub(crate) struct AuditorConfig {
     name: MetricsName,
@@ -54,6 +57,8 @@ pub(crate) struct AuditorConfig {
     pub(crate) imap_interception: ImapInterceptionConfig,
     pub(crate) icap_reqmod_service: Option<Arc<IcapServiceConfig>>,
     pub(crate) icap_respmod_service: Option<Arc<IcapServiceConfig>>,
+    #[cfg(feature = "quic")]
+    pub(crate) stream_detour_service: Option<Arc<AuditStreamDetourConfig>>,
     pub(crate) task_audit_ratio: Bernoulli,
 }
 
@@ -87,6 +92,8 @@ impl AuditorConfig {
             imap_interception: Default::default(),
             icap_reqmod_service: None,
             icap_respmod_service: None,
+            #[cfg(feature = "quic")]
+            stream_detour_service: None,
             task_audit_ratio: Bernoulli::new(1.0).unwrap(),
         }
     }
@@ -218,6 +225,14 @@ impl AuditorConfig {
                     format!("invalid icap respmod service config value for key {k}"),
                 )?;
                 self.icap_respmod_service = Some(Arc::new(service));
+                Ok(())
+            }
+            #[cfg(feature = "quic")]
+            "stream_detour_service" => {
+                let service = AuditStreamDetourConfig::parse(v, self.position.as_ref()).context(
+                    format!("invalid audit stream detour config value for key {k}"),
+                )?;
+                self.stream_detour_service = Some(Arc::new(service));
                 Ok(())
             }
             "task_audit_ratio" | "application_audit_ratio" => {

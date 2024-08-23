@@ -49,3 +49,6 @@ pub use tcp::{TcpIoSnapshot, TcpIoStats, ThreadedTcpIoStats};
 
 mod udp;
 pub use udp::{ThreadedUdpIoStats, UdpIoSnapshot, UdpIoStats};
+
+mod pool;
+pub use pool::ConnectionPoolStats;

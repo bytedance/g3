@@ -30,7 +30,7 @@ use crate::stat::types::{
 pub(crate) struct UserTrafficStats {
     id: StatId,
     user_group: MetricsName,
-    user: String,
+    user: Arc<str>,
     user_type: UserType,
     server: MetricsName,
     server_extra_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
@@ -45,7 +45,7 @@ pub(crate) struct UserTrafficSnapshot {
 impl UserTrafficStats {
     pub(crate) fn new(
         user_group: &MetricsName,
-        user: &str,
+        user: Arc<str>,
         user_type: UserType,
         server: &MetricsName,
         server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
@@ -53,7 +53,7 @@ impl UserTrafficStats {
         UserTrafficStats {
             id: StatId::new(),
             user_group: user_group.clone(),
-            user: user.to_string(),
+            user,
             user_type,
             server: server.clone(),
             server_extra_tags: Arc::clone(server_extra_tags),
@@ -95,7 +95,7 @@ impl UserTrafficStats {
 pub(crate) struct UserUpstreamTrafficStats {
     id: StatId,
     user_group: MetricsName,
-    user: String,
+    user: Arc<str>,
     user_type: UserType,
     escaper: MetricsName,
     escaper_extra_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
@@ -110,7 +110,7 @@ pub(crate) struct UserUpstreamTrafficSnapshot {
 impl UserUpstreamTrafficStats {
     pub(crate) fn new(
         user_group: &MetricsName,
-        user: &str,
+        user: Arc<str>,
         user_type: UserType,
         escaper: &MetricsName,
         escaper_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
@@ -118,7 +118,7 @@ impl UserUpstreamTrafficStats {
         UserUpstreamTrafficStats {
             id: StatId::new(),
             user_group: user_group.clone(),
-            user: user.to_string(),
+            user,
             user_type,
             escaper: escaper.clone(),
             escaper_extra_tags: Arc::clone(escaper_extra_tags),

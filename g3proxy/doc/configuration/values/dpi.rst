@@ -77,6 +77,10 @@ The possible value are:
 
   Intercept the traffic. This is the default value.
 
+- detour
+
+  Send the traffic to a stream detour service, which will be configured at somewhere in the context.
+
 - bypass
 
   Bypass the interception. The traffic will be transferred transparently.

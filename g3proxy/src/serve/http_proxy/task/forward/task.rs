@@ -781,7 +781,7 @@ impl<'a> HttpProxyForwardTask<'a> {
                             );
                             adapter.set_client_addr(self.ctx.client_addr());
                             if let Some(name) = self.task_notes.raw_user_name() {
-                                adapter.set_client_username(name);
+                                adapter.set_client_username(name.clone());
                             }
                             let r = self
                                 .run_with_adaptation(
@@ -1322,7 +1322,7 @@ impl<'a> HttpProxyForwardTask<'a> {
                             );
                             adapter.set_client_addr(self.ctx.client_addr());
                             if let Some(name) = self.task_notes.raw_user_name() {
-                                adapter.set_client_username(name);
+                                adapter.set_client_username(name.clone());
                             }
                             adapter.set_respond_shared_headers(adaptation_respond_shared_headers);
                             let r = self

@@ -34,6 +34,11 @@ icap_smtp
 
 This tells what's needed to enable ICAP for SMTP.
 
+stream_detour
+=============
+
+The protocol is used in auditor to send client/remote streams to external interception server.
+
 .. toctree::
    :hidden:
 
@@ -43,3 +48,4 @@ This tells what's needed to enable ICAP for SMTP.
    icap_h2
    icap_imap
    icap_smtp
+   stream_detour

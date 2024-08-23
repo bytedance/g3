@@ -43,7 +43,7 @@ mod yaml;
 
 #[derive(Clone)]
 pub(crate) struct UserConfig {
-    name: String,
+    name: Arc<str>,
     password_token: PasswordToken,
     expire_datetime: Option<DateTime<Utc>>,
     pub(crate) audit: UserAuditConfig,
@@ -83,7 +83,7 @@ pub(crate) struct UserConfig {
 impl Default for UserConfig {
     fn default() -> Self {
         UserConfig {
-            name: String::new(),
+            name: Default::default(),
             password_token: PasswordToken::Forbidden,
             expire_datetime: None,
             audit: UserAuditConfig::default(),
@@ -123,7 +123,7 @@ impl Default for UserConfig {
 }
 
 impl UserConfig {
-    pub(crate) fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &Arc<str> {
         &self.name
     }
 

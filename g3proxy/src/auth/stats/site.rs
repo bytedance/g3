@@ -25,7 +25,7 @@ use super::{UserRequestStats, UserTrafficStats, UserUpstreamTrafficStats};
 use crate::auth::UserType;
 
 pub(crate) struct UserSiteStats {
-    user: String,
+    user: Arc<str>,
     user_group: MetricsName,
     site_id: MetricsName,
     pub(crate) request: Mutex<AHashMap<String, Arc<UserRequestStats>>>,
@@ -34,9 +34,9 @@ pub(crate) struct UserSiteStats {
 }
 
 impl UserSiteStats {
-    pub(crate) fn new(user: &str, user_group: &MetricsName, site_id: &MetricsName) -> Self {
+    pub(crate) fn new(user: Arc<str>, user_group: &MetricsName, site_id: &MetricsName) -> Self {
         UserSiteStats {
-            user: user.to_string(),
+            user,
             user_group: user_group.clone(),
             site_id: site_id.clone(),
             request: Mutex::new(AHashMap::new()),
@@ -69,7 +69,7 @@ impl UserSiteStats {
             .or_insert_with(|| {
                 let stats = Arc::new(UserRequestStats::new(
                     &self.user_group,
-                    &self.user,
+                    self.user.clone(),
                     user_type,
                     server,
                     server_extra_tags,
@@ -101,7 +101,7 @@ impl UserSiteStats {
             .or_insert_with(|| {
                 let stats = Arc::new(UserTrafficStats::new(
                     &self.user_group,
-                    &self.user,
+                    self.user.clone(),
                     user_type,
                     server,
                     server_extra_tags,
@@ -133,7 +133,7 @@ impl UserSiteStats {
             .or_insert_with(|| {
                 let stats = Arc::new(UserUpstreamTrafficStats::new(
                     &self.user_group,
-                    &self.user,
+                    self.user.clone(),
                     user_type,
                     escaper,
                     escaper_extra_tags,
