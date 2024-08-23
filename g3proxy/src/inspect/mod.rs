@@ -69,10 +69,10 @@ impl StreamInspectUserContext {
 }
 
 #[derive(Clone)]
-pub(super) struct StreamInspectTaskNotes {
+pub(crate) struct StreamInspectTaskNotes {
     task_id: Uuid,
-    client_addr: SocketAddr,
-    server_addr: SocketAddr,
+    pub(crate) client_addr: SocketAddr,
+    pub(crate) server_addr: SocketAddr,
     worker_id: Option<usize>,
     user_ctx: Option<StreamInspectUserContext>,
 }
@@ -82,25 +82,15 @@ impl StreamInspectTaskNotes {
         self.user_ctx.as_ref().map(|ctx| &ctx.user)
     }
 
-    pub(crate) fn raw_username(&self) -> Option<&String> {
+    pub(crate) fn raw_username(&self) -> Option<&str> {
         self.user_ctx
             .as_ref()
-            .and_then(|ctx| ctx.raw_user_name.as_ref())
+            .and_then(|ctx| ctx.raw_user_name.as_deref())
     }
 
     #[inline]
     pub(crate) fn task_id(&self) -> &Uuid {
         &self.task_id
-    }
-
-    #[inline]
-    pub(crate) fn client_addr(&self) -> SocketAddr {
-        self.client_addr
-    }
-
-    #[inline]
-    pub(crate) fn server_addr(&self) -> SocketAddr {
-        self.server_addr
     }
 }
 
@@ -175,16 +165,14 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
         self.task_notes.user()
     }
 
+    #[inline]
     fn raw_user_name(&self) -> Option<&str> {
-        self.task_notes
-            .user_ctx
-            .as_ref()
-            .and_then(|cx| cx.raw_user_name.as_deref())
+        self.task_notes.raw_username()
     }
 
     #[inline]
     pub(crate) fn server_task_id(&self) -> &Uuid {
-        &self.task_notes.task_id
+        self.task_notes.task_id()
     }
 
     #[inline]

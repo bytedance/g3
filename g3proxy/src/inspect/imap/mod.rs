@@ -18,7 +18,7 @@ use anyhow::anyhow;
 use slog::slog_info;
 use tokio::io::AsyncWriteExt;
 
-use g3_dpi::{Protocol, ProtocolInspectPolicy};
+use g3_dpi::ProtocolInspectPolicy;
 use g3_imap_proto::response::ByeResponse;
 use g3_imap_proto::CommandPipeline;
 use g3_io_ext::{LineRecvVec, OnceBufReader};
@@ -175,7 +175,7 @@ where
             &self.ctx.server_quit_policy,
             &self.ctx.task_notes,
             &self.upstream,
-            Protocol::Imap,
+            g3_dpi::Protocol::Imap,
         );
 
         client.detour_relay(clt_r, clt_w, ups_r, ups_w, ctx).await

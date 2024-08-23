@@ -261,8 +261,8 @@ where
         match_id: u16,
     ) -> Result<ProxyProtocolV2Encoder, ProxyProtocolEncodeError> {
         let mut ppv2 = ProxyProtocolV2Encoder::new_tcp(
-            self.task_notes.client_addr(),
-            self.task_notes.server_addr(),
+            self.task_notes.client_addr,
+            self.task_notes.server_addr,
         )?;
         if let Some(name) = self.task_notes.raw_username() {
             ppv2.push_username(name)?;
@@ -282,8 +282,8 @@ where
         match_id: u16,
     ) -> Result<ProxyProtocolV2Encoder, ProxyProtocolEncodeError> {
         let mut ppv2 = ProxyProtocolV2Encoder::new_tcp(
-            self.task_notes.client_addr(),
-            self.task_notes.server_addr(),
+            self.task_notes.client_addr,
+            self.task_notes.server_addr,
         )?;
         ppv2.push_match_id(match_id)?;
         Ok(ppv2)
