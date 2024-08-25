@@ -11,7 +11,7 @@ RUN luarocks install dkjson
 FROM rust:alpine AS builder
 WORKDIR /usr/src/g3
 COPY . .
-RUN apk add --no-cache musl-dev cmake capnproto-dev openssl-dev openssl-libs-static c-ares-dev c-ares-static lua5.4-dev pkgconfig
+RUN apk add --no-cache musl-dev cmake capnproto-dev openssl-dev c-ares-dev lua5.4-dev pkgconfig
 ENV PKG_CONFIG_PATH=/usr/lib/pkgconfig
 RUN cargo build --profile release-lto \
  --no-default-features --features quic,c-ares,hickory,lua54 \
