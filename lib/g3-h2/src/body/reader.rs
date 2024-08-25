@@ -47,10 +47,10 @@ impl AsyncRead for H2StreamReader {
     ) -> Poll<io::Result<()>> {
         loop {
             if let Some(mut b) = self.received_bytes.take() {
-                let to_write = buf.remaining().max(b.len());
-                return match self.recv_flow_control.release_capacity(to_write) {
+                let to_put = buf.remaining().min(b.len());
+                return match self.recv_flow_control.release_capacity(to_put) {
                     Ok(_) => {
-                        let split = b.split_to(to_write);
+                        let split = b.split_to(to_put);
                         buf.put_slice(&split);
                         if b.has_remaining() {
                             self.received_bytes = Some(b);
