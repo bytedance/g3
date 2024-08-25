@@ -1,4 +1,8 @@
 
+v1.8.6:
+ - BUG FIX: fix panic when build socks5 UDP header with domain address
+ - BUG FIX: fix possible panic when reading H2 stream
+
 v1.8.5:
  - BUG FIX: update tokio to fix timer
 

@@ -22,8 +22,7 @@ copyright = '2023, Zhang Jingqiang'
 author = 'Zhang Jingqiang'
 
 # The full version, including alpha/beta/rc tags
-release = '1.8.5'
-
+release = '1.8.6'
 
 # -- General configuration ---------------------------------------------------
 
@@ -31,7 +30,7 @@ release = '1.8.5'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-  "sphinx.ext.graphviz",
+    "sphinx.ext.graphviz",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -42,16 +41,15 @@ templates_path = ['_templates']
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
-
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
 html_theme = 'alabaster'
-#html_theme_options = {
+# html_theme_options = {
 #    'stickysidebar': True,
-#}
+# }
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -66,5 +64,4 @@ html_static_path = ['_static']
 master_doc = 'index'
 
 # Use 'svg' format for graphviz
-graphviz_output_format='svg'
-
+graphviz_output_format = 'svg'
