@@ -30,7 +30,7 @@ G3プロジェクトは多くのコンポーネントで構成されています
 - 多くの出口ルート選択方法、カスタム出口選択エージェントをサポート
 - TCP/TLSストリームプロキシ、基本的なHTTPリバースプロキシ
 - OpenSSL、BoringSSL、AWS-LC、Tongsuo、さらにはrustlsを使用したTLS
-- TLS MITMインターセプション、復号化されたトラフィックダンプ、HTTP1/HTTP2/SMTPインターセプション
+- TLS MITMインターセプション、復号化されたトラフィックダンプ、HTTP1/HTTP2/IMAP/SMTPインターセプション
 - HTTP1/HTTP2/IMAP/SMTPのICAP適応、サードパーティのセキュリティ製品とシームレスに統合可能
 - 優雅なリロード
 - カスタマイズ可能なロードバランシングおよびフェイルオーバー戦略
@@ -90,48 +90,48 @@ Cloudflare keylessサーバーの簡単な実装。
 
 リリースビルドを行う場合:
 
- 1. リリースtarballを生成する
+1. リリースtarballを生成する
 
-    ```shell
-    # <name>-v<version> のタグがある場合
-    ./scripts/release/build_tarball.sh <name>-v<version>
-    # 使用可能なタグがない場合、gitリビジョン（例: HEAD）を指定する必要があります
-    ./scripts/release/build_tarball.sh <name> <rev>
-    ```
+   ```shell
+   # <name>-v<version> のタグがある場合
+   ./scripts/release/build_tarball.sh <name>-v<version>
+   # 使用可能なタグがない場合、gitリビジョン（例: HEAD）を指定する必要があります
+   ./scripts/release/build_tarball.sh <name> <rev>
+   ```
 
-    すべてのベンダーソースはソースtarballに追加されるため、ソースtarballを保存し、コンパイラと依存関係がインストールされている任意の場所でオフラインでビルドできます。
+   すべてのベンダーソースはソースtarballに追加されるため、ソースtarballを保存し、コンパイラと依存関係がインストールされている任意の場所でオフラインでビルドできます。
 
- 2. パッケージをビルドする
+2. パッケージをビルドする
 
-    debパッケージの場合:
-    ```shell
-    tar xf <name>-<version>.tar.xz
-    cd <name>-<version>
-    ./build_deb_from_tar.sh
-    ```
+   debパッケージの場合:
+   ```shell
+   tar xf <name>-<version>.tar.xz
+   cd <name>-<version>
+   ./build_deb_from_tar.sh
+   ```
 
-    rpmパッケージの場合:
-    ```shell
-    rpmbuild -ta ./<name>-<version>.tar.xz
-    # 失敗した場合、次のコマンドを手動で実行できます:
-    tar xvf <name>-<version>.tar.xz ./<name>-<version>/<name>.spec
-    cp <name>-<version>.tar.xz ~/rpmbuild/SOURCES/
-    rpmbuild -ba ./<name>-<version>/<name>.spec
-    ```
+   rpmパッケージの場合:
+   ```shell
+   rpmbuild -ta ./<name>-<version>.tar.xz
+   # 失敗した場合、次のコマンドを手動で実行できます:
+   tar xvf <name>-<version>.tar.xz ./<name>-<version>/<name>.spec
+   cp <name>-<version>.tar.xz ~/rpmbuild/SOURCES/
+   rpmbuild -ba ./<name>-<version>/<name>.spec
+   ```
 
 gitリポジトリから直接パッケージをビルドする場合:
 
- - debパッケージの場合:
+- debパッケージの場合:
 
-   ```shell
-   ./build_deb_from_git.sh <name>
-   ```
+  ```shell
+  ./build_deb_from_git.sh <name>
+  ```
 
- - rpmパッケージの場合:
+- rpmパッケージの場合:
 
-   ```shell
-   ./build_rpm_from_git.sh <name>
-   ```
+  ```shell
+  ./build_rpm_from_git.sh <name>
+  ```
 
 ### 事前ビルドパッケージ
 
@@ -175,7 +175,8 @@ docker build -f <component>/docker/debian.Dockerfile github.com/bytedance/g3 -t 
 ## セキュリティ
 
 このプロジェクトで潜在的なセキュリティ問題を発見した場合、またはセキュリティ問題を発見したと思われる場合は、
-[セキュリティセンター](https://security.bytedance.com/src) または [脆弱性報告メール](mailto:sec@bytedance.com) を通じてBytedance Securityに通知してください。
+[セキュリティセンター](https://security.bytedance.com/src) または [脆弱性報告メール](mailto:sec@bytedance.com)
+を通じてBytedance Securityに通知してください。
 
 公開のGitHub issueを作成しないでください。
 

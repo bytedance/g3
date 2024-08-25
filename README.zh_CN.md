@@ -28,7 +28,7 @@ G3 Project 由若干组件构成。
 - 丰富的出口路由选择方法，支持接入自定义选路Agent
 - TCP/TLS反向代理，基础HTTP反向代理
 - TLS支持OpenSSL / BoringSSL / AWS-LC / Tongsuo, 部分场景支持rustls
-- TLS中间人劫持, 解密流量导出, HTTP1/HTTP2/SMTP协议解析
+- TLS中间人劫持, 解密流量导出, HTTP1/HTTP2/IMAP/SMTP协议解析
 - ICAP审计，支持HTTP1/HTTP2/IMAP/SMTP，无缝集成第三方安全审计/杀毒产品
 - 优雅重载 & 热升级
 - 灵活的负载均衡&容灾策略
@@ -38,7 +38,7 @@ G3 Project 由若干组件构成。
 - 丰富的监控指标，包括入口/出口/用户/用户站点维度
 - 多种日志 & 监控解决方案集成能力
 
-更多详情参考 [g3proxy](g3proxy/README.md)。 
+更多详情参考 [g3proxy](g3proxy/README.md)。
 
 ### g3tiles
 
@@ -87,45 +87,45 @@ Cloudflare Keyless Server的简单实现。
 
 如果需要对正式发布的版本打包:
 
- 1. 生成版本发布包
+1. 生成版本发布包
 
-    ```shell
-    ./scripts/release/build_tarball.sh <name>-v<version>
-    ```
+   ```shell
+   ./scripts/release/build_tarball.sh <name>-v<version>
+   ```
 
-    所有引用第三方源码都会放在tar包的vendor目录下，打包时只需要在目标机器上安装好编译器及系统依赖库即可，无需额外的网络连接。
+   所有引用第三方源码都会放在tar包的vendor目录下，打包时只需要在目标机器上安装好编译器及系统依赖库即可，无需额外的网络连接。
 
- 2. 打包指令
+2. 打包指令
 
-    deb包:
-    ```shell
-    tar xf <name>-<version>.tar.xz
-    cd <name>-<version>
-    ./build_deb_from_tar.sh
-    ```
+   deb包:
+   ```shell
+   tar xf <name>-<version>.tar.xz
+   cd <name>-<version>
+   ./build_deb_from_tar.sh
+   ```
 
-    rpm包:
-    ```shell
-    rpmbuild -ta ./<name>-<version>.tar.xz
-    # 如果失败，可以手动执行以下指令：
-    tar xvf <name>-<version>.tar.xz ./<name>-<version>/<name>.spec
-    cp <name>-<version>.tar.xz ~/rpmbuild/SOURCES/
-    rpmbuild -ba ./<name>-<version>/<name>.spec
-    ```
+   rpm包:
+   ```shell
+   rpmbuild -ta ./<name>-<version>.tar.xz
+   # 如果失败，可以手动执行以下指令：
+   tar xvf <name>-<version>.tar.xz ./<name>-<version>/<name>.spec
+   cp <name>-<version>.tar.xz ~/rpmbuild/SOURCES/
+   rpmbuild -ba ./<name>-<version>/<name>.spec
+   ```
 
 如果需要直接从git打包:
 
- - deb包:
+- deb包:
 
-   ```shell
-   ./build_deb_from_git.sh <name>
-   ```
+  ```shell
+  ./build_deb_from_git.sh <name>
+  ```
 
- - rpm包:
+- rpm包:
 
-   ```shell
-   ./build_rpm_from_git.sh <name>
-   ```
+  ```shell
+  ./build_rpm_from_git.sh <name>
+  ```
 
 ### 预构建安装包
 

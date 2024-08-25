@@ -1,4 +1,12 @@
 
+v1.9.8:
+ - BUG FIX: fix panic when build socks5 UDP header with domain address
+ - BUG FIX: fix possible panic when reading H2 stream
+ - BUG FIX: register correct read event when reading cert-generate / ip-locate / route-query response
+ - Feature: allow to write event logs to stdout
+ - Feature: add stream detour support to audit
+ - Optimization: ignore more clean connection close error in interception
+
 v1.9.7:
  - BUG FIX: clean old redis fetch job in time on reloading ProxyFloat escaper
  - BUG FIX: clean old dynamic user fetch job in time on user group reloading
