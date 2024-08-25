@@ -40,7 +40,7 @@ pub fn generate_uuid(time: &DateTime<Utc>) -> Uuid {
     let ts = Timestamp::from_unix(
         context,
         time.timestamp() as u64,
-        time.timestamp_subsec_nanos().max(999_999_999), // ignore leap second
+        time.timestamp_subsec_nanos().min(999_999_999), // ignore leap second
     );
     Uuid::new_v1(ts, node_id)
 }
