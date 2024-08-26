@@ -369,9 +369,9 @@ dependencies = [
 
 [[package]]
 name = "bssl-cmake-sys"
-version = "0.1.2408190"
+version = "0.1.2408260"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e29cc2aef11b0cff87dd8480296c8c3d3fe17e9f472932c66df2ee8fedb73869"
+checksum = "3060357853ffd42c45a3d5498d7664645e630822abfc0e3b14bd2119a2b920c5"
 dependencies = [
  "bindgen 0.70.1",
  "cc",
@@ -3008,9 +3008,9 @@ dependencies = [
 
 [[package]]
 name = "prettyplease"
-version = "0.2.21"
+version = "0.2.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a909e6e8053fa1a5ad670f5816c7d93029ee1fa8898718490544a6b0d5d38b3e"
+checksum = "479cf940fbbb3426c32c5d5176f62ad57549a0bb84773423ba8be9d089f5faba"
 dependencies = [
  "proc-macro2",
  "syn 2.0.76",
@@ -3888,9 +3888,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl"
-version = "0.14.10"
+version = "0.14.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c80d279cf530ecbff7322b24231eb8a62fb4ddb5c344d0e0f1373375b08960e"
+checksum = "0d5e4f0908a0b92d5ad34e6410ca07d49818c524530a275e687fc65c597e27cd"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -3903,9 +3903,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl-sys"
-version = "0.13.10"
+version = "0.13.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21ad847659ddc662bbef4285fe7dd890693e4ee22c6450efddc7219c2f54d252"
+checksum = "03130dfc541059fc43a2c75cec8b2ea97bf29622a03c0a865365052b1f5beac7"
 dependencies = [
  "aws-lc-sys",
  "bssl-cmake-sys",
