@@ -130,7 +130,9 @@ where
         if let Some(user_group) = &self.user_group {
             let mut user_ctx = match &req.inner.auth_info {
                 HttpAuth::None => {
-                    if let Some((user, user_type)) = user_group.get_anonymous_user() {
+                    if let Some((user, user_type)) =
+                        user_group.get_anonymous_user(self.ctx.client_addr().ip())
+                    {
                         UserContext::new(
                             None,
                             user,
@@ -144,20 +146,22 @@ where
                 }
                 HttpAuth::Basic(HttpBasicAuth {
                     username, password, ..
-                }) => match user_group.get_user(username.as_original()) {
-                    Some((user, user_type)) => {
-                        let user_ctx = UserContext::new(
-                            Some(Arc::from(username.as_original())),
-                            user,
-                            user_type,
-                            self.ctx.server_config.name(),
-                            self.ctx.server_stats.share_extra_tags(),
-                        );
-                        user_ctx.check_password(password.as_original())?;
-                        user_ctx
+                }) => {
+                    match user_group.get_user(username.as_original(), self.ctx.client_addr().ip()) {
+                        Some((user, user_type)) => {
+                            let user_ctx = UserContext::new(
+                                Some(Arc::from(username.as_original())),
+                                user,
+                                user_type,
+                                self.ctx.server_config.name(),
+                                self.ctx.server_stats.share_extra_tags(),
+                            );
+                            user_ctx.check_password(password.as_original())?;
+                            user_ctx
+                        }
+                        None => return Err(UserAuthError::NoSuchUser),
                     }
-                    None => return Err(UserAuthError::NoSuchUser),
-                },
+                }
             };
 
             user_ctx.check_in_site(

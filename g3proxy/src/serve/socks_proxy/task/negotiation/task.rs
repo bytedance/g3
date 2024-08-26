@@ -172,7 +172,7 @@ impl SocksProxyNegotiationTask {
         let auth_method = if let Some(user_group) = &self.user_group {
             if client_methods.contains(&SocksAuthMethod::User) {
                 SocksAuthMethod::User
-            } else if user_group.allow_anonymous() {
+            } else if user_group.allow_anonymous(self.ctx.client_addr().ip()) {
                 SocksAuthMethod::None
             } else {
                 SocksAuthMethod::User
@@ -194,7 +194,9 @@ impl SocksProxyNegotiationTask {
         let user_ctx = match auth_method {
             SocksAuthMethod::None => {
                 if let Some(user_group) = &self.user_group {
-                    if let Some((user, user_type)) = user_group.get_anonymous_user() {
+                    if let Some((user, user_type)) =
+                        user_group.get_anonymous_user(self.ctx.client_addr().ip())
+                    {
                         let user_ctx = UserContext::new(
                             None,
                             user,
@@ -214,7 +216,9 @@ impl SocksProxyNegotiationTask {
             SocksAuthMethod::User => {
                 if let Some(user_group) = &self.user_group {
                     let (username, password) = v5::auth::recv_user_from_client(&mut clt_r).await?;
-                    if let Some((user, user_type)) = user_group.get_user(username.as_original()) {
+                    if let Some((user, user_type)) =
+                        user_group.get_user(username.as_original(), self.ctx.client_addr().ip())
+                    {
                         let user_ctx = UserContext::new(
                             Some(Arc::from(username.as_original())),
                             user,

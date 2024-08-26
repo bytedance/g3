@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -573,6 +573,14 @@ impl User {
         } else {
             AclAction::Permit
         }
+    }
+
+    pub(crate) fn allow_client_ip(&self, ip: IpAddr) -> bool {
+        let Some(filter) = &self.ingress_net_filter else {
+            return true;
+        };
+        let (_, action) = filter.check(ip);
+        matches!(action, AclAction::Permit | AclAction::PermitAndLog)
     }
 
     fn check_upstream(

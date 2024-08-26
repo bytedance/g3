@@ -5,6 +5,7 @@ v1.9.8:
  - BUG FIX: register correct read event when reading cert-generate / ip-locate / route-query response
  - Feature: allow to write event logs to stdout
  - Feature: add stream detour support to audit
+ - Feature: only enable anonymous user if ingress network ACL matched
  - Optimization: ignore more clean connection close error in interception
 
 v1.9.7:

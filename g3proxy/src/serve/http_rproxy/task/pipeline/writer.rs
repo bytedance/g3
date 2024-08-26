@@ -130,7 +130,9 @@ where
         if let Some(user_group) = &self.user_group {
             let mut user_ctx = match &req.inner.auth_info {
                 HttpAuth::None => {
-                    if let Some((user, user_type)) = user_group.get_anonymous_user() {
+                    if let Some((user, user_type)) =
+                        user_group.get_anonymous_user(self.ctx.client_ip())
+                    {
                         UserContext::new(
                             None,
                             user,
@@ -144,7 +146,7 @@ where
                 }
                 HttpAuth::Basic(HttpBasicAuth {
                     username, password, ..
-                }) => match user_group.get_user(username.as_original()) {
+                }) => match user_group.get_user(username.as_original(), self.ctx.client_ip()) {
                     Some((user, user_type)) => {
                         let user_ctx = UserContext::new(
                             Some(Arc::from(username.as_original())),
