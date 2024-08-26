@@ -130,23 +130,23 @@ where
         if let Some(user_group) = &self.user_group {
             let mut user_ctx = match &req.inner.auth_info {
                 HttpAuth::None => {
-                    if let Some((user, user_type)) =
-                        user_group.get_anonymous_user(self.ctx.client_ip())
-                    {
-                        UserContext::new(
+                    if let Some((user, user_type)) = user_group.get_anonymous_user() {
+                        let user_ctx = UserContext::new(
                             None,
                             user,
                             user_type,
                             self.ctx.server_config.name(),
                             self.ctx.server_stats.share_extra_tags(),
-                        )
+                        );
+                        user_ctx.check_client_addr(self.ctx.client_addr())?;
+                        user_ctx
                     } else {
                         return Err(UserAuthError::NoUserSupplied);
                     }
                 }
                 HttpAuth::Basic(HttpBasicAuth {
                     username, password, ..
-                }) => match user_group.get_user(username.as_original(), self.ctx.client_ip()) {
+                }) => match user_group.get_user(username.as_original()) {
                     Some((user, user_type)) => {
                         let user_ctx = UserContext::new(
                             Some(Arc::from(username.as_original())),
@@ -155,6 +155,7 @@ where
                             self.ctx.server_config.name(),
                             self.ctx.server_stats.share_extra_tags(),
                         );
+                        user_ctx.check_client_addr(self.ctx.client_addr())?;
                         user_ctx.check_password(password.as_original())?;
                         user_ctx
                     }

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::net::IpAddr;
+use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -66,6 +66,10 @@ impl UserType {
             UserType::Dynamic => "Dynamic",
             UserType::Anonymous => "Anonymous",
         }
+    }
+
+    fn is_anonymous(&self) -> bool {
+        matches!(self, UserType::Anonymous)
     }
 }
 
@@ -212,29 +216,20 @@ impl UserGroup {
     }
 
     #[inline]
-    pub(crate) fn allow_anonymous(&self, client_ip: IpAddr) -> bool {
+    pub(crate) fn allow_anonymous(&self, client_addr: SocketAddr) -> bool {
         let Some(user) = &self.anonymous_user else {
             return false;
         };
-        user.allow_client_ip(client_ip)
+        user.check_anonymous_client_addr(client_addr).is_ok()
     }
 
-    pub(crate) fn get_anonymous_user(&self, client_ip: IpAddr) -> Option<(Arc<User>, UserType)> {
-        let Some(user) = &self.anonymous_user else {
-            return None;
-        };
-        if user.allow_client_ip(client_ip) {
-            Some((Arc::clone(user), UserType::Anonymous))
-        } else {
-            None
-        }
+    pub(crate) fn get_anonymous_user(&self) -> Option<(Arc<User>, UserType)> {
+        self.anonymous_user
+            .as_ref()
+            .map(|user| (user.clone(), UserType::Anonymous))
     }
 
-    pub(crate) fn get_user(
-        &self,
-        username: &str,
-        client_ip: IpAddr,
-    ) -> Option<(Arc<User>, UserType)> {
+    pub(crate) fn get_user(&self, username: &str) -> Option<(Arc<User>, UserType)> {
         if let Some(user) = self.static_users.get(username) {
             return Some((Arc::clone(user), UserType::Static));
         }
@@ -246,7 +241,7 @@ impl UserGroup {
             }
         }
 
-        self.get_anonymous_user(client_ip)
+        self.get_anonymous_user()
     }
 
     fn stop_fetch_job(&self) {

@@ -6,6 +6,7 @@ v1.9.8:
  - Feature: allow to write event logs to stdout
  - Feature: add stream detour support to audit
  - Feature: only enable anonymous user if ingress network ACL matched
+ - Optimization: check user ingress network ACL early and reply auth failed if denied
  - Optimization: ignore more clean connection close error in interception
 
 v1.9.7:

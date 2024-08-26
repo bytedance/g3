@@ -78,7 +78,8 @@ Set the network filter for clients.
 
 If a server is chained after a PROXY Protocol server, the used client address will be the one in the PROXY Protocol message.
 
-This ACL will be checked before we select the anonymous auth method, so an auth failed error will be returned to client.
+This ACL will be checked before we select the anonymous auth method, so an auth failed error will be returned to client,
+and forbidden stats for anonymous won't be added.
 
 **default**: not set
 

@@ -224,10 +224,6 @@ impl SocksProxyTcpConnectTask {
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             let user_ctx = user_ctx.clone();
 
-            let action = user_ctx.check_client_addr(self.task_notes.client_addr());
-            self.handle_user_acl_action(action, &mut clt_w, ServerTaskForbiddenError::SrcBlocked)
-                .await?;
-
             if user_ctx.check_rate_limit().is_err() {
                 self.reply_forbidden(&mut clt_w).await;
                 return Err(ServerTaskError::ForbiddenByRule(
