@@ -20,19 +20,13 @@ use std::sync::Arc;
 
 use crate::ExportedPduDissectorHint;
 
-static STREAM_ID: AtomicU32 = AtomicU32::new(0);
-
-fn get_stream_id() -> u32 {
-    STREAM_ID.fetch_add(1, Ordering::Relaxed)
-}
-
 pub(super) fn new_pair(
+    stream_id: u32,
     client: SocketAddr,
     remote: SocketAddr,
     dissector_hint: ExportedPduDissectorHint,
 ) -> (ToClientPduHeader, ToRemotePduHeader) {
     let state = Arc::new(TcpDissectorState::new(dissector_hint));
-    let stream_id = get_stream_id();
     let to_client = ToClientPduHeader::new(stream_id, client, remote, state.clone());
     let to_remote = ToRemotePduHeader::new(stream_id, client, remote, state);
     (to_client, to_remote)
