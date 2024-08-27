@@ -106,7 +106,6 @@ impl PduHeader for ToClientPduHeader {
             self.stream_id,
             self.remote,
             self.client,
-            self.remote.port(),
             &self.tcp_dissector_state.dissector_hint,
         );
         self.tcp_dissector_offset = hdr.len();
@@ -170,7 +169,6 @@ impl PduHeader for ToRemotePduHeader {
             self.stream_id,
             self.client,
             self.remote,
-            self.remote.port(),
             &self.tcp_dissector_state.dissector_hint,
         );
         self.tcp_dissector_offset = hdr.len();
@@ -208,7 +206,6 @@ const EXP_PDU_TAG_IPV6_DST: u8 = 23;
 const EXP_PDU_TAG_PORT_TYPE: u8 = 24;
 const EXP_PDU_TAG_SRC_PORT: u8 = 25;
 const EXP_PDU_TAG_DST_PORT: u8 = 26;
-const EXP_PDU_TAG_MATCH_UINT: u8 = 27; // needed by direction detection for some protocols
 
 const EXP_PDU_TAG_TCP_INFO_DATA: u8 = 34;
 const EXP_PDU_TAG_TCP_STREAM_ID: u8 = 39;
@@ -225,7 +222,6 @@ fn new_fixed_header(
     stream_id: u32,
     src_addr: SocketAddr,
     dst_addr: SocketAddr,
-    remote_port: u16,
     dissector_hint: &ExportedPduDissectorHint,
 ) -> Vec<u8> {
     let mut buf = Vec::with_capacity(pkt_size);
@@ -302,18 +298,6 @@ fn new_fixed_header(
         0x00,
         dst_port[0],
         dst_port[1],
-    ]);
-    // match uint
-    let match_uint = remote_port.to_be_bytes();
-    buf.extend_from_slice(&[
-        0x00,
-        EXP_PDU_TAG_MATCH_UINT,
-        0x00,
-        EXP_PDU_TAG_PORT_LEN,
-        0x00,
-        0x00,
-        match_uint[0],
-        match_uint[1],
     ]);
 
     buf
