@@ -377,12 +377,18 @@ impl SocksProxyTcpConnectTask {
                 .unwrap_or_else(|| audit_handle.do_task_audit());
 
             if audit_task {
+                let Some(remote_addr) = self.tcp_notes.next else {
+                    return Err(ServerTaskError::InternalServerError(
+                        "no remote peer address set for connected socket",
+                    ));
+                };
                 let ctx = StreamInspectContext::new(
                     audit_handle.clone(),
                     self.ctx.server_config.clone(),
                     self.ctx.server_stats.clone(),
                     self.ctx.server_quit_policy.clone(),
                     &self.task_notes,
+                    remote_addr,
                 );
                 return crate::inspect::stream::transit_with_inspection(
                     clt_r,

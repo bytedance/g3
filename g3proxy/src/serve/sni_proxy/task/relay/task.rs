@@ -181,12 +181,18 @@ impl TcpStreamTask {
         clt_w.reset_stats(clt_w_stats);
 
         if let Some(audit_handle) = self.ctx.audit_handle.take() {
+            let Some(remote_addr) = self.tcp_notes.next else {
+                return Err(ServerTaskError::InternalServerError(
+                    "no remote peer address set for connected socket",
+                ));
+            };
             let ctx = StreamInspectContext::new(
                 audit_handle,
                 self.ctx.server_config.clone(),
                 self.ctx.server_stats.clone(),
                 self.ctx.server_quit_policy.clone(),
                 &self.task_notes,
+                remote_addr,
             );
             let protocol_inspector = ctx.protocol_inspector(None);
             match self.protocol {
