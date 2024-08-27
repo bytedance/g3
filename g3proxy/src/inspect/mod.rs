@@ -73,7 +73,6 @@ pub(crate) struct StreamInspectTaskNotes {
     task_id: Uuid,
     pub(crate) client_addr: SocketAddr,
     pub(crate) server_addr: SocketAddr,
-    pub(crate) remote_addr: SocketAddr,
     worker_id: Option<usize>,
     user_ctx: Option<StreamInspectUserContext>,
 }
@@ -93,13 +92,14 @@ impl StreamInspectTaskNotes {
     pub(crate) fn task_id(&self) -> &Uuid {
         &self.task_id
     }
+}
 
-    fn new(task_notes: &ServerTaskNotes, remote_addr: SocketAddr) -> Self {
+impl From<&ServerTaskNotes> for StreamInspectTaskNotes {
+    fn from(task_notes: &ServerTaskNotes) -> Self {
         StreamInspectTaskNotes {
             task_id: task_notes.id,
             client_addr: task_notes.client_addr(),
             server_addr: task_notes.server_addr(),
-            remote_addr,
             worker_id: task_notes.worker_id(),
             user_ctx: task_notes.user_ctx().map(|ctx| StreamInspectUserContext {
                 raw_user_name: ctx.raw_user_name().cloned(),
@@ -143,7 +143,6 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
         server_stats: ArcServerStats,
         server_quit_policy: Arc<ServerQuitPolicy>,
         task_notes: &ServerTaskNotes,
-        remote_addr: SocketAddr,
     ) -> Self {
         let mut task_max_idle_count = server_config.task_max_idle_count();
         if let Some(user_ctx) = task_notes.user_ctx() {
@@ -155,7 +154,7 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
             server_config,
             server_stats,
             server_quit_policy,
-            task_notes: StreamInspectTaskNotes::new(task_notes, remote_addr),
+            task_notes: StreamInspectTaskNotes::from(task_notes),
             inspection_depth: 0,
             task_max_idle_count,
         }

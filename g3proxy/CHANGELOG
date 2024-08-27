@@ -6,8 +6,6 @@ v1.9.8:
  - Feature: allow to write event logs to stdout
  - Feature: add stream detour support to audit
  - Feature: only enable anonymous user if ingress network ACL matched
- - Feature: add stream_id and match_uint tag to exported_pdu frame when do udp dump
- - Optimization: use real remote peer address in exported_pdu when do udp dump
  - Optimization: check user ingress network ACL early and reply auth failed if denied
  - Optimization: ignore more clean connection close error in interception
 
