@@ -16,7 +16,6 @@
 
 use std::io;
 use std::net::SocketAddr;
-use std::sync::atomic::{AtomicU32, Ordering};
 
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::UdpSocket;
@@ -47,7 +46,6 @@ pub use read::{FromClientStreamDumpReader, FromRemoteStreamDumpReader, StreamDum
 pub struct StreamDumper {
     config: StreamDumpConfig,
     sender: mpsc::UnboundedSender<Vec<u8>>,
-    stream_id: AtomicU32,
 }
 
 impl StreamDumper {
@@ -63,20 +61,12 @@ impl StreamDumper {
             Sinker::new(receiver, socket).into_running().await;
         });
 
-        Ok(StreamDumper {
-            config,
-            sender,
-            stream_id: AtomicU32::new(0),
-        })
+        Ok(StreamDumper { config, sender })
     }
 
     #[inline]
     pub fn client_side(&self) -> bool {
         self.config.client_side
-    }
-
-    fn get_stream_id(&self) -> u32 {
-        self.stream_id.fetch_add(1, Ordering::Relaxed)
     }
 
     pub fn wrap_writer<CW, RW>(
@@ -91,8 +81,7 @@ impl StreamDumper {
         CW: AsyncWrite,
         RW: AsyncWrite,
     {
-        let stream_id = self.get_stream_id();
-        let (to_c, to_r) = header::new_pair(stream_id, client_addr, remote_addr, dissector_hint);
+        let (to_c, to_r) = header::new_pair(client_addr, remote_addr, dissector_hint);
         let cw = StreamDumpWriter::new(
             client_writer,
             to_c,
@@ -120,8 +109,7 @@ impl StreamDumper {
         R: AsyncRead,
         W: AsyncWrite,
     {
-        let stream_id = self.get_stream_id();
-        let (to_c, to_r) = header::new_pair(stream_id, client_addr, remote_addr, dissector_hint);
+        let (to_c, to_r) = header::new_pair(client_addr, remote_addr, dissector_hint);
         let r = StreamDumpReader::new(
             remote_reader,
             to_c,
@@ -149,8 +137,7 @@ impl StreamDumper {
         R: AsyncRead,
         W: AsyncWrite,
     {
-        let stream_id = self.get_stream_id();
-        let (to_c, to_r) = header::new_pair(stream_id, client_addr, remote_addr, dissector_hint);
+        let (to_c, to_r) = header::new_pair(client_addr, remote_addr, dissector_hint);
         let r = StreamDumpReader::new(
             client_reader,
             to_r,

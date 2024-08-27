@@ -21,14 +21,13 @@ use std::sync::Arc;
 use crate::ExportedPduDissectorHint;
 
 pub(super) fn new_pair(
-    stream_id: u32,
     client: SocketAddr,
     remote: SocketAddr,
     dissector_hint: ExportedPduDissectorHint,
 ) -> (ToClientPduHeader, ToRemotePduHeader) {
     let state = Arc::new(TcpDissectorState::new(dissector_hint));
-    let to_client = ToClientPduHeader::new(stream_id, client, remote, state.clone());
-    let to_remote = ToRemotePduHeader::new(stream_id, client, remote, state);
+    let to_client = ToClientPduHeader::new(client, remote, state.clone());
+    let to_remote = ToRemotePduHeader::new(client, remote, state);
     (to_client, to_remote)
 }
 
@@ -73,7 +72,6 @@ pub trait PduHeader {
 }
 
 pub struct ToClientPduHeader {
-    stream_id: u32,
     client: SocketAddr,
     remote: SocketAddr,
     tcp_dissector_state: Arc<TcpDissectorState>,
@@ -83,13 +81,11 @@ pub struct ToClientPduHeader {
 
 impl ToClientPduHeader {
     fn new(
-        stream_id: u32,
         client: SocketAddr,
         remote: SocketAddr,
         tcp_dissector_state: Arc<TcpDissectorState>,
     ) -> Self {
         ToClientPduHeader {
-            stream_id,
             client,
             remote,
             tcp_dissector_state,
@@ -103,7 +99,6 @@ impl PduHeader for ToClientPduHeader {
     fn new_header(&mut self, pkt_size: usize) -> Vec<u8> {
         let mut hdr = new_fixed_header(
             pkt_size,
-            self.stream_id,
             self.remote,
             self.client,
             &self.tcp_dissector_state.dissector_hint,
@@ -136,7 +131,6 @@ impl PduHeader for ToClientPduHeader {
 }
 
 pub struct ToRemotePduHeader {
-    stream_id: u32,
     client: SocketAddr,
     remote: SocketAddr,
     tcp_dissector_state: Arc<TcpDissectorState>,
@@ -146,13 +140,11 @@ pub struct ToRemotePduHeader {
 
 impl ToRemotePduHeader {
     fn new(
-        stream_id: u32,
         client: SocketAddr,
         remote: SocketAddr,
         tcp_dissector_state: Arc<TcpDissectorState>,
     ) -> Self {
         ToRemotePduHeader {
-            stream_id,
             client,
             remote,
             tcp_dissector_state,
@@ -166,7 +158,6 @@ impl PduHeader for ToRemotePduHeader {
     fn new_header(&mut self, pkt_size: usize) -> Vec<u8> {
         let mut hdr = new_fixed_header(
             pkt_size,
-            self.stream_id,
             self.client,
             self.remote,
             &self.tcp_dissector_state.dissector_hint,
@@ -207,19 +198,13 @@ const EXP_PDU_TAG_PORT_TYPE: u8 = 24;
 const EXP_PDU_TAG_SRC_PORT: u8 = 25;
 const EXP_PDU_TAG_DST_PORT: u8 = 26;
 
-const EXP_PDU_TAG_TCP_INFO_DATA: u8 = 34;
-const EXP_PDU_TAG_TCP_STREAM_ID: u8 = 39;
-const EXP_PDU_TAG_END_OF_OPT: u8 = 0;
-
 const EXP_PDU_PT_TCP: u8 = 2;
 
 const EXP_PDU_TAG_PORT_TYPE_LEN: u8 = 4;
 const EXP_PDU_TAG_PORT_LEN: u8 = 4;
-const EXP_PDU_TAG_STREAM_ID_LEN: u8 = 4;
 
 fn new_fixed_header(
     pkt_size: usize,
-    stream_id: u32,
     src_addr: SocketAddr,
     dst_addr: SocketAddr,
     dissector_hint: &ExportedPduDissectorHint,
@@ -263,18 +248,6 @@ fn new_fixed_header(
         0x00,
         EXP_PDU_PT_TCP,
     ]);
-    // stream ID
-    let stream_id = stream_id.to_be_bytes();
-    buf.extend_from_slice(&[
-        0x00,
-        EXP_PDU_TAG_TCP_STREAM_ID,
-        0x00,
-        EXP_PDU_TAG_STREAM_ID_LEN,
-        stream_id[0],
-        stream_id[1],
-        stream_id[2],
-        stream_id[3],
-    ]);
     // src port
     let src_port = src_addr.port().to_be_bytes();
     buf.extend_from_slice(&[
@@ -302,6 +275,9 @@ fn new_fixed_header(
 
     buf
 }
+
+const EXP_PDU_TAG_TCP_INFO_DATA: u8 = 34;
+const EXP_PDU_TAG_END_OF_OPT: u8 = 0;
 
 fn push_var_header(buf: &mut Vec<u8>) {
     // tcp dissector data
