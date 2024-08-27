@@ -19,7 +19,8 @@ RUN cargo build --profile release-lto \
  -p g3proxy -p g3proxy-ctl -p g3proxy-lua
 
 FROM alpine:latest
-RUN apk add --no-cache ca-certificates
+# install dynamic libs
+RUN apk add --no-cache ca-certificates libgcc c-ares lua5.4-libs
 # Copy Lua binaries and modules from the lua stage
 COPY --from=lua /usr/local/bin/lua /usr/local/bin/lua
 COPY --from=lua /usr/local/bin/luarocks /usr/local/bin/luarocks
