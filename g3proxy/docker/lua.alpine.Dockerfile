@@ -1,12 +1,8 @@
 FROM nickblah/lua:5.4-luarocks-alpine AS lua
 RUN apk add --no-cache build-base
 # install lua modules here.
-# dkjson is just an example.
-# beware: lua's c modules (e.g. cjson)
-# need to be statically linked
-# and won't work when installing in
-# alpine via luarocks. 
-RUN luarocks install dkjson
+# (lua-cjson is just an example)
+RUN luarocks install lua-cjson
 
 FROM rust:alpine AS builder
 WORKDIR /usr/src/g3
