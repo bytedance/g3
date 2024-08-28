@@ -132,4 +132,16 @@ impl WebSocketContext {
         }
         vec
     }
+
+    pub fn resource_name(&self) -> &str {
+        self.uri.path()
+    }
+
+    pub fn protocol(&self) -> Option<&HeaderValue> {
+        self.headers.get(header::SEC_WEBSOCKET_PROTOCOL)
+    }
+
+    pub fn version(&self) -> Option<&HeaderValue> {
+        self.headers.get(header::SEC_WEBSOCKET_VERSION)
+    }
 }

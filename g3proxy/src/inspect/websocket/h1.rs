@@ -20,7 +20,7 @@ use tokio::io::AsyncWriteExt;
 
 use g3_dpi::ProtocolInspectPolicy;
 use g3_io_ext::LimitedWriteExt;
-use g3_slog_types::{LtUpstreamAddr, LtUuid};
+use g3_slog_types::{LtHttpHeaderValue, LtUpstreamAddr, LtUuid};
 use g3_types::net::{UpstreamAddr, WebSocketContext};
 
 use super::{ClientCloseFrame, ServerCloseFrame};
@@ -37,6 +37,9 @@ macro_rules! intercept_log {
             "task_id" => LtUuid($obj.ctx.server_task_id()),
             "depth" => $obj.ctx.inspection_depth,
             "upstream" => LtUpstreamAddr(&$obj.upstream),
+            "ws_resource_name" => $obj.websocket_ctx.resource_name(),
+            "ws_protocol" => $obj.websocket_ctx.protocol().map(LtHttpHeaderValue),
+            "ws_version" => $obj.websocket_ctx.version().map(LtHttpHeaderValue),
         )
     };
 }
