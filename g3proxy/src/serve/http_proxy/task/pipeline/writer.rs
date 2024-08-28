@@ -131,13 +131,15 @@ where
             let mut user_ctx = match &req.inner.auth_info {
                 HttpAuth::None => {
                     if let Some((user, user_type)) = user_group.get_anonymous_user() {
-                        UserContext::new(
+                        let user_ctx = UserContext::new(
                             None,
                             user,
                             user_type,
                             self.ctx.server_config.name(),
                             self.ctx.server_stats.share_extra_tags(),
-                        )
+                        );
+                        user_ctx.check_client_addr(self.ctx.client_addr())?;
+                        user_ctx
                     } else {
                         return Err(UserAuthError::NoUserSupplied);
                     }
@@ -153,6 +155,7 @@ where
                             self.ctx.server_config.name(),
                             self.ctx.server_stats.share_extra_tags(),
                         );
+                        user_ctx.check_client_addr(self.ctx.client_addr())?;
                         user_ctx.check_password(password.as_original())?;
                         user_ctx
                     }

@@ -72,7 +72,7 @@ impl GlobalDatagramLimiter {
             if cur_tokens >= max_burst {
                 break;
             }
-            let next_tokens = (cur_tokens + size).max(max_burst);
+            let next_tokens = (cur_tokens + size).min(max_burst);
             match self.byte_tokens.compare_exchange(
                 cur_tokens,
                 next_tokens,
@@ -92,7 +92,7 @@ impl GlobalDatagramLimiter {
             if cur_tokens >= max_burst {
                 break;
             }
-            let next_tokens = (cur_tokens + count).max(max_burst);
+            let next_tokens = (cur_tokens + count).min(max_burst);
             match self.packet_tokens.compare_exchange(
                 cur_tokens,
                 next_tokens,

@@ -14,6 +14,7 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 Servers will handle connections from clients. There many types of servers can be used for different purpose.
 
 The common features are:
+
 * Ingress network filter | Target Host filter | Target Port filter
 * Socket Speed Limit
 * Request Rate Limit | IDLE Check
@@ -26,69 +27,70 @@ The common features are:
 #### Forward Proxy Servers
 
 - Http(s) Proxy
-  * TLS / mTLS
-  * Http Forward | Https Forward | Http CONNECT | Ftp over HTTP
-  * Basic User Authentication
-  * Port Hiding
+    * TLS / mTLS
+    * Http Forward | Https Forward | Http CONNECT | Ftp over HTTP
+    * Basic User Authentication
+    * Port Hiding
 
 - Socks Proxy
-  * Socks4 Tcp Connect | Socks5 Tcp Connect | Socks5 UDP Associate
-  * User Authentication
-  * Client side UDP IP Binding / IP Map / Ranged Port
+    * Socks4 Tcp Connect | Socks5 Tcp Connect | Socks5 UDP Associate
+    * User Authentication
+    * Client side UDP IP Binding / IP Map / Ranged Port
 
 #### Transparent Proxy Servers
 
 - SNI Proxy
-  * Multiple Protocol: TLS SNI extension | HTTP Host Header
-  * Host Redirection / Host ACL
+    * Multiple Protocol: TLS SNI extension | HTTP Host Header
+    * Host Redirection / Host ACL
 
 - TCP TPROXY
-  * Linux [Netfilter TPROXY](https://docs.kernel.org/networking/tproxy.html)
-  * FreeBSD [ipfw forward](https://man.freebsd.org/cgi/man.cgi?query=ipfw)
-  * OpenBSD [pf divert-to](https://man.openbsd.org/pf.conf.5#divert-to)
+    * Linux [Netfilter TPROXY](https://docs.kernel.org/networking/tproxy.html)
+    * FreeBSD [ipfw forward](https://man.freebsd.org/cgi/man.cgi?query=ipfw)
+    * OpenBSD [pf divert-to](https://man.openbsd.org/pf.conf.5#divert-to)
 
 #### Reverse Proxy Servers
 
 - Http(s) Reverse Proxy
-  * TLS / mTLS
-  * Basic User Authentication
-  * Port Hiding
-  * Host based Routing
+    * TLS / mTLS
+    * Basic User Authentication
+    * Port Hiding
+    * Host based Routing
 
 #### Streaming Servers
 
 - TCP Stream
-  * Upstream TLS / mTLS
-  * Load Balance: RR / Random / Rendezvous / Jump Hash
+    * Upstream TLS / mTLS
+    * Load Balance: RR / Random / Rendezvous / Jump Hash
 
 - TLS Stream
-  * mTLS
-  * Upstream TLS / mTLS
-  * Load Balance: RR / Random / Rendezvous / Jump Hash
+    * mTLS
+    * Upstream TLS / mTLS
+    * Load Balance: RR / Random / Rendezvous / Jump Hash
 
 #### Alias Port Servers
 
 Alias port servers can be used to add extra ports to other servers.
 
 - Plain TCP Port
-  * PROXY Protocol
+    * PROXY Protocol
 - Plain TLS Port
-  * PROXY Protocol
-  * mTLS
-  * based on Rustls
+    * PROXY Protocol
+    * mTLS
+    * based on Rustls
 - Native TLS Port
-  * PROXY Protocol
-  * mTLS
-  * based on OpenSSL/BoringSSL/AWS-LC/Tongsuo
+    * PROXY Protocol
+    * mTLS
+    * based on OpenSSL/BoringSSL/AWS-LC/Tongsuo
 - Intelli Proxy Proxy
-  * Multiple protocol: Http Proxy | Socks Proxy
-  * PROXY Protocol
+    * Multiple protocol: Http Proxy | Socks Proxy
+    * PROXY Protocol
 
 ### Escaper
 
 Escapers are used to define the way to connect to upstream. There are many types of escapers.
 
 The common features are:
+
 * Happy Eyeballs
 * Socket Speed Limit
 * Various TCP & UDP socket config options
@@ -97,76 +99,76 @@ The common features are:
 #### Direct Connect Escapers
 
 - DirectFixed
-  * TCP Connect | TLS Connect | HTTP(s) Forward | UDP Associate
-  * Egress network filter
-  * Resolve redirection
-  * Index based Egress Path Selection
+    * TCP Connect | TLS Connect | HTTP(s) Forward | UDP Associate
+    * Egress network filter
+    * Resolve redirection
+    * Index based Egress Path Selection
 
 - DirectFloat
-  * TCP Connect | TLS Connect | HTTP(s) Forward | UDP Associate
-  * Egress network filter
-  * Resolve redirection
-  * Dynamic IP Bind
-  * Json based Egress Path Selection
+    * TCP Connect | TLS Connect | HTTP(s) Forward | UDP Associate
+    * Egress network filter
+    * Resolve redirection
+    * Dynamic IP Bind
+    * Json based Egress Path Selection
 
 #### Proxy Chaining Escapers
 
 - Http Proxy
-  * TCP Connect | TLS Connect | HTTP(s) Forward
-  * PROXY Protocol
-  * Load Balance: RR / Random / Rendezvous / Jump Hash
-  * Basic User Authentication
+    * TCP Connect | TLS Connect | HTTP(s) Forward
+    * PROXY Protocol
+    * Load Balance: RR / Random / Rendezvous / Jump Hash
+    * Basic User Authentication
 
 - Https Proxy
-  * TCP Connect | TLS Connect | HTTP(s) Forward
-  * PROXY Protocol
-  * Load Balance: RR / Random / Rendezvous / Jump Hash
-  * Basic User Authentication
-  * mTLS
+    * TCP Connect | TLS Connect | HTTP(s) Forward
+    * PROXY Protocol
+    * Load Balance: RR / Random / Rendezvous / Jump Hash
+    * Basic User Authentication
+    * mTLS
 
 - Socks5 Proxy
-  * TCP Connect | TLS Connect | HTTP(s) Forward | UDP Associate
-  * Load Balance: RR / Random / Rendezvous / Jump Hash
-  * Basic User Authentication
+    * TCP Connect | TLS Connect | HTTP(s) Forward | UDP Associate
+    * Load Balance: RR / Random / Rendezvous / Jump Hash
+    * Basic User Authentication
 
 - ProxyFloat
-  * Dynamic Proxy: Http Proxy | Https Proxy | Socks5 Proxy
-  * Json based Egress Path Selection
+    * Dynamic Proxy: Http Proxy | Https Proxy | Socks5 Proxy
+    * Json based Egress Path Selection
 
 #### Router Escapers
 
 Router escaper can be used to select the real escapers, based on different route rules.
 
 - route-client - based on client addresses
-  * exact ip match
-  * subnet match
+    * exact ip match
+    * subnet match
 - route-mapping - based on user supplied rules in requests
-  * Index based Egress Path Selection
+    * Index based Egress Path Selection
 - route-query - based on queries to external agent
 - route-resolved - based on resolved IP of target host
 - route-geoip - based on GeoIP rules of the resolved IP
 - route-select - simple load balancer
-  * RR / Random / Rendezvous / Jump Hash
-  * Json based Egress Path Selection
+    * RR / Random / Rendezvous / Jump Hash
+    * Json based Egress Path Selection
 - route-upstream - based on original target host
-  * exact ip match
-  * exact domain match
-  * wildcard domain match
-  * subnet match
-  * regex domain match
+    * exact ip match
+    * exact domain match
+    * wildcard domain match
+    * subnet match
+    * regex domain match
 - route-failover - failover between primary and standby escaper
 
 ### Resolver
 
 - c-ares
-  * UDP
-  * TCP
+    * UDP
+    * TCP
 - hickory
-  * UDP / TCP
-  * DNS over TLS
-  * DNS over HTTPS
-  * DNS over HTTP/3
-  * DNS over QUIC
+    * UDP / TCP
+    * DNS over TLS
+    * DNS over HTTPS
+    * DNS over HTTP/3
+    * DNS over QUIC
 - fail-over
 
 ### Auth
@@ -188,6 +190,7 @@ Router escaper can be used to select the real escapers, based on different route
 #### User Site Features
 
 It's also possible to set different site config for each user:
+
 - Match by Exact IP | Exact Domain | Wildcard Domain | Subnet
 - Request | Client Traffic | Remote Traffic Metrics
 - Task Duration Histogram Metrics
@@ -200,36 +203,37 @@ It's also possible to set different site config for each user:
 - TLS/TLCP Interception
 - External Certificate Generator
 - TLS/TLCP Decrypted Stream Dump
+- Stream Detour for connection based protocols
 - Http1 & Http2 Interception
-- SMTP Interception
+- IMAP & SMTP Interception
 - ICAP Adaptation, support HTTP1/HTTP2/IMAP/SMTP
 
 ### Logging
 
 - Log Types
-  * Server: task log
-  * Escaper: escape error log
-  * Resolver: resolve error log
-  * Audit: inspect & intercept log
+    * Server: task log
+    * Escaper: escape error log
+    * Resolver: resolve error log
+    * Audit: inspect & intercept log
 
 - Backend Protocol
-  * journald
-  * syslog
-  * fluentd
+    * journald
+    * syslog
+    * fluentd
 
 ### Metrics
 
 - Metrics Types
-  * Server level metrics
-  * Escaper level metrics
-  * User level metrics
-  * User-Site level metrics
-  * Resolver metrics
-  * Runtime metrics
-  * Log metrics
+    * Server level metrics
+    * Escaper level metrics
+    * User level metrics
+    * User-Site level metrics
+    * Resolver metrics
+    * Runtime metrics
+    * Log metrics
 
 - Backend Protocol
-  * StatsD, so it's possible to use StatsD implementations to redistribute metrics to many other TSDBs
+    * StatsD, so it's possible to use StatsD implementations to redistribute metrics to many other TSDBs
 
 ## Documents
 

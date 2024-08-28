@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -65,6 +66,10 @@ impl UserType {
             UserType::Dynamic => "Dynamic",
             UserType::Anonymous => "Anonymous",
         }
+    }
+
+    fn is_anonymous(&self) -> bool {
+        matches!(self, UserType::Anonymous)
     }
 }
 
@@ -211,14 +216,17 @@ impl UserGroup {
     }
 
     #[inline]
-    pub(crate) fn allow_anonymous(&self) -> bool {
-        self.anonymous_user.is_some()
+    pub(crate) fn allow_anonymous(&self, client_addr: SocketAddr) -> bool {
+        let Some(user) = &self.anonymous_user else {
+            return false;
+        };
+        user.check_anonymous_client_addr(client_addr).is_ok()
     }
 
     pub(crate) fn get_anonymous_user(&self) -> Option<(Arc<User>, UserType)> {
         self.anonymous_user
             .as_ref()
-            .map(|u| (Arc::clone(u), UserType::Anonymous))
+            .map(|user| (user.clone(), UserType::Anonymous))
     }
 
     pub(crate) fn get_user(&self, username: &str) -> Option<(Arc<User>, UserType)> {

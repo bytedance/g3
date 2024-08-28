@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::net::SocketAddr;
 use std::time::Duration;
 
 use thiserror::Error;
@@ -30,6 +31,8 @@ pub enum UserAuthError {
     ExpiredUser,
     #[error("user has been blocked")]
     BlockedUser(Duration),
+    #[error("src addr {0} is blocked")]
+    BlockedSrcIp(SocketAddr),
 }
 
 impl UserAuthError {

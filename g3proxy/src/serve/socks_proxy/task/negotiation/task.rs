@@ -172,7 +172,7 @@ impl SocksProxyNegotiationTask {
         let auth_method = if let Some(user_group) = &self.user_group {
             if client_methods.contains(&SocksAuthMethod::User) {
                 SocksAuthMethod::User
-            } else if user_group.allow_anonymous() {
+            } else if user_group.allow_anonymous(self.ctx.client_addr()) {
                 SocksAuthMethod::None
             } else {
                 SocksAuthMethod::User
@@ -194,19 +194,17 @@ impl SocksProxyNegotiationTask {
         let user_ctx = match auth_method {
             SocksAuthMethod::None => {
                 if let Some(user_group) = &self.user_group {
-                    if let Some((user, user_type)) = user_group.get_anonymous_user() {
-                        let user_ctx = UserContext::new(
-                            None,
-                            user,
-                            user_type,
-                            self.ctx.server_config.name(),
-                            self.ctx.server_stats.share_extra_tags(),
-                        );
-                        user_ctx.req_stats().conn_total.add_socks();
-                        Some(user_ctx)
-                    } else {
-                        None
-                    }
+                    let (user, user_type) = user_group.get_anonymous_user().unwrap();
+                    let user_ctx = UserContext::new(
+                        None,
+                        user,
+                        user_type,
+                        self.ctx.server_config.name(),
+                        self.ctx.server_stats.share_extra_tags(),
+                    );
+                    // no need to check user level client addr ACL again here
+                    user_ctx.req_stats().conn_total.add_socks();
+                    Some(user_ctx)
                 } else {
                     None
                 }
@@ -222,6 +220,11 @@ impl SocksProxyNegotiationTask {
                             self.ctx.server_config.name(),
                             self.ctx.server_stats.share_extra_tags(),
                         );
+                        if user_ctx.check_client_addr(self.ctx.client_addr()).is_err() {
+                            self.ctx.server_stats.forbidden.add_auth_failed();
+                            let _ = v5::auth::send_user_auth_failure(&mut clt_w).await;
+                            return Err(ServerTaskError::ClientAuthFailed);
+                        }
                         match user_ctx.check_password(password.as_original()) {
                             Ok(_) => {
                                 user_ctx.req_stats().conn_total.add_socks();

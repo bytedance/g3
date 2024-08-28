@@ -370,6 +370,38 @@ impl User {
         }
     }
 
+    fn check_client_addr(
+        &self,
+        addr: SocketAddr,
+        forbid_stats: &Arc<UserForbiddenStats>,
+    ) -> Result<(), UserAuthError> {
+        let Some(filter) = &self.ingress_net_filter else {
+            return Ok(());
+        };
+        let (_, action) = filter.check(addr.ip());
+        if action.forbid_early() {
+            forbid_stats.add_src_blocked();
+            Err(UserAuthError::BlockedSrcIp(addr))
+        } else {
+            Ok(())
+        }
+    }
+
+    pub(super) fn check_anonymous_client_addr(
+        &self,
+        addr: SocketAddr,
+    ) -> Result<(), UserAuthError> {
+        let Some(filter) = &self.ingress_net_filter else {
+            return Ok(());
+        };
+        let (_, action) = filter.check(addr.ip());
+        if action.forbid_early() {
+            Err(UserAuthError::BlockedSrcIp(addr))
+        } else {
+            Ok(())
+        }
+    }
+
     fn check_password(
         &self,
         password: &str,
@@ -552,22 +584,6 @@ impl User {
             let (_, action) = filter.check_request(&request);
             if action.forbid_early() {
                 forbid_stats.add_proto_banned();
-            }
-            action
-        } else {
-            AclAction::Permit
-        }
-    }
-
-    fn check_client_addr(
-        &self,
-        addr: SocketAddr,
-        forbid_stats: &Arc<UserForbiddenStats>,
-    ) -> AclAction {
-        if let Some(filter) = &self.ingress_net_filter {
-            let (_, action) = filter.check(addr.ip());
-            if action.forbid_early() {
-                forbid_stats.add_src_blocked();
             }
             action
         } else {
@@ -843,6 +859,16 @@ impl UserContext {
     }
 
     #[inline]
+    pub(crate) fn check_client_addr(&self, addr: SocketAddr) -> Result<(), UserAuthError> {
+        if self.user_type.is_anonymous() {
+            self.user.check_anonymous_client_addr(addr)
+        } else {
+            // add forbid stats for named user
+            self.user.check_client_addr(addr, &self.forbid_stats)
+        }
+    }
+
+    #[inline]
     pub(crate) fn check_password(&self, password: &str) -> Result<(), UserAuthError> {
         self.user.check_password(password, &self.forbid_stats)
     }
@@ -866,11 +892,6 @@ impl UserContext {
     #[inline]
     pub(crate) fn check_proxy_request(&self, request: ProxyRequestType) -> AclAction {
         self.user.check_proxy_request(request, &self.forbid_stats)
-    }
-
-    #[inline]
-    pub(crate) fn check_client_addr(&self, addr: SocketAddr) -> AclAction {
-        self.user.check_client_addr(addr, &self.forbid_stats)
     }
 
     #[inline]

@@ -43,7 +43,7 @@
 - [场景设计](#场景设计)
     + [多区域加速](#多区域加速)
     + [双出口容灾](#双出口容灾)
- 
+
 ## 如何安装
 
 目前只支持Linux系统，并对Debian、RHEL等发行版提供了打包安装支持，
@@ -56,7 +56,8 @@
 单机可以部署多个g3proxy服务，通过systemd实例服务进行管理，每个实例对应为为一个g3proxy进程组（daemon_group），
 每个进程组都有一个unix socket文件进行本地RPC管理。
 
-每个服务有一个入口配置文件，yaml格式，后缀可更改，但需要保持所有引用的配置文件均具有相同的后缀。下文将使用*main.yml*指代入口配置文件。
+每个服务有一个入口配置文件，yaml格式，后缀可更改，但需要保持所有引用的配置文件均具有相同的后缀。下文将使用*main.yml*
+指代入口配置文件。
 
 使用发行版原生安装包安装的，已经安装了systemd参数化服务配置文件，参数就是进程组名称，
 对应的入口配置文件存放路径为`/etc/g3proxy/<daemon_group>/main.yml`。
@@ -82,26 +83,26 @@ g3proxy采用模块化方式进行功能设计，主要包含以下功能模块�
 
 1. 入口 | Server
 
-    负责接受客户端请求并进行处理，会调用 出口&用户&审计 模块的功能。
-    *Port*类型的入口可以放在非端口类型入口前面进行串联。
+   负责接受客户端请求并进行处理，会调用 出口&用户&审计 模块的功能。
+   *Port*类型的入口可以放在非端口类型入口前面进行串联。
 
 2. 出口 | Escaper
 
-    负责对目标地址进行连接及控制，会调用 解析 模块的功能。
-    *Route*类型的出口可放在其他出口前进行串联。
+   负责对目标地址进行连接及控制，会调用 解析 模块的功能。
+   *Route*类型的出口可放在其他出口前进行串联。
 
 3. 解析 | Resolver
 
-    提供域名解析功能。
-    *Failover*解析可以放在其他解析前面进行串联。
+   提供域名解析功能。
+   *Failover*解析可以放在其他解析前面进行串联。
 
 4. 用户组 | UserGroup
 
-    提供用户认证&授权功能
+   提供用户认证&授权功能
 
 5. 审计 | Auditor
 
-    提供流量审计功能
+   提供流量审计功能
 
 这些模块的配置可以跟*main.yml*写在一起，也可以使用独立的配置文件进行管理，后者可以进行独立的重载（reload）操作。
 
@@ -143,7 +144,7 @@ server:
     type: http_proxy
     listen:
       address: "[::]:8080"
-    tls_client: {}   # 打开7层https forward转发支持
+    tls_client: { }   # 打开7层https forward转发支持
 ```
 
 ### SOCKS代理
@@ -172,7 +173,7 @@ server:
     type: tcp_stream
     listen:
       address: "[::1]:10086"
-    proxy_pass:         # 目标地址，可以单条/多条
+    proxy_pass: # 目标地址，可以单条/多条
       - "127.0.0.1:5201"
       - "127.0.0.1:5202"
     upstream_pick_policy: rr # 负载均衡算法，默认random
@@ -189,7 +190,7 @@ server:
     type: tcp_stream
     listen: "[::1]:80"
     proxy_pass: "127.0.0.1:443"
-    tls_client: {}      # 使用TLS连接目标端口，配置TLS参数，如CA证书、客户端证书(mTLS)等
+    tls_client: { }      # 使用TLS连接目标端口，配置TLS参数，如CA证书、客户端证书(mTLS)等
 ```
 
 ### TLS封装
@@ -205,12 +206,12 @@ server:
     type: tls_stream
     listen:
       address: "[::1]:10443"
-    tls_server:                   # 配置TLS参数
+    tls_server: # 配置TLS参数
       cert_pairs:
         certificate: /path/to/cert
         private_key: /path/to/key
       enable_client_auth: true    # 可选启用mTLS
-    proxy_pass:         # 目标地址，可以单条/多条
+    proxy_pass: # 目标地址，可以单条/多条
       - "127.0.0.1:5201"
       - "127.0.0.1:5202"
     upstream_pick_policy: rr # 负载均衡算法，默认random
@@ -223,7 +224,7 @@ server:
   - name: tcp
     escaper: default
     type: tcp_stream
-    proxy_pass:         # 目标地址，可以单条/多条
+    proxy_pass: # 目标地址，可以单条/多条
       - "127.0.0.1:5201"
       - "127.0.0.1:5202"
     upstream_pick_policy: rr # 负载均衡算法，默认random
@@ -231,7 +232,7 @@ server:
     type: plain_tls_port
     listen:
       address: "[::1]:10443"
-    tls_server:                   # 配置TLS参数
+    tls_server: # 配置TLS参数
       cert_pairs:
         certificate: /path/to/cert
         private_key: /path/to/key
@@ -350,7 +351,8 @@ resolver:
 
 ### 用户认证授权
 
-Http代理&Socks5代理都支持进行用户验证，需要搭配UserGroup进行配置，整体配置参考[examples/simple_user_auth](examples/simple_user_auth)，用户组示例如下：
+Http代理&Socks5代理都支持进行用户验证，需要搭配UserGroup进行配置，整体配置参考[examples/simple_user_auth](examples/simple_user_auth)
+，用户组示例如下：
 
 ```yaml
 user_group:
@@ -358,14 +360,14 @@ user_group:
     static_users:
       - name: root
         # password: toor
-        token:                                           # 认证token
+        token: # 认证token
           salt: 113323bdab6fd2cc
           md5: 5c81f2becadde7fa5fde9026652ccc84
           sha1: ff9d5c1a14328dd85ee95d4e574bd0558a1dfa96
-        dst_port_filter:          # 放行端口
+        dst_port_filter: # 放行端口
           - 80
           - 443
-        dst_host_filter_set:      # 放行地址
+        dst_host_filter_set: # 放行地址
           exact:
             - ipinfo.io           # 允许访问ipinfo.io
             - 1.1.1.1
@@ -373,7 +375,7 @@ user_group:
             - "ipip.net"          # 允许访问 myip.ipip.net
           regex:
             - "lum[a-z]*[.]com$"  # 允许访问 lumtest.com
-    source:                       # 动态用户，静态用户优先匹配，无静态用户时匹配动态用户
+    source: # 动态用户，静态用户优先匹配，无静态用户时匹配动态用户
       type: file                  # 从文件定期加载，此外支持通过lua/python脚本加载并缓存
       path: dynamic_users.json
 ```
@@ -525,7 +527,7 @@ server:
     escaper: default # 必填，可以是任意类型出口
     type: http_proxy
     listen: "[::]:8080"
-    tls_client: {}   # 打开7层https forward转发支持
+    tls_client: { }   # 打开7层https forward转发支持
   - name: tls
     type: plain_tls_port
     listen: "[::]:8443"
@@ -541,22 +543,24 @@ Port类型入口仅有独立的Listen监控，流量监控、日志都是在下�
 
 ### 监听端口启用PROXY Protocol
 
-串联场景，如果需要透传Client地址信息，可以使用PROXY Protocol。可以使用PlainTcpPort或PlainTlsPort来配置单独的支持PROXY Protocol的端口。
+串联场景，如果需要透传Client地址信息，可以使用PROXY Protocol。可以使用PlainTcpPort或PlainTlsPort来配置单独的支持PROXY
+Protocol的端口。
 
 示例如下：
+
 ```yaml
 server:
   - name: real_http
     listen: "[127.0.0.1]:1234" # 可省略
     type: http_proxy
-    ingress_network_filter: {} # 配置针对PROXY Protocol提取来源地址的过滤规则
+    ingress_network_filter: { } # 配置针对PROXY Protocol提取来源地址的过滤规则
     # ... 其他配置
   - name: pp_for_http
     type: plain_tcp_port
     listen: "[::]:8080"
     server: real_http
     proxy_protocol: v2
-    ingress_network_filter: {} # 配置针对套接字原始来源地址的过滤规则
+    ingress_network_filter: { } # 配置针对套接字原始来源地址的过滤规则
 ```
 
 ### 国密TLCP协议封装
@@ -575,7 +579,7 @@ server:
     type: native_tls_port
     listen: "[::]:443"
     tls_server:
-      tlcp_cert_pairs:         # 启用国密TLCP协议
+      tlcp_cert_pairs: # 启用国密TLCP协议
         sign_certificate: /path/to/sign.crt
         sign_private_key: /path/to/sign.key
         enc_certificate: /path/to/enc.crt
@@ -681,7 +685,7 @@ explicit_sites:
   - id: example-net
     child_match: example.net
     emit_stats: true           # 建立独立的监控，id字段会作为监控条目名称的一部分
-    resolve_strategy:          # 可配置单独的解析策略
+    resolve_strategy: # 可配置单独的解析策略
       query: ipv4only          # 仅解析ipv4地址
 ```
 
@@ -708,17 +712,18 @@ explicit_sites:
 ```yaml
 auditor:
   - name: default
-    protocol_inspection: {} # 开启协议识别，使用默认参数
-    tls_cert_generator: {}  # 开启TLS劫持，使用默认参数，Peer地址为127.0.0.1:2999
-    tls_interception_client: {} # 可配置代理对目标地址TLS连接参数
-    h1_interception: {}         # HTTP/1.0 解析参数
-    h2_interception: {}         # HTTP/2 解析参数
+    protocol_inspection: { } # 开启协议识别，使用默认参数
+    tls_cert_generator: { }  # 开启TLS劫持，使用默认参数，Peer地址为127.0.0.1:2999
+    tls_interception_client: { } # 可配置代理对目标地址TLS连接参数
+    h1_interception: { }         # HTTP/1.0 解析参数
+    h2_interception: { }         # HTTP/2 解析参数
     icap_reqmod_service: icap://xxx  # ICAP REQMOD服务配置
     icap_respmod_service: icap://xxx # ICAP RESPMOD服务配置
     application_audit_ratio: 1.0     # 应用流量审计比例，按客户端代理请求匹配，若审计则进行协议识别及TLS劫持
 ```
 
-注意该功能需搭配tls cert generator使用，参考实现为[g3fcgen](/g3fcgen)，示例配置参考[g3fcgen simple conf](/g3fcgen/examples/simple)。
+注意该功能需搭配tls cert generator使用，参考实现为[g3fcgen](/g3fcgen)
+，示例配置参考[g3fcgen simple conf](/g3fcgen/examples/simple)。
 
 ### TLS解密流量导出
 
@@ -756,51 +761,51 @@ listen_in_worker: true
 ```mermaid
 flowchart LR
 %% Paste to https://mermaid.live/ to see the graph
-  subgraph Area1
-    a1_client[Client]
-    a1_site[Site]
-    subgraph Proxy1
-      a1_proxy[GW]
-      a1_relay[relay]
-      a1_route[route]
-      a1_proxy -.-> a1_route
+    subgraph Area1
+        a1_client[Client]
+        a1_site[Site]
+        subgraph Proxy1
+            a1_proxy[GW]
+            a1_relay[relay]
+            a1_route[route]
+            a1_proxy -.-> a1_route
+        end
+        a1_client --> a1_proxy
+        a1_route -- local --> a1_site
+        a1_relay -- local --> a1_site
     end
-    a1_client --> a1_proxy
-    a1_route --local--> a1_site
-    a1_relay --local--> a1_site
-  end
-  subgraph Area2
-    a2_client[Client]
-    a2_site[Site]
-    subgraph Proxy2
-      a2_proxy[GW]
-      a2_relay[relay]
-      a2_route[route]
-      a2_proxy -.-> a2_route
+    subgraph Area2
+        a2_client[Client]
+        a2_site[Site]
+        subgraph Proxy2
+            a2_proxy[GW]
+            a2_relay[relay]
+            a2_route[route]
+            a2_proxy -.-> a2_route
+        end
+        a2_client --> a2_proxy
+        a2_route -- local --> a2_site
+        a2_relay -- local --> a2_site
     end
-    a2_client --> a2_proxy
-    a2_route --local--> a2_site
-    a2_relay --local--> a2_site
-  end
-  subgraph Area3
-    a3_client[Client]
-    a3_site[Site]
-    subgraph Proxy3
-      a3_proxy[GW]
-      a3_relay[relay]
-      a3_route[route]
-      a3_proxy -.-> a3_route
+    subgraph Area3
+        a3_client[Client]
+        a3_site[Site]
+        subgraph Proxy3
+            a3_proxy[GW]
+            a3_relay[relay]
+            a3_route[route]
+            a3_proxy -.-> a3_route
+        end
+        a3_client --> a3_proxy
+        a3_route -- local --> a3_site
+        a3_relay -- local --> a3_site
     end
-    a3_client --> a3_proxy
-    a3_route --local--> a3_site
-    a3_relay --local--> a3_site
-  end
-  a1_route --mTLS to a2----> a2_relay
-  a1_route --mTLS to a3----> a3_relay
-  a2_route --mTLS to a1----> a1_relay
-  a2_route --mTLS to a3----> a3_relay
-  a3_route --mTLS to a1----> a1_relay
-  a3_route --mTLS to a2----> a2_relay
+    a1_route -- mTLS to a2 ----> a2_relay
+    a1_route -- mTLS to a3 ----> a3_relay
+    a2_route -- mTLS to a1 ----> a1_relay
+    a2_route -- mTLS to a3 ----> a3_relay
+    a3_route -- mTLS to a1 ----> a1_relay
+    a3_route -- mTLS to a2 ----> a2_relay
 ```
 
 每个节点的Proxy分别配置以下功能：
@@ -874,26 +879,26 @@ flowchart LR
 ```mermaid
 flowchart LR
 %% Paste to https://mermaid.live/ to see the graph
-  subgraph IDC
-    i1_client[Client]
-    subgraph Proxy
-      i1_proxy[GW]
-      i1_route[route]
-      i1_proxy -.-> i1_route
+    subgraph IDC
+        i1_client[Client]
+        subgraph Proxy
+            i1_proxy[GW]
+            i1_route[route]
+            i1_proxy -.-> i1_route
+        end
+        i1_client --> i1_proxy
     end
-    i1_client --> i1_proxy
-  end
-  subgraph POP1
-    p1_proxy[relay]
-  end
-  subgraph POP2
-    p2_proxy[relay]
-  end
-  internet[Internet]
-  i1_route --proxy to pop1--> p1_proxy
-  i1_route --proxy to pop2--> p2_proxy
-  p1_proxy --local---> internet
-  p2_proxy --local---> internet
+    subgraph POP1
+        p1_proxy[relay]
+    end
+    subgraph POP2
+        p2_proxy[relay]
+    end
+    internet[Internet]
+    i1_route -- proxy to pop1 --> p1_proxy
+    i1_route -- proxy to pop2 --> p2_proxy
+    p1_proxy -- local ---> internet
+    p2_proxy -- local ---> internet
 ```
 
 每个节点的Proxy分别配置以下功能：
