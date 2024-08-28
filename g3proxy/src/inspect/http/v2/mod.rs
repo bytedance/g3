@@ -110,17 +110,11 @@ where
     SC: ServerConfig + Send + Sync + 'static,
 {
     pub(crate) async fn intercept(mut self) -> ServerTaskResult<()> {
-        match self.ctx.h2_inspect_policy() {
-            ProtocolInspectPolicy::Intercept => match self.do_intercept().await {
-                Ok(_) => {
-                    intercept_log!(self, "finished");
-                    Ok(())
-                }
-                Err(e) => {
-                    intercept_log!(self, "{e}");
-                    Err(InterceptionError::H2(e).into_server_task_error(Protocol::Http2))
-                }
-            },
+        let r = match self.ctx.h2_inspect_policy() {
+            ProtocolInspectPolicy::Intercept => self
+                .do_intercept()
+                .await
+                .map_err(|e| InterceptionError::H2(e).into_server_task_error(Protocol::Http2)),
             #[cfg(feature = "quic")]
             ProtocolInspectPolicy::Detour => self.do_detour().await,
             ProtocolInspectPolicy::Bypass => self.do_bypass().await,
@@ -128,6 +122,16 @@ where
                 .do_block()
                 .await
                 .map_err(|e| InterceptionError::H2(e).into_server_task_error(Protocol::Http2)),
+        };
+        match r {
+            Ok(_) => {
+                intercept_log!(self, "finished");
+                Ok(())
+            }
+            Err(e) => {
+                intercept_log!(self, "{e}");
+                Err(e)
+            }
         }
     }
 

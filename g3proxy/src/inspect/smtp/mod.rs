@@ -121,29 +121,21 @@ where
     }
 
     pub(crate) async fn intercept(mut self) -> ServerTaskResult<Option<StreamInspection<SC>>> {
-        match self.ctx.smtp_inspect_policy() {
-            ProtocolInspectPolicy::Intercept => match self.do_intercept().await {
-                Ok(obj) => {
-                    intercept_log!(self, "finished");
-                    Ok(obj)
-                }
-                Err(e) => {
-                    intercept_log!(self, "{e}");
-                    Err(e)
-                }
-            },
+        let r = match self.ctx.smtp_inspect_policy() {
+            ProtocolInspectPolicy::Intercept => self.do_intercept().await,
             #[cfg(feature = "quic")]
-            ProtocolInspectPolicy::Detour => {
-                self.do_detour().await?;
-                Ok(None)
+            ProtocolInspectPolicy::Detour => self.do_detour().await.map(|_| None),
+            ProtocolInspectPolicy::Bypass => self.do_bypass().await.map(|_| None),
+            ProtocolInspectPolicy::Block => self.do_block().await.map(|_| None),
+        };
+        match r {
+            Ok(obj) => {
+                intercept_log!(self, "finished");
+                Ok(obj)
             }
-            ProtocolInspectPolicy::Bypass => {
-                self.do_bypass().await?;
-                Ok(None)
-            }
-            ProtocolInspectPolicy::Block => {
-                self.do_block().await?;
-                Ok(None)
+            Err(e) => {
+                intercept_log!(self, "{e}");
+                Err(e)
             }
         }
     }
@@ -218,7 +210,7 @@ where
             )
             .await?;
         Err(ServerTaskError::InternalAdapterError(anyhow!(
-            "blocked by inspection policy"
+            "smtp blocked by inspection policy"
         )))
     }
 
