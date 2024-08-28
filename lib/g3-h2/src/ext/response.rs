@@ -17,7 +17,7 @@
 use std::io::Write;
 
 use bytes::BufMut;
-use http::Response;
+use http::{HeaderMap, Response};
 
 use g3_http::client::HttpAdaptedResponse;
 
@@ -55,7 +55,7 @@ impl<T> ResponseExt for Response<T> {
         let (mut parts, body) = self.into_parts();
         // keep old version
         parts.status = other.status;
-        parts.headers = other.headers.to_h2_map();
+        parts.headers = HeaderMap::from(&other.headers);
         Response::from_parts(parts, body)
     }
 }

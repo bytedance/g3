@@ -123,6 +123,11 @@ impl AuditHandle {
     }
 
     #[inline]
+    pub(crate) fn websocket_inspect_policy(&self) -> ProtocolInspectPolicy {
+        self.auditor_config.websocket_inspect_policy
+    }
+
+    #[inline]
     pub(crate) fn smtp_inspect_policy(&self) -> ProtocolInspectPolicy {
         self.auditor_config.smtp_inspect_policy
     }

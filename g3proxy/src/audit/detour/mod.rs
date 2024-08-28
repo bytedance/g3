@@ -64,6 +64,10 @@ impl<'a, SC> StreamDetourContext<'a, SC> {
             payload: Vec::new(),
         }
     }
+
+    pub(crate) fn set_payload(&mut self, payload: Vec<u8>) {
+        self.payload = payload;
+    }
 }
 
 pub(crate) struct StreamDetourClient {

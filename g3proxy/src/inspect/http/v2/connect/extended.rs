@@ -27,7 +27,7 @@ use g3_dpi::Protocol;
 use g3_h2::{H2StreamReader, H2StreamWriter};
 use g3_http::server::UriExt;
 use g3_slog_types::{LtDateTime, LtDuration, LtH2StreamId, LtUpstreamAddr, LtUuid};
-use g3_types::net::{HttpUpgradeToken, UpstreamAddr};
+use g3_types::net::{HttpUpgradeToken, UpstreamAddr, WebSocketContext};
 
 use super::{ExchangeHead, H2StreamTransferError, HttpForwardTaskNotes};
 use crate::config::server::ServerConfig;
@@ -162,7 +162,12 @@ where
             }
         };
 
-        let mut exchange_head = ExchangeHead::new(&self.ctx, &mut self.http_notes);
+        let mut websocket_ctx = WebSocketContext::new(clt_req.uri().clone());
+        for (name, value) in clt_req.headers() {
+            websocket_ctx.append_request_header(name, value);
+        }
+        let mut exchange_head =
+            ExchangeHead::new_websocket(&self.ctx, &mut self.http_notes, &mut websocket_ctx);
         let exchange_head_result = exchange_head.run(clt_req, clt_send_rsp, h2s).await;
         self.ups_stream_id = exchange_head.ups_stream_id.take();
         match exchange_head_result {
@@ -172,8 +177,11 @@ where
                 self.ctx.increase_inspection_depth();
                 StreamInspectLog::new(&self.ctx)
                     .log(InspectSource::H2ExtendedConnect, Protocol::Websocket);
-                let websocket_obj =
-                    crate::inspect::websocket::H2WebsocketInterceptObject::new(self.ctx, upstream);
+                let websocket_obj = crate::inspect::websocket::H2WebsocketInterceptObject::new(
+                    self.ctx,
+                    upstream,
+                    websocket_ctx,
+                );
                 websocket_obj.intercept(clt_r, clt_w, ups_r, ups_w).await;
             }
             Ok(None) => {

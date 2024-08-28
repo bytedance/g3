@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use http::header::{AsHeaderName, GetAll};
+use http::header::{AsHeaderName, Drain, GetAll};
 use http::{HeaderMap, HeaderName};
 
 use super::HttpHeaderValue;
@@ -69,32 +69,40 @@ impl HttpHeaderMap {
             .for_each(|(name, value)| call(name, value));
     }
 
-    pub fn to_h2_map(&self) -> HeaderMap {
-        let mut h2_map = HeaderMap::new();
-        self.for_each(|name, value| {
-            h2_map.append(name, value.into());
-        });
-        h2_map
+    pub fn drain(&mut self) -> Drain<'_, HttpHeaderValue> {
+        self.inner.drain()
     }
+}
 
-    pub fn into_h2_map(mut self) -> HeaderMap {
-        let mut h2_map = HeaderMap::new();
+impl From<HttpHeaderMap> for HeaderMap {
+    fn from(mut value: HttpHeaderMap) -> Self {
+        let mut new_map = HeaderMap::with_capacity(value.inner.capacity());
 
         let mut last_name: Option<HeaderName> = None;
-        for (name, value) in self.inner.drain() {
+        for (name, value) in value.inner.drain() {
             match name {
                 Some(name) => {
                     last_name = Some(name.clone());
-                    h2_map.append(name, value.into());
+                    new_map.append(name, value.into());
                 }
                 None => {
                     let Some(name) = &last_name else {
                         break;
                     };
-                    h2_map.append(name, value.into());
+                    new_map.append(name, value.into());
                 }
             }
         }
-        h2_map
+        new_map
+    }
+}
+
+impl From<&HttpHeaderMap> for HeaderMap {
+    fn from(value: &HttpHeaderMap) -> Self {
+        let mut new_map = HeaderMap::with_capacity(value.inner.capacity());
+        value.for_each(|name, value| {
+            new_map.append(name, value.into());
+        });
+        new_map
     }
 }

@@ -86,7 +86,7 @@ stream detour service config
 
 **type**: map | str | int
 
-Config the stream detour service.
+Config the :ref:`Stream Detour <protocol_helper_stream_detour>` service.
 
 For *str* value, the value will be treated as *peer* as described following.
 

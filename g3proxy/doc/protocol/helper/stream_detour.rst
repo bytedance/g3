@@ -43,7 +43,7 @@ The PPv2 Type-Values are:
   The detected protocol string, encoded in UTF-8 without trailing '\0'.
   This will always be set.
 
-  You will find the detail value in :ref:`auditor <configuration_auditor>` config.
+  You will find the detail value in :ref:`Protocol and Payload <stream_detour_protocol_payload>` section.
 
 * 0xE5 | Match ID
 
@@ -55,7 +55,7 @@ The PPv2 Type-Values are:
   Extra payload data. The value will be vary depending on the *protocol*.
   This will only be set when needed by that *protocol*.
 
-  You will find the detail value description in :ref:`auditor <configuration_auditor>` config.
+  You will find the detail value in :ref:`Protocol and Payload <stream_detour_protocol_payload>` section.
 
 After sending the PPv2 header, g3proxy will waiting a 4-bytes response from the server.
 
@@ -89,3 +89,50 @@ The PPv2 Type-Values are:
   The value will be a 2-bytes uint16 value, in big-endian.
 
 After sending that PPv2 header, the data flow will be `remote_read -> detour_server -> client_write`.
+
+.. _stream_detour_protocol_payload:
+
+Protocol and Payload
+--------------------
+
+HTTP 2
+^^^^^^
+
+**protocol value**: http_2
+
+**payload format**: no payload
+
+WebSocket
+^^^^^^^^^
+
+**protocol value**: websocket
+
+**payload format**:
+
+The payload will be multiline of text, each line will be ended with "\r\n".
+
+The first line will be the */resource name/*.
+
+The following lines will be the same as the HTTP header lines used in HTTP Upgrade stage, the possible headers:
+
+- Host in request
+- Origin in request
+- Sec-WebSocket-Key in request
+- Sec-WebSocket-Version in request
+- Sec-WebSocket-Accept in response
+- Sec-WebSocket-Protocol in response
+- Sec-WebSocket-Extensions in response
+
+SMTP
+^^^^
+
+**protocol value**: smtp
+
+**payload format**: no payload
+
+IMAP
+^^^^
+
+**protocol value**: imap
+
+**payload format**: no payload

@@ -18,7 +18,7 @@ use std::io::Write;
 
 use bytes::BufMut;
 use http::uri::Authority;
-use http::{Method, Request, Uri};
+use http::{HeaderMap, Method, Request, Uri};
 
 use g3_http::server::HttpAdaptedRequest;
 
@@ -66,7 +66,7 @@ impl<T> RequestExt for Request<T> {
     }
 
     fn adapt_to(self, other: &HttpAdaptedRequest) -> Self {
-        let mut headers = other.headers.to_h2_map();
+        let mut headers = HeaderMap::from(&other.headers);
         // add hop-by-hop headers
         if let Some(v) = self.headers().get(http::header::TE) {
             headers.insert(http::header::TE, v.into());

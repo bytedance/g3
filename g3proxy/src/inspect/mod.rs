@@ -281,6 +281,11 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     }
 
     #[inline]
+    fn websocket_inspect_policy(&self) -> ProtocolInspectPolicy {
+        self.audit_handle.websocket_inspect_policy()
+    }
+
+    #[inline]
     fn smtp_inspect_policy(&self) -> ProtocolInspectPolicy {
         self.audit_handle.smtp_inspect_policy()
     }

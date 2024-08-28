@@ -30,10 +30,11 @@ mod tls;
 mod tlv;
 mod udp;
 mod upstream;
-mod websocket;
 
 #[cfg(feature = "http")]
 mod http;
+#[cfg(feature = "http")]
+mod websocket;
 
 #[cfg(feature = "rustls")]
 mod rustls;
@@ -62,10 +63,11 @@ pub use tls::*;
 pub use tlv::{T1L2BVParse, TlvParse};
 pub use udp::{UdpListenConfig, UdpMiscSockOpts};
 pub use upstream::{UpstreamAddr, UpstreamHostRef, WeightedUpstreamAddr};
-pub use websocket::WebSocketSubProtocol;
 
 #[cfg(feature = "http")]
 pub use self::http::*;
+#[cfg(feature = "http")]
+pub use websocket::*;
 
 #[cfg(feature = "http")]
 pub use proxy::HttpProxy;

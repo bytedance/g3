@@ -113,8 +113,6 @@ h2_inspect_policy
 
 Set what we should do with HTTP/2.0 traffic.
 
-The detour protocol value will be *http_2*, no payload will be set.
-
 **default**: intercept
 
 .. versionadded:: 1.9.0
@@ -130,14 +128,23 @@ Set http 2.0 interception config.
 
 **default**: set with default value
 
+websocket_inspect_policy
+------------------------
+
+**optional**, **type**: :ref:`protocol inspect policy <conf_value_dpi_protocol_inspect_policy>`
+
+Set what we should do with WebSocket traffic.
+
+**default**: intercept
+
+.. versionadded:: 1.9.8
+
 smtp_inspect_policy
 -------------------
 
 **optional**, **type**: :ref:`protocol inspect policy <conf_value_dpi_protocol_inspect_policy>`
 
 Set what we should do with SMTP traffic.
-
-The detour protocol value will be *smtp*, no payload will be set.
 
 **default**: intercept
 
@@ -162,8 +169,6 @@ imap_inspect_policy
 **optional**, **type**: :ref:`protocol inspect policy <conf_value_dpi_protocol_inspect_policy>`
 
 Set what we should do with IMAP traffic.
-
-The detour protocol value will be *imap*, no payload will be set.
 
 **default**: intercept
 
@@ -211,7 +216,7 @@ stream_detour_service
 
 **optional**, **type**: :ref:`stream detour service config <conf_value_audit_stream_detour_service_config>`
 
-Set the stream detour service config.
+Set the :ref:`Stream Detour <protocol_helper_stream_detour>` service config.
 
 You also need to change the inspect policy for each protocol to `detour` in order to really enable it.
 

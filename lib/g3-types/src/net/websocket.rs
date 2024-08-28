@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+use http::header::Drain;
+use http::{header, HeaderMap, HeaderName, HeaderValue, Uri};
+
 pub enum WebSocketSubProtocol {
     Mqtt,
     StompV10,
@@ -39,5 +42,94 @@ impl WebSocketSubProtocol {
             b"v12.stomp" => Some(WebSocketSubProtocol::StompV12),
             _ => None,
         }
+    }
+}
+
+pub struct WebSocketContext {
+    uri: Uri,
+    headers: HeaderMap,
+}
+
+impl WebSocketContext {
+    pub fn new(uri: Uri) -> Self {
+        WebSocketContext {
+            uri,
+            headers: HeaderMap::with_capacity(8),
+        }
+    }
+
+    pub fn append_request_header(&mut self, name: &HeaderName, value: &HeaderValue) {
+        match name {
+            &header::HOST
+            | &header::ORIGIN
+            | &header::SEC_WEBSOCKET_KEY
+            | &header::SEC_WEBSOCKET_VERSION => {
+                self.headers.insert(name.clone(), value.clone());
+            }
+            _ => {}
+        }
+    }
+
+    pub fn append_request_headers<T: Into<HeaderValue>>(&mut self, req_headers: Drain<T>) {
+        let mut last_name: Option<HeaderName> = None;
+        for (name, value) in req_headers {
+            if name.is_some() {
+                last_name = name;
+            }
+            let name = last_name.as_ref().unwrap();
+            match name {
+                &header::HOST
+                | &header::ORIGIN
+                | &header::SEC_WEBSOCKET_KEY
+                | &header::SEC_WEBSOCKET_VERSION => {
+                    self.headers.insert(name.clone(), value.into());
+                }
+                _ => {}
+            }
+        }
+    }
+
+    pub fn append_response_header(&mut self, name: &HeaderName, value: &HeaderValue) {
+        match name {
+            &header::SEC_WEBSOCKET_ACCEPT | &header::SEC_WEBSOCKET_PROTOCOL => {
+                self.headers.insert(name.clone(), value.clone());
+            }
+            &header::SEC_WEBSOCKET_EXTENSIONS => {
+                self.headers.append(name.clone(), value.clone());
+            }
+            _ => {}
+        }
+    }
+
+    pub fn append_response_headers<T: Into<HeaderValue>>(&mut self, rsp_headers: Drain<T>) {
+        let mut last_name: Option<HeaderName> = None;
+        for (name, value) in rsp_headers {
+            if name.is_some() {
+                last_name = name;
+            }
+            let name = last_name.as_ref().unwrap();
+            match name {
+                &header::SEC_WEBSOCKET_ACCEPT | &header::SEC_WEBSOCKET_PROTOCOL => {
+                    self.headers.insert(name.clone(), value.into());
+                }
+                &header::SEC_WEBSOCKET_EXTENSIONS => {
+                    self.headers.append(name.clone(), value.into());
+                }
+                _ => {}
+            }
+        }
+    }
+
+    pub fn serialize(&self) -> Vec<u8> {
+        let mut vec = Vec::with_capacity(256);
+        vec.extend_from_slice(self.uri.path().as_bytes());
+        vec.extend_from_slice(b"\r\n");
+        for (name, value) in &self.headers {
+            vec.extend_from_slice(name.as_str().as_bytes());
+            vec.extend_from_slice(b": ");
+            vec.extend_from_slice(value.as_bytes());
+            vec.extend_from_slice(b"\r\n");
+        }
+        vec
     }
 }

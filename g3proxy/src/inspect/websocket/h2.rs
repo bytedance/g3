@@ -14,17 +14,22 @@
  * limitations under the License.
  */
 
+use anyhow::anyhow;
 use bytes::Bytes;
 use h2::{RecvStream, SendStream};
 use slog::slog_info;
 
+use g3_dpi::ProtocolInspectPolicy;
 use g3_h2::{H2StreamReader, H2StreamWriter};
 use g3_slog_types::{LtUpstreamAddr, LtUuid};
-use g3_types::net::UpstreamAddr;
+use g3_types::net::{UpstreamAddr, WebSocketContext};
 
+use super::{ClientCloseFrame, ServerCloseFrame};
+#[cfg(feature = "quic")]
+use crate::audit::StreamDetourContext;
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
-use crate::serve::ServerTaskResult;
+use crate::serve::{ServerTaskError, ServerTaskResult};
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
@@ -40,11 +45,20 @@ macro_rules! intercept_log {
 pub(crate) struct H2WebsocketInterceptObject<SC: ServerConfig> {
     ctx: StreamInspectContext<SC>,
     upstream: UpstreamAddr,
+    websocket_ctx: WebSocketContext,
 }
 
 impl<SC: ServerConfig> H2WebsocketInterceptObject<SC> {
-    pub(crate) fn new(ctx: StreamInspectContext<SC>, upstream: UpstreamAddr) -> Self {
-        H2WebsocketInterceptObject { ctx, upstream }
+    pub(crate) fn new(
+        ctx: StreamInspectContext<SC>,
+        upstream: UpstreamAddr,
+        websocket_ctx: WebSocketContext,
+    ) -> Self {
+        H2WebsocketInterceptObject {
+            ctx,
+            upstream,
+            websocket_ctx,
+        }
     }
 }
 
@@ -56,11 +70,89 @@ impl<SC: ServerConfig> H2WebsocketInterceptObject<SC> {
         ups_r: RecvStream,
         ups_w: SendStream<Bytes>,
     ) {
-        if let Err(e) = self.do_intercept(clt_r, clt_w, ups_r, ups_w).await {
-            intercept_log!(self, "{e}");
-        } else {
-            intercept_log!(self, "finished");
+        let r = match self.ctx.websocket_inspect_policy() {
+            ProtocolInspectPolicy::Intercept => self.do_intercept(clt_r, clt_w, ups_r, ups_w).await,
+            #[cfg(feature = "quic")]
+            ProtocolInspectPolicy::Detour => self.do_detour(clt_r, clt_w, ups_r, ups_w).await,
+            ProtocolInspectPolicy::Bypass => self.do_bypass(clt_r, clt_w, ups_r, ups_w).await,
+            ProtocolInspectPolicy::Block => self.do_block(clt_w, ups_w).await,
+        };
+        match r {
+            Ok(_) => {
+                intercept_log!(self, "finished");
+            }
+            Err(e) => {
+                intercept_log!(self, "{e}");
+            }
         }
+    }
+
+    #[cfg(feature = "quic")]
+    async fn do_detour(
+        &mut self,
+        clt_r: RecvStream,
+        clt_w: SendStream<Bytes>,
+        ups_r: RecvStream,
+        ups_w: SendStream<Bytes>,
+    ) -> ServerTaskResult<()> {
+        let Some(client) = self.ctx.audit_handle.stream_detour_client() else {
+            return self.do_bypass(clt_r, clt_w, ups_r, ups_w).await;
+        };
+
+        let clt_r = H2StreamReader::new(clt_r);
+        let clt_w = H2StreamWriter::new(clt_w);
+        let ups_r = H2StreamReader::new(ups_r);
+        let ups_w = H2StreamWriter::new(ups_w);
+
+        let mut ctx = StreamDetourContext::new(
+            &self.ctx.server_config,
+            &self.ctx.server_quit_policy,
+            &self.ctx.task_notes,
+            &self.upstream,
+            g3_dpi::Protocol::Websocket,
+        );
+        ctx.set_payload(self.websocket_ctx.serialize());
+
+        client.detour_relay(clt_r, clt_w, ups_r, ups_w, ctx).await
+    }
+
+    async fn do_bypass(
+        &mut self,
+        clt_r: RecvStream,
+        clt_w: SendStream<Bytes>,
+        ups_r: RecvStream,
+        ups_w: SendStream<Bytes>,
+    ) -> ServerTaskResult<()> {
+        let clt_r = H2StreamReader::new(clt_r);
+        let clt_w = H2StreamWriter::new(clt_w);
+        let ups_r = H2StreamReader::new(ups_r);
+        let ups_w = H2StreamWriter::new(ups_w);
+
+        crate::inspect::stream::transit_transparent(
+            clt_r,
+            clt_w,
+            ups_r,
+            ups_w,
+            &self.ctx.server_config,
+            &self.ctx.server_quit_policy,
+            self.ctx.user(),
+        )
+        .await
+    }
+
+    async fn do_block(
+        &mut self,
+        mut clt_w: SendStream<Bytes>,
+        mut ups_w: SendStream<Bytes>,
+    ) -> ServerTaskResult<()> {
+        const SERVER_CLOSE_BYTES: [u8; 4] = ServerCloseFrame::encode_with_status_code(1001);
+        const CLIENT_CLOSE_BYTES: [u8; 8] = ClientCloseFrame::encode_with_status_code(1001);
+
+        let _ = ups_w.send_data(Bytes::from_static(&CLIENT_CLOSE_BYTES), true);
+        let _ = clt_w.send_data(Bytes::from_static(&SERVER_CLOSE_BYTES), true);
+        Err(ServerTaskError::InternalAdapterError(anyhow!(
+            "websocket blocked by inspection policy"
+        )))
     }
 
     async fn do_intercept(

@@ -51,6 +51,7 @@ pub(crate) struct AuditorConfig {
     pub(crate) h1_interception: H1InterceptionConfig,
     pub(crate) h2_inspect_policy: ProtocolInspectPolicy,
     pub(crate) h2_interception: H2InterceptionConfig,
+    pub(crate) websocket_inspect_policy: ProtocolInspectPolicy,
     pub(crate) smtp_inspect_policy: ProtocolInspectPolicy,
     pub(crate) smtp_interception: SmtpInterceptionConfig,
     pub(crate) imap_inspect_policy: ProtocolInspectPolicy,
@@ -86,6 +87,7 @@ impl AuditorConfig {
             h1_interception: Default::default(),
             h2_inspect_policy: ProtocolInspectPolicy::Intercept,
             h2_interception: Default::default(),
+            websocket_inspect_policy: ProtocolInspectPolicy::Intercept,
             smtp_inspect_policy: ProtocolInspectPolicy::Intercept,
             smtp_interception: Default::default(),
             imap_inspect_policy: ProtocolInspectPolicy::Intercept,
@@ -191,6 +193,11 @@ impl AuditorConfig {
             "h2_interception" => {
                 self.h2_interception = g3_yaml::value::as_h2_interception_config(v)
                     .context(format!("invalid h1 interception value for key {k}"))?;
+                Ok(())
+            }
+            "websocket_inspect_policy" => {
+                self.websocket_inspect_policy = g3_yaml::value::as_protocol_inspect_policy(v)
+                    .context(format!("invalid protocol inspect policy value for key {k}"))?;
                 Ok(())
             }
             "smtp_inspect_policy" => {

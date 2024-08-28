@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,20 @@
  * limitations under the License.
  */
 
-mod close;
-use close::{ClientCloseFrame, ServerCloseFrame};
+pub struct ServerCloseFrame {}
 
-mod h1;
-pub(crate) use h1::H1WebsocketInterceptObject;
+impl ServerCloseFrame {
+    pub(super) const fn encode_with_status_code(status_code: u16) -> [u8; 4] {
+        let code = status_code.to_be_bytes();
+        [0x88, 0x02, code[0], code[1]]
+    }
+}
 
-mod h2;
-pub(crate) use self::h2::H2WebsocketInterceptObject;
+pub struct ClientCloseFrame {}
+
+impl ClientCloseFrame {
+    pub(super) const fn encode_with_status_code(status_code: u16) -> [u8; 8] {
+        let code = status_code.to_be_bytes();
+        [0x88, 0x82, 0x00, 0x00, 0x00, 0x00, code[0], code[1]]
+    }
+}

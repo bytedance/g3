@@ -35,7 +35,7 @@ use g3_icap_client::reqmod::h1::{
 use g3_icap_client::reqmod::IcapReqmodClient;
 use g3_io_ext::{LimitedCopy, LimitedCopyError, LimitedWriteExt, OnceBufReader};
 use g3_slog_types::{LtDateTime, LtDuration, LtHttpUri, LtUpstreamAddr, LtUuid};
-use g3_types::net::{HttpUpgradeToken, UpstreamAddr};
+use g3_types::net::{HttpUpgradeToken, UpstreamAddr, WebSocketContext};
 
 use super::{H1InterceptionError, HttpRequest, HttpRequestIo, HttpResponseIo};
 use crate::config::server::ServerConfig;
@@ -105,6 +105,7 @@ pub(super) struct H1UpgradeTask<SC: ServerConfig> {
     send_error_response: bool,
     should_close: bool,
     http_notes: HttpForwardTaskNotes,
+    websocket_ctx: Option<WebSocketContext>,
 }
 
 impl<SC> H1UpgradeTask<SC>
@@ -120,6 +121,7 @@ where
             send_error_response: true,
             should_close: false,
             http_notes,
+            websocket_ctx: None,
         }
     }
 
@@ -355,7 +357,7 @@ where
 
     async fn send_response<CW, UR, UW>(
         &mut self,
-        rsp: HttpTransparentResponse,
+        mut rsp: HttpTransparentResponse,
         rsp_head: Bytes,
         rsp_io: &mut HttpResponseIo<CW, UR, UW>,
     ) -> ServerTaskResult<Option<(HttpUpgradeToken, UpstreamAddr)>>
@@ -389,20 +391,30 @@ where
                 }
             };
 
-            let upstream = if matches!(upgrade_protocol, HttpUpgradeToken::ConnectUdp) {
-                self.req
-                    .uri
-                    .get_connect_udp_upstream()
-                    .map_err(ServerTaskError::from)?
-            } else {
-                self.req
-                    .host
-                    .take()
-                    .ok_or(ServerTaskError::InvalidClientProtocol(
-                        "no Host header found in http upgrade request",
-                    ))?
-            };
+            match upgrade_protocol {
+                HttpUpgradeToken::Websocket => {
+                    let mut websocket_ctx = WebSocketContext::new(self.req.uri.clone());
+                    websocket_ctx.append_response_headers(rsp.end_to_end_headers.drain());
+                    self.websocket_ctx = Some(websocket_ctx);
+                }
+                HttpUpgradeToken::ConnectUdp => {
+                    let upstream = self
+                        .req
+                        .uri
+                        .get_connect_udp_upstream()
+                        .map_err(ServerTaskError::from)?;
+                    return Ok(Some((upgrade_protocol, upstream)));
+                }
+                _ => {}
+            }
 
+            let upstream = self
+                .req
+                .host
+                .take()
+                .ok_or(ServerTaskError::InvalidClientProtocol(
+                    "no Host header found in http upgrade request",
+                ))?;
             Ok(Some((upgrade_protocol, upstream)))
         } else if let Some(body_type) = rsp.body_type(&self.req.method) {
             self.send_response_body(rsp_io, body_type).await?;
@@ -487,7 +499,7 @@ where
     }
 
     pub(super) fn into_upgrade(
-        self,
+        mut self,
         req_io: HttpRequestIo<BoxAsyncRead>,
         rsp_io: HttpResponseIo<BoxAsyncWrite, BoxAsyncRead, BoxAsyncWrite>,
         protocol: HttpUpgradeToken,
@@ -509,9 +521,14 @@ where
                 Err(H1InterceptionError::InvalidUpgradeProtocol(protocol))
             }
             HttpUpgradeToken::Websocket => {
+                let mut websocket_ctx = self.websocket_ctx.unwrap();
+                websocket_ctx.append_request_headers(self.req.end_to_end_headers.drain());
                 StreamInspectLog::new(&ctx).log(InspectSource::HttpUpgrade, Protocol::Websocket);
-                let mut websocket_obj =
-                    crate::inspect::websocket::H1WebsocketInterceptObject::new(ctx, upstream);
+                let mut websocket_obj = crate::inspect::websocket::H1WebsocketInterceptObject::new(
+                    ctx,
+                    upstream,
+                    websocket_ctx,
+                );
                 websocket_obj.set_io(clt_r, clt_w, ups_r, ups_w);
                 Ok(StreamInspection::Websocket(websocket_obj))
             }

@@ -97,7 +97,7 @@ where
                 .map_err(H2StreamFromChunkedTransferError::SendTrailerFailed)?;
         } else {
             self.send_stream
-                .send_trailers(headers.to_h2_map())
+                .send_trailers(headers.into())
                 .map_err(H2StreamFromChunkedTransferError::SendTrailerFailed)?;
         }
         Poll::Ready(Ok(()))

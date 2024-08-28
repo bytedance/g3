@@ -31,6 +31,7 @@ use g3_icap_client::reqmod::h2::{
     H2RequestAdapter, ReqmodAdaptationMidState, ReqmodAdaptationRunState,
     ReqmodRecvHttpResponseBody,
 };
+use g3_types::net::WebSocketContext;
 
 use super::H2StreamTransferError;
 use crate::config::server::ServerConfig;
@@ -86,6 +87,7 @@ struct ExchangeHead<'a, SC: ServerConfig> {
     ups_stream_id: Option<StreamId>,
     send_error_response: bool,
     http_notes: &'a mut HttpForwardTaskNotes,
+    websocket_ctx: Option<&'a mut WebSocketContext>,
 }
 
 impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
@@ -95,6 +97,21 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
             ups_stream_id: None,
             send_error_response: false,
             http_notes,
+            websocket_ctx: None,
+        }
+    }
+
+    fn new_websocket(
+        ctx: &'a StreamInspectContext<SC>,
+        http_notes: &'a mut HttpForwardTaskNotes,
+        websocket_ctx: &'a mut WebSocketContext,
+    ) -> Self {
+        ExchangeHead {
+            ctx,
+            ups_stream_id: None,
+            send_error_response: false,
+            http_notes,
+            websocket_ctx: Some(websocket_ctx),
         }
     }
 
@@ -239,7 +256,7 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
         let (mut parts, _) = response.into_parts();
         parts.version = Version::HTTP_2;
         parts.status = rsp.status;
-        parts.headers = rsp.headers.into_h2_map();
+        parts.headers = rsp.headers.into();
         let response = Response::from_parts(parts, ());
 
         self.send_error_response = false;
@@ -340,6 +357,13 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
         H2StreamTransferError,
     > {
         let (parts, ups_r) = ups_rsp.into_parts();
+
+        if let Some(websocket_ctx) = self.websocket_ctx.take() {
+            for (name, value) in &parts.headers {
+                websocket_ctx.append_response_header(name, value);
+            }
+        }
+
         let ups_rsp = Response::from_parts(parts, ());
 
         if ups_r.is_end_stream() {
