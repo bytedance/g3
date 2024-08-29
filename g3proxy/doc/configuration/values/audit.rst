@@ -133,6 +133,22 @@ For *map* value, the keys are:
 
   **default**: 16
 
+* stream_open_timeout
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Set the timeout to open QUIC streams to the detour server.
+
+  **default**: 30s
+
+* request_timeout
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Set the timeout to get detour action response from the detour server after open the streams.
+
+  **default**: 60s
+
 * socket_buffer
 
   **optional**, **type**: :ref:`socket buffer config <conf_value_socket_buffer_config>`

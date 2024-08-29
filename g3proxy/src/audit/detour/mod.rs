@@ -15,6 +15,7 @@
  */
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::anyhow;
 use tokio::sync::oneshot;
@@ -60,32 +61,17 @@ pub(crate) struct StreamDetourContext<'a, SC> {
     upstream: &'a UpstreamAddr,
     protocol: Protocol,
     payload: Vec<u8>,
+    request_timeout: Duration,
 }
 
 impl<'a, SC> StreamDetourContext<'a, SC> {
-    pub(crate) fn new(
-        server_config: &'a Arc<SC>,
-        server_quit_policy: &'a Arc<ServerQuitPolicy>,
-        task_notes: &'a StreamInspectTaskNotes,
-        upstream: &'a UpstreamAddr,
-        protocol: Protocol,
-    ) -> Self {
-        StreamDetourContext {
-            server_config,
-            server_quit_policy,
-            task_notes,
-            upstream,
-            protocol,
-            payload: Vec::new(),
-        }
-    }
-
     pub(crate) fn set_payload(&mut self, payload: Vec<u8>) {
         self.payload = payload;
     }
 }
 
 pub(crate) struct StreamDetourClient {
+    config: Arc<AuditStreamDetourConfig>,
     req_sender: flume::Sender<StreamDetourRequest>,
     pool_handle: StreamDetourPoolHandle,
 }
@@ -97,9 +83,29 @@ impl StreamDetourClient {
         let pool_handle =
             StreamDetourPool::spawn(config.connection_pool, req_receiver, Arc::new(connector));
         Ok(StreamDetourClient {
+            config,
             req_sender,
             pool_handle,
         })
+    }
+
+    pub(crate) fn build_context<'a, SC>(
+        &self,
+        server_config: &'a Arc<SC>,
+        server_quit_policy: &'a Arc<ServerQuitPolicy>,
+        task_notes: &'a StreamInspectTaskNotes,
+        upstream: &'a UpstreamAddr,
+        protocol: Protocol,
+    ) -> StreamDetourContext<'a, SC> {
+        StreamDetourContext {
+            server_config,
+            server_quit_policy,
+            task_notes,
+            upstream,
+            protocol,
+            payload: Vec::new(),
+            request_timeout: self.config.request_timeout,
+        }
     }
 
     pub(crate) async fn open_detour_stream(&self) -> anyhow::Result<StreamDetourStream> {
@@ -120,9 +126,10 @@ impl StreamDetourClient {
             }
         }
 
-        // TODO add timeout limit
-        receiver
-            .await
-            .map_err(|e| anyhow!("failed to get detour stream: {e}"))
+        match tokio::time::timeout(self.config.stream_open_timeout, receiver).await {
+            Ok(Ok(s)) => Ok(s),
+            Ok(Err(e)) => Err(anyhow!("failed to open detour stream: {e}")),
+            Err(_) => Err(anyhow!("timed out to open detour stream")),
+        }
     }
 }

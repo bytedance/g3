@@ -27,7 +27,7 @@ use g3_types::net::{Host, UpstreamAddr};
 
 use super::StartTlsProtocol;
 #[cfg(feature = "quic")]
-use crate::audit::{DetourAction, StreamDetourContext};
+use crate::audit::DetourAction;
 use crate::config::server::ServerConfig;
 use crate::inspect::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext, StreamInspection};
 use crate::serve::{ServerTaskError, ServerTaskResult};
@@ -154,7 +154,7 @@ where
             }
         };
 
-        let detour_ctx = StreamDetourContext::new(
+        let detour_ctx = client.build_context(
             &self.ctx.server_config,
             &self.ctx.server_quit_policy,
             &self.ctx.task_notes,

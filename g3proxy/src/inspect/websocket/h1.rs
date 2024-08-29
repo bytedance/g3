@@ -25,7 +25,7 @@ use g3_types::net::{UpstreamAddr, WebSocketNotes};
 
 use super::{ClientCloseFrame, ServerCloseFrame};
 #[cfg(feature = "quic")]
-use crate::audit::{DetourAction, StreamDetourContext};
+use crate::audit::DetourAction;
 use crate::config::server::ServerConfig;
 use crate::inspect::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext};
 use crate::serve::{ServerTaskError, ServerTaskResult};
@@ -123,7 +123,7 @@ impl<SC: ServerConfig> H1WebsocketInterceptObject<SC> {
             }
         };
 
-        let mut detour_ctx = StreamDetourContext::new(
+        let mut detour_ctx = client.build_context(
             &self.ctx.server_config,
             &self.ctx.server_quit_policy,
             &self.ctx.task_notes,

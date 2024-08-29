@@ -38,9 +38,9 @@ pub(crate) use handle::AuditHandle;
 #[cfg(feature = "quic")]
 mod detour;
 #[cfg(feature = "quic")]
-use detour::StreamDetourClient;
+pub(crate) use detour::DetourAction;
 #[cfg(feature = "quic")]
-pub(crate) use detour::{DetourAction, StreamDetourContext};
+use detour::StreamDetourClient;
 
 pub(crate) struct Auditor {
     config: Arc<AuditorConfig>,

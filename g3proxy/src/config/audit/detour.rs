@@ -16,6 +16,7 @@
 
 use std::net::{IpAddr, Ipv4Addr};
 use std::str::FromStr;
+use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use yaml_rust::Yaml;
@@ -33,6 +34,8 @@ pub(crate) struct AuditStreamDetourConfig {
     pub(crate) tls_name: Option<String>,
     pub(crate) connection_pool: ConnectionPoolConfig,
     pub(crate) connection_reuse_limit: usize,
+    pub(crate) stream_open_timeout: Duration,
+    pub(crate) request_timeout: Duration,
     pub(crate) socket_buffer: SocketBufferConfig,
 }
 
@@ -47,6 +50,8 @@ impl Default for AuditStreamDetourConfig {
             tls_name: None,
             connection_pool: ConnectionPoolConfig::default(),
             connection_reuse_limit: 16,
+            stream_open_timeout: Duration::from_secs(30),
+            request_timeout: Duration::from_secs(60),
             socket_buffer: SocketBufferConfig::default(),
         }
     }
@@ -85,6 +90,16 @@ impl AuditStreamDetourConfig {
                     }
                     "connection_reuse_limit" => {
                         config.connection_reuse_limit = g3_yaml::value::as_usize(v)?;
+                        Ok(())
+                    }
+                    "stream_open_timeout" => {
+                        config.stream_open_timeout = g3_yaml::humanize::as_duration(v)
+                            .context(format!("invalid humanize duration value for key {k}"))?;
+                        Ok(())
+                    }
+                    "request_timeout" => {
+                        config.request_timeout = g3_yaml::humanize::as_duration(v)
+                            .context(format!("invalid humanize duration value for key {k}"))?;
                         Ok(())
                     }
                     "socket_buffer" => {

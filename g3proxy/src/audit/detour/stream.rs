@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-use std::time::Duration;
-
 use anyhow::anyhow;
 use quinn::{RecvStream, SendStream};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
@@ -272,7 +270,7 @@ where
 
         let mut buf = [0u8; 4];
         match tokio::time::timeout(
-            Duration::from_secs(60),
+            self.request_timeout,
             detour_stream.north_recv.read_exact(&mut buf),
         )
         .await
