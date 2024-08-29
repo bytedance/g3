@@ -45,14 +45,14 @@ impl WebSocketSubProtocol {
     }
 }
 
-pub struct WebSocketContext {
+pub struct WebSocketNotes {
     uri: Uri,
     headers: HeaderMap,
 }
 
-impl WebSocketContext {
+impl WebSocketNotes {
     pub fn new(uri: Uri) -> Self {
-        WebSocketContext {
+        WebSocketNotes {
             uri,
             headers: HeaderMap::with_capacity(8),
         }
@@ -133,14 +133,22 @@ impl WebSocketContext {
         vec
     }
 
+    #[inline]
     pub fn resource_name(&self) -> &str {
         self.uri.path()
     }
 
-    pub fn protocol(&self) -> Option<&HeaderValue> {
+    #[inline]
+    pub fn origin(&self) -> Option<&HeaderValue> {
+        self.headers.get(header::ORIGIN)
+    }
+
+    #[inline]
+    pub fn sub_protocol(&self) -> Option<&HeaderValue> {
         self.headers.get(header::SEC_WEBSOCKET_PROTOCOL)
     }
 
+    #[inline]
     pub fn version(&self) -> Option<&HeaderValue> {
         self.headers.get(header::SEC_WEBSOCKET_VERSION)
     }

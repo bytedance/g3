@@ -31,7 +31,7 @@ use g3_icap_client::reqmod::h2::{
     H2RequestAdapter, ReqmodAdaptationMidState, ReqmodAdaptationRunState,
     ReqmodRecvHttpResponseBody,
 };
-use g3_types::net::WebSocketContext;
+use g3_types::net::WebSocketNotes;
 
 use super::H2StreamTransferError;
 use crate::config::server::ServerConfig;
@@ -87,7 +87,7 @@ struct ExchangeHead<'a, SC: ServerConfig> {
     ups_stream_id: Option<StreamId>,
     send_error_response: bool,
     http_notes: &'a mut HttpForwardTaskNotes,
-    websocket_ctx: Option<&'a mut WebSocketContext>,
+    ws_notes: Option<&'a mut WebSocketNotes>,
 }
 
 impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
@@ -97,21 +97,21 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
             ups_stream_id: None,
             send_error_response: false,
             http_notes,
-            websocket_ctx: None,
+            ws_notes: None,
         }
     }
 
     fn new_websocket(
         ctx: &'a StreamInspectContext<SC>,
         http_notes: &'a mut HttpForwardTaskNotes,
-        websocket_ctx: &'a mut WebSocketContext,
+        ws_notes: &'a mut WebSocketNotes,
     ) -> Self {
         ExchangeHead {
             ctx,
             ups_stream_id: None,
             send_error_response: false,
             http_notes,
-            websocket_ctx: Some(websocket_ctx),
+            ws_notes: Some(ws_notes),
         }
     }
 
@@ -358,9 +358,9 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
     > {
         let (parts, ups_r) = ups_rsp.into_parts();
 
-        if let Some(websocket_ctx) = self.websocket_ctx.take() {
+        if let Some(ws_notes) = self.ws_notes.take() {
             for (name, value) in &parts.headers {
-                websocket_ctx.append_response_header(name, value);
+                ws_notes.append_response_header(name, value);
             }
         }
 

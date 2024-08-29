@@ -21,7 +21,7 @@ use tokio::io::AsyncWriteExt;
 use g3_dpi::ProtocolInspectPolicy;
 use g3_io_ext::LimitedWriteExt;
 use g3_slog_types::{LtHttpHeaderValue, LtUpstreamAddr, LtUuid};
-use g3_types::net::{UpstreamAddr, WebSocketContext};
+use g3_types::net::{UpstreamAddr, WebSocketNotes};
 
 use super::{ClientCloseFrame, ServerCloseFrame};
 #[cfg(feature = "quic")]
@@ -37,9 +37,10 @@ macro_rules! intercept_log {
             "task_id" => LtUuid($obj.ctx.server_task_id()),
             "depth" => $obj.ctx.inspection_depth,
             "upstream" => LtUpstreamAddr(&$obj.upstream),
-            "ws_resource_name" => $obj.websocket_ctx.resource_name(),
-            "ws_protocol" => $obj.websocket_ctx.protocol().map(LtHttpHeaderValue),
-            "ws_version" => $obj.websocket_ctx.version().map(LtHttpHeaderValue),
+            "ws_resource_name" => $obj.ws_notes.resource_name(),
+            "ws_origin" => $obj.ws_notes.origin().map(LtHttpHeaderValue),
+            "ws_sub_protocol" => $obj.ws_notes.sub_protocol().map(LtHttpHeaderValue),
+            "ws_version" => $obj.ws_notes.version().map(LtHttpHeaderValue),
         )
     };
 }
@@ -55,20 +56,20 @@ pub(crate) struct H1WebsocketInterceptObject<SC: ServerConfig> {
     io: Option<H1WebsocketIo>,
     pub(crate) ctx: StreamInspectContext<SC>,
     upstream: UpstreamAddr,
-    websocket_ctx: WebSocketContext,
+    ws_notes: WebSocketNotes,
 }
 
 impl<SC: ServerConfig> H1WebsocketInterceptObject<SC> {
     pub(crate) fn new(
         ctx: StreamInspectContext<SC>,
         upstream: UpstreamAddr,
-        websocket_ctx: WebSocketContext,
+        ws_notes: WebSocketNotes,
     ) -> Self {
         H1WebsocketInterceptObject {
             io: None,
             ctx,
             upstream,
-            websocket_ctx,
+            ws_notes,
         }
     }
 
@@ -128,7 +129,7 @@ impl<SC: ServerConfig> H1WebsocketInterceptObject<SC> {
             &self.upstream,
             g3_dpi::Protocol::Websocket,
         );
-        ctx.set_payload(self.websocket_ctx.serialize());
+        ctx.set_payload(self.ws_notes.serialize());
 
         client.detour_relay(clt_r, clt_w, ups_r, ups_w, ctx).await
     }
