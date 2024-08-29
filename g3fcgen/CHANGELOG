@@ -1,4 +1,8 @@
 
+v0.8.2:
+ - Feature: emit tokio runtime metrics
+ - Feature: allow to show debug logs in release build
+
 v0.8.1:
  - Feature: add openssl variant info to version message
  - Optimization: don't probe for openssl default ca certificate path
