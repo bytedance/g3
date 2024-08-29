@@ -22,7 +22,7 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 
-use g3_io_ext::{LimitedCopy, LimitedCopyError, LimitedWriteExt};
+use g3_io_ext::{LimitedCopy, LimitedCopyError};
 use g3_types::net::{ProxyProtocolEncodeError, ProxyProtocolV2Encoder};
 
 use super::StreamDetourContext;
@@ -271,9 +271,7 @@ where
         ppv2.push_upstream(self.upstream)?;
         ppv2.push_match_id(match_id)?;
         ppv2.push_protocol(self.protocol.as_str())?;
-        if !self.payload.is_empty() {
-            ppv2.push_payload(&self.payload)?;
-        }
+        ppv2.push_payload_len(self.payload.len())?;
         Ok(ppv2)
     }
 
@@ -300,9 +298,16 @@ where
             .encode_client_ppv2(match_id)
             .map_err(|e| anyhow!("failed to encode ppv2 header for client stream: {e}"))?;
         north_send
-            .write_all_flush(client_ppv2.finalize())
+            .write_all(client_ppv2.finalize())
             .await
             .map_err(|e| anyhow!("failed to send ppv2 header for client stream: {e}"))?;
+        if !self.payload.is_empty() {
+            north_send
+                .write_all(&self.payload)
+                .await
+                .map_err(|e| anyhow!("failed to send payload data: {e}"))?;
+        }
+        // no flush needed on SendStream
 
         let detour_action;
 
@@ -329,9 +334,10 @@ where
             .encode_remote_ppv2(match_id)
             .map_err(|e| anyhow!("failed to encode ppv2 header for remote stream: {e}"))?;
         south_send
-            .write_all_flush(remote_ppv2.finalize())
+            .write_all(remote_ppv2.finalize())
             .await
             .map_err(|e| anyhow!("failed to send ppv2 header for remote stream: {e}"))?;
+        // no flush needed on SendStream
 
         Ok(detour_action)
     }

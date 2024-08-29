@@ -53,6 +53,8 @@ pub enum ProxyProtocolEncodeError {
     InvalidU16Length(TryFromIntError),
     #[error("total length overflow")]
     TotalLengthOverflow,
+    #[error("too long value ({1}) for tag {0}")]
+    TooLongTagValue(u8, usize),
 }
 
 #[allow(clippy::large_enum_variant)]

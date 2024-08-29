@@ -20,7 +20,7 @@ North Stream
 
 The north stream will be used to forward data sending by client to remote.
 
-Initially g3proxy will send a ProxyProtocolV2 header to the server,
+Initially g3proxy will send a **ProxyProtocolV2 Header**, and an optional **Payload** to the server,
 
 The PPv2 Type-Values are:
 
@@ -50,12 +50,13 @@ The PPv2 Type-Values are:
   The ID used to combine the north stream and the south stream.
   The value will be a 2-bytes uint16 value, in big-endian.
 
-* 0xE6 | Payload
+* 0xE6 | Payload Length
 
-  Extra payload data. The value will be vary depending on the *protocol*.
-  This will only be set when needed by that *protocol*.
+  Extra payload data length. The payload data format will be vary depending on the *protocol*.
+  The value will be a 4-bytes uint32 value, in big-endian.
+  The payload data will be sent right following the PPv2 Header if the length is greater than 0.
 
-  You will find the detail value in :ref:`Protocol and Payload <stream_detour_protocol_payload>` section.
+  You will find the payload format in :ref:`Protocol and Payload <stream_detour_protocol_payload>` section.
 
 After sending the PPv2 header, g3proxy will waiting a 4-bytes response from the server.
 

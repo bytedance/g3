@@ -53,7 +53,7 @@ const PP2_TYPE_CUSTOM_USERNAME: u8 = 0xE2;
 const PP2_TYPE_CUSTOM_TASK_ID: u8 = 0xE3;
 const PP2_TYPE_CUSTOM_PROTOCOL: u8 = 0xE4;
 const PP2_TYPE_CUSTOM_MATCH_ID: u8 = 0xE5;
-const PP2_TYPE_CUSTOM_PAYLOAD: u8 = 0xE6;
+const PP2_TYPE_CUSTOM_PAYLOAD_LEN: u8 = 0xE6;
 
 pub struct ProxyProtocolV2Encoder {
     buf: [u8; V2_BUF_CAP],
@@ -160,8 +160,12 @@ impl ProxyProtocolV2Encoder {
         self.push_tlv(PP2_TYPE_CUSTOM_MATCH_ID, &bytes)
     }
 
-    pub fn push_payload(&mut self, payload: &[u8]) -> Result<(), ProxyProtocolEncodeError> {
-        self.push_tlv(PP2_TYPE_CUSTOM_PAYLOAD, payload)
+    pub fn push_payload_len(&mut self, payload_len: usize) -> Result<(), ProxyProtocolEncodeError> {
+        let payload_len = u32::try_from(payload_len).map_err(|_| {
+            ProxyProtocolEncodeError::TooLongTagValue(PP2_TYPE_CUSTOM_PAYLOAD_LEN, payload_len)
+        })?;
+        let bytes = payload_len.to_be_bytes();
+        self.push_tlv(PP2_TYPE_CUSTOM_PAYLOAD_LEN, &bytes)
     }
 
     pub fn finalize(&mut self) -> &[u8] {
