@@ -25,7 +25,7 @@ use g3_types::net::{UpstreamAddr, WebSocketNotes};
 
 use super::{ClientCloseFrame, ServerCloseFrame};
 #[cfg(feature = "quic")]
-use crate::audit::StreamDetourContext;
+use crate::audit::{DetourAction, StreamDetourContext};
 use crate::config::server::ServerConfig;
 use crate::inspect::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext};
 use crate::serve::{ServerTaskError, ServerTaskResult};
@@ -115,23 +115,72 @@ impl<SC: ServerConfig> H1WebsocketInterceptObject<SC> {
             return self.do_bypass().await;
         };
 
-        let H1WebsocketIo {
-            clt_r,
-            clt_w,
-            ups_r,
-            ups_w,
-        } = self.io.take().unwrap();
+        let mut detour_stream = match client.open_detour_stream().await {
+            Ok(s) => s,
+            Err(e) => {
+                self.close_on_detour_error().await;
+                return Err(ServerTaskError::InternalAdapterError(e));
+            }
+        };
 
-        let mut ctx = StreamDetourContext::new(
+        let mut detour_ctx = StreamDetourContext::new(
             &self.ctx.server_config,
             &self.ctx.server_quit_policy,
             &self.ctx.task_notes,
             &self.upstream,
             g3_dpi::Protocol::Websocket,
         );
-        ctx.set_payload(self.ws_notes.serialize());
+        detour_ctx.set_payload(self.ws_notes.serialize());
 
-        client.detour_relay(clt_r, clt_w, ups_r, ups_w, ctx).await
+        match detour_ctx.check_detour_action(&mut detour_stream).await {
+            Ok(DetourAction::Continue) => {
+                let H1WebsocketIo {
+                    clt_r,
+                    clt_w,
+                    ups_r,
+                    ups_w,
+                } = self.io.take().unwrap();
+
+                detour_ctx
+                    .relay(clt_r, clt_w, ups_r, ups_w, detour_stream)
+                    .await
+            }
+            Ok(DetourAction::Bypass) => {
+                detour_stream.finish();
+                self.do_bypass().await
+            }
+            Ok(DetourAction::Block) => {
+                detour_stream.finish();
+                self.do_block().await
+            }
+            Err(e) => {
+                detour_stream.finish();
+                self.close_on_detour_error().await;
+                Err(ServerTaskError::InternalAdapterError(e))
+            }
+        }
+    }
+
+    async fn close_on_detour_error(&mut self) {
+        const SERVER_CLOSE_BYTES: [u8; 4] = ServerCloseFrame::encode_with_status_code(1011);
+        const CLIENT_CLOSE_BYTES: [u8; 8] = ClientCloseFrame::encode_with_status_code(1001);
+
+        let H1WebsocketIo {
+            clt_r: _,
+            mut clt_w,
+            ups_r: _,
+            mut ups_w,
+        } = self.io.take().unwrap();
+
+        tokio::spawn(async move {
+            if ups_w.write_all_flush(&CLIENT_CLOSE_BYTES).await.is_ok() {
+                let _ = ups_w.shutdown().await;
+            }
+        });
+
+        if clt_w.write_all_flush(&SERVER_CLOSE_BYTES).await.is_ok() {
+            let _ = clt_w.shutdown().await;
+        }
     }
 
     async fn do_bypass(&mut self) -> ServerTaskResult<()> {

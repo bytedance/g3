@@ -26,7 +26,7 @@ use g3_types::net::{UpstreamAddr, WebSocketNotes};
 
 use super::{ClientCloseFrame, ServerCloseFrame};
 #[cfg(feature = "quic")]
-use crate::audit::StreamDetourContext;
+use crate::audit::{DetourAction, StreamDetourContext};
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
 use crate::serve::{ServerTaskError, ServerTaskResult};
@@ -103,21 +103,60 @@ impl<SC: ServerConfig> H2WebsocketInterceptObject<SC> {
             return self.do_bypass(clt_r, clt_w, ups_r, ups_w).await;
         };
 
-        let clt_r = H2StreamReader::new(clt_r);
-        let clt_w = H2StreamWriter::new(clt_w);
-        let ups_r = H2StreamReader::new(ups_r);
-        let ups_w = H2StreamWriter::new(ups_w);
+        let mut detour_stream = match client.open_detour_stream().await {
+            Ok(s) => s,
+            Err(e) => {
+                self.close_on_detour_error(clt_w, ups_w);
+                return Err(ServerTaskError::InternalAdapterError(e));
+            }
+        };
 
-        let mut ctx = StreamDetourContext::new(
+        let mut detour_ctx = StreamDetourContext::new(
             &self.ctx.server_config,
             &self.ctx.server_quit_policy,
             &self.ctx.task_notes,
             &self.upstream,
             g3_dpi::Protocol::Websocket,
         );
-        ctx.set_payload(self.ws_notes.serialize());
+        detour_ctx.set_payload(self.ws_notes.serialize());
 
-        client.detour_relay(clt_r, clt_w, ups_r, ups_w, ctx).await
+        match detour_ctx.check_detour_action(&mut detour_stream).await {
+            Ok(DetourAction::Continue) => {
+                let clt_r = H2StreamReader::new(clt_r);
+                let clt_w = H2StreamWriter::new(clt_w);
+                let ups_r = H2StreamReader::new(ups_r);
+                let ups_w = H2StreamWriter::new(ups_w);
+
+                detour_ctx
+                    .relay(clt_r, clt_w, ups_r, ups_w, detour_stream)
+                    .await
+            }
+            Ok(DetourAction::Bypass) => {
+                detour_stream.finish();
+                self.do_bypass(clt_r, clt_w, ups_r, ups_w).await
+            }
+            Ok(DetourAction::Block) => {
+                detour_stream.finish();
+                self.do_block(clt_w, ups_w).await
+            }
+            Err(e) => {
+                detour_stream.finish();
+                self.close_on_detour_error(clt_w, ups_w);
+                Err(ServerTaskError::InternalAdapterError(e))
+            }
+        }
+    }
+
+    fn close_on_detour_error(
+        &mut self,
+        mut clt_w: SendStream<Bytes>,
+        mut ups_w: SendStream<Bytes>,
+    ) {
+        const SERVER_CLOSE_BYTES: [u8; 4] = ServerCloseFrame::encode_with_status_code(1011);
+        const CLIENT_CLOSE_BYTES: [u8; 8] = ClientCloseFrame::encode_with_status_code(1001);
+
+        let _ = ups_w.send_data(Bytes::from_static(&CLIENT_CLOSE_BYTES), true);
+        let _ = clt_w.send_data(Bytes::from_static(&SERVER_CLOSE_BYTES), true);
     }
 
     async fn do_bypass(

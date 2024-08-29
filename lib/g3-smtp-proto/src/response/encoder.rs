@@ -52,6 +52,18 @@ impl ResponseEncoder {
         ResponseEncoder::Owned(msg)
     }
 
+    pub fn internal_server_error(local_ip: IpAddr) -> Self {
+        let msg = match local_ip {
+            IpAddr::V4(v4) => {
+                format!("421 [{v4}] Internal server error, closing transmission channel\r\n")
+            }
+            IpAddr::V6(v6) => {
+                format!("421 Ipv6:{v6} Internal server error, closing transmission channel\r\n")
+            }
+        };
+        ResponseEncoder::Owned(msg)
+    }
+
     pub fn local_service_not_available(local_ip: IpAddr) -> Self {
         let msg = match local_ip {
             IpAddr::V4(v4) => {

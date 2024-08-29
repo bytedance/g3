@@ -40,7 +40,7 @@ mod detour;
 #[cfg(feature = "quic")]
 use detour::StreamDetourClient;
 #[cfg(feature = "quic")]
-pub(crate) use detour::StreamDetourContext;
+pub(crate) use detour::{DetourAction, StreamDetourContext};
 
 pub(crate) struct Auditor {
     config: Arc<AuditorConfig>,

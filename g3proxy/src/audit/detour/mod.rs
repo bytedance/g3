@@ -17,7 +17,6 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::oneshot;
 
 use g3_daemon::server::ServerQuitPolicy;
@@ -25,9 +24,7 @@ use g3_dpi::Protocol;
 use g3_types::net::UpstreamAddr;
 
 use crate::config::audit::AuditStreamDetourConfig;
-use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectTaskNotes;
-use crate::serve::{ServerTaskError, ServerTaskResult};
 
 mod connect;
 use connect::{StreamDetourConnector, StreamDetourRequest};
@@ -37,6 +34,24 @@ use pool::{StreamDetourPool, StreamDetourPoolHandle};
 
 mod stream;
 use stream::StreamDetourStream;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[repr(u16)]
+pub(crate) enum DetourAction {
+    Continue,
+    Bypass,
+    Block,
+}
+
+impl From<u16> for DetourAction {
+    fn from(value: u16) -> Self {
+        match value {
+            0 => DetourAction::Continue,
+            1 => DetourAction::Bypass,
+            _ => DetourAction::Block,
+        }
+    }
+}
 
 pub(crate) struct StreamDetourContext<'a, SC> {
     server_config: &'a Arc<SC>,
@@ -87,21 +102,7 @@ impl StreamDetourClient {
         })
     }
 
-    pub(crate) async fn detour_relay<CR, CW, UR, UW, SC>(
-        &self,
-        clt_r: CR,
-        clt_w: CW,
-        ups_r: UR,
-        ups_w: UW,
-        ctx: StreamDetourContext<'_, SC>,
-    ) -> ServerTaskResult<()>
-    where
-        CR: AsyncRead + Unpin,
-        CW: AsyncWrite + Unpin,
-        UR: AsyncRead + Unpin,
-        UW: AsyncWrite + Unpin,
-        SC: ServerConfig,
-    {
+    pub(crate) async fn open_detour_stream(&self) -> anyhow::Result<StreamDetourStream> {
         let (sender, receiver) = oneshot::channel();
         let req = StreamDetourRequest(sender);
 
@@ -110,23 +111,18 @@ impl StreamDetourClient {
                 flume::TrySendError::Full(req) => {
                     self.pool_handle.request_new_connection();
                     if self.req_sender.send_async(req).await.is_err() {
-                        return Err(ServerTaskError::InternalAdapterError(anyhow!(
-                            "stream detour client is down"
-                        )));
+                        return Err(anyhow!("stream detour client is down"));
                     }
                 }
                 flume::TrySendError::Disconnected(_req) => {
-                    return Err(ServerTaskError::InternalAdapterError(anyhow!(
-                        "stream detour client is down"
-                    )));
+                    return Err(anyhow!("stream detour client is down"));
                 }
             }
         }
 
-        let detour_stream = receiver.await.map_err(|e| {
-            ServerTaskError::InternalAdapterError(anyhow!("failed to get detour stream: {e}"))
-        })?;
-
-        ctx.relay(clt_r, clt_w, ups_r, ups_w, detour_stream).await
+        // TODO add timeout limit
+        receiver
+            .await
+            .map_err(|e| anyhow!("failed to get detour stream: {e}"))
     }
 }

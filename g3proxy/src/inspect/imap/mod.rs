@@ -27,7 +27,7 @@ use g3_types::net::UpstreamAddr;
 
 use super::StartTlsProtocol;
 #[cfg(feature = "quic")]
-use crate::audit::StreamDetourContext;
+use crate::audit::{DetourAction, StreamDetourContext};
 use crate::config::server::ServerConfig;
 use crate::inspect::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext, StreamInspection};
 use crate::serve::{ServerTaskError, ServerTaskResult};
@@ -155,14 +155,15 @@ where
             return self.do_bypass().await;
         };
 
-        let ImapIo {
-            clt_r,
-            clt_w,
-            ups_r,
-            ups_w,
-        } = self.io.take().unwrap();
+        let mut detour_stream = match client.open_detour_stream().await {
+            Ok(s) => s,
+            Err(e) => {
+                self.close_on_detour_error().await;
+                return Err(ServerTaskError::InternalAdapterError(e));
+            }
+        };
 
-        let ctx = StreamDetourContext::new(
+        let detour_ctx = StreamDetourContext::new(
             &self.ctx.server_config,
             &self.ctx.server_quit_policy,
             &self.ctx.task_notes,
@@ -170,7 +171,50 @@ where
             g3_dpi::Protocol::Imap,
         );
 
-        client.detour_relay(clt_r, clt_w, ups_r, ups_w, ctx).await
+        match detour_ctx.check_detour_action(&mut detour_stream).await {
+            Ok(DetourAction::Continue) => {
+                let ImapIo {
+                    clt_r,
+                    clt_w,
+                    ups_r,
+                    ups_w,
+                } = self.io.take().unwrap();
+
+                detour_ctx
+                    .relay(clt_r, clt_w, ups_r, ups_w, detour_stream)
+                    .await
+            }
+            Ok(DetourAction::Bypass) => {
+                detour_stream.finish();
+                self.do_bypass().await
+            }
+            Ok(DetourAction::Block) => {
+                detour_stream.finish();
+                self.do_block().await
+            }
+            Err(e) => {
+                detour_stream.finish();
+                self.close_on_detour_error().await;
+                Err(ServerTaskError::InternalAdapterError(e))
+            }
+        }
+    }
+
+    async fn close_on_detour_error(&mut self) {
+        let ImapIo {
+            clt_r: _,
+            mut clt_w,
+            ups_r: _,
+            mut ups_w,
+        } = self.io.take().unwrap();
+
+        tokio::spawn(async move {
+            let _ = ups_w.shutdown().await;
+        });
+
+        if ByeResponse::reply_internal_error(&mut clt_w).await.is_ok() {
+            let _ = clt_w.shutdown().await;
+        }
     }
 
     async fn do_bypass(&mut self) -> ServerTaskResult<()> {
@@ -206,6 +250,10 @@ where
         });
 
         ByeResponse::reply_blocked(&mut clt_w)
+            .await
+            .map_err(ServerTaskError::ClientTcpWriteFailed)?;
+        clt_w
+            .shutdown()
             .await
             .map_err(ServerTaskError::ClientTcpWriteFailed)?;
         Err(ServerTaskError::InternalAdapterError(anyhow!(

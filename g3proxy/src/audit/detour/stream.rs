@@ -25,29 +25,11 @@ use tokio::time::Instant;
 use g3_io_ext::{LimitedCopy, LimitedCopyError};
 use g3_types::net::{ProxyProtocolEncodeError, ProxyProtocolV2Encoder};
 
-use super::StreamDetourContext;
+use super::{DetourAction, StreamDetourContext};
 use crate::config::server::ServerConfig;
 use crate::serve::{ServerTaskError, ServerTaskResult};
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-#[repr(u16)]
-enum DetourAction {
-    Continue,
-    Bypass,
-    Block,
-}
-
-impl From<u16> for DetourAction {
-    fn from(value: u16) -> Self {
-        match value {
-            0 => DetourAction::Continue,
-            1 => DetourAction::Bypass,
-            _ => DetourAction::Block,
-        }
-    }
-}
-
-pub(super) struct StreamDetourStream {
+pub(crate) struct StreamDetourStream {
     pub(super) north_send: SendStream,
     pub(super) north_recv: RecvStream,
     pub(super) south_send: SendStream,
@@ -56,11 +38,18 @@ pub(super) struct StreamDetourStream {
     pub(super) match_id: u16,
 }
 
+impl StreamDetourStream {
+    pub(crate) fn finish(mut self) {
+        let _ = self.north_send.finish();
+        let _ = self.south_send.finish();
+    }
+}
+
 impl<'a, SC> StreamDetourContext<'a, SC>
 where
     SC: ServerConfig,
 {
-    pub(super) async fn relay<CR, CW, UR, UW>(
+    pub(crate) async fn relay<CR, CW, UR, UW>(
         self,
         mut clt_r: CR,
         mut clt_w: CW,
@@ -80,37 +69,8 @@ where
             mut south_send,
             mut south_recv,
             force_quit_sender,
-            match_id,
+            match_id: _,
         } = d_stream;
-
-        match self
-            .send_detour_request(&mut north_send, &mut north_recv, &mut south_send, match_id)
-            .await
-        {
-            Ok(DetourAction::Continue) => {}
-            Ok(DetourAction::Bypass) => {
-                return crate::inspect::stream::transit_transparent(
-                    clt_r,
-                    clt_w,
-                    ups_r,
-                    ups_w,
-                    self.server_config,
-                    self.server_quit_policy,
-                    self.task_notes.user(),
-                )
-                .await
-            }
-            Ok(DetourAction::Block) => {
-                let _ = clt_w.shutdown().await;
-                let _ = ups_w.shutdown().await;
-                let _ = north_send.finish();
-                let _ = south_send.finish();
-                return Err(ServerTaskError::InternalAdapterError(anyhow!(
-                    "blocked by detour server"
-                )));
-            }
-            Err(e) => return Err(ServerTaskError::InternalAdapterError(e)),
-        }
 
         let copy_config = self.server_config.limited_copy_config();
 
@@ -287,22 +247,21 @@ where
         Ok(ppv2)
     }
 
-    async fn send_detour_request(
+    pub(crate) async fn check_detour_action(
         &self,
-        north_send: &mut SendStream,
-        north_recv: &mut RecvStream,
-        south_send: &mut SendStream,
-        match_id: u16,
+        detour_stream: &mut StreamDetourStream,
     ) -> anyhow::Result<DetourAction> {
         let mut client_ppv2 = self
-            .encode_client_ppv2(match_id)
+            .encode_client_ppv2(detour_stream.match_id)
             .map_err(|e| anyhow!("failed to encode ppv2 header for client stream: {e}"))?;
-        north_send
+        detour_stream
+            .north_send
             .write_all(client_ppv2.finalize())
             .await
             .map_err(|e| anyhow!("failed to send ppv2 header for client stream: {e}"))?;
         if !self.payload.is_empty() {
-            north_send
+            detour_stream
+                .north_send
                 .write_all(&self.payload)
                 .await
                 .map_err(|e| anyhow!("failed to send payload data: {e}"))?;
@@ -312,10 +271,15 @@ where
         let detour_action;
 
         let mut buf = [0u8; 4];
-        match tokio::time::timeout(Duration::from_secs(60), north_recv.read_exact(&mut buf)).await {
+        match tokio::time::timeout(
+            Duration::from_secs(60),
+            detour_stream.north_recv.read_exact(&mut buf),
+        )
+        .await
+        {
             Ok(Ok(_)) => {
                 let rsp_match_id = u16::from_be_bytes([buf[0], buf[1]]);
-                if rsp_match_id != match_id {
+                if rsp_match_id != detour_stream.match_id {
                     return Err(anyhow!(
                         "invalid response from detour server: invalid match id"
                     ));
@@ -331,9 +295,10 @@ where
         }
 
         let mut remote_ppv2 = self
-            .encode_remote_ppv2(match_id)
+            .encode_remote_ppv2(detour_stream.match_id)
             .map_err(|e| anyhow!("failed to encode ppv2 header for remote stream: {e}"))?;
-        south_send
+        detour_stream
+            .south_send
             .write_all(remote_ppv2.finalize())
             .await
             .map_err(|e| anyhow!("failed to send ppv2 header for remote stream: {e}"))?;
