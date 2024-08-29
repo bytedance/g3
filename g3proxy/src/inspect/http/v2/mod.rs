@@ -34,7 +34,7 @@ use g3_types::net::UpstreamAddr;
 use crate::audit::DetourAction;
 use crate::config::server::ServerConfig;
 use crate::inspect::{BoxAsyncRead, BoxAsyncWrite, InterceptionError, StreamInspectContext};
-use crate::serve::{ServerTaskError, ServerTaskResult};
+use crate::serve::ServerTaskResult;
 
 mod error;
 pub(crate) use error::{H2InterceptionError, H2StreamTransferError};
@@ -137,6 +137,8 @@ where
 
     #[cfg(feature = "quic")]
     async fn do_detour(&mut self) -> ServerTaskResult<()> {
+        use crate::serve::ServerTaskError;
+
         let Some(client) = self.ctx.audit_handle.stream_detour_client() else {
             return self.do_bypass().await;
         };
@@ -188,6 +190,7 @@ where
         }
     }
 
+    #[cfg(feature = "quic")]
     async fn close_on_detour_error(&mut self) {
         let H2InterceptIo {
             clt_r,

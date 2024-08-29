@@ -161,6 +161,7 @@ impl<SC: ServerConfig> H1WebsocketInterceptObject<SC> {
         }
     }
 
+    #[cfg(feature = "quic")]
     async fn close_on_detour_error(&mut self) {
         const SERVER_CLOSE_BYTES: [u8; 4] = ServerCloseFrame::encode_with_status_code(1011);
         const CLIENT_CLOSE_BYTES: [u8; 8] = ClientCloseFrame::encode_with_status_code(1001);

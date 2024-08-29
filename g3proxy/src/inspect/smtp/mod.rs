@@ -191,6 +191,7 @@ where
         }
     }
 
+    #[cfg(feature = "quic")]
     async fn close_on_detour_error(&mut self) {
         let SmtpIo {
             clt_r,

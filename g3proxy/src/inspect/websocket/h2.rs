@@ -147,6 +147,7 @@ impl<SC: ServerConfig> H2WebsocketInterceptObject<SC> {
         }
     }
 
+    #[cfg(feature = "quic")]
     fn close_on_detour_error(
         &mut self,
         mut clt_w: SendStream<Bytes>,
