@@ -41,7 +41,7 @@ rustls = { workspace = true, optional = true }
 rustls-pki-types = { workspace = true, optional = true }
 quinn = { workspace = true, optional = true }
 webpki-roots = { version = "0.26", optional = true }
-rustls-native-certs = { version = "0.7", optional = true }
+rustls-native-certs = { version = "0.8", optional = true }
 rustls-pemfile = { workspace = true, optional = true }
 ring = { version = "0.17", optional = true }
 openssl = { workspace = true, optional = true }
