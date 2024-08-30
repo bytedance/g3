@@ -106,7 +106,7 @@ where
     ) -> Poll<Result<usize, UdpRelayRemoteError>> {
         match to.host() {
             Host::Ip(ip) => self.poll_send_ip_packet(cx, buf, SocketAddr::new(*ip, to.port())),
-            Host::Domain(domain) => match self.resolved_lru.get(domain.as_str()) {
+            Host::Domain(domain) => match self.resolved_lru.get(domain) {
                 Some(ip) => {
                     let to_addr = SocketAddr::new(*ip, to.port());
                     self.poll_send_ip_packet(cx, buf, to_addr)
@@ -160,14 +160,13 @@ where
                                 }
                             };
                         } else {
-                            let domain: Arc<str> = Arc::from(domain.as_str());
                             let resolver_job = ArriveFirstResolveJob::new(
                                 &self.resolver_handle,
                                 self.resolve_strategy,
                                 domain.clone(),
                             )?;
                             self.resolver_job = Some(resolver_job);
-                            self.resolve_retry_domain = Some(domain);
+                            self.resolve_retry_domain = Some(domain.clone());
                         }
                     }
                 }
@@ -298,7 +297,7 @@ where
                 let addr = match p.upstream().host() {
                     Host::Ip(ip) => SocketAddr::new(*ip, p.upstream().port()),
                     Host::Domain(domain) => resolved_lru
-                        .get(domain.as_str())
+                        .get(domain)
                         .map(|ip| SocketAddr::new(*ip, p.upstream().port()))
                         .unwrap(),
                 };
@@ -350,7 +349,7 @@ where
 
         let ip = match p.upstream().host() {
             Host::Ip(ip) => *ip,
-            Host::Domain(domain) => match self.resolved_lru.get(domain.as_str()) {
+            Host::Domain(domain) => match self.resolved_lru.get(domain) {
                 Some(ip) => *ip,
                 None => {
                     let _ = ready!(self.poll_send_packet(cx, p.payload(), p.upstream()))?;
@@ -366,7 +365,7 @@ where
                     let ip = match p.upstream().host() {
                         Host::Ip(IpAddr::V4(v4)) => IpAddr::V4(*v4),
                         Host::Ip(IpAddr::V6(_)) => break,
-                        Host::Domain(domain) => match self.resolved_lru.get(domain.as_str()) {
+                        Host::Domain(domain) => match self.resolved_lru.get(domain) {
                             Some(IpAddr::V4(v4)) => IpAddr::V4(*v4),
                             Some(IpAddr::V6(_)) => break,
                             None => break,
@@ -402,7 +401,7 @@ where
                     let ip = match p.upstream().host() {
                         Host::Ip(IpAddr::V4(_)) => break,
                         Host::Ip(IpAddr::V6(v6)) => IpAddr::V6(*v6),
-                        Host::Domain(domain) => match self.resolved_lru.get(domain.as_str()) {
+                        Host::Domain(domain) => match self.resolved_lru.get(domain) {
                             Some(IpAddr::V4(_)) => break,
                             Some(IpAddr::V6(v6)) => IpAddr::V6(*v6),
                             None => break,

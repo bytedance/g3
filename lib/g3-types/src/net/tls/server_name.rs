@@ -15,6 +15,7 @@
  */
 
 use std::str::Utf8Error;
+use std::sync::Arc;
 use std::{fmt, str};
 
 use thiserror::Error;
@@ -37,7 +38,7 @@ pub enum TlsServerNameError {
 
 #[derive(Clone)]
 pub struct TlsServerName {
-    host_name: String,
+    host_name: Arc<str>,
 }
 
 impl TlsServerName {
@@ -66,14 +67,14 @@ impl TlsServerName {
         let host_name = str::from_utf8(name).map_err(TlsServerNameError::InvalidHostName)?;
 
         Ok(TlsServerName {
-            host_name: host_name.to_string(),
+            host_name: Arc::from(host_name),
         })
     }
 }
 
 impl AsRef<str> for TlsServerName {
     fn as_ref(&self) -> &str {
-        self.host_name.as_str()
+        self.host_name.as_ref()
     }
 }
 
@@ -85,12 +86,12 @@ impl From<TlsServerName> for Host {
 
 impl From<&TlsServerName> for Host {
     fn from(value: &TlsServerName) -> Self {
-        Host::Domain(value.host_name.to_string())
+        Host::Domain(value.host_name.clone())
     }
 }
 
 impl fmt::Display for TlsServerName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.host_name.as_str())
+        f.write_str(&self.host_name)
     }
 }

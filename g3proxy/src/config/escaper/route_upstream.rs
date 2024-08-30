@@ -16,6 +16,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::net::IpAddr;
+use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
 use ip_network::IpNetwork;
@@ -33,7 +34,7 @@ const ESCAPER_CONFIG_TYPE: &str = "RouteUpstream";
 pub(crate) struct RouteUpstreamEscaperConfig {
     pub(crate) name: MetricsName,
     position: Option<YamlDocPosition>,
-    pub(crate) exact_match_domain: BTreeMap<MetricsName, BTreeSet<String>>,
+    pub(crate) exact_match_domain: BTreeMap<MetricsName, BTreeSet<Arc<str>>>,
     pub(crate) exact_match_ipaddr: BTreeMap<MetricsName, BTreeSet<IpAddr>>,
     pub(crate) subnet_match_ipaddr: BTreeMap<MetricsName, BTreeSet<IpNetwork>>,
     pub(crate) radix_match_domain: BTreeMap<MetricsName, BTreeSet<String>>,
@@ -144,8 +145,8 @@ impl RouteUpstreamEscaperConfig {
 
     fn add_exact_match(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
         let mut escaper = MetricsName::default();
-        let mut all_ipaddr = BTreeSet::<IpAddr>::new();
-        let mut all_domain = BTreeSet::<String>::new();
+        let mut all_ipaddr = BTreeSet::new();
+        let mut all_domain = BTreeSet::new();
         g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
             "next" | "escaper" => {
                 escaper = g3_yaml::value::as_metrics_name(v)?;

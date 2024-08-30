@@ -163,7 +163,7 @@ impl UserSite {
 pub(super) struct UserSites {
     all_sites: AHashMap<MetricsName, Arc<UserSite>>,
     exact_match_ipaddr: Option<AHashMap<IpAddr, Arc<UserSite>>>,
-    exact_match_domain: Option<AHashMap<String, Arc<UserSite>>>,
+    exact_match_domain: Option<AHashMap<Arc<str>, Arc<UserSite>>>,
     child_match_domain: Option<Trie<String, Arc<UserSite>>>,
     subnet_match_ipaddr: Option<IpNetworkTable<Arc<UserSite>>>,
 }
@@ -193,7 +193,7 @@ impl UserSites {
                 exact_match_ipaddr.insert(*ip, site.clone());
             }
             for domain in &site_config.exact_match_domain {
-                exact_match_domain.insert(domain.to_string(), site.clone());
+                exact_match_domain.insert(domain.clone(), site.clone());
             }
             for domain in &site_config.child_match_domain {
                 let domain = g3_types::resolve::reverse_idna_domain(domain);

@@ -95,7 +95,7 @@ fn add_host_matched_value<T: JsonMapCallback>(
         }
         for domain in &exact_domain_vs {
             if obj
-                .add_exact_domain(domain.to_string(), Arc::clone(&t))
+                .add_exact_domain(domain.clone(), Arc::clone(&t))
                 .is_some()
             {
                 return Err(anyhow!(

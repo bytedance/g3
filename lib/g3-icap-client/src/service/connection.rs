@@ -45,7 +45,7 @@ impl IcapConnector {
         let upstream = &self.config.upstream;
         match upstream.host() {
             Host::Domain(domain) => {
-                let mut addrs = tokio::net::lookup_host((domain.as_str(), upstream.port())).await?;
+                let mut addrs = tokio::net::lookup_host((domain.as_ref(), upstream.port())).await?;
                 addrs
                     .next()
                     .ok_or_else(|| io::Error::other("no resolved socket address"))

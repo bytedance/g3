@@ -105,7 +105,7 @@ impl HappyEyeballsResolveJob {
         v: ResolveRedirectionValue,
     ) -> Result<Self, ResolveError> {
         match v {
-            ResolveRedirectionValue::Domain(d) => Self::new_dyn(s, h, Arc::from(d)),
+            ResolveRedirectionValue::Domain(d) => Self::new_dyn(s, h, d),
             ResolveRedirectionValue::Ip((ip4, ip6)) => {
                 let mut job = HappyEyeballsResolveJob {
                     r1: None,

@@ -17,6 +17,7 @@
 use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
+use std::sync::Arc;
 
 use anyhow::anyhow;
 #[cfg(feature = "rustls")]
@@ -25,7 +26,7 @@ use rustls_pki_types::ServerName;
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Host {
     Ip(IpAddr),
-    Domain(String),
+    Domain(Arc<str>),
 }
 
 impl Host {
@@ -50,7 +51,7 @@ impl Host {
 
     pub(crate) fn from_domain_str(domain: &str) -> anyhow::Result<Self> {
         let domain = idna::domain_to_ascii(domain).map_err(|e| anyhow!("invalid domain: {e}"))?;
-        Ok(Host::Domain(domain))
+        Ok(Host::Domain(Arc::from(domain)))
     }
 
     pub fn parse_smtp_host_address(buf: &[u8]) -> Option<Self> {
@@ -93,7 +94,7 @@ impl fmt::Display for Host {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Host::Ip(ip) => write!(f, "{ip}"),
-            Host::Domain(domain) => f.write_str(domain.as_str()),
+            Host::Domain(domain) => f.write_str(domain),
         }
     }
 }
@@ -103,7 +104,7 @@ impl From<url::Host> for Host {
         match v {
             url::Host::Ipv4(ip4) => Host::Ip(IpAddr::V4(ip4)),
             url::Host::Ipv6(ip6) => Host::Ip(IpAddr::V6(ip6)),
-            url::Host::Domain(domain) => Host::Domain(domain),
+            url::Host::Domain(domain) => Host::Domain(Arc::from(domain)),
         }
     }
 }
@@ -162,7 +163,7 @@ impl TryFrom<&Host> for ServerName<'static> {
 
         match value {
             Host::Ip(ip) => Ok(ServerName::IpAddress((*ip).into())),
-            Host::Domain(domain) => ServerName::try_from(domain.as_str())
+            Host::Domain(domain) => ServerName::try_from(domain.as_ref())
                 .map(|r| r.to_owned())
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e)),
         }
@@ -176,7 +177,7 @@ mod tests {
     #[test]
     fn smtp_address() {
         let host = Host::parse_smtp_host_address(b"www.example.net").unwrap();
-        assert_eq!(host, Host::Domain("www.example.net".to_string()));
+        assert_eq!(host, Host::Domain(Arc::from("www.example.net")));
 
         let host = Host::parse_smtp_host_address(b"[123.255.37.2]").unwrap();
         assert_eq!(host, Host::Ip(IpAddr::from_str("123.255.37.2").unwrap()));

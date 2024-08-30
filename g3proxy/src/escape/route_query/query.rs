@@ -85,7 +85,7 @@ impl QueryRuntime {
                 ),
                 (
                     ValueRef::String("user".into()),
-                    ValueRef::String(req.user.as_str().into()),
+                    ValueRef::String(req.user.as_ref().into()),
                 ),
                 (
                     ValueRef::String("host".into()),

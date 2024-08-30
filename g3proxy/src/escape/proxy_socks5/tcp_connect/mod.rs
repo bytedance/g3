@@ -279,7 +279,7 @@ impl ProxySocks5Escaper {
                 .await
             }
             Host::Domain(domain) => {
-                let resolver_job = self.resolve_happy(domain)?;
+                let resolver_job = self.resolve_happy(domain.clone())?;
 
                 self.happy_try_connect(resolver_job, peer_proxy.port(), tcp_notes, task_notes)
                     .await

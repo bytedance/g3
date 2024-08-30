@@ -15,6 +15,7 @@
  */
 
 use std::net::IpAddr;
+use std::sync::Arc;
 
 use super::{AclAHashRule, AclAction};
 use crate::net::Host;
@@ -22,7 +23,7 @@ use crate::net::Host;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AclExactHostRule {
     missed_action: AclAction,
-    domain: AclAHashRule<String>,
+    domain: AclAHashRule<Arc<str>>,
     ip: AclAHashRule<IpAddr>,
 }
 
@@ -37,7 +38,7 @@ impl AclExactHostRule {
     }
 
     #[inline]
-    pub fn add_domain(&mut self, domain: String, action: AclAction) {
+    pub fn add_domain(&mut self, domain: Arc<str>, action: AclAction) {
         self.domain.add_node(domain, action);
     }
 
@@ -85,7 +86,7 @@ mod tests {
     #[test]
     fn check() {
         let mut rule = AclExactHostRule::new(AclAction::Forbid);
-        rule.add_domain("www.example.com".to_string(), AclAction::Permit);
+        rule.add_domain(Arc::from("www.example.com"), AclAction::Permit);
         rule.add_ip(
             IpAddr::from_str("192.168.1.1").unwrap(),
             AclAction::PermitAndLog,

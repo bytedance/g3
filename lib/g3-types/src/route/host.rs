@@ -27,7 +27,7 @@ use crate::resolve::reverse_idna_domain;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct HostMatch<T> {
-    exact_domain: Option<AHashMap<String, T>>,
+    exact_domain: Option<AHashMap<Arc<str>, T>>,
     exact_ip: Option<AHashMap<IpAddr, T>>,
     child_domain: Option<Trie<String, T>>,
     default: Option<T>,
@@ -45,7 +45,7 @@ impl<T> Default for HostMatch<T> {
 }
 
 impl<T> HostMatch<T> {
-    pub fn add_exact_domain(&mut self, domain: String, v: T) -> Option<T> {
+    pub fn add_exact_domain(&mut self, domain: Arc<str>, v: T) -> Option<T> {
         self.exact_domain
             .get_or_insert(Default::default())
             .insert(domain, v)
@@ -137,7 +137,7 @@ impl<T> HostMatch<Arc<T>> {
             let mut dst_ht = AHashMap::with_capacity(ht.len());
             for (k, v) in ht {
                 let dv = get_tmp(v)?;
-                dst_ht.insert(k.to_string(), dv);
+                dst_ht.insert(k.clone(), dv);
             }
             dst.exact_domain = Some(dst_ht);
         }
@@ -217,7 +217,7 @@ where
             let mut dst_ht = AHashMap::with_capacity(ht.len());
             for (k, v) in ht {
                 if let Some(dv) = values.get(v.name()) {
-                    dst_ht.insert(k.to_string(), dv.clone());
+                    dst_ht.insert(k.clone(), dv.clone());
                 }
             }
             dst.exact_domain = Some(dst_ht);

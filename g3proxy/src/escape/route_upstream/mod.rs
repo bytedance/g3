@@ -54,7 +54,7 @@ pub(super) struct RouteUpstreamEscaper {
     next_table: BTreeMap<MetricsName, ArcEscaper>,
     exact_match_ipaddr: AHashMap<IpAddr, ArcEscaper>,
     subnet_match_ipaddr: IpNetworkTable<ArcEscaper>,
-    exact_match_domain: AHashMap<String, ArcEscaper>,
+    exact_match_domain: AHashMap<Arc<str>, ArcEscaper>,
     do_child_match: bool,
     child_match_domain: Trie<String, ArcEscaper>,
     do_radix_match: bool,
@@ -88,7 +88,7 @@ impl RouteUpstreamEscaper {
         for (escaper, hosts) in &config.exact_match_domain {
             for host in hosts {
                 let next = &next_table.get(escaper).unwrap();
-                exact_match_domain.insert(host.to_string(), Arc::clone(next));
+                exact_match_domain.insert(host.clone(), Arc::clone(next));
             }
         }
 

@@ -353,8 +353,11 @@ impl DirectFixedEscaper {
                 .await
             }
             Host::Domain(domain) => {
-                let resolver_job =
-                    self.resolve_happy(domain, self.get_resolve_strategy(task_notes), task_notes)?;
+                let resolver_job = self.resolve_happy(
+                    domain.clone(),
+                    self.get_resolve_strategy(task_notes),
+                    task_notes,
+                )?;
 
                 self.happy_try_connect(
                     resolver_job,
@@ -432,7 +435,8 @@ impl DirectFixedEscaper {
                         None => {}
                     }
 
-                    let resolver_job = self.resolve_happy(domain, resolve_strategy, task_notes)?;
+                    let resolver_job =
+                        self.resolve_happy(domain.clone(), resolve_strategy, task_notes)?;
                     self.happy_try_connect(
                         resolver_job,
                         tcp_connect_config,

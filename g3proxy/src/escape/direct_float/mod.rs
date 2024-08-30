@@ -255,13 +255,13 @@ impl DirectFloatEscaper {
 
     fn resolve_happy(
         &self,
-        domain: &str,
+        domain: Arc<str>,
         strategy: ResolveStrategy,
         task_notes: &ServerTaskNotes,
     ) -> Result<HappyEyeballsResolveJob, ResolveError> {
         if let Some(user_ctx) = task_notes.user_ctx() {
             if let Some(redirect) = user_ctx.user().resolve_redirection() {
-                if let Some(v) = redirect.query_value(domain) {
+                if let Some(v) = redirect.query_value(&domain) {
                     return HappyEyeballsResolveJob::new_redirected(
                         strategy,
                         &self.resolver_handle,
@@ -272,21 +272,21 @@ impl DirectFloatEscaper {
         }
 
         if let Some(redirect) = &self.resolve_redirection {
-            if let Some(v) = redirect.query_value(domain) {
+            if let Some(v) = redirect.query_value(&domain) {
                 return HappyEyeballsResolveJob::new_redirected(strategy, &self.resolver_handle, v);
             }
         }
 
-        HappyEyeballsResolveJob::new_dyn(strategy, &self.resolver_handle, Arc::from(domain))
+        HappyEyeballsResolveJob::new_dyn(strategy, &self.resolver_handle, domain)
     }
 
     async fn resolve_best(
         &self,
-        domain: &str,
+        domain: Arc<str>,
         strategy: ResolveStrategy,
     ) -> Result<IpAddr, ResolveError> {
         let mut resolver_job =
-            HappyEyeballsResolveJob::new_dyn(strategy, &self.resolver_handle, Arc::from(domain))?;
+            HappyEyeballsResolveJob::new_dyn(strategy, &self.resolver_handle, domain)?;
         let ips = resolver_job
             .get_r1_or_first(self.config.happy_eyeballs.resolution_delay(), usize::MAX)
             .await?;
@@ -302,7 +302,7 @@ impl DirectFloatEscaper {
     ) -> Result<IpAddr, ResolveError> {
         match redirect_result {
             Host::Ip(ip) => Ok(ip),
-            Host::Domain(new) => self.resolve_best(&new, resolve_strategy).await,
+            Host::Domain(new) => self.resolve_best(new, resolve_strategy).await,
         }
     }
 
@@ -335,7 +335,7 @@ impl DirectFloatEscaper {
                     }
                 }
 
-                let ip = self.resolve_best(domain, resolve_strategy).await?;
+                let ip = self.resolve_best(domain.clone(), resolve_strategy).await?;
                 Ok(SocketAddr::new(ip, ups.port()))
             }
         }

@@ -16,6 +16,7 @@
 
 use std::collections::BTreeSet;
 use std::net::IpAddr;
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::anyhow;
@@ -32,7 +33,7 @@ mod yaml;
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub(crate) struct UserSiteConfig {
     pub(crate) id: MetricsName,
-    pub(crate) exact_match_domain: BTreeSet<String>,
+    pub(crate) exact_match_domain: BTreeSet<Arc<str>>,
     pub(crate) exact_match_ipaddr: BTreeSet<IpAddr>,
     pub(crate) subnet_match_ipaddr: BTreeSet<IpNetwork>,
     pub(crate) child_match_domain: BTreeSet<String>,

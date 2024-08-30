@@ -32,7 +32,7 @@ use crate::serve::ServerTaskNotes;
 
 #[derive(Clone, Debug, Hash, PartialEq, PartialOrd, Ord, Eq)]
 pub(super) struct CacheQueryKey {
-    pub(super) user: String,
+    pub(super) user: Arc<str>,
     pub(super) host: String,
     pub(super) client_ip: Option<String>,
 }
@@ -61,7 +61,7 @@ impl CacheHandle {
         let query_key = CacheQueryKey {
             user: task_notes
                 .raw_user_name()
-                .map(|s| s.to_string())
+                .map(|s| s.clone())
                 .unwrap_or_default(),
             host: upstream.host().to_string(),
             client_ip,

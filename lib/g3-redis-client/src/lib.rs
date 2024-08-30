@@ -138,7 +138,7 @@ impl RedisClientConfig {
     async fn lookup_server(&self) -> anyhow::Result<SocketAddr> {
         match self.server.host() {
             Host::Domain(domain) => {
-                let mut ips = tokio::net::lookup_host(format!("{domain}:{}", self.server.port()))
+                let mut ips = tokio::net::lookup_host((domain.as_ref(), self.server.port()))
                     .await
                     .map_err(|e| anyhow!("failed to resolve domain {domain}: {e}"))?;
                 ips.next()
