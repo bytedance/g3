@@ -18,6 +18,13 @@ use anyhow::anyhow;
 use rustls_pki_types::CertificateDer;
 
 pub fn load_native_certs_for_rustls() -> anyhow::Result<Vec<CertificateDer<'static>>> {
-    rustls_native_certs::load_native_certs()
-        .map_err(|e| anyhow!("failed to load native ca certs: {e}"))
+    let mut r = rustls_native_certs::load_native_certs();
+    if r.certs.is_empty() {
+        match r.errors.pop() {
+            Some(e) => Err(anyhow!("no certs loaded, the first error: {e}")),
+            None => Err(anyhow!("no certs loaded, and no error reported")),
+        }
+    } else {
+        Ok(r.certs)
+    }
 }
