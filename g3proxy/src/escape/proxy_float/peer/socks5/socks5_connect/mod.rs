@@ -23,7 +23,8 @@ use tokio::net::{TcpStream, UdpSocket};
 use tokio::sync::oneshot;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_io_ext::LimitedStream;
+use g3_io_ext::{AsyncStream, LimitedStream};
+use g3_openssl::SslStream;
 use g3_socks::v5;
 use g3_types::net::{Host, OpensslClientConfig, SocketBufferConfig};
 
@@ -188,7 +189,7 @@ impl ProxyFloatSocks5Peer {
         let wrapper_stats = Arc::new(wrapper_stats);
 
         ups_s.reset_stats(wrapper_stats);
-        let (r, w) = ups_s.into_split_tcp();
+        let (r, w) = ups_s.into_split();
 
         Ok((Box::new(r), Box::new(w)))
     }
@@ -201,7 +202,7 @@ impl ProxyFloatSocks5Peer {
         tls_config: &OpensslClientConfig,
         tls_name: &Host,
         tls_application: TlsApplication,
-    ) -> Result<impl AsyncRead + AsyncWrite, TcpConnectError> {
+    ) -> Result<SslStream<impl AsyncRead + AsyncWrite>, TcpConnectError> {
         let ups_s = self
             .timed_socks5_connect_tcp_connect_to(escaper, tcp_notes, task_notes)
             .await?;

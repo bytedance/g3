@@ -33,6 +33,7 @@ use tokio_rustls::LazyConfigAcceptor;
 
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
+use g3_io_ext::AsyncStream;
 use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::MetricsName;
@@ -186,32 +187,15 @@ impl HttpRProxyServer {
 
     async fn spawn_stream_task<T>(&self, stream: T, cc_info: ClientConnectionInfo)
     where
-        T: AsyncRead + AsyncWrite + Send + Sync + 'static,
+        T: AsyncStream,
+        T::R: AsyncRead + Send + Sync + Unpin + 'static,
+        T::W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
         let ctx = self.get_common_task_context(cc_info);
         let pipeline_stats = Arc::new(HttpRProxyPipelineStats::default());
         let (task_sender, task_receiver) = mpsc::channel(ctx.server_config.pipeline_size);
 
         // NOTE tls underlying traffic is not counted in (server/task/user) stats
-
-        let (clt_r, clt_w) = tokio::io::split(stream);
-        let r_task = HttpRProxyPipelineReaderTask::new(&ctx, task_sender, clt_r, &pipeline_stats);
-        let w_task = HttpRProxyPipelineWriterTask::new(
-            &ctx,
-            self.user_group.load_full(),
-            task_receiver,
-            clt_w,
-            &pipeline_stats,
-        );
-
-        tokio::spawn(r_task.into_running());
-        w_task.into_running(&self.hosts).await
-    }
-
-    async fn spawn_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
-        let ctx = self.get_common_task_context(cc_info);
-        let pipeline_stats = Arc::new(HttpRProxyPipelineStats::default());
-        let (task_sender, task_receiver) = mpsc::channel(ctx.server_config.pipeline_size);
 
         let (clt_r, clt_w) = stream.into_split();
         let r_task = HttpRProxyPipelineReaderTask::new(&ctx, task_sender, clt_r, &pipeline_stats);
@@ -401,7 +385,7 @@ impl AcceptTcpServer for HttpRProxyServer {
                 }
             }
         } else {
-            self.spawn_tcp_task(stream, cc_info).await;
+            self.spawn_stream_task(stream, cc_info).await;
         }
     }
 }

@@ -17,7 +17,7 @@
 use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_openssl::SslConnector;
+use g3_openssl::{SslConnector, SslStream};
 use g3_types::net::UpstreamAddr;
 
 use super::ProxyFloatEscaper;
@@ -33,7 +33,7 @@ impl ProxyFloatHttpsPeer {
         escaper: &ProxyFloatEscaper,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<impl AsyncRead + AsyncWrite, TcpConnectError> {
+    ) -> Result<SslStream<impl AsyncRead + AsyncWrite>, TcpConnectError> {
         let stream = escaper
             .tcp_new_connection(self, tcp_notes, task_notes)
             .await?;

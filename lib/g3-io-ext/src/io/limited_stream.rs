@@ -22,12 +22,11 @@ use std::task::{Context, Poll};
 
 use pin_project_lite::pin_project;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
-use tokio::net::{tcp, TcpStream};
 
 use super::limited_read::{LimitedReaderState, LimitedReaderStats};
 use super::limited_write::{LimitedWriterState, LimitedWriterStats};
 use crate::limit::GlobalStreamLimit;
-use crate::{LimitedReader, LimitedWriter};
+use crate::{AsyncStream, LimitedReader, LimitedWriter};
 
 pin_project! {
     pub struct LimitedStream<S> {
@@ -160,13 +159,16 @@ impl<W: AsyncWrite> AsyncWrite for LimitedStream<W> {
     }
 }
 
-impl LimitedStream<TcpStream> {
-    pub fn into_split_tcp(
-        self,
-    ) -> (
-        LimitedReader<tcp::OwnedReadHalf>,
-        LimitedWriter<tcp::OwnedWriteHalf>,
-    ) {
+impl<S> AsyncStream for LimitedStream<S>
+where
+    S: AsyncStream,
+    S::R: AsyncRead,
+    S::W: AsyncWrite,
+{
+    type R = LimitedReader<S::R>;
+    type W = LimitedWriter<S::W>;
+
+    fn into_split(self) -> (Self::R, Self::W) {
         let (r, w) = self.inner.into_split();
         (
             LimitedReader::from_parts(r, self.reader_state),

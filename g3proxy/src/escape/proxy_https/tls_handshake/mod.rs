@@ -17,7 +17,7 @@
 use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_openssl::SslConnector;
+use g3_openssl::{SslConnector, SslStream};
 
 use super::ProxyHttpsEscaper;
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};
@@ -29,7 +29,7 @@ impl ProxyHttpsEscaper {
         &'a self,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
-    ) -> Result<impl AsyncRead + AsyncWrite, TcpConnectError> {
+    ) -> Result<SslStream<impl AsyncRead + AsyncWrite>, TcpConnectError> {
         let (peer, ups_s) = self.tcp_new_connection(tcp_notes, task_notes).await?;
 
         let tls_name = self.config.tls_name.as_ref().unwrap_or_else(|| peer.host());

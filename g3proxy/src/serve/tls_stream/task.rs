@@ -23,7 +23,7 @@ use tokio::net::TcpStream;
 use tokio_rustls::server::TlsStream;
 
 use g3_daemon::stat::task::TcpStreamTaskStats;
-use g3_io_ext::{LimitedReader, LimitedWriter};
+use g3_io_ext::{AsyncStream, LimitedReader, LimitedWriter};
 use g3_types::net::UpstreamAddr;
 
 use super::common::CommonTaskContext;
@@ -200,7 +200,7 @@ impl TlsStreamTask {
         LimitedReader<impl AsyncRead>,
         LimitedWriter<impl AsyncWrite>,
     ) {
-        let (clt_r, clt_w) = tokio::io::split(clt_stream);
+        let (clt_r, clt_w) = clt_stream.into_split();
 
         let (clt_r_stats, clt_w_stats) =
             TcpStreamTaskCltWrapperStats::new_pair(&self.ctx.server_stats, &self.task_stats);

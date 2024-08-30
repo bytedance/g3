@@ -26,6 +26,7 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use url::Url;
 
+use g3_io_ext::AsyncStream;
 use g3_openssl::SslStream;
 use g3_types::collection::{SelectiveVec, WeightedValue};
 use g3_types::net::{
@@ -181,7 +182,7 @@ impl BenchHttpArgs {
                             self.tls_connect_to_peer(tls_client, buf_stream.into_inner())
                                 .await
                         } else {
-                            let (r, w) = tokio::io::split(buf_stream.into_inner());
+                            let (r, w) = buf_stream.into_inner().into_split();
                             Ok((Box::new(r), Box::new(w)))
                         }
                     } else {
@@ -260,7 +261,7 @@ impl BenchHttpArgs {
                     .tls_connect_to_proxy(tls_client, proxy.peer(), stream)
                     .await?;
 
-                let (r, w) = tokio::io::split(tls_stream);
+                let (r, w) = tls_stream.into_split();
                 Ok((Box::new(r), Box::new(w)))
             } else {
                 let (r, w) = stream.into_split();
@@ -293,7 +294,7 @@ impl BenchHttpArgs {
             .target_tls
             .connect_target(tls_client, stream, &self.target)
             .await?;
-        let (r, w) = tokio::io::split(tls_stream);
+        let (r, w) = tls_stream.into_split();
         Ok((Box::new(r), Box::new(w)))
     }
 

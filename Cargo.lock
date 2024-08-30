@@ -1302,6 +1302,7 @@ dependencies = [
  "bytes",
  "fastrand",
  "futures-util",
+ "g3-openssl",
  "g3-resolver",
  "g3-socket",
  "g3-types",

@@ -22,7 +22,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use g3_daemon::stat::remote::{
     ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStatsWrapper,
 };
-use g3_io_ext::{LimitedReader, LimitedWriter};
+use g3_io_ext::{AsyncStream, LimitedReader, LimitedWriter};
 use g3_openssl::{SslConnector, SslStream};
 use g3_types::net::{Host, OpensslClientConfig};
 
@@ -101,7 +101,7 @@ impl ProxyFloatEscaper {
                 TlsApplication::TcpStream,
             )
             .await?;
-        let (ups_r, ups_w) = tokio::io::split(tls_stream);
+        let (ups_r, ups_w) = tls_stream.into_split();
 
         // add task and user stats
         let mut wrapper_stats = TcpConnectionTaskRemoteStatsWrapper::new(task_stats);

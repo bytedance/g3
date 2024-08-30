@@ -16,7 +16,7 @@
 
 use std::sync::Arc;
 
-use g3_io_ext::{LimitedBufReader, LimitedWriter, NilLimitedReaderStats};
+use g3_io_ext::{AsyncStream, LimitedBufReader, LimitedWriter, NilLimitedReaderStats};
 use g3_types::net::{Host, OpensslClientConfig};
 
 use super::{ProxyHttpEscaper, ProxyHttpEscaperConfig, ProxyHttpEscaperStats};
@@ -42,7 +42,7 @@ impl ProxyHttpEscaper {
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         let stream = self.tcp_new_connection(tcp_notes, task_notes).await?;
-        let (ups_r, mut ups_w) = stream.into_split_tcp();
+        let (ups_r, mut ups_w) = stream.into_split();
 
         // add task and user stats
         let mut w_wrapper_stats = HttpForwardRemoteWrapperStats::new(&self.stats, &task_stats);
@@ -82,7 +82,7 @@ impl ProxyHttpEscaper {
             )
             .await?;
 
-        let (ups_r, ups_w) = tokio::io::split(tls_stream);
+        let (ups_r, ups_w) = tls_stream.into_split();
 
         // add task and user stats
         let mut wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(task_stats);

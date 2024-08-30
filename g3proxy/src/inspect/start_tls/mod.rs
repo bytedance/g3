@@ -22,7 +22,7 @@ use slog::slog_info;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_dpi::Protocol;
-use g3_io_ext::OnceBufReader;
+use g3_io_ext::{AsyncStream, OnceBufReader};
 use g3_openssl::{SslConnector, SslLazyAcceptor};
 use g3_slog_types::{LtUpstreamAddr, LtUuid};
 use g3_types::net::{Host, TlsCertUsage, TlsServiceType, UpstreamAddr};
@@ -271,8 +271,8 @@ where
                 ))
             })?;
 
-        let (clt_r, clt_w) = tokio::io::split(clt_tls_stream);
-        let (ups_r, ups_w) = tokio::io::split(ups_tls_stream);
+        let (clt_r, clt_w) = clt_tls_stream.into_split();
+        let (ups_r, ups_w) = ups_tls_stream.into_split();
 
         let protocol = Protocol::from(self.protocol);
         if let Some(stream_dumper) = self

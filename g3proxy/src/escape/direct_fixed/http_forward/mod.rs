@@ -16,7 +16,7 @@
 
 use std::sync::Arc;
 
-use g3_io_ext::{LimitedBufReader, LimitedWriter, NilLimitedReaderStats};
+use g3_io_ext::{AsyncStream, LimitedBufReader, LimitedWriter, NilLimitedReaderStats};
 use g3_types::net::{Host, OpensslClientConfig};
 
 use super::{DirectFixedEscaper, DirectFixedEscaperStats};
@@ -89,7 +89,7 @@ impl DirectFixedEscaper {
             )
             .await?;
 
-        let (ups_r, ups_w) = tokio::io::split(tls_stream);
+        let (ups_r, ups_w) = tls_stream.into_split();
 
         // add task and user stats
         let mut wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(task_stats);

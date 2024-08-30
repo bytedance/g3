@@ -22,7 +22,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::time::Instant;
 
 use g3_daemon::stat::task::{TcpStreamConnectionStats, TcpStreamTaskStats};
-use g3_io_ext::{LimitedCopy, LimitedCopyConfig, LimitedCopyError, LimitedStream};
+use g3_io_ext::{AsyncStream, LimitedCopy, LimitedCopyConfig, LimitedCopyError, LimitedStream};
 use g3_openssl::SslStream;
 use g3_types::limit::GaugeSemaphorePermit;
 
@@ -154,7 +154,7 @@ impl OpensslRelayTask {
         UW: AsyncWrite + Unpin,
     {
         self.reset_clt_limit_and_stats(&mut ssl_stream);
-        let (mut clt_r, mut clt_w) = tokio::io::split(ssl_stream);
+        let (mut clt_r, mut clt_w) = ssl_stream.into_split();
 
         let copy_config = LimitedCopyConfig::default();
         let mut clt_to_ups = LimitedCopy::new(&mut clt_r, &mut ups_w, &copy_config);

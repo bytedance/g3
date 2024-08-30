@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,20 @@
  * limitations under the License.
  */
 
-mod tcp;
-pub use tcp::LimitedTcpListener;
+use tokio::io::{AsyncRead, AsyncWrite, ReadHalf, WriteHalf};
 
-#[cfg(feature = "rustls")]
-mod tls;
-#[cfg(feature = "rustls")]
-pub use tls::LimitedTlsListener;
+use g3_openssl::SslStream;
+
+use super::AsyncStream;
+
+impl<S> AsyncStream for SslStream<S>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    type R = ReadHalf<SslStream<S>>;
+    type W = WriteHalf<SslStream<S>>;
+
+    fn into_split(self) -> (Self::R, Self::W) {
+        tokio::io::split(self)
+    }
+}

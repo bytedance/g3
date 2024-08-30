@@ -22,6 +22,7 @@ use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 
+use g3_io_ext::AsyncStream;
 use g3_openssl::SslStream;
 use g3_types::collection::{SelectiveVec, WeightedValue};
 use g3_types::net::{OpensslClientConfig, OpensslClientConfigBuilder, UpstreamAddr};
@@ -97,7 +98,7 @@ impl KeylessCloudflareArgs {
             .map_err(|e| anyhow!("failed to get local address: {e:?}"))?;
         if let Some(tls_client) = &self.tls.client {
             let ssl_stream = self.tls_connect_to_target(tls_client, tcp_stream).await?;
-            let (r, w) = tokio::io::split(ssl_stream);
+            let (r, w) = ssl_stream.into_split();
             Ok(MultiplexTransfer::start(r, w, local_addr, self.timeout))
         } else {
             let (r, w) = tcp_stream.into_split();
@@ -115,7 +116,7 @@ impl KeylessCloudflareArgs {
             .map_err(|e| anyhow!("failed to get local address: {e:?}"))?;
         if let Some(tls_client) = &self.tls.client {
             let ssl_stream = self.tls_connect_to_target(tls_client, tcp_stream).await?;
-            let (r, w) = tokio::io::split(ssl_stream);
+            let (r, w) = ssl_stream.into_split();
             Ok(SimplexTransfer::new(r, w, local_addr))
         } else {
             let (r, w) = tcp_stream.into_split();

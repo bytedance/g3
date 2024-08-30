@@ -30,6 +30,7 @@ use tokio_rustls::server::TlsStream;
 
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerExt, ServerReloadCommand};
+use g3_io_ext::AsyncStream;
 use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder};
@@ -196,22 +197,15 @@ impl TcpStreamServer {
         (ctx, upstream.inner())
     }
 
-    async fn run_task_with_tcp(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
-        let (ctx, upstream) = self.get_ctx_and_upstream(cc_info);
-
-        let (clt_r, clt_w) = stream.into_split();
-        TcpStreamTask::new(ctx, upstream)
-            .into_running(clt_r, clt_w)
-            .await;
-    }
-
     async fn run_task_with_stream<T>(&self, stream: T, cc_info: ClientConnectionInfo)
     where
-        T: AsyncRead + AsyncWrite + Send + Sync + 'static,
+        T: AsyncStream,
+        T::R: AsyncRead + Send + Sync + Unpin + 'static,
+        T::W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
         let (ctx, upstream) = self.get_ctx_and_upstream(cc_info);
 
-        let (clt_r, clt_w) = tokio::io::split(stream);
+        let (clt_r, clt_w) = stream.into_split();
         TcpStreamTask::new(ctx, upstream)
             .into_running(clt_r, clt_w)
             .await;
@@ -323,7 +317,7 @@ impl AcceptTcpServer for TcpStreamServer {
             return;
         }
 
-        self.run_task_with_tcp(stream, cc_info).await
+        self.run_task_with_stream(stream, cc_info).await
     }
 }
 

@@ -23,7 +23,7 @@ use tokio::time::Instant;
 use tokio_rustls::server::TlsStream;
 
 use g3_daemon::stat::task::{TcpStreamConnectionStats, TcpStreamTaskStats};
-use g3_io_ext::{LimitedCopy, LimitedCopyConfig, LimitedCopyError, LimitedStream};
+use g3_io_ext::{AsyncStream, LimitedCopy, LimitedCopyConfig, LimitedCopyError, LimitedStream};
 use g3_types::limit::GaugeSemaphorePermit;
 
 use super::CommonTaskContext;
@@ -154,7 +154,7 @@ impl RustlsRelayTask {
         UW: AsyncWrite + Unpin,
     {
         self.reset_clt_limit_and_stats(&mut tls_stream);
-        let (mut clt_r, mut clt_w) = tokio::io::split(tls_stream);
+        let (mut clt_r, mut clt_w) = tls_stream.into_split();
 
         let copy_config = LimitedCopyConfig::default();
         let mut clt_to_ups = LimitedCopy::new(&mut clt_r, &mut ups_w, &copy_config);

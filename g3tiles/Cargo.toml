@@ -44,7 +44,7 @@ g3-daemon.workspace = true
 g3-yaml = { workspace = true, features = ["acl-rule", "route", "openssl", "rustls", "histogram"] }
 g3-types = { workspace = true, features = ["acl-rule", "route", "openssl", "rustls"] }
 g3-socket.workspace = true
-g3-io-ext.workspace = true
+g3-io-ext = { workspace = true, features = ["openssl", "rustls"] }
 g3-openssl.workspace = true
 g3-statsd-client.workspace = true
 g3-histogram.workspace = true

@@ -22,8 +22,8 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use g3_daemon::stat::remote::{
     ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStatsWrapper,
 };
-use g3_io_ext::{LimitedReader, LimitedStream, LimitedWriter};
-use g3_openssl::SslConnector;
+use g3_io_ext::{AsyncStream, LimitedReader, LimitedStream, LimitedWriter};
+use g3_openssl::{SslConnector, SslStream};
 use g3_types::net::{Host, OpensslClientConfig};
 
 use super::{DirectFloatBindIp, DirectFloatEscaper};
@@ -39,7 +39,7 @@ impl DirectFloatEscaper {
         tls_config: &'a OpensslClientConfig,
         tls_name: &'a Host,
         tls_application: TlsApplication,
-    ) -> Result<(impl AsyncRead + AsyncWrite, DirectFloatBindIp), TcpConnectError> {
+    ) -> Result<(SslStream<impl AsyncRead + AsyncWrite>, DirectFloatBindIp), TcpConnectError> {
         let (stream, bind) = self.tcp_connect_to(tcp_notes, task_notes).await?;
 
         // set limit config and add escaper stats, do not count in task stats
@@ -105,7 +105,7 @@ impl DirectFloatEscaper {
             )
             .await?;
 
-        let (ups_r, ups_w) = tokio::io::split(tls_stream);
+        let (ups_r, ups_w) = tls_stream.into_split();
 
         // add task and user stats
         let mut wrapper_stats = TcpConnectionTaskRemoteStatsWrapper::new(task_stats);

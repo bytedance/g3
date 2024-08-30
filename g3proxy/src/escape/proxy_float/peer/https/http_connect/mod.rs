@@ -23,6 +23,7 @@ use g3_daemon::stat::remote::{
 };
 use g3_http::connect::{HttpConnectRequest, HttpConnectResponse};
 use g3_io_ext::{LimitedReader, LimitedWriter};
+use g3_openssl::SslStream;
 use g3_types::net::{Host, OpensslClientConfig};
 
 use super::{ProxyFloatEscaper, ProxyFloatHttpsPeer};
@@ -109,7 +110,7 @@ impl ProxyFloatHttpsPeer {
         tls_config: &OpensslClientConfig,
         tls_name: &Host,
         tls_application: TlsApplication,
-    ) -> Result<impl AsyncRead + AsyncWrite, TcpConnectError> {
+    ) -> Result<SslStream<impl AsyncRead + AsyncWrite>, TcpConnectError> {
         let buf_stream = self
             .timed_http_connect_tcp_connect_to(escaper, tcp_notes, task_notes)
             .await?;

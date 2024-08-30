@@ -59,10 +59,7 @@ impl CacheHandle {
             None
         };
         let query_key = CacheQueryKey {
-            user: task_notes
-                .raw_user_name()
-                .map(|s| s.clone())
-                .unwrap_or_default(),
+            user: task_notes.raw_user_name().cloned().unwrap_or_default(),
             host: upstream.host().to_string(),
             client_ip,
         };

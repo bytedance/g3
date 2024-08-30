@@ -11,7 +11,7 @@ rust-version = "1.70.0"
 thiserror.workspace = true
 tokio = { workspace = true, features = ["time", "net", "io-util", "sync", "rt"] }
 tokio-util = { workspace = true, features = ["time"] }
-tokio-rustls.workspace = true
+tokio-rustls = { workspace = true, optional = true }
 futures-util.workspace = true
 pin-project-lite.workspace = true
 memchr.workspace = true
@@ -23,6 +23,7 @@ arc-swap.workspace = true
 quinn = { workspace = true, optional = true }
 g3-types.workspace = true
 g3-resolver = { workspace = true, optional = true }
+g3-openssl = { workspace = true, optional = true }
 
 [target.'cfg(unix)'.dependencies]
 rustix = { workspace = true, features = ["std", "net"] }
@@ -39,5 +40,7 @@ governor = { workspace = true, features = ["std", "jitter"] }
 
 [features]
 default = []
-quic = ["dep:quinn"]
 resolver = ["dep:g3-resolver"]
+openssl = ["dep:g3-openssl"]
+rustls = ["dep:tokio-rustls"]
+quic = ["dep:quinn"]

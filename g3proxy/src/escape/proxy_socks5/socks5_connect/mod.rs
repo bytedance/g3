@@ -26,8 +26,8 @@ use tokio::sync::oneshot;
 use g3_daemon::stat::remote::{
     ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStatsWrapper,
 };
-use g3_io_ext::{LimitedReader, LimitedStream, LimitedWriter};
-use g3_openssl::SslConnector;
+use g3_io_ext::{AsyncStream, LimitedReader, LimitedStream, LimitedWriter};
+use g3_openssl::{SslConnector, SslStream};
 use g3_socks::v5;
 use g3_types::net::{Host, OpensslClientConfig, SocketBufferConfig};
 
@@ -179,7 +179,7 @@ impl ProxySocks5Escaper {
         let wrapper_stats = Arc::new(wrapper_stats);
 
         ups_s.reset_stats(wrapper_stats);
-        let (r, w) = ups_s.into_split_tcp();
+        let (r, w) = ups_s.into_split();
 
         Ok((Box::new(r), Box::new(w)))
     }
@@ -191,7 +191,7 @@ impl ProxySocks5Escaper {
         tls_config: &'a OpensslClientConfig,
         tls_name: &'a Host,
         tls_application: TlsApplication,
-    ) -> Result<impl AsyncRead + AsyncWrite, TcpConnectError> {
+    ) -> Result<SslStream<impl AsyncRead + AsyncWrite>, TcpConnectError> {
         let ups_s = self
             .timed_socks5_connect_tcp_connect_to(tcp_notes, task_notes)
             .await?;
@@ -249,7 +249,7 @@ impl ProxySocks5Escaper {
             )
             .await?;
 
-        let (ups_r, ups_w) = tokio::io::split(tls_stream);
+        let (ups_r, ups_w) = tls_stream.into_split();
 
         // add task and user stats
         let mut wrapper_stats = TcpConnectionTaskRemoteStatsWrapper::new(task_stats);

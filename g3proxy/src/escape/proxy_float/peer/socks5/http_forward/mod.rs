@@ -16,7 +16,7 @@
 
 use std::sync::Arc;
 
-use g3_io_ext::{LimitedBufReader, LimitedWriter, NilLimitedReaderStats};
+use g3_io_ext::{AsyncStream, LimitedBufReader, LimitedWriter, NilLimitedReaderStats};
 use g3_types::net::{Host, OpensslClientConfig};
 
 use super::{
@@ -46,7 +46,7 @@ impl ProxyFloatSocks5Peer {
         let ups_s = self
             .timed_socks5_connect_tcp_connect_to(escaper, tcp_notes, task_notes)
             .await?;
-        let (ups_r, mut ups_w) = ups_s.into_split_tcp();
+        let (ups_r, mut ups_w) = ups_s.into_split();
 
         let mut w_wrapper_stats = HttpForwardRemoteWrapperStats::new(&escaper.stats, &task_stats);
         let mut r_wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(task_stats);
@@ -86,7 +86,7 @@ impl ProxyFloatSocks5Peer {
             )
             .await?;
 
-        let (ups_r, ups_w) = tokio::io::split(tls_stream);
+        let (ups_r, ups_w) = tls_stream.into_split();
 
         // add task and user stats
         let mut wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(task_stats);
