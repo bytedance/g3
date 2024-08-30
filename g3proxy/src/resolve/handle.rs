@@ -353,6 +353,7 @@ enum ArriveFirstResolveJobInner {
 }
 
 pub(crate) struct ArriveFirstResolveJob {
+    pub(crate) domain: Arc<str>,
     strategy: ResolveStrategy,
     inner: Option<ArriveFirstResolveJobInner>,
 }
@@ -368,21 +369,22 @@ impl ArriveFirstResolveJob {
         }
         let inner = match strategy.query {
             QueryStrategy::Ipv4Only => {
-                ArriveFirstResolveJobInner::OnlyOne(handle.query_v4(domain)?)
+                ArriveFirstResolveJobInner::OnlyOne(handle.query_v4(domain.clone())?)
             }
             QueryStrategy::Ipv6Only => {
-                ArriveFirstResolveJobInner::OnlyOne(handle.query_v6(domain)?)
+                ArriveFirstResolveJobInner::OnlyOne(handle.query_v6(domain.clone())?)
             }
             QueryStrategy::Ipv4First => ArriveFirstResolveJobInner::First(
                 handle.query_v4(domain.clone())?,
-                handle.query_v6(domain)?,
+                handle.query_v6(domain.clone())?,
             ),
             QueryStrategy::Ipv6First => ArriveFirstResolveJobInner::First(
                 handle.query_v6(domain.clone())?,
-                handle.query_v4(domain)?,
+                handle.query_v4(domain.clone())?,
             ),
         };
         Ok(ArriveFirstResolveJob {
+            domain,
             strategy,
             inner: Some(inner),
         })

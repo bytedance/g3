@@ -58,6 +58,7 @@ fnv.workspace = true
 governor = { workspace = true, features = ["std", "jitter"] }
 rmpv.workspace = true
 flume.workspace = true
+lru.workspace = true
 mlua = { workspace = true, features = ["send"], optional = true }
 pyo3 = { workspace = true, features = ["auto-initialize"], optional = true }
 g3-cert-agent.workspace = true

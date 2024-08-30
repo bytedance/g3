@@ -16,8 +16,11 @@
 
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::num::NonZero;
 use std::sync::Arc;
 use std::task::{ready, Context, Poll};
+
+use lru::LruCache;
 
 use g3_io_ext::{AsyncUdpSend, UdpRelayRemoteError, UdpRelayRemoteSend};
 #[cfg(any(
@@ -37,6 +40,8 @@ use super::DirectFixedEscaperStats;
 use crate::auth::UserContext;
 use crate::resolve::{ArcIntegratedResolverHandle, ArriveFirstResolveJob};
 
+const LRU_CACHE_SIZE: NonZero<usize> = unsafe { NonZero::new_unchecked(16) };
+
 pub(crate) struct DirectUdpRelayRemoteSend<T> {
     escaper_stats: Arc<DirectFixedEscaperStats>,
     user_ctx: Option<UserContext>,
@@ -50,8 +55,7 @@ pub(crate) struct DirectUdpRelayRemoteSend<T> {
     resolve_strategy: ResolveStrategy,
     resolver_job: Option<ArriveFirstResolveJob>,
     resolve_retry_domain: Option<Arc<str>>,
-    resolved_port: u16,
-    resolved_ip: Option<IpAddr>,
+    resolved_lru: LruCache<Arc<str>, IpAddr>,
 }
 
 impl<T> DirectUdpRelayRemoteSend<T> {
@@ -75,8 +79,7 @@ impl<T> DirectUdpRelayRemoteSend<T> {
             resolve_strategy,
             resolver_job: None,
             resolve_retry_domain: None,
-            resolved_port: 0,
-            resolved_ip: None,
+            resolved_lru: LruCache::new(LRU_CACHE_SIZE),
         }
     }
 }
@@ -101,80 +104,74 @@ where
         buf: &[u8],
         to: &UpstreamAddr,
     ) -> Poll<Result<usize, UdpRelayRemoteError>> {
-        if let Some(resolved_ip) = self.resolved_ip.take() {
-            let port = self.resolved_port;
-            let ret = match resolved_ip {
-                IpAddr::V4(_) => {
-                    self.poll_send_v4_packet(cx, buf, SocketAddr::new(resolved_ip, port))
+        match to.host() {
+            Host::Ip(ip) => self.poll_send_ip_packet(cx, buf, SocketAddr::new(*ip, to.port())),
+            Host::Domain(domain) => match self.resolved_lru.get(domain.as_str()) {
+                Some(ip) => {
+                    let to_addr = SocketAddr::new(*ip, to.port());
+                    self.poll_send_ip_packet(cx, buf, to_addr)
                 }
-                IpAddr::V6(_) => {
-                    self.poll_send_v6_packet(cx, buf, SocketAddr::new(resolved_ip, port))
-                }
-            };
-            if ret.is_pending() {
-                self.resolved_ip = Some(resolved_ip);
-            }
-            return ret;
-        }
-
-        if let Some(mut resolver_job) = self.resolver_job.take() {
-            return match resolver_job.poll_best_addr(cx) {
-                Poll::Pending => {
-                    self.resolver_job = Some(resolver_job);
-                    Poll::Pending
-                }
-                Poll::Ready(Ok(ip)) => {
-                    self.resolved_ip = Some(ip);
-                    self.poll_send_packet(cx, buf, to)
-                }
-                Poll::Ready(Err(e)) => {
-                    if let Some(domain) = self.resolve_retry_domain.take() {
-                        if self.resolver_handle.is_closed() {
-                            match crate::resolve::get_handle(self.resolver_handle.name()) {
-                                Ok(handle) => {
-                                    self.resolver_handle = handle;
-                                    let resolver_job = ArriveFirstResolveJob::new(
-                                        &self.resolver_handle,
-                                        self.resolve_strategy,
-                                        domain,
-                                    )?;
+                None => {
+                    loop {
+                        if let Some(mut resolver_job) = self.resolver_job.take() {
+                            match resolver_job.poll_best_addr(cx) {
+                                Poll::Pending => {
                                     self.resolver_job = Some(resolver_job);
-                                    // no retry by leaving resolve_retry_domain to None
-                                    self.poll_send_packet(cx, buf, to)
+                                    return Poll::Pending;
                                 }
-                                Err(_) => Poll::Ready(Err(UdpRelayRemoteError::DomainNotResolved(
-                                    ResolveError::FromLocal(ResolveLocalError::NoResolverRunning),
-                                ))),
-                            }
+                                Poll::Ready(Ok(ip)) => {
+                                    self.resolved_lru.push(resolver_job.domain, ip);
+                                    return self.poll_send_ip_packet(
+                                        cx,
+                                        buf,
+                                        SocketAddr::new(ip, to.port()),
+                                    );
+                                }
+                                Poll::Ready(Err(e)) => {
+                                    if let Some(domain) = self.resolve_retry_domain.take() {
+                                        if self.resolver_handle.is_closed() {
+                                            match crate::resolve::get_handle(
+                                                self.resolver_handle.name(),
+                                            ) {
+                                                Ok(handle) => {
+                                                    self.resolver_handle = handle;
+                                                    let resolver_job = ArriveFirstResolveJob::new(
+                                                        &self.resolver_handle,
+                                                        self.resolve_strategy,
+                                                        domain,
+                                                    )?;
+                                                    self.resolver_job = Some(resolver_job);
+                                                    // no retry by leaving resolve_retry_domain to None
+                                                }
+                                                Err(_) => return Poll::Ready(Err(
+                                                    UdpRelayRemoteError::DomainNotResolved(
+                                                        ResolveError::FromLocal(
+                                                            ResolveLocalError::NoResolverRunning,
+                                                        ),
+                                                    ),
+                                                )),
+                                            }
+                                        } else {
+                                            return Poll::Ready(Err(e.into()));
+                                        }
+                                    } else {
+                                        return Poll::Ready(Err(e.into()));
+                                    }
+                                }
+                            };
                         } else {
-                            Poll::Ready(Err(e.into()))
+                            let domain: Arc<str> = Arc::from(domain.as_str());
+                            let resolver_job = ArriveFirstResolveJob::new(
+                                &self.resolver_handle,
+                                self.resolve_strategy,
+                                domain.clone(),
+                            )?;
+                            self.resolver_job = Some(resolver_job);
+                            self.resolve_retry_domain = Some(domain);
                         }
-                    } else {
-                        Poll::Ready(Err(e.into()))
                     }
                 }
-            };
-        }
-
-        match to.host() {
-            Host::Ip(IpAddr::V4(ip)) => {
-                self.poll_send_v4_packet(cx, buf, SocketAddr::new(IpAddr::V4(*ip), to.port()))
-            }
-            Host::Ip(IpAddr::V6(ip)) => {
-                self.poll_send_v6_packet(cx, buf, SocketAddr::new(IpAddr::V6(*ip), to.port()))
-            }
-            Host::Domain(domain) => {
-                self.resolved_port = to.port();
-                let domain: Arc<str> = Arc::from(domain.as_str());
-                let resolver_job = ArriveFirstResolveJob::new(
-                    &self.resolver_handle,
-                    self.resolve_strategy,
-                    domain.clone(),
-                )?;
-                self.resolver_job = Some(resolver_job);
-                self.resolve_retry_domain = Some(domain);
-                self.poll_send_packet(cx, buf, to)
-            }
+            },
         }
     }
 
@@ -217,6 +214,18 @@ where
         self.handle_udp_target_ip_acl_action(action, to_addr)?;
         self.checked_egress_ip = Some(to_ip);
         Ok(())
+    }
+
+    fn poll_send_ip_packet(
+        &mut self,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+        to: SocketAddr,
+    ) -> Poll<Result<usize, UdpRelayRemoteError>> {
+        match to {
+            SocketAddr::V4(_) => self.poll_send_v4_packet(cx, buf, to),
+            SocketAddr::V6(_) => self.poll_send_v6_packet(cx, buf, to),
+        }
     }
 
     fn poll_send_v4_packet(
@@ -276,6 +285,7 @@ where
     ))]
     fn poll_send_packets(
         inner: &mut T,
+        resolved_lru: &mut LruCache<Arc<str>, IpAddr>,
         bind_addr: SocketAddr,
         cx: &mut Context<'_>,
         packets: &[UdpRelayPacket],
@@ -285,7 +295,13 @@ where
         let mut msgs: Vec<SendMsgHdr<1>> = packets
             .iter()
             .map(|p| {
-                let addr = SocketAddr::try_from(p.upstream()).unwrap();
+                let addr = match p.upstream().host() {
+                    Host::Ip(ip) => SocketAddr::new(*ip, p.upstream().port()),
+                    Host::Domain(domain) => resolved_lru
+                        .get(domain.as_str())
+                        .map(|ip| SocketAddr::new(*ip, p.upstream().port()))
+                        .unwrap(),
+                };
                 SendMsgHdr::new([IoSlice::new(p.payload())], Some(addr))
             })
             .collect();
@@ -332,22 +348,32 @@ where
             return Poll::Ready(Ok(0));
         };
 
-        match p.upstream().host() {
-            Host::Domain(_) => {
-                let _ = ready!(self.poll_send_packet(cx, p.payload(), p.upstream()))?;
-                Poll::Ready(Ok(1))
-            }
-            Host::Ip(IpAddr::V4(_)) => {
+        let ip = match p.upstream().host() {
+            Host::Ip(ip) => *ip,
+            Host::Domain(domain) => match self.resolved_lru.get(domain.as_str()) {
+                Some(ip) => *ip,
+                None => {
+                    let _ = ready!(self.poll_send_packet(cx, p.payload(), p.upstream()))?;
+                    return Poll::Ready(Ok(1));
+                }
+            },
+        };
+
+        match ip {
+            IpAddr::V4(_) => {
                 let mut count = 0;
                 for p in packets {
-                    let ups = p.upstream();
-                    let Host::Ip(IpAddr::V4(ip4)) = ups.host() else {
-                        break;
+                    let ip = match p.upstream().host() {
+                        Host::Ip(IpAddr::V4(v4)) => IpAddr::V4(*v4),
+                        Host::Ip(IpAddr::V6(_)) => break,
+                        Host::Domain(domain) => match self.resolved_lru.get(domain.as_str()) {
+                            Some(IpAddr::V4(v4)) => IpAddr::V4(*v4),
+                            Some(IpAddr::V6(_)) => break,
+                            None => break,
+                        },
                     };
 
-                    if let Err(e) =
-                        self.check_egress_ip(SocketAddr::new(IpAddr::V4(*ip4), ups.port()))
-                    {
+                    if let Err(e) = self.check_egress_ip(SocketAddr::new(ip, p.upstream().port())) {
                         if count == 0 {
                             return Poll::Ready(Err(e));
                         } else {
@@ -359,22 +385,31 @@ where
                 }
 
                 if let Some(inner) = &mut self.inner_v4 {
-                    Self::poll_send_packets(inner, self.bind_v4, cx, &packets[0..count])
+                    Self::poll_send_packets(
+                        inner,
+                        &mut self.resolved_lru,
+                        self.bind_v4,
+                        cx,
+                        &packets[0..count],
+                    )
                 } else {
                     Poll::Ready(Err(UdpRelayRemoteError::AddressNotSupported))
                 }
             }
-            Host::Ip(IpAddr::V6(_)) => {
+            IpAddr::V6(_) => {
                 let mut count = 0;
                 for p in packets {
-                    let ups = p.upstream();
-                    let Host::Ip(IpAddr::V6(ip6)) = ups.host() else {
-                        break;
+                    let ip = match p.upstream().host() {
+                        Host::Ip(IpAddr::V4(_)) => break,
+                        Host::Ip(IpAddr::V6(v6)) => IpAddr::V6(*v6),
+                        Host::Domain(domain) => match self.resolved_lru.get(domain.as_str()) {
+                            Some(IpAddr::V4(_)) => break,
+                            Some(IpAddr::V6(v6)) => IpAddr::V6(*v6),
+                            None => break,
+                        },
                     };
 
-                    if let Err(e) =
-                        self.check_egress_ip(SocketAddr::new(IpAddr::V6(*ip6), ups.port()))
-                    {
+                    if let Err(e) = self.check_egress_ip(SocketAddr::new(ip, p.upstream().port())) {
                         if count == 0 {
                             return Poll::Ready(Err(e));
                         } else {
@@ -386,7 +421,13 @@ where
                 }
 
                 if let Some(inner) = &mut self.inner_v6 {
-                    Self::poll_send_packets(inner, self.bind_v6, cx, &packets[0..count])
+                    Self::poll_send_packets(
+                        inner,
+                        &mut self.resolved_lru,
+                        self.bind_v6,
+                        cx,
+                        &packets[0..count],
+                    )
                 } else {
                     Poll::Ready(Err(UdpRelayRemoteError::AddressNotSupported))
                 }

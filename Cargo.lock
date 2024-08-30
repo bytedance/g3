@@ -1916,6 +1916,7 @@ dependencies = [
  "ip_network_table",
  "itoa",
  "log",
+ "lru",
  "memchr",
  "mime",
  "mlua",
