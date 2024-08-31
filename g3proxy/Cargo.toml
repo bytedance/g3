@@ -72,7 +72,7 @@ g3-histogram.workspace = true
 g3-http.workspace = true
 g3-icap-client.workspace = true
 g3-imap-proto.workspace = true
-g3-io-ext = { workspace = true, features = ["resolver", "openssl"] }
+g3-io-ext = { workspace = true, features = ["resolver", "openssl", "rustls"] }
 g3-ip-locate.workspace = true
 g3-json = { workspace = true, features = ["acl-rule", "resolve", "http", "rustls", "openssl", "histogram"] }
 g3-msgpack.workspace = true
