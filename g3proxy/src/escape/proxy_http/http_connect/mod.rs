@@ -17,14 +17,16 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use tokio::io::{AsyncRead, AsyncWrite, BufReader};
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
 
 use g3_daemon::stat::remote::{
     ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStatsWrapper,
 };
 use g3_http::connect::{HttpConnectRequest, HttpConnectResponse};
-use g3_io_ext::{AsyncStream, LimitedReader, LimitedStream, LimitedWriter};
+use g3_io_ext::{
+    AsyncStream, FlexBufReader, LimitedReader, LimitedStream, LimitedWriter, OnceBufReader,
+};
 use g3_openssl::{SslConnector, SslStream};
 use g3_types::net::{Host, OpensslClientConfig};
 
@@ -36,11 +38,11 @@ use crate::module::tcp_connect::{
 use crate::serve::ServerTaskNotes;
 
 impl ProxyHttpEscaper {
-    pub(super) async fn http_connect_tcp_connect_to<'a>(
+    async fn http_connect_tcp_connect_to<'a>(
         &'a self,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
-    ) -> Result<BufReader<LimitedStream<TcpStream>>, TcpConnectError> {
+    ) -> Result<FlexBufReader<LimitedStream<TcpStream>>, TcpConnectError> {
         let mut stream = self.tcp_new_connection(tcp_notes, task_notes).await?;
 
         let mut req =
@@ -57,7 +59,7 @@ impl ProxyHttpEscaper {
             .await
             .map_err(TcpConnectError::NegotiationWriteFailed)?;
 
-        let mut buf_stream = BufReader::new(stream);
+        let mut buf_stream = FlexBufReader::new(stream);
         let _ =
             HttpConnectResponse::recv(&mut buf_stream, self.config.http_connect_rsp_hdr_max_size)
                 .await?;
@@ -67,11 +69,11 @@ impl ProxyHttpEscaper {
         Ok(buf_stream)
     }
 
-    pub(super) async fn timed_http_connect_tcp_connect_to<'a>(
+    async fn timed_http_connect_tcp_connect_to<'a>(
         &'a self,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
-    ) -> Result<BufReader<LimitedStream<TcpStream>>, TcpConnectError> {
+    ) -> Result<FlexBufReader<LimitedStream<TcpStream>>, TcpConnectError> {
         tokio::time::timeout(
             self.config.peer_negotiation_timeout,
             self.http_connect_tcp_connect_to(tcp_notes, task_notes),
@@ -104,7 +106,8 @@ impl ProxyHttpEscaper {
         // reset underlying io stats
         buf_stream.get_mut().reset_stats(wrapper_stats.clone());
 
-        let (r, w) = tokio::io::split(buf_stream);
+        let (r, w) = buf_stream.into_split();
+        let r = OnceBufReader::from(r);
         Ok((Box::new(r), Box::new(w)))
     }
 

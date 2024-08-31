@@ -16,13 +16,13 @@
 
 use std::sync::Arc;
 
-use tokio::io::{AsyncRead, AsyncWrite, BufReader};
+use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_daemon::stat::remote::{
     ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStatsWrapper,
 };
 use g3_http::connect::{HttpConnectRequest, HttpConnectResponse};
-use g3_io_ext::{LimitedReader, LimitedWriter};
+use g3_io_ext::{AsyncStream, FlexBufReader, LimitedReader, LimitedWriter, OnceBufReader};
 use g3_openssl::SslStream;
 use g3_types::net::{Host, OpensslClientConfig};
 
@@ -32,12 +32,12 @@ use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTa
 use crate::serve::ServerTaskNotes;
 
 impl ProxyFloatHttpsPeer {
-    pub(super) async fn http_connect_tcp_connect_to(
+    async fn http_connect_tcp_connect_to(
         &self,
         escaper: &ProxyFloatEscaper,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<BufReader<impl AsyncRead + AsyncWrite>, TcpConnectError> {
+    ) -> Result<FlexBufReader<SslStream<impl AsyncRead + AsyncWrite>>, TcpConnectError> {
         let mut stream = self
             .tls_handshake_with(escaper, tcp_notes, task_notes)
             .await?;
@@ -48,7 +48,7 @@ impl ProxyFloatHttpsPeer {
             .await
             .map_err(TcpConnectError::NegotiationWriteFailed)?;
 
-        let mut buf_stream = BufReader::new(stream);
+        let mut buf_stream = FlexBufReader::new(stream);
         let _ =
             HttpConnectResponse::recv(&mut buf_stream, self.http_connect_rsp_hdr_max_size).await?;
 
@@ -58,12 +58,12 @@ impl ProxyFloatHttpsPeer {
         Ok(buf_stream)
     }
 
-    pub(super) async fn timed_http_connect_tcp_connect_to(
+    async fn timed_http_connect_tcp_connect_to(
         &self,
         escaper: &ProxyFloatEscaper,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<BufReader<impl AsyncRead + AsyncWrite>, TcpConnectError> {
+    ) -> Result<FlexBufReader<SslStream<impl AsyncRead + AsyncWrite>>, TcpConnectError> {
         tokio::time::timeout(
             escaper.config.peer_negotiation_timeout,
             self.http_connect_tcp_connect_to(escaper, tcp_notes, task_notes),
@@ -95,7 +95,8 @@ impl ProxyFloatHttpsPeer {
         wrapper_stats.push_other_stats(user_stats);
         let wrapper_stats = Arc::new(wrapper_stats);
 
-        let (r, w) = tokio::io::split(buf_stream);
+        let (r, w) = buf_stream.into_split();
+        let r = OnceBufReader::from(r);
         let r = LimitedReader::new(r, wrapper_stats.clone());
         let w = LimitedWriter::new(w, wrapper_stats);
 

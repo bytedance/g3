@@ -23,7 +23,7 @@ use tokio::runtime::Handle;
 
 use g3_cert_agent::CertAgentHandle;
 use g3_dpi::{Protocol, ProtocolInspectPolicy};
-use g3_io_ext::{FlexBufReader, OnceBufReader};
+use g3_io_ext::{AsyncStream, FlexBufReader, OnceBufReader};
 use g3_slog_types::{LtUpstreamAddr, LtUuid};
 use g3_types::net::{
     AlpnProtocol, OpensslInterceptionClientConfig, OpensslInterceptionServerConfig, UpstreamAddr,
@@ -197,11 +197,15 @@ where
         ups_s: US,
     ) -> StreamInspection<SC>
     where
-        CS: AsyncRead + AsyncWrite + Send + Unpin + 'static,
-        US: AsyncRead + AsyncWrite + Send + Unpin + 'static,
+        CS: AsyncStream,
+        CS::R: AsyncRead + Send + Unpin + 'static,
+        CS::W: AsyncWrite + Send + Unpin + 'static,
+        US: AsyncStream,
+        US::R: AsyncRead + Send + Unpin + 'static,
+        US::W: AsyncWrite + Send + Unpin + 'static,
     {
-        let (clt_r, clt_w) = tokio::io::split(clt_s);
-        let (ups_r, ups_w) = tokio::io::split(ups_s);
+        let (clt_r, clt_w) = clt_s.into_split();
+        let (ups_r, ups_w) = ups_s.into_split();
 
         if let Some(stream_dumper) = self
             .tls_interception

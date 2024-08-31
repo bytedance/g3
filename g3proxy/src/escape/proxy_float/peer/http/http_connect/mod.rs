@@ -16,12 +16,12 @@
 
 use std::sync::Arc;
 
-use tokio::io::{AsyncRead, AsyncWrite, BufReader};
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_http::connect::{HttpConnectRequest, HttpConnectResponse};
-use g3_io_ext::LimitedStream;
+use g3_io_ext::{AsyncStream, FlexBufReader, LimitedStream, OnceBufReader};
 use g3_openssl::SslStream;
 use g3_types::net::{Host, OpensslClientConfig};
 
@@ -33,12 +33,12 @@ use crate::module::tcp_connect::{
 use crate::serve::ServerTaskNotes;
 
 impl ProxyFloatHttpPeer {
-    pub(super) async fn http_connect_tcp_connect_to(
+    async fn http_connect_tcp_connect_to(
         &self,
         escaper: &ProxyFloatEscaper,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<BufReader<LimitedStream<TcpStream>>, TcpConnectError> {
+    ) -> Result<FlexBufReader<LimitedStream<TcpStream>>, TcpConnectError> {
         let mut stream = escaper
             .tcp_new_connection(self, tcp_notes, task_notes)
             .await?;
@@ -49,7 +49,7 @@ impl ProxyFloatHttpPeer {
             .await
             .map_err(TcpConnectError::NegotiationWriteFailed)?;
 
-        let mut buf_stream = BufReader::new(stream);
+        let mut buf_stream = FlexBufReader::new(stream);
         let _ =
             HttpConnectResponse::recv(&mut buf_stream, self.http_connect_rsp_hdr_max_size).await?;
 
@@ -59,12 +59,12 @@ impl ProxyFloatHttpPeer {
         Ok(buf_stream)
     }
 
-    pub(super) async fn timed_http_connect_tcp_connect_to(
+    async fn timed_http_connect_tcp_connect_to(
         &self,
         escaper: &ProxyFloatEscaper,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<BufReader<LimitedStream<TcpStream>>, TcpConnectError> {
+    ) -> Result<FlexBufReader<LimitedStream<TcpStream>>, TcpConnectError> {
         tokio::time::timeout(
             escaper.config.peer_negotiation_timeout,
             self.http_connect_tcp_connect_to(escaper, tcp_notes, task_notes),
@@ -98,7 +98,8 @@ impl ProxyFloatHttpPeer {
         // reset underlying io stats
         buf_stream.get_mut().reset_stats(wrapper_stats.clone());
 
-        let (r, w) = tokio::io::split(buf_stream);
+        let (r, w) = buf_stream.into_split();
+        let r = OnceBufReader::from(r);
         Ok((Box::new(r), Box::new(w)))
     }
 

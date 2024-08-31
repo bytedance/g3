@@ -19,11 +19,12 @@ use std::io::IoSlice;
 use std::pin::Pin;
 use std::task::{ready, Context, Poll};
 
-use bytes::BytesMut;
+use bytes::{Buf, Bytes, BytesMut};
 use pin_project_lite::pin_project;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, ReadBuf};
 
-use super::DEFAULT_BUF_SIZE;
+use super::{OnceBufReader, DEFAULT_BUF_SIZE};
+use crate::io::AsyncStream;
 
 pin_project! {
     pub struct FlexBufReader<R> {
@@ -35,7 +36,7 @@ pin_project! {
     }
 }
 
-impl<R: AsyncRead> FlexBufReader<R> {
+impl<R> FlexBufReader<R> {
     /// Creates a new `BufReader` with a default buffer capacity. The default is currently 8 KB,
     /// but may change in the future.
     pub fn new(inner: R) -> Self {
@@ -75,6 +76,10 @@ impl<R: AsyncRead> FlexBufReader<R> {
         &self.inner
     }
 
+    pub fn get_mut(&mut self) -> &mut R {
+        &mut self.inner
+    }
+
     /// Gets a pinned mutable reference to the underlying reader.
     ///
     /// It is inadvisable to directly read from the underlying reader.
@@ -87,6 +92,17 @@ impl<R: AsyncRead> FlexBufReader<R> {
     /// Note that any leftover data in the internal buffer is lost.
     pub fn into_inner(self) -> R {
         self.inner
+    }
+
+    pub fn into_parts(self) -> (Bytes, R) {
+        if self.pos < self.cap {
+            let mut bytes = Bytes::from(self.buf);
+            let _ = bytes.split_off(self.cap);
+            bytes.advance(self.pos);
+            (bytes, self.inner)
+        } else {
+            (Bytes::new(), self.inner)
+        }
     }
 
     /// Returns a reference to the internally buffered data.
@@ -151,7 +167,7 @@ impl<R: AsyncRead> AsyncBufRead for FlexBufReader<R> {
     }
 }
 
-impl<R: AsyncRead + AsyncWrite> AsyncWrite for FlexBufReader<R> {
+impl<S: AsyncRead + AsyncWrite> AsyncWrite for FlexBufReader<S> {
     fn poll_write(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -178,6 +194,36 @@ impl<R: AsyncRead + AsyncWrite> AsyncWrite for FlexBufReader<R> {
 
     fn is_write_vectored(&self) -> bool {
         self.get_ref().is_write_vectored()
+    }
+}
+
+impl<S> AsyncStream for FlexBufReader<S>
+where
+    S: AsyncStream,
+    S::R: AsyncRead,
+    S::W: AsyncWrite,
+{
+    type R = FlexBufReader<S::R>;
+    type W = S::W;
+
+    fn into_split(self) -> (Self::R, Self::W) {
+        let (r, w) = self.inner.into_split();
+        (
+            FlexBufReader {
+                inner: r,
+                buf: self.buf,
+                pos: self.pos,
+                cap: self.cap,
+            },
+            w,
+        )
+    }
+}
+
+impl<S> From<FlexBufReader<S>> for OnceBufReader<S> {
+    fn from(value: FlexBufReader<S>) -> Self {
+        let (buf, stream) = value.into_parts();
+        OnceBufReader::with_bytes(stream, buf)
     }
 }
 

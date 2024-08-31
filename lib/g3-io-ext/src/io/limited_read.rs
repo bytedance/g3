@@ -26,6 +26,7 @@ use pin_project_lite::pin_project;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::time::{Instant, Sleep};
 
+use super::AsyncStream;
 use crate::limit::{GlobalLimitGroup, GlobalStreamLimit, StreamLimitAction, StreamLimiter};
 
 pub trait LimitedReaderStats {
@@ -229,7 +230,7 @@ where
     }
 }
 
-impl<R: AsyncRead + AsyncWrite> AsyncWrite for LimitedReader<R> {
+impl<S: AsyncRead + AsyncWrite> AsyncWrite for LimitedReader<S> {
     fn poll_write(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -256,6 +257,27 @@ impl<R: AsyncRead + AsyncWrite> AsyncWrite for LimitedReader<R> {
 
     fn is_write_vectored(&self) -> bool {
         self.inner.is_write_vectored()
+    }
+}
+
+impl<S> AsyncStream for LimitedReader<S>
+where
+    S: AsyncStream,
+    S::R: AsyncRead,
+    S::W: AsyncWrite,
+{
+    type R = LimitedReader<S::R>;
+    type W = S::W;
+
+    fn into_split(self) -> (Self::R, Self::W) {
+        let (r, w) = self.inner.into_split();
+        (
+            LimitedReader {
+                inner: r,
+                state: self.state,
+            },
+            w,
+        )
     }
 }
 

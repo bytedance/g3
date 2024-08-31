@@ -23,22 +23,28 @@ use bytes::{Buf, Bytes, BytesMut};
 use pin_project_lite::pin_project;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
+use crate::io::AsyncStream;
+
 pin_project! {
-    pub struct OnceBufReader<R: AsyncRead> {
+    pub struct OnceBufReader<R> {
         #[pin]
         inner: R,
         buf: Option<Bytes>,
     }
 }
 
-impl<R: AsyncRead> OnceBufReader<R> {
+impl<R> OnceBufReader<R> {
     pub fn new(inner: R, buf: BytesMut) -> Self {
+        Self::with_bytes(inner, buf.freeze())
+    }
+
+    pub fn with_bytes(inner: R, buf: Bytes) -> Self {
         if buf.is_empty() {
             OnceBufReader { inner, buf: None }
         } else {
             OnceBufReader {
                 inner,
-                buf: Some(buf.freeze()),
+                buf: Some(buf),
             }
         }
     }
@@ -88,7 +94,7 @@ impl<R: AsyncRead> AsyncRead for OnceBufReader<R> {
     }
 }
 
-impl<R: AsyncRead + AsyncWrite> AsyncWrite for OnceBufReader<R> {
+impl<S: AsyncRead + AsyncWrite> AsyncWrite for OnceBufReader<S> {
     fn poll_write(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -115,5 +121,26 @@ impl<R: AsyncRead + AsyncWrite> AsyncWrite for OnceBufReader<R> {
 
     fn is_write_vectored(&self) -> bool {
         self.inner.is_write_vectored()
+    }
+}
+
+impl<S> AsyncStream for OnceBufReader<S>
+where
+    S: AsyncStream,
+    S::R: AsyncRead,
+    S::W: AsyncWrite,
+{
+    type R = OnceBufReader<S::R>;
+    type W = S::W;
+
+    fn into_split(self) -> (Self::R, Self::W) {
+        let (r, w) = self.inner.into_split();
+        (
+            OnceBufReader {
+                inner: r,
+                buf: self.buf,
+            },
+            w,
+        )
     }
 }

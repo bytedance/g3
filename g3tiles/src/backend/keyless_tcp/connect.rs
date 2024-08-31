@@ -28,6 +28,7 @@ use tokio::time::Instant;
 use tokio_rustls::client::TlsStream;
 use tokio_rustls::TlsConnector;
 
+use g3_io_ext::AsyncStream;
 use g3_types::collection::{SelectiveVec, WeightedValue};
 use g3_types::ext::DurationExt;
 use g3_types::net::RustlsClientConfig;
@@ -162,7 +163,7 @@ impl KeylessUpstreamConnect for KeylessTlsUpstreamConnector {
                     .duration_recorder
                     .connect
                     .record(start.elapsed().as_nanos_u64());
-                let (clt_r, clt_w) = tokio::io::split(tls_stream);
+                let (clt_r, clt_w) = tls_stream.into_split();
 
                 Ok(MultiplexedUpstreamConnection::new(
                     self.tcp.config.connection_config,

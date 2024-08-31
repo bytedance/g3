@@ -24,7 +24,7 @@ use pin_project_lite::pin_project;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, ReadBuf};
 
 use super::DEFAULT_BUF_SIZE;
-use crate::io::{ArcLimitedReaderStats, LimitedReader};
+use crate::io::{ArcLimitedReaderStats, AsyncStream, LimitedReader};
 use crate::{GlobalLimitGroup, GlobalStreamLimit};
 
 pin_project! {
@@ -208,7 +208,7 @@ impl<R: AsyncRead> AsyncBufRead for LimitedBufReader<R> {
     }
 }
 
-impl<R: AsyncRead + AsyncWrite> AsyncWrite for LimitedBufReader<R> {
+impl<S: AsyncRead + AsyncWrite> AsyncWrite for LimitedBufReader<S> {
     fn poll_write(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -235,5 +235,29 @@ impl<R: AsyncRead + AsyncWrite> AsyncWrite for LimitedBufReader<R> {
 
     fn is_write_vectored(&self) -> bool {
         self.inner.is_write_vectored()
+    }
+}
+
+impl<S> AsyncStream for LimitedBufReader<S>
+where
+    S: AsyncStream,
+    S::R: AsyncRead,
+    S::W: AsyncWrite,
+{
+    type R = LimitedBufReader<S::R>;
+    type W = S::W;
+
+    fn into_split(self) -> (Self::R, Self::W) {
+        let (r, w) = self.inner.into_split();
+        (
+            LimitedBufReader {
+                inner: r,
+                stats: self.stats,
+                buf: self.buf,
+                pos: self.pos,
+                cap: self.cap,
+            },
+            w,
+        )
     }
 }
