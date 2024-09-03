@@ -482,9 +482,9 @@ dependencies = [
 
 [[package]]
 name = "capnp-rpc"
-version = "0.19.2"
+version = "0.19.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13b692f9454566fa16c5897a5d329e77496b6c8012777025f18cc82f7a65617e"
+checksum = "9b499a69c75f961512a596310fa46f18a9ad287fc75d50546ac6536f7428c803"
 dependencies = [
  "capnp",
  "capnp-futures",
