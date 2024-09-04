@@ -21,6 +21,7 @@ mod pool;
 mod port;
 mod proxy;
 mod tcp;
+mod tls;
 mod udp;
 
 #[cfg(feature = "http")]
@@ -45,6 +46,7 @@ pub use tcp::{
     as_happy_eyeballs_config, as_tcp_connect_config, as_tcp_keepalive_config, as_tcp_listen_config,
     as_tcp_misc_sock_opts,
 };
+pub use tls::as_tls_version;
 pub use udp::{as_udp_listen_config, as_udp_misc_sock_opts};
 
 #[cfg(feature = "acl-rule")]

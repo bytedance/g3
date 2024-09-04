@@ -17,11 +17,7 @@
 use std::time::Duration;
 
 use anyhow::anyhow;
-#[cfg(any(feature = "aws-lc", feature = "boringssl", feature = "tongsuo"))]
-use openssl::ssl::CertCompressionAlgorithm;
-use openssl::ssl::{Ssl, SslConnector, SslContext, SslMethod, SslVerifyMode};
-#[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
-use openssl::ssl::{SslCtValidationMode, StatusType};
+use openssl::ssl::{Ssl, SslConnector, SslContext, SslContextBuilder, SslMethod, SslVerifyMode};
 use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::X509;
 
@@ -29,7 +25,7 @@ use super::{
     OpensslClientSessionCache, OpensslSessionCacheConfig, DEFAULT_HANDSHAKE_TIMEOUT,
     MINIMAL_HANDSHAKE_TIMEOUT,
 };
-use crate::net::{TlsAlpn, TlsServerName, UpstreamAddr};
+use crate::net::{TlsAlpn, TlsServerName, TlsVersion, UpstreamAddr};
 
 #[derive(Clone)]
 struct ContextPair {
@@ -98,6 +94,8 @@ impl OpensslInterceptionClientConfig {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OpensslInterceptionClientConfigBuilder {
+    min_tls_version: Option<TlsVersion>,
+    max_tls_version: Option<TlsVersion>,
     ca_certs: Vec<Vec<u8>>,
     no_default_ca_certs: bool,
     handshake_timeout: Duration,
@@ -114,6 +112,8 @@ pub struct OpensslInterceptionClientConfigBuilder {
 impl Default for OpensslInterceptionClientConfigBuilder {
     fn default() -> Self {
         OpensslInterceptionClientConfigBuilder {
+            min_tls_version: None,
+            max_tls_version: None,
             ca_certs: Vec::new(),
             no_default_ca_certs: false,
             handshake_timeout: DEFAULT_HANDSHAKE_TIMEOUT,
@@ -136,6 +136,14 @@ impl OpensslInterceptionClientConfigBuilder {
         }
 
         Ok(())
+    }
+
+    pub fn set_min_tls_version(&mut self, version: TlsVersion) {
+        self.min_tls_version = Some(version);
+    }
+
+    pub fn set_max_tls_version(&mut self, version: TlsVersion) {
+        self.max_tls_version = Some(version);
     }
 
     pub fn set_ca_certificates(&mut self, certs: Vec<X509>) -> anyhow::Result<()> {
@@ -209,57 +217,24 @@ impl OpensslInterceptionClientConfigBuilder {
         log::warn!("permute extensions can only be set for BoringSSL variants");
     }
 
-    fn build_ssl_context(&self, method: SslMethod) -> anyhow::Result<ContextPair> {
-        let mut ctx_builder = SslConnector::builder(method)
-            .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
-        ctx_builder.set_verify(SslVerifyMode::PEER);
-
-        if !self.supported_groups.is_empty() {
+    fn build_set_tls_version(&self, ctx_builder: &mut SslContextBuilder) -> anyhow::Result<()> {
+        if let Some(version) = self.min_tls_version {
             ctx_builder
-                .set_groups_list(&self.supported_groups)
-                .map_err(|e| anyhow!("failed to set supported elliptic curve groups: {e}"))?;
+                .set_min_proto_version(Some(version.into()))
+                .map_err(|e| anyhow!("failed to set min ssl version to {version}: {e}"))?;
         }
-
-        if self.use_ocsp_stapling {
-            #[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
+        if let Some(version) = self.max_tls_version {
             ctx_builder
-                .set_status_type(StatusType::OCSP)
-                .map_err(|e| anyhow!("failed to enable OCSP status request: {e}"))?;
-            #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
-            ctx_builder.enable_ocsp_stapling();
-            // TODO check OCSP response
+                .set_max_proto_version(Some(version.into()))
+                .map_err(|e| anyhow!("failed to set max ssl version to {version}: {e}"))?;
         }
+        Ok(())
+    }
 
-        if self.enable_sct {
-            #[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
-            ctx_builder
-                .enable_ct(SslCtValidationMode::PERMISSIVE)
-                .map_err(|e| anyhow!("failed to enable SCT: {e}"))?;
-            #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
-            ctx_builder.enable_signed_cert_timestamps();
-            // TODO check SCT list for AWS-LC or BoringSSL
-        }
-
-        #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
-        if self.enable_grease {
-            ctx_builder.set_grease_enabled(true);
-        }
-        #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
-        if self.permute_extensions {
-            ctx_builder.set_permute_extensions(true);
-        }
-
-        #[cfg(any(feature = "aws-lc", feature = "boringssl", feature = "tongsuo"))]
-        ctx_builder
-            .add_cert_decompression_alg(CertCompressionAlgorithm::BROTLI, |in_buf, out_buf| {
-                use std::io::Read;
-
-                brotli::Decompressor::new(in_buf, 4096)
-                    .read(out_buf)
-                    .unwrap_or(0)
-            })
-            .map_err(|e| anyhow!("failed to set cert decompression algorithm: {e}"))?;
-
+    fn build_set_verify_cert_store(
+        &self,
+        ctx_builder: &mut SslContextBuilder,
+    ) -> anyhow::Result<()> {
         let mut store_builder = X509StoreBuilder::new()
             .map_err(|e| anyhow!("failed to create ca cert store builder: {e}"))?;
         if !self.no_default_ca_certs {
@@ -279,6 +254,144 @@ impl OpensslInterceptionClientConfigBuilder {
             .map_err(|e| anyhow!("failed to set ca certs: {e}"))?;
         #[cfg(feature = "boringssl")]
         ctx_builder.set_cert_store(store_builder.build());
+        Ok(())
+    }
+
+    #[cfg(any(feature = "aws-lc", feature = "boringssl", feature = "tongsuo"))]
+    fn build_set_cert_compression(
+        &self,
+        ctx_builder: &mut SslContextBuilder,
+    ) -> anyhow::Result<()> {
+        use openssl::ssl::CertCompressionAlgorithm;
+
+        ctx_builder
+            .add_cert_decompression_alg(CertCompressionAlgorithm::BROTLI, |in_buf, out_buf| {
+                use std::io::Read;
+
+                brotli::Decompressor::new(in_buf, 4096)
+                    .read(out_buf)
+                    .unwrap_or(0)
+            })
+            .map_err(|e| anyhow!("failed to set brotli cert decompression algorithm: {e}"))?;
+
+        Ok(())
+    }
+
+    #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+    fn build_ssl_context(&self) -> anyhow::Result<ContextPair> {
+        let mut ctx_builder = SslConnector::builder(SslMethod::tls_client())
+            .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
+        ctx_builder.set_verify(SslVerifyMode::PEER);
+
+        self.build_set_tls_version(&mut ctx_builder)?;
+
+        if !self.supported_groups.is_empty() {
+            ctx_builder
+                .set_groups_list(&self.supported_groups)
+                .map_err(|e| anyhow!("failed to set supported elliptic curve groups: {e}"))?;
+        }
+
+        if self.use_ocsp_stapling {
+            ctx_builder.enable_ocsp_stapling();
+            // TODO check OCSP response
+        }
+
+        if self.enable_sct {
+            ctx_builder.enable_signed_cert_timestamps();
+            // TODO check SCT list for AWS-LC or BoringSSL
+        }
+
+        if self.enable_grease {
+            ctx_builder.set_grease_enabled(true);
+        }
+        if self.permute_extensions {
+            ctx_builder.set_permute_extensions(true);
+        }
+
+        self.build_set_cert_compression(&mut ctx_builder)?;
+
+        self.build_set_verify_cert_store(&mut ctx_builder)?;
+
+        let session_cache = self.session_cache.set_for_client(&mut ctx_builder)?;
+
+        Ok(ContextPair {
+            ssl_context: ctx_builder.build().into_context(),
+            session_cache,
+        })
+    }
+
+    #[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
+    fn build_ssl_context(&self) -> anyhow::Result<ContextPair> {
+        use openssl::ssl::{SslCtValidationMode, StatusType};
+
+        let mut ctx_builder = SslConnector::builder(SslMethod::tls_client())
+            .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
+        ctx_builder.set_verify(SslVerifyMode::PEER);
+
+        self.build_set_tls_version(&mut ctx_builder)?;
+
+        if !self.supported_groups.is_empty() {
+            ctx_builder
+                .set_groups_list(&self.supported_groups)
+                .map_err(|e| anyhow!("failed to set supported elliptic curve groups: {e}"))?;
+        }
+
+        if self.use_ocsp_stapling {
+            ctx_builder
+                .set_status_type(StatusType::OCSP)
+                .map_err(|e| anyhow!("failed to enable OCSP status request: {e}"))?;
+            // TODO check OCSP response
+        }
+
+        if self.enable_sct {
+            ctx_builder
+                .enable_ct(SslCtValidationMode::PERMISSIVE)
+                .map_err(|e| anyhow!("failed to enable SCT: {e}"))?;
+        }
+
+        #[cfg(feature = "tongsuo")]
+        self.build_set_cert_compression(&mut ctx_builder)?;
+
+        self.build_set_verify_cert_store(&mut ctx_builder)?;
+
+        let session_cache = self.session_cache.set_for_client(&mut ctx_builder)?;
+
+        Ok(ContextPair {
+            ssl_context: ctx_builder.build().into_context(),
+            session_cache,
+        })
+    }
+
+    #[cfg(feature = "tongsuo")]
+    fn build_tlcp_context(&self) -> anyhow::Result<ContextPair> {
+        use openssl::ssl::{SslCtValidationMode, StatusType};
+
+        let mut ctx_builder = SslConnector::builder(SslMethod::ntls_client())
+            .map_err(|e| anyhow!("failed to create tlcp context builder: {e}"))?;
+        ctx_builder.set_verify(SslVerifyMode::PEER);
+
+        if !self.supported_groups.is_empty() {
+            ctx_builder
+                .set_groups_list(&self.supported_groups)
+                .map_err(|e| anyhow!("failed to set supported elliptic curve groups: {e}"))?;
+        }
+
+        if self.use_ocsp_stapling {
+            ctx_builder
+                .set_status_type(StatusType::OCSP)
+                .map_err(|e| anyhow!("failed to enable OCSP status request: {e}"))?;
+            // TODO check OCSP response
+        }
+
+        if self.enable_sct {
+            ctx_builder
+                .enable_ct(SslCtValidationMode::PERMISSIVE)
+                .map_err(|e| anyhow!("failed to enable SCT: {e}"))?;
+        }
+
+        self.build_set_cert_compression(&mut ctx_builder)?;
+
+        self.build_set_verify_cert_store(&mut ctx_builder)?;
 
         let session_cache = self.session_cache.set_for_client(&mut ctx_builder)?;
 
@@ -290,9 +403,9 @@ impl OpensslInterceptionClientConfigBuilder {
 
     pub fn build(&self) -> anyhow::Result<OpensslInterceptionClientConfig> {
         Ok(OpensslInterceptionClientConfig {
-            ssl_context_pair: self.build_ssl_context(SslMethod::tls_client())?,
+            ssl_context_pair: self.build_ssl_context()?,
             #[cfg(feature = "tongsuo")]
-            tlcp_context_pair: self.build_ssl_context(SslMethod::ntls_client())?,
+            tlcp_context_pair: self.build_tlcp_context()?,
             handshake_timeout: self.handshake_timeout,
         })
     }

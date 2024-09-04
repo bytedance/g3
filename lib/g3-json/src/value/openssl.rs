@@ -191,6 +191,16 @@ fn set_openssl_tls_client_config_builder(
                         .context(format!("invalid openssl protocol value for key {k}"))?;
                     builder.set_protocol(protocol);
                 }
+                "min_tls_version" | "tls_version_min" => {
+                    let tls_version = crate::value::as_tls_version(v)
+                        .context(format!("invalid tls version value for key {k}"))?;
+                    builder.set_min_tls_version(tls_version);
+                }
+                "max_tls_version" | "tls_version_max" => {
+                    let tls_version = crate::value::as_tls_version(v)
+                        .context(format!("invalid tls version value for key {k}"))?;
+                    builder.set_max_tls_version(tls_version);
+                }
                 "ciphers" => {
                     let ciphers = as_openssl_ciphers(v)
                         .context(format!("invalid openssl ciphers value for key {k}"))?;

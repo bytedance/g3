@@ -41,7 +41,7 @@ impl FromStr for OpensslProtocol {
             "tls13" | "tls1.3" | "tls1_3" => Ok(OpensslProtocol::Tls13),
             #[cfg(feature = "tongsuo")]
             "tlcp" | "tlcp1.1" | "tlcp1_1" => Ok(OpensslProtocol::Tlcp11),
-            _ => Err(anyhow!("")),
+            _ => Err(anyhow!("unknown openssl protocol {s}")),
         }
     }
 }

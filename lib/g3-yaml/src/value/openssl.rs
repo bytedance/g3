@@ -238,6 +238,18 @@ fn set_openssl_tls_client_config_builder(
                 builder.set_protocol(protocol);
                 Ok(())
             }
+            "min_tls_version" | "tls_version_min" => {
+                let tls_version = crate::value::as_tls_version(v)
+                    .context(format!("invalid tls version value for key {k}"))?;
+                builder.set_min_tls_version(tls_version);
+                Ok(())
+            }
+            "max_tls_version" | "tls_version_max" => {
+                let tls_version = crate::value::as_tls_version(v)
+                    .context(format!("invalid tls version value for key {k}"))?;
+                builder.set_max_tls_version(tls_version);
+                Ok(())
+            }
             "ciphers" => {
                 let ciphers = as_openssl_ciphers(v)
                     .context(format!("invalid openssl ciphers value for key {k}"))?;
@@ -396,6 +408,18 @@ pub fn as_tls_interception_client_config_builder(
         let mut builder = OpensslInterceptionClientConfigBuilder::default();
 
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
+            "min_tls_version" | "tls_version_min" => {
+                let tls_version = crate::value::as_tls_version(v)
+                    .context(format!("invalid tls version value for key {k}"))?;
+                builder.set_min_tls_version(tls_version);
+                Ok(())
+            }
+            "max_tls_version" | "tls_version_max" => {
+                let tls_version = crate::value::as_tls_version(v)
+                    .context(format!("invalid tls version value for key {k}"))?;
+                builder.set_max_tls_version(tls_version);
+                Ok(())
+            }
             "ca_certificate" | "ca_cert" | "server_auth_certificate" | "server_auth_cert" => {
                 let certs = as_openssl_certificates(v, lookup_dir)
                     .context(format!("invalid certificates value for key {k}"))?;

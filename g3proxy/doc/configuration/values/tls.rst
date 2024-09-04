@@ -16,6 +16,18 @@ If not set, the corresponding upstream address will be used.
 
 .. versionchanged:: IP address is supported since version 1.7.15
 
+.. _conf_value_tls_version:
+
+tls version
+===========
+
+**yaml type**: string / f64
+
+Set TLS version to use.
+
+The valid string values are: tls1.0, tls1.1, tls1.2, tls1.3.
+The valid f64 values are: 1.0, 1.1, 1.2, 1.3.
+
 .. _conf_value_tls_certificates:
 
 tls certificates
@@ -136,6 +148,8 @@ Set openssl protocol version.
 
 Current supported values are:
 
+- tls1.0
+- tls1.1
 - tls1.2
 - tls1.3
 - tlcp (only if vendored-tongsuo feature is enabled)
@@ -179,6 +193,26 @@ The map is consists of the following fields:
   **default**: not set
 
   .. versionadded:: 1.7.7
+
+* min_tls_version
+
+  **optional**, **type**: :ref:`tls version <conf_value_tls_version>`
+
+  Set the minimal TLS version to use if `protocol` is not set.
+
+  **default**: not set
+
+  .. versionadded:: 1.9.9
+
+* max_tls_version
+
+  **optional**, **type**: :ref:`tls version <conf_value_tls_version>`
+
+  Set the maximum TLS version to use if `protocol` is not set.
+
+  **default**: not set
+
+  .. versionadded:: 1.9.9
 
 * ciphers
 

@@ -33,3 +33,6 @@ mod ticketer;
 pub use ticketer::{
     RollingTicketKey, RollingTicketer, TICKET_AES_KEY_LENGTH, TICKET_HMAC_KEY_LENGTH,
 };
+
+mod version;
+pub use version::TlsVersion;

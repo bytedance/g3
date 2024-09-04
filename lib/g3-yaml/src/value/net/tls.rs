@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,25 +14,22 @@
  * limitations under the License.
  */
 
-mod base;
-mod ports;
-mod proxy;
-mod tcp;
-mod tls;
-mod udp;
+use std::str::FromStr;
 
-#[cfg(feature = "http")]
-mod http;
+use anyhow::anyhow;
+use yaml_rust::Yaml;
 
-pub use base::{as_domain, as_egress_area, as_host, as_ipaddr, as_upstream_addr};
-pub use ports::as_ports;
-pub use proxy::as_proxy_request_type;
-pub use tcp::{as_tcp_connect_config, as_tcp_keepalive_config, as_tcp_misc_sock_opts};
-pub use tls::as_tls_version;
-pub use udp::as_udp_misc_sock_opts;
+use g3_types::net::TlsVersion;
 
-#[cfg(feature = "acl-rule")]
-pub use base::as_ip_network;
-
-#[cfg(feature = "http")]
-pub use http::as_http_keepalive_config;
+pub fn as_tls_version(value: &Yaml) -> anyhow::Result<TlsVersion> {
+    match value {
+        Yaml::Real(s) => {
+            let f = f64::from_str(s).map_err(|e| anyhow!("invalid f64 value: {e}"))?;
+            TlsVersion::try_from(f)
+        }
+        Yaml::String(s) => TlsVersion::from_str(s),
+        _ => Err(anyhow!(
+            "yaml value type for tls version should be 'string' or 'float'"
+        )),
+    }
+}

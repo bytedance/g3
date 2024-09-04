@@ -29,7 +29,7 @@ use openssl::x509::X509;
 
 use super::{OpensslCertificatePair, OpensslProtocol};
 use crate::net::tls::AlpnProtocol;
-use crate::net::{Host, TlsAlpn, TlsServerName, UpstreamAddr};
+use crate::net::{Host, TlsAlpn, TlsServerName, TlsVersion, UpstreamAddr};
 
 #[cfg(feature = "tongsuo")]
 use super::OpensslTlcpCertificatePair;
@@ -108,6 +108,8 @@ impl OpensslClientConfig {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OpensslClientConfigBuilder {
     protocol: Option<OpensslProtocol>,
+    min_tls_version: Option<TlsVersion>,
+    max_tls_version: Option<TlsVersion>,
     ciphers: Vec<String>,
     disable_sni: bool,
     ca_certs: Vec<Vec<u8>>,
@@ -130,6 +132,8 @@ impl Default for OpensslClientConfigBuilder {
     fn default() -> Self {
         OpensslClientConfigBuilder {
             protocol: None,
+            min_tls_version: None,
+            max_tls_version: None,
             ciphers: Vec::new(),
             disable_sni: false,
             ca_certs: Vec::new(),
@@ -190,6 +194,14 @@ impl OpensslClientConfigBuilder {
 
     pub fn set_protocol(&mut self, protocol: OpensslProtocol) {
         self.protocol = Some(protocol);
+    }
+
+    pub fn set_min_tls_version(&mut self, version: TlsVersion) {
+        self.min_tls_version = Some(version);
+    }
+
+    pub fn set_max_tls_version(&mut self, version: TlsVersion) {
+        self.max_tls_version = Some(version);
     }
 
     pub fn set_ciphers(&mut self, ciphers: Vec<String>) {
@@ -411,6 +423,17 @@ impl OpensslClientConfigBuilder {
         let mut ctx_builder = SslConnector::builder(SslMethod::tls_client())
             .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
         ctx_builder.set_verify(SslVerifyMode::PEER);
+
+        if let Some(version) = self.min_tls_version {
+            ctx_builder
+                .set_min_proto_version(Some(version.into()))
+                .map_err(|e| anyhow!("failed to set min ssl version to {version}: {e}"))?;
+        }
+        if let Some(version) = self.max_tls_version {
+            ctx_builder
+                .set_max_proto_version(Some(version.into()))
+                .map_err(|e| anyhow!("failed to set max ssl version to {version}: {e}"))?;
+        }
 
         if let Some(cert_pair) = &self.client_cert_pair {
             cert_pair.add_to_client_ssl_context(&mut ctx_builder)?;

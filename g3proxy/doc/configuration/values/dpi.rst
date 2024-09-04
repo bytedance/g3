@@ -366,6 +366,26 @@ Set the tls client config for tls interception.
 
 The keys are:
 
+* min_tls_version
+
+  **optional**, **type**: :ref:`tls version <conf_value_tls_version>`
+
+  Set the minimal TLS version to use.
+
+  **default**: not set
+
+  .. versionadded:: 1.9.9
+
+* max_tls_version
+
+  **optional**, **type**: :ref:`tls version <conf_value_tls_version>`
+
+  Set the maximum TLS version to use.
+
+  **default**: not set
+
+  .. versionadded:: 1.9.9
+
 * ca_certificate
 
   **optional**, **type**: :ref:`tls certificates <conf_value_tls_certificates>`
