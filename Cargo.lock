@@ -369,9 +369,9 @@ dependencies = [
 
 [[package]]
 name = "bssl-cmake-sys"
-version = "0.1.2408260"
+version = "0.1.2409020"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3060357853ffd42c45a3d5498d7664645e630822abfc0e3b14bd2119a2b920c5"
+checksum = "1d453a5065ba759e304d18bea82e1ed8de284a410c76f11ecb857c70b1fc3b50"
 dependencies = [
  "bindgen 0.70.1",
  "cc",
@@ -482,9 +482,9 @@ dependencies = [
 
 [[package]]
 name = "capnp-rpc"
-version = "0.19.3"
+version = "0.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b499a69c75f961512a596310fa46f18a9ad287fc75d50546ac6536f7428c803"
+checksum = "04f09758ec79a2825c9bc87cbe1c8ded306c99a83b52cf89577667ebff2d3ff7"
 dependencies = [
  "capnp",
  "capnp-futures",
@@ -2908,9 +2908,9 @@ checksum = "ff011a302c396a5197692431fc1948019154afc178baf7d8e37367442a4601cf"
 
 [[package]]
 name = "openssl-src"
-version = "300.3.1+3.3.1"
+version = "300.3.2+3.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7259953d42a81bf137fbbd73bd30a8e1914d6dce43c2b90ed575783a22608b91"
+checksum = "a211a18d945ef7e648cc6e0058f4c548ee46aab922ea203e0d30e966ea23647b"
 dependencies = [
  "cc",
 ]
