@@ -97,6 +97,11 @@ pub use self::openssl::{
     as_to_one_openssl_tls_client_config_builder,
 };
 
+#[cfg(feature = "quinn")]
+mod quinn;
+#[cfg(feature = "quinn")]
+pub use quinn::as_quinn_transport_config;
+
 #[cfg(all(unix, feature = "sched"))]
 mod sched;
 #[cfg(all(unix, feature = "sched"))]

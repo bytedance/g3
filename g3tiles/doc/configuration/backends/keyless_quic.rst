@@ -108,6 +108,17 @@ Set the connection pool config.
 
 .. versionadded:: 0.3.5
 
+quic_transport
+--------------
+
+**optional**, **type**: :ref:`quinn transport <conf_value_quinn_transport>`
+
+Set the transport config for quinn.
+
+**default**: set with default value
+
+.. versionadded:: 0.3.5
+
 concurrent_streams
 ------------------
 

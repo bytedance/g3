@@ -21,7 +21,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
-use quinn::{ClientConfig, Connection, Endpoint, TokioRuntime};
+use quinn::{ClientConfig, Connection, Endpoint, TokioRuntime, TransportConfig};
 use tokio::sync::broadcast;
 use tokio::time::Instant;
 
@@ -41,6 +41,7 @@ pub(super) struct KeylessQuicUpstreamConnector {
     duration_recorder: Arc<KeylessUpstreamDurationRecorder>,
     peer_addrs: Arc<ArcSwapOption<SelectiveVec<WeightedValue<SocketAddr>>>>,
     tls_client: RustlsQuicClientConfig,
+    quic_transport: Arc<TransportConfig>,
 }
 
 impl KeylessQuicUpstreamConnector {
@@ -51,12 +52,14 @@ impl KeylessQuicUpstreamConnector {
         peer_addrs_container: Arc<ArcSwapOption<SelectiveVec<WeightedValue<SocketAddr>>>>,
     ) -> anyhow::Result<Self> {
         let tls_client = config.tls_client.build_quic()?;
+        let quic_transport = config.quic_transport.build_for_client();
         Ok(KeylessQuicUpstreamConnector {
             config,
             stats,
             duration_recorder,
             peer_addrs: peer_addrs_container,
             tls_client,
+            quic_transport: Arc::new(quic_transport),
         })
     }
 
@@ -84,7 +87,8 @@ impl KeylessQuicUpstreamConnector {
         let endpoint = Endpoint::new(Default::default(), None, socket, Arc::new(TokioRuntime))
             .map_err(|e| anyhow!("failed to create quic endpoint: {e}"))?;
 
-        let client_config = ClientConfig::new(self.tls_client.driver.clone());
+        let mut client_config = ClientConfig::new(self.tls_client.driver.clone());
+        client_config.transport_config(self.quic_transport.clone());
         let tls_name = self
             .config
             .tls_name

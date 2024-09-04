@@ -42,6 +42,9 @@ mod rustls;
 #[cfg(feature = "openssl")]
 mod openssl;
 
+#[cfg(feature = "quinn")]
+mod quinn;
+
 pub use buf::SocketBufferConfig;
 pub use dns::*;
 pub use egress::{EgressArea, EgressInfo};
@@ -77,3 +80,6 @@ pub use self::rustls::*;
 
 #[cfg(feature = "openssl")]
 pub use self::openssl::*;
+
+#[cfg(feature = "quinn")]
+pub use self::quinn::*;

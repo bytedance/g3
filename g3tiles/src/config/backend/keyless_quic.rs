@@ -22,7 +22,10 @@ use yaml_rust::{yaml, Yaml};
 
 use g3_histogram::HistogramMetricsConfig;
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
-use g3_types::net::{ConnectionPoolConfig, RustlsClientConfigBuilder, SocketBufferConfig};
+use g3_types::net::{
+    ConnectionPoolConfig, QuinnTransportConfigBuilder, RustlsClientConfigBuilder,
+    SocketBufferConfig,
+};
 use g3_yaml::YamlDocPosition;
 
 const BACKEND_CONFIG_TYPE: &str = "KeylessQuic";
@@ -46,6 +49,7 @@ pub(crate) struct KeylessQuicBackendConfig {
     pub(crate) connection_config: MultiplexedUpstreamConnectionConfig,
     pub(crate) graceful_close_wait: Duration,
     pub(crate) connection_pool: ConnectionPoolConfig,
+    pub(crate) quic_transport: QuinnTransportConfigBuilder,
     pub(crate) concurrent_streams: usize,
     pub(crate) socket_buffer: SocketBufferConfig,
 }
@@ -65,6 +69,7 @@ impl KeylessQuicBackendConfig {
             connection_config: Default::default(),
             graceful_close_wait: Duration::from_secs(10),
             connection_pool: ConnectionPoolConfig::new(1024, 32),
+            quic_transport: QuinnTransportConfigBuilder::default(),
             concurrent_streams: 4,
             socket_buffer: SocketBufferConfig::default(),
         }
@@ -160,6 +165,11 @@ impl KeylessQuicBackendConfig {
             "connection_pool" | "pool" => {
                 self.connection_pool = g3_yaml::value::as_connection_pool_config(v)
                     .context(format!("invalid connection pool config value for key {k}"))?;
+                Ok(())
+            }
+            "quic_transport" => {
+                self.quic_transport = g3_yaml::value::as_quinn_transport_config(v)
+                    .context(format!("invalid quinn transport config value for key {k}"))?;
                 Ok(())
             }
             "concurrent_streams" => {

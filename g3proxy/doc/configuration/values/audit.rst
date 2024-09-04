@@ -133,6 +133,16 @@ For *map* value, the keys are:
 
   **default**: 16
 
+* quic_transport
+
+  **optional**, **type**: :ref:`quinn transport <conf_value_quinn_transport>`
+
+  Set the transport config for quinn.
+
+  **default**: set with default value
+
+  .. versionadded:: 1.9.9
+
 * stream_open_timeout
 
   **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`

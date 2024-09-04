@@ -22,7 +22,8 @@ use anyhow::{anyhow, Context};
 use yaml_rust::Yaml;
 
 use g3_types::net::{
-    ConnectionPoolConfig, RustlsClientConfigBuilder, SocketBufferConfig, UpstreamAddr,
+    ConnectionPoolConfig, QuinnTransportConfigBuilder, RustlsClientConfigBuilder,
+    SocketBufferConfig, UpstreamAddr,
 };
 use g3_yaml::YamlDocPosition;
 
@@ -34,6 +35,7 @@ pub(crate) struct AuditStreamDetourConfig {
     pub(crate) tls_name: Option<String>,
     pub(crate) connection_pool: ConnectionPoolConfig,
     pub(crate) connection_reuse_limit: usize,
+    pub(crate) quic_transport: QuinnTransportConfigBuilder,
     pub(crate) stream_open_timeout: Duration,
     pub(crate) request_timeout: Duration,
     pub(crate) socket_buffer: SocketBufferConfig,
@@ -50,6 +52,7 @@ impl Default for AuditStreamDetourConfig {
             tls_name: None,
             connection_pool: ConnectionPoolConfig::default(),
             connection_reuse_limit: 16,
+            quic_transport: QuinnTransportConfigBuilder::default(),
             stream_open_timeout: Duration::from_secs(30),
             request_timeout: Duration::from_secs(60),
             socket_buffer: SocketBufferConfig::default(),
@@ -90,6 +93,11 @@ impl AuditStreamDetourConfig {
                     }
                     "connection_reuse_limit" => {
                         config.connection_reuse_limit = g3_yaml::value::as_usize(v)?;
+                        Ok(())
+                    }
+                    "quic_transport" => {
+                        config.quic_transport = g3_yaml::value::as_quinn_transport_config(v)
+                            .context(format!("invalid quinn transport config value for key {k}"))?;
                         Ok(())
                     }
                     "stream_open_timeout" => {

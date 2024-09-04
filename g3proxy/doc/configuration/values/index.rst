@@ -15,6 +15,7 @@ The meanings and formats of them are described as follows:
    audit
    dpi
    tls
+   quic
    rate_limit
    resolve
    metrics

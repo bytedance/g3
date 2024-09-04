@@ -19,7 +19,9 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use log::{debug, trace};
-use quinn::{ClientConfig, Connection, ConnectionError, Endpoint, TokioRuntime, VarInt};
+use quinn::{
+    ClientConfig, Connection, ConnectionError, Endpoint, TokioRuntime, TransportConfig, VarInt,
+};
 use tokio::sync::{mpsc, oneshot};
 
 use g3_types::net::RustlsQuicClientConfig;
@@ -32,12 +34,18 @@ pub(super) struct StreamDetourRequest(pub(super) oneshot::Sender<StreamDetourStr
 pub(super) struct StreamDetourConnector {
     config: Arc<AuditStreamDetourConfig>,
     tls_client: RustlsQuicClientConfig,
+    quic_transport: Arc<TransportConfig>,
 }
 
 impl StreamDetourConnector {
     pub(super) fn new(config: Arc<AuditStreamDetourConfig>) -> anyhow::Result<Self> {
         let tls_client = config.tls_client.build_quic()?;
-        Ok(StreamDetourConnector { config, tls_client })
+        let quic_transport = config.quic_transport.build_for_client();
+        Ok(StreamDetourConnector {
+            config,
+            tls_client,
+            quic_transport: Arc::new(quic_transport),
+        })
     }
 
     async fn new_connection(&self) -> anyhow::Result<Connection> {
@@ -63,7 +71,8 @@ impl StreamDetourConnector {
         let endpoint = Endpoint::new(Default::default(), None, socket, Arc::new(TokioRuntime))
             .map_err(|e| anyhow!("failed to create quic endpoint: {e}"))?;
 
-        let client_config = ClientConfig::new(self.tls_client.driver.clone());
+        let mut client_config = ClientConfig::new(self.tls_client.driver.clone());
+        client_config.transport_config(self.quic_transport.clone());
         let tls_name = self
             .config
             .tls_name
