@@ -27,6 +27,7 @@ use crate::module::keyless::{KeylessBackendStats, KeylessUpstreamDurationStats};
 
 const METRIC_NAME_KEYLESS_CONN_ATTEMPT: &str = "backend.keyless.connection.attempt";
 const METRIC_NAME_KEYLESS_CONN_ESTABLISHED: &str = "backend.keyless.connection.established";
+const METRIC_NAME_KEYLESS_CHANNEL_ALIVE: &str = "backend.keyless.channel.alive";
 const METRIC_NAME_KEYLESS_REQUEST_RECV: &str = "backend.keyless.request.recv";
 const METRIC_NAME_KEYLESS_REQUEST_SEND: &str = "backend.keyless.request.send";
 const METRIC_NAME_KEYLESS_REQUEST_DROP: &str = "backend.keyless.request.drop";
@@ -113,6 +114,15 @@ fn emit_keyless_stats(
     if let Some(tags) = stats.load_extra_tags() {
         common_tags.add_static_tags(&tags);
     }
+
+    let channel_alive = stats.alive_channel();
+    client
+        .gauge_with_tags(
+            METRIC_NAME_KEYLESS_CHANNEL_ALIVE,
+            channel_alive,
+            &common_tags,
+        )
+        .send();
 
     macro_rules! emit_count {
         ($field:ident, $name:expr) => {

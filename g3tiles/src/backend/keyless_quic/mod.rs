@@ -194,8 +194,13 @@ impl Backend for KeylessQuicBackend {
     }
 
     async fn keyless(&self, req: KeylessRequest) -> KeylessResponse {
-        let (rsp_sender, rsp_receiver) = oneshot::channel();
         let err = KeylessInternalErrorResponse::new(req.header());
+        if !self.config.wait_new_channel && self.stats.alive_channel() <= 0 {
+            self.stats.add_request_drop();
+            return KeylessResponse::Local(err);
+        }
+
+        let (rsp_sender, rsp_receiver) = oneshot::channel();
         let req = KeylessForwardRequest::new(req, rsp_sender);
         if let Err(e) = self.keyless_request_sender.try_send(req) {
             match e {

@@ -51,6 +51,7 @@ pub(crate) struct KeylessQuicBackendConfig {
     pub(crate) connection_pool: ConnectionPoolConfig,
     pub(crate) quic_transport: QuinnTransportConfigBuilder,
     pub(crate) concurrent_streams: usize,
+    pub(crate) wait_new_channel: bool,
     pub(crate) socket_buffer: SocketBufferConfig,
 }
 
@@ -71,6 +72,7 @@ impl KeylessQuicBackendConfig {
             connection_pool: ConnectionPoolConfig::new(1024, 32),
             quic_transport: QuinnTransportConfigBuilder::default(),
             concurrent_streams: 4,
+            wait_new_channel: false,
             socket_buffer: SocketBufferConfig::default(),
         }
     }
@@ -174,6 +176,10 @@ impl KeylessQuicBackendConfig {
             }
             "concurrent_streams" => {
                 self.concurrent_streams = g3_yaml::value::as_usize(v)?;
+                Ok(())
+            }
+            "wait_new_channel" => {
+                self.wait_new_channel = g3_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "socket_buffer" => {

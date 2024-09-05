@@ -69,6 +69,7 @@ impl<R, W> MultiplexedUpstreamConnection<R, W> {
         req_receiver: flume::Receiver<KeylessForwardRequest>,
         quit_notifier: broadcast::Receiver<()>,
     ) -> Self {
+        stats.inc_alive_channel();
         MultiplexedUpstreamConnection {
             config,
             stats,
@@ -101,7 +102,7 @@ where
         );
         let recv_task = KeylessUpstreamRecvTask::new(
             self.config.response_timeout,
-            self.stats,
+            self.stats.clone(),
             self.quit_notifier,
             reader_close_sender,
             shared_state,
@@ -110,6 +111,8 @@ where
 
         let reader = self.r;
         tokio::spawn(async move { recv_task.into_running(reader).await });
-        send_task.run(self.w, reader_close_receiver).await
+        let r = send_task.run(self.w, reader_close_receiver).await;
+        self.stats.dec_alive_channel();
+        r
     }
 }

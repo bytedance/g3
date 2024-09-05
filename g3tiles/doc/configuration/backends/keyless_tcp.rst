@@ -116,3 +116,14 @@ tcp_keepalive
 Set tcp keepalive.
 
 **default**: no keepalive set
+
+wait_new_channel
+----------------
+
+**optional**, **type**: bool
+
+Set if we should wait for new connections when no alive connections available.
+
+**default**: false
+
+.. versionadded:: 0.3.5

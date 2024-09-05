@@ -48,6 +48,7 @@ pub(crate) struct KeylessTcpBackendConfig {
     pub(crate) graceful_close_wait: Duration,
     pub(crate) connection_pool: ConnectionPoolConfig,
     pub(crate) tcp_keepalive: TcpKeepAliveConfig,
+    pub(crate) wait_new_channel: bool,
 }
 
 impl KeylessTcpBackendConfig {
@@ -66,6 +67,7 @@ impl KeylessTcpBackendConfig {
             graceful_close_wait: Duration::from_secs(10),
             connection_pool: ConnectionPoolConfig::new(4096, 128),
             tcp_keepalive: TcpKeepAliveConfig::default(),
+            wait_new_channel: false,
         }
     }
 
@@ -161,6 +163,10 @@ impl KeylessTcpBackendConfig {
             }
             "tcp_keepalive" => {
                 self.tcp_keepalive = g3_yaml::value::as_tcp_keepalive_config(v)?;
+                Ok(())
+            }
+            "wait_new_channel" => {
+                self.wait_new_channel = g3_yaml::value::as_bool(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

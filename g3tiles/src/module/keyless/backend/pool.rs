@@ -27,7 +27,7 @@ use g3_types::net::ConnectionPoolConfig;
 use g3_types::stats::ConnectionPoolStats;
 
 use super::KeylessForwardRequest;
-use crate::module::keyless::{KeylessBackendStats, KeylessInternalErrorResponse, KeylessResponse};
+use crate::module::keyless::KeylessBackendStats;
 
 pub(crate) trait KeylessUpstreamConnection {
     fn run(self) -> impl Future<Output = anyhow::Result<()>> + Send;
@@ -195,11 +195,7 @@ where
     fn drain_request_queue(&self) {
         while let Ok(req) = self.keyless_request_receiver.try_recv() {
             self.backend_stats.add_request_drop();
-            let _ = req
-                .rsp_sender
-                .send(KeylessResponse::Local(KeylessInternalErrorResponse::new(
-                    req.req.header(),
-                )));
+            req.reply_internal_error();
         }
     }
 

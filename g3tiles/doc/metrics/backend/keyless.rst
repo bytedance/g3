@@ -23,6 +23,12 @@ The metric names are:
 
   Show the count of successful connection.
 
+* backend.keyless.channel.alive
+
+  **type**: gauge
+
+  Show the alive channel numbers. The channel may be a TCP connection or a QUIC stream.
+
 Request Metrics
 ===============
 

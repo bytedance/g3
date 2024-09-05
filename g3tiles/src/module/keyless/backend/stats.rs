@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicI32, AtomicU64, Ordering};
 use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
@@ -30,6 +30,8 @@ pub(crate) struct KeylessBackendStats {
 
     conn_attempt: AtomicU64,
     conn_established: AtomicU64,
+
+    alive_channel: AtomicI32,
 
     request_recv: AtomicU64,
     request_send: AtomicU64,
@@ -47,6 +49,7 @@ impl KeylessBackendStats {
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
             conn_attempt: AtomicU64::new(0),
             conn_established: AtomicU64::new(0),
+            alive_channel: AtomicI32::new(0),
             request_recv: AtomicU64::new(0),
             request_send: AtomicU64::new(0),
             request_drop: AtomicU64::new(0),
@@ -88,6 +91,18 @@ impl KeylessBackendStats {
 
     pub(crate) fn conn_established(&self) -> u64 {
         self.conn_established.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn inc_alive_channel(&self) {
+        self.alive_channel.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn dec_alive_channel(&self) {
+        self.alive_channel.fetch_sub(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn alive_channel(&self) -> i32 {
+        self.alive_channel.load(Ordering::Relaxed)
     }
 
     pub(crate) fn add_request_recv(&self) {

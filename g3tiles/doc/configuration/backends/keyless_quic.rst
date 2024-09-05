@@ -128,6 +128,17 @@ Set how many bidirectional streams we will use on a single QUIC connection.
 
 **default**: 4
 
+wait_new_channel
+----------------
+
+**optional**, **type**: bool
+
+Set if we should wait for new working streams when no alive streams available.
+
+**default**: false
+
+.. versionadded:: 0.3.5
+
 socket_buffer
 -------------
 

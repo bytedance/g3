@@ -17,7 +17,7 @@
 use tokio::sync::oneshot;
 use tokio::time::Instant;
 
-use crate::module::keyless::{KeylessRequest, KeylessResponse};
+use crate::module::keyless::{KeylessInternalErrorResponse, KeylessRequest, KeylessResponse};
 
 mod stats;
 pub(crate) use stats::{
@@ -46,5 +46,13 @@ impl KeylessForwardRequest {
             req,
             rsp_sender,
         }
+    }
+
+    pub(crate) fn reply_internal_error(self) {
+        let _ = self
+            .rsp_sender
+            .send(KeylessResponse::Local(KeylessInternalErrorResponse::new(
+                self.req.header(),
+            )));
     }
 }
