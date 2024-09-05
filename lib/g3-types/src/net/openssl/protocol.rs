@@ -18,7 +18,7 @@ use std::str::FromStr;
 
 use anyhow::anyhow;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum OpensslProtocol {
     Ssl3,
     Tls1,
