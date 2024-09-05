@@ -56,6 +56,7 @@ impl HashValue {
 }
 
 /// A fast hashed passphrase type which is weak for brute forces but fast to verify
+///
 /// we use dual hash here to reduce the chance of password collision.
 /// Note that the weakness is the same as md5 if the attackers try to brute force it.
 #[derive(Clone)]

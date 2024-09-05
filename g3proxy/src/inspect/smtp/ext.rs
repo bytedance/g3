@@ -33,7 +33,7 @@ pub(super) trait ResponseLineRecvExt {
         ups_r: &mut R,
         clt_w: &mut W,
         local_ip: IpAddr,
-    ) -> ServerTaskResult<&[u8]>
+    ) -> ServerTaskResult<&'a [u8]>
     where
         R: AsyncRead + Unpin,
         W: AsyncWrite + Unpin;
@@ -46,7 +46,7 @@ impl<const MAX_LINE_SIZE: usize> ResponseLineRecvExt for LineRecvBuf<MAX_LINE_SI
         ups_r: &mut R,
         clt_w: &mut W,
         local_ip: IpAddr,
-    ) -> ServerTaskResult<&[u8]>
+    ) -> ServerTaskResult<&'a [u8]>
     where
         R: AsyncRead + Unpin,
         W: AsyncWrite + Unpin,
