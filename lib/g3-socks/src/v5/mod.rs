@@ -26,6 +26,7 @@ pub use udp_io::{SocksUdpHeader, UdpInput, UdpOutput};
 
 pub mod auth;
 pub mod client;
+pub mod udp_ctl;
 
 #[cfg(feature = "quic")]
 mod quic;

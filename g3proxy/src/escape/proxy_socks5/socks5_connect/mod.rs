@@ -19,7 +19,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::{TcpStream, UdpSocket};
 use tokio::sync::oneshot;
 
@@ -118,28 +118,10 @@ impl ProxySocks5Escaper {
         socket.connect(peer_udp_addr).await?;
         let listen_addr = socket.local_addr()?;
 
-        let stream = stream.into_inner();
-        let (mut tcp_close_sender, tcp_close_receiver) = oneshot::channel::<Option<io::Error>>();
-        tokio::spawn(async move {
-            let mut tcp_stream = stream;
-            let mut buf = [0u8; 4];
+        let (ctl_close_sender, ctl_close_receiver) = oneshot::channel::<Option<io::Error>>();
+        tokio::spawn(v5::udp_ctl::wait_eof(stream, ctl_close_sender));
 
-            tokio::select! {
-                biased;
-
-                r = tcp_stream.read(&mut buf) => {
-                    let e = match r {
-                        Ok(0) => None,
-                        Ok(_) => Some(io::Error::other("unexpected data received in the tcp connection")),
-                        Err(e) => Some(e),
-                    };
-                    let _ = tcp_close_sender.send(e);
-                }
-                _ = tcp_close_sender.closed() => {}
-            }
-        });
-
-        Ok((tcp_close_receiver, socket, listen_addr, peer_udp_addr))
+        Ok((ctl_close_receiver, socket, listen_addr, peer_udp_addr))
     }
 
     pub(super) async fn timed_socks5_udp_associate(

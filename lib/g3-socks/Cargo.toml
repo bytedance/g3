@@ -11,7 +11,7 @@ rust-version = "1.74.0"
 thiserror.workspace = true
 bytes.workspace = true
 smallvec.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["sync", "io-util", "macros"] }
 quinn = { workspace = true, optional = true, features = ["runtime-tokio"] }
 pin-project-lite.workspace = true
 g3-types.workspace = true
