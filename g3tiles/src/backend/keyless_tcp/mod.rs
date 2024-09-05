@@ -76,6 +76,7 @@ impl KeylessTcpBackend {
             KeylessConnectionPool::spawn(
                 config.connection_pool,
                 Arc::new(tls_connector),
+                stats.clone(),
                 keyless_request_receiver,
                 config.graceful_close_wait,
             )
@@ -83,6 +84,7 @@ impl KeylessTcpBackend {
             KeylessConnectionPool::spawn(
                 config.connection_pool,
                 Arc::new(tcp_connector),
+                stats.clone(),
                 keyless_request_receiver,
                 config.graceful_close_wait,
             )
