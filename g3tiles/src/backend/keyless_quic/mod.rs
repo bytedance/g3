@@ -73,7 +73,6 @@ impl KeylessQuicBackend {
         let pool_handle = KeylessConnectionPool::spawn(
             config.connection_pool,
             Arc::new(connector),
-            stats.clone(),
             keyless_request_receiver,
             config.graceful_close_wait,
         );

@@ -27,7 +27,6 @@ use g3_types::net::ConnectionPoolConfig;
 use g3_types::stats::ConnectionPoolStats;
 
 use super::KeylessForwardRequest;
-use crate::module::keyless::KeylessBackendStats;
 
 pub(crate) trait KeylessUpstreamConnection {
     fn run(self) -> impl Future<Output = anyhow::Result<()>> + Send;
@@ -76,7 +75,6 @@ pub(crate) struct KeylessConnectionPool<C: KeylessUpstreamConnection> {
     config: ConnectionPoolConfig,
     connector: ArcKeylessUpstreamConnect<C>,
     stats: Arc<ConnectionPoolStats>,
-    backend_stats: Arc<KeylessBackendStats>,
 
     keyless_request_receiver: flume::Receiver<KeylessForwardRequest>,
 
@@ -95,7 +93,6 @@ where
     fn new(
         config: ConnectionPoolConfig,
         connector: ArcKeylessUpstreamConnect<C>,
-        backend_stats: Arc<KeylessBackendStats>,
         keyless_request_receiver: flume::Receiver<KeylessForwardRequest>,
         graceful_close_wait: Duration,
     ) -> Self {
@@ -105,7 +102,6 @@ where
             config,
             connector,
             stats: Arc::new(ConnectionPoolStats::default()),
-            backend_stats,
             keyless_request_receiver,
             connection_id: 0,
             connection_close_receiver,
@@ -118,14 +114,12 @@ where
     pub(crate) fn spawn(
         config: ConnectionPoolConfig,
         connector: ArcKeylessUpstreamConnect<C>,
-        backend_stats: Arc<KeylessBackendStats>,
         keyless_request_receiver: flume::Receiver<KeylessForwardRequest>,
         graceful_close_wait: Duration,
     ) -> KeylessConnectionPoolHandle {
         let pool = KeylessConnectionPool::new(
             config,
             connector,
-            backend_stats,
             keyless_request_receiver,
             graceful_close_wait,
         );
@@ -164,38 +158,19 @@ where
                             break;
                         }
                         KeylessPoolCmd::NewConnection => {
-                            let alive_count = self.stats.alive_count();
-                            if alive_count == 0 {
-                                self.drain_request_queue();
-                            }
-                            if alive_count < self.config.max_idle_count() {
+                            if self.stats.alive_count() < self.config.max_idle_count() {
                                 self.create_connection();
                             }
                         }
                     }
                 }
                 _ = self.connection_close_receiver.recv() => {
-                    let alive_count = self.stats.alive_count();
-                    if alive_count == 0 {
-                        self.drain_request_queue();
-                    }
-                    self.check_create_connection(alive_count, self.config.min_idle_count());
+                    self.check_create_connection(self.stats.alive_count(), self.config.min_idle_count());
                 }
                 _ = connection_check_interval.tick() => {
-                    let alive_count = self.stats.alive_count();
-                    if alive_count == 0 {
-                        self.drain_request_queue();
-                    }
                     self.check_create_connection(self.stats.alive_count(), self.config.min_idle_count());
                 }
             }
-        }
-    }
-
-    fn drain_request_queue(&self) {
-        while let Ok(req) = self.keyless_request_receiver.try_recv() {
-            self.backend_stats.add_request_drop();
-            req.reply_internal_error();
         }
     }
 
