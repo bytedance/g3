@@ -53,7 +53,7 @@ use crate::resolve::{ArcIntegratedResolverHandle, HappyEyeballsResolveJob};
 use crate::serve::ServerTaskNotes;
 
 mod stats;
-use stats::ProxyHttpEscaperStats;
+pub(crate) use stats::ProxyHttpEscaperStats;
 
 mod http_connect;
 mod http_forward;

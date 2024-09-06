@@ -30,12 +30,12 @@ pub(crate) struct ProxyHttpEscaperStats {
     name: MetricsName,
     id: StatId,
     extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
-    pub(super) interface: EscaperInterfaceStats,
-    pub(super) tcp: EscaperTcpStats,
+    pub(crate) interface: EscaperInterfaceStats,
+    pub(crate) tcp: EscaperTcpStats,
 }
 
 impl ProxyHttpEscaperStats {
-    pub(super) fn new(name: &MetricsName) -> Self {
+    pub(crate) fn new(name: &MetricsName) -> Self {
         ProxyHttpEscaperStats {
             name: name.clone(),
             id: StatId::new(),
@@ -45,7 +45,7 @@ impl ProxyHttpEscaperStats {
         }
     }
 
-    pub(super) fn set_extra_tags(&self, tags: Option<Arc<StaticMetricsTags>>) {
+    pub(crate) fn set_extra_tags(&self, tags: Option<Arc<StaticMetricsTags>>) {
         self.extra_metrics_tags.store(tags);
     }
 }
