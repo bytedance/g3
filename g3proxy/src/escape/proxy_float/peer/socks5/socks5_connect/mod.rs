@@ -35,7 +35,7 @@ use crate::module::tcp_connect::{
 use crate::serve::ServerTaskNotes;
 
 impl ProxyFloatSocks5Peer {
-    pub(super) async fn socks5_connect_tcp_connect_to(
+    async fn socks5_connect_tcp_connect_to(
         &self,
         escaper: &ProxyFloatEscaper,
         tcp_notes: &mut TcpConnectTaskNotes,
@@ -74,7 +74,7 @@ impl ProxyFloatSocks5Peer {
 
     /// setup udp associate with remote proxy
     /// return (socket, listen_addr, peer_addr)
-    pub(super) async fn socks5_udp_associate(
+    async fn socks5_udp_associate(
         &self,
         escaper: &ProxyFloatEscaper,
         buf_conf: SocketBufferConfig,

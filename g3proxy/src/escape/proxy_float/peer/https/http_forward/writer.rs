@@ -28,8 +28,8 @@ use g3_http::server::HttpProxyClientRequest;
 use g3_io_ext::LimitedWriter;
 use g3_types::net::UpstreamAddr;
 
-use super::ProxyFloatHttpsPeerSharedConfig;
 use crate::auth::UserUpstreamTrafficStats;
+use crate::escape::proxy_float::peer::http::ProxyFloatHttpPeerSharedConfig;
 use crate::module::http_forward::{
     send_req_header_to_origin, send_req_header_via_proxy, ArcHttpForwardTaskRemoteStats,
     HttpForwardTaskRemoteWrapperStats, HttpForwardWrite,
@@ -38,7 +38,7 @@ use crate::serve::ServerTaskNotes;
 
 pin_project! {
     pub(super) struct HttpsPeerHttpForwardWriter<W: AsyncWrite> {
-        config: Arc<ProxyFloatHttpsPeerSharedConfig>,
+        config: Arc<ProxyFloatHttpPeerSharedConfig>,
         #[pin]
         inner: W,
         upstream: UpstreamAddr,
@@ -51,7 +51,7 @@ where
 {
     pub(super) fn new(
         ups_w: W,
-        config: &Arc<ProxyFloatHttpsPeerSharedConfig>,
+        config: &Arc<ProxyFloatHttpPeerSharedConfig>,
         upstream: UpstreamAddr,
     ) -> Self {
         HttpsPeerHttpForwardWriter {
@@ -128,7 +128,7 @@ where
 
 pin_project! {
     pub(super) struct HttpsPeerHttpRequestWriter<W: AsyncWrite> {
-        config: Arc<ProxyFloatHttpsPeerSharedConfig>,
+        config: Arc<ProxyFloatHttpPeerSharedConfig>,
         #[pin]
         inner: W,
     }
@@ -138,7 +138,7 @@ impl<W> HttpsPeerHttpRequestWriter<W>
 where
     W: AsyncWrite,
 {
-    pub(super) fn new(ups_w: W, config: &Arc<ProxyFloatHttpsPeerSharedConfig>) -> Self {
+    pub(super) fn new(ups_w: W, config: &Arc<ProxyFloatHttpPeerSharedConfig>) -> Self {
         HttpsPeerHttpRequestWriter {
             config: Arc::clone(config),
             inner: ups_w,

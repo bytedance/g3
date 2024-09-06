@@ -19,7 +19,8 @@ use std::sync::Arc;
 use g3_io_ext::{AsyncStream, LimitedBufReader, LimitedWriter, NilLimitedReaderStats};
 use g3_types::net::{Host, OpensslClientConfig};
 
-use super::{ProxyFloatEscaper, ProxyFloatHttpsPeer, ProxyFloatHttpsPeerSharedConfig};
+use super::{ProxyFloatEscaper, ProxyFloatHttpsPeer};
+use crate::escape::proxy_float::peer::http::HttpPeerHttpForwardReader;
 use crate::log::escape::tls_handshake::TlsApplication;
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpForwardTaskRemoteWrapperStats,
@@ -27,10 +28,7 @@ use crate::module::http_forward::{
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
 use crate::serve::ServerTaskNotes;
 
-mod reader;
 mod writer;
-
-use reader::HttpsPeerHttpForwardReader;
 use writer::{HttpsPeerHttpForwardWriter, HttpsPeerHttpRequestWriter};
 
 impl ProxyFloatHttpsPeer {
@@ -60,7 +58,7 @@ impl ProxyFloatHttpsPeer {
 
         let writer =
             HttpsPeerHttpForwardWriter::new(ups_w, &self.shared_config, tcp_notes.upstream.clone());
-        let reader = HttpsPeerHttpForwardReader::new(ups_r);
+        let reader = HttpPeerHttpForwardReader::new(ups_r);
         Ok((Box::new(writer), Box::new(reader)))
     }
 
@@ -99,7 +97,7 @@ impl ProxyFloatHttpsPeer {
         let ups_w = LimitedWriter::new(ups_w, wrapper_stats);
 
         let writer = HttpsPeerHttpRequestWriter::new(ups_w, &self.shared_config);
-        let reader = HttpsPeerHttpForwardReader::new(ups_r);
+        let reader = HttpPeerHttpForwardReader::new(ups_r);
         Ok((Box::new(writer), Box::new(reader)))
     }
 }

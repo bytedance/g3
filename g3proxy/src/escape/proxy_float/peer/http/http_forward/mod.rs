@@ -33,7 +33,7 @@ use crate::serve::ServerTaskNotes;
 mod reader;
 mod writer;
 
-use reader::HttpPeerHttpForwardReader;
+pub(crate) use reader::HttpPeerHttpForwardReader;
 use writer::{HttpPeerHttpForwardWriter, HttpPeerHttpRequestWriter};
 
 impl ProxyFloatHttpPeer {

@@ -44,23 +44,25 @@ use crate::serve::ServerTaskNotes;
 mod http_connect;
 mod http_forward;
 
+pub(crate) use http_forward::HttpPeerHttpForwardReader;
+
 #[derive(Clone, Default)]
-struct ProxyFloatHttpPeerSharedConfig {
-    tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
-    expire_datetime: Option<DateTime<Utc>>,
-    expire_instant: Option<Instant>,
-    append_http_headers: Vec<String>,
+pub(crate) struct ProxyFloatHttpPeerSharedConfig {
+    pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
+    pub(crate) expire_datetime: Option<DateTime<Utc>>,
+    pub(crate) expire_instant: Option<Instant>,
+    pub(crate) append_http_headers: Vec<String>,
 }
 
 impl ProxyFloatHttpPeerSharedConfig {
-    fn set_user(&mut self, username: &Username, password: &Password) {
+    pub(crate) fn set_user(&mut self, username: &Username, password: &Password) {
         self.append_http_headers
             .push(g3_http::header::proxy_authorization_basic(
                 username, password,
             ));
     }
 
-    fn set_header(&mut self, name: &str, value: &str) {
+    pub(crate) fn set_header(&mut self, name: &str, value: &str) {
         self.append_http_headers
             .push(format!("{name}: {value}\r\n"));
     }

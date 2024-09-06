@@ -34,7 +34,7 @@ use crate::module::http_forward::{
 };
 
 pin_project! {
-    pub(super) struct HttpPeerHttpForwardReader<R: AsyncRead> {
+    pub(crate) struct HttpPeerHttpForwardReader<R: AsyncRead> {
         #[pin]
         inner: LimitedBufReader<R>,
     }
@@ -44,7 +44,7 @@ impl<R> HttpPeerHttpForwardReader<R>
 where
     R: AsyncRead + Unpin,
 {
-    pub(super) fn new(ups_r: LimitedBufReader<R>) -> Self {
+    pub(crate) fn new(ups_r: LimitedBufReader<R>) -> Self {
         HttpPeerHttpForwardReader { inner: ups_r }
     }
 

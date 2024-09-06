@@ -28,6 +28,7 @@ use g3_types::auth::{Password, Username};
 use g3_types::net::{EgressInfo, Host, OpensslClientConfig, TcpSockSpeedLimitConfig};
 
 use super::{ArcNextProxyPeer, NextProxyPeer, NextProxyPeerInternal, ProxyFloatEscaper};
+use crate::escape::proxy_float::peer::http::ProxyFloatHttpPeerSharedConfig;
 use crate::module::http_forward::{ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection};
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
 use crate::module::udp_connect::{
@@ -42,28 +43,6 @@ mod http_connect;
 mod http_forward;
 mod tls_handshake;
 
-#[derive(Clone, Default)]
-struct ProxyFloatHttpsPeerSharedConfig {
-    tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
-    expire_datetime: Option<DateTime<Utc>>,
-    expire_instant: Option<Instant>,
-    append_http_headers: Vec<String>,
-}
-
-impl ProxyFloatHttpsPeerSharedConfig {
-    fn set_user(&mut self, username: &Username, password: &Password) {
-        self.append_http_headers
-            .push(g3_http::header::proxy_authorization_basic(
-                username, password,
-            ));
-    }
-
-    fn set_header(&mut self, name: &str, value: &str) {
-        self.append_http_headers
-            .push(format!("{name}: {value}\r\n"));
-    }
-}
-
 pub(super) struct ProxyFloatHttpsPeer {
     addr: SocketAddr,
     tls_name: Host,
@@ -71,7 +50,7 @@ pub(super) struct ProxyFloatHttpsPeer {
     password: Password,
     egress_info: EgressInfo,
     http_connect_rsp_hdr_max_size: usize,
-    shared_config: Arc<ProxyFloatHttpsPeerSharedConfig>,
+    shared_config: Arc<ProxyFloatHttpPeerSharedConfig>,
 }
 
 impl ProxyFloatHttpsPeer {
