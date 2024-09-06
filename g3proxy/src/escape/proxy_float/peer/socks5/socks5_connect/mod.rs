@@ -20,7 +20,6 @@ use std::sync::Arc;
 
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::{TcpStream, UdpSocket};
-use tokio::sync::oneshot;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_io_ext::{AsyncStream, LimitedStream};
@@ -81,16 +80,8 @@ impl ProxyFloatSocks5Peer {
         buf_conf: SocketBufferConfig,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<
-        (
-            oneshot::Receiver<Option<io::Error>>,
-            UdpSocket,
-            SocketAddr,
-            SocketAddr,
-        ),
-        io::Error,
-    > {
-        let mut stream = escaper
+    ) -> Result<(LimitedStream<TcpStream>, UdpSocket, SocketAddr, SocketAddr), io::Error> {
+        let mut ctl_stream = escaper
             .tcp_new_connection(self, tcp_notes, task_notes)
             .await
             .map_err(io::Error::other)?;
@@ -109,7 +100,7 @@ impl ProxyFloatSocks5Peer {
         let send_udp_addr = SocketAddr::new(send_udp_ip, 0);
 
         let peer_udp_addr = v5::client::socks5_udp_associate(
-            &mut stream,
+            &mut ctl_stream,
             &self.shared_config.auth_info,
             send_udp_addr,
         )
@@ -126,10 +117,7 @@ impl ProxyFloatSocks5Peer {
         socket.connect(peer_udp_addr).await?;
         let listen_addr = socket.local_addr()?;
 
-        let (ctl_close_sender, ctl_close_receiver) = oneshot::channel::<Option<io::Error>>();
-        tokio::spawn(v5::udp_ctl::wait_eof(stream, ctl_close_sender));
-
-        Ok((ctl_close_receiver, socket, listen_addr, peer_udp_addr))
+        Ok((ctl_stream, socket, listen_addr, peer_udp_addr))
     }
 
     pub(super) async fn timed_socks5_udp_associate(
@@ -138,15 +126,7 @@ impl ProxyFloatSocks5Peer {
         buf_conf: SocketBufferConfig,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<
-        (
-            oneshot::Receiver<Option<io::Error>>,
-            UdpSocket,
-            SocketAddr,
-            SocketAddr,
-        ),
-        io::Error,
-    > {
+    ) -> Result<(LimitedStream<TcpStream>, UdpSocket, SocketAddr, SocketAddr), io::Error> {
         tokio::time::timeout(
             escaper.config.peer_negotiation_timeout,
             self.socks5_udp_associate(escaper, buf_conf, tcp_notes, task_notes),

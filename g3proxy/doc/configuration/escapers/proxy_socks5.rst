@@ -108,3 +108,19 @@ For bool value, an empty map will be used if set to true, or disabled if set to 
 **default**: false
 
 .. versionadded:: 1.7.19
+
+end_on_control_closed
+---------------------
+
+**optional**, **type**: bool
+
+Set to true if you want to end the UDP Associate Session whenever the peer closed the control TCP connection.
+
+By default the session will be ended if:
+
+- Error occur on the TCP control connection at any time
+- Clean close of the TCP control connection if at least one UDP packet has been received
+
+**default**: false
+
+.. versionadded:: 1.9.9

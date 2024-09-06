@@ -45,7 +45,7 @@ impl ProxySocks5Escaper {
             .ok_or(UdpConnectError::NoUpstreamSupplied)?;
 
         let mut tcp_notes = TcpConnectTaskNotes::empty();
-        let (tcp_close_receiver, udp_socket, udp_local_addr, udp_peer_addr) = self
+        let (ctl_stream, udp_socket, udp_local_addr, udp_peer_addr) = self
             .timed_socks5_udp_associate(udp_notes.buf_conf, &mut tcp_notes, task_notes)
             .await
             .map_err(UdpConnectError::SetupSocketFailed)?;
@@ -73,7 +73,11 @@ impl ProxySocks5Escaper {
             wrapper_stats,
         );
 
-        let recv = ProxySocks5UdpConnectRemoteRecv::new(recv, tcp_close_receiver);
+        let recv = ProxySocks5UdpConnectRemoteRecv::new(
+            recv,
+            ctl_stream,
+            self.config.end_on_control_closed,
+        );
         let send = ProxySocks5UdpConnectRemoteSend::new(send, upstream);
 
         Ok((Box::new(recv), Box::new(send), self.escape_logger.clone()))

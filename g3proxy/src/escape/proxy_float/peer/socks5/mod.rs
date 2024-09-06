@@ -84,6 +84,7 @@ pub(super) struct ProxyFloatSocks5Peer {
     shared_config: Arc<ProxyFloatSocks5PeerSharedConfig>,
     transmute_udp_peer_ip: Option<AHashMap<IpAddr, IpAddr>>,
     udp_sock_speed_limit: UdpSockSpeedLimitConfig,
+    end_on_control_closed: bool,
 }
 
 impl ProxyFloatSocks5Peer {
@@ -96,6 +97,7 @@ impl ProxyFloatSocks5Peer {
             shared_config: Arc::new(Default::default()),
             transmute_udp_peer_ip: None,
             udp_sock_speed_limit: Default::default(),
+            end_on_control_closed: false,
         })
     }
 
@@ -165,6 +167,10 @@ impl NextProxyPeerInternal for ProxyFloatSocks5Peer {
             }
             "udp_sock_speed_limit" => {
                 self.udp_sock_speed_limit = g3_json::value::as_udp_sock_speed_limit(v)?;
+                Ok(())
+            }
+            "end_on_control_closed" => {
+                self.end_on_control_closed = g3_json::value::as_bool(v)?;
                 Ok(())
             }
             _ => Ok(()),

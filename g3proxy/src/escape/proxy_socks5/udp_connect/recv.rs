@@ -15,12 +15,13 @@
  */
 
 use std::io;
+use std::pin::Pin;
 use std::task::{ready, Context, Poll};
 
-use futures_util::FutureExt;
-use tokio::sync::oneshot;
+use tokio::io::{AsyncRead, ReadBuf};
+use tokio::net::TcpStream;
 
-use g3_io_ext::{AsyncUdpRecv, UdpCopyRemoteError, UdpCopyRemoteRecv};
+use g3_io_ext::{AsyncUdpRecv, LimitedStream, UdpCopyRemoteError, UdpCopyRemoteRecv};
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -33,28 +34,50 @@ use g3_socks::v5::UdpInput;
 
 pub(crate) struct ProxySocks5UdpConnectRemoteRecv<T> {
     inner: T,
-    tcp_close_receiver: oneshot::Receiver<Option<io::Error>>,
+    ctl_stream: LimitedStream<TcpStream>,
+    end_on_control_closed: bool,
+    ignore_ctl_stream: bool,
 }
 
 impl<T> ProxySocks5UdpConnectRemoteRecv<T>
 where
     T: AsyncUdpRecv,
 {
-    pub(crate) fn new(recv: T, tcp_close_receiver: oneshot::Receiver<Option<io::Error>>) -> Self {
+    pub(crate) fn new(
+        recv: T,
+        ctl_stream: LimitedStream<TcpStream>,
+        end_on_control_closed: bool,
+    ) -> Self {
         ProxySocks5UdpConnectRemoteRecv {
             inner: recv,
-            tcp_close_receiver,
+            ctl_stream,
+            end_on_control_closed,
+            ignore_ctl_stream: false,
         }
     }
 
-    fn check_tcp_close(&mut self, cx: &mut Context<'_>) -> Result<(), UdpCopyRemoteError> {
-        match self.tcp_close_receiver.poll_unpin(cx) {
+    fn check_ctl_stream(&mut self, cx: &mut Context<'_>) -> Result<(), UdpCopyRemoteError> {
+        const MAX_MSG_SIZE: usize = 4;
+        let mut buf = [0u8; MAX_MSG_SIZE];
+
+        let mut read_buf = ReadBuf::new(&mut buf);
+        match Pin::new(&mut self.ctl_stream).poll_read(cx, &mut read_buf) {
             Poll::Pending => Ok(()),
-            Poll::Ready(Ok(None)) => Err(UdpCopyRemoteError::RemoteSessionClosed),
-            Poll::Ready(Ok(Some(e))) => Err(UdpCopyRemoteError::RemoteSessionError(e)),
-            Poll::Ready(Err(_)) => Err(UdpCopyRemoteError::InternalServerError(
-                "tcp close wait channel closed unexpected",
-            )),
+            Poll::Ready(Ok(_)) => match read_buf.filled().len() {
+                0 => {
+                    if self.end_on_control_closed {
+                        Err(UdpCopyRemoteError::RemoteSessionClosed)
+                    } else {
+                        self.ignore_ctl_stream = true;
+                        Ok(())
+                    }
+                }
+                MAX_MSG_SIZE => Err(UdpCopyRemoteError::RemoteSessionError(io::Error::other(
+                    "unexpected data received in ctl stream",
+                ))),
+                _ => Ok(()), // drain extra data sent by some bad implementation
+            },
+            Poll::Ready(Err(e)) => Err(UdpCopyRemoteError::RemoteSessionError(e)),
         }
     }
 }
@@ -72,12 +95,16 @@ where
         cx: &mut Context<'_>,
         buf: &mut [u8],
     ) -> Poll<Result<(usize, usize), UdpCopyRemoteError>> {
-        self.check_tcp_close(cx)?;
+        if !self.ignore_ctl_stream {
+            self.check_ctl_stream(cx)?;
+        }
 
         let nr = ready!(self.inner.poll_recv(cx, buf)).map_err(UdpCopyRemoteError::RecvFailed)?;
 
         let (off, _upstream) = UdpInput::parse_header(buf)
             .map_err(|e| UdpCopyRemoteError::InvalidPacket(e.to_string()))?;
+
+        self.end_on_control_closed = true;
         Poll::Ready(Ok((off, nr)))
     }
 
@@ -93,7 +120,9 @@ where
         cx: &mut Context<'_>,
         packets: &mut [UdpCopyPacket],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
-        self.check_tcp_close(cx)?;
+        if !self.ignore_ctl_stream {
+            self.check_ctl_stream(cx)?;
+        }
 
         let mut hdr_v: Vec<RecvMsgHdr<1>> = packets
             .iter_mut()
@@ -114,6 +143,7 @@ where
             m.set_packet(p);
         }
 
+        self.end_on_control_closed = true;
         Poll::Ready(Ok(count))
     }
 }

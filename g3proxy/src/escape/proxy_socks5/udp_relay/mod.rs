@@ -40,7 +40,7 @@ impl ProxySocks5Escaper {
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
         let mut tcp_notes = TcpConnectTaskNotes::empty();
-        let (tcp_close_receiver, udp_socket, udp_local_addr, udp_peer_addr) = self
+        let (ctl_stream, udp_socket, udp_local_addr, udp_peer_addr) = self
             .timed_socks5_udp_associate(udp_notes.buf_conf, &mut tcp_notes, task_notes)
             .await
             .map_err(UdpRelaySetupError::SetupSocketFailed)?;
@@ -69,7 +69,8 @@ impl ProxySocks5Escaper {
             recv,
             udp_local_addr,
             udp_peer_addr,
-            tcp_close_receiver,
+            ctl_stream,
+            self.config.end_on_control_closed,
         );
         let send = ProxySocks5UdpRelayRemoteSend::new(send, udp_local_addr, udp_peer_addr);
 

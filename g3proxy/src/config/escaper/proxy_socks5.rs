@@ -60,6 +60,7 @@ pub(crate) struct ProxySocks5EscaperConfig {
     pub(crate) auth_info: SocksAuth,
     pub(crate) peer_negotiation_timeout: Duration,
     transmute_udp_peer_ip: Option<AHashMap<IpAddr, IpAddr>>,
+    pub(crate) end_on_control_closed: bool,
     pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
 }
 
@@ -87,6 +88,7 @@ impl ProxySocks5EscaperConfig {
             auth_info: SocksAuth::None,
             peer_negotiation_timeout: Duration::from_secs(10),
             transmute_udp_peer_ip: None,
+            end_on_control_closed: false,
             extra_metrics_tags: None,
         }
     }
@@ -228,6 +230,10 @@ impl ProxySocks5EscaperConfig {
                         self.transmute_udp_peer_ip = Some(AHashMap::default());
                     }
                 }
+                Ok(())
+            }
+            "end_on_control_closed" => {
+                self.end_on_control_closed = g3_yaml::value::as_bool(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

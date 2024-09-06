@@ -16,12 +16,13 @@
 
 use std::io;
 use std::net::SocketAddr;
+use std::pin::Pin;
 use std::task::{ready, Context, Poll};
 
-use futures_util::FutureExt;
-use tokio::sync::oneshot;
+use tokio::io::{AsyncRead, ReadBuf};
+use tokio::net::TcpStream;
 
-use g3_io_ext::{AsyncUdpRecv, UdpRelayRemoteError, UdpRelayRemoteRecv};
+use g3_io_ext::{AsyncUdpRecv, LimitedStream, UdpRelayRemoteError, UdpRelayRemoteRecv};
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -37,7 +38,9 @@ pub(crate) struct ProxySocks5UdpRelayRemoteRecv<T> {
     local_addr: SocketAddr,
     peer_addr: SocketAddr,
     inner: T,
-    tcp_close_receiver: oneshot::Receiver<Option<io::Error>>,
+    ctl_stream: LimitedStream<TcpStream>,
+    end_on_control_closed: bool,
+    ignore_ctl_stream: bool,
 }
 
 impl<T> ProxySocks5UdpRelayRemoteRecv<T>
@@ -48,30 +51,49 @@ where
         recv: T,
         local_addr: SocketAddr,
         peer_addr: SocketAddr,
-        tcp_close_receiver: oneshot::Receiver<Option<io::Error>>,
+        ctl_stream: LimitedStream<TcpStream>,
+        end_on_control_closed: bool,
     ) -> Self {
         ProxySocks5UdpRelayRemoteRecv {
             local_addr,
             peer_addr,
             inner: recv,
-            tcp_close_receiver,
+            ctl_stream,
+            end_on_control_closed,
+            ignore_ctl_stream: false,
         }
     }
 
     fn check_tcp_close(&mut self, cx: &mut Context<'_>) -> Result<(), UdpRelayRemoteError> {
-        match self.tcp_close_receiver.poll_unpin(cx) {
+        const MAX_MSG_SIZE: usize = 4;
+        let mut buf = [0u8; MAX_MSG_SIZE];
+
+        let mut read_buf = ReadBuf::new(&mut buf);
+        match Pin::new(&mut self.ctl_stream).poll_read(cx, &mut read_buf) {
             Poll::Pending => Ok(()),
-            Poll::Ready(Ok(None)) => Err(UdpRelayRemoteError::RemoteSessionClosed(
-                self.local_addr,
-                self.peer_addr,
-            )),
-            Poll::Ready(Ok(Some(e))) => Err(UdpRelayRemoteError::RemoteSessionError(
+            Poll::Ready(Ok(_)) => match read_buf.filled().len() {
+                0 => {
+                    if self.end_on_control_closed {
+                        Err(UdpRelayRemoteError::RemoteSessionClosed(
+                            self.local_addr,
+                            self.peer_addr,
+                        ))
+                    } else {
+                        self.ignore_ctl_stream = true;
+                        Ok(())
+                    }
+                }
+                MAX_MSG_SIZE => Err(UdpRelayRemoteError::RemoteSessionError(
+                    self.local_addr,
+                    self.peer_addr,
+                    io::Error::other("unexpected data received in ctl stream"),
+                )),
+                _ => Ok(()), // drain extra data sent by some bad implementation
+            },
+            Poll::Ready(Err(e)) => Err(UdpRelayRemoteError::RemoteSessionError(
                 self.local_addr,
                 self.peer_addr,
                 e,
-            )),
-            Poll::Ready(Err(_)) => Err(UdpRelayRemoteError::InternalServerError(
-                "tcp close wait channel closed unexpected",
             )),
         }
     }
@@ -90,13 +112,17 @@ where
         cx: &mut Context<'_>,
         buf: &mut [u8],
     ) -> Poll<Result<(usize, usize, UpstreamAddr), UdpRelayRemoteError>> {
-        self.check_tcp_close(cx)?;
+        if self.ignore_ctl_stream {
+            self.check_tcp_close(cx)?;
+        }
 
         let nr = ready!(self.inner.poll_recv(cx, buf))
             .map_err(|e| UdpRelayRemoteError::RecvFailed(self.local_addr, e))?;
 
         let (off, upstream) = UdpInput::parse_header(buf)
             .map_err(|e| UdpRelayRemoteError::InvalidPacket(self.local_addr, e.to_string()))?;
+
+        self.end_on_control_closed = true;
         Poll::Ready(Ok((off, nr, upstream)))
     }
 
@@ -112,7 +138,9 @@ where
         cx: &mut Context<'_>,
         packets: &mut [UdpRelayPacket],
     ) -> Poll<Result<usize, UdpRelayRemoteError>> {
-        self.check_tcp_close(cx)?;
+        if self.ignore_ctl_stream {
+            self.check_tcp_close(cx)?;
+        }
 
         let mut hdr_v: Vec<RecvMsgHdr<1>> = packets
             .iter_mut()
@@ -133,6 +161,7 @@ where
             m.set_packet(p);
         }
 
+        self.end_on_control_closed = true;
         Poll::Ready(Ok(count))
     }
 }
