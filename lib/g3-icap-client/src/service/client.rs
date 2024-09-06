@@ -33,18 +33,19 @@ pub struct IcapServiceClient {
 }
 
 impl IcapServiceClient {
-    pub fn new(config: Arc<IcapServiceConfig>) -> Self {
+    pub fn new(config: Arc<IcapServiceConfig>) -> anyhow::Result<Self> {
         let (cmd_sender, cmd_receiver) = flume::unbounded();
-        let conn_creator = Arc::new(IcapConnector::new(config.clone()));
+        let conn_creator = IcapConnector::new(config.clone())?;
+        let conn_creator = Arc::new(conn_creator);
         let pool = IcapServicePool::new(config.clone(), cmd_receiver, conn_creator.clone());
         tokio::spawn(pool.into_running());
         let partial_request_header = config.build_request_header();
-        IcapServiceClient {
+        Ok(IcapServiceClient {
             config,
             partial_request_header,
             cmd_sender,
             conn_creator,
-        }
+        })
     }
 
     async fn fetch_from_pool(&self) -> Option<(IcapClientConnection, Arc<IcapServiceOptions>)> {

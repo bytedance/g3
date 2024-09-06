@@ -43,5 +43,5 @@ pub use ext::{LimitedBufReadExt, LimitedWriteExt};
 mod idle;
 pub use idle::{IdleCheck, IdleForceQuitReason};
 
-mod stream;
+pub(super) mod stream;
 pub use stream::AsyncStream;

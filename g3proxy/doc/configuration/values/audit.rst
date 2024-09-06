@@ -24,7 +24,28 @@ For *map* value, the keys are:
 
   **required**, **type**: :ref:`url str <conf_value_url_str>`
 
-  Set the ICAP service url.
+  Set the ICAP service url. The scheme should be either 'icap' or 'icaps'.
+  A default tls client config will be used if the scheme is 'icaps'.
+
+* tls_client
+
+  **optional**, **type**: :ref:`rustls client config <conf_value_rustls_client_config>`
+
+  Enable tls and set the config. TLS will be enabled even if the url scheme is 'icap'.
+
+  **default**: not set for 'icap://' url, default one for 'icaps://' url
+
+  .. versionadded:: 1.9.9
+
+* tls_name
+
+  **optional**, **type**: :ref:`tls name <conf_value_tls_name>`
+
+  Set the tls server name to verify peer certificate.
+
+  **default**: same as the host port in url
+
+  .. versionadded:: 1.9.9
 
 * tcp_keepalive
 

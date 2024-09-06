@@ -20,9 +20,12 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use http::HeaderName;
+use rustls_pki_types::ServerName;
 use url::Url;
 
-use g3_types::net::{ConnectionPoolConfig, HttpAuth, TcpKeepAliveConfig, UpstreamAddr};
+use g3_types::net::{
+    ConnectionPoolConfig, HttpAuth, RustlsClientConfigBuilder, TcpKeepAliveConfig, UpstreamAddr,
+};
 
 use super::IcapMethod;
 
@@ -32,6 +35,8 @@ pub struct IcapServiceConfig {
     auth: HttpAuth,
     user_agent: Option<String>,
     pub(crate) upstream: UpstreamAddr,
+    pub(crate) tls_client: Option<RustlsClientConfigBuilder>,
+    pub(crate) tls_name: ServerName<'static>,
     pub connection_pool: ConnectionPoolConfig,
     pub(crate) tcp_keepalive: TcpKeepAliveConfig,
     pub(crate) icap_206_enable: bool,
@@ -43,6 +48,12 @@ pub struct IcapServiceConfig {
 
 impl IcapServiceConfig {
     pub fn new(method: IcapMethod, mut url: Url) -> anyhow::Result<Self> {
+        let tls_client = match url.scheme().to_ascii_lowercase().as_str() {
+            "icap" => None,
+            "icaps" => Some(RustlsClientConfigBuilder::default()),
+            _ => return Err(anyhow!("unsupported ICAP URL scheme: {}", url.scheme())),
+        };
+
         if !url.has_authority() {
             return Err(anyhow!("no authority part found in this url"));
         }
@@ -51,14 +62,19 @@ impl IcapServiceConfig {
             .map_err(|_| anyhow!("failed to clear username in url"))?;
         url.set_password(None)
             .map_err(|_| anyhow!("failed to clear password in url"))?;
+
         let upstream = UpstreamAddr::try_from(&url)
             .map_err(|e| anyhow!("failed to get upstream address from url: {e}"))?;
+        let tls_name = ServerName::try_from(upstream.host())
+            .map_err(|e| anyhow!("invalid ICAP server name: {e}"))?;
         Ok(IcapServiceConfig {
             method,
             url,
             auth,
             user_agent: None,
             upstream,
+            tls_client,
+            tls_name,
             connection_pool: ConnectionPoolConfig::default(),
             tcp_keepalive: TcpKeepAliveConfig::default_enabled(),
             icap_206_enable: false,
@@ -71,6 +87,14 @@ impl IcapServiceConfig {
 
     pub fn set_tcp_keepalive(&mut self, config: TcpKeepAliveConfig) {
         self.tcp_keepalive = config;
+    }
+
+    pub fn set_tls_client(&mut self, config: RustlsClientConfigBuilder) {
+        self.tls_client = Some(config);
+    }
+
+    pub fn set_tls_name(&mut self, name: ServerName<'static>) {
+        self.tls_name = name;
     }
 
     pub fn set_icap_max_header_size(&mut self, max_size: usize) {

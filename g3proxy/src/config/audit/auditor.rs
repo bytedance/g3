@@ -221,16 +221,20 @@ impl AuditorConfig {
                 Ok(())
             }
             "icap_reqmod_service" => {
-                let service = g3_yaml::value::as_icap_reqmod_service_config(v).context(format!(
-                    "invalid icap reqmod service config value for key {k}"
-                ))?;
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let service = g3_yaml::value::as_icap_reqmod_service_config(v, Some(lookup_dir))
+                    .context(format!(
+                        "invalid icap reqmod service config value for key {k}"
+                    ))?;
                 self.icap_reqmod_service = Some(Arc::new(service));
                 Ok(())
             }
             "icap_respmod_service" => {
-                let service = g3_yaml::value::as_icap_respmod_service_config(v).context(
-                    format!("invalid icap respmod service config value for key {k}"),
-                )?;
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let service = g3_yaml::value::as_icap_respmod_service_config(v, Some(lookup_dir))
+                    .context(format!(
+                    "invalid icap respmod service config value for key {k}"
+                ))?;
                 self.icap_respmod_service = Some(Arc::new(service));
                 Ok(())
             }

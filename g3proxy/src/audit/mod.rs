@@ -103,10 +103,14 @@ impl Auditor {
 
     fn set_agent_clients(&mut self) -> anyhow::Result<()> {
         if let Some(c) = self.config.icap_reqmod_service.clone() {
-            self.icap_reqmod_service = Some(Arc::new(IcapServiceClient::new(c)));
+            self.icap_reqmod_service = Some(Arc::new(
+                IcapServiceClient::new(c).context("failed to create ICAP REQMOD client")?,
+            ));
         }
         if let Some(c) = self.config.icap_respmod_service.clone() {
-            self.icap_respmod_service = Some(Arc::new(IcapServiceClient::new(c)));
+            self.icap_respmod_service = Some(Arc::new(
+                IcapServiceClient::new(c).context("failed to create ICAP RESPMOD client")?,
+            ));
         }
         #[cfg(feature = "quic")]
         if let Some(c) = self.config.stream_detour_service.clone() {

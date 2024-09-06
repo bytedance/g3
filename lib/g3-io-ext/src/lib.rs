@@ -35,3 +35,9 @@ pub mod haproxy;
 mod quic;
 #[cfg(feature = "quic")]
 pub use quic::*;
+
+#[cfg(feature = "openssl")]
+pub use io::stream::openssl;
+
+#[cfg(feature = "rustls")]
+pub use io::stream::rustls;

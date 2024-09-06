@@ -47,7 +47,7 @@ where
 }
 
 #[cfg(feature = "openssl")]
-mod openssl;
+pub mod openssl;
 
 #[cfg(feature = "rustls")]
-mod rustls;
+pub mod rustls;

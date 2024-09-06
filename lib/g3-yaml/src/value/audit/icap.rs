@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::path::Path;
 use std::str::FromStr;
 
 use anyhow::{anyhow, Context};
@@ -25,6 +26,7 @@ use g3_icap_client::{IcapMethod, IcapServiceConfig};
 fn as_icap_service_config(
     map: &yaml::Hash,
     method: IcapMethod,
+    lookup_dir: Option<&Path>,
 ) -> anyhow::Result<IcapServiceConfig> {
     const KEY_URL: &str = "url";
     let url = crate::hash_get_required(map, KEY_URL)?;
@@ -34,6 +36,19 @@ fn as_icap_service_config(
 
     crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
         KEY_URL => Ok(()),
+        "tls_client" => {
+            let tls_client = crate::value::as_rustls_client_config_builder(v, lookup_dir).context(
+                format!("invalid rustls tls client config value for key {k}"),
+            )?;
+            config.set_tls_client(tls_client);
+            Ok(())
+        }
+        "tls_name" => {
+            let tls_name = crate::value::as_rustls_server_name(v)
+                .context(format!("invalid rustls server name value for key {k}"))?;
+            config.set_tls_name(tls_name);
+            Ok(())
+        }
         "tcp_keepalive" => {
             let keepalive = crate::value::as_tcp_keepalive_config(v)
                 .context(format!("invalid tcp keepalive config value for key {k}"))?;
@@ -82,9 +97,12 @@ fn as_icap_service_config(
     Ok(config)
 }
 
-pub fn as_icap_reqmod_service_config(value: &Yaml) -> anyhow::Result<IcapServiceConfig> {
+pub fn as_icap_reqmod_service_config(
+    value: &Yaml,
+    lookup_dir: Option<&Path>,
+) -> anyhow::Result<IcapServiceConfig> {
     match value {
-        Yaml::Hash(map) => as_icap_service_config(map, IcapMethod::Reqmod),
+        Yaml::Hash(map) => as_icap_service_config(map, IcapMethod::Reqmod, lookup_dir),
         Yaml::String(s) => {
             let url = Url::from_str(s).map_err(|e| anyhow!("invalid url string: {e}"))?;
             IcapServiceConfig::new(IcapMethod::Reqmod, url)
@@ -95,9 +113,12 @@ pub fn as_icap_reqmod_service_config(value: &Yaml) -> anyhow::Result<IcapService
     }
 }
 
-pub fn as_icap_respmod_service_config(value: &Yaml) -> anyhow::Result<IcapServiceConfig> {
+pub fn as_icap_respmod_service_config(
+    value: &Yaml,
+    lookup_dir: Option<&Path>,
+) -> anyhow::Result<IcapServiceConfig> {
     match value {
-        Yaml::Hash(map) => as_icap_service_config(map, IcapMethod::Respmod),
+        Yaml::Hash(map) => as_icap_service_config(map, IcapMethod::Respmod, lookup_dir),
         Yaml::String(s) => {
             let url = Url::from_str(s).map_err(|e| anyhow!("invalid url string: {e}"))?;
             IcapServiceConfig::new(IcapMethod::Respmod, url)

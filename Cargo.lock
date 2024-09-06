@@ -1274,8 +1274,10 @@ dependencies = [
  "h2",
  "http",
  "memchr",
+ "rustls-pki-types",
  "thiserror",
  "tokio",
+ "tokio-rustls",
  "url",
 ]
 

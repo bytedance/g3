@@ -31,3 +31,45 @@ where
         tokio::io::split(self)
     }
 }
+
+pub enum MaybeSslStreamReadHalf<S: AsyncStream> {
+    Plain(S::R),
+    Ssl(ReadHalf<SslStream<S>>),
+}
+
+pub enum MaybeSslStreamWriteHalf<S: AsyncStream> {
+    Plain(S::W),
+    Ssl(WriteHalf<SslStream<S>>),
+}
+
+pub enum MaybeSslStream<S> {
+    Plain(S),
+    Ssl(SslStream<S>),
+}
+
+impl<S> AsyncStream for MaybeSslStream<S>
+where
+    S: AsyncStream + AsyncRead + AsyncWrite + Unpin,
+{
+    type R = MaybeSslStreamReadHalf<S>;
+    type W = MaybeSslStreamWriteHalf<S>;
+
+    fn into_split(self) -> (Self::R, Self::W) {
+        match self {
+            MaybeSslStream::Plain(stream) => {
+                let (r, w) = stream.into_split();
+                (
+                    MaybeSslStreamReadHalf::Plain(r),
+                    MaybeSslStreamWriteHalf::Plain(w),
+                )
+            }
+            MaybeSslStream::Ssl(ssl_stream) => {
+                let (r, w) = ssl_stream.into_split();
+                (
+                    MaybeSslStreamReadHalf::Ssl(r),
+                    MaybeSslStreamWriteHalf::Ssl(w),
+                )
+            }
+        }
+    }
+}

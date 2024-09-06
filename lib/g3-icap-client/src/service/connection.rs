@@ -18,27 +18,40 @@ use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use anyhow::Context;
 use tokio::io::BufReader;
-use tokio::net::tcp;
+use tokio::net::TcpStream;
 use tokio::sync::oneshot;
+use tokio_rustls::TlsConnector;
 
-use g3_io_ext::LimitedBufReadExt;
-use g3_types::net::Host;
+use g3_io_ext::rustls::{MaybeTlsStreamReadHalf, MaybeTlsStreamWriteHalf};
+use g3_io_ext::{AsyncStream, LimitedBufReadExt};
+use g3_types::net::{Host, RustlsClientConfig};
 
 use super::IcapServiceConfig;
 use crate::IcapServiceOptions;
 
-pub type IcapClientWriter = tcp::OwnedWriteHalf;
-pub type IcapClientReader = BufReader<tcp::OwnedReadHalf>;
+pub type IcapClientWriter = MaybeTlsStreamWriteHalf<TcpStream>;
+pub type IcapClientReader = BufReader<MaybeTlsStreamReadHalf<TcpStream>>;
 pub type IcapClientConnection = (IcapClientWriter, IcapClientReader);
 
 pub(super) struct IcapConnector {
     config: Arc<IcapServiceConfig>,
+    tls_client: Option<RustlsClientConfig>,
 }
 
 impl IcapConnector {
-    pub(super) fn new(config: Arc<IcapServiceConfig>) -> Self {
-        IcapConnector { config }
+    pub(super) fn new(config: Arc<IcapServiceConfig>) -> anyhow::Result<Self> {
+        let tls_client = match &config.tls_client {
+            Some(builder) => {
+                let client = builder
+                    .build()
+                    .context("failed to build TLS client config")?;
+                Some(client)
+            }
+            None => None,
+        };
+        Ok(IcapConnector { config, tls_client })
     }
 
     async fn select_peer_addr(&self) -> io::Result<SocketAddr> {
@@ -64,8 +77,35 @@ impl IcapConnector {
             true,
         )?;
         let stream = socket.connect(peer).await?;
-        let (r, w) = stream.into_split();
-        Ok((w, BufReader::new(r)))
+
+        if let Some(client) = &self.tls_client {
+            let tls_connector = TlsConnector::from(client.driver.clone());
+            match tokio::time::timeout(
+                client.handshake_timeout,
+                tls_connector.connect(self.config.tls_name.clone(), stream),
+            )
+            .await
+            {
+                Ok(Ok(tls_stream)) => {
+                    let (r, w) = tls_stream.into_split();
+                    Ok((
+                        MaybeTlsStreamWriteHalf::Tls(w),
+                        BufReader::new(MaybeTlsStreamReadHalf::Tls(r)),
+                    ))
+                }
+                Ok(Err(e)) => Err(e),
+                Err(_) => Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "tls handshake with ICAP server timed out",
+                )),
+            }
+        } else {
+            let (r, w) = stream.into_split();
+            Ok((
+                MaybeTlsStreamWriteHalf::Plain(w),
+                BufReader::new(MaybeTlsStreamReadHalf::Plain(r)),
+            ))
+        }
     }
 }
 
