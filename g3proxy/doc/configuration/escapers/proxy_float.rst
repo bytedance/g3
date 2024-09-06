@@ -339,17 +339,7 @@ http
 https
 -----
 
-* username
-
-  **optional**, **type**: :ref:`username <conf_value_username>`
-
-  Set the username for HTTP basic auth.
-
-* password
-
-  **optional**, **type**: :ref:`password <conf_value_password>`
-
-  Set the password for HTTP basic auth.
+The https peer has all config keys as http peer, the following keys are also supported:
 
 * tls_name
 
@@ -358,23 +348,6 @@ https
   Set the tls server name for server certificate verification.
 
   **default**: not set
-
-* http_connect_rsp_header_max_size
-
-  **optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
-
-  Set the max header size for received CONNECT response.
-
-  **default**: 4KiB
-
-* extra_append_headers
-
-  **optional**, **type**: map
-
-  Set extra headers append to the requests sent to upstream.
-  The key should be the header name, both the key and the value should be in ascii string type.
-
-  .. note:: No duplication check is done here, use it with caution.
 
 socks5
 ------
@@ -430,3 +403,18 @@ socks5
   **default**: false
 
   .. versionadded:: 1.9.9
+
+socks5s
+-------
+
+The socks5s peer has all config keys as socks5 peer, the following keys are also supported:
+
+* tls_name
+
+  **optional**, **type**: :ref:`tls name <conf_value_tls_name>`
+
+  Set the tls server name for server certificate verification.
+
+  **default**: not set
+
+.. versionadded:: 1.9.9

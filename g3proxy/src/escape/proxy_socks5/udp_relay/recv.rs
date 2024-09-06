@@ -20,9 +20,8 @@ use std::pin::Pin;
 use std::task::{ready, Context, Poll};
 
 use tokio::io::{AsyncRead, ReadBuf};
-use tokio::net::TcpStream;
 
-use g3_io_ext::{AsyncUdpRecv, LimitedStream, UdpRelayRemoteError, UdpRelayRemoteRecv};
+use g3_io_ext::{AsyncUdpRecv, UdpRelayRemoteError, UdpRelayRemoteRecv};
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -34,24 +33,25 @@ use g3_io_ext::{RecvMsgHdr, UdpRelayPacket, UdpRelayPacketMeta};
 use g3_socks::v5::UdpInput;
 use g3_types::net::UpstreamAddr;
 
-pub(crate) struct ProxySocks5UdpRelayRemoteRecv<T> {
+pub(crate) struct ProxySocks5UdpRelayRemoteRecv<T, C> {
     local_addr: SocketAddr,
     peer_addr: SocketAddr,
     inner: T,
-    ctl_stream: LimitedStream<TcpStream>,
+    ctl_stream: C,
     end_on_control_closed: bool,
     ignore_ctl_stream: bool,
 }
 
-impl<T> ProxySocks5UdpRelayRemoteRecv<T>
+impl<T, C> ProxySocks5UdpRelayRemoteRecv<T, C>
 where
     T: AsyncUdpRecv,
+    C: AsyncRead + Unpin,
 {
     pub(crate) fn new(
         recv: T,
         local_addr: SocketAddr,
         peer_addr: SocketAddr,
-        ctl_stream: LimitedStream<TcpStream>,
+        ctl_stream: C,
         end_on_control_closed: bool,
     ) -> Self {
         ProxySocks5UdpRelayRemoteRecv {
@@ -99,9 +99,10 @@ where
     }
 }
 
-impl<T> UdpRelayRemoteRecv for ProxySocks5UdpRelayRemoteRecv<T>
+impl<T, C> UdpRelayRemoteRecv for ProxySocks5UdpRelayRemoteRecv<T, C>
 where
     T: AsyncUdpRecv,
+    C: AsyncRead + Unpin,
 {
     fn max_hdr_len(&self) -> usize {
         256 + 4 + 2

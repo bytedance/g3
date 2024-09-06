@@ -52,11 +52,11 @@ mod udp_connect;
 mod udp_relay;
 
 #[derive(Clone)]
-struct ProxyFloatSocks5PeerSharedConfig {
-    tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
-    expire_datetime: Option<DateTime<Utc>>,
-    expire_instant: Option<Instant>,
-    auth_info: SocksAuth,
+pub(crate) struct ProxyFloatSocks5PeerSharedConfig {
+    pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
+    pub(crate) expire_datetime: Option<DateTime<Utc>>,
+    pub(crate) expire_instant: Option<Instant>,
+    pub(crate) auth_info: SocksAuth,
 }
 
 impl Default for ProxyFloatSocks5PeerSharedConfig {
@@ -71,7 +71,7 @@ impl Default for ProxyFloatSocks5PeerSharedConfig {
 }
 
 impl ProxyFloatSocks5PeerSharedConfig {
-    fn set_user(&mut self, username: &Username, password: &Password) {
+    pub(crate) fn set_user(&mut self, username: &Username, password: &Password) {
         self.auth_info = SocksAuth::User(username.clone(), password.clone());
     }
 }

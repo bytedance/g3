@@ -45,6 +45,7 @@ pub(super) fn do_parse_peer(
             "http" => super::http::ProxyFloatHttpPeer::new_obj(addr),
             "https" => super::https::ProxyFloatHttpsPeer::new_obj(addr),
             "socks5" => super::socks5::ProxyFloatSocks5Peer::new_obj(addr),
+            "socks5s" | "socks5+tls" => super::socks5s::ProxyFloatSocks5sPeer::new_obj(addr),
             _ => return Err(anyhow!("unsupported peer type {peer_type}")),
         };
         let mut peer_id = String::new();

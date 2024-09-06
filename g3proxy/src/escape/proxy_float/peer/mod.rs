@@ -44,6 +44,7 @@ mod json;
 mod http;
 mod https;
 mod socks5;
+mod socks5s;
 
 const CONFIG_KEY_PEER_TYPE: &str = "type";
 const CONFIG_KEY_PEER_ID: &str = "id";

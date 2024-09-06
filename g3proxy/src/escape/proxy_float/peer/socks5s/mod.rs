@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
+use std::str::FromStr;
 use std::sync::Arc;
 
+use ahash::AHashMap;
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -25,48 +27,71 @@ use tokio::time::Instant;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::auth::{Password, Username};
-use g3_types::net::{EgressInfo, Host, OpensslClientConfig, TcpSockSpeedLimitConfig};
+use g3_types::net::{
+    EgressInfo, Host, OpensslClientConfig, TcpSockSpeedLimitConfig, UdpSockSpeedLimitConfig,
+};
 
-use super::http::ProxyFloatHttpPeerSharedConfig;
+use super::socks5::ProxyFloatSocks5PeerSharedConfig;
 use super::{ArcNextProxyPeer, NextProxyPeer, NextProxyPeerInternal, ProxyFloatEscaper};
 use crate::module::http_forward::{ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection};
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
 use crate::module::udp_connect::{
-    ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectResult, UdpConnectTaskNotes,
+    ArcUdpConnectTaskRemoteStats, UdpConnectResult, UdpConnectTaskNotes,
 };
 use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupError, UdpRelaySetupResult, UdpRelayTaskNotes,
+    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
-mod http_connect;
 mod http_forward;
+mod socks5_connect;
+mod udp_connect;
+mod udp_relay;
 
-pub(super) struct ProxyFloatHttpsPeer {
+pub(super) struct ProxyFloatSocks5sPeer {
     addr: SocketAddr,
     tls_name: Host,
     username: Username,
     password: Password,
     egress_info: EgressInfo,
-    http_connect_rsp_hdr_max_size: usize,
-    shared_config: Arc<ProxyFloatHttpPeerSharedConfig>,
+    shared_config: Arc<ProxyFloatSocks5PeerSharedConfig>,
+    transmute_udp_peer_ip: Option<AHashMap<IpAddr, IpAddr>>,
+    udp_sock_speed_limit: UdpSockSpeedLimitConfig,
+    end_on_control_closed: bool,
 }
 
-impl ProxyFloatHttpsPeer {
+impl ProxyFloatSocks5sPeer {
     pub(super) fn new_obj(addr: SocketAddr) -> ArcNextProxyPeer {
-        Arc::new(ProxyFloatHttpsPeer {
+        Arc::new(ProxyFloatSocks5sPeer {
             addr,
             tls_name: Host::Ip(addr.ip()),
             username: Username::empty(),
             password: Password::empty(),
             egress_info: Default::default(),
-            http_connect_rsp_hdr_max_size: 4096,
             shared_config: Arc::new(Default::default()),
+            transmute_udp_peer_ip: None,
+            udp_sock_speed_limit: Default::default(),
+            end_on_control_closed: false,
         })
+    }
+
+    pub(crate) fn transmute_udp_peer_addr(
+        &self,
+        returned_addr: SocketAddr,
+        tcp_peer_ip: IpAddr,
+    ) -> SocketAddr {
+        if let Some(map) = &self.transmute_udp_peer_ip {
+            let ip = map.get(&returned_addr.ip()).copied().unwrap_or(tcp_peer_ip);
+            SocketAddr::new(ip, returned_addr.port())
+        } else if returned_addr.ip().is_unspecified() {
+            SocketAddr::new(tcp_peer_ip, returned_addr.port())
+        } else {
+            returned_addr
+        }
     }
 }
 
-impl NextProxyPeerInternal for ProxyFloatHttpsPeer {
+impl NextProxyPeerInternal for ProxyFloatSocks5sPeer {
     fn egress_info_mut(&mut self) -> &mut EgressInfo {
         &mut self.egress_info
     }
@@ -99,23 +124,33 @@ impl NextProxyPeerInternal for ProxyFloatHttpsPeer {
                     .context(format!("invalid tls server name value for key {k}"))?;
                 Ok(())
             }
-            "http_connect_rsp_header_max_size" => {
-                self.http_connect_rsp_hdr_max_size = g3_json::humanize::as_usize(v)?;
+            "transmute_udp_peer_ip" => {
+                if let Value::Object(_) = v {
+                    let map = g3_json::value::as_hashmap(
+                        v,
+                        |k| {
+                            IpAddr::from_str(k)
+                                .map_err(|e| anyhow!("the key {k} is not a valid ip address: {e}"))
+                        },
+                        g3_json::value::as_ipaddr,
+                    )
+                    .context(format!("invalid IP:IP hashmap value for key {k}"))?;
+                    self.transmute_udp_peer_ip = Some(map.into_iter().collect::<AHashMap<_, _>>());
+                } else {
+                    let enable = g3_json::value::as_bool(v)?;
+                    if enable {
+                        self.transmute_udp_peer_ip = Some(AHashMap::default());
+                    }
+                }
                 Ok(())
             }
-            "extra_append_headers" => {
-                if let Value::Object(map) = v {
-                    let shared_config = Arc::make_mut(&mut self.shared_config);
-                    for (name, value) in map {
-                        let value = g3_json::value::as_ascii(value).context(format!(
-                            "invalid ascii string value for extra header {name}"
-                        ))?;
-                        shared_config.set_header(name, value.as_str());
-                    }
-                    Ok(())
-                } else {
-                    Err(anyhow!("invalid map value for key {k}"))
-                }
+            "udp_sock_speed_limit" => {
+                self.udp_sock_speed_limit = g3_json::value::as_udp_sock_speed_limit(v)?;
+                Ok(())
+            }
+            "end_on_control_closed" => {
+                self.end_on_control_closed = g3_json::value::as_bool(v)?;
+                Ok(())
             }
             _ => Ok(()),
         }
@@ -125,9 +160,6 @@ impl NextProxyPeerInternal for ProxyFloatHttpsPeer {
         let shared_config = Arc::make_mut(&mut self.shared_config);
         if !self.username.is_empty() {
             shared_config.set_user(&self.username, &self.password);
-        }
-        if self.tls_name.is_empty() {
-            self.tls_name = Host::Ip(self.addr.ip());
         }
         Ok(())
     }
@@ -139,7 +171,7 @@ impl NextProxyPeerInternal for ProxyFloatHttpsPeer {
 }
 
 #[async_trait]
-impl NextProxyPeer for ProxyFloatHttpsPeer {
+impl NextProxyPeer for ProxyFloatSocks5sPeer {
     #[inline]
     fn peer_addr(&self) -> SocketAddr {
         self.addr
@@ -167,7 +199,7 @@ impl NextProxyPeer for ProxyFloatHttpsPeer {
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
-        self.http_connect_new_tcp_connection(escaper, tcp_notes, task_notes, task_stats)
+        self.socks5_new_tcp_connection(escaper, tcp_notes, task_notes, task_stats)
             .await
     }
 
@@ -180,7 +212,7 @@ impl NextProxyPeer for ProxyFloatHttpsPeer {
         tls_config: &OpensslClientConfig,
         tls_name: &Host,
     ) -> TcpConnectResult {
-        self.http_connect_new_tls_connection(
+        self.socks5_new_tls_connection(
             escaper, tcp_notes, task_notes, task_stats, tls_config, tls_name,
         )
         .await
@@ -214,21 +246,23 @@ impl NextProxyPeer for ProxyFloatHttpsPeer {
 
     async fn udp_setup_connection(
         &self,
-        _escaper: &ProxyFloatEscaper,
-        _udp_notes: &mut UdpConnectTaskNotes,
-        _task_notes: &ServerTaskNotes,
-        _task_stats: ArcUdpConnectTaskRemoteStats,
+        escaper: &ProxyFloatEscaper,
+        udp_notes: &mut UdpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
+        task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
-        Err(UdpConnectError::MethodUnavailable)
+        self.udp_connect_to(escaper, udp_notes, task_notes, task_stats)
+            .await
     }
 
     async fn udp_setup_relay(
         &self,
-        _escaper: &ProxyFloatEscaper,
-        _udp_notes: &mut UdpRelayTaskNotes,
-        _task_notes: &ServerTaskNotes,
-        _task_stats: ArcUdpRelayTaskRemoteStats,
+        escaper: &ProxyFloatEscaper,
+        udp_notes: &mut UdpRelayTaskNotes,
+        task_notes: &ServerTaskNotes,
+        task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
-        Err(UdpRelaySetupError::MethodUnavailable)
+        self.udp_setup_relay(escaper, udp_notes, task_notes, task_stats)
+            .await
     }
 }

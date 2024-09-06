@@ -19,8 +19,8 @@ use std::sync::Arc;
 use g3_io_ext::{AsyncStream, LimitedBufReader, LimitedWriter, NilLimitedReaderStats};
 use g3_types::net::{Host, OpensslClientConfig};
 
-use super::{ProxyFloatEscaper, ProxyFloatHttpsPeer};
-use crate::escape::proxy_float::peer::http::HttpPeerHttpForwardReader;
+use super::{ProxyFloatEscaper, ProxyFloatSocks5PeerSharedConfig, ProxyFloatSocks5sPeer};
+use crate::escape::direct_fixed::http_forward::DirectHttpForwardReader;
 use crate::log::escape::tls_handshake::TlsApplication;
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpForwardTaskRemoteWrapperStats,
@@ -29,9 +29,9 @@ use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
 use crate::serve::ServerTaskNotes;
 
 mod writer;
-use writer::{HttpsPeerHttpForwardWriter, HttpsPeerHttpRequestWriter};
+use writer::Socks5sPeerHttpForwardWriter;
 
-impl ProxyFloatHttpsPeer {
+impl ProxyFloatSocks5sPeer {
     pub(super) async fn http_forward_new_connection(
         &self,
         escaper: &ProxyFloatEscaper,
@@ -39,8 +39,8 @@ impl ProxyFloatHttpsPeer {
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
-        let tls_stream = escaper
-            .tls_handshake_with_peer(tcp_notes, task_notes, &self.tls_name, self)
+        let tls_stream = self
+            .timed_socks5_connect_tcp_connect_to(escaper, tcp_notes, task_notes)
             .await?;
         let (ups_r, ups_w) = tls_stream.into_split();
 
@@ -56,9 +56,8 @@ impl ProxyFloatHttpsPeer {
         );
         let ups_w = LimitedWriter::new(ups_w, wrapper_stats);
 
-        let writer =
-            HttpsPeerHttpForwardWriter::new(ups_w, &self.shared_config, tcp_notes.upstream.clone());
-        let reader = HttpPeerHttpForwardReader::new(ups_r);
+        let writer = Socks5sPeerHttpForwardWriter::new(ups_w, &self.shared_config);
+        let reader = DirectHttpForwardReader::new(ups_r);
         Ok((Box::new(writer), Box::new(reader)))
     }
 
@@ -72,7 +71,7 @@ impl ProxyFloatHttpsPeer {
         tls_name: &Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         let tls_stream = self
-            .http_connect_tls_connect_to(
+            .socks5_connect_tls_connect_to(
                 escaper,
                 tcp_notes,
                 task_notes,
@@ -96,8 +95,8 @@ impl ProxyFloatHttpsPeer {
         );
         let ups_w = LimitedWriter::new(ups_w, wrapper_stats);
 
-        let writer = HttpsPeerHttpRequestWriter::new(ups_w, &self.shared_config);
-        let reader = HttpPeerHttpForwardReader::new(ups_r);
+        let writer = Socks5sPeerHttpForwardWriter::new(ups_w, &self.shared_config);
+        let reader = DirectHttpForwardReader::new(ups_r);
         Ok((Box::new(writer), Box::new(reader)))
     }
 }

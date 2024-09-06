@@ -19,9 +19,8 @@ use std::pin::Pin;
 use std::task::{ready, Context, Poll};
 
 use tokio::io::{AsyncRead, ReadBuf};
-use tokio::net::TcpStream;
 
-use g3_io_ext::{AsyncUdpRecv, LimitedStream, UdpCopyRemoteError, UdpCopyRemoteRecv};
+use g3_io_ext::{AsyncUdpRecv, UdpCopyRemoteError, UdpCopyRemoteRecv};
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -32,22 +31,19 @@ use g3_io_ext::{AsyncUdpRecv, LimitedStream, UdpCopyRemoteError, UdpCopyRemoteRe
 use g3_io_ext::{RecvMsgHdr, UdpCopyPacket, UdpCopyPacketMeta};
 use g3_socks::v5::UdpInput;
 
-pub(crate) struct ProxySocks5UdpConnectRemoteRecv<T> {
+pub(crate) struct ProxySocks5UdpConnectRemoteRecv<T, C> {
     inner: T,
-    ctl_stream: LimitedStream<TcpStream>,
+    ctl_stream: C,
     end_on_control_closed: bool,
     ignore_ctl_stream: bool,
 }
 
-impl<T> ProxySocks5UdpConnectRemoteRecv<T>
+impl<T, C> ProxySocks5UdpConnectRemoteRecv<T, C>
 where
     T: AsyncUdpRecv,
+    C: AsyncRead + Unpin,
 {
-    pub(crate) fn new(
-        recv: T,
-        ctl_stream: LimitedStream<TcpStream>,
-        end_on_control_closed: bool,
-    ) -> Self {
+    pub(crate) fn new(recv: T, ctl_stream: C, end_on_control_closed: bool) -> Self {
         ProxySocks5UdpConnectRemoteRecv {
             inner: recv,
             ctl_stream,
@@ -82,9 +78,10 @@ where
     }
 }
 
-impl<T> UdpCopyRemoteRecv for ProxySocks5UdpConnectRemoteRecv<T>
+impl<T, C> UdpCopyRemoteRecv for ProxySocks5UdpConnectRemoteRecv<T, C>
 where
     T: AsyncUdpRecv,
+    C: AsyncRead + Unpin,
 {
     fn max_hdr_len(&self) -> usize {
         256 + 4 + 2

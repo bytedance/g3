@@ -59,6 +59,7 @@ mod source;
 
 mod tcp_connect;
 mod tls_connect;
+mod tls_handshake;
 
 pub(super) struct ProxyFloatEscaper {
     config: Arc<ProxyFloatEscaperConfig>,

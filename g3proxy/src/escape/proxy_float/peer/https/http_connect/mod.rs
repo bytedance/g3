@@ -38,8 +38,8 @@ impl ProxyFloatHttpsPeer {
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<FlexBufReader<SslStream<impl AsyncRead + AsyncWrite>>, TcpConnectError> {
-        let mut stream = self
-            .tls_handshake_with(escaper, tcp_notes, task_notes)
+        let mut stream = escaper
+            .tls_handshake_with_peer(tcp_notes, task_notes, &self.tls_name, self)
             .await?;
 
         let req =
