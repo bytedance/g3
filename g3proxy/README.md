@@ -126,13 +126,13 @@ The common features are:
     * Basic User Authentication
     * mTLS
 
-- Socks5 Proxy
+- Socks5(s) Proxy
     * TCP Connect | TLS Connect | HTTP(s) Forward | UDP Associate
     * Load Balance: RR / Random / Rendezvous / Jump Hash
     * Basic User Authentication
 
 - ProxyFloat
-    * Dynamic Proxy: Http Proxy | Https Proxy | Socks5 Proxy
+    * Dynamic Proxy: Http Proxy | Https Proxy | Socks5(s) Proxy
     * Json based Egress Path Selection
 
 #### Router Escapers
