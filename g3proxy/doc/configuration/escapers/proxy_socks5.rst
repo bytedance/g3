@@ -96,7 +96,7 @@ The tcp keepalive set in user config won't be taken into account.
 transmute_udp_peer_ip
 ---------------------
 
-**optional**, **type**: bool or map
+**optional**, **type**: map | bool
 
 Set this option if the UDP peer IP returned from the remote proxy should be transmuted.
 

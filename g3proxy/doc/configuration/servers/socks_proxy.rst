@@ -124,12 +124,16 @@ Set the buffer config for the udp socket.
 transmute_udp_echo_ip
 ---------------------
 
-**optional**, **type**: map
+**optional**, **type**: map | bool
 
 Set this if you want to reply another ip other then the real bind ip for the udp listen socket to the client.
 
 The key of the map should be the local ip, and the value should be the ip you want the client to use.
+If no matched key found in the map, the unspecified ip address of the same family will be used.
+
+For bool value, an empty map will be used if set to true, or disabled if set to false.
 
 **default**: not set, **alias**: auto_reply_local_ip_map
 
 .. versionchanged:: 1.7.19 change option name to transmute_udp_echo_ip
+.. versionchanged:: 1.9.9 allow bool value and change to use unspecified ip if no match records

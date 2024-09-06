@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::net::{IpAddr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -296,12 +296,19 @@ impl SocksProxyServerConfig {
                 Ok(())
             }
             "transmute_udp_echo_ip" | "auto_reply_local_ip_map" => {
-                let map = g3_yaml::value::as_hashmap(
-                    v,
-                    g3_yaml::value::as_ipaddr,
-                    g3_yaml::value::as_ipaddr,
-                )?;
-                self.transmute_udp_echo_ip = Some(map.into_iter().collect::<AHashMap<_, _>>());
+                if let Yaml::Hash(_) = v {
+                    let map = g3_yaml::value::as_hashmap(
+                        v,
+                        g3_yaml::value::as_ipaddr,
+                        g3_yaml::value::as_ipaddr,
+                    )?;
+                    self.transmute_udp_echo_ip = Some(map.into_iter().collect::<AHashMap<_, _>>());
+                } else {
+                    let enable = g3_yaml::value::as_bool(v)?;
+                    if enable {
+                        self.transmute_udp_echo_ip = Some(AHashMap::default());
+                    }
+                }
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
@@ -324,9 +331,15 @@ impl SocksProxyServerConfig {
 
     pub(crate) fn transmute_udp_echo_addr(&self, local_addr: SocketAddr) -> SocketAddr {
         if let Some(map) = &self.transmute_udp_echo_ip {
-            if let Some(ip) = map.get(&local_addr.ip()) {
-                return SocketAddr::new(*ip, local_addr.port());
-            }
+            let ip = if let Some(ip) = map.get(&local_addr.ip()) {
+                *ip
+            } else {
+                match local_addr.ip() {
+                    IpAddr::V4(_) => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+                    IpAddr::V6(_) => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
+                }
+            };
+            return SocketAddr::new(ip, local_addr.port());
         }
         local_addr
     }
