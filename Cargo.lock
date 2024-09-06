@@ -396,9 +396,9 @@ checksum = "79296716171880943b8470b5f8d03aa55eb2e645a4874bdbb28adb49162e012c"
 
 [[package]]
 name = "bytemuck"
-version = "1.17.1"
+version = "1.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "773d90827bc3feecfb67fab12e24de0749aad83c74b9504ecde46237b5cd24e2"
+checksum = "94bbb0ad554ad961ddc5da507a12a29b14e4ae5bda06b19f575a3e6079d2e2ae"
 
 [[package]]
 name = "byteorder"
@@ -582,9 +582,9 @@ dependencies = [
 
 [[package]]
 name = "clap_complete"
-version = "4.5.25"
+version = "4.5.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18d7f143a7e709cbe6c34853dcd3bb1370c7e1bb4d9e7310ca8cb40b490ae035"
+checksum = "205d5ef6d485fa47606b98b0ddc4ead26eb850aaa86abfb562a94fb3280ecba0"
 dependencies = [
  "clap",
 ]
@@ -3295,9 +3295,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.38.35"
+version = "0.38.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a85d50532239da68e9addb745ba38ff4612a242c1c7ceea689c4bc7c2f43c36f"
+checksum = "3f55e80d50763938498dd5ebb18647174e0c76dc38c5505294bb224624f30f36"
 dependencies = [
  "bitflags",
  "errno",
