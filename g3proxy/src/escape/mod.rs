@@ -63,6 +63,7 @@ mod proxy_float;
 mod proxy_http;
 mod proxy_https;
 mod proxy_socks5;
+mod proxy_socks5s;
 mod route_client;
 mod route_failover;
 mod route_geoip;

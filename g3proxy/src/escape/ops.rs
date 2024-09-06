@@ -36,6 +36,7 @@ use super::proxy_float::ProxyFloatEscaper;
 use super::proxy_http::ProxyHttpEscaper;
 use super::proxy_https::ProxyHttpsEscaper;
 use super::proxy_socks5::ProxySocks5Escaper;
+use super::proxy_socks5s::ProxySocks5sEscaper;
 use super::route_client::RouteClientEscaper;
 use super::route_failover::RouteFailoverEscaper;
 use super::route_geoip::RouteGeoIpEscaper;
@@ -238,6 +239,7 @@ async fn spawn_new_unlocked(config: AnyEscaperConfig) -> anyhow::Result<()> {
         AnyEscaperConfig::ProxyHttp(c) => ProxyHttpEscaper::prepare_initial(*c)?,
         AnyEscaperConfig::ProxyHttps(c) => ProxyHttpsEscaper::prepare_initial(*c)?,
         AnyEscaperConfig::ProxySocks5(c) => ProxySocks5Escaper::prepare_initial(c)?,
+        AnyEscaperConfig::ProxySocks5s(c) => ProxySocks5sEscaper::prepare_initial(c)?,
         AnyEscaperConfig::RouteFailover(c) => RouteFailoverEscaper::prepare_initial(c)?,
         AnyEscaperConfig::RouteResolved(c) => RouteResolvedEscaper::prepare_initial(c)?,
         AnyEscaperConfig::RouteGeoIp(c) => RouteGeoIpEscaper::prepare_initial(c)?,

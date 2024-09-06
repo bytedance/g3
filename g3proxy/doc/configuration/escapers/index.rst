@@ -25,6 +25,7 @@ Escapers
    proxy_http
    proxy_https
    proxy_socks5
+   proxy_socks5s
    route_mapping
    route_query
    route_resolved

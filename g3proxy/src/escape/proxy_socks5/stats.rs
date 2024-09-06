@@ -30,17 +30,17 @@ use crate::module::http_forward::HttpForwardTaskRemoteStats;
 use crate::module::udp_connect::UdpConnectTaskRemoteStats;
 use crate::module::udp_relay::UdpRelayTaskRemoteStats;
 
-pub(super) struct ProxySocks5EscaperStats {
+pub(crate) struct ProxySocks5EscaperStats {
     name: MetricsName,
     id: StatId,
     extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
-    pub(super) interface: EscaperInterfaceStats,
-    pub(super) udp: EscaperUdpStats,
-    pub(super) tcp: EscaperTcpStats,
+    pub(crate) interface: EscaperInterfaceStats,
+    pub(crate) udp: EscaperUdpStats,
+    pub(crate) tcp: EscaperTcpStats,
 }
 
 impl ProxySocks5EscaperStats {
-    pub(super) fn new(name: &MetricsName) -> Self {
+    pub(crate) fn new(name: &MetricsName) -> Self {
         ProxySocks5EscaperStats {
             name: name.clone(),
             id: StatId::new(),
@@ -51,7 +51,7 @@ impl ProxySocks5EscaperStats {
         }
     }
 
-    pub(super) fn set_extra_tags(&self, tags: Option<Arc<StaticMetricsTags>>) {
+    pub(crate) fn set_extra_tags(&self, tags: Option<Arc<StaticMetricsTags>>) {
         self.extra_metrics_tags.store(tags);
     }
 }

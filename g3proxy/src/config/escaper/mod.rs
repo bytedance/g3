@@ -36,6 +36,7 @@ pub(crate) mod proxy_float;
 pub(crate) mod proxy_http;
 pub(crate) mod proxy_https;
 pub(crate) mod proxy_socks5;
+pub(crate) mod proxy_socks5s;
 pub(crate) mod route_client;
 pub(crate) mod route_failover;
 pub(crate) mod route_geoip;
@@ -103,6 +104,7 @@ pub(crate) enum AnyEscaperConfig {
     ProxyHttp(Box<proxy_http::ProxyHttpEscaperConfig>),
     ProxyHttps(Box<proxy_https::ProxyHttpsEscaperConfig>),
     ProxySocks5(proxy_socks5::ProxySocks5EscaperConfig),
+    ProxySocks5s(proxy_socks5s::ProxySocks5sEscaperConfig),
     RouteFailover(route_failover::RouteFailoverEscaperConfig),
     RouteResolved(route_resolved::RouteResolvedEscaperConfig),
     RouteGeoIp(route_geoip::RouteGeoIpEscaperConfig),
@@ -126,6 +128,7 @@ macro_rules! impl_transparent0 {
                 AnyEscaperConfig::ProxyHttp(s) => s.$f(),
                 AnyEscaperConfig::ProxyHttps(s) => s.$f(),
                 AnyEscaperConfig::ProxySocks5(s) => s.$f(),
+                AnyEscaperConfig::ProxySocks5s(s) => s.$f(),
                 AnyEscaperConfig::RouteFailover(s) => s.$f(),
                 AnyEscaperConfig::RouteResolved(s) => s.$f(),
                 AnyEscaperConfig::RouteGeoIp(s) => s.$f(),
@@ -152,6 +155,7 @@ macro_rules! impl_transparent1 {
                 AnyEscaperConfig::ProxyHttp(s) => s.$f(p),
                 AnyEscaperConfig::ProxyHttps(s) => s.$f(p),
                 AnyEscaperConfig::ProxySocks5(s) => s.$f(p),
+                AnyEscaperConfig::ProxySocks5s(s) => s.$f(p),
                 AnyEscaperConfig::RouteFailover(s) => s.$f(p),
                 AnyEscaperConfig::RouteResolved(s) => s.$f(p),
                 AnyEscaperConfig::RouteGeoIp(s) => s.$f(p),
@@ -247,6 +251,10 @@ fn load_escaper(
         "proxy_socks5" | "proxysocks5" => {
             let config = proxy_socks5::ProxySocks5EscaperConfig::parse(map, position)?;
             Ok(AnyEscaperConfig::ProxySocks5(config))
+        }
+        "proxy_socks5s" | "proxysocks5s" => {
+            let config = proxy_socks5s::ProxySocks5sEscaperConfig::parse(map, position)?;
+            Ok(AnyEscaperConfig::ProxySocks5s(config))
         }
         "proxy_float" | "proxyfloat" | "proxy_dynamic" | "proxydynamic" => {
             let config = proxy_float::ProxyFloatEscaperConfig::parse(map, position)?;

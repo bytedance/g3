@@ -17,7 +17,7 @@
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use slog::Logger;
 
@@ -32,8 +32,9 @@ use super::{
     EscaperStats,
 };
 use crate::auth::UserUpstreamTrafficStats;
-use crate::config::escaper::proxy_socks5::ProxySocks5EscaperConfig;
+use crate::config::escaper::proxy_socks5s::ProxySocks5sEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
+use crate::escape::proxy_socks5::ProxySocks5EscaperStats;
 use crate::module::ftp_over_http::{
     AnyFtpConnectContextParam, ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats,
     BoxFtpConnectContext, BoxFtpRemoteConnection, DirectFtpConnectContext,
@@ -53,26 +54,25 @@ use crate::module::udp_relay::{
 use crate::resolve::{ArcIntegratedResolverHandle, HappyEyeballsResolveJob};
 use crate::serve::ServerTaskNotes;
 
-mod stats;
-pub(crate) use stats::ProxySocks5EscaperStats;
-
 mod http_forward;
 mod socks5_connect;
 mod tcp_connect;
-pub(crate) mod udp_connect;
-pub(crate) mod udp_relay;
+mod tls_handshake;
+mod udp_connect;
+mod udp_relay;
 
-pub(super) struct ProxySocks5Escaper {
-    config: Arc<ProxySocks5EscaperConfig>,
+pub(super) struct ProxySocks5sEscaper {
+    config: Arc<ProxySocks5sEscaperConfig>,
     stats: Arc<ProxySocks5EscaperStats>,
     proxy_nodes: SelectiveVec<WeightedUpstreamAddr>,
+    tls_config: OpensslClientConfig,
     resolver_handle: Option<ArcIntegratedResolverHandle>,
     escape_logger: Logger,
 }
 
-impl ProxySocks5Escaper {
+impl ProxySocks5sEscaper {
     fn new_obj(
-        config: ProxySocks5EscaperConfig,
+        config: ProxySocks5sEscaperConfig,
         stats: Arc<ProxySocks5EscaperStats>,
     ) -> anyhow::Result<ArcEscaper> {
         let mut nodes_builder = SelectiveVecBuilder::new();
@@ -82,6 +82,11 @@ impl ProxySocks5Escaper {
         let proxy_nodes = nodes_builder
             .build()
             .ok_or_else(|| anyhow!("no next proxy node set"))?;
+
+        let tls_config = config
+            .tls_config
+            .build()
+            .context("failed to build tls config")?;
 
         let escape_logger = config.get_escape_logger();
 
@@ -94,10 +99,11 @@ impl ProxySocks5Escaper {
 
         stats.set_extra_tags(config.extra_metrics_tags.clone());
 
-        let escaper = ProxySocks5Escaper {
+        let escaper = ProxySocks5sEscaper {
             config: Arc::new(config),
             stats,
             proxy_nodes,
+            tls_config,
             resolver_handle,
             escape_logger,
         };
@@ -105,17 +111,17 @@ impl ProxySocks5Escaper {
         Ok(Arc::new(escaper))
     }
 
-    pub(super) fn prepare_initial(config: ProxySocks5EscaperConfig) -> anyhow::Result<ArcEscaper> {
+    pub(super) fn prepare_initial(config: ProxySocks5sEscaperConfig) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::new(ProxySocks5EscaperStats::new(config.name()));
-        ProxySocks5Escaper::new_obj(config, stats)
+        ProxySocks5sEscaper::new_obj(config, stats)
     }
 
     fn prepare_reload(
         config: AnyEscaperConfig,
         stats: Arc<ProxySocks5EscaperStats>,
     ) -> anyhow::Result<ArcEscaper> {
-        if let AnyEscaperConfig::ProxySocks5(config) = config {
-            ProxySocks5Escaper::new_obj(config, stats)
+        if let AnyEscaperConfig::ProxySocks5s(config) = config {
+            ProxySocks5sEscaper::new_obj(config, stats)
         } else {
             Err(anyhow!("invalid escaper config type"))
         }
@@ -154,10 +160,10 @@ impl ProxySocks5Escaper {
     }
 }
 
-impl EscaperExt for ProxySocks5Escaper {}
+impl EscaperExt for ProxySocks5sEscaper {}
 
 #[async_trait]
-impl Escaper for ProxySocks5Escaper {
+impl Escaper for ProxySocks5sEscaper {
     fn name(&self) -> &MetricsName {
         self.config.name()
     }
@@ -242,7 +248,7 @@ impl Escaper for ProxySocks5Escaper {
 }
 
 #[async_trait]
-impl EscaperInternal for ProxySocks5Escaper {
+impl EscaperInternal for ProxySocks5sEscaper {
     fn _resolver(&self) -> &MetricsName {
         self.config.resolver()
     }
@@ -253,7 +259,7 @@ impl EscaperInternal for ProxySocks5Escaper {
 
     fn _clone_config(&self) -> AnyEscaperConfig {
         let config = &*self.config;
-        AnyEscaperConfig::ProxySocks5(config.clone())
+        AnyEscaperConfig::ProxySocks5s(config.clone())
     }
 
     fn _update_config_in_place(
@@ -266,7 +272,7 @@ impl EscaperInternal for ProxySocks5Escaper {
 
     async fn _lock_safe_reload(&self, config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::clone(&self.stats);
-        ProxySocks5Escaper::prepare_reload(config, stats)
+        ProxySocks5sEscaper::prepare_reload(config, stats)
     }
 
     async fn _new_http_forward_connection<'a>(
