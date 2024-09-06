@@ -23,12 +23,14 @@ use async_trait::async_trait;
 #[cfg(feature = "quic")]
 use quinn::Connection;
 use slog::Logger;
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 use tokio_rustls::server::TlsStream;
 
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
+use g3_io_ext::AsyncStream;
 use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::acl_set::AclDstHostRuleSet;
@@ -150,7 +152,18 @@ impl SocksProxyServer {
         false
     }
 
-    async fn run_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
+    async fn run_task<S>(&self, stream: S, cc_info: ClientConnectionInfo)
+    where
+        S: AsyncStream,
+        S::R: AsyncRead + Send + Sync + Unpin + 'static,
+        S::W: AsyncWrite + Send + Sync + Unpin + 'static,
+    {
+        let client_addr = cc_info.client_addr();
+        self.server_stats.add_conn(client_addr);
+        if self.drop_early(client_addr) {
+            return;
+        }
+
         let ctx = CommonTaskContext {
             server_config: Arc::clone(&self.config),
             server_stats: Arc::clone(&self.server_stats),
@@ -255,12 +268,6 @@ impl BaseServer for SocksProxyServer {
 #[async_trait]
 impl AcceptTcpServer for SocksProxyServer {
     async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
-        let client_addr = cc_info.client_addr();
-        self.server_stats.add_conn(client_addr);
-        if self.drop_early(client_addr) {
-            return;
-        }
-
         self.run_task(stream, cc_info).await
     }
 }
@@ -302,13 +309,11 @@ impl Server for SocksProxyServer {
         &self.quit_policy
     }
 
-    async fn run_rustls_task(&self, _stream: TlsStream<TcpStream>, cc_info: ClientConnectionInfo) {
-        self.server_stats.add_conn(cc_info.client_addr());
-        self.listen_stats.add_dropped();
+    async fn run_rustls_task(&self, stream: TlsStream<TcpStream>, cc_info: ClientConnectionInfo) {
+        self.run_task(stream, cc_info).await
     }
 
-    async fn run_openssl_task(&self, _stream: SslStream<TcpStream>, cc_info: ClientConnectionInfo) {
-        self.server_stats.add_conn(cc_info.client_addr());
-        self.listen_stats.add_dropped();
+    async fn run_openssl_task(&self, stream: SslStream<TcpStream>, cc_info: ClientConnectionInfo) {
+        self.run_task(stream, cc_info).await
     }
 }

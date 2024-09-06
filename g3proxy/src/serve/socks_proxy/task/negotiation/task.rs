@@ -18,10 +18,9 @@ use std::sync::Arc;
 
 use log::debug;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, BufReader};
-use tokio::net::TcpStream;
 use tokio::time::Instant;
 
-use g3_io_ext::{LimitedReader, LimitedWriter};
+use g3_io_ext::{AsyncStream, LimitedReader, LimitedWriter};
 use g3_socks::{v4a, v5, SocksAuthMethod, SocksCommand, SocksVersion};
 
 use super::tcp_connect::SocksProxyTcpConnectTask;
@@ -49,7 +48,12 @@ impl SocksProxyNegotiationTask {
         }
     }
 
-    pub(crate) async fn into_running(self, stream: TcpStream) {
+    pub(crate) async fn into_running<S>(self, stream: S)
+    where
+        S: AsyncStream,
+        S::R: AsyncRead + Send + Sync + Unpin + 'static,
+        S::W: AsyncWrite + Send + Sync + Unpin + 'static,
+    {
         self.pre_start();
 
         let (clt_r_stats, clt_w_stats) =
