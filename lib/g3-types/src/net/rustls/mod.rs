@@ -27,9 +27,6 @@ pub use server::{RustlsServerConfig, RustlsServerConfigBuilder};
 mod cache;
 use cache::RustlsServerSessionCache;
 
-mod ticket_key;
-pub use ticket_key::RustlsTicketKey;
-
 mod ticketer;
 use ticketer::RustlsNoSessionTicketer;
 

@@ -1600,7 +1600,6 @@ dependencies = [
  "radix_trie",
  "rand",
  "regex",
- "ring",
  "rustc-hash 2.0.0",
  "rustls",
  "rustls-native-certs",
