@@ -28,6 +28,11 @@ use crate::net::{
     TICKET_KEY_NAME_LENGTH,
 };
 
+#[cfg(feature = "rustls")]
+const SHA256_DIGEST_LENGTH: usize = 32;
+#[cfg(feature = "rustls")]
+const AES_BLOCK_SIZE: usize = 16;
+
 pub struct OpensslTicketKey {
     name: TicketKeyName,
     lifetime: u32,
@@ -67,6 +72,18 @@ impl OpensslTicketKey {
         })
     }
 
+    fn do_encrypt_init(
+        &self,
+        iv: &mut [u8],
+        cipher_ctx: &mut CipherCtxRef,
+        hmac_ctx: &mut HMacCtxRef,
+    ) -> Result<(), ErrorStack> {
+        rand::rand_bytes(iv)?;
+        cipher_ctx.encrypt_init(Some(Cipher::aes_256_cbc()), Some(&self.aes_key), Some(iv))?;
+        hmac_ctx.init_ex(Some(&self.hmac_key), Md::sha256())?;
+        Ok(())
+    }
+
     pub(super) fn encrypt_init(
         &self,
         key_name: &mut [u8],
@@ -78,11 +95,8 @@ impl OpensslTicketKey {
             return Ok(TicketKeyStatus::FAILED);
         }
         key_name.copy_from_slice(self.name.as_ref());
-        rand::rand_bytes(iv)?;
 
-        cipher_ctx.encrypt_init(Some(Cipher::aes_256_cbc()), Some(&self.aes_key), Some(iv))?;
-        hmac_ctx.init_ex(Some(&self.hmac_key), Md::sha256())?;
-
+        self.do_encrypt_init(iv, cipher_ctx, hmac_ctx)?;
         Ok(TicketKeyStatus::SUCCESS)
     }
 
@@ -95,6 +109,83 @@ impl OpensslTicketKey {
         hmac_ctx.init_ex(Some(&self.hmac_key), Md::sha256())?;
         cipher_ctx.decrypt_init(Some(Cipher::aes_256_cbc()), Some(&self.aes_key), Some(iv))?;
         Ok(())
+    }
+
+    /// Encrypt `message` and return the ciphertext.
+    #[cfg(feature = "rustls")]
+    pub(super) fn encrypt(&self, message: &[u8]) -> Option<Vec<u8>> {
+        use crate::net::TICKET_AES_IV_LENGTH;
+        use openssl::cipher_ctx::CipherCtx;
+        use openssl::hmac::HMacCtx;
+
+        let mut cipher_ctx = CipherCtx::new().ok()?;
+        let mut hmac_ctx = HMacCtx::new().ok()?;
+
+        let mut output = vec![0u8; TICKET_KEY_NAME_LENGTH + TICKET_AES_IV_LENGTH];
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                self.name.as_ref().as_ptr(),
+                output.as_mut_ptr(),
+                TICKET_KEY_NAME_LENGTH,
+            )
+        };
+
+        let mut offset = TICKET_KEY_NAME_LENGTH;
+        self.do_encrypt_init(
+            &mut output[offset..offset + TICKET_AES_IV_LENGTH],
+            &mut cipher_ctx,
+            &mut hmac_ctx,
+        )
+        .ok()?;
+
+        offset += TICKET_AES_IV_LENGTH;
+        output.reserve(message.len() + AES_BLOCK_SIZE + SHA256_DIGEST_LENGTH);
+
+        cipher_ctx.cipher_update_vec(message, &mut output).ok()?;
+
+        hmac_ctx.hmac_update(&output[0..offset]).ok()?;
+        let encrypted_len = (output.len() - offset).to_be_bytes();
+        hmac_ctx.hmac_update(&encrypted_len).ok()?;
+        hmac_ctx.hmac_update(&output[offset..]).ok()?;
+        hmac_ctx.hmac_final_to_vec(&mut output).ok()?;
+
+        Some(output)
+    }
+
+    /// Decrypt `ciphertext` and recover the original message.
+    #[cfg(feature = "rustls")]
+    pub(super) fn decrypt(&self, ciphertext: &[u8]) -> Option<Vec<u8>> {
+        use crate::net::TICKET_AES_IV_LENGTH;
+        use openssl::cipher_ctx::CipherCtx;
+        use openssl::hmac::HMacCtx;
+
+        let (key_name, ciphertext) = ciphertext.split_at_checked(TICKET_KEY_NAME_LENGTH)?;
+        let (iv, ciphertext) = ciphertext.split_at_checked(TICKET_AES_IV_LENGTH)?;
+
+        let mut cipher_ctx = CipherCtx::new().ok()?;
+        let mut hmac_ctx = HMacCtx::new().ok()?;
+
+        self.decrypt_init(iv, &mut cipher_ctx, &mut hmac_ctx).ok()?;
+
+        let (encrypted, hmac_tag) =
+            ciphertext.split_at_checked(ciphertext.len() - SHA256_DIGEST_LENGTH)?;
+
+        hmac_ctx.hmac_update(key_name).ok()?;
+        hmac_ctx.hmac_update(iv).ok()?;
+        let encrypted_len = encrypted.len().to_be_bytes();
+        hmac_ctx.hmac_update(&encrypted_len).ok()?;
+        hmac_ctx.hmac_update(encrypted).ok()?;
+
+        let mut new_tag = [0u8; SHA256_DIGEST_LENGTH];
+        hmac_ctx.hmac_final(Some(&mut new_tag)).ok()?;
+        if hmac_tag != new_tag {
+            return None;
+        }
+
+        let mut message = Vec::new();
+        cipher_ctx.cipher_update_vec(encrypted, &mut message).ok()?;
+
+        Some(message)
     }
 }
 

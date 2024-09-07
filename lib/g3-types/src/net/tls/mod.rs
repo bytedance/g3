@@ -31,7 +31,8 @@ pub use ticket_name::{TicketKeyName, TICKET_KEY_NAME_LENGTH};
 
 mod ticketer;
 pub use ticketer::{
-    RollingTicketKey, RollingTicketer, TICKET_AES_KEY_LENGTH, TICKET_HMAC_KEY_LENGTH,
+    RollingTicketKey, RollingTicketer, TICKET_AES_IV_LENGTH, TICKET_AES_KEY_LENGTH,
+    TICKET_HMAC_KEY_LENGTH,
 };
 
 mod version;

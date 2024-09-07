@@ -14,10 +14,15 @@
  * limitations under the License.
  */
 
+#[cfg(feature = "rustls")]
+use std::fmt;
+
 use openssl::cipher_ctx::CipherCtxRef;
 use openssl::error::ErrorStack;
 use openssl::hmac::HMacCtxRef;
 use openssl::ssl::TicketKeyStatus;
+#[cfg(feature = "rustls")]
+use rustls::server::ProducesTickets;
 
 use super::OpensslTicketKey;
 use crate::net::{RollingTicketKey, RollingTicketer};
@@ -53,5 +58,32 @@ impl RollingTicketer<OpensslTicketKey> {
         } else {
             Ok(TicketKeyStatus::SUCCESS_AND_RENEW)
         }
+    }
+}
+
+#[cfg(feature = "rustls")]
+impl ProducesTickets for RollingTicketer<OpensslTicketKey> {
+    fn enabled(&self) -> bool {
+        true
+    }
+
+    fn lifetime(&self) -> u32 {
+        self.enc_key.load().lifetime()
+    }
+
+    fn encrypt(&self, plain: &[u8]) -> Option<Vec<u8>> {
+        self.enc_key.load().encrypt(plain)
+    }
+
+    fn decrypt(&self, cipher: &[u8]) -> Option<Vec<u8>> {
+        self.get_decrypt_key(cipher)
+            .and_then(|key| key.decrypt(cipher))
+    }
+}
+
+#[cfg(feature = "rustls")]
+impl fmt::Debug for RollingTicketer<OpensslTicketKey> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RollingTicketer based on OpenSSL").finish()
     }
 }

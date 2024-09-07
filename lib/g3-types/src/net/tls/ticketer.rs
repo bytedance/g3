@@ -22,6 +22,7 @@ use arc_swap::ArcSwap;
 use super::TicketKeyName;
 
 pub const TICKET_AES_KEY_LENGTH: usize = 32;
+pub const TICKET_AES_IV_LENGTH: usize = 16;
 pub const TICKET_HMAC_KEY_LENGTH: usize = 16;
 
 pub trait RollingTicketKey: Sized {
