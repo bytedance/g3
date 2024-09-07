@@ -70,7 +70,7 @@ impl OpensslTicketKey {
     pub(super) fn encrypt_init(
         &self,
         key_name: &mut [u8],
-        iv: &[u8],
+        iv: &mut [u8],
         cipher_ctx: &mut CipherCtxRef,
         hmac_ctx: &mut HMacCtxRef,
     ) -> Result<TicketKeyStatus, ErrorStack> {
@@ -78,6 +78,7 @@ impl OpensslTicketKey {
             return Ok(TicketKeyStatus::FAILED);
         }
         key_name.copy_from_slice(self.name.as_ref());
+        rand::rand_bytes(iv)?;
 
         cipher_ctx.encrypt_init(Some(Cipher::aes_256_cbc()), Some(&self.aes_key), Some(iv))?;
         hmac_ctx.init_ex(Some(&self.hmac_key), Md::sha256())?;

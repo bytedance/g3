@@ -26,7 +26,7 @@ impl RollingTicketer<OpensslTicketKey> {
     pub fn encrypt_init(
         &self,
         key_name: &mut [u8],
-        iv: &[u8],
+        iv: &mut [u8],
         cipher_ctx: &mut CipherCtxRef,
         hmac_ctx: &mut HMacCtxRef,
     ) -> Result<TicketKeyStatus, ErrorStack> {
