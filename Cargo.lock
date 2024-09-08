@@ -2559,9 +2559,9 @@ checksum = "8e537132deb99c0eb4b752f0346b6a836200eaaa3516dd7e5514b63930a09e5d"
 
 [[package]]
 name = "ipnet"
-version = "2.9.0"
+version = "2.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f518f335dce6725a761382244631d86cf0ccb2863413590b31338feb467f9c3"
+checksum = "187674a687eed5fe42285b40c6291f9a01517d415fad1c3cbc6a9f778af7fcd4"
 
 [[package]]
 name = "is_terminal_polyfill"
@@ -2792,9 +2792,9 @@ dependencies = [
 
 [[package]]
 name = "mlua-sys"
-version = "0.6.2"
+version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ab7a5b4756b8177a2dfa8e0bbcde63bd4000afbc4ab20cbb68d114a25470f29"
+checksum = "ebe026d6bd1583a9cf9080e189030ddaea7e6f5f0deb366a8e26f8a26c4135b8"
 dependencies = [
  "cc",
  "cfg-if",
@@ -3891,9 +3891,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl"
-version = "0.15.0"
+version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79224d2ab9ad4f2f35859194b73c903e66e5b52c7efb41c6a767eb9195d7fe24"
+checksum = "f24987ff9105a44f30a86d6c03f5aac2e08628a6b517facc7ce614c76e6edce5"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -3906,9 +3906,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl-sys"
-version = "0.15.0"
+version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "917af9957f4a37d0d097842670dcd05d66b9077835afe2d339bfb29f5e227c5b"
+checksum = "43f85eff4e9c0e7d53267f625eaad5386bace0f5d2b78f9b1a7ea09a9302976b"
 dependencies = [
  "aws-lc-sys",
  "bssl-cmake-sys",

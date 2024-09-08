@@ -17,6 +17,8 @@
 #[cfg(feature = "rustls")]
 use std::fmt;
 
+#[cfg(feature = "rustls")]
+use log::warn;
 use openssl::cipher_ctx::CipherCtxRef;
 use openssl::error::ErrorStack;
 use openssl::hmac::HMacCtxRef;
@@ -72,12 +74,19 @@ impl ProducesTickets for RollingTicketer<OpensslTicketKey> {
     }
 
     fn encrypt(&self, plain: &[u8]) -> Option<Vec<u8>> {
-        self.enc_key.load().encrypt(plain)
+        self.enc_key.load().encrypt(plain).unwrap_or_else(|e| {
+            warn!("ticket encrypt failed: {e}");
+            None
+        })
     }
 
     fn decrypt(&self, cipher: &[u8]) -> Option<Vec<u8>> {
-        self.get_decrypt_key(cipher)
-            .and_then(|key| key.decrypt(cipher))
+        self.get_decrypt_key(cipher).and_then(|key| {
+            key.decrypt(cipher).unwrap_or_else(|e| {
+                warn!("ticket decrypt failed: {e}");
+                None
+            })
+        })
     }
 }
 
