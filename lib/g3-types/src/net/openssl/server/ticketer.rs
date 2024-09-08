@@ -74,10 +74,13 @@ impl ProducesTickets for RollingTicketer<OpensslTicketKey> {
     }
 
     fn encrypt(&self, plain: &[u8]) -> Option<Vec<u8>> {
-        self.enc_key.load().encrypt(plain).unwrap_or_else(|e| {
-            warn!("ticket encrypt failed: {e}");
-            None
-        })
+        match self.enc_key.load().encrypt(plain) {
+            Ok(d) => Some(d),
+            Err(e) => {
+                warn!("ticket encrypt failed: {e}");
+                None
+            }
+        }
     }
 
     fn decrypt(&self, cipher: &[u8]) -> Option<Vec<u8>> {

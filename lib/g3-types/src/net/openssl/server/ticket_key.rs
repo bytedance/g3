@@ -130,7 +130,7 @@ impl OpensslTicketKey {
     }
 
     /// Encrypt `message` and return the ciphertext.
-    pub fn encrypt(&self, message: &[u8]) -> Result<Option<Vec<u8>>, ErrorStack> {
+    pub fn encrypt(&self, message: &[u8]) -> Result<Vec<u8>, ErrorStack> {
         let mut output = vec![0u8; TICKET_KEY_NAME_LENGTH + TICKET_AES_IV_LENGTH];
         unsafe {
             std::ptr::copy_nonoverlapping(
@@ -165,7 +165,7 @@ impl OpensslTicketKey {
             ctx.hmac.hmac_update(&output[offset..])?;
             ctx.hmac.hmac_final_to_vec(&mut output)?;
 
-            Ok(Some(output))
+            Ok(output)
         })
     }
 
@@ -253,7 +253,7 @@ mod test {
     fn encrypt_decrypt() {
         let key = OpensslTicketKey::new_random(30).unwrap();
         let msg = "A test message";
-        let encrypted = key.encrypt(msg.as_bytes()).unwrap().unwrap();
+        let encrypted = key.encrypt(msg.as_bytes()).unwrap();
         let decrypted = key.decrypt(&encrypted).unwrap().unwrap();
         assert_eq!(msg.as_bytes(), decrypted);
     }
