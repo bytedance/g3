@@ -17,27 +17,7 @@
 use bytes::Buf;
 
 use super::{MaybeProtocol, Protocol, ProtocolInspectError, ProtocolInspectState};
-
-#[allow(dead_code)]
-#[repr(u8)]
-enum TlsContentType {
-    Invalid = 0,
-    ChangeCipherSpec = 20,
-    Alert = 21,
-    Handshake = 22, // 0x16
-    ApplicationData = 23,
-    Heartbeat = 24,
-}
-
-#[allow(dead_code)]
-#[repr(u8)]
-enum TlsHandshakeType {
-    HelloRequestReserved = 0,
-    ClientHello = 1,
-    ServerHell0 = 2,
-    HelloVerifyRequestReserved = 3,
-    // there are more that we don't need
-}
+use crate::parser::tls::{ContentType, HandshakeType};
 
 impl ProtocolInspectState {
     pub(crate) fn check_ssl_client_hello(
@@ -67,7 +47,7 @@ impl ProtocolInspectState {
             ));
         }
 
-        if data[0] != TlsContentType::Handshake as u8 {
+        if data[0] != ContentType::Handshake as u8 {
             self.exclude_current();
             return Ok(None);
         }
@@ -96,6 +76,11 @@ impl ProtocolInspectState {
         };
 
         let ssl_payload_len = buf.get_u16() as usize;
+        if ssl_payload_len & 0b1100_0000_0000_0000 != 0 {
+            // The length MUST NOT exceed 2^14 bytes.
+            self.exclude_current();
+            return Ok(None);
+        }
         if ssl_payload_len < data_len - SSL_HDR_LEN {
             self.exclude_current();
             return Ok(None);
@@ -108,7 +93,7 @@ impl ProtocolInspectState {
          * } __attribute_packed__;
          */
         let buf = &data[SSL_HDR_LEN..];
-        if buf[0] != TlsHandshakeType::ClientHello as u8 {
+        if buf[0] != HandshakeType::ClientHello as u8 {
             self.exclude_current();
             return Ok(None);
         }
