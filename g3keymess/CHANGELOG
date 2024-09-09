@@ -1,4 +1,9 @@
 
+v0.3.5:
+ - Feature: emit tokio runtime metrics
+ - Feature: allow to send event logs to stdout
+ - Optimization: more robust daemon hot restart
+
 v0.3.4:
  - Feature: add more error types to request log
  - Feature: emit request duration stats
