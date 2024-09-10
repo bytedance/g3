@@ -47,6 +47,8 @@ pub enum ExtensionType {
 pub enum ExtensionParseError {
     #[error("not enough data")]
     NotEnoughData,
+    #[error("invalid length")]
+    InvalidLength,
 }
 
 struct Extension<'a> {
@@ -56,9 +58,9 @@ struct Extension<'a> {
 }
 
 impl<'a> Extension<'a> {
-    pub const HEADER_LEN: usize = 4;
+    const HEADER_LEN: usize = 4;
 
-    pub fn parse(data: &'a [u8]) -> Result<Self, ExtensionParseError> {
+    fn parse(data: &'a [u8]) -> Result<Self, ExtensionParseError> {
         if data.len() < Self::HEADER_LEN {
             return Err(ExtensionParseError::NotEnoughData);
         }
@@ -73,11 +75,17 @@ impl<'a> Extension<'a> {
                 ext_data: None,
             })
         } else {
-            Ok(Extension {
-                ext_type,
-                ext_len,
-                ext_data: Some(&data[Self::HEADER_LEN..Self::HEADER_LEN + ext_len as usize]),
-            })
+            let start = Self::HEADER_LEN;
+            let end = start + ext_len as usize;
+            if end > data.len() {
+                Err(ExtensionParseError::InvalidLength)
+            } else {
+                Ok(Extension {
+                    ext_type,
+                    ext_len,
+                    ext_data: Some(&data[start..end]),
+                })
+            }
         }
     }
 }
@@ -86,13 +94,13 @@ pub struct ExtensionList {}
 
 impl ExtensionList {
     pub fn get_ext(
-        data: &[u8],
+        full_data: &[u8],
         ext_type: ExtensionType,
     ) -> Result<Option<&[u8]>, ExtensionParseError> {
         let mut offset = 0usize;
 
-        while offset < data.len() {
-            let left = &data[offset..];
+        while offset < full_data.len() {
+            let left = &full_data[offset..];
             let ext = Extension::parse(left)?;
             if ext.ext_type == ext_type as u16 {
                 return Ok(ext.ext_data);
