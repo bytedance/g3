@@ -17,7 +17,8 @@
 use thiserror::Error;
 
 use super::{
-    HandshakeHeader, HandshakeParseError, HandshakeType, RawVersion, RecordHeader, RecordParseError,
+    ExtensionList, ExtensionParseError, ExtensionType, HandshakeHeader, HandshakeParseError,
+    HandshakeType, RawVersion, RecordHeader, RecordParseError,
 };
 
 #[derive(Debug, Error)]
@@ -32,13 +33,18 @@ pub enum ClientHelloParseError {
     InvalidMessageType(u8),
     #[error("invalid message length")]
     InvalidMessageLength,
+    #[error("invalid cipher suites length")]
+    InvalidCipherSuitesLength,
     #[error("unsupported legacy version {0:?}")]
     UnsupportedVersion(RawVersion),
 }
 
-pub struct ClientHello {
+pub struct ClientHello<'a> {
     pub record_header: RecordHeader,
     pub legacy_version: RawVersion,
+    pub cipher_suites: &'a [u8],
+    pub compression_methods: Option<&'a [u8]>,
+    pub extensions: Option<&'a [u8]>,
 }
 
 impl From<RecordParseError> for ClientHelloParseError {
@@ -61,15 +67,15 @@ impl From<HandshakeParseError> for ClientHelloParseError {
     }
 }
 
-impl ClientHello {
-    pub fn parse(data: &[u8]) -> Result<Self, ClientHelloParseError> {
+impl<'a> ClientHello<'a> {
+    pub fn parse(data: &'a [u8]) -> Result<Self, ClientHelloParseError> {
         let record_header = RecordHeader::parse(data)?;
-        if data.len() != record_header.payload_len as usize + RecordHeader::SIZE {
+        if data.len() != record_header.fragment_len as usize + RecordHeader::SIZE {
             return Err(ClientHelloParseError::NeedMoreData(
-                record_header.payload_len as usize + RecordHeader::SIZE - data.len(),
+                record_header.fragment_len as usize + RecordHeader::SIZE - data.len(),
             ));
         }
-        if record_header.payload_len & 0b1100_0000_0000_0000 != 0 {
+        if record_header.fragment_len & 0b1100_0000_0000_0000 != 0 {
             // The length MUST NOT exceed 2^14 bytes.
             return Err(ClientHelloParseError::InvalidFragmentLength);
         }
@@ -82,7 +88,7 @@ impl ClientHello {
             ));
         }
         if handshake_header.msg_length as usize + HandshakeHeader::SIZE
-            != record_header.payload_len as usize
+            != record_header.fragment_len as usize
         {
             return Err(ClientHelloParseError::InvalidMessageLength);
         }
@@ -106,9 +112,108 @@ impl ClientHello {
             _ => return Err(ClientHelloParseError::UnsupportedVersion(legacy_version)),
         }
 
+        // Random Data
+        offset += 2;
+        let left = &data[offset..];
+        if left.len() < 32 {
+            return Err(ClientHelloParseError::InvalidMessageLength);
+        }
+        offset += 32;
+
+        // Session ID
+        let left = &data[offset..];
+        if left.is_empty() {
+            return Err(ClientHelloParseError::InvalidMessageLength);
+        }
+        let session_id_len = left[0] as usize;
+        if left.len() < 1 + session_id_len {
+            return Err(ClientHelloParseError::InvalidMessageLength);
+        }
+        offset += 1 + session_id_len;
+
+        // Cipher Suites
+        let left = &data[offset..];
+        if left.len() < 2 {
+            return Err(ClientHelloParseError::InvalidMessageLength);
+        }
+        let cipher_suites_len = u16::from_be_bytes([left[0], left[1]]) as usize;
+        if cipher_suites_len == 0 || cipher_suites_len & 0x01 != 0 {
+            return Err(ClientHelloParseError::InvalidCipherSuitesLength);
+        }
+        if left.len() < 2 + cipher_suites_len {
+            return Err(ClientHelloParseError::InvalidMessageLength);
+        }
+        let start = offset + 2;
+        let end = start + cipher_suites_len;
+        let cipher_suites = &data[start..end];
+        offset = end;
+
+        // Compression Methods
+        let left = &data[offset..];
+        if left.is_empty() {
+            return Err(ClientHelloParseError::InvalidMessageLength);
+        }
+        let compression_methods_len = left[0] as usize;
+        let compression_methods = if compression_methods_len > 0 {
+            if left.len() < 1 + compression_methods_len {
+                return Err(ClientHelloParseError::InvalidMessageLength);
+            }
+            let start = offset + 1;
+            let end = start + compression_methods_len;
+            offset = end;
+            Some(&data[start..end])
+        } else {
+            offset += 1;
+            None
+        };
+
+        if data.len() <= offset {
+            // No Extensions
+            return Ok(ClientHello {
+                record_header,
+                legacy_version,
+                cipher_suites,
+                compression_methods,
+                extensions: None,
+            });
+        }
+
+        // Extensions
+        let left = &data[offset..];
+        if left.len() < 2 {
+            return Err(ClientHelloParseError::InvalidMessageLength);
+        }
+        let extensions_len = u16::from_be_bytes([left[0], left[1]]) as usize;
+        let extensions = if extensions_len > 0 {
+            if left.len() < 2 + extensions_len {
+                return Err(ClientHelloParseError::InvalidMessageLength);
+            }
+            let start = offset + 2;
+            let end = start + extensions_len;
+            offset = end;
+            Some(&data[start..end])
+        } else {
+            offset += 2;
+            None
+        };
+        if data.len() > offset {
+            return Err(ClientHelloParseError::InvalidMessageLength);
+        }
+
         Ok(ClientHello {
             record_header,
             legacy_version,
+            cipher_suites,
+            compression_methods,
+            extensions,
         })
+    }
+
+    pub fn get_ext(&self, ext_type: ExtensionType) -> Result<Option<&[u8]>, ExtensionParseError> {
+        let Some(data) = self.extensions else {
+            return Ok(None);
+        };
+
+        ExtensionList::get_ext(data, ext_type)
     }
 }

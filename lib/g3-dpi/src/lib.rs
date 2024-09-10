@@ -19,7 +19,8 @@ pub use source::Source;
 
 mod protocol;
 pub use protocol::{
-    MaybeProtocol, Protocol, ProtocolInspector, ProtocolPortMap, ProtocolPortMapValue,
+    MaybeProtocol, Protocol, ProtocolInspectError, ProtocolInspector, ProtocolPortMap,
+    ProtocolPortMapValue,
 };
 
 mod config;

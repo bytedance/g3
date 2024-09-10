@@ -17,7 +17,8 @@
 use bytes::BytesMut;
 use tokio::io::{AsyncRead, AsyncReadExt};
 
-use g3_types::net::UpstreamAddr;
+use g3_dpi::parser::tls::{ClientHello, ClientHelloParseError, ExtensionType};
+use g3_types::net::{Host, TlsServerName, UpstreamAddr};
 
 use crate::serve::{ServerTaskError, ServerTaskResult};
 
@@ -29,38 +30,34 @@ pub(super) async fn parse_request<R>(
 where
     R: AsyncRead + Unpin,
 {
-    let mut acceptor = rustls::server::Acceptor::default();
-
-    let mut read_tls_offset = 0;
     loop {
-        let mut b = &clt_r_buf[read_tls_offset..];
-        let tls_nr = acceptor.read_tls(&mut b).map_err(|_e| {
-            ServerTaskError::InvalidClientProtocol("invalid tls client hello request")
-        })?;
-        read_tls_offset += tls_nr;
-
-        match acceptor.accept() {
-            Ok(Some(accepted)) => {
-                let client_hello = accepted.client_hello();
-                let sni =
-                    client_hello
-                        .server_name()
-                        .ok_or(ServerTaskError::InvalidClientProtocol(
-                            "no server name found in tls client hello message",
-                        ))?;
-                let upstream = UpstreamAddr::from_host_str_and_port(sni, port).map_err(|_e| {
-                    ServerTaskError::InvalidClientProtocol(
-                        "invalid server name in tls client hello message",
-                    )
-                })?;
-                return Ok(upstream);
-            }
-            Ok(None) => match clt_r.read_buf(clt_r_buf).await {
+        match ClientHello::parse(clt_r_buf) {
+            Ok(ch) => match ch.get_ext(ExtensionType::ServerName) {
+                Ok(Some(data)) => {
+                    let sni = TlsServerName::from_extension_value(data).map_err(|_| {
+                        ServerTaskError::InvalidClientProtocol(
+                            "invalid server name in tls client hello message",
+                        )
+                    })?;
+                    return Ok(UpstreamAddr::new(Host::from(sni), port));
+                }
+                Ok(None) => {
+                    return Err(ServerTaskError::InvalidClientProtocol(
+                        "no server name found in tls client hello message",
+                    ));
+                }
+                Err(_) => {
+                    return Err(ServerTaskError::InvalidClientProtocol(
+                        "invalid extension in tls client hello request",
+                    ));
+                }
+            },
+            Err(ClientHelloParseError::NeedMoreData(_)) => match clt_r.read_buf(clt_r_buf).await {
                 Ok(0) => return Err(ServerTaskError::ClosedByClient),
                 Ok(_) => {}
                 Err(e) => return Err(ServerTaskError::ClientTcpReadFailed(e)),
             },
-            Err(_e) => {
+            Err(_) => {
                 return Err(ServerTaskError::InvalidClientProtocol(
                     "invalid tls client hello request",
                 ));

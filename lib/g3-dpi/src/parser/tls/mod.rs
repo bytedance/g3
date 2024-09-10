@@ -28,3 +28,6 @@ pub use handshake::{HandshakeHeader, HandshakeParseError, HandshakeType};
 
 mod client_hello;
 pub use client_hello::{ClientHello, ClientHelloParseError};
+
+mod extension;
+pub use extension::{ExtensionList, ExtensionParseError, ExtensionType};

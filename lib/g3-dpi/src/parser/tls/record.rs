@@ -56,7 +56,7 @@ pub enum RecordParseError {
 pub struct RecordHeader {
     pub version: RawVersion,
     pub content_type: ContentType,
-    pub payload_len: u16,
+    pub fragment_len: u16,
 }
 
 impl RecordHeader {
@@ -84,11 +84,11 @@ impl RecordHeader {
             _ => return Err(RecordParseError::UnsupportedVersion(version)),
         }
 
-        let payload_len = u16::from_be_bytes([data[3], data[4]]);
+        let fragment_len = u16::from_be_bytes([data[3], data[4]]);
         Ok(RecordHeader {
             version,
             content_type,
-            payload_len,
+            fragment_len,
         })
     }
 }

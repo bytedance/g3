@@ -23,7 +23,7 @@ use tokio::net::TcpStream;
 use tokio::time::Instant;
 
 use g3_daemon::stat::task::TcpStreamConnectionStats;
-use g3_dpi::{Protocol, ProtocolInspector};
+use g3_dpi::{Protocol, ProtocolInspectError, ProtocolInspector};
 use g3_io_ext::{LimitedReader, LimitedWriter};
 use g3_types::net::UpstreamAddr;
 
@@ -179,7 +179,7 @@ impl ClientHelloAcceptTask {
                     let upstream = self.fetch_upstream(p, clt_r, clt_r_buf).await?;
                     return Ok((upstream, p));
                 }
-                Err(_) => {
+                Err(ProtocolInspectError::NeedMoreData(_)) => {
                     if clt_r_buf.remaining() == 0 {
                         return Err(ServerTaskError::InvalidClientProtocol(
                             "unable to detect client protocol",

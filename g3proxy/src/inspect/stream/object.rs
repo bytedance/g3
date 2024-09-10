@@ -17,7 +17,7 @@
 use bytes::{Buf, BytesMut};
 use tokio::io::{AsyncRead, AsyncReadExt};
 
-use g3_dpi::{Protocol, ProtocolInspector};
+use g3_dpi::{Protocol, ProtocolInspectError, ProtocolInspector};
 use g3_io_ext::{FlexBufReader, OnceBufReader};
 use g3_types::net::UpstreamAddr;
 
@@ -282,7 +282,7 @@ where
                 clt_r_buf.chunk(),
             ) {
                 Ok(p) => return Ok(p),
-                Err(_) => {
+                Err(ProtocolInspectError::NeedMoreData(_)) => {
                     if clt_r_buf.remaining() == 0 {
                         return Ok(Protocol::Unknown);
                     }
@@ -312,7 +312,7 @@ where
                 ups_r_buf.chunk(),
             ) {
                 Ok(p) => return Ok(p),
-                Err(_) => {
+                Err(ProtocolInspectError::NeedMoreData(_)) => {
                     if ups_r_buf.remaining() == 0 {
                         return Ok(Protocol::Unknown);
                     }
