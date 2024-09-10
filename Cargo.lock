@@ -363,9 +363,9 @@ dependencies = [
 
 [[package]]
 name = "bssl-cmake-sys"
-version = "0.1.2409020"
+version = "0.1.2409090"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d453a5065ba759e304d18bea82e1ed8de284a410c76f11ecb857c70b1fc3b50"
+checksum = "b13c6899469160c6495c603b7a3a0eb3e090d885b968f63b1569b3c325ae70ad"
 dependencies = [
  "bindgen 0.70.1",
  "cc",
@@ -3290,9 +3290,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.12"
+version = "0.23.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c58f8c84392efc0a126acce10fa59ff7b3d2ac06ab451a33f2741989b806b044"
+checksum = "f2dabaac7466917e566adb06783a81ca48944c6898a1b08b9374106dd671f4c8"
 dependencies = [
  "aws-lc-rs",
  "brotli",
