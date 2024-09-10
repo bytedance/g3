@@ -200,6 +200,15 @@ The code should comply to these, but should be more compliant to existing popula
  - [GB/T 38636-2020](https://openstd.samr.gov.cn/bzgk/gb/newGbInfo?hcno=778097598DA2761E94A5FF3F77BD66DA)
     : Information security technology—Transport layer cryptography protocol(TLCP)
 
+## QUIC
+
+ - [rfc9000](https://datatracker.ietf.org/doc/html/rfc9000)
+    : QUIC: A UDP-Based Multiplexed and Secure Transport
+ - [rfc9001](https://datatracker.ietf.org/doc/html/rfc9001)
+    : Using TLS to Secure QUIC
+ - [rfc9369](https://datatracker.ietf.org/doc/html/rfc9369)
+    : QUIC Version 2
+
 ## HTTP
 
  - [rfc9110](https://datatracker.ietf.org/doc/html/rfc9110)
