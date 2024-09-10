@@ -235,9 +235,9 @@ dependencies = [
 
 [[package]]
 name = "aws-lc-sys"
-version = "0.21.0"
+version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5055edc4a9a1b2a917a818258cdfb86a535947feebd9981adc99667a062c6f85"
+checksum = "234314bd569802ec87011d653d6815c6d7b9ffb969e9fee5b8b20ef860e8dce9"
 dependencies = [
  "bindgen 0.69.4",
  "cc",
@@ -457,18 +457,18 @@ dependencies = [
 
 [[package]]
 name = "capnp"
-version = "0.19.6"
+version = "0.19.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de71387912cac7dd3cb7c219e09628411620a18061bba58c71453c26ae7bf66a"
+checksum = "ff5e468996c73ea6d3d2bffc2b738782487f878286615b7f76e11af15a9ada3f"
 dependencies = [
  "embedded-io",
 ]
 
 [[package]]
 name = "capnp-futures"
-version = "0.19.0"
+version = "0.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5fac483cb34e3bc0be251dba7ce318f465143dd18f948c7bd7ad035f6fecfb1b"
+checksum = "f8f3ee810b3890498e51028448ac732cdd5009223897124dd2fac6b085b5d867"
 dependencies = [
  "capnp",
  "futures",
@@ -476,9 +476,9 @@ dependencies = [
 
 [[package]]
 name = "capnp-rpc"
-version = "0.19.4"
+version = "0.19.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04f09758ec79a2825c9bc87cbe1c8ded306c99a83b52cf89577667ebff2d3ff7"
+checksum = "fe57ab22a5e121e6fddaf36e837514aab9ae888bcff2baa6fda5630820dfc501"
 dependencies = [
  "capnp",
  "capnp-futures",
@@ -805,11 +805,11 @@ checksum = "c34f04666d835ff5d62e058c3995147c06f42fe86ff053337632bca83e42702d"
 
 [[package]]
 name = "enum-as-inner"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ffccbb6966c05b32ef8fbac435df276c4ae4d3dc55a8cd0eb9745e6c12f546a"
+checksum = "a1e6a265c649f3f5979b601d26f1d05ada116434c87741c9493cb56218f76cbc"
 dependencies = [
- "heck 0.4.1",
+ "heck",
  "proc-macro2",
  "quote",
  "syn 2.0.77",
@@ -2200,12 +2200,6 @@ dependencies = [
 
 [[package]]
 name = "heck"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
-
-[[package]]
-name = "heck"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
@@ -3341,9 +3335,9 @@ checksum = "fc0a2ce646f8655401bb81e7927b812614bd5d91dbc968696be50603510fcaf0"
 
 [[package]]
 name = "rustls-webpki"
-version = "0.102.7"
+version = "0.102.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84678086bd54edf2b415183ed7a94d0efb049f1b646a33e22a36f3794be6ae56"
+checksum = "64ca1bc8749bd4cf37b5ce386cc146580777b4e8572c7b97baf22c83f444bee9"
 dependencies = [
  "aws-lc-rs",
  "ring",
@@ -3601,7 +3595,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "070a0a5e7da2d24be457809c4b3baa57a835fd2829ad8b86f9a049052fe71031"
 dependencies = [
  "cfg-expr",
- "heck 0.5.0",
+ "heck",
  "pkg-config",
  "toml",
  "version-compare",
