@@ -235,3 +235,11 @@ lto = true
 inherits = "release"
 debug = 1
 debug-assertions = false
+
+[profile.release-z]
+inherits = "release"
+opt-level = "z"
+panic = "abort"
+codegen-units = 1
+strip = true
+lto = true
