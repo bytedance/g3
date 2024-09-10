@@ -95,3 +95,42 @@ impl fmt::Display for TlsServerName {
         f.write_str(&self.host_name)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn valid() {
+        let data: &[u8] = &[
+            0x00, 0x0e, // Server Name List Length, 14
+            0x00, // Server Name Type - Domain
+            0x00, 0x0b, // Server Name Length, 11
+            b'e', b'x', b'a', b'm', b'p', b'l', b'e', b'.', b'n', b'e', b't',
+        ];
+        let sni = TlsServerName::from_extension_value(data).unwrap();
+        assert_eq!(sni.as_ref(), "example.net");
+    }
+
+    #[test]
+    fn invalid_list_len() {
+        let data: &[u8] = &[
+            0x01, 0x0e, // Server Name List Length, 256 + 14
+            0x00, // Server Name Type - Domain
+            0x00, 0x0b, // Server Name Length, 11
+            b'e', b'x', b'a', b'm', b'p', b'l', b'e', b'.', b'n', b'e', b't',
+        ];
+        assert!(TlsServerName::from_extension_value(data).is_err());
+    }
+
+    #[test]
+    fn invalid_name_len() {
+        let data: &[u8] = &[
+            0x00, 0x0e, // Server Name List Length, 14
+            0x00, // Server Name Type - Domain
+            0x01, 0x0b, // Server Name Length, 256 + 11
+            b'e', b'x', b'a', b'm', b'p', b'l', b'e', b'.', b'n', b'e', b't',
+        ];
+        assert!(TlsServerName::from_extension_value(data).is_err());
+    }
+}
