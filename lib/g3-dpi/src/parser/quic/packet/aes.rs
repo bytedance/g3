@@ -29,12 +29,17 @@ pub(super) fn aes_ecb_mask(key: &[u8], sample: &[u8]) -> Result<[u8; 5], ErrorSt
 pub(super) fn aes_gcm_decrypt(
     key: &[u8],
     iv: &[u8],
+    aad: &[u8],
     ciphertext: &[u8],
+    tag: &[u8],
 ) -> Result<Vec<u8>, ErrorStack> {
     let mut cipher_ctx = CipherCtx::new()?;
     cipher_ctx.decrypt_init(Some(Cipher::aes_128_gcm()), Some(key), Some(iv))?;
     let mut output = Vec::with_capacity(ciphertext.len());
+    cipher_ctx.cipher_update(aad, None)?;
     cipher_ctx.cipher_update_vec(ciphertext, &mut output)?;
-    // FIXME call final?
+    cipher_ctx.set_tag(tag)?;
+    let mut data = [0u8; 16];
+    cipher_ctx.cipher_final(&mut data)?; // error means verify failed
     Ok(output)
 }

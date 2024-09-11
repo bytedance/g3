@@ -22,6 +22,9 @@ use hkdf::QuicInitialHkdf;
 
 mod aes;
 
+mod packet_number;
+use packet_number::PacketNumber;
+
 mod v1;
 mod v2;
 
@@ -70,10 +73,8 @@ impl InitialPacket {
 
         let version = u32::from_be_bytes([data[1], data[2], data[3], data[4]]);
         match version {
-            0x00000001 => InitialPacketV1::parse_client(byte1, &data[LONG_PACKET_FIXED_LEN..])
-                .map(InitialPacket::V1),
-            0x6b3343cf => InitialPacketV2::parse_client(byte1, &data[LONG_PACKET_FIXED_LEN..])
-                .map(InitialPacket::V2),
+            0x00000001 => InitialPacketV1::parse_client(data).map(InitialPacket::V1),
+            0x6b3343cf => InitialPacketV2::parse_client(data).map(InitialPacket::V2),
             _ => Err(PacketParseError::UnknownVersion(version)),
         }
     }
@@ -140,10 +141,20 @@ mod tests {
             7e78bfe706ca4cf5e9c5453e9f7cfd2b 8b4c8d169a44e55c88d4a9a7f9474241
             e221af44860018ab0856972e194cd934"
         );
+        let frame = hex!(
+            "060040f1010000ed0303ebf8fa56f129 39b9584a3896472ec40bb863cfd3e868
+            04fe3a47f06a2b69484c000004130113 02010000c000000010000e00000b6578
+            616d706c652e636f6dff01000100000a 00080006001d00170018001000070005
+            04616c706e0005000501000000000033 00260024001d00209370b2c9caa47fba
+            baf4559fedba753de171fa71f50f1ce1 5d43e994ec74d748002b000302030400
+            0d0010000e0403050306030203080408 050806002d00020101001c0002400100
+            3900320408ffffffffffffffff050480 00ffff07048000ffff08011001048000
+            75300901100f088394c8f03e51570806 048000ffff"
+        );
 
         let packet = InitialPacket::parse_client(&packet).unwrap();
         assert_eq!(packet.packet_number(), 2);
-        // TODO check payload
+        assert_eq!(&packet.payload()[..frame.len()], frame);
     }
 
     #[test]
@@ -188,9 +199,19 @@ mod tests {
             9a37ddec600545473cfb5a05e08d0b20 9973b2172b4d21fb69745a262ccde96b
             a18b2faa745b6fe189cf772a9f84cbfc"
         );
+        let frame = hex!(
+            "060040f1010000ed0303ebf8fa56f129 39b9584a3896472ec40bb863cfd3e868
+            04fe3a47f06a2b69484c000004130113 02010000c000000010000e00000b6578
+            616d706c652e636f6dff01000100000a 00080006001d00170018001000070005
+            04616c706e0005000501000000000033 00260024001d00209370b2c9caa47fba
+            baf4559fedba753de171fa71f50f1ce1 5d43e994ec74d748002b000302030400
+            0d0010000e0403050306030203080408 050806002d00020101001c0002400100
+            3900320408ffffffffffffffff050480 00ffff07048000ffff08011001048000
+            75300901100f088394c8f03e51570806 048000ffff"
+        );
 
         let packet = InitialPacket::parse_client(&packet).unwrap();
         assert_eq!(packet.packet_number(), 2);
-        // TODO check payload
+        assert_eq!(&packet.payload()[..frame.len()], frame);
     }
 }

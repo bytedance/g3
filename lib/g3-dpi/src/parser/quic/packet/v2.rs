@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use super::{PacketParseError, QuicInitialHkdf};
+use super::{PacketNumber, PacketParseError, QuicInitialHkdf};
 use crate::parser::quic::VarInt;
 
 const INITIAL_SALT: &[u8] = &[
@@ -28,26 +28,29 @@ pub struct InitialPacketV2 {
 }
 
 impl InitialPacketV2 {
-    pub fn parse_client(byte1: u8, data: &[u8]) -> Result<Self, PacketParseError> {
+    pub fn parse_client(data: &[u8]) -> Result<Self, PacketParseError> {
+        let byte1 = data[0];
         if byte1 & 0b0011_0000 != 0b0001_0000 {
             return Err(PacketParseError::InvalidLongPacketType);
         }
+        let mut offset = super::LONG_PACKET_FIXED_LEN;
 
         // Destination Connection ID
-        if data.is_empty() {
+        let left = &data[offset..];
+        if left.is_empty() {
             return Err(PacketParseError::TooSmall);
         }
-        let dst_cid_len = data[0] as usize;
+        let dst_cid_len = left[0] as usize;
         if dst_cid_len > 20 {
             return Err(PacketParseError::InvalidConnectionIdLength(data[0]));
         }
-        let start = 1;
+        let start = offset + 1;
         let end = start + dst_cid_len;
         if data.len() < end {
             return Err(PacketParseError::TooSmall);
         }
         let dst_cid = &data[start..end];
-        let mut offset = end;
+        offset = end;
 
         // Source Connection ID
         let left = &data[offset..];
@@ -80,37 +83,29 @@ impl InitialPacketV2 {
         if offset as u64 + length.value() != data.len() as u64 {
             return Err(PacketParseError::InvalidLengthValue(length.value()));
         }
-        let left = &data[offset..];
 
+        let left = &data[offset..];
         if left.len() < 20 {
             // 4 offset (maybe packet number) and 16 bytes sample
             return Err(PacketParseError::InvalidLengthValue(length.value()));
         }
+        let pn_offset = offset;
         let sample = &left[4..20];
 
         let secrets = ClientSecrets::new(INITIAL_SALT, dst_cid);
-
         let mask = super::aes::aes_ecb_mask(&secrets.hp, sample)?;
-        let packet_number_len = ((byte1 ^ mask[0]) & 0b0000_0011) + 1;
-        if packet_number_len == 0 || packet_number_len > 4 {
-            return Err(PacketParseError::InvalidPacketNumberLength(
-                packet_number_len,
-            ));
-        }
-        let mut packet_number = [0u8; 4];
-        for i in 0..packet_number_len as usize {
-            packet_number[4 - packet_number_len as usize + i] = mask[i + 1] ^ left[i];
-        }
-        let packet_number = u32::from_be_bytes(packet_number);
+        let pn = PacketNumber::decode_long(byte1, mask, left)?;
 
-        let payload = super::aes::aes_gcm_decrypt(
-            &secrets.key,
-            &secrets.iv,
-            &left[packet_number_len as usize..],
-        )?;
+        let nonce = pn.recover_nonce(&secrets.iv);
+        let header = pn.recover_header(data, pn_offset);
+        let tag_start = left.len() - 16;
+        let ciphertext = &left[pn.raw_len..tag_start];
+        let tag = &left[tag_start..];
+
+        let payload = super::aes::aes_gcm_decrypt(&secrets.key, &nonce, &header, ciphertext, tag)?;
 
         Ok(InitialPacketV2 {
-            packet_number,
+            packet_number: pn.value,
             payload,
         })
     }
