@@ -13,8 +13,13 @@ bytes.workspace = true
 memchr.workspace = true
 fixedbitset.workspace = true
 hkdf = { workspace = true, optional = true }
+sha2 = { workspace = true, optional = true }
+openssl = { workspace = true, optional = true }
 g3-types = { workspace = true, features = ["http"] }
+
+[dev-dependencies]
+hex-literal.workspace = true
 
 [features]
 default = []
-quic = ["dep:hkdf"]
+quic = ["dep:hkdf", "dep:sha2", "dep:openssl"]

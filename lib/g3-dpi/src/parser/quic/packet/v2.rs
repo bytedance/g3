@@ -1,0 +1,164 @@
+/*
+ * Copyright 2024 ByteDance and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+use super::{PacketParseError, QuicInitialHkdf};
+use crate::parser::quic::VarInt;
+
+const INITIAL_SALT: &[u8] = &[
+    0x0d, 0xed, 0xe3, 0xde, 0xf7, 0x00, 0xa6, 0xdb, 0x81, 0x93, 0x81, 0xbe, 0x6e, 0x26, 0x9d, 0xcb,
+    0xf9, 0xbd, 0x2e, 0xd9,
+];
+
+pub struct InitialPacketV2 {
+    pub packet_number: u32,
+    pub payload: Vec<u8>,
+}
+
+impl InitialPacketV2 {
+    pub fn parse_client(byte1: u8, data: &[u8]) -> Result<Self, PacketParseError> {
+        if byte1 & 0b0011_0000 != 0b0001_0000 {
+            return Err(PacketParseError::InvalidLongPacketType);
+        }
+
+        // Destination Connection ID
+        if data.is_empty() {
+            return Err(PacketParseError::TooSmall);
+        }
+        let dst_cid_len = data[0] as usize;
+        if dst_cid_len > 20 {
+            return Err(PacketParseError::InvalidConnectionIdLength(data[0]));
+        }
+        let start = 1;
+        let end = start + dst_cid_len;
+        if data.len() < end {
+            return Err(PacketParseError::TooSmall);
+        }
+        let dst_cid = &data[start..end];
+        let mut offset = end;
+
+        // Source Connection ID
+        let left = &data[offset..];
+        if left.is_empty() {
+            return Err(PacketParseError::TooSmall);
+        }
+        let src_cid_len = left[0] as usize;
+        if src_cid_len > 0 {
+            offset += 1 + src_cid_len;
+            if data.len() < offset {
+                return Err(PacketParseError::TooSmall);
+            }
+        } else {
+            offset += 1;
+        }
+
+        // Token
+        let left = &data[offset..];
+        let token_len = VarInt::parse(left).map_err(|_| PacketParseError::TooSmall)?;
+        let start = offset + token_len.encoded_len();
+        if start as u64 + token_len.value() > data.len() as u64 {
+            return Err(PacketParseError::InvalidTokenLength(token_len.value()));
+        }
+        offset = start + token_len.value() as usize;
+
+        // Length
+        let left = &data[offset..];
+        let length = VarInt::parse(left).map_err(|_| PacketParseError::TooSmall)?;
+        offset += length.encoded_len();
+        if offset as u64 + length.value() != data.len() as u64 {
+            return Err(PacketParseError::InvalidLengthValue(length.value()));
+        }
+        let left = &data[offset..];
+
+        if left.len() < 20 {
+            // 4 offset (maybe packet number) and 16 bytes sample
+            return Err(PacketParseError::InvalidLengthValue(length.value()));
+        }
+        let sample = &left[4..20];
+
+        let secrets = ClientSecrets::new(INITIAL_SALT, dst_cid);
+
+        let mask = super::aes::aes_ecb_mask(&secrets.hp, sample)?;
+        let packet_number_len = ((byte1 ^ mask[0]) & 0b0000_0011) + 1;
+        if packet_number_len == 0 || packet_number_len > 4 {
+            return Err(PacketParseError::InvalidPacketNumberLength(
+                packet_number_len,
+            ));
+        }
+        let mut packet_number = [0u8; 4];
+        for i in 0..packet_number_len as usize {
+            packet_number[4 - packet_number_len as usize + i] = mask[i + 1] ^ left[i];
+        }
+        let packet_number = u32::from_be_bytes(packet_number);
+
+        let payload = super::aes::aes_gcm_decrypt(
+            &secrets.key,
+            &secrets.iv,
+            &left[packet_number_len as usize..],
+        )?;
+
+        Ok(InitialPacketV2 {
+            packet_number,
+            payload,
+        })
+    }
+}
+
+struct ClientSecrets {
+    key: [u8; 16],
+    iv: [u8; 12],
+    hp: [u8; 16],
+}
+
+impl ClientSecrets {
+    pub fn new(initial_salt: &[u8], cid: &[u8]) -> Self {
+        let mut hk = QuicInitialHkdf::new(initial_salt, cid);
+
+        let mut client_initial_secret = [0u8; 32];
+        hk.expand_label(b"client in", &mut client_initial_secret);
+
+        hk.set_prk(&client_initial_secret);
+
+        let mut key = [0u8; 16];
+        hk.expand_label(b"quicv2 key", &mut key);
+
+        let mut iv = [0u8; 12];
+        hk.expand_label(b"quicv2 iv", &mut iv);
+
+        let mut hp = [0u8; 16];
+        hk.expand_label(b"quicv2 hp", &mut hp);
+
+        ClientSecrets { key, iv, hp }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hex_literal::hex;
+
+    #[test]
+    fn gen_secret() {
+        let cid = hex!("8394c8f03e515708");
+        let key = hex!("8b1a0bc121284290a29e0971b5cd045d");
+        let iv = hex!("91f73e2351d8fa91660e909f");
+        let hp = hex!("45b95e15235d6f45a6b19cbcb0294ba9");
+
+        let secrets = ClientSecrets::new(INITIAL_SALT, &cid);
+        assert_eq!(secrets.key, key);
+        assert_eq!(secrets.iv, iv);
+        assert_eq!(secrets.hp, hp);
+    }
+}
