@@ -16,6 +16,7 @@
 
 use thiserror::Error;
 
+#[allow(dead_code)]
 #[repr(u8)]
 pub enum HandshakeType {
     HelloRequestReserved = 0,
