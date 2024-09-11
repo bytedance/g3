@@ -16,4 +16,5 @@
 
 pub mod tls;
 
-mod quic;
+#[cfg(feature = "quic")]
+pub mod quic;

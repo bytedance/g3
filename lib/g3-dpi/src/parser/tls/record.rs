@@ -16,8 +16,9 @@
 
 use thiserror::Error;
 
-use super::RawVersion;
+use super::{ClientHello, ClientHelloParseError, RawVersion};
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum ContentType {
     Invalid = 0, // TLS 1.3
@@ -45,8 +46,8 @@ impl TryFrom<u8> for ContentType {
 
 #[derive(Debug, Error)]
 pub enum RecordParseError {
-    #[error("invalid data size {0} for TLS record header")]
-    InvalidDataSize(usize),
+    #[error("need more data of size {0}")]
+    NeedMoreData(usize),
     #[error("unsupported protocol version {0:?}")]
     UnsupportedVersion(RawVersion),
     #[error("invalid content type {0}")]
@@ -62,11 +63,7 @@ pub struct RecordHeader {
 impl RecordHeader {
     pub const SIZE: usize = 5;
 
-    pub fn parse(data: &[u8]) -> Result<Self, RecordParseError> {
-        if data.len() < Self::SIZE {
-            return Err(RecordParseError::InvalidDataSize(data.len()));
-        }
-
+    fn parse(data: &[u8]) -> Result<Self, RecordParseError> {
         let Ok(content_type) = ContentType::try_from(data[0]) else {
             return Err(RecordParseError::InvalidContentType(data[0]));
         };
@@ -90,5 +87,46 @@ impl RecordHeader {
             content_type,
             fragment_len,
         })
+    }
+}
+
+pub struct Record<'a> {
+    pub header: RecordHeader,
+    pub fragment: &'a [u8],
+}
+
+impl<'a> Record<'a> {
+    pub fn parse(data: &'a [u8]) -> Result<Self, RecordParseError> {
+        if data.len() < RecordHeader::SIZE {
+            return Err(RecordParseError::NeedMoreData(
+                RecordHeader::SIZE - data.len(),
+            ));
+        }
+
+        let header = RecordHeader::parse(data)?;
+
+        let start = RecordHeader::SIZE;
+        let end = start + header.fragment_len as usize;
+        if data.len() < end {
+            return Err(RecordParseError::NeedMoreData(end - data.len()));
+        }
+
+        Ok(Record {
+            header,
+            fragment: &data[start..end],
+        })
+    }
+
+    pub fn parse_client_hello(&'a self) -> Result<ClientHello<'a>, ClientHelloParseError> {
+        if self.header.content_type != ContentType::Handshake {
+            return Err(ClientHelloParseError::InvalidContentType(
+                self.header.content_type as u8,
+            ));
+        }
+        if self.header.fragment_len & 0b1100_0000_0000_0000 != 0 {
+            // The length MUST NOT exceed 2^14 bytes.
+            return Err(ClientHelloParseError::InvalidFragmentLength);
+        }
+        ClientHello::parse_fragment(self.fragment)
     }
 }

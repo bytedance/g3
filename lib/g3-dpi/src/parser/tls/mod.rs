@@ -21,10 +21,11 @@ pub struct RawVersion {
 }
 
 mod record;
-pub use record::{ContentType, RecordHeader, RecordParseError};
+pub(crate) use record::ContentType;
+pub use record::{Record, RecordHeader, RecordParseError};
 
 mod handshake;
-pub use handshake::{HandshakeHeader, HandshakeParseError, HandshakeType};
+pub(crate) use handshake::{HandshakeHeader, HandshakeParseError, HandshakeType};
 
 mod client_hello;
 pub use client_hello::{ClientHello, ClientHelloParseError};

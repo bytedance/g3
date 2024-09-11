@@ -18,15 +18,13 @@ use thiserror::Error;
 
 use super::{
     ExtensionList, ExtensionParseError, ExtensionType, HandshakeHeader, HandshakeParseError,
-    HandshakeType, RawVersion, RecordHeader, RecordParseError,
+    HandshakeType, RawVersion,
 };
 
 #[derive(Debug, Error)]
 pub enum ClientHelloParseError {
-    #[error("need more data {0}")]
-    NeedMoreData(usize),
-    #[error("invalid tls record: {0}")]
-    InvalidTlsRecord(RecordParseError),
+    #[error("invalid content type {0}")]
+    InvalidContentType(u8),
     #[error("invalid fragment length")]
     InvalidFragmentLength,
     #[error("invalid message type {0}")]
@@ -40,60 +38,33 @@ pub enum ClientHelloParseError {
 }
 
 pub struct ClientHello<'a> {
-    pub record_header: RecordHeader,
     pub legacy_version: RawVersion,
     pub cipher_suites: &'a [u8],
     pub compression_methods: Option<&'a [u8]>,
     pub extensions: Option<&'a [u8]>,
 }
 
-impl From<RecordParseError> for ClientHelloParseError {
-    fn from(value: RecordParseError) -> Self {
-        if let RecordParseError::InvalidDataSize(l) = value {
-            ClientHelloParseError::NeedMoreData(RecordHeader::SIZE - l)
-        } else {
-            ClientHelloParseError::InvalidTlsRecord(value)
-        }
-    }
-}
-
 impl From<HandshakeParseError> for ClientHelloParseError {
     fn from(value: HandshakeParseError) -> Self {
         match value {
-            HandshakeParseError::InvalidDataSize(l) => {
-                ClientHelloParseError::NeedMoreData(HandshakeHeader::SIZE - l)
-            }
+            HandshakeParseError::InvalidDataSize(_) => ClientHelloParseError::InvalidFragmentLength,
         }
     }
 }
 
 impl<'a> ClientHello<'a> {
-    pub fn parse(data: &'a [u8]) -> Result<Self, ClientHelloParseError> {
-        let record_header = RecordHeader::parse(data)?;
-        if data.len() != record_header.fragment_len as usize + RecordHeader::SIZE {
-            return Err(ClientHelloParseError::NeedMoreData(
-                record_header.fragment_len as usize + RecordHeader::SIZE - data.len(),
-            ));
-        }
-        if record_header.fragment_len & 0b1100_0000_0000_0000 != 0 {
-            // The length MUST NOT exceed 2^14 bytes.
-            return Err(ClientHelloParseError::InvalidFragmentLength);
-        }
-
-        let mut offset = RecordHeader::SIZE;
-        let handshake_header = HandshakeHeader::parse(&data[offset..])?;
+    pub fn parse_fragment(data: &'a [u8]) -> Result<Self, ClientHelloParseError> {
+        let handshake_header = HandshakeHeader::parse(data)?;
         if handshake_header.msg_type != HandshakeType::ClientHello as u8 {
             return Err(ClientHelloParseError::InvalidMessageType(
                 handshake_header.msg_type,
             ));
         }
-        if handshake_header.msg_length as usize + HandshakeHeader::SIZE
-            != record_header.fragment_len as usize
-        {
+        if handshake_header.msg_length as usize + HandshakeHeader::SIZE != data.len() {
             return Err(ClientHelloParseError::InvalidMessageLength);
         }
 
-        offset += HandshakeHeader::SIZE;
+        let mut offset = HandshakeHeader::SIZE;
         let msg = &data[offset..];
         if msg.len() < 2 {
             return Err(ClientHelloParseError::InvalidMessageLength);
@@ -170,7 +141,6 @@ impl<'a> ClientHello<'a> {
         if data.len() <= offset {
             // No Extensions
             return Ok(ClientHello {
-                record_header,
                 legacy_version,
                 cipher_suites,
                 compression_methods,
@@ -201,7 +171,6 @@ impl<'a> ClientHello<'a> {
         }
 
         Ok(ClientHello {
-            record_header,
             legacy_version,
             cipher_suites,
             compression_methods,
@@ -221,6 +190,7 @@ impl<'a> ClientHello<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::parser::tls::Record;
     use g3_types::net::TlsServerName;
 
     #[test]
@@ -252,7 +222,8 @@ mod tests {
             b'e', b'x', b'a', b'm', b'p', b'l', b'e', b'.', b'n', b'e', b't',
         ];
 
-        let ch = ClientHello::parse(data).unwrap();
+        let record = Record::parse(data).unwrap();
+        let ch = record.parse_client_hello().unwrap();
         let sni_data = ch.get_ext(ExtensionType::ServerName).unwrap().unwrap();
         let sni = TlsServerName::from_extension_value(sni_data).unwrap();
         assert_eq!(sni.as_ref(), "example.net");
@@ -287,7 +258,8 @@ mod tests {
             b'e', b'x', b'a', b'm', b'p', b'l', b'e', b'.', b'n', b'e', b't',
         ];
 
-        let ch = ClientHello::parse(data).unwrap();
+        let record = Record::parse(data).unwrap();
+        let ch = record.parse_client_hello().unwrap();
         let sni_data = ch.get_ext(ExtensionType::ServerName).unwrap().unwrap();
         let sni = TlsServerName::from_extension_value(sni_data).unwrap();
         assert_eq!(sni.as_ref(), "example.net");
@@ -322,7 +294,8 @@ mod tests {
             b'e', b'x', b'a', b'm', b'p', b'l', b'e', b'.', b'n', b'e', b't',
         ];
 
-        let ch = ClientHello::parse(data).unwrap();
+        let record = Record::parse(data).unwrap();
+        let ch = record.parse_client_hello().unwrap();
         assert!(ch.get_ext(ExtensionType::ServerName).is_err());
     }
 
@@ -355,6 +328,7 @@ mod tests {
             b'e', b'x', b'a', b'm', b'p', b'l', b'e', b'.', b'n', b'e', b't',
         ];
 
-        assert!(ClientHello::parse(data).is_err());
+        let record = Record::parse(data).unwrap();
+        assert!(record.parse_client_hello().is_err());
     }
 }
