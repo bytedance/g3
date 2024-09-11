@@ -120,6 +120,7 @@ sha2 = "0.10.0"
 sha-1 = "0.10.0"
 blake3 = { version = "1.5", default-features = false }
 hex = "0.4.2"
+hkdf = "0.12"
 #
 idna = "1.0"
 url = "2.1"
