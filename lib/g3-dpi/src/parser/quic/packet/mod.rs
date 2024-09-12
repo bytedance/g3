@@ -17,6 +17,8 @@
 use openssl::error::ErrorStack;
 use thiserror::Error;
 
+use super::{CryptoFrame, FrameConsume, FrameParseError, VarInt};
+
 mod hkdf;
 use hkdf::QuicInitialHkdf;
 
@@ -91,6 +93,40 @@ impl InitialPacket {
             InitialPacket::V1(v1) => &v1.payload,
             InitialPacket::V2(v2) => &v2.payload,
         }
+    }
+
+    pub fn consume_frames<T>(&self, consumer: &mut T) -> Result<(), FrameParseError>
+    where
+        T: FrameConsume,
+    {
+        let payload = self.payload();
+        let mut offset = 0;
+
+        while offset < payload.len() {
+            let left = &payload[offset..];
+            let frame_type = VarInt::parse(left).map_err(|_| FrameParseError::NoEnoughData)?;
+
+            offset += frame_type.encoded_len();
+            match frame_type.value() {
+                0x00 => {} // PADDING
+                0x01 => {} // PING
+                0x02 => {
+                    // TODO parse ACK
+                }
+                0x03 => {
+                    // TODO parse ACK with ECN
+                }
+                0x06 => {
+                    // CRYPTO
+                    let crypto = CryptoFrame::parse(&payload[offset..])?;
+                    consumer.recv_crypto(&crypto)?;
+                    offset += crypto.encoded_len;
+                }
+                _ => return Err(FrameParseError::InvalidFrameType(frame_type.value())),
+            }
+        }
+
+        Ok(())
     }
 }
 
