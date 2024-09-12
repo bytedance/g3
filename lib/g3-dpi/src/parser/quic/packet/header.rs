@@ -16,14 +16,14 @@
 
 use super::PacketParseError;
 
-pub struct PacketNumber {
+pub struct Header {
     pub byte1: u8,
-    pub bytes: [u8; 4],
-    pub raw_len: usize,
-    pub value: u32,
+    packet_number_buf: [u8; 4],
+    pub packet_number_len: usize,
+    pub packet_number: u32,
 }
 
-impl PacketNumber {
+impl Header {
     pub fn decode_long(byte1: u8, mask: [u8; 5], data: &[u8]) -> Result<Self, PacketParseError> {
         let byte1_low_bits = (byte1 ^ mask[0]) & 0x0F;
         let real_byte1 = byte1_low_bits | (byte1 & 0xF0);
@@ -38,29 +38,24 @@ impl PacketNumber {
             packet_number_bytes[4 - packet_number_len as usize + i] = mask[i + 1] ^ data[i];
         }
         let packet_number = u32::from_be_bytes(packet_number_bytes);
-        Ok(PacketNumber {
+        Ok(Header {
             byte1: real_byte1,
-            bytes: packet_number_bytes,
-            raw_len: packet_number_len as usize,
-            value: packet_number,
+            packet_number_buf: packet_number_bytes,
+            packet_number_len: packet_number_len as usize,
+            packet_number,
         })
     }
 
-    pub fn recover_header(&self, data: &[u8], pn_offset: usize) -> Vec<u8> {
-        let data_header_len = pn_offset + self.raw_len;
-        let mut header = Vec::with_capacity(data_header_len);
-        header.push(self.byte1);
-        header.extend_from_slice(&data[1..pn_offset]);
-        header.extend_from_slice(&self.bytes[4 - self.raw_len..]);
-        header
+    pub fn packet_number_bytes(&self) -> &[u8] {
+        &self.packet_number_buf[4 - self.packet_number_len..]
     }
 
-    pub fn recover_nonce(&self, iv: &[u8; 12]) -> [u8; 12] {
+    pub fn xor_nonce(&self, iv: &[u8; 12]) -> [u8; 12] {
         let mut nonce = *iv;
-        nonce[8] ^= self.bytes[0];
-        nonce[9] ^= self.bytes[1];
-        nonce[10] ^= self.bytes[2];
-        nonce[11] ^= self.bytes[3];
+        nonce[8] ^= self.packet_number_buf[0];
+        nonce[9] ^= self.packet_number_buf[1];
+        nonce[10] ^= self.packet_number_buf[2];
+        nonce[11] ^= self.packet_number_buf[3];
         nonce
     }
 }

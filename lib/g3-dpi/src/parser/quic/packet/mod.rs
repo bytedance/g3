@@ -22,8 +22,8 @@ use hkdf::QuicInitialHkdf;
 
 mod aes;
 
-mod packet_number;
-use packet_number::PacketNumber;
+mod header;
+use header::Header;
 
 mod v1;
 mod v2;

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use super::{PacketNumber, PacketParseError, QuicInitialHkdf};
+use super::{Header, PacketParseError, QuicInitialHkdf};
 use crate::parser::quic::VarInt;
 
 const INITIAL_SALT: &[u8] = &[
@@ -94,18 +94,22 @@ impl InitialPacketV2 {
 
         let secrets = ClientSecrets::new(INITIAL_SALT, dst_cid);
         let mask = super::aes::aes_ecb_mask(&secrets.hp, sample)?;
-        let pn = PacketNumber::decode_long(byte1, mask, left)?;
+        let header = Header::decode_long(byte1, mask, left)?;
 
-        let nonce = pn.recover_nonce(&secrets.iv);
-        let header = pn.recover_header(data, pn_offset);
+        let nonce = header.xor_nonce(&secrets.iv);
+        let aad_vec = [
+            &[header.byte1],
+            &data[1..pn_offset],
+            header.packet_number_bytes(),
+        ];
         let tag_start = left.len() - 16;
-        let ciphertext = &left[pn.raw_len..tag_start];
+        let ciphertext = &left[header.packet_number_len..tag_start];
         let tag = &left[tag_start..];
 
-        let payload = super::aes::aes_gcm_decrypt(&secrets.key, &nonce, &header, ciphertext, tag)?;
+        let payload = super::aes::aes_gcm_decrypt(&secrets.key, &nonce, &aad_vec, ciphertext, tag)?;
 
         Ok(InitialPacketV2 {
-            packet_number: pn.value,
+            packet_number: header.packet_number,
             payload,
         })
     }

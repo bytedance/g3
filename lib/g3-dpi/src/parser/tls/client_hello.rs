@@ -29,6 +29,8 @@ pub enum ClientHelloParseError {
     InvalidFragmentLength,
     #[error("invalid message type {0}")]
     InvalidMessageType(u8),
+    #[error("need {0} bytes more data")]
+    NeedMoreData(usize),
     #[error("invalid message length")]
     InvalidMessageLength,
     #[error("invalid cipher suites length")]
@@ -60,8 +62,11 @@ impl<'a> ClientHello<'a> {
                 handshake_header.msg_type,
             ));
         }
-        if handshake_header.msg_length as usize + HandshakeHeader::SIZE != data.len() {
-            return Err(ClientHelloParseError::InvalidMessageLength);
+        let expected_data_len = handshake_header.msg_length as usize + HandshakeHeader::SIZE;
+        if expected_data_len != data.len() {
+            return Err(ClientHelloParseError::NeedMoreData(
+                expected_data_len - data.len(),
+            ));
         }
 
         let mut offset = HandshakeHeader::SIZE;
