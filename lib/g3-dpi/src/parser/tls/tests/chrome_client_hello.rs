@@ -16,9 +16,9 @@
 
 use g3_types::net::TlsServerName;
 
-use crate::parser::tls::{ExtensionType, Record};
+use crate::parser::tls::{ExtensionType, Record, RecordParseError};
 
-const PACKET_BYTES: &[u8] = &[
+const STREAM_BYTES: &[u8] = &[
     0x16, 0x03, 0x01, 0x07, 0x1c, 0x01, 0x00, 0x07, 0x18, 0x03, 0x03, 0x77, 0x6e, 0x9c, 0x10, 0x89,
     0x32, 0x52, 0x85, 0xa1, 0x45, 0xbb, 0xa4, 0x0d, 0x6a, 0x84, 0xa1, 0xc6, 0x25, 0xa0, 0x24, 0x5b,
     0x2c, 0xbf, 0x1b, 0xc3, 0xda, 0x1a, 0x8c, 0x34, 0x8c, 0x36, 0xf3, 0x20, 0x4c, 0xc3, 0x64, 0x68,
@@ -138,7 +138,12 @@ const PACKET_BYTES: &[u8] = &[
 
 #[test]
 fn sni() {
-    let record = Record::parse(PACKET_BYTES).unwrap();
+    // check partial data
+    let Err(RecordParseError::NeedMoreData(_)) = Record::parse(&STREAM_BYTES[..100]) else {
+        panic!("unexpected error type");
+    };
+    // check full data
+    let record = Record::parse(STREAM_BYTES).unwrap();
     let client_hello = record.parse_client_hello().unwrap();
     let sni_bytes = client_hello
         .get_ext(ExtensionType::ServerName)
