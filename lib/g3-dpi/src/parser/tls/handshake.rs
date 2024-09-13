@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-use thiserror::Error;
-
 #[allow(dead_code)]
 #[repr(u8)]
 pub enum HandshakeType {
@@ -26,12 +24,6 @@ pub enum HandshakeType {
     // there are more that we don't need
 }
 
-#[derive(Debug, Error)]
-pub enum HandshakeParseError {
-    #[error("invalid data size {0} for TLS record header")]
-    InvalidDataSize(usize),
-}
-
 pub struct HandshakeHeader {
     pub msg_type: u8,
     pub msg_length: u32,
@@ -40,12 +32,12 @@ pub struct HandshakeHeader {
 impl HandshakeHeader {
     pub const SIZE: usize = 4;
 
-    pub fn parse(data: &[u8]) -> Result<Self, HandshakeParseError> {
+    pub fn parse(data: &[u8]) -> Option<Self> {
         if data.len() < Self::SIZE {
-            return Err(HandshakeParseError::InvalidDataSize(data.len()));
+            return None;
         }
 
-        Ok(HandshakeHeader {
+        Some(HandshakeHeader {
             msg_type: data[0],
             msg_length: u32::from_be_bytes([0, data[1], data[2], data[3]]),
         })

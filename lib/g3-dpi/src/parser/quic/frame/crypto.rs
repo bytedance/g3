@@ -26,13 +26,17 @@ pub struct CryptoFrame<'a> {
 
 impl<'a> CryptoFrame<'a> {
     pub fn parse(data: &'a [u8]) -> Result<Self, FrameParseError> {
-        let stream_offset = VarInt::parse(data).map_err(|_| FrameParseError::NoEnoughData)?;
+        let Some(stream_offset) = VarInt::parse(data) else {
+            return Err(FrameParseError::NoEnoughData);
+        };
         let mut offset = stream_offset.encoded_len();
         let stream_offset = usize::try_from(stream_offset.value())
             .map_err(|_| FrameParseError::TooBigOffsetValue(stream_offset.value()))?;
 
         let left = &data[offset..];
-        let length = VarInt::parse(left).map_err(|_| FrameParseError::NoEnoughData)?;
+        let Some(length) = VarInt::parse(left) else {
+            return Err(FrameParseError::NoEnoughData);
+        };
         offset += length.encoded_len();
 
         if offset as u64 + length.value() > data.len() as u64 {
@@ -124,7 +128,8 @@ impl FrameConsume for ClientHelloConsumer {
             }
 
             if self.expected_length == 0 {
-                if let Ok(header) = HandshakeHeader::parse(&self.buf[..self.unfilled_offset]) {
+                if let Some(header) = HandshakeHeader::parse(&self.buf[..self.unfilled_offset]) {
+                    // TODO limit msg type
                     if header.msg_length > 1 << 14 {
                         // use the same size limit as TLS record
                         return Err(FrameParseError::MalformedFrame(

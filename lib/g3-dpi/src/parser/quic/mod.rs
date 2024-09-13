@@ -15,10 +15,10 @@
  */
 
 mod var_int;
-pub use var_int::{VarInt, VarIntParseError};
+pub use var_int::VarInt;
 
 mod packet;
 pub use packet::{InitialPacket, PacketParseError};
 
 mod frame;
-pub use frame::{ClientHelloConsumer, CryptoFrame, FrameConsume, FrameParseError};
+pub use frame::{AckFrame, ClientHelloConsumer, CryptoFrame, FrameConsume, FrameParseError};

@@ -17,7 +17,7 @@
 use openssl::error::ErrorStack;
 use thiserror::Error;
 
-use super::{CryptoFrame, FrameConsume, FrameParseError, VarInt};
+use super::{AckFrame, CryptoFrame, FrameConsume, FrameParseError, VarInt};
 
 mod hkdf;
 use hkdf::QuicInitialHkdf;
@@ -104,17 +104,21 @@ impl InitialPacket {
 
         while offset < payload.len() {
             let left = &payload[offset..];
-            let frame_type = VarInt::parse(left).map_err(|_| FrameParseError::NoEnoughData)?;
+            let Some(frame_type) = VarInt::parse(left) else {
+                return Err(FrameParseError::NoEnoughData);
+            };
 
             offset += frame_type.encoded_len();
             match frame_type.value() {
                 0x00 => {} // PADDING
                 0x01 => {} // PING
                 0x02 => {
-                    // TODO parse ACK
+                    let ack = AckFrame::parse(&payload[offset..], false)?;
+                    offset += ack.encoded_len;
                 }
                 0x03 => {
-                    // TODO parse ACK with ECN
+                    let ack = AckFrame::parse(&payload[offset..], true)?;
+                    offset += ack.encoded_len;
                 }
                 0x06 => {
                     // CRYPTO

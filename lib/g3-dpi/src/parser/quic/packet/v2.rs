@@ -69,7 +69,9 @@ impl InitialPacketV2 {
 
         // Token
         let left = &data[offset..];
-        let token_len = VarInt::parse(left).map_err(|_| PacketParseError::TooSmall)?;
+        let Some(token_len) = VarInt::parse(left) else {
+            return Err(PacketParseError::TooSmall);
+        };
         let start = offset + token_len.encoded_len();
         if start as u64 + token_len.value() > data.len() as u64 {
             return Err(PacketParseError::InvalidTokenLength(token_len.value()));
@@ -78,7 +80,9 @@ impl InitialPacketV2 {
 
         // Length
         let left = &data[offset..];
-        let length = VarInt::parse(left).map_err(|_| PacketParseError::TooSmall)?;
+        let Some(length) = VarInt::parse(left) else {
+            return Err(PacketParseError::TooSmall);
+        };
         offset += length.encoded_len();
         if offset as u64 + length.value() != data.len() as u64 {
             return Err(PacketParseError::InvalidLengthValue(length.value()));

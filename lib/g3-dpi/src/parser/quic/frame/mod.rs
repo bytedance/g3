@@ -19,6 +19,9 @@ use thiserror::Error;
 mod crypto;
 pub use crypto::{ClientHelloConsumer, CryptoFrame};
 
+mod ack;
+pub use ack::AckFrame;
+
 #[derive(Debug, Error)]
 pub enum FrameParseError {
     #[error("invalid frame type {0}")]

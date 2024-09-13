@@ -17,8 +17,7 @@
 use thiserror::Error;
 
 use super::{
-    ExtensionList, ExtensionParseError, ExtensionType, HandshakeHeader, HandshakeParseError,
-    HandshakeType, RawVersion,
+    ExtensionList, ExtensionParseError, ExtensionType, HandshakeHeader, HandshakeType, RawVersion,
 };
 
 #[derive(Debug, Error)]
@@ -46,17 +45,11 @@ pub struct ClientHello<'a> {
     pub extensions: Option<&'a [u8]>,
 }
 
-impl From<HandshakeParseError> for ClientHelloParseError {
-    fn from(value: HandshakeParseError) -> Self {
-        match value {
-            HandshakeParseError::InvalidDataSize(_) => ClientHelloParseError::InvalidFragmentLength,
-        }
-    }
-}
-
 impl<'a> ClientHello<'a> {
     pub fn parse_fragment(data: &'a [u8]) -> Result<Self, ClientHelloParseError> {
-        let handshake_header = HandshakeHeader::parse(data)?;
+        let Some(handshake_header) = HandshakeHeader::parse(data) else {
+            return Err(ClientHelloParseError::InvalidFragmentLength);
+        };
         if handshake_header.msg_type != HandshakeType::ClientHello as u8 {
             return Err(ClientHelloParseError::InvalidMessageType(
                 handshake_header.msg_type,

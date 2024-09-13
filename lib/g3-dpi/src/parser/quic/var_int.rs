@@ -14,71 +14,63 @@
  * limitations under the License.
  */
 
-use thiserror::Error;
-
-#[derive(Debug, Error)]
-pub enum VarIntParseError {
-    #[error("need {0} byte(s) more data")]
-    NeedMoreData(usize),
-}
-
-pub enum VarInt {
-    L1(u8),
-    L2(u16),
-    L4(u32),
-    L8(u64),
+pub struct VarInt {
+    value: u64,
+    encoded_len: usize,
 }
 
 impl VarInt {
-    pub fn parse(data: &[u8]) -> Result<Self, VarIntParseError> {
+    pub fn parse(data: &[u8]) -> Option<Self> {
         if data.is_empty() {
-            return Err(VarIntParseError::NeedMoreData(1));
+            return None;
         }
 
         let value0 = data[0] & 0b0011_1111;
         match data[0] >> 6 {
-            0 => Ok(VarInt::L1(value0)),
+            0 => Some(VarInt {
+                value: value0 as u64,
+                encoded_len: 1,
+            }),
             1 => {
                 if data.len() < 2 {
-                    return Err(VarIntParseError::NeedMoreData(2 - data.len()));
+                    return None;
                 }
-                Ok(VarInt::L2(u16::from_be_bytes([value0, data[1]])))
+                Some(VarInt {
+                    value: u16::from_be_bytes([value0, data[1]]) as u64,
+                    encoded_len: 2,
+                })
             }
             2 => {
                 if data.len() < 4 {
-                    return Err(VarIntParseError::NeedMoreData(4 - data.len()));
+                    return None;
                 }
-                Ok(VarInt::L4(u32::from_be_bytes([
-                    value0, data[1], data[2], data[3],
-                ])))
+                Some(VarInt {
+                    value: u32::from_be_bytes([value0, data[1], data[2], data[3]]) as u64,
+                    encoded_len: 4,
+                })
             }
             3 => {
                 if data.len() < 8 {
-                    return Err(VarIntParseError::NeedMoreData(8 - data.len()));
+                    return None;
                 }
-                Ok(VarInt::L8(u64::from_be_bytes([
-                    value0, data[1], data[2], data[3], data[4], data[5], data[6], data[7],
-                ])))
+                Some(VarInt {
+                    value: u64::from_be_bytes([
+                        value0, data[1], data[2], data[3], data[4], data[5], data[6], data[7],
+                    ]),
+                    encoded_len: 8,
+                })
             }
             _ => unreachable!(),
         }
     }
 
+    #[inline]
     pub fn encoded_len(&self) -> usize {
-        match self {
-            VarInt::L1(_) => 1,
-            VarInt::L2(_) => 2,
-            VarInt::L4(_) => 4,
-            VarInt::L8(_) => 8,
-        }
+        self.encoded_len
     }
 
+    #[inline]
     pub fn value(&self) -> u64 {
-        match self {
-            VarInt::L1(v) => *v as u64,
-            VarInt::L2(v) => *v as u64,
-            VarInt::L4(v) => *v as u64,
-            VarInt::L8(v) => *v,
-        }
+        self.value
     }
 }
