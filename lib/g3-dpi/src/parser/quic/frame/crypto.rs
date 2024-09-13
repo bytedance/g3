@@ -329,7 +329,7 @@ mod tests {
         let mut consumer = ClientHelloConsumer::new();
         let frame1 = CryptoFrame {
             stream_offset: 0,
-            data: &data[..2],
+            data: &data[..4],
             encoded_len: 0,
         };
         let frame2 = CryptoFrame {
@@ -343,13 +343,13 @@ mod tests {
             encoded_len: 0,
         };
         let frame4 = CryptoFrame {
-            stream_offset: 2,
-            data: &data[2..30],
+            stream_offset: 4,
+            data: &data[4..30],
             encoded_len: 0,
         };
         consumer.recv_crypto(&frame1).unwrap();
         assert!(!consumer.finished());
-        assert!(consumer.recv_crypto(&frame2).is_err());
+        consumer.recv_crypto(&frame2).unwrap();
         assert!(!consumer.finished());
         consumer.recv_crypto(&frame3).unwrap();
         assert!(!consumer.finished());
