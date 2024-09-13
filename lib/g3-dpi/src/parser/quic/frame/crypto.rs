@@ -16,7 +16,7 @@
 
 use super::{FrameConsume, FrameParseError};
 use crate::parser::quic::VarInt;
-use crate::parser::tls::HandshakeHeader;
+use crate::parser::tls::{ClientHello, ClientHelloParseError, HandshakeHeader};
 
 pub struct CryptoFrame<'a> {
     pub stream_offset: usize,
@@ -83,6 +83,13 @@ impl ClientHelloConsumer {
     pub fn finished(&self) -> bool {
         self.expected_length > 0 && self.expected_length == self.unfilled_offset
     }
+
+    pub fn parse_client_hello(&self) -> Result<ClientHello<'_>, ClientHelloParseError> {
+        if !self.finished() {
+            return Err(ClientHelloParseError::NeedMoreData(0));
+        }
+        ClientHello::parse_fragment(&self.buf)
+    }
 }
 
 impl FrameConsume for ClientHelloConsumer {
@@ -137,6 +144,7 @@ impl FrameConsume for ClientHelloConsumer {
                         ));
                     }
                     self.expected_length = header.msg_length as usize + HandshakeHeader::SIZE;
+                    self.buf.resize(self.expected_length, 0);
                 }
             }
 
@@ -159,7 +167,6 @@ impl FrameConsume for ClientHelloConsumer {
                     "too big stream offset value in crypto frame",
                 ));
             }
-            self.buf.resize(frame_stream_end, 0);
             let dst = &mut self.buf[frame.stream_offset..frame_stream_end];
             unsafe {
                 std::ptr::copy_nonoverlapping(
@@ -307,6 +314,37 @@ mod tests {
         let frame4 = CryptoFrame {
             stream_offset: 30,
             data: &data[30..],
+            encoded_len: 0,
+        };
+        consumer.recv_crypto(&frame1).unwrap();
+        assert!(!consumer.finished());
+        assert!(consumer.recv_crypto(&frame2).is_err());
+        assert!(!consumer.finished());
+        consumer.recv_crypto(&frame3).unwrap();
+        assert!(!consumer.finished());
+        consumer.recv_crypto(&frame4).unwrap();
+        assert!(consumer.finished());
+        assert_eq!(consumer.buf, data);
+
+        let mut consumer = ClientHelloConsumer::new();
+        let frame1 = CryptoFrame {
+            stream_offset: 0,
+            data: &data[..2],
+            encoded_len: 0,
+        };
+        let frame2 = CryptoFrame {
+            stream_offset: 30,
+            data: &data[30..40],
+            encoded_len: 0,
+        };
+        let frame3 = CryptoFrame {
+            stream_offset: 40,
+            data: &data[40..],
+            encoded_len: 0,
+        };
+        let frame4 = CryptoFrame {
+            stream_offset: 2,
+            data: &data[2..30],
             encoded_len: 0,
         };
         consumer.recv_crypto(&frame1).unwrap();

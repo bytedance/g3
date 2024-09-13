@@ -14,24 +14,4 @@
  * limitations under the License.
  */
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct RawVersion {
-    major: u8,
-    minor: u8,
-}
-
-mod record;
-pub(crate) use record::ContentType;
-pub use record::{Record, RecordHeader, RecordParseError};
-
-mod handshake;
-pub(crate) use handshake::{HandshakeHeader, HandshakeType};
-
-mod client_hello;
-pub use client_hello::{ClientHello, ClientHelloParseError};
-
-mod extension;
-pub use extension::{ExtensionList, ExtensionParseError, ExtensionType};
-
-#[cfg(test)]
-mod tests;
+mod chrome_client_hello;
