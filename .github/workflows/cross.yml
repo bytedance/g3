@@ -26,6 +26,10 @@ env:
   CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER: riscv64-linux-gnu-gcc
   CARGO_TARGET_POWERPC64LE_UNKNOWN_LINUX_GNU_LINKER: powerpc64le-linux-gnu-gcc
   CARGO_TARGET_S390X_UNKNOWN_LINUX_GNU_LINKER: s390x-linux-gnu-gcc
+  CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
+  CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
+  CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABI_LINKER: arm-linux-gnueabi-gcc
+  CARGO_TARGET_I686_UNKNOWN_LINUX_GNU_LINKER: i686-linux-gnu-gcc
 
 jobs:
   build:
@@ -39,8 +43,24 @@ jobs:
             gcc: gcc-mingw-w64-x86-64,
           },
           {
+            rustc: i686-unknown-linux-gnu,
+            gcc: gcc-i686-linux-gnu,
+          },
+          {
             rustc: aarch64-unknown-linux-gnu,
             gcc: gcc-aarch64-linux-gnu,
+          },
+          {
+            rustc: armv7-unknown-linux-gnueabihf,
+            gcc: gcc-arm-linux-gnueabihf,
+          },
+          {
+            rustc: arm-unknown-linux-gnueabihf,
+            gcc: gcc-arm-linux-gnueabihf,
+          },
+          {
+            rustc: arm-unknown-linux-gnueabi,
+            gcc: gcc-arm-linux-gnueabi,
           },
           {
             rustc: riscv64gc-unknown-linux-gnu,

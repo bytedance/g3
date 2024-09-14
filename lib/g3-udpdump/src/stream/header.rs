@@ -117,7 +117,7 @@ impl PduHeader for ToClientPduHeader {
         hdr[offset..offset + 4].copy_from_slice(&seq.to_be_bytes());
         offset += 4;
 
-        let next_seq = ((seq as usize + data_len) & 0xFFFFFFFF) as u32;
+        let next_seq = seq.wrapping_add(data_len as _);
         hdr[offset..offset + 4].copy_from_slice(&next_seq.to_be_bytes());
         offset += 4;
 
@@ -176,7 +176,7 @@ impl PduHeader for ToRemotePduHeader {
         hdr[offset..offset + 4].copy_from_slice(&seq.to_be_bytes());
         offset += 4;
 
-        let next_seq = ((seq as usize + data_len) & 0xFFFFFFFF) as u32;
+        let next_seq = seq.wrapping_add(data_len as _);
         hdr[offset..offset + 4].copy_from_slice(&next_seq.to_be_bytes());
         offset += 4;
 
