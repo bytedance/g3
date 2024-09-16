@@ -14,41 +14,53 @@
  * limitations under the License.
  */
 
-use hkdf::Hkdf;
-use sha2::Sha256;
+use openssl::error::ErrorStack;
+use openssl::md::Md;
+use openssl::pkey::Id;
+use openssl::pkey_ctx::{HkdfMode, PkeyCtx};
 
-pub struct QuicInitialHkdf {
-    inner: Hkdf<Sha256>,
-    hkdf_label_buf: Vec<u8>,
+fn build_info_from_label(label: &[u8], output_len: u16) -> Vec<u8> {
+    let label_len = 6 + label.len() as u8;
+    let mut info = Vec::with_capacity(2 + 1 + label_len as usize + 1);
+    let l_bytes = output_len.to_be_bytes();
+    info.extend_from_slice(&l_bytes);
+    info.push(label_len);
+    info.extend_from_slice(b"tls13 ");
+    info.extend_from_slice(&label[..label_len as usize - 6]);
+    info.push(0); // no context
+    info
 }
 
-impl QuicInitialHkdf {
-    pub fn new(initial_salt: &[u8], cid: &[u8]) -> Self {
-        let inner = Hkdf::new(Some(initial_salt), cid);
-        QuicInitialHkdf {
-            inner,
-            hkdf_label_buf: Vec::with_capacity(32),
-        }
-    }
+pub fn quic_hkdf_extract_expand(
+    salt: &[u8],
+    ikm: &[u8],
+    label: &[u8],
+    output: &mut [u8],
+) -> Result<(), ErrorStack> {
+    let mut pkey_ctx = PkeyCtx::new_id(Id::HKDF)?;
+    pkey_ctx.derive_init()?;
+    pkey_ctx.set_hkdf_mode(HkdfMode::EXTRACT_THEN_EXPAND)?;
+    pkey_ctx.set_hkdf_md(Md::sha256())?;
+    pkey_ctx.set_hkdf_salt(salt)?;
+    pkey_ctx.set_hkdf_key(ikm)?;
 
-    pub fn set_prk(&mut self, prk: &[u8]) {
-        if let Ok(hk) = Hkdf::<Sha256>::from_prk(prk) {
-            self.inner = hk;
-        }
-    }
+    let info = build_info_from_label(label, output.len() as u16);
+    pkey_ctx.add_hkdf_info(&info)?;
 
-    pub fn expand_label(&mut self, label: &[u8], output: &mut [u8]) {
-        self.hkdf_label_buf.clear();
-        let len = output.len() as u16;
-        let l_bytes = len.to_be_bytes();
-        self.hkdf_label_buf.extend_from_slice(&l_bytes);
-        let label_len = 6 + label.len() as u8;
-        self.hkdf_label_buf.push(label_len);
-        self.hkdf_label_buf.extend_from_slice(b"tls13 ");
-        self.hkdf_label_buf
-            .extend_from_slice(&label[..label_len as usize - 6]);
-        self.hkdf_label_buf.push(0); // no context
+    pkey_ctx.derive(Some(output))?;
+    Ok(())
+}
 
-        let _ = self.inner.expand(&self.hkdf_label_buf, output);
-    }
+pub fn quic_hkdf_expand(prk: &[u8], label: &[u8], output: &mut [u8]) -> Result<(), ErrorStack> {
+    let mut pkey_ctx = PkeyCtx::new_id(Id::HKDF)?;
+    pkey_ctx.derive_init()?;
+    pkey_ctx.set_hkdf_mode(HkdfMode::EXPAND_ONLY)?;
+    pkey_ctx.set_hkdf_md(Md::sha256())?;
+    pkey_ctx.set_hkdf_key(prk)?;
+
+    let info = build_info_from_label(label, output.len() as u16);
+    pkey_ctx.add_hkdf_info(&info)?;
+
+    pkey_ctx.derive(Some(output))?;
+    Ok(())
 }

@@ -20,7 +20,7 @@ use thiserror::Error;
 use super::{AckFrame, CryptoFrame, FrameConsume, FrameParseError, VarInt};
 
 mod hkdf;
-use hkdf::QuicInitialHkdf;
+use hkdf::{quic_hkdf_expand, quic_hkdf_extract_expand};
 
 mod aes;
 

@@ -12,8 +12,6 @@ fnv.workspace = true
 bytes.workspace = true
 memchr.workspace = true
 fixedbitset.workspace = true
-hkdf = { workspace = true, optional = true }
-sha2 = { workspace = true, optional = true }
 openssl = { workspace = true, optional = true }
 g3-types = { workspace = true, features = ["http"] }
 
@@ -22,4 +20,4 @@ hex-literal.workspace = true
 
 [features]
 default = []
-quic = ["dep:hkdf", "dep:sha2", "dep:openssl"]
+quic = ["dep:openssl"]

@@ -119,7 +119,6 @@ md-5 = "0.10.0"
 sha2 = "0.10.0"
 sha-1 = "0.10.0"
 blake3 = { version = "1.5", default-features = false }
-hkdf = "0.12"
 hex = "0.4.2"
 hex-literal = "0.4"
 #
@@ -154,8 +153,8 @@ rustls-pemfile = "2"
 tokio-rustls = { version = "0.26", default-features = false, features = ["tls12", "ring"] }
 quinn = { version = "0.11", default-features = false, features = ["runtime-tokio"] }
 #
-openssl = { package = "variant-ssl", version = "0.15.1" }
-openssl-sys = { package = "variant-ssl-sys", version = "0.15.1" }
+openssl = { package = "variant-ssl", version = "0.15.2" }
+openssl-sys = { package = "variant-ssl-sys", version = "0.15.2" }
 openssl-probe = "0.1"
 #
 flume = { version = "0.11", default-features = false }

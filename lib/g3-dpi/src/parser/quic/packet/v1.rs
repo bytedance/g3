@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-use super::{Header, PacketParseError, QuicInitialHkdf};
+use openssl::error::ErrorStack;
+
+use super::{Header, PacketParseError};
 use crate::parser::quic::VarInt;
 
 const INITIAL_SALT: &[u8] = &[
@@ -96,7 +98,7 @@ impl InitialPacketV1 {
         let pn_offset = offset;
         let sample = &left[4..20];
 
-        let secrets = ClientSecrets::new(INITIAL_SALT, dst_cid);
+        let secrets = ClientSecrets::new(dst_cid)?;
         let mask = super::aes::aes_ecb_mask(&secrets.hp, sample)?;
         let header = Header::decode_long(byte1, mask, left)?;
 
@@ -126,24 +128,25 @@ struct ClientSecrets {
 }
 
 impl ClientSecrets {
-    pub fn new(initial_salt: &[u8], cid: &[u8]) -> Self {
-        let mut hk = QuicInitialHkdf::new(initial_salt, cid);
-
+    pub fn new(cid: &[u8]) -> Result<Self, ErrorStack> {
         let mut client_initial_secret = [0u8; 32];
-        hk.expand_label(b"client in", &mut client_initial_secret);
-
-        hk.set_prk(&client_initial_secret);
+        super::quic_hkdf_extract_expand(
+            INITIAL_SALT,
+            cid,
+            b"client in",
+            &mut client_initial_secret,
+        )?;
 
         let mut key = [0u8; 16];
-        hk.expand_label(b"quic key", &mut key);
+        super::quic_hkdf_expand(&client_initial_secret, b"quic key", &mut key)?;
 
         let mut iv = [0u8; 12];
-        hk.expand_label(b"quic iv", &mut iv);
+        super::quic_hkdf_expand(&client_initial_secret, b"quic iv", &mut iv)?;
 
         let mut hp = [0u8; 16];
-        hk.expand_label(b"quic hp", &mut hp);
+        super::quic_hkdf_expand(&client_initial_secret, b"quic hp", &mut hp)?;
 
-        ClientSecrets { key, iv, hp }
+        Ok(ClientSecrets { key, iv, hp })
     }
 }
 
@@ -159,7 +162,7 @@ mod tests {
         let iv = hex!("fa044b2f42a3fd3b46fb255c");
         let hp = hex!("9f50449e04a0e810283a1e9933adedd2");
 
-        let secrets = ClientSecrets::new(INITIAL_SALT, &cid);
+        let secrets = ClientSecrets::new(&cid).unwrap();
         assert_eq!(secrets.key, key);
         assert_eq!(secrets.iv, iv);
         assert_eq!(secrets.hp, hp);
