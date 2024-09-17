@@ -18,10 +18,11 @@ use openssl::error::ErrorStack;
 use openssl::md::Md;
 use openssl::pkey::Id;
 use openssl::pkey_ctx::{HkdfMode, PkeyCtx};
+use smallvec::SmallVec;
 
-fn build_info_from_label(label: &[u8], output_len: u16) -> Vec<u8> {
+fn build_info_from_label(label: &[u8], output_len: u16) -> SmallVec<[u8; 32]> {
     let label_len = 6 + label.len() as u8;
-    let mut info = Vec::with_capacity(2 + 1 + label_len as usize + 1);
+    let mut info: SmallVec<[u8; 32]> = SmallVec::with_capacity(2 + 1 + label_len as usize + 1);
     let l_bytes = output_len.to_be_bytes();
     info.extend_from_slice(&l_bytes);
     info.push(label_len);

@@ -12,6 +12,7 @@ fnv.workspace = true
 bytes.workspace = true
 memchr.workspace = true
 fixedbitset.workspace = true
+smallvec = { workspace = true, optional = true }
 openssl = { workspace = true, optional = true }
 g3-types = { workspace = true, features = ["http"] }
 
@@ -20,4 +21,4 @@ hex-literal.workspace = true
 
 [features]
 default = []
-quic = ["dep:openssl"]
+quic = ["dep:openssl", "dep:smallvec"]

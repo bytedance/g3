@@ -1121,6 +1121,7 @@ dependencies = [
  "g3-types",
  "hex-literal",
  "memchr",
+ "smallvec",
  "thiserror",
  "variant-ssl",
 ]
