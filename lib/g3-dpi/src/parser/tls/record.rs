@@ -16,7 +16,8 @@
 
 use thiserror::Error;
 
-use super::{ClientHello, ClientHelloParseError, RawVersion};
+use super::{HandshakeCoalescer, HandshakeMessage, RawVersion};
+use crate::parser::tls::handshake::HandshakeCoalesceError;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
@@ -52,6 +53,8 @@ pub enum RecordParseError {
     UnsupportedVersion(RawVersion),
     #[error("invalid content type {0}")]
     InvalidContentType(u8),
+    #[error("invalid fragment length")]
+    InvalidFragmentLength,
 }
 
 pub struct RecordHeader {
@@ -92,7 +95,8 @@ impl RecordHeader {
 
 pub struct Record<'a> {
     pub header: RecordHeader,
-    pub fragment: &'a [u8],
+    fragment: &'a [u8],
+    consume_offset: usize,
 }
 
 impl<'a> Record<'a> {
@@ -104,6 +108,10 @@ impl<'a> Record<'a> {
         }
 
         let header = RecordHeader::parse(data)?;
+        if header.fragment_len & 0b1100_0000_0000_0000 != 0 {
+            // The length MUST NOT exceed 2^14 bytes.
+            return Err(RecordParseError::InvalidFragmentLength);
+        }
 
         let start = RecordHeader::SIZE;
         let end = start + header.fragment_len as usize;
@@ -114,19 +122,41 @@ impl<'a> Record<'a> {
         Ok(Record {
             header,
             fragment: &data[start..end],
+            consume_offset: 0,
         })
     }
 
-    pub fn parse_client_hello(&'a self) -> Result<ClientHello<'a>, ClientHelloParseError> {
+    pub fn encoded_len(&self) -> usize {
+        RecordHeader::SIZE + self.fragment.len()
+    }
+
+    pub fn consume_handshake(
+        &mut self,
+        coalescer: &mut HandshakeCoalescer,
+    ) -> Result<Option<HandshakeMessage<'_>>, HandshakeCoalesceError> {
         if self.header.content_type != ContentType::Handshake {
-            return Err(ClientHelloParseError::InvalidContentType(
+            return Err(HandshakeCoalesceError::InvalidContentType(
                 self.header.content_type as u8,
             ));
         }
-        if self.header.fragment_len & 0b1100_0000_0000_0000 != 0 {
-            // The length MUST NOT exceed 2^14 bytes.
-            return Err(ClientHelloParseError::InvalidFragmentLength);
+
+        if self.consume_done() {
+            return Ok(None);
         }
-        ClientHello::parse_fragment(self.fragment)
+        let fragment = &self.fragment[self.consume_offset..];
+
+        if coalescer.is_empty() {
+            if let Some(msg) = HandshakeMessage::parse_fragment(fragment) {
+                self.consume_offset += msg.encoded_len();
+                return Ok(Some(msg));
+            }
+        }
+
+        self.consume_offset += coalescer.coalesce_fragment(fragment)?;
+        Ok(None)
+    }
+
+    pub fn consume_done(&self) -> bool {
+        self.consume_offset >= self.fragment.len()
     }
 }

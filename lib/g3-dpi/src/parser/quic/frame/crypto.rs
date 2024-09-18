@@ -16,7 +16,7 @@
 
 use super::{FrameConsume, FrameParseError};
 use crate::parser::quic::VarInt;
-use crate::parser::tls::{ClientHello, ClientHelloParseError, HandshakeHeader};
+use crate::parser::tls::{ClientHello, ClientHelloParseError, HandshakeHeader, HandshakeType};
 
 pub struct CryptoFrame<'a> {
     pub stream_offset: usize,
@@ -57,22 +57,26 @@ struct Fragment {
     length: usize,
 }
 
-pub struct ClientHelloConsumer {
+pub struct HandshakeCoalescer {
+    max_message_size: u32,
+    header: Option<HandshakeHeader>,
     buf: Vec<u8>,
     unfilled_offset: usize,
     expected_length: usize,
     fragments: Vec<Fragment>,
 }
 
-impl Default for ClientHelloConsumer {
+impl Default for HandshakeCoalescer {
     fn default() -> Self {
-        Self::new()
+        Self::new(1 << 14)
     }
 }
 
-impl ClientHelloConsumer {
-    pub fn new() -> Self {
-        ClientHelloConsumer {
+impl HandshakeCoalescer {
+    pub fn new(max_message_size: u32) -> Self {
+        HandshakeCoalescer {
+            max_message_size,
+            header: None,
             buf: Vec::with_capacity(1024),
             unfilled_offset: 0,
             expected_length: 0,
@@ -80,19 +84,27 @@ impl ClientHelloConsumer {
         }
     }
 
-    pub fn finished(&self) -> bool {
+    pub(crate) fn finished(&self) -> bool {
         self.expected_length > 0 && self.expected_length == self.unfilled_offset
     }
 
-    pub fn parse_client_hello(&self) -> Result<ClientHello<'_>, ClientHelloParseError> {
-        if !self.finished() {
-            return Err(ClientHelloParseError::NeedMoreData(0));
+    pub fn parse_client_hello(&self) -> Result<Option<ClientHello<'_>>, ClientHelloParseError> {
+        let Some(hdr) = &self.header else {
+            return Ok(None);
+        };
+        if hdr.msg_type != HandshakeType::ClientHello as u8 {
+            return Err(ClientHelloParseError::InvalidMessageType(hdr.msg_type));
         }
-        ClientHello::parse_fragment(&self.buf)
+        if self.finished() {
+            let ch = ClientHello::parse_msg_data(&self.buf[HandshakeHeader::SIZE..])?;
+            Ok(Some(ch))
+        } else {
+            Ok(None)
+        }
     }
 }
 
-impl FrameConsume for ClientHelloConsumer {
+impl FrameConsume for HandshakeCoalescer {
     fn recv_crypto(&mut self, frame: &CryptoFrame<'_>) -> Result<(), FrameParseError> {
         if frame.stream_offset <= self.unfilled_offset {
             let frame_stream_end = frame.stream_offset + frame.data.len();
@@ -136,14 +148,14 @@ impl FrameConsume for ClientHelloConsumer {
 
             if self.expected_length == 0 {
                 if let Some(header) = HandshakeHeader::parse(&self.buf[..self.unfilled_offset]) {
-                    // TODO limit msg type
-                    if header.msg_length > 1 << 14 {
+                    if header.msg_length > self.max_message_size {
                         // use the same size limit as TLS record
                         return Err(FrameParseError::MalformedFrame(
-                            "too large message length for client hello",
+                            "too large message length for TLS handshake",
                         ));
                     }
                     self.expected_length = header.msg_length as usize + HandshakeHeader::SIZE;
+                    self.header = Some(header);
                     self.buf.resize(self.expected_length, 0);
                 }
             }
@@ -152,7 +164,7 @@ impl FrameConsume for ClientHelloConsumer {
         } else if self.expected_length == 0 {
             // drop all other frames if we don't know the real length
             Err(FrameParseError::OutOfOrderFrame(
-                "handshake header missing when receiving client hello from crypto frame",
+                "handshake header missing when receiving from crypto frame",
             ))
         } else if frame.stream_offset > self.expected_length {
             // invalid frames
@@ -220,7 +232,7 @@ mod tests {
             75300901100f088394c8f03e51570806 048000ffff"
         );
 
-        let mut consumer = ClientHelloConsumer::new();
+        let mut consumer = HandshakeCoalescer::new();
         let frame_full = CryptoFrame {
             stream_offset: 0,
             data: &data,
@@ -230,7 +242,7 @@ mod tests {
         assert!(consumer.finished());
         assert_eq!(consumer.buf, data);
 
-        let mut consumer = ClientHelloConsumer::new();
+        let mut consumer = HandshakeCoalescer::new();
         let frame1 = CryptoFrame {
             stream_offset: 0,
             data: &data[..30],
@@ -247,7 +259,7 @@ mod tests {
         assert!(consumer.finished());
         assert_eq!(consumer.buf, data);
 
-        let mut consumer = ClientHelloConsumer::new();
+        let mut consumer = HandshakeCoalescer::new();
         let frame1 = CryptoFrame {
             stream_offset: 0,
             data: &data[..2],
@@ -271,7 +283,7 @@ mod tests {
         assert!(consumer.finished());
         assert_eq!(consumer.buf, data);
 
-        let mut consumer = ClientHelloConsumer::new();
+        let mut consumer = HandshakeCoalescer::new();
         let frame1 = CryptoFrame {
             stream_offset: 0,
             data: &data[..4],
@@ -295,7 +307,7 @@ mod tests {
         assert!(consumer.finished());
         assert_eq!(consumer.buf, data);
 
-        let mut consumer = ClientHelloConsumer::new();
+        let mut consumer = HandshakeCoalescer::new();
         let frame1 = CryptoFrame {
             stream_offset: 0,
             data: &data[..2],
@@ -326,7 +338,7 @@ mod tests {
         assert!(consumer.finished());
         assert_eq!(consumer.buf, data);
 
-        let mut consumer = ClientHelloConsumer::new();
+        let mut consumer = HandshakeCoalescer::new();
         let frame1 = CryptoFrame {
             stream_offset: 0,
             data: &data[..4],
@@ -357,7 +369,7 @@ mod tests {
         assert!(consumer.finished());
         assert_eq!(consumer.buf, data);
 
-        let mut consumer = ClientHelloConsumer::new();
+        let mut consumer = HandshakeCoalescer::new();
         let frame1 = CryptoFrame {
             stream_offset: 0,
             data: &data[..30],

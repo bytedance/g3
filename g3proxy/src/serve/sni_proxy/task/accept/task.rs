@@ -209,7 +209,13 @@ impl ClientHelloAcceptTask {
                 super::http::parse_request(clt_r, clt_r_buf, self.ctx.server_port()).await
             }
             Protocol::TlsModern => {
-                super::tls::parse_request(clt_r, clt_r_buf, self.ctx.server_port()).await
+                super::tls::parse_request(
+                    clt_r,
+                    clt_r_buf,
+                    self.ctx.server_port(),
+                    self.ctx.server_config.tls_max_client_hello_size,
+                )
+                .await
             }
             _ => Err(ServerTaskError::InvalidClientProtocol(
                 "unsupported client protocol",

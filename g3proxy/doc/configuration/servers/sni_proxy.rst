@@ -33,6 +33,17 @@ The instance count setting will be ignored if *listen_in_worker* is correctly en
 
 .. versionadded:: 1.7.20 change listen config to be optional
 
+tls_max_client_hello_size
+-------------------------
+
+**optional**, **type**: u32
+
+Set the max size limit for TLS client hello message.
+
+**default**: 1 << 16
+
+.. versionadded:: 1.9.9
+
 request_wait_timeout
 --------------------
 

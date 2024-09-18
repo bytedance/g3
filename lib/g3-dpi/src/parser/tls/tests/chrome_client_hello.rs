@@ -16,7 +16,7 @@
 
 use g3_types::net::TlsServerName;
 
-use crate::parser::tls::{ExtensionType, Record, RecordParseError};
+use crate::parser::tls::{ExtensionType, HandshakeCoalescer, Record, RecordParseError};
 
 const STREAM_BYTES: &[u8] = &[
     0x16, 0x03, 0x01, 0x07, 0x1c, 0x01, 0x00, 0x07, 0x18, 0x03, 0x03, 0x77, 0x6e, 0x9c, 0x10, 0x89,
@@ -143,12 +143,18 @@ fn sni() {
         panic!("unexpected error type");
     };
     // check full data
-    let record = Record::parse(STREAM_BYTES).unwrap();
-    let client_hello = record.parse_client_hello().unwrap();
+    let mut handshake_coalescer = HandshakeCoalescer::default();
+    let mut record = Record::parse(STREAM_BYTES).unwrap();
+    let handshake_msg = record
+        .consume_handshake(&mut handshake_coalescer)
+        .unwrap()
+        .unwrap();
+    let client_hello = handshake_msg.parse_client_hello().unwrap();
     let sni_bytes = client_hello
         .get_ext(ExtensionType::ServerName)
         .unwrap()
         .unwrap();
     let sni = TlsServerName::from_extension_value(sni_bytes).unwrap();
-    assert_eq!(sni.as_ref(), "accounts.google.com")
+    assert!(record.consume_done());
+    assert_eq!(sni.as_ref(), "accounts.google.com");
 }

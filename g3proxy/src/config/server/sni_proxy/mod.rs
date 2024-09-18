@@ -51,6 +51,7 @@ pub(crate) struct SniProxyServerConfig {
     pub(crate) task_idle_max_count: i32,
     pub(crate) tcp_copy: LimitedCopyConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
+    pub(crate) tls_max_client_hello_size: u32,
     pub(crate) request_wait_timeout: Duration,
     pub(crate) request_recv_timeout: Duration,
     pub(crate) protocol_inspection: ProtocolInspectionConfig,
@@ -76,6 +77,7 @@ impl SniProxyServerConfig {
             task_idle_max_count: 1,
             tcp_copy: Default::default(),
             tcp_misc_opts: Default::default(),
+            tls_max_client_hello_size: 1 << 16,
             request_wait_timeout: Duration::from_secs(60),
             request_recv_timeout: Duration::from_secs(4),
             protocol_inspection: ProtocolInspectionConfig::default(),
@@ -161,6 +163,10 @@ impl SniProxyServerConfig {
             "tcp_misc_opts" => {
                 self.tcp_misc_opts = g3_yaml::value::as_tcp_misc_sock_opts(v)
                     .context(format!("invalid tcp misc sock opts value for key {k}"))?;
+                Ok(())
+            }
+            "tls_max_client_hello_size" => {
+                self.tls_max_client_hello_size = g3_yaml::value::as_u32(v)?;
                 Ok(())
             }
             "task_idle_check_duration" => {

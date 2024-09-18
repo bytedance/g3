@@ -17,7 +17,7 @@
 use thiserror::Error;
 
 mod crypto;
-pub use crypto::{ClientHelloConsumer, CryptoFrame};
+pub use crypto::{CryptoFrame, HandshakeCoalescer};
 
 mod ack;
 pub use ack::AckFrame;

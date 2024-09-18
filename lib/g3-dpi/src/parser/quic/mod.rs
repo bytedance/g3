@@ -21,7 +21,7 @@ mod packet;
 pub use packet::{InitialPacket, PacketParseError};
 
 mod frame;
-pub use frame::{AckFrame, ClientHelloConsumer, CryptoFrame, FrameConsume, FrameParseError};
+pub use frame::{AckFrame, CryptoFrame, FrameConsume, FrameParseError, HandshakeCoalescer};
 
 #[cfg(test)]
 mod tests;

@@ -16,7 +16,7 @@
 
 use g3_types::net::TlsServerName;
 
-use crate::parser::quic::{ClientHelloConsumer, InitialPacket};
+use crate::parser::quic::{HandshakeCoalescer, InitialPacket};
 use crate::parser::tls::ExtensionType;
 
 const PACKET1_BYTES: &[u8] = &[
@@ -185,19 +185,19 @@ const PACKET2_BYTES: &[u8] = &[
 
 #[test]
 fn sni() {
-    let mut client_hello_consumer = ClientHelloConsumer::new();
+    let mut handshake_coalescer = HandshakeCoalescer::new(1 << 16);
 
     let packet1 = InitialPacket::parse_client(PACKET1_BYTES).unwrap();
     assert_eq!(packet1.packet_number(), 1);
-    packet1.consume_frames(&mut client_hello_consumer).unwrap();
-    assert!(!client_hello_consumer.finished());
+    packet1.consume_frames(&mut handshake_coalescer).unwrap();
+    assert!(!handshake_coalescer.finished());
 
     let packet2 = InitialPacket::parse_client(PACKET2_BYTES).unwrap();
     assert_eq!(packet2.packet_number(), 2);
-    packet2.consume_frames(&mut client_hello_consumer).unwrap();
-    assert!(client_hello_consumer.finished());
+    packet2.consume_frames(&mut handshake_coalescer).unwrap();
+    assert!(handshake_coalescer.finished());
 
-    let client_hello = client_hello_consumer.parse_client_hello().unwrap();
+    let client_hello = handshake_coalescer.parse_client_hello().unwrap().unwrap();
     let sni_bytes = client_hello
         .get_ext(ExtensionType::ServerName)
         .unwrap()

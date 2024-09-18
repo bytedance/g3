@@ -25,10 +25,8 @@ pub(crate) use record::ContentType;
 pub use record::{Record, RecordHeader, RecordParseError};
 
 mod handshake;
+pub use handshake::{ClientHello, ClientHelloParseError, HandshakeCoalescer, HandshakeMessage};
 pub(crate) use handshake::{HandshakeHeader, HandshakeType};
-
-mod client_hello;
-pub use client_hello::{ClientHello, ClientHelloParseError};
 
 mod extension;
 pub use extension::{ExtensionList, ExtensionParseError, ExtensionType};
