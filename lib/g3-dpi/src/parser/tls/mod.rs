@@ -25,8 +25,10 @@ pub(crate) use record::ContentType;
 pub use record::{Record, RecordHeader, RecordParseError};
 
 mod handshake;
+#[cfg(feature = "quic")]
+pub(crate) use handshake::HandshakeHeader;
+pub(crate) use handshake::HandshakeType;
 pub use handshake::{ClientHello, ClientHelloParseError, HandshakeCoalescer, HandshakeMessage};
-pub(crate) use handshake::{HandshakeHeader, HandshakeType};
 
 mod extension;
 pub use extension::{ExtensionList, ExtensionParseError, ExtensionType};
