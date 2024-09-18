@@ -232,7 +232,7 @@ mod tests {
             75300901100f088394c8f03e51570806 048000ffff"
         );
 
-        let mut consumer = HandshakeCoalescer::new();
+        let mut consumer = HandshakeCoalescer::default();
         let frame_full = CryptoFrame {
             stream_offset: 0,
             data: &data,
@@ -242,7 +242,7 @@ mod tests {
         assert!(consumer.finished());
         assert_eq!(consumer.buf, data);
 
-        let mut consumer = HandshakeCoalescer::new();
+        let mut consumer = HandshakeCoalescer::default();
         let frame1 = CryptoFrame {
             stream_offset: 0,
             data: &data[..30],
@@ -259,7 +259,7 @@ mod tests {
         assert!(consumer.finished());
         assert_eq!(consumer.buf, data);
 
-        let mut consumer = HandshakeCoalescer::new();
+        let mut consumer = HandshakeCoalescer::default();
         let frame1 = CryptoFrame {
             stream_offset: 0,
             data: &data[..2],
@@ -283,7 +283,7 @@ mod tests {
         assert!(consumer.finished());
         assert_eq!(consumer.buf, data);
 
-        let mut consumer = HandshakeCoalescer::new();
+        let mut consumer = HandshakeCoalescer::default();
         let frame1 = CryptoFrame {
             stream_offset: 0,
             data: &data[..4],
@@ -307,7 +307,7 @@ mod tests {
         assert!(consumer.finished());
         assert_eq!(consumer.buf, data);
 
-        let mut consumer = HandshakeCoalescer::new();
+        let mut consumer = HandshakeCoalescer::default();
         let frame1 = CryptoFrame {
             stream_offset: 0,
             data: &data[..2],
@@ -338,7 +338,7 @@ mod tests {
         assert!(consumer.finished());
         assert_eq!(consumer.buf, data);
 
-        let mut consumer = HandshakeCoalescer::new();
+        let mut consumer = HandshakeCoalescer::default();
         let frame1 = CryptoFrame {
             stream_offset: 0,
             data: &data[..4],
@@ -369,7 +369,7 @@ mod tests {
         assert!(consumer.finished());
         assert_eq!(consumer.buf, data);
 
-        let mut consumer = HandshakeCoalescer::new();
+        let mut consumer = HandshakeCoalescer::default();
         let frame1 = CryptoFrame {
             stream_offset: 0,
             data: &data[..30],
