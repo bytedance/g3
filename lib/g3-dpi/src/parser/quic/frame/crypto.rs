@@ -108,6 +108,13 @@ impl FrameConsume for HandshakeCoalescer {
     fn recv_crypto(&mut self, frame: &CryptoFrame<'_>) -> Result<(), FrameParseError> {
         if frame.stream_offset <= self.unfilled_offset {
             let frame_stream_end = frame.stream_offset + frame.data.len();
+            if self.expected_length > 0 && frame_stream_end > self.expected_length {
+                // invalid frames
+                return Err(FrameParseError::MalformedFrame(
+                    "more data than expected in crypto frame",
+                ));
+            }
+
             if self.buf.len() > frame_stream_end {
                 // write part of the buf
                 let dst = &mut self.buf[frame.stream_offset..frame_stream_end];
@@ -176,7 +183,7 @@ impl FrameConsume for HandshakeCoalescer {
             if frame_stream_end > self.expected_length {
                 // invalid frames
                 return Err(FrameParseError::MalformedFrame(
-                    "too big stream offset value in crypto frame",
+                    "more data than expected in crypto frame",
                 ));
             }
             let dst = &mut self.buf[frame.stream_offset..frame_stream_end];
