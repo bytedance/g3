@@ -144,32 +144,34 @@ impl HttpForwardContext for FailoverHttpForwardContext {
         task_notes: &'a ServerTaskNotes,
         upstream: &'a UpstreamAddr,
     ) -> HttpForwardCapability {
-        let mut primary_next_escaper = Arc::clone(&self.primary_escaper);
-        while let Some(escaper) = primary_next_escaper
-            ._check_out_next_escaper(task_notes, upstream)
-            .await
-        {
-            primary_next_escaper = escaper;
-        }
+        if self.tcp_notes.upstream.ne(upstream) {
+            let mut primary_next_escaper = Arc::clone(&self.primary_escaper);
+            while let Some(escaper) = primary_next_escaper
+                ._check_out_next_escaper(task_notes, upstream)
+                .await
+            {
+                primary_next_escaper = escaper;
+            }
 
-        let mut standby_next_escaper = Arc::clone(&self.standby_escaper);
-        while let Some(escaper) = standby_next_escaper
-            ._check_out_next_escaper(task_notes, upstream)
-            .await
-        {
-            standby_next_escaper = escaper;
-        }
+            let mut standby_next_escaper = Arc::clone(&self.standby_escaper);
+            while let Some(escaper) = standby_next_escaper
+                ._check_out_next_escaper(task_notes, upstream)
+                .await
+            {
+                standby_next_escaper = escaper;
+            }
 
-        if self.use_primary {
-            if !Arc::ptr_eq(&self.primary_final_escaper, &primary_next_escaper) {
-                self.primary_final_escaper = primary_next_escaper;
+            if self.use_primary {
+                if !Arc::ptr_eq(&self.primary_final_escaper, &primary_next_escaper) {
+                    self.primary_final_escaper = primary_next_escaper;
+                    // drop the old connection on old escaper
+                    let _old_connection = self.last_connection.take();
+                }
+            } else if !Arc::ptr_eq(&self.standby_final_escaper, &standby_next_escaper) {
+                self.standby_final_escaper = standby_next_escaper;
                 // drop the old connection on old escaper
                 let _old_connection = self.last_connection.take();
             }
-        } else if !Arc::ptr_eq(&self.standby_final_escaper, &standby_next_escaper) {
-            self.standby_final_escaper = standby_next_escaper;
-            // drop the old connection on old escaper
-            let _old_connection = self.last_connection.take();
         }
 
         self.primary_final_escaper._local_http_forward_capability()
@@ -246,6 +248,7 @@ impl HttpForwardContext for FailoverHttpForwardContext {
                     }
                     self.used_escaper = ctx.escaper;
                 }
+                self.use_primary = true;
                 self.tcp_notes.fill_generated(&ctx.tcp_notes);
                 self.route_stats.add_request_passed();
                 return ctx.connect_result;
@@ -257,6 +260,7 @@ impl HttpForwardContext for FailoverHttpForwardContext {
                     }
                     self.used_escaper = self.standby_final_escaper.clone();
                 }
+                self.use_primary = false;
                 return match self
                     .used_escaper
                     ._new_http_forward_connection(&mut self.tcp_notes, task_notes, task_stats)
@@ -297,6 +301,7 @@ impl HttpForwardContext for FailoverHttpForwardContext {
             }
             self.used_escaper = ctx.escaper;
         }
+        self.use_primary = Arc::ptr_eq(&self.used_escaper, &self.primary_final_escaper);
         self.tcp_notes.fill_generated(&ctx.tcp_notes);
         ctx.connect_result
     }
@@ -325,6 +330,7 @@ impl HttpForwardContext for FailoverHttpForwardContext {
                     }
                     self.used_escaper = ctx.escaper;
                 }
+                self.use_primary = true;
                 self.tcp_notes.fill_generated(&ctx.tcp_notes);
                 self.route_stats.add_request_passed();
                 return ctx.connect_result;
@@ -336,6 +342,7 @@ impl HttpForwardContext for FailoverHttpForwardContext {
                     }
                     self.used_escaper = self.standby_final_escaper.clone();
                 }
+                self.use_primary = false;
                 return match self
                     .used_escaper
                     ._new_https_forward_connection(
@@ -383,6 +390,7 @@ impl HttpForwardContext for FailoverHttpForwardContext {
             }
             self.used_escaper = ctx.escaper;
         }
+        self.use_primary = Arc::ptr_eq(&self.used_escaper, &self.primary_final_escaper);
         self.tcp_notes.fill_generated(&ctx.tcp_notes);
         ctx.connect_result
     }

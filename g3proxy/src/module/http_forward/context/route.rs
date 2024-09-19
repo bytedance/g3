@@ -58,18 +58,21 @@ impl HttpForwardContext for RouteHttpForwardContext {
         task_notes: &'a ServerTaskNotes,
         upstream: &'a UpstreamAddr,
     ) -> HttpForwardCapability {
-        let mut next_escaper = Arc::clone(&self.escaper);
-        while let Some(escaper) = next_escaper
-            ._check_out_next_escaper(task_notes, upstream)
-            .await
-        {
-            next_escaper = escaper;
+        if self.tcp_notes.upstream.ne(upstream) {
+            let mut next_escaper = Arc::clone(&self.escaper);
+            while let Some(escaper) = next_escaper
+                ._check_out_next_escaper(task_notes, upstream)
+                .await
+            {
+                next_escaper = escaper;
+            }
+            if !Arc::ptr_eq(&self.final_escaper, &next_escaper) {
+                self.final_escaper = next_escaper;
+                // drop the old connection on old escaper
+                let _old_connection = self.last_connection.take();
+            }
         }
-        if !Arc::ptr_eq(&self.final_escaper, &next_escaper) {
-            self.final_escaper = next_escaper;
-            // drop the old connection on old escaper
-            let _old_connection = self.last_connection.take();
-        }
+
         self.final_escaper._local_http_forward_capability()
     }
 
