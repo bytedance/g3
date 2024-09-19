@@ -21,6 +21,7 @@ use async_trait::async_trait;
 use g3_types::net::{Host, HttpForwardCapability, OpensslClientConfig, UpstreamAddr};
 
 use super::{ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpConnectionEofPoller};
+use crate::audit::AuditContext;
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
 use crate::serve::ServerTaskNotes;
 
@@ -44,6 +45,7 @@ pub(crate) trait HttpForwardContext {
         &'a mut self,
         task_notes: &'a ServerTaskNotes,
         upstream: &'a UpstreamAddr,
+        audit_ctx: &'a mut AuditContext,
     ) -> HttpForwardCapability;
 
     fn prepare_connection(&mut self, ups: &UpstreamAddr, is_tls: bool);

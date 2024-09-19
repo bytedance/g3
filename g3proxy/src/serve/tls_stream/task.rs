@@ -27,6 +27,7 @@ use g3_io_ext::{AsyncStream, LimitedReader, LimitedWriter};
 use g3_types::net::UpstreamAddr;
 
 use super::common::CommonTaskContext;
+use crate::audit::AuditContext;
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
@@ -40,10 +41,15 @@ pub(super) struct TlsStreamTask {
     tcp_notes: TcpConnectTaskNotes,
     task_notes: ServerTaskNotes,
     task_stats: Arc<TcpStreamTaskStats>,
+    audit_ctx: AuditContext,
 }
 
 impl TlsStreamTask {
-    pub(super) fn new(ctx: CommonTaskContext, upstream: &UpstreamAddr) -> Self {
+    pub(super) fn new(
+        ctx: CommonTaskContext,
+        upstream: &UpstreamAddr,
+        audit_ctx: AuditContext,
+    ) -> Self {
         let task_notes = ServerTaskNotes::new(ctx.cc_info.clone(), None, Duration::ZERO);
         TlsStreamTask {
             ctx,
@@ -51,6 +57,7 @@ impl TlsStreamTask {
             tcp_notes: TcpConnectTaskNotes::new(upstream.clone()),
             task_notes,
             task_stats: Arc::new(TcpStreamTaskStats::default()),
+            audit_ctx,
         }
     }
 
@@ -116,6 +123,7 @@ impl TlsStreamTask {
                     &mut self.tcp_notes,
                     &self.task_notes,
                     self.task_stats.clone(),
+                    &mut self.audit_ctx,
                     tls_client_config,
                     tls_name,
                 )
@@ -127,6 +135,7 @@ impl TlsStreamTask {
                     &mut self.tcp_notes,
                     &self.task_notes,
                     self.task_stats.clone(),
+                    &mut self.audit_ctx,
                 )
                 .await?
         };
@@ -161,7 +170,7 @@ impl TlsStreamTask {
     {
         let (clt_r, clt_w) = self.split_clt(clt_stream);
 
-        if let Some(audit_handle) = self.ctx.audit_handle.take() {
+        if let Some(audit_handle) = self.audit_ctx.check_take_handle() {
             let ctx = StreamInspectContext::new(
                 audit_handle,
                 self.ctx.server_config.clone(),

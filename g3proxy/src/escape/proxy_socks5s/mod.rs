@@ -31,6 +31,7 @@ use super::{
     ArcEscaper, ArcEscaperInternalStats, ArcEscaperStats, Escaper, EscaperExt, EscaperInternal,
     EscaperStats,
 };
+use crate::audit::AuditContext;
 use crate::auth::UserUpstreamTrafficStats;
 use crate::config::escaper::proxy_socks5s::ProxySocks5sEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
@@ -185,6 +186,7 @@ impl Escaper for ProxySocks5sEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
+        _audit_ctx: &'a mut AuditContext,
     ) -> TcpConnectResult {
         self.stats.interface.add_tcp_connect_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
@@ -197,6 +199,7 @@ impl Escaper for ProxySocks5sEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
+        _audit_ctx: &'a mut AuditContext,
         tls_config: &'a OpensslClientConfig,
         tls_name: &'a Host,
     ) -> TcpConnectResult {

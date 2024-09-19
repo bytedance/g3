@@ -26,7 +26,6 @@ use g3_types::acl_set::AclDstHostRuleSet;
 use g3_types::net::UpstreamAddr;
 
 use super::{SocksProxyServerConfig, SocksProxyServerStats};
-use crate::audit::AuditHandle;
 use crate::escape::ArcEscaper;
 use crate::serve::{ServerQuitPolicy, ServerTaskError, ServerTaskNotes, ServerTaskResult};
 
@@ -36,7 +35,6 @@ pub(crate) struct CommonTaskContext {
     pub(crate) server_stats: Arc<SocksProxyServerStats>,
     pub(crate) server_quit_policy: Arc<ServerQuitPolicy>,
     pub(crate) escaper: ArcEscaper,
-    pub(crate) audit_handle: Option<Arc<AuditHandle>>,
     pub(crate) ingress_net_filter: Option<Arc<AclNetworkRule>>,
     pub(crate) dst_host_filter: Option<Arc<AclDstHostRuleSet>>,
     pub(crate) cc_info: ClientConnectionInfo,

@@ -27,6 +27,7 @@ use g3_io_ext::{FlexBufReader, LimitedCopy, LimitedReader, LimitedWriter, OnceBu
 use g3_types::net::UpstreamAddr;
 
 use super::CommonTaskContext;
+use crate::audit::AuditContext;
 use crate::config::server::ServerConfig;
 use crate::inspect::{StreamInspectContext, StreamInspection};
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
@@ -40,11 +41,13 @@ pub(crate) struct TcpStreamTask {
     tcp_notes: TcpConnectTaskNotes,
     task_notes: ServerTaskNotes,
     task_stats: Arc<TcpStreamTaskStats>,
+    audit_ctx: AuditContext,
 }
 
 impl TcpStreamTask {
     pub(crate) fn new(
         ctx: CommonTaskContext,
+        audit_ctx: AuditContext,
         protocol: Protocol,
         upstream: UpstreamAddr,
         wait_time: Duration,
@@ -57,6 +60,7 @@ impl TcpStreamTask {
             tcp_notes: TcpConnectTaskNotes::new(upstream),
             task_notes,
             task_stats: Arc::new(TcpStreamTaskStats::with_clt_stats(pre_handshake_stats)),
+            audit_ctx,
         }
     }
 
@@ -135,6 +139,7 @@ impl TcpStreamTask {
                 &mut self.tcp_notes,
                 &self.task_notes,
                 self.task_stats.clone(),
+                &mut self.audit_ctx,
             )
             .await?;
 
@@ -180,7 +185,7 @@ impl TcpStreamTask {
         clt_r.reset_stats(clt_r_stats);
         clt_w.reset_stats(clt_w_stats);
 
-        if let Some(audit_handle) = self.ctx.audit_handle.take() {
+        if let Some(audit_handle) = self.audit_ctx.check_take_handle() {
             let ctx = StreamInspectContext::new(
                 audit_handle,
                 self.ctx.server_config.clone(),

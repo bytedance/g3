@@ -28,6 +28,7 @@ use super::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpConnectionEofPoller,
     HttpForwardContext,
 };
+use crate::audit::AuditContext;
 use crate::escape::{ArcEscaper, RouteEscaperStats};
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
 use crate::serve::ServerTaskNotes;
@@ -110,6 +111,7 @@ pub(crate) struct FailoverHttpForwardContext {
     use_primary: bool,
     used_escaper: ArcEscaper,
     tcp_notes: TcpConnectTaskNotes,
+    audit_ctx: AuditContext,
     last_is_tls: bool,
     last_connection: Option<(Instant, HttpConnectionEofPoller)>,
 }
@@ -131,6 +133,7 @@ impl FailoverHttpForwardContext {
             use_primary: true,
             used_escaper: Arc::clone(primary_escaper),
             tcp_notes: TcpConnectTaskNotes::empty(),
+            audit_ctx: AuditContext::default(),
             last_is_tls: false,
             last_connection: None,
         }
@@ -143,14 +146,20 @@ impl HttpForwardContext for FailoverHttpForwardContext {
         &'a mut self,
         task_notes: &'a ServerTaskNotes,
         upstream: &'a UpstreamAddr,
+        audit_ctx: &'a mut AuditContext,
     ) -> HttpForwardCapability {
         if self.tcp_notes.upstream.ne(upstream) {
+            self.audit_ctx = audit_ctx.clone();
+            // only use audit ctx of the primary escaper
+
             let mut primary_next_escaper = Arc::clone(&self.primary_escaper);
+            primary_next_escaper._update_audit_context(&mut self.audit_ctx);
             while let Some(escaper) = primary_next_escaper
                 ._check_out_next_escaper(task_notes, upstream)
                 .await
             {
                 primary_next_escaper = escaper;
+                primary_next_escaper._update_audit_context(&mut self.audit_ctx);
             }
 
             let mut standby_next_escaper = Arc::clone(&self.standby_escaper);
@@ -174,6 +183,7 @@ impl HttpForwardContext for FailoverHttpForwardContext {
             }
         }
 
+        *audit_ctx = self.audit_ctx.clone();
         self.primary_final_escaper._local_http_forward_capability()
             & self.standby_final_escaper._local_http_forward_capability()
     }

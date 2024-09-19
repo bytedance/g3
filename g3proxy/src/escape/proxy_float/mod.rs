@@ -29,6 +29,7 @@ use g3_types::metrics::MetricsName;
 use g3_types::net::{Host, OpensslClientConfig, UpstreamAddr};
 
 use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperInternal, EscaperStats};
+use crate::audit::AuditContext;
 use crate::auth::UserUpstreamTrafficStats;
 use crate::config::escaper::proxy_float::ProxyFloatEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
@@ -204,6 +205,7 @@ impl Escaper for ProxyFloatEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
+        _audit_ctx: &'a mut AuditContext,
     ) -> TcpConnectResult {
         self.stats.interface.add_tcp_connect_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
@@ -219,6 +221,7 @@ impl Escaper for ProxyFloatEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
+        _audit_ctx: &'a mut AuditContext,
         tls_config: &'a OpensslClientConfig,
         tls_name: &'a Host,
     ) -> TcpConnectResult {

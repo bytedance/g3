@@ -25,6 +25,7 @@ use super::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpConnectionEofPoller,
     HttpForwardContext,
 };
+use crate::audit::AuditContext;
 use crate::escape::{ArcEscaper, ArcEscaperInternalStats};
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
 use crate::serve::ServerTaskNotes;
@@ -55,7 +56,9 @@ impl HttpForwardContext for DirectHttpForwardContext {
         &'a mut self,
         _task_notes: &'a ServerTaskNotes,
         _upstream: &'a UpstreamAddr,
+        audit_ctx: &'a mut AuditContext,
     ) -> HttpForwardCapability {
+        self.escaper._update_audit_context(audit_ctx);
         self.escaper._local_http_forward_capability()
     }
 

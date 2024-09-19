@@ -22,7 +22,6 @@ use slog::Logger;
 use g3_daemon::server::ClientConnectionInfo;
 use g3_dpi::ProtocolPortMap;
 
-use crate::audit::AuditHandle;
 use crate::config::server::sni_proxy::SniProxyServerConfig;
 use crate::escape::ArcEscaper;
 use crate::serve::tcp_stream::TcpStreamServerStats;
@@ -33,7 +32,6 @@ pub(crate) struct CommonTaskContext {
     pub(crate) server_stats: Arc<TcpStreamServerStats>,
     pub(crate) server_quit_policy: Arc<ServerQuitPolicy>,
     pub(crate) escaper: ArcEscaper,
-    pub(crate) audit_handle: Option<Arc<AuditHandle>>,
     pub(crate) cc_info: ClientConnectionInfo,
     pub(crate) task_logger: Logger,
 

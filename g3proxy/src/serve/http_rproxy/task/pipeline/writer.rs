@@ -31,6 +31,7 @@ use super::{
     CommonTaskContext, HttpRProxyCltWrapperStats, HttpRProxyForwardTask, HttpRProxyPipelineStats,
     HttpRProxyUntrustedTask,
 };
+use crate::audit::AuditContext;
 use crate::auth::{UserContext, UserGroup, UserRequestStats};
 use crate::config::server::ServerConfig;
 use crate::module::http_forward::{BoxHttpForwardContext, HttpProxyClientResponse};
@@ -273,10 +274,11 @@ where
         );
 
         if let Some(mut stream_w) = self.stream_writer.take() {
+            let mut audit_ctx = AuditContext::default();
             // check in final escaper so we can use route escapers
             let _ = self
                 .forward_context
-                .check_in_final_escaper(&task_notes, host.config.upstream())
+                .check_in_final_escaper(&task_notes, host.config.upstream(), &mut audit_ctx)
                 .await;
 
             match self.run_forward(&mut stream_w, req, host, task_notes).await {

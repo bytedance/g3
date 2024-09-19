@@ -23,7 +23,6 @@ use g3_daemon::server::ClientConnectionInfo;
 use g3_types::net::OpensslClientConfig;
 
 use super::stats::TcpStreamServerStats;
-use crate::audit::AuditHandle;
 use crate::config::server::tcp_stream::TcpStreamServerConfig;
 use crate::escape::ArcEscaper;
 use crate::serve::ServerQuitPolicy;
@@ -33,7 +32,6 @@ pub(super) struct CommonTaskContext {
     pub(super) server_stats: Arc<TcpStreamServerStats>,
     pub(super) server_quit_policy: Arc<ServerQuitPolicy>,
     pub(super) escaper: ArcEscaper,
-    pub(super) audit_handle: Option<Arc<AuditHandle>>,
     pub(super) cc_info: ClientConnectionInfo,
     pub(super) tls_client_config: Option<Arc<OpensslClientConfig>>,
     pub(super) task_logger: Logger,

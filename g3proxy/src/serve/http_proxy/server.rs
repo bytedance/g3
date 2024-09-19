@@ -44,7 +44,7 @@ use super::task::{
     HttpProxyPipelineWriterTask,
 };
 use super::HttpProxyServerStats;
-use crate::audit::AuditHandle;
+use crate::audit::{AuditContext, AuditHandle};
 use crate::auth::UserGroup;
 use crate::config::server::http_proxy::HttpProxyServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
@@ -170,7 +170,6 @@ impl HttpProxyServer {
             server_stats: Arc::clone(&self.server_stats),
             server_quit_policy: Arc::clone(&self.quit_policy),
             escaper: self.escaper.load().as_ref().clone(),
-            audit_handle: self.audit_handle.load_full(),
             cc_info,
             tls_client_config: self.tls_client_config.clone(),
             task_logger: self.task_logger.clone(),
@@ -195,6 +194,10 @@ impl HttpProxyServer {
         false
     }
 
+    fn audit_context(&self) -> AuditContext {
+        AuditContext::new(self.audit_handle.load_full())
+    }
+
     async fn spawn_stream_task<T>(&self, stream: T, cc_info: ClientConnectionInfo)
     where
         T: AsyncStream,
@@ -211,6 +214,7 @@ impl HttpProxyServer {
         let r_task = HttpProxyPipelineReaderTask::new(&ctx, task_sender, clt_r, &pipeline_stats);
         let w_task = HttpProxyPipelineWriterTask::new(
             &ctx,
+            self.audit_context(),
             self.user_group.load_full(),
             task_receiver,
             clt_w,
@@ -238,6 +242,7 @@ impl HttpProxyServer {
 
         let w_task = HttpProxyPipelineWriterTask::new(
             &ctx,
+            self.audit_context(),
             self.user_group.load_full(),
             task_receiver,
             send_stream,

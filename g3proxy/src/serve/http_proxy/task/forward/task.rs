@@ -44,6 +44,7 @@ use super::{
     CommonTaskContext, HttpForwardTaskCltWrapperStats, HttpForwardTaskStats,
     HttpsForwardTaskCltWrapperStats,
 };
+use crate::audit::AuditContext;
 use crate::config::server::ServerConfig;
 use crate::log::task::http_forward::TaskLogForHttpForward;
 use crate::module::http_forward::{
@@ -59,6 +60,7 @@ use crate::serve::{
 
 pub(crate) struct HttpProxyForwardTask<'a> {
     ctx: Arc<CommonTaskContext>,
+    audit_ctx: AuditContext,
     req: &'a HttpProxyClientRequest,
     is_https: bool,
     should_close: bool,
@@ -72,6 +74,7 @@ pub(crate) struct HttpProxyForwardTask<'a> {
 impl<'a> HttpProxyForwardTask<'a> {
     pub(crate) fn new(
         ctx: &Arc<CommonTaskContext>,
+        audit_ctx: AuditContext,
         req: &'a HttpProxyRequest<impl AsyncRead>,
         is_https: bool,
         task_notes: ServerTaskNotes,
@@ -89,6 +92,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         );
         HttpProxyForwardTask {
             ctx: Arc::clone(ctx),
+            audit_ctx,
             req: &req.inner,
             is_https,
             should_close: !req.inner.keep_alive(),
@@ -558,13 +562,13 @@ impl<'a> HttpProxyForwardTask<'a> {
             upstream_keepalive = upstream_keepalive.adjust_to(user_config.http_upstream_keepalive);
             tcp_client_misc_opts = user_config.tcp_client_misc_opts(&tcp_client_misc_opts);
 
-            if let Some(audit_handle) = &self.ctx.audit_handle {
+            if let Some(audit_handle) = self.audit_ctx.handle() {
                 audit_task = user_config
                     .audit
                     .do_task_audit()
                     .unwrap_or_else(|| audit_handle.do_task_audit());
             }
-        } else if let Some(audit_handle) = &self.ctx.audit_handle {
+        } else if let Some(audit_handle) = self.audit_ctx.handle() {
             audit_task = audit_handle.do_task_audit();
         }
 
@@ -731,7 +735,7 @@ impl<'a> HttpProxyForwardTask<'a> {
             .prepare_new(&self.task_notes, &self.tcp_notes.upstream);
 
         if audit_task {
-            if let Some(audit_handle) = &self.ctx.audit_handle {
+            if let Some(audit_handle) = self.audit_ctx.handle() {
                 if let Some(reqmod) = audit_handle.icap_reqmod_client() {
                     match reqmod
                         .h1_adapter(
@@ -1272,7 +1276,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         self.update_response_header(rsp_header);
 
         if audit_task {
-            if let Some(audit_handle) = &self.ctx.audit_handle {
+            if let Some(audit_handle) = self.audit_ctx.handle() {
                 if let Some(respmod) = audit_handle.icap_respmod_client() {
                     match respmod
                         .h1_adapter(

@@ -30,6 +30,7 @@ use g3_types::net::{
 };
 
 use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperExt, EscaperInternal, EscaperStats};
+use crate::audit::AuditContext;
 use crate::auth::UserUpstreamTrafficStats;
 use crate::config::escaper::proxy_https::ProxyHttpsEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
@@ -181,6 +182,7 @@ impl Escaper for ProxyHttpsEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
+        _audit_ctx: &'a mut AuditContext,
     ) -> TcpConnectResult {
         self.stats.interface.add_tcp_connect_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
@@ -193,6 +195,7 @@ impl Escaper for ProxyHttpsEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
+        _audit_ctx: &'a mut AuditContext,
         tls_config: &'a OpensslClientConfig,
         tls_name: &'a Host,
     ) -> TcpConnectResult {

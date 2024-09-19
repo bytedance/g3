@@ -26,7 +26,6 @@ use g3_types::acl_set::AclDstHostRuleSet;
 use g3_types::net::{OpensslClientConfig, UpstreamAddr};
 
 use super::{HttpProxyServerConfig, HttpProxyServerStats};
-use crate::audit::AuditHandle;
 use crate::escape::ArcEscaper;
 use crate::module::http_forward::HttpProxyClientResponse;
 use crate::module::http_header;
@@ -39,7 +38,6 @@ pub(crate) struct CommonTaskContext {
     pub(crate) server_stats: Arc<HttpProxyServerStats>,
     pub(crate) server_quit_policy: Arc<ServerQuitPolicy>,
     pub(crate) escaper: ArcEscaper,
-    pub(crate) audit_handle: Option<Arc<AuditHandle>>,
     pub(crate) cc_info: ClientConnectionInfo,
     pub(crate) tls_client_config: Arc<OpensslClientConfig>,
     pub(crate) task_logger: Logger,

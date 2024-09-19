@@ -35,7 +35,7 @@ use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::MetricsName;
 
 use super::{ClientHelloAcceptTask, CommonTaskContext, TcpStreamServerStats};
-use crate::audit::AuditHandle;
+use crate::audit::{AuditContext, AuditHandle};
 use crate::config::server::sni_proxy::SniProxyServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::escape::ArcEscaper;
@@ -145,16 +145,8 @@ impl SniProxyServer {
         false
     }
 
-    fn load_audit_handle(&self) -> Option<Arc<AuditHandle>> {
-        if let Some(handle) = &*self.audit_handle.load() {
-            if handle.do_task_audit() {
-                Some(handle.clone())
-            } else {
-                None
-            }
-        } else {
-            None
-        }
+    fn audit_context(&self) -> AuditContext {
+        AuditContext::new(self.audit_handle.load_full())
     }
 
     async fn run_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
@@ -163,13 +155,14 @@ impl SniProxyServer {
             server_stats: Arc::clone(&self.server_stats),
             server_quit_policy: Arc::clone(&self.quit_policy),
             escaper: self.escaper.load().as_ref().clone(),
-            audit_handle: self.load_audit_handle(),
             cc_info,
             task_logger: self.task_logger.clone(),
             server_tcp_portmap: Arc::clone(&self.server_tcp_portmap),
             client_tcp_portmap: Arc::clone(&self.client_tcp_portmap),
         };
-        ClientHelloAcceptTask::new(ctx).into_running(stream).await;
+        ClientHelloAcceptTask::new(ctx, self.audit_context())
+            .into_running(stream)
+            .await;
     }
 }
 

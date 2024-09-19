@@ -25,6 +25,7 @@ use g3_types::metrics::MetricsName;
 use g3_types::net::{Host, OpensslClientConfig, UpstreamAddr};
 
 use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperInternal};
+use crate::audit::AuditContext;
 use crate::config::escaper::dummy_deny::DummyDenyEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
 use crate::module::ftp_over_http::{
@@ -107,6 +108,7 @@ impl Escaper for DummyDenyEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         _task_notes: &'a ServerTaskNotes,
         _task_stats: ArcTcpConnectionTaskRemoteStats,
+        _audit_ctx: &'a mut AuditContext,
     ) -> TcpConnectResult {
         self.stats.interface.add_tcp_connect_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
@@ -118,6 +120,7 @@ impl Escaper for DummyDenyEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         _task_notes: &'a ServerTaskNotes,
         _task_stats: ArcTcpConnectionTaskRemoteStats,
+        _audit_ctx: &'a mut AuditContext,
         _tls_config: &'a OpensslClientConfig,
         _tls_name: &'a Host,
     ) -> TcpConnectResult {

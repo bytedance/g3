@@ -27,6 +27,7 @@ use g3_types::acl::AclAction;
 use g3_types::net::{ProxyRequestType, UpstreamAddr};
 
 use super::{CommonTaskContext, TcpConnectTaskCltWrapperStats};
+use crate::audit::AuditContext;
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
@@ -42,6 +43,7 @@ pub(crate) struct SocksProxyTcpConnectTask {
     task_notes: ServerTaskNotes,
     tcp_notes: TcpConnectTaskNotes,
     task_stats: Arc<TcpStreamTaskStats>,
+    audit_ctx: AuditContext,
 }
 
 impl SocksProxyTcpConnectTask {
@@ -50,6 +52,7 @@ impl SocksProxyTcpConnectTask {
         ctx: CommonTaskContext,
         mut task_notes: ServerTaskNotes,
         upstream: UpstreamAddr,
+        audit_ctx: AuditContext,
     ) -> Self {
         if let Some(user_ctx) = task_notes.user_ctx_mut() {
             user_ctx.check_in_site(
@@ -67,6 +70,7 @@ impl SocksProxyTcpConnectTask {
             task_notes,
             tcp_notes: TcpConnectTaskNotes::new(upstream),
             task_stats: Arc::new(TcpStreamTaskStats::default()),
+            audit_ctx,
         }
     }
 
@@ -275,6 +279,7 @@ impl SocksProxyTcpConnectTask {
                 &mut self.tcp_notes,
                 &self.task_notes,
                 self.task_stats.clone(),
+                &mut self.audit_ctx,
             )
             .await
         {
@@ -363,7 +368,7 @@ impl SocksProxyTcpConnectTask {
     {
         self.update_clt(&mut clt_r, &mut clt_w);
 
-        if let Some(audit_handle) = &self.ctx.audit_handle {
+        if let Some(audit_handle) = self.audit_ctx.handle() {
             let audit_task = self
                 .task_notes
                 .user_ctx()

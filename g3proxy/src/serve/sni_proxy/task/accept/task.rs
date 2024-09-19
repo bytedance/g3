@@ -28,19 +28,22 @@ use g3_io_ext::{LimitedReader, LimitedWriter};
 use g3_types::net::UpstreamAddr;
 
 use super::{CommonTaskContext, SniProxyCltWrapperStats, TcpStreamTask};
+use crate::audit::AuditContext;
 use crate::config::server::ServerConfig;
 use crate::serve::{ServerTaskError, ServerTaskForbiddenError, ServerTaskResult};
 
 pub(crate) struct ClientHelloAcceptTask {
     ctx: CommonTaskContext,
+    audit_ctx: AuditContext,
     time_accepted: Instant,
     pre_handshake_stats: Arc<TcpStreamConnectionStats>,
 }
 
 impl ClientHelloAcceptTask {
-    pub(crate) fn new(ctx: CommonTaskContext) -> Self {
+    pub(crate) fn new(ctx: CommonTaskContext, audit_ctx: AuditContext) -> Self {
         ClientHelloAcceptTask {
             ctx,
+            audit_ctx,
             time_accepted: Instant::now(),
             pre_handshake_stats: Arc::new(TcpStreamConnectionStats::default()),
         }
@@ -128,6 +131,7 @@ impl ClientHelloAcceptTask {
                 let final_upstream = site.redirect(&upstream);
                 TcpStreamTask::new(
                     self.ctx,
+                    self.audit_ctx,
                     protocol,
                     final_upstream,
                     self.time_accepted.elapsed(),
@@ -145,6 +149,7 @@ impl ClientHelloAcceptTask {
         } else {
             TcpStreamTask::new(
                 self.ctx,
+                self.audit_ctx,
                 protocol,
                 upstream,
                 self.time_accepted.elapsed(),

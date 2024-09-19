@@ -38,7 +38,7 @@ use g3_types::metrics::MetricsName;
 
 use super::task::{CommonTaskContext, SocksProxyNegotiationTask};
 use super::SocksProxyServerStats;
-use crate::audit::AuditHandle;
+use crate::audit::{AuditContext, AuditHandle};
 use crate::auth::UserGroup;
 use crate::config::server::socks_proxy::SocksProxyServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
@@ -152,6 +152,10 @@ impl SocksProxyServer {
         false
     }
 
+    fn audit_context(&self) -> AuditContext {
+        AuditContext::new(self.audit_handle.load_full())
+    }
+
     async fn run_task<S>(&self, stream: S, cc_info: ClientConnectionInfo)
     where
         S: AsyncStream,
@@ -169,13 +173,12 @@ impl SocksProxyServer {
             server_stats: Arc::clone(&self.server_stats),
             server_quit_policy: Arc::clone(&self.quit_policy),
             escaper: self.escaper.load().as_ref().clone(),
-            audit_handle: self.audit_handle.load_full(),
             ingress_net_filter: self.ingress_net_filter.clone(),
             dst_host_filter: self.dst_host_filter.clone(),
             cc_info,
             task_logger: self.task_logger.clone(),
         };
-        SocksProxyNegotiationTask::new(ctx, self.user_group.load_full())
+        SocksProxyNegotiationTask::new(ctx, self.audit_context(), self.user_group.load_full())
             .into_running(stream)
             .await;
     }

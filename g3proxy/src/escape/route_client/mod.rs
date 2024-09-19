@@ -28,6 +28,7 @@ use g3_types::metrics::MetricsName;
 use g3_types::net::{Host, OpensslClientConfig, UpstreamAddr};
 
 use super::{ArcEscaper, Escaper, EscaperInternal, RouteEscaperStats};
+use crate::audit::AuditContext;
 use crate::config::escaper::route_client::RouteClientEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
 use crate::module::ftp_over_http::{
@@ -155,12 +156,13 @@ impl Escaper for RouteClientEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
+        audit_ctx: &'a mut AuditContext,
     ) -> TcpConnectResult {
         tcp_notes.escaper.clone_from(&self.config.name);
         let escaper = self.select_next(task_notes.client_ip());
         self.stats.add_request_passed();
         escaper
-            .tcp_setup_connection(tcp_notes, task_notes, task_stats)
+            .tcp_setup_connection(tcp_notes, task_notes, task_stats, audit_ctx)
             .await
     }
 
@@ -169,6 +171,7 @@ impl Escaper for RouteClientEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
+        audit_ctx: &'a mut AuditContext,
         tls_config: &'a OpensslClientConfig,
         tls_name: &'a Host,
     ) -> TcpConnectResult {
@@ -176,7 +179,9 @@ impl Escaper for RouteClientEscaper {
         let escaper = self.select_next(task_notes.client_ip());
         self.stats.add_request_passed();
         escaper
-            .tls_setup_connection(tcp_notes, task_notes, task_stats, tls_config, tls_name)
+            .tls_setup_connection(
+                tcp_notes, task_notes, task_stats, audit_ctx, tls_config, tls_name,
+            )
             .await
     }
 

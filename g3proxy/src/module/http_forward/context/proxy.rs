@@ -21,6 +21,7 @@ use tokio::time::Instant;
 
 use g3_types::net::{Host, HttpForwardCapability, OpensslClientConfig, UpstreamAddr};
 
+use crate::audit::AuditContext;
 use crate::escape::{ArcEscaper, ArcEscaperInternalStats};
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpConnectionEofPoller,
@@ -55,7 +56,9 @@ impl HttpForwardContext for ProxyHttpForwardContext {
         &'a mut self,
         _task_notes: &'a ServerTaskNotes,
         _upstream: &'a UpstreamAddr,
+        audit_ctx: &'a mut AuditContext,
     ) -> HttpForwardCapability {
+        self.escaper._update_audit_context(audit_ctx);
         self.escaper._local_http_forward_capability()
     }
 

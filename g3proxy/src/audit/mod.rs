@@ -149,3 +149,22 @@ impl Auditor {
         Ok(Arc::new(handle))
     }
 }
+
+#[derive(Clone, Default)]
+pub(crate) struct AuditContext {
+    handle: Option<Arc<AuditHandle>>,
+}
+
+impl AuditContext {
+    pub(crate) fn new(handle: Option<Arc<AuditHandle>>) -> Self {
+        AuditContext { handle }
+    }
+
+    pub(crate) fn handle(&self) -> Option<&Arc<AuditHandle>> {
+        self.handle.as_ref()
+    }
+
+    pub(crate) fn check_take_handle(&mut self) -> Option<Arc<AuditHandle>> {
+        self.handle.take().filter(|handle| handle.do_task_audit())
+    }
+}

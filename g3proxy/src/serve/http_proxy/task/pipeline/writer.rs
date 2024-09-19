@@ -31,6 +31,7 @@ use super::{
     CommonTaskContext, FtpOverHttpTask, HttpProxyCltWrapperStats, HttpProxyConnectTask,
     HttpProxyForwardTask, HttpProxyPipelineStats, HttpProxyUntrustedTask,
 };
+use crate::audit::AuditContext;
 use crate::auth::{UserContext, UserGroup, UserRequestStats};
 use crate::config::server::ServerConfig;
 use crate::escape::EgressPathSelection;
@@ -74,6 +75,7 @@ impl Default for RequestCount {
 
 pub(crate) struct HttpProxyPipelineWriterTask<CDR, CDW> {
     ctx: Arc<CommonTaskContext>,
+    audit_ctx: AuditContext,
     user_group: Option<Arc<UserGroup>>,
     task_queue: mpsc::Receiver<Result<HttpProxyRequest<CDR>, HttpProxyClientResponse>>,
     stream_writer: Option<HttpClientWriter<CDW>>,
@@ -95,6 +97,7 @@ where
 {
     pub(crate) fn new(
         ctx: &Arc<CommonTaskContext>,
+        audit_ctx: AuditContext,
         user_group: Option<Arc<UserGroup>>,
         task_receiver: mpsc::Receiver<Result<HttpProxyRequest<CDR>, HttpProxyClientResponse>>,
         write_half: CDW,
@@ -113,6 +116,7 @@ where
         );
         HttpProxyPipelineWriterTask {
             ctx: Arc::clone(ctx),
+            audit_ctx,
             user_group,
             task_queue: task_receiver,
             stream_writer: Some(clt_w),
@@ -268,19 +272,20 @@ where
             path_selection,
         );
 
+        let mut audit_ctx = self.audit_ctx.clone();
         let remote_protocol = match req.client_protocol {
             HttpProxySubProtocol::TcpConnect => HttpProxySubProtocol::TcpConnect,
             HttpProxySubProtocol::HttpForward => {
                 let _ = self
                     .forward_context
-                    .check_in_final_escaper(&task_notes, &req.upstream)
+                    .check_in_final_escaper(&task_notes, &req.upstream, &mut audit_ctx)
                     .await;
                 HttpProxySubProtocol::HttpForward
             }
             HttpProxySubProtocol::HttpsForward => {
                 let forward_capability = self
                     .forward_context
-                    .check_in_final_escaper(&task_notes, &req.upstream)
+                    .check_in_final_escaper(&task_notes, &req.upstream, &mut audit_ctx)
                     .await;
                 if forward_capability.forward_https() {
                     HttpProxySubProtocol::HttpForward
@@ -291,7 +296,7 @@ where
             HttpProxySubProtocol::FtpOverHttp => {
                 let forward_capability = self
                     .forward_context
-                    .check_in_final_escaper(&task_notes, &req.upstream)
+                    .check_in_final_escaper(&task_notes, &req.upstream, &mut audit_ctx)
                     .await;
                 if forward_capability.forward_ftp(&req.inner.method) {
                     HttpProxySubProtocol::HttpForward
@@ -306,7 +311,8 @@ where
                 if let (Some(mut stream_w), Some(stream_r)) =
                     (self.stream_writer.take(), req.body_reader.take())
                 {
-                    let mut connect_task = HttpProxyConnectTask::new(&self.ctx, &req, task_notes);
+                    let mut connect_task =
+                        HttpProxyConnectTask::new(&self.ctx, audit_ctx, &req, task_notes);
                     connect_task.connect_to_upstream(&mut stream_w).await;
                     if connect_task.back_to_http() {
                         // reopen write end
@@ -331,7 +337,7 @@ where
             HttpProxySubProtocol::HttpForward | HttpProxySubProtocol::HttpsForward => {
                 if let Some(mut stream_w) = self.stream_writer.take() {
                     match self
-                        .run_forward(&mut stream_w, req, task_notes, remote_protocol)
+                        .run_forward(&mut stream_w, req, task_notes, audit_ctx, remote_protocol)
                         .await
                     {
                         LoopAction::Continue => {
@@ -470,6 +476,7 @@ where
         clt_w: &mut HttpClientWriter<CDW>,
         mut req: HttpProxyRequest<CDR>,
         task_notes: ServerTaskNotes,
+        audit_ctx: AuditContext,
         remote_protocol: HttpProxySubProtocol,
     ) -> LoopAction {
         let is_https = match remote_protocol {
@@ -483,7 +490,7 @@ where
                 // we have a body, or we need to close the connection
                 // we may need to send stream_r back if we have a body
                 let mut forward_task =
-                    HttpProxyForwardTask::new(&self.ctx, &req, is_https, task_notes);
+                    HttpProxyForwardTask::new(&self.ctx, audit_ctx, &req, is_https, task_notes);
                 let mut clt_r = Some(stream_r);
                 forward_task
                     .run(&mut clt_r, clt_w, &mut self.forward_context)
@@ -505,7 +512,7 @@ where
             None => {
                 // no body, and the connection is expected to keep alive from the client side
                 let mut forward_task =
-                    HttpProxyForwardTask::new(&self.ctx, &req, is_https, task_notes);
+                    HttpProxyForwardTask::new(&self.ctx, audit_ctx, &req, is_https, task_notes);
                 let mut clt_r = None;
                 forward_task
                     .run::<CDR, CDW>(&mut clt_r, clt_w, &mut self.forward_context)

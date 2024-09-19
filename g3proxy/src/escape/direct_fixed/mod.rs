@@ -33,6 +33,7 @@ use g3_types::resolve::{ResolveRedirection, ResolveStrategy};
 use super::{
     ArcEscaper, ArcEscaperStats, EgressPathSelection, Escaper, EscaperInternal, EscaperStats,
 };
+use crate::audit::AuditContext;
 use crate::auth::UserUpstreamTrafficStats;
 use crate::config::escaper::direct_fixed::DirectFixedEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
@@ -279,6 +280,7 @@ impl Escaper for DirectFixedEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
+        _audit_ctx: &'a mut AuditContext,
     ) -> TcpConnectResult {
         self.stats.interface.add_tcp_connect_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
@@ -291,6 +293,7 @@ impl Escaper for DirectFixedEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
+        _audit_ctx: &'a mut AuditContext,
         tls_config: &'a OpensslClientConfig,
         tls_name: &'a Host,
     ) -> TcpConnectResult {

@@ -25,6 +25,7 @@ use g3_types::metrics::MetricsName;
 use g3_types::net::{Host, OpensslClientConfig, UpstreamAddr};
 
 use super::{ArcEscaper, Escaper, EscaperExt, EscaperInternal, RouteEscaperStats};
+use crate::audit::AuditContext;
 use crate::config::escaper::route_failover::RouteFailoverEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
 use crate::module::ftp_over_http::{
@@ -119,9 +120,10 @@ impl Escaper for RouteFailoverEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
+        audit_ctx: &'a mut AuditContext,
     ) -> TcpConnectResult {
         tcp_notes.escaper.clone_from(&self.config.name);
-        self.tcp_setup_connection_with_failover(tcp_notes, task_notes, task_stats)
+        self.tcp_setup_connection_with_failover(tcp_notes, task_notes, task_stats, audit_ctx)
             .await
     }
 
@@ -130,12 +132,13 @@ impl Escaper for RouteFailoverEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
+        audit_ctx: &'a mut AuditContext,
         tls_config: &'a OpensslClientConfig,
         tls_name: &'a Host,
     ) -> TcpConnectResult {
         tcp_notes.escaper.clone_from(&self.config.name);
         self.tls_setup_connection_with_failover(
-            tcp_notes, task_notes, task_stats, tls_config, tls_name,
+            tcp_notes, task_notes, task_stats, audit_ctx, tls_config, tls_name,
         )
         .await
     }

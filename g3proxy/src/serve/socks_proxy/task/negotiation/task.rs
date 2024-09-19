@@ -27,6 +27,7 @@ use super::tcp_connect::SocksProxyTcpConnectTask;
 use super::udp_associate::SocksProxyUdpAssociateTask;
 use super::udp_connect::SocksProxyUdpConnectTask;
 use super::{CommonTaskContext, SocksProxyCltWrapperStats};
+use crate::audit::AuditContext;
 use crate::auth::{UserContext, UserGroup};
 use crate::config::server::ServerConfig;
 use crate::serve::{
@@ -35,14 +36,20 @@ use crate::serve::{
 
 pub(crate) struct SocksProxyNegotiationTask {
     pub(crate) ctx: CommonTaskContext,
+    audit_ctx: AuditContext,
     user_group: Option<Arc<UserGroup>>,
     time_accepted: Instant,
 }
 
 impl SocksProxyNegotiationTask {
-    pub(crate) fn new(ctx: CommonTaskContext, user_group: Option<Arc<UserGroup>>) -> Self {
+    pub(crate) fn new(
+        ctx: CommonTaskContext,
+        audit_ctx: AuditContext,
+        user_group: Option<Arc<UserGroup>>,
+    ) -> Self {
         SocksProxyNegotiationTask {
             ctx,
+            audit_ctx,
             user_group,
             time_accepted: Instant::now(),
         }
@@ -147,6 +154,7 @@ impl SocksProxyNegotiationTask {
                     self.ctx,
                     task_notes,
                     req.upstream,
+                    self.audit_ctx,
                 );
                 task.into_running(clt_r.into_inner(), clt_w);
                 Ok(())
@@ -278,6 +286,7 @@ impl SocksProxyNegotiationTask {
                     self.ctx,
                     task_notes,
                     req.upstream,
+                    self.audit_ctx,
                 );
                 task.into_running(clt_r.into_inner(), clt_w);
                 Ok(())

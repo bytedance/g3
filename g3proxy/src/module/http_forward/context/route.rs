@@ -26,6 +26,7 @@ use super::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpConnectionEofPoller,
     HttpForwardContext,
 };
+use crate::audit::AuditContext;
 use crate::escape::ArcEscaper;
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
 use crate::serve::ServerTaskNotes;
@@ -34,6 +35,7 @@ pub(crate) struct RouteHttpForwardContext {
     escaper: ArcEscaper,
     final_escaper: ArcEscaper,
     tcp_notes: TcpConnectTaskNotes,
+    audit_ctx: AuditContext,
     last_is_tls: bool,
     last_connection: Option<(Instant, HttpConnectionEofPoller)>,
 }
@@ -45,6 +47,7 @@ impl RouteHttpForwardContext {
             escaper,
             final_escaper: fake_final_escaper,
             tcp_notes: TcpConnectTaskNotes::empty(),
+            audit_ctx: AuditContext::default(),
             last_is_tls: false,
             last_connection: None,
         }
@@ -57,14 +60,18 @@ impl HttpForwardContext for RouteHttpForwardContext {
         &'a mut self,
         task_notes: &'a ServerTaskNotes,
         upstream: &'a UpstreamAddr,
+        audit_ctx: &'a mut AuditContext,
     ) -> HttpForwardCapability {
         if self.tcp_notes.upstream.ne(upstream) {
+            self.audit_ctx = audit_ctx.clone();
             let mut next_escaper = Arc::clone(&self.escaper);
+            next_escaper._update_audit_context(&mut self.audit_ctx);
             while let Some(escaper) = next_escaper
                 ._check_out_next_escaper(task_notes, upstream)
                 .await
             {
                 next_escaper = escaper;
+                next_escaper._update_audit_context(&mut self.audit_ctx);
             }
             if !Arc::ptr_eq(&self.final_escaper, &next_escaper) {
                 self.final_escaper = next_escaper;
@@ -73,6 +80,7 @@ impl HttpForwardContext for RouteHttpForwardContext {
             }
         }
 
+        *audit_ctx = self.audit_ctx.clone();
         self.final_escaper._local_http_forward_capability()
     }
 

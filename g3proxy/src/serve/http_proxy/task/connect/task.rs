@@ -27,6 +27,7 @@ use g3_types::net::ProxyRequestType;
 
 use super::protocol::{HttpClientWriter, HttpProxyRequest};
 use super::{CommonTaskContext, TcpConnectTaskCltWrapperStats};
+use crate::audit::AuditContext;
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
@@ -44,12 +45,14 @@ pub(crate) struct HttpProxyConnectTask {
     task_notes: ServerTaskNotes,
     tcp_notes: TcpConnectTaskNotes,
     task_stats: Arc<TcpStreamTaskStats>,
+    audit_ctx: AuditContext,
     http_version: Version,
 }
 
 impl HttpProxyConnectTask {
     pub(crate) fn new(
         ctx: &Arc<CommonTaskContext>,
+        audit_ctx: AuditContext,
         req: &HttpProxyRequest<impl AsyncRead>,
         task_notes: ServerTaskNotes,
     ) -> Self {
@@ -60,6 +63,7 @@ impl HttpProxyConnectTask {
             task_notes,
             tcp_notes: TcpConnectTaskNotes::new(req.upstream.clone()),
             task_stats: Arc::new(TcpStreamTaskStats::default()),
+            audit_ctx,
             http_version: req.inner.version,
         }
     }
@@ -294,6 +298,7 @@ impl HttpProxyConnectTask {
                 &mut self.tcp_notes,
                 &self.task_notes,
                 self.task_stats.clone(),
+                &mut self.audit_ctx,
             )
             .await
         {
@@ -424,7 +429,7 @@ impl HttpProxyConnectTask {
     {
         let (clt_r, clt_w) = self.update_clt(clt_r, clt_w);
 
-        if let Some(audit_handle) = &self.ctx.audit_handle {
+        if let Some(audit_handle) = self.audit_ctx.handle() {
             let audit_task = self
                 .task_notes
                 .user_ctx()

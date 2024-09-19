@@ -40,7 +40,7 @@ use g3_types::net::{OpensslClientConfig, UpstreamAddr, WeightedUpstreamAddr};
 use super::common::CommonTaskContext;
 use super::stats::TcpStreamServerStats;
 use super::task::TcpStreamTask;
-use crate::audit::AuditHandle;
+use crate::audit::{AuditContext, AuditHandle};
 use crate::config::server::tcp_stream::TcpStreamServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::escape::ArcEscaper;
@@ -164,16 +164,8 @@ impl TcpStreamServer {
         false
     }
 
-    fn load_audit_handle(&self) -> Option<Arc<AuditHandle>> {
-        if let Some(handle) = &*self.audit_handle.load() {
-            if handle.do_task_audit() {
-                Some(handle.clone())
-            } else {
-                None
-            }
-        } else {
-            None
-        }
+    fn audit_context(&self) -> AuditContext {
+        AuditContext::new(self.audit_handle.load_full())
     }
 
     fn get_ctx_and_upstream(
@@ -188,7 +180,6 @@ impl TcpStreamServer {
             server_stats: Arc::clone(&self.server_stats),
             server_quit_policy: Arc::clone(&self.quit_policy),
             escaper: self.escaper.load().as_ref().clone(),
-            audit_handle: self.load_audit_handle(),
             cc_info,
             tls_client_config: self.tls_client_config.clone(),
             task_logger: self.task_logger.clone(),
@@ -206,7 +197,7 @@ impl TcpStreamServer {
         let (ctx, upstream) = self.get_ctx_and_upstream(cc_info);
 
         let (clt_r, clt_w) = stream.into_split();
-        TcpStreamTask::new(ctx, upstream)
+        TcpStreamTask::new(ctx, upstream, self.audit_context())
             .into_running(clt_r, clt_w)
             .await;
     }
@@ -220,7 +211,10 @@ impl TcpStreamServer {
     ) {
         let (ctx, upstream) = self.get_ctx_and_upstream(cc_info);
 
-        tokio::spawn(TcpStreamTask::new(ctx, upstream).into_running(recv_stream, send_stream));
+        tokio::spawn(
+            TcpStreamTask::new(ctx, upstream, self.audit_context())
+                .into_running(recv_stream, send_stream),
+        );
     }
 }
 

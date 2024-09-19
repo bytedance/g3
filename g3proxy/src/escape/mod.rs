@@ -25,6 +25,7 @@ use g3_types::collection::{SelectiveItem, SelectivePickPolicy, SelectiveVec};
 use g3_types::metrics::MetricsName;
 use g3_types::net::{Host, HttpForwardCapability, OpensslClientConfig, UpstreamAddr};
 
+use crate::audit::AuditContext;
 use crate::config::escaper::AnyEscaperConfig;
 use crate::module::ftp_over_http::{
     AnyFtpConnectContextParam, ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats,
@@ -106,6 +107,7 @@ pub(crate) trait EscaperInternal {
     ) -> Option<ArcEscaper> {
         None
     }
+    fn _update_audit_context(&self, _audit_ctx: &mut AuditContext) {}
 
     async fn _new_http_forward_connection<'a>(
         &'a self,
@@ -162,6 +164,7 @@ pub(crate) trait Escaper: EscaperInternal {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
+        audit_ctx: &'a mut AuditContext,
     ) -> TcpConnectResult;
 
     async fn tls_setup_connection<'a>(
@@ -169,6 +172,7 @@ pub(crate) trait Escaper: EscaperInternal {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
+        audit_ctx: &'a mut AuditContext,
         tls_config: &'a OpensslClientConfig,
         tls_name: &'a Host,
     ) -> TcpConnectResult;

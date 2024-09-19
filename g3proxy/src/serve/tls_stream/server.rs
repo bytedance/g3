@@ -39,7 +39,7 @@ use g3_types::net::{OpensslClientConfig, RustlsServerConnectionExt, WeightedUpst
 
 use super::common::CommonTaskContext;
 use super::task::TlsStreamTask;
-use crate::audit::AuditHandle;
+use crate::audit::{AuditContext, AuditHandle};
 use crate::config::server::tls_stream::TlsStreamServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::escape::ArcEscaper;
@@ -174,16 +174,8 @@ impl TlsStreamServer {
         false
     }
 
-    fn load_audit_handle(&self) -> Option<Arc<AuditHandle>> {
-        if let Some(handle) = &*self.audit_handle.load() {
-            if handle.do_task_audit() {
-                Some(handle.clone())
-            } else {
-                None
-            }
-        } else {
-            None
-        }
+    fn audit_context(&self) -> AuditContext {
+        AuditContext::new(self.audit_handle.load_full())
     }
 
     async fn run_task(&self, stream: TlsStream<TcpStream>, cc_info: ClientConnectionInfo) {
@@ -195,13 +187,12 @@ impl TlsStreamServer {
             server_stats: Arc::clone(&self.server_stats),
             server_quit_policy: Arc::clone(&self.quit_policy),
             escaper: self.escaper.load().as_ref().clone(),
-            audit_handle: self.load_audit_handle(),
             cc_info,
             tls_client_config: self.tls_client_config.clone(),
             task_logger: self.task_logger.clone(),
         };
 
-        TlsStreamTask::new(ctx, upstream.inner())
+        TlsStreamTask::new(ctx, upstream.inner(), self.audit_context())
             .into_running(stream)
             .await;
     }

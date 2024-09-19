@@ -26,6 +26,7 @@ use g3_io_ext::{LimitedReader, LimitedWriter};
 use g3_types::net::UpstreamAddr;
 
 use super::common::CommonTaskContext;
+use crate::audit::AuditContext;
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
@@ -38,10 +39,11 @@ pub(super) struct TProxyStreamTask {
     tcp_notes: TcpConnectTaskNotes,
     task_notes: ServerTaskNotes,
     task_stats: Arc<TcpStreamTaskStats>,
+    audit_ctx: AuditContext,
 }
 
 impl TProxyStreamTask {
-    pub(super) fn new(ctx: CommonTaskContext) -> Self {
+    pub(super) fn new(ctx: CommonTaskContext, audit_ctx: AuditContext) -> Self {
         let target = ctx.target_addr();
         let task_notes = ServerTaskNotes::new(ctx.cc_info.clone(), None, Duration::ZERO);
         TProxyStreamTask {
@@ -49,6 +51,7 @@ impl TProxyStreamTask {
             tcp_notes: TcpConnectTaskNotes::new(UpstreamAddr::from(target)),
             task_notes,
             task_stats: Arc::new(TcpStreamTaskStats::default()),
+            audit_ctx,
         }
     }
 
@@ -108,6 +111,7 @@ impl TProxyStreamTask {
                 &mut self.tcp_notes,
                 &self.task_notes,
                 self.task_stats.clone(),
+                &mut self.audit_ctx,
             )
             .await?;
 
@@ -141,7 +145,7 @@ impl TProxyStreamTask {
     {
         let (clt_r, clt_w) = self.split_clt(clt_stream);
 
-        if let Some(audit_handle) = self.ctx.audit_handle.take() {
+        if let Some(audit_handle) = self.audit_ctx.check_take_handle() {
             let ctx = StreamInspectContext::new(
                 audit_handle,
                 self.ctx.server_config.clone(),

@@ -22,20 +22,23 @@ use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::net::UpstreamAddr;
 
 use super::RouteFailoverEscaper;
+use crate::audit::AuditContext;
 use crate::escape::ArcEscaper;
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
 use crate::serve::ServerTaskNotes;
 
 pub struct TcpConnectFailoverContext {
     tcp_notes: TcpConnectTaskNotes,
+    audit_ctx: AuditContext,
     connect_result: TcpConnectResult,
 }
 
 impl TcpConnectFailoverContext {
-    fn new(upstream: &UpstreamAddr) -> Self {
+    fn new(upstream: &UpstreamAddr, audit_ctx: &AuditContext) -> Self {
         let tcp_notes = TcpConnectTaskNotes::new(upstream.clone());
         TcpConnectFailoverContext {
             tcp_notes,
+            audit_ctx: audit_ctx.clone(),
             connect_result: Err(TcpConnectError::EscaperNotUsable(anyhow!(
                 "tcp setup connection not called yet"
             ))),
@@ -49,7 +52,12 @@ impl TcpConnectFailoverContext {
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> Result<Self, Self> {
         match escaper
-            .tcp_setup_connection(&mut self.tcp_notes, task_notes, task_stats)
+            .tcp_setup_connection(
+                &mut self.tcp_notes,
+                task_notes,
+                task_stats,
+                &mut self.audit_ctx,
+            )
             .await
         {
             Ok(c) => {
@@ -70,21 +78,23 @@ impl RouteFailoverEscaper {
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
+        audit_ctx: &'a mut AuditContext,
     ) -> TcpConnectResult {
-        let primary_context = TcpConnectFailoverContext::new(&tcp_notes.upstream);
+        let primary_context = TcpConnectFailoverContext::new(&tcp_notes.upstream, audit_ctx);
         let mut primary_task =
             pin!(primary_context.run(&self.primary_node, task_notes, task_stats.clone()));
 
         match tokio::time::timeout(self.config.fallback_delay, &mut primary_task).await {
             Ok(Ok(ctx)) => {
                 self.stats.add_request_passed();
+                *audit_ctx = ctx.audit_ctx;
                 tcp_notes.fill_generated(&ctx.tcp_notes);
                 return ctx.connect_result;
             }
             Ok(Err(_)) => {
                 return match self
                     .standby_node
-                    .tcp_setup_connection(tcp_notes, task_notes, task_stats)
+                    .tcp_setup_connection(tcp_notes, task_notes, task_stats, audit_ctx)
                     .await
                 {
                     Ok(c) => {
@@ -100,17 +110,19 @@ impl RouteFailoverEscaper {
             Err(_) => {}
         }
 
-        let standby_context = TcpConnectFailoverContext::new(&tcp_notes.upstream);
+        let standby_context = TcpConnectFailoverContext::new(&tcp_notes.upstream, audit_ctx);
         let standby_task = pin!(standby_context.run(&self.standby_node, task_notes, task_stats));
 
         match futures_util::future::select_ok([primary_task, standby_task]).await {
             Ok((ctx, _left)) => {
                 self.stats.add_request_passed();
+                *audit_ctx = ctx.audit_ctx;
                 tcp_notes.fill_generated(&ctx.tcp_notes);
                 ctx.connect_result
             }
             Err(ctx) => {
                 self.stats.add_request_failed();
+                *audit_ctx = ctx.audit_ctx;
                 tcp_notes.fill_generated(&ctx.tcp_notes);
                 ctx.connect_result
             }
