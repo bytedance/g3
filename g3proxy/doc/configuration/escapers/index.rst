@@ -17,6 +17,7 @@ Escapers
 .. toctree::
    :maxdepth: 2
 
+   comply_audit
    dummy_deny
    direct_fixed
    direct_float

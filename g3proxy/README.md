@@ -158,6 +158,10 @@ Router escaper can be used to select the real escapers, based on different route
     * regex domain match
 - route-failover - failover between primary and standby escaper
 
+#### Other Helper Escapers
+
+- comply-audit - overwrite server side auditor settings
+
 ### Resolver
 
 - c-ares

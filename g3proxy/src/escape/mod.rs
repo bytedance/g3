@@ -56,6 +56,7 @@ pub(crate) use stats::{
 mod egress_path;
 pub(crate) use egress_path::EgressPathSelection;
 
+mod comply_audit;
 mod direct_fixed;
 mod direct_float;
 mod divert_tcp;
@@ -77,7 +78,9 @@ mod trick_float;
 
 mod ops;
 pub use ops::load_all;
-pub(crate) use ops::{get_escaper, reload, update_dependency_to_resolver};
+pub(crate) use ops::{
+    get_escaper, reload, update_dependency_to_auditor, update_dependency_to_resolver,
+};
 
 /// Functions in this trait should only be called from registry module,
 /// as Escaper and its reload notifier should be locked together.
@@ -86,6 +89,9 @@ pub(crate) use ops::{get_escaper, reload, update_dependency_to_resolver};
 #[async_trait]
 pub(crate) trait EscaperInternal {
     fn _resolver(&self) -> &MetricsName;
+    fn _auditor(&self) -> Option<&MetricsName> {
+        None
+    }
     fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>>;
 
     fn _clone_config(&self) -> AnyEscaperConfig;

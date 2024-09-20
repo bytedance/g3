@@ -160,6 +160,10 @@ impl AuditContext {
         AuditContext { handle }
     }
 
+    pub(crate) fn set_handle(&mut self, handle: Arc<AuditHandle>) {
+        self.handle = Some(handle);
+    }
+
     pub(crate) fn handle(&self) -> Option<&Arc<AuditHandle>> {
         self.handle.as_ref()
     }
