@@ -28,6 +28,7 @@ use super::registry;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfigDiffAction};
 use crate::escape::ArcEscaper;
 
+use super::comply_audit::ComplyAuditEscaper;
 use super::direct_fixed::DirectFixedEscaper;
 use super::direct_float::DirectFloatEscaper;
 use super::divert_tcp::DivertTcpEscaper;
@@ -156,6 +157,32 @@ pub(crate) async fn update_dependency_to_resolver(resolver: &MetricsName, status
     }
 }
 
+pub(crate) async fn update_dependency_to_auditor(auditor: &MetricsName, status: &str) {
+    let _guard = ESCAPER_OPS_LOCK.lock().await;
+
+    let mut names = Vec::<MetricsName>::new();
+
+    registry::foreach(|name, escaper| {
+        if let Some(dep_auditor) = escaper._auditor() {
+            if dep_auditor.eq(auditor) {
+                names.push(name.clone());
+            }
+        }
+    });
+
+    if names.is_empty() {
+        return;
+    }
+
+    debug!("auditor {auditor} changed({status}), will reload escaper(s) {names:?}");
+    for name in names.iter() {
+        debug!("escaper {name}: will reload as it's using auditor {auditor}");
+        if let Err(e) = reload_existed_unlocked(name, None).await {
+            warn!("failed to reload escaper {name}: {e:?}");
+        }
+    }
+}
+
 #[async_recursion]
 async fn update_dependency_to_escaper_unlocked(target: &MetricsName, status: &str) {
     let mut names = Vec::<MetricsName>::new();
@@ -231,6 +258,7 @@ async fn spawn_new_unlocked(config: AnyEscaperConfig) -> anyhow::Result<()> {
 
     let name = config.name().clone();
     let escaper = match config {
+        AnyEscaperConfig::ComplyAudit(c) => ComplyAuditEscaper::prepare_initial(c)?,
         AnyEscaperConfig::DirectFixed(c) => DirectFixedEscaper::prepare_initial(*c)?,
         AnyEscaperConfig::DirectFloat(c) => DirectFloatEscaper::prepare_initial(*c).await?,
         AnyEscaperConfig::DivertTcp(c) => DivertTcpEscaper::prepare_initial(c)?,

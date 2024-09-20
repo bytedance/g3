@@ -28,6 +28,7 @@ use g3_types::metrics::MetricsName;
 use g3_types::net::{TcpConnectConfig, TcpSockSpeedLimitConfig, UdpSockSpeedLimitConfig};
 use g3_yaml::{HybridParser, YamlDocPosition};
 
+pub(crate) mod comply_audit;
 pub(crate) mod direct_fixed;
 pub(crate) mod direct_float;
 pub(crate) mod divert_tcp;
@@ -96,6 +97,7 @@ pub(crate) struct GeneralEscaperConfig {
 
 #[derive(Clone)]
 pub(crate) enum AnyEscaperConfig {
+    ComplyAudit(comply_audit::ComplyAuditEscaperConfig),
     DirectFixed(Box<direct_fixed::DirectFixedEscaperConfig>),
     DirectFloat(Box<direct_float::DirectFloatEscaperConfig>),
     DivertTcp(divert_tcp::DivertTcpEscaperConfig),
@@ -120,6 +122,7 @@ macro_rules! impl_transparent0 {
     ($f:tt, $v:ty) => {
         pub(crate) fn $f(&self) -> $v {
             match self {
+                AnyEscaperConfig::ComplyAudit(s) => s.$f(),
                 AnyEscaperConfig::DirectFixed(s) => s.$f(),
                 AnyEscaperConfig::DirectFloat(s) => s.$f(),
                 AnyEscaperConfig::DivertTcp(s) => s.$f(),
@@ -147,6 +150,7 @@ macro_rules! impl_transparent1 {
     ($f:tt, $v:ty, $p:ty) => {
         pub(crate) fn $f(&self, p: $p) -> $v {
             match self {
+                AnyEscaperConfig::ComplyAudit(s) => s.$f(p),
                 AnyEscaperConfig::DirectFixed(s) => s.$f(p),
                 AnyEscaperConfig::DirectFloat(s) => s.$f(p),
                 AnyEscaperConfig::DivertTcp(s) => s.$f(p),
@@ -224,6 +228,10 @@ fn load_escaper(
 ) -> anyhow::Result<AnyEscaperConfig> {
     let escaper_type = g3_yaml::hash_get_required_str(map, CONFIG_KEY_ESCAPER_TYPE)?;
     match g3_yaml::key::normalize(escaper_type).as_str() {
+        "comply_audit" | "complyaudit" => {
+            let config = comply_audit::ComplyAuditEscaperConfig::parse(map, position)?;
+            Ok(AnyEscaperConfig::ComplyAudit(config))
+        }
         "direct_fixed" | "directfixed" => {
             let config = direct_fixed::DirectFixedEscaperConfig::parse(map, position)?;
             Ok(AnyEscaperConfig::DirectFixed(Box::new(config)))

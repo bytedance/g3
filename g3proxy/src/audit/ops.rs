@@ -57,6 +57,7 @@ pub async fn load_all() -> anyhow::Result<()> {
             debug!("deleting auditor {name}");
             registry::del(name);
             crate::serve::update_dependency_to_auditor(name, "deleted").await;
+            crate::escape::update_dependency_to_auditor(name, "deleted").await;
             debug!("auditor {name} deleted");
         }
     }
@@ -114,6 +115,7 @@ async fn reload_old_unlocked(old: AuditorConfig, new: AuditorConfig) -> anyhow::
     let new_auditor = old_auditor.reload(new)?;
     registry::add(name.clone(), new_auditor);
     crate::serve::update_dependency_to_auditor(name, "reloaded").await;
+    crate::escape::update_dependency_to_auditor(name, "reloaded").await;
     Ok(())
 }
 
@@ -122,5 +124,6 @@ async fn spawn_new_unlocked(config: AuditorConfig) -> anyhow::Result<()> {
     let auditor = Auditor::new_with_config(config)?;
     registry::add(name.clone(), auditor);
     crate::serve::update_dependency_to_auditor(&name, "spawned").await;
+    crate::escape::update_dependency_to_auditor(&name, "spawned").await;
     Ok(())
 }
