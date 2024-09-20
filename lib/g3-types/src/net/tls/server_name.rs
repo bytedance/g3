@@ -22,6 +22,8 @@ use thiserror::Error;
 
 use crate::net::Host;
 
+const MAX_HOST_NAME_LENGTH: usize = 255;
+
 #[derive(Debug, Error)]
 pub enum TlsServerNameError {
     #[error("not enough data: {0}")]
@@ -59,7 +61,7 @@ impl TlsServerName {
         }
 
         let name_len = u16::from_be_bytes([buf[3], buf[4]]) as usize;
-        if name_len + 5 > buf_len {
+        if name_len > MAX_HOST_NAME_LENGTH || name_len + 5 > buf_len {
             return Err(TlsServerNameError::InvalidNameLength(name_len));
         }
 
