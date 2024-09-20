@@ -63,6 +63,7 @@ pub enum InitialPacket {
 }
 
 impl InitialPacket {
+    /// Parse a client generated packet
     pub fn parse_client(data: &[u8]) -> Result<InitialPacket, PacketParseError> {
         if data.len() < LONG_PACKET_FIXED_LEN {
             return Err(PacketParseError::TooSmall);
@@ -104,7 +105,7 @@ impl InitialPacket {
 
         while offset < payload.len() {
             let left = &payload[offset..];
-            let Some(frame_type) = VarInt::parse(left) else {
+            let Some(frame_type) = VarInt::try_parse(left) else {
                 return Err(FrameParseError::NoEnoughData);
             };
 
@@ -141,6 +142,7 @@ mod tests {
 
     #[test]
     fn parse_v1() {
+        // https://datatracker.ietf.org/doc/html/rfc9001#section-a.2
         let packet = hex!(
             "c000000001088394c8f03e5157080000 449e7b9aec34d1b1c98dd7689fb8ec11
             d242b123dc9bd8bab936b47d92ec356c 0bab7df5976d27cd449f63300099f399
@@ -199,6 +201,7 @@ mod tests {
 
     #[test]
     fn parse_v2() {
+        // https://datatracker.ietf.org/doc/html/rfc9369#name-client-initial
         let packet = hex!(
             "d76b3343cf088394c8f03e5157080000 449ea0c95e82ffe67b6abcdb4298b485
             dd04de806071bf03dceebfa162e75d6c 96058bdbfb127cdfcbf903388e99ad04

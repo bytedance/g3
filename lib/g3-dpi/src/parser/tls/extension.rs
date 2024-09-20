@@ -93,7 +93,8 @@ impl<'a> Extension<'a> {
 pub struct ExtensionList {}
 
 impl ExtensionList {
-    pub fn get_ext(
+    /// Get the raw extension value from the raw extensions buf
+    pub(crate) fn get_ext(
         full_data: &[u8],
         ext_type: ExtensionType,
     ) -> Result<Option<&[u8]>, ExtensionParseError> {

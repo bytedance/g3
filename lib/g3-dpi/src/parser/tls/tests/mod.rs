@@ -16,3 +16,4 @@
 
 mod chrome_client_hello;
 mod fragment_client_hello;
+mod tongsuo_client_hello;

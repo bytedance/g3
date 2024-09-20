@@ -25,8 +25,9 @@ pub struct CryptoFrame<'a> {
 }
 
 impl<'a> CryptoFrame<'a> {
+    /// Parse a Crypto Frame from a packet buffer
     pub fn parse(data: &'a [u8]) -> Result<Self, FrameParseError> {
-        let Some(stream_offset) = VarInt::parse(data) else {
+        let Some(stream_offset) = VarInt::try_parse(data) else {
             return Err(FrameParseError::NoEnoughData);
         };
         let mut offset = stream_offset.encoded_len();
@@ -34,7 +35,7 @@ impl<'a> CryptoFrame<'a> {
             .map_err(|_| FrameParseError::TooBigOffsetValue(stream_offset.value()))?;
 
         let left = &data[offset..];
-        let Some(length) = VarInt::parse(left) else {
+        let Some(length) = VarInt::try_parse(left) else {
             return Err(FrameParseError::NoEnoughData);
         };
         offset += length.encoded_len();
@@ -88,6 +89,7 @@ impl HandshakeCoalescer {
         self.expected_length > 0 && self.expected_length == self.unfilled_offset
     }
 
+    /// Parse this message as a ClientHello message
     pub fn parse_client_hello(&self) -> Result<Option<ClientHello<'_>>, ClientHelloParseError> {
         let Some(hdr) = &self.header else {
             return Ok(None);
@@ -154,7 +156,8 @@ impl FrameConsume for HandshakeCoalescer {
             }
 
             if self.expected_length == 0 {
-                if let Some(header) = HandshakeHeader::parse(&self.buf[..self.unfilled_offset]) {
+                if let Some(header) = HandshakeHeader::try_parse(&self.buf[..self.unfilled_offset])
+                {
                     if header.msg_length > self.max_message_size {
                         // use the same size limit as TLS record
                         return Err(FrameParseError::MalformedFrame(

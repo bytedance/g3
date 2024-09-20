@@ -20,7 +20,8 @@ pub struct VarInt {
 }
 
 impl VarInt {
-    pub fn parse(data: &[u8]) -> Option<Self> {
+    /// Try to parse a variant-length int value from the buffer
+    pub fn try_parse(data: &[u8]) -> Option<Self> {
         if data.is_empty() {
             return None;
         }

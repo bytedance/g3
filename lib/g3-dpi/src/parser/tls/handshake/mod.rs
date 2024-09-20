@@ -21,12 +21,14 @@ pub use client_hello::{ClientHello, ClientHelloParseError};
 
 #[allow(dead_code)]
 #[repr(u8)]
+#[non_exhaustive]
 pub enum HandshakeType {
     HelloRequestReserved = 0,
     ClientHello = 1,
-    ServerHell0 = 2,
+    ServerHello = 2,
     HelloVerifyRequestReserved = 3,
-    // there are more that we don't need
+    // There are more that we don't need, see
+    // https://datatracker.ietf.org/doc/html/rfc8446#appendix-B.3
 }
 
 pub struct HandshakeHeader {
@@ -37,7 +39,8 @@ pub struct HandshakeHeader {
 impl HandshakeHeader {
     pub const SIZE: usize = 4;
 
-    pub fn parse(data: &[u8]) -> Option<Self> {
+    /// Try to parse the data as a HandshakeHeader
+    pub fn try_parse(data: &[u8]) -> Option<Self> {
         if data.len() < Self::SIZE {
             return None;
         }
@@ -48,6 +51,7 @@ impl HandshakeHeader {
         })
     }
 
+    /// Get the capacity needed to hold the encoded Handshake message
     pub fn encoded_cap(&self) -> usize {
         Self::SIZE + self.msg_length as usize
     }
@@ -59,8 +63,9 @@ pub struct HandshakeMessage<'a> {
 }
 
 impl<'a> HandshakeMessage<'a> {
-    pub fn parse_fragment(data: &'a [u8]) -> Option<Self> {
-        let header = HandshakeHeader::parse(data)?;
+    /// Try to parse a full Handshake message from a fragment of data
+    pub fn try_parse_fragment(data: &'a [u8]) -> Option<Self> {
+        let header = HandshakeHeader::try_parse(data)?;
         let cap = header.encoded_cap();
         if cap <= data.len() {
             Some(HandshakeMessage {
@@ -72,10 +77,12 @@ impl<'a> HandshakeMessage<'a> {
         }
     }
 
+    /// Get the total length of this message on the wire
     pub fn encoded_len(&self) -> usize {
         self.msg_data.len()
     }
 
+    /// Parse this message as a ClientHello message
     pub fn parse_client_hello(self) -> Result<ClientHello<'a>, ClientHelloParseError> {
         ClientHello::parse_fragment(self.header, self.msg_data)
     }
@@ -110,29 +117,33 @@ impl HandshakeCoalescer {
         }
     }
 
-    pub fn coalesce_fragment(&mut self, data: &[u8]) -> Result<usize, HandshakeCoalesceError> {
-        if self.buf.is_empty() {
-            return match HandshakeHeader::parse(data) {
-                Some(hdr) => {
-                    if hdr.msg_length > self.max_message_size {
-                        return Err(HandshakeCoalesceError::TooLargeMessageSize(hdr.msg_length));
-                    }
-                    let cap = hdr.encoded_cap();
-                    self.header = Some(hdr);
-                    if cap >= data.len() {
-                        self.buf.reserve(cap);
-                        self.buf.extend_from_slice(data);
-                        Ok(data.len())
-                    } else {
-                        self.buf.extend_from_slice(&data[..cap]);
-                        Ok(cap)
-                    }
+    fn add_first_fragment(&mut self, data: &[u8]) -> Result<usize, HandshakeCoalesceError> {
+        match HandshakeHeader::try_parse(data) {
+            Some(hdr) => {
+                if hdr.msg_length > self.max_message_size {
+                    return Err(HandshakeCoalesceError::TooLargeMessageSize(hdr.msg_length));
                 }
-                None => {
+                let cap = hdr.encoded_cap();
+                self.header = Some(hdr);
+                if cap >= data.len() {
+                    self.buf.reserve(cap);
                     self.buf.extend_from_slice(data);
                     Ok(data.len())
+                } else {
+                    self.buf.extend_from_slice(&data[..cap]);
+                    Ok(cap)
                 }
-            };
+            }
+            None => {
+                self.buf.extend_from_slice(data);
+                Ok(data.len())
+            }
+        }
+    }
+
+    pub fn coalesce_fragment(&mut self, data: &[u8]) -> Result<usize, HandshakeCoalesceError> {
+        if self.buf.is_empty() {
+            return self.add_first_fragment(data);
         }
 
         match &self.header {
@@ -148,7 +159,7 @@ impl HandshakeCoalescer {
             }
             None => {
                 self.buf.extend_from_slice(data);
-                match HandshakeHeader::parse(&self.buf) {
+                match HandshakeHeader::try_parse(&self.buf) {
                     Some(hdr) => {
                         if hdr.msg_length > self.max_message_size {
                             return Err(HandshakeCoalesceError::TooLargeMessageSize(
@@ -176,6 +187,7 @@ impl HandshakeCoalescer {
         self.buf.is_empty()
     }
 
+    /// Parse this message as a ClientHello message
     pub fn parse_client_hello(&self) -> Result<Option<ClientHello<'_>>, ClientHelloParseError> {
         let Some(hdr) = &self.header else {
             return Ok(None);

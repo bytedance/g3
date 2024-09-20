@@ -30,6 +30,9 @@ pub struct InitialPacketV1 {
 }
 
 impl InitialPacketV1 {
+    /// Parse a QUIC v1 Initial Packet
+    ///
+    /// According to https://datatracker.ietf.org/doc/html/rfc9000#name-packets-and-frames
     pub fn parse_client(data: &[u8]) -> Result<Self, PacketParseError> {
         let byte1 = data[0];
         if byte1 & 0b0011_0000 != 0b0000_0000 {
@@ -71,7 +74,7 @@ impl InitialPacketV1 {
 
         // Token
         let left = &data[offset..];
-        let Some(token_len) = VarInt::parse(left) else {
+        let Some(token_len) = VarInt::try_parse(left) else {
             return Err(PacketParseError::TooSmall);
         };
         let start = offset + token_len.encoded_len();
@@ -82,7 +85,7 @@ impl InitialPacketV1 {
 
         // Length
         let left = &data[offset..];
-        let Some(length) = VarInt::parse(left) else {
+        let Some(length) = VarInt::try_parse(left) else {
             return Err(PacketParseError::TooSmall);
         };
         offset += length.encoded_len();
@@ -157,6 +160,7 @@ mod tests {
 
     #[test]
     fn gen_secret() {
+        // https://datatracker.ietf.org/doc/html/rfc9001#section-a.2
         let cid = hex!("8394c8f03e515708");
         let key = hex!("1f369613dd76d5467730efcbe3b1a22d");
         let iv = hex!("fa044b2f42a3fd3b46fb255c");

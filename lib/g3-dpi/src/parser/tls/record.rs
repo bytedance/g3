@@ -25,7 +25,7 @@ pub enum ContentType {
     Invalid = 0, // TLS 1.3
     ChangeCipherSpec = 20,
     Alert = 21,
-    Handshake = 22, // 0x16
+    Handshake = 22,
     ApplicationData = 23,
     Heartbeat = 24, // RFC 6520
 }
@@ -47,20 +47,20 @@ impl TryFrom<u8> for ContentType {
 
 #[derive(Debug, Error)]
 pub enum RecordParseError {
-    #[error("need more data of size {0}")]
+    #[error("need {0} bytes more data")]
     NeedMoreData(usize),
     #[error("unsupported protocol version {0:?}")]
     UnsupportedVersion(RawVersion),
     #[error("invalid content type {0}")]
     InvalidContentType(u8),
-    #[error("invalid fragment length")]
-    InvalidFragmentLength,
+    #[error("fragment length exceeded")]
+    FragmentLengthExceeded,
 }
 
 pub struct RecordHeader {
     pub version: RawVersion,
     pub content_type: ContentType,
-    pub fragment_len: u16,
+    pub fragment_size: u16,
 }
 
 impl RecordHeader {
@@ -88,18 +88,21 @@ impl RecordHeader {
         Ok(RecordHeader {
             version,
             content_type,
-            fragment_len,
+            fragment_size: fragment_len,
         })
     }
 }
 
 pub struct Record<'a> {
-    pub header: RecordHeader,
+    header: RecordHeader,
     fragment: &'a [u8],
     consume_offset: usize,
 }
 
 impl<'a> Record<'a> {
+    /// Parse a TLS Record
+    ///
+    /// According to https://datatracker.ietf.org/doc/html/rfc8446#section-5.1
     pub fn parse(data: &'a [u8]) -> Result<Self, RecordParseError> {
         if data.len() < RecordHeader::SIZE {
             return Err(RecordParseError::NeedMoreData(
@@ -108,13 +111,13 @@ impl<'a> Record<'a> {
         }
 
         let header = RecordHeader::parse(data)?;
-        if header.fragment_len & 0b1100_0000_0000_0000 != 0 {
+        if header.fragment_size > 1 << 14 {
             // The length MUST NOT exceed 2^14 bytes.
-            return Err(RecordParseError::InvalidFragmentLength);
+            return Err(RecordParseError::FragmentLengthExceeded);
         }
 
         let start = RecordHeader::SIZE;
-        let end = start + header.fragment_len as usize;
+        let end = start + header.fragment_size as usize;
         if data.len() < end {
             return Err(RecordParseError::NeedMoreData(end - data.len()));
         }
@@ -126,10 +129,12 @@ impl<'a> Record<'a> {
         })
     }
 
+    /// Get the total length of this record on the wire
     pub fn encoded_len(&self) -> usize {
         RecordHeader::SIZE + self.fragment.len()
     }
 
+    /// Consume the fragment data as a Handshake message
     pub fn consume_handshake(
         &mut self,
         coalescer: &mut HandshakeCoalescer,
@@ -146,7 +151,7 @@ impl<'a> Record<'a> {
         let fragment = &self.fragment[self.consume_offset..];
 
         if coalescer.is_empty() {
-            if let Some(msg) = HandshakeMessage::parse_fragment(fragment) {
+            if let Some(msg) = HandshakeMessage::try_parse_fragment(fragment) {
                 self.consume_offset += msg.encoded_len();
                 return Ok(Some(msg));
             }
@@ -156,6 +161,7 @@ impl<'a> Record<'a> {
         Ok(None)
     }
 
+    /// Check if all fragment data is consumed
     pub fn consume_done(&self) -> bool {
         self.consume_offset >= self.fragment.len()
     }
