@@ -27,6 +27,7 @@ use g3_daemon::stat::remote::{
 };
 use g3_io_ext::{AsyncStream, LimitedReader, LimitedStream, LimitedWriter};
 use g3_openssl::{SslConnector, SslStream};
+use g3_socket::BindAddr;
 use g3_socks::v5;
 use g3_types::net::{Host, OpensslClientConfig, SocketBufferConfig};
 
@@ -104,7 +105,7 @@ impl ProxySocks5Escaper {
             .transmute_udp_peer_addr(peer_udp_addr, peer_tcp_addr.ip());
         let socket = g3_socket::udp::new_std_socket_to(
             peer_udp_addr,
-            Some(local_tcp_addr.ip()),
+            &BindAddr::Ip(local_tcp_addr.ip()),
             buf_conf,
             self.config.udp_misc_opts,
         )?;

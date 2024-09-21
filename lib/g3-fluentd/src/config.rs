@@ -26,6 +26,7 @@ use sha2::Sha512;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio_rustls::TlsConnector;
 
+use g3_socket::BindAddr;
 use g3_types::net::{RustlsClientConfig, RustlsClientConfigBuilder, TcpKeepAliveConfig};
 
 use super::FluentdConnection;
@@ -35,7 +36,7 @@ const FLUENTD_DEFAULT_PORT: u16 = 24224;
 #[derive(Clone)]
 pub struct FluentdClientConfig {
     server_addr: SocketAddr,
-    bind_ip: Option<IpAddr>,
+    bind: BindAddr,
     shared_key: String,
     username: String,
     password: String,
@@ -64,7 +65,7 @@ impl FluentdClientConfig {
         let hostname = gethostname::gethostname().to_string_lossy().to_string();
         FluentdClientConfig {
             server_addr: server,
-            bind_ip: None,
+            bind: BindAddr::None,
             shared_key: String::new(),
             username: String::new(),
             password: String::new(),
@@ -85,7 +86,7 @@ impl FluentdClientConfig {
     }
 
     pub fn set_bind_ip(&mut self, ip: IpAddr) {
-        self.bind_ip = Some(ip);
+        self.bind = BindAddr::Ip(ip);
     }
 
     pub fn set_shared_key(&mut self, key: String) {
@@ -143,7 +144,7 @@ impl FluentdClientConfig {
     pub(super) async fn new_connection(&self) -> anyhow::Result<FluentdConnection> {
         let socket = g3_socket::tcp::new_socket_to(
             self.server_addr.ip(),
-            self.bind_ip,
+            &self.bind,
             &self.tcp_keepalive,
             &Default::default(),
             false,

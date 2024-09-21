@@ -15,7 +15,6 @@
  */
 
 use std::io;
-use std::mem;
 
 use libc::{c_int, c_void};
 
@@ -24,13 +23,7 @@ where
     T: Copy,
 {
     let payload = &payload as *const T as *const c_void;
-    let ret = libc::setsockopt(
-        fd,
-        opt,
-        val,
-        payload,
-        mem::size_of::<T>() as libc::socklen_t,
-    );
+    let ret = libc::setsockopt(fd, opt, val, payload, size_of::<T>() as libc::socklen_t);
     if ret == -1 {
         return Err(io::Error::last_os_error());
     }

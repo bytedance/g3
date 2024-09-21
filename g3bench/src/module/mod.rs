@@ -14,8 +14,13 @@
  * limitations under the License.
  */
 
-pub(crate) mod http;
-pub(crate) mod openssl;
+pub(crate) mod socket;
+
 pub(crate) mod proxy_protocol;
+
+pub(crate) mod http;
+
+pub(crate) mod openssl;
 pub(crate) mod rustls;
+
 pub(crate) mod ssl;

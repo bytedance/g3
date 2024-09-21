@@ -17,10 +17,11 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use tokio::net::UdpSocket;
+
 use g3_io_ext::{LimitedUdpRecv, LimitedUdpSend, UdpRecvHalf, UdpSendHalf};
 use g3_socket::util::AddressFamily;
-
-use tokio::net::UdpSocket;
+use g3_socket::BindAddr;
 
 use super::DirectFloatEscaper;
 use crate::escape::direct_fixed::udp_relay::{DirectUdpRelayRemoteRecv, DirectUdpRelayRemoteSend};
@@ -95,7 +96,7 @@ impl DirectFloatEscaper {
         };
 
         let socket = g3_socket::udp::new_std_bind_relay(
-            Some(bind.ip),
+            &BindAddr::Ip(bind.ip),
             family,
             udp_notes.buf_conf,
             misc_opts,

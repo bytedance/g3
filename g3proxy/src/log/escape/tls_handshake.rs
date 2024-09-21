@@ -52,7 +52,7 @@ impl EscapeLogForTlsHandshake<'_> {
             "escape_type" => "TlsHandshake",
             "task_id" => LtUuid(self.task_id),
             "upstream" => LtUpstreamAddr(&self.tcp_notes.upstream),
-            "next_bind_ip" => self.tcp_notes.bind.map(LtIpAddr),
+            "next_bind_ip" => self.tcp_notes.bind.ip().map(LtIpAddr),
             "next_bound_addr" => self.tcp_notes.local,
             "next_peer_addr" => self.tcp_notes.next,
             "next_expire" => self.tcp_notes.expire.as_ref().map(LtDateTime),

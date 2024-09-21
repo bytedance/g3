@@ -20,6 +20,7 @@ use tokio::net::UdpSocket;
 
 use g3_io_ext::{LimitedUdpRecv, LimitedUdpSend};
 use g3_socket::util::AddressFamily;
+use g3_socket::BindAddr;
 use g3_types::acl::AclAction;
 
 use super::DirectFloatEscaper;
@@ -83,7 +84,7 @@ impl DirectFloatEscaper {
         let bind = self
             .select_bind(family, task_notes)
             .map_err(UdpConnectError::EscaperNotUsable)?;
-        udp_notes.bind = Some(bind.ip);
+        udp_notes.bind = BindAddr::Ip(bind.ip);
 
         let misc_opts = if let Some(user_ctx) = task_notes.user_ctx() {
             user_ctx
@@ -95,7 +96,7 @@ impl DirectFloatEscaper {
 
         let socket = g3_socket::udp::new_std_socket_to(
             peer_addr,
-            udp_notes.bind,
+            &udp_notes.bind,
             udp_notes.buf_conf,
             misc_opts,
         )

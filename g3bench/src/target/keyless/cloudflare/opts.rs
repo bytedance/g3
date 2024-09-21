@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
@@ -30,13 +30,13 @@ use g3_types::net::{OpensslClientConfig, OpensslClientConfigBuilder, UpstreamAdd
 use super::{MultiplexTransfer, SimplexTransfer};
 use crate::module::openssl::{AppendOpensslArgs, OpensslTlsClientArgs};
 use crate::module::proxy_protocol::{AppendProxyProtocolArgs, ProxyProtocolArgs};
+use crate::module::socket::{AppendSocketArgs, SocketArgs};
 use crate::opts::ProcArgs;
 use crate::target::keyless::{AppendKeylessArgs, KeylessGlobalArgs};
 
 const ARG_CONNECTION_POOL: &str = "connection-pool";
 const ARG_TARGET: &str = "target";
 const ARG_NO_TLS: &str = "no-tls";
-const ARG_LOCAL_ADDRESS: &str = "local-address";
 const ARG_CONNECT_TIMEOUT: &str = "connect-timeout";
 const ARG_TIMEOUT: &str = "timeout";
 const ARG_NO_MULTIPLEX: &str = "no-multiplex";
@@ -45,10 +45,11 @@ pub(super) struct KeylessCloudflareArgs {
     pub(super) global: KeylessGlobalArgs,
     pub(super) pool_size: Option<usize>,
     target: UpstreamAddr,
-    bind: Option<IpAddr>,
     pub(super) no_multiplex: bool,
     pub(super) timeout: Duration,
     pub(super) connect_timeout: Duration,
+
+    socket: SocketArgs,
     pub(super) tls: OpensslTlsClientArgs,
     proxy_protocol: ProxyProtocolArgs,
 
@@ -69,10 +70,10 @@ impl KeylessCloudflareArgs {
             global: global_args,
             pool_size: None,
             target,
-            bind: None,
             no_multiplex: false,
             timeout: Duration::from_secs(5),
             connect_timeout: Duration::from_secs(10),
+            socket: SocketArgs::default(),
             tls,
             proxy_protocol: ProxyProtocolArgs::default(),
             target_addrs: None,
@@ -131,18 +132,7 @@ impl KeylessCloudflareArgs {
             .ok_or_else(|| anyhow!("no target addr set"))?;
         let peer = *proc_args.select_peer(addrs);
 
-        let socket = g3_socket::tcp::new_socket_to(
-            peer.ip(),
-            self.bind,
-            &Default::default(),
-            &Default::default(),
-            true,
-        )
-        .map_err(|e| anyhow!("failed to setup socket to peer {peer}: {e:?}"))?;
-        let mut stream = socket
-            .connect(peer)
-            .await
-            .map_err(|e| anyhow!("connect to {peer} error: {e:?}"))?;
+        let mut stream = self.socket.tcp_connect_to(peer).await?;
 
         if let Some(data) = self.proxy_protocol.data() {
             stream
@@ -199,14 +189,6 @@ pub(super) fn add_cloudflare_args(app: Command) -> Command {
             .conflicts_with(ARG_NO_MULTIPLEX),
     )
     .arg(
-        Arg::new(ARG_LOCAL_ADDRESS)
-            .value_name("LOCAL IP ADDRESS")
-            .short('B')
-            .long(ARG_LOCAL_ADDRESS)
-            .num_args(1)
-            .value_parser(value_parser!(IpAddr)),
-    )
-    .arg(
         Arg::new(ARG_CONNECT_TIMEOUT)
             .value_name("TIMEOUT DURATION")
             .help("Timeout for connection to next peer")
@@ -230,6 +212,7 @@ pub(super) fn add_cloudflare_args(app: Command) -> Command {
             .num_args(0)
             .conflicts_with(ARG_CONNECTION_POOL),
     )
+    .append_socket_args()
     .append_keyless_args()
     .append_openssl_args()
     .append_proxy_protocol_args()
@@ -254,10 +237,6 @@ pub(super) fn parse_cloudflare_args(args: &ArgMatches) -> anyhow::Result<Keyless
         }
     }
 
-    if let Some(ip) = args.get_one::<IpAddr>(ARG_LOCAL_ADDRESS) {
-        cf_args.bind = Some(*ip);
-    }
-
     if let Some(timeout) = g3_clap::humanize::get_duration(args, ARG_CONNECT_TIMEOUT)? {
         cf_args.connect_timeout = timeout;
     }
@@ -269,6 +248,10 @@ pub(super) fn parse_cloudflare_args(args: &ArgMatches) -> anyhow::Result<Keyless
         cf_args.no_multiplex = true;
     }
 
+    cf_args
+        .socket
+        .parse_args(args)
+        .context("invalid socket config")?;
     cf_args
         .tls
         .parse_tls_args(args)

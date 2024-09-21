@@ -25,6 +25,7 @@ use tokio::time::Instant;
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_io_ext::{LimitedReader, LimitedWriter};
 use g3_socket::util::AddressFamily;
+use g3_socket::BindAddr;
 use g3_types::acl::AclAction;
 use g3_types::net::{ConnectError, Host, TcpConnectConfig, TcpKeepAliveConfig, TcpMiscSockOpts};
 
@@ -68,7 +69,7 @@ impl DirectFloatEscaper {
     fn prepare_connect_socket(
         &self,
         peer_ip: IpAddr,
-        bind_ip: Option<IpAddr>,
+        bind: BindAddr,
         task_notes: &ServerTaskNotes,
         keepalive: &TcpKeepAliveConfig,
         misc_opts: &TcpMiscSockOpts,
@@ -89,7 +90,7 @@ impl DirectFloatEscaper {
         let (_, action) = self.egress_net_filter.check(peer_ip);
         self.handle_tcp_target_ip_acl_action(action, task_notes)?;
 
-        let bind = if let Some(ip) = bind_ip {
+        let bind = if let Some(ip) = bind.ip() {
             self.select_bind_again(ip, task_notes)
                 .map_err(TcpConnectError::EscaperNotUsable)?
         } else {
@@ -97,9 +98,14 @@ impl DirectFloatEscaper {
                 .map_err(TcpConnectError::EscaperNotUsable)?
         };
 
-        let sock =
-            g3_socket::tcp::new_socket_to(peer_ip, Some(bind.ip), keepalive, misc_opts, true)
-                .map_err(TcpConnectError::SetupSocketFailed)?;
+        let sock = g3_socket::tcp::new_socket_to(
+            peer_ip,
+            &BindAddr::Ip(bind.ip),
+            keepalive,
+            misc_opts,
+            true,
+        )
+        .map_err(TcpConnectError::SetupSocketFailed)?;
         Ok((sock, bind))
     }
 
@@ -121,7 +127,7 @@ impl DirectFloatEscaper {
         )?;
         let peer = SocketAddr::new(peer_ip, tcp_notes.upstream.port());
         tcp_notes.next = Some(peer);
-        tcp_notes.bind = Some(bind.ip);
+        tcp_notes.bind = BindAddr::Ip(bind.ip);
         tcp_notes.expire = bind.expire_datetime;
         tcp_notes.egress = Some(bind.egress_info.clone());
 
@@ -248,7 +254,7 @@ impl DirectFloatEscaper {
                                 let peer_addr = r.1;
                                 let bind = r.2;
                                 tcp_notes.next = Some(peer_addr);
-                                tcp_notes.bind = Some(bind.ip);
+                                tcp_notes.bind = BindAddr::Ip(bind.ip);
                                 tcp_notes.expire = bind.expire_datetime;
                                 tcp_notes.egress = Some(bind.egress_info.clone());
                                 match r.0 {
@@ -440,9 +446,9 @@ impl DirectFloatEscaper {
                 Host::Domain(domain) => {
                     let mut resolve_strategy = self.get_resolve_strategy(task_notes);
                     match new_tcp_notes.bind {
-                        Some(IpAddr::V4(_)) => resolve_strategy.query_v4only(),
-                        Some(IpAddr::V6(_)) => resolve_strategy.query_v6only(),
-                        None => {}
+                        BindAddr::Ip(IpAddr::V4(_)) => resolve_strategy.query_v4only(),
+                        BindAddr::Ip(IpAddr::V6(_)) => resolve_strategy.query_v6only(),
+                        _ => {}
                     }
 
                     let resolver_job =

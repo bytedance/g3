@@ -1489,7 +1489,7 @@ impl<'a> HttpProxyForwardTask<'a> {
             http_header::set_remote_connection_info(
                 &mut rsp.hop_by_hop_headers,
                 server_id,
-                self.tcp_notes.bind,
+                self.tcp_notes.bind.ip(),
                 self.tcp_notes.local,
                 self.tcp_notes.next,
                 &self.tcp_notes.expire,

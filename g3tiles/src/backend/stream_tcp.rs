@@ -183,7 +183,7 @@ impl Backend for StreamTcpBackend {
         self.stats.add_conn_attempt();
         let socket = g3_socket::tcp::new_socket_to(
             next_addr.ip(),
-            None,
+            &Default::default(),
             &Default::default(),
             &Default::default(),
             true,
