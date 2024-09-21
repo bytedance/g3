@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -38,12 +38,12 @@ use g3_types::net::{
 use super::{H2PreRequest, HttpRuntimeStats, ProcArgs};
 use crate::module::openssl::{AppendOpensslArgs, OpensslTlsClientArgs};
 use crate::module::proxy_protocol::{AppendProxyProtocolArgs, ProxyProtocolArgs};
+use crate::module::socket::{AppendSocketArgs, SocketArgs};
 
 const HTTP_ARG_CONNECTION_POOL: &str = "connection-pool";
 const HTTP_ARG_URI: &str = "uri";
 const HTTP_ARG_METHOD: &str = "method";
 const HTTP_ARG_PROXY: &str = "proxy";
-const HTTP_ARG_LOCAL_ADDRESS: &str = "local-address";
 const HTTP_ARG_NO_MULTIPLEX: &str = "no-multiplex";
 const HTTP_ARG_OK_STATUS: &str = "ok-status";
 const HTTP_ARG_TIMEOUT: &str = "timeout";
@@ -54,12 +54,12 @@ pub(super) struct BenchH2Args {
     pub(super) method: Method,
     target_url: Url,
     connect_proxy: Option<Proxy>,
-    bind: Option<IpAddr>,
     pub(super) no_multiplex: bool,
     pub(super) ok_status: Option<StatusCode>,
     pub(super) timeout: Duration,
     pub(super) connect_timeout: Duration,
 
+    socket: SocketArgs,
     target_tls: OpensslTlsClientArgs,
     proxy_tls: OpensslTlsClientArgs,
     proxy_protocol: ProxyProtocolArgs,
@@ -86,11 +86,11 @@ impl BenchH2Args {
             method: Method::GET,
             target_url: url,
             connect_proxy: None,
-            bind: None,
             no_multiplex: false,
             ok_status: None,
             timeout: Duration::from_secs(30),
             connect_timeout: Duration::from_secs(15),
+            socket: SocketArgs::default(),
             target_tls,
             proxy_tls: OpensslTlsClientArgs::default(),
             proxy_protocol: ProxyProtocolArgs::default(),
@@ -121,18 +121,7 @@ impl BenchH2Args {
             .ok_or_else(|| anyhow!("no peer address set"))?;
         let peer = *proc_args.select_peer(addrs);
 
-        let socket = g3_socket::tcp::new_socket_to(
-            peer.ip(),
-            self.bind,
-            &Default::default(),
-            &Default::default(),
-            true,
-        )
-        .map_err(|e| anyhow!("failed to setup socket to {peer}: {e:?}"))?;
-        let mut stream = socket
-            .connect(peer)
-            .await
-            .map_err(|e| anyhow!("connect to {peer} error: {e:?}"))?;
+        let mut stream = self.socket.tcp_connect_to(peer).await?;
 
         if let Some(data) = self.proxy_protocol.data() {
             stream
@@ -385,14 +374,6 @@ pub(super) fn add_h2_args(app: Command) -> Command {
                 .value_name("PROXY URL"),
         )
         .arg(
-            Arg::new(HTTP_ARG_LOCAL_ADDRESS)
-                .value_name("LOCAL IP ADDRESS")
-                .short('B')
-                .long(HTTP_ARG_LOCAL_ADDRESS)
-                .num_args(1)
-                .value_parser(value_parser!(IpAddr)),
-        )
-        .arg(
             Arg::new(HTTP_ARG_NO_MULTIPLEX)
                 .help("Disable h2 connection multiplexing")
                 .action(ArgAction::SetTrue)
@@ -423,6 +404,7 @@ pub(super) fn add_h2_args(app: Command) -> Command {
                 .long(HTTP_ARG_CONNECT_TIMEOUT)
                 .num_args(1),
         )
+        .append_socket_args()
         .append_openssl_args()
         .append_proxy_openssl_args()
         .append_proxy_protocol_args()
@@ -454,10 +436,6 @@ pub(super) fn parse_h2_args(args: &ArgMatches) -> anyhow::Result<BenchH2Args> {
         h2_args.connect_proxy = Some(proxy);
     }
 
-    if let Some(ip) = args.get_one::<IpAddr>(HTTP_ARG_LOCAL_ADDRESS) {
-        h2_args.bind = Some(*ip);
-    }
-
     if args.get_flag(HTTP_ARG_NO_MULTIPLEX) {
         h2_args.no_multiplex = true;
     }
@@ -474,6 +452,10 @@ pub(super) fn parse_h2_args(args: &ArgMatches) -> anyhow::Result<BenchH2Args> {
         h2_args.connect_timeout = timeout;
     }
 
+    h2_args
+        .socket
+        .parse_args(args)
+        .context("invalid socket config")?;
     h2_args
         .target_tls
         .parse_tls_args(args)

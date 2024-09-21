@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
@@ -29,17 +29,18 @@ use g3_types::net::{OpensslClientConfig, OpensslClientConfigBuilder, UpstreamAdd
 use super::ProcArgs;
 use crate::module::openssl::{AppendOpensslArgs, OpensslTlsClientArgs};
 use crate::module::proxy_protocol::{AppendProxyProtocolArgs, ProxyProtocolArgs};
+use crate::module::socket::{AppendSocketArgs, SocketArgs};
 
 const SSL_ARG_TARGET: &str = "target";
-const SSL_ARG_LOCAL_ADDRESS: &str = "local-address";
 const SSL_ARG_TIMEOUT: &str = "timeout";
 const SSL_ARG_CONNECT_TIMEOUT: &str = "connect-timeout";
 
 pub(super) struct BenchOpensslArgs {
     target: UpstreamAddr,
-    bind: Option<IpAddr>,
     pub(super) timeout: Duration,
     pub(super) connect_timeout: Duration,
+
+    socket: SocketArgs,
     pub(super) tls: OpensslTlsClientArgs,
     proxy_protocol: ProxyProtocolArgs,
 
@@ -54,9 +55,9 @@ impl BenchOpensslArgs {
         };
         BenchOpensslArgs {
             target,
-            bind: None,
             timeout: Duration::from_secs(10),
             connect_timeout: Duration::from_secs(10),
+            socket: SocketArgs::default(),
             tls,
             proxy_protocol: ProxyProtocolArgs::default(),
             target_addrs: None,
@@ -82,18 +83,7 @@ impl BenchOpensslArgs {
             .ok_or_else(|| anyhow!("no target addr set"))?;
         let peer = *proc_args.select_peer(addrs);
 
-        let socket = g3_socket::tcp::new_socket_to(
-            peer.ip(),
-            self.bind,
-            &Default::default(),
-            &Default::default(),
-            true,
-        )
-        .map_err(|e| anyhow!("failed to setup socket to peer {peer}: {e:?}"))?;
-        let mut stream = socket
-            .connect(peer)
-            .await
-            .map_err(|e| anyhow!("connect to {peer} error: {e:?}"))?;
+        let mut stream = self.socket.tcp_connect_to(peer).await?;
 
         if let Some(data) = self.proxy_protocol.data() {
             stream
@@ -127,14 +117,6 @@ pub(super) fn add_ssl_args(app: Command) -> Command {
             .value_parser(value_parser!(UpstreamAddr)),
     )
     .arg(
-        Arg::new(SSL_ARG_LOCAL_ADDRESS)
-            .value_name("LOCAL IP ADDRESS")
-            .short('B')
-            .long(SSL_ARG_LOCAL_ADDRESS)
-            .num_args(1)
-            .value_parser(value_parser!(IpAddr)),
-    )
-    .arg(
         Arg::new(SSL_ARG_TIMEOUT)
             .value_name("TIMEOUT DURATION")
             .help("SSL handshake timeout")
@@ -150,6 +132,7 @@ pub(super) fn add_ssl_args(app: Command) -> Command {
             .long(SSL_ARG_CONNECT_TIMEOUT)
             .num_args(1),
     )
+    .append_socket_args()
     .append_openssl_args()
     .append_proxy_protocol_args()
 }
@@ -163,10 +146,6 @@ pub(super) fn parse_ssl_args(args: &ArgMatches) -> anyhow::Result<BenchOpensslAr
 
     let mut ssl_args = BenchOpensslArgs::new(target);
 
-    if let Some(ip) = args.get_one::<IpAddr>(SSL_ARG_LOCAL_ADDRESS) {
-        ssl_args.bind = Some(*ip);
-    }
-
     if let Some(timeout) = g3_clap::humanize::get_duration(args, SSL_ARG_TIMEOUT)? {
         ssl_args.timeout = timeout;
     }
@@ -175,6 +154,10 @@ pub(super) fn parse_ssl_args(args: &ArgMatches) -> anyhow::Result<BenchOpensslAr
         ssl_args.connect_timeout = timeout;
     }
 
+    ssl_args
+        .socket
+        .parse_args(args)
+        .context("invalid socket config")?;
     ssl_args
         .tls
         .parse_tls_args(args)

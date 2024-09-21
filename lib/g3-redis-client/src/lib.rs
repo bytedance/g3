@@ -152,7 +152,7 @@ impl RedisClientConfig {
         let peer = self.lookup_server().await?;
         let socket = g3_socket::tcp::new_socket_to(
             peer.ip(),
-            None,
+            &Default::default(),
             &Default::default(),
             &Default::default(),
             true,

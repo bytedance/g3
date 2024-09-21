@@ -25,6 +25,7 @@ use slog::Logger;
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_resolver::ResolveError;
 use g3_socket::util::AddressFamily;
+use g3_socket::BindAddr;
 use g3_types::acl::AclNetworkRule;
 use g3_types::metrics::MetricsName;
 use g3_types::net::{Host, OpensslClientConfig, UpstreamAddr};
@@ -124,24 +125,24 @@ impl DirectFixedEscaper {
         &self,
         family: AddressFamily,
         path_selection: Option<&EgressPathSelection>,
-    ) -> Option<IpAddr> {
+    ) -> BindAddr {
         let vec = match family {
             AddressFamily::Ipv4 => &self.config.bind4,
             AddressFamily::Ipv6 => &self.config.bind6,
         };
         match vec.len() {
-            0 => None,
-            1 => Some(vec[0]),
+            0 => BindAddr::None,
+            1 => BindAddr::Ip(vec[0]),
             n => {
                 if self.config.enable_path_selection {
                     if let Some(path_selection) = path_selection {
                         if let Some(i) = path_selection.select_by_index(n) {
-                            return Some(vec[i]);
+                            return BindAddr::Ip(vec[i]);
                         }
                     }
                 }
 
-                fastrand::choice(vec).copied()
+                fastrand::choice(vec).map(|ip| BindAddr::Ip(*ip)).unwrap()
             }
         }
     }

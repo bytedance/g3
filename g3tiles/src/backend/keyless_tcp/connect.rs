@@ -73,7 +73,7 @@ impl KeylessTcpUpstreamConnector {
 
         let sock = g3_socket::tcp::new_socket_to(
             peer.ip(),
-            None,
+            &Default::default(),
             &self.config.tcp_keepalive,
             &Default::default(),
             true,

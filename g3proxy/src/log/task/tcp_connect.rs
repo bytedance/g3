@@ -51,7 +51,7 @@ impl TaskLogForTcpConnect<'_> {
             "client_addr" => self.task_notes.client_addr(),
             "upstream" => LtUpstreamAddr(&self.tcp_notes.upstream),
             "escaper" => self.tcp_notes.escaper.as_str(),
-            "next_bind_ip" => self.tcp_notes.bind.map(LtIpAddr),
+            "next_bind_ip" => self.tcp_notes.bind.ip().map(LtIpAddr),
             "next_bound_addr" => self.tcp_notes.local,
             "next_peer_addr" => self.tcp_notes.next,
             "next_expire" => self.tcp_notes.expire.as_ref().map(LtDateTime),

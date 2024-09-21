@@ -15,19 +15,15 @@
  */
 
 use std::io;
-use std::net::{IpAddr, SocketAddr};
-#[cfg(target_os = "linux")]
-use std::os::unix::io::AsRawFd;
+use std::net::IpAddr;
 
 use socket2::{Domain, SockAddr, Socket, TcpKeepalive, Type};
 use tokio::net::{TcpListener, TcpSocket};
 
 use g3_types::net::{TcpKeepAliveConfig, TcpListenConfig, TcpMiscSockOpts};
 
-#[cfg(target_os = "linux")]
-use super::sockopt::set_bind_address_no_port;
 use super::util::AddressFamily;
-use super::RawSocket;
+use super::{BindAddr, RawSocket};
 
 pub fn new_std_listener(config: &TcpListenConfig) -> io::Result<std::net::TcpListener> {
     let addr = config.address();
@@ -57,25 +53,14 @@ pub fn new_std_listener(config: &TcpListenConfig) -> io::Result<std::net::TcpLis
 
 pub fn new_std_socket_to(
     peer_ip: IpAddr,
-    bind_ip: Option<IpAddr>,
+    bind: &BindAddr,
     keepalive: &TcpKeepAliveConfig,
     misc_opts: &TcpMiscSockOpts,
     default_set_nodelay: bool,
 ) -> io::Result<std::net::TcpStream> {
     let peer_family = AddressFamily::from(&peer_ip);
     let socket = new_tcp_socket(peer_family)?;
-    if let Some(ip) = bind_ip {
-        if AddressFamily::from(&ip) != peer_family {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                format!("peer_ip {peer_ip} and bind_ip {ip} should be of the same family",),
-            ));
-        }
-        #[cfg(target_os = "linux")]
-        set_bind_address_no_port(socket.as_raw_fd(), true)?;
-        let addr: SockAddr = SocketAddr::new(ip, 0).into();
-        socket.bind(&addr)?;
-    }
+    bind.bind_for_connect(&socket, peer_family)?;
     if keepalive.is_enabled() {
         // set keepalive_idle
         let mut setting = TcpKeepalive::new().with_time(keepalive.idle_time());
@@ -118,11 +103,11 @@ pub fn new_listen_to(config: &TcpListenConfig) -> io::Result<TcpListener> {
 
 pub fn new_socket_to(
     peer_ip: IpAddr,
-    bind_ip: Option<IpAddr>,
+    bind: &BindAddr,
     keepalive: &TcpKeepAliveConfig,
     misc_opts: &TcpMiscSockOpts,
     default_set_nodelay: bool,
 ) -> io::Result<TcpSocket> {
-    let socket = new_std_socket_to(peer_ip, bind_ip, keepalive, misc_opts, default_set_nodelay)?;
+    let socket = new_std_socket_to(peer_ip, bind, keepalive, misc_opts, default_set_nodelay)?;
     Ok(TcpSocket::from_std_stream(socket))
 }

@@ -21,17 +21,18 @@ use async_trait::async_trait;
 use tokio::net::TcpStream;
 
 use g3_ftp_client::FtpConnectionProvider;
+use g3_socket::BindAddr;
 use g3_types::net::UpstreamAddr;
 
 #[derive(Default)]
 pub(crate) struct LocalConnectionProvider {
-    bind_ip: Option<IpAddr>,
+    bind: BindAddr,
     remote_addr: Option<SocketAddr>,
 }
 
 impl LocalConnectionProvider {
     pub(crate) fn set_bind_ip(&mut self, ip: IpAddr) {
-        self.bind_ip = Some(ip);
+        self.bind = BindAddr::Ip(ip);
     }
 }
 
@@ -46,7 +47,7 @@ impl FtpConnectionProvider<TcpStream, io::Error, ()> for LocalConnectionProvider
         for addr in tokio::net::lookup_host(upstream.to_string()).await? {
             let socket = g3_socket::tcp::new_socket_to(
                 addr.ip(),
-                self.bind_ip,
+                &self.bind,
                 &Default::default(),
                 &Default::default(),
                 true,
@@ -73,7 +74,7 @@ impl FtpConnectionProvider<TcpStream, io::Error, ()> for LocalConnectionProvider
                 let data_addr = SocketAddr::new(addr.ip(), server.port());
                 let socket = g3_socket::tcp::new_socket_to(
                     data_addr.ip(),
-                    self.bind_ip,
+                    &self.bind,
                     &Default::default(),
                     &Default::default(),
                     false,

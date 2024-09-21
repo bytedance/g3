@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 
 use chrono::{DateTime, Utc};
 
+use g3_socket::BindAddr;
 use g3_types::metrics::MetricsName;
 use g3_types::net::{SocketBufferConfig, UpstreamAddr};
 
@@ -25,7 +26,7 @@ pub(crate) struct UdpConnectTaskNotes {
     pub(crate) buf_conf: SocketBufferConfig,
     pub(crate) upstream: Option<UpstreamAddr>,
     pub(crate) escaper: MetricsName,
-    pub(crate) bind: Option<IpAddr>,
+    pub(crate) bind: BindAddr,
     pub(crate) next: Option<SocketAddr>,
     pub(crate) local: Option<SocketAddr>,
     pub(crate) expire: Option<DateTime<Utc>>,
@@ -37,7 +38,7 @@ impl UdpConnectTaskNotes {
             buf_conf,
             upstream: None,
             escaper: MetricsName::default(),
-            bind: None,
+            bind: BindAddr::None,
             next: None,
             local: None,
             expire: None,
@@ -50,7 +51,7 @@ impl UdpConnectTaskNotes {
             buf_conf,
             upstream: Some(upstream),
             escaper: MetricsName::default(),
-            bind: None,
+            bind: BindAddr::None,
             next: None,
             local: None,
             expire: None,
@@ -62,7 +63,7 @@ impl UdpConnectTaskNotes {
             buf_conf: self.buf_conf,
             upstream: self.upstream.clone(),
             escaper: MetricsName::default(),
-            bind: None,
+            bind: BindAddr::None,
             next: None,
             local: None,
             expire: None,

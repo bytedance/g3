@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 
+use g3_socket::BindAddr;
 use g3_types::metrics::MetricsName;
 use g3_types::net::{EgressInfo, UpstreamAddr};
 
@@ -40,7 +41,7 @@ impl TcpConnectChainedNotes {
 pub(crate) struct TcpConnectTaskNotes {
     pub(crate) upstream: UpstreamAddr,
     pub(crate) escaper: MetricsName,
-    pub(crate) bind: Option<IpAddr>,
+    pub(crate) bind: BindAddr,
     pub(crate) next: Option<SocketAddr>,
     pub(crate) tries: usize,
     pub(crate) local: Option<SocketAddr>,
@@ -55,7 +56,7 @@ impl TcpConnectTaskNotes {
         TcpConnectTaskNotes {
             upstream,
             escaper: MetricsName::default(),
-            bind: None,
+            bind: BindAddr::None,
             next: None,
             tries: 0,
             local: None,
@@ -77,7 +78,7 @@ impl TcpConnectTaskNotes {
 
     pub(crate) fn reset_generated(&mut self) {
         self.escaper.clear();
-        self.bind = None;
+        self.bind = BindAddr::None;
         self.next = None;
         self.tries = 0;
         self.local = None;

@@ -21,6 +21,7 @@ use tokio::task::JoinSet;
 use tokio::time::Instant;
 
 use g3_io_ext::LimitedStream;
+use g3_socket::BindAddr;
 use g3_types::net::{ConnectError, Host, UpstreamAddr};
 
 use super::ProxySocks5sEscaper;
@@ -33,7 +34,7 @@ impl ProxySocks5sEscaper {
     fn prepare_connect_socket(
         &self,
         peer_ip: IpAddr,
-    ) -> Result<(TcpSocket, Option<IpAddr>), TcpConnectError> {
+    ) -> Result<(TcpSocket, BindAddr), TcpConnectError> {
         let bind_ip = match peer_ip {
             IpAddr::V4(_) => {
                 if self.config.no_ipv4 {
@@ -49,15 +50,16 @@ impl ProxySocks5sEscaper {
             }
         };
 
+        let bind = bind_ip.map(BindAddr::Ip).unwrap_or_default();
         let sock = g3_socket::tcp::new_socket_to(
             peer_ip,
-            bind_ip,
+            &bind,
             &self.config.tcp_keepalive,
             &self.config.tcp_misc_opts,
             true,
         )
         .map_err(TcpConnectError::SetupSocketFailed)?;
-        Ok((sock, bind_ip))
+        Ok((sock, bind))
     }
 
     async fn fixed_try_connect(

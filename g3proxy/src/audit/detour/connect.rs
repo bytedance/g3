@@ -59,7 +59,7 @@ impl StreamDetourConnector {
 
         let socket = g3_socket::udp::new_std_socket_to(
             peer,
-            None,
+            &Default::default(),
             self.config.socket_buffer,
             Default::default(),
         )

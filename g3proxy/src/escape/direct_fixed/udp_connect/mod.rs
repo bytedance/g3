@@ -83,8 +83,8 @@ impl DirectFixedEscaper {
         self.handle_udp_target_ip_acl_action(action, task_notes)?;
 
         let family = AddressFamily::from(&peer_addr);
-        let bind_ip = self.get_bind_random(family, task_notes.egress_path());
-        udp_notes.bind = bind_ip;
+        let bind = self.get_bind_random(family, task_notes.egress_path());
+        udp_notes.bind = bind;
 
         let misc_opts = if let Some(user_ctx) = task_notes.user_ctx() {
             user_ctx
@@ -94,9 +94,13 @@ impl DirectFixedEscaper {
             self.config.udp_misc_opts
         };
 
-        let socket =
-            g3_socket::udp::new_std_socket_to(peer_addr, bind_ip, udp_notes.buf_conf, misc_opts)
-                .map_err(UdpConnectError::SetupSocketFailed)?;
+        let socket = g3_socket::udp::new_std_socket_to(
+            peer_addr,
+            &udp_notes.bind,
+            udp_notes.buf_conf,
+            misc_opts,
+        )
+        .map_err(UdpConnectError::SetupSocketFailed)?;
         socket
             .connect(peer_addr)
             .map_err(UdpConnectError::SetupSocketFailed)?;

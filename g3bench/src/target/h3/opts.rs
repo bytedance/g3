@@ -28,7 +28,6 @@ use http::{HeaderValue, Method, StatusCode};
 use quinn::crypto::rustls::QuicClientConfig;
 use quinn::{ClientConfig, Endpoint, TokioRuntime, TransportConfig, VarInt};
 use rustls_pki_types::ServerName;
-use tokio::net::TcpStream;
 use url::Url;
 
 use g3_io_ext::LimitedTokioRuntime;
@@ -40,12 +39,12 @@ use g3_types::net::{
 
 use super::{H3PreRequest, HttpRuntimeStats, ProcArgs};
 use crate::module::rustls::{AppendRustlsArgs, RustlsTlsClientArgs};
+use crate::module::socket::{AppendSocketArgs, SocketArgs};
 
 const HTTP_ARG_CONNECTION_POOL: &str = "connection-pool";
 const HTTP_ARG_URI: &str = "uri";
 const HTTP_ARG_METHOD: &str = "method";
 const HTTP_ARG_PROXY: &str = "proxy";
-const HTTP_ARG_LOCAL_ADDRESS: &str = "local-address";
 const HTTP_ARG_NO_MULTIPLEX: &str = "no-multiplex";
 const HTTP_ARG_OK_STATUS: &str = "ok-status";
 const HTTP_ARG_TIMEOUT: &str = "timeout";
@@ -55,13 +54,13 @@ pub(super) struct BenchH3Args {
     pub(super) pool_size: Option<usize>,
     pub(super) method: Method,
     target_url: Url,
-    bind: Option<IpAddr>,
     socks_proxy: Option<Socks5Proxy>,
     pub(super) no_multiplex: bool,
     pub(super) ok_status: Option<StatusCode>,
     pub(super) timeout: Duration,
     pub(super) connect_timeout: Duration,
 
+    socket: SocketArgs,
     target_tls: RustlsTlsClientArgs,
 
     target: UpstreamAddr,
@@ -86,12 +85,12 @@ impl BenchH3Args {
             pool_size: None,
             method: Method::GET,
             target_url: url,
-            bind: None,
             socks_proxy: None,
             no_multiplex: false,
             ok_status: None,
             timeout: Duration::from_secs(30),
             connect_timeout: Duration::from_secs(15),
+            socket: SocketArgs::default(),
             target_tls: tls,
             target: upstream,
             auth,
@@ -113,21 +112,6 @@ impl BenchH3Args {
         Ok(())
     }
 
-    pub(super) async fn new_tcp_connection(&self, peer: SocketAddr) -> anyhow::Result<TcpStream> {
-        let socket = g3_socket::tcp::new_socket_to(
-            peer.ip(),
-            self.bind,
-            &Default::default(),
-            &Default::default(),
-            true,
-        )
-        .map_err(|e| anyhow!("failed to setup socket to {peer}: {e:?}"))?;
-        socket
-            .connect(peer)
-            .await
-            .map_err(|e| anyhow!("connect to {peer} error: {e:?}"))
-    }
-
     async fn new_quic_endpoint(
         &self,
         stats: &Arc<HttpRuntimeStats>,
@@ -141,18 +125,12 @@ impl BenchH3Args {
                 .ok_or_else(|| anyhow!("no proxy addr set"))?;
             let peer = *proc_args.select_peer(proxy_addrs);
 
-            let mut stream = self.new_tcp_connection(peer).await.context(format!(
+            let mut stream = self.socket.tcp_connect_to(peer).await.context(format!(
                 "failed to connect to socks5 proxy {}",
                 socks5_proxy.peer()
             ))?;
 
-            let socket = g3_socket::udp::new_std_socket_to(
-                peer,
-                self.bind,
-                Default::default(),
-                Default::default(),
-            )
-            .map_err(|e| anyhow!("failed to setup local udp socket: {e}"))?;
+            let socket = self.socket.udp_std_socket_to(peer)?;
 
             let local_udp_addr = socket
                 .local_addr()
@@ -187,13 +165,7 @@ impl BenchH3Args {
             Endpoint::new(Default::default(), None, socket, Arc::new(runtime))
                 .map_err(|e| anyhow!("failed to create quic endpoint: {e}"))
         } else {
-            let socket = g3_socket::udp::new_std_socket_to(
-                quic_peer,
-                self.bind,
-                Default::default(),
-                Default::default(),
-            )
-            .map_err(|e| anyhow!("failed to setup local udp socket: {e}"))?;
+            let socket = self.socket.udp_std_socket_to(quic_peer)?;
             socket
                 .connect(quic_peer)
                 .map_err(|e| anyhow!("failed to connect local udp socket to {quic_peer}: {e}"))?;
@@ -339,14 +311,6 @@ pub(super) fn add_h3_args(app: Command) -> Command {
                 .value_name("PROXY URL"),
         )
         .arg(
-            Arg::new(HTTP_ARG_LOCAL_ADDRESS)
-                .value_name("LOCAL IP ADDRESS")
-                .short('B')
-                .long(HTTP_ARG_LOCAL_ADDRESS)
-                .num_args(1)
-                .value_parser(value_parser!(IpAddr)),
-        )
-        .arg(
             Arg::new(HTTP_ARG_NO_MULTIPLEX)
                 .help("Disable h3 connection multiplexing")
                 .action(ArgAction::SetTrue)
@@ -377,6 +341,7 @@ pub(super) fn add_h3_args(app: Command) -> Command {
                 .long(HTTP_ARG_CONNECT_TIMEOUT)
                 .num_args(1),
         )
+        .append_socket_args()
         .append_rustls_args()
 }
 
@@ -409,10 +374,6 @@ pub(super) fn parse_h3_args(args: &ArgMatches) -> anyhow::Result<BenchH3Args> {
         h3_args.socks_proxy = Some(proxy);
     }
 
-    if let Some(ip) = args.get_one::<IpAddr>(HTTP_ARG_LOCAL_ADDRESS) {
-        h3_args.bind = Some(*ip);
-    }
-
     if args.get_flag(HTTP_ARG_NO_MULTIPLEX) {
         h3_args.no_multiplex = true;
     }
@@ -429,6 +390,10 @@ pub(super) fn parse_h3_args(args: &ArgMatches) -> anyhow::Result<BenchH3Args> {
         h3_args.connect_timeout = timeout;
     }
 
+    h3_args
+        .socket
+        .parse_args(args)
+        .context("invalid socket config")?;
     h3_args
         .target_tls
         .parse_tls_args(args)

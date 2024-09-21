@@ -56,7 +56,7 @@ impl TaskLogForFtpOverHttp<'_> {
             "client_addr" => self.task_notes.client_addr(),
             "upstream" => LtUpstreamAddr(self.ftp_notes.upstream()),
             "escaper" => self.ftp_notes.control_tcp_notes.escaper.as_str(),
-            "next_bind_ip" => self.ftp_notes.control_tcp_notes.bind.map(LtIpAddr),
+            "next_bind_ip" => self.ftp_notes.control_tcp_notes.bind.ip().map(LtIpAddr),
             "next_expire" => self.ftp_notes.control_tcp_notes.expire.as_ref().map(LtDateTime),
             "ftp_c_bound_addr" => self.ftp_notes.control_tcp_notes.local,
             "ftp_c_peer_addr" => self.ftp_notes.control_tcp_notes.next,

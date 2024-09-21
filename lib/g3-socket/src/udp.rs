@@ -15,39 +15,24 @@
  */
 
 use std::io;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
-#[cfg(target_os = "linux")]
-use std::os::unix::io::AsRawFd;
+use std::net::{IpAddr, Ipv6Addr, SocketAddr, UdpSocket};
 
 use socket2::{Domain, SockAddr, Socket, Type};
 
 use g3_types::net::{PortRange, SocketBufferConfig, UdpListenConfig, UdpMiscSockOpts};
 
-#[cfg(target_os = "linux")]
-use super::sockopt::set_bind_address_no_port;
 use super::util::AddressFamily;
-use super::RawSocket;
+use super::{BindAddr, RawSocket};
 
 pub fn new_std_socket_to(
     peer_addr: SocketAddr,
-    bind_ip: Option<IpAddr>,
+    bind: &BindAddr,
     buf_conf: SocketBufferConfig,
     misc_opts: UdpMiscSockOpts,
 ) -> io::Result<UdpSocket> {
     let peer_family = AddressFamily::from(&peer_addr);
     let socket = new_udp_socket(peer_family, buf_conf)?;
-    if let Some(ip) = bind_ip {
-        if AddressFamily::from(&ip) != peer_family {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                format!("peer_addr {peer_addr} and bind_ip {ip} should be of the same family",),
-            ));
-        }
-        #[cfg(target_os = "linux")]
-        set_bind_address_no_port(socket.as_raw_fd(), true)?;
-        let addr: SockAddr = SocketAddr::new(ip, 0).into();
-        socket.bind(&addr)?;
-    }
+    bind.bind_for_connect(&socket, peer_family)?;
     RawSocket::from(&socket).set_udp_misc_opts(misc_opts)?;
     Ok(UdpSocket::from(socket))
 }
@@ -113,21 +98,13 @@ pub fn new_std_in_range_bind_lazy_connect(
 }
 
 pub fn new_std_bind_relay(
-    bind_ip: Option<IpAddr>,
+    bind: &BindAddr,
     family: AddressFamily,
     buf_conf: SocketBufferConfig,
     misc_opts: UdpMiscSockOpts,
 ) -> io::Result<UdpSocket> {
-    let bind_addr = match bind_ip {
-        Some(ip) => SocketAddr::new(ip, 0),
-        None => match family {
-            AddressFamily::Ipv4 => SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
-            AddressFamily::Ipv6 => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
-        },
-    };
-    let socket = new_udp_socket(AddressFamily::from(&bind_addr), buf_conf)?;
-    let bind_addr = SockAddr::from(bind_addr);
-    socket.bind(&bind_addr)?;
+    let socket = new_udp_socket(family, buf_conf)?;
+    bind.bind_for_relay(&socket, family)?;
     RawSocket::from(&socket).set_udp_misc_opts(misc_opts)?;
     Ok(UdpSocket::from(socket))
 }
@@ -195,6 +172,7 @@ fn new_nonblocking_udp_socket(family: AddressFamily) -> io::Result<Socket> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::net::Ipv4Addr;
     use std::str::FromStr;
 
     #[test]
@@ -202,7 +180,7 @@ mod tests {
         let peer_addr = SocketAddr::from_str("127.0.0.1:514").unwrap();
         let socket = new_std_socket_to(
             peer_addr,
-            Some(IpAddr::V4(Ipv4Addr::UNSPECIFIED)),
+            &BindAddr::Ip(IpAddr::V4(Ipv4Addr::UNSPECIFIED)),
             SocketBufferConfig::default(),
             Default::default(),
         )

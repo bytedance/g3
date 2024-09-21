@@ -25,6 +25,7 @@ use tokio::time::Instant;
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_io_ext::{LimitedReader, LimitedWriter};
 use g3_socket::util::AddressFamily;
+use g3_socket::BindAddr;
 use g3_types::acl::AclAction;
 use g3_types::net::{ConnectError, Host, TcpConnectConfig, TcpKeepAliveConfig, TcpMiscSockOpts};
 
@@ -68,11 +69,11 @@ impl DirectFixedEscaper {
     fn prepare_connect_socket(
         &self,
         peer_ip: IpAddr,
-        mut bind_ip: Option<IpAddr>,
+        mut bind: BindAddr,
         task_notes: &ServerTaskNotes,
         keepalive: &TcpKeepAliveConfig,
         misc_opts: &TcpMiscSockOpts,
-    ) -> Result<(TcpSocket, Option<IpAddr>), TcpConnectError> {
+    ) -> Result<(TcpSocket, BindAddr), TcpConnectError> {
         match peer_ip {
             IpAddr::V4(_) => {
                 if self.config.no_ipv4 {
@@ -89,13 +90,13 @@ impl DirectFixedEscaper {
         let (_, action) = self.egress_net_filter.check(peer_ip);
         self.handle_tcp_target_ip_acl_action(action, task_notes)?;
 
-        if bind_ip.is_none() {
-            bind_ip = self.get_bind_random(AddressFamily::from(&peer_ip), task_notes.egress_path());
+        if bind.is_none() {
+            bind = self.get_bind_random(AddressFamily::from(&peer_ip), task_notes.egress_path());
         }
 
-        let sock = g3_socket::tcp::new_socket_to(peer_ip, bind_ip, keepalive, misc_opts, true)
+        let sock = g3_socket::tcp::new_socket_to(peer_ip, &bind, keepalive, misc_opts, true)
             .map_err(TcpConnectError::SetupSocketFailed)?;
-        Ok((sock, bind_ip))
+        Ok((sock, bind))
     }
 
     async fn fixed_try_connect(
@@ -430,9 +431,9 @@ impl DirectFixedEscaper {
                 Host::Domain(domain) => {
                     let mut resolve_strategy = self.get_resolve_strategy(task_notes);
                     match new_tcp_notes.bind {
-                        Some(IpAddr::V4(_)) => resolve_strategy.query_v4only(),
-                        Some(IpAddr::V6(_)) => resolve_strategy.query_v6only(),
-                        None => {}
+                        BindAddr::Ip(IpAddr::V4(_)) => resolve_strategy.query_v4only(),
+                        BindAddr::Ip(IpAddr::V6(_)) => resolve_strategy.query_v6only(),
+                        _ => {}
                     }
 
                     let resolver_job =

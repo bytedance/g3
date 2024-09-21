@@ -105,7 +105,7 @@ pub(super) async fn spawn(config: &Arc<RouteQueryEscaperConfig>) -> anyhow::Resu
 
     let socket = g3_socket::udp::new_std_socket_to(
         config.query_peer_addr,
-        None,
+        &Default::default(),
         config.query_socket_buffer,
         Default::default(),
     )

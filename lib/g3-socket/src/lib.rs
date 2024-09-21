@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 mod sockopt;
 
 mod raw;
@@ -23,3 +23,11 @@ pub use raw::RawSocket;
 pub mod tcp;
 pub mod udp;
 pub mod util;
+
+#[cfg(unix)]
+mod interface;
+#[cfg(unix)]
+pub use interface::InterfaceName;
+
+mod bind;
+pub use bind::BindAddr;

@@ -95,7 +95,7 @@ impl CommonTaskContext {
         if let Some(server_id) = &self.server_config.server_id {
             let line = http_header::remote_connection_info(
                 server_id,
-                tcp_notes.bind,
+                tcp_notes.bind.ip(),
                 tcp_notes.local,
                 tcp_notes.next,
                 &tcp_notes.expire,
@@ -128,7 +128,7 @@ impl CommonTaskContext {
             http_header::set_remote_connection_info(
                 &mut rsp.headers,
                 server_id,
-                tcp_notes.bind,
+                tcp_notes.bind.ip(),
                 tcp_notes.local,
                 tcp_notes.next,
                 &tcp_notes.expire,
