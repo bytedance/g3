@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,19 @@
  * limitations under the License.
  */
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
-mod sockopt;
+use std::str::FromStr;
 
-mod raw;
-pub use raw::RawSocket;
+use g3_types::net::InterfaceName;
 
-pub mod tcp;
-pub mod udp;
-pub mod util;
+use anyhow::anyhow;
+use yaml_rust::Yaml;
 
-mod bind;
-pub use bind::BindAddr;
+pub fn as_interface_name(value: &Yaml) -> anyhow::Result<InterfaceName> {
+    if let Yaml::String(s) = value {
+        InterfaceName::from_str(s).map_err(|e| anyhow!("invalid interface name: {e}"))
+    } else {
+        Err(anyhow!(
+            "yaml value type for 'InterfaceName' should be 'string'"
+        ))
+    }
+}

@@ -24,6 +24,9 @@ mod tcp;
 mod tls;
 mod udp;
 
+#[cfg(unix)]
+mod interface;
+
 #[cfg(feature = "http")]
 mod http;
 
@@ -48,6 +51,9 @@ pub use tcp::{
 };
 pub use tls::as_tls_version;
 pub use udp::{as_udp_listen_config, as_udp_misc_sock_opts};
+
+#[cfg(unix)]
+pub use interface::as_interface_name;
 
 #[cfg(feature = "acl-rule")]
 pub use base::as_ip_network;

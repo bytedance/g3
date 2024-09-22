@@ -42,6 +42,7 @@ Config Keys
 The following common keys are supported:
 
 * :ref:`shared_logger <conf_escaper_common_shared_logger>`
+* :ref:`bind_interface <conf_escaper_common_bind_interface>`
 * :ref:`tcp_sock_speed_limit <conf_escaper_common_tcp_sock_speed_limit>`
 * :ref:`tcp_misc_opts <conf_escaper_common_tcp_misc_opts>`
 * :ref:`peer negotiation timeout <conf_escaper_common_peer_negotiation_timeout>`

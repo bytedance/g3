@@ -117,6 +117,21 @@ Set speed limit for each udp socket.
 
 .. versionchanged:: 1.4.0 changed name to udp_sock_speed_limit
 
+.. _conf_escaper_common_bind_interface:
+
+bind_interface
+--------------
+
+**optional**: **type**: :ref:`interface name <conf_value_interface_name>`
+
+Bind the outgoing socket to a particular device like “eth0”.
+
+.. note:: This is only supported on Linux based OS.
+
+**default**: not set
+
+.. versionadded:: 1.9.9
+
 .. _conf_escaper_common_no_ipv4:
 
 no_ipv4

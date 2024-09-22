@@ -24,8 +24,8 @@ pub struct InterfaceName {
 }
 
 impl InterfaceName {
-    #[cfg(any(target_os = "linux", target_os = "android"))]
-    pub(crate) fn as_bytes(&self) -> &[u8] {
+    /// Get the '\0' pended raw value
+    pub fn as_bytes(&self) -> &[u8] {
         &self.name[..self.len]
     }
 

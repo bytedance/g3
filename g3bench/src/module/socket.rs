@@ -24,7 +24,7 @@ use tokio::net::TcpStream;
 
 use g3_socket::BindAddr;
 #[cfg(any(target_os = "linux", target_os = "android"))]
-use g3_socket::InterfaceName;
+use g3_types::net::InterfaceName;
 
 const SOCKET_ARG_LOCAL_ADDRESS: &str = "local-address";
 #[cfg(any(target_os = "linux", target_os = "android"))]

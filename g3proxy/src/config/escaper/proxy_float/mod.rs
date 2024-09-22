@@ -26,6 +26,8 @@ use log::warn;
 use yaml_rust::{yaml, Yaml};
 
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
+#[cfg(any(target_os = "linux", target_os = "android"))]
+use g3_types::net::InterfaceName;
 use g3_types::net::{
     OpensslClientConfigBuilder, TcpKeepAliveConfig, TcpMiscSockOpts, UdpMiscSockOpts,
 };
@@ -43,6 +45,8 @@ pub(crate) struct ProxyFloatEscaperConfig {
     pub(crate) name: MetricsName,
     position: Option<YamlDocPosition>,
     pub(crate) shared_logger: Option<AsciiString>,
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    pub(crate) bind_interface: Option<InterfaceName>,
     pub(crate) bind_v4: Option<IpAddr>,
     pub(crate) bind_v6: Option<IpAddr>,
     pub(crate) tls_config: OpensslClientConfigBuilder,
@@ -64,6 +68,8 @@ impl ProxyFloatEscaperConfig {
             name: MetricsName::default(),
             position,
             shared_logger: None,
+            #[cfg(any(target_os = "linux", target_os = "android"))]
+            bind_interface: None,
             bind_v4: None,
             bind_v6: None,
             tls_config: OpensslClientConfigBuilder::with_cache_for_many_sites(),
@@ -108,6 +114,13 @@ impl ProxyFloatEscaperConfig {
                 let tags = g3_yaml::value::as_static_metrics_tags(v)
                     .context(format!("invalid static metrics tags value for key {k}"))?;
                 self.extra_metrics_tags = Some(Arc::new(tags));
+                Ok(())
+            }
+            #[cfg(any(target_os = "linux", target_os = "android"))]
+            "bind_interface" => {
+                let interface = g3_yaml::value::as_interface_name(v)
+                    .context(format!("invalid interface name value for key {k}"))?;
+                self.bind_interface = Some(interface);
                 Ok(())
             }
             "bind_ipv4" => {

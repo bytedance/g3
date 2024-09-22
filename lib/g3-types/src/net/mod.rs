@@ -31,6 +31,9 @@ mod tlv;
 mod udp;
 mod upstream;
 
+#[cfg(unix)]
+mod interface;
+
 #[cfg(feature = "http")]
 mod http;
 #[cfg(feature = "http")]
@@ -66,6 +69,9 @@ pub use tls::*;
 pub use tlv::{T1L2BVParse, TlvParse};
 pub use udp::{UdpListenConfig, UdpMiscSockOpts};
 pub use upstream::{UpstreamAddr, UpstreamHostRef, WeightedUpstreamAddr};
+
+#[cfg(unix)]
+pub use interface::InterfaceName;
 
 #[cfg(feature = "http")]
 pub use self::http::*;

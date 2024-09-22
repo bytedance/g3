@@ -26,6 +26,8 @@ use yaml_rust::{yaml, Yaml};
 use g3_types::auth::{Password, Username};
 use g3_types::collection::SelectivePickPolicy;
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
+#[cfg(any(target_os = "linux", target_os = "android"))]
+use g3_types::net::InterfaceName;
 use g3_types::net::{
     HappyEyeballsConfig, Host, OpensslClientConfigBuilder, SocksAuth, TcpKeepAliveConfig,
     TcpMiscSockOpts, UdpMiscSockOpts, WeightedUpstreamAddr,
@@ -46,6 +48,8 @@ pub(crate) struct ProxySocks5sEscaperConfig {
     pub(crate) proxy_pick_policy: SelectivePickPolicy,
     proxy_username: Username,
     proxy_password: Password,
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    pub(crate) bind_interface: Option<InterfaceName>,
     pub(crate) bind_v4: Option<Ipv4Addr>,
     pub(crate) bind_v6: Option<Ipv6Addr>,
     pub(crate) no_ipv4: bool,
@@ -76,6 +80,8 @@ impl ProxySocks5sEscaperConfig {
             proxy_pick_policy: SelectivePickPolicy::Random,
             proxy_username: Username::empty(),
             proxy_password: Password::empty(),
+            #[cfg(any(target_os = "linux", target_os = "android"))]
+            bind_interface: None,
             bind_v4: None,
             bind_v6: None,
             no_ipv4: false,
@@ -148,6 +154,13 @@ impl ProxySocks5sEscaperConfig {
             "proxy_password" | "proxy_passwd" => {
                 self.proxy_password = g3_yaml::value::as_password(v)
                     .context(format!("invalid password value for key {k}"))?;
+                Ok(())
+            }
+            #[cfg(any(target_os = "linux", target_os = "android"))]
+            "bind_interface" => {
+                let interface = g3_yaml::value::as_interface_name(v)
+                    .context(format!("invalid interface name value for key {k}"))?;
+                self.bind_interface = Some(interface);
                 Ok(())
             }
             "bind_ipv4" => {
