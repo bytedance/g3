@@ -1,4 +1,3 @@
-
 .. _configure_network_value_types:
 
 *******
@@ -76,6 +75,15 @@ ip network str
 **yaml value**: str
 
 The string should be a network address in CIDR format, or just an ip address.
+
+.. _conf_value_interface_name:
+
+interface name
+==============
+
+**yaml value**: str
+
+The string should be a network interface name.
 
 .. _conf_value_egress_area:
 

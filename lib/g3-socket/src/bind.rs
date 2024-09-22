@@ -22,9 +22,10 @@ use std::os::unix::io::AsRawFd;
 use socket2::{SockAddr, Socket};
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
-use super::sockopt::set_bind_address_no_port;
+use g3_types::net::InterfaceName;
+
 #[cfg(any(target_os = "linux", target_os = "android"))]
-use super::InterfaceName;
+use super::sockopt::set_bind_address_no_port;
 use crate::util::AddressFamily;
 
 #[derive(Clone, Copy, Debug, Default)]

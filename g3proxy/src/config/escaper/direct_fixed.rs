@@ -23,6 +23,8 @@ use yaml_rust::{yaml, Yaml};
 
 use g3_types::acl::{AclAction, AclNetworkRuleBuilder};
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
+#[cfg(any(target_os = "linux", target_os = "android"))]
+use g3_types::net::InterfaceName;
 use g3_types::net::{HappyEyeballsConfig, TcpKeepAliveConfig, TcpMiscSockOpts, UdpMiscSockOpts};
 use g3_types::resolve::{QueryStrategy, ResolveRedirectionBuilder, ResolveStrategy};
 use g3_yaml::YamlDocPosition;
@@ -36,6 +38,8 @@ pub(crate) struct DirectFixedEscaperConfig {
     pub(crate) name: MetricsName,
     position: Option<YamlDocPosition>,
     pub(crate) shared_logger: Option<AsciiString>,
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    pub(crate) bind_interface: Option<InterfaceName>,
     pub(crate) bind4: Vec<IpAddr>,
     pub(crate) bind6: Vec<IpAddr>,
     pub(crate) no_ipv4: bool,
@@ -59,6 +63,8 @@ impl DirectFixedEscaperConfig {
             name: MetricsName::default(),
             position,
             shared_logger: None,
+            #[cfg(any(target_os = "linux", target_os = "android"))]
+            bind_interface: None,
             bind4: Vec::new(),
             bind6: Vec::new(),
             no_ipv4: false,
@@ -105,6 +111,13 @@ impl DirectFixedEscaperConfig {
                 let tags = g3_yaml::value::as_static_metrics_tags(v)
                     .context(format!("invalid static metrics tags value for key {k}"))?;
                 self.extra_metrics_tags = Some(Arc::new(tags));
+                Ok(())
+            }
+            #[cfg(any(target_os = "linux", target_os = "android"))]
+            "bind_interface" => {
+                let interface = g3_yaml::value::as_interface_name(v)
+                    .context(format!("invalid interface name value for key {k}"))?;
+                self.bind_interface = Some(interface);
                 Ok(())
             }
             "bind_ip" => {
