@@ -201,6 +201,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "macos",
     ))]
     fn poll_recv(
         &self,
@@ -289,7 +290,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         }
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(target_os = "dragonfly")]
     fn poll_recv(
         &self,
         cx: &mut Context,

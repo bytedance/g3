@@ -30,6 +30,7 @@ use tokio::time::{Instant, Sleep};
     target_os = "freebsd",
     target_os = "netbsd",
     target_os = "openbsd",
+    target_os = "macos",
 ))]
 use super::RecvMsgHdr;
 use crate::limit::{DatagramLimitAction, DatagramLimiter};
@@ -50,6 +51,7 @@ pub trait AsyncUdpRecv {
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "macos",
     ))]
     fn poll_batch_recvmsg<const C: usize>(
         &mut self,
@@ -216,6 +218,7 @@ where
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "macos",
     ))]
     fn poll_batch_recvmsg<const C: usize>(
         &mut self,

@@ -25,6 +25,7 @@ use thiserror::Error;
     target_os = "freebsd",
     target_os = "netbsd",
     target_os = "openbsd",
+    target_os = "macos",
 ))]
 use super::UdpCopyPacket;
 
@@ -61,6 +62,7 @@ pub trait UdpCopyRemoteRecv {
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "macos",
     ))]
     fn poll_recv_packets(
         &mut self,
@@ -83,6 +85,7 @@ pub trait UdpCopyRemoteSend {
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "macos",
     ))]
     fn poll_send_packets(
         &mut self,
