@@ -24,14 +24,6 @@ use thiserror::Error;
 use g3_resolver::ResolveError;
 use g3_types::net::UpstreamAddr;
 
-#[cfg(any(
-    target_os = "linux",
-    target_os = "android",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd",
-    target_os = "macos",
-))]
 use super::UdpRelayPacket;
 
 #[derive(Error, Debug)]

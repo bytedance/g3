@@ -384,7 +384,7 @@ impl UdpSocketExt for UdpSocket {
 
         let raw_fd = self.as_raw_fd();
         let flags = libc::MSG_DONTWAIT;
-        let mut sendmmsg = || {
+        let mut sendmsg_x = || {
             let r = unsafe {
                 super::macos::sendmsg_x(raw_fd, msgvec.as_mut_ptr(), msgvec.len() as _, flags as _)
             };
@@ -397,7 +397,7 @@ impl UdpSocketExt for UdpSocket {
 
         loop {
             ready!(self.poll_send_ready(cx))?;
-            match self.try_io(Interest::WRITABLE, &mut sendmmsg) {
+            match self.try_io(Interest::WRITABLE, &mut sendmsg_x) {
                 Ok(count) => {
                     for m in msgs.iter_mut().take(count) {
                         m.n_send = m.iov.iter().map(|iov| iov.len()).sum();
@@ -491,7 +491,7 @@ impl UdpSocketExt for UdpSocket {
         }
 
         let raw_fd = self.as_raw_fd();
-        let mut recvmmsg = || {
+        let mut recvmsg_x = || {
             let r = unsafe {
                 super::macos::recvmsg_x(
                     raw_fd,
@@ -509,10 +509,10 @@ impl UdpSocketExt for UdpSocket {
 
         loop {
             ready!(self.poll_recv_ready(cx))?;
-            match self.try_io(Interest::READABLE, &mut recvmmsg) {
+            match self.try_io(Interest::READABLE, &mut recvmsg_x) {
                 Ok(count) => {
                     for (m, h) in hdr_v.iter_mut().take(count).zip(msgvec) {
-                        m.n_recv = h.msg_datalen as usize;
+                        m.n_recv = h.msg_datalen;
                     }
                     return Poll::Ready(Ok(count));
                 }
