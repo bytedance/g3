@@ -32,7 +32,7 @@ fn build_info_from_label(label: &[u8], output_len: u16) -> SmallVec<[u8; 32]> {
     info
 }
 
-pub fn quic_hkdf_extract_expand(
+pub(super) fn quic_hkdf_extract_expand(
     salt: &[u8],
     ikm: &[u8],
     label: &[u8],
@@ -52,7 +52,11 @@ pub fn quic_hkdf_extract_expand(
     Ok(())
 }
 
-pub fn quic_hkdf_expand(prk: &[u8], label: &[u8], output: &mut [u8]) -> Result<(), ErrorStack> {
+pub(super) fn quic_hkdf_expand(
+    prk: &[u8],
+    label: &[u8],
+    output: &mut [u8],
+) -> Result<(), ErrorStack> {
     let mut pkey_ctx = PkeyCtx::new_id(Id::HKDF)?;
     pkey_ctx.derive_init()?;
     pkey_ctx.set_hkdf_mode(HkdfMode::EXPAND_ONLY)?;

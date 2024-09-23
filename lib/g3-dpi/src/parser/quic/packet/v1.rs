@@ -25,15 +25,15 @@ const INITIAL_SALT: &[u8] = &[
 ];
 
 pub struct InitialPacketV1 {
-    pub packet_number: u32,
-    pub payload: Vec<u8>,
+    pub(super) packet_number: u32,
+    pub(super) payload: Vec<u8>,
 }
 
 impl InitialPacketV1 {
     /// Parse a QUIC v1 Initial Packet
     ///
     /// According to https://datatracker.ietf.org/doc/html/rfc9000#name-packets-and-frames
-    pub fn parse_client(data: &[u8]) -> Result<Self, PacketParseError> {
+    pub(super) fn parse_client(data: &[u8]) -> Result<Self, PacketParseError> {
         let byte1 = data[0];
         if byte1 & 0b0011_0000 != 0b0000_0000 {
             return Err(PacketParseError::InvalidLongPacketType);
@@ -131,7 +131,7 @@ struct ClientSecrets {
 }
 
 impl ClientSecrets {
-    pub fn new(cid: &[u8]) -> Result<Self, ErrorStack> {
+    fn new(cid: &[u8]) -> Result<Self, ErrorStack> {
         let mut client_initial_secret = [0u8; 32];
         super::quic_hkdf_extract_expand(
             INITIAL_SALT,
