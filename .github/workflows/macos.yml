@@ -37,7 +37,7 @@ jobs:
           components: clippy
       - name: Install dependencies
         run: |
-          brew install capnp openssl c-ares lua
+          brew install capnp c-ares lua
       - name: Cargo build
         run: cargo build
       - name: Cargo clippy
@@ -75,7 +75,7 @@ jobs:
           components: clippy
       - name: Install dependencies
         run: |
-          brew install capnp openssl c-ares lua
+          brew install capnp c-ares lua
       - name: Cargo build
         run: cargo build --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }}
       - name: Cargo clippy
