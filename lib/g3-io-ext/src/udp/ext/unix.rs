@@ -15,12 +15,11 @@
  */
 
 use std::cell::UnsafeCell;
-use std::io::{self, IoSlice, IoSliceMut};
-use std::mem;
+use std::io::{IoSlice, IoSliceMut};
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::os::fd::AsFd;
-use std::ptr;
 use std::task::{ready, Context, Poll};
+use std::{io, mem, ptr};
 
 use rustix::net::{
     recvmsg, sendmsg, sendmsg_v4, sendmsg_v6, RecvAncillaryBuffer, RecvFlags, SendAncillaryBuffer,
@@ -140,6 +139,17 @@ impl<'a, const C: usize> SendMsgHdr<'a, C> {
         h.msg_iovlen = C as _;
         h
     }
+
+    /// # Safety
+    ///
+    /// `self` should not be dropped before the returned value
+    #[cfg(target_os = "macos")]
+    unsafe fn to_msghdr_x(&self) -> super::macos::msghdr_x {
+        let mut h = mem::zeroed::<super::macos::msghdr_x>();
+        h.msg_iov = self.iov.as_ptr() as _;
+        h.msg_iovlen = C as _;
+        h
+    }
 }
 
 impl<'a, const C: usize> AsRef<[IoSlice<'a>]> for SendMsgHdr<'a, C> {
@@ -176,6 +186,22 @@ impl<'a, const C: usize> RecvMsgHdr<'a, C> {
         let (c_addr, c_addr_len) = c_addr.get_ptr_and_size();
 
         let mut h = mem::zeroed::<libc::msghdr>();
+        h.msg_name = c_addr as _;
+        h.msg_namelen = c_addr_len as _;
+        h.msg_iov = self.iov.as_ptr() as _;
+        h.msg_iovlen = C as _;
+        h
+    }
+
+    /// # Safety
+    ///
+    /// `self` should not be dropped before the returned value
+    #[cfg(target_os = "macos")]
+    unsafe fn to_msghdr_x(&self) -> super::macos::msghdr_x {
+        let c_addr = &mut *self.c_addr.get();
+        let (c_addr, c_addr_len) = c_addr.get_ptr_and_size();
+
+        let mut h = mem::zeroed::<super::macos::msghdr_x>();
         h.msg_name = c_addr as _;
         h.msg_namelen = c_addr_len as _;
         h.msg_iov = self.iov.as_ptr() as _;
@@ -342,6 +368,53 @@ impl UdpSocketExt for UdpSocket {
         }
     }
 
+    #[cfg(target_os = "macos")]
+    fn poll_batch_sendmsg_x<const C: usize>(
+        &self,
+        cx: &mut Context<'_>,
+        msgs: &mut [SendMsgHdr<'_, C>],
+    ) -> Poll<io::Result<usize>> {
+        use smallvec::SmallVec;
+        use std::os::fd::AsRawFd;
+
+        let mut msgvec: SmallVec<[_; 32]> = SmallVec::with_capacity(msgs.len());
+        for m in msgs.iter_mut() {
+            msgvec.push(unsafe { m.to_msghdr_x() });
+        }
+
+        let raw_fd = self.as_raw_fd();
+        let flags = libc::MSG_DONTWAIT;
+        let mut sendmmsg = || {
+            let r = unsafe {
+                super::macos::sendmsg_x(raw_fd, msgvec.as_mut_ptr(), msgvec.len() as _, flags as _)
+            };
+            if r < 0 {
+                Err(io::Error::last_os_error())
+            } else {
+                Ok(r as usize)
+            }
+        };
+
+        loop {
+            ready!(self.poll_send_ready(cx))?;
+            match self.try_io(Interest::WRITABLE, &mut sendmmsg) {
+                Ok(count) => {
+                    for m in msgs.iter_mut().take(count) {
+                        m.n_send = m.iov.iter().map(|iov| iov.len()).sum();
+                    }
+                    return Poll::Ready(Ok(count));
+                }
+                Err(e) => {
+                    if e.kind() == io::ErrorKind::WouldBlock {
+                        continue;
+                    } else {
+                        return Poll::Ready(Err(e));
+                    }
+                }
+            }
+        }
+    }
+
     #[cfg(any(
         target_os = "linux",
         target_os = "android",
@@ -402,6 +475,57 @@ impl UdpSocketExt for UdpSocket {
             }
         }
     }
+
+    #[cfg(target_os = "macos")]
+    fn poll_batch_recvmsg<const C: usize>(
+        &self,
+        cx: &mut Context<'_>,
+        hdr_v: &mut [RecvMsgHdr<'_, C>],
+    ) -> Poll<io::Result<usize>> {
+        use smallvec::SmallVec;
+        use std::os::fd::AsRawFd;
+
+        let mut msgvec: SmallVec<[_; 32]> = SmallVec::with_capacity(hdr_v.len());
+        for m in hdr_v.iter_mut() {
+            msgvec.push(unsafe { m.to_msghdr_x() });
+        }
+
+        let raw_fd = self.as_raw_fd();
+        let mut recvmmsg = || {
+            let r = unsafe {
+                super::macos::recvmsg_x(
+                    raw_fd,
+                    msgvec.as_mut_ptr(),
+                    msgvec.len() as _,
+                    libc::MSG_DONTWAIT as _,
+                )
+            };
+            if r < 0 {
+                Err(io::Error::last_os_error())
+            } else {
+                Ok(r as usize)
+            }
+        };
+
+        loop {
+            ready!(self.poll_recv_ready(cx))?;
+            match self.try_io(Interest::READABLE, &mut recvmmsg) {
+                Ok(count) => {
+                    for (m, h) in hdr_v.iter_mut().take(count).zip(msgvec) {
+                        m.n_recv = h.msg_datalen as usize;
+                    }
+                    return Poll::Ready(Ok(count));
+                }
+                Err(e) => {
+                    if e.kind() == io::ErrorKind::WouldBlock {
+                        continue;
+                    } else {
+                        return Poll::Ready(Err(e));
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -415,6 +539,7 @@ mod tests {
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "macos",
     ))]
     #[tokio::test]
     async fn batch_msg_connect() {
@@ -433,7 +558,12 @@ mod tests {
             SendMsgHdr::new([IoSlice::new(msg_2)], None),
         ];
 
+        #[cfg(not(target_os = "macos"))]
         let count = poll_fn(|cx| c_sock.poll_batch_sendmsg(cx, &mut msgs))
+            .await
+            .unwrap();
+        #[cfg(target_os = "macos")]
+        let count = poll_fn(|cx| c_sock.poll_batch_sendmsg_x(cx, &mut msgs))
             .await
             .unwrap();
         assert_eq!(count, 2);

@@ -20,6 +20,8 @@ use std::io::{self, IoSlice};
 use std::net::SocketAddr;
 use std::task::{Context, Poll};
 
+#[cfg(target_os = "macos")]
+mod macos;
 #[cfg(unix)]
 mod unix;
 #[cfg(unix)]
@@ -58,12 +60,20 @@ pub trait UdpSocketExt {
         msgs: &mut [SendMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>>;
 
+    #[cfg(target_os = "macos")]
+    fn poll_batch_sendmsg_x<const C: usize>(
+        &self,
+        cx: &mut Context<'_>,
+        msgs: &mut [SendMsgHdr<'_, C>],
+    ) -> Poll<io::Result<usize>>;
+
     #[cfg(any(
         target_os = "linux",
         target_os = "android",
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "macos",
     ))]
     fn poll_batch_recvmsg<const C: usize>(
         &self,
