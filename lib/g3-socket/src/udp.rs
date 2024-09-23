@@ -114,9 +114,15 @@ pub fn new_std_bind_listen(config: &UdpListenConfig) -> io::Result<UdpSocket> {
     let socket = new_udp_socket(AddressFamily::from(&addr), config.socket_buffer())?;
     if addr.port() != 0 {
         #[cfg(unix)]
-        socket.set_reuse_port(true)?;
-        #[cfg(not(unix))]
-        socket.set_reuse_address(true)?;
+        socket.set_reuse_address(true)?; // allow bind to local address if wildcard address is already bound
+        #[cfg(any(target_os = "linux", target_os = "android", target_os = "dragonfly"))]
+        socket.set_reuse_port(true)?; // load-balanced REUSE_PORT
+        #[cfg(target_os = "freebsd")]
+        socket.set_reuse_port_lb(true)?; // load-balanced REUSE_PORT like REUSE_PORT on DragonFly
+        #[cfg(any(target_os = "netbsd", target_os = "openbsd", target_os = "macos"))]
+        socket.set_reuse_port(true)?; // REUSE_PORT, the later will take over traffic?
+        #[cfg(windows)]
+        socket.set_reuse_address(true)?; // this is like REUSE_ADDR+REUSE_PORT on unix
     }
     if config.is_ipv6only() {
         socket.set_only_v6(true)?;
