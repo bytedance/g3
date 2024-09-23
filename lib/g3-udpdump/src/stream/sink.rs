@@ -70,7 +70,25 @@ impl Sinker {
         Ok(())
     }
 
-    #[cfg(any(windows, target_os = "macos", target_os = "dragonfly"))]
+    #[cfg(target_os = "macos")]
+    async fn send_udp(&self, packets: &[Vec<u8>]) -> io::Result<()> {
+        use g3_io_ext::{SendMsgHdr, UdpSocketExt};
+        use std::future::poll_fn;
+        use std::io::IoSlice;
+
+        let mut msgs: Vec<_> = packets
+            .iter()
+            .map(|v| SendMsgHdr::new([IoSlice::new(v.as_slice())], None))
+            .collect();
+        let mut offset = 0;
+        while offset < msgs.len() {
+            offset +=
+                poll_fn(|cx| self.socket.poll_batch_sendmsg_x(cx, &mut msgs[offset..])).await?;
+        }
+        Ok(())
+    }
+
+    #[cfg(any(windows, target_os = "dragonfly"))]
     async fn send_udp(&self, packets: &[Vec<u8>]) -> io::Result<()> {
         for pkt in packets {
             self.socket.send(pkt.as_slice()).await?;

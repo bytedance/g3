@@ -30,6 +30,7 @@ use tokio::time::{Instant, Sleep};
     target_os = "freebsd",
     target_os = "netbsd",
     target_os = "openbsd",
+    target_os = "macos",
 ))]
 use super::SendMsgHdr;
 use crate::limit::{DatagramLimitAction, DatagramLimiter};
@@ -60,6 +61,13 @@ pub trait AsyncUdpSend {
         target_os = "openbsd",
     ))]
     fn poll_batch_sendmsg<const C: usize>(
+        &mut self,
+        cx: &mut Context<'_>,
+        msgs: &mut [SendMsgHdr<'_, C>],
+    ) -> Poll<io::Result<usize>>;
+
+    #[cfg(target_os = "macos")]
+    fn poll_batch_sendmsg_x<const C: usize>(
         &mut self,
         cx: &mut Context<'_>,
         msgs: &mut [SendMsgHdr<'_, C>],
@@ -339,6 +347,74 @@ where
             }
         } else {
             let count = ready!(self.inner.poll_batch_sendmsg(cx, msgs))?;
+            self.stats.add_send_packets(count);
+            self.stats
+                .add_send_bytes(msgs.iter().take(count).map(|h| h.n_send).sum());
+            Poll::Ready(Ok(count))
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn poll_batch_sendmsg_x<const C: usize>(
+        &mut self,
+        cx: &mut Context<'_>,
+        msgs: &mut [SendMsgHdr<'_, C>],
+    ) -> Poll<io::Result<usize>> {
+        use smallvec::SmallVec;
+
+        if self.limit.is_set() {
+            let dur_millis = self.started.elapsed().as_millis() as u64;
+            let mut total_size_v = SmallVec::<[usize; 32]>::with_capacity(msgs.len());
+            let mut total_size = 0;
+            for msg in msgs.iter() {
+                total_size += msg.iov.iter().map(|v| v.len()).sum::<usize>();
+                total_size_v.push(total_size);
+            }
+            match self.limit.check_packets(dur_millis, total_size_v.as_ref()) {
+                DatagramLimitAction::Advance(n) => {
+                    match self.inner.poll_batch_sendmsg_x(cx, &mut msgs[0..n]) {
+                        Poll::Ready(Ok(count)) => {
+                            let len = msgs.iter().take(count).map(|v| v.n_send).sum();
+                            self.limit.set_advance(count, len);
+                            self.stats.add_send_packets(count);
+                            self.stats.add_send_bytes(len);
+                            Poll::Ready(Ok(count))
+                        }
+                        Poll::Ready(Err(e)) => {
+                            self.limit.release_global();
+                            Poll::Ready(Err(e))
+                        }
+                        Poll::Pending => {
+                            self.limit.release_global();
+                            Poll::Pending
+                        }
+                    }
+                }
+                DatagramLimitAction::DelayUntil(t) => {
+                    self.delay.as_mut().reset(t);
+                    match self.delay.poll_unpin(cx) {
+                        Poll::Ready(_) => {
+                            cx.waker().wake_by_ref();
+                            Poll::Pending
+                        }
+                        Poll::Pending => Poll::Pending,
+                    }
+                }
+                DatagramLimitAction::DelayFor(ms) => {
+                    self.delay
+                        .as_mut()
+                        .reset(self.started + Duration::from_millis(dur_millis + ms));
+                    match self.delay.poll_unpin(cx) {
+                        Poll::Ready(_) => {
+                            cx.waker().wake_by_ref();
+                            Poll::Pending
+                        }
+                        Poll::Pending => Poll::Pending,
+                    }
+                }
+            }
+        } else {
+            let count = ready!(self.inner.poll_batch_sendmsg_x(cx, msgs))?;
             self.stats.add_send_packets(count);
             self.stats
                 .add_send_bytes(msgs.iter().take(count).map(|h| h.n_send).sum());

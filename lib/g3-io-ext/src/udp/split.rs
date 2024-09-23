@@ -31,6 +31,7 @@ use super::{AsyncUdpRecv, AsyncUdpSend, UdpSocketExt};
     target_os = "freebsd",
     target_os = "netbsd",
     target_os = "openbsd",
+    target_os = "macos",
 ))]
 use super::{RecvMsgHdr, SendMsgHdr};
 
@@ -114,6 +115,15 @@ impl AsyncUdpSend for SendHalf {
     ) -> Poll<io::Result<usize>> {
         self.0.poll_batch_sendmsg(cx, msgs)
     }
+
+    #[cfg(target_os = "macos")]
+    fn poll_batch_sendmsg_x<const C: usize>(
+        &mut self,
+        cx: &mut Context<'_>,
+        msgs: &mut [SendMsgHdr<'_, C>],
+    ) -> Poll<io::Result<usize>> {
+        self.0.poll_batch_sendmsg_x(cx, msgs)
+    }
 }
 
 impl RecvHalf {
@@ -149,6 +159,7 @@ impl AsyncUdpRecv for RecvHalf {
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "macos",
     ))]
     fn poll_batch_recvmsg<const C: usize>(
         &mut self,

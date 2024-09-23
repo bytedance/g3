@@ -25,6 +25,7 @@ use g3_io_ext::{AsyncUdpSend, UdpRelayClientError, UdpRelayClientSend};
     target_os = "freebsd",
     target_os = "netbsd",
     target_os = "openbsd",
+    target_os = "macos",
 ))]
 use g3_io_ext::{SendMsgHdr, UdpRelayPacket};
 use g3_socks::v5::SocksUdpHeader;
@@ -103,6 +104,38 @@ where
         }
 
         let count = ready!(self.inner.poll_batch_sendmsg(cx, &mut msgs))
+            .map_err(UdpRelayClientError::SendFailed)?;
+        if count == 0 {
+            Poll::Ready(Err(UdpRelayClientError::SendFailed(io::Error::new(
+                io::ErrorKind::WriteZero,
+                "write zero packet into sender",
+            ))))
+        } else {
+            Poll::Ready(Ok(count))
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn poll_send_packets(
+        &mut self,
+        cx: &mut Context<'_>,
+        packets: &[UdpRelayPacket],
+    ) -> Poll<Result<usize, UdpRelayClientError>> {
+        if packets.len() > self.socks_headers.len() {
+            self.socks_headers.resize(packets.len(), Default::default());
+        }
+        let mut msgs = Vec::with_capacity(packets.len());
+        for (p, h) in packets.iter().zip(self.socks_headers.iter_mut()) {
+            msgs.push(SendMsgHdr::new(
+                [
+                    IoSlice::new(h.encode(p.upstream())),
+                    IoSlice::new(p.payload()),
+                ],
+                None,
+            ));
+        }
+
+        let count = ready!(self.inner.poll_batch_sendmsg_x(cx, &mut msgs))
             .map_err(UdpRelayClientError::SendFailed)?;
         if count == 0 {
             Poll::Ready(Err(UdpRelayClientError::SendFailed(io::Error::new(

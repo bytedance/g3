@@ -174,6 +174,7 @@ impl<'a, T: UdpRelayClientRecv + ?Sized> UdpRelayRecv for ClientRecv<'a, T> {
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "macos",
     ))]
     fn poll_recv_packets(
         &mut self,
@@ -210,6 +211,7 @@ impl<'a, T: UdpRelayRemoteRecv + ?Sized> UdpRelayRecv for RemoteRecv<'a, T> {
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "macos",
     ))]
     fn poll_recv_packets(
         &mut self,
@@ -271,6 +273,7 @@ impl<'a, T: UdpRelayClientSend + ?Sized> UdpRelaySend for ClientSend<'a, T> {
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "macos",
     ))]
     fn poll_send_packets(
         &mut self,
@@ -296,13 +299,6 @@ impl<'a, T: UdpRelayRemoteSend + ?Sized> UdpRelaySend for RemoteSend<'a, T> {
             .map_err(|e| UdpRelayError::RemoteError(Some(packet.ups.clone()), e))
     }
 
-    #[cfg(any(
-        target_os = "linux",
-        target_os = "android",
-        target_os = "freebsd",
-        target_os = "netbsd",
-        target_os = "openbsd",
-    ))]
     fn poll_send_packets(
         &mut self,
         cx: &mut Context<'_>,

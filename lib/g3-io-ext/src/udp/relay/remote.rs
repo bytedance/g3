@@ -24,13 +24,6 @@ use thiserror::Error;
 use g3_resolver::ResolveError;
 use g3_types::net::UpstreamAddr;
 
-#[cfg(any(
-    target_os = "linux",
-    target_os = "android",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd",
-))]
 use super::UdpRelayPacket;
 
 #[derive(Error, Debug)]
@@ -77,6 +70,7 @@ pub trait UdpRelayRemoteRecv {
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "macos",
     ))]
     fn poll_recv_packets(
         &mut self,
@@ -94,16 +88,25 @@ pub trait UdpRelayRemoteSend {
         to: &UpstreamAddr,
     ) -> Poll<Result<usize, UdpRelayRemoteError>>;
 
-    #[cfg(any(
-        target_os = "linux",
-        target_os = "android",
-        target_os = "freebsd",
-        target_os = "netbsd",
-        target_os = "openbsd",
-    ))]
     fn poll_send_packets(
         &mut self,
         cx: &mut Context<'_>,
         packets: &[UdpRelayPacket],
-    ) -> Poll<Result<usize, UdpRelayRemoteError>>;
+    ) -> Poll<Result<usize, UdpRelayRemoteError>> {
+        let mut count = 0;
+        for packet in packets {
+            match self.poll_send_packet(cx, packet.payload(), packet.upstream()) {
+                Poll::Pending => {
+                    return if count > 0 {
+                        Poll::Ready(Ok(count))
+                    } else {
+                        Poll::Pending
+                    };
+                }
+                Poll::Ready(Ok(_)) => count += 1,
+                Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
+            }
+        }
+        Poll::Ready(Ok(count))
+    }
 }

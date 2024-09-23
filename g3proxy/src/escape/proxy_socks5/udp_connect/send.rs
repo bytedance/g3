@@ -24,6 +24,7 @@ use g3_io_ext::{AsyncUdpSend, UdpCopyRemoteError, UdpCopyRemoteSend};
     target_os = "freebsd",
     target_os = "netbsd",
     target_os = "openbsd",
+    target_os = "macos",
 ))]
 use g3_io_ext::{SendMsgHdr, UdpCopyPacket};
 use g3_socks::v5::UdpOutput;
@@ -97,6 +98,34 @@ where
             .collect();
 
         let count = ready!(self.inner.poll_batch_sendmsg(cx, &mut msgs))
+            .map_err(UdpCopyRemoteError::SendFailed)?;
+        if count == 0 {
+            Poll::Ready(Err(UdpCopyRemoteError::SendFailed(io::Error::new(
+                io::ErrorKind::WriteZero,
+                "write zero packet into sender",
+            ))))
+        } else {
+            Poll::Ready(Ok(count))
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn poll_send_packets(
+        &mut self,
+        cx: &mut Context<'_>,
+        packets: &[UdpCopyPacket],
+    ) -> Poll<Result<usize, UdpCopyRemoteError>> {
+        let mut msgs: Vec<SendMsgHdr<2>> = packets
+            .iter()
+            .map(|p| {
+                SendMsgHdr::new(
+                    [IoSlice::new(&self.socks5_header), IoSlice::new(p.payload())],
+                    None,
+                )
+            })
+            .collect();
+
+        let count = ready!(self.inner.poll_batch_sendmsg_x(cx, &mut msgs))
             .map_err(UdpCopyRemoteError::SendFailed)?;
         if count == 0 {
             Poll::Ready(Err(UdpCopyRemoteError::SendFailed(io::Error::new(
