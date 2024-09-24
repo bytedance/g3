@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+use std::cmp::Ordering;
+use std::collections::BTreeSet;
+
 use super::{FrameConsume, FrameParseError};
 use crate::parser::quic::VarInt;
 use crate::parser::tls::{ClientHello, ClientHelloParseError, HandshakeHeader, HandshakeType};
@@ -28,7 +31,7 @@ impl<'a> CryptoFrame<'a> {
     /// Parse a Crypto Frame from a packet buffer
     pub fn parse(data: &'a [u8]) -> Result<Self, FrameParseError> {
         let Some(stream_offset) = VarInt::try_parse(data) else {
-            return Err(FrameParseError::NoEnoughData);
+            return Err(FrameParseError::NotEnoughData);
         };
         let mut offset = stream_offset.encoded_len();
         let stream_offset = usize::try_from(stream_offset.value())
@@ -36,12 +39,12 @@ impl<'a> CryptoFrame<'a> {
 
         let left = &data[offset..];
         let Some(length) = VarInt::try_parse(left) else {
-            return Err(FrameParseError::NoEnoughData);
+            return Err(FrameParseError::NotEnoughData);
         };
         offset += length.encoded_len();
 
         if offset as u64 + length.value() > data.len() as u64 {
-            return Err(FrameParseError::NoEnoughData);
+            return Err(FrameParseError::NotEnoughData);
         }
 
         let data_end = offset + length.value() as usize;
@@ -53,9 +56,31 @@ impl<'a> CryptoFrame<'a> {
     }
 }
 
+#[derive(PartialEq, Eq)]
 struct Fragment {
     offset: usize,
     length: usize,
+}
+
+impl PartialOrd for Fragment {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match self.offset.partial_cmp(&other.offset) {
+            Some(Ordering::Greater) => Some(Ordering::Greater),
+            Some(Ordering::Less) => Some(Ordering::Less),
+            Some(Ordering::Equal) => self.length.partial_cmp(&other.length),
+            None => None,
+        }
+    }
+}
+
+impl Ord for Fragment {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match self.offset.cmp(&other.offset) {
+            Ordering::Greater => Ordering::Greater,
+            Ordering::Less => Ordering::Less,
+            Ordering::Equal => self.length.cmp(&other.length),
+        }
+    }
 }
 
 pub struct HandshakeCoalescer {
@@ -64,7 +89,7 @@ pub struct HandshakeCoalescer {
     buf: Vec<u8>,
     unfilled_offset: usize,
     expected_length: usize,
-    fragments: Vec<Fragment>,
+    fragment_set: BTreeSet<Fragment>,
 }
 
 impl Default for HandshakeCoalescer {
@@ -81,7 +106,7 @@ impl HandshakeCoalescer {
             buf: Vec::with_capacity(1024),
             unfilled_offset: 0,
             expected_length: 0,
-            fragments: Vec::with_capacity(4),
+            fragment_set: BTreeSet::new(),
         }
     }
 
@@ -132,10 +157,9 @@ impl FrameConsume for HandshakeCoalescer {
                     // we have some new data filled in
                     self.unfilled_offset = frame_stream_end;
 
-                    if !self.fragments.is_empty() {
-                        self.fragments.sort_by(|v1, v2| v1.offset.cmp(&v2.offset));
-
-                        for fragment in &self.fragments {
+                    if !self.fragment_set.is_empty() {
+                        // TODO use BTreeSet::extract_if after stablized
+                        for fragment in &self.fragment_set {
                             if fragment.offset > self.unfilled_offset {
                                 break;
                             }
@@ -145,7 +169,8 @@ impl FrameConsume for HandshakeCoalescer {
                             }
                         }
 
-                        self.fragments.retain(|v| v.offset > self.unfilled_offset);
+                        self.fragment_set
+                            .retain(|v| v.offset > self.unfilled_offset);
                     }
                 }
             } else {
@@ -197,7 +222,7 @@ impl FrameConsume for HandshakeCoalescer {
                     frame.data.len(),
                 );
             }
-            self.fragments.push(Fragment {
+            self.fragment_set.insert(Fragment {
                 offset: frame.stream_offset,
                 length: frame.data.len(),
             });

@@ -34,7 +34,7 @@ impl AckFrame {
         macro_rules! read_var_int {
             ($var:ident) => {
                 let Some($var) = VarInt::try_parse(&data[offset..]) else {
-                    return Err(FrameParseError::NoEnoughData);
+                    return Err(FrameParseError::NotEnoughData);
                 };
                 offset += $var.encoded_len();
             };
@@ -87,12 +87,12 @@ pub struct AckRange {
 impl AckRange {
     fn parse(data: &[u8]) -> Result<Self, FrameParseError> {
         let Some(gap) = VarInt::try_parse(data) else {
-            return Err(FrameParseError::NoEnoughData);
+            return Err(FrameParseError::NotEnoughData);
         };
 
         let offset = gap.encoded_len();
         let Some(length) = VarInt::try_parse(&data[offset..]) else {
-            return Err(FrameParseError::NoEnoughData);
+            return Err(FrameParseError::NotEnoughData);
         };
 
         let encoded_len = offset + length.encoded_len();
@@ -118,7 +118,7 @@ impl EcnCounts {
         macro_rules! read_var_int {
             ($var:ident) => {
                 let Some($var) = VarInt::try_parse(&data[offset..]) else {
-                    return Err(FrameParseError::NoEnoughData);
+                    return Err(FrameParseError::NotEnoughData);
                 };
                 offset += $var.encoded_len();
             };

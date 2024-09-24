@@ -26,9 +26,9 @@ pub use ack::AckFrame;
 pub enum FrameParseError {
     #[error("invalid frame type {0}")]
     InvalidFrameType(u64),
-    #[error("no enough data")]
-    NoEnoughData,
-    #[error("too bug offset value {0}")]
+    #[error("not enough data")]
+    NotEnoughData,
+    #[error("too big offset value {0}")]
     TooBigOffsetValue(u64),
     #[error("out of order frame: {0}")]
     OutOfOrderFrame(&'static str),

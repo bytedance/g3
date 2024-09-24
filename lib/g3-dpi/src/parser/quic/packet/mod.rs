@@ -106,7 +106,7 @@ impl InitialPacket {
         while offset < payload.len() {
             let left = &payload[offset..];
             let Some(frame_type) = VarInt::try_parse(left) else {
-                return Err(FrameParseError::NoEnoughData);
+                return Err(FrameParseError::NotEnoughData);
             };
 
             offset += frame_type.encoded_len();
