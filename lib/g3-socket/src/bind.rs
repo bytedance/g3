@@ -16,8 +16,6 @@
 
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-#[cfg(any(target_os = "linux", target_os = "android"))]
-use std::os::unix::io::AsRawFd;
 
 use socket2::{SockAddr, Socket};
 
@@ -26,6 +24,8 @@ use g3_types::net::InterfaceName;
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use super::sockopt::set_bind_address_no_port;
+#[cfg(windows)]
+use super::sockopt::set_reuse_unicastport;
 use crate::util::AddressFamily;
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -65,13 +65,17 @@ impl BindAddr {
                     ));
                 }
                 #[cfg(any(target_os = "linux", target_os = "android"))]
-                set_bind_address_no_port(socket.as_raw_fd(), true)?;
+                set_bind_address_no_port(socket, true)?;
+                #[cfg(windows)]
+                set_reuse_unicastport(socket, true)?;
                 let addr: SockAddr = SocketAddr::new(*ip, 0).into();
                 socket.bind(&addr)
             }
             #[cfg(any(target_os = "linux", target_os = "android"))]
             BindAddr::Interface(name) => {
-                set_bind_address_no_port(socket.as_raw_fd(), true)?;
+                set_bind_address_no_port(socket, true)?;
+                #[cfg(windows)]
+                set_reuse_unicastport(socket, true)?;
                 socket.bind_device(Some(name.as_bytes()))
             }
         }

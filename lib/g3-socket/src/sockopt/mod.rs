@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,12 @@
  * limitations under the License.
  */
 
-mod sockopt;
+#[cfg(any(target_os = "linux", target_os = "android"))]
+mod unix;
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub(crate) use unix::set_bind_address_no_port;
 
-mod raw;
-pub use raw::RawSocket;
-
-pub mod tcp;
-pub mod udp;
-pub mod util;
-
-mod bind;
-pub use bind::BindAddr;
+#[cfg(windows)]
+mod windows;
+#[cfg(windows)]
+pub(crate) use windows::set_reuse_unicastport;
