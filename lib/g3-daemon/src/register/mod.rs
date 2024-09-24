@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
+use log::warn;
 use yaml_rust::Yaml;
 
 mod config;
@@ -24,15 +25,17 @@ pub use config::RegisterConfig;
 mod task;
 pub use task::RegisterTask;
 
-static mut PRE_REGISTER_CONFIG: Option<Arc<RegisterConfig>> = None;
+static PRE_REGISTER_CONFIG: OnceLock<Arc<RegisterConfig>> = OnceLock::new();
 
 pub fn load_pre_config(v: &Yaml) -> anyhow::Result<()> {
     let mut config = RegisterConfig::default();
     config.parse(v)?;
-    unsafe { PRE_REGISTER_CONFIG = Some(Arc::new(config)) }
+    if PRE_REGISTER_CONFIG.set(Arc::new(config)).is_err() {
+        warn!("global register config has already been set");
+    }
     Ok(())
 }
 
 pub fn get_pre_config() -> Option<Arc<RegisterConfig>> {
-    unsafe { PRE_REGISTER_CONFIG.clone() }
+    PRE_REGISTER_CONFIG.get().cloned()
 }

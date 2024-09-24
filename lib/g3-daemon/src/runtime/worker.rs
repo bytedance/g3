@@ -20,6 +20,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::runtime::Handle;
 
 use g3_runtime::unaided::WorkersGuard;
+use g3_types::sync::GlobalInit;
 
 #[derive(Clone)]
 pub struct WorkerHandle {
@@ -27,7 +28,7 @@ pub struct WorkerHandle {
     pub id: usize,
 }
 
-static mut WORKER_HANDLERS: Vec<WorkerHandle> = Vec::new();
+static WORKER_HANDLERS: GlobalInit<Vec<WorkerHandle>> = GlobalInit::new(Vec::new());
 
 static LISTEN_RR_INDEX: AtomicUsize = AtomicUsize::new(0);
 thread_local! {
@@ -39,7 +40,7 @@ pub async fn spawn_workers() -> anyhow::Result<Option<WorkersGuard>> {
         let guard = config
             .start(|id, handle| {
                 super::metrics::add_tokio_stats(handle.metrics(), format!("worker-{id}"));
-                unsafe { WORKER_HANDLERS.push(WorkerHandle { handle, id }) }
+                WORKER_HANDLERS.with_mut(|vec| vec.push(WorkerHandle { handle, id }));
             })
             .await?;
         Ok(Some(guard))
@@ -50,7 +51,7 @@ pub async fn spawn_workers() -> anyhow::Result<Option<WorkersGuard>> {
 
 #[inline]
 fn handles() -> &'static [WorkerHandle] {
-    unsafe { WORKER_HANDLERS.as_slice() }
+    WORKER_HANDLERS.as_ref().as_slice()
 }
 
 pub fn worker_count() -> usize {

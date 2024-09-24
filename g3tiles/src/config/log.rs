@@ -20,16 +20,16 @@ use anyhow::{anyhow, Context};
 use yaml_rust::Yaml;
 
 use g3_daemon::log::{LogConfig, LogConfigContainer};
+use g3_types::sync::GlobalInit;
 
-static mut TASK_DEFAULT_LOG_CONFIG_CONTAINER: LogConfigContainer = LogConfigContainer::new();
+static TASK_DEFAULT_LOG_CONFIG_CONTAINER: GlobalInit<LogConfigContainer> =
+    GlobalInit::new(LogConfigContainer::new());
 
 pub(crate) fn load(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
     match v {
         Yaml::String(s) => {
             let config = LogConfig::with_driver_name(s, crate::build::PKG_NAME)?;
-            unsafe {
-                TASK_DEFAULT_LOG_CONFIG_CONTAINER.set_default(config);
-            }
+            TASK_DEFAULT_LOG_CONFIG_CONTAINER.with_mut(|l| l.set_default(config));
             Ok(())
         }
         Yaml::Hash(map) => {
@@ -37,17 +37,13 @@ pub(crate) fn load(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
                 "default" => {
                     let config = LogConfig::parse_yaml(v, conf_dir, crate::build::PKG_NAME)
                         .context(format!("invalid value for key {k}"))?;
-                    unsafe {
-                        TASK_DEFAULT_LOG_CONFIG_CONTAINER.set_default(config);
-                    }
+                    TASK_DEFAULT_LOG_CONFIG_CONTAINER.with_mut(|l| l.set_default(config));
                     Ok(())
                 }
                 "task" => {
                     let config = LogConfig::parse_yaml(v, conf_dir, crate::build::PKG_NAME)
                         .context(format!("invalid value for key {k}"))?;
-                    unsafe {
-                        TASK_DEFAULT_LOG_CONFIG_CONTAINER.set(config);
-                    }
+                    TASK_DEFAULT_LOG_CONFIG_CONTAINER.with_mut(|l| l.set(config));
                     Ok(())
                 }
                 _ => Err(anyhow!("invalid key {k}")),
@@ -60,5 +56,7 @@ pub(crate) fn load(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
 }
 
 pub(crate) fn get_task_default_config() -> LogConfig {
-    unsafe { TASK_DEFAULT_LOG_CONFIG_CONTAINER.get(crate::build::PKG_NAME) }
+    TASK_DEFAULT_LOG_CONFIG_CONTAINER
+        .as_ref()
+        .get(crate::build::PKG_NAME)
 }

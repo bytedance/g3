@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::ptr::addr_of;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
@@ -22,36 +21,60 @@ use yaml_rust::Yaml;
 
 use g3_runtime::blended::BlendedRuntimeConfig;
 use g3_runtime::unaided::UnaidedRuntimeConfig;
+use g3_types::sync::GlobalInit;
 
-static mut RUNTIME_CONFIG: BlendedRuntimeConfig = BlendedRuntimeConfig::new();
-static mut WORKER_CONFIG: Option<UnaidedRuntimeConfig> = None;
-static mut SERVER_OFFLINE_DELAY_DURATION: Duration = Duration::from_secs(4);
-static mut TASK_WAIT_TIMEOUT_DURATION: Duration = Duration::from_secs(36000); // 10h
-static mut TASK_QUIT_TIMEOUT_DURATION: Duration = Duration::from_secs(1800); // 0.5h
-static mut TASK_WAIT_DELAY_DURATION: Duration = Duration::from_secs(2);
+static RUNTIME_CONFIG: GlobalInit<BlendedRuntimeConfig> =
+    GlobalInit::new(BlendedRuntimeConfig::new());
+static WORKER_CONFIG: GlobalInit<Option<UnaidedRuntimeConfig>> = GlobalInit::new(None);
+static GRACEFUL_WAIT_CONFIG: GlobalInit<GracefulWaitConfig> =
+    GlobalInit::new(GracefulWaitConfig::new());
+
+struct GracefulWaitConfig {
+    server_offline_delay: Duration,
+    task_wait_timeout: Duration,
+    task_quit_timeout: Duration,
+    task_wait_delay: Duration,
+}
+
+impl Default for GracefulWaitConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl GracefulWaitConfig {
+    const fn new() -> Self {
+        GracefulWaitConfig {
+            server_offline_delay: Duration::from_secs(4),
+            task_wait_timeout: Duration::from_secs(36000),
+            task_quit_timeout: Duration::from_secs(1800),
+            task_wait_delay: Duration::from_secs(2),
+        }
+    }
+}
 
 pub fn get_runtime_config() -> &'static BlendedRuntimeConfig {
-    unsafe { &*addr_of!(RUNTIME_CONFIG) }
+    RUNTIME_CONFIG.as_ref()
 }
 
 pub fn get_worker_config() -> Option<&'static UnaidedRuntimeConfig> {
-    unsafe { WORKER_CONFIG.as_ref() }
+    WORKER_CONFIG.as_ref().as_ref()
 }
 
 pub fn get_server_offline_delay() -> Duration {
-    unsafe { SERVER_OFFLINE_DELAY_DURATION }
+    GRACEFUL_WAIT_CONFIG.as_ref().server_offline_delay
 }
 
 pub fn get_task_wait_delay() -> Duration {
-    unsafe { TASK_WAIT_DELAY_DURATION }
+    GRACEFUL_WAIT_CONFIG.as_ref().task_wait_delay
 }
 
 pub fn get_task_wait_timeout() -> Duration {
-    unsafe { TASK_WAIT_TIMEOUT_DURATION }
+    GRACEFUL_WAIT_CONFIG.as_ref().task_wait_timeout
 }
 
 pub fn get_task_quit_timeout() -> Duration {
-    unsafe { TASK_QUIT_TIMEOUT_DURATION }
+    GRACEFUL_WAIT_CONFIG.as_ref().task_quit_timeout
 }
 
 pub fn load(v: &Yaml) -> anyhow::Result<()> {
@@ -64,12 +87,12 @@ pub fn load(v: &Yaml) -> anyhow::Result<()> {
 
 pub fn load_worker(v: &Yaml) -> anyhow::Result<()> {
     let config = g3_yaml::value::as_unaided_runtime_config(v)?;
-    unsafe { WORKER_CONFIG = Some(config) }
+    WORKER_CONFIG.with_mut(|v| v.replace(config));
     Ok(())
 }
 
 pub fn set_default_thread_number(num: usize) {
-    unsafe { RUNTIME_CONFIG.set_default_thread_number(num) };
+    RUNTIME_CONFIG.with_mut(|config| config.set_default_thread_number(num));
 }
 
 fn set_global_config(k: &str, v: &Yaml) -> anyhow::Result<()> {
@@ -77,63 +100,47 @@ fn set_global_config(k: &str, v: &Yaml) -> anyhow::Result<()> {
         "server_offline_delay" => {
             let value = g3_yaml::humanize::as_duration(v)
                 .context(format!("invalid humanize duration value for key {k}"))?;
-            unsafe {
-                SERVER_OFFLINE_DELAY_DURATION = value;
-            }
+            GRACEFUL_WAIT_CONFIG.with_mut(|config| config.server_offline_delay = value);
             Ok(())
         }
         "task_wait_delay" => {
             let value = g3_yaml::humanize::as_duration(v)
                 .context(format!("invalid humanize duration value for key {k}"))?;
-            unsafe {
-                TASK_WAIT_DELAY_DURATION = value;
-            }
+            GRACEFUL_WAIT_CONFIG.with_mut(|config| config.task_wait_delay = value);
             Ok(())
         }
         "task_wait_timeout" => {
             let value = g3_yaml::humanize::as_duration(v)
                 .context(format!("invalid humanize duration value for key {k}"))?;
-            unsafe {
-                TASK_WAIT_TIMEOUT_DURATION = value;
-            }
+            GRACEFUL_WAIT_CONFIG.with_mut(|config| config.task_wait_timeout = value);
             Ok(())
         }
         "task_quit_timeout" => {
             let value = g3_yaml::humanize::as_duration(v)
                 .context(format!("invalid humanize duration value for key {k}"))?;
-            unsafe {
-                TASK_QUIT_TIMEOUT_DURATION = value;
-            }
+            GRACEFUL_WAIT_CONFIG.with_mut(|config| config.task_quit_timeout = value);
             Ok(())
         }
         "thread_number" => {
             let value = g3_yaml::value::as_usize(v)?;
-            unsafe {
-                RUNTIME_CONFIG.set_thread_number(value);
-            }
+            RUNTIME_CONFIG.with_mut(|config| config.set_thread_number(value));
             Ok(())
         }
         "thread_name" => {
             let name = g3_yaml::value::as_ascii(v)
                 .context(format!("invalid ascii string value for key {k}"))?;
-            unsafe {
-                RUNTIME_CONFIG.set_thread_name(name.as_str());
-            }
+            RUNTIME_CONFIG.with_mut(|config| config.set_thread_name(name.as_str()));
             Ok(())
         }
         "thread_stack_size" => {
             let value = g3_yaml::humanize::as_usize(v)
                 .context(format!("invalid humanize usize value for key {k}"))?;
-            unsafe {
-                RUNTIME_CONFIG.set_thread_stack_size(value);
-            }
+            RUNTIME_CONFIG.with_mut(|config| config.set_thread_stack_size(value));
             Ok(())
         }
         "max_io_events_per_tick" => {
             let capacity = g3_yaml::value::as_usize(v)?;
-            unsafe {
-                RUNTIME_CONFIG.set_max_io_events_per_tick(capacity);
-            }
+            RUNTIME_CONFIG.with_mut(|config| config.set_max_io_events_per_tick(capacity));
             Ok(())
         }
         _ => Err(anyhow!("invalid key {k}")),

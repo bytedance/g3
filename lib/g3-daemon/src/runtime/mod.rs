@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+use std::sync::OnceLock;
+
+use log::warn;
 use tokio::runtime::Handle;
 
 pub mod config;
@@ -21,14 +24,16 @@ pub mod worker;
 
 pub mod metrics;
 
-static mut MAIN_HANDLE: Option<Handle> = None;
+static MAIN_HANDLE: OnceLock<Handle> = OnceLock::new();
 
 pub fn main_handle() -> Option<&'static Handle> {
-    unsafe { MAIN_HANDLE.as_ref() }
+    MAIN_HANDLE.get()
 }
 
 pub fn set_main_handle() {
     let handle = Handle::current();
     metrics::add_tokio_stats(handle.metrics(), "main".to_string());
-    unsafe { MAIN_HANDLE = Some(handle) }
+    if MAIN_HANDLE.set(handle).is_err() {
+        warn!("main handle has already been set");
+    }
 }

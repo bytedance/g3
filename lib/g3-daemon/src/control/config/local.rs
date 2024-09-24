@@ -17,25 +17,30 @@
 use anyhow::anyhow;
 use yaml_rust::Yaml;
 
+use g3_types::sync::GlobalInit;
+
 use super::GeneralControllerConfig;
 
 pub(crate) struct LocalControllerConfig {
     general: GeneralControllerConfig,
 }
 
-static mut LOCAL_CONTROLLER_CONFIG: LocalControllerConfig = LocalControllerConfig {
-    general: GeneralControllerConfig::new(),
-};
+static LOCAL_CONTROLLER_CONFIG: GlobalInit<LocalControllerConfig> =
+    GlobalInit::new(LocalControllerConfig {
+        general: GeneralControllerConfig::new(),
+    });
 
 impl LocalControllerConfig {
     pub(crate) fn get_general() -> GeneralControllerConfig {
-        unsafe { LOCAL_CONTROLLER_CONFIG.general.clone() }
+        LOCAL_CONTROLLER_CONFIG.as_ref().general.clone()
     }
 
     pub(crate) fn set_default(v: &Yaml) -> anyhow::Result<()> {
         match v {
             Yaml::Hash(map) => {
-                g3_yaml::foreach_kv(map, |k, v| unsafe { LOCAL_CONTROLLER_CONFIG.set(k, v) })?;
+                g3_yaml::foreach_kv(map, |k, v| {
+                    LOCAL_CONTROLLER_CONFIG.with_mut(|config| config.set(k, v))
+                })?;
                 Ok(())
             }
             Yaml::Null => Ok(()),

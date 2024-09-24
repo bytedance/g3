@@ -24,6 +24,7 @@ pub mod log;
 pub mod metrics;
 pub mod net;
 pub mod stats;
+pub mod sync;
 
 #[cfg(feature = "acl-rule")]
 pub mod acl;

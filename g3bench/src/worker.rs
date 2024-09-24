@@ -17,25 +17,25 @@
 use tokio::runtime::Handle;
 
 use g3_runtime::unaided::{UnaidedRuntimeConfig, WorkersGuard};
+use g3_types::sync::GlobalInit;
 
-static mut WORKER_HANDLERS: Vec<Handle> = Vec::new();
+static WORKER_HANDLERS: GlobalInit<Vec<Handle>> = GlobalInit::new(Vec::new());
 
 pub async fn spawn_workers(config: &UnaidedRuntimeConfig) -> anyhow::Result<WorkersGuard> {
     let guard = config
-        .start(|_, handle| unsafe { WORKER_HANDLERS.push(handle) })
+        .start(|_, handle| WORKER_HANDLERS.with_mut(|vec| vec.push(handle)))
         .await?;
     Ok(guard)
 }
 
 pub(super) fn select_handle(concurrency_index: usize) -> Option<Handle> {
-    unsafe {
-        match WORKER_HANDLERS.len() {
-            0 => None,
-            1 => Some(WORKER_HANDLERS[0].clone()),
-            n => {
-                let handle = WORKER_HANDLERS.get_unchecked(concurrency_index % n);
-                Some(handle.clone())
-            }
+    let handlers = WORKER_HANDLERS.as_ref();
+    match handlers.len() {
+        0 => None,
+        1 => Some(handlers[0].clone()),
+        n => {
+            let handle = unsafe { handlers.get_unchecked(concurrency_index % n) };
+            Some(handle.clone())
         }
     }
 }
