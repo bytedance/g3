@@ -64,12 +64,7 @@ struct Fragment {
 
 impl PartialOrd for Fragment {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        match self.offset.partial_cmp(&other.offset) {
-            Some(Ordering::Greater) => Some(Ordering::Greater),
-            Some(Ordering::Less) => Some(Ordering::Less),
-            Some(Ordering::Equal) => self.length.partial_cmp(&other.length),
-            None => None,
-        }
+        Some(self.cmp(other))
     }
 }
 
