@@ -59,6 +59,10 @@ pub struct OpensslTicketKey {
 }
 
 impl OpensslTicketKey {
+    pub fn name(&self) -> TicketKeyName {
+        self.name
+    }
+
     pub fn new(
         name: &[u8],
         aes_key: &[u8],

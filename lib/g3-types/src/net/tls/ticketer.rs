@@ -37,6 +37,17 @@ pub struct RollingTicketer<K: RollingTicketKey> {
 }
 
 impl<K: RollingTicketKey> RollingTicketer<K> {
+    pub fn new(initial_key: K) -> Self {
+        let key = Arc::new(initial_key);
+        let dec_keys = RwLock::new(AHashMap::with_capacity(4));
+        let ticketer = RollingTicketer {
+            dec_keys,
+            enc_key: ArcSwap::new(key.clone()),
+        };
+        ticketer.add_decrypt_key(key);
+        ticketer
+    }
+
     pub fn get_decrypt_key(&self, name: &[u8]) -> Option<Arc<K>> {
         let Ok(key_name) = TicketKeyName::try_from(name) else {
             return None;
@@ -47,6 +58,10 @@ impl<K: RollingTicketKey> RollingTicketer<K> {
     pub fn add_decrypt_key(&self, key: Arc<K>) {
         let name = *key.name();
         self.dec_keys.write().unwrap().insert(name, key);
+    }
+
+    pub fn del_decrypt_key(&self, name: TicketKeyName) {
+        self.dec_keys.write().unwrap().remove(&name);
     }
 
     pub fn set_encrypt_key(&self, key: Arc<K>) {

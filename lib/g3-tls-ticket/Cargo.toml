@@ -1,0 +1,12 @@
+[package]
+name = "g3-tls-ticket"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+log.workspace = true
+tokio = { workspace = true, features = ["rt", "time", "macros"] }
+tokio-util = { workspace = true, features = ["time"] }
+g3-types = { workspace = true, features = ["openssl"] }

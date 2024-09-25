@@ -1564,6 +1564,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "g3-tls-ticket"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "g3-types",
+ "log",
+ "tokio",
+ "tokio-util",
+]
+
+[[package]]
 name = "g3-types"
 version = "0.5.0"
 dependencies = [

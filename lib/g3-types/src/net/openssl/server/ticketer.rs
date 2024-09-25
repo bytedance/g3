@@ -27,7 +27,9 @@ use openssl::ssl::TicketKeyStatus;
 use rustls::server::ProducesTickets;
 
 use super::OpensslTicketKey;
-use crate::net::{RollingTicketKey, RollingTicketer};
+#[cfg(feature = "rustls")]
+use crate::net::RollingTicketKey;
+use crate::net::RollingTicketer;
 
 impl RollingTicketer<OpensslTicketKey> {
     pub fn encrypt_init(
