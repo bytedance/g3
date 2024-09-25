@@ -27,7 +27,8 @@ use g3_types::collection::NamedValue;
 use g3_types::limit::RateLimitQuotaConfig;
 use g3_types::metrics::MetricsName;
 use g3_types::net::{
-    MultipleCertResolver, RustlsCertificatePair, RustlsServerConfigExt, TcpSockSpeedLimitConfig,
+    MultipleCertResolver, RustlsCertificatePair, RustlsNoSessionTicketer, RustlsServerConfigExt,
+    TcpSockSpeedLimitConfig,
 };
 use g3_types::route::AlpnMatch;
 use g3_yaml::{YamlDocPosition, YamlMapCallback};
@@ -116,7 +117,7 @@ impl RustlsHostConfig {
         let mut config = config_builder.with_cert_resolver(Arc::new(cert_resolver));
 
         config.set_session_cache(self.no_session_cache);
-        config.set_session_ticketer(self.use_session_ticket)?;
+        config.set_session_ticketer::<RustlsNoSessionTicketer>(self.use_session_ticket, None)?;
 
         if !self.backends.is_empty() {
             for protocol in self.backends.protocols() {

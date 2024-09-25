@@ -24,6 +24,7 @@ mod server;
 pub use server::{
     OpensslInterceptionServerConfig, OpensslInterceptionServerConfigBuilder, OpensslServerConfig,
     OpensslServerConfigBuilder, OpensslServerSessionCache, OpensslSessionIdContext,
+    OpensslTicketKey,
 };
 
 mod cert_pair;

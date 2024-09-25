@@ -14,12 +14,15 @@
  * limitations under the License.
  */
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use bytes::BufMut;
+use openssl::ex_data::Index;
 use openssl::ssl::{
     SslAcceptor, SslAcceptorBuilder, SslContext, SslOptions, SslSessionCacheMode, SslVerifyMode,
+    TicketKeyStatus,
 };
 use openssl::stack::Stack;
 use openssl::x509::store::X509StoreBuilder;
@@ -28,7 +31,7 @@ use openssl::x509::X509;
 use super::OpensslCertificatePair;
 #[cfg(feature = "tongsuo")]
 use super::OpensslTlcpCertificatePair;
-use crate::net::AlpnProtocol;
+use crate::net::{AlpnProtocol, RollingTicketer};
 
 mod intercept;
 pub use intercept::{OpensslInterceptionServerConfig, OpensslInterceptionServerConfigBuilder};
@@ -231,6 +234,7 @@ impl OpensslServerConfigBuilder {
     pub fn build_with_alpn_protocols(
         &self,
         alpn_protocols: Option<Vec<AlpnProtocol>>,
+        ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
     ) -> anyhow::Result<OpensslServerConfig> {
         let mut id_ctx = OpensslSessionIdContext::new()
             .map_err(|e| anyhow!("failed to create session id context builder: {e}"))?;
@@ -249,6 +253,11 @@ impl OpensslServerConfigBuilder {
         }
         if self.no_session_ticket {
             ssl_builder.set_options(SslOptions::NO_TICKET);
+        } else if let Some(ticketer) = ticketer {
+            let ticket_key_index = SslContext::new_ex_index()
+                .map_err(|e| anyhow!("failed to create ex index: {e}"))?;
+            ssl_builder.set_ex_data(ticket_key_index, ticketer);
+            set_ticket_key_callback(&mut ssl_builder, ticket_key_index)?;
         }
 
         if self.client_auth {
@@ -323,7 +332,35 @@ impl OpensslServerConfigBuilder {
     }
 
     #[inline]
-    pub fn build(&self) -> anyhow::Result<OpensslServerConfig> {
-        self.build_with_alpn_protocols(None)
+    pub fn build_with_ticketer(
+        &self,
+        ticketer: Arc<RollingTicketer<OpensslTicketKey>>,
+    ) -> anyhow::Result<OpensslServerConfig> {
+        self.build_with_alpn_protocols(None, Some(ticketer))
     }
+
+    #[inline]
+    pub fn build(&self) -> anyhow::Result<OpensslServerConfig> {
+        self.build_with_alpn_protocols(None, None)
+    }
+}
+
+fn set_ticket_key_callback(
+    builder: &mut SslAcceptorBuilder,
+    ticket_key_index: Index<SslContext, Arc<RollingTicketer<OpensslTicketKey>>>,
+) -> anyhow::Result<()> {
+    builder
+        .set_ticket_key_callback(move |ssl, name, iv, cipher_ctx, hmac_ctx, is_enc| {
+            match ssl.ssl_context().ex_data(ticket_key_index) {
+                Some(ticketer) => {
+                    if is_enc {
+                        ticketer.encrypt_init(name, iv, cipher_ctx, hmac_ctx)
+                    } else {
+                        ticketer.decrypt_init(name, iv, cipher_ctx, hmac_ctx)
+                    }
+                }
+                None => Ok(TicketKeyStatus::FAILED),
+            }
+        })
+        .map_err(|e| anyhow!("failed to set ticket key callback: {e}"))
 }

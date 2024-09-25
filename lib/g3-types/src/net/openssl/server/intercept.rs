@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::anyhow;
@@ -22,8 +23,8 @@ use openssl::ssl::{
     AlpnError, Ssl, SslAcceptor, SslAcceptorBuilder, SslContext, SslRef, TlsExtType,
 };
 
-use super::{DEFAULT_ACCEPT_TIMEOUT, MINIMAL_ACCEPT_TIMEOUT};
-use crate::net::{TlsAlpn, TlsServerName};
+use super::{OpensslTicketKey, DEFAULT_ACCEPT_TIMEOUT, MINIMAL_ACCEPT_TIMEOUT};
+use crate::net::{RollingTicketer, TlsAlpn, TlsServerName};
 
 pub struct OpensslInterceptionServerConfig {
     sni_index: Index<Ssl, TlsServerName>,
@@ -78,6 +79,13 @@ impl OpensslInterceptionServerConfigBuilder {
     }
 
     pub fn build(&self) -> anyhow::Result<OpensslInterceptionServerConfig> {
+        self.build_with_ticketer(None)
+    }
+
+    pub fn build_with_ticketer(
+        &self,
+        ticketer: Option<&Arc<RollingTicketer<OpensslTicketKey>>>,
+    ) -> anyhow::Result<OpensslInterceptionServerConfig> {
         let retry_index =
             Ssl::new_ex_index().map_err(|e| anyhow!("failed to create ex index: {e}"))?;
         let sni_index =
@@ -86,14 +94,31 @@ impl OpensslInterceptionServerConfigBuilder {
             Ssl::new_ex_index().map_err(|e| anyhow!("failed to create ex index: {e}"))?;
         let alpn_name_index: Index<Ssl, Vec<u8>> =
             Ssl::new_ex_index().map_err(|e| anyhow!("failed to create ex index: {e}"))?;
+        let ticket_key_index: Index<SslContext, Arc<RollingTicketer<OpensslTicketKey>>> =
+            SslContext::new_ex_index().map_err(|e| anyhow!("failed to create ex index: {e}"))?;
+
+        macro_rules! build_ssl_context {
+            ($method:expr) => {{
+                let mut builder = $method(retry_index, sni_index, alpn_index, alpn_name_index)?;
+                if let Some(ticketer) = ticketer {
+                    builder.set_ex_data(ticket_key_index, ticketer.clone());
+                    super::set_ticket_key_callback(&mut builder, ticket_key_index)?;
+                }
+                builder.build().into_context()
+            }};
+        }
+
+        let ssl_context = build_ssl_context!(build_tls_context);
+        #[cfg(feature = "tongsuo")]
+        let tlcp_context = build_ssl_context!(build_tlcp_context);
 
         Ok(OpensslInterceptionServerConfig {
             sni_index,
             alpn_index,
             alpn_name_index,
-            ssl_context: build_tls_context(retry_index, sni_index, alpn_index, alpn_name_index)?,
+            ssl_context,
             #[cfg(feature = "tongsuo")]
-            tlcp_context: build_tlcp_context(retry_index, sni_index, alpn_index, alpn_name_index)?,
+            tlcp_context,
             accept_timeout: self.accept_timeout,
         })
     }
@@ -105,7 +130,7 @@ fn build_tls_context(
     sni_index: Index<Ssl, TlsServerName>,
     alpn_index: Index<Ssl, TlsAlpn>,
     alpn_name_index: Index<Ssl, Vec<u8>>,
-) -> anyhow::Result<SslContext> {
+) -> anyhow::Result<SslAcceptorBuilder> {
     use openssl::ssl::SslMethod;
 
     let mut builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::tls_server())
@@ -117,7 +142,7 @@ fn build_tls_context(
     set_select_certificate_callback(&mut builder, retry_index, sni_index, alpn_index);
     set_alpn_select_callback(&mut builder, alpn_name_index);
 
-    Ok(builder.build().into_context())
+    Ok(builder)
 }
 
 #[cfg(feature = "tongsuo")]
@@ -126,14 +151,14 @@ fn build_tls_context(
     sni_index: Index<Ssl, TlsServerName>,
     alpn_index: Index<Ssl, TlsAlpn>,
     alpn_name_index: Index<Ssl, Vec<u8>>,
-) -> anyhow::Result<SslContext> {
+) -> anyhow::Result<SslAcceptorBuilder> {
     let mut builder = SslAcceptor::tongsuo_tls()
         .map_err(|e| anyhow!("failed to get tls acceptor builder: {e}"))?;
 
     set_client_hello_callback(&mut builder, retry_index, sni_index, alpn_index);
     set_alpn_select_callback(&mut builder, alpn_name_index);
 
-    Ok(builder.build().into_context())
+    Ok(builder)
 }
 
 #[cfg(feature = "tongsuo")]
@@ -142,14 +167,14 @@ fn build_tlcp_context(
     sni_index: Index<Ssl, TlsServerName>,
     alpn_index: Index<Ssl, TlsAlpn>,
     alpn_name_index: Index<Ssl, Vec<u8>>,
-) -> anyhow::Result<SslContext> {
+) -> anyhow::Result<SslAcceptorBuilder> {
     let mut builder = SslAcceptor::tongsuo_tlcp()
         .map_err(|e| anyhow!("failed to get tlcp acceptor builder: {e}"))?;
 
     set_client_hello_callback(&mut builder, retry_index, sni_index, alpn_index);
     set_alpn_select_callback(&mut builder, alpn_name_index);
 
-    Ok(builder.build().into_context())
+    Ok(builder)
 }
 
 #[cfg(not(any(feature = "boringssl", feature = "aws-lc")))]

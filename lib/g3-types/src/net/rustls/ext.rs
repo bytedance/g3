@@ -21,7 +21,7 @@ use anyhow::anyhow;
 use rustls::crypto::aws_lc_rs::Ticketer;
 #[cfg(not(feature = "aws-lc"))]
 use rustls::crypto::ring::Ticketer;
-use rustls::server::NoServerSessionStorage;
+use rustls::server::{NoServerSessionStorage, ProducesTickets};
 use rustls::{HandshakeKind, ServerConfig, ServerConnection};
 
 use super::{RustlsNoSessionTicketer, RustlsServerSessionCache};
@@ -38,7 +38,11 @@ impl RustlsServerConnectionExt for ServerConnection {
 
 pub trait RustlsServerConfigExt {
     fn set_session_cache(&mut self, disable: bool);
-    fn set_session_ticketer(&mut self, enable: bool) -> anyhow::Result<()>;
+    fn set_session_ticketer<T: ProducesTickets + 'static>(
+        &mut self,
+        enable: bool,
+        ticketer: Option<Arc<T>>,
+    ) -> anyhow::Result<()>;
 }
 
 impl RustlsServerConfigExt for ServerConfig {
@@ -50,11 +54,18 @@ impl RustlsServerConfigExt for ServerConfig {
         }
     }
 
-    fn set_session_ticketer(&mut self, enable: bool) -> anyhow::Result<()> {
+    fn set_session_ticketer<T: ProducesTickets + 'static>(
+        &mut self,
+        enable: bool,
+        ticketer: Option<Arc<T>>,
+    ) -> anyhow::Result<()> {
         if enable {
-            let ticketer =
-                Ticketer::new().map_err(|e| anyhow!("failed to create session ticketer: {e}"))?;
-            self.ticketer = ticketer;
+            if let Some(ticketer) = ticketer {
+                self.ticketer = ticketer;
+            } else {
+                self.ticketer = Ticketer::new()
+                    .map_err(|e| anyhow!("failed to create session ticketer: {e}"))?;
+            }
         } else {
             self.ticketer = Arc::new(RustlsNoSessionTicketer {});
         }

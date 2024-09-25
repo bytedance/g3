@@ -28,7 +28,7 @@ mod cache;
 use cache::RustlsServerSessionCache;
 
 mod ticketer;
-use ticketer::RustlsNoSessionTicketer;
+pub use ticketer::RustlsNoSessionTicketer;
 
 mod cert_pair;
 pub use cert_pair::{RustlsCertificatePair, RustlsCertificatePairBuilder};
