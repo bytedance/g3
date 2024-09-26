@@ -14,4 +14,37 @@
  * limitations under the License.
  */
 
+use chrono::{DateTime, Utc};
+
+use std::time::Duration;
+
+use g3_types::net::OpensslTicketKey;
+
 mod redis;
+
+pub(crate) struct RemoteDecryptKey {
+    pub(crate) key: OpensslTicketKey,
+    expire: DateTime<Utc>,
+}
+
+impl RemoteDecryptKey {
+    pub(crate) fn expire_duration(&self, now: &DateTime<Utc>) -> Option<Duration> {
+        self.expire.signed_duration_since(now).to_std().ok()
+    }
+}
+
+pub(crate) struct RemoteKeys {
+    pub(crate) enc_key: OpensslTicketKey,
+    pub(crate) dec_keys: Vec<RemoteDecryptKey>,
+}
+
+#[derive(Clone)]
+pub(crate) enum TicketSourceConfig {
+    Redis,
+}
+
+impl TicketSourceConfig {
+    pub(crate) async fn fetch_remote_keys(&self) -> anyhow::Result<RemoteKeys> {
+        todo!()
+    }
+}

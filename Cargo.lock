@@ -1562,8 +1562,10 @@ name = "g3-tls-ticket"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "g3-types",
  "log",
+ "rustc-hash 2.0.0",
  "tokio",
  "tokio-util",
 ]

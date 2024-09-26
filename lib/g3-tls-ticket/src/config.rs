@@ -21,12 +21,13 @@ use anyhow::Context;
 
 use g3_types::net::{OpensslTicketKey, RollingTicketKey, RollingTicketer};
 
-use super::TicketKeyUpdate;
+use super::{TicketKeyUpdate, TicketSourceConfig};
 
 #[derive(Clone)]
 pub struct TlsTicketConfig {
     pub(crate) check_interval: Duration,
     pub(crate) local_lifetime: u32,
+    pub(crate) remote_source: Option<TicketSourceConfig>,
 }
 
 impl Default for TlsTicketConfig {
@@ -34,6 +35,7 @@ impl Default for TlsTicketConfig {
         TlsTicketConfig {
             check_interval: Duration::from_secs(300),
             local_lifetime: 12 * 60 * 60, // 12h
+            remote_source: None,
         }
     }
 }

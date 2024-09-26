@@ -27,7 +27,7 @@ pub const TICKET_HMAC_KEY_LENGTH: usize = 16;
 
 pub trait RollingTicketKey: Sized {
     fn new_random(lifetime: u32) -> anyhow::Result<Self>;
-    fn name(&self) -> &TicketKeyName;
+    fn name(&self) -> TicketKeyName;
     fn lifetime(&self) -> u32;
 }
 
@@ -56,7 +56,7 @@ impl<K: RollingTicketKey> RollingTicketer<K> {
     }
 
     pub fn add_decrypt_key(&self, key: Arc<K>) {
-        let name = *key.name();
+        let name = key.name();
         self.dec_keys.write().unwrap().insert(name, key);
     }
 
@@ -64,8 +64,11 @@ impl<K: RollingTicketKey> RollingTicketer<K> {
         self.dec_keys.write().unwrap().remove(&name);
     }
 
+    pub fn encrypt_key(&self) -> Arc<K> {
+        self.enc_key.load_full()
+    }
+
     pub fn set_encrypt_key(&self, key: Arc<K>) {
-        self.add_decrypt_key(key.clone());
         self.enc_key.store(key);
     }
 }

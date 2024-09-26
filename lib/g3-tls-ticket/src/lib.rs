@@ -18,6 +18,7 @@ mod config;
 pub use config::TlsTicketConfig;
 
 mod source;
+use source::TicketSourceConfig;
 
 mod update;
 use update::TicketKeyUpdate;

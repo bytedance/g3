@@ -239,8 +239,8 @@ impl RollingTicketKey for OpensslTicketKey {
     }
 
     #[inline]
-    fn name(&self) -> &TicketKeyName {
-        &self.name
+    fn name(&self) -> TicketKeyName {
+        self.name
     }
 
     #[inline]
