@@ -95,7 +95,7 @@ governor = { version = "0.6", default-features = false }
 ascii = "1.0"
 humanize-rs = "0.1"
 #
-portable-atomic = "1.5"
+portable-atomic = "1.9"
 itoa = "1.0"
 atoi = "2.0"
 ryu = "1.0"
