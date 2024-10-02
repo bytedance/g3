@@ -14,7 +14,7 @@ You can ask for commercial support if you need a longer support time.
 
 # Current LTS branches
 
-## g3proxy-v1.8
+## [g3proxy-v1.8](https://github.com/bytedance/g3/tree/lts/g3proxy/1.8/default)
 
 Long-Term branch for [g3proxy](../g3proxy) 1.8.x.
 
