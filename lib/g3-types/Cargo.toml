@@ -51,7 +51,7 @@ base64 = { workspace = true, optional = true }
 flume = { workspace = true, features = ["eventual-fairness"], optional = true }
 slog = { workspace = true, optional = true }
 indexmap = { workspace = true, optional = true }
-brotli = { version = "6.0", optional = true, default-features = false, features = ["std"] }
+brotli = { version = "7.0", optional = true, default-features = false, features = ["std"] }
 
 [features]
 default = []
