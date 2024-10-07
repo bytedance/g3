@@ -24,7 +24,7 @@ use slog::slog_info;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
-use g3_dpi::{Protocol, ProtocolInspectPolicy};
+use g3_dpi::{Protocol, ProtocolInspectAction};
 use g3_h2::H2BodyTransfer;
 use g3_io_ext::OnceBufReader;
 use g3_slog_types::{LtUpstreamAddr, LtUuid};
@@ -110,15 +110,16 @@ where
     SC: ServerConfig + Send + Sync + 'static,
 {
     pub(crate) async fn intercept(mut self) -> ServerTaskResult<()> {
-        let r = match self.ctx.h2_inspect_policy() {
-            ProtocolInspectPolicy::Intercept => self
+        let (_, inspect_action) = self.ctx.h2_inspect_policy().check(self.upstream.host());
+        let r = match inspect_action {
+            ProtocolInspectAction::Intercept => self
                 .do_intercept()
                 .await
                 .map_err(|e| InterceptionError::H2(e).into_server_task_error(Protocol::Http2)),
             #[cfg(feature = "quic")]
-            ProtocolInspectPolicy::Detour => self.do_detour().await,
-            ProtocolInspectPolicy::Bypass => self.do_bypass().await,
-            ProtocolInspectPolicy::Block => self
+            ProtocolInspectAction::Detour => self.do_detour().await,
+            ProtocolInspectAction::Bypass => self.do_bypass().await,
+            ProtocolInspectAction::Block => self
                 .do_block()
                 .await
                 .map_err(|e| InterceptionError::H2(e).into_server_task_error(Protocol::Http2)),

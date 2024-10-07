@@ -19,7 +19,7 @@ use bytes::Bytes;
 use h2::{RecvStream, SendStream};
 use slog::slog_info;
 
-use g3_dpi::ProtocolInspectPolicy;
+use g3_dpi::ProtocolInspectAction;
 use g3_h2::{H2StreamReader, H2StreamWriter};
 use g3_slog_types::{LtHttpHeaderValue, LtUpstreamAddr, LtUuid};
 use g3_types::net::{UpstreamAddr, WebSocketNotes};
@@ -74,12 +74,16 @@ impl<SC: ServerConfig> H2WebsocketInterceptObject<SC> {
         ups_r: RecvStream,
         ups_w: SendStream<Bytes>,
     ) {
-        let r = match self.ctx.websocket_inspect_policy() {
-            ProtocolInspectPolicy::Intercept => self.do_intercept(clt_r, clt_w, ups_r, ups_w).await,
+        let (_, inspect_action) = self
+            .ctx
+            .websocket_inspect_policy()
+            .check(self.upstream.host());
+        let r = match inspect_action {
+            ProtocolInspectAction::Intercept => self.do_intercept(clt_r, clt_w, ups_r, ups_w).await,
             #[cfg(feature = "quic")]
-            ProtocolInspectPolicy::Detour => self.do_detour(clt_r, clt_w, ups_r, ups_w).await,
-            ProtocolInspectPolicy::Bypass => self.do_bypass(clt_r, clt_w, ups_r, ups_w).await,
-            ProtocolInspectPolicy::Block => self.do_block(clt_w, ups_w).await,
+            ProtocolInspectAction::Detour => self.do_detour(clt_r, clt_w, ups_r, ups_w).await,
+            ProtocolInspectAction::Bypass => self.do_bypass(clt_r, clt_w, ups_r, ups_w).await,
+            ProtocolInspectAction::Block => self.do_block(clt_w, ups_w).await,
         };
         match r {
             Ok(_) => {

@@ -19,16 +19,25 @@ use std::str::FromStr;
 use anyhow::{anyhow, Context};
 use yaml_rust::Yaml;
 
-use g3_dpi::{ProtocolInspectPolicy, ProtocolInspectionConfig, ProtocolInspectionSizeLimit};
+use g3_dpi::{
+    ProtocolInspectAction, ProtocolInspectPolicy, ProtocolInspectionConfig,
+    ProtocolInspectionSizeLimit,
+};
+
+use crate::value::acl_set::as_dst_host_rule_set_builder;
 
 pub fn as_protocol_inspect_policy(value: &Yaml) -> anyhow::Result<ProtocolInspectPolicy> {
-    if let Yaml::String(s) = value {
-        ProtocolInspectPolicy::from_str(s)
-            .map_err(|_| anyhow!("invalid protocol inspect policy '{s}'"))
-    } else {
-        Err(anyhow!(
-            "yaml value type for 'protocol inspect policy' should be 'string'"
-        ))
+    match value {
+        Yaml::String(s) => {
+            let missing_action = ProtocolInspectAction::from_str(s)
+                .map_err(|_| anyhow!("invalid protocol inspect action '{s}'"))?;
+            let mut builder = ProtocolInspectPolicy::builder();
+            builder.missing_action = Some(missing_action);
+            Ok(builder.build())
+        }
+        _ => as_dst_host_rule_set_builder(value)
+            .map(|b| b.build())
+            .map_err(|err| anyhow!("invalid protocol inspect action map: {err:?}")),
     }
 }
 

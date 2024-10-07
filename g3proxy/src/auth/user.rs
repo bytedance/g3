@@ -27,7 +27,7 @@ use governor::{clock::DefaultClock, state::InMemoryState, state::NotKeyed, RateL
 use tokio::time::Instant;
 
 use g3_io_ext::{GlobalDatagramLimiter, GlobalLimitGroup, GlobalStreamLimiter};
-use g3_types::acl::{AclAction, AclNetworkRule};
+use g3_types::acl::{AclAction, AclNetworkRule, ActionContract};
 use g3_types::acl_set::AclDstHostRuleSet;
 use g3_types::auth::UserAuthError;
 use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit};
@@ -605,7 +605,7 @@ impl User {
                 forbid_stats.add_dest_denied();
                 return action;
             };
-            default_action = default_action.restrict(action);
+            default_action = default_action.restrict(&action);
         }
 
         if let Some(filter) = &self.dst_host_filter {
@@ -614,7 +614,7 @@ impl User {
                 forbid_stats.add_dest_denied();
                 return action;
             }
-            default_action = default_action.restrict(action);
+            default_action = default_action.restrict(&action);
         }
 
         if default_action.forbid_early() {
@@ -636,7 +636,7 @@ impl User {
                         forbid_stats.add_ua_blocked();
                         return Some(action);
                     }
-                    default_action = default_action.restrict(action);
+                    default_action = default_action.restrict(&action);
                 }
             }
             Some(default_action)

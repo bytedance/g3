@@ -263,7 +263,7 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     }
 
     #[inline]
-    fn h2_inspect_policy(&self) -> ProtocolInspectPolicy {
+    fn h2_inspect_policy(&self) -> &ProtocolInspectPolicy {
         self.audit_handle.h2_inspect_policy()
     }
 
@@ -281,12 +281,12 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     }
 
     #[inline]
-    fn websocket_inspect_policy(&self) -> ProtocolInspectPolicy {
+    fn websocket_inspect_policy(&self) -> &ProtocolInspectPolicy {
         self.audit_handle.websocket_inspect_policy()
     }
 
     #[inline]
-    fn smtp_inspect_policy(&self) -> ProtocolInspectPolicy {
+    fn smtp_inspect_policy(&self) -> &ProtocolInspectPolicy {
         self.audit_handle.smtp_inspect_policy()
     }
 
@@ -296,7 +296,7 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     }
 
     #[inline]
-    fn imap_inspect_policy(&self) -> ProtocolInspectPolicy {
+    fn imap_inspect_policy(&self) -> &ProtocolInspectPolicy {
         self.audit_handle.imap_inspect_policy()
     }
 

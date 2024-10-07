@@ -19,31 +19,33 @@ use std::hash::Hash;
 
 use ahash::AHashMap;
 
-use super::AclAction;
+use super::{AclAction, ActionContract};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AclAHashRule<K>
+pub struct AclAHashRule<K, Action = AclAction>
 where
     K: Hash + Eq,
 {
-    inner: AHashMap<K, AclAction>,
-    missed_action: AclAction,
+    inner: AHashMap<K, Action>,
+    missed_action: Action,
 }
 
-impl<K> Default for AclAHashRule<K>
+impl<K, Action> Default for AclAHashRule<K, Action>
 where
     K: Hash + Eq,
+    Action: ActionContract,
 {
     fn default() -> Self {
-        Self::new(AclAction::Forbid)
+        Self::new(Action::default_forbid())
     }
 }
 
-impl<K> AclAHashRule<K>
+impl<K, Action> AclAHashRule<K, Action>
 where
     K: Hash + Eq,
+    Action: ActionContract,
 {
-    pub fn new(missed_action: AclAction) -> Self {
+    pub fn new(missed_action: Action) -> Self {
         AclAHashRule {
             inner: AHashMap::new(),
             missed_action,
@@ -51,24 +53,24 @@ where
     }
 
     #[inline]
-    pub fn add_node(&mut self, node: K, action: AclAction) {
+    pub fn add_node(&mut self, node: K, action: Action) {
         self.inner.insert(node, action);
     }
 
     #[inline]
-    pub fn set_missed_action(&mut self, action: AclAction) {
+    pub fn set_missed_action(&mut self, action: Action) {
         self.missed_action = action;
     }
 
-    pub fn check<Q>(&self, node: &Q) -> (bool, AclAction)
+    pub fn check<Q>(&self, node: &Q) -> (bool, Action)
     where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
         if let Some(action) = self.inner.get(node) {
-            (true, *action)
+            (true, action.clone())
         } else {
-            (false, self.missed_action)
+            (false, self.missed_action.clone())
         }
     }
 }

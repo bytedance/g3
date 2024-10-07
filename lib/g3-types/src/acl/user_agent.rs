@@ -16,45 +16,44 @@
 
 use std::collections::BTreeMap;
 
-use super::AclAction;
+use super::{AclAction, ActionContract};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AclUserAgentRule {
-    inner: BTreeMap<String, AclAction>,
-    missed_action: AclAction,
+pub struct AclUserAgentRule<Action = AclAction> {
+    inner: BTreeMap<String, Action>,
+    missed_action: Action,
 }
 
-impl Default for AclUserAgentRule {
+impl<Action: ActionContract> Default for AclUserAgentRule<Action> {
     fn default() -> Self {
-        // default to permit all
-        AclUserAgentRule::new(AclAction::Permit)
+        AclUserAgentRule::new(Action::default_permit())
     }
 }
 
-impl AclUserAgentRule {
-    pub fn new(missed_action: AclAction) -> Self {
+impl<Action: ActionContract> AclUserAgentRule<Action> {
+    pub fn new(missed_action: Action) -> Self {
         AclUserAgentRule {
             inner: BTreeMap::new(),
             missed_action,
         }
     }
 
-    pub fn add_ua_name(&mut self, ua: &str, action: AclAction) {
+    pub fn add_ua_name(&mut self, ua: &str, action: Action) {
         let name = ua.to_ascii_lowercase();
         self.inner.insert(name, action);
     }
 
     #[inline]
-    pub fn missed_action(&self) -> AclAction {
-        self.missed_action
+    pub fn missed_action(&self) -> Action {
+        self.missed_action.clone()
     }
 
     #[inline]
-    pub fn set_missed_action(&mut self, action: AclAction) {
+    pub fn set_missed_action(&mut self, action: Action) {
         self.missed_action = action;
     }
 
-    pub fn check(&self, ua_value: &str) -> (bool, AclAction) {
+    pub fn check(&self, ua_value: &str) -> (bool, Action) {
         let value = ua_value.to_ascii_lowercase();
 
         for (name, action) in self.inner.iter() {
@@ -82,14 +81,14 @@ impl AclUserAgentRule {
                         continue;
                     }
 
-                    return (true, *action);
+                    return (true, action.clone());
                 } else {
                     break;
                 }
             }
         }
 
-        (false, self.missed_action)
+        (false, self.missed_action.clone())
     }
 }
 

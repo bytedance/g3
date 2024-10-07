@@ -17,37 +17,37 @@
 use std::net::IpAddr;
 use std::sync::Arc;
 
-use super::{AclAHashRule, AclAction};
+use super::{AclAHashRule, AclAction, ActionContract};
 use crate::net::Host;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AclExactHostRule {
-    missed_action: AclAction,
-    domain: AclAHashRule<Arc<str>>,
-    ip: AclAHashRule<IpAddr>,
+pub struct AclExactHostRule<Action = AclAction> {
+    missed_action: Action,
+    domain: AclAHashRule<Arc<str>, Action>,
+    ip: AclAHashRule<IpAddr, Action>,
 }
 
-impl AclExactHostRule {
+impl<Action: ActionContract> AclExactHostRule<Action> {
     #[inline]
-    pub fn new(missed_action: AclAction) -> Self {
+    pub fn new(missed_action: Action) -> Self {
         AclExactHostRule {
-            missed_action,
-            domain: AclAHashRule::new(missed_action),
+            missed_action: missed_action.clone(),
+            domain: AclAHashRule::new(missed_action.clone()),
             ip: AclAHashRule::new(missed_action),
         }
     }
 
     #[inline]
-    pub fn add_domain(&mut self, domain: Arc<str>, action: AclAction) {
+    pub fn add_domain(&mut self, domain: Arc<str>, action: Action) {
         self.domain.add_node(domain, action);
     }
 
     #[inline]
-    pub fn add_ip(&mut self, ip: IpAddr, action: AclAction) {
+    pub fn add_ip(&mut self, ip: IpAddr, action: Action) {
         self.ip.add_node(ip, action);
     }
 
-    pub fn add_host(&mut self, host: Host, action: AclAction) {
+    pub fn add_host(&mut self, host: Host, action: Action) {
         match host {
             Host::Ip(ip) => self.add_ip(ip, action),
             Host::Domain(domain) => self.add_domain(domain, action),
@@ -55,24 +55,24 @@ impl AclExactHostRule {
     }
 
     #[inline]
-    pub fn set_missed_action(&mut self, action: AclAction) {
-        self.missed_action = action;
-        self.domain.set_missed_action(action);
+    pub fn set_missed_action(&mut self, action: Action) {
+        self.missed_action = action.clone();
+        self.domain.set_missed_action(action.clone());
         self.ip.set_missed_action(action);
     }
 
     #[inline]
-    pub fn missed_action(&self) -> AclAction {
-        self.missed_action
+    pub fn missed_action(&self) -> Action {
+        self.missed_action.clone()
     }
 
     #[inline]
-    pub fn check_domain(&self, domain: &str) -> (bool, AclAction) {
+    pub fn check_domain(&self, domain: &str) -> (bool, Action) {
         self.domain.check(domain)
     }
 
     #[inline]
-    pub fn check_ip(&self, ip: &IpAddr) -> (bool, AclAction) {
+    pub fn check_ip(&self, ip: &IpAddr) -> (bool, Action) {
         self.ip.check(ip)
     }
 }

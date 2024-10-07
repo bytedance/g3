@@ -16,39 +16,55 @@
 
 use crate::acl::{
     AclAction, AclChildDomainRule, AclChildDomainRuleBuilder, AclExactHostRule, AclNetworkRule,
-    AclNetworkRuleBuilder, AclRegexSetRule, AclRegexSetRuleBuilder,
+    AclNetworkRuleBuilder, AclRegexSetRule, AclRegexSetRuleBuilder, ActionContract,
 };
 use crate::net::Host;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AclDstHostRuleSetBuilder {
-    pub exact: Option<AclExactHostRule>,
-    pub child: Option<AclChildDomainRuleBuilder>,
-    pub regex: Option<AclRegexSetRuleBuilder>,
-    pub subnet: Option<AclNetworkRuleBuilder>,
+pub struct AclDstHostRuleSetBuilder<Action = AclAction> {
+    pub exact: Option<AclExactHostRule<Action>>,
+    pub child: Option<AclChildDomainRuleBuilder<Action>>,
+    pub regex: Option<AclRegexSetRuleBuilder<Action>>,
+    pub subnet: Option<AclNetworkRuleBuilder<Action>>,
+    pub missing_action: Option<Action>,
 }
 
-impl AclDstHostRuleSetBuilder {
-    pub fn build(&self) -> AclDstHostRuleSet {
-        let mut missed_action = AclAction::Permit;
+impl<Action> Default for AclDstHostRuleSetBuilder<Action> {
+    fn default() -> Self {
+        Self {
+            exact: None,
+            child: None,
+            regex: None,
+            subnet: None,
+            missing_action: None,
+        }
+    }
+}
+
+impl<Action: ActionContract> AclDstHostRuleSetBuilder<Action> {
+    pub fn build(&self) -> AclDstHostRuleSet<Action> {
+        let mut missed_action = self
+            .missing_action
+            .clone()
+            .unwrap_or_else(Action::default_permit);
 
         let exact_rule = self.exact.as_ref().map(|rule| {
-            missed_action = missed_action.restrict(rule.missed_action());
+            missed_action = missed_action.restrict(&rule.missed_action());
             rule.clone()
         });
 
         let child_rule = self.child.as_ref().map(|builder| {
-            missed_action = missed_action.restrict(builder.missed_action());
+            missed_action = missed_action.restrict(&builder.missed_action());
             builder.build()
         });
 
         let regex_rule = self.regex.as_ref().map(|builder| {
-            missed_action = missed_action.restrict(builder.missed_action());
+            missed_action = missed_action.restrict(&builder.missed_action());
             builder.build()
         });
 
         let subnet_rule = self.subnet.as_ref().map(|builder| {
-            missed_action = missed_action.restrict(builder.missed_action());
+            missed_action = missed_action.restrict(&builder.missed_action());
             builder.build()
         });
 
@@ -62,16 +78,32 @@ impl AclDstHostRuleSetBuilder {
     }
 }
 
-pub struct AclDstHostRuleSet {
-    exact: Option<AclExactHostRule>,
-    child: Option<AclChildDomainRule>,
-    regex: Option<AclRegexSetRule>,
-    subnet: Option<AclNetworkRule>,
-    missed_action: AclAction,
+#[derive(Clone)]
+pub struct AclDstHostRuleSet<Action: ActionContract = AclAction> {
+    exact: Option<AclExactHostRule<Action>>,
+    child: Option<AclChildDomainRule<Action>>,
+    regex: Option<AclRegexSetRule<Action>>,
+    subnet: Option<AclNetworkRule<Action>>,
+    missed_action: Action,
 }
 
-impl AclDstHostRuleSet {
-    pub fn check(&self, upstream: &Host) -> (bool, AclAction) {
+impl<Action: ActionContract> AclDstHostRuleSet<Action> {
+    pub fn builder() -> AclDstHostRuleSetBuilder<Action> {
+        AclDstHostRuleSetBuilder::default()
+    }
+
+    pub fn builder_with_missing_action(action: Action) -> AclDstHostRuleSetBuilder<Action> {
+        AclDstHostRuleSetBuilder {
+            missing_action: Some(action),
+            ..AclDstHostRuleSetBuilder::default()
+        }
+    }
+
+    pub fn missing_action(&self) -> Action {
+        self.missed_action.clone()
+    }
+
+    pub fn check(&self, upstream: &Host) -> (bool, Action) {
         match upstream {
             Host::Ip(ip) => {
                 if let Some(rule) = &self.exact {
@@ -112,6 +144,6 @@ impl AclDstHostRuleSet {
             }
         }
 
-        (false, self.missed_action)
+        (false, self.missed_action.clone())
     }
 }

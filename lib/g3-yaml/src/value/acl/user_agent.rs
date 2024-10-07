@@ -17,22 +17,22 @@
 use anyhow::Context;
 use yaml_rust::Yaml;
 
-use g3_types::acl::{AclAction, AclUserAgentRule};
+use g3_types::acl::{AclUserAgentRule, ActionContract};
 
 use super::AclRuleYamlParser;
 
-impl AclRuleYamlParser for AclUserAgentRule {
+impl<Action: ActionContract> AclRuleYamlParser<Action> for AclUserAgentRule<Action> {
     #[inline]
-    fn get_default_found_action(&self) -> AclAction {
-        AclAction::Forbid
+    fn get_default_found_action(&self) -> Action {
+        Action::default_forbid()
     }
 
     #[inline]
-    fn set_missed_action(&mut self, _action: AclAction) {
-        self.set_missed_action(_action);
+    fn set_missed_action(&mut self, action: Action) {
+        self.set_missed_action(action);
     }
 
-    fn add_rule_for_action(&mut self, action: AclAction, value: &Yaml) -> anyhow::Result<()> {
+    fn add_rule_for_action(&mut self, action: Action, value: &Yaml) -> anyhow::Result<()> {
         let ua_name = crate::value::as_ascii(value)
             .context("user-agent name should be valid ascii string")?;
         self.add_ua_name(ua_name.as_str(), action);
@@ -40,8 +40,10 @@ impl AclRuleYamlParser for AclUserAgentRule {
     }
 }
 
-pub fn as_user_agent_rule(value: &Yaml) -> anyhow::Result<AclUserAgentRule> {
-    let mut builder = AclUserAgentRule::new(AclAction::Permit);
+pub fn as_user_agent_rule<Action: ActionContract>(
+    value: &Yaml,
+) -> anyhow::Result<AclUserAgentRule<Action>> {
+    let mut builder = AclUserAgentRule::new(Action::default_permit());
     builder.parse(value)?;
     Ok(builder)
 }
