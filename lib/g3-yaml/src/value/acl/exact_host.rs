@@ -16,30 +16,32 @@
 
 use yaml_rust::Yaml;
 
-use g3_types::acl::{AclAction, AclExactHostRule};
+use g3_types::acl::{AclExactHostRule, ActionContract};
 
 use super::AclRuleYamlParser;
 
-impl AclRuleYamlParser for AclExactHostRule {
+impl<Action: ActionContract> AclRuleYamlParser<Action> for AclExactHostRule<Action> {
     #[inline]
-    fn get_default_found_action(&self) -> AclAction {
-        AclAction::Permit
+    fn get_default_found_action(&self) -> Action {
+        Action::default_permit()
     }
 
     #[inline]
-    fn set_missed_action(&mut self, _action: AclAction) {
-        self.set_missed_action(_action);
+    fn set_missed_action(&mut self, action: Action) {
+        self.set_missed_action(action);
     }
 
-    fn add_rule_for_action(&mut self, action: AclAction, value: &Yaml) -> anyhow::Result<()> {
+    fn add_rule_for_action(&mut self, action: Action, value: &Yaml) -> anyhow::Result<()> {
         let host = crate::value::as_host(value)?;
         self.add_host(host, action);
         Ok(())
     }
 }
 
-pub(crate) fn as_exact_host_rule(value: &Yaml) -> anyhow::Result<AclExactHostRule> {
-    let mut builder = AclExactHostRule::new(AclAction::Forbid);
+pub(crate) fn as_exact_host_rule<Action: ActionContract>(
+    value: &Yaml,
+) -> anyhow::Result<AclExactHostRule<Action>> {
+    let mut builder = AclExactHostRule::new(Action::default_forbid());
     builder.parse(value)?;
     Ok(builder)
 }

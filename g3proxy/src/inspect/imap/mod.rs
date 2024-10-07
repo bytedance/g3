@@ -18,7 +18,7 @@ use anyhow::anyhow;
 use slog::slog_info;
 use tokio::io::AsyncWriteExt;
 
-use g3_dpi::ProtocolInspectPolicy;
+use g3_dpi::ProtocolInspectAction;
 use g3_imap_proto::response::ByeResponse;
 use g3_imap_proto::CommandPipeline;
 use g3_io_ext::{LineRecvVec, OnceBufReader};
@@ -130,12 +130,13 @@ where
     }
 
     pub(crate) async fn intercept(mut self) -> ServerTaskResult<Option<StreamInspection<SC>>> {
-        let r = match self.ctx.imap_inspect_policy() {
-            ProtocolInspectPolicy::Intercept => self.do_intercept().await,
+        let (_, inspect_action) = self.ctx.imap_inspect_policy().check(self.upstream.host());
+        let r = match inspect_action {
+            ProtocolInspectAction::Intercept => self.do_intercept().await,
             #[cfg(feature = "quic")]
-            ProtocolInspectPolicy::Detour => self.do_detour().await.map(|_| None),
-            ProtocolInspectPolicy::Bypass => self.do_bypass().await.map(|_| None),
-            ProtocolInspectPolicy::Block => self.do_block().await.map(|_| None),
+            ProtocolInspectAction::Detour => self.do_detour().await.map(|_| None),
+            ProtocolInspectAction::Bypass => self.do_bypass().await.map(|_| None),
+            ProtocolInspectAction::Block => self.do_block().await.map(|_| None),
         };
         match r {
             Ok(obj) => {

@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-use std::str::FromStr;
 use std::time::Duration;
+use std::{fmt, str::FromStr};
 
 mod size_limit;
 
+use g3_types::acl::ActionContract;
 pub use size_limit::ProtocolInspectionSizeLimit;
 
 mod http;
@@ -30,9 +31,10 @@ pub use smtp::SmtpInterceptionConfig;
 mod imap;
 pub use imap::ImapInterceptionConfig;
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum ProtocolInspectPolicy {
-    #[default]
+pub type ProtocolInspectPolicy = g3_types::acl_set::AclDstHostRuleSet<ProtocolInspectAction>;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Hash)]
+pub enum ProtocolInspectAction {
     Intercept,
     #[cfg(feature = "quic")]
     Detour,
@@ -40,24 +42,76 @@ pub enum ProtocolInspectPolicy {
     Block,
 }
 
-impl ProtocolInspectPolicy {
+impl ProtocolInspectAction {
     #[inline]
-    pub fn is_block(&self) -> bool {
-        matches!(self, ProtocolInspectPolicy::Block)
+    fn as_str(&self) -> &'static str {
+        self.serialize()
     }
 }
 
-impl FromStr for ProtocolInspectPolicy {
+impl fmt::Display for ProtocolInspectAction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(ProtocolInspectAction::as_str(self))
+    }
+}
+
+impl FromStr for ProtocolInspectAction {
     type Err = ();
 
+    #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "intercept" => Ok(ProtocolInspectPolicy::Intercept),
+        Self::deserialize(s).map_err(|_| ())
+    }
+}
+
+impl g3_types::acl::ActionContract for ProtocolInspectAction {
+    fn default_forbid() -> Self {
+        Self::Block
+    }
+
+    fn default_permit() -> Self {
+        Self::Intercept
+    }
+
+    fn restrict(&self, other: &ProtocolInspectAction) -> ProtocolInspectAction {
+        if other > self {
+            *other
+        } else {
+            *self
+        }
+    }
+
+    fn strict_than(&self, other: &ProtocolInspectAction) -> bool {
+        self.gt(other)
+    }
+
+    fn forbid_early(&self) -> bool {
+        match self {
+            Self::Block => true,
+            Self::Intercept | Self::Bypass => false,
             #[cfg(feature = "quic")]
-            "detour" => Ok(ProtocolInspectPolicy::Detour),
-            "bypass" => Ok(ProtocolInspectPolicy::Bypass),
-            "block" => Ok(ProtocolInspectPolicy::Block),
-            _ => Err(()),
+            Self::Detour => false,
+        }
+    }
+
+    fn serialize(&self) -> &'static str {
+        match self {
+            Self::Intercept => "intercept",
+            Self::Block => "block",
+            Self::Bypass => "bypass",
+            #[cfg(feature = "quic")]
+            Self::Detour => "detour",
+        }
+    }
+
+    fn deserialize(s: &str) -> Result<Self, &str> {
+        match s.to_lowercase().as_str() {
+            "intercept" => Ok(ProtocolInspectAction::Intercept),
+            #[cfg(feature = "quic")]
+            "detour" => Ok(ProtocolInspectAction::Detour),
+            "bypass" => Ok(ProtocolInspectAction::Bypass),
+            "block" => Ok(ProtocolInspectAction::Block),
+            _ => Err(s),
         }
     }
 }

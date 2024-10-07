@@ -16,42 +16,48 @@
 
 use yaml_rust::Yaml;
 
-use g3_types::acl::{AclAction, AclNetworkRuleBuilder};
+use g3_types::acl::{AclNetworkRuleBuilder, ActionContract};
 
 use super::AclRuleYamlParser;
 
-impl AclRuleYamlParser for AclNetworkRuleBuilder {
+impl<Action: ActionContract> AclRuleYamlParser<Action> for AclNetworkRuleBuilder<Action> {
     #[inline]
-    fn get_default_found_action(&self) -> AclAction {
-        AclAction::Permit
+    fn get_default_found_action(&self) -> Action {
+        Action::default_permit()
     }
 
     #[inline]
-    fn set_missed_action(&mut self, _action: AclAction) {
-        self.set_missed_action(_action);
+    fn set_missed_action(&mut self, action: Action) {
+        self.set_missed_action(action);
     }
 
-    fn add_rule_for_action(&mut self, action: AclAction, value: &Yaml) -> anyhow::Result<()> {
+    fn add_rule_for_action(&mut self, action: Action, value: &Yaml) -> anyhow::Result<()> {
         let net = crate::value::as_ip_network(value)?;
         self.add_network(net, action);
         Ok(())
     }
 }
 
-pub(crate) fn as_dst_subnet_rule_builder(value: &Yaml) -> anyhow::Result<AclNetworkRuleBuilder> {
-    let mut builder = AclNetworkRuleBuilder::new_egress(AclAction::Forbid);
+pub(crate) fn as_dst_subnet_rule_builder<Action: ActionContract>(
+    value: &Yaml,
+) -> anyhow::Result<AclNetworkRuleBuilder<Action>> {
+    let mut builder = AclNetworkRuleBuilder::new_egress(Action::default_forbid());
     builder.parse(value)?;
     Ok(builder)
 }
 
-pub fn as_egress_network_rule_builder(value: &Yaml) -> anyhow::Result<AclNetworkRuleBuilder> {
-    let mut builder = AclNetworkRuleBuilder::new_egress(AclAction::Forbid);
+pub fn as_egress_network_rule_builder<Action: ActionContract>(
+    value: &Yaml,
+) -> anyhow::Result<AclNetworkRuleBuilder<Action>> {
+    let mut builder = AclNetworkRuleBuilder::new_egress(Action::default_forbid());
     builder.parse(value)?;
     Ok(builder)
 }
 
-pub fn as_ingress_network_rule_builder(value: &Yaml) -> anyhow::Result<AclNetworkRuleBuilder> {
-    let mut builder = AclNetworkRuleBuilder::new_ingress(AclAction::Forbid);
+pub fn as_ingress_network_rule_builder<Action: ActionContract>(
+    value: &Yaml,
+) -> anyhow::Result<AclNetworkRuleBuilder<Action>> {
+    let mut builder = AclNetworkRuleBuilder::new_ingress(Action::default_forbid());
     builder.parse(value)?;
     Ok(builder)
 }

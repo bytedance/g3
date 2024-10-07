@@ -113,8 +113,8 @@ impl AuditHandle {
     }
 
     #[inline]
-    pub(crate) fn h2_inspect_policy(&self) -> ProtocolInspectPolicy {
-        self.auditor_config.h2_inspect_policy
+    pub(crate) fn h2_inspect_policy(&self) -> &ProtocolInspectPolicy {
+        &self.auditor_config.h2_inspect_policy
     }
 
     #[inline]
@@ -123,13 +123,13 @@ impl AuditHandle {
     }
 
     #[inline]
-    pub(crate) fn websocket_inspect_policy(&self) -> ProtocolInspectPolicy {
-        self.auditor_config.websocket_inspect_policy
+    pub(crate) fn websocket_inspect_policy(&self) -> &ProtocolInspectPolicy {
+        &self.auditor_config.websocket_inspect_policy
     }
 
     #[inline]
-    pub(crate) fn smtp_inspect_policy(&self) -> ProtocolInspectPolicy {
-        self.auditor_config.smtp_inspect_policy
+    pub(crate) fn smtp_inspect_policy(&self) -> &ProtocolInspectPolicy {
+        &self.auditor_config.smtp_inspect_policy
     }
 
     #[inline]
@@ -138,8 +138,8 @@ impl AuditHandle {
     }
 
     #[inline]
-    pub(crate) fn imap_inspect_policy(&self) -> ProtocolInspectPolicy {
-        self.auditor_config.imap_inspect_policy
+    pub(crate) fn imap_inspect_policy(&self) -> &ProtocolInspectPolicy {
+        &self.auditor_config.imap_inspect_policy
     }
 
     #[inline]

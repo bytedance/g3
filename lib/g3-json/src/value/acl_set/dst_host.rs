@@ -21,12 +21,7 @@ use g3_types::acl_set::AclDstHostRuleSetBuilder;
 
 pub fn as_dst_host_rule_set_builder(value: &Value) -> anyhow::Result<AclDstHostRuleSetBuilder> {
     if let Value::Object(map) = value {
-        let mut builder = AclDstHostRuleSetBuilder {
-            exact: None,
-            child: None,
-            regex: None,
-            subnet: None,
-        };
+        let mut builder = AclDstHostRuleSetBuilder::default();
         for (k, v) in map {
             match crate::key::normalize(k).as_str() {
                 "exact_match" | "exact" => {

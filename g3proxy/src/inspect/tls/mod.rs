@@ -22,7 +22,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::runtime::Handle;
 
 use g3_cert_agent::CertAgentHandle;
-use g3_dpi::Protocol;
+use g3_dpi::{Protocol, ProtocolInspectAction};
 use g3_io_ext::{AsyncStream, FlexBufReader, OnceBufReader};
 use g3_slog_types::{LtUpstreamAddr, LtUuid};
 use g3_types::net::{
@@ -167,11 +167,14 @@ impl<SC: ServerConfig> TlsInterceptObject<SC> {
 
     fn retain_alpn_protocol(&self, p: &[u8]) -> bool {
         if p == AlpnProtocol::Http2.identification_sequence() {
-            return !self.ctx.h2_inspect_policy().is_block();
+            let (_, inspect_policy) = self.ctx.h2_inspect_policy().check(self.upstream.host());
+            return inspect_policy != ProtocolInspectAction::Block;
         } else if p == AlpnProtocol::Smtp.identification_sequence() {
-            return !self.ctx.smtp_inspect_policy().is_block();
+            let (_, inspect_policy) = self.ctx.smtp_inspect_policy().check(self.upstream.host());
+            return inspect_policy != ProtocolInspectAction::Block;
         } else if p == AlpnProtocol::Imap.identification_sequence() {
-            return !self.ctx.imap_inspect_policy().is_block();
+            let (_, inspect_policy) = self.ctx.imap_inspect_policy().check(self.upstream.host());
+            return inspect_policy != ProtocolInspectAction::Block;
         }
         true
     }

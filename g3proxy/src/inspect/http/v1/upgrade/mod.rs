@@ -24,7 +24,7 @@ use slog::slog_info;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
-use g3_dpi::Protocol;
+use g3_dpi::{Protocol, ProtocolInspectAction};
 use g3_http::client::HttpTransparentResponse;
 use g3_http::server::{HttpTransparentRequest, UriExt};
 use g3_http::{HttpBodyReader, HttpBodyType};
@@ -153,9 +153,18 @@ where
     where
         CW: AsyncWrite + Unpin,
     {
+        let policy_action = match self.req.host.as_ref() {
+            Some(upstream) => {
+                let (_, policy_action) = self.ctx.websocket_inspect_policy().check(upstream.host());
+                policy_action
+            }
+            None => self.ctx.websocket_inspect_policy().missing_action(),
+        };
+        let block_websocket = policy_action == ProtocolInspectAction::Block;
+
         let upgrade_token_count = self.req.retain_upgrade(|p| {
             if matches!(p, HttpUpgradeToken::Websocket) {
-                return !self.ctx.websocket_inspect_policy().is_block();
+                return !block_websocket;
             }
             if matches!(p, HttpUpgradeToken::ConnectIp) {
                 return false;

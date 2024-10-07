@@ -14,42 +14,42 @@
  * limitations under the License.
  */
 
-use super::{AclAHashRule, AclAction};
+use super::{AclAHashRule, AclAction, ActionContract};
 use crate::net::ProxyRequestType;
 
 #[derive(Clone)]
-pub struct AclProxyRequestRule {
-    missed_action: AclAction,
-    request: AclAHashRule<ProxyRequestType>,
+pub struct AclProxyRequestRule<Action = AclAction> {
+    missed_action: Action,
+    request: AclAHashRule<ProxyRequestType, Action>,
 }
 
-impl AclProxyRequestRule {
+impl<Action: ActionContract> AclProxyRequestRule<Action> {
     #[inline]
-    pub fn new(missed_action: AclAction) -> Self {
+    pub fn new(missed_action: Action) -> Self {
         AclProxyRequestRule {
-            missed_action,
+            missed_action: missed_action.clone(),
             request: AclAHashRule::new(missed_action),
         }
     }
 
     #[inline]
-    pub fn add_request_type(&mut self, request: ProxyRequestType, action: AclAction) {
+    pub fn add_request_type(&mut self, request: ProxyRequestType, action: Action) {
         self.request.add_node(request, action);
     }
 
     #[inline]
-    pub fn set_missed_action(&mut self, action: AclAction) {
-        self.missed_action = action;
+    pub fn set_missed_action(&mut self, action: Action) {
+        self.missed_action = action.clone();
         self.request.set_missed_action(action);
     }
 
     #[inline]
-    pub fn missed_action(&self) -> AclAction {
-        self.missed_action
+    pub fn missed_action(&self) -> Action {
+        self.missed_action.clone()
     }
 
     #[inline]
-    pub fn check_request(&self, request: &ProxyRequestType) -> (bool, AclAction) {
+    pub fn check_request(&self, request: &ProxyRequestType) -> (bool, Action) {
         self.request.check(request)
     }
 }

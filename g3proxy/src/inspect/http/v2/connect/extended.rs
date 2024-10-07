@@ -23,7 +23,7 @@ use h2::{RecvStream, StreamId};
 use http::{header, Request, Response, StatusCode, Version};
 use slog::slog_info;
 
-use g3_dpi::Protocol;
+use g3_dpi::{Protocol, ProtocolInspectAction};
 use g3_h2::{H2StreamReader, H2StreamWriter};
 use g3_http::server::UriExt;
 use g3_slog_types::{LtDateTime, LtDuration, LtH2StreamId, LtUpstreamAddr, LtUuid};
@@ -178,7 +178,14 @@ where
             }
         };
 
-        if self.ctx.websocket_inspect_policy().is_block() {
+        let policy_action = match self.upstream.as_ref() {
+            Some(upstream) => {
+                let (_, policy_action) = self.ctx.websocket_inspect_policy().check(upstream.host());
+                policy_action
+            }
+            None => self.ctx.websocket_inspect_policy().missing_action(),
+        };
+        if policy_action == ProtocolInspectAction::Block {
             self.reply_forbidden(clt_send_rsp);
             intercept_log!(self, "websocket blocked by inspection policy");
             return;
