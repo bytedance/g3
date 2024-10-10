@@ -78,7 +78,7 @@ pub(crate) struct HttpForwardWriterForAdaptation<'a> {
     pub(crate) inner: &'a mut BoxHttpForwardWriter,
 }
 
-impl<'a> AsyncWrite for HttpForwardWriterForAdaptation<'a> {
+impl AsyncWrite for HttpForwardWriterForAdaptation<'_> {
     fn poll_write(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,

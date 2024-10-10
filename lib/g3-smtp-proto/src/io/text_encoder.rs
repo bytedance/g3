@@ -350,7 +350,7 @@ where
     }
 }
 
-impl<'a, R, W> Future for TextDataEncodeTransfer<'a, R, W>
+impl<R, W> Future for TextDataEncodeTransfer<'_, R, W>
 where
     R: AsyncRead + Unpin,
     W: AsyncWrite + Unpin,

@@ -27,7 +27,7 @@ pub(crate) struct HttpRequestWriterForAdaptation<'a, W> {
     pub(crate) inner: &'a mut W,
 }
 
-impl<'a, W> AsyncWrite for HttpRequestWriterForAdaptation<'a, W>
+impl<W> AsyncWrite for HttpRequestWriterForAdaptation<'_, W>
 where
     W: AsyncWrite + Unpin,
 {

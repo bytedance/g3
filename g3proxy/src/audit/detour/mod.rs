@@ -64,7 +64,7 @@ pub(crate) struct StreamDetourContext<'a, SC> {
     request_timeout: Duration,
 }
 
-impl<'a, SC> StreamDetourContext<'a, SC> {
+impl<SC> StreamDetourContext<'_, SC> {
     pub(crate) fn set_payload(&mut self, payload: Vec<u8>) {
         self.payload = payload;
     }

@@ -125,7 +125,7 @@ where
     }
 }
 
-impl<'a, R, W> Future for LimitedBufCopy<'a, R, W>
+impl<R, W> Future for LimitedBufCopy<'_, R, W>
 where
     R: AsyncBufRead + Unpin + ?Sized,
     W: AsyncWrite + Unpin + ?Sized,

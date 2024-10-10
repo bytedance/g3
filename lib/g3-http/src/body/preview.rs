@@ -45,7 +45,7 @@ pub struct PreviewData<'a, R> {
     pub inner: &'a mut R,
 }
 
-impl<'a, R> Future for PreviewData<'a, R>
+impl<R> Future for PreviewData<'_, R>
 where
     R: AsyncBufRead + Unpin,
 {

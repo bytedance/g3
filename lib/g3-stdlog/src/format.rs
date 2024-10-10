@@ -76,7 +76,7 @@ impl AsyncLogFormatter<StdLogValue> for StdLogFormatter {
 
 struct FormatterKv<'a>(&'a mut Vec<(String, String)>);
 
-impl<'a> FormatterKv<'a> {
+impl FormatterKv<'_> {
     fn emit_integer<T: Integer>(&mut self, key: slog::Key, value: T) -> slog::Result {
         let mut buffer = itoa::Buffer::new();
         let value_s = buffer.format(value);
@@ -90,7 +90,7 @@ impl<'a> FormatterKv<'a> {
     }
 }
 
-impl<'a> Serializer for FormatterKv<'a> {
+impl Serializer for FormatterKv<'_> {
     impl_integer_by_itoa! {
         /// Emit `usize`
         usize => emit_usize

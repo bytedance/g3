@@ -94,7 +94,7 @@ impl KeylessUpstreamRecvTask {
                 _ = self.quit_notifier.recv() => {
                     return tokio::time::timeout(self.rsp_recv_timeout, self.recv_all_pending(buf_reader))
                         .await
-                        .unwrap_or_else(|_| Ok(()));
+                        .unwrap_or(Ok(()));
                 }
                 _ = self.reader_close_sender.closed() => {
                     return self.run_offline(buf_reader, timeout_interval).await;
@@ -138,7 +138,7 @@ impl KeylessUpstreamRecvTask {
                 _ = self.quit_notifier.recv() => {
                     return tokio::time::timeout(self.rsp_recv_timeout, self.recv_all_pending(buf_reader))
                         .await
-                        .unwrap_or_else(|_| Ok(()));
+                        .unwrap_or(Ok(()));
                 }
                 _ = timeout_interval.tick() => {
                     self.shared_state.rotate_timeout(|_id, v| {

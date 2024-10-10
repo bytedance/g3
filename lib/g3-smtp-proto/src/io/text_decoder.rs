@@ -227,7 +227,7 @@ impl<'a, R> TextDataDecodeReader<'a, R> {
     }
 }
 
-impl<'a, R> AsyncRead for TextDataDecodeReader<'a, R>
+impl<R> AsyncRead for TextDataDecodeReader<'_, R>
 where
     R: AsyncRead + Unpin,
 {
@@ -241,7 +241,7 @@ where
     }
 }
 
-impl<'a, R> AsyncBufRead for TextDataDecodeReader<'a, R>
+impl<R> AsyncBufRead for TextDataDecodeReader<'_, R>
 where
     R: AsyncRead + Unpin,
 {

@@ -69,7 +69,7 @@ impl<'a, R> TrailerTransfer<'a, R> {
     }
 }
 
-impl<'a, R> Future for TrailerTransfer<'a, R>
+impl<R> Future for TrailerTransfer<'_, R>
 where
     R: AsyncBufRead + Unpin,
 {
@@ -160,7 +160,7 @@ impl<'a, R> H2StreamFromChunkedTransfer<'a, R> {
     }
 }
 
-impl<'a, R> Future for H2StreamFromChunkedTransfer<'a, R>
+impl<R> Future for H2StreamFromChunkedTransfer<'_, R>
 where
     R: AsyncBufRead + Unpin,
 {

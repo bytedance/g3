@@ -228,7 +228,7 @@ impl<'a, R> ChunkedDataDecodeReader<'a, R> {
     }
 }
 
-impl<'a, R> AsyncRead for ChunkedDataDecodeReader<'a, R>
+impl<R> AsyncRead for ChunkedDataDecodeReader<'_, R>
 where
     R: AsyncBufRead + Unpin,
 {

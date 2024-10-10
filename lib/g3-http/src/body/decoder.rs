@@ -101,7 +101,7 @@ where
     }
 }
 
-impl<'a, R> AsyncRead for HttpBodyDecodeReader<'a, R>
+impl<R> AsyncRead for HttpBodyDecodeReader<'_, R>
 where
     R: AsyncBufRead + Unpin,
 {

@@ -152,7 +152,7 @@ trait UdpRelayRecv {
 
 struct ClientRecv<'a, T: UdpRelayClientRecv + ?Sized>(&'a mut T);
 
-impl<'a, T: UdpRelayClientRecv + ?Sized> UdpRelayRecv for ClientRecv<'a, T> {
+impl<T: UdpRelayClientRecv + ?Sized> UdpRelayRecv for ClientRecv<'_, T> {
     fn poll_recv_packet(
         &mut self,
         cx: &mut Context<'_>,
@@ -189,7 +189,7 @@ impl<'a, T: UdpRelayClientRecv + ?Sized> UdpRelayRecv for ClientRecv<'a, T> {
 
 struct RemoteRecv<'a, T: UdpRelayRemoteRecv + ?Sized>(&'a mut T);
 
-impl<'a, T: UdpRelayRemoteRecv + ?Sized> UdpRelayRecv for RemoteRecv<'a, T> {
+impl<T: UdpRelayRemoteRecv + ?Sized> UdpRelayRecv for RemoteRecv<'_, T> {
     fn poll_recv_packet(
         &mut self,
         cx: &mut Context<'_>,
@@ -256,7 +256,7 @@ trait UdpRelaySend {
 
 struct ClientSend<'a, T: UdpRelayClientSend + ?Sized>(&'a mut T);
 
-impl<'a, T: UdpRelayClientSend + ?Sized> UdpRelaySend for ClientSend<'a, T> {
+impl<T: UdpRelayClientSend + ?Sized> UdpRelaySend for ClientSend<'_, T> {
     fn poll_send_packet(
         &mut self,
         cx: &mut Context<'_>,
@@ -288,7 +288,7 @@ impl<'a, T: UdpRelayClientSend + ?Sized> UdpRelaySend for ClientSend<'a, T> {
 
 struct RemoteSend<'a, T: UdpRelayRemoteSend + ?Sized>(&'a mut T);
 
-impl<'a, T: UdpRelayRemoteSend + ?Sized> UdpRelaySend for RemoteSend<'a, T> {
+impl<T: UdpRelayRemoteSend + ?Sized> UdpRelaySend for RemoteSend<'_, T> {
     fn poll_send_packet(
         &mut self,
         cx: &mut Context<'_>,
@@ -428,7 +428,7 @@ where
     }
 }
 
-impl<'a, C, R> Future for UdpRelayClientToRemote<'a, C, R>
+impl<C, R> Future for UdpRelayClientToRemote<'_, C, R>
 where
     C: UdpRelayClientRecv + Unpin + ?Sized,
     R: UdpRelayRemoteSend + Unpin + ?Sized,
@@ -473,7 +473,7 @@ where
     }
 }
 
-impl<'a, C, R> Future for UdpRelayRemoteToClient<'a, C, R>
+impl<C, R> Future for UdpRelayRemoteToClient<'_, C, R>
 where
     C: UdpRelayClientSend + Unpin + ?Sized,
     R: UdpRelayRemoteRecv + Unpin + ?Sized,

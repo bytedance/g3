@@ -174,7 +174,7 @@ impl<'a, R> H2BodyEncodeTransfer<'a, R> {
     }
 }
 
-impl<'a, R> Future for H2BodyEncodeTransfer<'a, R>
+impl<R> Future for H2BodyEncodeTransfer<'_, R>
 where
     R: AsyncRead + Unpin,
 {
@@ -230,7 +230,7 @@ impl<'a, R> ROwnedH2BodyEncodeTransfer<'a, R> {
     }
 }
 
-impl<'a, R> Future for ROwnedH2BodyEncodeTransfer<'a, R>
+impl<R> Future for ROwnedH2BodyEncodeTransfer<'_, R>
 where
     R: AsyncRead + Unpin,
 {

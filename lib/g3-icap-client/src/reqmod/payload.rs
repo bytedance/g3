@@ -48,13 +48,16 @@ impl IcapReqmodResponsePayload {
             "req-hdr" => {
                 let body_part = parts
                     .next()
-                    .ok_or_else(|| {
-                        IcapReqmodParseError::UnsupportedBody("no body byte-offsets pair found")
-                    })?
+                    .ok_or(IcapReqmodParseError::UnsupportedBody(
+                        "no body byte-offsets pair found",
+                    ))?
                     .trim();
-                let (name, value) = body_part.split_once('=').ok_or_else(|| {
-                    IcapReqmodParseError::UnsupportedBody("invalid body byte-offsets pair")
-                })?;
+                let (name, value) =
+                    body_part
+                        .split_once('=')
+                        .ok_or(IcapReqmodParseError::UnsupportedBody(
+                            "invalid body byte-offsets pair",
+                        ))?;
                 let (hdr_len, offset) = usize::from_radix_10(value.as_bytes());
                 if offset != value.len() {
                     return Err(IcapReqmodParseError::UnsupportedBody(
@@ -72,13 +75,16 @@ impl IcapReqmodResponsePayload {
             "res-hdr" => {
                 let body_part = parts
                     .next()
-                    .ok_or_else(|| {
-                        IcapReqmodParseError::UnsupportedBody("no body byte-offsets pair found")
-                    })?
+                    .ok_or(IcapReqmodParseError::UnsupportedBody(
+                        "no body byte-offsets pair found",
+                    ))?
                     .trim();
-                let (name, value) = body_part.split_once('=').ok_or_else(|| {
-                    IcapReqmodParseError::UnsupportedBody("invalid body byte-offsets pair")
-                })?;
+                let (name, value) =
+                    body_part
+                        .split_once('=')
+                        .ok_or(IcapReqmodParseError::UnsupportedBody(
+                            "invalid body byte-offsets pair",
+                        ))?;
                 let (hdr_len, offset) = usize::from_radix_10(value.as_bytes());
                 if offset != value.len() {
                     return Err(IcapReqmodParseError::UnsupportedBody(

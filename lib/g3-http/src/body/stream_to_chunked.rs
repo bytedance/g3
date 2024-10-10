@@ -202,7 +202,7 @@ impl<'a, R, W> StreamToChunkedTransfer<'a, R, W> {
     }
 }
 
-impl<'a, R, W> Future for StreamToChunkedTransfer<'a, R, W>
+impl<R, W> Future for StreamToChunkedTransfer<'_, R, W>
 where
     R: AsyncBufRead + Unpin,
     W: AsyncWrite + Unpin,

@@ -46,13 +46,16 @@ impl IcapRespmodResponsePayload {
             "res-hdr" => {
                 let body_part = parts
                     .next()
-                    .ok_or_else(|| {
-                        IcapRespmodParseError::UnsupportedBody("no body byte-offsets pair found")
-                    })?
+                    .ok_or(IcapRespmodParseError::UnsupportedBody(
+                        "no body byte-offsets pair found",
+                    ))?
                     .trim();
-                let (name, value) = body_part.split_once('=').ok_or_else(|| {
-                    IcapRespmodParseError::UnsupportedBody("invalid body byte-offsets pair")
-                })?;
+                let (name, value) =
+                    body_part
+                        .split_once('=')
+                        .ok_or(IcapRespmodParseError::UnsupportedBody(
+                            "invalid body byte-offsets pair",
+                        ))?;
                 let (hdr_len, offset) = usize::from_radix_10(value.as_bytes());
                 if offset != value.len() {
                     return Err(IcapRespmodParseError::UnsupportedBody(

@@ -35,7 +35,7 @@ impl Value for LtIpAddr {
 
 pub struct LtUpstreamAddr<'a>(pub &'a UpstreamAddr);
 
-impl<'a> Value for LtUpstreamAddr<'a> {
+impl Value for LtUpstreamAddr<'_> {
     fn serialize(
         &self,
         _record: &Record,
@@ -52,7 +52,7 @@ impl<'a> Value for LtUpstreamAddr<'a> {
 
 pub struct LtHost<'a>(pub &'a Host);
 
-impl<'a> Value for LtHost<'a> {
+impl Value for LtHost<'_> {
     fn serialize(
         &self,
         _record: &Record,

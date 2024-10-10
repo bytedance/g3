@@ -145,7 +145,7 @@ impl<'a, R> TextDataReader<'a, R> {
     }
 }
 
-impl<'a, R> AsyncRead for TextDataReader<'a, R>
+impl<R> AsyncRead for TextDataReader<'_, R>
 where
     R: AsyncRead + Unpin,
 {

@@ -143,7 +143,7 @@ impl<'a, R> TrailerReader<'a, R> {
     }
 }
 
-impl<'a, R> Future for TrailerReader<'a, R>
+impl<R> Future for TrailerReader<'_, R>
 where
     R: AsyncBufRead + Unpin,
 {

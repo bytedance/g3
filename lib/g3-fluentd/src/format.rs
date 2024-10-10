@@ -115,13 +115,13 @@ impl Serializer for CounterKV {
 
 struct FormatterKv<'a>(&'a mut Vec<u8>);
 
-impl<'a> FormatterKv<'a> {
+impl FormatterKv<'_> {
     fn write_key(&mut self, key: slog::Key) -> slog::Result {
         rmp::encode::write_str(&mut self.0, key).map_err(|e| slog::Error::Io(e.into()))
     }
 }
 
-impl<'a> Serializer for FormatterKv<'a> {
+impl Serializer for FormatterKv<'_> {
     fn emit_usize(&mut self, key: slog::Key, value: usize) -> slog::Result {
         self.emit_u64(key, value as u64)
     }

@@ -19,7 +19,7 @@ use slog::{Record, Serializer, Value};
 
 pub struct LtDateTime<'a>(pub &'a DateTime<Utc>);
 
-impl<'a> Value for LtDateTime<'a> {
+impl Value for LtDateTime<'_> {
     fn serialize(
         &self,
         _record: &Record,

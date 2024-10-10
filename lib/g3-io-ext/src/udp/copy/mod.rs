@@ -135,7 +135,7 @@ trait UdpCopyRecv {
 
 struct ClientRecv<'a, T: UdpCopyClientRecv + ?Sized>(&'a mut T);
 
-impl<'a, T: UdpCopyClientRecv + ?Sized> UdpCopyRecv for ClientRecv<'a, T> {
+impl<T: UdpCopyClientRecv + ?Sized> UdpCopyRecv for ClientRecv<'_, T> {
     fn poll_recv_packet(
         &mut self,
         cx: &mut Context<'_>,
@@ -171,7 +171,7 @@ impl<'a, T: UdpCopyClientRecv + ?Sized> UdpCopyRecv for ClientRecv<'a, T> {
 
 struct RemoteRecv<'a, T: UdpCopyRemoteRecv + ?Sized>(&'a mut T);
 
-impl<'a, T: UdpCopyRemoteRecv + ?Sized> UdpCopyRecv for RemoteRecv<'a, T> {
+impl<T: UdpCopyRemoteRecv + ?Sized> UdpCopyRecv for RemoteRecv<'_, T> {
     fn poll_recv_packet(
         &mut self,
         cx: &mut Context<'_>,
@@ -237,7 +237,7 @@ trait UdpCopySend {
 
 struct ClientSend<'a, T: UdpCopyClientSend + ?Sized>(&'a mut T);
 
-impl<'a, T: UdpCopyClientSend + ?Sized> UdpCopySend for ClientSend<'a, T> {
+impl<T: UdpCopyClientSend + ?Sized> UdpCopySend for ClientSend<'_, T> {
     fn poll_send_packet(
         &mut self,
         cx: &mut Context<'_>,
@@ -269,7 +269,7 @@ impl<'a, T: UdpCopyClientSend + ?Sized> UdpCopySend for ClientSend<'a, T> {
 
 struct RemoteSend<'a, T: UdpCopyRemoteSend + ?Sized>(&'a mut T);
 
-impl<'a, T: UdpCopyRemoteSend + ?Sized> UdpCopySend for RemoteSend<'a, T> {
+impl<T: UdpCopyRemoteSend + ?Sized> UdpCopySend for RemoteSend<'_, T> {
     fn poll_send_packet(
         &mut self,
         cx: &mut Context<'_>,
@@ -416,7 +416,7 @@ where
     }
 }
 
-impl<'a, C, R> Future for UdpCopyClientToRemote<'a, C, R>
+impl<C, R> Future for UdpCopyClientToRemote<'_, C, R>
 where
     C: UdpCopyClientRecv + Unpin + ?Sized,
     R: UdpCopyRemoteSend + Unpin + ?Sized,
@@ -461,7 +461,7 @@ where
     }
 }
 
-impl<'a, C, R> Future for UdpCopyRemoteToClient<'a, C, R>
+impl<C, R> Future for UdpCopyRemoteToClient<'_, C, R>
 where
     C: UdpCopyClientSend + Unpin + ?Sized,
     R: UdpCopyRemoteRecv + Unpin + ?Sized,

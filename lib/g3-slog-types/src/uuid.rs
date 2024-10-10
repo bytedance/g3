@@ -19,7 +19,7 @@ use uuid::Uuid;
 
 pub struct LtUuid<'a>(pub &'a Uuid);
 
-impl<'a> Value for LtUuid<'a> {
+impl Value for LtUuid<'_> {
     fn serialize(
         &self,
         _record: &Record,

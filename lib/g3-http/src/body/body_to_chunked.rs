@@ -198,7 +198,7 @@ where
     }
 }
 
-impl<'a, R, W> Future for H1BodyToChunkedTransfer<'a, R, W>
+impl<R, W> Future for H1BodyToChunkedTransfer<'_, R, W>
 where
     R: AsyncBufRead + Unpin,
     W: AsyncWrite + Unpin,

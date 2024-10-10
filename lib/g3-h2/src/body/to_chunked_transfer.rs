@@ -333,7 +333,7 @@ impl<'a, W> H2StreamToChunkedTransfer<'a, W> {
     }
 }
 
-impl<'a, W> Future for H2StreamToChunkedTransfer<'a, W>
+impl<W> Future for H2StreamToChunkedTransfer<'_, W>
 where
     W: AsyncWrite + Unpin,
 {

@@ -148,7 +148,7 @@ fn format_content_as_sd(
 
 struct FormatterKv<'a>(&'a mut Vec<u8>);
 
-impl<'a> FormatterKv<'a> {
+impl FormatterKv<'_> {
     fn push_before_value(&mut self, key: &str) {
         self.0.reserve(key.len() + 3);
         self.0.push(b' ');
@@ -216,7 +216,7 @@ impl<'a> FormatterKv<'a> {
     }
 }
 
-impl<'a> Serializer for FormatterKv<'a> {
+impl Serializer for FormatterKv<'_> {
     impl_integer_by_itoa! {
         /// Emit `usize`
         usize => emit_usize

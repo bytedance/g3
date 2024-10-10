@@ -522,7 +522,7 @@ where
     }
 }
 
-impl<'a, R> AsyncRead for HttpBodyReader<'a, R>
+impl<R> AsyncRead for HttpBodyReader<'_, R>
 where
     R: AsyncBufRead + Unpin,
 {

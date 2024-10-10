@@ -22,7 +22,7 @@ use slog::{Key, Record, Serializer, Value};
 
 pub struct LtHttpMethod<'a>(pub &'a Method);
 
-impl<'a> Value for LtHttpMethod<'a> {
+impl Value for LtHttpMethod<'_> {
     fn serialize(
         &self,
         _record: &Record,
@@ -62,7 +62,7 @@ impl<'a> LtHttpUri<'a> {
     }
 }
 
-impl<'a> fmt::Display for LtHttpUri<'a> {
+impl fmt::Display for LtHttpUri<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(scheme) = self.uri.scheme() {
             write!(f, "{scheme}://")?;
@@ -93,7 +93,7 @@ impl<'a> fmt::Display for LtHttpUri<'a> {
     }
 }
 
-impl<'a> Value for LtHttpUri<'a> {
+impl Value for LtHttpUri<'_> {
     fn serialize(
         &self,
         _record: &Record,
@@ -115,7 +115,7 @@ impl<'a> Value for LtHttpUri<'a> {
 
 pub struct LtHttpHeaderValue<'a>(pub &'a HeaderValue);
 
-impl<'a> Value for LtHttpHeaderValue<'a> {
+impl Value for LtHttpHeaderValue<'_> {
     fn serialize(
         &self,
         _record: &Record,
@@ -131,7 +131,7 @@ impl<'a> Value for LtHttpHeaderValue<'a> {
 
 pub struct LtH2StreamId<'a>(pub &'a StreamId);
 
-impl<'a> Value for LtH2StreamId<'a> {
+impl Value for LtH2StreamId<'_> {
     fn serialize(
         &self,
         _record: &Record,
