@@ -17,16 +17,14 @@
 use anyhow::{anyhow, Context};
 use yaml_rust::Yaml;
 
-use g3_types::acl_set::AclDstHostRuleSetBuilder;
+use g3_types::{acl::ActionContract, acl_set::AclDstHostRuleSetBuilder};
 
-pub fn as_dst_host_rule_set_builder(value: &Yaml) -> anyhow::Result<AclDstHostRuleSetBuilder> {
+pub fn as_dst_host_rule_set_builder<Action: ActionContract>(
+    value: &Yaml,
+) -> anyhow::Result<AclDstHostRuleSetBuilder<Action>> {
     if let Yaml::Hash(map) = value {
-        let mut builder = AclDstHostRuleSetBuilder {
-            exact: None,
-            child: None,
-            regex: None,
-            subnet: None,
-        };
+        let mut builder = AclDstHostRuleSetBuilder::default();
+
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
             "exact_match" | "exact" => {
                 let exact_rule = crate::value::acl::as_exact_host_rule(v)

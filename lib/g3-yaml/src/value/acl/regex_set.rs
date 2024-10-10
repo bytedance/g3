@@ -18,22 +18,22 @@ use anyhow::anyhow;
 use regex::Regex;
 use yaml_rust::Yaml;
 
-use g3_types::acl::{AclAction, AclRegexSetRuleBuilder};
+use g3_types::acl::{AclRegexSetRuleBuilder, ActionContract};
 
 use super::AclRuleYamlParser;
 
-impl AclRuleYamlParser for AclRegexSetRuleBuilder {
+impl<Action: ActionContract> AclRuleYamlParser<Action> for AclRegexSetRuleBuilder<Action> {
     #[inline]
-    fn get_default_found_action(&self) -> AclAction {
-        AclAction::Permit
+    fn get_default_found_action(&self) -> Action {
+        Action::default_permit()
     }
 
     #[inline]
-    fn set_missed_action(&mut self, _action: AclAction) {
-        self.set_missed_action(_action);
+    fn set_missed_action(&mut self, action: Action) {
+        self.set_missed_action(action);
     }
 
-    fn add_rule_for_action(&mut self, action: AclAction, value: &Yaml) -> anyhow::Result<()> {
+    fn add_rule_for_action(&mut self, action: Action, value: &Yaml) -> anyhow::Result<()> {
         match value {
             Yaml::String(_) => {
                 let regex = as_regex(value)?;
@@ -56,8 +56,10 @@ fn as_regex(value: &Yaml) -> anyhow::Result<Regex> {
     }
 }
 
-pub(crate) fn as_regex_set_rule_builder(value: &Yaml) -> anyhow::Result<AclRegexSetRuleBuilder> {
-    let mut builder = AclRegexSetRuleBuilder::new(AclAction::Forbid);
+pub(crate) fn as_regex_set_rule_builder<Action: ActionContract>(
+    value: &Yaml,
+) -> anyhow::Result<AclRegexSetRuleBuilder<Action>> {
+    let mut builder = AclRegexSetRuleBuilder::new(Action::default_forbid());
     builder.parse(value)?;
     Ok(builder)
 }

@@ -85,12 +85,24 @@ impl AuditorConfig {
             tls_stream_dump: None,
             log_uri_max_chars: 1024,
             h1_interception: Default::default(),
-            h2_inspect_policy: ProtocolInspectPolicy::Intercept,
+            h2_inspect_policy: ProtocolInspectPolicy::builder_with_missing_action(
+                g3_dpi::ProtocolInspectAction::Intercept,
+            )
+            .build(),
             h2_interception: Default::default(),
-            websocket_inspect_policy: ProtocolInspectPolicy::Intercept,
-            smtp_inspect_policy: ProtocolInspectPolicy::Intercept,
+            websocket_inspect_policy: ProtocolInspectPolicy::builder_with_missing_action(
+                g3_dpi::ProtocolInspectAction::Intercept,
+            )
+            .build(),
+            smtp_inspect_policy: ProtocolInspectPolicy::builder_with_missing_action(
+                g3_dpi::ProtocolInspectAction::Intercept,
+            )
+            .build(),
             smtp_interception: Default::default(),
-            imap_inspect_policy: ProtocolInspectPolicy::Intercept,
+            imap_inspect_policy: ProtocolInspectPolicy::builder_with_missing_action(
+                g3_dpi::ProtocolInspectAction::Intercept,
+            )
+            .build(),
             imap_interception: Default::default(),
             icap_reqmod_service: None,
             icap_respmod_service: None,

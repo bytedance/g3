@@ -17,22 +17,22 @@
 use anyhow::anyhow;
 use yaml_rust::Yaml;
 
-use g3_types::acl::{AclAction, AclChildDomainRuleBuilder};
+use g3_types::acl::{AclChildDomainRuleBuilder, ActionContract};
 
 use super::AclRuleYamlParser;
 
-impl AclRuleYamlParser for AclChildDomainRuleBuilder {
+impl<Action: ActionContract> AclRuleYamlParser<Action> for AclChildDomainRuleBuilder<Action> {
     #[inline]
-    fn get_default_found_action(&self) -> AclAction {
-        AclAction::Permit
+    fn get_default_found_action(&self) -> Action {
+        Action::default_permit()
     }
 
     #[inline]
-    fn set_missed_action(&mut self, _action: AclAction) {
-        self.set_missed_action(_action);
+    fn set_missed_action(&mut self, action: Action) {
+        self.set_missed_action(action);
     }
 
-    fn add_rule_for_action(&mut self, action: AclAction, value: &Yaml) -> anyhow::Result<()> {
+    fn add_rule_for_action(&mut self, action: Action, value: &Yaml) -> anyhow::Result<()> {
         match value {
             Yaml::String(_) => {
                 let host = crate::value::as_domain(value)?;
@@ -44,10 +44,10 @@ impl AclRuleYamlParser for AclChildDomainRuleBuilder {
     }
 }
 
-pub(crate) fn as_child_domain_rule_builder(
+pub(crate) fn as_child_domain_rule_builder<Action: ActionContract>(
     value: &Yaml,
-) -> anyhow::Result<AclChildDomainRuleBuilder> {
-    let mut builder = AclChildDomainRuleBuilder::new(AclAction::Forbid);
+) -> anyhow::Result<AclChildDomainRuleBuilder<Action>> {
+    let mut builder = AclChildDomainRuleBuilder::new(Action::default_forbid());
     builder.parse(value)?;
     Ok(builder)
 }

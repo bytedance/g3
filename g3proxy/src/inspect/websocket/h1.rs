@@ -18,7 +18,7 @@ use anyhow::anyhow;
 use slog::slog_info;
 use tokio::io::AsyncWriteExt;
 
-use g3_dpi::ProtocolInspectPolicy;
+use g3_dpi::ProtocolInspectAction;
 use g3_io_ext::LimitedWriteExt;
 use g3_slog_types::{LtHttpHeaderValue, LtUpstreamAddr, LtUuid};
 use g3_types::net::{UpstreamAddr, WebSocketNotes};
@@ -90,12 +90,12 @@ impl<SC: ServerConfig> H1WebsocketInterceptObject<SC> {
     }
 
     pub(crate) async fn intercept(mut self) -> ServerTaskResult<()> {
-        let r = match self.ctx.websocket_inspect_policy() {
-            ProtocolInspectPolicy::Intercept => self.do_intercept().await,
+        let r = match self.ctx.websocket_inspect_action(self.upstream.host()) {
+            ProtocolInspectAction::Intercept => self.do_intercept().await,
             #[cfg(feature = "quic")]
-            ProtocolInspectPolicy::Detour => self.do_detour().await,
-            ProtocolInspectPolicy::Bypass => self.do_bypass().await,
-            ProtocolInspectPolicy::Block => self.do_block().await,
+            ProtocolInspectAction::Detour => self.do_detour().await,
+            ProtocolInspectAction::Bypass => self.do_bypass().await,
+            ProtocolInspectAction::Block => self.do_block().await,
         };
         match r {
             Ok(_) => {

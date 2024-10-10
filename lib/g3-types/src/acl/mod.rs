@@ -40,7 +40,17 @@ pub use proxy_request::AclProxyRequestRule;
 pub use regex_set::{AclRegexSetRule, AclRegexSetRuleBuilder};
 pub use user_agent::AclUserAgentRule;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd)]
+pub trait ActionContract:
+    Clone + Copy + PartialEq + Eq + PartialOrd + Ord + std::hash::Hash
+{
+    fn default_forbid() -> Self;
+    fn default_permit() -> Self;
+
+    fn serialize(&self) -> &'static str;
+    fn deserialize(s: &str) -> Result<Self, &str>;
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum AclAction {
     Permit,
     PermitAndLog,
@@ -49,32 +59,54 @@ pub enum AclAction {
 }
 
 impl AclAction {
-    #[must_use]
     pub fn restrict(self, other: AclAction) -> AclAction {
-        if other > self {
-            other
-        } else {
-            self
-        }
+        other.max(self)
     }
 
-    pub fn strict_than(&self, other: AclAction) -> bool {
+    pub fn strict_than(self, other: AclAction) -> bool {
         self.gt(&other)
     }
 
-    pub const fn forbid_early(&self) -> bool {
+    pub fn forbid_early(&self) -> bool {
         match self {
             AclAction::ForbidAndLog | AclAction::Forbid => true,
             AclAction::PermitAndLog | AclAction::Permit => false,
         }
     }
+}
 
-    pub const fn as_str(&self) -> &'static str {
+impl AclAction {
+    #[inline]
+    fn as_str(&self) -> &'static str {
+        self.serialize()
+    }
+}
+
+impl ActionContract for AclAction {
+    fn default_permit() -> AclAction {
+        AclAction::Permit
+    }
+
+    fn default_forbid() -> AclAction {
+        AclAction::Forbid
+    }
+
+    fn serialize(&self) -> &'static str {
         match self {
             AclAction::Permit => "Permit",
             AclAction::PermitAndLog => "PermitAndLog",
             AclAction::Forbid => "Forbid",
             AclAction::ForbidAndLog => "ForbidAndLog",
+        }
+    }
+
+    fn deserialize(s: &str) -> Result<Self, &str> {
+        match s.to_ascii_lowercase().as_str() {
+            "permit" | "allow" | "accept" => Ok(AclAction::Permit),
+            "permit_log" | "allow_log" | "accept_log" => Ok(AclAction::PermitAndLog),
+            "forbid" | "deny" | "reject" => Ok(AclAction::Forbid),
+            "forbid_log" | "deny_log" | "reject_log" => Ok(AclAction::ForbidAndLog),
+            _ => Err(s),
         }
     }
 }
@@ -88,14 +120,9 @@ impl fmt::Display for AclAction {
 impl FromStr for AclAction {
     type Err = ();
 
+    #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_ascii_lowercase().as_str() {
-            "permit" | "allow" | "accept" => Ok(AclAction::Permit),
-            "permit_log" | "allow_log" | "accept_log" => Ok(AclAction::PermitAndLog),
-            "forbid" | "deny" | "reject" => Ok(AclAction::Forbid),
-            "forbid_log" | "deny_log" | "reject_log" => Ok(AclAction::ForbidAndLog),
-            _ => Err(()),
-        }
+        AclAction::deserialize(s).map_err(|_| ())
     }
 }
 

@@ -14,44 +14,45 @@
  * limitations under the License.
  */
 
-use super::{AclAction, AclRadixTrieRule, AclRadixTrieRuleBuilder};
+use super::{AclAction, AclRadixTrieRule, AclRadixTrieRuleBuilder, ActionContract};
 use crate::resolve::reverse_idna_domain;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AclChildDomainRuleBuilder(AclRadixTrieRuleBuilder<String>);
+pub struct AclChildDomainRuleBuilder<Action = AclAction>(AclRadixTrieRuleBuilder<String, Action>);
 
-impl AclChildDomainRuleBuilder {
+impl<Action: ActionContract> AclChildDomainRuleBuilder<Action> {
     #[inline]
-    pub fn new(missed_action: AclAction) -> Self {
+    pub fn new(missed_action: Action) -> Self {
         AclChildDomainRuleBuilder(AclRadixTrieRuleBuilder::new(missed_action))
     }
 
     #[inline]
-    pub fn add_node(&mut self, domain: &str, action: AclAction) {
+    pub fn add_node(&mut self, domain: &str, action: Action) {
         self.0.add_node(reverse_idna_domain(domain), action);
     }
 
     #[inline]
-    pub fn set_missed_action(&mut self, action: AclAction) {
+    pub fn set_missed_action(&mut self, action: Action) {
         self.0.set_missed_action(action);
     }
 
     #[inline]
-    pub fn missed_action(&self) -> AclAction {
+    pub fn missed_action(&self) -> Action {
         self.0.missed_action()
     }
 
     #[inline]
-    pub fn build(&self) -> AclChildDomainRule {
+    pub fn build(&self) -> AclChildDomainRule<Action> {
         AclChildDomainRule(self.0.build())
     }
 }
 
-pub struct AclChildDomainRule(AclRadixTrieRule<String>);
+#[derive(Clone)]
+pub struct AclChildDomainRule<Action = AclAction>(AclRadixTrieRule<String, Action>);
 
-impl AclChildDomainRule {
+impl<Action: ActionContract> AclChildDomainRule<Action> {
     #[inline]
-    pub fn check(&self, host: &str) -> (bool, AclAction) {
+    pub fn check(&self, host: &str) -> (bool, Action) {
         let s = reverse_idna_domain(host);
         self.0.check(&s)
     }

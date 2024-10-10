@@ -67,11 +67,12 @@ The keys ars:
 protocol inspect policy
 -----------------------
 
-**type**: string
+**type**: string | map
 
 Set what we should do to a specific application protocol.
 
-The possible value are:
+One can use the *string* type to define an action for any upstream traffic, regardless of the host,
+the possible values for this are:
 
 - intercept
 
@@ -89,7 +90,11 @@ The possible value are:
 
   Block the traffic. And we will try to send application level error code to the client.
 
-.. versionadded:: 1.9.0
+For more complex setups one can also use the *map* type which
+is documented in :ref:`acl rule set <conf_value_acl_rule_set>` with the only
+difference that the action variants are the strings defined here.
+
+.. versionadded:: 1.11.0
 
 .. _conf_value_dpi_protocol_inspection:
 
