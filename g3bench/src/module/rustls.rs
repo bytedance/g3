@@ -15,11 +15,11 @@
  */
 
 use std::fs::File;
-use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
+use rustls_pki_types::pem::PemObject;
 use rustls_pki_types::{CertificateDer, PrivateKeyDer, ServerName};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_rustls::client::TlsStream;
@@ -215,11 +215,9 @@ pub(crate) fn load_certs(path: &Path) -> anyhow::Result<Vec<CertificateDer<'stat
     let file =
         File::open(path).map_err(|e| anyhow!("unable to open file {}: {e}", path.display()))?;
     let mut certs = Vec::new();
-    let mut buf_reader = BufReader::new(file);
-    let results = rustls_pemfile::certs(&mut buf_reader);
-    for (i, cert) in results.enumerate() {
-        let cert =
-            cert.map_err(|e| anyhow!("invalid certificate #{i} in file {}: {e}", path.display()))?;
+    for (i, cert) in CertificateDer::pem_reader_iter(file).enumerate() {
+        let cert = cert
+            .map_err(|e| anyhow!("invalid certificate #{i} in file {}: {e:?}", path.display()))?;
         certs.push(cert);
     }
     if certs.is_empty() {
@@ -230,25 +228,10 @@ pub(crate) fn load_certs(path: &Path) -> anyhow::Result<Vec<CertificateDer<'stat
 }
 
 pub(crate) fn load_key(path: &Path) -> anyhow::Result<PrivateKeyDer<'static>> {
-    use rustls_pemfile::Item;
-
     let file =
         File::open(path).map_err(|e| anyhow!("unable to open file {}: {e}", path.display()))?;
-    match rustls_pemfile::read_one(&mut BufReader::new(file)).map_err(|e| {
-        anyhow!(
-            "failed to read private key from file {}: {e}",
-            path.display()
-        )
-    })? {
-        Some(Item::Pkcs1Key(d)) => Ok(PrivateKeyDer::Pkcs1(d)),
-        Some(Item::Sec1Key(d)) => Ok(PrivateKeyDer::Sec1(d)),
-        Some(Item::Pkcs8Key(d)) => Ok(PrivateKeyDer::Pkcs8(d)),
-        Some(item) => Err(anyhow!(
-            "unsupported item in file {}: {item:?}",
-            path.display()
-        )),
-        None => Err(anyhow!("no valid private key found")),
-    }
+    PrivateKeyDer::from_pem_reader(file)
+        .map_err(|e| anyhow!("invalid private key file {}: {e:?}", path.display()))
 }
 
 impl AppendRustlsArgs for Command {

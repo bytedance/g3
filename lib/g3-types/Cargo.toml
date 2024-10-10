@@ -42,7 +42,6 @@ rustls-pki-types = { workspace = true, optional = true }
 quinn = { workspace = true, optional = true }
 webpki-roots = { version = "0.26", optional = true }
 rustls-native-certs = { version = "0.8", optional = true }
-rustls-pemfile = { workspace = true, optional = true }
 openssl = { workspace = true, optional = true }
 lru = { workspace = true, optional = true }
 bytes = { workspace = true, optional = true }
@@ -59,7 +58,7 @@ quic = []
 auth-crypt = ["dep:digest", "dep:md-5", "dep:sha-1", "dep:blake3", "dep:hex"]
 resolve = ["dep:radix_trie", "dep:fastrand"]
 quinn = ["dep:quinn", "quic"]
-rustls = ["dep:rustls", "dep:rustls-pki-types", "dep:webpki-roots", "dep:rustls-pemfile", "dep:rustls-native-certs", "dep:lru", "quinn?/rustls"]
+rustls = ["dep:rustls", "dep:rustls-pki-types", "dep:webpki-roots", "dep:rustls-native-certs", "dep:lru", "quinn?/rustls"]
 openssl = ["dep:openssl", "dep:lru", "dep:bytes"]
 tongsuo = ["openssl", "openssl/tongsuo", "dep:brotli"]
 aws-lc = ["openssl", "openssl/aws-lc", "rustls?/aws-lc-rs", "dep:brotli"]

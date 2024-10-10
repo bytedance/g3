@@ -14,10 +14,8 @@
  * limitations under the License.
  */
 
-use std::io::{BufRead, BufReader};
-
 use anyhow::{anyhow, Context};
-use rustls_pemfile::Item;
+use rustls_pki_types::pem::PemObject;
 use rustls_pki_types::{CertificateDer, PrivateKeyDer, ServerName};
 use serde_json::Value;
 
@@ -43,8 +41,8 @@ fn as_certificates_from_single_element(
 ) -> anyhow::Result<Vec<CertificateDer<'static>>> {
     if let Value::String(s) = value {
         let mut certs = Vec::new();
-        for (i, r) in rustls_pemfile::certs(&mut BufReader::new(s.as_bytes())).enumerate() {
-            let cert = r.map_err(|e| anyhow!("invalid certificate #{i}: {e}"))?;
+        for (i, r) in CertificateDer::pem_slice_iter(s.as_bytes()).enumerate() {
+            let cert = r.map_err(|e| anyhow!("invalid certificate #{i}: {e:?}"))?;
             certs.push(cert);
         }
         if certs.is_empty() {
@@ -71,27 +69,10 @@ pub fn as_rustls_certificates(value: &Value) -> anyhow::Result<Vec<CertificateDe
     }
 }
 
-fn read_first_private_key<R>(reader: &mut R) -> anyhow::Result<PrivateKeyDer<'static>>
-where
-    R: BufRead,
-{
-    loop {
-        match rustls_pemfile::read_one(reader)
-            .map_err(|e| anyhow!("read private key failed: {e:?}"))?
-        {
-            Some(Item::Pkcs1Key(d)) => return Ok(PrivateKeyDer::Pkcs1(d)),
-            Some(Item::Pkcs8Key(d)) => return Ok(PrivateKeyDer::Pkcs8(d)),
-            Some(Item::Sec1Key(d)) => return Ok(PrivateKeyDer::Sec1(d)),
-            Some(_) => continue,
-            None => return Err(anyhow!("no valid private key found")),
-        }
-    }
-}
-
 pub fn as_rustls_private_key(value: &Value) -> anyhow::Result<PrivateKeyDer<'static>> {
     if let Value::String(s) = value {
-        read_first_private_key(&mut BufReader::new(s.as_bytes()))
-            .context("invalid private key string")
+        PrivateKeyDer::from_pem_slice(s.as_bytes())
+            .map_err(|e| anyhow!("invalid private key string: {e:?}"))
     } else {
         Err(anyhow!(
             "json value type for 'private key' should be 'string'"

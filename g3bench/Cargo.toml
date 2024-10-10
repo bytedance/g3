@@ -27,8 +27,7 @@ atomic-waker.workspace = true
 openssl.workspace = true
 openssl-probe = { workspace = true, optional = true }
 rustls.workspace = true
-rustls-pemfile.workspace = true
-rustls-pki-types.workspace = true
+rustls-pki-types = { workspace = true, features = ["std"] }
 tokio-rustls.workspace = true
 hdrhistogram.workspace = true
 ahash.workspace = true
