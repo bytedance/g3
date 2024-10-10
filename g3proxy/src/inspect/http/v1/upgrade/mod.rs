@@ -153,14 +153,21 @@ where
     where
         CW: AsyncWrite + Unpin,
     {
-        if self.ctx.websocket_inspect_policy().is_block() {
+        let upgrade_token_count = self.req.retain_upgrade(|p| {
+            if matches!(p, HttpUpgradeToken::Websocket) {
+                return !self.ctx.websocket_inspect_policy().is_block();
+            }
+            true
+        });
+
+        if upgrade_token_count == 0 {
             let rsp = HttpProxyClientResponse::forbidden(self.req.version);
             self.should_close = true;
             if rsp.reply_err_to_request(clt_w).await.is_ok() {
                 self.http_notes.rsp_status = rsp.status();
             }
             Err(ServerTaskError::InternalAdapterError(anyhow!(
-                "websocket blocked by inspection policy"
+                "upgrade protocol blocked by inspection policy"
             )))
         } else {
             Ok(())

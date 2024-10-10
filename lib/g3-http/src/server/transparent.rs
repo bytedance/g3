@@ -18,11 +18,11 @@ use std::io::Write;
 use std::str::FromStr;
 
 use bytes::{BufMut, Bytes, BytesMut};
-use http::{HeaderName, Method, Uri, Version};
+use http::{header, HeaderName, Method, Uri, Version};
 use tokio::io::AsyncBufRead;
 
 use g3_io_ext::LimitedBufReadExt;
-use g3_types::net::{HttpHeaderMap, HttpHeaderValue, UpstreamAddr};
+use g3_types::net::{HttpHeaderMap, HttpHeaderValue, HttpUpgradeToken, UpstreamAddr};
 
 use super::{HttpAdaptedRequest, HttpRequestParseError};
 use crate::header::Connection;
@@ -289,6 +289,41 @@ impl HttpTransparentRequest {
         Ok(())
     }
 
+    pub fn retain_upgrade<F>(&mut self, retain: F) -> usize
+    where
+        F: Fn(HttpUpgradeToken) -> bool,
+    {
+        let mut new_upgrade_headers = Vec::new();
+        for header in self.hop_by_hop_headers.get_all(header::UPGRADE) {
+            let value = header.to_str();
+            for s in value.split(',') {
+                let s = s.trim();
+                if s.is_empty() {
+                    continue;
+                }
+
+                let Ok(protocol) = HttpUpgradeToken::from_str(s) else {
+                    continue;
+                };
+                if retain(protocol) {
+                    let mut new_value =
+                        unsafe { HttpHeaderValue::from_string_unchecked(s.to_string()) };
+                    if let Some(name) = header.original_name() {
+                        new_value.set_original_name(name);
+                    }
+                    new_upgrade_headers.push(new_value);
+                }
+            }
+        }
+
+        self.hop_by_hop_headers.remove(header::UPGRADE);
+        let retain_count = new_upgrade_headers.len();
+        for value in new_upgrade_headers {
+            self.hop_by_hop_headers.append(header::UPGRADE, value);
+        }
+        retain_count
+    }
+
     fn insert_hop_by_hop_header(
         &mut self,
         name: HeaderName,
@@ -543,5 +578,24 @@ mod tests {
             .unwrap();
         assert_eq!(data.as_ref(), content.as_slice());
         assert!(!request.keep_alive());
+    }
+
+    #[tokio::test]
+    async fn connection_upgrade() {
+        let content = b"GET /hello.txt HTTP/1.1\r\n\
+            Host: www.example.com\r\n\
+            Connection: upgrade\r\n\
+            Upgrade: Websocket,  HTTP/2.0\r\n\
+            \r\n";
+        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
+        let stream = StreamReader::new(stream);
+        let mut buf_stream = BufReader::new(stream);
+        let (mut request, _) = HttpTransparentRequest::parse(&mut buf_stream, 4096, false)
+            .await
+            .unwrap();
+        let left_tokens = request.retain_upgrade(|p| matches!(p, HttpUpgradeToken::Http(_)));
+        assert_eq!(left_tokens, 1);
+        let token = request.hop_by_hop_headers.get(header::UPGRADE).unwrap();
+        assert_eq!(token.to_str(), "HTTP/2.0");
     }
 }
