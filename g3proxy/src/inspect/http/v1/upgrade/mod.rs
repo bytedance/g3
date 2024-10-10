@@ -163,7 +163,7 @@ where
             true
         });
 
-        if upgrade_token_count == 0 {
+        if upgrade_token_count == Some(0) {
             let rsp = HttpProxyClientResponse::forbidden(self.req.version);
             self.should_close = true;
             if rsp.reply_err_to_request(clt_w).await.is_ok() {
