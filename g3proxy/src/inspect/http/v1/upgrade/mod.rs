@@ -149,28 +149,21 @@ where
         }
     }
 
-    pub(super) async fn forward_icap<CW, UR, UW>(
-        &mut self,
-        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
-        reqmod_client: &IcapReqmodClient,
-    ) -> Option<(HttpUpgradeToken, UpstreamAddr)>
+    async fn check_blocked<CW>(&mut self, clt_w: &mut CW) -> ServerTaskResult<()>
     where
         CW: AsyncWrite + Unpin,
-        UR: AsyncRead + Unpin,
-        UW: AsyncWrite + Unpin,
     {
-        match self.do_forward(rsp_io, reqmod_client).await {
-            Ok(v) => {
-                intercept_log!(self, &v, "ok");
-                v
+        if self.ctx.websocket_inspect_policy().is_block() {
+            let rsp = HttpProxyClientResponse::forbidden(self.req.version);
+            self.should_close = true;
+            if rsp.reply_err_to_request(clt_w).await.is_ok() {
+                self.http_notes.rsp_status = rsp.status();
             }
-            Err(e) => {
-                if self.send_error_response {
-                    self.reply_task_err(&e, &mut rsp_io.clt_w).await;
-                }
-                intercept_log!(self, &None::<(HttpUpgradeToken, UpstreamAddr)>, "{e}");
-                None
-            }
+            Err(ServerTaskError::InternalAdapterError(anyhow!(
+                "websocket blocked by inspection policy"
+            )))
+        } else {
+            Ok(())
         }
     }
 
@@ -183,7 +176,7 @@ where
         UR: AsyncRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
-        match self.send_request(None, rsp_io).await {
+        match self.do_forward_original(rsp_io).await {
             Ok(v) => {
                 intercept_log!(self, &v, "ok");
                 v
@@ -198,7 +191,45 @@ where
         }
     }
 
-    async fn do_forward<CW, UR, UW>(
+    pub(super) async fn do_forward_original<CW, UR, UW>(
+        &mut self,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
+    ) -> ServerTaskResult<Option<(HttpUpgradeToken, UpstreamAddr)>>
+    where
+        CW: AsyncWrite + Unpin,
+        UR: AsyncRead + Unpin,
+        UW: AsyncWrite + Unpin,
+    {
+        self.check_blocked(&mut rsp_io.clt_w).await?;
+        self.send_request(None, rsp_io).await
+    }
+
+    pub(super) async fn forward_icap<CW, UR, UW>(
+        &mut self,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
+        reqmod_client: &IcapReqmodClient,
+    ) -> Option<(HttpUpgradeToken, UpstreamAddr)>
+    where
+        CW: AsyncWrite + Unpin,
+        UR: AsyncRead + Unpin,
+        UW: AsyncWrite + Unpin,
+    {
+        match self.do_forward_icap(rsp_io, reqmod_client).await {
+            Ok(v) => {
+                intercept_log!(self, &v, "ok");
+                v
+            }
+            Err(e) => {
+                if self.send_error_response {
+                    self.reply_task_err(&e, &mut rsp_io.clt_w).await;
+                }
+                intercept_log!(self, &None::<(HttpUpgradeToken, UpstreamAddr)>, "{e}");
+                None
+            }
+        }
+    }
+
+    async fn do_forward_icap<CW, UR, UW>(
         &mut self,
         rsp_io: &mut HttpResponseIo<CW, UR, UW>,
         reqmod_client: &IcapReqmodClient,
@@ -208,6 +239,7 @@ where
         UR: AsyncRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
+        self.check_blocked(&mut rsp_io.clt_w).await?;
         match reqmod_client
             .h1_adapter(
                 self.ctx.server_config.limited_copy_config(),

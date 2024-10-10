@@ -40,6 +40,13 @@ pub enum ProtocolInspectPolicy {
     Block,
 }
 
+impl ProtocolInspectPolicy {
+    #[inline]
+    pub fn is_block(&self) -> bool {
+        matches!(self, ProtocolInspectPolicy::Block)
+    }
+}
+
 impl FromStr for ProtocolInspectPolicy {
     type Err = ();
 
