@@ -30,13 +30,13 @@ impl<Action: ActionContract> AclExactPortRule<Action> {
 
     pub fn add_port_range(&mut self, port_range: RangeInclusive<u16>, action: Action) {
         for port in port_range {
-            self.0.add_node(port, action.clone());
+            self.0.add_node(port, action);
         }
     }
 
     pub fn add_ports(&mut self, ports: Ports, action: Action) {
         for port in ports {
-            self.0.add_node(port, action.clone());
+            self.0.add_node(port, action);
         }
     }
 

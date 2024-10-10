@@ -74,11 +74,7 @@ impl<SC: ServerConfig> H2WebsocketInterceptObject<SC> {
         ups_r: RecvStream,
         ups_w: SendStream<Bytes>,
     ) {
-        let (_, inspect_action) = self
-            .ctx
-            .websocket_inspect_policy()
-            .check(self.upstream.host());
-        let r = match inspect_action {
+        let r = match self.ctx.websocket_inspect_action(self.upstream.host()) {
             ProtocolInspectAction::Intercept => self.do_intercept(clt_r, clt_w, ups_r, ups_w).await,
             #[cfg(feature = "quic")]
             ProtocolInspectAction::Detour => self.do_detour(clt_r, clt_w, ups_r, ups_w).await,

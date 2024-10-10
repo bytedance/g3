@@ -179,11 +179,8 @@ where
         };
 
         let policy_action = match self.upstream.as_ref() {
-            Some(upstream) => {
-                let (_, policy_action) = self.ctx.websocket_inspect_policy().check(upstream.host());
-                policy_action
-            }
-            None => self.ctx.websocket_inspect_policy().missing_action(),
+            Some(upstream) => self.ctx.websocket_inspect_action(upstream.host()),
+            None => self.ctx.websocket_inspect_missing_action(),
         };
         if policy_action == ProtocolInspectAction::Block {
             self.reply_forbidden(clt_send_rsp);

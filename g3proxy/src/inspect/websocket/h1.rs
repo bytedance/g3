@@ -90,11 +90,7 @@ impl<SC: ServerConfig> H1WebsocketInterceptObject<SC> {
     }
 
     pub(crate) async fn intercept(mut self) -> ServerTaskResult<()> {
-        let (_, inspect_action) = self
-            .ctx
-            .websocket_inspect_policy()
-            .check(self.upstream.host());
-        let r = match inspect_action {
+        let r = match self.ctx.websocket_inspect_action(self.upstream.host()) {
             ProtocolInspectAction::Intercept => self.do_intercept().await,
             #[cfg(feature = "quic")]
             ProtocolInspectAction::Detour => self.do_detour().await,

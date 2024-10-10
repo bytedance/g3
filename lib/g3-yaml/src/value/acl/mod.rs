@@ -65,7 +65,7 @@ trait AclRuleYamlParser<Action: ActionContract> {
                             .map_err(|_| anyhow!("the key {k} is not a valid Action"))?;
                         if let Yaml::Array(seq) = v {
                             for (i, v) in seq.iter().enumerate() {
-                                self.add_rule_for_action(action.clone(), v)
+                                self.add_rule_for_action(action, v)
                                     .context(format!("invalid value for {k}#{i}"))?;
                             }
                             Ok(())

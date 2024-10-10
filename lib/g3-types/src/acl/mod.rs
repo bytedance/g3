@@ -40,24 +40,39 @@ pub use proxy_request::AclProxyRequestRule;
 pub use regex_set::{AclRegexSetRule, AclRegexSetRuleBuilder};
 pub use user_agent::AclUserAgentRule;
 
-pub trait ActionContract: Clone + PartialEq + Eq + PartialOrd + std::hash::Hash {
+pub trait ActionContract:
+    Clone + Copy + PartialEq + Eq + PartialOrd + Ord + std::hash::Hash
+{
     fn default_forbid() -> Self;
     fn default_permit() -> Self;
-
-    fn restrict(&self, other: &Self) -> Self;
-    fn strict_than(&self, other: &Self) -> bool;
-    fn forbid_early(&self) -> bool;
 
     fn serialize(&self) -> &'static str;
     fn deserialize(s: &str) -> Result<Self, &str>;
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum AclAction {
     Permit,
     PermitAndLog,
     Forbid,
     ForbidAndLog,
+}
+
+impl AclAction {
+    pub fn restrict(self, other: AclAction) -> AclAction {
+        other.max(self)
+    }
+
+    pub fn strict_than(self, other: AclAction) -> bool {
+        self.gt(&other)
+    }
+
+    pub fn forbid_early(&self) -> bool {
+        match self {
+            AclAction::ForbidAndLog | AclAction::Forbid => true,
+            AclAction::PermitAndLog | AclAction::Permit => false,
+        }
+    }
 }
 
 impl AclAction {
@@ -74,25 +89,6 @@ impl ActionContract for AclAction {
 
     fn default_forbid() -> AclAction {
         AclAction::Forbid
-    }
-
-    fn restrict(&self, other: &AclAction) -> AclAction {
-        if other > self {
-            *other
-        } else {
-            *self
-        }
-    }
-
-    fn strict_than(&self, other: &AclAction) -> bool {
-        self.gt(other)
-    }
-
-    fn forbid_early(&self) -> bool {
-        match self {
-            AclAction::ForbidAndLog | AclAction::Forbid => true,
-            AclAction::PermitAndLog | AclAction::Permit => false,
-        }
     }
 
     fn serialize(&self) -> &'static str {
@@ -137,17 +133,17 @@ mod tests {
     #[test]
     fn acl_action_order() {
         assert_eq!(
-            AclAction::Permit.restrict(&AclAction::PermitAndLog),
+            AclAction::Permit.restrict(AclAction::PermitAndLog),
             AclAction::PermitAndLog
         );
 
         assert_eq!(
-            AclAction::Forbid.restrict(&AclAction::ForbidAndLog),
+            AclAction::Forbid.restrict(AclAction::ForbidAndLog),
             AclAction::ForbidAndLog
         );
 
         assert_eq!(
-            AclAction::Permit.restrict(&AclAction::Forbid),
+            AclAction::Permit.restrict(AclAction::Forbid),
             AclAction::Forbid
         );
     }

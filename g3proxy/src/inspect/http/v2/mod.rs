@@ -110,8 +110,7 @@ where
     SC: ServerConfig + Send + Sync + 'static,
 {
     pub(crate) async fn intercept(mut self) -> ServerTaskResult<()> {
-        let (_, inspect_action) = self.ctx.h2_inspect_policy().check(self.upstream.host());
-        let r = match inspect_action {
+        let r = match self.ctx.h2_inspect_action(self.upstream.host()) {
             ProtocolInspectAction::Intercept => self
                 .do_intercept()
                 .await
