@@ -289,11 +289,12 @@ impl HttpTransparentRequest {
         Ok(())
     }
 
-    pub fn retain_upgrade<F>(&mut self, retain: F) -> usize
+    pub fn retain_upgrade<F>(&mut self, retain: F) -> Option<usize>
     where
         F: Fn(HttpUpgradeToken) -> bool,
     {
         let mut new_upgrade_headers = Vec::new();
+        let mut headers_found = false;
         for header in self.hop_by_hop_headers.get_all(header::UPGRADE) {
             let value = header.to_str();
             for s in value.split(',') {
@@ -305,6 +306,7 @@ impl HttpTransparentRequest {
                 let Ok(protocol) = HttpUpgradeToken::from_str(s) else {
                     continue;
                 };
+                headers_found = true;
                 if retain(protocol) {
                     let mut new_value =
                         unsafe { HttpHeaderValue::from_string_unchecked(s.to_string()) };
@@ -321,7 +323,7 @@ impl HttpTransparentRequest {
         for value in new_upgrade_headers {
             self.hop_by_hop_headers.append(header::UPGRADE, value);
         }
-        retain_count
+        headers_found.then_some(retain_count)
     }
 
     fn insert_hop_by_hop_header(
@@ -593,7 +595,9 @@ mod tests {
         let (mut request, _) = HttpTransparentRequest::parse(&mut buf_stream, 4096, false)
             .await
             .unwrap();
-        let left_tokens = request.retain_upgrade(|p| matches!(p, HttpUpgradeToken::Http(_)));
+        let left_tokens = request
+            .retain_upgrade(|p| matches!(p, HttpUpgradeToken::Http(_)))
+            .unwrap();
         assert_eq!(left_tokens, 1);
         let token = request.hop_by_hop_headers.get(header::UPGRADE).unwrap();
         assert_eq!(token.to_str(), "HTTP/2.0");
