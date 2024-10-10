@@ -148,9 +148,8 @@ async-trait = "0.1"
 async-recursion = "1.1"
 pin-project-lite = "0.2"
 #
-rustls = { version = "0.23.14", default-features = false, features = ["std", "tls12", "ring", "brotli"] }
 rustls-pki-types = { version = "1", default-features = false }
-rustls-pemfile = "2"
+rustls = { version = "0.23.14", default-features = false, features = ["std", "tls12", "ring", "brotli"] }
 tokio-rustls = { version = "0.26", default-features = false, features = ["tls12", "ring"] }
 quinn = { version = "0.11", default-features = false, features = ["runtime-tokio"] }
 #
