@@ -167,14 +167,14 @@ impl<SC: ServerConfig> TlsInterceptObject<SC> {
 
     fn retain_alpn_protocol(&self, p: &[u8]) -> bool {
         if p == AlpnProtocol::Http2.identification_sequence() {
-            let (_, inspect_policy) = self.ctx.h2_inspect_policy().check(self.upstream.host());
-            return inspect_policy != ProtocolInspectAction::Block;
+            return ProtocolInspectAction::Block
+                != self.ctx.h2_inspect_action(self.upstream.host());
         } else if p == AlpnProtocol::Smtp.identification_sequence() {
-            let (_, inspect_policy) = self.ctx.smtp_inspect_policy().check(self.upstream.host());
-            return inspect_policy != ProtocolInspectAction::Block;
+            return ProtocolInspectAction::Block
+                != self.ctx.smtp_inspect_action(self.upstream.host());
         } else if p == AlpnProtocol::Imap.identification_sequence() {
-            let (_, inspect_policy) = self.ctx.imap_inspect_policy().check(self.upstream.host());
-            return inspect_policy != ProtocolInspectAction::Block;
+            return ProtocolInspectAction::Block
+                != self.ctx.imap_inspect_action(self.upstream.host());
         }
         true
     }

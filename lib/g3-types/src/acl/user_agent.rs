@@ -45,7 +45,7 @@ impl<Action: ActionContract> AclUserAgentRule<Action> {
 
     #[inline]
     pub fn missed_action(&self) -> Action {
-        self.missed_action.clone()
+        self.missed_action
     }
 
     #[inline]
@@ -81,14 +81,14 @@ impl<Action: ActionContract> AclUserAgentRule<Action> {
                         continue;
                     }
 
-                    return (true, action.clone());
+                    return (true, *action);
                 } else {
                     break;
                 }
             }
         }
 
-        (false, self.missed_action.clone())
+        (false, self.missed_action)
     }
 }
 

@@ -31,8 +31,8 @@ impl<Action: ActionContract> AclExactHostRule<Action> {
     #[inline]
     pub fn new(missed_action: Action) -> Self {
         AclExactHostRule {
-            missed_action: missed_action.clone(),
-            domain: AclAHashRule::new(missed_action.clone()),
+            missed_action,
+            domain: AclAHashRule::new(missed_action),
             ip: AclAHashRule::new(missed_action),
         }
     }
@@ -56,14 +56,14 @@ impl<Action: ActionContract> AclExactHostRule<Action> {
 
     #[inline]
     pub fn set_missed_action(&mut self, action: Action) {
-        self.missed_action = action.clone();
-        self.domain.set_missed_action(action.clone());
+        self.missed_action = action;
+        self.domain.set_missed_action(action);
         self.ip.set_missed_action(action);
     }
 
     #[inline]
     pub fn missed_action(&self) -> Action {
-        self.missed_action.clone()
+        self.missed_action
     }
 
     #[inline]

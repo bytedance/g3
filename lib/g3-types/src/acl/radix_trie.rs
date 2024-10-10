@@ -55,19 +55,19 @@ where
 
     #[inline]
     pub fn missed_action(&self) -> Action {
-        self.missed_action.clone()
+        self.missed_action
     }
 
     pub fn build(&self) -> AclRadixTrieRule<K, Action> {
         let mut trie = Trie::new();
 
         for (k, v) in &self.inner {
-            trie.insert(k.clone(), v.clone());
+            trie.insert(k.clone(), *v);
         }
 
         AclRadixTrieRule {
             inner: trie,
-            missed_action: self.missed_action.clone(),
+            missed_action: self.missed_action,
         }
     }
 }
@@ -85,9 +85,9 @@ impl<K: TrieKey, Action: ActionContract> AclRadixTrieRule<K, Action> {
         Q: TrieKey,
     {
         if let Some(action) = self.inner.get_ancestor_value(key) {
-            (true, action.clone())
+            (true, *action)
         } else {
-            (false, self.missed_action.clone())
+            (false, self.missed_action)
         }
     }
 }

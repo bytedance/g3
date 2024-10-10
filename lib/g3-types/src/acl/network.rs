@@ -87,7 +87,7 @@ impl<Action: ActionContract> AclNetworkRuleBuilder<Action> {
 
     #[inline]
     pub fn missed_action(&self) -> Action {
-        self.missed_action.clone()
+        self.missed_action
     }
 
     #[inline]
@@ -98,11 +98,11 @@ impl<Action: ActionContract> AclNetworkRuleBuilder<Action> {
     pub fn build(&self) -> AclNetworkRule<Action> {
         let mut inner = IpNetworkTable::new();
         for (net, action) in &self.inner {
-            inner.insert(*net, action.clone());
+            inner.insert(*net, *action);
         }
         AclNetworkRule {
             inner,
-            default_action: self.missed_action.clone(),
+            default_action: self.missed_action,
         }
     }
 }
@@ -119,11 +119,11 @@ impl<Action: ActionContract> Clone for AclNetworkRule<Action> {
                 let (ipv4_size, ipv6_size) = self.inner.len();
                 let mut table = IpNetworkTable::with_capacity(ipv4_size, ipv6_size);
                 for (k, v) in self.inner.iter() {
-                    table.insert(k, v.clone());
+                    table.insert(k, *v);
                 }
                 table
             },
-            default_action: self.default_action.clone(),
+            default_action: self.default_action,
         }
     }
 }
@@ -131,9 +131,9 @@ impl<Action: ActionContract> Clone for AclNetworkRule<Action> {
 impl<Action: ActionContract> AclNetworkRule<Action> {
     pub fn check(&self, ip: IpAddr) -> (bool, Action) {
         if let Some((_, action)) = self.inner.longest_match(ip) {
-            (true, action.clone())
+            (true, *action)
         } else {
-            (false, self.default_action.clone())
+            (false, self.default_action)
         }
     }
 }

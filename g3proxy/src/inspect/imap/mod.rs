@@ -130,8 +130,7 @@ where
     }
 
     pub(crate) async fn intercept(mut self) -> ServerTaskResult<Option<StreamInspection<SC>>> {
-        let (_, inspect_action) = self.ctx.imap_inspect_policy().check(self.upstream.host());
-        let r = match inspect_action {
+        let r = match self.ctx.imap_inspect_action(self.upstream.host()) {
             ProtocolInspectAction::Intercept => self.do_intercept().await,
             #[cfg(feature = "quic")]
             ProtocolInspectAction::Detour => self.do_detour().await.map(|_| None),

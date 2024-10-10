@@ -154,11 +154,8 @@ where
         CW: AsyncWrite + Unpin,
     {
         let policy_action = match self.req.host.as_ref() {
-            Some(upstream) => {
-                let (_, policy_action) = self.ctx.websocket_inspect_policy().check(upstream.host());
-                policy_action
-            }
-            None => self.ctx.websocket_inspect_policy().missing_action(),
+            Some(upstream) => self.ctx.websocket_inspect_action(upstream.host()),
+            None => self.ctx.websocket_inspect_missing_action(),
         };
         let block_websocket = policy_action == ProtocolInspectAction::Block;
 

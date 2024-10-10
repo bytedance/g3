@@ -51,14 +51,14 @@ impl<Action: ActionContract> AclRegexSetRuleBuilder<Action> {
 
     #[inline]
     pub fn missed_action(&self) -> Action {
-        self.missed_action.clone()
+        self.missed_action
     }
 
     pub fn build(&self) -> AclRegexSetRule<Action> {
         let mut set_map: FxHashMap<Action, Vec<_>> = FxHashMap::default();
 
         for (r, action) in &self.inner {
-            set_map.entry(action.clone()).or_default().push(r.as_str());
+            set_map.entry(*action).or_default().push(r.as_str());
         }
 
         AclRegexSetRule {
@@ -66,7 +66,7 @@ impl<Action: ActionContract> AclRegexSetRuleBuilder<Action> {
                 .into_iter()
                 .map(|(k, v)| (k, RegexSet::new(v).unwrap()))
                 .collect(),
-            missed_action: self.missed_action.clone(),
+            missed_action: self.missed_action,
         }
     }
 }
@@ -81,10 +81,10 @@ impl<Action: ActionContract> AclRegexSetRule<Action> {
     pub fn check(&self, text: &str) -> (bool, Action) {
         for (action, set) in &self.set_map {
             if set.is_match(text) {
-                return (true, action.clone());
+                return (true, *action);
             }
         }
-        (false, self.missed_action.clone())
+        (false, self.missed_action)
     }
 }
 

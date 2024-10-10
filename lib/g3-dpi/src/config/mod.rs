@@ -14,12 +14,15 @@
  * limitations under the License.
  */
 
+use std::fmt;
+use std::str::FromStr;
 use std::time::Duration;
-use std::{fmt, str::FromStr};
+
+use g3_types::acl::ActionContract;
+use g3_types::acl_set::AclDstHostRuleSet;
 
 mod size_limit;
 
-use g3_types::acl::ActionContract;
 pub use size_limit::ProtocolInspectionSizeLimit;
 
 mod http;
@@ -31,9 +34,9 @@ pub use smtp::SmtpInterceptionConfig;
 mod imap;
 pub use imap::ImapInterceptionConfig;
 
-pub type ProtocolInspectPolicy = g3_types::acl_set::AclDstHostRuleSet<ProtocolInspectAction>;
+pub type ProtocolInspectPolicy = AclDstHostRuleSet<ProtocolInspectAction>;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum ProtocolInspectAction {
     Intercept,
     #[cfg(feature = "quic")]
@@ -64,34 +67,13 @@ impl FromStr for ProtocolInspectAction {
     }
 }
 
-impl g3_types::acl::ActionContract for ProtocolInspectAction {
+impl ActionContract for ProtocolInspectAction {
     fn default_forbid() -> Self {
         Self::Block
     }
 
     fn default_permit() -> Self {
         Self::Intercept
-    }
-
-    fn restrict(&self, other: &ProtocolInspectAction) -> ProtocolInspectAction {
-        if other > self {
-            *other
-        } else {
-            *self
-        }
-    }
-
-    fn strict_than(&self, other: &ProtocolInspectAction) -> bool {
-        self.gt(other)
-    }
-
-    fn forbid_early(&self) -> bool {
-        match self {
-            Self::Block => true,
-            Self::Intercept | Self::Bypass => false,
-            #[cfg(feature = "quic")]
-            Self::Detour => false,
-        }
     }
 
     fn serialize(&self) -> &'static str {

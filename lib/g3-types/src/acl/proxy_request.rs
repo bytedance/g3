@@ -27,7 +27,7 @@ impl<Action: ActionContract> AclProxyRequestRule<Action> {
     #[inline]
     pub fn new(missed_action: Action) -> Self {
         AclProxyRequestRule {
-            missed_action: missed_action.clone(),
+            missed_action,
             request: AclAHashRule::new(missed_action),
         }
     }
@@ -39,13 +39,13 @@ impl<Action: ActionContract> AclProxyRequestRule<Action> {
 
     #[inline]
     pub fn set_missed_action(&mut self, action: Action) {
-        self.missed_action = action.clone();
+        self.missed_action = action;
         self.request.set_missed_action(action);
     }
 
     #[inline]
     pub fn missed_action(&self) -> Action {
-        self.missed_action.clone()
+        self.missed_action
     }
 
     #[inline]

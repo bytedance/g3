@@ -21,7 +21,7 @@ use slog::Logger;
 use tokio::net::UdpSocket;
 
 use g3_daemon::server::ClientConnectionInfo;
-use g3_types::acl::{AclAction, AclNetworkRule, ActionContract};
+use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::acl_set::AclDstHostRuleSet;
 use g3_types::net::UpstreamAddr;
 
@@ -70,7 +70,7 @@ impl CommonTaskContext {
             if found && action.forbid_early() {
                 return action;
             };
-            default_action = default_action.restrict(&action);
+            default_action = default_action.restrict(action);
         }
 
         if let Some(filter) = &self.dst_host_filter {
@@ -78,7 +78,7 @@ impl CommonTaskContext {
             if found && action.forbid_early() {
                 return action;
             }
-            default_action = default_action.restrict(&action);
+            default_action = default_action.restrict(action);
         }
 
         default_action

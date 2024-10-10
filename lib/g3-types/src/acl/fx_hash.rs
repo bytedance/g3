@@ -68,9 +68,9 @@ where
         Q: Hash + Eq + ?Sized,
     {
         if let Some(action) = self.inner.get(node) {
-            (true, action.clone())
+            (true, *action)
         } else {
-            (false, self.missed_action.clone())
+            (false, self.missed_action)
         }
     }
 }

@@ -21,7 +21,7 @@ use slog::Logger;
 
 use g3_daemon::server::ClientConnectionInfo;
 use g3_icap_client::reqmod::h1::HttpAdapterErrorResponse;
-use g3_types::acl::{AclAction, ActionContract};
+use g3_types::acl::AclAction;
 use g3_types::acl_set::AclDstHostRuleSet;
 use g3_types::net::{OpensslClientConfig, UpstreamAddr};
 
@@ -73,7 +73,7 @@ impl CommonTaskContext {
             if found && action.forbid_early() {
                 return action;
             };
-            default_action = default_action.restrict(&action);
+            default_action = default_action.restrict(action);
         }
 
         if let Some(filter) = &self.dst_host_filter {
@@ -81,7 +81,7 @@ impl CommonTaskContext {
             if found && action.forbid_early() {
                 return action;
             }
-            default_action = default_action.restrict(&action);
+            default_action = default_action.restrict(action);
         }
 
         default_action
