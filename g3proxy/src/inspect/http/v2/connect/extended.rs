@@ -109,6 +109,19 @@ where
         }
     }
 
+    fn reply_forbidden(&mut self, mut clt_send_rsp: SendResponse<Bytes>) {
+        if let Ok(rsp) = Response::builder()
+            .status(StatusCode::FORBIDDEN)
+            .version(Version::HTTP_2)
+            .body(())
+        {
+            let rsp_status = rsp.status().as_u16();
+            if clt_send_rsp.send_response(rsp, true).is_ok() {
+                self.http_notes.rsp_status = rsp_status;
+            }
+        }
+    }
+
     pub(crate) async fn into_running(
         mut self,
         clt_req: Request<RecvStream>,
@@ -161,6 +174,12 @@ where
                 return;
             }
         };
+
+        if self.ctx.websocket_inspect_policy().is_block() {
+            self.reply_forbidden(clt_send_rsp);
+            intercept_log!(self, "websocket blocked by inspection policy");
+            return;
+        }
 
         let mut ws_notes = WebSocketNotes::new(clt_req.uri().clone());
         for (name, value) in clt_req.headers() {
