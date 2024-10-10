@@ -143,6 +143,9 @@ where
                 self.run_extended_connect_udp(clt_req, clt_send_rsp, h2s)
                     .await
             }
+            HttpUpgradeToken::ConnectIp => {
+                self.cancel_and_log(clt_send_rsp, "connect-ip upgrade is not supported");
+            }
             _ => self.run_extended_unknown(clt_req, clt_send_rsp, h2s).await,
         }
     }

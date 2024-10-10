@@ -157,6 +157,9 @@ where
             if matches!(p, HttpUpgradeToken::Websocket) {
                 return !self.ctx.websocket_inspect_policy().is_block();
             }
+            if matches!(p, HttpUpgradeToken::ConnectIp) {
+                return false;
+            }
             true
         });
 

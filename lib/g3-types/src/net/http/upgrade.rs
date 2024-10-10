@@ -35,6 +35,7 @@ pub enum HttpUpgradeToken {
     Tls(u8, u8),
     Websocket,
     ConnectUdp,
+    ConnectIp,
     Unsupported(String),
 }
 
@@ -66,6 +67,7 @@ impl FromStr for HttpUpgradeToken {
                 "tls" => Err(HttpUpgradeTokenParseError::VersionIsRequired("tls")),
                 "websocket" => Ok(HttpUpgradeToken::Websocket),
                 "connect-udp" => Ok(HttpUpgradeToken::ConnectUdp),
+                "connect-ip" => Ok(HttpUpgradeToken::ConnectIp),
                 _ => Err(HttpUpgradeTokenParseError::UnsupportedProtocol(
                     s.to_string(),
                 )),
@@ -81,6 +83,7 @@ impl fmt::Display for HttpUpgradeToken {
             HttpUpgradeToken::Tls(major, minor) => write!(f, "TLS/{major}.{minor}"),
             HttpUpgradeToken::Websocket => f.write_str("websocket"),
             HttpUpgradeToken::ConnectUdp => f.write_str("connect-udp"),
+            HttpUpgradeToken::ConnectIp => f.write_str("connect-ip"),
             HttpUpgradeToken::Unsupported(s) => write!(f, "{s}"),
         }
     }
