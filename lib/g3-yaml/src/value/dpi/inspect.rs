@@ -20,24 +20,46 @@ use anyhow::{anyhow, Context};
 use yaml_rust::Yaml;
 
 use g3_dpi::{
-    ProtocolInspectAction, ProtocolInspectPolicy, ProtocolInspectionConfig,
+    ProtocolInspectAction, ProtocolInspectPolicyBuilder, ProtocolInspectionConfig,
     ProtocolInspectionSizeLimit,
 };
 
-use crate::value::acl_set::as_dst_host_rule_set_builder;
+fn as_protocol_inspect_action(value: &Yaml) -> anyhow::Result<ProtocolInspectAction> {
+    if let Yaml::String(s) = value {
+        ProtocolInspectAction::from_str(s)
+            .map_err(|_| anyhow!("invalid protocol inspect action '{s}'"))
+    } else {
+        Err(anyhow!("invalid value type"))
+    }
+}
 
-pub fn as_protocol_inspect_policy(value: &Yaml) -> anyhow::Result<ProtocolInspectPolicy> {
+pub fn as_protocol_inspect_policy_builder(
+    value: &Yaml,
+) -> anyhow::Result<ProtocolInspectPolicyBuilder> {
     match value {
-        Yaml::String(s) => {
-            let missing_action = ProtocolInspectAction::from_str(s)
-                .map_err(|_| anyhow!("invalid protocol inspect action '{s}'"))?;
-            let mut builder = ProtocolInspectPolicy::builder();
-            builder.missing_action = Some(missing_action);
-            Ok(builder.build())
+        Yaml::Hash(map) => {
+            let mut builder = ProtocolInspectPolicyBuilder::default();
+            crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
+                "default" => {
+                    let missed_action = as_protocol_inspect_action(v)
+                        .context(format!("invalid protocol inspect action value for key {k}"))?;
+                    builder.set_missed_action(missed_action);
+                    Ok(())
+                }
+                _ => crate::value::acl_set::set_dst_host_role_set_builder_kv(
+                    &mut builder.rule_set,
+                    k,
+                    v,
+                ),
+            })?;
+            Ok(builder)
         }
-        _ => as_dst_host_rule_set_builder(value)
-            .map(|b| b.build())
-            .map_err(|err| anyhow!("invalid protocol inspect action map: {err:?}")),
+        _ => {
+            let missed_action = as_protocol_inspect_action(value)?;
+            Ok(ProtocolInspectPolicyBuilder::with_missed_action(
+                missed_action,
+            ))
+        }
     }
 }
 

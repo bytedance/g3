@@ -24,7 +24,7 @@ use slog::slog_info;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
-use g3_dpi::{Protocol, ProtocolInspectAction};
+use g3_dpi::Protocol;
 use g3_http::client::HttpTransparentResponse;
 use g3_http::server::{HttpTransparentRequest, UriExt};
 use g3_http::{HttpBodyReader, HttpBodyType};
@@ -149,37 +149,52 @@ where
         }
     }
 
+    async fn reply_fatal<CW>(&mut self, rsp: HttpProxyClientResponse, clt_w: &mut CW)
+    where
+        CW: AsyncWrite + Unpin,
+    {
+        self.should_close = true;
+        if rsp.reply_err_to_request(clt_w).await.is_ok() {
+            self.http_notes.rsp_status = rsp.status();
+        }
+    }
+
     async fn check_blocked<CW>(&mut self, clt_w: &mut CW) -> ServerTaskResult<()>
     where
         CW: AsyncWrite + Unpin,
     {
-        let policy_action = match self.req.host.as_ref() {
-            Some(upstream) => self.ctx.websocket_inspect_action(upstream.host()),
-            None => self.ctx.websocket_inspect_missing_action(),
-        };
-        let block_websocket = policy_action == ProtocolInspectAction::Block;
-
-        let upgrade_token_count = self.req.retain_upgrade(|p| {
+        match self.req.retain_upgrade_token(|req, p| {
             if matches!(p, HttpUpgradeToken::Websocket) {
-                return !block_websocket;
-            }
-            if matches!(p, HttpUpgradeToken::ConnectIp) {
+                let Some(http_host) = &req.host else {
+                    return false;
+                };
+                return !self
+                    .ctx
+                    .websocket_inspect_action(http_host.host())
+                    .is_block();
+            } else if matches!(p, HttpUpgradeToken::ConnectIp) {
                 return false;
             }
             true
-        });
-
-        if upgrade_token_count == Some(0) {
-            let rsp = HttpProxyClientResponse::forbidden(self.req.version);
-            self.should_close = true;
-            if rsp.reply_err_to_request(clt_w).await.is_ok() {
-                self.http_notes.rsp_status = rsp.status();
+        }) {
+            Some(0) => {
+                self.reply_fatal(HttpProxyClientResponse::forbidden(self.req.version), clt_w)
+                    .await;
+                Err(ServerTaskError::InternalAdapterError(anyhow!(
+                    "upgrade protocol blocked by inspection policy"
+                )))
             }
-            Err(ServerTaskError::InternalAdapterError(anyhow!(
-                "upgrade protocol blocked by inspection policy"
-            )))
-        } else {
-            Ok(())
+            Some(_) => Ok(()),
+            None => {
+                self.reply_fatal(
+                    HttpProxyClientResponse::bad_request(self.req.version),
+                    clt_w,
+                )
+                .await;
+                Err(ServerTaskError::InternalAdapterError(anyhow!(
+                    "no Upgrade header found in HTTP upgrade request"
+                )))
+            }
         }
     }
 

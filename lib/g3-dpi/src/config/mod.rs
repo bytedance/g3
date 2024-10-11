@@ -19,7 +19,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use g3_types::acl::ActionContract;
-use g3_types::acl_set::AclDstHostRuleSet;
+use g3_types::acl_set::{AclDstHostRuleSet, AclDstHostRuleSetBuilder};
 
 mod size_limit;
 
@@ -34,9 +34,38 @@ pub use smtp::SmtpInterceptionConfig;
 mod imap;
 pub use imap::ImapInterceptionConfig;
 
+#[derive(Clone)]
+pub struct ProtocolInspectPolicyBuilder {
+    missed_action: ProtocolInspectAction,
+    pub rule_set: AclDstHostRuleSetBuilder<ProtocolInspectAction>,
+}
+
+impl Default for ProtocolInspectPolicyBuilder {
+    fn default() -> Self {
+        Self::with_missed_action(ProtocolInspectAction::Intercept)
+    }
+}
+
+impl ProtocolInspectPolicyBuilder {
+    pub fn with_missed_action(missed_action: ProtocolInspectAction) -> Self {
+        ProtocolInspectPolicyBuilder {
+            missed_action,
+            rule_set: AclDstHostRuleSetBuilder::default(),
+        }
+    }
+
+    pub fn set_missed_action(&mut self, missed_action: ProtocolInspectAction) {
+        self.missed_action = missed_action;
+    }
+
+    pub fn build(&self) -> AclDstHostRuleSet<ProtocolInspectAction> {
+        self.rule_set.build_with_missed_action(self.missed_action)
+    }
+}
+
 pub type ProtocolInspectPolicy = AclDstHostRuleSet<ProtocolInspectAction>;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum ProtocolInspectAction {
     Intercept,
     #[cfg(feature = "quic")]
@@ -49,6 +78,10 @@ impl ProtocolInspectAction {
     #[inline]
     fn as_str(&self) -> &'static str {
         self.serialize()
+    }
+
+    pub fn is_block(&self) -> bool {
+        matches!(self, ProtocolInspectAction::Block)
     }
 }
 
@@ -79,10 +112,10 @@ impl ActionContract for ProtocolInspectAction {
     fn serialize(&self) -> &'static str {
         match self {
             Self::Intercept => "intercept",
-            Self::Block => "block",
-            Self::Bypass => "bypass",
             #[cfg(feature = "quic")]
             Self::Detour => "detour",
+            Self::Block => "block",
+            Self::Bypass => "bypass",
         }
     }
 

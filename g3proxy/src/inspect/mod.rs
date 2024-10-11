@@ -264,16 +264,10 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
 
     #[inline]
     fn h2_inspect_action(&self, host: &Host) -> ProtocolInspectAction {
-        match self.audit_handle.h2_inspect_policy().check(host) {
+        match self.audit_handle.h2_inspect_policy.check(host) {
             (true, policy_action) => policy_action,
             (false, missing_policy_action) => missing_policy_action,
         }
-    }
-
-    #[inline]
-    #[allow(dead_code)]
-    fn h2_inspect_missing_action(&self) -> ProtocolInspectAction {
-        self.audit_handle.h2_inspect_policy().missing_action()
     }
 
     #[inline]
@@ -291,31 +285,18 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
 
     #[inline]
     fn websocket_inspect_action(&self, host: &Host) -> ProtocolInspectAction {
-        match self.audit_handle.websocket_inspect_policy().check(host) {
+        match self.audit_handle.websocket_inspect_policy.check(host) {
             (true, policy_action) => policy_action,
             (false, missing_policy_action) => missing_policy_action,
         }
-    }
-
-    #[inline]
-    fn websocket_inspect_missing_action(&self) -> ProtocolInspectAction {
-        self.audit_handle
-            .websocket_inspect_policy()
-            .missing_action()
     }
 
     #[inline]
     fn smtp_inspect_action(&self, host: &Host) -> ProtocolInspectAction {
-        match self.audit_handle.smtp_inspect_policy().check(host) {
+        match self.audit_handle.smtp_inspect_policy.check(host) {
             (true, policy_action) => policy_action,
             (false, missing_policy_action) => missing_policy_action,
         }
-    }
-
-    #[inline]
-    #[allow(dead_code)]
-    fn smtp_inspect_missing_action(&self) -> ProtocolInspectAction {
-        self.audit_handle.smtp_inspect_policy().missing_action()
     }
 
     #[inline]
@@ -325,16 +306,10 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
 
     #[inline]
     fn imap_inspect_action(&self, host: &Host) -> ProtocolInspectAction {
-        match self.audit_handle.imap_inspect_policy().check(host) {
+        match self.audit_handle.imap_inspect_policy.check(host) {
             (true, policy_action) => policy_action,
             (false, missing_policy_action) => missing_policy_action,
         }
-    }
-
-    #[inline]
-    #[allow(dead_code)]
-    fn imap_inspect_missing_action(&self) -> ProtocolInspectAction {
-        self.audit_handle.imap_inspect_policy().missing_action()
     }
 
     #[inline]

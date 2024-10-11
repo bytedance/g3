@@ -71,7 +71,6 @@ impl<Action: ActionContract> AclRegexSetRuleBuilder<Action> {
     }
 }
 
-#[derive(Clone)]
 pub struct AclRegexSetRule<Action = AclAction> {
     set_map: FxHashMap<Action, RegexSet>,
     missed_action: Action,

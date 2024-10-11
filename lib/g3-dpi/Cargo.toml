@@ -14,7 +14,7 @@ memchr.workspace = true
 fixedbitset.workspace = true
 smallvec = { workspace = true, optional = true }
 openssl = { workspace = true, optional = true }
-g3-types = { workspace = true, features = ["http"] }
+g3-types = { workspace = true, features = ["http", "acl-rule"] }
 
 [dev-dependencies]
 hex-literal.workspace = true

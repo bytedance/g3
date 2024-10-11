@@ -19,38 +19,48 @@ use yaml_rust::Yaml;
 
 use g3_types::{acl::ActionContract, acl_set::AclDstHostRuleSetBuilder};
 
+pub(crate) fn set_dst_host_role_set_builder_kv<Action: ActionContract>(
+    builder: &mut AclDstHostRuleSetBuilder<Action>,
+    k: &str,
+    v: &Yaml,
+) -> anyhow::Result<()> {
+    match crate::key::normalize(k).as_str() {
+        "exact_match" | "exact" => {
+            let exact_rule = crate::value::acl::as_exact_host_rule(v)
+                .context(format!("invalid exact host acl rule value for key {k}"))?;
+            builder.exact = Some(exact_rule);
+            Ok(())
+        }
+        "child_match" | "child" => {
+            let child_builder = crate::value::acl::as_child_domain_rule_builder(v)
+                .context(format!("invalid child domain acl rule value for key {k}"))?;
+            builder.child = Some(child_builder);
+            Ok(())
+        }
+        "regex_match" | "regex" => {
+            let regex_builder = crate::value::acl::as_regex_set_rule_builder(v)
+                .context(format!("invalid regex domain acl rule value for key {k}"))?;
+            builder.regex = Some(regex_builder);
+            Ok(())
+        }
+        "subnet_match" | "subnet" => {
+            let subnet_builder = crate::value::acl::as_dst_subnet_rule_builder(v)
+                .context(format!("invalid subnet acl rule value for key {k}"))?;
+            builder.subnet = Some(subnet_builder);
+            Ok(())
+        }
+        _ => Err(anyhow!("invalid key {k}")),
+    }
+}
+
 pub fn as_dst_host_rule_set_builder<Action: ActionContract>(
     value: &Yaml,
 ) -> anyhow::Result<AclDstHostRuleSetBuilder<Action>> {
     if let Yaml::Hash(map) = value {
         let mut builder = AclDstHostRuleSetBuilder::default();
 
-        crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
-            "exact_match" | "exact" => {
-                let exact_rule = crate::value::acl::as_exact_host_rule(v)
-                    .context(format!("invalid exact host acl rule value for key {k}"))?;
-                builder.exact = Some(exact_rule);
-                Ok(())
-            }
-            "child_match" | "child" => {
-                let child_builder = crate::value::acl::as_child_domain_rule_builder(v)
-                    .context(format!("invalid child domain acl rule value for key {k}"))?;
-                builder.child = Some(child_builder);
-                Ok(())
-            }
-            "regex_match" | "regex" => {
-                let regex_builder = crate::value::acl::as_regex_set_rule_builder(v)
-                    .context(format!("invalid regex domain acl rule value for key {k}"))?;
-                builder.regex = Some(regex_builder);
-                Ok(())
-            }
-            "subnet_match" | "subnet" => {
-                let subnet_builder = crate::value::acl::as_dst_subnet_rule_builder(v)
-                    .context(format!("invalid subnet acl rule value for key {k}"))?;
-                builder.subnet = Some(subnet_builder);
-                Ok(())
-            }
-            _ => Err(anyhow!("invalid key {k}")),
+        crate::foreach_kv(map, |k, v| {
+            set_dst_host_role_set_builder_kv(&mut builder, k, v)
         })?;
         Ok(builder)
     } else {

@@ -42,6 +42,10 @@ pub(crate) struct AuditHandle {
     icap_respmod_client: Option<IcapRespmodClient>,
     #[cfg(feature = "quic")]
     stream_detour_client: Option<Arc<StreamDetourClient>>,
+    pub(crate) h2_inspect_policy: ProtocolInspectPolicy,
+    pub(crate) websocket_inspect_policy: ProtocolInspectPolicy,
+    pub(crate) smtp_inspect_policy: ProtocolInspectPolicy,
+    pub(crate) imap_inspect_policy: ProtocolInspectPolicy,
 }
 
 impl AuditHandle {
@@ -65,6 +69,10 @@ impl AuditHandle {
             icap_respmod_client: icap_respmod_service,
             #[cfg(feature = "quic")]
             stream_detour_client: auditor.stream_detour_service.clone(),
+            h2_inspect_policy: auditor.config.h2_inspect_policy.build(),
+            websocket_inspect_policy: auditor.config.websocket_inspect_policy.build(),
+            smtp_inspect_policy: auditor.config.smtp_inspect_policy.build(),
+            imap_inspect_policy: auditor.config.imap_inspect_policy.build(),
         }
     }
 
@@ -113,33 +121,13 @@ impl AuditHandle {
     }
 
     #[inline]
-    pub(crate) fn h2_inspect_policy(&self) -> &ProtocolInspectPolicy {
-        &self.auditor_config.h2_inspect_policy
-    }
-
-    #[inline]
     pub(crate) fn h2_interception(&self) -> &H2InterceptionConfig {
         &self.auditor_config.h2_interception
     }
 
     #[inline]
-    pub(crate) fn websocket_inspect_policy(&self) -> &ProtocolInspectPolicy {
-        &self.auditor_config.websocket_inspect_policy
-    }
-
-    #[inline]
-    pub(crate) fn smtp_inspect_policy(&self) -> &ProtocolInspectPolicy {
-        &self.auditor_config.smtp_inspect_policy
-    }
-
-    #[inline]
     pub(crate) fn smtp_interception(&self) -> &SmtpInterceptionConfig {
         &self.auditor_config.smtp_interception
-    }
-
-    #[inline]
-    pub(crate) fn imap_inspect_policy(&self) -> &ProtocolInspectPolicy {
-        &self.auditor_config.imap_inspect_policy
     }
 
     #[inline]

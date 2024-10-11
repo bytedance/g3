@@ -15,7 +15,7 @@
  */
 
 mod inspect;
-pub use inspect::{as_protocol_inspect_policy, as_protocol_inspection_config};
+pub use inspect::{as_protocol_inspect_policy_builder, as_protocol_inspection_config};
 
 mod tls_cert;
 pub use tls_cert::as_tls_cert_agent_config;
