@@ -36,7 +36,7 @@ trait InspectRuleYamlParser {
         if let Yaml::Hash(map) = value {
             crate::foreach_kv(map, |k, v| {
                 let action = ProtocolInspectAction::from_str(k)
-                    .map_err(|_| anyhow!("the key {k} is not a valid Action"))?;
+                    .map_err(|_| anyhow!("the key {k} is not a valid inspect action"))?;
                 if let Yaml::Array(seq) = v {
                     for (i, v) in seq.iter().enumerate() {
                         self.add_rule_for_action(action, v)

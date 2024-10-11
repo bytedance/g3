@@ -131,7 +131,6 @@ pub enum ProtocolInspectAction {
 }
 
 impl ProtocolInspectAction {
-    #[inline]
     fn as_str(&self) -> &'static str {
         match self {
             Self::Intercept => "intercept",
@@ -156,7 +155,6 @@ impl fmt::Display for ProtocolInspectAction {
 impl FromStr for ProtocolInspectAction {
     type Err = ();
 
-    #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "intercept" => Ok(ProtocolInspectAction::Intercept),

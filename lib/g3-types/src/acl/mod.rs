@@ -68,7 +68,6 @@ impl AclAction {
 }
 
 impl AclAction {
-    #[inline]
     fn as_str(&self) -> &'static str {
         match self {
             AclAction::Permit => "Permit",
@@ -90,7 +89,6 @@ impl fmt::Display for AclAction {
 impl FromStr for AclAction {
     type Err = ();
 
-    #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
             "permit" | "allow" | "accept" => Ok(AclAction::Permit),

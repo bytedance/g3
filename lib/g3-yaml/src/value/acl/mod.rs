@@ -41,10 +41,13 @@ pub use user_agent::as_user_agent_rule;
 
 fn as_action(value: &Yaml) -> anyhow::Result<AclAction> {
     if let Yaml::String(s) = value {
-        let action = AclAction::from_str(s).map_err(|_| anyhow!("invalid Action string value"))?;
+        let action =
+            AclAction::from_str(s).map_err(|_| anyhow!("invalid AclAction string value"))?;
         Ok(action)
     } else {
-        Err(anyhow!("the yaml value type for Action should be string"))
+        Err(anyhow!(
+            "the yaml value type for AclAction should be string"
+        ))
     }
 }
 
@@ -64,7 +67,7 @@ trait AclRuleYamlParser {
                     }
                     _ => {
                         let action = AclAction::from_str(k)
-                            .map_err(|_| anyhow!("the key {k} is not a valid Action"))?;
+                            .map_err(|_| anyhow!("the key {k} is not a valid AclAction"))?;
                         if let Yaml::Array(seq) = v {
                             for (i, v) in seq.iter().enumerate() {
                                 self.add_rule_for_action(action, v)
