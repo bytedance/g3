@@ -26,7 +26,6 @@ pub struct AclDstHostRuleSetBuilder<Action = AclAction> {
     pub child: Option<AclChildDomainRuleBuilder<Action>>,
     pub regex: Option<AclRegexSetRuleBuilder<Action>>,
     pub subnet: Option<AclNetworkRuleBuilder<Action>>,
-    pub missing_action: Option<Action>,
 }
 
 impl<Action> Default for AclDstHostRuleSetBuilder<Action> {
@@ -36,32 +35,43 @@ impl<Action> Default for AclDstHostRuleSetBuilder<Action> {
             child: None,
             regex: None,
             subnet: None,
-            missing_action: None,
         }
     }
 }
 
 impl<Action: ActionContract> AclDstHostRuleSetBuilder<Action> {
-    pub fn build(&self) -> AclDstHostRuleSet<Action> {
-        let mut missed_action = self.missing_action.unwrap_or_else(Action::default_permit);
+    pub fn build_with_missed_action(&self, missed_action: Action) -> AclDstHostRuleSet<Action> {
+        AclDstHostRuleSet {
+            exact: self.exact.as_ref().cloned(),
+            child: self.child.as_ref().map(|builder| builder.build()),
+            regex: self.regex.as_ref().map(|builder| builder.build()),
+            subnet: self.subnet.as_ref().map(|builder| builder.build()),
+            missed_action,
+        }
+    }
+}
+
+impl AclDstHostRuleSetBuilder<AclAction> {
+    pub fn build(&self) -> AclDstHostRuleSet<AclAction> {
+        let mut missed_action = AclAction::Permit;
 
         let exact_rule = self.exact.as_ref().map(|rule| {
-            missed_action = rule.missed_action().max(missed_action);
+            missed_action = rule.missed_action().restrict(missed_action);
             rule.clone()
         });
 
         let child_rule = self.child.as_ref().map(|builder| {
-            missed_action = builder.missed_action().max(missed_action);
+            missed_action = builder.missed_action().restrict(missed_action);
             builder.build()
         });
 
         let regex_rule = self.regex.as_ref().map(|builder| {
-            missed_action = builder.missed_action().max(missed_action);
+            missed_action = builder.missed_action().restrict(missed_action);
             builder.build()
         });
 
         let subnet_rule = self.subnet.as_ref().map(|builder| {
-            missed_action = builder.missed_action().max(missed_action);
+            missed_action = builder.missed_action().restrict(missed_action);
             builder.build()
         });
 
@@ -75,7 +85,6 @@ impl<Action: ActionContract> AclDstHostRuleSetBuilder<Action> {
     }
 }
 
-#[derive(Clone)]
 pub struct AclDstHostRuleSet<Action: ActionContract = AclAction> {
     exact: Option<AclExactHostRule<Action>>,
     child: Option<AclChildDomainRule<Action>>,
@@ -85,21 +94,6 @@ pub struct AclDstHostRuleSet<Action: ActionContract = AclAction> {
 }
 
 impl<Action: ActionContract> AclDstHostRuleSet<Action> {
-    pub fn builder() -> AclDstHostRuleSetBuilder<Action> {
-        AclDstHostRuleSetBuilder::default()
-    }
-
-    pub fn builder_with_missing_action(action: Action) -> AclDstHostRuleSetBuilder<Action> {
-        AclDstHostRuleSetBuilder {
-            missing_action: Some(action),
-            ..AclDstHostRuleSetBuilder::default()
-        }
-    }
-
-    pub fn missing_action(&self) -> Action {
-        self.missed_action
-    }
-
     pub fn check(&self, upstream: &Host) -> (bool, Action) {
         match upstream {
             Host::Ip(ip) => {

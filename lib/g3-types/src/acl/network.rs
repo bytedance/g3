@@ -112,22 +112,6 @@ pub struct AclNetworkRule<Action = AclAction> {
     default_action: Action,
 }
 
-impl<Action: ActionContract> Clone for AclNetworkRule<Action> {
-    fn clone(&self) -> Self {
-        Self {
-            inner: {
-                let (ipv4_size, ipv6_size) = self.inner.len();
-                let mut table = IpNetworkTable::with_capacity(ipv4_size, ipv6_size);
-                for (k, v) in self.inner.iter() {
-                    table.insert(k, *v);
-                }
-                table
-            },
-            default_action: self.default_action,
-        }
-    }
-}
-
 impl<Action: ActionContract> AclNetworkRule<Action> {
     pub fn check(&self, ip: IpAddr) -> (bool, Action) {
         if let Some((_, action)) = self.inner.longest_match(ip) {

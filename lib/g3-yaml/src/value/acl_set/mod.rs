@@ -17,3 +17,4 @@
 mod dst_host;
 
 pub use dst_host::as_dst_host_rule_set_builder;
+pub(crate) use dst_host::set_dst_host_role_set_builder_kv;

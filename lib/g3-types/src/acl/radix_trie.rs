@@ -72,7 +72,6 @@ where
     }
 }
 
-#[derive(Clone)]
 pub struct AclRadixTrieRule<K: TrieKey, Action = AclAction> {
     inner: Trie<K, Action>,
     missed_action: Action,

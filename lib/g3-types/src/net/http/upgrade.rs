@@ -29,7 +29,7 @@ pub enum HttpUpgradeTokenParseError {
     VersionIsRequired(&'static str),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum HttpUpgradeToken {
     Http(http::Version),
     Tls(u8, u8),

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::collections::BTreeSet;
 use std::io::Write;
 use std::str::FromStr;
 
@@ -289,12 +290,12 @@ impl HttpTransparentRequest {
         Ok(())
     }
 
-    pub fn retain_upgrade<F>(&mut self, retain: F) -> Option<usize>
+    pub fn retain_upgrade_token<F>(&mut self, retain: F) -> Option<usize>
     where
-        F: Fn(HttpUpgradeToken) -> bool,
+        F: Fn(&Self, &HttpUpgradeToken) -> bool,
     {
-        let mut new_upgrade_headers = Vec::new();
-        let mut headers_found = false;
+        let mut new_upgrade_headers = Vec::with_capacity(4);
+        let mut checked_tokens = BTreeSet::new();
         for header in self.hop_by_hop_headers.get_all(header::UPGRADE) {
             let value = header.to_str();
             for s in value.split(',') {
@@ -306,8 +307,10 @@ impl HttpTransparentRequest {
                 let Ok(protocol) = HttpUpgradeToken::from_str(s) else {
                     continue;
                 };
-                headers_found = true;
-                if retain(protocol) {
+                if checked_tokens.contains(&protocol) {
+                    continue;
+                }
+                if retain(self, &protocol) {
                     let mut new_value =
                         unsafe { HttpHeaderValue::from_string_unchecked(s.to_string()) };
                     if let Some(name) = header.original_name() {
@@ -315,15 +318,16 @@ impl HttpTransparentRequest {
                     }
                     new_upgrade_headers.push(new_value);
                 }
+                checked_tokens.insert(protocol);
             }
         }
 
-        self.hop_by_hop_headers.remove(header::UPGRADE);
+        self.hop_by_hop_headers.remove(header::UPGRADE)?;
         let retain_count = new_upgrade_headers.len();
         for value in new_upgrade_headers {
             self.hop_by_hop_headers.append(header::UPGRADE, value);
         }
-        headers_found.then_some(retain_count)
+        Some(retain_count)
     }
 
     fn insert_hop_by_hop_header(
@@ -596,7 +600,7 @@ mod tests {
             .await
             .unwrap();
         let left_tokens = request
-            .retain_upgrade(|p| matches!(p, HttpUpgradeToken::Http(_)))
+            .retain_upgrade_token(|_req, p| matches!(p, HttpUpgradeToken::Http(_)))
             .unwrap();
         assert_eq!(left_tokens, 1);
         let token = request.hop_by_hop_headers.get(header::UPGRADE).unwrap();

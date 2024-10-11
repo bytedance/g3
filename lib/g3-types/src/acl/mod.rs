@@ -15,6 +15,7 @@
  */
 
 use std::fmt;
+use std::hash::Hash;
 use std::str::FromStr;
 
 mod a_hash;
@@ -40,9 +41,7 @@ pub use proxy_request::AclProxyRequestRule;
 pub use regex_set::{AclRegexSetRule, AclRegexSetRuleBuilder};
 pub use user_agent::AclUserAgentRule;
 
-pub trait ActionContract:
-    Clone + Copy + PartialEq + Eq + PartialOrd + Ord + std::hash::Hash
-{
+pub trait ActionContract: Clone + Copy + PartialEq + Eq + Hash {
     fn default_forbid() -> Self;
     fn default_permit() -> Self;
 

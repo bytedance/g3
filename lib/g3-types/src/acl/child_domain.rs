@@ -47,7 +47,6 @@ impl<Action: ActionContract> AclChildDomainRuleBuilder<Action> {
     }
 }
 
-#[derive(Clone)]
 pub struct AclChildDomainRule<Action = AclAction>(AclRadixTrieRule<String, Action>);
 
 impl<Action: ActionContract> AclChildDomainRule<Action> {
