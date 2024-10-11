@@ -79,20 +79,20 @@ pub fn as_protocol_inspect_policy_builder(
                 "exact_match" | "exact" => {
                     let exact_rule = exact_host::as_exact_host_rule(v)
                         .context(format!("invalid exact host inspect rule value for key {k}"))?;
-                    builder.rule_set.exact = Some(exact_rule);
+                    builder.exact = Some(exact_rule);
                     Ok(())
                 }
                 "child_match" | "child" => {
                     let child_builder = child_domain::as_child_domain_rule_builder(v).context(
                         format!("invalid child domain inspect rule value for key {k}"),
                     )?;
-                    builder.rule_set.child = Some(child_builder);
+                    builder.child = Some(child_builder);
                     Ok(())
                 }
                 "subnet_match" | "subnet" => {
                     let subnet_builder = network::as_dst_subnet_rule_builder(v)
                         .context(format!("invalid subnet inspect rule value for key {k}"))?;
-                    builder.rule_set.subnet = Some(subnet_builder);
+                    builder.subnet = Some(subnet_builder);
                     Ok(())
                 }
                 _ => Err(anyhow!("invalid key {k}")),

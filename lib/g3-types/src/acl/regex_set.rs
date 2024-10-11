@@ -14,69 +14,114 @@
  * limitations under the License.
  */
 
-use regex::{Regex, RegexSet};
-use rustc_hash::FxHashMap;
+use std::collections::HashMap;
 
-use super::{AclAction, ActionContract};
+use regex::{Regex, RegexSet};
+
+use super::AclAction;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AclRegexSetRuleBuilder<Action = AclAction> {
-    inner: FxHashMap<String, Action>,
-    missed_action: Action,
+pub struct AclRegexSetRuleBuilder {
+    inner: HashMap<String, AclAction>,
+    missed_action: AclAction,
 }
 
-impl<Action: ActionContract> AclRegexSetRuleBuilder<Action> {
-    pub fn new(missed_action: Action) -> Self {
+impl Default for AclRegexSetRuleBuilder {
+    fn default() -> Self {
+        Self::new(AclAction::Forbid)
+    }
+}
+
+impl AclRegexSetRuleBuilder {
+    pub fn new(missed_action: AclAction) -> Self {
         AclRegexSetRuleBuilder {
-            inner: FxHashMap::default(),
+            inner: HashMap::new(),
             missed_action,
         }
     }
 
     #[inline]
-    pub fn add_regex(&mut self, regex: &Regex, action: Action) {
+    pub fn add_regex(&mut self, regex: &Regex, action: AclAction) {
         self.inner.insert(regex.as_str().to_string(), action);
     }
 
     #[inline]
-    pub fn set_missed_action(&mut self, action: Action) {
+    pub fn set_missed_action(&mut self, action: AclAction) {
         self.missed_action = action;
     }
 
     #[inline]
-    pub fn missed_action(&self) -> Action {
+    pub fn missed_action(&self) -> AclAction {
         self.missed_action
     }
 
-    pub fn build(&self) -> AclRegexSetRule<Action> {
-        let mut set_map: FxHashMap<Action, Vec<_>> = FxHashMap::default();
+    pub fn build(&self) -> AclRegexSetRule {
+        let mut forbid_log_v = Vec::new();
+        let mut forbid_v = Vec::new();
+        let mut permit_log_v = Vec::new();
+        let mut permit_v = Vec::new();
 
         for (r, action) in &self.inner {
-            set_map.entry(*action).or_default().push(r.as_str());
+            match action {
+                AclAction::ForbidAndLog => forbid_log_v.push(r.as_str()),
+                AclAction::Forbid => forbid_v.push(r.as_str()),
+                AclAction::PermitAndLog => permit_log_v.push(r.as_str()),
+                AclAction::Permit => permit_v.push(r.as_str()),
+            }
+        }
+
+        fn build_rs_from_vec(v: &[&str]) -> Option<RegexSet> {
+            if v.is_empty() {
+                None
+            } else {
+                Some(RegexSet::new(v).unwrap())
+            }
         }
 
         AclRegexSetRule {
-            set_map: set_map
-                .into_iter()
-                .map(|(k, v)| (k, RegexSet::new(v).unwrap()))
-                .collect(),
+            forbid_log: build_rs_from_vec(&forbid_log_v),
+            forbid: build_rs_from_vec(&forbid_v),
+            permit_log: build_rs_from_vec(&permit_log_v),
+            permit: build_rs_from_vec(&permit_v),
             missed_action: self.missed_action,
         }
     }
 }
 
-pub struct AclRegexSetRule<Action = AclAction> {
-    set_map: FxHashMap<Action, RegexSet>,
-    missed_action: Action,
+pub struct AclRegexSetRule {
+    forbid_log: Option<RegexSet>,
+    forbid: Option<RegexSet>,
+    permit_log: Option<RegexSet>,
+    permit: Option<RegexSet>,
+    missed_action: AclAction,
 }
 
-impl<Action: ActionContract> AclRegexSetRule<Action> {
-    pub fn check(&self, text: &str) -> (bool, Action) {
-        for (action, set) in &self.set_map {
-            if set.is_match(text) {
-                return (true, *action);
+impl AclRegexSetRule {
+    pub fn check(&self, text: &str) -> (bool, AclAction) {
+        if let Some(rs) = &self.forbid_log {
+            if rs.is_match(text) {
+                return (true, AclAction::ForbidAndLog);
             }
         }
+
+        if let Some(rs) = &self.forbid {
+            if rs.is_match(text) {
+                return (true, AclAction::Forbid);
+            }
+        }
+
+        if let Some(rs) = &self.permit_log {
+            if rs.is_match(text) {
+                return (true, AclAction::PermitAndLog);
+            }
+        }
+
+        if let Some(rs) = &self.permit {
+            if rs.is_match(text) {
+                return (true, AclAction::Permit);
+            }
+        }
+
         (false, self.missed_action)
     }
 }
