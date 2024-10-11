@@ -528,6 +528,8 @@ The code should comply to these, but should be more compliant to existing popula
 
  - [rfc3507](https://datatracker.ietf.org/doc/html/rfc3507)
     : Internet Content Adaptation Protocol (ICAP)
+ - [ICAP Errata](https://www.measurement-factory.com/std/icap/)
+    : ICAP Errata - a comprehensive collection of RFC 3507 bugs
  - [draft-icap-ext-partial-content-07](http://www.icap-forum.org/documents/specification/draft-icap-ext-partial-content-07.txt)
     : ICAP Partial Content Extension
  - [draft-stecher-icap-subid-00](https://www.icap-forum.org/documents/specification/draft-stecher-icap-subid-00.txt)

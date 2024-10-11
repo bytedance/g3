@@ -45,7 +45,7 @@ impl<T> RequestExt for Request<T> {
             let _ = write!(buf, "{method} / HTTP/1.1\r\n");
         }
         for (name, value) in self.headers() {
-            if matches!(name, &http::header::TE | &http::header::TRAILER) {
+            if matches!(name, &http::header::TE) {
                 // skip hop-by-hop headers
                 continue;
             }

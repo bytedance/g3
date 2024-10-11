@@ -72,17 +72,12 @@ impl HttpTransparentResponse {
     }
 
     pub fn clone_by_adaptation(&self, adapted: HttpAdaptedResponse) -> Self {
-        let mut hop_by_hop_headers = self.hop_by_hop_headers.clone();
-        hop_by_hop_headers.remove(http::header::TRAILER);
-        for v in adapted.trailer() {
-            hop_by_hop_headers.append(http::header::TRAILER, v.clone());
-        }
         HttpTransparentResponse {
             version: adapted.version,
             code: adapted.status.as_u16(),
             reason: adapted.reason,
             end_to_end_headers: adapted.headers,
-            hop_by_hop_headers,
+            hop_by_hop_headers: self.hop_by_hop_headers.clone(),
             original_connection_name: self.original_connection_name.clone(),
             extra_connection_headers: self.extra_connection_headers.clone(),
             origin_header_size: self.origin_header_size,
@@ -201,7 +196,7 @@ impl HttpTransparentResponse {
     fn post_check_and_fix(&mut self, method: &Method) {
         if !self.chunked_transfer {
             if self.has_trailer {
-                self.hop_by_hop_headers.remove(http::header::TRAILER);
+                self.end_to_end_headers.remove(http::header::TRAILER);
             }
 
             if self.expect_no_body(method) {
@@ -296,10 +291,7 @@ impl HttpTransparentResponse {
                 self.upgrade = Some(protocol);
                 return self.insert_hop_by_hop_header(name, &header);
             }
-            "trailer" => {
-                self.has_trailer = true;
-                return self.insert_hop_by_hop_header(name, &header);
-            }
+            "trailer" => self.has_trailer = true,
             "transfer-encoding" => {
                 // it's a hop-by-hop option, but we just pass it
                 self.has_transfer_encoding = true;

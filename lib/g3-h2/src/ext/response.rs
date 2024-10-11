@@ -38,10 +38,6 @@ impl<T> ResponseExt for Response<T> {
         let _ = write!(buf, "HTTP/1.1 {} {}\r\n", status.as_u16(), reason,);
 
         for (name, value) in self.headers() {
-            if matches!(name, &http::header::TRAILER) {
-                // skip hop-by-hop headers
-                continue;
-            }
             buf.put_slice(name.as_ref());
             buf.put_slice(b": ");
             buf.put_slice(value.as_bytes());

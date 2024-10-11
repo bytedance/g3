@@ -30,7 +30,6 @@ pub struct HttpAdaptedRequest {
     pub uri: Uri,
     pub version: Version,
     pub headers: HttpHeaderMap,
-    trailer: Vec<HttpHeaderValue>,
 }
 
 impl HttpAdaptedRequest {
@@ -40,7 +39,6 @@ impl HttpAdaptedRequest {
             uri,
             version,
             headers: HttpHeaderMap::default(),
-            trailer: Vec::new(),
         }
     }
 
@@ -49,15 +47,6 @@ impl HttpAdaptedRequest {
             http::header::TRANSFER_ENCODING,
             HttpHeaderValue::from_static("chunked"),
         );
-    }
-
-    pub fn set_trailer(&mut self, trailers: Vec<HttpHeaderValue>) {
-        self.trailer = trailers;
-    }
-
-    #[inline]
-    pub(crate) fn trailer(&self) -> &[HttpHeaderValue] {
-        &self.trailer
     }
 
     pub async fn parse<R>(

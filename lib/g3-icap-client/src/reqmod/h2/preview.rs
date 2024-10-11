@@ -33,12 +33,7 @@ use crate::reqmod::response::ReqmodResponse;
 use crate::reqmod::IcapReqmodResponsePayload;
 
 impl<I: IdleCheck> H2RequestAdapter<I> {
-    fn build_preview_request(
-        &self,
-        http_request: &Request<()>,
-        http_header_len: usize,
-        preview_size: usize,
-    ) -> Vec<u8> {
+    fn build_preview_request(&self, http_header_len: usize, preview_size: usize) -> Vec<u8> {
         let mut header = Vec::with_capacity(self.icap_client.partial_request_header.len() + 128);
         header.extend_from_slice(&self.icap_client.partial_request_header);
         self.push_extended_headers(&mut header, None);
@@ -52,11 +47,6 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
             header,
             "Encapsulated: req-hdr=0, req-body={http_header_len}\r\nPreview: {preview_size}\r\n",
         );
-        for trailer in http_request.headers().get_all(http::header::TRAILER) {
-            header.put_slice(b"Trailer: ");
-            header.put_slice(trailer.as_bytes());
-            header.put_slice(b"\r\n");
-        }
         header.put_slice(b"\r\n");
         header
     }
@@ -88,8 +78,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         let preview_eof = (preview_size == initial_data_len) && clt_body.is_end_stream();
 
         let http_header = http_request.serialize_for_adapter();
-        let icap_header =
-            self.build_preview_request(&http_request, http_header.len(), preview_size);
+        let icap_header = self.build_preview_request(http_header.len(), preview_size);
 
         let icap_w = &mut self.icap_connection.0;
         icap_w
@@ -176,7 +165,6 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                         } else {
                             let icap_keepalive = rsp.keep_alive;
                             let bidirectional_transfer = BidirectionalRecvHttpRequest {
-                                icap_rsp: rsp,
                                 icap_reader: &mut self.icap_connection.1,
                                 copy_config: self.copy_config,
                                 http_body_line_max_size: self.http_body_line_max_size,

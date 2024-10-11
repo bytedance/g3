@@ -43,6 +43,7 @@ impl RespmodResponse {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn take_trailers(&mut self) -> Vec<HttpHeaderValue> {
         self.trailers.drain(..).collect()
     }

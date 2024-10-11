@@ -32,16 +32,12 @@ use crate::respmod::response::RespmodResponse;
 use crate::respmod::IcapRespmodResponsePayload;
 
 impl<I: IdleCheck> HttpResponseAdapter<I> {
-    fn build_preview_request<H>(
+    fn build_preview_request(
         &self,
         http_req_hdr_len: usize,
-        http_response: &H,
         http_rsp_hdr_len: usize,
         preview_state: &PreviewDataState,
-    ) -> Vec<u8>
-    where
-        H: HttpResponseForAdaptation,
-    {
+    ) -> Vec<u8> {
         let mut header = Vec::with_capacity(self.icap_client.partial_request_header.len() + 128);
         header.extend_from_slice(&self.icap_client.partial_request_header);
         self.push_extended_headers(&mut header);
@@ -57,7 +53,6 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
             http_req_hdr_len + http_rsp_hdr_len,
             preview_state.preview_size
         );
-        http_response.append_trailer_header(&mut header);
         header.put_slice(b"\r\n");
         header
     }
@@ -109,12 +104,8 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
                     .await
             }
         };
-        let icap_header = self.build_preview_request(
-            http_req_header.len(),
-            http_response,
-            http_rsp_hdr_len,
-            &preview_state,
-        );
+        let icap_header =
+            self.build_preview_request(http_req_header.len(), http_rsp_hdr_len, &preview_state);
 
         let icap_w = &mut self.icap_connection.0;
         icap_w
@@ -192,7 +183,6 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
                         } else {
                             let icap_keepalive = rsp.keep_alive;
                             let bidirectional_transfer = BidirectionalRecvHttpResponse {
-                                icap_rsp: rsp,
                                 icap_reader: &mut self.icap_connection.1,
                                 http_body_line_max_size: self.http_body_line_max_size,
                                 copy_config: self.copy_config,

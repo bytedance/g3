@@ -39,14 +39,12 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
 
     pub(super) async fn handle_icap_http_response_with_body(
         mut self,
-        mut icap_rsp: ReqmodResponse,
+        icap_rsp: ReqmodResponse,
         http_header_size: usize,
     ) -> Result<(HttpAdapterErrorResponse, ReqmodRecvHttpResponseBody), H2ReqmodAdaptationError>
     {
-        let mut http_rsp =
+        let http_rsp =
             HttpAdapterErrorResponse::parse(&mut self.icap_connection.1, http_header_size).await?;
-        let trailers = icap_rsp.take_trailers();
-        http_rsp.set_trailer(trailers);
         let recv_body = ReqmodRecvHttpResponseBody {
             icap_client: self.icap_client,
             icap_keepalive: icap_rsp.keep_alive,

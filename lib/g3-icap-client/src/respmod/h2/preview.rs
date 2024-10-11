@@ -36,7 +36,6 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
     fn build_preview_request(
         &self,
         http_req_hdr_len: usize,
-        http_response: &Response<()>,
         http_rsp_hdr_len: usize,
         preview_size: usize,
     ) -> Vec<u8> {
@@ -54,11 +53,6 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
             "Encapsulated: req-hdr=0, res-hdr={http_req_hdr_len}, res-body={}\r\nPreview: {preview_size}\r\n",
             http_req_hdr_len + http_rsp_hdr_len,
         );
-        for trailer in http_response.headers().get_all(http::header::TRAILER) {
-            header.put_slice(b"Trailer: ");
-            header.put_slice(trailer.as_bytes());
-            header.put_slice(b"\r\n");
-        }
         header.put_slice(b"\r\n");
         header
     }
@@ -103,12 +97,8 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
 
         let http_req_header = http_request.serialize_for_adapter();
         let http_rsp_header = http_response.serialize_for_adapter();
-        let icap_header = self.build_preview_request(
-            http_req_header.len(),
-            &http_response,
-            http_rsp_header.len(),
-            preview_size,
-        );
+        let icap_header =
+            self.build_preview_request(http_req_header.len(), http_rsp_header.len(), preview_size);
 
         let icap_w = &mut self.icap_connection.0;
         icap_w
@@ -197,7 +187,6 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
                         } else {
                             let icap_keepalive = rsp.keep_alive;
                             let bidirectional_transfer = BidirectionalRecvHttpResponse {
-                                icap_rsp: rsp,
                                 icap_reader: &mut self.icap_connection.1,
                                 copy_config: self.copy_config,
                                 http_body_line_max_size: self.http_body_line_max_size,

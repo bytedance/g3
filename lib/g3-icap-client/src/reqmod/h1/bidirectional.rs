@@ -115,7 +115,6 @@ impl<'a, I: IdleCheck> BidirectionalRecvIcapResponse<'a, I> {
 }
 
 pub(super) struct BidirectionalRecvHttpRequest<'a, I: IdleCheck> {
-    pub(super) icap_rsp: ReqmodResponse,
     pub(super) icap_reader: &'a mut IcapClientReader,
     pub(super) http_body_line_max_size: usize,
     pub(super) http_req_add_no_via_header: bool,
@@ -125,7 +124,7 @@ pub(super) struct BidirectionalRecvHttpRequest<'a, I: IdleCheck> {
 
 impl<'a, I: IdleCheck> BidirectionalRecvHttpRequest<'a, I> {
     pub(super) async fn transfer<H, CR, UW>(
-        mut self,
+        self,
         state: &mut ReqmodAdaptationRunState,
         mut clt_body_transfer: &mut H1BodyToChunkedTransfer<'_, CR, IcapClientWriter>,
         http_header_size: usize,
@@ -144,10 +143,6 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpRequest<'a, I> {
         )
         .await?;
         http_req.set_chunked_encoding();
-        let trailers = self.icap_rsp.take_trailers();
-        if !trailers.is_empty() {
-            http_req.set_trailer(trailers);
-        };
 
         let final_req = orig_http_request.adapt_to(http_req);
         ups_writer

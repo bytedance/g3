@@ -42,17 +42,13 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
 
     pub(super) async fn handle_icap_http_response_with_body(
         mut self,
-        mut icap_rsp: ReqmodResponse,
+        icap_rsp: ReqmodResponse,
         http_header_size: usize,
     ) -> Result<(HttpAdapterErrorResponse, ReqmodRecvHttpResponseBody), H1ReqmodAdaptationError>
     {
         let mut http_rsp =
             HttpAdapterErrorResponse::parse(&mut self.icap_connection.1, http_header_size).await?;
         http_rsp.set_chunked_encoding();
-        let trailers = icap_rsp.take_trailers();
-        if !trailers.is_empty() {
-            http_rsp.set_trailer(trailers);
-        };
         let recv_body = ReqmodRecvHttpResponseBody {
             icap_client: self.icap_client,
             icap_keepalive: icap_rsp.keep_alive,

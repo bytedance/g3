@@ -115,7 +115,6 @@ impl<'a, I: IdleCheck> BidirectionalRecvIcapResponse<'a, I> {
 }
 
 pub(super) struct BidirectionalRecvHttpResponse<'a, I: IdleCheck> {
-    pub(super) icap_rsp: RespmodResponse,
     pub(super) icap_reader: &'a mut IcapClientReader,
     pub(super) copy_config: LimitedCopyConfig,
     pub(super) http_body_line_max_size: usize,
@@ -135,9 +134,7 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpResponse<'a, I> {
     where
         CW: H2SendResponseToClient,
     {
-        let mut http_rsp = HttpAdaptedResponse::parse(self.icap_reader, http_header_size).await?;
-        let trailers = self.icap_rsp.take_trailers();
-        http_rsp.set_trailer(trailers);
+        let http_rsp = HttpAdaptedResponse::parse(self.icap_reader, http_header_size).await?;
 
         let final_rsp = orig_http_response.adapt_to(&http_rsp);
         state.mark_clt_send_start();

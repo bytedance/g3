@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-use bytes::BufMut;
-use http::{header, Method};
+use http::Method;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use g3_http::client::{HttpForwardRemoteResponse, HttpTransparentResponse};
@@ -32,14 +31,6 @@ impl HttpResponseForAdaptation for HttpForwardRemoteResponse {
         self.serialize_for_adapter()
     }
 
-    fn append_trailer_header(&self, buf: &mut Vec<u8>) {
-        for v in self.hop_by_hop_headers.get_all(header::TRAILER) {
-            buf.put_slice(b"Trailer: ");
-            buf.put_slice(v.as_bytes());
-            buf.put_slice(b"\r\n");
-        }
-    }
-
     fn adapt_to(&self, other: HttpAdaptedResponse) -> Self {
         self.clone_by_adaptation(other)
     }
@@ -52,14 +43,6 @@ impl HttpResponseForAdaptation for HttpTransparentResponse {
 
     fn serialize_for_adapter(&self) -> Vec<u8> {
         self.serialize_for_adapter()
-    }
-
-    fn append_trailer_header(&self, buf: &mut Vec<u8>) {
-        for v in self.hop_by_hop_headers.get_all(header::TRAILER) {
-            buf.put_slice(b"Trailer: ");
-            buf.put_slice(v.as_bytes());
-            buf.put_slice(b"\r\n");
-        }
     }
 
     fn adapt_to(&self, other: HttpAdaptedResponse) -> Self {

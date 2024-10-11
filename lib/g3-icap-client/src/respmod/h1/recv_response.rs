@@ -184,7 +184,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
     pub(super) async fn handle_icap_http_response_with_body_after_transfer<H, CW>(
         mut self,
         state: &mut RespmodAdaptationRunState,
-        mut icap_rsp: RespmodResponse,
+        icap_rsp: RespmodResponse,
         http_header_size: usize,
         orig_http_response: &H,
         clt_writer: &mut CW,
@@ -196,10 +196,6 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
         let mut http_rsp =
             HttpAdaptedResponse::parse(&mut self.icap_connection.1, http_header_size).await?;
         http_rsp.set_chunked_encoding();
-        let trailers = icap_rsp.take_trailers();
-        if !trailers.is_empty() {
-            http_rsp.set_trailer(trailers);
-        };
 
         let final_rsp = orig_http_response.adapt_to(http_rsp);
         state.mark_clt_send_start();

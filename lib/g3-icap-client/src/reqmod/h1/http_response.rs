@@ -52,15 +52,6 @@ impl HttpAdapterErrorResponse {
         );
     }
 
-    pub(crate) fn set_trailer(&mut self, trailers: Vec<HttpHeaderValue>) {
-        if self.has_trailer {
-            self.headers.remove(http::header::TRAILER);
-        }
-        for v in trailers {
-            self.headers.append(http::header::TRAILER, v);
-        }
-    }
-
     pub async fn parse<R>(
         reader: &mut R,
         header_size: usize,

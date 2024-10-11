@@ -118,7 +118,6 @@ impl<'a, I: IdleCheck> BidirectionalRecvIcapResponse<'a, I> {
 }
 
 pub(super) struct BidirectionalRecvHttpRequest<'a, I: IdleCheck> {
-    pub(super) icap_rsp: ReqmodResponse,
     pub(super) icap_reader: &'a mut IcapClientReader,
     pub(super) copy_config: LimitedCopyConfig,
     pub(super) http_body_line_max_size: usize,
@@ -137,14 +136,12 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpRequest<'a, I> {
         orig_http_request: Request<()>,
         mut ups_send_request: SendRequest<Bytes>,
     ) -> Result<ReqmodAdaptationEndState, H2ReqmodAdaptationError> {
-        let mut http_req = HttpAdaptedRequest::parse(
+        let http_req = HttpAdaptedRequest::parse(
             self.icap_reader,
             http_header_size,
             self.http_req_add_no_via_header,
         )
         .await?;
-        let trailers = self.icap_rsp.take_trailers();
-        http_req.set_trailer(trailers);
 
         let final_req = orig_http_request.adapt_to(&http_req);
         let (mut ups_recv_rsp, mut ups_send_stream) = ups_send_request

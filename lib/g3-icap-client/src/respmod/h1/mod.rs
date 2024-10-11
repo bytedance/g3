@@ -49,7 +49,6 @@ mod impl_trait;
 pub trait HttpResponseForAdaptation {
     fn body_type(&self, method: &Method) -> Option<HttpBodyType>;
     fn serialize_for_adapter(&self) -> Vec<u8>;
-    fn append_trailer_header(&self, buf: &mut Vec<u8>);
     fn adapt_to(&self, other: HttpAdaptedResponse) -> Self;
 }
 

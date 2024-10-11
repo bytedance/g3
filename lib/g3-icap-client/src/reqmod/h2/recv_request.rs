@@ -251,19 +251,17 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
     pub(super) async fn handle_icap_http_request_with_body_after_transfer(
         mut self,
         state: &mut ReqmodAdaptationRunState,
-        mut icap_rsp: ReqmodResponse,
+        icap_rsp: ReqmodResponse,
         http_header_size: usize,
         orig_http_request: Request<()>,
         mut ups_send_request: SendRequest<Bytes>,
     ) -> Result<ReqmodAdaptationEndState, H2ReqmodAdaptationError> {
-        let mut http_req = HttpAdaptedRequest::parse(
+        let http_req = HttpAdaptedRequest::parse(
             &mut self.icap_connection.1,
             http_header_size,
             self.http_req_add_no_via_header,
         )
         .await?;
-        let trailers = icap_rsp.take_trailers();
-        http_req.set_trailer(trailers);
 
         let final_req = orig_http_request.adapt_to(&http_req);
         let (mut ups_recv_rsp, mut ups_send_stream) = ups_send_request

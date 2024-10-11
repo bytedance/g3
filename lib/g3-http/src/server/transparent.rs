@@ -76,18 +76,13 @@ impl HttpTransparentRequest {
     }
 
     pub fn clone_by_adaptation(&self, adapted: HttpAdaptedRequest) -> Self {
-        let mut hop_by_hop_headers = self.hop_by_hop_headers.clone();
-        hop_by_hop_headers.remove(http::header::TRAILER);
-        for v in adapted.trailer() {
-            hop_by_hop_headers.append(http::header::TRAILER, v.clone());
-        }
         HttpTransparentRequest {
             version: adapted.version,
             method: adapted.method,
             uri: adapted.uri,
             steal_forwarded_for: false,
             end_to_end_headers: adapted.headers,
-            hop_by_hop_headers,
+            hop_by_hop_headers: self.hop_by_hop_headers.clone(),
             host: None,
             original_connection_name: self.original_connection_name.clone(),
             extra_connection_headers: self.extra_connection_headers.clone(),
@@ -211,10 +206,10 @@ impl HttpTransparentRequest {
     fn post_check_and_fix(&mut self) {
         if !self.connection_upgrade {
             self.upgrade = false;
-            self.hop_by_hop_headers.remove(http::header::UPGRADE);
+            self.hop_by_hop_headers.remove(header::UPGRADE);
         }
         if self.has_trailer && !self.chunked_transfer {
-            self.hop_by_hop_headers.remove(http::header::TRAILER);
+            self.end_to_end_headers.remove(header::TRAILER);
         }
 
         // Don't move non-standard connection headers to hop-by-hop headers, as we don't support them
@@ -365,10 +360,7 @@ impl HttpTransparentRequest {
                 self.upgrade = true;
                 return self.insert_hop_by_hop_header(name, &header);
             }
-            "trailer" => {
-                self.has_trailer = true;
-                return self.insert_hop_by_hop_header(name, &header);
-            }
+            "trailer" => self.has_trailer = true,
             "transfer-encoding" => {
                 // it's a hop-by-hop option, but we just pass it
                 self.has_transfer_encoding = true;

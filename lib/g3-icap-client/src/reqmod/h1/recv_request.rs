@@ -192,7 +192,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
     pub(super) async fn handle_icap_http_request_with_body_after_transfer<H, UW>(
         mut self,
         state: &mut ReqmodAdaptationRunState,
-        mut icap_rsp: ReqmodResponse,
+        icap_rsp: ReqmodResponse,
         http_header_size: usize,
         orig_http_request: &H,
         ups_writer: &mut UW,
@@ -208,10 +208,6 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         )
         .await?;
         http_req.set_chunked_encoding();
-        let trailers = icap_rsp.take_trailers();
-        if !trailers.is_empty() {
-            http_req.set_trailer(trailers);
-        };
 
         let final_req = orig_http_request.adapt_to(http_req);
         ups_writer

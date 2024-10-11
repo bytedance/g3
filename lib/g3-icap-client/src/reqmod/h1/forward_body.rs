@@ -30,10 +30,7 @@ use super::{
 use crate::reqmod::IcapReqmodResponsePayload;
 
 impl<I: IdleCheck> HttpRequestAdapter<I> {
-    fn build_forward_all_request<H>(&self, http_request: &H, http_header_len: usize) -> Vec<u8>
-    where
-        H: HttpRequestForAdaptation,
-    {
+    fn build_forward_all_request(&self, http_header_len: usize) -> Vec<u8> {
         let mut header = Vec::with_capacity(self.icap_client.partial_request_header.len() + 128);
         header.extend_from_slice(&self.icap_client.partial_request_header);
         self.push_extended_headers(&mut header);
@@ -41,7 +38,6 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             header,
             "Encapsulated: req-hdr=0, req-body={http_header_len}\r\n",
         );
-        http_request.append_trailer_header(&mut header);
         header.put_slice(b"\r\n");
         header
     }
@@ -60,7 +56,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         UW: HttpRequestUpstreamWriter<H> + Unpin,
     {
         let http_header = http_request.serialize_for_adapter();
-        let icap_header = self.build_forward_all_request(http_request, http_header.len());
+        let icap_header = self.build_forward_all_request(http_header.len());
 
         let icap_w = &mut self.icap_connection.0;
         icap_w
@@ -116,7 +112,6 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                 } else {
                     let icap_keepalive = rsp.keep_alive;
                     let bidirectional_transfer = BidirectionalRecvHttpRequest {
-                        icap_rsp: rsp,
                         icap_reader: &mut self.icap_connection.1,
                         http_body_line_max_size: self.http_body_line_max_size,
                         http_req_add_no_via_header: self.http_req_add_no_via_header,
