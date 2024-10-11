@@ -121,7 +121,7 @@ impl ProtocolInspectPolicy {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug)]
 pub enum ProtocolInspectAction {
     Intercept,
     #[cfg(feature = "quic")]

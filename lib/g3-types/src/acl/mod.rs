@@ -15,7 +15,6 @@
  */
 
 use std::fmt;
-use std::hash::Hash;
 use std::str::FromStr;
 
 mod a_hash;
@@ -41,9 +40,9 @@ pub use proxy_request::AclProxyRequestRule;
 pub use regex_set::{AclRegexSetRule, AclRegexSetRuleBuilder};
 pub use user_agent::AclUserAgentRule;
 
-pub trait ActionContract: Clone + Copy + PartialEq + Eq + Hash {}
+pub trait ActionContract: Copy {}
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum AclAction {
     Permit,
     PermitAndLog,
