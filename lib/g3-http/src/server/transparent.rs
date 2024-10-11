@@ -263,7 +263,7 @@ impl HttpTransparentRequest {
                 }
                 "upgrade" => {
                     self.connection_upgrade = true;
-                    self.extra_connection_headers.push(http::header::UPGRADE);
+                    self.extra_connection_headers.push(header::UPGRADE);
                 }
                 s => {
                     if let Ok(h) = HeaderName::from_str(s) {
