@@ -48,7 +48,6 @@ pub struct HttpTransparentRequest {
     chunked_transfer: bool,
     has_transfer_encoding: bool,
     has_content_length: bool,
-    has_trailer: bool,
 }
 
 impl HttpTransparentRequest {
@@ -71,7 +70,6 @@ impl HttpTransparentRequest {
             chunked_transfer: false,
             has_transfer_encoding: false,
             has_content_length: false,
-            has_trailer: false,
         }
     }
 
@@ -94,7 +92,6 @@ impl HttpTransparentRequest {
             chunked_transfer: true,
             has_transfer_encoding: false,
             has_content_length: false,
-            has_trailer: false,
         }
     }
 
@@ -207,9 +204,6 @@ impl HttpTransparentRequest {
         if !self.connection_upgrade {
             self.upgrade = false;
             self.hop_by_hop_headers.remove(header::UPGRADE);
-        }
-        if self.has_trailer && !self.chunked_transfer {
-            self.end_to_end_headers.remove(header::TRAILER);
         }
 
         // Don't move non-standard connection headers to hop-by-hop headers, as we don't support them
@@ -360,7 +354,6 @@ impl HttpTransparentRequest {
                 self.upgrade = true;
                 return self.insert_hop_by_hop_header(name, &header);
             }
-            "trailer" => self.has_trailer = true,
             "transfer-encoding" => {
                 // it's a hop-by-hop option, but we just pass it
                 self.has_transfer_encoding = true;

@@ -42,7 +42,6 @@ pub struct HttpForwardRemoteResponse {
     chunked_transfer: bool,
     has_transfer_encoding: bool,
     has_content_length: bool,
-    has_trailer: bool,
     has_keep_alive: bool,
 }
 
@@ -62,7 +61,6 @@ impl HttpForwardRemoteResponse {
             chunked_transfer: false,
             has_transfer_encoding: false,
             has_content_length: false,
-            has_trailer: false,
             has_keep_alive: false,
         }
     }
@@ -82,7 +80,6 @@ impl HttpForwardRemoteResponse {
             chunked_transfer: true,
             has_transfer_encoding: false,
             has_content_length: false,
-            has_trailer: false,
             has_keep_alive: false,
         }
     }
@@ -195,10 +192,6 @@ impl HttpForwardRemoteResponse {
     /// do some necessary check and fix
     fn post_check_and_fix(&mut self, method: &Method) {
         if !self.chunked_transfer {
-            if self.has_trailer {
-                self.end_to_end_headers.remove(http::header::TRAILER);
-            }
-
             if self.expect_no_body(method) {
                 // ignore the check of content-length as body is unexpected
             } else if !self.has_content_length {
@@ -287,7 +280,6 @@ impl HttpForwardRemoteResponse {
                 self.has_keep_alive = true;
                 return self.insert_hop_by_hop_header(name, &header);
             }
-            "trailer" => self.has_trailer = true,
             "transfer-encoding" => {
                 // it's a hop-by-hop option, but we just pass it
                 self.has_transfer_encoding = true;

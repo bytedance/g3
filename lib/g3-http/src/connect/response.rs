@@ -33,7 +33,6 @@ pub struct HttpConnectResponse {
     chunked_transfer: bool,
     has_transfer_encoding: bool,
     has_content_length: bool,
-    has_trailer: bool,
 }
 
 impl HttpConnectResponse {
@@ -46,7 +45,6 @@ impl HttpConnectResponse {
             chunked_transfer: false,
             has_transfer_encoding: false,
             has_content_length: false,
-            has_trailer: false,
         }
     }
 
@@ -122,10 +120,6 @@ impl HttpConnectResponse {
 
     /// do some necessary check and fix
     fn post_check_and_fix(&mut self) {
-        if self.has_trailer && !self.chunked_transfer {
-            self.headers.remove(http::header::TRAILER);
-        }
-
         // Don't move non-standard connection headers to hop-by-hop headers, as we don't support them
     }
 
@@ -148,7 +142,6 @@ impl HttpConnectResponse {
 
         match name.as_str() {
             "connection" | "proxy-connection" => {}
-            "trailer" => self.has_trailer = true,
             "transfer-encoding" => {
                 self.has_transfer_encoding = true;
                 if self.has_content_length {

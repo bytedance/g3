@@ -31,7 +31,6 @@ pub struct HttpAdapterErrorResponse {
     pub status: StatusCode,
     pub reason: String,
     pub headers: HttpHeaderMap,
-    has_trailer: bool,
 }
 
 impl HttpAdapterErrorResponse {
@@ -41,7 +40,6 @@ impl HttpAdapterErrorResponse {
             status,
             reason,
             headers: HttpHeaderMap::default(),
-            has_trailer: false,
         }
     }
 
@@ -145,7 +143,6 @@ impl HttpAdapterErrorResponse {
 
         match name.as_str() {
             "connection" | "keep-alive" => return Ok(()),
-            "trailer" => self.has_trailer = true,
             "transfer-encoding" | "content-length" => return Ok(()),
             _ => {}
         }

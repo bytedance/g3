@@ -45,7 +45,6 @@ pub struct HttpProxyClientRequest {
     chunked_transfer: bool,
     has_transfer_encoding: bool,
     has_content_length: bool,
-    has_trailer: bool,
 }
 
 impl HttpProxyClientRequest {
@@ -66,7 +65,6 @@ impl HttpProxyClientRequest {
             chunked_transfer: false,
             has_transfer_encoding: false,
             has_content_length: false,
-            has_trailer: false,
         }
     }
 
@@ -87,7 +85,6 @@ impl HttpProxyClientRequest {
             chunked_transfer: true,
             has_transfer_encoding: false,
             has_content_length: false,
-            has_trailer: false,
         }
     }
 
@@ -221,10 +218,6 @@ impl HttpProxyClientRequest {
 
     /// do some necessary check and fix
     fn post_check_and_fix(&mut self) {
-        if self.has_trailer && !self.chunked_transfer {
-            self.end_to_end_headers.remove(header::TRAILER);
-        }
-
         // Don't move non-standard connection headers to hop-by-hop headers, as we don't support them
     }
 
@@ -358,7 +351,6 @@ impl HttpProxyClientRequest {
                 // TODO we have no support for it right now
                 return Err(HttpRequestParseError::UpgradeIsNotSupported);
             }
-            "trailer" => self.has_trailer = true,
             "transfer-encoding" => {
                 // it's a hop-by-hop option, but we just pass it
                 self.has_transfer_encoding = true;
