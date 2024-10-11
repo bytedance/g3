@@ -426,9 +426,9 @@ dependencies = [
 
 [[package]]
 name = "c-ares-sys"
-version = "10.0.1"
+version = "10.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b5de061e8fa7ba6895e104e730ec87ff91d8287c1694d6df4d615c342354a44"
+checksum = "9f10dad1523e837b908ba827ffdb939bd86c1b256ee29c41d2d037f0b27e2e45"
 dependencies = [
  "c-types",
  "cc",
