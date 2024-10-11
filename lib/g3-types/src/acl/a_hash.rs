@@ -30,16 +30,6 @@ where
     missed_action: Action,
 }
 
-impl<K, Action> Default for AclAHashRule<K, Action>
-where
-    K: Hash + Eq,
-    Action: ActionContract,
-{
-    fn default() -> Self {
-        Self::new(Action::default_forbid())
-    }
-}
-
 impl<K, Action> AclAHashRule<K, Action>
 where
     K: Hash + Eq,

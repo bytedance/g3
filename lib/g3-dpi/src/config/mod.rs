@@ -42,12 +42,12 @@ pub struct ProtocolInspectPolicyBuilder {
 
 impl Default for ProtocolInspectPolicyBuilder {
     fn default() -> Self {
-        Self::with_missed_action(ProtocolInspectAction::Intercept)
+        Self::new(ProtocolInspectAction::Intercept)
     }
 }
 
 impl ProtocolInspectPolicyBuilder {
-    pub fn with_missed_action(missed_action: ProtocolInspectAction) -> Self {
+    pub fn new(missed_action: ProtocolInspectAction) -> Self {
         ProtocolInspectPolicyBuilder {
             missed_action,
             rule_set: AclDstHostRuleSetBuilder::default(),
@@ -77,39 +77,6 @@ pub enum ProtocolInspectAction {
 impl ProtocolInspectAction {
     #[inline]
     fn as_str(&self) -> &'static str {
-        self.serialize()
-    }
-
-    pub fn is_block(&self) -> bool {
-        matches!(self, ProtocolInspectAction::Block)
-    }
-}
-
-impl fmt::Display for ProtocolInspectAction {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(ProtocolInspectAction::as_str(self))
-    }
-}
-
-impl FromStr for ProtocolInspectAction {
-    type Err = ();
-
-    #[inline]
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::deserialize(s).map_err(|_| ())
-    }
-}
-
-impl ActionContract for ProtocolInspectAction {
-    fn default_forbid() -> Self {
-        Self::Block
-    }
-
-    fn default_permit() -> Self {
-        Self::Intercept
-    }
-
-    fn serialize(&self) -> &'static str {
         match self {
             Self::Intercept => "intercept",
             #[cfg(feature = "quic")]
@@ -119,17 +86,34 @@ impl ActionContract for ProtocolInspectAction {
         }
     }
 
-    fn deserialize(s: &str) -> Result<Self, &str> {
+    pub fn is_block(&self) -> bool {
+        matches!(self, ProtocolInspectAction::Block)
+    }
+}
+
+impl fmt::Display for ProtocolInspectAction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl FromStr for ProtocolInspectAction {
+    type Err = ();
+
+    #[inline]
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "intercept" => Ok(ProtocolInspectAction::Intercept),
             #[cfg(feature = "quic")]
             "detour" => Ok(ProtocolInspectAction::Detour),
             "bypass" => Ok(ProtocolInspectAction::Bypass),
             "block" => Ok(ProtocolInspectAction::Block),
-            _ => Err(s),
+            _ => Err(()),
         }
     }
 }
+
+impl ActionContract for ProtocolInspectAction {}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProtocolInspectionConfig {

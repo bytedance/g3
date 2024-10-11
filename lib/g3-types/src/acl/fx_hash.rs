@@ -30,16 +30,6 @@ where
     missed_action: Action,
 }
 
-impl<K, Action> Default for AclFxHashRule<K, Action>
-where
-    K: Hash + Eq,
-    Action: ActionContract,
-{
-    fn default() -> Self {
-        Self::new(Action::default_forbid())
-    }
-}
-
 impl<K, Action> AclFxHashRule<K, Action>
 where
     K: Hash + Eq,

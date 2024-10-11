@@ -24,12 +24,6 @@ pub struct AclUserAgentRule<Action = AclAction> {
     missed_action: Action,
 }
 
-impl<Action: ActionContract> Default for AclUserAgentRule<Action> {
-    fn default() -> Self {
-        AclUserAgentRule::new(Action::default_permit())
-    }
-}
-
 impl<Action: ActionContract> AclUserAgentRule<Action> {
     pub fn new(missed_action: Action) -> Self {
         AclUserAgentRule {
@@ -98,7 +92,7 @@ mod tests {
 
     #[test]
     fn basic() {
-        let mut acl = AclUserAgentRule::default();
+        let mut acl = AclUserAgentRule::new(AclAction::Permit);
         acl.add_ua_name("curl", AclAction::Forbid);
         acl.add_ua_name("go", AclAction::Forbid);
 
@@ -118,7 +112,7 @@ mod tests {
 
     #[test]
     fn google_bots_apis() {
-        let mut acl = AclUserAgentRule::default();
+        let mut acl = AclUserAgentRule::new(AclAction::Permit);
         acl.add_ua_name("APIs-Google", AclAction::Forbid);
         let (found, action) =
             acl.check("APIs-Google (+https://developers.google.com/webmasters/APIs-Google.html)");
@@ -128,7 +122,7 @@ mod tests {
 
     #[test]
     fn google_bots_ads_mobile() {
-        let mut acl = AclUserAgentRule::default();
+        let mut acl = AclUserAgentRule::new(AclAction::Permit);
         acl.add_ua_name("AdsBot-Google-Mobile", AclAction::Forbid);
 
         let (found, action) = acl.check(

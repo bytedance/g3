@@ -56,22 +56,22 @@ impl AclDstHostRuleSetBuilder<AclAction> {
         let mut missed_action = AclAction::Permit;
 
         let exact_rule = self.exact.as_ref().map(|rule| {
-            missed_action = rule.missed_action().restrict(missed_action);
+            missed_action = missed_action.restrict(rule.missed_action());
             rule.clone()
         });
 
         let child_rule = self.child.as_ref().map(|builder| {
-            missed_action = builder.missed_action().restrict(missed_action);
+            missed_action = missed_action.restrict(builder.missed_action());
             builder.build()
         });
 
         let regex_rule = self.regex.as_ref().map(|builder| {
-            missed_action = builder.missed_action().restrict(missed_action);
+            missed_action = missed_action.restrict(builder.missed_action());
             builder.build()
         });
 
         let subnet_rule = self.subnet.as_ref().map(|builder| {
-            missed_action = builder.missed_action().restrict(missed_action);
+            missed_action = missed_action.restrict(builder.missed_action());
             builder.build()
         });
 
