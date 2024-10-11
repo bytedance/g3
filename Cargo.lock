@@ -402,9 +402,9 @@ checksum = "428d9aa8fbc0670b7b8d6030a7fadd0f86151cae55e4dbbece15f3780a3dfaf3"
 
 [[package]]
 name = "c-ares"
-version = "11.0.0"
+version = "11.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbec8f1d09fecef7c29762d7229282bc34f094cb57e0cec7211e081bdeab945c"
+checksum = "192e731c5d14a8ba0c0928e40f8585c59ef969656960561626e9d7bca1c2a127"
 dependencies = [
  "bitflags",
  "c-ares-sys",
