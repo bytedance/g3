@@ -14,54 +14,10 @@
  * limitations under the License.
  */
 
-use std::str::FromStr;
-
 use anyhow::{anyhow, Context};
 use yaml_rust::Yaml;
 
-use g3_dpi::{
-    ProtocolInspectAction, ProtocolInspectPolicyBuilder, ProtocolInspectionConfig,
-    ProtocolInspectionSizeLimit,
-};
-
-fn as_protocol_inspect_action(value: &Yaml) -> anyhow::Result<ProtocolInspectAction> {
-    if let Yaml::String(s) = value {
-        ProtocolInspectAction::from_str(s)
-            .map_err(|_| anyhow!("invalid protocol inspect action '{s}'"))
-    } else {
-        Err(anyhow!("invalid value type"))
-    }
-}
-
-pub fn as_protocol_inspect_policy_builder(
-    value: &Yaml,
-) -> anyhow::Result<ProtocolInspectPolicyBuilder> {
-    match value {
-        Yaml::Hash(map) => {
-            let mut builder = ProtocolInspectPolicyBuilder::default();
-            crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
-                "default" => {
-                    let missed_action = as_protocol_inspect_action(v)
-                        .context(format!("invalid protocol inspect action value for key {k}"))?;
-                    builder.set_missed_action(missed_action);
-                    Ok(())
-                }
-                _ => crate::value::acl_set::set_dst_host_role_set_builder_kv(
-                    &mut builder.rule_set,
-                    k,
-                    v,
-                ),
-            })?;
-            Ok(builder)
-        }
-        _ => {
-            let missed_action = as_protocol_inspect_action(value)?;
-            Ok(ProtocolInspectPolicyBuilder::with_missed_action(
-                missed_action,
-            ))
-        }
-    }
-}
+use g3_dpi::{ProtocolInspectionConfig, ProtocolInspectionSizeLimit};
 
 pub fn parse_inspect_size_limit(
     config: &mut ProtocolInspectionSizeLimit,

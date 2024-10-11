@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,22 +17,17 @@
 use anyhow::anyhow;
 use yaml_rust::Yaml;
 
-use g3_types::acl::{AclAction, AclChildDomainRuleBuilder};
+use g3_dpi::ProtocolInspectAction;
+use g3_types::acl::AclChildDomainRuleBuilder;
 
-use super::AclRuleYamlParser;
+use super::InspectRuleYamlParser;
 
-impl AclRuleYamlParser for AclChildDomainRuleBuilder {
-    #[inline]
-    fn get_default_found_action(&self) -> AclAction {
-        AclAction::Permit
-    }
-
-    #[inline]
-    fn set_missed_action(&mut self, action: AclAction) {
-        self.set_missed_action(action);
-    }
-
-    fn add_rule_for_action(&mut self, action: AclAction, value: &Yaml) -> anyhow::Result<()> {
+impl InspectRuleYamlParser for AclChildDomainRuleBuilder<ProtocolInspectAction> {
+    fn add_rule_for_action(
+        &mut self,
+        action: ProtocolInspectAction,
+        value: &Yaml,
+    ) -> anyhow::Result<()> {
         match value {
             Yaml::String(_) => {
                 let host = crate::value::as_domain(value)?;
@@ -44,10 +39,10 @@ impl AclRuleYamlParser for AclChildDomainRuleBuilder {
     }
 }
 
-pub(crate) fn as_child_domain_rule_builder(
+pub(super) fn as_child_domain_rule_builder(
     value: &Yaml,
-) -> anyhow::Result<AclChildDomainRuleBuilder> {
-    let mut builder = AclChildDomainRuleBuilder::new(AclAction::Forbid);
+) -> anyhow::Result<AclChildDomainRuleBuilder<ProtocolInspectAction>> {
+    let mut builder = AclChildDomainRuleBuilder::new(ProtocolInspectAction::Intercept);
     builder.parse(value)?;
     Ok(builder)
 }

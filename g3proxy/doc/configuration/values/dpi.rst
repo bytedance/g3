@@ -62,17 +62,16 @@ The keys ars:
 
   .. deprecated:: 1.9.0 not used anymore, the max SMTP reply line length should be 512
 
-.. _conf_value_dpi_protocol_inspect_policy:
+.. _conf_value_dpi_protocol_inspect_action:
 
-protocol inspect policy
+protocol inspect action
 -----------------------
 
-**type**: string | map
+**type**: string
 
 Set what we should do to a specific application protocol.
 
-One can use the *string* type to define an action for any upstream traffic, regardless of the host,
-the possible values for this are:
+The possible values for this are:
 
 - intercept
 
@@ -90,11 +89,100 @@ the possible values for this are:
 
   Block the traffic. And we will try to send application level error code to the client.
 
-For more complex setups one can also use the *map* type which
-is documented in :ref:`acl rule set <conf_value_acl_rule_set>` with the only
-difference that the action variants are the strings defined here.
+.. versionadded:: 1.9.9
 
-.. versionadded:: 1.11.0
+.. _conf_value_inspect_rule:
+
+inspect rule
+------------
+
+**yaml value**: map
+
+All the rules share the same config format described in this section.
+
+An inspect rule is consisted of many records, each of them has an associated
+:ref:`protocol inspect action <conf_value_dpi_protocol_inspect_action>`.
+
+The value in map format is consisted of the following fields:
+
+* any of the protocol inspect actions as the key str
+
+  The value should be a valid record or a list of them, with the key string as the acl action.
+  See detail types for the format of each record type.
+
+.. versionadded:: 1.9.9
+
+.. _conf_value_dst_subnet_inspect_rule:
+
+dst subnet inspect rule
+-----------------------
+
+**yaml value**: :ref:`inspect rule <conf_value_inspect_rule>`
+
+The record type should be :ref:`ip network str <conf_value_ip_network_str>`.
+
+.. versionadded:: 1.9.9
+
+.. _conf_value_exact_host_inspect_rule:
+
+exact host inspect rule
+-----------------------
+
+**yaml value**: :ref:`inspect rule <conf_value_inspect_rule>`
+
+The record type should be :ref:`host <conf_value_host>`.
+
+.. versionadded:: 1.9.9
+
+.. _conf_value_child_domain_inspect_rule:
+
+child domain inspect rule
+-------------------------
+
+**yaml value**: :ref:`inspect rule <conf_value_inspect_rule>`
+
+Specify the parent domain to match, all children domain in this domain will be matched.
+
+The record type should be :ref:`domain <conf_value_domain>`.
+
+.. versionadded:: 1.9.9
+
+.. _conf_value_dpi_protocol_inspect_policy:
+
+protocol inspect policy
+-----------------------
+
+**yaml value**: string | map
+
+This rule set is used to match dst host for each protocol inspection call.
+
+Consisted of the following rules:
+
+* default
+
+  **type**: :ref:`protocol inspect action <conf_value_dpi_protocol_inspect_action>`
+
+  Set the default inspect action if no rules matched explicitly.
+
+* exact_match
+
+  **type**: :ref:`exact host inspect rule <conf_value_exact_host_inspect_rule>`
+
+* child_match
+
+  **type**: :ref:`child domain inspect rule <conf_value_child_domain_inspect_rule>`
+
+* subnet_match
+
+  **type**: :ref:`dst subnet inspect rule <conf_value_dst_subnet_inspect_rule>`
+
+  Match only if the host is an IP Address.
+
+The match order is the same as the list order above.
+
+One can use the *string* type to define a default action for any upstream traffic, regardless of the host,
+
+.. versionadded:: 1.9.9
 
 .. _conf_value_dpi_protocol_inspection:
 

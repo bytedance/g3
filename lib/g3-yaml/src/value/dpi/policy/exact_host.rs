@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,30 +16,27 @@
 
 use yaml_rust::Yaml;
 
-use g3_types::acl::{AclAction, AclExactHostRule};
+use g3_dpi::ProtocolInspectAction;
+use g3_types::acl::AclExactHostRule;
 
-use super::AclRuleYamlParser;
+use super::InspectRuleYamlParser;
 
-impl AclRuleYamlParser for AclExactHostRule {
-    #[inline]
-    fn get_default_found_action(&self) -> AclAction {
-        AclAction::Permit
-    }
-
-    #[inline]
-    fn set_missed_action(&mut self, action: AclAction) {
-        self.set_missed_action(action);
-    }
-
-    fn add_rule_for_action(&mut self, action: AclAction, value: &Yaml) -> anyhow::Result<()> {
+impl InspectRuleYamlParser for AclExactHostRule<ProtocolInspectAction> {
+    fn add_rule_for_action(
+        &mut self,
+        action: ProtocolInspectAction,
+        value: &Yaml,
+    ) -> anyhow::Result<()> {
         let host = crate::value::as_host(value)?;
         self.add_host(host, action);
         Ok(())
     }
 }
 
-pub(crate) fn as_exact_host_rule(value: &Yaml) -> anyhow::Result<AclExactHostRule> {
-    let mut builder = AclExactHostRule::new(AclAction::Forbid);
+pub(super) fn as_exact_host_rule(
+    value: &Yaml,
+) -> anyhow::Result<AclExactHostRule<ProtocolInspectAction>> {
+    let mut builder = AclExactHostRule::new(ProtocolInspectAction::Intercept);
     builder.parse(value)?;
     Ok(builder)
 }

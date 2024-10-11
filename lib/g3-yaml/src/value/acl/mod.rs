@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
+use std::str::FromStr;
+
 use anyhow::{anyhow, Context};
 use yaml_rust::Yaml;
 
-use g3_types::acl::ActionContract;
+use g3_types::acl::AclAction;
 
 mod child_domain;
 mod exact_host;
@@ -37,19 +39,19 @@ pub use network::{as_egress_network_rule_builder, as_ingress_network_rule_builde
 pub use proxy_request::as_proxy_request_rule;
 pub use user_agent::as_user_agent_rule;
 
-fn as_action<Action: ActionContract>(value: &Yaml) -> anyhow::Result<Action> {
+fn as_action(value: &Yaml) -> anyhow::Result<AclAction> {
     if let Yaml::String(s) = value {
-        let action = Action::deserialize(s).map_err(|_| anyhow!("invalid Action string value"))?;
+        let action = AclAction::from_str(s).map_err(|_| anyhow!("invalid Action string value"))?;
         Ok(action)
     } else {
         Err(anyhow!("the yaml value type for Action should be string"))
     }
 }
 
-trait AclRuleYamlParser<Action: ActionContract> {
-    fn get_default_found_action(&self) -> Action;
-    fn set_missed_action(&mut self, action: Action);
-    fn add_rule_for_action(&mut self, action: Action, value: &Yaml) -> anyhow::Result<()>;
+trait AclRuleYamlParser {
+    fn get_default_found_action(&self) -> AclAction;
+    fn set_missed_action(&mut self, action: AclAction);
+    fn add_rule_for_action(&mut self, action: AclAction, value: &Yaml) -> anyhow::Result<()>;
 
     fn parse(&mut self, value: &Yaml) -> anyhow::Result<()> {
         match value {
@@ -61,7 +63,7 @@ trait AclRuleYamlParser<Action: ActionContract> {
                         Ok(())
                     }
                     _ => {
-                        let action = Action::deserialize(k)
+                        let action = AclAction::from_str(k)
                             .map_err(|_| anyhow!("the key {k} is not a valid Action"))?;
                         if let Yaml::Array(seq) = v {
                             for (i, v) in seq.iter().enumerate() {

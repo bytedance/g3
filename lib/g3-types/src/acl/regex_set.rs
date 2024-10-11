@@ -25,12 +25,6 @@ pub struct AclRegexSetRuleBuilder<Action = AclAction> {
     missed_action: Action,
 }
 
-impl<Action: ActionContract> Default for AclRegexSetRuleBuilder<Action> {
-    fn default() -> Self {
-        Self::new(Action::default_forbid())
-    }
-}
-
 impl<Action: ActionContract> AclRegexSetRuleBuilder<Action> {
     pub fn new(missed_action: Action) -> Self {
         AclRegexSetRuleBuilder {

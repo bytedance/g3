@@ -41,13 +41,7 @@ pub use proxy_request::AclProxyRequestRule;
 pub use regex_set::{AclRegexSetRule, AclRegexSetRuleBuilder};
 pub use user_agent::AclUserAgentRule;
 
-pub trait ActionContract: Clone + Copy + PartialEq + Eq + Hash {
-    fn default_forbid() -> Self;
-    fn default_permit() -> Self;
-
-    fn serialize(&self) -> &'static str;
-    fn deserialize(s: &str) -> Result<Self, &str>;
-}
+pub trait ActionContract: Clone + Copy + PartialEq + Eq + Hash {}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum AclAction {
@@ -77,20 +71,6 @@ impl AclAction {
 impl AclAction {
     #[inline]
     fn as_str(&self) -> &'static str {
-        self.serialize()
-    }
-}
-
-impl ActionContract for AclAction {
-    fn default_permit() -> AclAction {
-        AclAction::Permit
-    }
-
-    fn default_forbid() -> AclAction {
-        AclAction::Forbid
-    }
-
-    fn serialize(&self) -> &'static str {
         match self {
             AclAction::Permit => "Permit",
             AclAction::PermitAndLog => "PermitAndLog",
@@ -98,17 +78,9 @@ impl ActionContract for AclAction {
             AclAction::ForbidAndLog => "ForbidAndLog",
         }
     }
-
-    fn deserialize(s: &str) -> Result<Self, &str> {
-        match s.to_ascii_lowercase().as_str() {
-            "permit" | "allow" | "accept" => Ok(AclAction::Permit),
-            "permit_log" | "allow_log" | "accept_log" => Ok(AclAction::PermitAndLog),
-            "forbid" | "deny" | "reject" => Ok(AclAction::Forbid),
-            "forbid_log" | "deny_log" | "reject_log" => Ok(AclAction::ForbidAndLog),
-            _ => Err(s),
-        }
-    }
 }
+
+impl ActionContract for AclAction {}
 
 impl fmt::Display for AclAction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -121,7 +93,13 @@ impl FromStr for AclAction {
 
     #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        AclAction::deserialize(s).map_err(|_| ())
+        match s.to_ascii_lowercase().as_str() {
+            "permit" | "allow" | "accept" => Ok(AclAction::Permit),
+            "permit_log" | "allow_log" | "accept_log" => Ok(AclAction::PermitAndLog),
+            "forbid" | "deny" | "reject" => Ok(AclAction::Forbid),
+            "forbid_log" | "deny_log" | "reject_log" => Ok(AclAction::ForbidAndLog),
+            _ => Err(()),
+        }
     }
 }
 

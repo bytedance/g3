@@ -30,52 +30,9 @@ pub struct AclNetworkRuleBuilder<Action = AclAction> {
 }
 
 impl<Action: ActionContract> AclNetworkRuleBuilder<Action> {
-    pub fn new_egress(missed_action: Action) -> Self {
-        static DEFAULT_EGRESS_RULE: LazyLock<Vec<IpNetwork>> = LazyLock::new(|| {
-            vec![
-                // forbid ipv4 unspecified 0.0.0.0/32 by default
-                IpNetwork::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 32).unwrap(),
-                // forbid ipv4 loopback 127.0.0.0/8 by default
-                IpNetwork::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 0)), 8).unwrap(),
-                // forbid ipv4 link-local 169.254.0.0/16 by default
-                IpNetwork::new(IpAddr::V4(Ipv4Addr::new(169, 254, 0, 0)), 16).unwrap(),
-                // forbid ipv6 unspecified ::/128 by default
-                IpNetwork::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 128).unwrap(),
-                // forbid ipv6 loopback ::1/128 by default
-                IpNetwork::new(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), 128).unwrap(),
-                // forbid ipv6 link-local fe80::/10 by default
-                IpNetwork::new(IpAddr::V6(Ipv6Addr::new(0xfe80, 0, 0, 0, 0, 0, 0, 0)), 10).unwrap(),
-                // forbid ipv6 discard-only 100::/64 by default
-                IpNetwork::new(IpAddr::V6(Ipv6Addr::new(0x0100, 0, 0, 0, 0, 0, 0, 0)), 64).unwrap(),
-            ]
-        });
-        let v = DEFAULT_EGRESS_RULE.clone();
-        let mut inner = HashMap::with_capacity(v.len());
-        for ip_network in v {
-            inner.insert(ip_network, Action::default_forbid());
-        }
-        Self {
-            inner,
-            missed_action,
-        }
-    }
-
-    pub fn new_ingress(missed_action: Action) -> Self {
-        static DEFAULT_INGRESS_RULE: LazyLock<Vec<IpNetwork>> = LazyLock::new(|| {
-            vec![
-                // permit ipv4 loopback 127.0.0.1/32 by default
-                IpNetwork::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 32).unwrap(),
-                // permit ipv6 loopback ::1/128 by default
-                IpNetwork::new(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), 128).unwrap(),
-            ]
-        });
-        let v = DEFAULT_INGRESS_RULE.clone();
-        let mut inner = HashMap::with_capacity(v.len());
-        for ip_network in v {
-            inner.insert(ip_network, Action::default_permit());
-        }
-        Self {
-            inner,
+    pub fn new(missed_action: Action) -> Self {
+        AclNetworkRuleBuilder {
+            inner: HashMap::new(),
             missed_action,
         }
     }
@@ -103,6 +60,58 @@ impl<Action: ActionContract> AclNetworkRuleBuilder<Action> {
         AclNetworkRule {
             inner,
             default_action: self.missed_action,
+        }
+    }
+}
+
+impl AclNetworkRuleBuilder<AclAction> {
+    pub fn new_egress(missed_action: AclAction) -> Self {
+        static DEFAULT_EGRESS_RULE: LazyLock<Vec<IpNetwork>> = LazyLock::new(|| {
+            vec![
+                // forbid ipv4 unspecified 0.0.0.0/32 by default
+                IpNetwork::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 32).unwrap(),
+                // forbid ipv4 loopback 127.0.0.0/8 by default
+                IpNetwork::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 0)), 8).unwrap(),
+                // forbid ipv4 link-local 169.254.0.0/16 by default
+                IpNetwork::new(IpAddr::V4(Ipv4Addr::new(169, 254, 0, 0)), 16).unwrap(),
+                // forbid ipv6 unspecified ::/128 by default
+                IpNetwork::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 128).unwrap(),
+                // forbid ipv6 loopback ::1/128 by default
+                IpNetwork::new(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), 128).unwrap(),
+                // forbid ipv6 link-local fe80::/10 by default
+                IpNetwork::new(IpAddr::V6(Ipv6Addr::new(0xfe80, 0, 0, 0, 0, 0, 0, 0)), 10).unwrap(),
+                // forbid ipv6 discard-only 100::/64 by default
+                IpNetwork::new(IpAddr::V6(Ipv6Addr::new(0x0100, 0, 0, 0, 0, 0, 0, 0)), 64).unwrap(),
+            ]
+        });
+        let v = DEFAULT_EGRESS_RULE.clone();
+        let mut inner = HashMap::with_capacity(v.len());
+        for ip_network in v {
+            inner.insert(ip_network, AclAction::Forbid);
+        }
+        Self {
+            inner,
+            missed_action,
+        }
+    }
+
+    pub fn new_ingress(missed_action: AclAction) -> Self {
+        static DEFAULT_INGRESS_RULE: LazyLock<Vec<IpNetwork>> = LazyLock::new(|| {
+            vec![
+                // permit ipv4 loopback 127.0.0.1/32 by default
+                IpNetwork::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 32).unwrap(),
+                // permit ipv6 loopback ::1/128 by default
+                IpNetwork::new(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), 128).unwrap(),
+            ]
+        });
+        let v = DEFAULT_INGRESS_RULE.clone();
+        let mut inner = HashMap::with_capacity(v.len());
+        for ip_network in v {
+            inner.insert(ip_network, AclAction::Forbid);
+        }
+        Self {
+            inner,
+            missed_action,
         }
     }
 }
