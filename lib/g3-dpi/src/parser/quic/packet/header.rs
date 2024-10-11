@@ -57,12 +57,10 @@ impl Header {
         &self.packet_number_buf[MAX_PACKET_NUMBER_BYTES - self.packet_number_len..]
     }
 
-    pub(super) fn xor_nonce(&self, iv: &[u8; 12]) -> [u8; 12] {
-        let mut nonce = *iv;
-        nonce[8] ^= self.packet_number_buf[0];
-        nonce[9] ^= self.packet_number_buf[1];
-        nonce[10] ^= self.packet_number_buf[2];
-        nonce[11] ^= self.packet_number_buf[3];
-        nonce
+    pub(super) fn xor_nonce(&self, iv: &mut [u8; 12]) {
+        iv[8] ^= self.packet_number_buf[0];
+        iv[9] ^= self.packet_number_buf[1];
+        iv[10] ^= self.packet_number_buf[2];
+        iv[11] ^= self.packet_number_buf[3];
     }
 }

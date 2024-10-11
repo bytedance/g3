@@ -101,11 +101,11 @@ impl InitialPacketV1 {
         let pn_offset = offset;
         let sample = &left[4..20];
 
-        let secrets = ClientSecrets::new(dst_cid)?;
+        let mut secrets = ClientSecrets::new(dst_cid)?;
         let mask = super::aes::aes_ecb_mask(&secrets.hp, sample)?;
         let header = Header::decode_long(byte1, mask, left)?;
 
-        let nonce = header.xor_nonce(&secrets.iv);
+        header.xor_nonce(&mut secrets.iv);
         let aad_vec = [
             &[header.byte1],
             &data[1..pn_offset],
@@ -115,7 +115,8 @@ impl InitialPacketV1 {
         let ciphertext = &left[header.packet_number_len..tag_start];
         let tag = &left[tag_start..];
 
-        let payload = super::aes::aes_gcm_decrypt(&secrets.key, &nonce, &aad_vec, ciphertext, tag)?;
+        let payload =
+            super::aes::aes_gcm_decrypt(&secrets.key, &secrets.iv, &aad_vec, ciphertext, tag)?;
 
         Ok(InitialPacketV1 {
             packet_number: header.packet_number,
