@@ -43,6 +43,14 @@ impl HttpRequestForAdaptation for HttpProxyClientRequest {
         }
     }
 
+    fn append_upgrade_header(&self, buf: &mut Vec<u8>) {
+        for v in self.hop_by_hop_headers.get_all(header::UPGRADE) {
+            buf.put_slice(b"X-HTTP-Upgrade: ");
+            buf.put_slice(v.as_bytes());
+            buf.put_slice(b"\r\n");
+        }
+    }
+
     fn adapt_to(&self, other: HttpAdaptedRequest) -> Self {
         self.clone_by_adaptation(other)
     }
@@ -64,6 +72,14 @@ impl HttpRequestForAdaptation for HttpTransparentRequest {
     fn append_trailer_header(&self, buf: &mut Vec<u8>) {
         for v in self.hop_by_hop_headers.get_all(header::TRAILER) {
             buf.put_slice(b"Trailer: ");
+            buf.put_slice(v.as_bytes());
+            buf.put_slice(b"\r\n");
+        }
+    }
+
+    fn append_upgrade_header(&self, buf: &mut Vec<u8>) {
+        for v in self.hop_by_hop_headers.get_all(header::UPGRADE) {
+            buf.put_slice(b"X-HTTP-Upgrade: ");
             buf.put_slice(v.as_bytes());
             buf.put_slice(b"\r\n");
         }

@@ -41,7 +41,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
     ) -> Vec<u8> {
         let mut header = Vec::with_capacity(self.icap_client.partial_request_header.len() + 128);
         header.extend_from_slice(&self.icap_client.partial_request_header);
-        self.push_extended_headers(&mut header);
+        self.push_extended_headers(&mut header, None);
         match (self.icap_options.support_204, self.icap_options.support_206) {
             (true, true) => header.put_slice(b"Allow: 204, 206\r\n"),
             (true, false) => header.put_slice(b"Allow: 204\r\n"),

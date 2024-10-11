@@ -14,3 +14,7 @@ The following headers will be added in the ICAP request header:
 - X-Transformed-From
 
   The value will be **HTTP/2.0**.
+
+- X-HTTP-Upgrade
+
+  The value will be the Protocol value set in Extended CONNECT request.

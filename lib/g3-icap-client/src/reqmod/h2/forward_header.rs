@@ -32,10 +32,14 @@ use crate::reqmod::response::ReqmodResponse;
 use crate::reqmod::{IcapReqmodParseError, IcapReqmodResponsePayload};
 
 impl<I: IdleCheck> H2RequestAdapter<I> {
-    fn build_header_only_request(&self, http_header_len: usize) -> Vec<u8> {
+    fn build_header_only_request(
+        &self,
+        http_header_len: usize,
+        http_request: &Request<()>,
+    ) -> Vec<u8> {
         let mut header = Vec::with_capacity(self.icap_client.partial_request_header.len() + 64);
         header.extend_from_slice(&self.icap_client.partial_request_header);
-        self.push_extended_headers(&mut header);
+        self.push_extended_headers(&mut header, Some(http_request.extensions()));
         if self.icap_options.support_204 {
             header.put_slice(b"Allow: 204\r\n");
         }
@@ -54,7 +58,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         ups_send_request: SendRequest<Bytes>,
     ) -> Result<ReqmodAdaptationEndState, H2ReqmodAdaptationError> {
         let http_header = http_request.serialize_for_adapter();
-        let icap_header = self.build_header_only_request(http_header.len());
+        let icap_header = self.build_header_only_request(http_header.len(), &http_request);
 
         let icap_w = &mut self.icap_connection.0;
         icap_w
@@ -137,7 +141,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         http_request: Request<()>,
     ) -> Result<ReqmodAdaptationMidState, H2ReqmodAdaptationError> {
         let http_header = http_request.serialize_for_adapter();
-        let icap_header = self.build_header_only_request(http_header.len());
+        let icap_header = self.build_header_only_request(http_header.len(), &http_request);
 
         let icap_w = &mut self.icap_connection.0;
         icap_w

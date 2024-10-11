@@ -30,7 +30,10 @@ use crate::reqmod::response::ReqmodResponse;
 use crate::reqmod::{IcapReqmodParseError, IcapReqmodResponsePayload};
 
 impl<I: IdleCheck> HttpRequestAdapter<I> {
-    fn build_header_only_request(&self, http_header_len: usize) -> Vec<u8> {
+    fn build_header_only_request<H>(&self, http_request: &H, http_header_len: usize) -> Vec<u8>
+    where
+        H: HttpRequestForAdaptation,
+    {
         let mut header = Vec::with_capacity(self.icap_client.partial_request_header.len() + 64);
         header.extend_from_slice(&self.icap_client.partial_request_header);
         self.push_extended_headers(&mut header);
@@ -41,6 +44,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             header,
             "Encapsulated: req-hdr=0, null-body={http_header_len}\r\n",
         );
+        http_request.append_upgrade_header(&mut header);
         header.put_slice(b"\r\n");
         header
     }
@@ -56,7 +60,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         UW: HttpRequestUpstreamWriter<H> + Unpin,
     {
         let http_header = http_request.serialize_for_adapter();
-        let icap_header = self.build_header_only_request(http_header.len());
+        let icap_header = self.build_header_only_request(http_request, http_header.len());
 
         let icap_w = &mut self.icap_connection.0;
         icap_w
@@ -137,7 +141,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         H: HttpRequestForAdaptation,
     {
         let http_header = http_request.serialize_for_adapter();
-        let icap_header = self.build_header_only_request(http_header.len());
+        let icap_header = self.build_header_only_request(http_request, http_header.len());
 
         let icap_w = &mut self.icap_connection.0;
         icap_w

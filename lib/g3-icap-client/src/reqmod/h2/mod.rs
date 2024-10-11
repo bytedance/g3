@@ -20,8 +20,9 @@ use std::time::Duration;
 
 use bytes::{BufMut, Bytes};
 use h2::client::SendRequest;
+use h2::ext::Protocol;
 use h2::{RecvStream, SendStream};
-use http::{Request, Response};
+use http::{Extensions, Request, Response};
 use tokio::time::Instant;
 
 use g3_h2::H2StreamFromChunkedTransfer;
@@ -140,13 +141,20 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         self.client_username = Some(user);
     }
 
-    fn push_extended_headers(&self, data: &mut Vec<u8>) {
+    fn push_extended_headers(&self, data: &mut Vec<u8>, extensions: Option<&Extensions>) {
         data.put_slice(b"X-Transformed-From: HTTP/2.0\r\n");
         if let Some(addr) = self.client_addr {
             crate::serialize::add_client_addr(data, addr);
         }
         if let Some(user) = &self.client_username {
             crate::serialize::add_client_username(data, user);
+        }
+        if let Some(ext) = extensions {
+            if let Some(p) = ext.get::<Protocol>() {
+                data.put_slice(b"X-HTTP-Upgrade: ");
+                data.put_slice(p.as_str().as_bytes());
+                data.put_slice(b"\r\n");
+            }
         }
     }
 

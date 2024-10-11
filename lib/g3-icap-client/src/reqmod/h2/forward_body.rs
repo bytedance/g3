@@ -38,7 +38,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
     ) -> Vec<u8> {
         let mut header = Vec::with_capacity(self.icap_client.partial_request_header.len() + 128);
         header.extend_from_slice(&self.icap_client.partial_request_header);
-        self.push_extended_headers(&mut header);
+        self.push_extended_headers(&mut header, None);
         let _ = write!(
             header,
             "Encapsulated: req-hdr=0, req-body={http_header_len}\r\n",
