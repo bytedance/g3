@@ -18,8 +18,11 @@ use std::fmt;
 use std::str::FromStr;
 use std::time::Duration;
 
-use g3_types::acl::ActionContract;
-use g3_types::acl_set::{AclDstHostRuleSet, AclDstHostRuleSetBuilder};
+use g3_types::acl::{
+    AclChildDomainRule, AclChildDomainRuleBuilder, AclExactHostRule, AclNetworkRule,
+    AclNetworkRuleBuilder, ActionContract,
+};
+use g3_types::net::Host;
 
 mod size_limit;
 
@@ -37,7 +40,9 @@ pub use imap::ImapInterceptionConfig;
 #[derive(Clone)]
 pub struct ProtocolInspectPolicyBuilder {
     missed_action: ProtocolInspectAction,
-    pub rule_set: AclDstHostRuleSetBuilder<ProtocolInspectAction>,
+    pub exact: Option<AclExactHostRule<ProtocolInspectAction>>,
+    pub child: Option<AclChildDomainRuleBuilder<ProtocolInspectAction>>,
+    pub subnet: Option<AclNetworkRuleBuilder<ProtocolInspectAction>>,
 }
 
 impl Default for ProtocolInspectPolicyBuilder {
@@ -50,7 +55,9 @@ impl ProtocolInspectPolicyBuilder {
     pub fn new(missed_action: ProtocolInspectAction) -> Self {
         ProtocolInspectPolicyBuilder {
             missed_action,
-            rule_set: AclDstHostRuleSetBuilder::default(),
+            exact: None,
+            child: None,
+            subnet: None,
         }
     }
 
@@ -58,12 +65,61 @@ impl ProtocolInspectPolicyBuilder {
         self.missed_action = missed_action;
     }
 
-    pub fn build(&self) -> AclDstHostRuleSet<ProtocolInspectAction> {
-        self.rule_set.build_with_missed_action(self.missed_action)
+    pub fn build(&self) -> ProtocolInspectPolicy {
+        ProtocolInspectPolicy {
+            exact: self.exact.clone(),
+            child: self.child.as_ref().map(|b| b.build()),
+            subnet: self.subnet.as_ref().map(|b| b.build()),
+            missed_action: self.missed_action,
+        }
     }
 }
 
-pub type ProtocolInspectPolicy = AclDstHostRuleSet<ProtocolInspectAction>;
+pub struct ProtocolInspectPolicy {
+    exact: Option<AclExactHostRule<ProtocolInspectAction>>,
+    child: Option<AclChildDomainRule<ProtocolInspectAction>>,
+    subnet: Option<AclNetworkRule<ProtocolInspectAction>>,
+    missed_action: ProtocolInspectAction,
+}
+
+impl ProtocolInspectPolicy {
+    pub fn check(&self, upstream: &Host) -> (bool, ProtocolInspectAction) {
+        match upstream {
+            Host::Ip(ip) => {
+                if let Some(rule) = &self.exact {
+                    let (found, action) = rule.check_ip(ip);
+                    if found {
+                        return (true, action);
+                    }
+                }
+
+                if let Some(rule) = &self.subnet {
+                    let (found, action) = rule.check(*ip);
+                    if found {
+                        return (true, action);
+                    }
+                }
+            }
+            Host::Domain(domain) => {
+                if let Some(rule) = &self.exact {
+                    let (found, action) = rule.check_domain(domain);
+                    if found {
+                        return (true, action);
+                    }
+                }
+
+                if let Some(rule) = &self.child {
+                    let (found, action) = rule.check(domain);
+                    if found {
+                        return (true, action);
+                    }
+                }
+            }
+        }
+
+        (false, self.missed_action)
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum ProtocolInspectAction {
