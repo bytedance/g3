@@ -15,13 +15,13 @@
  */
 
 use std::path::PathBuf;
-#[cfg(unix)]
+#[cfg(all(unix, not(target_os = "openbsd")))]
 use std::str::FromStr;
 use std::sync::OnceLock;
 
 use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgAction, Command, ValueHint};
-#[cfg(unix)]
+#[cfg(all(unix, not(target_os = "openbsd")))]
 use log::info;
 
 use g3_compat::CpuAffinity;

@@ -102,9 +102,9 @@ mod quinn;
 #[cfg(feature = "quinn")]
 pub use quinn::as_quinn_transport_config;
 
-#[cfg(all(unix, feature = "sched"))]
+#[cfg(all(unix, not(target_os = "openbsd"), feature = "sched"))]
 mod sched;
-#[cfg(all(unix, feature = "sched"))]
+#[cfg(all(unix, not(target_os = "openbsd"), feature = "sched"))]
 pub use sched::*;
 
 #[cfg(feature = "sched")]

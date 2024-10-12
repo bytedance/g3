@@ -67,16 +67,31 @@ pub fn new_std_socket_to(
     let peer_family = AddressFamily::from(&peer_ip);
     let socket = new_tcp_socket(peer_family)?;
     bind.bind_for_connect(&socket, peer_family)?;
+    #[cfg(windows)]
     if keepalive.is_enabled() {
         // set keepalive_idle
         let mut setting = TcpKeepalive::new().with_time(keepalive.idle_time());
         if let Some(interval) = keepalive.probe_interval() {
             setting = setting.with_interval(interval);
         }
-        #[cfg(unix)]
+        socket.set_tcp_keepalive(&setting)?;
+    }
+    #[cfg(all(unix, not(target_os = "openbsd")))]
+    if keepalive.is_enabled() {
+        // set keepalive_idle
+        let mut setting = TcpKeepalive::new().with_time(keepalive.idle_time());
+        if let Some(interval) = keepalive.probe_interval() {
+            setting = setting.with_interval(interval);
+        }
         if let Some(count) = keepalive.probe_count() {
             setting = setting.with_retries(count);
         }
+        socket.set_tcp_keepalive(&setting)?;
+    }
+    #[cfg(target_os = "openbsd")]
+    if keepalive.is_enabled() {
+        // set keepalive_idle
+        let setting = TcpKeepalive::new().with_time(keepalive.idle_time());
         socket.set_tcp_keepalive(&setting)?;
     }
     RawSocket::from(&socket).set_tcp_misc_opts(misc_opts, default_set_nodelay)?;

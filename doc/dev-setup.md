@@ -201,6 +201,16 @@ pkgin install python311
 ln -s /usr/pkg/bin/python3.11 /usr/pkg/bin/python3
 ```
 
+### OpenBSD
+
+```shell
+pkg_add rust
+pkg_add libcares
+pkg_add lua
+ln -s /usr/local/lib/pkgconfig/lua54.pc /usr/local/lib/pkgconfig/lua5.4.pc
+pkg_add python
+```
+
 ## Development Libraries
 
 For *g3proxy*:
