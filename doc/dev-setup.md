@@ -206,10 +206,14 @@ ln -s /usr/pkg/bin/python3.11 /usr/pkg/bin/python3
 ```shell
 pkg_add rust
 pkg_add libcares
+# install lua5.4 or any other versions available on your system, and create a pkgconfig link
 pkg_add lua
 ln -s /usr/local/lib/pkgconfig/lua54.pc /usr/local/lib/pkgconfig/lua5.4.pc
 pkg_add python
 ```
+
+The `datasize-cur` limit in `/etc/login.conf` for login class `staff` need to be increased if the compilation failed
+with error *out of memory*.
 
 ## Development Libraries
 
