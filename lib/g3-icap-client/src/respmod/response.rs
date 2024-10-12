@@ -14,22 +14,18 @@
  * limitations under the License.
  */
 
-use std::str::FromStr;
-
 use tokio::io::AsyncBufRead;
 
 use g3_io_ext::LimitedBufReadExt;
-use g3_types::net::HttpHeaderValue;
 
 use super::{IcapRespmodParseError, IcapRespmodResponsePayload};
-use crate::parse::{HeaderLine, IcapLineParseError, StatusLine};
+use crate::parse::{HeaderLine, StatusLine};
 
 pub(crate) struct RespmodResponse {
     pub(crate) code: u16,
     pub(crate) reason: String,
     pub(crate) keep_alive: bool,
     pub(crate) payload: IcapRespmodResponsePayload,
-    trailers: Vec<HttpHeaderValue>,
 }
 
 impl RespmodResponse {
@@ -39,13 +35,7 @@ impl RespmodResponse {
             reason,
             keep_alive: true,
             payload: IcapRespmodResponsePayload::NoPayload,
-            trailers: Vec::new(),
         }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn take_trailers(&mut self) -> Vec<HttpHeaderValue> {
-        self.trailers.drain(..).collect()
     }
 
     pub(crate) async fn parse<R>(
@@ -137,14 +127,6 @@ impl RespmodResponse {
                         _ => {} // ignore other custom hop-by-hop headers
                     }
                 }
-            }
-            "trailer" => {
-                let value = HttpHeaderValue::from_str(header.value).map_err(|_| {
-                    IcapRespmodParseError::InvalidHeaderLine(
-                        IcapLineParseError::InvalidTrailerValue,
-                    )
-                })?;
-                self.trailers.push(value);
             }
             "encapsulated" => self.payload = IcapRespmodResponsePayload::parse(header.value)?,
             _ => {}

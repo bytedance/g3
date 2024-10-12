@@ -36,6 +36,4 @@ pub enum IcapLineParseError {
     InvalidHeaderName,
     #[error("invalid header value")]
     InvalidHeaderValue,
-    #[error("invalid Trailer header value")]
-    InvalidTrailerValue,
 }

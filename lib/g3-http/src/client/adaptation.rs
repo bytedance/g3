@@ -141,7 +141,7 @@ impl HttpAdaptedResponse {
         })?;
 
         match name.as_str() {
-            "connection" | "keep-alive" | "trailer" => {
+            "connection" | "keep-alive" => {
                 // ignored hop-by-hop options
                 return Ok(());
             }

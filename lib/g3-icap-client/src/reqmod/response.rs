@@ -32,7 +32,6 @@ pub(crate) struct ReqmodResponse {
     pub(crate) keep_alive: bool,
     pub(crate) payload: IcapReqmodResponsePayload,
     shared_headers: HttpHeaderMap,
-    trailers: Vec<HttpHeaderValue>,
 }
 
 impl ReqmodResponse {
@@ -43,13 +42,7 @@ impl ReqmodResponse {
             keep_alive: true,
             payload: IcapReqmodResponsePayload::NoPayload,
             shared_headers: HttpHeaderMap::default(),
-            trailers: Vec::new(),
         }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn take_trailers(&mut self) -> Vec<HttpHeaderValue> {
-        self.trailers.drain(..).collect()
     }
 
     pub(crate) fn take_shared_headers(&mut self) -> HttpHeaderMap {
@@ -150,12 +143,6 @@ impl ReqmodResponse {
                         _ => {} // ignore other custom hop-by-hop headers
                     }
                 }
-            }
-            "trailer" => {
-                let value = HttpHeaderValue::from_str(header.value).map_err(|_| {
-                    IcapReqmodParseError::InvalidHeaderLine(IcapLineParseError::InvalidTrailerValue)
-                })?;
-                self.trailers.push(value);
             }
             "encapsulated" => self.payload = IcapReqmodResponsePayload::parse(header.value)?,
             header_name => {
