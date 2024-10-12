@@ -16,19 +16,43 @@
 
 use crate::acl::{
     AclAction, AclChildDomainRule, AclChildDomainRuleBuilder, AclExactHostRule, AclNetworkRule,
-    AclNetworkRuleBuilder, AclRegexSetRule, AclRegexSetRuleBuilder,
+    AclNetworkRuleBuilder, AclRegexSetRule, AclRegexSetRuleBuilder, ActionContract,
+    OrderedActionContract,
 };
 use crate::net::Host;
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct AclDstHostRuleSetBuilder {
-    pub exact: Option<AclExactHostRule>,
-    pub child: Option<AclChildDomainRuleBuilder>,
-    pub regex: Option<AclRegexSetRuleBuilder>,
-    pub subnet: Option<AclNetworkRuleBuilder>,
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AclDstHostRuleSetBuilder<Action = AclAction> {
+    pub exact: Option<AclExactHostRule<Action>>,
+    pub child: Option<AclChildDomainRuleBuilder<Action>>,
+    pub regex: Option<AclRegexSetRuleBuilder<Action>>,
+    pub subnet: Option<AclNetworkRuleBuilder<Action>>,
 }
 
-impl AclDstHostRuleSetBuilder {
+impl<Action> Default for AclDstHostRuleSetBuilder<Action> {
+    fn default() -> Self {
+        AclDstHostRuleSetBuilder {
+            exact: None,
+            child: None,
+            regex: None,
+            subnet: None,
+        }
+    }
+}
+
+impl<Action: OrderedActionContract> AclDstHostRuleSetBuilder<Action> {
+    pub fn build_with_missed_action(&self, missed_action: Action) -> AclDstHostRuleSet<Action> {
+        AclDstHostRuleSet {
+            exact: self.exact.clone(),
+            child: self.child.as_ref().map(|b| b.build()),
+            regex: self.regex.as_ref().map(|b| b.build()),
+            subnet: self.subnet.as_ref().map(|b| b.build()),
+            missed_action,
+        }
+    }
+}
+
+impl AclDstHostRuleSetBuilder<AclAction> {
     pub fn build(&self) -> AclDstHostRuleSet {
         let mut missed_action = AclAction::Permit;
 
@@ -62,16 +86,16 @@ impl AclDstHostRuleSetBuilder {
     }
 }
 
-pub struct AclDstHostRuleSet {
-    exact: Option<AclExactHostRule>,
-    child: Option<AclChildDomainRule>,
-    regex: Option<AclRegexSetRule>,
-    subnet: Option<AclNetworkRule>,
-    missed_action: AclAction,
+pub struct AclDstHostRuleSet<Action = AclAction> {
+    exact: Option<AclExactHostRule<Action>>,
+    child: Option<AclChildDomainRule<Action>>,
+    regex: Option<AclRegexSetRule<Action>>,
+    subnet: Option<AclNetworkRule<Action>>,
+    missed_action: Action,
 }
 
-impl AclDstHostRuleSet {
-    pub fn check(&self, upstream: &Host) -> (bool, AclAction) {
+impl<Action: ActionContract> AclDstHostRuleSet<Action> {
+    pub fn check(&self, upstream: &Host) -> (bool, Action) {
         match upstream {
             Host::Ip(ip) => {
                 if let Some(rule) = &self.exact {

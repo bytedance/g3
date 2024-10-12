@@ -41,22 +41,23 @@ pub use regex_set::{AclRegexSetRule, AclRegexSetRuleBuilder};
 pub use user_agent::AclUserAgentRule;
 
 pub trait ActionContract: Copy {}
+pub trait OrderedActionContract: ActionContract + Ord {}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum AclAction {
-    Permit,
-    PermitAndLog,
-    Forbid,
     ForbidAndLog,
+    Forbid,
+    PermitAndLog,
+    Permit,
 }
 
 impl AclAction {
     pub fn restrict(self, other: AclAction) -> AclAction {
-        other.max(self)
+        other.min(self)
     }
 
     pub fn strict_than(self, other: AclAction) -> bool {
-        self.gt(&other)
+        self.le(&other)
     }
 
     pub fn forbid_early(&self) -> bool {
@@ -79,6 +80,7 @@ impl AclAction {
 }
 
 impl ActionContract for AclAction {}
+impl OrderedActionContract for AclAction {}
 
 impl fmt::Display for AclAction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

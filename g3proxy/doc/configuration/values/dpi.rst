@@ -73,21 +73,21 @@ Set what we should do to a specific application protocol.
 
 The possible values for this are:
 
+- block
+
+  Block the traffic. And we will try to send application level error code to the client.
+
 - intercept
 
   Intercept the traffic. This is the default value.
-
-- detour
-
-  Send the traffic to a stream detour service, which will be configured at somewhere in the context.
 
 - bypass
 
   Bypass the interception. The traffic will be transferred transparently.
 
-- block
+- detour
 
-  Block the traffic. And we will try to send application level error code to the client.
+  Send the traffic to a stream detour service, which will be configured at somewhere in the context.
 
 .. versionadded:: 1.9.9
 
@@ -160,21 +160,23 @@ Consisted of the following rules:
 
 * default
 
-  **type**: :ref:`protocol inspect action <conf_value_dpi_protocol_inspect_action>`
+  **optional**,  **type**: :ref:`protocol inspect action <conf_value_dpi_protocol_inspect_action>`
 
   Set the default inspect action if no rules matched explicitly.
 
 * exact_match
 
-  **type**: :ref:`exact host inspect rule <conf_value_exact_host_inspect_rule>`
+  **optional**,  **type**: :ref:`exact host inspect rule <conf_value_exact_host_inspect_rule>`
 
 * child_match
 
-  **type**: :ref:`child domain inspect rule <conf_value_child_domain_inspect_rule>`
+  **optional**,  **type**: :ref:`child domain inspect rule <conf_value_child_domain_inspect_rule>`
+
+  Match only if the host is a domain.
 
 * subnet_match
 
-  **type**: :ref:`dst subnet inspect rule <conf_value_dst_subnet_inspect_rule>`
+  **optional**,  **type**: :ref:`dst subnet inspect rule <conf_value_dst_subnet_inspect_rule>`
 
   Match only if the host is an IP Address.
 

@@ -19,21 +19,23 @@ acl action
 
 There are 4 types of acl actions:
 
-* permit
+* forbid_log
 
-  Permit if match the rule. Alternatives: allow, accept.
-
-* permit_log
-
-  Permit if match the rule and log. Alternatives: allow_log, accept_log.
+  Forbid if match the rule and log. Alternatives: deny_log, reject_log.
 
 * forbid
 
   Forbid if match the rule. Alternatives: deny, reject.
 
-* forbid_log
+* permit_log
 
-  Forbid if match the rule and log. Alternatives: deny_log, reject_log.
+  Permit if match the rule and log. Alternatives: allow_log, accept_log.
+
+* permit
+
+  Permit if match the rule. Alternatives: allow, accept.
+
+The match order is the same as the list order above.
 
 .. _conf_value_acl_rule:
 
@@ -167,20 +169,25 @@ Consisted of the following rules:
 
 * exact_match
 
-  :ref:`exact host acl rule <conf_value_exact_host_acl_rule>`
+  **optional**, **type**: :ref:`exact host acl rule <conf_value_exact_host_acl_rule>`
 
 * child_match
 
-  :ref:`child domain acl rule <conf_value_child_domain_acl_rule>`
+  **optional**, **type**: :ref:`child domain acl rule <conf_value_child_domain_acl_rule>`
+
+  Match only if the host is a domain.
 
 * regex_match
 
-  :ref:`regex set acl rule <conf_value_regex_set_acl_rule>`
+  **optional**, **type**: :ref:`regex set acl rule <conf_value_regex_set_acl_rule>`
+
+  Match only if the host is a domain.
 
 * subnet_match
 
-  Match only if the host is an IP Address. The type is
-  :ref:`dst subnet acl rule <conf_value_dst_subnet_acl_rule>`
+  **optional**, **type**: :ref:`dst subnet acl rule <conf_value_dst_subnet_acl_rule>`
+
+  Match only if the host is an IP Address.
 
 The match order is the same as the list order above.
 

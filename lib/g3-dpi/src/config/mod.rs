@@ -121,23 +121,24 @@ impl ProtocolInspectPolicy {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub enum ProtocolInspectAction {
+    Block,
+    #[default]
     Intercept,
+    Bypass,
     #[cfg(feature = "quic")]
     Detour,
-    Bypass,
-    Block,
 }
 
 impl ProtocolInspectAction {
     fn as_str(&self) -> &'static str {
         match self {
+            Self::Block => "block",
             Self::Intercept => "intercept",
+            Self::Bypass => "bypass",
             #[cfg(feature = "quic")]
             Self::Detour => "detour",
-            Self::Block => "block",
-            Self::Bypass => "bypass",
         }
     }
 
@@ -157,11 +158,11 @@ impl FromStr for ProtocolInspectAction {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
+            "block" => Ok(ProtocolInspectAction::Block),
             "intercept" => Ok(ProtocolInspectAction::Intercept),
+            "bypass" => Ok(ProtocolInspectAction::Bypass),
             #[cfg(feature = "quic")]
             "detour" => Ok(ProtocolInspectAction::Detour),
-            "bypass" => Ok(ProtocolInspectAction::Bypass),
-            "block" => Ok(ProtocolInspectAction::Block),
             _ => Err(()),
         }
     }
