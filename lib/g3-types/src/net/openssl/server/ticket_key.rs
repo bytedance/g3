@@ -51,6 +51,44 @@ impl OpensslTicketContext {
     }
 }
 
+pub struct OpensslTicketKeyBuilder {
+    pub name: [u8; TICKET_KEY_NAME_LENGTH],
+    pub aes_key: [u8; TICKET_AES_KEY_LENGTH],
+    pub hmac_key: [u8; TICKET_HMAC_KEY_LENGTH],
+    lifetime: u32,
+}
+
+impl OpensslTicketKeyBuilder {
+    pub fn new(lifetime: u32) -> Self {
+        OpensslTicketKeyBuilder {
+            name: [0u8; TICKET_KEY_NAME_LENGTH],
+            aes_key: [0u8; TICKET_AES_KEY_LENGTH],
+            hmac_key: [0u8; TICKET_HMAC_KEY_LENGTH],
+            lifetime,
+        }
+    }
+
+    #[inline]
+    pub fn set_lifetime(&mut self, lifetime: u32) {
+        self.lifetime = lifetime;
+    }
+
+    pub fn build(self) -> OpensslTicketKey {
+        OpensslTicketKey {
+            name: self.name.into(),
+            lifetime: self.lifetime,
+            aes_key: self.aes_key,
+            hmac_key: self.hmac_key,
+        }
+    }
+}
+
+impl Default for OpensslTicketKeyBuilder {
+    fn default() -> Self {
+        Self::new(3600 * 24)
+    }
+}
+
 pub struct OpensslTicketKey {
     name: TicketKeyName,
     lifetime: u32,

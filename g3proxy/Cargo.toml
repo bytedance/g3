@@ -77,7 +77,7 @@ g3-ip-locate.workspace = true
 g3-json = { workspace = true, features = ["acl-rule", "resolve", "http", "rustls", "openssl", "histogram"] }
 g3-msgpack.workspace = true
 g3-openssl.workspace = true
-g3-redis-client.workspace = true
+g3-redis-client = { workspace = true, features = ["yaml"] }
 g3-resolver.workspace = true
 g3-slog-types = { workspace = true, features = ["http"] }
 g3-smtp-proto.workspace = true

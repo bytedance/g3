@@ -37,7 +37,7 @@ mod intercept;
 pub use intercept::{OpensslInterceptionServerConfig, OpensslInterceptionServerConfigBuilder};
 
 mod ticket_key;
-pub use ticket_key::OpensslTicketKey;
+pub use ticket_key::{OpensslTicketKey, OpensslTicketKeyBuilder};
 
 mod ticketer;
 

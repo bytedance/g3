@@ -159,6 +159,14 @@ pub fn as_bool(v: &Value) -> anyhow::Result<bool> {
     }
 }
 
+pub fn as_bytes(v: &Value, out: &mut [u8]) -> anyhow::Result<()> {
+    if let Value::String(s) = v {
+        hex::decode_to_slice(s, out).map_err(|e| anyhow!("invalid hex string: {e}"))
+    } else {
+        Err(anyhow!("json value type for bytes should be 'hex string'"))
+    }
+}
+
 pub fn as_ascii(v: &Value) -> anyhow::Result<AsciiString> {
     let s = as_string(v).context("the base type for AsciiString should be String")?;
     AsciiString::from_str(&s).map_err(|e| anyhow!("invalid ascii string: {e}"))

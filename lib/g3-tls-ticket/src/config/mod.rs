@@ -23,6 +23,9 @@ use g3_types::net::{OpensslTicketKey, RollingTicketKey, RollingTicketer};
 
 use super::{TicketKeyUpdate, TicketSourceConfig};
 
+#[cfg(feature = "yaml")]
+mod yaml;
+
 #[derive(Clone)]
 pub struct TlsTicketConfig {
     pub(crate) check_interval: Duration,

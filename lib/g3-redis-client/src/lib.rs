@@ -26,6 +26,9 @@ use tokio_rustls::TlsConnector;
 
 use g3_types::net::{Host, RustlsClientConfig, RustlsClientConfigBuilder, UpstreamAddr};
 
+#[cfg(feature = "yaml")]
+mod yaml;
+
 pub const REDIS_DEFAULT_PORT: u16 = 6379;
 
 #[derive(Clone, Debug, Eq, PartialEq)]

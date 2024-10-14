@@ -1358,6 +1358,7 @@ dependencies = [
  "chrono",
  "g3-histogram",
  "g3-types",
+ "hex",
  "humanize-rs",
  "idna 1.0.2",
  "ip_network",
@@ -1405,10 +1406,12 @@ dependencies = [
  "anyhow",
  "g3-socket",
  "g3-types",
+ "g3-yaml",
  "redis",
  "rustls-pki-types",
  "tokio",
  "tokio-rustls",
+ "yaml-rust2",
 ]
 
 [[package]]
@@ -1561,11 +1564,17 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
+ "g3-json",
+ "g3-redis-client",
  "g3-types",
+ "g3-yaml",
  "log",
+ "redis",
  "rustc-hash 2.0.0",
+ "serde_json",
  "tokio",
  "tokio-util",
+ "yaml-rust2",
 ]
 
 [[package]]

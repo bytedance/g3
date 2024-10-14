@@ -59,19 +59,30 @@ impl TicketKeyUpdate {
     async fn run(mut self) {
         let mut check_interval = tokio::time::interval(self.config.check_interval);
 
+        let remote_source = match &self.config.remote_source {
+            Some(config) => match config.build() {
+                Ok(source) => Some(source),
+                Err(e) => {
+                    warn!("remote source disabled, dur to: {e}");
+                    None
+                }
+            },
+            None => None,
+        };
+
         loop {
             tokio::select! {
                 biased;
 
                 _ = check_interval.tick() => {
                     let mut roll_local = true;
-                    if let Some(source) = &self.config.remote_source {
+                    if let Some(source) = &remote_source {
                         match source.fetch_remote_keys().await {
                             Ok(data ) => {
                                 roll_local = false;
-                                self.ticketer.set_encrypt_key(Arc::new(data.enc_key));
+                                self.ticketer.set_encrypt_key(Arc::new(data.enc.key));
                                 let now = Utc::now();
-                                for dec_key in data.dec_keys {
+                                for dec_key in data.dec {
                                     if let Some(expire_dur) = dec_key.expire_duration(&now) {
                                         let key = dec_key.key;
                                         let key_name = key.name();

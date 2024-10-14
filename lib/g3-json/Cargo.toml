@@ -15,6 +15,7 @@ humanize-rs.workspace = true
 idna.workspace = true
 ascii.workspace = true
 rand.workspace = true
+hex.workspace = true
 ip_network = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
 rustls-pki-types = { workspace = true, optional = true, features = ["std"] }

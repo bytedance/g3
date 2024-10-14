@@ -10,5 +10,11 @@ redis = { workspace = true, features = ["aio", "tokio-comp"] }
 tokio = { workspace = true, features = ["net"] }
 tokio-rustls.workspace = true
 rustls-pki-types.workspace = true
+yaml-rust = { workspace = true, optional = true }
 g3-types = { workspace = true, features = ["rustls"] }
 g3-socket.workspace = true
+g3-yaml = { workspace = true, optional = true, features = ["rustls"] }
+
+[features]
+default = []
+yaml = ["dep:g3-yaml", "dep:yaml-rust"]
