@@ -23,6 +23,7 @@ crc32fast = "1.4"
 smallvec.workspace = true
 smol_str.workspace = true
 memchr.workspace = true
+constant_time_eq.workspace = true
 url.workspace = true
 num-traits.workspace = true
 arc-swap.workspace = true

@@ -18,7 +18,7 @@ use std::hash::{Hash, Hasher};
 
 pub const TICKET_KEY_NAME_LENGTH: usize = 16;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct TicketKeyName([u8; TICKET_KEY_NAME_LENGTH]);
 
 impl From<[u8; TICKET_KEY_NAME_LENGTH]> for TicketKeyName {
@@ -53,12 +53,7 @@ impl Hash for TicketKeyName {
 
 impl PartialEq for TicketKeyName {
     fn eq(&self, other: &Self) -> bool {
-        // use Constant Time Eq
-        let mut xor_sum: u32 = 0;
-        for i in 0..TICKET_KEY_NAME_LENGTH {
-            xor_sum += (self.0[i] ^ other.0[0]) as u32;
-        }
-        xor_sum == 0
+        constant_time_eq::constant_time_eq_n(&self.0, &other.0)
     }
 }
 
@@ -70,11 +65,7 @@ impl TicketKeyName {
             return false;
         }
 
-        let mut xor_sum: u32 = 0;
-        for i in 0..TICKET_KEY_NAME_LENGTH {
-            xor_sum += (self.0[i] ^ buf[0]) as u32;
-        }
-        xor_sum == 0
+        constant_time_eq::constant_time_eq(&self.0, buf)
     }
 
     /// Safety: `b` should be of size `TICKET_KEY_NAME_LENGTH`
@@ -82,5 +73,18 @@ impl TicketKeyName {
         let mut v = [0u8; TICKET_KEY_NAME_LENGTH];
         std::ptr::copy_nonoverlapping(b.as_ptr(), v.as_mut_ptr(), TICKET_KEY_NAME_LENGTH);
         TicketKeyName(v)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn constant_eq() {
+        let name1 = TicketKeyName([0u8; 16]);
+        let name2 = TicketKeyName([0u8; 16]);
+        assert_eq!(name1, name2);
+        assert!(name1.constant_time_eq(name2.as_ref()));
     }
 }

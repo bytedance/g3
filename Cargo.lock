@@ -1588,6 +1588,7 @@ dependencies = [
  "blake3",
  "brotli",
  "bytes",
+ "constant_time_eq",
  "crc32fast",
  "digest",
  "fastrand",
