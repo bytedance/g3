@@ -22,15 +22,27 @@ use rustls::crypto::aws_lc_rs::Ticketer;
 #[cfg(not(feature = "aws-lc"))]
 use rustls::crypto::ring::Ticketer;
 use rustls::server::{NoServerSessionStorage, ProducesTickets};
-use rustls::{HandshakeKind, ServerConfig, ServerConnection};
+use rustls::{ClientConnection, HandshakeKind, ServerConfig, ServerConnection};
 
 use super::{RustlsNoSessionTicketer, RustlsServerSessionCache};
+
+pub trait RustlsConnectionExt {}
 
 pub trait RustlsServerConnectionExt {
     fn session_reused(&self) -> bool;
 }
 
 impl RustlsServerConnectionExt for ServerConnection {
+    fn session_reused(&self) -> bool {
+        matches!(self.handshake_kind(), Some(HandshakeKind::Resumed))
+    }
+}
+
+pub trait RustlsClientConnectionExt {
+    fn session_reused(&self) -> bool;
+}
+
+impl RustlsClientConnectionExt for ClientConnection {
     fn session_reused(&self) -> bool {
         matches!(self.handshake_kind(), Some(HandshakeKind::Resumed))
     }

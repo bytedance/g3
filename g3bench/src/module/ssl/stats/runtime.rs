@@ -32,6 +32,9 @@ pub(crate) struct SslRuntimeStats {
     conn_attempt_total: AtomicU64,
     conn_success: AtomicU64,
     conn_success_total: AtomicU64,
+
+    session_reused: AtomicU64,
+
     conn_close_error: AtomicU64,
     conn_close_timeout: AtomicU64,
 
@@ -68,6 +71,10 @@ impl SslRuntimeStats {
 
     pub(crate) fn add_conn_success(&self) {
         self.conn_success.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn add_session_reused(&self) {
+        self.session_reused.fetch_add(1, Ordering::Relaxed);
     }
 
     pub(crate) fn add_conn_close_fail(&self) {
@@ -133,6 +140,14 @@ impl BenchRuntimeStats for SslRuntimeStats {
             (total_success as f64 / total_attempt as f64) * 100.0
         );
         println!("Success rate:  {:.3}/s", total_success as f64 / total_secs);
+
+        let session_reused = self.session_reused.load(Ordering::Relaxed);
+        println!("Session reused count: {session_reused}");
+        println!(
+            "Session reuse ratio: {:.2}%",
+            (session_reused as f64 / total_success as f64) * 100.0
+        );
+
         let close_error = self.conn_close_error.load(Ordering::Relaxed);
         if close_error > 0 {
             println!("Close error:   {close_error}");

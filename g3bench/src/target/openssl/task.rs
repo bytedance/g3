@@ -105,12 +105,15 @@ impl BenchTaskContext for OpensslTaskContext {
                 let total_time = time_started.elapsed();
                 self.histogram_recorder.record_total_time(total_time);
 
-                let runtime_stats = self.runtime_stats.clone();
+                if tls_stream.ssl().session_reused() {
+                    self.runtime_stats.add_session_reused();
+                }
+
                 // make sure the tls ticket will be reused
                 match tokio::time::timeout(Duration::from_secs(4), tls_stream.shutdown()).await {
                     Ok(Ok(_)) => {}
-                    Ok(Err(_e)) => runtime_stats.add_conn_close_fail(),
-                    Err(_) => runtime_stats.add_conn_close_timeout(),
+                    Ok(Err(_e)) => self.runtime_stats.add_conn_close_fail(),
+                    Err(_) => self.runtime_stats.add_conn_close_timeout(),
                 }
 
                 Ok(())
