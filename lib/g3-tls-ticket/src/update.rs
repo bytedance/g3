@@ -27,6 +27,7 @@ use tokio_util::time::DelayQueue;
 use g3_types::net::{OpensslTicketKey, RollingTicketKey, RollingTicketer, TicketKeyName};
 
 use super::TlsTicketConfig;
+use crate::source::TicketSource;
 
 pub(crate) struct TicketKeyUpdate {
     config: TlsTicketConfig,
@@ -71,45 +72,22 @@ impl TicketKeyUpdate {
         };
 
         loop {
-            tokio::select! {
-                biased;
+            if self.expire_set.is_empty() {
+                check_interval.tick().await;
+                self.check_roll_ticket(remote_source.as_ref()).await;
+            } else {
+                tokio::select! {
+                    biased;
 
-                _ = check_interval.tick() => {
-                    let mut roll_local = true;
-                    if let Some(source) = &remote_source {
-                        match source.fetch_remote_keys().await {
-                            Ok(data ) => {
-                                roll_local = false;
-                                self.ticketer.set_encrypt_key(Arc::new(data.enc.key));
-                                let now = Utc::now();
-                                for dec_key in data.dec {
-                                    if let Some(expire_dur) = dec_key.expire_duration(&now) {
-                                        let key = dec_key.key;
-                                        let key_name = key.name();
-                                        if !self.expire_set.contains(&key_name) {
-                                            self.ticketer.add_decrypt_key(Arc::new(key));
-                                            self.expire_set.insert(key_name);
-                                            self.expire_queue.insert(key_name, expire_dur);
-                                        }
-                                    }
-                                }
-                            }
-                            Err(e) => {
-                                warn!("failed to get keys from remote source: {e}")
-                            }
+                    _ = check_interval.tick() => {
+                        self.check_roll_ticket(remote_source.as_ref()).await;
+                    }
+                    v = poll_fn(|cx| self.expire_queue.poll_expired(cx)) => {
+                        if let Some(expired) = v {
+                            let name = expired.into_inner();
+                            self.expire_set.remove(&name);
+                            self.ticketer.del_decrypt_key(name);
                         }
-                    }
-
-                    let now = Instant::now();
-                    if roll_local && self.local_roll_at <= now {
-                        self.new_local_key(now);
-                    }
-                }
-                v = poll_fn(|cx| self.expire_queue.poll_expired(cx)) => {
-                    if let Some(expired) = v {
-                        let name = expired.into_inner();
-                        self.expire_set.remove(&name);
-                        self.ticketer.del_decrypt_key(name);
                     }
                 }
             }
@@ -120,23 +98,59 @@ impl TicketKeyUpdate {
         }
     }
 
+    async fn check_roll_ticket(&mut self, remote_source: Option<&TicketSource>) {
+        let mut roll_local = true;
+        if let Some(source) = &remote_source {
+            match source.fetch_remote_keys().await {
+                Ok(data) => {
+                    roll_local = false;
+                    self.update_encrypt_key(data.enc.key, Instant::now());
+                    let now = Utc::now();
+                    for dec_key in data.dec {
+                        if let Some(expire_dur) = dec_key.expire_duration(&now) {
+                            let key = dec_key.key;
+                            let key_name = key.name();
+                            if !self.expire_set.contains(&key_name) {
+                                self.ticketer.add_decrypt_key(Arc::new(key));
+                                self.expire_set.insert(key_name);
+                                self.expire_queue.insert(key_name, expire_dur);
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    warn!("failed to get keys from remote source: {e}")
+                }
+            }
+        }
+
+        let now = Instant::now();
+        if roll_local && self.local_roll_at <= now {
+            self.new_local_key(now);
+        }
+    }
+
     fn new_local_key(&mut self, now: Instant) {
         let local_lifetime = self.config.local_lifetime;
         match OpensslTicketKey::new_random(local_lifetime) {
-            Ok(key) => {
-                let old_key = self.ticketer.encrypt_key();
-                let old_key_name = old_key.name();
-                if !self.expire_set.contains(&old_key_name) {
-                    // maybe a local generated key, or a remote enc key but not in dec list
-                    let expire_time = Duration::from_secs(old_key.lifetime() as u64);
-                    self.expire_set.insert(old_key_name);
-                    self.expire_queue.insert(old_key_name, expire_time);
-                }
-                self.ticketer.set_encrypt_key(Arc::new(key));
-                let local_roll_time = Duration::from_secs((local_lifetime >> 1) as u64);
-                self.local_roll_at = now + local_roll_time;
-            }
+            Ok(key) => self.update_encrypt_key(key, now),
             Err(e) => warn!("failed to create new ticket key: {e}"),
         }
+    }
+
+    fn update_encrypt_key(&mut self, key: OpensslTicketKey, now: Instant) {
+        let old_key = self.ticketer.encrypt_key();
+        let old_key_name = old_key.name();
+        if !self.expire_set.contains(&old_key_name) {
+            // maybe a local generated key, or a remote enc key but not in dec list
+            let expire_time = Duration::from_secs(old_key.lifetime() as u64);
+            self.expire_set.insert(old_key_name);
+            self.expire_queue.insert(old_key_name, expire_time);
+        }
+        let local_roll_time = Duration::from_secs((key.lifetime() >> 1) as u64);
+        self.local_roll_at = now + local_roll_time;
+        let key = Arc::new(key);
+        self.ticketer.set_encrypt_key(key.clone());
+        self.ticketer.add_decrypt_key(key);
     }
 }

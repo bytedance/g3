@@ -89,7 +89,7 @@ impl<K: Hash + Eq, R: Send + Sync> EffectiveCacheRuntime<K, R> {
                 }
             }
         } else {
-            // ignore those has been answered
+            // ignore those have been answered
         }
     }
 
