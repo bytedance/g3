@@ -85,6 +85,7 @@ g3-socket.workspace = true
 g3-socks.workspace = true
 g3-statsd-client.workspace = true
 g3-types = { workspace = true, features = ["auth-crypt", "rustls", "openssl", "acl-rule", "http", "route", "async-log"] }
+g3-tls-ticket = { workspace = true, features = ["yaml"] }
 g3-udpdump.workspace = true
 g3-xcrypt.workspace = true
 g3-yaml = { workspace = true, features = ["resolve", "rustls", "openssl", "acl-rule", "http", "ftp-client", "route", "dpi", "audit", "histogram", "geoip"] }

@@ -27,6 +27,7 @@ use g3_dpi::{
     SmtpInterceptionConfig,
 };
 use g3_icap_client::IcapServiceConfig;
+use g3_tls_ticket::TlsTicketConfig;
 use g3_types::metrics::MetricsName;
 use g3_types::net::{
     OpensslInterceptionClientConfigBuilder, OpensslInterceptionServerConfigBuilder,
@@ -45,6 +46,7 @@ pub(crate) struct AuditorConfig {
     pub(crate) server_tcp_portmap: ProtocolPortMap,
     pub(crate) client_tcp_portmap: ProtocolPortMap,
     pub(crate) tls_cert_agent: Option<CertAgentConfig>,
+    pub(crate) tls_ticketer: Option<TlsTicketConfig>,
     pub(crate) tls_interception_client: OpensslInterceptionClientConfigBuilder,
     pub(crate) tls_interception_server: OpensslInterceptionServerConfigBuilder,
     pub(crate) tls_stream_dump: Option<StreamDumpConfig>,
@@ -81,6 +83,7 @@ impl AuditorConfig {
             server_tcp_portmap: ProtocolPortMap::tcp_server(),
             client_tcp_portmap: ProtocolPortMap::tcp_client(),
             tls_cert_agent: None,
+            tls_ticketer: None,
             tls_interception_client: Default::default(),
             tls_interception_server: Default::default(),
             tls_stream_dump: None,
@@ -150,6 +153,13 @@ impl AuditorConfig {
                     "invalid tls cert generator config value for key {k}"
                 ))?;
                 self.tls_cert_agent = Some(agent);
+                Ok(())
+            }
+            "tls_ticketer" => {
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let ticketer = TlsTicketConfig::parse_yaml(v, Some(lookup_dir))
+                    .context(format!("invalid tls ticket config value for key {k}"))?;
+                self.tls_ticketer = Some(ticketer);
                 Ok(())
             }
             "tls_interception_client" => {

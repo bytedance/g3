@@ -1914,6 +1914,7 @@ dependencies = [
  "g3-socket",
  "g3-socks",
  "g3-statsd-client",
+ "g3-tls-ticket",
  "g3-types",
  "g3-udpdump",
  "g3-xcrypt",

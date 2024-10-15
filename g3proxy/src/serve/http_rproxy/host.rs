@@ -18,7 +18,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 
-use g3_types::net::{OpensslClientConfig, RustlsServerConfig};
+use g3_types::net::{OpensslClientConfig, OpensslTicketKey, RollingTicketer, RustlsServerConfig};
 
 use crate::config::server::http_rproxy::HttpHostConfig;
 
@@ -29,9 +29,14 @@ pub(crate) struct HttpHost {
 }
 
 impl HttpHost {
-    pub(super) fn try_build(config: &Arc<HttpHostConfig>) -> anyhow::Result<Self> {
+    pub(super) fn try_build(
+        config: &Arc<HttpHostConfig>,
+        ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
+    ) -> anyhow::Result<Self> {
         let tls_server = if let Some(builder) = &config.tls_server_builder {
-            let server = builder.build().context("failed to build tls server")?;
+            let server = builder
+                .build_with_ticketer(ticketer)
+                .context("failed to build tls server")?;
             Some(server)
         } else {
             None

@@ -20,6 +20,7 @@ use std::time::Duration;
 use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
 
+use g3_tls_ticket::TlsTicketConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
 use g3_types::metrics::MetricsName;
 use g3_types::net::{OpensslServerConfigBuilder, ProxyProtocolVersion, TcpListenConfig};
@@ -38,6 +39,7 @@ pub(crate) struct NativeTlsPortConfig {
     pub(crate) listen_in_worker: bool,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) server_tls_config: Option<OpensslServerConfigBuilder>,
+    pub(crate) tls_ticketer: Option<TlsTicketConfig>,
     pub(crate) server: MetricsName,
     pub(crate) proxy_protocol: Option<ProxyProtocolVersion>,
     pub(crate) proxy_protocol_read_timeout: Duration,
@@ -52,6 +54,7 @@ impl NativeTlsPortConfig {
             listen_in_worker: false,
             ingress_net_filter: None,
             server_tls_config: None,
+            tls_ticketer: None,
             server: MetricsName::default(),
             proxy_protocol: None,
             proxy_protocol_read_timeout: Duration::from_secs(5),
@@ -99,6 +102,13 @@ impl NativeTlsPortConfig {
                     g3_yaml::value::as_openssl_tls_server_config_builder(v, Some(lookup_dir))
                         .context(format!("invalid server tls config value for key {k}"))?;
                 self.server_tls_config = Some(builder);
+                Ok(())
+            }
+            "tls_ticketer" => {
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let ticketer = TlsTicketConfig::parse_yaml(v, Some(lookup_dir))
+                    .context(format!("invalid tls ticket config value for key {k}"))?;
+                self.tls_ticketer = Some(ticketer);
                 Ok(())
             }
             "server" => {

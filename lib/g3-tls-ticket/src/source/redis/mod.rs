@@ -24,7 +24,7 @@ use super::{RemoteDecryptKey, RemoteEncryptKey, RemoteKeys};
 #[cfg(feature = "yaml")]
 mod yaml;
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct RedisSourceConfig {
     redis: RedisClientConfigBuilder,
     enc_key_name: String,

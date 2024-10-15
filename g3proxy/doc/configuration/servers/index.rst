@@ -122,6 +122,19 @@ Enable TLS on the listening socket and set TLS parameters.
 
 **default**: disabled
 
+.. _conf_server_common_tls_ticketer:
+
+tls_ticketer
+------------
+
+**optional**, **type**: :ref:`tls ticketer <conf_value_tls_ticketer>`
+
+Set a (remote) rolling TLS ticketer.
+
+**default**: not set
+
+.. versionadded:: 1.9.9
+
 .. _conf_server_common_ingress_network_filter:
 
 ingress_network_filter

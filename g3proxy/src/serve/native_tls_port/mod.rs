@@ -34,7 +34,7 @@ use g3_io_ext::haproxy::{ProxyProtocolV1Reader, ProxyProtocolV2Reader};
 use g3_openssl::{SslAcceptor, SslStream};
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::MetricsName;
-use g3_types::net::{OpensslServerConfig, ProxyProtocolVersion};
+use g3_types::net::{OpensslServerConfig, OpensslTicketKey, ProxyProtocolVersion, RollingTicketer};
 
 use crate::config::server::native_tls_port::NativeTlsPortConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
@@ -43,6 +43,7 @@ use crate::serve::{ArcServer, Server, ServerInternal, ServerQuitPolicy, WrapArcS
 pub(crate) struct NativeTlsPort {
     config: NativeTlsPortConfig,
     listen_stats: Arc<ListenStats>,
+    tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
     tls_server_config: OpensslServerConfig,
     ingress_net_filter: Option<AclNetworkRule>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
@@ -56,13 +57,14 @@ impl NativeTlsPort {
     fn new(
         config: NativeTlsPortConfig,
         listen_stats: Arc<ListenStats>,
+        tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
         reload_version: usize,
     ) -> anyhow::Result<Self> {
         let reload_sender = crate::serve::new_reload_notify_channel();
 
         let tls_server_config = if let Some(builder) = &config.server_tls_config {
             builder
-                .build()
+                .build_with_ticketer(tls_rolling_ticketer.clone())
                 .context("failed to build tls server config")?
         } else {
             return Err(anyhow!("no tls server config set"));
@@ -78,6 +80,7 @@ impl NativeTlsPort {
         Ok(NativeTlsPort {
             config,
             listen_stats,
+            tls_rolling_ticketer,
             tls_server_config,
             ingress_net_filter,
             reload_sender,
@@ -90,7 +93,16 @@ impl NativeTlsPort {
     pub(crate) fn prepare_initial(config: NativeTlsPortConfig) -> anyhow::Result<ArcServer> {
         let listen_stats = Arc::new(ListenStats::new(config.name()));
 
-        let server = NativeTlsPort::new(config, listen_stats, 1)?;
+        let tls_rolling_ticketer = if let Some(c) = &config.tls_ticketer {
+            let ticketer = c
+                .build_and_spawn_updater()
+                .context("failed to create tls rolling ticketer")?;
+            Some(ticketer)
+        } else {
+            None
+        };
+
+        let server = NativeTlsPort::new(config, listen_stats, tls_rolling_ticketer, 1)?;
         Ok(Arc::new(server))
     }
 
@@ -98,7 +110,23 @@ impl NativeTlsPort {
         if let AnyServerConfig::NativeTlsPort(config) = config {
             let listen_stats = Arc::clone(&self.listen_stats);
 
-            NativeTlsPort::new(config, listen_stats, self.reload_version + 1)
+            let tls_rolling_ticketer = if self.config.tls_ticketer.eq(&config.tls_ticketer) {
+                self.tls_rolling_ticketer.clone()
+            } else if let Some(c) = &config.tls_ticketer {
+                let ticketer = c
+                    .build_and_spawn_updater()
+                    .context("failed to create tls rolling ticketer")?;
+                Some(ticketer)
+            } else {
+                None
+            };
+
+            NativeTlsPort::new(
+                config,
+                listen_stats,
+                tls_rolling_ticketer,
+                self.reload_version + 1,
+            )
         } else {
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",

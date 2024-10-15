@@ -45,6 +45,7 @@ The protocol is used in auditor to send client/remote streams to external interc
    route_query
    cert_generator
    ip_locate
+   icap_http
    icap_h2
    icap_imap
    icap_smtp

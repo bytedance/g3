@@ -22,6 +22,7 @@ use ascii::AsciiString;
 use yaml_rust::{yaml, Yaml};
 
 use g3_io_ext::LimitedCopyConfig;
+use g3_tls_ticket::TlsTicketConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
 use g3_types::collection::SelectivePickPolicy;
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
@@ -45,6 +46,7 @@ pub(crate) struct TlsStreamServerConfig {
     pub(crate) listen: Option<TcpListenConfig>,
     pub(crate) listen_in_worker: bool,
     pub(crate) server_tls_config: RustlsServerConfigBuilder,
+    pub(crate) tls_ticketer: Option<TlsTicketConfig>,
     pub(crate) client_tls_config: Option<OpensslClientConfigBuilder>,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) upstream: Vec<WeightedUpstreamAddr>,
@@ -69,6 +71,7 @@ impl TlsStreamServerConfig {
             listen: None,
             listen_in_worker: false,
             server_tls_config: RustlsServerConfigBuilder::empty(),
+            tls_ticketer: None,
             client_tls_config: None,
             ingress_net_filter: None,
             upstream: Vec::new(),
@@ -136,6 +139,13 @@ impl TlsStreamServerConfig {
                 self.server_tls_config =
                     g3_yaml::value::as_rustls_server_config_builder(v, Some(lookup_dir))
                         .context(format!("invalid server tls config value for key {k}"))?;
+                Ok(())
+            }
+            "tls_ticketer" => {
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let ticketer = TlsTicketConfig::parse_yaml(v, Some(lookup_dir))
+                    .context(format!("invalid tls ticket config value for key {k}"))?;
+                self.tls_ticketer = Some(ticketer);
                 Ok(())
             }
             "tls_client" => {

@@ -55,6 +55,17 @@ If not set, TLS interception will be disabled.
 
 **default**: not set, **alias**: tls_cert_generator
 
+tls_ticketer
+------------
+
+**optional**, **type**: :ref:`tls ticketer <conf_value_tls_ticketer>`
+
+Set a (remote) rolling TLS ticketer.
+
+**default**: not set
+
+.. versionadded:: 1.9.9
+
 .. _conf_auditor_tls_interception_client:
 
 tls_interception_client

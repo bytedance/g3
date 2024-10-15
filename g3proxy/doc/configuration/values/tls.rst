@@ -28,6 +28,156 @@ Set TLS version to use.
 The valid string values are: tls1.0, tls1.1, tls1.2, tls1.3.
 The valid f64 values are: 1.0, 1.1, 1.2, 1.3.
 
+.. _conf_value_tls_ticketer:
+
+tls ticketer
+============
+
+**yaml type**: map
+
+A rolling TLS ticketer which support:
+
+- new encrypt key generation
+- old decrypt key update / expire check
+- sync keys from remote source
+
+The supported fields are:
+
+* check_interval
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Set the check interval for key expiration. It will also try to fetch keys from remote source.
+
+  If the encryption key is expired with it's lifetime, and no new key is fetched from remote source,
+  a new random key will be generated locally.
+
+  **default**: 5min
+
+* local_lifetime
+
+  **optional**, **type**: u32
+
+  Set the lifetime value (in seconds) for local generated key. The expire time will be half of this lifetime value.
+
+  **default**: 12 * 3600
+
+* source
+
+  **optional**, **type**: :ref:`tls ticket remote source <conf_value_tls_ticket_remote_source>`
+
+  Set the remote source to use.
+
+  **default**: not set
+
+.. _conf_value_tls_ticket_remote_source:
+
+tls ticket remote source
+========================
+
+**yaml type**: map
+
+Set the remote source to fetch TLS ticket keys.
+
+There may be many types of sources available, the **type** config key should be used to set the remote source type.
+
+Key Format
+----------
+
+.. _conf_value_tls_ticket_encrypt_key:
+
+encrypt key
+^^^^^^^^^^^
+
+**json type**: map
+
+The config keys are:
+
+* name
+
+  **required**, **type**: hex str
+
+  Set the name, which should be of 16 bytes.
+
+* aes
+
+  **required**, **type**: hex str
+
+  Set the AES KEY, which should be of 32 bytes.
+
+* hmac
+
+  **required**, **type**: hex str
+
+  Set the HMAC KEY, which should be of 16 bytes.
+
+* lifetime
+
+  **optional**, **type**: u32
+
+  Set the lifetime value.
+
+  **default**: 24 * 3600
+
+.. _conf_value_tls_ticket_decrypt_key:
+
+decrypt key
+^^^^^^^^^^^
+
+**json type**: map
+
+The config keys are:
+
+* name
+
+  **required**, **type**: hex str
+
+  Set the name, which should be of 16 bytes.
+
+* aes
+
+  **required**, **type**: hex str
+
+  Set the AES KEY, which should be of 32 bytes.
+
+* hmac
+
+  **required**, **type**: hex str
+
+  Set the HMAC KEY, which should be of 16 bytes.
+
+* expire
+
+  **required**, **type**: :ref:`rfc3339 datetime str <conf_value_rfc3339_datetime_str>`
+
+  Set the expire datetime.
+
+Source Types
+------------
+
+redis
+^^^^^
+
+**yaml type**: map
+
+A redis TLS ticket key source.
+
+The following keys are supported:
+
+* enc_key
+
+  **required**, **type**: str
+
+  Set the redis key name that will contain the :ref:`encrypt key <conf_value_tls_ticket_encrypt_key>` json string.
+
+* dec_set
+
+  **required**, **type**: str
+
+  Set the redis set name that will contain the :ref:`encrypt key <conf_value_tls_ticket_decrypt_key>` json strings.
+
+* :ref:`nested redis config map <conf_value_db_redis>`
+
 .. _conf_value_tls_certificates:
 
 tls certificates

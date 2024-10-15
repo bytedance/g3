@@ -37,7 +37,9 @@ use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::acl_set::AclDstHostRuleSet;
 use g3_types::metrics::MetricsName;
-use g3_types::net::{OpensslClientConfig, RustlsServerConnectionExt};
+use g3_types::net::{
+    OpensslClientConfig, OpensslTicketKey, RollingTicketer, RustlsServerConnectionExt,
+};
 
 use super::task::{
     CommonTaskContext, HttpProxyPipelineReaderTask, HttpProxyPipelineStats,
@@ -57,6 +59,7 @@ pub(crate) struct HttpProxyServer {
     config: Arc<HttpProxyServerConfig>,
     server_stats: Arc<HttpProxyServerStats>,
     listen_stats: Arc<ListenStats>,
+    tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
     tls_acceptor: Option<TlsAcceptor>,
     tls_accept_timeout: Duration,
     tls_client_config: Arc<OpensslClientConfig>,
@@ -77,6 +80,7 @@ impl HttpProxyServer {
         config: Arc<HttpProxyServerConfig>,
         server_stats: Arc<HttpProxyServerStats>,
         listen_stats: Arc<ListenStats>,
+        tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
         version: usize,
     ) -> anyhow::Result<HttpProxyServer> {
         let reload_sender = crate::serve::new_reload_notify_channel();
@@ -84,7 +88,7 @@ impl HttpProxyServer {
         let mut tls_accept_timeout = Duration::from_secs(10);
         let tls_acceptor = if let Some(tls_config_builder) = &config.server_tls_config {
             let tls_server_config = tls_config_builder
-                .build()
+                .build_with_ticketer(tls_rolling_ticketer.clone())
                 .context("failed to build tls server config")?;
             tls_accept_timeout = tls_server_config.accept_timeout;
             Some(TlsAcceptor::from(tls_server_config.driver))
@@ -120,6 +124,7 @@ impl HttpProxyServer {
             config,
             server_stats,
             listen_stats,
+            tls_rolling_ticketer,
             tls_acceptor,
             tls_accept_timeout,
             tls_client_config: Arc::new(tls_client_config),
@@ -142,7 +147,17 @@ impl HttpProxyServer {
         let server_stats = Arc::new(HttpProxyServerStats::new(config.name()));
         let listen_stats = Arc::new(ListenStats::new(config.name()));
 
-        let server = HttpProxyServer::new(config, server_stats, listen_stats, 1)?;
+        let tls_rolling_ticketer = if let Some(c) = &config.tls_ticketer {
+            let ticketer = c
+                .build_and_spawn_updater()
+                .context("failed to create tls rolling ticketer")?;
+            Some(ticketer)
+        } else {
+            None
+        };
+
+        let server =
+            HttpProxyServer::new(config, server_stats, listen_stats, tls_rolling_ticketer, 1)?;
         Ok(Arc::new(server))
     }
 
@@ -152,8 +167,24 @@ impl HttpProxyServer {
             let server_stats = Arc::clone(&self.server_stats);
             let listen_stats = Arc::clone(&self.listen_stats);
 
-            let server =
-                HttpProxyServer::new(config, server_stats, listen_stats, self.reload_version + 1)?;
+            let tls_rolling_ticketer = if self.config.tls_ticketer.eq(&config.tls_ticketer) {
+                self.tls_rolling_ticketer.clone()
+            } else if let Some(c) = &config.tls_ticketer {
+                let ticketer = c
+                    .build_and_spawn_updater()
+                    .context("failed to create tls rolling ticketer")?;
+                Some(ticketer)
+            } else {
+                None
+            };
+
+            let server = HttpProxyServer::new(
+                config,
+                server_stats,
+                listen_stats,
+                tls_rolling_ticketer,
+                self.reload_version + 1,
+            )?;
             Ok(server)
         } else {
             Err(anyhow!(

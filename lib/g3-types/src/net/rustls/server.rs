@@ -192,9 +192,9 @@ impl RustlsServerConfigBuilder {
     #[cfg(feature = "openssl")]
     pub fn build_with_ticketer(
         &self,
-        ticketer: Arc<RollingTicketer<OpensslTicketKey>>,
+        ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
     ) -> anyhow::Result<RustlsServerConfig> {
-        self.build_with_alpn_protocols(None, Some(ticketer))
+        self.build_with_alpn_protocols(None, ticketer)
     }
 
     pub fn build(&self) -> anyhow::Result<RustlsServerConfig> {
@@ -222,9 +222,9 @@ impl RustlsServerConfigBuilder {
     #[cfg(all(feature = "quinn", feature = "openssl"))]
     pub fn build_quic_with_ticketer(
         &self,
-        ticketer: Arc<RollingTicketer<OpensslTicketKey>>,
+        ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
     ) -> anyhow::Result<RustlsQuicServerConfig> {
-        self.build_quic_with_alpn_protocols(None, Some(ticketer))
+        self.build_quic_with_alpn_protocols(None, ticketer)
     }
 
     #[cfg(feature = "quinn")]

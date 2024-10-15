@@ -334,9 +334,9 @@ impl OpensslServerConfigBuilder {
     #[inline]
     pub fn build_with_ticketer(
         &self,
-        ticketer: Arc<RollingTicketer<OpensslTicketKey>>,
+        ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
     ) -> anyhow::Result<OpensslServerConfig> {
-        self.build_with_alpn_protocols(None, Some(ticketer))
+        self.build_with_alpn_protocols(None, ticketer)
     }
 
     #[inline]

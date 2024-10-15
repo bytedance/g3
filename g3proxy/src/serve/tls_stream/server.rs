@@ -35,7 +35,10 @@ use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder};
 use g3_types::metrics::MetricsName;
-use g3_types::net::{OpensslClientConfig, RustlsServerConnectionExt, WeightedUpstreamAddr};
+use g3_types::net::{
+    OpensslClientConfig, OpensslTicketKey, RollingTicketer, RustlsServerConnectionExt,
+    WeightedUpstreamAddr,
+};
 
 use super::common::CommonTaskContext;
 use super::task::TlsStreamTask;
@@ -53,6 +56,7 @@ pub(crate) struct TlsStreamServer {
     server_stats: Arc<TcpStreamServerStats>,
     listen_stats: Arc<ListenStats>,
     upstream: SelectiveVec<WeightedUpstreamAddr>,
+    tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
     tls_acceptor: TlsAcceptor,
     tls_accept_timeout: Duration,
     tls_client_config: Option<Arc<OpensslClientConfig>>,
@@ -71,6 +75,7 @@ impl TlsStreamServer {
         config: Arc<TlsStreamServerConfig>,
         server_stats: Arc<TcpStreamServerStats>,
         listen_stats: Arc<ListenStats>,
+        tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
         version: usize,
     ) -> anyhow::Result<Self> {
         let reload_sender = crate::serve::new_reload_notify_channel();
@@ -85,7 +90,7 @@ impl TlsStreamServer {
 
         let tls_server_config = config
             .server_tls_config
-            .build()
+            .build_with_ticketer(tls_rolling_ticketer.clone())
             .context("failed to build tls server config")?;
 
         let tls_client_config = if let Some(builder) = &config.client_tls_config {
@@ -115,6 +120,7 @@ impl TlsStreamServer {
             server_stats,
             listen_stats,
             upstream,
+            tls_rolling_ticketer,
             tls_acceptor: TlsAcceptor::from(tls_server_config.driver),
             tls_accept_timeout: tls_server_config.accept_timeout,
             tls_client_config,
@@ -135,7 +141,17 @@ impl TlsStreamServer {
         let server_stats = Arc::new(TcpStreamServerStats::new(config.name()));
         let listen_stats = Arc::new(ListenStats::new(config.name()));
 
-        let server = TlsStreamServer::new(config, server_stats, listen_stats, 1)?;
+        let tls_rolling_ticketer = if let Some(c) = &config.tls_ticketer {
+            let ticketer = c
+                .build_and_spawn_updater()
+                .context("failed to create tls rolling ticketer")?;
+            Some(ticketer)
+        } else {
+            None
+        };
+
+        let server =
+            TlsStreamServer::new(config, server_stats, listen_stats, tls_rolling_ticketer, 1)?;
         Ok(Arc::new(server))
     }
 
@@ -145,8 +161,24 @@ impl TlsStreamServer {
             let server_stats = Arc::clone(&self.server_stats);
             let listen_stats = Arc::clone(&self.listen_stats);
 
-            let server =
-                TlsStreamServer::new(config, server_stats, listen_stats, self.reload_version + 1)?;
+            let tls_rolling_ticketer = if self.config.tls_ticketer.eq(&config.tls_ticketer) {
+                self.tls_rolling_ticketer.clone()
+            } else if let Some(c) = &config.tls_ticketer {
+                let ticketer = c
+                    .build_and_spawn_updater()
+                    .context("failed to create tls rolling ticketer")?;
+                Some(ticketer)
+            } else {
+                None
+            };
+
+            let server = TlsStreamServer::new(
+                config,
+                server_stats,
+                listen_stats,
+                tls_rolling_ticketer,
+                self.reload_version + 1,
+            )?;
             Ok(server)
         } else {
             Err(anyhow!(

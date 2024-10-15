@@ -50,7 +50,7 @@ pub(crate) struct RemoteKeys {
     pub(crate) dec: Vec<RemoteDecryptKey>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum TicketSourceConfig {
     Redis(RedisSourceConfig),
 }

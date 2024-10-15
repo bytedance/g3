@@ -22,6 +22,7 @@ use ascii::AsciiString;
 use yaml_rust::{yaml, Yaml};
 
 use g3_io_ext::LimitedCopyConfig;
+use g3_tls_ticket::TlsTicketConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::net::{
@@ -91,6 +92,7 @@ pub(crate) struct HttpRProxyServerConfig {
     pub(crate) hosts: HostMatch<Arc<HttpHostConfig>>,
     pub(crate) enable_tls_server: bool,
     pub(crate) global_tls_server: Option<RustlsServerConfigBuilder>,
+    pub(crate) tls_ticketer: Option<TlsTicketConfig>,
     pub(crate) client_hello_recv_timeout: Duration,
 }
 
@@ -127,6 +129,7 @@ impl HttpRProxyServerConfig {
             hosts: Default::default(),
             enable_tls_server: false,
             global_tls_server: None,
+            tls_ticketer: None,
             client_hello_recv_timeout: Duration::from_secs(1),
         }
     }
@@ -311,6 +314,13 @@ impl HttpRProxyServerConfig {
                         "invalid tls server config builder value for key {k}"
                     ))?;
                 self.global_tls_server = Some(builder);
+                Ok(())
+            }
+            "tls_ticketer" => {
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let ticketer = TlsTicketConfig::parse_yaml(v, Some(lookup_dir))
+                    .context(format!("invalid tls ticket config value for key {k}"))?;
+                self.tls_ticketer = Some(ticketer);
                 Ok(())
             }
             "client_hello_recv_timeout" => {

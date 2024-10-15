@@ -15,6 +15,7 @@ The following common keys are supported:
 
   This is **required**.
 
+* :ref:`tls ticketer <conf_server_common_tls_ticketer>`
 * :ref:`tcp_sock_speed_limit <conf_server_common_tcp_sock_speed_limit>`
 * :ref:`ingress_network_filter <conf_server_common_ingress_network_filter>`
 * :ref:`tcp_copy_buffer_size <conf_server_common_tcp_copy_buffer_size>`

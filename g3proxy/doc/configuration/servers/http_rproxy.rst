@@ -12,6 +12,7 @@ The following common keys are supported:
 * :ref:`user_group <conf_server_common_user_group>`
 * :ref:`shared_logger <conf_server_common_shared_logger>`
 * :ref:`listen_in_worker <conf_server_common_listen_in_worker>`
+* :ref:`tls ticketer <conf_server_common_tls_ticketer>`
 * :ref:`tcp_sock_speed_limit <conf_server_common_tcp_sock_speed_limit>`
 * :ref:`ingress_network_filter <conf_server_common_ingress_network_filter>`
 * :ref:`tcp_copy_buffer_size <conf_server_common_tcp_copy_buffer_size>`

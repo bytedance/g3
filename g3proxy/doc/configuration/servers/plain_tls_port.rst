@@ -8,8 +8,9 @@ This server provides plain tls port, which can be placed in front of other serve
 The following common keys are supported:
 
 * :ref:`listen_in_worker <conf_server_common_listen_in_worker>`
-* :ref:`ingress_network_filter <conf_server_common_ingress_network_filter>`
 * :ref:`tls_server <conf_server_common_tls_server>`
+* :ref:`tls ticketer <conf_server_common_tls_ticketer>`
+* :ref:`ingress_network_filter <conf_server_common_ingress_network_filter>`
 
   This is required for this server.
 

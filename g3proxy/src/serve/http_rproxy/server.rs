@@ -37,7 +37,9 @@ use g3_io_ext::AsyncStream;
 use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::MetricsName;
-use g3_types::net::{RustlsServerConfig, RustlsServerConnectionExt, UpstreamAddr};
+use g3_types::net::{
+    OpensslTicketKey, RollingTicketer, RustlsServerConfig, RustlsServerConnectionExt, UpstreamAddr,
+};
 use g3_types::route::HostMatch;
 
 use super::task::{
@@ -57,6 +59,7 @@ pub(crate) struct HttpRProxyServer {
     config: Arc<HttpRProxyServerConfig>,
     server_stats: Arc<HttpRProxyServerStats>,
     listen_stats: Arc<ListenStats>,
+    tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
     global_tls_server: Option<RustlsServerConfig>,
     ingress_net_filter: Option<AclNetworkRule>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
@@ -75,6 +78,7 @@ impl HttpRProxyServer {
         server_stats: Arc<HttpRProxyServerStats>,
         listen_stats: Arc<ListenStats>,
         hosts: HostMatch<Arc<HttpHost>>,
+        tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
         version: usize,
     ) -> anyhow::Result<Self> {
         let reload_sender = crate::serve::new_reload_notify_channel();
@@ -82,7 +86,7 @@ impl HttpRProxyServer {
         let global_tls_server = match &config.global_tls_server {
             Some(builder) => {
                 let config = builder
-                    .build()
+                    .build_with_ticketer(tls_rolling_ticketer.clone())
                     .context("failed to build global tls server config")?;
                 Some(config)
             }
@@ -106,6 +110,7 @@ impl HttpRProxyServer {
             config,
             server_stats,
             listen_stats,
+            tls_rolling_ticketer,
             global_tls_server,
             ingress_net_filter,
             reload_sender,
@@ -125,9 +130,26 @@ impl HttpRProxyServer {
         let server_stats = Arc::new(HttpRProxyServerStats::new(config.name()));
         let listen_stats = Arc::new(ListenStats::new(config.name()));
 
-        let hosts = config.hosts.try_build_arc(HttpHost::try_build)?;
+        let tls_rolling_ticketer = if let Some(c) = &config.tls_ticketer {
+            let ticketer = c
+                .build_and_spawn_updater()
+                .context("failed to create tls rolling ticketer")?;
+            Some(ticketer)
+        } else {
+            None
+        };
+        let hosts = config
+            .hosts
+            .try_build_arc(|c| HttpHost::try_build(c, tls_rolling_ticketer.clone()))?;
 
-        let server = HttpRProxyServer::new(config, server_stats, listen_stats, hosts, 1)?;
+        let server = HttpRProxyServer::new(
+            config,
+            server_stats,
+            listen_stats,
+            hosts,
+            tls_rolling_ticketer,
+            1,
+        )?;
         Ok(Arc::new(server))
     }
 
@@ -137,14 +159,27 @@ impl HttpRProxyServer {
             let server_stats = Arc::clone(&self.server_stats);
             let listen_stats = Arc::clone(&self.listen_stats);
 
+            let tls_rolling_ticketer = if self.config.tls_ticketer.eq(&config.tls_ticketer) {
+                self.tls_rolling_ticketer.clone()
+            } else if let Some(c) = &config.tls_ticketer {
+                let ticketer = c
+                    .build_and_spawn_updater()
+                    .context("failed to create tls rolling ticketer")?;
+                Some(ticketer)
+            } else {
+                None
+            };
             // TODO do update if host has runtime state
-            let hosts = config.hosts.try_build_arc(HttpHost::try_build)?;
+            let hosts = config
+                .hosts
+                .try_build_arc(|c| HttpHost::try_build(c, tls_rolling_ticketer.clone()))?;
 
             let server = HttpRProxyServer::new(
                 config,
                 server_stats,
                 listen_stats,
                 hosts,
+                tls_rolling_ticketer,
                 self.reload_version + 1,
             )?;
             Ok(server)

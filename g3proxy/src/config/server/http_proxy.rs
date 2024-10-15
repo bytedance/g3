@@ -25,6 +25,7 @@ use yaml_rust::{yaml, Yaml};
 
 use g3_ftp_client::FtpClientConfig;
 use g3_io_ext::LimitedCopyConfig;
+use g3_tls_ticket::TlsTicketConfig;
 use g3_types::acl::{AclExactPortRule, AclNetworkRuleBuilder};
 use g3_types::acl_set::AclDstHostRuleSetBuilder;
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
@@ -70,6 +71,7 @@ pub(crate) struct HttpProxyServerConfig {
     pub(crate) listen: Option<TcpListenConfig>,
     pub(crate) listen_in_worker: bool,
     pub(crate) server_tls_config: Option<RustlsServerConfigBuilder>,
+    pub(crate) tls_ticketer: Option<TlsTicketConfig>,
     pub(crate) client_tls_config: OpensslClientConfigBuilder,
     pub(crate) ftp_client_config: Arc<FtpClientConfig>,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
@@ -112,6 +114,7 @@ impl HttpProxyServerConfig {
             listen: None,
             listen_in_worker: false,
             server_tls_config: None,
+            tls_ticketer: None,
             client_tls_config: OpensslClientConfigBuilder::with_cache_for_many_sites(),
             ftp_client_config: Arc::new(Default::default()),
             ingress_net_filter: None,
@@ -200,6 +203,13 @@ impl HttpProxyServerConfig {
                 let builder = g3_yaml::value::as_rustls_server_config_builder(v, Some(lookup_dir))
                     .context(format!("invalid server tls config value for key {k}"))?;
                 self.server_tls_config = Some(builder);
+                Ok(())
+            }
+            "tls_ticketer" => {
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let ticketer = TlsTicketConfig::parse_yaml(v, Some(lookup_dir))
+                    .context(format!("invalid tls ticket config value for key {k}"))?;
+                self.tls_ticketer = Some(ticketer);
                 Ok(())
             }
             "tls_client" => {

@@ -21,6 +21,7 @@ use anyhow::Context;
 use g3_dpi::ProtocolPortMap;
 use g3_icap_client::IcapServiceClient;
 use g3_types::metrics::MetricsName;
+use g3_types::net::{OpensslTicketKey, RollingTicketer};
 
 use crate::config::audit::AuditorConfig;
 use crate::inspect::tls::TlsInterceptionContext;
@@ -46,6 +47,7 @@ pub(crate) struct Auditor {
     config: Arc<AuditorConfig>,
     server_tcp_portmap: Arc<ProtocolPortMap>,
     client_tcp_portmap: Arc<ProtocolPortMap>,
+    tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
     icap_reqmod_service: Option<Arc<IcapServiceClient>>,
     icap_respmod_service: Option<Arc<IcapServiceClient>>,
     #[cfg(feature = "quic")]
@@ -61,6 +63,7 @@ impl Auditor {
             config: Arc::new(config),
             server_tcp_portmap,
             client_tcp_portmap,
+            tls_rolling_ticketer: None,
             icap_reqmod_service: None,
             icap_respmod_service: None,
             #[cfg(feature = "quic")]
@@ -72,10 +75,19 @@ impl Auditor {
     fn new_with_config(config: AuditorConfig) -> anyhow::Result<Arc<Self>> {
         let server_tcp_portmap = Arc::new(config.server_tcp_portmap.clone());
         let client_tcp_portmap = Arc::new(config.client_tcp_portmap.clone());
+        let tls_rolling_ticketer = if let Some(c) = &config.tls_ticketer {
+            let ticketer = c
+                .build_and_spawn_updater()
+                .context("failed to create tls rolling ticketer")?;
+            Some(ticketer)
+        } else {
+            None
+        };
         let mut auditor = Auditor {
             config: Arc::new(config),
             server_tcp_portmap,
             client_tcp_portmap,
+            tls_rolling_ticketer,
             icap_reqmod_service: None,
             icap_respmod_service: None,
             #[cfg(feature = "quic")]
@@ -88,10 +100,21 @@ impl Auditor {
     fn reload(&self, config: AuditorConfig) -> anyhow::Result<Arc<Self>> {
         let server_tcp_portmap = Arc::new(config.server_tcp_portmap.clone());
         let client_tcp_portmap = Arc::new(config.client_tcp_portmap.clone());
+        let tls_rolling_ticketer = if self.config.tls_ticketer.eq(&config.tls_ticketer) {
+            self.tls_rolling_ticketer.clone()
+        } else if let Some(c) = &config.tls_ticketer {
+            let ticketer = c
+                .build_and_spawn_updater()
+                .context("failed to create tls rolling ticketer")?;
+            Some(ticketer)
+        } else {
+            None
+        };
         let mut auditor = Auditor {
             config: Arc::new(config),
             server_tcp_portmap,
             client_tcp_portmap,
+            tls_rolling_ticketer,
             icap_reqmod_service: None,
             icap_respmod_service: None,
             #[cfg(feature = "quic")]
@@ -135,7 +158,7 @@ impl Auditor {
             let server_config = self
                 .config
                 .tls_interception_server
-                .build()
+                .build_with_ticketer(self.tls_rolling_ticketer.as_ref())
                 .context("failed to build tls server config")?;
             let ctx = TlsInterceptionContext::new(
                 cert_agent,

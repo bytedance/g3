@@ -26,7 +26,7 @@ use super::{TicketKeyUpdate, TicketSourceConfig};
 #[cfg(feature = "yaml")]
 mod yaml;
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TlsTicketConfig {
     pub(crate) check_interval: Duration,
     pub(crate) local_lifetime: u32,
