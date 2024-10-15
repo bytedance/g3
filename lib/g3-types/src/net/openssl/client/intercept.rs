@@ -117,7 +117,7 @@ impl Default for OpensslInterceptionClientConfigBuilder {
             ca_certs: Vec::new(),
             no_default_ca_certs: false,
             handshake_timeout: DEFAULT_HANDSHAKE_TIMEOUT,
-            session_cache: OpensslSessionCacheConfig::default(),
+            session_cache: OpensslSessionCacheConfig::new_for_many(),
             supported_groups: String::default(),
             use_ocsp_stapling: false,
             enable_sct: false,
