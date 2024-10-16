@@ -290,13 +290,9 @@ impl OpensslServerConfigBuilder {
                         .map_err(|e| anyhow!("[#{i}] failed to push to ca name stack: {e}"))?;
                 }
             }
-            let store = store_builder.build();
-            #[cfg(not(feature = "boringssl"))]
             ssl_builder
-                .set_verify_cert_store(store)
-                .map_err(|e| anyhow!("failed to set ca certs: {e}"))?;
-            #[cfg(feature = "boringssl")]
-            ssl_builder.set_cert_store(store);
+                .set_verify_cert_store(store_builder.build())
+                .map_err(|e| anyhow!("failed to set verify ca certs: {e}"))?;
             if !subject_stack.is_empty() {
                 ssl_builder.set_client_ca_list(subject_stack);
             }

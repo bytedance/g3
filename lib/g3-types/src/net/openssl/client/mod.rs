@@ -516,12 +516,9 @@ impl OpensslClientConfigBuilder {
                 .add_cert(ca_cert)
                 .map_err(|e| anyhow!("failed to add ca certificate #{i}: {e}"))?;
         }
-        #[cfg(not(feature = "boringssl"))]
         ctx_builder
             .set_verify_cert_store(store_builder.build())
-            .map_err(|e| anyhow!("failed to set ca certs: {e}"))?;
-        #[cfg(feature = "boringssl")]
-        ctx_builder.set_cert_store(store_builder.build());
+            .map_err(|e| anyhow!("failed to set verify ca certs: {e}"))?;
 
         let session_cache = self.session_cache.set_for_client(&mut ctx_builder)?;
 
