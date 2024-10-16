@@ -33,7 +33,7 @@ use g3_types::net::{
     HttpAuth, HttpProxy, OpensslClientConfig, OpensslClientConfigBuilder, Proxy, UpstreamAddr,
 };
 
-use super::{BoxHttpForwardConnection, ProcArgs};
+use super::{BoxHttpForwardConnection, HttpRuntimeStats, ProcArgs};
 use crate::module::openssl::{AppendOpensslArgs, OpensslTlsClientArgs};
 use crate::module::proxy_protocol::{AppendProxyProtocolArgs, ProxyProtocolArgs};
 use crate::module::socket::{AppendSocketArgs, SocketArgs};
@@ -140,6 +140,7 @@ impl BenchHttpArgs {
 
     pub(super) async fn new_http_connection(
         &self,
+        stats: &HttpRuntimeStats,
         proc_args: &ProcArgs,
     ) -> anyhow::Result<BoxHttpForwardConnection> {
         if let Some(proxy) = &self.connect_proxy {
@@ -152,7 +153,7 @@ impl BenchHttpArgs {
 
                     if let Some(tls_config) = &self.proxy_tls.client {
                         let tls_stream = self
-                            .tls_connect_to_proxy(tls_config, http_proxy.peer(), stream)
+                            .tls_connect_to_proxy(tls_config, http_proxy.peer(), stream, stats)
                             .await?;
 
                         let mut buf_stream = BufReader::new(tls_stream);
@@ -168,7 +169,7 @@ impl BenchHttpArgs {
                         })?;
 
                         if let Some(tls_client) = &self.target_tls.client {
-                            self.tls_connect_to_peer(tls_client, buf_stream.into_inner())
+                            self.tls_connect_to_peer(tls_client, buf_stream.into_inner(), stats)
                                 .await
                         } else {
                             let (r, w) = buf_stream.into_inner().into_split();
@@ -188,7 +189,7 @@ impl BenchHttpArgs {
                         })?;
 
                         if let Some(tls_client) = &self.target_tls.client {
-                            self.tls_connect_to_peer(tls_client, buf_stream.into_inner())
+                            self.tls_connect_to_peer(tls_client, buf_stream.into_inner(), stats)
                                 .await
                         } else {
                             let (r, w) = buf_stream.into_inner().into_split();
@@ -209,7 +210,7 @@ impl BenchHttpArgs {
                         })?;
 
                     if let Some(tls_client) = &self.target_tls.client {
-                        self.tls_connect_to_peer(tls_client, stream).await
+                        self.tls_connect_to_peer(tls_client, stream, stats).await
                     } else {
                         let (r, w) = stream.into_split();
                         Ok((Box::new(r), Box::new(w)))
@@ -232,7 +233,7 @@ impl BenchHttpArgs {
                     })?;
 
                     if let Some(tls_client) = &self.target_tls.client {
-                        self.tls_connect_to_peer(tls_client, stream).await
+                        self.tls_connect_to_peer(tls_client, stream, stats).await
                     } else {
                         let (r, w) = stream.into_split();
                         Ok((Box::new(r), Box::new(w)))
@@ -247,7 +248,7 @@ impl BenchHttpArgs {
 
             if let Some(tls_client) = &self.proxy_tls.client {
                 let tls_stream = self
-                    .tls_connect_to_proxy(tls_client, proxy.peer(), stream)
+                    .tls_connect_to_proxy(tls_client, proxy.peer(), stream, stats)
                     .await?;
 
                 let (r, w) = tls_stream.into_split();
@@ -263,7 +264,7 @@ impl BenchHttpArgs {
                 .context(format!("failed to connect to target host {}", self.target))?;
 
             if let Some(tls_client) = &self.target_tls.client {
-                self.tls_connect_to_peer(tls_client, stream).await
+                self.tls_connect_to_peer(tls_client, stream, stats).await
             } else {
                 let (r, w) = stream.into_split();
                 Ok((Box::new(r), Box::new(w)))
@@ -275,6 +276,7 @@ impl BenchHttpArgs {
         &self,
         tls_client: &OpensslClientConfig,
         stream: S,
+        stats: &HttpRuntimeStats,
     ) -> anyhow::Result<BoxHttpForwardConnection>
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
@@ -283,6 +285,12 @@ impl BenchHttpArgs {
             .target_tls
             .connect_target(tls_client, stream, &self.target)
             .await?;
+
+        stats.target_ssl_session.add_total();
+        if tls_stream.ssl().session_reused() {
+            stats.target_ssl_session.add_reused();
+        }
+
         let (r, w) = tls_stream.into_split();
         Ok((Box::new(r), Box::new(w)))
     }
@@ -292,10 +300,19 @@ impl BenchHttpArgs {
         tls_client: &OpensslClientConfig,
         peer: &UpstreamAddr,
         stream: TcpStream,
+        stats: &HttpRuntimeStats,
     ) -> anyhow::Result<SslStream<TcpStream>> {
-        self.proxy_tls
+        let tls_stream = self
+            .proxy_tls
             .connect_target(tls_client, stream, peer)
-            .await
+            .await?;
+
+        stats.proxy_ssl_session.add_total();
+        if tls_stream.ssl().session_reused() {
+            stats.proxy_ssl_session.add_reused();
+        }
+
+        Ok(tls_stream)
     }
 
     fn write_request_line<W: io::Write>(&self, buf: &mut W) -> io::Result<()> {

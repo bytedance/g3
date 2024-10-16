@@ -105,8 +105,9 @@ impl BenchTaskContext for OpensslTaskContext {
                 let total_time = time_started.elapsed();
                 self.histogram_recorder.record_total_time(total_time);
 
+                self.runtime_stats.session.add_total();
                 if tls_stream.ssl().session_reused() {
-                    self.runtime_stats.add_session_reused();
+                    self.runtime_stats.session.add_reused();
                 }
 
                 // make sure the tls ticket will be reused

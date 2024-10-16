@@ -20,6 +20,7 @@ use std::time::Duration;
 use g3_io_ext::{LimitedReaderStats, LimitedWriterStats};
 use g3_statsd_client::StatsdClient;
 
+use super::SslSessionStats;
 use crate::target::BenchRuntimeStats;
 
 #[derive(Default)]
@@ -33,7 +34,7 @@ pub(crate) struct SslRuntimeStats {
     conn_success: AtomicU64,
     conn_success_total: AtomicU64,
 
-    session_reused: AtomicU64,
+    pub(crate) session: SslSessionStats,
 
     conn_close_error: AtomicU64,
     conn_close_timeout: AtomicU64,
@@ -71,10 +72,6 @@ impl SslRuntimeStats {
 
     pub(crate) fn add_conn_success(&self) {
         self.conn_success.fetch_add(1, Ordering::Relaxed);
-    }
-
-    pub(crate) fn add_session_reused(&self) {
-        self.session_reused.fetch_add(1, Ordering::Relaxed);
     }
 
     pub(crate) fn add_conn_close_fail(&self) {
@@ -141,13 +138,6 @@ impl BenchRuntimeStats for SslRuntimeStats {
         );
         println!("Success rate:  {:.3}/s", total_success as f64 / total_secs);
 
-        let session_reused = self.session_reused.load(Ordering::Relaxed);
-        println!("Session reused count: {session_reused}");
-        println!(
-            "Session reuse ratio: {:.2}%",
-            (session_reused as f64 / total_success as f64) * 100.0
-        );
-
         let close_error = self.conn_close_error.load(Ordering::Relaxed);
         if close_error > 0 {
             println!("Close error:   {close_error}");
@@ -156,6 +146,8 @@ impl BenchRuntimeStats for SslRuntimeStats {
         if close_timeout > 0 {
             println!("Close timeout: {close_timeout}");
         }
+
+        self.session.summary("TLS");
 
         println!("# Traffic");
         let total_send =

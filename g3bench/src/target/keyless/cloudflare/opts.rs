@@ -27,7 +27,7 @@ use g3_openssl::SslStream;
 use g3_types::collection::{SelectiveVec, WeightedValue};
 use g3_types::net::{OpensslClientConfig, OpensslClientConfigBuilder, UpstreamAddr};
 
-use super::{MultiplexTransfer, SimplexTransfer};
+use super::{KeylessRuntimeStats, MultiplexTransfer, SimplexTransfer};
 use crate::module::openssl::{AppendOpensslArgs, OpensslTlsClientArgs};
 use crate::module::proxy_protocol::{AppendProxyProtocolArgs, ProxyProtocolArgs};
 use crate::module::socket::{AppendSocketArgs, SocketArgs};
@@ -91,6 +91,7 @@ impl KeylessCloudflareArgs {
 
     pub(super) async fn new_multiplex_keyless_connection(
         &self,
+        stats: &KeylessRuntimeStats,
         proc_args: &ProcArgs,
     ) -> anyhow::Result<MultiplexTransfer> {
         let tcp_stream = self.new_tcp_connection(proc_args).await?;
@@ -98,7 +99,9 @@ impl KeylessCloudflareArgs {
             .local_addr()
             .map_err(|e| anyhow!("failed to get local address: {e:?}"))?;
         if let Some(tls_client) = &self.tls.client {
-            let ssl_stream = self.tls_connect_to_target(tls_client, tcp_stream).await?;
+            let ssl_stream = self
+                .tls_connect_to_target(tls_client, tcp_stream, stats)
+                .await?;
             let (r, w) = ssl_stream.into_split();
             Ok(MultiplexTransfer::start(r, w, local_addr, self.timeout))
         } else {
@@ -109,6 +112,7 @@ impl KeylessCloudflareArgs {
 
     pub(super) async fn new_simplex_keyless_connection(
         &self,
+        stats: &KeylessRuntimeStats,
         proc_args: &ProcArgs,
     ) -> anyhow::Result<SimplexTransfer> {
         let tcp_stream = self.new_tcp_connection(proc_args).await?;
@@ -116,7 +120,9 @@ impl KeylessCloudflareArgs {
             .local_addr()
             .map_err(|e| anyhow!("failed to get local address: {e:?}"))?;
         if let Some(tls_client) = &self.tls.client {
-            let ssl_stream = self.tls_connect_to_target(tls_client, tcp_stream).await?;
+            let ssl_stream = self
+                .tls_connect_to_target(tls_client, tcp_stream, stats)
+                .await?;
             let (r, w) = ssl_stream.into_split();
             Ok(SimplexTransfer::new(r, w, local_addr))
         } else {
@@ -148,13 +154,22 @@ impl KeylessCloudflareArgs {
         &self,
         tls_client: &OpensslClientConfig,
         stream: S,
+        stats: &KeylessRuntimeStats,
     ) -> anyhow::Result<SslStream<S>>
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
-        self.tls
+        let tls_stream = self
+            .tls
             .connect_target(tls_client, stream, &self.target)
-            .await
+            .await?;
+
+        stats.ssl_session.add_total();
+        if tls_stream.ssl().session_reused() {
+            stats.ssl_session.add_reused();
+        }
+
+        Ok(tls_stream)
     }
 }
 

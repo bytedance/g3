@@ -19,6 +19,7 @@ use std::time::Duration;
 
 use g3_statsd_client::StatsdClient;
 
+use crate::module::ssl::SslSessionStats;
 use crate::target::BenchRuntimeStats;
 
 #[derive(Default)]
@@ -31,6 +32,8 @@ pub(crate) struct KeylessRuntimeStats {
     conn_attempt_total: AtomicU64,
     conn_success: AtomicU64,
     conn_success_total: AtomicU64,
+
+    pub(crate) ssl_session: SslSessionStats,
 }
 
 impl KeylessRuntimeStats {
@@ -101,5 +104,7 @@ impl BenchRuntimeStats for KeylessRuntimeStats {
             (total_success as f64 / total_attempt as f64) * 100.0
         );
         println!("Success rate:  {:.3}/s", total_success as f64 / total_secs);
+
+        self.ssl_session.summary("TLS");
     }
 }

@@ -87,7 +87,8 @@ impl HttpTaskContext {
         self.runtime_stats.add_conn_attempt();
         let (r, w) = match tokio::time::timeout(
             self.args.connect_timeout,
-            self.args.new_http_connection(&self.proc_args),
+            self.args
+                .new_http_connection(&self.runtime_stats, &self.proc_args),
         )
         .await
         {

@@ -20,6 +20,7 @@ use std::time::Duration;
 use g3_io_ext::{LimitedReaderStats, LimitedRecvStats, LimitedSendStats, LimitedWriterStats};
 use g3_statsd_client::StatsdClient;
 
+use crate::module::ssl::SslSessionStats;
 use crate::target::BenchRuntimeStats;
 
 #[derive(Default)]
@@ -58,6 +59,10 @@ pub(crate) struct HttpRuntimeStats {
     conn_attempt_total: AtomicU64,
     conn_success: AtomicU64,
     conn_success_total: AtomicU64,
+
+    pub(crate) target_ssl_session: SslSessionStats,
+    pub(crate) proxy_ssl_session: SslSessionStats,
+
     conn_close_error: AtomicU64,
     conn_close_timeout: AtomicU64,
 
@@ -85,6 +90,8 @@ impl HttpRuntimeStats {
             conn_attempt_total: AtomicU64::new(0),
             conn_success: AtomicU64::new(0),
             conn_success_total: AtomicU64::new(0),
+            target_ssl_session: Default::default(),
+            proxy_ssl_session: Default::default(),
             conn_close_error: AtomicU64::new(0),
             conn_close_timeout: AtomicU64::new(0),
             io,
@@ -259,6 +266,9 @@ impl BenchRuntimeStats for HttpRuntimeStats {
         if close_timeout > 0 {
             println!("Close timeout: {close_timeout}");
         }
+
+        self.proxy_ssl_session.summary("PROXY TLS");
+        self.target_ssl_session.summary("TARGET TLS");
 
         println!("# Traffic");
         match &self.io {

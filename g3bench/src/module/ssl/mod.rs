@@ -15,4 +15,4 @@
  */
 
 mod stats;
-pub(crate) use stats::{SslHistogram, SslHistogramRecorder, SslRuntimeStats};
+pub(crate) use stats::{SslHistogram, SslHistogramRecorder, SslRuntimeStats, SslSessionStats};

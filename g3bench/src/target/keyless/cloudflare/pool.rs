@@ -78,7 +78,8 @@ impl KeylessConnectionUnlocked {
         self.runtime_stats.add_conn_attempt();
         let handle = match tokio::time::timeout(
             self.args.connect_timeout,
-            self.args.new_multiplex_keyless_connection(&self.proc_args),
+            self.args
+                .new_multiplex_keyless_connection(&self.runtime_stats, &self.proc_args),
         )
         .await
         {

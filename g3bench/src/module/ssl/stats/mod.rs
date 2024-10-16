@@ -17,5 +17,8 @@
 mod runtime;
 pub(crate) use runtime::SslRuntimeStats;
 
+mod session;
+pub(crate) use session::SslSessionStats;
+
 mod histogram;
 pub(crate) use histogram::{SslHistogram, SslHistogramRecorder};

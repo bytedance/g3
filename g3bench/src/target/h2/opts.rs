@@ -148,7 +148,7 @@ impl BenchH2Args {
 
                     if let Some(tls_config) = &self.proxy_tls.client {
                         let tls_stream = self
-                            .tls_connect_to_proxy(tls_config, http_proxy.peer(), stream)
+                            .tls_connect_to_proxy(tls_config, http_proxy.peer(), stream, stats)
                             .await?;
 
                         let mut buf_stream = BufReader::new(tls_stream);
@@ -235,7 +235,7 @@ impl BenchH2Args {
     {
         if let Some(tls_client) = &self.target_tls.client {
             let tls_stream = self
-                .tls_connect_to_target(tls_client, stream)
+                .tls_connect_to_target(tls_client, stream, stats)
                 .await
                 .context("tls connect to target failed")?;
             self.h2_handshake(proc_args, tls_stream, stats)
@@ -282,6 +282,7 @@ impl BenchH2Args {
         &self,
         tls_client: &OpensslClientConfig,
         stream: S,
+        stats: &HttpRuntimeStats,
     ) -> anyhow::Result<SslStream<S>>
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
@@ -290,6 +291,12 @@ impl BenchH2Args {
             .target_tls
             .connect_target(tls_client, stream, &self.target)
             .await?;
+
+        stats.target_ssl_session.add_total();
+        if tls_stream.ssl().session_reused() {
+            stats.target_ssl_session.add_reused();
+        }
+
         if let Some(alpn) = tls_stream.ssl().selected_alpn_protocol() {
             if AlpnProtocol::from_buf(alpn) != Some(AlpnProtocol::Http2) {
                 return Err(anyhow!("invalid returned alpn protocol: {:?}", alpn));
@@ -303,10 +310,19 @@ impl BenchH2Args {
         tls_client: &OpensslClientConfig,
         peer: &UpstreamAddr,
         stream: TcpStream,
+        stats: &HttpRuntimeStats,
     ) -> anyhow::Result<SslStream<TcpStream>> {
-        self.proxy_tls
+        let tls_stream = self
+            .proxy_tls
             .connect_target(tls_client, stream, peer)
-            .await
+            .await?;
+
+        stats.proxy_ssl_session.add_total();
+        if tls_stream.ssl().session_reused() {
+            stats.proxy_ssl_session.add_reused();
+        }
+
+        Ok(tls_stream)
     }
 
     pub(super) fn build_pre_request_header(&self) -> anyhow::Result<H2PreRequest> {
