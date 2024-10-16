@@ -22,6 +22,7 @@ use ascii::AsciiString;
 use yaml_rust::{yaml, Yaml};
 
 use g3_io_ext::LimitedCopyConfig;
+use g3_tls_ticket::TlsTicketConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::net::{TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig};
@@ -52,6 +53,7 @@ pub(crate) struct RustlsProxyServerConfig {
     pub(crate) task_idle_max_count: i32,
     pub(crate) tcp_copy: LimitedCopyConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
+    pub(crate) tls_ticketer: Option<TlsTicketConfig>,
     pub(crate) spawn_task_unconstrained: bool,
 }
 
@@ -72,6 +74,7 @@ impl RustlsProxyServerConfig {
             task_idle_max_count: 1,
             tcp_copy: Default::default(),
             tcp_misc_opts: Default::default(),
+            tls_ticketer: None,
             spawn_task_unconstrained: false,
         }
     }
@@ -175,6 +178,13 @@ impl RustlsProxyServerConfig {
             "tcp_misc_opts" => {
                 self.tcp_misc_opts = g3_yaml::value::as_tcp_misc_sock_opts(v)
                     .context(format!("invalid tcp misc sock opts value for key {k}"))?;
+                Ok(())
+            }
+            "tls_ticketer" => {
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let ticketer = TlsTicketConfig::parse_yaml(v, Some(lookup_dir))
+                    .context(format!("invalid tls ticket config value for key {k}"))?;
+                self.tls_ticketer = Some(ticketer);
                 Ok(())
             }
             "spawn_task_unconstrained" | "task_unconstrained" => {

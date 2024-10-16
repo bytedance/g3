@@ -18,7 +18,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use ahash::AHashMap;
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 #[cfg(feature = "quic")]
 use quinn::Connection;
@@ -30,6 +30,7 @@ use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTc
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::MetricsName;
+use g3_types::net::{OpensslTicketKey, RollingTicketer};
 use g3_types::route::HostMatch;
 
 use super::{CommonTaskContext, RustlsAcceptTask, RustlsHost};
@@ -45,6 +46,7 @@ pub(crate) struct RustlsProxyServer {
     server_stats: Arc<StreamServerStats>,
     listen_stats: Arc<ListenStats>,
     ingress_net_filter: Option<AclNetworkRule>,
+    tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
     task_logger: Logger,
     hosts: HostMatch<Arc<RustlsHost>>,
@@ -59,6 +61,7 @@ impl RustlsProxyServer {
         server_stats: Arc<StreamServerStats>,
         listen_stats: Arc<ListenStats>,
         hosts: HostMatch<Arc<RustlsHost>>,
+        tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
         version: usize,
     ) -> Self {
         let reload_sender = crate::serve::new_reload_notify_channel();
@@ -78,6 +81,7 @@ impl RustlsProxyServer {
             server_stats,
             listen_stats,
             ingress_net_filter,
+            tls_rolling_ticketer,
             reload_sender,
             task_logger,
             hosts,
@@ -91,9 +95,27 @@ impl RustlsProxyServer {
         let server_stats = Arc::new(StreamServerStats::new(config.name()));
         let listen_stats = Arc::new(ListenStats::new(config.name()));
 
-        let hosts = config.hosts.try_build_arc(RustlsHost::try_build)?;
+        let tls_rolling_ticketer = if let Some(c) = &config.tls_ticketer {
+            let ticketer = c
+                .build_and_spawn_updater()
+                .context("failed to create tls rolling ticketer")?;
+            Some(ticketer)
+        } else {
+            None
+        };
 
-        let server = RustlsProxyServer::new(config, server_stats, listen_stats, hosts, 1);
+        let hosts = config
+            .hosts
+            .try_build_arc(|c| RustlsHost::try_build(c, tls_rolling_ticketer.clone()))?;
+
+        let server = RustlsProxyServer::new(
+            config,
+            server_stats,
+            listen_stats,
+            hosts,
+            tls_rolling_ticketer,
+            1,
+        );
         Ok(Arc::new(server))
     }
 
@@ -103,14 +125,25 @@ impl RustlsProxyServer {
             let server_stats = Arc::clone(&self.server_stats);
             let listen_stats = Arc::clone(&self.listen_stats);
 
+            let tls_rolling_ticketer = if self.config.tls_ticketer.eq(&config.tls_ticketer) {
+                self.tls_rolling_ticketer.clone()
+            } else if let Some(c) = &config.tls_ticketer {
+                let ticketer = c
+                    .build_and_spawn_updater()
+                    .context("failed to create tls rolling ticketer")?;
+                Some(ticketer)
+            } else {
+                None
+            };
+
             let old_hosts_map = self.hosts.get_all_values();
             let new_conf_map = config.hosts.get_all_values();
             let mut new_hosts_map = AHashMap::with_capacity(new_conf_map.len());
             for (name, conf) in new_conf_map {
                 let host = if let Some(old_host) = old_hosts_map.get(&name) {
-                    old_host.new_for_reload(conf)?
+                    old_host.new_for_reload(conf, tls_rolling_ticketer.clone())?
                 } else {
-                    RustlsHost::try_build(&conf)?
+                    RustlsHost::try_build(&conf, tls_rolling_ticketer.clone())?
                 };
                 new_hosts_map.insert(name, Arc::new(host));
             }
@@ -121,6 +154,7 @@ impl RustlsProxyServer {
                 server_stats,
                 listen_stats,
                 hosts,
+                tls_rolling_ticketer,
                 self.reload_version + 1,
             );
             Ok(server)

@@ -13,20 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 use anyhow::{anyhow, Context};
+use openssl::ex_data::Index;
 use openssl::ssl::{
-    SslAcceptor, SslContext, SslContextBuilder, SslOptions, SslSessionCacheMode, SslVerifyMode,
+    SslAcceptor, SslAcceptorBuilder, SslContext, SslContextBuilder, SslOptions,
+    SslSessionCacheMode, SslVerifyMode, TicketKeyStatus,
 };
 use openssl::stack::Stack;
 use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::X509;
+use std::sync::Arc;
 use yaml_rust::Yaml;
 
 use g3_types::collection::NamedValue;
 use g3_types::limit::RateLimitQuotaConfig;
 use g3_types::metrics::MetricsName;
-use g3_types::net::{OpensslCertificatePair, OpensslSessionIdContext, TcpSockSpeedLimitConfig};
+use g3_types::net::{
+    OpensslCertificatePair, OpensslSessionIdContext, OpensslTicketKey, RollingTicketer,
+    TcpSockSpeedLimitConfig,
+};
 use g3_types::route::AlpnMatch;
 use g3_yaml::{YamlDocPosition, YamlMapCallback};
 
@@ -124,7 +129,10 @@ impl OpensslHostConfig {
         Ok(())
     }
 
-    pub(crate) fn build_ssl_context(&self) -> anyhow::Result<Option<SslContext>> {
+    pub(crate) fn build_ssl_context(
+        &self,
+        ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
+    ) -> anyhow::Result<Option<SslContext>> {
         if self.cert_pairs.is_empty() {
             return Ok(None);
         }
@@ -152,6 +160,11 @@ impl OpensslHostConfig {
         }
         if self.no_session_ticket {
             ssl_builder.set_options(SslOptions::NO_TICKET);
+        } else if let Some(ticketer) = ticketer {
+            let ticket_key_index = SslContext::new_ex_index()
+                .map_err(|e| anyhow!("failed to create ex index: {e}"))?;
+            ssl_builder.set_ex_data(ticket_key_index, ticketer);
+            set_ticket_key_callback(&mut ssl_builder, ticket_key_index)?;
         }
 
         self.set_client_auth(&mut ssl_builder, &mut id_ctx)?;
@@ -189,7 +202,10 @@ impl OpensslHostConfig {
     }
 
     #[cfg(feature = "vendored-tongsuo")]
-    pub(crate) fn build_tlcp_context(&self) -> anyhow::Result<Option<SslContext>> {
+    pub(crate) fn build_tlcp_context(
+        &self,
+        ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
+    ) -> anyhow::Result<Option<SslContext>> {
         if self.tlcp_cert_pairs.is_empty() {
             return Ok(None);
         }
@@ -212,6 +228,11 @@ impl OpensslHostConfig {
         }
         if self.no_session_ticket {
             ssl_builder.set_options(SslOptions::NO_TICKET);
+        } else if let Some(ticketer) = ticketer {
+            let ticket_key_index = SslContext::new_ex_index()
+                .map_err(|e| anyhow!("failed to create ex index: {e}"))?;
+            ssl_builder.set_ex_data(ticket_key_index, ticketer);
+            set_ticket_key_callback(&mut ssl_builder, ticket_key_index)?;
         }
 
         self.set_client_auth(&mut ssl_builder, &mut id_ctx)?;
@@ -242,6 +263,26 @@ impl OpensslHostConfig {
 
         Ok(Some(ssl_builder.build().into_context()))
     }
+}
+
+fn set_ticket_key_callback(
+    builder: &mut SslAcceptorBuilder,
+    ticket_key_index: Index<SslContext, Arc<RollingTicketer<OpensslTicketKey>>>,
+) -> anyhow::Result<()> {
+    builder
+        .set_ticket_key_callback(move |ssl, name, iv, cipher_ctx, hmac_ctx, is_enc| {
+            match ssl.ssl_context().ex_data(ticket_key_index) {
+                Some(ticketer) => {
+                    if is_enc {
+                        ticketer.encrypt_init(name, iv, cipher_ctx, hmac_ctx)
+                    } else {
+                        ticketer.decrypt_init(name, iv, cipher_ctx, hmac_ctx)
+                    }
+                }
+                None => Ok(TicketKeyStatus::FAILED),
+            }
+        })
+        .map_err(|e| anyhow!("failed to set ticket key callback: {e}"))
 }
 
 impl YamlMapCallback for OpensslHostConfig {

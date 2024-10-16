@@ -9,7 +9,7 @@
 project = 'g3tiles'
 copyright = '2024, Zhang Jingqiang'
 author = 'Zhang Jingqiang'
-release = '0.3.5'
+release = '0.3.6'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

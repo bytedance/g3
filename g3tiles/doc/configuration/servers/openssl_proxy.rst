@@ -14,6 +14,7 @@ The following common keys are supported:
 * :ref:`tcp_copy_buffer_size <conf_server_common_tcp_copy_buffer_size>`
 * :ref:`tcp_copy_yield_size <conf_server_common_tcp_copy_yield_size>`
 * :ref:`tcp_misc_opts <conf_server_common_tcp_misc_opts>`
+* :ref:`tls_ticketer <conf_server_common_tls_ticketer>`
 * :ref:`task_idle_check_duration <conf_server_common_task_idle_check_duration>`
 * :ref:`task_idle_max_count <conf_server_common_task_idle_max_count>`
 * :ref:`extra_metrics_tags <conf_server_common_extra_metrics_tags>`

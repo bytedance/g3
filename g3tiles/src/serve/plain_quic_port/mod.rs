@@ -17,7 +17,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use quinn::Connection;
@@ -30,7 +30,7 @@ use g3_daemon::listen::{
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_types::acl::AclNetworkRule;
 use g3_types::metrics::MetricsName;
-use g3_types::net::UdpListenConfig;
+use g3_types::net::{OpensslTicketKey, RollingTicketer, UdpListenConfig};
 
 use crate::config::server::plain_quic_port::{PlainQuicPortConfig, PlainQuicPortUpdateFlags};
 use crate::config::server::{AnyServerConfig, ServerConfig};
@@ -75,6 +75,7 @@ impl ListenQuicConf for PlainQuicPortAuxConfig {
 pub(crate) struct PlainQuicPort {
     name: MetricsName,
     config: ArcSwap<PlainQuicPortConfig>,
+    tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
     quinn_config: quinn::ServerConfig,
     listen_stats: Arc<ListenStats>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
@@ -90,11 +91,14 @@ impl PlainQuicPort {
     fn new(
         config: Arc<PlainQuicPortConfig>,
         listen_stats: Arc<ListenStats>,
+        tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
         reload_version: usize,
     ) -> anyhow::Result<Self> {
         let reload_sender = crate::serve::new_reload_notify_channel();
 
-        let quic_server = config.tls_server.build_quic()?;
+        let quic_server = config
+            .tls_server
+            .build_quic_with_ticketer(tls_rolling_ticketer.clone())?;
 
         let ingress_net_filter = config
             .ingress_net_filter
@@ -115,6 +119,7 @@ impl PlainQuicPort {
         Ok(PlainQuicPort {
             name: config.name().clone(),
             config: ArcSwap::new(config),
+            tls_rolling_ticketer,
             quinn_config: quinn::ServerConfig::with_crypto(quic_server.driver),
             listen_stats,
             reload_sender,
@@ -128,7 +133,16 @@ impl PlainQuicPort {
     pub(crate) fn prepare_initial(config: PlainQuicPortConfig) -> anyhow::Result<ArcServer> {
         let listen_stats = Arc::new(ListenStats::new(config.name()));
 
-        let server = PlainQuicPort::new(Arc::new(config), listen_stats, 1)?;
+        let tls_rolling_ticketer = if let Some(c) = &config.tls_ticketer {
+            let ticketer = c
+                .build_and_spawn_updater()
+                .context("failed to create tls rolling ticketer")?;
+            Some(ticketer)
+        } else {
+            None
+        };
+
+        let server = PlainQuicPort::new(Arc::new(config), listen_stats, tls_rolling_ticketer, 1)?;
         Ok(Arc::new(server))
     }
 
@@ -136,7 +150,24 @@ impl PlainQuicPort {
         if let AnyServerConfig::PlainQuicPort(config) = config {
             let listen_stats = Arc::clone(&self.listen_stats);
 
-            PlainQuicPort::new(Arc::new(config), listen_stats, self.reload_version + 1)
+            let this_config = self.config.load();
+            let tls_rolling_ticketer = if this_config.tls_ticketer.eq(&config.tls_ticketer) {
+                self.tls_rolling_ticketer.clone()
+            } else if let Some(c) = &config.tls_ticketer {
+                let ticketer = c
+                    .build_and_spawn_updater()
+                    .context("failed to create tls rolling ticketer")?;
+                Some(ticketer)
+            } else {
+                None
+            };
+
+            PlainQuicPort::new(
+                Arc::new(*config),
+                listen_stats,
+                tls_rolling_ticketer,
+                self.reload_version + 1,
+            )
         } else {
             let cur_config = self.config.load();
             Err(anyhow!(
@@ -151,12 +182,12 @@ impl PlainQuicPort {
 impl ServerInternal for PlainQuicPort {
     fn _clone_config(&self) -> AnyServerConfig {
         let config = self.config.load();
-        AnyServerConfig::PlainQuicPort(config.as_ref().clone())
+        AnyServerConfig::PlainQuicPort(Box::new(config.as_ref().clone()))
     }
 
     fn _update_config_in_place(&self, flags: u64, config: AnyServerConfig) -> anyhow::Result<()> {
         if let AnyServerConfig::PlainQuicPort(config) = config {
-            let config = Arc::new(config);
+            let config = Arc::new(*config);
             let Some(flags) = PlainQuicPortUpdateFlags::from_bits(flags) else {
                 return Err(anyhow!("unknown update flags: {flags}"));
             };

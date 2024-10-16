@@ -9,6 +9,7 @@ The following common keys are supported:
 
 * :ref:`listen_in_worker <conf_server_common_listen_in_worker>`
 * :ref:`ingress_network_filter <conf_server_common_ingress_network_filter>`
+* :ref:`tls_ticketer <conf_server_common_tls_ticketer>`
 
 listen
 ------

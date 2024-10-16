@@ -146,6 +146,19 @@ Set misc udp socket options on created udp sockets.
 
 **default**: not set
 
+.. _conf_server_common_tls_ticketer:
+
+tls_ticketer
+------------
+
+**optional**, **type**: :ref:`tls ticketer <conf_value_tls_ticketer>`
+
+Set a (remote) rolling TLS ticketer.
+
+**default**: not set
+
+.. versionadded:: 0.3.6
+
 .. _conf_server_common_task_idle_check_duration:
 
 task_idle_check_duration

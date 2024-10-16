@@ -27,7 +27,7 @@ use openssl::ssl::{Ssl, SslAcceptor, SslContext, TlsExtType};
 use g3_types::collection::NamedValue;
 use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit};
 use g3_types::metrics::MetricsName;
-use g3_types::net::{Host, TlsServerName};
+use g3_types::net::{Host, OpensslTicketKey, RollingTicketer, TlsServerName};
 use g3_types::route::AlpnMatch;
 
 use crate::backend::ArcBackend;
@@ -115,10 +115,13 @@ pub(crate) struct OpensslHost {
 }
 
 impl OpensslHost {
-    pub(super) fn try_build(config: &Arc<OpensslHostConfig>) -> anyhow::Result<Self> {
-        let ssl_context = config.build_ssl_context()?;
+    pub(super) fn try_build(
+        config: &Arc<OpensslHostConfig>,
+        tls_ticketer: &Option<Arc<RollingTicketer<OpensslTicketKey>>>,
+    ) -> anyhow::Result<Self> {
+        let ssl_context = config.build_ssl_context(tls_ticketer.clone())?;
         #[cfg(feature = "vendored-tongsuo")]
-        let tlcp_context = config.build_tlcp_context()?;
+        let tlcp_context = config.build_tlcp_context(tls_ticketer.clone())?;
 
         let backends = config.backends.build(crate::backend::get_or_insert_default);
 
@@ -139,10 +142,14 @@ impl OpensslHost {
         })
     }
 
-    pub(super) fn new_for_reload(&self, config: Arc<OpensslHostConfig>) -> anyhow::Result<Self> {
-        let ssl_context = config.build_ssl_context()?;
+    pub(super) fn new_for_reload(
+        &self,
+        config: Arc<OpensslHostConfig>,
+        tls_ticketer: &Option<Arc<RollingTicketer<OpensslTicketKey>>>,
+    ) -> anyhow::Result<Self> {
+        let ssl_context = config.build_ssl_context(tls_ticketer.clone())?;
         #[cfg(feature = "vendored-tongsuo")]
-        let tlcp_context = config.build_tlcp_context()?;
+        let tlcp_context = config.build_tlcp_context(tls_ticketer.clone())?;
 
         let request_rate_limit = if let Some(quota) = &config.request_rate_limit {
             if let Some(old_limiter) = &self.request_rate_limit {

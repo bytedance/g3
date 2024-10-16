@@ -20,6 +20,7 @@ use anyhow::{anyhow, Context};
 use bitflags::bitflags;
 use yaml_rust::{yaml, Yaml};
 
+use g3_tls_ticket::TlsTicketConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
 use g3_types::metrics::MetricsName;
 use g3_types::net::{RustlsServerConfigBuilder, UdpListenConfig};
@@ -45,6 +46,7 @@ pub(crate) struct PlainQuicPortConfig {
     pub(crate) listen: UdpListenConfig,
     pub(crate) listen_in_worker: bool,
     pub(crate) tls_server: RustlsServerConfigBuilder,
+    pub(crate) tls_ticketer: Option<TlsTicketConfig>,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) server: MetricsName,
     pub(crate) offline_rebind_port: Option<u16>,
@@ -58,6 +60,7 @@ impl PlainQuicPortConfig {
             listen: UdpListenConfig::default(),
             listen_in_worker: false,
             tls_server: RustlsServerConfigBuilder::empty(),
+            tls_ticketer: None,
             ingress_net_filter: None,
             server: MetricsName::default(),
             offline_rebind_port: None,
@@ -101,6 +104,13 @@ impl PlainQuicPortConfig {
                 let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 self.tls_server =
                     g3_yaml::value::as_rustls_server_config_builder(v, Some(lookup_dir))?;
+                Ok(())
+            }
+            "tls_ticketer" => {
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let ticketer = TlsTicketConfig::parse_yaml(v, Some(lookup_dir))
+                    .context(format!("invalid tls ticket config value for key {k}"))?;
+                self.tls_ticketer = Some(ticketer);
                 Ok(())
             }
             "ingress_network_filter" | "ingress_net_filter" => {

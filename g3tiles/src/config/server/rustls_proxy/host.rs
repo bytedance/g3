@@ -27,8 +27,8 @@ use g3_types::collection::NamedValue;
 use g3_types::limit::RateLimitQuotaConfig;
 use g3_types::metrics::MetricsName;
 use g3_types::net::{
-    MultipleCertResolver, RustlsCertificatePair, RustlsNoSessionTicketer, RustlsServerConfigExt,
-    TcpSockSpeedLimitConfig,
+    MultipleCertResolver, OpensslTicketKey, RollingTicketer, RustlsCertificatePair,
+    RustlsServerConfigExt, TcpSockSpeedLimitConfig,
 };
 use g3_types::route::AlpnMatch;
 use g3_yaml::{YamlDocPosition, YamlMapCallback};
@@ -82,7 +82,10 @@ impl NamedValue for RustlsHostConfig {
 }
 
 impl RustlsHostConfig {
-    pub(crate) fn build_tls_config(&self) -> anyhow::Result<Arc<ServerConfig>> {
+    pub(crate) fn build_tls_config(
+        &self,
+        tls_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
+    ) -> anyhow::Result<Arc<ServerConfig>> {
         let config_builder = ServerConfig::builder();
         let config_builder = if self.client_auth {
             let mut root_store = RootCertStore::empty();
@@ -117,7 +120,7 @@ impl RustlsHostConfig {
         let mut config = config_builder.with_cert_resolver(Arc::new(cert_resolver));
 
         config.set_session_cache(self.no_session_cache);
-        config.set_session_ticketer::<RustlsNoSessionTicketer>(self.use_session_ticket, None)?;
+        config.set_session_ticketer(self.use_session_ticket, tls_ticketer)?;
 
         if !self.backends.is_empty() {
             for protocol in self.backends.protocols() {

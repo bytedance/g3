@@ -49,6 +49,7 @@ g3-openssl.workspace = true
 g3-statsd-client.workspace = true
 g3-histogram.workspace = true
 g3-slog-types.workspace = true
+g3-tls-ticket = { workspace = true, features = ["yaml"] }
 g3tiles-proto = { path = "proto" }
 
 [build-dependencies]

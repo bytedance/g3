@@ -23,6 +23,7 @@ use rustls::ServerConfig;
 use g3_types::collection::NamedValue;
 use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit};
 use g3_types::metrics::MetricsName;
+use g3_types::net::{OpensslTicketKey, RollingTicketer};
 use g3_types::route::AlpnMatch;
 
 use crate::backend::ArcBackend;
@@ -37,8 +38,11 @@ pub(crate) struct RustlsHost {
 }
 
 impl RustlsHost {
-    pub(super) fn try_build(config: &Arc<RustlsHostConfig>) -> anyhow::Result<Self> {
-        let tls_config = config.build_tls_config()?;
+    pub(super) fn try_build(
+        config: &Arc<RustlsHostConfig>,
+        tls_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
+    ) -> anyhow::Result<Self> {
+        let tls_config = config.build_tls_config(tls_ticketer)?;
 
         let backends = config.backends.build(crate::backend::get_or_insert_default);
 
@@ -57,8 +61,12 @@ impl RustlsHost {
         })
     }
 
-    pub(super) fn new_for_reload(&self, config: Arc<RustlsHostConfig>) -> anyhow::Result<Self> {
-        let tls_config = config.build_tls_config()?;
+    pub(super) fn new_for_reload(
+        &self,
+        config: Arc<RustlsHostConfig>,
+        tls_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
+    ) -> anyhow::Result<Self> {
+        let tls_config = config.build_tls_config(tls_ticketer)?;
 
         let request_rate_limit = if let Some(quota) = &config.request_rate_limit {
             if let Some(old_limiter) = &self.request_rate_limit {

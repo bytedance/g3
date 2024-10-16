@@ -83,7 +83,7 @@ pub(crate) enum AnyServerConfig {
     DummyClose(dummy_close::DummyCloseServerConfig),
     PlainTcpPort(plain_tcp_port::PlainTcpPortConfig),
     #[cfg(feature = "quic")]
-    PlainQuicPort(plain_quic_port::PlainQuicPortConfig),
+    PlainQuicPort(Box<plain_quic_port::PlainQuicPortConfig>),
     OpensslProxy(openssl_proxy::OpensslProxyServerConfig),
     RustlsProxy(rustls_proxy::RustlsProxyServerConfig),
     KeylessProxy(keyless_proxy::KeylessProxyServerConfig),
@@ -172,7 +172,7 @@ fn load_server(
         "plain_quic_port" | "plainquicport" | "plain_quic" | "plainquic" => {
             let server = plain_quic_port::PlainQuicPortConfig::parse(map, position)
                 .context("failed to load this PlainQuicPort server")?;
-            Ok(AnyServerConfig::PlainQuicPort(server))
+            Ok(AnyServerConfig::PlainQuicPort(Box::new(server)))
         }
         "openssl_proxy" | "opensslproxy" => {
             let server = openssl_proxy::OpensslProxyServerConfig::parse(map, position)
