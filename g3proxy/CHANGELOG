@@ -1,4 +1,22 @@
 
+v1.9.9:
+ - BUG FIX: fix the check of H2 Extended CONNECT protocol
+ - BUG FIX: fix the set of session cache for TLS interception client
+ - Feature: allow to set max/min_tls_version in tls client config
+ - Feature: allow to set quic transport config
+ - Feature: support ICAP over TLS
+ - Feature: support TLS port in front of socks server
+ - Feature: add new Socks5 over TLS escaper support
+ - Feature: allow to select auditor in comply_audit escaper
+ - Feature: allow to bind to interface in various escapers
+ - Feature: allow to set protocol inspect policy based on domain rules
+ - Feature: send HTTP Upgrade header via ICAP request header X-HTTP-Upgrade
+ - Optimization: cache resolved IP address in UDP ASSOCIATE task
+ - Optimization: be compatible with more bad socks5 server implementations
+ - Optimization: echo empty ip in UDP ASSOCIATE reply when needed in socks server
+ - Optimization: support fragmented TLS ClientHello record in SNI proxy server
+ - Optimization: treat HTTP Trailer header as end-to-end
+
 v1.9.8:
  - BUG FIX: fix panic when build socks5 UDP header with domain address
  - BUG FIX: fix possible panic when reading H2 stream
