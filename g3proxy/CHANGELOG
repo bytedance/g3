@@ -1,4 +1,7 @@
 
+v1.10.0:
+ - Policy: LTS version
+
 v1.9.9:
  - BUG FIX: fix the check of H2 Extended CONNECT protocol
  - BUG FIX: fix the set of session cache for TLS interception client
