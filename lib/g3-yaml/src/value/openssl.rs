@@ -368,6 +368,11 @@ fn set_openssl_tls_client_config_builder(
                 builder.set_permute_extensions(enable);
                 Ok(())
             }
+            "insecure" => {
+                let enable = crate::value::as_bool(v)?;
+                builder.set_insecure(enable);
+                Ok(())
+            }
             _ => Err(anyhow!("invalid key {k}")),
         })?;
 
@@ -485,6 +490,11 @@ pub fn as_tls_interception_client_config_builder(
             "permute_extensions" => {
                 let enable = crate::value::as_bool(v)?;
                 builder.set_permute_extensions(enable);
+                Ok(())
+            }
+            "insecure" => {
+                let enable = crate::value::as_bool(v)?;
+                builder.set_insecure(enable);
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

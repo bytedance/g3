@@ -490,6 +490,18 @@ The map is consists of the following fields:
 
   **default**: not set, the default value may vary between different OpenSSL variants
 
+* insecure:
+
+  **optional**, **type**: bool
+
+  **DANGEROUS**: Enable to not verify peer (server) tls certificates.
+
+  When this option is enabled, verify errors will be logged to the configured structured logger.
+
+  **default**: false
+
+  .. versionadded:: 1.11.0
+
 .. _conf_value_rustls_client_config:
 
 rustls client config

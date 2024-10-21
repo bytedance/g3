@@ -541,6 +541,18 @@ The map is consists of the following fields:
 
   .. versionadded:: 1.7.36
 
+* insecure:
+
+  **optional**, **type**: bool
+
+  **DANGEROUS**: Enable to not verify peer (server) tls certificates.
+
+  When this option is enabled, verify errors will be logged to the configured structured logger.
+
+  **default**: false
+
+  .. versionadded:: 1.11.0
+
 .. versionadded:: 1.1.4
 
 .. _conf_value_openssl_server_config:

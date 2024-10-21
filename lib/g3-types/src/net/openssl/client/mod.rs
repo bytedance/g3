@@ -17,6 +17,7 @@
 use std::time::Duration;
 
 use anyhow::anyhow;
+use log::warn;
 #[cfg(any(feature = "aws-lc", feature = "boringssl", feature = "tongsuo"))]
 use openssl::ssl::CertCompressionAlgorithm;
 use openssl::ssl::{
@@ -126,6 +127,7 @@ pub struct OpensslClientConfigBuilder {
     enable_grease: bool,
     #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
     permute_extensions: bool,
+    insecure: bool,
 }
 
 impl Default for OpensslClientConfigBuilder {
@@ -150,6 +152,7 @@ impl Default for OpensslClientConfigBuilder {
             enable_grease: false,
             #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
             permute_extensions: false,
+            insecure: false,
         }
     }
 }
@@ -303,11 +306,26 @@ impl OpensslClientConfigBuilder {
         log::warn!("permute extensions can only be set for BoringSSL variants");
     }
 
+    pub fn set_insecure(&mut self, enable: bool) {
+        self.insecure = enable;
+    }
+
+    fn set_verify(&self, builder: &mut SslConnectorBuilder) {
+        if self.insecure {
+            warn!("Tls Insecure Mode: Tls Peer (server) cert vertification is no longer enforced for this Context!");
+            builder.set_verify(SslVerifyMode::NONE);
+        } else {
+            builder.set_verify(SslVerifyMode::PEER);
+        }
+    }
+
     #[cfg(feature = "tongsuo")]
     fn new_tlcp_builder(&self) -> anyhow::Result<SslConnectorBuilder> {
         let mut ctx_builder = SslConnector::builder(SslMethod::ntls_client())
             .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
-        ctx_builder.set_verify(SslVerifyMode::PEER);
+
+        self.set_verify(&mut ctx_builder);
+
         ctx_builder.enable_ntls();
 
         let mut use_dhe = false;
@@ -344,7 +362,8 @@ impl OpensslClientConfigBuilder {
     fn new_tls13_builder(&self) -> anyhow::Result<SslConnectorBuilder> {
         let mut ctx_builder = SslConnector::builder(SslMethod::tls_client())
             .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
-        ctx_builder.set_verify(SslVerifyMode::PEER);
+
+        self.set_verify(&mut ctx_builder);
 
         ctx_builder
             .set_min_proto_version(Some(SslVersion::TLS1_3))
@@ -371,7 +390,8 @@ impl OpensslClientConfigBuilder {
     fn new_tls13_builder(&self) -> anyhow::Result<SslConnectorBuilder> {
         let mut ctx_builder = SslConnector::builder(SslMethod::tls_client())
             .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
-        ctx_builder.set_verify(SslVerifyMode::PEER);
+
+        self.set_verify(&mut ctx_builder);
 
         ctx_builder
             .set_min_proto_version(Some(SslVersion::TLS1_3))
@@ -396,7 +416,8 @@ impl OpensslClientConfigBuilder {
     fn new_versioned_builder(&self, version: SslVersion) -> anyhow::Result<SslConnectorBuilder> {
         let mut ctx_builder = SslConnector::builder(SslMethod::tls_client())
             .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
-        ctx_builder.set_verify(SslVerifyMode::PEER);
+
+        self.set_verify(&mut ctx_builder);
 
         ctx_builder
             .set_min_proto_version(Some(version))
@@ -422,7 +443,8 @@ impl OpensslClientConfigBuilder {
     fn new_default_builder(&self) -> anyhow::Result<SslConnectorBuilder> {
         let mut ctx_builder = SslConnector::builder(SslMethod::tls_client())
             .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
-        ctx_builder.set_verify(SslVerifyMode::PEER);
+
+        self.set_verify(&mut ctx_builder);
 
         if let Some(version) = self.min_tls_version {
             ctx_builder
