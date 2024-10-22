@@ -120,6 +120,7 @@ macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
         slog_info!($obj.ctx.intercept_logger(), $($args)+;
             "intercept_type" => "TlsHandshake",
+            "tls_server_verify" => !$obj.tls_interception.client_config.insecure,
             "task_id" => LtUuid($obj.ctx.server_task_id()),
             "depth" => $obj.ctx.inspection_depth,
             "upstream" => LtUpstreamAddr(&$obj.upstream),

@@ -17,6 +17,7 @@
 use std::time::Duration;
 
 use anyhow::anyhow;
+use log::warn;
 use openssl::ssl::{Ssl, SslConnector, SslContext, SslContextBuilder, SslMethod, SslVerifyMode};
 use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::X509;
@@ -66,6 +67,7 @@ pub struct OpensslInterceptionClientConfig {
     ssl_context_pair: ContextPair,
     #[cfg(feature = "tongsuo")]
     tlcp_context_pair: ContextPair,
+    pub insecure: bool,
     pub handshake_timeout: Duration,
 }
 
@@ -107,6 +109,7 @@ pub struct OpensslInterceptionClientConfigBuilder {
     enable_grease: bool,
     #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
     permute_extensions: bool,
+    insecure: bool,
 }
 
 impl Default for OpensslInterceptionClientConfigBuilder {
@@ -125,6 +128,7 @@ impl Default for OpensslInterceptionClientConfigBuilder {
             enable_grease: false,
             #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
             permute_extensions: false,
+            insecure: false,
         }
     }
 }
@@ -217,6 +221,19 @@ impl OpensslInterceptionClientConfigBuilder {
         log::warn!("permute extensions can only be set for BoringSSL variants");
     }
 
+    pub fn set_insecure(&mut self, enable: bool) {
+        self.insecure = enable;
+    }
+
+    fn set_verify(&self, builder: &mut SslContextBuilder) {
+        if self.insecure {
+            warn!("Tls Insecure Mode: Tls Peer (server) cert vertification is no longer enforced for this Context!");
+            builder.set_verify(SslVerifyMode::NONE);
+        } else {
+            builder.set_verify(SslVerifyMode::PEER);
+        }
+    }
+
     fn build_set_tls_version(&self, ctx_builder: &mut SslContextBuilder) -> anyhow::Result<()> {
         if let Some(version) = self.min_tls_version {
             ctx_builder
@@ -278,7 +295,8 @@ impl OpensslInterceptionClientConfigBuilder {
     fn build_ssl_context(&self) -> anyhow::Result<ContextPair> {
         let mut ctx_builder = SslConnector::builder(SslMethod::tls_client())
             .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
-        ctx_builder.set_verify(SslVerifyMode::PEER);
+
+        self.set_verify(&mut ctx_builder);
 
         self.build_set_tls_version(&mut ctx_builder)?;
 
@@ -323,7 +341,8 @@ impl OpensslInterceptionClientConfigBuilder {
 
         let mut ctx_builder = SslConnector::builder(SslMethod::tls_client())
             .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
-        ctx_builder.set_verify(SslVerifyMode::PEER);
+
+        self.set_verify(&mut ctx_builder);
 
         self.build_set_tls_version(&mut ctx_builder)?;
 
@@ -365,7 +384,8 @@ impl OpensslInterceptionClientConfigBuilder {
 
         let mut ctx_builder = SslConnector::builder(SslMethod::ntls_client())
             .map_err(|e| anyhow!("failed to create tlcp context builder: {e}"))?;
-        ctx_builder.set_verify(SslVerifyMode::PEER);
+
+        self.set_verify(&mut ctx_builder);
 
         if !self.supported_groups.is_empty() {
             ctx_builder
@@ -403,6 +423,7 @@ impl OpensslInterceptionClientConfigBuilder {
             ssl_context_pair: self.build_ssl_context()?,
             #[cfg(feature = "tongsuo")]
             tlcp_context_pair: self.build_tlcp_context()?,
+            insecure: self.insecure,
             handshake_timeout: self.handshake_timeout,
         })
     }

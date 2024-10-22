@@ -585,6 +585,18 @@ The keys are:
 
   .. versionadded:: 1.7.36
 
+* insecure:
+
+  **optional**, **type**: bool
+
+  **DANGEROUS**: Enable to not verify peer (server) tls certificates.
+
+  When this option is enabled, verify errors will be logged to the configured structured logger.
+
+  **default**: false
+
+  .. versionadded:: 1.11.0
+
 .. _conf_value_dpi_tls_interception_server:
 
 tls interception server
