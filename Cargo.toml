@@ -92,7 +92,7 @@ base64 = "0.22"
 regex = "1.11"
 arc-swap = "1.2"
 chrono = { version = "0.4.37", default-features = false }
-governor = { version = "0.6", default-features = false }
+governor = { version = "0.7", default-features = false }
 ascii = "1.0"
 humanize-rs = "0.1"
 #
