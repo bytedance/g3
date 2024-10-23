@@ -132,3 +132,35 @@ pub fn new_socket_to(
     let socket = new_std_socket_to(peer_ip, bind, keepalive, misc_opts, default_set_nodelay)?;
     Ok(TcpSocket::from_std_stream(socket))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{Ipv4Addr, SocketAddr};
+
+    #[tokio::test]
+    async fn listen_connect() {
+        let listen_config =
+            TcpListenConfig::new(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0));
+        let listen_socket = new_listen_to(&listen_config).unwrap();
+        let listen_addr = listen_socket.local_addr().unwrap();
+
+        let accept_task = tokio::spawn(async move {
+            let (_stream, accepted_addr) = listen_socket.accept().await.unwrap();
+            accepted_addr
+        });
+
+        let connect_sock = new_socket_to(
+            listen_addr.ip(),
+            &BindAddr::None,
+            &TcpKeepAliveConfig::default(),
+            &TcpMiscSockOpts::default(),
+            true,
+        )
+        .unwrap();
+        let connected_stream = connect_sock.connect(listen_addr).await.unwrap();
+        let connect_addr = connected_stream.local_addr().unwrap();
+        let accepted_addr = accept_task.await.unwrap();
+        assert_eq!(connect_addr, accepted_addr);
+    }
+}

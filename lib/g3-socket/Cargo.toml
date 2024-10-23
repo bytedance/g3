@@ -13,3 +13,6 @@ socket2 = { version = "0.5", features = ["all"] }
 libc.workspace = true
 fastrand.workspace = true
 g3-types.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt"] }

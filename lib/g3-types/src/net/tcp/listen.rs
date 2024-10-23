@@ -37,8 +37,14 @@ pub struct TcpListenConfig {
 
 impl Default for TcpListenConfig {
     fn default() -> Self {
+        TcpListenConfig::new(SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0))
+    }
+}
+
+impl TcpListenConfig {
+    pub fn new(address: SocketAddr) -> Self {
         TcpListenConfig {
-            address: SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
+            address,
             ipv6only: false,
             #[cfg(target_os = "linux")]
             transparent: false,
@@ -49,9 +55,7 @@ impl Default for TcpListenConfig {
             scale: 0,
         }
     }
-}
 
-impl TcpListenConfig {
     pub fn check(&self) -> anyhow::Result<()> {
         if self.address.port() == 0 {
             return Err(anyhow!("no listen port is set"));
