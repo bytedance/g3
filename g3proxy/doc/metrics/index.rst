@@ -81,3 +81,4 @@ The following is the common tags for all metrics:
    user
    user_site
    logger
+   runtime

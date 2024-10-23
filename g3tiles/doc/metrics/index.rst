@@ -56,3 +56,4 @@ The following is the common tags for all metrics:
    server
    logger
    backend/index
+   runtime

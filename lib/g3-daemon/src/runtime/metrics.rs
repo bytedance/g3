@@ -26,6 +26,7 @@ use crate::metrics::TAG_KEY_STAT_ID;
 const TAG_KEY_RUNTIME_ID: &str = "runtime_id";
 
 const METRIC_NAME_RUNTIME_TOKIO_ALIVE_TASKS: &str = "runtime.tokio.alive_tasks";
+const METRIC_NAME_RUNTIME_TOKIO_GLOBAL_QUEUE_DEPTH: &str = "runtime.tokio.global_queue_depth";
 
 static TOKIO_STATS_VEC: Mutex<Vec<TokioStatsValue>> = Mutex::new(Vec::new());
 
@@ -63,6 +64,13 @@ fn emit_tokio_stats(client: &mut StatsdClient, v: &mut TokioStatsValue) {
         .gauge_with_tags(
             METRIC_NAME_RUNTIME_TOKIO_ALIVE_TASKS,
             v.stats.num_alive_tasks(),
+            &common_tags,
+        )
+        .send();
+    client
+        .gauge_with_tags(
+            METRIC_NAME_RUNTIME_TOKIO_GLOBAL_QUEUE_DEPTH,
+            v.stats.global_queue_depth(),
             &common_tags,
         )
         .send();
