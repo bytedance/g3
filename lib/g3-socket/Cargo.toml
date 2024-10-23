@@ -10,9 +10,14 @@ rust-version = "1.80.0"
 [dependencies]
 tokio = { workspace = true, features = ["net"] }
 socket2 = { version = "0.5", features = ["all"] }
-libc.workspace = true
 fastrand.workspace = true
 g3-types.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt"] }

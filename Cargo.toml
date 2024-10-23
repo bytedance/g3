@@ -172,6 +172,7 @@ capnpc = "0.20"
 #
 libc = "0.2.156"
 rustix = { version = "0.38", default-features = false }
+windows-sys = "0.59"
 gethostname = "0.5"
 #
 serde = "1.0"

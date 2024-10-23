@@ -17,21 +17,15 @@
 use std::io;
 use std::os::windows::io::AsRawSocket;
 
-use libc::{c_char, c_int, SOCKET};
+use windows_sys::Win32::Networking::WinSock;
 
-// windows_sys::Win32::Networking::WinSock::SOL_SOCKET
-const SOL_SOCKET: i32 = 65535i32;
-
-// windows_sys::Win32::Networking::WinSock::SO_REUSE_UNICASTPORT
-const SO_REUSE_UNICASTPORT: i32 = 12295i32;
-
-unsafe fn setsockopt<T>(socket: SOCKET, level: c_int, name: c_int, value: T) -> io::Result<()>
+unsafe fn setsockopt<T>(socket: WinSock::SOCKET, level: i32, name: i32, value: T) -> io::Result<()>
 where
     T: Copy,
 {
-    let payload = &value as *const T as *const c_char;
-    let ret = libc::setsockopt(socket, level, name, payload, size_of::<T>() as c_int);
-    if ret == -1 {
+    let payload = &value as *const T as *const u8;
+    let ret = WinSock::setsockopt(socket, level, name, payload, size_of::<T>() as i32);
+    if ret == WinSock::SOCKET_ERROR {
         return Err(io::Error::last_os_error());
     }
     Ok(())
@@ -42,10 +36,10 @@ pub(crate) fn set_reuse_unicastport<T: AsRawSocket>(socket: &T, enable: bool) ->
         setsockopt(
             // std::os::windows::raw::SOCKET is u64
             // windows_sys::Win32::Networking::WinSock::SOCKET is usize
-            socket.as_raw_socket() as SOCKET,
-            SOL_SOCKET,
-            SO_REUSE_UNICASTPORT,
-            enable as c_int,
+            socket.as_raw_socket() as _,
+            WinSock::SOL_SOCKET,
+            WinSock::SO_REUSE_UNICASTPORT,
+            enable as i32,
         )?;
         Ok(())
     }
