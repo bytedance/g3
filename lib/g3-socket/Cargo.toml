@@ -17,7 +17,7 @@ g3-types.workspace = true
 libc.workspace = true
 
 [target.'cfg(windows)'.dependencies]
-windows-sys.workspace = true
+windows-sys = { workspace = true, features = ["Win32_Networking_WinSock"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt"] }
