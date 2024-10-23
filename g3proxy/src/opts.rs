@@ -167,6 +167,7 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
     } else {
         return Err(anyhow!("no config file given"));
     }
+    #[cfg(unix)]
     if let Some(control_dir) = args.get_one::<PathBuf>(ARGS_CONTROL_DIR) {
         g3_daemon::opts::validate_and_set_control_dir(control_dir)
             .context(format!("invalid control dir: {}", control_dir.display()))?;
