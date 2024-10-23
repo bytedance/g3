@@ -16,7 +16,7 @@
 
 use std::io::{self, IoSlice};
 use std::net::SocketAddr;
-use std::os::windows::io::{AsRawSocket, FromRawSocket};
+use std::os::windows::io::{AsRawSocket, FromRawSocket, IntoRawSocket};
 
 use socket2::{MsgHdr, SockAddr, Socket};
 
@@ -37,7 +37,6 @@ impl RawSocket {
     }
 }
 
-#[cfg(unix)]
 impl Drop for RawSocket {
     fn drop(&mut self) {
         if let Some(s) = self.inner.take() {

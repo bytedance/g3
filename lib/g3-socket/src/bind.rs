@@ -67,15 +67,13 @@ impl BindAddr {
                 #[cfg(any(target_os = "linux", target_os = "android"))]
                 set_bind_address_no_port(socket, true)?;
                 #[cfg(windows)]
-                set_reuse_unicastport(socket, true)?;
+                let _ = set_reuse_unicastport(socket, true)?;
                 let addr: SockAddr = SocketAddr::new(*ip, 0).into();
                 socket.bind(&addr)
             }
             #[cfg(any(target_os = "linux", target_os = "android"))]
             BindAddr::Interface(name) => {
                 set_bind_address_no_port(socket, true)?;
-                #[cfg(windows)]
-                set_reuse_unicastport(socket, true)?;
                 socket.bind_device(Some(name.as_bytes()))
             }
         }

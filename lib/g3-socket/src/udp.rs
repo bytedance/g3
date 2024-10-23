@@ -191,11 +191,15 @@ mod tests {
             Default::default(),
         )
         .unwrap();
-        let local_addr = socket.local_addr().unwrap();
-        assert_eq!(local_addr.port(), 0);
+        let local_addr1 = socket.local_addr().unwrap();
+        #[cfg(unix)]
+        assert_eq!(local_addr1.port(), 0);
+        #[cfg(windows)]
+        assert_ne!(local_addr1.port(), 0);
         socket.connect(peer_addr).unwrap();
-        let local_addr = socket.local_addr().unwrap();
-        assert_ne!(local_addr.port(), 0);
+        let local_addr2 = socket.local_addr().unwrap();
+        assert_ne!(local_addr2.port(), 0);
+        assert_ne!(local_addr1, local_addr2);
     }
 
     #[test]
