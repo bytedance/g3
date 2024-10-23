@@ -48,7 +48,7 @@ jobs:
     - name: Cargo build
       run: cargo build
     - name: Cargo test
-      run: cargo test --workspace --lib --examples
+      run: cargo test --workspace
 
   clippy:
     name: Clippy
