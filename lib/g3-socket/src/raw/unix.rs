@@ -20,7 +20,6 @@ use socket2::Socket;
 
 use super::RawSocket;
 
-#[cfg(unix)]
 impl Drop for RawSocket {
     fn drop(&mut self) {
         if let Some(s) = self.inner.take() {
