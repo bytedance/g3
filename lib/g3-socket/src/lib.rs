@@ -19,6 +19,8 @@ mod sockopt;
 mod raw;
 pub use raw::RawSocket;
 
+mod listen;
+
 pub mod tcp;
 pub mod udp;
 pub mod util;

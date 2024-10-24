@@ -112,18 +112,7 @@ pub fn new_std_bind_relay(
 pub fn new_std_bind_listen(config: &UdpListenConfig) -> io::Result<UdpSocket> {
     let addr = config.address();
     let socket = new_udp_socket(AddressFamily::from(&addr), config.socket_buffer())?;
-    if addr.port() != 0 {
-        #[cfg(unix)]
-        socket.set_reuse_address(true)?; // allow bind to local address if wildcard address is already bound
-        #[cfg(any(target_os = "linux", target_os = "android", target_os = "dragonfly"))]
-        socket.set_reuse_port(true)?; // load-balanced REUSE_PORT
-        #[cfg(target_os = "freebsd")]
-        socket.set_reuse_port_lb(true)?; // load-balanced REUSE_PORT like REUSE_PORT on DragonFly
-        #[cfg(any(target_os = "netbsd", target_os = "openbsd", target_os = "macos"))]
-        socket.set_reuse_port(true)?; // REUSE_PORT, the later will take over traffic?
-        #[cfg(windows)]
-        socket.set_reuse_address(true)?; // this is like REUSE_ADDR+REUSE_PORT on unix
-    }
+    super::listen::set_addr_reuse(&socket, addr)?;
     if config.is_ipv6only() {
         socket.set_only_v6(true)?;
     }
@@ -135,12 +124,7 @@ pub fn new_std_bind_listen(config: &UdpListenConfig) -> io::Result<UdpSocket> {
 
 pub fn new_std_rebind_listen(config: &UdpListenConfig, addr: SocketAddr) -> io::Result<UdpSocket> {
     let socket = new_udp_socket(AddressFamily::from(&addr), config.socket_buffer())?;
-    if addr.port() != 0 {
-        #[cfg(unix)]
-        socket.set_reuse_port(true)?;
-        #[cfg(not(unix))]
-        socket.set_reuse_address(true)?;
-    }
+    super::listen::set_addr_reuse(&socket, addr)?;
     if config.is_ipv6only() {
         socket.set_only_v6(true)?;
     }
@@ -193,9 +177,9 @@ mod tests {
         .unwrap();
         let local_addr1 = socket.local_addr().unwrap();
         assert_eq!(local_addr1.ip(), IpAddr::V4(Ipv4Addr::UNSPECIFIED));
-        #[cfg(unix)]
+        #[cfg(any(target_os = "linux", target_os = "android"))]
         assert_eq!(local_addr1.port(), 0);
-        #[cfg(windows)]
+        #[cfg(not(any(target_os = "linux", target_os = "android")))]
         assert_ne!(local_addr1.port(), 0);
         socket.connect(peer_addr).unwrap();
         let local_addr2 = socket.local_addr().unwrap();
