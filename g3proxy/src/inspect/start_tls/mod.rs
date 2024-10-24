@@ -18,13 +18,14 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use openssl::ssl::Ssl;
+use openssl::x509::X509VerifyResult;
 use slog::slog_info;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_dpi::Protocol;
 use g3_io_ext::{AsyncStream, OnceBufReader};
 use g3_openssl::{SslConnector, SslLazyAcceptor};
-use g3_slog_types::{LtUpstreamAddr, LtUuid};
+use g3_slog_types::{LtUpstreamAddr, LtUuid, LtX509VerifyResult};
 use g3_types::net::{Host, TlsCertUsage, TlsServiceType, UpstreamAddr};
 use g3_udpdump::ExportedPduDissectorHint;
 
@@ -51,6 +52,7 @@ macro_rules! intercept_log {
             "depth" => $obj.ctx.inspection_depth,
             "upstream" => LtUpstreamAddr(&$obj.upstream),
             "protocol" => Protocol::from($obj.protocol).as_str(),
+            "tls_server_verify" => $obj.server_verify_result.map(LtX509VerifyResult),
         )
     };
 }
@@ -93,6 +95,7 @@ pub(crate) struct StartTlsInterceptObject<SC: ServerConfig> {
     upstream: UpstreamAddr,
     tls_interception: TlsInterceptionContext,
     protocol: StartTlsProtocol,
+    server_verify_result: Option<X509VerifyResult>,
 }
 
 impl<SC> StartTlsInterceptObject<SC>
@@ -111,6 +114,7 @@ where
             upstream,
             tls_interception: tls,
             protocol,
+            server_verify_result: None,
         }
     }
 
@@ -226,6 +230,7 @@ where
         let upstream_cert = ups_tls_stream.ssl().peer_certificate().ok_or_else(|| {
             TlsInterceptionError::NoFakeCertGenerated(anyhow!("failed to get upstream certificate"))
         })?;
+        self.server_verify_result = Some(ups_tls_stream.ssl().verify_result());
         let cert_domain = sni_hostname
             .map(|v| v.to_string())
             .unwrap_or_else(|| self.upstream.host().to_string());

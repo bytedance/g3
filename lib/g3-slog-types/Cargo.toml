@@ -13,7 +13,10 @@ uuid.workspace = true
 memchr = { workspace = true, optional = true }
 http = { workspace = true, optional = true }
 h2 = { workspace = true, optional = true }
+openssl = { workspace = true, optional = true }
 g3-types.workspace = true
 
 [features]
+default = []
 http = ["dep:memchr", "dep:http", "dep:h2"]
+openssl = ["dep:openssl"]

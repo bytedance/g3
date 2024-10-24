@@ -1460,6 +1460,7 @@ dependencies = [
  "memchr",
  "slog",
  "uuid",
+ "variant-ssl",
 ]
 
 [[package]]

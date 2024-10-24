@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,24 +14,18 @@
  * limitations under the License.
  */
 
-mod datetime;
-pub use datetime::LtDateTime;
+use openssl::x509::X509VerifyResult;
+use slog::{Record, Serializer, Value};
 
-mod duration;
-pub use duration::LtDuration;
+pub struct LtX509VerifyResult(pub X509VerifyResult);
 
-mod net;
-pub use net::{LtHost, LtIpAddr, LtUpstreamAddr};
-
-mod uuid;
-pub use self::uuid::LtUuid;
-
-#[cfg(feature = "http")]
-mod http;
-#[cfg(feature = "http")]
-pub use self::http::{LtH2StreamId, LtHttpHeaderValue, LtHttpMethod, LtHttpUri};
-
-#[cfg(feature = "openssl")]
-mod openssl;
-#[cfg(feature = "openssl")]
-pub use self::openssl::LtX509VerifyResult;
+impl Value for LtX509VerifyResult {
+    fn serialize(
+        &self,
+        _record: &Record,
+        key: slog::Key,
+        serializer: &mut dyn Serializer,
+    ) -> slog::Result {
+        serializer.emit_str(key, self.0.error_string())
+    }
+}

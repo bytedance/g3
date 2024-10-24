@@ -198,6 +198,7 @@ where
                     })?
             }
         };
+        self.server_verify_result = Some(ups_tls_stream.ssl().verify_result());
 
         let enc_pre_fetch_pair = enc_pre_fetch_handle.await.map_err(|e| {
             TlsInterceptionError::NoFakeCertGenerated(anyhow!(

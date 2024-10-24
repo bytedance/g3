@@ -184,6 +184,7 @@ where
                     })?
             }
         };
+        self.server_verify_result = Some(ups_tls_stream.ssl().verify_result());
 
         // set certificate and private key
         let clt_ssl = lazy_acceptor.ssl_mut();

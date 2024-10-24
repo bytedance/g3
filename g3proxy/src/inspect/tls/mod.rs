@@ -17,6 +17,7 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use openssl::x509::X509VerifyResult;
 use slog::slog_info;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::runtime::Handle;
@@ -24,7 +25,7 @@ use tokio::runtime::Handle;
 use g3_cert_agent::CertAgentHandle;
 use g3_dpi::Protocol;
 use g3_io_ext::{AsyncStream, FlexBufReader, OnceBufReader};
-use g3_slog_types::{LtUpstreamAddr, LtUuid};
+use g3_slog_types::{LtUpstreamAddr, LtUuid, LtX509VerifyResult};
 use g3_types::net::{
     AlpnProtocol, OpensslInterceptionClientConfig, OpensslInterceptionServerConfig, UpstreamAddr,
 };
@@ -114,16 +115,17 @@ pub(crate) struct TlsInterceptObject<SC: ServerConfig> {
     ctx: StreamInspectContext<SC>,
     upstream: UpstreamAddr,
     tls_interception: TlsInterceptionContext,
+    server_verify_result: Option<X509VerifyResult>,
 }
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
         slog_info!($obj.ctx.intercept_logger(), $($args)+;
             "intercept_type" => "TlsHandshake",
-            "tls_server_verify" => !$obj.tls_interception.client_config.insecure,
             "task_id" => LtUuid($obj.ctx.server_task_id()),
             "depth" => $obj.ctx.inspection_depth,
             "upstream" => LtUpstreamAddr(&$obj.upstream),
+            "tls_server_verify" => $obj.server_verify_result.map(LtX509VerifyResult),
         )
     };
 }
@@ -139,6 +141,7 @@ impl<SC: ServerConfig> TlsInterceptObject<SC> {
             ctx,
             upstream,
             tls_interception: tls,
+            server_verify_result: None,
         }
     }
 
