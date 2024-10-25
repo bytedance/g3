@@ -16,7 +16,9 @@
 
 use std::sync::Arc;
 
-use g3_io_ext::{AsyncStream, LimitedBufReader, LimitedWriter, NilLimitedReaderStats};
+use g3_io_ext::{
+    AsyncStream, LimitedBufReader, LimitedWriter, LimitedWriterStats, NilLimitedReaderStats,
+};
 use g3_types::net::{Host, OpensslClientConfig};
 
 use super::{DivertTcpEscaper, DivertTcpEscaperStats};
@@ -38,7 +40,12 @@ impl DivertTcpEscaper {
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         let stream = self.tcp_connect_to(tcp_notes, task_notes).await?;
 
-        let (ups_r, ups_w) = stream.into_split();
+        let (ups_r, mut ups_w) = stream.into_split();
+
+        let nw = self
+            .send_pp2_header(&mut ups_w, tcp_notes, task_notes, None)
+            .await?;
+        self.stats.add_write_bytes(nw);
 
         let mut w_wrapper_stats = HttpForwardRemoteWrapperStats::new(&self.stats, &task_stats);
         let mut r_wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(task_stats);
