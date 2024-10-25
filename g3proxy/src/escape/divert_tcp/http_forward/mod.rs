@@ -16,7 +16,9 @@
 
 use std::sync::Arc;
 
-use g3_io_ext::{AsyncStream, LimitedBufReader, LimitedWriter, NilLimitedReaderStats};
+use g3_io_ext::{
+    AsyncStream, LimitedBufReader, LimitedWriter, LimitedWriterStats, NilLimitedReaderStats,
+};
 
 use super::{DivertTcpEscaper, DivertTcpEscaperStats};
 use crate::escape::direct_fixed::http_forward::{DirectHttpForwardReader, DirectHttpForwardWriter};
@@ -44,8 +46,10 @@ impl DivertTcpEscaper {
 
         let (ups_r, mut ups_w) = stream.into_split();
 
-        self.send_pp2_header(&mut ups_w, task_conf, task_notes, None)
+        let nw = self
+            .send_pp2_header(&mut ups_w, task_conf, task_notes, None)
             .await?;
+        self.stats.add_write_bytes(nw);
 
         let mut w_wrapper_stats = HttpForwardRemoteWrapperStats::new(&self.stats, &task_stats);
         let mut r_wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(task_stats);
