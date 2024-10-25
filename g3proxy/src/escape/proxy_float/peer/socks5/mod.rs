@@ -272,6 +272,7 @@ impl NextProxyPeer for ProxyFloatSocks5Peer {
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
+        udp_notes.expire = self.expire_datetime();
         self.udp_connect_to(escaper, udp_notes, task_notes, task_stats)
             .await
     }
@@ -283,6 +284,7 @@ impl NextProxyPeer for ProxyFloatSocks5Peer {
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
+        udp_notes.expire = self.expire_datetime();
         self.udp_setup_relay(escaper, udp_notes, task_notes, task_stats)
             .await
     }
