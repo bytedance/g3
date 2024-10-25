@@ -63,7 +63,7 @@ impl FtpConnectContext for DirectFtpConnectContext {
     }
 
     fn fetch_control_tcp_notes(&self, tcp_notes: &mut TcpConnectTaskNotes) {
-        tcp_notes.fill_generated(&self.control_tcp_notes);
+        tcp_notes.clone_from(&self.control_tcp_notes);
     }
 
     async fn new_transfer_connection(
@@ -85,6 +85,6 @@ impl FtpConnectContext for DirectFtpConnectContext {
     }
 
     fn fetch_transfer_tcp_notes(&self, tcp_notes: &mut TcpConnectTaskNotes) {
-        tcp_notes.fill_generated(&self.transfer_tcp_notes);
+        tcp_notes.clone_from(&self.transfer_tcp_notes);
     }
 }

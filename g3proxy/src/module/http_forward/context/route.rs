@@ -167,6 +167,6 @@ impl HttpForwardContext for RouteHttpForwardContext {
     }
 
     fn fetch_tcp_notes(&self, tcp_notes: &mut TcpConnectTaskNotes) {
-        tcp_notes.fill_generated(&self.tcp_notes);
+        tcp_notes.clone_from(&self.tcp_notes);
     }
 }

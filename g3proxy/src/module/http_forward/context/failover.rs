@@ -256,7 +256,7 @@ impl HttpForwardContext for FailoverHttpForwardContext {
                     self.used_escaper = ctx.escaper;
                 }
                 self.use_primary = true;
-                self.tcp_notes.fill_generated(&ctx.tcp_notes);
+                self.tcp_notes.clone_from(&ctx.tcp_notes);
                 self.route_stats.add_request_passed();
                 return ctx.connect_result;
             }
@@ -311,7 +311,7 @@ impl HttpForwardContext for FailoverHttpForwardContext {
             self.used_escaper = ctx.escaper;
         }
         self.use_primary = Arc::ptr_eq(&self.used_escaper, &self.primary_final_escaper);
-        self.tcp_notes.fill_generated(&ctx.tcp_notes);
+        self.tcp_notes.clone_from(&ctx.tcp_notes);
         ctx.connect_result
     }
 
@@ -336,7 +336,7 @@ impl HttpForwardContext for FailoverHttpForwardContext {
                     self.used_escaper = ctx.escaper;
                 }
                 self.use_primary = true;
-                self.tcp_notes.fill_generated(&ctx.tcp_notes);
+                self.tcp_notes.clone_from(&ctx.tcp_notes);
                 self.route_stats.add_request_passed();
                 return ctx.connect_result;
             }
@@ -391,7 +391,7 @@ impl HttpForwardContext for FailoverHttpForwardContext {
             self.used_escaper = ctx.escaper;
         }
         self.use_primary = Arc::ptr_eq(&self.used_escaper, &self.primary_final_escaper);
-        self.tcp_notes.fill_generated(&ctx.tcp_notes);
+        self.tcp_notes.clone_from(&ctx.tcp_notes);
         ctx.connect_result
     }
 
@@ -401,6 +401,6 @@ impl HttpForwardContext for FailoverHttpForwardContext {
     }
 
     fn fetch_tcp_notes(&self, tcp_notes: &mut TcpConnectTaskNotes) {
-        tcp_notes.fill_generated(&self.tcp_notes);
+        tcp_notes.clone_from(&self.tcp_notes);
     }
 }

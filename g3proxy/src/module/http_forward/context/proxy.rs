@@ -156,6 +156,6 @@ impl HttpForwardContext for ProxyHttpForwardContext {
     fn fetch_tcp_notes(&self, tcp_notes: &mut TcpConnectTaskNotes) {
         // the upstream addr self.notes is the proxy_addr,
         // which is likely to be different than the one in tcp_notes
-        tcp_notes.fill_generated(&self.tcp_notes);
+        tcp_notes.clone_from(&self.tcp_notes);
     }
 }

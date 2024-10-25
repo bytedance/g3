@@ -87,16 +87,4 @@ impl TcpConnectTaskNotes {
         self.chained.reset();
         self.duration = Duration::ZERO;
     }
-
-    pub(crate) fn fill_generated(&mut self, other: &Self) {
-        self.escaper.clone_from(&other.escaper);
-        self.bind = other.bind;
-        self.next = other.next;
-        self.tries = other.tries;
-        self.local = other.local;
-        self.expire = other.expire;
-        self.egress.clone_from(&other.egress);
-        self.chained.clone_from(&other.chained);
-        self.duration = other.duration;
-    }
 }

@@ -95,7 +95,7 @@ impl RouteFailoverEscaper {
             Ok(Ok(ctx)) => {
                 self.stats.add_request_passed();
                 *audit_ctx = ctx.audit_ctx;
-                tcp_notes.fill_generated(&ctx.tcp_notes);
+                tcp_notes.clone_from(&ctx.tcp_notes);
                 return ctx.connect_result;
             }
             Ok(Err(_)) => {
@@ -125,13 +125,13 @@ impl RouteFailoverEscaper {
             Ok((ctx, _left)) => {
                 self.stats.add_request_passed();
                 *audit_ctx = ctx.audit_ctx;
-                tcp_notes.fill_generated(&ctx.tcp_notes);
+                tcp_notes.clone_from(&ctx.tcp_notes);
                 ctx.connect_result
             }
             Err(ctx) => {
                 self.stats.add_request_failed();
                 *audit_ctx = ctx.audit_ctx;
-                tcp_notes.fill_generated(&ctx.tcp_notes);
+                tcp_notes.clone_from(&ctx.tcp_notes);
                 ctx.connect_result
             }
         }
