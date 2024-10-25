@@ -26,7 +26,7 @@ pub(crate) use error::UdpRelaySetupError;
 pub(crate) use stats::{
     ArcUdpRelayTaskRemoteStats, UdpRelayRemoteWrapperStats, UdpRelayTaskRemoteStats,
 };
-pub(crate) use task::UdpRelayTaskNotes;
+pub(crate) use task::{UdpRelayTaskConf, UdpRelayTaskNotes};
 
 pub(crate) type UdpRelaySetupResult = Result<
     (

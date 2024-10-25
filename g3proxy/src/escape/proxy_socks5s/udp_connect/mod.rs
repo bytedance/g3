@@ -25,25 +25,21 @@ use crate::escape::proxy_socks5::udp_connect::{
 use crate::module::tcp_connect::TcpConnectTaskNotes;
 use crate::module::udp_connect::{
     ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectRemoteWrapperStats, UdpConnectResult,
-    UdpConnectTaskNotes,
+    UdpConnectTaskConf, UdpConnectTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
 impl ProxySocks5sEscaper {
     pub(super) async fn udp_connect_to<'a>(
         &'a self,
+        task_conf: &UdpConnectTaskConf<'_>,
         udp_notes: &'a mut UdpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
-        let upstream = udp_notes
-            .upstream
-            .as_ref()
-            .ok_or(UdpConnectError::NoUpstreamSupplied)?;
-
         let mut tcp_notes = TcpConnectTaskNotes::default();
         let (ctl_stream, udp_socket, udp_local_addr, udp_peer_addr) = self
-            .timed_socks5_udp_associate(udp_notes.buf_conf, &mut tcp_notes, task_notes)
+            .timed_socks5_udp_associate(task_conf.sock_buf, &mut tcp_notes, task_notes)
             .await
             .map_err(UdpConnectError::SetupSocketFailed)?;
 
@@ -75,7 +71,7 @@ impl ProxySocks5sEscaper {
             ctl_stream,
             self.config.end_on_control_closed,
         );
-        let send = ProxySocks5UdpConnectRemoteSend::new(send, upstream);
+        let send = ProxySocks5UdpConnectRemoteSend::new(send, task_conf.upstream);
 
         Ok((Box::new(recv), Box::new(send), self.escape_logger.clone()))
     }

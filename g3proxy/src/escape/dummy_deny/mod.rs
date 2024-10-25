@@ -36,10 +36,12 @@ use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
 };
 use crate::module::udp_connect::{
-    ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectResult, UdpConnectTaskNotes,
+    ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectResult, UdpConnectTaskConf,
+    UdpConnectTaskNotes,
 };
 use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupError, UdpRelaySetupResult, UdpRelayTaskNotes,
+    ArcUdpRelayTaskRemoteStats, UdpRelaySetupError, UdpRelaySetupResult, UdpRelayTaskConf,
+    UdpRelayTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
@@ -132,6 +134,7 @@ impl Escaper for DummyDenyEscaper {
 
     async fn udp_setup_connection<'a>(
         &'a self,
+        _task_conf: &UdpConnectTaskConf<'_>,
         udp_notes: &'a mut UdpConnectTaskNotes,
         _task_notes: &'a ServerTaskNotes,
         _task_stats: ArcUdpConnectTaskRemoteStats,
@@ -143,6 +146,7 @@ impl Escaper for DummyDenyEscaper {
 
     async fn udp_setup_relay<'a>(
         &'a self,
+        _task_conf: &UdpRelayTaskConf<'_>,
         udp_notes: &'a mut UdpRelayTaskNotes,
         _task_notes: &'a ServerTaskNotes,
         _task_stats: ArcUdpRelayTaskRemoteStats,

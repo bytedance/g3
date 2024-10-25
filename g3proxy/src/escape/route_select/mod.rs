@@ -43,10 +43,12 @@ use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
 };
 use crate::module::udp_connect::{
-    ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectResult, UdpConnectTaskNotes,
+    ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectResult, UdpConnectTaskConf,
+    UdpConnectTaskNotes,
 };
 use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupError, UdpRelaySetupResult, UdpRelayTaskNotes,
+    ArcUdpRelayTaskRemoteStats, UdpRelaySetupError, UdpRelaySetupResult, UdpRelayTaskConf,
+    UdpRelayTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -208,20 +210,17 @@ impl Escaper for RouteSelectEscaper {
 
     async fn udp_setup_connection<'a>(
         &'a self,
+        task_conf: &UdpConnectTaskConf<'_>,
         udp_notes: &'a mut UdpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
         udp_notes.escaper.clone_from(&self.config.name);
-        let upstream = udp_notes
-            .upstream
-            .as_ref()
-            .ok_or(UdpConnectError::NoUpstreamSupplied)?;
-        match self.select_next(task_notes, upstream) {
+        match self.select_next(task_notes, task_conf.upstream) {
             Ok(escaper) => {
                 self.stats.add_request_passed();
                 escaper
-                    .udp_setup_connection(udp_notes, task_notes, task_stats)
+                    .udp_setup_connection(task_conf, udp_notes, task_notes, task_stats)
                     .await
             }
             Err(e) => {
@@ -233,16 +232,17 @@ impl Escaper for RouteSelectEscaper {
 
     async fn udp_setup_relay<'a>(
         &'a self,
+        task_conf: &UdpRelayTaskConf<'_>,
         udp_notes: &'a mut UdpRelayTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
         udp_notes.escaper.clone_from(&self.config.name);
-        match self.select_next(task_notes, &udp_notes.initial_peer) {
+        match self.select_next(task_notes, task_conf.initial_peer) {
             Ok(escaper) => {
                 self.stats.add_request_passed();
                 escaper
-                    .udp_setup_relay(udp_notes, task_notes, task_stats)
+                    .udp_setup_relay(task_conf, udp_notes, task_notes, task_stats)
                     .await
             }
             Err(e) => {

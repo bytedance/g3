@@ -29,7 +29,7 @@ use crate::escape::direct_fixed::udp_connect::{
 };
 use crate::module::udp_connect::{
     ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectRemoteWrapperStats, UdpConnectResult,
-    UdpConnectTaskNotes,
+    UdpConnectTaskConf, UdpConnectTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -64,16 +64,17 @@ impl DirectFloatEscaper {
 
     pub(super) async fn udp_connect_to<'a>(
         &'a self,
+        task_conf: &UdpConnectTaskConf<'_>,
         udp_notes: &'a mut UdpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
-        let upstream = udp_notes
-            .upstream
-            .as_ref()
-            .ok_or(UdpConnectError::NoUpstreamSupplied)?;
         let peer_addr = self
-            .select_upstream_addr(upstream, self.get_resolve_strategy(task_notes), task_notes)
+            .select_upstream_addr(
+                task_conf.upstream,
+                self.get_resolve_strategy(task_notes),
+                task_notes,
+            )
             .await?;
         udp_notes.next = Some(peer_addr);
 
@@ -97,7 +98,7 @@ impl DirectFloatEscaper {
         let socket = g3_socket::udp::new_std_socket_to(
             peer_addr,
             &udp_notes.bind,
-            udp_notes.buf_conf,
+            task_conf.sock_buf,
             misc_opts,
         )
         .map_err(UdpConnectError::SetupSocketFailed)?;

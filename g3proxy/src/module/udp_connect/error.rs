@@ -28,8 +28,6 @@ pub(crate) enum UdpConnectError {
     MethodUnavailable,
     #[error("escaper is not usable: {0:?}")]
     EscaperNotUsable(anyhow::Error),
-    #[error("no upstream addr supplied")]
-    NoUpstreamSupplied,
     #[error("forbidden remote address")]
     ForbiddenRemoteAddress,
     #[error("resolve failed: {0}")]
@@ -45,9 +43,6 @@ impl From<UdpConnectError> for ServerTaskError {
                 ServerTaskError::ForbiddenByRule(ServerTaskForbiddenError::MethodUnavailable)
             }
             UdpConnectError::EscaperNotUsable(e) => ServerTaskError::EscaperNotUsable(e),
-            UdpConnectError::NoUpstreamSupplied => {
-                ServerTaskError::InternalServerError("no upstream addr supplied")
-            }
             UdpConnectError::ForbiddenRemoteAddress => {
                 ServerTaskError::ForbiddenByRule(ServerTaskForbiddenError::IpBlocked)
             }

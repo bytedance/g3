@@ -40,7 +40,7 @@ use super::{
 use crate::config::server::ServerConfig;
 use crate::log::escape::udp_sendto::EscapeLogForUdpConnectSendTo;
 use crate::log::task::udp_connect::TaskLogForUdpConnect;
-use crate::module::udp_connect::UdpConnectTaskNotes;
+use crate::module::udp_connect::{UdpConnectTaskConf, UdpConnectTaskNotes};
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
@@ -48,6 +48,7 @@ use crate::serve::{
 
 pub(crate) struct SocksProxyUdpConnectTask {
     ctx: CommonTaskContext,
+    upstream: Option<UpstreamAddr>,
     udp_notes: UdpConnectTaskNotes,
     task_notes: ServerTaskNotes,
     task_stats: Arc<UdpConnectTaskStats>,
@@ -61,10 +62,10 @@ impl SocksProxyUdpConnectTask {
         notes: ServerTaskNotes,
         udp_client_addr: Option<SocketAddr>,
     ) -> Self {
-        let buf_conf = ctx.server_config.udp_socket_buffer;
         SocksProxyUdpConnectTask {
             ctx,
-            udp_notes: UdpConnectTaskNotes::empty(buf_conf),
+            upstream: None,
+            udp_notes: UdpConnectTaskNotes::default(),
             task_notes: notes,
             task_stats: Arc::new(UdpConnectTaskStats::default()),
             udp_listen_addr: None,
@@ -79,6 +80,7 @@ impl SocksProxyUdpConnectTask {
             tcp_client_addr: self.ctx.client_addr(),
             udp_listen_addr: self.udp_listen_addr,
             udp_client_addr: self.udp_client_addr,
+            upstream: self.upstream.as_ref(),
             udp_notes: &self.udp_notes,
             total_time: self.task_notes.time_elapsed(),
             client_rd_bytes: self.task_stats.clt.recv.get_bytes(),
@@ -350,6 +352,7 @@ impl SocksProxyUdpConnectTask {
                         Err(UdpCopyError::RemoteError(e)) => {
                             EscapeLogForUdpConnectSendTo {
                                 task_id,
+                                upstream: self.upstream.as_ref(),
                                 udp_notes: &self.udp_notes,
                             }
                             .log(escape_logger, &e);
@@ -364,6 +367,7 @@ impl SocksProxyUdpConnectTask {
                         Err(UdpCopyError::RemoteError(e)) => {
                             EscapeLogForUdpConnectSendTo {
                                 task_id,
+                                upstream: self.upstream.as_ref(),
                                 udp_notes: &self.udp_notes,
                             }
                             .log(escape_logger, &e);
@@ -461,7 +465,6 @@ impl SocksProxyUdpConnectTask {
         let (buf_off, buf_nr, udp_client_addr, upstream) = self
             .recv_first_packet(clt_tcp_r, &mut clt_r, &mut buf)
             .await?;
-        self.udp_notes.upstream = Some(upstream.clone());
         self.udp_client_addr = Some(udp_client_addr);
 
         if let Some(user_ctx) = self.task_notes.user_ctx_mut() {
@@ -527,10 +530,15 @@ impl SocksProxyUdpConnectTask {
         }
 
         self.task_notes.stage = ServerTaskStage::Connecting;
+        let task_conf = UdpConnectTaskConf {
+            upstream: &upstream,
+            sock_buf: self.ctx.server_config.udp_socket_buffer,
+        };
         let (ups_r, mut ups_w, logger) = self
             .ctx
             .escaper
             .udp_setup_connection(
+                &task_conf,
                 &mut self.udp_notes,
                 &self.task_notes,
                 self.task_stats.clone(),

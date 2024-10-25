@@ -31,7 +31,7 @@ use g3_io_ext::{
 };
 use g3_socks::v5::Socks5Reply;
 use g3_types::acl::AclAction;
-use g3_types::net::ProxyRequestType;
+use g3_types::net::{ProxyRequestType, UpstreamAddr};
 
 use super::{
     CommonTaskContext, Socks5UdpAssociateClientRecv, Socks5UdpAssociateClientSend,
@@ -40,7 +40,7 @@ use super::{
 use crate::config::server::ServerConfig;
 use crate::log::escape::udp_sendto::EscapeLogForUdpRelaySendto;
 use crate::log::task::udp_associate::TaskLogForUdpAssociate;
-use crate::module::udp_relay::UdpRelayTaskNotes;
+use crate::module::udp_relay::{UdpRelayTaskConf, UdpRelayTaskNotes};
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
@@ -48,6 +48,7 @@ use crate::serve::{
 
 pub(crate) struct SocksProxyUdpAssociateTask {
     ctx: Arc<CommonTaskContext>,
+    initial_peer: UpstreamAddr,
     udp_notes: UdpRelayTaskNotes,
     task_notes: ServerTaskNotes,
     task_stats: Arc<UdpAssociateTaskStats>,
@@ -61,10 +62,10 @@ impl SocksProxyUdpAssociateTask {
         notes: ServerTaskNotes,
         udp_client_addr: Option<SocketAddr>,
     ) -> Self {
-        let buf_conf = ctx.server_config.udp_socket_buffer;
         SocksProxyUdpAssociateTask {
             ctx: Arc::new(ctx),
-            udp_notes: UdpRelayTaskNotes::empty(buf_conf),
+            initial_peer: UpstreamAddr::empty(),
+            udp_notes: UdpRelayTaskNotes::default(),
             task_notes: notes,
             task_stats: Arc::new(UdpAssociateTaskStats::default()),
             udp_listen_addr: None,
@@ -79,6 +80,7 @@ impl SocksProxyUdpAssociateTask {
             tcp_client_addr: self.ctx.client_addr(),
             udp_listen_addr: self.udp_listen_addr,
             udp_client_addr: self.udp_client_addr,
+            initial_peer: &self.initial_peer,
             udp_notes: &self.udp_notes,
             total_time: self.task_notes.time_elapsed(),
             client_rd_bytes: self.task_stats.clt.recv.get_bytes(),
@@ -425,7 +427,7 @@ impl SocksProxyUdpAssociateTask {
             user_ctx.check_in_site(
                 self.ctx.server_config.name(),
                 self.ctx.server_stats.share_extra_tags(),
-                &self.udp_notes.initial_peer,
+                &self.initial_peer,
             );
 
             if let Some(site_req_stats) = user_ctx.site_req_stats() {
@@ -476,10 +478,16 @@ impl SocksProxyUdpAssociateTask {
         }
 
         self.task_notes.stage = ServerTaskStage::Connecting;
+
+        let task_conf = UdpRelayTaskConf {
+            initial_peer: &self.initial_peer,
+            sock_buf: self.ctx.server_config.udp_socket_buffer,
+        };
         let (ups_r, mut ups_w, logger) = self
             .ctx
             .escaper
             .udp_setup_relay(
+                &task_conf,
                 &mut self.udp_notes,
                 &self.task_notes,
                 self.task_stats.clone(),
@@ -487,10 +495,7 @@ impl SocksProxyUdpAssociateTask {
             .await?;
         self.task_notes.stage = ServerTaskStage::Connected;
 
-        poll_fn(|cx| {
-            ups_w.poll_send_packet(cx, &buf[buf_off..buf_nr], &self.udp_notes.initial_peer)
-        })
-        .await?;
+        poll_fn(|cx| ups_w.poll_send_packet(cx, &buf[buf_off..buf_nr], &self.initial_peer)).await?;
 
         let clt_w = Socks5UdpAssociateClientSend::new(clt_w, udp_client_addr);
 
@@ -508,11 +513,7 @@ impl SocksProxyUdpAssociateTask {
     {
         let udp_fut = tokio::time::timeout(
             self.ctx.server_config.timeout.udp_client_initial,
-            clt_udp_r.recv_first_packet(
-                buf,
-                &self.ctx.ingress_net_filter,
-                &mut self.udp_notes.initial_peer,
-            ),
+            clt_udp_r.recv_first_packet(buf, &self.ctx.ingress_net_filter, &mut self.initial_peer),
         );
         let mut buf_tcp: [u8; 4] = [0; 4];
         tokio::select! {

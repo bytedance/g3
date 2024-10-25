@@ -20,6 +20,7 @@ use std::time::Duration;
 use slog::{slog_info, Logger};
 
 use g3_slog_types::{LtDateTime, LtDuration, LtIpAddr, LtUpstreamAddr, LtUuid};
+use g3_types::net::UpstreamAddr;
 
 use crate::module::udp_connect::UdpConnectTaskNotes;
 use crate::serve::{ServerTaskError, ServerTaskNotes};
@@ -30,6 +31,7 @@ pub(crate) struct TaskLogForUdpConnect<'a> {
     pub(crate) tcp_client_addr: SocketAddr,
     pub(crate) udp_listen_addr: Option<SocketAddr>,
     pub(crate) udp_client_addr: Option<SocketAddr>,
+    pub(crate) upstream: Option<&'a UpstreamAddr>,
     pub(crate) udp_notes: &'a UdpConnectTaskNotes,
     pub(crate) total_time: Duration,
     pub(crate) client_rd_bytes: u64,
@@ -60,7 +62,7 @@ impl TaskLogForUdpConnect<'_> {
             "tcp_client_addr" => self.tcp_client_addr,
             "udp_listen_addr" => self.udp_listen_addr,
             "udp_client_addr" => self.udp_client_addr,
-            "upstream" => self.udp_notes.upstream.as_ref().map(LtUpstreamAddr),
+            "upstream" => self.upstream.map(LtUpstreamAddr),
             "escaper" => self.udp_notes.escaper.as_str(),
             "next_bind_ip" => self.udp_notes.bind.ip().map(LtIpAddr),
             "next_bound_addr" => self.udp_notes.local,

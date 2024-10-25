@@ -45,10 +45,12 @@ use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
 };
 use crate::module::udp_connect::{
-    ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectResult, UdpConnectTaskNotes,
+    ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectResult, UdpConnectTaskConf,
+    UdpConnectTaskNotes,
 };
 use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupError, UdpRelaySetupResult, UdpRelayTaskNotes,
+    ArcUdpRelayTaskRemoteStats, UdpRelaySetupError, UdpRelaySetupResult, UdpRelayTaskConf,
+    UdpRelayTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -238,6 +240,7 @@ impl Escaper for ProxyFloatEscaper {
 
     async fn udp_setup_connection<'a>(
         &'a self,
+        task_conf: &UdpConnectTaskConf<'_>,
         udp_notes: &'a mut UdpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
@@ -247,12 +250,13 @@ impl Escaper for ProxyFloatEscaper {
         let peer = self
             .select_peer(task_notes)
             .map_err(UdpConnectError::EscaperNotUsable)?;
-        peer.udp_setup_connection(self, udp_notes, task_notes, task_stats)
+        peer.udp_setup_connection(self, task_conf, udp_notes, task_notes, task_stats)
             .await
     }
 
     async fn udp_setup_relay<'a>(
         &'a self,
+        task_conf: &UdpRelayTaskConf<'_>,
         udp_notes: &'a mut UdpRelayTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
@@ -262,7 +266,7 @@ impl Escaper for ProxyFloatEscaper {
         let peer = self
             .select_peer(task_notes)
             .map_err(UdpRelaySetupError::EscaperNotUsable)?;
-        peer.udp_setup_relay(self, udp_notes, task_notes, task_stats)
+        peer.udp_setup_relay(self, task_conf, udp_notes, task_notes, task_stats)
             .await
     }
 

@@ -19,38 +19,13 @@ use chrono::{DateTime, Utc};
 use g3_types::metrics::MetricsName;
 use g3_types::net::{SocketBufferConfig, UpstreamAddr};
 
-pub(crate) struct UdpRelayTaskNotes {
-    pub(crate) buf_conf: SocketBufferConfig,
-    pub(crate) initial_peer: UpstreamAddr,
-    pub(crate) escaper: MetricsName,
-    pub(crate) expire: Option<DateTime<Utc>>,
+pub(crate) struct UdpRelayTaskConf<'a> {
+    pub(crate) initial_peer: &'a UpstreamAddr,
+    pub(crate) sock_buf: SocketBufferConfig,
 }
 
-impl UdpRelayTaskNotes {
-    pub(crate) fn empty(buf_conf: SocketBufferConfig) -> Self {
-        UdpRelayTaskNotes::new(UpstreamAddr::empty(), buf_conf)
-    }
-
-    pub(crate) fn new(initial_peer: UpstreamAddr, buf_conf: SocketBufferConfig) -> Self {
-        UdpRelayTaskNotes {
-            buf_conf,
-            initial_peer,
-            escaper: MetricsName::default(),
-            expire: None,
-        }
-    }
-
-    pub(crate) fn dup_as_new(&self) -> Self {
-        UdpRelayTaskNotes {
-            buf_conf: self.buf_conf,
-            initial_peer: self.initial_peer.clone(),
-            escaper: MetricsName::default(),
-            expire: None,
-        }
-    }
-
-    pub(crate) fn fill_generated(&mut self, other: &Self) {
-        self.escaper.clone_from(&other.escaper);
-        self.expire = other.expire;
-    }
+#[derive(Clone, Debug, Default)]
+pub(crate) struct UdpRelayTaskNotes {
+    pub(crate) escaper: MetricsName,
+    pub(crate) expire: Option<DateTime<Utc>>,
 }

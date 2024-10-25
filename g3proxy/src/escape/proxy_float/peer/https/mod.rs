@@ -34,10 +34,12 @@ use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
 };
 use crate::module::udp_connect::{
-    ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectResult, UdpConnectTaskNotes,
+    ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectResult, UdpConnectTaskConf,
+    UdpConnectTaskNotes,
 };
 use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupError, UdpRelaySetupResult, UdpRelayTaskNotes,
+    ArcUdpRelayTaskRemoteStats, UdpRelaySetupError, UdpRelaySetupResult, UdpRelayTaskConf,
+    UdpRelayTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -213,6 +215,7 @@ impl NextProxyPeer for ProxyFloatHttpsPeer {
     async fn udp_setup_connection(
         &self,
         _escaper: &ProxyFloatEscaper,
+        _task_conf: &UdpConnectTaskConf<'_>,
         _udp_notes: &mut UdpConnectTaskNotes,
         _task_notes: &ServerTaskNotes,
         _task_stats: ArcUdpConnectTaskRemoteStats,
@@ -223,6 +226,7 @@ impl NextProxyPeer for ProxyFloatHttpsPeer {
     async fn udp_setup_relay(
         &self,
         _escaper: &ProxyFloatEscaper,
+        _task_conf: &UdpRelayTaskConf<'_>,
         _udp_notes: &mut UdpRelayTaskNotes,
         _task_notes: &ServerTaskNotes,
         _task_stats: ArcUdpRelayTaskRemoteStats,

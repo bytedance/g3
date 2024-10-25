@@ -28,14 +28,14 @@ use crate::escape::direct_fixed::udp_relay::{DirectUdpRelayRemoteRecv, DirectUdp
 use crate::escape::direct_fixed::DirectFixedEscaperStats;
 use crate::module::udp_relay::{
     ArcUdpRelayTaskRemoteStats, UdpRelayRemoteWrapperStats, UdpRelaySetupError,
-    UdpRelaySetupResult, UdpRelayTaskNotes,
+    UdpRelaySetupResult, UdpRelayTaskConf,
 };
 use crate::serve::ServerTaskNotes;
 
 impl DirectFloatEscaper {
     pub(super) async fn udp_setup_relay<'a>(
         &'a self,
-        udp_notes: &'a UdpRelayTaskNotes,
+        task_conf: &UdpRelayTaskConf<'_>,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
@@ -54,14 +54,14 @@ impl DirectFloatEscaper {
 
         if !self.config.no_ipv4 {
             let (bind, r, w) =
-                self.get_relay_socket(AddressFamily::Ipv4, udp_notes, task_notes, &wrapper_stats)?;
+                self.get_relay_socket(AddressFamily::Ipv4, task_conf, task_notes, &wrapper_stats)?;
             recv.enable_v4(r, bind);
             send.enable_v4(w, bind);
         }
 
         if !self.config.no_ipv6 {
             let (bind, r, w) =
-                self.get_relay_socket(AddressFamily::Ipv6, udp_notes, task_notes, &wrapper_stats)?;
+                self.get_relay_socket(AddressFamily::Ipv6, task_conf, task_notes, &wrapper_stats)?;
             recv.enable_v6(r, bind);
             send.enable_v6(w, bind);
         }
@@ -72,7 +72,7 @@ impl DirectFloatEscaper {
     fn get_relay_socket(
         &self,
         family: AddressFamily,
-        udp_notes: &UdpRelayTaskNotes,
+        task_conf: &UdpRelayTaskConf<'_>,
         task_notes: &ServerTaskNotes,
         stats: &Arc<UdpRelayRemoteWrapperStats<DirectFixedEscaperStats>>,
     ) -> Result<
@@ -98,7 +98,7 @@ impl DirectFloatEscaper {
         let socket = g3_socket::udp::new_std_bind_relay(
             &BindAddr::Ip(bind.ip),
             family,
-            udp_notes.buf_conf,
+            task_conf.sock_buf,
             misc_opts,
         )
         .map_err(UdpRelaySetupError::SetupSocketFailed)?;

@@ -48,10 +48,10 @@ use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
 };
 use crate::module::udp_connect::{
-    ArcUdpConnectTaskRemoteStats, UdpConnectResult, UdpConnectTaskNotes,
+    ArcUdpConnectTaskRemoteStats, UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes,
 };
 use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskNotes,
+    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf, UdpRelayTaskNotes,
 };
 use crate::resolve::{ArcIntegratedResolverHandle, HappyEyeballsResolveJob};
 use crate::serve::ServerTaskNotes;
@@ -212,24 +212,27 @@ impl Escaper for ProxySocks5sEscaper {
 
     async fn udp_setup_connection<'a>(
         &'a self,
+        task_conf: &UdpConnectTaskConf<'_>,
         udp_notes: &'a mut UdpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
         self.stats.interface.add_udp_connect_attempted();
         udp_notes.escaper.clone_from(&self.config.name);
-        self.udp_connect_to(udp_notes, task_notes, task_stats).await
+        self.udp_connect_to(task_conf, udp_notes, task_notes, task_stats)
+            .await
     }
 
     async fn udp_setup_relay<'a>(
         &'a self,
+        task_conf: &UdpRelayTaskConf<'_>,
         udp_notes: &'a mut UdpRelayTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
         self.stats.interface.add_udp_relay_session_attempted();
         udp_notes.escaper.clone_from(&self.config.name);
-        self.udp_setup_relay(udp_notes, task_notes, task_stats)
+        self.udp_setup_relay(task_conf, task_notes, task_stats)
             .await
     }
 

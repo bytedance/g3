@@ -38,10 +38,10 @@ use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
 };
 use crate::module::udp_connect::{
-    ArcUdpConnectTaskRemoteStats, UdpConnectResult, UdpConnectTaskNotes,
+    ArcUdpConnectTaskRemoteStats, UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes,
 };
 use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskNotes,
+    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf, UdpRelayTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -263,22 +263,26 @@ impl NextProxyPeer for ProxyFloatSocks5Peer {
     async fn udp_setup_connection(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &UdpConnectTaskConf<'_>,
         udp_notes: &mut UdpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
-        self.udp_connect_to(escaper, udp_notes, task_notes, task_stats)
+        udp_notes.expire = self.expire_datetime();
+        self.udp_connect_to(escaper, task_conf, udp_notes, task_notes, task_stats)
             .await
     }
 
     async fn udp_setup_relay(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &UdpRelayTaskConf<'_>,
         udp_notes: &mut UdpRelayTaskNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
-        self.udp_setup_relay(escaper, udp_notes, task_notes, task_stats)
+        udp_notes.expire = self.expire_datetime();
+        self.udp_setup_relay(escaper, task_conf, task_notes, task_stats)
             .await
     }
 }

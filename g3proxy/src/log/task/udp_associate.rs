@@ -19,10 +19,10 @@ use std::time::Duration;
 
 use slog::{slog_info, Logger};
 
-use g3_slog_types::{LtDateTime, LtDuration, LtUpstreamAddr, LtUuid};
-
 use crate::module::udp_relay::UdpRelayTaskNotes;
 use crate::serve::{ServerTaskError, ServerTaskNotes};
+use g3_slog_types::{LtDateTime, LtDuration, LtUpstreamAddr, LtUuid};
+use g3_types::net::UpstreamAddr;
 
 pub(crate) struct TaskLogForUdpAssociate<'a> {
     pub(crate) task_notes: &'a ServerTaskNotes,
@@ -30,6 +30,7 @@ pub(crate) struct TaskLogForUdpAssociate<'a> {
     pub(crate) tcp_client_addr: SocketAddr,
     pub(crate) udp_listen_addr: Option<SocketAddr>,
     pub(crate) udp_client_addr: Option<SocketAddr>,
+    pub(crate) initial_peer: &'a UpstreamAddr,
     pub(crate) udp_notes: &'a UdpRelayTaskNotes,
     pub(crate) total_time: Duration,
     pub(crate) client_rd_bytes: u64,
@@ -60,7 +61,7 @@ impl TaskLogForUdpAssociate<'_> {
             "tcp_client_addr" => self.tcp_client_addr,
             "udp_listen_addr" => self.udp_listen_addr,
             "udp_client_addr" => self.udp_client_addr,
-            "initial_peer" => LtUpstreamAddr(&self.udp_notes.initial_peer),
+            "initial_peer" => LtUpstreamAddr(self.initial_peer),
             "escaper" => self.udp_notes.escaper.as_str(),
             "reason" => e.brief(),
             "wait_time" => LtDuration(self.task_notes.wait_time),

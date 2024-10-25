@@ -40,10 +40,10 @@ use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
 };
 use crate::module::udp_connect::{
-    ArcUdpConnectTaskRemoteStats, UdpConnectResult, UdpConnectTaskNotes,
+    ArcUdpConnectTaskRemoteStats, UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes,
 };
 use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskNotes,
+    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf, UdpRelayTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -143,6 +143,7 @@ impl Escaper for ComplyAuditEscaper {
 
     async fn udp_setup_connection<'a>(
         &'a self,
+        task_conf: &UdpConnectTaskConf<'_>,
         udp_notes: &'a mut UdpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
@@ -150,12 +151,13 @@ impl Escaper for ComplyAuditEscaper {
         udp_notes.escaper.clone_from(&self.config.name);
         self.stats.add_request_passed();
         self.next
-            .udp_setup_connection(udp_notes, task_notes, task_stats)
+            .udp_setup_connection(task_conf, udp_notes, task_notes, task_stats)
             .await
     }
 
     async fn udp_setup_relay<'a>(
         &'a self,
+        task_conf: &UdpRelayTaskConf<'_>,
         udp_notes: &'a mut UdpRelayTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
@@ -163,7 +165,7 @@ impl Escaper for ComplyAuditEscaper {
         udp_notes.escaper.clone_from(&self.config.name);
         self.stats.add_request_passed();
         self.next
-            .udp_setup_relay(udp_notes, task_notes, task_stats)
+            .udp_setup_relay(task_conf, udp_notes, task_notes, task_stats)
             .await
     }
 

@@ -40,10 +40,10 @@ use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
 };
 use crate::module::udp_connect::{
-    ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectResult, UdpConnectTaskNotes,
+    ArcUdpConnectTaskRemoteStats, UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes,
 };
 use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskNotes,
+    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf, UdpRelayTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -180,33 +180,31 @@ impl Escaper for RouteQueryEscaper {
 
     async fn udp_setup_connection<'a>(
         &'a self,
+        task_conf: &UdpConnectTaskConf<'_>,
         udp_notes: &'a mut UdpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
         udp_notes.escaper.clone_from(&self.config.name);
-        let upstream = udp_notes
-            .upstream
-            .as_ref()
-            .ok_or(UdpConnectError::NoUpstreamSupplied)?;
-        let escaper = self.select_next(task_notes, upstream).await;
+        let escaper = self.select_next(task_notes, task_conf.upstream).await;
         self.stats.add_request_passed();
         escaper
-            .udp_setup_connection(udp_notes, task_notes, task_stats)
+            .udp_setup_connection(task_conf, udp_notes, task_notes, task_stats)
             .await
     }
 
     async fn udp_setup_relay<'a>(
         &'a self,
+        task_conf: &UdpRelayTaskConf<'_>,
         udp_notes: &'a mut UdpRelayTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
         udp_notes.escaper.clone_from(&self.config.name);
-        let escaper = self.select_next(task_notes, &udp_notes.initial_peer).await;
+        let escaper = self.select_next(task_notes, task_conf.initial_peer).await;
         self.stats.add_request_passed();
         escaper
-            .udp_setup_relay(udp_notes, task_notes, task_stats)
+            .udp_setup_relay(task_conf, udp_notes, task_notes, task_stats)
             .await
     }
 

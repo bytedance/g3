@@ -65,6 +65,7 @@ impl EscapeLogForUdpRelaySendto<'_> {
 
 pub(crate) struct EscapeLogForUdpConnectSendTo<'a> {
     pub(crate) task_id: &'a Uuid,
+    pub(crate) upstream: Option<&'a UpstreamAddr>,
     pub(crate) udp_notes: &'a UdpConnectTaskNotes,
 }
 
@@ -81,7 +82,7 @@ impl EscapeLogForUdpConnectSendTo<'_> {
         slog_info!(logger, "{}", e;
             "escape_type" => "UdpSendto",
             "task_id" => LtUuid(self.task_id),
-            "upstream" => self.udp_notes.upstream.as_ref().map(LtUpstreamAddr),
+            "upstream" => self.upstream.map(LtUpstreamAddr),
             "next_bound_addr" => self.udp_notes.local,
             "next_peer_addr" => self.udp_notes.next,
             "next_expire" => self.udp_notes.expire.as_ref().map(LtDateTime),
