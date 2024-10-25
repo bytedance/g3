@@ -27,7 +27,7 @@ use g3_types::net::{ConnectError, Host, ProxyProtocolEncoder, UpstreamAddr};
 
 use super::ProxyHttpsEscaper;
 use crate::log::escape::tcp_connect::EscapeLogForTcpConnect;
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes};
 use crate::resolve::HappyEyeballsResolveJob;
 use crate::serve::ServerTaskNotes;
 
@@ -74,6 +74,7 @@ impl ProxyHttpsEscaper {
     async fn fixed_try_connect(
         &self,
         peer: SocketAddr,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<TcpStream, TcpConnectError> {
@@ -107,6 +108,7 @@ impl ProxyHttpsEscaper {
 
                 let e = TcpConnectError::ConnectFailed(ConnectError::from(e));
                 EscapeLogForTcpConnect {
+                    upstream: task_conf.upstream,
                     tcp_notes,
                     task_id: &task_notes.id,
                 }
@@ -118,6 +120,7 @@ impl ProxyHttpsEscaper {
 
                 let e = TcpConnectError::TimeoutByRule;
                 EscapeLogForTcpConnect {
+                    upstream: task_conf.upstream,
                     tcp_notes,
                     task_id: &task_notes.id,
                 }
@@ -135,6 +138,7 @@ impl ProxyHttpsEscaper {
         &self,
         mut resolver_job: HappyEyeballsResolveJob,
         peer_port: u16,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<TcpStream, TcpConnectError> {
@@ -211,6 +215,7 @@ impl ProxyHttpsEscaper {
                                     }
                                     Err(e) => {
                                         EscapeLogForTcpConnect {
+                                            upstream: task_conf.upstream,
                                             tcp_notes,
                                             task_id: &task_notes.id,
                                         }
@@ -275,17 +280,19 @@ impl ProxyHttpsEscaper {
 
     async fn tcp_connect_to<'a>(
         &'a self,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
     ) -> Result<(UpstreamAddr, TcpStream), TcpConnectError> {
         let peer_proxy = self
-            .get_next_proxy(task_notes, tcp_notes.upstream.host())
+            .get_next_proxy(task_notes, task_conf.upstream.host())
             .clone();
 
         let stream = match peer_proxy.host() {
             Host::Ip(ip) => {
                 self.fixed_try_connect(
                     SocketAddr::new(*ip, peer_proxy.port()),
+                    task_conf,
                     tcp_notes,
                     task_notes,
                 )
@@ -294,8 +301,14 @@ impl ProxyHttpsEscaper {
             Host::Domain(domain) => {
                 let resolver_job = self.resolve_happy(domain.clone())?;
 
-                self.happy_try_connect(resolver_job, peer_proxy.port(), tcp_notes, task_notes)
-                    .await?
+                self.happy_try_connect(
+                    resolver_job,
+                    peer_proxy.port(),
+                    task_conf,
+                    tcp_notes,
+                    task_notes,
+                )
+                .await?
             }
         };
 
@@ -304,10 +317,13 @@ impl ProxyHttpsEscaper {
 
     pub(super) async fn tcp_new_connection<'a>(
         &'a self,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
     ) -> Result<(UpstreamAddr, LimitedStream<TcpStream>), TcpConnectError> {
-        let (peer, stream) = self.tcp_connect_to(tcp_notes, task_notes).await?;
+        let (peer, stream) = self
+            .tcp_connect_to(task_conf, tcp_notes, task_notes)
+            .await?;
 
         let limit_config = &self.config.general.tcp_sock_speed_limit;
         let mut stream = LimitedStream::local_limited(

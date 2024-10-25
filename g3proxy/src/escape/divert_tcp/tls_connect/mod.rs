@@ -24,23 +24,25 @@ use g3_daemon::stat::remote::{
 };
 use g3_io_ext::{AsyncStream, LimitedReader, LimitedStream, LimitedWriter};
 use g3_openssl::{SslConnector, SslStream};
-use g3_types::net::{Host, OpensslClientConfig};
 
 use super::DivertTcpEscaper;
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectError, TcpConnectResult, TcpConnectTaskNotes, TlsConnectTaskConf,
+};
 use crate::serve::ServerTaskNotes;
 
 impl DivertTcpEscaper {
     pub(super) async fn tls_connect_to<'a>(
         &'a self,
+        task_conf: &TlsConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
-        tls_config: &'a OpensslClientConfig,
-        tls_name: &'a Host,
         tls_application: TlsApplication,
     ) -> Result<SslStream<impl AsyncRead + AsyncWrite>, TcpConnectError> {
-        let stream = self.tcp_connect_to(tcp_notes, task_notes).await?;
+        let stream = self
+            .tcp_connect_to(&task_conf.tcp, tcp_notes, task_notes)
+            .await?;
 
         // set limit config and add escaper stats, do not count in task stats
         let limit_config = &self.config.general.tcp_sock_speed_limit;
@@ -52,24 +54,28 @@ impl DivertTcpEscaper {
             self.stats.clone(),
         );
 
-        self.send_pp2_header(&mut stream, tcp_notes, task_notes, Some(tls_name))
-            .await?;
+        self.send_pp2_header(
+            &mut stream,
+            &task_conf.tcp,
+            task_notes,
+            Some(task_conf.tls_name),
+        )
+        .await?;
 
-        let ssl = tls_config
-            .build_ssl(tls_name, tcp_notes.upstream.port())
-            .map_err(TcpConnectError::InternalTlsClientError)?;
+        let ssl = task_conf.build_ssl()?;
         let connector = SslConnector::new(ssl, stream)
             .map_err(|e| TcpConnectError::InternalTlsClientError(anyhow::Error::new(e)))?;
 
-        match tokio::time::timeout(tls_config.handshake_timeout, connector.connect()).await {
+        match tokio::time::timeout(task_conf.handshake_timeout(), connector.connect()).await {
             Ok(Ok(stream)) => Ok(stream),
             Ok(Err(e)) => {
                 let e = anyhow::Error::new(e);
                 EscapeLogForTlsHandshake {
+                    upstream: task_conf.tcp.upstream,
                     tcp_notes,
                     task_id: &task_notes.id,
-                    tls_name,
-                    tls_peer: &tcp_notes.upstream,
+                    tls_name: task_conf.tls_name,
+                    tls_peer: task_conf.tcp.upstream,
                     tls_application,
                 }
                 .log(&self.escape_logger, &e);
@@ -78,10 +84,11 @@ impl DivertTcpEscaper {
             Err(_) => {
                 let e = anyhow!("upstream tls handshake timed out");
                 EscapeLogForTlsHandshake {
+                    upstream: task_conf.tcp.upstream,
                     tcp_notes,
                     task_id: &task_notes.id,
-                    tls_name,
-                    tls_peer: &tcp_notes.upstream,
+                    tls_name: task_conf.tls_name,
+                    tls_peer: task_conf.tcp.upstream,
                     tls_application,
                 }
                 .log(&self.escape_logger, &e);
@@ -92,20 +99,13 @@ impl DivertTcpEscaper {
 
     pub(super) async fn tls_new_connection<'a>(
         &'a self,
+        task_conf: &TlsConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        tls_config: &'a OpensslClientConfig,
-        tls_name: &'a Host,
     ) -> TcpConnectResult {
         let tls_stream = self
-            .tls_connect_to(
-                tcp_notes,
-                task_notes,
-                tls_config,
-                tls_name,
-                TlsApplication::TcpStream,
-            )
+            .tls_connect_to(task_conf, tcp_notes, task_notes, TlsApplication::TcpStream)
             .await?;
 
         let (ups_r, ups_w) = tls_stream.into_split();

@@ -31,7 +31,7 @@ use crate::audit::AuditContext;
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
-use crate::module::tcp_connect::TcpConnectTaskNotes;
+use crate::module::tcp_connect::{TcpConnectTaskConf, TcpConnectTaskNotes};
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
@@ -40,6 +40,7 @@ use crate::serve::{
 pub(crate) struct SocksProxyTcpConnectTask {
     socks_version: SocksVersion,
     ctx: CommonTaskContext,
+    upstream: UpstreamAddr,
     task_notes: ServerTaskNotes,
     tcp_notes: TcpConnectTaskNotes,
     task_stats: Arc<TcpStreamTaskStats>,
@@ -67,8 +68,9 @@ impl SocksProxyTcpConnectTask {
         SocksProxyTcpConnectTask {
             socks_version,
             ctx,
+            upstream,
             task_notes,
-            tcp_notes: TcpConnectTaskNotes::new(upstream),
+            tcp_notes: TcpConnectTaskNotes::default(),
             task_stats: Arc::new(TcpStreamTaskStats::default()),
             audit_ctx,
         }
@@ -76,6 +78,7 @@ impl SocksProxyTcpConnectTask {
 
     fn get_log_context(&self) -> TaskLogForTcpConnect {
         TaskLogForTcpConnect {
+            upstream: &self.upstream,
             task_notes: &self.task_notes,
             tcp_notes: &self.tcp_notes,
             total_time: self.task_notes.time_elapsed(),
@@ -249,7 +252,7 @@ impl SocksProxyTcpConnectTask {
             self.handle_user_acl_action(action, &mut clt_w, ServerTaskForbiddenError::ProtoBanned)
                 .await?;
 
-            let action = user_ctx.check_upstream(&self.tcp_notes.upstream);
+            let action = user_ctx.check_upstream(&self.upstream);
             self.handle_user_acl_action(action, &mut clt_w, ServerTaskForbiddenError::DestDenied)
                 .await?;
 
@@ -259,7 +262,7 @@ impl SocksProxyTcpConnectTask {
         }
 
         // server level dst host/port acl rules
-        let action = self.ctx.check_upstream(&self.tcp_notes.upstream);
+        let action = self.ctx.check_upstream(&self.upstream);
         self.handle_server_upstream_acl_action(action, &mut clt_w)
             .await?;
 
@@ -272,10 +275,15 @@ impl SocksProxyTcpConnectTask {
             })?;
 
         self.task_notes.stage = ServerTaskStage::Connecting;
+
+        let task_conf = TcpConnectTaskConf {
+            upstream: &self.upstream,
+        };
         match self
             .ctx
             .escaper
             .tcp_setup_connection(
+                &task_conf,
                 &mut self.tcp_notes,
                 &self.task_notes,
                 self.task_stats.clone(),
@@ -395,7 +403,7 @@ impl SocksProxyTcpConnectTask {
                     ups_r,
                     ups_w,
                     ctx,
-                    self.tcp_notes.upstream.clone(),
+                    self.upstream.clone(),
                     None,
                 )
                 .await;

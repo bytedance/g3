@@ -23,6 +23,7 @@ use g3_types::net::{Host, UpstreamAddr};
 use crate::module::tcp_connect::TcpConnectTaskNotes;
 
 pub(crate) struct EscapeLogForTlsHandshake<'a> {
+    pub(crate) upstream: &'a UpstreamAddr,
     pub(crate) tcp_notes: &'a TcpConnectTaskNotes,
     pub(crate) task_id: &'a Uuid,
     pub(crate) tls_name: &'a Host,
@@ -51,7 +52,7 @@ impl EscapeLogForTlsHandshake<'_> {
         slog_info!(logger, "{:?}", e;
             "escape_type" => "TlsHandshake",
             "task_id" => LtUuid(self.task_id),
-            "upstream" => LtUpstreamAddr(&self.tcp_notes.upstream),
+            "upstream" => LtUpstreamAddr(self.upstream),
             "next_bind_ip" => self.tcp_notes.bind.ip().map(LtIpAddr),
             "next_bound_addr" => self.tcp_notes.local,
             "next_peer_addr" => self.tcp_notes.next,

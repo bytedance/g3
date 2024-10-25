@@ -37,7 +37,7 @@ use g3_io_ext::{
     GlobalLimitGroup, LimitedBufReadExt, LimitedCopy, LimitedCopyError, LimitedWriteExt,
 };
 use g3_types::acl::AclAction;
-use g3_types::net::{HttpHeaderMap, ProxyRequestType};
+use g3_types::net::{HttpHeaderMap, ProxyRequestType, UpstreamAddr};
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpProxyRequest};
 use super::{
@@ -52,7 +52,9 @@ use crate::module::http_forward::{
     HttpForwardTaskNotes, HttpProxyClientResponse,
 };
 use crate::module::http_header;
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
+};
 use crate::serve::{
     ServerIdleChecker, ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes,
     ServerTaskResult, ServerTaskStage,
@@ -61,6 +63,7 @@ use crate::serve::{
 pub(crate) struct HttpProxyForwardTask<'a> {
     ctx: Arc<CommonTaskContext>,
     audit_ctx: AuditContext,
+    upstream: UpstreamAddr,
     req: &'a HttpProxyClientRequest,
     is_https: bool,
     should_close: bool,
@@ -93,13 +96,14 @@ impl<'a> HttpProxyForwardTask<'a> {
         HttpProxyForwardTask {
             ctx: Arc::clone(ctx),
             audit_ctx,
+            upstream: req.upstream.clone(),
             req: &req.inner,
             is_https,
             should_close: !req.inner.keep_alive(),
             send_error_response: true,
             task_notes,
             http_notes,
-            tcp_notes: TcpConnectTaskNotes::new(req.upstream.clone()),
+            tcp_notes: TcpConnectTaskNotes::default(),
             task_stats: Arc::new(HttpForwardTaskStats::default()),
         }
     }
@@ -205,6 +209,7 @@ impl<'a> HttpProxyForwardTask<'a> {
             .get(http::header::USER_AGENT)
             .map(|v| v.to_str());
         TaskLogForHttpForward {
+            upstream: &self.upstream,
             task_notes: &self.task_notes,
             http_notes: &self.http_notes,
             http_user_agent,
@@ -550,7 +555,7 @@ impl<'a> HttpProxyForwardTask<'a> {
             let action = user_ctx.check_proxy_request(request_type);
             self.handle_user_protocol_acl_action(action, clt_w).await?;
 
-            let action = user_ctx.check_upstream(&self.tcp_notes.upstream);
+            let action = user_ctx.check_upstream(&self.upstream);
             self.handle_user_upstream_acl_action(action, clt_w).await?;
 
             if let Some(action) = user_ctx.check_http_user_agent(&self.req.end_to_end_headers) {
@@ -573,7 +578,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         }
 
         // server level dst host/port acl rules
-        let action = self.ctx.check_upstream(&self.tcp_notes.upstream);
+        let action = self.ctx.check_upstream(&self.upstream);
         self.handle_server_upstream_acl_action(action, clt_w)
             .await?;
 
@@ -587,7 +592,7 @@ impl<'a> HttpProxyForwardTask<'a> {
 
         self.setup_clt_limit_and_stats(clt_r, clt_w);
 
-        fwd_ctx.prepare_connection(&self.tcp_notes.upstream, self.is_https);
+        fwd_ctx.prepare_connection(&self.upstream, self.is_https);
 
         if let Some(connection) = fwd_ctx
             .get_alive_connection(
@@ -674,12 +679,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         fwd_ctx: &mut BoxHttpForwardContext,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         if self.is_https {
-            let tls_name = self
-                .req
-                .host
-                .as_ref()
-                .unwrap_or(&self.tcp_notes.upstream)
-                .host();
+            let tls_name = self.req.host.as_ref().unwrap_or(&self.upstream).host();
 
             let tls_client = self
                 .task_notes
@@ -688,17 +688,22 @@ impl<'a> HttpProxyForwardTask<'a> {
                 .and_then(|site| site.tls_client())
                 .unwrap_or(&self.ctx.tls_client_config);
 
+            let task_conf = TlsConnectTaskConf {
+                tcp: TcpConnectTaskConf {
+                    upstream: &self.upstream,
+                },
+                tls_config: tls_client,
+                tls_name,
+            };
             fwd_ctx
-                .make_new_https_connection(
-                    &self.task_notes,
-                    self.task_stats.clone(),
-                    tls_client,
-                    tls_name,
-                )
+                .make_new_https_connection(&task_conf, &self.task_notes, self.task_stats.clone())
                 .await
         } else {
+            let task_conf = TcpConnectTaskConf {
+                upstream: &self.upstream,
+            };
             fwd_ctx
-                .make_new_http_connection(&self.task_notes, self.task_stats.clone())
+                .make_new_http_connection(&task_conf, &self.task_notes, self.task_stats.clone())
                 .await
         }
     }
@@ -730,9 +735,7 @@ impl<'a> HttpProxyForwardTask<'a> {
                 };
             }
         }
-        ups_c
-            .0
-            .prepare_new(&self.task_notes, &self.tcp_notes.upstream);
+        ups_c.0.prepare_new(&self.task_notes, &self.upstream);
 
         if audit_task {
             if let Some(audit_handle) = self.audit_ctx.handle() {

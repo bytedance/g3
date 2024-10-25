@@ -27,12 +27,14 @@ use g3_io_ext::{LimitedReader, LimitedWriter};
 use g3_socket::util::AddressFamily;
 use g3_socket::BindAddr;
 use g3_types::acl::AclAction;
-use g3_types::net::{ConnectError, Host, TcpConnectConfig, TcpKeepAliveConfig, TcpMiscSockOpts};
+use g3_types::net::{ConnectError, Host, TcpKeepAliveConfig, UpstreamAddr};
 
 use super::{DirectFloatBindIp, DirectFloatEscaper};
+use crate::escape::direct_fixed::tcp_connect::DirectTcpConnectConfig;
 use crate::log::escape::tcp_connect::EscapeLogForTcpConnect;
 use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectRemoteWrapperStats, TcpConnectResult, TcpConnectTaskNotes,
+    TcpConnectError, TcpConnectRemoteWrapperStats, TcpConnectResult, TcpConnectTaskConf,
+    TcpConnectTaskNotes,
 };
 use crate::resolve::HappyEyeballsResolveJob;
 use crate::serve::ServerTaskNotes;
@@ -71,8 +73,7 @@ impl DirectFloatEscaper {
         peer_ip: IpAddr,
         bind: BindAddr,
         task_notes: &ServerTaskNotes,
-        keepalive: &TcpKeepAliveConfig,
-        misc_opts: &TcpMiscSockOpts,
+        config: &DirectTcpConnectConfig,
     ) -> Result<(TcpSocket, DirectFloatBindIp), TcpConnectError> {
         match peer_ip {
             IpAddr::V4(_) => {
@@ -101,8 +102,8 @@ impl DirectFloatEscaper {
         let sock = g3_socket::tcp::new_socket_to(
             peer_ip,
             &BindAddr::Ip(bind.ip),
-            keepalive,
-            misc_opts,
+            &config.keepalive,
+            &config.misc_opts,
             true,
         )
         .map_err(TcpConnectError::SetupSocketFailed)?;
@@ -112,20 +113,14 @@ impl DirectFloatEscaper {
     async fn fixed_try_connect(
         &self,
         peer_ip: IpAddr,
-        tcp_connect_config: TcpConnectConfig,
-        keepalive: TcpKeepAliveConfig,
-        tcp_misc_opts: TcpMiscSockOpts,
+        config: DirectTcpConnectConfig,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<(TcpStream, DirectFloatBindIp), TcpConnectError> {
-        let (sock, bind) = self.prepare_connect_socket(
-            peer_ip,
-            tcp_notes.bind,
-            task_notes,
-            &keepalive,
-            &tcp_misc_opts,
-        )?;
-        let peer = SocketAddr::new(peer_ip, tcp_notes.upstream.port());
+        let (sock, bind) =
+            self.prepare_connect_socket(peer_ip, tcp_notes.bind, task_notes, &config)?;
+        let peer = SocketAddr::new(peer_ip, task_conf.upstream.port());
         tcp_notes.next = Some(peer);
         tcp_notes.bind = BindAddr::Ip(bind.ip);
         tcp_notes.expire = bind.expire_datetime;
@@ -135,7 +130,7 @@ impl DirectFloatEscaper {
 
         self.stats.tcp.add_connection_attempted();
         tcp_notes.tries = 1;
-        match tokio::time::timeout(tcp_connect_config.each_timeout(), sock.connect(peer)).await {
+        match tokio::time::timeout(config.connect.each_timeout(), sock.connect(peer)).await {
             Ok(Ok(ups_stream)) => {
                 tcp_notes.duration = instant_now.elapsed();
 
@@ -153,6 +148,7 @@ impl DirectFloatEscaper {
 
                 let e = TcpConnectError::ConnectFailed(ConnectError::from(e));
                 EscapeLogForTcpConnect {
+                    upstream: task_conf.upstream,
                     tcp_notes,
                     task_id: &task_notes.id,
                 }
@@ -164,6 +160,7 @@ impl DirectFloatEscaper {
 
                 let e = TcpConnectError::TimeoutByRule;
                 EscapeLogForTcpConnect {
+                    upstream: task_conf.upstream,
                     tcp_notes,
                     task_id: &task_notes.id,
                 }
@@ -180,20 +177,18 @@ impl DirectFloatEscaper {
     async fn happy_try_connect(
         &self,
         mut resolver_job: HappyEyeballsResolveJob,
-        tcp_connect_config: TcpConnectConfig,
-        keepalive: TcpKeepAliveConfig,
-        tcp_misc_opts: TcpMiscSockOpts,
+        config: DirectTcpConnectConfig,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<(TcpStream, DirectFloatBindIp), TcpConnectError> {
-        let max_tries_each_family = tcp_connect_config.max_tries();
+        let max_tries_each_family = config.connect.max_tries();
         let mut ips = resolver_job
             .get_r1_or_first(
                 self.config.happy_eyeballs.resolution_delay(),
                 max_tries_each_family,
             )
             .await?;
-        let port = tcp_notes.upstream.port();
 
         let mut c_set = JoinSet::new();
 
@@ -206,7 +201,7 @@ impl DirectFloatEscaper {
         let mut spawn_new_connection = true;
         let mut running_connection = 0;
         let mut resolver_r2_done = false;
-        let each_timeout = tcp_connect_config.each_timeout();
+        let each_timeout = config.connect.each_timeout();
 
         tcp_notes.tries = 0;
         let instant_now = Instant::now();
@@ -215,14 +210,9 @@ impl DirectFloatEscaper {
         loop {
             if spawn_new_connection {
                 if let Some(ip) = ips.pop() {
-                    let (sock, bind) = self.prepare_connect_socket(
-                        ip,
-                        tcp_notes.bind,
-                        task_notes,
-                        &keepalive,
-                        &tcp_misc_opts,
-                    )?;
-                    let peer = SocketAddr::new(ip, port);
+                    let (sock, bind) =
+                        self.prepare_connect_socket(ip, tcp_notes.bind, task_notes, &config)?;
+                    let peer = SocketAddr::new(ip, task_conf.upstream.port());
                     running_connection += 1;
                     spawn_new_connection = false;
                     tcp_notes.tries += 1;
@@ -270,6 +260,7 @@ impl DirectFloatEscaper {
                                     }
                                     Err(e) => {
                                         EscapeLogForTcpConnect {
+                                            upstream: task_conf.upstream,
                                             tcp_notes,
                                             task_id: &task_notes.id,
                                         }
@@ -334,39 +325,31 @@ impl DirectFloatEscaper {
 
     pub(super) async fn tcp_connect_to<'a>(
         &'a self,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
     ) -> Result<(TcpStream, DirectFloatBindIp), TcpConnectError> {
-        let mut tcp_connect_config = self.config.general.tcp_connect;
+        let mut config = DirectTcpConnectConfig {
+            connect: self.config.general.tcp_connect,
+            keepalive: self.config.tcp_keepalive,
+            misc_opts: self.config.tcp_misc_opts,
+        };
 
-        let (keepalive, misc_opts) = if let Some(user_ctx) = task_notes.user_ctx() {
+        if let Some(user_ctx) = task_notes.user_ctx() {
             let user_config = user_ctx.user_config();
 
             if let Some(user_config) = &user_config.tcp_connect {
-                tcp_connect_config.limit_to(user_config);
+                config.connect.limit_to(user_config);
             }
 
-            let keepalive = self
-                .config
-                .tcp_keepalive
-                .adjust_to(user_config.tcp_remote_keepalive);
-            let misc_opts = user_config.tcp_remote_misc_opts(&self.config.tcp_misc_opts);
-            (keepalive, misc_opts)
-        } else {
-            (self.config.tcp_keepalive, self.config.tcp_misc_opts)
-        };
+            config.keepalive = config.keepalive.adjust_to(user_config.tcp_remote_keepalive);
+            config.misc_opts = user_config.tcp_remote_misc_opts(&config.misc_opts);
+        }
 
-        match tcp_notes.upstream.host() {
+        match task_conf.upstream.host() {
             Host::Ip(ip) => {
-                self.fixed_try_connect(
-                    *ip,
-                    tcp_connect_config,
-                    keepalive,
-                    misc_opts,
-                    tcp_notes,
-                    task_notes,
-                )
-                .await
+                self.fixed_try_connect(*ip, config, task_conf, tcp_notes, task_notes)
+                    .await
             }
             Host::Domain(domain) => {
                 let resolver_job = self.resolve_happy(
@@ -375,45 +358,40 @@ impl DirectFloatEscaper {
                     task_notes,
                 )?;
 
-                self.happy_try_connect(
-                    resolver_job,
-                    tcp_connect_config,
-                    keepalive,
-                    misc_opts,
-                    tcp_notes,
-                    task_notes,
-                )
-                .await
+                self.happy_try_connect(resolver_job, config, task_conf, tcp_notes, task_notes)
+                    .await
             }
         }
     }
 
     pub(super) async fn tcp_connect_to_again<'a>(
         &'a self,
+        task_conf: &TcpConnectTaskConf<'_>,
+        old_upstream: &UpstreamAddr,
         new_tcp_notes: &'a mut TcpConnectTaskNotes,
         old_tcp_notes: &'a TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
     ) -> Result<(TcpStream, DirectFloatBindIp), TcpConnectError> {
         new_tcp_notes.bind = old_tcp_notes.bind;
 
-        let mut tcp_connect_config = self.config.general.tcp_connect;
-
-        let misc_opts = if let Some(user_ctx) = task_notes.user_ctx() {
-            if let Some(user_config) = &user_ctx.user_config().tcp_connect {
-                tcp_connect_config.limit_to(user_config);
-            }
-
-            user_ctx
-                .user_config()
-                .tcp_remote_misc_opts(&self.config.tcp_misc_opts)
-        } else {
-            self.config.tcp_misc_opts
+        let mut config = DirectTcpConnectConfig {
+            connect: self.config.general.tcp_connect,
+            // tcp keepalive is not needed for ftp transfer connection as it shouldn't be idle
+            keepalive: TcpKeepAliveConfig::default(),
+            misc_opts: self.config.tcp_misc_opts,
         };
 
-        // tcp keepalive is not needed for ftp transfer connection as it shouldn't be idle
-        let keepalive = TcpKeepAliveConfig::default();
+        if let Some(user_ctx) = task_notes.user_ctx() {
+            if let Some(user_config) = &user_ctx.user_config().tcp_connect {
+                config.connect.limit_to(user_config);
+            }
 
-        if new_tcp_notes.upstream.host_eq(&old_tcp_notes.upstream) {
+            config.misc_opts = user_ctx
+                .user_config()
+                .tcp_remote_misc_opts(&config.misc_opts)
+        }
+
+        if task_conf.upstream.host_eq(old_upstream) {
             let control_addr = old_tcp_notes.next.ok_or_else(|| {
                 TcpConnectError::SetupSocketFailed(io::Error::new(
                     io::ErrorKind::InvalidInput,
@@ -423,25 +401,17 @@ impl DirectFloatEscaper {
 
             self.fixed_try_connect(
                 control_addr.ip(),
-                tcp_connect_config,
-                keepalive,
-                misc_opts,
+                config,
+                task_conf,
                 new_tcp_notes,
                 task_notes,
             )
             .await
         } else {
-            match new_tcp_notes.upstream.host() {
+            match task_conf.upstream.host() {
                 Host::Ip(ip) => {
-                    self.fixed_try_connect(
-                        *ip,
-                        tcp_connect_config,
-                        keepalive,
-                        misc_opts,
-                        new_tcp_notes,
-                        task_notes,
-                    )
-                    .await
+                    self.fixed_try_connect(*ip, config, task_conf, new_tcp_notes, task_notes)
+                        .await
                 }
                 Host::Domain(domain) => {
                     let mut resolve_strategy = self.get_resolve_strategy(task_notes);
@@ -455,9 +425,8 @@ impl DirectFloatEscaper {
                         self.resolve_happy(domain.clone(), resolve_strategy, task_notes)?;
                     self.happy_try_connect(
                         resolver_job,
-                        tcp_connect_config,
-                        keepalive,
-                        misc_opts,
+                        config,
+                        task_conf,
                         new_tcp_notes,
                         task_notes,
                     )
@@ -469,11 +438,14 @@ impl DirectFloatEscaper {
 
     pub(super) async fn tcp_new_connection<'a>(
         &'a self,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
-        let (stream, _) = self.tcp_connect_to(tcp_notes, task_notes).await?;
+        let (stream, _) = self
+            .tcp_connect_to(task_conf, tcp_notes, task_notes)
+            .await?;
         let (r, w) = stream.into_split();
 
         let mut wrapper_stats = TcpConnectRemoteWrapperStats::new(&self.stats, task_stats);

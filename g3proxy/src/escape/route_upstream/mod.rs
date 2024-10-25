@@ -26,21 +26,23 @@ use radix_trie::Trie;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::metrics::MetricsName;
-use g3_types::net::{Host, OpensslClientConfig, UpstreamAddr};
+use g3_types::net::{Host, UpstreamAddr};
 
 use super::{ArcEscaper, Escaper, EscaperInternal, RouteEscaperStats};
 use crate::audit::AuditContext;
 use crate::config::escaper::route_upstream::RouteUpstreamEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
 use crate::module::ftp_over_http::{
-    AnyFtpConnectContextParam, ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats,
-    BoxFtpConnectContext, BoxFtpRemoteConnection,
+    ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpConnectContext,
+    BoxFtpRemoteConnection,
 };
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, BoxHttpForwardContext,
     RouteHttpForwardContext,
 };
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
+};
 use crate::module::udp_connect::{
     ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectResult, UdpConnectTaskNotes,
 };
@@ -224,35 +226,33 @@ impl Escaper for RouteUpstreamEscaper {
 
     async fn tcp_setup_connection<'a>(
         &'a self,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
         audit_ctx: &'a mut AuditContext,
     ) -> TcpConnectResult {
         tcp_notes.escaper.clone_from(&self.config.name);
-        let escaper = self.select_next(&tcp_notes.upstream);
+        let escaper = self.select_next(task_conf.upstream);
         self.stats.add_request_passed();
         escaper
-            .tcp_setup_connection(tcp_notes, task_notes, task_stats, audit_ctx)
+            .tcp_setup_connection(task_conf, tcp_notes, task_notes, task_stats, audit_ctx)
             .await
     }
 
     async fn tls_setup_connection<'a>(
         &'a self,
+        task_conf: &TlsConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
         audit_ctx: &'a mut AuditContext,
-        tls_config: &'a OpensslClientConfig,
-        tls_name: &'a Host,
     ) -> TcpConnectResult {
         tcp_notes.escaper.clone_from(&self.config.name);
-        let escaper = self.select_next(&tcp_notes.upstream);
+        let escaper = self.select_next(task_conf.tcp.upstream);
         self.stats.add_request_passed();
         escaper
-            .tls_setup_connection(
-                tcp_notes, task_notes, task_stats, audit_ctx, tls_config, tls_name,
-            )
+            .tls_setup_connection(task_conf, tcp_notes, task_notes, task_stats, audit_ctx)
             .await
     }
 
@@ -296,13 +296,13 @@ impl Escaper for RouteUpstreamEscaper {
     async fn new_ftp_connect_context<'a>(
         &'a self,
         _escaper: ArcEscaper,
+        task_conf: &TcpConnectTaskConf<'_>,
         task_notes: &'a ServerTaskNotes,
-        upstream: &'a UpstreamAddr,
     ) -> BoxFtpConnectContext {
-        let escaper = self.select_next(upstream);
+        let escaper = self.select_next(task_conf.upstream);
         self.stats.add_request_passed();
         escaper
-            .new_ftp_connect_context(Arc::clone(&escaper), task_notes, upstream)
+            .new_ftp_connect_context(Arc::clone(&escaper), task_conf, task_notes)
             .await
     }
 }
@@ -350,6 +350,7 @@ impl EscaperInternal for RouteUpstreamEscaper {
 
     async fn _new_http_forward_connection<'a>(
         &'a self,
+        _task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         _task_notes: &'a ServerTaskNotes,
         _task_stats: ArcHttpForwardTaskRemoteStats,
@@ -360,11 +361,10 @@ impl EscaperInternal for RouteUpstreamEscaper {
 
     async fn _new_https_forward_connection<'a>(
         &'a self,
+        _task_conf: &TlsConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         _task_notes: &'a ServerTaskNotes,
         _task_stats: ArcHttpForwardTaskRemoteStats,
-        _tls_config: &'a OpensslClientConfig,
-        _tls_name: &'a Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         tcp_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
@@ -372,6 +372,7 @@ impl EscaperInternal for RouteUpstreamEscaper {
 
     async fn _new_ftp_control_connection<'a>(
         &'a self,
+        _task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         _task_notes: &'a ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteControlStats,
@@ -382,11 +383,12 @@ impl EscaperInternal for RouteUpstreamEscaper {
 
     async fn _new_ftp_transfer_connection<'a>(
         &'a self,
+        _task_conf: &TcpConnectTaskConf<'_>,
         transfer_tcp_notes: &'a mut TcpConnectTaskNotes,
         _control_tcp_notes: &'a TcpConnectTaskNotes,
         _task_notes: &'a ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteTransferStats,
-        _context: AnyFtpConnectContextParam,
+        _ftp_server: &UpstreamAddr,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         transfer_tcp_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)

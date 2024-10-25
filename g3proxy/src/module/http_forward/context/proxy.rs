@@ -19,7 +19,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use tokio::time::Instant;
 
-use g3_types::net::{Host, HttpForwardCapability, OpensslClientConfig, UpstreamAddr};
+use g3_types::net::{HttpForwardCapability, UpstreamAddr};
 
 use crate::audit::AuditContext;
 use crate::escape::{ArcEscaper, ArcEscaperInternalStats};
@@ -27,13 +27,16 @@ use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpConnectionEofPoller,
     HttpForwardContext,
 };
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
+};
 use crate::serve::ServerTaskNotes;
 
 pub(crate) struct ProxyHttpForwardContext {
     escaper: ArcEscaper,
     stats: ArcEscaperInternalStats,
     tcp_notes: TcpConnectTaskNotes,
+    last_upstream: UpstreamAddr,
     last_is_tls: bool,
     last_connection: Option<(Instant, HttpConnectionEofPoller)>,
 }
@@ -43,7 +46,8 @@ impl ProxyHttpForwardContext {
         ProxyHttpForwardContext {
             escaper,
             stats,
-            tcp_notes: TcpConnectTaskNotes::empty(),
+            tcp_notes: TcpConnectTaskNotes::default(),
+            last_upstream: UpstreamAddr::empty(),
             last_is_tls: false,
             last_connection: None,
         }
@@ -65,10 +69,10 @@ impl HttpForwardContext for ProxyHttpForwardContext {
     fn prepare_connection(&mut self, ups: &UpstreamAddr, is_tls: bool) {
         if is_tls {
             self.stats.add_https_forward_request_attempted();
-            if !self.last_is_tls || self.tcp_notes.upstream.ne(ups) {
+            if !self.last_is_tls || self.last_upstream.ne(ups) {
                 // new upstream, but not new peer
-                self.tcp_notes.upstream = ups.clone();
-                self.tcp_notes.reset_generated();
+                self.last_upstream = ups.clone();
+                self.tcp_notes.reset();
                 // use new tls session
                 let _old_connection = self.last_connection.take();
             } else {
@@ -78,13 +82,13 @@ impl HttpForwardContext for ProxyHttpForwardContext {
             self.stats.add_http_forward_request_attempted();
             if self.last_is_tls {
                 // new upstream, but not new peer
-                self.tcp_notes.upstream = ups.clone();
-                self.tcp_notes.reset_generated();
+                self.last_upstream = ups.clone();
+                self.tcp_notes.reset();
                 // drop old tls session
                 let _old_connection = self.last_connection.take();
-            } else if self.tcp_notes.upstream.ne(ups) {
+            } else if self.last_upstream.ne(ups) {
                 // new upstream, but not new peer
-                self.tcp_notes.upstream = ups.clone();
+                self.last_upstream = ups.clone();
             } else {
                 // old upstream
             }
@@ -122,31 +126,25 @@ impl HttpForwardContext for ProxyHttpForwardContext {
 
     async fn make_new_http_connection<'a>(
         &'a mut self,
+        task_conf: &TcpConnectTaskConf<'_>,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.last_is_tls = false;
         self.escaper
-            ._new_http_forward_connection(&mut self.tcp_notes, task_notes, task_stats)
+            ._new_http_forward_connection(task_conf, &mut self.tcp_notes, task_notes, task_stats)
             .await
     }
 
     async fn make_new_https_connection<'a>(
         &'a mut self,
+        task_conf: &TlsConnectTaskConf<'_>,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
-        tls_config: &'a OpensslClientConfig,
-        tls_name: &'a Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.last_is_tls = true;
         self.escaper
-            ._new_https_forward_connection(
-                &mut self.tcp_notes,
-                task_notes,
-                task_stats,
-                tls_config,
-                tls_name,
-            )
+            ._new_https_forward_connection(task_conf, &mut self.tcp_notes, task_notes, task_stats)
             .await
     }
 
@@ -158,6 +156,6 @@ impl HttpForwardContext for ProxyHttpForwardContext {
     fn fetch_tcp_notes(&self, tcp_notes: &mut TcpConnectTaskNotes) {
         // the upstream addr self.notes is the proxy_addr,
         // which is likely to be different than the one in tcp_notes
-        tcp_notes.fill_generated(&self.tcp_notes);
+        tcp_notes.clone_from(&self.tcp_notes);
     }
 }

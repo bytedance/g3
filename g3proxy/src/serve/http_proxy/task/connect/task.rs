@@ -23,7 +23,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use g3_daemon::stat::task::TcpStreamTaskStats;
 use g3_io_ext::{LimitedReader, LimitedWriter};
 use g3_types::acl::AclAction;
-use g3_types::net::ProxyRequestType;
+use g3_types::net::{ProxyRequestType, UpstreamAddr};
 
 use super::protocol::{HttpClientWriter, HttpProxyRequest};
 use super::{CommonTaskContext, TcpConnectTaskCltWrapperStats};
@@ -32,7 +32,9 @@ use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
 use crate::module::http_forward::HttpProxyClientResponse;
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes, TcpConnection};
+use crate::module::tcp_connect::{
+    TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes, TcpConnection,
+};
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
@@ -40,6 +42,7 @@ use crate::serve::{
 
 pub(crate) struct HttpProxyConnectTask {
     ctx: Arc<CommonTaskContext>,
+    upstream: UpstreamAddr,
     stream_ups: Option<TcpConnection>,
     back_to_http: bool,
     task_notes: ServerTaskNotes,
@@ -58,10 +61,11 @@ impl HttpProxyConnectTask {
     ) -> Self {
         HttpProxyConnectTask {
             ctx: Arc::clone(ctx),
+            upstream: req.upstream.clone(),
             stream_ups: None,
             back_to_http: false,
             task_notes,
-            tcp_notes: TcpConnectTaskNotes::new(req.upstream.clone()),
+            tcp_notes: TcpConnectTaskNotes::default(),
             task_stats: Arc::new(TcpStreamTaskStats::default()),
             audit_ctx,
             http_version: req.inner.version,
@@ -269,7 +273,7 @@ impl HttpProxyConnectTask {
             let action = user_ctx.check_proxy_request(ProxyRequestType::HttpConnect);
             self.handle_user_protocol_acl_action(action, clt_w).await?;
 
-            let action = user_ctx.check_upstream(&self.tcp_notes.upstream);
+            let action = user_ctx.check_upstream(&self.upstream);
             self.handle_user_upstream_acl_action(action, clt_w).await?;
 
             tcp_client_misc_opts = user_ctx
@@ -278,7 +282,7 @@ impl HttpProxyConnectTask {
         }
 
         // server level dst host/port acl rules
-        let action = self.ctx.check_upstream(&self.tcp_notes.upstream);
+        let action = self.ctx.check_upstream(&self.upstream);
         self.handle_server_upstream_acl_action(action, clt_w)
             .await?;
 
@@ -291,10 +295,15 @@ impl HttpProxyConnectTask {
             })?;
 
         self.task_notes.stage = ServerTaskStage::Connecting;
+
+        let task_conf = TcpConnectTaskConf {
+            upstream: &self.upstream,
+        };
         match self
             .ctx
             .escaper
             .tcp_setup_connection(
+                &task_conf,
                 &mut self.tcp_notes,
                 &self.task_notes,
                 self.task_stats.clone(),
@@ -353,6 +362,7 @@ impl HttpProxyConnectTask {
 
     fn get_log_context(&self) -> TaskLogForTcpConnect {
         TaskLogForTcpConnect {
+            upstream: &self.upstream,
             task_notes: &self.task_notes,
             tcp_notes: &self.tcp_notes,
             total_time: self.task_notes.time_elapsed(),
@@ -456,7 +466,7 @@ impl HttpProxyConnectTask {
                     ups_r,
                     ups_w,
                     ctx,
-                    self.tcp_notes.upstream.clone(),
+                    self.upstream.clone(),
                     None,
                 )
                 .await;

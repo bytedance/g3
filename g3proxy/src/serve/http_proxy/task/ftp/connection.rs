@@ -23,7 +23,7 @@ use g3_types::net::UpstreamAddr;
 
 use super::FtpOverHttpTaskStats;
 use crate::module::ftp_over_http::{BoxFtpConnectContext, BoxFtpRemoteConnection};
-use crate::module::tcp_connect::TcpConnectError;
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf};
 use crate::serve::ServerTaskNotes;
 
 pub(super) struct HttpProxyFtpConnectionProvider {
@@ -54,11 +54,12 @@ impl FtpConnectionProvider<BoxFtpRemoteConnection, TcpConnectError, ServerTaskNo
 {
     async fn new_control_connection(
         &mut self,
-        _upstream: &UpstreamAddr,
+        upstream: &UpstreamAddr,
         task_notes: &ServerTaskNotes,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
+        let task_conf = TcpConnectTaskConf { upstream };
         self.connect_context
-            .new_control_connection(task_notes, self.task_stats.clone())
+            .new_control_connection(&task_conf, task_notes, self.task_stats.clone())
             .await
     }
 
@@ -67,8 +68,11 @@ impl FtpConnectionProvider<BoxFtpRemoteConnection, TcpConnectError, ServerTaskNo
         server_addr: &UpstreamAddr,
         task_notes: &ServerTaskNotes,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
+        let task_conf = TcpConnectTaskConf {
+            upstream: server_addr,
+        };
         self.connect_context
-            .new_transfer_connection(server_addr, task_notes, self.task_stats.clone())
+            .new_transfer_connection(&task_conf, task_notes, self.task_stats.clone())
             .await
     }
 }

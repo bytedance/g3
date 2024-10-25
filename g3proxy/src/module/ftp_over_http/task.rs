@@ -24,6 +24,7 @@ use super::FtpRequestPath;
 use crate::module::tcp_connect::TcpConnectTaskNotes;
 
 pub(crate) struct FtpOverHttpTaskNotes {
+    upstream: UpstreamAddr,
     pub(crate) method: Method,
     pub(crate) uri: Uri,
     pub(crate) uri_log_max_chars: usize,
@@ -70,6 +71,7 @@ impl FtpOverHttpTaskNotes {
         }
 
         FtpOverHttpTaskNotes {
+            upstream: upstream.clone(),
             method: req.method.clone(),
             uri: req.uri.clone(),
             uri_log_max_chars,
@@ -77,8 +79,8 @@ impl FtpOverHttpTaskNotes {
             ftp_path: FtpRequestPath::from(&req.uri),
             ftp_user: username,
             ftp_pass: password,
-            control_tcp_notes: TcpConnectTaskNotes::new(upstream.clone()),
-            transfer_tcp_notes: TcpConnectTaskNotes::empty(),
+            control_tcp_notes: TcpConnectTaskNotes::default(),
+            transfer_tcp_notes: TcpConnectTaskNotes::default(),
         }
     }
 
@@ -94,6 +96,6 @@ impl FtpOverHttpTaskNotes {
 
     #[inline]
     pub(crate) fn upstream(&self) -> &UpstreamAddr {
-        &self.control_tcp_notes.upstream
+        &self.upstream
     }
 }

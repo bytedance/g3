@@ -25,14 +25,16 @@ use tokio::time::Instant;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::auth::{Password, Username};
-use g3_types::net::{EgressInfo, Host, OpensslClientConfig, TcpSockSpeedLimitConfig};
+use g3_types::net::{EgressInfo, TcpSockSpeedLimitConfig};
 
 use super::{
     ArcNextProxyPeer, NextProxyPeer, NextProxyPeerInternal, ProxyFloatEscaper,
     ProxyFloatEscaperStats,
 };
 use crate::module::http_forward::{ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection};
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
+};
 use crate::module::udp_connect::{
     ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectResult, UdpConnectTaskNotes,
 };
@@ -179,53 +181,49 @@ impl NextProxyPeer for ProxyFloatHttpPeer {
     async fn tcp_setup_connection(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
-        self.http_connect_new_tcp_connection(escaper, tcp_notes, task_notes, task_stats)
+        self.http_connect_new_tcp_connection(escaper, task_conf, tcp_notes, task_notes, task_stats)
             .await
     }
 
     async fn tls_setup_connection(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &TlsConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        tls_config: &OpensslClientConfig,
-        tls_name: &Host,
     ) -> TcpConnectResult {
-        self.http_connect_new_tls_connection(
-            escaper, tcp_notes, task_notes, task_stats, tls_config, tls_name,
-        )
-        .await
+        self.http_connect_new_tls_connection(escaper, task_conf, tcp_notes, task_notes, task_stats)
+            .await
     }
 
     async fn new_http_forward_connection(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
-        self.http_forward_new_connection(escaper, tcp_notes, task_notes, task_stats)
+        self.http_forward_new_connection(escaper, task_conf, tcp_notes, task_notes, task_stats)
             .await
     }
 
     async fn new_https_forward_connection(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &TlsConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
-        tls_config: &OpensslClientConfig,
-        tls_name: &Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
-        self.https_forward_new_connection(
-            escaper, tcp_notes, task_notes, task_stats, tls_config, tls_name,
-        )
-        .await
+        self.https_forward_new_connection(escaper, task_conf, tcp_notes, task_notes, task_stats)
+            .await
     }
 
     async fn udp_setup_connection(

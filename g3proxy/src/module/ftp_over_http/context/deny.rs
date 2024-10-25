@@ -17,13 +17,12 @@
 use async_trait::async_trait;
 
 use g3_types::metrics::MetricsName;
-use g3_types::net::UpstreamAddr;
 
 use super::{
     ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpRemoteConnection,
     FtpConnectContext,
 };
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes};
 use crate::serve::ServerTaskNotes;
 
 pub(crate) struct DenyFtpConnectContext {
@@ -44,6 +43,7 @@ impl DenyFtpConnectContext {
 impl FtpConnectContext for DenyFtpConnectContext {
     async fn new_control_connection(
         &mut self,
+        _task_conf: &TcpConnectTaskConf<'_>,
         _task_notes: &ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteControlStats,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
@@ -60,7 +60,7 @@ impl FtpConnectContext for DenyFtpConnectContext {
 
     async fn new_transfer_connection(
         &mut self,
-        _server_addr: &UpstreamAddr,
+        _task_conf: &TcpConnectTaskConf<'_>,
         _task_notes: &ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteTransferStats,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {

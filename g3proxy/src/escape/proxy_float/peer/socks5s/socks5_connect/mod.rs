@@ -28,27 +28,30 @@ use g3_io_ext::{AsyncStream, LimitedReader, LimitedWriter};
 use g3_openssl::SslStream;
 use g3_socket::BindAddr;
 use g3_socks::v5;
-use g3_types::net::{Host, OpensslClientConfig, SocketBufferConfig};
+use g3_types::net::{SocketBufferConfig, UpstreamAddr};
 
 use super::{ProxyFloatEscaper, ProxyFloatSocks5sPeer};
 use crate::log::escape::tls_handshake::TlsApplication;
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
+};
 use crate::serve::ServerTaskNotes;
 
 impl ProxyFloatSocks5sPeer {
     async fn socks5_connect_tcp_connect_to(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<SslStream<impl AsyncRead + AsyncWrite>, TcpConnectError> {
         let mut stream = escaper
-            .tls_handshake_with_peer(tcp_notes, task_notes, &self.tls_name, self)
+            .tls_handshake_with_peer(task_conf, tcp_notes, task_notes, &self.tls_name, self)
             .await?;
         let outgoing_addr = v5::client::socks5_connect_to(
             &mut stream,
             &self.shared_config.auth_info,
-            &tcp_notes.upstream,
+            task_conf.upstream,
         )
         .await?;
         // no need to replace the ip with registered public address.
@@ -62,12 +65,13 @@ impl ProxyFloatSocks5sPeer {
     pub(super) async fn timed_socks5_connect_tcp_connect_to(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<SslStream<impl AsyncRead + AsyncWrite>, TcpConnectError> {
         tokio::time::timeout(
             escaper.config.peer_negotiation_timeout,
-            self.socks5_connect_tcp_connect_to(escaper, tcp_notes, task_notes),
+            self.socks5_connect_tcp_connect_to(escaper, task_conf, tcp_notes, task_notes),
         )
         .await
         .map_err(|_| TcpConnectError::NegotiationPeerTimeout)?
@@ -90,8 +94,11 @@ impl ProxyFloatSocks5sPeer {
         ),
         io::Error,
     > {
+        let tcp_task_conf = TcpConnectTaskConf {
+            upstream: &UpstreamAddr::empty(),
+        };
         let mut ctl_stream = escaper
-            .tls_handshake_with_peer(tcp_notes, task_notes, &self.tls_name, self)
+            .tls_handshake_with_peer(&tcp_task_conf, tcp_notes, task_notes, &self.tls_name, self)
             .await
             .map_err(io::Error::other)?;
         let local_tcp_addr = tcp_notes
@@ -155,12 +162,13 @@ impl ProxyFloatSocks5sPeer {
     pub(super) async fn socks5_new_tcp_connection(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
         let ups_s = self
-            .timed_socks5_connect_tcp_connect_to(escaper, tcp_notes, task_notes)
+            .timed_socks5_connect_tcp_connect_to(escaper, task_conf, tcp_notes, task_notes)
             .await?;
 
         // add task and user stats
@@ -178,43 +186,32 @@ impl ProxyFloatSocks5sPeer {
     pub(super) async fn socks5_connect_tls_connect_to(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &TlsConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-        tls_config: &OpensslClientConfig,
-        tls_name: &Host,
         tls_application: TlsApplication,
     ) -> Result<SslStream<impl AsyncRead + AsyncWrite>, TcpConnectError> {
         let ups_s = self
-            .timed_socks5_connect_tcp_connect_to(escaper, tcp_notes, task_notes)
+            .timed_socks5_connect_tcp_connect_to(escaper, &task_conf.tcp, tcp_notes, task_notes)
             .await?;
         escaper
-            .tls_connect_over_tunnel(
-                ups_s,
-                tcp_notes,
-                task_notes,
-                tls_config,
-                tls_name,
-                tls_application,
-            )
+            .tls_connect_over_tunnel(ups_s, task_conf, tcp_notes, task_notes, tls_application)
             .await
     }
 
     pub(super) async fn socks5_new_tls_connection(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &TlsConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        tls_config: &OpensslClientConfig,
-        tls_name: &Host,
     ) -> TcpConnectResult {
         let ups_s = self
-            .timed_socks5_connect_tcp_connect_to(escaper, tcp_notes, task_notes)
+            .timed_socks5_connect_tcp_connect_to(escaper, &task_conf.tcp, tcp_notes, task_notes)
             .await?;
         escaper
-            .new_tls_connection_over_tunnel(
-                ups_s, tcp_notes, task_notes, task_stats, tls_config, tls_name,
-            )
+            .new_tls_connection_over_tunnel(ups_s, task_conf, tcp_notes, task_notes, task_stats)
             .await
     }
 }

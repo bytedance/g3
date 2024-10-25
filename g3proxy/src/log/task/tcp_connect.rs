@@ -19,11 +19,13 @@ use std::time::Duration;
 use slog::{slog_info, Logger};
 
 use g3_slog_types::{LtDateTime, LtDuration, LtIpAddr, LtUpstreamAddr, LtUuid};
+use g3_types::net::UpstreamAddr;
 
 use crate::module::tcp_connect::TcpConnectTaskNotes;
 use crate::serve::{ServerTaskError, ServerTaskNotes};
 
 pub(crate) struct TaskLogForTcpConnect<'a> {
+    pub(crate) upstream: &'a UpstreamAddr,
     pub(crate) task_notes: &'a ServerTaskNotes,
     pub(crate) tcp_notes: &'a TcpConnectTaskNotes,
     pub(crate) total_time: Duration,
@@ -49,7 +51,7 @@ impl TaskLogForTcpConnect<'_> {
             "user" => self.task_notes.raw_user_name(),
             "server_addr" => self.task_notes.server_addr(),
             "client_addr" => self.task_notes.client_addr(),
-            "upstream" => LtUpstreamAddr(&self.tcp_notes.upstream),
+            "upstream" => LtUpstreamAddr(self.upstream),
             "escaper" => self.tcp_notes.escaper.as_str(),
             "next_bind_ip" => self.tcp_notes.bind.ip().map(LtIpAddr),
             "next_bound_addr" => self.tcp_notes.local,

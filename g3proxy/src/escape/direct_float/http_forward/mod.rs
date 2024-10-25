@@ -17,7 +17,6 @@
 use std::sync::Arc;
 
 use g3_io_ext::{AsyncStream, LimitedBufReader, LimitedWriter, NilLimitedReaderStats};
-use g3_types::net::{Host, OpensslClientConfig};
 
 use super::{DirectFloatBindIp, DirectFloatEscaper};
 use crate::escape::direct_fixed::http_forward::DirectHttpForwardReader;
@@ -26,7 +25,9 @@ use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpForwardRemoteWrapperStats,
     HttpForwardTaskRemoteWrapperStats,
 };
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
+};
 use crate::serve::ServerTaskNotes;
 
 mod writer;
@@ -35,11 +36,14 @@ use writer::DirectFloatHttpForwardWriter;
 impl DirectFloatEscaper {
     pub(super) async fn http_forward_new_connection<'a>(
         &'a self,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
-        let (stream, bind) = self.tcp_connect_to(tcp_notes, task_notes).await?;
+        let (stream, bind) = self
+            .tcp_connect_to(task_conf, tcp_notes, task_notes)
+            .await?;
 
         let (ups_r, ups_w) = stream.into_split();
 
@@ -71,18 +75,16 @@ impl DirectFloatEscaper {
 
     pub(super) async fn https_forward_new_connection<'a>(
         &'a self,
+        task_conf: &TlsConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
-        tls_config: &'a OpensslClientConfig,
-        tls_name: &'a Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         let (tls_stream, bind) = self
             .tls_connect_to(
+                task_conf,
                 tcp_notes,
                 task_notes,
-                tls_config,
-                tls_name,
                 TlsApplication::HttpForward,
             )
             .await?;

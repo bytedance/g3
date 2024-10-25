@@ -24,41 +24,40 @@ use g3_daemon::stat::remote::{
 };
 use g3_io_ext::{AsyncStream, LimitedReader, LimitedWriter};
 use g3_openssl::{SslConnector, SslStream};
-use g3_types::net::{Host, OpensslClientConfig};
 
 use super::ProxyFloatEscaper;
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectError, TcpConnectResult, TcpConnectTaskNotes, TlsConnectTaskConf,
+};
 use crate::serve::ServerTaskNotes;
 
 impl ProxyFloatEscaper {
     pub(super) async fn tls_connect_over_tunnel<S>(
         &self,
         stream: S,
+        task_conf: &TlsConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-        tls_config: &OpensslClientConfig,
-        tls_name: &Host,
         tls_application: TlsApplication,
     ) -> Result<SslStream<S>, TcpConnectError>
     where
         S: AsyncRead + AsyncWrite + Sync + Send + Unpin + 'static,
     {
-        let ssl = tls_config
-            .build_ssl(tls_name, tcp_notes.upstream.port())
-            .map_err(TcpConnectError::InternalTlsClientError)?;
+        let ssl = task_conf.build_ssl()?;
         let connector = SslConnector::new(ssl, stream)
             .map_err(|e| TcpConnectError::InternalTlsClientError(anyhow::Error::new(e)))?;
 
-        match tokio::time::timeout(tls_config.handshake_timeout, connector.connect()).await {
+        match tokio::time::timeout(task_conf.handshake_timeout(), connector.connect()).await {
             Ok(Ok(stream)) => Ok(stream),
             Ok(Err(e)) => {
                 let e = anyhow::Error::new(e);
                 EscapeLogForTlsHandshake {
+                    upstream: task_conf.tcp.upstream,
                     tcp_notes,
                     task_id: &task_notes.id,
-                    tls_name,
-                    tls_peer: &tcp_notes.upstream,
+                    tls_name: task_conf.tls_name,
+                    tls_peer: task_conf.tcp.upstream,
                     tls_application,
                 }
                 .log(&self.escape_logger, &e);
@@ -67,10 +66,11 @@ impl ProxyFloatEscaper {
             Err(_) => {
                 let e = anyhow!("upstream tls handshake timed out");
                 EscapeLogForTlsHandshake {
+                    upstream: task_conf.tcp.upstream,
                     tcp_notes,
                     task_id: &task_notes.id,
-                    tls_name,
-                    tls_peer: &tcp_notes.upstream,
+                    tls_name: task_conf.tls_name,
+                    tls_peer: task_conf.tcp.upstream,
                     tls_application,
                 }
                 .log(&self.escape_logger, &e);
@@ -82,11 +82,10 @@ impl ProxyFloatEscaper {
     pub(super) async fn new_tls_connection_over_tunnel<S>(
         &self,
         stream: S,
+        task_conf: &TlsConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        tls_config: &OpensslClientConfig,
-        tls_name: &Host,
     ) -> TcpConnectResult
     where
         S: AsyncRead + AsyncWrite + Sync + Send + Unpin + 'static,
@@ -94,10 +93,9 @@ impl ProxyFloatEscaper {
         let tls_stream = self
             .tls_connect_over_tunnel(
                 stream,
+                task_conf,
                 tcp_notes,
                 task_notes,
-                tls_config,
-                tls_name,
                 TlsApplication::TcpStream,
             )
             .await?;

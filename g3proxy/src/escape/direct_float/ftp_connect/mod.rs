@@ -17,23 +17,27 @@
 use std::sync::Arc;
 
 use g3_io_ext::LimitedStream;
+use g3_types::net::UpstreamAddr;
 
 use super::DirectFloatEscaper;
 use crate::module::ftp_over_http::{
     ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpRemoteConnection,
     FtpControlRemoteWrapperStats, FtpTransferRemoteWrapperStats,
 };
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes};
 use crate::serve::ServerTaskNotes;
 
 impl DirectFloatEscaper {
     pub(super) async fn new_ftp_control_connection<'a>(
         &'a self,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteControlStats,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
-        let (stream, _) = self.tcp_connect_to(tcp_notes, task_notes).await?;
+        let (stream, _) = self
+            .tcp_connect_to(task_conf, tcp_notes, task_notes)
+            .await?;
 
         let mut wrapper_stats = FtpControlRemoteWrapperStats::new(&self.stats, task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
@@ -53,13 +57,21 @@ impl DirectFloatEscaper {
 
     pub(super) async fn new_ftp_transfer_connection<'a>(
         &'a self,
+        task_conf: &TcpConnectTaskConf<'_>,
         transfer_tcp_notes: &'a mut TcpConnectTaskNotes,
         control_tcp_notes: &'a TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteTransferStats,
+        ftp_server: &UpstreamAddr,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         let (stream, _) = self
-            .tcp_connect_to_again(transfer_tcp_notes, control_tcp_notes, task_notes)
+            .tcp_connect_to_again(
+                task_conf,
+                ftp_server,
+                transfer_tcp_notes,
+                control_tcp_notes,
+                task_notes,
+            )
             .await?;
 
         let mut wrapper_stats = FtpTransferRemoteWrapperStats::new(&self.stats, task_stats);

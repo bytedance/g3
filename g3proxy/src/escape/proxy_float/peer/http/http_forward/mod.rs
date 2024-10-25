@@ -17,7 +17,6 @@
 use std::sync::Arc;
 
 use g3_io_ext::{AsyncStream, LimitedBufReader, LimitedWriter, NilLimitedReaderStats};
-use g3_types::net::{Host, OpensslClientConfig};
 
 use super::{
     ProxyFloatEscaper, ProxyFloatEscaperStats, ProxyFloatHttpPeer, ProxyFloatHttpPeerSharedConfig,
@@ -27,7 +26,9 @@ use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpForwardRemoteWrapperStats,
     HttpForwardTaskRemoteWrapperStats,
 };
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
+};
 use crate::serve::ServerTaskNotes;
 
 mod reader;
@@ -40,12 +41,13 @@ impl ProxyFloatHttpPeer {
     pub(super) async fn http_forward_new_connection(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         let stream = escaper
-            .tcp_new_connection(self, tcp_notes, task_notes)
+            .tcp_new_connection(self, task_conf, tcp_notes, task_notes)
             .await?;
         let (ups_r, mut ups_w) = stream.into_split();
 
@@ -62,7 +64,7 @@ impl ProxyFloatHttpPeer {
             ups_w,
             Some(escaper.stats.clone()),
             &self.shared_config,
-            tcp_notes.upstream.clone(),
+            task_conf.upstream.clone(),
         );
         let reader = HttpPeerHttpForwardReader::new(ups_r);
         Ok((Box::new(writer), Box::new(reader)))
@@ -71,19 +73,17 @@ impl ProxyFloatHttpPeer {
     pub(super) async fn https_forward_new_connection(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &TlsConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
-        tls_config: &OpensslClientConfig,
-        tls_name: &Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         let tls_stream = self
             .http_connect_tls_connect_to(
                 escaper,
+                task_conf,
                 tcp_notes,
                 task_notes,
-                tls_config,
-                tls_name,
                 TlsApplication::HttpForward,
             )
             .await?;

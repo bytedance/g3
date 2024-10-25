@@ -30,7 +30,7 @@ use crate::audit::AuditContext;
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
-use crate::module::tcp_connect::TcpConnectTaskNotes;
+use crate::module::tcp_connect::{TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf};
 use crate::serve::{ServerTaskError, ServerTaskNotes, ServerTaskResult, ServerTaskStage};
 
 pub(super) struct TcpStreamTask {
@@ -52,7 +52,7 @@ impl TcpStreamTask {
         TcpStreamTask {
             ctx,
             upstream: upstream.clone(),
-            tcp_notes: TcpConnectTaskNotes::new(upstream.clone()),
+            tcp_notes: TcpConnectTaskNotes::default(),
             task_notes,
             task_stats: Arc::new(TcpStreamTaskStats::default()),
             audit_ctx,
@@ -61,6 +61,7 @@ impl TcpStreamTask {
 
     fn get_log_context(&self) -> TaskLogForTcpConnect {
         TaskLogForTcpConnect {
+            upstream: &self.upstream,
             task_notes: &self.task_notes,
             tcp_notes: &self.tcp_notes,
             total_time: self.task_notes.time_elapsed(),
@@ -124,21 +125,31 @@ impl TcpStreamTask {
                 .upstream_tls_name
                 .as_ref()
                 .unwrap_or_else(|| self.upstream.host());
+            let task_conf = TlsConnectTaskConf {
+                tcp: TcpConnectTaskConf {
+                    upstream: &self.upstream,
+                },
+                tls_config: tls_client_config,
+                tls_name,
+            };
             self.ctx
                 .escaper
                 .tls_setup_connection(
+                    &task_conf,
                     &mut self.tcp_notes,
                     &self.task_notes,
                     self.task_stats.clone(),
                     &mut self.audit_ctx,
-                    tls_client_config,
-                    tls_name,
                 )
                 .await?
         } else {
+            let task_conf = TcpConnectTaskConf {
+                upstream: &self.upstream,
+            };
             self.ctx
                 .escaper
                 .tcp_setup_connection(
+                    &task_conf,
                     &mut self.tcp_notes,
                     &self.task_notes,
                     self.task_stats.clone(),
@@ -195,7 +206,7 @@ impl TcpStreamTask {
                 ups_r,
                 ups_w,
                 ctx,
-                self.tcp_notes.upstream.clone(),
+                self.upstream.clone(),
                 None,
             )
             .await

@@ -24,18 +24,21 @@ use g3_types::net::{Host, UpstreamAddr};
 use super::ProxyFloatEscaper;
 use crate::escape::proxy_float::peer::NextProxyPeer;
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes};
 use crate::serve::ServerTaskNotes;
 
 impl ProxyFloatEscaper {
     pub(super) async fn tls_handshake_with_peer<P: NextProxyPeer>(
         &self,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         tls_name: &Host,
         peer: &P,
     ) -> Result<SslStream<LimitedStream<impl AsyncRead + AsyncWrite>>, TcpConnectError> {
-        let stream = self.tcp_new_connection(peer, tcp_notes, task_notes).await?;
+        let stream = self
+            .tcp_new_connection(peer, task_conf, tcp_notes, task_notes)
+            .await?;
         let peer_addr = peer.peer_addr();
 
         let ssl = self
@@ -51,6 +54,7 @@ impl ProxyFloatEscaper {
                 let e = anyhow::Error::new(e);
                 let tls_peer = UpstreamAddr::from(peer_addr);
                 EscapeLogForTlsHandshake {
+                    upstream: task_conf.upstream,
                     tcp_notes,
                     task_id: &task_notes.id,
                     tls_name,
@@ -64,6 +68,7 @@ impl ProxyFloatEscaper {
                 let tls_peer = UpstreamAddr::from(peer_addr);
                 let e = anyhow!("peer tls handshake timed out");
                 EscapeLogForTlsHandshake {
+                    upstream: task_conf.upstream,
                     tcp_notes,
                     task_id: &task_notes.id,
                     tls_name,

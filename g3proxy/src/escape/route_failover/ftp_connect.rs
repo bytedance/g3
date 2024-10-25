@@ -19,15 +19,13 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use g3_types::net::UpstreamAddr;
-
 use super::RouteFailoverEscaper;
 use crate::escape::ArcEscaper;
 use crate::module::ftp_over_http::{
     ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpConnectContext,
     BoxFtpRemoteConnection, FtpConnectContext, FtpTaskRemoteControlStats,
 };
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes};
 use crate::serve::ServerTaskNotes;
 
 struct NullStats {}
@@ -51,6 +49,7 @@ struct FailoverFtpConnectContext {
 impl FtpConnectContext for FailoverFtpConnectContext {
     async fn new_control_connection(
         &mut self,
+        task_conf: &TcpConnectTaskConf<'_>,
         task_notes: &ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteControlStats,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
@@ -58,7 +57,7 @@ impl FtpConnectContext for FailoverFtpConnectContext {
             return Ok(c);
         }
         self.inner
-            .new_control_connection(task_notes, task_stats)
+            .new_control_connection(task_conf, task_notes, task_stats)
             .await
     }
 
@@ -68,12 +67,12 @@ impl FtpConnectContext for FailoverFtpConnectContext {
 
     async fn new_transfer_connection(
         &mut self,
-        server_addr: &UpstreamAddr,
+        task_conf: &TcpConnectTaskConf<'_>,
         task_notes: &ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteTransferStats,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         self.inner
-            .new_transfer_connection(server_addr, task_notes, task_stats)
+            .new_transfer_connection(task_conf, task_notes, task_stats)
             .await
     }
 
@@ -89,16 +88,19 @@ impl FtpConnectFailoverContext {
 
     async fn run(
         self,
+        task_conf: &TcpConnectTaskConf<'_>,
         task_notes: &ServerTaskNotes,
-        upstream: &UpstreamAddr,
     ) -> Result<FailoverFtpConnectContext, FailoverFtpConnectContext> {
         let mut ftp_ctx = self
             .escaper
-            .new_ftp_connect_context(self.escaper.clone(), task_notes, upstream)
+            .new_ftp_connect_context(self.escaper.clone(), task_conf, task_notes)
             .await;
         let null_stats = Arc::new(NullStats {});
         // try connect
-        match ftp_ctx.new_control_connection(task_notes, null_stats).await {
+        match ftp_ctx
+            .new_control_connection(task_conf, task_notes, null_stats)
+            .await
+        {
             Ok(c) => Ok(FailoverFtpConnectContext {
                 control_connection: Some(c),
                 inner: ftp_ctx,
@@ -114,11 +116,11 @@ impl FtpConnectFailoverContext {
 impl RouteFailoverEscaper {
     pub(super) async fn new_ftp_connect_context_with_failover<'a>(
         &'a self,
+        task_conf: &TcpConnectTaskConf<'_>,
         task_notes: &'a ServerTaskNotes,
-        upstream: &'a UpstreamAddr,
     ) -> BoxFtpConnectContext {
         let primary_context = FtpConnectFailoverContext::new(self.primary_node.clone());
-        let mut primary_task = pin!(primary_context.run(task_notes, upstream));
+        let mut primary_task = pin!(primary_context.run(task_conf, task_notes));
 
         match tokio::time::timeout(self.config.fallback_delay, &mut primary_task).await {
             Ok(Ok(ctx)) => {
@@ -129,14 +131,14 @@ impl RouteFailoverEscaper {
                 self.stats.add_request_passed(); // just return the ftp ctx on the standby escaper
                 return self
                     .standby_node
-                    .new_ftp_connect_context(self.standby_node.clone(), task_notes, upstream)
+                    .new_ftp_connect_context(self.standby_node.clone(), task_conf, task_notes)
                     .await;
             }
             Err(_) => {}
         }
 
         let standby_context = FtpConnectFailoverContext::new(self.standby_node.clone());
-        let standby_task = pin!(standby_context.run(task_notes, upstream));
+        let standby_task = pin!(standby_context.run(task_conf, task_notes));
 
         match futures_util::future::select_ok([primary_task, standby_task]).await {
             Ok((ctx, _left)) => {

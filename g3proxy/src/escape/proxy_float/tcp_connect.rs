@@ -25,7 +25,7 @@ use g3_types::net::ConnectError;
 
 use super::{NextProxyPeer, ProxyFloatEscaper};
 use crate::log::escape::tcp_connect::EscapeLogForTcpConnect;
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes};
 use crate::serve::ServerTaskNotes;
 
 impl ProxyFloatEscaper {
@@ -56,6 +56,7 @@ impl ProxyFloatEscaper {
     async fn tcp_connect_to<P: NextProxyPeer>(
         &self,
         peer: &P,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<TcpStream, TcpConnectError> {
@@ -95,6 +96,7 @@ impl ProxyFloatEscaper {
             }
             Ok(Err(e)) => {
                 EscapeLogForTcpConnect {
+                    upstream: task_conf.upstream,
                     tcp_notes,
                     task_id: &task_notes.id,
                 }
@@ -104,6 +106,7 @@ impl ProxyFloatEscaper {
             Err(_) => {
                 let e = TcpConnectError::TimeoutByRule;
                 EscapeLogForTcpConnect {
+                    upstream: task_conf.upstream,
                     tcp_notes,
                     task_id: &task_notes.id,
                 }
@@ -116,10 +119,13 @@ impl ProxyFloatEscaper {
     pub(super) async fn tcp_new_connection<P: NextProxyPeer>(
         &self,
         peer: &P,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<LimitedStream<TcpStream>, TcpConnectError> {
-        let stream = self.tcp_connect_to(peer, tcp_notes, task_notes).await?;
+        let stream = self
+            .tcp_connect_to(peer, task_conf, tcp_notes, task_notes)
+            .await?;
 
         let limit_config = peer.tcp_sock_speed_limit();
         let stream = LimitedStream::local_limited(
