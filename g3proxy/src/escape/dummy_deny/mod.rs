@@ -20,23 +20,21 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use async_trait::async_trait;
 
-use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_types::metrics::MetricsName;
-use g3_types::net::{Host, OpensslClientConfig, UpstreamAddr};
-
 use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperInternal};
 use crate::audit::AuditContext;
 use crate::config::escaper::dummy_deny::DummyDenyEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
 use crate::module::ftp_over_http::{
-    AnyFtpConnectContextParam, ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats,
-    BoxFtpConnectContext, BoxFtpRemoteConnection, DenyFtpConnectContext,
+    ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpConnectContext,
+    BoxFtpRemoteConnection, DenyFtpConnectContext,
 };
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, BoxHttpForwardContext,
     DirectHttpForwardContext,
 };
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
+};
 use crate::module::udp_connect::{
     ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectResult, UdpConnectTaskNotes,
 };
@@ -44,6 +42,9 @@ use crate::module::udp_relay::{
     ArcUdpRelayTaskRemoteStats, UdpRelaySetupError, UdpRelaySetupResult, UdpRelayTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
+use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
+use g3_types::metrics::MetricsName;
+use g3_types::net::UpstreamAddr;
 
 mod stats;
 use stats::DummyDenyEscaperStats;
@@ -105,6 +106,7 @@ impl Escaper for DummyDenyEscaper {
 
     async fn tcp_setup_connection<'a>(
         &'a self,
+        _task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         _task_notes: &'a ServerTaskNotes,
         _task_stats: ArcTcpConnectionTaskRemoteStats,
@@ -117,12 +119,11 @@ impl Escaper for DummyDenyEscaper {
 
     async fn tls_setup_connection<'a>(
         &'a self,
+        _task_conf: &TlsConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         _task_notes: &'a ServerTaskNotes,
         _task_stats: ArcTcpConnectionTaskRemoteStats,
         _audit_ctx: &'a mut AuditContext,
-        _tls_config: &'a OpensslClientConfig,
-        _tls_name: &'a Host,
     ) -> TcpConnectResult {
         self.stats.interface.add_tls_connect_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
@@ -159,8 +160,8 @@ impl Escaper for DummyDenyEscaper {
     async fn new_ftp_connect_context<'a>(
         &'a self,
         _escaper: ArcEscaper,
+        _task_conf: &TcpConnectTaskConf<'_>,
         _task_notes: &'a ServerTaskNotes,
-        _upstream: &'a UpstreamAddr,
     ) -> BoxFtpConnectContext {
         Box::new(DenyFtpConnectContext::new(self.config.name(), None))
     }
@@ -195,6 +196,7 @@ impl EscaperInternal for DummyDenyEscaper {
 
     async fn _new_http_forward_connection<'a>(
         &'a self,
+        _task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         _task_notes: &'a ServerTaskNotes,
         _task_stats: ArcHttpForwardTaskRemoteStats,
@@ -206,11 +208,10 @@ impl EscaperInternal for DummyDenyEscaper {
 
     async fn _new_https_forward_connection<'a>(
         &'a self,
+        _task_conf: &TlsConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         _task_notes: &'a ServerTaskNotes,
         _task_stats: ArcHttpForwardTaskRemoteStats,
-        _tls_config: &'a OpensslClientConfig,
-        _tls_name: &'a Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.stats
             .interface
@@ -221,6 +222,7 @@ impl EscaperInternal for DummyDenyEscaper {
 
     async fn _new_ftp_control_connection<'a>(
         &'a self,
+        _task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         _task_notes: &'a ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteControlStats,
@@ -233,11 +235,12 @@ impl EscaperInternal for DummyDenyEscaper {
 
     async fn _new_ftp_transfer_connection<'a>(
         &'a self,
+        _task_conf: &TcpConnectTaskConf<'_>,
         transfer_tcp_notes: &'a mut TcpConnectTaskNotes,
         _control_tcp_notes: &'a TcpConnectTaskNotes,
         _task_notes: &'a ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteTransferStats,
-        _context: AnyFtpConnectContextParam,
+        _ftp_server: &UpstreamAddr,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         self.stats.interface.add_ftp_transfer_connection_attempted();
         transfer_tcp_notes.escaper.clone_from(&self.config.name);

@@ -24,26 +24,28 @@ use g3_daemon::stat::remote::{
 use g3_http::connect::{HttpConnectRequest, HttpConnectResponse};
 use g3_io_ext::{AsyncStream, FlexBufReader, LimitedReader, LimitedWriter, OnceBufReader};
 use g3_openssl::SslStream;
-use g3_types::net::{Host, OpensslClientConfig};
 
 use super::{ProxyFloatEscaper, ProxyFloatHttpsPeer};
 use crate::log::escape::tls_handshake::TlsApplication;
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
+};
 use crate::serve::ServerTaskNotes;
 
 impl ProxyFloatHttpsPeer {
     async fn http_connect_tcp_connect_to(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<FlexBufReader<SslStream<impl AsyncRead + AsyncWrite>>, TcpConnectError> {
         let mut stream = escaper
-            .tls_handshake_with_peer(tcp_notes, task_notes, &self.tls_name, self)
+            .tls_handshake_with_peer(task_conf, tcp_notes, task_notes, &self.tls_name, self)
             .await?;
 
         let req =
-            HttpConnectRequest::new(&tcp_notes.upstream, &self.shared_config.append_http_headers);
+            HttpConnectRequest::new(task_conf.upstream, &self.shared_config.append_http_headers);
         req.send(&mut stream)
             .await
             .map_err(TcpConnectError::NegotiationWriteFailed)?;
@@ -61,12 +63,13 @@ impl ProxyFloatHttpsPeer {
     async fn timed_http_connect_tcp_connect_to(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<FlexBufReader<SslStream<impl AsyncRead + AsyncWrite>>, TcpConnectError> {
         tokio::time::timeout(
             escaper.config.peer_negotiation_timeout,
-            self.http_connect_tcp_connect_to(escaper, tcp_notes, task_notes),
+            self.http_connect_tcp_connect_to(escaper, task_conf, tcp_notes, task_notes),
         )
         .await
         .map_err(|_| TcpConnectError::NegotiationPeerTimeout)?
@@ -75,12 +78,13 @@ impl ProxyFloatHttpsPeer {
     pub(super) async fn http_connect_new_tcp_connection(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
         let buf_stream = self
-            .timed_http_connect_tcp_connect_to(escaper, tcp_notes, task_notes)
+            .timed_http_connect_tcp_connect_to(escaper, task_conf, tcp_notes, task_notes)
             .await?;
 
         // add task and user stats
@@ -106,23 +110,21 @@ impl ProxyFloatHttpsPeer {
     pub(super) async fn http_connect_tls_connect_to(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &TlsConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-        tls_config: &OpensslClientConfig,
-        tls_name: &Host,
         tls_application: TlsApplication,
     ) -> Result<SslStream<impl AsyncRead + AsyncWrite>, TcpConnectError> {
         let buf_stream = self
-            .timed_http_connect_tcp_connect_to(escaper, tcp_notes, task_notes)
+            .timed_http_connect_tcp_connect_to(escaper, &task_conf.tcp, tcp_notes, task_notes)
             .await?;
 
         escaper
             .tls_connect_over_tunnel(
                 buf_stream.into_inner(),
+                task_conf,
                 tcp_notes,
                 task_notes,
-                tls_config,
-                tls_name,
                 tls_application,
             )
             .await
@@ -131,24 +133,22 @@ impl ProxyFloatHttpsPeer {
     pub(super) async fn http_connect_new_tls_connection(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &TlsConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        tls_config: &OpensslClientConfig,
-        tls_name: &Host,
     ) -> TcpConnectResult {
         let buf_stream = self
-            .timed_http_connect_tcp_connect_to(escaper, tcp_notes, task_notes)
+            .timed_http_connect_tcp_connect_to(escaper, &task_conf.tcp, tcp_notes, task_notes)
             .await?;
 
         escaper
             .new_tls_connection_over_tunnel(
                 buf_stream.into_inner(),
+                task_conf,
                 tcp_notes,
                 task_notes,
                 task_stats,
-                tls_config,
-                tls_name,
             )
             .await
     }

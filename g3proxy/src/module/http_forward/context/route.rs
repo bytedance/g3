@@ -20,7 +20,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use tokio::time::Instant;
 
-use g3_types::net::{Host, HttpForwardCapability, OpensslClientConfig, UpstreamAddr};
+use g3_types::net::{HttpForwardCapability, UpstreamAddr};
 
 use super::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpConnectionEofPoller,
@@ -28,7 +28,9 @@ use super::{
 };
 use crate::audit::AuditContext;
 use crate::escape::ArcEscaper;
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
+};
 use crate::serve::ServerTaskNotes;
 
 pub(crate) struct RouteHttpForwardContext {
@@ -36,6 +38,7 @@ pub(crate) struct RouteHttpForwardContext {
     final_escaper: ArcEscaper,
     tcp_notes: TcpConnectTaskNotes,
     audit_ctx: AuditContext,
+    last_upstream: UpstreamAddr,
     last_is_tls: bool,
     last_connection: Option<(Instant, HttpConnectionEofPoller)>,
 }
@@ -46,8 +49,9 @@ impl RouteHttpForwardContext {
         RouteHttpForwardContext {
             escaper,
             final_escaper: fake_final_escaper,
-            tcp_notes: TcpConnectTaskNotes::empty(),
+            tcp_notes: TcpConnectTaskNotes::default(),
             audit_ctx: AuditContext::default(),
+            last_upstream: UpstreamAddr::empty(),
             last_is_tls: false,
             last_connection: None,
         }
@@ -62,7 +66,7 @@ impl HttpForwardContext for RouteHttpForwardContext {
         upstream: &'a UpstreamAddr,
         audit_ctx: &'a mut AuditContext,
     ) -> HttpForwardCapability {
-        if self.tcp_notes.upstream.ne(upstream) {
+        if self.last_upstream.ne(upstream) {
             self.audit_ctx = audit_ctx.clone();
             let mut next_escaper = Arc::clone(&self.escaper);
             next_escaper._update_audit_context(&mut self.audit_ctx);
@@ -93,10 +97,10 @@ impl HttpForwardContext for RouteHttpForwardContext {
             }
         }
 
-        if self.tcp_notes.upstream.ne(ups) || self.last_is_tls != is_tls {
+        if self.last_upstream.ne(ups) || self.last_is_tls != is_tls {
             // new upstream
-            self.tcp_notes.upstream = ups.clone();
-            self.tcp_notes.reset_generated();
+            self.last_upstream = ups.clone();
+            self.tcp_notes.reset();
             // always use different connection for different upstream
             let _old_connection = self.last_connection.take();
         } else {
@@ -135,31 +139,25 @@ impl HttpForwardContext for RouteHttpForwardContext {
 
     async fn make_new_http_connection<'a>(
         &'a mut self,
+        task_conf: &TcpConnectTaskConf<'_>,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.last_is_tls = false;
         self.final_escaper
-            ._new_http_forward_connection(&mut self.tcp_notes, task_notes, task_stats)
+            ._new_http_forward_connection(task_conf, &mut self.tcp_notes, task_notes, task_stats)
             .await
     }
 
     async fn make_new_https_connection<'a>(
         &'a mut self,
+        task_conf: &TlsConnectTaskConf<'_>,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
-        tls_config: &'a OpensslClientConfig,
-        tls_name: &'a Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.last_is_tls = true;
         self.final_escaper
-            ._new_https_forward_connection(
-                &mut self.tcp_notes,
-                task_notes,
-                task_stats,
-                tls_config,
-                tls_name,
-            )
+            ._new_https_forward_connection(task_conf, &mut self.tcp_notes, task_notes, task_stats)
             .await
     }
 
@@ -169,7 +167,6 @@ impl HttpForwardContext for RouteHttpForwardContext {
     }
 
     fn fetch_tcp_notes(&self, tcp_notes: &mut TcpConnectTaskNotes) {
-        assert!(tcp_notes.upstream.eq(&self.tcp_notes.upstream));
         tcp_notes.fill_generated(&self.tcp_notes);
     }
 }

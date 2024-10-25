@@ -42,7 +42,7 @@ use crate::config::server::ServerConfig;
 use crate::log::task::ftp_over_http::TaskLogForFtpOverHttp;
 use crate::module::ftp_over_http::{BoxFtpRemoteConnection, FtpOverHttpTaskNotes, FtpRequestPath};
 use crate::module::http_forward::HttpProxyClientResponse;
-use crate::module::tcp_connect::TcpConnectError;
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf};
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
@@ -606,14 +606,13 @@ impl<'a> FtpOverHttpTask<'a> {
     where
         W: AsyncWrite + Unpin,
     {
+        let task_conf = TcpConnectTaskConf {
+            upstream: self.ftp_notes.upstream(),
+        };
         let escaper_connect_context = self
             .ctx
             .escaper
-            .new_ftp_connect_context(
-                Arc::clone(&self.ctx.escaper),
-                &self.task_notes,
-                self.ftp_notes.upstream(),
-            )
+            .new_ftp_connect_context(Arc::clone(&self.ctx.escaper), &task_conf, &self.task_notes)
             .await;
         let ftp_connection_provider =
             HttpProxyFtpConnectionProvider::new(&self.task_stats, escaper_connect_context);

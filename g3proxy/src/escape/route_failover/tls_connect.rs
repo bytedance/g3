@@ -19,12 +19,13 @@ use std::pin::pin;
 use anyhow::anyhow;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_types::net::{Host, OpensslClientConfig, UpstreamAddr};
 
 use super::RouteFailoverEscaper;
 use crate::audit::AuditContext;
 use crate::escape::ArcEscaper;
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectError, TcpConnectResult, TcpConnectTaskNotes, TlsConnectTaskConf,
+};
 use crate::serve::ServerTaskNotes;
 
 struct TlsConnectFailoverContext {
@@ -34,9 +35,9 @@ struct TlsConnectFailoverContext {
 }
 
 impl TlsConnectFailoverContext {
-    fn new(upstream: &UpstreamAddr, audit_ctx: &AuditContext) -> Self {
+    fn new(audit_ctx: &AuditContext) -> Self {
         TlsConnectFailoverContext {
-            tcp_notes: TcpConnectTaskNotes::new(upstream.clone()),
+            tcp_notes: TcpConnectTaskNotes::default(),
             audit_ctx: audit_ctx.clone(),
             connect_result: Err(TcpConnectError::EscaperNotUsable(anyhow!(
                 "tcp setup connection not called yet"
@@ -47,19 +48,17 @@ impl TlsConnectFailoverContext {
     async fn run(
         mut self,
         escaper: &ArcEscaper,
+        task_conf: &TlsConnectTaskConf<'_>,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        tls_config: &OpensslClientConfig,
-        tls_name: &Host,
     ) -> Result<Self, Self> {
         match escaper
             .tls_setup_connection(
+                task_conf,
                 &mut self.tcp_notes,
                 task_notes,
                 task_stats,
                 &mut self.audit_ctx,
-                tls_config,
-                tls_name,
             )
             .await
         {
@@ -78,20 +77,18 @@ impl TlsConnectFailoverContext {
 impl RouteFailoverEscaper {
     pub(super) async fn tls_setup_connection_with_failover<'a>(
         &'a self,
+        task_conf: &TlsConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
         audit_ctx: &'a mut AuditContext,
-        tls_config: &'a OpensslClientConfig,
-        tls_name: &'a Host,
     ) -> TcpConnectResult {
-        let primary_context = TlsConnectFailoverContext::new(&tcp_notes.upstream, audit_ctx);
+        let primary_context = TlsConnectFailoverContext::new(audit_ctx);
         let mut primary_task = pin!(primary_context.run(
             &self.primary_node,
+            task_conf,
             task_notes,
             task_stats.clone(),
-            tls_config,
-            tls_name,
         ));
 
         match tokio::time::timeout(self.config.fallback_delay, &mut primary_task).await {
@@ -104,9 +101,7 @@ impl RouteFailoverEscaper {
             Ok(Err(_)) => {
                 return match self
                     .standby_node
-                    .tls_setup_connection(
-                        tcp_notes, task_notes, task_stats, audit_ctx, tls_config, tls_name,
-                    )
+                    .tls_setup_connection(task_conf, tcp_notes, task_notes, task_stats, audit_ctx)
                     .await
                 {
                     Ok(c) => {
@@ -122,14 +117,9 @@ impl RouteFailoverEscaper {
             Err(_) => {}
         }
 
-        let standby_context = TlsConnectFailoverContext::new(&tcp_notes.upstream, audit_ctx);
-        let standby_task = pin!(standby_context.run(
-            &self.standby_node,
-            task_notes,
-            task_stats,
-            tls_config,
-            tls_name,
-        ));
+        let standby_context = TlsConnectFailoverContext::new(audit_ctx);
+        let standby_task =
+            pin!(standby_context.run(&self.standby_node, task_conf, task_notes, task_stats,));
 
         match futures_util::future::select_ok([primary_task, standby_task]).await {
             Ok((ctx, _left)) => {

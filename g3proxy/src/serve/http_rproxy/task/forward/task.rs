@@ -21,14 +21,6 @@ use log::debug;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
-use g3_http::client::HttpForwardRemoteResponse;
-use g3_http::server::HttpProxyClientRequest;
-use g3_http::{HttpBodyReader, HttpBodyType};
-use g3_io_ext::{
-    GlobalLimitGroup, LimitedBufReadExt, LimitedCopy, LimitedCopyError, LimitedWriteExt,
-};
-use g3_types::acl::AclAction;
-
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpRProxyRequest};
 use super::{
     CommonTaskContext, HttpForwardTaskCltWrapperStats, HttpForwardTaskStats,
@@ -40,12 +32,21 @@ use crate::module::http_forward::{
     BoxHttpForwardConnection, BoxHttpForwardContext, BoxHttpForwardReader, BoxHttpForwardWriter,
     HttpForwardTaskNotes, HttpProxyClientResponse,
 };
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
+};
 use crate::serve::http_rproxy::host::HttpHost;
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
 };
+use g3_http::client::HttpForwardRemoteResponse;
+use g3_http::server::HttpProxyClientRequest;
+use g3_http::{HttpBodyReader, HttpBodyType};
+use g3_io_ext::{
+    GlobalLimitGroup, LimitedBufReadExt, LimitedCopy, LimitedCopyError, LimitedWriteExt,
+};
+use g3_types::acl::AclAction;
 
 pub(crate) struct HttpRProxyForwardTask<'a> {
     ctx: Arc<CommonTaskContext>,
@@ -80,7 +81,6 @@ impl<'a> HttpRProxyForwardTask<'a> {
             uri_log_max_chars,
         );
         let is_https = host.tls_client.is_some();
-        let upstream = host.config.upstream().clone();
         HttpRProxyForwardTask {
             ctx: Arc::clone(ctx),
             host,
@@ -91,7 +91,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
             retry_new_connection: false,
             task_notes,
             http_notes,
-            tcp_notes: TcpConnectTaskNotes::new(upstream),
+            tcp_notes: TcpConnectTaskNotes::default(),
             task_stats: Arc::new(HttpForwardTaskStats::default()),
         }
     }
@@ -189,6 +189,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
             .get(http::header::USER_AGENT)
             .map(|v| v.to_str());
         TaskLogForHttpForward {
+            upstream: self.host.config.upstream(),
             task_notes: &self.task_notes,
             http_notes: &self.http_notes,
             http_user_agent,
@@ -459,7 +460,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
                 }
             }
 
-            let action = user_ctx.check_upstream(&self.tcp_notes.upstream);
+            let action = user_ctx.check_upstream(self.host.config.upstream());
             self.handle_user_upstream_acl_action(action, clt_w).await?;
 
             if let Some(action) = user_ctx.check_http_user_agent(&self.req.end_to_end_headers) {
@@ -483,7 +484,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
 
         self.setup_clt_limit_and_stats(clt_r, clt_w);
 
-        fwd_ctx.prepare_connection(&self.tcp_notes.upstream, self.is_https);
+        fwd_ctx.prepare_connection(self.host.config.upstream(), self.is_https);
 
         if let Some(connection) = fwd_ctx
             .get_alive_connection(
@@ -570,17 +571,22 @@ impl<'a> HttpRProxyForwardTask<'a> {
         fwd_ctx: &mut BoxHttpForwardContext,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         if let Some(tls_client) = &self.host.tls_client {
+            let task_conf = TlsConnectTaskConf {
+                tcp: TcpConnectTaskConf {
+                    upstream: self.host.config.upstream(),
+                },
+                tls_config: tls_client,
+                tls_name: &self.host.config.tls_name,
+            };
             fwd_ctx
-                .make_new_https_connection(
-                    &self.task_notes,
-                    self.task_stats.clone(),
-                    tls_client,
-                    &self.host.config.tls_name,
-                )
+                .make_new_https_connection(&task_conf, &self.task_notes, self.task_stats.clone())
                 .await
         } else {
+            let task_conf = TcpConnectTaskConf {
+                upstream: self.host.config.upstream(),
+            };
             fwd_ctx
-                .make_new_http_connection(&self.task_notes, self.task_stats.clone())
+                .make_new_http_connection(&task_conf, &self.task_notes, self.task_stats.clone())
                 .await
         }
     }
@@ -605,7 +611,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
     {
         ups_c
             .0
-            .prepare_new(&self.task_notes, &self.tcp_notes.upstream);
+            .prepare_new(&self.task_notes, self.host.config.upstream());
 
         if self.req.body_type().is_none() {
             self.mark_relaying();

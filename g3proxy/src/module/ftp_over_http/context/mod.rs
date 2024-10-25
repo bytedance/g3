@@ -14,26 +14,23 @@
  * limitations under the License.
  */
 
-use std::any::Any;
-
 use async_trait::async_trait;
 
-use g3_types::net::UpstreamAddr;
-
 use super::{ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpRemoteConnection};
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes};
 use crate::serve::ServerTaskNotes;
 
 mod deny;
 pub(crate) use deny::DenyFtpConnectContext;
 
 mod direct;
-pub(crate) use direct::{DirectFtpConnectContext, DirectFtpConnectContextParam};
+pub(crate) use direct::DirectFtpConnectContext;
 
 #[async_trait]
 pub(crate) trait FtpConnectContext {
     async fn new_control_connection(
         &mut self,
+        task_conf: &TcpConnectTaskConf<'_>,
         task_notes: &ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteControlStats,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError>;
@@ -41,7 +38,7 @@ pub(crate) trait FtpConnectContext {
 
     async fn new_transfer_connection(
         &mut self,
-        server_addr: &UpstreamAddr,
+        task_conf: &TcpConnectTaskConf<'_>,
         task_notes: &ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteTransferStats,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError>;
@@ -49,4 +46,3 @@ pub(crate) trait FtpConnectContext {
 }
 
 pub(crate) type BoxFtpConnectContext = Box<dyn FtpConnectContext + Send>;
-pub(crate) type AnyFtpConnectContextParam = Box<dyn Any + Send>;

@@ -21,16 +21,19 @@ use g3_openssl::{SslConnector, SslStream};
 
 use super::ProxySocks5sEscaper;
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes};
 use crate::serve::ServerTaskNotes;
 
 impl ProxySocks5sEscaper {
     pub(super) async fn tls_handshake_to_remote<'a>(
         &'a self,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
     ) -> Result<SslStream<impl AsyncRead + AsyncWrite>, TcpConnectError> {
-        let (peer, ups_s) = self.tcp_new_connection(tcp_notes, task_notes).await?;
+        let (peer, ups_s) = self
+            .tcp_new_connection(task_conf, tcp_notes, task_notes)
+            .await?;
 
         let tls_name = self.config.tls_name.as_ref().unwrap_or_else(|| peer.host());
         let ssl = self
@@ -45,6 +48,7 @@ impl ProxySocks5sEscaper {
             Ok(Err(e)) => {
                 let e = anyhow::Error::new(e);
                 EscapeLogForTlsHandshake {
+                    upstream: task_conf.upstream,
                     tcp_notes,
                     task_id: &task_notes.id,
                     tls_name,
@@ -57,6 +61,7 @@ impl ProxySocks5sEscaper {
             Err(_) => {
                 let e = anyhow!("peer tls handshake timed out");
                 EscapeLogForTlsHandshake {
+                    upstream: task_conf.upstream,
                     tcp_notes,
                     task_id: &task_notes.id,
                     tls_name,

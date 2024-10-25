@@ -30,12 +30,13 @@ use crate::audit::AuditContext;
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
-use crate::module::tcp_connect::TcpConnectTaskNotes;
+use crate::module::tcp_connect::{TcpConnectTaskConf, TcpConnectTaskNotes};
 use crate::serve::tcp_stream::TcpStreamTaskCltWrapperStats;
 use crate::serve::{ServerTaskError, ServerTaskNotes, ServerTaskResult, ServerTaskStage};
 
 pub(super) struct TProxyStreamTask {
     ctx: CommonTaskContext,
+    upstream: UpstreamAddr,
     tcp_notes: TcpConnectTaskNotes,
     task_notes: ServerTaskNotes,
     task_stats: Arc<TcpStreamTaskStats>,
@@ -48,7 +49,8 @@ impl TProxyStreamTask {
         let task_notes = ServerTaskNotes::new(ctx.cc_info.clone(), None, Duration::ZERO);
         TProxyStreamTask {
             ctx,
-            tcp_notes: TcpConnectTaskNotes::new(UpstreamAddr::from(target)),
+            upstream: UpstreamAddr::from(target),
+            tcp_notes: TcpConnectTaskNotes::default(),
             task_notes,
             task_stats: Arc::new(TcpStreamTaskStats::default()),
             audit_ctx,
@@ -57,6 +59,7 @@ impl TProxyStreamTask {
 
     fn get_log_context(&self) -> TaskLogForTcpConnect {
         TaskLogForTcpConnect {
+            upstream: &self.upstream,
             task_notes: &self.task_notes,
             tcp_notes: &self.tcp_notes,
             total_time: self.task_notes.time_elapsed(),
@@ -104,10 +107,15 @@ impl TProxyStreamTask {
             })?;
 
         self.task_notes.stage = ServerTaskStage::Connecting;
+
+        let task_conf = TcpConnectTaskConf {
+            upstream: &self.upstream,
+        };
         let (ups_r, ups_w) = self
             .ctx
             .escaper
             .tcp_setup_connection(
+                &task_conf,
                 &mut self.tcp_notes,
                 &self.task_notes,
                 self.task_stats.clone(),
@@ -159,7 +167,7 @@ impl TProxyStreamTask {
                 ups_r,
                 ups_w,
                 ctx,
-                self.tcp_notes.upstream.clone(),
+                self.upstream.clone(),
                 None,
             )
             .await

@@ -18,10 +18,12 @@ use slog::{slog_info, Logger};
 use uuid::Uuid;
 
 use g3_slog_types::{LtDateTime, LtDuration, LtIpAddr, LtUpstreamAddr, LtUuid};
+use g3_types::net::UpstreamAddr;
 
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
 
 pub(crate) struct EscapeLogForTcpConnect<'a> {
+    pub(crate) upstream: &'a UpstreamAddr,
     pub(crate) tcp_notes: &'a TcpConnectTaskNotes,
     pub(crate) task_id: &'a Uuid,
 }
@@ -31,7 +33,7 @@ impl EscapeLogForTcpConnect<'_> {
         slog_info!(logger, "{}", e;
             "escape_type" => "TcpConnect",
             "task_id" => LtUuid(self.task_id),
-            "upstream" => LtUpstreamAddr(&self.tcp_notes.upstream),
+            "upstream" => LtUpstreamAddr(self.upstream),
             "next_bind_ip" => self.tcp_notes.bind.ip().map(LtIpAddr),
             "next_bound_addr" => self.tcp_notes.local,
             "next_peer_addr" => self.tcp_notes.next,

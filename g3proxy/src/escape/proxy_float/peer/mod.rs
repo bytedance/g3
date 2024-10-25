@@ -26,11 +26,13 @@ use serde_json::Value;
 use tokio::time::Instant;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_types::net::{EgressInfo, Host, OpensslClientConfig, TcpSockSpeedLimitConfig};
+use g3_types::net::{EgressInfo, TcpSockSpeedLimitConfig};
 
 use super::{ProxyFloatEscaper, ProxyFloatEscaperConfig, ProxyFloatEscaperStats};
 use crate::module::http_forward::{ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection};
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
+};
 use crate::module::udp_connect::{
     ArcUdpConnectTaskRemoteStats, UdpConnectResult, UdpConnectTaskNotes,
 };
@@ -93,6 +95,7 @@ pub(super) trait NextProxyPeer: NextProxyPeerInternal {
     async fn tcp_setup_connection(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
@@ -101,16 +104,16 @@ pub(super) trait NextProxyPeer: NextProxyPeerInternal {
     async fn tls_setup_connection(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &TlsConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        tls_config: &OpensslClientConfig,
-        tls_name: &Host,
     ) -> TcpConnectResult;
 
     async fn new_http_forward_connection(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
@@ -119,11 +122,10 @@ pub(super) trait NextProxyPeer: NextProxyPeerInternal {
     async fn new_https_forward_connection(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &TlsConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
-        tls_config: &OpensslClientConfig,
-        tls_name: &Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError>;
 
     async fn udp_setup_connection(

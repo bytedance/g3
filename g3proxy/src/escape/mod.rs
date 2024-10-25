@@ -23,18 +23,20 @@ use async_trait::async_trait;
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::collection::{SelectiveItem, SelectivePickPolicy, SelectiveVec};
 use g3_types::metrics::MetricsName;
-use g3_types::net::{Host, HttpForwardCapability, OpensslClientConfig, UpstreamAddr};
+use g3_types::net::{Host, HttpForwardCapability, UpstreamAddr};
 
 use crate::audit::AuditContext;
 use crate::config::escaper::AnyEscaperConfig;
 use crate::module::ftp_over_http::{
-    AnyFtpConnectContextParam, ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats,
-    BoxFtpConnectContext, BoxFtpRemoteConnection,
+    ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpConnectContext,
+    BoxFtpRemoteConnection,
 };
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, BoxHttpForwardContext,
 };
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
+};
 use crate::module::udp_connect::{
     ArcUdpConnectTaskRemoteStats, UdpConnectResult, UdpConnectTaskNotes,
 };
@@ -117,6 +119,7 @@ pub(crate) trait EscaperInternal {
 
     async fn _new_http_forward_connection<'a>(
         &'a self,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
@@ -124,26 +127,27 @@ pub(crate) trait EscaperInternal {
 
     async fn _new_https_forward_connection<'a>(
         &'a self,
+        task_conf: &TlsConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
-        tls_config: &'a OpensslClientConfig,
-        tls_name: &'a Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError>;
 
     async fn _new_ftp_control_connection<'a>(
         &'a self,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteControlStats,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError>;
     async fn _new_ftp_transfer_connection<'a>(
         &'a self,
+        task_conf: &TcpConnectTaskConf<'_>,
         transfer_tcp_notes: &'a mut TcpConnectTaskNotes,
         control_tcp_notes: &'a TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteTransferStats,
-        context: AnyFtpConnectContextParam,
+        ftp_server: &UpstreamAddr,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError>;
 
     fn _trick_float_weight(&self) -> u8 {
@@ -167,6 +171,7 @@ pub(crate) trait Escaper: EscaperInternal {
 
     async fn tcp_setup_connection<'a>(
         &'a self,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
@@ -175,12 +180,11 @@ pub(crate) trait Escaper: EscaperInternal {
 
     async fn tls_setup_connection<'a>(
         &'a self,
+        task_conf: &TlsConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
         audit_ctx: &'a mut AuditContext,
-        tls_config: &'a OpensslClientConfig,
-        tls_name: &'a Host,
     ) -> TcpConnectResult;
 
     async fn udp_setup_connection<'a>(
@@ -202,8 +206,8 @@ pub(crate) trait Escaper: EscaperInternal {
     async fn new_ftp_connect_context<'a>(
         &'a self,
         escaper: ArcEscaper,
+        task_conf: &TcpConnectTaskConf<'_>,
         task_notes: &'a ServerTaskNotes,
-        upstream: &'a UpstreamAddr,
     ) -> BoxFtpConnectContext;
 }
 

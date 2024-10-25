@@ -36,7 +36,7 @@ impl ProxySocks5sEscaper {
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
-        let mut tcp_notes = TcpConnectTaskNotes::empty();
+        let mut tcp_notes = TcpConnectTaskNotes::default();
         let (ctl_stream, udp_socket, udp_local_addr, udp_peer_addr) = self
             .timed_socks5_udp_associate(udp_notes.buf_conf, &mut tcp_notes, task_notes)
             .await

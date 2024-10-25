@@ -28,7 +28,7 @@ use g3_socket::util::AddressFamily;
 use g3_socket::BindAddr;
 use g3_types::acl::AclNetworkRule;
 use g3_types::metrics::MetricsName;
-use g3_types::net::{Host, OpensslClientConfig, UpstreamAddr};
+use g3_types::net::{Host, UpstreamAddr};
 use g3_types::resolve::{ResolveRedirection, ResolveStrategy};
 
 use super::{
@@ -39,15 +39,16 @@ use crate::auth::UserUpstreamTrafficStats;
 use crate::config::escaper::direct_fixed::DirectFixedEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
 use crate::module::ftp_over_http::{
-    AnyFtpConnectContextParam, ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats,
-    BoxFtpConnectContext, BoxFtpRemoteConnection, DirectFtpConnectContext,
-    DirectFtpConnectContextParam,
+    ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpConnectContext,
+    BoxFtpRemoteConnection, DirectFtpConnectContext,
 };
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, BoxHttpForwardContext,
     DirectHttpForwardContext,
 };
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
+};
 use crate::module::udp_connect::{
     ArcUdpConnectTaskRemoteStats, UdpConnectResult, UdpConnectTaskNotes,
 };
@@ -62,7 +63,7 @@ pub(crate) use stats::DirectFixedEscaperStats;
 
 mod ftp_connect;
 pub(crate) mod http_forward;
-mod tcp_connect;
+pub(crate) mod tcp_connect;
 mod tls_connect;
 pub(crate) mod udp_connect;
 pub(crate) mod udp_relay;
@@ -285,6 +286,7 @@ impl Escaper for DirectFixedEscaper {
 
     async fn tcp_setup_connection<'a>(
         &'a self,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
@@ -292,22 +294,21 @@ impl Escaper for DirectFixedEscaper {
     ) -> TcpConnectResult {
         self.stats.interface.add_tcp_connect_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
-        self.tcp_new_connection(tcp_notes, task_notes, task_stats)
+        self.tcp_new_connection(task_conf, tcp_notes, task_notes, task_stats)
             .await
     }
 
     async fn tls_setup_connection<'a>(
         &'a self,
+        task_conf: &TlsConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
         _audit_ctx: &'a mut AuditContext,
-        tls_config: &'a OpensslClientConfig,
-        tls_name: &'a Host,
     ) -> TcpConnectResult {
         self.stats.interface.add_tls_connect_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
-        self.tls_new_connection(tcp_notes, task_notes, task_stats, tls_config, tls_name)
+        self.tls_new_connection(task_conf, tcp_notes, task_notes, task_stats)
             .await
     }
 
@@ -342,10 +343,13 @@ impl Escaper for DirectFixedEscaper {
     async fn new_ftp_connect_context<'a>(
         &'a self,
         escaper: ArcEscaper,
+        task_conf: &TcpConnectTaskConf<'_>,
         _task_notes: &'a ServerTaskNotes,
-        upstream: &'a UpstreamAddr,
     ) -> BoxFtpConnectContext {
-        Box::new(DirectFtpConnectContext::new(escaper, upstream.clone()))
+        Box::new(DirectFtpConnectContext::new(
+            escaper,
+            task_conf.upstream.clone(),
+        ))
     }
 }
 
@@ -379,34 +383,35 @@ impl EscaperInternal for DirectFixedEscaper {
 
     async fn _new_http_forward_connection<'a>(
         &'a self,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.stats.interface.add_http_forward_connection_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
-        self.http_forward_new_connection(tcp_notes, task_notes, task_stats)
+        self.http_forward_new_connection(task_conf, tcp_notes, task_notes, task_stats)
             .await
     }
 
     async fn _new_https_forward_connection<'a>(
         &'a self,
+        task_conf: &TlsConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
-        tls_config: &'a OpensslClientConfig,
-        tls_name: &'a Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.stats
             .interface
             .add_https_forward_connection_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
-        self.https_forward_new_connection(tcp_notes, task_notes, task_stats, tls_config, tls_name)
+        self.https_forward_new_connection(task_conf, tcp_notes, task_notes, task_stats)
             .await
     }
 
     async fn _new_ftp_control_connection<'a>(
         &'a self,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteControlStats,
@@ -414,33 +419,30 @@ impl EscaperInternal for DirectFixedEscaper {
         self.stats.interface.add_ftp_over_http_request_attempted();
         self.stats.interface.add_ftp_control_connection_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
-        self.new_ftp_control_connection(tcp_notes, task_notes, task_stats)
+        self.new_ftp_control_connection(task_conf, tcp_notes, task_notes, task_stats)
             .await
     }
 
     async fn _new_ftp_transfer_connection<'a>(
         &'a self,
+        task_conf: &TcpConnectTaskConf<'_>,
         transfer_tcp_notes: &'a mut TcpConnectTaskNotes,
         control_tcp_notes: &'a TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteTransferStats,
-        mut context: AnyFtpConnectContextParam,
+        ftp_server: &UpstreamAddr,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         self.stats.interface.add_ftp_transfer_connection_attempted();
         transfer_tcp_notes.escaper.clone_from(&self.config.name);
-        match context.downcast_mut::<DirectFtpConnectContextParam>() {
-            Some(_ctx) => {
-                self.new_ftp_transfer_connection(
-                    transfer_tcp_notes,
-                    control_tcp_notes,
-                    task_notes,
-                    task_stats,
-                )
-                .await
-            }
-            None => Err(TcpConnectError::EscaperNotUsable(anyhow!(
-                "unmatched ftp connection context param"
-            ))),
-        }
+
+        self.new_ftp_transfer_connection(
+            task_conf,
+            transfer_tcp_notes,
+            control_tcp_notes,
+            task_notes,
+            task_stats,
+            ftp_server,
+        )
+        .await
     }
 }

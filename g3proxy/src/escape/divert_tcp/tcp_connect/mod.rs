@@ -29,7 +29,8 @@ use g3_types::net::{ConnectError, Host};
 use super::DivertTcpEscaper;
 use crate::log::escape::tcp_connect::EscapeLogForTcpConnect;
 use crate::module::tcp_connect::{
-    TcpConnectError, TcpConnectRemoteWrapperStats, TcpConnectResult, TcpConnectTaskNotes,
+    TcpConnectError, TcpConnectRemoteWrapperStats, TcpConnectResult, TcpConnectTaskConf,
+    TcpConnectTaskNotes,
 };
 use crate::resolve::HappyEyeballsResolveJob;
 use crate::serve::ServerTaskNotes;
@@ -77,6 +78,7 @@ impl DivertTcpEscaper {
     async fn fixed_try_connect(
         &self,
         peer: SocketAddr,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<TcpStream, TcpConnectError> {
@@ -110,6 +112,7 @@ impl DivertTcpEscaper {
 
                 let e = TcpConnectError::ConnectFailed(ConnectError::from(e));
                 EscapeLogForTcpConnect {
+                    upstream: task_conf.upstream,
                     tcp_notes,
                     task_id: &task_notes.id,
                 }
@@ -121,6 +124,7 @@ impl DivertTcpEscaper {
 
                 let e = TcpConnectError::TimeoutByRule;
                 EscapeLogForTcpConnect {
+                    upstream: task_conf.upstream,
                     tcp_notes,
                     task_id: &task_notes.id,
                 }
@@ -138,6 +142,7 @@ impl DivertTcpEscaper {
         &self,
         mut resolver_job: HappyEyeballsResolveJob,
         peer_port: u16,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<TcpStream, TcpConnectError> {
@@ -214,6 +219,7 @@ impl DivertTcpEscaper {
                                     }
                                     Err(e) => {
                                         EscapeLogForTcpConnect {
+                                            upstream: task_conf.upstream,
                                             tcp_notes,
                                             task_id: &task_notes.id,
                                         }
@@ -278,15 +284,17 @@ impl DivertTcpEscaper {
 
     pub(super) async fn tcp_connect_to<'a>(
         &'a self,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
     ) -> Result<TcpStream, TcpConnectError> {
-        let peer_proxy = self.get_next_proxy(task_notes, tcp_notes.upstream.host());
+        let peer_proxy = self.get_next_proxy(task_notes, task_conf.upstream.host());
 
         match peer_proxy.host() {
             Host::Ip(ip) => {
                 self.fixed_try_connect(
                     SocketAddr::new(*ip, peer_proxy.port()),
+                    task_conf,
                     tcp_notes,
                     task_notes,
                 )
@@ -295,23 +303,32 @@ impl DivertTcpEscaper {
             Host::Domain(domain) => {
                 let resolver_job = self.resolve_happy(domain.clone())?;
 
-                self.happy_try_connect(resolver_job, peer_proxy.port(), tcp_notes, task_notes)
-                    .await
+                self.happy_try_connect(
+                    resolver_job,
+                    peer_proxy.port(),
+                    task_conf,
+                    tcp_notes,
+                    task_notes,
+                )
+                .await
             }
         }
     }
 
     pub(super) async fn tcp_new_connection<'a>(
         &'a self,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &'a mut TcpConnectTaskNotes,
         task_notes: &'a ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
-        let stream = self.tcp_connect_to(tcp_notes, task_notes).await?;
+        let stream = self
+            .tcp_connect_to(task_conf, tcp_notes, task_notes)
+            .await?;
         let (r, mut w) = stream.into_split();
 
         let nw = self
-            .send_pp2_header(&mut w, tcp_notes, task_notes, None)
+            .send_pp2_header(&mut w, task_conf, task_notes, None)
             .await?;
         self.stats.add_write_bytes(nw as u64);
 

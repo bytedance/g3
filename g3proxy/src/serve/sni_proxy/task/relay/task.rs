@@ -31,12 +31,13 @@ use crate::audit::AuditContext;
 use crate::config::server::ServerConfig;
 use crate::inspect::{StreamInspectContext, StreamInspection};
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
-use crate::module::tcp_connect::TcpConnectTaskNotes;
+use crate::module::tcp_connect::{TcpConnectTaskConf, TcpConnectTaskNotes};
 use crate::serve::tcp_stream::TcpStreamTaskCltWrapperStats;
 use crate::serve::{ServerTaskError, ServerTaskNotes, ServerTaskResult, ServerTaskStage};
 
 pub(crate) struct TcpStreamTask {
     ctx: CommonTaskContext,
+    upstream: UpstreamAddr,
     protocol: Protocol,
     tcp_notes: TcpConnectTaskNotes,
     task_notes: ServerTaskNotes,
@@ -56,8 +57,9 @@ impl TcpStreamTask {
         let task_notes = ServerTaskNotes::new(ctx.cc_info.clone(), None, wait_time);
         TcpStreamTask {
             ctx,
+            upstream,
             protocol,
-            tcp_notes: TcpConnectTaskNotes::new(upstream),
+            tcp_notes: TcpConnectTaskNotes::default(),
             task_notes,
             task_stats: Arc::new(TcpStreamTaskStats::with_clt_stats(pre_handshake_stats)),
             audit_ctx,
@@ -66,6 +68,7 @@ impl TcpStreamTask {
 
     fn get_log_context(&self) -> TaskLogForTcpConnect {
         TaskLogForTcpConnect {
+            upstream: &self.upstream,
             task_notes: &self.task_notes,
             tcp_notes: &self.tcp_notes,
             total_time: self.task_notes.time_elapsed(),
@@ -132,10 +135,15 @@ impl TcpStreamTask {
             })?;
 
         self.task_notes.stage = ServerTaskStage::Connecting;
+
+        let task_conf = TcpConnectTaskConf {
+            upstream: &self.upstream,
+        };
         let (ups_r, ups_w) = self
             .ctx
             .escaper
             .tcp_setup_connection(
+                &task_conf,
                 &mut self.tcp_notes,
                 &self.task_notes,
                 self.task_stats.clone(),
@@ -199,7 +207,7 @@ impl TcpStreamTask {
                     if let Some(tls_interception) = ctx.tls_interception() {
                         let mut tls_obj = crate::inspect::tls::TlsInterceptObject::new(
                             ctx,
-                            self.tcp_notes.upstream.clone(),
+                            self.upstream.clone(),
                             tls_interception,
                         );
                         tls_obj.set_io(
@@ -218,7 +226,7 @@ impl TcpStreamTask {
                     if let Some(tls_interception) = ctx.tls_interception() {
                         let mut tls_obj = crate::inspect::tls::TlsInterceptObject::new(
                             ctx,
-                            self.tcp_notes.upstream.clone(),
+                            self.upstream.clone(),
                             tls_interception,
                         );
                         tls_obj.set_io(

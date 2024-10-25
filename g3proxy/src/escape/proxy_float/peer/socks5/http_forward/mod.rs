@@ -17,7 +17,6 @@
 use std::sync::Arc;
 
 use g3_io_ext::{AsyncStream, LimitedBufReader, LimitedWriter, NilLimitedReaderStats};
-use g3_types::net::{Host, OpensslClientConfig};
 
 use super::{
     ProxyFloatEscaper, ProxyFloatEscaperStats, ProxyFloatSocks5Peer,
@@ -29,7 +28,9 @@ use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpForwardRemoteWrapperStats,
     HttpForwardTaskRemoteWrapperStats,
 };
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
+};
 use crate::serve::ServerTaskNotes;
 
 mod writer;
@@ -39,12 +40,13 @@ impl ProxyFloatSocks5Peer {
     pub(super) async fn http_forward_new_connection(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         let ups_s = self
-            .timed_socks5_connect_tcp_connect_to(escaper, tcp_notes, task_notes)
+            .timed_socks5_connect_tcp_connect_to(escaper, task_conf, tcp_notes, task_notes)
             .await?;
         let (ups_r, mut ups_w) = ups_s.into_split();
 
@@ -69,19 +71,17 @@ impl ProxyFloatSocks5Peer {
     pub(super) async fn https_forward_new_connection(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &TlsConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
-        tls_config: &OpensslClientConfig,
-        tls_name: &Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         let tls_stream = self
             .socks5_connect_tls_connect_to(
                 escaper,
+                task_conf,
                 tcp_notes,
                 task_notes,
-                tls_config,
-                tls_name,
                 TlsApplication::HttpForward,
             )
             .await?;

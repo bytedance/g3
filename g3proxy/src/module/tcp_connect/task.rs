@@ -18,10 +18,35 @@ use std::net::SocketAddr;
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
+use openssl::ssl::Ssl;
 
 use g3_socket::BindAddr;
 use g3_types::metrics::MetricsName;
-use g3_types::net::{EgressInfo, UpstreamAddr};
+use g3_types::net::{EgressInfo, Host, OpensslClientConfig, UpstreamAddr};
+
+use super::TcpConnectError;
+
+pub(crate) struct TcpConnectTaskConf<'a> {
+    pub(crate) upstream: &'a UpstreamAddr,
+}
+
+pub(crate) struct TlsConnectTaskConf<'a> {
+    pub(crate) tcp: TcpConnectTaskConf<'a>,
+    pub(crate) tls_config: &'a OpensslClientConfig,
+    pub(crate) tls_name: &'a Host,
+}
+
+impl TlsConnectTaskConf<'_> {
+    pub(crate) fn build_ssl(&self) -> Result<Ssl, TcpConnectError> {
+        self.tls_config
+            .build_ssl(self.tls_name, self.tcp.upstream.port())
+            .map_err(TcpConnectError::InternalTlsClientError)
+    }
+
+    pub(crate) fn handshake_timeout(&self) -> Duration {
+        self.tls_config.handshake_timeout
+    }
+}
 
 /// This contains the final chained info about the client request
 #[derive(Debug, Clone, Default)]
@@ -37,9 +62,8 @@ impl TcpConnectChainedNotes {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub(crate) struct TcpConnectTaskNotes {
-    pub(crate) upstream: UpstreamAddr,
     pub(crate) escaper: MetricsName,
     pub(crate) bind: BindAddr,
     pub(crate) next: Option<SocketAddr>,
@@ -52,31 +76,7 @@ pub(crate) struct TcpConnectTaskNotes {
 }
 
 impl TcpConnectTaskNotes {
-    pub(crate) fn new(upstream: UpstreamAddr) -> Self {
-        TcpConnectTaskNotes {
-            upstream,
-            escaper: MetricsName::default(),
-            bind: BindAddr::None,
-            next: None,
-            tries: 0,
-            local: None,
-            expire: None,
-            egress: None,
-            chained: Default::default(),
-            duration: Duration::ZERO,
-        }
-    }
-
-    pub(crate) fn empty() -> Self {
-        TcpConnectTaskNotes::new(UpstreamAddr::empty())
-    }
-
-    #[allow(unused)]
-    pub(crate) fn is_empty(&self) -> bool {
-        self.upstream.is_empty()
-    }
-
-    pub(crate) fn reset_generated(&mut self) {
+    pub(crate) fn reset(&mut self) {
         self.escaper.clear();
         self.bind = BindAddr::None;
         self.next = None;
