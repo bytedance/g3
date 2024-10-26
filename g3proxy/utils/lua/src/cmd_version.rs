@@ -27,7 +27,7 @@ pub fn command() -> Command {
 pub fn display(lua: &Lua) -> anyhow::Result<()> {
     let version = lua
         .globals()
-        .get::<_, String>("_VERSION")
+        .get::<String>("_VERSION")
         .map_err(|e| anyhow!("failed to get _VERSION variable: {e}"))?;
 
     println!("lua version: {version}");

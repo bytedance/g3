@@ -154,10 +154,10 @@ async fn call_lua_report_ok(script: PathBuf) -> anyhow::Result<()> {
 
         let report_ok = lua
             .globals()
-            .get::<_, Function>("reportOk")
+            .get::<Function>("reportOk")
             .map_err(|e| anyhow!("failed to load reportOk function: {e}"))?;
         report_ok
-            .call::<_, ()>(Value::Nil)
+            .call::<()>(Value::Nil)
             .map_err(|e| anyhow!("failed to call reportOk: {e}"))?;
         Ok(())
     })
@@ -181,10 +181,10 @@ async fn call_lua_report_err(script: PathBuf, e: String) -> anyhow::Result<()> {
 
         let report_err = lua
             .globals()
-            .get::<_, Function>("reportErr")
+            .get::<Function>("reportErr")
             .map_err(|e| anyhow!("failed to load reportErr function: {e}"))?;
         report_err
-            .call::<_, ()>(e)
+            .call::<()>(e)
             .map_err(|e| anyhow!("failed to call reportErr: {e}"))?;
         Ok(())
     })
