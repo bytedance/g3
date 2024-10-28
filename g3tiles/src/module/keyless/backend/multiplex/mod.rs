@@ -110,9 +110,15 @@ where
         );
 
         let reader = self.r;
-        tokio::spawn(async move { recv_task.into_running(reader).await });
-        let r = send_task.run(self.w, reader_close_receiver).await;
-        self.stats.dec_alive_channel();
-        r
+        let backend_stats = self.stats;
+        tokio::spawn(async move {
+            recv_task.into_running(reader).await;
+            // Only consider the channel off if recv closed.
+            backend_stats.dec_alive_channel();
+        });
+        // The connection is considered off if we no longer need to send request over it,
+        // but there may be pending responses on the wire, so let's quit early here to let
+        // the connection pool to create new connections early.
+        send_task.run(self.w, reader_close_receiver).await
     }
 }
