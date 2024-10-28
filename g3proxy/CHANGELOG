@@ -6,6 +6,7 @@ v1.9.9:
  - BUG FIX: fix the check of H2 Extended CONNECT protocol
  - BUG FIX: fix the set of session cache for TLS interception client
  - Feature: allow to set max/min_tls_version in tls client config
+ - Feature: allow to set remote TLS ticketer in tls server config
  - Feature: allow to set quic transport config
  - Feature: support ICAP over TLS
  - Feature: support TLS port in front of socks server

@@ -1,4 +1,10 @@
 
+v0.3.6:
+ - Feature: allow to set remote TLS ticketer in tls server config
+ - Feature: add new runtime metrics runtime.tokio.global_queue_depth
+ - Feature: add new keyless metrics backend.keyless.request.timeout
+ - BUG FIX: fix the detection of alive keyless remote channels
+
 v0.3.5:
  - Feature: allow to write event log to stdout
  - Feature: compile in debug level logs when build in release mode

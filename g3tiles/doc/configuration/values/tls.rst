@@ -500,8 +500,6 @@ The map is consists of the following fields:
 
   **default**: false
 
-  .. versionadded:: 1.11.0
-
 .. _conf_value_rustls_client_config:
 
 rustls client config
