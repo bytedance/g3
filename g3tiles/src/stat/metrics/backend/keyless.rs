@@ -31,6 +31,7 @@ const METRIC_NAME_KEYLESS_CHANNEL_ALIVE: &str = "backend.keyless.channel.alive";
 const METRIC_NAME_KEYLESS_REQUEST_RECV: &str = "backend.keyless.request.recv";
 const METRIC_NAME_KEYLESS_REQUEST_SEND: &str = "backend.keyless.request.send";
 const METRIC_NAME_KEYLESS_REQUEST_DROP: &str = "backend.keyless.request.drop";
+const METRIC_NAME_KEYLESS_REQUEST_TIMEOUT: &str = "backend.keyless.request.timeout";
 const METRIC_NAME_KEYLESS_RESPONSE_RECV: &str = "backend.keyless.response.recv";
 const METRIC_NAME_KEYLESS_RESPONSE_SEND: &str = "backend.keyless.response.send";
 const METRIC_NAME_KEYLESS_RESPONSE_DROP: &str = "backend.keyless.response.drop";
@@ -141,6 +142,7 @@ fn emit_keyless_stats(
     emit_count!(request_recv, METRIC_NAME_KEYLESS_REQUEST_RECV);
     emit_count!(request_send, METRIC_NAME_KEYLESS_REQUEST_SEND);
     emit_count!(request_drop, METRIC_NAME_KEYLESS_REQUEST_DROP);
+    emit_count!(request_timeout, METRIC_NAME_KEYLESS_REQUEST_TIMEOUT);
 
     emit_count!(response_recv, METRIC_NAME_KEYLESS_RESPONSE_RECV);
     emit_count!(response_send, METRIC_NAME_KEYLESS_RESPONSE_SEND);

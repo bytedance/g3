@@ -50,6 +50,12 @@ Request Metrics
 
   Show the count of requests that get dropped internally.
 
+* backend.keyless.request.timeout
+
+  **type**: count
+
+  Show the count of requests that timed out to get response.
+
 * backend.keyless.response.recv
 
   **type**: count

@@ -36,6 +36,7 @@ pub(crate) struct KeylessBackendStats {
     request_recv: AtomicU64,
     request_send: AtomicU64,
     request_drop: AtomicU64,
+    request_timeout: AtomicU64,
     response_recv: AtomicU64,
     response_send: AtomicU64,
     response_drop: AtomicU64,
@@ -53,6 +54,7 @@ impl KeylessBackendStats {
             request_recv: AtomicU64::new(0),
             request_send: AtomicU64::new(0),
             request_drop: AtomicU64::new(0),
+            request_timeout: AtomicU64::new(0),
             response_recv: AtomicU64::new(0),
             response_send: AtomicU64::new(0),
             response_drop: AtomicU64::new(0),
@@ -127,6 +129,14 @@ impl KeylessBackendStats {
 
     pub(crate) fn request_drop(&self) -> u64 {
         self.request_drop.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn add_request_timeout(&self) {
+        self.request_timeout.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn request_timeout(&self) -> u64 {
+        self.request_timeout.load(Ordering::Relaxed)
     }
 
     pub(crate) fn add_response_recv(&self) {

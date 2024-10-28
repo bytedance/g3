@@ -113,9 +113,11 @@ impl StreamSharedState {
     where
         F: Fn(u32, CachedValue),
     {
-        let mut inner = self.inner.lock().unwrap();
-        let cur_ht = mem::take(&mut inner.cur_cache);
-        let mut old_ht = mem::replace(&mut inner.old_cache, cur_ht);
+        let mut old_ht = {
+            let mut inner = self.inner.lock().unwrap();
+            let cur_ht = mem::take(&mut inner.cur_cache);
+            mem::replace(&mut inner.old_cache, cur_ht)
+        };
         old_ht.drain().for_each(|(id, v)| handle(id, v));
     }
 }

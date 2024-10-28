@@ -101,7 +101,7 @@ impl KeylessUpstreamRecvTask {
                 }
                 _ = timeout_interval.tick() => {
                     self.shared_state.rotate_timeout(|_id, v| {
-                        self.stats.add_request_drop();
+                        self.stats.add_request_timeout();
                         v.send_internal_error();
                     });
                 }
@@ -142,7 +142,7 @@ impl KeylessUpstreamRecvTask {
                 }
                 _ = timeout_interval.tick() => {
                     self.shared_state.rotate_timeout(|_id, v| {
-                        self.stats.add_request_drop();
+                        self.stats.add_request_timeout();
                         v.send_internal_error();
                     });
                 }
