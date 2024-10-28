@@ -67,7 +67,7 @@ impl BindAddr {
                 #[cfg(any(target_os = "linux", target_os = "android"))]
                 set_bind_address_no_port(socket, true)?;
                 #[cfg(windows)]
-                let _ = set_reuse_unicastport(socket, true)?;
+                let _ = set_reuse_unicastport(socket, true);
                 let addr: SockAddr = SocketAddr::new(*ip, 0).into();
                 socket.bind(&addr)
             }
