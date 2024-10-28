@@ -60,6 +60,7 @@ struct KeylessBackendSnapshot {
     request_recv: u64,
     request_send: u64,
     request_drop: u64,
+    request_timeout: u64,
     response_recv: u64,
     response_send: u64,
     response_drop: u64,
