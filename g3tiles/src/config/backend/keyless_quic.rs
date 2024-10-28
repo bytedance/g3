@@ -69,7 +69,7 @@ impl KeylessQuicBackendConfig {
             request_buffer_size: 128,
             connection_config: Default::default(),
             graceful_close_wait: Duration::from_secs(10),
-            connection_pool: ConnectionPoolConfig::new(1024, 32),
+            connection_pool: ConnectionPoolConfig::new(2048, 128),
             quic_transport: QuinnTransportConfigBuilder::default(),
             concurrent_streams: 4,
             wait_new_channel: false,

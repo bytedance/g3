@@ -73,7 +73,7 @@ connection_max_request_count
 
 Set the max number of requests that can ben handled by a single upstream connection.
 
-**default**: 1000
+**default**: 4000
 
 .. versionadded:: 0.3.4
 
@@ -104,7 +104,7 @@ connection_pool
 
 Set the connection pool config.
 
-**default**: set with max idle 4096 min idle 128
+**default**: set with max idle 8192 min idle 256
 
 .. versionadded:: 0.3.5
 

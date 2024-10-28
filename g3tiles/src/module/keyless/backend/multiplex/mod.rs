@@ -42,7 +42,7 @@ pub(crate) struct MultiplexedUpstreamConnectionConfig {
 impl Default for MultiplexedUpstreamConnectionConfig {
     fn default() -> Self {
         MultiplexedUpstreamConnectionConfig {
-            max_request_count: 1000,
+            max_request_count: 4000,
             max_alive_time: Duration::from_secs(3600), // 1h
             response_timeout: Duration::from_secs(4),
         }

@@ -65,7 +65,7 @@ impl KeylessTcpBackendConfig {
             request_buffer_size: 128,
             connection_config: Default::default(),
             graceful_close_wait: Duration::from_secs(10),
-            connection_pool: ConnectionPoolConfig::new(4096, 128),
+            connection_pool: ConnectionPoolConfig::new(8192, 256),
             tcp_keepalive: TcpKeepAliveConfig::default(),
             wait_new_channel: false,
         }
