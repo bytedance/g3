@@ -1,4 +1,11 @@
 
+v0.9.3:
+ - Feature: add openssl variant info to version message
+ - Feature: support use aws-lc-rs as rustls crypto backend
+ - Feature: allow to set tls version for openssl client
+ - Feature: allow to bind to interface for various targets
+ - Feature: add tls session resumption data in summary output
+
 v0.9.2:
  - Compatibility: support windows
  - Compatibility: update build dependencies

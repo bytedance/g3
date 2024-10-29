@@ -1,9 +1,9 @@
 [package]
 name = "g3bench"
-version = "0.9.2"
+version = "0.9.3"
 license.workspace = true
 edition.workspace = true
-rust-version = "1.75.0"
+rust-version = "1.80.0"
 description = "G3 Benchmark Tool"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
