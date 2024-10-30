@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use anyhow::{anyhow, Context};
 use openssl::ex_data::Index;
 use openssl::ssl::{
@@ -29,8 +30,8 @@ use g3_types::collection::NamedValue;
 use g3_types::limit::RateLimitQuotaConfig;
 use g3_types::metrics::MetricsName;
 use g3_types::net::{
-    OpensslCertificatePair, OpensslSessionIdContext, OpensslTicketKey, RollingTicketer,
-    TcpSockSpeedLimitConfig,
+    OpensslCertificatePair, OpensslServerSessionCache, OpensslSessionIdContext, OpensslTicketKey,
+    RollingTicketer, TcpSockSpeedLimitConfig,
 };
 use g3_types::route::AlpnMatch;
 use g3_yaml::{YamlDocPosition, YamlMapCallback};
@@ -156,7 +157,8 @@ impl OpensslHostConfig {
         if self.no_session_cache {
             ssl_builder.set_session_cache_mode(SslSessionCacheMode::OFF);
         } else {
-            ssl_builder.set_session_cache_mode(SslSessionCacheMode::SERVER);
+            let cache = OpensslServerSessionCache::new(256)?;
+            cache.add_to_context(&mut ssl_builder);
         }
         if self.no_session_ticket {
             ssl_builder.set_options(SslOptions::NO_TICKET);
@@ -224,7 +226,8 @@ impl OpensslHostConfig {
         if self.no_session_cache {
             ssl_builder.set_session_cache_mode(SslSessionCacheMode::OFF);
         } else {
-            ssl_builder.set_session_cache_mode(SslSessionCacheMode::SERVER);
+            let cache = OpensslServerSessionCache::new(256)?;
+            cache.add_to_context(&mut ssl_builder);
         }
         if self.no_session_ticket {
             ssl_builder.set_options(SslOptions::NO_TICKET);

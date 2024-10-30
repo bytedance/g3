@@ -18,7 +18,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use log::debug;
-use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
 use g3_daemon::stat::task::{TcpStreamConnectionStats, TcpStreamTaskStats};
@@ -185,14 +185,23 @@ impl OpensslRelayTask {
                     return match r {
                         Ok(_) => Err(ServerTaskError::ClosedByClient),
                         Err(LimitedCopyError::ReadFailed(e)) => Err(ServerTaskError::ClientTcpReadFailed(e)),
-                        Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::UpstreamWriteFailed(e)),
+                        Err(LimitedCopyError::WriteFailed(e)) => {
+                            let _ = clt_w.shutdown().await;
+                            Err(ServerTaskError::UpstreamWriteFailed(e))
+                        },
                     };
                 }
                 r = &mut ups_to_clt => {
                     let _ = clt_to_ups.write_flush().await;
                     return match r {
-                        Ok(_) => Err(ServerTaskError::ClosedByUpstream),
-                        Err(LimitedCopyError::ReadFailed(e)) => Err(ServerTaskError::UpstreamReadFailed(e)),
+                        Ok(_) => {
+                            let _ = clt_w.shutdown().await;
+                            Err(ServerTaskError::ClosedByUpstream)
+                        },
+                        Err(LimitedCopyError::ReadFailed(e)) => {
+                            let _ = clt_w.shutdown().await;
+                            Err(ServerTaskError::UpstreamReadFailed(e))
+                        },
                         Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
                     };
                 }
