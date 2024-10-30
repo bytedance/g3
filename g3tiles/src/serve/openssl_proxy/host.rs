@@ -16,93 +16,18 @@
 
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use arc_swap::ArcSwap;
 use governor::{clock::DefaultClock, state::InMemoryState, state::NotKeyed, RateLimiter};
-use openssl::ex_data::Index;
-#[cfg(feature = "vendored-tongsuo")]
-use openssl::ssl::SslVersion;
-use openssl::ssl::{Ssl, SslAcceptor, SslContext, TlsExtType};
+use openssl::ssl::SslContext;
 
 use g3_types::collection::NamedValue;
 use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit};
 use g3_types::metrics::MetricsName;
-use g3_types::net::{Host, OpensslTicketKey, RollingTicketer, TlsServerName};
+use g3_types::net::{OpensslTicketKey, RollingTicketer};
 use g3_types::route::AlpnMatch;
 
 use crate::backend::ArcBackend;
 use crate::config::server::openssl_proxy::OpensslHostConfig;
-
-#[cfg(feature = "vendored-tongsuo")]
-pub(super) fn build_lazy_ssl_context(
-    version_index: Index<Ssl, SslVersion>,
-    host_name_index: Index<Ssl, Host>,
-) -> anyhow::Result<SslContext> {
-    use openssl::ssl::ClientHelloError;
-
-    let mut builder = SslAcceptor::tongsuo_auto()
-        .map_err(|e| anyhow!("failed to get ssl acceptor builder: {e}"))?;
-
-    builder.set_client_hello_callback(move |ssl, _alert| {
-        let client_hello_version = ssl.client_hello_legacy_version().unwrap();
-        ssl.set_ex_data(version_index, client_hello_version);
-
-        if let Some(sni_ext) = ssl.client_hello_ext(TlsExtType::SERVER_NAME) {
-            if let Ok(name) = TlsServerName::from_extension_value(sni_ext) {
-                ssl.set_ex_data(host_name_index, name.into());
-            }
-        }
-
-        Err(ClientHelloError::RETRY)
-    });
-    Ok(builder.build().into_context())
-}
-
-#[cfg(not(any(
-    feature = "vendored-tongsuo",
-    feature = "vendored-aws-lc",
-    feature = "vendored-boringssl"
-)))]
-pub(super) fn build_lazy_ssl_context(
-    host_name_index: Index<Ssl, Host>,
-) -> anyhow::Result<SslContext> {
-    use openssl::ssl::{ClientHelloError, SslMethod};
-
-    let mut builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::tls_server())
-        .map_err(|e| anyhow!("failed to get ssl acceptor builder: {e}"))?;
-
-    builder.set_client_hello_callback(move |ssl, _alert| {
-        if let Some(sni_ext) = ssl.client_hello_ext(TlsExtType::SERVER_NAME) {
-            if let Ok(name) = TlsServerName::from_extension_value(sni_ext) {
-                ssl.set_ex_data(host_name_index, name.into());
-            }
-        }
-
-        Err(ClientHelloError::RETRY)
-    });
-    Ok(builder.build().into_context())
-}
-
-#[cfg(any(feature = "vendored-aws-lc", feature = "vendored-boringssl"))]
-pub(super) fn build_lazy_ssl_context(
-    host_name_index: Index<Ssl, Host>,
-) -> anyhow::Result<SslContext> {
-    use openssl::ssl::{SelectCertError, SslMethod};
-
-    let mut builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::tls_server())
-        .map_err(|e| anyhow!("failed to get ssl acceptor builder: {e}"))?;
-
-    builder.set_select_certificate_callback(move |mut ch| {
-        if let Some(sni_ext) = ch.get_extension(TlsExtType::SERVER_NAME) {
-            if let Ok(name) = TlsServerName::from_extension_value(sni_ext) {
-                ch.ssl_mut().set_ex_data(host_name_index, name.into());
-            }
-        }
-
-        Err(SelectCertError::RETRY)
-    });
-    Ok(builder.build().into_context())
-}
 
 pub(crate) struct OpensslHost {
     pub(super) config: Arc<OpensslHostConfig>,

@@ -22,7 +22,9 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::time::Instant;
 
 use g3_daemon::stat::task::{TcpStreamConnectionStats, TcpStreamTaskStats};
-use g3_io_ext::{AsyncStream, LimitedCopy, LimitedCopyConfig, LimitedCopyError, LimitedStream};
+use g3_io_ext::{
+    AsyncStream, LimitedCopy, LimitedCopyConfig, LimitedCopyError, LimitedStream, OnceBufReader,
+};
 use g3_openssl::SslStream;
 use g3_types::limit::GaugeSemaphorePermit;
 
@@ -75,8 +77,10 @@ impl OpensslRelayTask {
         }
     }
 
-    pub(crate) async fn into_running<S>(mut self, ssl_stream: SslStream<LimitedStream<S>>)
-    where
+    pub(crate) async fn into_running<S>(
+        mut self,
+        ssl_stream: SslStream<OnceBufReader<LimitedStream<S>>>,
+    ) where
         S: AsyncRead + AsyncWrite + Unpin,
     {
         self.pre_start();
@@ -104,7 +108,10 @@ impl OpensslRelayTask {
         self.ctx.server_stats.dec_alive_task();
     }
 
-    async fn run<S>(&mut self, ssl_stream: SslStream<LimitedStream<S>>) -> ServerTaskResult<()>
+    async fn run<S>(
+        &mut self,
+        ssl_stream: SslStream<OnceBufReader<LimitedStream<S>>>,
+    ) -> ServerTaskResult<()>
     where
         S: AsyncRead + AsyncWrite + Unpin,
     {
@@ -129,7 +136,7 @@ impl OpensslRelayTask {
 
     async fn run_connected<S, UR, UW>(
         &mut self,
-        ssl_stream: SslStream<LimitedStream<S>>,
+        ssl_stream: SslStream<OnceBufReader<LimitedStream<S>>>,
         ups_r: UR,
         ups_w: UW,
     ) -> ServerTaskResult<()>
@@ -144,7 +151,7 @@ impl OpensslRelayTask {
 
     async fn relay<S, UR, UW>(
         &mut self,
-        mut ssl_stream: SslStream<LimitedStream<S>>,
+        mut ssl_stream: SslStream<OnceBufReader<LimitedStream<S>>>,
         mut ups_r: UR,
         mut ups_w: UW,
     ) -> ServerTaskResult<()>
@@ -211,8 +218,10 @@ impl OpensslRelayTask {
         }
     }
 
-    fn reset_clt_limit_and_stats<S>(&self, ssl_stream: &mut SslStream<LimitedStream<S>>)
-    where
+    fn reset_clt_limit_and_stats<S>(
+        &self,
+        ssl_stream: &mut SslStream<OnceBufReader<LimitedStream<S>>>,
+    ) where
         S: AsyncRead + AsyncWrite,
     {
         // reset io limit
@@ -222,7 +231,7 @@ impl OpensslRelayTask {
                 .server_config
                 .tcp_sock_speed_limit
                 .shrink_as_smaller(limit);
-            ssl_stream.get_mut().reset_local_limit(
+            ssl_stream.get_mut().inner_mut().reset_local_limit(
                 limit.shift_millis,
                 limit.max_north,
                 limit.max_south,
@@ -235,6 +244,7 @@ impl OpensslRelayTask {
             StreamRelayTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
         ssl_stream
             .get_mut()
+            .inner_mut()
             .reset_stats(Arc::new(clt_wrapper_stats));
     }
 }

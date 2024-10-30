@@ -17,16 +17,21 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use bytes::BytesMut;
 use log::debug;
-use openssl::ssl::{Ssl, SslContext, SslRef};
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
+use openssl::ssl::Ssl;
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::time::Instant;
 
 use g3_daemon::stat::task::TcpStreamConnectionStats;
-use g3_io_ext::LimitedStream;
-use g3_openssl::SslStream;
+use g3_dpi::parser::tls::{
+    ClientHello, ExtensionType, HandshakeCoalescer, RawVersion, Record, RecordParseError,
+};
+use g3_io_ext::{LimitedStream, OnceBufReader};
+use g3_openssl::{SslAcceptor, SslStream};
 use g3_types::limit::GaugeSemaphorePermit;
+use g3_types::net::{Host, TlsServerName};
 use g3_types::route::HostMatch;
 
 use super::{CommonTaskContext, OpensslRelayTask};
@@ -48,7 +53,7 @@ impl OpensslAcceptTask {
         }
     }
 
-    pub(crate) async fn into_running(mut self, stream: TcpStream, ssl: Ssl) {
+    pub(crate) async fn into_running(mut self, stream: TcpStream) {
         let time_accepted = Instant::now();
 
         let pre_handshake_stats = Arc::new(TcpStreamConnectionStats::default());
@@ -56,7 +61,7 @@ impl OpensslAcceptTask {
             StreamAcceptTaskCltWrapperStats::new(&self.ctx.server_stats, &pre_handshake_stats);
 
         let limit_config = self.ctx.server_config.tcp_sock_speed_limit;
-        let stream = LimitedStream::local_limited(
+        let mut stream = LimitedStream::local_limited(
             stream,
             limit_config.shift_millis,
             limit_config.max_north,
@@ -64,8 +69,20 @@ impl OpensslAcceptTask {
             Arc::new(wrapper_stats),
         );
 
-        match self.handshake(stream, ssl).await {
-            Ok((mut ssl_stream, host)) => {
+        let mut clt_r_buf = BytesMut::with_capacity(2048);
+        match self.read_client_hello(&mut stream, &mut clt_r_buf).await {
+            Ok((legacy_version, host)) => {
+                let mut ssl_stream = match self
+                    .handshake(&host, legacy_version, OnceBufReader::new(stream, clt_r_buf))
+                    .await
+                {
+                    Ok(stream) => stream,
+                    Err(e) => {
+                        debug!("handshake with client failed: {e}");
+                        return;
+                    }
+                };
+
                 if ssl_stream.ssl().session_reused() {
                     // Quick ACK is needed with session resumption
                     self.ctx.cc_info.tcp_sock_try_quick_ack();
@@ -94,95 +111,136 @@ impl OpensslAcceptTask {
                 .await;
             }
             Err(e) => {
-                debug!("openssl handshake failed: {e}");
+                debug!("dropped connection: {e}")
             }
+        };
+    }
+
+    async fn read_client_hello<R>(
+        &mut self,
+        clt_r: &mut R,
+        clt_r_buf: &mut BytesMut,
+    ) -> anyhow::Result<(RawVersion, Arc<OpensslHost>)>
+    where
+        R: AsyncRead + Unpin,
+    {
+        tokio::time::timeout(
+            self.ctx.server_config.client_hello_recv_timeout,
+            self.do_read_client_hello(clt_r, clt_r_buf),
+        )
+        .await
+        .map_err(|_| anyhow!("timed out to recv client hello message"))?
+    }
+
+    async fn do_read_client_hello<R>(
+        &mut self,
+        clt_r: &mut R,
+        clt_r_buf: &mut BytesMut,
+    ) -> anyhow::Result<(RawVersion, Arc<OpensslHost>)>
+    where
+        R: AsyncRead + Unpin,
+    {
+        let mut handshake_coalescer =
+            HandshakeCoalescer::new(self.ctx.server_config.client_hello_max_size);
+        let mut record_offset = 0;
+        loop {
+            let mut record = match Record::parse(&clt_r_buf[record_offset..]) {
+                Ok(r) => r,
+                Err(RecordParseError::NeedMoreData(_)) => match clt_r.read_buf(clt_r_buf).await {
+                    Ok(0) => return Err(anyhow!("connection closed by client")),
+                    Ok(_) => continue,
+                    Err(e) => return Err(anyhow!("client read error: {e}")),
+                },
+                Err(_) => {
+                    return Err(anyhow!("invalid tls client hello request"));
+                }
+            };
+            record_offset += record.encoded_len();
+
+            // The Client Hello Message MUST be the first Handshake message
+            match record.consume_handshake(&mut handshake_coalescer) {
+                Ok(Some(handshake_msg)) => {
+                    let ch = handshake_msg
+                        .parse_client_hello()
+                        .map_err(|_| anyhow!("invalid tls client hello request"))?;
+                    return self.parse_sni(ch);
+                }
+                Ok(None) => match handshake_coalescer.parse_client_hello() {
+                    Ok(Some(ch)) => return self.parse_sni(ch),
+                    Ok(None) => {
+                        if !record.consume_done() {
+                            return Err(anyhow!("partial fragmented tls client hello request",));
+                        }
+                    }
+                    Err(_) => {
+                        return Err(anyhow!("invalid fragmented tls client hello request",));
+                    }
+                },
+                Err(_) => {
+                    return Err(anyhow!("invalid tls client hello request",));
+                }
+            }
+        }
+    }
+
+    fn parse_sni(&mut self, ch: ClientHello<'_>) -> anyhow::Result<(RawVersion, Arc<OpensslHost>)> {
+        match ch.get_ext(ExtensionType::ServerName) {
+            Ok(Some(data)) => {
+                let sni = TlsServerName::from_extension_value(data)
+                    .map_err(|_| anyhow!("invalid server name in tls client hello message"))?;
+                let host = Host::from(sni);
+                let Some(host) = self.hosts.get(&host) else {
+                    return Err(anyhow!("no tls config found for server named {host}"));
+                };
+                Ok((ch.legacy_version, host.clone()))
+            }
+            Ok(None) => match self.hosts.get_default() {
+                Some(host) => Ok((ch.legacy_version, host.clone())),
+                None => Err(anyhow!("no server name in client hello message")),
+            },
+            Err(_) => Err(anyhow!("invalid extension in tls client hello request",)),
         }
     }
 
     async fn handshake<S>(
         &mut self,
+        host: &OpensslHost,
+        legacy_version: RawVersion,
         stream: S,
-        ssl: Ssl,
-    ) -> anyhow::Result<(SslStream<S>, Arc<OpensslHost>)>
+    ) -> anyhow::Result<SslStream<S>>
     where
         S: AsyncRead + AsyncWrite + Unpin,
     {
-        let mut lazy_acceptor = g3_openssl::SslLazyAcceptor::new(ssl, stream).unwrap();
-        match tokio::time::timeout(
-            self.ctx.server_config.client_hello_recv_timeout,
-            lazy_acceptor.accept(),
-        )
-        .await
-        {
-            Ok(Ok(_)) => {}
-            Ok(Err(e)) => {
-                return Err(anyhow!("failed to recv ssl client hello: {e}"));
-            }
-            Err(_) => {
-                return Err(anyhow!("timeout to recv ssl client hello"));
-            }
-        }
-
-        let Some(host) = self.get_host(lazy_acceptor.ssl()) else {
-            return Err(anyhow!("no matched host config found"));
-        };
-        #[cfg(feature = "vendored-tongsuo")]
-        let host_ssl_context = self.get_host_ssl_context(lazy_acceptor.ssl(), &host)?;
-        #[cfg(not(feature = "vendored-tongsuo"))]
-        let host_ssl_context = self.get_host_ssl_context(&host);
-        let Some(ssl_context) = host_ssl_context else {
-            return Err(anyhow!("no matched host ssl context found"));
-        };
-
         host.check_rate_limit()
             .map_err(|_| anyhow!("host level rate limit reached"))?;
         self.alive_permit = host
             .acquire_request_semaphore()
             .map_err(|_| anyhow!("host level alive limit reached"))?;
 
-        let acceptor = lazy_acceptor
-            .into_acceptor(Some(ssl_context))
-            .map_err(|e| anyhow!("failed to set final ssl context: {e}"))?;
-
-        match tokio::time::timeout(self.ctx.server_config.accept_timeout, acceptor.accept()).await {
-            Ok(Ok(ssl_stream)) => Ok((ssl_stream, host)),
-            Ok(Err(e)) => Err(anyhow!("failed to accept ssl handshake: {e}")),
-            Err(_) => Err(anyhow!("timeout to accept ssl handshake")),
-        }
-    }
-
-    fn get_host(&self, lazy_ssl: &SslRef) -> Option<Arc<OpensslHost>> {
-        if let Some(host) = lazy_ssl.ex_data(self.ctx.host_name_index) {
-            self.hosts.get(host).cloned()
-        } else {
-            self.hosts.get_default().cloned()
-        }
-    }
-
-    #[cfg(feature = "vendored-tongsuo")]
-    fn get_host_ssl_context<'b>(
-        &self,
-        lazy_ssl: &SslRef,
-        host: &'b Arc<OpensslHost>,
-    ) -> anyhow::Result<Option<&'b SslContext>> {
-        use openssl::ssl::SslVersion;
-
-        let Some(client_hello_version) = lazy_ssl
-            .ex_data(self.ctx.client_hello_version_index)
-            .copied()
-        else {
-            return Err(anyhow!("no client hello version found"));
-        };
-        let host_ssl_context = if client_hello_version == SslVersion::NTLS1_1 {
+        let ssl_context = if legacy_version.is_tlcp() {
+            #[cfg(not(feature = "vendored-tongsuo"))]
+            return Err(anyhow!("tlcp protocol is not supported"));
+            #[cfg(feature = "vendored-tongsuo")]
             host.tlcp_context.as_ref()
         } else {
             host.ssl_context.as_ref()
         };
-        Ok(host_ssl_context)
-    }
+        let Some(ssl_context) = ssl_context else {
+            return Err(anyhow!(
+                "no supported tls context for legacy protocol {:?}",
+                legacy_version
+            ));
+        };
 
-    #[cfg(not(feature = "vendored-tongsuo"))]
-    fn get_host_ssl_context<'b>(&self, host: &'b Arc<OpensslHost>) -> Option<&'b SslContext> {
-        host.ssl_context.as_ref()
+        let ssl =
+            Ssl::new(ssl_context).map_err(|e| anyhow!("failed to create SSL instance: {e}"))?;
+        let acceptor = SslAcceptor::new(ssl, stream)
+            .map_err(|e| anyhow!("failed to create new ssl acceptor: {e}"))?;
+
+        match tokio::time::timeout(self.ctx.server_config.accept_timeout, acceptor.accept()).await {
+            Ok(Ok(ssl_stream)) => Ok(ssl_stream),
+            Ok(Err(e)) => Err(anyhow!("failed to accept ssl handshake: {e}")),
+            Err(_) => Err(anyhow!("timeout to accept ssl handshake")),
+        }
     }
 }

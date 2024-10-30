@@ -20,11 +20,6 @@ use std::sync::Arc;
 use ahash::AHashMap;
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use log::warn;
-use openssl::ex_data::Index;
-#[cfg(feature = "vendored-tongsuo")]
-use openssl::ssl::SslVersion;
-use openssl::ssl::{Ssl, SslContext};
 #[cfg(feature = "quic")]
 use quinn::Connection;
 use slog::Logger;
@@ -35,7 +30,7 @@ use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTc
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::MetricsName;
-use g3_types::net::{Host, OpensslTicketKey, RollingTicketer};
+use g3_types::net::{OpensslTicketKey, RollingTicketer};
 use g3_types::route::HostMatch;
 
 use super::{CommonTaskContext, OpensslAcceptTask, OpensslHost};
@@ -55,10 +50,6 @@ pub(crate) struct OpensslProxyServer {
     reload_sender: broadcast::Sender<ServerReloadCommand>,
     task_logger: Logger,
     hosts: Arc<HostMatch<Arc<OpensslHost>>>,
-    #[cfg(feature = "vendored-tongsuo")]
-    client_hello_version_index: Index<Ssl, SslVersion>,
-    host_name_index: Index<Ssl, Host>,
-    lazy_ssl_context: SslContext,
 
     quit_policy: Arc<ServerQuitPolicy>,
     reload_version: usize,
@@ -74,17 +65,6 @@ impl OpensslProxyServer {
         version: usize,
     ) -> anyhow::Result<Self> {
         let reload_sender = crate::serve::new_reload_notify_channel();
-
-        let host_name_index =
-            Ssl::new_ex_index().map_err(|e| anyhow!("failed to create ex index: {e}"))?;
-        #[cfg(feature = "vendored-tongsuo")]
-        let client_hello_version_index =
-            Ssl::new_ex_index().map_err(|e| anyhow!("failed to create ex index: {e}"))?;
-        #[cfg(feature = "vendored-tongsuo")]
-        let lazy_ssl_context =
-            super::host::build_lazy_ssl_context(client_hello_version_index, host_name_index)?;
-        #[cfg(not(feature = "vendored-tongsuo"))]
-        let lazy_ssl_context = super::host::build_lazy_ssl_context(host_name_index)?;
 
         let ingress_net_filter = config
             .ingress_net_filter
@@ -105,10 +85,6 @@ impl OpensslProxyServer {
             reload_sender,
             task_logger,
             hosts,
-            #[cfg(feature = "vendored-tongsuo")]
-            client_hello_version_index,
-            host_name_index,
-            lazy_ssl_context,
             quit_policy: Arc::new(ServerQuitPolicy::default()),
             reload_version: version,
         })
@@ -209,34 +185,22 @@ impl OpensslProxyServer {
     }
 
     async fn run_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
-        let ssl = match Ssl::new(&self.lazy_ssl_context) {
-            Ok(v) => v,
-            Err(e) => {
-                warn!("failed to build ssl context when accepting connections: {e}");
-                return;
-            }
-        };
-
         let ctx = CommonTaskContext {
             server_config: Arc::clone(&self.config),
             server_stats: Arc::clone(&self.server_stats),
             server_quit_policy: Arc::clone(&self.quit_policy),
             cc_info,
             task_logger: self.task_logger.clone(),
-
-            #[cfg(feature = "vendored-tongsuo")]
-            client_hello_version_index: self.client_hello_version_index,
-            host_name_index: self.host_name_index,
         };
 
         if self.config.spawn_task_unconstrained {
             tokio::task::unconstrained(
-                OpensslAcceptTask::new(ctx, self.hosts.clone()).into_running(stream, ssl),
+                OpensslAcceptTask::new(ctx, self.hosts.clone()).into_running(stream),
             )
             .await
         } else {
             OpensslAcceptTask::new(ctx, self.hosts.clone())
-                .into_running(stream, ssl)
+                .into_running(stream)
                 .await;
         }
     }

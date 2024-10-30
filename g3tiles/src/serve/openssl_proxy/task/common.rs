@@ -17,14 +17,9 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use openssl::ex_data::Index;
-use openssl::ssl::Ssl;
-#[cfg(feature = "vendored-tongsuo")]
-use openssl::ssl::SslVersion;
 use slog::Logger;
 
 use g3_daemon::server::ClientConnectionInfo;
-use g3_types::net::Host;
 
 use crate::config::server::openssl_proxy::OpensslProxyServerConfig;
 use crate::module::stream::StreamServerStats;
@@ -36,10 +31,6 @@ pub(crate) struct CommonTaskContext {
     pub server_quit_policy: Arc<ServerQuitPolicy>,
     pub cc_info: ClientConnectionInfo,
     pub task_logger: Logger,
-
-    #[cfg(feature = "vendored-tongsuo")]
-    pub client_hello_version_index: Index<Ssl, SslVersion>,
-    pub host_name_index: Index<Ssl, Host>,
 }
 
 impl CommonTaskContext {
