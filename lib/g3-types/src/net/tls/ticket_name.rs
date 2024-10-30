@@ -37,10 +37,10 @@ impl TryFrom<&[u8]> for TicketKeyName {
     type Error = ();
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        if value.len() != TICKET_KEY_NAME_LENGTH {
+        if value.len() < TICKET_KEY_NAME_LENGTH {
             Err(())
         } else {
-            unsafe { Ok(Self::from_slice_unchecked(value)) }
+            unsafe { Ok(Self::from_slice_unchecked(&value[..TICKET_KEY_NAME_LENGTH])) }
         }
     }
 }
