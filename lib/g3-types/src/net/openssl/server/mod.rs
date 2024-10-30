@@ -249,7 +249,8 @@ impl OpensslServerConfigBuilder {
         if self.no_session_cache {
             ssl_builder.set_session_cache_mode(SslSessionCacheMode::OFF);
         } else {
-            ssl_builder.set_session_cache_mode(SslSessionCacheMode::SERVER);
+            let cache = OpensslServerSessionCache::new(256)?;
+            cache.add_to_context(&mut ssl_builder);
         }
         if self.no_session_ticket {
             ssl_builder.set_options(SslOptions::NO_TICKET);
