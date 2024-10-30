@@ -19,7 +19,7 @@ use std::io;
 use std::task::{Context, Poll};
 
 use openssl::error::ErrorStack;
-use openssl::ssl::{self, ErrorCode, Ssl};
+use openssl::ssl::{self, ErrorCode, Ssl, SslVersion};
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use super::{SslIoWrapper, SslStream};
