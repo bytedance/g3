@@ -159,6 +159,9 @@ openssl = { package = "variant-ssl", version = "0.15.5" }
 openssl-sys = { package = "variant-ssl-sys", version = "0.15.5" }
 openssl-probe = "0.1"
 #
+s2n-tls = "0.3"
+s2n-tls-tokio = "0.3"
+#
 flume = { version = "0.11", default-features = false }
 #
 c-ares = { version = "11.0", default-features = false }

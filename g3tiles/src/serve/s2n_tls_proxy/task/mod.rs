@@ -14,29 +14,11 @@
  * limitations under the License.
  */
 
-mod alpn;
-pub use alpn::{AlpnProtocol, TlsAlpn};
+mod common;
+pub(super) use common::CommonTaskContext;
 
-mod server_name;
-pub use server_name::TlsServerName;
+mod accept;
+pub(super) use accept::S2nTlsAcceptTask;
 
-mod service_type;
-pub use service_type::TlsServiceType;
-
-mod cert_usage;
-pub use cert_usage::TlsCertUsage;
-
-mod ticket_name;
-pub use ticket_name::{TicketKeyName, TICKET_KEY_NAME_LENGTH};
-
-mod ticketer;
-pub use ticketer::{
-    RollingTicketKey, RollingTicketer, TICKET_AES_IV_LENGTH, TICKET_AES_KEY_LENGTH,
-    TICKET_HMAC_KEY_LENGTH,
-};
-
-mod version;
-pub use version::TlsVersion;
-
-mod cert_pair;
-pub use cert_pair::UnparsedTlsCertPair;
+mod relay;
+use relay::S2nTlsRelayTask;
