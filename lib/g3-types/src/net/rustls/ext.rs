@@ -78,8 +78,10 @@ impl RustlsServerConfigExt for ServerConfig {
                 self.ticketer = Ticketer::new()
                     .map_err(|e| anyhow!("failed to create session ticketer: {e}"))?;
             }
+            self.send_tls13_tickets = 2;
         } else {
             self.ticketer = Arc::new(RustlsNoSessionTicketer {});
+            self.send_tls13_tickets = 0;
         }
         Ok(())
     }
