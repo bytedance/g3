@@ -39,6 +39,17 @@ Set the timeout value for the wait of initial client hello data.
 
 **default**: 10s
 
+client_hello_max_size
+---------------------
+
+**optional**, **type**: :ref:`humanize u32 <conf_value_humanize_u32>`
+
+Set the max allowed Client Hello Handshake message size.
+
+**default**: 16K
+
+.. versionadded:: 0.3.7
+
 accept_timeout
 --------------
 

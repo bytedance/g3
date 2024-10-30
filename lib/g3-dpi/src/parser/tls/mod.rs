@@ -20,6 +20,12 @@ pub struct RawVersion {
     minor: u8,
 }
 
+impl RawVersion {
+    pub fn is_tlcp(&self) -> bool {
+        (self.major == 1) && (self.minor == 1)
+    }
+}
+
 mod record;
 pub(crate) use record::ContentType;
 pub use record::{Record, RecordHeader, RecordParseError};

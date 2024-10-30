@@ -47,6 +47,7 @@ pub(crate) struct OpensslProxyServerConfig {
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
     pub(crate) client_hello_recv_timeout: Duration,
+    pub(crate) client_hello_max_size: u32,
     pub(crate) accept_timeout: Duration,
     pub(crate) hosts: HostMatch<Arc<OpensslHostConfig>>,
     pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
@@ -70,6 +71,7 @@ impl OpensslProxyServerConfig {
             ingress_net_filter: None,
             extra_metrics_tags: None,
             client_hello_recv_timeout: Duration::from_secs(10),
+            client_hello_max_size: 16384, // 16K
             accept_timeout: Duration::from_secs(60),
             hosts: HostMatch::default(),
             tcp_sock_speed_limit: TcpSockSpeedLimitConfig::default(),
@@ -143,9 +145,13 @@ impl OpensslProxyServerConfig {
                 Ok(())
             }
             "client_hello_recv_timeout" => {
-                let timeout = g3_yaml::humanize::as_duration(v)
+                self.client_hello_recv_timeout = g3_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
-                self.client_hello_recv_timeout = timeout;
+                Ok(())
+            }
+            "client_hello_max_size" => {
+                self.client_hello_max_size = g3_yaml::humanize::as_u32(v)
+                    .context(format!("invalid humanize u32 value for key {k}"))?;
                 Ok(())
             }
             "accept_timeout" | "handshake_timeout" | "negotiation_timeout" => {

@@ -61,6 +61,10 @@ impl<R> OnceBufReader<R> {
         self.buf.as_ref()
     }
 
+    pub fn inner_mut(&mut self) -> &mut R {
+        &mut self.inner
+    }
+
     pub fn into_inner(self) -> R {
         self.inner
     }

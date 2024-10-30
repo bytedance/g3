@@ -26,6 +26,7 @@ itoa.workspace = true
 ascii.workspace = true
 capnp.workspace = true
 capnp-rpc.workspace = true
+bytes.workspace = true
 tokio = { workspace = true, features = ["net", "sync", "time"] }
 futures-util.workspace = true
 openssl.workspace = true
@@ -41,6 +42,7 @@ bitflags.workspace = true
 flume.workspace = true
 rustc-hash.workspace = true
 g3-daemon.workspace = true
+g3-dpi.workspace = true
 g3-yaml = { workspace = true, features = ["acl-rule", "route", "openssl", "rustls", "histogram"] }
 g3-types = { workspace = true, features = ["acl-rule", "route", "openssl", "rustls"] }
 g3-socket.workspace = true
