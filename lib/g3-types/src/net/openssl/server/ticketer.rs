@@ -57,11 +57,7 @@ impl RollingTicketer<OpensslTicketKey> {
 
         key.decrypt_init(iv, cipher_ctx, hmac_ctx)?;
 
-        if self.enc_key.load().name().constant_time_eq(key_name) {
-            Ok(TicketKeyStatus::SUCCESS)
-        } else {
-            Ok(TicketKeyStatus::SUCCESS_AND_RENEW)
-        }
+        Ok(TicketKeyStatus::SUCCESS_AND_RENEW)
     }
 }
 

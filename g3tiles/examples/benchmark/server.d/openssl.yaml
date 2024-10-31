@@ -12,5 +12,8 @@ virtual_hosts:
   cert_pairs:
     certificate: bench.example.net-ec256.crt
     private_key: bench.example.net-ec256.key
+  no-session-cache: true
   backends:
     - http
+
+tls-ticketer: {}
