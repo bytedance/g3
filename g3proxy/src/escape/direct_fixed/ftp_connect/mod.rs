@@ -28,11 +28,11 @@ use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TcpConnect
 use crate::serve::ServerTaskNotes;
 
 impl DirectFixedEscaper {
-    pub(super) async fn new_ftp_control_connection<'a>(
-        &'a self,
+    pub(super) async fn new_ftp_control_connection(
+        &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteControlStats,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         let stream = self
@@ -55,12 +55,12 @@ impl DirectFixedEscaper {
         Ok(Box::new(stream))
     }
 
-    pub(super) async fn new_ftp_transfer_connection<'a>(
-        &'a self,
+    pub(super) async fn new_ftp_transfer_connection(
+        &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        transfer_tcp_notes: &'a mut TcpConnectTaskNotes,
-        control_tcp_notes: &'a TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        transfer_tcp_notes: &mut TcpConnectTaskNotes,
+        control_tcp_notes: &TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteTransferStats,
         ftp_server: &UpstreamAddr,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {

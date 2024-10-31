@@ -40,10 +40,10 @@ use crate::resolve::HappyEyeballsResolveJob;
 use crate::serve::ServerTaskNotes;
 
 impl DirectFloatEscaper {
-    fn handle_tcp_target_ip_acl_action<'a>(
-        &'a self,
+    fn handle_tcp_target_ip_acl_action(
+        &self,
         action: AclAction,
-        task_notes: &'a ServerTaskNotes,
+        task_notes: &ServerTaskNotes,
     ) -> Result<(), TcpConnectError> {
         let forbid = match action {
             AclAction::Permit => false,
@@ -323,11 +323,11 @@ impl DirectFloatEscaper {
         }
     }
 
-    pub(super) async fn tcp_connect_to<'a>(
-        &'a self,
+    pub(super) async fn tcp_connect_to(
+        &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
     ) -> Result<(TcpStream, DirectFloatBindIp), TcpConnectError> {
         let mut config = DirectTcpConnectConfig {
             connect: self.config.general.tcp_connect,
@@ -364,13 +364,13 @@ impl DirectFloatEscaper {
         }
     }
 
-    pub(super) async fn tcp_connect_to_again<'a>(
-        &'a self,
+    pub(super) async fn tcp_connect_to_again(
+        &self,
         task_conf: &TcpConnectTaskConf<'_>,
         old_upstream: &UpstreamAddr,
-        new_tcp_notes: &'a mut TcpConnectTaskNotes,
-        old_tcp_notes: &'a TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        new_tcp_notes: &mut TcpConnectTaskNotes,
+        old_tcp_notes: &TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
     ) -> Result<(TcpStream, DirectFloatBindIp), TcpConnectError> {
         new_tcp_notes.bind = old_tcp_notes.bind;
 
@@ -436,11 +436,11 @@ impl DirectFloatEscaper {
         }
     }
 
-    pub(super) async fn tcp_new_connection<'a>(
-        &'a self,
+    pub(super) async fn tcp_new_connection(
+        &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
         let (stream, _) = self

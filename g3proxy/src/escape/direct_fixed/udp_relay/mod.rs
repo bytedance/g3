@@ -36,10 +36,10 @@ pub(crate) use recv::DirectUdpRelayRemoteRecv;
 pub(crate) use send::DirectUdpRelayRemoteSend;
 
 impl DirectFixedEscaper {
-    pub(super) async fn udp_setup_relay<'a>(
-        &'a self,
+    pub(super) async fn udp_setup_relay(
+        &self,
         task_conf: &UdpRelayTaskConf<'_>,
-        task_notes: &'a ServerTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
         let mut wrapper_stats = UdpRelayRemoteWrapperStats::new(&self.stats, task_stats);

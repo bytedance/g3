@@ -33,11 +33,11 @@ use crate::module::tcp_connect::{
 use crate::serve::ServerTaskNotes;
 
 impl DirectFixedEscaper {
-    pub(super) async fn tls_connect_to<'a>(
-        &'a self,
+    pub(super) async fn tls_connect_to(
+        &self,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         tls_application: TlsApplication,
     ) -> Result<SslStream<impl AsyncRead + AsyncWrite>, TcpConnectError> {
         let stream = self
@@ -89,11 +89,11 @@ impl DirectFixedEscaper {
         }
     }
 
-    pub(super) async fn tls_new_connection<'a>(
-        &'a self,
+    pub(super) async fn tls_new_connection(
+        &self,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
         let tls_stream = self

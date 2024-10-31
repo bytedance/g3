@@ -33,11 +33,11 @@ pub(crate) use recv::ProxySocks5UdpConnectRemoteRecv;
 pub(crate) use send::ProxySocks5UdpConnectRemoteSend;
 
 impl ProxySocks5Escaper {
-    pub(super) async fn udp_connect_to<'a>(
-        &'a self,
+    pub(super) async fn udp_connect_to(
+        &self,
         task_conf: &UdpConnectTaskConf<'_>,
-        udp_notes: &'a mut UdpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        udp_notes: &mut UdpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
         let mut tcp_notes = TcpConnectTaskNotes::default();

@@ -65,11 +65,11 @@ impl UdpRelayFailoverContext {
 }
 
 impl RouteFailoverEscaper {
-    pub(super) async fn udp_setup_relay_with_failover<'a>(
-        &'a self,
+    pub(super) async fn udp_setup_relay_with_failover(
+        &self,
         task_conf: &UdpRelayTaskConf<'_>,
-        udp_notes: &'a mut UdpRelayTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        udp_notes: &mut UdpRelayTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
         let primary_context = UdpRelayFailoverContext::new();

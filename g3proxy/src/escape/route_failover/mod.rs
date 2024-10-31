@@ -147,11 +147,11 @@ impl Escaper for RouteFailoverEscaper {
         .await
     }
 
-    async fn udp_setup_connection<'a>(
-        &'a self,
+    async fn udp_setup_connection(
+        &self,
         task_conf: &UdpConnectTaskConf<'_>,
-        udp_notes: &'a mut UdpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        udp_notes: &mut UdpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
         udp_notes.escaper.clone_from(&self.config.name);
@@ -159,11 +159,11 @@ impl Escaper for RouteFailoverEscaper {
             .await
     }
 
-    async fn udp_setup_relay<'a>(
-        &'a self,
+    async fn udp_setup_relay(
+        &self,
         task_conf: &UdpRelayTaskConf<'_>,
-        udp_notes: &'a mut UdpRelayTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        udp_notes: &mut UdpRelayTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
         udp_notes.escaper.clone_from(&self.config.name);
@@ -181,11 +181,11 @@ impl Escaper for RouteFailoverEscaper {
         Box::new(ctx)
     }
 
-    async fn new_ftp_connect_context<'a>(
-        &'a self,
+    async fn new_ftp_connect_context(
+        &self,
         _escaper: ArcEscaper,
         task_conf: &TcpConnectTaskConf<'_>,
-        task_notes: &'a ServerTaskNotes,
+        task_notes: &ServerTaskNotes,
     ) -> BoxFtpConnectContext {
         self.new_ftp_connect_context_with_failover(task_conf, task_notes)
             .await

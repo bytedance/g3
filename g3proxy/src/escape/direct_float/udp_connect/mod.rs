@@ -34,10 +34,10 @@ use crate::module::udp_connect::{
 use crate::serve::ServerTaskNotes;
 
 impl DirectFloatEscaper {
-    fn handle_udp_target_ip_acl_action<'a>(
-        &'a self,
+    fn handle_udp_target_ip_acl_action(
+        &self,
         action: AclAction,
-        task_notes: &'a ServerTaskNotes,
+        task_notes: &ServerTaskNotes,
     ) -> Result<(), UdpConnectError> {
         let forbid = match action {
             AclAction::Permit => false,
@@ -62,11 +62,11 @@ impl DirectFloatEscaper {
         }
     }
 
-    pub(super) async fn udp_connect_to<'a>(
-        &'a self,
+    pub(super) async fn udp_connect_to(
+        &self,
         task_conf: &UdpConnectTaskConf<'_>,
-        udp_notes: &'a mut UdpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        udp_notes: &mut UdpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
         let peer_addr = self

@@ -400,11 +400,11 @@ impl Escaper for DirectFloatEscaper {
             .await
     }
 
-    async fn udp_setup_connection<'a>(
-        &'a self,
+    async fn udp_setup_connection(
+        &self,
         task_conf: &UdpConnectTaskConf<'_>,
-        udp_notes: &'a mut UdpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        udp_notes: &mut UdpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
         self.stats.interface.add_udp_connect_attempted();
@@ -413,11 +413,11 @@ impl Escaper for DirectFloatEscaper {
             .await
     }
 
-    async fn udp_setup_relay<'a>(
-        &'a self,
+    async fn udp_setup_relay(
+        &self,
         task_conf: &UdpRelayTaskConf<'_>,
-        udp_notes: &'a mut UdpRelayTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        udp_notes: &mut UdpRelayTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
         self.stats.interface.add_udp_relay_session_attempted();
@@ -434,11 +434,11 @@ impl Escaper for DirectFloatEscaper {
         Box::new(ctx)
     }
 
-    async fn new_ftp_connect_context<'a>(
-        &'a self,
+    async fn new_ftp_connect_context(
+        &self,
         escaper: ArcEscaper,
         task_conf: &TcpConnectTaskConf<'_>,
-        _task_notes: &'a ServerTaskNotes,
+        _task_notes: &ServerTaskNotes,
     ) -> BoxFtpConnectContext {
         Box::new(DirectFtpConnectContext::new(
             escaper,

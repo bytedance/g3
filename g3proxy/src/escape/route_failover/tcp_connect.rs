@@ -75,13 +75,13 @@ impl TcpConnectFailoverContext {
 }
 
 impl RouteFailoverEscaper {
-    pub(super) async fn tcp_setup_connection_with_failover<'a>(
-        &'a self,
+    pub(super) async fn tcp_setup_connection_with_failover(
+        &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        audit_ctx: &'a mut AuditContext,
+        audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
         let primary_context = TcpConnectFailoverContext::new(audit_ctx);
         let mut primary_task = pin!(primary_context.run(

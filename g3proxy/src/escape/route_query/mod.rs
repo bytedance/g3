@@ -178,11 +178,11 @@ impl Escaper for RouteQueryEscaper {
             .await
     }
 
-    async fn udp_setup_connection<'a>(
-        &'a self,
+    async fn udp_setup_connection(
+        &self,
         task_conf: &UdpConnectTaskConf<'_>,
-        udp_notes: &'a mut UdpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        udp_notes: &mut UdpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
         udp_notes.escaper.clone_from(&self.config.name);
@@ -193,11 +193,11 @@ impl Escaper for RouteQueryEscaper {
             .await
     }
 
-    async fn udp_setup_relay<'a>(
-        &'a self,
+    async fn udp_setup_relay(
+        &self,
         task_conf: &UdpRelayTaskConf<'_>,
-        udp_notes: &'a mut UdpRelayTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        udp_notes: &mut UdpRelayTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
         udp_notes.escaper.clone_from(&self.config.name);
@@ -213,11 +213,11 @@ impl Escaper for RouteQueryEscaper {
         Box::new(ctx)
     }
 
-    async fn new_ftp_connect_context<'a>(
-        &'a self,
+    async fn new_ftp_connect_context(
+        &self,
         _escaper: ArcEscaper,
         task_conf: &TcpConnectTaskConf<'_>,
-        task_notes: &'a ServerTaskNotes,
+        task_notes: &ServerTaskNotes,
     ) -> BoxFtpConnectContext {
         let escaper = self.select_next(task_notes, task_conf.upstream).await;
         self.stats.add_request_passed();

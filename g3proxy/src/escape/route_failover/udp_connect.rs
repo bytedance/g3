@@ -65,11 +65,11 @@ impl UdpConnectFailoverContext {
 }
 
 impl RouteFailoverEscaper {
-    pub(super) async fn udp_setup_connection_with_failover<'a>(
-        &'a self,
+    pub(super) async fn udp_setup_connection_with_failover(
+        &self,
         task_conf: &UdpConnectTaskConf<'_>,
-        udp_notes: &'a mut UdpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        udp_notes: &mut UdpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
         let primary_context = UdpConnectFailoverContext::new();

@@ -187,29 +187,29 @@ pub(crate) trait Escaper: EscaperInternal {
         audit_ctx: &'a mut AuditContext,
     ) -> TcpConnectResult;
 
-    async fn udp_setup_connection<'a>(
-        &'a self,
+    async fn udp_setup_connection(
+        &self,
         task_conf: &UdpConnectTaskConf<'_>,
-        udp_notes: &'a mut UdpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        udp_notes: &mut UdpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult;
 
-    async fn udp_setup_relay<'a>(
-        &'a self,
+    async fn udp_setup_relay(
+        &self,
         task_conf: &UdpRelayTaskConf<'_>,
-        udp_notes: &'a mut UdpRelayTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        udp_notes: &mut UdpRelayTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult;
 
     fn new_http_forward_context(&self, escaper: ArcEscaper) -> BoxHttpForwardContext;
 
-    async fn new_ftp_connect_context<'a>(
-        &'a self,
+    async fn new_ftp_connect_context(
+        &self,
         escaper: ArcEscaper,
         task_conf: &TcpConnectTaskConf<'_>,
-        task_notes: &'a ServerTaskNotes,
+        task_notes: &ServerTaskNotes,
     ) -> BoxFtpConnectContext;
 }
 

@@ -114,10 +114,10 @@ impl FtpConnectFailoverContext {
 }
 
 impl RouteFailoverEscaper {
-    pub(super) async fn new_ftp_connect_context_with_failover<'a>(
-        &'a self,
+    pub(super) async fn new_ftp_connect_context_with_failover(
+        &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        task_notes: &'a ServerTaskNotes,
+        task_notes: &ServerTaskNotes,
     ) -> BoxFtpConnectContext {
         let primary_context = FtpConnectFailoverContext::new(self.primary_node.clone());
         let mut primary_task = pin!(primary_context.run(task_conf, task_notes));
