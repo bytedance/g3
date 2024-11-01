@@ -140,11 +140,11 @@ impl FailoverHttpForwardContext {
 
 #[async_trait]
 impl HttpForwardContext for FailoverHttpForwardContext {
-    async fn check_in_final_escaper<'a>(
-        &'a mut self,
-        task_notes: &'a ServerTaskNotes,
-        upstream: &'a UpstreamAddr,
-        audit_ctx: &'a mut AuditContext,
+    async fn check_in_final_escaper(
+        &mut self,
+        task_notes: &ServerTaskNotes,
+        upstream: &UpstreamAddr,
+        audit_ctx: &mut AuditContext,
     ) -> HttpForwardCapability {
         if self.last_upstream.ne(upstream) {
             self.audit_ctx = audit_ctx.clone();
@@ -206,9 +206,9 @@ impl HttpForwardContext for FailoverHttpForwardContext {
         }
     }
 
-    async fn get_alive_connection<'a>(
-        &'a mut self,
-        task_notes: &'a ServerTaskNotes,
+    async fn get_alive_connection(
+        &mut self,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
         idle_expire: Duration,
     ) -> Option<BoxHttpForwardConnection> {
@@ -235,10 +235,10 @@ impl HttpForwardContext for FailoverHttpForwardContext {
         }
     }
 
-    async fn make_new_http_connection<'a>(
-        &'a mut self,
+    async fn make_new_http_connection(
+        &mut self,
         task_conf: &TcpConnectTaskConf<'_>,
-        task_notes: &'a ServerTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.last_is_tls = false;
@@ -315,10 +315,10 @@ impl HttpForwardContext for FailoverHttpForwardContext {
         ctx.connect_result
     }
 
-    async fn make_new_https_connection<'a>(
-        &'a mut self,
+    async fn make_new_https_connection(
+        &mut self,
         task_conf: &TlsConnectTaskConf<'_>,
-        task_notes: &'a ServerTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.last_is_tls = true;

@@ -43,30 +43,30 @@ pub(crate) type BoxHttpForwardContext = Box<dyn HttpForwardContext + Send>;
 
 #[async_trait]
 pub(crate) trait HttpForwardContext {
-    async fn check_in_final_escaper<'a>(
-        &'a mut self,
-        task_notes: &'a ServerTaskNotes,
-        upstream: &'a UpstreamAddr,
-        audit_ctx: &'a mut AuditContext,
+    async fn check_in_final_escaper(
+        &mut self,
+        task_notes: &ServerTaskNotes,
+        upstream: &UpstreamAddr,
+        audit_ctx: &mut AuditContext,
     ) -> HttpForwardCapability;
 
     fn prepare_connection(&mut self, ups: &UpstreamAddr, is_tls: bool);
-    async fn get_alive_connection<'a>(
-        &'a mut self,
-        task_notes: &'a ServerTaskNotes,
+    async fn get_alive_connection(
+        &mut self,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
         idle_expire: Duration,
     ) -> Option<BoxHttpForwardConnection>;
-    async fn make_new_http_connection<'a>(
-        &'a mut self,
+    async fn make_new_http_connection(
+        &mut self,
         task_conf: &TcpConnectTaskConf<'_>,
-        task_notes: &'a ServerTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError>;
-    async fn make_new_https_connection<'a>(
-        &'a mut self,
+    async fn make_new_https_connection(
+        &mut self,
         task_conf: &TlsConnectTaskConf<'_>,
-        task_notes: &'a ServerTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError>;
     fn save_alive_connection(&mut self, c: BoxHttpForwardConnection);

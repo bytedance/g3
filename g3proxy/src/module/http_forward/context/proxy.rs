@@ -56,11 +56,11 @@ impl ProxyHttpForwardContext {
 
 #[async_trait]
 impl HttpForwardContext for ProxyHttpForwardContext {
-    async fn check_in_final_escaper<'a>(
-        &'a mut self,
-        _task_notes: &'a ServerTaskNotes,
-        _upstream: &'a UpstreamAddr,
-        audit_ctx: &'a mut AuditContext,
+    async fn check_in_final_escaper(
+        &mut self,
+        _task_notes: &ServerTaskNotes,
+        _upstream: &UpstreamAddr,
+        audit_ctx: &mut AuditContext,
     ) -> HttpForwardCapability {
         self.escaper._update_audit_context(audit_ctx);
         self.escaper._local_http_forward_capability()
@@ -95,9 +95,9 @@ impl HttpForwardContext for ProxyHttpForwardContext {
         }
     }
 
-    async fn get_alive_connection<'a>(
-        &'a mut self,
-        task_notes: &'a ServerTaskNotes,
+    async fn get_alive_connection(
+        &mut self,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
         idle_expire: Duration,
     ) -> Option<BoxHttpForwardConnection> {
@@ -124,10 +124,10 @@ impl HttpForwardContext for ProxyHttpForwardContext {
         }
     }
 
-    async fn make_new_http_connection<'a>(
-        &'a mut self,
+    async fn make_new_http_connection(
+        &mut self,
         task_conf: &TcpConnectTaskConf<'_>,
-        task_notes: &'a ServerTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.last_is_tls = false;
@@ -136,10 +136,10 @@ impl HttpForwardContext for ProxyHttpForwardContext {
             .await
     }
 
-    async fn make_new_https_connection<'a>(
-        &'a mut self,
+    async fn make_new_https_connection(
+        &mut self,
         task_conf: &TlsConnectTaskConf<'_>,
-        task_notes: &'a ServerTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.last_is_tls = true;
