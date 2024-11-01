@@ -277,11 +277,11 @@ impl ProxySocks5Escaper {
         }
     }
 
-    async fn tcp_connect_to<'a>(
-        &'a self,
+    async fn tcp_connect_to(
+        &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
     ) -> Result<TcpStream, TcpConnectError> {
         let peer_proxy = self.get_next_proxy(task_notes, task_conf.upstream.host());
 
@@ -310,11 +310,11 @@ impl ProxySocks5Escaper {
         }
     }
 
-    pub(super) async fn tcp_new_connection<'a>(
-        &'a self,
+    pub(super) async fn tcp_new_connection(
+        &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
     ) -> Result<LimitedStream<TcpStream>, TcpConnectError> {
         let stream = self
             .tcp_connect_to(task_conf, tcp_notes, task_notes)

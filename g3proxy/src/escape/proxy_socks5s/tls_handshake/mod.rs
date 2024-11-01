@@ -25,11 +25,11 @@ use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TcpConnect
 use crate::serve::ServerTaskNotes;
 
 impl ProxySocks5sEscaper {
-    pub(super) async fn tls_handshake_to_remote<'a>(
-        &'a self,
+    pub(super) async fn tls_handshake_to_remote(
+        &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
     ) -> Result<SslStream<impl AsyncRead + AsyncWrite>, TcpConnectError> {
         let (peer, ups_s) = self
             .tcp_new_connection(task_conf, tcp_notes, task_notes)

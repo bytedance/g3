@@ -372,13 +372,13 @@ impl Escaper for DirectFloatEscaper {
         publish::publish_records(&self.config, &self.bind_v4, &self.bind_v6, data).await
     }
 
-    async fn tcp_setup_connection<'a>(
-        &'a self,
+    async fn tcp_setup_connection(
+        &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        _audit_ctx: &'a mut AuditContext,
+        _audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
         self.stats.interface.add_tcp_connect_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
@@ -386,13 +386,13 @@ impl Escaper for DirectFloatEscaper {
             .await
     }
 
-    async fn tls_setup_connection<'a>(
-        &'a self,
+    async fn tls_setup_connection(
+        &self,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        _audit_ctx: &'a mut AuditContext,
+        _audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
         self.stats.interface.add_tls_connect_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
@@ -478,11 +478,11 @@ impl EscaperInternal for DirectFloatEscaper {
         DirectFloatEscaper::prepare_reload(config, stats, Some(bind_v4), Some(bind_v6)).await
     }
 
-    async fn _new_http_forward_connection<'a>(
-        &'a self,
+    async fn _new_http_forward_connection(
+        &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.stats.interface.add_http_forward_connection_attempted();
@@ -491,11 +491,11 @@ impl EscaperInternal for DirectFloatEscaper {
             .await
     }
 
-    async fn _new_https_forward_connection<'a>(
-        &'a self,
+    async fn _new_https_forward_connection(
+        &self,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.stats
@@ -506,11 +506,11 @@ impl EscaperInternal for DirectFloatEscaper {
             .await
     }
 
-    async fn _new_ftp_control_connection<'a>(
-        &'a self,
+    async fn _new_ftp_control_connection(
+        &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteControlStats,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         self.stats.interface.add_ftp_over_http_request_attempted();
@@ -520,12 +520,12 @@ impl EscaperInternal for DirectFloatEscaper {
             .await
     }
 
-    async fn _new_ftp_transfer_connection<'a>(
-        &'a self,
+    async fn _new_ftp_transfer_connection(
+        &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        transfer_tcp_notes: &'a mut TcpConnectTaskNotes,
-        control_tcp_notes: &'a TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        transfer_tcp_notes: &mut TcpConnectTaskNotes,
+        control_tcp_notes: &TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteTransferStats,
         ftp_server: &UpstreamAddr,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {

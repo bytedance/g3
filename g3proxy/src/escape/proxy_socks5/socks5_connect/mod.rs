@@ -40,11 +40,11 @@ use crate::module::tcp_connect::{
 use crate::serve::ServerTaskNotes;
 
 impl ProxySocks5Escaper {
-    async fn socks5_connect_tcp_connect_to<'a>(
-        &'a self,
+    async fn socks5_connect_tcp_connect_to(
+        &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
     ) -> Result<LimitedStream<TcpStream>, TcpConnectError> {
         let mut stream = self
             .tcp_new_connection(task_conf, tcp_notes, task_notes)
@@ -58,11 +58,11 @@ impl ProxySocks5Escaper {
         Ok(stream)
     }
 
-    pub(super) async fn timed_socks5_connect_tcp_connect_to<'a>(
-        &'a self,
+    pub(super) async fn timed_socks5_connect_tcp_connect_to(
+        &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
     ) -> Result<LimitedStream<TcpStream>, TcpConnectError> {
         tokio::time::timeout(
             self.config.peer_negotiation_timeout,
@@ -138,11 +138,11 @@ impl ProxySocks5Escaper {
         .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "peer negotiation timeout"))?
     }
 
-    pub(super) async fn socks5_new_tcp_connection<'a>(
-        &'a self,
+    pub(super) async fn socks5_new_tcp_connection(
+        &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
         let mut ups_s = self
@@ -159,11 +159,11 @@ impl ProxySocks5Escaper {
         Ok((Box::new(r), Box::new(w)))
     }
 
-    pub(super) async fn socks5_connect_tls_connect_to<'a>(
-        &'a self,
+    pub(super) async fn socks5_connect_tls_connect_to(
+        &self,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         tls_application: TlsApplication,
     ) -> Result<SslStream<impl AsyncRead + AsyncWrite>, TcpConnectError> {
         let ups_s = self
@@ -205,11 +205,11 @@ impl ProxySocks5Escaper {
         }
     }
 
-    pub(super) async fn socks5_new_tls_connection<'a>(
-        &'a self,
+    pub(super) async fn socks5_new_tls_connection(
+        &self,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
         let tls_stream = self

@@ -109,10 +109,7 @@ where
         }
     }
 
-    async fn send_request_header<'a>(
-        &'a mut self,
-        req: &'a HttpProxyClientRequest,
-    ) -> io::Result<()> {
+    async fn send_request_header(&mut self, req: &HttpProxyClientRequest) -> io::Result<()> {
         if self.bind.is_expired() {
             Err(io::Error::other("connection has expired"))
         } else {

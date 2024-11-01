@@ -117,35 +117,35 @@ pub(crate) trait EscaperInternal {
     }
     fn _update_audit_context(&self, _audit_ctx: &mut AuditContext) {}
 
-    async fn _new_http_forward_connection<'a>(
-        &'a self,
+    async fn _new_http_forward_connection(
+        &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError>;
 
-    async fn _new_https_forward_connection<'a>(
-        &'a self,
+    async fn _new_https_forward_connection(
+        &self,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError>;
 
-    async fn _new_ftp_control_connection<'a>(
-        &'a self,
+    async fn _new_ftp_control_connection(
+        &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteControlStats,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError>;
-    async fn _new_ftp_transfer_connection<'a>(
-        &'a self,
+    async fn _new_ftp_transfer_connection(
+        &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        transfer_tcp_notes: &'a mut TcpConnectTaskNotes,
-        control_tcp_notes: &'a TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        transfer_tcp_notes: &mut TcpConnectTaskNotes,
+        control_tcp_notes: &TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteTransferStats,
         ftp_server: &UpstreamAddr,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError>;
@@ -169,22 +169,22 @@ pub(crate) trait Escaper: EscaperInternal {
 
     async fn publish(&self, data: String) -> anyhow::Result<()>;
 
-    async fn tcp_setup_connection<'a>(
-        &'a self,
+    async fn tcp_setup_connection(
+        &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        audit_ctx: &'a mut AuditContext,
+        audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult;
 
-    async fn tls_setup_connection<'a>(
-        &'a self,
+    async fn tls_setup_connection(
+        &self,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        audit_ctx: &'a mut AuditContext,
+        audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult;
 
     async fn udp_setup_connection(

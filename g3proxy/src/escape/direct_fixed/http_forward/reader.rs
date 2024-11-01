@@ -108,12 +108,12 @@ where
         self.inner.reset_buffer_stats(Arc::new(wrapper_stats));
     }
 
-    async fn recv_response_header<'a>(
-        &'a mut self,
+    async fn recv_response_header(
+        &mut self,
         method: &Method,
         keep_alive: bool,
         max_header_size: usize,
-        http_notes: &'a mut HttpForwardTaskNotes,
+        http_notes: &mut HttpForwardTaskNotes,
     ) -> Result<HttpForwardRemoteResponse, HttpResponseParseError> {
         self.get_rsp_header(method, keep_alive, max_header_size, http_notes)
             .await

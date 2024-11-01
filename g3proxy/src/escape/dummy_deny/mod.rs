@@ -106,26 +106,26 @@ impl Escaper for DummyDenyEscaper {
         Err(anyhow!("not implemented"))
     }
 
-    async fn tcp_setup_connection<'a>(
-        &'a self,
+    async fn tcp_setup_connection(
+        &self,
         _task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        _task_notes: &ServerTaskNotes,
         _task_stats: ArcTcpConnectionTaskRemoteStats,
-        _audit_ctx: &'a mut AuditContext,
+        _audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
         self.stats.interface.add_tcp_connect_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }
 
-    async fn tls_setup_connection<'a>(
-        &'a self,
+    async fn tls_setup_connection(
+        &self,
         _task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        _task_notes: &ServerTaskNotes,
         _task_stats: ArcTcpConnectionTaskRemoteStats,
-        _audit_ctx: &'a mut AuditContext,
+        _audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
         self.stats.interface.add_tls_connect_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
@@ -198,11 +198,11 @@ impl EscaperInternal for DummyDenyEscaper {
         DummyDenyEscaper::prepare_reload(config, stats)
     }
 
-    async fn _new_http_forward_connection<'a>(
-        &'a self,
+    async fn _new_http_forward_connection(
+        &self,
         _task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        _task_notes: &ServerTaskNotes,
         _task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.stats.interface.add_http_forward_connection_attempted();
@@ -210,11 +210,11 @@ impl EscaperInternal for DummyDenyEscaper {
         Err(TcpConnectError::MethodUnavailable)
     }
 
-    async fn _new_https_forward_connection<'a>(
-        &'a self,
+    async fn _new_https_forward_connection(
+        &self,
         _task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        _task_notes: &ServerTaskNotes,
         _task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.stats
@@ -224,11 +224,11 @@ impl EscaperInternal for DummyDenyEscaper {
         Err(TcpConnectError::MethodUnavailable)
     }
 
-    async fn _new_ftp_control_connection<'a>(
-        &'a self,
+    async fn _new_ftp_control_connection(
+        &self,
         _task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        _task_notes: &ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteControlStats,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         self.stats.interface.add_ftp_over_http_request_attempted();
@@ -237,12 +237,12 @@ impl EscaperInternal for DummyDenyEscaper {
         Err(TcpConnectError::MethodUnavailable)
     }
 
-    async fn _new_ftp_transfer_connection<'a>(
-        &'a self,
+    async fn _new_ftp_transfer_connection(
+        &self,
         _task_conf: &TcpConnectTaskConf<'_>,
-        transfer_tcp_notes: &'a mut TcpConnectTaskNotes,
-        _control_tcp_notes: &'a TcpConnectTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
+        transfer_tcp_notes: &mut TcpConnectTaskNotes,
+        _control_tcp_notes: &TcpConnectTaskNotes,
+        _task_notes: &ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteTransferStats,
         _ftp_server: &UpstreamAddr,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {

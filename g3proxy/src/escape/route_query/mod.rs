@@ -104,11 +104,11 @@ impl RouteQueryEscaper {
         }
     }
 
-    async fn select_query<'a>(
-        &'a self,
-        task_notes: &'a ServerTaskNotes,
-        upstream: &'a UpstreamAddr,
-    ) -> Option<&'a ArcEscaper> {
+    async fn select_query(
+        &self,
+        task_notes: &ServerTaskNotes,
+        upstream: &UpstreamAddr,
+    ) -> Option<&ArcEscaper> {
         self.cache_handle
             .select(&self.config, task_notes, upstream)
             .await
@@ -146,13 +146,13 @@ impl Escaper for RouteQueryEscaper {
         Err(anyhow!("not implemented"))
     }
 
-    async fn tcp_setup_connection<'a>(
-        &'a self,
+    async fn tcp_setup_connection(
+        &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        audit_ctx: &'a mut AuditContext,
+        audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
         tcp_notes.escaper.clone_from(&self.config.name);
         let escaper = self.select_next(task_notes, task_conf.upstream).await;
@@ -162,13 +162,13 @@ impl Escaper for RouteQueryEscaper {
             .await
     }
 
-    async fn tls_setup_connection<'a>(
-        &'a self,
+    async fn tls_setup_connection(
+        &self,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        audit_ctx: &'a mut AuditContext,
+        audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
         tcp_notes.escaper.clone_from(&self.config.name);
         let escaper = self.select_next(task_notes, task_conf.tcp.upstream).await;
@@ -264,45 +264,45 @@ impl EscaperInternal for RouteQueryEscaper {
         Some(escaper)
     }
 
-    async fn _new_http_forward_connection<'a>(
-        &'a self,
+    async fn _new_http_forward_connection(
+        &self,
         _task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        _task_notes: &ServerTaskNotes,
         _task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         tcp_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }
 
-    async fn _new_https_forward_connection<'a>(
-        &'a self,
+    async fn _new_https_forward_connection(
+        &self,
         _task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        _task_notes: &ServerTaskNotes,
         _task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         tcp_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }
 
-    async fn _new_ftp_control_connection<'a>(
-        &'a self,
+    async fn _new_ftp_control_connection(
+        &self,
         _task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        _task_notes: &ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteControlStats,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         tcp_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }
 
-    async fn _new_ftp_transfer_connection<'a>(
-        &'a self,
+    async fn _new_ftp_transfer_connection(
+        &self,
         _task_conf: &TcpConnectTaskConf<'_>,
-        transfer_tcp_notes: &'a mut TcpConnectTaskNotes,
-        _control_tcp_notes: &'a TcpConnectTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
+        transfer_tcp_notes: &mut TcpConnectTaskNotes,
+        _control_tcp_notes: &TcpConnectTaskNotes,
+        _task_notes: &ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteTransferStats,
         _ftp_server: &UpstreamAddr,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {

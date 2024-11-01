@@ -38,11 +38,11 @@ use crate::module::tcp_connect::{
 use crate::serve::ServerTaskNotes;
 
 impl ProxyHttpEscaper {
-    async fn http_connect_tcp_connect_to<'a>(
-        &'a self,
+    async fn http_connect_tcp_connect_to(
+        &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
     ) -> Result<FlexBufReader<LimitedStream<TcpStream>>, TcpConnectError> {
         let mut stream = self
             .tcp_new_connection(task_conf, tcp_notes, task_notes)
@@ -71,11 +71,11 @@ impl ProxyHttpEscaper {
         Ok(buf_stream)
     }
 
-    async fn timed_http_connect_tcp_connect_to<'a>(
-        &'a self,
+    async fn timed_http_connect_tcp_connect_to(
+        &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
     ) -> Result<FlexBufReader<LimitedStream<TcpStream>>, TcpConnectError> {
         tokio::time::timeout(
             self.config.peer_negotiation_timeout,
@@ -85,11 +85,11 @@ impl ProxyHttpEscaper {
         .map_err(|_| TcpConnectError::NegotiationPeerTimeout)?
     }
 
-    pub(super) async fn http_connect_new_tcp_connection<'a>(
-        &'a self,
+    pub(super) async fn http_connect_new_tcp_connection(
+        &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
         let mut buf_stream = self
@@ -115,11 +115,11 @@ impl ProxyHttpEscaper {
         Ok((Box::new(r), Box::new(w)))
     }
 
-    pub(super) async fn http_connect_tls_connect_to<'a>(
-        &'a self,
+    pub(super) async fn http_connect_tls_connect_to(
+        &self,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         tls_application: TlsApplication,
     ) -> Result<SslStream<impl AsyncRead + AsyncWrite>, TcpConnectError> {
         let buf_stream = self
@@ -161,11 +161,11 @@ impl ProxyHttpEscaper {
         }
     }
 
-    pub(super) async fn http_connect_new_tls_connection<'a>(
-        &'a self,
+    pub(super) async fn http_connect_new_tls_connection(
+        &self,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
     ) -> TcpConnectResult {
         let tls_stream = self

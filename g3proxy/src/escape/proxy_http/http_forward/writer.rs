@@ -116,10 +116,7 @@ where
         }
     }
 
-    async fn send_request_header<'a>(
-        &'a mut self,
-        req: &'a HttpProxyClientRequest,
-    ) -> io::Result<()> {
+    async fn send_request_header(&mut self, req: &HttpProxyClientRequest) -> io::Result<()> {
         let userid = self.pass_userid.as_deref();
         send_req_header_via_proxy(
             &mut self.inner,
@@ -205,10 +202,7 @@ where
         }
     }
 
-    async fn send_request_header<'a>(
-        &'a mut self,
-        req: &'a HttpProxyClientRequest,
-    ) -> io::Result<()> {
+    async fn send_request_header(&mut self, req: &HttpProxyClientRequest) -> io::Result<()> {
         send_req_header_to_origin(&mut self.inner, req).await
     }
 }

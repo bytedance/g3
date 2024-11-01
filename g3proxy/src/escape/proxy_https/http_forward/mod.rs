@@ -35,11 +35,11 @@ use reader::ProxyHttpsHttpForwardReader;
 use writer::{ProxyHttpsHttpForwardWriter, ProxyHttpsHttpRequestWriter};
 
 impl ProxyHttpsEscaper {
-    pub(super) async fn http_forward_new_connection<'a>(
-        &'a self,
+    pub(super) async fn http_forward_new_connection(
+        &self,
         task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         let tls_stream = self
@@ -65,11 +65,11 @@ impl ProxyHttpsEscaper {
         Ok((Box::new(writer), Box::new(reader)))
     }
 
-    pub(super) async fn https_forward_new_connection<'a>(
-        &'a self,
+    pub(super) async fn https_forward_new_connection(
+        &self,
         task_conf: &TlsConnectTaskConf<'_>,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         let tls_stream = self
