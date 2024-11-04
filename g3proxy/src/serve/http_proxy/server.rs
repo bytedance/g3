@@ -38,7 +38,7 @@ use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::acl_set::AclDstHostRuleSet;
 use g3_types::metrics::MetricsName;
 use g3_types::net::{
-    OpensslClientConfig, OpensslTicketKey, RollingTicketer, RustlsServerConnectionExt,
+    AlpnProtocol, OpensslClientConfig, OpensslTicketKey, RollingTicketer, RustlsServerConnectionExt,
 };
 
 use super::task::{
@@ -88,7 +88,10 @@ impl HttpProxyServer {
         let mut tls_accept_timeout = Duration::from_secs(10);
         let tls_acceptor = if let Some(tls_config_builder) = &config.server_tls_config {
             let tls_server_config = tls_config_builder
-                .build_with_ticketer(tls_rolling_ticketer.clone())
+                .build_with_alpn_protocols(
+                    Some(vec![AlpnProtocol::Http10, AlpnProtocol::Http11]),
+                    tls_rolling_ticketer.clone(),
+                )
                 .context("failed to build tls server config")?;
             tls_accept_timeout = tls_server_config.accept_timeout;
             Some(TlsAcceptor::from(tls_server_config.driver))

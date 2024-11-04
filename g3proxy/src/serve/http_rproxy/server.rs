@@ -38,7 +38,8 @@ use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::MetricsName;
 use g3_types::net::{
-    OpensslTicketKey, RollingTicketer, RustlsServerConfig, RustlsServerConnectionExt, UpstreamAddr,
+    AlpnProtocol, OpensslTicketKey, RollingTicketer, RustlsServerConfig, RustlsServerConnectionExt,
+    UpstreamAddr,
 };
 use g3_types::route::HostMatch;
 
@@ -86,7 +87,10 @@ impl HttpRProxyServer {
         let global_tls_server = match &config.global_tls_server {
             Some(builder) => {
                 let config = builder
-                    .build_with_ticketer(tls_rolling_ticketer.clone())
+                    .build_with_alpn_protocols(
+                        Some(vec![AlpnProtocol::Http10, AlpnProtocol::Http11]),
+                        tls_rolling_ticketer.clone(),
+                    )
                     .context("failed to build global tls server config")?;
                 Some(config)
             }
