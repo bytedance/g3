@@ -19,7 +19,8 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use bytes::BytesMut;
 use log::debug;
-use openssl::ssl::Ssl;
+use openssl::error::ErrorStack;
+use openssl::ssl::{Ssl, SslContext};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::time::Instant;
@@ -232,8 +233,9 @@ impl OpensslAcceptTask {
             ));
         };
 
-        let ssl =
-            Ssl::new(ssl_context).map_err(|e| anyhow!("failed to create SSL instance: {e}"))?;
+        let ssl = self
+            .build_ssl(ssl_context)
+            .map_err(|e| anyhow!("failed to create SSL instance: {e}"))?;
         let acceptor = SslAcceptor::new(ssl, stream, self.ctx.server_config.accept_timeout)
             .map_err(|e| anyhow!("failed to create new ssl acceptor: {e}"))?;
 
@@ -241,5 +243,22 @@ impl OpensslAcceptTask {
             .accept()
             .await
             .map_err(|e| anyhow!("failed to accept ssl handshake: {e}"))
+    }
+
+    #[cfg(not(feature = "openssl-async-job"))]
+    fn build_ssl(&self, ssl_ctx: &SslContext) -> Result<Ssl, ErrorStack> {
+        Ssl::new(ssl_ctx)
+    }
+
+    #[cfg(feature = "openssl-async-job")]
+    fn build_ssl(&self, ssl_ctx: &SslContext) -> Result<Ssl, ErrorStack> {
+        use openssl::ssl::SslMode;
+
+        let mut ssl = Ssl::new(ssl_ctx)?;
+        #[cfg(feature = "openssl-async-job")]
+        if self.ctx.cc_info.worker_id().is_some() {
+            ssl.set_mode(SslMode::ASYNC);
+        }
+        Ok(ssl)
     }
 }
