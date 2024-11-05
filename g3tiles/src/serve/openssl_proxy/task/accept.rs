@@ -255,7 +255,6 @@ impl OpensslAcceptTask {
         use openssl::ssl::SslMode;
 
         let mut ssl = Ssl::new(ssl_ctx)?;
-        #[cfg(feature = "openssl-async-job")]
         if self.ctx.cc_info.worker_id().is_some() {
             ssl.set_mode(SslMode::ASYNC);
         }
