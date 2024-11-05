@@ -77,13 +77,6 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslAcceptor<S> {
 
     pub async fn accept(mut self) -> io::Result<SslStream<S>> {
         future::poll_fn(|cx| self.poll_accept(cx)).await?;
-        let ssl = self.inner.ssl();
-        if let Some(session) = ssl.session() {
-            if session.protocol_version() == SslVersion::TLS1_3 && ssl.session_reused() {
-                // do session resumption only once according to TLS1.3
-                unsafe { ssl.ssl_context().remove_session(session) };
-            }
-        }
         Ok(SslStream::new(self.inner, self.async_engine))
     }
 }

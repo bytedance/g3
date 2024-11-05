@@ -56,33 +56,19 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslLazyAcceptor<S> {
     }
 
     #[cfg(feature = "async-job")]
-    pub fn into_acceptor(
-        mut self,
-        ssl_ctx: Option<&SslContextRef>,
-    ) -> Result<SslAcceptor<S>, ErrorStack> {
+    pub fn into_acceptor(mut self) -> SslAcceptor<S> {
         use crate::ssl::async_mode::AsyncEnginePoller;
 
-        if let Some(ssl_ctx) = ssl_ctx {
-            self.inner.ssl_mut().set_verify(ssl_ctx.verify_mode());
-            self.inner.ssl_mut().set_ssl_context(ssl_ctx)?;
-        }
-        let async_engine = AsyncEnginePoller::new(self.inner.ssl())?;
-        Ok(SslAcceptor {
+        let async_engine = AsyncEnginePoller::new(self.inner.ssl());
+        SslAcceptor {
             inner: self.inner,
             async_engine,
-        })
+        }
     }
 
     #[cfg(not(feature = "async-job"))]
-    pub fn into_acceptor(
-        mut self,
-        ssl_ctx: Option<&SslContextRef>,
-    ) -> Result<SslAcceptor<S>, ErrorStack> {
-        if let Some(ssl_ctx) = ssl_ctx {
-            self.inner.ssl_mut().set_verify(ssl_ctx.verify_mode());
-            self.inner.ssl_mut().set_ssl_context(ssl_ctx)?;
-        }
-        Ok(SslAcceptor { inner: self.inner })
+    pub fn into_acceptor(mut self) -> SslAcceptor<S> {
+        SslAcceptor { inner: self.inner }
     }
 
     pub fn ssl(&self) -> &SslRef {
