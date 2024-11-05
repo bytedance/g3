@@ -122,13 +122,13 @@ pub(crate) struct AsyncEnginePoller {
 
 impl AsyncEnginePoller {
     #[cfg(not(ossl300))]
-    pub(crate) fn new(ssl: &SslRef) -> Option<Self> {
+    pub(crate) fn new(ssl: &SslRef) -> Result<Option<Self>, ErrorStack> {
         if ssl.is_async() {
-            Some(AsyncEnginePoller {
+            Ok(Some(AsyncEnginePoller {
                 tracked_fds: Vec::with_capacity(1),
-            })
+            }))
         } else {
-            None
+            Ok(None)
         }
     }
 

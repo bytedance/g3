@@ -19,7 +19,7 @@ use std::io;
 use std::task::{Context, Poll};
 
 use openssl::error::ErrorStack;
-use openssl::ssl::{self, ErrorCode, Ssl, SslContextRef, SslRef};
+use openssl::ssl::{self, ErrorCode, Ssl, SslRef};
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use super::{SslAcceptor, SslIoWrapper};
@@ -56,19 +56,19 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslLazyAcceptor<S> {
     }
 
     #[cfg(feature = "async-job")]
-    pub fn into_acceptor(mut self) -> SslAcceptor<S> {
+    pub fn into_acceptor(self) -> Result<SslAcceptor<S>, ErrorStack> {
         use crate::ssl::async_mode::AsyncEnginePoller;
 
-        let async_engine = AsyncEnginePoller::new(self.inner.ssl());
-        SslAcceptor {
+        let async_engine = AsyncEnginePoller::new(self.inner.ssl())?;
+        Ok(SslAcceptor {
             inner: self.inner,
             async_engine,
-        }
+        })
     }
 
     #[cfg(not(feature = "async-job"))]
-    pub fn into_acceptor(mut self) -> SslAcceptor<S> {
-        SslAcceptor { inner: self.inner }
+    pub fn into_acceptor(self) -> Result<SslAcceptor<S>, ErrorStack> {
+        Ok(SslAcceptor { inner: self.inner })
     }
 
     pub fn ssl(&self) -> &SslRef {

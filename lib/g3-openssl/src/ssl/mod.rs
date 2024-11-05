@@ -21,6 +21,8 @@ use wrapper::SslIoWrapper;
 mod async_mode;
 #[cfg(feature = "async-job")]
 use async_mode::AsyncEnginePoller;
+#[cfg(feature = "async-job")]
+pub use async_mode::SslAsyncModeExt;
 
 mod stream;
 pub use stream::SslStream;
