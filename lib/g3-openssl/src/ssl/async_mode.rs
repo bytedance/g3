@@ -118,6 +118,7 @@ pub(crate) struct AsyncEnginePoller {
     tracked_fds: Vec<AsyncFd<RawFd>>,
     #[cfg(ossl300)]
     atomic_waker: Arc<AtomicWaker>,
+    poll_pending: bool,
 }
 
 impl AsyncEnginePoller {
@@ -126,6 +127,7 @@ impl AsyncEnginePoller {
         if ssl.is_async() {
             Ok(Some(AsyncEnginePoller {
                 tracked_fds: Vec::with_capacity(1),
+                poll_pending: false,
             }))
         } else {
             Ok(None)
@@ -144,7 +146,12 @@ impl AsyncEnginePoller {
         Ok(Some(AsyncEnginePoller {
             tracked_fds: Vec::with_capacity(1),
             atomic_waker,
+            poll_pending: false,
         }))
+    }
+
+    pub(crate) fn is_poll_pending(&self) -> bool {
+        self.poll_pending
     }
 
     #[cfg(ossl300)]
@@ -152,12 +159,7 @@ impl AsyncEnginePoller {
         self.atomic_waker.register(cx.waker());
     }
 
-    #[cfg(not(ossl300))]
-    pub(crate) fn poll_ready(
-        &mut self,
-        ssl: &SslRef,
-        cx: &mut Context<'_>,
-    ) -> Poll<io::Result<()>> {
+    fn poll_ready_by_fds(&mut self, ssl: &SslRef, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         let (add, del) = ssl.get_changed_fds().map_err(io::Error::other)?;
         for fd in add {
             let async_fd = AsyncFd::with_interest(fd, Interest::READABLE)?;
@@ -174,7 +176,20 @@ impl AsyncEnginePoller {
                 Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
             }
         }
+
+        self.poll_pending = true;
         Poll::Pending
+    }
+
+    #[cfg(not(ossl300))]
+    pub(crate) fn poll_ready(
+        &mut self,
+        ssl: &SslRef,
+        cx: &mut Context<'_>,
+    ) -> Poll<io::Result<()>> {
+        self.poll_pending = false;
+
+        self.poll_ready_by_fds(ssl, cx)
     }
 
     #[cfg(ossl300)]
@@ -183,34 +198,20 @@ impl AsyncEnginePoller {
         ssl: &SslRef,
         cx: &mut Context<'_>,
     ) -> Poll<io::Result<()>> {
-        match ssl.async_status() {
-            ffi::ASYNC_STATUS_UNSUPPORTED => {
-                let (add, del) = ssl.get_changed_fds().map_err(io::Error::other)?;
-                for fd in add {
-                    let async_fd = AsyncFd::with_interest(fd, Interest::READABLE)?;
-                    self.tracked_fds.push(async_fd);
-                }
-                for fd in del {
-                    self.tracked_fds.retain(|v| fd.ne(v.get_ref()));
-                }
+        self.poll_pending = false;
 
-                for fd in &self.tracked_fds {
-                    match fd.poll_read_ready(cx) {
-                        Poll::Pending => {}
-                        Poll::Ready(Ok(_)) => return Poll::Ready(Ok(())),
-                        Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-                    }
-                }
-                Poll::Pending
-            }
+        match ssl.async_status() {
+            ffi::ASYNC_STATUS_UNSUPPORTED => self.poll_ready_by_fds(ssl, cx),
             ffi::ASYNC_STATUS_ERR => Poll::Ready(Err(io::Error::other(ErrorStack::get()))),
             ffi::ASYNC_STATUS_OK => {
                 // submitted, wait for the callback
+                self.poll_pending = true;
                 Poll::Pending
             }
             ffi::ASYNC_STATUS_EAGAIN => {
                 // engine busy, resume later
                 cx.waker().wake_by_ref();
+                self.poll_pending = true;
                 Poll::Pending
             }
             r => Poll::Ready(Err(io::Error::other(format!(

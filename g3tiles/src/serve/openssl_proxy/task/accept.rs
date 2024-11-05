@@ -234,13 +234,12 @@ impl OpensslAcceptTask {
 
         let ssl =
             Ssl::new(ssl_context).map_err(|e| anyhow!("failed to create SSL instance: {e}"))?;
-        let acceptor = SslAcceptor::new(ssl, stream)
+        let acceptor = SslAcceptor::new(ssl, stream, self.ctx.server_config.accept_timeout)
             .map_err(|e| anyhow!("failed to create new ssl acceptor: {e}"))?;
 
-        match tokio::time::timeout(self.ctx.server_config.accept_timeout, acceptor.accept()).await {
-            Ok(Ok(ssl_stream)) => Ok(ssl_stream),
-            Ok(Err(e)) => Err(anyhow!("failed to accept ssl handshake: {e}")),
-            Err(_) => Err(anyhow!("timeout to accept ssl handshake")),
-        }
+        acceptor
+            .accept()
+            .await
+            .map_err(|e| anyhow!("failed to accept ssl handshake: {e}"))
     }
 }

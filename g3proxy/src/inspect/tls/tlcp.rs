@@ -245,19 +245,14 @@ where
                 .set_selected_alpn(clt_ssl, alpn_protocol.to_vec());
         }
 
-        let clt_acceptor = lazy_acceptor.into_acceptor().map_err(|e| {
+        let clt_acceptor = lazy_acceptor.into_acceptor(accept_timeout).map_err(|e| {
             TlsInterceptionError::InternalOpensslServerError(anyhow!(
                 "failed to convert acceptor: {e}"
             ))
         })?;
-        let clt_tls_stream = tokio::time::timeout(accept_timeout, clt_acceptor.accept())
-            .await
-            .map_err(|_| TlsInterceptionError::ClientHandshakeTimeout)?
-            .map_err(|e| {
-                TlsInterceptionError::ClientHandshakeFailed(anyhow!(
-                    "client handshake error: {e:?}"
-                ))
-            })?;
+        let clt_tls_stream = clt_acceptor.accept().await.map_err(|e| {
+            TlsInterceptionError::ClientHandshakeFailed(anyhow!("client handshake error: {e:?}"))
+        })?;
 
         let mut protocol = Protocol::Unknown;
         let has_alpn = if let Some(alpn_protocol) = clt_tls_stream.ssl().selected_alpn_protocol() {

@@ -187,14 +187,13 @@ impl NativeTlsPort {
             None => {}
         }
 
-        let Ok(ssl_acceptor) = SslAcceptor::new(ssl, stream) else {
+        let Ok(ssl_acceptor) = SslAcceptor::new(ssl, stream, self.tls_server_config.accept_timeout)
+        else {
             self.listen_stats.add_dropped();
             return;
         };
-        match tokio::time::timeout(self.tls_server_config.accept_timeout, ssl_acceptor.accept())
-            .await
-        {
-            Ok(Ok(ssl_stream)) => {
+        match ssl_acceptor.accept().await {
+            Ok(ssl_stream) => {
                 if ssl_stream.ssl().session_reused() {
                     // Quick ACK is needed with session resumption
                     cc_info.tcp_sock_try_quick_ack();
@@ -202,19 +201,10 @@ impl NativeTlsPort {
                 let next_server = self.next_server.load().as_ref().clone();
                 next_server.run_openssl_task(ssl_stream, cc_info).await
             }
-            Ok(Err(e)) => {
+            Err(e) => {
                 self.listen_stats.add_failed();
                 debug!(
                     "{} - {} tls error: {e:?}",
-                    cc_info.sock_local_addr(),
-                    cc_info.sock_peer_addr()
-                );
-                // TODO record tls failure and add some sec policy
-            }
-            Err(_) => {
-                self.listen_stats.add_timeout();
-                debug!(
-                    "{} - {} tls timeout",
                     cc_info.sock_local_addr(),
                     cc_info.sock_peer_addr()
                 );

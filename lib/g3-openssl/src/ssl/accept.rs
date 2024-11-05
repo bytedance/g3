@@ -14,28 +14,57 @@
  * limitations under the License.
  */
 
-use std::future;
+use std::future::{poll_fn, Future};
 use std::io;
+use std::pin::Pin;
 use std::task::{Context, Poll};
+use std::time::Duration;
 
 use openssl::error::ErrorStack;
 use openssl::ssl::{self, ErrorCode, Ssl};
 use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::time::Sleep;
 
 use super::{SslIoWrapper, SslStream};
 
 pub struct SslAcceptor<S> {
-    pub(crate) inner: ssl::SslStream<SslIoWrapper<S>>,
+    inner: ssl::SslStream<SslIoWrapper<S>>,
+    sleep_future: Pin<Box<Sleep>>,
 }
 
 impl<S: AsyncRead + AsyncWrite + Unpin> SslAcceptor<S> {
-    pub fn new(ssl: Ssl, stream: S) -> Result<Self, ErrorStack> {
-        ssl::SslStream::new(ssl, SslIoWrapper::new(stream)).map(|inner| SslAcceptor { inner })
+    pub fn new(ssl: Ssl, stream: S, timeout: Duration) -> Result<Self, ErrorStack> {
+        let sleep_future = tokio::time::sleep(timeout);
+        ssl::SslStream::new(ssl, SslIoWrapper::new(stream)).map(|inner| SslAcceptor {
+            inner,
+            sleep_future: Box::pin(sleep_future),
+        })
+    }
+
+    pub(crate) fn with_inner(
+        inner: ssl::SslStream<SslIoWrapper<S>>,
+        timeout: Duration,
+    ) -> Result<Self, ErrorStack> {
+        let sleep_future = tokio::time::sleep(timeout);
+        Ok(SslAcceptor {
+            inner,
+            sleep_future: Box::pin(sleep_future),
+        })
     }
 }
 
 impl<S: AsyncRead + AsyncWrite + Unpin> SslAcceptor<S> {
     pub fn poll_accept(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        match Pin::new(&mut self.sleep_future).poll(cx) {
+            Poll::Pending => {}
+            Poll::Ready(_) => {
+                return Poll::Ready(Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "ssl accept timed out",
+                )))
+            }
+        }
+
         self.inner.get_mut().set_cx(cx);
 
         match self.inner.accept() {
@@ -48,7 +77,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslAcceptor<S> {
     }
 
     pub async fn accept(mut self) -> io::Result<SslStream<S>> {
-        future::poll_fn(|cx| self.poll_accept(cx)).await?;
+        poll_fn(|cx| self.poll_accept(cx)).await?;
         Ok(SslStream::new(self.inner))
     }
 }

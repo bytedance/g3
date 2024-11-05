@@ -17,6 +17,7 @@
 use std::future;
 use std::io;
 use std::task::{Context, Poll};
+use std::time::Duration;
 
 use openssl::error::ErrorStack;
 use openssl::ssl::{self, ErrorCode, Ssl, SslRef};
@@ -55,20 +56,8 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslLazyAcceptor<S> {
         future::poll_fn(|cx| self.poll_accept(cx)).await
     }
 
-    #[cfg(feature = "async-job")]
-    pub fn into_acceptor(self) -> Result<SslAcceptor<S>, ErrorStack> {
-        use crate::ssl::async_mode::AsyncEnginePoller;
-
-        let async_engine = AsyncEnginePoller::new(self.inner.ssl())?;
-        Ok(SslAcceptor {
-            inner: self.inner,
-            async_engine,
-        })
-    }
-
-    #[cfg(not(feature = "async-job"))]
-    pub fn into_acceptor(self) -> Result<SslAcceptor<S>, ErrorStack> {
-        Ok(SslAcceptor { inner: self.inner })
+    pub fn into_acceptor(self, timeout: Duration) -> Result<SslAcceptor<S>, ErrorStack> {
+        SslAcceptor::with_inner(self.inner, timeout)
     }
 
     pub fn ssl(&self) -> &SslRef {
