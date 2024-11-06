@@ -251,7 +251,7 @@ cargo build --vendored-openssl
 For *g3proxy*:
 ```text
 openssl >= 1.1.1
-c-ares >= 1.12.0
+c-ares >= 1.13.0
 lua
 python3 >= 3.7
 ```
@@ -271,7 +271,7 @@ cmake
 
 ## Rpc Code Generator
 
-We use capnproto rpc in *g3proxy*:
+We use capnproto rpc to communicate with the running daemon process:
 ```text
 capnproto
 ```
