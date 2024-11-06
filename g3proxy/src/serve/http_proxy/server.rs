@@ -89,7 +89,7 @@ impl HttpProxyServer {
         let tls_acceptor = if let Some(tls_config_builder) = &config.server_tls_config {
             let tls_server_config = tls_config_builder
                 .build_with_alpn_protocols(
-                    Some(vec![AlpnProtocol::Http10, AlpnProtocol::Http11]),
+                    Some(vec![AlpnProtocol::Http11, AlpnProtocol::Http10]),
                     tls_rolling_ticketer.clone(),
                 )
                 .context("failed to build tls server config")?;
