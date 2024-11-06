@@ -56,6 +56,8 @@ pub(crate) struct OpensslProxyServerConfig {
     pub(crate) tcp_copy: LimitedCopyConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
     pub(crate) tls_ticketer: Option<TlsTicketConfig>,
+    #[cfg(feature = "openssl-async-job")]
+    pub(crate) tls_no_async_mode: bool,
     pub(crate) spawn_task_unconstrained: bool,
     pub(crate) alert_unrecognized_name: bool,
 }
@@ -80,6 +82,8 @@ impl OpensslProxyServerConfig {
             tcp_copy: Default::default(),
             tcp_misc_opts: Default::default(),
             tls_ticketer: None,
+            #[cfg(feature = "openssl-async-job")]
+            tls_no_async_mode: false,
             spawn_task_unconstrained: false,
             alert_unrecognized_name: false,
         }
@@ -200,6 +204,11 @@ impl OpensslProxyServerConfig {
                 let ticketer = TlsTicketConfig::parse_yaml(v, Some(lookup_dir))
                     .context(format!("invalid tls ticket config value for key {k}"))?;
                 self.tls_ticketer = Some(ticketer);
+                Ok(())
+            }
+            #[cfg(feature = "openssl-async-job")]
+            "tls_no_async_mode" => {
+                self.tls_no_async_mode = g3_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "spawn_task_unconstrained" | "task_unconstrained" => {

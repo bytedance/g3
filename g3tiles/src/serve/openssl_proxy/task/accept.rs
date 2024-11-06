@@ -253,9 +253,13 @@ impl OpensslAcceptTask {
     #[cfg(feature = "openssl-async-job")]
     fn build_ssl(&self, ssl_ctx: &SslContext) -> Result<Ssl, ErrorStack> {
         use openssl::ssl::SslMode;
+        use tokio::runtime::{Handle, RuntimeFlavor};
 
         let mut ssl = Ssl::new(ssl_ctx)?;
-        if self.ctx.cc_info.worker_id().is_some() {
+        if self.ctx.server_config.tls_no_async_mode {
+            return Ok(ssl);
+        }
+        if Handle::current().runtime_flavor() == RuntimeFlavor::CurrentThread {
             ssl.set_mode(SslMode::ASYNC);
         }
         Ok(ssl)

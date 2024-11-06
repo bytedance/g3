@@ -77,6 +77,17 @@ Set if we should send TLS alert when no host config can be recognized.
 
 **default**: false
 
+tls_no_async_mode
+-----------------
+
+**optional**, **type**: bool
+
+Set to true to disable the use of OpenSSL async engine if `openssl-async-job` feature is enabled.
+
+**default**: false
+
+.. versionadded:: 0.3.7
+
 virtual_hosts
 -------------
 
