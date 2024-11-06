@@ -120,9 +120,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.92"
+version = "1.0.93"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74f37166d7d48a0284b99dd824694c26119c700b53bf0d1540cdb147dbdaaf13"
+checksum = "4c95c10ba0b00a02636238b814946408b1322d5ac4760326e6fb8ec956d85775"
 
 [[package]]
 name = "arbitrary"
@@ -1059,7 +1059,7 @@ dependencies = [
  "clap",
  "clap_complete",
  "hex",
- "thiserror",
+ "thiserror 2.0.0",
  "tokio",
  "tokio-util",
 ]
@@ -1122,7 +1122,7 @@ dependencies = [
  "hex-literal",
  "memchr",
  "smallvec",
- "thiserror",
+ "thiserror 2.0.0",
  "variant-ssl",
 ]
 
@@ -1146,7 +1146,7 @@ dependencies = [
  "serde",
  "sha2",
  "slog",
- "thiserror",
+ "thiserror 2.0.0",
  "tokio",
  "tokio-rustls",
 ]
@@ -1163,7 +1163,7 @@ dependencies = [
  "log",
  "memchr",
  "mime",
- "thiserror",
+ "thiserror 2.0.0",
  "tokio",
 ]
 
@@ -1199,7 +1199,7 @@ dependencies = [
  "g3-io-ext",
  "h2",
  "http",
- "thiserror",
+ "thiserror 2.0.0",
  "tokio",
 ]
 
@@ -1218,7 +1218,7 @@ dependencies = [
  "quinn",
  "rustls",
  "rustls-pki-types",
- "thiserror",
+ "thiserror 2.0.0",
  "tokio",
  "tokio-rustls",
 ]
@@ -1230,7 +1230,7 @@ dependencies = [
  "hdrhistogram",
  "portable-atomic",
  "ryu",
- "thiserror",
+ "thiserror 2.0.0",
  "tokio",
 ]
 
@@ -1248,7 +1248,7 @@ dependencies = [
  "httparse",
  "memchr",
  "mime",
- "thiserror",
+ "thiserror 2.0.0",
  "tokio",
  "tokio-stream",
  "tokio-util",
@@ -1273,7 +1273,7 @@ dependencies = [
  "http",
  "memchr",
  "rustls-pki-types",
- "thiserror",
+ "thiserror 2.0.0",
  "tokio",
  "tokio-rustls",
  "url",
@@ -1289,7 +1289,7 @@ dependencies = [
  "log",
  "memchr",
  "smol_str",
- "thiserror",
+ "thiserror 2.0.0",
  "tokio",
 ]
 
@@ -1313,7 +1313,7 @@ dependencies = [
  "quinn",
  "rustix",
  "smallvec",
- "thiserror",
+ "thiserror 2.0.0",
  "tokio",
  "tokio-rustls",
  "tokio-stream",
@@ -1399,7 +1399,7 @@ dependencies = [
  "anyhow",
  "atomic-waker",
  "libc",
- "thiserror",
+ "thiserror 2.0.0",
  "tokio",
  "variant-ssl",
  "variant-ssl-sys",
@@ -1439,7 +1439,7 @@ dependencies = [
  "log",
  "rustls",
  "rustls-pki-types",
- "thiserror",
+ "thiserror 2.0.0",
  "tokio",
  "tokio-util",
 ]
@@ -1479,7 +1479,7 @@ dependencies = [
  "log",
  "memchr",
  "pin-project-lite",
- "thiserror",
+ "thiserror 2.0.0",
  "tokio",
  "tokio-stream",
  "tokio-util",
@@ -1507,7 +1507,7 @@ dependencies = [
  "pin-project-lite",
  "quinn",
  "smallvec",
- "thiserror",
+ "thiserror 2.0.0",
  "tokio",
 ]
 
@@ -1629,7 +1629,7 @@ dependencies = [
  "slog",
  "smallvec",
  "smol_str",
- "thiserror",
+ "thiserror 2.0.0",
  "url",
  "variant-ssl",
  "webpki-roots",
@@ -1656,7 +1656,7 @@ dependencies = [
  "md-5",
  "memchr",
  "sha2",
- "thiserror",
+ "thiserror 2.0.0",
 ]
 
 [[package]]
@@ -1733,7 +1733,7 @@ dependencies = [
  "rustc-hash 2.0.0",
  "rustls",
  "rustls-pki-types",
- "thiserror",
+ "thiserror 2.0.0",
  "tokio",
  "tokio-rustls",
  "url",
@@ -1829,7 +1829,7 @@ dependencies = [
  "openssl-probe",
  "serde_json",
  "slog",
- "thiserror",
+ "thiserror 2.0.0",
  "tokio",
  "url",
  "uuid",
@@ -1849,7 +1849,7 @@ dependencies = [
  "g3-tls-cert",
  "g3keymess-proto",
  "hex",
- "thiserror",
+ "thiserror 2.0.0",
  "tokio",
  "variant-ssl",
 ]
@@ -1954,7 +1954,7 @@ dependencies = [
  "rustls",
  "serde_json",
  "slog",
- "thiserror",
+ "thiserror 2.0.0",
  "tokio",
  "tokio-rustls",
  "tokio-stream",
@@ -1977,7 +1977,7 @@ dependencies = [
  "g3-types",
  "g3proxy-proto",
  "serde_json",
- "thiserror",
+ "thiserror 2.0.0",
  "tokio",
 ]
 
@@ -2057,7 +2057,7 @@ dependencies = [
  "rustls-pki-types",
  "serde_json",
  "slog",
- "thiserror",
+ "thiserror 2.0.0",
  "tokio",
  "tokio-rustls",
  "uuid",
@@ -2075,7 +2075,7 @@ dependencies = [
  "futures-util",
  "g3-ctl",
  "g3tiles-proto",
- "thiserror",
+ "thiserror 2.0.0",
  "tokio",
 ]
 
@@ -2276,7 +2276,7 @@ dependencies = [
  "once_cell",
  "radix_trie",
  "rand",
- "thiserror",
+ "thiserror 1.0.68",
  "tokio",
  "tracing",
 ]
@@ -2298,7 +2298,7 @@ dependencies = [
  "ipnet",
  "once_cell",
  "rand",
- "thiserror",
+ "thiserror 1.0.68",
  "tinyvec",
  "tokio",
  "tracing",
@@ -3097,7 +3097,7 @@ dependencies = [
  "rustc-hash 2.0.0",
  "rustls",
  "socket2",
- "thiserror",
+ "thiserror 1.0.68",
  "tokio",
  "tracing",
 ]
@@ -3114,7 +3114,7 @@ dependencies = [
  "rustc-hash 2.0.0",
  "rustls",
  "slab",
- "thiserror",
+ "thiserror 1.0.68",
  "tinyvec",
  "tracing",
 ]
@@ -3653,7 +3653,16 @@ version = "1.0.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "02dd99dc800bbb97186339685293e1cc5d9df1f8fae2d0aecd9ff1c77efea892"
 dependencies = [
- "thiserror-impl",
+ "thiserror-impl 1.0.68",
+]
+
+[[package]]
+name = "thiserror"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15291287e9bff1bc6f9ff3409ed9af665bec7a5fc8ac079ea96be07bca0e2668"
+dependencies = [
+ "thiserror-impl 2.0.0",
 ]
 
 [[package]]
@@ -3661,6 +3670,17 @@ name = "thiserror-impl"
 version = "1.0.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7c61ec9a6f64d2793d8a45faba21efbe3ced62a886d44c36a009b2b519b4c7e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.87",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22efd00f33f93fa62848a7cab956c3d38c8d43095efda1decfc2b3a5dc0b8972"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4270,7 +4290,7 @@ dependencies = [
  "flate2",
  "indexmap",
  "memchr",
- "thiserror",
+ "thiserror 1.0.68",
  "zopfli",
 ]
 

@@ -82,7 +82,7 @@ edition = "2021"
 [workspace.dependencies]
 #
 anyhow = "1.0"
-thiserror = "1.0"
+thiserror = "2.0"
 rand = "0.8"
 fastrand = "2.0"
 memchr = "2.4"
