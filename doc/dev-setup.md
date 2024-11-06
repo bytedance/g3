@@ -166,13 +166,35 @@ brew install python
 ### Windows
 
 ```shell
+# install rust toolchain
+winget install Rustlang.Rust.MSVC
 # install tools
-choco install capnproto
+winget install Kitware.CMake
+winget install capnproto.capnproto
+winget install NASM.NASM Ninja-build.Ninja
 # install libraries
 vcpkg install --triplet=x64-windows-static-md openssl
 # build, c-ares need to be vendored, lua and python feature need to be disabled
 cargo build --no-default-features --features quic,vendored-c-ares,hickory
 ```
+
+**Tips**
+
+- Install WinGET without `Windows App Store`:
+
+  ```shell
+  # Download the new release from https://github.com/microsoft/winget-cli/releases
+  Add-AppxPackage -Path <xxx.msixbundle>
+  ```
+
+- Install a standalone version of `vcpkg`:
+
+  ```shell
+  git clone https://github.com/microsoft/vcpkg.git
+  cd vcpkg
+  .\bootstrap-vcpkg.bat
+  # Then add the install path to `Path` and `VCPKG_ROOT` environment variable
+  ```
 
 ### FreeBSD
 
@@ -204,16 +226,25 @@ ln -s /usr/pkg/bin/python3.11 /usr/pkg/bin/python3
 ### OpenBSD
 
 ```shell
+# install rust toolchain
 pkg_add rust
+# install capnproto from source
+# install libs
 pkg_add libcares
 # install lua5.4 or any other versions available on your system, and create a pkgconfig link
 pkg_add lua
 ln -s /usr/local/lib/pkgconfig/lua54.pc /usr/local/lib/pkgconfig/lua5.4.pc
 pkg_add python
+# build, with vendored openssl
+cargo build --vendored-openssl
 ```
 
-The `datasize-cur` limit in `/etc/login.conf` for login class `staff` need to be increased if the compilation failed
-with error *out of memory*.
+**Tips**
+
+- Increase process memory limit size
+
+  The `datasize-cur` limit in `/etc/login.conf` for login class `staff` need to be increased if the compilation failed
+  with error *out of memory*.
 
 ## Development Libraries
 
