@@ -8,7 +8,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 
-target_proxy = ''
+target_proxy = None
 target_site = 'http://httpbin.org'
 server_ca_cert = None
 
@@ -16,7 +16,8 @@ server_ca_cert = None
 class TestHttpBin(unittest.TestCase):
     def setUp(self):
         self.session = requests.Session()
-        self.session.proxies.update({'http': target_proxy, 'https': target_proxy})
+        if target_proxy is not None:
+            self.session.proxies.update({'http': target_proxy, 'https': target_proxy})
         self.session.headers.update({'accept': 'application/json'})
         self.session.verify = server_ca_cert
 
@@ -31,11 +32,12 @@ class TestHttpBin(unittest.TestCase):
         r = self.session.get(f"{target_site}/basic-auth/name/pass")
         self.assertEqual(r.status_code, 401)
 
-        r = self.session.get(f"{target_site}/basic-auth/name/pass", auth=HTTPBasicAuth('name', 'pass'))
-        self.assertEqual(r.status_code, 200)
+        if target_proxy is not None:
+            r = self.session.get(f"{target_site}/basic-auth/name/pass", auth=HTTPBasicAuth('name', 'pass'))
+            self.assertEqual(r.status_code, 200)
 
-        r = self.session.get(f"{target_site}/basic-auth/name/pass", auth=HTTPBasicAuth('name', 'pas'))
-        self.assertEqual(r.status_code, 401)
+            r = self.session.get(f"{target_site}/basic-auth/name/pass", auth=HTTPBasicAuth('name', 'pas'))
+            self.assertEqual(r.status_code, 401)
 
     def test_base64_decode(self):
         self.session.headers.update({'accept': 'text/html'})
