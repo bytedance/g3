@@ -60,8 +60,7 @@ where
     }
 }
 
-impl<'a, W> HttpRequestUpstreamWriter<HttpTransparentRequest>
-    for HttpRequestWriterForAdaptation<'a, W>
+impl<W> HttpRequestUpstreamWriter<HttpTransparentRequest> for HttpRequestWriterForAdaptation<'_, W>
 where
     W: AsyncWrite + Send + Unpin,
 {

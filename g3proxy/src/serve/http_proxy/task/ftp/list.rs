@@ -77,7 +77,7 @@ where
     }
 }
 
-impl<'a, W> FtpLineDataReceiver for ChunkedListWriter<'a, W>
+impl<W> FtpLineDataReceiver for ChunkedListWriter<'_, W>
 where
     W: AsyncWrite + Send + Unpin,
 {
@@ -101,7 +101,7 @@ where
     }
 }
 
-impl<'a, W> ListWriter for ChunkedListWriter<'a, W>
+impl<W> ListWriter for ChunkedListWriter<'_, W>
 where
     W: AsyncWrite + Send + Unpin,
 {
@@ -152,7 +152,7 @@ where
     }
 }
 
-impl<'a, W> FtpLineDataReceiver for EndingListWriter<'a, W>
+impl<W> FtpLineDataReceiver for EndingListWriter<'_, W>
 where
     W: AsyncWrite + Send + Unpin,
 {
@@ -169,7 +169,7 @@ where
     }
 }
 
-impl<'a, W> ListWriter for EndingListWriter<'a, W>
+impl<W> ListWriter for EndingListWriter<'_, W>
 where
     W: AsyncWrite + Send + Unpin,
 {

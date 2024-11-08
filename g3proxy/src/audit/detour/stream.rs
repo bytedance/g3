@@ -43,7 +43,7 @@ impl StreamDetourStream {
     }
 }
 
-impl<'a, SC> StreamDetourContext<'a, SC>
+impl<SC> StreamDetourContext<'_, SC>
 where
     SC: ServerConfig,
 {

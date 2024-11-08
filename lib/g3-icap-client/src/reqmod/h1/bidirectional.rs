@@ -35,7 +35,7 @@ pub(super) struct BidirectionalRecvIcapResponse<'a, I: IdleCheck> {
     pub(super) idle_checker: &'a I,
 }
 
-impl<'a, I: IdleCheck> BidirectionalRecvIcapResponse<'a, I> {
+impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
     pub(super) async fn transfer_and_recv<CR>(
         self,
         mut body_transfer: &mut H1BodyToChunkedTransfer<'_, CR, IcapClientWriter>,
@@ -100,7 +100,7 @@ impl<'a, I: IdleCheck> BidirectionalRecvIcapResponse<'a, I> {
             self.icap_client.config.icap_max_header_size,
             &self.icap_client.config.respond_shared_names,
         )
-        .await?;
+            .await?;
 
         match rsp.code {
             204 | 206 => Err(H1ReqmodAdaptationError::IcapServerErrorResponse(
@@ -122,7 +122,7 @@ pub(super) struct BidirectionalRecvHttpRequest<'a, I: IdleCheck> {
     pub(super) idle_checker: &'a I,
 }
 
-impl<'a, I: IdleCheck> BidirectionalRecvHttpRequest<'a, I> {
+impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
     pub(super) async fn transfer<H, CR, UW>(
         self,
         state: &mut ReqmodAdaptationRunState,
@@ -141,7 +141,7 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpRequest<'a, I> {
             http_header_size,
             self.http_req_add_no_via_header,
         )
-        .await?;
+            .await?;
         http_req.set_chunked_encoding();
 
         let final_req = orig_http_request.adapt_to(http_req);

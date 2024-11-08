@@ -35,7 +35,7 @@ pub(super) struct BidirectionalRecvIcapResponse<'a, I: IdleCheck> {
     pub(super) idle_checker: &'a I,
 }
 
-impl<'a, I: IdleCheck> BidirectionalRecvIcapResponse<'a, I> {
+impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
     pub(super) async fn transfer_and_recv<UR>(
         self,
         mut body_transfer: &mut H1BodyToChunkedTransfer<'_, UR, IcapClientWriter>,
@@ -120,7 +120,7 @@ pub(super) struct BidirectionalRecvHttpResponse<'a, I: IdleCheck> {
     pub(super) idle_checker: &'a I,
 }
 
-impl<'a, I: IdleCheck> BidirectionalRecvHttpResponse<'a, I> {
+impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
     pub(super) async fn transfer<H, UR, CW>(
         self,
         state: &mut RespmodAdaptationRunState,
