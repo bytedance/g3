@@ -27,6 +27,9 @@ use g3_types::net::{
     ConnectionPoolConfig, HttpAuth, RustlsClientConfigBuilder, TcpKeepAliveConfig, UpstreamAddr,
 };
 
+#[cfg(feature = "yaml")]
+mod yaml;
+
 use super::IcapMethod;
 
 pub struct IcapServiceConfig {

@@ -21,9 +21,15 @@ tokio-rustls.workspace = true
 rustls-pki-types.workspace = true
 http.workspace = true
 h2.workspace = true
+yaml-rust = { workspace = true, optional = true }
 g3-types.workspace = true
 g3-io-ext = { workspace = true, features = ["rustls"] }
 g3-socket.workspace = true
 g3-http.workspace = true
 g3-h2.workspace = true
 g3-smtp-proto.workspace = true
+g3-yaml = { workspace = true, optional = true, features = ["rustls", "http"] }
+
+[features]
+default = []
+yaml = ["dep:g3-yaml", "dep:yaml-rust"]

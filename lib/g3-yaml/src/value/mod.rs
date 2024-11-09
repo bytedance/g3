@@ -42,11 +42,6 @@ pub use speed_limit::{
     as_udp_sock_speed_limit,
 };
 
-#[cfg(feature = "audit")]
-mod audit;
-#[cfg(feature = "audit")]
-pub use audit::{as_icap_reqmod_service_config, as_icap_respmod_service_config};
-
 #[cfg(feature = "acl-rule")]
 pub mod acl;
 #[cfg(feature = "acl-rule")]
