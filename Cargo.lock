@@ -1156,16 +1156,19 @@ dependencies = [
 name = "g3-ftp-client"
 version = "0.3.0"
 dependencies = [
+ "anyhow",
  "async-trait",
  "chrono",
  "g3-datetime",
  "g3-io-ext",
  "g3-types",
+ "g3-yaml",
  "log",
  "memchr",
  "mime",
  "thiserror 2.0.1",
  "tokio",
+ "yaml-rust2",
 ]
 
 [[package]]
@@ -1673,7 +1676,6 @@ dependencies = [
  "g3-compat",
  "g3-dpi",
  "g3-fluentd",
- "g3-ftp-client",
  "g3-geoip-types",
  "g3-histogram",
  "g3-ip-locate",

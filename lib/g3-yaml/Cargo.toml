@@ -26,7 +26,6 @@ g3-syslog = { workspace = true, optional = true }
 g3-fluentd = { workspace = true, optional = true }
 g3-statsd-client = { workspace = true, optional = true }
 g3-histogram = { workspace = true, optional = true }
-g3-ftp-client = { workspace = true, optional = true }
 g3-runtime = { workspace = true, optional = true }
 g3-compat = { workspace = true, optional = true }
 g3-dpi = { workspace = true, optional = true }
@@ -49,7 +48,6 @@ quinn = ["g3-types/quinn"]
 http = ["g3-types/http", "dep:http"]
 acl-rule = ["g3-types/acl-rule", "dep:ip_network", "dep:regex"]
 route = ["g3-types/route"]
-ftp-client = ["g3-ftp-client"]
 sched = ["dep:g3-runtime", "dep:g3-compat"]
 dpi = ["dep:g3-dpi", "dep:g3-udpdump", "dep:g3-cert-agent", "acl-rule"]
 geoip = ["dep:g3-geoip-types", "dep:g3-ip-locate"]

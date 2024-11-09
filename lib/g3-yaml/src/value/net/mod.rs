@@ -30,9 +30,6 @@ mod interface;
 #[cfg(feature = "http")]
 mod http;
 
-#[cfg(feature = "ftp-client")]
-mod ftp;
-
 #[cfg(feature = "rustls")]
 mod dns;
 
@@ -63,9 +60,6 @@ pub use self::http::{
     as_http_forward_capability, as_http_forwarded_header_type, as_http_header_name,
     as_http_keepalive_config, as_http_path_and_query, as_http_server_id,
 };
-
-#[cfg(feature = "ftp-client")]
-pub use ftp::as_ftp_client_config;
 
 #[cfg(feature = "rustls")]
 pub use dns::as_dns_encryption_protocol_builder;

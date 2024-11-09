@@ -225,7 +225,7 @@ impl HttpProxyServerConfig {
                 Ok(())
             }
             "ftp_client" => {
-                let client_config = g3_yaml::value::as_ftp_client_config(v)
+                let client_config = FtpClientConfig::parse_yaml(v)
                     .context(format!("invalid ftp client config value for key {k}"))?;
                 self.ftp_client_config = Arc::new(client_config);
                 Ok(())

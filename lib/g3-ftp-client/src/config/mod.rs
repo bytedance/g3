@@ -16,6 +16,9 @@
 
 use std::time::Duration;
 
+#[cfg(feature = "yaml")]
+mod yaml;
+
 const MAXIMUM_LIST_ALL_TIMEOUT: Duration = Duration::from_secs(300);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
