@@ -26,6 +26,9 @@ use g3_types::metrics::MetricsName;
 
 use crate::{StatsdClient, StatsdMetricsSink};
 
+#[cfg(feature = "yaml")]
+mod yaml;
+
 const UDP_DEFAULT_PORT: u16 = 8125;
 
 #[derive(Debug, Clone)]

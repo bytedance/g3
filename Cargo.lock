@@ -1521,11 +1521,14 @@ dependencies = [
 name = "g3-statsd-client"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "g3-types",
+ "g3-yaml",
  "itoa",
  "log",
  "ryu",
  "smallvec",
+ "yaml-rust2",
 ]
 
 [[package]]
@@ -1680,7 +1683,6 @@ dependencies = [
  "g3-histogram",
  "g3-ip-locate",
  "g3-runtime",
- "g3-statsd-client",
  "g3-syslog",
  "g3-types",
  "g3-udpdump",

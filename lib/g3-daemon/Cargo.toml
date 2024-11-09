@@ -35,8 +35,8 @@ g3-stdlog.workspace = true
 g3-syslog.workspace = true
 g3-fluentd.workspace = true
 g3-runtime.workspace = true
-g3-yaml = { workspace = true, features = ["syslog", "fluentd", "statsd", "sched"] }
-g3-statsd-client.workspace = true
+g3-yaml = { workspace = true, features = ["syslog", "fluentd", "sched"] }
+g3-statsd-client = { workspace = true, features = ["yaml"] }
 g3-io-ext.workspace = true
 g3-socket.workspace = true
 g3-http = { workspace = true, optional = true }

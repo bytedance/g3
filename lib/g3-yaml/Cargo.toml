@@ -24,7 +24,6 @@ http = { workspace = true, optional = true }
 g3-types.workspace = true
 g3-syslog = { workspace = true, optional = true }
 g3-fluentd = { workspace = true, optional = true }
-g3-statsd-client = { workspace = true, optional = true }
 g3-histogram = { workspace = true, optional = true }
 g3-runtime = { workspace = true, optional = true }
 g3-compat = { workspace = true, optional = true }
@@ -38,7 +37,6 @@ g3-ip-locate = { workspace = true, optional = true }
 default = []
 syslog = ["dep:g3-syslog"]
 fluentd = ["dep:g3-fluentd", "rustls"]
-statsd = ["dep:g3-statsd-client"]
 histogram = ["dep:g3-histogram"]
 resolve = ["g3-types/resolve"]
 rustls = ["g3-types/rustls", "dep:rustls-pki-types"]

@@ -11,4 +11,11 @@ itoa.workspace = true
 ryu.workspace = true
 smallvec.workspace = true
 log.workspace = true
+anyhow = { workspace = true, optional = true }
+yaml-rust = { workspace = true, optional = true }
 g3-types.workspace = true
+g3-yaml = { workspace = true, optional = true }
+
+[features]
+default = []
+yaml = ["dep:g3-yaml", "dep:yaml-rust", "dep:anyhow"]

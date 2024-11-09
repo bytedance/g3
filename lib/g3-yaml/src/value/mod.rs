@@ -57,11 +57,6 @@ mod fluentd;
 #[cfg(feature = "fluentd")]
 pub use fluentd::as_fluentd_client_config;
 
-#[cfg(feature = "statsd")]
-mod statsd;
-#[cfg(feature = "statsd")]
-pub use statsd::as_statsd_client_config;
-
 #[cfg(feature = "histogram")]
 mod histogram;
 #[cfg(feature = "histogram")]

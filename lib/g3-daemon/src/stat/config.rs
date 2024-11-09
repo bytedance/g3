@@ -39,7 +39,7 @@ fn set_global_stat_config(config: StatsdClientConfig) {
 pub fn load(v: &Yaml, prefix: &'static str) -> anyhow::Result<()> {
     let prefix = MetricsName::from_str(prefix)
         .map_err(|e| anyhow!("invalid default metrics prefix: {e}"))?;
-    let config = g3_yaml::value::as_statsd_client_config(v, prefix)?;
+    let config = StatsdClientConfig::parse_yaml(v, prefix)?;
     set_global_stat_config(config);
     Ok(())
 }
