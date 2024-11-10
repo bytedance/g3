@@ -13,7 +13,13 @@ tokio = { workspace = true, features = ["sync", "net", "rt"] }
 tokio-util = { workspace = true, features = ["time"] }
 ahash.workspace = true
 rmpv.workspace = true
+yaml-rust = { workspace = true, optional = true }
 g3-types.workspace = true
 g3-geoip-types.workspace = true
 g3-msgpack = { workspace = true, features = ["geoip"] }
 g3-socket.workspace = true
+g3-yaml = { workspace = true, optional = true }
+
+[features]
+default = []
+yaml = ["dep:g3-yaml", "dep:yaml-rust"]

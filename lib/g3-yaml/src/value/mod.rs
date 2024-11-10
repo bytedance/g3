@@ -115,6 +115,4 @@ pub use dpi::*;
 #[cfg(feature = "geoip")]
 mod geoip;
 #[cfg(feature = "geoip")]
-pub use geoip::{
-    as_continent_code, as_ip_locate_service_config, as_ip_location, as_iso_country_code,
-};
+pub use geoip::{as_continent_code, as_ip_location, as_iso_country_code};

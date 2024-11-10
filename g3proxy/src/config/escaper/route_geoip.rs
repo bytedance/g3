@@ -96,9 +96,9 @@ impl RouteGeoIpEscaperConfig {
                 Ok(())
             }
             "ip_locate_service" => {
-                self.ip_locate_service = g3_yaml::value::as_ip_locate_service_config(v).context(
-                    format!("invalid ip locate service config value for key {k}"),
-                )?;
+                self.ip_locate_service = IpLocateServiceConfig::parse_yaml(v).context(format!(
+                    "invalid ip locate service config value for key {k}"
+                ))?;
                 Ok(())
             }
             "geo_rules" | "geo_match" => {

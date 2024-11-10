@@ -24,6 +24,9 @@ use g3_types::net::SocketBufferConfig;
 
 use super::{IpLocationQueryRuntime, IpLocationServiceHandle};
 
+#[cfg(feature = "yaml")]
+mod yaml;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IpLocateServiceConfig {
     pub(crate) cache_request_batch_count: usize,
