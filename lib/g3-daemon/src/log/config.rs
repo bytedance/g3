@@ -130,7 +130,7 @@ impl LogConfig {
                         Ok(())
                     }
                     "syslog" => {
-                        let builder = g3_yaml::value::as_syslog_builder(v, program_name)
+                        let builder = SyslogBuilder::parse_yaml(v, program_name)
                             .context("invalid syslog config")?;
                         config.driver = LogConfigDriver::Syslog(builder);
                         Ok(())

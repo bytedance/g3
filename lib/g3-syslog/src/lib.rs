@@ -23,6 +23,9 @@ mod format;
 mod types;
 mod util;
 
+#[cfg(feature = "yaml")]
+mod yaml;
+
 pub use types::{Facility, Severity};
 
 use async_streamer::AsyncSyslogStreamer;

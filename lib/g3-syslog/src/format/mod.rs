@@ -32,6 +32,9 @@ pub(super) use cee::{FormatterRfc3164Cee, FormatterRfc5424Cee, CEE_EVENT_FLAG};
 pub(super) use rfc3164::FormatterRfc3164;
 pub(super) use rfc5424::FormatterRfc5424;
 
+#[cfg(feature = "yaml")]
+mod yaml;
+
 pub trait SyslogFormatter {
     fn append_report_ts(&mut self, enable: bool);
 

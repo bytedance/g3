@@ -1553,10 +1553,12 @@ dependencies = [
 name = "g3-syslog"
 version = "0.6.0"
 dependencies = [
+ "anyhow",
  "chrono",
  "flume",
  "g3-datetime",
  "g3-types",
+ "g3-yaml",
  "gethostname",
  "itoa",
  "log",
@@ -1564,6 +1566,7 @@ dependencies = [
  "serde",
  "serde_json",
  "slog",
+ "yaml-rust2",
 ]
 
 [[package]]
@@ -1688,7 +1691,6 @@ dependencies = [
  "g3-geoip-types",
  "g3-histogram",
  "g3-runtime",
- "g3-syslog",
  "g3-types",
  "http",
  "humanize-rs",

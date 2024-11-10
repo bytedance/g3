@@ -32,10 +32,10 @@ clap.workspace = true
 quinn = { workspace = true, optional = true, features = ["runtime-tokio", "ring"] }
 g3-types = { workspace = true, features = ["async-log"] }
 g3-stdlog.workspace = true
-g3-syslog.workspace = true
+g3-syslog = { workspace = true, features = ["yaml"] }
 g3-fluentd.workspace = true
 g3-runtime.workspace = true
-g3-yaml = { workspace = true, features = ["syslog", "fluentd", "sched"] }
+g3-yaml = { workspace = true, features = ["fluentd", "sched"] }
 g3-statsd-client = { workspace = true, features = ["yaml"] }
 g3-io-ext.workspace = true
 g3-socket.workspace = true

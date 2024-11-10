@@ -21,6 +21,9 @@ use std::os::unix::net::UnixDatagram;
 #[cfg(unix)]
 use std::path::PathBuf;
 
+#[cfg(feature = "yaml")]
+mod yaml;
+
 mod udp;
 #[cfg(unix)]
 mod unix_datagram;

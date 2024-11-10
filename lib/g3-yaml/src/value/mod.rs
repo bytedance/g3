@@ -47,11 +47,6 @@ pub mod acl;
 #[cfg(feature = "acl-rule")]
 pub mod acl_set;
 
-#[cfg(feature = "syslog")]
-mod syslog;
-#[cfg(feature = "syslog")]
-pub use syslog::as_syslog_builder;
-
 #[cfg(feature = "fluentd")]
 mod fluentd;
 #[cfg(feature = "fluentd")]
