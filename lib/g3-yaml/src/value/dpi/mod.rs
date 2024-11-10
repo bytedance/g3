@@ -31,6 +31,3 @@ pub use smtp::as_smtp_interception_config;
 
 mod imap;
 pub use imap::as_imap_interception_config;
-
-mod dump;
-pub use dump::as_stream_dump_config;

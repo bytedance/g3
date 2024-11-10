@@ -9,8 +9,15 @@ edition.workspace = true
 [dependencies]
 log.workspace = true
 tokio = { workspace = true, features = ["rt", "net", "sync"] }
+anyhow = { workspace = true, optional = true }
+yaml-rust = { workspace = true, optional = true }
 g3-types.workspace = true
 g3-socket.workspace = true
 g3-io-ext.workspace = true
 g3-runtime.workspace = true
 g3-dpi.workspace = true
+g3-yaml = { workspace = true, optional = true }
+
+[features]
+default = []
+yaml = ["dep:g3-yaml", "dep:yaml-rust", "dep:anyhow"]

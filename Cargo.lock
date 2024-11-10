@@ -1652,13 +1652,16 @@ dependencies = [
 name = "g3-udpdump"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "g3-dpi",
  "g3-io-ext",
  "g3-runtime",
  "g3-socket",
  "g3-types",
+ "g3-yaml",
  "log",
  "tokio",
+ "yaml-rust2",
 ]
 
 [[package]]
@@ -1687,7 +1690,6 @@ dependencies = [
  "g3-runtime",
  "g3-syslog",
  "g3-types",
- "g3-udpdump",
  "http",
  "humanize-rs",
  "idna 1.0.3",

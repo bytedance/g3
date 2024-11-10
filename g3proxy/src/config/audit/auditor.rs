@@ -181,7 +181,7 @@ impl AuditorConfig {
                 Ok(())
             }
             "tls_stream_dump" => {
-                let dump = g3_yaml::value::as_stream_dump_config(v)
+                let dump = StreamDumpConfig::parse_yaml(v)
                     .context(format!("invalid udp stream dump config value for key {k}"))?;
                 self.tls_stream_dump = Some(dump);
                 Ok(())
