@@ -22,7 +22,6 @@ rustls-pki-types = { workspace = true, optional = true, features = ["std"] }
 openssl = { workspace = true, optional = true }
 http = { workspace = true, optional = true }
 g3-types.workspace = true
-g3-fluentd = { workspace = true, optional = true }
 g3-histogram = { workspace = true, optional = true }
 g3-runtime = { workspace = true, optional = true }
 g3-compat = { workspace = true, optional = true }
@@ -31,7 +30,6 @@ g3-geoip-types = { workspace = true, optional = true }
 
 [features]
 default = []
-fluentd = ["dep:g3-fluentd", "rustls"]
 histogram = ["dep:g3-histogram"]
 resolve = ["g3-types/resolve"]
 rustls = ["g3-types/rustls", "dep:rustls-pki-types"]

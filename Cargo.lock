@@ -1139,6 +1139,7 @@ dependencies = [
  "flume",
  "g3-socket",
  "g3-types",
+ "g3-yaml",
  "gethostname",
  "hex",
  "log",
@@ -1152,6 +1153,7 @@ dependencies = [
  "thiserror 2.0.1",
  "tokio",
  "tokio-rustls",
+ "yaml-rust2",
 ]
 
 [[package]]
@@ -1687,7 +1689,6 @@ dependencies = [
  "chrono",
  "g3-compat",
  "g3-dpi",
- "g3-fluentd",
  "g3-geoip-types",
  "g3-histogram",
  "g3-runtime",

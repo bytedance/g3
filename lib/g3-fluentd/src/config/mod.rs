@@ -31,6 +31,9 @@ use g3_types::net::{RustlsClientConfig, RustlsClientConfigBuilder, TcpKeepAliveC
 
 use super::FluentdConnection;
 
+#[cfg(feature = "yaml")]
+mod yaml;
+
 const FLUENTD_DEFAULT_PORT: u16 = 24224;
 
 #[derive(Clone)]

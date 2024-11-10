@@ -136,7 +136,7 @@ impl LogConfig {
                         Ok(())
                     }
                     "fluentd" => {
-                        let client = g3_yaml::value::as_fluentd_client_config(v, Some(conf_dir))
+                        let client = FluentdClientConfig::parse_yaml(v, Some(conf_dir))
                             .context("invalid fluentd config")?;
                         config.driver = LogConfigDriver::Fluentd(Arc::new(client));
                         Ok(())

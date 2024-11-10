@@ -25,5 +25,11 @@ sha2.workspace = true
 hex.workspace = true
 log.workspace = true
 gethostname.workspace = true
+yaml-rust = { workspace = true, optional = true }
 g3-types = { workspace = true, features = ["async-log", "rustls"] }
 g3-socket.workspace = true
+g3-yaml = { workspace = true, optional = true, features = ["rustls"] }
+
+[features]
+default = []
+yaml = ["dep:g3-yaml", "dep:yaml-rust"]

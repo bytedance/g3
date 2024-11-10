@@ -47,11 +47,6 @@ pub mod acl;
 #[cfg(feature = "acl-rule")]
 pub mod acl_set;
 
-#[cfg(feature = "fluentd")]
-mod fluentd;
-#[cfg(feature = "fluentd")]
-pub use fluentd::as_fluentd_client_config;
-
 #[cfg(feature = "histogram")]
 mod histogram;
 #[cfg(feature = "histogram")]
