@@ -61,7 +61,7 @@ flume.workspace = true
 lru.workspace = true
 mlua = { workspace = true, features = ["send"], optional = true }
 pyo3 = { workspace = true, features = ["auto-initialize"], optional = true }
-g3-cert-agent.workspace = true
+g3-cert-agent = { workspace = true, features = ["yaml"] }
 g3-daemon.workspace = true
 g3-datetime.workspace = true
 g3-dpi.workspace = true

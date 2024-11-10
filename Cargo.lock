@@ -1028,10 +1028,12 @@ dependencies = [
  "g3-msgpack",
  "g3-socket",
  "g3-types",
+ "g3-yaml",
  "log",
  "rmpv",
  "tokio",
  "variant-ssl",
+ "yaml-rust2",
 ]
 
 [[package]]
@@ -1677,7 +1679,6 @@ dependencies = [
  "anyhow",
  "ascii",
  "chrono",
- "g3-cert-agent",
  "g3-compat",
  "g3-dpi",
  "g3-fluentd",

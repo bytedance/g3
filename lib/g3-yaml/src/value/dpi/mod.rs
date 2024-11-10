@@ -20,9 +20,6 @@ pub use policy::as_protocol_inspect_policy_builder;
 mod inspect;
 pub use inspect::as_protocol_inspection_config;
 
-mod tls_cert;
-pub use tls_cert::as_tls_cert_agent_config;
-
 mod portmap;
 pub use portmap::update_protocol_portmap;
 

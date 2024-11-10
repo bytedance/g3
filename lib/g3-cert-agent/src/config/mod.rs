@@ -24,6 +24,9 @@ use g3_types::net::SocketBufferConfig;
 
 use super::{CertAgentHandle, QueryRuntime};
 
+#[cfg(feature = "yaml")]
+mod yaml;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CertAgentConfig {
     pub(crate) cache_request_batch_count: usize,

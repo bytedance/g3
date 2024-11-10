@@ -149,7 +149,7 @@ impl AuditorConfig {
                     .context(format!("invalid protocol portmap value for key {k}"))
             }
             "tls_cert_agent" | "tls_cert_generator" => {
-                let agent = g3_yaml::value::as_tls_cert_agent_config(v).context(format!(
+                let agent = CertAgentConfig::parse_yaml(v).context(format!(
                     "invalid tls cert generator config value for key {k}"
                 ))?;
                 self.tls_cert_agent = Some(agent);
