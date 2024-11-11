@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,12 @@
  * limitations under the License.
  */
 
-mod sched;
-pub use sched::CpuAffinity;
+#[cfg(unix)]
+mod unix;
+#[cfg(unix)]
+pub use unix::hostname;
 
-mod hostname;
-pub use hostname::hostname;
+#[cfg(windows)]
+mod windows;
+#[cfg(windows)]
+pub use windows::hostname;
