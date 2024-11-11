@@ -98,7 +98,7 @@ impl SyslogBuilder {
 
     pub fn start_async(self, async_conf: &AsyncLogConfig) -> AsyncSyslogStreamer {
         let hostname = if self.emit_hostname {
-            Some(gethostname::gethostname().to_string_lossy().to_string())
+            Some(g3_compat::hostname().to_string_lossy().to_string())
         } else {
             None
         };

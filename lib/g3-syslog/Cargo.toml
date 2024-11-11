@@ -16,11 +16,11 @@ flume.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 log.workspace = true
-gethostname.workspace = true
 anyhow = { workspace = true, optional = true }
 yaml-rust = { workspace = true, optional = true }
-g3-types = { workspace = true, features = ["async-log"] }
+g3-compat.workspace = true
 g3-datetime.workspace = true
+g3-types = { workspace = true, features = ["async-log"] }
 g3-yaml = { workspace = true, optional = true }
 
 [features]

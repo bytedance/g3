@@ -1050,6 +1050,8 @@ name = "g3-compat"
 version = "0.1.0"
 dependencies = [
  "libc",
+ "rustix",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1137,10 +1139,10 @@ dependencies = [
  "chrono",
  "digest",
  "flume",
+ "g3-compat",
  "g3-socket",
  "g3-types",
  "g3-yaml",
- "gethostname",
  "hex",
  "log",
  "rand",
@@ -1558,10 +1560,10 @@ dependencies = [
  "anyhow",
  "chrono",
  "flume",
+ "g3-compat",
  "g3-datetime",
  "g3-types",
  "g3-yaml",
- "gethostname",
  "itoa",
  "log",
  "ryu",
@@ -2108,16 +2110,6 @@ checksum = "85649ca51fd72272d7821adaf274ad91c288277713d9c18820d8499a7ff69e9a"
 dependencies = [
  "typenum",
  "version_check",
-]
-
-[[package]]
-name = "gethostname"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc3655aa6818d65bc620d6911f05aa7b6aeb596291e1e9f79e52df85583d1e30"
-dependencies = [
- "rustix",
- "windows-targets",
 ]
 
 [[package]]

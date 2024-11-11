@@ -11,3 +11,7 @@ rust-version = "1.74.0"
 
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true
+rustix = { workspace = true, features = ["system"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { workspace = true, features = ["Win32_System_SystemInformation"] }

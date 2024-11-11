@@ -65,7 +65,7 @@ impl Default for FluentdClientConfig {
 
 impl FluentdClientConfig {
     pub fn new(server: SocketAddr) -> Self {
-        let hostname = gethostname::gethostname().to_string_lossy().to_string();
+        let hostname = g3_compat::hostname().to_string_lossy().to_string();
         FluentdClientConfig {
             server_addr: server,
             bind: BindAddr::None,
