@@ -1,0 +1,57 @@
+name: CodeCoverage
+
+on:
+  push:
+    paths-ignore:
+      - 'ansible/**'
+      - 'doc/**'
+      - 'demo/**'
+      - 'scripts/**'
+      - 'g3proxy/doc/**'
+      - 'g3tiles/doc/**'
+    branches:
+      - 'master'
+      - 'rel/**'
+      - 'lts/**'
+  pull_request:
+    branches:
+      - 'master'
+      - 'rel/**'
+      - 'lts/**'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  lib-unit-test:
+    name: lib unit test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
+      - name: Install binutils
+        run: |
+          cargo install cargo-binutils
+      - name: run unit test
+        run: |
+          ./scripts/coverage/lib_unit_test.sh
+      - name: Upload coverage data
+        uses: codecov/codecov-action@v4
+        with:
+          fail_ci_if_error: false
+          disable_search: true
+          file: output.lcov
+          flags: lib
+          name: Lib Coverage
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: false
