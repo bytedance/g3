@@ -17,7 +17,7 @@ override_dh_auto_clean:
 override_dh_auto_build:
 	G3_PACKAGE_VERSION=$(DEB_VERSION) \
 	  cargo build --frozen --profile $(BUILD_PROFILE) \
-	    --no-default-features --features $(LUA_FEATURE),$(SSL_FEATURE),rustls-ring,quic,$(CARES_FEATURE),hickory \
+	    --no-default-features --features $(LUA_FEATURE),$(SSL_FEATURE),quic,$(CARES_FEATURE),hickory \
 	    --package g3proxy --package g3proxy-ctl --package g3proxy-lua
 	cargo build --frozen --profile $(BUILD_PROFILE) --package g3proxy-ftp
 	sh $(PACKAGE_NAME)/service/generate_systemd.sh

@@ -13,6 +13,7 @@ rmpv.workspace = true
 uuid.workspace = true
 atoi.workspace = true
 chrono = { workspace = true, features = ["std"] }
+rustls = { workspace = true, optional = true }
 rustls-pki-types = { workspace = true, optional = true, features = ["std"] }
 openssl = { workspace = true, optional = true }
 ip_network = { workspace = true, optional = true }
@@ -21,6 +22,6 @@ g3-geoip-types = { workspace = true, optional = true }
 
 [features]
 default = []
-rustls = ["g3-types/rustls", "dep:rustls-pki-types"]
+rustls = ["g3-types/rustls", "dep:rustls", "dep:rustls-pki-types"]
 openssl = ["g3-types/openssl", "dep:openssl"]
 geoip = ["dep:g3-geoip-types", "dep:ip_network"]

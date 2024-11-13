@@ -17,9 +17,9 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-#[cfg(feature = "rustls-aws-lc")]
+#[cfg(feature = "aws-lc")]
 use rustls::crypto::aws_lc_rs::Ticketer;
-#[cfg(feature = "rustls-ring")]
+#[cfg(not(feature = "aws-lc"))]
 use rustls::crypto::ring::Ticketer;
 use rustls::server::{NoServerSessionStorage, ProducesTickets};
 use rustls::{ClientConnection, HandshakeKind, ServerConfig, ServerConnection};

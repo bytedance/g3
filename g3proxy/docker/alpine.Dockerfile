@@ -4,7 +4,7 @@ COPY . .
 RUN apk add --no-cache musl-dev cmake capnproto-dev openssl-dev c-ares-dev
 ENV RUSTFLAGS="-Ctarget-feature=-crt-static"
 RUN cargo build --profile release-lto \
- --no-default-features --features rustls-ring,quic,c-ares,hickory \
+ --no-default-features --features quic,c-ares,hickory \
  -p g3proxy -p g3proxy-ctl
 
 FROM alpine:latest

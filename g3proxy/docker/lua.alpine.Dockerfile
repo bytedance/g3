@@ -11,7 +11,7 @@ RUN apk add --no-cache musl-dev cmake capnproto-dev openssl-dev c-ares-dev lua5.
 ENV PKG_CONFIG_PATH=/usr/lib/pkgconfig
 ENV RUSTFLAGS="-Ctarget-feature=-crt-static"
 RUN cargo build --profile release-lto \
- --no-default-features --features rustls-ring,quic,c-ares,hickory,lua54 \
+ --no-default-features --features quic,c-ares,hickory,lua54 \
  -p g3proxy -p g3proxy-ctl -p g3proxy-lua
 
 FROM alpine:latest
