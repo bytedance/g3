@@ -26,6 +26,8 @@ export SSL_CERT_FILE="${SCRIPTS_DIR}/g3proxy/rootCA.pem"
 
 # run g3proxy integration tests
 
+set -x
+
 for dir in $(find "${SCRIPTS_DIR}/g3proxy/" -type d | sort)
 do
 	[ -f "${dir}/g3proxy.yaml" ] || continue
@@ -43,6 +45,8 @@ do
 	"${PROJECT_DIR}"/target/debug/g3proxy-ctl -G ${TEST_NAME} -p $PROXY_PID offline
 	wait $PROXY_PID
 done
+
+set +x
 
 ## g3proxy-ftp
 

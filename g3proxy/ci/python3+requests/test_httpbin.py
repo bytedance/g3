@@ -11,6 +11,7 @@ from requests.auth import HTTPBasicAuth
 target_proxy = None
 target_site = 'http://httpbin.org'
 server_ca_cert = None
+no_auth = False
 
 
 class TestHttpBin(unittest.TestCase):
@@ -32,7 +33,7 @@ class TestHttpBin(unittest.TestCase):
         r = self.session.get(f"{target_site}/basic-auth/name/pass")
         self.assertEqual(r.status_code, 401)
 
-        if target_proxy is not None:
+        if not no_auth:
             r = self.session.get(f"{target_site}/basic-auth/name/pass", auth=HTTPBasicAuth('name', 'pass'))
             self.assertEqual(r.status_code, 200)
 
@@ -60,6 +61,7 @@ if __name__ == '__main__':
     parser.add_argument('--proxy', '-x', nargs='?', help='Proxy URL')
     parser.add_argument('--site', '-T', nargs='?', help='Target Site', default=target_site)
     parser.add_argument('--ca-cert', nargs='?', help='CA Cert')
+    parser.add_argument('--no-auth', action='store_true', help='No http auth tests')
 
     (args, left_args) = parser.parse_known_args()
 
@@ -68,6 +70,7 @@ if __name__ == '__main__':
     if args.ca_cert is not None:
         server_ca_cert = args.ca_cert
     target_site = args.site
+    no_auth = args.no_auth
 
     left_args.insert(0, sys.argv[0])
 

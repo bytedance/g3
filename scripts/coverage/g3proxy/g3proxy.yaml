@@ -29,9 +29,6 @@ resolver:
     type: fail_over
     primary: cares1
     standby: cares2
-  - name: hickory
-    type: hickory
-    server: 127.0.0.1
 
 user-group:
   - name: default
