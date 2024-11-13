@@ -69,25 +69,22 @@ jobs:
     - name: Cargo clippy
       run: cargo clippy --tests -- --deny warnings
 
-  build-vendored:
+  build-vendored-g1:
     name: Build vendored
     runs-on: ubuntu-latest
     strategy:
       matrix:
         feature:
-          - vendored-openssl
-          - vendored-tongsuo
-          - vendored-aws-lc
-          - vendored-boringssl
+          - vendored-openssl,rustls-ring
+          - vendored-tongsuo,rustls-ring
+          - vendored-aws-lc,rustls-aws-lc
+          - vendored-boringssl,rustls-ring
         component:
           - g3proxy
           - g3bench
           - g3tiles
-          - g3fcgen
-          - g3mkcert
-          - g3keymess
         include:
-          - feature: vendored-c-ares
+          - feature: vendored-c-ares,rustls-ring
             component: g3proxy
     steps:
       - name: Checkout sources
@@ -102,6 +99,38 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
+      - name: Cargo build
+        run: cargo build --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }}
+      - name: Cargo clippy
+        run: cargo clippy --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }} -- --deny warnings
+
+  build-vendored-g2:
+    name: Build vendored
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        feature:
+          - vendored-openssl
+          - vendored-tongsuo
+          - vendored-aws-lc
+          - vendored-boringssl
+        component:
+          - g3fcgen
+          - g3mkcert
+          - g3keymess
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install capnproto libssl-dev
       - name: Cargo build
         run: cargo build --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }}
       - name: Cargo clippy

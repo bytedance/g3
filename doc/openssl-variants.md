@@ -22,10 +22,6 @@ then you need to use Tongsuo.
 
 Use `--features vendored-tongsuo` cargo build option.
 
-### Package
-
-Switch to branch `rel/tlcp-tongsuo`, then run the build script or create the release tarball as usual.
-
 # BoringSSL
 
 See [BoringSSL](https://boringssl.googlesource.com/boringssl/) for more introduction.
@@ -37,17 +33,11 @@ As an alternative, you can switch to use BoringSSl as a solution.
 
 ## How
 
-BoringSSL is supported in branch `rel/boringssl`.
-
 ### Build
 
 - Make sure you have `cmake`, `pkg-config`installed
 
 - Build with `--features vendored-boringssl` cargo option
-
-### Package
-
-Switch to branch `rel/boringssl`, then run the build script or create the release tarball as usual.
 
 # AWS-LC
 
@@ -60,16 +50,10 @@ As an alternative, you can switch to use AWS-LC as a solution on AWS EC2 hosts.
 
 ## How
 
-AWS-LC is supported in branch `rel/aws-lc`.
-
 ### Build
 
 - Make sure you have `cmake`, `pkg-config` installed
 
 - Install a recent version of [go](https://go.dev/dl/) if you want to do AWS-LC code generation.
 
-- Build with `--features vendored-aws-lc` cargo build option.
-
-### Package
-
-Switch to branch `rel/aws-lc`, then run the build script or create the release tarball as usual.
+- Build with `--no-default-features --features vendored-aws-lc,rustls-aws-lc,<other features>` cargo build option.

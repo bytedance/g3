@@ -21,7 +21,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  CROSS_FEATURES: --no-default-features --features vendored-openssl,quic,vendored-c-ares,hickory
+  CROSS_FEATURES: --no-default-features --features vendored-openssl,rustls-ring,quic,vendored-c-ares,hickory
   CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
   CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER: riscv64-linux-gnu-gcc
   CARGO_TARGET_POWERPC64LE_UNKNOWN_LINUX_GNU_LINKER: powerpc64le-linux-gnu-gcc

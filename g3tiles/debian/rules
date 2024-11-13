@@ -15,7 +15,7 @@ override_dh_auto_clean:
 override_dh_auto_build:
 	G3_PACKAGE_VERSION=$(DEB_VERSION) \
 	  cargo build --frozen --offline --profile $(BUILD_PROFILE) \
-	    --no-default-features --features $(SSL_FEATURE),quic \
+	    --no-default-features --features $(SSL_FEATURE),rustls-ring,quic \
 	    --package g3tiles --package g3tiles-ctl
 	sh $(PACKAGE_NAME)/service/generate_systemd.sh
 

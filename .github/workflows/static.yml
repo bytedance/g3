@@ -30,8 +30,8 @@ jobs:
     strategy:
       matrix:
         feature:
-          - vendored-openssl
-          - vendored-tongsuo
+          - vendored-openssl,rustls-ring
+          - vendored-tongsuo,rustls-ring
           # - vendored-aws-lc
           # - vendored-boringssl
     steps:
@@ -55,18 +55,18 @@ jobs:
     strategy:
       matrix:
         feature:
-          - vendored-openssl
-          - vendored-tongsuo
-          - vendored-aws-lc
-          - vendored-boringssl
+          - vendored-openssl,rustls-ring
+          - vendored-tongsuo,rustls-ring
+          - vendored-aws-lc,rustls-aws-lc
+          - vendored-boringssl,rustls-ring
     steps:
       - name: Install common tools
         run: choco install capnproto
       - name: Install nasm and ninja for BoringSSL
-        if: matrix.feature == 'vendored-boringssl'
+        if: contains(matrix.feature, 'vendored-boringssl')
         run: choco install nasm ninja
       - name: Install nasm for AWS-LC
-        if: matrix.feature == 'vendored-aws-lc'
+        if: contains(matrix.feature, 'vendored-aws-lc')
         uses: ilammy/setup-nasm@v1
       - name: Checkout sources
         uses: actions/checkout@v4

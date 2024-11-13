@@ -30,7 +30,7 @@ fn main() -> anyhow::Result<()> {
     rustls::crypto::aws_lc_rs::default_provider()
         .install_default()
         .unwrap();
-    #[cfg(not(feature = "rustls-aws-lc"))]
+    #[cfg(feature = "rustls-ring")]
     rustls::crypto::ring::default_provider()
         .install_default()
         .unwrap();
