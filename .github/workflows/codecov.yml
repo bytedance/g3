@@ -92,6 +92,9 @@ jobs:
       - name: Install binutils
         run: |
           cargo install cargo-binutils
+      - name: Install dnsmasq
+        run: |
+          sudo apt-get install dnsmasq-base
       - name: Backup /etc/resolv.conf
         run: |
           sudo cp /etc/resolv.conf /etc/resolv.conf.backup
