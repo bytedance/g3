@@ -13,14 +13,14 @@ controller:
     send_timeout: 1
 
 server:
-  - name: test
+  - name: http
     escaper: default
     type: http_proxy
     listen:
       address: "[::]:10086"
     tls_client: {}
     tcp_sock_speed_limit: 100M
-  - name: test-tls
+  - name: https
     tls_server:
       certificate: cert.pem
       private_key: key.pem
