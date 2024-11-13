@@ -1,21 +1,10 @@
 [workspace]
 members = [
-    "g3bench",
-    "g3fcgen",
-    "g3iploc",
-    "g3iploc/utils/db",
-    "g3keymess",
-    "g3keymess/proto",
-    "g3keymess/utils/ctl",
-    "g3mkcert",
     "g3proxy",
     "g3proxy/proto",
     "g3proxy/utils/ctl",
     "g3proxy/utils/ftp",
     "g3proxy/utils/lua",
-    "g3tiles",
-    "g3tiles/proto",
-    "g3tiles/utils/ctl",
     "lib/g3-build-env",
     "lib/g3-cert-agent",
     "lib/g3-clap",
@@ -58,20 +47,10 @@ members = [
     "lib/g3-yaml",
 ]
 default-members = [
-    "g3bench",
-    "g3fcgen",
-    "g3iploc",
-    "g3iploc/utils/db",
-    "g3mkcert",
     "g3proxy",
     "g3proxy/utils/ctl",
     "g3proxy/utils/ftp",
     "g3proxy/utils/lua",
-    "g3tiles",
-    "g3tiles/utils/ctl",
-    "g3keymess",
-    "g3keymess/proto",
-    "g3keymess/utils/ctl",
 ]
 resolver = "2"
 

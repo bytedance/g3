@@ -491,9 +491,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.1.37"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40545c26d092346d8a8dab71ee48e7685a7a9cba76e634790c215b41a4a7b4cf"
+checksum = "1aeb932158bd710538c73702db6945cb68a8fb08c519e6e12706b94263b36db8"
 dependencies = [
  "jobserver",
  "libc",
@@ -626,19 +626,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ca0197aee26d1ae37445ee532fefce43251d24cc7c166799f4d46817f1d3973"
 dependencies = [
  "crossbeam-utils",
-]
-
-[[package]]
-name = "console"
-version = "0.15.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e1f83fc076bd6dd27517eacdf25fef6c4dfe5f1d7448bafaaf3a26f13b5e4eb"
-dependencies = [
- "encode_unicode",
- "lazy_static",
- "libc",
- "unicode-width",
- "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -782,12 +769,6 @@ name = "embedded-io"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
-
-[[package]]
-name = "encode_unicode"
-version = "0.3.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
 
 [[package]]
 name = "encoding_rs"
@@ -1708,190 +1689,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "g3bench"
-version = "0.9.3"
-dependencies = [
- "ahash",
- "anyhow",
- "atomic-waker",
- "bytes",
- "clap",
- "clap_complete",
- "concurrent-queue",
- "futures-util",
- "g3-build-env",
- "g3-clap",
- "g3-hickory-client",
- "g3-histogram",
- "g3-http",
- "g3-io-ext",
- "g3-openssl",
- "g3-runtime",
- "g3-socket",
- "g3-socks",
- "g3-statsd-client",
- "g3-tls-cert",
- "g3-types",
- "governor",
- "h2",
- "h3",
- "h3-quinn",
- "hdrhistogram",
- "hex",
- "hickory-client",
- "hickory-proto",
- "http",
- "indicatif",
- "itoa",
- "openssl-probe",
- "quinn",
- "rustc-hash 2.0.0",
- "rustls",
- "rustls-pki-types",
- "thiserror 2.0.3",
- "tokio",
- "tokio-rustls",
- "url",
- "variant-ssl",
-]
-
-[[package]]
-name = "g3fcgen"
-version = "0.8.2"
-dependencies = [
- "anyhow",
- "clap",
- "flume",
- "g3-build-env",
- "g3-cert-agent",
- "g3-daemon",
- "g3-histogram",
- "g3-msgpack",
- "g3-runtime",
- "g3-statsd-client",
- "g3-tls-cert",
- "g3-types",
- "g3-yaml",
- "log",
- "memchr",
- "rmpv",
- "tokio",
- "variant-ssl",
- "yaml-rust2",
-]
-
-[[package]]
-name = "g3iploc"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "g3-build-env",
- "g3-daemon",
- "g3-geoip-db",
- "g3-geoip-types",
- "g3-ip-locate",
- "g3-msgpack",
- "g3-runtime",
- "g3-statsd-client",
- "g3-types",
- "g3-yaml",
- "log",
- "rmpv",
- "tokio",
- "yaml-rust2",
-]
-
-[[package]]
-name = "g3iploc-db"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "g3-geoip-db",
- "ip_network_table",
-]
-
-[[package]]
-name = "g3keymess"
-version = "0.3.5"
-dependencies = [
- "ahash",
- "anyhow",
- "arc-swap",
- "ascii",
- "capnp",
- "capnp-rpc",
- "chrono",
- "clap",
- "futures-util",
- "g3-build-env",
- "g3-compat",
- "g3-daemon",
- "g3-histogram",
- "g3-io-ext",
- "g3-openssl",
- "g3-slog-types",
- "g3-socket",
- "g3-statsd-client",
- "g3-tls-cert",
- "g3-types",
- "g3-yaml",
- "g3keymess-proto",
- "inotify",
- "itoa",
- "log",
- "openssl-probe",
- "serde_json",
- "slog",
- "thiserror 2.0.3",
- "tokio",
- "url",
- "uuid",
- "variant-ssl",
- "yaml-rust2",
-]
-
-[[package]]
-name = "g3keymess-ctl"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "capnp",
- "clap",
- "futures-util",
- "g3-ctl",
- "g3-tls-cert",
- "g3keymess-proto",
- "hex",
- "thiserror 2.0.3",
- "tokio",
- "variant-ssl",
-]
-
-[[package]]
-name = "g3keymess-proto"
-version = "0.1.0"
-dependencies = [
- "capnp",
- "capnpc",
-]
-
-[[package]]
-name = "g3mkcert"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "clap_complete",
- "g3-build-env",
- "g3-tls-cert",
- "g3-types",
- "openssl-probe",
- "variant-ssl",
-]
-
-[[package]]
 name = "g3proxy"
 version = "1.10.0"
 dependencies = [
@@ -2023,79 +1820,6 @@ dependencies = [
 
 [[package]]
 name = "g3proxy-proto"
-version = "0.1.0"
-dependencies = [
- "capnp",
- "capnpc",
-]
-
-[[package]]
-name = "g3tiles"
-version = "0.3.6"
-dependencies = [
- "ahash",
- "anyhow",
- "arc-swap",
- "ascii",
- "async-trait",
- "bitflags",
- "bytes",
- "capnp",
- "capnp-rpc",
- "chrono",
- "clap",
- "clap_complete",
- "flume",
- "futures-util",
- "g3-build-env",
- "g3-daemon",
- "g3-dpi",
- "g3-histogram",
- "g3-io-ext",
- "g3-openssl",
- "g3-slog-types",
- "g3-socket",
- "g3-statsd-client",
- "g3-tls-ticket",
- "g3-types",
- "g3-yaml",
- "g3tiles-proto",
- "governor",
- "indexmap",
- "itoa",
- "log",
- "openssl-probe",
- "quinn",
- "rand",
- "rustc-hash 2.0.0",
- "rustls",
- "rustls-pki-types",
- "serde_json",
- "slog",
- "thiserror 2.0.3",
- "tokio",
- "tokio-rustls",
- "uuid",
- "variant-ssl",
- "yaml-rust2",
-]
-
-[[package]]
-name = "g3tiles-ctl"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "capnp",
- "clap",
- "futures-util",
- "g3-ctl",
- "g3tiles-proto",
- "thiserror 2.0.3",
- "tokio",
-]
-
-[[package]]
-name = "g3tiles-proto"
 version = "0.1.0"
 dependencies = [
  "capnp",
@@ -2525,50 +2249,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "indicatif"
-version = "0.17.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "763a5a8f45087d6bcea4222e7b72c291a054edf80e4ef6efd2a4979878c7bea3"
-dependencies = [
- "console",
- "instant",
- "number_prefix",
- "portable-atomic",
- "unicode-width",
-]
-
-[[package]]
-name = "inotify"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f37dccff2791ab604f9babef0ba14fbe0be30bd368dc541e2b08d07c8aa908f3"
-dependencies = [
- "bitflags",
- "futures-core",
- "inotify-sys",
- "libc",
- "tokio",
-]
-
-[[package]]
-name = "inotify-sys"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e05c02b5e89bff3b946cedeca278abc628fe811e604f027c45a8aa3cf793d0eb"
-dependencies = [
- "libc",
-]
-
-[[package]]
-name = "instant"
-version = "0.1.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0242819d153cba4b4b05a5a8f2a7e9bbf97b6055b2a002b395c96b5ff3c0222"
-dependencies = [
- "cfg-if",
-]
-
-[[package]]
 name = "ip_network"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2895,12 +2575,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "number_prefix"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
-
-[[package]]
 name = "object"
 version = "0.36.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3090,9 +2764,9 @@ dependencies = [
 
 [[package]]
 name = "quinn"
-version = "0.11.5"
+version = "0.11.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c7c5fdde3cdae7203427dc4f0a68fe0ed09833edc525a03456b153b79828684"
+checksum = "62e96808277ec6f97351a2380e6c25114bc9e67037775464979f3037c92d05ef"
 dependencies = [
  "bytes",
  "futures-io",
@@ -3102,26 +2776,29 @@ dependencies = [
  "rustc-hash 2.0.0",
  "rustls",
  "socket2",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "tokio",
  "tracing",
 ]
 
 [[package]]
 name = "quinn-proto"
-version = "0.11.8"
+version = "0.11.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fadfaed2cd7f389d0161bb73eeb07b7b78f8691047a6f3e73caaeae55310a4a6"
+checksum = "a2fe5ef3495d7d2e377ff17b1a8ce2ee2ec2a18cde8b6ad6619d65d0701c135d"
 dependencies = [
  "bytes",
+ "getrandom",
  "rand",
  "ring",
  "rustc-hash 2.0.0",
  "rustls",
+ "rustls-pki-types",
  "slab",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "tinyvec",
  "tracing",
+ "web-time",
 ]
 
 [[package]]
@@ -3377,6 +3054,9 @@ name = "rustls-pki-types"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "16f1201b3c9a7ee8039bcadc17b7e605e2945b27eee7631788c1bd2b0643674b"
+dependencies = [
+ "web-time",
+]
 
 [[package]]
 name = "rustls-webpki"
@@ -3884,12 +3564,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "unicode-width"
-version = "0.1.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7dd6e30e90baa6f72411720665d41d89b9a3d039dc45b8faea1ddd07f617f6af"
-
-[[package]]
 name = "untrusted"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4043,6 +3717,16 @@ name = "wasm-bindgen-shared"
 version = "0.2.95"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "65fc09f10666a9f147042251e0dda9c18f166ff7de300607007e96bdebc1068d"
+
+[[package]]
+name = "web-time"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a6580f308b1fad9207618087a65c04e7a10bc77e02c8e84e9b00dd4b12fa0bb"
+dependencies = [
+ "js-sys",
+ "wasm-bindgen",
+]
 
 [[package]]
 name = "webpki-roots"
