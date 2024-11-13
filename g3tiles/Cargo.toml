@@ -58,9 +58,10 @@ g3tiles-proto = { path = "proto" }
 g3-build-env.workspace = true
 
 [features]
-default = ["quic"]
+default = ["quic", "rustls-ring"]
 quic = ["g3-daemon/quic", "g3-yaml/quinn", "g3-types/quinn", "dep:quinn"]
-rustls-aws-lc = ["rustls/aws-lc-rs"]
+rustls-ring = ["rustls/ring", "quinn?/rustls-ring"]
+rustls-aws-lc = ["rustls/aws-lc-rs", "quinn?/rustls-aws-lc-rs"]
 vendored-openssl = ["openssl/vendored", "openssl-probe"]
 vendored-tongsuo = ["openssl/tongsuo", "openssl-probe", "g3-yaml/tongsuo", "g3-types/tongsuo"]
 vendored-aws-lc = ["rustls-aws-lc", "openssl/aws-lc", "openssl-probe", "g3-types/aws-lc", "g3-openssl/aws-lc"]

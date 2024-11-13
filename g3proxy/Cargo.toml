@@ -100,7 +100,7 @@ tokio-stream.workspace = true
 g3-build-env.workspace = true
 
 [features]
-default = ["lua54", "python", "c-ares", "hickory", "quic"]
+default = ["lua54", "python", "c-ares", "hickory", "quic", "rustls-ring"]
 lua = ["mlua"]
 luajit = ["lua", "mlua/luajit"]
 lua51 = ["lua", "mlua/lua51"]
@@ -110,7 +110,8 @@ python = ["pyo3"]
 c-ares = ["g3-resolver/c-ares"]
 hickory = ["g3-resolver/hickory"]
 quic = ["g3-daemon/quic", "g3-resolver/quic", "g3-yaml/quinn", "g3-types/quinn", "g3-dpi/quic", "dep:quinn"]
-rustls-aws-lc = ["rustls/aws-lc-rs"]
+rustls-ring = ["g3-types/rustls-ring", "rustls/ring", "quinn?/rustls-ring"]
+rustls-aws-lc = ["g3-types/rustls-aws-lc", "rustls/aws-lc-rs", "quinn?/rustls-aws-lc-rs"]
 vendored-openssl = ["openssl/vendored", "openssl-probe"]
 vendored-tongsuo = ["openssl/tongsuo", "openssl-probe", "g3-yaml/tongsuo", "g3-json/tongsuo", "g3-cert-agent/tongsuo"]
 vendored-aws-lc = ["rustls-aws-lc", "openssl/aws-lc", "openssl-probe", "g3-types/aws-lc", "g3-openssl/aws-lc"]
