@@ -36,18 +36,11 @@ You have 2 choices to run dnsmasq:
 
 # Setup local DNS
 
-## Modify /etc/hosts
-
-Add the following lines to **/etc/hosts**:
-```text
-127.0.0.1 g3proxy.local
-127.0.0.1 httpbin.local
-```
-
-Save the following conf file to **dnsmasq.d/02-add-hosts.conf**:
+Save the following conf file to **dnsmasq.d/g3proxy-ci.conf**:
 
 ```text
-addn-hosts=/etc/hosts
+address=/httpbin.local/127.0.0.1
+address=/g3proxy.local/127.0.0.1
 ```
 
 Then restart **NetworkManager** or **dnsmasq** which should respawn the real dnsmasq process.
