@@ -57,7 +57,7 @@ jobs:
           verbose: false
   g3proxy-test:
     name: g3proxy test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       ftp-server:
         image: ghcr.io/garethflowers/ftp-server:edge
