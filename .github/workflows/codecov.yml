@@ -35,7 +35,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: llvm-tools
-      - name: Install dependencies
+      - name: Install build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
@@ -53,5 +53,67 @@ jobs:
           file: output.lcov
           flags: lib
           name: Lib Coverage
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: false
+  g3proxy-test:
+    name: g3proxy test
+    runs-on: ubuntu-latest
+    services:
+      ftp-server:
+        image: ghcr.io/garethflowers/ftp-server:edge
+        env:
+          FTP_USER: ftpuser
+          FTP_PASS: ftppass
+        ports:
+          - '20-21:20-21/tcp'
+          - '40000-40009:40000-40009/tcp'
+        volumes:
+          - /tmp/ftp:/home/user
+      httpbin:
+        image: ghcr.io/psf/httpbin:0.10.2
+        ports:
+          - 80:8080
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
+      - name: Install test libs
+        run: |
+          sudo apt-get install python3-requests python3-pycurl python3-dnspython python3-socks
+      - name: Install binutils
+        run: |
+          cargo install cargo-binutils
+      - name: Backup /etc/resolv.conf
+        run: |
+          sudo cp /etc/resolv.conf /etc/resolv.conf.backup
+      - name: Run dnsmasq
+        run: |
+          sudo dnsmasq --local-service -C ${{ github.workspace }}/scripts/coverage/g3proxy/dnsmasq.conf
+      - name: Edit /etc/resolv.conf
+        run: |
+          echo "nameserver 127.0.0.1" | sudo tee /etc/resolv.conf
+      - name: run unit test
+        run: |
+          ./scripts/coverage/g3proxy.sh
+      - name: Restore /etc/resolv.conf
+        run: |
+          sudo mv /etc/resolv.conf.backup /etc/resolv.conf
+      - name: Upload coverage data
+        uses: codecov/codecov-action@v4
+        with:
+          fail_ci_if_error: false
+          disable_search: true
+          file: output.lcov
+          flags: g3proxy
+          name: g3proxy Coverage
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: false
