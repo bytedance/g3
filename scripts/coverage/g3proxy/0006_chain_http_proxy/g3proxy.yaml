@@ -74,6 +74,10 @@ server:
         private-key: ../g3proxy.local-key.pem
     tls_client:
       ca_certificate: ../rootCA.pem
+  - name: socks
+    type: socks_proxy
+    listen: 127.0.0.1:1080
+    escaper: chained_http
   - name: http
     type: http_proxy
     listen: 127.0.0.1:8080

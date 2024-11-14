@@ -1,0 +1,66 @@
+---
+
+log: journal
+
+resolver:
+  - name: cares1
+    type: c-ares
+    server:
+      - 127.0.0.1
+  - name: cares2
+    type: c-ares
+    server: 127.0.0.1
+  - name: main
+    type: fail_over
+    primary: cares1
+    standby: cares2
+  - name: hickory
+    type: hickory
+    server: 127.0.0.1
+
+escaper:
+  - name: default
+    type: direct_fixed
+    resolver: main
+    egress_net_filter:
+      default: allow
+      allow: 127.0.0.1
+  - name: chained_socks5
+    type: proxy_socks5
+    resolver: main
+    proxy_addr: g3proxy.local:7080
+  - name: chained_socks5s
+    type: proxy_socks5s
+    resolver: main
+    proxy_addr: g3proxy.local:7443
+    tls_client:
+      ca-certificate: ../rootCA.pem
+    tls_name: g3proxy.local
+
+server:
+  - name: chained_socks
+    type: socks_proxy
+    listen: 127.0.0.1:7080
+    escaper: default
+    use_udp_associate: true
+  - name: chained_socks5s_port
+    type: plain_tls_port
+    listen: 127.0.0.1:7443
+    server: chained_socks
+    tls_server:
+      cert_pairs:
+        certificate: ../g3proxy.local.pem
+        private-key: ../g3proxy.local-key.pem
+  - name: socks1
+    type: socks_proxy
+    listen: 127.0.0.1:1080
+    escaper: chained_socks5
+  - name: socks2
+    type: socks_proxy
+    listen: 127.0.0.1:1081
+    escaper: chained_socks5s
+    use_udp_associate: true
+  - name: http
+    type: http_proxy
+    listen: 127.0.0.1:8080
+    escaper: chained_socks5

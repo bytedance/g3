@@ -17,7 +17,12 @@ escaper:
       allow: 127.0.0.1
 
 server:
-  - name: socks
+  - name: socks1
     type: socks_proxy
     listen: 127.0.0.1:1080
     escaper: default
+  - name: socks2
+    type: socks_proxy
+    listen: 127.0.0.1:1081
+    escaper: default
+    use-udp-associate: true
