@@ -16,11 +16,6 @@
 
 use std::sync::Arc;
 
-use anyhow::anyhow;
-#[cfg(feature = "aws-lc")]
-use rustls::crypto::aws_lc_rs::Ticketer;
-#[cfg(not(feature = "aws-lc"))]
-use rustls::crypto::ring::Ticketer;
 use rustls::server::{NoServerSessionStorage, ProducesTickets};
 use rustls::{ClientConnection, HandshakeKind, ServerConfig, ServerConnection};
 
@@ -72,17 +67,40 @@ impl RustlsServerConfigExt for ServerConfig {
         ticketer: Option<Arc<T>>,
     ) -> anyhow::Result<()> {
         if enable {
+            self.send_tls13_tickets = 2;
             if let Some(ticketer) = ticketer {
                 self.ticketer = ticketer;
             } else {
-                self.ticketer = Ticketer::new()
-                    .map_err(|e| anyhow!("failed to create session ticketer: {e}"))?;
+                set_default_session_ticketer(self)?;
             }
-            self.send_tls13_tickets = 2;
         } else {
             self.ticketer = Arc::new(RustlsNoSessionTicketer {});
             self.send_tls13_tickets = 0;
         }
         Ok(())
     }
+}
+
+#[cfg(feature = "rustls-aws-lc")]
+fn set_default_session_ticketer(config: &mut ServerConfig) -> anyhow::Result<()> {
+    use anyhow::anyhow;
+
+    config.ticketer = rustls::crypto::aws_lc_rs::Ticketer::new()
+        .map_err(|e| anyhow!("failed to create session ticketer: {e}"))?;
+    Ok(())
+}
+
+#[cfg(all(feature = "rustls-ring", not(feature = "rustls-aws-lc")))]
+fn set_default_session_ticketer(config: &mut ServerConfig) -> anyhow::Result<()> {
+    use anyhow::anyhow;
+
+    config.ticketer = rustls::crypto::ring::Ticketer::new()
+        .map_err(|e| anyhow!("failed to create session ticketer: {e}"))?;
+    Ok(())
+}
+
+#[cfg(not(any(feature = "rustls-aws-lc", feature = "rustls-ring")))]
+fn set_default_session_ticketer(config: &mut ServerConfig) -> anyhow::Result<()> {
+    config.send_tls13_tickets = 0;
+    Ok(())
 }

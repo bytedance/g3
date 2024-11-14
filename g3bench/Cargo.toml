@@ -55,9 +55,10 @@ g3-hickory-client.workspace = true
 g3-build-env.workspace = true
 
 [features]
-default = ["quic"]
+default = ["quic", "rustls-ring"]
 quic = ["g3-types/quic", "g3-socks/quic", "g3-io-ext/quic", "g3-hickory-client/quic", "dep:quinn", "dep:h3", "dep:h3-quinn"]
-rustls-aws-lc = ["rustls/aws-lc-rs"]
+rustls-ring = ["g3-types/rustls-ring", "rustls/ring", "quinn?/rustls-ring"]
+rustls-aws-lc = ["g3-types/rustls-aws-lc", "rustls/aws-lc-rs", "quinn?/rustls-aws-lc-rs"]
 vendored-openssl = ["openssl/vendored", "openssl-probe"]
 vendored-tongsuo = ["openssl/tongsuo", "openssl-probe", "g3-types/tongsuo"]
 vendored-aws-lc = ["rustls-aws-lc", "openssl/aws-lc", "openssl-probe", "g3-types/aws-lc", "g3-tls-cert/aws-lc", "g3-openssl/aws-lc"]

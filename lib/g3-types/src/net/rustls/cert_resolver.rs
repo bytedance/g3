@@ -17,10 +17,7 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-#[cfg(feature = "aws-lc")]
-use rustls::crypto::aws_lc_rs::sign::any_supported_type;
-#[cfg(not(feature = "aws-lc"))]
-use rustls::crypto::ring::sign::any_supported_type;
+use rustls::crypto::CryptoProvider;
 use rustls::server::{ClientHello, ResolvesServerCert};
 use rustls::sign::CertifiedKey;
 
@@ -39,7 +36,12 @@ impl MultipleCertResolver {
     }
 
     pub fn push_cert_pair(&mut self, pair: &RustlsCertificatePair) -> anyhow::Result<()> {
-        let signing_key = any_supported_type(pair.key_ref())
+        let Some(provider) = CryptoProvider::get_default() else {
+            return Err(anyhow!("no rustls provider registered"));
+        };
+        let signing_key = provider
+            .key_provider
+            .load_private_key(pair.key_owned())
             .map_err(|e| anyhow!("failed to add cert pair: {e}"))?;
         let ck = CertifiedKey::new(pair.certs_owned(), signing_key);
         self.keys.push(Arc::new(ck));
