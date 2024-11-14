@@ -27,14 +27,14 @@ escaper:
       allow: 127.0.0.1
   - name: chained_http
     type: proxy_http
-    resolver: main
+    resolver: hickory
     proxy_addr: g3proxy.local:7080
     http_forward_capability:
       forward_ftp: true
       forward_https: true
   - name: chained_https
     type: proxy_https
-    resolver: main
+    resolver: hickory
     proxy_addr: g3proxy.local:7443
     tls_client:
       ca-certificate: ../rootCA.pem
