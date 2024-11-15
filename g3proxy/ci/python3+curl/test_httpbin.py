@@ -19,9 +19,13 @@ no_auth = False
 ACCEPT_JSON = 'Accept: application/json'
 ACCEPT_HTML = 'Accept: text/html'
 
+
 class TestHttpBin(unittest.TestCase):
     def setUp(self):
+        self.buffer = BytesIO()
+
         self.c = pycurl.Curl()
+        self.c.setopt(pycurl.WRITEFUNCTION, self.buffer.write)
         self.c.setopt(pycurl.HTTPHEADER, [ACCEPT_JSON])
         if target_ca_cert is not None:
             self.c.setopt(pycurl.CAINFO, target_ca_cert)
@@ -62,14 +66,11 @@ class TestHttpBin(unittest.TestCase):
             self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 401)
 
     def test_base64_decode(self):
-        buffer = BytesIO()
-
         self.set_url_and_request_target('/base64/SFRUUEJJTiBpcyBhd2Vzb21l')
         self.c.setopt(pycurl.HTTPHEADER, [ACCEPT_HTML])
-        self.c.setopt(pycurl.WRITEFUNCTION, buffer.write)
         self.c.perform()
         self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
-        self.assertEqual(buffer.getvalue(), b"HTTPBIN is awesome")
+        self.assertEqual(self.buffer.getvalue(), b"HTTPBIN is awesome")
 
     def test_post_continue(self):
         data = "Content to post"
@@ -82,6 +83,7 @@ class TestHttpBin(unittest.TestCase):
         self.c.setopt(pycurl.HTTPHEADER, ['Expect: 100-continue'])
         self.c.perform()
         self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
