@@ -53,8 +53,14 @@ impl GlobalDatagramLimiter {
                 }
                 let config = *self.config.load().as_ref();
                 tokio::time::sleep(config.replenish_interval()).await;
-                self.add_bytes(config.replenish_bytes(), config.max_burst_bytes());
-                self.add_packets(config.replenish_packets(), config.max_burst_packets());
+                let replenish_bytes = config.replenish_bytes();
+                if replenish_bytes > 0 {
+                    self.add_bytes(replenish_bytes, config.max_burst_bytes());
+                }
+                let replenish_packets = config.replenish_packets();
+                if replenish_packets > 0 {
+                    self.add_packets(replenish_packets, config.max_burst_packets());
+                }
                 self.last_updated.store(Arc::new(Instant::now()));
             }
         };
@@ -180,7 +186,10 @@ impl GlobalDatagramLimit for GlobalDatagramLimiter {
                     Ordering::AcqRel,
                     Ordering::Acquire,
                 ) {
-                    Ok(_) => to_advance = (cur_tokens - left_tokens) as usize,
+                    Ok(_) => {
+                        to_advance = (cur_tokens - left_tokens) as usize;
+                        break;
+                    }
                     Err(actual) => cur_tokens = actual,
                 }
             }
@@ -204,7 +213,10 @@ impl GlobalDatagramLimit for GlobalDatagramLimiter {
                     Ordering::AcqRel,
                     Ordering::Acquire,
                 ) {
-                    Ok(_) => buf_size = (cur_tokens - left_tokens) as usize,
+                    Ok(_) => {
+                        buf_size = (cur_tokens - left_tokens) as usize;
+                        break;
+                    }
                     Err(actual) => cur_tokens = actual,
                 }
             }
@@ -248,11 +260,52 @@ impl GlobalDatagramLimit for GlobalDatagramLimiter {
 
     fn release_bytes(&self, size: usize) {
         let max_burst = self.config.load().as_ref().max_burst_bytes();
-        self.add_bytes(size as u64, max_burst);
+        if max_burst > 0 {
+            self.add_bytes(size as u64, max_burst);
+        }
     }
 
     fn release_packets(&self, count: usize) {
         let max_burst = self.config.load().as_ref().max_burst_packets();
-        self.add_packets(count as u64, max_burst);
+        if max_burst > 0 {
+            self.add_packets(count as u64, max_burst);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_packet() {
+        let config = GlobalDatagramSpeedLimitConfig::per_second(1000);
+        let limiter = GlobalDatagramLimiter::new(config);
+        assert_eq!(limiter.check_packet(100), DatagramLimitAction::Advance(1));
+        assert_eq!(limiter.check_packet(900), DatagramLimitAction::Advance(1));
+        assert_ne!(limiter.check_packet(100), DatagramLimitAction::Advance(1));
+    }
+
+    #[test]
+    fn check_packets() {
+        let config = GlobalDatagramSpeedLimitConfig::per_second(1000);
+        let limiter = GlobalDatagramLimiter::new(config);
+        let total_len_v = [100, 200];
+        assert_eq!(
+            limiter.check_packets(&total_len_v),
+            DatagramLimitAction::Advance(2)
+        );
+
+        let total_len_v = [200, 700, 900];
+        assert_eq!(
+            limiter.check_packets(&total_len_v),
+            DatagramLimitAction::Advance(2)
+        );
+
+        let total_len_v = [50, 40, 10];
+        assert_eq!(
+            limiter.check_packets(&total_len_v),
+            DatagramLimitAction::Advance(3)
+        );
     }
 }

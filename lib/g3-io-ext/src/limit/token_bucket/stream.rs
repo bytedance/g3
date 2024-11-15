@@ -128,3 +128,18 @@ impl GlobalStreamLimit for GlobalStreamLimiter {
         self.add_bytes(size as u64, max_burst);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check() {
+        let config = GlobalStreamSpeedLimitConfig::per_second(1000);
+        let limiter = GlobalStreamLimiter::new(GlobalLimitGroup::Server, config);
+        assert_eq!(limiter.check(100), StreamLimitAction::AdvanceBy(100));
+        assert_eq!(limiter.check(900), StreamLimitAction::AdvanceBy(900));
+        limiter.release(100);
+        assert_eq!(limiter.check(1000), StreamLimitAction::AdvanceBy(100));
+    }
+}
