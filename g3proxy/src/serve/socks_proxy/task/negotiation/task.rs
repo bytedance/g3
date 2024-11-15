@@ -135,18 +135,37 @@ impl SocksProxyNegotiationTask {
         CDR: AsyncRead + Send + Sync + Unpin + 'static,
         CDW: AsyncWrite + Send + Sync + Unpin + 'static,
     {
-        if self.user_group.is_some() {
-            // socks4(a) doesn't support auth
-            self.ctx.server_stats.forbidden.add_auth_failed();
-            return Err(ServerTaskError::InvalidClientProtocol(
-                "socks4 does not support auth",
-            ));
+        if let Some(user_group) = &self.user_group {
+            if !user_group.allow_anonymous(self.ctx.client_addr()) {
+                // socks4(a) doesn't support auth
+                self.ctx.server_stats.forbidden.add_auth_failed();
+                return Err(ServerTaskError::InvalidClientProtocol(
+                    "socks4 does not support auth",
+                ));
+            };
         }
 
         let req = v4a::SocksV4aRequest::recv(&mut clt_r).await?;
 
-        let task_notes =
-            ServerTaskNotes::new(self.ctx.cc_info.clone(), None, self.time_accepted.elapsed());
+        let user_ctx = self.user_group.map(|user_group| {
+            let (user, user_type) = user_group.get_anonymous_user().unwrap();
+            let user_ctx = UserContext::new(
+                None,
+                user,
+                user_type,
+                self.ctx.server_config.name(),
+                self.ctx.server_stats.share_extra_tags(),
+            );
+            // no need to check user level client addr ACL again here
+            user_ctx.req_stats().conn_total.add_socks();
+            user_ctx
+        });
+
+        let task_notes = ServerTaskNotes::new(
+            self.ctx.cc_info.clone(),
+            user_ctx,
+            self.time_accepted.elapsed(),
+        );
         match req.command {
             SocksCommand::TcpConnect => {
                 let task = SocksProxyTcpConnectTask::new(
