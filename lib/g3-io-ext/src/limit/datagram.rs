@@ -20,6 +20,7 @@ use tokio::time::Instant;
 
 use super::LocalDatagramLimiter;
 
+#[derive(Debug, Eq, PartialEq)]
 pub enum DatagramLimitAction {
     Advance(usize),
     DelayUntil(Instant),
