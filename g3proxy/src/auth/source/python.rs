@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
@@ -131,10 +132,11 @@ async fn call_python_fetch(script: PathBuf) -> anyhow::Result<String> {
             script.display(),
         )
     })?;
+    let code = unsafe { CString::from_vec_unchecked(code.into_bytes()) };
 
     tokio::task::spawn_blocking(move || {
         Python::with_gil(|py| {
-            let code = PyModule::from_code_bound(py, code.as_str(), "", "").map_err(|e| {
+            let code = PyModule::from_code(py, &code, c"", c"").map_err(|e| {
                 anyhow!(
                     "failed to load code from script file {}: {e:?}",
                     script.display(),
@@ -178,10 +180,11 @@ async fn call_python_report_ok(script: PathBuf) -> anyhow::Result<()> {
             script.display(),
         )
     })?;
+    let code = unsafe { CString::from_vec_unchecked(code.into_bytes()) };
 
     tokio::task::spawn_blocking(move || {
         Python::with_gil(|py| {
-            let code = PyModule::from_code_bound(py, code.as_str(), "", "").map_err(|e| {
+            let code = PyModule::from_code(py, &code, c"", c"").map_err(|e| {
                 anyhow!(
                     "failed to load code from script file {}: {e:?}",
                     script.display(),
@@ -211,10 +214,11 @@ async fn call_python_report_err(script: PathBuf, e: String) -> anyhow::Result<()
             script.display(),
         )
     })?;
+    let code = unsafe { CString::from_vec_unchecked(code.into_bytes()) };
 
     tokio::task::spawn_blocking(move || {
         Python::with_gil(|py| {
-            let code = PyModule::from_code_bound(py, code.as_str(), "", "").map_err(|e| {
+            let code = PyModule::from_code(py, &code, c"", c"").map_err(|e| {
                 anyhow!(
                     "failed to load code from script file {}: {e:?}",
                     script.display(),
@@ -222,7 +226,8 @@ async fn call_python_report_err(script: PathBuf, e: String) -> anyhow::Result<()
             })?;
 
             if let Ok(report_ok) = code.getattr(FN_NAME_REPORT_ERR) {
-                let tup = PyTuple::new_bound(py, [e]);
+                let tup = PyTuple::new(py, [e])
+                    .map_err(|e| anyhow!("failed to construct param tuple: {e}"))?;
                 report_ok.call1(tup).map_err(|e| {
                     anyhow!(
                         "failed to call {}::{FN_NAME_REPORT_ERR}(err_msg): {e:?}",
