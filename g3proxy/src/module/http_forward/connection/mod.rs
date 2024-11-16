@@ -51,7 +51,11 @@ pub(crate) trait HttpForwardWrite: AsyncWrite {
         user_stats: Vec<Arc<UserUpstreamTrafficStats>>,
     );
 
-    async fn send_request_header(&mut self, req: &HttpProxyClientRequest) -> io::Result<()>;
+    async fn send_request_header(
+        &mut self,
+        req: &HttpProxyClientRequest,
+        body: Option<&[u8]>,
+    ) -> io::Result<()>;
 }
 
 #[async_trait]
@@ -107,6 +111,6 @@ impl AsyncWrite for HttpForwardWriterForAdaptation<'_> {
 
 impl HttpRequestUpstreamWriter<HttpProxyClientRequest> for HttpForwardWriterForAdaptation<'_> {
     async fn send_request_header(&mut self, req: &HttpProxyClientRequest) -> io::Result<()> {
-        self.inner.send_request_header(req).await
+        self.inner.send_request_header(req, None).await
     }
 }
