@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-use std::io;
+use std::io::{self, IoSlice};
 
 use bytes::BufMut;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
+use g3_io_ext::LimitedWriteExt;
 use g3_types::net::UpstreamAddr;
 
 use super::HttpProxyClientRequest;
@@ -27,6 +28,7 @@ use crate::module::http_header;
 pub(crate) async fn send_req_header_via_proxy<W>(
     writer: &mut W,
     req: &HttpProxyClientRequest,
+    body: Option<&[u8]>,
     upstream: &UpstreamAddr,
     append_header_lines: &[String],
     pass_userid: Option<&str>,
@@ -45,16 +47,35 @@ where
     }
     buf.put_slice(b"\r\n");
 
-    writer.write_all(buf.as_ref()).await
+    send_request_header(writer, buf.as_slice(), body).await
 }
 
 pub(crate) async fn send_req_header_to_origin<W>(
     writer: &mut W,
     req: &HttpProxyClientRequest,
+    body: Option<&[u8]>,
 ) -> io::Result<()>
 where
     W: AsyncWrite + Unpin,
 {
     let buf = req.serialize_for_origin();
-    writer.write_all(buf.as_ref()).await
+    send_request_header(writer, buf.as_slice(), body).await
+}
+
+async fn send_request_header<W>(
+    writer: &mut W,
+    header: &[u8],
+    body: Option<&[u8]>,
+) -> io::Result<()>
+where
+    W: AsyncWrite + Unpin,
+{
+    if let Some(body) = body {
+        writer
+            .write_all_vectored([IoSlice::new(header), IoSlice::new(body)])
+            .await?;
+        Ok(())
+    } else {
+        writer.write_all(header).await
+    }
 }

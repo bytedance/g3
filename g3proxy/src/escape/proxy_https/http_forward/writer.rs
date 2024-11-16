@@ -107,11 +107,16 @@ where
         self.inner.reset_stats(Arc::new(wrapper_stats));
     }
 
-    async fn send_request_header(&mut self, req: &HttpProxyClientRequest) -> io::Result<()> {
+    async fn send_request_header(
+        &mut self,
+        req: &HttpProxyClientRequest,
+        body: Option<&[u8]>,
+    ) -> io::Result<()> {
         let userid = self.pass_userid.as_deref();
         send_req_header_via_proxy(
             &mut self.inner,
             req,
+            body,
             &self.upstream,
             &self.config.append_http_headers,
             userid,
@@ -181,7 +186,11 @@ where
         self.inner.reset_stats(Arc::new(wrapper_stats));
     }
 
-    async fn send_request_header(&mut self, req: &HttpProxyClientRequest) -> io::Result<()> {
-        send_req_header_to_origin(&mut self.inner, req).await
+    async fn send_request_header(
+        &mut self,
+        req: &HttpProxyClientRequest,
+        body: Option<&[u8]>,
+    ) -> io::Result<()> {
+        send_req_header_to_origin(&mut self.inner, req, body).await
     }
 }

@@ -97,13 +97,17 @@ where
         self.inner.reset_stats(Arc::new(wrapper_stats));
     }
 
-    async fn send_request_header(&mut self, req: &HttpProxyClientRequest) -> io::Result<()> {
+    async fn send_request_header(
+        &mut self,
+        req: &HttpProxyClientRequest,
+        body: Option<&[u8]>,
+    ) -> io::Result<()> {
         if let Some(expire) = &self.config.expire_instant {
             let now = Instant::now();
             if expire.checked_duration_since(now).is_none() {
                 return Err(io::Error::other("connection has expired"));
             }
         }
-        send_req_header_to_origin(&mut self.inner, req).await
+        send_req_header_to_origin(&mut self.inner, req, body).await
     }
 }

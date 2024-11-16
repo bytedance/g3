@@ -104,7 +104,11 @@ where
         }
     }
 
-    async fn send_request_header(&mut self, req: &HttpProxyClientRequest) -> io::Result<()> {
-        send_req_header_to_origin(&mut self.inner, req).await
+    async fn send_request_header(
+        &mut self,
+        req: &HttpProxyClientRequest,
+        body: Option<&[u8]>,
+    ) -> io::Result<()> {
+        send_req_header_to_origin(&mut self.inner, req, body).await
     }
 }
