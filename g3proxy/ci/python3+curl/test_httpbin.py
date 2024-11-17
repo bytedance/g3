@@ -5,6 +5,7 @@ import sys
 import unittest
 import base64
 from io import BytesIO
+from urllib.parse import urlencode
 
 import pycurl
 
@@ -72,7 +73,7 @@ class TestHttpBin(unittest.TestCase):
         self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
         self.assertEqual(self.buffer.getvalue(), b"HTTPBIN is awesome")
 
-    def test_post_continue(self):
+    def test_post_small(self):
         data = "Content to post"
 
         self.set_url_and_request_target('/post')
@@ -80,9 +81,33 @@ class TestHttpBin(unittest.TestCase):
         self.c.perform()
         self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
 
+        # add Expect and try again
         self.c.setopt(pycurl.HTTPHEADER, ['Expect: 100-continue'])
         self.c.perform()
         self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
+
+    def test_post_large(self):
+        post_data = {'data': "Content to post" * 1024 * 100}
+        post_fields = urlencode(post_data)
+
+        self.set_url_and_request_target('/post')
+        self.c.setopt(pycurl.POSTFIELDS, post_fields)
+        self.c.perform()
+        self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
+
+        # disable Expect and try again
+        self.c.setopt(pycurl.HTTPHEADER, ['Expect:'])
+        self.c.perform()
+        self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
+
+    def test_put_file(self):
+        self.set_url_and_request_target('/put')
+        self.c.setopt(pycurl.UPLOAD, 1)
+        file = open(__file__)
+        self.c.setopt(pycurl.READDATA, file)
+        self.c.perform()
+        self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
+        file.close()
 
 
 if __name__ == '__main__':
