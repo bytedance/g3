@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,22 +14,17 @@
  * limitations under the License.
  */
 
-mod fill_wait_data;
-mod fill_wait_eof;
-mod limited_read_buf_until;
-mod limited_read_until;
-mod limited_skip_until;
+use tokio::io::AsyncRead;
 
-mod limited_buf_read_ext;
-pub use limited_buf_read_ext::LimitedBufReadExt;
+use super::read_all_now::ReadAllNow;
 
-mod write_all_flush;
-mod write_all_vectored;
+pub trait LimitedReadExt: AsyncRead {
+    fn read_all_now<'a>(&'a mut self, buf: &'a mut [u8]) -> ReadAllNow<'a, Self>
+    where
+        Self: Unpin,
+    {
+        ReadAllNow::new(self, buf)
+    }
+}
 
-mod limited_write_ext;
-pub use limited_write_ext::LimitedWriteExt;
-
-mod read_all_now;
-
-mod limited_read_ext;
-pub use limited_read_ext::LimitedReadExt;
+impl<R: AsyncRead> LimitedReadExt for R {}

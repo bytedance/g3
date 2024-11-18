@@ -38,7 +38,7 @@ mod line_recv_vec;
 pub use line_recv_vec::LineRecvVec;
 
 mod ext;
-pub use ext::{LimitedBufReadExt, LimitedWriteExt};
+pub use ext::{LimitedBufReadExt, LimitedReadExt, LimitedWriteExt};
 
 mod idle;
 pub use idle::{IdleCheck, IdleForceQuitReason};

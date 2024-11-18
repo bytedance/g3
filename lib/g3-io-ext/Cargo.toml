@@ -36,6 +36,7 @@ g3-socket.workspace = true
 tokio = { workspace = true, features = ["macros"] }
 tokio-util = { workspace = true, features = ["io"] }
 tokio-stream.workspace = true
+tokio-test.workspace = true
 governor = { workspace = true, features = ["std", "jitter"] }
 
 [features]
