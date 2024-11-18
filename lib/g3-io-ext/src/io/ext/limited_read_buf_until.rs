@@ -103,15 +103,12 @@ impl<R: AsyncBufRead + ?Sized + Unpin> Future for LimitedReadBufUntil<'_, R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytes::Bytes;
-    use tokio::io::{BufReader, Result};
-    use tokio_util::io::StreamReader;
+    use tokio::io::BufReader;
 
     #[tokio::test]
     async fn read_single_to_end() {
         let content = b"test body\n";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let mut out_buf = BytesMut::with_capacity(16);
 
@@ -129,8 +126,7 @@ mod tests {
     #[tokio::test]
     async fn read_single_too_large() {
         let content = b"test body\n";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let mut out_buf = BytesMut::with_capacity(16);
 

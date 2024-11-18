@@ -230,10 +230,8 @@ impl<S> From<FlexBufReader<S>> for OnceBufReader<S> {
 #[cfg(test)]
 mod tests {
     use super::FlexBufReader;
-    use bytes::{BufMut, Bytes, BytesMut};
-    use std::io;
+    use bytes::{BufMut, BytesMut};
     use tokio::io::AsyncBufReadExt;
-    use tokio_util::io::StreamReader;
 
     #[tokio::test]
     async fn with_bytes() {
@@ -242,8 +240,7 @@ mod tests {
         b.put_slice(buf_content);
 
         let content = b"test message";
-        let stream = tokio_stream::iter(vec![<io::Result<Bytes>>::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
 
         let mut v = FlexBufReader::with_bytes(b, stream);
         let buf = v.buffer();

@@ -158,15 +158,12 @@ impl LineRecvVec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io;
-    use tokio_util::io::StreamReader;
 
     #[tokio::test]
     async fn single_line() {
         let data = b"123 test line\r\n";
 
-        let stream = tokio_stream::iter(vec![io::Result::Ok(data.as_slice())]);
-        let mut reader = StreamReader::new(stream);
+        let mut reader = tokio_test::io::Builder::new().read(data).build();
 
         let mut b = LineRecvVec::with_capacity(512);
         let line = b.read_line(&mut reader).await.unwrap();
@@ -182,8 +179,7 @@ mod tests {
     async fn multiple_line() {
         let data = b"123 test line\r\n456 second line\r\n789";
 
-        let stream = tokio_stream::iter(vec![io::Result::Ok(data.as_slice())]);
-        let mut reader = StreamReader::new(stream);
+        let mut reader = tokio_test::io::Builder::new().read(data).build();
 
         let mut b = LineRecvVec::with_capacity(512);
         let line1 = b.read_line(&mut reader).await.unwrap();
@@ -206,12 +202,11 @@ mod tests {
         let data2 = b"456 second ";
         let data3 = b"line\r\n789";
 
-        let stream = tokio_stream::iter(vec![
-            io::Result::Ok(data1.as_slice()),
-            io::Result::Ok(data2.as_slice()),
-            io::Result::Ok(data3.as_slice()),
-        ]);
-        let mut reader = StreamReader::new(stream);
+        let mut reader = tokio_test::io::Builder::new()
+            .read(data1)
+            .read(data2)
+            .read(data3)
+            .build();
 
         let mut b = LineRecvVec::with_capacity(512);
         let line1 = b.read_line(&mut reader).await.unwrap();
@@ -229,14 +224,15 @@ mod tests {
     }
 
     #[tokio::test]
+    #[should_panic]
     async fn too_long_line() {
         let data = b"123 test line\r\n";
 
-        let stream = tokio_stream::iter(vec![io::Result::Ok(data.as_slice())]);
-        let mut reader = StreamReader::new(stream);
+        let mut reader = tokio_test::io::Builder::new().read(data).build();
 
         let mut b = LineRecvVec::with_capacity(12);
         let r = b.read_line(&mut reader).await;
         assert!(matches!(r, Err(RecvLineError::LineTooLong)));
+        // not all data read, so drop(reader) should panic
     }
 }

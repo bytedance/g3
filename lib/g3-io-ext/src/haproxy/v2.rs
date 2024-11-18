@@ -189,20 +189,14 @@ impl ProxyProtocolV2Reader {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytes::Bytes;
     use g3_types::net::{ProxyProtocolEncoder, ProxyProtocolVersion};
-    use std::io;
     use std::str::FromStr;
-    use tokio_util::io::StreamReader;
 
     async fn run_t(client: SocketAddr, server: SocketAddr) {
         let mut encoder = ProxyProtocolEncoder::new(ProxyProtocolVersion::V2);
         let encoded = encoder.encode_tcp(client, server).unwrap();
 
-        let stream = tokio_stream::iter(vec![<io::Result<Bytes>>::Ok(Bytes::copy_from_slice(
-            encoded,
-        ))]);
-        let mut stream = StreamReader::new(stream);
+        let mut stream = tokio_test::io::Builder::new().read(encoded).build();
 
         let mut reader = ProxyProtocolV2Reader::new(Duration::from_secs(1));
         let addr = reader
