@@ -1,6 +1,6 @@
 ---
 
-log: journal
+log: fluentd
 
 resolver:
   - name: default
