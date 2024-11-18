@@ -1507,7 +1507,6 @@ dependencies = [
 name = "g3-smtp-proto"
 version = "0.1.0"
 dependencies = [
- "bytes",
  "g3-io-ext",
  "g3-types",
  "log",
@@ -1515,8 +1514,7 @@ dependencies = [
  "pin-project-lite",
  "thiserror 2.0.3",
  "tokio",
- "tokio-stream",
- "tokio-util",
+ "tokio-test",
 ]
 
 [[package]]

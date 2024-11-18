@@ -368,16 +368,13 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytes::Bytes;
     use tokio::io::BufReader;
-    use tokio_util::io::StreamReader;
 
     #[tokio::test]
     async fn empty() {
         let body_len: usize = 3;
         let content = b"";
-        let stream = tokio_stream::iter(vec![io::Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let mut buf = Vec::with_capacity(64);
         let mut msg_transfer =
@@ -393,8 +390,7 @@ mod tests {
     async fn long_with_end() {
         let body_len: usize = 23;
         let content = b"Line 1\r\n\r\n.Line 2\r\n";
-        let stream = tokio_stream::iter(vec![io::Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let mut buf = Vec::with_capacity(64);
         let mut msg_transfer =
@@ -410,8 +406,7 @@ mod tests {
     async fn long_without_end() {
         let body_len: usize = 23;
         let content = b"Line 1\r\n\r\n.Line 2";
-        let stream = tokio_stream::iter(vec![io::Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let mut buf = Vec::with_capacity(64);
         let mut msg_transfer =
@@ -430,13 +425,12 @@ mod tests {
         let content2 = b"\n";
         let content3 = b".Line 2";
         let content4 = b"\r\n";
-        let stream = tokio_stream::iter(vec![
-            io::Result::Ok(Bytes::from_static(content1)),
-            io::Result::Ok(Bytes::from_static(content2)),
-            io::Result::Ok(Bytes::from_static(content3)),
-            io::Result::Ok(Bytes::from_static(content4)),
-        ]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new()
+            .read(content1)
+            .read(content2)
+            .read(content3)
+            .read(content4)
+            .build();
         let mut buf_stream = BufReader::new(stream);
         let mut buf = Vec::with_capacity(64);
         let mut msg_transfer =
@@ -454,12 +448,11 @@ mod tests {
         let content1 = b"Line 1\r\n\r";
         let content2 = b"\n";
         let content3 = b".Line 2";
-        let stream = tokio_stream::iter(vec![
-            io::Result::Ok(Bytes::from_static(content1)),
-            io::Result::Ok(Bytes::from_static(content2)),
-            io::Result::Ok(Bytes::from_static(content3)),
-        ]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new()
+            .read(content1)
+            .read(content2)
+            .read(content3)
+            .build();
         let mut buf_stream = BufReader::new(stream);
         let mut buf = Vec::with_capacity(64);
         let mut msg_transfer =

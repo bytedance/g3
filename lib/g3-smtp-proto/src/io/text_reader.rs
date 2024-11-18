@@ -171,16 +171,13 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use bytes::Bytes;
-    use tokio::io::{AsyncReadExt, BufReader, Result};
-    use tokio_util::io::StreamReader;
+    use tokio::io::{AsyncReadExt, BufReader};
 
     #[tokio::test]
     async fn read_single_normal() {
         let body_len: usize = 22;
         let content = b"Line 1\r\n\r\n.Line 2\r\n.\r\n";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_deocder = TextDataReader::new(&mut buf_stream);
 
@@ -195,8 +192,7 @@ mod test {
     async fn read_single_malformed() {
         let body_len: usize = 22;
         let content = b"Line 1\r\n\r\n.Line 2\r\n.\r\n123";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_deocder = TextDataReader::new(&mut buf_stream);
 
@@ -214,13 +210,12 @@ mod test {
         let content2 = b"\n.";
         let content3 = b"Line 2";
         let content4 = b"\r\n.\r\n";
-        let stream = tokio_stream::iter(vec![
-            Result::Ok(Bytes::from_static(content1)),
-            Result::Ok(Bytes::from_static(content2)),
-            Result::Ok(Bytes::from_static(content3)),
-            Result::Ok(Bytes::from_static(content4)),
-        ]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new()
+            .read(content1)
+            .read(content2)
+            .read(content3)
+            .read(content4)
+            .build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_deocder = TextDataReader::new(&mut buf_stream);
 
@@ -238,13 +233,12 @@ mod test {
         let content2 = b"\n.";
         let content3 = b"Line 2";
         let content4 = b"\r\n.\r\n123";
-        let stream = tokio_stream::iter(vec![
-            Result::Ok(Bytes::from_static(content1)),
-            Result::Ok(Bytes::from_static(content2)),
-            Result::Ok(Bytes::from_static(content3)),
-            Result::Ok(Bytes::from_static(content4)),
-        ]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new()
+            .read(content1)
+            .read(content2)
+            .read(content3)
+            .read(content4)
+            .build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_deocder = TextDataReader::new(&mut buf_stream);
 
