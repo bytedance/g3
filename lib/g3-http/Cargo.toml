@@ -22,6 +22,5 @@ g3-io-ext.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "io-util", "rt"] }
-tokio-util = { workspace = true, features = ["io"] }
-tokio-stream.workspace = true
+tokio-test.workspace = true
 httparse = "1.9"

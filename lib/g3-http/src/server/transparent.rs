@@ -525,8 +525,7 @@ impl HttpTransparentRequestAcceptor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::io::{BufReader, Result};
-    use tokio_util::io::StreamReader;
+    use tokio::io::BufReader;
 
     #[tokio::test]
     async fn read_get() {
@@ -539,8 +538,7 @@ mod tests {
             User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like G\
             ecko) Chrome/72.0.3611.2 Safari/537.36\r\n\
             Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7\r\n\r\n";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let (request, data) = HttpTransparentRequest::parse(&mut buf_stream, 4096, false)
             .await
@@ -561,8 +559,7 @@ mod tests {
             User-Agent: axios/0.21.1\r\n\
             host: api.giphy.com\r\n\
             Connection: close\r\n\r\n";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let (request, data) = HttpTransparentRequest::parse(&mut buf_stream, 4096, false)
             .await
@@ -578,8 +575,7 @@ mod tests {
             Connection: upgrade\r\n\
             Upgrade: Websocket,  HTTP/2.0\r\n\
             \r\n";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let (mut request, _) = HttpTransparentRequest::parse(&mut buf_stream, 4096, false)
             .await

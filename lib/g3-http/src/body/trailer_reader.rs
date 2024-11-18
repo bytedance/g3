@@ -159,15 +159,12 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytes::Bytes;
-    use tokio::io::{BufReader, Result};
-    use tokio_util::io::StreamReader;
+    use tokio::io::BufReader;
 
     #[tokio::test]
     async fn empty() {
         let content = b"\r\nXX";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let trailer_reader = TrailerReader::new(&mut buf_stream, 1024);
 
@@ -178,8 +175,7 @@ mod tests {
     #[tokio::test]
     async fn single() {
         let content = b"A: B\r\n\r\nXX";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let trailer_reader = TrailerReader::new(&mut buf_stream, 1024);
 

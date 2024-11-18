@@ -549,15 +549,12 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytes::Bytes;
-    use tokio::io::{AsyncReadExt, BufReader, Result};
-    use tokio_util::io::StreamReader;
+    use tokio::io::{AsyncReadExt, BufReader};
 
     #[tokio::test]
     async fn read_single_to_end() {
         let content = b"test body";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_reader =
             HttpBodyReader::new(&mut buf_stream, HttpBodyType::ReadUntilEnd, 1024);
@@ -575,11 +572,10 @@ mod tests {
     async fn read_split_to_end() {
         let content1 = b"test body";
         let content2 = b"hello world";
-        let stream = tokio_stream::iter(vec![
-            Result::Ok(Bytes::from_static(content1)),
-            Result::Ok(Bytes::from_static(content2)),
-        ]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new()
+            .read(content1)
+            .read(content2)
+            .build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_reader =
             HttpBodyReader::new(&mut buf_stream, HttpBodyType::ReadUntilEnd, 1024);
@@ -600,8 +596,7 @@ mod tests {
     async fn read_single_content_length() {
         let body_len: usize = 9;
         let content = b"test bodyxxxx";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_reader = HttpBodyReader::new(
             &mut buf_stream,
@@ -623,11 +618,10 @@ mod tests {
         let body_len: usize = 20;
         let content1 = b"hello world";
         let content2 = b"test bodyxxxx";
-        let stream = tokio_stream::iter(vec![
-            Result::Ok(Bytes::from_static(content1)),
-            Result::Ok(Bytes::from_static(content2)),
-        ]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new()
+            .read(content1)
+            .read(content2)
+            .build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_reader = HttpBodyReader::new(
             &mut buf_stream,
@@ -651,8 +645,7 @@ mod tests {
     async fn read_single_chunked() {
         let body_len: usize = 24;
         let content = b"5\r\ntest\n\r\n4\r\nbody\r\n0\r\n\r\nXXX";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_reader = HttpBodyReader::new(&mut buf_stream, HttpBodyType::Chunked, 1024);
 
@@ -668,11 +661,10 @@ mod tests {
         let body_len: usize = 24;
         let content1 = b"5\r\ntest\n\r\n4\r";
         let content2 = b"\nbody\r\n0\r\n\r\nXXX";
-        let stream = tokio_stream::iter(vec![
-            Result::Ok(Bytes::from_static(content1)),
-            Result::Ok(Bytes::from_static(content2)),
-        ]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new()
+            .read(content1)
+            .read(content2)
+            .build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_reader = HttpBodyReader::new(&mut buf_stream, HttpBodyType::Chunked, 1024);
 
@@ -691,8 +683,7 @@ mod tests {
     async fn read_single_trailer() {
         let body_len: usize = 30;
         let content = b"5\r\ntest\n\r\n4\r\nbody\r\n0\r\nA: B\r\n\r\nXX";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_reader = HttpBodyReader::new(&mut buf_stream, HttpBodyType::Chunked, 1024);
 

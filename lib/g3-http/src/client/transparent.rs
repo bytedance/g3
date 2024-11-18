@@ -362,8 +362,7 @@ impl HttpTransparentResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::io::{BufReader, Result};
-    use tokio_util::io::StreamReader;
+    use tokio::io::BufReader;
 
     #[tokio::test]
     async fn read_get() {
@@ -372,8 +371,7 @@ mod tests {
             Content-Type: text/plain; charset=utf-8\r\n\
             Content-Length: 4\r\n\
             Connection: keep-alive\r\n\r\n";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let method = Method::GET;
         let (rsp, data) = HttpTransparentResponse::parse(&mut buf_stream, &method, true, 4096)
@@ -391,8 +389,7 @@ mod tests {
             Date: Fri, 11 Nov 2022 03:22:03 GMT\r\n\
             Content-Type: text/plain; charset=utf-8\r\n\
             Connection: close\r\n\r\n";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let method = Method::GET;
         let (rsp, data) = HttpTransparentResponse::parse(&mut buf_stream, &method, true, 4096)

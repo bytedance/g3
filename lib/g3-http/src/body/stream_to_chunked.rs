@@ -220,20 +220,17 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use bytes::Bytes;
-    use tokio::io::{BufReader, Result};
-    use tokio_util::io::StreamReader;
+    use tokio::io::BufReader;
 
     #[tokio::test]
     async fn encode_two_no_trailer() {
         let body_len: usize = 24;
         let data1 = b"test\n";
         let data2 = b"body";
-        let stream = tokio_stream::iter(vec![
-            Result::Ok(Bytes::from_static(data1)),
-            Result::Ok(Bytes::from_static(data2)),
-        ]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new()
+            .read(data1)
+            .read(data2)
+            .build();
         let mut buf_stream = BufReader::new(stream);
 
         let mut write_buf = Vec::with_capacity(body_len);
@@ -253,11 +250,10 @@ mod test {
         let body_len: usize = 22;
         let data1 = b"test\n";
         let data2 = b"body";
-        let stream = tokio_stream::iter(vec![
-            Result::Ok(Bytes::from_static(data1)),
-            Result::Ok(Bytes::from_static(data2)),
-        ]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new()
+            .read(data1)
+            .read(data2)
+            .build();
         let mut buf_stream = BufReader::new(stream);
 
         let mut write_buf = Vec::with_capacity(body_len);
@@ -279,8 +275,7 @@ mod test {
     async fn encode_empty_no_trailer() {
         let body_len: usize = 5;
         let data1 = b"";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(data1))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(data1).build();
         let mut buf_stream = BufReader::new(stream);
 
         let mut write_buf = Vec::with_capacity(body_len);
@@ -299,8 +294,7 @@ mod test {
     async fn encode_empty_pending_trailer() {
         let body_len: usize = 3;
         let data1 = b"";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(data1))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(data1).build();
         let mut buf_stream = BufReader::new(stream);
 
         let mut write_buf = Vec::with_capacity(body_len);

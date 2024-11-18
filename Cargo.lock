@@ -1282,8 +1282,7 @@ dependencies = [
  "mime",
  "thiserror 2.0.3",
  "tokio",
- "tokio-stream",
- "tokio-util",
+ "tokio-test",
 ]
 
 [[package]]

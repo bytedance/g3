@@ -300,15 +300,12 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use bytes::Bytes;
-    use tokio::io::{BufReader, Result};
-    use tokio_util::io::StreamReader;
+    use tokio::io::BufReader;
 
     #[tokio::test]
     async fn single_to_end() {
         let content = b"test body";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
 
         let exp_body = b"9\r\ntest body\r\n0\r\n\r\n";
@@ -332,11 +329,10 @@ mod test {
     async fn split_to_end() {
         let content1 = b"test body";
         let content2 = b"hello";
-        let stream = tokio_stream::iter(vec![
-            Result::Ok(Bytes::from_static(content1)),
-            Result::Ok(Bytes::from_static(content2)),
-        ]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new()
+            .read(content1)
+            .read(content2)
+            .build();
         let mut buf_stream = BufReader::new(stream);
 
         let exp_body = b"9\r\ntest body\r\n5\r\nhello\r\n0\r\n\r\n";
@@ -359,8 +355,7 @@ mod test {
     #[tokio::test]
     async fn single_content_length() {
         let content = b"test bodyXXX";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
 
         let exp_body = b"9\r\ntest body\r\n0\r\n\r\n";
@@ -384,11 +379,10 @@ mod test {
     async fn split_content_length() {
         let content1 = b"test body";
         let content2 = b"- helloXXX";
-        let stream = tokio_stream::iter(vec![
-            Result::Ok(Bytes::from_static(content1)),
-            Result::Ok(Bytes::from_static(content2)),
-        ]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new()
+            .read(content1)
+            .read(content2)
+            .build();
         let mut buf_stream = BufReader::new(stream);
 
         let exp_body = b"10\r\ntest body- hello\r\n0\r\n\r\n";
@@ -412,8 +406,7 @@ mod test {
     async fn single_chunked() {
         let body_len: usize = 24;
         let content = b"5\r\ntest\n\r\n4\r\nbody\r\n0\r\n\r\nXXX";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
 
         let mut write_buf = Vec::with_capacity(body_len);
@@ -438,11 +431,10 @@ mod test {
         let body_len: usize = 24;
         let content1 = b"5\r\ntest\n\r\n4\r";
         let content2 = b"\nbody\r\n0\r\n\r\nXXX";
-        let stream = tokio_stream::iter(vec![
-            Result::Ok(Bytes::from_static(content1)),
-            Result::Ok(Bytes::from_static(content2)),
-        ]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new()
+            .read(content1)
+            .read(content2)
+            .build();
         let mut buf_stream = BufReader::new(stream);
 
         let exp_body = b"5\r\ntest\n\r\n4\r\nbody\r\n0\r\n\r\n";
@@ -466,8 +458,7 @@ mod test {
     async fn single_trailer() {
         let body_len: usize = 30;
         let content = b"5\r\ntest\n\r\n4\r\nbody\r\n0\r\nA: B\r\n\r\nXXX";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
 
         let mut write_buf = Vec::with_capacity(body_len);

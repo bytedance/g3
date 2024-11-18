@@ -256,16 +256,13 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use bytes::Bytes;
-    use tokio::io::{AsyncReadExt, BufReader, Result};
-    use tokio_util::io::StreamReader;
+    use tokio::io::{AsyncReadExt, BufReader};
 
     #[tokio::test]
     async fn read_single_chunked() {
         let body_len: usize = 9;
         let content = b"5\r\ntest\n\r\n4\r\nbody\r\n0\r\n\r\nXXX";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_deocder = ChunkedDataDecodeReader::new(&mut buf_stream, 1024);
 
@@ -280,8 +277,7 @@ mod test {
     async fn read_single_tailer() {
         let body_len: usize = 9;
         let content = b"5\r\ntest\n\r\n4\r\nbody\r\n0\r\nA: B\r\n\r\nXXX";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_deocder = ChunkedDataDecodeReader::new(&mut buf_stream, 1024);
 
