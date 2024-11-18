@@ -70,6 +70,10 @@ jobs:
         image: ghcr.io/psf/httpbin:0.10.2
         ports:
           - 80:8080
+      fluent-bit:
+        image: ghcr.io/fluent/fluent-bit:latest
+        ports:
+          - '24224:24224/tcp'
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4

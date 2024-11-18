@@ -1,6 +1,6 @@
 ---
 
-log: journal
+log: discard
 
 resolver:
   - name: cares1
