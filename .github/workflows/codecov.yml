@@ -45,10 +45,11 @@ jobs:
       - name: Upload coverage data
         uses: codecov/codecov-action@v5
         with:
+          fail_ci_if_error: true
           disable_search: true
           file: output.lcov
           flags: lib
-          name: Lib Coverage
+          name: lib-unit-test
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: false
   g3proxy-test:
@@ -109,9 +110,10 @@ jobs:
       - name: Upload coverage data
         uses: codecov/codecov-action@v5
         with:
+          fail_ci_if_error: true
           disable_search: true
           file: output.lcov
           flags: g3proxy
-          name: g3proxy Coverage
+          name: g3proxy-all-test
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: false
