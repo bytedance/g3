@@ -105,10 +105,7 @@ fn parse_sni(ch: ClientHello, port: u16) -> ServerTaskResult<UpstreamAddr> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytes::Bytes;
     use std::sync::Arc;
-    use tokio::io::Result;
-    use tokio_util::io::StreamReader;
 
     #[tokio::test]
     async fn single_read() {
@@ -139,9 +136,7 @@ mod tests {
             b'e', b'x', b'a', b'm', b'p', b'l', b'e', b'.', b'n', b'e', b't',
         ];
 
-        let content = b"test body\n";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let mut stream = StreamReader::new(stream);
+        let mut stream = tokio_test::io::Builder::new().read(b"").build();
 
         let mut clt_r_buf = BytesMut::from(data);
 
@@ -187,11 +182,10 @@ mod tests {
             b'e', b'x', b'a', b'm', b'p', b'l', b'e', b'.', b'n', b'e', b't',
         ];
 
-        let stream = tokio_stream::iter(vec![
-            Result::Ok(Bytes::from_static(data1)),
-            Result::Ok(Bytes::from_static(data2)),
-        ]);
-        let mut stream = StreamReader::new(stream);
+        let mut stream = tokio_test::io::Builder::new()
+            .read(data1)
+            .read(data2)
+            .build();
 
         let mut clt_r_buf = BytesMut::from(data);
 
@@ -247,13 +241,12 @@ mod tests {
             0x03, 0x03, 0x02, 0x03, 0x01,
         ];
 
-        let stream = tokio_stream::iter(vec![
-            Result::Ok(Bytes::from_static(RECORD_1_BYTES)),
-            Result::Ok(Bytes::from_static(RECORD_2_BYTES)),
-            Result::Ok(Bytes::from_static(RECORD_3_BYTES)),
-            Result::Ok(Bytes::from_static(RECORD_4_BYTES)),
-        ]);
-        let mut stream = StreamReader::new(stream);
+        let mut stream = tokio_test::io::Builder::new()
+            .read(RECORD_1_BYTES)
+            .read(RECORD_2_BYTES)
+            .read(RECORD_3_BYTES)
+            .read(RECORD_4_BYTES)
+            .build();
 
         let mut clt_r_buf = BytesMut::new();
 

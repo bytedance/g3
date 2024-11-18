@@ -93,8 +93,7 @@ g3proxy-proto = { path = "proto" }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "io-util"] }
-tokio-util = { workspace = true, features = ["io"] }
-tokio-stream.workspace = true
+tokio-test.workspace = true
 
 [build-dependencies]
 g3-build-env.workspace = true

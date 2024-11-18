@@ -1990,7 +1990,7 @@ dependencies = [
  "thiserror 2.0.3",
  "tokio",
  "tokio-rustls",
- "tokio-stream",
+ "tokio-test",
  "tokio-util",
  "url",
  "uuid",
