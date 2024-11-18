@@ -67,7 +67,6 @@ impl RustlsServerConfigExt for ServerConfig {
         ticketer: Option<Arc<T>>,
     ) -> anyhow::Result<()> {
         if enable {
-            self.send_tls13_tickets = 2;
             if let Some(ticketer) = ticketer {
                 self.ticketer = ticketer;
             } else {
