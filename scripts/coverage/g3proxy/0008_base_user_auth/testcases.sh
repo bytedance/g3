@@ -6,11 +6,13 @@ do
 
 	HTTP_PROXY="http://${user}@127.0.0.1:8080"
 	test_http_proxy_http_forward
+	test_http_proxy_ftp_over_http
 	test_http_proxy_https_connect
 	test_http_proxy_https_forward
 
 	HTTPS_PROXY="https://${user}@g3proxy.local:8443"
 	test_https_proxy_http_forward
+	test_https_proxy_ftp_over_http
 	test_https_proxy_https_connect
 	test_https_proxy_https_forward
 
