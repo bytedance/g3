@@ -20,7 +20,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use http::Method;
 use log::debug;
-use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite};
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::time::Instant;
 
 use g3_ftp_client::{
@@ -28,7 +28,7 @@ use g3_ftp_client::{
     FtpFileStoreStartError, FtpSessionOpenError,
 };
 use g3_http::server::HttpProxyClientRequest;
-use g3_http::{HttpBodyReader, HttpBodyType};
+use g3_http::{HttpBodyDecodeReader, HttpBodyReader, HttpBodyType};
 use g3_io_ext::{GlobalLimitGroup, LimitedCopy, LimitedCopyError, SizedReader};
 use g3_types::acl::AclAction;
 use g3_types::net::ProxyRequestType;
@@ -453,15 +453,33 @@ impl<'a> FtpOverHttpTask<'a> {
                         .await;
                 }
 
-                if let Some(HttpBodyType::ContentLength(size)) = self.req.body_type() {
+                if let Some(body_type) = self.req.body_type() {
                     let mut ftp_client = self.setup_ftp_client(clt_w, false).await?;
                     self.login(&mut ftp_client, clt_w).await?;
 
-                    let body_reader = HttpBodyReader::new_fixed_length(clt_r, size);
-                    self.upload(&mut ftp_client, clt_w, body_reader, size).await
+                    match body_type {
+                        HttpBodyType::ContentLength(size) => {
+                            let mut body_reader = HttpBodyReader::new_fixed_length(clt_r, size);
+                            self.upload(&mut ftp_client, clt_w, &mut body_reader, Some(size))
+                                .await
+                        }
+                        HttpBodyType::Chunked => {
+                            let mut body_reader = HttpBodyDecodeReader::new_chunked(
+                                clt_r,
+                                self.ctx.server_config.body_line_max_len,
+                            );
+                            self.upload(&mut ftp_client, clt_w, &mut body_reader, None)
+                                .await?;
+                            if !body_reader.finished() {
+                                // there may be trailer headers
+                                self.should_close = true;
+                            }
+                            Ok(())
+                        }
+                        HttpBodyType::ReadUntilEnd => unreachable!(),
+                    }
                 } else {
-                    self.reply_bad_request(clt_w, "allow body with fixed content-length only")
-                        .await
+                    self.reply_bad_request(clt_w, "no body found").await
                 }
             }
             _ => self.reply_unimplemented(clt_w).await,
@@ -717,7 +735,19 @@ impl<'a> FtpOverHttpTask<'a> {
         };
 
         match r {
-            Ok(_) => Ok(()),
+            Ok(_) => {
+                self.task_notes.stage = ServerTaskStage::Replying;
+                let mut rsp = HttpProxyClientResponse::ok(self.req.version, self.should_close);
+                self.enable_custom_header_for_local_reply(&mut rsp);
+                rsp.reply_ok_header(clt_w).await.map_err(|e| {
+                    self.should_close = true;
+                    ServerTaskError::ClientTcpWriteFailed(e)
+                })?;
+
+                self.task_notes.stage = ServerTaskStage::Finished;
+                self.ftp_notes.rsp_status = rsp.status();
+                Ok(())
+            }
             Err(FtpFileStatError::FileUnavailable) => self.reply_file_unavailable(clt_w).await,
             Err(FtpFileStatError::ServiceNotAvailable) => {
                 self.reply_service_unavailable(clt_w).await
@@ -1269,11 +1299,11 @@ impl<'a> FtpOverHttpTask<'a> {
         &mut self,
         ftp_client: &mut HttpProxyFtpClient,
         clt_w: &mut W,
-        body_reader: HttpBodyReader<'_, R>,
-        expected_size: u64,
+        body_reader: &mut R,
+        file_size: Option<u64>,
     ) -> ServerTaskResult<()>
     where
-        R: AsyncBufRead + Unpin,
+        R: AsyncRead + Unpin,
         W: AsyncWrite + Unpin,
     {
         match ftp_client
@@ -1295,28 +1325,29 @@ impl<'a> FtpOverHttpTask<'a> {
                     .await
                 {
                     Ok(copied_size) => {
-                        if copied_size != expected_size {
-                            self.reply_bad_gateway(
-                                clt_w,
-                                format!(
-                                    "uploaded {copied_size} bytes different than expected {expected_size}"
-                                ),
-                            )
-                            .await
-                        } else {
-                            let mut rsp =
-                                HttpProxyClientResponse::ok(self.req.version, self.should_close);
-                            self.enable_custom_header_for_local_reply(&mut rsp);
-                            match rsp.reply_ok_header(clt_w).await {
-                                Ok(_) => {
-                                    self.ftp_notes.rsp_status = rsp.status();
-                                    self.task_notes.stage = ServerTaskStage::Finished;
-                                    Ok(())
-                                }
-                                Err(e) => {
-                                    self.should_close = true;
-                                    Err(ServerTaskError::ClientTcpWriteFailed(e))
-                                }
+                        if let Some(file_size) = file_size {
+                            if copied_size != file_size {
+                                return self.reply_bad_gateway(
+                                    clt_w,
+                                    format!(
+                                        "uploaded {copied_size} bytes different than expected {file_size}"
+                                    ),
+                                ).await;
+                            }
+                        }
+
+                        let mut rsp =
+                            HttpProxyClientResponse::ok(self.req.version, self.should_close);
+                        self.enable_custom_header_for_local_reply(&mut rsp);
+                        match rsp.reply_ok_header(clt_w).await {
+                            Ok(_) => {
+                                self.ftp_notes.rsp_status = rsp.status();
+                                self.task_notes.stage = ServerTaskStage::Finished;
+                                Ok(())
+                            }
+                            Err(e) => {
+                                self.should_close = true;
+                                Err(ServerTaskError::ClientTcpWriteFailed(e))
                             }
                         }
                     }
@@ -1352,14 +1383,14 @@ impl<'a> FtpOverHttpTask<'a> {
         &'b mut self,
         ftp_client: &'b mut HttpProxyFtpClient,
         mut data_stream: S,
-        mut body_reader: HttpBodyReader<'_, R>,
+        body_reader: &mut R,
     ) -> ServerTaskResult<u64>
     where
         S: AsyncWrite + Unpin,
-        R: AsyncBufRead + Unpin,
+        R: AsyncRead + Unpin,
     {
         let mut data_copy = LimitedCopy::new(
-            &mut body_reader,
+            body_reader,
             &mut data_stream,
             &self.ctx.server_config.tcp_copy,
         );
