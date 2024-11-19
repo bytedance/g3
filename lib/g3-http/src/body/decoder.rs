@@ -39,7 +39,7 @@ impl<'a, R> HttpBodyDecodeReader<'a, R>
 where
     R: AsyncBufRead + Unpin,
 {
-    fn new(state: HttpBodyDecodeState<'a, R>) -> Self {
+    fn with_state(state: HttpBodyDecodeState<'a, R>) -> Self {
         HttpBodyDecodeReader {
             read_data_done: false,
             finished: false,
@@ -48,22 +48,21 @@ where
     }
 
     pub fn new_read_until_end(stream: &'a mut R) -> Self {
-        HttpBodyDecodeReader::new(HttpBodyDecodeState::Plain(
+        HttpBodyDecodeReader::with_state(HttpBodyDecodeState::Plain(
             HttpBodyReader::new_read_until_end(stream),
         ))
     }
 
     pub fn new_fixed_length(stream: &'a mut R, content_length: u64) -> Self {
-        HttpBodyDecodeReader::new(HttpBodyDecodeState::Plain(
+        HttpBodyDecodeReader::with_state(HttpBodyDecodeState::Plain(
             HttpBodyReader::new_fixed_length(stream, content_length),
         ))
     }
 
     pub fn new_chunked(stream: &'a mut R, body_line_max_size: usize) -> Self {
-        HttpBodyDecodeReader::new(HttpBodyDecodeState::Chunked(ChunkedDataDecodeReader::new(
-            stream,
-            body_line_max_size,
-        )))
+        HttpBodyDecodeReader::with_state(HttpBodyDecodeState::Chunked(
+            ChunkedDataDecodeReader::new(stream, body_line_max_size),
+        ))
     }
 
     pub async fn trailer(
