@@ -1,8 +1,8 @@
 #!/bin/sh
 
-all_http_proxies="http://127.0.0.1:10080 http://t1:toor@127.0.0.1:10082 http://t2:toor@127.0.0.1:10082 http://127.0.0.1:20080 http://127.0.0.1:20443 http://127.0.0.1:9001 http://127.0.0.1:9003"
-all_socks_proxies="socks5h://127.0.0.1:11080 socks5h://127.0.0.1:11081 socks5h://t1:toor@127.0.0.1:11082 socks5h://127.0.0.1:21080 socks5h://127.0.0.1:21081 socks5h://127.0.0.1:9003"
-partial_proxies="http://127.0.0.1:13128 http://127.0.0.1:10081 http://t3:toor@127.0.0.1:10082 http://127.0.0.1:20081 http://127.0.0.1:20082 http://127.0.0.1:20083 http://127.0.0.1:20084 socks5h://127.0.0.1:21082 socks5h://127.0.0.1:21083"
+all_http_proxies="http://127.0.0.1:10080 http://t1:toor@127.0.0.1:10082 http://t2:toor@127.0.0.1:10082 http://127.0.0.1:9003"
+all_socks_proxies="socks5h://127.0.0.1:11080 socks5h://t1:toor@127.0.0.1:11082 socks5h://127.0.0.1:9003"
+partial_proxies="http://127.0.0.1:13128 http://127.0.0.1:10081 http://t3:toor@127.0.0.1:10082 http://127.0.0.1:20082 http://127.0.0.1:20083 http://127.0.0.1:20084 socks5h://127.0.0.1:21083"
 all_proxies="${all_http_proxies} ${all_socks_proxies} ${partial_proxies}"
 
 ##
@@ -11,11 +11,6 @@ echo "==== Update dynamic escapers"
 ./target/debug/g3proxy-ctl -G ${TEST_NAME} -p $PROXY_PID escaper float10443 publish '{"type":"https","addr":"127.0.0.1:10443", "tls_name": "g3proxy.local"}'
 ./target/debug/g3proxy-ctl -G ${TEST_NAME} -p $PROXY_PID escaper float11080 publish '{"type":"socks5","addr":"127.0.0.1:11080"}'
 ./target/debug/g3proxy-ctl -G ${TEST_NAME} -p $PROXY_PID escaper direct_lazy publish "{\"ipv4\": \"127.0.0.1\"}"
-
-## https proxy
-echo "==== Https Proxy"
-curl -x https://g3proxy.local:10443 http://httpbin.local/get --proxy-cacert "${SCRIPTS_DIR}/g3proxy/rootCA.pem"
-curl -x https://g3proxy.local:9002 http://httpbin.local/get --proxy-cacert "${SCRIPTS_DIR}/g3proxy/rootCA.pem"
 
 ## httpbin
 echo "==== httpbin"

@@ -58,6 +58,15 @@ server:
   - name: socks2
     type: socks_proxy
     listen: 127.0.0.1:1081
+    escaper: chained_socks5
+    use_udp_associate: true
+  - name: socks3
+    type: socks_proxy
+    listen: 127.0.0.1:1082
+    escaper: chained_socks5s
+  - name: socks4
+    type: socks_proxy
+    listen: 127.0.0.1:1083
     escaper: chained_socks5s
     use_udp_associate: true
   - name: http
