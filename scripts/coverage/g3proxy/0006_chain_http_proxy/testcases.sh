@@ -45,12 +45,15 @@ test_socks4_proxy_https()
 
 HTTP_PROXY="http://127.0.0.1:8080"
 test_http_proxy_http_forward
+# FTP not supported in proxy escaper
+#test_http_proxy_ftp_over_http
 test_http_proxy_https_connect
 test_http_proxy_https_forward
 
 
 HTTPS_PROXY="https://g3proxy.local:8443"
 test_https_proxy_http_forward
+test_https_proxy_ftp_over_http
 test_https_proxy_https_connect
 test_https_proxy_https_forward
 
