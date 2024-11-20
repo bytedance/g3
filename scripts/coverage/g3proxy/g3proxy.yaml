@@ -77,36 +77,6 @@ escaper:
     egress_net_filter:
       default: allow
       allow: 127.0.0.1
-  - name: proxy10080
-    type: proxy_http
-    proxy_addr: 127.0.0.1:10080
-    http_forward_capability:
-      forward_ftp: true
-  - name: proxy10443
-    type: proxy_https
-    proxy_addr: 127.0.0.1:10443
-    http_forward_capability:
-      forward_ftp: true
-    tls_client:
-      ca_certificate: rootCA.pem
-    tls_name: g3proxy.local
-  - name: proxy11080
-    type: proxy_socks5
-    proxy_addr: 127.0.0.1:11080
-  - name: float10080
-    type: proxy_float
-    source:
-      type: passive
-  - name: float10443
-    type: proxy_float
-    source:
-      type: passive
-    tls_client:
-      ca_certificate: rootCA.pem
-  - name: float11080
-    type: proxy_float
-    source:
-      type: passive
   - name: route0
     type: trick_float
     next:
@@ -149,51 +119,6 @@ escaper:
     fallback_node: route3
 
 server:
-  - name: http10080
-    type: http_proxy
-    listen: 127.0.0.1:10080
-    escaper: direct
-  - name: http10081
-    type: http_proxy
-    listen: 127.0.0.1:10081
-    escaper: direct_lazy
-  - name: http10082
-    type: http_proxy
-    listen: 127.0.0.1:10082
-    escaper: direct
-    user-group: default
-  - name: http10443
-    type: http_proxy
-    listen: 127.0.0.1:10443
-    escaper: direct
-    tls_server:
-      certificate: g3proxy.local.pem
-      private_key: g3proxy.local-key.pem
-  - name: socks11080
-    type: socks_proxy
-    listen: 127.0.0.1:11080
-    escaper: direct
-  - name: socks11082
-    type: socks_proxy
-    listen: 127.0.0.1:11082
-    escaper: direct
-    user-group: default
-  - name: http20082
-    type: http_proxy
-    listen: 127.0.0.1:20082
-    escaper: float10080
-  - name: http20083
-    type: http_proxy
-    listen: 127.0.0.1:20083
-    escaper: float10443
-  - name: http20084
-    type: http_proxy
-    listen: 127.0.0.1:20084
-    escaper: float11080
-  - name: socks21083
-    type: socks_proxy
-    listen: 127.0.0.1:21083
-    escaper: float11080
   - name: tls9443
     escaper: direct
     type: tls_stream
@@ -202,11 +127,6 @@ server:
       certificate: httpbin.local.pem
       private-key: httpbin.local-key.pem
     upstream: 127.0.0.1:80
-  - name: ppdpport9003
-    type: ppdp_tcp_port
-    listen: 127.0.0.1:9003
-    http_server: http10080
-    socks_server: socks11080
   - name: http_route13128
     type: http_proxy
     listen: 127.0.0.1:13128
