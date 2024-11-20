@@ -98,6 +98,10 @@ where
         self.bind_v6 = bind;
     }
 
+    pub(crate) fn usable(&self) -> bool {
+        self.inner_v4.is_some() || self.inner_v6.is_some()
+    }
+
     fn poll_send_packet(
         &mut self,
         cx: &mut Context<'_>,

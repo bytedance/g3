@@ -17,6 +17,7 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use anyhow::anyhow;
 use tokio::net::UdpSocket;
 
 use g3_io_ext::{LimitedUdpRecv, LimitedUdpSend, UdpRecvHalf, UdpSendHalf};
@@ -53,17 +54,27 @@ impl DirectFloatEscaper {
         );
 
         if !self.config.no_ipv4 {
-            let (bind, r, w) =
-                self.get_relay_socket(AddressFamily::Ipv4, task_conf, task_notes, &wrapper_stats)?;
-            recv.enable_v4(r, bind);
-            send.enable_v4(w, bind);
+            if let Ok((bind, r, w)) =
+                self.get_relay_socket(AddressFamily::Ipv4, task_conf, task_notes, &wrapper_stats)
+            {
+                recv.enable_v4(r, bind);
+                send.enable_v4(w, bind);
+            }
         }
 
         if !self.config.no_ipv6 {
-            let (bind, r, w) =
-                self.get_relay_socket(AddressFamily::Ipv6, task_conf, task_notes, &wrapper_stats)?;
-            recv.enable_v6(r, bind);
-            send.enable_v6(w, bind);
+            if let Ok((bind, r, w)) =
+                self.get_relay_socket(AddressFamily::Ipv6, task_conf, task_notes, &wrapper_stats)
+            {
+                recv.enable_v6(r, bind);
+                send.enable_v6(w, bind);
+            }
+        }
+
+        if !send.usable() {
+            return Err(UdpRelaySetupError::EscaperNotUsable(anyhow!(
+                "no ipv4 / ipv6 bind address found"
+            )));
         }
 
         Ok((Box::new(recv), Box::new(send), self.escape_logger.clone()))
