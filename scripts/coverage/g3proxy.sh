@@ -26,6 +26,11 @@ export SSL_CERT_FILE="${SCRIPTS_DIR}/g3proxy/rootCA.pem"
 
 # run g3proxy integration tests
 
+g3proxy_ctl()
+{
+	"${PROJECT_DIR}"/target/debug/g3proxy-ctl -G ${TEST_NAME} -p $PROXY_PID "$@"
+}
+
 set -x
 
 for dir in $(find "${SCRIPTS_DIR}/g3proxy/" -type d | sort)
@@ -42,7 +47,7 @@ do
 	[ -f "${dir}/testcases.sh" ] || continue
 	. "${dir}/testcases.sh"
 
-	"${PROJECT_DIR}"/target/debug/g3proxy-ctl -G ${TEST_NAME} -p $PROXY_PID offline
+	g3proxy_ctl offline
 	wait $PROXY_PID
 done
 
