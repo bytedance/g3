@@ -40,7 +40,27 @@ The value could be a map, with the following keys:
 
   Set default log config for loggers with no explicit config.
 
-  **default**: journal log config
+  **default**: discard
+
+- syslog
+
+  **optional**, **type**: :ref:`syslog <configuration_log_driver_syslog>`
+
+  Set default log config for loggers with no explicit config.
+
+  **default**: not set
+
+  .. versionadded:: 0.3.7
+
+- fluentd
+
+  **optional**, **type**: :ref:`fluentd <configuration_log_driver_fluentd>`
+
+  Set default log config for loggers with no explicit config.
+
+  **default**: not set
+
+  .. versionadded:: 0.3.7
 
 - task
 
@@ -68,6 +88,12 @@ The detailed log config may be a simple driver name, or a map, with the followin
   **optional**, **type**: :ref:`syslog <configuration_log_driver_syslog>`
 
   Use *syslog* log driver.
+
+- fluentd
+
+  **optional**, **type**: :ref:`fluentd <configuration_log_driver_fluentd>`
+
+  Use *fluentd* log driver.
 
 - async_channel_size
 

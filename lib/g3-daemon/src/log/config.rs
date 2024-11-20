@@ -173,6 +173,27 @@ impl LogConfig {
         }
     }
 
+    pub fn parse_syslog_yaml(v: &Yaml, program_name: &'static str) -> anyhow::Result<LogConfig> {
+        let driver = SyslogBuilder::parse_yaml(v, program_name).context("invalid syslog config")?;
+        Ok(LogConfig::with_driver(
+            LogConfigDriver::Syslog(driver),
+            program_name,
+        ))
+    }
+
+    pub fn parse_fluentd_yaml(
+        v: &Yaml,
+        conf_dir: &Path,
+        program_name: &'static str,
+    ) -> anyhow::Result<LogConfig> {
+        let driver =
+            FluentdClientConfig::parse_yaml(v, Some(conf_dir)).context("invalid fluentd config")?;
+        Ok(LogConfig::with_driver(
+            LogConfigDriver::Fluentd(Arc::new(driver)),
+            program_name,
+        ))
+    }
+
     pub fn build_shared_logger(
         self,
         logger_name: String,
