@@ -1,0 +1,65 @@
+---
+
+log: journal
+
+resolver:
+  - name: default
+    type: c-ares
+    server:
+      - 127.0.0.1
+
+escaper:
+  - name: default
+    type: direct_fixed
+    resolver: default
+    egress_net_filter:
+      default: allow
+      allow: 127.0.0.1
+  - name: float_passive
+    type: proxy_float
+    source:
+      type: passive
+    tls_client:
+      ca_certificate: ../rootCA.pem
+
+server:
+  - name: chained_http
+    type: http_proxy
+    listen: 127.0.0.1:7080
+    escaper: default
+  - name: chained_https
+    type: http_proxy
+    listen: 127.0.0.1:7443
+    escaper: default
+    tls_server:
+      cert_pairs:
+        certificate: ../g3proxy.local.pem
+        private-key: ../g3proxy.local-key.pem
+    tls_client:
+      ca_certificate: ../rootCA.pem
+  - name: chained_socks
+    type: socks_proxy
+    listen: 127.0.0.1:6080
+    escaper: default
+    use_udp_associate: true
+  - name: chained_socks5s_port
+    type: native_tls_port
+    listen: 127.0.0.1:6443
+    server: chained_socks
+    tls_server:
+      cert_pairs:
+        certificate: ../g3proxy.local.pem
+        private-key: ../g3proxy.local-key.pem
+  - name: http
+    type: http_proxy
+    listen: 127.0.0.1:8080
+    escaper: float_passive
+  - name: socks1
+    type: socks_proxy
+    listen: 127.0.0.1:1080
+    escaper: float_passive
+  - name: socks2
+    type: socks_proxy
+    listen: 127.0.0.1:1081
+    escaper: float_passive
+    use-udp-associate: true

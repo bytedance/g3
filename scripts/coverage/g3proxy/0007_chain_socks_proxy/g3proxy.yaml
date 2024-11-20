@@ -28,11 +28,11 @@ escaper:
   - name: chained_socks5
     type: proxy_socks5
     resolver: hickory
-    proxy_addr: g3proxy.local:7080
+    proxy_addr: g3proxy.local:6080
   - name: chained_socks5s
     type: proxy_socks5s
     resolver: hickory
-    proxy_addr: g3proxy.local:7443
+    proxy_addr: g3proxy.local:6443
     tls_client:
       ca-certificate: ../rootCA.pem
     tls_name: g3proxy.local
@@ -40,12 +40,12 @@ escaper:
 server:
   - name: chained_socks
     type: socks_proxy
-    listen: 127.0.0.1:7080
+    listen: 127.0.0.1:6080
     escaper: default
     use_udp_associate: true
   - name: chained_socks5s_port
     type: plain_tls_port
-    listen: 127.0.0.1:7443
+    listen: 127.0.0.1:6443
     server: chained_socks
     tls_server:
       cert_pairs:
