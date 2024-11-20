@@ -1,0 +1,63 @@
+---
+
+log: syslog
+
+resolver:
+  - name: hickory
+    type: hickory
+    server: 127.0.0.1
+
+escaper:
+  - name: default
+    type: direct_fixed
+    resolver: hickory
+    egress_net_filter:
+      default: allow
+      allow: 127.0.0.1
+  - name: chained_socks5
+    type: proxy_socks5
+    proxy_addr: 127.0.0.1:6080
+  - name: chained_http
+    type: proxy_http
+    resolver: hickory
+    proxy_addr: 127.0.0.1:7080
+
+server:
+  - name: rss
+    type: http_rproxy
+    listen: 127.0.0.1:9443
+    escaper: default
+    enable_tls_server: true
+    global_tls_server:
+      cert_pairs:
+        certificate: ../httpbin.local.pem
+        private-key: ../httpbin.local-key.pem
+    hosts:
+      - exact_match: httpbin.local
+        upstream: 127.0.0.1:80
+        tls_server:
+          cert_pairs:
+            certificate: ../httpbin.local.pem
+            private-key: ../httpbin.local-key.pem
+  - name: chained_socks
+    type: socks_proxy
+    listen: 127.0.0.1:6080
+    escaper: default
+    use_udp_associate: true
+  - name: chained_http
+    type: http_proxy
+    listen: 127.0.0.1:7080
+    escaper: default
+  - name: socks
+    type: socks_proxy
+    listen: 127.0.0.1:1080
+    escaper: chained_socks5
+  - name: http
+    type: http_proxy
+    listen: 127.0.0.1:8080
+    escaper: chained_http
+  - name: intelli
+    type: intelli_proxy
+    listen: 127.0.0.1:9000
+    http_server: http
+    socks_server: socks
