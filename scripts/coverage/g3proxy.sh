@@ -45,6 +45,7 @@ do
 	sleep 2
 
 	[ -f "${dir}/testcases.sh" ] || continue
+	TESTCASE_DIR=${dir}
 	. "${dir}/testcases.sh"
 
 	g3proxy_ctl offline
