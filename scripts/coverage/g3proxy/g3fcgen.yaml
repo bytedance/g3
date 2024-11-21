@@ -1,0 +1,8 @@
+---
+
+runtime:
+  thread_number: 1
+
+backend:
+  ca_certificate: rootCA.pem
+  ca_private_key: rootCA-key.pem
