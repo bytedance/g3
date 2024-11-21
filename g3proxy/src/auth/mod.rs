@@ -234,11 +234,9 @@ impl UserGroup {
             return Some((Arc::clone(user), UserType::Static));
         }
 
-        if self.config.dynamic_source.is_some() {
-            let dynamic_users = self.dynamic_users.load();
-            if let Some(user) = dynamic_users.get(username) {
-                return Some((Arc::clone(user), UserType::Dynamic));
-            }
+        let dynamic_users = self.dynamic_users.load();
+        if let Some(user) = dynamic_users.get(username) {
+            return Some((Arc::clone(user), UserType::Dynamic));
         }
 
         self.get_anonymous_user()
