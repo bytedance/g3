@@ -135,7 +135,7 @@ where
             next_read_type: NextReadType::FixedLength,
             body_line_max_len,
             next_read_size: 0,
-            left_total_size: 0,
+            left_total_size: next_chunk_size,
             chunk_size_line_cache: Vec::<u8>::with_capacity(Self::DEFAULT_LINE_SIZE),
             trailer_line_length: 0,
             trailer_last_char: 0,
