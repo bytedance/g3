@@ -70,10 +70,6 @@ jobs:
         image: ghcr.io/psf/httpbin:0.10.2
         ports:
           - 80:8080
-      fluent-bit:
-        image: ghcr.io/fluent/fluent-bit:latest
-        ports:
-          - '24224:24224/tcp'
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -93,18 +89,27 @@ jobs:
       - name: Install binutils
         run: |
           cargo install cargo-binutils
+      - name: Install fluent-bit
+        run: |
+          sudo curl https://raw.githubusercontent.com/fluent/fluent-bit/master/install.sh | sh
+      - name: Install fluent-bit.conf
+        run: |
+          sudo cp ${{ github.workspace }}/scripts/coverage/g3proxy/fluent-bit.conf /etc/fluent-bit/fluent-bit.conf
+      - name: Start fluent-bit
+        run: |
+          sudo systemctl start fluent-bit
       - name: Install dnsmasq
         run: |
           sudo apt-get install dnsmasq-base
       - name: Backup /etc/resolv.conf
         run: |
           sudo cp /etc/resolv.conf /etc/resolv.conf.backup
-      - name: Run dnsmasq
-        run: |
-          sudo dnsmasq --local-service -C ${{ github.workspace }}/scripts/coverage/g3proxy/dnsmasq.conf
       - name: Edit /etc/resolv.conf
         run: |
           echo "nameserver 127.0.0.1" | sudo tee /etc/resolv.conf
+      - name: Run dnsmasq
+        run: |
+          sudo dnsmasq --local-service -C ${{ github.workspace }}/scripts/coverage/g3proxy/dnsmasq.conf
       - name: run unit test
         run: |
           ./scripts/coverage/g3proxy.sh
