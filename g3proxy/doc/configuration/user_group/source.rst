@@ -43,6 +43,16 @@ lua
 
 Fetch users through local lua script.
 
+The following vars will be defined when running the script:
+
+* __file__
+
+  This will be the absolute path of the script file
+
+  .. versionadded:: 1.11.0
+
+The return value of the script should be the json encoded string of all dynamic users.
+
 .. note::
 
   Environment variable `LUA_PATH`_ and `LUA_CPATH`_ can be set to include more lua module files.
@@ -50,9 +60,6 @@ Fetch users through local lua script.
 
   .. _LUA_PATH: https://www.lua.org/manual/5.1/manual.html#pdf-package.path
   .. _LUA_CPATH: https://www.lua.org/manual/5.1/manual.html#pdf-package.cpath
-
-
-The return value of the script should be the json encoded string of all dynamic users.
 
 The keys used in *map* format are:
 
@@ -135,6 +142,14 @@ python
 .. versionadded:: 1.5.0
 
 Fetch users through local python script.
+
+The following vars will be defined when running the script:
+
+* __file__
+
+  This will be the absolute path of the script file
+
+  .. versionadded:: 1.11.0
 
 The keys used in *map* format are:
 

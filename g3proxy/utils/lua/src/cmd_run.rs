@@ -50,6 +50,13 @@ pub fn run(lua: &Lua, args: &ArgMatches) -> anyhow::Result<()> {
     let script = args
         .get_one::<PathBuf>(COMMAND_ARG_SCRIPT)
         .ok_or_else(|| anyhow!("no script file to run"))?;
+    let absolute_path = if !script.is_absolute() {
+        let mut cur_dir = std::env::current_dir()?;
+        cur_dir.push(script);
+        cur_dir
+    } else {
+        script.to_path_buf()
+    };
 
     let verbose_level = args
         .get_one::<u8>(COMMAND_ARG_VERBOSE)
@@ -59,6 +66,8 @@ pub fn run(lua: &Lua, args: &ArgMatches) -> anyhow::Result<()> {
     let code = std::fs::read_to_string(script)
         .map_err(|e| anyhow!("failed to read script file {}: {e:?}", script.display()))?;
 
+    let globals = lua.globals();
+    globals.set("__file__", absolute_path.display().to_string())?;
     let code = lua.load(&code);
 
     if verbose_level > 1 {
