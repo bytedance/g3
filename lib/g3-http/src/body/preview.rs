@@ -17,7 +17,7 @@
 use std::future::Future;
 use std::io::{self, Write};
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll};
 
 use atoi::FromRadix16;
 use bytes::BufMut;
@@ -55,13 +55,20 @@ where
         if let Some(mut header) = self.header.take() {
             let limit = self.limit;
             let body_type = self.body_type;
-            let buf = ready!(Pin::new(&mut *self.inner).poll_fill_buf(cx))
-                .map_err(PreviewError::ReadError)?;
-            if buf.is_empty() {
-                return Poll::Ready(Err(PreviewError::ReaderClosed));
+            match Pin::new(&mut *self.inner).poll_fill_buf(cx) {
+                Poll::Ready(Ok(buf)) => {
+                    if buf.is_empty() {
+                        return Poll::Ready(Err(PreviewError::ReaderClosed));
+                    }
+                    let state = push_preview_data(&mut header, body_type, limit, buf)?;
+                    Poll::Ready(Ok((header, state)))
+                }
+                Poll::Ready(Err(e)) => Poll::Ready(Err(PreviewError::ReadError(e))),
+                Poll::Pending => {
+                    self.header = Some(header);
+                    Poll::Pending
+                }
             }
-            let state = push_preview_data(&mut header, body_type, limit, buf)?;
-            Poll::Ready(Ok((header, state)))
         } else {
             Poll::Ready(Err(PreviewError::AlreadyPolled))
         }
