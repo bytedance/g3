@@ -31,6 +31,8 @@ const FN_NAME_FETCH_USERS: &str = "fetch_users";
 const FN_NAME_REPORT_OK: &str = "report_ok";
 const FN_NAME_REPORT_ERR: &str = "report_err";
 
+const VAR_NAME_FILE: &str = "__file__";
+
 pub(super) async fn fetch_records(
     source: &Arc<UserDynamicPythonSource>,
     cache: &Path,
@@ -142,6 +144,14 @@ async fn call_python_fetch(script: PathBuf) -> anyhow::Result<String> {
                     script.display(),
                 )
             })?;
+            code.setattr(VAR_NAME_FILE, script.display().to_string())
+                .map_err(|e| {
+                    anyhow!(
+                        "failed to set {} to {}: {e}",
+                        VAR_NAME_FILE,
+                        script.display()
+                    )
+                })?;
 
             let fetch_users = code.getattr(FN_NAME_FETCH_USERS).map_err(|e| {
                 anyhow!(
@@ -190,6 +200,14 @@ async fn call_python_report_ok(script: PathBuf) -> anyhow::Result<()> {
                     script.display(),
                 )
             })?;
+            code.setattr(VAR_NAME_FILE, script.display().to_string())
+                .map_err(|e| {
+                    anyhow!(
+                        "failed to set {} to {}: {e}",
+                        VAR_NAME_FILE,
+                        script.display()
+                    )
+                })?;
 
             if let Ok(report_ok) = code.getattr(FN_NAME_REPORT_OK) {
                 report_ok.call0().map_err(|e| {
@@ -224,6 +242,14 @@ async fn call_python_report_err(script: PathBuf, e: String) -> anyhow::Result<()
                     script.display(),
                 )
             })?;
+            code.setattr(VAR_NAME_FILE, script.display().to_string())
+                .map_err(|e| {
+                    anyhow!(
+                        "failed to set {} to {}: {e}",
+                        VAR_NAME_FILE,
+                        script.display()
+                    )
+                })?;
 
             if let Ok(report_ok) = code.getattr(FN_NAME_REPORT_ERR) {
                 let tup = PyTuple::new(py, [e])

@@ -25,6 +25,8 @@ use mlua::{Function, Lua, Value};
 use crate::config::auth::source::lua::UserDynamicLuaSource;
 use crate::config::auth::UserConfig;
 
+const LUA_GLOBAL_VAR_FILE: &str = "__file__";
+
 pub(super) async fn fetch_records(
     source: &Arc<UserDynamicLuaSource>,
     cache: &Path,
@@ -130,6 +132,16 @@ async fn call_lua_fetch(script: PathBuf) -> anyhow::Result<String> {
 
     tokio::task::spawn_blocking(move || {
         let lua = unsafe { Lua::unsafe_new() };
+        let globals = lua.globals();
+        globals
+            .set(LUA_GLOBAL_VAR_FILE, script.display().to_string())
+            .map_err(|e| {
+                anyhow!(
+                    "failed to set {} to {}: {e}",
+                    LUA_GLOBAL_VAR_FILE,
+                    script.display()
+                )
+            })?;
         let code = lua.load(&code);
         code.eval::<String>()
             .map_err(|e| anyhow!("failed to run lua fetch script {}: {e}", script.display()))
@@ -148,6 +160,16 @@ async fn call_lua_report_ok(script: PathBuf) -> anyhow::Result<()> {
 
     tokio::task::spawn_blocking(move || {
         let lua = unsafe { Lua::unsafe_new() };
+        let globals = lua.globals();
+        globals
+            .set(LUA_GLOBAL_VAR_FILE, script.display().to_string())
+            .map_err(|e| {
+                anyhow!(
+                    "failed to set {} to {}: {e}",
+                    LUA_GLOBAL_VAR_FILE,
+                    script.display()
+                )
+            })?;
         lua.load(&code)
             .exec()
             .map_err(|e| anyhow!("failed to load lua report script {}: {e}", script.display()))?;
@@ -175,6 +197,16 @@ async fn call_lua_report_err(script: PathBuf, e: String) -> anyhow::Result<()> {
 
     tokio::task::spawn_blocking(move || {
         let lua = unsafe { Lua::unsafe_new() };
+        let globals = lua.globals();
+        globals
+            .set(LUA_GLOBAL_VAR_FILE, script.display().to_string())
+            .map_err(|e| {
+                anyhow!(
+                    "failed to set {} to {}: {e}",
+                    LUA_GLOBAL_VAR_FILE,
+                    script.display()
+                )
+            })?;
         lua.load(&code)
             .exec()
             .map_err(|e| anyhow!("failed to load lua report script {}: {e}", script.display()))?;
