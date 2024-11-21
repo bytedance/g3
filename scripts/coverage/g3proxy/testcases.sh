@@ -1,9 +1,7 @@
 #!/bin/sh
 
-all_http_proxies="http://127.0.0.1:10080"
-all_socks_proxies="socks5h://127.0.0.1:11080"
 partial_proxies="http://127.0.0.1:13128"
-all_proxies="${all_http_proxies} ${all_socks_proxies} ${partial_proxies}"
+all_proxies="${partial_proxies}"
 
 ##
 echo "==== Update dynamic escapers"
