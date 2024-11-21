@@ -10,7 +10,7 @@ TEST_NAME="g3proxy-ci"
 . "${SCRIPTS_DIR}/enter.sh"
 
 # build
-cargo build -p g3proxy -p g3proxy-ctl -p g3proxy-ftp -p g3mkcert
+cargo build -p g3proxy -p g3proxy-ctl -p g3proxy-ftp -p g3mkcert -p g3fcgen
 
 all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "-object "$0}')
 
@@ -22,9 +22,14 @@ all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk
 # generate resource files
 "${SCRIPTS_DIR}"/g3proxy/mkcert.sh
 
-export SSL_CERT_FILE="${SCRIPTS_DIR}/g3proxy/rootCA.pem"
+# start g3fcgen
+
+"${PROJECT_DIR}"/target/debug/g3fcgen -c "${SCRIPTS_DIR}"/g3proxy/g3fcgen.yaml -G port2999 &
+FCGEN_PID=$!
 
 # run g3proxy integration tests
+
+export SSL_CERT_FILE="${SCRIPTS_DIR}/g3proxy/rootCA.pem"
 
 g3proxy_ctl()
 {
@@ -53,6 +58,8 @@ do
 done
 
 set +x
+
+kill -INT $FCGEN_PID
 
 ## g3proxy-ftp
 

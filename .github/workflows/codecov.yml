@@ -89,20 +89,23 @@ jobs:
       - name: Install binutils
         run: |
           cargo install cargo-binutils
+      - name: Install and run c-icap
+        run: |
+          sudo apt-get install c-icap
+          sudo systemctl start c-icap
       - name: Install netcat-openbsd
         run: |
           sudo apt-get install netcat-openbsd
       - name: Listen StatsD port
         run: |
           nc -u -l -k 127.0.0.1 8125 >/dev/null &
-      - name: Install fluent-bit
+      - name: Listen udpdump port
+        run: |
+          nc -u -l -k 127.0.0.1 5555 >/dev/null &
+      - name: Install and run fluent-bit
         run: |
           sudo curl https://raw.githubusercontent.com/fluent/fluent-bit/master/install.sh | sh
-      - name: Install fluent-bit.conf
-        run: |
           sudo cp ${{ github.workspace }}/scripts/coverage/g3proxy/fluent-bit.conf /etc/fluent-bit/fluent-bit.conf
-      - name: Start fluent-bit
-        run: |
           sudo systemctl start fluent-bit
       - name: Install dnsmasq
         run: |
