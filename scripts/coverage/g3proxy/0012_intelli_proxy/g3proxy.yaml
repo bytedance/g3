@@ -2,6 +2,10 @@
 
 log: syslog
 
+stat:
+  target:
+    udp: 127.0.0.1:8125
+
 resolver:
   - name: hickory
     type: hickory

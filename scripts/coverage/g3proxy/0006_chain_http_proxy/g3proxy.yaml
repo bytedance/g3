@@ -2,6 +2,10 @@
 
 log: journal
 
+stat:
+  target:
+    udp: 127.0.0.1:8125
+
 resolver:
   - name: cares1
     type: c-ares

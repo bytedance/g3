@@ -89,6 +89,12 @@ jobs:
       - name: Install binutils
         run: |
           cargo install cargo-binutils
+      - name: Install netcat-openbsd
+        run: |
+          sudo apt-get install netcat-openbsd
+      - name: Listen StatsD port
+        run: |
+          nc -u -l -k 127.0.0.1 8125 >/dev/null &
       - name: Install fluent-bit
         run: |
           sudo curl https://raw.githubusercontent.com/fluent/fluent-bit/master/install.sh | sh
