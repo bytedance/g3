@@ -73,11 +73,13 @@ impl ChunkedEncodeTransferInternal {
     }
 
     fn with_chunk(yield_size: usize, chunk: Bytes) -> Self {
+        let mut static_header = Vec::with_capacity(16);
+        let _ = write!(&mut static_header, "{:x}\r\n", chunk.len());
         ChunkedEncodeTransferInternal {
             yield_size,
-            this_chunk_size: 0,
+            this_chunk_size: chunk.len(),
             chunk: Some(chunk),
-            static_header: Vec::with_capacity(16),
+            static_header,
             static_offset: 0,
             total_write: 0,
             read_data_finished: false,
@@ -184,7 +186,7 @@ impl ChunkedEncodeTransferInternal {
                         self.static_header.clear();
                         let chunk_size = chunk.len();
                         if self.total_write == 0 {
-                            let _ = write!(&mut self.static_header, "{chunk_size:x}\r\n",);
+                            let _ = write!(&mut self.static_header, "{chunk_size:x}\r\n");
                         } else {
                             let _ = write!(&mut self.static_header, "\r\n{chunk_size:x}\r\n");
                         }
