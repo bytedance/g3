@@ -284,6 +284,11 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
                         H2StreamBodyTransferError::SendTrailersFailed(e),
                     )
                 }
+                H2StreamFromChunkedTransferError::SenderNotInSendState => {
+                    H2StreamTransferError::ResponseBodyTransferFailed(
+                        H2StreamBodyTransferError::SenderNotInSendState,
+                    )
+                }
             })?;
 
             recv_body.save_connection().await;

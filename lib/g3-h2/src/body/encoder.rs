@@ -32,6 +32,8 @@ pub enum H2StreamBodyEncodeTransferError {
     ReadError(io::Error),
     #[error("send data failed: {0}")]
     SendDataFailed(h2::Error),
+    #[error("sender not in send state")]
+    SenderNotInSendState,
 }
 
 struct H2BodyEncodeTransferInternal {
@@ -106,8 +108,10 @@ impl H2BodyEncodeTransferInternal {
                         )));
                     }
                     Poll::Ready(None) => {
-                        // only possible if the reserve capacity is 0 or not set
-                        unreachable!()
+                        self.chunk = Some(chunk);
+                        return Poll::Ready(Err(
+                            H2StreamBodyEncodeTransferError::SenderNotInSendState,
+                        ));
                     }
                     Poll::Pending => {
                         self.chunk = Some(chunk);
