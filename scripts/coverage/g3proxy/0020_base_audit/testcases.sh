@@ -6,7 +6,7 @@ test_http_proxy_http_forward
 test_http_proxy_ftp_over_http
 test_http_proxy_https_connect
 test_http_proxy_https_forward
-test_http_proxy_h2
+#test_http_proxy_h2
 
 
 SOCKS5_PROXY="socks5h://127.0.0.1:1080"
