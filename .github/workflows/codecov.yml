@@ -89,6 +89,9 @@ jobs:
       - name: Install binutils
         run: |
           cargo install cargo-binutils
+      - name: Install nginx
+        run: |
+          sudo apt-get install nginx-light
       - name: Install and run c-icap
         run: |
           sudo apt-get install c-icap

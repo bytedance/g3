@@ -22,8 +22,10 @@ all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk
 # generate resource files
 "${SCRIPTS_DIR}"/g3proxy/mkcert.sh
 
-# start g3fcgen
+# start nginx
+/usr/sbin/nginx -c "${PROJECT_DIR}"/scripts/coverage/g3proxy/nginx.conf
 
+# start g3fcgen
 "${PROJECT_DIR}"/target/debug/g3fcgen -c "${SCRIPTS_DIR}"/g3proxy/g3fcgen.yaml -G port2999 &
 FCGEN_PID=$!
 
@@ -60,6 +62,8 @@ done
 set +x
 
 kill -INT $FCGEN_PID
+NGINX_PID=$(cat /tmp/nginx.pid)
+kill -INT $NGINX_PID
 
 ## g3proxy-ftp
 

@@ -9,13 +9,11 @@ from urllib.parse import urlencode
 
 import pycurl
 
-target_site = 'http://httpbin.org'
+target_site = 'https://httpbin.org'
 target_ca_cert = None
 target_proxy = None
 proxy_ca_cert = None
 local_resolve = None
-request_target_prefix = None
-no_auth = False
 
 ACCEPT_JSON = 'Accept: application/json'
 ACCEPT_HTML = 'Accept: text/html'
@@ -26,7 +24,7 @@ class TestHttpBin(unittest.TestCase):
         self.buffer = BytesIO()
 
         self.c = pycurl.Curl()
-        self.c.setopt(pycurl.HTTP_VERSION,  pycurl.CURL_HTTP_VERSION_1_1)
+        self.c.setopt(pycurl.HTTP_VERSION, pycurl.CURL_HTTP_VERSION_2)
         self.c.setopt(pycurl.WRITEFUNCTION, self.buffer.write)
         self.c.setopt(pycurl.HTTPHEADER, [ACCEPT_JSON])
         if target_ca_cert is not None:
@@ -43,8 +41,6 @@ class TestHttpBin(unittest.TestCase):
 
     def set_url_and_request_target(self, path: str):
         self.c.setopt(pycurl.URL, f"{target_site}{path}")
-        if request_target_prefix is not None:
-            self.c.setopt(pycurl.REQUEST_TARGET, f"{request_target_prefix}{path}")
 
     def test_simple_get(self):
         self.set_url_and_request_target('/get')
@@ -56,16 +52,15 @@ class TestHttpBin(unittest.TestCase):
         self.c.perform()
         self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 401)
 
-        if not no_auth:
-            auth_header = "Authorization: Basic {}".format(base64.standard_b64encode(b'name:pass').decode('utf-8'))
-            self.c.setopt(pycurl.HTTPHEADER, [ACCEPT_JSON, auth_header])
-            self.c.perform()
-            self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
+        auth_header = "Authorization: Basic {}".format(base64.standard_b64encode(b'name:pass').decode('utf-8'))
+        self.c.setopt(pycurl.HTTPHEADER, [ACCEPT_JSON, auth_header])
+        self.c.perform()
+        self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
 
-            auth_header = "Authorization: Basic {}".format(base64.standard_b64encode(b'name:pas').decode('utf-8'))
-            self.c.setopt(pycurl.HTTPHEADER, [ACCEPT_JSON, auth_header])
-            self.c.perform()
-            self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 401)
+        auth_header = "Authorization: Basic {}".format(base64.standard_b64encode(b'name:pas').decode('utf-8'))
+        self.c.setopt(pycurl.HTTPHEADER, [ACCEPT_JSON, auth_header])
+        self.c.perform()
+        self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 401)
 
     def test_base64_decode(self):
         self.set_url_and_request_target('/base64/SFRUUEJJTiBpcyBhd2Vzb21l')
@@ -82,22 +77,13 @@ class TestHttpBin(unittest.TestCase):
         self.c.perform()
         self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
 
-        # add Expect and try again
-        self.c.setopt(pycurl.HTTPHEADER, ['Expect: 100-continue'])
-        self.c.perform()
-        self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
-
     def test_post_large(self):
         post_data = {'data': "Content to post" * 1024 * 100}
         post_fields = urlencode(post_data)
 
+        # curl won't send Expect with HTTP2.0
         self.set_url_and_request_target('/post')
         self.c.setopt(pycurl.POSTFIELDS, post_fields)
-        self.c.perform()
-        self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
-
-        # disable Expect and try again
-        self.c.setopt(pycurl.HTTPHEADER, ['Expect:'])
         self.c.perform()
         self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
 
@@ -118,8 +104,6 @@ if __name__ == '__main__':
     parser.add_argument('--ca-cert', nargs='?', help='CA Cert')
     parser.add_argument('--proxy-ca-cert', nargs='?', help='Proxy CA Cert')
     parser.add_argument('--resolve', nargs='?', help='Local Resolve Record for curl')
-    parser.add_argument('--request-target-prefix', nargs='?', help='Set request target')
-    parser.add_argument('--no-auth', action='store_true', help='No http auth tests')
 
     (args, left_args) = parser.parse_known_args()
 
@@ -131,10 +115,7 @@ if __name__ == '__main__':
         proxy_ca_cert = args.proxy_ca_cert
     if args.resolve is not None:
         local_resolve = args.resolve
-    if args.request_target_prefix is not None:
-        request_target_prefix = args.request_target_prefix
     target_site = args.site
-    no_auth = args.no_auth
 
     left_args.insert(0, sys.argv[0])
 

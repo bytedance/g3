@@ -13,5 +13,5 @@ for proxy in $all_proxies
 do
 	echo "-- ${proxy}"
 	python3 "${PROJECT_DIR}/g3proxy/ci/python3+requests/test_httpbin.py" -x ${proxy} -T http://httpbin.local || :
-	python3 "${PROJECT_DIR}/g3proxy/ci/python3+requests/test_httpbin.py" -x ${proxy} -T https://httpbin.local:9443 --ca-cert "${SCRIPTS_DIR}/g3proxy/rootCA.pem" || :
+	python3 "${PROJECT_DIR}/g3proxy/ci/python3+requests/test_httpbin.py" -x ${proxy} -T https://httpbin.local:2443 --ca-cert "${SCRIPTS_DIR}/g3proxy/rootCA.pem" || :
 done
