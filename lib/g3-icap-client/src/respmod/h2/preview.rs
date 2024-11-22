@@ -144,7 +144,7 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
                         &mut ups_body,
                         &mut self.icap_connection.0,
                         self.copy_config.yield_size(),
-                        initial_body_data,
+                        left_data,
                     )
                 };
 

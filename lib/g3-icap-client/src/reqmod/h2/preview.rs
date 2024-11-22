@@ -125,7 +125,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                         &mut clt_body,
                         &mut self.icap_connection.0,
                         self.copy_config.yield_size(),
-                        initial_body_data,
+                        left_data,
                     )
                 };
 
