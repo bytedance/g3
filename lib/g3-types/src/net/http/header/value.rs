@@ -61,6 +61,10 @@ impl HttpHeaderValue {
         self.original_name = Some(HttpOriginalHeaderName::from(name));
     }
 
+    pub fn set_static_value(&mut self, value: &'static str) {
+        self.inner = Bytes::from_static(value.as_bytes());
+    }
+
     pub fn original_name(&self) -> Option<&str> {
         self.original_name.as_deref()
     }
