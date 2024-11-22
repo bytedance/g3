@@ -134,10 +134,9 @@ impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
         UR: AsyncBufRead + Unpin,
         CW: HttpResponseClientWriter<H> + Unpin,
     {
-        let mut http_rsp = HttpAdaptedResponse::parse(self.icap_reader, http_header_size).await?;
-        http_rsp.set_chunked_encoding();
+        let http_rsp = HttpAdaptedResponse::parse(self.icap_reader, http_header_size).await?;
 
-        let final_rsp = orig_http_response.adapt_to(http_rsp);
+        let final_rsp = orig_http_response.adapt_to_chunked(http_rsp);
         state.mark_clt_send_start();
         clt_writer
             .send_response_header(&final_rsp)

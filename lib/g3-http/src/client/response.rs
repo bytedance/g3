@@ -18,7 +18,7 @@ use std::io::Write;
 use std::str::FromStr;
 
 use bytes::BufMut;
-use http::{HeaderName, Method, Version};
+use http::{header, HeaderName, Method, Version};
 use tokio::io::AsyncBufRead;
 
 use g3_io_ext::LimitedBufReadExt;
@@ -65,20 +65,33 @@ impl HttpForwardRemoteResponse {
         }
     }
 
-    pub fn clone_by_adaptation(&self, adapted: HttpAdaptedResponse) -> Self {
+    pub fn adapt_to_chunked(&self, adapted: HttpAdaptedResponse) -> Self {
+        let mut hop_by_hop_headers = self.hop_by_hop_headers.clone();
+        if !self.chunked_transfer {
+            hop_by_hop_headers.remove(header::CONTENT_LENGTH);
+            if let Some(mut v) = hop_by_hop_headers.remove(header::TRANSFER_ENCODING) {
+                v.set_static_value("chunked");
+                hop_by_hop_headers.insert(header::TRANSFER_ENCODING, v);
+            } else {
+                hop_by_hop_headers.insert(
+                    header::TRANSFER_ENCODING,
+                    HttpHeaderValue::from_static("chunked"),
+                );
+            }
+        }
         HttpForwardRemoteResponse {
             version: adapted.version,
             code: adapted.status.as_u16(),
             reason: adapted.reason,
             end_to_end_headers: adapted.headers,
-            hop_by_hop_headers: self.hop_by_hop_headers.clone(),
+            hop_by_hop_headers,
             original_connection_name: self.original_connection_name.clone(),
             extra_connection_headers: self.extra_connection_headers.clone(),
             origin_header_size: self.origin_header_size,
             keep_alive: self.keep_alive,
-            content_length: self.content_length,
+            content_length: 0,
             chunked_transfer: true,
-            has_transfer_encoding: false,
+            has_transfer_encoding: true,
             has_content_length: false,
             has_keep_alive: false,
         }
@@ -285,7 +298,7 @@ impl HttpForwardRemoteResponse {
                 self.has_transfer_encoding = true;
                 if self.has_content_length {
                     // delete content-length
-                    self.end_to_end_headers.remove(http::header::CONTENT_LENGTH);
+                    self.end_to_end_headers.remove(header::CONTENT_LENGTH);
                     self.content_length = 0;
                     self.keep_alive = false; // according to rfc9112 Section 6.1
                 }

@@ -42,13 +42,6 @@ impl HttpAdaptedRequest {
         }
     }
 
-    pub fn set_chunked_encoding(&mut self) {
-        self.headers.insert(
-            http::header::TRANSFER_ENCODING,
-            HttpHeaderValue::from_static("chunked"),
-        );
-    }
-
     pub async fn parse<R>(
         reader: &mut R,
         header_size: usize,
