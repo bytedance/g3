@@ -99,9 +99,6 @@ impl UserDynamicLuaSource {
         if self.fetch_script.as_os_str().is_empty() {
             return Err(anyhow!("no fetch script is set"));
         }
-        if self.cache_file.as_os_str().is_empty() {
-            return Err(anyhow!("no cache file is set"));
-        }
 
         Ok(())
     }

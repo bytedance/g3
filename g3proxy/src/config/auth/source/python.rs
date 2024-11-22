@@ -89,9 +89,6 @@ impl UserDynamicPythonSource {
         if self.script_file.as_os_str().is_empty() {
             return Err(anyhow!("no script is set"));
         }
-        if self.cache_file.as_os_str().is_empty() {
-            return Err(anyhow!("no cache file is set"));
-        }
 
         Ok(())
     }

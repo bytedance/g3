@@ -65,7 +65,7 @@ The keys used in *map* format are:
 
 * cache_file
 
-  **required**, **type**: :ref:`file path <conf_value_file_path>`
+  **deprecated**, **type**: :ref:`file path <conf_value_file_path>`
 
   The local file to cache results, it will be used during initial load of the user group.
 
@@ -155,7 +155,7 @@ The keys used in *map* format are:
 
 * cache_file
 
-  **required**, **type**: :ref:`file path <conf_value_file_path>`
+  **deprecated**, **type**: :ref:`file path <conf_value_file_path>`
 
   The local file to cache results, it will be used during initial load of the user group.
 
