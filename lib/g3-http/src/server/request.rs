@@ -68,22 +68,35 @@ impl HttpProxyClientRequest {
         }
     }
 
-    pub fn clone_by_adaptation(&self, adapted: HttpAdaptedRequest) -> Self {
+    pub fn adapted_to_chunked(&self, adapted: HttpAdaptedRequest) -> Self {
+        let mut hop_by_hop_headers = self.hop_by_hop_headers.clone();
+        if !self.chunked_transfer {
+            hop_by_hop_headers.remove(header::CONTENT_LENGTH);
+            if let Some(mut v) = hop_by_hop_headers.remove(header::TRANSFER_ENCODING) {
+                v.set_static_value("chunked");
+                hop_by_hop_headers.insert(header::TRANSFER_ENCODING, v);
+            } else {
+                hop_by_hop_headers.insert(
+                    header::TRANSFER_ENCODING,
+                    HttpHeaderValue::from_static("chunked"),
+                );
+            }
+        }
         HttpProxyClientRequest {
             version: adapted.version,
             method: adapted.method,
             uri: adapted.uri,
             end_to_end_headers: adapted.headers,
-            hop_by_hop_headers: self.hop_by_hop_headers.clone(),
+            hop_by_hop_headers,
             auth_info: HttpAuth::None,
             host: None,
             original_connection_name: self.original_connection_name.clone(),
             extra_connection_headers: self.extra_connection_headers.clone(),
             origin_header_size: self.origin_header_size,
             keep_alive: self.keep_alive,
-            content_length: self.content_length,
+            content_length: 0,
             chunked_transfer: true,
-            has_transfer_encoding: false,
+            has_transfer_encoding: true,
             has_content_length: false,
         }
     }

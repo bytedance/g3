@@ -27,12 +27,16 @@ impl HttpResponseForAdaptation for HttpForwardRemoteResponse {
         self.body_type(method)
     }
 
+    fn serialize_for_client(&self) -> Vec<u8> {
+        self.serialize()
+    }
+
     fn serialize_for_adapter(&self) -> Vec<u8> {
         self.serialize_for_adapter()
     }
 
-    fn adapt_to(&self, other: HttpAdaptedResponse) -> Self {
-        self.clone_by_adaptation(other)
+    fn adapt_to_chunked(&self, other: HttpAdaptedResponse) -> Self {
+        self.adapt_to_chunked(other)
     }
 }
 
@@ -41,12 +45,16 @@ impl HttpResponseForAdaptation for HttpTransparentResponse {
         self.body_type(method)
     }
 
+    fn serialize_for_client(&self) -> Vec<u8> {
+        self.serialize()
+    }
+
     fn serialize_for_adapter(&self) -> Vec<u8> {
         self.serialize_for_adapter()
     }
 
-    fn adapt_to(&self, other: HttpAdaptedResponse) -> Self {
-        self.clone_by_adaptation(other)
+    fn adapt_to_chunked(&self, other: HttpAdaptedResponse) -> Self {
+        self.adaptat_to_chunked(other)
     }
 }
 
@@ -56,7 +64,7 @@ where
     H: HttpResponseForAdaptation + Sync,
 {
     async fn send_response_header(&mut self, req: &H) -> std::io::Result<()> {
-        let head = req.serialize_for_adapter();
+        let head = req.serialize_for_client();
         self.write_all(&head).await
     }
 }

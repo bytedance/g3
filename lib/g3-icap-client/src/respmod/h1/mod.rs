@@ -48,8 +48,9 @@ mod impl_trait;
 
 pub trait HttpResponseForAdaptation {
     fn body_type(&self, method: &Method) -> Option<HttpBodyType>;
+    fn serialize_for_client(&self) -> Vec<u8>;
     fn serialize_for_adapter(&self) -> Vec<u8>;
-    fn adapt_to(&self, other: HttpAdaptedResponse) -> Self;
+    fn adapt_to_chunked(&self, other: HttpAdaptedResponse) -> Self;
 }
 
 #[allow(async_fn_in_trait)]

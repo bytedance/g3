@@ -100,7 +100,7 @@ impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
             self.icap_client.config.icap_max_header_size,
             &self.icap_client.config.respond_shared_names,
         )
-            .await?;
+        .await?;
 
         match rsp.code {
             204 | 206 => Err(H1ReqmodAdaptationError::IcapServerErrorResponse(
@@ -136,15 +136,14 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
         CR: AsyncBufRead + Unpin,
         UW: HttpRequestUpstreamWriter<H> + Unpin,
     {
-        let mut http_req = HttpAdaptedRequest::parse(
+        let http_req = HttpAdaptedRequest::parse(
             self.icap_reader,
             http_header_size,
             self.http_req_add_no_via_header,
         )
-            .await?;
-        http_req.set_chunked_encoding();
+        .await?;
 
-        let final_req = orig_http_request.adapt_to(http_req);
+        let final_req = orig_http_request.adapt_to_chunked(http_req);
         ups_writer
             .send_request_header(&final_req)
             .await
