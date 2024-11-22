@@ -23,6 +23,7 @@ all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk
 "${SCRIPTS_DIR}"/g3proxy/mkcert.sh
 
 # start nginx
+[ -d /tmp/nginx ] || mkdir /tmp/nginx
 /usr/sbin/nginx -c "${PROJECT_DIR}"/scripts/coverage/g3proxy/nginx.conf
 
 # start g3fcgen

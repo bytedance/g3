@@ -26,7 +26,7 @@ class TestHttpBin(unittest.TestCase):
         self.buffer = BytesIO()
 
         self.c = pycurl.Curl()
-        self.c.setopt(pycurl.HTTP_VERSION,  pycurl.CURL_HTTP_VERSION_1_1)
+        self.c.setopt(pycurl.HTTP_VERSION, pycurl.CURL_HTTP_VERSION_1_1)
         self.c.setopt(pycurl.WRITEFUNCTION, self.buffer.write)
         self.c.setopt(pycurl.HTTPHEADER, [ACCEPT_JSON])
         if target_ca_cert is not None:
