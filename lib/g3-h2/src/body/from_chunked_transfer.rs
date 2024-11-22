@@ -37,6 +37,8 @@ pub enum H2StreamFromChunkedTransferError {
     SendDataFailed(h2::Error),
     #[error("send trailer failed: {0}")]
     SendTrailerFailed(h2::Error),
+    #[error("sender not in send state")]
+    SenderNotInSendState,
 }
 
 struct TrailerTransfer<'a, R> {
@@ -197,6 +199,11 @@ where
                         return Poll::Ready(Err(H2StreamFromChunkedTransferError::SendDataFailed(
                             e,
                         )));
+                    }
+                    Poll::Ready(Err(H2StreamBodyEncodeTransferError::SenderNotInSendState)) => {
+                        return Poll::Ready(Err(
+                            H2StreamFromChunkedTransferError::SenderNotInSendState,
+                        ));
                     }
                     Poll::Pending => {
                         self.active = encode.is_active();

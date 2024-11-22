@@ -173,6 +173,7 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpResponse<'a, I> {
                                 Err(H2StreamFromChunkedTransferError::ReadError(e)) => Err(H2RespmodAdaptationError::IcapServerReadFailed(e)),
                                 Err(H2StreamFromChunkedTransferError::SendDataFailed(e)) => Err(H2RespmodAdaptationError::HttpClientSendDataFailed(e)),
                                 Err(H2StreamFromChunkedTransferError::SendTrailerFailed(e)) => Err(H2RespmodAdaptationError::HttpClientSendTrailerFailed(e)),
+                                Err(H2StreamFromChunkedTransferError::SenderNotInSendState) => Err(H2RespmodAdaptationError::HttpClientNotInSendState),
                             }
                         }
                         Err(H2StreamToChunkedTransferError::WriteError(e)) => Err(H2RespmodAdaptationError::IcapServerWriteFailed(e)),
@@ -192,6 +193,7 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpResponse<'a, I> {
                         Err(H2StreamFromChunkedTransferError::ReadError(e)) => Err(H2RespmodAdaptationError::IcapServerReadFailed(e)),
                         Err(H2StreamFromChunkedTransferError::SendDataFailed(e)) => Err(H2RespmodAdaptationError::HttpClientSendDataFailed(e)),
                         Err(H2StreamFromChunkedTransferError::SendTrailerFailed(e)) => Err(H2RespmodAdaptationError::HttpClientSendTrailerFailed(e)),
+                        Err(H2StreamFromChunkedTransferError::SenderNotInSendState) => Err(H2RespmodAdaptationError::HttpClientNotInSendState),
                     };
                 }
                 _ = idle_interval.tick() => {
