@@ -119,14 +119,6 @@ escaper:
     fallback_node: route3
 
 server:
-  - name: tls9443
-    escaper: direct
-    type: tls_stream
-    listen: 127.0.0.1:9443
-    tls_server:
-      certificate: httpbin.local.pem
-      private-key: httpbin.local-key.pem
-    upstream: 127.0.0.1:80
   - name: http_route13128
     type: http_proxy
     listen: 127.0.0.1:13128
