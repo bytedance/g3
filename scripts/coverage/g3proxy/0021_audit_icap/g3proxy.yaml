@@ -27,7 +27,6 @@ auditor:
     tls_interception_client:
       ca-certificate: ../rootCA.pem
     tls_ticketer: { }
-    tls_stream_dump: { }
     icap_reqmod_service: icap://127.0.0.1:1344/echo
     icap_respmod_service: icap://127.0.0.1:1344/echo
 
