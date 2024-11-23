@@ -30,6 +30,7 @@ use super::{
     H2RespmodAdaptationError, H2ResponseAdapter, H2SendResponseToClient, RespmodAdaptationEndState,
     RespmodAdaptationRunState,
 };
+use crate::reason::IcapErrorReason;
 use crate::respmod::response::RespmodResponse;
 use crate::respmod::IcapRespmodResponsePayload;
 
@@ -43,6 +44,7 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
         }
         // there should be a payload
         Err(H2RespmodAdaptationError::IcapServerErrorResponse(
+            IcapErrorReason::NoBodyFound,
             icap_rsp.code,
             icap_rsp.reason.to_string(),
         ))

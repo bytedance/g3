@@ -22,6 +22,7 @@ use g3_http::client::HttpResponseParseError;
 use g3_http::PreviewError;
 use g3_io_ext::IdleForceQuitReason;
 
+use crate::reason::IcapErrorReason;
 use crate::respmod::IcapRespmodParseError;
 
 #[derive(Debug, Error)]
@@ -36,8 +37,8 @@ pub enum H1RespmodAdaptationError {
     InvalidIcapServerResponse(#[from] IcapRespmodParseError),
     #[error("invalid http error response from icap server: {0}")]
     InvalidIcapServerHttpResponse(#[from] HttpResponseParseError),
-    #[error("error response from icap server: {0} {1}")]
-    IcapServerErrorResponse(u16, String),
+    #[error("error response from icap server: {0} ({1} {2})")]
+    IcapServerErrorResponse(IcapErrorReason, u16, String),
     #[error("read from http upstream failed: {0:?}")]
     HttpUpstreamReadFailed(io::Error),
     #[error("invalid body in http upstream response")]

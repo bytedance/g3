@@ -29,6 +29,7 @@ use super::{
     BidirectionalRecvHttpRequest, BidirectionalRecvIcapResponse, H2ReqmodAdaptationError,
     H2RequestAdapter, ReqmodAdaptationEndState, ReqmodAdaptationRunState,
 };
+use crate::reason::IcapErrorReason;
 use crate::reqmod::response::ReqmodResponse;
 use crate::reqmod::IcapReqmodResponsePayload;
 
@@ -108,6 +109,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
             100 => {
                 if preview_eof {
                     return Err(H2ReqmodAdaptationError::IcapServerErrorResponse(
+                        IcapErrorReason::ContinueAfterPreviewEof,
                         rsp.code,
                         rsp.reason.to_string(),
                     ));
@@ -251,7 +253,9 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                     self.icap_client.save_connection(self.icap_connection).await;
                 }
                 Err(H2ReqmodAdaptationError::IcapServerErrorResponse(
-                    rsp.code, rsp.reason,
+                    IcapErrorReason::UnknownResponseForPreview,
+                    rsp.code,
+                    rsp.reason,
                 ))
             }
         }

@@ -26,6 +26,7 @@ use super::{
     HttpRequestUpstreamWriter, ReqmodAdaptationEndState, ReqmodAdaptationMidState,
     ReqmodAdaptationRunState,
 };
+use crate::reason::IcapErrorReason;
 use crate::reqmod::response::ReqmodResponse;
 use crate::reqmod::{IcapReqmodParseError, IcapReqmodResponsePayload};
 
@@ -126,7 +127,9 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                     self.icap_client.save_connection(self.icap_connection).await;
                 }
                 Err(H1ReqmodAdaptationError::IcapServerErrorResponse(
-                    rsp.code, rsp.reason,
+                    IcapErrorReason::UnknownResponse,
+                    rsp.code,
+                    rsp.reason,
                 ))
             }
         }
@@ -199,7 +202,9 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                     self.icap_client.save_connection(self.icap_connection).await;
                 }
                 Err(H1ReqmodAdaptationError::IcapServerErrorResponse(
-                    rsp.code, rsp.reason,
+                    IcapErrorReason::UnknownResponse,
+                    rsp.code,
+                    rsp.reason,
                 ))
             }
         }

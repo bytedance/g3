@@ -15,6 +15,7 @@
  */
 
 mod parse;
+mod reason;
 mod serialize;
 
 pub mod reqmod;
