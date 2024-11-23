@@ -17,7 +17,7 @@
 use std::fmt;
 
 #[derive(Debug)]
-pub(crate) enum IcapErrorReason {
+pub enum IcapErrorReason {
     UnknownResponse,
     InvalidResponseAfterContinue,
     UnknownResponseAfterContinue,
