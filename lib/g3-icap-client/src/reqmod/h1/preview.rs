@@ -40,12 +40,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         let mut header = Vec::with_capacity(self.icap_client.partial_request_header.len() + 128);
         header.extend_from_slice(&self.icap_client.partial_request_header);
         self.push_extended_headers(&mut header);
-        match (self.icap_options.support_204, self.icap_options.support_206) {
-            (true, true) => header.put_slice(b"Allow: 204, 206\r\n"),
-            (true, false) => header.put_slice(b"Allow: 204\r\n"),
-            (false, true) => header.put_slice(b"Allow: 206\r\n"),
-            (false, false) => {}
-        }
+        // do not send `Allow: 204, 206` as we don't want to accept 204/206 after 100-continue
         let _ = write!(
             header,
             "Encapsulated: req-hdr=0, req-body={}\r\nPreview: {}\r\n",
