@@ -27,6 +27,7 @@ use super::{
     H2RespmodAdaptationError, H2ResponseAdapter, H2SendResponseToClient, RespmodAdaptationEndState,
     RespmodAdaptationRunState,
 };
+use crate::reason::IcapErrorReason;
 use crate::respmod::response::RespmodResponse;
 use crate::respmod::IcapRespmodResponsePayload;
 
@@ -126,7 +127,9 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
                     self.icap_client.save_connection(self.icap_connection).await;
                 }
                 Err(H2RespmodAdaptationError::IcapServerErrorResponse(
-                    rsp.code, rsp.reason,
+                    IcapErrorReason::UnknownResponse,
+                    rsp.code,
+                    rsp.reason,
                 ))
             }
         }

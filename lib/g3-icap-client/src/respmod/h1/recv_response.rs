@@ -24,6 +24,7 @@ use super::{
     H1RespmodAdaptationError, HttpAdaptedResponse, HttpResponseAdapter, HttpResponseClientWriter,
     HttpResponseForAdaptation, RespmodAdaptationEndState, RespmodAdaptationRunState,
 };
+use crate::reason::IcapErrorReason;
 use crate::respmod::response::RespmodResponse;
 use crate::respmod::IcapRespmodResponsePayload;
 
@@ -40,6 +41,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
         }
         // there should be a payload
         Err(H1RespmodAdaptationError::IcapServerErrorResponse(
+            IcapErrorReason::NoBodyFound,
             icap_rsp.code,
             icap_rsp.reason.to_string(),
         ))

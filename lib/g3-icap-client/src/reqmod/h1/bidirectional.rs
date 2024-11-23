@@ -26,6 +26,7 @@ use super::{
     H1ReqmodAdaptationError, HttpAdaptedRequest, HttpRequestForAdaptation,
     HttpRequestUpstreamWriter, ReqmodAdaptationEndState, ReqmodAdaptationRunState,
 };
+use crate::reason::IcapErrorReason;
 use crate::reqmod::response::ReqmodResponse;
 use crate::{IcapClientReader, IcapClientWriter, IcapServiceClient};
 
@@ -104,11 +105,15 @@ impl<'a, I: IdleCheck> BidirectionalRecvIcapResponse<'a, I> {
 
         match rsp.code {
             204 | 206 => Err(H1ReqmodAdaptationError::IcapServerErrorResponse(
-                rsp.code, rsp.reason,
+                IcapErrorReason::InvalidResponseAfterContinue,
+                rsp.code,
+                rsp.reason,
             )),
             n if (200..300).contains(&n) => Ok(rsp),
             _ => Err(H1ReqmodAdaptationError::IcapServerErrorResponse(
-                rsp.code, rsp.reason,
+                IcapErrorReason::UnknownResponseAfterContinue,
+                rsp.code,
+                rsp.reason,
             )),
         }
     }

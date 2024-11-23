@@ -31,6 +31,7 @@ use g3_io_ext::{IdleCheck, LimitedBufReadExt, LimitedCopyConfig};
 
 use super::recv_request::recv_ups_response_head_after_transfer;
 use super::{H2ReqmodAdaptationError, ReqmodAdaptationEndState, ReqmodAdaptationRunState};
+use crate::reason::IcapErrorReason;
 use crate::reqmod::response::ReqmodResponse;
 use crate::{IcapClientReader, IcapClientWriter, IcapServiceClient};
 
@@ -107,11 +108,15 @@ impl<'a, I: IdleCheck> BidirectionalRecvIcapResponse<'a, I> {
 
         match rsp.code {
             204 | 206 => Err(H2ReqmodAdaptationError::IcapServerErrorResponse(
-                rsp.code, rsp.reason,
+                IcapErrorReason::InvalidResponseAfterContinue,
+                rsp.code,
+                rsp.reason,
             )),
             n if (200..300).contains(&n) => Ok(rsp),
             _ => Err(H2ReqmodAdaptationError::IcapServerErrorResponse(
-                rsp.code, rsp.reason,
+                IcapErrorReason::UnknownResponseAfterContinue,
+                rsp.code,
+                rsp.reason,
             )),
         }
     }

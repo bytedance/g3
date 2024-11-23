@@ -28,6 +28,7 @@ use super::{
     H2ReqmodAdaptationError, H2RequestAdapter, ReqmodAdaptationEndState, ReqmodAdaptationMidState,
     ReqmodAdaptationRunState,
 };
+use crate::reason::IcapErrorReason;
 use crate::reqmod::response::ReqmodResponse;
 use crate::reqmod::{IcapReqmodParseError, IcapReqmodResponsePayload};
 
@@ -129,7 +130,9 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                     self.icap_client.save_connection(self.icap_connection).await;
                 }
                 Err(H2ReqmodAdaptationError::IcapServerErrorResponse(
-                    rsp.code, rsp.reason,
+                    IcapErrorReason::UnknownResponse,
+                    rsp.code,
+                    rsp.reason,
                 ))
             }
         }
@@ -202,7 +205,9 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                     self.icap_client.save_connection(self.icap_connection).await;
                 }
                 Err(H2ReqmodAdaptationError::IcapServerErrorResponse(
-                    rsp.code, rsp.reason,
+                    IcapErrorReason::UnknownResponse,
+                    rsp.code,
+                    rsp.reason,
                 ))
             }
         }

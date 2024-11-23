@@ -20,6 +20,7 @@ use super::{
     H1ReqmodAdaptationError, HttpAdapterErrorResponse, HttpRequestAdapter,
     HttpRequestForAdaptation, ReqmodAdaptationEndState, ReqmodRecvHttpResponseBody,
 };
+use crate::reason::IcapErrorReason;
 use crate::reqmod::response::ReqmodResponse;
 
 impl<I: IdleCheck> HttpRequestAdapter<I> {
@@ -35,6 +36,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         }
         // there should be a payload
         Err(H1ReqmodAdaptationError::IcapServerErrorResponse(
+            IcapErrorReason::NoBodyFound,
             icap_rsp.code,
             icap_rsp.reason.to_string(),
         ))

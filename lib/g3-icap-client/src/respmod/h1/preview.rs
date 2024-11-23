@@ -27,6 +27,7 @@ use super::{
     HttpResponseAdapter, HttpResponseClientWriter, HttpResponseForAdaptation,
     RespmodAdaptationEndState, RespmodAdaptationRunState,
 };
+use crate::reason::IcapErrorReason;
 use crate::reqmod::h1::HttpRequestForAdaptation;
 use crate::respmod::response::RespmodResponse;
 use crate::respmod::IcapRespmodResponsePayload;
@@ -131,6 +132,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
             100 => {
                 if preview_state.preview_eof {
                     return Err(H1RespmodAdaptationError::IcapServerErrorResponse(
+                        IcapErrorReason::ContinueAfterPreviewEof,
                         rsp.code,
                         rsp.reason.to_string(),
                     ));
@@ -256,7 +258,9 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
                     self.icap_client.save_connection(self.icap_connection).await;
                 }
                 Err(H1RespmodAdaptationError::IcapServerErrorResponse(
-                    rsp.code, rsp.reason,
+                    IcapErrorReason::UnknownResponseForPreview,
+                    rsp.code,
+                    rsp.reason,
                 ))
             }
         }

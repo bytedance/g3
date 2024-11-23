@@ -21,6 +21,7 @@ use thiserror::Error;
 use g3_http::client::HttpResponseParseError;
 use g3_io_ext::IdleForceQuitReason;
 
+use crate::reason::IcapErrorReason;
 use crate::respmod::IcapRespmodParseError;
 
 #[derive(Debug, Error)]
@@ -35,8 +36,8 @@ pub enum H2RespmodAdaptationError {
     InvalidIcapServerResponse(#[from] IcapRespmodParseError),
     #[error("invalid http error response from icap server: {0}")]
     InvalidIcapServerHttpResponse(#[from] HttpResponseParseError),
-    #[error("error response from icap server: {0} {1}")]
-    IcapServerErrorResponse(u16, String),
+    #[error("error response from icap server: {0} ({1} {2})")]
+    IcapServerErrorResponse(IcapErrorReason, u16, String),
     #[error("recv data from http upstream failed: {0}")]
     HttpUpstreamRecvDataFailed(h2::Error),
     #[error("recv trailer from http upstream failed: {0}")]
