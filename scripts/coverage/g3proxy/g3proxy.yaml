@@ -30,38 +30,6 @@ resolver:
     primary: cares1
     standby: cares2
 
-user-group:
-  - name: default
-    static_users:
-      - name: t1
-        token:
-          salt: 4e8f8a4e37f0fa1b
-          md5: d9d963915b9815d4cc39c196c2868900
-          sha1: c28640e7b1a3d9db98187632aeba99c0cff0ffd4
-        dst_host_filter_set:
-          exact_match:
-            default: allow
-            forbid: 192.168.1.1
-            allow:
-              - 127.0.0.1
-          subnet_match:
-            default: allow
-            forbid:
-              - 192.168.0.0/16
-        dst_port_filter:
-          default: allow
-          forbid:
-            - 22
-            - 100-200
-        tcp_conn_limit: 10M
-        udp_relay_limit: 1M
-        resolve_redirection:
-          - exact: httpbin.local
-            to: 127.0.0.1
-    source:
-      type: file
-      path: dynamic_users.json
-
 escaper:
   - name: direct
     type: direct_fixed
