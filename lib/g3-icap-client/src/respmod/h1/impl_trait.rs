@@ -54,7 +54,7 @@ impl HttpResponseForAdaptation for HttpTransparentResponse {
     }
 
     fn adapt_to_chunked(&self, other: HttpAdaptedResponse) -> Self {
-        self.adaptat_to_chunked(other)
+        self.adapt_to_chunked(other)
     }
 }
 

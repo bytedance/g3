@@ -44,7 +44,7 @@ impl HttpRequestForAdaptation for HttpProxyClientRequest {
     }
 
     fn adapt_to_chunked(&self, other: HttpAdaptedRequest) -> Self {
-        self.adapted_to_chunked(other)
+        self.adapt_to_chunked(other)
     }
 }
 
