@@ -69,10 +69,9 @@ impl HttpTransparentResponse {
         }
     }
 
-    pub fn adaptat_to_chunked(&self, adapted: HttpAdaptedResponse) -> Self {
+    pub fn adapt_to_chunked(&self, adapted: HttpAdaptedResponse) -> Self {
         let mut hop_by_hop_headers = self.hop_by_hop_headers.clone();
         if !self.chunked_transfer {
-            hop_by_hop_headers.remove(header::CONTENT_LENGTH);
             if let Some(mut v) = hop_by_hop_headers.remove(header::TRANSFER_ENCODING) {
                 v.set_static_value("chunked");
                 hop_by_hop_headers.insert(header::TRANSFER_ENCODING, v);
