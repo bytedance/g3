@@ -19,10 +19,11 @@ use std::time::Duration;
 
 use slog::{slog_info, Logger};
 
-use crate::module::udp_relay::UdpRelayTaskNotes;
-use crate::serve::{ServerTaskError, ServerTaskNotes};
 use g3_slog_types::{LtDateTime, LtDuration, LtUpstreamAddr, LtUuid};
 use g3_types::net::UpstreamAddr;
+
+use crate::module::udp_relay::UdpRelayTaskNotes;
+use crate::serve::{ServerTaskError, ServerTaskNotes};
 
 pub(crate) struct TaskLogForUdpAssociate<'a> {
     pub(crate) task_notes: &'a ServerTaskNotes,
@@ -44,6 +45,86 @@ pub(crate) struct TaskLogForUdpAssociate<'a> {
 }
 
 impl TaskLogForUdpAssociate<'_> {
+    pub(crate) fn log_created(&self, logger: &Logger) {
+        if let Some(user_ctx) = self.task_notes.user_ctx() {
+            if user_ctx.skip_log() {
+                return;
+            }
+        }
+
+        slog_info!(logger, "";
+            "task_type" => "UdpAssociate",
+            "task_id" => LtUuid(&self.task_notes.id),
+            "task_event" => "created",
+            "stage" => self.task_notes.stage.brief(),
+            "start_at" => LtDateTime(&self.task_notes.start_at),
+            "user" => self.task_notes.raw_user_name(),
+            "tcp_server_addr" => self.tcp_server_addr,
+            "tcp_client_addr" => self.tcp_client_addr,
+            "wait_time" => LtDuration(self.task_notes.wait_time),
+        )
+    }
+
+    pub(crate) fn log_connected(&self, logger: &Logger) {
+        if let Some(user_ctx) = self.task_notes.user_ctx() {
+            if user_ctx.skip_log() {
+                return;
+            }
+        }
+
+        slog_info!(logger, "";
+            "task_type" => "UdpAssociate",
+            "task_id" => LtUuid(&self.task_notes.id),
+            "task_event" => "connected",
+            "stage" => self.task_notes.stage.brief(),
+            "start_at" => LtDateTime(&self.task_notes.start_at),
+            "user" => self.task_notes.raw_user_name(),
+            "tcp_server_addr" => self.tcp_server_addr,
+            "tcp_client_addr" => self.tcp_client_addr,
+            "udp_listen_addr" => self.udp_listen_addr,
+            "udp_client_addr" => self.udp_client_addr,
+            "initial_peer" => LtUpstreamAddr(self.initial_peer),
+            "escaper" => self.udp_notes.escaper.as_str(),
+            "wait_time" => LtDuration(self.task_notes.wait_time),
+            "ready_time" => LtDuration(self.task_notes.ready_time),
+            "c_rd_bytes" => self.client_rd_bytes,
+            "c_rd_packets" => self.client_rd_packets,
+        )
+    }
+
+    pub(crate) fn log_periodic(&self, logger: &Logger) {
+        if let Some(user_ctx) = self.task_notes.user_ctx() {
+            if user_ctx.skip_log() {
+                return;
+            }
+        }
+
+        slog_info!(logger, "";
+            "task_type" => "UdpAssociate",
+            "task_id" => LtUuid(&self.task_notes.id),
+            "task_event" => "periodic",
+            "stage" => self.task_notes.stage.brief(),
+            "start_at" => LtDateTime(&self.task_notes.start_at),
+            "user" => self.task_notes.raw_user_name(),
+            "tcp_server_addr" => self.tcp_server_addr,
+            "tcp_client_addr" => self.tcp_client_addr,
+            "udp_listen_addr" => self.udp_listen_addr,
+            "udp_client_addr" => self.udp_client_addr,
+            "initial_peer" => LtUpstreamAddr(self.initial_peer),
+            "escaper" => self.udp_notes.escaper.as_str(),
+            "wait_time" => LtDuration(self.task_notes.wait_time),
+            "ready_time" => LtDuration(self.task_notes.ready_time),
+            "c_rd_bytes" => self.client_rd_bytes,
+            "c_rd_packets" => self.client_rd_packets,
+            "c_wr_bytes" => self.client_wr_bytes,
+            "c_wr_packets" => self.client_wr_packets,
+            "r_rd_bytes" => self.remote_rd_bytes,
+            "r_rd_packets" => self.remote_rd_packets,
+            "r_wr_bytes" => self.remote_wr_bytes,
+            "r_wr_packets" => self.remote_wr_packets,
+        )
+    }
+
     pub(crate) fn log(&self, logger: &Logger, e: &ServerTaskError) {
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             if user_ctx.skip_log() {
@@ -54,6 +135,7 @@ impl TaskLogForUdpAssociate<'_> {
         slog_info!(logger, "{}", e;
             "task_type" => "UdpAssociate",
             "task_id" => LtUuid(&self.task_notes.id),
+            "task_event" => "finished",
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
             "user" => self.task_notes.raw_user_name(),
