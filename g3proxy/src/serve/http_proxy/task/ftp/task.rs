@@ -19,7 +19,6 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use http::Method;
-use log::debug;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::time::Instant;
 
@@ -29,7 +28,7 @@ use g3_ftp_client::{
 };
 use g3_http::server::HttpProxyClientRequest;
 use g3_http::{HttpBodyDecodeReader, HttpBodyReader, HttpBodyType};
-use g3_io_ext::{GlobalLimitGroup, LimitedCopy, LimitedCopyError, SizedReader};
+use g3_io_ext::{GlobalLimitGroup, LimitedCopy, LimitedCopyError, OptionalInterval, SizedReader};
 use g3_types::acl::AclAction;
 use g3_types::net::ProxyRequestType;
 
@@ -110,6 +109,18 @@ impl<'a> FtpOverHttpTask<'a> {
         }
     }
 
+    fn get_log_interval(&self) -> OptionalInterval {
+        self.ctx
+            .server_config
+            .task_log_flush_interval
+            .map(|log_interval| {
+                let log_interval =
+                    tokio::time::interval_at(Instant::now() + log_interval, log_interval);
+                OptionalInterval::with(log_interval)
+            })
+            .unwrap_or_default()
+    }
+
     pub(crate) async fn run<CDR, CDW>(
         &mut self,
         clt_r: &mut HttpClientReader<CDR>,
@@ -132,13 +143,6 @@ impl<'a> FtpOverHttpTask<'a> {
     }
 
     fn pre_start(&self) {
-        debug!(
-            "HttpProxy/FtpOverHttp: new client from {} to {} server {}, using escaper {}",
-            self.ctx.client_addr(),
-            self.ctx.server_config.server_type(),
-            self.ctx.server_config.name(),
-            self.ctx.server_config.escaper
-        );
         self.ctx.server_stats.task_ftp_over_http.add_task();
         self.ctx.server_stats.task_ftp_over_http.inc_alive_task();
 
@@ -147,6 +151,10 @@ impl<'a> FtpOverHttpTask<'a> {
                 s.req_total.add_ftp_over_http();
                 s.req_alive.add_ftp_over_http();
             });
+        }
+
+        if self.ctx.server_config.flush_task_log_on_created {
+            self.get_log_context().log_created(&self.ctx.task_logger);
         }
     }
 
@@ -650,6 +658,11 @@ impl<'a> FtpOverHttpTask<'a> {
                     .connection_provider()
                     .connect_context()
                     .fetch_control_tcp_notes(&mut self.ftp_notes.control_tcp_notes);
+
+                if self.ctx.server_config.flush_task_log_on_connected {
+                    self.get_log_context().log_connected(&self.ctx.task_logger);
+                }
+
                 Ok(client)
             }
             Err((e, ftp_connection_provider)) => {
@@ -1184,6 +1197,7 @@ impl<'a> FtpOverHttpTask<'a> {
         let idle_duration = self.ctx.server_config.task_idle_check_duration;
         let mut idle_interval =
             tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut log_interval = self.get_log_interval();
         let mut idle_count = 0;
         loop {
             tokio::select! {
@@ -1225,6 +1239,9 @@ impl<'a> FtpOverHttpTask<'a> {
                         Ok(Err(LimitedCopyError::WriteFailed(e))) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
                         Err(_) => Err(ServerTaskError::UpstreamAppTimeout("timeout to wait transfer end")),
                     };
+                }
+                _ = log_interval.tick() => {
+                    self.get_log_context().log_periodic(&self.ctx.task_logger);
                 }
                 _ = idle_interval.tick() => {
                     if data_copy.is_idle() {
@@ -1397,6 +1414,7 @@ impl<'a> FtpOverHttpTask<'a> {
         let idle_duration = self.ctx.server_config.task_idle_check_duration;
         let mut idle_interval =
             tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut log_interval = self.get_log_interval();
         let mut idle_count = 0;
 
         loop {
@@ -1427,6 +1445,9 @@ impl<'a> FtpOverHttpTask<'a> {
                     return Err(ServerTaskError::UpstreamAppError(
                         anyhow!("unexpected server end reply after {} bytes sent)", data_copy.copied_size())
                     ));
+                }
+                _ = log_interval.tick() => {
+                    self.get_log_context().log_periodic(&self.ctx.task_logger);
                 }
                 _ = idle_interval.tick() => {
                     if data_copy.is_idle() {
