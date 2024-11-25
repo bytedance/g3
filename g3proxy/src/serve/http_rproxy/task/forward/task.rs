@@ -18,7 +18,6 @@ use std::sync::Arc;
 
 use futures_util::FutureExt;
 use http::header;
-use log::debug;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
@@ -27,7 +26,7 @@ use g3_http::server::HttpProxyClientRequest;
 use g3_http::{HttpBodyReader, HttpBodyType};
 use g3_io_ext::{
     GlobalLimitGroup, LimitedBufReadExt, LimitedCopy, LimitedCopyError, LimitedReadExt,
-    LimitedWriteExt,
+    LimitedWriteExt, OptionalInterval,
 };
 use g3_types::acl::AclAction;
 
@@ -205,6 +204,18 @@ impl<'a> HttpRProxyForwardTask<'a> {
         }
     }
 
+    fn get_log_interval(&self) -> OptionalInterval {
+        self.ctx
+            .server_config
+            .task_log_flush_interval
+            .map(|log_interval| {
+                let log_interval =
+                    tokio::time::interval_at(Instant::now() + log_interval, log_interval);
+                OptionalInterval::with(log_interval)
+            })
+            .unwrap_or_default()
+    }
+
     pub(crate) async fn run<CDR, CDW>(
         &mut self,
         clt_r: &mut Option<HttpClientReader<CDR>>,
@@ -228,13 +239,6 @@ impl<'a> HttpRProxyForwardTask<'a> {
     }
 
     fn pre_start(&self) {
-        debug!(
-            "HttpRProxy/FORWARD: new client from {} to {} server {}, using escaper {}",
-            self.ctx.client_addr(),
-            self.ctx.server_config.server_type(),
-            self.ctx.server_config.name(),
-            self.ctx.server_config.escaper
-        );
         self.ctx.server_stats.task_http_forward.add_task();
         self.ctx.server_stats.task_http_forward.inc_alive_task();
 
@@ -243,6 +247,10 @@ impl<'a> HttpRProxyForwardTask<'a> {
                 s.req_total.add_http_forward(self.is_https);
                 s.req_alive.add_http_forward(self.is_https);
             });
+        }
+
+        if self.ctx.server_config.flush_task_log_on_created {
+            self.get_log_context().log_created(&self.ctx.task_logger);
         }
     }
 
@@ -620,6 +628,11 @@ impl<'a> HttpRProxyForwardTask<'a> {
                 };
             }
         }
+
+        if self.ctx.server_config.flush_task_log_on_connected {
+            self.get_log_context().log_connected(&self.ctx.task_logger);
+        }
+
         ups_c
             .0
             .prepare_new(&self.task_notes, self.host.config.upstream());
@@ -812,6 +825,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
         let idle_duration = self.ctx.server_config.task_idle_check_duration;
         let mut idle_interval =
             tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut log_interval = self.get_log_interval();
         let mut idle_count = 0;
         loop {
             tokio::select! {
@@ -844,6 +858,9 @@ impl<'a> HttpRProxyForwardTask<'a> {
                     })?;
                     self.http_notes.mark_req_send_all();
                     break;
+                }
+                _ = log_interval.tick() => {
+                    self.get_log_context().log_periodic(&self.ctx.task_logger);
                 }
                 _ = idle_interval.tick() => {
                     if clt_to_ups.is_idle() {
@@ -1029,6 +1046,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
         let idle_duration = self.ctx.server_config.task_idle_check_duration;
         let mut idle_interval =
             tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut log_interval = self.get_log_interval();
         let mut idle_count = 0;
         loop {
             tokio::select! {
@@ -1049,6 +1067,9 @@ impl<'a> HttpRProxyForwardTask<'a> {
                         }
                         Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
                     };
+                }
+                _ = log_interval.tick() => {
+                    self.get_log_context().log_periodic(&self.ctx.task_logger);
                 }
                 _ = idle_interval.tick() => {
                     if ups_to_clt.is_idle() {
