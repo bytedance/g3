@@ -215,7 +215,6 @@ impl<'a> HttpProxyForwardTask<'a> {
             http_notes: &self.http_notes,
             http_user_agent,
             tcp_notes: &self.tcp_notes,
-            total_time: self.task_notes.time_elapsed(),
             client_rd_bytes: self.task_stats.clt.read.get_bytes(),
             client_wr_bytes: self.task_stats.clt.write.get_bytes(),
             remote_rd_bytes: self.task_stats.ups.read.get_bytes(),

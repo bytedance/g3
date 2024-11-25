@@ -99,7 +99,6 @@ impl<'a> FtpOverHttpTask<'a> {
             task_notes: &self.task_notes,
             ftp_notes: &self.ftp_notes,
             http_user_agent,
-            total_time: self.task_notes.time_elapsed(),
             client_rd_bytes: self.task_stats.http_client.read.get_bytes(),
             client_wr_bytes: self.task_stats.http_client.write.get_bytes(),
             ftp_c_rd_bytes: self.task_stats.ftp_server.control_read.get_bytes(),

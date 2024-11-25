@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-use std::time::Duration;
-
 use slog::{slog_info, Logger};
 
 use g3_slog_types::{
     LtDateTime, LtDuration, LtHttpMethod, LtHttpUri, LtIpAddr, LtUpstreamAddr, LtUuid,
 };
 
+use super::TaskEvent;
 use crate::module::ftp_over_http::FtpOverHttpTaskNotes;
 use crate::serve::{ServerTaskError, ServerTaskNotes};
 
@@ -29,7 +28,6 @@ pub(crate) struct TaskLogForFtpOverHttp<'a> {
     pub(crate) task_notes: &'a ServerTaskNotes,
     pub(crate) ftp_notes: &'a FtpOverHttpTaskNotes,
     pub(crate) http_user_agent: Option<&'a str>,
-    pub(crate) total_time: Duration,
     pub(crate) client_rd_bytes: u64,
     pub(crate) client_wr_bytes: u64,
     pub(crate) ftp_c_rd_bytes: u64,
@@ -49,7 +47,7 @@ impl TaskLogForFtpOverHttp<'_> {
         slog_info!(logger, "";
             "task_type" => "FtpOverHttp",
             "task_id" => LtUuid(&self.task_notes.id),
-            "task_event" => "created",
+            "task_event" => TaskEvent::Created.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
             "user" => self.task_notes.raw_user_name(),
@@ -73,7 +71,7 @@ impl TaskLogForFtpOverHttp<'_> {
         slog_info!(logger, "";
             "task_type" => "FtpOverHttp",
             "task_id" => LtUuid(&self.task_notes.id),
-            "task_event" => "connected",
+            "task_event" => TaskEvent::Connected.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
             "user" => self.task_notes.raw_user_name(),
@@ -108,7 +106,7 @@ impl TaskLogForFtpOverHttp<'_> {
         slog_info!(logger, "";
             "task_type" => "FtpOverHttp",
             "task_id" => LtUuid(&self.task_notes.id),
-            "task_event" => "periodic",
+            "task_event" => TaskEvent::Periodic.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
             "user" => self.task_notes.raw_user_name(),
@@ -132,7 +130,7 @@ impl TaskLogForFtpOverHttp<'_> {
             "rsp_status" => self.ftp_notes.rsp_status,
             "wait_time" => LtDuration(self.task_notes.wait_time),
             "ready_time" => LtDuration(self.task_notes.ready_time),
-            "total_time" => LtDuration(self.total_time),
+            "total_time" => LtDuration(self.task_notes.time_elapsed()),
             "c_rd_bytes" => self.client_rd_bytes,
             "c_wr_bytes" => self.client_wr_bytes,
             "ftp_c_rd_bytes" => self.ftp_c_rd_bytes,
@@ -152,7 +150,7 @@ impl TaskLogForFtpOverHttp<'_> {
         slog_info!(logger, "{}", e;
             "task_type" => "FtpOverHttp",
             "task_id" => LtUuid(&self.task_notes.id),
-            "task_event" => "finished",
+            "task_event" => TaskEvent::Finished.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
             "user" => self.task_notes.raw_user_name(),
@@ -177,7 +175,7 @@ impl TaskLogForFtpOverHttp<'_> {
             "rsp_status" => self.ftp_notes.rsp_status,
             "wait_time" => LtDuration(self.task_notes.wait_time),
             "ready_time" => LtDuration(self.task_notes.ready_time),
-            "total_time" => LtDuration(self.total_time),
+            "total_time" => LtDuration(self.task_notes.time_elapsed()),
             "c_rd_bytes" => self.client_rd_bytes,
             "c_wr_bytes" => self.client_wr_bytes,
             "ftp_c_rd_bytes" => self.ftp_c_rd_bytes,

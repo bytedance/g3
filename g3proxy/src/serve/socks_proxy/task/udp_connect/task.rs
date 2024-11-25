@@ -81,7 +81,6 @@ impl SocksProxyUdpConnectTask {
             udp_client_addr: self.udp_client_addr,
             upstream: self.upstream.as_ref(),
             udp_notes: &self.udp_notes,
-            total_time: self.task_notes.time_elapsed(),
             client_rd_bytes: self.task_stats.clt.recv.get_bytes(),
             client_rd_packets: self.task_stats.clt.recv.get_packets(),
             client_wr_bytes: self.task_stats.clt.send.get_bytes(),
