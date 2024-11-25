@@ -52,3 +52,21 @@ pub(crate) fn get_shared_logger(
         ))
     })
 }
+
+enum TaskEvent {
+    Created,
+    Connected,
+    Periodic,
+    Finished,
+}
+
+impl TaskEvent {
+    fn as_str(&self) -> &'static str {
+        match self {
+            TaskEvent::Created => "created",
+            TaskEvent::Connected => "connected",
+            TaskEvent::Periodic => "periodic",
+            TaskEvent::Finished => "finished",
+        }
+    }
+}

@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-use std::time::Duration;
-
 use slog::{slog_info, Logger};
 
 use g3_slog_types::{
@@ -23,6 +21,7 @@ use g3_slog_types::{
 };
 use g3_types::net::UpstreamAddr;
 
+use super::TaskEvent;
 use crate::module::http_forward::HttpForwardTaskNotes;
 use crate::module::tcp_connect::TcpConnectTaskNotes;
 use crate::serve::{ServerTaskError, ServerTaskNotes};
@@ -33,7 +32,6 @@ pub(crate) struct TaskLogForHttpForward<'a> {
     pub(crate) http_notes: &'a HttpForwardTaskNotes,
     pub(crate) http_user_agent: Option<&'a str>,
     pub(crate) tcp_notes: &'a TcpConnectTaskNotes,
-    pub(crate) total_time: Duration,
     pub(crate) client_rd_bytes: u64,
     pub(crate) client_wr_bytes: u64,
     pub(crate) remote_rd_bytes: u64,
@@ -51,7 +49,7 @@ impl TaskLogForHttpForward<'_> {
         slog_info!(logger, "";
             "task_type" => "HttpForward",
             "task_id" => LtUuid(&self.task_notes.id),
-            "task_event" => "created",
+            "task_event" => TaskEvent::Created.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
             "user" => self.task_notes.raw_user_name(),
@@ -76,7 +74,7 @@ impl TaskLogForHttpForward<'_> {
         slog_info!(logger, "";
             "task_type" => "HttpForward",
             "task_id" => LtUuid(&self.task_notes.id),
-            "task_event" => "connected",
+            "task_event" => TaskEvent::Connected.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
             "user" => self.task_notes.raw_user_name(),
@@ -110,7 +108,7 @@ impl TaskLogForHttpForward<'_> {
         slog_info!(logger, "";
             "task_type" => "HttpForward",
             "task_id" => LtUuid(&self.task_notes.id),
-            "task_event" => "periodic",
+            "task_event" => TaskEvent::Periodic.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
             "user" => self.task_notes.raw_user_name(),
@@ -133,6 +131,7 @@ impl TaskLogForHttpForward<'_> {
             "origin_status" => self.http_notes.origin_status,
             "wait_time" => LtDuration(self.task_notes.wait_time),
             "ready_time" => LtDuration(self.task_notes.ready_time),
+            "total_time" => LtDuration(self.task_notes.time_elapsed()),
             "dur_req_send_hdr" => LtDuration(self.http_notes.dur_req_send_hdr),
             "dur_req_send_all" => LtDuration(self.http_notes.dur_req_send_all),
             "dur_rsp_recv_hdr" => LtDuration(self.http_notes.dur_rsp_recv_hdr),
@@ -154,7 +153,7 @@ impl TaskLogForHttpForward<'_> {
         slog_info!(logger, "{}", e;
             "task_type" => "HttpForward",
             "task_id" => LtUuid(&self.task_notes.id),
-            "task_event" => "finished",
+            "task_event" => TaskEvent::Finished.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
             "user" => self.task_notes.raw_user_name(),
@@ -182,7 +181,7 @@ impl TaskLogForHttpForward<'_> {
             "dur_req_send_all" => LtDuration(self.http_notes.dur_req_send_all),
             "dur_rsp_recv_hdr" => LtDuration(self.http_notes.dur_rsp_recv_hdr),
             "dur_rsp_recv_all" => LtDuration(self.http_notes.dur_rsp_recv_all),
-            "total_time" => LtDuration(self.total_time),
+            "total_time" => LtDuration(self.task_notes.time_elapsed()),
             "c_rd_bytes" => self.client_rd_bytes,
             "c_wr_bytes" => self.client_wr_bytes,
             "r_rd_bytes" => self.remote_rd_bytes,

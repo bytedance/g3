@@ -15,13 +15,13 @@
  */
 
 use std::net::SocketAddr;
-use std::time::Duration;
 
 use slog::{slog_info, Logger};
 
 use g3_slog_types::{LtDateTime, LtDuration, LtUpstreamAddr, LtUuid};
 use g3_types::net::UpstreamAddr;
 
+use super::TaskEvent;
 use crate::module::udp_relay::UdpRelayTaskNotes;
 use crate::serve::{ServerTaskError, ServerTaskNotes};
 
@@ -33,7 +33,6 @@ pub(crate) struct TaskLogForUdpAssociate<'a> {
     pub(crate) udp_client_addr: Option<SocketAddr>,
     pub(crate) initial_peer: &'a UpstreamAddr,
     pub(crate) udp_notes: &'a UdpRelayTaskNotes,
-    pub(crate) total_time: Duration,
     pub(crate) client_rd_bytes: u64,
     pub(crate) client_rd_packets: u64,
     pub(crate) client_wr_bytes: u64,
@@ -55,7 +54,7 @@ impl TaskLogForUdpAssociate<'_> {
         slog_info!(logger, "";
             "task_type" => "UdpAssociate",
             "task_id" => LtUuid(&self.task_notes.id),
-            "task_event" => "created",
+            "task_event" => TaskEvent::Created.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
             "user" => self.task_notes.raw_user_name(),
@@ -75,7 +74,7 @@ impl TaskLogForUdpAssociate<'_> {
         slog_info!(logger, "";
             "task_type" => "UdpAssociate",
             "task_id" => LtUuid(&self.task_notes.id),
-            "task_event" => "connected",
+            "task_event" => TaskEvent::Connected.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
             "user" => self.task_notes.raw_user_name(),
@@ -102,7 +101,7 @@ impl TaskLogForUdpAssociate<'_> {
         slog_info!(logger, "";
             "task_type" => "UdpAssociate",
             "task_id" => LtUuid(&self.task_notes.id),
-            "task_event" => "periodic",
+            "task_event" => TaskEvent::Periodic.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
             "user" => self.task_notes.raw_user_name(),
@@ -114,6 +113,7 @@ impl TaskLogForUdpAssociate<'_> {
             "escaper" => self.udp_notes.escaper.as_str(),
             "wait_time" => LtDuration(self.task_notes.wait_time),
             "ready_time" => LtDuration(self.task_notes.ready_time),
+            "total_time" => LtDuration(self.task_notes.time_elapsed()),
             "c_rd_bytes" => self.client_rd_bytes,
             "c_rd_packets" => self.client_rd_packets,
             "c_wr_bytes" => self.client_wr_bytes,
@@ -135,7 +135,7 @@ impl TaskLogForUdpAssociate<'_> {
         slog_info!(logger, "{}", e;
             "task_type" => "UdpAssociate",
             "task_id" => LtUuid(&self.task_notes.id),
-            "task_event" => "finished",
+            "task_event" => TaskEvent::Finished.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
             "user" => self.task_notes.raw_user_name(),
@@ -148,7 +148,7 @@ impl TaskLogForUdpAssociate<'_> {
             "reason" => e.brief(),
             "wait_time" => LtDuration(self.task_notes.wait_time),
             "ready_time" => LtDuration(self.task_notes.ready_time),
-            "total_time" => LtDuration(self.total_time),
+            "total_time" => LtDuration(self.task_notes.time_elapsed()),
             "c_rd_bytes" => self.client_rd_bytes,
             "c_rd_packets" => self.client_rd_packets,
             "c_wr_bytes" => self.client_wr_bytes,
