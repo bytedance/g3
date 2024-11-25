@@ -126,7 +126,7 @@ The selected escaper name.
 reason
 ------
 
-**required**, **type**: enum string
+**optional**, **type**: enum string
 
 The brief reason why the task ends.
 
@@ -155,9 +155,9 @@ and the remote channel have been established. The value may be empty if the task
 total_time
 ----------
 
-**required**, **type**: time duration string
+**optional**, **type**: time duration string
 
-Show the time from the creation of the task to the end of the task.
+Show the time from the creation of the task to the time of this log.
 
 Sub Types
 =========
