@@ -20,7 +20,6 @@ use std::time::Duration;
 use anyhow::anyhow;
 use futures_util::FutureExt;
 use http::header;
-use log::debug;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
@@ -36,7 +35,7 @@ use g3_icap_client::respmod::h1::{
 };
 use g3_io_ext::{
     GlobalLimitGroup, LimitedBufReadExt, LimitedCopy, LimitedCopyError, LimitedReadExt,
-    LimitedWriteExt,
+    LimitedWriteExt, OptionalInterval,
 };
 use g3_types::acl::AclAction;
 use g3_types::net::{HttpHeaderMap, ProxyRequestType, UpstreamAddr};
@@ -224,6 +223,18 @@ impl<'a> HttpProxyForwardTask<'a> {
         }
     }
 
+    fn get_log_interval(&self) -> OptionalInterval {
+        self.ctx
+            .server_config
+            .task_log_flush_interval
+            .map(|log_interval| {
+                let log_interval =
+                    tokio::time::interval_at(Instant::now() + log_interval, log_interval);
+                OptionalInterval::with(log_interval)
+            })
+            .unwrap_or_default()
+    }
+
     pub(crate) async fn run<CDR, CDW>(
         &mut self,
         clt_r: &mut Option<HttpClientReader<CDR>>,
@@ -247,13 +258,6 @@ impl<'a> HttpProxyForwardTask<'a> {
     }
 
     fn pre_start(&self) {
-        debug!(
-            "HttpProxy/FORWARD: new client from {} to {} server {}, using escaper {}",
-            self.ctx.client_addr(),
-            self.ctx.server_config.server_type(),
-            self.ctx.server_config.name(),
-            self.ctx.server_config.escaper
-        );
         self.ctx.server_stats.task_http_forward.add_task();
         self.ctx.server_stats.task_http_forward.inc_alive_task();
 
@@ -262,6 +266,10 @@ impl<'a> HttpProxyForwardTask<'a> {
                 s.req_total.add_http_forward(self.is_https);
                 s.req_alive.add_http_forward(self.is_https);
             });
+        }
+
+        if self.ctx.server_config.flush_task_log_on_created {
+            self.get_log_context().log_created(&self.ctx.task_logger);
         }
     }
 
@@ -737,6 +745,11 @@ impl<'a> HttpProxyForwardTask<'a> {
                 };
             }
         }
+
+        if self.ctx.server_config.flush_task_log_on_connected {
+            self.get_log_context().log_connected(&self.ctx.task_logger);
+        }
+
         ups_c.0.prepare_new(&self.task_notes, &self.upstream);
 
         if audit_task {
@@ -804,7 +817,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         ups_c: BoxHttpForwardConnection,
     ) -> ServerTaskResult<Option<BoxHttpForwardConnection>>
     where
-        CDR: AsyncRead + Unpin,
+        CDR: AsyncRead + Send + Unpin,
         CDW: AsyncWrite + Send + Unpin,
     {
         if self.req.body_type().is_none() {
@@ -847,6 +860,8 @@ impl<'a> HttpProxyForwardTask<'a> {
                 &mut ups_w_adaptation,
             )
             .boxed();
+
+        let mut log_interval = self.get_log_interval();
 
         let mut rsp_header: Option<HttpForwardRemoteResponse> = None;
         loop {
@@ -895,6 +910,9 @@ impl<'a> HttpProxyForwardTask<'a> {
                             return Err(e.into());
                         }
                     }
+                }
+                _ = log_interval.tick() => {
+                    self.get_log_context().log_periodic(&self.ctx.task_logger);
                 }
             }
         }
@@ -1117,7 +1135,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         mut ups_c: BoxHttpForwardConnection,
     ) -> ServerTaskResult<Option<BoxHttpForwardConnection>>
     where
-        R: AsyncBufRead + Unpin,
+        R: AsyncBufRead + Send + Unpin,
         W: AsyncWrite + Send + Unpin,
     {
         let ups_w = &mut ups_c.0;
@@ -1183,6 +1201,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         let idle_duration = self.ctx.server_config.task_idle_check_duration;
         let mut idle_interval =
             tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut log_interval = self.get_log_interval();
         let mut idle_count = 0;
         loop {
             tokio::select! {
@@ -1215,6 +1234,9 @@ impl<'a> HttpProxyForwardTask<'a> {
                     })?;
                     self.http_notes.mark_req_send_all();
                     break;
+                }
+                _ = log_interval.tick() => {
+                    self.get_log_context().log_periodic(&self.ctx.task_logger);
                 }
                 _ = idle_interval.tick() => {
                     if clt_to_ups.is_idle() {
@@ -1358,7 +1380,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         adaptation_respond_shared_headers: Option<HttpHeaderMap>,
     ) -> ServerTaskResult<()>
     where
-        R: AsyncBufRead + Unpin,
+        R: AsyncBufRead + Send + Unpin,
         W: AsyncWrite + Send + Unpin,
     {
         if self.should_close {
@@ -1435,22 +1457,34 @@ impl<'a> HttpProxyForwardTask<'a> {
         adaptation_state: &mut RespmodAdaptationRunState,
     ) -> ServerTaskResult<()>
     where
-        R: AsyncBufRead + Unpin,
+        R: AsyncBufRead + Send + Unpin,
         W: AsyncWrite + Send + Unpin,
     {
-        match icap_adapter
+        let mut log_interval = self.get_log_interval();
+        let mut adaptation_fut = icap_adapter
             .xfer(adaptation_state, self.req, rsp_header, ups_r, clt_w)
-            .await
-        {
-            Ok(RespmodAdaptationEndState::OriginalTransferred) => {
-                self.http_notes.rsp_status = rsp_header.code;
-                Ok(())
+            .boxed();
+        loop {
+            tokio::select! {
+                biased;
+
+                _ = log_interval.tick() => {
+                    self.get_log_context().log_periodic(&self.ctx.task_logger);
+                }
+                r = &mut adaptation_fut => {
+                    return match r {
+                        Ok(RespmodAdaptationEndState::OriginalTransferred) => {
+                            self.http_notes.rsp_status = rsp_header.code;
+                            Ok(())
+                        }
+                        Ok(RespmodAdaptationEndState::AdaptedTransferred(adapted_rsp)) => {
+                            self.http_notes.rsp_status = adapted_rsp.code;
+                            Ok(())
+                        }
+                        Err(e) => Err(e.into()),
+                    }
+                }
             }
-            Ok(RespmodAdaptationEndState::AdaptedTransferred(adapted_rsp)) => {
-                self.http_notes.rsp_status = adapted_rsp.code;
-                Ok(())
-            }
-            Err(e) => Err(e.into()),
         }
     }
 
@@ -1504,6 +1538,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         let idle_duration = self.ctx.server_config.task_idle_check_duration;
         let mut idle_interval =
             tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut log_interval = self.get_log_interval();
         let mut idle_count = 0;
         loop {
             tokio::select! {
@@ -1524,6 +1559,9 @@ impl<'a> HttpProxyForwardTask<'a> {
                         }
                         Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
                     };
+                }
+                _ = log_interval.tick() => {
+                    self.get_log_context().log_periodic(&self.ctx.task_logger);
                 }
                 _ = idle_interval.tick() => {
                     if ups_to_clt.is_idle() {
