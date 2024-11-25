@@ -24,11 +24,38 @@ auditor:
   - name: default
     protocol_inspection: { }
     tls_cert_generator: { }
-    tls_interception_client:
-      ca-certificate: ../rootCA.pem
     tls_ticketer: { }
-    icap_reqmod_service: icap://127.0.0.1:1344/echo
-    icap_respmod_service: icap://127.0.0.1:1344/echo
+    tls_stream_dump: { }
+
+user-group:
+  - name: default
+    static_users:
+      - name: t1
+        token:
+          salt: 4e8f8a4e37f0fa1b
+          md5: d9d963915b9815d4cc39c196c2868900
+          sha1: c28640e7b1a3d9db98187632aeba99c0cff0ffd4
+        audit:
+          enable_protocol_inspection: false
+      - name: t2
+        token: '$1$rnfSARNK$DJNIbbMpjjSmral92rE3k1'
+        audit:
+          enable_protocol_inspection: true
+          task_audit_ratio: 0
+      - name: t3
+        token:
+          salt: 113323bdab6fd2cc
+          md5: 5c81f2becadde7fa5fde9026652ccc84
+          sha1: ff9d5c1a14328dd85ee95d4e574bd0558a1dfa96
+        audit:
+          enable_protocol_inspection: true
+        explicit_sites:
+          - id: httpbin.local
+            exact_match:
+              - httpbin.local
+            emit_stats: true
+            tls_client:
+              ca-certificate: ../rootCA.pem
 
 server:
   - name: rss
@@ -51,6 +78,7 @@ server:
     type: http_proxy
     escaper: default
     auditor: default
+    user-group: default
     listen:
       address: "[::]:8080"
     tls_client: { }
@@ -58,5 +86,6 @@ server:
     type: socks_proxy
     escaper: default
     auditor: default
+    user-group: default
     listen:
       address: "[::]:1080"
