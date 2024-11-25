@@ -8,10 +8,20 @@ on:
       - 'demo/**'
       - 'g3proxy/doc/**'
       - 'g3tiles/doc/**'
+      - 'Cargo.lock'
+      - 'Cargo.toml'
     branches:
       - 'master'
       - 'lts/**'
   pull_request:
+    paths-ignore:
+      - 'ansible/**'
+      - 'doc/**'
+      - 'demo/**'
+      - 'g3proxy/doc/**'
+      - 'g3tiles/doc/**'
+      - 'Cargo.lock'
+      - 'Cargo.toml'
     branches:
       - 'master'
       - 'lts/**'
