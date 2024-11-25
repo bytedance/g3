@@ -172,16 +172,9 @@ impl<SC: ServerConfig> H2WebsocketInterceptObject<SC> {
         let ups_r = H2StreamReader::new(ups_r);
         let ups_w = H2StreamWriter::new(ups_w);
 
-        crate::inspect::stream::transit_transparent(
-            clt_r,
-            clt_w,
-            ups_r,
-            ups_w,
-            &self.ctx.server_config,
-            &self.ctx.server_quit_policy,
-            self.ctx.user(),
-        )
-        .await
+        self.ctx
+            .transit_transparent(clt_r, clt_w, ups_r, ups_w)
+            .await
     }
 
     async fn do_block(
@@ -211,15 +204,8 @@ impl<SC: ServerConfig> H2WebsocketInterceptObject<SC> {
         let ups_r = H2StreamReader::new(ups_r);
         let ups_w = H2StreamWriter::new(ups_w);
 
-        crate::inspect::stream::transit_transparent(
-            clt_r,
-            clt_w,
-            ups_r,
-            ups_w,
-            &self.ctx.server_config,
-            &self.ctx.server_quit_policy,
-            self.ctx.user(),
-        )
-        .await
+        self.ctx
+            .transit_transparent(clt_r, clt_w, ups_r, ups_w)
+            .await
     }
 }

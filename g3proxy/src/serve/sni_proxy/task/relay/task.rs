@@ -18,18 +18,20 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use bytes::BytesMut;
-use log::debug;
 use tokio::io::{AsyncRead, AsyncWrite};
 
+use g3_daemon::server::ServerQuitPolicy;
 use g3_daemon::stat::task::{TcpStreamConnectionStats, TcpStreamTaskStats};
 use g3_dpi::Protocol;
-use g3_io_ext::{FlexBufReader, LimitedCopy, LimitedReader, LimitedWriter, OnceBufReader};
+use g3_io_ext::{
+    FlexBufReader, LimitedCopy, LimitedCopyConfig, LimitedReader, LimitedWriter, OnceBufReader,
+};
 use g3_types::net::UpstreamAddr;
 
 use super::CommonTaskContext;
 use crate::audit::AuditContext;
-use crate::config::server::ServerConfig;
-use crate::inspect::{StreamInspectContext, StreamInspection};
+use crate::auth::User;
+use crate::inspect::{StreamInspectContext, StreamInspection, StreamTransitTask};
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
 use crate::module::tcp_connect::{TcpConnectTaskConf, TcpConnectTaskNotes};
 use crate::serve::tcp_stream::TcpStreamTaskCltWrapperStats;
@@ -71,7 +73,6 @@ impl TcpStreamTask {
             upstream: &self.upstream,
             task_notes: &self.task_notes,
             tcp_notes: &self.tcp_notes,
-            total_time: self.task_notes.time_elapsed(),
             client_rd_bytes: self.task_stats.clt.read.get_bytes(),
             client_wr_bytes: self.task_stats.clt.write.get_bytes(),
             remote_rd_bytes: self.task_stats.ups.read.get_bytes(),
@@ -99,15 +100,11 @@ impl TcpStreamTask {
     }
 
     fn pre_start(&self) {
-        debug!(
-            "SniProxy: new client from {} to {} server {}, using escaper {}",
-            self.ctx.client_addr(),
-            self.ctx.server_config.server_type(),
-            self.ctx.server_config.name(),
-            self.ctx.server_config.escaper
-        );
         self.ctx.server_stats.add_task();
         self.ctx.server_stats.inc_alive_task();
+        if self.ctx.server_config.flush_task_log_on_created {
+            self.get_log_context().log_created(&self.ctx.task_logger);
+        }
     }
 
     fn pre_stop(&self) {
@@ -170,6 +167,9 @@ impl TcpStreamTask {
         UR: AsyncRead + Send + Sync + Unpin + 'static,
         UW: AsyncWrite + Send + Sync + Unpin + 'static,
     {
+        if self.ctx.server_config.flush_task_log_on_connected {
+            self.get_log_context().log_connected(&self.ctx.task_logger);
+        }
         self.task_notes.mark_relaying();
         self.relay(clt_r, clt_r_buf, clt_w, ups_r, ups_w).await
     }
@@ -264,13 +264,36 @@ impl TcpStreamTask {
         let clt_to_ups =
             LimitedCopy::with_data(&mut clt_r, &mut ups_w, &copy_config, clt_r_buf.into());
         let ups_to_clt = LimitedCopy::new(&mut ups_r, &mut clt_w, &copy_config);
-        crate::inspect::stream::transit_transparent2(
-            clt_to_ups,
-            ups_to_clt,
-            &self.ctx.server_config,
-            &self.ctx.server_quit_policy,
-            None,
-        )
-        .await
+        self.transit_transparent2(clt_to_ups, ups_to_clt).await
+    }
+}
+
+impl StreamTransitTask for TcpStreamTask {
+    fn copy_config(&self) -> LimitedCopyConfig {
+        self.ctx.server_config.tcp_copy
+    }
+
+    fn idle_check_interval(&self) -> Duration {
+        self.ctx.server_config.task_idle_check_duration
+    }
+
+    fn max_idle_count(&self) -> i32 {
+        self.ctx.server_config.task_idle_max_count
+    }
+
+    fn log_periodic(&self) {
+        self.get_log_context().log_periodic(&self.ctx.task_logger);
+    }
+
+    fn log_flush_interval(&self) -> Option<Duration> {
+        self.ctx.server_config.task_log_flush_interval
+    }
+
+    fn quit_policy(&self) -> &ServerQuitPolicy {
+        self.ctx.server_quit_policy.as_ref()
+    }
+
+    fn user(&self) -> Option<&User> {
+        None
     }
 }

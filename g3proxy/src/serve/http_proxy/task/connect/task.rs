@@ -15,21 +15,23 @@
  */
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use http::Version;
-use log::debug;
 use tokio::io::{AsyncRead, AsyncWrite};
 
+use g3_daemon::server::ServerQuitPolicy;
 use g3_daemon::stat::task::TcpStreamTaskStats;
-use g3_io_ext::{LimitedReader, LimitedWriter};
+use g3_io_ext::{LimitedCopyConfig, LimitedReader, LimitedWriter};
 use g3_types::acl::AclAction;
 use g3_types::net::{ProxyRequestType, UpstreamAddr};
 
 use super::protocol::{HttpClientWriter, HttpProxyRequest};
 use super::{CommonTaskContext, TcpConnectTaskCltWrapperStats};
 use crate::audit::AuditContext;
+use crate::auth::User;
 use crate::config::server::ServerConfig;
-use crate::inspect::StreamInspectContext;
+use crate::inspect::{StreamInspectContext, StreamTransitTask};
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
 use crate::module::http_forward::HttpProxyClientResponse;
 use crate::module::tcp_connect::{
@@ -328,13 +330,6 @@ impl HttpProxyConnectTask {
     }
 
     fn pre_start(&self) {
-        debug!(
-            "HttpProxy/CONNECT: new client from {} to {} server {}, using escaper {}",
-            self.ctx.client_addr(),
-            self.ctx.server_config.server_type(),
-            self.ctx.server_config.name(),
-            self.ctx.server_config.escaper
-        );
         self.ctx.server_stats.task_http_connect.add_task();
         self.ctx.server_stats.task_http_connect.inc_alive_task();
 
@@ -343,6 +338,10 @@ impl HttpProxyConnectTask {
                 s.req_total.add_http_connect();
                 s.req_alive.add_http_connect();
             });
+        }
+
+        if self.ctx.server_config.flush_task_log_on_created {
+            self.get_log_context().log_created(&self.ctx.task_logger);
         }
     }
 
@@ -365,7 +364,6 @@ impl HttpProxyConnectTask {
             upstream: &self.upstream,
             task_notes: &self.task_notes,
             tcp_notes: &self.tcp_notes,
-            total_time: self.task_notes.time_elapsed(),
             client_rd_bytes: self.task_stats.clt.read.get_bytes(),
             client_wr_bytes: self.task_stats.clt.write.get_bytes(),
             remote_rd_bytes: self.task_stats.ups.read.get_bytes(),
@@ -411,6 +409,10 @@ impl HttpProxyConnectTask {
         UR: AsyncRead + Send + Sync + Unpin + 'static,
         UW: AsyncWrite + Send + Sync + Unpin + 'static,
     {
+        if self.ctx.server_config.flush_task_log_on_connected {
+            self.get_log_context().log_connected(&self.ctx.task_logger);
+        }
+
         self.task_notes.stage = ServerTaskStage::Replying;
         self.reply_ok(&mut clt_w).await?;
 
@@ -473,16 +475,7 @@ impl HttpProxyConnectTask {
             }
         }
 
-        crate::inspect::stream::transit_transparent(
-            clt_r,
-            clt_w,
-            ups_r,
-            ups_w,
-            &self.ctx.server_config,
-            &self.ctx.server_quit_policy,
-            self.task_notes.user_ctx().map(|ctx| ctx.user()),
-        )
-        .await
+        self.transit_transparent(clt_r, clt_w, ups_r, ups_w).await
     }
 
     fn update_clt<CDR, CDW>(
@@ -536,5 +529,35 @@ impl HttpProxyConnectTask {
         }
 
         (clt_r, clt_w)
+    }
+}
+
+impl StreamTransitTask for HttpProxyConnectTask {
+    fn copy_config(&self) -> LimitedCopyConfig {
+        self.ctx.server_config.tcp_copy
+    }
+
+    fn idle_check_interval(&self) -> Duration {
+        self.ctx.server_config.task_idle_check_duration
+    }
+
+    fn max_idle_count(&self) -> i32 {
+        self.ctx.server_config.task_idle_max_count
+    }
+
+    fn log_periodic(&self) {
+        self.get_log_context().log_periodic(&self.ctx.task_logger);
+    }
+
+    fn log_flush_interval(&self) -> Option<Duration> {
+        self.ctx.server_config.task_log_flush_interval
+    }
+
+    fn quit_policy(&self) -> &ServerQuitPolicy {
+        self.ctx.server_quit_policy.as_ref()
+    }
+
+    fn user(&self) -> Option<&User> {
+        self.task_notes.user_ctx().map(|ctx| ctx.user().as_ref())
     }
 }

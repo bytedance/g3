@@ -303,6 +303,50 @@ The task will be closed if the idle check return IDLE the times as this value.
 
 **default**: 1
 
+.. _conf_server_common_flush_task_log_on_created:
+
+flush_task_log_on_created
+-------------------------
+
+**optional**, **type**: bool
+
+Log when task get created.
+
+**default**: false
+
+.. versionadded:: 1.11.0
+
+.. _conf_server_common_flush_task_log_on_connected:
+
+flush_task_log_on_connected
+---------------------------
+
+**optional**, **type**: bool
+
+Log when upstream connected.
+
+**default**: false
+
+.. versionadded:: 1.11.0
+
+.. _conf_server_common_task_log_flush_interval:
+
+task_log_flush_interval
+-----------------------
+
+**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+Enable periodic task log and set the flush interval.
+
+.. note::
+
+  There will be no periodic task log if protocol inspection is enabled, as intercept and inspect logs will be available
+  in this case.
+
+**default**: not set
+
+.. versionadded:: 1.11.0
+
 .. _conf_server_common_extra_metrics_tags:
 
 extra_metrics_tags

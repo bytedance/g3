@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
 use std::sync::Arc;
 
 use slog::Logger;
@@ -35,11 +34,4 @@ pub(super) struct CommonTaskContext {
     pub(super) cc_info: ClientConnectionInfo,
     pub(super) tls_client_config: Option<Arc<OpensslClientConfig>>,
     pub(super) task_logger: Logger,
-}
-
-impl CommonTaskContext {
-    #[inline]
-    pub(crate) fn client_addr(&self) -> SocketAddr {
-        self.cc_info.client_addr()
-    }
 }

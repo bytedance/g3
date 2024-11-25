@@ -37,11 +37,6 @@ pub(super) struct CommonTaskContext {
 
 impl CommonTaskContext {
     #[inline]
-    pub(super) fn client_addr(&self) -> SocketAddr {
-        self.cc_info.client_addr()
-    }
-
-    #[inline]
     pub(super) fn target_addr(&self) -> SocketAddr {
         self.cc_info.server_addr()
     }
