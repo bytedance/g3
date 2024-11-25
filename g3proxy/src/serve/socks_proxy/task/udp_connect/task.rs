@@ -18,16 +18,15 @@ use std::future::poll_fn;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use log::debug;
 use slog::Logger;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 use tokio::net::UdpSocket;
 use tokio::time::Instant;
 
 use g3_io_ext::{
-    LimitedUdpRecv, LimitedUdpSend, UdpCopyClientRecv, UdpCopyClientSend, UdpCopyClientToRemote,
-    UdpCopyError, UdpCopyRemoteRecv, UdpCopyRemoteSend, UdpCopyRemoteToClient, UdpRecvHalf,
-    UdpSendHalf,
+    LimitedUdpRecv, LimitedUdpSend, OptionalInterval, UdpCopyClientRecv, UdpCopyClientSend,
+    UdpCopyClientToRemote, UdpCopyError, UdpCopyRemoteRecv, UdpCopyRemoteSend,
+    UdpCopyRemoteToClient, UdpRecvHalf, UdpSendHalf,
 };
 use g3_socks::v5::Socks5Reply;
 use g3_types::acl::AclAction;
@@ -112,19 +111,16 @@ impl SocksProxyUdpConnectTask {
     }
 
     fn pre_start(&self) {
-        debug!(
-            "SocksProxy/UdpConnect: new client from {} to {} server {}, using escaper {}",
-            self.ctx.client_addr(),
-            self.ctx.server_config.server_type(),
-            self.ctx.server_config.name(),
-            self.ctx.server_config.escaper
-        );
         self.ctx.server_stats.task_udp_connect.add_task();
         self.ctx.server_stats.task_udp_connect.inc_alive_task();
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             user_ctx.req_stats().req_total.add_socks_udp_connect();
             user_ctx.req_stats().req_alive.add_socks_udp_connect();
+        }
+
+        if self.ctx.server_config.flush_task_log_on_created {
+            self.get_log_context().log_created(&self.ctx.task_logger);
         }
     }
 
@@ -329,6 +325,16 @@ impl SocksProxyUdpConnectTask {
         let idle_duration = self.ctx.server_config.task_idle_check_duration;
         let mut idle_interval =
             tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut log_interval = self
+            .ctx
+            .server_config
+            .task_log_flush_interval
+            .map(|log_interval| {
+                let interval =
+                    tokio::time::interval_at(Instant::now() + log_interval, log_interval);
+                OptionalInterval::with(interval)
+            })
+            .unwrap_or_default();
         let mut idle_count = 0;
         let mut buf: [u8; 4] = [0; 4];
         loop {
@@ -375,6 +381,9 @@ impl SocksProxyUdpConnectTask {
                         },
                         Err(UdpCopyError::ClientError(e)) => Err(e.into()),
                     };
+                }
+                _ = log_interval.tick() => {
+                    self.get_log_context().log_periodic(&self.ctx.task_logger);
                 }
                 _ = idle_interval.tick() => {
                     if c_to_r.is_idle() && r_to_c.is_idle() {
@@ -545,6 +554,10 @@ impl SocksProxyUdpConnectTask {
             )
             .await?;
         self.task_notes.stage = ServerTaskStage::Connected;
+
+        if self.ctx.server_config.flush_task_log_on_connected {
+            self.get_log_context().log_connected(&self.ctx.task_logger);
+        }
 
         poll_fn(|cx| ups_w.poll_send_packet(cx, &buf[buf_off..buf_nr])).await?;
 
