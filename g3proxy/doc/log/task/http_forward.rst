@@ -19,7 +19,7 @@ Show the time spent from the receive of the http request header to the creation 
 reuse_connection
 ----------------
 
-**required**, **type**: bool
+**optional**, **type**: bool
 
 Show if this task reuse old remote connection.
 
