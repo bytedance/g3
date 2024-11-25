@@ -226,16 +226,9 @@ where
             ups_w,
         } = self.io.take().unwrap();
 
-        crate::inspect::stream::transit_transparent(
-            clt_r,
-            clt_w,
-            ups_r,
-            ups_w,
-            &self.ctx.server_config,
-            &self.ctx.server_quit_policy,
-            self.ctx.user(),
-        )
-        .await
+        self.ctx
+            .transit_transparent(clt_r, clt_w, ups_r, ups_w)
+            .await
     }
 
     async fn do_block(&mut self) -> ServerTaskResult<()> {
@@ -365,17 +358,10 @@ where
                     start_tls_obj.set_io(clt_r, clt_w, ups_r, ups_w);
                     Ok(Some(StreamInspection::StartTls(start_tls_obj)))
                 } else {
-                    crate::inspect::stream::transit_transparent(
-                        clt_r,
-                        clt_w,
-                        ups_r,
-                        ups_w,
-                        &self.ctx.server_config,
-                        &self.ctx.server_quit_policy,
-                        self.ctx.user(),
-                    )
-                    .await
-                    .map(|_| None)
+                    self.ctx
+                        .transit_transparent(clt_r, clt_w, ups_r, ups_w)
+                        .await
+                        .map(|_| None)
                 }
             }
             InitiationStatus::Authenticated => {

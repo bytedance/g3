@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-use std::sync::Arc;
+use std::time::Duration;
 
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::time::Instant;
 
 use g3_daemon::server::ServerQuitPolicy;
 use g3_dpi::{MaybeProtocol, ProtocolInspectionConfig, ProtocolInspector};
-use g3_io_ext::{LimitedCopy, LimitedCopyError};
+use g3_io_ext::{LimitedCopy, LimitedCopyConfig, LimitedCopyError, OptionalInterval};
 use g3_types::net::UpstreamAddr;
 
 use super::{StreamInspectContext, StreamInspection};
@@ -32,107 +32,116 @@ use crate::serve::{ServerTaskError, ServerTaskForbiddenError, ServerTaskResult};
 mod object;
 pub(crate) use object::StreamInspectObject;
 
-pub(crate) async fn transit_transparent<CR, CW, UR, UW, SC>(
-    mut clt_r: CR,
-    mut clt_w: CW,
-    mut ups_r: UR,
-    mut ups_w: UW,
-    server_config: &Arc<SC>,
-    server_quit_policy: &Arc<ServerQuitPolicy>,
-    user: Option<&Arc<User>>,
-) -> ServerTaskResult<()>
-where
-    CR: AsyncRead + Unpin,
-    CW: AsyncWrite + Unpin,
-    UR: AsyncRead + Unpin,
-    UW: AsyncWrite + Unpin,
-    SC: ServerConfig,
-{
-    let copy_config = server_config.limited_copy_config();
-    let clt_to_ups = LimitedCopy::new(&mut clt_r, &mut ups_w, &copy_config);
-    let ups_to_clt = LimitedCopy::new(&mut ups_r, &mut clt_w, &copy_config);
+pub(crate) trait StreamTransitTask {
+    fn copy_config(&self) -> LimitedCopyConfig;
+    fn idle_check_interval(&self) -> Duration;
+    fn max_idle_count(&self) -> i32;
+    fn log_periodic(&self);
+    fn log_flush_interval(&self) -> Option<Duration>;
+    fn quit_policy(&self) -> &ServerQuitPolicy;
+    fn user(&self) -> Option<&User>;
 
-    transit_transparent2(
-        clt_to_ups,
-        ups_to_clt,
-        server_config,
-        server_quit_policy,
-        user,
-    )
-    .await
-}
+    async fn transit_transparent<CR, CW, UR, UW>(
+        &self,
+        mut clt_r: CR,
+        mut clt_w: CW,
+        mut ups_r: UR,
+        mut ups_w: UW,
+    ) -> ServerTaskResult<()>
+    where
+        CR: AsyncRead + Unpin,
+        CW: AsyncWrite + Unpin,
+        UR: AsyncRead + Unpin,
+        UW: AsyncWrite + Unpin,
+    {
+        let copy_config = self.copy_config();
+        let clt_to_ups = LimitedCopy::new(&mut clt_r, &mut ups_w, &copy_config);
+        let ups_to_clt = LimitedCopy::new(&mut ups_r, &mut clt_w, &copy_config);
 
-pub(crate) async fn transit_transparent2<'a, CR, CW, UR, UW, SC>(
-    mut clt_to_ups: LimitedCopy<'a, CR, UW>,
-    mut ups_to_clt: LimitedCopy<'a, UR, CW>,
-    server_config: &'a Arc<SC>,
-    server_quit_policy: &'a Arc<ServerQuitPolicy>,
-    user: Option<&'a Arc<User>>,
-) -> ServerTaskResult<()>
-where
-    CR: AsyncRead + Unpin,
-    CW: AsyncWrite + Unpin,
-    UR: AsyncRead + Unpin,
-    UW: AsyncWrite + Unpin,
-    SC: ServerConfig,
-{
-    let idle_duration = server_config.task_idle_check_duration();
-    let mut idle_interval = tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
-    let mut idle_count = 0;
-    loop {
-        tokio::select! {
-            biased;
+        self.transit_transparent2(clt_to_ups, ups_to_clt).await
+    }
 
-            r = &mut clt_to_ups => {
-                let _ = ups_to_clt.write_flush().await;
-                return match r {
-                    Ok(_) => Err(ServerTaskError::ClosedByClient),
-                    Err(LimitedCopyError::ReadFailed(e)) => Err(ServerTaskError::ClientTcpReadFailed(e)),
-                    Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::UpstreamWriteFailed(e)),
-                };
-            }
-            r = &mut ups_to_clt => {
-                let _ = clt_to_ups.write_flush().await;
-                return match r {
-                    Ok(_) => Err(ServerTaskError::ClosedByUpstream),
-                    Err(LimitedCopyError::ReadFailed(e)) => Err(ServerTaskError::UpstreamReadFailed(e)),
-                    Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
-                };
-            }
-            _ = idle_interval.tick() => {
-                if clt_to_ups.is_idle() && ups_to_clt.is_idle() {
-                    idle_count += 1;
+    async fn transit_transparent2<'a, CR, CW, UR, UW>(
+        &self,
+        mut clt_to_ups: LimitedCopy<'a, CR, UW>,
+        mut ups_to_clt: LimitedCopy<'a, UR, CW>,
+    ) -> ServerTaskResult<()>
+    where
+        CR: AsyncRead + Unpin,
+        CW: AsyncWrite + Unpin,
+        UR: AsyncRead + Unpin,
+        UW: AsyncWrite + Unpin,
+    {
+        let idle_duration = self.idle_check_interval();
+        let mut idle_interval =
+            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut log_interval = self
+            .log_flush_interval()
+            .map(|log_interval| {
+                let interval =
+                    tokio::time::interval_at(Instant::now() + log_interval, log_interval);
+                OptionalInterval::with(interval)
+            })
+            .unwrap_or_default();
+        let mut idle_count = 0;
+        loop {
+            tokio::select! {
+                biased;
 
-                    let quit = if let Some(user) = user {
+                r = &mut clt_to_ups => {
+                    let _ = ups_to_clt.write_flush().await;
+                    return match r {
+                        Ok(_) => Err(ServerTaskError::ClosedByClient),
+                        Err(LimitedCopyError::ReadFailed(e)) => Err(ServerTaskError::ClientTcpReadFailed(e)),
+                        Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::UpstreamWriteFailed(e)),
+                    };
+                }
+                r = &mut ups_to_clt => {
+                    let _ = clt_to_ups.write_flush().await;
+                    return match r {
+                        Ok(_) => Err(ServerTaskError::ClosedByUpstream),
+                        Err(LimitedCopyError::ReadFailed(e)) => Err(ServerTaskError::UpstreamReadFailed(e)),
+                        Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
+                    };
+                }
+                _ = log_interval.tick() => {
+                    self.log_periodic();
+                }
+                _ = idle_interval.tick() => {
+                    if clt_to_ups.is_idle() && ups_to_clt.is_idle() {
+                        idle_count += 1;
+
+                        let quit = if let Some(user) = self.user() {
+                            if user.is_blocked() {
+                                return Err(ServerTaskError::CanceledAsUserBlocked);
+                            }
+                            idle_count >= user.task_max_idle_count()
+                        } else {
+                            idle_count >= self.max_idle_count()
+                        };
+
+                        if quit {
+                            return Err(ServerTaskError::Idle(idle_duration, idle_count));
+                        }
+                    } else {
+                        idle_count = 0;
+
+                        clt_to_ups.reset_active();
+                        ups_to_clt.reset_active();
+                    }
+
+                    if let Some(user) = self.user() {
                         if user.is_blocked() {
                             return Err(ServerTaskError::CanceledAsUserBlocked);
                         }
-                        idle_count >= user.task_max_idle_count()
-                    } else {
-                        idle_count >= server_config.task_max_idle_count()
-                    };
-
-                    if quit {
-                        return Err(ServerTaskError::Idle(idle_duration, idle_count));
                     }
-                } else {
-                    idle_count = 0;
 
-                    clt_to_ups.reset_active();
-                    ups_to_clt.reset_active();
-                }
-
-                if let Some(user) = user {
-                    if user.is_blocked() {
-                        return Err(ServerTaskError::CanceledAsUserBlocked);
+                    if self.quit_policy().force_quit() {
+                        return Err(ServerTaskError::CanceledAsServerQuit)
                     }
                 }
-
-                if server_quit_policy.force_quit() {
-                    return Err(ServerTaskError::CanceledAsServerQuit)
-                }
-            }
-        };
+            };
+        }
     }
 }
 
@@ -168,7 +177,7 @@ where
 
 impl<SC> StreamInspectContext<SC>
 where
-    SC: ServerConfig + Send + Sync + 'static,
+    SC: ServerConfig,
 {
     #[inline]
     fn protocol_inspection(&self) -> &ProtocolInspectionConfig {
@@ -230,12 +239,12 @@ where
         self.transit_transparent(clt_r, clt_w, ups_r, ups_w).await
     }
 
-    pub(super) async fn transit_transparent<CR, CW, UR, UW>(
+    pub(crate) async fn transit_transparent<CR, CW, UR, UW>(
         &self,
-        clt_r: CR,
-        clt_w: CW,
-        ups_r: UR,
-        ups_w: UW,
+        mut clt_r: CR,
+        mut clt_w: CW,
+        mut ups_r: UR,
+        mut ups_w: UW,
     ) -> ServerTaskResult<()>
     where
         CR: AsyncRead + Unpin,
@@ -243,16 +252,69 @@ where
         UR: AsyncRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
-        transit_transparent(
-            clt_r,
-            clt_w,
-            ups_r,
-            ups_w,
-            &self.server_config,
-            &self.server_quit_policy,
-            self.user(),
-        )
-        .await
+        let copy_config = self.server_config.limited_copy_config();
+        let mut clt_to_ups = LimitedCopy::new(&mut clt_r, &mut ups_w, &copy_config);
+        let mut ups_to_clt = LimitedCopy::new(&mut ups_r, &mut clt_w, &copy_config);
+
+        let idle_duration = self.server_config.task_idle_check_duration();
+        let mut idle_interval =
+            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_count = 0;
+        loop {
+            tokio::select! {
+                biased;
+
+                r = &mut clt_to_ups => {
+                    let _ = ups_to_clt.write_flush().await;
+                    return match r {
+                        Ok(_) => Err(ServerTaskError::ClosedByClient),
+                        Err(LimitedCopyError::ReadFailed(e)) => Err(ServerTaskError::ClientTcpReadFailed(e)),
+                        Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::UpstreamWriteFailed(e)),
+                    };
+                }
+                r = &mut ups_to_clt => {
+                    let _ = clt_to_ups.write_flush().await;
+                    return match r {
+                        Ok(_) => Err(ServerTaskError::ClosedByUpstream),
+                        Err(LimitedCopyError::ReadFailed(e)) => Err(ServerTaskError::UpstreamReadFailed(e)),
+                        Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
+                    };
+                }
+                _ = idle_interval.tick() => {
+                    if clt_to_ups.is_idle() && ups_to_clt.is_idle() {
+                        idle_count += 1;
+
+                        let quit = if let Some(user) = self.user() {
+                            if user.is_blocked() {
+                                return Err(ServerTaskError::CanceledAsUserBlocked);
+                            }
+                            idle_count >= user.task_max_idle_count()
+                        } else {
+                            idle_count >= self.server_config.task_max_idle_count()
+                        };
+
+                        if quit {
+                            return Err(ServerTaskError::Idle(idle_duration, idle_count));
+                        }
+                    } else {
+                        idle_count = 0;
+
+                        clt_to_ups.reset_active();
+                        ups_to_clt.reset_active();
+                    }
+
+                    if let Some(user) = self.user() {
+                        if user.is_blocked() {
+                            return Err(ServerTaskError::CanceledAsUserBlocked);
+                        }
+                    }
+
+                    if self.server_quit_policy.force_quit() {
+                        return Err(ServerTaskError::CanceledAsServerQuit)
+                    }
+                }
+            };
+        }
     }
 }
 

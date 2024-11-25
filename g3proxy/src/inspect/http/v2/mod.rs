@@ -235,16 +235,9 @@ where
             ups_w,
         } = self.io.take().unwrap();
 
-        crate::inspect::stream::transit_transparent(
-            clt_r,
-            clt_w,
-            ups_r,
-            ups_w,
-            &self.ctx.server_config,
-            &self.ctx.server_quit_policy,
-            self.ctx.user(),
-        )
-        .await
+        self.ctx
+            .transit_transparent(clt_r, clt_w, ups_r, ups_w)
+            .await
     }
 
     async fn do_block(&mut self) -> Result<(), H2InterceptionError> {

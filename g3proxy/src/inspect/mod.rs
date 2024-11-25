@@ -38,6 +38,7 @@ mod error;
 pub(crate) use error::InterceptionError;
 
 pub(crate) mod stream;
+pub(crate) use stream::StreamTransitTask;
 
 pub(crate) mod tls;
 use tls::TlsInterceptionContext;

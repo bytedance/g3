@@ -16,20 +16,22 @@
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
+use std::time::Duration;
 
-use log::debug;
 use tokio::io::{AsyncRead, AsyncWrite};
 
+use g3_daemon::server::ServerQuitPolicy;
 use g3_daemon::stat::task::TcpStreamTaskStats;
-use g3_io_ext::{LimitedReader, LimitedWriter};
+use g3_io_ext::{LimitedCopyConfig, LimitedReader, LimitedWriter};
 use g3_socks::{v4a, v5, SocksVersion};
 use g3_types::acl::AclAction;
 use g3_types::net::{ProxyRequestType, UpstreamAddr};
 
 use super::{CommonTaskContext, TcpConnectTaskCltWrapperStats};
 use crate::audit::AuditContext;
+use crate::auth::User;
 use crate::config::server::ServerConfig;
-use crate::inspect::StreamInspectContext;
+use crate::inspect::{StreamInspectContext, StreamTransitTask};
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
 use crate::module::tcp_connect::{TcpConnectTaskConf, TcpConnectTaskNotes};
 use crate::serve::{
@@ -81,7 +83,6 @@ impl SocksProxyTcpConnectTask {
             upstream: &self.upstream,
             task_notes: &self.task_notes,
             tcp_notes: &self.tcp_notes,
-            total_time: self.task_notes.time_elapsed(),
             client_rd_bytes: self.task_stats.clt.read.get_bytes(),
             client_wr_bytes: self.task_stats.clt.write.get_bytes(),
             remote_rd_bytes: self.task_stats.ups.read.get_bytes(),
@@ -107,13 +108,6 @@ impl SocksProxyTcpConnectTask {
     }
 
     fn pre_start(&self) {
-        debug!(
-            "Socks/TcpConnect: new client from {} to {} server {}, using escaper {}",
-            self.ctx.client_addr(),
-            self.ctx.server_config.server_type(),
-            self.ctx.server_config.name(),
-            self.ctx.server_config.escaper
-        );
         self.ctx.server_stats.task_tcp_connect.add_task();
         self.ctx.server_stats.task_tcp_connect.inc_alive_task();
 
@@ -122,6 +116,10 @@ impl SocksProxyTcpConnectTask {
                 s.req_total.add_socks_tcp_connect();
                 s.req_alive.add_socks_tcp_connect();
             });
+        }
+
+        if self.ctx.server_config.flush_task_log_on_created {
+            self.get_log_context().log_created(&self.ctx.task_logger);
         }
     }
 
@@ -325,6 +323,10 @@ impl SocksProxyTcpConnectTask {
         UR: AsyncRead + Send + Sync + Unpin + 'static,
         UW: AsyncWrite + Send + Sync + Unpin + 'static,
     {
+        if self.ctx.server_config.flush_task_log_on_connected {
+            self.get_log_context().log_connected(&self.ctx.task_logger);
+        }
+
         self.task_notes.stage = ServerTaskStage::Replying;
         match self.socks_version {
             SocksVersion::V4a => {
@@ -410,16 +412,7 @@ impl SocksProxyTcpConnectTask {
             }
         }
 
-        crate::inspect::stream::transit_transparent(
-            clt_r,
-            clt_w,
-            ups_r,
-            ups_w,
-            &self.ctx.server_config,
-            &self.ctx.server_quit_policy,
-            self.task_notes.user_ctx().map(|ctx| ctx.user()),
-        )
-        .await
+        self.transit_transparent(clt_r, clt_w, ups_r, ups_w).await
     }
 
     fn update_clt<CR, CW>(&mut self, clt_r: &mut LimitedReader<CR>, clt_w: &mut LimitedWriter<CW>)
@@ -459,5 +452,35 @@ impl SocksProxyTcpConnectTask {
         let wrapper_stats = Arc::new(wrapper_stats);
         clt_r.reset_stats(wrapper_stats.clone());
         clt_w.reset_stats(wrapper_stats);
+    }
+}
+
+impl StreamTransitTask for SocksProxyTcpConnectTask {
+    fn copy_config(&self) -> LimitedCopyConfig {
+        self.ctx.server_config.tcp_copy
+    }
+
+    fn idle_check_interval(&self) -> Duration {
+        self.ctx.server_config.task_idle_check_duration
+    }
+
+    fn max_idle_count(&self) -> i32 {
+        self.ctx.server_config.task_idle_max_count
+    }
+
+    fn log_periodic(&self) {
+        self.get_log_context().log_periodic(&self.ctx.task_logger);
+    }
+
+    fn log_flush_interval(&self) -> Option<Duration> {
+        self.ctx.server_config.task_log_flush_interval
+    }
+
+    fn quit_policy(&self) -> &ServerQuitPolicy {
+        self.ctx.server_quit_policy.as_ref()
+    }
+
+    fn user(&self) -> Option<&User> {
+        self.task_notes.user_ctx().map(|ctx| ctx.user().as_ref())
     }
 }
