@@ -1,4 +1,9 @@
 
+v1.10.2:
+ - BUG FIX: fix handle of ICAP preview data in HTTP/2 interception
+ - BUG FIX: fix panic when sending H2 stream data if peer gone
+ - BUG FIX: do not send Allow-204 in ICAP preview request
+
 v1.10.1:
  - BUG FIX: fix socket usage on Windows
  - BUG FIX: set expire info for udp tasks with socks5 proxy peers
