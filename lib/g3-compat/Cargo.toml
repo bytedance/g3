@@ -15,3 +15,7 @@ rustix = { workspace = true, features = ["system"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { workspace = true, features = ["Win32_System_SystemInformation"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+libc.workspace = true
+mach2.workspace = true

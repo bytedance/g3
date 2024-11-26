@@ -17,15 +17,17 @@
 use std::io;
 use std::num::NonZeroI32;
 
-use libc::{
-    mach_thread_self, thread_affinity_policy, thread_policy_flavor_t, thread_policy_set,
-    thread_policy_t, THREAD_AFFINITY_POLICY, THREAD_AFFINITY_POLICY_COUNT,
-    THREAD_AFFINITY_TAG_NULL,
+use libc::thread_policy_t;
+use mach2::mach_init::mach_thread_self;
+use mach2::thread_policy::{
+    thread_affinity_policy, thread_policy_flavor_t, thread_policy_set, THREAD_AFFINITY_POLICY,
+    THREAD_AFFINITY_POLICY_COUNT, THREAD_AFFINITY_TAG_NULL,
 };
+use mach2::vm_types::integer_t;
 
 #[derive(Clone)]
 pub struct CpuAffinity {
-    cpu_tag: libc::integer_t,
+    cpu_tag: integer_t,
 }
 
 impl Default for CpuAffinity {
