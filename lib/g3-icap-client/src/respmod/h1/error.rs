@@ -37,6 +37,8 @@ pub enum H1RespmodAdaptationError {
     InvalidIcapServerResponse(#[from] IcapRespmodParseError),
     #[error("invalid http error response from icap server: {0}")]
     InvalidIcapServerHttpResponse(#[from] HttpResponseParseError),
+    #[error("invalid http body from icap server: {0:?}")]
+    InvalidHttpBodyFromIcapServer(anyhow::Error),
     #[error("error response from icap server: {0} ({1} {2})")]
     IcapServerErrorResponse(IcapErrorReason, u16, String),
     #[error("read from http upstream failed: {0:?}")]
