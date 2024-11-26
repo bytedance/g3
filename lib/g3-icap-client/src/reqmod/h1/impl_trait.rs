@@ -43,8 +43,8 @@ impl HttpRequestForAdaptation for HttpProxyClientRequest {
         }
     }
 
-    fn adapt_to_chunked(&self, other: HttpAdaptedRequest) -> Self {
-        self.adapt_to_chunked(other)
+    fn adapt_to(&self, other: HttpAdaptedRequest) -> Self {
+        self.adapt_to(other)
     }
 }
 
@@ -69,7 +69,7 @@ impl HttpRequestForAdaptation for HttpTransparentRequest {
         }
     }
 
-    fn adapt_to_chunked(&self, other: HttpAdaptedRequest) -> Self {
-        self.adapt_to_chunked(other)
+    fn adapt_to(&self, other: HttpAdaptedRequest) -> Self {
+        self.adapt_to(other)
     }
 }
