@@ -165,7 +165,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
         let http_rsp =
             HttpAdaptedResponse::parse(&mut self.icap_connection.1, http_header_size).await?;
 
-        let final_rsp = orig_http_response.adapt_to_chunked(http_rsp);
+        let final_rsp = orig_http_response.adapt_to(http_rsp);
         state.mark_clt_send_start();
         clt_writer
             .send_response_header(&final_rsp)
@@ -200,7 +200,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
             HttpAdaptedResponse::parse(&mut self.icap_connection.1, http_header_size).await?;
         let body_content_length = http_rsp.content_length;
 
-        let final_rsp = orig_http_response.adapt_to_chunked(http_rsp);
+        let final_rsp = orig_http_response.adapt_to(http_rsp);
         state.mark_clt_send_start();
         clt_writer
             .send_response_header(&final_rsp)

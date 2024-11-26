@@ -150,7 +150,7 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpRequest<'a, I> {
         .await?;
         let body_content_length = http_req.content_length;
 
-        let final_req = orig_http_request.adapt_to_chunked(http_req);
+        let final_req = orig_http_request.adapt_to(http_req);
         ups_writer
             .send_request_header(&final_req)
             .await

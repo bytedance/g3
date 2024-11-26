@@ -65,7 +65,7 @@ impl HttpForwardRemoteResponse {
         }
     }
 
-    pub fn adapt_to_chunked(&self, adapted: HttpAdaptedResponse) -> Self {
+    pub fn adapt_to(&self, adapted: HttpAdaptedResponse) -> Self {
         let mut hop_by_hop_headers = self.hop_by_hop_headers.clone();
         match adapted.content_length {
             Some(content_length) => {
