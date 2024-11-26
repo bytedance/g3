@@ -477,6 +477,21 @@ impl<'a> FtpOverHttpTask<'a> {
                             );
                             self.upload(&mut ftp_client, clt_w, &mut body_reader, None)
                                 .await?;
+                            tokio::time::timeout(
+                                self.ctx.server_config.timeout.recv_req_header,
+                                body_reader.trailer(128),
+                            )
+                            .await
+                            .map_err(|_| {
+                                ServerTaskError::ClientAppTimeout(
+                                    "time out to read HTTP body trailer",
+                                )
+                            })?
+                            .map_err(|e| {
+                                ServerTaskError::ClientAppError(anyhow!(
+                                    "invalid chunked body: {e}"
+                                ))
+                            })?;
                             if !body_reader.finished() {
                                 // there may be trailer headers
                                 self.should_close = true;
