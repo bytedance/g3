@@ -16,10 +16,11 @@
 
 use std::sync::Arc;
 
-use tokio::io::AsyncBufRead;
+use anyhow::anyhow;
+use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite};
 use tokio::time::Instant;
 
-use g3_http::{H1BodyToChunkedTransfer, HttpBodyReader};
+use g3_http::{H1BodyToChunkedTransfer, HttpBodyDecodeReader, HttpBodyReader};
 use g3_io_ext::{IdleCheck, LimitedBufReadExt, LimitedCopy, LimitedCopyConfig, LimitedCopyError};
 
 use super::{
@@ -119,7 +120,6 @@ impl<'a, I: IdleCheck> BidirectionalRecvIcapResponse<'a, I> {
 }
 
 pub(super) struct BidirectionalRecvHttpResponse<'a, I: IdleCheck> {
-    pub(super) icap_reader: &'a mut IcapClientReader,
     pub(super) http_body_line_max_size: usize,
     pub(super) copy_config: LimitedCopyConfig,
     pub(super) idle_checker: &'a I,
@@ -129,9 +129,10 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpResponse<'a, I> {
     pub(super) async fn transfer<H, UR, CW>(
         self,
         state: &mut RespmodAdaptationRunState,
-        mut ups_body_transfer: &mut H1BodyToChunkedTransfer<'_, UR, IcapClientWriter>,
+        ups_body_transfer: &mut H1BodyToChunkedTransfer<'_, UR, IcapClientWriter>,
         http_header_size: usize,
         orig_http_response: &H,
+        icap_reader: &mut IcapClientReader,
         clt_writer: &mut CW,
     ) -> Result<RespmodAdaptationEndState<H>, H1RespmodAdaptationError>
     where
@@ -139,7 +140,8 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpResponse<'a, I> {
         UR: AsyncBufRead + Unpin,
         CW: HttpResponseClientWriter<H> + Unpin,
     {
-        let http_rsp = HttpAdaptedResponse::parse(self.icap_reader, http_header_size).await?;
+        let http_rsp = HttpAdaptedResponse::parse(icap_reader, http_header_size).await?;
+        let body_content_length = http_rsp.content_length;
 
         let final_rsp = orig_http_response.adapt_to_chunked(http_rsp);
         state.mark_clt_send_start();
@@ -149,11 +151,58 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpResponse<'a, I> {
             .map_err(H1RespmodAdaptationError::HttpClientWriteFailed)?;
         state.mark_clt_send_header();
 
-        let mut adp_body_reader =
-            HttpBodyReader::new_chunked(self.icap_reader, self.http_body_line_max_size);
-        let mut adp_body_transfer =
-            LimitedCopy::new(&mut adp_body_reader, clt_writer, &self.copy_config);
+        match body_content_length {
+            Some(0) => Err(H1RespmodAdaptationError::InvalidHttpBodyFromIcapServer(
+                anyhow!("Content-Length is 0 but the ICAP server response contains http-body"),
+            )),
+            Some(expected) => {
+                let mut clt_body_reader =
+                    HttpBodyDecodeReader::new_chunked(icap_reader, self.http_body_line_max_size);
+                let mut clt_body_transfer =
+                    LimitedCopy::new(&mut clt_body_reader, clt_writer, &self.copy_config);
+                self.do_transfer(ups_body_transfer, &mut clt_body_transfer)
+                    .await?;
 
+                state.mark_clt_send_all();
+                let copied = clt_body_transfer.copied_size();
+                if ups_body_transfer.finished() && clt_body_reader.trailer(128).await.is_ok() {
+                    state.icap_io_finished = true;
+                }
+
+                if copied != expected {
+                    return Err(H1RespmodAdaptationError::InvalidHttpBodyFromIcapServer(
+                        anyhow!("Content-Length is {expected} but decoded length is {copied}"),
+                    ));
+                }
+                Ok(RespmodAdaptationEndState::AdaptedTransferred(final_rsp))
+            }
+            None => {
+                let mut clt_body_reader =
+                    HttpBodyReader::new_chunked(icap_reader, self.http_body_line_max_size);
+                let mut clt_body_transfer =
+                    LimitedCopy::new(&mut clt_body_reader, clt_writer, &self.copy_config);
+                self.do_transfer(ups_body_transfer, &mut clt_body_transfer)
+                    .await?;
+
+                state.mark_clt_send_all();
+                state.icap_io_finished =
+                    ups_body_transfer.finished() && clt_body_transfer.finished();
+
+                Ok(RespmodAdaptationEndState::AdaptedTransferred(final_rsp))
+            }
+        }
+    }
+
+    async fn do_transfer<UR, IR, CW>(
+        self,
+        mut ups_body_transfer: &mut H1BodyToChunkedTransfer<'_, UR, IcapClientWriter>,
+        mut clt_body_transfer: &mut LimitedCopy<'_, IR, CW>,
+    ) -> Result<(), H1RespmodAdaptationError>
+    where
+        UR: AsyncBufRead + Unpin,
+        IR: AsyncRead + Unpin,
+        CW: AsyncWrite + Unpin,
+    {
         let idle_duration = self.idle_checker.idle_duration();
         let mut idle_interval =
             tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
@@ -164,12 +213,8 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpResponse<'a, I> {
                 r = &mut ups_body_transfer => {
                     return match r {
                         Ok(_) => {
-                            match adp_body_transfer.await {
-                                Ok(_) => {
-                                    state.mark_clt_send_all();
-                                    state.icap_io_finished = true;
-                                    Ok(RespmodAdaptationEndState::AdaptedTransferred(final_rsp))
-                                }
+                            match clt_body_transfer.await {
+                                Ok(_) => Ok(()),
                                 Err(LimitedCopyError::ReadFailed(e)) => Err(H1RespmodAdaptationError::IcapServerReadFailed(e)),
                                 Err(LimitedCopyError::WriteFailed(e)) => Err(H1RespmodAdaptationError::HttpClientWriteFailed(e)),
                             }
@@ -178,21 +223,15 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpResponse<'a, I> {
                         Err(LimitedCopyError::WriteFailed(e)) => Err(H1RespmodAdaptationError::IcapServerWriteFailed(e)),
                     };
                 }
-                r = &mut adp_body_transfer => {
+                r = &mut clt_body_transfer => {
                     return match r {
-                        Ok(_) => {
-                            state.mark_clt_send_all();
-                            if ups_body_transfer.finished() {
-                                state.icap_io_finished = true;
-                            }
-                            Ok(RespmodAdaptationEndState::AdaptedTransferred(final_rsp))
-                        }
+                        Ok(_) => Ok(()),
                         Err(LimitedCopyError::ReadFailed(e)) => Err(H1RespmodAdaptationError::IcapServerReadFailed(e)),
                         Err(LimitedCopyError::WriteFailed(e)) => Err(H1RespmodAdaptationError::HttpClientWriteFailed(e)),
                     };
                 }
                 _ = idle_interval.tick() => {
-                    if ups_body_transfer.is_idle() && adp_body_transfer.is_idle() {
+                    if ups_body_transfer.is_idle() && clt_body_transfer.is_idle() {
                         idle_count += 1;
 
                         let quit = self.idle_checker.check_quit(idle_count);
@@ -203,7 +242,7 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpResponse<'a, I> {
                                 } else {
                                     Err(H1RespmodAdaptationError::IcapServerWriteIdle)
                                 }
-                            } else if adp_body_transfer.no_cached_data() {
+                            } else if clt_body_transfer.no_cached_data() {
                                 Err(H1RespmodAdaptationError::IcapServerReadIdle)
                             } else {
                                 Err(H1RespmodAdaptationError::HttpClientWriteIdle)
@@ -213,7 +252,7 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpResponse<'a, I> {
                         idle_count = 0;
 
                         ups_body_transfer.reset_active();
-                        adp_body_transfer.reset_active();
+                        clt_body_transfer.reset_active();
                     }
 
                     if let Some(reason) = self.idle_checker.check_force_quit() {

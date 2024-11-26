@@ -122,7 +122,6 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
                 } else {
                     let icap_keepalive = rsp.keep_alive;
                     let bidirectional_transfer = BidirectionalRecvHttpResponse {
-                        icap_reader: &mut self.icap_connection.1,
                         http_body_line_max_size: self.http_body_line_max_size,
                         copy_config: self.copy_config,
                         idle_checker: &self.idle_checker,
@@ -133,6 +132,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
                             &mut body_transfer,
                             header_size,
                             http_response,
+                            &mut self.icap_connection.1,
                             clt_writer,
                         )
                         .await?;
