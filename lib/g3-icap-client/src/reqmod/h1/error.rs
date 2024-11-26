@@ -40,6 +40,8 @@ pub enum H1ReqmodAdaptationError {
     InvalidIcapServerHttpResponse(#[from] HttpResponseParseError),
     #[error("invalid http request from icap server: {0}")]
     InvalidIcapServerHttpRequest(#[from] HttpRequestParseError),
+    #[error("invalid http body from icap server: {0:?}")]
+    InvalidHttpBodyFromIcapServer(anyhow::Error),
     #[error("error response from icap server: {0} ({1} {2})")]
     IcapServerErrorResponse(IcapErrorReason, u16, String),
     #[error("read from http client failed: {0:?}")]
