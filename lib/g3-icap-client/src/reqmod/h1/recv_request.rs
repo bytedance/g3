@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-use tokio::io::{AsyncBufRead, AsyncWriteExt};
+use anyhow::anyhow;
+use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
-use g3_http::{HttpBodyReader, HttpBodyType};
+use g3_http::{HttpBodyDecodeReader, HttpBodyReader, HttpBodyType};
 use g3_io_ext::{IdleCheck, LimitedCopy, LimitedCopyError};
 
 use super::{
@@ -207,6 +208,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             self.http_req_add_no_via_header,
         )
         .await?;
+        let body_content_length = http_req.content_length;
 
         let final_req = orig_http_request.adapt_to_chunked(http_req);
         ups_writer
@@ -215,11 +217,59 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             .map_err(H1ReqmodAdaptationError::HttpUpstreamWriteFailed)?;
         state.mark_ups_send_header();
 
-        let mut body_reader =
-            HttpBodyReader::new_chunked(&mut self.icap_connection.1, self.http_body_line_max_size);
-        let mut body_copy = LimitedCopy::new(&mut body_reader, ups_writer, &self.copy_config);
+        match body_content_length {
+            Some(0) => Err(H1ReqmodAdaptationError::InvalidHttpBodyFromIcapServer(
+                anyhow!("Content-Length is 0 but the ICAP server response contains http-body"),
+            )),
+            Some(expected) => {
+                let mut body_reader = HttpBodyDecodeReader::new_chunked(
+                    &mut self.icap_connection.1,
+                    self.http_body_line_max_size,
+                );
+                let mut body_copy =
+                    LimitedCopy::new(&mut body_reader, ups_writer, &self.copy_config);
+                Self::send_request_body(&self.idle_checker, &mut body_copy).await?;
 
-        let idle_duration = self.idle_checker.idle_duration();
+                state.mark_ups_send_all();
+                let copied = body_copy.copied_size();
+                if icap_rsp.keep_alive && body_reader.trailer(128).await.is_ok() {
+                    self.icap_client.save_connection(self.icap_connection).await;
+                }
+
+                if copied != expected {
+                    return Err(H1ReqmodAdaptationError::InvalidHttpBodyFromIcapServer(
+                        anyhow!("Content-Length is {expected} but decoded length is {copied}"),
+                    ));
+                }
+                Ok(ReqmodAdaptationEndState::AdaptedTransferred(final_req))
+            }
+            None => {
+                let mut body_reader = HttpBodyReader::new_chunked(
+                    &mut self.icap_connection.1,
+                    self.http_body_line_max_size,
+                );
+                let mut body_copy =
+                    LimitedCopy::new(&mut body_reader, ups_writer, &self.copy_config);
+                Self::send_request_body(&self.idle_checker, &mut body_copy).await?;
+
+                state.mark_ups_send_all();
+                if icap_rsp.keep_alive {
+                    self.icap_client.save_connection(self.icap_connection).await;
+                }
+                Ok(ReqmodAdaptationEndState::AdaptedTransferred(final_req))
+            }
+        }
+    }
+
+    async fn send_request_body<R, W>(
+        idle_checker: &I,
+        mut body_copy: &mut LimitedCopy<'_, R, W>,
+    ) -> Result<(), H1ReqmodAdaptationError>
+    where
+        R: AsyncRead + Unpin,
+        W: AsyncWrite + Unpin,
+    {
+        let idle_duration = idle_checker.idle_duration();
         let mut idle_interval =
             tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
         let mut idle_count = 0;
@@ -229,17 +279,17 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                 biased;
 
                 r = &mut body_copy => {
-                    match r {
-                        Ok(_) => break,
-                        Err(LimitedCopyError::ReadFailed(e)) => return Err(H1ReqmodAdaptationError::IcapServerReadFailed(e)),
-                        Err(LimitedCopyError::WriteFailed(e)) => return Err(H1ReqmodAdaptationError::HttpUpstreamWriteFailed(e)),
-                    }
+                    return match r {
+                        Ok(_) => Ok(()),
+                        Err(LimitedCopyError::ReadFailed(e)) => Err(H1ReqmodAdaptationError::IcapServerReadFailed(e)),
+                        Err(LimitedCopyError::WriteFailed(e)) => Err(H1ReqmodAdaptationError::HttpUpstreamWriteFailed(e)),
+                    };
                 }
                 _ = idle_interval.tick() => {
                     if body_copy.is_idle() {
                         idle_count += 1;
 
-                        let quit = self.idle_checker.check_quit(idle_count);
+                        let quit = idle_checker.check_quit(idle_count);
                         if quit {
                             return if body_copy.no_cached_data() {
                                 Err(H1ReqmodAdaptationError::IcapServerReadIdle)
@@ -253,17 +303,11 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                         body_copy.reset_active();
                     }
 
-                    if let Some(reason) = self.idle_checker.check_force_quit() {
+                    if let Some(reason) = idle_checker.check_force_quit() {
                         return Err(H1ReqmodAdaptationError::IdleForceQuit(reason));
                     }
                 }
             }
         }
-
-        state.mark_ups_send_all();
-        if icap_rsp.keep_alive {
-            self.icap_client.save_connection(self.icap_connection).await;
-        }
-        Ok(ReqmodAdaptationEndState::AdaptedTransferred(final_req))
     }
 }

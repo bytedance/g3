@@ -30,6 +30,7 @@ pub struct HttpAdaptedRequest {
     pub uri: Uri,
     pub version: Version,
     pub headers: HttpHeaderMap,
+    pub content_length: Option<u64>,
 }
 
 impl HttpAdaptedRequest {
@@ -39,6 +40,7 @@ impl HttpAdaptedRequest {
             uri,
             version,
             headers: HttpHeaderMap::default(),
+            content_length: None,
         }
     }
 
@@ -145,7 +147,12 @@ impl HttpAdaptedRequest {
                 // ignored hop-by-hop options
                 return Ok(());
             }
-            "transfer-encoding" | "content-length" => {
+            "content-length" => {
+                let content_length = u64::from_str(header.value)
+                    .map_err(|_| HttpRequestParseError::InvalidContentLength)?;
+                self.content_length = Some(content_length);
+            }
+            "transfer-encoding" => {
                 // this will always be chunked encoding
                 return Ok(());
             }
