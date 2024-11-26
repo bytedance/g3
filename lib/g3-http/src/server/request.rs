@@ -68,7 +68,7 @@ impl HttpProxyClientRequest {
         }
     }
 
-    pub fn adapt_to_chunked(&self, adapted: HttpAdaptedRequest) -> Self {
+    pub fn adapt_to(&self, adapted: HttpAdaptedRequest) -> Self {
         let mut hop_by_hop_headers = self.hop_by_hop_headers.clone();
         match adapted.content_length {
             Some(content_length) => {

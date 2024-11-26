@@ -35,8 +35,8 @@ impl HttpResponseForAdaptation for HttpForwardRemoteResponse {
         self.serialize_for_adapter()
     }
 
-    fn adapt_to_chunked(&self, other: HttpAdaptedResponse) -> Self {
-        self.adapt_to_chunked(other)
+    fn adapt_to(&self, other: HttpAdaptedResponse) -> Self {
+        self.adapt_to(other)
     }
 }
 
@@ -53,8 +53,8 @@ impl HttpResponseForAdaptation for HttpTransparentResponse {
         self.serialize_for_adapter()
     }
 
-    fn adapt_to_chunked(&self, other: HttpAdaptedResponse) -> Self {
-        self.adapt_to_chunked(other)
+    fn adapt_to(&self, other: HttpAdaptedResponse) -> Self {
+        self.adapt_to(other)
     }
 }
 
