@@ -197,7 +197,7 @@ impl FluentdClientConfig {
             .context("failed to parse helo msg")?;
 
         let mut rng = rand::thread_rng();
-        let shared_key_salt: [u8; 16] = rng.gen();
+        let shared_key_salt: [u8; 16] = rng.r#gen();
 
         let ping_msg = self
             .build_ping(&helo, &shared_key_salt)

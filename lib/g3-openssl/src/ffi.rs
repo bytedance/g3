@@ -46,7 +46,7 @@ pub type ASYNC_callback_fn = Option<unsafe extern "C" fn(arg: *mut c_void) -> c_
 pub type SSL_async_callback_fn =
     Option<unsafe extern "C" fn(s: *mut SSL, arg: *mut c_void) -> c_int>;
 
-extern "C" {
+unsafe extern "C" {
     pub fn ASYNC_is_capable() -> c_int;
     pub fn ASYNC_init_thread(max_size: usize, init_size: usize) -> c_int;
     pub fn ASYNC_cleanup_thread();

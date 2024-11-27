@@ -73,11 +73,11 @@ default-members = [
     "g3keymess/proto",
     "g3keymess/utils/ctl",
 ]
-resolver = "2"
+resolver = "3"
 
 [workspace.package]
 license = "Apache-2.0"
-edition = "2021"
+edition = "2024"
 
 [workspace.dependencies]
 #

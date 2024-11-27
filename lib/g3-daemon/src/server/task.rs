@@ -27,7 +27,7 @@ pub fn generate_uuid(time: &DateTime<Utc>) -> Uuid {
     let context = UUID_CONTEXT.get_or_init(|| {
         use rand::Rng;
 
-        Context::new(OsRng.gen())
+        Context::new(OsRng.r#gen())
     });
     let node_id = UUID_NODE_ID.get_or_init(|| {
         use rand::RngCore;

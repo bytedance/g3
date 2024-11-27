@@ -24,7 +24,7 @@ where
     T: Copy,
 {
     let payload = &value as *const T as *const c_void;
-    let ret = libc::setsockopt(fd, level, name, payload, size_of::<T>() as socklen_t);
+    let ret = unsafe { libc::setsockopt(fd, level, name, payload, size_of::<T>() as socklen_t) };
     if ret == -1 {
         return Err(io::Error::last_os_error());
     }

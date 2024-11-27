@@ -37,7 +37,7 @@ struct RawSocketAddr {
 
 impl RawSocketAddr {
     unsafe fn get_ptr_and_size(&mut self) -> (*mut libc::c_void, usize) {
-        let p = &*(self.buf.as_ptr() as *mut libc::sockaddr);
+        let p = unsafe { &*(self.buf.as_ptr() as *mut libc::sockaddr) };
 
         let size = match p.sa_family as libc::c_int {
             libc::AF_INET => mem::size_of::<libc::sockaddr_in>(),
@@ -125,14 +125,14 @@ impl<'a, const C: usize> SendMsgHdr<'a, C> {
     /// `self` should not be dropped before the returned value
     pub unsafe fn to_msghdr(&self) -> libc::msghdr {
         let (c_addr, c_addr_len) = match &self.c_addr {
-            Some(v) => {
+            Some(v) => unsafe {
                 let c = &mut *v.get();
                 c.get_ptr_and_size()
-            }
+            },
             None => (ptr::null_mut(), 0),
         };
 
-        let mut h = mem::zeroed::<libc::msghdr>();
+        let mut h = unsafe { mem::zeroed::<libc::msghdr>() };
         h.msg_name = c_addr as _;
         h.msg_namelen = c_addr_len as _;
         h.msg_iov = self.iov.as_ptr() as _;
@@ -145,7 +145,7 @@ impl<'a, const C: usize> SendMsgHdr<'a, C> {
     /// `self` should not be dropped before the returned value
     #[cfg(target_os = "macos")]
     unsafe fn to_msghdr_x(&self) -> super::macos::msghdr_x {
-        let mut h = mem::zeroed::<super::macos::msghdr_x>();
+        let mut h = unsafe { mem::zeroed::<super::macos::msghdr_x>() };
         h.msg_iov = self.iov.as_ptr() as _;
         h.msg_iovlen = C as _;
         h
@@ -182,10 +182,10 @@ impl<'a, const C: usize> RecvMsgHdr<'a, C> {
     ///
     /// `self` should not be dropped before the returned value
     pub unsafe fn to_msghdr(&self) -> libc::msghdr {
-        let c_addr = &mut *self.c_addr.get();
-        let (c_addr, c_addr_len) = c_addr.get_ptr_and_size();
+        let c_addr = unsafe { &mut *self.c_addr.get() };
+        let (c_addr, c_addr_len) = unsafe { c_addr.get_ptr_and_size() };
 
-        let mut h = mem::zeroed::<libc::msghdr>();
+        let mut h = unsafe { mem::zeroed::<libc::msghdr>() };
         h.msg_name = c_addr as _;
         h.msg_namelen = c_addr_len as _;
         h.msg_iov = self.iov.as_ptr() as _;
@@ -198,10 +198,10 @@ impl<'a, const C: usize> RecvMsgHdr<'a, C> {
     /// `self` should not be dropped before the returned value
     #[cfg(target_os = "macos")]
     unsafe fn to_msghdr_x(&self) -> super::macos::msghdr_x {
-        let c_addr = &mut *self.c_addr.get();
-        let (c_addr, c_addr_len) = c_addr.get_ptr_and_size();
+        let c_addr = unsafe { &mut *self.c_addr.get() };
+        let (c_addr, c_addr_len) = unsafe { c_addr.get_ptr_and_size() };
 
-        let mut h = mem::zeroed::<super::macos::msghdr_x>();
+        let mut h = unsafe { mem::zeroed::<super::macos::msghdr_x>() };
         h.msg_name = c_addr as _;
         h.msg_namelen = c_addr_len as _;
         h.msg_iov = self.iov.as_ptr() as _;
