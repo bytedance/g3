@@ -53,11 +53,11 @@ jobs:
         run: |
           ./scripts/coverage/lib_unit_test.sh
       - name: Upload coverage data
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           fail_ci_if_error: true
           disable_search: true
-          file: output.lcov
+          files: output.lcov
           flags: lib
           name: lib-unit-test
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -139,11 +139,11 @@ jobs:
         run: |
           sudo mv /etc/resolv.conf.backup /etc/resolv.conf
       - name: Upload coverage data
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           fail_ci_if_error: true
           disable_search: true
-          file: output.lcov
+          files: output.lcov
           flags: g3proxy
           name: g3proxy-all-test
           token: ${{ secrets.CODECOV_TOKEN }}
