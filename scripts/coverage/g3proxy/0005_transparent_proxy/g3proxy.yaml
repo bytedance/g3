@@ -56,6 +56,9 @@ server:
     escaper: default
     type: sni_proxy
     listen: "[::1]:8443"
+    flush_task_log_on_created: true
+    flush_task_log_on_connected: true
+    task_log_flush_interval: 10s
   - name: sni8080
     escaper: default
     type: sni_proxy

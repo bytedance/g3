@@ -26,6 +26,10 @@ server:
     listen: 127.0.0.1:8080
     escaper: default
     upstream: 127.0.0.1:80
+    flush_task_log_on_created: true
+    flush_task_log_on_connected: true
+    task_log_flush_interval: 1s
+    tcp_sock_speed_limit: 800K
   - name: tls
     type: tls_stream
     escaper: default
@@ -35,3 +39,6 @@ server:
         certificate: ../httpbin.local.pem
         private-key: ../httpbin.local-key.pem
     upstream: 127.0.0.1:80
+    flush_task_log_on_created: true
+    flush_task_log_on_connected: true
+    task_log_flush_interval: 10s
