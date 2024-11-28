@@ -36,6 +36,8 @@ user-group:
         request_max_alive: 10000
       - name: t2
         token: '$1$rnfSARNK$DJNIbbMpjjSmral92rE3k1'
+        tcp_all_upload_speed_limit: 800K
+        tcp_all_download_speed_limit: 800K
         udp_sock_speed_limit: 10M
         udp_all_upload_speed_limit: 20M
         udp_all_download_speed_limit: 50M

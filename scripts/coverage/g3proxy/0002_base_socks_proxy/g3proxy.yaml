@@ -25,6 +25,10 @@ server:
     type: socks_proxy
     listen: 127.0.0.1:1080
     escaper: default
+    flush_task_log_on_created: true
+    flush_task_log_on_connected: true
+    task_log_flush_interval: 1s
+    tcp_sock_speed_limit: 500K
   - name: socks2
     type: socks_proxy
     listen: 127.0.0.1:1081
