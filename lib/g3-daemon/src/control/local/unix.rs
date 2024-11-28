@@ -83,7 +83,7 @@ impl LocalControllerImpl {
     pub(super) async fn connect_to_daemon(
         _daemon_name: &str,
         daemon_group: &str,
-    ) -> anyhow::Result<impl AsyncRead + AsyncWrite> {
+    ) -> anyhow::Result<impl AsyncRead + AsyncWrite + use<>> {
         let socket_name = format!("{daemon_group}.sock");
         let mut socket_path = crate::opts::control_dir();
         socket_path.push(Path::new(&socket_name));
