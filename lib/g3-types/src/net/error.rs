@@ -39,6 +39,8 @@ impl From<io::Error> for ConnectError {
         match e.kind() {
             io::ErrorKind::ConnectionRefused => return ConnectError::ConnectionRefused,
             io::ErrorKind::ConnectionReset => return ConnectError::ConnectionReset,
+            io::ErrorKind::HostUnreachable => return ConnectError::HostUnreachable,
+            io::ErrorKind::NetworkUnreachable => return ConnectError::NetworkUnreachable,
             io::ErrorKind::TimedOut => return ConnectError::TimedOut,
             _ => {}
         }
