@@ -21,8 +21,8 @@ use hickory_proto::error::ProtoError;
 use rustls::ClientConfig;
 use rustls_pki_types::ServerName;
 use tokio::net::{TcpSocket, TcpStream};
-use tokio_rustls::client::TlsStream;
 use tokio_rustls::TlsConnector;
+use tokio_rustls::client::TlsStream;
 
 pub(crate) async fn tls_connect(
     name_server: SocketAddr,

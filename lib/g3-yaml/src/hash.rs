@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-use anyhow::{anyhow, Context};
-use yaml_rust::{yaml, Yaml};
+use anyhow::{Context, anyhow};
+use yaml_rust::{Yaml, yaml};
 
 pub fn foreach_kv<F>(table: &yaml::Hash, mut f: F) -> anyhow::Result<()>
 where

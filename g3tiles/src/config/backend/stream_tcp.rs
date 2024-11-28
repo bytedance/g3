@@ -16,8 +16,8 @@
 
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
-use yaml_rust::{yaml, Yaml};
+use anyhow::{Context, anyhow};
+use yaml_rust::{Yaml, yaml};
 
 use g3_histogram::HistogramMetricsConfig;
 use g3_types::collection::SelectivePickPolicy;

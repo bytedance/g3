@@ -17,13 +17,13 @@
 use std::io;
 use std::io::IoSlice;
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use bytes::{Buf, Bytes, BytesMut};
 use pin_project_lite::pin_project;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, ReadBuf};
 
-use super::{OnceBufReader, DEFAULT_BUF_SIZE};
+use super::{DEFAULT_BUF_SIZE, OnceBufReader};
 use crate::io::AsyncStream;
 
 pin_project! {

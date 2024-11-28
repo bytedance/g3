@@ -76,13 +76,10 @@ impl IpLocationCacheRuntime {
             }
 
             // also allow push if no doing ip found
-            self.cache.insert(
-                net,
-                CacheValue {
-                    valid_before: rsp.expire_at,
-                    location,
-                },
-            );
+            self.cache.insert(net, CacheValue {
+                valid_before: rsp.expire_at,
+                location,
+            });
         } else if let Some(ip) = ip {
             // if no new value found, just use the old expired value
             if let Some((_net, v)) = self.cache.longest_match(ip) {

@@ -20,7 +20,7 @@ use std::sync::Arc;
 use ahash::AHashMap;
 use radix_trie::Trie;
 
-use super::{reverse_idna_domain, reverse_to_idna_domain, QueryStrategy};
+use super::{QueryStrategy, reverse_idna_domain, reverse_to_idna_domain};
 use crate::net::Host;
 
 #[derive(Clone, Eq, PartialEq)]
@@ -249,11 +249,13 @@ mod tests {
             .unwrap();
         assert_eq!(ret, Host::Domain(Arc::from("a.bar.com")));
 
-        assert!(r
-            .query_first("a.zfoo.com", QueryStrategy::Ipv4First)
-            .is_none());
-        assert!(r
-            .query_first("a.fooz.com", QueryStrategy::Ipv4First)
-            .is_none());
+        assert!(
+            r.query_first("a.zfoo.com", QueryStrategy::Ipv4First)
+                .is_none()
+        );
+        assert!(
+            r.query_first("a.fooz.com", QueryStrategy::Ipv4First)
+                .is_none()
+        );
     }
 }

@@ -15,8 +15,8 @@
  */
 
 use openssl::error::ErrorStack;
-use openssl::x509::extension::KeyUsage;
 use openssl::x509::X509Extension;
+use openssl::x509::extension::KeyUsage;
 
 pub struct KeyUsageBuilder(KeyUsage);
 

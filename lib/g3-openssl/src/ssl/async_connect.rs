@@ -16,7 +16,7 @@
 
 use std::future;
 use std::io;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use openssl::error::ErrorStack;
 use openssl::ssl::{self, ErrorCode, Ssl};
@@ -68,7 +68,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslConnector<S> {
                         return Poll::Pending;
                     }
                     _ => {
-                        return Poll::Ready(Err(e.into_io_error().unwrap_or_else(io::Error::other)))
+                        return Poll::Ready(Err(e
+                            .into_io_error()
+                            .unwrap_or_else(io::Error::other)));
                     }
                 },
             }

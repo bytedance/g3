@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use openssl::ex_data::Index;
 use openssl::ssl::{
     SslAcceptor, SslAcceptorBuilder, SslContext, SslContextBuilder, SslOptions,
     SslSessionCacheMode, SslVerifyMode, TicketKeyStatus,
 };
 use openssl::stack::Stack;
-use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::X509;
+use openssl::x509::store::X509StoreBuilder;
 use std::sync::Arc;
 use yaml_rust::Yaml;
 

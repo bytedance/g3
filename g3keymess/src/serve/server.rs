@@ -20,7 +20,7 @@ use std::sync::Arc;
 use arc_swap::ArcSwap;
 use slog::Logger;
 use tokio::net::TcpStream;
-use tokio::sync::{broadcast, Semaphore};
+use tokio::sync::{Semaphore, broadcast};
 
 use g3_daemon::listen::ListenStats;
 use g3_daemon::server::ServerQuitPolicy;

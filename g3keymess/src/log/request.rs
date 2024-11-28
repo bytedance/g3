@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use slog::{slog_info, slog_o, Logger};
+use slog::{Logger, slog_info, slog_o};
 use uuid::Uuid;
 
 use g3_slog_types::LtUuid;

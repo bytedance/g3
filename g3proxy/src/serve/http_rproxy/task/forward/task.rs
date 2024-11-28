@@ -684,7 +684,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
             Err(_) => {
                 return Err(ServerTaskError::UpstreamAppTimeout(
                     "timeout to receive response header",
-                ))
+                ));
             }
         };
         self.http_notes.mark_rsp_recv_hdr();
@@ -735,7 +735,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
             Err(_) => {
                 return Err(ServerTaskError::UpstreamAppTimeout(
                     "timeout to receive response header",
-                ))
+                ));
             }
         };
         self.http_notes.mark_rsp_recv_hdr();
@@ -930,7 +930,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
                     Err(_) => {
                         return Err(ServerTaskError::UpstreamAppTimeout(
                             "timeout to receive response header",
-                        ))
+                        ));
                     }
                 }
             }

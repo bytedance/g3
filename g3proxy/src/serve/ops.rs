@@ -18,7 +18,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use log::{debug, warn};
 use tokio::sync::Mutex;
 
@@ -27,7 +27,7 @@ use g3_yaml::YamlDocPosition;
 
 use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
 
-use super::{registry, ArcServer};
+use super::{ArcServer, registry};
 
 use super::dummy_close::DummyCloseServer;
 use super::intelli_proxy::IntelliProxy;

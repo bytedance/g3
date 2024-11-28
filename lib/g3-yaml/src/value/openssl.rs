@@ -18,7 +18,7 @@ use std::io::Read;
 use std::path::Path;
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
 use yaml_rust::Yaml;

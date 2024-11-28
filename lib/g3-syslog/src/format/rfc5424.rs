@@ -21,7 +21,7 @@ use std::io;
 use chrono::{DateTime, Timelike, Utc};
 use itoa::Integer;
 use ryu::Float;
-use slog::{Level, OwnedKVList, Record, Serializer, KV};
+use slog::{KV, Level, OwnedKVList, Record, Serializer};
 
 use super::{SyslogFormatter, SyslogHeader};
 use crate::util::{encode_priority, level_to_severity};

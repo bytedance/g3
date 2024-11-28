@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use slog::{slog_info, Logger};
+use slog::{Logger, slog_info};
 use uuid::Uuid;
 
 use g3_io_ext::{UdpCopyRemoteError, UdpRelayRemoteError};

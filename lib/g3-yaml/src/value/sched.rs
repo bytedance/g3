@@ -26,7 +26,7 @@ use g3_compat::CpuAffinity;
     target_os = "netbsd",
 ))]
 pub fn as_cpu_set(v: &Yaml) -> anyhow::Result<CpuAffinity> {
-    use anyhow::{anyhow, Context};
+    use anyhow::{Context, anyhow};
 
     let mut set = CpuAffinity::default();
 

@@ -17,7 +17,7 @@
 use std::future::Future;
 use std::io::{self, Write};
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use bytes::{BufMut, Bytes};
 use h2::RecvStream;
@@ -130,9 +130,11 @@ impl ChunkedEncodeTransferInternal {
     {
         if !self.trailer_bytes.is_empty() {
             while self.trailer_offset < self.trailer_bytes.len() {
-                let nw = ready!(writer
-                    .as_mut()
-                    .poll_write(cx, &self.trailer_bytes[self.trailer_offset..]))
+                let nw = ready!(
+                    writer
+                        .as_mut()
+                        .poll_write(cx, &self.trailer_bytes[self.trailer_offset..])
+                )
                 .map_err(H2StreamToChunkedTransferError::WriteError)?;
                 self.active = true;
                 self.trailer_offset += nw;
@@ -218,9 +220,11 @@ impl ChunkedEncodeTransferInternal {
             }
 
             while self.static_offset < self.static_header.len() {
-                let nw = ready!(writer
-                    .as_mut()
-                    .poll_write(cx, &self.static_header[self.static_offset..]))
+                let nw = ready!(
+                    writer
+                        .as_mut()
+                        .poll_write(cx, &self.static_header[self.static_offset..])
+                )
                 .map_err(H2StreamToChunkedTransferError::WriteError)?;
                 self.active = true;
                 self.static_offset += nw;

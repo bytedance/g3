@@ -17,7 +17,7 @@
 use std::future::poll_fn;
 use std::net::IpAddr;
 use std::sync::Arc;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 use std::time::Duration;
 
 use g3_resolver::{ResolveError, ResolvedRecordSource};

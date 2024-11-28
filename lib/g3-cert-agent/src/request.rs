@@ -16,7 +16,7 @@
 
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use openssl::x509::X509;
 use rmpv::ValueRef;
 

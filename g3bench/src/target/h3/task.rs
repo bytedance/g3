@@ -16,7 +16,7 @@
 
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use bytes::Bytes;
 use h3::client::SendRequest;
 use h3_quinn::OpenStreams;

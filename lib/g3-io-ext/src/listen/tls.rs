@@ -18,7 +18,7 @@ use std::io;
 use std::net::{self, SocketAddr};
 
 use tokio::net::TcpStream;
-use tokio_rustls::{server::TlsStream, TlsAcceptor};
+use tokio_rustls::{TlsAcceptor, server::TlsStream};
 
 use super::LimitedTcpListener;
 

@@ -17,7 +17,7 @@
 use std::future::Future;
 use std::io;
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use bytes::Bytes;
 use h2::SendStream;

@@ -22,9 +22,9 @@ use tokio::time::Instant;
 
 use g3_http::HttpBodyDecodeReader;
 
+use crate::IcapServiceClient;
 use crate::reqmod::h1::HttpAdapterErrorResponse;
 use crate::service::IcapClientConnection;
-use crate::IcapServiceClient;
 
 pub struct ReqmodAdaptationRunState {
     task_create_instant: Instant,

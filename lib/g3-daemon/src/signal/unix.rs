@@ -18,7 +18,7 @@ use std::future::poll_fn;
 
 use anyhow::anyhow;
 use log::info;
-use tokio::signal::unix::{signal, SignalKind};
+use tokio::signal::unix::{SignalKind, signal};
 
 use super::AsyncSignalAction;
 

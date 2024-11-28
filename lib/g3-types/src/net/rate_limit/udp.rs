@@ -18,7 +18,7 @@ use std::cmp::Ordering;
 
 use anyhow::anyhow;
 
-use super::{get_nonzero_smaller, RATE_LIMIT_SHIFT_MILLIS_MAX};
+use super::{RATE_LIMIT_SHIFT_MILLIS_MAX, get_nonzero_smaller};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Default)]
 pub struct UdpSockSpeedLimitConfig {

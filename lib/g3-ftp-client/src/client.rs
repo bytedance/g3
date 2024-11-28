@@ -31,8 +31,8 @@ use crate::error::{
 };
 use crate::transfer::{FtpLineDataReceiver, FtpLineDataTransfer, FtpTransferType};
 use crate::{
-    log_msg, FtpClientConfig, FtpConnectionProvider, FtpControlChannel, FtpFileFacts,
-    FtpServerFeature,
+    FtpClientConfig, FtpConnectionProvider, FtpControlChannel, FtpFileFacts, FtpServerFeature,
+    log_msg,
 };
 
 pub struct FtpClient<CP, S, E, UD>

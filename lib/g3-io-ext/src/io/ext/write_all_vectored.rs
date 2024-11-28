@@ -17,7 +17,7 @@
 use std::future::Future;
 use std::io::{self, IoSlice};
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use tokio::io::AsyncWrite;
 
@@ -178,15 +178,12 @@ mod tests {
     #[tokio::test]
     async fn t4_eq_le_ge_le() {
         let mut writer = Writer::new(4);
-        let fut = WriteAllVectored::new(
-            &mut writer,
-            [
-                IoSlice::new(b"1234"),
-                IoSlice::new(b"123"),
-                IoSlice::new(b"12345"),
-                IoSlice::new(b"1"),
-            ],
-        );
+        let fut = WriteAllVectored::new(&mut writer, [
+            IoSlice::new(b"1234"),
+            IoSlice::new(b"123"),
+            IoSlice::new(b"12345"),
+            IoSlice::new(b"1"),
+        ]);
         let nw = fut.await.unwrap();
         assert_eq!(nw, 13);
         assert_eq!(writer.buf.as_slice(), b"1234123123451");
@@ -195,15 +192,12 @@ mod tests {
     #[tokio::test]
     async fn t4_ge_ge_le_eq() {
         let mut writer = Writer::new(4);
-        let fut = WriteAllVectored::new(
-            &mut writer,
-            [
-                IoSlice::new(b"12345678"),
-                IoSlice::new(b"12345"),
-                IoSlice::new(b"1"),
-                IoSlice::new(b"1234"),
-            ],
-        );
+        let fut = WriteAllVectored::new(&mut writer, [
+            IoSlice::new(b"12345678"),
+            IoSlice::new(b"12345"),
+            IoSlice::new(b"1"),
+            IoSlice::new(b"1234"),
+        ]);
         let nw = fut.await.unwrap();
         assert_eq!(nw, 18);
         assert_eq!(writer.buf.as_slice(), b"123456781234511234");
@@ -212,15 +206,12 @@ mod tests {
     #[tokio::test]
     async fn t4_le_le_le_eq() {
         let mut writer = Writer::new(4);
-        let fut = WriteAllVectored::new(
-            &mut writer,
-            [
-                IoSlice::new(b"1"),
-                IoSlice::new(b"12"),
-                IoSlice::new(b"123"),
-                IoSlice::new(b"1234"),
-            ],
-        );
+        let fut = WriteAllVectored::new(&mut writer, [
+            IoSlice::new(b"1"),
+            IoSlice::new(b"12"),
+            IoSlice::new(b"123"),
+            IoSlice::new(b"1234"),
+        ]);
         let nw = fut.await.unwrap();
         assert_eq!(nw, 10);
         assert_eq!(writer.buf.as_slice(), b"1121231234");

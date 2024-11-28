@@ -17,8 +17,8 @@
 use tokio::io::{AsyncWrite, BufWriter};
 use tokio::time::Instant;
 
-use g3_http::server::HttpAdaptedRequest;
 use g3_http::HttpBodyDecodeReader;
+use g3_http::server::HttpAdaptedRequest;
 use g3_io_ext::{IdleCheck, LimitedCopy, LimitedCopyError};
 
 use super::{ImapAdaptationError, ImapMessageAdapter};

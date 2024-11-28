@@ -15,10 +15,10 @@
  */
 
 use bytes::BufMut;
-use http::{header, Method};
+use http::{Method, header};
 
-use g3_http::server::{HttpProxyClientRequest, HttpTransparentRequest};
 use g3_http::HttpBodyType;
+use g3_http::server::{HttpProxyClientRequest, HttpTransparentRequest};
 
 use super::{HttpAdaptedRequest, HttpRequestForAdaptation};
 

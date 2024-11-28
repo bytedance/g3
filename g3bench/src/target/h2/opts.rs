@@ -19,9 +19,9 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use bytes::Bytes;
-use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
+use clap::{Arg, ArgAction, ArgMatches, Command, value_parser};
 use h2::client::SendRequest;
 use http::{HeaderValue, Method, StatusCode};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};

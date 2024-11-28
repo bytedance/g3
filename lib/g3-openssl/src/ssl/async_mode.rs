@@ -30,8 +30,8 @@ use openssl::foreign_types::ForeignTypeRef;
 use openssl::ssl::{SslMode, SslRef};
 #[cfg(ossl300)]
 use openssl_sys::SSL;
-use tokio::io::unix::AsyncFd;
 use tokio::io::Interest;
+use tokio::io::unix::AsyncFd;
 
 use crate::ffi;
 

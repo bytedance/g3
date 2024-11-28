@@ -18,9 +18,9 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use indexmap::IndexSet;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
 use g3_daemon::config::sort_nodes_in_dependency_graph;
 use g3_types::metrics::MetricsName;

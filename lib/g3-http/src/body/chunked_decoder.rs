@@ -16,7 +16,7 @@
 
 use std::io;
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use bytes::BufMut;
 use tokio::io::{AsyncBufRead, AsyncRead, ReadBuf};

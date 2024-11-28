@@ -17,7 +17,7 @@
 use std::str::FromStr;
 
 use anyhow::anyhow;
-use clap::{value_parser, Arg, ArgMatches, Command};
+use clap::{Arg, ArgMatches, Command, value_parser};
 use futures_util::future::TryFutureExt;
 
 use g3_ctl::{CommandError, CommandResult};
@@ -25,7 +25,7 @@ use g3_types::resolve::QueryStrategy as ResolverQueryStrategy;
 
 use g3proxy_proto::proc_capnp::proc_control;
 use g3proxy_proto::resolver_capnp::{
-    query_result, resolver_control, QueryStrategy as RpcQueryStrategy,
+    QueryStrategy as RpcQueryStrategy, query_result, resolver_control,
 };
 
 pub const COMMAND: &str = "resolver";

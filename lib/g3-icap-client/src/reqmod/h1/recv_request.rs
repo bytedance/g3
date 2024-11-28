@@ -26,8 +26,8 @@ use super::{
     HttpRequestUpstreamWriter, ReqmodAdaptationEndState, ReqmodAdaptationMidState,
     ReqmodAdaptationRunState,
 };
-use crate::reqmod::response::ReqmodResponse;
 use crate::reqmod::IcapReqmodResponsePayload;
+use crate::reqmod::response::ReqmodResponse;
 
 impl<I: IdleCheck> HttpRequestAdapter<I> {
     pub(super) async fn handle_original_http_request_without_body<H, UW>(

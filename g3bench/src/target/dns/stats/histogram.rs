@@ -29,10 +29,9 @@ pub(crate) struct DnsHistogram {
 impl DnsHistogram {
     pub(crate) fn new() -> (Self, DnsHistogramRecorder) {
         let (h, r) = KeepingHistogram::new();
-        (
-            DnsHistogram { total_time: h },
-            DnsHistogramRecorder { total_time: r },
-        )
+        (DnsHistogram { total_time: h }, DnsHistogramRecorder {
+            total_time: r,
+        })
     }
 }
 

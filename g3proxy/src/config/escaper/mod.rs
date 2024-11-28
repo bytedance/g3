@@ -21,7 +21,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use indexmap::IndexSet;
 use slog::Logger;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
 use g3_daemon::config::sort_nodes_in_dependency_graph;
 use g3_types::metrics::MetricsName;

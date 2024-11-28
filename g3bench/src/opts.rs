@@ -15,15 +15,15 @@
  */
 
 use std::hash::Hash;
-use std::io::{stderr, IsTerminal};
+use std::io::{IsTerminal, stderr};
 use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
 
 use ahash::AHashMap;
-use anyhow::{anyhow, Context};
-use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
+use anyhow::{Context, anyhow};
+use clap::{Arg, ArgAction, ArgMatches, Command, ValueHint, value_parser};
 
 use g3_runtime::blended::BlendedRuntimeConfig;
 use g3_runtime::unaided::UnaidedRuntimeConfig;

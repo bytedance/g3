@@ -17,7 +17,7 @@
 use std::sync::Arc;
 
 use arc_swap::ArcSwap;
-use governor::{clock::DefaultClock, state::InMemoryState, state::NotKeyed, RateLimiter};
+use governor::{RateLimiter, clock::DefaultClock, state::InMemoryState, state::NotKeyed};
 use openssl::ssl::SslContext;
 
 use g3_types::collection::NamedValue;

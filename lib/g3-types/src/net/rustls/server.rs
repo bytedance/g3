@@ -17,7 +17,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 #[cfg(feature = "quinn")]
 use quinn::crypto::rustls::QuicServerConfig;
 use rustls::server::{ProducesTickets, WebPkiClientVerifier};

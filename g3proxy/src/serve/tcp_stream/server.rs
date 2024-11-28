@@ -17,7 +17,7 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use arc_swap::{ArcSwap, ArcSwapOption};
 use async_trait::async_trait;
 #[cfg(feature = "quic")]

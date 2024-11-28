@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-use std::sync::atomic::{AtomicI32, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicI32, AtomicU64, Ordering};
 
 use arc_swap::ArcSwapOption;
 

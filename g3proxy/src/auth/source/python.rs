@@ -24,8 +24,8 @@ use log::warn;
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 
-use crate::config::auth::source::python::UserDynamicPythonSource;
 use crate::config::auth::UserConfig;
+use crate::config::auth::source::python::UserDynamicPythonSource;
 
 const FN_NAME_FETCH_USERS: &str = "fetch_users";
 const FN_NAME_REPORT_OK: &str = "report_ok";

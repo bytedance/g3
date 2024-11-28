@@ -17,8 +17,8 @@
 use std::net::SocketAddr;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
-use clap::{value_parser, Arg, ArgMatches, Command};
+use anyhow::{Context, anyhow};
+use clap::{Arg, ArgMatches, Command, value_parser};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio_rustls::client::TlsStream;

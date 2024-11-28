@@ -19,7 +19,7 @@ use std::io::Write;
 use std::str::FromStr;
 
 use bytes::{BufMut, Bytes, BytesMut};
-use http::{header, HeaderName, Method, Uri, Version};
+use http::{HeaderName, Method, Uri, Version, header};
 use tokio::io::AsyncBufRead;
 
 use g3_io_ext::LimitedBufReadExt;

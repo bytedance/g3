@@ -26,11 +26,11 @@ use tokio::time::Instant;
 use g3_http::client::HttpTransparentResponse;
 use g3_http::server::{HttpTransparentRequest, UriExt};
 use g3_http::{HttpBodyReader, HttpBodyType};
+use g3_icap_client::reqmod::IcapReqmodClient;
 use g3_icap_client::reqmod::h1::{
     H1ReqmodAdaptationError, HttpAdapterErrorResponse, HttpRequestAdapter,
     ReqmodAdaptationMidState, ReqmodAdaptationRunState, ReqmodRecvHttpResponseBody,
 };
-use g3_icap_client::reqmod::IcapReqmodClient;
 use g3_io_ext::{LimitedCopy, LimitedCopyError, LimitedWriteExt};
 use g3_slog_types::{LtDateTime, LtDuration, LtUpstreamAddr, LtUuid};
 use g3_types::net::UpstreamAddr;

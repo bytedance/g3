@@ -29,8 +29,8 @@ use g3_types::net::UpstreamAddr;
 
 use crate::auth::UserUpstreamTrafficStats;
 use crate::module::http_forward::{
-    send_req_header_to_origin, ArcHttpForwardTaskRemoteStats, HttpForwardRemoteWrapperStats,
-    HttpForwardTaskRemoteStats, HttpForwardTaskRemoteWrapperStats, HttpForwardWrite,
+    ArcHttpForwardTaskRemoteStats, HttpForwardRemoteWrapperStats, HttpForwardTaskRemoteStats,
+    HttpForwardTaskRemoteWrapperStats, HttpForwardWrite, send_req_header_to_origin,
 };
 use crate::serve::ServerTaskNotes;
 

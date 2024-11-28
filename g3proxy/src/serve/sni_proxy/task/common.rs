@@ -24,8 +24,8 @@ use g3_dpi::ProtocolPortMap;
 
 use crate::config::server::sni_proxy::SniProxyServerConfig;
 use crate::escape::ArcEscaper;
-use crate::serve::tcp_stream::TcpStreamServerStats;
 use crate::serve::ServerQuitPolicy;
+use crate::serve::tcp_stream::TcpStreamServerStats;
 
 pub(crate) struct CommonTaskContext {
     pub(crate) server_config: Arc<SniProxyServerConfig>,

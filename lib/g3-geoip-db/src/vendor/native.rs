@@ -78,13 +78,10 @@ fn load_country_from_csv<R: io::Read>(
         let country = IsoCountryCode::from_str(c)
             .map_err(|_| anyhow!("invalid country code {c} in line #{i}"))?;
 
-        table.insert(
-            network,
-            GeoIpCountryRecord {
-                country,
-                continent: country.continent(),
-            },
-        );
+        table.insert(network, GeoIpCountryRecord {
+            country,
+            continent: country.continent(),
+        });
     }
 
     Ok(table)
@@ -136,14 +133,11 @@ fn load_asn_from_csv<R: io::Read>(stream: R) -> anyhow::Result<IpNetworkTable<Ge
             IpNetwork::new(addr, mask).map_err(|e| anyhow!("invalid network in line #{i}: {e}"))?;
         let asn = u32::from_str(a).map_err(|_| anyhow!("invalid as number {a} in line #{i}"))?;
 
-        table.insert(
-            network,
-            GeoIpAsnRecord {
-                number: asn,
-                name: None,
-                domain: None,
-            },
-        );
+        table.insert(network, GeoIpAsnRecord {
+            number: asn,
+            name: None,
+            domain: None,
+        });
     }
 
     Ok(table)

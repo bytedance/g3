@@ -22,9 +22,9 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use g3_io_ext::{IdleCheck, LimitedCopy, LimitedWriteExt};
 
 use super::{HttpAdapterErrorResponse, ImapAdaptationError, ImapMessageAdapter};
+use crate::reqmod::IcapReqmodResponsePayload;
 use crate::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};
 use crate::reqmod::response::ReqmodResponse;
-use crate::reqmod::IcapReqmodResponsePayload;
 
 mod bidirectional;
 use bidirectional::{BidirectionalRecvHttpRequest, BidirectionalRecvIcapResponse};
@@ -89,13 +89,13 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
             204 | 206 => {
                 return Err(ImapAdaptationError::IcapServerErrorResponse(
                     rsp.code, rsp.reason,
-                ))
+                ));
             }
             n if (200..300).contains(&n) => {}
             _ => {
                 return Err(ImapAdaptationError::IcapServerErrorResponse(
                     rsp.code, rsp.reason,
-                ))
+                ));
             }
         }
 

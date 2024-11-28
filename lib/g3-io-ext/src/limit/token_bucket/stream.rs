@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use arc_swap::ArcSwap;
 use tokio::time::Instant;

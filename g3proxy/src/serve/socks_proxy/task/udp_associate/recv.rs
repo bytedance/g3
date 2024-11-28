@@ -17,7 +17,7 @@
 use std::future::poll_fn;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use g3_io_ext::{AsyncUdpRecv, UdpRelayClientError, UdpRelayClientRecv};
 #[cfg(any(

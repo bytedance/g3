@@ -20,13 +20,13 @@ use std::io::Write;
 use std::os::fd::AsFd;
 use std::os::unix::net::UnixDatagram;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use once_cell::sync::OnceCell;
 use rustix::cmsg_space;
-use rustix::fs::{fcntl_add_seals, memfd_create, MemfdFlags, SealFlags};
+use rustix::fs::{MemfdFlags, SealFlags, fcntl_add_seals, memfd_create};
 use rustix::io::Errno;
 use rustix::net::{
-    sendmsg_unix, SendAncillaryBuffer, SendAncillaryMessage, SendFlags, SocketAddrUnix,
+    SendAncillaryBuffer, SendAncillaryMessage, SendFlags, SocketAddrUnix, sendmsg_unix,
 };
 
 /// Default path of the systemd-journald `AF_UNIX` datagram socket.

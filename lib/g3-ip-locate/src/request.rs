@@ -16,7 +16,7 @@
 
 use std::net::IpAddr;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use rmpv::ValueRef;
 
 use super::{request_key, request_key_id};

@@ -26,8 +26,8 @@ use super::{
     HttpResponseForAdaptation, RespmodAdaptationEndState, RespmodAdaptationRunState,
 };
 use crate::reason::IcapErrorReason;
-use crate::respmod::response::RespmodResponse;
 use crate::respmod::IcapRespmodResponsePayload;
+use crate::respmod::response::RespmodResponse;
 
 impl<I: IdleCheck> HttpResponseAdapter<I> {
     pub(super) async fn handle_icap_ok_without_payload<H>(

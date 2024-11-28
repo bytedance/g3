@@ -19,8 +19,8 @@ use std::sync::Arc;
 use tokio::io::{AsyncRead, AsyncWrite, BufWriter};
 use tokio::time::Instant;
 
-use g3_http::server::HttpAdaptedRequest;
 use g3_http::HttpBodyDecodeReader;
+use g3_http::server::HttpAdaptedRequest;
 use g3_io_ext::{
     IdleCheck, LimitedBufReadExt, LimitedCopy, LimitedCopyConfig, LimitedCopyError, LimitedWriteExt,
 };

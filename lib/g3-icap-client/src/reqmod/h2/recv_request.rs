@@ -17,8 +17,8 @@
 use std::time::Duration;
 
 use bytes::Bytes;
-use h2::client::{ResponseFuture, SendRequest};
 use h2::RecvStream;
+use h2::client::{ResponseFuture, SendRequest};
 use http::{Request, Response};
 use tokio::time::Instant;
 
@@ -33,8 +33,8 @@ use super::{
     H2ReqmodAdaptationError, H2RequestAdapter, ReqmodAdaptationEndState, ReqmodAdaptationMidState,
     ReqmodAdaptationRunState,
 };
-use crate::reqmod::response::ReqmodResponse;
 use crate::reqmod::IcapReqmodResponsePayload;
+use crate::reqmod::response::ReqmodResponse;
 
 impl<I: IdleCheck> H2RequestAdapter<I> {
     pub(super) async fn handle_original_http_request_without_body(

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use super::{protocol, CommonTaskContext, HttpRProxyServerStats};
+use super::{CommonTaskContext, HttpRProxyServerStats, protocol};
 
 mod task;
 pub(super) use task::HttpRProxyUntrustedTask;

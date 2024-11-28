@@ -16,7 +16,7 @@
 
 // the graph is constructed with edges (node, node), where node is their index
 pub fn sort_nodes_in_dependency_graph(edges: Vec<(usize, usize)>) -> Result<Vec<usize>, usize> {
-    use petgraph::{algo::toposort, graph::Graph, Directed};
+    use petgraph::{Directed, algo::toposort, graph::Graph};
 
     if edges.is_empty() {
         return Ok(Vec::new());

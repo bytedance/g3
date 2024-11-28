@@ -19,9 +19,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use ahash::AHashMap;
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use ascii::AsciiString;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
 use g3_types::auth::{Password, Username};
 use g3_types::collection::SelectivePickPolicy;

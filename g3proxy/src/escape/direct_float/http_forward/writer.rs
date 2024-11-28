@@ -31,8 +31,8 @@ use super::DirectFloatBindIp;
 use crate::auth::UserUpstreamTrafficStats;
 use crate::escape::direct_fixed::DirectFixedEscaperStats;
 use crate::module::http_forward::{
-    send_req_header_to_origin, ArcHttpForwardTaskRemoteStats, HttpForwardRemoteWrapperStats,
-    HttpForwardTaskRemoteWrapperStats, HttpForwardWrite,
+    ArcHttpForwardTaskRemoteStats, HttpForwardRemoteWrapperStats,
+    HttpForwardTaskRemoteWrapperStats, HttpForwardWrite, send_req_header_to_origin,
 };
 use crate::serve::ServerTaskNotes;
 

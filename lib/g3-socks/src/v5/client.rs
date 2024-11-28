@@ -20,7 +20,7 @@ use tokio::io::{AsyncRead, AsyncWrite, BufReader};
 
 use g3_types::net::{SocksAuth, UpstreamAddr};
 
-use super::{auth, Socks5Reply, Socks5Request, SocksAuthMethod, SocksCommand, SocksConnectError};
+use super::{Socks5Reply, Socks5Request, SocksAuthMethod, SocksCommand, SocksConnectError, auth};
 
 async fn socks5_login<S>(stream: &mut S, auth: &SocksAuth) -> Result<(), SocksConnectError>
 where

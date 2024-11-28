@@ -23,8 +23,8 @@ use g3_types::net::UpstreamAddr;
 
 use crate::config::server::ServerConfig;
 use crate::inspect::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext, StreamInspection};
-use crate::log::inspect::stream::StreamInspectLog;
 use crate::log::inspect::InspectSource;
+use crate::log::inspect::stream::StreamInspectLog;
 use crate::serve::{ServerTaskError, ServerTaskResult};
 
 enum InitialDataSource {

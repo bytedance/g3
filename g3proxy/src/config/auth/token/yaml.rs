@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-use anyhow::{anyhow, Context};
-use yaml_rust::{yaml, Yaml};
+use anyhow::{Context, anyhow};
+use yaml_rust::{Yaml, yaml};
 
 use g3_types::auth::FastHashedPassPhrase;
 use g3_xcrypt::XCryptHash;
 
-use super::{PasswordToken, CONFIG_KEY_TYPE};
+use super::{CONFIG_KEY_TYPE, PasswordToken};
 
 const CONFIG_KEY_SALT: &str = "salt";
 

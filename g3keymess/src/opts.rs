@@ -19,8 +19,8 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::OnceLock;
 
-use anyhow::{anyhow, Context};
-use clap::{value_parser, Arg, ArgAction, Command, ValueHint};
+use anyhow::{Context, anyhow};
+use clap::{Arg, ArgAction, Command, ValueHint, value_parser};
 #[cfg(all(unix, not(target_os = "openbsd")))]
 use log::info;
 

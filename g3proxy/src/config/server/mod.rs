@@ -19,10 +19,10 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use indexmap::IndexSet;
 use slog::Logger;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
 use g3_daemon::config::sort_nodes_in_dependency_graph;
 use g3_io_ext::LimitedCopyConfig;

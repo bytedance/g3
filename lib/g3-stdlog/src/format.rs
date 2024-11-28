@@ -21,7 +21,7 @@ use g3_types::log::AsyncLogFormatter;
 
 use itoa::Integer;
 use ryu::Float;
-use slog::{Error, OwnedKVList, Record, Serializer, KV};
+use slog::{Error, KV, OwnedKVList, Record, Serializer};
 
 use super::StdLogValue;
 

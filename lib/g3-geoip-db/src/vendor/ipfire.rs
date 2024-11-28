@@ -21,7 +21,7 @@ use std::mem;
 use std::path::Path;
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use flate2::bufread::GzDecoder;
 use ip_network::IpNetwork;
 use ip_network_table::IpNetworkTable;
@@ -81,23 +81,17 @@ fn load_location_from_dump<R: io::Read>(
         if line.is_empty() {
             if let Some(net) = block.network.take() {
                 if let Some(country) = block.country.take() {
-                    country_table.insert(
-                        net,
-                        GeoIpCountryRecord {
-                            country,
-                            continent: country.continent(),
-                        },
-                    );
+                    country_table.insert(net, GeoIpCountryRecord {
+                        country,
+                        continent: country.continent(),
+                    });
                 }
                 if let Some(asn) = block.as_number.take() {
-                    asn_table.insert(
-                        net,
-                        GeoIpAsnRecord {
-                            number: asn,
-                            name: as_name_table.get(&asn).cloned(),
-                            domain: None,
-                        },
-                    );
+                    asn_table.insert(net, GeoIpAsnRecord {
+                        number: asn,
+                        name: as_name_table.get(&asn).cloned(),
+                        domain: None,
+                    });
                 }
             } else if let Some(asn) = block.as_number.take() {
                 if !block.as_name.is_empty() {

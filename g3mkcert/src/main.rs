@@ -17,13 +17,13 @@
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use clap::builder::ArgPredicate;
-use clap::{value_parser, Arg, ArgAction, ArgGroup, ArgMatches, Command, ValueHint};
+use clap::{Arg, ArgAction, ArgGroup, ArgMatches, Command, ValueHint, value_parser};
 use clap_complete::Shell;
 use openssl::pkey::{PKey, Private};
 use openssl::x509::extension::SubjectAlternativeName;
-use openssl::x509::{X509Name, X509};
+use openssl::x509::{X509, X509Name};
 
 use g3_tls_cert::builder::{
     ClientCertBuilder, IntermediateCertBuilder, MimicCertBuilder, RootCertBuilder,

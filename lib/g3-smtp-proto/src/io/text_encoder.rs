@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-use std::future::{poll_fn, Future};
+use std::future::{Future, poll_fn};
 use std::io;
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, ReadBuf};
 

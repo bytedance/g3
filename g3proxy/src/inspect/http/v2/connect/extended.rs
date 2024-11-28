@@ -20,7 +20,7 @@ use bytes::Bytes;
 use h2::client::SendRequest;
 use h2::server::SendResponse;
 use h2::{RecvStream, StreamId};
-use http::{header, Request, Response, StatusCode, Version};
+use http::{Request, Response, StatusCode, Version, header};
 use slog::slog_info;
 
 use g3_dpi::Protocol;
@@ -32,7 +32,7 @@ use g3_types::net::{HttpUpgradeToken, UpstreamAddr, WebSocketNotes};
 use super::{ExchangeHead, H2StreamTransferError, HttpForwardTaskNotes};
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
-use crate::log::inspect::{stream::StreamInspectLog, InspectSource};
+use crate::log::inspect::{InspectSource, stream::StreamInspectLog};
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {

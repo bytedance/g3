@@ -18,9 +18,9 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use slog::{slog_info, Logger};
+use slog::{Logger, slog_info};
 use tokio::io::AsyncRead;
-use tokio::sync::{broadcast, Semaphore};
+use tokio::sync::{Semaphore, broadcast};
 use tokio::time::Instant;
 use uuid::Uuid;
 

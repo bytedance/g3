@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
 use rmpv::ValueRef;
@@ -26,7 +26,7 @@ fn as_certificates_from_single_element(value: &ValueRef) -> anyhow::Result<Vec<X
         _ => {
             return Err(anyhow!(
                 "msgpack value type 'certificates' should be 'string' or 'binary'"
-            ))
+            ));
         }
     };
 

@@ -25,8 +25,8 @@ use g3_smtp_proto::command::{MailParam, RecipientParam};
 use g3_smtp_proto::io::TextDataDecodeReader;
 
 use super::{HttpAdapterErrorResponse, SmtpAdaptationError, SmtpMessageAdapter};
-use crate::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};
 use crate::reqmod::IcapReqmodResponsePayload;
+use crate::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};
 
 mod bidirectional;
 use bidirectional::{BidirectionalRecvHttpRequest, BidirectionalRecvIcapResponse};

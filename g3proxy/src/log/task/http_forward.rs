@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use slog::{slog_info, Logger};
+use slog::{Logger, slog_info};
 
 use g3_slog_types::{
     LtDateTime, LtDuration, LtHttpMethod, LtHttpUri, LtIpAddr, LtUpstreamAddr, LtUuid,

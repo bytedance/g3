@@ -29,10 +29,9 @@ pub(crate) struct SslHistogram {
 impl SslHistogram {
     pub(crate) fn new() -> (Self, SslHistogramRecorder) {
         let (h, r) = KeepingHistogram::new();
-        (
-            SslHistogram { total_time: h },
-            SslHistogramRecorder { total_time: r },
-        )
+        (SslHistogram { total_time: h }, SslHistogramRecorder {
+            total_time: r,
+        })
     }
 }
 

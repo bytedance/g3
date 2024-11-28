@@ -17,9 +17,9 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use ascii::AsciiString;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
 use g3_io_ext::LimitedCopyConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
@@ -27,7 +27,7 @@ use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::net::{TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig};
 use g3_yaml::YamlDocPosition;
 
-use super::{AnyServerConfig, ServerConfig, ServerConfigDiffAction, IDLE_CHECK_MAXIMUM_DURATION};
+use super::{AnyServerConfig, IDLE_CHECK_MAXIMUM_DURATION, ServerConfig, ServerConfigDiffAction};
 
 const SERVER_CONFIG_TYPE: &str = "TcpTProxy";
 

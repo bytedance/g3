@@ -56,25 +56,24 @@ impl ProxyProtocolV1Reader {
         let family = iter
             .next()
             .ok_or(ProxyProtocolReadError::InvalidFamily(0x00))?;
-        let family_c;
-        match family.len() {
+        let family_c = match family.len() {
             4 => {
                 if !family.starts_with(b"TCP") {
                     return Err(ProxyProtocolReadError::InvalidFamily(0x00));
                 }
-                family_c = family[3];
+                family[3]
             }
             7 => {
                 return if family == b"UNKNOWN" {
                     Ok(None)
                 } else {
                     Err(ProxyProtocolReadError::InvalidFamily(0x00))
-                }
+                };
             }
             _ => {
                 return Err(ProxyProtocolReadError::InvalidFamily(0x00));
             }
-        }
+        };
 
         let src_ip = iter.next().ok_or(ProxyProtocolReadError::InvalidSrcAddr)?;
         let src_ip =

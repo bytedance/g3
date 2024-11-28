@@ -28,4 +28,4 @@ pub use hash::{
     foreach_kv, get_required as hash_get_required, get_required_str as hash_get_required_str,
 };
 pub use hybrid::HybridParser;
-pub use util::{foreach_doc, load_doc, YamlDocPosition};
+pub use util::{YamlDocPosition, foreach_doc, load_doc};

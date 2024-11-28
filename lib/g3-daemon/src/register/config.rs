@@ -16,9 +16,9 @@
 
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use http::uri::PathAndQuery;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
 use g3_types::metrics::StaticMetricsTags;
 use g3_types::net::UpstreamAddr;

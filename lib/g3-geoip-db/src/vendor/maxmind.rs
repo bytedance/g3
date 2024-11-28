@@ -20,7 +20,7 @@ use std::io;
 use std::path::Path;
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use ip_network::IpNetwork;
 use ip_network_table::IpNetworkTable;
 use zip::ZipArchive;
@@ -173,13 +173,10 @@ fn load_country_blocks_from_csv<R: io::Read>(
             .map_err(|e| anyhow!("invalid geoname_id value for record {i}: {e}"))?;
 
         if let Some(v) = locations_map.get(&geoname_id) {
-            table.insert(
-                network,
-                GeoIpCountryRecord {
-                    country: v.0,
-                    continent: v.1,
-                },
-            );
+            table.insert(network, GeoIpCountryRecord {
+                country: v.0,
+                continent: v.1,
+            });
         }
     }
 
@@ -258,14 +255,11 @@ fn load_asn_blocks_from_csv<R: io::Read>(
         };
         let as_name = record.get(as_name_index).map(|s| s.to_string());
 
-        table.insert(
-            network,
-            GeoIpAsnRecord {
-                number: asn,
-                name: as_name,
-                domain: None,
-            },
-        );
+        table.insert(network, GeoIpAsnRecord {
+            number: asn,
+            name: as_name,
+            domain: None,
+        });
     }
 
     Ok(())

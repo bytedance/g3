@@ -16,7 +16,7 @@
 
 use std::io::{self, IoSlice};
 use std::net::SocketAddr;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use g3_io_ext::{AsyncUdpSend, UdpRelayRemoteError, UdpRelayRemoteSend};
 #[cfg(any(

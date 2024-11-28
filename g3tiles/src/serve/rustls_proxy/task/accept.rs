@@ -22,8 +22,8 @@ use rustls::server::{Acceptor, ClientHello};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::time::Instant;
-use tokio_rustls::server::TlsStream;
 use tokio_rustls::LazyConfigAcceptor;
+use tokio_rustls::server::TlsStream;
 
 use g3_daemon::stat::task::TcpStreamConnectionStats;
 use g3_io_ext::LimitedStream;

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use redis::AsyncCommands;
 
 use g3_redis_client::{RedisClientConfig, RedisClientConfigBuilder};

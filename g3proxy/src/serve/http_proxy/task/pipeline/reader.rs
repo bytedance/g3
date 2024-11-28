@@ -137,7 +137,9 @@ where
                         }
 
                         if self.task_queue.send(Ok(req)).await.is_err() {
-                            trace!("write end has closed for previous request while sending new request");
+                            trace!(
+                                "write end has closed for previous request while sending new request"
+                            );
                             break;
                         }
                         self.pipeline_stats.add_task();
@@ -152,7 +154,9 @@ where
                             HttpProxyClientResponse::from_request_error(&e, version)
                         {
                             if self.task_queue.send(Err(response)).await.is_err() {
-                                trace!("write end has closed for previous request while sending error response");
+                                trace!(
+                                    "write end has closed for previous request while sending error response"
+                                );
                             }
                         }
                         trace!("Error handling client {}: {e:?}", self.ctx.client_addr());

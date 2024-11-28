@@ -20,7 +20,7 @@ use bytes::{Buf, BufMut, BytesMut};
 use hickory_proto::error::ProtoError;
 use hickory_proto::op::Message;
 use hickory_proto::xfer::DnsResponse;
-use http::{header, Response};
+use http::{Response, header};
 
 pub struct HttpDnsResponse {
     rsp: Response<()>,

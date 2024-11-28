@@ -28,8 +28,8 @@ use super::{
     ReqmodAdaptationEndState, ReqmodAdaptationRunState,
 };
 use crate::reason::IcapErrorReason;
-use crate::reqmod::response::ReqmodResponse;
 use crate::reqmod::IcapReqmodResponsePayload;
+use crate::reqmod::response::ReqmodResponse;
 
 impl<I: IdleCheck> HttpRequestAdapter<I> {
     fn build_preview_request(
@@ -89,7 +89,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                         clt_body_io,
                         ups_writer,
                     )
-                    .await
+                    .await;
             }
         };
         let icap_header = self.build_preview_request(header_len, &preview_state);

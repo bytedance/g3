@@ -16,14 +16,14 @@
 
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
 use rmpv::ValueRef;
 
 use g3_types::net::{TlsCertUsage, TlsServiceType};
 
-use super::{response_key, response_key_id, CacheQueryKey, FakeCertPair};
+use super::{CacheQueryKey, FakeCertPair, response_key, response_key_id};
 
 pub(super) struct Response {
     host: String,

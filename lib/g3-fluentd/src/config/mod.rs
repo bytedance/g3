@@ -17,7 +17,7 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use digest::Digest;
 use rand::Rng;
 use rmp::encode::ValueWriteError;

@@ -127,15 +127,12 @@ mod tests {
         stats.add_channel_closed();
         stats.add_channel_overflow();
         stats.add_peer_unreachable();
-        assert_eq!(
-            stats.snapshot(),
-            LogDropSnapshot {
-                format_failed: 1,
-                channel_closed: 1,
-                channel_overflow: 1,
-                peer_unreachable: 1
-            }
-        )
+        assert_eq!(stats.snapshot(), LogDropSnapshot {
+            format_failed: 1,
+            channel_closed: 1,
+            channel_overflow: 1,
+            peer_unreachable: 1
+        })
     }
 
     #[test]
@@ -144,13 +141,10 @@ mod tests {
         stats.add_total();
         stats.add_passed();
         stats.add_size(1024);
-        assert_eq!(
-            stats.snapshot(),
-            LogIoSnapshot {
-                total: 1,
-                passed: 1,
-                size: 1024
-            }
-        )
+        assert_eq!(stats.snapshot(), LogIoSnapshot {
+            total: 1,
+            passed: 1,
+            size: 1024
+        })
     }
 }

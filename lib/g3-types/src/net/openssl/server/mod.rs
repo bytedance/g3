@@ -17,7 +17,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use bytes::BufMut;
 use openssl::ex_data::Index;
 use openssl::ssl::{
@@ -25,8 +25,8 @@ use openssl::ssl::{
     TicketKeyStatus,
 };
 use openssl::stack::Stack;
-use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::X509;
+use openssl::x509::store::X509StoreBuilder;
 
 use super::OpensslCertificatePair;
 #[cfg(feature = "tongsuo")]

@@ -18,4 +18,4 @@ mod server;
 pub(super) use server::IntelliProxy;
 
 mod detection;
-use detection::{detect_tcp_proxy_protocol, DetectedProxyProtocol};
+use detection::{DetectedProxyProtocol, detect_tcp_proxy_protocol};

@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-use std::future::{poll_fn, Future};
+use std::future::{Future, poll_fn};
 use std::io;
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 use std::time::Duration;
 
 use openssl::error::ErrorStack;
@@ -129,7 +129,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslAcceptor<S> {
                         return Poll::Pending;
                     }
                     _ => {
-                        return Poll::Ready(Err(e.into_io_error().unwrap_or_else(io::Error::other)))
+                        return Poll::Ready(Err(e
+                            .into_io_error()
+                            .unwrap_or_else(io::Error::other)));
                     }
                 },
             }

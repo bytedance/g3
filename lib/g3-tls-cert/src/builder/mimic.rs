@@ -20,7 +20,7 @@ use openssl::hash::MessageDigest;
 use openssl::nid::Nid;
 use openssl::pkey::{Id, PKey, Private};
 use openssl::x509::extension::{AuthorityKeyIdentifier, KeyUsage, SubjectKeyIdentifier};
-use openssl::x509::{X509Builder, X509Extension, X509ExtensionRef, X509Ref, X509};
+use openssl::x509::{X509, X509Builder, X509Extension, X509ExtensionRef, X509Ref};
 
 use super::KeyUsageBuilder;
 use crate::ext::X509BuilderExt;

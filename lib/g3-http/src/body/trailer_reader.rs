@@ -18,7 +18,7 @@ use std::future::Future;
 use std::io;
 use std::pin::Pin;
 use std::str::FromStr;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use http::HeaderName;
 use thiserror::Error;

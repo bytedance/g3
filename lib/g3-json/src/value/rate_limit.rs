@@ -17,7 +17,7 @@
 use std::num::NonZeroU32;
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use serde_json::Value;
 
 use g3_types::limit::RateLimitQuotaConfig;

@@ -19,7 +19,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use ahash::AHashMap;
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde_json::Value;

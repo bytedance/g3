@@ -108,7 +108,7 @@ mod ossl3 {
     use libc::{c_int, c_void};
     use openssl::error::ErrorStack;
 
-    use super::{ffi, AsyncWaitCtx};
+    use super::{AsyncWaitCtx, ffi};
 
     impl AsyncWaitCtx {
         pub fn set_callback(&self, waker: &Arc<AtomicWaker>) -> Result<(), ErrorStack> {

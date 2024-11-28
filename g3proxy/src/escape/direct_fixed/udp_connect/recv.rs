@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use g3_io_ext::{AsyncUdpRecv, UdpCopyRemoteError, UdpCopyRemoteRecv};
 #[cfg(any(

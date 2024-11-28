@@ -15,7 +15,7 @@
  */
 
 use tokio::io::{AsyncRead, AsyncWrite, Join};
-use tokio::net::{tcp, TcpStream};
+use tokio::net::{TcpStream, tcp};
 
 pub trait AsyncStream {
     type R;

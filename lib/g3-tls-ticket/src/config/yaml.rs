@@ -16,7 +16,7 @@
 
 use std::path::Path;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
 use super::TlsTicketConfig;

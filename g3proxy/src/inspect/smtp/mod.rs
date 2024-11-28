@@ -359,7 +359,7 @@ where
                             .transit_transparent(clt_r, clt_w, ups_r, ups_w)
                             .await
                             .map(|_| None)
-                    }
+                    };
                 }
                 ForwardNextAction::ReverseConnection => {
                     return self

@@ -19,7 +19,7 @@ use std::hash::Hash;
 use std::num::NonZeroU32;
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use ascii::AsciiString;
 use serde_json::Value;
 

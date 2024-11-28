@@ -18,8 +18,8 @@ use std::collections::BTreeSet;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context};
-use yaml_rust::{yaml, Yaml};
+use anyhow::{Context, anyhow};
+use yaml_rust::{Yaml, yaml};
 
 use g3_resolver::driver::c_ares::CAresDriverConfig;
 use g3_resolver::{AnyResolveDriverConfig, ResolverRuntimeConfig};

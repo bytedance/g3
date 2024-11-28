@@ -18,7 +18,7 @@ use std::future::Future;
 use std::sync::Mutex;
 
 use anyhow::anyhow;
-use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
+use capnp_rpc::{RpcSystem, rpc_twoparty_capnp, twoparty};
 use log::{debug, warn};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, BufReader};
 use tokio::sync::oneshot;

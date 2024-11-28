@@ -17,13 +17,13 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use futures_util::FutureExt;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::time::Instant;
 
-use g3_http::client::HttpForwardRemoteResponse;
 use g3_http::HttpBodyReader;
+use g3_http::client::HttpForwardRemoteResponse;
 use g3_io_ext::{LimitedReader, LimitedWriter};
 
 use super::{

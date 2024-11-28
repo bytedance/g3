@@ -23,7 +23,7 @@ use ahash::AHashMap;
 use anyhow::Context;
 use arc_swap::ArcSwapOption;
 use chrono::{DateTime, Utc};
-use governor::{clock::DefaultClock, state::InMemoryState, state::NotKeyed, RateLimiter};
+use governor::{RateLimiter, clock::DefaultClock, state::InMemoryState, state::NotKeyed};
 use tokio::time::Instant;
 
 use g3_io_ext::{GlobalDatagramLimiter, GlobalLimitGroup, GlobalStreamLimiter};

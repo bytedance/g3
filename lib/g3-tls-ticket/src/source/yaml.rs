@@ -19,7 +19,7 @@ use std::path::Path;
 use anyhow::anyhow;
 use yaml_rust::Yaml;
 
-use super::{TicketSourceConfig, CONFIG_KEY_SOURCE_TYPE};
+use super::{CONFIG_KEY_SOURCE_TYPE, TicketSourceConfig};
 
 impl TicketSourceConfig {
     pub(crate) fn parse_yaml(value: &Yaml, lookup_dir: Option<&Path>) -> anyhow::Result<Self> {

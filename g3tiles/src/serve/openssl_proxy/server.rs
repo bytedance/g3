@@ -18,7 +18,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use ahash::AHashMap;
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 #[cfg(feature = "quic")]
 use quinn::Connection;

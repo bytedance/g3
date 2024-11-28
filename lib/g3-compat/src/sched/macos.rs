@@ -20,8 +20,8 @@ use std::num::NonZeroI32;
 use libc::thread_policy_t;
 use mach2::mach_init::mach_thread_self;
 use mach2::thread_policy::{
-    thread_affinity_policy, thread_policy_flavor_t, thread_policy_set, THREAD_AFFINITY_POLICY,
-    THREAD_AFFINITY_POLICY_COUNT, THREAD_AFFINITY_TAG_NULL,
+    THREAD_AFFINITY_POLICY, THREAD_AFFINITY_POLICY_COUNT, THREAD_AFFINITY_TAG_NULL,
+    thread_affinity_policy, thread_policy_flavor_t, thread_policy_set,
 };
 use mach2::vm_types::integer_t;
 

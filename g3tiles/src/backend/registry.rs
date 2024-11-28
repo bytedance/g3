@@ -21,8 +21,8 @@ use anyhow::anyhow;
 
 use g3_types::metrics::MetricsName;
 
-use super::dummy_close::DummyCloseBackend;
 use super::ArcBackend;
+use super::dummy_close::DummyCloseBackend;
 use crate::config::backend::AnyBackendConfig;
 
 static RUNTIME_BACKEND_REGISTRY: LazyLock<Mutex<HashMap<MetricsName, ArcBackend>>> =

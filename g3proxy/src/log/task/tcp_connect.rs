@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use slog::{slog_info, Logger};
+use slog::{Logger, slog_info};
 
 use g3_slog_types::{LtDateTime, LtDuration, LtIpAddr, LtUpstreamAddr, LtUuid};
 use g3_types::net::UpstreamAddr;

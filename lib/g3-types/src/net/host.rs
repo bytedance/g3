@@ -131,7 +131,7 @@ impl FromStr for Host {
                     Ok(Host::from_maybe_mapped_ip6(ip6))
                 } else {
                     Err(anyhow!("invalid ipv6 ip"))
-                }
+                };
             }
             b'0'..=b'9' => {
                 if let Ok(ip) = IpAddr::from_str(s) {

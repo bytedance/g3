@@ -23,8 +23,8 @@ use http::Method;
 use tokio::io::{AsyncBufRead, AsyncWrite};
 use tokio::time::Instant;
 
-use g3_http::client::HttpAdaptedResponse;
 use g3_http::HttpBodyType;
+use g3_http::client::HttpAdaptedResponse;
 use g3_io_ext::{IdleCheck, LimitedCopyConfig};
 use g3_types::net::HttpHeaderMap;
 

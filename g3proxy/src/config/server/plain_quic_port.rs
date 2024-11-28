@@ -16,9 +16,9 @@
 
 use std::collections::BTreeSet;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use bitflags::bitflags;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
 use g3_tls_ticket::TlsTicketConfig;
 use g3_types::acl::AclNetworkRuleBuilder;

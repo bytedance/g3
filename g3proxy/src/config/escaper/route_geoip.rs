@@ -17,9 +17,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use ip_network::IpNetwork;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
 use g3_geoip_types::{ContinentCode, IsoCountryCode};
 use g3_ip_locate::IpLocateServiceConfig;

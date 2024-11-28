@@ -17,7 +17,7 @@
 use std::path::PathBuf;
 
 use anyhow::anyhow;
-use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
+use clap::{Arg, ArgAction, ArgMatches, Command, ValueHint, value_parser};
 use mlua::{Lua, Value};
 
 pub const COMMAND: &str = "run";

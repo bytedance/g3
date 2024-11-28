@@ -17,7 +17,7 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use log::{debug, warn};
 use tokio::runtime::Handle;
 use tokio::time::Instant;

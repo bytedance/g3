@@ -15,7 +15,7 @@
  */
 
 use http::header::Drain;
-use http::{header, HeaderMap, HeaderName, HeaderValue, Uri};
+use http::{HeaderMap, HeaderName, HeaderValue, Uri, header};
 
 pub enum WebSocketSubProtocol {
     Mqtt,

@@ -29,8 +29,8 @@ use super::{
 };
 use crate::reason::IcapErrorReason;
 use crate::reqmod::h1::HttpRequestForAdaptation;
-use crate::respmod::response::RespmodResponse;
 use crate::respmod::IcapRespmodResponsePayload;
+use crate::respmod::response::RespmodResponse;
 
 impl<I: IdleCheck> HttpResponseAdapter<I> {
     fn build_preview_request(
@@ -97,7 +97,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
                         ups_body_io,
                         clt_writer,
                     )
-                    .await
+                    .await;
             }
         };
         let icap_header =
