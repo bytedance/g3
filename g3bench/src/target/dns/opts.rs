@@ -24,11 +24,12 @@ use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
-use hickory_client::client::AsyncClient;
-use hickory_proto::iocompat::AsyncIoTokioAsStd;
+use hickory_client::client::Client;
+use hickory_proto::runtime::iocompat::AsyncIoTokioAsStd;
+use hickory_proto::runtime::TokioRuntimeProvider;
 use rustls::ClientConfig;
 use rustls_pki_types::ServerName;
-use tokio::net::{TcpStream, UdpSocket};
+use tokio::net::TcpStream;
 
 use g3_types::net::{DnsEncryptionProtocol, RustlsClientConfigBuilder};
 
@@ -122,7 +123,7 @@ impl BenchDnsArgs {
         }
     }
 
-    pub(super) async fn new_dns_client(&self) -> anyhow::Result<AsyncClient> {
+    pub(super) async fn new_dns_client(&self) -> anyhow::Result<Client> {
         if let Some(p) = self.encryption {
             let tls_client = self
                 .tls
@@ -157,41 +158,38 @@ impl BenchDnsArgs {
         }
     }
 
-    async fn new_dns_over_udp_client(&self) -> anyhow::Result<AsyncClient> {
+    async fn new_dns_over_udp_client(&self) -> anyhow::Result<Client> {
         // FIXME should we use random port?
         let client_connect =
-            hickory_client::udp::UdpClientStream::<UdpSocket>::with_bind_addr_and_timeout(
-                self.target,
-                self.bind,
-                self.timeout,
-            );
+            hickory_proto::udp::UdpClientStream::builder(self.target, TokioRuntimeProvider::new())
+                .with_bind_addr(self.bind)
+                .with_timeout(Some(self.timeout))
+                .build();
 
-        let (client, bg) = AsyncClient::connect(client_connect)
+        let (client, bg) = Client::connect(client_connect)
             .await
             .map_err(|e| anyhow!("failed to create udp async client: {e}"))?;
         tokio::spawn(bg);
         Ok(client)
     }
 
-    async fn new_dns_over_tcp_client(&self) -> anyhow::Result<AsyncClient> {
+    async fn new_dns_over_tcp_client(&self) -> anyhow::Result<Client> {
         let (stream, sender) =
-            hickory_client::tcp::TcpClientStream::<AsyncIoTokioAsStd<TcpStream>>::with_bind_addr_and_timeout(
+            hickory_proto::tcp::TcpClientStream::<AsyncIoTokioAsStd<TcpStream>>::new(
                 self.target,
                 self.bind,
-                self.connect_timeout,
+                Some(self.connect_timeout),
+                TokioRuntimeProvider::new(),
             );
 
-        let (client, bg) = AsyncClient::with_timeout(stream, sender, self.timeout, None)
+        let (client, bg) = Client::with_timeout(stream, sender, self.timeout, None)
             .await
             .map_err(|e| anyhow!("failed to create tcp async client: {e}"))?;
         tokio::spawn(bg);
         Ok(client)
     }
 
-    async fn new_dns_over_tls_client(
-        &self,
-        tls_client: ClientConfig,
-    ) -> anyhow::Result<AsyncClient> {
+    async fn new_dns_over_tls_client(&self, tls_client: ClientConfig) -> anyhow::Result<Client> {
         use hickory_proto::BufDnsStreamHandle;
 
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(self.target);
@@ -211,17 +209,14 @@ impl BenchDnsArgs {
         );
 
         let (client, bg) =
-            AsyncClient::with_timeout(Box::pin(tls_connect), message_sender, self.timeout, None)
+            Client::with_timeout(Box::pin(tls_connect), message_sender, self.timeout, None)
                 .await
                 .map_err(|e| anyhow!("failed to create tls async client: {e}"))?;
         tokio::spawn(bg);
         Ok(client)
     }
 
-    async fn new_dns_over_h2_client(
-        &self,
-        tls_client: ClientConfig,
-    ) -> anyhow::Result<AsyncClient> {
+    async fn new_dns_over_h2_client(&self, tls_client: ClientConfig) -> anyhow::Result<Client> {
         let tls_name = self
             .tls
             .tls_name
@@ -237,7 +232,7 @@ impl BenchDnsArgs {
             self.timeout,
         );
 
-        let (client, bg) = AsyncClient::connect(Box::pin(client_connect))
+        let (client, bg) = Client::connect(Box::pin(client_connect))
             .await
             .map_err(|e| anyhow!("failed to create h2 async client: {e}"))?;
         tokio::spawn(bg);
@@ -245,10 +240,7 @@ impl BenchDnsArgs {
     }
 
     #[cfg(feature = "quic")]
-    async fn new_dns_over_h3_client(
-        &self,
-        tls_client: ClientConfig,
-    ) -> anyhow::Result<AsyncClient> {
+    async fn new_dns_over_h3_client(&self, tls_client: ClientConfig) -> anyhow::Result<Client> {
         let tls_name = match &self.tls.tls_name {
             Some(ServerName::DnsName(domain)) => domain.as_ref().to_string(),
             Some(ServerName::IpAddress(ip)) => IpAddr::from(*ip).to_string(),
@@ -265,7 +257,7 @@ impl BenchDnsArgs {
             self.timeout,
         );
 
-        let (client, bg) = AsyncClient::connect(Box::pin(client_connect))
+        let (client, bg) = Client::connect(Box::pin(client_connect))
             .await
             .map_err(|e| anyhow!("failed to create h3 async client: {e}"))?;
         tokio::spawn(bg);
@@ -273,10 +265,7 @@ impl BenchDnsArgs {
     }
 
     #[cfg(feature = "quic")]
-    async fn new_dns_over_quic_client(
-        &self,
-        tls_client: ClientConfig,
-    ) -> anyhow::Result<AsyncClient> {
+    async fn new_dns_over_quic_client(&self, tls_client: ClientConfig) -> anyhow::Result<Client> {
         let tls_name = match &self.tls.tls_name {
             Some(ServerName::DnsName(domain)) => domain.as_ref().to_string(),
             Some(ServerName::IpAddress(ip)) => IpAddr::from(*ip).to_string(),
@@ -293,7 +282,7 @@ impl BenchDnsArgs {
             self.timeout,
         );
 
-        let (client, bg) = AsyncClient::connect(Box::pin(client_connect))
+        let (client, bg) = Client::connect(Box::pin(client_connect))
             .await
             .map_err(|e| anyhow!("failed to create udp async client: {e}"))?;
         tokio::spawn(bg);

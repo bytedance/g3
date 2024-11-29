@@ -17,7 +17,7 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
 use std::sync::Arc;
 
-use hickory_proto::error::ProtoError;
+use hickory_proto::ProtoError;
 use quinn::crypto::rustls::QuicClientConfig;
 use quinn::{Connection, Endpoint, EndpointConfig, TokioRuntime};
 use rustls::ClientConfig;

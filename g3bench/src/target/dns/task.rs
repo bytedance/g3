@@ -18,7 +18,7 @@ use std::cell::UnsafeCell;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
-use hickory_client::client::{AsyncClient, ClientHandle};
+use hickory_client::client::{Client, ClientHandle};
 use hickory_proto::op::ResponseCode;
 use tokio::time::Instant;
 
@@ -62,7 +62,7 @@ impl DnsRequestPickState for LocalRequestPicker {
 pub(super) struct DnsTaskContext {
     args: Arc<BenchDnsArgs>,
 
-    client: Option<AsyncClient>,
+    client: Option<Client>,
 
     runtime_stats: Arc<DnsRuntimeStats>,
     histogram_recorder: DnsHistogramRecorder,
@@ -85,7 +85,7 @@ impl DnsTaskContext {
         })
     }
 
-    async fn fetch_client(&mut self) -> anyhow::Result<AsyncClient> {
+    async fn fetch_client(&mut self) -> anyhow::Result<Client> {
         if let Some(client) = &self.client {
             return Ok(client.clone());
         }
@@ -101,11 +101,7 @@ impl DnsTaskContext {
         self.client = None;
     }
 
-    async fn run_with_client(
-        &self,
-        mut client: AsyncClient,
-        req: &DnsRequest,
-    ) -> anyhow::Result<()> {
+    async fn run_with_client(&self, mut client: Client, req: &DnsRequest) -> anyhow::Result<()> {
         let rsp = match tokio::time::timeout(
             self.args.timeout,
             client.query(req.name.clone(), req.class, req.rtype),
