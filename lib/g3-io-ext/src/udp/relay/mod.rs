@@ -354,6 +354,7 @@ impl UdpRelayBuffer {
                             self.recv_done = true;
                         }
                         self.send_end += count;
+                        self.active = true;
                     }
                     Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
                     Poll::Pending => {
@@ -373,6 +374,7 @@ impl UdpRelayBuffer {
                     .map(|p| p.buf_data_end - p.buf_data_off)
                     .sum::<usize>();
                 self.send_start += count;
+                self.active = true;
             }
             self.send_start = 0;
             self.send_end = 0;
