@@ -16,8 +16,10 @@
 
 use std::str::FromStr;
 
-use digest::{Digest, Output};
-use sha2::Sha512;
+use constant_time_eq::constant_time_eq_64;
+use openssl::error::ErrorStack;
+use openssl::md::Md;
+use openssl::md_ctx::{MdCtx, MdCtxRef};
 
 use super::{B64CryptDecoder, XCryptParseError, XCryptParseResult};
 
@@ -46,46 +48,54 @@ pub struct Sha512Crypt {
     hash_bin: [u8; HASH_BIN_LEN],
 }
 
-fn sha512_update_recycled<D>(digest: &mut D, block: &Output<D>, len: usize)
-where
-    D: Digest,
-{
+fn sha512_update_recycled(
+    md: &mut MdCtxRef,
+    block: &[u8; HASH_BIN_LEN],
+    len: usize,
+) -> Result<(), ErrorStack> {
     let mut n = len;
     while n > HASH_BIN_LEN {
-        digest.update(block);
+        md.digest_update(block)?;
         n -= HASH_BIN_LEN;
     }
     if n > 0 {
-        digest.update(&block[0..n]);
+        md.digest_update(&block[0..n])?;
     }
+    Ok(())
 }
 
-fn do_sha512_hash(phrase: &[u8], salt: &str, rounds: usize) -> [u8; HASH_BIN_LEN] {
+fn do_sha512_hash(
+    phrase: &[u8],
+    salt: &str,
+    rounds: usize,
+) -> Result<[u8; HASH_BIN_LEN], ErrorStack> {
     /*
-      Compute alternate MD5 sum with input PHRASE, SALT, and PHRASE.  The
+      Compute alternate SHA512 sum with input PHRASE, SALT, and PHRASE.  The
       final result will be added to the first context.
     */
-    let mut digest = Sha512::new();
+    let mut md = MdCtx::new()?;
+    md.digest_init(Md::sha512())?;
 
-    digest.update(phrase);
-    digest.update(salt.as_bytes());
-    digest.update(phrase);
+    md.digest_update(phrase)?;
+    md.digest_update(salt.as_bytes())?;
+    md.digest_update(phrase)?;
 
-    let hash = digest.finalize(); // the results should be of HASH_BIN_LEN bytes
+    let mut hash = [0u8; HASH_BIN_LEN];
+    md.digest_final(&mut hash)?;
 
     /* Prepare for the real work.  */
-    let mut digest = Sha512::new();
+    md.digest_init(Md::sha512())?;
 
-    digest.update(phrase);
+    md.digest_update(phrase)?;
     /*
       The last part is the salt string.  This must be at most 8
-      characters and it ends at the first `$' character (for
+      characters, and it ends at the first `$' character (for
       compatibility with existing implementations).
     */
-    digest.update(salt.as_bytes());
+    md.digest_update(salt.as_bytes())?;
 
     /* Add for any character in the phrase one byte of the alternate sum.  */
-    sha512_update_recycled(&mut digest, &hash, phrase.len());
+    sha512_update_recycled(&mut md, &hash, phrase.len())?;
 
     /*
       Take the binary representation of the length of the phrase and for every
@@ -94,90 +104,64 @@ fn do_sha512_hash(phrase: &[u8], salt: &str, rounds: usize) -> [u8; HASH_BIN_LEN
     let mut plen = phrase.len();
     while plen > 0 {
         if (plen & 1) == 0 {
-            digest.update(phrase);
+            md.digest_update(phrase)?;
         } else {
-            digest.update(hash);
+            md.digest_update(&hash)?;
         }
         plen >>= 1;
     }
 
     /* Create intermediate result.  */
-    let mut hash = digest.finalize();
+    md.digest_final(&mut hash)?;
 
     /* Start computation of P byte sequence.  */
-    let mut digest = Sha512::new();
+    md.digest_init(Md::sha512())?;
     /* For every character in the password add the entire password.  */
     for _ in 0..phrase.len() {
-        digest.update(phrase);
+        md.digest_update(phrase)?;
     }
-    let p_bytes = digest.finalize();
+    let mut p_bytes = [0u8; HASH_BIN_LEN];
+    md.digest_final(&mut p_bytes)?;
 
     /* Start computation of S byte sequence.  */
-    let mut digest = Sha512::new();
+    md.digest_init(Md::sha512())?;
     for _ in 0..(hash[0] as usize + 16) {
-        digest.update(salt.as_bytes());
+        md.digest_update(salt.as_bytes())?;
     }
-    let s_bytes = digest.finalize();
+    let mut s_bytes = [0u8; HASH_BIN_LEN];
+    md.digest_final(&mut s_bytes)?;
 
     for r in 0..rounds {
-        let mut digest = Sha512::new();
+        md.digest_init(Md::sha512())?;
 
         /* Add phrase or last result.  */
         if (r & 1) == 0 {
-            digest.update(hash);
+            md.digest_update(&hash)?;
         } else {
-            sha512_update_recycled(&mut digest, &p_bytes, phrase.len());
+            sha512_update_recycled(&mut md, &p_bytes, phrase.len())?;
         }
 
         /* Add salt for numbers not divisible by 3.  */
         if (r % 3) != 0 {
-            sha512_update_recycled(&mut digest, &s_bytes, salt.len());
+            sha512_update_recycled(&mut md, &s_bytes, salt.len())?;
         }
 
         /* Add phrase for numbers not divisible by 7.  */
         if (r % 7) != 0 {
-            sha512_update_recycled(&mut digest, &p_bytes, phrase.len());
+            sha512_update_recycled(&mut md, &p_bytes, phrase.len())?;
         }
 
         /* Add phrase or last result.  */
         if (r & 1) == 0 {
-            sha512_update_recycled(&mut digest, &p_bytes, phrase.len());
+            sha512_update_recycled(&mut md, &p_bytes, phrase.len())?;
         } else {
-            digest.update(hash);
+            md.digest_update(&hash)?;
         }
 
-        hash = digest.finalize();
+        md.digest_final(&mut hash)?;
     }
 
-    hash.into()
-
-    /*
-    let mut encoder = B64CryptEncoder::new(HASH_STR_LEN);
-    encoder.push::<4>(hash[0], hash[21], hash[42]);
-    encoder.push::<4>(hash[22], hash[43], hash[1]);
-    encoder.push::<4>(hash[44], hash[2], hash[23]);
-    encoder.push::<4>(hash[3], hash[24], hash[45]);
-    encoder.push::<4>(hash[25], hash[46], hash[4]);
-    encoder.push::<4>(hash[47], hash[5], hash[26]);
-    encoder.push::<4>(hash[6], hash[27], hash[48]);
-    encoder.push::<4>(hash[28], hash[49], hash[7]);
-    encoder.push::<4>(hash[50], hash[8], hash[29]);
-    encoder.push::<4>(hash[9], hash[30], hash[51]);
-    encoder.push::<4>(hash[31], hash[52], hash[10]);
-    encoder.push::<4>(hash[53], hash[11], hash[32]);
-    encoder.push::<4>(hash[12], hash[33], hash[54]);
-    encoder.push::<4>(hash[34], hash[55], hash[13]);
-    encoder.push::<4>(hash[56], hash[14], hash[35]);
-    encoder.push::<4>(hash[15], hash[36], hash[57]);
-    encoder.push::<4>(hash[37], hash[58], hash[16]);
-    encoder.push::<4>(hash[59], hash[17], hash[38]);
-    encoder.push::<4>(hash[18], hash[39], hash[60]);
-    encoder.push::<4>(hash[40], hash[61], hash[19]);
-    encoder.push::<4>(hash[62], hash[20], hash[41]);
-    encoder.push::<2>(0, 0, hash[63]);
-
-    encoder.into()
-     */
+    Ok(hash)
 }
 
 impl Sha512Crypt {
@@ -240,8 +224,8 @@ impl Sha512Crypt {
         }
     }
 
-    pub(super) fn verify(&self, phrase: &[u8]) -> bool {
-        let hash = do_sha512_hash(phrase, &self.salt, self.rounds);
-        self.hash_bin.eq(&hash)
+    pub(super) fn verify(&self, phrase: &[u8]) -> Result<bool, ErrorStack> {
+        do_sha512_hash(phrase, &self.salt, self.rounds)
+            .map(|hash| constant_time_eq_64(&hash, &self.hash_bin))
     }
 }

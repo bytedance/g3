@@ -1636,7 +1636,6 @@ dependencies = [
  "bytes",
  "constant_time_eq",
  "crc32fast",
- "digest",
  "fastrand",
  "flume",
  "fnv",
@@ -1650,7 +1649,6 @@ dependencies = [
  "libc",
  "log",
  "lru",
- "md-5",
  "memchr",
  "metrohash",
  "num-traits",
@@ -1663,7 +1661,6 @@ dependencies = [
  "rustls",
  "rustls-native-certs",
  "rustls-pki-types",
- "sha-1",
  "slog",
  "smallvec",
  "smol_str",
@@ -1691,13 +1688,12 @@ dependencies = [
 
 [[package]]
 name = "g3-xcrypt"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
- "digest",
- "md-5",
+ "constant_time_eq",
  "memchr",
- "sha2",
  "thiserror 2.0.3",
+ "variant-ssl",
 ]
 
 [[package]]
@@ -2686,9 +2682,9 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "libc"
-version = "0.2.166"
+version = "0.2.167"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2ccc108bbc0b1331bd061864e7cd823c0cab660bbe6970e66e2c0614decde36"
+checksum = "09d6582e104315a817dff97f75133544b2e094ee22447d2acf4a74e189ba06fc"
 
 [[package]]
 name = "libloading"
@@ -2747,16 +2743,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19b955cdeb2a02b9117f121ce63aa52d08ade45de53e48fe6a38b39c10f6f709"
 dependencies = [
  "libc",
-]
-
-[[package]]
-name = "md-5"
-version = "0.10.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d89e7ee0cfbedfc4da3340218492196241d89eefb6dab27de5df917a6d2e78cf"
-dependencies = [
- "cfg-if",
- "digest",
 ]
 
 [[package]]
@@ -3488,17 +3474,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "87607cb1398ed59d48732e575a4c28a7a8ebf2454b964fe3f224f2afc07909e1"
 dependencies = [
  "serde",
-]
-
-[[package]]
-name = "sha-1"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5058ada175748e33390e40e872bd0fe59a19f265d0158daa551c5a88a76009c"
-dependencies = [
- "cfg-if",
- "cpufeatures",
- "digest",
 ]
 
 [[package]]

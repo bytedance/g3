@@ -117,9 +117,7 @@ bitflags = "2.4"
 lru = { version = "0.12", default-features = false }
 #
 digest = "0.10.7"
-md-5 = "0.10.0"
 sha2 = "0.10.0"
-sha-1 = "0.10.0"
 blake3 = { version = "1.5", default-features = false }
 hex = "0.4.2"
 hex-literal = "0.4"
@@ -228,7 +226,7 @@ g3-tls-cert = { version = "0.5", path = "lib/g3-tls-cert" }
 g3-tls-ticket = { version = "0.1", path = "lib/g3-tls-ticket" }
 g3-types = { version = "0.5", path = "lib/g3-types" }
 g3-udpdump = { version = "0.1", path = "lib/g3-udpdump" }
-g3-xcrypt = { version = "0.1", path = "lib/g3-xcrypt" }
+g3-xcrypt = { version = "0.2", path = "lib/g3-xcrypt" }
 g3-yaml = { version = "0.5.0", path = "lib/g3-yaml" }
 
 [profile.release-lto]

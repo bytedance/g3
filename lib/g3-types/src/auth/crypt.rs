@@ -17,9 +17,10 @@
 use std::cell::RefCell;
 
 use anyhow::anyhow;
-use digest::Digest;
-use md5::Md5;
-use sha1::Sha1;
+use constant_time_eq::{constant_time_eq_16, constant_time_eq_n};
+use openssl::error::ErrorStack;
+use openssl::md::Md;
+use openssl::md_ctx::MdCtx;
 
 const SALT_LENGTH: usize = 8;
 const MD5_LENGTH: usize = 16;
@@ -37,19 +38,27 @@ enum HashValue {
 }
 
 impl HashValue {
-    fn hash_match(&self, buf: &[u8]) -> bool {
+    fn hash_match(&self, buf: &[u8]) -> Result<bool, ErrorStack> {
         match self {
             HashValue::Md5(v) => {
-                let md5 = Md5::digest(buf);
-                v.eq(md5.as_slice())
+                let mut md = MdCtx::new()?;
+                md.digest_init(Md::md5())?;
+                md.digest_update(buf)?;
+                let mut hash = [0u8; MD5_LENGTH];
+                md.digest_final(&mut hash)?;
+                Ok(constant_time_eq_16(v, &hash))
             }
             HashValue::Sha1(v) => {
-                let sha1 = Sha1::digest(buf);
-                v.eq(sha1.as_slice())
+                let mut md = MdCtx::new()?;
+                md.digest_init(Md::sha1())?;
+                md.digest_update(buf)?;
+                let mut hash = [0u8; SHA1_LENGTH];
+                md.digest_final(&mut hash)?;
+                Ok(constant_time_eq_n(v, &hash))
             }
             HashValue::Blake3(v) => {
                 let b3 = blake3::hash(buf);
-                v.eq(&b3)
+                Ok(v.eq(&b3))
             }
         }
     }
@@ -115,20 +124,20 @@ impl FastHashedPassPhrase {
         Ok(())
     }
 
-    pub fn verify(&self, pass: &str) -> bool {
+    pub fn verify(&self, pass: &str) -> Result<bool, ErrorStack> {
         HASH_TL_BUF.with_borrow_mut(|buf| {
             buf.extend_from_slice(pass.as_bytes());
             buf.extend_from_slice(&self.salt);
 
             let mut all_verified = true;
             for hv in self.values.iter() {
-                if !hv.hash_match(buf.as_slice()) {
+                if !hv.hash_match(buf.as_slice())? {
                     all_verified = false;
                     break;
                 }
             }
             buf.clear();
-            all_verified
+            Ok(all_verified)
         })
     }
 
@@ -152,6 +161,6 @@ mod tests {
         p.push_sha1("0b39e984b59251425245e81241aebf7dbe197cc3")
             .unwrap();
 
-        assert!(p.verify("IQ5ZhanWaop2cw"));
+        assert!(p.verify("IQ5ZhanWaop2cw").unwrap());
     }
 }
