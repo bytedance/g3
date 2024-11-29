@@ -17,10 +17,10 @@
 use std::net::SocketAddr;
 use std::time::Duration;
 
-use hickory_proto::error::ProtoError;
-use hickory_proto::iocompat::AsyncIoTokioAsStd;
+use hickory_proto::runtime::iocompat::AsyncIoTokioAsStd;
 use hickory_proto::tcp::{DnsTcpStream, TcpClientStream, TcpStream};
 use hickory_proto::xfer::StreamReceiver;
+use hickory_proto::ProtoError;
 use rustls::ClientConfig;
 use rustls_pki_types::ServerName;
 

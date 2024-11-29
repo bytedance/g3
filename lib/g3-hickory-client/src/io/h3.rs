@@ -23,8 +23,8 @@ use std::time::Duration;
 use bytes::{Buf, Bytes};
 use futures_util::Stream;
 use h3::client::{Connection, SendRequest};
-use hickory_proto::error::{ProtoError, ProtoErrorKind};
 use hickory_proto::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
+use hickory_proto::{ProtoError, ProtoErrorKind};
 use http::Version;
 use rustls::ClientConfig;
 

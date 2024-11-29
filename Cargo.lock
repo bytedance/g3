@@ -1086,7 +1086,7 @@ dependencies = [
  "clap",
  "clap_complete",
  "hex",
- "thiserror 2.0.4",
+ "thiserror",
  "tokio",
  "tokio-util",
 ]
@@ -1149,7 +1149,7 @@ dependencies = [
  "hex-literal",
  "memchr",
  "smallvec",
- "thiserror 2.0.4",
+ "thiserror",
  "variant-ssl",
 ]
 
@@ -1174,7 +1174,7 @@ dependencies = [
  "serde",
  "sha2",
  "slog",
- "thiserror 2.0.4",
+ "thiserror",
  "tokio",
  "tokio-rustls",
  "yaml-rust2",
@@ -1194,7 +1194,7 @@ dependencies = [
  "log",
  "memchr",
  "mime",
- "thiserror 2.0.4",
+ "thiserror",
  "tokio",
  "yaml-rust2",
 ]
@@ -1231,7 +1231,7 @@ dependencies = [
  "g3-io-ext",
  "h2",
  "http",
- "thiserror 2.0.4",
+ "thiserror",
  "tokio",
 ]
 
@@ -1250,7 +1250,7 @@ dependencies = [
  "quinn",
  "rustls",
  "rustls-pki-types",
- "thiserror 2.0.4",
+ "thiserror",
  "tokio",
  "tokio-rustls",
 ]
@@ -1262,7 +1262,7 @@ dependencies = [
  "hdrhistogram",
  "portable-atomic",
  "ryu",
- "thiserror 2.0.4",
+ "thiserror",
  "tokio",
 ]
 
@@ -1280,7 +1280,7 @@ dependencies = [
  "httparse",
  "memchr",
  "mime",
- "thiserror 2.0.4",
+ "thiserror",
  "tokio",
  "tokio-test",
 ]
@@ -1305,7 +1305,7 @@ dependencies = [
  "http",
  "memchr",
  "rustls-pki-types",
- "thiserror 2.0.4",
+ "thiserror",
  "tokio",
  "tokio-rustls",
  "url",
@@ -1322,7 +1322,7 @@ dependencies = [
  "log",
  "memchr",
  "smol_str",
- "thiserror 2.0.4",
+ "thiserror",
  "tokio",
 ]
 
@@ -1346,7 +1346,7 @@ dependencies = [
  "quinn",
  "rustix",
  "smallvec",
- "thiserror 2.0.4",
+ "thiserror",
  "tokio",
  "tokio-rustls",
  "tokio-test",
@@ -1401,7 +1401,7 @@ dependencies = [
  "g3-types",
  "hex",
  "humanize-rs",
- "idna 1.0.3",
+ "idna",
  "ip_network",
  "rand",
  "regex",
@@ -1433,7 +1433,7 @@ dependencies = [
  "anyhow",
  "atomic-waker",
  "libc",
- "thiserror 2.0.4",
+ "thiserror",
  "tokio",
  "variant-ssl",
  "variant-ssl-sys",
@@ -1473,7 +1473,7 @@ dependencies = [
  "log",
  "rustls",
  "rustls-pki-types",
- "thiserror 2.0.4",
+ "thiserror",
  "tokio",
  "tokio-util",
 ]
@@ -1512,7 +1512,7 @@ dependencies = [
  "log",
  "memchr",
  "pin-project-lite",
- "thiserror 2.0.4",
+ "thiserror",
  "tokio",
  "tokio-test",
 ]
@@ -1539,7 +1539,7 @@ dependencies = [
  "pin-project-lite",
  "quinn",
  "smallvec",
- "thiserror 2.0.4",
+ "thiserror",
  "tokio",
 ]
 
@@ -1642,7 +1642,7 @@ dependencies = [
  "governor",
  "hex",
  "http",
- "idna 1.0.3",
+ "idna",
  "indexmap",
  "ip_network",
  "ip_network_table",
@@ -1664,7 +1664,7 @@ dependencies = [
  "slog",
  "smallvec",
  "smol_str",
- "thiserror 2.0.4",
+ "thiserror",
  "url",
  "variant-ssl",
  "webpki-roots",
@@ -1692,7 +1692,7 @@ version = "0.2.0"
 dependencies = [
  "constant_time_eq",
  "memchr",
- "thiserror 2.0.4",
+ "thiserror",
  "variant-ssl",
 ]
 
@@ -1711,7 +1711,7 @@ dependencies = [
  "g3-types",
  "http",
  "humanize-rs",
- "idna 1.0.3",
+ "idna",
  "ip_network",
  "rand",
  "regex",
@@ -1762,7 +1762,7 @@ dependencies = [
  "rustc-hash 2.1.0",
  "rustls",
  "rustls-pki-types",
- "thiserror 2.0.4",
+ "thiserror",
  "tokio",
  "tokio-rustls",
  "url",
@@ -1858,7 +1858,7 @@ dependencies = [
  "openssl-probe",
  "serde_json",
  "slog",
- "thiserror 2.0.4",
+ "thiserror",
  "tokio",
  "url",
  "uuid",
@@ -1878,7 +1878,7 @@ dependencies = [
  "g3-tls-cert",
  "g3keymess-proto",
  "hex",
- "thiserror 2.0.4",
+ "thiserror",
  "tokio",
  "variant-ssl",
 ]
@@ -1983,7 +1983,7 @@ dependencies = [
  "rustls",
  "serde_json",
  "slog",
- "thiserror 2.0.4",
+ "thiserror",
  "tokio",
  "tokio-rustls",
  "tokio-test",
@@ -2006,7 +2006,7 @@ dependencies = [
  "g3-types",
  "g3proxy-proto",
  "serde_json",
- "thiserror 2.0.4",
+ "thiserror",
  "tokio",
 ]
 
@@ -2086,7 +2086,7 @@ dependencies = [
  "rustls-pki-types",
  "serde_json",
  "slog",
- "thiserror 2.0.4",
+ "thiserror",
  "tokio",
  "tokio-rustls",
  "uuid",
@@ -2104,7 +2104,7 @@ dependencies = [
  "futures-util",
  "g3-ctl",
  "g3tiles-proto",
- "thiserror 2.0.4",
+ "thiserror",
  "tokio",
 ]
 
@@ -2277,9 +2277,9 @@ checksum = "6fe2267d4ed49bc07b63801559be28c718ea06c4738b7a03c94df7386d2cde46"
 
 [[package]]
 name = "hickory-client"
-version = "0.24.1"
+version = "0.25.0-alpha.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bab9683b08d8f8957a857b0236455d80e1886eaa8c6178af556aa7871fb61b55"
+checksum = "83536dab9a159b2b5cf2c20c47ecf188cee35316f96be028e63e8e1340d2724d"
 dependencies = [
  "cfg-if",
  "data-encoding",
@@ -2289,17 +2289,18 @@ dependencies = [
  "once_cell",
  "radix_trie",
  "rand",
- "thiserror 1.0.69",
+ "thiserror",
  "tokio",
  "tracing",
 ]
 
 [[package]]
 name = "hickory-proto"
-version = "0.24.1"
+version = "0.25.0-alpha.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07698b8420e2f0d6447a436ba999ec85d8fbf2a398bbd737b82cac4a2e96e512"
+checksum = "d063c0692ee669aa6d261988aa19ca5510f1cc40e4f211024f50c888499a35d7"
 dependencies = [
+ "async-recursion",
  "async-trait",
  "cfg-if",
  "data-encoding",
@@ -2307,11 +2308,11 @@ dependencies = [
  "futures-channel",
  "futures-io",
  "futures-util",
- "idna 0.4.0",
+ "idna",
  "ipnet",
  "once_cell",
  "rand",
- "thiserror 1.0.69",
+ "thiserror",
  "tinyvec",
  "tokio",
  "tracing",
@@ -2489,16 +2490,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.90",
-]
-
-[[package]]
-name = "idna"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d20d6b07bfbc108882d88ed8e37d39636dcc260e15e30c45e6ba089610b917c"
-dependencies = [
- "unicode-bidi",
- "unicode-normalization",
 ]
 
 [[package]]
@@ -3094,7 +3085,7 @@ dependencies = [
  "rustc-hash 2.1.0",
  "rustls",
  "socket2",
- "thiserror 2.0.4",
+ "thiserror",
  "tokio",
  "tracing",
 ]
@@ -3114,7 +3105,7 @@ dependencies = [
  "rustls",
  "rustls-pki-types",
  "slab",
- "thiserror 2.0.4",
+ "thiserror",
  "tinyvec",
  "tracing",
  "web-time",
@@ -3633,31 +3624,11 @@ checksum = "61c41af27dd6d1e27b1b16b489db798443478cef1f06a660c96db617ba5de3b1"
 
 [[package]]
 name = "thiserror"
-version = "1.0.69"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6aaf5339b578ea85b50e080feb250a3e8ae8cfcdff9a461c9ec2904bc923f52"
-dependencies = [
- "thiserror-impl 1.0.69",
-]
-
-[[package]]
-name = "thiserror"
 version = "2.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2f49a1853cf82743e3b7950f77e0f4d622ca36cf4317cba00c767838bac8d490"
 dependencies = [
- "thiserror-impl 2.0.4",
-]
-
-[[package]]
-name = "thiserror-impl"
-version = "1.0.69"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fee6c4efc90059e10f81e6d42c60a18f76588c3d74cb83a0b242a2b6c7504c1"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.90",
+ "thiserror-impl",
 ]
 
 [[package]]
@@ -3855,25 +3826,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42ff0bf0c66b8238c6f3b578df37d0b7848e55df8577b3f74f92a69acceeb825"
 
 [[package]]
-name = "unicode-bidi"
-version = "0.3.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ab17db44d7388991a428b2ee655ce0c212e862eff1768a455c58f9aad6e7893"
-
-[[package]]
 name = "unicode-ident"
 version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "adb9e6ca4f869e1180728b7950e35922a7fc6397f7b641499e8f3ef06e50dc83"
-
-[[package]]
-name = "unicode-normalization"
-version = "0.1.24"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5033c97c4262335cded6d6fc3e5c18ab755e1a3dc96376350f3d8e9f009ad956"
-dependencies = [
- "tinyvec",
-]
 
 [[package]]
 name = "unicode-width"
@@ -3900,7 +3856,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32f8b686cadd1473f4bd0117a5d28d36b1ade384ea9b5069a1c40aefed7fda60"
 dependencies = [
  "form_urlencoded",
- "idna 1.0.3",
+ "idna",
  "percent-encoding",
 ]
 
@@ -4303,7 +4259,7 @@ dependencies = [
  "flate2",
  "indexmap",
  "memchr",
- "thiserror 2.0.4",
+ "thiserror",
  "zopfli",
 ]
 

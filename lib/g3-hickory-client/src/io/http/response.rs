@@ -17,9 +17,8 @@
 use std::str::FromStr;
 
 use bytes::{Buf, BufMut, BytesMut};
-use hickory_proto::error::ProtoError;
-use hickory_proto::op::Message;
 use hickory_proto::xfer::DnsResponse;
+use hickory_proto::ProtoError;
 use http::{header, Response};
 
 pub struct HttpDnsResponse {
@@ -104,7 +103,6 @@ impl HttpDnsResponse {
         }
 
         // and finally convert the bytes into a DNS message
-        let message = Message::from_vec(&self.body)?;
-        Ok(DnsResponse::new(message, self.body.to_vec()))
+        DnsResponse::from_buffer(self.body.to_vec())
     }
 }
