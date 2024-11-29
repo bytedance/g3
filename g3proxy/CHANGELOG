@@ -1,4 +1,9 @@
 
+v1.10.3:
+ - BUG FIX: fix read of trailer for chunked FTP over HTTP upload
+ - BUG FIX: fix idle check in udp copy and udp relay task
+ - Optimization: respect Content-Length header when sending ICAP adapted body
+
 v1.10.2:
  - BUG FIX: fix handle of ICAP preview data in HTTP/2 interception
  - BUG FIX: fix panic when sending H2 stream data if peer gone
@@ -12,7 +17,7 @@ v1.10.1:
  - BUG FIX: fix global datagram limiter
  - BUG FIX: fix DELETE in FTP over HTTP task
  - BUG FIX: fix handle of ICAP Preview data in HTTP/1 interception
- - Feature: support chunked upload in FTP over HTTP task
+ - Optimization: support chunked upload in FTP over HTTP task
 
 v1.10.0:
  - Policy: LTS version
