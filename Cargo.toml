@@ -160,8 +160,8 @@ flume = { version = "0.11", default-features = false }
 c-ares = { version = "11.0", default-features = false }
 c-ares-resolver = { version = "10.0", default-features = false }
 c-ares-sys = { version = "10.0", default-features = false }
-hickory-proto = { version = "0.24.0", default-features = false }
-hickory-client = { version = "0.24.0", default-features = false }
+hickory-proto = { version = "0.25.0-alpha.4", default-features = false }
+hickory-client = { version = "0.25.0-alpha.4", default-features = false }
 #
 capnp-rpc = "0.20"
 capnp = "0.20"

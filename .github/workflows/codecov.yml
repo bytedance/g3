@@ -89,6 +89,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
+      - name: Install CA Certificates
+        run: |
+          sudo apt-get install ca-certificates
       - name: Install test libs
         run: |
           sudo apt-get install python3-requests python3-pycurl python3-dnspython python3-socks
@@ -165,6 +168,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
+      - name: Install CA Certificates
+        run: |
+          sudo apt-get install ca-certificates
       - name: Install binutils
         run: |
           cargo install cargo-binutils

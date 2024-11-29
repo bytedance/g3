@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-use hickory_client::error::{ClientError, ClientErrorKind};
-use hickory_proto::error::{DnsSecError, DnsSecErrorKind, ProtoError, ProtoErrorKind};
+use hickory_client::{ClientError, ClientErrorKind};
 use hickory_proto::op::ResponseCode;
+use hickory_proto::{ProtoError, ProtoErrorKind};
 
 use crate::error::{ResolveDriverError, ResolveError, ResolveServerError};
 
@@ -45,22 +45,11 @@ impl From<&ProtoError> for ResolveDriverError {
     }
 }
 
-impl From<&DnsSecError> for ResolveDriverError {
-    fn from(value: &DnsSecError) -> Self {
-        match value.kind() {
-            DnsSecErrorKind::Timeout => ResolveDriverError::Timeout,
-            DnsSecErrorKind::Proto(e) => ResolveDriverError::from(e),
-            _ => ResolveDriverError::Internal(value.to_string()),
-        }
-    }
-}
-
 impl From<ClientError> for ResolveError {
     fn from(value: ClientError) -> Self {
         let driver_error = match value.kind() {
             ClientErrorKind::Timeout => ResolveDriverError::Timeout,
             ClientErrorKind::Proto(e) => ResolveDriverError::from(e),
-            ClientErrorKind::DnsSec(e) => ResolveDriverError::from(e),
             _ => ResolveDriverError::Internal(value.to_string()),
         };
         ResolveError::FromDriver(driver_error)

@@ -17,7 +17,7 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use hickory_proto::error::ProtoError;
+use hickory_proto::ProtoError;
 use rustls::ClientConfig;
 use rustls_pki_types::ServerName;
 use tokio::net::{TcpSocket, TcpStream};
