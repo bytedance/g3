@@ -139,8 +139,8 @@ impl UserConfig {
         match &self.password_token {
             PasswordToken::Forbidden => false,
             PasswordToken::SkipVerify => true,
-            PasswordToken::FastHash(fast_hash) => fast_hash.verify(password),
-            PasswordToken::XCrypt(xcrypt_hash) => xcrypt_hash.verify(password.as_bytes()),
+            PasswordToken::FastHash(fast_hash) => fast_hash.verify(password).unwrap(),
+            PasswordToken::XCrypt(xcrypt_hash) => xcrypt_hash.verify(password.as_bytes()).unwrap(),
         }
     }
 

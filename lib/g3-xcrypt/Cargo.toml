@@ -1,6 +1,6 @@
 [package]
 name = "g3-xcrypt"
-version = "0.1.0"
+version = "0.2.0"
 license.workspace = true
 edition.workspace = true
 
@@ -9,6 +9,5 @@ edition.workspace = true
 [dependencies]
 thiserror.workspace = true
 memchr.workspace = true
-digest.workspace = true
-md-5.workspace = true
-sha2.workspace = true
+openssl.workspace = true
+constant_time_eq.workspace = true
