@@ -106,7 +106,7 @@ bytes = "1.9"
 smallvec = "1.11"
 smol_str = { version = "0.3", default-features = false }
 ahash = "0.8"
-rustc-hash = "2.0"
+rustc-hash = "2.1"
 fnv = "1"
 indexmap = "2.6"
 ip_network = "0.4"
