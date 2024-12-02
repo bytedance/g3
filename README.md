@@ -13,11 +13,17 @@ including but not limited to proxy / reverse proxy (WIP) / load balancer (TBD) /
 
 ## Components
 
-G3 Project is made up of many components.
+G3 Project is made up of many components, each has its own subdirectory.
 
-The project-level documents resides in the *doc* subdirectory, and you should see the links below for the important
-ones.
-Each component will have its own documents in its *doc* subdirectory.
+The *doc* dir contains project level documents, and you will see the links below for the important ones.
+
+The *sphinx* dir is used to build reference html docs for supported components, you can find generated html docs
+
+  - (coming soon) [Read the Docs](https://about.readthedocs.com/)
+  - in the pre-built deb/rpm packages uploaded to [cloudsmith](https://cloudsmith.io/~g3-oqh/repos/)
+  - build it your self by using [sphinx-build](https://www.sphinx-doc.org/en/master/man/sphinx-build.html)
+
+Each component will also have its introduction / user guide documents in its own subdirectory.
 
 ### g3proxy
 
@@ -42,7 +48,7 @@ as we have basic support built in.
 - Rich monitoring metrics, at ingress / egress / user / user-site level
 - Support for a variety of observability tools
 
-See [g3proxy](g3proxy/README.md) for detailed introduction.
+See [g3proxy](g3proxy/README.md) for detailed introduction and user guides.
 
 ### g3tiles
 

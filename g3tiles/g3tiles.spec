@@ -55,6 +55,7 @@ install -m 644 -D %{name}/service/g3tiles@.service %{buildroot}/lib/systemd/syst
 %license LICENSE
 %license LICENSE-BUNDLED
 %license LICENSE-FOREIGN
+%doc sphinx/%{name}/_build/html
 
 
 %changelog

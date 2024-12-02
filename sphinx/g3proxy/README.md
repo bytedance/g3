@@ -1,4 +1,4 @@
-This directory contains the sphinx docs about the configuration & metrics & logs.
+This directory contains the sphinx docs about the configuration & metrics & logs for g3proxy.
 
 To view the docs:
 

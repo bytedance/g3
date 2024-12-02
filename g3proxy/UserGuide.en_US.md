@@ -145,7 +145,8 @@ stat:
   emit_duration: 200ms  # Interval between metrics
 ```
 
-The specific metrics are defined in the [metrics](doc/metrics) folder. It is recommended to generate the Sphinx HTML
+The specific metrics are defined in the [metrics](../sphinx/g3proxy/metrics) folder. It is recommended to generate the
+Sphinx HTML
 documentation and view it.
 
 ## Basic Usage

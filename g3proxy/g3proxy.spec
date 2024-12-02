@@ -66,7 +66,7 @@ install -m 644 -D %{name}/service/g3proxy@.service %{buildroot}/lib/systemd/syst
 %license LICENSE
 %license LICENSE-BUNDLED
 %license LICENSE-FOREIGN
-%doc %{name}/doc/_build/html
+%doc sphinx/%{name}/_build/html
 
 
 %changelog
