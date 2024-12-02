@@ -1,4 +1,32 @@
 
+v1.11.0:
+ - Feature: add 'insecure' config option to OpenSSL Client config to skip cert verification
+ - Feature: add more runtime metrics
+ - Feature: set supported ALPN protocols in HTTP Proxy server
+ - Feature: support to send small HTTP body along with header in HTTP Proxy server
+ - Feature: simplify default log backend config format
+ - Feature: support to flush task log on created/connected and periodically
+
+v1.10.3:
+ - BUG FIX: fix read of trailer for chunked FTP over HTTP upload
+ - BUG FIX: fix idle check in udp copy and udp relay task
+ - Optimization: respect Content-Length header when sending ICAP adapted body
+
+v1.10.2:
+ - BUG FIX: fix handle of ICAP preview data in HTTP/2 interception
+ - BUG FIX: fix panic when sending H2 stream data if peer gone
+ - BUG FIX: do not send Allow-204 in ICAP preview request
+
+v1.10.1:
+ - BUG FIX: fix socket usage on Windows
+ - BUG FIX: set expire info for udp tasks with socks5 proxy peers
+ - BUG FIX: send ppv2 header on http forward connections in divert_tcp escaper
+ - BUG FIX: fix match of TLS ticker name in decryption
+ - BUG FIX: fix global datagram limiter
+ - BUG FIX: fix DELETE in FTP over HTTP task
+ - BUG FIX: fix handle of ICAP Preview data in HTTP/1 interception
+ - Optimization: support chunked upload in FTP over HTTP task
+
 v1.10.0:
  - Policy: LTS version
 
