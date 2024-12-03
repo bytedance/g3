@@ -46,16 +46,18 @@ G3 プロジェクトには多くのコンポーネントが含まれており�
 
 詳しい機能紹介とユーザーガイドは[g3proxy](g3proxy/README.md)をご覧ください。
 
-Sphinx を使用して生成された g3proxy リファレンス ドキュメントは、[Read the Docs](https://g3-project.readthedocs.io/projects/g3proxy/en/latest/)
-でオンラインで参照できます。 詳細な設定形式、ログ形式、監視管理定義、プロトコル定義などを含みます。
+Sphinx を使用して生成された g3proxy リファレンス
+ドキュメントは、[Read the Docs](https://g3-project.readthedocs.io/projects/g3proxy/en/latest/)
+でオンラインで参照できます。 詳細な設定形式、ログ形式、メトリクスの定義、メトリクスの定義などを含みます。
 
 ### g3tiles
 
 作業中のリバースプロキシソリューション。
 
-Sphinx を使用して生成された g3tiles リファレンス ドキュメントは、[Read the Docs](https://g3-project.readthedocs.io/projects/g3tiles/en/latest/)
+Sphinx を使用して生成された g3tiles リファレンス
+ドキュメントは、[Read the Docs](https://g3-project.readthedocs.io/projects/g3tiles/en/latest/)
 でオンラインで参照できます。
-詳細な設定形式、ログ形式、監視管理定義などを含みます。
+詳細な設定形式、ログ形式、メトリクスの定義などを含みます。
 
 ### g3bench
 

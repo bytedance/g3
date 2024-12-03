@@ -1,5 +1,6 @@
 Dev-Setup
 -----
+
 # Toolchain
 
 ## Install rustup
@@ -34,19 +35,21 @@ rustup self update
 ## Install stable toolchains
 
 List all available components:
+
 ```shell
 rustup component list
 ```
 
 The following components is required and should have already been installed:
 
- - rustc
- - rust-std
- - cargo
- - rustfmt
- - clippy
+- rustc
+- rust-std
+- cargo
+- rustfmt
+- clippy
 
 **llvm-tools** is also recommended to be installed:
+
 ```shell script
 rustup component add llvm-tools
 ```
@@ -54,11 +57,13 @@ rustup component add llvm-tools
 ## Install nightly toolchains
 
 Install nightly toolchains:
+
 ```shell script
 rustup toolchain install nightly
 ```
 
 List components in nightly channel:
+
 ```shell script
 rustup component list --toolchain nightly
 ```
@@ -66,6 +71,7 @@ rustup component list --toolchain nightly
 ## Update toolchains
 
 Run the following command to update the toolchains for all channel:
+
 ```shell script
 rustup update
 ```
@@ -73,11 +79,13 @@ rustup update
 # Plugins for cargo
 
 To install:
+
 ```shell script
 cargo install <crate name>
 ```
 
 To update:
+
 ```shell script
 cargo install -f <crate name>
 ```
@@ -249,6 +257,7 @@ cargo build --vendored-openssl
 ## Development Libraries
 
 For *g3proxy*:
+
 ```text
 openssl >= 1.1.1
 c-ares >= 1.13.0
@@ -259,12 +268,14 @@ python3 >= 3.7
 ## Development Tools
 
 The tools for C development should be installed, including but not limited to:
+
 ```text
 gcc
 pkg-config
 ```
 
 If the c-ares version in the OS repo is too old, the following tools is also required:
+
 ```text
 cmake
 ```
@@ -272,6 +283,7 @@ cmake
 ## Rpc Code Generator
 
 We use capnproto rpc to communicate with the running daemon process:
+
 ```text
 capnproto
 ```
@@ -279,6 +291,7 @@ capnproto
 ## Testing Tools
 
 The following tools are needed to run testing scripts:
+
 ```text
 curl
 ```
@@ -286,6 +299,7 @@ curl
 ## Scripting Tools
 
 The following tools are used in scripts under directory *scripts/*:
+
 ```text
 git
 jq
@@ -296,6 +310,7 @@ xz
 ## Scripting Libraries
 
 We use python3 for more complicated scripts, the following packages are needed:
+
 ```text
 toml
 requests
@@ -306,13 +321,15 @@ dnspython
 
 ## Document Tools
 
-We use [sphinx](https://www.sphinx-doc.org/en/master/) to generate docs, with theme [sphinx-rtd-theme](https://pypi.org/project/sphinx-rtd-theme/).
+We use [sphinx](https://www.sphinx-doc.org/en/master/) to generate docs, with
+theme [sphinx-rtd-theme](https://pypi.org/project/sphinx-rtd-theme/).
 
 ## Packaging Tools
 
 ### deb
 
 For all *Debian* based distributions:
+
 ```text
 lsb-release
 dpkg-dev
@@ -322,6 +339,7 @@ debhelper
 ### rpm
 
 For all *rhel* based distributions:
+
 ```text
 rpmdevtools
 rpm-build
