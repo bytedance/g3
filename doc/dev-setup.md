@@ -125,8 +125,8 @@ apt-get install libssl-dev libc-ares-dev
 # install lua5.4 or any other versions available on your system
 apt-get install lua5.4-dev
 apt-get install libpython3-dev
-apt-get install python3-toml python3-requests python3-semver python3-socks python3-dnspyton
-apt-get install python3-sphinx
+apt-get install python3-toml python3-requests python3-pycurl python3-semver python3-socks python3-dnspyton
+apt-get install python3-sphinx python3-sphinx-rtd-theme
 apt-get install lsb-release dpkg-dev debhelper
 ```
 
@@ -148,8 +148,8 @@ dnf install gcc pkgconf make capnproto
 dnf install curl jq xz tar
 dnf install openssl-devel c-ares-devel lua-devel
 dnf install python3-devel
-dnf install python3-toml python3-requests python3-semver
-dnf install python3-sphinx
+dnf install python3-toml python3-requests python3-pycurl python3-semver
+dnf install python3-sphinx python3-sphinx_rtd_theme
 dnf install rpmdevtools rpm-build
 ```
 
@@ -306,7 +306,7 @@ dnspython
 
 ## Document Tools
 
-We use [sphinx](https://www.sphinx-doc.org/en/master/) to generate docs.
+We use [sphinx](https://www.sphinx-doc.org/en/master/) to generate docs, with theme [sphinx-rtd-theme](https://pypi.org/project/sphinx-rtd-theme/).
 
 ## Packaging Tools
 

@@ -91,10 +91,10 @@ echo "==> generate license files for bundled crates"
 cargo metadata --format-version 1 | "${SCRIPT_DIR}"/bundle_license.py > LICENSE-BUNDLED
 
 
-if [ -f ${SOURCE_NAME}/doc/conf.py ]
+if [ -f sphinx/${SOURCE_NAME}/conf.py ]
 then
 	echo "==> building sphinx docs"
-	sphinx-build -b html ${SOURCE_NAME}/doc ${SOURCE_NAME}/doc/_build/html
+	sphinx-build -b html sphinx/${SOURCE_NAME} sphinx/${SOURCE_NAME}/_build/html
 fi
 
 

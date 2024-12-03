@@ -129,7 +129,7 @@ stat:
   emit_duration: 200ms  # 打点间隔
 ```
 
-具体metrics定义在 [metrics](doc/metrics) 文件夹下，建议生成sphinx html文档后查看。
+具体metrics定义在 [metrics](../sphinx/g3proxy/metrics) 文件夹下，建议生成sphinx html文档后查看。
 
 ## 基础用法
 

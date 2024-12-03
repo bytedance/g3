@@ -12,10 +12,15 @@
 
 ## 组件
 
-G3 Project 由若干组件构成。
+G3项目包含许多组件，每一个组建单独一个子目录。
 
-项目级的文档放在 [doc](doc) 子目录下，下文会列出一下比较重要的文档。
-每个组件都有各自的文档，放在各自目录的 *doc* 子目录下。
+[doc](doc)目录包含项目级别文档，比较重要的在下文会有单独的链接。
+
+[sphinx](sphinx)目录用于为各组件生成HTML参考文档，可通过以下途径找到生成的文档：
+
+- （即将上线） [Read the Docs](https://about.readthedocs.com/)
+- 预编译好的deb/rpm安装包内，已经上传到 [cloudsmith](https://cloudsmith.io/~g3-oqh/repos/)
+- 使用[sphinx-build](https://www.sphinx-doc.org/en/master/man/sphinx-build.html)自行生成
 
 ### g3proxy
 
@@ -39,7 +44,7 @@ G3 Project 由若干组件构成。
 - 丰富的监控指标，包括入口/出口/用户/用户站点维度
 - 多种日志 & 监控解决方案集成能力
 
-更多详情参考 [g3proxy](g3proxy/README.md)。
+详细功能介绍及用户指南请看 [g3proxy](g3proxy/README.md)。
 
 ### g3tiles
 
