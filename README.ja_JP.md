@@ -13,15 +13,13 @@
 
 ## コンポーネント
 
-G3 プロジェクトには多くのコンポーネントが含まれており、それぞれが別のサブディレクトリにあります。
+G3 プロジェクトには多くのコンポーネントが含まれており、各コンポーネントには独自のコード、ドキュメントなどが含まれる個別のサブディレクトリがあります。
 
-[doc](doc) ディレクトリにはプロジェクト レベルのドキュメントが含まれており、より重要なものについては以下に個別のリンクがあります。
+コンポーネント ディレクトリに加えて、いくつかのパブリック ディレクトリもあります。
 
-[sphinx](sphinx) ディレクトリは、各コンポーネントの HTML リファレンス ドキュメントを生成するために使用されます。生成されたドキュメントは、次のチャネルを通じて見つけることができます。
-
-- (近日公開予定) [ドキュメントを読む](https://about.readthedocs.com/)
-- プリコンパイルされた deb/rpm インストール パッケージが [cloudsmith](https://cloudsmith.io/~g3-oqh/repos/) にアップロードされました。
-- [sphinx-build](https://www.sphinx-doc.org/en/master/man/sphinx-build.html) を使用して自分で生成します
+- [doc](doc) プロジェクトレベルのドキュメントが含まれます。
+- [sphinx](sphinx) は、各コンポーネントの HTML リファレンス ドキュメントを生成するために使用されます。
+- [scripts](scripts) には、カバレッジ テスト、パッケージ化スクリ
 
 ### g3proxy
 
@@ -48,9 +46,16 @@ G3 プロジェクトには多くのコンポーネントが含まれており�
 
 詳しい機能紹介とユーザーガイドは[g3proxy](g3proxy/README.md)をご覧ください。
 
+Sphinx を使用して生成された g3proxy リファレンス ドキュメントは、[Read the Docs](https://g3-project.readthedocs.io/projects/g3proxy/en/latest/)
+でオンラインで参照できます。 詳細な設定形式、ログ形式、監視管理定義、プロトコル定義などを含みます。
+
 ### g3tiles
 
 作業中のリバースプロキシソリューション。
+
+Sphinx を使用して生成された g3tiles リファレンス ドキュメントは、[Read the Docs](https://g3-project.readthedocs.io/projects/g3tiles/en/latest/)
+でオンラインで参照できます。
+詳細な設定形式、ログ形式、監視管理定義などを含みます。
 
 ### g3bench
 
