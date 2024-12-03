@@ -43,7 +43,7 @@ G3项目包含许多组件，每一个组件单独一个子目录，包含各自
 - 多种日志 & 监控解决方案集成能力
 
 详细功能介绍及用户指南请看 [g3proxy](g3proxy/README.md)。
- 
+
 可在 [Read the Docs](https://g3-project.readthedocs.io/projects/g3proxy/en/latest/) 线上查看使用sphinx生成的g3proxy参考文档，
 包括详细配置格式、日志格式、监控打点定义、协议定义等。
 

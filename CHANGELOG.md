@@ -1,4 +1,3 @@
-
 Each component have its own changelog.
 
 - [g3proxy](g3proxy/CHANGELOG)
