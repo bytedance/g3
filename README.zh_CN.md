@@ -12,15 +12,13 @@
 
 ## 组件
 
-G3项目包含许多组件，每一个组建单独一个子目录。
+G3项目包含许多组件，每一个组件单独一个子目录，包含各自的代码、文档等。
 
-[doc](doc)目录包含项目级别文档，比较重要的在下文会有单独的链接。
+除了组件目录，还有一些公共目录：
 
-[sphinx](sphinx)目录用于为各组件生成HTML参考文档，可通过以下途径找到生成的文档：
-
-- （即将上线） [Read the Docs](https://about.readthedocs.com/)
-- 预编译好的deb/rpm安装包内，已经上传到 [cloudsmith](https://cloudsmith.io/~g3-oqh/repos/)
-- 使用[sphinx-build](https://www.sphinx-doc.org/en/master/man/sphinx-build.html)自行生成
+- [doc](doc) 包含项目级别文档。
+- [sphinx](sphinx) 用于为各组件生成HTML参考文档。
+- [scripts](scripts) 包含各种辅助脚本，包括覆盖率测试、打包脚本等。
 
 ### g3proxy
 
@@ -45,10 +43,16 @@ G3项目包含许多组件，每一个组建单独一个子目录。
 - 多种日志 & 监控解决方案集成能力
 
 详细功能介绍及用户指南请看 [g3proxy](g3proxy/README.md)。
+ 
+可在 [Read the Docs](https://g3-project.readthedocs.io/projects/g3proxy/en/latest/) 线上查看使用sphinx生成的g3proxy参考文档，
+包括详细配置格式、日志格式、监控打点定义、协议定义等。
 
 ### g3tiles
 
 通用反向代理解决方案，开发中。
+
+可在 [Read the Docs](https://g3-project.readthedocs.io/projects/g3tiles/en/latest/) 线上查看使用sphinx生成的g3tiles参考文档，
+包括详细配置格式、日志格式、监控打点定义等。
 
 ### g3bench
 
