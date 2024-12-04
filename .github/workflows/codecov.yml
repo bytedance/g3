@@ -148,3 +148,64 @@ jobs:
           name: g3proxy-all-test
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: false
+  g3bench-test:
+    name: g3bench test
+    runs-on: ubuntu-24.04
+    services:
+      httpbin:
+        image: ghcr.io/psf/httpbin:0.10.2
+        ports:
+          - 80:8080
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
+      - name: Install binutils
+        run: |
+          cargo install cargo-binutils
+      - name: Install nginx
+        run: |
+          sudo apt-get install nginx-light
+      - name: Install netcat-openbsd
+        run: |
+          sudo apt-get install netcat-openbsd
+      - name: Listen StatsD port
+        run: |
+          nc -u -l -k 127.0.0.1 8125 >/dev/null &
+      - name: Install dnsmasq
+        run: |
+          sudo apt-get install dnsmasq-base
+      - name: Backup /etc/resolv.conf
+        run: |
+          sudo cp /etc/resolv.conf /etc/resolv.conf.backup
+      - name: Edit /etc/resolv.conf
+        run: |
+          echo "nameserver 127.0.0.1" | sudo tee /etc/resolv.conf
+      - name: Run dnsmasq
+        run: |
+          sudo dnsmasq --local-service -C ${{ github.workspace }}/scripts/coverage/g3bench/dnsmasq.conf
+      - name: run unit test
+        run: |
+          ./scripts/coverage/g3bench.sh
+      - name: Restore /etc/resolv.conf
+        run: |
+          sudo mv /etc/resolv.conf.backup /etc/resolv.conf
+      - name: Upload coverage data
+        uses: codecov/codecov-action@v5
+        with:
+          fail_ci_if_error: true
+          disable_search: true
+          files: output.lcov
+          flags: g3bench
+          name: g3bench-all-test
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: false
