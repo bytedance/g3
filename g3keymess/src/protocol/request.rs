@@ -16,7 +16,6 @@
 
 use std::io;
 
-use openssl::encrypt::Decrypter;
 use openssl::hash::MessageDigest;
 use openssl::md::Md;
 use openssl::nid::Nid;
@@ -300,13 +299,12 @@ impl KeylessRequest {
         let mut data_rsp = KeylessDataResponse::new(self.id, key_size);
         match self.action {
             KeylessAction::RsaDecrypt(p) => {
-                let mut decrypter = Decrypter::new(key).map_err(|_| err_rsp.crypto_fail())?;
-                decrypter
-                    .set_rsa_padding(p)
-                    .map_err(|_| err_rsp.crypto_fail())?;
+                let mut ctx = PkeyCtx::new(key).map_err(|_| err_rsp.crypto_fail())?;
+                ctx.decrypt_init().map_err(|_| err_rsp.crypto_fail())?;
+                ctx.set_rsa_padding(p).map_err(|_| err_rsp.crypto_fail())?;
 
-                let len = decrypter
-                    .decrypt(&self.payload, data_rsp.payload_data_mut())
+                let len = ctx
+                    .decrypt(&self.payload, Some(data_rsp.payload_data_mut()))
                     .map_err(|_| err_rsp.crypto_fail())?;
                 data_rsp.finalize_payload(len);
                 Ok(data_rsp)
