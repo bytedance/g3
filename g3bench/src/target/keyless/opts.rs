@@ -19,7 +19,6 @@ use std::str::FromStr;
 
 use anyhow::anyhow;
 use clap::{value_parser, Arg, ArgAction, ArgGroup, ArgMatches, Command, ValueHint};
-use openssl::encrypt::{Decrypter, Encrypter};
 use openssl::hash::MessageDigest;
 use openssl::md::{Md, MdRef};
 use openssl::nid::Nid;
@@ -336,63 +335,60 @@ impl KeylessGlobalArgs {
             .ok_or_else(|| anyhow!("no private key set"))
     }
 
-    fn get_encrypter(&self) -> anyhow::Result<Encrypter> {
-        Encrypter::new(&self.public_key).map_err(|e| anyhow!("failed to create encrypter: {e}"))
-    }
-
     pub(super) fn encrypt(&self) -> anyhow::Result<Vec<u8>> {
-        let encrypter = self.get_encrypter()?;
-        self.do_encrypt(encrypter)
+        let pkey = self.get_private_key()?;
+        let mut ctx =
+            PkeyCtx::new(pkey).map_err(|e| anyhow!("failed to create EVP_PKEY_CTX: {e}"))?;
+        ctx.encrypt_init()
+            .map_err(|e| anyhow!("encrypt init failed: {e}"))?;
+
+        let mut buf = Vec::new();
+        ctx.encrypt_to_vec(&self.payload, &mut buf)
+            .map_err(|e| anyhow!("encrypt failed: {e}"))?;
+        Ok(buf)
     }
 
     pub(super) fn encrypt_rsa(&self, padding: KeylessRsaPadding) -> anyhow::Result<Vec<u8>> {
-        let mut encrypter = self.get_encrypter()?;
-        encrypter
-            .set_rsa_padding(padding.into())
-            .map_err(|e| anyhow!("failed to set rsa padding: {e}"))?;
-        self.do_encrypt(encrypter)
-    }
-
-    fn do_encrypt(&self, encrypter: Encrypter) -> anyhow::Result<Vec<u8>> {
-        let buffer_len = encrypter
-            .encrypt_len(&self.payload)
-            .map_err(|e| anyhow!("failed to get buffer length: {e}"))?;
-        let mut encrypted = vec![0u8; buffer_len];
-        let len = encrypter
-            .encrypt(&self.payload, &mut encrypted)
-            .map_err(|e| anyhow!("failed to encrypt data: {e}"))?;
-        encrypted.truncate(len);
-        Ok(encrypted)
-    }
-
-    fn get_decrypter(&self) -> anyhow::Result<Decrypter> {
         let pkey = self.get_private_key()?;
-        Decrypter::new(pkey).map_err(|e| anyhow!("failed to create decrypter: {e}"))
+        let mut ctx =
+            PkeyCtx::new(pkey).map_err(|e| anyhow!("failed to create EVP_PKEY_CTX: {e}"))?;
+        ctx.encrypt_init()
+            .map_err(|e| anyhow!("encrypt init failed: {e}"))?;
+        ctx.set_rsa_padding(padding.into())
+            .map_err(|e| anyhow!("failed to set rsa padding: {e}"))?;
+
+        let mut buf = Vec::new();
+        ctx.encrypt_to_vec(&self.payload, &mut buf)
+            .map_err(|e| anyhow!("encrypt failed: {e}"))?;
+        Ok(buf)
     }
 
     pub(super) fn decrypt(&self) -> anyhow::Result<Vec<u8>> {
-        let decrypter = self.get_decrypter()?;
-        self.do_decrypt(decrypter)
+        let pkey = self.get_private_key()?;
+        let mut ctx =
+            PkeyCtx::new(pkey).map_err(|e| anyhow!("failed to create EVP_PKEY_CTX: {e}"))?;
+        ctx.decrypt_init()
+            .map_err(|e| anyhow!("decrypt init failed: {e}"))?;
+
+        let mut buf = Vec::new();
+        ctx.decrypt_to_vec(&self.payload, &mut buf)
+            .map_err(|e| anyhow!("decrypt failed: {e}"))?;
+        Ok(buf)
     }
 
     pub(super) fn decrypt_rsa(&self, padding: KeylessRsaPadding) -> anyhow::Result<Vec<u8>> {
-        let mut decrypter = self.get_decrypter()?;
-        decrypter
-            .set_rsa_padding(padding.into())
+        let pkey = self.get_private_key()?;
+        let mut ctx =
+            PkeyCtx::new(pkey).map_err(|e| anyhow!("failed to create EVP_PKEY_CTX: {e}"))?;
+        ctx.decrypt_init()
+            .map_err(|e| anyhow!("decrypt init failed: {e}"))?;
+        ctx.set_rsa_padding(padding.into())
             .map_err(|e| anyhow!("failed to set rsa padding: {e}"))?;
-        self.do_decrypt(decrypter)
-    }
 
-    fn do_decrypt(&self, decrypter: Decrypter) -> anyhow::Result<Vec<u8>> {
-        let buffer_len = decrypter
-            .decrypt_len(&self.payload)
-            .map_err(|e| anyhow!("failed to get buffer length: {e}"))?;
-        let mut decrypted = vec![0u8; buffer_len];
-        let len = decrypter
-            .decrypt(&self.payload, &mut decrypted)
-            .map_err(|e| anyhow!("failed to decrypt data: {e}"))?;
-        decrypted.truncate(len);
-        Ok(decrypted)
+        let mut buf = Vec::new();
+        ctx.decrypt_to_vec(&self.payload, &mut buf)
+            .map_err(|e| anyhow!("decrypt failed: {e}"))?;
+        Ok(buf)
     }
 
     pub(super) fn sign(&self, digest: KeylessSignDigest) -> anyhow::Result<Vec<u8>> {
