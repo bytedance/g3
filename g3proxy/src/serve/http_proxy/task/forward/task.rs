@@ -612,7 +612,7 @@ impl<'a> HttpProxyForwardTask<'a> {
             .await
         {
             self.task_notes.stage = ServerTaskStage::Connected;
-            self.http_notes.reuse_connection = true;
+            self.http_notes.reused_connection = true;
             fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
             self.http_notes.retry_new_connection = true;
             if let Some(user_ctx) = self.task_notes.user_ctx() {
@@ -620,7 +620,7 @@ impl<'a> HttpProxyForwardTask<'a> {
             }
 
             let r = self
-                .run_with_connection(clt_r, clt_w, connection, true, audit_task)
+                .run_with_connection(clt_r, clt_w, connection, audit_task)
                 .await;
             match r {
                 Ok(r) => {
@@ -648,14 +648,14 @@ impl<'a> HttpProxyForwardTask<'a> {
         }
 
         self.task_notes.stage = ServerTaskStage::Connecting;
-        self.http_notes.reuse_connection = false;
+        self.http_notes.reused_connection = false;
         match self.make_new_connection(fwd_ctx).await {
             Ok(connection) => {
                 self.task_notes.stage = ServerTaskStage::Connected;
                 fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
 
                 let r = self
-                    .run_with_connection(clt_r, clt_w, connection, false, audit_task)
+                    .run_with_connection(clt_r, clt_w, connection, audit_task)
                     .await;
                 // handle result
                 match r {
@@ -729,14 +729,13 @@ impl<'a> HttpProxyForwardTask<'a> {
         clt_r: &'f mut Option<HttpClientReader<CDR>>,
         clt_w: &'f mut HttpClientWriter<CDW>,
         mut ups_c: BoxHttpForwardConnection,
-        reused_connection: bool,
         audit_task: bool,
     ) -> ServerTaskResult<Option<BoxHttpForwardConnection>>
     where
         CDR: AsyncRead + Send + Unpin,
         CDW: AsyncWrite + Send + Unpin,
     {
-        if reused_connection {
+        if self.http_notes.reused_connection {
             if let Some(r) = ups_c.1.fill_wait_eof().now_or_never() {
                 return match r {
                     Ok(_) => Err(ServerTaskError::ClosedByUpstream),
