@@ -505,16 +505,14 @@ impl<'a> HttpRProxyForwardTask<'a> {
             .await
         {
             self.task_notes.stage = ServerTaskStage::Connected;
-            self.http_notes.reuse_connection = true;
+            self.http_notes.reused_connection = true;
             fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
             self.retry_new_connection = true;
             if let Some(user_ctx) = self.task_notes.user_ctx() {
                 user_ctx.foreach_req_stats(|s| s.req_reuse.add_http_forward(self.is_https));
             }
 
-            let r = self
-                .run_with_connection(clt_r, clt_w, connection, true)
-                .await;
+            let r = self.run_with_connection(clt_r, clt_w, connection).await;
             match r {
                 Ok(r) => {
                     if let Some(connection) = r {
@@ -541,15 +539,13 @@ impl<'a> HttpRProxyForwardTask<'a> {
         }
 
         self.task_notes.stage = ServerTaskStage::Connecting;
-        self.http_notes.reuse_connection = false;
+        self.http_notes.reused_connection = false;
         match self.make_new_connection(fwd_ctx).await {
             Ok(connection) => {
                 self.task_notes.stage = ServerTaskStage::Connected;
                 fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
 
-                let r = self
-                    .run_with_connection(clt_r, clt_w, connection, false)
-                    .await;
+                let r = self.run_with_connection(clt_r, clt_w, connection).await;
                 // handle result
                 match r {
                     Ok(r) => {
@@ -613,13 +609,12 @@ impl<'a> HttpRProxyForwardTask<'a> {
         clt_r: &'f mut Option<HttpClientReader<CDR>>,
         clt_w: &'f mut HttpClientWriter<CDW>,
         mut ups_c: BoxHttpForwardConnection,
-        reused_connection: bool,
     ) -> ServerTaskResult<Option<BoxHttpForwardConnection>>
     where
         CDR: AsyncRead + Unpin,
         CDW: AsyncWrite + Unpin,
     {
-        if reused_connection {
+        if self.http_notes.reused_connection {
             if let Some(r) = ups_c.1.fill_wait_eof().now_or_never() {
                 return match r {
                     Ok(_) => Err(ServerTaskError::ClosedByUpstream),
