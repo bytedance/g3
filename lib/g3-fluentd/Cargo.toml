@@ -9,7 +9,6 @@ rust-version = "1.74.0"
 
 [dependencies]
 anyhow.workspace = true
-thiserror.workspace = true
 slog = { workspace = true, features = ["nested-values"] }
 chrono = { workspace = true, features = ["clock"] }
 flume = { workspace = true, features = ["async"] }
@@ -17,18 +16,16 @@ rmp.workspace = true
 rmp-serde.workspace = true
 serde.workspace = true
 tokio = { workspace = true, features = ["rt", "net", "time", "macros", "io-util"] }
-tokio-rustls.workspace = true
-rustls-pki-types.workspace = true
-rand.workspace = true
-digest.workspace = true
-sha2.workspace = true
+openssl.workspace = true
+constant_time_eq.workspace = true
 hex.workspace = true
 log.workspace = true
 yaml-rust = { workspace = true, optional = true }
 g3-compat.workspace = true
 g3-socket.workspace = true
-g3-types = { workspace = true, features = ["async-log", "rustls"] }
-g3-yaml = { workspace = true, optional = true, features = ["rustls"] }
+g3-openssl.workspace = true
+g3-types = { workspace = true, features = ["async-log", "openssl"] }
+g3-yaml = { workspace = true, optional = true, features = ["openssl"] }
 
 [features]
 default = []

@@ -18,16 +18,14 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
-use digest::Digest;
-use rand::Rng;
-use rmp::encode::ValueWriteError;
-use rustls_pki_types::ServerName;
-use sha2::Sha512;
+use constant_time_eq::constant_time_eq_64;
+use openssl::md::Md;
+use openssl::md_ctx::MdCtx;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use tokio_rustls::TlsConnector;
 
+use g3_openssl::SslConnector;
 use g3_socket::BindAddr;
-use g3_types::net::{RustlsClientConfig, RustlsClientConfigBuilder, TcpKeepAliveConfig};
+use g3_types::net::{Host, OpensslClientConfig, OpensslClientConfigBuilder, TcpKeepAliveConfig};
 
 use super::FluentdConnection;
 
@@ -35,6 +33,7 @@ use super::FluentdConnection;
 mod yaml;
 
 const FLUENTD_DEFAULT_PORT: u16 = 24224;
+const FLUENTD_HASH_SIZE: usize = 64;
 
 #[derive(Clone)]
 pub struct FluentdClientConfig {
@@ -44,8 +43,8 @@ pub struct FluentdClientConfig {
     username: String,
     password: String,
     tcp_keepalive: TcpKeepAliveConfig,
-    tls_client: Option<RustlsClientConfig>,
-    tls_name: Option<ServerName<'static>>,
+    tls_client: Option<OpensslClientConfig>,
+    tls_name: Option<Host>,
     hostname: String,
     pub(super) connect_timeout: Duration,
     pub(super) connect_delay: Duration,
@@ -112,7 +111,7 @@ impl FluentdClientConfig {
         self.tcp_keepalive = keepalive;
     }
 
-    pub fn set_tls_client(&mut self, tls_config: RustlsClientConfigBuilder) -> anyhow::Result<()> {
+    pub fn set_tls_client(&mut self, tls_config: OpensslClientConfigBuilder) -> anyhow::Result<()> {
         let tls_client = tls_config
             .build()
             .context("failed to build tls client config")?;
@@ -120,7 +119,7 @@ impl FluentdClientConfig {
         Ok(())
     }
 
-    pub fn set_tls_name(&mut self, tls_name: ServerName<'static>) {
+    pub fn set_tls_name(&mut self, tls_name: Host) {
         self.tls_name = Some(tls_name);
     }
 
@@ -159,14 +158,15 @@ impl FluentdClientConfig {
             .map_err(|e| anyhow!("failed to tcp connect to peer {}: {e:?}", self.server_addr))?;
 
         if let Some(tls_client) = &self.tls_client {
-            let tls_name = self
-                .tls_name
-                .clone()
-                .unwrap_or_else(|| ServerName::IpAddress(self.server_addr.ip().into()));
-            let tls_connect =
-                TlsConnector::from(tls_client.driver.clone()).connect(tls_name, tcp_stream);
+            let default_tls_name = Host::Ip(self.server_addr.ip());
+            let tls_name = self.tls_name.as_ref().unwrap_or(&default_tls_name);
+            let ssl = tls_client
+                .build_ssl(tls_name, self.server_addr.port())
+                .map_err(|e| anyhow!("failed to prepare ssl: {e}"))?;
+            let tls_connect = SslConnector::new(ssl, tcp_stream)
+                .map_err(|e| anyhow!("failed to create TLS connector: {e}"))?;
 
-            match tokio::time::timeout(tls_client.handshake_timeout, tls_connect).await {
+            match tokio::time::timeout(tls_client.handshake_timeout, tls_connect.connect()).await {
                 Ok(Ok(stream)) => Ok(FluentdConnection::Tls(stream)),
                 Ok(Err(e)) => Err(anyhow!("failed to tls connect to peer: {e}")),
                 Err(_) => Err(anyhow!("tls connect to peer timedout")),
@@ -196,8 +196,9 @@ impl FluentdClientConfig {
         let helo = super::handshake::parse_helo(&helo_buf[0..helo_len])
             .context("failed to parse helo msg")?;
 
-        let mut rng = rand::thread_rng();
-        let shared_key_salt: [u8; 16] = rng.gen();
+        let mut shared_key_salt = [0u8; 16];
+        openssl::rand::rand_bytes(&mut shared_key_salt)
+            .map_err(|e| anyhow!("failed to generate shared key salt: {e}"))?;
 
         let ping_msg = self
             .build_ping(&helo, &shared_key_salt)
@@ -228,7 +229,7 @@ impl FluentdClientConfig {
         &self,
         helo: &super::handshake::HeloMsgRef<'_>,
         shared_key_salt: &[u8],
-    ) -> Result<Vec<u8>, ValueWriteError> {
+    ) -> anyhow::Result<Vec<u8>> {
         let mut buf = Vec::with_capacity(1024);
 
         rmp::encode::write_array_len(&mut buf, 6)?;
@@ -239,12 +240,14 @@ impl FluentdClientConfig {
 
             rmp::encode::write_bin(&mut buf, shared_key_salt)?;
 
-            let mut digest = Sha512::new();
-            digest.update(shared_key_salt);
-            digest.update(self.hostname.as_bytes());
-            digest.update(helo.nonce);
-            digest.update(self.shared_key.as_bytes());
-            let v = &digest.finalize()[..];
+            let mut md = MdCtx::new()?;
+            md.digest_init(Md::sha512())?;
+            md.digest_update(shared_key_salt)?;
+            md.digest_update(self.hostname.as_bytes())?;
+            md.digest_update(helo.nonce)?;
+            md.digest_update(self.shared_key.as_bytes())?;
+            let mut v = [0u8; FLUENTD_HASH_SIZE];
+            md.digest_final(&mut v)?;
             let shared_key_digest = hex::encode(v);
             rmp::encode::write_str(&mut buf, &shared_key_digest)?;
 
@@ -255,11 +258,11 @@ impl FluentdClientConfig {
             } else {
                 rmp::encode::write_str(&mut buf, &self.username)?;
 
-                let mut digest = Sha512::new();
-                digest.update(helo.auth_salt);
-                digest.update(self.username.as_bytes());
-                digest.update(self.password.as_bytes());
-                let v = &digest.finalize()[..];
+                md.digest_init(Md::sha512())?;
+                md.digest_update(helo.auth_salt)?;
+                md.digest_update(self.username.as_bytes())?;
+                md.digest_update(self.password.as_bytes())?;
+                md.digest_final(&mut v)?;
                 let password_digest = hex::encode(v);
                 rmp::encode::write_str(&mut buf, &password_digest)?;
             }
@@ -278,17 +281,20 @@ impl FluentdClientConfig {
             return Err(anyhow!("server auth failed, reason: {}", pong.reason));
         }
 
-        let remote_v = hex::decode(pong.shared_key_digest)
+        let mut remote_hash = [0u8; FLUENTD_HASH_SIZE];
+        hex::decode_to_slice(pong.shared_key_digest, &mut remote_hash)
             .map_err(|_| anyhow!("invalid shared_key_hex_digest returned by server"))?;
 
-        let mut digest = Sha512::new();
-        digest.update(shared_key_salt);
-        digest.update(pong.server_hostname.as_bytes());
-        digest.update(nonce_salt);
-        digest.update(self.shared_key.as_bytes());
-        let local_v = &digest.finalize()[..];
+        let mut md = MdCtx::new()?;
+        md.digest_init(Md::sha512())?;
+        md.digest_update(shared_key_salt)?;
+        md.digest_update(pong.server_hostname.as_bytes())?;
+        md.digest_update(nonce_salt)?;
+        md.digest_update(self.shared_key.as_bytes())?;
+        let mut hash = [0u8; FLUENTD_HASH_SIZE];
+        md.digest_final(&mut hash)?;
 
-        if local_v.ne(&remote_v) {
+        if !constant_time_eq_64(&hash, &remote_hash) {
             return Err(anyhow!("shared_key_hex_digest mismatch"));
         }
 
