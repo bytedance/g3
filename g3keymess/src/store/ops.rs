@@ -38,7 +38,7 @@ pub async fn load_all() -> anyhow::Result<()> {
 
         if let Some(sender) = config
             .spawn_subscriber()
-            .context(format!("failed to spawn subscriber for key store {name}",))?
+            .context(format!("failed to spawn subscriber for key store {name}"))?
         {
             registry::add_subscriber(name, sender);
         }
@@ -63,7 +63,7 @@ pub async fn reload_all() -> anyhow::Result<()> {
 
         if let Some(sender) = config
             .spawn_subscriber()
-            .context(format!("failed to spawn subscriber for key store {name}",))?
+            .context(format!("failed to spawn subscriber for key store {name}"))?
         {
             registry::add_subscriber(name, sender);
         }

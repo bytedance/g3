@@ -134,7 +134,7 @@ pub(crate) async fn update_dependency_to_discover(discover: &MetricsName, status
         let name = backend.name();
         debug!("backend {name}: will update discover {discover}");
         if let Err(e) = backend.update_discover() {
-            warn!("failed to update discover {discover} for backend {name}: {e:?}",);
+            warn!("failed to update discover {discover} for backend {name}: {e:?}");
         }
     }
 }

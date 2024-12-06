@@ -93,13 +93,13 @@ impl RustlsHostConfig {
                 let certs = g3_types::net::load_native_certs_for_rustls()?;
                 for (i, cert) in certs.into_iter().enumerate() {
                     root_store.add(cert).map_err(|e| {
-                        anyhow!("failed to add openssl ca cert {i} as root certs for client auth: {e:?}",)
+                        anyhow!("failed to add openssl ca cert {i} as root certs for client auth: {e:?}")
                     })?;
                 }
             } else {
                 for (i, cert) in self.client_auth_certs.iter().enumerate() {
                     root_store.add(cert.clone()).map_err(|e| {
-                        anyhow!("failed to add cert {i} as root certs for client auth: {e:?}",)
+                        anyhow!("failed to add cert {i} as root certs for client auth: {e:?}")
                     })?;
                 }
             }

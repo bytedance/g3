@@ -42,16 +42,16 @@ impl KeyServerRuntime {
     }
 
     fn pre_start(&self) {
-        info!("started SRT {}", self.server.name(),);
+        info!("started SRT {}", self.server.name());
         self.listen_stats.add_running_runtime();
     }
 
     fn pre_stop(&self) {
-        info!("stopping SRT {}", self.server.name(),);
+        info!("stopping SRT {}", self.server.name());
     }
 
     fn post_stop(&self) {
-        info!("stopped SRT {}", self.server.name(),);
+        info!("stopped SRT {}", self.server.name());
         self.listen_stats.del_running_runtime();
     }
 

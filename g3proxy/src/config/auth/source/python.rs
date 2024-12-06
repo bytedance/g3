@@ -60,7 +60,7 @@ impl UserDynamicPythonSource {
             super::CONFIG_KEY_SOURCE_TYPE => Ok(()),
             "script" => {
                 self.script_file = g3_yaml::value::as_file_path(v, lookup_dir, false)
-                    .context(format!("invalid file path value for key {k}",))?;
+                    .context(format!("invalid file path value for key {k}"))?;
                 Ok(())
             }
             "fetch_timeout" => {

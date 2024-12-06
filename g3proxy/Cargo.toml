@@ -20,7 +20,6 @@ futures-util.workspace = true
 rand.workspace = true
 fastrand.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "rt", "signal", "sync", "time", "io-util", "net", "fs"] }
-tokio-util = { workspace = true, features = ["time"] }
 tokio-rustls.workspace = true
 rustls.workspace = true
 quinn = { workspace = true, optional = true, features = ["rustls"] }

@@ -155,7 +155,7 @@ mod tests {
         let rule = builder.build();
 
         assert_eq!(
-            rule.check(IpAddr::from_str("192.168.1.1").unwrap(),),
+            rule.check(IpAddr::from_str("192.168.1.1").unwrap()),
             (true, AclAction::Forbid)
         );
         assert_eq!(

@@ -12,15 +12,11 @@ description = "G3 fake certificate generator"
 anyhow.workspace = true
 clap.workspace = true
 log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
-rmpv.workspace = true
-memchr.workspace = true
 openssl.workspace = true
 tokio = { workspace = true, features = ["macros", "net", "io-util", "time"] }
 flume = { workspace = true, features = ["async"] }
 yaml-rust.workspace = true
 g3-types.workspace = true
-g3-runtime.workspace = true
-g3-msgpack.workspace = true
 g3-yaml = { workspace = true, features = ["histogram", "openssl"] }
 g3-daemon.workspace = true
 g3-statsd-client.workspace = true

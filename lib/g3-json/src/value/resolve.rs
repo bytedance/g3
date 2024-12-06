@@ -89,7 +89,7 @@ fn add_exact_redirection_record(
             let mut ips = Vec::with_capacity(seq.len());
             for (i, v) in seq.iter().enumerate() {
                 let ip = crate::value::as_ipaddr(v)
-                    .context(format!("invalid ip address value for domain {domain}#{i}",))?;
+                    .context(format!("invalid ip address value for domain {domain}#{i}"))?;
                 ips.push(ip);
             }
             config.insert_exact(domain, ips);

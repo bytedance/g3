@@ -119,7 +119,7 @@ impl RouteFailoverEscaper {
 
         let standby_context = TlsConnectFailoverContext::new(audit_ctx);
         let standby_task =
-            pin!(standby_context.run(&self.standby_node, task_conf, task_notes, task_stats,));
+            pin!(standby_context.run(&self.standby_node, task_conf, task_notes, task_stats));
 
         match futures_util::future::select_ok([primary_task, standby_task]).await {
             Ok((ctx, _left)) => {

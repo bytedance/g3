@@ -125,14 +125,14 @@ impl RustlsClientConfigBuilder {
                 let certs = super::load_native_certs_for_rustls()?;
                 for (i, cert) in certs.into_iter().enumerate() {
                     root_store.add(cert).map_err(|e| {
-                        anyhow!("failed to add openssl ca cert {i} as root certs for client auth: {e:?}",)
+                        anyhow!("failed to add openssl ca cert {i} as root certs for client auth: {e:?}")
                     })?;
                 }
             }
         }
         for (i, cert) in self.ca_certs.iter().enumerate() {
             root_store.add(cert.clone()).map_err(|e| {
-                anyhow!("failed to add cert {i} as root certs for server auth: {e:?}",)
+                anyhow!("failed to add cert {i} as root certs for server auth: {e:?}")
             })?;
         }
 

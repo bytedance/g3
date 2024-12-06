@@ -107,7 +107,7 @@ fn load_country_from_csv<R: io::Read>(
 
         let geo_record = GeoIpCountryRecord { country, continent };
         if table.insert(network, geo_record).is_some() {
-            return Err(anyhow!("found duplicate entry for network {}", network,));
+            return Err(anyhow!("found duplicate entry for network {}", network));
         }
     }
 

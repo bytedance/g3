@@ -7,13 +7,11 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hickory-client.workspace = true
 hickory-proto = { workspace  = true, features = ["tokio-runtime"] }
 futures-util.workspace = true
 http.workspace = true
 h2.workspace = true
 bytes.workspace = true
-thiserror.workspace = true
 tokio = { workspace = true, features = ["net", "time"] }
 rustls.workspace = true
 rustls-pki-types.workspace = true
