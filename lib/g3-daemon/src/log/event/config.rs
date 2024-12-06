@@ -264,3 +264,37 @@ impl LogConfig {
         }
     }
 }
+
+pub struct LogConfigContainer {
+    inner: Option<LogConfig>,
+}
+
+impl Default for LogConfigContainer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl LogConfigContainer {
+    pub const fn new() -> Self {
+        LogConfigContainer { inner: None }
+    }
+
+    pub fn set_default(&mut self, config: LogConfig) {
+        if self.inner.is_none() {
+            self.set(config);
+        }
+    }
+
+    pub fn set(&mut self, config: LogConfig) {
+        self.inner = Some(config)
+    }
+
+    pub fn get(&self, program_name: &'static str) -> LogConfig {
+        if let Some(config) = &self.inner {
+            config.clone()
+        } else {
+            LogConfig::new_discard(program_name)
+        }
+    }
+}
