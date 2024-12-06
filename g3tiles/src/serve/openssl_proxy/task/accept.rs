@@ -170,15 +170,15 @@ impl OpensslAcceptTask {
                     Ok(Some(ch)) => return self.parse_sni(ch),
                     Ok(None) => {
                         if !record.consume_done() {
-                            return Err(anyhow!("partial fragmented tls client hello request",));
+                            return Err(anyhow!("partial fragmented tls client hello request"));
                         }
                     }
                     Err(_) => {
-                        return Err(anyhow!("invalid fragmented tls client hello request",));
+                        return Err(anyhow!("invalid fragmented tls client hello request"));
                     }
                 },
                 Err(_) => {
-                    return Err(anyhow!("invalid tls client hello request",));
+                    return Err(anyhow!("invalid tls client hello request"));
                 }
             }
         }
@@ -199,7 +199,7 @@ impl OpensslAcceptTask {
                 Some(host) => Ok((ch.legacy_version, host.clone())),
                 None => Err(anyhow!("no server name in client hello message")),
             },
-            Err(_) => Err(anyhow!("invalid extension in tls client hello request",)),
+            Err(_) => Err(anyhow!("invalid extension in tls client hello request")),
         }
     }
 

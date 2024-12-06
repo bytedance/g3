@@ -177,7 +177,7 @@ impl UnaidedRuntimeConfig {
                             });
                         }
                         Err(e) => {
-                            error!("failed to create tokio runtime on worker thread {i}: {e}",);
+                            error!("failed to create tokio runtime on worker thread {i}: {e}");
                         }
                     }
                     trace!("stopped worker thread #{}", i);

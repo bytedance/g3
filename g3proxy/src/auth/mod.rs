@@ -286,7 +286,7 @@ impl UserGroup {
 
     pub(crate) async fn publish_dynamic_users(&self, contents: &str) -> anyhow::Result<()> {
         let doc = serde_json::Value::from_str(contents)
-            .map_err(|e| anyhow!("the published contents is not valid json: {e}",))?;
+            .map_err(|e| anyhow!("the published contents is not valid json: {e}"))?;
         let user_config = crate::config::auth::source::cache::parse_json(&doc)?;
 
         // we should avoid corrupt write at process exit

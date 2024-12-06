@@ -198,7 +198,7 @@ fn query_asn(args: &ArgMatches, sub_args: &ArgMatches, db: &Path) -> anyhow::Res
         println!("# check for IP {ip}");
         match geoip_table.longest_match(*ip) {
             Some((network, r)) => {
-                print!("network: {}\nasn: {}", network, r.number,);
+                print!("network: {}\nasn: {}", network, r.number);
                 if let Some(name) = r.isp_name() {
                     print!("/{name}");
                 }

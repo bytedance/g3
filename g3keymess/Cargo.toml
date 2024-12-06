@@ -26,7 +26,6 @@ uuid.workspace = true
 url.workspace = true
 ahash.workspace = true
 futures-util.workspace = true
-itoa.workspace = true
 arc-swap.workspace = true
 serde_json.workspace = true
 g3-daemon = { workspace = true, features = ["register", "event-log"] }

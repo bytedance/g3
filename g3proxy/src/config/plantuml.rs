@@ -41,7 +41,7 @@ fn plantuml_auditor(content: &mut String) {
     let _ = content.write_str("package Auditor {\n");
     for config in crate::config::audit::get_all() {
         let name = config.name();
-        let _ = writeln!(content, "  component [{name}] as auditor_{name}",);
+        let _ = writeln!(content, "  component [{name}] as auditor_{name}");
     }
     let _ = content.write_str("}\n");
 }
@@ -50,7 +50,7 @@ fn plantuml_user_group(content: &mut String) {
     let _ = content.write_str("package UserGroup {\n");
     for config in crate::config::auth::get_all() {
         let name = config.name();
-        let _ = writeln!(content, "  component [{name}] as user_group_{name}",);
+        let _ = writeln!(content, "  component [{name}] as user_group_{name}");
     }
     let _ = content.write_str("}\n");
 }
@@ -62,13 +62,13 @@ fn plantuml_resolver(content: &mut String) -> anyhow::Result<()> {
     let _ = content.write_str("package Resolver {\n");
     for c in &all_resolver {
         let name = c.name();
-        let _ = writeln!(content, "  component [{name}] as resolver_{name}",);
+        let _ = writeln!(content, "  component [{name}] as resolver_{name}");
     }
     for c in &all_resolver {
         if let Some(d) = c.dependent_resolver() {
             let s_name = c.name();
             for v in d {
-                let _ = writeln!(content, "  resolver_{s_name} --> resolver_{v}",);
+                let _ = writeln!(content, "  resolver_{s_name} --> resolver_{v}");
             }
         }
     }
@@ -83,13 +83,13 @@ fn plantuml_escaper(content: &mut String) -> anyhow::Result<()> {
     let _ = content.write_str("package Escaper {\n");
     for c in &all_escaper {
         let name = c.name();
-        let _ = writeln!(content, "  component [{name}] as escaper_{name}",);
+        let _ = writeln!(content, "  component [{name}] as escaper_{name}");
     }
     for c in &all_escaper {
         if let Some(d) = c.dependent_escaper() {
             let s_name = c.name();
             for v in d {
-                let _ = writeln!(content, "  escaper_{s_name} --> escaper_{v}",);
+                let _ = writeln!(content, "  escaper_{s_name} --> escaper_{v}");
             }
         }
     }
@@ -112,13 +112,13 @@ fn plantuml_server(content: &mut String) -> anyhow::Result<()> {
     let _ = content.write_str("package Server {\n");
     for c in &all_server {
         let name = c.name();
-        let _ = writeln!(content, "  component [{name}] as server_{name}",);
+        let _ = writeln!(content, "  component [{name}] as server_{name}");
     }
     for c in &all_server {
         if let Some(d) = c.dependent_server() {
             for v in d {
                 let s_name = c.name();
-                let _ = writeln!(content, "  server_{s_name} --> server_{v}",);
+                let _ = writeln!(content, "  server_{s_name} --> server_{v}");
             }
         }
     }

@@ -73,7 +73,7 @@ impl ResolverBuilder {
                 let resolver_runtime =
                     ResolverRuntime::new(config, req_receiver, ctl_receiver, stats_a);
                 if let Err(e) = resolver_runtime.await {
-                    warn!("resolver {resolver_name} runtime exited with error: {e}",);
+                    warn!("resolver {resolver_name} runtime exited with error: {e}");
                 }
             });
         })?;

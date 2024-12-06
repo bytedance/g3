@@ -50,7 +50,7 @@ pub fn as_dns_encryption_protocol_builder(
                 KEY_TLS_NAME => Ok(()),
                 "protocol" => {
                     let protocol = as_dns_encryption_protocol(v)
-                        .context(format!("invalid dns encryption protocol value for key {k}",))?;
+                        .context(format!("invalid dns encryption protocol value for key {k}"))?;
                     config.set_protocol(protocol);
                     Ok(())
                 }

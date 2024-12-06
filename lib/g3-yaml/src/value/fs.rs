@@ -40,7 +40,7 @@ pub fn as_file_path(v: &Yaml, lookup_dir: &Path, auto_create: bool) -> anyhow::R
         } else if auto_create {
             if let Some(dir_path) = path.parent() {
                 std::fs::create_dir_all(dir_path).map_err(|e| {
-                    anyhow!("failed to create parent dir {}: {e:?}", dir_path.display(),)
+                    anyhow!("failed to create parent dir {}: {e:?}", dir_path.display())
                 })?;
                 let _ = File::create(&path)
                     .map_err(|e| anyhow!("failed to create file {}: {e:?}", path.display()))?;
