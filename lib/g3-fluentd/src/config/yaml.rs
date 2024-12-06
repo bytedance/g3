@@ -66,18 +66,20 @@ impl FluentdClientConfig {
                     }
                     "tls" | "tls_client" => {
                         let tls_config =
-                            g3_yaml::value::as_rustls_client_config_builder(v, lookup_dir)
-                                .context(format!(
-                                    "invalid rustls tls client config value for key {k}"
-                                ))?;
+                            g3_yaml::value::as_to_one_openssl_tls_client_config_builder(
+                                v, lookup_dir,
+                            )
+                            .context(format!(
+                                "invalid openssl tls client config value for key {k}"
+                            ))?;
                         config
                             .set_tls_client(tls_config)
                             .context("failed to set tls client config")?;
                         Ok(())
                     }
                     "tls_name" => {
-                        let tls_name = g3_yaml::value::as_rustls_server_name(v)
-                            .context(format!("invalid rustls server name value for key {k}"))?;
+                        let tls_name = g3_yaml::value::as_host(v)
+                            .context(format!("invalid tls server name value for key {k}"))?;
                         config.set_tls_name(tls_name);
                         Ok(())
                     }
