@@ -16,7 +16,7 @@
 
 use std::str::FromStr;
 
-use hickory_proto::error::ProtoError;
+use hickory_proto::ProtoError;
 use http::uri::{Authority, Parts, PathAndQuery, Scheme};
 use http::{header, HeaderValue, Method, Request, Uri, Version};
 

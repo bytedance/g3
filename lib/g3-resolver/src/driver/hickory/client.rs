@@ -21,12 +21,13 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use async_recursion::async_recursion;
-use hickory_client::client::{AsyncClient, ClientHandle};
-use hickory_proto::iocompat::AsyncIoTokioAsStd;
+use hickory_client::client::{Client, ClientHandle};
 use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
+use hickory_proto::runtime::iocompat::AsyncIoTokioAsStd;
+use hickory_proto::runtime::TokioRuntimeProvider;
 use rustls::ClientConfig;
 use rustls_pki_types::ServerName;
-use tokio::net::{TcpStream, UdpSocket};
+use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 
 use g3_types::net::{DnsEncryptionConfig, DnsEncryptionProtocol};
@@ -74,7 +75,7 @@ impl HickoryClientState {
 pub(super) struct HickoryClient {
     config: Arc<HickoryClientConfig>,
     state: Arc<HickoryClientState>,
-    client: AsyncClient,
+    client: Client,
 }
 
 impl HickoryClient {
@@ -144,7 +145,7 @@ pub(super) struct HickoryClientJob {
 
 impl HickoryClientJob {
     #[async_recursion]
-    async fn run(mut self, mut async_client: AsyncClient, req: DnsRequest) -> ResolvedRecord {
+    async fn run(mut self, mut async_client: Client, req: DnsRequest) -> ResolvedRecord {
         let Ok(mut name) = Name::from_ascii(&req.domain) else {
             return ResolvedRecord::failed(
                 req.domain,
@@ -178,10 +179,7 @@ impl HickoryClientJob {
                     let mut ttl = 0;
                     for r in msg.take_answers() {
                         ttl = r.ttl();
-                        let Some(rdata) = r.data() else {
-                            continue;
-                        };
-                        match rdata {
+                        match r.data() {
                             RData::A(v) => {
                                 if req.rtype == RecordType::A {
                                     ips.push(IpAddr::V4(v.0));
@@ -246,7 +244,7 @@ impl HickoryClientConfig {
         self.encryption.is_none()
     }
 
-    async fn build_async_client(&self) -> anyhow::Result<AsyncClient> {
+    async fn build_async_client(&self) -> anyhow::Result<Client> {
         if let Some(ec) = &self.encryption {
             let tls_client = ec.tls_client().driver.as_ref().clone();
 
@@ -274,31 +272,31 @@ impl HickoryClientConfig {
         }
     }
 
-    async fn new_dns_over_udp_client(&self) -> anyhow::Result<AsyncClient> {
+    async fn new_dns_over_udp_client(&self) -> anyhow::Result<Client> {
         // random port is used here
         let client_connect =
-            hickory_client::udp::UdpClientStream::<UdpSocket>::with_bind_addr_and_timeout(
-                self.target,
-                self.bind,
-                self.request_timeout,
-            );
+            hickory_proto::udp::UdpClientStream::builder(self.target, TokioRuntimeProvider::new())
+                .with_bind_addr(self.bind)
+                .with_timeout(Some(self.request_timeout))
+                .build();
 
-        let (client, bg) = AsyncClient::connect(client_connect)
+        let (client, bg) = Client::connect(client_connect)
             .await
             .map_err(|e| anyhow!("failed to create udp async client: {e}"))?;
         tokio::spawn(bg);
         Ok(client)
     }
 
-    async fn new_dns_over_tcp_client(&self) -> anyhow::Result<AsyncClient> {
+    async fn new_dns_over_tcp_client(&self) -> anyhow::Result<Client> {
         let (stream, sender) =
-            hickory_client::tcp::TcpClientStream::<AsyncIoTokioAsStd<TcpStream>>::with_bind_addr_and_timeout(
+            hickory_proto::tcp::TcpClientStream::<AsyncIoTokioAsStd<TcpStream>>::new(
                 self.target,
                 self.bind,
-                self.connect_timeout,
+                Some(self.connect_timeout),
+                TokioRuntimeProvider::new(),
             );
 
-        let (client, bg) = AsyncClient::with_timeout(stream, sender, self.request_timeout, None)
+        let (client, bg) = Client::with_timeout(stream, sender, self.request_timeout, None)
             .await
             .map_err(|e| anyhow!("failed to create tcp async client: {e}"))?;
         tokio::spawn(bg);
@@ -309,7 +307,7 @@ impl HickoryClientConfig {
         &self,
         tls_client: ClientConfig,
         tls_name: ServerName<'static>,
-    ) -> anyhow::Result<AsyncClient> {
+    ) -> anyhow::Result<Client> {
         use hickory_proto::BufDnsStreamHandle;
 
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(self.target);
@@ -323,7 +321,7 @@ impl HickoryClientConfig {
             self.connect_timeout,
         );
 
-        let (client, bg) = AsyncClient::with_timeout(
+        let (client, bg) = Client::with_timeout(
             Box::pin(tls_connect),
             message_sender,
             self.request_timeout,
@@ -339,7 +337,7 @@ impl HickoryClientConfig {
         &self,
         tls_client: ClientConfig,
         tls_name: ServerName<'static>,
-    ) -> anyhow::Result<AsyncClient> {
+    ) -> anyhow::Result<Client> {
         let client_connect = g3_hickory_client::io::h2::connect(
             self.target,
             self.bind,
@@ -349,7 +347,7 @@ impl HickoryClientConfig {
             self.request_timeout,
         );
 
-        let (client, bg) = AsyncClient::connect(Box::pin(client_connect))
+        let (client, bg) = Client::connect(Box::pin(client_connect))
             .await
             .map_err(|e| anyhow!("failed to create h2 async client: {e}"))?;
         tokio::spawn(bg);
@@ -361,7 +359,7 @@ impl HickoryClientConfig {
         &self,
         tls_client: ClientConfig,
         tls_name: &ServerName<'static>,
-    ) -> anyhow::Result<AsyncClient> {
+    ) -> anyhow::Result<Client> {
         let tls_name = match tls_name {
             ServerName::DnsName(domain) => domain.as_ref().to_string(),
             ServerName::IpAddress(ip) => IpAddr::from(*ip).to_string(),
@@ -377,7 +375,7 @@ impl HickoryClientConfig {
             self.request_timeout,
         );
 
-        let (client, bg) = AsyncClient::connect(Box::pin(client_connect))
+        let (client, bg) = Client::connect(Box::pin(client_connect))
             .await
             .map_err(|e| anyhow!("failed to create udp async client: {e}"))?;
         tokio::spawn(bg);
@@ -389,7 +387,7 @@ impl HickoryClientConfig {
         &self,
         tls_client: ClientConfig,
         tls_name: &ServerName<'static>,
-    ) -> anyhow::Result<AsyncClient> {
+    ) -> anyhow::Result<Client> {
         let tls_name = match tls_name {
             ServerName::DnsName(domain) => domain.as_ref().to_string(),
             ServerName::IpAddress(ip) => IpAddr::from(*ip).to_string(),
@@ -405,7 +403,7 @@ impl HickoryClientConfig {
             self.request_timeout,
         );
 
-        let (client, bg) = AsyncClient::connect(Box::pin(client_connect))
+        let (client, bg) = Client::connect(Box::pin(client_connect))
             .await
             .map_err(|e| anyhow!("failed to create h3 async client: {e}"))?;
         tokio::spawn(bg);

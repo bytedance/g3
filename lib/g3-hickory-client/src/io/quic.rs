@@ -19,11 +19,10 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
-use bytes::{Bytes, BytesMut};
+use bytes::Bytes;
 use futures_util::Stream;
-use hickory_proto::error::{ProtoError, ProtoErrorKind};
-use hickory_proto::op::Message;
 use hickory_proto::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
+use hickory_proto::{ProtoError, ProtoErrorKind};
 use quinn::{Connection, RecvStream, VarInt};
 use rustls::ClientConfig;
 
@@ -152,16 +151,15 @@ async fn quic_recv(mut recv_stream: RecvStream) -> Result<DnsResponse, ProtoErro
         .map_err(|e| format!("quic read len error: {e}"))?;
     let message_len = u16::from_be_bytes(len_buf) as usize;
 
-    let mut buffer = BytesMut::with_capacity(message_len);
-    buffer.resize(message_len, 0);
+    let mut buffer = vec![0u8; message_len];
     recv_stream
         .read_exact(&mut buffer)
         .await
         .map_err(|e| format!("quic read message error: {e}"))?;
-    let message = Message::from_vec(&buffer)?;
-    if message.id() != 0 {
+    let rsp = DnsResponse::from_buffer(buffer)?;
+    if rsp.id() != 0 {
         return Err(ProtoError::from("quic response message id is not zero"));
     }
 
-    Ok(DnsResponse::new(message, buffer.to_vec()))
+    Ok(rsp)
 }
