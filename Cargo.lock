@@ -1105,7 +1105,6 @@ dependencies = [
  "clap",
  "daemonize",
  "fastrand",
- "futures-util",
  "g3-fluentd",
  "g3-http",
  "g3-io-ext",

@@ -12,7 +12,6 @@ anyhow.workspace = true
 log = { workspace = true, features = ["std"] }
 cfg-if.workspace = true
 slog = { workspace = true, features = ["max_level_trace", "release_max_level_info"] }
-futures-util.workspace = true
 async-trait.workspace = true
 yaml-rust.workspace = true
 petgraph = "0.6"
@@ -24,7 +23,7 @@ rand.workspace = true
 fastrand.workspace = true
 uuid = { workspace = true, features = ["v1"] }
 chrono.workspace = true
-tokio = { workspace = true, features = ["net", "io-util", "signal"] }
+tokio = { workspace = true, features = ["net", "io-util", "signal", "macros"] }
 tokio-util = { workspace = true, features = ["compat"] }
 http = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
@@ -33,7 +32,7 @@ quinn = { workspace = true, optional = true, features = ["runtime-tokio", "ring"
 g3-types = { workspace = true, features = ["async-log"] }
 g3-stdlog.workspace = true
 g3-syslog = { workspace = true, features = ["yaml"] }
-g3-fluentd = { workspace = true, features = ["yaml"] }
+g3-fluentd = { workspace = true, optional = true, features = ["yaml"] }
 g3-runtime.workspace = true
 g3-yaml = { workspace = true, features = ["sched"] }
 g3-statsd-client = { workspace = true, features = ["yaml"] }
@@ -49,6 +48,7 @@ g3-journal.workspace = true
 
 [features]
 default = []
+event-log = ["dep:g3-fluentd"]
 register = ["g3-yaml/http", "dep:http", "dep:serde_json", "dep:g3-http"]
 quic = ["dep:quinn", "g3-types/acl-rule"]
 openssl-async-job = ["g3-runtime/openssl-async-job"]
