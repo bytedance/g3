@@ -1,0 +1,23 @@
+name: Sphinx-Doc
+
+on:
+  push:
+    paths:
+      - 'sphinx/**'
+  pull_request:
+    paths:
+      - 'sphinx/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component:
+          - g3proxy
+          - g3tiles
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ammaraskar/sphinx-action@master
+        with:
+          docs-folder: "sphinx/${{ matrix.component }}"

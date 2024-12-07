@@ -5,9 +5,7 @@ on:
     paths-ignore:
       - 'ansible/**'
       - 'doc/**'
-      - 'demo/**'
-      - 'g3proxy/doc/**'
-      - 'g3tiles/doc/**'
+      - 'sphinx/**'
       - 'Cargo.lock'
       - 'Cargo.toml'
     branches:
@@ -17,9 +15,7 @@ on:
     paths-ignore:
       - 'ansible/**'
       - 'doc/**'
-      - 'demo/**'
-      - 'g3proxy/doc/**'
-      - 'g3tiles/doc/**'
+      - 'sphinx/**'
       - 'Cargo.lock'
       - 'Cargo.toml'
     branches:

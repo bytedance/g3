@@ -6,9 +6,7 @@ on:
       - 'ansible/**'
       - 'doc/**'
       - 'demo/**'
-      - 'scripts/**'
-      - 'g3proxy/doc/**'
-      - 'g3tiles/doc/**'
+      - 'sphinx/**'
     branches:
       - 'master'
       - 'lts/**'
