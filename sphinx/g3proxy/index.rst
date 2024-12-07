@@ -7,18 +7,9 @@ Welcome to g3proxy's documentation!
 ===================================
 
 .. toctree::
-   :maxdepth: 5
-   :caption: Contents:
+   :maxdepth: 1
 
-   configuration/index
-   protocol/index
-   metrics/index
-   log/index
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   Configuration Reference <configuration/index>
+   Protocol Details <protocol/index>
+   Metrics Definition <metrics/index>
+   Log Format <log/index>

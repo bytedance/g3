@@ -4,18 +4,8 @@
 Setup Guide
 ###########
 
-Transparent Proxy
-=================
-
-How to setup transparent proxy firewall / route rules on the host. See :doc:`transparent_proxy`.
-
-Wireshark Udpdump
-=================
-
-How to accept dumped traffic. See :doc:`wireshark_udpdump`.
-
 .. toctree::
-   :hidden:
+   :maxdepth: 1
 
-   transparent_proxy
-   wireshark_udpdump
+   Transparent Proxy <transparent_proxy>
+   Wireshark Udpdump <wireshark_udpdump>

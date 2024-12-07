@@ -58,6 +58,7 @@ Log Types
 =========
 
 .. toctree::
+   :maxdepth: 1
 
    task/index
    escape/index

@@ -15,6 +15,7 @@ We support the following protocols for clients:
   - TLS 1.2 and above can be enabled.
   - see :doc:`http_custom_headers` for custom headers.
   - see :doc:`http_custom_codes` for custom reply codes.
+  - see :doc:`egress_path_selection` to see how to select egress path.
 
 * socks proxy
 

@@ -32,17 +32,14 @@ is make up of the following entries:
 |server     |Mix [#m]_ |yes    |Server config, see :doc:`servers/index`         |
 +-----------+----------+-------+------------------------------------------------+
 
-Example config: :doc:`example config for rd-relay service <example>`
-
 .. rubric:: Footnotes
 
-.. [#m] *Mix* is not a yaml type, see :ref:`hybrid map <conf_value_hybrid_map>` for the real format.
+.. [#m] See :ref:`hybrid map <conf_value_hybrid_map>` for the real format.
 .. [#w] See :ref:`unaided runtime config <conf_value_unaided_runtime_config>`.
 
 .. toctree::
    :hidden:
 
-   values/index
    runtime
    log/index
    stat
@@ -51,5 +48,4 @@ Example config: :doc:`example config for rd-relay service <example>`
    auditors/index
    user_group/index
    servers/index
-   example
-
+   values/index

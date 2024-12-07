@@ -4,8 +4,8 @@
 Log
 ***
 
-This is the initial *log* config, which is optional and can not be reloaded.
-If set, it must reside in the main conf file.
+This is the config for event logs, which is optional and can not be reloaded.
+If set, the *Root Value* below must reside in the main conf file.
 
 Root Value
 ==========
@@ -72,8 +72,8 @@ The value could be a map, with the following keys:
 
 .. _configuration_log_config:
 
-log config
-==========
+Log Config Value
+================
 
 The detailed log config may be a simple driver name, or a map, with the following keys:
 
@@ -126,8 +126,19 @@ The detailed log config may be a simple driver name, or a map, with the followin
 
 .. note:: The *discard* driver has no config options, so it doesn't has a corresponding map field.
 
-.. toctree::
-   :maxdepth: 2
-   :caption: More:
+.. _configuration_log_driver:
 
-   driver/index
+Drivers
+=======
+
+- discard
+- stdout
+- systemd journal
+- :doc:`driver/syslog`
+- :doc:`driver/fluentd`
+
+.. toctree::
+   :hidden:
+   :glob:
+
+   driver/*

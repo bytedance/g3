@@ -7,16 +7,8 @@ Welcome to g3tiles's documentation!
 ===================================
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :maxdepth: 1
 
-   configuration/index
-   metrics/index
-   log/index
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   Configuration Reference <configuration/index>
+   Metrics Definition <metrics/index>
+   Log Format <log/index>

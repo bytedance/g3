@@ -131,7 +131,7 @@ Sub Types
 =========
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    tcp_connect
    keyless
