@@ -6,6 +6,9 @@ Metrics
 
 Currently we only support send metrics to statsd, see :ref:`stat <configuration_stat>` for more details.
 
+Common Tags
+===========
+
 The following is the common tags for all metrics:
 
 .. _metrics_tag_daemon_group:
@@ -50,6 +53,9 @@ The following is the common tags for all metrics:
   - 0.90
   - 0.95
   - 0.99
+
+Metrics Types
+=============
 
 .. toctree::
 

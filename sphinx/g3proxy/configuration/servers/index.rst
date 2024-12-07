@@ -15,7 +15,7 @@ Servers
 =======
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    dummy_close
    tcp_stream

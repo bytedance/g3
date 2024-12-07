@@ -30,16 +30,16 @@ is make up of the following entries:
 
 .. rubric:: Footnotes
 
-.. [#m] *Mix* is not a yaml type, see :ref:`hybrid map <conf_value_hybrid_map>` for the real format.
+.. [#m] See :ref:`hybrid map <conf_value_hybrid_map>` for the real format.
 .. [#w] See :ref:`unaided runtime config <conf_value_unaided_runtime_config>`.
 
 .. toctree::
    :hidden:
 
-   values/index
    runtime
    log/index
    stat
    discovers/index
    backends/index
    servers/index
+   values/index

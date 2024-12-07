@@ -4,14 +4,6 @@
 User Group
 **********
 
-.. toctree::
-   :maxdepth: 2
-
-   user
-   source
-   audit
-   site
-
 The type for each user group config is *map*, with two always required keys:
 
 * *name*, which specify the name of the user group.
@@ -21,6 +13,17 @@ For now, we only support *hashed_user* type of user group. We may add a *gss_api
 
 The real auth type used in each protocol is determined by the type of user group.
 See documentation for each server type for the mapping.
+
+Fast Link
+=========
+
+.. toctree::
+   :maxdepth: 1
+
+   user
+   source
+   audit
+   site
 
 Group types
 ===========

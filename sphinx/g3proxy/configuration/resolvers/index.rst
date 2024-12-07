@@ -15,7 +15,7 @@ Resolvers
 =========
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    deny_all
    fail_over
