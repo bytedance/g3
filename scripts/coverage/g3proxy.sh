@@ -19,60 +19,10 @@ cargo test --all
 
 all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')
 
-# generate resource files
-"${SCRIPTS_DIR}"/g3proxy/mkcert.sh
+# run g3proxy tests
 
-# start nginx
-[ -d /tmp/nginx ] || mkdir /tmp/nginx
-/usr/sbin/nginx -c "${PROJECT_DIR}"/scripts/coverage/g3proxy/nginx.conf
-
-# start g3fcgen
-"${PROJECT_DIR}"/target/debug/g3fcgen -c "${SCRIPTS_DIR}"/g3proxy/g3fcgen.yaml -G port2999 &
-FCGEN_PID=$!
-
-# run g3proxy integration tests
-
-export SSL_CERT_FILE="${SCRIPTS_DIR}/g3proxy/rootCA.pem"
-
-g3proxy_ctl()
-{
-	"${PROJECT_DIR}"/target/debug/g3proxy-ctl -G ${TEST_NAME} -p $PROXY_PID "$@"
-}
-
-set -x
-
-for dir in $(find "${SCRIPTS_DIR}/g3proxy/" -type d | sort)
-do
-	[ -f "${dir}/g3proxy.yaml" ] || continue
-
-	echo "=== ${dir}"
-
-	"${PROJECT_DIR}"/target/debug/g3proxy -c "${dir}/g3proxy.yaml" -G ${TEST_NAME} &
-	PROXY_PID=$!
-
-	sleep 2
-
-	[ -f "${dir}/testcases.sh" ] || continue
-	TESTCASE_DIR=${dir}
-	. "${dir}/testcases.sh"
-
-	g3proxy_ctl offline
-	wait $PROXY_PID
-done
-
-set +x
-
-kill -INT $FCGEN_PID
-NGINX_PID=$(cat /tmp/nginx.pid)
-kill -INT $NGINX_PID
-
-## g3proxy-ftp
-
-echo "==== g3proxy-ftp"
-./target/debug/g3proxy-ftp -u ftpuser -p ftppass 127.0.0.1 list
-./target/debug/g3proxy-ftp -u ftpuser -p ftppass 127.0.0.1 put --file "${SCRIPTS_DIR}/g3proxy/README.md" README
-./target/debug/g3proxy-ftp -u ftpuser -p ftppass 127.0.0.1 get README
-./target/debug/g3proxy-ftp -u ftpuser -p ftppass 127.0.0.1 del README
+RUN_DIR="${SCRIPTS_DIR}/g3proxy"
+. "${RUN_DIR}/run.sh"
 
 # get all profraw files generated in each test
 profraw_files=$(find . -type f -regex ".*/${TEST_NAME}.*\.profraw")
@@ -87,13 +37,9 @@ IGNORE_FLAGS="--ignore-filename-regex=.cargo \
     --ignore-filename-regex=target/debug/build \
     --ignore-filename-regex=g3bench \
     --ignore-filename-regex=g3mkcert \
-    --ignore-filename-regex=g3fcgen \
     --ignore-filename-regex=g3tiles \
     --ignore-filename-regex=g3keymess \
     --ignore-filename-regex=g3iploc"
-
-echo "==== Coverage for libs ===="
-cargo cov -- report --use-color --instr-profile="${PROF_DATA_FILE}" ${IGNORE_FLAGS} --ignore-filename-regex="g3proxy" ${all_binaries} ${all_objects}
 
 echo "==== Coverage for all ===="
 cargo cov -- report --use-color --instr-profile="${PROF_DATA_FILE}" ${IGNORE_FLAGS} ${all_binaries} ${all_objects}
