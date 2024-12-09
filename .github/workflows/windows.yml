@@ -5,8 +5,8 @@ on:
     paths-ignore:
       - 'ansible/**'
       - 'doc/**'
-      - 'demo/**'
       - 'sphinx/**'
+      - 'scripts/**'
     branches:
       - 'master'
       - 'lts/**'
