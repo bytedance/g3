@@ -5,6 +5,7 @@ Description=G3 IP Locate Service at %i
 Type=simple
 EnvironmentFile=-/etc/g3iploc/%i/env
 ExecStart=/usr/bin/g3iploc -c /etc/g3iploc/%i/ -s -G %i
+ExecStop=/bin/kill -INT $MAINPID
 
 [Install]
 WantedBy=multi-user.target
