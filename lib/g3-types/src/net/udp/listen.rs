@@ -33,8 +33,14 @@ pub struct UdpListenConfig {
 
 impl Default for UdpListenConfig {
     fn default() -> Self {
+        UdpListenConfig::new(SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0))
+    }
+}
+
+impl UdpListenConfig {
+    pub fn new(address: SocketAddr) -> Self {
         UdpListenConfig {
-            address: SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
+            address,
             ipv6only: false,
             buf_conf: SocketBufferConfig::default(),
             misc_opts: UdpMiscSockOpts::default(),
@@ -42,9 +48,7 @@ impl Default for UdpListenConfig {
             scale: 0,
         }
     }
-}
 
-impl UdpListenConfig {
     pub fn check(&self) -> anyhow::Result<()> {
         if self.address.port() == 0 {
             return Err(anyhow!("no listen port is set"));

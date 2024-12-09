@@ -13,7 +13,7 @@ anyhow.workspace = true
 clap.workspace = true
 log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
 openssl.workspace = true
-tokio = { workspace = true, features = ["macros", "net", "io-util", "time"] }
+tokio = { workspace = true, features = ["macros", "net", "io-util", "time", "signal"] }
 flume = { workspace = true, features = ["async"] }
 yaml-rust.workspace = true
 g3-types.workspace = true
@@ -23,6 +23,7 @@ g3-statsd-client.workspace = true
 g3-histogram.workspace = true
 g3-tls-cert.workspace = true
 g3-cert-agent.workspace = true
+g3-socket.workspace = true
 
 [build-dependencies]
 g3-build-env.workspace = true
