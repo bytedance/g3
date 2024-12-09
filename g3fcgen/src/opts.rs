@@ -24,32 +24,34 @@ use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgAction, Command, ValueHint};
 
 use g3_daemon::opts::{DaemonArgs, DaemonArgsExt};
+use g3_types::net::{SocketBufferConfig, UdpListenConfig};
 
 const GLOBAL_ARG_VERSION: &str = "version";
 const GLOBAL_ARG_GROUP_NAME: &str = "group-name";
 const GLOBAL_ARG_CONFIG_FILE: &str = "config-file";
+const GLOBAL_ARG_RECV_BUF_SIZE: &str = "recv-buf-size";
+const GLOBAL_ARG_SEND_BUF_SIZE: &str = "send-buf-size";
 
 static DAEMON_GROUP: OnceLock<String> = OnceLock::new();
 
 #[derive(Debug)]
 pub struct ProcArgs {
     pub daemon_config: DaemonArgs,
-    udp_addr: Option<SocketAddr>,
+    listen: UdpListenConfig,
 }
 
 impl Default for ProcArgs {
     fn default() -> Self {
         ProcArgs {
             daemon_config: DaemonArgs::new(crate::build::PKG_NAME),
-            udp_addr: None,
+            listen: UdpListenConfig::new(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 2999)),
         }
     }
 }
 
 impl ProcArgs {
-    pub(crate) fn udp_listen_addr(&self) -> SocketAddr {
-        self.udp_addr
-            .unwrap_or_else(|| SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 2999))
+    pub(crate) fn listen_config(&self) -> &UdpListenConfig {
+        &self.listen
     }
 }
 
@@ -71,7 +73,7 @@ fn build_cli_args() -> Command {
                 .num_args(1)
                 .value_name("GROUP NAME")
                 .short('G')
-                .long("group-name"),
+                .long(GLOBAL_ARG_GROUP_NAME),
         )
         .arg(
             Arg::new(GLOBAL_ARG_CONFIG_FILE)
@@ -82,7 +84,23 @@ fn build_cli_args() -> Command {
                 .value_parser(value_parser!(PathBuf))
                 .required_unless_present_any([GLOBAL_ARG_VERSION])
                 .short('c')
-                .long("config-file"),
+                .long(GLOBAL_ARG_CONFIG_FILE),
+        )
+        .arg(
+            Arg::new(GLOBAL_ARG_RECV_BUF_SIZE)
+                .help("Set receive buffer size for the listen socket")
+                .num_args(1)
+                .value_name("BUF SIZE")
+                .value_parser(value_parser!(usize))
+                .long(GLOBAL_ARG_RECV_BUF_SIZE),
+        )
+        .arg(
+            Arg::new(GLOBAL_ARG_SEND_BUF_SIZE)
+                .help("Set send buffer size for the listen socket")
+                .num_args(1)
+                .value_name("BUF SIZE")
+                .value_parser(value_parser!(usize))
+                .long(GLOBAL_ARG_SEND_BUF_SIZE),
         )
 }
 
@@ -115,16 +133,27 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
 
         if let Some(s) = group_name.strip_prefix("port") {
             if let Ok(port) = u16::from_str(s) {
-                proc_args.udp_addr = Some(SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), port));
+                proc_args
+                    .listen
+                    .set_socket_address(SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), port));
             }
         }
     }
 
     if let Ok(s) = env::var("UDP_LISTEN_ADDR") {
         if let Ok(addr) = SocketAddr::from_str(&s) {
-            proc_args.udp_addr = Some(addr);
+            proc_args.listen.set_socket_address(addr);
         }
     }
+
+    let mut socket_buffer_config = SocketBufferConfig::default();
+    if let Some(size) = args.get_one::<usize>(GLOBAL_ARG_RECV_BUF_SIZE) {
+        socket_buffer_config.set_recv_size(*size);
+    }
+    if let Some(size) = args.get_one::<usize>(GLOBAL_ARG_SEND_BUF_SIZE) {
+        socket_buffer_config.set_send_size(*size);
+    }
+    proc_args.listen.set_socket_buffer(socket_buffer_config);
 
     Ok(Some(proc_args))
 }

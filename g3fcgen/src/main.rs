@@ -63,8 +63,6 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
     rt.block_on(async {
         g3_daemon::runtime::set_main_handle();
 
-        // TODO setup signal handler
-
         let _workers_guard = g3_daemon::runtime::worker::spawn_workers()
             .await
             .context("failed to spawn workers")?;

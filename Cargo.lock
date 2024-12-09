@@ -1732,6 +1732,7 @@ dependencies = [
  "g3-cert-agent",
  "g3-daemon",
  "g3-histogram",
+ "g3-socket",
  "g3-statsd-client",
  "g3-tls-cert",
  "g3-types",

@@ -19,14 +19,18 @@ use std::net::SocketAddr;
 
 use tokio::net::UdpSocket;
 
-pub(crate) struct UdpDgramFrontend {
+use g3_types::net::UdpListenConfig;
+
+pub(crate) struct UdpDgramIo {
     socket: UdpSocket,
 }
 
-impl UdpDgramFrontend {
-    pub(crate) async fn new(addr: SocketAddr) -> io::Result<Self> {
-        let socket = UdpSocket::bind(addr).await?;
-        Ok(UdpDgramFrontend { socket })
+impl UdpDgramIo {
+    pub(crate) fn new(config: &UdpListenConfig) -> io::Result<Self> {
+        let socket = g3_socket::udp::new_std_bind_listen(config)?;
+        Ok(UdpDgramIo {
+            socket: UdpSocket::from_std(socket)?,
+        })
     }
 
     pub(crate) async fn recv_req(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
