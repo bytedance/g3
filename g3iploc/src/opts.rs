@@ -24,6 +24,7 @@ use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgAction, Command, ValueHint};
 
 use g3_daemon::opts::{DaemonArgs, DaemonArgsExt};
+use g3_types::net::UdpListenConfig;
 
 const GLOBAL_ARG_VERSION: &str = "version";
 const GLOBAL_ARG_GROUP_NAME: &str = "group-name";
@@ -34,22 +35,21 @@ static DAEMON_GROUP: OnceLock<String> = OnceLock::new();
 #[derive(Debug)]
 pub struct ProcArgs {
     pub daemon_config: DaemonArgs,
-    udp_addr: Option<SocketAddr>,
+    listen: UdpListenConfig,
 }
 
 impl Default for ProcArgs {
     fn default() -> Self {
         ProcArgs {
             daemon_config: DaemonArgs::new(crate::build::PKG_NAME),
-            udp_addr: None,
+            listen: UdpListenConfig::new(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 2888)),
         }
     }
 }
 
 impl ProcArgs {
-    pub(crate) fn udp_listen_addr(&self) -> SocketAddr {
-        self.udp_addr
-            .unwrap_or_else(|| SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 2888))
+    pub(crate) fn listen_config(&self) -> &UdpListenConfig {
+        &self.listen
     }
 }
 
@@ -115,14 +115,16 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
 
         if let Some(s) = group_name.strip_prefix("port") {
             if let Ok(port) = u16::from_str(s) {
-                proc_args.udp_addr = Some(SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), port));
+                proc_args
+                    .listen
+                    .set_socket_address(SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), port));
             }
         }
     }
 
     if let Ok(s) = env::var("UDP_LISTEN_ADDR") {
         if let Ok(addr) = SocketAddr::from_str(&s) {
-            proc_args.udp_addr = Some(addr);
+            proc_args.listen.set_socket_address(addr);
         }
     }
 
