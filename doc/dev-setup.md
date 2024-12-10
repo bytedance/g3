@@ -207,6 +207,7 @@ cargo build --no-default-features --features quic,vendored-c-ares,hickory
 ### FreeBSD
 
 ```shell
+pkg install rust
 pkg install pkgconf capnproto
 pkg install gmake # for vendored build of openssl
 pkg install c-ares
@@ -215,7 +216,7 @@ pkg install lua54
 ln -s /usr/local/libdata/pkgconfig/lua-5.4.pc /usr/local/libdata/pkgconfig/lua5.4.pc
 pkg install python3
 # build, with vendored openssl
-cargo build --vendored-openssl
+cargo build --features vendored-openssl
 ```
 
 ### NetBSD
