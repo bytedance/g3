@@ -167,7 +167,7 @@ capnp-rpc = "0.20"
 capnp = "0.20"
 capnpc = "0.20"
 #
-libc = "0.2.156"
+libc = "0.2.168"
 rustix = { version = "0.38", default-features = false }
 windows-sys = "0.59"
 mach2 = "0.4"
