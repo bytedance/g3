@@ -1,0 +1,13 @@
+freebsd_task:
+  freebsd_instance:
+    image_family: freebsd-14-2
+  install_script:
+    - pkg update -f
+    - pkg upgrade
+    - pkg install -y rust
+    - pkg install -y pkgconf capnproto
+    - pkg install -y gmake
+    - pkg install -y c-ares lua54 python3
+    - ln -s /usr/local/libdata/pkgconfig/lua-5.4.pc /usr/local/libdata/pkgconfig/lua5.4.pc
+  script:
+    - cargo build --features vendored-openssl
