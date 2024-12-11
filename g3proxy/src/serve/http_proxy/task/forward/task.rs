@@ -1212,64 +1212,95 @@ impl<'a> HttpProxyForwardTask<'a> {
         R: AsyncBufRead + Send + Unpin,
         CDW: AsyncWrite + Send + Unpin,
     {
-        let ups_w = &mut ups_c.0;
-        let ups_r = &mut ups_c.1;
-
         let mut clt_body_reader = HttpBodyReader::new(
             clt_r,
             self.req.body_type().unwrap(),
             self.ctx.server_config.body_line_max_len,
         );
 
-        let mut clt_to_ups = if self.req.end_to_end_headers.contains_key(header::EXPECT) {
-            ups_w
-                .send_request_header(self.req, None)
-                .await
-                .map_err(ServerTaskError::UpstreamWriteFailed)?;
-            ups_w
-                .flush()
-                .await
-                .map_err(ServerTaskError::UpstreamWriteFailed)?;
-            self.http_notes.mark_req_send_hdr();
-            self.http_notes.retry_new_connection = false;
+        if self.req.end_to_end_headers.contains_key(header::EXPECT) {
+            return self
+                .run_with_ready_body(None, &mut clt_body_reader, clt_w, ups_c)
+                .await;
+        }
 
-            LimitedCopy::new(
-                &mut clt_body_reader,
-                ups_w,
-                &self.ctx.server_config.tcp_copy,
-            )
-        } else {
-            let mut fast_read_buf = vec![0u8; self.ctx.server_config.tcp_copy.buffer_size()];
-            let nr = clt_body_reader
-                .read_all_now(&mut fast_read_buf)
-                .await
-                .map_err(ServerTaskError::ClientTcpReadFailed)?
-                .ok_or(ServerTaskError::ClosedByClient)?;
-            fast_read_buf.truncate(nr);
+        let mut fast_read_buf = vec![0u8; self.ctx.server_config.tcp_copy.buffer_size()];
+        let nr = clt_body_reader
+            .read_all_now(&mut fast_read_buf)
+            .await
+            .map_err(ServerTaskError::ClientTcpReadFailed)?
+            .ok_or(ServerTaskError::ClosedByClient)?;
+        if nr == 0 {
+            return self
+                .run_with_ready_body(None, &mut clt_body_reader, clt_w, ups_c)
+                .await;
+        }
+        fast_read_buf.truncate(nr);
 
-            if clt_body_reader.finished() {
-                return self
-                    .run_with_small_body(fwd_ctx, fast_read_buf, clt_w, ups_c)
-                    .await;
+        if clt_body_reader.finished() {
+            return self
+                .run_with_small_body(fwd_ctx, fast_read_buf, clt_w, ups_c)
+                .await;
+        }
+
+        loop {
+            match self
+                .run_with_ready_body(
+                    Some(fast_read_buf.clone()),
+                    &mut clt_body_reader,
+                    clt_w,
+                    ups_c,
+                )
+                .await
+            {
+                Ok(r) => return Ok(r),
+                Err(e) => {
+                    if self.http_notes.reused_connection && self.http_notes.retry_new_connection {
+                        self.get_log_context().log(&self.ctx.task_logger, &e);
+                        self.task_stats.ups.reset();
+                        ups_c = self.get_new_connection(fwd_ctx, clt_w).await?;
+                    } else {
+                        self.http_notes.retry_new_connection = false;
+                        return Err(e);
+                    }
+                }
             }
+        }
+    }
 
-            ups_w
-                .send_request_header(self.req, None)
-                .await
-                .map_err(ServerTaskError::UpstreamWriteFailed)?;
-            ups_w
-                .flush()
-                .await
-                .map_err(ServerTaskError::UpstreamWriteFailed)?;
-            self.http_notes.mark_req_send_hdr();
-            self.http_notes.retry_new_connection = false;
+    async fn run_with_ready_body<R, CDW>(
+        &mut self,
+        fast_read_buf: Option<Vec<u8>>,
+        clt_body_reader: &mut HttpBodyReader<'_, R>,
+        clt_w: &mut HttpClientWriter<CDW>,
+        mut ups_c: BoxHttpForwardConnection,
+    ) -> ServerTaskResult<Option<BoxHttpForwardConnection>>
+    where
+        R: AsyncBufRead + Send + Unpin,
+        CDW: AsyncWrite + Send + Unpin,
+    {
+        let ups_w = &mut ups_c.0;
+        let ups_r = &mut ups_c.1;
 
-            LimitedCopy::with_data(
-                &mut clt_body_reader,
+        ups_w
+            .send_request_header(self.req, None)
+            .await
+            .map_err(ServerTaskError::UpstreamWriteFailed)?;
+        ups_w
+            .flush()
+            .await
+            .map_err(ServerTaskError::UpstreamWriteFailed)?;
+        self.http_notes.mark_req_send_hdr();
+        self.http_notes.retry_new_connection = false;
+
+        let mut clt_to_ups = match fast_read_buf {
+            Some(buf) => LimitedCopy::with_data(
+                clt_body_reader,
                 ups_w,
                 &self.ctx.server_config.tcp_copy,
-                fast_read_buf,
-            )
+                buf,
+            ),
+            None => LimitedCopy::new(clt_body_reader, ups_w, &self.ctx.server_config.tcp_copy),
         };
 
         let mut rsp_header: Option<HttpForwardRemoteResponse> = None;
@@ -1299,8 +1330,18 @@ impl<'a> HttpProxyForwardTask<'a> {
                                 }
                             }
                         }
-                        Ok(false) => return Err(ServerTaskError::ClosedByUpstream),
-                        Err(e) => return Err(ServerTaskError::UpstreamReadFailed(e)),
+                        Ok(false) => {
+                            if clt_to_ups.read_size() == 0 {
+                                self.http_notes.retry_new_connection = true;
+                            }
+                            return Err(ServerTaskError::ClosedByUpstream);
+                        },
+                        Err(e) => {
+                            if clt_to_ups.read_size() == 0 {
+                                self.http_notes.retry_new_connection = true;
+                            }
+                            return Err(ServerTaskError::UpstreamReadFailed(e));
+                        },
                     }
                 }
                 r = &mut clt_to_ups => {
