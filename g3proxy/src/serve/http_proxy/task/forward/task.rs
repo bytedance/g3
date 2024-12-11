@@ -49,8 +49,8 @@ use crate::audit::AuditContext;
 use crate::config::server::ServerConfig;
 use crate::log::task::http_forward::TaskLogForHttpForward;
 use crate::module::http_forward::{
-    BoxHttpForwardConnection, BoxHttpForwardContext, BoxHttpForwardReader, HttpForwardTaskNotes,
-    HttpProxyClientResponse,
+    BoxHttpForwardConnection, BoxHttpForwardContext, BoxHttpForwardReader, BoxHttpForwardWriter,
+    HttpForwardTaskNotes, HttpProxyClientResponse,
 };
 use crate::module::http_header;
 use crate::module::tcp_connect::{
@@ -619,8 +619,12 @@ impl<'a> HttpProxyForwardTask<'a> {
                 user_ctx.foreach_req_stats(|s| s.req_reuse.add_http_forward(self.is_https));
             }
 
+            if self.ctx.server_config.flush_task_log_on_connected {
+                self.get_log_context().log_connected(&self.ctx.task_logger);
+            }
+
             let r = self
-                .run_with_connection(clt_r, clt_w, connection, audit_task)
+                .run_with_connection(fwd_ctx, clt_r, clt_w, connection, audit_task)
                 .await;
             match r {
                 Ok(r) => {
@@ -631,6 +635,8 @@ impl<'a> HttpProxyForwardTask<'a> {
                 }
                 Err(e) => {
                     if self.http_notes.retry_new_connection {
+                        self.get_log_context().log(&self.ctx.task_logger, &e);
+                        self.task_stats.ups.reset();
                         // continue to make new connection
                         if let Some(user_ctx) = self.task_notes.user_ctx() {
                             user_ctx
@@ -647,32 +653,47 @@ impl<'a> HttpProxyForwardTask<'a> {
             }
         }
 
+        let connection = self.get_new_connection(fwd_ctx, clt_w).await?;
+        match self
+            .run_with_connection(fwd_ctx, clt_r, clt_w, connection, audit_task)
+            .await
+        {
+            Ok(r) => {
+                if let Some(connection) = r {
+                    fwd_ctx.save_alive_connection(connection);
+                }
+                Ok(())
+            }
+            Err(e) => {
+                self.should_close = true;
+                if self.send_error_response {
+                    self.reply_task_err(&e, clt_w).await;
+                }
+                Err(e)
+            }
+        }
+    }
+
+    async fn get_new_connection<CDW>(
+        &mut self,
+        fwd_ctx: &mut BoxHttpForwardContext,
+        clt_w: &mut HttpClientWriter<CDW>,
+    ) -> ServerTaskResult<BoxHttpForwardConnection>
+    where
+        CDW: AsyncWrite + Send + Unpin,
+    {
         self.task_notes.stage = ServerTaskStage::Connecting;
         self.http_notes.reused_connection = false;
+
         match self.make_new_connection(fwd_ctx).await {
             Ok(connection) => {
                 self.task_notes.stage = ServerTaskStage::Connected;
                 fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
 
-                let r = self
-                    .run_with_connection(clt_r, clt_w, connection, audit_task)
-                    .await;
-                // handle result
-                match r {
-                    Ok(r) => {
-                        if let Some(connection) = r {
-                            fwd_ctx.save_alive_connection(connection);
-                        }
-                        Ok(())
-                    }
-                    Err(e) => {
-                        self.should_close = true;
-                        if self.send_error_response {
-                            self.reply_task_err(&e, clt_w).await;
-                        }
-                        Err(e)
-                    }
+                if self.ctx.server_config.flush_task_log_on_connected {
+                    self.get_log_context().log_connected(&self.ctx.task_logger);
                 }
+                Ok(connection)
             }
             Err(e) => {
                 fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
@@ -724,10 +745,11 @@ impl<'a> HttpProxyForwardTask<'a> {
         }
     }
 
-    async fn run_with_connection<'f, CDR, CDW>(
-        &'f mut self,
-        clt_r: &'f mut Option<HttpClientReader<CDR>>,
-        clt_w: &'f mut HttpClientWriter<CDW>,
+    async fn run_with_connection<CDR, CDW>(
+        &mut self,
+        fwd_ctx: &mut BoxHttpForwardContext,
+        clt_r: &mut Option<HttpClientReader<CDR>>,
+        clt_w: &mut HttpClientWriter<CDW>,
         mut ups_c: BoxHttpForwardConnection,
         audit_task: bool,
     ) -> ServerTaskResult<Option<BoxHttpForwardConnection>>
@@ -742,10 +764,6 @@ impl<'a> HttpProxyForwardTask<'a> {
                     Err(e) => Err(ServerTaskError::UpstreamReadFailed(e)),
                 };
             }
-        }
-
-        if self.ctx.server_config.flush_task_log_on_connected {
-            self.get_log_context().log_connected(&self.ctx.task_logger);
         }
 
         ups_c.0.prepare_new(&self.task_notes, &self.upstream);
@@ -798,7 +816,8 @@ impl<'a> HttpProxyForwardTask<'a> {
             }
         }
 
-        self.run_without_adaptation(clt_r, clt_w, ups_c).await
+        self.run_without_adaptation(fwd_ctx, clt_r, clt_w, ups_c)
+            .await
     }
 
     fn rsp_hdr_recv_timeout(&self) -> Duration {
@@ -808,10 +827,11 @@ impl<'a> HttpProxyForwardTask<'a> {
             .unwrap_or(self.ctx.server_config.timeout.recv_rsp_header)
     }
 
-    async fn run_without_adaptation<'f, CDR, CDW>(
-        &'f mut self,
-        clt_r: &'f mut Option<HttpClientReader<CDR>>,
-        clt_w: &'f mut HttpClientWriter<CDW>,
+    async fn run_without_adaptation<CDR, CDW>(
+        &mut self,
+        fwd_ctx: &mut BoxHttpForwardContext,
+        clt_r: &mut Option<HttpClientReader<CDR>>,
+        clt_w: &mut HttpClientWriter<CDW>,
         ups_c: BoxHttpForwardConnection,
     ) -> ServerTaskResult<Option<BoxHttpForwardConnection>>
     where
@@ -823,7 +843,7 @@ impl<'a> HttpProxyForwardTask<'a> {
             self.run_without_body(clt_w, ups_c).await
         } else if let Some(br) = clt_r {
             self.mark_relaying();
-            self.run_with_body(br, clt_w, ups_c).await
+            self.run_with_body(fwd_ctx, br, clt_w, ups_c).await
         } else {
             // there should be a body reader
             Err(ServerTaskError::InternalServerError(
@@ -832,13 +852,13 @@ impl<'a> HttpProxyForwardTask<'a> {
         }
     }
 
-    async fn run_with_adaptation<'f, CDR, CDW>(
-        &'f mut self,
-        clt_r: &'f mut Option<HttpClientReader<CDR>>,
-        clt_w: &'f mut HttpClientWriter<CDW>,
+    async fn run_with_adaptation<CDR, CDW>(
+        &mut self,
+        clt_r: &mut Option<HttpClientReader<CDR>>,
+        clt_w: &mut HttpClientWriter<CDW>,
         mut ups_c: BoxHttpForwardConnection,
         icap_adapter: HttpRequestAdapter<ServerIdleChecker>,
-        adaptation_state: &'f mut ReqmodAdaptationRunState,
+        adaptation_state: &mut ReqmodAdaptationRunState,
     ) -> ServerTaskResult<Option<BoxHttpForwardConnection>>
     where
         CDR: AsyncRead + Send + Unpin,
@@ -1036,7 +1056,6 @@ impl<'a> HttpProxyForwardTask<'a> {
             .map_err(ServerTaskError::UpstreamWriteFailed)?;
         self.http_notes.mark_req_send_hdr();
         self.http_notes.mark_req_no_body();
-        self.http_notes.retry_new_connection = false;
 
         let mut rsp_header = match tokio::time::timeout(
             self.rsp_hdr_recv_timeout(),
@@ -1044,12 +1063,26 @@ impl<'a> HttpProxyForwardTask<'a> {
         )
         .await
         {
-            Ok(Ok(rsp_header)) => rsp_header,
-            Ok(Err(e)) => return Err(e),
+            Ok(Ok(rsp_header)) => {
+                self.http_notes.retry_new_connection = false;
+                rsp_header
+            }
+            Ok(Err(e)) => {
+                if self.task_stats.ups.read.get_bytes() == 0 {
+                    self.http_notes.retry_new_connection = matches!(
+                        e,
+                        ServerTaskError::ClosedByUpstream | ServerTaskError::UpstreamReadFailed(_)
+                    );
+                } else {
+                    self.http_notes.retry_new_connection = false;
+                }
+                return Err(e);
+            }
             Err(_) => {
+                self.http_notes.retry_new_connection = false;
                 return Err(ServerTaskError::UpstreamAppTimeout(
                     "timeout to receive response header",
-                ))
+                ));
             }
         };
         self.http_notes.mark_rsp_recv_hdr();
@@ -1070,21 +1103,14 @@ impl<'a> HttpProxyForwardTask<'a> {
         }
     }
 
-    async fn run_with_small_body<W>(
+    async fn send_small_body_and_recv_response(
         &mut self,
-        body: Vec<u8>,
-        clt_w: &mut W,
-        mut ups_c: BoxHttpForwardConnection,
-    ) -> ServerTaskResult<Option<BoxHttpForwardConnection>>
-    where
-        W: AsyncWrite + Send + Unpin,
-    {
-        let ups_w = &mut ups_c.0;
-        let ups_r = &mut ups_c.1;
-
-        self.http_notes.retry_new_connection = false;
+        body: &[u8],
+        ups_r: &mut BoxHttpForwardReader,
+        ups_w: &mut BoxHttpForwardWriter,
+    ) -> ServerTaskResult<HttpForwardRemoteResponse> {
         ups_w
-            .send_request_header(self.req, Some(body.as_slice()))
+            .send_request_header(self.req, Some(body))
             .await
             .map_err(ServerTaskError::UpstreamWriteFailed)?;
         ups_w
@@ -1094,47 +1120,97 @@ impl<'a> HttpProxyForwardTask<'a> {
         self.http_notes.mark_req_send_hdr();
         self.http_notes.mark_req_send_all();
 
-        let mut rsp_header = match tokio::time::timeout(
+        match tokio::time::timeout(
             self.rsp_hdr_recv_timeout(),
             self.recv_response_header(ups_r),
         )
         .await
         {
-            Ok(Ok(rsp_header)) => rsp_header,
-            Ok(Err(e)) => return Err(e),
+            Ok(Ok(rsp_header)) => {
+                self.http_notes.retry_new_connection = false;
+                Ok(rsp_header)
+            }
+            Ok(Err(e)) => {
+                if self.task_stats.ups.read.get_bytes() == 0 {
+                    self.http_notes.retry_new_connection = matches!(
+                        e,
+                        ServerTaskError::ClosedByUpstream | ServerTaskError::UpstreamReadFailed(_)
+                    );
+                } else {
+                    self.http_notes.retry_new_connection = false;
+                }
+                Err(e)
+            }
             Err(_) => {
-                return Err(ServerTaskError::UpstreamAppTimeout(
+                self.http_notes.retry_new_connection = false;
+                Err(ServerTaskError::UpstreamAppTimeout(
                     "timeout to receive response header",
                 ))
             }
-        };
-        self.http_notes.mark_rsp_recv_hdr();
-
-        self.send_response(clt_w, ups_r, &mut rsp_header, false, None)
-            .await?;
-
-        self.task_notes.stage = ServerTaskStage::Finished;
-        if self.should_close {
-            if self.is_https {
-                // make sure we correctly shutdown tls connection, or the ticket won't be reused
-                // FIXME use async drop at escaper side when supported
-                let _ = ups_w.shutdown().await;
-            }
-            Ok(None)
-        } else {
-            Ok(Some(ups_c))
         }
     }
 
-    async fn run_with_body<R, W>(
+    async fn run_with_small_body<CDW>(
         &mut self,
+        fwd_ctx: &mut BoxHttpForwardContext,
+        body: Vec<u8>,
+        clt_w: &mut HttpClientWriter<CDW>,
+        mut ups_c: BoxHttpForwardConnection,
+    ) -> ServerTaskResult<Option<BoxHttpForwardConnection>>
+    where
+        CDW: AsyncWrite + Send + Unpin,
+    {
+        loop {
+            let ups_w = &mut ups_c.0;
+            let ups_r = &mut ups_c.1;
+
+            let mut rsp_header = match self
+                .send_small_body_and_recv_response(body.as_slice(), ups_r, ups_w)
+                .await
+            {
+                Ok(rsp_header) => rsp_header,
+                Err(e) => {
+                    if self.http_notes.reused_connection && self.http_notes.retry_new_connection {
+                        self.get_log_context().log(&self.ctx.task_logger, &e);
+                        self.task_stats.ups.reset();
+                        ups_c = self.get_new_connection(fwd_ctx, clt_w).await?;
+                        continue;
+                    } else {
+                        self.http_notes.retry_new_connection = false;
+                        return Err(e);
+                    }
+                }
+            };
+
+            self.http_notes.mark_rsp_recv_hdr();
+
+            self.send_response(clt_w, ups_r, &mut rsp_header, false, None)
+                .await?;
+
+            self.task_notes.stage = ServerTaskStage::Finished;
+            return if self.should_close {
+                if self.is_https {
+                    // make sure we correctly shutdown tls connection, or the ticket won't be reused
+                    // FIXME use async drop at escaper side when supported
+                    let _ = ups_w.shutdown().await;
+                }
+                Ok(None)
+            } else {
+                Ok(Some(ups_c))
+            };
+        }
+    }
+
+    async fn run_with_body<R, CDW>(
+        &mut self,
+        fwd_ctx: &mut BoxHttpForwardContext,
         clt_r: &mut R,
-        clt_w: &mut W,
+        clt_w: &mut HttpClientWriter<CDW>,
         mut ups_c: BoxHttpForwardConnection,
     ) -> ServerTaskResult<Option<BoxHttpForwardConnection>>
     where
         R: AsyncBufRead + Send + Unpin,
-        W: AsyncWrite + Send + Unpin,
+        CDW: AsyncWrite + Send + Unpin,
     {
         let ups_w = &mut ups_c.0;
         let ups_r = &mut ups_c.1;
@@ -1172,7 +1248,9 @@ impl<'a> HttpProxyForwardTask<'a> {
             fast_read_buf.truncate(nr);
 
             if clt_body_reader.finished() {
-                return self.run_with_small_body(fast_read_buf, clt_w, ups_c).await;
+                return self
+                    .run_with_small_body(fwd_ctx, fast_read_buf, clt_w, ups_c)
+                    .await;
             }
 
             ups_w
