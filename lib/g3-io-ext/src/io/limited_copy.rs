@@ -77,7 +77,8 @@ struct LimitedCopyBuffer {
     yield_size: usize,
     r_off: usize,
     w_off: usize,
-    total: u64,
+    total_read: u64,
+    total_write: u64,
     need_flush: bool,
     active: bool,
 }
@@ -90,7 +91,8 @@ impl LimitedCopyBuffer {
             yield_size: config.yield_size,
             r_off: 0,
             w_off: 0,
-            total: 0,
+            total_read: 0,
+            total_write: 0,
             need_flush: false,
             active: false,
         }
@@ -109,7 +111,8 @@ impl LimitedCopyBuffer {
             yield_size: config.yield_size,
             r_off,
             w_off: 0,
-            total: 0,
+            total_read: 0,
+            total_write: 0,
             need_flush: false,
             active: true, // as we have data
         }
@@ -129,6 +132,7 @@ impl LimitedCopyBuffer {
         let res = reader.poll_read(cx, &mut buf);
         if let Poll::Ready(Ok(_)) = res {
             let filled_len = buf.filled().len();
+            self.total_read += filled_len as u64;
             if self.r_off == filled_len {
                 self.read_done = true;
             } else {
@@ -176,7 +180,7 @@ impl LimitedCopyBuffer {
             )))),
             Poll::Ready(Ok(n)) => {
                 self.w_off += n;
-                self.total += n as u64;
+                self.total_write += n as u64;
                 self.need_flush = true;
                 self.active = true;
                 Poll::Ready(Ok(n))
@@ -246,7 +250,7 @@ impl LimitedCopyBuffer {
                     ready!(writer.as_mut().poll_flush(cx))
                         .map_err(LimitedCopyError::WriteFailed)?;
                 }
-                return Poll::Ready(Ok(self.total));
+                return Poll::Ready(Ok(self.total_write));
             }
         }
     }
@@ -260,7 +264,7 @@ impl LimitedCopyBuffer {
                 .write_all(&self.buf[self.w_off..self.r_off])
                 .await
                 .map_err(LimitedCopyError::WriteFailed)?;
-            self.total += (self.r_off - self.w_off) as u64;
+            self.total_write += (self.r_off - self.w_off) as u64;
             self.w_off = self.r_off;
             writer
                 .flush()
@@ -319,8 +323,13 @@ where
     }
 
     #[inline]
+    pub fn read_size(&self) -> u64 {
+        self.buf.total_read
+    }
+
+    #[inline]
     pub fn copied_size(&self) -> u64 {
-        self.buf.total
+        self.buf.total_write
     }
 
     #[inline]
@@ -390,7 +399,7 @@ where
 
     #[inline]
     pub fn copied_size(&self) -> u64 {
-        self.buf.total
+        self.buf.total_write
     }
 
     #[inline]
