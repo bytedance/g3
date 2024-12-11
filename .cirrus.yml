@@ -9,7 +9,7 @@ freebsd_task:
   install_script:
     - pkg install -y rust
     - pkg install -y pkgconf capnproto
-    - pkg install -y gmake
+    - pkg install -y perl5 gmake
     - pkg install -y c-ares lua54 python3
     - ln -s /usr/local/libdata/pkgconfig/lua-5.4.pc /usr/local/libdata/pkgconfig/lua5.4.pc
   build_script:
