@@ -1,13 +1,20 @@
 freebsd_task:
   freebsd_instance:
     image_family: freebsd-14-2
-  install_script:
+  switch_to_latest_pkg_script:
+    - mkdir -p /usr/local/etc/pkg/repos/
+    - "echo 'FreeBSD: {url: \"pkg+http://pkg.FreeBSD.org/${ABI}/latest\"}' > /usr/local/etc/pkg/repos/FreeBSD.conf"
     - pkg update -f
-    - pkg upgrade
+    - pkg upgrade -y
+  install_script:
     - pkg install -y rust
     - pkg install -y pkgconf capnproto
     - pkg install -y gmake
     - pkg install -y c-ares lua54 python3
     - ln -s /usr/local/libdata/pkgconfig/lua-5.4.pc /usr/local/libdata/pkgconfig/lua5.4.pc
-  script:
+  build_script:
     - cargo build --features vendored-openssl
+  clippy_script:
+    - cargo clippy --features vendored-openssl -tests -- --deny warnings
+  test_script:
+    - cargo test --features vendored-openssl --workspace --exclude g3-journal

@@ -219,6 +219,20 @@ pkg install python3
 cargo build --features vendored-openssl
 ```
 
+**Tips**
+
+- Use the latest ports packages
+
+  The default config in */etc/pkg/FreeBSD.conf* is configured to use quarterly pkg builds,
+  you can run the following commands to switch to use the latest pkg builds:
+
+  ```shell
+  mkdir -p /usr/local/etc/pkg/repos/
+  echo 'FreeBSD: {url: "pkg+http://pkg.FreeBSD.org/${ABI}/latest"}' > /usr/local/etc/pkg/repos/FreeBSD.conf
+  pkg update -f
+  pkg upgrade -y
+  ```
+
 ### NetBSD
 
 ```shell
