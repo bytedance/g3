@@ -43,12 +43,24 @@ impl TcpStreamHalfConnectionStats {
         let r = unsafe { &mut *self.bytes.get() };
         *r += size;
     }
+
+    pub fn reset(&self) {
+        let r = unsafe { &mut *self.bytes.get() };
+        *r = 0;
+    }
 }
 
 #[derive(Clone, Default)]
 pub struct TcpStreamConnectionStats {
     pub read: TcpStreamHalfConnectionStats,
     pub write: TcpStreamHalfConnectionStats,
+}
+
+impl TcpStreamConnectionStats {
+    pub fn reset(&self) {
+        self.read.reset();
+        self.write.reset();
+    }
 }
 
 #[derive(Default)]
