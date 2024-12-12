@@ -89,7 +89,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                         clt_body_io,
                         ups_writer,
                     )
-                    .await
+                    .await;
             }
         };
         let icap_header = self.build_preview_request(header_len, &preview_state);

@@ -27,8 +27,8 @@ use g3_http::client::HttpForwardRemoteResponse;
 use g3_http::server::HttpProxyClientRequest;
 use g3_http::{HttpBodyReader, HttpBodyType};
 use g3_icap_client::reqmod::h1::{
-    HttpAdapterErrorResponse, HttpRequestAdapter, ReqmodAdaptationEndState,
-    ReqmodAdaptationRunState, ReqmodRecvHttpResponseBody,
+    H1ReqmodAdaptationError, HttpAdapterErrorResponse, HttpRequestAdapter,
+    ReqmodAdaptationEndState, ReqmodAdaptationRunState, ReqmodRecvHttpResponseBody,
 };
 use g3_icap_client::respmod::h1::{
     HttpResponseAdapter, RespmodAdaptationEndState, RespmodAdaptationRunState,
@@ -614,7 +614,7 @@ impl<'a> HttpProxyForwardTask<'a> {
             self.task_notes.stage = ServerTaskStage::Connected;
             self.http_notes.reused_connection = true;
             fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
-            self.http_notes.retry_new_connection = true;
+            self.http_notes.retry_new_connection = false;
             if let Some(user_ctx) = self.task_notes.user_ctx() {
                 user_ctx.foreach_req_stats(|s| s.req_reuse.add_http_forward(self.is_https));
             }
@@ -765,6 +765,7 @@ impl<'a> HttpProxyForwardTask<'a> {
     {
         if self.http_notes.reused_connection {
             if let Some(r) = ups_c.1.fill_wait_eof().now_or_never() {
+                self.http_notes.retry_new_connection = true;
                 return match r {
                     Ok(_) => Err(ServerTaskError::ClosedByUpstream),
                     Err(e) => Err(ServerTaskError::UpstreamReadFailed(e)),
@@ -802,7 +803,6 @@ impl<'a> HttpProxyForwardTask<'a> {
                                 )
                                 .await;
                             if let Some(dur) = adaptation_state.dur_ups_send_header {
-                                self.http_notes.retry_new_connection = false;
                                 self.http_notes.dur_req_send_hdr = dur;
                             }
                             if let Some(dur) = adaptation_state.dur_ups_send_all {
@@ -811,6 +811,7 @@ impl<'a> HttpProxyForwardTask<'a> {
                             return r;
                         }
                         Err(e) => {
+                            self.http_notes.retry_new_connection = true;
                             if !reqmod.bypass() {
                                 return Err(ServerTaskError::InternalAdapterError(e));
                             }
@@ -860,6 +861,7 @@ impl<'a> HttpProxyForwardTask<'a> {
 
         let mut log_interval = self.get_log_interval();
 
+        let clt_read_size = self.task_stats.clt.read.get_bytes();
         let mut rsp_header: Option<HttpForwardRemoteResponse> = None;
         loop {
             tokio::select! {
@@ -881,8 +883,18 @@ impl<'a> HttpProxyForwardTask<'a> {
                                 }
                             }
                         }
-                        Ok(false) => return Err(ServerTaskError::ClosedByUpstream),
-                        Err(e) => return Err(ServerTaskError::UpstreamReadFailed(e)),
+                        Ok(false) =>  {
+                            if self.task_stats.clt.read.get_bytes() == clt_read_size {
+                                self.http_notes.retry_new_connection = true;
+                            }
+                            return Err(ServerTaskError::ClosedByUpstream);
+                        },
+                        Err(e) => {
+                            if self.task_stats.clt.read.get_bytes() == clt_read_size {
+                                self.http_notes.retry_new_connection = true;
+                            }
+                            return Err(ServerTaskError::UpstreamReadFailed(e));
+                        },
                     }
                 }
                 r = &mut adaptation_fut => {
@@ -899,10 +911,11 @@ impl<'a> HttpProxyForwardTask<'a> {
                             return Ok(None);
                         }
                         Err(e) => {
-                            drop(adaptation_fut);
-                            if !adaptation_state.clt_read_finished {
-                                // not all client data read in, drop the client connection
-                                self.should_close = true;
+                            if self.task_stats.clt.read.get_bytes() == clt_read_size {
+                                self.http_notes.retry_new_connection = matches!(
+                                    e,
+                                    H1ReqmodAdaptationError::IcapServerConnectionClosed | H1ReqmodAdaptationError::IcapServerReadFailed(_)
+                                );
                             }
                             return Err(e.into());
                         }
@@ -1102,6 +1115,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         let ups_w = &mut ups_c.0;
         let ups_r = &mut ups_c.1;
 
+        self.http_notes.retry_new_connection = true;
         ups_w
             .send_request_header(self.req, None)
             .await
@@ -1165,6 +1179,8 @@ impl<'a> HttpProxyForwardTask<'a> {
         ups_r: &mut BoxHttpForwardReader,
         ups_w: &mut BoxHttpForwardWriter,
     ) -> ServerTaskResult<HttpForwardRemoteResponse> {
+        self.http_notes.retry_new_connection = true;
+
         ups_w
             .send_request_header(self.req, Some(body))
             .await
@@ -1271,6 +1287,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         let ups_w = &mut ups_c.0;
         let ups_r = &mut ups_c.1;
 
+        self.http_notes.retry_new_connection = true;
         ups_w
             .send_request_header(self.req, None)
             .await
