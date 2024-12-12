@@ -33,6 +33,8 @@ pub(crate) enum H1InterceptionError {
     InvalidRequestHeader(HttpRequestParseError),
     #[error("closed by upstream")]
     ClosedByUpstream,
+    #[error("unexpected data from upstream")]
+    UnexpectedUpstreamData,
     #[error("upstream closed with error: {0:?}")]
     UpstreamClosedWithError(io::Error),
     #[error("invalid upgrade protocol: {0}")]

@@ -37,8 +37,8 @@ impl HttpConnectionEofCheck {
         tokio::select! {
             biased;
 
-            _ = conn.1.fill_wait_eof() => {
-                // close early to avoid waiting at other side
+            _ = conn.1.fill_wait_data() => {
+                // close early when EOF or unexpected data, to avoid waiting at other side
                 wait_channel.close();
                 // make sure we correctly shutdown tls connection
                 // FIXME use async drop at escaper side when supported

@@ -1257,6 +1257,7 @@ dependencies = [
  "g3-yaml",
  "h2",
  "http",
+ "log",
  "memchr",
  "rustls-pki-types",
  "thiserror",

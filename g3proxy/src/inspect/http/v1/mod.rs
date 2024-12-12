@@ -152,10 +152,11 @@ where
                     Some(r) => r,
                     None => return Ok(None),
                 },
-                r = rsp_io.ups_r.fill_wait_eof() => {
+                r = rsp_io.ups_r.fill_wait_data() => {
                     req_acceptor.close();
                     return match r {
-                        Ok(_) => Err(H1InterceptionError::ClosedByUpstream),
+                        Ok(true) => Err(H1InterceptionError::UnexpectedUpstreamData),
+                        Ok(false) => Err(H1InterceptionError::ClosedByUpstream),
                         Err(e) => Err(H1InterceptionError::UpstreamClosedWithError(e)),
                     };
                 }

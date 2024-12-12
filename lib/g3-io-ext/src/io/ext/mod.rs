@@ -15,7 +15,6 @@
  */
 
 mod fill_wait_data;
-mod fill_wait_eof;
 mod limited_read_buf_until;
 mod limited_read_until;
 mod limited_skip_until;
