@@ -65,7 +65,17 @@ impl<S: AsyncRead + Unpin> Read for SslIoWrapper<S> {
         self.with_context(|stream, cx| {
             let mut buf = ReadBuf::new(buf);
             match stream.poll_read(cx, &mut buf) {
-                Poll::Ready(Ok(_)) => Ok(buf.filled().len()),
+                Poll::Ready(Ok(_)) => {
+                    let nr = buf.filled().len();
+                    if nr == 0 {
+                        Err(io::Error::new(
+                            io::ErrorKind::UnexpectedEof,
+                            "connection closed when do SSL BIO read",
+                        ))
+                    } else {
+                        Ok(nr)
+                    }
+                }
                 Poll::Ready(Err(e)) => Err(e),
                 Poll::Pending => Err(io::Error::from(io::ErrorKind::WouldBlock)),
             }
