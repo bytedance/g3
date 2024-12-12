@@ -505,7 +505,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
             self.task_notes.stage = ServerTaskStage::Connected;
             self.http_notes.reused_connection = true;
             fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
-            self.http_notes.retry_new_connection = true;
+            self.http_notes.retry_new_connection = false;
             if let Some(user_ctx) = self.task_notes.user_ctx() {
                 user_ctx.foreach_req_stats(|s| s.req_reuse.add_http_forward(self.is_https));
             }
@@ -650,6 +650,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
     {
         if self.http_notes.reused_connection {
             if let Some(r) = ups_c.1.fill_wait_eof().now_or_never() {
+                self.http_notes.retry_new_connection = true;
                 return match r {
                     Ok(_) => Err(ServerTaskError::ClosedByUpstream),
                     Err(e) => Err(ServerTaskError::UpstreamReadFailed(e)),
@@ -734,6 +735,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
         let ups_w = &mut ups_c.0;
         let ups_r = &mut ups_c.1;
 
+        self.http_notes.retry_new_connection = true;
         ups_w
             .send_request_header(self.req, None)
             .await
@@ -792,6 +794,8 @@ impl<'a> HttpRProxyForwardTask<'a> {
         ups_r: &mut BoxHttpForwardReader,
         ups_w: &mut BoxHttpForwardWriter,
     ) -> ServerTaskResult<HttpForwardRemoteResponse> {
+        self.http_notes.retry_new_connection = true;
+
         ups_w
             .send_request_header(self.req, Some(body))
             .await
@@ -893,6 +897,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
         let ups_w = &mut ups_c.0;
         let ups_r = &mut ups_c.1;
 
+        self.http_notes.retry_new_connection = true;
         ups_w
             .send_request_header(self.req, None)
             .await
