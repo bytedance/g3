@@ -16,6 +16,7 @@
 
 use std::sync::Arc;
 
+use anyhow::anyhow;
 use futures_util::FutureExt;
 use http::header;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
@@ -649,10 +650,13 @@ impl<'a> HttpRProxyForwardTask<'a> {
         CDW: AsyncWrite + Unpin,
     {
         if self.http_notes.reused_connection {
-            if let Some(r) = ups_c.1.fill_wait_eof().now_or_never() {
+            if let Some(r) = ups_c.1.fill_wait_data().now_or_never() {
                 self.http_notes.retry_new_connection = true;
                 return match r {
-                    Ok(_) => Err(ServerTaskError::ClosedByUpstream),
+                    Ok(true) => Err(ServerTaskError::UpstreamAppError(anyhow!(
+                        "unexpected data found when polling IDLE connection"
+                    ))),
+                    Ok(false) => Err(ServerTaskError::ClosedByUpstream),
                     Err(e) => Err(ServerTaskError::UpstreamReadFailed(e)),
                 };
             }

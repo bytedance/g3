@@ -18,7 +18,6 @@ use bytes::BytesMut;
 use tokio::io::AsyncBufRead;
 
 use super::fill_wait_data::FillWaitData;
-use super::fill_wait_eof::FillWaitEof;
 use super::limited_read_buf_until::LimitedReadBufUntil;
 use super::limited_read_until::LimitedReadUntil;
 use super::limited_skip_until::LimitedSkipUntil;
@@ -55,15 +54,11 @@ pub trait LimitedBufReadExt: AsyncBufRead {
         LimitedSkipUntil::new(self, delimiter, max_len)
     }
 
-    /// return Poll::Ready(Ok(())) if read ready but no data can be read
+    /// Wait for data on Buffered IO Reader
+    ///
+    /// return Poll::Ready(Ok(true)) if some data can be read
+    /// return Poll::Ready(Ok(false)) if read ready but no data can be read
     /// return Poll::Ready(Err(e)) if read io error
-    fn fill_wait_eof(&mut self) -> FillWaitEof<Self>
-    where
-        Self: Unpin,
-    {
-        FillWaitEof::new(self)
-    }
-
     fn fill_wait_data(&mut self) -> FillWaitData<Self>
     where
         Self: Unpin,
