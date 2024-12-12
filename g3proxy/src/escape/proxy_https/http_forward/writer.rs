@@ -41,7 +41,7 @@ pin_project! {
         #[pin]
         inner: W,
         upstream: UpstreamAddr,
-        pass_userid: Option<String>,
+        pass_userid: Option<Arc<str>>,
     }
 }
 
@@ -94,7 +94,7 @@ where
 {
     fn prepare_new(&mut self, task_notes: &ServerTaskNotes, upstream: &UpstreamAddr) {
         self.upstream = upstream.clone();
-        self.pass_userid = task_notes.raw_user_name().map(|s| s.to_string());
+        self.pass_userid = task_notes.raw_user_name().cloned();
     }
 
     fn update_stats(

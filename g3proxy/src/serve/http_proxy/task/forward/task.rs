@@ -603,7 +603,7 @@ impl<'a> HttpProxyForwardTask<'a> {
 
         fwd_ctx.prepare_connection(&self.upstream, self.is_https);
 
-        if let Some(connection) = fwd_ctx
+        if let Some(mut connection) = fwd_ctx
             .get_alive_connection(
                 &self.task_notes,
                 self.task_stats.clone(),
@@ -622,6 +622,9 @@ impl<'a> HttpProxyForwardTask<'a> {
             if self.ctx.server_config.flush_task_log_on_connected {
                 self.get_log_context().log_connected(&self.ctx.task_logger);
             }
+
+            connection.0.prepare_new(&self.task_notes, &self.upstream);
+            self.mark_relaying();
 
             let r = self
                 .run_with_connection(fwd_ctx, clt_r, clt_w, connection, audit_task)
@@ -686,13 +689,16 @@ impl<'a> HttpProxyForwardTask<'a> {
         self.http_notes.reused_connection = false;
 
         match self.make_new_connection(fwd_ctx).await {
-            Ok(connection) => {
+            Ok(mut connection) => {
                 self.task_notes.stage = ServerTaskStage::Connected;
                 fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
 
                 if self.ctx.server_config.flush_task_log_on_connected {
                     self.get_log_context().log_connected(&self.ctx.task_logger);
                 }
+
+                connection.0.prepare_new(&self.task_notes, &self.upstream);
+                self.mark_relaying();
                 Ok(connection)
             }
             Err(e) => {
@@ -766,8 +772,6 @@ impl<'a> HttpProxyForwardTask<'a> {
             }
         }
 
-        ups_c.0.prepare_new(&self.task_notes, &self.upstream);
-
         if audit_task {
             if let Some(audit_handle) = self.audit_ctx.handle() {
                 if let Some(reqmod) = audit_handle.icap_reqmod_client() {
@@ -825,31 +829,6 @@ impl<'a> HttpProxyForwardTask<'a> {
             .user_ctx()
             .and_then(|ctx| ctx.http_rsp_header_recv_timeout())
             .unwrap_or(self.ctx.server_config.timeout.recv_rsp_header)
-    }
-
-    async fn run_without_adaptation<CDR, CDW>(
-        &mut self,
-        fwd_ctx: &mut BoxHttpForwardContext,
-        clt_r: &mut Option<HttpClientReader<CDR>>,
-        clt_w: &mut HttpClientWriter<CDW>,
-        ups_c: BoxHttpForwardConnection,
-    ) -> ServerTaskResult<Option<BoxHttpForwardConnection>>
-    where
-        CDR: AsyncRead + Send + Unpin,
-        CDW: AsyncWrite + Send + Unpin,
-    {
-        if self.req.body_type().is_none() {
-            self.mark_relaying();
-            self.run_without_body(clt_w, ups_c).await
-        } else if let Some(br) = clt_r {
-            self.mark_relaying();
-            self.run_with_body(fwd_ctx, br, clt_w, ups_c).await
-        } else {
-            // there should be a body reader
-            Err(ServerTaskError::InternalServerError(
-                "http body is expected but no body reader supplied",
-            ))
-        }
     }
 
     async fn run_with_adaptation<CDR, CDW>(
@@ -1035,6 +1014,83 @@ impl<'a> HttpProxyForwardTask<'a> {
         Ok(())
     }
 
+    async fn run_without_adaptation<CDR, CDW>(
+        &mut self,
+        fwd_ctx: &mut BoxHttpForwardContext,
+        clt_r: &mut Option<HttpClientReader<CDR>>,
+        clt_w: &mut HttpClientWriter<CDW>,
+        mut ups_c: BoxHttpForwardConnection,
+    ) -> ServerTaskResult<Option<BoxHttpForwardConnection>>
+    where
+        CDR: AsyncRead + Send + Unpin,
+        CDW: AsyncWrite + Send + Unpin,
+    {
+        match self.req.body_type() {
+            Some(body_type) => {
+                let Some(clt_r) = clt_r else {
+                    return Err(ServerTaskError::InternalServerError(
+                        "http body is expected but no body reader supplied",
+                    ));
+                };
+
+                let mut clt_body_reader =
+                    HttpBodyReader::new(clt_r, body_type, self.ctx.server_config.body_line_max_len);
+
+                if self.req.end_to_end_headers.contains_key(header::EXPECT) {
+                    return self
+                        .run_with_body(None, &mut clt_body_reader, clt_w, ups_c)
+                        .await;
+                }
+
+                let mut fast_read_buf = vec![0u8; self.ctx.server_config.tcp_copy.buffer_size()];
+                let nr = clt_body_reader
+                    .read_all_now(&mut fast_read_buf)
+                    .await
+                    .map_err(ServerTaskError::ClientTcpReadFailed)?
+                    .ok_or(ServerTaskError::ClosedByClient)?;
+                if nr == 0 {
+                    return self
+                        .run_with_body(None, &mut clt_body_reader, clt_w, ups_c)
+                        .await;
+                }
+
+                fast_read_buf.truncate(nr);
+                if clt_body_reader.finished() {
+                    return self
+                        .run_with_all_body(fwd_ctx, fast_read_buf, clt_w, ups_c)
+                        .await;
+                }
+
+                loop {
+                    match self
+                        .run_with_body(
+                            Some(fast_read_buf.clone()),
+                            &mut clt_body_reader,
+                            clt_w,
+                            ups_c,
+                        )
+                        .await
+                    {
+                        Ok(r) => return Ok(r),
+                        Err(e) => {
+                            if self.http_notes.reused_connection
+                                && self.http_notes.retry_new_connection
+                            {
+                                self.get_log_context().log(&self.ctx.task_logger, &e);
+                                self.task_stats.ups.reset();
+                                ups_c = self.get_new_connection(fwd_ctx, clt_w).await?;
+                            } else {
+                                self.http_notes.retry_new_connection = false;
+                                return Err(e);
+                            }
+                        }
+                    }
+                }
+            }
+            None => self.run_without_body(clt_w, ups_c).await,
+        }
+    }
+
     async fn run_without_body<W>(
         &mut self,
         clt_w: &mut W,
@@ -1103,7 +1159,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         }
     }
 
-    async fn send_small_body_and_recv_response(
+    async fn send_full_req_and_recv_rsp(
         &mut self,
         body: &[u8],
         ups_r: &mut BoxHttpForwardReader,
@@ -1150,7 +1206,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         }
     }
 
-    async fn run_with_small_body<CDW>(
+    async fn run_with_all_body<CDW>(
         &mut self,
         fwd_ctx: &mut BoxHttpForwardContext,
         body: Vec<u8>,
@@ -1165,7 +1221,7 @@ impl<'a> HttpProxyForwardTask<'a> {
             let ups_r = &mut ups_c.1;
 
             let mut rsp_header = match self
-                .send_small_body_and_recv_response(body.as_slice(), ups_r, ups_w)
+                .send_full_req_and_recv_rsp(body.as_slice(), ups_r, ups_w)
                 .await
             {
                 Ok(rsp_header) => rsp_header,
@@ -1202,73 +1258,6 @@ impl<'a> HttpProxyForwardTask<'a> {
     }
 
     async fn run_with_body<R, CDW>(
-        &mut self,
-        fwd_ctx: &mut BoxHttpForwardContext,
-        clt_r: &mut R,
-        clt_w: &mut HttpClientWriter<CDW>,
-        mut ups_c: BoxHttpForwardConnection,
-    ) -> ServerTaskResult<Option<BoxHttpForwardConnection>>
-    where
-        R: AsyncBufRead + Send + Unpin,
-        CDW: AsyncWrite + Send + Unpin,
-    {
-        let mut clt_body_reader = HttpBodyReader::new(
-            clt_r,
-            self.req.body_type().unwrap(),
-            self.ctx.server_config.body_line_max_len,
-        );
-
-        if self.req.end_to_end_headers.contains_key(header::EXPECT) {
-            return self
-                .run_with_ready_body(None, &mut clt_body_reader, clt_w, ups_c)
-                .await;
-        }
-
-        let mut fast_read_buf = vec![0u8; self.ctx.server_config.tcp_copy.buffer_size()];
-        let nr = clt_body_reader
-            .read_all_now(&mut fast_read_buf)
-            .await
-            .map_err(ServerTaskError::ClientTcpReadFailed)?
-            .ok_or(ServerTaskError::ClosedByClient)?;
-        if nr == 0 {
-            return self
-                .run_with_ready_body(None, &mut clt_body_reader, clt_w, ups_c)
-                .await;
-        }
-        fast_read_buf.truncate(nr);
-
-        if clt_body_reader.finished() {
-            return self
-                .run_with_small_body(fwd_ctx, fast_read_buf, clt_w, ups_c)
-                .await;
-        }
-
-        loop {
-            match self
-                .run_with_ready_body(
-                    Some(fast_read_buf.clone()),
-                    &mut clt_body_reader,
-                    clt_w,
-                    ups_c,
-                )
-                .await
-            {
-                Ok(r) => return Ok(r),
-                Err(e) => {
-                    if self.http_notes.reused_connection && self.http_notes.retry_new_connection {
-                        self.get_log_context().log(&self.ctx.task_logger, &e);
-                        self.task_stats.ups.reset();
-                        ups_c = self.get_new_connection(fwd_ctx, clt_w).await?;
-                    } else {
-                        self.http_notes.retry_new_connection = false;
-                        return Err(e);
-                    }
-                }
-            }
-        }
-    }
-
-    async fn run_with_ready_body<R, CDW>(
         &mut self,
         fast_read_buf: Option<Vec<u8>>,
         clt_body_reader: &mut HttpBodyReader<'_, R>,
