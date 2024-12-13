@@ -68,7 +68,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslConnector<S> {
                         return Poll::Pending;
                     }
                     _ => {
-                        return Poll::Ready(Err(e.into_io_error().unwrap_or_else(io::Error::other)))
+                        return Poll::Ready(Err(e
+                            .into_io_error()
+                            .unwrap_or_else(|e| io::Error::other(format!("ssl connect: {e}")))))
                     }
                 },
             }
