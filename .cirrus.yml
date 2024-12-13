@@ -15,6 +15,6 @@ freebsd_task:
   build_script:
     - cargo build --features vendored-openssl
   clippy_script:
-    - cargo clippy --features vendored-openssl -tests -- --deny warnings
+    - cargo clippy --features vendored-openssl --tests -- --deny warnings
   test_script:
     - cargo test --features vendored-openssl --workspace --exclude g3-journal
