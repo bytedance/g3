@@ -47,7 +47,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslLazyAcceptor<S> {
                 ErrorCode::WANT_CLIENT_HELLO_CB => Poll::Ready(Ok(())),
                 #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
                 ErrorCode::PENDING_CERTIFICATE => Poll::Ready(Ok(())),
-                _ => Poll::Ready(Err(e.into_io_error().unwrap_or_else(io::Error::other))),
+                _ => Poll::Ready(Err(e
+                    .into_io_error()
+                    .unwrap_or_else(|e| io::Error::other(format!("ssl accept: {e}"))))),
             },
         }
     }

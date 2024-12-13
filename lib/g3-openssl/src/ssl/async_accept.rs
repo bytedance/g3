@@ -83,7 +83,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslAcceptor<S> {
                 ErrorCode::WANT_READ | ErrorCode::WANT_WRITE => Poll::Pending,
                 ErrorCode::WANT_ASYNC => async_engine.poll_ready(self.inner.ssl(), cx),
                 ErrorCode::WANT_ASYNC_JOB => Poll::Ready(Ok(())),
-                _ => Poll::Ready(Err(e.into_io_error().unwrap_or_else(io::Error::other))),
+                _ => Poll::Ready(Err(e
+                    .into_io_error()
+                    .unwrap_or_else(|e| io::Error::other(format!("ssl accept: {e}"))))),
             },
         }
     }
@@ -129,7 +131,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslAcceptor<S> {
                         return Poll::Pending;
                     }
                     _ => {
-                        return Poll::Ready(Err(e.into_io_error().unwrap_or_else(io::Error::other)))
+                        return Poll::Ready(Err(e
+                            .into_io_error()
+                            .unwrap_or_else(|e| io::Error::other(format!("ssl accept: {e}")))))
                     }
                 },
             }

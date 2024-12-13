@@ -71,7 +71,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslAcceptor<S> {
             Ok(_) => Poll::Ready(Ok(())),
             Err(e) => match e.code() {
                 ErrorCode::WANT_READ | ErrorCode::WANT_WRITE => Poll::Pending,
-                _ => Poll::Ready(Err(e.into_io_error().unwrap_or_else(io::Error::other))),
+                _ => Poll::Ready(Err(e
+                    .into_io_error()
+                    .unwrap_or_else(|e| io::Error::other(format!("ssl accept: {e}"))))),
             },
         }
     }

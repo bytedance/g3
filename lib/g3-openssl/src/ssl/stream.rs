@@ -116,7 +116,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslStream<S> {
                         return Poll::Pending;
                     }
                     _ => {
-                        return Poll::Ready(Err(e.into_io_error().unwrap_or_else(io::Error::other)))
+                        return Poll::Ready(Err(e
+                            .into_io_error()
+                            .unwrap_or_else(|e| io::Error::other(format!("ssl read: {e}")))));
                     }
                 },
             }
@@ -146,7 +148,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslStream<S> {
                         return Poll::Pending;
                     }
                     _ => {
-                        return Poll::Ready(Err(e.into_io_error().unwrap_or_else(io::Error::other)))
+                        return Poll::Ready(Err(e
+                            .into_io_error()
+                            .unwrap_or_else(|e| io::Error::other(format!("ssl write: {e}")))));
                     }
                 },
             }
@@ -162,7 +166,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslStream<S> {
                 ErrorCode::ZERO_RETURN => {}
                 ErrorCode::WANT_READ | ErrorCode::WANT_WRITE => return Poll::Pending,
                 _ => {
-                    return Poll::Ready(Err(e.into_io_error().unwrap_or_else(io::Error::other)));
+                    return Poll::Ready(Err(e
+                        .into_io_error()
+                        .unwrap_or_else(|e| io::Error::other(format!("ssl shutdown: {e}")))));
                 }
             }
         }
@@ -184,7 +190,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslStream<S> {
                     return Poll::Pending;
                 }
                 _ => {
-                    return Poll::Ready(Err(e.into_io_error().unwrap_or_else(io::Error::other)));
+                    return Poll::Ready(Err(e
+                        .into_io_error()
+                        .unwrap_or_else(|e| io::Error::other(format!("ssl shutdown: {e}")))));
                 }
             }
         }
