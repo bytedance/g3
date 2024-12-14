@@ -26,6 +26,8 @@ use super::{
 };
 use crate::options::{IcapOptionsRequest, IcapServiceOptions};
 
+const POOL_CMD_CHANNEL_SIZE: usize = 16;
+
 pub(super) enum IcapServiceClientCommand {
     FetchConnection(oneshot::Sender<(IcapClientConnection, Arc<IcapServiceOptions>)>),
     SaveConnection(IcapClientConnection),
@@ -57,8 +59,7 @@ impl IcapServicePool {
     ) -> Self {
         let options = Arc::new(IcapServiceOptions::new_expired(config.method));
         let check_interval = tokio::time::interval(config.connection_pool.check_interval());
-        let (pool_cmd_sender, pool_cmd_receiver) =
-            mpsc::channel(config.connection_pool.max_idle_count());
+        let (pool_cmd_sender, pool_cmd_receiver) = mpsc::channel(POOL_CMD_CHANNEL_SIZE);
         let (conn_req_sender, conn_req_receiver) =
             flume::bounded(config.connection_pool.max_idle_count());
         IcapServicePool {
@@ -120,9 +121,8 @@ impl IcapServicePool {
                             .await
                             .is_ok()
                         {
-                            let _ = pool_sender
-                                .send(IcapServicePoolCommand::SaveConnection(conn))
-                                .await;
+                            let _ =
+                                pool_sender.try_send(IcapServicePoolCommand::SaveConnection(conn));
                         }
                     }
                 }
@@ -137,9 +137,7 @@ impl IcapServicePool {
                 let conn_creator = self.connector.clone();
                 tokio::spawn(async move {
                     if let Ok(conn) = conn_creator.create().await {
-                        let _ = pool_sender
-                            .send(IcapServicePoolCommand::SaveConnection(conn))
-                            .await;
+                        let _ = pool_sender.try_send(IcapServicePoolCommand::SaveConnection(conn));
                     }
                 });
             }
