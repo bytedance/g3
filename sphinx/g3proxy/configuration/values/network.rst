@@ -249,6 +249,16 @@ The keys are:
 
   **default**: 32
 
+* idle_timeout
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Set the keep timeout for IDLE connection.
+
+  **default**: 5m
+
+  .. versionadded:: 1.11.1
+
 .. versionadded:: 1.9.8
 
 .. _conf_value_tcp_listen:

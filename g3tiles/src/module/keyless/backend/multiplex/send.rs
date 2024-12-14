@@ -21,6 +21,7 @@ use std::time::Duration;
 use anyhow::anyhow;
 use tokio::io::AsyncWrite;
 use tokio::sync::{broadcast, oneshot};
+use tokio::time::Instant;
 
 use g3_types::ext::DurationExt;
 
@@ -67,18 +68,21 @@ impl KeylessUpstreamSendTask {
         mut self,
         mut writer: W,
         mut reader_close_receiver: oneshot::Receiver<KeylessRecvMessageError>,
+        idle_timeout: Duration,
     ) -> anyhow::Result<()>
     where
         W: AsyncWrite + Unpin,
     {
         let mut request_count = 0;
-        let mut alive_timeout = Box::pin(tokio::time::sleep(self.max_alive_time));
+        let mut alive_sleep = Box::pin(tokio::time::sleep(self.max_alive_time));
+        let mut idle_sleep = Box::pin(tokio::time::sleep(idle_timeout));
 
         loop {
             tokio::select! {
                 biased;
 
                 r = self.req_receiver.recv_async() => {
+                    idle_sleep.as_mut().reset(Instant::now() + idle_timeout);
                     match r {
                         Ok(req) => {
                             request_count += 1;
@@ -101,7 +105,10 @@ impl KeylessUpstreamSendTask {
                         Err(_) => Ok(()), // reader closed without error
                     };
                 }
-                _ = &mut alive_timeout => {
+                _ = &mut alive_sleep => {
+                    return Ok(());
+                }
+                _ = &mut idle_sleep => {
                     return Ok(());
                 }
             }

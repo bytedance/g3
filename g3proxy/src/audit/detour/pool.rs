@@ -121,9 +121,12 @@ impl StreamDetourPool {
         let client_req_receiver = self.client_req_receiver.clone();
         let connection_close_sender = self.connection_close_sender.clone();
         let pool_stats = self.stats.clone();
-        pool_stats.add_connection();
+        let idle_timeout = self.config.idle_timeout();
         tokio::spawn(async move {
-            connector.run_new_connection(client_req_receiver).await;
+            pool_stats.add_connection();
+            connector
+                .run_new_connection(client_req_receiver, idle_timeout)
+                .await;
             pool_stats.del_connection();
             let _ = connection_close_sender.try_send(connection_id);
         });

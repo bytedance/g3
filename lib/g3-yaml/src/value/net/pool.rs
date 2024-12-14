@@ -39,6 +39,12 @@ pub fn as_connection_pool_config(value: &Yaml) -> anyhow::Result<ConnectionPoolC
                 config.set_min_idle_count(count);
                 Ok(())
             }
+            "idle_timeout" => {
+                let timeout = crate::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                config.set_idle_timeout(timeout);
+                Ok(())
+            }
             _ => Err(anyhow!("invalid key {k}")),
         })?;
         Ok(config)

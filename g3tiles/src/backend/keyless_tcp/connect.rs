@@ -16,6 +16,7 @@
 
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::anyhow;
 use arc_swap::ArcSwapOption;
@@ -97,6 +98,7 @@ impl KeylessUpstreamConnect for KeylessTcpUpstreamConnector {
         &self,
         req_receiver: flume::Receiver<KeylessForwardRequest>,
         quit_notifier: broadcast::Receiver<()>,
+        _idle_timeout: Duration,
     ) -> anyhow::Result<Self::Connection> {
         let start = Instant::now();
         let (stream, _peer) = self.connect().await?;
@@ -140,6 +142,7 @@ impl KeylessUpstreamConnect for KeylessTlsUpstreamConnector {
         &self,
         req_receiver: flume::Receiver<KeylessForwardRequest>,
         quit_notifier: broadcast::Receiver<()>,
+        _idle_timeout: Duration,
     ) -> anyhow::Result<Self::Connection> {
         let start = Instant::now();
         let (tcp_stream, peer) = self.tcp.connect().await?;

@@ -186,8 +186,9 @@ impl IcapServicePool {
             // relaxed is fine as we only increase it here in the same future context
             idle_count.fetch_add(1, Ordering::Relaxed);
             let eof_poller = IcapConnectionEofPoller::new(conn, self.conn_req_receiver.clone());
+            let idle_timeout = self.config.connection_pool.idle_timeout();
             tokio::spawn(async move {
-                eof_poller.into_running().await;
+                eof_poller.into_running(idle_timeout).await;
                 idle_count.fetch_sub(1, Ordering::Relaxed);
             });
         }

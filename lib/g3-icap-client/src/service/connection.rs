@@ -17,9 +17,9 @@
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Context;
-use log::debug;
 use tokio::io::BufReader;
 use tokio::net::TcpStream;
 use tokio::sync::oneshot;
@@ -140,19 +140,12 @@ impl IcapConnectionEofPoller {
         IcapConnectionEofPoller { conn, req_receiver }
     }
 
-    pub(super) async fn into_running(mut self) {
+    pub(super) async fn into_running(mut self, idle_timeout: Duration) {
+        let idle_sleep = tokio::time::sleep(idle_timeout);
+
         tokio::select! {
-            r = self.conn.1.fill_wait_data() => {
-                match r {
-                    Ok(true) => {
-                        debug!("unexpected data found in this ICAP connection, drop it now");
-                    }
-                    Ok(false) => {}
-                    Err(e) => {
-                        debug!("ICAP connection closed with error {e}");
-                    }
-                }
-            }
+            _ = self.conn.1.fill_wait_data() => {}
+            _ = idle_sleep => {}
             r = self.req_receiver.recv_async() => {
                 if let Ok(req) = r {
                     let IcapConnectionPollRequest {
