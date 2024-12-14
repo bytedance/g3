@@ -16,6 +16,7 @@
 
 use std::borrow::Cow;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::anyhow;
 use log::{debug, trace};
@@ -23,6 +24,7 @@ use quinn::{
     ClientConfig, Connection, ConnectionError, Endpoint, TokioRuntime, TransportConfig, VarInt,
 };
 use tokio::sync::{mpsc, oneshot};
+use tokio::time::Instant;
 
 use g3_types::net::RustlsQuicClientConfig;
 
@@ -92,6 +94,7 @@ impl StreamDetourConnector {
     pub(super) async fn run_new_connection(
         &self,
         req_receiver: flume::Receiver<StreamDetourRequest>,
+        idle_timeout: Duration,
     ) {
         let mut connection = match self.new_connection().await {
             Ok(c) => c,
@@ -105,6 +108,7 @@ impl StreamDetourConnector {
         let (force_quit_sender, mut force_quit_receiver) =
             mpsc::channel(self.config.connection_reuse_limit);
 
+        let mut idle_sleep = Box::pin(tokio::time::sleep(idle_timeout));
         while count < self.config.connection_reuse_limit {
             tokio::select! {
                 e = connection.closed() => {
@@ -112,6 +116,7 @@ impl StreamDetourConnector {
                     return;
                 }
                 r = req_receiver.recv_async() => {
+                    idle_sleep.as_mut().reset(Instant::now() + idle_timeout);
                     match r {
                         Ok(req) => {
                             let match_id = (count & 0xFFFF) as u16;
@@ -123,6 +128,10 @@ impl StreamDetourConnector {
                         }
                         Err(_) => break,
                     }
+                }
+                _ = &mut idle_sleep => {
+                    drop(req_receiver);
+                    break;
                 }
             }
         }

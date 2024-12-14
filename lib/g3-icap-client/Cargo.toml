@@ -10,7 +10,6 @@ rust-version = "1.75.0"
 [dependencies]
 anyhow.workspace = true
 thiserror.workspace = true
-log.workspace = true
 memchr.workspace = true
 atoi.workspace = true
 url.workspace = true

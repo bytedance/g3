@@ -87,7 +87,7 @@ where
     R: AsyncRead + Send + Unpin + 'static,
     W: AsyncWrite + Send + Unpin,
 {
-    async fn run(self) -> anyhow::Result<()> {
+    async fn run(self, idle_timeout: Duration) -> anyhow::Result<()> {
         let shared_state = Arc::new(StreamSharedState::default());
         let (reader_close_sender, reader_close_receiver) = oneshot::channel();
 
@@ -119,6 +119,8 @@ where
         // The connection is considered off if we no longer need to send request over it,
         // but there may be pending responses on the wire, so let's quit early here to let
         // the connection pool to create new connections early.
-        send_task.run(self.w, reader_close_receiver).await
+        send_task
+            .run(self.w, reader_close_receiver, idle_timeout)
+            .await
     }
 }

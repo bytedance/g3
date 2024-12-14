@@ -21,6 +21,7 @@ pub struct ConnectionPoolConfig {
     check_interval: Duration,
     max_idle_count: usize,
     min_idle_count: usize,
+    idle_timeout: Duration,
 }
 
 impl Default for ConnectionPoolConfig {
@@ -35,6 +36,7 @@ impl ConnectionPoolConfig {
             check_interval: Duration::from_secs(10),
             max_idle_count: max_idle,
             min_idle_count: min_idle,
+            idle_timeout: Duration::from_secs(300),
         }
     }
 
@@ -66,5 +68,15 @@ impl ConnectionPoolConfig {
     #[inline]
     pub fn min_idle_count(&self) -> usize {
         self.min_idle_count
+    }
+
+    #[inline]
+    pub fn set_idle_timeout(&mut self, timeout: Duration) {
+        self.idle_timeout = timeout;
+    }
+
+    #[inline]
+    pub fn idle_timeout(&self) -> Duration {
+        self.idle_timeout
     }
 }

@@ -29,7 +29,7 @@ use g3_types::stats::ConnectionPoolStats;
 use super::KeylessForwardRequest;
 
 pub(crate) trait KeylessUpstreamConnection {
-    fn run(self) -> impl Future<Output = anyhow::Result<()>> + Send;
+    fn run(self, idle_timeout: Duration) -> impl Future<Output = anyhow::Result<()>> + Send;
 }
 
 #[async_trait]
@@ -39,6 +39,7 @@ pub(crate) trait KeylessUpstreamConnect {
         &self,
         req_receiver: flume::Receiver<KeylessForwardRequest>,
         quit_notifier: broadcast::Receiver<()>,
+        idle_timeout: Duration,
     ) -> anyhow::Result<Self::Connection>;
 }
 pub(crate) type ArcKeylessUpstreamConnect<C> =
@@ -190,14 +191,19 @@ where
         let connection_close_sender = self.connection_close_sender.clone();
         let connection_quit_notifier = self.connection_quit_notifier.subscribe();
         let pool_stats = self.stats.clone();
-        pool_stats.add_connection();
+        let idle_timeout = self.config.idle_timeout();
         tokio::spawn(async move {
+            pool_stats.add_connection();
             match connector
-                .new_connection(keyless_request_receiver, connection_quit_notifier)
+                .new_connection(
+                    keyless_request_receiver,
+                    connection_quit_notifier,
+                    idle_timeout,
+                )
                 .await
             {
                 Ok(connection) => {
-                    if let Err(e) = connection.run().await {
+                    if let Err(e) = connection.run(idle_timeout).await {
                         debug!("connection closed with error: {e}");
                     }
                     pool_stats.del_connection();
