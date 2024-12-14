@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
+use std::num::NonZeroUsize;
 use std::time::Duration;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct H1InterceptionConfig {
-    pub pipeline_size: usize,
+    pub pipeline_size: NonZeroUsize,
     pub pipeline_read_idle_timeout: Duration,
     pub req_head_recv_timeout: Duration,
     pub rsp_head_recv_timeout: Duration,
@@ -31,7 +32,7 @@ pub struct H1InterceptionConfig {
 impl Default for H1InterceptionConfig {
     fn default() -> Self {
         H1InterceptionConfig {
-            pipeline_size: 10,
+            pipeline_size: NonZeroUsize::new(10).unwrap(),
             pipeline_read_idle_timeout: Duration::from_secs(300),
             req_head_recv_timeout: Duration::from_secs(30),
             rsp_head_recv_timeout: Duration::from_secs(60),

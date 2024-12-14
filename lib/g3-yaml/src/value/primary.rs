@@ -16,7 +16,7 @@
 
 use std::collections::HashMap;
 use std::hash::Hash;
-use std::num::{NonZeroI32, NonZeroIsize, NonZeroU32};
+use std::num::{NonZeroI32, NonZeroIsize, NonZeroU32, NonZeroUsize};
 use std::str::FromStr;
 
 use anyhow::{anyhow, Context};
@@ -154,6 +154,19 @@ pub fn as_usize(v: &Yaml) -> anyhow::Result<usize> {
         Yaml::Integer(i) => Ok(usize::try_from(*i)?),
         _ => Err(anyhow!(
             "yaml value type for 'usize' should be 'string' or 'integer'"
+        )),
+    }
+}
+
+pub fn as_nonzero_usize(v: &Yaml) -> anyhow::Result<NonZeroUsize> {
+    match v {
+        Yaml::String(s) => Ok(NonZeroUsize::from_str(s)?),
+        Yaml::Integer(i) => {
+            let u = usize::try_from(*i)?;
+            Ok(NonZeroUsize::try_from(u)?)
+        }
+        _ => Err(anyhow!(
+            "yaml value type for 'nonzero usize' should be 'string' or 'integer'"
         )),
     }
 }

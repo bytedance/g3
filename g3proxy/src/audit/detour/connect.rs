@@ -106,10 +106,10 @@ impl StreamDetourConnector {
 
         let mut count = 0;
         let (force_quit_sender, mut force_quit_receiver) =
-            mpsc::channel(self.config.connection_reuse_limit);
+            mpsc::channel(self.config.connection_reuse_limit.get());
 
         let mut idle_sleep = Box::pin(tokio::time::sleep(idle_timeout));
-        while count < self.config.connection_reuse_limit {
+        while count < self.config.connection_reuse_limit.get() {
             tokio::select! {
                 e = connection.closed() => {
                     debug!("detour connection closed unexpectedly: {e}");

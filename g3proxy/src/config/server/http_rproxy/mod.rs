@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -84,7 +85,7 @@ pub(crate) struct HttpRProxyServerConfig {
     pub(crate) req_hdr_max_size: usize,
     pub(crate) rsp_hdr_max_size: usize,
     pub(crate) log_uri_max_chars: usize,
-    pub(crate) pipeline_size: usize,
+    pub(crate) pipeline_size: NonZeroUsize,
     pub(crate) pipeline_read_idle_timeout: Duration,
     pub(crate) no_early_error_reply: bool,
     pub(crate) body_line_max_len: usize,
@@ -124,7 +125,7 @@ impl HttpRProxyServerConfig {
             req_hdr_max_size: 65536, // 64KiB
             rsp_hdr_max_size: 65536, // 64KiB
             log_uri_max_chars: 1024,
-            pipeline_size: 10,
+            pipeline_size: NonZeroUsize::new(10).unwrap(),
             pipeline_read_idle_timeout: Duration::from_secs(300),
             no_early_error_reply: false,
             body_line_max_len: 8192,
@@ -278,8 +279,8 @@ impl HttpRProxyServerConfig {
                 Ok(())
             }
             "pipeline_size" => {
-                self.pipeline_size = g3_yaml::value::as_usize(v)
-                    .context(format!("invalid usize value for key {k}"))?;
+                self.pipeline_size = g3_yaml::value::as_nonzero_usize(v)
+                    .context(format!("invalid nonzero usize value for key {k}"))?;
                 Ok(())
             }
             "pipeline_read_idle_timeout" => {

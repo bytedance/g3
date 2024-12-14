@@ -15,6 +15,7 @@
  */
 
 use std::net::{IpAddr, Ipv4Addr};
+use std::num::NonZeroUsize;
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -34,7 +35,7 @@ pub(crate) struct AuditStreamDetourConfig {
     pub(crate) tls_client: RustlsClientConfigBuilder,
     pub(crate) tls_name: Option<String>,
     pub(crate) connection_pool: ConnectionPoolConfig,
-    pub(crate) connection_reuse_limit: usize,
+    pub(crate) connection_reuse_limit: NonZeroUsize,
     pub(crate) quic_transport: QuinnTransportConfigBuilder,
     pub(crate) stream_open_timeout: Duration,
     pub(crate) request_timeout: Duration,
@@ -51,7 +52,7 @@ impl Default for AuditStreamDetourConfig {
             tls_client: RustlsClientConfigBuilder::default(),
             tls_name: None,
             connection_pool: ConnectionPoolConfig::default(),
-            connection_reuse_limit: 16,
+            connection_reuse_limit: NonZeroUsize::new(16).unwrap(),
             quic_transport: QuinnTransportConfigBuilder::default(),
             stream_open_timeout: Duration::from_secs(30),
             request_timeout: Duration::from_secs(60),
@@ -92,7 +93,7 @@ impl AuditStreamDetourConfig {
                         Ok(())
                     }
                     "connection_reuse_limit" => {
-                        config.connection_reuse_limit = g3_yaml::value::as_usize(v)?;
+                        config.connection_reuse_limit = g3_yaml::value::as_nonzero_usize(v)?;
                         Ok(())
                     }
                     "quic_transport" => {

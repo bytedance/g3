@@ -25,6 +25,15 @@ nonzero u32
 
 A non-zero u32 in value type.
 
+.. _conf_value_nonzero_usize:
+
+nonzero usize
+=============
+
+**yaml value**: int
+
+A non-zero usize in value type.
+
 .. _conf_value_humanize_usize:
 
 humanize usize

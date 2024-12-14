@@ -121,7 +121,7 @@ The user level config value will take effect if set, see this :ref:`user config 
 pipeline_size
 -------------
 
-**optional**, **type**: int
+**optional**, **type**: :ref:`nonzero usize <conf_value_nonzero_usize>`
 
 Set the pipeline size for HTTP 1.0/1.1.
 

@@ -240,7 +240,7 @@ impl HttpProxyServer {
     {
         let ctx = self.get_common_task_context(cc_info);
         let pipeline_stats = Arc::new(HttpProxyPipelineStats::default());
-        let (task_sender, task_receiver) = mpsc::channel(ctx.server_config.pipeline_size);
+        let (task_sender, task_receiver) = mpsc::channel(ctx.server_config.pipeline_size.get());
 
         // NOTE tls underlying traffic is not counted in (server/task/user) stats
 
@@ -268,7 +268,7 @@ impl HttpProxyServer {
     ) {
         let ctx = self.get_common_task_context(cc_info);
         let pipeline_stats = Arc::new(HttpProxyPipelineStats::default());
-        let (task_sender, task_receiver) = mpsc::channel(ctx.server_config.pipeline_size);
+        let (task_sender, task_receiver) = mpsc::channel(ctx.server_config.pipeline_size.get());
 
         let r_task =
             HttpProxyPipelineReaderTask::new(&ctx, task_sender, recv_stream, &pipeline_stats);

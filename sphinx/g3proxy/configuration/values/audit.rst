@@ -147,7 +147,7 @@ For *map* value, the keys are:
 
 * connection_reuse_limit
 
-  **optional**, **type**: usize
+  **optional**, **type**: :ref:`nonzero usize <conf_value_nonzero_usize>`
 
   Set how many times a single QUIC connection will be reused.
   The max allowed streams on this QUIC connection should be double of this value.
