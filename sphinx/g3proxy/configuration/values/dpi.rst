@@ -636,7 +636,7 @@ The keys are:
 
 * pipeline_size
 
-  **optional**, **type**: usize
+  **optional**, **type**: :ref:`nonzero usize <conf_value_nonzero_usize>`
 
   Set the pipeline size.
 

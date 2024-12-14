@@ -184,8 +184,8 @@ where
     T: BenchTarget<RS, H, C> + Send + Sync + 'static,
 {
     let sync_sem = Arc::new(Semaphore::new(0));
-    let sync_barrier = Arc::new(Barrier::new(proc_args.concurrency + 1));
-    let (sender, mut receiver) = mpsc::channel::<usize>(proc_args.concurrency);
+    let sync_barrier = Arc::new(Barrier::new(proc_args.concurrency.get() + 1));
+    let (sender, mut receiver) = mpsc::channel::<usize>(proc_args.concurrency.get());
     let progress = proc_args.new_progress_bar();
     let progress_counter = progress.as_ref().map(|p| p.counter());
 
@@ -196,7 +196,7 @@ where
         .rate_limit
         .as_ref()
         .map(|c| Arc::new(RateLimiter::direct(c.get_inner())));
-    for i in 0..proc_args.concurrency {
+    for i in 0..proc_args.concurrency.get() {
         let sem = Arc::clone(&sync_sem);
         let barrier = Arc::clone(&sync_barrier);
         let quit_sender = sender.clone();
@@ -283,7 +283,7 @@ where
     drop(sender);
 
     let _run_permit = sync_sem
-        .acquire_many(proc_args.concurrency as u32)
+        .acquire_many(proc_args.concurrency.get() as u32)
         .await
         .context("failed to start all task contexts")?;
 

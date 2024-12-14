@@ -25,7 +25,7 @@ pub fn as_h1_interception_config(value: &Yaml) -> anyhow::Result<H1InterceptionC
 
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
             "pipeline_size" => {
-                config.pipeline_size = crate::value::as_usize(v)?;
+                config.pipeline_size = crate::value::as_nonzero_usize(v)?;
                 Ok(())
             }
             "pipeline_read_idle_timeout" => {

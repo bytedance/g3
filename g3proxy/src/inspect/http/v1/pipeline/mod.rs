@@ -39,7 +39,7 @@ where
     SC: ServerConfig,
     R: AsyncRead + Unpin,
 {
-    let (send_request, recv_request) = mpsc::channel(ctx.h1_interception().pipeline_size);
+    let (send_request, recv_request) = mpsc::channel(ctx.h1_interception().pipeline_size.get());
 
     let forwarder = HttpRequestForwarder::new(ctx, req_io, send_request, stats);
     let acceptor = HttpRequestAcceptor::new(recv_request);

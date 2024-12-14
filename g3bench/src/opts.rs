@@ -17,6 +17,7 @@
 use std::hash::Hash;
 use std::io::{stderr, IsTerminal};
 use std::net::{IpAddr, SocketAddr};
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
@@ -61,7 +62,7 @@ const GLOBAL_ARG_UDP_LIMIT_BYTES: &str = "udp-limit-bytes";
 const GLOBAL_ARG_UDP_LIMIT_PACKETS: &str = "udp-limit-packets";
 
 pub struct ProcArgs {
-    pub(super) concurrency: usize,
+    pub(super) concurrency: NonZeroUsize,
     pub(super) latency: Option<Duration>,
     pub(super) requests: Option<usize>,
     pub(super) time_limit: Option<Duration>,
@@ -87,7 +88,7 @@ pub struct ProcArgs {
 impl Default for ProcArgs {
     fn default() -> Self {
         ProcArgs {
-            concurrency: 1,
+            concurrency: NonZeroUsize::MIN,
             latency: None,
             requests: None,
             time_limit: None,
@@ -439,7 +440,7 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
     let mut proc_args = ProcArgs::default();
 
     if let Some(n) = args.get_one::<usize>(GLOBAL_ARG_CONCURRENCY) {
-        proc_args.concurrency = *n;
+        proc_args.concurrency = NonZeroUsize::new(*n).unwrap_or(NonZeroUsize::MIN);
     }
 
     if let Some(n) = args.get_one::<usize>(GLOBAL_ARG_LATENCY) {
