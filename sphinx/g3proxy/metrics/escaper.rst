@@ -43,6 +43,30 @@ The metric names are:
 
   Show the count of established connections to remote.
 
+* escaper.tls.handshake.success
+
+  **type**: count
+
+  Show the count of success TLS handshake to the next peer proxy.
+
+  .. versionadded:: 1.11.1
+
+* escaper.tls.handshake.error
+
+  **type**: count
+
+  Show the count of failed (error encountered) TLS handshake to the next peer proxy.
+
+  .. versionadded:: 1.11.1
+
+* escaper.tls.handshake.timeout
+
+  **type**: count
+
+  Show the count of failed TLS handshake to the next peer proxy due to timeout.
+
+  .. versionadded:: 1.11.1
+
 * escaper.forbidden.ip_blocked
 
   **type**: count

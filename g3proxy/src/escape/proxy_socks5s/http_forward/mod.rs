@@ -18,7 +18,7 @@ use std::sync::Arc;
 
 use g3_io_ext::{AsyncStream, LimitedBufReader, LimitedWriter, NilLimitedReaderStats};
 
-use super::{ProxySocks5EscaperStats, ProxySocks5sEscaper};
+use super::{ProxySocks5sEscaper, ProxySocks5sEscaperStats};
 use crate::escape::direct_fixed::http_forward::{DirectHttpForwardReader, DirectHttpForwardWriter};
 use crate::log::escape::tls_handshake::TlsApplication;
 use crate::module::http_forward::{
@@ -54,7 +54,7 @@ impl ProxySocks5sEscaper {
         );
         let ups_w = LimitedWriter::new(ups_w, wrapper_stats);
 
-        let writer = DirectHttpForwardWriter::<_, ProxySocks5EscaperStats>::new(ups_w, None);
+        let writer = DirectHttpForwardWriter::<_, ProxySocks5sEscaperStats>::new(ups_w, None);
         let reader = DirectHttpForwardReader::new(ups_r);
         Ok((Box::new(writer), Box::new(reader)))
     }
@@ -89,7 +89,7 @@ impl ProxySocks5sEscaper {
         );
         let ups_w = LimitedWriter::new(ups_w, wrapper_stats);
 
-        let writer = DirectHttpForwardWriter::<_, ProxySocks5EscaperStats>::new(ups_w, None);
+        let writer = DirectHttpForwardWriter::<_, ProxySocks5sEscaperStats>::new(ups_w, None);
         let reader = DirectHttpForwardReader::new(ups_r);
         Ok((Box::new(writer), Box::new(reader)))
     }

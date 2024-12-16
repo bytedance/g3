@@ -34,7 +34,6 @@ use crate::audit::AuditContext;
 use crate::auth::UserUpstreamTrafficStats;
 use crate::config::escaper::proxy_https::ProxyHttpsEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
-use crate::escape::proxy_http::ProxyHttpEscaperStats;
 use crate::module::ftp_over_http::{
     ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpConnectContext,
     BoxFtpRemoteConnection, DirectFtpConnectContext,
@@ -57,6 +56,9 @@ use crate::module::udp_relay::{
 use crate::resolve::{ArcIntegratedResolverHandle, HappyEyeballsResolveJob};
 use crate::serve::ServerTaskNotes;
 
+mod stats;
+use stats::ProxyHttpsEscaperStats;
+
 mod http_connect;
 mod http_forward;
 mod tcp_connect;
@@ -64,7 +66,7 @@ mod tls_handshake;
 
 pub(super) struct ProxyHttpsEscaper {
     config: Arc<ProxyHttpsEscaperConfig>,
-    stats: Arc<ProxyHttpEscaperStats>,
+    stats: Arc<ProxyHttpsEscaperStats>,
     proxy_nodes: SelectiveVec<WeightedUpstreamAddr>,
     tls_config: OpensslClientConfig,
     resolver_handle: Option<ArcIntegratedResolverHandle>,
@@ -74,7 +76,7 @@ pub(super) struct ProxyHttpsEscaper {
 impl ProxyHttpsEscaper {
     fn new_obj(
         config: ProxyHttpsEscaperConfig,
-        stats: Arc<ProxyHttpEscaperStats>,
+        stats: Arc<ProxyHttpsEscaperStats>,
     ) -> anyhow::Result<ArcEscaper> {
         let mut nodes_builder = SelectiveVecBuilder::new();
         for node in &config.proxy_nodes {
@@ -112,13 +114,13 @@ impl ProxyHttpsEscaper {
     }
 
     pub(super) fn prepare_initial(config: ProxyHttpsEscaperConfig) -> anyhow::Result<ArcEscaper> {
-        let stats = Arc::new(ProxyHttpEscaperStats::new(config.name()));
+        let stats = Arc::new(ProxyHttpsEscaperStats::new(config.name()));
         ProxyHttpsEscaper::new_obj(config, stats)
     }
 
     fn prepare_reload(
         config: AnyEscaperConfig,
-        stats: Arc<ProxyHttpEscaperStats>,
+        stats: Arc<ProxyHttpsEscaperStats>,
     ) -> anyhow::Result<ArcEscaper> {
         if let AnyEscaperConfig::ProxyHttps(config) = config {
             ProxyHttpsEscaper::new_obj(*config, stats)

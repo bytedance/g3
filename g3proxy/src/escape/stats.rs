@@ -37,8 +37,12 @@ pub(crate) trait EscaperStats: EscaperInternalStats {
     fn get_task_total(&self) -> u64;
 
     /// count for attempted established connections
-    fn get_conn_attempted(&self) -> u64;
-    fn get_conn_established(&self) -> u64;
+    fn connection_attempted(&self) -> u64;
+    fn connection_established(&self) -> u64;
+
+    fn tls_snapshot(&self) -> Option<EscaperTlsSnapshot> {
+        None
+    }
 
     fn tcp_io_snapshot(&self) -> Option<TcpIoSnapshot> {
         None
@@ -171,7 +175,7 @@ impl EscaperTcpStats {
         self.connection_attempted.fetch_add(1, Ordering::Relaxed);
     }
 
-    pub(crate) fn get_connection_attempted(&self) -> u64 {
+    pub(crate) fn connection_attempted(&self) -> u64 {
         self.connection_attempted.load(Ordering::Relaxed)
     }
 
@@ -179,7 +183,7 @@ impl EscaperTcpStats {
         self.connection_established.fetch_add(1, Ordering::Relaxed);
     }
 
-    pub(crate) fn get_connection_established(&self) -> u64 {
+    pub(crate) fn connection_established(&self) -> u64 {
         self.connection_established.load(Ordering::Relaxed)
     }
 }
@@ -187,6 +191,42 @@ impl EscaperTcpStats {
 #[derive(Default)]
 pub(crate) struct EscaperUdpStats {
     pub(crate) io: UdpIoStats,
+}
+
+#[derive(Default)]
+pub(crate) struct EscaperTlsSnapshot {
+    pub(crate) handshake_success: u64,
+    pub(crate) handshake_error: u64,
+    pub(crate) handshake_timeout: u64,
+}
+
+#[derive(Default)]
+pub(crate) struct EscaperTlsStats {
+    handshake_success: AtomicU64,
+    handshake_error: AtomicU64,
+    handshake_timeout: AtomicU64,
+}
+
+impl EscaperTlsStats {
+    pub(super) fn add_handshake_success(&self) {
+        self.handshake_success.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn add_handshake_error(&self) {
+        self.handshake_error.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn add_handshake_timeout(&self) {
+        self.handshake_timeout.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn snapshot(&self) -> EscaperTlsSnapshot {
+        EscaperTlsSnapshot {
+            handshake_success: self.handshake_success.load(Ordering::Relaxed),
+            handshake_error: self.handshake_error.load(Ordering::Relaxed),
+            handshake_timeout: self.handshake_timeout.load(Ordering::Relaxed),
+        }
+    }
 }
 
 #[derive(Default)]

@@ -83,12 +83,12 @@ impl EscaperStats for DivertTcpEscaperStats {
         self.interface.get_task_total()
     }
 
-    fn get_conn_attempted(&self) -> u64 {
-        self.tcp.get_connection_attempted()
+    fn connection_attempted(&self) -> u64 {
+        self.tcp.connection_attempted()
     }
 
-    fn get_conn_established(&self) -> u64 {
-        self.tcp.get_connection_established()
+    fn connection_established(&self) -> u64 {
+        self.tcp.connection_established()
     }
 
     fn tcp_io_snapshot(&self) -> Option<TcpIoSnapshot> {

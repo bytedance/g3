@@ -27,12 +27,16 @@ use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
 
 use super::TAG_KEY_ESCAPER;
 use crate::escape::{
-    ArcEscaperStats, EscaperForbiddenSnapshot, RouteEscaperSnapshot, RouteEscaperStats,
+    ArcEscaperStats, EscaperForbiddenSnapshot, EscaperTlsSnapshot, RouteEscaperSnapshot,
+    RouteEscaperStats,
 };
 
 const METRIC_NAME_ESCAPER_TASK_TOTAL: &str = "escaper.task.total";
 const METRIC_NAME_ESCAPER_CONN_ATTEMPT: &str = "escaper.connection.attempt";
 const METRIC_NAME_ESCAPER_CONN_ESTABLISH: &str = "escaper.connection.establish";
+const METRIC_NAME_ESCAPER_TLS_HANDSHAKE_SUCCESS: &str = "escaper.tls.handshake.success";
+const METRIC_NAME_ESCAPER_TLS_HANDSHAKE_ERROR: &str = "escaper.tls.handshake.error";
+const METRIC_NAME_ESCAPER_TLS_HANDSHAKE_TIMEOUT: &str = "escaper.tls.handshake.timeout";
 const METRIC_NAME_ESCAPER_IO_IN_BYTES: &str = "escaper.traffic.in.bytes";
 const METRIC_NAME_ESCAPER_IO_IN_PACKETS: &str = "escaper.traffic.in.packets";
 const METRIC_NAME_ESCAPER_IO_OUT_BYTES: &str = "escaper.traffic.out.bytes";
@@ -42,7 +46,7 @@ const METRIC_NAME_ESCAPER_FORBIDDEN_IP_BLOCKED: &str = "escaper.forbidden.ip_blo
 const METRIC_NAME_ROUTE_REQUEST_PASSED: &str = "route.request.passed";
 const METRIC_NAME_ROUTE_REQUEST_FAILED: &str = "route.request.failed";
 
-type EscaperStatsValue = (ArcEscaperStats, EscaperSnapshotStats);
+type EscaperStatsValue = (ArcEscaperStats, EscaperSnapshot);
 type RouterStatsValue = (Arc<RouteEscaperStats>, RouteEscaperSnapshot);
 
 static ESCAPER_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, EscaperStatsValue>>> =
@@ -64,10 +68,11 @@ impl EscaperMetricExt for StatsdTagGroup {
 }
 
 #[derive(Default)]
-struct EscaperSnapshotStats {
+struct EscaperSnapshot {
     task_total: u64,
     conn_attempt: u64,
     conn_establish: u64,
+    tls: EscaperTlsSnapshot,
     tcp: TcpIoSnapshot,
     udp: UdpIoSnapshot,
     forbidden: EscaperForbiddenSnapshot,
@@ -80,7 +85,7 @@ pub(in crate::stat) fn sync_stats() {
             let stat_id = stats.stat_id();
             escaper_stats_map
                 .entry(stat_id)
-                .or_insert_with(|| (stats, EscaperSnapshotStats::default()));
+                .or_insert_with(|| (stats, EscaperSnapshot::default()));
         }
     });
     drop(escaper_stats_map);
@@ -118,7 +123,7 @@ pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
 fn emit_escaper_stats(
     client: &mut StatsdClient,
     stats: &ArcEscaperStats,
-    snap: &mut EscaperSnapshotStats,
+    snap: &mut EscaperSnapshot,
 ) {
     let mut common_tags = StatsdTagGroup::default();
     common_tags.add_escaper_tags(stats.name(), stats.stat_id());
@@ -133,19 +138,23 @@ fn emit_escaper_stats(
         .send();
     snap.task_total = new_value;
 
-    let new_value = stats.get_conn_attempted();
+    let new_value = stats.connection_attempted();
     let diff_value = new_value.wrapping_sub(snap.conn_attempt);
     client
         .count_with_tags(METRIC_NAME_ESCAPER_CONN_ATTEMPT, diff_value, &common_tags)
         .send();
     snap.conn_attempt = new_value;
 
-    let new_value = stats.get_conn_established();
+    let new_value = stats.connection_established();
     let diff_value = new_value.wrapping_sub(snap.conn_establish);
     client
         .count_with_tags(METRIC_NAME_ESCAPER_CONN_ESTABLISH, diff_value, &common_tags)
         .send();
     snap.conn_establish = new_value;
+
+    if let Some(tls_stats) = stats.tls_snapshot() {
+        emit_tls_stats(client, tls_stats, &mut snap.tls, &common_tags);
+    }
 
     if let Some(forbidden_stats) = stats.forbidden_snapshot() {
         emit_forbidden_stats(client, forbidden_stats, &mut snap.forbidden, &common_tags);
@@ -158,6 +167,30 @@ fn emit_escaper_stats(
     if let Some(udp_io_stats) = stats.udp_io_snapshot() {
         emit_udp_io_to_statsd(client, udp_io_stats, &mut snap.udp, &common_tags);
     }
+}
+
+fn emit_tls_stats(
+    client: &mut StatsdClient,
+    stats: EscaperTlsSnapshot,
+    snap: &mut EscaperTlsSnapshot,
+    common_tags: &StatsdTagGroup,
+) {
+    macro_rules! emit_optional_field {
+        ($field:ident, $name:expr) => {
+            let new_value = stats.$field;
+            if new_value != 0 || snap.$field != 0 {
+                let diff_value = new_value.wrapping_sub(snap.$field);
+                client
+                    .count_with_tags($name, diff_value, common_tags)
+                    .send();
+                snap.$field = new_value;
+            }
+        };
+    }
+
+    emit_optional_field!(handshake_success, METRIC_NAME_ESCAPER_TLS_HANDSHAKE_SUCCESS);
+    emit_optional_field!(handshake_error, METRIC_NAME_ESCAPER_TLS_HANDSHAKE_ERROR);
+    emit_optional_field!(handshake_timeout, METRIC_NAME_ESCAPER_TLS_HANDSHAKE_TIMEOUT);
 }
 
 fn emit_forbidden_stats(

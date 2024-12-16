@@ -24,7 +24,8 @@ use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
 
 use crate::escape::{
-    EscaperInterfaceStats, EscaperInternalStats, EscaperStats, EscaperTcpStats, EscaperUdpStats,
+    EscaperInterfaceStats, EscaperInternalStats, EscaperStats, EscaperTcpStats, EscaperTlsSnapshot,
+    EscaperTlsStats, EscaperUdpStats,
 };
 use crate::module::http_forward::HttpForwardTaskRemoteStats;
 use crate::module::udp_connect::UdpConnectTaskRemoteStats;
@@ -37,6 +38,7 @@ pub(crate) struct ProxyFloatEscaperStats {
     pub(crate) interface: EscaperInterfaceStats,
     pub(crate) tcp: EscaperTcpStats,
     pub(crate) udp: EscaperUdpStats,
+    pub(crate) tls: EscaperTlsStats,
 }
 
 impl ProxyFloatEscaperStats {
@@ -48,6 +50,7 @@ impl ProxyFloatEscaperStats {
             interface: EscaperInterfaceStats::default(),
             tcp: EscaperTcpStats::default(),
             udp: EscaperUdpStats::default(),
+            tls: EscaperTlsStats::default(),
         }
     }
 
@@ -89,12 +92,16 @@ impl EscaperStats for ProxyFloatEscaperStats {
         self.interface.get_task_total()
     }
 
-    fn get_conn_attempted(&self) -> u64 {
-        self.tcp.get_connection_attempted()
+    fn connection_attempted(&self) -> u64 {
+        self.tcp.connection_attempted()
     }
 
-    fn get_conn_established(&self) -> u64 {
-        self.tcp.get_connection_established()
+    fn connection_established(&self) -> u64 {
+        self.tcp.connection_established()
+    }
+
+    fn tls_snapshot(&self) -> Option<EscaperTlsSnapshot> {
+        Some(self.tls.snapshot())
     }
 
     fn tcp_io_snapshot(&self) -> Option<TcpIoSnapshot> {
