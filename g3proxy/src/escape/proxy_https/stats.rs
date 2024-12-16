@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2024 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,37 +21,32 @@ use arc_swap::ArcSwapOption;
 use g3_daemon::stat::remote::TcpConnectionTaskRemoteStats;
 use g3_io_ext::{LimitedReaderStats, LimitedWriterStats};
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
-use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
+use g3_types::stats::{StatId, TcpIoSnapshot};
 
 use crate::escape::{
-    EscaperForbiddenSnapshot, EscaperForbiddenStats, EscaperInterfaceStats, EscaperInternalStats,
-    EscaperStats, EscaperTcpStats, EscaperUdpStats,
+    EscaperInterfaceStats, EscaperInternalStats, EscaperStats, EscaperTcpStats, EscaperTlsSnapshot,
+    EscaperTlsStats,
 };
-use crate::module::ftp_over_http::{FtpTaskRemoteControlStats, FtpTaskRemoteTransferStats};
 use crate::module::http_forward::HttpForwardTaskRemoteStats;
-use crate::module::udp_connect::UdpConnectTaskRemoteStats;
-use crate::module::udp_relay::UdpRelayTaskRemoteStats;
 
-pub(crate) struct DirectFixedEscaperStats {
+pub(crate) struct ProxyHttpsEscaperStats {
     name: MetricsName,
     id: StatId,
     extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
-    pub(crate) forbidden: EscaperForbiddenStats,
     pub(crate) interface: EscaperInterfaceStats,
-    pub(crate) udp: EscaperUdpStats,
     pub(crate) tcp: EscaperTcpStats,
+    pub(crate) tls: EscaperTlsStats,
 }
 
-impl DirectFixedEscaperStats {
+impl ProxyHttpsEscaperStats {
     pub(crate) fn new(name: &MetricsName) -> Self {
-        DirectFixedEscaperStats {
+        ProxyHttpsEscaperStats {
             name: name.clone(),
             id: StatId::new(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
-            forbidden: Default::default(),
-            interface: Default::default(),
-            udp: Default::default(),
-            tcp: Default::default(),
+            interface: EscaperInterfaceStats::default(),
+            tcp: EscaperTcpStats::default(),
+            tls: EscaperTlsStats::default(),
         }
     }
 
@@ -60,7 +55,7 @@ impl DirectFixedEscaperStats {
     }
 }
 
-impl EscaperInternalStats for DirectFixedEscaperStats {
+impl EscaperInternalStats for ProxyHttpsEscaperStats {
     #[inline]
     fn add_http_forward_request_attempted(&self) {
         self.interface.add_http_forward_request_attempted();
@@ -72,7 +67,7 @@ impl EscaperInternalStats for DirectFixedEscaperStats {
     }
 }
 
-impl EscaperStats for DirectFixedEscaperStats {
+impl EscaperStats for ProxyHttpsEscaperStats {
     fn name(&self) -> &MetricsName {
         &self.name
     }
@@ -101,37 +96,30 @@ impl EscaperStats for DirectFixedEscaperStats {
         self.tcp.connection_established()
     }
 
-    #[inline]
+    fn tls_snapshot(&self) -> Option<EscaperTlsSnapshot> {
+        Some(self.tls.snapshot())
+    }
+
     fn tcp_io_snapshot(&self) -> Option<TcpIoSnapshot> {
         Some(self.tcp.io.snapshot())
     }
-
-    #[inline]
-    fn udp_io_snapshot(&self) -> Option<UdpIoSnapshot> {
-        Some(self.udp.io.snapshot())
-    }
-
-    #[inline]
-    fn forbidden_snapshot(&self) -> Option<EscaperForbiddenSnapshot> {
-        Some(self.forbidden.snapshot())
-    }
 }
 
-impl LimitedReaderStats for DirectFixedEscaperStats {
+impl LimitedReaderStats for ProxyHttpsEscaperStats {
     fn add_read_bytes(&self, size: usize) {
         let size = size as u64;
         self.tcp.io.add_in_bytes(size);
     }
 }
 
-impl LimitedWriterStats for DirectFixedEscaperStats {
+impl LimitedWriterStats for ProxyHttpsEscaperStats {
     fn add_write_bytes(&self, size: usize) {
         let size = size as u64;
         self.tcp.io.add_out_bytes(size);
     }
 }
 
-impl TcpConnectionTaskRemoteStats for DirectFixedEscaperStats {
+impl TcpConnectionTaskRemoteStats for ProxyHttpsEscaperStats {
     fn add_read_bytes(&self, size: u64) {
         self.tcp.io.add_in_bytes(size);
     }
@@ -141,68 +129,12 @@ impl TcpConnectionTaskRemoteStats for DirectFixedEscaperStats {
     }
 }
 
-impl HttpForwardTaskRemoteStats for DirectFixedEscaperStats {
+impl HttpForwardTaskRemoteStats for ProxyHttpsEscaperStats {
     fn add_read_bytes(&self, size: u64) {
         self.tcp.io.add_in_bytes(size);
     }
 
     fn add_write_bytes(&self, size: u64) {
         self.tcp.io.add_out_bytes(size);
-    }
-}
-
-impl FtpTaskRemoteControlStats for DirectFixedEscaperStats {
-    fn add_read_bytes(&self, size: u64) {
-        self.tcp.io.add_in_bytes(size);
-    }
-
-    fn add_write_bytes(&self, size: u64) {
-        self.tcp.io.add_out_bytes(size);
-    }
-}
-
-impl FtpTaskRemoteTransferStats for DirectFixedEscaperStats {
-    fn add_read_bytes(&self, size: u64) {
-        self.tcp.io.add_in_bytes(size);
-    }
-
-    fn add_write_bytes(&self, size: u64) {
-        self.tcp.io.add_out_bytes(size);
-    }
-}
-
-impl UdpRelayTaskRemoteStats for DirectFixedEscaperStats {
-    fn add_recv_bytes(&self, size: u64) {
-        self.udp.io.add_in_bytes(size);
-    }
-
-    fn add_recv_packets(&self, n: usize) {
-        self.udp.io.add_in_packets(n);
-    }
-
-    fn add_send_bytes(&self, size: u64) {
-        self.udp.io.add_out_bytes(size);
-    }
-
-    fn add_send_packets(&self, n: usize) {
-        self.udp.io.add_out_packets(n);
-    }
-}
-
-impl UdpConnectTaskRemoteStats for DirectFixedEscaperStats {
-    fn add_recv_bytes(&self, size: u64) {
-        self.udp.io.add_in_bytes(size);
-    }
-
-    fn add_recv_packets(&self, n: usize) {
-        self.udp.io.add_in_packets(n);
-    }
-
-    fn add_send_bytes(&self, size: u64) {
-        self.udp.io.add_out_bytes(size);
-    }
-
-    fn add_send_packets(&self, n: usize) {
-        self.udp.io.add_out_packets(n);
     }
 }

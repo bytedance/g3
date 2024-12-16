@@ -35,7 +35,6 @@ use crate::audit::AuditContext;
 use crate::auth::UserUpstreamTrafficStats;
 use crate::config::escaper::proxy_socks5s::ProxySocks5sEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
-use crate::escape::proxy_socks5::ProxySocks5EscaperStats;
 use crate::module::ftp_over_http::{
     ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpConnectContext,
     BoxFtpRemoteConnection, DirectFtpConnectContext,
@@ -56,6 +55,9 @@ use crate::module::udp_relay::{
 use crate::resolve::{ArcIntegratedResolverHandle, HappyEyeballsResolveJob};
 use crate::serve::ServerTaskNotes;
 
+mod stats;
+use stats::ProxySocks5sEscaperStats;
+
 mod http_forward;
 mod socks5_connect;
 mod tcp_connect;
@@ -65,7 +67,7 @@ mod udp_relay;
 
 pub(super) struct ProxySocks5sEscaper {
     config: Arc<ProxySocks5sEscaperConfig>,
-    stats: Arc<ProxySocks5EscaperStats>,
+    stats: Arc<ProxySocks5sEscaperStats>,
     proxy_nodes: SelectiveVec<WeightedUpstreamAddr>,
     tls_config: OpensslClientConfig,
     resolver_handle: Option<ArcIntegratedResolverHandle>,
@@ -75,7 +77,7 @@ pub(super) struct ProxySocks5sEscaper {
 impl ProxySocks5sEscaper {
     fn new_obj(
         config: ProxySocks5sEscaperConfig,
-        stats: Arc<ProxySocks5EscaperStats>,
+        stats: Arc<ProxySocks5sEscaperStats>,
     ) -> anyhow::Result<ArcEscaper> {
         let mut nodes_builder = SelectiveVecBuilder::new();
         for node in &config.proxy_nodes {
@@ -114,13 +116,13 @@ impl ProxySocks5sEscaper {
     }
 
     pub(super) fn prepare_initial(config: ProxySocks5sEscaperConfig) -> anyhow::Result<ArcEscaper> {
-        let stats = Arc::new(ProxySocks5EscaperStats::new(config.name()));
+        let stats = Arc::new(ProxySocks5sEscaperStats::new(config.name()));
         ProxySocks5sEscaper::new_obj(config, stats)
     }
 
     fn prepare_reload(
         config: AnyEscaperConfig,
-        stats: Arc<ProxySocks5EscaperStats>,
+        stats: Arc<ProxySocks5sEscaperStats>,
     ) -> anyhow::Result<ArcEscaper> {
         if let AnyEscaperConfig::ProxySocks5s(config) = config {
             ProxySocks5sEscaper::new_obj(config, stats)

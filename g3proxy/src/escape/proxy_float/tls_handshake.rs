@@ -49,8 +49,12 @@ impl ProxyFloatEscaper {
             .map_err(|e| TcpConnectError::InternalTlsClientError(anyhow::Error::new(e)))?;
 
         match tokio::time::timeout(self.tls_config.handshake_timeout, connector.connect()).await {
-            Ok(Ok(stream)) => Ok(stream),
+            Ok(Ok(stream)) => {
+                self.stats.tls.add_handshake_success();
+                Ok(stream)
+            }
             Ok(Err(e)) => {
+                self.stats.tls.add_handshake_error();
                 let e = anyhow::Error::new(e);
                 let tls_peer = UpstreamAddr::from(peer_addr);
                 EscapeLogForTlsHandshake {
@@ -65,6 +69,7 @@ impl ProxyFloatEscaper {
                 Err(TcpConnectError::PeerTlsHandshakeFailed(e))
             }
             Err(_) => {
+                self.stats.tls.add_handshake_timeout();
                 let tls_peer = UpstreamAddr::from(peer_addr);
                 let e = anyhow!("peer tls handshake timed out");
                 EscapeLogForTlsHandshake {

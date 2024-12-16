@@ -78,11 +78,11 @@ impl EscaperStats for DummyDenyEscaperStats {
         self.interface.get_task_total()
     }
 
-    fn get_conn_attempted(&self) -> u64 {
+    fn connection_attempted(&self) -> u64 {
         0
     }
 
-    fn get_conn_established(&self) -> u64 {
+    fn connection_established(&self) -> u64 {
         0
     }
 }
