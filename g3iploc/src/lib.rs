@@ -35,7 +35,7 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
     let frontend_stats = Arc::new(FrontendStats::default());
     let (quit_sender, _) = broadcast::channel(1);
     let (wait_sender, mut wait_receiver) =
-        mpsc::channel(g3_daemon::runtime::worker::worker_count().min(1));
+        mpsc::channel(g3_daemon::runtime::worker::worker_count().max(1));
 
     if let Some(stats_config) = g3_daemon::stat::config::get_global_stat_config() {
         stat::spawn_working_thread(stats_config, frontend_stats.clone())?;
@@ -68,6 +68,7 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
     debug!("received Ctrl-C signal, start shutdown now");
     drop(quit_sender);
 
+    drop(wait_sender);
     while let Some(id) = wait_receiver.recv().await {
         if let Some(id) = id {
             debug!("all requests in worker {id} served");
