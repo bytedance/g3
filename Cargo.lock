@@ -369,9 +369,9 @@ dependencies = [
 
 [[package]]
 name = "bssl-cmake-sys"
-version = "0.1.2412031"
+version = "0.1.2412090"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "094acf04cc94bacc6782b7ba251df06f85da64a9901c635f172b0cbea1659018"
+checksum = "9b892ebc7b53ca83fbe56c72eae49606496f8045fd248328f85e4382dad881fc"
 dependencies = [
  "bindgen 0.71.1",
  "cc",
@@ -438,9 +438,9 @@ dependencies = [
 
 [[package]]
 name = "c-ares-sys"
-version = "10.1.1"
+version = "10.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9d072d7bbd45edc741030bb3f9615c97416e6c882d734022cb0f8ce593758f4"
+checksum = "956111c5a0a893d6281b38fb1e6c6a206ce9eca22b73c40e30e3b02cbbc53b5d"
 dependencies = [
  "c-types",
  "cc",
@@ -686,9 +686,9 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-utils"
-version = "0.8.20"
+version = "0.8.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22ec99545bb0ed0ea7bb9b8e1e9122ea386ff8a48c0922e43f36d45ab09e0e80"
+checksum = "d0a5c400df2834b80a4c3327b3aad3a4c4cd4de0629063962b03235697506a28"
 
 [[package]]
 name = "csv"
