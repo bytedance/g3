@@ -1,4 +1,11 @@
 
+v1.11.1:
+ - Feature: retry HTTP connection if upstream close connection without any data in HTTP proxy/rproxy server
+ - Feature: add idle-timeout config option to connection pool
+ - Feature: add more tcp connect and tls handshake metrics in escaper
+ - Optimization: allow to use 0 idle connections in icap connection pool
+ - Optimization: use more detailed error message for OpenSSL stream
+
 v1.11.0:
  - Feature: add 'insecure' config option to OpenSSL Client config to skip cert verification
  - Feature: add more runtime metrics
