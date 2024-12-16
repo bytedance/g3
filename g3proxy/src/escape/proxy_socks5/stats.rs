@@ -24,7 +24,8 @@ use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
 
 use crate::escape::{
-    EscaperInterfaceStats, EscaperInternalStats, EscaperStats, EscaperTcpStats, EscaperUdpStats,
+    EscaperInterfaceStats, EscaperInternalStats, EscaperStats, EscaperTcpConnectSnapshot,
+    EscaperTcpStats, EscaperUdpStats,
 };
 use crate::module::http_forward::HttpForwardTaskRemoteStats;
 use crate::module::udp_connect::UdpConnectTaskRemoteStats;
@@ -95,6 +96,10 @@ impl EscaperStats for ProxySocks5EscaperStats {
 
     fn connection_established(&self) -> u64 {
         self.tcp.connection_established()
+    }
+
+    fn tcp_connect_snapshot(&self) -> Option<EscaperTcpConnectSnapshot> {
+        Some(self.tcp.connect_snapshot())
     }
 
     fn tcp_io_snapshot(&self) -> Option<TcpIoSnapshot> {

@@ -43,12 +43,9 @@ impl ProxyFloatEscaper {
             true,
         )
         .map_err(TcpConnectError::SetupSocketFailed)?;
-        self.stats.tcp.add_connection_attempted();
+        self.stats.tcp.connect.add_attempted();
         match sock.connect(peer).await {
-            Ok(ups_stream) => {
-                self.stats.tcp.add_connection_established();
-                Ok(ups_stream)
-            }
+            Ok(ups_stream) => Ok(ups_stream),
             Err(e) => Err(TcpConnectError::ConnectFailed(ConnectError::from(e))),
         }
     }
@@ -88,13 +85,18 @@ impl ProxyFloatEscaper {
         tcp_notes.duration = instant_now.elapsed();
         match ret {
             Ok(Ok(ups_stream)) => {
+                self.stats.tcp.connect.add_success();
+
                 let local_addr = ups_stream
                     .local_addr()
                     .map_err(TcpConnectError::SetupSocketFailed)?;
+                self.stats.tcp.connect.add_established();
                 tcp_notes.local = Some(local_addr);
                 Ok(ups_stream)
             }
             Ok(Err(e)) => {
+                self.stats.tcp.connect.add_error();
+
                 EscapeLogForTcpConnect {
                     upstream: task_conf.upstream,
                     tcp_notes,
@@ -104,6 +106,8 @@ impl ProxyFloatEscaper {
                 Err(e)
             }
             Err(_) => {
+                self.stats.tcp.connect.add_timeout();
+
                 let e = TcpConnectError::TimeoutByRule;
                 EscapeLogForTcpConnect {
                     upstream: task_conf.upstream,

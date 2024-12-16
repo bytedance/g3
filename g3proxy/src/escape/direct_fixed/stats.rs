@@ -25,7 +25,7 @@ use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
 
 use crate::escape::{
     EscaperForbiddenSnapshot, EscaperForbiddenStats, EscaperInterfaceStats, EscaperInternalStats,
-    EscaperStats, EscaperTcpStats, EscaperUdpStats,
+    EscaperStats, EscaperTcpConnectSnapshot, EscaperTcpStats, EscaperUdpStats,
 };
 use crate::module::ftp_over_http::{FtpTaskRemoteControlStats, FtpTaskRemoteTransferStats};
 use crate::module::http_forward::HttpForwardTaskRemoteStats;
@@ -99,6 +99,10 @@ impl EscaperStats for DirectFixedEscaperStats {
 
     fn connection_established(&self) -> u64 {
         self.tcp.connection_established()
+    }
+
+    fn tcp_connect_snapshot(&self) -> Option<EscaperTcpConnectSnapshot> {
+        Some(self.tcp.connect_snapshot())
     }
 
     #[inline]
