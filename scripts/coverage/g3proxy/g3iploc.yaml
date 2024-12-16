@@ -1,0 +1,4 @@
+---
+
+geoip_db:
+  country: ip_location.csv

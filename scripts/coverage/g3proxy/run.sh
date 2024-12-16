@@ -9,6 +9,10 @@
 "${PROJECT_DIR}"/target/debug/g3fcgen -c "${RUN_DIR}"/g3fcgen.yaml -G port2999 &
 FCGEN_PID=$!
 
+# start g3iploc
+"${PROJECT_DIR}"/target/debug/g3iploc -c "${RUN_DIR}"/g3iploc.yaml -G port2888 &
+IPLOC_PID=$!
+
 # run g3proxy integration tests
 
 export SSL_CERT_FILE="${RUN_DIR}/rootCA.pem"
@@ -46,6 +50,7 @@ done
 
 set +x
 
+kill -INT $IPLOC_PID
 kill -INT $FCGEN_PID
 NGINX_PID=$(cat /tmp/nginx.pid)
 kill -INT $NGINX_PID
