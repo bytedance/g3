@@ -128,22 +128,24 @@ impl DirectFloatEscaper {
 
         let instant_now = Instant::now();
 
-        self.stats.tcp.add_connection_attempted();
+        self.stats.tcp.connect.add_attempted();
         tcp_notes.tries = 1;
         match tokio::time::timeout(config.connect.each_timeout(), sock.connect(peer)).await {
             Ok(Ok(ups_stream)) => {
+                self.stats.tcp.connect.add_success();
                 tcp_notes.duration = instant_now.elapsed();
 
-                self.stats.tcp.add_connection_established();
                 let local_addr = ups_stream
                     .local_addr()
                     .map_err(TcpConnectError::SetupSocketFailed)?;
+                self.stats.tcp.connect.add_established();
                 tcp_notes.local = Some(local_addr);
                 tcp_notes.chained.target_addr = Some(peer);
                 tcp_notes.chained.outgoing_addr = Some(local_addr);
                 Ok((ups_stream, bind))
             }
             Ok(Err(e)) => {
+                self.stats.tcp.connect.add_error();
                 tcp_notes.duration = instant_now.elapsed();
 
                 let e = TcpConnectError::ConnectFailed(ConnectError::from(e));
@@ -156,6 +158,7 @@ impl DirectFloatEscaper {
                 Err(e)
             }
             Err(_) => {
+                self.stats.tcp.connect.add_timeout();
                 tcp_notes.duration = instant_now.elapsed();
 
                 let e = TcpConnectError::TimeoutByRule;
@@ -216,16 +219,26 @@ impl DirectFloatEscaper {
                     running_connection += 1;
                     spawn_new_connection = false;
                     tcp_notes.tries += 1;
-                    self.stats.tcp.add_connection_attempted();
+                    let stats = self.stats.clone();
                     c_set.spawn(async move {
+                        stats.tcp.connect.add_attempted();
                         match tokio::time::timeout(each_timeout, sock.connect(peer)).await {
-                            Ok(Ok(stream)) => (Ok(stream), peer, bind),
-                            Ok(Err(e)) => (
-                                Err(TcpConnectError::ConnectFailed(ConnectError::from(e))),
-                                peer,
-                                bind,
-                            ),
-                            Err(_) => (Err(TcpConnectError::TimeoutByRule), peer, bind),
+                            Ok(Ok(stream)) => {
+                                stats.tcp.connect.add_success();
+                                (Ok(stream), peer, bind)
+                            }
+                            Ok(Err(e)) => {
+                                stats.tcp.connect.add_error();
+                                (
+                                    Err(TcpConnectError::ConnectFailed(ConnectError::from(e))),
+                                    peer,
+                                    bind,
+                                )
+                            }
+                            Err(_) => {
+                                stats.tcp.connect.add_timeout();
+                                (Err(TcpConnectError::TimeoutByRule), peer, bind)
+                            }
                         }
                     });
                     connect_interval.reset();
@@ -249,10 +262,10 @@ impl DirectFloatEscaper {
                                 tcp_notes.egress = Some(bind.egress_info.clone());
                                 match r.0 {
                                     Ok(ups_stream) => {
-                                        self.stats.tcp.add_connection_established();
                                         let local_addr = ups_stream
                                             .local_addr()
                                             .map_err(TcpConnectError::SetupSocketFailed)?;
+                                        self.stats.tcp.connect.add_established();
                                         tcp_notes.local = Some(local_addr);
                                         tcp_notes.chained.target_addr = Some(peer_addr);
                                         tcp_notes.chained.outgoing_addr = Some(local_addr);

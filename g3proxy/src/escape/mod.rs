@@ -51,8 +51,9 @@ pub(crate) use registry::{foreach as foreach_escaper, get_names, get_or_insert_d
 mod stats;
 pub(crate) use stats::{
     ArcEscaperInternalStats, ArcEscaperStats, EscaperForbiddenSnapshot, EscaperForbiddenStats,
-    EscaperInterfaceStats, EscaperInternalStats, EscaperStats, EscaperTcpStats, EscaperTlsSnapshot,
-    EscaperTlsStats, EscaperUdpStats, RouteEscaperSnapshot, RouteEscaperStats,
+    EscaperInterfaceStats, EscaperInternalStats, EscaperStats, EscaperTcpConnectSnapshot,
+    EscaperTcpStats, EscaperTlsSnapshot, EscaperTlsStats, EscaperUdpStats, RouteEscaperSnapshot,
+    RouteEscaperStats,
 };
 
 mod egress_path;

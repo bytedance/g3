@@ -27,13 +27,18 @@ use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
 
 use super::TAG_KEY_ESCAPER;
 use crate::escape::{
-    ArcEscaperStats, EscaperForbiddenSnapshot, EscaperTlsSnapshot, RouteEscaperSnapshot,
-    RouteEscaperStats,
+    ArcEscaperStats, EscaperForbiddenSnapshot, EscaperTcpConnectSnapshot, EscaperTlsSnapshot,
+    RouteEscaperSnapshot, RouteEscaperStats,
 };
 
 const METRIC_NAME_ESCAPER_TASK_TOTAL: &str = "escaper.task.total";
 const METRIC_NAME_ESCAPER_CONN_ATTEMPT: &str = "escaper.connection.attempt";
 const METRIC_NAME_ESCAPER_CONN_ESTABLISH: &str = "escaper.connection.establish";
+const METRIC_NAME_ESCAPER_TCP_CONNECT_ATTEMPT: &str = "escaper.tcp.connect.attempt";
+const METRIC_NAME_ESCAPER_TCP_CONNECT_ESTABLISH: &str = "escaper.tcp.connect.establish";
+const METRIC_NAME_ESCAPER_TCP_CONNECT_SUCCESS: &str = "escaper.tcp.connect.success";
+const METRIC_NAME_ESCAPER_TCP_CONNECT_ERROR: &str = "escaper.tcp.connect.error";
+const METRIC_NAME_ESCAPER_TCP_CONNECT_TIMEOUT: &str = "escaper.tcp.connect.timeout";
 const METRIC_NAME_ESCAPER_TLS_HANDSHAKE_SUCCESS: &str = "escaper.tls.handshake.success";
 const METRIC_NAME_ESCAPER_TLS_HANDSHAKE_ERROR: &str = "escaper.tls.handshake.error";
 const METRIC_NAME_ESCAPER_TLS_HANDSHAKE_TIMEOUT: &str = "escaper.tls.handshake.timeout";
@@ -72,6 +77,7 @@ struct EscaperSnapshot {
     task_total: u64,
     conn_attempt: u64,
     conn_establish: u64,
+    tcp_connect: EscaperTcpConnectSnapshot,
     tls: EscaperTlsSnapshot,
     tcp: TcpIoSnapshot,
     udp: UdpIoSnapshot,
@@ -152,6 +158,10 @@ fn emit_escaper_stats(
         .send();
     snap.conn_establish = new_value;
 
+    if let Some(connect_stats) = stats.tcp_connect_snapshot() {
+        emit_tcp_connect_stats(client, connect_stats, &mut snap.tcp_connect, &common_tags);
+    }
+
     if let Some(tls_stats) = stats.tls_snapshot() {
         emit_tls_stats(client, tls_stats, &mut snap.tls, &common_tags);
     }
@@ -167,6 +177,32 @@ fn emit_escaper_stats(
     if let Some(udp_io_stats) = stats.udp_io_snapshot() {
         emit_udp_io_to_statsd(client, udp_io_stats, &mut snap.udp, &common_tags);
     }
+}
+
+fn emit_tcp_connect_stats(
+    client: &mut StatsdClient,
+    stats: EscaperTcpConnectSnapshot,
+    snap: &mut EscaperTcpConnectSnapshot,
+    common_tags: &StatsdTagGroup,
+) {
+    macro_rules! emit_optional_field {
+        ($field:ident, $name:expr) => {
+            let new_value = stats.$field;
+            if new_value != 0 || snap.$field != 0 {
+                let diff_value = new_value.wrapping_sub(snap.$field);
+                client
+                    .count_with_tags($name, diff_value, common_tags)
+                    .send();
+                snap.$field = new_value;
+            }
+        };
+    }
+
+    emit_optional_field!(attempt, METRIC_NAME_ESCAPER_TCP_CONNECT_ATTEMPT);
+    emit_optional_field!(establish, METRIC_NAME_ESCAPER_TCP_CONNECT_ESTABLISH);
+    emit_optional_field!(success, METRIC_NAME_ESCAPER_TCP_CONNECT_SUCCESS);
+    emit_optional_field!(error, METRIC_NAME_ESCAPER_TCP_CONNECT_ERROR);
+    emit_optional_field!(timeout, METRIC_NAME_ESCAPER_TCP_CONNECT_TIMEOUT);
 }
 
 fn emit_tls_stats(

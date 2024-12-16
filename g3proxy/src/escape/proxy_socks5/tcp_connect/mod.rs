@@ -83,7 +83,7 @@ impl ProxySocks5Escaper {
 
         let instant_now = Instant::now();
 
-        self.stats.tcp.add_connection_attempted();
+        self.stats.tcp.connect.add_attempted();
         tcp_notes.tries = 1;
         match tokio::time::timeout(
             self.config.general.tcp_connect.each_timeout(),
@@ -92,17 +92,19 @@ impl ProxySocks5Escaper {
         .await
         {
             Ok(Ok(ups_stream)) => {
+                self.stats.tcp.connect.add_success();
                 tcp_notes.duration = instant_now.elapsed();
 
-                self.stats.tcp.add_connection_established();
                 let local_addr = ups_stream
                     .local_addr()
                     .map_err(TcpConnectError::SetupSocketFailed)?;
+                self.stats.tcp.connect.add_established();
                 tcp_notes.local = Some(local_addr);
                 // the chained outgoing addr is not detected at here
                 Ok(ups_stream)
             }
             Ok(Err(e)) => {
+                self.stats.tcp.connect.add_error();
                 tcp_notes.duration = instant_now.elapsed();
 
                 let e = TcpConnectError::ConnectFailed(ConnectError::from(e));
@@ -115,6 +117,7 @@ impl ProxySocks5Escaper {
                 Err(e)
             }
             Err(_) => {
+                self.stats.tcp.connect.add_timeout();
                 tcp_notes.duration = instant_now.elapsed();
 
                 let e = TcpConnectError::TimeoutByRule;
@@ -174,16 +177,26 @@ impl ProxySocks5Escaper {
                     running_connection += 1;
                     spawn_new_connection = false;
                     tcp_notes.tries += 1;
-                    self.stats.tcp.add_connection_attempted();
+                    let stats = self.stats.clone();
                     c_set.spawn(async move {
+                        stats.tcp.connect.add_attempted();
                         match tokio::time::timeout(each_timeout, sock.connect(peer)).await {
-                            Ok(Ok(stream)) => (Ok(stream), peer, bind),
-                            Ok(Err(e)) => (
-                                Err(TcpConnectError::ConnectFailed(ConnectError::from(e))),
-                                peer,
-                                bind,
-                            ),
-                            Err(_) => (Err(TcpConnectError::TimeoutByRule), peer, bind),
+                            Ok(Ok(stream)) => {
+                                stats.tcp.connect.add_success();
+                                (Ok(stream), peer, bind)
+                            }
+                            Ok(Err(e)) => {
+                                stats.tcp.connect.add_error();
+                                (
+                                    Err(TcpConnectError::ConnectFailed(ConnectError::from(e))),
+                                    peer,
+                                    bind,
+                                )
+                            }
+                            Err(_) => {
+                                stats.tcp.connect.add_timeout();
+                                (Err(TcpConnectError::TimeoutByRule), peer, bind)
+                            }
                         }
                     });
                     connect_interval.reset();
@@ -204,10 +217,10 @@ impl ProxySocks5Escaper {
                                 tcp_notes.bind = r.2;
                                 match r.0 {
                                     Ok(ups_stream) => {
-                                        self.stats.tcp.add_connection_established();
                                         let local_addr = ups_stream
                                             .local_addr()
                                             .map_err(TcpConnectError::SetupSocketFailed)?;
+                                        self.stats.tcp.connect.add_established();
                                         tcp_notes.local = Some(local_addr);
                                         // the chained outgoing addr is not detected at here
                                         return Ok(ups_stream);

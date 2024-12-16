@@ -43,6 +43,51 @@ The metric names are:
 
   Show the count of established connections to remote.
 
+* escaper.tcp.connect.attempt
+
+  **type**: count
+
+  Show the count of attempt to TCP connect to the next peer.
+
+  .. versionadded:: 1.11.1
+
+* escaper.tcp.connect.establish
+
+  **type**: count
+
+  Show the count of established TCP connections to the next peer that will be used by tasks.
+
+  .. versionadded:: 1.11.1
+
+* escaper.tcp.connect.success
+
+  **type**: count
+
+  Show the count of success TCP connect to the next peer.
+
+  .. note::
+
+    This is different than *escaper.tcp.connect.establish*, as we may try connect may times in HappyEyeballs,
+    but only one successful connection will be used by the task.
+
+  .. versionadded:: 1.11.1
+
+* escaper.tcp.connect.error
+
+  **type**: count
+
+  Show the count of failed (error encountered) TCP connect to the next peer.
+
+  .. versionadded:: 1.11.1
+
+* escaper.tcp.connect.timeout
+
+  **type**: count
+
+  Show the count of failed TCP connect to the next peer due to timeout.
+
+  .. versionadded:: 1.11.1
+
 * escaper.tls.handshake.success
 
   **type**: count

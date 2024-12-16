@@ -40,6 +40,10 @@ pub(crate) trait EscaperStats: EscaperInternalStats {
     fn connection_attempted(&self) -> u64;
     fn connection_established(&self) -> u64;
 
+    fn tcp_connect_snapshot(&self) -> Option<EscaperTcpConnectSnapshot> {
+        None
+    }
+
     fn tls_snapshot(&self) -> Option<EscaperTlsSnapshot> {
         None
     }
@@ -164,27 +168,72 @@ impl EscaperInterfaceStats {
 }
 
 #[derive(Default)]
+pub(crate) struct EscaperTcpConnectSnapshot {
+    pub(crate) attempt: u64,
+    pub(crate) establish: u64,
+    pub(crate) success: u64,
+    pub(crate) error: u64,
+    pub(crate) timeout: u64,
+}
+
+#[derive(Default)]
+pub(super) struct EscaperTcpConnectStats {
+    attempted: AtomicU64,
+    established: AtomicU64,
+    success: AtomicU64,
+    error: AtomicU64,
+    timeout: AtomicU64,
+}
+
+impl EscaperTcpConnectStats {
+    pub(super) fn add_attempted(&self) {
+        self.attempted.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn add_established(&self) {
+        self.established.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn add_success(&self) {
+        self.success.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn add_error(&self) {
+        self.error.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn add_timeout(&self) {
+        self.error.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn snapshot(&self) -> EscaperTcpConnectSnapshot {
+        EscaperTcpConnectSnapshot {
+            attempt: self.attempted.load(Ordering::Relaxed),
+            establish: self.established.load(Ordering::Relaxed),
+            success: self.success.load(Ordering::Relaxed),
+            error: self.error.load(Ordering::Relaxed),
+            timeout: self.timeout.load(Ordering::Relaxed),
+        }
+    }
+}
+
+#[derive(Default)]
 pub(crate) struct EscaperTcpStats {
-    connection_attempted: AtomicU64,
-    connection_established: AtomicU64,
+    pub(super) connect: EscaperTcpConnectStats,
     pub(crate) io: TcpIoStats,
 }
 
 impl EscaperTcpStats {
-    pub(crate) fn add_connection_attempted(&self) {
-        self.connection_attempted.fetch_add(1, Ordering::Relaxed);
-    }
-
     pub(crate) fn connection_attempted(&self) -> u64 {
-        self.connection_attempted.load(Ordering::Relaxed)
-    }
-
-    pub(crate) fn add_connection_established(&self) {
-        self.connection_established.fetch_add(1, Ordering::Relaxed);
+        self.connect.attempted.load(Ordering::Relaxed)
     }
 
     pub(crate) fn connection_established(&self) -> u64 {
-        self.connection_established.load(Ordering::Relaxed)
+        self.connect.established.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn connect_snapshot(&self) -> EscaperTcpConnectSnapshot {
+        self.connect.snapshot()
     }
 }
 

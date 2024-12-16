@@ -23,7 +23,10 @@ use g3_io_ext::{LimitedReaderStats, LimitedWriterStats};
 use g3_types::metrics::{MetricsName, StaticMetricsTags};
 use g3_types::stats::{StatId, TcpIoSnapshot};
 
-use crate::escape::{EscaperInterfaceStats, EscaperInternalStats, EscaperStats, EscaperTcpStats};
+use crate::escape::{
+    EscaperInterfaceStats, EscaperInternalStats, EscaperStats, EscaperTcpConnectSnapshot,
+    EscaperTcpStats,
+};
 use crate::module::http_forward::HttpForwardTaskRemoteStats;
 
 pub(crate) struct DivertTcpEscaperStats {
@@ -89,6 +92,10 @@ impl EscaperStats for DivertTcpEscaperStats {
 
     fn connection_established(&self) -> u64 {
         self.tcp.connection_established()
+    }
+
+    fn tcp_connect_snapshot(&self) -> Option<EscaperTcpConnectSnapshot> {
+        Some(self.tcp.connect_snapshot())
     }
 
     fn tcp_io_snapshot(&self) -> Option<TcpIoSnapshot> {
