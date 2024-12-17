@@ -225,7 +225,7 @@ where
                     let mut body_reader = body.body_reader();
                     let mut sinker = tokio::io::sink();
                     let _ = tokio::io::copy(&mut body_reader, &mut sinker).await;
-                    if body_reader.finished() {
+                    if body_reader.trailer(128).await.is_ok() {
                         body.save_connection().await;
                     }
                 }
