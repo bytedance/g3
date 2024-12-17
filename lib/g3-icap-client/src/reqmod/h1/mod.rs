@@ -54,7 +54,8 @@ pub trait HttpRequestForAdaptation {
     fn body_type(&self) -> Option<HttpBodyType>;
     fn serialize_for_adapter(&self) -> Vec<u8>;
     fn append_upgrade_header(&self, buf: &mut Vec<u8>);
-    fn adapt_to(&self, other: HttpAdaptedRequest) -> Self;
+    fn adapt_with_body(&self, other: HttpAdaptedRequest) -> Self;
+    fn adapt_without_body(&self, other: HttpAdaptedRequest) -> Self;
 }
 
 #[allow(async_fn_in_trait)]

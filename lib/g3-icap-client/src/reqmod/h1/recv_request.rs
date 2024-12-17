@@ -145,7 +145,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             self.http_req_add_no_via_header,
         )
         .await?;
-        let final_req = orig_http_request.adapt_to(http_req);
+        let final_req = orig_http_request.adapt_without_body(http_req);
 
         if icap_rsp.keep_alive {
             self.icap_client.save_connection(self.icap_connection).await;
@@ -172,7 +172,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         )
         .await?;
 
-        let final_req = orig_http_request.adapt_to(http_req);
+        let final_req = orig_http_request.adapt_without_body(http_req);
         ups_writer
             .send_request_header(&final_req)
             .await
@@ -210,7 +210,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         .await?;
         let body_content_length = http_req.content_length;
 
-        let final_req = orig_http_request.adapt_to(http_req);
+        let final_req = orig_http_request.adapt_with_body(http_req);
         ups_writer
             .send_request_header(&final_req)
             .await

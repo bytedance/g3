@@ -65,7 +65,7 @@ impl HttpForwardRemoteResponse {
         }
     }
 
-    pub fn adapt_to(&self, adapted: HttpAdaptedResponse) -> Self {
+    pub fn adapt_with_body(&self, adapted: HttpAdaptedResponse) -> Self {
         let mut hop_by_hop_headers = self.hop_by_hop_headers.clone();
         match adapted.content_length {
             Some(content_length) => {
@@ -116,6 +116,34 @@ impl HttpForwardRemoteResponse {
                     has_keep_alive: self.has_keep_alive,
                 }
             }
+        }
+    }
+
+    pub fn adapt_without_body(&self, adapted: HttpAdaptedResponse) -> Self {
+        let mut hop_by_hop_headers = self.hop_by_hop_headers.clone();
+        hop_by_hop_headers.remove(header::TRANSFER_ENCODING);
+        let mut end_to_end_headers = adapted.headers;
+        if let Some(mut v) = end_to_end_headers.remove(header::CONTENT_LENGTH) {
+            v.set_static_value("0");
+            end_to_end_headers.insert(header::CONTENT_LENGTH, v);
+        } else {
+            end_to_end_headers.insert(header::CONTENT_LENGTH, HttpHeaderValue::from_static("0"));
+        }
+        HttpForwardRemoteResponse {
+            version: adapted.version,
+            code: adapted.status.as_u16(),
+            reason: adapted.reason,
+            end_to_end_headers,
+            hop_by_hop_headers,
+            original_connection_name: self.original_connection_name.clone(),
+            extra_connection_headers: self.extra_connection_headers.clone(),
+            origin_header_size: self.origin_header_size,
+            keep_alive: self.keep_alive,
+            content_length: 0,
+            chunked_transfer: false,
+            has_transfer_encoding: false,
+            has_content_length: true,
+            has_keep_alive: self.has_keep_alive,
         }
     }
 
