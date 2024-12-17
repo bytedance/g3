@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+use std::io;
+
 use http::Method;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
@@ -35,8 +37,12 @@ impl HttpResponseForAdaptation for HttpForwardRemoteResponse {
         self.serialize_for_adapter()
     }
 
-    fn adapt_to(&self, other: HttpAdaptedResponse) -> Self {
-        self.adapt_to(other)
+    fn adapt_with_body(&self, other: HttpAdaptedResponse) -> Self {
+        self.adapt_with_body(other)
+    }
+
+    fn adapt_without_body(&self, other: HttpAdaptedResponse) -> Self {
+        self.adapt_without_body(other)
     }
 }
 
@@ -53,8 +59,12 @@ impl HttpResponseForAdaptation for HttpTransparentResponse {
         self.serialize_for_adapter()
     }
 
-    fn adapt_to(&self, other: HttpAdaptedResponse) -> Self {
-        self.adapt_to(other)
+    fn adapt_with_body(&self, other: HttpAdaptedResponse) -> Self {
+        self.adapt_with_body(other)
+    }
+
+    fn adapt_without_body(&self, other: HttpAdaptedResponse) -> Self {
+        self.adapt_without_body(other)
     }
 }
 
@@ -63,7 +73,7 @@ where
     W: AsyncWrite + Send + Unpin,
     H: HttpResponseForAdaptation + Sync,
 {
-    async fn send_response_header(&mut self, req: &H) -> std::io::Result<()> {
+    async fn send_response_header(&mut self, req: &H) -> io::Result<()> {
         let head = req.serialize_for_client();
         self.write_all(&head).await
     }

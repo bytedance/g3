@@ -50,7 +50,8 @@ pub trait HttpResponseForAdaptation {
     fn body_type(&self, method: &Method) -> Option<HttpBodyType>;
     fn serialize_for_client(&self) -> Vec<u8>;
     fn serialize_for_adapter(&self) -> Vec<u8>;
-    fn adapt_to(&self, other: HttpAdaptedResponse) -> Self;
+    fn adapt_with_body(&self, other: HttpAdaptedResponse) -> Self;
+    fn adapt_without_body(&self, other: HttpAdaptedResponse) -> Self;
 }
 
 #[allow(async_fn_in_trait)]
