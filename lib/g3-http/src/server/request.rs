@@ -68,7 +68,7 @@ impl HttpProxyClientRequest {
         }
     }
 
-    pub fn adapt_to(&self, adapted: HttpAdaptedRequest) -> Self {
+    pub fn adapt_with_body(&self, adapted: HttpAdaptedRequest) -> Self {
         let mut hop_by_hop_headers = self.hop_by_hop_headers.clone();
         match adapted.content_length {
             Some(content_length) => {
@@ -121,6 +121,28 @@ impl HttpProxyClientRequest {
                     has_content_length: false,
                 }
             }
+        }
+    }
+
+    pub fn adapt_without_body(&self, adapted: HttpAdaptedRequest) -> Self {
+        let mut hop_by_hop_headers = self.hop_by_hop_headers.clone();
+        hop_by_hop_headers.remove(header::TRANSFER_ENCODING);
+        HttpProxyClientRequest {
+            version: adapted.version,
+            method: adapted.method,
+            uri: adapted.uri,
+            end_to_end_headers: adapted.headers,
+            hop_by_hop_headers,
+            auth_info: HttpAuth::None,
+            host: None,
+            original_connection_name: self.original_connection_name.clone(),
+            extra_connection_headers: self.extra_connection_headers.clone(),
+            origin_header_size: self.origin_header_size,
+            keep_alive: self.keep_alive,
+            content_length: 0,
+            chunked_transfer: false,
+            has_transfer_encoding: false,
+            has_content_length: false,
         }
     }
 

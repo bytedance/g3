@@ -43,8 +43,12 @@ impl HttpRequestForAdaptation for HttpProxyClientRequest {
         }
     }
 
-    fn adapt_to(&self, other: HttpAdaptedRequest) -> Self {
-        self.adapt_to(other)
+    fn adapt_with_body(&self, other: HttpAdaptedRequest) -> Self {
+        self.adapt_with_body(other)
+    }
+
+    fn adapt_without_body(&self, other: HttpAdaptedRequest) -> Self {
+        self.adapt_without_body(other)
     }
 }
 
@@ -69,7 +73,11 @@ impl HttpRequestForAdaptation for HttpTransparentRequest {
         }
     }
 
-    fn adapt_to(&self, other: HttpAdaptedRequest) -> Self {
-        self.adapt_to(other)
+    fn adapt_with_body(&self, other: HttpAdaptedRequest) -> Self {
+        self.adapt_with_body(other)
+    }
+
+    fn adapt_without_body(&self, other: HttpAdaptedRequest) -> Self {
+        self.adapt_without_body(other)
     }
 }
