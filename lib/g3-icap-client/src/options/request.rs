@@ -51,11 +51,16 @@ impl<'a> IcapOptionsRequest<'a> {
         conn: &mut IcapClientConnection,
         max_header_size: usize,
     ) -> Result<IcapServiceOptions, IcapOptionsParseError> {
-        self.send(&mut conn.0)
+        self.send(&mut conn.writer)
             .await
             .map_err(IcapOptionsParseError::IoFailed)?;
+        conn.mark_writer_finished();
+
         let mut options =
-            IcapServiceOptions::parse(&mut conn.1, self.config.method, max_header_size).await?;
+            IcapServiceOptions::parse(&mut conn.reader, self.config.method, max_header_size)
+                .await?;
+        conn.mark_reader_finished();
+
         if !self.config.icap_206_enable {
             options.support_206 = false;
         }

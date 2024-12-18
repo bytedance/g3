@@ -68,7 +68,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
         let icap_header =
             self.build_forward_all_request(http_req_header.len(), http_rsp_header.len());
 
-        let icap_w = &mut self.icap_connection.0;
+        let icap_w = &mut self.icap_connection.writer;
         icap_w
             .write_all_vectored([
                 IoSlice::new(&icap_header),
@@ -80,14 +80,14 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
 
         let mut body_transfer = H1BodyToChunkedTransfer::new(
             ups_body_io,
-            &mut self.icap_connection.0,
+            &mut self.icap_connection.writer,
             ups_body_type,
             self.http_body_line_max_size,
             self.copy_config,
         );
         let bidirectional_transfer = BidirectionalRecvIcapResponse {
             icap_client: &self.icap_client,
-            icap_reader: &mut self.icap_connection.1,
+            icap_reader: &mut self.icap_connection.reader,
             idle_checker: &self.idle_checker,
         };
         let rsp = bidirectional_transfer
@@ -98,8 +98,17 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
         }
 
         match rsp.payload {
-            IcapRespmodResponsePayload::NoPayload => self.handle_icap_ok_without_payload(rsp).await,
+            IcapRespmodResponsePayload::NoPayload => {
+                if body_transfer.finished() {
+                    self.icap_connection.mark_writer_finished();
+                }
+                self.icap_connection.mark_reader_finished();
+                self.handle_icap_ok_without_payload(rsp).await
+            }
             IcapRespmodResponsePayload::HttpResponseWithoutBody(header_size) => {
+                if body_transfer.finished() {
+                    self.icap_connection.mark_writer_finished();
+                }
                 self.handle_icap_http_response_without_body(
                     state,
                     rsp,
@@ -111,6 +120,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
             }
             IcapRespmodResponsePayload::HttpResponseWithBody(header_size) => {
                 if body_transfer.finished() {
+                    self.icap_connection.mark_writer_finished();
                     self.handle_icap_http_response_with_body_after_transfer(
                         state,
                         rsp,
@@ -120,27 +130,31 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
                     )
                     .await
                 } else {
-                    let icap_keepalive = rsp.keep_alive;
-                    let bidirectional_transfer = BidirectionalRecvHttpResponse {
+                    let mut bidirectional_transfer = BidirectionalRecvHttpResponse {
                         http_body_line_max_size: self.http_body_line_max_size,
                         copy_config: self.copy_config,
                         idle_checker: &self.idle_checker,
+                        http_header_size: header_size,
+                        icap_read_finished: false,
                     };
                     let r = bidirectional_transfer
                         .transfer(
                             state,
                             &mut body_transfer,
-                            header_size,
                             http_response,
-                            &mut self.icap_connection.1,
+                            &mut self.icap_connection.reader,
                             clt_writer,
                         )
                         .await?;
                     if body_transfer.finished() {
                         state.mark_ups_recv_all();
-                    }
-                    if icap_keepalive && state.icap_io_finished {
-                        self.icap_client.save_connection(self.icap_connection).await;
+                        self.icap_connection.mark_writer_finished();
+                        if bidirectional_transfer.icap_read_finished {
+                            self.icap_connection.mark_reader_finished();
+                            if rsp.keep_alive {
+                                self.icap_client.save_connection(self.icap_connection);
+                            }
+                        }
                     }
                     Ok(r)
                 }

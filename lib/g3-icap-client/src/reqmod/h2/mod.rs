@@ -95,7 +95,6 @@ pub struct ReqmodAdaptationRunState {
     pub dur_ups_send_header: Option<Duration>,
     pub dur_ups_send_all: Option<Duration>,
     pub dur_ups_recv_header: Option<Duration>,
-    pub(crate) icap_io_finished: bool,
     pub(crate) respond_shared_headers: Option<HttpHeaderMap>,
 }
 
@@ -106,7 +105,6 @@ impl ReqmodAdaptationRunState {
             dur_ups_send_header: None,
             dur_ups_send_all: None,
             dur_ups_recv_header: None,
-            icap_io_finished: false,
             respond_shared_headers: None,
         }
     }
@@ -211,7 +209,7 @@ impl ReqmodRecvHttpResponseBody {
         send_stream: &'a mut SendStream<Bytes>,
     ) -> H2StreamFromChunkedTransfer<'a, IcapClientReader> {
         H2StreamFromChunkedTransfer::new(
-            &mut self.icap_connection.1,
+            &mut self.icap_connection.reader,
             send_stream,
             &self.copy_config,
             self.http_body_line_max_size,
@@ -219,9 +217,10 @@ impl ReqmodRecvHttpResponseBody {
         )
     }
 
-    pub async fn save_connection(self) {
+    pub async fn save_connection(mut self) {
+        self.icap_connection.mark_reader_finished();
         if self.icap_keepalive {
-            self.icap_client.save_connection(self.icap_connection).await;
+            self.icap_client.save_connection(self.icap_connection);
         }
     }
 }

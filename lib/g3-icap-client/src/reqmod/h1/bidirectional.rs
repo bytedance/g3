@@ -125,14 +125,15 @@ pub(super) struct BidirectionalRecvHttpRequest<'a, I: IdleCheck> {
     pub(super) http_req_add_no_via_header: bool,
     pub(super) copy_config: LimitedCopyConfig,
     pub(super) idle_checker: &'a I,
+    pub(crate) http_header_size: usize,
+    pub(crate) icap_read_finished: bool,
 }
 
 impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
     pub(super) async fn transfer<H, CR, UW>(
-        self,
+        &mut self,
         state: &mut ReqmodAdaptationRunState,
         clt_body_transfer: &mut H1BodyToChunkedTransfer<'_, CR, IcapClientWriter>,
-        http_header_size: usize,
         orig_http_request: &H,
         icap_reader: &mut IcapClientReader,
         ups_writer: &mut UW,
@@ -144,7 +145,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
     {
         let http_req = HttpAdaptedRequest::parse(
             icap_reader,
-            http_header_size,
+            self.http_header_size,
             self.http_req_add_no_via_header,
         )
         .await?;
@@ -171,8 +172,8 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
 
                 state.mark_ups_send_all();
                 let copied = ups_body_transfer.copied_size();
-                if clt_body_transfer.finished() && ups_body_reader.trailer(128).await.is_ok() {
-                    state.icap_io_finished = true;
+                if ups_body_reader.trailer(128).await.is_ok() {
+                    self.icap_read_finished = true;
                 }
 
                 if copied != expected {
@@ -191,8 +192,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                     .await?;
 
                 state.mark_ups_send_all();
-                state.icap_io_finished =
-                    clt_body_transfer.finished() && ups_body_transfer.finished();
+                self.icap_read_finished = ups_body_transfer.finished();
 
                 Ok(ReqmodAdaptationEndState::AdaptedTransferred(final_req))
             }

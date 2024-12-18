@@ -123,14 +123,15 @@ pub(super) struct BidirectionalRecvHttpResponse<'a, I: IdleCheck> {
     pub(super) http_body_line_max_size: usize,
     pub(super) copy_config: LimitedCopyConfig,
     pub(super) idle_checker: &'a I,
+    pub(super) http_header_size: usize,
+    pub(super) icap_read_finished: bool,
 }
 
 impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
     pub(super) async fn transfer<H, UR, CW>(
-        self,
+        &mut self,
         state: &mut RespmodAdaptationRunState,
         ups_body_transfer: &mut H1BodyToChunkedTransfer<'_, UR, IcapClientWriter>,
-        http_header_size: usize,
         orig_http_response: &H,
         icap_reader: &mut IcapClientReader,
         clt_writer: &mut CW,
@@ -140,7 +141,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
         UR: AsyncBufRead + Unpin,
         CW: HttpResponseClientWriter<H> + Unpin,
     {
-        let http_rsp = HttpAdaptedResponse::parse(icap_reader, http_header_size).await?;
+        let http_rsp = HttpAdaptedResponse::parse(icap_reader, self.http_header_size).await?;
         let body_content_length = http_rsp.content_length;
 
         let final_rsp = orig_http_response.adapt_with_body(http_rsp);
@@ -165,8 +166,8 @@ impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
 
                 state.mark_clt_send_all();
                 let copied = clt_body_transfer.copied_size();
-                if ups_body_transfer.finished() && clt_body_reader.trailer(128).await.is_ok() {
-                    state.icap_io_finished = true;
+                if clt_body_reader.trailer(128).await.is_ok() {
+                    self.icap_read_finished = true;
                 }
 
                 if copied != expected {
@@ -185,8 +186,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
                     .await?;
 
                 state.mark_clt_send_all();
-                state.icap_io_finished =
-                    ups_body_transfer.finished() && clt_body_transfer.finished();
+                self.icap_read_finished = clt_body_transfer.finished();
 
                 Ok(RespmodAdaptationEndState::AdaptedTransferred(final_rsp))
             }
@@ -194,7 +194,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
     }
 
     async fn do_transfer<UR, IR, CW>(
-        self,
+        &self,
         mut ups_body_transfer: &mut H1BodyToChunkedTransfer<'_, UR, IcapClientWriter>,
         mut clt_body_transfer: &mut LimitedCopy<'_, IR, CW>,
     ) -> Result<(), H1RespmodAdaptationError>

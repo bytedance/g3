@@ -33,10 +33,11 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
         http_header_size: usize,
     ) -> Result<ReqmodAdaptationEndState, ImapAdaptationError> {
         let _http_req =
-            HttpAdaptedRequest::parse(&mut self.icap_connection.1, http_header_size, true).await?;
-
+            HttpAdaptedRequest::parse(&mut self.icap_connection.reader, http_header_size, true)
+                .await?;
+        self.icap_connection.mark_reader_finished();
         if icap_rsp.keep_alive {
-            self.icap_client.save_connection(self.icap_connection).await;
+            self.icap_client.save_connection(self.icap_connection);
         }
         // there should be a message body
         Err(ImapAdaptationError::IcapServerErrorResponse(
@@ -56,10 +57,12 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
         UW: AsyncWrite + Unpin,
     {
         let _http_req =
-            HttpAdaptedRequest::parse(&mut self.icap_connection.1, http_header_size, true).await?;
+            HttpAdaptedRequest::parse(&mut self.icap_connection.reader, http_header_size, true)
+                .await?;
         // TODO check request content type?
 
-        let mut body_reader = HttpBodyDecodeReader::new_chunked(&mut self.icap_connection.1, 256);
+        let mut body_reader =
+            HttpBodyDecodeReader::new_chunked(&mut self.icap_connection.reader, 256);
         let mut ups_buf_writer = BufWriter::new(ups_writer);
         let mut msg_transfer =
             LimitedCopy::new(&mut body_reader, &mut ups_buf_writer, &self.copy_config);
@@ -77,8 +80,11 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
                     return match r {
                         Ok(_) => {
                             state.mark_ups_send_all();
-                            if icap_rsp.keep_alive && body_reader.trailer(128).await.is_ok() {
-                                self.icap_client.save_connection(self.icap_connection).await;
+                            if body_reader.trailer(128).await.is_ok() {
+                                self.icap_connection.mark_reader_finished();
+                                if icap_rsp.keep_alive {
+                                    self.icap_client.save_connection(self.icap_connection);
+                                }
                             }
                             Ok(ReqmodAdaptationEndState::AdaptedTransferred)
                         },
