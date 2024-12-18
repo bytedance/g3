@@ -23,7 +23,7 @@ use tokio::io::{AsyncBufRead, AsyncWrite};
 
 use g3_io_ext::LimitedCopyError;
 
-struct ChunkedNoTrailerEncodeTransferInternal {
+struct ChunkedEncodeTransferInternal {
     yield_size: usize,
     no_trailer: bool,
     this_chunk_size: usize,
@@ -35,9 +35,9 @@ struct ChunkedNoTrailerEncodeTransferInternal {
     active: bool,
 }
 
-impl ChunkedNoTrailerEncodeTransferInternal {
+impl ChunkedEncodeTransferInternal {
     fn new(yield_size: usize, no_trailer: bool) -> Self {
-        ChunkedNoTrailerEncodeTransferInternal {
+        ChunkedEncodeTransferInternal {
             yield_size,
             no_trailer,
             this_chunk_size: 0,
@@ -157,15 +157,15 @@ impl ChunkedNoTrailerEncodeTransferInternal {
 pub struct StreamToChunkedTransfer<'a, R, W> {
     reader: &'a mut R,
     writer: &'a mut W,
-    internal: ChunkedNoTrailerEncodeTransferInternal,
+    internal: ChunkedEncodeTransferInternal,
 }
 
 impl<'a, R, W> StreamToChunkedTransfer<'a, R, W> {
-    pub fn new(reader: &'a mut R, writer: &'a mut W, yield_size: usize, no_trailer: bool) -> Self {
+    fn new(reader: &'a mut R, writer: &'a mut W, yield_size: usize, no_trailer: bool) -> Self {
         StreamToChunkedTransfer {
             reader,
             writer,
-            internal: ChunkedNoTrailerEncodeTransferInternal::new(yield_size, no_trailer),
+            internal: ChunkedEncodeTransferInternal::new(yield_size, no_trailer),
         }
     }
 
