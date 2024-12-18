@@ -103,7 +103,6 @@ pub struct RespmodAdaptationRunState {
     pub ups_read_finished: bool,
     pub clt_write_started: bool,
     pub clt_write_finished: bool,
-    pub(crate) icap_io_finished: bool,
 }
 
 impl RespmodAdaptationRunState {
@@ -117,7 +116,6 @@ impl RespmodAdaptationRunState {
             ups_read_finished: false,
             clt_write_started: false,
             clt_write_finished: false,
-            icap_io_finished: false,
         }
     }
 

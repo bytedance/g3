@@ -116,25 +116,27 @@ pub(super) struct BidirectionalRecvHttpRequest<'a, I: IdleCheck> {
     pub(super) icap_reader: &'a mut IcapClientReader,
     pub(super) copy_config: LimitedCopyConfig,
     pub(super) idle_checker: &'a I,
+    pub(super) http_header_size: usize,
+    pub(super) icap_read_finished: bool,
 }
 
 impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
     pub(super) async fn transfer<CR, UW>(
-        self,
+        &mut self,
         state: &mut ReqmodAdaptationRunState,
         mut clt_msg_transfer: &mut StreamToChunkedTransfer<
             '_,
             CR,
             BufWriter<&'_ mut IcapClientWriter>,
         >,
-        http_header_size: usize,
         ups_writer: &mut UW,
     ) -> Result<ReqmodAdaptationEndState, SmtpAdaptationError>
     where
         CR: AsyncBufRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
-        let _http_req = HttpAdaptedRequest::parse(self.icap_reader, http_header_size, true).await?;
+        let _http_req =
+            HttpAdaptedRequest::parse(self.icap_reader, self.http_header_size, true).await?;
         // TODO check request content type?
 
         let mut ups_body_reader = HttpBodyDecodeReader::new_chunked(self.icap_reader, 256);
@@ -159,7 +161,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                                 Ok(_) => {
                                     state.mark_ups_send_all();
                                     if ups_body_reader.trailer(128).await.is_ok() {
-                                        state.icap_io_finished = true;
+                                        self.icap_read_finished = true;
                                     }
                                     Ok(ReqmodAdaptationEndState::AdaptedTransferred)
                                 }
@@ -175,8 +177,8 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                     return match r {
                         Ok(_) => {
                             state.mark_ups_send_all();
-                            if clt_msg_transfer.finished() && ups_body_reader.trailer(128).await.is_ok() {
-                                state.icap_io_finished = true;
+                            if ups_body_reader.trailer(128).await.is_ok() {
+                                self.icap_read_finished = true;
                             }
                             Ok(ReqmodAdaptationEndState::AdaptedTransferred)
                         }

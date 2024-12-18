@@ -53,7 +53,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         let http_header = http_request.serialize_for_adapter();
         let icap_header = self.build_forward_all_request(http_header.len());
 
-        let icap_w = &mut self.icap_connection.0;
+        let icap_w = &mut self.icap_connection.writer;
         icap_w
             .write_all_vectored([IoSlice::new(&icap_header), IoSlice::new(&http_header)])
             .await
@@ -61,12 +61,12 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
 
         let mut body_transfer = H2StreamToChunkedTransfer::new(
             &mut clt_body,
-            &mut self.icap_connection.0,
+            &mut self.icap_connection.writer,
             self.copy_config.yield_size(),
         );
         let bidirectional_transfer = BidirectionalRecvIcapResponse {
             icap_client: &self.icap_client,
-            icap_reader: &mut self.icap_connection.1,
+            icap_reader: &mut self.icap_connection.reader,
             idle_checker: &self.idle_checker,
         };
         let mut rsp = bidirectional_transfer
@@ -78,8 +78,17 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         }
 
         match rsp.payload {
-            IcapReqmodResponsePayload::NoPayload => self.handle_icap_ok_without_payload(rsp).await,
+            IcapReqmodResponsePayload::NoPayload => {
+                if body_transfer.finished() {
+                    self.icap_connection.mark_writer_finished();
+                }
+                self.icap_connection.mark_reader_finished();
+                self.handle_icap_ok_without_payload(rsp).await
+            }
             IcapReqmodResponsePayload::HttpRequestWithoutBody(header_size) => {
+                if body_transfer.finished() {
+                    self.icap_connection.mark_writer_finished();
+                }
                 self.handle_icap_http_request_without_body(
                     state,
                     rsp,
@@ -91,6 +100,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
             }
             IcapReqmodResponsePayload::HttpRequestWithBody(header_size) => {
                 if body_transfer.finished() {
+                    self.icap_connection.mark_writer_finished();
                     self.handle_icap_http_request_with_body_after_transfer(
                         state,
                         rsp,
@@ -100,40 +110,50 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                     )
                     .await
                 } else {
-                    let icap_keepalive = rsp.keep_alive;
-                    let bidirectional_transfer = BidirectionalRecvHttpRequest {
-                        icap_reader: &mut self.icap_connection.1,
+                    let mut bidirectional_transfer = BidirectionalRecvHttpRequest {
+                        icap_reader: &mut self.icap_connection.reader,
                         copy_config: self.copy_config,
                         http_body_line_max_size: self.http_body_line_max_size,
                         http_trailer_max_size: self.http_trailer_max_size,
                         http_rsp_head_recv_timeout: self.http_rsp_head_recv_timeout,
                         http_req_add_no_via_header: self.http_req_add_no_via_header,
                         idle_checker: &self.idle_checker,
+                        http_header_size: header_size,
+                        icap_read_finished: false,
                     };
                     let r = bidirectional_transfer
-                        .transfer(
-                            state,
-                            &mut body_transfer,
-                            header_size,
-                            http_request,
-                            ups_send_request,
-                        )
+                        .transfer(state, &mut body_transfer, http_request, ups_send_request)
                         .await?;
 
-                    if icap_keepalive && state.icap_io_finished {
-                        self.icap_client.save_connection(self.icap_connection).await;
+                    let icap_read_finished = bidirectional_transfer.icap_read_finished;
+                    if body_transfer.finished() {
+                        self.icap_connection.mark_writer_finished();
+                        if icap_read_finished {
+                            self.icap_connection.mark_reader_finished();
+                            if rsp.keep_alive {
+                                self.icap_client.save_connection(self.icap_connection);
+                            }
+                        }
                     }
                     Ok(r)
                 }
             }
-            IcapReqmodResponsePayload::HttpResponseWithoutBody(header_size) => self
-                .handle_icap_http_response_without_body(rsp, header_size)
-                .await
-                .map(|rsp| ReqmodAdaptationEndState::HttpErrResponse(rsp, None)),
-            IcapReqmodResponsePayload::HttpResponseWithBody(header_size) => self
-                .handle_icap_http_response_with_body(rsp, header_size)
-                .await
-                .map(|(rsp, body)| ReqmodAdaptationEndState::HttpErrResponse(rsp, Some(body))),
+            IcapReqmodResponsePayload::HttpResponseWithoutBody(header_size) => {
+                if body_transfer.finished() {
+                    self.icap_connection.mark_writer_finished();
+                }
+                self.handle_icap_http_response_without_body(rsp, header_size)
+                    .await
+                    .map(|rsp| ReqmodAdaptationEndState::HttpErrResponse(rsp, None))
+            }
+            IcapReqmodResponsePayload::HttpResponseWithBody(header_size) => {
+                if body_transfer.finished() {
+                    self.icap_connection.mark_writer_finished();
+                }
+                self.handle_icap_http_response_with_body(rsp, header_size)
+                    .await
+                    .map(|(rsp, body)| ReqmodAdaptationEndState::HttpErrResponse(rsp, Some(body)))
+            }
         }
     }
 }

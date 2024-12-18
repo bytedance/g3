@@ -31,7 +31,6 @@ pub struct ReqmodAdaptationRunState {
     pub dur_ups_send_all: Option<Duration>,
     pub clt_read_finished: bool,
     pub ups_write_finished: bool,
-    pub(crate) icap_io_finished: bool,
 }
 
 impl ReqmodAdaptationRunState {
@@ -41,7 +40,6 @@ impl ReqmodAdaptationRunState {
             dur_ups_send_all: None,
             clt_read_finished: false,
             ups_write_finished: false,
-            icap_io_finished: false,
         }
     }
 
@@ -65,12 +63,13 @@ pub struct ReqmodRecvHttpResponseBody {
 
 impl ReqmodRecvHttpResponseBody {
     pub fn body_reader(&mut self) -> HttpBodyDecodeReader<'_, impl AsyncBufRead> {
-        HttpBodyDecodeReader::new_chunked(&mut self.icap_connection.1, 1024)
+        HttpBodyDecodeReader::new_chunked(&mut self.icap_connection.reader, 1024)
     }
 
-    pub async fn save_connection(self) {
+    pub async fn save_connection(mut self) {
+        self.icap_connection.mark_reader_finished();
         if self.icap_keepalive {
-            self.icap_client.save_connection(self.icap_connection).await;
+            self.icap_client.save_connection(self.icap_connection);
         }
     }
 }

@@ -97,7 +97,6 @@ pub struct RespmodAdaptationRunState {
     pub dur_clt_send_header: Option<Duration>,
     pub dur_clt_send_all: Option<Duration>,
     pub clt_write_started: bool,
-    pub(crate) icap_io_finished: bool,
 }
 
 impl RespmodAdaptationRunState {
@@ -109,7 +108,6 @@ impl RespmodAdaptationRunState {
             dur_clt_send_header: None,
             dur_clt_send_all: None,
             clt_write_started: false,
-            icap_io_finished: false,
         }
     }
 

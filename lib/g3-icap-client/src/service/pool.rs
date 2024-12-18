@@ -111,6 +111,7 @@ impl IcapServicePool {
             let config = self.config.clone();
             tokio::spawn(async move {
                 if let Ok(mut conn) = conn_creator.create().await {
+                    conn.mark_io_inuse();
                     let req = IcapOptionsRequest::new(config.as_ref());
                     if let Ok(options) = req
                         .get_options(&mut conn, config.icap_max_header_size)
@@ -180,10 +181,13 @@ impl IcapServicePool {
     fn save_connection(&mut self, conn: IcapClientConnection) {
         // it's ok to skip compare_swap as we only increase the idle count in the same future context
         if self.idle_conn_count() < self.config.connection_pool.max_idle_count() {
+            let Some(eof_poller) = IcapConnectionEofPoller::new(conn, &self.conn_req_receiver)
+            else {
+                return;
+            };
             let idle_count = self.idle_conn_count.clone();
             // relaxed is fine as we only increase it here in the same future context
             idle_count.fetch_add(1, Ordering::Relaxed);
-            let eof_poller = IcapConnectionEofPoller::new(conn, self.conn_req_receiver.clone());
             let idle_timeout = self.config.connection_pool.idle_timeout();
             tokio::spawn(async move {
                 eof_poller.into_running(idle_timeout).await;

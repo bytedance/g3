@@ -32,7 +32,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         H: HttpRequestForAdaptation,
     {
         if icap_rsp.keep_alive {
-            self.icap_client.save_connection(self.icap_connection).await;
+            self.icap_client.save_connection(self.icap_connection);
         }
         // there should be a payload
         Err(H1ReqmodAdaptationError::IcapServerErrorResponse(
@@ -49,7 +49,8 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
     ) -> Result<(HttpAdapterErrorResponse, ReqmodRecvHttpResponseBody), H1ReqmodAdaptationError>
     {
         let mut http_rsp =
-            HttpAdapterErrorResponse::parse(&mut self.icap_connection.1, http_header_size).await?;
+            HttpAdapterErrorResponse::parse(&mut self.icap_connection.reader, http_header_size)
+                .await?;
         http_rsp.set_chunked_encoding();
         let recv_body = ReqmodRecvHttpResponseBody {
             icap_client: self.icap_client,
@@ -65,9 +66,12 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         http_header_size: usize,
     ) -> Result<HttpAdapterErrorResponse, H1ReqmodAdaptationError> {
         let http_rsp =
-            HttpAdapterErrorResponse::parse(&mut self.icap_connection.1, http_header_size).await?;
+            HttpAdapterErrorResponse::parse(&mut self.icap_connection.reader, http_header_size)
+                .await?;
+
+        self.icap_connection.mark_reader_finished();
         if icap_rsp.keep_alive {
-            self.icap_client.save_connection(self.icap_connection).await;
+            self.icap_client.save_connection(self.icap_connection);
         }
         Ok(http_rsp)
     }

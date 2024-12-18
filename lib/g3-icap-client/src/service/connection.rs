@@ -34,7 +34,47 @@ use crate::IcapServiceOptions;
 
 pub type IcapClientWriter = MaybeTlsStreamWriteHalf<TcpStream>;
 pub type IcapClientReader = BufReader<MaybeTlsStreamReadHalf<TcpStream>>;
-pub type IcapClientConnection = (IcapClientWriter, IcapClientReader);
+
+pub struct IcapClientConnection {
+    pub reader: IcapClientReader,
+    pub writer: IcapClientWriter,
+    reader_clean: bool,
+    writer_clean: bool,
+    reused_connection: bool,
+}
+
+impl IcapClientConnection {
+    fn new(reader: IcapClientReader, writer: IcapClientWriter) -> Self {
+        IcapClientConnection {
+            reader,
+            writer,
+            reader_clean: true,
+            writer_clean: true,
+            reused_connection: false,
+        }
+    }
+
+    pub fn is_reused(&self) -> bool {
+        self.reused_connection
+    }
+
+    pub fn mark_reader_finished(&mut self) {
+        self.reader_clean = true;
+    }
+
+    pub fn mark_writer_finished(&mut self) {
+        self.writer_clean = true;
+    }
+
+    pub(super) fn mark_io_inuse(&mut self) {
+        self.reader_clean = false;
+        self.writer_clean = false;
+    }
+
+    pub(super) fn reusable(&self) -> bool {
+        self.reader_clean && self.writer_clean
+    }
+}
 
 pub(super) struct IcapConnector {
     config: Arc<IcapServiceConfig>,
@@ -89,9 +129,9 @@ impl IcapConnector {
             {
                 Ok(Ok(tls_stream)) => {
                     let (r, w) = tls_stream.into_split();
-                    Ok((
-                        MaybeTlsStreamWriteHalf::Tls(w),
+                    Ok(IcapClientConnection::new(
                         BufReader::new(MaybeTlsStreamReadHalf::Tls(r)),
+                        MaybeTlsStreamWriteHalf::Tls(w),
                     ))
                 }
                 Ok(Err(e)) => Err(e),
@@ -102,9 +142,9 @@ impl IcapConnector {
             }
         } else {
             let (r, w) = stream.into_split();
-            Ok((
-                MaybeTlsStreamWriteHalf::Plain(w),
+            Ok(IcapClientConnection::new(
                 BufReader::new(MaybeTlsStreamReadHalf::Plain(r)),
+                MaybeTlsStreamWriteHalf::Plain(w),
             ))
         }
     }
@@ -135,16 +175,23 @@ pub(super) struct IcapConnectionEofPoller {
 impl IcapConnectionEofPoller {
     pub(super) fn new(
         conn: IcapClientConnection,
-        req_receiver: flume::Receiver<IcapConnectionPollRequest>,
-    ) -> Self {
-        IcapConnectionEofPoller { conn, req_receiver }
+        req_receiver: &flume::Receiver<IcapConnectionPollRequest>,
+    ) -> Option<Self> {
+        if conn.reusable() {
+            Some(IcapConnectionEofPoller {
+                conn,
+                req_receiver: req_receiver.clone(),
+            })
+        } else {
+            None
+        }
     }
 
     pub(super) async fn into_running(mut self, idle_timeout: Duration) {
         let idle_sleep = tokio::time::sleep(idle_timeout);
 
         tokio::select! {
-            _ = self.conn.1.fill_wait_data() => {}
+            _ = self.conn.reader.fill_wait_data() => {}
             _ = idle_sleep => {}
             r = self.req_receiver.recv_async() => {
                 if let Ok(req) = r {
@@ -152,6 +199,7 @@ impl IcapConnectionEofPoller {
                         client_sender,
                         options,
                     } = req;
+                    self.conn.reused_connection = true;
                     let _ = client_sender.send((self.conn, options));
                 }
             }

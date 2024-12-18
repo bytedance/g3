@@ -125,21 +125,22 @@ pub(super) struct BidirectionalRecvHttpResponse<'a, I: IdleCheck> {
     pub(super) http_body_line_max_size: usize,
     pub(super) http_trailer_max_size: usize,
     pub(super) idle_checker: &'a I,
+    pub(super) http_header_size: usize,
+    pub(super) icap_read_finished: bool,
 }
 
 impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
     pub(super) async fn transfer<CW>(
-        mut self,
+        &mut self,
         state: &mut RespmodAdaptationRunState,
         mut ups_body_transfer: &mut H2StreamToChunkedTransfer<'_, IcapClientWriter>,
-        http_header_size: usize,
         orig_http_response: Response<()>,
         clt_send_response: &mut CW,
     ) -> Result<RespmodAdaptationEndState, H2RespmodAdaptationError>
     where
         CW: H2SendResponseToClient,
     {
-        let http_rsp = HttpAdaptedResponse::parse(self.icap_reader, http_header_size).await?;
+        let http_rsp = HttpAdaptedResponse::parse(self.icap_reader, self.http_header_size).await?;
 
         let final_rsp = orig_http_response.adapt_to(&http_rsp);
         state.mark_clt_send_start();
@@ -169,7 +170,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
                             match adp_body_transfer.await {
                                 Ok(_) => {
                                     state.mark_clt_send_all();
-                                    state.icap_io_finished = true;
+                                    self.icap_read_finished = true;
                                     Ok(RespmodAdaptationEndState::AdaptedTransferred(http_rsp))
                                 }
                                 Err(H2StreamFromChunkedTransferError::ReadError(e)) => Err(H2RespmodAdaptationError::IcapServerReadFailed(e)),
@@ -187,9 +188,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
                     return match r {
                         Ok(_) => {
                             state.mark_clt_send_all();
-                            if ups_body_transfer.finished() {
-                                state.icap_io_finished = true;
-                            }
+                            self.icap_read_finished = true;
                             Ok(RespmodAdaptationEndState::AdaptedTransferred(http_rsp))
                         }
                         Err(H2StreamFromChunkedTransferError::ReadError(e)) => Err(H2RespmodAdaptationError::IcapServerReadFailed(e)),

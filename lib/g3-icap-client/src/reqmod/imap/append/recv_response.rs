@@ -26,7 +26,7 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
         icap_rsp: ReqmodResponse,
     ) -> Result<ReqmodAdaptationEndState, ImapAdaptationError> {
         if icap_rsp.keep_alive {
-            self.icap_client.save_connection(self.icap_connection).await;
+            self.icap_client.save_connection(self.icap_connection);
         }
         // there should be a payload
         Err(ImapAdaptationError::IcapServerErrorResponse(
@@ -41,7 +41,8 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
         http_header_size: usize,
     ) -> Result<(HttpAdapterErrorResponse, ReqmodRecvHttpResponseBody), ImapAdaptationError> {
         let http_rsp =
-            HttpAdapterErrorResponse::parse(&mut self.icap_connection.1, http_header_size).await?;
+            HttpAdapterErrorResponse::parse(&mut self.icap_connection.reader, http_header_size)
+                .await?;
         let recv_body = ReqmodRecvHttpResponseBody {
             icap_client: self.icap_client,
             icap_keepalive: icap_rsp.keep_alive,
@@ -56,9 +57,11 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
         http_header_size: usize,
     ) -> Result<HttpAdapterErrorResponse, ImapAdaptationError> {
         let http_rsp =
-            HttpAdapterErrorResponse::parse(&mut self.icap_connection.1, http_header_size).await?;
+            HttpAdapterErrorResponse::parse(&mut self.icap_connection.reader, http_header_size)
+                .await?;
+        self.icap_connection.mark_reader_finished();
         if icap_rsp.keep_alive {
-            self.icap_client.save_connection(self.icap_connection).await;
+            self.icap_client.save_connection(self.icap_connection);
         }
         Ok(http_rsp)
     }

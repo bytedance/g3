@@ -63,7 +63,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         let http_header = http_request.serialize_for_adapter();
         let icap_header = self.build_header_only_request(http_request, http_header.len());
 
-        let icap_w = &mut self.icap_connection.0;
+        let icap_w = &mut self.icap_connection.writer;
         icap_w
             .write_all_vectored([IoSlice::new(&icap_header), IoSlice::new(&http_header)])
             .await
@@ -72,9 +72,10 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             .flush()
             .await
             .map_err(H1ReqmodAdaptationError::IcapServerWriteFailed)?;
+        self.icap_connection.mark_writer_finished();
 
         let mut rsp = ReqmodResponse::parse(
-            &mut self.icap_connection.1,
+            &mut self.icap_connection.reader,
             self.icap_client.config.icap_max_header_size,
             &self.icap_client.config.respond_shared_names,
         )
@@ -86,11 +87,15 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
 
         match rsp.code {
             204 => {
+                if rsp.payload == IcapReqmodResponsePayload::NoPayload {
+                    self.icap_connection.mark_reader_finished();
+                }
                 self.handle_original_http_request_without_body(state, rsp, http_request, ups_writer)
                     .await
             }
             n if (200..300).contains(&n) => match rsp.payload {
                 IcapReqmodResponsePayload::NoPayload => {
+                    self.icap_connection.mark_reader_finished();
                     self.handle_icap_ok_without_payload(rsp).await
                 }
                 IcapReqmodResponsePayload::HttpRequestWithoutBody(header_size) => {
@@ -123,8 +128,11 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                     .map(|(rsp, body)| ReqmodAdaptationEndState::HttpErrResponse(rsp, Some(body))),
             },
             _ => {
-                if rsp.keep_alive && rsp.payload == IcapReqmodResponsePayload::NoPayload {
-                    self.icap_client.save_connection(self.icap_connection).await;
+                if rsp.payload == IcapReqmodResponsePayload::NoPayload {
+                    self.icap_connection.mark_reader_finished();
+                    if rsp.keep_alive {
+                        self.icap_client.save_connection(self.icap_connection);
+                    }
                 }
                 Err(H1ReqmodAdaptationError::IcapServerErrorResponse(
                     IcapErrorReason::UnknownResponse,
@@ -146,7 +154,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         let http_header = http_request.serialize_for_adapter();
         let icap_header = self.build_header_only_request(http_request, http_header.len());
 
-        let icap_w = &mut self.icap_connection.0;
+        let icap_w = &mut self.icap_connection.writer;
         icap_w
             .write_all_vectored([IoSlice::new(&icap_header), IoSlice::new(&http_header)])
             .await
@@ -155,9 +163,10 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             .flush()
             .await
             .map_err(H1ReqmodAdaptationError::IcapServerWriteFailed)?;
+        self.icap_connection.mark_writer_finished();
 
         let mut rsp = ReqmodResponse::parse(
-            &mut self.icap_connection.1,
+            &mut self.icap_connection.reader,
             self.icap_client.config.icap_max_header_size,
             &self.icap_client.config.respond_shared_names,
         )
@@ -169,13 +178,17 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
 
         match rsp.code {
             204 => {
-                if rsp.keep_alive && rsp.payload == IcapReqmodResponsePayload::NoPayload {
-                    self.icap_client.save_connection(self.icap_connection).await;
+                if rsp.payload == IcapReqmodResponsePayload::NoPayload {
+                    self.icap_connection.mark_reader_finished();
+                    if rsp.keep_alive {
+                        self.icap_client.save_connection(self.icap_connection);
+                    }
                 }
                 Ok(ReqmodAdaptationMidState::OriginalRequest)
             }
             n if (200..300).contains(&n) => match rsp.payload {
                 IcapReqmodResponsePayload::NoPayload => {
+                    self.icap_connection.mark_reader_finished();
                     let _ = self.handle_icap_ok_without_payload::<H>(rsp).await?;
                     Ok(ReqmodAdaptationMidState::OriginalRequest)
                 }
@@ -198,8 +211,11 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                     .map(|(rsp, body)| ReqmodAdaptationMidState::HttpErrResponse(rsp, Some(body))),
             },
             _ => {
-                if rsp.keep_alive && rsp.payload == IcapReqmodResponsePayload::NoPayload {
-                    self.icap_client.save_connection(self.icap_connection).await;
+                if rsp.payload == IcapReqmodResponsePayload::NoPayload {
+                    self.icap_connection.mark_reader_finished();
+                    if rsp.keep_alive {
+                        self.icap_client.save_connection(self.icap_connection);
+                    }
                 }
                 Err(H1ReqmodAdaptationError::IcapServerErrorResponse(
                     IcapErrorReason::UnknownResponse,

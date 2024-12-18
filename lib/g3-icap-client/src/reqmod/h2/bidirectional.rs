@@ -130,20 +130,21 @@ pub(super) struct BidirectionalRecvHttpRequest<'a, I: IdleCheck> {
     pub(super) http_rsp_head_recv_timeout: Duration,
     pub(super) http_req_add_no_via_header: bool,
     pub(super) idle_checker: &'a I,
+    pub(super) http_header_size: usize,
+    pub(super) icap_read_finished: bool,
 }
 
 impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
     pub(super) async fn transfer(
-        mut self,
+        &mut self,
         state: &mut ReqmodAdaptationRunState,
         mut clt_body_transfer: &mut H2StreamToChunkedTransfer<'_, IcapClientWriter>,
-        http_header_size: usize,
         orig_http_request: Request<()>,
         mut ups_send_request: SendRequest<Bytes>,
     ) -> Result<ReqmodAdaptationEndState, H2ReqmodAdaptationError> {
         let http_req = HttpAdaptedRequest::parse(
             self.icap_reader,
-            http_header_size,
+            self.http_header_size,
             self.http_req_add_no_via_header,
         )
         .await?;
@@ -173,6 +174,9 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                     return match r {
                         Ok(ups_rsp) => {
                             state.mark_ups_recv_header();
+                            if ups_body_transfer.finished() {
+                                self.icap_read_finished = true;
+                            }
                             Ok(ReqmodAdaptationEndState::AdaptedTransferred(http_req, ups_rsp))
                         }
                         Err(e) => Err(H2ReqmodAdaptationError::HttpUpstreamRecvResponseFailed(e)),
@@ -184,7 +188,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                             match ups_body_transfer.await {
                                 Ok(_) => {
                                     state.mark_ups_send_all();
-                                    state.icap_io_finished = true;
+                                    self.icap_read_finished = true;
                                     let ups_rsp = recv_ups_response_head_after_transfer(ups_recv_rsp, self.http_rsp_head_recv_timeout).await?;
                                     Ok(ReqmodAdaptationEndState::AdaptedTransferred(http_req, ups_rsp))
                                 }
@@ -203,9 +207,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                     return match r {
                         Ok(_) => {
                             state.mark_ups_send_all();
-                            if clt_body_transfer.finished() {
-                                state.icap_io_finished = true;
-                            }
+                            self.icap_read_finished = true;
                             let ups_rsp = recv_ups_response_head_after_transfer(ups_recv_rsp, self.http_rsp_head_recv_timeout).await?;
                             Ok(ReqmodAdaptationEndState::AdaptedTransferred(http_req, ups_rsp))
                         }

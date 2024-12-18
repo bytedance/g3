@@ -27,7 +27,6 @@ use super::{
     ReqmodAdaptationRunState,
 };
 use crate::reqmod::response::ReqmodResponse;
-use crate::reqmod::IcapReqmodResponsePayload;
 
 impl<I: IdleCheck> HttpRequestAdapter<I> {
     pub(super) async fn handle_original_http_request_without_body<H, UW>(
@@ -41,6 +40,10 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         H: HttpRequestForAdaptation,
         UW: HttpRequestUpstreamWriter<H> + Unpin,
     {
+        if icap_rsp.keep_alive {
+            self.icap_client.save_connection(self.icap_connection);
+        }
+
         ups_writer
             .send_request_header(http_request)
             .await
@@ -51,9 +54,6 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             .map_err(H1ReqmodAdaptationError::HttpUpstreamWriteFailed)?;
         state.mark_ups_send_header();
         state.mark_ups_send_no_body();
-        if icap_rsp.keep_alive && icap_rsp.payload == IcapReqmodResponsePayload::NoPayload {
-            self.icap_client.save_connection(self.icap_connection).await;
-        }
         Ok(ReqmodAdaptationEndState::OriginalTransferred)
     }
 
@@ -71,6 +71,10 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         CR: AsyncBufRead + Unpin,
         UW: HttpRequestUpstreamWriter<H> + Unpin,
     {
+        if icap_rsp.keep_alive {
+            self.icap_client.save_connection(self.icap_connection);
+        }
+
         ups_writer
             .send_request_header(http_request)
             .await
@@ -124,9 +128,6 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         state.mark_ups_send_all();
         state.clt_read_finished = true;
 
-        if icap_rsp.keep_alive && icap_rsp.payload == IcapReqmodResponsePayload::NoPayload {
-            self.icap_client.save_connection(self.icap_connection).await;
-        }
         Ok(ReqmodAdaptationEndState::OriginalTransferred)
     }
 
@@ -140,16 +141,18 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         H: HttpRequestForAdaptation,
     {
         let http_req = HttpAdaptedRequest::parse(
-            &mut self.icap_connection.1,
+            &mut self.icap_connection.reader,
             http_header_size,
             self.http_req_add_no_via_header,
         )
         .await?;
+        self.icap_connection.mark_reader_finished();
+        if icap_rsp.keep_alive {
+            self.icap_client.save_connection(self.icap_connection);
+        }
+
         let final_req = orig_http_request.adapt_without_body(http_req);
 
-        if icap_rsp.keep_alive {
-            self.icap_client.save_connection(self.icap_connection).await;
-        }
         Ok(ReqmodAdaptationMidState::AdaptedRequest(final_req))
     }
 
@@ -166,11 +169,15 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         UW: HttpRequestUpstreamWriter<H> + Unpin,
     {
         let http_req = HttpAdaptedRequest::parse(
-            &mut self.icap_connection.1,
+            &mut self.icap_connection.reader,
             http_header_size,
             self.http_req_add_no_via_header,
         )
         .await?;
+        self.icap_connection.mark_reader_finished();
+        if icap_rsp.keep_alive {
+            self.icap_client.save_connection(self.icap_connection);
+        }
 
         let final_req = orig_http_request.adapt_without_body(http_req);
         ups_writer
@@ -184,9 +191,6 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         state.mark_ups_send_header();
         state.mark_ups_send_no_body();
 
-        if icap_rsp.keep_alive {
-            self.icap_client.save_connection(self.icap_connection).await;
-        }
         Ok(ReqmodAdaptationEndState::AdaptedTransferred(final_req))
     }
 
@@ -203,7 +207,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         UW: HttpRequestUpstreamWriter<H> + Unpin,
     {
         let http_req = HttpAdaptedRequest::parse(
-            &mut self.icap_connection.1,
+            &mut self.icap_connection.reader,
             http_header_size,
             self.http_req_add_no_via_header,
         )
@@ -223,7 +227,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             )),
             Some(expected) => {
                 let mut body_reader = HttpBodyDecodeReader::new_chunked(
-                    &mut self.icap_connection.1,
+                    &mut self.icap_connection.reader,
                     self.http_body_line_max_size,
                 );
                 let mut body_copy =
@@ -232,8 +236,12 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
 
                 state.mark_ups_send_all();
                 let copied = body_copy.copied_size();
-                if icap_rsp.keep_alive && body_reader.trailer(128).await.is_ok() {
-                    self.icap_client.save_connection(self.icap_connection).await;
+
+                if body_reader.trailer(128).await.is_ok() {
+                    self.icap_connection.mark_reader_finished();
+                    if icap_rsp.keep_alive {
+                        self.icap_client.save_connection(self.icap_connection);
+                    }
                 }
 
                 if copied != expected {
@@ -245,7 +253,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             }
             None => {
                 let mut body_reader = HttpBodyReader::new_chunked(
-                    &mut self.icap_connection.1,
+                    &mut self.icap_connection.reader,
                     self.http_body_line_max_size,
                 );
                 let mut body_copy =
@@ -253,9 +261,12 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                 Self::send_request_body(&self.idle_checker, &mut body_copy).await?;
 
                 state.mark_ups_send_all();
+
+                self.icap_connection.mark_reader_finished();
                 if icap_rsp.keep_alive {
-                    self.icap_client.save_connection(self.icap_connection).await;
+                    self.icap_client.save_connection(self.icap_connection);
                 }
+
                 Ok(ReqmodAdaptationEndState::AdaptedTransferred(final_req))
             }
         }

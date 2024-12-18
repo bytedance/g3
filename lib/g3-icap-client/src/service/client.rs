@@ -71,17 +71,22 @@ impl IcapServiceClient {
             .await
             .map_err(|e| anyhow!("create new connection failed: {e:?}"))?;
         let options_req = IcapOptionsRequest::new(self.config.as_ref());
+
+        conn.mark_io_inuse();
         let options = options_req
             .get_options(&mut conn, self.config.icap_max_header_size)
             .await
             .map_err(|e| anyhow!("failed to get icap service options: {e}"))?;
+
+        conn.mark_io_inuse();
         Ok((conn, Arc::new(options)))
     }
 
-    pub async fn save_connection(&self, conn: IcapClientConnection) {
-        let _ = self
-            .cmd_sender
-            .send_async(IcapServiceClientCommand::SaveConnection(conn))
-            .await;
+    pub fn save_connection(&self, conn: IcapClientConnection) {
+        if conn.reusable() {
+            let _ = self
+                .cmd_sender
+                .try_send(IcapServiceClientCommand::SaveConnection(conn));
+        }
     }
 }

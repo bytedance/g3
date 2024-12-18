@@ -34,7 +34,6 @@ use super::{
     ReqmodAdaptationRunState,
 };
 use crate::reqmod::response::ReqmodResponse;
-use crate::reqmod::IcapReqmodResponsePayload;
 
 impl<I: IdleCheck> H2RequestAdapter<I> {
     pub(super) async fn handle_original_http_request_without_body(
@@ -44,14 +43,15 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         http_request: Request<()>,
         mut ups_send_request: SendRequest<Bytes>,
     ) -> Result<ReqmodAdaptationEndState, H2ReqmodAdaptationError> {
+        if icap_rsp.keep_alive {
+            self.icap_client.save_connection(self.icap_connection);
+        }
+
         let (ups_recv_rsp, _) = ups_send_request
             .send_request(http_request, true)
             .map_err(H2ReqmodAdaptationError::HttpUpstreamSendHeadFailed)?;
         state.mark_ups_send_header();
         state.mark_ups_send_no_body();
-        if icap_rsp.keep_alive && icap_rsp.payload == IcapReqmodResponsePayload::NoPayload {
-            self.icap_client.save_connection(self.icap_connection).await;
-        }
 
         let ups_rsp =
             recv_ups_response_head_after_transfer(ups_recv_rsp, self.http_rsp_head_recv_timeout)
@@ -70,6 +70,10 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         clt_body: RecvStream,
         mut ups_send_request: SendRequest<Bytes>,
     ) -> Result<ReqmodAdaptationEndState, H2ReqmodAdaptationError> {
+        if icap_rsp.keep_alive {
+            self.icap_client.save_connection(self.icap_connection);
+        }
+
         let (mut ups_recv_rsp, mut ups_send_stream) = ups_send_request
             .send_request(http_request, false)
             .map_err(H2ReqmodAdaptationError::HttpUpstreamSendHeadFailed)?;
@@ -81,10 +85,6 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                 .send_data(initial_body_data, true)
                 .map_err(H2ReqmodAdaptationError::HttpUpstreamSendDataFailed)?;
             state.mark_ups_send_all();
-
-            if icap_rsp.keep_alive && icap_rsp.payload == IcapReqmodResponsePayload::NoPayload {
-                self.icap_client.save_connection(self.icap_connection).await;
-            }
 
             let ups_rsp = recv_ups_response_head_after_transfer(
                 ups_recv_rsp,
@@ -136,9 +136,6 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                     return match r {
                         Ok(ups_rsp) => {
                             state.mark_ups_recv_header();
-                            if icap_rsp.keep_alive && icap_rsp.payload == IcapReqmodResponsePayload::NoPayload {
-                                self.icap_client.save_connection(self.icap_connection).await;
-                            }
                             Ok(ReqmodAdaptationEndState::OriginalTransferred(ups_rsp))
                         }
                         Err(e) => Err(H2ReqmodAdaptationError::HttpUpstreamRecvResponseFailed(e)),
@@ -148,9 +145,6 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                     match r {
                         Ok(_) => {
                             state.mark_ups_send_all();
-                            if icap_rsp.keep_alive && icap_rsp.payload == IcapReqmodResponsePayload::NoPayload {
-                                self.icap_client.save_connection(self.icap_connection).await;
-                            }
                             break;
                         }
                         Err(e) => return Err(convert_transfer_error(e)),
@@ -196,14 +190,14 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         orig_http_request: Request<()>,
     ) -> Result<ReqmodAdaptationMidState, H2ReqmodAdaptationError> {
         let http_req = HttpAdaptedRequest::parse(
-            &mut self.icap_connection.1,
+            &mut self.icap_connection.reader,
             http_header_size,
             self.http_req_add_no_via_header,
         )
         .await?;
-
+        self.icap_connection.mark_reader_finished();
         if icap_rsp.keep_alive {
-            self.icap_client.save_connection(self.icap_connection).await;
+            self.icap_client.save_connection(self.icap_connection);
         }
 
         let final_req = orig_http_request.adapt_to(&http_req);
@@ -221,11 +215,15 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         mut ups_send_request: SendRequest<Bytes>,
     ) -> Result<ReqmodAdaptationEndState, H2ReqmodAdaptationError> {
         let http_req = HttpAdaptedRequest::parse(
-            &mut self.icap_connection.1,
+            &mut self.icap_connection.reader,
             http_header_size,
             self.http_req_add_no_via_header,
         )
         .await?;
+        self.icap_connection.mark_reader_finished();
+        if icap_rsp.keep_alive {
+            self.icap_client.save_connection(self.icap_connection);
+        }
 
         let final_req = orig_http_request.adapt_to(&http_req);
 
@@ -234,9 +232,6 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
             .map_err(H2ReqmodAdaptationError::HttpUpstreamSendHeadFailed)?;
         state.mark_ups_send_header();
         state.mark_ups_send_no_body();
-        if icap_rsp.keep_alive {
-            self.icap_client.save_connection(self.icap_connection).await;
-        }
 
         let ups_rsp =
             recv_ups_response_head_after_transfer(ups_recv_rsp, self.http_rsp_head_recv_timeout)
@@ -257,7 +252,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         mut ups_send_request: SendRequest<Bytes>,
     ) -> Result<ReqmodAdaptationEndState, H2ReqmodAdaptationError> {
         let http_req = HttpAdaptedRequest::parse(
-            &mut self.icap_connection.1,
+            &mut self.icap_connection.reader,
             http_header_size,
             self.http_req_add_no_via_header,
         )
@@ -270,7 +265,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         state.mark_ups_send_header();
 
         let mut body_transfer = H2StreamFromChunkedTransfer::new(
-            &mut self.icap_connection.1,
+            &mut self.icap_connection.reader,
             &mut ups_send_stream,
             &self.copy_config,
             self.http_body_line_max_size,
@@ -290,8 +285,11 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                     return match r {
                         Ok(ups_rsp) => {
                             state.mark_ups_recv_header();
-                            if icap_rsp.keep_alive && icap_rsp.payload == IcapReqmodResponsePayload::NoPayload {
-                                self.icap_client.save_connection(self.icap_connection).await;
+                            if body_transfer.finished() {
+                                self.icap_connection.mark_reader_finished();
+                                if icap_rsp.keep_alive {
+                                    self.icap_client.save_connection(self.icap_connection);
+                                }
                             }
                             Ok(ReqmodAdaptationEndState::AdaptedTransferred(http_req, ups_rsp))
                         }
@@ -302,8 +300,9 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                     match r {
                         Ok(_) => {
                             state.mark_ups_send_all();
+                            self.icap_connection.mark_reader_finished();
                             if icap_rsp.keep_alive {
-                                self.icap_client.save_connection(self.icap_connection).await;
+                                self.icap_client.save_connection(self.icap_connection);
                             }
                             break;
                         }
