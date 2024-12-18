@@ -193,7 +193,6 @@ impl ChunkedEncodeTransferInternal {
                         self.static_offset = 0;
                         self.this_chunk_size = chunk_size;
                         if chunk_size == 0 {
-                            let _ = write!(&mut self.static_header, "\r\n");
                             self.read_data_finished = true;
                         } else {
                             self.chunk = Some(chunk);
