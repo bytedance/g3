@@ -642,6 +642,21 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn read_empty_chunked() {
+        let body_len: usize = 5;
+        let content = b"0\r\n\r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let mut body_reader = HttpBodyReader::new_chunked(&mut buf_stream, 1024);
+
+        let mut buf = [0u8; 32];
+        let len = body_reader.read(&mut buf).await.unwrap();
+        assert_eq!(len, body_len);
+        assert_eq!(&buf[0..len], &content[0..len]);
+        assert!(body_reader.finished());
+    }
+
+    #[tokio::test]
     async fn read_single_chunked() {
         let body_len: usize = 24;
         let content = b"5\r\ntest\n\r\n4\r\nbody\r\n0\r\n\r\nXXX";
