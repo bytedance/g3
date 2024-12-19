@@ -29,10 +29,6 @@ The following headers will be set in the HTTP PUT request:
   The ICAP server can modify the mail message but should not change the mail message size.
   It is recommended for the ICAP server to set Content-Length as part of the HTTP request header in it's ICAP response.
 
-- X-IMAP-Message-Size
-
-  The value will be the exact size of the mail message in the IMAP APPEND command.
-
 The body of the HTTP PUT request will be the corresponding mail message data.
 
 Limitations
