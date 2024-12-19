@@ -87,10 +87,6 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
         header.extend_from_slice(len_s.as_bytes());
         header.extend_from_slice(b"\r\n");
 
-        header.extend_from_slice(b"X-IMAP-Message-Size: ");
-        header.extend_from_slice(len_s.as_bytes());
-        header.extend_from_slice(b"\r\n");
-
         header.extend_from_slice(b"\r\n");
         header
     }
