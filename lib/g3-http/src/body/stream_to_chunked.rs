@@ -72,14 +72,14 @@ impl ChunkedEncodeTransferInternal {
                     self.read_finished = true;
                     if self.total_write == 0 {
                         if self.no_trailer {
-                            let _ = write!(&mut self.static_header, "0\r\n\r\n");
+                            self.static_header.extend_from_slice(b"0\r\n\r\n");
                         } else {
-                            let _ = write!(&mut self.static_header, "0\r\n");
+                            self.static_header.extend_from_slice(b"0\r\n");
                         }
                     } else if self.no_trailer {
-                        let _ = write!(&mut self.static_header, "\r\n0\r\n\r\n");
+                        self.static_header.extend_from_slice(b"\r\n0\r\n\r\n");
                     } else {
-                        let _ = write!(&mut self.static_header, "\r\n0\r\n");
+                        self.static_header.extend_from_slice(b"\r\n0\r\n");
                     }
                 } else if self.total_write == 0 {
                     let _ = write!(&mut self.static_header, "{chunk_size:x}\r\n");

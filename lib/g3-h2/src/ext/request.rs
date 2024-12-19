@@ -40,7 +40,7 @@ impl<T> RequestExt for Request<T> {
                 let _ = write!(buf, "{method} {pa} HTTP/1.1\r\n");
             }
         } else if method.eq(&Method::OPTIONS) {
-            let _ = write!(buf, "OPTIONS * HTTP/1.1\r\n");
+            buf.extend_from_slice(b"OPTIONS * HTTP/1.1\r\n");
         } else {
             let _ = write!(buf, "{method} / HTTP/1.1\r\n");
         }
