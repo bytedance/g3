@@ -56,6 +56,8 @@ pub enum ImapAdaptationError {
     IcapServerReadIdle,
     #[error("idle while writing to icap server")]
     IcapServerWriteIdle,
+    #[error("message size from icap server not match original")]
+    MessageSizeNotMatch,
     #[error("not implemented feature: {0}")]
     NotImplemented(&'static str),
 }

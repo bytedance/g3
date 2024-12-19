@@ -56,9 +56,14 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
     where
         UW: AsyncWrite + Unpin,
     {
-        let _http_req =
+        let http_req =
             HttpAdaptedRequest::parse(&mut self.icap_connection.reader, http_header_size, true)
                 .await?;
+        if let Some(len) = http_req.content_length {
+            if len != self.literal_size {
+                return Err(ImapAdaptationError::MessageSizeNotMatch);
+            }
+        }
         // TODO check request content type?
 
         let mut body_reader =
@@ -78,13 +83,16 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
 
                 r = &mut msg_transfer => {
                     return match r {
-                        Ok(_) => {
+                        Ok(copied) => {
                             state.mark_ups_send_all();
                             if body_reader.trailer(128).await.is_ok() {
                                 self.icap_connection.mark_reader_finished();
                                 if icap_rsp.keep_alive {
                                     self.icap_client.save_connection(self.icap_connection);
                                 }
+                            }
+                            if copied != self.literal_size {
+                                return Err(ImapAdaptationError::MessageSizeNotMatch);
                             }
                             Ok(ReqmodAdaptationEndState::AdaptedTransferred)
                         },
