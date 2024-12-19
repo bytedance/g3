@@ -33,10 +33,13 @@ mod recv_request;
 mod recv_response;
 
 impl<I: IdleCheck> ImapMessageAdapter<I> {
-    fn build_forward_all_request(&self, http_header_len: usize) -> Vec<u8> {
+    fn build_forward_all_request(&self, http_header_len: usize, all_cached: bool) -> Vec<u8> {
         let mut header = Vec::with_capacity(self.icap_client.partial_request_header.len() + 64);
         header.extend_from_slice(&self.icap_client.partial_request_header);
         self.push_extended_headers(&mut header);
+        if self.icap_options.support_204 && all_cached {
+            header.put_slice(b"Allow: 204\r\n");
+        }
         let _ = write!(
             header,
             "Encapsulated: req-hdr=0, req-body={http_header_len}\r\n",
@@ -59,7 +62,7 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
         UW: AsyncWrite + Unpin,
     {
         let http_header = self.build_http_header();
-        let icap_header = self.build_forward_all_request(http_header.len());
+        let icap_header = self.build_forward_all_request(http_header.len(), true);
         // TODO support 204
         let chunked_header = self.build_chunked_header();
 
@@ -88,45 +91,59 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
         .await?;
 
         match rsp.code {
-            204 | 206 => {
-                return Err(ImapAdaptationError::IcapServerErrorResponse(
-                    rsp.code, rsp.reason,
-                ))
-            }
-            n if (200..300).contains(&n) => {}
-            _ => {
-                return Err(ImapAdaptationError::IcapServerErrorResponse(
-                    rsp.code, rsp.reason,
-                ))
-            }
-        }
-
-        match rsp.payload {
-            IcapReqmodResponsePayload::NoPayload => {
+            204 => {
                 self.icap_connection.mark_reader_finished();
-                self.handle_icap_ok_without_payload(rsp).await
-            }
-            IcapReqmodResponsePayload::HttpRequestWithoutBody(header_size) => {
-                self.handle_icap_http_request_without_body(state, rsp, header_size)
+                if rsp.keep_alive {
+                    self.icap_client.save_connection(self.icap_connection);
+                }
+
+                ups_w
+                    .write_all(cached)
                     .await
+                    .map_err(ImapAdaptationError::ImapUpstreamWriteFailed)?;
+                Ok(ReqmodAdaptationEndState::OriginalTransferred)
             }
-            IcapReqmodResponsePayload::HttpRequestWithBody(header_size) => {
-                self.handle_icap_http_request_with_body_after_transfer(
-                    state,
-                    rsp,
-                    header_size,
-                    ups_w,
-                )
-                .await
+            206 => Err(ImapAdaptationError::IcapServerErrorResponse(
+                rsp.code, rsp.reason,
+            )),
+            n if (200..300).contains(&n) => match rsp.payload {
+                IcapReqmodResponsePayload::NoPayload => {
+                    self.icap_connection.mark_reader_finished();
+                    self.handle_icap_ok_without_payload(rsp).await
+                }
+                IcapReqmodResponsePayload::HttpRequestWithoutBody(header_size) => {
+                    self.handle_icap_http_request_without_body(state, rsp, header_size)
+                        .await
+                }
+                IcapReqmodResponsePayload::HttpRequestWithBody(header_size) => {
+                    self.handle_icap_http_request_with_body_after_transfer(
+                        state,
+                        rsp,
+                        header_size,
+                        ups_w,
+                    )
+                    .await
+                }
+                IcapReqmodResponsePayload::HttpResponseWithoutBody(header_size) => self
+                    .handle_icap_http_response_without_body(rsp, header_size)
+                    .await
+                    .map(|rsp| ReqmodAdaptationEndState::HttpErrResponse(rsp, None)),
+                IcapReqmodResponsePayload::HttpResponseWithBody(header_size) => self
+                    .handle_icap_http_response_with_body(rsp, header_size)
+                    .await
+                    .map(|(rsp, body)| ReqmodAdaptationEndState::HttpErrResponse(rsp, Some(body))),
+            },
+            _ => {
+                if rsp.payload == IcapReqmodResponsePayload::NoPayload {
+                    self.icap_connection.mark_reader_finished();
+                    if rsp.keep_alive {
+                        self.icap_client.save_connection(self.icap_connection);
+                    }
+                }
+                Err(ImapAdaptationError::IcapServerErrorResponse(
+                    rsp.code, rsp.reason,
+                ))
             }
-            IcapReqmodResponsePayload::HttpResponseWithoutBody(header_size) => self
-                .handle_icap_http_response_without_body(rsp, header_size)
-                .await
-                .map(|rsp| ReqmodAdaptationEndState::HttpErrResponse(rsp, None)),
-            IcapReqmodResponsePayload::HttpResponseWithBody(header_size) => self
-                .handle_icap_http_response_with_body(rsp, header_size)
-                .await
-                .map(|(rsp, body)| ReqmodAdaptationEndState::HttpErrResponse(rsp, Some(body))),
         }
     }
 
@@ -143,7 +160,7 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
         UW: AsyncWrite + Unpin,
     {
         let http_header = self.build_http_header();
-        let icap_header = self.build_forward_all_request(http_header.len());
+        let icap_header = self.build_forward_all_request(http_header.len(), false);
         let chunked_header = self.build_chunked_header();
 
         let icap_w = &mut self.icap_connection.writer;
@@ -207,6 +224,7 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
                         copy_config: self.copy_config,
                         idle_checker: &self.idle_checker,
                         http_header_size: header_size,
+                        imap_message_size: self.literal_size,
                         icap_read_finished: false,
                     };
                     let r = bidirectional_transfer

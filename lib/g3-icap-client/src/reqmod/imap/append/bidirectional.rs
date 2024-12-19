@@ -125,6 +125,7 @@ pub(super) struct BidirectionalRecvHttpRequest<'a, I: IdleCheck> {
     pub(super) copy_config: LimitedCopyConfig,
     pub(super) idle_checker: &'a I,
     pub(super) http_header_size: usize,
+    pub(super) imap_message_size: u64,
     pub(super) icap_read_finished: bool,
 }
 
@@ -139,8 +140,13 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
         CR: AsyncRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
-        let _http_req =
+        let http_req =
             HttpAdaptedRequest::parse(self.icap_reader, self.http_header_size, true).await?;
+        if let Some(len) = http_req.content_length {
+            if len != self.imap_message_size {
+                return Err(ImapAdaptationError::MessageSizeNotMatch);
+            }
+        }
         // TODO check request content type?
 
         let mut ups_body_reader = HttpBodyDecodeReader::new_chunked(self.icap_reader, 256);
@@ -164,10 +170,13 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                                 .await
                                 .map_err(ImapAdaptationError::IcapServerWriteFailed)?;
                             match ups_msg_transfer.await {
-                                Ok(_) => {
+                                Ok(copied) => {
                                     state.mark_ups_send_all();
                                     if ups_body_reader.trailer(128).await.is_ok() {
                                         self.icap_read_finished = true;
+                                    }
+                                    if copied != self.imap_message_size {
+                                        return Err(ImapAdaptationError::MessageSizeNotMatch);
                                     }
                                     Ok(ReqmodAdaptationEndState::AdaptedTransferred)
                                 }
@@ -181,10 +190,13 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                 }
                 r = &mut ups_msg_transfer => {
                     return match r {
-                        Ok(_) => {
+                        Ok(copied) => {
                             state.mark_ups_send_all();
                             if ups_body_reader.trailer(128).await.is_ok() {
                                 self.icap_read_finished = true;
+                            }
+                            if copied != self.imap_message_size {
+                                return Err(ImapAdaptationError::MessageSizeNotMatch);
                             }
                             Ok(ReqmodAdaptationEndState::AdaptedTransferred)
                         }
