@@ -136,9 +136,9 @@ fn build_tls_context(
     let mut builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::tls_server())
         .map_err(|e| anyhow!("failed to get ssl acceptor builder: {e}"))?;
 
-    #[cfg(not(any(feature = "boringssl", feature = "aws-lc")))]
+    #[cfg(not(feature = "boringssl"))]
     set_client_hello_callback(&mut builder, retry_index, sni_index, alpn_index);
-    #[cfg(any(feature = "boringssl", feature = "aws-lc"))]
+    #[cfg(feature = "boringssl")]
     set_select_certificate_callback(&mut builder, retry_index, sni_index, alpn_index);
     set_alpn_select_callback(&mut builder, alpn_name_index);
 
@@ -177,7 +177,7 @@ fn build_tlcp_context(
     Ok(builder)
 }
 
-#[cfg(not(any(feature = "boringssl", feature = "aws-lc")))]
+#[cfg(not(feature = "boringssl"))]
 fn set_client_hello_callback(
     builder: &mut SslAcceptorBuilder,
     retry_index: Index<Ssl, ()>,
@@ -213,7 +213,7 @@ fn set_client_hello_callback(
     });
 }
 
-#[cfg(any(feature = "boringssl", feature = "aws-lc"))]
+#[cfg(feature = "boringssl")]
 fn set_select_certificate_callback(
     builder: &mut SslAcceptorBuilder,
     retry_index: Index<Ssl, ()>,

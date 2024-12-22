@@ -80,16 +80,7 @@ impl RustlsServerConfigExt for ServerConfig {
     }
 }
 
-#[cfg(feature = "rustls-aws-lc")]
-fn set_default_session_ticketer(config: &mut ServerConfig) -> anyhow::Result<()> {
-    use anyhow::anyhow;
-
-    config.ticketer = rustls::crypto::aws_lc_rs::Ticketer::new()
-        .map_err(|e| anyhow!("failed to create session ticketer: {e}"))?;
-    Ok(())
-}
-
-#[cfg(all(feature = "rustls-ring", not(feature = "rustls-aws-lc")))]
+#[cfg(feature = "rustls-ring")]
 fn set_default_session_ticketer(config: &mut ServerConfig) -> anyhow::Result<()> {
     use anyhow::anyhow;
 
@@ -98,7 +89,7 @@ fn set_default_session_ticketer(config: &mut ServerConfig) -> anyhow::Result<()>
     Ok(())
 }
 
-#[cfg(not(any(feature = "rustls-aws-lc", feature = "rustls-ring")))]
+#[cfg(not(feature = "rustls-ring"))]
 fn set_default_session_ticketer(config: &mut ServerConfig) -> anyhow::Result<()> {
     config.send_tls13_tickets = 0;
     Ok(())

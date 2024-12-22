@@ -18,12 +18,12 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use log::warn;
-#[cfg(any(feature = "aws-lc", feature = "boringssl", feature = "tongsuo"))]
+#[cfg(any(feature = "boringssl", feature = "tongsuo"))]
 use openssl::ssl::CertCompressionAlgorithm;
 use openssl::ssl::{
     Ssl, SslConnector, SslConnectorBuilder, SslContext, SslMethod, SslVerifyMode, SslVersion,
 };
-#[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
+#[cfg(not(feature = "boringssl"))]
 use openssl::ssl::{SslCtValidationMode, StatusType};
 use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::X509;
@@ -123,9 +123,9 @@ pub struct OpensslClientConfigBuilder {
     supported_groups: String,
     use_ocsp_stapling: bool,
     enable_sct: bool,
-    #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+    #[cfg(feature = "boringssl")]
     enable_grease: bool,
-    #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+    #[cfg(feature = "boringssl")]
     permute_extensions: bool,
     insecure: bool,
 }
@@ -148,9 +148,9 @@ impl Default for OpensslClientConfigBuilder {
             supported_groups: String::default(),
             use_ocsp_stapling: false,
             enable_sct: false,
-            #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+            #[cfg(feature = "boringssl")]
             enable_grease: false,
-            #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+            #[cfg(feature = "boringssl")]
             permute_extensions: false,
             insecure: false,
         }
@@ -286,22 +286,22 @@ impl OpensslClientConfigBuilder {
     }
 
     #[inline]
-    #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+    #[cfg(feature = "boringssl")]
     pub fn set_enable_grease(&mut self, enable: bool) {
         self.enable_grease = enable;
     }
 
-    #[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
+    #[cfg(not(feature = "boringssl"))]
     pub fn set_enable_grease(&mut self, _enable: bool) {
         log::warn!("grease can only be set for BoringSSL variants");
     }
 
-    #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+    #[cfg(feature = "boringssl")]
     pub fn set_permute_extensions(&mut self, enable: bool) {
         self.permute_extensions = enable;
     }
 
-    #[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
+    #[cfg(not(feature = "boringssl"))]
     pub fn set_permute_extensions(&mut self, _enable: bool) {
         log::warn!("permute extensions can only be set for BoringSSL variants");
     }
@@ -486,35 +486,35 @@ impl OpensslClientConfigBuilder {
         }
 
         if self.use_ocsp_stapling {
-            #[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
+            #[cfg(not(feature = "boringssl"))]
             ctx_builder
                 .set_status_type(StatusType::OCSP)
                 .map_err(|e| anyhow!("failed to enable OCSP status request: {e}"))?;
-            #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+            #[cfg(feature = "boringssl")]
             ctx_builder.enable_ocsp_stapling();
             // TODO check OCSP response
         }
 
         if self.enable_sct {
-            #[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
+            #[cfg(not(feature = "boringssl"))]
             ctx_builder
                 .enable_ct(SslCtValidationMode::PERMISSIVE)
                 .map_err(|e| anyhow!("failed to enable SCT: {e}"))?;
-            #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+            #[cfg(feature = "boringssl")]
             ctx_builder.enable_signed_cert_timestamps();
             // TODO check SCT list for AWS-LC or BoringSSL
         }
 
-        #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+        #[cfg(feature = "boringssl")]
         if self.enable_grease {
             ctx_builder.set_grease_enabled(true);
         }
-        #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+        #[cfg(feature = "boringssl")]
         if self.permute_extensions {
             ctx_builder.set_permute_extensions(true);
         }
 
-        #[cfg(any(feature = "aws-lc", feature = "boringssl", feature = "tongsuo"))]
+        #[cfg(any(feature = "boringssl", feature = "tongsuo"))]
         ctx_builder
             .add_cert_decompression_alg(CertCompressionAlgorithm::BROTLI, |in_buf, out_buf| {
                 use std::io::Read;

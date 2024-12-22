@@ -32,5 +32,4 @@ g3-build-env.workspace = true
 default = []
 vendored-openssl = ["openssl/vendored"]
 vendored-tongsuo = ["openssl/tongsuo", "g3-cert-agent/tongsuo"]
-vendored-aws-lc = ["openssl/aws-lc", "g3-types/aws-lc", "g3-tls-cert/aws-lc"]
 vendored-boringssl = ["openssl/boringssl", "g3-types/boringssl", "g3-tls-cert/boringssl"]
