@@ -19,5 +19,4 @@ atomic-waker.workspace = true
 [features]
 default = []
 async-job = []
-aws-lc = ["openssl/aws-lc"]
 boringssl = ["openssl/boringssl"]

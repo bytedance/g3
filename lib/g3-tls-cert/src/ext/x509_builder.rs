@@ -28,7 +28,7 @@ pub trait X509BuilderExt {
 }
 
 impl X509BuilderExt for X509Builder {
-    #[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
+    #[cfg(not(feature = "boringssl"))]
     fn sign_with_optional_digest<T: HasPrivate>(
         &mut self,
         key: &PKeyRef<T>,
@@ -45,7 +45,7 @@ impl X509BuilderExt for X509Builder {
         self.sign(key, digest)
     }
 
-    #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+    #[cfg(feature = "boringssl")]
     fn sign_with_optional_digest<T: HasPrivate>(
         &mut self,
         key: &PKeyRef<T>,

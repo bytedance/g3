@@ -18,5 +18,4 @@ g3-datetime.workspace = true
 [features]
 default = []
 no-sm2 = []
-aws-lc = ["no-sm2", "openssl/aws-lc"]
 boringssl = ["no-sm2", "openssl/boringssl", "g3-types/boringssl"]
