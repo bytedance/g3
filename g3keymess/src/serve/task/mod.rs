@@ -18,9 +18,10 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
+use openssl::pkey::{PKey, Private};
 use slog::{slog_info, Logger};
 use tokio::io::AsyncRead;
-use tokio::sync::{broadcast, Semaphore};
+use tokio::sync::{broadcast, OwnedSemaphorePermit, Semaphore};
 use tokio::time::Instant;
 use uuid::Uuid;
 
@@ -28,22 +29,42 @@ use g3_histogram::HistogramRecorder;
 use g3_slog_types::{LtDateTime, LtUuid};
 
 use crate::config::server::KeyServerConfig;
-use crate::protocol::{KeylessAction, KeylessErrorResponse, KeylessRequest};
+use crate::protocol::{KeylessAction, KeylessErrorResponse, KeylessRequest, KeylessResponse};
 use crate::serve::{
     KeyServerDurationRecorder, KeyServerRequestStats, KeyServerStats, ServerReloadCommand,
     ServerTaskError,
 };
 
-#[cfg(feature = "openssl-async-job")]
 mod multiplex;
 mod simplex;
 
-struct WrappedKeylessRequest {
-    inner: KeylessRequest,
-    stats: Arc<KeyServerRequestStats>,
+pub(crate) struct WrappedKeylessResponse {
+    pub(crate) inner: KeylessResponse,
+    create_time: Instant,
+    duration_recorder: Arc<HistogramRecorder<u64>>,
+}
+
+impl WrappedKeylessResponse {
+    pub(crate) fn new(
+        inner: KeylessResponse,
+        create_time: Instant,
+        duration_recorder: Arc<HistogramRecorder<u64>>,
+    ) -> Self {
+        WrappedKeylessResponse {
+            inner,
+            create_time,
+            duration_recorder,
+        }
+    }
+}
+
+pub(crate) struct WrappedKeylessRequest {
+    pub(crate) inner: KeylessRequest,
+    pub(crate) stats: Arc<KeyServerRequestStats>,
     duration_recorder: Arc<HistogramRecorder<u64>>,
     create_time: Instant,
     err_rsp: Option<KeylessErrorResponse>,
+    server_sem_permit: Option<OwnedSemaphorePermit>,
 }
 
 impl WrappedKeylessRequest {
@@ -91,11 +112,29 @@ impl WrappedKeylessRequest {
             duration_recorder,
             create_time: Instant::now(),
             err_rsp,
+            server_sem_permit: None,
         }
     }
 
     fn take_err_rsp(&mut self) -> Option<KeylessErrorResponse> {
         self.err_rsp.take()
+    }
+
+    pub(crate) fn process_by_openssl(&self, key: &PKey<Private>) -> KeylessResponse {
+        match self.inner.process(key) {
+            Ok(d) => {
+                self.stats.add_passed();
+                KeylessResponse::Data(d)
+            }
+            Err(e) => {
+                self.stats.add_by_error_code(e.error_code());
+                KeylessResponse::Error(e)
+            }
+        }
+    }
+
+    pub(crate) fn build_response(&self, rsp: KeylessResponse) -> WrappedKeylessResponse {
+        WrappedKeylessResponse::new(rsp, self.create_time, self.duration_recorder.clone())
     }
 }
 
@@ -122,6 +161,9 @@ pub(crate) struct KeylessTask {
     ctx: KeylessTaskContext,
     started: DateTime<Utc>,
     buf: Vec<u8>,
+    #[cfg(feature = "openssl-async-job")]
+    allow_openssl_async_job: bool,
+    allow_dispatch: bool,
 }
 
 impl Drop for KeylessTask {
@@ -142,7 +184,19 @@ impl KeylessTask {
             ctx,
             started,
             buf: Vec::with_capacity(crate::protocol::MESSAGE_PADDED_LENGTH + 2),
+            #[cfg(feature = "openssl-async-job")]
+            allow_openssl_async_job: false,
+            allow_dispatch: false,
         }
+    }
+
+    pub(crate) fn set_allow_dispatch(&mut self) {
+        self.allow_dispatch = true;
+    }
+
+    #[cfg(feature = "openssl-async-job")]
+    pub(crate) fn set_allow_openssl_async_job(&mut self) {
+        self.allow_openssl_async_job = true;
     }
 
     async fn timed_read_request<R>(

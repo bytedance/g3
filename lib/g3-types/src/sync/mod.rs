@@ -29,6 +29,13 @@ impl<T> GlobalInit<T> {
         }
     }
 
+    pub fn set(&self, value: T) {
+        unsafe {
+            let inner_mut = &mut *self.inner.get();
+            *inner_mut = value;
+        }
+    }
+
     pub fn with_mut<F, R>(&self, handle: F) -> R
     where
         F: FnOnce(&mut T) -> R,

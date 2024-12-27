@@ -19,6 +19,7 @@ use std::path::Path;
 use anyhow::anyhow;
 use yaml_rust::{yaml, Yaml};
 
+pub(crate) mod backend;
 pub(crate) mod log;
 pub(crate) mod server;
 pub(crate) mod store;
@@ -76,12 +77,14 @@ fn load_doc(map: &yaml::Hash) -> anyhow::Result<()> {
         g3_daemon::opts::config_dir().ok_or_else(|| anyhow!("no valid config dir has been set"))?;
     g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
         "runtime" => g3_daemon::runtime::config::load(v),
+        "worker" => g3_daemon::runtime::config::load_worker(v),
         "log" => log::load(v, conf_dir),
         "stat" => g3_daemon::stat::config::load(v, crate::build::PKG_NAME),
         "controller" => g3_daemon::control::config::load(v),
         "pre_register" => g3_daemon::register::load_pre_config(v),
         "server" => server::load_all(v, conf_dir),
         "store" => store::load_all(v, conf_dir),
+        "backend" => backend::load(v),
         _ => Err(anyhow!("invalid key {k} in main conf")),
     })?;
     Ok(())
