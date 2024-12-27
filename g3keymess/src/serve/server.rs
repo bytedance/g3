@@ -20,6 +20,8 @@ use std::sync::Arc;
 use arc_swap::ArcSwap;
 use slog::Logger;
 use tokio::net::TcpStream;
+#[cfg(feature = "openssl-async-job")]
+use tokio::runtime::{Handle, RuntimeFlavor};
 use tokio::sync::{broadcast, Semaphore};
 
 use g3_daemon::listen::ListenStats;
@@ -233,8 +235,15 @@ impl KeyServer {
         let task = KeylessTask::new(ctx);
 
         #[cfg(feature = "openssl-async-job")]
-        if self.config.multiplex_queue_depth > 1 {
-            task.into_multiplex_running(r, w).await
+        if matches!(
+            Handle::current().runtime_flavor(),
+            RuntimeFlavor::CurrentThread
+        ) {
+            if self.config.multiplex_queue_depth > 1 {
+                task.into_multiplex_running(r, w).await
+            } else {
+                task.into_simplex_running(r, w).await
+            }
         } else {
             task.into_simplex_running(r, w).await
         }

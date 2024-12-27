@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::cell::RefCell;
+use std::sync::{LazyLock, RwLock};
 
 use ahash::AHashMap;
 use anyhow::anyhow;
@@ -27,23 +27,22 @@ pub use ops::{load_all, reload_all};
 
 mod registry;
 
-thread_local! {
-    static GLOBAL_SKI_MAP: RefCell<AHashMap<Vec<u8>, PKey<Private>>> = RefCell::new(AHashMap::new());
-}
+static GLOBAL_SKI_MAP: LazyLock<RwLock<AHashMap<Vec<u8>, PKey<Private>>>> =
+    LazyLock::new(|| RwLock::new(AHashMap::new()));
 
 pub(crate) fn add_global(key: PKey<Private>) -> anyhow::Result<()> {
     let ski = key.ski().map_err(|e| anyhow!("failed to get SKI: {e}"))?;
-    GLOBAL_SKI_MAP.with_borrow_mut(|map| {
-        map.insert(ski.to_vec(), key);
-    });
-
+    let mut map = GLOBAL_SKI_MAP.write().unwrap();
+    map.insert(ski.to_vec(), key);
     Ok(())
 }
 
 pub(crate) fn get_all_ski() -> Vec<Vec<u8>> {
-    GLOBAL_SKI_MAP.with_borrow(|map| map.keys().map(|v| v.to_vec()).collect())
+    let map = GLOBAL_SKI_MAP.read().unwrap();
+    map.keys().map(|v| v.to_vec()).collect()
 }
 
 pub(crate) fn get_by_ski(ski: &[u8]) -> Option<PKey<Private>> {
-    GLOBAL_SKI_MAP.with_borrow(|map| map.get(ski).cloned())
+    let map = GLOBAL_SKI_MAP.read().unwrap();
+    map.get(ski).cloned()
 }
