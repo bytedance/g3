@@ -232,23 +232,24 @@ impl KeyServer {
         };
 
         let (r, w) = stream.into_split();
-        let task = KeylessTask::new(ctx);
+        let mut task = KeylessTask::new(ctx);
+
+        if g3_daemon::runtime::worker::worker_count() > 0 {
+            task.set_allow_dispatch();
+        }
 
         #[cfg(feature = "openssl-async-job")]
         if matches!(
             Handle::current().runtime_flavor(),
             RuntimeFlavor::CurrentThread
         ) {
-            if self.config.multiplex_queue_depth > 1 {
-                task.into_multiplex_running(r, w).await
-            } else {
-                task.into_simplex_running(r, w).await
-            }
+            task.set_allow_openssl_async_job();
+        }
+
+        if self.config.multiplex_queue_depth > 1 {
+            task.into_multiplex_running(r, w).await
         } else {
             task.into_simplex_running(r, w).await
         }
-
-        #[cfg(not(feature = "openssl-async-job"))]
-        task.into_simplex_running(r, w).await
     }
 }
