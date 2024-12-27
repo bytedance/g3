@@ -52,6 +52,10 @@ impl BlendedRuntimeConfig {
             .max(1)
     }
 
+    pub fn run_in_current_thread(&self) -> bool {
+        self.thread_number == Some(0)
+    }
+
     pub fn set_thread_number(&mut self, num: usize) {
         self.thread_number = Some(num);
     }
@@ -74,7 +78,7 @@ impl BlendedRuntimeConfig {
         self.max_io_events_per_tick = Some(capacity);
     }
 
-    pub fn start(&self) -> anyhow::Result<Runtime> {
+    pub fn builder(&self) -> Builder {
         let mut build = if let Some(thread_number) = self.thread_number {
             if thread_number == 0 {
                 // 0 means no thread pool
@@ -105,6 +109,10 @@ impl BlendedRuntimeConfig {
             build.max_io_events_per_tick(n);
         }
         build
+    }
+
+    pub fn start(&self) -> anyhow::Result<Runtime> {
+        self.builder()
             .build()
             .map_err(|e| anyhow!("runtime build failed: {e:?}"))
     }

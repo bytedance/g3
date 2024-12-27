@@ -44,6 +44,7 @@ fn main() -> anyhow::Result<()> {
         g3keymess::control::UpgradeActor::connect_to_old_daemon();
     }
 
+    g3_daemon::runtime::config::set_default_thread_number(0); // default to use current thread
     let config_file = match g3keymess::config::load() {
         Ok(c) => c,
         Err(e) => {
@@ -90,12 +91,9 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
-    let mut rt_builder = tokio::runtime::Builder::new_current_thread();
-    rt_builder.enable_all();
-
+    let mut rt_builder = g3_daemon::runtime::config::get_runtime_config().builder();
     #[cfg(feature = "openssl-async-job")]
     if let Some(async_job_size) = args.openssl_async_job {
-        info!("will init {async_job_size} openssl async jobs");
         rt_builder.on_thread_start(move || {
             if let Err(e) = g3_openssl::async_job::async_thread_init(async_job_size, async_job_size)
             {
@@ -104,10 +102,9 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
         });
         rt_builder.on_thread_stop(g3_openssl::async_job::async_thread_cleanup);
     }
-
     let rt = rt_builder
         .build()
-        .map_err(|e| anyhow!("failed to start runtime: {e}"))?;
+        .map_err(|e| anyhow!("failed to start main runtime: {e}"))?;
     rt.block_on(async {
         let ret: anyhow::Result<()> = Ok(());
 
