@@ -20,6 +20,8 @@ use anyhow::Context;
 use tokio::sync::watch;
 use yaml_rust::Yaml;
 
+use g3_types::metrics::MetricsName;
+
 use super::{ArcDiscover, Discover, DiscoverResult};
 use crate::config::discover::static_addr::StaticAddrDiscoverConfig;
 use crate::config::discover::{AnyDiscoverConfig, DiscoverConfig};
@@ -35,6 +37,10 @@ impl StaticAddrDiscover {
 }
 
 impl Discover for StaticAddrDiscover {
+    fn name(&self) -> &MetricsName {
+        self.config.name()
+    }
+
     fn _clone_config(&self) -> AnyDiscoverConfig {
         AnyDiscoverConfig::StaticAddr(self.config.clone())
     }

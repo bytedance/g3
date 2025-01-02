@@ -143,9 +143,13 @@ impl Backend for StreamTcpBackend {
     fn update_discover(&self) -> anyhow::Result<()> {
         let discover = &self.config.discover;
         let discover = crate::discover::get_discover(discover)?;
-        let mut discover_receiver = discover
-            .register_data(&self.config.discover_data)
-            .context("failed to register to discover {discover}")?;
+        let mut discover_receiver =
+            discover
+                .register_data(&self.config.discover_data)
+                .context(format!(
+                    "failed to register to discover {}",
+                    discover.name()
+                ))?;
 
         let peer_addrs_container = self.peer_addrs.clone();
         let (abort_handle, abort_reg) = AbortHandle::new_pair();
