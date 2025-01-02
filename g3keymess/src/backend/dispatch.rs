@@ -24,8 +24,11 @@ use g3_types::sync::GlobalInit;
 
 use super::DispatchedKeylessRequest;
 
-static DISPATCH_CONTAINER: GlobalInit<DispatcherContainer> =
-    GlobalInit::new(DispatcherContainer::with_counter_shift(8));
+const DEFAULT_COUNTER_SHIFT: u8 = 3;
+
+static DISPATCH_CONTAINER: GlobalInit<DispatcherContainer> = GlobalInit::new(
+    DispatcherContainer::with_counter_shift(DEFAULT_COUNTER_SHIFT),
+);
 
 struct Dispatcher {
     counter: AtomicUsize,
@@ -35,7 +38,7 @@ struct Dispatcher {
 
 impl Default for Dispatcher {
     fn default() -> Self {
-        Dispatcher::with_counter_shift(8)
+        Dispatcher::with_counter_shift(DEFAULT_COUNTER_SHIFT)
     }
 }
 
@@ -104,38 +107,23 @@ pub(crate) fn dispatch(req: DispatchedKeylessRequest) -> Result<(), DispatchedKe
     DISPATCH_CONTAINER.as_ref().dispatch(req)
 }
 
-pub(super) fn register_rsa_2048(rsp_sender: mpsc::Sender<DispatchedKeylessRequest>) {
-    DISPATCH_CONTAINER.with_mut(|c| {
-        c.rsa_2048.workers.push(rsp_sender);
-    });
+macro_rules! define_register {
+    ($method:ident, $field:ident) => {
+        pub(super) fn $method(
+            rsp_sender: mpsc::Sender<DispatchedKeylessRequest>,
+            counter_shift: u8,
+        ) {
+            DISPATCH_CONTAINER.with_mut(|c| {
+                c.$field.counter_shift = counter_shift;
+                c.$field.workers.push(rsp_sender);
+            });
+        }
+    };
 }
 
-pub(super) fn register_rsa_3072(rsp_sender: mpsc::Sender<DispatchedKeylessRequest>) {
-    DISPATCH_CONTAINER.with_mut(|c| {
-        c.rsa_3072.workers.push(rsp_sender);
-    });
-}
-
-pub(super) fn register_rsa_4096(rsp_sender: mpsc::Sender<DispatchedKeylessRequest>) {
-    DISPATCH_CONTAINER.with_mut(|c| {
-        c.rsa_4096.workers.push(rsp_sender);
-    });
-}
-
-pub(super) fn register_ecdsa_p256(rsp_sender: mpsc::Sender<DispatchedKeylessRequest>) {
-    DISPATCH_CONTAINER.with_mut(|c| {
-        c.ecdsa_p256.workers.push(rsp_sender);
-    });
-}
-
-pub(super) fn register_ecdsa_p384(rsp_sender: mpsc::Sender<DispatchedKeylessRequest>) {
-    DISPATCH_CONTAINER.with_mut(|c| {
-        c.ecdsa_p384.workers.push(rsp_sender);
-    });
-}
-
-pub(super) fn register_ecdsa_p521(rsp_sender: mpsc::Sender<DispatchedKeylessRequest>) {
-    DISPATCH_CONTAINER.with_mut(|c| {
-        c.ecdsa_p521.workers.push(rsp_sender);
-    });
-}
+define_register!(register_rsa_2048, rsa_2048);
+define_register!(register_rsa_3072, rsa_3072);
+define_register!(register_rsa_4096, rsa_4096);
+define_register!(register_ecdsa_p256, ecdsa_p256);
+define_register!(register_ecdsa_p384, ecdsa_p384);
+define_register!(register_ecdsa_p521, ecdsa_p521);
