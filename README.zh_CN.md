@@ -10,14 +10,14 @@
 
 本项目用于构建面向企业的通用代理解决方案，包括但不限于代理、反向代理（开发中）、负载均衡（待定）、NAT穿透（待定）等。
 
-## 组件
+## 应用程序
 
-G3项目包含许多组件，每一个组件单独一个子目录，包含各自的代码、文档等。
+G3项目包含许多应用，每一个应用程序单独一个子目录，包含各自的代码、文档等。
 
-除了组件目录，还有一些公共目录：
+除了应用程序目录，还有一些公共目录：
 
 - [doc](doc) 包含项目级别文档。
-- [sphinx](sphinx) 用于为各组件生成HTML参考文档。
+- [sphinx](sphinx) 用于为各应用生成HTML参考文档。
 - [scripts](scripts) 包含各种辅助脚本，包括覆盖率测试、打包脚本等。
 
 ### g3proxy
@@ -66,11 +66,11 @@ G3项目包含许多组件，每一个组件单独一个子目录，包含各自
 
 ### g3fcgen
 
-适用于g3proxy TLS劫持功能的的伪造证书生成服务组件。
+适用于g3proxy TLS劫持功能的的伪造证书生成服务应用。
 
 ### g3iploc
 
-适用于g3proxy GeoIP功能的IP Location查找服务组件。
+适用于g3proxy GeoIP功能的IP Location查找服务应用。
 
 ### g3keymess
 
@@ -92,7 +92,7 @@ Cloudflare Keyless Server的简单实现。
 
 ## 发布及打包
 
-每个组件的每个发布版本都会有对应的tag，格式为 *\<name\>-v\<version\>* 。
+每个应用程序的每个发布版本都会有对应的tag，格式为 *\<name\>-v\<version\>* 。
 使用对应的tag生成源码tar包，该tar包可以用于生成deb、rpm等发行版原生包文件。
 
 如果需要对正式发布的版本打包:
@@ -146,13 +146,13 @@ Cloudflare Keyless Server的简单实现。
 
 ### 制作Docker镜像
 
-每个组件的*docker*文件夹下有可参考的Dockerfile(s)，命令如下：
+每个应用的*docker*文件夹下有可参考的Dockerfile(s)，命令如下：
 
 ```shell
 # 在源码根目录可执行
-docker build -f <component>/docker/debian.Dockerfile . -t <component>:<tag>
+docker build -f <app>/docker/debian.Dockerfile . -t <app>:<tag>
 # 本地没有源码时，可用远程URL执行
-docker build -f <component>/docker/debian.Dockerfile github.com/bytedance/g3 -t <component>:<tag>
+docker build -f <app>/docker/debian.Dockerfile github.com/bytedance/g3 -t <app>:<tag>
 # 如果已经制作了源码tar包，也可以把URL路径换成源码tar包路径
 ```
 
