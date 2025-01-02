@@ -17,7 +17,7 @@
 use std::time::Duration;
 
 use anyhow::anyhow;
-use yaml_rust::yaml;
+use yaml_rust::Yaml;
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct AsyncJobBackendConfig {
@@ -33,16 +33,21 @@ impl Default for AsyncJobBackendConfig {
 }
 
 impl AsyncJobBackendConfig {
-    pub(super) fn parse_yaml(map: &yaml::Hash) -> anyhow::Result<Self> {
-        let mut config = AsyncJobBackendConfig::default();
-        g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
-            super::CONFIG_KEY_BACKEND_TYPE => Ok(()),
-            "async_op_timeout" => {
-                config.async_op_timeout = g3_yaml::humanize::as_duration(v)?;
-                Ok(())
-            }
-            _ => Err(anyhow!("invalid key {k}")),
-        })?;
-        Ok(config)
+    pub(super) fn parse_yaml(value: &Yaml) -> anyhow::Result<Self> {
+        if let Yaml::Hash(map) = value {
+            let mut config = AsyncJobBackendConfig::default();
+            g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+                "async_op_timeout" => {
+                    config.async_op_timeout = g3_yaml::humanize::as_duration(v)?;
+                    Ok(())
+                }
+                _ => Err(anyhow!("invalid key {k}")),
+            })?;
+            Ok(config)
+        } else {
+            Err(anyhow!(
+                "yaml value type for `openssl async job backend` should be `map`"
+            ))
+        }
     }
 }

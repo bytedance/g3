@@ -18,7 +18,7 @@ use openssl::pkey::{PKey, Private};
 use tokio::runtime::Handle;
 use tokio::sync::mpsc;
 
-use crate::config::backend::BackendConfig;
+use crate::config::backend::BackendDriverConfig;
 use crate::serve::{WrappedKeylessRequest, WrappedKeylessResponse};
 
 mod dispatch;
@@ -30,8 +30,6 @@ mod async_job;
 pub(crate) use async_job::OpensslOperation;
 
 mod simple;
-
-const BACKEND_CHANNEL_SIZE: usize = 1024;
 
 pub(crate) struct DispatchedKeylessRequest {
     pub(crate) inner: WrappedKeylessRequest,
@@ -53,19 +51,19 @@ pub fn create(_id: usize, handle: &Handle) -> anyhow::Result<()> {
 
     macro_rules! setup {
         ($run:ident, $register:ident) => {
-            let (sender, receiver) = mpsc::channel(BACKEND_CHANNEL_SIZE);
-            match config {
-                BackendConfig::Simple => {
+            let (sender, receiver) = mpsc::channel(config.dispatch_channel_size);
+            match config.driver {
+                BackendDriverConfig::Simple => {
                     let backend = simple::SimpleBackend::new();
                     handle.spawn(backend.$run(receiver));
                 }
                 #[cfg(feature = "openssl-async-job")]
-                BackendConfig::AsyncJob(config) => {
+                BackendDriverConfig::AsyncJob(config) => {
                     let backend = async_job::AsyncJobBackend::new(*config);
                     handle.spawn(backend.$run(receiver));
                 }
             }
-            dispatch::$register(sender);
+            dispatch::$register(sender, config.dispatch_counter_shift);
         };
     }
 
