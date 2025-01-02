@@ -17,8 +17,6 @@
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, Mutex};
 
-use anyhow::anyhow;
-
 use g3_types::metrics::MetricsName;
 
 use super::AnyServerConfig;
@@ -31,29 +29,24 @@ pub(crate) fn clear() {
     ht.clear();
 }
 
-pub(super) fn add(server: AnyServerConfig, replace: bool) -> anyhow::Result<()> {
+pub(super) fn add(server: AnyServerConfig) -> Option<AnyServerConfig> {
     let name = server.name().clone();
     let server = Arc::new(server);
     let mut ht = INITIAL_SERVER_CONFIG_REGISTRY.lock().unwrap();
-    if let Some(old) = ht.insert(name, server) {
-        if replace {
-            Ok(())
-        } else {
-            Err(anyhow!(
-                "server with the same name {} is already existed",
-                old.name()
-            ))
-        }
-    } else {
-        Ok(())
-    }
+    ht.insert(name, server).map(|v| v.as_ref().clone())
 }
 
-pub(super) fn get_all() -> Vec<Arc<AnyServerConfig>> {
-    let mut vec = Vec::new();
+pub(super) fn del(name: &MetricsName) {
+    let mut ht = INITIAL_SERVER_CONFIG_REGISTRY.lock().unwrap();
+    ht.remove(name);
+}
+
+pub(super) fn get(name: &MetricsName) -> Option<Arc<AnyServerConfig>> {
     let ht = INITIAL_SERVER_CONFIG_REGISTRY.lock().unwrap();
-    for v in ht.values() {
-        vec.push(Arc::clone(v));
-    }
-    vec
+    ht.get(name).cloned()
+}
+
+pub(super) fn get_all_names() -> Vec<MetricsName> {
+    let ht = INITIAL_SERVER_CONFIG_REGISTRY.lock().unwrap();
+    ht.keys().cloned().collect()
 }

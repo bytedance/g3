@@ -14,17 +14,16 @@
  * limitations under the License.
  */
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
-use indexmap::IndexSet;
 use slog::Logger;
 use yaml_rust::{yaml, Yaml};
 
-use g3_daemon::config::sort_nodes_in_dependency_graph;
+use g3_daemon::config::TopoMap;
 use g3_types::metrics::MetricsName;
 use g3_yaml::{HybridParser, YamlDocPosition};
 
@@ -134,10 +133,16 @@ pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
     let parser = HybridParser::new(conf_dir, g3_daemon::opts::config_file_extension());
     parser.foreach_map(v, |map, position| {
         let server = load_server(map, position)?;
-        registry::add(server, false)?;
-        Ok(())
+        if let Some(old_server) = registry::add(server) {
+            Err(anyhow!(
+                "server with name {} already exists",
+                old_server.name()
+            ))
+        } else {
+            Ok(())
+        }
     })?;
-    check_dependency()?;
+    build_topology_map()?;
     Ok(())
 }
 
@@ -145,8 +150,19 @@ pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<Any
     let doc = g3_yaml::load_doc(position)?;
     if let Yaml::Hash(map) = doc {
         let server = load_server(&map, Some(position.clone()))?;
-        registry::add(server.clone(), true)?;
-        Ok(server)
+        let old_server = registry::add(server.clone());
+        if let Err(e) = build_topology_map() {
+            // rollback
+            match old_server {
+                Some(server) => {
+                    registry::add(server);
+                }
+                None => registry::del(server.name()),
+            }
+            Err(e)
+        } else {
+            Ok(server)
+        }
     } else {
         Err(anyhow!("yaml doc {position} is not a map"))
     }
@@ -193,85 +209,28 @@ fn load_server(
     }
 }
 
-fn get_edges_for_dependency_graph(
-    all_config: &[Arc<AnyServerConfig>],
-    all_names: &IndexSet<MetricsName>,
-) -> anyhow::Result<Vec<(usize, usize)>> {
-    let mut edges: Vec<(usize, usize)> = Vec::with_capacity(all_config.len());
+fn build_topology_map() -> anyhow::Result<TopoMap> {
+    let mut topo_map = TopoMap::default();
 
-    // the isolated nodes is not added in edges
-    for conf in all_config.iter() {
-        let this_name = conf.name();
-        let this_index = all_names.get_full(this_name).map(|x| x.0).unwrap();
-        if let Some(names) = conf.dependent_server() {
-            for peer_name in names {
-                if let Some(r) = all_names.get_full(&peer_name) {
-                    let peer_index = r.0;
-                    edges.push((this_index, peer_index));
-                } else {
-                    return Err(anyhow!(
-                        "server {this_name} dependent on {peer_name}, which is not existed"
-                    ));
-                }
-            }
-        }
+    for name in registry::get_all_names() {
+        topo_map.add_node(&name, &|name| {
+            let conf = registry::get(name)?;
+            conf.dependent_server()
+        })?;
     }
 
-    Ok(edges)
+    Ok(topo_map)
 }
 
 pub(crate) fn get_all_sorted() -> anyhow::Result<Vec<Arc<AnyServerConfig>>> {
-    let all_config = registry::get_all();
-    let mut all_names = IndexSet::<MetricsName>::new();
-    let mut map_config = BTreeMap::<usize, Arc<AnyServerConfig>>::new();
-
-    for conf in all_config.iter() {
-        let (index, ok) = all_names.insert_full(conf.name().clone());
-        debug_assert!(ok);
-        map_config.insert(index, Arc::clone(conf));
+    let topo_map = build_topology_map()?;
+    let sorted_nodes = topo_map.sorted_nodes();
+    let mut sorted_conf = Vec::with_capacity(sorted_nodes.len());
+    for node in sorted_nodes {
+        let Some(conf) = registry::get(node.name()) else {
+            continue;
+        };
+        sorted_conf.push(conf);
     }
-
-    let edges = get_edges_for_dependency_graph(&all_config, &all_names)?;
-    let mut nodes = sort_nodes_in_dependency_graph(edges).map_err(|node_index| {
-        let name = all_names
-            .get_index(node_index)
-            .map(|x| x.to_string())
-            .unwrap_or_else(|| "invalid node".to_string());
-        anyhow!("Cycle detected in dependency for server {name}")
-    })?;
-    nodes.reverse();
-
-    let mut all_config = Vec::<Arc<AnyServerConfig>>::new();
-    for node_index in 0usize..all_names.len() {
-        // add isolated nodes first
-        if !nodes.contains(&node_index) {
-            all_config.push(map_config.remove(&node_index).unwrap());
-        }
-    }
-    for node_index in nodes {
-        // add connected nodes in order
-        all_config.push(map_config.remove(&node_index).unwrap());
-    }
-    Ok(all_config)
-}
-
-fn check_dependency() -> anyhow::Result<()> {
-    let all_config = registry::get_all();
-    let mut all_names = IndexSet::<MetricsName>::new();
-
-    for conf in all_config.iter() {
-        all_names.insert(conf.name().clone());
-    }
-
-    let edges = get_edges_for_dependency_graph(&all_config, &all_names)?;
-
-    if let Err(node_index) = sort_nodes_in_dependency_graph(edges) {
-        let name = all_names
-            .get_index(node_index)
-            .map(|x| x.to_string())
-            .unwrap_or_else(|| "invalid node".to_string());
-        Err(anyhow!("Cycle detected in dependency for server {name}"))
-    } else {
-        Ok(())
-    }
+    Ok(sorted_conf)
 }

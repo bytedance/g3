@@ -42,11 +42,12 @@ pub(super) fn del(name: &MetricsName) {
     ht.remove(name);
 }
 
-pub(super) fn get_all() -> Vec<Arc<AnyResolverConfig>> {
-    let mut vec = Vec::new();
+pub(super) fn get(name: &MetricsName) -> Option<Arc<AnyResolverConfig>> {
     let ht = INITIAL_RESOLVER_CONFIG_REGISTRY.lock().unwrap();
-    for v in ht.values() {
-        vec.push(Arc::clone(v));
-    }
-    vec
+    ht.get(name).cloned()
+}
+
+pub(super) fn get_all_names() -> Vec<MetricsName> {
+    let ht = INITIAL_RESOLVER_CONFIG_REGISTRY.lock().unwrap();
+    ht.keys().cloned().collect()
 }
