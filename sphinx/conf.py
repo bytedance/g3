@@ -6,6 +6,9 @@ extensions = [
 
 # Define the projects that will share this configuration file.
 multiproject_projects = {
+    "project": {
+        "path": "project",
+    },
     "g3proxy": {
         "path": "g3proxy",
     },
