@@ -11,15 +11,15 @@
 This is the project we used to build enterprise-oriented generic proxy solutions,
 including but not limited to proxy / reverse proxy (WIP) / load balancer (TBD) / nat traversal (TBD).
 
-## Components
+## Applications
 
-The G3 project contains many components, each of which has a separate subdirectory containing its own code,
+The G3 project is consisted of many applications, each of which has a separate subdirectory containing its own code,
 documentation, etc.
 
-In addition to the component directories, there are some public directories:
+In addition to the application directories, there are some public directories:
 
 - [doc](doc) Contains project-level documentation.
-- [sphinx](sphinx) is used to generate HTML reference documents for each component.
+- [sphinx](sphinx) is used to generate HTML reference documents for each application.
 - [scripts](scripts) Contains various auxiliary scripts, including coverage testing, packaging scripts, etc.
 
 ### g3proxy
@@ -98,9 +98,9 @@ Follow [Standards](doc/standards.md).
 
 ## Release and Packaging
 
-We will set tags for each release of each component in the form *\<name\>-v\<version\>*.
+We will set tags for each release of each application in the form *\<name\>-v\<version\>*.
 You can use these tags to generate source tarballs.
-And we have added deb and rpm package files for each component that is ready for distribution.
+And we have added deb and rpm package files for each application that is ready for distribution.
 
 If you want to do a release build:
 
@@ -157,13 +157,13 @@ For testing purpose, we have built and uploaded some packages to
 
 ### Build Docker Image
 
-You can find Dockerfile(s) under *docker* folder of each component. The build command will be like
+You can find Dockerfile(s) under *docker* folder of each application. The build command will be like
 
 ```shell
 # run this in the source root dir
-docker build -f <component>/docker/debian.Dockerfile . -t <component>:<tag>
+docker build -f <app>/docker/debian.Dockerfile . -t <app>:<tag>
 # build without the source code
-docker build -f <component>/docker/debian.Dockerfile github.com/bytedance/g3 -t <component>:<tag>
+docker build -f <app>/docker/debian.Dockerfile github.com/bytedance/g3 -t <app>:<tag>
 # if you have a source tarball, you can also use the URL of that tarball
 ```
 
