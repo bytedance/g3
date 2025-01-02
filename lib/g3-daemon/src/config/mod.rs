@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-mod dependency;
-pub use dependency::sort_nodes_in_dependency_graph;
-
 mod lookup;
 pub use lookup::get_lookup_dir;
+
+mod topology;
+pub use topology::TopoMap;
