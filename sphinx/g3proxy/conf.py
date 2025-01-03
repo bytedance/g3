@@ -7,9 +7,9 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'g3proxy'
-copyright = '2024, Zhang Jingqiang'
+copyright = '2020-%Y, Zhang Jingqiang'
 author = 'Zhang Jingqiang'
-release = '1.11.1'
+release = '1.11.2'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
