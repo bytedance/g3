@@ -1,4 +1,13 @@
 
+v1.11.2:
+ - BUG FIX: correctly handle ICAP null-body response
+ - BUG FIX: fix ICAP connection state when reading modified SMTP/IMAP message
+ - BUG FIX: fix chunked encoding of H2 body stream when sending to ICAP server
+ - BUG FIX: keep control socket open on accept error
+ - Feature: allow ICAP 204 response for small IMAP messages
+ - Optimization: use standard Content-Length header instead of X-IMAP-Message-Size in ICAP for IMAP request
+ - Compatibility: drop AWS-LC support to reduce outdated dependencies
+
 v1.11.1:
  - Feature: retry HTTP connection if upstream close connection without any data in HTTP proxy/rproxy server
  - Feature: add idle-timeout config option to connection pool
