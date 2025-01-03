@@ -1,4 +1,13 @@
 
+v0.3.7:
+ - BUG FIX: keep control socket open on accept error
+ - BUG FIX: fix session ticket lookup if ticketer is enabled
+ - Feature: support to use openssl async engine in openssl server
+ - Optimization: switch to use our own TLS ClientHello parser in openssl server
+ - Optimization: use external session cache in openssl server and shutdown connections cleanly
+ - Optimization: always refresh TLS session ticket in openssl server
+ - Compatibility: drop AWS-LC support to reduce outdated dependencies
+
 v0.3.6:
  - Feature: allow to set remote TLS ticketer in tls server config
  - Feature: add new runtime metrics runtime.tokio.global_queue_depth
