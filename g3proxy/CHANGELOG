@@ -1,4 +1,10 @@
 
+v1.10.4:
+ - BUG FIX: correctly handle ICAP null-body response
+ - BUG FIX: fix ICAP connection state when reading modified SMTP/IMAP message
+ - BUG FIX: fix chunked encoding of H2 body stream when sending to ICAP server
+ - BUG FIX: keep control socket open on accept error
+
 v1.10.3:
  - BUG FIX: fix read of trailer for chunked FTP over HTTP upload
  - BUG FIX: fix idle check in udp copy and udp relay task
