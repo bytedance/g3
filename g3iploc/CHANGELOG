@@ -1,3 +1,7 @@
 
+v0.2.0:
+ - Feature: listen to Ctrl-C event and shutdown gracefully
+ - Feature: allow to run in multiple worker threads
+
 v0.1.0:
  - Initial release
