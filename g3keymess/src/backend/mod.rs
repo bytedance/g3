@@ -59,7 +59,7 @@ pub fn create(_id: usize, handle: &Handle) -> anyhow::Result<()> {
                 }
                 #[cfg(feature = "openssl-async-job")]
                 BackendDriverConfig::AsyncJob(config) => {
-                    let backend = async_job::AsyncJobBackend::new(*config);
+                    let backend = async_job::AsyncJobBackend::new(config);
                     handle.spawn(backend.$run(receiver));
                 }
             }
