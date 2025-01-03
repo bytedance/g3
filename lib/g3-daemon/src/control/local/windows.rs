@@ -88,7 +88,6 @@ impl LocalControllerImpl {
                         }
                         Err(e) => {
                             warn!("controller {} accept: {e}", self.pipe_name);
-                            break;
                         }
                     }
                 }

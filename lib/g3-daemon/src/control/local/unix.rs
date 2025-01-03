@@ -133,7 +133,6 @@ impl LocalControllerImpl {
                         }
                         Err(e) => {
                             warn!("controller {} accept: {e}", self.listen_path.display());
-                            break;
                         }
                     }
                 }
