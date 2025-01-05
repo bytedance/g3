@@ -1,4 +1,4 @@
-[![docs](https://readthedocs.org/projects/g3-project-g3proxy/badge)](https://g3-project.readthedocs.io/projects/g3proxy/en/latest/)
+[![docs](https://readthedocs.org/projects/g3-project-g3proxy/badge)](https://g3-project.readthedocs.io/projects/g3proxy/)
 
 # g3proxy
 
@@ -12,11 +12,13 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 ## How to build
 
 To build debug binaries:
+
 ```shell
 cargo build -p g3proxy -p g3proxy-ctl
 ```
 
 To build release binaries:
+
 ```shell
 cargo build --profile release-lto -p g3proxy -p g3proxy-ctl
 ```
