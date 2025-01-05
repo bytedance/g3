@@ -3,6 +3,20 @@ OpenSSL Variants
 
 There are many forks of OpenSSL available, this doc will show you how to build with them.
 
+# Vendored OpenSSL
+
+You can use `--features vendored-openssl` cargo build option to always use the latest stable OpenSSL version.
+
+It is also recommended to set the following C compile options:
+
+- x86-64
+
+  ```-march=x86-64-v2```
+
+- aarch64
+
+  ```-march=armv8-a+aes```
+
 # Tongsuo
 
 See [Tongsuo](https://github.com/Tongsuo-Project/Tongsuo) for more introduction.
