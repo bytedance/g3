@@ -48,7 +48,7 @@ The following components is required and should have already been installed:
 - rustfmt
 - clippy
 
-**llvm-tools** is also recommended to be installed:
+It is recommended to install **llvm-tools**:
 
 ```shell script
 rustup component add llvm-tools
@@ -94,7 +94,7 @@ The following plugins is recommended:
 
 - cargo-expand
 
-  Needed by IDE(at least JetBrains' rust plugin) to expand macros.
+  Needed by IDE to expand macros.
   The nightly toolchain is also required to run this.
 
 - cargo-audit
@@ -109,14 +109,9 @@ The following plugins is recommended:
 
   To clean cargo caches.
 
-# IDE
+- cargo-deny
 
-## JetBrains
-
-There is an official [rust plugin](https://plugins.jetbrains.com/plugin/8182-rust) for JetBrains IDEs.
-
-**PyCharm Community Edition** is recommended as we also use Python scripts in this repo.
-**Clion** is needed if you want the **DEBUG** feature.
+  To check licenses of dependencies.
 
 # Dependent Tools and Libraries
 
@@ -353,7 +348,7 @@ debhelper
 
 ### rpm
 
-For all *rhel* based distributions:
+For all *RHEL* based distributions:
 
 ```text
 rpmdevtools
