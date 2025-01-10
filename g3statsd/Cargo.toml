@@ -1,0 +1,18 @@
+[package]
+name = "g3statsd"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+description = "G3 StatsD"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
+yaml-rust.workspace = true
+tokio = { workspace = true, features = ["time", "signal"] }
+g3-daemon.workspace = true
+g3-yaml.workspace = true
+
+[build-dependencies]
+g3-build-env.workspace = true
