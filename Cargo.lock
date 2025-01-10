@@ -1949,6 +1949,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "g3statsd"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "g3-build-env",
+ "g3-daemon",
+ "g3-yaml",
+ "log",
+ "tokio",
+ "yaml-rust2",
+]
+
+[[package]]
 name = "g3tiles"
 version = "0.3.7"
 dependencies = [
