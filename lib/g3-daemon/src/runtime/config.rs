@@ -86,7 +86,7 @@ pub fn load(v: &Yaml) -> anyhow::Result<()> {
 }
 
 pub fn load_worker(v: &Yaml) -> anyhow::Result<()> {
-    let config = g3_yaml::value::as_unaided_runtime_config(v)?;
+    let config = UnaidedRuntimeConfig::parse_yaml(v)?;
     WORKER_CONFIG.with_mut(|v| v.replace(config));
     Ok(())
 }

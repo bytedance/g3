@@ -1376,8 +1376,10 @@ dependencies = [
  "anyhow",
  "g3-compat",
  "g3-openssl",
+ "g3-yaml",
  "log",
  "tokio",
+ "yaml-rust2",
 ]
 
 [[package]]
@@ -1596,7 +1598,6 @@ dependencies = [
  "g3-dpi",
  "g3-geoip-types",
  "g3-histogram",
- "g3-runtime",
  "g3-types",
  "http",
  "humanize-rs",

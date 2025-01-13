@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2025 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,9 @@ use tokio::runtime::Handle;
 use tokio::sync::{oneshot, watch};
 
 use g3_compat::CpuAffinity;
+
+#[cfg(feature = "yaml")]
+mod yaml;
 
 pub struct WorkersGuard {
     _close_sender: watch::Sender<()>,
@@ -155,17 +158,17 @@ impl UnaidedRuntimeConfig {
                     #[cfg(feature = "openssl-async-job")]
                     if openssl_async_job_size > 0 {
                         builder.on_thread_start(move || {
-                            if let Err(e) = g3_openssl::async_job::async_thread_init(
-                                openssl_async_job_size,
-                                openssl_async_job_size,
-                            ) {
+                            if let Err(e) =
+                                g3_openssl::async_job::async_thread_init(0, openssl_async_job_size)
+                            {
                                 warn!(
                                 "failed to init {openssl_async_job_size} openssl async jobs: {e}"
                             );
                             }
                         });
-                        builder.on_thread_stop(g3_openssl::async_job::async_thread_cleanup);
                     }
+                    #[cfg(feature = "openssl-async-job")]
+                    builder.on_thread_stop(g3_openssl::async_job::async_thread_cleanup);
 
                     match builder.build() {
                         Ok(rt) => {
