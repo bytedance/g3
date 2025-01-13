@@ -1,4 +1,3 @@
-
 .. _configure_runtime_value_types:
 
 *******
@@ -73,3 +72,16 @@ max_io_events_per_tick
 Configures the max number of events to be processed per tick.
 
 **default**: 1024, tokio default value
+
+openssl_async_job_size
+----------------------
+
+**optional**, **type**: usize
+
+Set initial openssl asynchronous job size for the current thread. See `ASYNC_start_job`_ for more details.
+
+**default**: not set, so no openssl async mode
+
+.. _ASYNC_start_job: https://docs.openssl.org/master/man3/ASYNC_start_job/
+
+.. versionadded:: 0.3.8

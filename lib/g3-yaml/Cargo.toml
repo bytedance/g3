@@ -23,7 +23,6 @@ openssl = { workspace = true, optional = true }
 http = { workspace = true, optional = true }
 g3-types.workspace = true
 g3-histogram = { workspace = true, optional = true }
-g3-runtime = { workspace = true, optional = true }
 g3-compat = { workspace = true, optional = true }
 g3-dpi = { workspace = true, optional = true }
 g3-geoip-types = { workspace = true, optional = true }
@@ -39,6 +38,6 @@ quinn = ["g3-types/quinn"]
 http = ["g3-types/http", "dep:http"]
 acl-rule = ["g3-types/acl-rule", "dep:ip_network", "dep:regex"]
 route = ["g3-types/route"]
-sched = ["dep:g3-runtime", "dep:g3-compat"]
+sched = ["dep:g3-compat"]
 dpi = ["dep:g3-dpi", "acl-rule"]
 geoip = ["dep:g3-geoip-types"]

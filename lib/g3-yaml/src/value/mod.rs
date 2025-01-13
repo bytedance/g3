@@ -88,11 +88,6 @@ mod sched;
 #[cfg(all(unix, not(target_os = "openbsd"), feature = "sched"))]
 pub use sched::*;
 
-#[cfg(feature = "sched")]
-mod runtime;
-#[cfg(feature = "sched")]
-pub use runtime::as_unaided_runtime_config;
-
 #[cfg(feature = "route")]
 mod route;
 #[cfg(feature = "route")]
