@@ -26,7 +26,7 @@ use tokio::sync::{broadcast, Semaphore};
 
 use g3_daemon::listen::ListenStats;
 use g3_daemon::server::ServerQuitPolicy;
-use g3_types::metrics::{MetricsTagName, MetricsTagValue, NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagName, MetricTagValue, NodeName, StaticMetricsTags};
 
 use super::{
     KeyServerDurationRecorder, KeyServerDurationStats, KeyServerRuntime, KeyServerStats,
@@ -164,7 +164,7 @@ impl KeyServer {
         self.prepare_reload(config)
     }
 
-    pub(crate) fn add_dynamic_metrics_tag(&self, name: MetricsTagName, value: MetricsTagValue) {
+    pub(crate) fn add_dynamic_metrics_tag(&self, name: MetricTagName, value: MetricTagValue) {
         let dynamic_tags = self.dynamic_metrics_tags.load();
         let mut dynamic_tags = dynamic_tags.as_ref().clone();
         dynamic_tags.insert(name, value);

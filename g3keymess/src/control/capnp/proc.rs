@@ -20,7 +20,7 @@ use anyhow::anyhow;
 use capnp::capability::Promise;
 use capnp_rpc::pry;
 
-use g3_types::metrics::{MetricsTagName, MetricsTagValue};
+use g3_types::metrics::{MetricTagName, MetricTagValue};
 
 use g3keymess_proto::proc_capnp::proc_control;
 use g3keymess_proto::server_capnp::server_control;
@@ -161,9 +161,9 @@ impl proc_control::Server for ProcControlImpl {
 
 fn do_add_metrics_tag(name: &str, value: &str) -> anyhow::Result<()> {
     let name =
-        MetricsTagName::from_str(name).map_err(|e| anyhow!("invalid metrics tag name: {e}"))?;
+        MetricTagName::from_str(name).map_err(|e| anyhow!("invalid metrics tag name: {e}"))?;
     let value =
-        MetricsTagValue::from_str(value).map_err(|e| anyhow!("invalid metrics tag value: {e}"))?;
+        MetricTagValue::from_str(value).map_err(|e| anyhow!("invalid metrics tag value: {e}"))?;
 
     // add for server metrics
     crate::serve::foreach_server(|_, s| {
