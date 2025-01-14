@@ -16,7 +16,7 @@
 
 use slog::{slog_o, Logger};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 pub(crate) mod tcp_connect;
 pub(crate) mod tls_handshake;
@@ -24,7 +24,7 @@ pub(crate) mod udp_sendto;
 
 use super::shared::SharedLoggerType;
 
-pub(crate) fn get_logger(escaper_type: &str, escaper_name: &MetricsName) -> Logger {
+pub(crate) fn get_logger(escaper_type: &str, escaper_name: &NodeName) -> Logger {
     let config = crate::config::log::get_escape_default_config();
     let logger_name = format!("le-{escaper_name}");
     let common_values = slog_o!(
@@ -37,11 +37,7 @@ pub(crate) fn get_logger(escaper_type: &str, escaper_name: &MetricsName) -> Logg
     config.build_logger(logger_name, super::LOG_TYPE_ESCAPE, common_values)
 }
 
-pub(crate) fn get_shared_logger(
-    name: &str,
-    escaper_type: &str,
-    escaper_name: &MetricsName,
-) -> Logger {
+pub(crate) fn get_shared_logger(name: &str, escaper_type: &str, escaper_name: &NodeName) -> Logger {
     let logger_name = format!("le-{name}");
     super::shared::get_shared_logger(SharedLoggerType::Escape, logger_name, |logger| {
         logger.new(slog_o!(

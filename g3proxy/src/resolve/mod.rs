@@ -19,7 +19,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use crate::config::resolver::AnyResolverConfig;
 
@@ -51,17 +51,17 @@ pub use ops::spawn_all;
 
 #[async_trait]
 pub(crate) trait ResolverInternal {
-    fn _dependent_resolver(&self) -> Option<BTreeSet<MetricsName>>;
+    fn _dependent_resolver(&self) -> Option<BTreeSet<NodeName>>;
 
     fn _clone_config(&self) -> AnyResolverConfig;
     fn _update_config(
         &mut self,
         config: AnyResolverConfig,
-        dep_table: BTreeMap<MetricsName, ArcIntegratedResolverHandle>,
+        dep_table: BTreeMap<NodeName, ArcIntegratedResolverHandle>,
     ) -> anyhow::Result<()>;
     fn _update_dependent_handle(
         &mut self,
-        target: &MetricsName,
+        target: &NodeName,
         handle: ArcIntegratedResolverHandle,
     ) -> anyhow::Result<()>;
 

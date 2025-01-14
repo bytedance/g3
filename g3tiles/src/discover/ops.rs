@@ -20,7 +20,7 @@ use anyhow::{anyhow, Context};
 use log::debug;
 use tokio::sync::Mutex;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 use super::{registry, ArcDiscover};
@@ -34,7 +34,7 @@ static DISCOVER_OPS_LOCK: Mutex<()> = Mutex::const_new(());
 pub async fn load_all() -> anyhow::Result<()> {
     let _guard = DISCOVER_OPS_LOCK.lock().await;
 
-    let mut new_names = HashSet::<MetricsName>::new();
+    let mut new_names = HashSet::<NodeName>::new();
 
     let all_config = crate::config::discover::get_all();
     for config in all_config {
@@ -66,7 +66,7 @@ pub async fn load_all() -> anyhow::Result<()> {
     Ok(())
 }
 
-pub(crate) fn get_discover(name: &MetricsName) -> anyhow::Result<ArcDiscover> {
+pub(crate) fn get_discover(name: &NodeName) -> anyhow::Result<ArcDiscover> {
     match registry::get(name) {
         Some(site) => Ok(site),
         None => Err(anyhow!("no discover named {name} found")),
@@ -74,7 +74,7 @@ pub(crate) fn get_discover(name: &MetricsName) -> anyhow::Result<ArcDiscover> {
 }
 
 pub(crate) async fn reload(
-    name: &MetricsName,
+    name: &NodeName,
     position: Option<YamlDocPosition>,
 ) -> anyhow::Result<()> {
     let _guard = DISCOVER_OPS_LOCK.lock().await;

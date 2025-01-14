@@ -28,7 +28,7 @@ use yaml_rust::Yaml;
 
 use g3_types::collection::NamedValue;
 use g3_types::limit::RateLimitQuotaConfig;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{
     OpensslCertificatePair, OpensslServerSessionCache, OpensslSessionIdContext, OpensslTicketKey,
     RollingTicketer, TcpSockSpeedLimitConfig,
@@ -54,7 +54,7 @@ pub(crate) struct OpensslHostConfig {
     pub(crate) request_rate_limit: Option<RateLimitQuotaConfig>,
     pub(crate) tcp_sock_speed_limit: Option<TcpSockSpeedLimitConfig>,
     pub(crate) task_idle_max_count: Option<i32>,
-    pub(crate) backends: AlpnMatch<MetricsName>,
+    pub(crate) backends: AlpnMatch<NodeName>,
 }
 
 impl NamedValue for OpensslHostConfig {

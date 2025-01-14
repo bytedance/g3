@@ -22,11 +22,11 @@ use arc_swap::ArcSwapOption;
 
 use g3_histogram::{HistogramMetricsConfig, HistogramRecorder, HistogramStats};
 use g3_types::ext::DurationExt;
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{NodeName, StaticMetricsTags};
 use g3_types::stats::StatId;
 
 pub(crate) struct StreamBackendStats {
-    name: MetricsName,
+    name: NodeName,
     id: StatId,
     extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
 
@@ -35,7 +35,7 @@ pub(crate) struct StreamBackendStats {
 }
 
 impl StreamBackendStats {
-    pub(crate) fn new(name: &MetricsName) -> Self {
+    pub(crate) fn new(name: &NodeName) -> Self {
         StreamBackendStats {
             name: name.clone(),
             id: StatId::new(),
@@ -54,7 +54,7 @@ impl StreamBackendStats {
     }
 
     #[inline]
-    pub(crate) fn name(&self) -> &MetricsName {
+    pub(crate) fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -81,7 +81,7 @@ impl StreamBackendStats {
 }
 
 pub(crate) struct StreamBackendDurationStats {
-    name: MetricsName,
+    name: NodeName,
     id: StatId,
     extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
 
@@ -98,7 +98,7 @@ impl StreamBackendDurationStats {
     }
 
     #[inline]
-    pub(crate) fn name(&self) -> &MetricsName {
+    pub(crate) fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -114,7 +114,7 @@ pub(crate) struct StreamBackendDurationRecorder {
 
 impl StreamBackendDurationRecorder {
     pub(crate) fn new(
-        name: &MetricsName,
+        name: &NodeName,
         config: &HistogramMetricsConfig,
     ) -> (StreamBackendDurationRecorder, StreamBackendDurationStats) {
         let (connect_r, connect_s) =

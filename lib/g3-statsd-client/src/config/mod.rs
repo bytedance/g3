@@ -22,7 +22,7 @@ use std::os::unix::net::UnixDatagram;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use crate::{StatsdClient, StatsdMetricsSink};
 
@@ -48,18 +48,18 @@ impl Default for StatsdBackend {
 #[derive(Debug, Clone)]
 pub struct StatsdClientConfig {
     backend: StatsdBackend,
-    prefix: MetricsName,
+    prefix: NodeName,
     pub emit_duration: Duration,
 }
 
 impl Default for StatsdClientConfig {
     fn default() -> Self {
-        StatsdClientConfig::with_prefix(MetricsName::default())
+        StatsdClientConfig::with_prefix(NodeName::default())
     }
 }
 
 impl StatsdClientConfig {
-    pub fn with_prefix(prefix: MetricsName) -> Self {
+    pub fn with_prefix(prefix: NodeName) -> Self {
         StatsdClientConfig {
             backend: StatsdBackend::default(),
             prefix,
@@ -71,7 +71,7 @@ impl StatsdClientConfig {
         self.backend = target;
     }
 
-    pub fn set_prefix(&mut self, prefix: MetricsName) {
+    pub fn set_prefix(&mut self, prefix: NodeName) {
         self.prefix = prefix;
     }
 

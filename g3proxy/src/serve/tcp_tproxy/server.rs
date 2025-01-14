@@ -31,7 +31,7 @@ use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTc
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::common::CommonTaskContext;
 use super::task::TProxyStreamTask;
@@ -168,7 +168,7 @@ impl ServerInternal for TcpTProxyServer {
         Ok(())
     }
 
-    fn _depend_on_server(&self, _name: &MetricsName) -> bool {
+    fn _depend_on_server(&self, _name: &NodeName) -> bool {
         false
     }
 
@@ -223,7 +223,7 @@ impl ServerInternal for TcpTProxyServer {
 
 impl BaseServer for TcpTProxyServer {
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
@@ -259,15 +259,15 @@ impl AcceptQuicServer for TcpTProxyServer {
 
 #[async_trait]
 impl Server for TcpTProxyServer {
-    fn escaper(&self) -> &MetricsName {
+    fn escaper(&self) -> &NodeName {
         self.config.escaper()
     }
 
-    fn user_group(&self) -> &MetricsName {
+    fn user_group(&self) -> &NodeName {
         Default::default()
     }
 
-    fn auditor(&self) -> &MetricsName {
+    fn auditor(&self) -> &NodeName {
         self.config.auditor()
     }
 

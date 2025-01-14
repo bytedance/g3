@@ -17,7 +17,7 @@
 use anyhow::anyhow;
 use yaml_rust::{yaml, Yaml};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 use super::{EscaperConfig, EscaperConfigDiffAction};
@@ -27,19 +27,19 @@ const ESCAPER_CONFIG_TYPE: &str = "ComplyAudit";
 
 #[derive(Clone, PartialEq, Eq)]
 pub(crate) struct ComplyAuditEscaperConfig {
-    pub(crate) name: MetricsName,
+    pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
-    pub(crate) next: MetricsName,
-    pub(crate) auditor: MetricsName,
+    pub(crate) next: NodeName,
+    pub(crate) auditor: NodeName,
 }
 
 impl ComplyAuditEscaperConfig {
     pub(crate) fn new(position: Option<YamlDocPosition>) -> Self {
         ComplyAuditEscaperConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
-            next: MetricsName::default(),
-            auditor: MetricsName::default(),
+            next: NodeName::default(),
+            auditor: NodeName::default(),
         }
     }
 
@@ -87,7 +87,7 @@ impl ComplyAuditEscaperConfig {
 }
 
 impl EscaperConfig for ComplyAuditEscaperConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -99,7 +99,7 @@ impl EscaperConfig for ComplyAuditEscaperConfig {
         ESCAPER_CONFIG_TYPE
     }
 
-    fn resolver(&self) -> &MetricsName {
+    fn resolver(&self) -> &NodeName {
         Default::default()
     }
 

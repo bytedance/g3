@@ -18,14 +18,14 @@ use anyhow::anyhow;
 use url::Url;
 use yaml_rust::{yaml, Yaml};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 use super::KeyStoreConfig;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RedisKeyStoreConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
     url: Option<Url>,
 }
@@ -33,7 +33,7 @@ pub struct RedisKeyStoreConfig {
 impl RedisKeyStoreConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         RedisKeyStoreConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             url: None,
         }
@@ -80,7 +80,7 @@ impl RedisKeyStoreConfig {
 
 impl KeyStoreConfig for RedisKeyStoreConfig {
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 

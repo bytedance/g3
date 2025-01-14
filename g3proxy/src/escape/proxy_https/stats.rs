@@ -20,7 +20,7 @@ use arc_swap::ArcSwapOption;
 
 use g3_daemon::stat::remote::TcpConnectionTaskRemoteStats;
 use g3_io_ext::{LimitedReaderStats, LimitedWriterStats};
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{NodeName, StaticMetricsTags};
 use g3_types::stats::{StatId, TcpIoSnapshot};
 
 use crate::escape::{
@@ -30,7 +30,7 @@ use crate::escape::{
 use crate::module::http_forward::HttpForwardTaskRemoteStats;
 
 pub(crate) struct ProxyHttpsEscaperStats {
-    name: MetricsName,
+    name: NodeName,
     id: StatId,
     extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
     pub(crate) interface: EscaperInterfaceStats,
@@ -39,7 +39,7 @@ pub(crate) struct ProxyHttpsEscaperStats {
 }
 
 impl ProxyHttpsEscaperStats {
-    pub(crate) fn new(name: &MetricsName) -> Self {
+    pub(crate) fn new(name: &NodeName) -> Self {
         ProxyHttpsEscaperStats {
             name: name.clone(),
             id: StatId::new(),
@@ -68,7 +68,7 @@ impl EscaperInternalStats for ProxyHttpsEscaperStats {
 }
 
 impl EscaperStats for ProxyHttpsEscaperStats {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 

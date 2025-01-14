@@ -19,23 +19,23 @@ use std::sync::{LazyLock, Mutex};
 
 use anyhow::anyhow;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::dummy_deny::DummyDenyEscaper;
 use super::ArcEscaper;
 use crate::config::escaper::AnyEscaperConfig;
 
-static RUNTIME_ESCAPER_REGISTRY: LazyLock<Mutex<HashMap<MetricsName, ArcEscaper>>> =
+static RUNTIME_ESCAPER_REGISTRY: LazyLock<Mutex<HashMap<NodeName, ArcEscaper>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
-pub(super) fn add(name: MetricsName, escaper: ArcEscaper) {
+pub(super) fn add(name: NodeName, escaper: ArcEscaper) {
     let mut ht = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
     if let Some(old_escaper) = ht.insert(name, escaper) {
         old_escaper._clean_to_offline();
     }
 }
 
-pub(super) fn del(name: &MetricsName) {
+pub(super) fn del(name: &NodeName) {
     let mut ht = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
     if let Some(old_escaper) = ht.remove(name) {
         old_escaper._clean_to_offline();
@@ -44,7 +44,7 @@ pub(super) fn del(name: &MetricsName) {
 
 pub(crate) fn foreach<F>(mut f: F)
 where
-    F: FnMut(&MetricsName, &ArcEscaper),
+    F: FnMut(&NodeName, &ArcEscaper),
 {
     let ht = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
     for (name, escaper) in ht.iter() {
@@ -52,7 +52,7 @@ where
     }
 }
 
-pub(crate) fn get_names() -> HashSet<MetricsName> {
+pub(crate) fn get_names() -> HashSet<NodeName> {
     let mut names = HashSet::new();
     let ht = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
     for key in ht.keys() {
@@ -61,18 +61,18 @@ pub(crate) fn get_names() -> HashSet<MetricsName> {
     names
 }
 
-pub(super) fn get_escaper(name: &MetricsName) -> Option<ArcEscaper> {
+pub(super) fn get_escaper(name: &NodeName) -> Option<ArcEscaper> {
     let ht = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
     ht.get(name).cloned()
 }
 
-pub(super) fn get_config(name: &MetricsName) -> Option<AnyEscaperConfig> {
+pub(super) fn get_config(name: &NodeName) -> Option<AnyEscaperConfig> {
     let ht = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
     ht.get(name).map(|escaper| escaper._clone_config())
 }
 
 pub(super) fn update_config_in_place(
-    name: &MetricsName,
+    name: &NodeName,
     flags: u64,
     config: AnyEscaperConfig,
 ) -> anyhow::Result<()> {
@@ -85,7 +85,7 @@ pub(super) fn update_config_in_place(
 }
 
 pub(super) async fn reload_existed(
-    name: &MetricsName,
+    name: &NodeName,
     config: Option<AnyEscaperConfig>,
 ) -> anyhow::Result<()> {
     let Some(old_escaper) = get_escaper(name) else {
@@ -101,7 +101,7 @@ pub(super) async fn reload_existed(
     Ok(())
 }
 
-pub(crate) fn get_or_insert_default(name: &MetricsName) -> ArcEscaper {
+pub(crate) fn get_or_insert_default(name: &NodeName) -> ArcEscaper {
     let mut ht = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
     ht.entry(name.clone())
         .or_insert_with(|| DummyDenyEscaper::prepare_default(name))

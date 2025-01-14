@@ -21,11 +21,11 @@ use anyhow::{anyhow, Context};
 use yaml_rust::Yaml;
 
 use g3_types::collection::WeightedValue;
-use g3_types::metrics::{MetricsName, MetricsTagName, MetricsTagValue, StaticMetricsTags};
+use g3_types::metrics::{MetricsTagName, MetricsTagValue, NodeName, StaticMetricsTags};
 
-pub fn as_metrics_name(v: &Yaml) -> anyhow::Result<MetricsName> {
+pub fn as_metrics_name(v: &Yaml) -> anyhow::Result<NodeName> {
     if let Yaml::String(s) = v {
-        let name = MetricsName::from_str(s).map_err(|e| anyhow!("invalid metrics name: {e}"))?;
+        let name = NodeName::from_str(s).map_err(|e| anyhow!("invalid metrics name: {e}"))?;
         Ok(name)
     } else {
         Err(anyhow!(
@@ -56,9 +56,9 @@ pub fn as_static_metrics_tags(v: &Yaml) -> anyhow::Result<StaticMetricsTags> {
     }
 }
 
-pub fn as_weighted_metrics_name(value: &Yaml) -> anyhow::Result<WeightedValue<MetricsName>> {
+pub fn as_weighted_metrics_name(value: &Yaml) -> anyhow::Result<WeightedValue<NodeName>> {
     if let Yaml::Hash(map) = value {
-        let mut name = MetricsName::default();
+        let mut name = NodeName::default();
         let mut weight = None;
 
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {

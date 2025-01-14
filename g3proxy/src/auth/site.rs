@@ -24,7 +24,7 @@ use arc_swap::ArcSwapOption;
 use ip_network_table::IpNetworkTable;
 use radix_trie::Trie;
 
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{NodeName, StaticMetricsTags};
 use g3_types::net::{Host, OpensslClientConfig, UpstreamAddr};
 use g3_types::resolve::ResolveStrategy;
 
@@ -49,7 +49,7 @@ impl UserSite {
     fn new(
         config: &Arc<UserSiteConfig>,
         user: Arc<str>,
-        user_group: &MetricsName,
+        user_group: &NodeName,
     ) -> anyhow::Result<Self> {
         let tls_client = match &config.tls_client {
             Some(builder) => {
@@ -124,7 +124,7 @@ impl UserSite {
     pub(crate) fn fetch_duration_recorder(
         &self,
         user_type: UserType,
-        server: &MetricsName,
+        server: &NodeName,
         server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
     ) -> Arc<UserSiteDurationRecorder> {
         let mut new_stats = None;
@@ -161,7 +161,7 @@ impl UserSite {
 
 #[derive(Default)]
 pub(super) struct UserSites {
-    all_sites: AHashMap<MetricsName, Arc<UserSite>>,
+    all_sites: AHashMap<NodeName, Arc<UserSite>>,
     exact_match_ipaddr: Option<AHashMap<IpAddr, Arc<UserSite>>>,
     exact_match_domain: Option<AHashMap<Arc<str>, Arc<UserSite>>>,
     child_match_domain: Option<Trie<String, Arc<UserSite>>>,
@@ -239,7 +239,7 @@ impl UserSites {
     pub(super) fn new<'a, T: Iterator<Item = &'a Arc<UserSiteConfig>>>(
         sites: T,
         user: &Arc<str>,
-        user_group: &MetricsName,
+        user_group: &NodeName,
     ) -> anyhow::Result<Self> {
         Self::build(sites, |site_config| {
             UserSite::new(site_config, user.clone(), user_group)
@@ -250,7 +250,7 @@ impl UserSites {
         &self,
         sites: T,
         user: &Arc<str>,
-        user_group: &MetricsName,
+        user_group: &NodeName,
     ) -> anyhow::Result<Self> {
         Self::build(sites, |site_config| {
             if let Some(old) = self.all_sites.get(&site_config.id) {

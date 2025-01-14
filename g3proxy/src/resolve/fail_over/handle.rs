@@ -23,7 +23,7 @@ use tokio::time::Instant;
 
 use g3_resolver::{ResolveError, ResolveQueryType, ResolvedRecordSource};
 use g3_slog_types::LtDuration;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use crate::config::resolver::fail_over::FailOverResolverConfig;
 use crate::config::resolver::ResolverConfig;
@@ -50,7 +50,7 @@ impl FailOverResolverHandle {
 }
 
 impl IntegratedResolverHandle for FailOverResolverHandle {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 

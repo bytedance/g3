@@ -22,7 +22,7 @@ use ascii::AsciiString;
 use yaml_rust::{yaml, Yaml};
 
 use g3_types::acl::AclNetworkRuleBuilder;
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{NodeName, StaticMetricsTags};
 use g3_yaml::YamlDocPosition;
 
 use super::{ServerConfig, IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_MAXIMUM_DURATION};
@@ -32,7 +32,7 @@ const SERVER_CONFIG_TYPE: &str = "KeylessProxy";
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct KeylessProxyServerConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
@@ -40,13 +40,13 @@ pub(crate) struct KeylessProxyServerConfig {
     pub(crate) task_idle_check_duration: Duration,
     pub(crate) task_idle_max_count: i32,
     pub(crate) spawn_task_unconstrained: bool,
-    pub(crate) backend: MetricsName,
+    pub(crate) backend: NodeName,
 }
 
 impl KeylessProxyServerConfig {
     pub(crate) fn new(position: Option<YamlDocPosition>) -> Self {
         KeylessProxyServerConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             shared_logger: None,
             ingress_net_filter: None,
@@ -54,7 +54,7 @@ impl KeylessProxyServerConfig {
             task_idle_check_duration: IDLE_CHECK_DEFAULT_DURATION,
             task_idle_max_count: 1,
             spawn_task_unconstrained: false,
-            backend: MetricsName::default(),
+            backend: NodeName::default(),
         }
     }
 
@@ -132,7 +132,7 @@ impl KeylessProxyServerConfig {
 }
 
 impl ServerConfig for KeylessProxyServerConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 

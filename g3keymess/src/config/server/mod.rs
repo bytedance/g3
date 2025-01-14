@@ -24,7 +24,7 @@ use slog::Logger;
 use yaml_rust::{yaml, Yaml};
 
 use g3_histogram::HistogramMetricsConfig;
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{NodeName, StaticMetricsTags};
 use g3_types::net::TcpListenConfig;
 use g3_yaml::{HybridParser, YamlDocPosition};
 
@@ -33,7 +33,7 @@ pub(crate) use registry::{clear, get_all};
 
 #[derive(Clone)]
 pub(crate) struct KeyServerConfig {
-    name: MetricsName,
+    name: NodeName,
     #[allow(unused)]
     position: Option<YamlDocPosition>,
     pub(crate) shared_logger: Option<AsciiString>,
@@ -50,7 +50,7 @@ pub(crate) struct KeyServerConfig {
 impl KeyServerConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         KeyServerConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             shared_logger: None,
             listen: TcpListenConfig::default(),
@@ -65,7 +65,7 @@ impl KeyServerConfig {
     }
 
     #[inline]
-    pub(crate) fn name(&self) -> &MetricsName {
+    pub(crate) fn name(&self) -> &NodeName {
         &self.name
     }
 

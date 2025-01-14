@@ -22,7 +22,7 @@ use yaml_rust::{yaml, Yaml};
 
 use g3_tls_ticket::TlsTicketConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{RustlsServerConfigBuilder, UdpListenConfig};
 use g3_yaml::YamlDocPosition;
 
@@ -41,28 +41,28 @@ bitflags! {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct PlainQuicPortConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) listen: UdpListenConfig,
     pub(crate) listen_in_worker: bool,
     pub(crate) tls_server: RustlsServerConfigBuilder,
     pub(crate) tls_ticketer: Option<TlsTicketConfig>,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
-    pub(crate) server: MetricsName,
+    pub(crate) server: NodeName,
     pub(crate) offline_rebind_port: Option<u16>,
 }
 
 impl PlainQuicPortConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         PlainQuicPortConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             listen: UdpListenConfig::default(),
             listen_in_worker: false,
             tls_server: RustlsServerConfigBuilder::empty(),
             tls_ticketer: None,
             ingress_net_filter: None,
-            server: MetricsName::default(),
+            server: NodeName::default(),
             offline_rebind_port: None,
         }
     }
@@ -144,7 +144,7 @@ impl PlainQuicPortConfig {
 }
 
 impl ServerConfig for PlainQuicPortConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -156,15 +156,15 @@ impl ServerConfig for PlainQuicPortConfig {
         SERVER_CONFIG_TYPE
     }
 
-    fn escaper(&self) -> &MetricsName {
+    fn escaper(&self) -> &NodeName {
         Default::default()
     }
 
-    fn user_group(&self) -> &MetricsName {
+    fn user_group(&self) -> &NodeName {
         Default::default()
     }
 
-    fn auditor(&self) -> &MetricsName {
+    fn auditor(&self) -> &NodeName {
         Default::default()
     }
 
@@ -195,7 +195,7 @@ impl ServerConfig for PlainQuicPortConfig {
         ServerConfigDiffAction::UpdateInPlace(flags.bits())
     }
 
-    fn dependent_server(&self) -> Option<BTreeSet<MetricsName>> {
+    fn dependent_server(&self) -> Option<BTreeSet<NodeName>> {
         let mut set = BTreeSet::new();
         set.insert(self.server.clone());
         Some(set)

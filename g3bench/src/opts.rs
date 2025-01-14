@@ -31,7 +31,7 @@ use g3_runtime::unaided::UnaidedRuntimeConfig;
 use g3_statsd_client::{StatsdBackend, StatsdClient, StatsdClientConfig};
 use g3_types::collection::{SelectivePickPolicy, SelectiveVec, SelectiveVecBuilder, WeightedValue};
 use g3_types::limit::RateLimitQuotaConfig;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{TcpSockSpeedLimitConfig, UdpSockSpeedLimitConfig, UpstreamAddr};
 
 use super::progress::BenchProgress;
@@ -497,7 +497,7 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
 
     if args.get_flag(GLOBAL_ARG_EMIT_METRICS) {
         let mut config =
-            StatsdClientConfig::with_prefix(MetricsName::from_str(crate::build::PKG_NAME).unwrap());
+            StatsdClientConfig::with_prefix(NodeName::from_str(crate::build::PKG_NAME).unwrap());
 
         if let Some(addr) = args.get_one::<SocketAddr>(GLOBAL_ARG_STATSD_TARGET_UDP) {
             config.set_backend(StatsdBackend::Udp(*addr, None));

@@ -17,7 +17,7 @@
 use std::net::IpAddr;
 
 use g3_types::collection::{SelectiveItem, SelectivePickPolicy, SelectiveVec};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::ClientConnectionInfo;
 
@@ -28,7 +28,7 @@ pub enum ServerReloadCommand {
 }
 
 pub trait BaseServer {
-    fn name(&self) -> &MetricsName;
+    fn name(&self) -> &NodeName;
     fn server_type(&self) -> &'static str;
     fn version(&self) -> usize;
 }

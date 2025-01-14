@@ -19,7 +19,7 @@ use std::collections::BTreeSet;
 use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction};
@@ -28,15 +28,15 @@ const ESCAPER_CONFIG_TYPE: &str = "TrickFloat";
 
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct TrickFloatEscaperConfig {
-    pub(crate) name: MetricsName,
+    pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
-    pub(crate) next_nodes: BTreeSet<MetricsName>, // no duplication for next escapers
+    pub(crate) next_nodes: BTreeSet<NodeName>, // no duplication for next escapers
 }
 
 impl TrickFloatEscaperConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         TrickFloatEscaperConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             next_nodes: BTreeSet::new(),
         }
@@ -91,7 +91,7 @@ impl TrickFloatEscaperConfig {
 }
 
 impl EscaperConfig for TrickFloatEscaperConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -103,7 +103,7 @@ impl EscaperConfig for TrickFloatEscaperConfig {
         ESCAPER_CONFIG_TYPE
     }
 
-    fn resolver(&self) -> &MetricsName {
+    fn resolver(&self) -> &NodeName {
         Default::default()
     }
 
@@ -119,7 +119,7 @@ impl EscaperConfig for TrickFloatEscaperConfig {
         EscaperConfigDiffAction::Reload
     }
 
-    fn dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
+    fn dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         Some(self.next_nodes.clone())
     }
 }

@@ -16,17 +16,17 @@
 
 use std::sync::Arc;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::stats::StatId;
 
 pub(crate) struct ResolverStats {
     id: StatId,
-    name: MetricsName,
+    name: NodeName,
     inner: Arc<g3_resolver::ResolverStats>,
 }
 
 impl ResolverStats {
-    pub(crate) fn new(name: &MetricsName, inner: Arc<g3_resolver::ResolverStats>) -> Self {
+    pub(crate) fn new(name: &NodeName, inner: Arc<g3_resolver::ResolverStats>) -> Self {
         ResolverStats {
             id: StatId::new(),
             name: name.clone(),
@@ -40,7 +40,7 @@ impl ResolverStats {
     }
 
     #[inline]
-    pub(crate) fn name(&self) -> &MetricsName {
+    pub(crate) fn name(&self) -> &NodeName {
         &self.name
     }
 

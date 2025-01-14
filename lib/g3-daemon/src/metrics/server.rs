@@ -15,7 +15,7 @@
  */
 
 use g3_statsd_client::StatsdTagGroup;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::stats::StatId;
 
 use super::TAG_KEY_STAT_ID;
@@ -24,11 +24,11 @@ pub const TAG_KEY_SERVER: &str = "server";
 pub const TAG_KEY_ONLINE: &str = "online";
 
 pub trait ServerMetricExt {
-    fn add_server_tags(&mut self, server: &MetricsName, online: bool, stat_id: StatId);
+    fn add_server_tags(&mut self, server: &NodeName, online: bool, stat_id: StatId);
 }
 
 impl ServerMetricExt for StatsdTagGroup {
-    fn add_server_tags(&mut self, server: &MetricsName, online: bool, stat_id: StatId) {
+    fn add_server_tags(&mut self, server: &NodeName, online: bool, stat_id: StatId) {
         let mut buffer = itoa::Buffer::new();
         let stat_id = buffer.format(stat_id.as_u64());
 

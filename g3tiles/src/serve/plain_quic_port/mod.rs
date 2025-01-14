@@ -29,7 +29,7 @@ use g3_daemon::listen::{
 };
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_types::acl::AclNetworkRule;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{OpensslTicketKey, RollingTicketer, UdpListenConfig};
 
 use crate::config::server::plain_quic_port::{PlainQuicPortConfig, PlainQuicPortUpdateFlags};
@@ -73,7 +73,7 @@ impl ListenQuicConf for PlainQuicPortAuxConfig {
 }
 
 pub(crate) struct PlainQuicPort {
-    name: MetricsName,
+    name: NodeName,
     config: ArcSwap<PlainQuicPortConfig>,
     tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
     quinn_config: quinn::ServerConfig,
@@ -226,7 +226,7 @@ impl ServerInternal for PlainQuicPort {
         }
     }
 
-    fn _depend_on_server(&self, name: &MetricsName) -> bool {
+    fn _depend_on_server(&self, name: &NodeName) -> bool {
         let config = self.config.load();
         config.server.eq(name)
     }
@@ -274,7 +274,7 @@ impl ServerInternal for PlainQuicPort {
 
 impl BaseServer for PlainQuicPort {
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -317,5 +317,5 @@ impl Server for PlainQuicPort {
         &self.quit_policy
     }
 
-    fn update_backend(&self, _name: &MetricsName) {}
+    fn update_backend(&self, _name: &NodeName) {}
 }

@@ -22,7 +22,7 @@ use ascii::AsciiString;
 use yaml_rust::{yaml, Yaml};
 
 use g3_types::acl::{AclAction, AclNetworkRuleBuilder};
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{NodeName, StaticMetricsTags};
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use g3_types::net::InterfaceName;
 use g3_types::net::{HappyEyeballsConfig, TcpKeepAliveConfig, TcpMiscSockOpts, UdpMiscSockOpts};
@@ -35,7 +35,7 @@ const ESCAPER_CONFIG_TYPE: &str = "DirectFixed";
 
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct DirectFixedEscaperConfig {
-    pub(crate) name: MetricsName,
+    pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) shared_logger: Option<AsciiString>,
     #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -44,7 +44,7 @@ pub(crate) struct DirectFixedEscaperConfig {
     pub(crate) bind6: Vec<IpAddr>,
     pub(crate) no_ipv4: bool,
     pub(crate) no_ipv6: bool,
-    pub(crate) resolver: MetricsName,
+    pub(crate) resolver: NodeName,
     pub(crate) resolve_strategy: ResolveStrategy,
     pub(crate) resolve_redirection: Option<ResolveRedirectionBuilder>,
     pub(crate) egress_net_filter: AclNetworkRuleBuilder,
@@ -60,7 +60,7 @@ pub(crate) struct DirectFixedEscaperConfig {
 impl DirectFixedEscaperConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         DirectFixedEscaperConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             shared_logger: None,
             #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -69,7 +69,7 @@ impl DirectFixedEscaperConfig {
             bind6: Vec::new(),
             no_ipv4: false,
             no_ipv6: false,
-            resolver: MetricsName::default(),
+            resolver: NodeName::default(),
             resolve_strategy: Default::default(),
             resolve_redirection: None,
             egress_net_filter: AclNetworkRuleBuilder::new_egress(AclAction::Permit),
@@ -234,7 +234,7 @@ impl DirectFixedEscaperConfig {
 }
 
 impl EscaperConfig for DirectFixedEscaperConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -246,7 +246,7 @@ impl EscaperConfig for DirectFixedEscaperConfig {
         ESCAPER_CONFIG_TYPE
     }
 
-    fn resolver(&self) -> &MetricsName {
+    fn resolver(&self) -> &NodeName {
         &self.resolver
     }
 

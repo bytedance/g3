@@ -22,7 +22,7 @@ use log::warn;
 use yaml_rust::Yaml;
 
 use g3_statsd_client::StatsdClientConfig;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 static GLOBAL_STAT_CONFIG: OnceLock<StatsdClientConfig> = OnceLock::new();
 
@@ -37,8 +37,8 @@ fn set_global_stat_config(config: StatsdClientConfig) {
 }
 
 pub fn load(v: &Yaml, prefix: &'static str) -> anyhow::Result<()> {
-    let prefix = MetricsName::from_str(prefix)
-        .map_err(|e| anyhow!("invalid default metrics prefix: {e}"))?;
+    let prefix =
+        NodeName::from_str(prefix).map_err(|e| anyhow!("invalid default metrics prefix: {e}"))?;
     let config = StatsdClientConfig::parse_yaml(v, prefix)?;
     set_global_stat_config(config);
     Ok(())

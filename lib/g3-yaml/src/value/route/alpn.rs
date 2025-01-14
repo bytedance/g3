@@ -19,7 +19,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context};
 use yaml_rust::Yaml;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::route::AlpnMatch;
 
 use crate::{YamlDocPosition, YamlMapCallback};
@@ -114,10 +114,10 @@ where
     Ok(obj)
 }
 
-fn add_alpn_matched_backend(obj: &mut AlpnMatch<MetricsName>, value: &Yaml) -> anyhow::Result<()> {
+fn add_alpn_matched_backend(obj: &mut AlpnMatch<NodeName>, value: &Yaml) -> anyhow::Result<()> {
     let mut protocol_vs = vec![];
     let mut set_default = false;
-    let mut name = MetricsName::default();
+    let mut name = NodeName::default();
 
     if let Yaml::Hash(map) = value {
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
@@ -163,8 +163,8 @@ fn add_alpn_matched_backend(obj: &mut AlpnMatch<MetricsName>, value: &Yaml) -> a
     Ok(())
 }
 
-pub fn as_alpn_matched_backends(value: &Yaml) -> anyhow::Result<AlpnMatch<MetricsName>> {
-    let mut obj = AlpnMatch::<MetricsName>::default();
+pub fn as_alpn_matched_backends(value: &Yaml) -> anyhow::Result<AlpnMatch<NodeName>> {
+    let mut obj = AlpnMatch::<NodeName>::default();
 
     if let Yaml::Array(seq) = value {
         for (i, v) in seq.iter().enumerate() {

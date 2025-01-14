@@ -17,11 +17,11 @@
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, Mutex};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::AnyServerConfig;
 
-static INITIAL_SERVER_CONFIG_REGISTRY: LazyLock<Mutex<HashMap<MetricsName, Arc<AnyServerConfig>>>> =
+static INITIAL_SERVER_CONFIG_REGISTRY: LazyLock<Mutex<HashMap<NodeName, Arc<AnyServerConfig>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub(crate) fn clear() {
@@ -36,17 +36,17 @@ pub(super) fn add(server: AnyServerConfig) -> Option<AnyServerConfig> {
     ht.insert(name, server).map(|v| v.as_ref().clone())
 }
 
-pub(super) fn del(name: &MetricsName) {
+pub(super) fn del(name: &NodeName) {
     let mut ht = INITIAL_SERVER_CONFIG_REGISTRY.lock().unwrap();
     ht.remove(name);
 }
 
-pub(super) fn get(name: &MetricsName) -> Option<Arc<AnyServerConfig>> {
+pub(super) fn get(name: &NodeName) -> Option<Arc<AnyServerConfig>> {
     let ht = INITIAL_SERVER_CONFIG_REGISTRY.lock().unwrap();
     ht.get(name).cloned()
 }
 
-pub(super) fn get_all_names() -> Vec<MetricsName> {
+pub(super) fn get_all_names() -> Vec<NodeName> {
     let ht = INITIAL_SERVER_CONFIG_REGISTRY.lock().unwrap();
     ht.keys().cloned().collect()
 }

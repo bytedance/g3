@@ -29,7 +29,7 @@ use uuid::Uuid;
 
 use g3_io_ext::{EffectiveCacheData, EffectiveQueryHandle};
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder, WeightedValue};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::cache::CacheQueryKey;
 use super::RouteQueryEscaperConfig;
@@ -37,7 +37,7 @@ use super::RouteQueryEscaperConfig;
 pub(super) struct QueryRuntime {
     config: Arc<RouteQueryEscaperConfig>,
     socket: UdpSocket,
-    query_handle: EffectiveQueryHandle<CacheQueryKey, SelectiveVec<WeightedValue<MetricsName>>>,
+    query_handle: EffectiveQueryHandle<CacheQueryKey, SelectiveVec<WeightedValue<NodeName>>>,
     id_key_map: AHashMap<Uuid, Arc<CacheQueryKey>>,
     key_id_map: AHashMap<Arc<CacheQueryKey>, Uuid>,
     read_buffer: Box<[u8]>,
@@ -48,7 +48,7 @@ impl QueryRuntime {
     pub(super) fn new(
         config: &Arc<RouteQueryEscaperConfig>,
         socket: UdpSocket,
-        query_handle: EffectiveQueryHandle<CacheQueryKey, SelectiveVec<WeightedValue<MetricsName>>>,
+        query_handle: EffectiveQueryHandle<CacheQueryKey, SelectiveVec<WeightedValue<NodeName>>>,
     ) -> Self {
         QueryRuntime {
             config: Arc::clone(config),
@@ -112,14 +112,14 @@ impl QueryRuntime {
 
     fn parse_rsp(
         map: Vec<(rmpv::ValueRef, rmpv::ValueRef)>,
-    ) -> anyhow::Result<(Uuid, Vec<WeightedValue<MetricsName>>, u32)> {
+    ) -> anyhow::Result<(Uuid, Vec<WeightedValue<NodeName>>, u32)> {
         use anyhow::Context;
         use rmpv::ValueRef;
 
         const KEY_ID: &str = "id";
 
         let mut id: Option<Uuid> = None;
-        let mut nodes = Vec::<WeightedValue<MetricsName>>::new();
+        let mut nodes = Vec::<WeightedValue<NodeName>>::new();
         let mut ttl: u32 = 0;
 
         for (k, v) in map {

@@ -21,7 +21,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 
 use g3_resolver::{ResolveError, ResolveLocalError};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::{
     ArcIntegratedResolverHandle, BoxLoggedResolveJob, ErrorResolveJob, IntegratedResolverHandle,
@@ -49,7 +49,7 @@ impl DenyAllResolver {
 
 #[async_trait]
 impl ResolverInternal for DenyAllResolver {
-    fn _dependent_resolver(&self) -> Option<BTreeSet<MetricsName>> {
+    fn _dependent_resolver(&self) -> Option<BTreeSet<NodeName>> {
         None
     }
 
@@ -60,7 +60,7 @@ impl ResolverInternal for DenyAllResolver {
     fn _update_config(
         &mut self,
         config: AnyResolverConfig,
-        _dep_table: BTreeMap<MetricsName, ArcIntegratedResolverHandle>,
+        _dep_table: BTreeMap<NodeName, ArcIntegratedResolverHandle>,
     ) -> anyhow::Result<()> {
         match config {
             AnyResolverConfig::DenyAll(config) => {
@@ -73,7 +73,7 @@ impl ResolverInternal for DenyAllResolver {
 
     fn _update_dependent_handle(
         &mut self,
-        _target: &MetricsName,
+        _target: &NodeName,
         _handle: ArcIntegratedResolverHandle,
     ) -> anyhow::Result<()> {
         Ok(())
@@ -105,7 +105,7 @@ impl DenyAllResolverHandle {
 }
 
 impl IntegratedResolverHandle for DenyAllResolverHandle {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 

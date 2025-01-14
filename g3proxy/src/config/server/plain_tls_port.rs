@@ -22,7 +22,7 @@ use yaml_rust::{yaml, Yaml};
 
 use g3_tls_ticket::TlsTicketConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{ProxyProtocolVersion, RustlsServerConfigBuilder, TcpListenConfig};
 use g3_yaml::YamlDocPosition;
 
@@ -33,14 +33,14 @@ const SERVER_CONFIG_TYPE: &str = "PlainTlsPort";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct PlainTlsPortConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) listen: TcpListenConfig,
     pub(crate) listen_in_worker: bool,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) server_tls_config: Option<RustlsServerConfigBuilder>,
     pub(crate) tls_ticketer: Option<TlsTicketConfig>,
-    pub(crate) server: MetricsName,
+    pub(crate) server: NodeName,
     pub(crate) proxy_protocol: Option<ProxyProtocolVersion>,
     pub(crate) proxy_protocol_read_timeout: Duration,
 }
@@ -48,14 +48,14 @@ pub(crate) struct PlainTlsPortConfig {
 impl PlainTlsPortConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         PlainTlsPortConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             listen: TcpListenConfig::default(),
             listen_in_worker: false,
             ingress_net_filter: None,
             server_tls_config: None,
             tls_ticketer: None,
-            server: MetricsName::default(),
+            server: NodeName::default(),
             proxy_protocol: None,
             proxy_protocol_read_timeout: Duration::from_secs(5),
         }
@@ -148,7 +148,7 @@ impl PlainTlsPortConfig {
 }
 
 impl ServerConfig for PlainTlsPortConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -160,15 +160,15 @@ impl ServerConfig for PlainTlsPortConfig {
         SERVER_CONFIG_TYPE
     }
 
-    fn escaper(&self) -> &MetricsName {
+    fn escaper(&self) -> &NodeName {
         Default::default()
     }
 
-    fn user_group(&self) -> &MetricsName {
+    fn user_group(&self) -> &NodeName {
         Default::default()
     }
 
-    fn auditor(&self) -> &MetricsName {
+    fn auditor(&self) -> &NodeName {
         Default::default()
     }
 
@@ -188,7 +188,7 @@ impl ServerConfig for PlainTlsPortConfig {
         ServerConfigDiffAction::ReloadOnlyConfig
     }
 
-    fn dependent_server(&self) -> Option<BTreeSet<MetricsName>> {
+    fn dependent_server(&self) -> Option<BTreeSet<NodeName>> {
         let mut set = BTreeSet::new();
         set.insert(self.server.clone());
         Some(set)

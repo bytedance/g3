@@ -21,7 +21,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::UpstreamAddr;
 
 use super::{ArcEscaper, Escaper, EscaperInternal, RouteEscaperStats};
@@ -55,7 +55,7 @@ use cache::CacheHandle;
 pub(super) struct RouteQueryEscaper {
     config: Arc<RouteQueryEscaperConfig>,
     stats: Arc<RouteEscaperStats>,
-    query_nodes: BTreeMap<MetricsName, ArcEscaper>,
+    query_nodes: BTreeMap<NodeName, ArcEscaper>,
     fallback_node: ArcEscaper,
     cache_handle: CacheHandle,
 }
@@ -130,7 +130,7 @@ impl RouteQueryEscaper {
 
 #[async_trait]
 impl Escaper for RouteQueryEscaper {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
@@ -229,11 +229,11 @@ impl Escaper for RouteQueryEscaper {
 
 #[async_trait]
 impl EscaperInternal for RouteQueryEscaper {
-    fn _resolver(&self) -> &MetricsName {
+    fn _resolver(&self) -> &NodeName {
         Default::default()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
+    fn _dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         self.config.dependent_escaper()
     }
 

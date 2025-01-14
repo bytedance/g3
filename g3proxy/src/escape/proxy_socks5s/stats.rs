@@ -20,7 +20,7 @@ use arc_swap::ArcSwapOption;
 
 use g3_daemon::stat::remote::TcpConnectionTaskRemoteStats;
 use g3_io_ext::{LimitedReaderStats, LimitedWriterStats};
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{NodeName, StaticMetricsTags};
 use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
 
 use crate::escape::{
@@ -32,7 +32,7 @@ use crate::module::udp_connect::UdpConnectTaskRemoteStats;
 use crate::module::udp_relay::UdpRelayTaskRemoteStats;
 
 pub(crate) struct ProxySocks5sEscaperStats {
-    name: MetricsName,
+    name: NodeName,
     id: StatId,
     extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
     pub(crate) interface: EscaperInterfaceStats,
@@ -42,7 +42,7 @@ pub(crate) struct ProxySocks5sEscaperStats {
 }
 
 impl ProxySocks5sEscaperStats {
-    pub(crate) fn new(name: &MetricsName) -> Self {
+    pub(crate) fn new(name: &NodeName) -> Self {
         ProxySocks5sEscaperStats {
             name: name.clone(),
             id: StatId::new(),
@@ -72,7 +72,7 @@ impl EscaperInternalStats for ProxySocks5sEscaperStats {
 }
 
 impl EscaperStats for ProxySocks5sEscaperStats {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 

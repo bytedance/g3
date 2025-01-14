@@ -22,7 +22,7 @@ use rustls::ServerConfig;
 
 use g3_types::collection::NamedValue;
 use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{OpensslTicketKey, RollingTicketer};
 use g3_types::route::AlpnMatch;
 
@@ -133,7 +133,7 @@ impl RustlsHost {
         self.backends.load().get_default().cloned()
     }
 
-    pub(super) fn use_backend(&self, name: &MetricsName) -> bool {
+    pub(super) fn use_backend(&self, name: &NodeName) -> bool {
         self.config.backends.contains_value(name)
     }
 

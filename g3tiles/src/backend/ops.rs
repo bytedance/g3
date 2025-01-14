@@ -20,7 +20,7 @@ use anyhow::{anyhow, Context};
 use log::{debug, warn};
 use tokio::sync::Mutex;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 use super::{registry, ArcBackend};
@@ -37,7 +37,7 @@ static BACKEND_OPS_LOCK: Mutex<()> = Mutex::const_new(());
 pub async fn load_all() -> anyhow::Result<()> {
     let _guard = BACKEND_OPS_LOCK.lock().await;
 
-    let mut new_names = HashSet::<MetricsName>::new();
+    let mut new_names = HashSet::<NodeName>::new();
 
     let all_config = crate::config::backend::get_all();
     for config in all_config {
@@ -70,7 +70,7 @@ pub async fn load_all() -> anyhow::Result<()> {
 }
 
 pub(crate) async fn reload(
-    name: &MetricsName,
+    name: &NodeName,
     position: Option<YamlDocPosition>,
 ) -> anyhow::Result<()> {
     let _guard = BACKEND_OPS_LOCK.lock().await;
@@ -114,7 +114,7 @@ pub(crate) async fn reload(
     Ok(())
 }
 
-pub(crate) async fn update_dependency_to_discover(discover: &MetricsName, status: &str) {
+pub(crate) async fn update_dependency_to_discover(discover: &NodeName, status: &str) {
     let _guard = BACKEND_OPS_LOCK.lock().await;
 
     let mut backends = Vec::<ArcBackend>::new();
@@ -162,7 +162,7 @@ async fn reload_unlocked(old: AnyBackendConfig, new: AnyBackendConfig) -> anyhow
 }
 
 async fn reload_existed_unlocked(
-    name: &MetricsName,
+    name: &NodeName,
     new: Option<AnyBackendConfig>,
 ) -> anyhow::Result<()> {
     registry::reload_existed(name, new).await?;

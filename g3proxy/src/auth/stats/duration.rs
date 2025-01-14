@@ -21,7 +21,7 @@ use arc_swap::ArcSwapOption;
 
 use g3_histogram::{HistogramMetricsConfig, HistogramRecorder, HistogramStats};
 use g3_types::ext::DurationExt;
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{NodeName, StaticMetricsTags};
 use g3_types::stats::StatId;
 
 use crate::auth::UserType;
@@ -32,10 +32,10 @@ pub(crate) struct UserSiteDurationRecorder {
 
 impl UserSiteDurationRecorder {
     pub(crate) fn new(
-        user_group: &MetricsName,
+        user_group: &NodeName,
         user: &str,
         user_type: UserType,
-        server: &MetricsName,
+        server: &NodeName,
         server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
         config: &HistogramMetricsConfig,
     ) -> (Self, Arc<UserSiteDurationStats>) {
@@ -64,10 +64,10 @@ impl UserSiteDurationRecorder {
 
 pub(crate) struct UserSiteDurationStats {
     id: StatId,
-    user_group: MetricsName,
+    user_group: NodeName,
     user: String,
     user_type: UserType,
-    server: MetricsName,
+    server: NodeName,
     server_extra_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
 
     pub(crate) task_ready: Arc<HistogramStats>,
@@ -80,7 +80,7 @@ impl UserSiteDurationStats {
     }
 
     #[inline]
-    pub(crate) fn user_group(&self) -> &MetricsName {
+    pub(crate) fn user_group(&self) -> &NodeName {
         &self.user_group
     }
 
@@ -95,7 +95,7 @@ impl UserSiteDurationStats {
     }
 
     #[inline]
-    pub(crate) fn server(&self) -> &MetricsName {
+    pub(crate) fn server(&self) -> &NodeName {
         &self.server
     }
 

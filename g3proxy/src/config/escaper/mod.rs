@@ -23,7 +23,7 @@ use slog::Logger;
 use yaml_rust::{yaml, Yaml};
 
 use g3_daemon::config::TopoMap;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{TcpConnectConfig, TcpSockSpeedLimitConfig, UdpSockSpeedLimitConfig};
 use g3_yaml::{HybridParser, YamlDocPosition};
 
@@ -65,14 +65,14 @@ pub(crate) enum EscaperConfigDiffAction {
 }
 
 pub(crate) trait EscaperConfig {
-    fn name(&self) -> &MetricsName;
+    fn name(&self) -> &NodeName;
     fn position(&self) -> Option<YamlDocPosition>;
     fn escaper_type(&self) -> &str;
-    fn resolver(&self) -> &MetricsName;
+    fn resolver(&self) -> &NodeName;
 
     fn diff_action(&self, new: &AnyEscaperConfig) -> EscaperConfigDiffAction;
 
-    fn dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
+    fn dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         None
     }
     fn shared_logger(&self) -> Option<&str> {
@@ -174,10 +174,10 @@ macro_rules! impl_transparent1 {
 }
 
 impl AnyEscaperConfig {
-    impl_transparent0!(name, &MetricsName);
+    impl_transparent0!(name, &NodeName);
     impl_transparent0!(position, Option<YamlDocPosition>);
-    impl_transparent0!(dependent_escaper, Option<BTreeSet<MetricsName>>);
-    impl_transparent0!(resolver, &MetricsName);
+    impl_transparent0!(dependent_escaper, Option<BTreeSet<NodeName>>);
+    impl_transparent0!(resolver, &NodeName);
 
     impl_transparent1!(diff_action, EscaperConfigDiffAction, &Self);
 }

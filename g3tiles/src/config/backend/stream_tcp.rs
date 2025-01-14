@@ -21,7 +21,7 @@ use yaml_rust::{yaml, Yaml};
 
 use g3_histogram::HistogramMetricsConfig;
 use g3_types::collection::SelectivePickPolicy;
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{NodeName, StaticMetricsTags};
 use g3_yaml::YamlDocPosition;
 
 use super::{AnyBackendConfig, BackendConfig, BackendConfigDiffAction};
@@ -31,9 +31,9 @@ const BACKEND_CONFIG_TYPE: &str = "StreamTcp";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct StreamTcpBackendConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
-    pub(crate) discover: MetricsName,
+    pub(crate) discover: NodeName,
     pub(crate) discover_data: DiscoverRegisterData,
     pub(crate) peer_pick_policy: SelectivePickPolicy,
     pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
@@ -43,9 +43,9 @@ pub(crate) struct StreamTcpBackendConfig {
 impl StreamTcpBackendConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         StreamTcpBackendConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
-            discover: MetricsName::default(),
+            discover: NodeName::default(),
             discover_data: DiscoverRegisterData::Null,
             peer_pick_policy: SelectivePickPolicy::Random,
             extra_metrics_tags: None,
@@ -113,7 +113,7 @@ impl StreamTcpBackendConfig {
 }
 
 impl BackendConfig for StreamTcpBackendConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 

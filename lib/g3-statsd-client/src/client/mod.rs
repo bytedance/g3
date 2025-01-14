@@ -19,14 +19,14 @@ use std::time::Instant;
 
 use log::warn;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use crate::{StatsdMetricsSink, StatsdTagGroup};
 
 mod formatter;
 
 pub struct StatsdClient {
-    prefix: MetricsName,
+    prefix: NodeName,
     sink: StatsdMetricsSink,
     tags: StatsdTagGroup,
 
@@ -35,7 +35,7 @@ pub struct StatsdClient {
 }
 
 impl StatsdClient {
-    pub(crate) fn new(prefix: MetricsName, sink: StatsdMetricsSink) -> Self {
+    pub(crate) fn new(prefix: NodeName, sink: StatsdMetricsSink) -> Self {
         StatsdClient {
             prefix,
             sink,
@@ -80,7 +80,7 @@ mod tests {
     fn count_simple() {
         let buf = Rc::new(Mutex::new(Vec::default()));
         let sink = StatsdMetricsSink::buf_with_capacity(buf.clone(), 32);
-        let prefix = unsafe { MetricsName::new_unchecked("test") };
+        let prefix = unsafe { NodeName::new_unchecked("test") };
         let mut client = StatsdClient::new(prefix, sink);
         client.count("count", 20).send();
         client.flush_sink();
@@ -93,7 +93,7 @@ mod tests {
     fn gauge_simple() {
         let buf = Rc::new(Mutex::new(Vec::default()));
         let sink = StatsdMetricsSink::buf_with_capacity(buf.clone(), 32);
-        let prefix = unsafe { MetricsName::new_unchecked("test") };
+        let prefix = unsafe { NodeName::new_unchecked("test") };
         let mut client = StatsdClient::new(prefix, sink);
         client.gauge("gauge", 20).send();
         client.flush_sink();
@@ -106,7 +106,7 @@ mod tests {
     fn gauge_with_tags_no_prefix() {
         let buf = Rc::new(Mutex::new(Vec::default()));
         let sink = StatsdMetricsSink::buf_with_capacity(buf.clone(), 32);
-        let mut client = StatsdClient::new(MetricsName::default(), sink);
+        let mut client = StatsdClient::new(NodeName::default(), sink);
         client.gauge("gauge", 20).with_tag("t", "v").send();
         client.flush_sink();
 
@@ -118,7 +118,7 @@ mod tests {
     fn count_with_tags() {
         let buf = Rc::new(Mutex::new(Vec::default()));
         let sink = StatsdMetricsSink::buf_with_capacity(buf.clone(), 32);
-        let prefix = unsafe { MetricsName::new_unchecked("test") };
+        let prefix = unsafe { NodeName::new_unchecked("test") };
         let mut client = StatsdClient::new(prefix, sink).with_tag("tag1", "1234");
         client.count("count", 20).with_tag("tag2", "a").send();
         client.flush_sink();
@@ -131,7 +131,7 @@ mod tests {
     fn count_multiple_simple() {
         let buf = Rc::new(Mutex::new(Vec::default()));
         let sink = StatsdMetricsSink::buf_with_capacity(buf.clone(), 32);
-        let prefix = unsafe { MetricsName::new_unchecked("test") };
+        let prefix = unsafe { NodeName::new_unchecked("test") };
         let mut client = StatsdClient::new(prefix, sink);
         client.count("count", 20).send();
         client.count("count", 30).send();
@@ -145,7 +145,7 @@ mod tests {
     fn count_multiple_with_tags() {
         let buf = Rc::new(Mutex::new(Vec::default()));
         let sink = StatsdMetricsSink::buf_with_capacity(buf.clone(), 64);
-        let prefix = unsafe { MetricsName::new_unchecked("test") };
+        let prefix = unsafe { NodeName::new_unchecked("test") };
 
         let mut common_tags = StatsdTagGroup::default();
         common_tags.add_tag("c1", "v1");
@@ -169,7 +169,7 @@ mod tests {
     fn count_multiple_overflow() {
         let buf = Rc::new(Mutex::new(Vec::default()));
         let sink = StatsdMetricsSink::buf_with_capacity(buf.clone(), 32);
-        let prefix = unsafe { MetricsName::new_unchecked("test") };
+        let prefix = unsafe { NodeName::new_unchecked("test") };
 
         let mut common_tags = StatsdTagGroup::default();
         common_tags.add_tag("c1", "v1");

@@ -32,7 +32,7 @@ use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_dpi::ProtocolPortMap;
 use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::{ClientHelloAcceptTask, CommonTaskContext, TcpStreamServerStats};
 use crate::audit::{AuditContext, AuditHandle};
@@ -175,7 +175,7 @@ impl ServerInternal for SniProxyServer {
         Ok(())
     }
 
-    fn _depend_on_server(&self, _name: &MetricsName) -> bool {
+    fn _depend_on_server(&self, _name: &NodeName) -> bool {
         false
     }
 
@@ -233,7 +233,7 @@ impl ServerInternal for SniProxyServer {
 
 impl BaseServer for SniProxyServer {
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
@@ -269,15 +269,15 @@ impl AcceptQuicServer for SniProxyServer {
 
 #[async_trait]
 impl Server for SniProxyServer {
-    fn escaper(&self) -> &MetricsName {
+    fn escaper(&self) -> &NodeName {
         self.config.escaper()
     }
 
-    fn user_group(&self) -> &MetricsName {
+    fn user_group(&self) -> &NodeName {
         Default::default()
     }
 
-    fn auditor(&self) -> &MetricsName {
+    fn auditor(&self) -> &NodeName {
         self.config.auditor()
     }
 

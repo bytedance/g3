@@ -26,7 +26,7 @@ use g3_daemon::listen::{
     AcceptQuicServer, AcceptTcpServer, ListenStats, ReloadQuicServer, ReloadTcpServer,
 };
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerQuitPolicy, ServerReloadCommand};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use crate::config::server::AnyServerConfig;
 
@@ -62,7 +62,7 @@ pub(crate) trait ServerInternal {
     fn _clone_config(&self) -> AnyServerConfig;
     fn _update_config_in_place(&self, flags: u64, config: AnyServerConfig) -> anyhow::Result<()>;
 
-    fn _depend_on_server(&self, name: &MetricsName) -> bool;
+    fn _depend_on_server(&self, name: &NodeName) -> bool;
     fn _reload_config_notify_runtime(&self);
     fn _update_next_servers_in_place(&self);
 
@@ -85,7 +85,7 @@ pub(crate) trait Server:
     fn alive_count(&self) -> i32;
     fn quit_policy(&self) -> &Arc<ServerQuitPolicy>;
 
-    fn update_backend(&self, name: &MetricsName);
+    fn update_backend(&self, name: &NodeName);
 }
 
 pub(crate) type ArcServer = Arc<dyn Server + Send + Sync>;
@@ -94,7 +94,7 @@ pub(crate) type ArcServer = Arc<dyn Server + Send + Sync>;
 struct WrapArcServer(ArcServer);
 
 impl BaseServer for WrapArcServer {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.0.name()
     }
 

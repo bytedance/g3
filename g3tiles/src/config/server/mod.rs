@@ -24,7 +24,7 @@ use slog::Logger;
 use yaml_rust::{yaml, Yaml};
 
 use g3_daemon::config::TopoMap;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::{HybridParser, YamlDocPosition};
 
 pub(crate) mod dummy_close;
@@ -56,13 +56,13 @@ pub(crate) enum ServerConfigDiffAction {
 }
 
 pub(crate) trait ServerConfig {
-    fn name(&self) -> &MetricsName;
+    fn name(&self) -> &NodeName;
     fn position(&self) -> Option<YamlDocPosition>;
     fn server_type(&self) -> &'static str;
 
     fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction;
 
-    fn dependent_server(&self) -> Option<BTreeSet<MetricsName>> {
+    fn dependent_server(&self) -> Option<BTreeSet<NodeName>> {
         None
     }
     fn shared_logger(&self) -> Option<&str> {
@@ -121,10 +121,10 @@ macro_rules! impl_transparent1 {
 }
 
 impl AnyServerConfig {
-    impl_transparent0!(name, &MetricsName);
+    impl_transparent0!(name, &NodeName);
     impl_transparent0!(position, Option<YamlDocPosition>);
     impl_transparent0!(server_type, &'static str);
-    impl_transparent0!(dependent_server, Option<BTreeSet<MetricsName>>);
+    impl_transparent0!(dependent_server, Option<BTreeSet<NodeName>>);
 
     impl_transparent1!(diff_action, ServerConfigDiffAction, &Self);
 }

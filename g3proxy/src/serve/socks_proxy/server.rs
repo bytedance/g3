@@ -34,7 +34,7 @@ use g3_io_ext::AsyncStream;
 use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::acl_set::AclDstHostRuleSet;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::task::{CommonTaskContext, SocksProxyNegotiationTask};
 use super::SocksProxyServerStats;
@@ -193,7 +193,7 @@ impl ServerInternal for SocksProxyServer {
         Ok(())
     }
 
-    fn _depend_on_server(&self, _name: &MetricsName) -> bool {
+    fn _depend_on_server(&self, _name: &NodeName) -> bool {
         false
     }
 
@@ -253,7 +253,7 @@ impl ServerInternal for SocksProxyServer {
 
 impl BaseServer for SocksProxyServer {
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
@@ -283,15 +283,15 @@ impl AcceptQuicServer for SocksProxyServer {
 
 #[async_trait]
 impl Server for SocksProxyServer {
-    fn escaper(&self) -> &MetricsName {
+    fn escaper(&self) -> &NodeName {
         self.config.escaper()
     }
 
-    fn user_group(&self) -> &MetricsName {
+    fn user_group(&self) -> &NodeName {
         self.config.user_group()
     }
 
-    fn auditor(&self) -> &MetricsName {
+    fn auditor(&self) -> &NodeName {
         self.config.auditor()
     }
 

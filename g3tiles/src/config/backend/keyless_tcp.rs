@@ -22,7 +22,7 @@ use rustls_pki_types::ServerName;
 use yaml_rust::{yaml, Yaml};
 
 use g3_histogram::HistogramMetricsConfig;
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{NodeName, StaticMetricsTags};
 use g3_types::net::{ConnectionPoolConfig, RustlsClientConfigBuilder, TcpKeepAliveConfig};
 use g3_yaml::YamlDocPosition;
 
@@ -34,9 +34,9 @@ const BACKEND_CONFIG_TYPE: &str = "KeylessTcp";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct KeylessTcpBackendConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
-    pub(crate) discover: MetricsName,
+    pub(crate) discover: NodeName,
     pub(crate) discover_data: DiscoverRegisterData,
     pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
     pub(crate) tls_client: Option<RustlsClientConfigBuilder>,
@@ -54,9 +54,9 @@ pub(crate) struct KeylessTcpBackendConfig {
 impl KeylessTcpBackendConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         KeylessTcpBackendConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
-            discover: MetricsName::default(),
+            discover: NodeName::default(),
             discover_data: DiscoverRegisterData::Null,
             extra_metrics_tags: None,
             tls_client: None,
@@ -175,7 +175,7 @@ impl KeylessTcpBackendConfig {
 }
 
 impl BackendConfig for KeylessTcpBackendConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 

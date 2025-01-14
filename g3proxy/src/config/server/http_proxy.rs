@@ -29,7 +29,7 @@ use g3_io_ext::LimitedCopyConfig;
 use g3_tls_ticket::TlsTicketConfig;
 use g3_types::acl::{AclExactPortRule, AclNetworkRuleBuilder};
 use g3_types::acl_set::AclDstHostRuleSetBuilder;
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{NodeName, StaticMetricsTags};
 use g3_types::net::{
     HttpKeepAliveConfig, HttpServerId, OpensslClientConfigBuilder, RustlsServerConfigBuilder,
     TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig,
@@ -63,11 +63,11 @@ impl Default for HttpProxyServerTimeoutConfig {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct HttpProxyServerConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
-    pub(crate) escaper: MetricsName,
-    pub(crate) auditor: MetricsName,
-    pub(crate) user_group: MetricsName,
+    pub(crate) escaper: NodeName,
+    pub(crate) auditor: NodeName,
+    pub(crate) user_group: NodeName,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) listen: Option<TcpListenConfig>,
     pub(crate) listen_in_worker: bool,
@@ -109,11 +109,11 @@ pub(crate) struct HttpProxyServerConfig {
 impl HttpProxyServerConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         HttpProxyServerConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
-            escaper: MetricsName::default(),
-            auditor: MetricsName::default(),
-            user_group: MetricsName::default(),
+            escaper: NodeName::default(),
+            auditor: NodeName::default(),
+            user_group: NodeName::default(),
             shared_logger: None,
             listen: None,
             listen_in_worker: false,
@@ -426,7 +426,7 @@ impl HttpProxyServerConfig {
 }
 
 impl ServerConfig for HttpProxyServerConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -438,15 +438,15 @@ impl ServerConfig for HttpProxyServerConfig {
         SERVER_CONFIG_TYPE
     }
 
-    fn escaper(&self) -> &MetricsName {
+    fn escaper(&self) -> &NodeName {
         &self.escaper
     }
 
-    fn user_group(&self) -> &MetricsName {
+    fn user_group(&self) -> &NodeName {
         &self.user_group
     }
 
-    fn auditor(&self) -> &MetricsName {
+    fn auditor(&self) -> &NodeName {
         &self.auditor
     }
 

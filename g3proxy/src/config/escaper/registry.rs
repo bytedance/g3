@@ -17,13 +17,12 @@
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, Mutex};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::AnyEscaperConfig;
 
-static INITIAL_ESCAPER_CONFIG_REGISTRY: LazyLock<
-    Mutex<HashMap<MetricsName, Arc<AnyEscaperConfig>>>,
-> = LazyLock::new(|| Mutex::new(HashMap::new()));
+static INITIAL_ESCAPER_CONFIG_REGISTRY: LazyLock<Mutex<HashMap<NodeName, Arc<AnyEscaperConfig>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub(crate) fn clear() {
     let mut ht = INITIAL_ESCAPER_CONFIG_REGISTRY.lock().unwrap();
@@ -37,17 +36,17 @@ pub(super) fn add(escaper: AnyEscaperConfig) -> Option<AnyEscaperConfig> {
     ht.insert(name, escaper).map(|old| old.as_ref().clone())
 }
 
-pub(super) fn del(name: &MetricsName) {
+pub(super) fn del(name: &NodeName) {
     let mut ht = INITIAL_ESCAPER_CONFIG_REGISTRY.lock().unwrap();
     ht.remove(name);
 }
 
-pub(super) fn get(name: &MetricsName) -> Option<Arc<AnyEscaperConfig>> {
+pub(super) fn get(name: &NodeName) -> Option<Arc<AnyEscaperConfig>> {
     let ht = INITIAL_ESCAPER_CONFIG_REGISTRY.lock().unwrap();
     ht.get(name).cloned()
 }
 
-pub(super) fn get_all_names() -> Vec<MetricsName> {
+pub(super) fn get_all_names() -> Vec<NodeName> {
     let ht = INITIAL_ESCAPER_CONFIG_REGISTRY.lock().unwrap();
     ht.keys().cloned().collect()
 }

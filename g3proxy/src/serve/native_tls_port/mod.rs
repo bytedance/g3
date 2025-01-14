@@ -33,7 +33,7 @@ use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_io_ext::haproxy::{ProxyProtocolV1Reader, ProxyProtocolV2Reader};
 use g3_openssl::{SslAcceptor, SslStream};
 use g3_types::acl::{AclAction, AclNetworkRule};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{OpensslServerConfig, OpensslTicketKey, ProxyProtocolVersion, RollingTicketer};
 
 use crate::config::server::native_tls_port::NativeTlsPortConfig;
@@ -223,7 +223,7 @@ impl ServerInternal for NativeTlsPort {
         Ok(())
     }
 
-    fn _depend_on_server(&self, name: &MetricsName) -> bool {
+    fn _depend_on_server(&self, name: &NodeName) -> bool {
         self.config.server.eq(name)
     }
 
@@ -271,7 +271,7 @@ impl ServerInternal for NativeTlsPort {
 
 impl BaseServer for NativeTlsPort {
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
@@ -306,15 +306,15 @@ impl AcceptQuicServer for NativeTlsPort {
 
 #[async_trait]
 impl Server for NativeTlsPort {
-    fn escaper(&self) -> &MetricsName {
+    fn escaper(&self) -> &NodeName {
         Default::default()
     }
 
-    fn user_group(&self) -> &MetricsName {
+    fn user_group(&self) -> &NodeName {
         Default::default()
     }
 
-    fn auditor(&self) -> &MetricsName {
+    fn auditor(&self) -> &NodeName {
         Default::default()
     }
 

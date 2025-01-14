@@ -24,7 +24,7 @@ use futures_util::future::{AbortHandle, Abortable};
 use tokio::time::Instant;
 
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder, WeightedValue};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::ConnectError;
 
 use super::{ArcBackend, Backend, BackendExt};
@@ -133,11 +133,11 @@ impl Backend for StreamTcpBackend {
     }
 
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
-    fn discover(&self) -> &MetricsName {
+    fn discover(&self) -> &NodeName {
         &self.config.discover
     }
     fn update_discover(&self) -> anyhow::Result<()> {

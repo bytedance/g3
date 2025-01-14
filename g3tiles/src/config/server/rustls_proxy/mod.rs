@@ -24,7 +24,7 @@ use yaml_rust::{yaml, Yaml};
 use g3_io_ext::LimitedCopyConfig;
 use g3_tls_ticket::TlsTicketConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{NodeName, StaticMetricsTags};
 use g3_types::net::{TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig};
 use g3_types::route::HostMatch;
 use g3_yaml::YamlDocPosition;
@@ -39,7 +39,7 @@ const SERVER_CONFIG_TYPE: &str = "RustlsProxy";
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct RustlsProxyServerConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) listen: TcpListenConfig,
@@ -60,7 +60,7 @@ pub(crate) struct RustlsProxyServerConfig {
 impl RustlsProxyServerConfig {
     pub(crate) fn new(position: Option<YamlDocPosition>) -> Self {
         RustlsProxyServerConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             shared_logger: None,
             listen: TcpListenConfig::default(),
@@ -197,7 +197,7 @@ impl RustlsProxyServerConfig {
 }
 
 impl ServerConfig for RustlsProxyServerConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 

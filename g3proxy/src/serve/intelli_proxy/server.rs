@@ -31,7 +31,7 @@ use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_io_ext::haproxy::{ProxyProtocolV1Reader, ProxyProtocolV2Reader};
 use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::ProxyProtocolVersion;
 
 use super::{detect_tcp_proxy_protocol, DetectedProxyProtocol};
@@ -186,7 +186,7 @@ impl ServerInternal for IntelliProxy {
         Ok(())
     }
 
-    fn _depend_on_server(&self, name: &MetricsName) -> bool {
+    fn _depend_on_server(&self, name: &NodeName) -> bool {
         let config = &self.config;
         config.http_server.eq(name) || config.socks_server.eq(name)
     }
@@ -237,7 +237,7 @@ impl ServerInternal for IntelliProxy {
 
 impl BaseServer for IntelliProxy {
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
@@ -272,15 +272,15 @@ impl AcceptQuicServer for IntelliProxy {
 
 #[async_trait]
 impl Server for IntelliProxy {
-    fn escaper(&self) -> &MetricsName {
+    fn escaper(&self) -> &NodeName {
         Default::default()
     }
 
-    fn user_group(&self) -> &MetricsName {
+    fn user_group(&self) -> &NodeName {
         Default::default()
     }
 
-    fn auditor(&self) -> &MetricsName {
+    fn auditor(&self) -> &NodeName {
         Default::default()
     }
 

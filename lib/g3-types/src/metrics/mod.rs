@@ -17,7 +17,7 @@
 use thiserror::Error;
 
 mod name;
-pub use name::MetricsName;
+pub use name::NodeName;
 
 mod tag;
 pub use tag::{MetricsTagName, MetricsTagValue, StaticMetricsTags};

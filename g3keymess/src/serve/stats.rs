@@ -20,7 +20,7 @@ use std::sync::Arc;
 use arc_swap::ArcSwapOption;
 
 use g3_histogram::{HistogramMetricsConfig, HistogramRecorder, HistogramStats, RotatingHistogram};
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{NodeName, StaticMetricsTags};
 use g3_types::stats::StatId;
 
 use crate::protocol::KeylessResponseErrorCode;
@@ -114,7 +114,7 @@ impl KeyServerRequestStats {
 }
 
 pub(crate) struct KeyServerStats {
-    name: MetricsName,
+    name: NodeName,
     id: StatId,
 
     extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
@@ -147,7 +147,7 @@ pub(crate) struct KeyServerSnapshot {
 }
 
 impl KeyServerStats {
-    pub(crate) fn new(name: &MetricsName) -> Self {
+    pub(crate) fn new(name: &NodeName) -> Self {
         KeyServerStats {
             name: name.clone(),
             id: StatId::new(),
@@ -166,7 +166,7 @@ impl KeyServerStats {
     }
 
     #[inline]
-    pub(crate) fn name(&self) -> &MetricsName {
+    pub(crate) fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -218,7 +218,7 @@ impl KeyServerStats {
 }
 
 pub(crate) struct KeyServerDurationStats {
-    name: MetricsName,
+    name: NodeName,
     id: StatId,
 
     extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
@@ -235,7 +235,7 @@ pub(crate) struct KeyServerDurationStats {
 
 impl KeyServerDurationStats {
     #[inline]
-    pub(crate) fn name(&self) -> &MetricsName {
+    pub(crate) fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -279,7 +279,7 @@ pub(crate) struct KeyServerDurationRecorder {
 
 impl KeyServerDurationRecorder {
     pub(crate) fn new(
-        name: &MetricsName,
+        name: &NodeName,
         config: &HistogramMetricsConfig,
     ) -> (KeyServerDurationRecorder, Arc<KeyServerDurationStats>) {
         let (ping_pong_r, ping_pong_s) = config.build_spawned(None);

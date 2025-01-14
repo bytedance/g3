@@ -21,7 +21,7 @@ use async_recursion::async_recursion;
 use log::{debug, warn};
 use tokio::sync::Mutex;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 use crate::config::resolver::{AnyResolverConfig, ResolverConfigDiffAction};
@@ -41,7 +41,7 @@ static RESOLVER_OPS_LOCK: Mutex<()> = Mutex::const_new(());
 pub async fn spawn_all() -> anyhow::Result<()> {
     let _guard = RESOLVER_OPS_LOCK.lock().await;
 
-    let mut new_names = HashSet::<MetricsName>::new();
+    let mut new_names = HashSet::<NodeName>::new();
 
     let all_config = crate::config::resolver::get_all_sorted()?;
     for config in all_config {
@@ -73,7 +73,7 @@ pub async fn spawn_all() -> anyhow::Result<()> {
 }
 
 pub(crate) async fn reload(
-    name: &MetricsName,
+    name: &NodeName,
     position: Option<YamlDocPosition>,
 ) -> anyhow::Result<()> {
     let _guard = RESOLVER_OPS_LOCK.lock().await;
@@ -115,8 +115,8 @@ pub(crate) async fn reload(
 }
 
 #[async_recursion]
-async fn update_dependency_to_resolver_unlocked(target: &MetricsName, status: &str) {
-    let mut names = Vec::<MetricsName>::new();
+async fn update_dependency_to_resolver_unlocked(target: &NodeName, status: &str) {
+    let mut names = Vec::<NodeName>::new();
 
     registry::foreach(|name, resolver| {
         if let Some(set) = resolver._dependent_resolver() {
@@ -158,7 +158,7 @@ async fn reload_old_unlocked(old: AnyResolverConfig, new: AnyResolverConfig) -> 
     }
 }
 
-async fn delete_existed_unlocked(name: &MetricsName) {
+async fn delete_existed_unlocked(name: &NodeName) {
     const STATUS: &str = "deleted";
 
     let old_resolver = registry::del(name);

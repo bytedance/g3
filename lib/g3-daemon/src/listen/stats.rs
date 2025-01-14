@@ -17,7 +17,7 @@
 use std::sync::atomic::{AtomicIsize, AtomicU64, Ordering};
 
 use g3_io_ext::haproxy::ProxyProtocolReadError;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::stats::StatId;
 
 #[derive(Default)]
@@ -30,7 +30,7 @@ pub struct ListenSnapshot {
 
 #[derive(Debug)]
 pub struct ListenStats {
-    name: MetricsName,
+    name: NodeName,
     id: StatId,
 
     runtime_count: AtomicIsize,
@@ -41,7 +41,7 @@ pub struct ListenStats {
 }
 
 impl ListenStats {
-    pub fn new(name: &MetricsName) -> Self {
+    pub fn new(name: &NodeName) -> Self {
         ListenStats {
             name: name.clone(),
             id: StatId::new(),
@@ -54,7 +54,7 @@ impl ListenStats {
     }
 
     #[inline]
-    pub fn name(&self) -> &MetricsName {
+    pub fn name(&self) -> &NodeName {
         &self.name
     }
 

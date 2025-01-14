@@ -19,7 +19,7 @@ use std::path::Path;
 use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::{HybridParser, YamlDocPosition};
 
 mod registry;
@@ -47,7 +47,7 @@ pub(crate) enum DiscoverConfigDiffAction {
 }
 
 pub(crate) trait DiscoverConfig {
-    fn name(&self) -> &MetricsName;
+    fn name(&self) -> &NodeName;
     fn position(&self) -> Option<YamlDocPosition>;
     fn discover_type(&self) -> &'static str;
 
@@ -83,7 +83,7 @@ macro_rules! impl_transparent1 {
 }
 
 impl AnyDiscoverConfig {
-    impl_transparent0!(name, &MetricsName);
+    impl_transparent0!(name, &NodeName);
     impl_transparent0!(discover_type, &'static str);
     impl_transparent0!(position, Option<YamlDocPosition>);
 

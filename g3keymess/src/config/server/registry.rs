@@ -19,11 +19,11 @@ use std::sync::{Arc, LazyLock, Mutex};
 
 use anyhow::anyhow;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::KeyServerConfig;
 
-static INITIAL_SERVER_CONFIG_REGISTRY: LazyLock<Mutex<HashMap<MetricsName, Arc<KeyServerConfig>>>> =
+static INITIAL_SERVER_CONFIG_REGISTRY: LazyLock<Mutex<HashMap<NodeName, Arc<KeyServerConfig>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub(crate) fn clear() {

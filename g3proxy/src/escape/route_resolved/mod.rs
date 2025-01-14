@@ -24,7 +24,7 @@ use ip_network_table::IpNetworkTable;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_resolver::ResolveError;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{Host, UpstreamAddr};
 
 use super::{ArcEscaper, Escaper, EscaperInternal, RouteEscaperStats};
@@ -55,7 +55,7 @@ pub(super) struct RouteResolvedEscaper {
     config: RouteResolvedEscaperConfig,
     stats: Arc<RouteEscaperStats>,
     resolver_handle: ArcIntegratedResolverHandle,
-    next_table: BTreeMap<MetricsName, ArcEscaper>,
+    next_table: BTreeMap<NodeName, ArcEscaper>,
     lpm_table: IpNetworkTable<ArcEscaper>,
     default_next: ArcEscaper,
 }
@@ -157,7 +157,7 @@ impl RouteResolvedEscaper {
 
 #[async_trait]
 impl Escaper for RouteResolvedEscaper {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
@@ -294,11 +294,11 @@ impl Escaper for RouteResolvedEscaper {
 
 #[async_trait]
 impl EscaperInternal for RouteResolvedEscaper {
-    fn _resolver(&self) -> &MetricsName {
+    fn _resolver(&self) -> &NodeName {
         self.config.resolver()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
+    fn _dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         let mut set = BTreeSet::new();
         for escaper in self.next_table.keys() {
             set.insert(escaper.clone());

@@ -20,7 +20,7 @@ use anyhow::Context;
 
 use g3_dpi::ProtocolPortMap;
 use g3_icap_client::IcapServiceClient;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{OpensslTicketKey, RollingTicketer};
 
 use crate::config::audit::AuditorConfig;
@@ -55,7 +55,7 @@ pub(crate) struct Auditor {
 }
 
 impl Auditor {
-    fn new_no_config(name: &MetricsName) -> Arc<Self> {
+    fn new_no_config(name: &NodeName) -> Arc<Self> {
         let config = AuditorConfig::empty(name);
         let server_tcp_portmap = Arc::new(config.server_tcp_portmap.clone());
         let client_tcp_portmap = Arc::new(config.client_tcp_portmap.clone());

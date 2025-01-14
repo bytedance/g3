@@ -25,7 +25,7 @@ use slog::Logger;
 use tokio::sync::mpsc;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{OpensslClientConfig, UpstreamAddr};
 
 use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperInternal, EscaperStats};
@@ -188,7 +188,7 @@ impl ProxyFloatEscaper {
 
 #[async_trait]
 impl Escaper for ProxyFloatEscaper {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
@@ -287,11 +287,11 @@ impl Escaper for ProxyFloatEscaper {
 
 #[async_trait]
 impl EscaperInternal for ProxyFloatEscaper {
-    fn _resolver(&self) -> &MetricsName {
+    fn _resolver(&self) -> &NodeName {
         Default::default()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
+    fn _dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         None
     }
 

@@ -24,7 +24,7 @@ use async_trait::async_trait;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder, WeightedValue};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::UpstreamAddr;
 
 use super::{ArcEscaper, Escaper, EscaperExt, EscaperInternal, RouteEscaperStats};
@@ -65,7 +65,7 @@ impl Hash for EscaperWrapper {
 pub(super) struct RouteSelectEscaper {
     config: RouteSelectEscaperConfig,
     stats: Arc<RouteEscaperStats>,
-    all_nodes: AHashMap<MetricsName, ArcEscaper>,
+    all_nodes: AHashMap<NodeName, ArcEscaper>,
     select_nodes: SelectiveVec<WeightedValue<EscaperWrapper>>,
 }
 
@@ -146,7 +146,7 @@ impl EscaperExt for RouteSelectEscaper {}
 
 #[async_trait]
 impl Escaper for RouteSelectEscaper {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
@@ -283,11 +283,11 @@ impl Escaper for RouteSelectEscaper {
 
 #[async_trait]
 impl EscaperInternal for RouteSelectEscaper {
-    fn _resolver(&self) -> &MetricsName {
+    fn _resolver(&self) -> &NodeName {
         Default::default()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
+    fn _dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         self.config.dependent_escaper()
     }
 

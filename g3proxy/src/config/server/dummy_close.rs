@@ -17,7 +17,7 @@
 use anyhow::anyhow;
 use yaml_rust::{yaml, Yaml};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 use super::ServerConfig;
@@ -27,12 +27,12 @@ const SERVER_CONFIG_TYPE: &str = "DummyClose";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct DummyCloseServerConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
 }
 
 impl DummyCloseServerConfig {
-    pub(crate) fn new(name: &MetricsName, position: Option<YamlDocPosition>) -> Self {
+    pub(crate) fn new(name: &NodeName, position: Option<YamlDocPosition>) -> Self {
         DummyCloseServerConfig {
             name: name.clone(),
             position,
@@ -44,7 +44,7 @@ impl DummyCloseServerConfig {
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut server = DummyCloseServerConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
         };
         g3_yaml::foreach_kv(map, |k, v| server.set(k, v))?;
@@ -72,7 +72,7 @@ impl DummyCloseServerConfig {
 }
 
 impl ServerConfig for DummyCloseServerConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -84,15 +84,15 @@ impl ServerConfig for DummyCloseServerConfig {
         SERVER_CONFIG_TYPE
     }
 
-    fn escaper(&self) -> &MetricsName {
+    fn escaper(&self) -> &NodeName {
         Default::default()
     }
 
-    fn user_group(&self) -> &MetricsName {
+    fn user_group(&self) -> &NodeName {
         Default::default()
     }
 
-    fn auditor(&self) -> &MetricsName {
+    fn auditor(&self) -> &NodeName {
         Default::default()
     }
 

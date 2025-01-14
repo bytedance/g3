@@ -18,13 +18,13 @@ use std::str::FromStr;
 
 use ahash::AHashMap;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum EgressPathSelection {
     Index(usize),
-    MatchId(AHashMap<MetricsName, String>),
-    MatchValue(AHashMap<MetricsName, serde_json::Value>),
+    MatchId(AHashMap<NodeName, String>),
+    MatchValue(AHashMap<NodeName, serde_json::Value>),
 }
 
 impl EgressPathSelection {

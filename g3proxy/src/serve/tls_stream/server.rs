@@ -34,7 +34,7 @@ use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerExt, ServerReloa
 use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{
     OpensslClientConfig, OpensslTicketKey, RollingTicketer, RustlsServerConnectionExt,
     WeightedUpstreamAddr,
@@ -239,7 +239,7 @@ impl ServerInternal for TlsStreamServer {
         Ok(())
     }
 
-    fn _depend_on_server(&self, _name: &MetricsName) -> bool {
+    fn _depend_on_server(&self, _name: &NodeName) -> bool {
         false
     }
 
@@ -297,7 +297,7 @@ impl ServerInternal for TlsStreamServer {
 
 impl BaseServer for TlsStreamServer {
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
@@ -362,15 +362,15 @@ impl AcceptQuicServer for TlsStreamServer {
 
 #[async_trait]
 impl Server for TlsStreamServer {
-    fn escaper(&self) -> &MetricsName {
+    fn escaper(&self) -> &NodeName {
         self.config.escaper()
     }
 
-    fn user_group(&self) -> &MetricsName {
+    fn user_group(&self) -> &NodeName {
         Default::default()
     }
 
-    fn auditor(&self) -> &MetricsName {
+    fn auditor(&self) -> &NodeName {
         self.config.auditor()
     }
 

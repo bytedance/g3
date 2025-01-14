@@ -45,7 +45,7 @@ use crate::module::udp_relay::{
 };
 use crate::serve::ServerTaskNotes;
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::UpstreamAddr;
 
 mod stats;
@@ -70,7 +70,7 @@ impl DummyDenyEscaper {
         Ok(DummyDenyEscaper::new_obj(config, stats))
     }
 
-    pub(super) fn prepare_default(name: &MetricsName) -> ArcEscaper {
+    pub(super) fn prepare_default(name: &NodeName) -> ArcEscaper {
         let config = DummyDenyEscaperConfig::new(None, None);
         let stats = Arc::new(DummyDenyEscaperStats::new(name));
         DummyDenyEscaper::new_obj(config, stats)
@@ -90,7 +90,7 @@ impl DummyDenyEscaper {
 
 #[async_trait]
 impl Escaper for DummyDenyEscaper {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
@@ -173,11 +173,11 @@ impl Escaper for DummyDenyEscaper {
 
 #[async_trait]
 impl EscaperInternal for DummyDenyEscaper {
-    fn _resolver(&self) -> &MetricsName {
+    fn _resolver(&self) -> &NodeName {
         Default::default()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
+    fn _dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         None
     }
 

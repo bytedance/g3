@@ -25,7 +25,7 @@ use yaml_rust::{yaml, Yaml};
 use g3_io_ext::LimitedCopyConfig;
 use g3_tls_ticket::TlsTicketConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{NodeName, StaticMetricsTags};
 use g3_types::net::{
     HttpForwardedHeaderType, HttpKeepAliveConfig, HttpServerId, RustlsServerConfigBuilder,
     TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig,
@@ -63,10 +63,10 @@ impl Default for HttpRProxyServerTimeoutConfig {
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct HttpRProxyServerConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
-    pub(crate) escaper: MetricsName,
-    pub(crate) user_group: MetricsName,
+    pub(crate) escaper: NodeName,
+    pub(crate) user_group: NodeName,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) listen: Option<TcpListenConfig>,
     pub(crate) listen_in_worker: bool,
@@ -103,10 +103,10 @@ pub(crate) struct HttpRProxyServerConfig {
 impl HttpRProxyServerConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         HttpRProxyServerConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
-            escaper: MetricsName::default(),
-            user_group: MetricsName::default(),
+            escaper: NodeName::default(),
+            user_group: NodeName::default(),
             shared_logger: None,
             listen: None,
             listen_in_worker: false,
@@ -373,7 +373,7 @@ impl HttpRProxyServerConfig {
 }
 
 impl ServerConfig for HttpRProxyServerConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -385,15 +385,15 @@ impl ServerConfig for HttpRProxyServerConfig {
         SERVER_CONFIG_TYPE
     }
 
-    fn escaper(&self) -> &MetricsName {
+    fn escaper(&self) -> &NodeName {
         &self.escaper
     }
 
-    fn user_group(&self) -> &MetricsName {
+    fn user_group(&self) -> &NodeName {
         &self.user_group
     }
 
-    fn auditor(&self) -> &MetricsName {
+    fn auditor(&self) -> &NodeName {
         Default::default()
     }
 

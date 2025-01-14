@@ -21,7 +21,7 @@ use async_recursion::async_recursion;
 use log::{debug, warn};
 use tokio::sync::Mutex;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 use super::registry;
@@ -53,7 +53,7 @@ static ESCAPER_OPS_LOCK: Mutex<()> = Mutex::const_new(());
 pub async fn load_all() -> anyhow::Result<()> {
     let _guard = ESCAPER_OPS_LOCK.lock().await;
 
-    let mut new_names = HashSet::<MetricsName>::new();
+    let mut new_names = HashSet::<NodeName>::new();
 
     let all_config = crate::config::escaper::get_all_sorted()?;
     for config in all_config {
@@ -84,7 +84,7 @@ pub async fn load_all() -> anyhow::Result<()> {
     Ok(())
 }
 
-pub(crate) fn get_escaper(name: &MetricsName) -> anyhow::Result<ArcEscaper> {
+pub(crate) fn get_escaper(name: &NodeName) -> anyhow::Result<ArcEscaper> {
     match registry::get_escaper(name) {
         Some(server) => Ok(server),
         None => Err(anyhow!("no escaper named {name} found")),
@@ -92,7 +92,7 @@ pub(crate) fn get_escaper(name: &MetricsName) -> anyhow::Result<ArcEscaper> {
 }
 
 pub(crate) async fn reload(
-    name: &MetricsName,
+    name: &NodeName,
     position: Option<YamlDocPosition>,
 ) -> anyhow::Result<()> {
     let _guard = ESCAPER_OPS_LOCK.lock().await;
@@ -133,10 +133,10 @@ pub(crate) async fn reload(
     Ok(())
 }
 
-pub(crate) async fn update_dependency_to_resolver(resolver: &MetricsName, status: &str) {
+pub(crate) async fn update_dependency_to_resolver(resolver: &NodeName, status: &str) {
     let _guard = ESCAPER_OPS_LOCK.lock().await;
 
-    let mut names = Vec::<MetricsName>::new();
+    let mut names = Vec::<NodeName>::new();
 
     registry::foreach(|name, escaper| {
         if escaper._resolver().eq(resolver) {
@@ -157,10 +157,10 @@ pub(crate) async fn update_dependency_to_resolver(resolver: &MetricsName, status
     }
 }
 
-pub(crate) async fn update_dependency_to_auditor(auditor: &MetricsName, status: &str) {
+pub(crate) async fn update_dependency_to_auditor(auditor: &NodeName, status: &str) {
     let _guard = ESCAPER_OPS_LOCK.lock().await;
 
-    let mut names = Vec::<MetricsName>::new();
+    let mut names = Vec::<NodeName>::new();
 
     registry::foreach(|name, escaper| {
         if let Some(dep_auditor) = escaper._auditor() {
@@ -184,8 +184,8 @@ pub(crate) async fn update_dependency_to_auditor(auditor: &MetricsName, status: 
 }
 
 #[async_recursion]
-async fn update_dependency_to_escaper_unlocked(target: &MetricsName, status: &str) {
-    let mut names = Vec::<MetricsName>::new();
+async fn update_dependency_to_escaper_unlocked(target: &NodeName, status: &str) {
+    let mut names = Vec::<NodeName>::new();
 
     registry::foreach(|name, escaper| {
         if let Some(set) = escaper._dependent_escaper() {
@@ -233,7 +233,7 @@ async fn reload_unlocked(old: AnyEscaperConfig, new: AnyEscaperConfig) -> anyhow
     }
 }
 
-async fn delete_existed_unlocked(name: &MetricsName) {
+async fn delete_existed_unlocked(name: &NodeName) {
     const STATUS: &str = "deleted";
 
     registry::del(name);
@@ -242,7 +242,7 @@ async fn delete_existed_unlocked(name: &MetricsName) {
 }
 
 async fn reload_existed_unlocked(
-    name: &MetricsName,
+    name: &NodeName,
     new: Option<AnyEscaperConfig>,
 ) -> anyhow::Result<()> {
     const STATUS: &str = "reloaded";

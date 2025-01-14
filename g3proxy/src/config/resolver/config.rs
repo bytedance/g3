@@ -16,7 +16,7 @@
 
 use std::collections::BTreeSet;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 #[cfg(feature = "c-ares")]
@@ -37,12 +37,12 @@ pub(crate) enum ResolverConfigDiffAction {
 }
 
 pub(crate) trait ResolverConfig {
-    fn name(&self) -> &MetricsName;
+    fn name(&self) -> &NodeName;
     fn position(&self) -> Option<YamlDocPosition>;
     fn resolver_type(&self) -> &'static str;
 
     fn diff_action(&self, new: &AnyResolverConfig) -> ResolverConfigDiffAction;
-    fn dependent_resolver(&self) -> Option<BTreeSet<MetricsName>>;
+    fn dependent_resolver(&self) -> Option<BTreeSet<NodeName>>;
 }
 
 #[derive(Clone)]
@@ -86,9 +86,9 @@ macro_rules! impl_transparent1 {
 }
 
 impl AnyResolverConfig {
-    impl_transparent0!(name, &MetricsName);
+    impl_transparent0!(name, &NodeName);
     impl_transparent0!(position, Option<YamlDocPosition>);
-    impl_transparent0!(dependent_resolver, Option<BTreeSet<MetricsName>>);
+    impl_transparent0!(dependent_resolver, Option<BTreeSet<NodeName>>);
 
     impl_transparent1!(diff_action, ResolverConfigDiffAction, &Self);
 }

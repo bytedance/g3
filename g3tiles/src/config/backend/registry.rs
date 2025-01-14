@@ -19,13 +19,12 @@ use std::sync::{Arc, LazyLock, Mutex};
 
 use anyhow::anyhow;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::AnyBackendConfig;
 
-static INITIAL_BACKEND_CONFIG_REGISTRY: LazyLock<
-    Mutex<HashMap<MetricsName, Arc<AnyBackendConfig>>>,
-> = LazyLock::new(|| Mutex::new(HashMap::new()));
+static INITIAL_BACKEND_CONFIG_REGISTRY: LazyLock<Mutex<HashMap<NodeName, Arc<AnyBackendConfig>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub(crate) fn clear() {
     let mut ht = INITIAL_BACKEND_CONFIG_REGISTRY.lock().unwrap();

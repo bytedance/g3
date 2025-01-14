@@ -19,13 +19,13 @@ use std::sync::{Arc, LazyLock, Mutex};
 
 use anyhow::anyhow;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::ArcServer;
 use crate::config::server::AnyServerConfig;
 use crate::serve::dummy_close::DummyCloseServer;
 
-static RUNTIME_SERVER_REGISTRY: LazyLock<Mutex<HashMap<MetricsName, ArcServer>>> =
+static RUNTIME_SERVER_REGISTRY: LazyLock<Mutex<HashMap<NodeName, ArcServer>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 static OFFLINE_SERVER_SET: Mutex<Vec<ArcServer>> = Mutex::new(Vec::new());
 
@@ -64,7 +64,7 @@ where
     }
 }
 
-pub(super) fn add(name: MetricsName, server: ArcServer) -> anyhow::Result<()> {
+pub(super) fn add(name: NodeName, server: ArcServer) -> anyhow::Result<()> {
     let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     server._start_runtime(&server)?;
     if let Some(old_server) = ht.insert(name, server) {
@@ -74,7 +74,7 @@ pub(super) fn add(name: MetricsName, server: ArcServer) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub(super) fn del(name: &MetricsName) {
+pub(super) fn del(name: &NodeName) {
     let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     if let Some(old_server) = ht.remove(name) {
         old_server._abort_runtime();
@@ -82,7 +82,7 @@ pub(super) fn del(name: &MetricsName) {
     }
 }
 
-pub(crate) fn get_names() -> HashSet<MetricsName> {
+pub(crate) fn get_names() -> HashSet<NodeName> {
     let mut names = HashSet::new();
     let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     for name in ht.keys() {
@@ -91,18 +91,18 @@ pub(crate) fn get_names() -> HashSet<MetricsName> {
     names
 }
 
-pub(super) fn get_config(name: &MetricsName) -> Option<AnyServerConfig> {
+pub(super) fn get_config(name: &NodeName) -> Option<AnyServerConfig> {
     let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     ht.get(name).map(|server| server._clone_config())
 }
 
-pub(crate) fn get_server(name: &MetricsName) -> Option<ArcServer> {
+pub(crate) fn get_server(name: &NodeName) -> Option<ArcServer> {
     let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     ht.get(name).cloned()
 }
 
 pub(super) fn update_config_in_place(
-    name: &MetricsName,
+    name: &NodeName,
     flags: u64,
     config: AnyServerConfig,
 ) -> anyhow::Result<()> {
@@ -114,10 +114,7 @@ pub(super) fn update_config_in_place(
     }
 }
 
-pub(super) fn reload_only_config(
-    name: &MetricsName,
-    config: AnyServerConfig,
-) -> anyhow::Result<()> {
+pub(super) fn reload_only_config(name: &NodeName, config: AnyServerConfig) -> anyhow::Result<()> {
     let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     let Some(old_server) = ht.get(name) else {
         return Err(anyhow!("no server with name {name} found"));
@@ -132,7 +129,7 @@ pub(super) fn reload_only_config(
     Ok(())
 }
 
-pub(crate) fn reload_only_escaper(name: &MetricsName) -> anyhow::Result<()> {
+pub(crate) fn reload_only_escaper(name: &NodeName) -> anyhow::Result<()> {
     let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     let Some(server) = ht.get(name) else {
         return Err(anyhow!("no server with name {name} found"));
@@ -142,7 +139,7 @@ pub(crate) fn reload_only_escaper(name: &MetricsName) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub(crate) fn reload_only_user_group(name: &MetricsName) -> anyhow::Result<()> {
+pub(crate) fn reload_only_user_group(name: &NodeName) -> anyhow::Result<()> {
     let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     let Some(server) = ht.get(name) else {
         return Err(anyhow!("no server with name {name} found"));
@@ -152,7 +149,7 @@ pub(crate) fn reload_only_user_group(name: &MetricsName) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub(crate) fn reload_only_auditor(name: &MetricsName) -> anyhow::Result<()> {
+pub(crate) fn reload_only_auditor(name: &NodeName) -> anyhow::Result<()> {
     let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     let Some(server) = ht.get(name) else {
         return Err(anyhow!("no server with name {name} found"));
@@ -162,10 +159,7 @@ pub(crate) fn reload_only_auditor(name: &MetricsName) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub(super) fn reload_and_respawn(
-    name: &MetricsName,
-    config: AnyServerConfig,
-) -> anyhow::Result<()> {
+pub(super) fn reload_and_respawn(name: &NodeName, config: AnyServerConfig) -> anyhow::Result<()> {
     let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     let Some(old_server) = ht.get(name) else {
         return Err(anyhow!("no server with name {name} found"));
@@ -182,7 +176,7 @@ pub(super) fn reload_and_respawn(
 
 pub(crate) fn foreach_online<F>(mut f: F)
 where
-    F: FnMut(&MetricsName, &ArcServer),
+    F: FnMut(&NodeName, &ArcServer),
 {
     let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     for (name, server) in ht.iter() {
@@ -190,7 +184,7 @@ where
     }
 }
 
-pub(crate) fn get_or_insert_default(name: &MetricsName) -> ArcServer {
+pub(crate) fn get_or_insert_default(name: &NodeName) -> ArcServer {
     let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     ht.entry(name.clone())
         .or_insert_with(|| DummyCloseServer::prepare_default(name))

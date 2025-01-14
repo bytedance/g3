@@ -23,7 +23,7 @@ use g3_daemon::metrics::{
     TAG_KEY_TRANSPORT,
 };
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
 
 use super::TAG_KEY_ESCAPER;
@@ -113,18 +113,18 @@ static USER_UPSTREAM_TRAFFIC_STATS_MAP: LazyLock<
 pub(super) trait UserMetricExt {
     fn add_user_request_tags(
         &mut self,
-        user_group: &MetricsName,
+        user_group: &NodeName,
         user: &str,
         user_type: &str,
-        server: &MetricsName,
+        server: &NodeName,
         stat_id: StatId,
     );
     fn add_user_upstream_traffic_tags(
         &mut self,
-        user_group: &MetricsName,
+        user_group: &NodeName,
         user: &str,
         user_type: &str,
-        escaper: &MetricsName,
+        escaper: &NodeName,
         stat_id: StatId,
     );
 }
@@ -132,10 +132,10 @@ pub(super) trait UserMetricExt {
 impl UserMetricExt for StatsdTagGroup {
     fn add_user_request_tags(
         &mut self,
-        user_group: &MetricsName,
+        user_group: &NodeName,
         user: &str,
         user_type: &str,
-        server: &MetricsName,
+        server: &NodeName,
         stat_id: StatId,
     ) {
         let mut buffer = itoa::Buffer::new();
@@ -149,10 +149,10 @@ impl UserMetricExt for StatsdTagGroup {
 
     fn add_user_upstream_traffic_tags(
         &mut self,
-        user_group: &MetricsName,
+        user_group: &NodeName,
         user: &str,
         user_type: &str,
-        escaper: &MetricsName,
+        escaper: &NodeName,
         stat_id: StatId,
     ) {
         let mut buffer = itoa::Buffer::new();

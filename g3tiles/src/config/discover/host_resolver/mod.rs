@@ -16,7 +16,7 @@
 
 use anyhow::anyhow;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::UpstreamAddr;
 use g3_yaml::YamlDocPosition;
 
@@ -35,14 +35,14 @@ pub(crate) struct HostResolverDiscoverInput {
 
 #[derive(Clone, PartialEq, Eq)]
 pub(crate) struct HostResolverDiscoverConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
 }
 
 impl HostResolverDiscoverConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         HostResolverDiscoverConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
         }
     }
@@ -57,7 +57,7 @@ impl HostResolverDiscoverConfig {
 
 impl DiscoverConfig for HostResolverDiscoverConfig {
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 

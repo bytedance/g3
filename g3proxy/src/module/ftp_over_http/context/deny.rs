@@ -16,7 +16,7 @@
 
 use async_trait::async_trait;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::{
     ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpRemoteConnection,
@@ -26,12 +26,12 @@ use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TcpConnect
 use crate::serve::ServerTaskNotes;
 
 pub(crate) struct DenyFtpConnectContext {
-    escaper_name: MetricsName,
+    escaper_name: NodeName,
     control_error: Option<TcpConnectError>,
 }
 
 impl DenyFtpConnectContext {
-    pub(crate) fn new(escaper_name: &MetricsName, error: Option<TcpConnectError>) -> Self {
+    pub(crate) fn new(escaper_name: &NodeName, error: Option<TcpConnectError>) -> Self {
         DenyFtpConnectContext {
             escaper_name: escaper_name.clone(),
             control_error: error,

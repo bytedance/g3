@@ -33,7 +33,7 @@ use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_io_ext::haproxy::{ProxyProtocolV1Reader, ProxyProtocolV2Reader};
 use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{
     OpensslTicketKey, ProxyProtocolVersion, RollingTicketer, RustlsServerConnectionExt,
 };
@@ -227,7 +227,7 @@ impl ServerInternal for PlainTlsPort {
         Ok(())
     }
 
-    fn _depend_on_server(&self, name: &MetricsName) -> bool {
+    fn _depend_on_server(&self, name: &NodeName) -> bool {
         self.config.server.eq(name)
     }
 
@@ -275,7 +275,7 @@ impl ServerInternal for PlainTlsPort {
 
 impl BaseServer for PlainTlsPort {
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
@@ -310,15 +310,15 @@ impl AcceptQuicServer for PlainTlsPort {
 
 #[async_trait]
 impl Server for PlainTlsPort {
-    fn escaper(&self) -> &MetricsName {
+    fn escaper(&self) -> &NodeName {
         Default::default()
     }
 
-    fn user_group(&self) -> &MetricsName {
+    fn user_group(&self) -> &NodeName {
         Default::default()
     }
 
-    fn auditor(&self) -> &MetricsName {
+    fn auditor(&self) -> &NodeName {
         Default::default()
     }
 

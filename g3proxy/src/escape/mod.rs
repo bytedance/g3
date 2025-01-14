@@ -22,7 +22,7 @@ use async_trait::async_trait;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::collection::{SelectiveItem, SelectivePickPolicy, SelectiveVec};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{Host, HttpForwardCapability, UpstreamAddr};
 
 use crate::audit::AuditContext;
@@ -91,11 +91,11 @@ pub(crate) use ops::{
 /// its notifier, which will lead to missing of the notification.
 #[async_trait]
 pub(crate) trait EscaperInternal {
-    fn _resolver(&self) -> &MetricsName;
-    fn _auditor(&self) -> Option<&MetricsName> {
+    fn _resolver(&self) -> &NodeName;
+    fn _auditor(&self) -> Option<&NodeName> {
         None
     }
-    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>>;
+    fn _dependent_escaper(&self) -> Option<BTreeSet<NodeName>>;
 
     fn _clone_config(&self) -> AnyEscaperConfig;
     fn _update_config_in_place(&self, flags: u64, config: AnyEscaperConfig) -> anyhow::Result<()>;
@@ -158,7 +158,7 @@ pub(crate) trait EscaperInternal {
 
 #[async_trait]
 pub(crate) trait Escaper: EscaperInternal {
-    fn name(&self) -> &MetricsName;
+    fn name(&self) -> &NodeName;
     #[allow(unused)]
     fn escaper_type(&self) -> &str;
     fn get_escape_stats(&self) -> Option<ArcEscaperStats> {

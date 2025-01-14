@@ -19,7 +19,7 @@ use std::net::SocketAddr;
 use chrono::{DateTime, Utc};
 
 use g3_socket::BindAddr;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{SocketBufferConfig, UpstreamAddr};
 
 pub(crate) struct UdpConnectTaskConf<'a> {
@@ -29,7 +29,7 @@ pub(crate) struct UdpConnectTaskConf<'a> {
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct UdpConnectTaskNotes {
-    pub(crate) escaper: MetricsName,
+    pub(crate) escaper: NodeName,
     pub(crate) bind: BindAddr,
     pub(crate) next: Option<SocketAddr>,
     pub(crate) local: Option<SocketAddr>,

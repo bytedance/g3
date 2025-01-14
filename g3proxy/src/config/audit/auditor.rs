@@ -28,7 +28,7 @@ use g3_dpi::{
 };
 use g3_icap_client::IcapServiceConfig;
 use g3_tls_ticket::TlsTicketConfig;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{
     OpensslInterceptionClientConfigBuilder, OpensslInterceptionServerConfigBuilder,
 };
@@ -40,7 +40,7 @@ use super::AuditStreamDetourConfig;
 
 #[derive(Clone)]
 pub(crate) struct AuditorConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) protocol_inspection: ProtocolInspectionConfig,
     pub(crate) server_tcp_portmap: ProtocolPortMap,
@@ -67,7 +67,7 @@ pub(crate) struct AuditorConfig {
 }
 
 impl AuditorConfig {
-    pub(crate) fn name(&self) -> &MetricsName {
+    pub(crate) fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -75,7 +75,7 @@ impl AuditorConfig {
         self.position.clone()
     }
 
-    fn with_name(name: MetricsName, position: Option<YamlDocPosition>) -> Self {
+    fn with_name(name: NodeName, position: Option<YamlDocPosition>) -> Self {
         AuditorConfig {
             name,
             position,
@@ -104,12 +104,12 @@ impl AuditorConfig {
         }
     }
 
-    pub(crate) fn empty(name: &MetricsName) -> Self {
+    pub(crate) fn empty(name: &NodeName) -> Self {
         AuditorConfig::with_name(name.clone(), None)
     }
 
     pub(crate) fn new(position: Option<YamlDocPosition>) -> Self {
-        AuditorConfig::with_name(MetricsName::default(), position)
+        AuditorConfig::with_name(NodeName::default(), position)
     }
 
     pub(crate) fn parse(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {

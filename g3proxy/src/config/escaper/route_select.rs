@@ -20,7 +20,7 @@ use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
 
 use g3_types::collection::{SelectivePickPolicy, WeightedValue};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction};
@@ -29,16 +29,16 @@ const ESCAPER_CONFIG_TYPE: &str = "RouteSelect";
 
 #[derive(Clone, PartialEq)]
 pub(crate) struct RouteSelectEscaperConfig {
-    pub(crate) name: MetricsName,
+    pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
-    pub(crate) next_nodes: Vec<WeightedValue<MetricsName>>,
+    pub(crate) next_nodes: Vec<WeightedValue<NodeName>>,
     pub(crate) next_pick_policy: SelectivePickPolicy,
 }
 
 impl RouteSelectEscaperConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         RouteSelectEscaperConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             next_nodes: Vec::new(),
             next_pick_policy: SelectivePickPolicy::Ketama,
@@ -94,7 +94,7 @@ impl RouteSelectEscaperConfig {
 }
 
 impl EscaperConfig for RouteSelectEscaperConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -106,7 +106,7 @@ impl EscaperConfig for RouteSelectEscaperConfig {
         ESCAPER_CONFIG_TYPE
     }
 
-    fn resolver(&self) -> &MetricsName {
+    fn resolver(&self) -> &NodeName {
         Default::default()
     }
 
@@ -122,7 +122,7 @@ impl EscaperConfig for RouteSelectEscaperConfig {
         EscaperConfigDiffAction::Reload
     }
 
-    fn dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
+    fn dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         let mut set = BTreeSet::new();
         for v in &self.next_nodes {
             set.insert(v.inner().clone());

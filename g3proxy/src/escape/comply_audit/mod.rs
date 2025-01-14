@@ -21,7 +21,7 @@ use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::UpstreamAddr;
 
 use super::{ArcEscaper, Escaper, EscaperInternal, RouteEscaperStats};
@@ -93,7 +93,7 @@ impl ComplyAuditEscaper {
 
 #[async_trait]
 impl Escaper for ComplyAuditEscaper {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
@@ -189,15 +189,15 @@ impl Escaper for ComplyAuditEscaper {
 
 #[async_trait]
 impl EscaperInternal for ComplyAuditEscaper {
-    fn _resolver(&self) -> &MetricsName {
+    fn _resolver(&self) -> &NodeName {
         Default::default()
     }
 
-    fn _auditor(&self) -> Option<&MetricsName> {
+    fn _auditor(&self) -> Option<&NodeName> {
         Some(&self.config.auditor)
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
+    fn _dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         let mut set = BTreeSet::new();
         set.insert(self.config.next.clone());
         Some(set)

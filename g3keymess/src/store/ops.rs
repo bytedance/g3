@@ -19,7 +19,7 @@ use std::collections::HashSet;
 use anyhow::Context;
 use tokio::sync::Mutex;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::registry;
 
@@ -50,7 +50,7 @@ pub async fn load_all() -> anyhow::Result<()> {
 pub async fn reload_all() -> anyhow::Result<()> {
     let _guard = KEY_STORE_OPS_LOCK.lock().await;
 
-    let mut new_names = HashSet::<MetricsName>::new();
+    let mut new_names = HashSet::<NodeName>::new();
 
     let all_config = crate::config::store::get_all();
     for config in all_config {

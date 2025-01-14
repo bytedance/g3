@@ -17,30 +17,30 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, LazyLock, Mutex};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::Auditor;
 use crate::audit::AuditorConfig;
 
-static RUNTIME_AUDITOR_REGISTRY: LazyLock<Mutex<HashMap<MetricsName, Arc<Auditor>>>> =
+static RUNTIME_AUDITOR_REGISTRY: LazyLock<Mutex<HashMap<NodeName, Arc<Auditor>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
-pub(super) fn add(name: MetricsName, auditor: Arc<Auditor>) {
+pub(super) fn add(name: NodeName, auditor: Arc<Auditor>) {
     let mut ht = RUNTIME_AUDITOR_REGISTRY.lock().unwrap();
     if let Some(_old_group) = ht.insert(name, auditor) {}
 }
 
-pub(super) fn get(name: &MetricsName) -> Option<Arc<Auditor>> {
+pub(super) fn get(name: &NodeName) -> Option<Arc<Auditor>> {
     let ht = RUNTIME_AUDITOR_REGISTRY.lock().unwrap();
     ht.get(name).cloned()
 }
 
-pub(super) fn del(name: &MetricsName) {
+pub(super) fn del(name: &NodeName) {
     let mut ht = RUNTIME_AUDITOR_REGISTRY.lock().unwrap();
     if let Some(_old_auditor) = ht.remove(name) {}
 }
 
-pub(crate) fn get_names() -> HashSet<MetricsName> {
+pub(crate) fn get_names() -> HashSet<NodeName> {
     let mut names = HashSet::new();
     let ht = RUNTIME_AUDITOR_REGISTRY.lock().unwrap();
     for key in ht.keys() {
@@ -49,12 +49,12 @@ pub(crate) fn get_names() -> HashSet<MetricsName> {
     names
 }
 
-pub(super) fn get_config(name: &MetricsName) -> Option<AuditorConfig> {
+pub(super) fn get_config(name: &NodeName) -> Option<AuditorConfig> {
     let ht = RUNTIME_AUDITOR_REGISTRY.lock().unwrap();
     ht.get(name).map(|a| a.config.as_ref().clone())
 }
 
-pub(crate) fn get_or_insert_default(name: &MetricsName) -> Arc<Auditor> {
+pub(crate) fn get_or_insert_default(name: &NodeName) -> Arc<Auditor> {
     let mut ht = RUNTIME_AUDITOR_REGISTRY.lock().unwrap();
     ht.entry(name.clone())
         .or_insert_with(|| Auditor::new_no_config(name))

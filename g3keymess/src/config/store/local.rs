@@ -22,14 +22,14 @@ use openssl::pkey::{PKey, Private};
 use tokio::sync::oneshot;
 use yaml_rust::{yaml, Yaml};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 use super::KeyStoreConfig;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LocalKeyStoreConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
     dir_path: PathBuf,
     watch: bool,
@@ -38,7 +38,7 @@ pub struct LocalKeyStoreConfig {
 impl LocalKeyStoreConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         LocalKeyStoreConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             dir_path: PathBuf::new(),
             watch: false,
@@ -90,7 +90,7 @@ impl LocalKeyStoreConfig {
 
 impl KeyStoreConfig for LocalKeyStoreConfig {
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
