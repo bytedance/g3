@@ -73,15 +73,26 @@ Configures the max number of events to be processed per tick.
 
 **default**: 1024, tokio default value
 
-openssl_async_job_size
-----------------------
+openssl_async_job_init_size
+---------------------------
 
 **optional**, **type**: usize
 
 Set initial openssl asynchronous job size for the current thread. See `ASYNC_start_job`_ for more details.
 
-**default**: not set, so no openssl async mode
-
-.. _ASYNC_start_job: https://docs.openssl.org/master/man3/ASYNC_start_job/
+**default**: 0
 
 .. versionadded:: 0.3.8
+
+openssl_async_job_max_size
+--------------------------
+
+**optional**, **type**: usize
+
+Set max openssl asynchronous job size for the current thread. See `ASYNC_start_job`_ for more details.
+
+**default**: 0
+
+.. versionadded:: 0.3.8
+
+.. _ASYNC_start_job: https://docs.openssl.org/master/man3/ASYNC_start_job/

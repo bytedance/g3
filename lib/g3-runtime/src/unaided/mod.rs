@@ -37,7 +37,9 @@ pub struct UnaidedRuntimeConfig {
     sched_affinity: HashMap<usize, CpuAffinity>,
     max_io_events_per_tick: Option<usize>,
     #[cfg(feature = "openssl-async-job")]
-    openssl_async_job_size: usize,
+    openssl_async_job_init_size: usize,
+    #[cfg(feature = "openssl-async-job")]
+    openssl_async_job_max_size: usize,
 }
 
 impl Default for UnaidedRuntimeConfig {
@@ -54,7 +56,9 @@ impl UnaidedRuntimeConfig {
             sched_affinity: HashMap::new(),
             max_io_events_per_tick: None,
             #[cfg(feature = "openssl-async-job")]
-            openssl_async_job_size: 0,
+            openssl_async_job_init_size: 0,
+            #[cfg(feature = "openssl-async-job")]
+            openssl_async_job_max_size: 0,
         }
     }
 
@@ -109,9 +113,18 @@ impl UnaidedRuntimeConfig {
     }
 
     #[cfg(feature = "openssl-async-job")]
-    pub fn set_openssl_async_job_size(&mut self, size: usize) {
+    pub fn set_openssl_async_job_init_size(&mut self, size: usize) {
         if g3_openssl::async_job::async_is_capable() {
-            self.openssl_async_job_size = size;
+            self.openssl_async_job_init_size = size;
+        } else if size > 0 {
+            warn!("openssl async job is not supported");
+        }
+    }
+
+    #[cfg(feature = "openssl-async-job")]
+    pub fn set_openssl_async_job_max_size(&mut self, size: usize) {
+        if g3_openssl::async_job::async_is_capable() {
+            self.openssl_async_job_max_size = size;
         } else if size > 0 {
             warn!("openssl async job is not supported");
         }
@@ -137,7 +150,9 @@ impl UnaidedRuntimeConfig {
             let cpu_set = self.sched_affinity.get(&i).cloned();
             let max_io_events_per_tick = self.max_io_events_per_tick;
             #[cfg(feature = "openssl-async-job")]
-            let openssl_async_job_size = self.openssl_async_job_size;
+            let openssl_async_job_init_size = self.openssl_async_job_init_size;
+            #[cfg(feature = "openssl-async-job")]
+            let openssl_async_job_max_size = self.openssl_async_job_max_size;
 
             thread_builder
                 .spawn(move || {
@@ -156,17 +171,17 @@ impl UnaidedRuntimeConfig {
                     }
 
                     #[cfg(feature = "openssl-async-job")]
-                    if openssl_async_job_size > 0 {
-                        builder.on_thread_start(move || {
-                            if let Err(e) =
-                                g3_openssl::async_job::async_thread_init(0, openssl_async_job_size)
-                            {
-                                warn!(
-                                "failed to init {openssl_async_job_size} openssl async jobs: {e}"
+                    builder.on_thread_start(move || {
+                        if let Err(e) = g3_openssl::async_job::async_thread_init(
+                            openssl_async_job_max_size,
+                            openssl_async_job_init_size,
+                        ) {
+                            warn!(
+                                "failed to init ({}, {}) openssl async jobs: {e}",
+                                openssl_async_job_max_size, openssl_async_job_init_size
                             );
-                            }
-                        });
-                    }
+                        }
+                    });
                     #[cfg(feature = "openssl-async-job")]
                     builder.on_thread_stop(g3_openssl::async_job::async_thread_cleanup);
 
