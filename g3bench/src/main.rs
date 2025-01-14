@@ -85,7 +85,7 @@ fn main() -> anyhow::Result<()> {
         .context("failed to start main runtime")?;
     rt.block_on(async move {
         let _worker_guard = if let Some(worker_config) = proc_args.worker_runtime() {
-            let guard = g3bench::worker::spawn_workers(&worker_config)
+            let guard = g3bench::worker::spawn_workers(worker_config)
                 .await
                 .context("failed to start workers")?;
             Some(guard)

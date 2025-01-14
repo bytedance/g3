@@ -19,6 +19,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use anyhow::anyhow;
 use tokio::runtime::{Builder, Runtime};
 
+#[derive(Clone)]
 pub struct BlendedRuntimeConfig {
     thread_number: Option<usize>,
     thread_name: Option<String>,

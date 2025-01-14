@@ -51,7 +51,7 @@ impl KeylessOpensslTaskContext {
 
     #[cfg(feature = "openssl-async-job")]
     async fn run_action(&self) -> anyhow::Result<Vec<u8>> {
-        if self.proc_args.use_unaided_worker && self.proc_args.openssl_async_job_size > 0 {
+        if self.proc_args.use_unaided_worker {
             KeylessOpensslAsyncJob::new(self.args.clone()).run().await
         } else {
             self.args.handle_action()
