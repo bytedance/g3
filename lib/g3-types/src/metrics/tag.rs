@@ -23,64 +23,64 @@ use smol_str::SmolStr;
 use super::{chars_allowed_in_opentsdb, ParseError};
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]
-pub struct MetricsTagName(SmolStr);
+pub struct MetricTagName(SmolStr);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct MetricsTagValue(SmolStr);
+pub struct MetricTagValue(SmolStr);
 
-pub type StaticMetricsTags = BTreeMap<MetricsTagName, MetricsTagValue>;
+pub type StaticMetricsTags = BTreeMap<MetricTagName, MetricTagValue>;
 
-impl MetricsTagName {
+impl MetricTagName {
     #[inline]
     pub fn as_str(&self) -> &str {
         self.0.as_str()
     }
 }
 
-impl AsRef<str> for MetricsTagName {
+impl AsRef<str> for MetricTagName {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 
-impl FromStr for MetricsTagName {
+impl FromStr for MetricTagName {
     type Err = ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         chars_allowed_in_opentsdb(s)?;
-        Ok(MetricsTagName(s.into()))
+        Ok(MetricTagName(s.into()))
     }
 }
 
-impl fmt::Display for MetricsTagName {
+impl fmt::Display for MetricTagName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_str())
     }
 }
 
-impl MetricsTagValue {
+impl MetricTagValue {
     #[inline]
     pub fn as_str(&self) -> &str {
         self.0.as_str()
     }
 }
 
-impl AsRef<str> for MetricsTagValue {
+impl AsRef<str> for MetricTagValue {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 
-impl FromStr for MetricsTagValue {
+impl FromStr for MetricTagValue {
     type Err = ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         chars_allowed_in_opentsdb(s)?;
-        Ok(MetricsTagValue(s.into()))
+        Ok(MetricTagValue(s.into()))
     }
 }
 
-impl fmt::Display for MetricsTagValue {
+impl fmt::Display for MetricTagValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_str())
     }
@@ -92,18 +92,15 @@ mod tests {
 
     #[test]
     fn t_metrics_name() {
-        assert_eq!(MetricsTagName::from_str("abc-1").unwrap().as_str(), "abc-1");
+        assert_eq!(MetricTagName::from_str("abc-1").unwrap().as_str(), "abc-1");
 
-        assert!(MetricsTagName::from_str("a=b").is_err());
+        assert!(MetricTagName::from_str("a=b").is_err());
     }
 
     #[test]
     fn t_metrics_value() {
-        assert_eq!(
-            MetricsTagValue::from_str("abc-1").unwrap().as_str(),
-            "abc-1"
-        );
+        assert_eq!(MetricTagValue::from_str("abc-1").unwrap().as_str(), "abc-1");
 
-        assert!(MetricsTagValue::from_str("a=b").is_err());
+        assert!(MetricTagValue::from_str("a=b").is_err());
     }
 }

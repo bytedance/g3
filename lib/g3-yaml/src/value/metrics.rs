@@ -21,7 +21,7 @@ use anyhow::{anyhow, Context};
 use yaml_rust::Yaml;
 
 use g3_types::collection::WeightedValue;
-use g3_types::metrics::{MetricsTagName, MetricsTagValue, NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagName, MetricTagValue, NodeName, StaticMetricsTags};
 
 pub fn as_metrics_name(v: &Yaml) -> anyhow::Result<NodeName> {
     if let Yaml::String(s) = v {
@@ -38,9 +38,9 @@ pub fn as_static_metrics_tags(v: &Yaml) -> anyhow::Result<StaticMetricsTags> {
     if let Yaml::Hash(map) = v {
         let mut tags = BTreeMap::new();
         crate::foreach_kv(map, |k, v| {
-            let name = MetricsTagName::from_str(k).context("invalid metrics tag name")?;
+            let name = MetricTagName::from_str(k).context("invalid metrics tag name")?;
             let value_s = crate::value::as_string(v).context("invalid metrics tag yaml value")?;
-            let value = MetricsTagValue::from_str(&value_s).context("invalid metrics tag value")?;
+            let value = MetricTagValue::from_str(&value_s).context("invalid metrics tag value")?;
 
             if tags.insert(name, value).is_some() {
                 Err(anyhow!("found duplicate value for tag name {k}"))

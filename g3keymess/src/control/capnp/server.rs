@@ -21,7 +21,7 @@ use anyhow::anyhow;
 use capnp::capability::Promise;
 use capnp_rpc::pry;
 
-use g3_types::metrics::{MetricsTagName, MetricsTagValue, NodeName};
+use g3_types::metrics::{MetricTagName, MetricTagValue, NodeName};
 
 use g3keymess_proto::server_capnp::server_control;
 
@@ -41,8 +41,8 @@ impl ServerControlImpl {
 
     fn do_add_metrics_tag(&self, name: &str, value: &str) -> anyhow::Result<()> {
         let name =
-            MetricsTagName::from_str(name).map_err(|e| anyhow!("invalid metrics tag name: {e}"))?;
-        let value = MetricsTagValue::from_str(value)
+            MetricTagName::from_str(name).map_err(|e| anyhow!("invalid metrics tag name: {e}"))?;
+        let value = MetricTagValue::from_str(value)
             .map_err(|e| anyhow!("invalid metrics tag value: {e}"))?;
         self.server.add_dynamic_metrics_tag(name, value);
         Ok(())

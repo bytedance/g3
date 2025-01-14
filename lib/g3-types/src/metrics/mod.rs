@@ -20,7 +20,7 @@ mod name;
 pub use name::NodeName;
 
 mod tag;
-pub use tag::{MetricsTagName, MetricsTagValue, StaticMetricsTags};
+pub use tag::{MetricTagName, MetricTagValue, StaticMetricsTags};
 
 #[derive(Debug, Error)]
 pub enum ParseError {
