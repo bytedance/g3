@@ -16,7 +16,7 @@
 
 use g3_daemon::metrics::TAG_KEY_STAT_ID;
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::stats::StatId;
 
 pub(crate) mod keyless;
@@ -25,11 +25,11 @@ pub(crate) mod stream;
 const TAG_KEY_BACKEND: &str = "backend";
 
 trait BackendMetricExt {
-    fn add_backend_tags(&mut self, backend: &MetricsName, stat_id: StatId);
+    fn add_backend_tags(&mut self, backend: &NodeName, stat_id: StatId);
 }
 
 impl BackendMetricExt for StatsdTagGroup {
-    fn add_backend_tags(&mut self, backend: &MetricsName, stat_id: StatId) {
+    fn add_backend_tags(&mut self, backend: &NodeName, stat_id: StatId) {
         let mut buffer = itoa::Buffer::new();
         let stat_id = buffer.format(stat_id.as_u64());
         self.add_tag(TAG_KEY_BACKEND, backend);

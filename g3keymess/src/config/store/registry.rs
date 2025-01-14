@@ -17,13 +17,12 @@
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, Mutex};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::AnyKeyStoreConfig;
 
-static INITIAL_STORE_CONFIG_REGISTRY: LazyLock<
-    Mutex<HashMap<MetricsName, Arc<AnyKeyStoreConfig>>>,
-> = LazyLock::new(|| Mutex::new(HashMap::new()));
+static INITIAL_STORE_CONFIG_REGISTRY: LazyLock<Mutex<HashMap<NodeName, Arc<AnyKeyStoreConfig>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub(crate) fn clear() {
     let mut ht = INITIAL_STORE_CONFIG_REGISTRY.lock().unwrap();

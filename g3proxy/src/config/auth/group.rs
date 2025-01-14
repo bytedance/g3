@@ -22,7 +22,7 @@ use std::time::Duration;
 use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 use super::{UserConfig, UserDynamicSource};
@@ -31,7 +31,7 @@ const DEFAULT_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 
 #[derive(Clone)]
 pub(crate) struct UserGroupConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) static_users: HashMap<Arc<str>, Arc<UserConfig>>,
     pub(crate) dynamic_source: Option<UserDynamicSource>,
@@ -41,7 +41,7 @@ pub(crate) struct UserGroupConfig {
 }
 
 impl UserGroupConfig {
-    pub(crate) fn name(&self) -> &MetricsName {
+    pub(crate) fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -49,7 +49,7 @@ impl UserGroupConfig {
         self.position.clone()
     }
 
-    pub(crate) fn empty(name: &MetricsName) -> Self {
+    pub(crate) fn empty(name: &NodeName) -> Self {
         UserGroupConfig {
             name: name.clone(),
             position: None,
@@ -63,7 +63,7 @@ impl UserGroupConfig {
 
     pub(crate) fn new(position: Option<YamlDocPosition>) -> Self {
         UserGroupConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             static_users: HashMap::new(),
             dynamic_source: None,

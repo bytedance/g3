@@ -20,7 +20,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use g3_types::collection::{SelectiveItem, SelectivePickPolicy, SelectiveVec};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use crate::config::backend::AnyBackendConfig;
 use crate::module::keyless::{KeylessRequest, KeylessResponse};
@@ -48,9 +48,9 @@ pub(crate) trait Backend {
     /// registry lock is allowed in this method
     async fn _lock_safe_reload(&self, config: AnyBackendConfig) -> anyhow::Result<ArcBackend>;
 
-    fn name(&self) -> &MetricsName;
+    fn name(&self) -> &NodeName;
 
-    fn discover(&self) -> &MetricsName;
+    fn discover(&self) -> &NodeName;
     fn update_discover(&self) -> anyhow::Result<()>;
 
     async fn stream_connect(&self, _task_notes: &ServerTaskNotes) -> StreamConnectResult {

@@ -22,7 +22,7 @@ use anyhow::{anyhow, Context};
 use log::{debug, warn};
 use tokio::sync::Mutex;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
@@ -67,7 +67,7 @@ pub fn spawn_offline_clean() {
 pub async fn spawn_all() -> anyhow::Result<()> {
     let _guard = SERVER_OPS_LOCK.lock().await;
 
-    let mut new_names = HashSet::<MetricsName>::new();
+    let mut new_names = HashSet::<NodeName>::new();
 
     let all_config = crate::config::server::get_all_sorted()?;
     for config in all_config {
@@ -107,7 +107,7 @@ pub async fn stop_all() {
     });
 }
 
-pub(crate) fn get_server(name: &MetricsName) -> anyhow::Result<ArcServer> {
+pub(crate) fn get_server(name: &NodeName) -> anyhow::Result<ArcServer> {
     match registry::get_server(name) {
         Some(server) => Ok(server),
         None => Err(anyhow!("no server named {name} found")),
@@ -115,7 +115,7 @@ pub(crate) fn get_server(name: &MetricsName) -> anyhow::Result<ArcServer> {
 }
 
 pub(crate) async fn reload(
-    name: &MetricsName,
+    name: &NodeName,
     position: Option<YamlDocPosition>,
 ) -> anyhow::Result<()> {
     let _guard = SERVER_OPS_LOCK.lock().await;
@@ -156,7 +156,7 @@ pub(crate) async fn reload(
     Ok(())
 }
 
-pub(crate) fn update_dependency_to_server_unlocked(target: &MetricsName, status: &str) {
+pub(crate) fn update_dependency_to_server_unlocked(target: &NodeName, status: &str) {
     let mut servers = Vec::<ArcServer>::new();
 
     registry::foreach_online(|_name, server| {
@@ -182,10 +182,10 @@ pub(crate) fn update_dependency_to_server_unlocked(target: &MetricsName, status:
     }
 }
 
-pub(crate) async fn update_dependency_to_escaper(escaper: &MetricsName, status: &str) {
+pub(crate) async fn update_dependency_to_escaper(escaper: &NodeName, status: &str) {
     let _guard = SERVER_OPS_LOCK.lock().await;
 
-    let mut names = Vec::<MetricsName>::new();
+    let mut names = Vec::<NodeName>::new();
 
     registry::foreach_online(|name, server| {
         if server.escaper().eq(escaper) {
@@ -206,10 +206,10 @@ pub(crate) async fn update_dependency_to_escaper(escaper: &MetricsName, status: 
     }
 }
 
-pub(crate) async fn update_dependency_to_user_group(user_group: &MetricsName, status: &str) {
+pub(crate) async fn update_dependency_to_user_group(user_group: &NodeName, status: &str) {
     let _guard = SERVER_OPS_LOCK.lock().await;
 
-    let mut names = Vec::<MetricsName>::new();
+    let mut names = Vec::<NodeName>::new();
 
     registry::foreach_online(|name, server| {
         if server.user_group().eq(user_group) {
@@ -230,10 +230,10 @@ pub(crate) async fn update_dependency_to_user_group(user_group: &MetricsName, st
     }
 }
 
-pub(crate) async fn update_dependency_to_auditor(auditor: &MetricsName, status: &str) {
+pub(crate) async fn update_dependency_to_auditor(auditor: &NodeName, status: &str) {
     let _guard = SERVER_OPS_LOCK.lock().await;
 
-    let mut names = Vec::<MetricsName>::new();
+    let mut names = Vec::<NodeName>::new();
 
     registry::foreach_online(|name, server| {
         if server.auditor().eq(auditor) {
@@ -284,7 +284,7 @@ fn reload_old_unlocked(old: AnyServerConfig, new: AnyServerConfig) -> anyhow::Re
     }
 }
 
-fn delete_existed_unlocked(name: &MetricsName) {
+fn delete_existed_unlocked(name: &NodeName) {
     registry::del(name);
     update_dependency_to_server_unlocked(name, "deleted");
 }
@@ -321,7 +321,7 @@ fn spawn_new_unlocked(config: AnyServerConfig) -> anyhow::Result<()> {
 
 pub(crate) async fn wait_all_tasks<F>(wait_timeout: Duration, quit_timeout: Duration, on_timeout: F)
 where
-    F: Fn(&MetricsName, i32),
+    F: Fn(&NodeName, i32),
 {
     let loop_wait = async {
         loop {
@@ -375,7 +375,7 @@ pub(crate) fn force_quit_offline_servers() {
     });
 }
 
-pub(crate) fn force_quit_offline_server(name: &MetricsName) {
+pub(crate) fn force_quit_offline_server(name: &NodeName) {
     registry::foreach_offline(|server| {
         if server.name() == name {
             server.quit_policy().set_force_quit();

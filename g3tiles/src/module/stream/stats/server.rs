@@ -20,13 +20,13 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
 
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{NodeName, StaticMetricsTags};
 use g3_types::stats::{StatId, TcpIoSnapshot, TcpIoStats};
 
 use crate::serve::ServerStats;
 
 pub(crate) struct StreamServerStats {
-    name: MetricsName,
+    name: NodeName,
     id: StatId,
 
     extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
@@ -42,7 +42,7 @@ pub(crate) struct StreamServerStats {
 }
 
 impl StreamServerStats {
-    pub(crate) fn new(name: &MetricsName) -> Self {
+    pub(crate) fn new(name: &NodeName) -> Self {
         StreamServerStats {
             name: name.clone(),
             id: StatId::new(),
@@ -96,7 +96,7 @@ impl StreamServerStats {
 
 impl ServerStats for StreamServerStats {
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 

@@ -24,7 +24,7 @@ use slog::Logger;
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_resolver::{ResolveError, ResolveLocalError};
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{
     Host, HttpForwardCapability, OpensslClientConfig, UpstreamAddr, WeightedUpstreamAddr,
 };
@@ -162,7 +162,7 @@ impl EscaperExt for ProxyHttpsEscaper {}
 
 #[async_trait]
 impl Escaper for ProxyHttpsEscaper {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
@@ -250,11 +250,11 @@ impl Escaper for ProxyHttpsEscaper {
 
 #[async_trait]
 impl EscaperInternal for ProxyHttpsEscaper {
-    fn _resolver(&self) -> &MetricsName {
+    fn _resolver(&self) -> &NodeName {
         self.config.resolver()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
+    fn _dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         None
     }
 

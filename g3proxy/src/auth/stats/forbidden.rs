@@ -19,17 +19,17 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
 
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{NodeName, StaticMetricsTags};
 use g3_types::stats::StatId;
 
 use crate::auth::UserType;
 
 pub(crate) struct UserForbiddenStats {
     id: StatId,
-    user_group: MetricsName,
+    user_group: NodeName,
     user: Arc<str>,
     user_type: UserType,
-    server: MetricsName,
+    server: NodeName,
     server_extra_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
     auth_failed: AtomicU64,
     user_expired: AtomicU64,
@@ -61,10 +61,10 @@ pub(crate) struct UserForbiddenSnapshot {
 
 impl UserForbiddenStats {
     pub(crate) fn new(
-        user_group: &MetricsName,
+        user_group: &NodeName,
         user: Arc<str>,
         user_type: UserType,
-        server: &MetricsName,
+        server: &NodeName,
         server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
     ) -> Self {
         UserForbiddenStats {
@@ -94,7 +94,7 @@ impl UserForbiddenStats {
     }
 
     #[inline]
-    pub(crate) fn user_group(&self) -> &MetricsName {
+    pub(crate) fn user_group(&self) -> &NodeName {
         &self.user_group
     }
 
@@ -109,7 +109,7 @@ impl UserForbiddenStats {
     }
 
     #[inline]
-    pub(crate) fn server(&self) -> &MetricsName {
+    pub(crate) fn server(&self) -> &NodeName {
         &self.server
     }
 

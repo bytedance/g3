@@ -22,7 +22,7 @@ use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
 
 use g3_types::collection::SelectivePickPolicy;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::SocketBufferConfig;
 use g3_yaml::YamlDocPosition;
 
@@ -32,11 +32,11 @@ const ESCAPER_CONFIG_TYPE: &str = "RouteQuery";
 
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct RouteQueryEscaperConfig {
-    pub(crate) name: MetricsName,
+    pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) query_pass_client_ip: bool,
-    pub(crate) query_allowed_nodes: BTreeSet<MetricsName>,
-    pub(crate) fallback_node: MetricsName,
+    pub(crate) query_allowed_nodes: BTreeSet<NodeName>,
+    pub(crate) fallback_node: NodeName,
     pub(crate) cache_request_batch_count: usize,
     pub(crate) cache_request_timeout: Duration,
     pub(crate) cache_pick_policy: SelectivePickPolicy,
@@ -51,11 +51,11 @@ pub(crate) struct RouteQueryEscaperConfig {
 impl RouteQueryEscaperConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         RouteQueryEscaperConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             query_pass_client_ip: false,
             query_allowed_nodes: BTreeSet::new(),
-            fallback_node: MetricsName::default(),
+            fallback_node: NodeName::default(),
             cache_request_batch_count: 10,
             cache_request_timeout: Duration::from_millis(100),
             cache_pick_policy: SelectivePickPolicy::Ketama,
@@ -176,7 +176,7 @@ impl RouteQueryEscaperConfig {
 }
 
 impl EscaperConfig for RouteQueryEscaperConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -188,7 +188,7 @@ impl EscaperConfig for RouteQueryEscaperConfig {
         ESCAPER_CONFIG_TYPE
     }
 
-    fn resolver(&self) -> &MetricsName {
+    fn resolver(&self) -> &NodeName {
         Default::default()
     }
 
@@ -204,7 +204,7 @@ impl EscaperConfig for RouteQueryEscaperConfig {
         EscaperConfigDiffAction::Reload
     }
 
-    fn dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
+    fn dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         let mut set = BTreeSet::new();
         for name in &self.query_allowed_nodes {
             set.insert(name.clone());

@@ -19,7 +19,7 @@ use std::net::SocketAddr;
 use anyhow::anyhow;
 
 use g3_types::collection::WeightedValue;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 use super::{
@@ -38,14 +38,14 @@ pub(crate) struct StaticAddrDiscoverInput {
 
 #[derive(Clone)]
 pub(crate) struct StaticAddrDiscoverConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
 }
 
 impl StaticAddrDiscoverConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         StaticAddrDiscoverConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
         }
     }
@@ -60,7 +60,7 @@ impl StaticAddrDiscoverConfig {
 
 impl DiscoverConfig for StaticAddrDiscoverConfig {
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 

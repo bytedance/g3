@@ -23,7 +23,7 @@ use tokio::time::Instant;
 
 use g3_resolver::{ResolveError, ResolveQueryType, ResolvedRecordSource};
 use g3_slog_types::{LtDuration, LtIpAddr};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use crate::config::resolver::hickory::HickoryResolverConfig;
 use crate::config::resolver::ResolverConfig;
@@ -50,7 +50,7 @@ impl HickoryResolverHandle {
 }
 
 impl IntegratedResolverHandle for HickoryResolverHandle {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 

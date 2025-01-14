@@ -16,7 +16,7 @@
 
 use anyhow::anyhow;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 macro_rules! impl_reload {
@@ -25,7 +25,7 @@ macro_rules! impl_reload {
             name: String,
             position: Option<YamlDocPosition>,
         ) -> anyhow::Result<()> {
-            let name = unsafe { MetricsName::new_unchecked(name) };
+            let name = unsafe { NodeName::new_unchecked(name) };
             g3_daemon::runtime::main_handle()
                 .ok_or(anyhow!("unable to get main runtime handle"))?
                 .spawn(async move { crate::$m::reload(&name, position).await })

@@ -20,7 +20,7 @@ use ahash::AHashMap;
 
 use g3_daemon::metrics::TAG_KEY_QUANTILE;
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::stats::StatId;
 
 use super::{RequestStatsNamesRef, TrafficStatsNamesRef, UserMetricExt};
@@ -60,7 +60,7 @@ struct RequestStatsNames {
 }
 
 impl RequestStatsNames {
-    fn new(site_id: &MetricsName) -> Self {
+    fn new(site_id: &NodeName) -> Self {
         RequestStatsNames {
             connection_total: format!("user.site.{site_id}.connection.total"),
             request_total: format!("user.site.{site_id}.request.total"),
@@ -81,7 +81,7 @@ struct TrafficStatsNames {
 }
 
 impl TrafficStatsNames {
-    fn new_for_client(site_id: &MetricsName) -> Self {
+    fn new_for_client(site_id: &NodeName) -> Self {
         TrafficStatsNames {
             in_bytes: format!("user.site.{site_id}.traffic.in.bytes"),
             in_packets: format!("user.site.{site_id}.traffic.in.packets"),
@@ -90,7 +90,7 @@ impl TrafficStatsNames {
         }
     }
 
-    fn new_for_upstream(site_id: &MetricsName) -> Self {
+    fn new_for_upstream(site_id: &NodeName) -> Self {
         TrafficStatsNames {
             in_bytes: format!("user.site.{site_id}.upstream.traffic.in.bytes"),
             in_packets: format!("user.site.{site_id}.upstream.traffic.in.packets"),
@@ -105,7 +105,7 @@ struct DurationStatsNames {
 }
 
 impl DurationStatsNames {
-    fn new_for_client(site_id: &MetricsName) -> Self {
+    fn new_for_client(site_id: &NodeName) -> Self {
         DurationStatsNames {
             task_ready: format!("user.site.{site_id}.task.ready.duration"),
         }
@@ -119,7 +119,7 @@ struct RequestStatsValue {
 }
 
 impl RequestStatsValue {
-    fn new(stats: Arc<UserRequestStats>, site_id: &MetricsName) -> Self {
+    fn new(stats: Arc<UserRequestStats>, site_id: &NodeName) -> Self {
         RequestStatsValue {
             stats,
             snap: Default::default(),
@@ -135,7 +135,7 @@ struct TrafficStatsValue {
 }
 
 impl TrafficStatsValue {
-    fn new(stats: Arc<UserTrafficStats>, site_id: &MetricsName) -> Self {
+    fn new(stats: Arc<UserTrafficStats>, site_id: &NodeName) -> Self {
         TrafficStatsValue {
             stats,
             snap: Default::default(),
@@ -150,7 +150,7 @@ struct DurationStatsValue {
 }
 
 impl DurationStatsValue {
-    fn new(stats: Arc<UserSiteDurationStats>, site_id: &MetricsName) -> Self {
+    fn new(stats: Arc<UserSiteDurationStats>, site_id: &NodeName) -> Self {
         DurationStatsValue {
             stats,
             names: DurationStatsNames::new_for_client(site_id),
@@ -165,7 +165,7 @@ struct UpstreamTrafficStatsValue {
 }
 
 impl UpstreamTrafficStatsValue {
-    fn new(stats: Arc<UserUpstreamTrafficStats>, site_id: &MetricsName) -> Self {
+    fn new(stats: Arc<UserUpstreamTrafficStats>, site_id: &NodeName) -> Self {
         UpstreamTrafficStatsValue {
             stats,
             snap: Default::default(),
@@ -174,21 +174,21 @@ impl UpstreamTrafficStatsValue {
     }
 }
 
-pub(crate) fn push_request_stats(stats: Arc<UserRequestStats>, site_id: &MetricsName) {
+pub(crate) fn push_request_stats(stats: Arc<UserRequestStats>, site_id: &NodeName) {
     let k = stats.stat_id();
     let v = RequestStatsValue::new(stats, site_id);
     let mut ht = STORE_REQUEST_STATS_MAP.lock().unwrap();
     ht.insert(k, v);
 }
 
-pub(crate) fn push_traffic_stats(stats: Arc<UserTrafficStats>, site_id: &MetricsName) {
+pub(crate) fn push_traffic_stats(stats: Arc<UserTrafficStats>, site_id: &NodeName) {
     let k = stats.stat_id();
     let v = TrafficStatsValue::new(stats, site_id);
     let mut ht = STORE_TRAFFIC_STATS_MAP.lock().unwrap();
     ht.insert(k, v);
 }
 
-pub(crate) fn push_duration_stats(stats: Arc<UserSiteDurationStats>, site_id: &MetricsName) {
+pub(crate) fn push_duration_stats(stats: Arc<UserSiteDurationStats>, site_id: &NodeName) {
     let k = stats.stat_id();
     let v = DurationStatsValue::new(stats, site_id);
     let mut ht = STORE_DURATION_STATS_MAP.lock().unwrap();
@@ -197,7 +197,7 @@ pub(crate) fn push_duration_stats(stats: Arc<UserSiteDurationStats>, site_id: &M
 
 pub(crate) fn push_upstream_traffic_stats(
     stats: Arc<UserUpstreamTrafficStats>,
-    site_id: &MetricsName,
+    site_id: &NodeName,
 ) {
     let k = stats.stat_id();
     let v = UpstreamTrafficStatsValue::new(stats, site_id);

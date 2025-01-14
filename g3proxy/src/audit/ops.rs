@@ -20,7 +20,7 @@ use anyhow::{anyhow, Context};
 use log::debug;
 use tokio::sync::Mutex;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 use super::registry;
@@ -32,7 +32,7 @@ static AUDITOR_OPS_LOCK: Mutex<()> = Mutex::const_new(());
 pub async fn load_all() -> anyhow::Result<()> {
     let _guard = AUDITOR_OPS_LOCK.lock().await;
 
-    let mut new_names = HashSet::<MetricsName>::new();
+    let mut new_names = HashSet::<NodeName>::new();
 
     let all_config = crate::config::audit::get_all();
     for config in all_config {
@@ -66,7 +66,7 @@ pub async fn load_all() -> anyhow::Result<()> {
 }
 
 pub(crate) async fn reload(
-    name: &MetricsName,
+    name: &NodeName,
     position: Option<YamlDocPosition>,
 ) -> anyhow::Result<()> {
     let _guard = AUDITOR_OPS_LOCK.lock().await;

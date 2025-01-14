@@ -19,7 +19,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use async_trait::async_trait;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::{ArcBackend, Backend};
 use crate::config::backend::dummy_close::DummyCloseBackendConfig;
@@ -40,7 +40,7 @@ impl DummyCloseBackend {
         Ok(DummyCloseBackend::new_obj(config))
     }
 
-    pub(super) fn prepare_default(name: &MetricsName) -> ArcBackend {
+    pub(super) fn prepare_default(name: &NodeName) -> ArcBackend {
         let config = DummyCloseBackendConfig::new(name, None);
         DummyCloseBackend::new_obj(config)
     }
@@ -74,11 +74,11 @@ impl Backend for DummyCloseBackend {
     }
 
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
-    fn discover(&self) -> &MetricsName {
+    fn discover(&self) -> &NodeName {
         Default::default()
     }
     fn update_discover(&self) -> anyhow::Result<()> {

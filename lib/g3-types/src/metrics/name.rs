@@ -23,9 +23,9 @@ use smol_str::SmolStr;
 use super::{chars_allowed_in_opentsdb, ParseError};
 
 #[derive(Clone, Debug, Default, PartialEq, PartialOrd, Eq, Ord, Hash)]
-pub struct MetricsName(SmolStr);
+pub struct NodeName(SmolStr);
 
-impl MetricsName {
+impl NodeName {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
@@ -57,39 +57,39 @@ impl MetricsName {
     ///
     /// Call this only if you need not use the value in metrics
     pub unsafe fn new_unchecked<T: AsRef<str>>(name: T) -> Self {
-        MetricsName(SmolStr::new(name))
+        NodeName(SmolStr::new(name))
     }
 }
 
-impl FromStr for MetricsName {
+impl FromStr for NodeName {
     type Err = ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         chars_allowed_in_opentsdb(s)?;
-        Ok(MetricsName(s.into()))
+        Ok(NodeName(s.into()))
     }
 }
 
-impl AsRef<str> for MetricsName {
+impl AsRef<str> for NodeName {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 
-impl fmt::Display for MetricsName {
+impl fmt::Display for NodeName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.0.as_str())
     }
 }
 
-impl<'a> Default for &'a MetricsName {
-    fn default() -> &'a MetricsName {
-        static VALUE: MetricsName = MetricsName(SmolStr::new_static(""));
+impl<'a> Default for &'a NodeName {
+    fn default() -> &'a NodeName {
+        static VALUE: NodeName = NodeName(SmolStr::new_static(""));
         &VALUE
     }
 }
 
-impl Borrow<str> for MetricsName {
+impl Borrow<str> for NodeName {
     fn borrow(&self) -> &str {
         self.as_str()
     }

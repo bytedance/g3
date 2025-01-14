@@ -19,22 +19,22 @@ use std::sync::{Arc, Mutex};
 use ahash::AHashMap;
 use arc_swap::ArcSwapOption;
 
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{NodeName, StaticMetricsTags};
 
 use super::{UserRequestStats, UserTrafficStats, UserUpstreamTrafficStats};
 use crate::auth::UserType;
 
 pub(crate) struct UserSiteStats {
     user: Arc<str>,
-    user_group: MetricsName,
-    site_id: MetricsName,
+    user_group: NodeName,
+    site_id: NodeName,
     pub(crate) request: Mutex<AHashMap<String, Arc<UserRequestStats>>>,
     pub(crate) client_io: Mutex<AHashMap<String, Arc<UserTrafficStats>>>,
     pub(crate) remote_io: Mutex<AHashMap<String, Arc<UserUpstreamTrafficStats>>>,
 }
 
 impl UserSiteStats {
-    pub(crate) fn new(user: Arc<str>, user_group: &MetricsName, site_id: &MetricsName) -> Self {
+    pub(crate) fn new(user: Arc<str>, user_group: &NodeName, site_id: &NodeName) -> Self {
         UserSiteStats {
             user,
             user_group: user_group.clone(),
@@ -46,7 +46,7 @@ impl UserSiteStats {
     }
 
     #[inline]
-    pub(crate) fn user_group(&self) -> &MetricsName {
+    pub(crate) fn user_group(&self) -> &NodeName {
         &self.user_group
     }
 
@@ -58,7 +58,7 @@ impl UserSiteStats {
     pub(crate) fn fetch_request_stats(
         &self,
         user_type: UserType,
-        server: &MetricsName,
+        server: &NodeName,
         server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
     ) -> Arc<UserRequestStats> {
         let mut new_stats = None;
@@ -90,7 +90,7 @@ impl UserSiteStats {
     pub(crate) fn fetch_traffic_stats(
         &self,
         user_type: UserType,
-        server: &MetricsName,
+        server: &NodeName,
         server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
     ) -> Arc<UserTrafficStats> {
         let mut new_stats = None;
@@ -122,7 +122,7 @@ impl UserSiteStats {
     pub(crate) fn fetch_upstream_traffic_stats(
         &self,
         user_type: UserType,
-        escaper: &MetricsName,
+        escaper: &NodeName,
         escaper_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
     ) -> Arc<UserUpstreamTrafficStats> {
         let mut new_stats = None;

@@ -21,7 +21,7 @@ use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use slog::Logger;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use crate::config::resolver::hickory::HickoryResolverConfig;
 use crate::config::resolver::{AnyResolverConfig, ResolverConfig};
@@ -56,7 +56,7 @@ impl HickoryResolver {
 
 #[async_trait]
 impl ResolverInternal for HickoryResolver {
-    fn _dependent_resolver(&self) -> Option<BTreeSet<MetricsName>> {
+    fn _dependent_resolver(&self) -> Option<BTreeSet<NodeName>> {
         None
     }
 
@@ -67,7 +67,7 @@ impl ResolverInternal for HickoryResolver {
     fn _update_config(
         &mut self,
         config: AnyResolverConfig,
-        _dep_table: BTreeMap<MetricsName, ArcIntegratedResolverHandle>,
+        _dep_table: BTreeMap<NodeName, ArcIntegratedResolverHandle>,
     ) -> anyhow::Result<()> {
         if let AnyResolverConfig::Hickory(config) = config {
             self.inner
@@ -82,7 +82,7 @@ impl ResolverInternal for HickoryResolver {
 
     fn _update_dependent_handle(
         &mut self,
-        _target: &MetricsName,
+        _target: &NodeName,
         _handle: ArcIntegratedResolverHandle,
     ) -> anyhow::Result<()> {
         Ok(())

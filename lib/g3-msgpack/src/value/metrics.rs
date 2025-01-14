@@ -20,12 +20,12 @@ use anyhow::{anyhow, Context};
 use rmpv::ValueRef;
 
 use g3_types::collection::WeightedValue;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
-pub fn as_metrics_name(v: &ValueRef) -> anyhow::Result<MetricsName> {
+pub fn as_metrics_name(v: &ValueRef) -> anyhow::Result<NodeName> {
     if let ValueRef::String(s) = v {
         let s = s.as_str().ok_or_else(|| anyhow!("invalid utf-8 string"))?;
-        let name = MetricsName::from_str(s).map_err(|e| anyhow!("invalid metrics name: {e}"))?;
+        let name = NodeName::from_str(s).map_err(|e| anyhow!("invalid metrics name: {e}"))?;
         Ok(name)
     } else {
         Err(anyhow!(
@@ -34,10 +34,10 @@ pub fn as_metrics_name(v: &ValueRef) -> anyhow::Result<MetricsName> {
     }
 }
 
-pub fn as_weighted_metrics_name(v: &ValueRef) -> anyhow::Result<WeightedValue<MetricsName>> {
+pub fn as_weighted_metrics_name(v: &ValueRef) -> anyhow::Result<WeightedValue<NodeName>> {
     match v {
         ValueRef::Map(map) => {
-            let mut name = MetricsName::default();
+            let mut name = NodeName::default();
             let mut weight = None;
 
             for (k, v) in map {

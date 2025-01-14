@@ -21,7 +21,7 @@ use anyhow::anyhow;
 use capnp::capability::Promise;
 use capnp_rpc::pry;
 
-use g3_types::metrics::{MetricsName, MetricsTagName, MetricsTagValue};
+use g3_types::metrics::{MetricsTagName, MetricsTagValue, NodeName};
 
 use g3keymess_proto::server_capnp::server_control;
 
@@ -34,7 +34,7 @@ pub(super) struct ServerControlImpl {
 
 impl ServerControlImpl {
     pub(super) fn new_client(name: &str) -> anyhow::Result<server_control::Client> {
-        let name = unsafe { MetricsName::new_unchecked(name) };
+        let name = unsafe { NodeName::new_unchecked(name) };
         let server = crate::serve::get_server(&name)?;
         Ok(capnp_rpc::new_client(ServerControlImpl { server }))
     }

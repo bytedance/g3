@@ -22,7 +22,7 @@ use tokio::sync::watch;
 use yaml_rust::Yaml;
 
 use g3_types::collection::WeightedValue;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::{ArcDiscover, Discover, DiscoverResult};
 use crate::config::discover::host_resolver::HostResolverDiscoverConfig;
@@ -39,7 +39,7 @@ impl HostResolverDiscover {
 }
 
 impl Discover for HostResolverDiscover {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 

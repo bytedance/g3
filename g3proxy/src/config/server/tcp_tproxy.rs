@@ -23,7 +23,7 @@ use yaml_rust::{yaml, Yaml};
 
 use g3_io_ext::LimitedCopyConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{NodeName, StaticMetricsTags};
 use g3_types::net::{TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig};
 use g3_yaml::YamlDocPosition;
 
@@ -33,10 +33,10 @@ const SERVER_CONFIG_TYPE: &str = "TcpTProxy";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct TcpTProxyServerConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
-    pub(crate) escaper: MetricsName,
-    pub(crate) auditor: MetricsName,
+    pub(crate) escaper: NodeName,
+    pub(crate) auditor: NodeName,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) listen: TcpListenConfig,
     pub(crate) listen_in_worker: bool,
@@ -55,10 +55,10 @@ pub(crate) struct TcpTProxyServerConfig {
 impl TcpTProxyServerConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         TcpTProxyServerConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
-            escaper: MetricsName::default(),
-            auditor: MetricsName::default(),
+            escaper: NodeName::default(),
+            auditor: NodeName::default(),
             shared_logger: None,
             listen: TcpListenConfig::default(),
             listen_in_worker: false,
@@ -199,7 +199,7 @@ impl TcpTProxyServerConfig {
 }
 
 impl ServerConfig for TcpTProxyServerConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -211,15 +211,15 @@ impl ServerConfig for TcpTProxyServerConfig {
         SERVER_CONFIG_TYPE
     }
 
-    fn escaper(&self) -> &MetricsName {
+    fn escaper(&self) -> &NodeName {
         &self.escaper
     }
 
-    fn user_group(&self) -> &MetricsName {
+    fn user_group(&self) -> &NodeName {
         Default::default()
     }
 
-    fn auditor(&self) -> &MetricsName {
+    fn auditor(&self) -> &NodeName {
         &self.auditor
     }
 

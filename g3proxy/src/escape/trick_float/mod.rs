@@ -22,7 +22,7 @@ use async_trait::async_trait;
 use rand::seq::SliceRandom;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::UpstreamAddr;
 
 use super::{ArcEscaper, Escaper, EscaperInternal, RouteEscaperStats};
@@ -101,7 +101,7 @@ impl TrickFloatEscaper {
 
 #[async_trait]
 impl Escaper for TrickFloatEscaper {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
@@ -238,11 +238,11 @@ impl Escaper for TrickFloatEscaper {
 
 #[async_trait]
 impl EscaperInternal for TrickFloatEscaper {
-    fn _resolver(&self) -> &MetricsName {
+    fn _resolver(&self) -> &NodeName {
         Default::default()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
+    fn _dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         self.config.dependent_escaper()
     }
 

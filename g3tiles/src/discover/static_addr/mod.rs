@@ -20,7 +20,7 @@ use anyhow::Context;
 use tokio::sync::watch;
 use yaml_rust::Yaml;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::{ArcDiscover, Discover, DiscoverResult};
 use crate::config::discover::static_addr::StaticAddrDiscoverConfig;
@@ -37,7 +37,7 @@ impl StaticAddrDiscover {
 }
 
 impl Discover for StaticAddrDiscover {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 

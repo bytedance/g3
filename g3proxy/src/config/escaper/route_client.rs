@@ -18,7 +18,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::net::IpAddr;
 
 use anyhow::{anyhow, Context};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use ip_network::IpNetwork;
 use yaml_rust::{yaml, Yaml};
 
@@ -30,21 +30,21 @@ const ESCAPER_CONFIG_TYPE: &str = "RouteClient";
 
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct RouteClientEscaperConfig {
-    pub(crate) name: MetricsName,
+    pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
-    pub(crate) exact_match_ipaddr: BTreeMap<MetricsName, BTreeSet<IpAddr>>,
-    pub(crate) subnet_match_ipaddr: BTreeMap<MetricsName, BTreeSet<IpNetwork>>,
-    pub(crate) default_next: MetricsName,
+    pub(crate) exact_match_ipaddr: BTreeMap<NodeName, BTreeSet<IpAddr>>,
+    pub(crate) subnet_match_ipaddr: BTreeMap<NodeName, BTreeSet<IpNetwork>>,
+    pub(crate) default_next: NodeName,
 }
 
 impl RouteClientEscaperConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         RouteClientEscaperConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             exact_match_ipaddr: BTreeMap::new(),
             subnet_match_ipaddr: BTreeMap::new(),
-            default_next: MetricsName::default(),
+            default_next: NodeName::default(),
         }
     }
 
@@ -118,7 +118,7 @@ impl RouteClientEscaperConfig {
     }
 
     fn add_exact_match(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
-        let mut escaper = MetricsName::default();
+        let mut escaper = NodeName::default();
         let mut all_ipaddr = BTreeSet::<IpAddr>::new();
         g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
             "next" | "escaper" => {
@@ -151,7 +151,7 @@ impl RouteClientEscaperConfig {
     }
 
     fn add_subnet_match(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
-        let mut escaper = MetricsName::default();
+        let mut escaper = NodeName::default();
         let mut all_subnets = BTreeSet::<IpNetwork>::new();
         g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
             "next" | "escaper" => {
@@ -188,7 +188,7 @@ impl RouteClientEscaperConfig {
 }
 
 impl EscaperConfig for RouteClientEscaperConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -200,7 +200,7 @@ impl EscaperConfig for RouteClientEscaperConfig {
         ESCAPER_CONFIG_TYPE
     }
 
-    fn resolver(&self) -> &MetricsName {
+    fn resolver(&self) -> &NodeName {
         Default::default()
     }
 
@@ -216,7 +216,7 @@ impl EscaperConfig for RouteClientEscaperConfig {
         EscaperConfigDiffAction::Reload
     }
 
-    fn dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
+    fn dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         let mut set = BTreeSet::new();
         set.insert(self.default_next.clone());
         for key in self.exact_match_ipaddr.keys() {

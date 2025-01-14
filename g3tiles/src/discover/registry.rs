@@ -19,30 +19,30 @@ use std::sync::{LazyLock, Mutex};
 
 use anyhow::anyhow;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::ArcDiscover;
 use crate::config::discover::AnyDiscoverConfig;
 
-static RUNTIME_DISCOVER_REGISTRY: LazyLock<Mutex<HashMap<MetricsName, ArcDiscover>>> =
+static RUNTIME_DISCOVER_REGISTRY: LazyLock<Mutex<HashMap<NodeName, ArcDiscover>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
-pub(super) fn add(name: MetricsName, discover: ArcDiscover) {
+pub(super) fn add(name: NodeName, discover: ArcDiscover) {
     let mut ht = RUNTIME_DISCOVER_REGISTRY.lock().unwrap();
     if let Some(_old) = ht.insert(name, discover) {}
 }
 
-pub(crate) fn get(name: &MetricsName) -> Option<ArcDiscover> {
+pub(crate) fn get(name: &NodeName) -> Option<ArcDiscover> {
     let ht = RUNTIME_DISCOVER_REGISTRY.lock().unwrap();
     ht.get(name).cloned()
 }
 
-pub(super) fn del(name: &MetricsName) {
+pub(super) fn del(name: &NodeName) {
     let mut ht = RUNTIME_DISCOVER_REGISTRY.lock().unwrap();
     if let Some(_old) = ht.remove(name) {}
 }
 
-pub(crate) fn get_names() -> HashSet<MetricsName> {
+pub(crate) fn get_names() -> HashSet<NodeName> {
     let mut names = HashSet::new();
     let ht = RUNTIME_DISCOVER_REGISTRY.lock().unwrap();
     for key in ht.keys() {
@@ -51,13 +51,13 @@ pub(crate) fn get_names() -> HashSet<MetricsName> {
     names
 }
 
-pub(super) fn get_config(name: &MetricsName) -> Option<AnyDiscoverConfig> {
+pub(super) fn get_config(name: &NodeName) -> Option<AnyDiscoverConfig> {
     let ht = RUNTIME_DISCOVER_REGISTRY.lock().unwrap();
     ht.get(name).map(|g| g._clone_config())
 }
 
 pub(super) fn update_config_in_place(
-    name: &MetricsName,
+    name: &NodeName,
     config: AnyDiscoverConfig,
 ) -> anyhow::Result<()> {
     let ht = RUNTIME_DISCOVER_REGISTRY.lock().unwrap();

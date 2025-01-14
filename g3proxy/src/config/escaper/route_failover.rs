@@ -20,7 +20,7 @@ use std::time::Duration;
 use anyhow::anyhow;
 use yaml_rust::{yaml, Yaml};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction};
@@ -29,20 +29,20 @@ const ESCAPER_CONFIG_TYPE: &str = "RouteFailover";
 
 #[derive(Clone, PartialEq)]
 pub(crate) struct RouteFailoverEscaperConfig {
-    pub(crate) name: MetricsName,
+    pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
-    pub(crate) primary_node: MetricsName,
-    pub(crate) standby_node: MetricsName,
+    pub(crate) primary_node: NodeName,
+    pub(crate) standby_node: NodeName,
     pub(crate) fallback_delay: Duration,
 }
 
 impl RouteFailoverEscaperConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         RouteFailoverEscaperConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
-            primary_node: MetricsName::default(),
-            standby_node: MetricsName::default(),
+            primary_node: NodeName::default(),
+            standby_node: NodeName::default(),
             fallback_delay: Duration::from_millis(100),
         }
     }
@@ -98,7 +98,7 @@ impl RouteFailoverEscaperConfig {
 }
 
 impl EscaperConfig for RouteFailoverEscaperConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -110,7 +110,7 @@ impl EscaperConfig for RouteFailoverEscaperConfig {
         ESCAPER_CONFIG_TYPE
     }
 
-    fn resolver(&self) -> &MetricsName {
+    fn resolver(&self) -> &NodeName {
         Default::default()
     }
 
@@ -126,7 +126,7 @@ impl EscaperConfig for RouteFailoverEscaperConfig {
         EscaperConfigDiffAction::Reload
     }
 
-    fn dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
+    fn dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         let mut set = BTreeSet::new();
         set.insert(self.primary_node.clone());
         set.insert(self.standby_node.clone());

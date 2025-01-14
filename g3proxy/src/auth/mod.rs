@@ -25,7 +25,7 @@ use chrono::Utc;
 use log::{info, warn};
 use tokio::sync::{mpsc, oneshot};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use crate::config::auth::UserGroupConfig;
 
@@ -104,7 +104,7 @@ impl UserGroup {
         }
     }
 
-    fn new_no_config(name: &MetricsName) -> Arc<Self> {
+    fn new_no_config(name: &NodeName) -> Arc<Self> {
         let config = UserGroupConfig::empty(name);
         Arc::new(Self::new_without_users(config))
     }

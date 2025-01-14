@@ -18,12 +18,12 @@ use slog::{slog_info, slog_o, Logger};
 use uuid::Uuid;
 
 use g3_slog_types::LtUuid;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::shared::SharedLoggerType;
 use crate::protocol::KeylessResponse;
 
-pub(crate) fn get_logger(server_name: &MetricsName) -> Logger {
+pub(crate) fn get_logger(server_name: &NodeName) -> Logger {
     let config = crate::config::log::get_task_default_config();
     let logger_name = format!("lr-{server_name}");
     let common_values = slog_o!(
@@ -35,7 +35,7 @@ pub(crate) fn get_logger(server_name: &MetricsName) -> Logger {
     config.build_logger(logger_name, super::LOG_TYPE_REQUEST, common_values)
 }
 
-pub(crate) fn get_shared_logger(name: &str, server_name: &MetricsName) -> Logger {
+pub(crate) fn get_shared_logger(name: &str, server_name: &NodeName) -> Logger {
     let logger_name = format!("lr-{name}");
     super::shared::get_shared_logger(SharedLoggerType::Request, logger_name, |logger| {
         logger.new(slog_o!(

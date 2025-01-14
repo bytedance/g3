@@ -20,7 +20,7 @@ use ahash::AHashMap;
 use anyhow::{anyhow, Context};
 use serde_json::{Map, Value};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::{PasswordToken, UserConfig, UserSiteConfig};
 use crate::escape::EgressPathSelection;
@@ -247,7 +247,7 @@ impl UserConfig {
             "egress_path_id_map" => {
                 let id_map = g3_json::value::as_hashmap(
                     v,
-                    |v| MetricsName::from_str(v).map_err(|e| anyhow!("invalid metrics name: {e}")),
+                    |v| NodeName::from_str(v).map_err(|e| anyhow!("invalid metrics name: {e}")),
                     g3_json::value::as_string,
                 )
                 .context(format!("invalid egress path id map value for key {k}"))?;
@@ -259,7 +259,7 @@ impl UserConfig {
             "egress_path_value_map" => {
                 let value_map = g3_json::value::as_hashmap(
                     v,
-                    |v| MetricsName::from_str(v).map_err(|e| anyhow!("invalid metrics name: {e}")),
+                    |v| NodeName::from_str(v).map_err(|e| anyhow!("invalid metrics name: {e}")),
                     |v| Ok(v.clone()),
                 )
                 .context(format!("invalid egress path value map value for key {k}"))?;

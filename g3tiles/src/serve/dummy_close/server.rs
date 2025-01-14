@@ -25,7 +25,7 @@ use tokio::sync::broadcast;
 
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use crate::config::server::dummy_close::DummyCloseServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
@@ -58,7 +58,7 @@ impl DummyCloseServer {
         Ok(Arc::new(server))
     }
 
-    pub(crate) fn prepare_default(name: &MetricsName) -> ArcServer {
+    pub(crate) fn prepare_default(name: &NodeName) -> ArcServer {
         let config = DummyCloseServerConfig::new(name, None);
         let listen_stats = Arc::new(ListenStats::new(name));
         Arc::new(DummyCloseServer::new(config, listen_stats))
@@ -89,7 +89,7 @@ impl ServerInternal for DummyCloseServer {
         Ok(())
     }
 
-    fn _depend_on_server(&self, _name: &MetricsName) -> bool {
+    fn _depend_on_server(&self, _name: &NodeName) -> bool {
         false
     }
 
@@ -120,7 +120,7 @@ impl ServerInternal for DummyCloseServer {
 }
 
 impl BaseServer for DummyCloseServer {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
@@ -159,5 +159,5 @@ impl Server for DummyCloseServer {
         &self.quit_policy
     }
 
-    fn update_backend(&self, _name: &MetricsName) {}
+    fn update_backend(&self, _name: &NodeName) {}
 }

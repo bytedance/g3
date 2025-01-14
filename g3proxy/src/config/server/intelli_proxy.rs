@@ -21,7 +21,7 @@ use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
 
 use g3_types::acl::AclNetworkRuleBuilder;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{ProxyProtocolVersion, TcpListenConfig};
 use g3_yaml::YamlDocPosition;
 
@@ -32,13 +32,13 @@ const SERVER_CONFIG_TYPE: &str = "IntelliProxy";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct IntelliProxyConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) listen: TcpListenConfig,
     pub(crate) listen_in_worker: bool,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
-    pub(crate) http_server: MetricsName,
-    pub(crate) socks_server: MetricsName,
+    pub(crate) http_server: NodeName,
+    pub(crate) socks_server: NodeName,
     pub(crate) protocol_detection_timeout: Duration,
     pub(crate) proxy_protocol: Option<ProxyProtocolVersion>,
     pub(crate) proxy_protocol_read_timeout: Duration,
@@ -47,13 +47,13 @@ pub(crate) struct IntelliProxyConfig {
 impl IntelliProxyConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         IntelliProxyConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             listen: TcpListenConfig::default(),
             listen_in_worker: false,
             ingress_net_filter: None,
-            http_server: MetricsName::default(),
-            socks_server: MetricsName::default(),
+            http_server: NodeName::default(),
+            socks_server: NodeName::default(),
             protocol_detection_timeout: Duration::from_secs(4),
             proxy_protocol: None,
             proxy_protocol_read_timeout: Duration::from_secs(5),
@@ -144,7 +144,7 @@ impl IntelliProxyConfig {
 }
 
 impl ServerConfig for IntelliProxyConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -156,15 +156,15 @@ impl ServerConfig for IntelliProxyConfig {
         SERVER_CONFIG_TYPE
     }
 
-    fn escaper(&self) -> &MetricsName {
+    fn escaper(&self) -> &NodeName {
         Default::default()
     }
 
-    fn user_group(&self) -> &MetricsName {
+    fn user_group(&self) -> &NodeName {
         Default::default()
     }
 
-    fn auditor(&self) -> &MetricsName {
+    fn auditor(&self) -> &NodeName {
         Default::default()
     }
 
@@ -184,7 +184,7 @@ impl ServerConfig for IntelliProxyConfig {
         ServerConfigDiffAction::ReloadOnlyConfig
     }
 
-    fn dependent_server(&self) -> Option<BTreeSet<MetricsName>> {
+    fn dependent_server(&self) -> Option<BTreeSet<NodeName>> {
         let mut set = BTreeSet::new();
         set.insert(self.http_server.clone());
         set.insert(self.socks_server.clone());

@@ -19,12 +19,12 @@ use std::sync::{Arc, LazyLock, Mutex};
 
 use anyhow::anyhow;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::AnyDiscoverConfig;
 
 static INITIAL_DISCOVER_CONFIG_REGISTRY: LazyLock<
-    Mutex<HashMap<MetricsName, Arc<AnyDiscoverConfig>>>,
+    Mutex<HashMap<NodeName, Arc<AnyDiscoverConfig>>>,
 > = LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub(crate) fn clear() {

@@ -20,7 +20,7 @@ use std::time::Duration;
 use capnp::capability::Promise;
 use capnp_rpc::pry;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::resolve::{QueryStrategy as ResolveQueryStrategy, ResolveStrategy};
 
 use g3proxy_proto::resolver_capnp::{resolver_control, QueryStrategy};
@@ -33,7 +33,7 @@ pub(super) struct ResolverControlImpl {
 
 impl ResolverControlImpl {
     pub(super) fn new_client(name: &str) -> anyhow::Result<resolver_control::Client> {
-        let name = unsafe { MetricsName::new_unchecked(name) };
+        let name = unsafe { NodeName::new_unchecked(name) };
         let handler = crate::resolve::get_handle(&name)?;
         Ok(capnp_rpc::new_client(ResolverControlImpl {
             resolver_handler: handler,

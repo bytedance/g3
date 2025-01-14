@@ -25,7 +25,7 @@ use ascii::AsciiString;
 use log::warn;
 use yaml_rust::{yaml, Yaml};
 
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{NodeName, StaticMetricsTags};
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use g3_types::net::InterfaceName;
 use g3_types::net::{
@@ -42,7 +42,7 @@ const ESCAPER_CONFIG_TYPE: &str = "ProxyFloat";
 
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct ProxyFloatEscaperConfig {
-    pub(crate) name: MetricsName,
+    pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) shared_logger: Option<AsciiString>,
     #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -65,7 +65,7 @@ pub(crate) struct ProxyFloatEscaperConfig {
 impl ProxyFloatEscaperConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         ProxyFloatEscaperConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             shared_logger: None,
             #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -215,7 +215,7 @@ impl ProxyFloatEscaperConfig {
 }
 
 impl EscaperConfig for ProxyFloatEscaperConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -227,7 +227,7 @@ impl EscaperConfig for ProxyFloatEscaperConfig {
         ESCAPER_CONFIG_TYPE
     }
 
-    fn resolver(&self) -> &MetricsName {
+    fn resolver(&self) -> &NodeName {
         Default::default()
     }
 
@@ -247,7 +247,7 @@ impl EscaperConfig for ProxyFloatEscaperConfig {
         EscaperConfigDiffAction::Reload
     }
 
-    fn dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
+    fn dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         None
     }
 }

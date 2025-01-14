@@ -26,7 +26,7 @@ use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_io_ext::LimitedWriteExt;
 use g3_resolver::{ResolveError, ResolveLocalError};
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{
     Host, ProxyProtocolEncodeError, ProxyProtocolV2Encoder, UpstreamAddr, WeightedUpstreamAddr,
 };
@@ -197,7 +197,7 @@ impl EscaperExt for DivertTcpEscaper {}
 
 #[async_trait]
 impl Escaper for DivertTcpEscaper {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
@@ -285,11 +285,11 @@ impl Escaper for DivertTcpEscaper {
 
 #[async_trait]
 impl EscaperInternal for DivertTcpEscaper {
-    fn _resolver(&self) -> &MetricsName {
+    fn _resolver(&self) -> &NodeName {
         self.config.resolver()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
+    fn _dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         None
     }
 

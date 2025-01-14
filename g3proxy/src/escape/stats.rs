@@ -19,7 +19,7 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
 
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{NodeName, StaticMetricsTags};
 use g3_types::stats::{StatId, TcpIoSnapshot, TcpIoStats, UdpIoSnapshot, UdpIoStats};
 
 pub(crate) trait EscaperInternalStats {
@@ -28,7 +28,7 @@ pub(crate) trait EscaperInternalStats {
 }
 
 pub(crate) trait EscaperStats: EscaperInternalStats {
-    fn name(&self) -> &MetricsName;
+    fn name(&self) -> &NodeName;
     fn stat_id(&self) -> StatId;
     fn load_extra_tags(&self) -> Option<Arc<StaticMetricsTags>>;
     fn share_extra_tags(&self) -> &Arc<ArcSwapOption<StaticMetricsTags>>;
@@ -286,14 +286,14 @@ pub(crate) struct RouteEscaperSnapshot {
 
 /// General stats for `route` type escapers
 pub(crate) struct RouteEscaperStats {
-    name: MetricsName,
+    name: NodeName,
     id: StatId,
     request_passed: AtomicU64,
     request_failed: AtomicU64,
 }
 
 impl RouteEscaperStats {
-    pub(super) fn new(name: &MetricsName) -> Self {
+    pub(super) fn new(name: &NodeName) -> Self {
         RouteEscaperStats {
             name: name.clone(),
             id: StatId::new(),
@@ -303,7 +303,7 @@ impl RouteEscaperStats {
     }
 
     #[inline]
-    pub(crate) fn name(&self) -> &MetricsName {
+    pub(crate) fn name(&self) -> &NodeName {
         &self.name
     }
 

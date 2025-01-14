@@ -23,7 +23,7 @@ use yaml_rust::{yaml, Yaml};
 
 use g3_geoip_types::{ContinentCode, IsoCountryCode};
 use g3_ip_locate::IpLocateServiceConfig;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::resolve::ResolveStrategy;
 use g3_yaml::YamlDocPosition;
 
@@ -33,25 +33,25 @@ const ESCAPER_CONFIG_TYPE: &str = "RouteGeoIp";
 
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct RouteGeoIpEscaperConfig {
-    pub(crate) name: MetricsName,
+    pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
-    pub(crate) resolver: MetricsName,
+    pub(crate) resolver: NodeName,
     pub(crate) resolve_strategy: ResolveStrategy,
     pub(crate) resolution_delay: Duration,
     pub(crate) ip_locate_service: IpLocateServiceConfig,
-    pub(crate) lpm_rules: BTreeMap<MetricsName, BTreeSet<IpNetwork>>,
-    pub(crate) asn_rules: BTreeMap<MetricsName, BTreeSet<u32>>,
-    pub(crate) country_rules: BTreeMap<MetricsName, BTreeSet<IsoCountryCode>>,
-    pub(crate) continent_rules: BTreeMap<MetricsName, BTreeSet<ContinentCode>>,
-    pub(crate) default_next: MetricsName,
+    pub(crate) lpm_rules: BTreeMap<NodeName, BTreeSet<IpNetwork>>,
+    pub(crate) asn_rules: BTreeMap<NodeName, BTreeSet<u32>>,
+    pub(crate) country_rules: BTreeMap<NodeName, BTreeSet<IsoCountryCode>>,
+    pub(crate) continent_rules: BTreeMap<NodeName, BTreeSet<ContinentCode>>,
+    pub(crate) default_next: NodeName,
 }
 
 impl RouteGeoIpEscaperConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         RouteGeoIpEscaperConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
-            resolver: MetricsName::default(),
+            resolver: NodeName::default(),
             resolve_strategy: Default::default(),
             resolution_delay: Duration::from_millis(50),
             ip_locate_service: IpLocateServiceConfig::default(),
@@ -59,7 +59,7 @@ impl RouteGeoIpEscaperConfig {
             asn_rules: BTreeMap::new(),
             country_rules: BTreeMap::new(),
             continent_rules: BTreeMap::new(),
-            default_next: MetricsName::default(),
+            default_next: NodeName::default(),
         }
     }
 
@@ -153,7 +153,7 @@ impl RouteGeoIpEscaperConfig {
     }
 
     fn add_geo_rule(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
-        let mut escaper = MetricsName::default();
+        let mut escaper = NodeName::default();
         let mut networks = BTreeSet::<IpNetwork>::new();
         let mut asn_set = BTreeSet::<u32>::new();
         let mut countries = BTreeSet::<IsoCountryCode>::new();
@@ -235,7 +235,7 @@ impl RouteGeoIpEscaperConfig {
 }
 
 impl EscaperConfig for RouteGeoIpEscaperConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -247,7 +247,7 @@ impl EscaperConfig for RouteGeoIpEscaperConfig {
         ESCAPER_CONFIG_TYPE
     }
 
-    fn resolver(&self) -> &MetricsName {
+    fn resolver(&self) -> &NodeName {
         &self.resolver
     }
 
@@ -263,7 +263,7 @@ impl EscaperConfig for RouteGeoIpEscaperConfig {
         EscaperConfigDiffAction::Reload
     }
 
-    fn dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
+    fn dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         let mut set = BTreeSet::new();
         set.insert(self.default_next.clone());
         let all_keys = self

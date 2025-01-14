@@ -25,7 +25,7 @@ use yaml_rust::{yaml, Yaml};
 
 use g3_types::auth::{Password, Username};
 use g3_types::collection::SelectivePickPolicy;
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{NodeName, StaticMetricsTags};
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use g3_types::net::InterfaceName;
 use g3_types::net::{
@@ -41,7 +41,7 @@ const ESCAPER_CONFIG_TYPE: &str = "ProxySocks5s";
 
 #[derive(Clone, PartialEq)]
 pub(crate) struct ProxySocks5sEscaperConfig {
-    pub(crate) name: MetricsName,
+    pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) proxy_nodes: Vec<WeightedUpstreamAddr>,
@@ -56,7 +56,7 @@ pub(crate) struct ProxySocks5sEscaperConfig {
     pub(crate) no_ipv6: bool,
     pub(crate) tls_config: OpensslClientConfigBuilder,
     pub(crate) tls_name: Option<Host>,
-    pub(crate) resolver: MetricsName,
+    pub(crate) resolver: NodeName,
     pub(crate) resolve_strategy: ResolveStrategy,
     pub(crate) general: GeneralEscaperConfig,
     pub(crate) happy_eyeballs: HappyEyeballsConfig,
@@ -73,7 +73,7 @@ pub(crate) struct ProxySocks5sEscaperConfig {
 impl ProxySocks5sEscaperConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         ProxySocks5sEscaperConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             shared_logger: None,
             proxy_nodes: Vec::with_capacity(1),
@@ -88,7 +88,7 @@ impl ProxySocks5sEscaperConfig {
             no_ipv6: false,
             tls_config: OpensslClientConfigBuilder::with_cache_for_many_sites(),
             tls_name: None,
-            resolver: MetricsName::default(),
+            resolver: NodeName::default(),
             resolve_strategy: Default::default(),
             general: Default::default(),
             happy_eyeballs: Default::default(),
@@ -357,7 +357,7 @@ impl ProxySocks5sEscaperConfig {
 }
 
 impl EscaperConfig for ProxySocks5sEscaperConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -369,7 +369,7 @@ impl EscaperConfig for ProxySocks5sEscaperConfig {
         ESCAPER_CONFIG_TYPE
     }
 
-    fn resolver(&self) -> &MetricsName {
+    fn resolver(&self) -> &NodeName {
         &self.resolver
     }
 

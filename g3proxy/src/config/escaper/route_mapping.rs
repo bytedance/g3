@@ -17,7 +17,7 @@
 use std::collections::BTreeSet;
 
 use anyhow::{anyhow, Context};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use indexmap::IndexSet;
 use yaml_rust::{yaml, Yaml};
 
@@ -29,16 +29,16 @@ const ESCAPER_CONFIG_TYPE: &str = "RouteMapping";
 
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct RouteMappingEscaperConfig {
-    pub(crate) name: MetricsName,
+    pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
     // no duplication for next escapers, and the order is important
-    pub(crate) next_nodes: IndexSet<MetricsName>,
+    pub(crate) next_nodes: IndexSet<NodeName>,
 }
 
 impl RouteMappingEscaperConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         RouteMappingEscaperConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             next_nodes: IndexSet::new(),
         }
@@ -95,7 +95,7 @@ impl RouteMappingEscaperConfig {
 }
 
 impl EscaperConfig for RouteMappingEscaperConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -107,7 +107,7 @@ impl EscaperConfig for RouteMappingEscaperConfig {
         ESCAPER_CONFIG_TYPE
     }
 
-    fn resolver(&self) -> &MetricsName {
+    fn resolver(&self) -> &NodeName {
         Default::default()
     }
 
@@ -123,7 +123,7 @@ impl EscaperConfig for RouteMappingEscaperConfig {
         EscaperConfigDiffAction::Reload
     }
 
-    fn dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
+    fn dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         let mut set = BTreeSet::new();
         for name in &self.next_nodes {
             set.insert(name.clone());

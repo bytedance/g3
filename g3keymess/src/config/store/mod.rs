@@ -20,7 +20,7 @@ use anyhow::anyhow;
 use tokio::sync::oneshot;
 use yaml_rust::{yaml, Yaml};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::{HybridParser, YamlDocPosition};
 
 mod local;
@@ -32,7 +32,7 @@ pub(crate) use registry::{clear, get_all};
 const CONFIG_KEY_STORE_TYPE: &str = "type";
 
 pub trait KeyStoreConfig {
-    fn name(&self) -> &MetricsName;
+    fn name(&self) -> &NodeName;
     async fn load_keys(&self) -> anyhow::Result<()>;
     fn spawn_subscriber(&self) -> anyhow::Result<Option<oneshot::Sender<()>>> {
         Ok(None)
@@ -68,7 +68,7 @@ pub enum AnyKeyStoreConfig {
 }
 
 impl AnyKeyStoreConfig {
-    impl_transparent0!(name, &MetricsName);
+    impl_transparent0!(name, &NodeName);
     impl_async_transparent0!(load_keys, anyhow::Result<()>);
     impl_transparent0!(
         spawn_subscriber,

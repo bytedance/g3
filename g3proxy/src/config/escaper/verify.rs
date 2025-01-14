@@ -19,18 +19,18 @@ use std::fmt;
 
 use anyhow::anyhow;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 pub(super) struct EscaperConfigVerifier {}
 
 impl EscaperConfigVerifier {
     pub(super) fn check_duplicated_rule<T>(
-        input_map: &BTreeMap<MetricsName, BTreeSet<T>>,
+        input_map: &BTreeMap<NodeName, BTreeSet<T>>,
     ) -> anyhow::Result<()>
     where
         T: fmt::Display,
     {
-        let mut table = BTreeMap::<String, MetricsName>::new();
+        let mut table = BTreeMap::<String, NodeName>::new();
         for (escaper, set) in input_map {
             for entry in set {
                 if let Some(old_escaper) = table.insert(entry.to_string(), escaper.clone()) {

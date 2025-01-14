@@ -22,7 +22,7 @@ use tokio::sync::watch;
 use yaml_rust::Yaml;
 
 use g3_types::collection::WeightedValue;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use crate::config::discover::{AnyDiscoverConfig, DiscoverRegisterData};
 
@@ -40,7 +40,7 @@ pub(crate) type DiscoveredData = Vec<WeightedValue<SocketAddr>>;
 pub(crate) type DiscoverResult = anyhow::Result<DiscoveredData>;
 
 pub(crate) trait Discover {
-    fn name(&self) -> &MetricsName;
+    fn name(&self) -> &NodeName;
     fn _clone_config(&self) -> AnyDiscoverConfig;
     fn _update_config_in_place(&self, config: AnyDiscoverConfig) -> anyhow::Result<()>;
 

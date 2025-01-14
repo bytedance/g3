@@ -29,7 +29,7 @@ use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTc
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_io_ext::haproxy::{ProxyProtocolV1Reader, ProxyProtocolV2Reader};
 use g3_types::acl::{AclAction, AclNetworkRule};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::ProxyProtocolVersion;
 
 use crate::config::server::plain_tcp_port::PlainTcpPortConfig;
@@ -153,7 +153,7 @@ impl ServerInternal for PlainTcpPort {
         Ok(())
     }
 
-    fn _depend_on_server(&self, name: &MetricsName) -> bool {
+    fn _depend_on_server(&self, name: &NodeName) -> bool {
         self.config.server.eq(name)
     }
 
@@ -195,7 +195,7 @@ impl ServerInternal for PlainTcpPort {
 
 impl BaseServer for PlainTcpPort {
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
@@ -243,5 +243,5 @@ impl Server for PlainTcpPort {
         &self.quit_policy
     }
 
-    fn update_backend(&self, _name: &MetricsName) {}
+    fn update_backend(&self, _name: &NodeName) {}
 }

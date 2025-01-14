@@ -16,7 +16,7 @@
 
 use chrono::{DateTime, Utc};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{SocketBufferConfig, UpstreamAddr};
 
 pub(crate) struct UdpRelayTaskConf<'a> {
@@ -26,6 +26,6 @@ pub(crate) struct UdpRelayTaskConf<'a> {
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct UdpRelayTaskNotes {
-    pub(crate) escaper: MetricsName,
+    pub(crate) escaper: NodeName,
     pub(crate) expire: Option<DateTime<Utc>>,
 }

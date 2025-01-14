@@ -26,7 +26,7 @@ use tokio::sync::{broadcast, Semaphore};
 
 use g3_daemon::listen::ListenStats;
 use g3_daemon::server::ServerQuitPolicy;
-use g3_types::metrics::{MetricsName, MetricsTagName, MetricsTagValue, StaticMetricsTags};
+use g3_types::metrics::{MetricsTagName, MetricsTagValue, NodeName, StaticMetricsTags};
 
 use super::{
     KeyServerDurationRecorder, KeyServerDurationStats, KeyServerRuntime, KeyServerStats,
@@ -138,7 +138,7 @@ impl KeyServer {
     }
 
     #[inline]
-    pub(crate) fn name(&self) -> &MetricsName {
+    pub(crate) fn name(&self) -> &NodeName {
         self.config.name()
     }
 

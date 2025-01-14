@@ -19,7 +19,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
 
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{NodeName, StaticMetricsTags};
 use g3_yaml::YamlDocPosition;
 
 use super::{EscaperConfig, EscaperConfigDiffAction};
@@ -29,7 +29,7 @@ const ESCAPER_CONFIG_DEFAULT_TYPE: &str = "DummyDeny";
 
 #[derive(Clone)]
 pub(crate) struct DummyDenyEscaperConfig {
-    pub(crate) name: MetricsName,
+    pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
     custom_type: String,
     pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
@@ -38,7 +38,7 @@ pub(crate) struct DummyDenyEscaperConfig {
 impl DummyDenyEscaperConfig {
     pub(crate) fn new(position: Option<YamlDocPosition>, custom_type: Option<&str>) -> Self {
         DummyDenyEscaperConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             custom_type: match custom_type {
                 Some(custom_type) => custom_type.to_string(),
@@ -85,7 +85,7 @@ impl DummyDenyEscaperConfig {
 }
 
 impl EscaperConfig for DummyDenyEscaperConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -97,7 +97,7 @@ impl EscaperConfig for DummyDenyEscaperConfig {
         &self.custom_type
     }
 
-    fn resolver(&self) -> &MetricsName {
+    fn resolver(&self) -> &NodeName {
         Default::default()
     }
 

@@ -22,7 +22,7 @@ use ascii::AsciiString;
 use yaml_rust::{yaml, Yaml};
 
 use g3_types::collection::SelectivePickPolicy;
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{NodeName, StaticMetricsTags};
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use g3_types::net::InterfaceName;
 use g3_types::net::{
@@ -37,7 +37,7 @@ const ESCAPER_CONFIG_TYPE: &str = "DivertTcp";
 
 #[derive(Clone, PartialEq)]
 pub(crate) struct DivertTcpEscaperConfig {
-    pub(crate) name: MetricsName,
+    pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) proxy_nodes: Vec<WeightedUpstreamAddr>,
@@ -48,7 +48,7 @@ pub(crate) struct DivertTcpEscaperConfig {
     pub(crate) bind_v6: Option<Ipv6Addr>,
     pub(crate) no_ipv4: bool,
     pub(crate) no_ipv6: bool,
-    pub(crate) resolver: MetricsName,
+    pub(crate) resolver: NodeName,
     pub(crate) resolve_strategy: ResolveStrategy,
     pub(crate) general: GeneralEscaperConfig,
     pub(crate) happy_eyeballs: HappyEyeballsConfig,
@@ -60,7 +60,7 @@ pub(crate) struct DivertTcpEscaperConfig {
 impl DivertTcpEscaperConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         DivertTcpEscaperConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             shared_logger: None,
             proxy_nodes: Vec::with_capacity(1),
@@ -71,7 +71,7 @@ impl DivertTcpEscaperConfig {
             bind_v6: None,
             no_ipv4: false,
             no_ipv6: false,
-            resolver: MetricsName::default(),
+            resolver: NodeName::default(),
             resolve_strategy: Default::default(),
             general: Default::default(),
             happy_eyeballs: Default::default(),
@@ -249,7 +249,7 @@ impl DivertTcpEscaperConfig {
 }
 
 impl EscaperConfig for DivertTcpEscaperConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -261,7 +261,7 @@ impl EscaperConfig for DivertTcpEscaperConfig {
         ESCAPER_CONFIG_TYPE
     }
 
-    fn resolver(&self) -> &MetricsName {
+    fn resolver(&self) -> &NodeName {
         &self.resolver
     }
 

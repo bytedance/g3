@@ -19,7 +19,7 @@ use std::path::Path;
 use anyhow::{anyhow, Context};
 use yaml_rust::{yaml, Yaml};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::{HybridParser, YamlDocPosition};
 
 pub(crate) mod dummy_close;
@@ -43,7 +43,7 @@ pub(crate) enum BackendConfigDiffAction {
 }
 
 pub(crate) trait BackendConfig {
-    fn name(&self) -> &MetricsName;
+    fn name(&self) -> &NodeName;
     fn position(&self) -> Option<YamlDocPosition>;
     fn backend_type(&self) -> &'static str;
 
@@ -88,7 +88,7 @@ macro_rules! impl_transparent1 {
 }
 
 impl AnyBackendConfig {
-    impl_transparent0!(name, &MetricsName);
+    impl_transparent0!(name, &NodeName);
     impl_transparent0!(backend_type, &'static str);
     impl_transparent0!(position, Option<YamlDocPosition>);
 

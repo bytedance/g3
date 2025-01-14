@@ -19,12 +19,12 @@ use std::sync::{Arc, LazyLock, Mutex};
 
 use anyhow::{anyhow, Context};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::KeyServer;
 use crate::config::server::KeyServerConfig;
 
-static RUNTIME_SERVER_REGISTRY: LazyLock<Mutex<HashMap<MetricsName, Arc<KeyServer>>>> =
+static RUNTIME_SERVER_REGISTRY: LazyLock<Mutex<HashMap<NodeName, Arc<KeyServer>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 static OFFLINE_SERVER_SET: Mutex<Vec<Arc<KeyServer>>> = Mutex::new(Vec::new());
 
@@ -63,7 +63,7 @@ where
     }
 }
 
-pub(super) fn add(name: MetricsName, server: Arc<KeyServer>) -> anyhow::Result<()> {
+pub(super) fn add(name: NodeName, server: Arc<KeyServer>) -> anyhow::Result<()> {
     let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     server.start_runtime(&server)?;
     if let Some(old_server) = ht.insert(name, server) {
@@ -73,7 +73,7 @@ pub(super) fn add(name: MetricsName, server: Arc<KeyServer>) -> anyhow::Result<(
     Ok(())
 }
 
-pub(super) fn add_lazy(name: MetricsName, server: Arc<KeyServer>) {
+pub(super) fn add_lazy(name: NodeName, server: Arc<KeyServer>) {
     let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     // no start runtime
     if let Some(_old_server) = ht.insert(name, server) {
@@ -81,7 +81,7 @@ pub(super) fn add_lazy(name: MetricsName, server: Arc<KeyServer>) {
     }
 }
 
-pub(super) fn del(name: &MetricsName) {
+pub(super) fn del(name: &NodeName) {
     let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     if let Some(old_server) = ht.remove(name) {
         old_server.abort_runtime();
@@ -89,7 +89,7 @@ pub(super) fn del(name: &MetricsName) {
     }
 }
 
-pub(crate) fn get_names() -> HashSet<MetricsName> {
+pub(crate) fn get_names() -> HashSet<NodeName> {
     let mut names = HashSet::new();
     let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     for name in ht.keys() {
@@ -98,20 +98,17 @@ pub(crate) fn get_names() -> HashSet<MetricsName> {
     names
 }
 
-pub(super) fn get_config(name: &MetricsName) -> Option<Arc<KeyServerConfig>> {
+pub(super) fn get_config(name: &NodeName) -> Option<Arc<KeyServerConfig>> {
     let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     ht.get(name).map(|server| server.clone_config())
 }
 
-pub(crate) fn get_server(name: &MetricsName) -> Option<Arc<KeyServer>> {
+pub(crate) fn get_server(name: &NodeName) -> Option<Arc<KeyServer>> {
     let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     ht.get(name).cloned()
 }
 
-pub(super) fn reload_and_respawn(
-    name: &MetricsName,
-    config: KeyServerConfig,
-) -> anyhow::Result<()> {
+pub(super) fn reload_and_respawn(name: &NodeName, config: KeyServerConfig) -> anyhow::Result<()> {
     let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     let old_server = match ht.get(name) {
         Some(server) => server,
@@ -129,7 +126,7 @@ pub(super) fn reload_and_respawn(
 
 pub(crate) fn foreach_online<F>(mut f: F)
 where
-    F: FnMut(&MetricsName, &Arc<KeyServer>),
+    F: FnMut(&NodeName, &Arc<KeyServer>),
 {
     let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     for (name, server) in ht.iter() {

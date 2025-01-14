@@ -23,7 +23,7 @@ use anyhow::anyhow;
 use ip_network::IpNetwork;
 
 use g3_histogram::HistogramMetricsConfig;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{Host, OpensslClientConfigBuilder};
 use g3_types::resolve::ResolveStrategy;
 
@@ -32,7 +32,7 @@ mod yaml;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub(crate) struct UserSiteConfig {
-    pub(crate) id: MetricsName,
+    pub(crate) id: NodeName,
     pub(crate) exact_match_domain: BTreeSet<Arc<str>>,
     pub(crate) exact_match_ipaddr: BTreeSet<IpAddr>,
     pub(crate) subnet_match_ipaddr: BTreeSet<IpNetwork>,

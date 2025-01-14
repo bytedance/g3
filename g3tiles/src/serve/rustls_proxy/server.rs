@@ -29,7 +29,7 @@ use tokio::sync::broadcast;
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_types::acl::{AclAction, AclNetworkRule};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{OpensslTicketKey, RollingTicketer};
 use g3_types::route::HostMatch;
 
@@ -213,7 +213,7 @@ impl ServerInternal for RustlsProxyServer {
         Ok(())
     }
 
-    fn _depend_on_server(&self, _name: &MetricsName) -> bool {
+    fn _depend_on_server(&self, _name: &NodeName) -> bool {
         false
     }
 
@@ -255,7 +255,7 @@ impl ServerInternal for RustlsProxyServer {
 
 impl BaseServer for RustlsProxyServer {
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
@@ -308,7 +308,7 @@ impl Server for RustlsProxyServer {
         &self.quit_policy
     }
 
-    fn update_backend(&self, name: &MetricsName) {
+    fn update_backend(&self, name: &NodeName) {
         let host_map = self.hosts.get_all_values();
         for host in host_map.values() {
             if host.use_backend(name) {

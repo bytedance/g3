@@ -23,7 +23,7 @@ use yaml_rust::{yaml, Yaml};
 
 use g3_resolver::driver::hickory::HickoryDriverConfig;
 use g3_resolver::{AnyResolveDriverConfig, ResolverRuntimeConfig};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 use super::{AnyResolverConfig, ResolverConfigDiffAction};
@@ -32,7 +32,7 @@ const RESOLVER_CONFIG_TYPE: &str = "hickory";
 
 #[derive(Clone, PartialEq)]
 pub(crate) struct HickoryResolverConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
     runtime: ResolverRuntimeConfig,
     driver: HickoryDriverConfig,
@@ -51,7 +51,7 @@ impl From<&HickoryResolverConfig> for g3_resolver::ResolverConfig {
 impl HickoryResolverConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         HickoryResolverConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             runtime: Default::default(),
             driver: Default::default(),
@@ -206,7 +206,7 @@ impl HickoryResolverConfig {
 }
 
 impl super::ResolverConfig for HickoryResolverConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -230,7 +230,7 @@ impl super::ResolverConfig for HickoryResolverConfig {
         ResolverConfigDiffAction::Update
     }
 
-    fn dependent_resolver(&self) -> Option<BTreeSet<MetricsName>> {
+    fn dependent_resolver(&self) -> Option<BTreeSet<NodeName>> {
         None
     }
 }

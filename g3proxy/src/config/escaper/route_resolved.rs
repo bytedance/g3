@@ -22,7 +22,7 @@ use anyhow::{anyhow, Context};
 use ip_network::IpNetwork;
 use yaml_rust::{yaml, Yaml};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::resolve::ResolveStrategy;
 use g3_yaml::YamlDocPosition;
 
@@ -32,25 +32,25 @@ const ESCAPER_CONFIG_TYPE: &str = "RouteResolved";
 
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct RouteResolvedEscaperConfig {
-    pub(crate) name: MetricsName,
+    pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
-    pub(crate) resolver: MetricsName,
+    pub(crate) resolver: NodeName,
     pub(crate) resolve_strategy: ResolveStrategy,
     pub(crate) resolution_delay: Duration,
-    pub(crate) lpm_rules: BTreeMap<MetricsName, BTreeSet<IpNetwork>>,
-    pub(crate) default_next: MetricsName,
+    pub(crate) lpm_rules: BTreeMap<NodeName, BTreeSet<IpNetwork>>,
+    pub(crate) default_next: NodeName,
 }
 
 impl RouteResolvedEscaperConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         RouteResolvedEscaperConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
-            resolver: MetricsName::default(),
+            resolver: NodeName::default(),
             resolve_strategy: Default::default(),
             resolution_delay: Duration::from_millis(50),
             lpm_rules: BTreeMap::new(),
-            default_next: MetricsName::default(),
+            default_next: NodeName::default(),
         }
     }
 
@@ -126,7 +126,7 @@ impl RouteResolvedEscaperConfig {
     }
 
     fn add_lpm_rule(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
-        let mut escaper = MetricsName::default();
+        let mut escaper = NodeName::default();
         let mut networks = BTreeSet::<IpNetwork>::new();
         g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
             "next" | "escaper" => {
@@ -163,7 +163,7 @@ impl RouteResolvedEscaperConfig {
 }
 
 impl EscaperConfig for RouteResolvedEscaperConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -175,7 +175,7 @@ impl EscaperConfig for RouteResolvedEscaperConfig {
         ESCAPER_CONFIG_TYPE
     }
 
-    fn resolver(&self) -> &MetricsName {
+    fn resolver(&self) -> &NodeName {
         &self.resolver
     }
 
@@ -191,7 +191,7 @@ impl EscaperConfig for RouteResolvedEscaperConfig {
         EscaperConfigDiffAction::Reload
     }
 
-    fn dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
+    fn dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         let mut set = BTreeSet::new();
         set.insert(self.default_next.clone());
         for key in self.lpm_rules.keys() {

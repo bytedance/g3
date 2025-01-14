@@ -22,7 +22,7 @@ use g3_daemon::metrics::{
     TAG_KEY_STAT_ID, TAG_KEY_TRANSPORT, TRANSPORT_TYPE_TCP, TRANSPORT_TYPE_UDP,
 };
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
 
 use super::TAG_KEY_ESCAPER;
@@ -60,11 +60,11 @@ static ROUTE_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, RouterStatsValue>>> =
     LazyLock::new(|| Mutex::new(AHashMap::new()));
 
 trait EscaperMetricExt {
-    fn add_escaper_tags(&mut self, escaper: &MetricsName, stat_id: StatId);
+    fn add_escaper_tags(&mut self, escaper: &NodeName, stat_id: StatId);
 }
 
 impl EscaperMetricExt for StatsdTagGroup {
-    fn add_escaper_tags(&mut self, escaper: &MetricsName, stat_id: StatId) {
+    fn add_escaper_tags(&mut self, escaper: &NodeName, stat_id: StatId) {
         let mut buffer = itoa::Buffer::new();
         let stat_id = buffer.format(stat_id.as_u64());
         self.add_tag(TAG_KEY_ESCAPER, escaper);

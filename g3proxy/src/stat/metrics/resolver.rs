@@ -23,7 +23,7 @@ use g3_resolver::{
     ResolveQueryType, ResolverMemorySnapshot, ResolverQuerySnapshot, ResolverSnapshot,
 };
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::stats::StatId;
 
 use crate::resolve::ResolverStats;
@@ -52,11 +52,11 @@ static RESOLVER_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, ResolverStatsValue>>>
     LazyLock::new(|| Mutex::new(AHashMap::new()));
 
 trait ResolverMetricExt {
-    fn add_resolver_tags(&mut self, resolver: &MetricsName, stat_id: StatId);
+    fn add_resolver_tags(&mut self, resolver: &NodeName, stat_id: StatId);
 }
 
 impl ResolverMetricExt for StatsdTagGroup {
-    fn add_resolver_tags(&mut self, resolver: &MetricsName, stat_id: StatId) {
+    fn add_resolver_tags(&mut self, resolver: &NodeName, stat_id: StatId) {
         let mut buffer = itoa::Buffer::new();
         let stat_id = buffer.format(stat_id.as_u64());
         self.add_tag(TAG_KEY_RESOLVER, resolver);

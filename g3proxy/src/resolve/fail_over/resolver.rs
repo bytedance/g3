@@ -22,7 +22,7 @@ use async_trait::async_trait;
 use slog::Logger;
 
 use g3_resolver::driver::fail_over::FailOverDriverConfig;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use crate::config::resolver::fail_over::FailOverResolverConfig;
 use crate::config::resolver::{AnyResolverConfig, ResolverConfig};
@@ -74,7 +74,7 @@ impl FailOverResolver {
 
 #[async_trait]
 impl ResolverInternal for FailOverResolver {
-    fn _dependent_resolver(&self) -> Option<BTreeSet<MetricsName>> {
+    fn _dependent_resolver(&self) -> Option<BTreeSet<NodeName>> {
         self.config.dependent_resolver()
     }
 
@@ -85,7 +85,7 @@ impl ResolverInternal for FailOverResolver {
     fn _update_config(
         &mut self,
         config: AnyResolverConfig,
-        dep_table: BTreeMap<MetricsName, ArcIntegratedResolverHandle>,
+        dep_table: BTreeMap<NodeName, ArcIntegratedResolverHandle>,
     ) -> anyhow::Result<()> {
         if let AnyResolverConfig::FailOver(config) = config {
             let mut driver_config = FailOverDriverConfig::default();
@@ -115,7 +115,7 @@ impl ResolverInternal for FailOverResolver {
 
     fn _update_dependent_handle(
         &mut self,
-        target: &MetricsName,
+        target: &NodeName,
         handle: ArcIntegratedResolverHandle,
     ) -> anyhow::Result<()> {
         let mut driver_config = self.driver_config.clone();

@@ -22,7 +22,7 @@ use anyhow::anyhow;
 use log::debug;
 use tokio::sync::Mutex;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::{registry, KeyServer};
 use crate::config::server::KeyServerConfig;
@@ -59,7 +59,7 @@ pub async fn start_all_stopped() -> anyhow::Result<()> {
 pub async fn spawn_all() -> anyhow::Result<()> {
     let _guard = SERVER_OPS_LOCK.lock().await;
 
-    let mut new_names = HashSet::<MetricsName>::new();
+    let mut new_names = HashSet::<NodeName>::new();
 
     let all_config = crate::config::server::get_all();
     for config in all_config {
@@ -99,7 +99,7 @@ pub async fn stop_all() {
     });
 }
 
-pub(crate) fn get_server(name: &MetricsName) -> anyhow::Result<Arc<KeyServer>> {
+pub(crate) fn get_server(name: &NodeName) -> anyhow::Result<Arc<KeyServer>> {
     match registry::get_server(name) {
         Some(server) => Ok(server),
         None => Err(anyhow!("no server named {name} found")),
@@ -129,7 +129,7 @@ fn spawn_new_lazy_unlocked(config: KeyServerConfig) {
 
 pub(crate) async fn wait_all_tasks<F>(wait_timeout: Duration, quit_timeout: Duration, on_timeout: F)
 where
-    F: Fn(&MetricsName, i32),
+    F: Fn(&NodeName, i32),
 {
     let loop_wait = async {
         loop {

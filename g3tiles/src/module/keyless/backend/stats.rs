@@ -20,11 +20,11 @@ use std::sync::Arc;
 use arc_swap::ArcSwapOption;
 
 use g3_histogram::{HistogramMetricsConfig, HistogramRecorder, HistogramStats};
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{NodeName, StaticMetricsTags};
 use g3_types::stats::StatId;
 
 pub(crate) struct KeylessBackendStats {
-    name: MetricsName,
+    name: NodeName,
     id: StatId,
     extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
 
@@ -43,7 +43,7 @@ pub(crate) struct KeylessBackendStats {
 }
 
 impl KeylessBackendStats {
-    pub(crate) fn new(name: &MetricsName) -> Self {
+    pub(crate) fn new(name: &NodeName) -> Self {
         KeylessBackendStats {
             name: name.clone(),
             id: StatId::new(),
@@ -70,7 +70,7 @@ impl KeylessBackendStats {
     }
 
     #[inline]
-    pub(crate) fn name(&self) -> &MetricsName {
+    pub(crate) fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -165,7 +165,7 @@ impl KeylessBackendStats {
 }
 
 pub(crate) struct KeylessUpstreamDurationStats {
-    name: MetricsName,
+    name: NodeName,
     id: StatId,
     extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
 
@@ -184,7 +184,7 @@ impl KeylessUpstreamDurationStats {
     }
 
     #[inline]
-    pub(crate) fn name(&self) -> &MetricsName {
+    pub(crate) fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -202,7 +202,7 @@ pub(crate) struct KeylessUpstreamDurationRecorder {
 
 impl KeylessUpstreamDurationRecorder {
     pub(crate) fn new(
-        name: &MetricsName,
+        name: &NodeName,
         config: &HistogramMetricsConfig,
     ) -> (
         KeylessUpstreamDurationRecorder,

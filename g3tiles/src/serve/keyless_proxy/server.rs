@@ -31,7 +31,7 @@ use tokio::sync::broadcast;
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo};
 use g3_types::acl::{AclAction, AclNetworkRule};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::{CommonTaskContext, KeylessForwardTask, KeylessProxyServerStats};
 use crate::backend::ArcBackend;
@@ -186,7 +186,7 @@ impl ServerInternal for KeylessProxyServer {
         Ok(())
     }
 
-    fn _depend_on_server(&self, _name: &MetricsName) -> bool {
+    fn _depend_on_server(&self, _name: &NodeName) -> bool {
         false
     }
 
@@ -220,7 +220,7 @@ impl ServerInternal for KeylessProxyServer {
 
 impl BaseServer for KeylessProxyServer {
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
@@ -282,7 +282,7 @@ impl Server for KeylessProxyServer {
         &self.quit_policy
     }
 
-    fn update_backend(&self, name: &MetricsName) {
+    fn update_backend(&self, name: &NodeName) {
         if self.config.backend.eq(name) {
             let backend = crate::backend::get_or_insert_default(name);
             self.backend_selector.store(Arc::new(backend));

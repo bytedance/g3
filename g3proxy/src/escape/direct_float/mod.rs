@@ -30,7 +30,7 @@ use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_resolver::ResolveError;
 use g3_socket::util::AddressFamily;
 use g3_types::acl::AclNetworkRule;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{Host, UpstreamAddr};
 use g3_types::resolve::{ResolveRedirection, ResolveStrategy};
 
@@ -356,7 +356,7 @@ impl DirectFloatEscaper {
 
 #[async_trait]
 impl Escaper for DirectFloatEscaper {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
@@ -449,11 +449,11 @@ impl Escaper for DirectFloatEscaper {
 
 #[async_trait]
 impl EscaperInternal for DirectFloatEscaper {
-    fn _resolver(&self) -> &MetricsName {
+    fn _resolver(&self) -> &NodeName {
         self.config.resolver()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
+    fn _dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         None
     }
 

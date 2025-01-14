@@ -21,7 +21,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::UpstreamAddr;
 
 use super::{ArcEscaper, Escaper, EscaperExt, EscaperInternal, RouteEscaperStats};
@@ -101,7 +101,7 @@ impl EscaperExt for RouteFailoverEscaper {}
 
 #[async_trait]
 impl Escaper for RouteFailoverEscaper {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
@@ -194,11 +194,11 @@ impl Escaper for RouteFailoverEscaper {
 
 #[async_trait]
 impl EscaperInternal for RouteFailoverEscaper {
-    fn _resolver(&self) -> &MetricsName {
+    fn _resolver(&self) -> &NodeName {
         Default::default()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
+    fn _dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         self.config.dependent_escaper()
     }
 

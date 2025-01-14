@@ -25,7 +25,7 @@ use g3_io_ext::LimitedCopyConfig;
 use g3_tls_ticket::TlsTicketConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
 use g3_types::collection::SelectivePickPolicy;
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{NodeName, StaticMetricsTags};
 use g3_types::net::{
     Host, OpensslClientConfigBuilder, RustlsServerConfigBuilder, TcpListenConfig, TcpMiscSockOpts,
     TcpSockSpeedLimitConfig, WeightedUpstreamAddr,
@@ -38,10 +38,10 @@ const SERVER_CONFIG_TYPE: &str = "TlsStream";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct TlsStreamServerConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
-    pub(crate) escaper: MetricsName,
-    pub(crate) auditor: MetricsName,
+    pub(crate) escaper: NodeName,
+    pub(crate) auditor: NodeName,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) listen: Option<TcpListenConfig>,
     pub(crate) listen_in_worker: bool,
@@ -66,10 +66,10 @@ pub(crate) struct TlsStreamServerConfig {
 impl TlsStreamServerConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         TlsStreamServerConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
-            escaper: MetricsName::default(),
-            auditor: MetricsName::default(),
+            escaper: NodeName::default(),
+            auditor: NodeName::default(),
             shared_logger: None,
             listen: None,
             listen_in_worker: false,
@@ -277,7 +277,7 @@ impl TlsStreamServerConfig {
 }
 
 impl ServerConfig for TlsStreamServerConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -289,15 +289,15 @@ impl ServerConfig for TlsStreamServerConfig {
         SERVER_CONFIG_TYPE
     }
 
-    fn escaper(&self) -> &MetricsName {
+    fn escaper(&self) -> &NodeName {
         &self.escaper
     }
 
-    fn user_group(&self) -> &MetricsName {
+    fn user_group(&self) -> &NodeName {
         Default::default()
     }
 
-    fn auditor(&self) -> &MetricsName {
+    fn auditor(&self) -> &NodeName {
         &self.auditor
     }
 

@@ -19,7 +19,7 @@ use std::collections::BTreeSet;
 use anyhow::anyhow;
 use yaml_rust::{yaml, Yaml};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 use super::{AnyResolverConfig, ResolverConfig, ResolverConfigDiffAction};
@@ -29,7 +29,7 @@ const RESOLVER_CONFIG_TYPE: &str = "deny-all";
 #[derive(Clone)]
 pub(crate) struct DenyAllResolverConfig {
     position: Option<YamlDocPosition>,
-    name: MetricsName,
+    name: NodeName,
 }
 
 impl DenyAllResolverConfig {
@@ -39,7 +39,7 @@ impl DenyAllResolverConfig {
     ) -> anyhow::Result<Self> {
         let mut resolver = DenyAllResolverConfig {
             position,
-            name: MetricsName::default(),
+            name: NodeName::default(),
         };
 
         g3_yaml::foreach_kv(map, |k, v| resolver.set(k, v))?;
@@ -69,7 +69,7 @@ impl DenyAllResolverConfig {
 }
 
 impl ResolverConfig for DenyAllResolverConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -89,7 +89,7 @@ impl ResolverConfig for DenyAllResolverConfig {
         ResolverConfigDiffAction::NoAction
     }
 
-    fn dependent_resolver(&self) -> Option<BTreeSet<MetricsName>> {
+    fn dependent_resolver(&self) -> Option<BTreeSet<NodeName>> {
         None
     }
 }

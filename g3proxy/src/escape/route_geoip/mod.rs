@@ -29,7 +29,7 @@ use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_geoip_types::{ContinentCode, IpLocation, IsoCountryCode};
 use g3_ip_locate::IpLocationServiceHandle;
 use g3_resolver::ResolveError;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{Host, UpstreamAddr};
 
 use super::{ArcEscaper, Escaper, EscaperInternal, RouteEscaperStats};
@@ -61,7 +61,7 @@ pub(super) struct RouteGeoIpEscaper {
     stats: Arc<RouteEscaperStats>,
     resolver_handle: ArcIntegratedResolverHandle,
     ip_locate_handle: IpLocationServiceHandle,
-    next_table: BTreeMap<MetricsName, ArcEscaper>,
+    next_table: BTreeMap<NodeName, ArcEscaper>,
     lpm_table: IpNetworkTable<ArcEscaper>,
     asn_table: FxHashMap<u32, ArcEscaper>,
     country_bitset: FixedBitSet,
@@ -242,7 +242,7 @@ impl RouteGeoIpEscaper {
 
 #[async_trait]
 impl Escaper for RouteGeoIpEscaper {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
@@ -379,11 +379,11 @@ impl Escaper for RouteGeoIpEscaper {
 
 #[async_trait]
 impl EscaperInternal for RouteGeoIpEscaper {
-    fn _resolver(&self) -> &MetricsName {
+    fn _resolver(&self) -> &NodeName {
         self.config.resolver()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
+    fn _dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         let mut set = BTreeSet::new();
         for escaper in self.next_table.keys() {
             set.insert(escaper.clone());

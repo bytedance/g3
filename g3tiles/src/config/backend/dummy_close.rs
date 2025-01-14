@@ -17,7 +17,7 @@
 use anyhow::anyhow;
 use yaml_rust::{yaml, Yaml};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 use super::{AnyBackendConfig, BackendConfig, BackendConfigDiffAction};
@@ -26,12 +26,12 @@ const BACKEND_CONFIG_TYPE: &str = "DummyClose";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct DummyCloseBackendConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
 }
 
 impl DummyCloseBackendConfig {
-    pub(crate) fn new(name: &MetricsName, position: Option<YamlDocPosition>) -> Self {
+    pub(crate) fn new(name: &NodeName, position: Option<YamlDocPosition>) -> Self {
         DummyCloseBackendConfig {
             name: name.clone(),
             position,
@@ -43,7 +43,7 @@ impl DummyCloseBackendConfig {
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
         let mut server = DummyCloseBackendConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
         };
         g3_yaml::foreach_kv(map, |k, v| server.set(k, v))?;
@@ -71,7 +71,7 @@ impl DummyCloseBackendConfig {
 }
 
 impl BackendConfig for DummyCloseBackendConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 

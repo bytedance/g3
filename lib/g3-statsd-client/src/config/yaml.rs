@@ -22,7 +22,7 @@ use std::str::FromStr;
 use anyhow::{anyhow, Context};
 use yaml_rust::Yaml;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::{StatsdBackend, StatsdClientConfig};
 
@@ -97,7 +97,7 @@ impl StatsdBackend {
 }
 
 impl StatsdClientConfig {
-    pub fn parse_yaml(v: &Yaml, prefix: MetricsName) -> anyhow::Result<Self> {
+    pub fn parse_yaml(v: &Yaml, prefix: NodeName) -> anyhow::Result<Self> {
         if let Yaml::Hash(map) = v {
             let mut config = StatsdClientConfig::with_prefix(prefix);
 

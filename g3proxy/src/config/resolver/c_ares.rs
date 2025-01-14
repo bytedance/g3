@@ -23,7 +23,7 @@ use yaml_rust::{yaml, Yaml};
 
 use g3_resolver::driver::c_ares::CAresDriverConfig;
 use g3_resolver::{AnyResolveDriverConfig, ResolverRuntimeConfig};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 use super::{AnyResolverConfig, ResolverConfigDiffAction};
@@ -32,7 +32,7 @@ const RESOLVER_CONFIG_TYPE: &str = "c-ares";
 
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct CAresResolverConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
     runtime: ResolverRuntimeConfig,
     driver: CAresDriverConfig,
@@ -51,7 +51,7 @@ impl From<&CAresResolverConfig> for g3_resolver::ResolverConfig {
 impl CAresResolverConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         CAresResolverConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             runtime: Default::default(),
             driver: Default::default(),
@@ -213,7 +213,7 @@ impl CAresResolverConfig {
 }
 
 impl super::ResolverConfig for CAresResolverConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -237,7 +237,7 @@ impl super::ResolverConfig for CAresResolverConfig {
         ResolverConfigDiffAction::Update
     }
 
-    fn dependent_resolver(&self) -> Option<BTreeSet<MetricsName>> {
+    fn dependent_resolver(&self) -> Option<BTreeSet<NodeName>> {
         None
     }
 }

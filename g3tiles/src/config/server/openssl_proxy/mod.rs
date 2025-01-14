@@ -24,7 +24,7 @@ use yaml_rust::{yaml, Yaml};
 use g3_io_ext::LimitedCopyConfig;
 use g3_tls_ticket::TlsTicketConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{NodeName, StaticMetricsTags};
 use g3_types::net::{TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig};
 use g3_types::route::HostMatch;
 use g3_yaml::YamlDocPosition;
@@ -39,7 +39,7 @@ const SERVER_CONFIG_TYPE: &str = "OpensslProxy";
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct OpensslProxyServerConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) listen: TcpListenConfig,
@@ -65,7 +65,7 @@ pub(crate) struct OpensslProxyServerConfig {
 impl OpensslProxyServerConfig {
     pub(crate) fn new(position: Option<YamlDocPosition>) -> Self {
         OpensslProxyServerConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             shared_logger: None,
             listen: TcpListenConfig::default(),
@@ -226,7 +226,7 @@ impl OpensslProxyServerConfig {
 }
 
 impl ServerConfig for OpensslProxyServerConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 

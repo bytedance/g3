@@ -21,7 +21,7 @@ use chrono::{DateTime, Utc};
 use openssl::ssl::Ssl;
 
 use g3_socket::BindAddr;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{EgressInfo, Host, OpensslClientConfig, UpstreamAddr};
 
 use super::TcpConnectError;
@@ -64,7 +64,7 @@ impl TcpConnectChainedNotes {
 
 #[derive(Debug, Default, Clone)]
 pub(crate) struct TcpConnectTaskNotes {
-    pub(crate) escaper: MetricsName,
+    pub(crate) escaper: NodeName,
     pub(crate) bind: BindAddr,
     pub(crate) next: Option<SocketAddr>,
     pub(crate) tries: usize,

@@ -22,7 +22,7 @@ use anyhow::{anyhow, Context};
 use ip_network::IpNetwork;
 use yaml_rust::{yaml, Yaml};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::Host;
 use g3_yaml::YamlDocPosition;
 
@@ -32,27 +32,27 @@ const ESCAPER_CONFIG_TYPE: &str = "RouteUpstream";
 
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct RouteUpstreamEscaperConfig {
-    pub(crate) name: MetricsName,
+    pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
-    pub(crate) exact_match_domain: BTreeMap<MetricsName, BTreeSet<Arc<str>>>,
-    pub(crate) exact_match_ipaddr: BTreeMap<MetricsName, BTreeSet<IpAddr>>,
-    pub(crate) subnet_match_ipaddr: BTreeMap<MetricsName, BTreeSet<IpNetwork>>,
-    pub(crate) radix_match_domain: BTreeMap<MetricsName, BTreeSet<String>>,
-    pub(crate) child_match_domain: BTreeMap<MetricsName, BTreeSet<String>>,
-    pub(crate) default_next: MetricsName,
+    pub(crate) exact_match_domain: BTreeMap<NodeName, BTreeSet<Arc<str>>>,
+    pub(crate) exact_match_ipaddr: BTreeMap<NodeName, BTreeSet<IpAddr>>,
+    pub(crate) subnet_match_ipaddr: BTreeMap<NodeName, BTreeSet<IpNetwork>>,
+    pub(crate) radix_match_domain: BTreeMap<NodeName, BTreeSet<String>>,
+    pub(crate) child_match_domain: BTreeMap<NodeName, BTreeSet<String>>,
+    pub(crate) default_next: NodeName,
 }
 
 impl RouteUpstreamEscaperConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         RouteUpstreamEscaperConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             exact_match_domain: BTreeMap::new(),
             exact_match_ipaddr: BTreeMap::new(),
             subnet_match_ipaddr: BTreeMap::new(),
             radix_match_domain: BTreeMap::new(),
             child_match_domain: BTreeMap::new(),
-            default_next: MetricsName::default(),
+            default_next: NodeName::default(),
         }
     }
 
@@ -144,7 +144,7 @@ impl RouteUpstreamEscaperConfig {
     }
 
     fn add_exact_match(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
-        let mut escaper = MetricsName::default();
+        let mut escaper = NodeName::default();
         let mut all_ipaddr = BTreeSet::new();
         let mut all_domain = BTreeSet::new();
         g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
@@ -190,7 +190,7 @@ impl RouteUpstreamEscaperConfig {
     }
 
     fn add_subnet_match(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
-        let mut escaper = MetricsName::default();
+        let mut escaper = NodeName::default();
         let mut all_subnets = BTreeSet::<IpNetwork>::new();
         g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
             "next" | "escaper" => {
@@ -226,7 +226,7 @@ impl RouteUpstreamEscaperConfig {
     }
 
     fn add_child_match(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
-        let mut escaper = MetricsName::default();
+        let mut escaper = NodeName::default();
         let mut all_domain = BTreeSet::<String>::new();
         g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
             "next" | "escaper" => {
@@ -259,7 +259,7 @@ impl RouteUpstreamEscaperConfig {
     }
 
     fn add_radix_match(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
-        let mut escaper = MetricsName::default();
+        let mut escaper = NodeName::default();
         let mut all_domain = BTreeSet::<String>::new();
         g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
             "next" | "escaper" => {
@@ -293,7 +293,7 @@ impl RouteUpstreamEscaperConfig {
 }
 
 impl EscaperConfig for RouteUpstreamEscaperConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -305,7 +305,7 @@ impl EscaperConfig for RouteUpstreamEscaperConfig {
         ESCAPER_CONFIG_TYPE
     }
 
-    fn resolver(&self) -> &MetricsName {
+    fn resolver(&self) -> &NodeName {
         Default::default()
     }
 
@@ -321,7 +321,7 @@ impl EscaperConfig for RouteUpstreamEscaperConfig {
         EscaperConfigDiffAction::Reload
     }
 
-    fn dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
+    fn dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         let mut set = BTreeSet::new();
         set.insert(self.default_next.clone());
         for key in self.exact_match_ipaddr.keys() {

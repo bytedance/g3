@@ -19,16 +19,16 @@ use std::rc::{Rc, Weak};
 
 use anyhow::{anyhow, Context};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 pub struct TopoNode {
-    name: MetricsName,
-    children: BTreeMap<MetricsName, Weak<TopoNode>>,
-    all_children: BTreeMap<MetricsName, Weak<TopoNode>>,
+    name: NodeName,
+    children: BTreeMap<NodeName, Weak<TopoNode>>,
+    all_children: BTreeMap<NodeName, Weak<TopoNode>>,
 }
 
 impl TopoNode {
-    fn new(name: MetricsName) -> Self {
+    fn new(name: NodeName) -> Self {
         TopoNode {
             name,
             children: BTreeMap::new(),
@@ -36,25 +36,25 @@ impl TopoNode {
         }
     }
 
-    pub fn name(&self) -> &MetricsName {
+    pub fn name(&self) -> &NodeName {
         &self.name
     }
 }
 
 #[derive(Default)]
 pub struct TopoMap {
-    map: BTreeMap<MetricsName, Rc<TopoNode>>,
+    map: BTreeMap<NodeName, Rc<TopoNode>>,
 }
 
 impl TopoMap {
     fn add_node_internal<F>(
         &mut self,
-        name: &MetricsName,
-        parents: &mut Vec<MetricsName>,
+        name: &NodeName,
+        parents: &mut Vec<NodeName>,
         resolve_children: &F,
     ) -> anyhow::Result<Rc<TopoNode>>
     where
-        F: Fn(&MetricsName) -> Option<BTreeSet<MetricsName>>,
+        F: Fn(&NodeName) -> Option<BTreeSet<NodeName>>,
     {
         if let Some(v) = self.map.get(name) {
             return Ok(v.clone());
@@ -95,9 +95,9 @@ impl TopoMap {
         Ok(node)
     }
 
-    pub fn add_node<F>(&mut self, name: &MetricsName, resolve_children: &F) -> anyhow::Result<()>
+    pub fn add_node<F>(&mut self, name: &NodeName, resolve_children: &F) -> anyhow::Result<()>
     where
-        F: Fn(&MetricsName) -> Option<BTreeSet<MetricsName>>,
+        F: Fn(&NodeName) -> Option<BTreeSet<NodeName>>,
     {
         if self.map.contains_key(name) {
             return Ok(());
@@ -130,13 +130,13 @@ mod tests {
 
     #[test]
     fn single() {
-        let get_child = |name: &MetricsName| match name.as_str() {
+        let get_child = |name: &NodeName| match name.as_str() {
             _ => None,
         };
 
         let mut topo_map = TopoMap::default();
         topo_map
-            .add_node(&MetricsName::from_str("a").unwrap(), &get_child)
+            .add_node(&NodeName::from_str("a").unwrap(), &get_child)
             .unwrap();
         let sorted_nodes = topo_map.sorted_nodes();
         assert_eq!(sorted_nodes.len(), 1);
@@ -145,16 +145,16 @@ mod tests {
 
     #[test]
     fn two_unrelated() {
-        let get_child = |name: &MetricsName| match name.as_str() {
+        let get_child = |name: &NodeName| match name.as_str() {
             _ => None,
         };
 
         let mut topo_map = TopoMap::default();
         topo_map
-            .add_node(&MetricsName::from_str("a").unwrap(), &get_child)
+            .add_node(&NodeName::from_str("a").unwrap(), &get_child)
             .unwrap();
         topo_map
-            .add_node(&MetricsName::from_str("b").unwrap(), &get_child)
+            .add_node(&NodeName::from_str("b").unwrap(), &get_child)
             .unwrap();
         let sorted_nodes = topo_map.sorted_nodes();
         assert_eq!(sorted_nodes.len(), 2);
@@ -162,10 +162,10 @@ mod tests {
 
     #[test]
     fn two_directed() {
-        let get_child = |name: &MetricsName| match name.as_str() {
+        let get_child = |name: &NodeName| match name.as_str() {
             "a" => {
                 let mut set = BTreeSet::new();
-                set.insert(MetricsName::from_str("b").unwrap());
+                set.insert(NodeName::from_str("b").unwrap());
                 Some(set)
             }
             _ => None,
@@ -173,10 +173,10 @@ mod tests {
 
         let mut topo_map = TopoMap::default();
         topo_map
-            .add_node(&MetricsName::from_str("a").unwrap(), &get_child)
+            .add_node(&NodeName::from_str("a").unwrap(), &get_child)
             .unwrap();
         topo_map
-            .add_node(&MetricsName::from_str("b").unwrap(), &get_child)
+            .add_node(&NodeName::from_str("b").unwrap(), &get_child)
             .unwrap();
         let sorted_nodes = topo_map.sorted_nodes();
         assert_eq!(sorted_nodes.len(), 2);
@@ -186,15 +186,15 @@ mod tests {
 
     #[test]
     fn two_cycled() {
-        let get_child = |name: &MetricsName| match name.as_str() {
+        let get_child = |name: &NodeName| match name.as_str() {
             "a" => {
                 let mut set = BTreeSet::new();
-                set.insert(MetricsName::from_str("b").unwrap());
+                set.insert(NodeName::from_str("b").unwrap());
                 Some(set)
             }
             "b" => {
                 let mut set = BTreeSet::new();
-                set.insert(MetricsName::from_str("a").unwrap());
+                set.insert(NodeName::from_str("a").unwrap());
                 Some(set)
             }
             _ => None,
@@ -202,21 +202,21 @@ mod tests {
 
         let mut topo_map = TopoMap::default();
         assert!(topo_map
-            .add_node(&MetricsName::from_str("a").unwrap(), &get_child)
+            .add_node(&NodeName::from_str("a").unwrap(), &get_child)
             .is_err());
     }
 
     #[test]
     fn three_directed() {
-        let get_child = |name: &MetricsName| match name.as_str() {
+        let get_child = |name: &NodeName| match name.as_str() {
             "a" => {
                 let mut set = BTreeSet::new();
-                set.insert(MetricsName::from_str("b").unwrap());
+                set.insert(NodeName::from_str("b").unwrap());
                 Some(set)
             }
             "b" => {
                 let mut set = BTreeSet::new();
-                set.insert(MetricsName::from_str("c").unwrap());
+                set.insert(NodeName::from_str("c").unwrap());
                 Some(set)
             }
             _ => None,
@@ -224,13 +224,13 @@ mod tests {
 
         let mut topo_map = TopoMap::default();
         topo_map
-            .add_node(&MetricsName::from_str("a").unwrap(), &get_child)
+            .add_node(&NodeName::from_str("a").unwrap(), &get_child)
             .unwrap();
         topo_map
-            .add_node(&MetricsName::from_str("b").unwrap(), &get_child)
+            .add_node(&NodeName::from_str("b").unwrap(), &get_child)
             .unwrap();
         topo_map
-            .add_node(&MetricsName::from_str("c").unwrap(), &get_child)
+            .add_node(&NodeName::from_str("c").unwrap(), &get_child)
             .unwrap();
         let sorted_nodes = topo_map.sorted_nodes();
         assert_eq!(sorted_nodes.len(), 3);
@@ -241,10 +241,10 @@ mod tests {
 
     #[test]
     fn three_split() {
-        let get_child = |name: &MetricsName| match name.as_str() {
+        let get_child = |name: &NodeName| match name.as_str() {
             "a" => {
                 let mut set = BTreeSet::new();
-                set.insert(MetricsName::from_str("b").unwrap());
+                set.insert(NodeName::from_str("b").unwrap());
                 Some(set)
             }
             _ => None,
@@ -252,13 +252,13 @@ mod tests {
 
         let mut topo_map = TopoMap::default();
         topo_map
-            .add_node(&MetricsName::from_str("a").unwrap(), &get_child)
+            .add_node(&NodeName::from_str("a").unwrap(), &get_child)
             .unwrap();
         topo_map
-            .add_node(&MetricsName::from_str("b").unwrap(), &get_child)
+            .add_node(&NodeName::from_str("b").unwrap(), &get_child)
             .unwrap();
         topo_map
-            .add_node(&MetricsName::from_str("c").unwrap(), &get_child)
+            .add_node(&NodeName::from_str("c").unwrap(), &get_child)
             .unwrap();
         let sorted_nodes = topo_map.sorted_nodes();
         assert_eq!(sorted_nodes.len(), 3);
@@ -267,20 +267,20 @@ mod tests {
 
     #[test]
     fn three_cycled() {
-        let get_child = |name: &MetricsName| match name.as_str() {
+        let get_child = |name: &NodeName| match name.as_str() {
             "a" => {
                 let mut set = BTreeSet::new();
-                set.insert(MetricsName::from_str("b").unwrap());
+                set.insert(NodeName::from_str("b").unwrap());
                 Some(set)
             }
             "b" => {
                 let mut set = BTreeSet::new();
-                set.insert(MetricsName::from_str("c").unwrap());
+                set.insert(NodeName::from_str("c").unwrap());
                 Some(set)
             }
             "c" => {
                 let mut set = BTreeSet::new();
-                set.insert(MetricsName::from_str("a").unwrap());
+                set.insert(NodeName::from_str("a").unwrap());
                 Some(set)
             }
             _ => None,
@@ -288,32 +288,32 @@ mod tests {
 
         let mut topo_map = TopoMap::default();
         assert!(topo_map
-            .add_node(&MetricsName::from_str("a").unwrap(), &get_child)
+            .add_node(&NodeName::from_str("a").unwrap(), &get_child)
             .is_err());
     }
 
     #[test]
     fn many_cycled() {
-        let get_child = |name: &MetricsName| match name.as_str() {
+        let get_child = |name: &NodeName| match name.as_str() {
             "a" => {
                 let mut set = BTreeSet::new();
-                set.insert(MetricsName::from_str("b").unwrap());
-                set.insert(MetricsName::from_str("c").unwrap());
+                set.insert(NodeName::from_str("b").unwrap());
+                set.insert(NodeName::from_str("c").unwrap());
                 Some(set)
             }
             "b" => {
                 let mut set = BTreeSet::new();
-                set.insert(MetricsName::from_str("e").unwrap());
+                set.insert(NodeName::from_str("e").unwrap());
                 Some(set)
             }
             "c" => {
                 let mut set = BTreeSet::new();
-                set.insert(MetricsName::from_str("d").unwrap());
+                set.insert(NodeName::from_str("d").unwrap());
                 Some(set)
             }
             "d" => {
                 let mut set = BTreeSet::new();
-                set.insert(MetricsName::from_str("a").unwrap());
+                set.insert(NodeName::from_str("a").unwrap());
                 Some(set)
             }
             _ => None,
@@ -321,10 +321,10 @@ mod tests {
 
         let mut topo_map = TopoMap::default();
         topo_map
-            .add_node(&MetricsName::from_str("b").unwrap(), &get_child)
+            .add_node(&NodeName::from_str("b").unwrap(), &get_child)
             .unwrap();
         assert!(topo_map
-            .add_node(&MetricsName::from_str("a").unwrap(), &get_child)
+            .add_node(&NodeName::from_str("a").unwrap(), &get_child)
             .is_err());
     }
 }
