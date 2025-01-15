@@ -14,19 +14,8 @@
  * limitations under the License.
  */
 
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
+mod tcp;
+pub use tcp::TcpConnectInfo;
 
-use hickory_proto::ProtoError;
-
-pub(crate) fn udp_connect(
-    name_server: SocketAddr,
-    bind_addr: Option<SocketAddr>,
-) -> Result<UdpSocket, ProtoError> {
-    let bind_addr = bind_addr.unwrap_or_else(|| match name_server {
-        SocketAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
-        SocketAddr::V6(_) => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
-    });
-    let sock = UdpSocket::bind(bind_addr)?;
-    sock.connect(name_server)?;
-    Ok(sock)
-}
+mod udp;
+pub use udp::UdpConnectInfo;

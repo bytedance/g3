@@ -120,8 +120,8 @@ impl ProxyFloatSocks5Peer {
             buf_conf,
             escaper.config.udp_misc_opts,
         )?;
+        socket.connect(peer_udp_addr)?;
         let socket = UdpSocket::from_std(socket)?;
-        socket.connect(peer_udp_addr).await?;
         let listen_addr = socket.local_addr()?;
 
         Ok((ctl_stream, socket, listen_addr, peer_udp_addr))

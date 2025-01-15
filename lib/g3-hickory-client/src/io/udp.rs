@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
@@ -23,18 +22,18 @@ use futures_util::Stream;
 use hickory_proto::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
 use hickory_proto::{ProtoError, ProtoErrorKind};
 
+use g3_socket::UdpConnectInfo;
+
 /// Max size for the UDP receive buffer as recommended by
 /// [RFC6891](https://datatracker.ietf.org/doc/html/rfc6891#section-6.2.5).
 const MAX_RECEIVE_BUFFER_SIZE: usize = 4_096;
 
 pub async fn connect(
-    name_server: SocketAddr,
-    bind_addr: Option<SocketAddr>,
+    connect_info: UdpConnectInfo,
     request_timeout: Duration,
 ) -> Result<UdpClientStream, ProtoError> {
     Ok(UdpClientStream {
-        name_server,
-        bind_addr,
+        connect_info,
         request_timeout,
         is_shutdown: false,
     })
@@ -43,8 +42,7 @@ pub async fn connect(
 /// A UDP client stream of DNS binary packets
 #[must_use = "futures do nothing unless polled"]
 pub struct UdpClientStream {
-    name_server: SocketAddr,
-    bind_addr: Option<SocketAddr>,
+    connect_info: UdpConnectInfo,
     request_timeout: Duration,
     is_shutdown: bool,
 }
@@ -56,8 +54,7 @@ impl DnsRequestSender for UdpClientStream {
         }
 
         Box::pin(timed_udp_send_recv(
-            self.name_server,
-            self.bind_addr,
+            self.connect_info.clone(),
             message,
             self.request_timeout,
         ))
@@ -86,29 +83,24 @@ impl Stream for UdpClientStream {
 }
 
 async fn timed_udp_send_recv(
-    name_server: SocketAddr,
-    bind_addr: Option<SocketAddr>,
+    connect_info: UdpConnectInfo,
     request: DnsRequest,
     request_timeout: Duration,
 ) -> Result<DnsResponse, ProtoError> {
-    tokio::time::timeout(
-        request_timeout,
-        udp_send_recv(name_server, bind_addr, request),
-    )
-    .await
-    .map_err(|_| ProtoErrorKind::Timeout)?
+    tokio::time::timeout(request_timeout, udp_send_recv(connect_info, request))
+        .await
+        .map_err(|_| ProtoErrorKind::Timeout)?
 }
 
 async fn udp_send_recv(
-    name_server: SocketAddr,
-    bind_addr: Option<SocketAddr>,
+    connect_info: UdpConnectInfo,
     mut request: DnsRequest,
 ) -> Result<DnsResponse, ProtoError> {
     // set a random ID
     let id = fastrand::u16(..);
     request.set_id(id);
 
-    let socket = crate::connect::udp::udp_connect(name_server, bind_addr)?;
+    let socket = connect_info.udp_connect()?;
     let socket = tokio::net::UdpSocket::from_std(socket)?;
 
     let bytes = request.to_vec()?;

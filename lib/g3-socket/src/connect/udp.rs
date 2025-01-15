@@ -14,23 +14,26 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
+use std::io;
+use std::net::{SocketAddr, UdpSocket};
 
-use hickory_proto::ProtoError;
-use tokio::net::{TcpSocket, TcpStream};
+use g3_types::net::{SocketBufferConfig, UdpMiscSockOpts};
 
-pub(crate) async fn tcp_connect(
-    name_server: SocketAddr,
-    bind_addr: Option<SocketAddr>,
-) -> Result<TcpStream, ProtoError> {
-    let socket = match name_server {
-        SocketAddr::V4(_) => TcpSocket::new_v4(),
-        SocketAddr::V6(_) => TcpSocket::new_v6(),
-    }?;
-    if let Some(addr) = bind_addr {
-        socket.bind(addr)?;
+use crate::BindAddr;
+
+#[derive(Clone)]
+pub struct UdpConnectInfo {
+    pub server: SocketAddr,
+    pub bind: BindAddr,
+    pub buf_conf: SocketBufferConfig,
+    pub misc_opts: UdpMiscSockOpts,
+}
+
+impl UdpConnectInfo {
+    pub fn udp_connect(&self) -> io::Result<UdpSocket> {
+        let socket =
+            crate::udp::new_std_socket_to(self.server, &self.bind, self.buf_conf, self.misc_opts)?;
+        socket.connect(self.server)?;
+        Ok(socket)
     }
-
-    let tcp_stream = socket.connect(name_server).await?;
-    Ok(tcp_stream)
 }

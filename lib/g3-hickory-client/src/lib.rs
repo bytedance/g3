@@ -14,5 +14,6 @@
  * limitations under the License.
  */
 
-pub mod connect;
+mod connect;
+
 pub mod io;
