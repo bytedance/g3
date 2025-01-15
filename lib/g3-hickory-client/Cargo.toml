@@ -12,6 +12,7 @@ futures-util.workspace = true
 http.workspace = true
 h2.workspace = true
 bytes.workspace = true
+fastrand.workspace = true
 tokio = { workspace = true, features = ["net", "time"] }
 rustls.workspace = true
 rustls-pki-types.workspace = true

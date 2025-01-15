@@ -23,7 +23,6 @@ use anyhow::anyhow;
 use async_recursion::async_recursion;
 use hickory_client::client::{Client, ClientHandle};
 use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
-use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::BufDnsStreamHandle;
 use rustls::ClientConfig;
 use rustls_pki_types::ServerName;
@@ -274,12 +273,9 @@ impl HickoryClientConfig {
     async fn new_dns_over_udp_client(&self) -> anyhow::Result<Client> {
         // random port is used here
         let client_connect =
-            hickory_proto::udp::UdpClientStream::builder(self.target, TokioRuntimeProvider::new())
-                .with_bind_addr(self.bind)
-                .with_timeout(Some(self.request_timeout))
-                .build();
+            g3_hickory_client::io::udp::connect(self.target, self.bind, self.request_timeout);
 
-        let (client, bg) = Client::connect(client_connect)
+        let (client, bg) = Client::connect(Box::pin(client_connect))
             .await
             .map_err(|e| anyhow!("failed to create udp async client: {e}"))?;
         tokio::spawn(bg);
