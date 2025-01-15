@@ -28,6 +28,7 @@ use rustls::ClientConfig;
 use rustls_pki_types::ServerName;
 use tokio::sync::mpsc;
 
+use g3_socket::{BindAddr, TcpConnectInfo, UdpConnectInfo};
 use g3_types::net::{DnsEncryptionConfig, DnsEncryptionProtocol};
 
 use crate::{ResolveDriverError, ResolveError, ResolvedRecord};
@@ -227,7 +228,7 @@ impl HickoryClientJob {
 #[derive(Clone)]
 pub(super) struct HickoryClientConfig {
     pub(super) target: SocketAddr,
-    pub(super) bind: Option<SocketAddr>,
+    pub(super) bind: BindAddr,
     pub(super) encryption: Option<DnsEncryptionConfig>,
     pub(super) connect_timeout: Duration,
     pub(super) request_timeout: Duration,
@@ -270,10 +271,28 @@ impl HickoryClientConfig {
         }
     }
 
+    fn tcp_connect_info(&self) -> TcpConnectInfo {
+        TcpConnectInfo {
+            server: self.target,
+            bind: self.bind,
+            keepalive: Default::default(),
+            misc_opts: Default::default(),
+        }
+    }
+
+    fn udp_connect_info(&self) -> UdpConnectInfo {
+        UdpConnectInfo {
+            server: self.target,
+            bind: self.bind,
+            buf_conf: Default::default(),
+            misc_opts: Default::default(),
+        }
+    }
+
     async fn new_dns_over_udp_client(&self) -> anyhow::Result<Client> {
         // random port is used here
         let client_connect =
-            g3_hickory_client::io::udp::connect(self.target, self.bind, self.request_timeout);
+            g3_hickory_client::io::udp::connect(self.udp_connect_info(), self.request_timeout);
 
         let (client, bg) = Client::connect(Box::pin(client_connect))
             .await
@@ -286,8 +305,7 @@ impl HickoryClientConfig {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(self.target);
 
         let tcp_connect = g3_hickory_client::io::tcp::connect(
-            self.target,
-            self.bind,
+            self.tcp_connect_info(),
             outbound_messages,
             self.connect_timeout,
         );
@@ -312,8 +330,7 @@ impl HickoryClientConfig {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(self.target);
 
         let tls_connect = g3_hickory_client::io::tls::connect(
-            self.target,
-            self.bind,
+            self.tcp_connect_info(),
             tls_client,
             tls_name,
             outbound_messages,
@@ -338,8 +355,7 @@ impl HickoryClientConfig {
         tls_name: ServerName<'static>,
     ) -> anyhow::Result<Client> {
         let client_connect = g3_hickory_client::io::h2::connect(
-            self.target,
-            self.bind,
+            self.tcp_connect_info(),
             tls_client,
             tls_name,
             self.connect_timeout,
@@ -366,8 +382,7 @@ impl HickoryClientConfig {
         };
 
         let client_connect = g3_hickory_client::io::quic::connect(
-            self.target,
-            self.bind,
+            self.udp_connect_info(),
             tls_client,
             tls_name,
             self.connect_timeout,
@@ -394,8 +409,7 @@ impl HickoryClientConfig {
         };
 
         let client_connect = g3_hickory_client::io::h3::connect(
-            self.target,
-            self.bind,
+            self.udp_connect_info(),
             tls_client,
             tls_name,
             self.connect_timeout,

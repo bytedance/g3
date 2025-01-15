@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
 use std::time::Duration;
 
 use hickory_proto::runtime::iocompat::AsyncIoTokioAsStd;
@@ -22,22 +21,20 @@ use hickory_proto::tcp::{DnsTcpStream, TcpClientStream, TcpStream};
 use hickory_proto::xfer::StreamReceiver;
 use hickory_proto::ProtoError;
 
+use g3_socket::TcpConnectInfo;
+
 pub async fn connect(
-    name_server: SocketAddr,
-    bind_addr: Option<SocketAddr>,
+    connect_info: TcpConnectInfo,
     outbound_messages: StreamReceiver,
     connect_timeout: Duration,
 ) -> Result<TcpClientStream<impl DnsTcpStream>, ProtoError> {
-    let tls_stream = tokio::time::timeout(
-        connect_timeout,
-        crate::connect::tcp::tcp_connect(name_server, bind_addr),
-    )
-    .await
-    .map_err(|_| ProtoError::from("tcp connect timed out"))??;
+    let tls_stream = tokio::time::timeout(connect_timeout, connect_info.tcp_connect())
+        .await
+        .map_err(|_| ProtoError::from("tcp connect timed out"))??;
 
     let stream = TcpStream::from_stream_with_receiver(
         AsyncIoTokioAsStd(tls_stream),
-        name_server,
+        connect_info.server,
         outbound_messages,
     );
     Ok(TcpClientStream::from_stream(stream))

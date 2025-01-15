@@ -23,6 +23,7 @@ use yaml_rust::{yaml, Yaml};
 
 use g3_resolver::driver::hickory::HickoryDriverConfig;
 use g3_resolver::{AnyResolveDriverConfig, ResolverRuntimeConfig};
+use g3_socket::BindAddr;
 use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
@@ -59,8 +60,8 @@ impl HickoryResolverConfig {
     }
 
     #[inline]
-    pub(crate) fn get_bind_ip(&self) -> Option<IpAddr> {
-        self.driver.get_bind_ip()
+    pub(crate) fn get_bind_addr(&self) -> BindAddr {
+        self.driver.get_bind_addr()
     }
 
     #[inline]
@@ -140,6 +141,13 @@ impl HickoryResolverConfig {
             "bind_ip" => {
                 let ip = g3_yaml::value::as_ipaddr(v)?;
                 self.driver.set_bind_ip(ip);
+                Ok(())
+            }
+            #[cfg(any(target_os = "linux", target_os = "android"))]
+            "bind_interface" => {
+                let interface = g3_yaml::value::as_interface_name(v)
+                    .context(format!("invalid interface name value for key {k}"))?;
+                self.driver.set_bind_interface(interface);
                 Ok(())
             }
             "positive_min_ttl" => {

@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -28,12 +27,13 @@ use hickory_proto::{ProtoError, ProtoErrorKind};
 use http::Version;
 use rustls::ClientConfig;
 
+use g3_socket::UdpConnectInfo;
+
 use super::http::request::HttpDnsRequestBuilder;
 use super::http::response::HttpDnsResponse;
 
 pub async fn connect(
-    name_server: SocketAddr,
-    bind_addr: Option<SocketAddr>,
+    connect_info: UdpConnectInfo,
     tls_config: ClientConfig,
     tls_name: String,
     connect_timeout: Duration,
@@ -41,7 +41,7 @@ pub async fn connect(
 ) -> Result<H3ClientStream, ProtoError> {
     let connection = tokio::time::timeout(
         connect_timeout,
-        crate::connect::quinn::quic_connect(name_server, bind_addr, tls_config, &tls_name, b"h3"),
+        crate::connect::quinn::quic_connect(connect_info, tls_config, &tls_name, b"h3"),
     )
     .await
     .map_err(|_| ProtoError::from("quic connect timed out"))??;

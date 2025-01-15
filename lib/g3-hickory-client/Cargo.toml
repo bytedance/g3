@@ -20,6 +20,7 @@ tokio-rustls.workspace = true
 quinn = { workspace = true, optional = true, features = ["rustls"] }
 h3 = { workspace = true, optional = true }
 h3-quinn = { workspace = true, optional = true }
+g3-socket.workspace = true
 
 [features]
 default = []

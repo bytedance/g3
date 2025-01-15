@@ -1136,6 +1136,7 @@ dependencies = [
  "bytes",
  "fastrand",
  "futures-util",
+ "g3-socket",
  "h2",
  "h3",
  "h3-quinn",
@@ -1359,6 +1360,7 @@ dependencies = [
  "c-ares-sys",
  "flume",
  "g3-hickory-client",
+ "g3-socket",
  "g3-types",
  "hickory-client",
  "hickory-proto",
@@ -1389,6 +1391,7 @@ name = "g3-slog-types"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "g3-socket",
  "g3-types",
  "h2",
  "http",

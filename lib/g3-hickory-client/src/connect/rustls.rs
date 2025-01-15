@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
 use std::sync::Arc;
 
 use hickory_proto::ProtoError;
@@ -24,14 +23,15 @@ use tokio::net::TcpStream;
 use tokio_rustls::client::TlsStream;
 use tokio_rustls::TlsConnector;
 
+use g3_socket::TcpConnectInfo;
+
 pub(crate) async fn tls_connect(
-    name_server: SocketAddr,
-    bind_addr: Option<SocketAddr>,
+    connect_info: &TcpConnectInfo,
     mut tls_config: ClientConfig,
     tls_name: ServerName<'static>,
     alpn_protocol: &'static [u8],
 ) -> Result<TlsStream<TcpStream>, ProtoError> {
-    let tcp_stream = super::tcp::tcp_connect(name_server, bind_addr).await?;
+    let tcp_stream = connect_info.tcp_connect().await?;
 
     if tls_config.alpn_protocols.is_empty() {
         tls_config.alpn_protocols = vec![alpn_protocol.to_vec()];

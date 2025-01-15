@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
 use std::sync::Arc;
 
 use hickory_proto::ProtoError;
@@ -22,14 +21,15 @@ use quinn::crypto::rustls::QuicClientConfig;
 use quinn::{Connection, Endpoint, EndpointConfig, TokioRuntime};
 use rustls::ClientConfig;
 
+use g3_socket::UdpConnectInfo;
+
 pub(crate) async fn quic_connect(
-    name_server: SocketAddr,
-    bind_addr: Option<SocketAddr>,
+    connect_info: UdpConnectInfo,
     mut tls_config: ClientConfig,
     tls_name: &str,
     alpn_protocol: &'static [u8],
 ) -> Result<Connection, ProtoError> {
-    let sock = super::udp::udp_connect(name_server, bind_addr)?;
+    let sock = connect_info.udp_connect()?;
 
     let endpoint_config = EndpointConfig::default(); // TODO set max payload size
     let mut endpoint = Endpoint::new(endpoint_config, None, sock, Arc::new(TokioRuntime))?;
@@ -44,7 +44,7 @@ pub(crate) async fn quic_connect(
     endpoint.set_default_client_config(client_config);
 
     let connection = endpoint
-        .connect(name_server, tls_name)
+        .connect(connect_info.server, tls_name)
         .map_err(|e| format!("quinn endpoint create error: {e}"))?
         .await
         .map_err(|e| format!("quinn endpoint connect error: {e}"))?;

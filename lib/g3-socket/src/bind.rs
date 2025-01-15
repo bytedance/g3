@@ -28,7 +28,7 @@ use super::sockopt::set_bind_address_no_port;
 use super::sockopt::set_reuse_unicastport;
 use crate::util::AddressFamily;
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum BindAddr {
     #[default]
     None,

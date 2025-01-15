@@ -15,8 +15,10 @@ http = { workspace = true, optional = true }
 h2 = { workspace = true, optional = true }
 openssl = { workspace = true, optional = true }
 g3-types.workspace = true
+g3-socket = { workspace = true, optional = true }
 
 [features]
 default = []
+socket = ["dep:g3-socket"]
 http = ["dep:memchr", "dep:http", "dep:h2"]
 openssl = ["dep:openssl"]
