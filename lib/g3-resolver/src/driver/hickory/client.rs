@@ -23,11 +23,10 @@ use anyhow::anyhow;
 use async_recursion::async_recursion;
 use hickory_client::client::{Client, ClientHandle};
 use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
-use hickory_proto::runtime::iocompat::AsyncIoTokioAsStd;
 use hickory_proto::runtime::TokioRuntimeProvider;
+use hickory_proto::BufDnsStreamHandle;
 use rustls::ClientConfig;
 use rustls_pki_types::ServerName;
-use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 
 use g3_types::net::{DnsEncryptionConfig, DnsEncryptionProtocol};
@@ -288,17 +287,23 @@ impl HickoryClientConfig {
     }
 
     async fn new_dns_over_tcp_client(&self) -> anyhow::Result<Client> {
-        let (stream, sender) =
-            hickory_proto::tcp::TcpClientStream::<AsyncIoTokioAsStd<TcpStream>>::new(
-                self.target,
-                self.bind,
-                Some(self.connect_timeout),
-                TokioRuntimeProvider::new(),
-            );
+        let (message_sender, outbound_messages) = BufDnsStreamHandle::new(self.target);
 
-        let (client, bg) = Client::with_timeout(stream, sender, self.request_timeout, None)
-            .await
-            .map_err(|e| anyhow!("failed to create tcp async client: {e}"))?;
+        let tcp_connect = g3_hickory_client::io::tcp::connect(
+            self.target,
+            self.bind,
+            outbound_messages,
+            self.connect_timeout,
+        );
+
+        let (client, bg) = Client::with_timeout(
+            Box::pin(tcp_connect),
+            message_sender,
+            self.request_timeout,
+            None,
+        )
+        .await
+        .map_err(|e| anyhow!("failed to create tcp async client: {e}"))?;
         tokio::spawn(bg);
         Ok(client)
     }
@@ -308,8 +313,6 @@ impl HickoryClientConfig {
         tls_client: ClientConfig,
         tls_name: ServerName<'static>,
     ) -> anyhow::Result<Client> {
-        use hickory_proto::BufDnsStreamHandle;
-
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(self.target);
 
         let tls_connect = g3_hickory_client::io::tls::connect(

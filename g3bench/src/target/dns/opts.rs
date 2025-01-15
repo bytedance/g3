@@ -25,11 +25,10 @@ use std::time::Duration;
 use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
 use hickory_client::client::Client;
-use hickory_proto::runtime::iocompat::AsyncIoTokioAsStd;
 use hickory_proto::runtime::TokioRuntimeProvider;
+use hickory_proto::BufDnsStreamHandle;
 use rustls::ClientConfig;
 use rustls_pki_types::ServerName;
-use tokio::net::TcpStream;
 
 use g3_types::net::{DnsEncryptionProtocol, RustlsClientConfigBuilder};
 
@@ -174,24 +173,24 @@ impl BenchDnsArgs {
     }
 
     async fn new_dns_over_tcp_client(&self) -> anyhow::Result<Client> {
-        let (stream, sender) =
-            hickory_proto::tcp::TcpClientStream::<AsyncIoTokioAsStd<TcpStream>>::new(
-                self.target,
-                self.bind,
-                Some(self.connect_timeout),
-                TokioRuntimeProvider::new(),
-            );
+        let (message_sender, outbound_messages) = BufDnsStreamHandle::new(self.target);
 
-        let (client, bg) = Client::with_timeout(stream, sender, self.timeout, None)
-            .await
-            .map_err(|e| anyhow!("failed to create tcp async client: {e}"))?;
+        let tcp_connect = g3_hickory_client::io::tcp::connect(
+            self.target,
+            self.bind,
+            outbound_messages,
+            self.connect_timeout,
+        );
+
+        let (client, bg) =
+            Client::with_timeout(Box::pin(tcp_connect), message_sender, self.timeout, None)
+                .await
+                .map_err(|e| anyhow!("failed to create tcp async client: {e}"))?;
         tokio::spawn(bg);
         Ok(client)
     }
 
     async fn new_dns_over_tls_client(&self, tls_client: ClientConfig) -> anyhow::Result<Client> {
-        use hickory_proto::BufDnsStreamHandle;
-
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(self.target);
 
         let tls_name = self
