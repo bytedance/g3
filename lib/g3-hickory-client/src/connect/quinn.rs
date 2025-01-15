@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use hickory_proto::ProtoError;
@@ -29,12 +29,7 @@ pub(crate) async fn quic_connect(
     tls_name: &str,
     alpn_protocol: &'static [u8],
 ) -> Result<Connection, ProtoError> {
-    let bind_addr = bind_addr.unwrap_or_else(|| match name_server {
-        SocketAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
-        SocketAddr::V6(_) => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
-    });
-    let sock = UdpSocket::bind(bind_addr)?;
-    sock.connect(name_server)?;
+    let sock = super::udp::udp_connect(name_server, bind_addr)?;
 
     let endpoint_config = EndpointConfig::default(); // TODO set max payload size
     let mut endpoint = Endpoint::new(endpoint_config, None, sock, Arc::new(TokioRuntime))?;

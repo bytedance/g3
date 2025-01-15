@@ -21,5 +21,6 @@ pub mod h3;
 pub mod quic;
 pub mod tcp;
 pub mod tls;
+pub mod udp;
 
 mod http;

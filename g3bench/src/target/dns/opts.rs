@@ -25,7 +25,6 @@ use std::time::Duration;
 use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
 use hickory_client::client::Client;
-use hickory_proto::runtime::TokioRuntimeProvider;
 use hickory_proto::BufDnsStreamHandle;
 use rustls::ClientConfig;
 use rustls_pki_types::ServerName;
@@ -160,12 +159,9 @@ impl BenchDnsArgs {
     async fn new_dns_over_udp_client(&self) -> anyhow::Result<Client> {
         // FIXME should we use random port?
         let client_connect =
-            hickory_proto::udp::UdpClientStream::builder(self.target, TokioRuntimeProvider::new())
-                .with_bind_addr(self.bind)
-                .with_timeout(Some(self.timeout))
-                .build();
+            g3_hickory_client::io::udp::connect(self.target, self.bind, self.timeout);
 
-        let (client, bg) = Client::connect(client_connect)
+        let (client, bg) = Client::connect(Box::pin(client_connect))
             .await
             .map_err(|e| anyhow!("failed to create udp async client: {e}"))?;
         tokio::spawn(bg);

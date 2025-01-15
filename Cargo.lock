@@ -1134,6 +1134,7 @@ name = "g3-hickory-client"
 version = "0.1.0"
 dependencies = [
  "bytes",
+ "fastrand",
  "futures-util",
  "h2",
  "h3",
