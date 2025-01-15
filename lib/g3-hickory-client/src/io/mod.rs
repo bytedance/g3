@@ -19,6 +19,7 @@ pub mod h2;
 pub mod h3;
 #[cfg(feature = "quic")]
 pub mod quic;
+pub mod tcp;
 pub mod tls;
 
 mod http;

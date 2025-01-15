@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+pub(crate) mod tcp;
+
 pub(crate) mod rustls;
 
 #[cfg(feature = "quic")]
