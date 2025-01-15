@@ -14,36 +14,29 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
 use std::sync::Arc;
 
 use hickory_proto::ProtoError;
 use rustls::ClientConfig;
 use rustls_pki_types::ServerName;
-use tokio::net::{TcpSocket, TcpStream};
+use tokio::net::TcpStream;
 use tokio_rustls::client::TlsStream;
 use tokio_rustls::TlsConnector;
 
+use g3_socket::TcpConnectInfo;
+
 pub(crate) async fn tls_connect(
-    name_server: SocketAddr,
-    bind_addr: Option<SocketAddr>,
+    connect_info: &TcpConnectInfo,
     mut tls_config: ClientConfig,
     tls_name: ServerName<'static>,
     alpn_protocol: &'static [u8],
 ) -> Result<TlsStream<TcpStream>, ProtoError> {
-    let socket = match name_server {
-        SocketAddr::V4(_) => TcpSocket::new_v4(),
-        SocketAddr::V6(_) => TcpSocket::new_v6(),
-    }?;
-    if let Some(addr) = bind_addr {
-        socket.bind(addr)?;
-    }
+    let tcp_stream = connect_info.tcp_connect().await?;
 
     if tls_config.alpn_protocols.is_empty() {
         tls_config.alpn_protocols = vec![alpn_protocol.to_vec()];
     }
 
-    let tcp_stream = socket.connect(name_server).await?;
     let tls_connector = TlsConnector::from(Arc::new(tls_config));
     let tls_stream = tls_connector.connect(tls_name, tcp_stream).await?;
 

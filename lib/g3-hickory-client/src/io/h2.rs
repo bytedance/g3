@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::net::{IpAddr, SocketAddr};
+use std::net::IpAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -29,12 +29,13 @@ use http::{Response, Version};
 use rustls::ClientConfig;
 use rustls_pki_types::ServerName;
 
+use g3_socket::TcpConnectInfo;
+
 use super::http::request::HttpDnsRequestBuilder;
 use super::http::response::HttpDnsResponse;
 
 pub async fn connect(
-    name_server: SocketAddr,
-    bind_addr: Option<SocketAddr>,
+    connect_info: TcpConnectInfo,
     tls_config: ClientConfig,
     tls_name: ServerName<'static>,
     connect_timeout: Duration,
@@ -53,7 +54,7 @@ pub async fn connect(
 
     let tls_stream = tokio::time::timeout(
         connect_timeout,
-        crate::connect::rustls::tls_connect(name_server, bind_addr, tls_config, tls_name, b"h2"),
+        crate::connect::rustls::tls_connect(&connect_info, tls_config, tls_name, b"h2"),
     )
     .await
     .map_err(|_| ProtoError::from("tls connect timed out"))??;

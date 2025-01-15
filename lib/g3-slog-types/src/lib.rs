@@ -26,6 +26,11 @@ pub use net::{LtHost, LtIpAddr, LtUpstreamAddr};
 mod uuid;
 pub use self::uuid::LtUuid;
 
+#[cfg(feature = "socket")]
+mod socket;
+#[cfg(feature = "socket")]
+pub use socket::LtBindAddr;
+
 #[cfg(feature = "http")]
 mod http;
 #[cfg(feature = "http")]

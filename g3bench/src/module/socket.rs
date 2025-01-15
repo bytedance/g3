@@ -22,7 +22,7 @@ use anyhow::anyhow;
 use clap::{value_parser, Arg, ArgMatches, Command};
 use tokio::net::TcpStream;
 
-use g3_socket::BindAddr;
+use g3_socket::{BindAddr, TcpConnectInfo, UdpConnectInfo};
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use g3_types::net::InterfaceName;
 
@@ -59,6 +59,24 @@ impl SocketArgs {
     pub(crate) fn udp_std_socket_to(&self, peer: SocketAddr) -> anyhow::Result<UdpSocket> {
         g3_socket::udp::new_std_socket_to(peer, &self.bind, Default::default(), Default::default())
             .map_err(|e| anyhow!("failed to setup local udp socket: {e}"))
+    }
+
+    pub(crate) fn hickory_udp_connect_info(&self, server: SocketAddr) -> UdpConnectInfo {
+        UdpConnectInfo {
+            server,
+            bind: self.bind,
+            buf_conf: Default::default(),
+            misc_opts: Default::default(),
+        }
+    }
+
+    pub(crate) fn hickory_tcp_connect_info(&self, server: SocketAddr) -> TcpConnectInfo {
+        TcpConnectInfo {
+            server,
+            bind: self.bind,
+            keepalive: Default::default(),
+            misc_opts: Default::default(),
+        }
     }
 
     pub(crate) fn parse_args(&mut self, args: &ArgMatches) -> anyhow::Result<()> {

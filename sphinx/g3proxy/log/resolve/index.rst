@@ -99,5 +99,6 @@ Sub Types
    :maxdepth: 1
 
    c_ares
+   hickory
    fail_over
    deny_all

@@ -25,11 +25,12 @@ rustls-pki-types = { workspace = true, optional = true }
 flume = { workspace = true, optional = true, features = ["async"] }
 async-recursion = { workspace = true, optional = true }
 g3-types = { workspace = true, optional = true }
+g3-socket = { workspace = true, optional = true }
 g3-hickory-client = { workspace = true, optional = true }
 
 [features]
 default = []
 c-ares = ["dep:c-ares", "dep:c-ares-resolver", "dep:c-ares-sys"]
 vendored-c-ares = ["c-ares", "c-ares-resolver/vendored", "c-ares/vendored"]
-hickory = ["dep:hickory-client", "dep:hickory-proto", "dep:flume", "dep:rustls", "dep:rustls-pki-types", "dep:async-recursion", "dep:g3-hickory-client", "g3-types/rustls"]
+hickory = ["dep:hickory-client", "dep:hickory-proto", "dep:flume", "dep:rustls", "dep:rustls-pki-types", "dep:async-recursion", "dep:g3-hickory-client", "g3-types/rustls", "dep:g3-socket"]
 quic = ["g3-types?/quic", "g3-hickory-client?/quic"]

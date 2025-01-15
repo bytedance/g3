@@ -27,3 +27,6 @@ pub mod util;
 
 mod bind;
 pub use bind::BindAddr;
+
+mod connect;
+pub use connect::{TcpConnectInfo, UdpConnectInfo};

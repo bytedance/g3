@@ -22,7 +22,7 @@ use slog::{slog_info, Logger};
 use tokio::time::Instant;
 
 use g3_resolver::{ResolveError, ResolveQueryType, ResolvedRecordSource};
-use g3_slog_types::{LtDuration, LtIpAddr};
+use g3_slog_types::{LtBindAddr, LtDuration};
 use g3_types::metrics::NodeName;
 
 use crate::config::resolver::hickory::HickoryResolverConfig;
@@ -106,7 +106,7 @@ impl LoggedResolveJob for HickoryResolverJob {
             .collect::<Vec<_>>()
             .join(" ");
         slog_info!(&self.logger, "{}", e; // TODO add encryption info
-            "bind_ip" => self.config.get_bind_ip().map(LtIpAddr),
+            "bind_addr" => LtBindAddr(self.config.get_bind_addr()),
             "server" => servers,
             "server_port" => self.config.get_server_port(),
             "encryption" => self.config.get_encryption_summary(),

@@ -19,7 +19,10 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 
+use g3_socket::BindAddr;
 use g3_types::net::DnsEncryptionConfigBuilder;
+#[cfg(any(target_os = "linux", target_os = "android"))]
+use g3_types::net::InterfaceName;
 
 use super::{HickoryClient, HickoryClientConfig, HickoryResolver};
 use crate::driver::BoxResolverDriver;
@@ -36,7 +39,7 @@ pub struct HickoryDriverConfig {
     negative_ttl: u32,
     servers: Vec<IpAddr>,
     server_port: Option<u16>,
-    bind_ip: Option<IpAddr>,
+    bind_addr: BindAddr,
     encryption: Option<DnsEncryptionConfigBuilder>,
 }
 
@@ -53,7 +56,7 @@ impl Default for HickoryDriverConfig {
             negative_ttl: crate::config::RESOLVER_MINIMUM_CACHE_TTL,
             servers: vec![],
             server_port: None,
-            bind_ip: None,
+            bind_addr: BindAddr::None,
             encryption: None,
         }
     }
@@ -115,12 +118,17 @@ impl HickoryDriverConfig {
     }
 
     pub fn set_bind_ip(&mut self, ip: IpAddr) {
-        self.bind_ip = Some(ip);
+        self.bind_addr = BindAddr::Ip(ip);
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    pub fn set_bind_interface(&mut self, name: InterfaceName) {
+        self.bind_addr = BindAddr::Interface(name);
     }
 
     #[inline]
-    pub fn get_bind_ip(&self) -> Option<IpAddr> {
-        self.bind_ip
+    pub fn get_bind_addr(&self) -> BindAddr {
+        self.bind_addr
     }
 
     pub fn set_positive_min_ttl(&mut self, ttl: u32) {
@@ -144,7 +152,6 @@ impl HickoryDriverConfig {
                 .map(|v| v.protocol().default_port())
                 .unwrap_or(53)
         });
-        let bind = self.bind_ip.map(|ip| SocketAddr::new(ip, 0));
         let encryption = if let Some(ec) = &self.encryption {
             Some(ec.build()?)
         } else {
@@ -154,7 +161,7 @@ impl HickoryDriverConfig {
         for ip in &self.servers {
             let client_config = HickoryClientConfig {
                 target: SocketAddr::new(*ip, port),
-                bind,
+                bind: self.bind_addr,
                 encryption: encryption.clone(),
                 connect_timeout: self.connect_timeout,
                 request_timeout: self.request_timeout,

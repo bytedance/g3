@@ -100,6 +100,19 @@ bind_ip
 
 Set the bind ip for the resolver while setting up sockets.
 
+bind_interface
+--------------
+
+**optional**, **type**: :ref:`interface name <conf_value_interface_name>`
+
+Bind the outgoing socket to a particular device like “eth0”.
+
+.. note:: This is only supported on Linux based OS.
+
+**default**: not set
+
+.. versionadded:: 1.11.3
+
 positive_min_ttl
 ----------------
 

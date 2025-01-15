@@ -25,19 +25,17 @@ use std::time::Duration;
 use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
 use hickory_client::client::Client;
-use hickory_proto::runtime::iocompat::AsyncIoTokioAsStd;
-use hickory_proto::runtime::TokioRuntimeProvider;
+use hickory_proto::BufDnsStreamHandle;
 use rustls::ClientConfig;
 use rustls_pki_types::ServerName;
-use tokio::net::TcpStream;
 
 use g3_types::net::{DnsEncryptionProtocol, RustlsClientConfigBuilder};
 
 use super::{DnsRequest, DnsRequestPickState};
 use crate::module::rustls::{AppendRustlsArgs, RustlsTlsClientArgs};
+use crate::module::socket::{AppendSocketArgs, SocketArgs};
 
 const DNS_ARG_TARGET: &str = "target";
-const DNS_ARG_LOCAL_ADDRESS: &str = "local-address";
 const DNS_ARG_TIMEOUT: &str = "timeout";
 const DNS_ARG_CONNECT_TIMEOUT: &str = "connect-timeout";
 const DNS_ARG_ENCRYPTION: &str = "encryption";
@@ -79,12 +77,14 @@ impl DnsRequestPickState for GlobalRequestPicker {
 
 pub(super) struct BenchDnsArgs {
     target: SocketAddr,
-    bind: Option<SocketAddr>,
     encryption: Option<DnsEncryptionProtocol>,
     use_tcp: bool,
     pub(super) timeout: Duration,
     pub(super) connect_timeout: Duration,
+
+    socket: SocketArgs,
     tls: RustlsTlsClientArgs,
+
     requests: Vec<DnsRequest>,
     pub(super) dump_result: bool,
     pub(super) iter_global: bool,
@@ -99,11 +99,11 @@ impl BenchDnsArgs {
         };
         BenchDnsArgs {
             target,
-            bind: None,
             encryption: None,
             use_tcp: false,
             timeout: Duration::from_secs(10),
             connect_timeout: Duration::from_secs(10),
+            socket: SocketArgs::default(),
             tls,
             requests: Vec::new(),
             dump_result: false,
@@ -160,13 +160,10 @@ impl BenchDnsArgs {
 
     async fn new_dns_over_udp_client(&self) -> anyhow::Result<Client> {
         // FIXME should we use random port?
-        let client_connect =
-            hickory_proto::udp::UdpClientStream::builder(self.target, TokioRuntimeProvider::new())
-                .with_bind_addr(self.bind)
-                .with_timeout(Some(self.timeout))
-                .build();
+        let connect_info = self.socket.hickory_udp_connect_info(self.target);
+        let client_connect = g3_hickory_client::io::udp::connect(connect_info, self.timeout);
 
-        let (client, bg) = Client::connect(client_connect)
+        let (client, bg) = Client::connect(Box::pin(client_connect))
             .await
             .map_err(|e| anyhow!("failed to create udp async client: {e}"))?;
         tokio::spawn(bg);
@@ -174,24 +171,24 @@ impl BenchDnsArgs {
     }
 
     async fn new_dns_over_tcp_client(&self) -> anyhow::Result<Client> {
-        let (stream, sender) =
-            hickory_proto::tcp::TcpClientStream::<AsyncIoTokioAsStd<TcpStream>>::new(
-                self.target,
-                self.bind,
-                Some(self.connect_timeout),
-                TokioRuntimeProvider::new(),
-            );
+        let (message_sender, outbound_messages) = BufDnsStreamHandle::new(self.target);
 
-        let (client, bg) = Client::with_timeout(stream, sender, self.timeout, None)
-            .await
-            .map_err(|e| anyhow!("failed to create tcp async client: {e}"))?;
+        let connect_info = self.socket.hickory_tcp_connect_info(self.target);
+        let tcp_connect = g3_hickory_client::io::tcp::connect(
+            connect_info,
+            outbound_messages,
+            self.connect_timeout,
+        );
+
+        let (client, bg) =
+            Client::with_timeout(Box::pin(tcp_connect), message_sender, self.timeout, None)
+                .await
+                .map_err(|e| anyhow!("failed to create tcp async client: {e}"))?;
         tokio::spawn(bg);
         Ok(client)
     }
 
     async fn new_dns_over_tls_client(&self, tls_client: ClientConfig) -> anyhow::Result<Client> {
-        use hickory_proto::BufDnsStreamHandle;
-
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(self.target);
 
         let tls_name = self
@@ -199,9 +196,9 @@ impl BenchDnsArgs {
             .tls_name
             .clone()
             .unwrap_or_else(|| ServerName::IpAddress(self.target.ip().into()));
+        let connect_info = self.socket.hickory_tcp_connect_info(self.target);
         let tls_connect = g3_hickory_client::io::tls::connect(
-            self.target,
-            self.bind,
+            connect_info,
             tls_client,
             tls_name,
             outbound_messages,
@@ -223,9 +220,9 @@ impl BenchDnsArgs {
             .clone()
             .unwrap_or_else(|| ServerName::IpAddress(self.target.ip().into()));
 
+        let connect_info = self.socket.hickory_tcp_connect_info(self.target);
         let client_connect = g3_hickory_client::io::h2::connect(
-            self.target,
-            self.bind,
+            connect_info,
             tls_client,
             tls_name,
             self.connect_timeout,
@@ -248,9 +245,9 @@ impl BenchDnsArgs {
             None => self.target.ip().to_string(),
         };
 
+        let connect_info = self.socket.hickory_udp_connect_info(self.target);
         let client_connect = g3_hickory_client::io::h3::connect(
-            self.target,
-            self.bind,
+            connect_info,
             tls_client,
             tls_name,
             self.connect_timeout,
@@ -273,9 +270,9 @@ impl BenchDnsArgs {
             None => self.target.ip().to_string(),
         };
 
+        let connect_info = self.socket.hickory_udp_connect_info(self.target);
         let client_connect = g3_hickory_client::io::quic::connect(
-            self.target,
-            self.bind,
+            connect_info,
             tls_client,
             tls_name,
             self.connect_timeout,
@@ -296,14 +293,6 @@ pub(super) fn add_dns_args(app: Command) -> Command {
             .help("Target dns server address (default port will be used if missing)")
             .required(true)
             .num_args(1),
-    )
-    .arg(
-        Arg::new(DNS_ARG_LOCAL_ADDRESS)
-            .value_name("LOCAL SOCKET ADDRESS")
-            .short('B')
-            .long(DNS_ARG_LOCAL_ADDRESS)
-            .num_args(1)
-            .value_parser(value_parser!(IpAddr)),
     )
     .arg(
         Arg::new(DNS_ARG_TIMEOUT)
@@ -368,6 +357,7 @@ pub(super) fn add_dns_args(app: Command) -> Command {
             .action(ArgAction::SetTrue)
             .long(DNS_ARG_ITER_GLOBAL),
     )
+    .append_socket_args()
     .append_rustls_args()
 }
 
@@ -382,10 +372,6 @@ pub(super) fn parse_dns_args(args: &ArgMatches) -> anyhow::Result<BenchDnsArgs> 
     } else {
         return Err(anyhow!("invalid dns server address {target}"));
     };
-
-    if let Some(ip) = args.get_one::<SocketAddr>(DNS_ARG_LOCAL_ADDRESS) {
-        dns_args.bind = Some(*ip);
-    }
 
     if let Some(timeout) = g3_clap::humanize::get_duration(args, DNS_ARG_TIMEOUT)? {
         dns_args.timeout = timeout;
@@ -434,6 +420,10 @@ pub(super) fn parse_dns_args(args: &ArgMatches) -> anyhow::Result<BenchDnsArgs> 
         dns_args.iter_global = true;
     }
 
+    dns_args
+        .socket
+        .parse_args(args)
+        .context("invalid socket config")?;
     dns_args
         .tls
         .parse_tls_args(args)
