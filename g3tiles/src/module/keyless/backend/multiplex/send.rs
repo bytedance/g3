@@ -19,7 +19,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::anyhow;
-use tokio::io::AsyncWrite;
+use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio::sync::{broadcast, oneshot};
 use tokio::time::Instant;
 
@@ -90,13 +90,18 @@ impl KeylessUpstreamSendTask {
                                 .await
                                 .map_err(|e| anyhow!("send request failed: {e}"))?;
                             if request_count > self.max_request_count {
+                                let _ = writer.shutdown().await;
                                 return Ok(());
                             }
                         }
-                        Err(_) => return Err(anyhow!("backend dropped")),
+                        Err(_) => {
+                            let _ = writer.shutdown().await;
+                            return Err(anyhow!("backend dropped"));
+                        }
                     }
                 }
                 _ = self.quit_notifier.recv() => {
+                    let _ = writer.shutdown().await;
                     return Ok(());
                 }
                 r = &mut reader_close_receiver => {
@@ -106,9 +111,11 @@ impl KeylessUpstreamSendTask {
                     };
                 }
                 _ = &mut alive_sleep => {
+                    let _ = writer.shutdown().await;
                     return Ok(());
                 }
                 _ = &mut idle_sleep => {
+                    let _ = writer.shutdown().await;
                     return Ok(());
                 }
             }
