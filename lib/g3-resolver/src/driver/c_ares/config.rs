@@ -68,9 +68,6 @@ impl Default for CAresDriverConfig {
 
 impl CAresDriverConfig {
     pub fn check(&mut self) -> anyhow::Result<()> {
-        if self.servers.is_empty() {
-            return Err(anyhow!("no dns server set"));
-        }
         if self.positive_max_ttl < self.positive_min_ttl {
             self.positive_max_ttl = self.positive_min_ttl;
         }
@@ -174,6 +171,7 @@ impl CAresDriverConfig {
         if let Some(size) = self.so_recv_buf_size {
             opts.set_sock_receive_buffer_size(size);
         }
+        // opts.set_lookups("b");
 
         let resolver = FutureResolver::with_options(opts)
             .map_err(|e| anyhow!("failed to create resolver: {e}"))?;
@@ -183,17 +181,19 @@ impl CAresDriverConfig {
         if let Some(ip6) = &self.bind_v6 {
             resolver.set_local_ipv6(ip6);
         }
-        let mut servers = Vec::<String>::new();
-        for server in self.servers.iter() {
-            servers.push(server.to_string());
+        if !self.servers.is_empty() {
+            let mut servers = Vec::<String>::new();
+            for server in self.servers.iter() {
+                servers.push(server.to_string());
+            }
+            let mut ref_servers = Vec::<&str>::new();
+            for server in servers.iter() {
+                ref_servers.push(server);
+            }
+            resolver
+                .set_servers(&ref_servers)
+                .map_err(|e| anyhow!("failed to set servers for resolver: {e}"))?;
         }
-        let mut ref_servers = Vec::<&str>::new();
-        for server in servers.iter() {
-            ref_servers.push(server);
-        }
-        resolver
-            .set_servers(&ref_servers)
-            .map_err(|e| anyhow!("failed to set servers for resolver: {e}"))?;
         Ok(Box::new(CAresResolver {
             inner: resolver,
             negative_ttl: self.negative_ttl,

@@ -9,8 +9,6 @@ stat:
 resolver:
   - name: cares1
     type: c-ares
-    server:
-      - 127.0.0.1
   - name: cares2
     type: c-ares
     server: 127.0.0.1

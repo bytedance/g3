@@ -8,9 +8,9 @@ This is the resolver based on c-ares dns library.
 server
 ------
 
-**required**, **type**: str | seq
+**optional**, **type**: str | seq
 
-Set the nameservers.
+Set the nameservers if you do not want to use those in `/etc/resolv.conf`.
 
 For *str* value, it may be one or more :ref:`sockaddr str <conf_value_sockaddr_str>` joined with whitespace characters.
 
