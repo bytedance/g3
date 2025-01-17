@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2025 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,19 @@
  * limitations under the License.
  */
 
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::str::FromStr;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use c_ares_resolver::FutureResolver;
 use indexmap::IndexSet;
+use yaml_rust::Yaml;
 
 use super::CAresResolver;
 use crate::BoxResolverDriver;
+
+#[cfg(feature = "yaml")]
+mod yaml;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CAresDriverConfig {
@@ -75,8 +80,49 @@ impl CAresDriverConfig {
         Ok(())
     }
 
-    pub fn add_server(&mut self, server: SocketAddr) {
-        self.servers.insert(server);
+    fn parse_server_str(&mut self, addrs: &str) -> anyhow::Result<()> {
+        let addrs = addrs.split_whitespace();
+        for (i, addr) in addrs.enumerate() {
+            self.add_server(addr)
+                .context(format!("#{i} is not a valid server"))?;
+        }
+        Ok(())
+    }
+
+    fn parse_server_array(&mut self, addrs: &[Yaml]) -> anyhow::Result<()> {
+        for (i, addr) in addrs.iter().enumerate() {
+            if let Yaml::String(addr) = addr {
+                self.add_server(addr)
+                    .context(format!("#{i} is not a valid server"))?;
+            } else {
+                return Err(anyhow!("#{i} should be a string value"));
+            }
+        }
+        Ok(())
+    }
+
+    fn parse_socket_addr(addr: &str) -> anyhow::Result<SocketAddr> {
+        if let Ok(sock_addr) = SocketAddr::from_str(addr) {
+            Ok(sock_addr)
+        } else if let Ok(ip) = IpAddr::from_str(addr) {
+            let sock_addr = SocketAddr::new(ip, 53);
+            Ok(sock_addr)
+        } else {
+            Err(anyhow!("invalid SocketAddr / IpAddr string {addr}"))
+        }
+    }
+
+    fn add_server(&mut self, addr: &str) -> anyhow::Result<()> {
+        let sock_addr = Self::parse_socket_addr(addr)?;
+        let ip = sock_addr.ip();
+        if ip.is_unspecified() {
+            return Err(anyhow!("dns server address should not be unspecified"));
+        }
+        if ip.is_multicast() {
+            return Err(anyhow!("dns server address should not be multicast"));
+        }
+        self.servers.insert(sock_addr);
+        Ok(())
     }
 
     pub fn get_servers(&self) -> Vec<SocketAddr> {
@@ -89,46 +135,6 @@ impl CAresDriverConfig {
 
     pub fn get_bind_ipv6(&self) -> Option<Ipv6Addr> {
         self.bind_v6
-    }
-
-    pub fn set_bind_ipv4(&mut self, ip4: Ipv4Addr) {
-        self.bind_v4 = Some(ip4);
-    }
-
-    pub fn set_bind_ipv6(&mut self, ip6: Ipv6Addr) {
-        self.bind_v6 = Some(ip6);
-    }
-
-    pub fn set_so_send_buf_size(&mut self, size: u32) {
-        self.so_send_buf_size = Some(size);
-    }
-
-    pub fn set_so_recv_buf_size(&mut self, size: u32) {
-        self.so_recv_buf_size = Some(size);
-    }
-
-    pub fn set_round_robin(&mut self, enable: bool) {
-        self.round_robin = enable;
-    }
-
-    pub fn set_each_timeout(&mut self, timeout_ms: u32) {
-        self.each_timeout = timeout_ms;
-    }
-
-    pub fn set_each_tries(&mut self, tries: u32) {
-        self.each_tries = tries;
-    }
-
-    pub fn set_negative_ttl(&mut self, ttl: u32) {
-        self.negative_ttl = ttl;
-    }
-
-    pub fn set_positive_min_ttl(&mut self, ttl: u32) {
-        self.positive_min_ttl = ttl;
-    }
-
-    pub fn set_positive_max_ttl(&mut self, ttl: u32) {
-        self.positive_max_ttl = ttl;
     }
 
     #[cfg(cares1_20)]
