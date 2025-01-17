@@ -22,7 +22,6 @@ Source0:        %{name}-%{version}.tar.xz
 BuildRequires:  gcc, make, %{pkgconfig_real}, capnproto
 BuildRequires:  openssl-devel,
 BuildRequires:  libtool
-Requires:       systemd
 Requires:       ca-certificates
 
 %description
