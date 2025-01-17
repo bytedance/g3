@@ -18,7 +18,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use log::debug;
-use tokio::io::{AsyncRead, AsyncWrite, BufReader};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 
@@ -97,24 +97,32 @@ impl KeylessForwardTask {
         let task_stats = self.stats.clone();
         let send_task = tokio::spawn(async move {
             // TODO use batch recv
-            while let Some(rsp) = rsp_receiver.recv().await {
-                match rsp.send(&mut clt_w).await {
-                    Ok(_) => {
-                        server_stats.relay.add_rsp_pass();
-                        task_stats.relay.add_rsp_pass();
-                        task_stats.mark_active();
+            loop {
+                match rsp_receiver.recv().await {
+                    Some(rsp) => {
+                        match rsp.send(&mut clt_w).await {
+                            Ok(_) => {
+                                server_stats.relay.add_rsp_pass();
+                                task_stats.relay.add_rsp_pass();
+                                task_stats.mark_active();
+                            }
+                            Err(_e) => {
+                                // TODO log error ?
+                                server_stats.relay.add_rsp_fail();
+                                task_stats.relay.add_rsp_fail();
+                                while let Some(_rsp) = rsp_receiver.recv().await {
+                                    server_stats.relay.add_rsp_drop();
+                                    task_stats.relay.add_rsp_drop();
+                                }
+                                break;
+                            }
+                        }
                     }
-                    Err(_e) => {
-                        // TODO log error ?
-                        server_stats.relay.add_rsp_fail();
-                        task_stats.relay.add_rsp_fail();
+                    None => {
+                        let _ = clt_w.shutdown().await;
                         break;
                     }
                 }
-            }
-            while let Some(_rsp) = rsp_receiver.recv().await {
-                server_stats.relay.add_rsp_drop();
-                task_stats.relay.add_rsp_drop();
             }
         });
 

@@ -183,12 +183,12 @@ impl OpensslRelayTask {
                 r = &mut clt_to_ups => {
                     let _ = ups_to_clt.write_flush().await;
                     return match r {
-                        Ok(_) => Err(ServerTaskError::ClosedByClient),
+                        Ok(_) => {
+                            let _ = ups_w.shutdown().await;
+                            Err(ServerTaskError::ClosedByClient)
+                        }
                         Err(LimitedCopyError::ReadFailed(e)) => Err(ServerTaskError::ClientTcpReadFailed(e)),
-                        Err(LimitedCopyError::WriteFailed(e)) => {
-                            let _ = clt_w.shutdown().await;
-                            Err(ServerTaskError::UpstreamWriteFailed(e))
-                        },
+                        Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::UpstreamWriteFailed(e)),
                     };
                 }
                 r = &mut ups_to_clt => {
@@ -198,10 +198,7 @@ impl OpensslRelayTask {
                             let _ = clt_w.shutdown().await;
                             Err(ServerTaskError::ClosedByUpstream)
                         },
-                        Err(LimitedCopyError::ReadFailed(e)) => {
-                            let _ = clt_w.shutdown().await;
-                            Err(ServerTaskError::UpstreamReadFailed(e))
-                        },
+                        Err(LimitedCopyError::ReadFailed(e)) => Err(ServerTaskError::UpstreamReadFailed(e)),
                         Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
                     };
                 }
