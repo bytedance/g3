@@ -321,9 +321,9 @@ dependencies = [
 
 [[package]]
 name = "bssl-cmake-sys"
-version = "0.1.2412090"
+version = "0.1.2501140"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b892ebc7b53ca83fbe56c72eae49606496f8045fd248328f85e4382dad881fc"
+checksum = "8ab9c2b411a34ae1bd367b1bd439038163324ba8d50948a45c9abadaa2cb171f"
 dependencies = [
  "bindgen",
  "cc",
@@ -672,9 +672,9 @@ dependencies = [
 
 [[package]]
 name = "data-encoding"
-version = "2.6.0"
+version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8566979429cf69b49a5c740c60791108e86440e8be149bbea4fe54d2c32d6e2"
+checksum = "0e60eed09d8c01d3cee5b7d30acb059b76614c918fa0f992e0dd6eeb10daad6f"
 
 [[package]]
 name = "derive_arbitrary"
