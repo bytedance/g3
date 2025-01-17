@@ -113,6 +113,28 @@ Bind the outgoing socket to a particular device like “eth0”.
 
 .. versionadded:: 1.11.3
 
+tcp_misc_opts
+-------------
+
+**optional**, **type**: :ref:`tcp misc sock opts <conf_value_tcp_misc_sock_opts>`
+
+Set misc tcp socket options.
+
+**default**: not set, nodelay is default enabled
+
+.. versionadded:: 1.11.3
+
+udp_misc_opts
+-------------
+
+**optional**, **type**: :ref:`udp misc sock opts <conf_value_udp_misc_sock_opts>`
+
+Set misc udp socket options.
+
+**default**: not set
+
+.. versionadded:: 1.11.3
+
 positive_min_ttl
 ----------------
 

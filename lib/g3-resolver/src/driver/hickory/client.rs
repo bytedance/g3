@@ -29,7 +29,7 @@ use rustls_pki_types::ServerName;
 use tokio::sync::mpsc;
 
 use g3_socket::{BindAddr, TcpConnectInfo, UdpConnectInfo};
-use g3_types::net::{DnsEncryptionConfig, DnsEncryptionProtocol};
+use g3_types::net::{DnsEncryptionConfig, DnsEncryptionProtocol, TcpMiscSockOpts, UdpMiscSockOpts};
 
 use crate::{ResolveDriverError, ResolveError, ResolvedRecord};
 
@@ -236,6 +236,8 @@ pub(super) struct HickoryClientConfig {
     pub(super) positive_min_ttl: u32,
     pub(super) positive_max_ttl: u32,
     pub(super) negative_ttl: u32,
+    pub(super) tcp_misc_opts: TcpMiscSockOpts,
+    pub(super) udp_misc_opts: UdpMiscSockOpts,
 }
 
 impl HickoryClientConfig {
@@ -276,7 +278,7 @@ impl HickoryClientConfig {
             server: self.target,
             bind: self.bind,
             keepalive: Default::default(),
-            misc_opts: Default::default(),
+            misc_opts: self.tcp_misc_opts,
         }
     }
 
@@ -285,7 +287,7 @@ impl HickoryClientConfig {
             server: self.target,
             bind: self.bind,
             buf_conf: Default::default(),
-            misc_opts: Default::default(),
+            misc_opts: self.udp_misc_opts,
         }
     }
 

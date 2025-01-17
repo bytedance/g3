@@ -1362,6 +1362,7 @@ dependencies = [
  "g3-hickory-client",
  "g3-socket",
  "g3-types",
+ "g3-yaml",
  "hickory-client",
  "hickory-proto",
  "indexmap",
@@ -1371,6 +1372,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-util",
+ "yaml-rust2",
 ]
 
 [[package]]
