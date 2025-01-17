@@ -21,7 +21,6 @@ Source0:        %{name}-%{version}.tar.xz
 
 BuildRequires:  gcc, make, %{pkgconfig_real}
 BuildRequires:  openssl-devel,
-Requires:       systemd
 
 %description
 Keyless server for G3 Project
