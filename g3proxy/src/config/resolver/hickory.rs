@@ -16,9 +16,8 @@
 
 use std::collections::BTreeSet;
 use std::net::IpAddr;
-use std::str::FromStr;
 
-use anyhow::{anyhow, Context};
+use anyhow::anyhow;
 use yaml_rust::{yaml, Yaml};
 
 use g3_resolver::driver::hickory::HickoryDriverConfig;
@@ -97,75 +96,6 @@ impl HickoryResolverConfig {
                 self.name = g3_yaml::value::as_metrics_name(v)?;
                 Ok(())
             }
-            "server" => match v {
-                Yaml::String(addrs) => self.parse_server_str(addrs),
-                Yaml::Array(seq) => self.parse_server_array(seq),
-                _ => Err(anyhow!("invalid yaml value type, expect string / array")),
-            },
-            "server_port" => {
-                let port = g3_yaml::value::as_u16(v)?;
-                self.driver.set_server_port(port);
-                Ok(())
-            }
-            "encryption" | "encrypt" => {
-                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
-                let config =
-                    g3_yaml::value::as_dns_encryption_protocol_builder(v, Some(lookup_dir))
-                        .context(format!("invalid dns encryption config value for key {k}"))?;
-                self.driver.set_encryption(config);
-                Ok(())
-            }
-            "connect_timeout" => {
-                let timeout = g3_yaml::humanize::as_duration(v)
-                    .context(format!("invalid humanize duration value for key {k}"))?;
-                self.driver.set_connect_timeout(timeout);
-                Ok(())
-            }
-            "request_timeout" => {
-                let timeout = g3_yaml::humanize::as_duration(v)
-                    .context(format!("invalid humanize duration value for key {k}"))?;
-                self.driver.set_request_timeout(timeout);
-                Ok(())
-            }
-            "each_timeout" => {
-                let timeout = g3_yaml::humanize::as_duration(v)
-                    .context(format!("invalid humanize duration value for key {k}"))?;
-                self.driver.set_each_timeout(timeout);
-                Ok(())
-            }
-            "each_tries" | "retry_attempts" => {
-                let attempts = g3_yaml::value::as_i32(v)?;
-                self.driver.set_each_tries(attempts);
-                Ok(())
-            }
-            "bind_ip" => {
-                let ip = g3_yaml::value::as_ipaddr(v)?;
-                self.driver.set_bind_ip(ip);
-                Ok(())
-            }
-            #[cfg(any(target_os = "linux", target_os = "android"))]
-            "bind_interface" => {
-                let interface = g3_yaml::value::as_interface_name(v)
-                    .context(format!("invalid interface name value for key {k}"))?;
-                self.driver.set_bind_interface(interface);
-                Ok(())
-            }
-            "positive_min_ttl" => {
-                let ttl = g3_yaml::value::as_u32(v)?;
-                self.driver.set_positive_min_ttl(ttl);
-                Ok(())
-            }
-            "positive_max_ttl" => {
-                let ttl = g3_yaml::value::as_u32(v)?;
-                self.driver.set_positive_max_ttl(ttl);
-                Ok(())
-            }
-            "negative_min_ttl" | "negative_ttl" => {
-                let ttl = g3_yaml::value::as_u32(v)?;
-                self.driver.set_negative_ttl(ttl);
-                Ok(())
-            }
-            "negative_max_ttl" => Ok(()),
             "graceful_stop_wait" => {
                 self.runtime.graceful_stop_wait = g3_yaml::humanize::as_duration(v)?;
                 Ok(())
@@ -174,35 +104,11 @@ impl HickoryResolverConfig {
                 self.runtime.protective_query_timeout = g3_yaml::humanize::as_duration(v)?;
                 Ok(())
             }
-            _ => Err(anyhow!("invalid key {k}")),
-        }
-    }
-
-    fn parse_server_str(&mut self, addrs: &str) -> anyhow::Result<()> {
-        let addrs = addrs.split_whitespace();
-        for (i, addr) in addrs.enumerate() {
-            self.add_server(addr)
-                .context(format!("#{i} is not a valid ip address"))?;
-        }
-        Ok(())
-    }
-
-    fn parse_server_array(&mut self, addrs: &[Yaml]) -> anyhow::Result<()> {
-        for (i, addr) in addrs.iter().enumerate() {
-            if let Yaml::String(addr) = addr {
-                self.add_server(addr)
-                    .context(format!("#{i} is not a valid ip address"))?;
-            } else {
-                return Err(anyhow!("#{i} should be a string value"));
+            _ => {
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                self.driver.set_by_yaml_kv(k, v, Some(lookup_dir))
             }
         }
-        Ok(())
-    }
-
-    fn add_server(&mut self, addr: &str) -> anyhow::Result<()> {
-        let ip = IpAddr::from_str(addr)?;
-        self.driver.add_server(ip);
-        Ok(())
     }
 
     fn check(&mut self) -> anyhow::Result<()> {

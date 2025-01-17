@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
+ * Copyright 2025 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,17 +15,20 @@
  */
 
 use std::net::{IpAddr, SocketAddr};
+use std::str::FromStr;
 use std::time::Duration;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
+use yaml_rust::Yaml;
 
 use g3_socket::BindAddr;
-use g3_types::net::DnsEncryptionConfigBuilder;
-#[cfg(any(target_os = "linux", target_os = "android"))]
-use g3_types::net::InterfaceName;
+use g3_types::net::{DnsEncryptionConfigBuilder, TcpMiscSockOpts, UdpMiscSockOpts};
 
 use super::{HickoryClient, HickoryClientConfig, HickoryResolver};
 use crate::driver::BoxResolverDriver;
+
+#[cfg(feature = "yaml")]
+mod yaml;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HickoryDriverConfig {
@@ -41,6 +44,8 @@ pub struct HickoryDriverConfig {
     server_port: Option<u16>,
     bind_addr: BindAddr,
     encryption: Option<DnsEncryptionConfigBuilder>,
+    tcp_misc_opts: TcpMiscSockOpts,
+    udp_misc_opts: UdpMiscSockOpts,
 }
 
 impl Default for HickoryDriverConfig {
@@ -58,6 +63,8 @@ impl Default for HickoryDriverConfig {
             server_port: None,
             bind_addr: BindAddr::None,
             encryption: None,
+            tcp_misc_opts: Default::default(),
+            udp_misc_opts: Default::default(),
         }
     }
 }
@@ -74,8 +81,31 @@ impl HickoryDriverConfig {
         Ok(())
     }
 
-    pub fn add_server(&mut self, ip: IpAddr) {
+    fn parse_server_str(&mut self, addrs: &str) -> anyhow::Result<()> {
+        let addrs = addrs.split_whitespace();
+        for (i, addr) in addrs.enumerate() {
+            self.add_server_str(addr)
+                .context(format!("#{i} is not a valid ip address"))?;
+        }
+        Ok(())
+    }
+
+    fn parse_server_array(&mut self, addrs: &[Yaml]) -> anyhow::Result<()> {
+        for (i, addr) in addrs.iter().enumerate() {
+            if let Yaml::String(addr) = addr {
+                self.add_server_str(addr)
+                    .context(format!("#{i} is not a valid ip address"))?;
+            } else {
+                return Err(anyhow!("#{i} should be a string value"));
+            }
+        }
+        Ok(())
+    }
+
+    fn add_server_str(&mut self, addr: &str) -> anyhow::Result<()> {
+        let ip = IpAddr::from_str(addr)?;
         self.servers.push(ip);
+        Ok(())
     }
 
     #[inline]
@@ -83,17 +113,9 @@ impl HickoryDriverConfig {
         self.servers.clone()
     }
 
-    pub fn set_server_port(&mut self, port: u16) {
-        self.server_port = Some(port);
-    }
-
     #[inline]
     pub fn get_server_port(&self) -> Option<u16> {
         self.server_port
-    }
-
-    pub fn set_encryption(&mut self, config: DnsEncryptionConfigBuilder) {
-        self.encryption = Some(config);
     }
 
     #[inline]
@@ -101,46 +123,9 @@ impl HickoryDriverConfig {
         self.encryption.as_ref()
     }
 
-    pub fn set_connect_timeout(&mut self, timeout: Duration) {
-        self.connect_timeout = timeout;
-    }
-
-    pub fn set_request_timeout(&mut self, timeout: Duration) {
-        self.request_timeout = timeout;
-    }
-
-    pub fn set_each_timeout(&mut self, timeout: Duration) {
-        self.each_timeout = timeout;
-    }
-
-    pub fn set_each_tries(&mut self, attempts: i32) {
-        self.each_tries = attempts;
-    }
-
-    pub fn set_bind_ip(&mut self, ip: IpAddr) {
-        self.bind_addr = BindAddr::Ip(ip);
-    }
-
-    #[cfg(any(target_os = "linux", target_os = "android"))]
-    pub fn set_bind_interface(&mut self, name: InterfaceName) {
-        self.bind_addr = BindAddr::Interface(name);
-    }
-
     #[inline]
     pub fn get_bind_addr(&self) -> BindAddr {
         self.bind_addr
-    }
-
-    pub fn set_positive_min_ttl(&mut self, ttl: u32) {
-        self.positive_min_ttl = ttl;
-    }
-
-    pub fn set_positive_max_ttl(&mut self, ttl: u32) {
-        self.positive_max_ttl = ttl;
-    }
-
-    pub fn set_negative_ttl(&mut self, ttl: u32) {
-        self.negative_ttl = ttl;
     }
 
     pub(crate) fn spawn_resolver_driver(&self) -> anyhow::Result<BoxResolverDriver> {
@@ -169,6 +154,8 @@ impl HickoryDriverConfig {
                 positive_min_ttl: self.positive_min_ttl,
                 positive_max_ttl: self.positive_max_ttl,
                 negative_ttl: self.negative_ttl,
+                tcp_misc_opts: self.tcp_misc_opts,
+                udp_misc_opts: self.udp_misc_opts,
             };
             let (req_sender, req_receiver) = flume::unbounded();
             driver.push_client(req_sender);
