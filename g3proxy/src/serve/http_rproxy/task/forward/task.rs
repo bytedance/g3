@@ -524,10 +524,8 @@ impl<'a> HttpRProxyForwardTask<'a> {
                 .run_with_connection(fwd_ctx, clt_r, clt_w, connection)
                 .await;
             match r {
-                Ok(r) => {
-                    if let Some(connection) = r {
-                        fwd_ctx.save_alive_connection(connection);
-                    }
+                Ok(ups_s) => {
+                    self.save_or_close(fwd_ctx, clt_w, ups_s).await;
                     return Ok(());
                 }
                 Err(e) => {
@@ -555,10 +553,8 @@ impl<'a> HttpRProxyForwardTask<'a> {
             .run_with_connection(fwd_ctx, clt_r, clt_w, connection)
             .await
         {
-            Ok(r) => {
-                if let Some(connection) = r {
-                    fwd_ctx.save_alive_connection(connection);
-                }
+            Ok(ups_s) => {
+                self.save_or_close(fwd_ctx, clt_w, ups_s).await;
                 Ok(())
             }
             Err(e) => {
@@ -568,6 +564,24 @@ impl<'a> HttpRProxyForwardTask<'a> {
                 }
                 Err(e)
             }
+        }
+    }
+
+    async fn save_or_close<CDW>(
+        &self,
+        fwd_ctx: &mut BoxHttpForwardContext,
+        clt_w: &mut HttpClientWriter<CDW>,
+        ups_s: Option<BoxHttpForwardConnection>,
+    ) where
+        CDW: AsyncWrite + Unpin,
+    {
+        if self.should_close {
+            if let Some(mut connection) = ups_s {
+                let _ = connection.0.shutdown().await;
+            }
+            let _ = clt_w.shutdown().await;
+        } else if let Some(connection) = ups_s {
+            fwd_ctx.save_alive_connection(connection);
         }
     }
 
@@ -785,11 +799,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
         self.send_response(clt_w, ups_r, &rsp_header).await?;
 
         self.task_notes.stage = ServerTaskStage::Finished;
-        if self.should_close {
-            Ok(None)
-        } else {
-            Ok(Some(ups_c))
-        }
+        Ok(Some(ups_c))
     }
 
     async fn send_full_req_and_recv_rsp(
@@ -879,11 +889,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
             self.send_response(clt_w, ups_r, &rsp_header).await?;
 
             self.task_notes.stage = ServerTaskStage::Finished;
-            return if self.should_close {
-                Ok(None)
-            } else {
-                Ok(Some(ups_c))
-            };
+            return Ok(Some(ups_c));
         }
     }
 
@@ -1055,7 +1061,8 @@ impl<'a> HttpRProxyForwardTask<'a> {
         self.send_response(clt_w, ups_r, &rsp_header).await?;
 
         self.task_notes.stage = ServerTaskStage::Finished;
-        if self.should_close || close_remote {
+        if close_remote {
+            let _ = ups_w.shutdown().await;
             Ok(None)
         } else {
             Ok(Some(ups_c))
