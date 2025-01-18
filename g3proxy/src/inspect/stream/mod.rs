@@ -16,7 +16,7 @@
 
 use std::time::Duration;
 
-use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
 use g3_daemon::server::ServerQuitPolicy;
@@ -91,7 +91,10 @@ pub(crate) trait StreamTransitTask {
                 r = &mut clt_to_ups => {
                     let _ = ups_to_clt.write_flush().await;
                     return match r {
-                        Ok(_) => Err(ServerTaskError::ClosedByClient),
+                        Ok(_) => {
+                            let _ = clt_to_ups.writer().shutdown().await;
+                            Err(ServerTaskError::ClosedByClient)
+                        }
                         Err(LimitedCopyError::ReadFailed(e)) => Err(ServerTaskError::ClientTcpReadFailed(e)),
                         Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::UpstreamWriteFailed(e)),
                     };
@@ -99,7 +102,10 @@ pub(crate) trait StreamTransitTask {
                 r = &mut ups_to_clt => {
                     let _ = clt_to_ups.write_flush().await;
                     return match r {
-                        Ok(_) => Err(ServerTaskError::ClosedByUpstream),
+                        Ok(_) => {
+                            let _ = ups_to_clt.writer().shutdown().await;
+                            Err(ServerTaskError::ClosedByUpstream)
+                        }
                         Err(LimitedCopyError::ReadFailed(e)) => Err(ServerTaskError::UpstreamReadFailed(e)),
                         Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
                     };
@@ -267,7 +273,10 @@ where
                 r = &mut clt_to_ups => {
                     let _ = ups_to_clt.write_flush().await;
                     return match r {
-                        Ok(_) => Err(ServerTaskError::ClosedByClient),
+                        Ok(_) => {
+                            let _ = clt_to_ups.writer().shutdown().await;
+                            Err(ServerTaskError::ClosedByClient)
+                        }
                         Err(LimitedCopyError::ReadFailed(e)) => Err(ServerTaskError::ClientTcpReadFailed(e)),
                         Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::UpstreamWriteFailed(e)),
                     };
@@ -275,7 +284,10 @@ where
                 r = &mut ups_to_clt => {
                     let _ = clt_to_ups.write_flush().await;
                     return match r {
-                        Ok(_) => Err(ServerTaskError::ClosedByUpstream),
+                        Ok(_) => {
+                            let _ = ups_to_clt.writer().shutdown().await;
+                            Err(ServerTaskError::ClosedByUpstream)
+                        }
                         Err(LimitedCopyError::ReadFailed(e)) => Err(ServerTaskError::UpstreamReadFailed(e)),
                         Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
                     };
