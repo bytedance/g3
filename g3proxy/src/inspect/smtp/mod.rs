@@ -342,7 +342,11 @@ where
                 )
                 .await?;
             match next_action {
-                ForwardNextAction::Quit => return Ok(None),
+                ForwardNextAction::Quit => {
+                    let _ = ups_w.shutdown().await;
+                    let _ = clt_w.shutdown().await;
+                    return Ok(None);
+                }
                 ForwardNextAction::StartTls => {
                     return if let Some(tls_interception) = self.ctx.tls_interception() {
                         let mut start_tls_obj =
@@ -393,6 +397,8 @@ where
                         )
                         .await?;
                     if transaction.quit() {
+                        let _ = ups_w.shutdown().await;
+                        let _ = clt_w.shutdown().await;
                         return Ok(None);
                     }
                 }
