@@ -63,15 +63,16 @@ jobs:
     runs-on: ubuntu-24.04
     services:
       ftp-server:
-        image: ghcr.io/garethflowers/ftp-server:edge
+        image: bogem/ftp:latest
         env:
           FTP_USER: ftpuser
           FTP_PASS: ftppass
+          PASV_ADDRESS: 127.0.0.1
         ports:
           - '20-21:20-21/tcp'
-          - '40000-40009:40000-40009/tcp'
+          - '47400-47470:47400-47470/tcp'
         volumes:
-          - /tmp/ftp:/home/user
+          - /tmp/vsftpd:/home/vsftpd
       httpbin:
         image: ghcr.io/psf/httpbin:0.10.2
         ports:
