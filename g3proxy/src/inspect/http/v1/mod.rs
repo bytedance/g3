@@ -19,7 +19,7 @@ use std::sync::Arc;
 use async_recursion::async_recursion;
 use http::{Method, Version};
 use slog::slog_info;
-use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
 use g3_dpi::Protocol;
 use g3_io_ext::{FlexBufReader, LimitedBufReadExt};
@@ -150,7 +150,11 @@ where
 
                 r = req_acceptor.accept() => match r {
                     Some(r) => r,
-                    None => return Ok(None),
+                    None => {
+                        let _ = rsp_io.ups_w.shutdown().await;
+                        let _ = rsp_io.clt_w.shutdown().await;
+                        return Ok(None);
+                    }
                 },
                 r = rsp_io.ups_r.fill_wait_data() => {
                     req_acceptor.close();
@@ -164,7 +168,10 @@ where
 
             self.req_id += 1;
             match r {
-                HttpRecvRequest::ClientConnectionClosed => return Ok(None),
+                HttpRecvRequest::ClientConnectionClosed => {
+                    let _ = rsp_io.ups_w.shutdown().await;
+                    return Ok(None);
+                }
                 HttpRecvRequest::ClientConnectionError(e) => return Err(e),
                 HttpRecvRequest::ClientRequestError(e) => {
                     if let Some(rsp) =

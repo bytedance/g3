@@ -393,10 +393,14 @@ where
             CloseReason::Client => {
                 self.handle_client_logout(&mut clt_w, &mut ups_r, &mut relay_buf.rsp_recv_buf)
                     .await?;
+                let _ = ups_w.shutdown().await;
+                let _ = clt_w.shutdown().await;
                 Ok(())
             }
             CloseReason::Server => {
                 self.mark_close_by_server();
+                let _ = ups_w.shutdown().await;
+                let _ = clt_w.shutdown().await;
                 Ok(())
             }
             CloseReason::Local(e) => {

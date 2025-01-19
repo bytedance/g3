@@ -40,16 +40,12 @@ impl HttpConnectionEofCheck {
             _ = conn.1.fill_wait_data() => {
                 // close early when EOF or unexpected data, to avoid waiting at other side
                 wait_channel.close();
-                // make sure we correctly shutdown tls connection
-                // FIXME use async drop at escaper side when supported
                 let _ = conn.0.shutdown().await;
             }
             v = &mut wait_channel => {
                 if matches!(v, Ok(true)) {
                     let _ = send_channel.send(conn);
                 } else {
-                    // make sure we correctly shutdown tls connection
-                    // FIXME use async drop at escaper side when supported
                     let _ = conn.0.shutdown().await;
                 }
             }
