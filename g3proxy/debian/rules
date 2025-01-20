@@ -20,7 +20,6 @@ override_dh_auto_build:
 	    --no-default-features --features $(LUA_FEATURE),$(SSL_FEATURE),rustls-ring,quic,$(CARES_FEATURE),hickory \
 	    --package g3proxy --package g3proxy-ctl --package g3proxy-lua
 	cargo build --frozen --profile $(BUILD_PROFILE) --package g3proxy-ftp
-	sh $(PACKAGE_NAME)/service/generate_systemd.sh
 
 override_dh_auto_install:
 	dh_auto_install
@@ -28,7 +27,6 @@ override_dh_auto_install:
 	install -m 755 -D target/$(BUILD_PROFILE)/g3proxy-ctl debian/tmp/usr/bin/g3proxy-ctl
 	install -m 755 -D target/$(BUILD_PROFILE)/g3proxy-ftp debian/tmp/usr/bin/g3proxy-ftp
 	install -m 755 -D target/$(BUILD_PROFILE)/g3proxy-lua debian/tmp/usr/bin/g3proxy-lua
-	install -m 644 -D $(PACKAGE_NAME)/service/g3proxy@.service debian/tmp/lib/systemd/system/g3proxy@.service
 
 override_dh_installchangelogs:
 	dh_installchangelogs $(PACKAGE_NAME)/CHANGELOG
