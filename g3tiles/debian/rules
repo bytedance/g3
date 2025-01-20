@@ -17,13 +17,11 @@ override_dh_auto_build:
 	  cargo build --frozen --offline --profile $(BUILD_PROFILE) \
 	    --no-default-features --features $(SSL_FEATURE),rustls-ring,quic \
 	    --package g3tiles --package g3tiles-ctl
-	sh $(PACKAGE_NAME)/service/generate_systemd.sh
 
 override_dh_auto_install:
 	dh_auto_install
 	install -m 755 -D target/$(BUILD_PROFILE)/g3tiles debian/tmp/usr/bin/g3tiles
 	install -m 755 -D target/$(BUILD_PROFILE)/g3tiles-ctl debian/tmp/usr/bin/g3tiles-ctl
-	install -m 644 -D $(PACKAGE_NAME)/service/g3tiles@.service debian/tmp/lib/systemd/system/g3tiles@.service
 
 override_dh_installchangelogs:
 	dh_installchangelogs $(PACKAGE_NAME)/CHANGELOG
