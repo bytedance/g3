@@ -130,9 +130,7 @@ mod tests {
 
     #[test]
     fn single() {
-        let get_child = |name: &NodeName| match name.as_str() {
-            _ => None,
-        };
+        let get_child = |_name: &NodeName| None;
 
         let mut topo_map = TopoMap::default();
         topo_map
@@ -145,9 +143,7 @@ mod tests {
 
     #[test]
     fn two_unrelated() {
-        let get_child = |name: &NodeName| match name.as_str() {
-            _ => None,
-        };
+        let get_child = |_name: &NodeName| None;
 
         let mut topo_map = TopoMap::default();
         topo_map
