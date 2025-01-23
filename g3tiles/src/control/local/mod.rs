@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-use std::future::Future;
-
 use log::debug;
 
 use g3_daemon::control::LocalController;

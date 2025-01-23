@@ -15,7 +15,6 @@
  */
 
 use std::cell::UnsafeCell;
-use std::future::Future;
 use std::io::{self, IoSlice, IoSliceMut};
 use std::net::{SocketAddr, UdpSocket};
 use std::pin::Pin;

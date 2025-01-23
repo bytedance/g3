@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::future::Future;
 use std::sync::Mutex;
 use std::time::Duration;
 

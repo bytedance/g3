@@ -15,7 +15,6 @@
  */
 
 use std::collections::hash_map;
-use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};

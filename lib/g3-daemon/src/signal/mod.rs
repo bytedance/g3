@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-use std::future::Future;
-
 #[cfg(unix)]
 mod unix;
 #[cfg(unix)]
