@@ -113,7 +113,7 @@ impl ProxyFloatHttpPeer {
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         tls_application: TlsApplication,
-    ) -> Result<SslStream<impl AsyncRead + AsyncWrite>, TcpConnectError> {
+    ) -> Result<SslStream<impl AsyncRead + AsyncWrite + use<>>, TcpConnectError> {
         let buf_stream = self
             .timed_http_connect_tcp_connect_to(escaper, &task_conf.tcp, tcp_notes, task_notes)
             .await?;

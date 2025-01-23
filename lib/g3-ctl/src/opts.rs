@@ -84,7 +84,7 @@ impl DaemonCtlArgs {
 
     pub async fn connect_rpc<T>(
         &self,
-        daemon_name: &'static str,
+        daemon_name: &str,
     ) -> anyhow::Result<(RpcSystem<rpc_twoparty_capnp::Side>, T)>
     where
         T: capnp::capability::FromClientHook,
@@ -108,7 +108,7 @@ impl DaemonCtlArgs {
     #[cfg(unix)]
     async fn connect_to_daemon(
         &self,
-        daemon_name: &'static str,
+        daemon_name: &str,
     ) -> anyhow::Result<impl AsyncRead + AsyncWrite + use<>> {
         let control_dir = self.control_dir.clone().unwrap_or_else(|| {
             let mut sys_ctl_dir = PathBuf::from("/run");
@@ -141,8 +141,8 @@ impl DaemonCtlArgs {
     #[cfg(windows)]
     async fn connect_to_daemon(
         &self,
-        daemon_name: &'static str,
-    ) -> anyhow::Result<impl AsyncRead + AsyncWrite> {
+        daemon_name: &str,
+    ) -> anyhow::Result<impl AsyncRead + AsyncWrite + use<>> {
         let pipe_name = if self.pid != 0 {
             format!(r"\\.\pipe\{daemon_name}@{}:{}", self.daemon_group, self.pid)
         } else {
