@@ -24,25 +24,29 @@ unsafe fn setsockopt<T>(fd: c_int, level: c_int, name: c_int, value: T) -> io::R
 where
     T: Copy,
 {
-    let payload = &value as *const T as *const c_void;
-    let ret = libc::setsockopt(fd, level, name, payload, size_of::<T>() as socklen_t);
-    if ret == -1 {
-        return Err(io::Error::last_os_error());
+    unsafe {
+        let payload = &value as *const T as *const c_void;
+        let ret = libc::setsockopt(fd, level, name, payload, size_of::<T>() as socklen_t);
+        if ret == -1 {
+            return Err(io::Error::last_os_error());
+        }
+        Ok(())
     }
-    Ok(())
 }
 
 unsafe fn getsockopt<T>(fd: c_int, level: c_int, name: c_int) -> io::Result<T>
 where
     T: Copy,
 {
-    let mut payload: MaybeUninit<T> = MaybeUninit::uninit();
-    let mut len = size_of::<T>() as socklen_t;
-    let ret = libc::getsockopt(fd, level, name, payload.as_mut_ptr().cast(), &mut len);
-    if ret == -1 {
-        return Err(io::Error::last_os_error());
+    unsafe {
+        let mut payload: MaybeUninit<T> = MaybeUninit::uninit();
+        let mut len = size_of::<T>() as socklen_t;
+        let ret = libc::getsockopt(fd, level, name, payload.as_mut_ptr().cast(), &mut len);
+        if ret == -1 {
+            return Err(io::Error::last_os_error());
+        }
+        Ok(payload.assume_init())
     }
-    Ok(payload.assume_init())
 }
 
 pub(crate) fn set_bind_address_no_port<T: AsRawFd>(fd: &T, enable: bool) -> io::Result<()> {

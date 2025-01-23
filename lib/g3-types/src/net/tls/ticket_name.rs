@@ -70,9 +70,11 @@ impl TicketKeyName {
 
     /// Safety: `b` should be of size `TICKET_KEY_NAME_LENGTH`
     pub(crate) unsafe fn from_slice_unchecked(b: &[u8]) -> Self {
-        let mut v = [0u8; TICKET_KEY_NAME_LENGTH];
-        std::ptr::copy_nonoverlapping(b.as_ptr(), v.as_mut_ptr(), TICKET_KEY_NAME_LENGTH);
-        TicketKeyName(v)
+        unsafe {
+            let mut v = [0u8; TICKET_KEY_NAME_LENGTH];
+            std::ptr::copy_nonoverlapping(b.as_ptr(), v.as_mut_ptr(), TICKET_KEY_NAME_LENGTH);
+            TicketKeyName(v)
+        }
     }
 }
 

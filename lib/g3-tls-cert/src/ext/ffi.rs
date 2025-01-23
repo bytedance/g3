@@ -17,7 +17,7 @@
 use libc::{c_int, c_uchar, c_uint};
 use openssl_sys::RSA;
 
-extern "C" {
+unsafe extern "C" {
 
     pub fn RSA_sign_ASN1_OCTET_STRING(
         dummy: c_int,

@@ -109,7 +109,7 @@ impl DaemonCtlArgs {
     async fn connect_to_daemon(
         &self,
         daemon_name: &'static str,
-    ) -> anyhow::Result<impl AsyncRead + AsyncWrite> {
+    ) -> anyhow::Result<impl AsyncRead + AsyncWrite + use<>> {
         let control_dir = self.control_dir.clone().unwrap_or_else(|| {
             let mut sys_ctl_dir = PathBuf::from("/run");
             sys_ctl_dir.push(daemon_name);

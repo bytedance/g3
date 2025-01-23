@@ -37,15 +37,17 @@ struct RawSocketAddr {
 
 impl RawSocketAddr {
     unsafe fn get_ptr_and_size(&mut self) -> (*mut libc::c_void, usize) {
-        let p = &*(self.buf.as_ptr() as *mut libc::sockaddr);
+        unsafe {
+            let p = &*(self.buf.as_ptr() as *mut libc::sockaddr);
 
-        let size = match p.sa_family as libc::c_int {
-            libc::AF_INET => mem::size_of::<libc::sockaddr_in>(),
-            libc::AF_INET6 => mem::size_of::<libc::sockaddr_in6>(),
-            _ => self.buf.len(),
-        };
+            let size = match p.sa_family as libc::c_int {
+                libc::AF_INET => mem::size_of::<libc::sockaddr_in>(),
+                libc::AF_INET6 => mem::size_of::<libc::sockaddr_in6>(),
+                _ => self.buf.len(),
+            };
 
-        (self.buf.as_mut_ptr() as _, size)
+            (self.buf.as_mut_ptr() as _, size)
+        }
     }
 
     fn to_std(&self) -> Option<SocketAddr> {
@@ -124,20 +126,22 @@ impl<'a, const C: usize> SendMsgHdr<'a, C> {
     ///
     /// `self` should not be dropped before the returned value
     pub unsafe fn to_msghdr(&self) -> libc::msghdr {
-        let (c_addr, c_addr_len) = match &self.c_addr {
-            Some(v) => {
-                let c = &mut *v.get();
-                c.get_ptr_and_size()
-            }
-            None => (ptr::null_mut(), 0),
-        };
+        unsafe {
+            let (c_addr, c_addr_len) = match &self.c_addr {
+                Some(v) => {
+                    let c = &mut *v.get();
+                    c.get_ptr_and_size()
+                }
+                None => (ptr::null_mut(), 0),
+            };
 
-        let mut h = mem::zeroed::<libc::msghdr>();
-        h.msg_name = c_addr as _;
-        h.msg_namelen = c_addr_len as _;
-        h.msg_iov = self.iov.as_ptr() as _;
-        h.msg_iovlen = C as _;
-        h
+            let mut h = mem::zeroed::<libc::msghdr>();
+            h.msg_name = c_addr as _;
+            h.msg_namelen = c_addr_len as _;
+            h.msg_iov = self.iov.as_ptr() as _;
+            h.msg_iovlen = C as _;
+            h
+        }
     }
 
     /// # Safety
@@ -182,15 +186,17 @@ impl<'a, const C: usize> RecvMsgHdr<'a, C> {
     ///
     /// `self` should not be dropped before the returned value
     pub unsafe fn to_msghdr(&self) -> libc::msghdr {
-        let c_addr = &mut *self.c_addr.get();
-        let (c_addr, c_addr_len) = c_addr.get_ptr_and_size();
+        unsafe {
+            let c_addr = &mut *self.c_addr.get();
+            let (c_addr, c_addr_len) = c_addr.get_ptr_and_size();
 
-        let mut h = mem::zeroed::<libc::msghdr>();
-        h.msg_name = c_addr as _;
-        h.msg_namelen = c_addr_len as _;
-        h.msg_iov = self.iov.as_ptr() as _;
-        h.msg_iovlen = C as _;
-        h
+            let mut h = mem::zeroed::<libc::msghdr>();
+            h.msg_name = c_addr as _;
+            h.msg_namelen = c_addr_len as _;
+            h.msg_iov = self.iov.as_ptr() as _;
+            h.msg_iovlen = C as _;
+            h
+        }
     }
 
     /// # Safety
