@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-use std::future::Future;
-
 use anyhow::anyhow;
 use openssl::pkey::PKey;
 

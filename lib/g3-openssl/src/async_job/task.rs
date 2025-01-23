@@ -15,7 +15,6 @@
  */
 
 use std::cell::UnsafeCell;
-use std::future::Future;
 use std::io;
 use std::os::fd::RawFd;
 use std::pin::Pin;

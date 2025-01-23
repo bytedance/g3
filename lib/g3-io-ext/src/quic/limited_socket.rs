@@ -16,7 +16,6 @@
 
 use std::cell::UnsafeCell;
 use std::fmt;
-use std::future::Future;
 use std::io::{self, IoSliceMut};
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};

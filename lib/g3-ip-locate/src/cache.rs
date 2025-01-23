@@ -15,7 +15,6 @@
  */
 
 use std::collections::hash_map;
-use std::future::Future;
 use std::io;
 use std::net::IpAddr;
 use std::pin::Pin;
