@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::future::Future;
 use std::io::{self, Write};
 use std::pin::Pin;
 use std::task::{Context, Poll};
