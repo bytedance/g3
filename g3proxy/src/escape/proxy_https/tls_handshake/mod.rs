@@ -30,7 +30,7 @@ impl ProxyHttpsEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<SslStream<impl AsyncRead + AsyncWrite>, TcpConnectError> {
+    ) -> Result<SslStream<impl AsyncRead + AsyncWrite + use<>>, TcpConnectError> {
         let (peer, ups_s) = self
             .tcp_new_connection(task_conf, tcp_notes, task_notes)
             .await?;

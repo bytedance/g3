@@ -171,7 +171,7 @@ impl ProxyFloatSocks5Peer {
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         tls_application: TlsApplication,
-    ) -> Result<SslStream<impl AsyncRead + AsyncWrite>, TcpConnectError> {
+    ) -> Result<SslStream<impl AsyncRead + AsyncWrite + use<>>, TcpConnectError> {
         let ups_s = self
             .timed_socks5_connect_tcp_connect_to(escaper, &task_conf.tcp, tcp_notes, task_notes)
             .await?;
