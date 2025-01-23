@@ -1,7 +1,6 @@
 [package]
 name = "g3-stdlog"
-version = "0.1.0"
-rust-version = "1.73.0"
+version = "0.2.0"
 license.workspace = true
 edition.workspace = true
 
