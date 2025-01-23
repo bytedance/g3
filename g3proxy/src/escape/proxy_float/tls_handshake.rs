@@ -35,7 +35,8 @@ impl ProxyFloatEscaper {
         task_notes: &ServerTaskNotes,
         tls_name: &Host,
         peer: &P,
-    ) -> Result<SslStream<LimitedStream<impl AsyncRead + AsyncWrite>>, TcpConnectError> {
+    ) -> Result<SslStream<LimitedStream<impl AsyncRead + AsyncWrite + use<P>>>, TcpConnectError>
+    {
         let stream = self
             .tcp_new_connection(peer, task_conf, tcp_notes, task_notes)
             .await?;

@@ -44,7 +44,7 @@ impl ProxyFloatSocks5sPeer {
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<SslStream<impl AsyncRead + AsyncWrite>, TcpConnectError> {
+    ) -> Result<SslStream<impl AsyncRead + AsyncWrite + use<>>, TcpConnectError> {
         let mut stream = escaper
             .tls_handshake_with_peer(task_conf, tcp_notes, task_notes, &self.tls_name, self)
             .await?;
@@ -68,7 +68,7 @@ impl ProxyFloatSocks5sPeer {
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<SslStream<impl AsyncRead + AsyncWrite>, TcpConnectError> {
+    ) -> Result<SslStream<impl AsyncRead + AsyncWrite + use<>>, TcpConnectError> {
         tokio::time::timeout(
             escaper.config.peer_negotiation_timeout,
             self.socks5_connect_tcp_connect_to(escaper, task_conf, tcp_notes, task_notes),
@@ -87,7 +87,7 @@ impl ProxyFloatSocks5sPeer {
         task_notes: &ServerTaskNotes,
     ) -> Result<
         (
-            SslStream<impl AsyncRead + AsyncWrite>,
+            SslStream<impl AsyncRead + AsyncWrite + use<>>,
             UdpSocket,
             SocketAddr,
             SocketAddr,
@@ -144,7 +144,7 @@ impl ProxyFloatSocks5sPeer {
         task_notes: &ServerTaskNotes,
     ) -> Result<
         (
-            SslStream<impl AsyncRead + AsyncWrite>,
+            SslStream<impl AsyncRead + AsyncWrite + use<>>,
             UdpSocket,
             SocketAddr,
             SocketAddr,
@@ -190,7 +190,7 @@ impl ProxyFloatSocks5sPeer {
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         tls_application: TlsApplication,
-    ) -> Result<SslStream<impl AsyncRead + AsyncWrite>, TcpConnectError> {
+    ) -> Result<SslStream<impl AsyncRead + AsyncWrite + use<>>, TcpConnectError> {
         let ups_s = self
             .timed_socks5_connect_tcp_connect_to(escaper, &task_conf.tcp, tcp_notes, task_notes)
             .await?;

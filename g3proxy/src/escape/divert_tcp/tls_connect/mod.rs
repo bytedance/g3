@@ -39,7 +39,7 @@ impl DivertTcpEscaper {
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         tls_application: TlsApplication,
-    ) -> Result<SslStream<impl AsyncRead + AsyncWrite>, TcpConnectError> {
+    ) -> Result<SslStream<impl AsyncRead + AsyncWrite + use<>>, TcpConnectError> {
         let stream = self
             .tcp_connect_to(&task_conf.tcp, tcp_notes, task_notes)
             .await?;

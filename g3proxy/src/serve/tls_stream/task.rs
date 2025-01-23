@@ -208,8 +208,8 @@ impl TlsStreamTask {
         &self,
         clt_stream: TlsStream<TcpStream>,
     ) -> (
-        LimitedReader<impl AsyncRead>,
-        LimitedWriter<impl AsyncWrite>,
+        LimitedReader<impl AsyncRead + use<>>,
+        LimitedWriter<impl AsyncWrite + use<>>,
     ) {
         let (clt_r, clt_w) = clt_stream.into_split();
 
