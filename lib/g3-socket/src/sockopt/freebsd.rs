@@ -23,12 +23,14 @@ unsafe fn setsockopt<T>(fd: c_int, level: c_int, name: c_int, value: T) -> io::R
 where
     T: Copy,
 {
-    let payload = &value as *const T as *const c_void;
-    let ret = libc::setsockopt(fd, level, name, payload, size_of::<T>() as socklen_t);
-    if ret == -1 {
-        return Err(io::Error::last_os_error());
+    unsafe {
+        let payload = &value as *const T as *const c_void;
+        let ret = libc::setsockopt(fd, level, name, payload, size_of::<T>() as socklen_t);
+        if ret == -1 {
+            return Err(io::Error::last_os_error());
+        }
+        Ok(())
     }
-    Ok(())
 }
 
 pub(crate) fn set_tcp_reuseport_lb_numa_current_domain<T: AsRawFd>(fd: &T) -> io::Result<()> {

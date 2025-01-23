@@ -151,7 +151,7 @@ impl RedisClientConfig {
         }
     }
 
-    pub async fn connect(&self) -> anyhow::Result<impl AsyncCommands> {
+    pub async fn connect(&self) -> anyhow::Result<impl AsyncCommands + use<>> {
         let peer = self.lookup_server().await?;
         let socket = g3_socket::tcp::new_socket_to(
             peer.ip(),

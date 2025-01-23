@@ -82,7 +82,7 @@ impl CpuAffinity {
                     if start >= end {
                         return Err(io::Error::new(
                             io::ErrorKind::InvalidInput,
-                            "invalid CPU ID range {part}",
+                            format!("invalid CPU ID range {part}"),
                         ));
                     }
                     for id in start.0..=end.0 {
