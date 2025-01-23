@@ -1,9 +1,8 @@
 [package]
 name = "g3-geoip-db"
-version = "0.2.0"
+version = "0.3.0"
 license.workspace = true
 edition.workspace = true
-rust-version = "1.80.0"
 
 [dependencies]
 anyhow.workspace = true
