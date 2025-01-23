@@ -70,7 +70,7 @@ impl LocalController {
     fn start(
         self,
         mutex: &Mutex<Option<oneshot::Sender<oneshot::Sender<LocalControllerImpl>>>>,
-    ) -> anyhow::Result<impl Future> {
+    ) -> anyhow::Result<impl Future + use<>> {
         let mut abort_channel = mutex.lock().unwrap();
         if abort_channel.is_some() {
             return Err(anyhow!("controller already existed"));
@@ -108,7 +108,10 @@ impl LocalController {
         Ok(fut)
     }
 
-    pub fn start_unique(daemon_name: &str, daemon_group: &str) -> anyhow::Result<impl Future> {
+    pub fn start_unique(
+        daemon_name: &str,
+        daemon_group: &str,
+    ) -> anyhow::Result<impl Future + use<>> {
         LocalController::create_unique(daemon_name, daemon_group)?.start_as_unique()
     }
 
@@ -127,7 +130,10 @@ impl LocalController {
         Ok(fut)
     }
 
-    pub fn start_daemon(daemon_name: &str, daemon_group: &str) -> anyhow::Result<impl Future> {
+    pub fn start_daemon(
+        daemon_name: &str,
+        daemon_group: &str,
+    ) -> anyhow::Result<impl Future + use<>> {
         LocalController::create_daemon(daemon_name, daemon_group)?.start_as_daemon()
     }
 

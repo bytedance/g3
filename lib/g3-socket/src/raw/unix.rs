@@ -30,10 +30,9 @@ impl Drop for RawSocket {
 
 impl Clone for RawSocket {
     fn clone(&self) -> Self {
-        if let Some(s) = &self.inner {
-            Self::from(s)
-        } else {
-            RawSocket { inner: None }
+        match &self.inner {
+            Some(s) => Self::from(s),
+            None => RawSocket { inner: None },
         }
     }
 }
