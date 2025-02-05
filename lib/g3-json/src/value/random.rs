@@ -17,7 +17,7 @@
 use std::str::FromStr;
 
 use anyhow::anyhow;
-use rand::distributions::Bernoulli;
+use rand::distr::Bernoulli;
 use serde_json::Value;
 
 pub fn as_random_ratio(value: &Value) -> anyhow::Result<Bernoulli> {

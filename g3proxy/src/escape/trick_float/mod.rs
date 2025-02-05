@@ -19,7 +19,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use rand::seq::SliceRandom;
+use rand::seq::IndexedRandom;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::metrics::NodeName;
@@ -90,7 +90,7 @@ impl TrickFloatEscaper {
     }
 
     fn random_next(&self) -> anyhow::Result<ArcEscaper> {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let escaper = self
             .next_nodes
             .choose_weighted(&mut rng, |escaper| escaper._trick_float_weight())

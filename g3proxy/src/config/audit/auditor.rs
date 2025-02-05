@@ -17,7 +17,7 @@
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
-use rand::distributions::Bernoulli;
+use rand::distr::Bernoulli;
 use yaml_rust::{yaml, Yaml};
 
 use g3_cert_agent::CertAgentConfig;

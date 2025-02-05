@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use rand::distributions::{Bernoulli, Distribution};
+use rand::distr::{Bernoulli, Distribution};
 
 mod json;
 mod yaml;
@@ -41,7 +41,7 @@ impl Default for UserAuditConfig {
 impl UserAuditConfig {
     pub(crate) fn do_task_audit(&self) -> Option<bool> {
         if let Some(ratio) = &self.task_audit_ratio {
-            let mut rng = rand::thread_rng();
+            let mut rng = rand::rng();
             Some(ratio.sample(&mut rng))
         } else {
             None
