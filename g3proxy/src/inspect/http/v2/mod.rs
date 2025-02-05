@@ -208,7 +208,7 @@ where
         server_builder
             .max_header_list_size(http_config.max_header_list_size)
             .max_concurrent_streams(1)
-            .max_frame_size(http_config.max_frame_size)
+            .max_frame_size(http_config.max_frame_size())
             .max_send_buffer_size(http_config.max_send_buffer_size);
 
         match tokio::time::timeout(
@@ -257,7 +257,7 @@ where
         server_builder
             .max_header_list_size(http_config.max_header_list_size)
             .max_concurrent_streams(1)
-            .max_frame_size(http_config.max_frame_size)
+            .max_frame_size(http_config.max_frame_size())
             .max_send_buffer_size(http_config.max_send_buffer_size);
 
         let mut h2c = match tokio::time::timeout(
@@ -294,7 +294,7 @@ where
             .enable_push(false) // server push is deprecated by chrome and nginx
             .max_header_list_size(http_config.max_header_list_size)
             .max_concurrent_streams(http_config.max_concurrent_streams)
-            .max_frame_size(http_config.max_frame_size)
+            .max_frame_size(http_config.max_frame_size())
             .max_send_buffer_size(http_config.max_send_buffer_size);
         if http_config.disable_upstream_push {
             client_builder.enable_push(false);
@@ -318,7 +318,7 @@ where
         server_builder
             .max_header_list_size(http_config.max_header_list_size)
             .max_concurrent_streams(max_concurrent_recv_streams)
-            .max_frame_size(http_config.max_frame_size)
+            .max_frame_size(http_config.max_frame_size())
             .max_send_buffer_size(http_config.max_send_buffer_size);
         if h2s.is_extended_connect_protocol_enabled() {
             server_builder.enable_connect_protocol();
