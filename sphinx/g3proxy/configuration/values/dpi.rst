@@ -733,7 +733,9 @@ The keys are:
 
   Set the max frame size.
 
-  **default**: 1MiB
+  **default**: 1MiB, **min**: 16K, **max**: 16M - 1
+
+  .. versionchanged:: 1.11.3 adjust the value to be in the range *min*-*max* automatically
 
 * max_send_buffer_size
 

@@ -48,7 +48,7 @@ impl Default for H1InterceptionConfig {
 pub struct H2InterceptionConfig {
     pub max_header_list_size: u32,
     pub max_concurrent_streams: u32,
-    pub max_frame_size: u32,
+    max_frame_size: u32,
     pub max_send_buffer_size: usize,
     pub disable_upstream_push: bool,
     pub upstream_handshake_timeout: Duration,
@@ -72,5 +72,16 @@ impl Default for H2InterceptionConfig {
             rsp_head_recv_timeout: Duration::from_secs(60),
             silent_drop_expect_header: false,
         }
+    }
+}
+
+impl H2InterceptionConfig {
+    #[inline]
+    pub fn max_frame_size(&self) -> u32 {
+        self.max_frame_size
+    }
+
+    pub fn set_max_frame_size(&mut self, size: u32) {
+        self.max_frame_size = size.clamp(1 << 14, (1 << 24) - 1);
     }
 }
