@@ -23,7 +23,9 @@ use g3tiles::opts::ProcArgs;
 
 fn main() -> anyhow::Result<()> {
     #[cfg(feature = "openssl-probe")]
-    openssl_probe::init_ssl_cert_env_vars();
+    unsafe {
+        openssl_probe::init_openssl_env_vars();
+    }
     openssl::init();
 
     #[cfg(feature = "rustls-ring")]

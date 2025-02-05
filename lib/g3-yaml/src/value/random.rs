@@ -17,7 +17,7 @@
 use std::str::FromStr;
 
 use anyhow::anyhow;
-use rand::distributions::Bernoulli;
+use rand::distr::Bernoulli;
 use yaml_rust::Yaml;
 
 pub fn as_random_ratio(value: &Yaml) -> anyhow::Result<Bernoulli> {

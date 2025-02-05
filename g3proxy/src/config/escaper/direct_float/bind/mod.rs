@@ -108,7 +108,7 @@ impl BindSet {
         self.unnamed
             .iter()
             .chain(self.named.values())
-            .choose(&mut rand::thread_rng())
+            .choose(&mut rand::rng())
             .cloned()
     }
 

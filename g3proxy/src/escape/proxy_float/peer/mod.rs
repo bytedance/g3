@@ -203,7 +203,7 @@ impl PeerSet {
             .iter()
             .chain(self.named.values())
             .filter(|p| !p.is_expired())
-            .choose(&mut rand::thread_rng())
+            .choose(&mut rand::rng())
             .cloned()
     }
 

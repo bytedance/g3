@@ -152,9 +152,9 @@ impl AuditHandle {
     }
 
     pub(crate) fn do_task_audit(&self) -> bool {
-        use rand::distributions::Distribution;
+        use rand::distr::Distribution;
 
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         self.auditor_config.task_audit_ratio.sample(&mut rng)
     }
 }

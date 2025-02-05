@@ -20,7 +20,7 @@ use std::str::FromStr;
 use std::sync::atomic;
 
 use metrohash::MetroHash64;
-use rand::seq::SliceRandom;
+use rand::seq::IndexedRandom;
 use smallvec::SmallVec;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -166,7 +166,7 @@ impl<T: SelectiveItem> SelectiveVec<T> {
             0 => panic_on_empty!(),
             1 => &self.inner[0],
             _ => {
-                let mut rng = rand::thread_rng();
+                let mut rng = rand::rng();
                 if self.weighted {
                     self.inner
                         .choose_weighted(&mut rng, |v| v.weight())
@@ -185,7 +185,7 @@ impl<T: SelectiveItem> SelectiveVec<T> {
             _ => {
                 let len = self.inner.len().min(n);
 
-                let mut rng = rand::thread_rng();
+                let mut rng = rand::rng();
                 if self.weighted {
                     self.inner
                         .choose_multiple_weighted(&mut rng, len, |v| v.weight())
