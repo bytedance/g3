@@ -1,4 +1,5 @@
 name: CrossCompiling
+permissions: {}
 
 on:
   push:

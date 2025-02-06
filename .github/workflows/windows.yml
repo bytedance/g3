@@ -1,4 +1,5 @@
 name: Windows-CI
+permissions: {}
 
 on:
   push:
