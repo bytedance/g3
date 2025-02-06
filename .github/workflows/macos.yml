@@ -1,4 +1,5 @@
 name: MacOS-CI
+permissions: {}
 
 on:
   push:

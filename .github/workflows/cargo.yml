@@ -1,4 +1,5 @@
 name: Cargo-General
+permissions: {}
 on:
   pull_request:
     paths:

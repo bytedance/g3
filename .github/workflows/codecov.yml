@@ -1,4 +1,5 @@
 name: CodeCoverage
+permissions: {}
 
 on:
   push:
