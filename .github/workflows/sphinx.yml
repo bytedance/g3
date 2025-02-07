@@ -1,5 +1,5 @@
 name: Sphinx-Doc
-permissions: {}
+permissions: { }
 
 on:
   push:
@@ -19,6 +19,6 @@ jobs:
           - g3tiles
     steps:
       - uses: actions/checkout@v4
-      - uses: ammaraskar/sphinx-action@master
+      - uses: ammaraskar/sphinx-action@8b4f60114d7fd1faeba1a712269168508d4750d2 # 0.4
         with:
           docs-folder: "sphinx/${{ matrix.component }}"
