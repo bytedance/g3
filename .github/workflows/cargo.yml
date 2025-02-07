@@ -1,5 +1,6 @@
 name: Cargo-General
-permissions: {}
+permissions: { }
+
 on:
   pull_request:
     paths:
@@ -9,6 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: EmbarkStudios/cargo-deny-action@v2
+      - uses: EmbarkStudios/cargo-deny-action@e2f4ede4a4e60ea15ff31bc0647485d80c66cfba # v2.0.4
         with:
           command: check bans licenses sources
