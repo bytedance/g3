@@ -19,6 +19,8 @@ jobs:
           - g3tiles
     steps:
       - uses: actions/checkout@v4
-      - uses: ammaraskar/sphinx-action@8b4f60114d7fd1faeba1a712269168508d4750d2 # 0.4
-        with:
-          docs-folder: "sphinx/${{ matrix.component }}"
+      - run: |
+          sudo apt-get update
+          sudo apt-get install python3-sphinx python3-sphinx-rtd-theme
+      - uses: sphinx-doc/github-problem-matcher@d521df655a8af22fcc69e4f4af8b1f25699ee754 # v1.0
+      - run: sphinx-build sphinx/${{ matrix.component }} sphinx/${{ matrix.component }}/_build
