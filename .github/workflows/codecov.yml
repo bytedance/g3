@@ -61,7 +61,7 @@ jobs:
           verbose: false
   g3proxy-test:
     name: g3proxy test
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     services:
       ftp-server:
         image: bogem/ftp:latest
@@ -151,7 +151,7 @@ jobs:
           verbose: false
   g3bench-test:
     name: g3bench test
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     services:
       httpbin:
         image: ghcr.io/psf/httpbin:0.10.2
