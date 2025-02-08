@@ -10,6 +10,7 @@ rust-version = "1.80.0"
 [dependencies]
 anyhow.workspace = true
 log = { workspace = true, features = ["std"] }
+clap.workspace = true
 cfg-if.workspace = true
 slog = { workspace = true, features = ["max_level_trace", "release_max_level_info"] }
 async-trait.workspace = true
@@ -21,13 +22,14 @@ capnp-rpc.workspace = true
 rand.workspace = true
 fastrand.workspace = true
 uuid = { workspace = true, features = ["v1"] }
+rustc-hash.workspace = true
 chrono.workspace = true
 tokio = { workspace = true, features = ["net", "io-util", "signal", "macros"] }
 tokio-util = { workspace = true, features = ["compat"] }
 http = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
-clap.workspace = true
 quinn = { workspace = true, optional = true, features = ["runtime-tokio", "ring"] }
+g3-compat.workspace = true
 g3-types = { workspace = true, features = ["async-log"] }
 g3-stdlog.workspace = true
 g3-syslog = { workspace = true, features = ["yaml"] }

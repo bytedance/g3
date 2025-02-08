@@ -23,6 +23,7 @@ use tokio::net::TcpStream;
 use tokio::runtime::Handle;
 use tokio::sync::broadcast;
 
+use g3_compat::CpuAffinity;
 use g3_io_ext::LimitedTcpListener;
 use g3_socket::util::native_socket_addr;
 use g3_socket::RawSocket;
@@ -46,6 +47,8 @@ pub struct ListenTcpRuntime<S> {
     server_type: &'static str,
     server_version: usize,
     worker_id: Option<usize>,
+    #[cfg(target_os = "linux")]
+    follow_incoming_cpu: bool,
     listen_stats: Arc<ListenStats>,
     instance_id: usize,
 }
@@ -62,6 +65,8 @@ where
             server_type,
             server_version,
             worker_id: None,
+            #[cfg(target_os = "linux")]
+            follow_incoming_cpu: false,
             listen_stats,
             instance_id: 0,
         }
@@ -184,7 +189,21 @@ where
             tokio::spawn(async move {
                 server.run_tcp_task(stream, cc_info).await;
             });
-        } else if let Some(rt) = crate::runtime::worker::select_handle() {
+            return;
+        }
+        #[cfg(target_os = "linux")]
+        if self.follow_incoming_cpu {
+            if let Some(cpu_id) = cc_info.tcp_sock_incoming_cpu() {
+                if let Some(rt) = crate::runtime::worker::select_handle_by_cpu_id(cpu_id) {
+                    cc_info.set_worker_id(Some(rt.id));
+                    rt.handle.spawn(async move {
+                        server.run_tcp_task(stream, cc_info).await;
+                    });
+                    return;
+                }
+            }
+        }
+        if let Some(rt) = crate::runtime::worker::select_handle() {
             cc_info.set_worker_id(Some(rt.id));
             rt.handle.spawn(async move {
                 server.run_tcp_task(stream, cc_info).await;
@@ -196,24 +215,44 @@ where
         }
     }
 
-    fn get_rt_handle(&mut self, listen_in_worker: bool) -> Handle {
+    fn get_rt_handle(&mut self, listen_in_worker: bool) -> (Handle, Option<CpuAffinity>) {
         if listen_in_worker {
             if let Some(rt) = crate::runtime::worker::select_listen_handle() {
                 self.worker_id = Some(rt.id);
-                return rt.handle;
+                return (rt.handle, rt.cpu_affinity);
             }
         }
-        Handle::current()
+        (Handle::current(), None)
     }
 
     fn into_running(
         mut self,
         listener: std::net::TcpListener,
         listen_in_worker: bool,
+        follow_cpu_affinity: bool,
         server_reload_channel: broadcast::Receiver<ServerReloadCommand>,
     ) {
-        let handle = self.get_rt_handle(listen_in_worker);
+        let (handle, cpu_affinity) = self.get_rt_handle(listen_in_worker);
         handle.spawn(async move {
+            if follow_cpu_affinity {
+                #[cfg(target_os = "linux")]
+                {
+                    self.follow_incoming_cpu = true;
+                }
+
+                if let Some(cpu_affinity) = cpu_affinity {
+                    if let Err(e) =
+                        g3_socket::tcp::try_listen_on_local_cpu(&listener, &cpu_affinity)
+                    {
+                        warn!(
+                            "SRT[{}_v{}#{}] failed to set cpu affinity for listen socket: {e}",
+                            self.server.name(),
+                            self.server_version,
+                            self.instance_id
+                        );
+                    }
+                }
+            }
             // make sure the listen socket associated with the correct reactor
             match tokio::net::TcpListener::from_std(listener) {
                 Ok(listener) => {
@@ -252,7 +291,12 @@ where
             runtime.instance_id = i;
 
             let listener = g3_socket::tcp::new_std_listener(listen_config)?;
-            runtime.into_running(listener, listen_in_worker, server_reload_sender.subscribe());
+            runtime.into_running(
+                listener,
+                listen_in_worker,
+                listen_config.follow_cpu_affinity(),
+                server_reload_sender.subscribe(),
+            );
         }
         Ok(())
     }

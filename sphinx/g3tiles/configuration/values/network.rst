@@ -1,4 +1,3 @@
-
 .. _configure_network_value_types:
 
 *******
@@ -276,6 +275,29 @@ It consists of the following fields:
     scale: 50%
 
   **default**: 0
+
+* follow_cpu_affinity
+
+  **optional**, **type**: bool
+
+  Follow CPU affinity of the listen socket and the worker.
+
+  When enabled, it will:
+
+  - when listen in worker
+
+    it will set the following options for the listen socket:
+
+    - Linux: set SO_INCOMING_CPU to the CPU core ID if the worker bind to a specific CPU core
+    - FreeBSD: set TCP_REUSPORT_LB_NUMA to TCP_REUSPORT_LB_NUMA_CURDOM if the worker has CPU affinity settings
+
+  - when not listen in worker
+
+    - Linux: get the SO_INCOMING_CPU value of the accepted socket and select a worker run only on that CPU core
+
+  **default**: false
+
+  .. versionadded:: 0.3.8
 
 The yaml value for *listen* can be in the following formats:
 

@@ -11,6 +11,7 @@ rust-version = "1.80.0"
 tokio = { workspace = true, features = ["net"] }
 socket2 = { version = "0.5", features = ["all"] }
 fastrand.workspace = true
+g3-compat.workspace = true
 g3-types.workspace = true
 
 [target.'cfg(unix)'.dependencies]

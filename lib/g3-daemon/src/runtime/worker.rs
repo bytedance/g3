@@ -16,9 +16,12 @@
 
 use std::cell::RefCell;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::OnceLock;
 
+use rustc_hash::{FxBuildHasher, FxHashMap};
 use tokio::runtime::Handle;
 
+use g3_compat::CpuAffinity;
 use g3_runtime::unaided::WorkersGuard;
 use g3_types::sync::GlobalInit;
 
@@ -26,23 +29,44 @@ use g3_types::sync::GlobalInit;
 pub struct WorkerHandle {
     pub handle: Handle,
     pub id: usize,
+    pub cpu_affinity: Option<CpuAffinity>,
 }
 
 static WORKER_HANDLERS: GlobalInit<Vec<WorkerHandle>> = GlobalInit::new(Vec::new());
+static CPU_CORE_WORKER_MAP: OnceLock<FxHashMap<usize, WorkerHandle>> = OnceLock::new();
 
 static LISTEN_RR_INDEX: AtomicUsize = AtomicUsize::new(0);
 thread_local! {
     static WORKER_RR_INDEX: RefCell<Option<usize>> = const { RefCell::new(None) };
 }
 
+fn build_cpu_core_worker_map() {
+    let mut map = FxHashMap::with_hasher(FxBuildHasher);
+    for h in WORKER_HANDLERS.as_ref() {
+        if let Some(affinity) = &h.cpu_affinity {
+            let cpu_id_list = affinity.cpu_id_list();
+            if cpu_id_list.len() == 1 {
+                map.insert(cpu_id_list[0], h.clone());
+            }
+        }
+    }
+    let _ = CPU_CORE_WORKER_MAP.set(map);
+}
+
 pub async fn spawn_workers() -> anyhow::Result<Option<WorkersGuard>> {
     if let Some(config) = crate::runtime::config::get_worker_config() {
         let guard = config
-            .start(|id, handle| {
+            .start(|id, handle, cpu_affinity| {
                 super::metrics::add_tokio_stats(handle.metrics(), format!("worker-{id}"));
-                WORKER_HANDLERS.with_mut(|vec| vec.push(WorkerHandle { handle, id }));
+                let worker_handle = WorkerHandle {
+                    handle,
+                    id,
+                    cpu_affinity,
+                };
+                WORKER_HANDLERS.with_mut(|vec| vec.push(worker_handle));
             })
             .await?;
+        build_cpu_core_worker_map();
         Ok(Some(guard))
     } else {
         Ok(None)
@@ -74,6 +98,13 @@ pub fn select_handle() -> Option<WorkerHandle> {
             Some(handle)
         }),
     }
+}
+
+pub fn select_handle_by_cpu_id(cpu_id: usize) -> Option<WorkerHandle> {
+    CPU_CORE_WORKER_MAP
+        .get()
+        .and_then(|m| m.get(&cpu_id))
+        .cloned()
 }
 
 pub fn select_listen_handle() -> Option<WorkerHandle> {

@@ -20,6 +20,10 @@ use std::io;
 pub struct CpuAffinity {}
 
 impl CpuAffinity {
+    pub fn cpu_id_list(&self) -> &[usize] {
+        &[]
+    }
+
     pub fn add_id(&mut self, _id: usize) -> io::Result<()> {
         Err(io::Error::new(
             io::ErrorKind::Unsupported,

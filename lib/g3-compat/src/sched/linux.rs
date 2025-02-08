@@ -20,17 +20,23 @@ use std::mem;
 #[derive(Clone)]
 pub struct CpuAffinity {
     cpu_set: libc::cpu_set_t,
+    cpu_id_list: Vec<usize>,
 }
 
 impl Default for CpuAffinity {
     fn default() -> Self {
         CpuAffinity {
             cpu_set: unsafe { mem::zeroed() },
+            cpu_id_list: Vec::new(),
         }
     }
 }
 
 impl CpuAffinity {
+    pub fn cpu_id_list(&self) -> &[usize] {
+        &self.cpu_id_list
+    }
+
     fn max_cpu_id() -> usize {
         let bytes = mem::size_of::<libc::cpu_set_t>();
         (bytes << 3) - 1
@@ -46,6 +52,7 @@ impl CpuAffinity {
         unsafe {
             libc::CPU_SET(id, &mut self.cpu_set);
         }
+        self.cpu_id_list.push(id);
         Ok(())
     }
 

@@ -43,6 +43,10 @@ impl CpuAffinity {
         CpuAffinity { cpu_tag: tag.get() }
     }
 
+    pub fn cpu_id_list(&self) -> &[usize] {
+        &[]
+    }
+
     pub fn apply_to_local_thread(&self) -> io::Result<()> {
         let mut policy_info = thread_affinity_policy {
             affinity_tag: self.cpu_tag,

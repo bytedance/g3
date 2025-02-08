@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
+ * Copyright 2025 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,13 +31,15 @@ where
     Ok(())
 }
 
-pub(crate) fn set_bind_address_no_port<T: AsRawFd>(fd: &T, enable: bool) -> io::Result<()> {
+pub(crate) fn set_tcp_reuseport_lb_numa_current_domain<T: AsRawFd>(fd: &T) -> io::Result<()> {
+    const TCP_REUSPORT_LB_NUMA_CURDOM: i32 = -1;
+
     unsafe {
         setsockopt(
             fd.as_raw_fd(),
-            libc::IPPROTO_IP,
-            libc::IP_BIND_ADDRESS_NO_PORT,
-            enable as c_int,
+            libc::IPPROTO_TCP,
+            libc::TCP_REUSPORT_LB_NUMA,
+            TCP_REUSPORT_LB_NUMA_CURDOM,
         )?;
         Ok(())
     }

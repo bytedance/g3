@@ -20,6 +20,7 @@ use std::net::IpAddr;
 use socket2::{Domain, SockAddr, Socket, TcpKeepalive, Type};
 use tokio::net::{TcpListener, TcpSocket};
 
+use g3_compat::CpuAffinity;
 use g3_types::net::{TcpKeepAliveConfig, TcpListenConfig, TcpMiscSockOpts};
 
 use super::util::AddressFamily;
@@ -120,6 +121,42 @@ pub fn new_socket_to(
 ) -> io::Result<TcpSocket> {
     let socket = new_std_socket_to(peer_ip, bind, keepalive, misc_opts, default_set_nodelay)?;
     Ok(TcpSocket::from_std_stream(socket))
+}
+
+#[cfg(target_os = "linux")]
+pub fn try_listen_on_local_cpu(
+    listener: &std::net::TcpListener,
+    cpu_affinity: &CpuAffinity,
+) -> io::Result<()> {
+    let cpu_id_list = cpu_affinity.cpu_id_list();
+    if cpu_id_list.len() == 1 {
+        let cpu_id = cpu_id_list[0];
+        super::sockopt::set_incoming_cpu(listener, cpu_id)
+    } else {
+        Ok(())
+    }
+}
+
+#[cfg(target_os = "freebsd")]
+pub fn try_listen_on_local_cpu(
+    _listener: &std::net::TcpListener,
+    _cpu_affinity: &CpuAffinity,
+) -> io::Result<()> {
+    let cpu_id_list = cpu_affinity.cpu_id_list();
+    if cpu_id_list.len() > 0 {
+        // NOTE: we don't check if all the CPU ids on the same NUMA here
+        super::sockopt::set_tcp_reuseport_lb_numa_current_domain(listener)
+    } else {
+        Ok(())
+    }
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
+pub fn try_listen_on_local_cpu(
+    _listener: &std::net::TcpListener,
+    _cpu_affinity: &CpuAffinity,
+) -> io::Result<()> {
+    Ok(())
 }
 
 #[cfg(test)]
