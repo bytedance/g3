@@ -83,9 +83,27 @@ mod quinn;
 #[cfg(feature = "quinn")]
 pub use quinn::as_quinn_transport_config;
 
-#[cfg(all(unix, not(target_os = "openbsd"), feature = "sched"))]
+#[cfg(all(
+    any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "dragonfly",
+        target_os = "netbsd",
+    ),
+    feature = "sched"
+))]
 mod sched;
-#[cfg(all(unix, not(target_os = "openbsd"), feature = "sched"))]
+#[cfg(all(
+    any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "dragonfly",
+        target_os = "netbsd",
+    ),
+    feature = "sched"
+))]
 pub use sched::*;
 
 #[cfg(feature = "route")]

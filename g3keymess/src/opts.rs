@@ -15,13 +15,25 @@
  */
 
 use std::path::PathBuf;
-#[cfg(all(unix, not(target_os = "openbsd")))]
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "dragonfly",
+    target_os = "netbsd",
+))]
 use std::str::FromStr;
 use std::sync::OnceLock;
 
 use anyhow::{anyhow, Context};
 use clap::{value_parser, Arg, ArgAction, Command, ValueHint};
-#[cfg(all(unix, not(target_os = "openbsd")))]
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "dragonfly",
+    target_os = "netbsd",
+))]
 use log::info;
 
 use g3_compat::CpuAffinity;
@@ -150,16 +162,6 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
                     info!("will try to bind to cpu core {id}");
                     proc_args.core_affinity = Some(cpu);
                 }
-            }
-        }
-        #[cfg(target_os = "macos")]
-        if let Some(s) = group_name.strip_prefix("core") {
-            use std::num::NonZeroI32;
-
-            if let Ok(id) = NonZeroI32::from_str(s) {
-                let cpu = CpuAffinity::new(id);
-                info!("will try to bind to cpu core {id}");
-                proc_args.core_affinity = Some(cpu);
             }
         }
     }

@@ -18,13 +18,6 @@ use yaml_rust::Yaml;
 
 use g3_compat::CpuAffinity;
 
-#[cfg(any(
-    target_os = "linux",
-    target_os = "android",
-    target_os = "freebsd",
-    target_os = "dragonfly",
-    target_os = "netbsd",
-))]
 pub fn as_cpu_set(v: &Yaml) -> anyhow::Result<CpuAffinity> {
     use anyhow::{anyhow, Context};
 
@@ -43,13 +36,4 @@ pub fn as_cpu_set(v: &Yaml) -> anyhow::Result<CpuAffinity> {
     }
 
     Ok(set)
-}
-
-#[cfg(target_os = "macos")]
-pub fn as_cpu_tag(v: &Yaml) -> anyhow::Result<CpuAffinity> {
-    use anyhow::Context;
-
-    let v =
-        crate::value::as_nonzero_i32(v).context("cpu tag should be valid nonzero isize value")?;
-    Ok(CpuAffinity::new(v))
 }
