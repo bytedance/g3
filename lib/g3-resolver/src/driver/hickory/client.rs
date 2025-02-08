@@ -152,6 +152,8 @@ impl HickoryClientJob {
                 ResolveDriverError::BadName.into(),
             );
         };
+        // always use FQDN format such like "www.example.com."
+        name.set_fqdn(true);
 
         loop {
             match async_client

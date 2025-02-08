@@ -84,8 +84,9 @@ impl DnsRequest {
         let parts = s.split(',').collect::<Vec<&str>>();
         match parts.len() {
             1 => {
-                let name = Name::from_utf8(parts[0])
+                let mut name = Name::from_utf8(parts[0])
                     .map_err(|e| anyhow!("invalid domain name {}: {e}", parts[0]))?;
+                name.set_fqdn(true);
                 Ok(DnsRequest {
                     name,
                     class: DNSClass::IN,
@@ -93,8 +94,9 @@ impl DnsRequest {
                 })
             }
             2 => {
-                let name = Name::from_utf8(parts[0])
+                let mut name = Name::from_utf8(parts[0])
                     .map_err(|e| anyhow!("invalid domain name: {}: {e}", parts[0]))?;
+                name.set_fqdn(true);
                 let rtype = RecordType::from_str(parts[1])
                     .map_err(|e| anyhow!("invalid record type {}: {e}", parts[1]))?;
                 Ok(DnsRequest {
@@ -104,8 +106,9 @@ impl DnsRequest {
                 })
             }
             3 => {
-                let name = Name::from_utf8(parts[0])
+                let mut name = Name::from_utf8(parts[0])
                     .map_err(|e| anyhow!("invalid domain name {}: {e}", parts[0]))?;
+                name.set_fqdn(true);
                 let class = DNSClass::from_str(parts[1])
                     .map_err(|e| anyhow!("invalid class type {}: {e}", parts[1]))?;
                 let rtype = RecordType::from_str(parts[2])
