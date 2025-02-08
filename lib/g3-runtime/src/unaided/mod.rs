@@ -96,18 +96,6 @@ impl UnaidedRuntimeConfig {
         Ok(())
     }
 
-    #[cfg(target_os = "macos")]
-    pub fn set_mapped_sched_affinity(&mut self) -> anyhow::Result<()> {
-        use std::num::NonZeroI32;
-
-        let n = self.num_threads();
-        for i in 1..=n {
-            let cpu = CpuAffinity::new(unsafe { NonZeroI32::new_unchecked(i as i32) });
-            self.sched_affinity.insert(i, cpu);
-        }
-        Ok(())
-    }
-
     pub fn set_max_io_events_per_tick(&mut self, capacity: usize) {
         self.max_io_events_per_tick = Some(capacity);
     }

@@ -20,6 +20,5 @@
     path = "freebsd.rs"
 )]
 #[cfg_attr(target_os = "netbsd", path = "netbsd.rs")]
-#[cfg_attr(target_os = "macos", path = "macos.rs")]
 mod os;
 pub use os::CpuAffinity;
