@@ -18,6 +18,7 @@ use std::io;
 
 pub struct CpuAffinity {
     cpu_set: *mut libc::cpuset_t,
+    cpu_id_list: Vec<usize>,
 }
 
 unsafe impl Send for CpuAffinity {}
@@ -41,7 +42,10 @@ impl Default for CpuAffinity {
         if cpu_set.is_null() {
             panic!("failed to create cpuset_t");
         }
-        CpuAffinity { cpu_set }
+        CpuAffinity {
+            cpu_set,
+            cpu_id_list: Vec::new(),
+        }
     }
 }
 
@@ -55,6 +59,10 @@ impl Drop for CpuAffinity {
 }
 
 impl CpuAffinity {
+    pub fn cpu_id_list(&self) -> &[usize] {
+        &self.cpu_id_list
+    }
+
     fn max_cpu_id(&self) -> usize {
         let bytes = unsafe { libc::_cpuset_size(self.cpu_set) };
         (bytes << 3) - 1
@@ -65,6 +73,7 @@ impl CpuAffinity {
             if libc::_cpuset_set(id as libc::cpuid_t, self.cpu_set) != 0 {
                 return Err(io::Error::last_os_error());
             } else {
+                self.cpu_id_list.push(id);
                 Ok(())
             }
         }

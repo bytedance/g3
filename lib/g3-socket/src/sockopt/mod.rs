@@ -15,9 +15,14 @@
  */
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
-mod unix;
+mod linux;
 #[cfg(any(target_os = "linux", target_os = "android"))]
-pub(crate) use unix::set_bind_address_no_port;
+pub(crate) use linux::{get_incoming_cpu, set_bind_address_no_port, set_incoming_cpu};
+
+#[cfg(target_os = "freebsd")]
+mod freebsd;
+#[cfg(target_os = "freebsd")]
+pub(crate) use freebsd::set_tcp_reuseport_lb_numa_current_domain;
 
 #[cfg(windows)]
 mod windows;

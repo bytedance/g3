@@ -121,4 +121,19 @@ impl ClientConnectionInfo {
 
     #[cfg(not(any(target_os = "linux", target_os = "android")))]
     pub fn tcp_sock_try_quick_ack(&self) {}
+
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    pub fn tcp_sock_incoming_cpu(&self) -> Option<usize> {
+        if let Some(raw_socket) = &self.tcp_raw_socket {
+            match raw_socket.tcp_incoming_cpu() {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    log::debug!("failed to get incoming cpu of socket: {e}");
+                    None
+                }
+            }
+        } else {
+            None
+        }
+    }
 }

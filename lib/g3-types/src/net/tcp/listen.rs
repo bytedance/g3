@@ -33,6 +33,7 @@ pub struct TcpListenConfig {
     backlog: u32,
     instance: usize,
     scale: usize,
+    follow_cpu_affinity: bool,
 }
 
 impl Default for TcpListenConfig {
@@ -53,6 +54,7 @@ impl TcpListenConfig {
             backlog: DEFAULT_LISTEN_BACKLOG,
             instance: 1,
             scale: 0,
+            follow_cpu_affinity: false,
         }
     }
 
@@ -154,5 +156,14 @@ impl TcpListenConfig {
             let v = p.get() * numerator / denominator;
             self.scale = v;
         }
+    }
+
+    #[inline]
+    pub fn follow_cpu_affinity(&self) -> bool {
+        self.follow_cpu_affinity
+    }
+
+    pub fn set_follow_cpu_affinity(&mut self, enable: bool) {
+        self.follow_cpu_affinity = enable;
     }
 }

@@ -132,7 +132,7 @@ impl UnaidedRuntimeConfig {
 
     pub async fn start<F>(&self, recv_handle: F) -> anyhow::Result<WorkersGuard>
     where
-        F: Fn(usize, Handle),
+        F: Fn(usize, Handle, Option<CpuAffinity>),
     {
         let (close_w, _close_r) = watch::channel(());
 
@@ -203,7 +203,10 @@ impl UnaidedRuntimeConfig {
                 .map_err(|e| anyhow!("failed to spawn worker thread {i}: {e}"))?;
 
             match receiver.await {
-                Ok(handle) => recv_handle(i, handle),
+                Ok(handle) => {
+                    let cpu_affinity = self.sched_affinity.get(&i).cloned();
+                    recv_handle(i, handle, cpu_affinity)
+                }
                 Err(_) => {
                     return Err(anyhow!(
                         "no tokio runtime handler got from worker thread {i}",

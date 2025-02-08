@@ -117,6 +117,11 @@ pub fn as_tcp_listen_config(value: &Yaml) -> anyhow::Result<TcpListenConfig> {
                 }
                 "scale" => set_tcp_listen_scale(&mut config, v)
                     .context(format!("invalid scale value for key {k}")),
+                "follow_cpu_affinity" => {
+                    let enable = crate::value::as_bool(v)?;
+                    config.set_follow_cpu_affinity(enable);
+                    Ok(())
+                }
                 _ => Err(anyhow!("invalid key {k}")),
             })?;
         }
