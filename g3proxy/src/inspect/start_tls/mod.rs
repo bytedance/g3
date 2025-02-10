@@ -27,7 +27,7 @@ use g3_io_ext::{AsyncStream, OnceBufReader};
 use g3_openssl::{SslConnector, SslLazyAcceptor};
 use g3_slog_types::{LtUpstreamAddr, LtUuid, LtX509VerifyResult};
 use g3_types::net::{Host, TlsCertUsage, TlsServiceType, UpstreamAddr};
-use g3_udpdump::ExportedPduDissectorHint;
+use g3_udpdump::{ExportedPduDissectorHint, StreamDumpProxyAddresses};
 
 use super::{
     BoxAsyncRead, BoxAsyncWrite, InterceptionError, StreamInspectContext, StreamInspection,
@@ -284,23 +284,19 @@ where
             } else {
                 ExportedPduDissectorHint::TcpPort(self.upstream.port())
             };
+            let addresses = StreamDumpProxyAddresses {
+                client: self.ctx.task_notes.client_addr,
+                local_server: self.ctx.task_notes.server_addr,
+                local_client: self.ctx.connect_notes.client_addr,
+                remote: self.ctx.connect_notes.server_addr,
+            };
             if stream_dumper.client_side() {
-                let (clt_r, clt_w) = stream_dumper.wrap_client_io(
-                    self.ctx.task_notes.client_addr,
-                    self.ctx.task_notes.server_addr,
-                    dissector_hint,
-                    clt_r,
-                    clt_w,
-                );
+                let (clt_r, clt_w) =
+                    stream_dumper.wrap_proxy_client_io(addresses, dissector_hint, clt_r, clt_w);
                 Ok(self.inspect_inner(protocol, clt_r, clt_w, ups_r, ups_w))
             } else {
-                let (ups_r, ups_w) = stream_dumper.wrap_remote_io(
-                    self.ctx.task_notes.client_addr,
-                    self.ctx.task_notes.server_addr,
-                    dissector_hint,
-                    ups_r,
-                    ups_w,
-                );
+                let (ups_r, ups_w) =
+                    stream_dumper.wrap_proxy_remote_io(addresses, dissector_hint, ups_r, ups_w);
                 Ok(self.inspect_inner(protocol, clt_r, clt_w, ups_r, ups_w))
             }
         } else {

@@ -29,7 +29,9 @@ use g3_slog_types::{LtUpstreamAddr, LtUuid, LtX509VerifyResult};
 use g3_types::net::{
     AlpnProtocol, OpensslInterceptionClientConfig, OpensslInterceptionServerConfig, UpstreamAddr,
 };
-use g3_udpdump::{ExportedPduDissectorHint, StreamDumpConfig, StreamDumper};
+use g3_udpdump::{
+    ExportedPduDissectorHint, StreamDumpConfig, StreamDumpProxyAddresses, StreamDumper,
+};
 
 use super::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext, StreamInspection};
 use crate::config::server::ServerConfig;
@@ -218,23 +220,19 @@ where
             } else {
                 ExportedPduDissectorHint::TlsPort(self.upstream.port())
             };
+            let addresses = StreamDumpProxyAddresses {
+                client: self.ctx.task_notes.client_addr,
+                local_server: self.ctx.task_notes.server_addr,
+                local_client: self.ctx.connect_notes.client_addr,
+                remote: self.ctx.connect_notes.server_addr,
+            };
             if stream_dumper.client_side() {
-                let (clt_r, clt_w) = stream_dumper.wrap_client_io(
-                    self.ctx.task_notes.client_addr,
-                    self.ctx.task_notes.server_addr,
-                    dissector_hint,
-                    clt_r,
-                    clt_w,
-                );
+                let (clt_r, clt_w) =
+                    stream_dumper.wrap_proxy_client_io(addresses, dissector_hint, clt_r, clt_w);
                 self.inspect_inner(protocol, has_alpn, clt_r, clt_w, ups_r, ups_w)
             } else {
-                let (ups_r, ups_w) = stream_dumper.wrap_remote_io(
-                    self.ctx.task_notes.client_addr,
-                    self.ctx.task_notes.server_addr,
-                    dissector_hint,
-                    ups_r,
-                    ups_w,
-                );
+                let (ups_r, ups_w) =
+                    stream_dumper.wrap_proxy_remote_io(addresses, dissector_hint, ups_r, ups_w);
                 self.inspect_inner(protocol, has_alpn, clt_r, clt_w, ups_r, ups_w)
             }
         } else {

@@ -21,10 +21,15 @@ use std::task::{ready, Context, Poll};
 use tokio::io::AsyncWrite;
 use tokio::sync::mpsc;
 
-use super::{PduHeader, StreamDumpState, ToClientPduHeader, ToRemotePduHeader};
+use super::{
+    PduHeader, ProxyToClientPduHeader, ProxyToRemotePduHeader, StreamDumpState, ToClientPduHeader,
+    ToRemotePduHeader,
+};
 
 pub type ToClientStreamDumpWriter<W> = StreamDumpWriter<W, ToClientPduHeader>;
 pub type ToRemoteStreamDumpWriter<W> = StreamDumpWriter<W, ToRemotePduHeader>;
+pub type ProxyToClientStreamDumpWriter<W> = StreamDumpWriter<W, ProxyToClientPduHeader>;
+pub type ProxyToRemoteStreamDumpWriter<W> = StreamDumpWriter<W, ProxyToRemotePduHeader>;
 
 pub struct StreamDumpWriter<W, H> {
     writer: W,

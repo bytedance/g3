@@ -461,6 +461,7 @@ impl HttpProxyConnectTask {
                     self.ctx.server_stats.clone(),
                     self.ctx.server_quit_policy.clone(),
                     &self.task_notes,
+                    &self.tcp_notes,
                 );
                 return crate::inspect::stream::transit_with_inspection(
                     clt_r,

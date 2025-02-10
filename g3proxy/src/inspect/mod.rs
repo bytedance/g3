@@ -32,6 +32,7 @@ use g3_types::net::{Host, OpensslClientConfig};
 use crate::audit::AuditHandle;
 use crate::auth::{User, UserForbiddenStats, UserSite};
 use crate::config::server::ServerConfig;
+use crate::module::tcp_connect::TcpConnectTaskNotes;
 use crate::serve::{ArcServerStats, ServerIdleChecker, ServerTaskNotes};
 
 mod error;
@@ -112,12 +113,28 @@ impl From<&ServerTaskNotes> for StreamInspectTaskNotes {
     }
 }
 
+#[derive(Clone, Copy)]
+pub(crate) struct StreamInspectConnectNotes {
+    pub(crate) client_addr: SocketAddr,
+    pub(crate) server_addr: SocketAddr,
+}
+
+impl From<&TcpConnectTaskNotes> for StreamInspectConnectNotes {
+    fn from(tcp_notes: &TcpConnectTaskNotes) -> Self {
+        StreamInspectConnectNotes {
+            client_addr: tcp_notes.local.unwrap(),
+            server_addr: tcp_notes.next.unwrap(),
+        }
+    }
+}
+
 pub(crate) struct StreamInspectContext<SC: ServerConfig> {
     audit_handle: Arc<AuditHandle>,
     server_config: Arc<SC>,
     server_stats: ArcServerStats,
     server_quit_policy: Arc<ServerQuitPolicy>,
     task_notes: StreamInspectTaskNotes,
+    connect_notes: StreamInspectConnectNotes,
     inspection_depth: usize,
 
     task_max_idle_count: i32,
@@ -131,6 +148,7 @@ impl<SC: ServerConfig> Clone for StreamInspectContext<SC> {
             server_stats: self.server_stats.clone(),
             server_quit_policy: self.server_quit_policy.clone(),
             task_notes: self.task_notes.clone(),
+            connect_notes: self.connect_notes,
             inspection_depth: self.inspection_depth,
             task_max_idle_count: self.task_max_idle_count,
         }
@@ -144,6 +162,7 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
         server_stats: ArcServerStats,
         server_quit_policy: Arc<ServerQuitPolicy>,
         task_notes: &ServerTaskNotes,
+        tcp_notes: &TcpConnectTaskNotes,
     ) -> Self {
         let mut task_max_idle_count = server_config.task_max_idle_count();
         if let Some(user_ctx) = task_notes.user_ctx() {
@@ -156,6 +175,7 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
             server_stats,
             server_quit_policy,
             task_notes: StreamInspectTaskNotes::from(task_notes),
+            connect_notes: StreamInspectConnectNotes::from(tcp_notes),
             inspection_depth: 0,
             task_max_idle_count,
         }

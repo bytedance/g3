@@ -30,6 +30,12 @@ pub enum ExportedPduDissectorHint {
 }
 
 impl ExportedPduDissectorHint {
+    pub(crate) fn serialize_exported_pdu(buf: &mut Vec<u8>) {
+        buf.extend_from_slice(&[0x00, EXP_PDU_TAG_DISSECTOR_NAME]);
+        buf.extend_from_slice(&[0x00, 0x0C]);
+        buf.extend_from_slice(b"exported_pdu");
+    }
+
     pub(crate) fn serialize(&self, buf: &mut Vec<u8>) {
         match self {
             ExportedPduDissectorHint::Protocol(protocol) => {
