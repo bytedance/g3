@@ -49,7 +49,7 @@ impl FtpOverHttpTaskNotes {
             let s = authority.as_str();
 
             if let Some(at_pos) = memchr::memchr(b'@', s.as_bytes()) {
-                if let Some(p) = memchr::memchr(b':', s[0..at_pos].as_bytes()) {
+                if let Some(p) = memchr::memchr(b':', &s.as_bytes()[0..at_pos]) {
                     username = Username::from_encoded(&s[0..p]).ok();
                     password = Password::from_encoded(&s[p + 1..at_pos]).ok();
                 } else {

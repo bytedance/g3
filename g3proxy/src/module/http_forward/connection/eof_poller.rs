@@ -76,9 +76,6 @@ impl HttpConnectionEofPoller {
 
     pub(crate) async fn recv_conn(self) -> Option<BoxHttpForwardConnection> {
         self.notify_channel.send(true).ok()?;
-        match self.recv_channel.await {
-            Ok(conn) => Some(conn),
-            Err(_) => None,
-        }
+        self.recv_channel.await.ok()
     }
 }

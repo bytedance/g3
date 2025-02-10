@@ -25,9 +25,8 @@ use openssl::ssl::{Ssl, SslContext, SslContextBuilder, SslSession, SslSessionCac
 
 use crate::net::Host;
 
-const SESSION_CACHE_DEFAULT_SITES_COUNT: NonZeroUsize = unsafe { NonZeroUsize::new_unchecked(128) };
-const SESSION_CACHE_DEFAULT_EACH_CAPACITY: NonZeroUsize =
-    unsafe { NonZeroUsize::new_unchecked(16) };
+const SESSION_CACHE_DEFAULT_SITES_COUNT: NonZeroUsize = NonZeroUsize::new(128).unwrap();
+const SESSION_CACHE_DEFAULT_EACH_CAPACITY: NonZeroUsize = NonZeroUsize::new(16).unwrap();
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum OpensslSessionCacheMethod {
