@@ -16,23 +16,35 @@
 
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::mpsc;
 
 use anyhow::anyhow;
 use log::{error, trace, warn};
-use tokio::runtime::Handle;
-use tokio::sync::{oneshot, watch};
+use tokio::runtime::{Handle, Runtime};
+use tokio::sync::watch;
 
 use g3_compat::CpuAffinity;
 
 #[cfg(feature = "yaml")]
 mod yaml;
 
-pub struct WorkersGuard {
+pub struct MvWorkersGuard {
+    _rt_list: Vec<Runtime>,
+}
+
+pub struct CvWorkersGuard {
     _close_sender: watch::Sender<()>,
 }
 
+pub enum WorkersGuard {
+    VariantC(CvWorkersGuard),
+    VariantM(MvWorkersGuard),
+}
+
 pub struct UnaidedRuntimeConfig {
-    thread_number: Option<NonZeroUsize>,
+    thread_number_total: NonZeroUsize,
+    thread_number_per_rt: NonZeroUsize,
     thread_stack_size: Option<usize>,
     sched_affinity: HashMap<usize, CpuAffinity>,
     max_io_events_per_tick: Option<usize>,
@@ -50,8 +62,11 @@ impl Default for UnaidedRuntimeConfig {
 
 impl UnaidedRuntimeConfig {
     pub fn new() -> Self {
+        let target_thread_number =
+            std::thread::available_parallelism().unwrap_or(NonZeroUsize::MIN);
         UnaidedRuntimeConfig {
-            thread_number: None,
+            thread_number_total: target_thread_number,
+            thread_number_per_rt: NonZeroUsize::MIN,
             thread_stack_size: None,
             sched_affinity: HashMap::new(),
             max_io_events_per_tick: None,
@@ -62,12 +77,12 @@ impl UnaidedRuntimeConfig {
         }
     }
 
-    pub fn set_thread_number(&mut self, num: usize) {
-        if let Ok(n) = NonZeroUsize::try_from(num) {
-            self.thread_number = Some(n);
-        } else {
-            self.thread_number = None;
-        }
+    pub fn set_thread_number_per_rt(&mut self, num: NonZeroUsize) {
+        self.thread_number_per_rt = num;
+    }
+
+    pub fn set_thread_number_total(&mut self, num: NonZeroUsize) {
+        self.thread_number_total = num;
     }
 
     pub fn set_thread_stack_size(&mut self, size: usize) {
@@ -86,7 +101,12 @@ impl UnaidedRuntimeConfig {
         target_os = "netbsd",
     ))]
     pub fn set_mapped_sched_affinity(&mut self) -> anyhow::Result<()> {
-        let n = self.num_threads();
+        if self.thread_number_per_rt.get() != 1 {
+            return Err(anyhow!(
+                "unable to set CPU affinity for multi thread worker runtime"
+            ));
+        }
+        let n = self.thread_number_total.get();
         for i in 0..n {
             let mut cpu = CpuAffinity::default();
             cpu.add_id(i)
@@ -118,21 +138,80 @@ impl UnaidedRuntimeConfig {
         }
     }
 
-    pub async fn start<F>(&self, recv_handle: F) -> anyhow::Result<WorkersGuard>
+    pub fn check(&mut self) -> anyhow::Result<()> {
+        let threads_per_rt = self.thread_number_per_rt.get();
+        if self.thread_number_total.get() % threads_per_rt != 0 {
+            return Err(anyhow!(
+                "total thread number {} is not dividable by per-runtime thread number {}",
+                self.thread_number_total,
+                threads_per_rt
+            ));
+        }
+        Ok(())
+    }
+
+    fn start_variant_m<F>(
+        &self,
+        recv_handle: F,
+        rt_num: usize,
+        rt_thread_num: usize,
+    ) -> anyhow::Result<WorkersGuard>
+    where
+        F: Fn(usize, Handle, Option<CpuAffinity>),
+    {
+        let mut rt_list = Vec::with_capacity(rt_num);
+        for i in 0..rt_num {
+            let mut rt_builder = tokio::runtime::Builder::new_multi_thread();
+            rt_builder.worker_threads(rt_thread_num);
+            if let Some(stack_size) = self.thread_stack_size {
+                rt_builder.thread_stack_size(stack_size);
+            }
+            if let Some(n) = self.max_io_events_per_tick {
+                rt_builder.max_io_events_per_tick(n);
+            }
+            rt_builder.enable_all();
+
+            rt_builder.thread_name_fn(move || {
+                static ATOMIC_ID: AtomicUsize = AtomicUsize::new(0);
+                let id = ATOMIC_ID.fetch_add(1, Ordering::SeqCst);
+                format!("worker-{i}#{id}")
+            });
+
+            if let Some(cpu_affinity) = self.sched_affinity.get(&i).cloned() {
+                rt_builder.on_thread_start(move || {
+                    if let Err(e) = cpu_affinity.apply_to_local_thread() {
+                        warn!("failed to set sched affinity for worker thread {i}: {e}");
+                    }
+                });
+            }
+
+            match rt_builder.build() {
+                Ok(rt) => {
+                    let cpu_affinity = self.sched_affinity.get(&i).cloned();
+                    recv_handle(i, rt.handle().clone(), cpu_affinity);
+                    rt_list.push(rt);
+                }
+                Err(e) => return Err(anyhow!("failed to create tokio worker runtime {i}: {e}")),
+            }
+        }
+
+        Ok(WorkersGuard::VariantM(MvWorkersGuard { _rt_list: rt_list }))
+    }
+
+    fn start_variant_c<F>(&self, recv_handle: F, thread_num: usize) -> anyhow::Result<WorkersGuard>
     where
         F: Fn(usize, Handle, Option<CpuAffinity>),
     {
         let (close_w, _close_r) = watch::channel(());
 
-        let n = self.num_threads();
-        for i in 0..n {
+        for i in 0..thread_num {
             let mut close_r = close_w.subscribe();
-            let (sender, receiver) = oneshot::channel();
+            let (sender, receiver) = mpsc::sync_channel(1);
 
             let mut thread_builder = std::thread::Builder::new().name(format!("worker#{i}"));
 
-            if let Some(thread_stack_size) = self.thread_stack_size {
-                thread_builder = thread_builder.stack_size(thread_stack_size);
+            if let Some(stack_size) = self.thread_stack_size {
+                thread_builder = thread_builder.stack_size(stack_size);
             }
 
             let cpu_set = self.sched_affinity.get(&i).cloned();
@@ -190,7 +269,7 @@ impl UnaidedRuntimeConfig {
                 })
                 .map_err(|e| anyhow!("failed to spawn worker thread {i}: {e}"))?;
 
-            match receiver.await {
+            match receiver.recv() {
                 Ok(handle) => {
                     let cpu_affinity = self.sched_affinity.get(&i).cloned();
                     recv_handle(i, handle, cpu_affinity)
@@ -203,15 +282,24 @@ impl UnaidedRuntimeConfig {
             }
         }
 
-        Ok(WorkersGuard {
+        Ok(WorkersGuard::VariantC(CvWorkersGuard {
             _close_sender: close_w,
-        })
+        }))
     }
 
-    fn num_threads(&self) -> usize {
-        self.thread_number
-            .or(std::thread::available_parallelism().ok())
-            .map(|v| v.get())
-            .unwrap_or(1)
+    pub fn start<F>(&self, recv_handle: F) -> anyhow::Result<WorkersGuard>
+    where
+        F: Fn(usize, Handle, Option<CpuAffinity>),
+    {
+        let threads_per_rt = self.thread_number_per_rt.get();
+        if threads_per_rt == 1 {
+            self.start_variant_c(recv_handle, self.thread_number_total.get())
+        } else {
+            self.start_variant_m(
+                recv_handle,
+                self.thread_number_total.get() / threads_per_rt,
+                threads_per_rt,
+            )
+        }
     }
 }

@@ -291,7 +291,7 @@ pub fn add_global_args(app: Command) -> Command {
             .long(GLOBAL_ARG_THREADS)
             .global(true)
             .num_args(1)
-            .value_parser(value_parser!(usize)),
+            .value_parser(value_parser!(NonZeroUsize)),
     )
     .arg(
         Arg::new(GLOBAL_ARG_THREAD_STACK_SIZE)
@@ -463,9 +463,9 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
     if args.get_flag(GLOBAL_ARG_UNCONSTRAINED) {
         proc_args.task_unconstrained = true;
     }
-    if let Some(n) = args.get_one::<usize>(GLOBAL_ARG_THREADS) {
-        proc_args.main_runtime.set_thread_number(*n);
-        proc_args.worker_runtime.set_thread_number(*n);
+    if let Some(n) = args.get_one::<NonZeroUsize>(GLOBAL_ARG_THREADS) {
+        proc_args.main_runtime.set_thread_number((*n).get());
+        proc_args.worker_runtime.set_thread_number_total(*n);
     }
     if let Some(stack_size) = g3_clap::humanize::get_usize(args, GLOBAL_ARG_THREAD_STACK_SIZE)? {
         if stack_size > 0 {
@@ -547,5 +547,9 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
         proc_args.requests = Some(1);
     }
 
+    proc_args
+        .worker_runtime
+        .check()
+        .context("invalid worker runtime config")?;
     Ok(proc_args)
 }

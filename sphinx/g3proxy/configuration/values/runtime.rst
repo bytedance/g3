@@ -1,4 +1,3 @@
-
 .. _configure_runtime_value_types:
 
 *******
@@ -35,11 +34,22 @@ The keys are:
 thread_number
 -------------
 
-**optional**, **type**: usize
+**optional**, **type**: non-zero usize
 
-Set the thread number.
+Set the total thread number.
 
-**default**: the number of logic CPU cores
+**default**: the number of logic CPU cores, **alias**: threads_total, thread_number_total
+
+thread_number_per_runtime
+-------------------------
+
+**optional**, **type**: non-zero usize
+
+Set the thread number that each tokio runtime should use.
+
+**default**: 1, **alias**: threads_per_runtime
+
+.. versionadded:: 1.11.3
 
 thread_stack_size
 -----------------
@@ -59,7 +69,7 @@ Set the sched affinity for each threads.
 
 For map value, the key should be the thread id starting from 0, and the value should be :ref:`cpu set <conf_value_cpu_set>`.
 
-For bool value:
+For bool value (only if thread_number_per_runtime is set to 1):
 
 * if true, a default CPU SET will be set for each thread, the CPU ID in the set will match the thread ID.
 

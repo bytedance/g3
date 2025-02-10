@@ -53,19 +53,17 @@ fn build_cpu_core_worker_map() {
     let _ = CPU_CORE_WORKER_MAP.set(map);
 }
 
-pub async fn spawn_workers() -> anyhow::Result<Option<WorkersGuard>> {
+pub fn spawn_workers() -> anyhow::Result<Option<WorkersGuard>> {
     if let Some(config) = crate::runtime::config::get_worker_config() {
-        let guard = config
-            .start(|id, handle, cpu_affinity| {
-                super::metrics::add_tokio_stats(handle.metrics(), format!("worker-{id}"));
-                let worker_handle = WorkerHandle {
-                    handle,
-                    id,
-                    cpu_affinity,
-                };
-                WORKER_HANDLERS.with_mut(|vec| vec.push(worker_handle));
-            })
-            .await?;
+        let guard = config.start(|id, handle, cpu_affinity| {
+            super::metrics::add_tokio_stats(handle.metrics(), format!("worker-{id}"));
+            let worker_handle = WorkerHandle {
+                handle,
+                id,
+                cpu_affinity,
+            };
+            WORKER_HANDLERS.with_mut(|vec| vec.push(worker_handle));
+        })?;
         build_cpu_core_worker_map();
         Ok(Some(guard))
     } else {
