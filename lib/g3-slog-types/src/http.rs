@@ -72,7 +72,7 @@ impl fmt::Display for LtHttpUri<'_> {
             let s = authority.as_str();
 
             if let Some(at_pos) = memchr::memchr(b'@', s.as_bytes()) {
-                if let Some(p) = memchr::memchr(b':', s[0..at_pos].as_bytes()) {
+                if let Some(p) = memchr::memchr(b':', &s.as_bytes()[0..at_pos]) {
                     write!(f, "{}", &s[0..=p])?;
                     write!(f, "xyz{}", &s[at_pos..])?;
                 } else {

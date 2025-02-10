@@ -73,10 +73,7 @@ impl WrappedKeylessRequest {
         server_stats: &Arc<KeyServerStats>,
         duration_recorder: &KeyServerDurationRecorder,
     ) -> Self {
-        let err_rsp = match req.verify_opcode() {
-            Ok(_) => None,
-            Err(r) => Some(r),
-        };
+        let err_rsp = req.verify_opcode().err();
         let (stats, duration_recorder) = match req.action {
             KeylessAction::Ping => (
                 server_stats.ping_pong.clone(),
