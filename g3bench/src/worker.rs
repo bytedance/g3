@@ -21,10 +21,8 @@ use g3_types::sync::GlobalInit;
 
 static WORKER_HANDLERS: GlobalInit<Vec<Handle>> = GlobalInit::new(Vec::new());
 
-pub async fn spawn_workers(config: &UnaidedRuntimeConfig) -> anyhow::Result<WorkersGuard> {
-    let guard = config
-        .start(|_, handle, _| WORKER_HANDLERS.with_mut(|vec| vec.push(handle)))
-        .await?;
+pub fn spawn_workers(config: &UnaidedRuntimeConfig) -> anyhow::Result<WorkersGuard> {
+    let guard = config.start(|_, handle, _| WORKER_HANDLERS.with_mut(|vec| vec.push(handle)))?;
     Ok(guard)
 }
 

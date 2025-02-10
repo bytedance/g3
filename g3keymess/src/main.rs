@@ -74,6 +74,8 @@ fn main() -> anyhow::Result<()> {
         None
     };
 
+    let _workers_guard =
+        g3_daemon::runtime::worker::spawn_workers().context("failed to spawn workers")?;
     let ret = tokio_run(&proc_args);
 
     if let Some(handlers) = stat_join {
@@ -132,9 +134,6 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
 
         g3keymess::signal::register().context("failed to setup signal handler")?;
 
-        let _workers_guard = g3_daemon::runtime::worker::spawn_workers()
-            .await
-            .context("failed to spawn workers")?;
         match load_and_spawn(unique_ctl_path).await {
             Ok(_) => g3_daemon::control::upgrade::finish(),
             Err(e) => {

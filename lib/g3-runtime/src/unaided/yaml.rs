@@ -33,9 +33,14 @@ impl UnaidedRuntimeConfig {
             let mut set_mapped_sched_affinity = false;
 
             g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
-                "thread_number" => {
-                    let value = g3_yaml::value::as_usize(v)?;
-                    config.set_thread_number(value);
+                "thread_number_total" | "threads_total" | "thread_number" => {
+                    let value = g3_yaml::value::as_nonzero_usize(v)?;
+                    config.set_thread_number_total(value);
+                    Ok(())
+                }
+                "thread_number_per_runtime" | "threads_per_runtime" => {
+                    let value = g3_yaml::value::as_nonzero_usize(v)?;
+                    config.set_thread_number_per_rt(value);
                     Ok(())
                 }
                 "thread_stack_size" => {
@@ -103,6 +108,7 @@ impl UnaidedRuntimeConfig {
                     .context("failed to set all mapped sched affinity")?;
             }
 
+            config.check().context("invalid worker config")?;
             Ok(config)
         } else {
             Err(anyhow!(

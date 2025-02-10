@@ -81,20 +81,19 @@ fn main() -> anyhow::Result<()> {
 
     proc_args.summary();
 
+    let _worker_guard = if let Some(worker_config) = proc_args.worker_runtime() {
+        let guard =
+            g3bench::worker::spawn_workers(worker_config).context("failed to start workers")?;
+        Some(guard)
+    } else {
+        None
+    };
+
     let rt = proc_args
         .main_runtime()
         .start()
         .context("failed to start main runtime")?;
     rt.block_on(async move {
-        let _worker_guard = if let Some(worker_config) = proc_args.worker_runtime() {
-            let guard = g3bench::worker::spawn_workers(worker_config)
-                .await
-                .context("failed to start workers")?;
-            Some(guard)
-        } else {
-            None
-        };
-
         match subcommand {
             g3bench::target::h1::COMMAND => g3bench::target::h1::run(&proc_args, sub_args).await,
             g3bench::target::h2::COMMAND => g3bench::target::h2::run(&proc_args, sub_args).await,

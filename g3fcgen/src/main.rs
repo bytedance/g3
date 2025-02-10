@@ -45,6 +45,8 @@ fn main() -> anyhow::Result<()> {
     #[cfg(unix)]
     g3_daemon::daemonize::check_enter(&proc_args.daemon_config)?;
 
+    let _workers_guard =
+        g3_daemon::runtime::worker::spawn_workers().context("failed to spawn workers")?;
     let ret = tokio_run(&proc_args);
 
     match ret {
@@ -62,10 +64,6 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
         .context("failed to start runtime")?;
     rt.block_on(async {
         g3_daemon::runtime::set_main_handle();
-
-        let _workers_guard = g3_daemon::runtime::worker::spawn_workers()
-            .await
-            .context("failed to spawn workers")?;
 
         g3fcgen::run(args).await
     })
