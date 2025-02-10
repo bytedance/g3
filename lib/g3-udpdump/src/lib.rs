@@ -19,5 +19,6 @@ pub use dissector::ExportedPduDissectorHint;
 
 mod stream;
 pub use stream::{
-    StreamDumpConfig, StreamDumper, ToClientStreamDumpWriter, ToRemoteStreamDumpWriter,
+    StreamDumpConfig, StreamDumpProxyAddresses, StreamDumper, ToClientStreamDumpWriter,
+    ToRemoteStreamDumpWriter,
 };

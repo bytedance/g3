@@ -32,16 +32,25 @@ use sink::Sinker;
 
 mod header;
 use header::PduHeader;
-pub use header::{ToClientPduHeader, ToRemotePduHeader};
+pub use header::{
+    ProxyToClientPduHeader, ProxyToRemotePduHeader, StreamDumpProxyAddresses, ToClientPduHeader,
+    ToRemotePduHeader,
+};
 
 mod state;
 use state::StreamDumpState;
 
 mod write;
-pub use write::{StreamDumpWriter, ToClientStreamDumpWriter, ToRemoteStreamDumpWriter};
+pub use write::{
+    ProxyToClientStreamDumpWriter, ProxyToRemoteStreamDumpWriter, StreamDumpWriter,
+    ToClientStreamDumpWriter, ToRemoteStreamDumpWriter,
+};
 
 mod read;
-pub use read::{FromClientStreamDumpReader, FromRemoteStreamDumpReader, StreamDumpReader};
+pub use read::{
+    FromClientStreamDumpReader, FromRemoteStreamDumpReader, ProxyFromClientStreamDumpReader,
+    ProxyFromRemoteStreamDumpReader, StreamDumpReader,
+};
 
 pub struct StreamDumper {
     config: StreamDumpConfig,
@@ -142,6 +151,66 @@ impl StreamDumper {
         W: AsyncWrite,
     {
         let (to_c, to_r) = header::new_pair(client_addr, remote_addr, dissector_hint);
+        let r = StreamDumpReader::new(
+            client_reader,
+            to_r,
+            self.sender.clone(),
+            self.config.packet_size,
+        );
+        let w = StreamDumpWriter::new(
+            client_writer,
+            to_c,
+            self.sender.clone(),
+            self.config.packet_size,
+        );
+        (r, w)
+    }
+
+    pub fn wrap_proxy_remote_io<R, W>(
+        &self,
+        addresses: StreamDumpProxyAddresses,
+        dissector_hint: ExportedPduDissectorHint,
+        remote_reader: R,
+        remote_writer: W,
+    ) -> (
+        ProxyFromRemoteStreamDumpReader<R>,
+        ProxyToRemoteStreamDumpWriter<W>,
+    )
+    where
+        R: AsyncRead,
+        W: AsyncWrite,
+    {
+        let (to_c, to_r) = header::new_proxy_pair(addresses, dissector_hint);
+        let r = StreamDumpReader::new(
+            remote_reader,
+            to_c,
+            self.sender.clone(),
+            self.config.packet_size,
+        );
+        let w = StreamDumpWriter::new(
+            remote_writer,
+            to_r,
+            self.sender.clone(),
+            self.config.packet_size,
+        );
+        (r, w)
+    }
+
+    pub fn wrap_proxy_client_io<R, W>(
+        &self,
+        addresses: StreamDumpProxyAddresses,
+        dissector_hint: ExportedPduDissectorHint,
+        client_reader: R,
+        client_writer: W,
+    ) -> (
+        ProxyFromClientStreamDumpReader<R>,
+        ProxyToClientStreamDumpWriter<W>,
+    )
+    where
+        R: AsyncRead,
+        W: AsyncWrite,
+    {
+        let (to_c, to_r) = header::new_proxy_pair(addresses, dissector_hint);
         let r = StreamDumpReader::new(
             client_reader,
             to_r,

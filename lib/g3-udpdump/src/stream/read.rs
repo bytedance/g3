@@ -21,10 +21,15 @@ use std::task::{ready, Context, Poll};
 use tokio::io::{AsyncRead, ReadBuf};
 use tokio::sync::mpsc;
 
-use super::{PduHeader, StreamDumpState, ToClientPduHeader, ToRemotePduHeader};
+use super::{
+    PduHeader, ProxyToClientPduHeader, ProxyToRemotePduHeader, StreamDumpState, ToClientPduHeader,
+    ToRemotePduHeader,
+};
 
 pub type FromClientStreamDumpReader<W> = StreamDumpReader<W, ToRemotePduHeader>;
 pub type FromRemoteStreamDumpReader<W> = StreamDumpReader<W, ToClientPduHeader>;
+pub type ProxyFromClientStreamDumpReader<W> = StreamDumpReader<W, ProxyToRemotePduHeader>;
+pub type ProxyFromRemoteStreamDumpReader<W> = StreamDumpReader<W, ProxyToClientPduHeader>;
 
 pub struct StreamDumpReader<R, H> {
     reader: R,

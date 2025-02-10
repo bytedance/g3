@@ -200,6 +200,7 @@ impl TcpStreamTask {
                 self.ctx.server_stats.clone(),
                 self.ctx.server_quit_policy.clone(),
                 &self.task_notes,
+                &self.tcp_notes,
             );
             let protocol_inspector = ctx.protocol_inspector(None);
             match self.protocol {
