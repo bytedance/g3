@@ -22,5 +22,5 @@ jobs:
       - run: |
           sudo apt-get update
           sudo apt-get install python3-sphinx python3-sphinx-rtd-theme
-      - uses: sphinx-doc/github-problem-matcher@d521df655a8af22fcc69e4f4af8b1f25699ee754 # v1.0
+      - uses: sphinx-doc/github-problem-matcher@1f74d6599f4a5e89a20d3c99aab4e6a70f7bda0f # v1.1
       - run: sphinx-build sphinx/${{ matrix.component }} sphinx/${{ matrix.component }}/_build
