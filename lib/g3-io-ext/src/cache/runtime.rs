@@ -37,7 +37,7 @@ struct CacheQueryValue<R> {
 pub struct EffectiveCacheRuntime<K: Hash, R> {
     request_batch_handle_count: usize,
     cache: AHashMap<Arc<K>, CacheQueryValue<R>>,
-    doing: AHashMap<Arc<K>, Vec<Option<CacheQueryRequest<K, R>>>>,
+    doing: AHashMap<Arc<K>, Vec<CacheQueryRequest<K, R>>>,
     req_receiver: mpsc::UnboundedReceiver<CacheQueryRequest<K, R>>,
     rsp_receiver: mpsc::UnboundedReceiver<(Arc<K>, EffectiveCacheData<R>)>,
     query_sender: mpsc::UnboundedSender<Arc<K>>,
@@ -64,7 +64,7 @@ impl<K: Hash + Eq, R: Send + Sync> EffectiveCacheRuntime<K, R> {
 
     fn handle_rsp(&mut self, key: Arc<K>, result: Arc<EffectiveCacheData<R>>) {
         if let Some(vec) = self.doing.remove(&key) {
-            for req in vec.into_iter().flatten() {
+            for req in vec {
                 let _ = req.notifier.send(Arc::clone(&result));
             }
 
@@ -105,6 +105,13 @@ impl<K: Hash + Eq, R: Send + Sync> EffectiveCacheRuntime<K, R> {
     }
 
     fn handle_req(&mut self, req: CacheQueryRequest<K, R>) {
+        if req.query_cache_only {
+            if let Some(v) = self.cache.get(&req.cache_key) {
+                let _ = req.notifier.send(v.result.clone());
+            }
+            return;
+        }
+
         if let Some(v) = self.cache.get(&req.cache_key) {
             let _ = req.notifier.send(Arc::clone(&v.result));
             if v.result.expire_at < Instant::now() {
@@ -112,19 +119,19 @@ impl<K: Hash + Eq, R: Send + Sync> EffectiveCacheRuntime<K, R> {
                 match self.doing.entry(Arc::clone(&req.cache_key)) {
                     hash_map::Entry::Occupied(_) => {}
                     hash_map::Entry::Vacant(v) => {
-                        v.insert(vec![None]);
+                        v.insert(vec![]);
                         self.send_req(Arc::clone(&req.cache_key));
                     }
                 }
             }
-        } else if !req.query_cache_only {
+        } else {
             match self.doing.entry(Arc::clone(&req.cache_key)) {
                 hash_map::Entry::Occupied(mut o) => {
-                    o.get_mut().push(Some(req));
+                    o.get_mut().push(req);
                 }
                 hash_map::Entry::Vacant(v) => {
                     let req_key = Arc::clone(&req.cache_key);
-                    v.insert(vec![Some(req)]);
+                    v.insert(vec![req]);
                     self.send_req(req_key);
                 }
             };
