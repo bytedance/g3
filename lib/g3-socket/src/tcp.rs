@@ -139,8 +139,8 @@ pub fn try_listen_on_local_cpu(
 
 #[cfg(target_os = "freebsd")]
 pub fn try_listen_on_local_cpu(
-    _listener: &std::net::TcpListener,
-    _cpu_affinity: &CpuAffinity,
+    listener: &std::net::TcpListener,
+    cpu_affinity: &CpuAffinity,
 ) -> io::Result<()> {
     let cpu_id_list = cpu_affinity.cpu_id_list();
     if cpu_id_list.len() > 0 {
