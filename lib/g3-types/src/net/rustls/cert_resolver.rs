@@ -39,11 +39,8 @@ impl MultipleCertResolver {
         let Some(provider) = CryptoProvider::get_default() else {
             return Err(anyhow!("no rustls provider registered"));
         };
-        let signing_key = provider
-            .key_provider
-            .load_private_key(pair.key_owned())
-            .map_err(|e| anyhow!("failed to add cert pair: {e}"))?;
-        let ck = CertifiedKey::new(pair.certs_owned(), signing_key);
+        let ck = CertifiedKey::from_der(pair.certs_owned(), pair.key_owned(), provider)
+            .map_err(|e| anyhow!("failed to load cert pair: {e}"))?;
         self.keys.push(Arc::new(ck));
         Ok(())
     }
