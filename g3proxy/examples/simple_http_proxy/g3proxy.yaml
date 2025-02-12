@@ -18,7 +18,7 @@ server:
     type: http_proxy
     listen:
       address: "[::]:10086"
-    tls_client: {}
+    tls_client: { }
     tcp_sock_speed_limit: 100M
   - name: test-tls
     tls_server:
@@ -38,7 +38,6 @@ server:
 resolver:
   - name: default
     type: c-ares
-    server: 127.0.0.1
 
 escaper:
   - name: default
