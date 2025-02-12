@@ -19,6 +19,7 @@
     + [线路绑定](#线路绑定)
     + [代理串联](#代理串联)
     + [连接限速](#连接限速)
+    + [域名解析](#域名解析)
     + [安全解析](#安全解析)
     + [容灾解析](#容灾解析)
     + [用户认证授权](#用户认证授权)
@@ -319,6 +320,32 @@ udp_sock_speed_limit: 10M/s
 
 入口配置针对的是Client-Proxy的连接，出口配置针对的是Proxy-Target的连接。
 
+### 域名解析
+
+使用系统默认/etc/resolv.conf配置：
+
+```yaml
+resolver:
+  - name: default
+    type: c-ares
+```
+
+使用自定义DNS服务器地址：
+
+```yaml
+resolver:
+  - name: c-ares
+    type: c-ares
+    server:
+      - 1.1.1.1
+      - 1.0.0.1
+  - name: hickory
+    type: hickory
+    server:
+      - 8.8.8.8
+      - 8.8.4.4
+```
+
 ### 安全解析
 
 需要使用非明文的方式访问DNS递归解析服务器时，需要使用hickory解析，示例如下：
@@ -328,7 +355,7 @@ resolver:
   - name: default
     type: hickory
     server: 1.1.1.1
-    encryption: dns-over-https # 此外也支持 dns-over-tls、dns-over-quic
+    encryption: dns-over-https # 此外也支持 dns-over-tls、dns-over-quic, dns-over-h3
 ```
 
 ### 容灾解析

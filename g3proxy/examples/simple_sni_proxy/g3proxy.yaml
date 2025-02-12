@@ -20,7 +20,6 @@ server:
 resolver:
   - name: default
     type: c-ares
-    server: 127.0.0.1
 
 escaper:
   - name: default
