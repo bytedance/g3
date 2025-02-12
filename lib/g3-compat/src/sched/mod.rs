@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+use std::io;
+
 #[cfg_attr(any(target_os = "linux", target_os = "android"), path = "linux.rs")]
 #[cfg_attr(
     any(target_os = "freebsd", target_os = "dragonfly"),
@@ -21,4 +23,34 @@
 )]
 #[cfg_attr(target_os = "netbsd", path = "netbsd.rs")]
 mod os;
-pub use os::CpuAffinity;
+use os::CpuAffinityImpl;
+
+const MAX_CPU_ID: usize = CpuAffinityImpl::max_cpu_id();
+
+#[derive(Clone, Default)]
+pub struct CpuAffinity {
+    os_impl: CpuAffinityImpl,
+    cpu_id_list: Vec<usize>,
+}
+
+impl CpuAffinity {
+    pub fn cpu_id_list(&self) -> &[usize] {
+        &self.cpu_id_list
+    }
+
+    pub fn add_id(&mut self, id: usize) -> io::Result<()> {
+        if id > MAX_CPU_ID {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("invalid cpu id, the max allowed is {MAX_CPU_ID}"),
+            ));
+        }
+        self.os_impl.add_id(id)?;
+        self.cpu_id_list.push(id);
+        Ok(())
+    }
+
+    pub fn apply_to_local_thread(&self) -> io::Result<()> {
+        self.os_impl.apply_to_local_thread()
+    }
+}
