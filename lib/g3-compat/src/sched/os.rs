@@ -17,24 +17,24 @@
 use std::io;
 
 #[derive(Clone, Default)]
-pub struct CpuAffinity {}
+pub struct CpuAffinityImpl {}
 
-impl CpuAffinity {
-    pub fn cpu_id_list(&self) -> &[usize] {
-        &[]
+impl CpuAffinityImpl {
+    pub const fn max_cpu_id() -> usize {
+        size_of::<u64>()
     }
 
     pub fn add_id(&mut self, _id: usize) -> io::Result<()> {
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
-            "cpu affinity is not supported",
+            "cpu affinity is not supported on this system",
         ))
     }
 
     pub fn apply_to_local_thread(&self) -> io::Result<()> {
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
-            "cpu affinity is not supported",
+            "cpu affinity is not supported on this system",
         ))
     }
 }
