@@ -30,7 +30,7 @@ impl UnaidedRuntimeConfig {
                 target_os = "dragonfly",
                 target_os = "netbsd",
             ))]
-            let mut set_mapped_sched_affinity = false;
+            let mut auto_set_sched_affinity = false;
 
             g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
                 "thread_number_total" | "threads_total" | "thread_number" => {
@@ -68,8 +68,8 @@ impl UnaidedRuntimeConfig {
                             config.set_sched_affinity(id, cpu);
                         }
                         Ok(())
-                    } else if let Ok(map_all) = g3_yaml::value::as_bool(v) {
-                        set_mapped_sched_affinity = map_all;
+                    } else if let Ok(enable) = g3_yaml::value::as_bool(v) {
+                        auto_set_sched_affinity = enable;
                         Ok(())
                     } else {
                         Err(anyhow!("invalid map value for key {k}"))
@@ -102,9 +102,9 @@ impl UnaidedRuntimeConfig {
                 target_os = "dragonfly",
                 target_os = "netbsd",
             ))]
-            if set_mapped_sched_affinity {
+            if auto_set_sched_affinity {
                 config
-                    .set_mapped_sched_affinity()
+                    .auto_set_sched_affinity()
                     .context("failed to set all mapped sched affinity")?;
             }
 

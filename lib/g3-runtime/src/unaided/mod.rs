@@ -100,7 +100,27 @@ impl UnaidedRuntimeConfig {
         target_os = "dragonfly",
         target_os = "netbsd",
     ))]
-    pub fn set_mapped_sched_affinity(&mut self) -> anyhow::Result<()> {
+    pub fn auto_set_sched_affinity(&mut self) -> anyhow::Result<()> {
+        use anyhow::Context;
+
+        let mut found_env_config = false;
+        for i in 0..self.thread_number_total.get() / self.thread_number_per_rt.get() {
+            let var_name = format!("WORKER_{i}_CPU_LIST");
+            if let Some(os_s) = std::env::var_os(&var_name) {
+                let Some(s) = os_s.to_str() else {
+                    return Err(anyhow!("failed to decode env var {var_name}"));
+                };
+                let mut cpu = CpuAffinity::default();
+                cpu.parse_add(s)
+                    .context(format!("invalid CPU ID list value for env var {var_name}"))?;
+                self.sched_affinity.insert(i, cpu);
+                found_env_config = true;
+            }
+        }
+        if found_env_config {
+            return Ok(());
+        }
+
         if self.thread_number_per_rt.get() != 1 {
             return Err(anyhow!(
                 "unable to set CPU affinity for multi thread worker runtime"

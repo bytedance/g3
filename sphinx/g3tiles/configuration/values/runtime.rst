@@ -4,6 +4,21 @@
 Runtime
 *******
 
+.. _conf_value_cpu_id_list_str:
+
+cpu id list str
+===============
+
+A string the represent a list of CPU IDs.
+
+It could be:
+
+ - A single CPU ID
+ - CPU ID range in the form `<start>-<end>`, where `start` should be less than `end`.
+ - A list of CPU ID / CPU ID range delimited by ','
+
+.. versionadded:: 0.3.8
+
 .. _conf_value_cpu_set:
 
 cpu set
@@ -17,10 +32,8 @@ The value should be one or a sequence of CPU IDs.
 
 The CPU ID valid can be:
 
- - CPU ID in usize
- - CPU ID string
- - CPU ID range string in the form `<start>-<end>`, where `start` should be less than `end`.
- - A list of CPU ID string / CPU ID range string delimited by ','
+ - usize: a single CPU ID
+ - string: :ref:`cpu id list str <conf_value_cpu_id_list_str>`
 
 .. _CPU_SET(3): https://man7.org/linux/man-pages/man3/CPU_SET.3.html
 .. _sched_setaffinity(2): https://man7.org/linux/man-pages/man2/sched_setaffinity.2.html
@@ -76,9 +89,19 @@ Set the sched affinity for each threads.
 
 For map value, the key should be the thread id starting from 0, and the value should be :ref:`cpu set <conf_value_cpu_set>`.
 
-For bool value (only if thread_number_per_runtime is set to 1):
+For bool value:
 
-* if true, a default CPU SET will be set for each thread, the CPU ID in the set will match the thread ID.
+* if true
+
+  - if found any `WORKER_<N>_CPU_LIST` environment variables
+
+    it will set the CPU affinity for that corresponding runtime `<N>`, the value should be :ref:`cpu id list str <conf_value_cpu_id_list_str>`.
+
+    .. versionadded:: 0.3.8
+
+  - otherwise if thread_number_per_runtime is set to 1
+
+    a default CPU SET will be set for each thread, the CPU ID in the set will match the thread ID.
 
 * if false, no sched affinity will be set, just as if this config option is not present.
 
