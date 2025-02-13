@@ -15,6 +15,7 @@
  */
 
 use std::io;
+use std::str::FromStr;
 
 #[cfg_attr(any(target_os = "linux", target_os = "android"), path = "linux.rs")]
 #[cfg_attr(
@@ -26,6 +27,23 @@ mod os;
 use os::CpuAffinityImpl;
 
 const MAX_CPU_ID: usize = CpuAffinityImpl::max_cpu_id();
+
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+struct CpuId(usize);
+
+impl FromStr for CpuId {
+    type Err = io::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let id = usize::from_str(s).map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("invalid CPU ID {s}: {e}"),
+            )
+        })?;
+        Ok(CpuId(id))
+    }
+}
 
 #[derive(Clone, Default)]
 pub struct CpuAffinity {
@@ -42,7 +60,7 @@ impl CpuAffinity {
         if id > MAX_CPU_ID {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                format!("invalid cpu id, the max allowed is {MAX_CPU_ID}"),
+                format!("invalid CPU ID, the max allowed is {MAX_CPU_ID}"),
             ));
         }
         self.os_impl.add_id(id)?;
@@ -50,7 +68,74 @@ impl CpuAffinity {
         Ok(())
     }
 
+    pub fn parse_add(&mut self, s: &str) -> io::Result<()> {
+        for p in s.split(',') {
+            let part = p.trim();
+            if part.is_empty() {
+                continue;
+            }
+
+            match part.split_once('-') {
+                Some((s1, s2)) => {
+                    let start = CpuId::from_str(s1)?;
+                    let end = CpuId::from_str(s2)?;
+                    if start >= end {
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidInput,
+                            "invalid CPU ID range {part}",
+                        ));
+                    }
+                    for id in start.0..=end.0 {
+                        self.add_id(id)?;
+                    }
+                }
+                None => {
+                    let id = CpuId::from_str(part)?;
+                    self.add_id(id.0)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub fn apply_to_local_thread(&self) -> io::Result<()> {
         self.os_impl.apply_to_local_thread()
+    }
+}
+
+#[cfg(all(
+    test,
+    any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "dragonfly",
+        target_os = "netbsd"
+    )
+))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn single() {
+        let mut affinity = CpuAffinity::default();
+        assert!(affinity.cpu_id_list().is_empty());
+        affinity.add_id(1).unwrap();
+        assert_eq!(affinity.cpu_id_list(), &[1]);
+    }
+
+    #[test]
+    fn many() {
+        let mut affinity = CpuAffinity::default();
+        affinity.add_id(2).unwrap();
+        affinity.parse_add("0").unwrap();
+        assert_eq!(affinity.cpu_id_list(), &[2, 0]);
+    }
+
+    #[test]
+    fn range() {
+        let mut affinity = CpuAffinity::default();
+        affinity.parse_add("0-1,4").unwrap();
+        assert_eq!(affinity.cpu_id_list(), &[0, 1, 4]);
     }
 }
