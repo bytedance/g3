@@ -1,4 +1,8 @@
 
+v0.4.1:
+ - Feature: allow to set openssl async job size in worker config
+ - Feature: allow to set worker CPU affinity from environment variables
+
 v0.4.0:
  - Feature: add worker support, and also allow to use multiple threads in main runtime
  - Compatibility: drop AWS-LC support to reduce outdated dependencies
