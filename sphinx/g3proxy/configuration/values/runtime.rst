@@ -9,16 +9,24 @@ Runtime
 cpu set
 =======
 
-**yaml value** seq | usize
+**yaml value** seq | str | usize
 
 A `CPU_SET(3)`_ for use with `sched_setaffinity(2)`_.
 
-The value should be a CPU ID, starting from 0, or a sequence of CPU IDs.
+The value should be one or a sequence of CPU IDs.
+
+The CPU ID valid can be:
+
+ - CPU ID in usize
+ - CPU ID string
+ - CPU ID range string in the form `<start>-<end>`, where `start` should be less than `end`.
+ - A list of CPU ID string / CPU ID range string delimited by ','
 
 .. _CPU_SET(3): https://man7.org/linux/man-pages/man3/CPU_SET.3.html
 .. _sched_setaffinity(2): https://man7.org/linux/man-pages/man2/sched_setaffinity.2.html
 
 .. versionadded:: 1.3.1
+.. versionchanged:: 1.11.3 allow a list of CPU ID string values
 
 .. _conf_value_unaided_runtime_config:
 
