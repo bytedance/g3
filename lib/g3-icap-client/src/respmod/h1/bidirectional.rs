@@ -18,7 +18,6 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite};
-use tokio::time::Instant;
 
 use g3_http::{H1BodyToChunkedTransfer, HttpBodyDecodeReader, HttpBodyReader};
 use g3_io_ext::{IdleCheck, LimitedBufReadExt, LimitedCopy, LimitedCopyConfig, LimitedCopyError};
@@ -45,9 +44,7 @@ impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
     where
         UR: AsyncBufRead + Unpin,
     {
-        let idle_duration = self.idle_checker.idle_duration();
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.idle_checker.interval_timer();
         let mut idle_count = 0;
 
         loop {
@@ -68,9 +65,9 @@ impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
                         Err(e) => Err(H1RespmodAdaptationError::IcapServerReadFailed(e)),
                     };
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if body_transfer.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
                         let quit = self.idle_checker.check_quit(idle_count);
                         if quit {
@@ -203,9 +200,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
         IR: AsyncRead + Unpin,
         CW: AsyncWrite + Unpin,
     {
-        let idle_duration = self.idle_checker.idle_duration();
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.idle_checker.interval_timer();
         let mut idle_count = 0;
 
         loop {
@@ -230,9 +225,9 @@ impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
                         Err(LimitedCopyError::WriteFailed(e)) => Err(H1RespmodAdaptationError::HttpClientWriteFailed(e)),
                     };
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if ups_body_transfer.is_idle() && clt_body_transfer.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
                         let quit = self.idle_checker.check_quit(idle_count);
                         if quit {

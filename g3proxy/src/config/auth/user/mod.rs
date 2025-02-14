@@ -74,7 +74,7 @@ pub(crate) struct UserConfig {
     pub(crate) http_user_agent_filter: Option<AclUserAgentRule>,
     pub(crate) resolve_strategy: Option<ResolveStrategy>,
     pub(crate) resolve_redirection: Option<ResolveRedirectionBuilder>,
-    pub(crate) task_idle_max_count: i32,
+    pub(crate) task_idle_max_count: usize,
     pub(crate) socks_use_udp_associate: bool,
     pub(crate) egress_path_selection: Option<EgressPathSelection>,
     pub(crate) explicit_sites: BTreeMap<NodeName, Arc<UserSiteConfig>>,

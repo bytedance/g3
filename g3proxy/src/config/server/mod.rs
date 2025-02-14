@@ -99,10 +99,7 @@ pub(crate) trait ServerConfig {
     fn limited_copy_config(&self) -> LimitedCopyConfig {
         LimitedCopyConfig::default()
     }
-    fn task_idle_check_duration(&self) -> Duration {
-        Duration::from_secs(300)
-    }
-    fn task_max_idle_count(&self) -> i32 {
+    fn task_max_idle_count(&self) -> usize {
         1
     }
 

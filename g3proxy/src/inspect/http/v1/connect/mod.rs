@@ -409,9 +409,7 @@ where
             &self.ctx.server_config.limited_copy_config(),
         );
 
-        let idle_duration = self.ctx.server_config.task_idle_check_duration();
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.ctx.idle_wheel.get();
         let mut idle_count = 0;
         let max_idle_count = self.ctx.task_max_idle_count();
 
@@ -432,9 +430,9 @@ where
                         Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
                     };
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if ups_to_clt.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
                         if idle_count >= max_idle_count {
                             return if ups_to_clt.no_cached_data() {
                                 Err(ServerTaskError::UpstreamAppTimeout("idle while reading response body"))

@@ -21,6 +21,7 @@ use slog::Logger;
 
 use g3_daemon::server::ClientConnectionInfo;
 use g3_icap_client::reqmod::h1::HttpAdapterErrorResponse;
+use g3_io_ext::IdleWheel;
 use g3_types::acl::AclAction;
 use g3_types::acl_set::AclDstHostRuleSet;
 use g3_types::net::{OpensslClientConfig, UpstreamAddr};
@@ -37,6 +38,7 @@ pub(crate) struct CommonTaskContext {
     pub(crate) server_config: Arc<HttpProxyServerConfig>,
     pub(crate) server_stats: Arc<HttpProxyServerStats>,
     pub(crate) server_quit_policy: Arc<ServerQuitPolicy>,
+    pub(crate) idle_wheel: Arc<IdleWheel>,
     pub(crate) escaper: ArcEscaper,
     pub(crate) cc_info: ClientConnectionInfo,
     pub(crate) tls_client_config: Arc<OpensslClientConfig>,
@@ -53,7 +55,7 @@ impl CommonTaskContext {
 
     pub(crate) fn idle_checker(&self, task_notes: &ServerTaskNotes) -> ServerIdleChecker {
         ServerIdleChecker {
-            idle_duration: self.server_config.task_idle_check_duration,
+            idle_wheel: self.idle_wheel.clone(),
             user: task_notes.user_ctx().map(|ctx| ctx.user().clone()),
             task_max_idle_count: self.server_config.task_idle_max_count,
             server_quit_policy: self.server_quit_policy.clone(),

@@ -426,9 +426,7 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
         let mut clt_to_ups =
             LimitedCopy::new(clt_r, ups_w, &self.ctx.server_config.limited_copy_config());
 
-        let idle_duration = self.ctx.server_config.task_idle_check_duration();
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.ctx.idle_wheel.get();
         let mut idle_count = 0;
         let max_idle_count = self.ctx.task_max_idle_count();
 
@@ -449,9 +447,9 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
                         Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::UpstreamWriteFailed(e)),
                     };
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if clt_to_ups.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
                         if idle_count >= max_idle_count {
                             return if clt_to_ups.no_cached_data() {
                                 Err(ServerTaskError::ClientAppTimeout("idle while reading BDAT data"))

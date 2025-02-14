@@ -1208,9 +1208,7 @@ impl<'a> FtpOverHttpTask<'a> {
         let mut data_copy =
             LimitedCopy::new(&mut data_stream, clt_w, &self.ctx.server_config.tcp_copy);
 
-        let idle_duration = self.ctx.server_config.task_idle_check_duration;
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.ctx.idle_wheel.get();
         let mut log_interval = self.get_log_interval();
         let mut idle_count = 0;
         loop {
@@ -1257,9 +1255,9 @@ impl<'a> FtpOverHttpTask<'a> {
                 _ = log_interval.tick() => {
                     self.get_log_context().log_periodic(&self.ctx.task_logger);
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if data_copy.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
                         let quit = if let Some(user_ctx) = self.task_notes.user_ctx() {
                             let user = user_ctx.user();
@@ -1425,9 +1423,7 @@ impl<'a> FtpOverHttpTask<'a> {
             &self.ctx.server_config.tcp_copy,
         );
 
-        let idle_duration = self.ctx.server_config.task_idle_check_duration;
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.ctx.idle_wheel.get();
         let mut log_interval = self.get_log_interval();
         let mut idle_count = 0;
 
@@ -1463,9 +1459,9 @@ impl<'a> FtpOverHttpTask<'a> {
                 _ = log_interval.tick() => {
                     self.get_log_context().log_periodic(&self.ctx.task_logger);
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if data_copy.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
                         let quit = if let Some(user_ctx) = self.task_notes.user_ctx() {
                             let user = user_ctx.user();

@@ -48,11 +48,11 @@ pub fn as_imap_interception_config(value: &Yaml) -> anyhow::Result<ImapIntercept
                 Ok(())
             }
             "forward_max_idle_count" => {
-                config.forward_max_idle_count = crate::value::as_i32(v)?;
+                config.forward_max_idle_count = crate::value::as_usize(v)?;
                 Ok(())
             }
             "transfer_max_idle_count" => {
-                config.transfer_max_idle_count = crate::value::as_i32(v)?;
+                config.transfer_max_idle_count = crate::value::as_usize(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

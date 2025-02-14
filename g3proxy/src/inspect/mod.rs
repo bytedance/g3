@@ -27,6 +27,7 @@ use g3_dpi::{
     H1InterceptionConfig, H2InterceptionConfig, ImapInterceptionConfig, MaybeProtocol,
     ProtocolInspectAction, ProtocolInspector, SmtpInterceptionConfig,
 };
+use g3_io_ext::IdleWheel;
 use g3_types::net::{Host, OpensslClientConfig};
 
 use crate::audit::AuditHandle;
@@ -133,11 +134,12 @@ pub(crate) struct StreamInspectContext<SC: ServerConfig> {
     server_config: Arc<SC>,
     server_stats: ArcServerStats,
     server_quit_policy: Arc<ServerQuitPolicy>,
+    idle_wheel: Arc<IdleWheel>,
     task_notes: StreamInspectTaskNotes,
     connect_notes: StreamInspectConnectNotes,
     inspection_depth: usize,
 
-    task_max_idle_count: i32,
+    task_max_idle_count: usize,
 }
 
 impl<SC: ServerConfig> Clone for StreamInspectContext<SC> {
@@ -147,6 +149,7 @@ impl<SC: ServerConfig> Clone for StreamInspectContext<SC> {
             server_config: self.server_config.clone(),
             server_stats: self.server_stats.clone(),
             server_quit_policy: self.server_quit_policy.clone(),
+            idle_wheel: self.idle_wheel.clone(),
             task_notes: self.task_notes.clone(),
             connect_notes: self.connect_notes,
             inspection_depth: self.inspection_depth,
@@ -161,6 +164,7 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
         server_config: Arc<SC>,
         server_stats: ArcServerStats,
         server_quit_policy: Arc<ServerQuitPolicy>,
+        idle_wheel: Arc<IdleWheel>,
         task_notes: &ServerTaskNotes,
         tcp_notes: &TcpConnectTaskNotes,
     ) -> Self {
@@ -174,6 +178,7 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
             server_config,
             server_stats,
             server_quit_policy,
+            idle_wheel,
             task_notes: StreamInspectTaskNotes::from(task_notes),
             connect_notes: StreamInspectConnectNotes::from(tcp_notes),
             inspection_depth: 0,
@@ -218,7 +223,7 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
 
     pub(crate) fn idle_checker(&self) -> ServerIdleChecker {
         ServerIdleChecker {
-            idle_duration: self.server_config.task_idle_check_duration(),
+            idle_wheel: self.idle_wheel.clone(),
             user: self.user().cloned(),
             task_max_idle_count: self.task_max_idle_count,
             server_quit_policy: self.server_quit_policy.clone(),
@@ -339,7 +344,7 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     }
 
     #[inline]
-    fn task_max_idle_count(&self) -> i32 {
+    fn task_max_idle_count(&self) -> usize {
         self.task_max_idle_count
     }
 

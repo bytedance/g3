@@ -49,7 +49,7 @@ pub(crate) enum H2InterceptionError {
     #[error("canceled as server quit")]
     CanceledAsServerQuit,
     #[error("idle after {0:?} x {1}")]
-    Idle(Duration, i32),
+    Idle(Duration, usize),
     #[error("unexpected error: {0:}")]
     UnexpectedError(anyhow::Error),
 }
@@ -113,7 +113,7 @@ pub(crate) enum H2StreamTransferError {
     #[error("write to http upstream idle")]
     HttpUpstreamWriteIdle,
     #[error("idle after {0:?} x {1}")]
-    Idle(Duration, i32),
+    Idle(Duration, usize),
 }
 
 impl H2StreamTransferError {

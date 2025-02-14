@@ -15,26 +15,25 @@
  */
 
 use std::sync::Arc;
-use std::time::Duration;
 
-use g3_io_ext::{IdleCheck, IdleForceQuitReason};
+use g3_io_ext::{IdleCheck, IdleForceQuitReason, IdleInterval, IdleWheel};
 
 use super::ServerQuitPolicy;
 use crate::auth::User;
 
 pub(crate) struct ServerIdleChecker {
-    pub(crate) idle_duration: Duration,
+    pub(crate) idle_wheel: Arc<IdleWheel>,
     pub(crate) user: Option<Arc<User>>,
-    pub(crate) task_max_idle_count: i32,
+    pub(crate) task_max_idle_count: usize,
     pub(crate) server_quit_policy: Arc<ServerQuitPolicy>,
 }
 
 impl IdleCheck for ServerIdleChecker {
-    fn idle_duration(&self) -> Duration {
-        self.idle_duration
+    fn interval_timer(&self) -> IdleInterval {
+        self.idle_wheel.get()
     }
 
-    fn check_quit(&self, idle_count: i32) -> bool {
+    fn check_quit(&self, idle_count: usize) -> bool {
         if let Some(user) = &self.user {
             idle_count > user.task_max_idle_count()
         } else {

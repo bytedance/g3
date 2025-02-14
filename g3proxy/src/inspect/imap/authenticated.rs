@@ -16,11 +16,10 @@
 
 use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio::time::{Instant, Interval};
 
 use g3_imap_proto::command::{Command, ParsedCommand};
 use g3_imap_proto::response::{BadResponse, ByeResponse};
-use g3_io_ext::LimitedWriteExt;
+use g3_io_ext::{IdleInterval, LimitedWriteExt};
 
 use super::{
     Capability, CommandLineReceiveExt, ImapInterceptObject, ImapRelayBuf, ResponseAction,
@@ -60,9 +59,7 @@ where
         UR: AsyncRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
-        let idle_duration = self.ctx.server_config.task_idle_check_duration();
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.ctx.idle_wheel.get();
         let mut idle_count = 0;
         let max_idle_count = self.ctx.imap_interception().forward_max_idle_count;
 
@@ -132,12 +129,12 @@ where
                         }
                     }
                 }
-                 _ = idle_interval.tick() => {
+                 n = idle_interval.tick() => {
                     if !active {
-                        idle_count += 1;
+                        idle_count += n;
                         if idle_count >= max_idle_count {
                             let _ = ByeResponse::reply_idle_logout(clt_w).await;
-                            return Ok(CloseReason::Local(ServerTaskError::Idle(idle_duration, idle_count)));
+                            return Ok(CloseReason::Local(ServerTaskError::Idle(idle_interval.period(), idle_count)));
                         }
                     } else {
                         idle_count = 0;
@@ -397,7 +394,7 @@ where
         ups_r: &mut UR,
         ups_w: &mut UW,
         relay_buf: &mut ImapRelayBuf,
-        idle_interval: &mut Interval,
+        idle_interval: &mut IdleInterval,
     ) -> ServerTaskResult<Option<CloseReason>>
     where
         CR: AsyncRead + Unpin,
@@ -452,9 +449,9 @@ where
                         }
                     }
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if !active {
-                        idle_count += 1;
+                        idle_count += n;
                         if idle_count >= max_idle_count {
                             let _ = ByeResponse::reply_idle_logout(clt_w).await;
                             let _ = ups_w.write_all_flush(DONE_MSG).await;

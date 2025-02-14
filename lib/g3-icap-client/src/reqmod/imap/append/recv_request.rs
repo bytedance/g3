@@ -15,7 +15,6 @@
  */
 
 use tokio::io::{AsyncWrite, BufWriter};
-use tokio::time::Instant;
 
 use g3_http::server::HttpAdaptedRequest;
 use g3_http::HttpBodyDecodeReader;
@@ -72,9 +71,7 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
         let mut msg_transfer =
             LimitedCopy::new(&mut body_reader, &mut ups_buf_writer, &self.copy_config);
 
-        let idle_duration = self.idle_checker.idle_duration();
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.idle_checker.interval_timer();
         let mut idle_count = 0;
 
         loop {
@@ -100,9 +97,9 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
                         Err(LimitedCopyError::WriteFailed(e)) => Err(ImapAdaptationError::ImapUpstreamWriteFailed(e)),
                     };
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if msg_transfer.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
                         let quit = self.idle_checker.check_quit(idle_count);
                         if quit {

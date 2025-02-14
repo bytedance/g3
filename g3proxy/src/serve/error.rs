@@ -128,7 +128,7 @@ pub(crate) enum ServerTaskError {
     #[error("canceled as server quit")]
     CanceledAsServerQuit,
     #[error("idle after {0:?} x {1}")]
-    Idle(Duration, i32),
+    Idle(Duration, usize),
     #[error("{0} interception error: {1}")]
     InterceptionError(Protocol, InterceptionError),
     #[error("finished")]
