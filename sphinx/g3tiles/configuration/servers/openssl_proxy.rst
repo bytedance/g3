@@ -231,7 +231,7 @@ This will overwrite the server level :ref:`tcp_sock_speed_limit <conf_server_com
 task_idle_max_count
 """""""""""""""""""
 
-**optional**, **type**: i32
+**optional**, **type**: usize
 
 The task will be closed if the idle check return IDLE the times as this value.
 
