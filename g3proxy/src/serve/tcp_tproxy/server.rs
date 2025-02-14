@@ -29,6 +29,7 @@ use tokio_rustls::server::TlsStream;
 
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
+use g3_io_ext::IdleWheel;
 use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::NodeName;
@@ -55,6 +56,7 @@ pub(crate) struct TcpTProxyServer {
     escaper: ArcSwap<ArcEscaper>,
     audit_handle: ArcSwapOption<AuditHandle>,
     quit_policy: Arc<ServerQuitPolicy>,
+    idle_wheel: Arc<IdleWheel>,
     reload_version: usize,
 }
 
@@ -73,6 +75,7 @@ impl TcpTProxyServer {
             .map(|builder| builder.build());
 
         let task_logger = config.get_task_logger();
+        let idle_wheel = IdleWheel::spawn(config.task_idle_check_duration);
 
         server_stats.set_extra_tags(config.extra_metrics_tags.clone());
 
@@ -89,6 +92,7 @@ impl TcpTProxyServer {
             escaper: ArcSwap::new(escaper),
             audit_handle: ArcSwapOption::new(audit_handle),
             quit_policy: Arc::new(ServerQuitPolicy::default()),
+            idle_wheel,
             reload_version: version,
         };
 
@@ -145,9 +149,10 @@ impl TcpTProxyServer {
 
     async fn run_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
         let ctx = CommonTaskContext {
-            server_config: Arc::clone(&self.config),
-            server_stats: Arc::clone(&self.server_stats),
-            server_quit_policy: Arc::clone(&self.quit_policy),
+            server_config: self.config.clone(),
+            server_stats: self.server_stats.clone(),
+            server_quit_policy: self.quit_policy.clone(),
+            idle_wheel: self.idle_wheel.clone(),
             escaper: self.escaper.load().as_ref().clone(),
             cc_info,
             task_logger: self.task_logger.clone(),

@@ -33,7 +33,7 @@ use tokio_rustls::LazyConfigAcceptor;
 
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
-use g3_io_ext::AsyncStream;
+use g3_io_ext::{AsyncStream, IdleWheel};
 use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::NodeName;
@@ -70,6 +70,7 @@ pub(crate) struct HttpRProxyServer {
     escaper: ArcSwap<ArcEscaper>,
     user_group: ArcSwapOption<UserGroup>,
     quit_policy: Arc<ServerQuitPolicy>,
+    idle_wheel: Arc<IdleWheel>,
     reload_version: usize,
 }
 
@@ -103,6 +104,7 @@ impl HttpRProxyServer {
             .map(|builder| builder.build());
 
         let task_logger = config.get_task_logger();
+        let idle_wheel = IdleWheel::spawn(config.task_idle_check_duration);
 
         // always update extra metrics tags
         server_stats.set_extra_tags(config.extra_metrics_tags.clone());
@@ -123,6 +125,7 @@ impl HttpRProxyServer {
             escaper: ArcSwap::new(escaper),
             user_group: ArcSwapOption::new(user_group),
             quit_policy: Arc::new(ServerQuitPolicy::default()),
+            idle_wheel,
             reload_version: version,
         };
 
@@ -198,9 +201,10 @@ impl HttpRProxyServer {
 
     fn get_common_task_context(&self, cc_info: ClientConnectionInfo) -> Arc<CommonTaskContext> {
         Arc::new(CommonTaskContext {
-            server_config: Arc::clone(&self.config),
-            server_stats: Arc::clone(&self.server_stats),
-            server_quit_policy: Arc::clone(&self.quit_policy),
+            server_config: self.config.clone(),
+            server_stats: self.server_stats.clone(),
+            server_quit_policy: self.quit_policy.clone(),
+            idle_wheel: self.idle_wheel.clone(),
             escaper: self.escaper.load().as_ref().clone(),
             cc_info,
             task_logger: self.task_logger.clone(),

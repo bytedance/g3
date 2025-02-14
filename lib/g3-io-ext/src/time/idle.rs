@@ -123,7 +123,7 @@ pub enum IdleForceQuitReason {
 }
 
 pub trait IdleCheck {
-    fn idle_duration(&self) -> IdleInterval;
+    fn interval_timer(&self) -> IdleInterval;
     fn check_quit(&self, idle_count: usize) -> bool;
     fn check_force_quit(&self) -> Option<IdleForceQuitReason>;
 }

@@ -18,7 +18,6 @@ use std::sync::Arc;
 
 use log::debug;
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio::time::Instant;
 
 use g3_http::server::HttpProxyClientRequest;
 use g3_http::HttpBodyReader;
@@ -140,9 +139,7 @@ impl<'a> HttpProxyUntrustedTask<'a> {
             &self.ctx.server_config.tcp_copy,
         );
 
-        let idle_duration = self.ctx.server_config.task_idle_check_duration;
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.ctx.idle_wheel.get();
         let mut idle_count = 0;
         loop {
             tokio::select! {
@@ -155,9 +152,9 @@ impl<'a> HttpProxyUntrustedTask<'a> {
                         Err(LimitedCopyError::WriteFailed(_)) => Err(ServerTaskError::InternalServerError("write to sinking failed")),
                     };
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if clt_to_sink.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
                         if idle_count >= self.ctx.server_config.task_idle_max_count {
                             return if clt_to_sink.no_cached_data() {

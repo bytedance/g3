@@ -460,9 +460,7 @@ where
             self.ctx.server_config.limited_copy_config().yield_size(),
         );
 
-        let idle_duration = self.ctx.server_config.task_idle_check_duration();
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.ctx.idle_wheel.get();
         let mut idle_count = 0;
         let max_idle_count = self.ctx.task_max_idle_count();
 
@@ -495,12 +493,12 @@ where
                         }
                     }
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if req_body_transfer.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
                         if idle_count > max_idle_count {
-                            return Err(H2StreamTransferError::Idle(idle_duration, idle_count));
+                            return Err(H2StreamTransferError::Idle(idle_interval.period(), idle_count));
                         }
                     } else {
                         idle_count = 0;
@@ -652,9 +650,7 @@ where
                 self.ctx.server_config.limited_copy_config().yield_size(),
             );
 
-            let idle_duration = self.ctx.server_config.task_idle_check_duration();
-            let mut idle_interval =
-                tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+            let mut idle_interval = self.ctx.idle_wheel.get();
             let mut idle_count = 0;
             let max_idle_count = self.ctx.task_max_idle_count();
 
@@ -671,12 +667,12 @@ where
                             Err(e) => return Err(H2StreamTransferError::ResponseBodyTransferFailed(e)),
                         }
                     }
-                    _ = idle_interval.tick() => {
+                    n = idle_interval.tick() => {
                         if rsp_body_transfer.is_idle() {
-                            idle_count += 1;
+                            idle_count += n;
 
                             if idle_count > max_idle_count {
-                                return Err(H2StreamTransferError::Idle(idle_duration, idle_count));
+                                return Err(H2StreamTransferError::Idle(idle_interval.period(), idle_count));
                             }
                         } else {
                             idle_count = 0;

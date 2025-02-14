@@ -130,9 +130,7 @@ where
         if literal_size > cached.len() as u64 {
             let mut clt_r = clt_r.take(literal_size - cached.len() as u64);
 
-            let idle_duration = self.ctx.server_config.task_idle_check_duration();
-            let mut idle_interval =
-                tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+            let mut idle_interval = self.ctx.idle_wheel.get();
             let mut idle_count = 0;
             let max_idle_count = self.ctx.imap_interception().transfer_max_idle_count;
 
@@ -155,9 +153,9 @@ where
                             Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::UpstreamWriteFailed(e)),
                         };
                     }
-                    _ = idle_interval.tick() => {
+                    n = idle_interval.tick() => {
                         if clt_to_ups.is_idle() {
-                            idle_count += 1;
+                            idle_count += n;
                             if idle_count >= max_idle_count {
                                 return if clt_to_ups.no_cached_data() {
                                     Err(ServerTaskError::ClientAppTimeout("idle while reading literal data"))
@@ -288,9 +286,7 @@ where
         if literal_size > cached.len() as u64 {
             let mut ups_r = ups_r.take(literal_size - cached.len() as u64);
 
-            let idle_duration = self.ctx.server_config.task_idle_check_duration();
-            let mut idle_interval =
-                tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+            let mut idle_interval = self.ctx.idle_wheel.get();
             let mut idle_count = 0;
             let max_idle_count = self.ctx.imap_interception().transfer_max_idle_count;
 
@@ -313,9 +309,9 @@ where
                             Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
                         };
                     }
-                    _ = idle_interval.tick() => {
+                    n = idle_interval.tick() => {
                         if ups_to_clt.is_idle() {
-                            idle_count += 1;
+                            idle_count += n;
                             if idle_count >= max_idle_count {
                                 return if ups_to_clt.no_cached_data() {
                                     Err(ServerTaskError::UpstreamAppTimeout("idle while reading literal data"))

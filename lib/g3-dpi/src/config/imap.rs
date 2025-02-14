@@ -23,8 +23,8 @@ pub struct ImapInterceptionConfig {
     pub logout_wait_timeout: Duration,
     pub command_line_max_size: usize,
     pub response_line_max_size: usize,
-    pub forward_max_idle_count: i32,
-    pub transfer_max_idle_count: i32,
+    pub forward_max_idle_count: usize,
+    pub transfer_max_idle_count: usize,
 }
 
 impl Default for ImapInterceptionConfig {

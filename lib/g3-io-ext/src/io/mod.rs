@@ -40,8 +40,5 @@ pub use line_recv_vec::LineRecvVec;
 mod ext;
 pub use ext::{LimitedBufReadExt, LimitedReadExt, LimitedWriteExt};
 
-mod idle;
-pub use idle::{IdleCheck, IdleForceQuitReason};
-
 pub(super) mod stream;
 pub use stream::AsyncStream;

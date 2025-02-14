@@ -22,6 +22,7 @@ use tokio::sync::oneshot;
 
 use g3_daemon::server::ServerQuitPolicy;
 use g3_dpi::Protocol;
+use g3_io_ext::IdleWheel;
 use g3_types::net::UpstreamAddr;
 
 use crate::config::audit::AuditStreamDetourConfig;
@@ -57,6 +58,7 @@ impl From<u16> for DetourAction {
 pub(crate) struct StreamDetourContext<'a, SC> {
     server_config: &'a Arc<SC>,
     server_quit_policy: &'a Arc<ServerQuitPolicy>,
+    idle_wheel: &'a Arc<IdleWheel>,
     task_notes: &'a StreamInspectTaskNotes,
     upstream: &'a UpstreamAddr,
     protocol: Protocol,
@@ -93,6 +95,7 @@ impl StreamDetourClient {
         &self,
         server_config: &'a Arc<SC>,
         server_quit_policy: &'a Arc<ServerQuitPolicy>,
+        idle_wheel: &'a Arc<IdleWheel>,
         task_notes: &'a StreamInspectTaskNotes,
         upstream: &'a UpstreamAddr,
         protocol: Protocol,
@@ -100,6 +103,7 @@ impl StreamDetourClient {
         StreamDetourContext {
             server_config,
             server_quit_policy,
+            idle_wheel,
             task_notes,
             upstream,
             protocol,

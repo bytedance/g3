@@ -19,6 +19,7 @@ use std::sync::Arc;
 use slog::Logger;
 
 use g3_daemon::server::ClientConnectionInfo;
+use g3_io_ext::IdleWheel;
 use g3_types::net::OpensslClientConfig;
 
 use crate::config::server::tls_stream::TlsStreamServerConfig;
@@ -30,6 +31,7 @@ pub(super) struct CommonTaskContext {
     pub(super) server_config: Arc<TlsStreamServerConfig>,
     pub(super) server_stats: Arc<TcpStreamServerStats>,
     pub(super) server_quit_policy: Arc<ServerQuitPolicy>,
+    pub(super) idle_wheel: Arc<IdleWheel>,
     pub(super) escaper: ArcEscaper,
     pub(super) cc_info: ClientConnectionInfo,
     pub(super) tls_client_config: Option<Arc<OpensslClientConfig>>,

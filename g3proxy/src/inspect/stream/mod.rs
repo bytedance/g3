@@ -21,7 +21,7 @@ use tokio::time::Instant;
 
 use g3_daemon::server::ServerQuitPolicy;
 use g3_dpi::{MaybeProtocol, ProtocolInspectionConfig, ProtocolInspector};
-use g3_io_ext::{LimitedCopy, LimitedCopyConfig, LimitedCopyError, OptionalInterval};
+use g3_io_ext::{IdleInterval, LimitedCopy, LimitedCopyConfig, LimitedCopyError, OptionalInterval};
 use g3_types::net::UpstreamAddr;
 
 use super::{StreamInspectContext, StreamInspection};
@@ -34,8 +34,8 @@ pub(crate) use object::StreamInspectObject;
 
 pub(crate) trait StreamTransitTask {
     fn copy_config(&self) -> LimitedCopyConfig;
-    fn idle_check_interval(&self) -> Duration;
-    fn max_idle_count(&self) -> i32;
+    fn idle_check_interval(&self) -> IdleInterval;
+    fn max_idle_count(&self) -> usize;
     fn log_periodic(&self);
     fn log_flush_interval(&self) -> Option<Duration>;
     fn quit_policy(&self) -> &ServerQuitPolicy;
@@ -72,9 +72,7 @@ pub(crate) trait StreamTransitTask {
         UR: AsyncRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
-        let idle_duration = self.idle_check_interval();
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.idle_check_interval();
         let mut log_interval = self
             .log_flush_interval()
             .map(|log_interval| {
@@ -113,9 +111,9 @@ pub(crate) trait StreamTransitTask {
                 _ = log_interval.tick() => {
                     self.log_periodic();
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if clt_to_ups.is_idle() && ups_to_clt.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
                         let quit = if let Some(user) = self.user() {
                             if user.is_blocked() {
@@ -127,7 +125,7 @@ pub(crate) trait StreamTransitTask {
                         };
 
                         if quit {
-                            return Err(ServerTaskError::Idle(idle_duration, idle_count));
+                            return Err(ServerTaskError::Idle(idle_interval.period(), idle_count));
                         }
                     } else {
                         idle_count = 0;
@@ -262,9 +260,7 @@ where
         let mut clt_to_ups = LimitedCopy::new(&mut clt_r, &mut ups_w, &copy_config);
         let mut ups_to_clt = LimitedCopy::new(&mut ups_r, &mut clt_w, &copy_config);
 
-        let idle_duration = self.server_config.task_idle_check_duration();
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.idle_wheel.get();
         let mut idle_count = 0;
         loop {
             tokio::select! {
@@ -292,9 +288,9 @@ where
                         Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
                     };
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if clt_to_ups.is_idle() && ups_to_clt.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
                         let quit = if let Some(user) = self.user() {
                             if user.is_blocked() {
@@ -306,7 +302,7 @@ where
                         };
 
                         if quit {
-                            return Err(ServerTaskError::Idle(idle_duration, idle_count));
+                            return Err(ServerTaskError::Idle(idle_interval.period(), idle_count));
                         }
                     } else {
                         idle_count = 0;

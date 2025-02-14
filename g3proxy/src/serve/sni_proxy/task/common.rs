@@ -21,6 +21,7 @@ use slog::Logger;
 
 use g3_daemon::server::ClientConnectionInfo;
 use g3_dpi::ProtocolPortMap;
+use g3_io_ext::IdleWheel;
 
 use crate::config::server::sni_proxy::SniProxyServerConfig;
 use crate::escape::ArcEscaper;
@@ -31,6 +32,7 @@ pub(crate) struct CommonTaskContext {
     pub(crate) server_config: Arc<SniProxyServerConfig>,
     pub(crate) server_stats: Arc<TcpStreamServerStats>,
     pub(crate) server_quit_policy: Arc<ServerQuitPolicy>,
+    pub(crate) idle_wheel: Arc<IdleWheel>,
     pub(crate) escaper: ArcEscaper,
     pub(crate) cc_info: ClientConnectionInfo,
     pub(crate) task_logger: Logger,

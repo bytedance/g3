@@ -22,7 +22,6 @@ use bytes::Bytes;
 use h2::{server::Connection, Reason};
 use slog::slog_info;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
-use tokio::time::Instant;
 
 use g3_dpi::{Protocol, ProtocolInspectAction};
 use g3_h2::H2BodyTransfer;
@@ -154,6 +153,7 @@ where
         let detour_ctx = client.build_context(
             &self.ctx.server_config,
             &self.ctx.server_quit_policy,
+            &self.ctx.idle_wheel,
             &self.ctx.task_notes,
             &self.upstream,
             Protocol::Http2,
@@ -337,9 +337,7 @@ where
 
         // TODO spawn ping-pong
 
-        let idle_duration = self.ctx.server_config.task_idle_check_duration();
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.ctx.idle_wheel.get();
         let mut idle_count = 0;
         let max_idle_count = self.ctx.task_max_idle_count();
 
@@ -402,14 +400,14 @@ where
                         }
                     }
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if self.stats.get_alive_task() <= 0 {
-                        idle_count += 1;
+                        idle_count += n;
 
                         if idle_count > max_idle_count {
                             server_abrupt_shutdown(h2c, Reason::ENHANCE_YOUR_CALM).await;
 
-                            return Err(H2InterceptionError::Idle(idle_duration, idle_count));
+                            return Err(H2InterceptionError::Idle(idle_interval.period(), idle_count));
                         }
                     } else {
                         idle_count = 0;

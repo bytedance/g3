@@ -931,9 +931,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
 
         let mut rsp_header: Option<HttpForwardRemoteResponse> = None;
 
-        let idle_duration = self.ctx.server_config.task_idle_check_duration;
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.ctx.idle_wheel.get();
         let mut log_interval = self.get_log_interval();
         let mut idle_count = 0;
         loop {
@@ -981,9 +979,9 @@ impl<'a> HttpRProxyForwardTask<'a> {
                 _ = log_interval.tick() => {
                     self.get_log_context().log_periodic(&self.ctx.task_logger);
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if clt_to_ups.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
                         let quit = if let Some(user_ctx) = self.task_notes.user_ctx() {
                             let user = user_ctx.user();
@@ -1163,9 +1161,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
             header,
         );
 
-        let idle_duration = self.ctx.server_config.task_idle_check_duration;
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.ctx.idle_wheel.get();
         let mut log_interval = self.get_log_interval();
         let mut idle_count = 0;
         loop {
@@ -1191,9 +1187,9 @@ impl<'a> HttpRProxyForwardTask<'a> {
                 _ = log_interval.tick() => {
                     self.get_log_context().log_periodic(&self.ctx.task_logger);
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if ups_to_clt.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
                         let quit = if let Some(user_ctx) = self.task_notes.user_ctx() {
                             let user = user_ctx.user();

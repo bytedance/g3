@@ -20,7 +20,6 @@ use std::time::Duration;
 use bytes::Bytes;
 use h2::client::SendRequest;
 use http::Request;
-use tokio::time::Instant;
 
 use g3_h2::{
     H2StreamFromChunkedTransfer, H2StreamFromChunkedTransferError, H2StreamToChunkedTransfer,
@@ -46,9 +45,7 @@ impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
         self,
         mut body_transfer: &mut H2StreamToChunkedTransfer<'_, IcapClientWriter>,
     ) -> Result<ReqmodResponse, H2ReqmodAdaptationError> {
-        let idle_duration = self.idle_checker.idle_duration();
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.idle_checker.interval_timer();
         let mut idle_count = 0;
 
         loop {
@@ -70,9 +67,9 @@ impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
                         Err(e) => Err(H2ReqmodAdaptationError::IcapServerReadFailed(e)),
                     };
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if body_transfer.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
                         let quit = self.idle_checker.check_quit(idle_count);
                         if quit {
@@ -163,9 +160,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
             self.http_trailer_max_size,
         );
 
-        let idle_duration = self.idle_checker.idle_duration();
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.idle_checker.interval_timer();
         let mut idle_count = 0;
 
         loop {
@@ -217,9 +212,9 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                         Err(H2StreamFromChunkedTransferError::SenderNotInSendState) => Err(H2ReqmodAdaptationError::HttpUpstreamNotInSendState),
                     };
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if clt_body_transfer.is_idle() && ups_body_transfer.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
                         let quit = self.idle_checker.check_quit(idle_count);
                         if quit {

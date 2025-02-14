@@ -271,9 +271,7 @@ impl SocksProxyUdpAssociateTask {
         let mut r_to_c =
             UdpRelayRemoteToClient::new(&mut *clt_w, &mut *ups_r, self.ctx.server_config.udp_relay);
 
-        let idle_duration = self.ctx.server_config.task_idle_check_duration;
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.ctx.idle_wheel.get();
         let mut log_interval = self
             .ctx
             .server_config
@@ -334,9 +332,9 @@ impl SocksProxyUdpAssociateTask {
                  _ = log_interval.tick() => {
                     self.get_log_context().log_periodic(&self.ctx.task_logger);
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if c_to_r.is_idle() && r_to_c.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
                         let quit = if let Some(user_ctx) = self.task_notes.user_ctx() {
                             let user = user_ctx.user();
@@ -349,7 +347,7 @@ impl SocksProxyUdpAssociateTask {
                         };
 
                         if quit {
-                            return Err(ServerTaskError::Idle(idle_duration, idle_count));
+                            return Err(ServerTaskError::Idle(idle_interval.period(), idle_count));
                         }
                     } else {
                         idle_count = 0;

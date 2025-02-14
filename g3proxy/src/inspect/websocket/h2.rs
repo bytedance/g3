@@ -114,6 +114,7 @@ impl<SC: ServerConfig> H2WebsocketInterceptObject<SC> {
         let mut detour_ctx = client.build_context(
             &self.ctx.server_config,
             &self.ctx.server_quit_policy,
+            &self.ctx.idle_wheel,
             &self.ctx.task_notes,
             &self.upstream,
             g3_dpi::Protocol::Websocket,

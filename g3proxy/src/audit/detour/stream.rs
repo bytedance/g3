@@ -18,7 +18,6 @@ use anyhow::anyhow;
 use quinn::{RecvStream, SendStream};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::sync::mpsc;
-use tokio::time::Instant;
 
 use g3_io_ext::{LimitedCopy, LimitedCopyError};
 use g3_types::net::{ProxyProtocolEncodeError, ProxyProtocolV2Encoder};
@@ -77,9 +76,7 @@ where
         let mut ups_to_d = LimitedCopy::new(&mut ups_r, &mut south_send, &copy_config);
         let mut d_to_clt = LimitedCopy::new(&mut south_recv, &mut clt_w, &copy_config);
 
-        let idle_duration = self.server_config.task_idle_check_duration();
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.idle_wheel.get();
         let mut idle_count = 0;
 
         loop {
@@ -174,9 +171,9 @@ where
                         },
                     };
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if clt_to_d.is_idle() && d_to_clt.is_idle() && ups_to_d.is_idle() && d_to_ups.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
                         let quit = if let Some(user) = self.task_notes.user() {
                             if user.is_blocked() {
@@ -188,7 +185,7 @@ where
                         };
 
                         if quit {
-                            return Err(ServerTaskError::Idle(idle_duration, idle_count));
+                            return Err(ServerTaskError::Idle(idle_interval.period(), idle_count));
                         }
                     } else {
                         idle_count = 0;

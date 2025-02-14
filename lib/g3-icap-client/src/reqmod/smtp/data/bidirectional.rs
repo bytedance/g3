@@ -17,7 +17,6 @@
 use std::sync::Arc;
 
 use tokio::io::{AsyncBufRead, AsyncWrite, BufWriter};
-use tokio::time::Instant;
 
 use g3_http::server::HttpAdaptedRequest;
 use g3_http::{HttpBodyDecodeReader, StreamToChunkedTransfer};
@@ -43,9 +42,7 @@ impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
     where
         CR: AsyncBufRead + Unpin,
     {
-        let idle_duration = self.idle_checker.idle_duration();
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.idle_checker.interval_timer();
         let mut idle_count = 0;
 
         loop {
@@ -66,9 +63,9 @@ impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
                         Err(e) => Err(SmtpAdaptationError::IcapServerReadFailed(e)),
                     };
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if msg_transfer.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
                         let quit = self.idle_checker.check_quit(idle_count);
                         if quit {
@@ -147,9 +144,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
             self.copy_config,
         );
 
-        let idle_duration = self.idle_checker.idle_duration();
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.idle_checker.interval_timer();
         let mut idle_count = 0;
 
         loop {
@@ -186,9 +181,9 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                         Err(LimitedCopyError::WriteFailed(e)) => Err(SmtpAdaptationError::SmtpUpstreamWriteFailed(e)),
                     };
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if clt_msg_transfer.is_idle() && ups_msg_transfer.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
                         let quit = self.idle_checker.check_quit(idle_count);
                         if quit {

@@ -22,7 +22,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_daemon::server::ServerQuitPolicy;
 use g3_daemon::stat::task::TcpStreamTaskStats;
-use g3_io_ext::{LimitedCopyConfig, LimitedReader, LimitedWriter};
+use g3_io_ext::{IdleInterval, LimitedCopyConfig, LimitedReader, LimitedWriter};
 use g3_types::acl::AclAction;
 use g3_types::net::{ProxyRequestType, UpstreamAddr};
 
@@ -460,6 +460,7 @@ impl HttpProxyConnectTask {
                     self.ctx.server_config.clone(),
                     self.ctx.server_stats.clone(),
                     self.ctx.server_quit_policy.clone(),
+                    self.ctx.idle_wheel.clone(),
                     &self.task_notes,
                     &self.tcp_notes,
                 );
@@ -538,11 +539,11 @@ impl StreamTransitTask for HttpProxyConnectTask {
         self.ctx.server_config.tcp_copy
     }
 
-    fn idle_check_interval(&self) -> Duration {
-        self.ctx.server_config.task_idle_check_duration
+    fn idle_check_interval(&self) -> IdleInterval {
+        self.ctx.idle_wheel.get()
     }
 
-    fn max_idle_count(&self) -> i32 {
+    fn max_idle_count(&self) -> usize {
         self.ctx.server_config.task_idle_max_count
     }
 

@@ -21,6 +21,7 @@ use slog::Logger;
 use tokio::net::UdpSocket;
 
 use g3_daemon::server::ClientConnectionInfo;
+use g3_io_ext::IdleWheel;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::acl_set::AclDstHostRuleSet;
 use g3_types::net::UpstreamAddr;
@@ -34,6 +35,7 @@ pub(crate) struct CommonTaskContext {
     pub(crate) server_config: Arc<SocksProxyServerConfig>,
     pub(crate) server_stats: Arc<SocksProxyServerStats>,
     pub(crate) server_quit_policy: Arc<ServerQuitPolicy>,
+    pub(crate) idle_wheel: Arc<IdleWheel>,
     pub(crate) escaper: ArcEscaper,
     pub(crate) ingress_net_filter: Option<Arc<AclNetworkRule>>,
     pub(crate) dst_host_filter: Option<Arc<AclDstHostRuleSet>>,

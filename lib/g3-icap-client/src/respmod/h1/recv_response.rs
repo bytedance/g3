@@ -16,7 +16,6 @@
 
 use anyhow::anyhow;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
-use tokio::time::Instant;
 
 use g3_http::{HttpBodyDecodeReader, HttpBodyReader, HttpBodyType};
 use g3_io_ext::{IdleCheck, LimitedCopy, LimitedCopyError};
@@ -106,9 +105,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
             HttpBodyReader::new(ups_body_io, ups_body_type, self.http_body_line_max_size);
         let mut body_copy = LimitedCopy::new(&mut ups_body_reader, clt_writer, &self.copy_config);
 
-        let idle_duration = self.idle_checker.idle_duration();
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.idle_checker.interval_timer();
         let mut idle_count = 0;
 
         loop {
@@ -126,9 +123,9 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
                         Err(LimitedCopyError::WriteFailed(e)) => Err(H1RespmodAdaptationError::HttpClientWriteFailed(e)),
                     };
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if body_copy.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
                         let quit = self.idle_checker.check_quit(idle_count);
                         if quit {
@@ -268,9 +265,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
         R: AsyncRead + Unpin,
         W: AsyncWrite + Unpin,
     {
-        let idle_duration = idle_checker.idle_duration();
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = idle_checker.interval_timer();
         let mut idle_count = 0;
 
         loop {
@@ -284,9 +279,9 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
                         Err(LimitedCopyError::WriteFailed(e)) => Err(H1RespmodAdaptationError::HttpClientWriteFailed(e)),
                     };
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if body_copy.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
                         let quit = idle_checker.check_quit(idle_count);
                         if quit {

@@ -17,7 +17,6 @@
 use std::sync::Arc;
 
 use tokio::io::{AsyncRead, AsyncWrite, BufWriter};
-use tokio::time::Instant;
 
 use g3_http::server::HttpAdaptedRequest;
 use g3_http::HttpBodyDecodeReader;
@@ -44,9 +43,7 @@ impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
     where
         CR: AsyncRead + Unpin,
     {
-        let idle_duration = self.idle_checker.idle_duration();
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.idle_checker.interval_timer();
         let mut idle_count = 0;
 
         loop {
@@ -74,9 +71,9 @@ impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
                         Err(e) => Err(ImapAdaptationError::IcapServerReadFailed(e)),
                     };
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if msg_transfer.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
                         let quit = self.idle_checker.check_quit(idle_count);
                         if quit {
@@ -154,9 +151,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
         let mut ups_msg_transfer =
             LimitedCopy::new(&mut ups_body_reader, &mut ups_buf_writer, &self.copy_config);
 
-        let idle_duration = self.idle_checker.idle_duration();
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.idle_checker.interval_timer();
         let mut idle_count = 0;
 
         loop {
