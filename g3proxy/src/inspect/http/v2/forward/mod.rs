@@ -462,7 +462,6 @@ where
 
         let mut idle_interval = self.ctx.idle_wheel.get();
         let mut idle_count = 0;
-        let max_idle_count = self.ctx.task_max_idle_count();
 
         let mut ups_rsp: Option<Response<RecvStream>> = None;
 
@@ -497,7 +496,7 @@ where
                     if req_body_transfer.is_idle() {
                         idle_count += n;
 
-                        if idle_count > max_idle_count {
+                        if idle_count > self.ctx.max_idle_count {
                             return Err(H2StreamTransferError::Idle(idle_interval.period(), idle_count));
                         }
                     } else {
@@ -652,7 +651,6 @@ where
 
             let mut idle_interval = self.ctx.idle_wheel.get();
             let mut idle_count = 0;
-            let max_idle_count = self.ctx.task_max_idle_count();
 
             loop {
                 tokio::select! {
@@ -671,7 +669,7 @@ where
                         if rsp_body_transfer.is_idle() {
                             idle_count += n;
 
-                            if idle_count > max_idle_count {
+                            if idle_count > self.ctx.max_idle_count {
                                 return Err(H2StreamTransferError::Idle(idle_interval.period(), idle_count));
                             }
                         } else {

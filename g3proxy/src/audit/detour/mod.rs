@@ -26,6 +26,7 @@ use g3_io_ext::IdleWheel;
 use g3_types::net::UpstreamAddr;
 
 use crate::config::audit::AuditStreamDetourConfig;
+use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectTaskNotes;
 
 mod connect;
@@ -64,6 +65,7 @@ pub(crate) struct StreamDetourContext<'a, SC> {
     protocol: Protocol,
     payload: Vec<u8>,
     request_timeout: Duration,
+    max_idle_count: usize,
 }
 
 impl<SC> StreamDetourContext<'_, SC> {
@@ -99,7 +101,14 @@ impl StreamDetourClient {
         task_notes: &'a StreamInspectTaskNotes,
         upstream: &'a UpstreamAddr,
         protocol: Protocol,
-    ) -> StreamDetourContext<'a, SC> {
+    ) -> StreamDetourContext<'a, SC>
+    where
+        SC: ServerConfig,
+    {
+        let max_idle_count = task_notes
+            .user()
+            .and_then(|u| u.task_max_idle_count())
+            .unwrap_or(server_config.task_max_idle_count());
         StreamDetourContext {
             server_config,
             server_quit_policy,
@@ -109,6 +118,7 @@ impl StreamDetourClient {
             protocol,
             payload: Vec::new(),
             request_timeout: self.config.request_timeout,
+            max_idle_count,
         }
     }
 

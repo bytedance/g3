@@ -288,20 +288,24 @@ task_idle_check_duration
 
 Set the idle check duration for task.
 
-**default**: 5min, **max**: 30min
+**default**: 60s, **max**: 30min, **min**: 1s
+
+.. versionchanged:: 1.11.3 change default value from 5min to 60s
 
 .. _conf_server_common_task_idle_max_count:
 
 task_idle_max_count
 -------------------
 
-**optional**, **type**: i32
+**optional**, **type**: usize
 
 The task will be closed if the idle check return IDLE the times as this value.
 
 .. note:: The value set at user side will overwrite this.
 
-**default**: 1
+**default**: 5
+
+.. versionchanged:: 1.11.3 change default value from 1 to 5
 
 .. _conf_server_common_flush_task_log_on_created:
 

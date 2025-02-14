@@ -139,7 +139,7 @@ pub(crate) struct StreamInspectContext<SC: ServerConfig> {
     connect_notes: StreamInspectConnectNotes,
     inspection_depth: usize,
 
-    task_max_idle_count: usize,
+    max_idle_count: usize,
 }
 
 impl<SC: ServerConfig> Clone for StreamInspectContext<SC> {
@@ -153,7 +153,7 @@ impl<SC: ServerConfig> Clone for StreamInspectContext<SC> {
             task_notes: self.task_notes.clone(),
             connect_notes: self.connect_notes,
             inspection_depth: self.inspection_depth,
-            task_max_idle_count: self.task_max_idle_count,
+            max_idle_count: self.max_idle_count,
         }
     }
 }
@@ -168,10 +168,10 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
         task_notes: &ServerTaskNotes,
         tcp_notes: &TcpConnectTaskNotes,
     ) -> Self {
-        let mut task_max_idle_count = server_config.task_max_idle_count();
-        if let Some(user_ctx) = task_notes.user_ctx() {
-            task_max_idle_count = user_ctx.user().task_max_idle_count();
-        }
+        let max_idle_count = task_notes
+            .user_ctx()
+            .and_then(|c| c.user().task_max_idle_count())
+            .unwrap_or(server_config.task_max_idle_count());
 
         StreamInspectContext {
             audit_handle,
@@ -182,7 +182,7 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
             task_notes: StreamInspectTaskNotes::from(task_notes),
             connect_notes: StreamInspectConnectNotes::from(tcp_notes),
             inspection_depth: 0,
-            task_max_idle_count,
+            max_idle_count,
         }
     }
 
@@ -222,12 +222,12 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     }
 
     pub(crate) fn idle_checker(&self) -> ServerIdleChecker {
-        ServerIdleChecker {
-            idle_wheel: self.idle_wheel.clone(),
-            user: self.user().cloned(),
-            task_max_idle_count: self.task_max_idle_count,
-            server_quit_policy: self.server_quit_policy.clone(),
-        }
+        ServerIdleChecker::new(
+            self.idle_wheel.clone(),
+            self.user().cloned(),
+            self.max_idle_count,
+            self.server_quit_policy.clone(),
+        )
     }
 
     pub(crate) fn protocol_inspector(
@@ -341,11 +341,6 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     #[inline]
     fn imap_interception(&self) -> &ImapInterceptionConfig {
         self.audit_handle.imap_interception()
-    }
-
-    #[inline]
-    fn task_max_idle_count(&self) -> usize {
-        self.task_max_idle_count
     }
 
     fn belongs_to_blocked_user(&self) -> bool {

@@ -511,7 +511,6 @@ where
 
         let mut idle_interval = self.ctx.idle_wheel.get();
         let mut idle_count = 0;
-        let max_idle_count = self.ctx.task_max_idle_count();
 
         loop {
             tokio::select! {
@@ -533,7 +532,7 @@ where
                 n = idle_interval.tick() => {
                     if ups_to_clt.is_idle() {
                         idle_count += n;
-                        if idle_count >= max_idle_count {
+                        if idle_count >= self.ctx.max_idle_count {
                             return if ups_to_clt.no_cached_data() {
                                 Err(ServerTaskError::UpstreamAppTimeout("idle while reading response body"))
                             } else {

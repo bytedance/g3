@@ -32,7 +32,10 @@ use g3_types::net::{
 };
 use g3_yaml::YamlDocPosition;
 
-use super::{AnyServerConfig, ServerConfig, ServerConfigDiffAction, IDLE_CHECK_MAXIMUM_DURATION};
+use super::{
+    AnyServerConfig, ServerConfig, ServerConfigDiffAction, IDLE_CHECK_DEFAULT_DURATION,
+    IDLE_CHECK_DEFAULT_MAX_COUNT, IDLE_CHECK_MAXIMUM_DURATION,
+};
 
 const SERVER_CONFIG_TYPE: &str = "TlsStream";
 
@@ -81,8 +84,8 @@ impl TlsStreamServerConfig {
             upstream_pick_policy: SelectivePickPolicy::Random,
             upstream_tls_name: None,
             tcp_sock_speed_limit: TcpSockSpeedLimitConfig::default(),
-            task_idle_check_duration: Duration::from_secs(300),
-            task_idle_max_count: 1,
+            task_idle_check_duration: IDLE_CHECK_DEFAULT_DURATION,
+            task_idle_max_count: IDLE_CHECK_DEFAULT_MAX_COUNT,
             flush_task_log_on_created: false,
             flush_task_log_on_connected: false,
             task_log_flush_interval: None,
