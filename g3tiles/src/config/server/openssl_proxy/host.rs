@@ -53,7 +53,7 @@ pub(crate) struct OpensslHostConfig {
     pub(crate) request_alive_max: Option<usize>,
     pub(crate) request_rate_limit: Option<RateLimitQuotaConfig>,
     pub(crate) tcp_sock_speed_limit: Option<TcpSockSpeedLimitConfig>,
-    pub(crate) task_idle_max_count: Option<i32>,
+    pub(crate) task_idle_max_count: Option<usize>,
     pub(crate) backends: AlpnMatch<NodeName>,
 }
 
@@ -368,8 +368,8 @@ impl YamlMapCallback for OpensslHostConfig {
                 Ok(())
             }
             "task_idle_max_count" => {
-                let max_count = g3_yaml::value::as_i32(value)
-                    .context(format!("invalid i32 value for key {key}"))?;
+                let max_count = g3_yaml::value::as_usize(value)
+                    .context(format!("invalid usize value for key {key}"))?;
                 self.task_idle_max_count = Some(max_count);
                 Ok(())
             }

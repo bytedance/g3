@@ -38,7 +38,7 @@ pub(crate) struct KeylessProxyServerConfig {
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
     pub(crate) task_idle_check_duration: Duration,
-    pub(crate) task_idle_max_count: i32,
+    pub(crate) task_idle_max_count: usize,
     pub(crate) spawn_task_unconstrained: bool,
     pub(crate) backend: NodeName,
 }
@@ -114,8 +114,8 @@ impl KeylessProxyServerConfig {
                 Ok(())
             }
             "task_idle_max_count" => {
-                self.task_idle_max_count =
-                    g3_yaml::value::as_i32(v).context(format!("invalid i32 value for key {k}"))?;
+                self.task_idle_max_count = g3_yaml::value::as_usize(v)
+                    .context(format!("invalid usize value for key {k}"))?;
                 Ok(())
             }
             "spawn_task_unconstrained" | "task_unconstrained" => {

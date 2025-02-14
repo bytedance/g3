@@ -28,6 +28,7 @@ use tokio::sync::broadcast;
 
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
+use g3_io_ext::IdleWheel;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::NodeName;
 use g3_types::net::{OpensslTicketKey, RollingTicketer};
@@ -52,6 +53,7 @@ pub(crate) struct OpensslProxyServer {
     hosts: Arc<HostMatch<Arc<OpensslHost>>>,
 
     quit_policy: Arc<ServerQuitPolicy>,
+    idle_wheel: Arc<IdleWheel>,
     reload_version: usize,
 }
 
@@ -72,6 +74,7 @@ impl OpensslProxyServer {
             .map(|builder| builder.build());
 
         let task_logger = config.get_task_logger();
+        let idle_wheel = IdleWheel::spawn(config.task_idle_check_duration);
 
         // always update extra metrics tags
         server_stats.set_extra_tags(config.extra_metrics_tags.clone());
@@ -86,6 +89,7 @@ impl OpensslProxyServer {
             task_logger,
             hosts,
             quit_policy: Arc::new(ServerQuitPolicy::default()),
+            idle_wheel,
             reload_version: version,
         })
     }
@@ -186,9 +190,10 @@ impl OpensslProxyServer {
 
     async fn run_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
         let ctx = CommonTaskContext {
-            server_config: Arc::clone(&self.config),
-            server_stats: Arc::clone(&self.server_stats),
-            server_quit_policy: Arc::clone(&self.quit_policy),
+            server_config: self.config.clone(),
+            server_stats: self.server_stats.clone(),
+            server_quit_policy: self.quit_policy.clone(),
+            idle_wheel: self.idle_wheel.clone(),
             cc_info,
             task_logger: self.task_logger.clone(),
         };

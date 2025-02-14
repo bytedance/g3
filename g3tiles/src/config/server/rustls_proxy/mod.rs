@@ -50,7 +50,7 @@ pub(crate) struct RustlsProxyServerConfig {
     pub(crate) hosts: HostMatch<Arc<RustlsHostConfig>>,
     pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
     pub(crate) task_idle_check_duration: Duration,
-    pub(crate) task_idle_max_count: i32,
+    pub(crate) task_idle_max_count: usize,
     pub(crate) tcp_copy: LimitedCopyConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
     pub(crate) tls_ticketer: Option<TlsTicketConfig>,
@@ -159,8 +159,8 @@ impl RustlsProxyServerConfig {
                 Ok(())
             }
             "task_idle_max_count" => {
-                self.task_idle_max_count =
-                    g3_yaml::value::as_i32(v).context(format!("invalid i32 value for key {k}"))?;
+                self.task_idle_max_count = g3_yaml::value::as_usize(v)
+                    .context(format!("invalid usize value for key {k}"))?;
                 Ok(())
             }
             "tcp_copy_buffer_size" => {
