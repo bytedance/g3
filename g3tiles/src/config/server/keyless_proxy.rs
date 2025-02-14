@@ -25,7 +25,10 @@ use g3_types::acl::AclNetworkRuleBuilder;
 use g3_types::metrics::{NodeName, StaticMetricsTags};
 use g3_yaml::YamlDocPosition;
 
-use super::{ServerConfig, IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_MAXIMUM_DURATION};
+use super::{
+    ServerConfig, IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_DEFAULT_MAX_COUNT,
+    IDLE_CHECK_MAXIMUM_DURATION,
+};
 use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
 
 const SERVER_CONFIG_TYPE: &str = "KeylessProxy";
@@ -52,7 +55,7 @@ impl KeylessProxyServerConfig {
             ingress_net_filter: None,
             extra_metrics_tags: None,
             task_idle_check_duration: IDLE_CHECK_DEFAULT_DURATION,
-            task_idle_max_count: 1,
+            task_idle_max_count: IDLE_CHECK_DEFAULT_MAX_COUNT,
             spawn_task_unconstrained: false,
             backend: NodeName::default(),
         }

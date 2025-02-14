@@ -29,7 +29,10 @@ use g3_types::net::{TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig};
 use g3_types::route::HostMatch;
 use g3_yaml::YamlDocPosition;
 
-use super::{ServerConfig, IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_MAXIMUM_DURATION};
+use super::{
+    ServerConfig, IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_DEFAULT_MAX_COUNT,
+    IDLE_CHECK_MAXIMUM_DURATION,
+};
 use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
 
 mod host;
@@ -78,7 +81,7 @@ impl OpensslProxyServerConfig {
             hosts: HostMatch::default(),
             tcp_sock_speed_limit: TcpSockSpeedLimitConfig::default(),
             task_idle_check_duration: IDLE_CHECK_DEFAULT_DURATION,
-            task_idle_max_count: 1,
+            task_idle_max_count: IDLE_CHECK_DEFAULT_MAX_COUNT,
             tcp_copy: Default::default(),
             tcp_misc_opts: Default::default(),
             tls_ticketer: None,

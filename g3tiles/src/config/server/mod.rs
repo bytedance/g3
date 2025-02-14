@@ -44,7 +44,8 @@ const CONFIG_KEY_SERVER_TYPE: &str = "type";
 const CONFIG_KEY_SERVER_NAME: &str = "name";
 
 const IDLE_CHECK_MAXIMUM_DURATION: Duration = Duration::from_secs(1800);
-const IDLE_CHECK_DEFAULT_DURATION: Duration = Duration::from_secs(300);
+const IDLE_CHECK_DEFAULT_DURATION: Duration = Duration::from_secs(60);
+const IDLE_CHECK_DEFAULT_MAX_COUNT: usize = 5;
 
 pub(crate) enum ServerConfigDiffAction {
     NoAction,
