@@ -223,8 +223,9 @@ impl UserConfig {
                 Ok(())
             }
             "task_idle_max_count" => {
-                self.task_idle_max_count = g3_yaml::value::as_usize(v)
+                let count = g3_yaml::value::as_usize(v)
                     .context(format!("invalid usize value for key {k}"))?;
+                self.task_idle_max_count = Some(count);
                 Ok(())
             }
             "socks_use_udp_associate" => {

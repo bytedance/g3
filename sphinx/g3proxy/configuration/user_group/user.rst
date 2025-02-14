@@ -379,7 +379,7 @@ The password in uri will be replaced by *xyz* before logging.
 task_idle_max_count
 -------------------
 
-**optional**, **type**: i32
+**optional**, **type**: usize
 
 The task will be closed if the idle check return IDLE the times as this value.
 
@@ -389,7 +389,9 @@ see :ref:`server task_idle_max_count <conf_server_common_task_idle_max_count>`.
 The idle check interval can only set at server side,
 see :ref:`server task_idle_check_duration <conf_server_common_task_idle_check_duration>`.
 
-**default**: 1
+**default**: not set
+
+.. versionchanged:: 1.11.3 change default from 1 to not set
 
 socks_use_udp_associate
 -----------------------

@@ -175,16 +175,13 @@ where
                     if clt_to_d.is_idle() && d_to_clt.is_idle() && ups_to_d.is_idle() && d_to_ups.is_idle() {
                         idle_count += n;
 
-                        let quit = if let Some(user) = self.task_notes.user() {
+                        if let Some(user) = self.task_notes.user() {
                             if user.is_blocked() {
                                 return Err(ServerTaskError::CanceledAsUserBlocked);
                             }
-                            idle_count >= user.task_max_idle_count()
-                        } else {
-                            idle_count >= self.server_config.task_max_idle_count()
-                        };
+                        }
 
-                        if quit {
+                        if idle_count >= self.max_idle_count {
                             return Err(ServerTaskError::Idle(idle_interval.period(), idle_count));
                         }
                     } else {

@@ -53,6 +53,7 @@ pub(crate) struct SocksProxyUdpConnectTask {
     task_stats: Arc<UdpConnectTaskStats>,
     udp_listen_addr: Option<SocketAddr>,
     udp_client_addr: Option<SocketAddr>,
+    max_idle_count: usize,
 }
 
 impl SocksProxyUdpConnectTask {
@@ -61,6 +62,10 @@ impl SocksProxyUdpConnectTask {
         notes: ServerTaskNotes,
         udp_client_addr: Option<SocketAddr>,
     ) -> Self {
+        let max_idle_count = notes
+            .user_ctx()
+            .and_then(|c| c.user().task_max_idle_count())
+            .unwrap_or(ctx.server_config.task_idle_max_count);
         SocksProxyUdpConnectTask {
             ctx,
             upstream: None,
@@ -69,6 +74,7 @@ impl SocksProxyUdpConnectTask {
             task_stats: Arc::new(UdpConnectTaskStats::default()),
             udp_listen_addr: None,
             udp_client_addr,
+            max_idle_count,
         }
     }
 
@@ -386,17 +392,14 @@ impl SocksProxyUdpConnectTask {
                     if c_to_r.is_idle() && r_to_c.is_idle() {
                         idle_count += n;
 
-                        let quit = if let Some(user_ctx) = self.task_notes.user_ctx() {
+                        if let Some(user_ctx) = self.task_notes.user_ctx() {
                             let user = user_ctx.user();
                             if user.is_blocked() {
                                 return Err(ServerTaskError::CanceledAsUserBlocked);
                             }
-                            idle_count >= user.task_max_idle_count()
-                        } else {
-                            idle_count >= self.ctx.server_config.task_idle_max_count
-                        };
+                        }
 
-                        if quit {
+                        if idle_count >= self.max_idle_count {
                             return Err(ServerTaskError::Idle(idle_interval.period(), idle_count));
                         }
                     } else {

@@ -73,6 +73,7 @@ pub(crate) struct HttpProxyForwardTask<'a> {
     http_notes: HttpForwardTaskNotes,
     tcp_notes: TcpConnectTaskNotes,
     task_stats: Arc<HttpForwardTaskStats>,
+    max_idle_count: usize,
 }
 
 impl<'a> HttpProxyForwardTask<'a> {
@@ -94,6 +95,10 @@ impl<'a> HttpProxyForwardTask<'a> {
             req.inner.uri.clone(),
             uri_log_max_chars,
         );
+        let max_idle_count = task_notes
+            .user_ctx()
+            .and_then(|c| c.user().task_max_idle_count())
+            .unwrap_or(ctx.server_config.task_idle_max_count);
         HttpProxyForwardTask {
             ctx: Arc::clone(ctx),
             audit_ctx,
@@ -106,6 +111,7 @@ impl<'a> HttpProxyForwardTask<'a> {
             http_notes,
             tcp_notes: TcpConnectTaskNotes::default(),
             task_stats: Arc::new(HttpForwardTaskStats::default()),
+            max_idle_count,
         }
     }
 
@@ -1358,17 +1364,14 @@ impl<'a> HttpProxyForwardTask<'a> {
                     if clt_to_ups.is_idle() {
                         idle_count += n;
 
-                        let quit = if let Some(user_ctx) = self.task_notes.user_ctx() {
+                        if let Some(user_ctx) = self.task_notes.user_ctx() {
                             let user = user_ctx.user();
                             if user.is_blocked() {
                                 return Err(ServerTaskError::CanceledAsUserBlocked);
                             }
-                            idle_count >= user.task_max_idle_count()
-                        } else {
-                            idle_count >= self.ctx.server_config.task_idle_max_count
-                        };
+                        }
 
-                        if quit {
+                        if idle_count >= self.max_idle_count {
                             return if clt_to_ups.no_cached_data() {
                                 Err(ServerTaskError::ClientAppTimeout("idle while reading request body"))
                             } else {
@@ -1677,7 +1680,7 @@ impl<'a> HttpProxyForwardTask<'a> {
                     if ups_to_clt.is_idle() {
                         idle_count += n;
 
-                        let quit = if let Some(user_ctx) = self.task_notes.user_ctx() {
+                        if let Some(user_ctx) = self.task_notes.user_ctx() {
                             let user = user_ctx.user();
                             if user.is_blocked() {
                                 if ups_to_clt.copied_size() < header_len {
@@ -1685,12 +1688,10 @@ impl<'a> HttpProxyForwardTask<'a> {
                                 }
                                 return Err(ServerTaskError::CanceledAsUserBlocked);
                             }
-                            idle_count >= user.task_max_idle_count()
-                        } else {
-                            idle_count >= self.ctx.server_config.task_idle_max_count
-                        };
 
-                        if quit {
+                        }
+
+                        if idle_count >= self.max_idle_count {
                             return if ups_to_clt.no_cached_data() {
                                 Err(ServerTaskError::UpstreamAppTimeout("idle while reading response body"))
                             } else {

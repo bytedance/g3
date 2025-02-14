@@ -61,6 +61,7 @@ pub(crate) struct FtpOverHttpTask<'a> {
     task_notes: ServerTaskNotes,
     ftp_notes: FtpOverHttpTaskNotes,
     task_stats: Arc<FtpOverHttpTaskStats>,
+    max_idle_count: usize,
 }
 
 impl<'a> FtpOverHttpTask<'a> {
@@ -74,6 +75,10 @@ impl<'a> FtpOverHttpTask<'a> {
             &req.upstream,
             ctx.server_config.log_uri_max_chars,
         );
+        let max_idle_count = task_notes
+            .user_ctx()
+            .and_then(|c| c.user().task_max_idle_count())
+            .unwrap_or(ctx.server_config.task_idle_max_count);
         FtpOverHttpTask {
             ctx: Arc::clone(ctx),
             req: &req.inner,
@@ -81,6 +86,7 @@ impl<'a> FtpOverHttpTask<'a> {
             task_notes,
             ftp_notes,
             task_stats: Arc::new(FtpOverHttpTaskStats::default()),
+            max_idle_count,
         }
     }
 
@@ -1259,17 +1265,14 @@ impl<'a> FtpOverHttpTask<'a> {
                     if data_copy.is_idle() {
                         idle_count += n;
 
-                        let quit = if let Some(user_ctx) = self.task_notes.user_ctx() {
+                        if let Some(user_ctx) = self.task_notes.user_ctx() {
                             let user = user_ctx.user();
                             if user.is_blocked() {
                                 return Err(ServerTaskError::CanceledAsUserBlocked);
                             }
-                            idle_count >= user.task_max_idle_count()
-                        } else {
-                            idle_count >= self.ctx.server_config.task_idle_max_count
-                        };
+                        }
 
-                        if quit {
+                        if idle_count >= self.max_idle_count {
                             return if data_copy.no_cached_data() {
                                 Err(ServerTaskError::UpstreamAppTimeout("idle while reading data"))
                             } else {
@@ -1463,17 +1466,14 @@ impl<'a> FtpOverHttpTask<'a> {
                     if data_copy.is_idle() {
                         idle_count += n;
 
-                        let quit = if let Some(user_ctx) = self.task_notes.user_ctx() {
+                        if let Some(user_ctx) = self.task_notes.user_ctx() {
                             let user = user_ctx.user();
                             if user.is_blocked() {
                                 return Err(ServerTaskError::CanceledAsUserBlocked);
                             }
-                            idle_count >= user.task_max_idle_count()
-                        } else {
-                            idle_count >= self.ctx.server_config.task_idle_max_count
-                        };
+                        }
 
-                        if quit {
+                        if idle_count >= self.max_idle_count {
                             return if data_copy.no_cached_data() {
                                 Err(ServerTaskError::ClientAppTimeout("idle while reading data"))
                             } else {

@@ -339,7 +339,6 @@ where
 
         let mut idle_interval = self.ctx.idle_wheel.get();
         let mut idle_count = 0;
-        let max_idle_count = self.ctx.task_max_idle_count();
 
         loop {
             tokio::select! {
@@ -404,7 +403,7 @@ where
                     if self.stats.get_alive_task() <= 0 {
                         idle_count += n;
 
-                        if idle_count > max_idle_count {
+                        if idle_count > self.ctx.max_idle_count {
                             server_abrupt_shutdown(h2c, Reason::ENHANCE_YOUR_CALM).await;
 
                             return Err(H2InterceptionError::Idle(idle_interval.period(), idle_count));

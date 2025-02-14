@@ -54,12 +54,12 @@ impl CommonTaskContext {
     }
 
     pub(crate) fn idle_checker(&self, task_notes: &ServerTaskNotes) -> ServerIdleChecker {
-        ServerIdleChecker {
-            idle_wheel: self.idle_wheel.clone(),
-            user: task_notes.user_ctx().map(|ctx| ctx.user().clone()),
-            task_max_idle_count: self.server_config.task_idle_max_count,
-            server_quit_policy: self.server_quit_policy.clone(),
-        }
+        ServerIdleChecker::new(
+            self.idle_wheel.clone(),
+            task_notes.user_ctx().map(|c| c.user().clone()),
+            self.server_config.task_idle_max_count,
+            self.server_quit_policy.clone(),
+        )
     }
 
     pub(crate) fn check_upstream(&self, upstream: &UpstreamAddr) -> AclAction {
