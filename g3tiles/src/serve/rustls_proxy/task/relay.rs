@@ -19,7 +19,6 @@ use std::time::Duration;
 
 use log::debug;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
-use tokio::time::Instant;
 use tokio_rustls::server::TlsStream;
 
 use g3_daemon::stat::task::{TcpStreamConnectionStats, TcpStreamTaskStats};
@@ -160,14 +159,12 @@ impl RustlsRelayTask {
         let mut clt_to_ups = LimitedCopy::new(&mut clt_r, &mut ups_w, &copy_config);
         let mut ups_to_clt = LimitedCopy::new(&mut ups_r, &mut clt_w, &copy_config);
 
-        let idle_duration = self.ctx.server_config.task_idle_check_duration;
         let task_idle_max_count = self
             .host
             .config
             .task_idle_max_count
             .unwrap_or(self.ctx.server_config.task_idle_max_count);
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.ctx.idle_wheel.get();
         let mut idle_count = 0;
         loop {
             tokio::select! {
@@ -195,12 +192,12 @@ impl RustlsRelayTask {
                         Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
                     };
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if clt_to_ups.is_idle() && ups_to_clt.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
                         if idle_count >= task_idle_max_count {
-                            return Err(ServerTaskError::Idle(idle_duration, idle_count));
+                            return Err(ServerTaskError::Idle(idle_interval.period(), idle_count));
                         }
                     } else {
                         idle_count = 0;

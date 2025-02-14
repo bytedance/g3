@@ -30,6 +30,7 @@ use tokio::sync::broadcast;
 
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo};
+use g3_io_ext::IdleWheel;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::NodeName;
 
@@ -52,6 +53,7 @@ pub(crate) struct KeylessProxyServer {
 
     backend_selector: Arc<ArcSwap<ArcBackend>>,
     quit_policy: Arc<ServerQuitPolicy>,
+    idle_wheel: Arc<IdleWheel>,
     reload_version: usize,
 }
 
@@ -72,6 +74,7 @@ impl KeylessProxyServer {
         let backend = crate::backend::get_or_insert_default(&config.backend);
 
         let task_logger = config.get_task_logger();
+        let idle_wheel = IdleWheel::spawn(config.task_idle_check_duration);
 
         // always update extra metrics tags
         server_stats.set_extra_tags(config.extra_metrics_tags.clone());
@@ -85,6 +88,7 @@ impl KeylessProxyServer {
             task_logger,
             backend_selector: Arc::new(ArcSwap::new(Arc::new(backend))),
             quit_policy: Arc::new(ServerQuitPolicy::default()),
+            idle_wheel,
             reload_version: version,
         })
     }
@@ -134,9 +138,10 @@ impl KeylessProxyServer {
 
     async fn run_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
         let ctx = CommonTaskContext {
-            server_config: Arc::clone(&self.config),
-            server_stats: Arc::clone(&self.server_stats),
-            server_quit_policy: Arc::clone(&self.quit_policy),
+            server_config: self.config.clone(),
+            server_stats: self.server_stats.clone(),
+            server_quit_policy: self.quit_policy.clone(),
+            idle_wheel: self.idle_wheel.clone(),
             cc_info,
             task_logger: self.task_logger.clone(),
             backend_selector: self.backend_selector.clone(),
@@ -158,9 +163,10 @@ impl KeylessProxyServer {
         W: AsyncWrite + Send + Unpin + 'static,
     {
         let ctx = CommonTaskContext {
-            server_config: Arc::clone(&self.config),
-            server_stats: Arc::clone(&self.server_stats),
-            server_quit_policy: Arc::clone(&self.quit_policy),
+            server_config: self.config.clone(),
+            server_stats: self.server_stats.clone(),
+            server_quit_policy: self.quit_policy.clone(),
+            idle_wheel: self.idle_wheel.clone(),
             cc_info,
             task_logger: self.task_logger.clone(),
             backend_selector: self.backend_selector.clone(),

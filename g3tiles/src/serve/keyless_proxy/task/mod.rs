@@ -20,7 +20,6 @@ use std::time::Duration;
 use log::debug;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::mpsc;
-use tokio::time::Instant;
 
 use g3_io_ext::LimitedBufReadExt;
 
@@ -140,9 +139,7 @@ impl KeylessForwardTask {
     where
         R: AsyncRead + Unpin,
     {
-        let idle_duration = self.ctx.server_config.task_idle_check_duration;
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.ctx.idle_wheel.get();
         let mut idle_count = 0;
 
         let mut buf_reader = BufReader::new(clt_r);
@@ -159,12 +156,12 @@ impl KeylessForwardTask {
                         Err(e) => return Err(ServerTaskError::ClientTcpReadFailed(e)),
                     }
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if self.stats.check_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
                         if idle_count >= self.ctx.server_config.task_idle_max_count {
-                            return Err(ServerTaskError::Idle(idle_duration, idle_count));
+                            return Err(ServerTaskError::Idle(idle_interval.period(), idle_count));
                         }
                     } else {
                         idle_count = 0;

@@ -20,6 +20,7 @@ use std::sync::Arc;
 use slog::Logger;
 
 use g3_daemon::server::ClientConnectionInfo;
+use g3_io_ext::IdleWheel;
 
 use crate::config::server::rustls_proxy::RustlsProxyServerConfig;
 use crate::module::stream::StreamServerStats;
@@ -29,6 +30,7 @@ pub(crate) struct CommonTaskContext {
     pub server_config: Arc<RustlsProxyServerConfig>,
     pub server_stats: Arc<StreamServerStats>,
     pub server_quit_policy: Arc<ServerQuitPolicy>,
+    pub idle_wheel: Arc<IdleWheel>,
     pub cc_info: ClientConnectionInfo,
     pub task_logger: Logger,
 }

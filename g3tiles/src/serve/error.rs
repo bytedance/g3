@@ -48,7 +48,7 @@ pub(crate) enum ServerTaskError {
     #[error("canceled as server quit")]
     CanceledAsServerQuit,
     #[error("idle after {0:?} x {1}")]
-    Idle(Duration, i32),
+    Idle(Duration, usize),
     #[allow(unused)]
     #[error("finished")]
     Finished, // this isn't an error, for log only
