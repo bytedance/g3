@@ -463,7 +463,7 @@ impl StreamTransitTask for SocksProxyTcpConnectTask {
     }
 
     fn idle_check_interval(&self) -> IdleInterval {
-        self.ctx.idle_wheel.get()
+        self.ctx.idle_wheel.register()
     }
 
     fn max_idle_count(&self) -> usize {

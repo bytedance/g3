@@ -50,7 +50,7 @@ impl ServerIdleChecker {
 
 impl IdleCheck for ServerIdleChecker {
     fn interval_timer(&self) -> IdleInterval {
-        self.idle_wheel.get()
+        self.idle_wheel.register()
     }
 
     fn check_quit(&self, idle_count: usize) -> bool {

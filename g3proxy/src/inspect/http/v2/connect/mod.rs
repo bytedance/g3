@@ -411,7 +411,7 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
                 self.ctx.server_config.limited_copy_config().yield_size(),
             );
 
-            let mut idle_interval = self.ctx.idle_wheel.get();
+            let mut idle_interval = self.ctx.idle_wheel.register();
             let mut idle_count = 0;
 
             loop {

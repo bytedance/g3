@@ -277,7 +277,7 @@ impl SocksProxyUdpAssociateTask {
         let mut r_to_c =
             UdpRelayRemoteToClient::new(&mut *clt_w, &mut *ups_r, self.ctx.server_config.udp_relay);
 
-        let mut idle_interval = self.ctx.idle_wheel.get();
+        let mut idle_interval = self.ctx.idle_wheel.register();
         let mut log_interval = self
             .ctx
             .server_config
