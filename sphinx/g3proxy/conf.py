@@ -14,9 +14,7 @@ release = '1.11.2'
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = [
-    "sphinx.ext.graphviz",
-]
+extensions = []
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
@@ -33,6 +31,3 @@ html_static_path = ['_static']
 # The default changed from 'contents' to 'index' from sphinx version 2.0,
 # so we need to explicitly set it in order to be compatible with old versions.
 master_doc = 'index'
-
-# Use 'svg' format for graphviz
-graphviz_output_format = 'svg'
