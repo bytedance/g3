@@ -55,11 +55,9 @@ impl IdleWheel {
                     }
                 }
 
-                let mut index = wheel_run.index.load(Ordering::Acquire);
+                let mut index = wheel_run.index.load(Ordering::Acquire) + 1;
                 if index >= wheel_run.slots.len() {
                     index = 0;
-                } else {
-                    index += 1;
                 }
 
                 // always fire the next value, so we can be sure that any IdleInterval.tick()
