@@ -76,7 +76,7 @@ where
         let mut ups_to_d = LimitedCopy::new(&mut ups_r, &mut south_send, &copy_config);
         let mut d_to_clt = LimitedCopy::new(&mut south_recv, &mut clt_w, &copy_config);
 
-        let mut idle_interval = self.idle_wheel.get();
+        let mut idle_interval = self.idle_wheel.register();
         let mut idle_count = 0;
 
         loop {

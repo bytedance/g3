@@ -139,7 +139,7 @@ impl KeylessForwardTask {
     where
         R: AsyncRead + Unpin,
     {
-        let mut idle_interval = self.ctx.idle_wheel.get();
+        let mut idle_interval = self.ctx.idle_wheel.register();
         let mut idle_count = 0;
 
         let mut buf_reader = BufReader::new(clt_r);

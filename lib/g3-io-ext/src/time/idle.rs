@@ -25,21 +25,28 @@ const CHANNEL_SIZE: usize = 8;
 pub struct IdleWheel {
     interval: Duration,
     slots: Vec<broadcast::Sender<()>>,
-    index: AtomicUsize,
+    register_index: AtomicUsize,
 }
 
 impl IdleWheel {
     pub fn spawn(interval: Duration) -> Arc<IdleWheel> {
         let interval_seconds = interval.as_secs().max(1) as usize;
-        let mut slots = Vec::with_capacity(interval_seconds);
-        for _ in 0..interval_seconds {
+        // always round to 1 more second, so the idle interval will be
+        // `interval_seconds` - `interval_seconds + 1`
+        let slot_count = interval_seconds + 1;
+        let mut slots = Vec::with_capacity(slot_count);
+        for _ in 0..slot_count {
             let (sender, _) = broadcast::channel(CHANNEL_SIZE);
             slots.push(sender);
         }
+
+        let register_index = AtomicUsize::new(0);
+        let mut emit_index = 1; // index 1 is valid as there are at least 2 slots
+
         let wheel = Arc::new(IdleWheel {
             interval,
             slots,
-            index: AtomicUsize::new(0),
+            register_index,
         });
         let wheel_run = wheel.clone();
 
@@ -55,23 +62,23 @@ impl IdleWheel {
                     }
                 }
 
-                let mut index = wheel_run.index.load(Ordering::Acquire) + 1;
-                if index >= wheel_run.slots.len() {
-                    index = 0;
+                let _ = wheel_run.slots[emit_index].send(());
+                // register new receivers to the last emit slot
+                wheel_run
+                    .register_index
+                    .store(emit_index, Ordering::Release);
+                emit_index += 1;
+                if emit_index >= slot_count {
+                    emit_index = 0;
                 }
-
-                // always fire the next value, so we can be sure that any IdleInterval.tick()
-                // will be called after `interval_seconds` or `interval_seconds - 1` seconds
-                let _ = wheel_run.slots[index].send(());
-                wheel_run.index.store(index, Ordering::Release);
             }
         });
 
         wheel
     }
 
-    pub fn get(&self) -> IdleInterval {
-        let id = self.index.load(Ordering::Acquire);
+    pub fn register(&self) -> IdleInterval {
+        let id = self.register_index.load(Ordering::Acquire);
         let receiver = self.slots[id].subscribe();
         IdleInterval {
             interval: self.interval,

@@ -1312,7 +1312,7 @@ impl<'a> HttpProxyForwardTask<'a> {
 
         let mut rsp_header: Option<HttpForwardRemoteResponse> = None;
 
-        let mut idle_interval = self.ctx.idle_wheel.get();
+        let mut idle_interval = self.ctx.idle_wheel.register();
         let mut log_interval = self.get_log_interval();
         let mut idle_count = 0;
         loop {
@@ -1650,7 +1650,7 @@ impl<'a> HttpProxyForwardTask<'a> {
             header,
         );
 
-        let mut idle_interval = self.ctx.idle_wheel.get();
+        let mut idle_interval = self.ctx.idle_wheel.register();
         let mut log_interval = self.get_log_interval();
         let mut idle_count = 0;
         loop {

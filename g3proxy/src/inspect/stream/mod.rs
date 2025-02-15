@@ -261,7 +261,7 @@ where
         let mut clt_to_ups = LimitedCopy::new(&mut clt_r, &mut ups_w, &copy_config);
         let mut ups_to_clt = LimitedCopy::new(&mut ups_r, &mut clt_w, &copy_config);
 
-        let mut idle_interval = self.idle_wheel.get();
+        let mut idle_interval = self.idle_wheel.register();
         let mut idle_count = 0;
 
         loop {

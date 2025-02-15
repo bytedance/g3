@@ -139,7 +139,7 @@ impl<'a> HttpRProxyUntrustedTask<'a> {
             &self.ctx.server_config.tcp_copy,
         );
 
-        let mut idle_interval = self.ctx.idle_wheel.get();
+        let mut idle_interval = self.ctx.idle_wheel.register();
         let mut idle_count = 0;
         loop {
             tokio::select! {
