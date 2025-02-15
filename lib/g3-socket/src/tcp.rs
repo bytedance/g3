@@ -143,7 +143,7 @@ pub fn try_listen_on_local_cpu(
     cpu_affinity: &CpuAffinity,
 ) -> io::Result<()> {
     let cpu_id_list = cpu_affinity.cpu_id_list();
-    if cpu_id_list.len() > 0 {
+    if !cpu_id_list.is_empty() {
         // NOTE: we don't check if all the CPU ids on the same NUMA here
         super::sockopt::set_tcp_reuseport_lb_numa_current_domain(listener)
     } else {
