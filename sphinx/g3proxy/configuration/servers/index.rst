@@ -286,9 +286,9 @@ task_idle_check_duration
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the idle check duration for task.
+Set the idle check duration for task. The value will be up bound to seconds.
 
-**default**: 60s, **max**: 30min, **min**: 1s
+**default**: 60s, **max**: 30min, **min**: 2s
 
 .. versionchanged:: 1.11.3 change default value from 5min to 60s
 
