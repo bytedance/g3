@@ -30,18 +30,19 @@ pub struct IdleWheel {
 
 impl IdleWheel {
     pub fn spawn(interval: Duration) -> Arc<IdleWheel> {
-        let interval_seconds = interval.as_secs().max(1) as usize;
-        // always round to 1 more second, so the idle interval will be
-        // `interval_seconds` - `interval_seconds + 1`
-        let slot_count = interval_seconds + 1;
+        let mut interval_seconds = interval.as_secs() as usize;
+        if interval.subsec_nanos() > 0 {
+            interval_seconds += 1;
+        }
+        let slot_count = interval_seconds.max(2);
         let mut slots = Vec::with_capacity(slot_count);
         for _ in 0..slot_count {
             let (sender, _) = broadcast::channel(CHANNEL_SIZE);
             slots.push(sender);
         }
 
-        let register_index = AtomicUsize::new(0);
-        let mut emit_index = 1; // index 1 is valid as there are at least 2 slots
+        let register_index = AtomicUsize::new(slot_count - 1);
+        let mut emit_index = 0;
 
         let wheel = Arc::new(IdleWheel {
             interval,
