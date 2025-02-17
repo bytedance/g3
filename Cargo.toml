@@ -103,7 +103,7 @@ ryu = "1.0"
 num-traits = "0.2"
 #
 bytes = "1.10"
-smallvec = "1.11"
+smallvec = "1.14"
 smol_str = { version = "0.3", default-features = false }
 ahash = "0.8"
 rustc-hash = "2.1"
