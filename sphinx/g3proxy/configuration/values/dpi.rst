@@ -928,22 +928,22 @@ imap interception
 
 * forward_max_idle_count
 
-  **optional**, **type**: i32
+  **optional**, **type**: usize
 
   Set the max IDLE count allowed when forwarding IMAP command/response lines, including IMAP IDLE state.
 
   The IDLE check interval will be :ref:`task_idle_check_duration <conf_server_common_task_idle_check_duration>`.
 
-  **default**: 6
+  **default**: 30
 
 * transfer_max_idle_count
 
-  **optional**, **type**: i32
+  **optional**, **type**: usize
 
   Set the max IDLE count allowed when transferring IMAP command/response literal data.
 
   The IDLE check interval will be :ref:`task_idle_check_duration <conf_server_common_task_idle_check_duration>`.
 
-  **default**: 1
+  **default**: 5
 
 .. versionadded:: 1.9.7

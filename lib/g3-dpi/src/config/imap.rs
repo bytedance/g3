@@ -35,8 +35,8 @@ impl Default for ImapInterceptionConfig {
             logout_wait_timeout: Duration::from_secs(10),
             command_line_max_size: 4096,
             response_line_max_size: 4096,
-            forward_max_idle_count: 6,
-            transfer_max_idle_count: 1,
+            forward_max_idle_count: 30,
+            transfer_max_idle_count: 5,
         }
     }
 }
