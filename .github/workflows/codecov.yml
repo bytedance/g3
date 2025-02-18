@@ -11,7 +11,6 @@ on:
       - 'Cargo.toml'
     branches:
       - 'master'
-      - 'lts/**'
   pull_request:
     paths-ignore:
       - 'ansible/**'
@@ -21,7 +20,10 @@ on:
       - 'Cargo.toml'
     branches:
       - 'master'
-      - 'lts/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
