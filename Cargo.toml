@@ -116,7 +116,7 @@ fixedbitset = "0.5"
 bitflags = "2.8"
 lru = { version = "0.13", default-features = false }
 #
-blake3 = { version = "1.5", default-features = false }
+blake3 = { version = "1.6", default-features = false }
 hex = "0.4.2"
 hex-literal = "0.4"
 #
