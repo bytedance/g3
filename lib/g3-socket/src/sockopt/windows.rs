@@ -23,12 +23,14 @@ unsafe fn setsockopt<T>(socket: WinSock::SOCKET, level: i32, name: i32, value: T
 where
     T: Copy,
 {
-    let payload = &value as *const T as *const u8;
-    let ret = WinSock::setsockopt(socket, level, name, payload, size_of::<T>() as i32);
-    if ret == WinSock::SOCKET_ERROR {
-        return Err(io::Error::last_os_error());
+    unsafe {
+        let payload = &value as *const T as *const u8;
+        let ret = WinSock::setsockopt(socket, level, name, payload, size_of::<T>() as i32);
+        if ret == WinSock::SOCKET_ERROR {
+            return Err(io::Error::last_os_error());
+        }
+        Ok(())
     }
-    Ok(())
 }
 
 pub(crate) fn set_reuse_unicastport<T: AsRawSocket>(socket: &T, enable: bool) -> io::Result<()> {

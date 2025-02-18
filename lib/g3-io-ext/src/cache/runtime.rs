@@ -15,7 +15,6 @@
  */
 
 use std::collections::hash_map;
-use std::future::Future;
 use std::hash::Hash;
 use std::io;
 use std::pin::Pin;

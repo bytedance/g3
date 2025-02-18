@@ -15,7 +15,6 @@
  */
 
 use std::fmt;
-use std::future::Future;
 use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::future::{poll_fn, Future};
+use std::future::poll_fn;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};

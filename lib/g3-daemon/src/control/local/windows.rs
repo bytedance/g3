@@ -54,7 +54,7 @@ impl LocalControllerImpl {
     pub(super) async fn connect_to_daemon(
         daemon_name: &str,
         daemon_group: &str,
-    ) -> anyhow::Result<impl AsyncRead + AsyncWrite> {
+    ) -> anyhow::Result<impl AsyncRead + AsyncWrite + use<>> {
         let pipe_name = format!(r"\\.\pipe\{daemon_name}@{}", daemon_group);
 
         tokio::net::windows::named_pipe::ClientOptions::new()

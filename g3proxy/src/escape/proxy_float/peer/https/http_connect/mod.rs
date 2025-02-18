@@ -39,7 +39,8 @@ impl ProxyFloatHttpsPeer {
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<FlexBufReader<SslStream<impl AsyncRead + AsyncWrite>>, TcpConnectError> {
+    ) -> Result<FlexBufReader<SslStream<impl AsyncRead + AsyncWrite + use<>>>, TcpConnectError>
+    {
         let mut stream = escaper
             .tls_handshake_with_peer(task_conf, tcp_notes, task_notes, &self.tls_name, self)
             .await?;
@@ -66,7 +67,8 @@ impl ProxyFloatHttpsPeer {
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<FlexBufReader<SslStream<impl AsyncRead + AsyncWrite>>, TcpConnectError> {
+    ) -> Result<FlexBufReader<SslStream<impl AsyncRead + AsyncWrite + use<>>>, TcpConnectError>
+    {
         tokio::time::timeout(
             escaper.config.peer_negotiation_timeout,
             self.http_connect_tcp_connect_to(escaper, task_conf, tcp_notes, task_notes),
@@ -114,7 +116,7 @@ impl ProxyFloatHttpsPeer {
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         tls_application: TlsApplication,
-    ) -> Result<SslStream<impl AsyncRead + AsyncWrite>, TcpConnectError> {
+    ) -> Result<SslStream<impl AsyncRead + AsyncWrite + use<>>, TcpConnectError> {
         let buf_stream = self
             .timed_http_connect_tcp_connect_to(escaper, &task_conf.tcp, tcp_notes, task_notes)
             .await?;

@@ -39,7 +39,8 @@ impl ProxyHttpsEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<FlexBufReader<SslStream<impl AsyncRead + AsyncWrite>>, TcpConnectError> {
+    ) -> Result<FlexBufReader<SslStream<impl AsyncRead + AsyncWrite + use<>>>, TcpConnectError>
+    {
         let mut stream = self
             .tls_handshake_to_remote(task_conf, tcp_notes, task_notes)
             .await?;
@@ -72,7 +73,8 @@ impl ProxyHttpsEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
-    ) -> Result<FlexBufReader<SslStream<impl AsyncRead + AsyncWrite>>, TcpConnectError> {
+    ) -> Result<FlexBufReader<SslStream<impl AsyncRead + AsyncWrite + use<>>>, TcpConnectError>
+    {
         tokio::time::timeout(
             self.config.peer_negotiation_timeout,
             self.http_connect_tcp_connect_to(task_conf, tcp_notes, task_notes),
@@ -118,7 +120,7 @@ impl ProxyHttpsEscaper {
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         tls_application: TlsApplication,
-    ) -> Result<SslStream<impl AsyncRead + AsyncWrite>, TcpConnectError> {
+    ) -> Result<SslStream<impl AsyncRead + AsyncWrite + use<>>, TcpConnectError> {
         let buf_stream = self
             .timed_http_connect_tcp_connect_to(&task_conf.tcp, tcp_notes, task_notes)
             .await?;

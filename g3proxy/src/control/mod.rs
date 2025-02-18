@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-use std::future::Future;
-
 use tokio::sync::Mutex;
 
 mod bridge;
