@@ -5,6 +5,11 @@ on:
   pull_request:
     paths:
       - 'Cargo.lock'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   cargo-deny:
     runs-on: ubuntu-latest
