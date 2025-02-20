@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-use std::sync::{Arc, LazyLock, Mutex};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
-use ahash::AHashMap;
+use foldhash::fast::FixedState;
 
 use g3_daemon::listen::{ListenSnapshot, ListenStats};
 use g3_daemon::metrics::{
@@ -45,10 +46,10 @@ const METRIC_NAME_SERVER_IO_UNTRUSTED_IN_BYTES: &str = "server.traffic.untrusted
 type ServerStatsValue = (ArcServerStats, ServerSnapshot);
 type ListenStatsValue = (Arc<ListenStats>, ListenSnapshot);
 
-static SERVER_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, ServerStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
-static LISTEN_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, ListenStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
+static SERVER_STATS_MAP: Mutex<HashMap<StatId, ServerStatsValue, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static LISTEN_STATS_MAP: Mutex<HashMap<StatId, ListenStatsValue, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 #[derive(Default)]
 struct ServerSnapshot {

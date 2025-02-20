@@ -15,16 +15,18 @@
  */
 
 use std::collections::HashMap;
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::{Arc, Mutex};
 
 use anyhow::anyhow;
+use foldhash::fast::FixedState;
 
 use g3_types::metrics::NodeName;
 
 use super::AnyBackendConfig;
 
-static INITIAL_BACKEND_CONFIG_REGISTRY: LazyLock<Mutex<HashMap<NodeName, Arc<AnyBackendConfig>>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+static INITIAL_BACKEND_CONFIG_REGISTRY: Mutex<
+    HashMap<NodeName, Arc<AnyBackendConfig>, FixedState>,
+> = Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 pub(crate) fn clear() {
     let mut ht = INITIAL_BACKEND_CONFIG_REGISTRY.lock().unwrap();

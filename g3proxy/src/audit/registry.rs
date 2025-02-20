@@ -15,15 +15,17 @@
  */
 
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::{Arc, Mutex};
+
+use foldhash::fast::FixedState;
 
 use g3_types::metrics::NodeName;
 
 use super::Auditor;
 use crate::audit::AuditorConfig;
 
-static RUNTIME_AUDITOR_REGISTRY: LazyLock<Mutex<HashMap<NodeName, Arc<Auditor>>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+static RUNTIME_AUDITOR_REGISTRY: Mutex<HashMap<NodeName, Arc<Auditor>, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 pub(super) fn add(name: NodeName, auditor: Arc<Auditor>) {
     let mut ht = RUNTIME_AUDITOR_REGISTRY.lock().unwrap();

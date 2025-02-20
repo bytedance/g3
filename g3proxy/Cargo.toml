@@ -49,6 +49,7 @@ itoa.workspace = true
 redis = { workspace = true, features = ["aio", "tokio-comp"] }
 ascii.workspace = true
 ahash.workspace = true
+foldhash.workspace = true
 bitflags.workspace = true
 fixedbitset.workspace = true
 rustc-hash.workspace = true

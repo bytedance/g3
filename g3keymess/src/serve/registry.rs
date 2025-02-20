@@ -15,17 +15,18 @@
  */
 
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, anyhow};
+use foldhash::fast::FixedState;
 
 use g3_types::metrics::NodeName;
 
 use super::KeyServer;
 use crate::config::server::KeyServerConfig;
 
-static RUNTIME_SERVER_REGISTRY: LazyLock<Mutex<HashMap<NodeName, Arc<KeyServer>>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+static RUNTIME_SERVER_REGISTRY: Mutex<HashMap<NodeName, Arc<KeyServer>, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 static OFFLINE_SERVER_SET: Mutex<Vec<Arc<KeyServer>>> = Mutex::new(Vec::new());
 
 pub(super) fn add_offline(old_server: Arc<KeyServer>) {

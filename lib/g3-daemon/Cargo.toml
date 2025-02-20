@@ -14,7 +14,7 @@ cfg-if.workspace = true
 slog = { workspace = true, features = ["max_level_trace", "release_max_level_info"] }
 async-trait.workspace = true
 yaml-rust.workspace = true
-ahash.workspace = true
+foldhash.workspace = true
 itoa.workspace = true
 capnp.workspace = true
 capnp-rpc.workspace = true

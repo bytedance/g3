@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-use std::sync::{Arc, LazyLock, Mutex};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
-use ahash::AHashMap;
+use foldhash::fast::FixedState;
 
 use g3_daemon::metrics::{
     TAG_KEY_STAT_ID, TAG_KEY_TRANSPORT, TRANSPORT_TYPE_TCP, TRANSPORT_TYPE_UDP,
@@ -54,10 +55,10 @@ const METRIC_NAME_ROUTE_REQUEST_FAILED: &str = "route.request.failed";
 type EscaperStatsValue = (ArcEscaperStats, EscaperSnapshot);
 type RouterStatsValue = (Arc<RouteEscaperStats>, RouteEscaperSnapshot);
 
-static ESCAPER_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, EscaperStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
-static ROUTE_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, RouterStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
+static ESCAPER_STATS_MAP: Mutex<HashMap<StatId, EscaperStatsValue, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static ROUTE_STATS_MAP: Mutex<HashMap<StatId, RouterStatsValue, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 trait EscaperMetricExt {
     fn add_escaper_tags(&mut self, escaper: &NodeName, stat_id: StatId);

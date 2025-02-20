@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-use std::sync::{Arc, LazyLock, Mutex};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
-use ahash::AHashMap;
+use foldhash::fast::FixedState;
 
 use g3_daemon::metrics::TAG_KEY_QUANTILE;
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
@@ -42,16 +43,16 @@ const METRIC_NAME_KEYLESS_RESPONSE_DURATION: &str = "backend.keyless.response.du
 
 type KeylessBackendStatsValue = (Arc<KeylessBackendStats>, KeylessBackendSnapshot);
 
-static STORE_KEYLESS_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, KeylessBackendStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
-static KEYLESS_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, KeylessBackendStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
-static STORE_KEYLESS_DURATION_STATS_MAP: LazyLock<
-    Mutex<AHashMap<StatId, Arc<KeylessUpstreamDurationStats>>>,
-> = LazyLock::new(|| Mutex::new(AHashMap::new()));
-static KEYLESS_DURATION_STATS_MAP: LazyLock<
-    Mutex<AHashMap<StatId, Arc<KeylessUpstreamDurationStats>>>,
-> = LazyLock::new(|| Mutex::new(AHashMap::new()));
+static STORE_KEYLESS_STATS_MAP: Mutex<HashMap<StatId, KeylessBackendStatsValue, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static KEYLESS_STATS_MAP: Mutex<HashMap<StatId, KeylessBackendStatsValue, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static STORE_KEYLESS_DURATION_STATS_MAP: Mutex<
+    HashMap<StatId, Arc<KeylessUpstreamDurationStats>, FixedState>,
+> = Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static KEYLESS_DURATION_STATS_MAP: Mutex<
+    HashMap<StatId, Arc<KeylessUpstreamDurationStats>, FixedState>,
+> = Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 #[derive(Default)]
 struct KeylessBackendSnapshot {

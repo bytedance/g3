@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-use std::sync::{Arc, LazyLock, Mutex};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
-use ahash::AHashMap;
+use foldhash::fast::FixedState;
 
 use g3_daemon::metrics::TAG_KEY_QUANTILE;
 use g3_histogram::HistogramStats;
@@ -33,16 +34,16 @@ const METRIC_NAME_STREAM_CONNECT_DURATION: &str = "backend.stream.connect.durati
 
 type StreamBackendStatsValue = (Arc<StreamBackendStats>, StreamBackendSnapshot);
 
-static STORE_STREAM_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, StreamBackendStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
-static STREAM_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, StreamBackendStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
-static STORE_STREAM_DURATION_STATS_MAP: LazyLock<
-    Mutex<AHashMap<StatId, Arc<StreamBackendDurationStats>>>,
-> = LazyLock::new(|| Mutex::new(AHashMap::new()));
-static STREAM_DURATION_STATS_MAP: LazyLock<
-    Mutex<AHashMap<StatId, Arc<StreamBackendDurationStats>>>,
-> = LazyLock::new(|| Mutex::new(AHashMap::new()));
+static STORE_STREAM_STATS_MAP: Mutex<HashMap<StatId, StreamBackendStatsValue, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static STREAM_STATS_MAP: Mutex<HashMap<StatId, StreamBackendStatsValue, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static STORE_STREAM_DURATION_STATS_MAP: Mutex<
+    HashMap<StatId, Arc<StreamBackendDurationStats>, FixedState>,
+> = Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static STREAM_DURATION_STATS_MAP: Mutex<
+    HashMap<StatId, Arc<StreamBackendDurationStats>, FixedState>,
+> = Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 #[derive(Default)]
 struct StreamBackendSnapshot {

@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-use std::sync::{Arc, LazyLock, Mutex};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
-use ahash::AHashMap;
+use foldhash::fast::FixedState;
 
 use g3_daemon::metrics::TAG_KEY_QUANTILE;
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
@@ -29,25 +30,25 @@ use crate::auth::{
     UserTrafficStats, UserUpstreamTrafficSnapshot, UserUpstreamTrafficStats,
 };
 
-static STORE_REQUEST_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, RequestStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
-static STORE_TRAFFIC_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, TrafficStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
-static STORE_DURATION_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, DurationStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
-static STORE_UPSTREAM_TRAFFIC_STATS_MAP: LazyLock<
-    Mutex<AHashMap<StatId, UpstreamTrafficStatsValue>>,
-> = LazyLock::new(|| Mutex::new(AHashMap::new()));
+static STORE_REQUEST_STATS_MAP: Mutex<HashMap<StatId, RequestStatsValue, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static STORE_TRAFFIC_STATS_MAP: Mutex<HashMap<StatId, TrafficStatsValue, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static STORE_DURATION_STATS_MAP: Mutex<HashMap<StatId, DurationStatsValue, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static STORE_UPSTREAM_TRAFFIC_STATS_MAP: Mutex<
+    HashMap<StatId, UpstreamTrafficStatsValue, FixedState>,
+> = Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
-static USER_SITE_REQUEST_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, RequestStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
-static USER_SITE_TRAFFIC_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, TrafficStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
-static USER_SITE_DURATION_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, DurationStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
-static USER_SITE_UPSTREAM_TRAFFIC_STATS_MAP: LazyLock<
-    Mutex<AHashMap<StatId, UpstreamTrafficStatsValue>>,
-> = LazyLock::new(|| Mutex::new(AHashMap::new()));
+static USER_SITE_REQUEST_STATS_MAP: Mutex<HashMap<StatId, RequestStatsValue, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static USER_SITE_TRAFFIC_STATS_MAP: Mutex<HashMap<StatId, TrafficStatsValue, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static USER_SITE_DURATION_STATS_MAP: Mutex<HashMap<StatId, DurationStatsValue, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static USER_SITE_UPSTREAM_TRAFFIC_STATS_MAP: Mutex<
+    HashMap<StatId, UpstreamTrafficStatsValue, FixedState>,
+> = Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 struct RequestStatsNames {
     connection_total: String,

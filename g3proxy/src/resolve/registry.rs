@@ -15,17 +15,18 @@
  */
 
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::sync::{LazyLock, Mutex};
+use std::sync::Mutex;
 
 use anyhow::anyhow;
+use foldhash::fast::FixedState;
 
 use g3_types::metrics::NodeName;
 
 use super::{ArcIntegratedResolverHandle, BoxResolver};
 use crate::config::resolver::AnyResolverConfig;
 
-static RUNTIME_RESOLVER_REGISTRY: LazyLock<Mutex<HashMap<NodeName, BoxResolver>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+static RUNTIME_RESOLVER_REGISTRY: Mutex<HashMap<NodeName, BoxResolver, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 pub(super) fn add(name: NodeName, resolver: BoxResolver) -> Option<BoxResolver> {
     let mut ht = RUNTIME_RESOLVER_REGISTRY.lock().unwrap();
