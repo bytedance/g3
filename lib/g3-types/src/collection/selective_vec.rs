@@ -15,11 +15,11 @@
  */
 
 use std::cmp::Ordering;
-use std::hash::{Hash, Hasher};
+use std::hash::{BuildHasher, Hash, Hasher};
 use std::str::FromStr;
 use std::sync::atomic;
 
-use metrohash::MetroHash64;
+use foldhash::fast::FixedState;
 use rand::seq::IndexedRandom;
 use smallvec::SmallVec;
 
@@ -294,9 +294,7 @@ impl<T: SelectiveItem> SelectiveVec<T> {
     where
         K: Hash + ?Sized,
     {
-        let mut hasher = MetroHash64::new();
-        key.hash(&mut hasher);
-        let mut h = hasher.finish();
+        let mut h = FixedState::default().hash_one(key);
         let (mut b, mut j) = (-1i64, 0i64);
         while j < slot_count as i64 {
             b = j;
@@ -326,7 +324,7 @@ impl<T: SelectiveItem> SelectiveVec<T> {
     where
         K: Hash + ?Sized,
     {
-        let mut hasher = MetroHash64::new();
+        let mut hasher = FixedState::default().build_hasher();
         key.hash(&mut hasher);
         item.selective_hash(&mut hasher);
         hasher.finish()
@@ -336,7 +334,7 @@ impl<T: SelectiveItem> SelectiveVec<T> {
     where
         K: Hash + ?Sized,
     {
-        let mut hasher = MetroHash64::new();
+        let mut hasher = FixedState::default().build_hasher();
         key.hash(&mut hasher);
         item.selective_hash(&mut hasher);
         let hash = hasher.finish() as f64;

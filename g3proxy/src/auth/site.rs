@@ -21,8 +21,10 @@ use std::time::Duration;
 use ahash::AHashMap;
 use anyhow::Context;
 use arc_swap::ArcSwapOption;
+use foldhash::HashMap;
 use ip_network_table::IpNetworkTable;
 use radix_trie::Trie;
+use rustc_hash::FxHashMap;
 
 use g3_types::metrics::{NodeName, StaticMetricsTags};
 use g3_types::net::{Host, OpensslClientConfig, UpstreamAddr};
@@ -41,7 +43,7 @@ struct DurationValue {
 pub(crate) struct UserSite {
     config: Arc<UserSiteConfig>,
     stats: Arc<UserSiteStats>,
-    duration_recorder: Arc<Mutex<AHashMap<String, DurationValue>>>,
+    duration_recorder: Arc<Mutex<HashMap<NodeName, DurationValue>>>,
     tls_client: Option<OpensslClientConfig>,
 }
 
@@ -63,7 +65,7 @@ impl UserSite {
         Ok(UserSite {
             config: Arc::clone(config),
             stats: Arc::new(UserSiteStats::new(user, user_group, &config.id)),
-            duration_recorder: Arc::new(Mutex::new(AHashMap::new())),
+            duration_recorder: Arc::new(Mutex::new(HashMap::default())),
             tls_client,
         })
     }
@@ -82,7 +84,7 @@ impl UserSite {
             UserSite {
                 config: Arc::clone(config),
                 stats: self.stats.clone(),
-                duration_recorder: Arc::new(Mutex::new(AHashMap::new())),
+                duration_recorder: Arc::new(Mutex::new(HashMap::default())),
                 tls_client,
             }
         } else {
@@ -131,7 +133,7 @@ impl UserSite {
 
         let mut map = self.duration_recorder.lock().unwrap();
         let recorder = map
-            .entry(server.to_string())
+            .entry(server.clone())
             .or_insert_with(|| {
                 let (recorder, stats) = UserSiteDurationRecorder::new(
                     self.stats.user_group(),
@@ -161,8 +163,8 @@ impl UserSite {
 
 #[derive(Default)]
 pub(super) struct UserSites {
-    all_sites: AHashMap<NodeName, Arc<UserSite>>,
-    exact_match_ipaddr: Option<AHashMap<IpAddr, Arc<UserSite>>>,
+    all_sites: HashMap<NodeName, Arc<UserSite>>,
+    exact_match_ipaddr: Option<FxHashMap<IpAddr, Arc<UserSite>>>,
     exact_match_domain: Option<AHashMap<Arc<str>, Arc<UserSite>>>,
     child_match_domain: Option<Trie<String, Arc<UserSite>>>,
     subnet_match_ipaddr: Option<IpNetworkTable<Arc<UserSite>>>,
@@ -176,8 +178,8 @@ impl UserSites {
     where
         F: Fn(&Arc<UserSiteConfig>) -> anyhow::Result<UserSite>,
     {
-        let mut all_sites = AHashMap::new();
-        let mut exact_match_ipaddr = AHashMap::new();
+        let mut all_sites = HashMap::default();
+        let mut exact_match_ipaddr = FxHashMap::default();
         let mut exact_match_domain = AHashMap::new();
         let mut child_match_domain = Trie::new();
         let mut child_match_domain_count = 0usize;

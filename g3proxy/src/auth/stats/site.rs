@@ -16,8 +16,8 @@
 
 use std::sync::{Arc, Mutex};
 
-use ahash::AHashMap;
 use arc_swap::ArcSwapOption;
+use foldhash::HashMap;
 
 use g3_types::metrics::{NodeName, StaticMetricsTags};
 
@@ -28,9 +28,9 @@ pub(crate) struct UserSiteStats {
     user: Arc<str>,
     user_group: NodeName,
     site_id: NodeName,
-    pub(crate) request: Mutex<AHashMap<String, Arc<UserRequestStats>>>,
-    pub(crate) client_io: Mutex<AHashMap<String, Arc<UserTrafficStats>>>,
-    pub(crate) remote_io: Mutex<AHashMap<String, Arc<UserUpstreamTrafficStats>>>,
+    pub(crate) request: Mutex<HashMap<NodeName, Arc<UserRequestStats>>>,
+    pub(crate) client_io: Mutex<HashMap<NodeName, Arc<UserTrafficStats>>>,
+    pub(crate) remote_io: Mutex<HashMap<NodeName, Arc<UserUpstreamTrafficStats>>>,
 }
 
 impl UserSiteStats {
@@ -39,9 +39,9 @@ impl UserSiteStats {
             user,
             user_group: user_group.clone(),
             site_id: site_id.clone(),
-            request: Mutex::new(AHashMap::new()),
-            client_io: Mutex::new(AHashMap::new()),
-            remote_io: Mutex::new(AHashMap::new()),
+            request: Mutex::new(HashMap::default()),
+            client_io: Mutex::new(HashMap::default()),
+            remote_io: Mutex::new(HashMap::default()),
         }
     }
 
@@ -65,7 +65,7 @@ impl UserSiteStats {
 
         let mut map = self.request.lock().unwrap();
         let stats = map
-            .entry(server.to_string())
+            .entry(server.clone())
             .or_insert_with(|| {
                 let stats = Arc::new(UserRequestStats::new(
                     &self.user_group,
@@ -97,7 +97,7 @@ impl UserSiteStats {
 
         let mut map = self.client_io.lock().unwrap();
         let stats = map
-            .entry(server.to_string())
+            .entry(server.clone())
             .or_insert_with(|| {
                 let stats = Arc::new(UserTrafficStats::new(
                     &self.user_group,
@@ -129,7 +129,7 @@ impl UserSiteStats {
 
         let mut map = self.remote_io.lock().unwrap();
         let stats = map
-            .entry(escaper.to_string())
+            .entry(escaper.clone())
             .or_insert_with(|| {
                 let stats = Arc::new(UserUpstreamTrafficStats::new(
                     &self.user_group,

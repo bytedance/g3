@@ -18,9 +18,9 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 
-use ahash::AHashMap;
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
+use rustc_hash::FxHashMap;
 use yaml_rust::{Yaml, yaml};
 
 use g3_types::auth::{Password, Username};
@@ -65,7 +65,7 @@ pub(crate) struct ProxySocks5sEscaperConfig {
     pub(crate) udp_misc_opts: UdpMiscSockOpts,
     pub(crate) auth_info: SocksAuth,
     pub(crate) peer_negotiation_timeout: Duration,
-    transmute_udp_peer_ip: Option<AHashMap<IpAddr, IpAddr>>,
+    transmute_udp_peer_ip: Option<FxHashMap<IpAddr, IpAddr>>,
     pub(crate) end_on_control_closed: bool,
     pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
 }
@@ -257,11 +257,11 @@ impl ProxySocks5sEscaperConfig {
                         g3_yaml::value::as_ipaddr,
                     )
                     .context(format!("invalid IP:IP hashmap value for key {k}"))?;
-                    self.transmute_udp_peer_ip = Some(map.into_iter().collect::<AHashMap<_, _>>());
+                    self.transmute_udp_peer_ip = Some(map.into_iter().collect::<FxHashMap<_, _>>());
                 } else {
                     let enable = g3_yaml::value::as_bool(v)?;
                     if enable {
-                        self.transmute_udp_peer_ip = Some(AHashMap::default());
+                        self.transmute_udp_peer_ip = Some(FxHashMap::default());
                     }
                 }
                 Ok(())

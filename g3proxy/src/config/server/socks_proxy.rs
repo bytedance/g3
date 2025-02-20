@@ -18,9 +18,9 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 
-use ahash::AHashMap;
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
+use rustc_hash::FxHashMap;
 use yaml_rust::{Yaml, yaml};
 
 use g3_io_ext::{LimitedCopyConfig, LimitedUdpRelayConfig};
@@ -89,7 +89,7 @@ pub(crate) struct SocksProxyServerConfig {
     pub(crate) udp_relay: LimitedUdpRelayConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
     pub(crate) udp_misc_opts: UdpMiscSockOpts,
-    pub(crate) transmute_udp_echo_ip: Option<AHashMap<IpAddr, IpAddr>>,
+    pub(crate) transmute_udp_echo_ip: Option<FxHashMap<IpAddr, IpAddr>>,
     pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
 }
 
@@ -322,11 +322,11 @@ impl SocksProxyServerConfig {
                         g3_yaml::value::as_ipaddr,
                         g3_yaml::value::as_ipaddr,
                     )?;
-                    self.transmute_udp_echo_ip = Some(map.into_iter().collect::<AHashMap<_, _>>());
+                    self.transmute_udp_echo_ip = Some(map.into_iter().collect::<FxHashMap<_, _>>());
                 } else {
                     let enable = g3_yaml::value::as_bool(v)?;
                     if enable {
-                        self.transmute_udp_echo_ip = Some(AHashMap::default());
+                        self.transmute_udp_echo_ip = Some(FxHashMap::default());
                     }
                 }
                 Ok(())

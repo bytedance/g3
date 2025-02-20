@@ -11,7 +11,7 @@ ip_network.workspace = true
 ip_network_table.workspace = true
 tokio = { workspace = true, features = ["sync", "net", "rt"] }
 tokio-util = { workspace = true, features = ["time"] }
-ahash.workspace = true
+rustc-hash.workspace = true
 rmpv.workspace = true
 yaml-rust = { workspace = true, optional = true }
 g3-types.workspace = true
