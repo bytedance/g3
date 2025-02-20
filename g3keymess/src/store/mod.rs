@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-use std::sync::{LazyLock, RwLock};
+use std::collections::HashMap;
+use std::sync::RwLock;
 
-use ahash::AHashMap;
 use anyhow::anyhow;
+use foldhash::fast::FixedState;
 use openssl::pkey::{PKey, Private};
 
 use g3_tls_cert::ext::PublicKeyExt;
@@ -27,8 +28,8 @@ pub use ops::{load_all, reload_all};
 
 mod registry;
 
-static GLOBAL_SKI_MAP: LazyLock<RwLock<AHashMap<Vec<u8>, PKey<Private>>>> =
-    LazyLock::new(|| RwLock::new(AHashMap::new()));
+static GLOBAL_SKI_MAP: RwLock<HashMap<Vec<u8>, PKey<Private>, FixedState>> =
+    RwLock::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 pub(crate) fn add_global(key: PKey<Private>) -> anyhow::Result<()> {
     let ski = key.ski().map_err(|e| anyhow!("failed to get SKI: {e}"))?;

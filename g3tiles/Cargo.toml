@@ -19,6 +19,7 @@ clap.workspace = true
 clap_complete.workspace = true
 arc-swap.workspace = true
 ahash.workspace = true
+foldhash.workspace = true
 itoa.workspace = true
 ascii.workspace = true
 capnp.workspace = true

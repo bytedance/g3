@@ -15,9 +15,10 @@
  */
 
 use std::collections::{HashMap, HashSet};
-use std::sync::{LazyLock, Mutex};
+use std::sync::Mutex;
 
 use anyhow::anyhow;
+use foldhash::fast::FixedState;
 
 use g3_types::metrics::NodeName;
 
@@ -25,8 +26,8 @@ use super::ArcBackend;
 use super::dummy_close::DummyCloseBackend;
 use crate::config::backend::AnyBackendConfig;
 
-static RUNTIME_BACKEND_REGISTRY: LazyLock<Mutex<HashMap<NodeName, ArcBackend>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+static RUNTIME_BACKEND_REGISTRY: Mutex<HashMap<NodeName, ArcBackend, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 pub(super) fn add(name: NodeName, connector: ArcBackend) {
     let mut ht = RUNTIME_BACKEND_REGISTRY.lock().unwrap();

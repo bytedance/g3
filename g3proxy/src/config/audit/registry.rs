@@ -15,14 +15,15 @@
  */
 
 use std::collections::HashMap;
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::{Arc, Mutex};
 
 use anyhow::anyhow;
+use foldhash::fast::FixedState;
 
 use super::AuditorConfig;
 
-static INITIAL_AUDITOR_CONFIG_REGISTRY: LazyLock<Mutex<HashMap<String, Arc<AuditorConfig>>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+static INITIAL_AUDITOR_CONFIG_REGISTRY: Mutex<HashMap<String, Arc<AuditorConfig>, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 pub(crate) fn clear() {
     let mut ht = INITIAL_AUDITOR_CONFIG_REGISTRY.lock().unwrap();

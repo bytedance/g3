@@ -15,14 +15,16 @@
  */
 
 use std::collections::HashMap;
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::{Arc, Mutex};
 
 use anyhow::anyhow;
+use foldhash::fast::FixedState;
 
 use super::UserGroupConfig;
 
-static INITIAL_USER_GROUP_CONFIG_REGISTRY: LazyLock<Mutex<HashMap<String, Arc<UserGroupConfig>>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+static INITIAL_USER_GROUP_CONFIG_REGISTRY: Mutex<
+    HashMap<String, Arc<UserGroupConfig>, FixedState>,
+> = Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 pub(crate) fn clear() {
     let mut ht = INITIAL_USER_GROUP_CONFIG_REGISTRY.lock().unwrap();

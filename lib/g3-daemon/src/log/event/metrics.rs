@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-use std::sync::{Arc, LazyLock, Mutex};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
-use ahash::AHashMap;
+use foldhash::fast::FixedState;
 
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
 use g3_types::log::LogSnapshot;
@@ -27,8 +28,8 @@ use crate::metrics::LoggerMetricExt;
 
 type LoggerStatsValue = (Arc<LoggerStats>, LogSnapshot);
 
-static LOGGER_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, LoggerStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
+static LOGGER_STATS_MAP: Mutex<HashMap<StatId, LoggerStatsValue, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 pub fn sync_stats() {
     let mut stats_map = LOGGER_STATS_MAP.lock().unwrap();

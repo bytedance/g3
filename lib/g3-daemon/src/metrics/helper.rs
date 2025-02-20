@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-use std::hash::Hash;
+use std::collections::HashMap;
+use std::hash::{BuildHasher, Hash};
 use std::sync::Mutex;
 
-use ahash::AHashMap;
-
-pub fn move_ht<K, V>(in_ht_lock: &Mutex<AHashMap<K, V>>, out_ht_lock: &Mutex<AHashMap<K, V>>)
+pub fn move_ht<K, V, S>(in_ht_lock: &Mutex<HashMap<K, V, S>>, out_ht_lock: &Mutex<HashMap<K, V, S>>)
 where
     K: Hash + Eq,
+    S: BuildHasher + Default,
 {
-    let mut tmp_req_map = AHashMap::new();
+    let mut tmp_req_map = HashMap::<K, V, S>::default();
     let mut in_req_map = in_ht_lock.lock().unwrap();
     for (k, v) in in_req_map.drain() {
         tmp_req_map.insert(k, v);

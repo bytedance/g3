@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-use std::sync::{Arc, LazyLock, Mutex};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
-use ahash::AHashMap;
+use foldhash::fast::FixedState;
 
 use g3_daemon::listen::{ListenSnapshot, ListenStats};
 use g3_daemon::metrics::{ServerMetricExt, TAG_KEY_QUANTILE, TAG_KEY_REQUEST};
@@ -56,12 +57,12 @@ const FAIL_REASON_OTHER_FAIL: &str = "other_fail";
 type ServerStatsValue = (Arc<KeyServerStats>, KeyServerSnapshot);
 type ListenStatsValue = (Arc<ListenStats>, ListenSnapshot);
 
-static SERVER_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, ServerStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
-static LISTEN_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, ListenStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
-static DURATION_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, Arc<KeyServerDurationStats>>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
+static SERVER_STATS_MAP: Mutex<HashMap<StatId, ServerStatsValue, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static LISTEN_STATS_MAP: Mutex<HashMap<StatId, ListenStatsValue, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static DURATION_STATS_MAP: Mutex<HashMap<StatId, Arc<KeyServerDurationStats>, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 pub(in crate::stat) fn sync_stats() {
     let mut server_stats_map = SERVER_STATS_MAP.lock().unwrap();

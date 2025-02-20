@@ -15,14 +15,15 @@
  */
 
 use std::collections::{HashMap, HashSet};
-use std::sync::{LazyLock, Mutex};
+use std::sync::Mutex;
 
+use foldhash::fast::FixedState;
 use tokio::sync::oneshot;
 
 use g3_types::metrics::NodeName;
 
-static KEY_STORE_SUBSCRIBER_REGISTRY: LazyLock<Mutex<HashMap<NodeName, oneshot::Sender<()>>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+static KEY_STORE_SUBSCRIBER_REGISTRY: Mutex<HashMap<NodeName, oneshot::Sender<()>, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 pub(super) fn add_subscriber(store: NodeName, sender: oneshot::Sender<()>) {
     let mut map = KEY_STORE_SUBSCRIBER_REGISTRY.lock().unwrap();

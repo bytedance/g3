@@ -15,15 +15,17 @@
  */
 
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::{Arc, Mutex};
+
+use foldhash::fast::FixedState;
 
 use g3_types::metrics::NodeName;
 
 use super::UserGroup;
 use crate::config::auth::UserGroupConfig;
 
-static RUNTIME_USER_GROUP_REGISTRY: LazyLock<Mutex<HashMap<NodeName, Arc<UserGroup>>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+static RUNTIME_USER_GROUP_REGISTRY: Mutex<HashMap<NodeName, Arc<UserGroup>, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 fn foreach<F>(mut f: F)
 where

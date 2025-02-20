@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-use std::sync::{Arc, LazyLock, Mutex};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
-use ahash::AHashMap;
+use foldhash::fast::FixedState;
 
 use g3_daemon::metrics::TAG_KEY_STAT_ID;
 use g3_resolver::{
@@ -48,8 +49,8 @@ const METRIC_NAME_MEMORY_DOING_LENGTH: &str = "resolver.memory.doing.length";
 
 type ResolverStatsValue = (Arc<ResolverStats>, ResolverSnapshot);
 
-static RESOLVER_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, ResolverStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
+static RESOLVER_STATS_MAP: Mutex<HashMap<StatId, ResolverStatsValue, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 trait ResolverMetricExt {
     fn add_resolver_tags(&mut self, resolver: &NodeName, stat_id: StatId);

@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-use std::sync::{Arc, LazyLock, Mutex};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
-use ahash::AHashMap;
+use foldhash::fast::FixedState;
 
 use g3_daemon::metrics::{
     MetricTransportType, TAG_KEY_CONNECTION, TAG_KEY_REQUEST, TAG_KEY_SERVER, TAG_KEY_STAT_ID,
@@ -100,15 +101,15 @@ type RequestStatsValue = (Arc<UserRequestStats>, UserRequestSnapshot);
 type TrafficStatsValue = (Arc<UserTrafficStats>, UserTrafficSnapshot);
 type UpstreamTrafficStatsValue = (Arc<UserUpstreamTrafficStats>, UserUpstreamTrafficSnapshot);
 
-static USER_FORBIDDEN_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, ForbiddenStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
-static USER_REQUEST_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, RequestStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
-static USER_TRAFFIC_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, TrafficStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
-static USER_UPSTREAM_TRAFFIC_STATS_MAP: LazyLock<
-    Mutex<AHashMap<StatId, UpstreamTrafficStatsValue>>,
-> = LazyLock::new(|| Mutex::new(AHashMap::new()));
+static USER_FORBIDDEN_STATS_MAP: Mutex<HashMap<StatId, ForbiddenStatsValue, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static USER_REQUEST_STATS_MAP: Mutex<HashMap<StatId, RequestStatsValue, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static USER_TRAFFIC_STATS_MAP: Mutex<HashMap<StatId, TrafficStatsValue, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static USER_UPSTREAM_TRAFFIC_STATS_MAP: Mutex<
+    HashMap<StatId, UpstreamTrafficStatsValue, FixedState>,
+> = Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 pub(super) trait UserMetricExt {
     fn add_user_request_tags(

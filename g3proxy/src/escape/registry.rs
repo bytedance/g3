@@ -15,9 +15,10 @@
  */
 
 use std::collections::{HashMap, HashSet};
-use std::sync::{LazyLock, Mutex};
+use std::sync::Mutex;
 
 use anyhow::anyhow;
+use foldhash::fast::FixedState;
 
 use g3_types::metrics::NodeName;
 
@@ -25,8 +26,8 @@ use super::ArcEscaper;
 use super::dummy_deny::DummyDenyEscaper;
 use crate::config::escaper::AnyEscaperConfig;
 
-static RUNTIME_ESCAPER_REGISTRY: LazyLock<Mutex<HashMap<NodeName, ArcEscaper>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+static RUNTIME_ESCAPER_REGISTRY: Mutex<HashMap<NodeName, ArcEscaper, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 pub(super) fn add(name: NodeName, escaper: ArcEscaper) {
     let mut ht = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
