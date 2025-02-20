@@ -27,11 +27,11 @@ use tokio::time::Instant;
 use g3_http::client::HttpTransparentResponse;
 use g3_http::server::HttpTransparentRequest;
 use g3_http::{HttpBodyReader, HttpBodyType};
+use g3_icap_client::reqmod::IcapReqmodClient;
 use g3_icap_client::reqmod::h1::{
     HttpAdapterErrorResponse, HttpRequestAdapter, ReqmodAdaptationEndState,
     ReqmodAdaptationRunState, ReqmodRecvHttpResponseBody,
 };
-use g3_icap_client::reqmod::IcapReqmodClient;
 use g3_icap_client::respmod::h1::{
     HttpResponseAdapter, RespmodAdaptationEndState, RespmodAdaptationRunState,
 };
@@ -378,7 +378,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                     Err(_) => {
                         return Err(ServerTaskError::UpstreamAppTimeout(
                             "timeout to receive response header",
-                        ))
+                        ));
                     }
                 }
             }
@@ -596,7 +596,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                     Err(_) => {
                         return Err(ServerTaskError::UpstreamAppTimeout(
                             "timeout to receive response header",
-                        ))
+                        ));
                     }
                 }
             }

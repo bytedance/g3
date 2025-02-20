@@ -16,7 +16,7 @@
 
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use atoi::FromRadix10;
 use rmpv::ValueRef;
 

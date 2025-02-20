@@ -18,7 +18,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use anyhow::anyhow;
-use clap::{value_parser, Arg, ArgAction, ArgGroup, ArgMatches, Command, ValueHint};
+use clap::{Arg, ArgAction, ArgGroup, ArgMatches, Command, ValueHint, value_parser};
 use openssl::hash::MessageDigest;
 use openssl::md::{Md, MdRef};
 use openssl::nid::Nid;

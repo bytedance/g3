@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::Interval;

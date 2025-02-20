@@ -20,8 +20,8 @@ use thiserror::Error;
 
 use g3_http::connect::HttpConnectError;
 use g3_resolver::ResolveError;
-use g3_socks::v5::Socks5Reply;
 use g3_socks::SocksConnectError;
+use g3_socks::v5::Socks5Reply;
 use g3_types::net::{ConnectError, ProxyProtocolEncodeError};
 
 use crate::serve::{ServerTaskError, ServerTaskForbiddenError};

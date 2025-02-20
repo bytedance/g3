@@ -23,11 +23,11 @@ use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
 use rustls_pki_types::ServerName;
 use tokio::io::{ReadHalf, WriteHalf};
-use tokio::net::{tcp, TcpStream};
+use tokio::net::{TcpStream, tcp};
 use tokio::sync::broadcast;
 use tokio::time::Instant;
-use tokio_rustls::client::TlsStream;
 use tokio_rustls::TlsConnector;
+use tokio_rustls::client::TlsStream;
 
 use g3_io_ext::AsyncStream;
 use g3_types::collection::{SelectiveVec, WeightedValue};

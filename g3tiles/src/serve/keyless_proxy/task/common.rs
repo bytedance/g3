@@ -25,8 +25,8 @@ use g3_io_ext::IdleWheel;
 
 use crate::backend::ArcBackend;
 use crate::config::server::keyless_proxy::KeylessProxyServerConfig;
-use crate::serve::keyless_proxy::KeylessProxyServerStats;
 use crate::serve::ServerQuitPolicy;
+use crate::serve::keyless_proxy::KeylessProxyServerStats;
 
 #[derive(Clone)]
 pub(crate) struct CommonTaskContext {

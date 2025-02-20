@@ -15,8 +15,8 @@
  */
 
 use bytes::Bytes;
-use h2::server::{SendPushedResponse, SendResponse};
 use h2::SendStream;
+use h2::server::{SendPushedResponse, SendResponse};
 use http::Response;
 
 use super::H2SendResponseToClient;

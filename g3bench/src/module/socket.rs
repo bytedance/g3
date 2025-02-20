@@ -19,7 +19,7 @@ use std::net::UdpSocket;
 use std::net::{IpAddr, SocketAddr};
 
 use anyhow::anyhow;
-use clap::{value_parser, Arg, ArgMatches, Command};
+use clap::{Arg, ArgMatches, Command, value_parser};
 use tokio::net::TcpStream;
 
 use g3_socket::{BindAddr, TcpConnectInfo, UdpConnectInfo};
@@ -104,19 +104,23 @@ pub(crate) fn append_socket_args(mut cmd: Command) -> Command {
         };
     }
 
-    add_arg!(Arg::new(SOCKET_ARG_LOCAL_ADDRESS)
-        .value_name("LOCAL IP ADDRESS")
-        .short('B')
-        .long(SOCKET_ARG_LOCAL_ADDRESS)
-        .num_args(1)
-        .value_parser(value_parser!(IpAddr)));
+    add_arg!(
+        Arg::new(SOCKET_ARG_LOCAL_ADDRESS)
+            .value_name("LOCAL IP ADDRESS")
+            .short('B')
+            .long(SOCKET_ARG_LOCAL_ADDRESS)
+            .num_args(1)
+            .value_parser(value_parser!(IpAddr))
+    );
     #[cfg(any(target_os = "linux", target_os = "android"))]
-    add_arg!(Arg::new(SOCKET_ARG_INTERFACE)
-        .value_name("INTERFACE NAME")
-        .short('I')
-        .long(SOCKET_ARG_INTERFACE)
-        .num_args(1)
-        .value_parser(value_parser!(InterfaceName))
-        .conflicts_with(SOCKET_ARG_LOCAL_ADDRESS));
+    add_arg!(
+        Arg::new(SOCKET_ARG_INTERFACE)
+            .value_name("INTERFACE NAME")
+            .short('I')
+            .long(SOCKET_ARG_INTERFACE)
+            .num_args(1)
+            .value_parser(value_parser!(InterfaceName))
+            .conflicts_with(SOCKET_ARG_LOCAL_ADDRESS)
+    );
     cmd
 }

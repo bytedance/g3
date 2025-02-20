@@ -60,8 +60,8 @@ pub use pool::ConnectionPoolConfig;
 pub use port::{PortRange, Ports};
 pub use proxy::{Proxy, ProxyParseError, ProxyRequestType, Socks4Proxy, Socks5Proxy};
 pub use rate_limit::{
-    TcpSockSpeedLimitConfig, UdpSockSpeedLimitConfig, RATE_LIMIT_SHIFT_MILLIS_DEFAULT,
-    RATE_LIMIT_SHIFT_MILLIS_MAX,
+    RATE_LIMIT_SHIFT_MILLIS_DEFAULT, RATE_LIMIT_SHIFT_MILLIS_MAX, TcpSockSpeedLimitConfig,
+    UdpSockSpeedLimitConfig,
 };
 pub use socks::SocksAuth;
 pub use tcp::*;

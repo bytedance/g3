@@ -103,7 +103,7 @@ impl ResolveStrategy {
                     return Err(anyhow!(
                         "query strategy is {:?} but ipv4 is disabled",
                         self.query
-                    ))
+                    ));
                 }
                 QueryStrategy::Ipv6Only => {}
                 QueryStrategy::Ipv6First | QueryStrategy::Ipv4First => {
@@ -117,7 +117,7 @@ impl ResolveStrategy {
                     return Err(anyhow!(
                         "query strategy is {:?} but ipv6 is disabled",
                         self.query
-                    ))
+                    ));
                 }
                 QueryStrategy::Ipv4Only => {}
                 QueryStrategy::Ipv4First | QueryStrategy::Ipv6First => {

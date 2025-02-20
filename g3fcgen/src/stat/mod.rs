@@ -39,17 +39,19 @@ pub(crate) fn spawn_working_thread(
 
     let handle = std::thread::Builder::new()
         .name("stat-main".to_string())
-        .spawn(move || loop {
-            let instant_start = Instant::now();
+        .spawn(move || {
+            loop {
+                let instant_start = Instant::now();
 
-            metrics::backend::emit_stats(&mut client, &backend_stats);
-            metrics::backend::emit_duration_stats(&mut client, &backend_duration_stats);
-            metrics::frontend::emit_stats(&mut client, &frontend_stats);
-            g3_daemon::runtime::metrics::emit_stats(&mut client);
+                metrics::backend::emit_stats(&mut client, &backend_stats);
+                metrics::backend::emit_duration_stats(&mut client, &backend_duration_stats);
+                metrics::frontend::emit_stats(&mut client, &frontend_stats);
+                g3_daemon::runtime::metrics::emit_stats(&mut client);
 
-            client.flush_sink();
+                client.flush_sink();
 
-            g3_daemon::stat::emit::wait_duration(config.emit_duration, instant_start);
+                g3_daemon::stat::emit::wait_duration(config.emit_duration, instant_start);
+            }
         })
         .map_err(|e| anyhow!("failed to spawn thread: {e:?}"))?;
     Ok(handle)

@@ -16,7 +16,7 @@
 
 use std::io::Write;
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use tokio::io::{AsyncBufRead, AsyncWrite};
 
@@ -91,9 +91,11 @@ impl ChunkedEncodeTransferInternal {
             }
 
             while self.static_offset < self.static_header.len() {
-                let nw = ready!(writer
-                    .as_mut()
-                    .poll_write(cx, &self.static_header[self.static_offset..]))
+                let nw = ready!(
+                    writer
+                        .as_mut()
+                        .poll_write(cx, &self.static_header[self.static_offset..])
+                )
                 .map_err(LimitedCopyError::WriteFailed)?;
                 self.active = true;
                 self.static_offset += nw;
@@ -105,14 +107,18 @@ impl ChunkedEncodeTransferInternal {
             }
 
             while self.left_chunk_size > 0 {
-                let data = ready!(reader
-                    .as_mut()
-                    .poll_fill_buf(cx)
-                    .map_err(LimitedCopyError::ReadFailed))?;
+                let data = ready!(
+                    reader
+                        .as_mut()
+                        .poll_fill_buf(cx)
+                        .map_err(LimitedCopyError::ReadFailed)
+                )?;
                 debug_assert!(self.left_chunk_size <= data.len());
-                let nw = ready!(writer
-                    .as_mut()
-                    .poll_write(cx, &data[..self.left_chunk_size]))
+                let nw = ready!(
+                    writer
+                        .as_mut()
+                        .poll_write(cx, &data[..self.left_chunk_size])
+                )
                 .map_err(LimitedCopyError::WriteFailed)?;
                 reader.as_mut().consume(nw);
                 copy_this_round += nw;

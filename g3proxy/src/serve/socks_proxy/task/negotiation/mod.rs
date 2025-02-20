@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use super::{tcp_connect, udp_associate, udp_connect, CommonTaskContext, SocksProxyServerStats};
+use super::{CommonTaskContext, SocksProxyServerStats, tcp_connect, udp_associate, udp_connect};
 
 mod task;
 pub(crate) use task::SocksProxyNegotiationTask;

@@ -33,7 +33,7 @@ const COMMAND_ARG_EXT: &str = "ext";
 
 pub mod commands {
     use super::*;
-    use clap::{value_parser, Arg, Command, ValueHint};
+    use clap::{Arg, Command, ValueHint, value_parser};
 
     pub fn check_dup() -> Command {
         Command::new(COMMAND_CHECK_DUP)

@@ -16,7 +16,7 @@
 
 use std::collections::HashSet;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_recursion::async_recursion;
 use log::{debug, warn};
 use tokio::sync::Mutex;

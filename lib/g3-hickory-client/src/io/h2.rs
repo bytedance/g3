@@ -48,7 +48,7 @@ pub async fn connect(
             return Err(ProtoError::from(format!(
                 "unsupported tls name: {:?}",
                 tls_name
-            )))
+            )));
         }
     };
 

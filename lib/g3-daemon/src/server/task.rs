@@ -17,7 +17,7 @@
 use std::sync::OnceLock;
 
 use chrono::{DateTime, Utc};
-use uuid::{v1::Context, Timestamp, Uuid};
+use uuid::{Timestamp, Uuid, v1::Context};
 
 static UUID_CONTEXT: OnceLock<Context> = OnceLock::new();
 static UUID_NODE_ID: OnceLock<[u8; 6]> = OnceLock::new();

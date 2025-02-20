@@ -36,8 +36,8 @@ use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::acl_set::AclDstHostRuleSet;
 use g3_types::metrics::NodeName;
 
-use super::task::{CommonTaskContext, SocksProxyNegotiationTask};
 use super::SocksProxyServerStats;
+use super::task::{CommonTaskContext, SocksProxyNegotiationTask};
 use crate::audit::{AuditContext, AuditHandle};
 use crate::auth::UserGroup;
 use crate::config::server::socks_proxy::SocksProxyServerConfig;

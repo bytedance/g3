@@ -16,9 +16,9 @@
 
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use url::Url;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
 use g3_redis_client::RedisClientConfigBuilder;
 use g3_types::net::UpstreamAddr;

@@ -17,7 +17,7 @@
 use std::path::Path;
 
 use anyhow::anyhow;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
 pub(crate) mod backend;
 pub(crate) mod log;

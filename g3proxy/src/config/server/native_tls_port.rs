@@ -17,8 +17,8 @@
 use std::collections::BTreeSet;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
-use yaml_rust::{yaml, Yaml};
+use anyhow::{Context, anyhow};
+use yaml_rust::{Yaml, yaml};
 
 use g3_tls_ticket::TlsTicketConfig;
 use g3_types::acl::AclNetworkRuleBuilder;

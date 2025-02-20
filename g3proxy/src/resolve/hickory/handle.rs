@@ -16,17 +16,17 @@
 
 use std::net::IpAddr;
 use std::sync::Arc;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
-use slog::{slog_info, Logger};
+use slog::{Logger, slog_info};
 use tokio::time::Instant;
 
 use g3_resolver::{ResolveError, ResolveQueryType, ResolvedRecordSource};
 use g3_slog_types::{LtBindAddr, LtDuration};
 use g3_types::metrics::NodeName;
 
-use crate::config::resolver::hickory::HickoryResolverConfig;
 use crate::config::resolver::ResolverConfig;
+use crate::config::resolver::hickory::HickoryResolverConfig;
 use crate::resolve::{BoxLoggedResolveJob, IntegratedResolverHandle, LoggedResolveJob};
 
 pub(crate) struct HickoryResolverHandle {

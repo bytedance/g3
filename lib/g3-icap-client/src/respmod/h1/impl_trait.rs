@@ -19,8 +19,8 @@ use std::io;
 use http::Method;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
-use g3_http::client::{HttpForwardRemoteResponse, HttpTransparentResponse};
 use g3_http::HttpBodyType;
+use g3_http::client::{HttpForwardRemoteResponse, HttpTransparentResponse};
 
 use super::{HttpAdaptedResponse, HttpResponseClientWriter, HttpResponseForAdaptation};
 

@@ -19,7 +19,7 @@ use std::sync::Arc;
 
 use async_recursion::async_recursion;
 use bytes::Bytes;
-use h2::{server::Connection, Reason};
+use h2::{Reason, server::Connection};
 use slog::slog_info;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 

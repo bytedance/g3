@@ -23,7 +23,7 @@ use openssl::ssl::{
     AlpnError, Ssl, SslAcceptor, SslAcceptorBuilder, SslContext, SslRef, TlsExtType,
 };
 
-use super::{OpensslTicketKey, DEFAULT_ACCEPT_TIMEOUT, MINIMAL_ACCEPT_TIMEOUT};
+use super::{DEFAULT_ACCEPT_TIMEOUT, MINIMAL_ACCEPT_TIMEOUT, OpensslTicketKey};
 use crate::net::{RollingTicketer, TlsAlpn, TlsServerName};
 
 pub struct OpensslInterceptionServerConfig {

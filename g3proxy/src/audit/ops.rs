@@ -16,7 +16,7 @@
 
 use std::collections::HashSet;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use log::debug;
 use tokio::sync::Mutex;
 

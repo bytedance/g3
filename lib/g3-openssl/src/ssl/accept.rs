@@ -61,7 +61,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslAcceptor<S> {
                 return Poll::Ready(Err(io::Error::new(
                     io::ErrorKind::TimedOut,
                     "ssl accept timed out",
-                )))
+                )));
             }
         }
 

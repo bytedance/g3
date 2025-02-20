@@ -17,8 +17,8 @@
 use std::str::FromStr;
 
 use ahash::AHashMap;
-use anyhow::{anyhow, Context};
-use yaml_rust::{yaml, Yaml};
+use anyhow::{Context, anyhow};
+use yaml_rust::{Yaml, yaml};
 
 use g3_yaml::YamlDocPosition;
 

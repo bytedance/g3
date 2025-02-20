@@ -18,7 +18,7 @@ use std::io;
 use std::io::IoSlice;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 use std::time::Duration;
 
 use futures_util::FutureExt;

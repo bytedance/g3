@@ -16,7 +16,7 @@
 
 use std::path::PathBuf;
 
-use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
+use clap::{Arg, ArgAction, ArgMatches, Command, ValueHint, value_parser};
 
 const ARGS_VERBOSE: &str = "verbose";
 const ARGS_DAEMON: &str = "daemon";

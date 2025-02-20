@@ -17,7 +17,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::{Rc, Weak};
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 
 use g3_types::metrics::NodeName;
 
@@ -197,9 +197,11 @@ mod tests {
         };
 
         let mut topo_map = TopoMap::default();
-        assert!(topo_map
-            .add_node(&NodeName::from_str("a").unwrap(), &get_child)
-            .is_err());
+        assert!(
+            topo_map
+                .add_node(&NodeName::from_str("a").unwrap(), &get_child)
+                .is_err()
+        );
     }
 
     #[test]
@@ -283,9 +285,11 @@ mod tests {
         };
 
         let mut topo_map = TopoMap::default();
-        assert!(topo_map
-            .add_node(&NodeName::from_str("a").unwrap(), &get_child)
-            .is_err());
+        assert!(
+            topo_map
+                .add_node(&NodeName::from_str("a").unwrap(), &get_child)
+                .is_err()
+        );
     }
 
     #[test]
@@ -319,8 +323,10 @@ mod tests {
         topo_map
             .add_node(&NodeName::from_str("b").unwrap(), &get_child)
             .unwrap();
-        assert!(topo_map
-            .add_node(&NodeName::from_str("a").unwrap(), &get_child)
-            .is_err());
+        assert!(
+            topo_map
+                .add_node(&NodeName::from_str("a").unwrap(), &get_child)
+                .is_err()
+        );
     }
 }

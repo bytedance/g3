@@ -15,8 +15,8 @@
  */
 
 use super::{
-    protocol, CommonTaskContext, HttpRProxyForwardTask, HttpRProxyServerStats,
-    HttpRProxyUntrustedTask,
+    CommonTaskContext, HttpRProxyForwardTask, HttpRProxyServerStats, HttpRProxyUntrustedTask,
+    protocol,
 };
 
 mod reader;

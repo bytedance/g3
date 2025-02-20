@@ -258,7 +258,7 @@ impl TcpStreamTask {
                 _ => {
                     return Err(ServerTaskError::InvalidClientProtocol(
                         "unsupported client protocol",
-                    ))
+                    ));
                 }
             }
         }

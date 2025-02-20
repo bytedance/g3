@@ -18,9 +18,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::str::FromStr;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use ip_network::IpNetwork;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
 use g3_types::metrics::NodeName;
 use g3_types::resolve::ResolveStrategy;

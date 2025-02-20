@@ -18,12 +18,12 @@ use std::cell::UnsafeCell;
 use std::io::{IoSlice, IoSliceMut};
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::os::fd::AsFd;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 use std::{io, mem, ptr};
 
 use rustix::net::{
-    recvmsg, sendmsg, sendmsg_v4, sendmsg_v6, RecvAncillaryBuffer, RecvFlags, SendAncillaryBuffer,
-    SendFlags, SocketAddrAny,
+    RecvAncillaryBuffer, RecvFlags, SendAncillaryBuffer, SendFlags, SocketAddrAny, recvmsg,
+    sendmsg, sendmsg_v4, sendmsg_v6,
 };
 use tokio::io::Interest;
 use tokio::net::UdpSocket;

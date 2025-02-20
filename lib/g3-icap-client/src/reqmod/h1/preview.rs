@@ -28,8 +28,8 @@ use super::{
     ReqmodAdaptationEndState, ReqmodAdaptationRunState,
 };
 use crate::reason::IcapErrorReason;
-use crate::reqmod::response::ReqmodResponse;
 use crate::reqmod::IcapReqmodResponsePayload;
+use crate::reqmod::response::ReqmodResponse;
 
 impl<I: IdleCheck> HttpRequestAdapter<I> {
     fn build_preview_request(

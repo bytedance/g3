@@ -16,7 +16,7 @@
 
 use std::collections::HashSet;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_recursion::async_recursion;
 use log::{debug, warn};
 use tokio::sync::Mutex;
@@ -126,7 +126,9 @@ async fn update_dependency_to_resolver_unlocked(target: &NodeName, status: &str)
         }
     });
 
-    debug!("resolver {target} changed({status}), will reload resolvers(s) {names:?} which depend on it");
+    debug!(
+        "resolver {target} changed({status}), will reload resolvers(s) {names:?} which depend on it"
+    );
     for name in names.iter() {
         debug!("resolver {name}: will reload as it depends on resolver {target}");
         if let Err(e) = registry::update_dependency(name, target) {

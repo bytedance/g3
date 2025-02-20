@@ -29,7 +29,7 @@ pub use metrics::{as_metrics_name, as_weighted_metrics_name};
 pub use net::*;
 pub use primary::{
     as_ascii, as_bool, as_bytes, as_f64, as_hashmap, as_i32, as_list, as_nonzero_u32, as_string,
-    as_u16, as_u32, as_u8, as_usize,
+    as_u8, as_u16, as_u32, as_usize,
 };
 pub use random::as_random_ratio;
 pub use rate_limit::as_rate_limit_quota;

@@ -26,8 +26,8 @@ use openssl::rand;
 use openssl::ssl::TicketKeyStatus;
 
 use crate::net::{
-    RollingTicketKey, TicketKeyName, TICKET_AES_IV_LENGTH, TICKET_AES_KEY_LENGTH,
-    TICKET_HMAC_KEY_LENGTH, TICKET_KEY_NAME_LENGTH,
+    RollingTicketKey, TICKET_AES_IV_LENGTH, TICKET_AES_KEY_LENGTH, TICKET_HMAC_KEY_LENGTH,
+    TICKET_KEY_NAME_LENGTH, TicketKeyName,
 };
 
 const SHA256_DIGEST_LENGTH: usize = 32;

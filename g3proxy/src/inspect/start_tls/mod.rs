@@ -35,8 +35,8 @@ use super::{
 };
 use crate::config::server::ServerConfig;
 use crate::inspect::tls::TlsInterceptionError;
-use crate::log::inspect::stream::StreamInspectLog;
 use crate::log::inspect::InspectSource;
+use crate::log::inspect::stream::StreamInspectLog;
 use crate::serve::ServerTaskResult;
 
 #[cfg(not(feature = "vendored-tongsuo"))]

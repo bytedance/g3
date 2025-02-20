@@ -16,7 +16,7 @@
 
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
 use g3_types::net::Host;

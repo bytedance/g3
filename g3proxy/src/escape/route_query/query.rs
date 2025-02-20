@@ -30,8 +30,8 @@ use g3_io_ext::{EffectiveCacheData, EffectiveQueryHandle};
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder, WeightedValue};
 use g3_types::metrics::NodeName;
 
-use super::cache::CacheQueryKey;
 use super::RouteQueryEscaperConfig;
+use super::cache::CacheQueryKey;
 
 pub(super) struct QueryRuntime {
     config: Arc<RouteQueryEscaperConfig>,

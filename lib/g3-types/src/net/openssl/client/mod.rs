@@ -25,8 +25,8 @@ use openssl::ssl::{
 };
 #[cfg(not(feature = "boringssl"))]
 use openssl::ssl::{SslCtValidationMode, StatusType};
-use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::X509;
+use openssl::x509::store::X509StoreBuilder;
 
 use super::{OpensslCertificatePair, OpensslProtocol};
 use crate::net::tls::AlpnProtocol;
@@ -312,7 +312,9 @@ impl OpensslClientConfigBuilder {
 
     fn set_verify(&self, builder: &mut SslConnectorBuilder) {
         if self.insecure {
-            warn!("Tls Insecure Mode: Tls Peer (server) cert vertification is no longer enforced for this Context!");
+            warn!(
+                "Tls Insecure Mode: Tls Peer (server) cert vertification is no longer enforced for this Context!"
+            );
             builder.set_verify(SslVerifyMode::NONE);
         } else {
             builder.set_verify(SslVerifyMode::PEER);

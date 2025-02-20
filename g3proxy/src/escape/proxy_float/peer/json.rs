@@ -18,7 +18,7 @@ use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 use tokio::time::Instant;

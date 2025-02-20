@@ -25,8 +25,8 @@ use tokio::sync::broadcast;
 
 use g3_compat::CpuAffinity;
 use g3_io_ext::LimitedTcpListener;
-use g3_socket::util::native_socket_addr;
 use g3_socket::RawSocket;
+use g3_socket::util::native_socket_addr;
 use g3_types::net::TcpListenConfig;
 
 use crate::listen::ListenStats;

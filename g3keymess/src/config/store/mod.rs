@@ -18,7 +18,7 @@ use std::path::Path;
 
 use anyhow::anyhow;
 use tokio::sync::oneshot;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
 use g3_types::metrics::NodeName;
 use g3_yaml::{HybridParser, YamlDocPosition};

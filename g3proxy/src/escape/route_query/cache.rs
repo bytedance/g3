@@ -26,8 +26,8 @@ use g3_types::collection::{SelectivePickPolicy, SelectiveVec, WeightedValue};
 use g3_types::metrics::NodeName;
 use g3_types::net::UpstreamAddr;
 
-use super::query::QueryRuntime;
 use super::RouteQueryEscaperConfig;
+use super::query::QueryRuntime;
 use crate::serve::ServerTaskNotes;
 
 #[derive(Clone, Debug, Hash, PartialEq, PartialOrd, Ord, Eq)]

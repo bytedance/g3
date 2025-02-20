@@ -31,8 +31,8 @@ use g3_types::net::UpstreamAddr;
 use super::ProxyFloatSocks5PeerSharedConfig;
 use crate::auth::UserUpstreamTrafficStats;
 use crate::module::http_forward::{
-    send_req_header_to_origin, ArcHttpForwardTaskRemoteStats, HttpForwardTaskRemoteWrapperStats,
-    HttpForwardWrite,
+    ArcHttpForwardTaskRemoteStats, HttpForwardTaskRemoteWrapperStats, HttpForwardWrite,
+    send_req_header_to_origin,
 };
 use crate::serve::ServerTaskNotes;
 

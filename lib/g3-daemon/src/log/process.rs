@@ -17,7 +17,7 @@
 use std::sync::OnceLock;
 
 use log::{LevelFilter, Metadata, Record};
-use slog::{slog_o, Drain, Logger};
+use slog::{Drain, Logger, slog_o};
 
 use g3_types::log::AsyncLogConfig;
 

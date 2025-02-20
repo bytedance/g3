@@ -1051,7 +1051,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
                     Err(_) => {
                         return Err(ServerTaskError::UpstreamAppTimeout(
                             "timeout to receive response header",
-                        ))
+                        ));
                     }
                 }
             }

@@ -16,10 +16,10 @@
 
 use std::collections::BTreeSet;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use g3_types::metrics::NodeName;
 use indexmap::IndexSet;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
 use g3_yaml::YamlDocPosition;
 

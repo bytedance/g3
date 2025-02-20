@@ -17,7 +17,7 @@
 use std::collections::BTreeSet;
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use serde_json::Value;
 
 use g3_histogram::{HistogramMetricsConfig, Quantile};
@@ -60,7 +60,7 @@ pub fn as_quantile_list(value: &Value) -> anyhow::Result<BTreeSet<Quantile>> {
         _ => {
             return Err(anyhow!(
                 "the yaml value type for 'duration metrics quantile' should be 'seq' or 'str'"
-            ))
+            ));
         }
     }
     Ok(set)

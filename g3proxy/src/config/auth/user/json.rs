@@ -17,7 +17,7 @@
 use std::str::FromStr;
 
 use ahash::AHashMap;
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use serde_json::{Map, Value};
 
 use g3_types::metrics::NodeName;

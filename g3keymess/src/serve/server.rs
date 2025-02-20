@@ -22,7 +22,7 @@ use slog::Logger;
 use tokio::net::TcpStream;
 #[cfg(feature = "openssl-async-job")]
 use tokio::runtime::{Handle, RuntimeFlavor};
-use tokio::sync::{broadcast, Semaphore};
+use tokio::sync::{Semaphore, broadcast};
 
 use g3_daemon::listen::ListenStats;
 use g3_daemon::server::ServerQuitPolicy;

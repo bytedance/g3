@@ -34,7 +34,7 @@ use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::NodeName;
 use g3_types::net::ProxyProtocolVersion;
 
-use super::{detect_tcp_proxy_protocol, DetectedProxyProtocol};
+use super::{DetectedProxyProtocol, detect_tcp_proxy_protocol};
 use crate::config::server::intelli_proxy::IntelliProxyConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::serve::{ArcServer, Server, ServerInternal, ServerQuitPolicy, WrapArcServer};

@@ -24,7 +24,7 @@ use std::task::{Context, Poll};
 use ahash::AHashMap;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
-use tokio_util::time::{delay_queue, DelayQueue};
+use tokio_util::time::{DelayQueue, delay_queue};
 
 use super::{CacheQueryRequest, EffectiveCacheData};
 

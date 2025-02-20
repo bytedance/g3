@@ -30,8 +30,8 @@ use g3_types::net::UpstreamAddr;
 use super::ProxyHttpsEscaperConfig;
 use crate::auth::UserUpstreamTrafficStats;
 use crate::module::http_forward::{
-    send_req_header_to_origin, send_req_header_via_proxy, ArcHttpForwardTaskRemoteStats,
-    HttpForwardTaskRemoteWrapperStats, HttpForwardWrite,
+    ArcHttpForwardTaskRemoteStats, HttpForwardTaskRemoteWrapperStats, HttpForwardWrite,
+    send_req_header_to_origin, send_req_header_via_proxy,
 };
 use crate::serve::ServerTaskNotes;
 

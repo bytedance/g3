@@ -21,7 +21,7 @@ use std::mem;
 use std::path::Path;
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use flate2::bufread::GzDecoder;
 use ip_network::IpNetwork;
 use ip_network_table::IpNetworkTable;

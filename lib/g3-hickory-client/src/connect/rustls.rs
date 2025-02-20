@@ -20,8 +20,8 @@ use hickory_proto::ProtoError;
 use rustls::ClientConfig;
 use rustls_pki_types::ServerName;
 use tokio::net::TcpStream;
-use tokio_rustls::client::TlsStream;
 use tokio_rustls::TlsConnector;
+use tokio_rustls::client::TlsStream;
 
 use g3_socket::TcpConnectInfo;
 

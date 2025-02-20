@@ -22,4 +22,4 @@ pub mod build;
 pub mod target;
 pub mod worker;
 
-pub use opts::{add_global_args, parse_global_args, ProcArgs};
+pub use opts::{ProcArgs, add_global_args, parse_global_args};

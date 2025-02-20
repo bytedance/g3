@@ -19,7 +19,7 @@ use std::fmt::{Arguments, Write};
 
 use itoa::Integer;
 use ryu::Float;
-use slog::{Error, Level, OwnedKVList, Record, Serializer, KV};
+use slog::{Error, KV, Level, OwnedKVList, Record, Serializer};
 
 use g3_types::log::AsyncLogFormatter;
 

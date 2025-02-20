@@ -18,7 +18,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use arc_swap::{ArcSwap, ArcSwapOption};
 use async_trait::async_trait;
 use log::debug;
@@ -28,7 +28,7 @@ use slog::Logger;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
 use tokio::sync::{broadcast, mpsc};
-use tokio_rustls::{server::TlsStream, TlsAcceptor};
+use tokio_rustls::{TlsAcceptor, server::TlsStream};
 
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
@@ -41,11 +41,11 @@ use g3_types::net::{
     AlpnProtocol, OpensslClientConfig, OpensslTicketKey, RollingTicketer, RustlsServerConnectionExt,
 };
 
+use super::HttpProxyServerStats;
 use super::task::{
     CommonTaskContext, HttpProxyPipelineReaderTask, HttpProxyPipelineStats,
     HttpProxyPipelineWriterTask,
 };
-use super::HttpProxyServerStats;
 use crate::audit::{AuditContext, AuditHandle};
 use crate::auth::UserGroup;
 use crate::config::server::http_proxy::HttpProxyServerConfig;

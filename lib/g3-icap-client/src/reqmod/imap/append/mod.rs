@@ -22,9 +22,9 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use g3_io_ext::{IdleCheck, LimitedCopy, LimitedWriteExt};
 
 use super::{HttpAdapterErrorResponse, ImapAdaptationError, ImapMessageAdapter};
+use crate::reqmod::IcapReqmodResponsePayload;
 use crate::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};
 use crate::reqmod::response::ReqmodResponse;
-use crate::reqmod::IcapReqmodResponsePayload;
 
 mod bidirectional;
 use bidirectional::{BidirectionalRecvHttpRequest, BidirectionalRecvIcapResponse};

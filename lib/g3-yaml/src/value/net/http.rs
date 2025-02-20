@@ -16,9 +16,9 @@
 
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context};
-use http::uri::PathAndQuery;
+use anyhow::{Context, anyhow};
 use http::HeaderName;
+use http::uri::PathAndQuery;
 use yaml_rust::Yaml;
 
 use g3_types::net::{

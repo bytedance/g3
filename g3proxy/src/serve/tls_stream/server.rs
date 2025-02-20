@@ -18,7 +18,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use arc_swap::{ArcSwap, ArcSwapOption};
 use async_trait::async_trait;
 use log::debug;
@@ -27,7 +27,7 @@ use quinn::Connection;
 use slog::Logger;
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
-use tokio_rustls::{server::TlsStream, TlsAcceptor};
+use tokio_rustls::{TlsAcceptor, server::TlsStream};
 
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerExt, ServerReloadCommand};

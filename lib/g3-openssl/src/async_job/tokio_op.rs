@@ -19,8 +19,8 @@ use std::os::fd::RawFd;
 use std::task::{Context, Poll};
 
 use openssl::error::ErrorStack;
-use tokio::io::unix::AsyncFd;
 use tokio::io::Interest;
+use tokio::io::unix::AsyncFd;
 use tokio::runtime::{Handle, RuntimeFlavor};
 
 use super::{AsyncOperation, OpensslAsyncTask, SyncOperation};

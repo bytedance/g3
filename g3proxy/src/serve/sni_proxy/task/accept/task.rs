@@ -113,7 +113,7 @@ impl ClientHelloAcceptTask {
             Err(_) => {
                 return Err(ServerTaskError::ClientAppTimeout(
                     "timeout to wait client request",
-                ))
+                ));
             }
         }
 

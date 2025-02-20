@@ -17,7 +17,7 @@
 use std::io;
 
 use chrono::{Local, Utc};
-use slog::{OwnedKVList, Record, Serializer, KV};
+use slog::{KV, OwnedKVList, Record, Serializer};
 
 use super::rfc3164::format_rfc3164_header;
 use super::rfc5424::format_rfc5424_header;

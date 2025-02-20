@@ -19,8 +19,8 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context};
-use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
+use anyhow::{Context, anyhow};
+use clap::{Arg, ArgAction, ArgMatches, Command, ValueHint, value_parser};
 use openssl::pkey::{PKey, Private};
 use openssl::ssl::SslVerifyMode;
 use openssl::x509::X509;

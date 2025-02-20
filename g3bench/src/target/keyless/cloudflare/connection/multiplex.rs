@@ -19,7 +19,7 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
-use std::task::{ready, Context, Poll, Waker};
+use std::task::{Context, Poll, Waker, ready};
 use std::time::Duration;
 
 use atomic_waker::AtomicWaker;

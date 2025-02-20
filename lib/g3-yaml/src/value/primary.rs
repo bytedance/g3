@@ -19,7 +19,7 @@ use std::hash::Hash;
 use std::num::{NonZeroI32, NonZeroIsize, NonZeroU32, NonZeroUsize};
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use ascii::AsciiString;
 use yaml_rust::Yaml;
 

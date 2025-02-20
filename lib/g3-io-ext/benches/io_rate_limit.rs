@@ -22,7 +22,7 @@ use test::Bencher;
 use std::num::NonZeroU32;
 use std::time::Instant;
 
-use governor::{clock::DefaultClock, state::InMemoryState, state::NotKeyed, Quota, RateLimiter};
+use governor::{Quota, RateLimiter, clock::DefaultClock, state::InMemoryState, state::NotKeyed};
 
 use g3_io_ext::LocalStreamLimiter;
 

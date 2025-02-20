@@ -17,7 +17,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, LazyLock, Mutex};
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 
 use g3_types::metrics::NodeName;
 

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 use tokio::time::Instant;
@@ -22,8 +22,8 @@ use tokio::time::Instant;
 use g3_socket::util::AddressFamily;
 
 use super::{
-    BindSet, DirectFloatBindIp, CONFIG_KEY_AREA, CONFIG_KEY_EIP, CONFIG_KEY_EXPIRE, CONFIG_KEY_ID,
-    CONFIG_KEY_IP, CONFIG_KEY_ISP,
+    BindSet, CONFIG_KEY_AREA, CONFIG_KEY_EIP, CONFIG_KEY_EXPIRE, CONFIG_KEY_ID, CONFIG_KEY_IP,
+    CONFIG_KEY_ISP, DirectFloatBindIp,
 };
 
 impl DirectFloatBindIp {

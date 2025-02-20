@@ -20,7 +20,7 @@ use std::io;
 use std::path::Path;
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use ip_network::IpNetwork;
 use ip_network_table::IpNetworkTable;
 use zip::ZipArchive;

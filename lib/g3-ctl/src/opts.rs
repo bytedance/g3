@@ -18,8 +18,8 @@ use std::io;
 use std::path::PathBuf;
 
 use anyhow::anyhow;
-use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
-use clap::{value_parser, Arg, ArgMatches, Command, ValueHint};
+use capnp_rpc::{RpcSystem, rpc_twoparty_capnp, twoparty};
+use clap::{Arg, ArgMatches, Command, ValueHint, value_parser};
 use clap_complete::Shell;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 

@@ -30,8 +30,8 @@ use super::{
     RespmodAdaptationRunState,
 };
 use crate::reason::IcapErrorReason;
-use crate::respmod::response::RespmodResponse;
 use crate::respmod::IcapRespmodResponsePayload;
+use crate::respmod::response::RespmodResponse;
 
 impl<I: IdleCheck> H2ResponseAdapter<I> {
     fn build_preview_request(
@@ -73,7 +73,7 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
         {
             Ok(Some(Ok(data))) => data,
             Ok(Some(Err(e))) => {
-                return Err(H2RespmodAdaptationError::HttpUpstreamRecvDataFailed(e))
+                return Err(H2RespmodAdaptationError::HttpUpstreamRecvDataFailed(e));
             }
             Ok(None) | Err(_) => {
                 return self
@@ -84,7 +84,7 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
                         ups_body,
                         clt_send_response,
                     )
-                    .await
+                    .await;
             }
         };
         let initial_data_len = initial_body_data.len();

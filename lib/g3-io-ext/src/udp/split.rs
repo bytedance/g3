@@ -19,7 +19,7 @@ use std::fmt;
 use std::io::{self, IoSlice};
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use tokio::io::ReadBuf;
 use tokio::net::UdpSocket;

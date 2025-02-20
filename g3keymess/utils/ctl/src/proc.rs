@@ -43,7 +43,7 @@ const COMMAND_ARG_FILE: &str = "file";
 
 pub mod commands {
     use super::*;
-    use clap::{value_parser, Arg, Command, ValueHint};
+    use clap::{Arg, Command, ValueHint, value_parser};
 
     pub fn version() -> Command {
         Command::new(COMMAND_VERSION)

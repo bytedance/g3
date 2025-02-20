@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use chrono::format::{parse, Parsed};
+use chrono::format::{Parsed, parse};
 use chrono::{DateTime, ParseResult, Utc};
 
 #[inline]

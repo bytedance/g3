@@ -20,7 +20,7 @@ pub use listen::emit_listen_stats;
 #[cfg(feature = "event-log")]
 mod log;
 #[cfg(feature = "event-log")]
-pub(crate) use log::{emit_log_drop_stats, emit_log_io_stats, LoggerMetricExt};
+pub(crate) use log::{LoggerMetricExt, emit_log_drop_stats, emit_log_io_stats};
 
 mod server;
 pub use server::{ServerMetricExt, TAG_KEY_ONLINE, TAG_KEY_SERVER};

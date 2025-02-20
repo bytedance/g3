@@ -54,9 +54,11 @@ fn fragmented_two() {
 
     let mut data = Vec::new();
     data.extend_from_slice(RECORD_1_BYTES);
-    assert!(inspector
-        .check_client_initial_data(&config, 443, &data)
-        .is_err());
+    assert!(
+        inspector
+            .check_client_initial_data(&config, 443, &data)
+            .is_err()
+    );
     data.extend_from_slice(RECORD_2_BYTES);
     let protocol = inspector
         .check_client_initial_data(&config, 443, &data)
@@ -75,13 +77,17 @@ fn fragmented_three() {
 
     let mut data = Vec::new();
     data.extend_from_slice(RECORD_1_BYTES);
-    assert!(inspector
-        .check_client_initial_data(&config, 443, &data)
-        .is_err());
+    assert!(
+        inspector
+            .check_client_initial_data(&config, 443, &data)
+            .is_err()
+    );
     data.extend_from_slice(RECORD_2_BYTES);
-    assert!(inspector
-        .check_client_initial_data(&config, 443, &data)
-        .is_err());
+    assert!(
+        inspector
+            .check_client_initial_data(&config, 443, &data)
+            .is_err()
+    );
     data.extend_from_slice(RECORD_3_BYTES);
     let protocol = inspector
         .check_client_initial_data(&config, 443, &data)

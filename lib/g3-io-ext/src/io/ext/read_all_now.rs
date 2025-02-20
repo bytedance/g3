@@ -81,10 +81,12 @@ mod tests {
     async fn closed() {
         let mut stream = tokio_test::io::Builder::new().read(&[]).build();
         let mut buf = vec![0u8; 1024];
-        assert!(ReadAllNow::new(&mut stream, &mut buf)
-            .await
-            .unwrap()
-            .is_none());
+        assert!(
+            ReadAllNow::new(&mut stream, &mut buf)
+                .await
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[tokio::test]

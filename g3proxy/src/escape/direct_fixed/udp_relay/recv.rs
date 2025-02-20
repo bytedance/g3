@@ -15,7 +15,7 @@
  */
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use g3_io_ext::{AsyncUdpRecv, UdpRelayRemoteError, UdpRelayRemoteRecv};
 #[cfg(any(

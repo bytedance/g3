@@ -17,10 +17,10 @@
 use std::collections::BTreeSet;
 
 use anyhow::anyhow;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
-use g3_resolver::driver::fail_over::FailOverDriverStaticConfig;
 use g3_resolver::ResolverRuntimeConfig;
+use g3_resolver::driver::fail_over::FailOverDriverStaticConfig;
 use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 

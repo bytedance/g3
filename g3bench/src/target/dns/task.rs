@@ -17,7 +17,7 @@
 use std::cell::UnsafeCell;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use hickory_client::client::{Client, ClientHandle};
 use hickory_proto::op::ResponseCode;
 use tokio::time::Instant;
@@ -25,8 +25,8 @@ use tokio::time::Instant;
 use super::{
     BenchDnsArgs, BenchTaskContext, DnsHistogramRecorder, DnsRequestPickState, DnsRuntimeStats,
 };
-use crate::target::dns::DnsRequest;
 use crate::target::BenchError;
+use crate::target::dns::DnsRequest;
 
 #[derive(Default)]
 struct LocalRequestPicker {

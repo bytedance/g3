@@ -18,9 +18,9 @@ use std::io;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use clap::builder::ArgPredicate;
-use clap::{value_parser, Arg, ArgAction, Command, ValueHint};
+use clap::{Arg, ArgAction, Command, ValueHint, value_parser};
 use clap_complete::Shell;
 
 use g3_daemon::opts::{DaemonArgs, DaemonArgsExt};

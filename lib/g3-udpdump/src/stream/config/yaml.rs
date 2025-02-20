@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
 use super::StreamDumpConfig;

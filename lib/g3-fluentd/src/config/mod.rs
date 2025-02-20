@@ -17,7 +17,7 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use constant_time_eq::constant_time_eq_64;
 use openssl::md::Md;
 use openssl::md_ctx::MdCtx;

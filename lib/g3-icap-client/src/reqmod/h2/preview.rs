@@ -17,8 +17,8 @@
 use std::io::{self, IoSlice, Write};
 
 use bytes::{BufMut, Bytes};
-use h2::client::SendRequest;
 use h2::RecvStream;
+use h2::client::SendRequest;
 use http::Request;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
@@ -30,8 +30,8 @@ use super::{
     H2RequestAdapter, ReqmodAdaptationEndState, ReqmodAdaptationRunState,
 };
 use crate::reason::IcapErrorReason;
-use crate::reqmod::response::ReqmodResponse;
 use crate::reqmod::IcapReqmodResponsePayload;
+use crate::reqmod::response::ReqmodResponse;
 
 impl<I: IdleCheck> H2RequestAdapter<I> {
     fn build_preview_request(&self, http_header_len: usize, preview_size: usize) -> Vec<u8> {
@@ -66,7 +66,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
             Ok(None) | Err(_) => {
                 return self
                     .xfer_without_preview(state, http_request, clt_body, ups_send_request)
-                    .await
+                    .await;
             }
         };
         let initial_data_len = initial_body_data.len();

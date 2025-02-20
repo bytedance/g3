@@ -297,8 +297,10 @@ impl UserGroup {
             ))
             .await
             {
-                warn!("failed to cache dynamic users to file {} ({e:?}), this may lead to auth error during restart",
-                    self.config.dynamic_cache.display());
+                warn!(
+                    "failed to cache dynamic users to file {} ({e:?}), this may lead to auth error during restart",
+                    self.config.dynamic_cache.display()
+                );
             }
         }
 

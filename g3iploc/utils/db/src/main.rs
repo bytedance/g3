@@ -19,7 +19,7 @@ use std::io::{BufWriter, Write};
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 
-use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
+use clap::{Arg, ArgAction, ArgMatches, Command, ValueHint, value_parser};
 use ip_network_table::IpNetworkTable;
 
 use g3_geoip_db::{GeoIpAsnRecord, GeoIpCountryRecord};

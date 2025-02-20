@@ -17,7 +17,7 @@
 use std::path::Path;
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
 use g3_types::net::{DnsEncryptionConfigBuilder, DnsEncryptionProtocol};

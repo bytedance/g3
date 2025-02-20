@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use slog::{slog_o, Logger};
+use slog::{Logger, slog_o};
 
 use g3_types::metrics::NodeName;
 
