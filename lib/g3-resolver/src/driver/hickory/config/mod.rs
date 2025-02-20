@@ -18,7 +18,7 @@ use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
 use g3_socket::BindAddr;

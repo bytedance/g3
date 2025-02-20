@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use super::{protocol, CommonTaskContext, HttpProxyServerStats};
+use super::{CommonTaskContext, HttpProxyServerStats, protocol};
 
 mod task;
 pub(super) use task::HttpProxyForwardTask;

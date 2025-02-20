@@ -15,15 +15,15 @@
  */
 
 use std::net::{IpAddr, SocketAddr};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use anyhow::anyhow;
 use async_recursion::async_recursion;
 use hickory_client::client::{Client, ClientHandle};
-use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
 use hickory_proto::BufDnsStreamHandle;
+use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
 use rustls::ClientConfig;
 use rustls_pki_types::ServerName;
 use tokio::sync::mpsc;

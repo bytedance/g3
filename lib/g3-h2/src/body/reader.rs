@@ -16,7 +16,7 @@
 
 use std::io;
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use bytes::{Buf, Bytes};
 use h2::{FlowControl, RecvStream};
@@ -79,7 +79,7 @@ impl AsyncRead for H2StreamReader {
                             Poll::Ready(Err(e.into_io().unwrap()))
                         } else {
                             Poll::Ready(Err(io::Error::other(e)))
-                        }
+                        };
                     }
                     None => return Poll::Ready(Ok(())),
                 };

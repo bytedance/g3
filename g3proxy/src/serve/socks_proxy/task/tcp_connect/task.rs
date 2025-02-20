@@ -23,7 +23,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use g3_daemon::server::ServerQuitPolicy;
 use g3_daemon::stat::task::TcpStreamTaskStats;
 use g3_io_ext::{IdleInterval, LimitedCopyConfig, LimitedReader, LimitedWriter};
-use g3_socks::{v4a, v5, SocksVersion};
+use g3_socks::{SocksVersion, v4a, v5};
 use g3_types::acl::AclAction;
 use g3_types::net::{ProxyRequestType, UpstreamAddr};
 

@@ -17,8 +17,8 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
-use yaml_rust::{yaml, Yaml};
+use anyhow::{Context, anyhow};
+use yaml_rust::{Yaml, yaml};
 
 use g3_daemon::config::TopoMap;
 use g3_yaml::{HybridParser, YamlDocPosition};

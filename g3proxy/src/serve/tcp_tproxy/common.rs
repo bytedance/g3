@@ -24,8 +24,8 @@ use g3_io_ext::IdleWheel;
 
 use crate::config::server::tcp_tproxy::TcpTProxyServerConfig;
 use crate::escape::ArcEscaper;
-use crate::serve::tcp_stream::TcpStreamServerStats;
 use crate::serve::ServerQuitPolicy;
+use crate::serve::tcp_stream::TcpStreamServerStats;
 
 pub(super) struct CommonTaskContext {
     pub(super) server_config: Arc<TcpTProxyServerConfig>,

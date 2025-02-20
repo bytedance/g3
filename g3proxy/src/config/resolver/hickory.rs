@@ -18,7 +18,7 @@ use std::collections::BTreeSet;
 use std::net::IpAddr;
 
 use anyhow::anyhow;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
 use g3_resolver::driver::hickory::HickoryDriverConfig;
 use g3_resolver::{AnyResolveDriverConfig, ResolverRuntimeConfig};

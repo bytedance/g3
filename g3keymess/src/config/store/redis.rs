@@ -16,7 +16,7 @@
 
 use anyhow::anyhow;
 use url::Url;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
 use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;

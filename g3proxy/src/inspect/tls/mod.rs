@@ -35,7 +35,7 @@ use g3_udpdump::{
 
 use super::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext, StreamInspection};
 use crate::config::server::ServerConfig;
-use crate::log::inspect::{stream::StreamInspectLog, InspectSource};
+use crate::log::inspect::{InspectSource, stream::StreamInspectLog};
 
 mod error;
 pub(crate) use error::TlsInterceptionError;

@@ -22,8 +22,8 @@ use anyhow::anyhow;
 use log::warn;
 use mlua::{Function, Lua, Value};
 
-use crate::config::auth::source::lua::UserDynamicLuaSource;
 use crate::config::auth::UserConfig;
+use crate::config::auth::source::lua::UserDynamicLuaSource;
 
 const LUA_GLOBAL_VAR_FILE: &str = "__file__";
 

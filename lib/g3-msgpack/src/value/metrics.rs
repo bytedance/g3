@@ -16,7 +16,7 @@
 
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use rmpv::ValueRef;
 
 use g3_types::collection::WeightedValue;

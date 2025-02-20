@@ -69,7 +69,7 @@ impl ProxyProtocolV1Reader {
                     Ok(None)
                 } else {
                     Err(ProxyProtocolReadError::InvalidFamily(0x00))
-                }
+                };
             }
             _ => {
                 return Err(ProxyProtocolReadError::InvalidFamily(0x00));

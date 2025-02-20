@@ -20,7 +20,7 @@ use std::os::fd::RawFd;
 use std::pin::Pin;
 #[cfg(ossl300)]
 use std::sync::Arc;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 use std::{mem, ptr};
 
 use anyhow::anyhow;

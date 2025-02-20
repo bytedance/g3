@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use governor::RateLimiter;
 use hdrhistogram::Histogram;
-use tokio::sync::{mpsc, Barrier, Semaphore};
+use tokio::sync::{Barrier, Semaphore, mpsc};
 use tokio::time::{Instant, MissedTickBehavior};
 
 use g3_statsd_client::StatsdClient;
@@ -301,15 +301,17 @@ where
             let quit_notifier = quit_notifier.clone();
             let handler = std::thread::Builder::new()
                 .name("runtime-stats".to_string())
-                .spawn(move || loop {
-                    runtime_stats.emit(&mut statsd_client);
-                    statsd_client.flush_sink();
+                .spawn(move || {
+                    loop {
+                        runtime_stats.emit(&mut statsd_client);
+                        statsd_client.flush_sink();
 
-                    if quit_notifier.load(Ordering::Relaxed) {
-                        break;
+                        if quit_notifier.load(Ordering::Relaxed) {
+                            break;
+                        }
+
+                        std::thread::sleep(emit_duration);
                     }
-
-                    std::thread::sleep(emit_duration);
                 })
                 .map_err(|e| anyhow!("failed to create runtime stats thread: {e}"))?;
             Some(handler)

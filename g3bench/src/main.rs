@@ -17,8 +17,8 @@
 use std::io;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
-use clap::{value_parser, Arg, ArgMatches, Command};
+use anyhow::{Context, anyhow};
+use clap::{Arg, ArgMatches, Command, value_parser};
 use clap_complete::Shell;
 
 const COMMAND_VERSION: &str = "version";

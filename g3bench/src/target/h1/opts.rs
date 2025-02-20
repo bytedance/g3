@@ -19,8 +19,8 @@ use std::net::SocketAddr;
 use std::str::FromStr;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
-use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
+use anyhow::{Context, anyhow};
+use clap::{Arg, ArgAction, ArgMatches, Command, value_parser};
 use http::{Method, StatusCode};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;

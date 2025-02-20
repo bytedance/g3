@@ -21,12 +21,12 @@ use anyhow::anyhow;
 use tokio::net::UdpSocket;
 
 use g3_io_ext::{LimitedUdpRecv, LimitedUdpSend, UdpRecvHalf, UdpSendHalf};
-use g3_socket::util::AddressFamily;
 use g3_socket::BindAddr;
+use g3_socket::util::AddressFamily;
 
 use super::DirectFloatEscaper;
-use crate::escape::direct_fixed::udp_relay::{DirectUdpRelayRemoteRecv, DirectUdpRelayRemoteSend};
 use crate::escape::direct_fixed::DirectFixedEscaperStats;
+use crate::escape::direct_fixed::udp_relay::{DirectUdpRelayRemoteRecv, DirectUdpRelayRemoteSend};
 use crate::module::udp_relay::{
     ArcUdpRelayTaskRemoteStats, UdpRelayRemoteWrapperStats, UdpRelaySetupError,
     UdpRelaySetupResult, UdpRelayTaskConf,

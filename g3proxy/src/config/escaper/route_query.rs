@@ -18,8 +18,8 @@ use std::collections::BTreeSet;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
-use yaml_rust::{yaml, Yaml};
+use anyhow::{Context, anyhow};
+use yaml_rust::{Yaml, yaml};
 
 use g3_types::collection::SelectivePickPolicy;
 use g3_types::metrics::NodeName;

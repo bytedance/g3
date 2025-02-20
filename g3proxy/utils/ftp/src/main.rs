@@ -20,7 +20,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use clap::{value_parser, Arg, ArgAction, Command};
+use clap::{Arg, ArgAction, Command, value_parser};
 use clap_complete::Shell;
 
 use g3_ftp_client::{FtpClient, FtpClientConfig};

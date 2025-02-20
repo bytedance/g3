@@ -19,8 +19,8 @@ use std::sync::Arc;
 use log::debug;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_http::server::HttpProxyClientRequest;
 use g3_http::HttpBodyReader;
+use g3_http::server::HttpProxyClientRequest;
 use g3_io_ext::{LimitedCopy, LimitedCopyError};
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpRProxyRequest};

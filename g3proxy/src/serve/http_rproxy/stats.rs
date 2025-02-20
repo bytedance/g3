@@ -15,8 +15,8 @@
  */
 
 use std::net::SocketAddr;
-use std::sync::atomic::{AtomicIsize, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicIsize, AtomicU64, Ordering};
 
 use arc_swap::ArcSwapOption;
 

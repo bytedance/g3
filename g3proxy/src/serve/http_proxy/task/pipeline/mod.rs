@@ -15,8 +15,8 @@
  */
 
 use super::{
-    protocol, CommonTaskContext, FtpOverHttpTask, HttpProxyConnectTask, HttpProxyForwardTask,
-    HttpProxyServerStats, HttpProxyUntrustedTask,
+    CommonTaskContext, FtpOverHttpTask, HttpProxyConnectTask, HttpProxyForwardTask,
+    HttpProxyServerStats, HttpProxyUntrustedTask, protocol,
 };
 
 mod reader;

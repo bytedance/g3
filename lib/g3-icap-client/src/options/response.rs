@@ -24,8 +24,8 @@ use tokio::time::Instant;
 use g3_io_ext::LimitedBufReadExt;
 
 use super::IcapOptionsParseError;
-use crate::parse::{HeaderLine, StatusLine};
 use crate::IcapMethod;
+use crate::parse::{HeaderLine, StatusLine};
 
 pub struct IcapServiceOptions {
     method: IcapMethod,

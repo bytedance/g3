@@ -23,7 +23,7 @@ use ahash::AHashMap;
 use log::{trace, warn};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::Instant;
-use tokio_util::time::{delay_queue, DelayQueue};
+use tokio_util::time::{DelayQueue, delay_queue};
 
 use super::stats::{ResolverMemoryStats, ResolverStats};
 use super::{ArcResolvedRecord, BoxResolverDriver, ResolvedRecordSource, ResolverConfig};

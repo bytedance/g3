@@ -24,8 +24,8 @@ use g3_types::net::OpensslClientConfig;
 
 use crate::config::server::tls_stream::TlsStreamServerConfig;
 use crate::escape::ArcEscaper;
-use crate::serve::tcp_stream::TcpStreamServerStats;
 use crate::serve::ServerQuitPolicy;
+use crate::serve::tcp_stream::TcpStreamServerStats;
 
 pub(super) struct CommonTaskContext {
     pub(super) server_config: Arc<TlsStreamServerConfig>,

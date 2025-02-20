@@ -17,7 +17,7 @@
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
 use futures_util::future::{AbortHandle, Abortable};

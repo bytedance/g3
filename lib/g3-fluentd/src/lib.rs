@@ -15,8 +15,8 @@
  */
 
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::anyhow;
 use flume::Receiver;

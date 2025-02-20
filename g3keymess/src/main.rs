@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use log::{debug, error, info, warn};
 
 use g3_daemon::control::{QuitAction, UpgradeAction};

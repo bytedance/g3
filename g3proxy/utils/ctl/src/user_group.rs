@@ -18,7 +18,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use anyhow::anyhow;
-use clap::{value_parser, Arg, ArgMatches, Command, ValueHint};
+use clap::{Arg, ArgMatches, Command, ValueHint, value_parser};
 
 use g3_ctl::{CommandError, CommandResult};
 

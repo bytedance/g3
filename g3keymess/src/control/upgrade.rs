@@ -17,8 +17,8 @@
 use g3_daemon::control::upgrade::UpgradeAction;
 
 use anyhow::anyhow;
-use capnp_rpc::rpc_twoparty_capnp::Side;
 use capnp_rpc::RpcSystem;
+use capnp_rpc::rpc_twoparty_capnp::Side;
 
 use g3keymess_proto::proc_capnp::proc_control;
 use g3keymess_proto::types_capnp::operation_result;

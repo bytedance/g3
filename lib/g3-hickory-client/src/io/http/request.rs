@@ -18,7 +18,7 @@ use std::str::FromStr;
 
 use hickory_proto::ProtoError;
 use http::uri::{Authority, Parts, PathAndQuery, Scheme};
-use http::{header, HeaderValue, Method, Request, Uri, Version};
+use http::{HeaderValue, Method, Request, Uri, Version, header};
 
 pub struct HttpDnsRequestBuilder {
     pre_built_req: Request<()>,

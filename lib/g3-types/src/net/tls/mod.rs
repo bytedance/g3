@@ -27,7 +27,7 @@ mod cert_usage;
 pub use cert_usage::TlsCertUsage;
 
 mod ticket_name;
-pub use ticket_name::{TicketKeyName, TICKET_KEY_NAME_LENGTH};
+pub use ticket_name::{TICKET_KEY_NAME_LENGTH, TicketKeyName};
 
 mod ticketer;
 pub use ticketer::{

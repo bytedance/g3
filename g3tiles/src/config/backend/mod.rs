@@ -16,8 +16,8 @@
 
 use std::path::Path;
 
-use anyhow::{anyhow, Context};
-use yaml_rust::{yaml, Yaml};
+use anyhow::{Context, anyhow};
+use yaml_rust::{Yaml, yaml};
 
 use g3_types::metrics::NodeName;
 use g3_yaml::{HybridParser, YamlDocPosition};

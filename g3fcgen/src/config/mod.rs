@@ -17,10 +17,10 @@
 use std::path::Path;
 
 use anyhow::anyhow;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
 mod backend;
-pub(crate) use backend::{get_config as get_backend_config, OpensslBackendConfig};
+pub(crate) use backend::{OpensslBackendConfig, get_config as get_backend_config};
 
 pub fn load() -> anyhow::Result<&'static Path> {
     let config_file =

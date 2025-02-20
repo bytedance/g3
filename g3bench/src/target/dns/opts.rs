@@ -22,8 +22,8 @@ use std::str::FromStr;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
-use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
+use anyhow::{Context, anyhow};
+use clap::{Arg, ArgAction, ArgMatches, Command, ValueHint, value_parser};
 use hickory_client::client::Client;
 use hickory_proto::BufDnsStreamHandle;
 use rustls::ClientConfig;

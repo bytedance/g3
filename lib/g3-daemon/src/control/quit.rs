@@ -139,7 +139,9 @@ impl<T: QuitAction> QuitLoop<T> {
                             Err(_) => {
                                 if is_restart {
                                     // the new process may be failed to start, so we consume
-                                    info!("timeout to wait StartGracefulShutdown request, will resume");
+                                    info!(
+                                        "timeout to wait StartGracefulShutdown request, will resume"
+                                    );
                                     self.resume_controller().await;
                                     info!("graceful shutdown canceled");
                                     continue 'outer;

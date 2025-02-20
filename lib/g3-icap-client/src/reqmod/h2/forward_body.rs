@@ -17,8 +17,8 @@
 use std::io::{IoSlice, Write};
 
 use bytes::{BufMut, Bytes};
-use h2::client::SendRequest;
 use h2::RecvStream;
+use h2::client::SendRequest;
 use http::Request;
 
 use g3_h2::{H2StreamToChunkedTransfer, RequestExt};

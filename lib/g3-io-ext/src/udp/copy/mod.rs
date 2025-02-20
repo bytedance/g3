@@ -16,7 +16,7 @@
 
 use std::io::IoSliceMut;
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use thiserror::Error;
 
@@ -140,10 +140,11 @@ impl<T: UdpCopyClientRecv + ?Sized> UdpCopyRecv for ClientRecv<'_, T> {
         cx: &mut Context<'_>,
         packet: &mut UdpCopyPacket,
     ) -> Poll<Result<usize, UdpCopyError>> {
-        let (off, nr) = ready!(self
-            .0
-            .poll_recv_packet(cx, &mut packet.buf)
-            .map_err(UdpCopyError::ClientError))?;
+        let (off, nr) = ready!(
+            self.0
+                .poll_recv_packet(cx, &mut packet.buf)
+                .map_err(UdpCopyError::ClientError)
+        )?;
         packet.buf_data_off = off;
         packet.buf_data_end = nr;
         Poll::Ready(Ok(nr))
@@ -176,10 +177,11 @@ impl<T: UdpCopyRemoteRecv + ?Sized> UdpCopyRecv for RemoteRecv<'_, T> {
         cx: &mut Context<'_>,
         packet: &mut UdpCopyPacket,
     ) -> Poll<Result<usize, UdpCopyError>> {
-        let (off, nr) = ready!(self
-            .0
-            .poll_recv_packet(cx, &mut packet.buf)
-            .map_err(UdpCopyError::RemoteError))?;
+        let (off, nr) = ready!(
+            self.0
+                .poll_recv_packet(cx, &mut packet.buf)
+                .map_err(UdpCopyError::RemoteError)
+        )?;
         packet.buf_data_off = off;
         packet.buf_data_end = nr;
         Poll::Ready(Ok(nr))

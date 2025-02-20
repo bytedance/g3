@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use serde_json::Value;
 
 use g3_types::acl_set::AclDstHostRuleSetBuilder;

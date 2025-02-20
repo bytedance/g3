@@ -16,7 +16,7 @@
 
 use std::net::IpAddr;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use rmpv::ValueRef;
 
 use g3_geoip_types::{IpLocation, IpLocationBuilder};

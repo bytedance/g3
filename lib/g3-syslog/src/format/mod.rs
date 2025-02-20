@@ -28,7 +28,7 @@ mod cee;
 mod rfc3164;
 mod rfc5424;
 
-pub(super) use cee::{FormatterRfc3164Cee, FormatterRfc5424Cee, CEE_EVENT_FLAG};
+pub(super) use cee::{CEE_EVENT_FLAG, FormatterRfc3164Cee, FormatterRfc5424Cee};
 pub(super) use rfc3164::FormatterRfc3164;
 pub(super) use rfc5424::FormatterRfc5424;
 

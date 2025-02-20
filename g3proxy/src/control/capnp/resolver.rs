@@ -23,7 +23,7 @@ use capnp_rpc::pry;
 use g3_types::metrics::NodeName;
 use g3_types::resolve::{QueryStrategy as ResolveQueryStrategy, ResolveStrategy};
 
-use g3proxy_proto::resolver_capnp::{resolver_control, QueryStrategy};
+use g3proxy_proto::resolver_capnp::{QueryStrategy, resolver_control};
 
 use crate::resolve::{ArcIntegratedResolverHandle, HappyEyeballsResolveJob};
 

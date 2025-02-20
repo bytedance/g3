@@ -15,7 +15,7 @@
  */
 
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use bytes::{Buf, Bytes};
 use h2::{FlowControl, RecvStream, SendStream};

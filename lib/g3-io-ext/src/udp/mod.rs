@@ -42,8 +42,8 @@ pub use copy::{UdpCopyClientToRemote, UdpCopyError, UdpCopyRemoteToClient};
 
 mod split;
 pub use split::{
-    split as split_udp, RecvHalf as UdpRecvHalf, ReuniteError as UdpReuniteError,
-    SendHalf as UdpSendHalf,
+    RecvHalf as UdpRecvHalf, ReuniteError as UdpReuniteError, SendHalf as UdpSendHalf,
+    split as split_udp,
 };
 
 const DEFAULT_UDP_PACKET_SIZE: usize = 4096; // at least for DNS with extension

@@ -18,7 +18,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::JoinHandle;
 use std::time::Instant;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 
 use g3_statsd_client::{StatsdClient, StatsdClientConfig};
 
@@ -45,29 +45,31 @@ fn spawn_main_thread(config: &StatsdClientConfig) -> anyhow::Result<JoinHandle<(
     let emit_duration = config.emit_duration;
     let handle = std::thread::Builder::new()
         .name("stat-main".to_string())
-        .spawn(move || loop {
-            let instant_start = Instant::now();
+        .spawn(move || {
+            loop {
+                let instant_start = Instant::now();
 
-            metrics::server::sync_stats();
-            metrics::escaper::sync_stats();
-            metrics::resolver::sync_stats();
-            metrics::user::sync_stats();
-            g3_daemon::log::metrics::sync_stats();
+                metrics::server::sync_stats();
+                metrics::escaper::sync_stats();
+                metrics::resolver::sync_stats();
+                metrics::user::sync_stats();
+                g3_daemon::log::metrics::sync_stats();
 
-            metrics::server::emit_stats(&mut client);
-            metrics::escaper::emit_stats(&mut client);
-            metrics::resolver::emit_stats(&mut client);
-            metrics::user::emit_stats(&mut client);
-            g3_daemon::runtime::metrics::emit_stats(&mut client);
-            g3_daemon::log::metrics::emit_stats(&mut client);
+                metrics::server::emit_stats(&mut client);
+                metrics::escaper::emit_stats(&mut client);
+                metrics::resolver::emit_stats(&mut client);
+                metrics::user::emit_stats(&mut client);
+                g3_daemon::runtime::metrics::emit_stats(&mut client);
+                g3_daemon::log::metrics::emit_stats(&mut client);
 
-            client.flush_sink();
+                client.flush_sink();
 
-            if QUIT_STAT_THREAD.load(Ordering::Relaxed) {
-                break;
+                if QUIT_STAT_THREAD.load(Ordering::Relaxed) {
+                    break;
+                }
+
+                g3_daemon::stat::emit::wait_duration(emit_duration, instant_start);
             }
-
-            g3_daemon::stat::emit::wait_duration(emit_duration, instant_start);
         })
         .map_err(|e| anyhow!("failed to spawn thread: {e:?}"))?;
     Ok(handle)
@@ -79,19 +81,21 @@ fn spawn_user_site_thread(config: &StatsdClientConfig) -> anyhow::Result<JoinHan
     let emit_duration = config.emit_duration;
     let handle = std::thread::Builder::new()
         .name("stat-user-site".to_string())
-        .spawn(move || loop {
-            let instant_start = Instant::now();
+        .spawn(move || {
+            loop {
+                let instant_start = Instant::now();
 
-            user_site::sync_stats();
-            user_site::emit_stats(&mut client);
+                user_site::sync_stats();
+                user_site::emit_stats(&mut client);
 
-            client.flush_sink();
+                client.flush_sink();
 
-            if QUIT_STAT_THREAD.load(Ordering::Relaxed) {
-                break;
+                if QUIT_STAT_THREAD.load(Ordering::Relaxed) {
+                    break;
+                }
+
+                g3_daemon::stat::emit::wait_duration(emit_duration, instant_start);
             }
-
-            g3_daemon::stat::emit::wait_duration(emit_duration, instant_start);
         })
         .map_err(|e| anyhow!("failed to spawn thread: {e:?}"))?;
     Ok(handle)

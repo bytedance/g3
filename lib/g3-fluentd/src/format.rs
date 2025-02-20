@@ -20,7 +20,7 @@ use std::io;
 
 use chrono::Utc;
 use serde::ser::Serialize;
-use slog::{OwnedKVList, Record, Serializer, KV};
+use slog::{KV, OwnedKVList, Record, Serializer};
 
 use g3_types::log::AsyncLogFormatter;
 

@@ -19,9 +19,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use ahash::AHashMap;
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use ascii::AsciiString;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
 use g3_io_ext::{LimitedCopyConfig, LimitedUdpRelayConfig};
 use g3_types::acl::{AclExactPortRule, AclNetworkRuleBuilder};
@@ -34,8 +34,8 @@ use g3_types::net::{
 use g3_yaml::YamlDocPosition;
 
 use super::{
-    AnyServerConfig, ServerConfig, ServerConfigDiffAction, IDLE_CHECK_DEFAULT_DURATION,
-    IDLE_CHECK_DEFAULT_MAX_COUNT, IDLE_CHECK_MAXIMUM_DURATION,
+    AnyServerConfig, IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_DEFAULT_MAX_COUNT,
+    IDLE_CHECK_MAXIMUM_DURATION, ServerConfig, ServerConfigDiffAction,
 };
 
 const SERVER_CONFIG_TYPE: &str = "SocksProxy";

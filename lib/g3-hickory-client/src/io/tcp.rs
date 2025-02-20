@@ -16,10 +16,10 @@
 
 use std::time::Duration;
 
+use hickory_proto::ProtoError;
 use hickory_proto::runtime::iocompat::AsyncIoTokioAsStd;
 use hickory_proto::tcp::{DnsTcpStream, TcpClientStream, TcpStream};
 use hickory_proto::xfer::StreamReceiver;
-use hickory_proto::ProtoError;
 
 use g3_socket::TcpConnectInfo;
 

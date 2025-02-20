@@ -17,9 +17,9 @@
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use url::Url;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
 use g3_types::fs::ConfigFileFormat;
 

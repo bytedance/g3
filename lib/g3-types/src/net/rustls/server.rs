@@ -17,7 +17,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 #[cfg(feature = "quinn")]
 use quinn::crypto::rustls::QuicServerConfig;
 use rustls::server::{ProducesTickets, WebPkiClientVerifier};
@@ -129,7 +129,9 @@ impl RustlsServerConfigBuilder {
                 let certs = super::load_native_certs_for_rustls()?;
                 for (i, cert) in certs.into_iter().enumerate() {
                     root_store.add(cert).map_err(|e| {
-                        anyhow!("failed to add openssl ca cert {i} as root certs for client auth: {e:?}")
+                        anyhow!(
+                            "failed to add openssl ca cert {i} as root certs for client auth: {e:?}"
+                        )
                     })?;
                 }
             };

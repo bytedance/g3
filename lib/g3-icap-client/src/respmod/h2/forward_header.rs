@@ -28,8 +28,8 @@ use super::{
     RespmodAdaptationRunState,
 };
 use crate::reason::IcapErrorReason;
-use crate::respmod::response::RespmodResponse;
 use crate::respmod::IcapRespmodResponsePayload;
+use crate::respmod::response::RespmodResponse;
 
 impl<I: IdleCheck> H2ResponseAdapter<I> {
     fn build_header_only_request(

@@ -24,7 +24,7 @@ use tokio::sync::Mutex;
 
 use g3_types::metrics::NodeName;
 
-use super::{registry, KeyServer};
+use super::{KeyServer, registry};
 use crate::config::server::KeyServerConfig;
 
 static SERVER_OPS_LOCK: Mutex<()> = Mutex::const_new(());

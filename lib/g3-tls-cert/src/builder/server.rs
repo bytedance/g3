@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use chrono::{Days, Utc};
 use openssl::asn1::{Asn1Integer, Asn1Time};
 use openssl::hash::MessageDigest;
@@ -22,11 +22,11 @@ use openssl::pkey::{PKey, Private};
 use openssl::x509::extension::{
     AuthorityKeyIdentifier, ExtendedKeyUsage, SubjectAlternativeName, SubjectKeyIdentifier,
 };
-use openssl::x509::{X509Builder, X509Extension, X509Name, X509Ref, X509};
+use openssl::x509::{X509, X509Builder, X509Extension, X509Name, X509Ref};
 
 use g3_types::net::Host;
 
-use super::{asn1_time_from_chrono, KeyUsageBuilder, SubjectNameBuilder};
+use super::{KeyUsageBuilder, SubjectNameBuilder, asn1_time_from_chrono};
 use crate::ext::X509BuilderExt;
 
 pub struct ServerCertBuilder {

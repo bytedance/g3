@@ -16,14 +16,14 @@
 
 use std::collections::HashSet;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use log::debug;
 use tokio::sync::Mutex;
 
 use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
-use super::{registry, ArcDiscover};
+use super::{ArcDiscover, registry};
 use crate::config::discover::{AnyDiscoverConfig, DiscoverConfigDiffAction};
 
 use super::host_resolver::HostResolverDiscover;

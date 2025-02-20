@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
 use g3_dpi::{H1InterceptionConfig, H2InterceptionConfig};

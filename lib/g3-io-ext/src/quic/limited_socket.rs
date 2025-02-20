@@ -19,7 +19,7 @@ use std::fmt;
 use std::io::{self, IoSliceMut};
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 use std::time::Duration;
 
 use futures_util::FutureExt;

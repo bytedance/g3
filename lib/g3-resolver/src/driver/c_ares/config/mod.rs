@@ -17,7 +17,7 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use c_ares_resolver::FutureResolver;
 use indexmap::IndexSet;
 use yaml_rust::Yaml;

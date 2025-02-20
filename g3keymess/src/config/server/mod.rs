@@ -18,10 +18,10 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use ascii::AsciiString;
 use slog::Logger;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
 use g3_histogram::HistogramMetricsConfig;
 use g3_types::metrics::{NodeName, StaticMetricsTags};

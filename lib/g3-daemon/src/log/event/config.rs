@@ -17,8 +17,8 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
-use slog::{slog_o, Logger, OwnedKV, SendSyncRefUnwindSafeKV};
+use anyhow::{Context, anyhow};
+use slog::{Logger, OwnedKV, SendSyncRefUnwindSafeKV, slog_o};
 use yaml_rust::Yaml;
 
 use g3_fluentd::FluentdClientConfig;

@@ -16,7 +16,7 @@
 
 use std::io::IoSliceMut;
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use thiserror::Error;
 
@@ -157,10 +157,11 @@ impl<T: UdpRelayClientRecv + ?Sized> UdpRelayRecv for ClientRecv<'_, T> {
         cx: &mut Context<'_>,
         packet: &mut UdpRelayPacket,
     ) -> Poll<Result<usize, UdpRelayError>> {
-        let (off, nr, ups) = ready!(self
-            .0
-            .poll_recv_packet(cx, &mut packet.buf)
-            .map_err(UdpRelayError::ClientError))?;
+        let (off, nr, ups) = ready!(
+            self.0
+                .poll_recv_packet(cx, &mut packet.buf)
+                .map_err(UdpRelayError::ClientError)
+        )?;
         packet.buf_data_off = off;
         packet.buf_data_end = nr;
         packet.ups = ups;
@@ -194,10 +195,11 @@ impl<T: UdpRelayRemoteRecv + ?Sized> UdpRelayRecv for RemoteRecv<'_, T> {
         cx: &mut Context<'_>,
         packet: &mut UdpRelayPacket,
     ) -> Poll<Result<usize, UdpRelayError>> {
-        let (off, nr, ups) = ready!(self
-            .0
-            .poll_recv_packet(cx, &mut packet.buf)
-            .map_err(|e| UdpRelayError::RemoteError(None, e)))?;
+        let (off, nr, ups) = ready!(
+            self.0
+                .poll_recv_packet(cx, &mut packet.buf)
+                .map_err(|e| UdpRelayError::RemoteError(None, e))
+        )?;
         packet.buf_data_off = off;
         packet.buf_data_end = nr;
         packet.ups = ups;

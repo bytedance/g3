@@ -17,7 +17,7 @@
 use std::future::poll_fn;
 use std::io;
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 use std::time::Duration;
 
 use openssl::error::ErrorStack;
@@ -133,7 +133,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslAcceptor<S> {
                     _ => {
                         return Poll::Ready(Err(e
                             .into_io_error()
-                            .unwrap_or_else(|e| io::Error::other(format!("ssl accept: {e}")))))
+                            .unwrap_or_else(|e| io::Error::other(format!("ssl accept: {e}")))));
                     }
                 },
             }

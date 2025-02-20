@@ -17,9 +17,9 @@
 use std::str::FromStr;
 
 use bytes::{Buf, BufMut, BytesMut};
-use hickory_proto::xfer::DnsResponse;
 use hickory_proto::ProtoError;
-use http::{header, Response};
+use hickory_proto::xfer::DnsResponse;
+use http::{Response, header};
 
 pub struct HttpDnsResponse {
     rsp: Response<()>,

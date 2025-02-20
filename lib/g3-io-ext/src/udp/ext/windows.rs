@@ -17,7 +17,7 @@
 use std::io;
 use std::io::IoSlice;
 use std::net::SocketAddr;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use tokio::io::Interest;
 use tokio::net::UdpSocket;

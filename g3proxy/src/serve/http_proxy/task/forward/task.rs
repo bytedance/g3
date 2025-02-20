@@ -978,7 +978,7 @@ impl<'a> HttpProxyForwardTask<'a> {
                     Err(_) => {
                         return Err(ServerTaskError::UpstreamAppTimeout(
                             "timeout to receive response header",
-                        ))
+                        ));
                     }
                 }
             }
@@ -1426,7 +1426,7 @@ impl<'a> HttpProxyForwardTask<'a> {
                     Err(_) => {
                         return Err(ServerTaskError::UpstreamAppTimeout(
                             "timeout to receive response header",
-                        ))
+                        ));
                     }
                 }
             }

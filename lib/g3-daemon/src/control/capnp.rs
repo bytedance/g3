@@ -17,7 +17,7 @@
 use std::sync::Mutex;
 
 use anyhow::anyhow;
-use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
+use capnp_rpc::{RpcSystem, rpc_twoparty_capnp, twoparty};
 use log::{trace, warn};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::{mpsc, oneshot};

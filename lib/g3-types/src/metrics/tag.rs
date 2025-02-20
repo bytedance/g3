@@ -20,7 +20,7 @@ use std::str::FromStr;
 
 use smol_str::SmolStr;
 
-use super::{chars_allowed_in_opentsdb, ParseError};
+use super::{ParseError, chars_allowed_in_opentsdb};
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub struct MetricTagName(SmolStr);

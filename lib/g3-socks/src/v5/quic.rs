@@ -19,7 +19,7 @@ use std::io::{self, IoSlice, IoSliceMut};
 use std::net::{SocketAddr, UdpSocket};
 use std::pin::Pin;
 use std::sync::Arc;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 use std::time::Instant;
 
 use quinn::udp::{RecvMeta, Transmit};
@@ -209,7 +209,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         meta: &mut [RecvMeta],
     ) -> Poll<io::Result<usize>> {
         use g3_io_ext::RecvMsgHdr;
-        use smallvec::{smallvec, SmallVec};
+        use smallvec::{SmallVec, smallvec};
 
         let ctl_close_receiver = unsafe { &mut *self.ctl_close_receiver.get() };
         match Pin::new(ctl_close_receiver).poll(cx) {

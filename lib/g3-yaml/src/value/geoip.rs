@@ -16,7 +16,7 @@
 
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
 use g3_geoip_types::{ContinentCode, IpLocation, IpLocationBuilder, IsoCountryCode};

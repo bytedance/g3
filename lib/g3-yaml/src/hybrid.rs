@@ -17,8 +17,8 @@
 use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 
-use anyhow::{anyhow, Context};
-use yaml_rust::{yaml, Yaml};
+use anyhow::{Context, anyhow};
+use yaml_rust::{Yaml, yaml};
 
 use super::YamlDocPosition;
 

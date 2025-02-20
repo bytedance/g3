@@ -17,9 +17,9 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use ascii::AsciiString;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
 use g3_types::collection::SelectivePickPolicy;
 use g3_types::metrics::{NodeName, StaticMetricsTags};

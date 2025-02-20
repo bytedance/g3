@@ -100,7 +100,7 @@ impl RouteFailoverEscaper {
                         self.stats.add_request_failed();
                         Err(e)
                     }
-                }
+                };
             }
             Err(_) => {}
         }

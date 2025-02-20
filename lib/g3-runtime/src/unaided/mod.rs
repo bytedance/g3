@@ -297,7 +297,7 @@ impl UnaidedRuntimeConfig {
                 Err(_) => {
                     return Err(anyhow!(
                         "no tokio runtime handler got from worker thread {i}",
-                    ))
+                    ));
                 }
             }
         }

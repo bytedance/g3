@@ -19,12 +19,12 @@ use std::time::Duration;
 use anyhow::anyhow;
 use log::warn;
 use openssl::ssl::{Ssl, SslConnector, SslContext, SslContextBuilder, SslMethod, SslVerifyMode};
-use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::X509;
+use openssl::x509::store::X509StoreBuilder;
 
 use super::{
-    OpensslClientSessionCache, OpensslSessionCacheConfig, DEFAULT_HANDSHAKE_TIMEOUT,
-    MINIMAL_HANDSHAKE_TIMEOUT,
+    DEFAULT_HANDSHAKE_TIMEOUT, MINIMAL_HANDSHAKE_TIMEOUT, OpensslClientSessionCache,
+    OpensslSessionCacheConfig,
 };
 use crate::net::{TlsAlpn, TlsServerName, TlsVersion, UpstreamAddr};
 
@@ -227,7 +227,9 @@ impl OpensslInterceptionClientConfigBuilder {
 
     fn set_verify(&self, builder: &mut SslContextBuilder) {
         if self.insecure {
-            warn!("Tls Insecure Mode: Tls Peer (server) cert vertification is no longer enforced for this Context!");
+            warn!(
+                "Tls Insecure Mode: Tls Peer (server) cert vertification is no longer enforced for this Context!"
+            );
             builder.set_verify(SslVerifyMode::NONE);
         } else {
             builder.set_verify(SslVerifyMode::PEER);

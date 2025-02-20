@@ -21,9 +21,9 @@ mod stats;
 mod task;
 
 pub(crate) use connection::{
-    send_req_header_to_origin, send_req_header_via_proxy, BoxHttpForwardConnection,
-    BoxHttpForwardReader, BoxHttpForwardWriter, HttpConnectionEofPoller, HttpForwardRead,
-    HttpForwardWrite, HttpForwardWriterForAdaptation,
+    BoxHttpForwardConnection, BoxHttpForwardReader, BoxHttpForwardWriter, HttpConnectionEofPoller,
+    HttpForwardRead, HttpForwardWrite, HttpForwardWriterForAdaptation, send_req_header_to_origin,
+    send_req_header_via_proxy,
 };
 pub(crate) use context::{
     BoxHttpForwardContext, DirectHttpForwardContext, FailoverHttpForwardContext,

@@ -15,8 +15,8 @@
  */
 
 use std::cell::RefCell;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use rustc_hash::{FxBuildHasher, FxHashMap};
 use tokio::runtime::Handle;

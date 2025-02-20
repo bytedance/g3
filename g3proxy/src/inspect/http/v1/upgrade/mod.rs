@@ -28,11 +28,11 @@ use g3_dpi::Protocol;
 use g3_http::client::HttpTransparentResponse;
 use g3_http::server::{HttpTransparentRequest, UriExt};
 use g3_http::{HttpBodyReader, HttpBodyType};
+use g3_icap_client::reqmod::IcapReqmodClient;
 use g3_icap_client::reqmod::h1::{
     H1ReqmodAdaptationError, HttpAdapterErrorResponse, HttpRequestAdapter,
     ReqmodAdaptationMidState, ReqmodAdaptationRunState, ReqmodRecvHttpResponseBody,
 };
-use g3_icap_client::reqmod::IcapReqmodClient;
 use g3_io_ext::{LimitedCopy, LimitedCopyError, LimitedWriteExt, OnceBufReader};
 use g3_slog_types::{LtDateTime, LtDuration, LtHttpUri, LtUpstreamAddr, LtUuid};
 use g3_types::net::{HttpUpgradeToken, UpstreamAddr, WebSocketNotes};
@@ -40,8 +40,8 @@ use g3_types::net::{HttpUpgradeToken, UpstreamAddr, WebSocketNotes};
 use super::{H1InterceptionError, HttpRequest, HttpRequestIo, HttpResponseIo};
 use crate::config::server::ServerConfig;
 use crate::inspect::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext, StreamInspection};
-use crate::log::inspect::stream::StreamInspectLog;
 use crate::log::inspect::InspectSource;
+use crate::log::inspect::stream::StreamInspectLog;
 use crate::module::http_forward::HttpProxyClientResponse;
 use crate::serve::{ServerIdleChecker, ServerTaskError, ServerTaskResult};
 

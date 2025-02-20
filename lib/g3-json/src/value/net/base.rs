@@ -17,7 +17,7 @@
 use std::net::IpAddr;
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use serde_json::Value;
 
 #[cfg(feature = "acl-rule")]

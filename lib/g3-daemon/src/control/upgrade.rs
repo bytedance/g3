@@ -17,7 +17,7 @@
 use std::sync::Mutex;
 use std::thread::JoinHandle;
 
-use capnp_rpc::{rpc_twoparty_capnp, RpcSystem};
+use capnp_rpc::{RpcSystem, rpc_twoparty_capnp};
 use log::warn;
 use tokio::sync::{mpsc, oneshot};
 

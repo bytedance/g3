@@ -24,8 +24,8 @@ use slog::Logger;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_resolver::ResolveError;
-use g3_socket::util::AddressFamily;
 use g3_socket::BindAddr;
+use g3_socket::util::AddressFamily;
 use g3_types::acl::AclNetworkRule;
 use g3_types::metrics::NodeName;
 use g3_types::net::{Host, UpstreamAddr};

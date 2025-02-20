@@ -155,9 +155,7 @@ pub struct SelectiveVec<T: SelectiveItem> {
 }
 
 macro_rules! panic_on_empty {
-    () => {{
-        panic!("do panic check before pick node")
-    }};
+    () => {{ panic!("do panic check before pick node") }};
 }
 
 impl<T: SelectiveItem> SelectiveVec<T> {

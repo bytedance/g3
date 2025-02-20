@@ -17,13 +17,13 @@
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
-use anyhow::{anyhow, Context};
-use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
+use anyhow::{Context, anyhow};
+use clap::{Arg, ArgAction, ArgMatches, Command, ValueHint, value_parser};
 use rustls_pki_types::pem::PemObject;
 use rustls_pki_types::{CertificateDer, PrivateKeyDer, ServerName};
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio_rustls::client::TlsStream;
 use tokio_rustls::TlsConnector;
+use tokio_rustls::client::TlsStream;
 
 use g3_types::net::{
     AlpnProtocol, RustlsCertificatePair, RustlsCertificatePairBuilder, RustlsClientConfig,

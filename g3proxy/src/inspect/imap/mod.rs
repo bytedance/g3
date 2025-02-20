@@ -19,8 +19,8 @@ use slog::slog_info;
 use tokio::io::AsyncWriteExt;
 
 use g3_dpi::ProtocolInspectAction;
-use g3_imap_proto::response::ByeResponse;
 use g3_imap_proto::CommandPipeline;
+use g3_imap_proto::response::ByeResponse;
 use g3_io_ext::{LineRecvVec, OnceBufReader};
 use g3_slog_types::{LtUpstreamAddr, LtUuid};
 use g3_types::net::UpstreamAddr;

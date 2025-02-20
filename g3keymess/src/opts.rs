@@ -25,8 +25,8 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::OnceLock;
 
-use anyhow::{anyhow, Context};
-use clap::{value_parser, Arg, ArgAction, Command, ValueHint};
+use anyhow::{Context, anyhow};
+use clap::{Arg, ArgAction, Command, ValueHint, value_parser};
 #[cfg(any(
     target_os = "linux",
     target_os = "android",

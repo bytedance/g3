@@ -22,7 +22,7 @@ use std::time::Duration;
 
 use ahash::AHashMap;
 use tokio::sync::{mpsc, oneshot};
-use tokio_util::time::{delay_queue, DelayQueue};
+use tokio_util::time::{DelayQueue, delay_queue};
 
 use g3_geoip_types::IpLocation;
 

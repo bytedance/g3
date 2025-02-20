@@ -17,7 +17,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use rustls::server::WebPkiClientVerifier;
 use rustls::{RootCertStore, ServerConfig};
 use rustls_pki_types::CertificateDer;
@@ -93,7 +93,9 @@ impl RustlsHostConfig {
                 let certs = g3_types::net::load_native_certs_for_rustls()?;
                 for (i, cert) in certs.into_iter().enumerate() {
                     root_store.add(cert).map_err(|e| {
-                        anyhow!("failed to add openssl ca cert {i} as root certs for client auth: {e:?}")
+                        anyhow!(
+                            "failed to add openssl ca cert {i} as root certs for client auth: {e:?}"
+                        )
                     })?;
                 }
             } else {

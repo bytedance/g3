@@ -17,7 +17,7 @@
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use log::warn;

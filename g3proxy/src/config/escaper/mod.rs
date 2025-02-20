@@ -20,7 +20,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use slog::Logger;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
 use g3_daemon::config::TopoMap;
 use g3_types::metrics::NodeName;

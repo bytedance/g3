@@ -21,7 +21,7 @@ use std::ops::BitXor;
 use std::path::Path;
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use csv::StringRecord;
 use flate2::bufread::GzDecoder;
 use ip_network::{IpNetwork, Ipv4Network, Ipv6Network};

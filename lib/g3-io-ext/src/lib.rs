@@ -22,8 +22,8 @@ mod time;
 mod udp;
 
 pub use cache::{
-    create_effective_cache, EffectiveCacheData, EffectiveCacheHandle, EffectiveCacheRuntime,
-    EffectiveQueryHandle,
+    EffectiveCacheData, EffectiveCacheHandle, EffectiveCacheRuntime, EffectiveQueryHandle,
+    create_effective_cache,
 };
 pub use io::*;
 pub use limit::*;

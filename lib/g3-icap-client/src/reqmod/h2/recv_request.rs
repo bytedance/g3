@@ -17,8 +17,8 @@
 use std::time::Duration;
 
 use bytes::Bytes;
-use h2::client::{ResponseFuture, SendRequest};
 use h2::RecvStream;
+use h2::client::{ResponseFuture, SendRequest};
 use http::{Request, Response};
 
 use g3_h2::{

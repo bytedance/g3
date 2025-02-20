@@ -25,8 +25,8 @@ use quinn::{Connection, Endpoint, Incoming};
 use tokio::runtime::Handle;
 use tokio::sync::{broadcast, watch};
 
-use g3_socket::util::native_socket_addr;
 use g3_socket::RawSocket;
+use g3_socket::util::native_socket_addr;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::net::UdpListenConfig;
 

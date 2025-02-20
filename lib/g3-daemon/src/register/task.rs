@@ -22,8 +22,8 @@ use serde_json::{Map, Value};
 use tokio::io::BufStream;
 use tokio::net::TcpStream;
 
-use g3_http::client::HttpForwardRemoteResponse;
 use g3_http::HttpBodyReader;
+use g3_http::client::HttpForwardRemoteResponse;
 use g3_io_ext::{LimitedBufReadExt, LimitedWriteExt};
 
 use super::RegisterConfig;

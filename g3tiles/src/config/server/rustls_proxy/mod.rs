@@ -17,9 +17,9 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use ascii::AsciiString;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
 use g3_io_ext::LimitedCopyConfig;
 use g3_tls_ticket::TlsTicketConfig;
@@ -30,8 +30,8 @@ use g3_types::route::HostMatch;
 use g3_yaml::YamlDocPosition;
 
 use super::{
-    ServerConfig, IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_DEFAULT_MAX_COUNT,
-    IDLE_CHECK_MAXIMUM_DURATION,
+    IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_DEFAULT_MAX_COUNT, IDLE_CHECK_MAXIMUM_DURATION,
+    ServerConfig,
 };
 use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
 

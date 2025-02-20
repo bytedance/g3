@@ -18,7 +18,7 @@ use std::io::Write;
 use std::str::FromStr;
 
 use bytes::BufMut;
-use http::{header, HeaderName, Method, Version};
+use http::{HeaderName, Method, Version, header};
 use tokio::io::AsyncBufRead;
 
 use g3_io_ext::LimitedBufReadExt;

@@ -21,8 +21,8 @@ use anyhow::anyhow;
 
 use g3_types::metrics::NodeName;
 
-use super::dummy_deny::DummyDenyEscaper;
 use super::ArcEscaper;
+use super::dummy_deny::DummyDenyEscaper;
 use crate::config::escaper::AnyEscaperConfig;
 
 static RUNTIME_ESCAPER_REGISTRY: LazyLock<Mutex<HashMap<NodeName, ArcEscaper>>> =

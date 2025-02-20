@@ -20,8 +20,8 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::OnceLock;
 
-use anyhow::{anyhow, Context};
-use clap::{value_parser, Arg, ArgAction, Command, ValueHint};
+use anyhow::{Context, anyhow};
+use clap::{Arg, ArgAction, Command, ValueHint, value_parser};
 
 use g3_daemon::opts::{DaemonArgs, DaemonArgsExt};
 use g3_types::net::{SocketBufferConfig, UdpListenConfig};
