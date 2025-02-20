@@ -20,6 +20,7 @@ use std::sync::Arc;
 
 use ahash::AHashMap;
 use radix_trie::{Trie, TrieCommon};
+use rustc_hash::{FxBuildHasher, FxHashMap};
 
 use crate::collection::NamedValue;
 use crate::net::Host;
@@ -28,7 +29,7 @@ use crate::resolve::reverse_idna_domain;
 #[derive(Clone, Debug, PartialEq)]
 pub struct HostMatch<T> {
     exact_domain: Option<AHashMap<Arc<str>, T>>,
-    exact_ip: Option<AHashMap<IpAddr, T>>,
+    exact_ip: Option<FxHashMap<IpAddr, T>>,
     child_domain: Option<Trie<String, T>>,
     default: Option<T>,
 }
@@ -143,7 +144,7 @@ impl<T> HostMatch<Arc<T>> {
         }
 
         if let Some(ht) = &self.exact_ip {
-            let mut dst_ht = AHashMap::with_capacity(ht.len());
+            let mut dst_ht = FxHashMap::with_capacity_and_hasher(ht.len(), FxBuildHasher);
             for (k, v) in ht {
                 let dv = get_tmp(v)?;
                 dst_ht.insert(*k, dv);
@@ -224,7 +225,7 @@ where
         }
 
         if let Some(ht) = &self.exact_ip {
-            let mut dst_ht = AHashMap::with_capacity(ht.len());
+            let mut dst_ht = FxHashMap::with_capacity_and_hasher(ht.len(), FxBuildHasher);
             for (k, v) in ht {
                 if let Some(dv) = values.get(v.name()) {
                     dst_ht.insert(*k, dv.clone());

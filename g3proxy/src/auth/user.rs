@@ -19,10 +19,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use ahash::AHashMap;
 use anyhow::Context;
 use arc_swap::ArcSwapOption;
 use chrono::{DateTime, Utc};
+use foldhash::HashMap;
 use governor::{RateLimiter, clock::DefaultClock, state::InMemoryState, state::NotKeyed};
 use tokio::time::Instant;
 
@@ -57,10 +57,10 @@ pub(crate) struct User {
     dst_host_filter: Option<Arc<AclDstHostRuleSet>>,
     resolve_redirection: Option<ResolveRedirection>,
     log_rate_limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
-    forbid_stats: Arc<Mutex<AHashMap<String, Arc<UserForbiddenStats>>>>,
-    req_stats: Arc<Mutex<AHashMap<String, Arc<UserRequestStats>>>>,
-    io_stats: Arc<Mutex<AHashMap<String, Arc<UserTrafficStats>>>>,
-    upstream_io_stats: Arc<Mutex<AHashMap<String, Arc<UserUpstreamTrafficStats>>>>,
+    forbid_stats: Arc<Mutex<HashMap<NodeName, Arc<UserForbiddenStats>>>>,
+    req_stats: Arc<Mutex<HashMap<NodeName, Arc<UserRequestStats>>>>,
+    io_stats: Arc<Mutex<HashMap<NodeName, Arc<UserTrafficStats>>>>,
+    upstream_io_stats: Arc<Mutex<HashMap<NodeName, Arc<UserUpstreamTrafficStats>>>>,
     req_alive_sem: GaugeSemaphore,
     explicit_sites: UserSites,
 }
@@ -166,10 +166,10 @@ impl User {
             dst_host_filter: None,
             resolve_redirection: None,
             log_rate_limit,
-            forbid_stats: Arc::new(Mutex::new(AHashMap::new())),
-            req_stats: Arc::new(Mutex::new(AHashMap::new())),
-            io_stats: Arc::new(Mutex::new(AHashMap::new())),
-            upstream_io_stats: Arc::new(Mutex::new(AHashMap::new())),
+            forbid_stats: Arc::new(Mutex::new(HashMap::default())),
+            req_stats: Arc::new(Mutex::new(HashMap::default())),
+            io_stats: Arc::new(Mutex::new(HashMap::default())),
+            upstream_io_stats: Arc::new(Mutex::new(HashMap::default())),
             req_alive_sem: GaugeSemaphore::new(config.request_alive_max),
             explicit_sites,
         };
@@ -429,7 +429,7 @@ impl User {
         server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
     ) -> Arc<UserForbiddenStats> {
         let mut map = self.forbid_stats.lock().unwrap();
-        let stats = map.entry(server.to_string()).or_insert_with(|| {
+        let stats = map.entry(server.clone()).or_insert_with(|| {
             Arc::new(UserForbiddenStats::new(
                 &self.group,
                 self.config.name().clone(),
@@ -457,7 +457,7 @@ impl User {
         server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
     ) -> Arc<UserRequestStats> {
         let mut map = self.req_stats.lock().unwrap();
-        let stats = map.entry(server.to_string()).or_insert_with(|| {
+        let stats = map.entry(server.clone()).or_insert_with(|| {
             Arc::new(UserRequestStats::new(
                 &self.group,
                 self.config.name().clone(),
@@ -485,7 +485,7 @@ impl User {
         server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
     ) -> Arc<UserTrafficStats> {
         let mut map = self.io_stats.lock().unwrap();
-        let stats = map.entry(server.to_string()).or_insert_with(|| {
+        let stats = map.entry(server.clone()).or_insert_with(|| {
             Arc::new(UserTrafficStats::new(
                 &self.group,
                 self.config.name().clone(),
@@ -513,7 +513,7 @@ impl User {
         escaper_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
     ) -> Arc<UserUpstreamTrafficStats> {
         let mut map = self.upstream_io_stats.lock().unwrap();
-        let stats = map.entry(escaper.to_string()).or_insert_with(|| {
+        let stats = map.entry(escaper.clone()).or_insert_with(|| {
             Arc::new(UserUpstreamTrafficStats::new(
                 &self.group,
                 self.config.name().clone(),

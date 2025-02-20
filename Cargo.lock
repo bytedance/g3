@@ -1258,7 +1258,6 @@ dependencies = [
 name = "g3-ip-locate"
 version = "0.2.0"
 dependencies = [
- "ahash",
  "anyhow",
  "g3-geoip-types",
  "g3-msgpack",
@@ -1269,6 +1268,7 @@ dependencies = [
  "ip_network_table",
  "log",
  "rmpv",
+ "rustc-hash",
  "tokio",
  "tokio-util",
  "yaml-rust2",
@@ -1546,6 +1546,7 @@ dependencies = [
  "fastrand",
  "flume",
  "fnv",
+ "foldhash",
  "governor",
  "hex",
  "http",
@@ -1557,7 +1558,6 @@ dependencies = [
  "log",
  "lru",
  "memchr",
- "metrohash",
  "num-traits",
  "percent-encoding",
  "quinn",
@@ -2591,12 +2591,6 @@ checksum = "488016bfae457b036d996092f6cb448677611ce4449e970ceaf42695203f218a"
 dependencies = [
  "autocfg",
 ]
-
-[[package]]
-name = "metrohash"
-version = "1.0.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a84011bfadc339f60fbcc38181da8a0a91cd16375394dd52edf9da80deacd8c5"
 
 [[package]]
 name = "mime"

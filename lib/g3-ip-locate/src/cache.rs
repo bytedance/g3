@@ -21,8 +21,8 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use ahash::AHashMap;
 use ip_network_table::IpNetworkTable;
+use rustc_hash::FxHashMap;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 
@@ -38,7 +38,7 @@ struct CacheValue {
 pub(crate) struct IpLocationCacheRuntime {
     request_batch_handle_count: usize,
     cache: IpNetworkTable<CacheValue>,
-    doing: AHashMap<IpAddr, Vec<CacheQueryRequest>>,
+    doing: FxHashMap<IpAddr, Vec<CacheQueryRequest>>,
     req_receiver: mpsc::UnboundedReceiver<CacheQueryRequest>,
     rsp_receiver: mpsc::UnboundedReceiver<(Option<IpAddr>, IpLocationCacheResponse)>,
     query_sender: mpsc::UnboundedSender<IpAddr>,
@@ -54,7 +54,7 @@ impl IpLocationCacheRuntime {
         IpLocationCacheRuntime {
             request_batch_handle_count: config.cache_request_batch_count,
             cache: IpNetworkTable::new(),
-            doing: AHashMap::new(),
+            doing: FxHashMap::default(),
             req_receiver,
             rsp_receiver,
             query_sender,

@@ -18,9 +18,9 @@ use std::collections::BTreeSet;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use ahash::AHashMap;
 use anyhow::anyhow;
 use async_trait::async_trait;
+use foldhash::{HashMap, HashMapExt};
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder, WeightedValue};
@@ -65,7 +65,7 @@ impl Hash for EscaperWrapper {
 pub(super) struct RouteSelectEscaper {
     config: RouteSelectEscaperConfig,
     stats: Arc<RouteEscaperStats>,
-    all_nodes: AHashMap<NodeName, ArcEscaper>,
+    all_nodes: HashMap<NodeName, ArcEscaper>,
     select_nodes: SelectiveVec<WeightedValue<EscaperWrapper>>,
 }
 
@@ -74,7 +74,7 @@ impl RouteSelectEscaper {
         config: RouteSelectEscaperConfig,
         stats: Arc<RouteEscaperStats>,
     ) -> anyhow::Result<ArcEscaper> {
-        let mut all_nodes = AHashMap::with_capacity(config.next_nodes.len());
+        let mut all_nodes = HashMap::with_capacity(config.next_nodes.len());
         let mut select_nodes_builder = SelectiveVecBuilder::with_capacity(config.next_nodes.len());
         for v in &config.next_nodes {
             let escaper = super::registry::get_or_insert_default(v.inner());

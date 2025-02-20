@@ -20,7 +20,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
-use ahash::AHashMap;
+use rustc_hash::FxHashMap;
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::time::{DelayQueue, delay_queue};
 
@@ -74,7 +74,7 @@ impl IpLocationCacheHandle {
 pub(super) struct IpLocationQueryHandle {
     req_receiver: mpsc::UnboundedReceiver<IpAddr>,
     rsp_sender: mpsc::UnboundedSender<(Option<IpAddr>, IpLocationCacheResponse)>,
-    doing_cache: AHashMap<IpAddr, delay_queue::Key>,
+    doing_cache: FxHashMap<IpAddr, delay_queue::Key>,
     doing_timeout_queue: DelayQueue<IpAddr>,
 }
 
@@ -86,7 +86,7 @@ impl IpLocationQueryHandle {
         IpLocationQueryHandle {
             req_receiver,
             rsp_sender,
-            doing_cache: AHashMap::new(),
+            doing_cache: FxHashMap::default(),
             doing_timeout_queue: DelayQueue::new(),
         }
     }

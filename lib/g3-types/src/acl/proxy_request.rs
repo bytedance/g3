@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-use super::{AclAHashRule, AclAction, ActionContract};
+use super::{AclAction, AclFxHashRule, ActionContract};
 use crate::net::ProxyRequestType;
 
 #[derive(Clone)]
 pub struct AclProxyRequestRule<Action = AclAction> {
     missed_action: Action,
-    request: AclAHashRule<ProxyRequestType, Action>,
+    request: AclFxHashRule<ProxyRequestType, Action>,
 }
 
 impl<Action: ActionContract> AclProxyRequestRule<Action> {
@@ -28,7 +28,7 @@ impl<Action: ActionContract> AclProxyRequestRule<Action> {
     pub fn new(missed_action: Action) -> Self {
         AclProxyRequestRule {
             missed_action,
-            request: AclAHashRule::new(missed_action),
+            request: AclFxHashRule::new(missed_action),
         }
     }
 

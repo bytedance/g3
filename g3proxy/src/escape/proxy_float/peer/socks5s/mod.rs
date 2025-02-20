@@ -18,10 +18,10 @@ use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 use std::sync::Arc;
 
-use ahash::AHashMap;
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use rustc_hash::FxHashMap;
 use serde_json::Value;
 use tokio::time::Instant;
 
@@ -55,7 +55,7 @@ pub(super) struct ProxyFloatSocks5sPeer {
     password: Password,
     egress_info: EgressInfo,
     shared_config: Arc<ProxyFloatSocks5PeerSharedConfig>,
-    transmute_udp_peer_ip: Option<AHashMap<IpAddr, IpAddr>>,
+    transmute_udp_peer_ip: Option<FxHashMap<IpAddr, IpAddr>>,
     udp_sock_speed_limit: UdpSockSpeedLimitConfig,
     end_on_control_closed: bool,
 }
@@ -135,11 +135,11 @@ impl NextProxyPeerInternal for ProxyFloatSocks5sPeer {
                         g3_json::value::as_ipaddr,
                     )
                     .context(format!("invalid IP:IP hashmap value for key {k}"))?;
-                    self.transmute_udp_peer_ip = Some(map.into_iter().collect::<AHashMap<_, _>>());
+                    self.transmute_udp_peer_ip = Some(map.into_iter().collect::<FxHashMap<_, _>>());
                 } else {
                     let enable = g3_json::value::as_bool(v)?;
                     if enable {
-                        self.transmute_udp_peer_ip = Some(AHashMap::default());
+                        self.transmute_udp_peer_ip = Some(FxHashMap::default());
                     }
                 }
                 Ok(())

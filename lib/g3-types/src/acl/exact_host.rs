@@ -17,14 +17,14 @@
 use std::net::IpAddr;
 use std::sync::Arc;
 
-use super::{AclAHashRule, AclAction, ActionContract};
+use super::{AclAHashRule, AclAction, AclFxHashRule, ActionContract};
 use crate::net::Host;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AclExactHostRule<Action = AclAction> {
     missed_action: Action,
     domain: AclAHashRule<Arc<str>, Action>,
-    ip: AclAHashRule<IpAddr, Action>,
+    ip: AclFxHashRule<IpAddr, Action>,
 }
 
 impl<Action: ActionContract> AclExactHostRule<Action> {
@@ -33,7 +33,7 @@ impl<Action: ActionContract> AclExactHostRule<Action> {
         AclExactHostRule {
             missed_action,
             domain: AclAHashRule::new(missed_action),
-            ip: AclAHashRule::new(missed_action),
+            ip: AclFxHashRule::new(missed_action),
         }
     }
 

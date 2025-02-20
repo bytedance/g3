@@ -23,6 +23,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use ip_network_table::IpNetworkTable;
 use radix_trie::Trie;
+use rustc_hash::FxHashMap;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::metrics::NodeName;
@@ -55,7 +56,7 @@ pub(super) struct RouteUpstreamEscaper {
     config: RouteUpstreamEscaperConfig,
     stats: Arc<RouteEscaperStats>,
     next_table: BTreeMap<NodeName, ArcEscaper>,
-    exact_match_ipaddr: AHashMap<IpAddr, ArcEscaper>,
+    exact_match_ipaddr: FxHashMap<IpAddr, ArcEscaper>,
     subnet_match_ipaddr: IpNetworkTable<ArcEscaper>,
     exact_match_domain: AHashMap<Arc<str>, ArcEscaper>,
     do_child_match: bool,
@@ -80,7 +81,7 @@ impl RouteUpstreamEscaper {
 
         let default_next = Arc::clone(next_table.get(&config.default_next).unwrap());
 
-        let mut exact_match_ipaddr = AHashMap::new();
+        let mut exact_match_ipaddr = FxHashMap::default();
         for (escaper, ips) in &config.exact_match_ipaddr {
             let next = &next_table.get(escaper).unwrap();
             for ip in ips {

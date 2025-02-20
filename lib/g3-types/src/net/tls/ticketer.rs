@@ -16,8 +16,8 @@
 
 use std::sync::{Arc, RwLock};
 
-use ahash::AHashMap;
 use arc_swap::ArcSwap;
+use rustc_hash::{FxBuildHasher, FxHashMap};
 
 use super::TicketKeyName;
 
@@ -32,14 +32,14 @@ pub trait RollingTicketKey: Sized {
 }
 
 pub struct RollingTicketer<K: RollingTicketKey> {
-    dec_keys: RwLock<AHashMap<TicketKeyName, Arc<K>>>,
+    dec_keys: RwLock<FxHashMap<TicketKeyName, Arc<K>>>,
     pub(crate) enc_key: ArcSwap<K>,
 }
 
 impl<K: RollingTicketKey> RollingTicketer<K> {
     pub fn new(initial_key: K) -> Self {
         let key = Arc::new(initial_key);
-        let dec_keys = RwLock::new(AHashMap::with_capacity(4));
+        let dec_keys = RwLock::new(FxHashMap::with_capacity_and_hasher(4, FxBuildHasher));
         let ticketer = RollingTicketer {
             dec_keys,
             enc_key: ArcSwap::new(key.clone()),
