@@ -28,7 +28,7 @@ pub(super) struct msghdr_x {
     pub msg_datalen: size_t,
 }
 
-extern "C" {
+unsafe extern "C" {
     pub(super) fn sendmsg_x(s: c_int, msgp: *mut msghdr_x, cnt: c_uint, flags: c_int) -> ssize_t;
     pub(super) fn recvmsg_x(s: c_int, msgp: *mut msghdr_x, cnt: c_uint, flags: c_int) -> ssize_t;
 }

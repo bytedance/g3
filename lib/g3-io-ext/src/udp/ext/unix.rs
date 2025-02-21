@@ -149,10 +149,12 @@ impl<'a, const C: usize> SendMsgHdr<'a, C> {
     /// `self` should not be dropped before the returned value
     #[cfg(target_os = "macos")]
     unsafe fn to_msghdr_x(&self) -> super::macos::msghdr_x {
-        let mut h = mem::zeroed::<super::macos::msghdr_x>();
-        h.msg_iov = self.iov.as_ptr() as _;
-        h.msg_iovlen = C as _;
-        h
+        unsafe {
+            let mut h = mem::zeroed::<super::macos::msghdr_x>();
+            h.msg_iov = self.iov.as_ptr() as _;
+            h.msg_iovlen = C as _;
+            h
+        }
     }
 }
 
@@ -204,15 +206,17 @@ impl<'a, const C: usize> RecvMsgHdr<'a, C> {
     /// `self` should not be dropped before the returned value
     #[cfg(target_os = "macos")]
     unsafe fn to_msghdr_x(&self) -> super::macos::msghdr_x {
-        let c_addr = &mut *self.c_addr.get();
-        let (c_addr, c_addr_len) = c_addr.get_ptr_and_size();
+        unsafe {
+            let c_addr = &mut *self.c_addr.get();
+            let (c_addr, c_addr_len) = c_addr.get_ptr_and_size();
 
-        let mut h = mem::zeroed::<super::macos::msghdr_x>();
-        h.msg_name = c_addr as _;
-        h.msg_namelen = c_addr_len as _;
-        h.msg_iov = self.iov.as_ptr() as _;
-        h.msg_iovlen = C as _;
-        h
+            let mut h = mem::zeroed::<super::macos::msghdr_x>();
+            h.msg_name = c_addr as _;
+            h.msg_namelen = c_addr_len as _;
+            h.msg_iov = self.iov.as_ptr() as _;
+            h.msg_iovlen = C as _;
+            h
+        }
     }
 }
 
