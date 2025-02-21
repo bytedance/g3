@@ -449,7 +449,12 @@ pub(super) fn parse_h2_args(args: &ArgMatches) -> anyhow::Result<BenchH2Args> {
     if let Some(v) = args.get_one::<String>(HTTP_ARG_PROXY) {
         let url = Url::parse(v).context(format!("invalid {HTTP_ARG_PROXY} value"))?;
         let proxy = Proxy::try_from(&url).map_err(|e| anyhow!("invalid proxy: {e}"))?;
-        h2_args.connect_proxy = Some(proxy);
+        if let Proxy::Http(mut http_proxy) = proxy {
+            h2_args.proxy_tls.config = http_proxy.tls_config.take();
+            h2_args.connect_proxy = Some(Proxy::Http(http_proxy));
+        } else {
+            h2_args.connect_proxy = Some(proxy);
+        }
     }
 
     if args.get_flag(HTTP_ARG_NO_MULTIPLEX) {
