@@ -12,6 +12,8 @@ PROXY_PID=$!
 # run g3bench integration tests
 
 export SSL_CERT_FILE="${RUN_DIR}/rootCA.pem"
+export RSA_KEY_FILE="${RUN_DIR}/rootCA-RSA-key.pem"
+export EC_KEY_FILE="${RUN_DIR}/rootCA-EC-key.pem"
 
 g3bench()
 {
