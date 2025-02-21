@@ -40,7 +40,7 @@ use super::DirectFixedEscaperStats;
 use crate::auth::UserContext;
 use crate::resolve::{ArcIntegratedResolverHandle, ArriveFirstResolveJob};
 
-const LRU_CACHE_SIZE: NonZero<usize> = unsafe { NonZero::new_unchecked(16) };
+const LRU_CACHE_SIZE: NonZero<usize> = NonZero::new(16).unwrap();
 
 pub(crate) struct DirectUdpRelayRemoteSend<T> {
     escaper_stats: Arc<DirectFixedEscaperStats>,
