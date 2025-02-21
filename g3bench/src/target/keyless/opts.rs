@@ -40,6 +40,7 @@ const ARG_RSA_PADDING: &str = "rsa-padding";
 const ARG_PAYLOAD: &str = "payload";
 const ARG_DUMP_RESULT: &str = "dump-result";
 const ARG_VERIFY: &str = "verify";
+const ARG_VERIFY_DATA: &str = "verify-data";
 
 const DIGEST_TYPES: [&str; 6] = ["md5sha1", "sha1", "sha224", "sha256", "sha384", "sha512"];
 const RSA_PADDING_VALUES: [&str; 5] = ["PKCS1", "OAEP", "PSS", "X931", "NONE"];
@@ -172,7 +173,8 @@ pub(super) struct KeylessGlobalArgs {
     pub(super) action: KeylessAction,
     pub(super) payload: Vec<u8>,
     dump_result: bool,
-    verify_result: Vec<u8>,
+    verify: bool,
+    verify_data: Vec<u8>,
 }
 
 impl KeylessGlobalArgs {
@@ -295,8 +297,9 @@ impl KeylessGlobalArgs {
         };
 
         let dump_result = args.get_flag(ARG_DUMP_RESULT);
-        let verify_result = if let Some(s) = args.get_one::<String>(ARG_VERIFY) {
-            hex::decode(s.as_bytes()).map_err(|e| anyhow!("invalid verify value: {e}"))?
+        let verify = args.get_flag(ARG_VERIFY);
+        let verify_data = if let Some(s) = args.get_one::<String>(ARG_VERIFY_DATA) {
+            hex::decode(s.as_bytes()).map_err(|e| anyhow!("invalid verify data: {e}"))?
         } else {
             vec![]
         };
@@ -308,7 +311,8 @@ impl KeylessGlobalArgs {
             action,
             payload,
             dump_result,
-            verify_result,
+            verify,
+            verify_data,
         })
     }
 
@@ -317,11 +321,56 @@ impl KeylessGlobalArgs {
             let hex_str = hex::encode(&data);
             println!("== Output of task {task_id}:\n{hex_str}");
         }
-        if !self.verify_result.is_empty() && self.verify_result != data {
-            return Err(anyhow!("result verify failed"));
+
+        if !self.verify {
+            return Ok(());
         }
 
-        Ok(())
+        match self.action {
+            KeylessAction::RsaSign(digest, padding) => self.verify_rsa(digest, padding, &data),
+            KeylessAction::EcdsaSign(digest) => self.verify(digest, &data),
+            KeylessAction::Ed25519Sign => self.verify_ed(&data),
+            KeylessAction::Encrypt => {
+                let decrypted = self.decrypt_data(&data)?;
+                if decrypted != self.payload {
+                    println!(" original: {data:?}\ndecrypted: {decrypted:?}");
+                    Err(anyhow!("result data can't be decrypted to original"))
+                } else {
+                    Ok(())
+                }
+            }
+            KeylessAction::RsaEncrypt(padding) => {
+                let decrypted = self.decrypt_rsa_data(padding, &data)?;
+                if decrypted != self.payload {
+                    println!(" original: {data:?}\ndecrypted: {decrypted:?}");
+                    Err(anyhow!("result data can't be decrypted to original"))
+                } else {
+                    Ok(())
+                }
+            }
+            KeylessAction::RsaPrivateEncrypt(padding) => {
+                let decrypted = self.rsa_public_decrypt_data(padding, &data)?;
+                if decrypted != self.payload {
+                    Err(anyhow!("result data can't be decrypted to original"))
+                } else {
+                    Ok(())
+                }
+            }
+            _ => {
+                if self.verify_data.is_empty() {
+                    return Err(anyhow!("expected data is needed to verify the result"));
+                }
+                if self.verify_data != data {
+                    Err(anyhow!(
+                        "result data not match:\nexpected: {:?}\n   found: {:?}",
+                        self.verify_data,
+                        data
+                    ))
+                } else {
+                    Ok(())
+                }
+            }
+        }
     }
 
     #[inline]
@@ -336,9 +385,8 @@ impl KeylessGlobalArgs {
     }
 
     pub(super) fn encrypt(&self) -> anyhow::Result<Vec<u8>> {
-        let pkey = self.get_private_key()?;
-        let mut ctx =
-            PkeyCtx::new(pkey).map_err(|e| anyhow!("failed to create EVP_PKEY_CTX: {e}"))?;
+        let mut ctx = PkeyCtx::new(&self.public_key)
+            .map_err(|e| anyhow!("failed to create EVP_PKEY_CTX: {e}"))?;
         ctx.encrypt_init()
             .map_err(|e| anyhow!("encrypt init failed: {e}"))?;
 
@@ -349,9 +397,8 @@ impl KeylessGlobalArgs {
     }
 
     pub(super) fn encrypt_rsa(&self, padding: KeylessRsaPadding) -> anyhow::Result<Vec<u8>> {
-        let pkey = self.get_private_key()?;
-        let mut ctx =
-            PkeyCtx::new(pkey).map_err(|e| anyhow!("failed to create EVP_PKEY_CTX: {e}"))?;
+        let mut ctx = PkeyCtx::new(&self.public_key)
+            .map_err(|e| anyhow!("failed to create EVP_PKEY_CTX: {e}"))?;
         ctx.encrypt_init()
             .map_err(|e| anyhow!("encrypt init failed: {e}"))?;
         ctx.set_rsa_padding(padding.into())
@@ -364,6 +411,10 @@ impl KeylessGlobalArgs {
     }
 
     pub(super) fn decrypt(&self) -> anyhow::Result<Vec<u8>> {
+        self.decrypt_data(&self.payload)
+    }
+
+    fn decrypt_data(&self, from: &[u8]) -> anyhow::Result<Vec<u8>> {
         let pkey = self.get_private_key()?;
         let mut ctx =
             PkeyCtx::new(pkey).map_err(|e| anyhow!("failed to create EVP_PKEY_CTX: {e}"))?;
@@ -371,12 +422,16 @@ impl KeylessGlobalArgs {
             .map_err(|e| anyhow!("decrypt init failed: {e}"))?;
 
         let mut buf = Vec::new();
-        ctx.decrypt_to_vec(&self.payload, &mut buf)
+        ctx.decrypt_to_vec(from, &mut buf)
             .map_err(|e| anyhow!("decrypt failed: {e}"))?;
         Ok(buf)
     }
 
     pub(super) fn decrypt_rsa(&self, padding: KeylessRsaPadding) -> anyhow::Result<Vec<u8>> {
+        self.decrypt_rsa_data(padding, &self.payload)
+    }
+
+    fn decrypt_rsa_data(&self, padding: KeylessRsaPadding, from: &[u8]) -> anyhow::Result<Vec<u8>> {
         let pkey = self.get_private_key()?;
         let mut ctx =
             PkeyCtx::new(pkey).map_err(|e| anyhow!("failed to create EVP_PKEY_CTX: {e}"))?;
@@ -386,7 +441,7 @@ impl KeylessGlobalArgs {
             .map_err(|e| anyhow!("failed to set rsa padding: {e}"))?;
 
         let mut buf = Vec::new();
-        ctx.decrypt_to_vec(&self.payload, &mut buf)
+        ctx.decrypt_to_vec(from, &mut buf)
             .map_err(|e| anyhow!("decrypt failed: {e}"))?;
         Ok(buf)
     }
@@ -404,6 +459,24 @@ impl KeylessGlobalArgs {
         ctx.sign_to_vec(&self.payload, &mut buf)
             .map_err(|e| anyhow!("sign failed: {e}"))?;
         Ok(buf)
+    }
+
+    fn verify(&self, digest: KeylessSignDigest, sig: &[u8]) -> anyhow::Result<()> {
+        let mut ctx = PkeyCtx::new(&self.public_key)
+            .map_err(|e| anyhow!("failed to create EVP_PKEY_CTX: {e}"))?;
+        ctx.verify_init()
+            .map_err(|e| anyhow!("verify init failed: {e}"))?;
+        ctx.set_signature_md(digest.md())
+            .map_err(|e| anyhow!("failed to set signature digest type: {e}"))?;
+
+        let verified = ctx
+            .verify(&self.payload, sig)
+            .map_err(|e| anyhow!("verify failed: {e}"))?;
+        if verified {
+            Ok(())
+        } else {
+            Err(anyhow!("sign verify data failed"))
+        }
     }
 
     pub(super) fn sign_rsa(
@@ -427,6 +500,31 @@ impl KeylessGlobalArgs {
         Ok(buf)
     }
 
+    fn verify_rsa(
+        &self,
+        digest: KeylessSignDigest,
+        padding: KeylessRsaPadding,
+        sig: &[u8],
+    ) -> anyhow::Result<()> {
+        let mut ctx = PkeyCtx::new(&self.public_key)
+            .map_err(|e| anyhow!("failed to create EVP_PKEY_CTX: {e}"))?;
+        ctx.verify_init()
+            .map_err(|e| anyhow!("verify init failed: {e}"))?;
+        ctx.set_signature_md(digest.md())
+            .map_err(|e| anyhow!("failed to set signature digest type: {e}"))?;
+        ctx.set_rsa_padding(padding.into())
+            .map_err(|e| anyhow!("failed to set rsa padding type: {e}"))?;
+
+        let verified = ctx
+            .verify(&self.payload, sig)
+            .map_err(|e| anyhow!("verify failed: {e}"))?;
+        if verified {
+            Ok(())
+        } else {
+            Err(anyhow!("sign verify data failed"))
+        }
+    }
+
     pub(super) fn sign_ed(&self) -> anyhow::Result<Vec<u8>> {
         let pkey = self.get_private_key()?;
         let mut ctx =
@@ -438,6 +536,22 @@ impl KeylessGlobalArgs {
         ctx.sign_to_vec(&self.payload, &mut buf)
             .map_err(|e| anyhow!("sign failed: {e}"))?;
         Ok(buf)
+    }
+
+    fn verify_ed(&self, sig: &[u8]) -> anyhow::Result<()> {
+        let mut ctx = PkeyCtx::new(&self.public_key)
+            .map_err(|e| anyhow!("failed to create EVP_PKEY_CTX: {e}"))?;
+        ctx.verify_init()
+            .map_err(|e| anyhow!("verify init failed: {e}"))?;
+
+        let verified = ctx
+            .verify(&self.payload, sig)
+            .map_err(|e| anyhow!("verify failed: {e}"))?;
+        if verified {
+            Ok(())
+        } else {
+            Err(anyhow!("sign verify data failed"))
+        }
     }
 
     pub(super) fn rsa_private_encrypt(
@@ -467,6 +581,14 @@ impl KeylessGlobalArgs {
     }
 
     pub(super) fn rsa_public_decrypt(&self, padding: KeylessRsaPadding) -> anyhow::Result<Vec<u8>> {
+        self.rsa_public_decrypt_data(padding, &self.payload)
+    }
+
+    fn rsa_public_decrypt_data(
+        &self,
+        padding: KeylessRsaPadding,
+        from: &[u8],
+    ) -> anyhow::Result<Vec<u8>> {
         let rsa = self
             .public_key
             .rsa()
@@ -475,7 +597,7 @@ impl KeylessGlobalArgs {
         let rsa_size = rsa.size() as usize;
         let mut output_buf = vec![0u8; rsa_size];
 
-        let payload_len = self.payload.len();
+        let payload_len = from.len();
         if payload_len != rsa_size {
             return Err(anyhow!(
                 "payload length {payload_len} is not equal to RSA size {rsa_size}"
@@ -483,7 +605,7 @@ impl KeylessGlobalArgs {
         }
 
         let len = rsa
-            .public_decrypt(&self.payload, &mut output_buf, padding.into())
+            .public_decrypt(from, &mut output_buf, padding.into())
             .map_err(|e| anyhow!("rsa public decrypt failed: {e}"))?;
         output_buf.truncate(len);
         Ok(output_buf)
@@ -589,8 +711,14 @@ fn add_keyless_args(cmd: Command) -> Command {
     .arg(
         Arg::new(ARG_VERIFY)
             .help("Verify the result")
-            .num_args(1)
+            .action(ArgAction::SetTrue)
             .long(ARG_VERIFY),
+    )
+    .arg(
+        Arg::new(ARG_VERIFY_DATA)
+            .help("Verify the result with the same data")
+            .num_args(1)
+            .long(ARG_VERIFY_DATA),
     )
 }
 

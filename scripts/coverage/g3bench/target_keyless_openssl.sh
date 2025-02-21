@@ -1,0 +1,14 @@
+
+# RSA
+
+g3bench keyless openssl --key ${RSA_KEY_FILE} --sign --digest-type sha256 --verify "4d4dfb668f8c6ddd0227c03907515c58779914098a1bf8c169faafdea4d1b91d"
+
+g3bench keyless openssl --key ${RSA_KEY_FILE} --encrypt --verify "abcdef"
+g3bench keyless openssl --key ${RSA_KEY_FILE} --decrypt --verify --verify-data "abcdef" "540c543665ec51c75b2311f507a01336f2f527831f2294d354ae04642c5f26cf97dd91a9213384c1b991f04e8ce98053394e3d835c5892c42b0494637948d585830fa774e65566385ed91fa6da3277004469d9b3ed54e7ba19738e6e73ed286399d583cde6f2e73d21144b166c345f7f12355b58d5259d2ea4206f9fced27192d287285f0d988a1d400be4c27cc0a563fb6d82b1bfd77bcd2a916cd7f4473f4c13377aa8259e5994fe40f72689fb6e717eb6dbb48e08a5fefb8e09f57bcab29c83c8392cd641d66f73ccd6254f5286b3e61611d97a40209f79cbb6479a613b17e746a3559a33f756a13a9467f3eddba3f7939bd719085df04bed64ba9b59ef75"
+
+g3bench keyless openssl --key ${RSA_KEY_FILE} --rsa-padding PKCS1 --rsa-private-encrypt --verify "abcdef"
+g3bench keyless openssl --key ${RSA_KEY_FILE} --rsa-padding PKCS1 --rsa-public-decrypt --verify --verify-data "abcdef" "742e92ef67e6f1f0e37e2415172ec2e177e6ac688a7290bcf8c12a92f87f7ac82060e47a2d2d03c08cc82b369b495ddee2d37626424dcacef970632e1ef6ca2315c71910d0dc28feb9831dc7b13d7ee93fad650917bfeb674ff23720c8889aebe95b818d121837c1d4ef101837e88d02cb5599f3858162d0283701683102b5b5c9daf27d25820be740091704e038689855dea9e3fd75b1dcc8942d0f708d1a175584c9304b8e8e720b8c4d78b356f37a4bd908713d3bf3d74bf8c6b8f657d2158239eee621ec6f45c7bdd1f92bb2f9fcd71a39481d7bf7f4d0b439434bb2c9e3d9213400a36edf12222849e023393bccdb20113b0c800b71ce0f8e3a6f81720d"
+
+# EC
+
+g3bench keyless openssl --key ${EC_KEY_FILE} --sign --digest-type sha256 --verify "4d4dfb668f8c6ddd0227c03907515c58779914098a1bf8c169faafdea4d1b91d"
