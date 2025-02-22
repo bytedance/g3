@@ -210,7 +210,7 @@ impl BenchTaskContext for KeylessCloudflareTaskContext {
                     self.histogram_recorder.record_total_time(total_time);
                     self.args
                         .global
-                        .check_result(task_id, rsp.into_vec())
+                        .check_result(task_id, rsp.into_vec(), &self.proc_args)
                         .map_err(BenchError::Task)
                 }
                 Err(e) => Err(BenchError::Task(e)),
@@ -227,7 +227,7 @@ impl BenchTaskContext for KeylessCloudflareTaskContext {
                     self.histogram_recorder.record_total_time(total_time);
                     self.args
                         .global
-                        .check_result(task_id, rsp.into_vec())
+                        .check_result(task_id, rsp.into_vec(), &self.proc_args)
                         .map_err(BenchError::Task)
                 }
                 Err(e) => {

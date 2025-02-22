@@ -388,21 +388,28 @@ where
         }
     }
 
-    stats::global_state().summary(total_time, &distribute_histogram);
     if let Some(handler) = runtime_stats_handler {
         let _ = handler.join();
     }
-    H::summary_newline();
     target.notify_finish();
-    target.fetch_runtime_stats().summary(total_time);
+
+    if !proc_args.no_summary {
+        stats::global_state().summary(total_time, &distribute_histogram);
+        H::summary_newline();
+        target.fetch_runtime_stats().summary(total_time);
+    }
+
     if let Some(handler) = histogram_stats_handler {
         match handler.join() {
             Ok(mut histogram) => {
                 histogram.refresh();
-                histogram.summary();
+                if !proc_args.no_summary {
+                    histogram.summary();
+                }
             }
             Err(e) => eprintln!("error to join histogram stats thread: {e:?}"),
         }
     }
+
     Ok(())
 }
