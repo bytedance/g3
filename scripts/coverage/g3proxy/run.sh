@@ -15,7 +15,7 @@ IPLOC_PID=$!
 
 # run g3proxy integration tests
 
-export SSL_CERT_FILE="${RUN_DIR}/rootCA.pem"
+export TEST_CA_CERT_FILE="${RUN_DIR}/rootCA.pem"
 
 g3proxy_ctl()
 {
