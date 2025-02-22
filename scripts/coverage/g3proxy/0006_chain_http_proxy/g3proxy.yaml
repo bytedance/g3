@@ -68,6 +68,8 @@ server:
     type: http_proxy
     listen: 127.0.0.1:7080
     escaper: default
+    tls_client:
+      ca_certificate: ../rootCA.pem
   - name: chained_https
     type: http_proxy
     listen: 127.0.0.1:7443
@@ -86,6 +88,8 @@ server:
     type: http_proxy
     listen: 127.0.0.1:8080
     escaper: chained_https
+    tls_client:
+      ca_certificate: ../rootCA.pem
   - name: https
     type: http_proxy
     listen: 127.0.0.1:8443

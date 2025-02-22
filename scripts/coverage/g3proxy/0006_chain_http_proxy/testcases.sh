@@ -3,11 +3,11 @@
 
 test_http_proxy_https_connect()
 {
-	python3 "${PROJECT_DIR}/g3proxy/ci/python3+curl/test_httpbin.py" -x ${HTTP_PROXY} -T https://httpbin.local:9443 --no-auth --ca-cert ${SSL_CERT_FILE}
-	python3 "${PROJECT_DIR}/g3proxy/ci/python3+curl/test_httpbin.py" -x ${HTTP_PROXY} -T https://httpbin.local:2443 --no-auth --ca-cert ${SSL_CERT_FILE}
+	python3 "${PROJECT_DIR}/g3proxy/ci/python3+curl/test_httpbin.py" -x ${HTTP_PROXY} -T https://httpbin.local:9443 --no-auth --ca-cert "${TEST_CA_CERT_FILE}"
+	python3 "${PROJECT_DIR}/g3proxy/ci/python3+curl/test_httpbin.py" -x ${HTTP_PROXY} -T https://httpbin.local:2443 --no-auth --ca-cert "${TEST_CA_CERT_FILE}"
 
-	python3 "${PROJECT_DIR}/g3proxy/ci/python3+requests/test_httpbin.py" -x ${HTTP_PROXY} -T https://httpbin.local:9443 --no-auth --ca-cert ${SSL_CERT_FILE}
-	python3 "${PROJECT_DIR}/g3proxy/ci/python3+requests/test_httpbin.py" -x ${HTTP_PROXY} -T https://httpbin.local:2443 --no-auth --ca-cert ${SSL_CERT_FILE}
+	python3 "${PROJECT_DIR}/g3proxy/ci/python3+requests/test_httpbin.py" -x ${HTTP_PROXY} -T https://httpbin.local:9443 --no-auth --ca-cert "${TEST_CA_CERT_FILE}"
+	python3 "${PROJECT_DIR}/g3proxy/ci/python3+requests/test_httpbin.py" -x ${HTTP_PROXY} -T https://httpbin.local:2443 --no-auth --ca-cert "${TEST_CA_CERT_FILE}"
 }
 
 
@@ -20,47 +20,47 @@ test_http_proxy_https_forward()
 
 test_http_proxy_h2()
 {
-	python3 "${PROJECT_DIR}/g3proxy/ci/python3+curl/test_httpbin_h2.py" -x ${HTTP_PROXY} -T https://httpbin.local:2443 --ca-cert ${SSL_CERT_FILE}
+	python3 "${PROJECT_DIR}/g3proxy/ci/python3+curl/test_httpbin_h2.py" -x ${HTTP_PROXY} -T https://httpbin.local:2443 --ca-cert "${TEST_CA_CERT_FILE}"
 }
 
 
 test_https_proxy_https_connect()
 {
-	python3 "${PROJECT_DIR}/g3proxy/ci/python3+curl/test_httpbin.py" -x ${HTTPS_PROXY} -T https://httpbin.local:9443 --no-auth --proxy-ca-cert ${SSL_CERT_FILE} --ca-cert ${SSL_CERT_FILE}
-	python3 "${PROJECT_DIR}/g3proxy/ci/python3+curl/test_httpbin.py" -x ${HTTPS_PROXY} -T https://httpbin.local:2443 --no-auth --proxy-ca-cert ${SSL_CERT_FILE} --ca-cert ${SSL_CERT_FILE}
+	python3 "${PROJECT_DIR}/g3proxy/ci/python3+curl/test_httpbin.py" -x ${HTTPS_PROXY} -T https://httpbin.local:9443 --no-auth --proxy-ca-cert "${TEST_CA_CERT_FILE}" --ca-cert "${TEST_CA_CERT_FILE}"
+	python3 "${PROJECT_DIR}/g3proxy/ci/python3+curl/test_httpbin.py" -x ${HTTPS_PROXY} -T https://httpbin.local:2443 --no-auth --proxy-ca-cert "${TEST_CA_CERT_FILE}" --ca-cert "${TEST_CA_CERT_FILE}"
 
-	python3 "${PROJECT_DIR}/g3proxy/ci/python3+requests/test_httpbin.py" -x ${HTTPS_PROXY} -T https://httpbin.local:9443 --no-auth --ca-cert ${SSL_CERT_FILE}
-	python3 "${PROJECT_DIR}/g3proxy/ci/python3+requests/test_httpbin.py" -x ${HTTPS_PROXY} -T https://httpbin.local:2443 --no-auth --ca-cert ${SSL_CERT_FILE}
+	python3 "${PROJECT_DIR}/g3proxy/ci/python3+requests/test_httpbin.py" -x ${HTTPS_PROXY} -T https://httpbin.local:9443 --no-auth --ca-cert "${TEST_CA_CERT_FILE}"
+	python3 "${PROJECT_DIR}/g3proxy/ci/python3+requests/test_httpbin.py" -x ${HTTPS_PROXY} -T https://httpbin.local:2443 --no-auth --ca-cert "${TEST_CA_CERT_FILE}"
 }
 
 
 test_https_proxy_https_forward()
 {
-	python3 "${PROJECT_DIR}/g3proxy/ci/python3+curl/test_httpbin.py" -x ${HTTPS_PROXY} -T http://httpbin.local --no-auth --proxy-ca-cert ${SSL_CERT_FILE} --request-target-prefix https://httpbin.local:9443
-	python3 "${PROJECT_DIR}/g3proxy/ci/python3+curl/test_httpbin.py" -x ${HTTPS_PROXY} -T http://httpbin.local --no-auth --proxy-ca-cert ${SSL_CERT_FILE} --request-target-prefix https://httpbin.local:2443
+	python3 "${PROJECT_DIR}/g3proxy/ci/python3+curl/test_httpbin.py" -x ${HTTPS_PROXY} -T http://httpbin.local --no-auth --proxy-ca-cert "${TEST_CA_CERT_FILE}" --request-target-prefix https://httpbin.local:9443
+	python3 "${PROJECT_DIR}/g3proxy/ci/python3+curl/test_httpbin.py" -x ${HTTPS_PROXY} -T http://httpbin.local --no-auth --proxy-ca-cert "${TEST_CA_CERT_FILE}" --request-target-prefix https://httpbin.local:2443
 }
 
 
 test_https_proxy_h2()
 {
-	python3 "${PROJECT_DIR}/g3proxy/ci/python3+curl/test_httpbin_h2.py" -x ${HTTPS_PROXY} -T https://httpbin.local:2443 --proxy-ca-cert ${SSL_CERT_FILE} --ca-cert ${SSL_CERT_FILE}
+	python3 "${PROJECT_DIR}/g3proxy/ci/python3+curl/test_httpbin_h2.py" -x ${HTTPS_PROXY} -T https://httpbin.local:2443 --proxy-ca-cert "${TEST_CA_CERT_FILE}" --ca-cert "${TEST_CA_CERT_FILE}"
 }
 
 
 test_socks5_proxy_https()
 {
-	python3 "${PROJECT_DIR}/g3proxy/ci/python3+curl/test_httpbin.py" -x ${SOCKS5_PROXY} -T https://httpbin.local:9443 --no-auth --ca-cert ${SSL_CERT_FILE}
-	python3 "${PROJECT_DIR}/g3proxy/ci/python3+curl/test_httpbin.py" -x ${SOCKS5_PROXY} -T https://httpbin.local:2443 --no-auth --ca-cert ${SSL_CERT_FILE}
+	python3 "${PROJECT_DIR}/g3proxy/ci/python3+curl/test_httpbin.py" -x ${SOCKS5_PROXY} -T https://httpbin.local:9443 --no-auth --ca-cert "${TEST_CA_CERT_FILE}"
+	python3 "${PROJECT_DIR}/g3proxy/ci/python3+curl/test_httpbin.py" -x ${SOCKS5_PROXY} -T https://httpbin.local:2443 --no-auth --ca-cert "${TEST_CA_CERT_FILE}"
 
-	python3 "${PROJECT_DIR}/g3proxy/ci/python3+requests/test_httpbin.py" -x ${SOCKS5_PROXY} -T https://httpbin.local:9443 --no-auth --ca-cert ${SSL_CERT_FILE}
-	python3 "${PROJECT_DIR}/g3proxy/ci/python3+requests/test_httpbin.py" -x ${SOCKS5_PROXY} -T https://httpbin.local:2443 --no-auth --ca-cert ${SSL_CERT_FILE}
+	python3 "${PROJECT_DIR}/g3proxy/ci/python3+requests/test_httpbin.py" -x ${SOCKS5_PROXY} -T https://httpbin.local:9443 --no-auth --ca-cert "${TEST_CA_CERT_FILE}"
+	python3 "${PROJECT_DIR}/g3proxy/ci/python3+requests/test_httpbin.py" -x ${SOCKS5_PROXY} -T https://httpbin.local:2443 --no-auth --ca-cert "${TEST_CA_CERT_FILE}"
 }
 
 
 test_socks4_proxy_https()
 {
-	python3 "${PROJECT_DIR}/g3proxy/ci/python3+curl/test_httpbin.py" -x ${SOCKS4_PROXY} -T https://httpbin.local:9443 --no-auth --ca-cert ${SSL_CERT_FILE}
-	python3 "${PROJECT_DIR}/g3proxy/ci/python3+curl/test_httpbin.py" -x ${SOCKS4_PROXY} -T https://httpbin.local:2443 --no-auth --ca-cert ${SSL_CERT_FILE}
+	python3 "${PROJECT_DIR}/g3proxy/ci/python3+curl/test_httpbin.py" -x ${SOCKS4_PROXY} -T https://httpbin.local:9443 --no-auth --ca-cert "${TEST_CA_CERT_FILE}"
+	python3 "${PROJECT_DIR}/g3proxy/ci/python3+curl/test_httpbin.py" -x ${SOCKS4_PROXY} -T https://httpbin.local:2443 --no-auth --ca-cert "${TEST_CA_CERT_FILE}"
 }
 
 

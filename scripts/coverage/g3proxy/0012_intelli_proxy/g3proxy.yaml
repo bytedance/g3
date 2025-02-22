@@ -60,6 +60,8 @@ server:
     type: http_proxy
     listen: 127.0.0.1:8080
     escaper: chained_http
+    tls_client:
+      ca_certificate: ../rootCA.pem
   - name: intelli
     type: intelli_proxy
     listen: 127.0.0.1:9000

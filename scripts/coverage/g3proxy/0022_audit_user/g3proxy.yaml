@@ -81,7 +81,8 @@ server:
     user-group: default
     listen:
       address: "[::]:8080"
-    tls_client: { }
+    tls_client:
+      ca_certificate: ../rootCA.pem
   - name: socks
     type: socks_proxy
     escaper: default
