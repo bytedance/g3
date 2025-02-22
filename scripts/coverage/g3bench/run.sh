@@ -18,7 +18,7 @@ export TEST_EC_KEY_FILE="${RUN_DIR}/rootCA-EC-key.pem"
 
 g3bench()
 {
-	"${PROJECT_DIR}"/target/debug/g3bench --log-error 1 "$@"
+	"${PROJECT_DIR}"/target/debug/g3bench --no-progress-bar --log-error 1 "$@"
 }
 
 set -x

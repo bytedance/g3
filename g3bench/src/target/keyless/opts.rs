@@ -28,6 +28,8 @@ use openssl::rsa::Padding;
 
 use g3_tls_cert::ext::PublicKeyExt;
 
+use crate::ProcArgs;
+
 const ARG_CERT: &str = "cert";
 const ARG_PKEY: &str = "key";
 const ARG_RSA_PRIVATE_ENCRYPT: &str = "rsa-private-encrypt";
@@ -316,10 +318,18 @@ impl KeylessGlobalArgs {
         })
     }
 
-    pub(super) fn check_result(&self, task_id: usize, data: Vec<u8>) -> anyhow::Result<()> {
+    pub(super) fn check_result(
+        &self,
+        task_id: usize,
+        data: Vec<u8>,
+        proc_args: &ProcArgs,
+    ) -> anyhow::Result<()> {
         if self.dump_result {
             let hex_str = hex::encode(&data);
-            println!("== Output of task {task_id}:\n{hex_str}");
+            if !proc_args.no_summary {
+                println!("== Output of task {task_id}:");
+            }
+            println!("{hex_str}");
         }
 
         if !self.verify {

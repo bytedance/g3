@@ -27,7 +27,6 @@ use crate::target::BenchError;
 
 pub(super) struct KeylessOpensslTaskContext {
     args: Arc<KeylessOpensslArgs>,
-    #[allow(unused)]
     proc_args: Arc<ProcArgs>,
 
     runtime_stats: Arc<KeylessRuntimeStats>,
@@ -86,7 +85,7 @@ impl BenchTaskContext for KeylessOpensslTaskContext {
         self.histogram_recorder.record_total_time(total_time);
         self.args
             .global
-            .check_result(task_id, output)
+            .check_result(task_id, output, &self.proc_args)
             .map_err(BenchError::Task)?;
         tokio::task::yield_now().await;
         Ok(())

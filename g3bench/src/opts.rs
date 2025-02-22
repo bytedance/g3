@@ -54,6 +54,7 @@ const GLOBAL_ARG_EMIT_METRICS: &str = "emit-metrics";
 const GLOBAL_ARG_STATSD_TARGET_UDP: &str = "statsd-target-udp";
 const GLOBAL_ARG_STATSD_TARGET_UNIX: &str = "statsd-target-unix";
 const GLOBAL_ARG_NO_PROGRESS_BAR: &str = "no-progress-bar";
+const GLOBAL_ARG_NO_SUMMARY: &str = "no-summary";
 
 const GLOBAL_ARG_PEER_PICK_POLICY: &str = "peer-pick-policy";
 const GLOBAL_ARG_TCP_LIMIT_SHIFT: &str = "tcp-limit-shift";
@@ -78,6 +79,7 @@ pub struct ProcArgs {
 
     statsd_client_config: Option<StatsdClientConfig>,
     no_progress_bar: bool,
+    pub(super) no_summary: bool,
 
     peer_pick_policy: SelectivePickPolicy,
     pub(super) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
@@ -101,6 +103,7 @@ impl Default for ProcArgs {
             main_runtime: BlendedRuntimeConfig::default(),
             statsd_client_config: None,
             no_progress_bar: false,
+            no_summary: false,
             peer_pick_policy: SelectivePickPolicy::RoundRobin,
             tcp_sock_speed_limit: TcpSockSpeedLimitConfig::default(),
             udp_sock_speed_limit: UdpSockSpeedLimitConfig::default(),
@@ -110,6 +113,10 @@ impl Default for ProcArgs {
 
 impl ProcArgs {
     pub fn summary(&self) {
+        if self.no_summary {
+            return;
+        }
+
         println!("Concurrency Level: {}", self.concurrency);
         println!();
     }
@@ -368,6 +375,13 @@ pub fn add_global_args(app: Command) -> Command {
             .global(true),
     )
     .arg(
+        Arg::new(GLOBAL_ARG_NO_SUMMARY)
+            .help("Disable summary output")
+            .action(ArgAction::SetTrue)
+            .long(GLOBAL_ARG_NO_SUMMARY)
+            .global(true),
+    )
+    .arg(
         Arg::new(GLOBAL_ARG_PEER_PICK_POLICY)
             .help("Set the pick policy for selecting peers")
             .long(GLOBAL_ARG_PEER_PICK_POLICY)
@@ -513,6 +527,7 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
     if args.get_flag(GLOBAL_ARG_NO_PROGRESS_BAR) || !stderr().is_terminal() {
         proc_args.no_progress_bar = true;
     }
+    proc_args.no_summary = args.get_flag(GLOBAL_ARG_NO_SUMMARY);
 
     if let Some(s) = args.get_one::<String>(GLOBAL_ARG_PEER_PICK_POLICY) {
         proc_args.peer_pick_policy = SelectivePickPolicy::from_str(s).unwrap();
