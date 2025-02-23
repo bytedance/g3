@@ -86,7 +86,7 @@ thiserror = "2.0"
 rand = { version = "0.9", default-features = false, features = ["thread_rng"] }
 fastrand = "2.3"
 memchr = "2.4"
-constant_time_eq = "0.3"
+constant_time_eq = "0.4"
 uuid = "1.13"
 base64 = "0.22"
 regex = "1.11"
@@ -119,7 +119,7 @@ lru = { version = "0.13", default-features = false }
 #
 blake3 = { version = "1.5", default-features = false }
 hex = "0.4.2"
-hex-literal = "0.4"
+hex-literal = "1.0"
 #
 idna = "1.0"
 url = "2.1"
