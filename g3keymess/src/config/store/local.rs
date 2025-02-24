@@ -107,10 +107,14 @@ impl KeyStoreConfig for LocalKeyStoreConfig {
             .await
             .map_err(|e| anyhow!("failed to read dir {}: {e}", self.dir_path.display()))?
         {
-            let ft = entry.file_type().await.map_err(|e| {
-                anyhow!("failed to get file type of {}: {e}", entry.path().display())
+            // symlink is followed in `metadata()`
+            let meta = entry.metadata().await.map_err(|e| {
+                anyhow!(
+                    "failed to fetch metadata for file {}: {e}",
+                    entry.path().display()
+                )
             })?;
-            if !ft.is_file() {
+            if !meta.is_file() {
                 continue;
             }
 
