@@ -33,7 +33,9 @@ static GLOBAL_SKI_MAP: RwLock<HashMap<Vec<u8>, PKey<Private>, FixedState>> =
 
 pub(crate) fn add_global(key: PKey<Private>) -> anyhow::Result<()> {
     let ski = key.ski().map_err(|e| anyhow!("failed to get SKI: {e}"))?;
-    let mut map = GLOBAL_SKI_MAP.write().unwrap();
+    let mut map = GLOBAL_SKI_MAP
+        .write()
+        .map_err(|e| anyhow!("failed to get global ski_map: {e}"))?;
     map.insert(ski.to_vec(), key);
     Ok(())
 }

@@ -17,7 +17,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::anyhow;
-use log::warn;
+use log::{debug, warn};
 use openssl::pkey::{PKey, Private};
 use tokio::sync::oneshot;
 use yaml_rust::{Yaml, yaml};
@@ -97,6 +97,7 @@ impl KeyStoreConfig for LocalKeyStoreConfig {
     async fn load_keys(&self) -> anyhow::Result<()> {
         const BATCH_SIZE: usize = 128;
 
+        debug!("loading keys from dir {}", self.dir_path.display());
         let mut dir = tokio::fs::read_dir(&self.dir_path)
             .await
             .map_err(|e| anyhow!("failed to open {}: {e}", self.dir_path.display()))?;
@@ -107,33 +108,25 @@ impl KeyStoreConfig for LocalKeyStoreConfig {
             .await
             .map_err(|e| anyhow!("failed to read dir {}: {e}", self.dir_path.display()))?
         {
+            let path = entry.path();
             // symlink is followed in `metadata()`
-            let meta = entry.metadata().await.map_err(|e| {
-                anyhow!(
-                    "failed to fetch metadata for file {}: {e}",
-                    entry.path().display()
-                )
-            })?;
+            let meta = match entry.metadata().await {
+                Ok(meta) => meta,
+                Err(e) => {
+                    warn!(" - failed to get metadata for {}: {e}", path.display());
+                    continue;
+                }
+            };
             if !meta.is_file() {
+                debug!(" - skip non-regular file {}", path.display());
                 continue;
             }
-
-            let path = entry.path();
-            match load_key(&path).await {
-                Ok(Some(key)) => {
-                    if let Err(e) = crate::store::add_global(key) {
-                        warn!("failed to add key from file {}: {e}", path.display());
-                    }
-                }
-                Ok(None) => {}
-                Err(e) => {
-                    warn!("failed to load key from file {}: {e}", path.display());
-                }
-            }
+            load_add_key(&path).await;
 
             count += 1;
             if count >= BATCH_SIZE {
                 tokio::task::yield_now().await;
+                count = 0;
             }
         }
         Ok(())
@@ -171,24 +164,15 @@ impl KeyStoreConfig for LocalKeyStoreConfig {
                     Some(Ok(v)) => {
                         if let Some(p) = v.name {
                             let path = dir_path.join(p);
-                            match load_key(&path).await {
-                                Ok(Some(key)) => {
-                                    if let Err(e) = crate::store::add_global(key) {
-                                        warn!("failed to add key from file {}: {e}", path.display())
-                                    }
-                                }
-                                Ok(None) => {}
-                                Err(e) => {
-                                    warn!("{e:?}")
-                                }
-                            }
+                            debug!("got close_write event on {}", path.display());
+                            load_add_key(&path).await;
                         }
                     }
                     Some(Err(e)) => {
-                        warn!("inotify watch failed: {e}")
+                        warn!("inotify watch failed: {e}");
                     }
                     None => {
-                        warn!("inotify watch ended unexpected")
+                        warn!("inotify watch ended unexpected");
                     }
                 }
             }
@@ -208,6 +192,25 @@ impl KeyStoreConfig for LocalKeyStoreConfig {
     #[cfg(not(target_os = "linux"))]
     fn spawn_subscriber(&self) -> anyhow::Result<Option<oneshot::Sender<()>>> {
         Ok(None)
+    }
+}
+
+async fn load_add_key(path: &Path) {
+    match load_key(path).await {
+        Ok(Some(key)) => match crate::store::add_global(key) {
+            Ok(_) => {
+                debug!(" - loaded key from file {}", path.display());
+            }
+            Err(e) => {
+                warn!(" - failed to add key from file {}: {e}", path.display());
+            }
+        },
+        Ok(None) => {
+            debug!(" - no key found in file {}", path.display());
+        }
+        Err(e) => {
+            warn!(" - failed to load key from file {}: {e}", path.display());
+        }
     }
 }
 
