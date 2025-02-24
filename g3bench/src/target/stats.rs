@@ -60,13 +60,13 @@ impl Default for GlobalState {
 impl GlobalState {
     pub(super) const fn new(requests: Option<usize>, log_error_count: usize) -> Self {
         let total_left = match requests {
-            Some(v) => v,
-            None => 0,
+            Some(n) => AtomicUsize::new(n),
+            None => AtomicUsize::new(0),
         };
         GlobalState {
             check_total: AtomicBool::new(requests.is_some()),
             force_quit: AtomicBool::new(false),
-            total_left: AtomicUsize::new(total_left),
+            total_left,
             total_passed: AtomicUsize::new(0),
             total_failed: AtomicUsize::new(0),
             log_error_left: AtomicUsize::new(log_error_count),
@@ -130,6 +130,10 @@ impl GlobalState {
 
     pub(super) fn add_failed(&self) {
         self.total_failed.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn all_succeeded(&self) -> bool {
+        self.total_failed.load(Ordering::Relaxed) == 0
     }
 
     pub(super) fn summary(&self, total_time: Duration, distribution: &Histogram<u64>) {

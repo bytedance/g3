@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::process::ExitCode;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
@@ -175,7 +176,7 @@ fn register_signal_handler() {
     });
 }
 
-async fn run<RS, H, C, T>(mut target: T, proc_args: &ProcArgs) -> anyhow::Result<()>
+async fn run<RS, H, C, T>(mut target: T, proc_args: &ProcArgs) -> anyhow::Result<ExitCode>
 where
     RS: BenchRuntimeStats + Send + Sync + 'static,
     H: BenchHistogram + Send + 'static,
@@ -411,5 +412,10 @@ where
         }
     }
 
-    Ok(())
+    let exit_code = if stats::global_state().all_succeeded() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    };
+    Ok(exit_code)
 }

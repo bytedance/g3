@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::process::ExitCode;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -59,7 +60,7 @@ pub fn command() -> Command {
     opts::add_dns_args(Command::new(COMMAND))
 }
 
-pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Result<()> {
+pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Result<ExitCode> {
     let dns_args = opts::parse_dns_args(cmd_args)?;
 
     let (histogram, histogram_recorder) = DnsHistogram::new();

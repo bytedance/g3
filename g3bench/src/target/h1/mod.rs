@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::process::ExitCode;
 use std::sync::Arc;
 
 use clap::{ArgMatches, Command};
@@ -63,7 +64,7 @@ pub fn command() -> Command {
     opts::add_http_args(Command::new(COMMAND))
 }
 
-pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Result<()> {
+pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Result<ExitCode> {
     let mut http_args = opts::parse_http_args(cmd_args)?;
     http_args.resolve_target_address(proc_args).await?;
 
