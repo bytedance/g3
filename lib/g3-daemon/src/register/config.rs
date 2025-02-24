@@ -25,6 +25,8 @@ use g3_types::net::UpstreamAddr;
 
 pub struct RegisterConfig {
     pub(crate) upstream: UpstreamAddr,
+    pub(crate) startup_retry: usize,
+    pub(crate) retry_interval: Duration,
     pub(crate) register_path: PathAndQuery,
     pub(crate) ping_path: PathAndQuery,
     pub(crate) ping_interval: Duration,
@@ -35,6 +37,8 @@ impl Default for RegisterConfig {
     fn default() -> Self {
         RegisterConfig {
             upstream: UpstreamAddr::empty(),
+            startup_retry: 3,
+            retry_interval: Duration::from_secs(1),
             register_path: PathAndQuery::from_static("/register"),
             ping_path: PathAndQuery::from_static("/ping"),
             ping_interval: Duration::from_secs(60),
@@ -44,6 +48,16 @@ impl Default for RegisterConfig {
 }
 
 impl RegisterConfig {
+    #[inline]
+    pub fn startup_retry(&self) -> usize {
+        self.startup_retry
+    }
+
+    #[inline]
+    pub fn retry_interval(&self) -> Duration {
+        self.retry_interval
+    }
+
     pub(crate) fn parse(&mut self, v: &Yaml) -> anyhow::Result<()> {
         match v {
             Yaml::Hash(map) => self.parse_map(map),
@@ -61,6 +75,15 @@ impl RegisterConfig {
             "upstream" => {
                 self.upstream = g3_yaml::value::as_upstream_addr(v, 0)
                     .context(format!("invalid upstream address value for key {k}"))?;
+                Ok(())
+            }
+            "startup_retry" => {
+                self.startup_retry = g3_yaml::value::as_usize(v)?;
+                Ok(())
+            }
+            "retry_interval" => {
+                self.retry_interval = g3_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "register_path" => {
