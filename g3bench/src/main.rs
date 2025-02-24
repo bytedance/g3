@@ -15,6 +15,7 @@
  */
 
 use std::io;
+use std::process::ExitCode;
 use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
@@ -47,7 +48,7 @@ fn build_cli_args() -> Command {
         .subcommand(g3bench::target::keyless::command())
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<ExitCode> {
     #[cfg(feature = "openssl-probe")]
     unsafe {
         openssl_probe::init_openssl_env_vars();
@@ -70,11 +71,11 @@ fn main() -> anyhow::Result<()> {
     match subcommand {
         COMMAND_VERSION => {
             g3bench::build::print_version();
-            return Ok(());
+            return Ok(ExitCode::SUCCESS);
         }
         COMMAND_COMPLETION => {
             generate_completion(sub_args);
-            return Ok(());
+            return Ok(ExitCode::SUCCESS);
         }
         _ => {}
     }

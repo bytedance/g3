@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::process::ExitCode;
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -38,7 +39,7 @@ pub fn command() -> Command {
         .subcommand(cloudflare::command())
 }
 
-pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Result<()> {
+pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Result<ExitCode> {
     match cmd_args.subcommand() {
         Some((openssl::COMMAND, args)) => openssl::run(proc_args, args).await,
         Some((cloudflare::COMMAND, args)) => cloudflare::run(proc_args, args).await,

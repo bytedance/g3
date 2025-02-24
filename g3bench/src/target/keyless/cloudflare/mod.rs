@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::process::ExitCode;
 use std::sync::Arc;
 
 use clap::{ArgMatches, Command};
@@ -83,7 +84,10 @@ pub(super) fn command() -> Command {
     )
 }
 
-pub(super) async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Result<()> {
+pub(super) async fn run(
+    proc_args: &Arc<ProcArgs>,
+    cmd_args: &ArgMatches,
+) -> anyhow::Result<ExitCode> {
     let mut cf_args = opts::parse_cloudflare_args(cmd_args)?;
     cf_args.resolve_target_address(proc_args).await?;
 
