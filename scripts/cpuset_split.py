@@ -6,7 +6,7 @@ import argparse
 def get_physical_core(i: int):
     with open(f"/sys/devices/system/cpu/cpu{i}/topology/core_id", 'r') as f:
         core = f.read()
-    return core.rstrip()
+    return int(core.rstrip())
 
 
 def cpu_set_to_list(s: str):
@@ -14,6 +14,10 @@ def cpu_set_to_list(s: str):
     cpus = []
     i = 0
     for c in reversed(s):
+        # the value of /sys/devices/system/node/node0/cpumap is delimited by ','
+        if c == ',':
+            continue
+
         n = int(c, 16)
 
         if n & 0b0001:
