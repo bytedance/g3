@@ -1,0 +1,13 @@
+---
+
+name: tcp_stream
+type: TcpStream
+
+escaper: default
+
+listen:
+  address: "[::]:8090"
+  backlog: 4096
+listen_in_worker: true
+
+upstream: "127.0.0.1:80"

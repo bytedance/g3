@@ -1,0 +1,18 @@
+---
+
+name: tls_stream
+type: TlsStream
+
+escaper: default
+
+listen:
+  address: "[::]:9090"
+  backlog: 4096
+listen_in_worker: true
+
+tls_server:
+  cert_pairs:
+    certificate: "bench.example.net-ec256.crt"
+    private_key: "bench.example.net-ec256.key"
+
+upstream: "127.0.0.1:80"

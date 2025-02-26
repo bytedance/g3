@@ -3,7 +3,8 @@
 runtime:
   thread_number: 2
 
-worker: {}
+worker:
+  sched_affinity: true
 
 discover:
   - name: static

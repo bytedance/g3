@@ -1,0 +1,33 @@
+---
+
+runtime:
+  thread_number: 2
+
+worker:
+  sched_affinity: true
+
+resolver:
+  - name: default
+    type: c-ares
+
+escaper:
+  - name: default
+    type: direct_fixed
+    resolver: default
+    resolve_strategy:
+      query: Ipv6Only
+    bind_ip: fdbd:dc09:0:611::91
+    egress_network_filter:
+      default: forbid
+      allow:
+        - fc00::/7
+
+server: server.d
+
+log: discard
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+  prefix: g3proxy
+  emit_duration: 200ms

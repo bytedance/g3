@@ -4,6 +4,7 @@ name: rustls
 type: RustlsProxy
 listen:
   address: "[::]:9095"
+  backlog: 4096
 listen_in_worker: true
 
 virtual_hosts:
@@ -16,4 +17,4 @@ virtual_hosts:
   backends:
     - http
 
-tls-ticketer: {}
+tls-ticketer: { }
