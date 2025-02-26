@@ -1,0 +1,11 @@
+---
+
+name: http_proxy
+type: HttpProxy
+
+escaper: default
+
+listen:
+  address: "[::]:8080"
+  backlog: 4096
+listen_in_worker: true
