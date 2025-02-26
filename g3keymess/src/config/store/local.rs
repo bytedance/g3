@@ -108,25 +108,43 @@ impl KeyStoreConfig for LocalKeyStoreConfig {
             .await
             .map_err(|e| anyhow!("failed to read dir {}: {e}", self.dir_path.display()))?
         {
-            let path = entry.path();
-            // symlink is followed in `metadata()`
-            let meta = match entry.metadata().await {
-                Ok(meta) => meta,
-                Err(e) => {
-                    warn!(" - failed to get metadata for {}: {e}", path.display());
-                    continue;
-                }
-            };
-            if !meta.is_file() {
-                debug!(" - skip non-regular file {}", path.display());
-                continue;
-            }
-            load_add_key(&path).await;
-
-            count += 1;
             if count >= BATCH_SIZE {
                 tokio::task::yield_now().await;
                 count = 0;
+            } else {
+                count += 1;
+            }
+
+            let path = entry.path();
+            let filetype = match entry.file_type().await {
+                Ok(t) => t,
+                Err(e) => {
+                    warn!(
+                        " - failed to get filetype for dir entry {}: {e}",
+                        path.display()
+                    );
+                    continue;
+                }
+            };
+
+            if filetype.is_file() {
+                load_add_key(&path).await;
+            } else if filetype.is_symlink() {
+                // traverse the symlink to get the real file type
+                match tokio::fs::metadata(&path).await {
+                    Ok(meta) => {
+                        if meta.is_file() {
+                            load_add_key(&path).await;
+                        } else {
+                            debug!(" - skip non-regular file {}", path.display());
+                        }
+                    }
+                    Err(e) => {
+                        warn!(" - failed to get metadata for {}: {e}", path.display());
+                    }
+                }
+            } else {
+                debug!(" - skip non-regular file {}", path.display());
             }
         }
         Ok(())
