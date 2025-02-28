@@ -25,7 +25,6 @@ The following common keys are supported:
 * :ref:`happy eyeballs <conf_escaper_common_happy_eyeballs>`
 * :ref:`tcp_misc_opts <conf_escaper_common_tcp_misc_opts>`
 * :ref:`pass_proxy_userid <conf_escaper_common_pass_proxy_userid>`
-* :ref:`use_proxy_protocol <conf_escaper_common_use_proxy_protocol>`
 * :ref:`peer negotiation timeout <conf_escaper_common_peer_negotiation_timeout>`
 * :ref:`extra_metrics_tags <conf_escaper_common_extra_metrics_tags>`
 
@@ -132,3 +131,12 @@ Set tcp keepalive.
 The tcp keepalive set in user config won't be taken into account.
 
 **default**: no keepalive set
+
+use_proxy_protocol
+------------------
+
+**optional**, **type**: :ref:`proxy protocol version <conf_value_proxy_protocol_version>`
+
+Set the version of PROXY protocol to use after TCP connected to the peer.
+
+**default**: not set, which means PROXY protocol won't be used

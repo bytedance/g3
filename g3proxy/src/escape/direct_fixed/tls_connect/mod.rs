@@ -40,9 +40,13 @@ impl DirectFixedEscaper {
         task_notes: &ServerTaskNotes,
         tls_application: TlsApplication,
     ) -> Result<SslStream<impl AsyncRead + AsyncWrite + use<>>, TcpConnectError> {
-        let stream = self
+        let mut stream = self
             .tcp_connect_to(&task_conf.tcp, tcp_notes, task_notes)
             .await?;
+        if let Some(version) = self.config.use_proxy_protocol {
+            self.send_tcp_proxy_protocol_header(version, &mut stream, task_notes, false)
+                .await?;
+        }
 
         // set limit config and add escaper stats, do not count in task stats
         let limit_config = &self.config.general.tcp_sock_speed_limit;

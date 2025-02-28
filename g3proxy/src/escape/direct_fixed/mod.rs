@@ -21,6 +21,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use slog::Logger;
+use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_resolver::ResolveError;
@@ -28,7 +29,7 @@ use g3_socket::BindAddr;
 use g3_socket::util::AddressFamily;
 use g3_types::acl::AclNetworkRule;
 use g3_types::metrics::NodeName;
-use g3_types::net::{Host, UpstreamAddr};
+use g3_types::net::{Host, ProxyProtocolEncoder, ProxyProtocolVersion, UpstreamAddr};
 use g3_types::resolve::{ResolveRedirection, ResolveStrategy};
 
 use super::{
@@ -253,6 +254,34 @@ impl DirectFixedEscaper {
                 Ok(SocketAddr::new(ip, ups.port()))
             }
         }
+    }
+
+    async fn send_tcp_proxy_protocol_header<W>(
+        &self,
+        version: ProxyProtocolVersion,
+        writer: &mut W,
+        task_notes: &ServerTaskNotes,
+        do_flush: bool,
+    ) -> Result<(), TcpConnectError>
+    where
+        W: AsyncWrite + Unpin,
+    {
+        let mut encoder = ProxyProtocolEncoder::new(version);
+        let bytes = encoder
+            .encode_tcp(task_notes.client_addr(), task_notes.server_addr())
+            .map_err(TcpConnectError::ProxyProtocolEncodeError)?;
+        writer
+            .write_all(bytes) // no need to flush data
+            .await
+            .map_err(TcpConnectError::ProxyProtocolWriteFailed)?;
+        self.stats.tcp.io.add_out_bytes(bytes.len() as u64);
+        if do_flush {
+            writer
+                .flush()
+                .await
+                .map_err(TcpConnectError::ProxyProtocolWriteFailed)?;
+        }
+        Ok(())
     }
 
     fn fetch_user_upstream_io_stats(

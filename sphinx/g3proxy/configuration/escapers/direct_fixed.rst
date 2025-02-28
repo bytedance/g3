@@ -92,3 +92,14 @@ Weather we should enable path selection.
 .. note:: Path selection on server side should be open, or this option will have no effects.
 
 **default**: false
+
+use_proxy_protocol
+------------------
+
+**optional**, **type**: :ref:`proxy protocol version <conf_value_proxy_protocol_version>`
+
+Set the version of PROXY protocol we use for outgoing tcp connections except for FTP data connections.
+
+**default**: not set, which means PROXY protocol won't be used
+
+.. versionadded:: 1.11.3

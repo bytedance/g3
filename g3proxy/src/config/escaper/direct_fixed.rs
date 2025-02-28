@@ -25,7 +25,9 @@ use g3_types::acl::{AclAction, AclNetworkRuleBuilder};
 use g3_types::metrics::{NodeName, StaticMetricsTags};
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use g3_types::net::InterfaceName;
-use g3_types::net::{HappyEyeballsConfig, TcpKeepAliveConfig, TcpMiscSockOpts, UdpMiscSockOpts};
+use g3_types::net::{
+    HappyEyeballsConfig, ProxyProtocolVersion, TcpKeepAliveConfig, TcpMiscSockOpts, UdpMiscSockOpts,
+};
 use g3_types::resolve::{QueryStrategy, ResolveRedirectionBuilder, ResolveStrategy};
 use g3_yaml::YamlDocPosition;
 
@@ -54,6 +56,7 @@ pub(crate) struct DirectFixedEscaperConfig {
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
     pub(crate) udp_misc_opts: UdpMiscSockOpts,
     pub(crate) enable_path_selection: bool,
+    pub(crate) use_proxy_protocol: Option<ProxyProtocolVersion>,
     pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
 }
 
@@ -79,6 +82,7 @@ impl DirectFixedEscaperConfig {
             tcp_misc_opts: Default::default(),
             udp_misc_opts: Default::default(),
             enable_path_selection: false,
+            use_proxy_protocol: None,
             extra_metrics_tags: None,
         }
     }
@@ -193,6 +197,12 @@ impl DirectFixedEscaperConfig {
             "happy_eyeballs" => {
                 self.happy_eyeballs = g3_yaml::value::as_happy_eyeballs_config(v)
                     .context(format!("invalid happy eyeballs config value for key {k}"))?;
+                Ok(())
+            }
+            "use_proxy_protocol" => {
+                let version = g3_yaml::value::as_proxy_protocol_version(v)
+                    .context(format!("invalid ProxyProtocolVersion value for key {k}"))?;
+                self.use_proxy_protocol = Some(version);
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
