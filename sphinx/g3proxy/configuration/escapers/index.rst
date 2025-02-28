@@ -225,17 +225,6 @@ to the real username, the password field set to our package name (g3proxy if not
 
 .. note:: This will conflict with the real auth of next proxy.
 
-.. _conf_escaper_common_use_proxy_protocol:
-
-use_proxy_protocol
-------------------
-
-**optional**, **type**: :ref:`proxy protocol version <conf_value_proxy_protocol_version>`
-
-Set the version of PROXY protocol we use for outgoing tcp connections.
-
-**default**: not set, which means PROXY protocol won't be used
-
 .. _conf_escaper_common_peer_negotiation_timeout:
 
 peer_negotiation_timeout

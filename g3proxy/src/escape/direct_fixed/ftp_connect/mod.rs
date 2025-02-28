@@ -35,9 +35,13 @@ impl DirectFixedEscaper {
         task_notes: &ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteControlStats,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
-        let stream = self
+        let mut stream = self
             .tcp_connect_to(task_conf, tcp_notes, task_notes)
             .await?;
+        if let Some(version) = self.config.use_proxy_protocol {
+            self.send_tcp_proxy_protocol_header(version, &mut stream, task_notes, false)
+                .await?;
+        }
 
         let mut wrapper_stats = FtpControlRemoteWrapperStats::new(&self.stats, task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));

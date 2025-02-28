@@ -1,0 +1,53 @@
+---
+
+log: discard
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+
+resolver:
+  - name: default
+    type: c-ares
+    server:
+      - 127.0.0.1
+
+escaper:
+  - name: default
+    type: direct_fixed
+    resolver: default
+    egress_net_filter:
+      default: allow
+      allow: 127.0.0.1
+  - name: to_inner
+    type: direct_fixed
+    resolver: default
+    egress_net_filter:
+      default: allow
+      allow: 127.0.0.1
+    use_proxy_protocol: 2
+
+server:
+  - name: tcp
+    type: tcp_stream
+    listen: 127.0.0.1:8080
+    escaper: to_inner
+    upstream: 127.0.0.1:8081
+  - name: tls
+    type: tls_stream
+    escaper: to_inner
+    listen: 127.0.0.1:8443
+    tls_server:
+      cert_pairs:
+        certificate: ../httpbin.local.pem
+        private-key: ../httpbin.local-key.pem
+    upstream: 127.0.0.1:8081
+  - name: inner_tcp_server
+    type: tcp_stream
+    escaper: default
+    upstream: 127.0.0.1:80
+  - name: inner_tcp_port
+    type: plain_tcp_port
+    listen: 127.0.0.1:8081
+    server: inner_tcp_server
+    proxy_protocol: 2
