@@ -14,7 +14,7 @@ including but not limited to proxy / reverse proxy (WIP) / load balancer (TBD) /
 
 ## Applications
 
-The G3 project is consisted of many applications, each of which has a separate subdirectory containing its own code,
+The G3 project consists of many applications, each of which has a separate subdirectory containing its own code,
 documentation, etc.
 
 In addition to the application directories, there are some public directories:
