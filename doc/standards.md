@@ -41,6 +41,8 @@ The code should comply to these, but should be more compliant to existing popula
     : The BSD syslog Protocol
  - [rfc5424](https://datatracker.ietf.org/doc/html/rfc5424)
     : The Syslog Protocol
+ - [rfc6587](https://datatracker.ietf.org/doc/html/rfc6587)
+    : Transmission of Syslog Messages over TCP
  - [CEE Log Syntax](https://cee.mitre.org/language/1.0-beta1/cls.html)
     : CEE Log Syntax (CLS) Specification
  - [CEE Log Transport](https://cee.mitre.org/language/1.0-beta1/clt.html)
@@ -117,6 +119,16 @@ The code should comply to these, but should be more compliant to existing popula
     : MIME Parameter Value and Encoded Word Extensions: Character Sets, Languages, and Continuations
 
 # Network Protocol
+
+## TCP
+
+ - [rfc9293](https://datatracker.ietf.org/doc/html/rfc9293)
+    : Transmission Control Protocol (TCP)
+
+## UDP
+
+ - [rfc8085](https://datatracker.ietf.org/doc/html/rfc8085)
+    : UDP Usage Guidelines
 
 ## Happy Eyeballs
 
