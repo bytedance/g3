@@ -50,10 +50,12 @@ Show the event that trigger this log.
 
 The event can be
 
-  - created
-  - connected
-  - periodic
-  - finished
+  - Created: task created
+  - Connected: connected to upstream
+  - Periodic: periodic log
+  - ClientShutdown: client shutdown the connection gracefully first
+  - UpstreamShutdown: upstream shutdown the connection gracefully first
+  - Finished: task finished
 
 This field can be omitted if the value is *finished*.
 

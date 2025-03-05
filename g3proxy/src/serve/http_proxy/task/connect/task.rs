@@ -547,6 +547,16 @@ impl StreamTransitTask for HttpProxyConnectTask {
         self.ctx.server_config.task_idle_max_count
     }
 
+    fn log_client_shutdown(&self) {
+        self.get_log_context()
+            .log_client_shutdown(&self.ctx.task_logger);
+    }
+
+    fn log_upstream_shutdown(&self) {
+        self.get_log_context()
+            .log_upstream_shutdown(&self.ctx.task_logger);
+    }
+
     fn log_periodic(&self) {
         self.get_log_context().log_periodic(&self.ctx.task_logger);
     }
