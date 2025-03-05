@@ -53,16 +53,20 @@ enum TaskEvent {
     Created,
     Connected,
     Periodic,
+    ClientShutdown,
+    UpstreamShutdown,
     Finished,
 }
 
 impl TaskEvent {
     fn as_str(&self) -> &'static str {
         match self {
-            TaskEvent::Created => "created",
-            TaskEvent::Connected => "connected",
-            TaskEvent::Periodic => "periodic",
-            TaskEvent::Finished => "finished",
+            TaskEvent::Created => "Created",
+            TaskEvent::Connected => "Connected",
+            TaskEvent::Periodic => "Periodic",
+            TaskEvent::ClientShutdown => "ClientShutdown",
+            TaskEvent::UpstreamShutdown => "UpstreamShutdown",
+            TaskEvent::Finished => "Finished",
         }
     }
 }

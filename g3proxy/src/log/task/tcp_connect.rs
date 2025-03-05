@@ -118,6 +118,39 @@ impl TaskLogForTcpConnect<'_> {
         )
     }
 
+    fn log_partial_shutdown(&self, logger: &Logger, task_event: TaskEvent) {
+        slog_info!(logger, "";
+            "task_type" => "TcpConnect",
+            "task_id" => LtUuid(&self.task_notes.id),
+            "task_event" => task_event.as_str(),
+            "stage" => self.task_notes.stage.brief(),
+            "start_at" => LtDateTime(&self.task_notes.start_at),
+            "user" => self.task_notes.raw_user_name(),
+            "server_addr" => self.task_notes.server_addr(),
+            "client_addr" => self.task_notes.client_addr(),
+            "upstream" => LtUpstreamAddr(self.upstream),
+            "escaper" => self.tcp_notes.escaper.as_str(),
+            "next_bound_addr" => self.tcp_notes.local,
+            "next_peer_addr" => self.tcp_notes.next,
+            "next_expire" => self.tcp_notes.expire.as_ref().map(LtDateTime),
+            "wait_time" => LtDuration(self.task_notes.wait_time),
+            "ready_time" => LtDuration(self.task_notes.ready_time),
+            "total_time" => LtDuration(self.task_notes.time_elapsed()),
+            "c_rd_bytes" => self.client_rd_bytes,
+            "c_wr_bytes" => self.client_wr_bytes,
+            "r_rd_bytes" => self.remote_rd_bytes,
+            "r_wr_bytes" => self.remote_wr_bytes,
+        )
+    }
+
+    pub(crate) fn log_client_shutdown(&self, logger: &Logger) {
+        self.log_partial_shutdown(logger, TaskEvent::ClientShutdown);
+    }
+
+    pub(crate) fn log_upstream_shutdown(&self, logger: &Logger) {
+        self.log_partial_shutdown(logger, TaskEvent::UpstreamShutdown);
+    }
+
     pub(crate) fn log(&self, logger: &Logger, e: &ServerTaskError) {
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             if user_ctx.skip_log() {
