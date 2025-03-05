@@ -300,6 +300,10 @@ impl ServerConfig for SniProxyServerConfig {
         self.shared_logger.as_ref().map(|s| s.as_str())
     }
 
+    fn task_log_flush_interval(&self) -> Option<Duration> {
+        self.task_log_flush_interval
+    }
+
     #[inline]
     fn limited_copy_config(&self) -> LimitedCopyConfig {
         self.tcp_copy

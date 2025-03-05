@@ -187,8 +187,12 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     }
 
     #[inline]
-    fn user(&self) -> Option<&Arc<User>> {
-        self.task_notes.user()
+    fn user(&self) -> Option<&User> {
+        self.task_notes.user().map(|u| u.as_ref())
+    }
+
+    fn user_cloned(&self) -> Option<Arc<User>> {
+        self.task_notes.user().cloned()
     }
 
     #[inline]
@@ -224,7 +228,7 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     pub(crate) fn idle_checker(&self) -> ServerIdleChecker {
         ServerIdleChecker::new(
             self.idle_wheel.clone(),
-            self.user().cloned(),
+            self.user_cloned(),
             self.max_idle_count,
             self.server_quit_policy.clone(),
         )
@@ -367,5 +371,5 @@ pub(crate) enum StreamInspection<SC: ServerConfig> {
     Imap(imap::ImapInterceptObject<SC>),
 }
 
-type BoxAsyncRead = Box<dyn AsyncRead + Send + Unpin + 'static>;
-type BoxAsyncWrite = Box<dyn AsyncWrite + Send + Unpin + 'static>;
+type BoxAsyncRead = Box<dyn AsyncRead + Send + Sync + Unpin + 'static>;
+type BoxAsyncWrite = Box<dyn AsyncWrite + Send + Sync + Unpin + 'static>;

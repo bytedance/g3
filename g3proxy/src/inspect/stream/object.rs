@@ -73,7 +73,7 @@ where
         self.io = Some(io);
     }
 
-    pub(super) async fn transit_unknown(mut self) -> ServerTaskResult<()> {
+    pub(super) async fn transit_inspect_unknown(mut self) -> ServerTaskResult<()> {
         let StreamInspectIo {
             clt_r,
             clt_w,
@@ -81,7 +81,9 @@ where
             ups_w,
         } = self.io.take().unwrap();
 
-        self.ctx.transit_unknown(clt_r, clt_w, ups_r, ups_w).await
+        self.ctx
+            .transit_inspect_unknown(clt_r, clt_w, ups_r, ups_w)
+            .await
     }
 
     pub(super) async fn transit_with_inspection(
@@ -137,7 +139,7 @@ where
         match protocol {
             Protocol::Unknown => {
                 self.ctx
-                    .transit_unknown(
+                    .transit_inspect_unknown(
                         OnceBufReader::new(clt_r, clt_r_buf),
                         clt_w,
                         OnceBufReader::new(ups_r, ups_r_buf),
@@ -148,7 +150,7 @@ where
             }
             Protocol::Timeout => {
                 self.ctx
-                    .transit_unknown_timeout(
+                    .transit_inspect_timeout(
                         OnceBufReader::new(clt_r, clt_r_buf),
                         clt_w,
                         OnceBufReader::new(ups_r, ups_r_buf),
@@ -212,7 +214,7 @@ where
         }
 
         self.ctx
-            .transit_transparent(
+            .transit_inspect_bypass(
                 OnceBufReader::new(clt_r, clt_r_buf),
                 clt_w,
                 OnceBufReader::new(ups_r, ups_r_buf),

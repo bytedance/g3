@@ -16,6 +16,7 @@
 
 use std::future::poll_fn;
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_recursion::async_recursion;
 use bytes::Bytes;
@@ -23,16 +24,21 @@ use h2::{Reason, server::Connection};
 use slog::slog_info;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
+use g3_daemon::server::ServerQuitPolicy;
 use g3_dpi::{Protocol, ProtocolInspectAction};
 use g3_h2::H2BodyTransfer;
-use g3_io_ext::OnceBufReader;
+use g3_io_ext::{IdleInterval, LimitedCopyConfig, OnceBufReader};
 use g3_slog_types::{LtUpstreamAddr, LtUuid};
 use g3_types::net::UpstreamAddr;
 
 #[cfg(feature = "quic")]
 use crate::audit::DetourAction;
+use crate::auth::User;
 use crate::config::server::ServerConfig;
-use crate::inspect::{BoxAsyncRead, BoxAsyncWrite, InterceptionError, StreamInspectContext};
+use crate::inspect::{
+    BoxAsyncRead, BoxAsyncWrite, InterceptionError, StreamInspectContext, StreamTransitTask,
+};
+use crate::log::task::TaskEvent;
 use crate::serve::ServerTaskResult;
 
 mod error;
@@ -48,6 +54,19 @@ use connect::{H2ConnectTask, H2ExtendedConnectTask};
 
 mod forward;
 use forward::H2ForwardTask;
+
+macro_rules! intercept_log {
+    ($obj:tt, $($args:tt)+) => {
+        slog_info!($obj.ctx.intercept_logger(), $($args)+;
+            "intercept_type" => "H2Connection",
+            "task_id" => LtUuid($obj.ctx.server_task_id()),
+            "depth" => $obj.ctx.inspection_depth,
+            "upstream" => LtUpstreamAddr(&$obj.upstream),
+            "total_sub_task" => $obj.stats.get_total_task(),
+            "alive_sub_task" => $obj.stats.get_alive_task(),
+        )
+    };
+}
 
 struct H2InterceptIo {
     clt_r: OnceBufReader<BoxAsyncRead>,
@@ -89,19 +108,54 @@ impl<SC: ServerConfig> H2InterceptObject<SC> {
         };
         self.io = Some(io);
     }
+
+    fn log_partial_shutdown(&self, task_event: TaskEvent) {
+        slog_info!(self.ctx.intercept_logger(), "";
+            "intercept_type" => "H2Connection",
+            "task_id" => LtUuid(self.ctx.server_task_id()),
+            "task_event" => task_event.as_str(),
+            "depth" => self.ctx.inspection_depth,
+            "upstream" => LtUpstreamAddr(&self.upstream),
+        )
+    }
 }
 
-macro_rules! intercept_log {
-    ($obj:tt, $($args:tt)+) => {
-        slog_info!($obj.ctx.intercept_logger(), $($args)+;
-            "intercept_type" => "H2Connection",
-            "task_id" => LtUuid($obj.ctx.server_task_id()),
-            "depth" => $obj.ctx.inspection_depth,
-            "upstream" => LtUpstreamAddr(&$obj.upstream),
-            "total_sub_task" => $obj.stats.get_total_task(),
-            "alive_sub_task" => $obj.stats.get_alive_task(),
-        )
-    };
+impl<SC: ServerConfig> StreamTransitTask for H2InterceptObject<SC> {
+    fn copy_config(&self) -> LimitedCopyConfig {
+        self.ctx.server_config.limited_copy_config()
+    }
+
+    fn idle_check_interval(&self) -> IdleInterval {
+        self.ctx.idle_wheel.register()
+    }
+
+    fn max_idle_count(&self) -> usize {
+        self.ctx.max_idle_count
+    }
+
+    fn log_client_shutdown(&self) {
+        self.log_partial_shutdown(TaskEvent::ClientShutdown);
+    }
+
+    fn log_upstream_shutdown(&self) {
+        self.log_partial_shutdown(TaskEvent::UpstreamShutdown);
+    }
+
+    fn log_periodic(&self) {
+        // TODO
+    }
+
+    fn log_flush_interval(&self) -> Option<Duration> {
+        self.ctx.server_config.task_log_flush_interval()
+    }
+
+    fn quit_policy(&self) -> &ServerQuitPolicy {
+        self.ctx.server_quit_policy.as_ref()
+    }
+
+    fn user(&self) -> Option<&User> {
+        self.ctx.user()
+    }
 }
 
 impl<SC> H2InterceptObject<SC>
@@ -235,9 +289,7 @@ where
             ups_w,
         } = self.io.take().unwrap();
 
-        self.ctx
-            .transit_transparent(clt_r, clt_w, ups_r, ups_w)
-            .await
+        self.transit_transparent(clt_r, clt_w, ups_r, ups_w).await
     }
 
     async fn do_block(&mut self) -> Result<(), H2InterceptionError> {
