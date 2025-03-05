@@ -97,6 +97,10 @@ pub(crate) trait ServerConfig {
         }
     }
 
+    fn task_log_flush_interval(&self) -> Option<Duration> {
+        None
+    }
+
     fn limited_copy_config(&self) -> LimitedCopyConfig {
         LimitedCopyConfig::default()
     }

@@ -14,20 +14,25 @@
  * limitations under the License.
  */
 
+use std::time::Duration;
+
 use anyhow::anyhow;
 use slog::slog_info;
 use tokio::io::AsyncWriteExt;
 
+use g3_daemon::server::ServerQuitPolicy;
 use g3_dpi::ProtocolInspectAction;
-use g3_io_ext::LimitedWriteExt;
+use g3_io_ext::{IdleInterval, LimitedCopyConfig, LimitedWriteExt};
 use g3_slog_types::{LtHttpHeaderValue, LtUpstreamAddr, LtUuid};
 use g3_types::net::{UpstreamAddr, WebSocketNotes};
 
 use super::{ClientCloseFrame, ServerCloseFrame};
 #[cfg(feature = "quic")]
 use crate::audit::DetourAction;
+use crate::auth::User;
 use crate::config::server::ServerConfig;
-use crate::inspect::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext};
+use crate::inspect::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext, StreamTransitTask};
+use crate::log::task::TaskEvent;
 use crate::serve::{ServerTaskError, ServerTaskResult};
 
 macro_rules! intercept_log {
@@ -89,6 +94,60 @@ impl<SC: ServerConfig> H1WebsocketInterceptObject<SC> {
         self.io = Some(io);
     }
 
+    fn log_partial_shutdown(&self, task_event: TaskEvent) {
+        slog_info!(self.ctx.intercept_logger(), "";
+            "intercept_type" => "H1Websocket",
+            "task_id" => LtUuid(self.ctx.server_task_id()),
+            "task_event" => task_event.as_str(),
+            "depth" => self.ctx.inspection_depth,
+            "upstream" => LtUpstreamAddr(&self.upstream),
+            "ws_resource_name" => self.ws_notes.resource_name(),
+            "ws_origin" => self.ws_notes.origin().map(LtHttpHeaderValue),
+            "ws_sub_protocol" => self.ws_notes.sub_protocol().map(LtHttpHeaderValue),
+            "ws_version" => self.ws_notes.version().map(LtHttpHeaderValue),
+        )
+    }
+}
+
+impl<SC: ServerConfig> StreamTransitTask for H1WebsocketInterceptObject<SC> {
+    fn copy_config(&self) -> LimitedCopyConfig {
+        self.ctx.server_config.limited_copy_config()
+    }
+
+    fn idle_check_interval(&self) -> IdleInterval {
+        self.ctx.idle_wheel.register()
+    }
+
+    fn max_idle_count(&self) -> usize {
+        self.ctx.max_idle_count
+    }
+
+    fn log_client_shutdown(&self) {
+        self.log_partial_shutdown(TaskEvent::ClientShutdown);
+    }
+
+    fn log_upstream_shutdown(&self) {
+        self.log_partial_shutdown(TaskEvent::UpstreamShutdown);
+    }
+
+    fn log_periodic(&self) {
+        // TODO
+    }
+
+    fn log_flush_interval(&self) -> Option<Duration> {
+        self.ctx.server_config.task_log_flush_interval()
+    }
+
+    fn quit_policy(&self) -> &ServerQuitPolicy {
+        self.ctx.server_quit_policy.as_ref()
+    }
+
+    fn user(&self) -> Option<&User> {
+        self.ctx.user()
+    }
+}
+
+impl<SC: ServerConfig> H1WebsocketInterceptObject<SC> {
     pub(crate) async fn intercept(mut self) -> ServerTaskResult<()> {
         let r = match self.ctx.websocket_inspect_action(self.upstream.host()) {
             ProtocolInspectAction::Intercept => self.do_intercept().await,
@@ -193,9 +252,7 @@ impl<SC: ServerConfig> H1WebsocketInterceptObject<SC> {
             ups_w,
         } = self.io.take().unwrap();
 
-        self.ctx
-            .transit_transparent(clt_r, clt_w, ups_r, ups_w)
-            .await
+        self.transit_transparent(clt_r, clt_w, ups_r, ups_w).await
     }
 
     async fn do_block(&mut self) -> ServerTaskResult<()> {
@@ -231,8 +288,6 @@ impl<SC: ServerConfig> H1WebsocketInterceptObject<SC> {
             ups_w,
         } = self.io.take().unwrap();
 
-        self.ctx
-            .transit_transparent(clt_r, clt_w, ups_r, ups_w)
-            .await
+        self.transit_transparent(clt_r, clt_w, ups_r, ups_w).await
     }
 }

@@ -202,11 +202,11 @@ where
     ) -> StreamInspection<SC>
     where
         CS: AsyncStream,
-        CS::R: AsyncRead + Send + Unpin + 'static,
-        CS::W: AsyncWrite + Send + Unpin + 'static,
+        CS::R: AsyncRead + Send + Sync + Unpin + 'static,
+        CS::W: AsyncWrite + Send + Sync + Unpin + 'static,
         US: AsyncStream,
-        US::R: AsyncRead + Send + Unpin + 'static,
-        US::W: AsyncWrite + Send + Unpin + 'static,
+        US::R: AsyncRead + Send + Sync + Unpin + 'static,
+        US::W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
         let (clt_r, clt_w) = clt_s.into_split();
         let (ups_r, ups_w) = ups_s.into_split();
@@ -250,10 +250,10 @@ where
         ups_w: UW,
     ) -> StreamInspection<SC>
     where
-        CR: AsyncRead + Send + Unpin + 'static,
-        CW: AsyncWrite + Send + Unpin + 'static,
-        UR: AsyncRead + Send + Unpin + 'static,
-        UW: AsyncWrite + Send + Unpin + 'static,
+        CR: AsyncRead + Send + Sync + Unpin + 'static,
+        CW: AsyncWrite + Send + Sync + Unpin + 'static,
+        UR: AsyncRead + Send + Sync + Unpin + 'static,
+        UW: AsyncWrite + Send + Sync + Unpin + 'static,
     {
         let mut ctx = self.ctx.clone();
         ctx.increase_inspection_depth();

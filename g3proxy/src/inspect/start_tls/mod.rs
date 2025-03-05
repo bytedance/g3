@@ -313,10 +313,10 @@ where
         ups_w: UW,
     ) -> StreamInspection<SC>
     where
-        CR: AsyncRead + Send + Unpin + 'static,
-        CW: AsyncWrite + Send + Unpin + 'static,
-        UR: AsyncRead + Send + Unpin + 'static,
-        UW: AsyncWrite + Send + Unpin + 'static,
+        CR: AsyncRead + Send + Sync + Unpin + 'static,
+        CW: AsyncWrite + Send + Sync + Unpin + 'static,
+        UR: AsyncRead + Send + Sync + Unpin + 'static,
+        UW: AsyncWrite + Send + Sync + Unpin + 'static,
     {
         let mut ctx = self.ctx.clone();
         ctx.increase_inspection_depth();
