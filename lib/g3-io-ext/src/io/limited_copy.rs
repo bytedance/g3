@@ -23,6 +23,7 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, ReadBuf};
 
 const DEFAULT_COPY_BUFFER_SIZE: usize = 16 * 1024; // 16KB
 const MINIMAL_COPY_BUFFER_SIZE: usize = 4 * 1024; // 4KB
+const MINIMAL_READ_BUFFER_SIZE: usize = 256; // 256B
 const DEFAULT_COPY_YIELD_SIZE: usize = 1024 * 1024; // 1MB
 const MINIMAL_COPY_YIELD_SIZE: usize = 256 * 1024; // 256KB
 
@@ -125,17 +126,15 @@ impl LimitedCopyBuffer {
     where
         R: AsyncRead + ?Sized,
     {
-        let mut buf = ReadBuf::new(&mut self.buf);
-        buf.set_filled(self.r_off);
-
-        let res = reader.poll_read(cx, &mut buf);
+        let mut read_buf = ReadBuf::new(&mut self.buf[self.r_off..]);
+        let res = reader.poll_read(cx, &mut read_buf);
         if let Poll::Ready(Ok(_)) = res {
-            let filled_len = buf.filled().len();
-            self.total_read += filled_len as u64;
-            if self.r_off == filled_len {
+            let nr = read_buf.filled().len();
+            if nr == 0 {
                 self.read_done = true;
             } else {
-                self.r_off = filled_len;
+                self.r_off += nr;
+                self.total_read += nr as u64;
                 self.active = true;
             }
         }
@@ -156,10 +155,11 @@ impl LimitedCopyBuffer {
             Poll::Pending => {
                 // Top up the buffer towards full if we can read a bit more
                 // data - this should improve the chances of a large write
-                if !self.read_done && self.r_off < self.buf.len() {
+                if !self.read_done {
+                    let poll_read = self.r_off + MINIMAL_READ_BUFFER_SIZE > self.buf.len();
                     let left = self.r_off - self.w_off;
-                    if left < self.w_off {
-                        // copy small data to the begin of the buffer, so we can read more data
+                    if left <= self.w_off {
+                        // copy small data to the start of the buffer, so we can read more data
                         unsafe {
                             let ptr = self.buf.as_mut_ptr();
                             let src_ptr = ptr.add(self.w_off);
@@ -168,7 +168,11 @@ impl LimitedCopyBuffer {
                         self.w_off = 0;
                         self.r_off = left;
                     }
-                    ready!(self.poll_fill_buf(cx, reader)).map_err(LimitedCopyError::ReadFailed)?;
+                    if poll_read && self.r_off + MINIMAL_READ_BUFFER_SIZE <= self.buf.len() {
+                        // avoid too small read
+                        ready!(self.poll_fill_buf(cx, reader))
+                            .map_err(LimitedCopyError::ReadFailed)?;
+                    }
                 }
                 Poll::Pending
             }
@@ -206,10 +210,14 @@ impl LimitedCopyBuffer {
                     self.r_off = 0;
                 }
 
-                if self.r_off < self.buf.len() {
+                while self.r_off + MINIMAL_READ_BUFFER_SIZE <= self.buf.len() {
                     // read first
                     match self.poll_fill_buf(cx, reader.as_mut()) {
-                        Poll::Ready(Ok(_)) => {}
+                        Poll::Ready(Ok(_)) => {
+                            if self.read_done {
+                                break;
+                            }
+                        }
                         Poll::Ready(Err(e)) => {
                             return Poll::Ready(Err(LimitedCopyError::ReadFailed(e)));
                         }
@@ -217,12 +225,15 @@ impl LimitedCopyBuffer {
                             if self.w_off >= self.r_off {
                                 // no data to write
                                 if self.need_flush {
+                                    // trigger flush, no need to flush again on pending
+                                    self.need_flush = false;
                                     ready!(writer.as_mut().poll_flush(cx))
                                         .map_err(LimitedCopyError::WriteFailed)?;
-                                    self.need_flush = false;
                                 }
 
                                 return Poll::Pending;
+                            } else {
+                                break;
                             }
                         }
                     }
@@ -236,20 +247,20 @@ impl LimitedCopyBuffer {
                 copy_this_round += i;
             }
 
-            // yield if we have copy too much
-            if copy_this_round >= self.yield_size {
-                cx.waker().wake_by_ref();
-                return Poll::Pending;
-            }
-
             // If we've seen EOF and written all the data, flush out the
             // data and finish the transfer.
-            if self.read_done && self.w_off == self.r_off {
+            if self.read_done {
                 if self.need_flush {
                     ready!(writer.as_mut().poll_flush(cx))
                         .map_err(LimitedCopyError::WriteFailed)?;
                 }
                 return Poll::Ready(Ok(self.total_write));
+            }
+
+            // yield if we have copy too much
+            if copy_this_round >= self.yield_size {
+                cx.waker().wake_by_ref();
+                return Poll::Pending;
             }
         }
     }
