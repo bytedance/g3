@@ -219,20 +219,14 @@ impl BenchTaskContext for HttpTaskContext {
                 if keep_alive {
                     self.save_connection(connection);
                 } else {
-                    let runtime_stats = self.runtime_stats.clone();
-                    tokio::spawn(async move {
-                        // make sure the tls ticket will be reused
-                        match tokio::time::timeout(
-                            Duration::from_secs(4),
-                            connection.writer.shutdown(),
-                        )
+                    // make sure the tls ticket will be reused
+                    match tokio::time::timeout(Duration::from_secs(4), connection.writer.shutdown())
                         .await
-                        {
-                            Ok(Ok(_)) => {}
-                            Ok(Err(_e)) => runtime_stats.add_conn_close_fail(),
-                            Err(_) => runtime_stats.add_conn_close_timeout(),
-                        }
-                    });
+                    {
+                        Ok(Ok(_)) => {}
+                        Ok(Err(_e)) => self.runtime_stats.add_conn_close_fail(),
+                        Err(_) => self.runtime_stats.add_conn_close_timeout(),
+                    }
                 }
                 Ok(())
             }
