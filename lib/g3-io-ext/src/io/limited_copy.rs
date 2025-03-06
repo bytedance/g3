@@ -141,6 +141,20 @@ impl LimitedCopyBuffer {
         res
     }
 
+    fn check_move_cache(&mut self) {
+        let left = self.r_off - self.w_off;
+        if left <= self.w_off {
+            // copy small data to the start of the buffer, so we can read more data
+            unsafe {
+                let ptr = self.buf.as_mut_ptr();
+                let src_ptr = ptr.add(self.w_off);
+                std::ptr::copy_nonoverlapping(src_ptr, ptr, left);
+            }
+            self.w_off = 0;
+            self.r_off = left;
+        }
+    }
+
     fn poll_write_buf<R, W>(
         &mut self,
         cx: &mut Context<'_>,
@@ -156,19 +170,8 @@ impl LimitedCopyBuffer {
                 // Top up the buffer towards full if we can read a bit more
                 // data - this should improve the chances of a large write
                 if !self.read_done {
-                    let poll_read = self.r_off + MINIMAL_READ_BUFFER_SIZE > self.buf.len();
-                    let left = self.r_off - self.w_off;
-                    if left <= self.w_off {
-                        // copy small data to the start of the buffer, so we can read more data
-                        unsafe {
-                            let ptr = self.buf.as_mut_ptr();
-                            let src_ptr = ptr.add(self.w_off);
-                            std::ptr::copy_nonoverlapping(src_ptr, ptr, left);
-                        }
-                        self.w_off = 0;
-                        self.r_off = left;
-                    }
-                    if poll_read && self.r_off + MINIMAL_READ_BUFFER_SIZE <= self.buf.len() {
+                    self.check_move_cache();
+                    if self.r_off + MINIMAL_READ_BUFFER_SIZE <= self.buf.len() {
                         // avoid too small read
                         ready!(self.poll_fill_buf(cx, reader))
                             .map_err(LimitedCopyError::ReadFailed)?;
@@ -210,14 +213,13 @@ impl LimitedCopyBuffer {
                     self.r_off = 0;
                 }
 
-                while self.r_off + MINIMAL_READ_BUFFER_SIZE <= self.buf.len() {
+                if self.w_off != 0 {
+                    self.check_move_cache();
+                }
+                if self.r_off < self.buf.len() {
                     // read first
                     match self.poll_fill_buf(cx, reader.as_mut()) {
-                        Poll::Ready(Ok(_)) => {
-                            if self.read_done {
-                                break;
-                            }
-                        }
+                        Poll::Ready(Ok(_)) => {}
                         Poll::Ready(Err(e)) => {
                             return Poll::Ready(Err(LimitedCopyError::ReadFailed(e)));
                         }
@@ -232,8 +234,6 @@ impl LimitedCopyBuffer {
                                 }
 
                                 return Poll::Pending;
-                            } else {
-                                break;
                             }
                         }
                     }
