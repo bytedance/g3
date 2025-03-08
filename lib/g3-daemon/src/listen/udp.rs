@@ -25,7 +25,7 @@ use g3_types::net::UdpListenConfig;
 
 use crate::server::{BaseServer, ReloadServer, ServerReloadCommand};
 
-pub trait ReceiveUdpServer: BaseServer + ReloadServer {
+pub trait ReceiveUdpServer: BaseServer {
     fn receive_packet(
         &self,
         packet: &[u8],
@@ -48,7 +48,7 @@ pub struct ReceiveUdpRuntime<S> {
 
 impl<S> ReceiveUdpRuntime<S>
 where
-    S: ReceiveUdpServer + Clone + Send + Sync + 'static,
+    S: ReceiveUdpServer + ReloadServer + Clone + Send + Sync + 'static,
 {
     pub fn new(server: S, listen_config: UdpListenConfig) -> Self {
         let server_type = server.server_type();

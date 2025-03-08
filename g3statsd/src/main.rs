@@ -61,7 +61,9 @@ fn tokio_run(_args: &ProcArgs) -> anyhow::Result<()> {
         g3_daemon::runtime::set_main_handle();
 
         // TODO setup output
-        // TODO setup input
+        g3statsd::input::spawn_all()
+            .await
+            .context("failed to spawn all inputs")?;
 
         Ok(())
     })
