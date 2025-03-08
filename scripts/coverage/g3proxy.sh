@@ -38,6 +38,7 @@ IGNORE_FLAGS="--ignore-filename-regex=.cargo \
     --ignore-filename-regex=g3bench \
     --ignore-filename-regex=g3mkcert \
     --ignore-filename-regex=g3tiles \
+    --ignore-filename-regex=g3statsd \
     --ignore-filename-regex=g3keymess"
 
 echo "==== Coverage for all ===="
