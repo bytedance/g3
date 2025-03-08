@@ -39,6 +39,7 @@ IGNORE_FLAGS="--ignore-filename-regex=.cargo \
     --ignore-filename-regex=g3fcgen \
     --ignore-filename-regex=g3proxy \
     --ignore-filename-regex=g3tiles \
+    --ignore-filename-regex=g3statsd \
     --ignore-filename-regex=g3keymess \
     --ignore-filename-regex=g3iploc"
 
