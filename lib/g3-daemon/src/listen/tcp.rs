@@ -30,15 +30,11 @@ use g3_socket::util::native_socket_addr;
 use g3_types::net::TcpListenConfig;
 
 use crate::listen::ListenStats;
-use crate::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
+use crate::server::{BaseServer, ClientConnectionInfo, ReloadServer, ServerReloadCommand};
 
 #[async_trait]
 pub trait AcceptTcpServer: BaseServer {
     async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo);
-}
-
-pub trait ReloadTcpServer: AcceptTcpServer {
-    fn get_reloaded(&self) -> Self;
 }
 
 #[derive(Clone)]
@@ -55,7 +51,7 @@ pub struct ListenTcpRuntime<S> {
 
 impl<S> ListenTcpRuntime<S>
 where
-    S: ReloadTcpServer + Clone + Send + Sync + 'static,
+    S: AcceptTcpServer + ReloadServer + Clone + Send + Sync + 'static,
 {
     pub fn new(server: S, listen_stats: Arc<ListenStats>) -> Self {
         let server_type = server.server_type();
@@ -120,7 +116,7 @@ where
                         Ok(ServerReloadCommand::ReloadVersion(version)) => {
                             info!("SRT[{}_v{}#{}] received reload request from v{version}",
                                 self.server.name(), self.server_version, self.instance_id);
-                            let new_server = self.server.get_reloaded();
+                            let new_server = self.server.reload();
                             self.server_version = new_server.version();
                             self.server = new_server;
                             continue;

@@ -22,10 +22,10 @@ use quinn::Connection;
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 
-use g3_daemon::listen::{
-    AcceptQuicServer, AcceptTcpServer, ListenStats, ReloadQuicServer, ReloadTcpServer,
+use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats};
+use g3_daemon::server::{
+    BaseServer, ClientConnectionInfo, ReloadServer, ServerQuitPolicy, ServerReloadCommand,
 };
-use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerQuitPolicy, ServerReloadCommand};
 use g3_types::metrics::NodeName;
 
 use crate::config::server::AnyServerConfig;
@@ -107,16 +107,16 @@ impl BaseServer for WrapArcServer {
     }
 }
 
+impl ReloadServer for WrapArcServer {
+    fn reload(&self) -> Self {
+        WrapArcServer(get_or_insert_default(self.name()))
+    }
+}
+
 #[async_trait]
 impl AcceptTcpServer for WrapArcServer {
     async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
         self.0.run_tcp_task(stream, cc_info).await
-    }
-}
-
-impl ReloadTcpServer for WrapArcServer {
-    fn get_reloaded(&self) -> Self {
-        WrapArcServer(get_or_insert_default(self.name()))
     }
 }
 
@@ -125,12 +125,6 @@ impl AcceptQuicServer for WrapArcServer {
     #[cfg(feature = "quic")]
     async fn run_quic_task(&self, connection: Connection, cc_info: ClientConnectionInfo) {
         self.0.run_quic_task(connection, cc_info).await
-    }
-}
-
-impl ReloadQuicServer for WrapArcServer {
-    fn get_reloaded(&self) -> Self {
-        WrapArcServer(get_or_insert_default(self.name()))
     }
 }
 

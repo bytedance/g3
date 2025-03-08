@@ -31,15 +31,11 @@ use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::net::UdpListenConfig;
 
 use crate::listen::ListenStats;
-use crate::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
+use crate::server::{BaseServer, ClientConnectionInfo, ReloadServer, ServerReloadCommand};
 
 #[async_trait]
 pub trait AcceptQuicServer: BaseServer {
     async fn run_quic_task(&self, connection: Connection, cc_info: ClientConnectionInfo);
-}
-
-pub trait ReloadQuicServer: AcceptQuicServer {
-    fn get_reloaded(&self) -> Self;
 }
 
 pub trait ListenQuicConf {
@@ -67,7 +63,7 @@ pub struct ListenQuicRuntime<S> {
 
 impl<S> ListenQuicRuntime<S>
 where
-    S: ReloadQuicServer + Clone + Send + Sync + 'static,
+    S: AcceptQuicServer + ReloadServer + Clone + Send + Sync + 'static,
 {
     pub fn new(server: S, listen_stats: Arc<ListenStats>, listen_config: UdpListenConfig) -> Self {
         let server_type = server.server_type();
@@ -138,7 +134,7 @@ where
                         Ok(ServerReloadCommand::ReloadVersion(version)) => {
                             info!("SRT[{}_v{}#{}] received reload request from v{version}",
                                 self.server.name(), self.server_version, self.instance_id);
-                            let new_server = self.server.get_reloaded();
+                            let new_server = self.server.reload();
                             self.server_version = new_server.version();
                             self.server = new_server;
                             continue;
