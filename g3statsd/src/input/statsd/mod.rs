@@ -14,10 +14,5 @@
  * limitations under the License.
  */
 
-pub mod config;
-pub mod opts;
-
-mod build;
-
-pub mod input;
-pub mod output;
+mod input;
+pub(super) use input::StatsdInput;
