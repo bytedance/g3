@@ -33,6 +33,10 @@ pub trait BaseServer {
     fn version(&self) -> usize;
 }
 
+pub trait ReloadServer {
+    fn reload(&self) -> Self;
+}
+
 pub trait ServerExt: BaseServer {
     fn select_consistent<'a, T>(
         &self,

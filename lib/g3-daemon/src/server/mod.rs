@@ -23,4 +23,4 @@ mod connection;
 pub use connection::ClientConnectionInfo;
 
 mod runtime;
-pub use runtime::{BaseServer, ServerExt, ServerReloadCommand};
+pub use runtime::{BaseServer, ReloadServer, ServerExt, ServerReloadCommand};

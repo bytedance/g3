@@ -21,10 +21,6 @@ use crate::server::BaseServer;
 #[async_trait]
 pub trait AcceptQuicServer: BaseServer {}
 
-pub trait ReloadQuicServer: AcceptQuicServer {
-    fn get_reloaded(&self) -> Self;
-}
-
 pub trait ListenQuicConf {}
 
 pub struct ListenQuicRuntime {}
