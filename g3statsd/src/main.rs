@@ -42,6 +42,8 @@ fn main() -> anyhow::Result<()> {
     #[cfg(unix)]
     g3_daemon::daemonize::check_enter(&proc_args.daemon_config)?;
 
+    let _workers_guard =
+        g3_daemon::runtime::worker::spawn_workers().context("failed to spawn workers")?;
     let ret = tokio_run(&proc_args);
 
     match ret {
@@ -63,6 +65,7 @@ fn tokio_run(_args: &ProcArgs) -> anyhow::Result<()> {
         g3statsd::signal::register().context("failed to setup signal handler")?;
 
         // TODO setup output
+        // TODO setup collect
         g3statsd::input::spawn_all()
             .await
             .context("failed to spawn all inputs")?;
