@@ -13,12 +13,3 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-pub mod collect;
-pub mod config;
-pub mod input;
-pub mod opts;
-pub mod output;
-pub mod signal;
-
-mod build;
