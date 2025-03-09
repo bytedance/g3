@@ -60,6 +60,8 @@ fn tokio_run(_args: &ProcArgs) -> anyhow::Result<()> {
     rt.block_on(async {
         g3_daemon::runtime::set_main_handle();
 
+        g3statsd::signal::register().context("failed to setup signal handler")?;
+
         // TODO setup output
         g3statsd::input::spawn_all()
             .await
