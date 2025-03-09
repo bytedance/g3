@@ -17,7 +17,7 @@
 #[cfg(unix)]
 mod unix;
 #[cfg(unix)]
-pub use unix::register;
+pub use unix::{register, register_reload};
 
 #[cfg(windows)]
 mod windows;

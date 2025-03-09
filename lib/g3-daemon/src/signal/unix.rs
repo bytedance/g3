@@ -59,6 +59,15 @@ where
         }
     });
 
+    register_reload(call_reload)?;
+
+    Ok(())
+}
+
+pub fn register_reload<RELOAD>(call_reload: RELOAD) -> anyhow::Result<()>
+where
+    RELOAD: AsyncSignalAction + Send + 'static,
+{
     let mut hup_sig = signal(SignalKind::hangup())
         .map_err(|e| anyhow!("failed to create SIGHUP listener: {e}"))?;
     tokio::spawn(async move {

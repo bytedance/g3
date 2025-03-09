@@ -15,9 +15,9 @@
  */
 
 pub mod config;
+pub mod input;
 pub mod opts;
+pub mod output;
+pub mod signal;
 
 mod build;
-
-pub mod input;
-pub mod output;
