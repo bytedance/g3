@@ -17,6 +17,7 @@
 use std::ffi::CStr;
 use std::fs::File;
 use std::io::Write;
+use std::mem::MaybeUninit;
 use std::os::fd::AsFd;
 use std::os::unix::net::UnixDatagram;
 
@@ -26,7 +27,7 @@ use rustix::cmsg_space;
 use rustix::fs::{MemfdFlags, SealFlags, fcntl_add_seals, memfd_create};
 use rustix::io::Errno;
 use rustix::net::{
-    SendAncillaryBuffer, SendAncillaryMessage, SendFlags, SocketAddrUnix, sendmsg_unix,
+    SendAncillaryBuffer, SendAncillaryMessage, SendFlags, SocketAddrUnix, sendmsg_addr,
 };
 
 /// Default path of the systemd-journald `AF_UNIX` datagram socket.
@@ -81,12 +82,12 @@ fn send_memfd_payload(sock: &UnixDatagram, data: &[u8]) -> anyhow::Result<()> {
         .map_err(|e| anyhow!("unable to seal memfd: {e}"))?;
 
     let fds = &[mem_file.as_fd()];
-    let mut space = [0; cmsg_space!(ScmRights(1))];
+    let mut space = [MaybeUninit::uninit(); cmsg_space!(ScmRights(1))];
     let mut control = SendAncillaryBuffer::new(&mut space);
     control.push(SendAncillaryMessage::ScmRights(fds));
     let addr = SocketAddrUnix::new(SD_JOURNAL_SOCK_PATH)
         .map_err(|e| anyhow!("unable to create new unix address: {e}"))?;
-    sendmsg_unix(sock.as_fd(), &addr, &[], &mut control, SendFlags::empty())
+    sendmsg_addr(sock.as_fd(), &addr, &[], &mut control, SendFlags::empty())
         .map_err(|e| anyhow!("sendmsg failed: {e}"))?;
 
     // Close our side of the memfd after we send it to systemd.

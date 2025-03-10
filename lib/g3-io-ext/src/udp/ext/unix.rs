@@ -22,8 +22,7 @@ use std::task::{Context, Poll, ready};
 use std::{io, mem, ptr};
 
 use rustix::net::{
-    RecvAncillaryBuffer, RecvFlags, SendAncillaryBuffer, SendFlags, SocketAddrAny, recvmsg,
-    sendmsg, sendmsg_v4, sendmsg_v6,
+    RecvAncillaryBuffer, RecvFlags, SendAncillaryBuffer, SendFlags, recvmsg, sendmsg, sendmsg_addr,
 };
 use tokio::io::Interest;
 use tokio::net::UdpSocket;
@@ -245,11 +244,8 @@ impl UdpSocketExt for UdpSocket {
         loop {
             ready!(self.poll_send_ready(cx))?;
             match self.try_io(Interest::WRITABLE, || match target {
-                Some(SocketAddr::V4(a4)) => {
-                    sendmsg_v4(fd, &a4, iov, &mut control, flags).map_err(io::Error::from)
-                }
-                Some(SocketAddr::V6(a6)) => {
-                    sendmsg_v6(fd, &a6, iov, &mut control, flags).map_err(io::Error::from)
+                Some(addr) => {
+                    sendmsg_addr(fd, &addr, iov, &mut control, flags).map_err(io::Error::from)
                 }
                 None => sendmsg(fd, iov, &mut control, flags).map_err(io::Error::from),
             }) {
@@ -281,11 +277,8 @@ impl UdpSocketExt for UdpSocket {
         let mut control = SendAncillaryBuffer::default();
 
         self.try_io(Interest::WRITABLE, || match target {
-            Some(SocketAddr::V4(a4)) => {
-                sendmsg_v4(fd, &a4, iov, &mut control, flags).map_err(io::Error::from)
-            }
-            Some(SocketAddr::V6(a6)) => {
-                sendmsg_v6(fd, &a6, iov, &mut control, flags).map_err(io::Error::from)
+            Some(addr) => {
+                sendmsg_addr(fd, &addr, iov, &mut control, flags).map_err(io::Error::from)
             }
             None => sendmsg(fd, iov, &mut control, flags).map_err(io::Error::from),
         })
@@ -305,11 +298,7 @@ impl UdpSocketExt for UdpSocket {
                 recvmsg(fd, iov, &mut control, RecvFlags::DONTWAIT).map_err(io::Error::from)
             }) {
                 Ok(res) => {
-                    let addr = res.address.and_then(|v| match v {
-                        SocketAddrAny::V4(a4) => Some(SocketAddr::V4(a4)),
-                        SocketAddrAny::V6(a6) => Some(SocketAddr::V6(a6)),
-                        _ => None,
-                    });
+                    let addr = res.address.and_then(|v| SocketAddr::try_from(v).ok());
                     return Poll::Ready(Ok((res.bytes, addr)));
                 }
                 Err(e) => {
