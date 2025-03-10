@@ -13,3 +13,43 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use std::sync::Arc;
+
+use tokio::sync::broadcast;
+
+use g3_daemon::server::{BaseServer, ServerReloadCommand};
+use g3_types::metrics::NodeName;
+
+use crate::config::collect::AnyCollectConfig;
+
+mod registry;
+pub(crate) use registry::get_names;
+
+mod ops;
+pub(crate) use ops::reload;
+pub use ops::{spawn_all, stop_all};
+
+mod dummy;
+
+pub(crate) trait CollectInternal {
+    fn _clone_config(&self) -> AnyCollectConfig;
+
+    fn _depend_on_collector(&self, name: &NodeName) -> bool;
+    fn _reload_config_notify_runtime(&self);
+    fn _update_next_collectors_in_place(&self);
+
+    fn _reload_with_old_notifier(&self, config: AnyCollectConfig) -> anyhow::Result<ArcCollect>;
+    fn _reload_with_new_notifier(&self, config: AnyCollectConfig) -> anyhow::Result<ArcCollect>;
+
+    fn _start_runtime(&self, server: &ArcCollect) -> anyhow::Result<()>;
+    fn _abort_runtime(&self);
+}
+
+pub(crate) trait Collect: CollectInternal + BaseServer {}
+
+pub(crate) type ArcCollect = Arc<dyn Collect + Send + Sync>;
+
+fn new_reload_notify_channel() -> broadcast::Sender<ServerReloadCommand> {
+    broadcast::Sender::new(16)
+}

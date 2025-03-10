@@ -156,7 +156,7 @@ pub(crate) async fn update_dependency_to_backend(target: &NodeName, status: &str
     }
 }
 
-pub(crate) fn update_dependency_to_server_unlocked(target: &NodeName, status: &str) {
+fn update_dependency_to_server_unlocked(target: &NodeName, status: &str) {
     let mut servers = Vec::<ArcServer>::new();
 
     registry::foreach_online(|_name, server| {

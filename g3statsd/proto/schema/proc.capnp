@@ -12,4 +12,7 @@ interface ProcControl {
 
   reloadInput @4 (name :Text) -> (result :Types.OperationResult);
   listInput @5 () -> (result :List(Text));
+
+  reloadCollect @6 (name :Text) -> (result :Types.OperationResult);
+  listCollect @7 () -> (result :List(Text));
 }

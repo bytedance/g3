@@ -36,3 +36,4 @@ macro_rules! impl_reload {
 }
 
 impl_reload!(reload_input, input);
+impl_reload!(reload_collect, collect);

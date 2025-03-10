@@ -49,7 +49,7 @@ pub(super) fn get(name: &NodeName) -> Option<Arc<AnyCollectConfig>> {
     ht.get(name).cloned()
 }
 
-pub(crate) fn get_all() -> Vec<Arc<AnyCollectConfig>> {
+pub(super) fn get_all_names() -> Vec<NodeName> {
     let ht = INITIAL_COLLECT_CONFIG_REGISTRY.lock().unwrap();
-    ht.values().cloned().collect()
+    ht.keys().cloned().collect()
 }
