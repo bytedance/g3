@@ -69,12 +69,10 @@ impl AsyncSignalAction for ReloadAction {
     }
 }
 
-#[cfg(unix)]
 pub fn register() -> anyhow::Result<()> {
-    g3_daemon::signal::register(QuitAction {}, OfflineAction {}, ReloadAction {})
-}
-
-#[cfg(windows)]
-pub fn register() -> anyhow::Result<()> {
-    g3_daemon::signal::register(QuitAction {})
+    #[cfg(unix)]
+    g3_daemon::signal::register_offline(OfflineAction {})?;
+    #[cfg(unix)]
+    g3_daemon::signal::register_reload(ReloadAction {})?;
+    g3_daemon::signal::register_quit(QuitAction {})
 }

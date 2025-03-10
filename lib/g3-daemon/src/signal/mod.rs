@@ -17,12 +17,12 @@
 #[cfg(unix)]
 mod unix;
 #[cfg(unix)]
-pub use unix::{register, register_reload};
+pub use unix::{register_offline, register_quit, register_reload};
 
 #[cfg(windows)]
 mod windows;
 #[cfg(windows)]
-pub use windows::register;
+pub use windows::register_quit;
 
 pub trait AsyncSignalAction: Copy {
     fn run(&self) -> impl Future<Output = ()> + Send;

@@ -1953,15 +1953,27 @@ name = "g3statsd"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "capnp",
+ "capnp-rpc",
  "clap",
+ "clap_complete",
  "foldhash",
  "g3-build-env",
  "g3-daemon",
  "g3-types",
  "g3-yaml",
+ "g3statsd-proto",
  "log",
  "tokio",
  "yaml-rust2",
+]
+
+[[package]]
+name = "g3statsd-proto"
+version = "0.1.0"
+dependencies = [
+ "capnp",
+ "capnpc",
 ]
 
 [[package]]

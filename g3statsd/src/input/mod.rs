@@ -26,9 +26,11 @@ use g3_types::metrics::NodeName;
 use crate::config::input::AnyInputConfig;
 
 mod registry;
+pub(crate) use registry::get_names;
 
 mod ops;
-pub use ops::spawn_all;
+pub(crate) use ops::reload;
+pub use ops::{spawn_all, stop_all};
 
 mod dummy;
 mod statsd;

@@ -17,6 +17,8 @@
 use anyhow::Context;
 use log::{debug, error, info};
 
+use g3_daemon::control::{QuitAction, UpgradeAction};
+
 use g3statsd::opts::ProcArgs;
 
 fn main() -> anyhow::Result<()> {
@@ -28,9 +30,17 @@ fn main() -> anyhow::Result<()> {
 
     // set up process logger early, only proc args is used inside
     g3_daemon::log::process::setup(&proc_args.daemon_config);
+    if proc_args.daemon_config.need_daemon_controller() {
+        g3statsd::control::UpgradeActor::connect_to_old_daemon();
+    }
 
-    let config_file = g3statsd::config::load()
-        .context(format!("failed to load config, opts: {:?}", &proc_args))?;
+    let config_file = match g3statsd::config::load() {
+        Ok(c) => c,
+        Err(e) => {
+            g3_daemon::control::upgrade::cancel_old_shutdown();
+            return Err(e.context(format!("failed to load config, opts: {:?}", &proc_args)));
+        }
+    };
     debug!("loaded config from {}", config_file.display());
 
     if proc_args.daemon_config.test_config {
@@ -55,21 +65,51 @@ fn main() -> anyhow::Result<()> {
     }
 }
 
-fn tokio_run(_args: &ProcArgs) -> anyhow::Result<()> {
+fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
     let rt = g3_daemon::runtime::config::get_runtime_config()
         .start()
         .context("failed to start runtime")?;
     rt.block_on(async {
         g3_daemon::runtime::set_main_handle();
 
+        let ctl_thread_handler = g3statsd::control::capnp::spawn_working_thread().await?;
+
+        let unique_ctl = g3statsd::control::UniqueController::start()
+            .context("failed to start unique controller")?;
+        if args.daemon_config.need_daemon_controller() {
+            g3_daemon::control::upgrade::release_old_controller().await;
+            let daemon_ctl = g3statsd::control::DaemonController::start()
+                .context("failed to start daemon controller")?;
+            tokio::spawn(async move {
+                daemon_ctl.await;
+            });
+        }
+        g3statsd::control::QuitActor::tokio_spawn_run();
+
         g3statsd::signal::register().context("failed to setup signal handler")?;
 
-        // TODO setup output
-        // TODO setup collect
-        g3statsd::input::spawn_all()
-            .await
-            .context("failed to spawn all inputs")?;
+        match load_and_spawn().await {
+            Ok(_) => g3_daemon::control::upgrade::finish(),
+            Err(e) => {
+                g3_daemon::control::upgrade::cancel_old_shutdown();
+                return Err(e);
+            }
+        }
+
+        unique_ctl.await;
+
+        g3statsd::control::capnp::stop_working_thread();
+        let _ = ctl_thread_handler.join();
 
         Ok(())
     })
+}
+
+async fn load_and_spawn() -> anyhow::Result<()> {
+    // TODO setup output
+    // TODO setup collect
+    g3statsd::input::spawn_all()
+        .await
+        .context("failed to spawn all inputs")?;
+    Ok(())
 }

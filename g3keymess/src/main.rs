@@ -110,8 +110,6 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
         .build()
         .map_err(|e| anyhow!("failed to start main runtime: {e}"))?;
     rt.block_on(async {
-        let ret: anyhow::Result<()> = Ok(());
-
         g3_daemon::runtime::set_main_handle();
 
         let ctl_thread_handler = g3keymess::control::capnp::spawn_working_thread().await?;
@@ -147,7 +145,7 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
         g3keymess::control::capnp::stop_working_thread();
         let _ = ctl_thread_handler.join();
 
-        ret
+        Ok(())
     })
 }
 

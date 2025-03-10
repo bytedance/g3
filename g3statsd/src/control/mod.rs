@@ -14,12 +14,15 @@
  * limitations under the License.
  */
 
-pub mod collect;
-pub mod config;
-pub mod control;
-pub mod input;
-pub mod opts;
-pub mod output;
-pub mod signal;
+mod bridge;
 
-mod build;
+mod quit;
+pub use quit::QuitActor;
+
+mod upgrade;
+pub use upgrade::UpgradeActor;
+
+mod local;
+pub use local::{DaemonController, UniqueController};
+
+pub mod capnp;

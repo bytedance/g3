@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 ByteDance and/or its affiliates.
+ * Copyright 2023 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,5 @@
  * limitations under the License.
  */
 
-pub mod collect;
-pub mod config;
-pub mod control;
-pub mod input;
-pub mod opts;
-pub mod output;
-pub mod signal;
-
-mod build;
+mod reload;
+pub(super) use reload::reload_input;

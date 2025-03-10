@@ -20,7 +20,7 @@ use tokio::signal::windows::ctrl_c;
 
 use super::AsyncSignalAction;
 
-pub fn register<QUIT>(do_quit: QUIT) -> anyhow::Result<()>
+pub fn register_quit<QUIT>(do_quit: QUIT) -> anyhow::Result<()>
 where
     QUIT: AsyncSignalAction + Send + 'static,
 {

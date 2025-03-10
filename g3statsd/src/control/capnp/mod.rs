@@ -14,12 +14,21 @@
  * limitations under the License.
  */
 
-pub mod collect;
-pub mod config;
-pub mod control;
-pub mod input;
-pub mod opts;
-pub mod output;
-pub mod signal;
+use g3statsd_proto::proc_capnp::proc_control;
 
-mod build;
+mod common;
+use common::set_operation_result;
+mod proc;
+
+pub fn stop_working_thread() {
+    g3_daemon::control::capnp::stop_working_thread();
+}
+
+fn build_capnp_client() -> capnp::capability::Client {
+    let control_client: proc_control::Client = capnp_rpc::new_client(proc::ProcControlImpl);
+    control_client.client
+}
+
+pub async fn spawn_working_thread() -> anyhow::Result<std::thread::JoinHandle<()>> {
+    g3_daemon::control::capnp::spawn_working_thread(&build_capnp_client).await
+}

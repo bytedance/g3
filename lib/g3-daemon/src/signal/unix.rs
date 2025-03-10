@@ -22,15 +22,9 @@ use tokio::signal::unix::{SignalKind, signal};
 
 use super::AsyncSignalAction;
 
-pub fn register<QUIT, OFFLINE, RELOAD>(
-    do_quit: QUIT,
-    go_offline: OFFLINE,
-    call_reload: RELOAD,
-) -> anyhow::Result<()>
+pub fn register_quit<QUIT>(do_quit: QUIT) -> anyhow::Result<()>
 where
     QUIT: AsyncSignalAction + Send + 'static,
-    OFFLINE: AsyncSignalAction + Send + 'static,
-    RELOAD: AsyncSignalAction + Send + 'static,
 {
     let mut quit_sig = signal(SignalKind::quit())
         .map_err(|e| anyhow!("failed to create SIGQUIT listener: {e}"))?;
@@ -50,6 +44,13 @@ where
         }
     });
 
+    Ok(())
+}
+
+pub fn register_offline<OFFLINE>(go_offline: OFFLINE) -> anyhow::Result<()>
+where
+    OFFLINE: AsyncSignalAction + Send + 'static,
+{
     let mut term_sig = signal(SignalKind::terminate())
         .map_err(|e| anyhow!("failed to create SIGTERM listener: {e}"))?;
     tokio::spawn(async move {
@@ -58,8 +59,6 @@ where
             go_offline.run().await;
         }
     });
-
-    register_reload(call_reload)?;
 
     Ok(())
 }

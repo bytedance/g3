@@ -37,6 +37,25 @@ async fn do_reload() {
     info!("reload finished");
 }
 
+#[derive(Clone, Copy)]
+struct QuitAction {}
+
+impl AsyncSignalAction for QuitAction {
+    async fn run(&self) {
+        g3_daemon::control::quit::trigger_force_shutdown();
+    }
+}
+
+#[allow(unused)]
+#[derive(Clone, Copy)]
+struct OfflineAction {}
+
+impl AsyncSignalAction for OfflineAction {
+    async fn run(&self) {
+        g3_daemon::control::quit::start_graceful_shutdown().await;
+    }
+}
+
 #[allow(unused)]
 #[derive(Clone, Copy)]
 struct ReloadAction {}
@@ -47,12 +66,10 @@ impl AsyncSignalAction for ReloadAction {
     }
 }
 
-#[cfg(unix)]
 pub fn register() -> anyhow::Result<()> {
-    g3_daemon::signal::register_reload(ReloadAction {})
-}
-
-#[cfg(windows)]
-pub fn register() -> anyhow::Result<()> {
-    Ok(())
+    #[cfg(unix)]
+    g3_daemon::signal::register_reload(ReloadAction {})?;
+    #[cfg(unix)]
+    g3_daemon::signal::register_offline(OfflineAction {})?;
+    g3_daemon::signal::register_quit(QuitAction {})
 }
