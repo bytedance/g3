@@ -14,16 +14,19 @@
  * limitations under the License.
  */
 
+use std::collections::BTreeSet;
 use std::path::Path;
+use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
+use g3_daemon::config::TopoMap;
 use g3_types::metrics::NodeName;
 use g3_yaml::{HybridParser, YamlDocPosition};
 
 mod registry;
-pub(crate) use registry::{clear, get_all};
+pub(crate) use registry::clear;
 
 pub(crate) mod dummy;
 pub(crate) mod internal;
@@ -44,6 +47,10 @@ pub(crate) trait CollectConfig {
     fn collect_type(&self) -> &'static str;
 
     fn diff_action(&self, new: &AnyCollectConfig) -> CollectConfigDiffAction;
+
+    fn dependent_collecter(&self) -> Option<BTreeSet<NodeName>> {
+        None
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -78,6 +85,7 @@ impl AnyCollectConfig {
     impl_transparent0!(name, &NodeName);
     impl_transparent0!(position, Option<YamlDocPosition>);
     impl_transparent0!(collect_type, &'static str);
+    impl_transparent0!(dependent_collecter, Option<BTreeSet<NodeName>>);
 
     impl_transparent1!(diff_action, CollectConfigDiffAction, &Self);
 }
@@ -95,6 +103,7 @@ pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
             Ok(())
         }
     })?;
+    build_topology_map()?;
     Ok(())
 }
 
@@ -102,8 +111,19 @@ pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<Any
     let doc = g3_yaml::load_doc(position)?;
     if let Yaml::Hash(map) = doc {
         let collect = load_collect(&map, Some(position.clone()))?;
-        registry::add(collect.clone());
-        Ok(collect)
+        let old_collect = registry::add(collect.clone());
+        if let Err(e) = build_topology_map() {
+            // rollback
+            match old_collect {
+                Some(collect) => {
+                    registry::add(collect);
+                }
+                None => registry::del(collect.name()),
+            }
+            Err(e)
+        } else {
+            Ok(collect)
+        }
     } else {
         Err(anyhow!("yaml doc {position} is not a map"))
     }
@@ -120,6 +140,37 @@ fn load_collect(
                 .context("failed to load this Dummy collect")?;
             Ok(AnyCollectConfig::Dummy(collect))
         }
+        "internal" => {
+            let collect = internal::InternalCollectConfig::parse(map, position)
+                .context("failed to load this Internal collect")?;
+            Ok(AnyCollectConfig::Internal(collect))
+        }
         _ => Err(anyhow!("unsupported collect type {}", collect_type)),
     }
+}
+
+fn build_topology_map() -> anyhow::Result<TopoMap> {
+    let mut topo_map = TopoMap::default();
+
+    for name in registry::get_all_names() {
+        topo_map.add_node(&name, &|name| {
+            let conf = registry::get(name)?;
+            conf.dependent_collecter()
+        })?;
+    }
+
+    Ok(topo_map)
+}
+
+pub(crate) fn get_all_sorted() -> anyhow::Result<Vec<Arc<AnyCollectConfig>>> {
+    let topo_map = build_topology_map()?;
+    let sorted_nodes = topo_map.sorted_nodes();
+    let mut sorted_conf = Vec::with_capacity(sorted_nodes.len());
+    for node in sorted_nodes {
+        let Some(conf) = registry::get(node.name()) else {
+            continue;
+        };
+        sorted_conf.push(conf);
+    }
+    Ok(sorted_conf)
 }

@@ -38,16 +38,6 @@ pub(super) fn add(input: AnyInputConfig) -> Option<AnyInputConfig> {
     ht.insert(name, input).map(|v| v.as_ref().clone())
 }
 
-pub(super) fn del(name: &NodeName) {
-    let mut ht = INITIAL_INPUT_CONFIG_REGISTRY.lock().unwrap();
-    ht.remove(name);
-}
-
-pub(super) fn get(name: &NodeName) -> Option<Arc<AnyInputConfig>> {
-    let ht = INITIAL_INPUT_CONFIG_REGISTRY.lock().unwrap();
-    ht.get(name).cloned()
-}
-
 pub(crate) fn get_all() -> Vec<Arc<AnyInputConfig>> {
     let ht = INITIAL_INPUT_CONFIG_REGISTRY.lock().unwrap();
     ht.values().cloned().collect()
