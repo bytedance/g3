@@ -71,7 +71,10 @@ impl InputInternal for DummyInput {
         AnyInputConfig::Dummy(self.config.clone())
     }
 
-    fn _reload_config_notify_runtime(&self) {}
+    fn _reload_config_notify_runtime(&self) {
+        let cmd = ServerReloadCommand::ReloadVersion(0);
+        let _ = self.reload_sender.send(cmd);
+    }
 
     fn _reload_with_old_notifier(&self, config: AnyInputConfig) -> anyhow::Result<ArcInput> {
         Err(anyhow!(

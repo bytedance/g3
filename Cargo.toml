@@ -14,6 +14,7 @@ members = [
     "g3proxy/utils/ftp",
     "g3proxy/utils/lua",
     "g3statsd",
+    "g3statsd/proto",
     "g3tiles",
     "g3tiles/proto",
     "g3tiles/utils/ctl",

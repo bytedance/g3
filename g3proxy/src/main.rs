@@ -112,8 +112,6 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
         .start()
         .context("failed to start runtime")?;
     rt.block_on(async {
-        let ret: anyhow::Result<()> = Ok(());
-
         g3_daemon::runtime::set_main_handle();
 
         let ctl_thread_handler = g3proxy::control::capnp::spawn_working_thread().await?;
@@ -158,10 +156,8 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
         g3proxy::control::capnp::stop_working_thread();
         let _ = ctl_thread_handler.join();
 
-        ret
-    })?;
-
-    Ok(())
+        Ok(())
+    })
 }
 
 async fn load_and_spawn() -> anyhow::Result<()> {

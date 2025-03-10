@@ -14,12 +14,18 @@
  * limitations under the License.
  */
 
-pub mod collect;
-pub mod config;
-pub mod control;
-pub mod input;
-pub mod opts;
-pub mod output;
-pub mod signal;
+use g3statsd_proto::types_capnp::operation_result;
 
-mod build;
+pub(super) fn set_operation_result(
+    mut builder: operation_result::Builder<'_>,
+    r: anyhow::Result<()>,
+) {
+    match r {
+        Ok(_) => builder.set_ok("success"),
+        Err(e) => {
+            let mut ev = builder.init_err();
+            ev.set_code(-1);
+            ev.set_reason(format!("{e:?}").as_str());
+        }
+    }
+}
