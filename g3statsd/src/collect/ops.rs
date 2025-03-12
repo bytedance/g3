@@ -174,7 +174,9 @@ fn spawn_new_unlocked(config: AnyCollectConfig) -> anyhow::Result<()> {
     let name = config.name().clone();
     let input = match config {
         AnyCollectConfig::Dummy(config) => super::dummy::DummyCollect::prepare_initial(config)?,
-        AnyCollectConfig::Internal(config) => todo!(),
+        AnyCollectConfig::Internal(config) => {
+            super::internal::InternalCollect::prepare_initial(config)?
+        }
     };
     registry::add(name.clone(), input)?;
     update_dependency_to_collector_unlocked(&name, "spawned");
