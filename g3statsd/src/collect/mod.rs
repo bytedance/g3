@@ -16,9 +16,7 @@
 
 use std::sync::Arc;
 
-use tokio::sync::broadcast;
-
-use g3_daemon::server::{BaseServer, ServerReloadCommand};
+use g3_daemon::server::BaseServer;
 use g3_types::metrics::NodeName;
 
 use crate::config::collect::AnyCollectConfig;
@@ -31,6 +29,7 @@ pub(crate) use ops::reload;
 pub use ops::{spawn_all, stop_all};
 
 mod dummy;
+mod internal;
 
 pub(crate) trait CollectInternal {
     fn _clone_config(&self) -> AnyCollectConfig;
@@ -49,7 +48,3 @@ pub(crate) trait CollectInternal {
 pub(crate) trait Collect: CollectInternal + BaseServer {}
 
 pub(crate) type ArcCollect = Arc<dyn Collect + Send + Sync>;
-
-fn new_reload_notify_channel() -> broadcast::Sender<ServerReloadCommand> {
-    broadcast::Sender::new(16)
-}

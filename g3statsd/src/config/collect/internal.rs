@@ -30,7 +30,7 @@ const COLLECT_CONFIG_TYPE: &str = "Internal";
 pub(crate) struct InternalCollectConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
-    emit_interval: Duration,
+    pub(crate) emit_interval: Duration,
 }
 
 impl InternalCollectConfig {

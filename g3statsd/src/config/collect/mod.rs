@@ -48,7 +48,7 @@ pub(crate) trait CollectConfig {
 
     fn diff_action(&self, new: &AnyCollectConfig) -> CollectConfigDiffAction;
 
-    fn dependent_collecter(&self) -> Option<BTreeSet<NodeName>> {
+    fn dependent_collector(&self) -> Option<BTreeSet<NodeName>> {
         None
     }
 }
@@ -85,7 +85,7 @@ impl AnyCollectConfig {
     impl_transparent0!(name, &NodeName);
     impl_transparent0!(position, Option<YamlDocPosition>);
     impl_transparent0!(collect_type, &'static str);
-    impl_transparent0!(dependent_collecter, Option<BTreeSet<NodeName>>);
+    impl_transparent0!(dependent_collector, Option<BTreeSet<NodeName>>);
 
     impl_transparent1!(diff_action, CollectConfigDiffAction, &Self);
 }
@@ -155,7 +155,7 @@ fn build_topology_map() -> anyhow::Result<TopoMap> {
     for name in registry::get_all_names() {
         topo_map.add_node(&name, &|name| {
             let conf = registry::get(name)?;
-            conf.dependent_collecter()
+            conf.dependent_collector()
         })?;
     }
 

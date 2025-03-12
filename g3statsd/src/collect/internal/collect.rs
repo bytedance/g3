@@ -17,36 +17,51 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use tokio::sync::broadcast;
 
 use g3_daemon::server::BaseServer;
 use g3_types::metrics::NodeName;
 
-use super::{ArcCollect, Collect, CollectInternal};
-use crate::config::collect::dummy::DummyCollectConfig;
+use super::InternalEmitter;
+use crate::collect::{ArcCollect, Collect, CollectInternal};
+use crate::config::collect::internal::InternalCollectConfig;
 use crate::config::collect::{AnyCollectConfig, CollectConfig};
 
-pub(crate) struct DummyCollect {
-    config: DummyCollectConfig,
+pub(crate) struct InternalCollect {
+    config: Arc<InternalCollectConfig>,
+
+    reload_sender: broadcast::Sender<Arc<InternalCollectConfig>>,
+    reload_version: usize,
 }
 
-impl DummyCollect {
-    fn new(config: DummyCollectConfig) -> Self {
-        DummyCollect { config }
+impl InternalCollect {
+    fn new(
+        config: InternalCollectConfig,
+        reload_sender: broadcast::Sender<Arc<InternalCollectConfig>>,
+        reload_version: usize,
+    ) -> Self {
+        InternalCollect {
+            config: Arc::new(config),
+            reload_sender,
+            reload_version,
+        }
     }
 
-    pub(crate) fn prepare_initial(config: DummyCollectConfig) -> anyhow::Result<ArcCollect> {
-        let server = DummyCollect::new(config);
+    pub(crate) fn prepare_initial(config: InternalCollectConfig) -> anyhow::Result<ArcCollect> {
+        let server = InternalCollect::new(config, broadcast::Sender::new(4), 1);
+        let emitter = InternalEmitter::new(server.reload_sender.subscribe());
+        let config = server.config.clone();
+        tokio::spawn(emitter.into_running(config));
         Ok(Arc::new(server))
     }
 
-    pub(crate) fn prepare_default(name: &NodeName) -> ArcCollect {
-        let config = DummyCollectConfig::with_name(name, None);
-        Arc::new(DummyCollect::new(config))
-    }
-
-    fn prepare_reload(&self, config: AnyCollectConfig) -> anyhow::Result<DummyCollect> {
-        if let AnyCollectConfig::Dummy(config) = config {
-            Ok(DummyCollect::new(config))
+    fn prepare_reload(&self, config: AnyCollectConfig) -> anyhow::Result<InternalCollect> {
+        if let AnyCollectConfig::Internal(config) = config {
+            Ok(InternalCollect::new(
+                config,
+                self.reload_sender.clone(),
+                self.reload_version + 1,
+            ))
         } else {
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
@@ -57,24 +72,25 @@ impl DummyCollect {
     }
 }
 
-impl CollectInternal for DummyCollect {
+impl CollectInternal for InternalCollect {
     fn _clone_config(&self) -> AnyCollectConfig {
-        AnyCollectConfig::Dummy(self.config.clone())
+        AnyCollectConfig::Internal((*self.config).clone())
     }
 
     fn _depend_on_collector(&self, _name: &NodeName) -> bool {
         false
     }
 
-    fn _reload_config_notify_runtime(&self) {}
+    fn _reload_config_notify_runtime(&self) {
+        let _ = self.reload_sender.send(self.config.clone());
+    }
 
     fn _update_next_collectors_in_place(&self) {}
 
     fn _reload_with_old_notifier(&self, config: AnyCollectConfig) -> anyhow::Result<ArcCollect> {
-        Err(anyhow!(
-            "this {} collect doesn't support reload with old notifier",
-            config.collect_type()
-        ))
+        let mut server = self.prepare_reload(config)?;
+        server.reload_sender = self.reload_sender.clone();
+        Ok(Arc::new(server))
     }
 
     fn _reload_with_new_notifier(&self, config: AnyCollectConfig) -> anyhow::Result<ArcCollect> {
@@ -89,7 +105,7 @@ impl CollectInternal for DummyCollect {
     fn _abort_runtime(&self) {}
 }
 
-impl BaseServer for DummyCollect {
+impl BaseServer for InternalCollect {
     #[inline]
     fn name(&self) -> &NodeName {
         self.config.name()
@@ -102,8 +118,8 @@ impl BaseServer for DummyCollect {
 
     #[inline]
     fn version(&self) -> usize {
-        0
+        self.reload_version
     }
 }
 
-impl Collect for DummyCollect {}
+impl Collect for InternalCollect {}
