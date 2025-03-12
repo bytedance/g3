@@ -321,9 +321,9 @@ dependencies = [
 
 [[package]]
 name = "bssl-cmake-sys"
-version = "0.1.2502120"
+version = "0.1.2503110"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87b7ddd9a26ca31f2faa74ddc58b14de93ad9624a5f0c8aab5e1a5f02497d2ce"
+checksum = "1548ef7bd126370c4892fed03868c7e03cc1679956993a93fba81a5795839c72"
 dependencies = [
  "bindgen",
  "cc",
@@ -2253,9 +2253,9 @@ dependencies = [
 
 [[package]]
 name = "http"
-version = "1.2.0"
+version = "1.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f16ca2af56261c99fba8bac40a10251ce8188205a4c448fbb745a2e4daa76fea"
+checksum = "f4a85d31aea989eead29a3aaf9e1115a180df8282431156e533de47660892565"
 dependencies = [
  "bytes",
  "fnv",
@@ -2561,9 +2561,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.170"
+version = "0.2.171"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "875b3680cb2f8f71bdcf9a30f38d48282f5d3c95cbf9b3fa57269bb5d5c06828"
+checksum = "c19937216e9d3aa9956d9bb8dfc0b0c8beb6058fc4f7a4dc4d850edf86a237d6"
 
 [[package]]
 name = "libloading"
@@ -3000,9 +3000,9 @@ dependencies = [
 
 [[package]]
 name = "quote"
-version = "1.0.39"
+version = "1.0.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1f1914ce909e1658d9907913b4b91947430c7d9be598b15a1912935b8c04801"
+checksum = "1885c039570dc00dcb4ff087a89e185fd56bae234ddc7f056a945bf36467248d"
 dependencies = [
  "proc-macro2",
 ]
@@ -3138,9 +3138,9 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 
 [[package]]
 name = "ring"
-version = "0.17.13"
+version = "0.17.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70ac5d832aa16abd7d1def883a8545280c20a60f523a370aa3a9617c2b8550ee"
+checksum = "a4689e6c2294d81e88dc6261c768b63bc4fcdb852be6d1352498b114f61383b7"
 dependencies = [
  "cc",
  "cfg-if",
@@ -3784,9 +3784,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl"
-version = "0.15.11"
+version = "0.15.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a403e5b2d8dcf63ff3876f527a37b8a4d4ccca3b4b2893c9a1afff7037ea193c"
+checksum = "abb7046052a182d3259306d5e40a1642ace9d7ecde5da8d60d92492d2970ff00"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -3799,9 +3799,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl-sys"
-version = "0.15.11"
+version = "0.15.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "357fd5770de8d7947cf230ce1cd11cc2960276392bfdf1cd9c12104b9ac5cefb"
+checksum = "a71004190ce2947a7647688aea8d4ada66addf520c364c546033d7d20489fdc2"
 dependencies = [
  "bssl-cmake-sys",
  "cc",
