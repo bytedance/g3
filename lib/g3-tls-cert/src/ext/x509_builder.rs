@@ -38,6 +38,7 @@ impl X509BuilderExt for X509Builder {
 
         let digest = digest.unwrap_or_else(|| match key.id() {
             // see https://www.openssl.org/docs/manmaster/man3/EVP_DigestSign.html
+            #[cfg(not(osslconf = "OPENSSL_NO_SM2"))]
             Id::SM2 => MessageDigest::sm3(),
             Id::ED25519 | Id::ED448 => MessageDigest::null(),
             _ => MessageDigest::sha256(),

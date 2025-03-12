@@ -41,7 +41,7 @@ pub struct ClientCertBuilder {
 
 pub struct TlsClientCertBuilder {}
 
-#[cfg(feature = "no-sm2")]
+#[cfg(osslconf = "OPENSSL_NO_SM2")]
 macro_rules! impl_no {
     ($f:ident, $a:literal) => {
         pub fn $f() -> anyhow::Result<ClientCertBuilder> {
@@ -65,9 +65,9 @@ impl TlsClientCertBuilder {
     tls_impl_new!(new_ec384);
     tls_impl_new!(new_ec521);
 
-    #[cfg(not(feature = "no-sm2"))]
+    #[cfg(not(osslconf = "OPENSSL_NO_SM2"))]
     tls_impl_new!(new_sm2);
-    #[cfg(feature = "no-sm2")]
+    #[cfg(osslconf = "OPENSSL_NO_SM2")]
     impl_no!(new_sm2, "SM2");
 
     pub fn new_ed25519() -> anyhow::Result<ClientCertBuilder> {
@@ -118,12 +118,12 @@ impl TlsClientCertBuilder {
 pub struct TlcpClientSignCertBuilder {}
 
 impl TlcpClientSignCertBuilder {
-    #[cfg(not(feature = "no-sm2"))]
+    #[cfg(not(osslconf = "OPENSSL_NO_SM2"))]
     pub fn new_sm2() -> anyhow::Result<ClientCertBuilder> {
         let pkey = super::pkey::new_sm2()?;
         TlcpClientSignCertBuilder::with_pkey(pkey)
     }
-    #[cfg(feature = "no-sm2")]
+    #[cfg(osslconf = "OPENSSL_NO_SM2")]
     impl_no!(new_sm2, "SM2");
 
     pub fn new_rsa(bits: u32) -> anyhow::Result<ClientCertBuilder> {
@@ -142,12 +142,12 @@ impl TlcpClientSignCertBuilder {
 pub struct TlcpClientEncCertBuilder {}
 
 impl TlcpClientEncCertBuilder {
-    #[cfg(not(feature = "no-sm2"))]
+    #[cfg(not(osslconf = "OPENSSL_NO_SM2"))]
     pub fn new_sm2() -> anyhow::Result<ClientCertBuilder> {
         let pkey = super::pkey::new_sm2()?;
         TlcpClientEncCertBuilder::with_pkey(pkey)
     }
-    #[cfg(feature = "no-sm2")]
+    #[cfg(osslconf = "OPENSSL_NO_SM2")]
     impl_no!(new_sm2, "SM2");
 
     pub fn new_rsa(bits: u32) -> anyhow::Result<ClientCertBuilder> {
