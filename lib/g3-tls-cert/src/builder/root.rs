@@ -50,9 +50,9 @@ impl RootCertBuilder {
     impl_new!(new_ec384);
     impl_new!(new_ec521);
 
-    #[cfg(not(feature = "no-sm2"))]
+    #[cfg(not(osslconf = "OPENSSL_NO_SM2"))]
     impl_new!(new_sm2);
-    #[cfg(feature = "no-sm2")]
+    #[cfg(osslconf = "OPENSSL_NO_SM2")]
     pub fn new_sm2() -> anyhow::Result<Self> {
         Err(anyhow!("SM2 is not supported"))
     }

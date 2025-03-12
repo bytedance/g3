@@ -39,7 +39,7 @@ impl<'a> MimicCertBuilder<'a> {
         let pkey = match pkey.id() {
             Id::RSA => super::pkey::new_rsa(2048)?,
             Id::EC => super::pkey::new_ec256()?,
-            #[cfg(not(feature = "no-sm2"))]
+            #[cfg(not(osslconf = "OPENSSL_NO_SM2"))]
             Id::SM2 => super::pkey::new_sm2()?,
             Id::ED448 => super::pkey::new_ed448()?,
             Id::ED25519 => super::pkey::new_ed25519()?,
@@ -226,7 +226,7 @@ impl<'a> MimicCertBuilder<'a> {
             .map_err(|e| anyhow!("failed to get key for the mimic cert: {e}"))?;
         let key_usage_builder = match pkey.id() {
             Id::RSA | Id::EC => KeyUsageBuilder::tls_general(),
-            #[cfg(not(feature = "no-sm2"))]
+            #[cfg(not(osslconf = "OPENSSL_NO_SM2"))]
             Id::SM2 => KeyUsageBuilder::tls_general(),
             Id::ED448 | Id::ED25519 => KeyUsageBuilder::ed_dsa(),
             Id::X448 | Id::X25519 => KeyUsageBuilder::x_dh(),

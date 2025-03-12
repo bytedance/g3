@@ -41,7 +41,7 @@ pub struct ServerCertBuilder {
 
 pub struct TlsServerCertBuilder {}
 
-#[cfg(feature = "no-sm2")]
+#[cfg(osslconf = "OPENSSL_NO_SM2")]
 macro_rules! impl_no {
     ($f:ident, $a:literal) => {
         pub fn $f() -> anyhow::Result<ServerCertBuilder> {
@@ -65,9 +65,9 @@ impl TlsServerCertBuilder {
     tls_impl_new!(new_ec384);
     tls_impl_new!(new_ec521);
 
-    #[cfg(not(feature = "no-sm2"))]
+    #[cfg(not(osslconf = "OPENSSL_NO_SM2"))]
     tls_impl_new!(new_sm2);
-    #[cfg(feature = "no-sm2")]
+    #[cfg(osslconf = "OPENSSL_NO_SM2")]
     impl_no!(new_sm2, "SM2");
 
     pub fn new_ed25519() -> anyhow::Result<ServerCertBuilder> {
@@ -118,12 +118,12 @@ impl TlsServerCertBuilder {
 pub struct TlcpServerSignCertBuilder {}
 
 impl TlcpServerSignCertBuilder {
-    #[cfg(not(feature = "no-sm2"))]
+    #[cfg(not(osslconf = "OPENSSL_NO_SM2"))]
     pub fn new_sm2() -> anyhow::Result<ServerCertBuilder> {
         let pkey = super::pkey::new_sm2()?;
         TlcpServerSignCertBuilder::with_pkey(pkey)
     }
-    #[cfg(feature = "no-sm2")]
+    #[cfg(osslconf = "OPENSSL_NO_SM2")]
     impl_no!(new_sm2, "SM2");
 
     pub fn new_rsa(bits: u32) -> anyhow::Result<ServerCertBuilder> {
@@ -142,12 +142,12 @@ impl TlcpServerSignCertBuilder {
 pub struct TlcpServerEncCertBuilder {}
 
 impl TlcpServerEncCertBuilder {
-    #[cfg(not(feature = "no-sm2"))]
+    #[cfg(not(osslconf = "OPENSSL_NO_SM2"))]
     pub fn new_sm2() -> anyhow::Result<ServerCertBuilder> {
         let pkey = super::pkey::new_sm2()?;
         TlcpServerEncCertBuilder::with_pkey(pkey)
     }
-    #[cfg(feature = "no-sm2")]
+    #[cfg(osslconf = "OPENSSL_NO_SM2")]
     impl_no!(new_sm2, "SM2");
 
     pub fn new_rsa(bits: u32) -> anyhow::Result<ServerCertBuilder> {
@@ -228,7 +228,7 @@ impl ServerCertBuilder {
     impl_refresh_pkey!(refresh_ec384, new_ec384);
     impl_refresh_pkey!(refresh_ec521, new_ec521);
 
-    #[cfg(not(feature = "no-sm2"))]
+    #[cfg(not(osslconf = "OPENSSL_NO_SM2"))]
     impl_refresh_pkey!(refresh_sm2, new_sm2);
 
     impl_refresh_pkey!(refresh_ed25519, new_ed25519);
