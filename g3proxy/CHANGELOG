@@ -1,4 +1,16 @@
 
+v1.11.3:
+ - Feature: support to set bind interface and many other socket options in hickory resolver
+ - Feature: do not require explicit server address in c-ares resolver, /etc/resolv.conf will be used in this case
+ - Feature: support multi-threaded runtime in worker
+ - Feature: add an extra exported-pdu layer to represent client side addresses when dump traffic to wireshark
+ - Feature: support to use PROXY Protocol in direct-fixed escaper
+ - Feature: support full duplex mode of TCP shutdown, and log partial shutdown event in task/intercept log
+ - Optimization: limit the range of max-frame-size h2 config
+ - Optimization: use IdleWheel to reduce timer usage when doing IDLE check
+ - Optimization: changed default idle-check-interval to 60s and set default max-idle-count to 5
+ - Compatibility: switch to rust edition 2024
+
 v1.11.2:
  - BUG FIX: correctly handle ICAP null-body response
  - BUG FIX: fix ICAP connection state when reading modified SMTP/IMAP message
