@@ -40,21 +40,19 @@ impl HttpForwardTaskRemoteStats for UserUpstreamTrafficStats {
 
 #[derive(Clone)]
 pub(crate) struct HttpForwardTaskRemoteWrapperStats {
-    task: ArcHttpForwardTaskRemoteStats,
-    others: Vec<ArcHttpForwardTaskRemoteStats>,
+    all: Vec<ArcHttpForwardTaskRemoteStats>,
 }
 
 impl HttpForwardTaskRemoteWrapperStats {
     pub(crate) fn new(task: ArcHttpForwardTaskRemoteStats) -> Self {
-        HttpForwardTaskRemoteWrapperStats {
-            task,
-            others: Vec::with_capacity(2),
-        }
+        let mut all = Vec::with_capacity(3);
+        all.push(task);
+        HttpForwardTaskRemoteWrapperStats { all }
     }
 
     pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserUpstreamTrafficStats>>) {
         for s in all {
-            self.others.push(s as ArcHttpForwardTaskRemoteStats);
+            self.all.push(s as ArcHttpForwardTaskRemoteStats);
         }
     }
 }
@@ -62,58 +60,52 @@ impl HttpForwardTaskRemoteWrapperStats {
 impl LimitedReaderStats for HttpForwardTaskRemoteWrapperStats {
     fn add_read_bytes(&self, size: usize) {
         let size = size as u64;
-        self.task.add_read_bytes(size);
-        self.others
-            .iter()
-            .for_each(|stats| stats.add_read_bytes(size));
+        self.all.iter().for_each(|stats| stats.add_read_bytes(size));
     }
 }
 
 impl LimitedWriterStats for HttpForwardTaskRemoteWrapperStats {
     fn add_write_bytes(&self, size: usize) {
         let size = size as u64;
-        self.task.add_write_bytes(size);
-        self.others
+        self.all
             .iter()
             .for_each(|stats| stats.add_write_bytes(size));
     }
 }
 
 #[derive(Clone)]
-pub(crate) struct HttpForwardRemoteWrapperStats<T> {
-    escaper: Arc<T>,
-    task: ArcHttpForwardTaskRemoteStats,
-    others: Vec<ArcHttpForwardTaskRemoteStats>,
+pub(crate) struct HttpForwardRemoteWrapperStats {
+    all: Vec<ArcHttpForwardTaskRemoteStats>,
 }
 
-impl<T: HttpForwardTaskRemoteStats> HttpForwardRemoteWrapperStats<T> {
-    pub(crate) fn new(escaper: &Arc<T>, task: &ArcHttpForwardTaskRemoteStats) -> Self {
-        HttpForwardRemoteWrapperStats {
-            escaper: Arc::clone(escaper),
-            task: Arc::clone(task),
-            others: Vec::with_capacity(2),
-        }
+impl HttpForwardRemoteWrapperStats {
+    pub(crate) fn new(
+        escaper: ArcHttpForwardTaskRemoteStats,
+        task: &ArcHttpForwardTaskRemoteStats,
+    ) -> Self {
+        let mut all = Vec::with_capacity(4);
+        all.push(task.clone());
+        all.push(escaper);
+        HttpForwardRemoteWrapperStats { all }
     }
 
     pub(crate) fn push_user_io_stats_by_ref(&mut self, all: &[Arc<UserUpstreamTrafficStats>]) {
         for s in all {
-            self.others.push(s.clone());
+            self.all.push(s.clone());
         }
     }
 
     pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserUpstreamTrafficStats>>) {
         for s in all {
-            self.others.push(s);
+            self.all.push(s);
         }
     }
 }
 
-impl<T: HttpForwardTaskRemoteStats> LimitedWriterStats for HttpForwardRemoteWrapperStats<T> {
+impl LimitedWriterStats for HttpForwardRemoteWrapperStats {
     fn add_write_bytes(&self, size: usize) {
         let size = size as u64;
-        self.escaper.add_write_bytes(size);
-        self.task.add_write_bytes(size);
-        self.others
+        self.all
             .iter()
             .for_each(|stats| stats.add_write_bytes(size));
     }

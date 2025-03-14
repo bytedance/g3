@@ -149,7 +149,7 @@ impl ProxySocks5Escaper {
             .timed_socks5_connect_tcp_connect_to(task_conf, tcp_notes, task_notes)
             .await?;
 
-        let mut wrapper_stats = TcpConnectRemoteWrapperStats::new(&self.stats, task_stats);
+        let mut wrapper_stats = TcpConnectRemoteWrapperStats::new(self.stats.clone(), task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
         let wrapper_stats = Arc::new(wrapper_stats);
 

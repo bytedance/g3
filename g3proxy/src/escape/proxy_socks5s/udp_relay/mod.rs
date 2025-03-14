@@ -42,7 +42,7 @@ impl ProxySocks5sEscaper {
             .await
             .map_err(UdpRelaySetupError::SetupSocketFailed)?;
 
-        let mut wrapper_stats = UdpRelayRemoteWrapperStats::new(&self.stats, task_stats);
+        let mut wrapper_stats = UdpRelayRemoteWrapperStats::new(self.stats.clone(), task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
         let wrapper_stats = Arc::new(wrapper_stats);
 

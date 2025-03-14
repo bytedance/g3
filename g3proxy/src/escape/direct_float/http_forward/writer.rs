@@ -99,7 +99,8 @@ where
         user_stats: Vec<Arc<UserUpstreamTrafficStats>>,
     ) {
         if let Some(escaper_stats) = &self.escaper_stats {
-            let mut wrapper_stats = HttpForwardRemoteWrapperStats::new(escaper_stats, task_stats);
+            let mut wrapper_stats =
+                HttpForwardRemoteWrapperStats::new(escaper_stats.clone(), task_stats);
             wrapper_stats.push_user_io_stats(user_stats);
             self.inner.reset_stats(Arc::new(wrapper_stats));
         } else {
