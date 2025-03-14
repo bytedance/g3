@@ -42,16 +42,17 @@ pub struct TcpIoStats {
 }
 
 impl TcpIoStats {
-    pub fn add_in_bytes(&self, size: u64) {
-        self.in_bytes.fetch_add(size, Ordering::Relaxed);
+    pub fn add_in_bytes(&self, _size: u64) {
+        // self.in_bytes.fetch_add(size, Ordering::Relaxed);
     }
 
-    pub fn add_out_bytes(&self, size: u64) {
-        self.out_bytes.fetch_add(size, Ordering::Relaxed);
+    pub fn add_out_bytes(&self, _size: u64) {
+        // self.out_bytes.fetch_add(size, Ordering::Relaxed);
     }
 
     pub fn get_in_bytes(&self) -> u64 {
-        self.in_bytes.load(Ordering::Relaxed)
+        // self.in_bytes.load(Ordering::Relaxed)
+        0
     }
 
     pub fn snapshot(&self) -> TcpIoSnapshot {
