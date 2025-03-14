@@ -22,13 +22,13 @@ use yaml_rust::Yaml;
 use super::RedisClientConfigBuilder;
 
 impl RedisClientConfigBuilder {
-    pub fn set_yaml_kv(
+    pub fn set_by_yaml_kv(
         &mut self,
         k: &str,
         v: &Yaml,
         lookup_dir: Option<&Path>,
     ) -> anyhow::Result<()> {
-        match k {
+        match g3_yaml::key::normalize(k).as_str() {
             "addr" | "address" => {
                 let addr = g3_yaml::value::as_upstream_addr(v, crate::REDIS_DEFAULT_PORT)
                     .context(format!("invalid upstream address value for key {k}"))?;
