@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2025 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::anyhow;
 use tokio::runtime::{Builder, Runtime};
+
+#[cfg(feature = "yaml")]
+mod yaml;
 
 #[derive(Clone)]
 pub struct BlendedRuntimeConfig {

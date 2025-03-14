@@ -38,7 +38,7 @@ impl RedisSourceConfig {
                 config.dec_set_name = g3_yaml::value::as_string(v)?;
                 Ok(())
             }
-            normalized_key => config.redis.set_yaml_kv(normalized_key, v, lookup_dir),
+            _ => config.redis.set_by_yaml_kv(k, v, lookup_dir),
         })?;
 
         config.check()?;

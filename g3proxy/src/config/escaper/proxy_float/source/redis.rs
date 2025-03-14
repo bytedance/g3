@@ -103,10 +103,9 @@ impl ProxyFloatRedisSource {
                 self.sets_key = g3_yaml::value::as_string(v)?;
                 Ok(())
             }
-            normalized_key => {
+            _ => {
                 let lookup_dir = g3_daemon::config::get_lookup_dir(position)?;
-                self.client_builder
-                    .set_yaml_kv(normalized_key, v, Some(lookup_dir))
+                self.client_builder.set_by_yaml_kv(k, v, Some(lookup_dir))
             }
         }
     }

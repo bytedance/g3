@@ -121,28 +121,6 @@ fn set_global_config(k: &str, v: &Yaml) -> anyhow::Result<()> {
             GRACEFUL_WAIT_CONFIG.with_mut(|config| config.task_quit_timeout = value);
             Ok(())
         }
-        "thread_number" => {
-            let value = g3_yaml::value::as_usize(v)?;
-            RUNTIME_CONFIG.with_mut(|config| config.set_thread_number(value));
-            Ok(())
-        }
-        "thread_name" => {
-            let name = g3_yaml::value::as_ascii(v)
-                .context(format!("invalid ascii string value for key {k}"))?;
-            RUNTIME_CONFIG.with_mut(|config| config.set_thread_name(name.as_str()));
-            Ok(())
-        }
-        "thread_stack_size" => {
-            let value = g3_yaml::humanize::as_usize(v)
-                .context(format!("invalid humanize usize value for key {k}"))?;
-            RUNTIME_CONFIG.with_mut(|config| config.set_thread_stack_size(value));
-            Ok(())
-        }
-        "max_io_events_per_tick" => {
-            let capacity = g3_yaml::value::as_usize(v)?;
-            RUNTIME_CONFIG.with_mut(|config| config.set_max_io_events_per_tick(capacity));
-            Ok(())
-        }
-        _ => Err(anyhow!("invalid key {k}")),
+        _ => RUNTIME_CONFIG.with_mut(|config| config.parse_by_yaml_kv(k, v)),
     }
 }
