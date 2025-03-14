@@ -43,7 +43,7 @@ impl DirectFixedEscaper {
                 .await?;
         }
 
-        let mut wrapper_stats = FtpControlRemoteWrapperStats::new(&self.stats, task_stats);
+        let mut wrapper_stats = FtpControlRemoteWrapperStats::new(self.stats.clone(), task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
         let wrapper_stats = Arc::new(wrapper_stats);
 
@@ -78,7 +78,7 @@ impl DirectFixedEscaper {
             )
             .await?;
 
-        let mut wrapper_stats = FtpTransferRemoteWrapperStats::new(&self.stats, task_stats);
+        let mut wrapper_stats = FtpTransferRemoteWrapperStats::new(self.stats.clone(), task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
         let wrapper_stats = Arc::new(wrapper_stats);
 

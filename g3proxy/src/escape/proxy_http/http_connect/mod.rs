@@ -99,7 +99,7 @@ impl ProxyHttpEscaper {
         // add in read buffered data
         let r_buffer_size = buf_stream.buffer().len() as u64;
         task_stats.add_read_bytes(r_buffer_size);
-        let mut wrapper_stats = TcpConnectRemoteWrapperStats::new(&self.stats, task_stats);
+        let mut wrapper_stats = TcpConnectRemoteWrapperStats::new(self.stats.clone(), task_stats);
         let user_stats = self.fetch_user_upstream_io_stats(task_notes);
         for s in &user_stats {
             s.io.tcp.add_in_bytes(r_buffer_size);

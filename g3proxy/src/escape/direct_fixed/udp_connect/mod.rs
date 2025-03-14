@@ -111,7 +111,7 @@ impl DirectFixedEscaper {
             .map_err(UdpConnectError::SetupSocketFailed)?;
         udp_notes.local = Some(bind_addr);
 
-        let mut wrapper_stats = UdpConnectRemoteWrapperStats::new(&self.stats, task_stats);
+        let mut wrapper_stats = UdpConnectRemoteWrapperStats::new(self.stats.clone(), task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
         let wrapper_stats = Arc::new(wrapper_stats);
 

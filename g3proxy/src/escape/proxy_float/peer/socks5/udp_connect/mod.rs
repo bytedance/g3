@@ -47,7 +47,8 @@ impl ProxyFloatSocks5Peer {
         udp_notes.local = Some(udp_local_addr);
         udp_notes.next = Some(udp_peer_addr);
 
-        let mut wrapper_stats = UdpConnectRemoteWrapperStats::new(&escaper.stats, task_stats);
+        let mut wrapper_stats =
+            UdpConnectRemoteWrapperStats::new(escaper.stats.clone(), task_stats);
         wrapper_stats.push_user_io_stats(escaper.fetch_user_upstream_io_stats(task_notes));
         let wrapper_stats = Arc::new(wrapper_stats);
 

@@ -25,7 +25,6 @@ use g3_socket::BindAddr;
 use g3_socket::util::AddressFamily;
 
 use super::DirectFloatEscaper;
-use crate::escape::direct_fixed::DirectFixedEscaperStats;
 use crate::escape::direct_fixed::udp_relay::{DirectUdpRelayRemoteRecv, DirectUdpRelayRemoteSend};
 use crate::module::udp_relay::{
     ArcUdpRelayTaskRemoteStats, UdpRelayRemoteWrapperStats, UdpRelaySetupError,
@@ -40,7 +39,7 @@ impl DirectFloatEscaper {
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
-        let mut wrapper_stats = UdpRelayRemoteWrapperStats::new(&self.stats, task_stats);
+        let mut wrapper_stats = UdpRelayRemoteWrapperStats::new(self.stats.clone(), task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
         let wrapper_stats = Arc::new(wrapper_stats);
 
@@ -85,7 +84,7 @@ impl DirectFloatEscaper {
         family: AddressFamily,
         task_conf: &UdpRelayTaskConf<'_>,
         task_notes: &ServerTaskNotes,
-        stats: &Arc<UdpRelayRemoteWrapperStats<DirectFixedEscaperStats>>,
+        stats: &Arc<UdpRelayRemoteWrapperStats>,
     ) -> Result<
         (
             SocketAddr,

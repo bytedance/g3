@@ -16,51 +16,45 @@
 
 use std::sync::Arc;
 
-use g3_daemon::stat::remote::{ArcTcpConnectionTaskRemoteStats, TcpConnectionTaskRemoteStats};
+use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_io_ext::{LimitedReaderStats, LimitedWriterStats};
 
 use crate::auth::UserUpstreamTrafficStats;
 
 #[derive(Clone)]
-pub(crate) struct TcpConnectRemoteWrapperStats<T> {
-    escaper: Arc<T>,
-    task: ArcTcpConnectionTaskRemoteStats,
-    others: Vec<ArcTcpConnectionTaskRemoteStats>,
+pub(crate) struct TcpConnectRemoteWrapperStats {
+    all: Vec<ArcTcpConnectionTaskRemoteStats>,
 }
 
-impl<T: TcpConnectionTaskRemoteStats> TcpConnectRemoteWrapperStats<T> {
-    pub(crate) fn new(escaper: &Arc<T>, task: ArcTcpConnectionTaskRemoteStats) -> Self {
-        TcpConnectRemoteWrapperStats {
-            escaper: Arc::clone(escaper),
-            task,
-            others: Vec::with_capacity(2),
-        }
+impl TcpConnectRemoteWrapperStats {
+    pub(crate) fn new(
+        escaper: ArcTcpConnectionTaskRemoteStats,
+        task: ArcTcpConnectionTaskRemoteStats,
+    ) -> Self {
+        let mut all = Vec::with_capacity(4);
+        all.push(task);
+        all.push(escaper);
+        TcpConnectRemoteWrapperStats { all }
     }
 
     pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserUpstreamTrafficStats>>) {
         for s in all {
-            self.others.push(s);
+            self.all.push(s);
         }
     }
 }
 
-impl<T: TcpConnectionTaskRemoteStats> LimitedReaderStats for TcpConnectRemoteWrapperStats<T> {
+impl LimitedReaderStats for TcpConnectRemoteWrapperStats {
     fn add_read_bytes(&self, size: usize) {
         let size = size as u64;
-        self.escaper.add_read_bytes(size);
-        self.task.add_read_bytes(size);
-        self.others
-            .iter()
-            .for_each(|stats| stats.add_read_bytes(size));
+        self.all.iter().for_each(|stats| stats.add_read_bytes(size));
     }
 }
 
-impl<T: TcpConnectionTaskRemoteStats> LimitedWriterStats for TcpConnectRemoteWrapperStats<T> {
+impl LimitedWriterStats for TcpConnectRemoteWrapperStats {
     fn add_write_bytes(&self, size: usize) {
         let size = size as u64;
-        self.escaper.add_write_bytes(size);
-        self.task.add_write_bytes(size);
-        self.others
+        self.all
             .iter()
             .for_each(|stats| stats.add_write_bytes(size));
     }

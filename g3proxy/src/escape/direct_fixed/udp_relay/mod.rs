@@ -42,7 +42,7 @@ impl DirectFixedEscaper {
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
-        let mut wrapper_stats = UdpRelayRemoteWrapperStats::new(&self.stats, task_stats);
+        let mut wrapper_stats = UdpRelayRemoteWrapperStats::new(self.stats.clone(), task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
         let wrapper_stats = Arc::new(wrapper_stats);
 
@@ -77,7 +77,7 @@ impl DirectFixedEscaper {
         family: AddressFamily,
         task_conf: &UdpRelayTaskConf<'_>,
         task_notes: &ServerTaskNotes,
-        stats: &Arc<UdpRelayRemoteWrapperStats<DirectFixedEscaperStats>>,
+        stats: &Arc<UdpRelayRemoteWrapperStats>,
     ) -> Result<
         (
             SocketAddr,

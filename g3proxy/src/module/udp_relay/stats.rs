@@ -57,62 +57,46 @@ impl UdpRelayTaskRemoteStats for UserUpstreamTrafficStats {
 }
 
 #[derive(Clone)]
-pub(crate) struct UdpRelayRemoteWrapperStats<T> {
-    escaper: Arc<T>,
-    task: ArcUdpRelayTaskRemoteStats,
-    others: Vec<ArcUdpRelayTaskRemoteStats>,
+pub(crate) struct UdpRelayRemoteWrapperStats {
+    all: Vec<ArcUdpRelayTaskRemoteStats>,
 }
 
-impl<T: UdpRelayTaskRemoteStats> UdpRelayRemoteWrapperStats<T> {
-    pub(crate) fn new(escaper: &Arc<T>, task: ArcUdpRelayTaskRemoteStats) -> Self {
-        UdpRelayRemoteWrapperStats {
-            escaper: Arc::clone(escaper),
-            task,
-            others: Vec::with_capacity(2),
-        }
+impl UdpRelayRemoteWrapperStats {
+    pub(crate) fn new(
+        escaper: ArcUdpRelayTaskRemoteStats,
+        task: ArcUdpRelayTaskRemoteStats,
+    ) -> Self {
+        let mut all = Vec::with_capacity(4);
+        all.push(task);
+        all.push(escaper);
+        UdpRelayRemoteWrapperStats { all }
     }
 
     pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserUpstreamTrafficStats>>) {
         for s in all {
-            self.others.push(s as ArcUdpRelayTaskRemoteStats);
+            self.all.push(s as ArcUdpRelayTaskRemoteStats);
         }
     }
 }
 
-impl<T: UdpRelayTaskRemoteStats> LimitedRecvStats for UdpRelayRemoteWrapperStats<T> {
+impl LimitedRecvStats for UdpRelayRemoteWrapperStats {
     fn add_recv_bytes(&self, size: usize) {
         let size = size as u64;
-        self.escaper.add_recv_bytes(size);
-        self.task.add_recv_bytes(size);
-        self.others
-            .iter()
-            .for_each(|stats| stats.add_recv_bytes(size));
+        self.all.iter().for_each(|stats| stats.add_recv_bytes(size));
     }
 
     fn add_recv_packets(&self, n: usize) {
-        self.escaper.add_recv_packets(n);
-        self.task.add_recv_packets(n);
-        self.others
-            .iter()
-            .for_each(|stats| stats.add_recv_packets(n));
+        self.all.iter().for_each(|stats| stats.add_recv_packets(n));
     }
 }
 
-impl<T: UdpRelayTaskRemoteStats> LimitedSendStats for UdpRelayRemoteWrapperStats<T> {
+impl LimitedSendStats for UdpRelayRemoteWrapperStats {
     fn add_send_bytes(&self, size: usize) {
         let size = size as u64;
-        self.escaper.add_send_bytes(size);
-        self.task.add_send_bytes(size);
-        self.others
-            .iter()
-            .for_each(|stats| stats.add_send_bytes(size));
+        self.all.iter().for_each(|stats| stats.add_send_bytes(size));
     }
 
     fn add_send_packets(&self, n: usize) {
-        self.escaper.add_send_packets(n);
-        self.task.add_send_packets(n);
-        self.others
-            .iter()
-            .for_each(|stats| stats.add_send_packets(n));
+        self.all.iter().for_each(|stats| stats.add_send_packets(n));
     }
 }

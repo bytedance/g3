@@ -44,7 +44,8 @@ impl ProxySocks5Escaper {
         let (ups_r, mut ups_w) = ups_s.into_split();
 
         // add task and user stats
-        let mut w_wrapper_stats = HttpForwardRemoteWrapperStats::new(&self.stats, &task_stats);
+        let mut w_wrapper_stats =
+            HttpForwardRemoteWrapperStats::new(self.stats.clone(), &task_stats);
         let mut r_wrapper_stats = HttpForwardTaskRemoteWrapperStats::new(task_stats);
         let user_stats = self.fetch_user_upstream_io_stats(task_notes);
         w_wrapper_stats.push_user_io_stats_by_ref(&user_stats);
