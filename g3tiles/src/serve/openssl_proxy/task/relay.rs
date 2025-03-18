@@ -17,7 +17,6 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use log::debug;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_daemon::server::ServerQuitPolicy;
@@ -28,7 +27,6 @@ use g3_types::limit::GaugeSemaphorePermit;
 
 use super::CommonTaskContext;
 use crate::backend::ArcBackend;
-use crate::config::server::ServerConfig;
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
 use crate::module::stream::{StreamRelayTaskCltWrapperStats, StreamTransitTask};
 use crate::serve::openssl_proxy::OpensslHost;
@@ -89,14 +87,12 @@ impl OpensslRelayTask {
     }
 
     fn pre_start(&self) {
-        debug!(
-            "OpensslProxy: new client from {} to {} server {}",
-            self.ctx.client_addr(),
-            self.ctx.server_config.server_type(),
-            self.ctx.server_config.name(),
-        );
         self.ctx.server_stats.add_task();
         self.ctx.server_stats.inc_alive_task();
+
+        if self.ctx.server_config.flush_task_log_on_created {
+            self.get_log_context().log_created(&self.ctx.task_logger);
+        }
     }
 
     fn pre_stop(&mut self) {
@@ -143,6 +139,10 @@ impl OpensslRelayTask {
         UR: AsyncRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
+        if self.ctx.server_config.flush_task_log_on_connected {
+            self.get_log_context().log_connected(&self.ctx.task_logger);
+        }
+
         self.task_notes.mark_relaying();
         self.relay(ssl_stream, ups_r, ups_w).await
     }
@@ -226,7 +226,7 @@ impl StreamTransitTask for OpensslRelayTask {
     }
 
     fn log_flush_interval(&self) -> Option<Duration> {
-        None
+        self.ctx.server_config.task_log_flush_interval
     }
 
     fn quit_policy(&self) -> &ServerQuitPolicy {
