@@ -25,6 +25,7 @@ use yaml_rust::{Yaml, yaml};
 
 use g3_daemon::config::TopoMap;
 use g3_io_ext::LimitedCopyConfig;
+use g3_macros::AnyConfig;
 use g3_types::metrics::NodeName;
 use g3_yaml::{HybridParser, YamlDocPosition};
 
@@ -129,7 +130,15 @@ pub(crate) trait ServerConfig {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, AnyConfig)]
+#[def_fn(name, &NodeName)]
+#[def_fn(position, Option<YamlDocPosition>)]
+#[def_fn(server_type, &'static str)]
+#[def_fn(dependent_server, Option<BTreeSet<NodeName>>)]
+#[def_fn(escaper, &NodeName)]
+#[def_fn(user_group, &NodeName)]
+#[def_fn(auditor, &NodeName)]
+#[def_fn(diff_action, &Self, ServerConfigDiffAction)]
 pub(crate) enum AnyServerConfig {
     DummyClose(dummy_close::DummyCloseServerConfig),
     PlainTcpPort(plain_tcp_port::PlainTcpPortConfig),
@@ -151,76 +160,6 @@ pub(crate) enum AnyServerConfig {
     SocksProxy(Box<socks_proxy::SocksProxyServerConfig>),
     HttpProxy(Box<http_proxy::HttpProxyServerConfig>),
     HttpRProxy(Box<http_rproxy::HttpRProxyServerConfig>),
-}
-
-macro_rules! impl_transparent0 {
-    ($f:tt, $v:ty) => {
-        pub(crate) fn $f(&self) -> $v {
-            match self {
-                AnyServerConfig::DummyClose(s) => s.$f(),
-                AnyServerConfig::PlainTcpPort(s) => s.$f(),
-                AnyServerConfig::PlainTlsPort(s) => s.$f(),
-                AnyServerConfig::NativeTlsPort(s) => s.$f(),
-                #[cfg(feature = "quic")]
-                AnyServerConfig::PlainQuicPort(s) => s.$f(),
-                AnyServerConfig::IntelliProxy(s) => s.$f(),
-                AnyServerConfig::TcpStream(s) => s.$f(),
-                #[cfg(any(
-                    target_os = "linux",
-                    target_os = "freebsd",
-                    target_os = "dragonfly",
-                    target_os = "openbsd"
-                ))]
-                AnyServerConfig::TcpTProxy(s) => s.$f(),
-                AnyServerConfig::TlsStream(s) => s.$f(),
-                AnyServerConfig::SniProxy(s) => s.$f(),
-                AnyServerConfig::SocksProxy(s) => s.$f(),
-                AnyServerConfig::HttpProxy(s) => s.$f(),
-                AnyServerConfig::HttpRProxy(s) => s.$f(),
-            }
-        }
-    };
-}
-
-macro_rules! impl_transparent1 {
-    ($f:tt, $v:ty, $p:ty) => {
-        pub(crate) fn $f(&self, p: $p) -> $v {
-            match self {
-                AnyServerConfig::DummyClose(s) => s.$f(p),
-                AnyServerConfig::PlainTcpPort(s) => s.$f(p),
-                AnyServerConfig::PlainTlsPort(s) => s.$f(p),
-                AnyServerConfig::NativeTlsPort(s) => s.$f(p),
-                #[cfg(feature = "quic")]
-                AnyServerConfig::PlainQuicPort(s) => s.$f(p),
-                AnyServerConfig::IntelliProxy(s) => s.$f(p),
-                AnyServerConfig::TcpStream(s) => s.$f(p),
-                #[cfg(any(
-                    target_os = "linux",
-                    target_os = "freebsd",
-                    target_os = "dragonfly",
-                    target_os = "openbsd"
-                ))]
-                AnyServerConfig::TcpTProxy(s) => s.$f(p),
-                AnyServerConfig::TlsStream(s) => s.$f(p),
-                AnyServerConfig::SniProxy(s) => s.$f(p),
-                AnyServerConfig::SocksProxy(s) => s.$f(p),
-                AnyServerConfig::HttpProxy(s) => s.$f(p),
-                AnyServerConfig::HttpRProxy(s) => s.$f(p),
-            }
-        }
-    };
-}
-
-impl AnyServerConfig {
-    impl_transparent0!(name, &NodeName);
-    impl_transparent0!(position, Option<YamlDocPosition>);
-    impl_transparent0!(server_type, &'static str);
-    impl_transparent0!(dependent_server, Option<BTreeSet<NodeName>>);
-    impl_transparent0!(escaper, &NodeName);
-    impl_transparent0!(user_group, &NodeName);
-    impl_transparent0!(auditor, &NodeName);
-
-    impl_transparent1!(diff_action, ServerConfigDiffAction, &Self);
 }
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {

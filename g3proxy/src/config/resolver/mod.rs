@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::collections::BTreeSet;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -21,6 +22,8 @@ use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
 use g3_daemon::config::TopoMap;
+use g3_macros::AnyConfig;
+use g3_types::metrics::NodeName;
 use g3_yaml::{HybridParser, YamlDocPosition};
 
 #[cfg(feature = "c-ares")]
@@ -31,14 +34,40 @@ pub(crate) mod hickory;
 pub(crate) mod deny_all;
 pub(crate) mod fail_over;
 
-mod config;
-
-pub(crate) use config::{AnyResolverConfig, ResolverConfig, ResolverConfigDiffAction};
-
-use config::{CONFIG_KEY_RESOLVER_NAME, CONFIG_KEY_RESOLVER_TYPE};
-
 mod registry;
 pub(crate) use registry::clear;
+
+const CONFIG_KEY_RESOLVER_TYPE: &str = "type";
+const CONFIG_KEY_RESOLVER_NAME: &str = "name";
+
+pub(crate) enum ResolverConfigDiffAction {
+    NoAction,
+    SpawnNew,
+    Update,
+}
+
+pub(crate) trait ResolverConfig {
+    fn name(&self) -> &NodeName;
+    fn position(&self) -> Option<YamlDocPosition>;
+    fn resolver_type(&self) -> &'static str;
+
+    fn diff_action(&self, new: &AnyResolverConfig) -> ResolverConfigDiffAction;
+    fn dependent_resolver(&self) -> Option<BTreeSet<NodeName>>;
+}
+
+#[derive(Clone, AnyConfig)]
+#[def_fn(name, &NodeName)]
+#[def_fn(position, Option<YamlDocPosition>)]
+#[def_fn(dependent_resolver, Option<BTreeSet<NodeName>>)]
+#[def_fn(diff_action, &Self, ResolverConfigDiffAction)]
+pub(crate) enum AnyResolverConfig {
+    #[cfg(feature = "c-ares")]
+    CAres(c_ares::CAresResolverConfig),
+    #[cfg(feature = "hickory")]
+    Hickory(Box<hickory::HickoryResolverConfig>),
+    DenyAll(deny_all::DenyAllResolverConfig),
+    FailOver(fail_over::FailOverResolverConfig),
+}
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
     let parser = HybridParser::new(conf_dir, g3_daemon::opts::config_file_extension());

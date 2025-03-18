@@ -19,6 +19,7 @@ use std::path::Path;
 use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
+use g3_macros::AnyConfig;
 use g3_types::metrics::NodeName;
 use g3_yaml::{HybridParser, YamlDocPosition};
 
@@ -46,40 +47,14 @@ pub(crate) trait InputConfig {
     fn diff_action(&self, new: &AnyInputConfig) -> InputConfigDiffAction;
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, AnyConfig)]
+#[def_fn(name, &NodeName)]
+#[def_fn(position, Option<YamlDocPosition>)]
+#[def_fn(input_type, &'static str)]
+#[def_fn(diff_action, &Self, InputConfigDiffAction)]
 pub(crate) enum AnyInputConfig {
     Dummy(dummy::DummyInputConfig),
     StatsD(statsd::StatsdInputConfig),
-}
-
-macro_rules! impl_transparent0 {
-    ($f:tt, $v:ty) => {
-        pub(crate) fn $f(&self) -> $v {
-            match self {
-                AnyInputConfig::Dummy(s) => s.$f(),
-                AnyInputConfig::StatsD(s) => s.$f(),
-            }
-        }
-    };
-}
-
-macro_rules! impl_transparent1 {
-    ($f:tt, $v:ty, $p:ty) => {
-        pub(crate) fn $f(&self, p: $p) -> $v {
-            match self {
-                AnyInputConfig::Dummy(s) => s.$f(p),
-                AnyInputConfig::StatsD(s) => s.$f(p),
-            }
-        }
-    };
-}
-
-impl AnyInputConfig {
-    impl_transparent0!(name, &NodeName);
-    impl_transparent0!(position, Option<YamlDocPosition>);
-    impl_transparent0!(input_type, &'static str);
-
-    impl_transparent1!(diff_action, InputConfigDiffAction, &Self);
 }
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
