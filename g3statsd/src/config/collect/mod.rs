@@ -22,6 +22,7 @@ use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
 use g3_daemon::config::TopoMap;
+use g3_macros::AnyConfig;
 use g3_types::metrics::NodeName;
 use g3_yaml::{HybridParser, YamlDocPosition};
 
@@ -53,41 +54,15 @@ pub(crate) trait CollectConfig {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, AnyConfig)]
+#[def_fn(name, &NodeName)]
+#[def_fn(position, Option<YamlDocPosition>)]
+#[def_fn(collect_type, &'static str)]
+#[def_fn(dependent_collector, Option<BTreeSet<NodeName>>)]
+#[def_fn(diff_action, &Self, CollectConfigDiffAction)]
 pub(crate) enum AnyCollectConfig {
     Dummy(dummy::DummyCollectConfig),
     Internal(internal::InternalCollectConfig),
-}
-
-macro_rules! impl_transparent0 {
-    ($f:tt, $v:ty) => {
-        pub(crate) fn $f(&self) -> $v {
-            match self {
-                AnyCollectConfig::Dummy(s) => s.$f(),
-                AnyCollectConfig::Internal(s) => s.$f(),
-            }
-        }
-    };
-}
-
-macro_rules! impl_transparent1 {
-    ($f:tt, $v:ty, $p:ty) => {
-        pub(crate) fn $f(&self, p: $p) -> $v {
-            match self {
-                AnyCollectConfig::Dummy(s) => s.$f(p),
-                AnyCollectConfig::Internal(s) => s.$f(p),
-            }
-        }
-    };
-}
-
-impl AnyCollectConfig {
-    impl_transparent0!(name, &NodeName);
-    impl_transparent0!(position, Option<YamlDocPosition>);
-    impl_transparent0!(collect_type, &'static str);
-    impl_transparent0!(dependent_collector, Option<BTreeSet<NodeName>>);
-
-    impl_transparent1!(diff_action, CollectConfigDiffAction, &Self);
 }
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {

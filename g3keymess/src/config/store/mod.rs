@@ -20,6 +20,7 @@ use anyhow::anyhow;
 use tokio::sync::oneshot;
 use yaml_rust::{Yaml, yaml};
 
+use g3_macros::AnyConfig;
 use g3_types::metrics::NodeName;
 use g3_yaml::{HybridParser, YamlDocPosition};
 
@@ -39,41 +40,13 @@ pub trait KeyStoreConfig {
     }
 }
 
-macro_rules! impl_transparent0 {
-    ($f:tt, $v:ty) => {
-        pub(crate) fn $f(&self) -> $v {
-            match self {
-                AnyKeyStoreConfig::Local(s) => s.$f(),
-                AnyKeyStoreConfig::Redis(s) => s.$f(),
-            }
-        }
-    };
-}
-
-macro_rules! impl_async_transparent0 {
-    ($f:tt, $v:ty) => {
-        pub(crate) async fn $f(&self) -> $v {
-            match self {
-                AnyKeyStoreConfig::Local(s) => s.$f().await,
-                AnyKeyStoreConfig::Redis(s) => s.$f().await,
-            }
-        }
-    };
-}
-
-#[derive(Clone)]
+#[derive(Clone, AnyConfig)]
+#[def_fn(name, &NodeName)]
+#[def_async_fn(load_keys, anyhow::Result<()>)]
+#[def_fn(spawn_subscriber, anyhow::Result<Option<oneshot::Sender<()>>>)]
 pub enum AnyKeyStoreConfig {
     Local(local::LocalKeyStoreConfig),
     Redis(redis::RedisKeyStoreConfig),
-}
-
-impl AnyKeyStoreConfig {
-    impl_transparent0!(name, &NodeName);
-    impl_async_transparent0!(load_keys, anyhow::Result<()>);
-    impl_transparent0!(
-        spawn_subscriber,
-        anyhow::Result<Option<oneshot::Sender<()>>>
-    );
 }
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {

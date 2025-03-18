@@ -19,6 +19,7 @@ use std::path::Path;
 use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
+use g3_macros::AnyConfig;
 use g3_types::metrics::NodeName;
 use g3_yaml::{HybridParser, YamlDocPosition};
 
@@ -50,49 +51,17 @@ pub(crate) trait BackendConfig {
     fn diff_action(&self, new: &AnyBackendConfig) -> BackendConfigDiffAction;
 }
 
-#[derive(Clone)]
+#[derive(Clone, AnyConfig)]
+#[def_fn(name, &NodeName)]
+#[def_fn(backend_type, &'static str)]
+#[def_fn(position, Option<YamlDocPosition>)]
+#[def_fn(diff_action, &Self, BackendConfigDiffAction)]
 pub(crate) enum AnyBackendConfig {
     DummyClose(dummy_close::DummyCloseBackendConfig),
     StreamTcp(stream_tcp::StreamTcpBackendConfig),
     KeylessTcp(keyless_tcp::KeylessTcpBackendConfig),
     #[cfg(feature = "quic")]
     KeylessQuic(keyless_quic::KeylessQuicBackendConfig),
-}
-
-macro_rules! impl_transparent0 {
-    ($f:tt, $v:ty) => {
-        pub(crate) fn $f(&self) -> $v {
-            match self {
-                AnyBackendConfig::DummyClose(s) => s.$f(),
-                AnyBackendConfig::StreamTcp(s) => s.$f(),
-                AnyBackendConfig::KeylessTcp(s) => s.$f(),
-                #[cfg(feature = "quic")]
-                AnyBackendConfig::KeylessQuic(s) => s.$f(),
-            }
-        }
-    };
-}
-
-macro_rules! impl_transparent1 {
-    ($f:tt, $v:ty, $p:ty) => {
-        pub(crate) fn $f(&self, p: $p) -> $v {
-            match self {
-                AnyBackendConfig::DummyClose(s) => s.$f(p),
-                AnyBackendConfig::StreamTcp(s) => s.$f(p),
-                AnyBackendConfig::KeylessTcp(s) => s.$f(p),
-                #[cfg(feature = "quic")]
-                AnyBackendConfig::KeylessQuic(s) => s.$f(p),
-            }
-        }
-    };
-}
-
-impl AnyBackendConfig {
-    impl_transparent0!(name, &NodeName);
-    impl_transparent0!(backend_type, &'static str);
-    impl_transparent0!(position, Option<YamlDocPosition>);
-
-    impl_transparent1!(diff_action, BackendConfigDiffAction, &Self);
 }
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {

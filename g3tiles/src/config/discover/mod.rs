@@ -19,6 +19,7 @@ use std::path::Path;
 use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
+use g3_macros::AnyConfig;
 use g3_types::metrics::NodeName;
 use g3_yaml::{HybridParser, YamlDocPosition};
 
@@ -54,40 +55,14 @@ pub(crate) trait DiscoverConfig {
     fn diff_action(&self, new: &AnyDiscoverConfig) -> DiscoverConfigDiffAction;
 }
 
-#[derive(Clone)]
+#[derive(Clone, AnyConfig)]
+#[def_fn(name, &NodeName)]
+#[def_fn(discover_type, &'static str)]
+#[def_fn(position, Option<YamlDocPosition>)]
+#[def_fn(diff_action, &Self, DiscoverConfigDiffAction)]
 pub(crate) enum AnyDiscoverConfig {
     StaticAddr(static_addr::StaticAddrDiscoverConfig),
     HostResolver(host_resolver::HostResolverDiscoverConfig),
-}
-
-macro_rules! impl_transparent0 {
-    ($f:tt, $v:ty) => {
-        pub(crate) fn $f(&self) -> $v {
-            match self {
-                AnyDiscoverConfig::StaticAddr(d) => d.$f(),
-                AnyDiscoverConfig::HostResolver(d) => d.$f(),
-            }
-        }
-    };
-}
-
-macro_rules! impl_transparent1 {
-    ($f:tt, $v:ty, $p:ty) => {
-        pub(crate) fn $f(&self, p: $p) -> $v {
-            match self {
-                AnyDiscoverConfig::StaticAddr(d) => d.$f(p),
-                AnyDiscoverConfig::HostResolver(d) => d.$f(p),
-            }
-        }
-    };
-}
-
-impl AnyDiscoverConfig {
-    impl_transparent0!(name, &NodeName);
-    impl_transparent0!(discover_type, &'static str);
-    impl_transparent0!(position, Option<YamlDocPosition>);
-
-    impl_transparent1!(diff_action, DiscoverConfigDiffAction, &Self);
 }
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {

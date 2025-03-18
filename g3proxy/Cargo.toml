@@ -74,6 +74,7 @@ g3-imap-proto.workspace = true
 g3-io-ext = { workspace = true, features = ["resolver", "openssl", "rustls"] }
 g3-ip-locate = { workspace = true, features = ["yaml"] }
 g3-json = { workspace = true, features = ["acl-rule", "resolve", "http", "rustls", "openssl", "histogram"] }
+g3-macros.workspace = true
 g3-msgpack.workspace = true
 g3-openssl.workspace = true
 g3-redis-client = { workspace = true, features = ["yaml"] }

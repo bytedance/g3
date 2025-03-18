@@ -1318,6 +1318,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "g3-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.100",
+]
+
+[[package]]
 name = "g3-msgpack"
 version = "0.3.0"
 dependencies = [
@@ -1750,6 +1759,7 @@ dependencies = [
  "g3-daemon",
  "g3-histogram",
  "g3-io-ext",
+ "g3-macros",
  "g3-openssl",
  "g3-slog-types",
  "g3-socket",
@@ -1849,6 +1859,7 @@ dependencies = [
  "g3-io-ext",
  "g3-ip-locate",
  "g3-json",
+ "g3-macros",
  "g3-msgpack",
  "g3-openssl",
  "g3-redis-client",
@@ -1960,6 +1971,7 @@ dependencies = [
  "foldhash",
  "g3-build-env",
  "g3-daemon",
+ "g3-macros",
  "g3-types",
  "g3-yaml",
  "g3statsd-proto",
@@ -2000,6 +2012,7 @@ dependencies = [
  "g3-dpi",
  "g3-histogram",
  "g3-io-ext",
+ "g3-macros",
  "g3-openssl",
  "g3-slog-types",
  "g3-socket",

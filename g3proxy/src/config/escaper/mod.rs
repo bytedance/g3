@@ -23,6 +23,7 @@ use slog::Logger;
 use yaml_rust::{Yaml, yaml};
 
 use g3_daemon::config::TopoMap;
+use g3_macros::AnyConfig;
 use g3_types::metrics::NodeName;
 use g3_types::net::{TcpConnectConfig, TcpSockSpeedLimitConfig, UdpSockSpeedLimitConfig};
 use g3_yaml::{HybridParser, YamlDocPosition};
@@ -94,7 +95,12 @@ pub(crate) struct GeneralEscaperConfig {
     pub(crate) tcp_connect: TcpConnectConfig,
 }
 
-#[derive(Clone)]
+#[derive(Clone, AnyConfig)]
+#[def_fn(name, &NodeName)]
+#[def_fn(position, Option<YamlDocPosition>)]
+#[def_fn(dependent_escaper, Option<BTreeSet<NodeName>>)]
+#[def_fn(resolver, &NodeName)]
+#[def_fn(diff_action, &Self, EscaperConfigDiffAction)]
 pub(crate) enum AnyEscaperConfig {
     ComplyAudit(comply_audit::ComplyAuditEscaperConfig),
     DirectFixed(Box<direct_fixed::DirectFixedEscaperConfig>),
@@ -115,71 +121,6 @@ pub(crate) enum AnyEscaperConfig {
     RouteUpstream(route_upstream::RouteUpstreamEscaperConfig),
     RouteClient(route_client::RouteClientEscaperConfig),
     TrickFloat(trick_float::TrickFloatEscaperConfig),
-}
-
-macro_rules! impl_transparent0 {
-    ($f:tt, $v:ty) => {
-        pub(crate) fn $f(&self) -> $v {
-            match self {
-                AnyEscaperConfig::ComplyAudit(s) => s.$f(),
-                AnyEscaperConfig::DirectFixed(s) => s.$f(),
-                AnyEscaperConfig::DirectFloat(s) => s.$f(),
-                AnyEscaperConfig::DivertTcp(s) => s.$f(),
-                AnyEscaperConfig::DummyDeny(s) => s.$f(),
-                AnyEscaperConfig::ProxyFloat(s) => s.$f(),
-                AnyEscaperConfig::ProxyHttp(s) => s.$f(),
-                AnyEscaperConfig::ProxyHttps(s) => s.$f(),
-                AnyEscaperConfig::ProxySocks5(s) => s.$f(),
-                AnyEscaperConfig::ProxySocks5s(s) => s.$f(),
-                AnyEscaperConfig::RouteFailover(s) => s.$f(),
-                AnyEscaperConfig::RouteResolved(s) => s.$f(),
-                AnyEscaperConfig::RouteGeoIp(s) => s.$f(),
-                AnyEscaperConfig::RouteMapping(s) => s.$f(),
-                AnyEscaperConfig::RouteQuery(s) => s.$f(),
-                AnyEscaperConfig::RouteSelect(s) => s.$f(),
-                AnyEscaperConfig::RouteUpstream(s) => s.$f(),
-                AnyEscaperConfig::RouteClient(s) => s.$f(),
-                AnyEscaperConfig::TrickFloat(s) => s.$f(),
-            }
-        }
-    };
-}
-
-macro_rules! impl_transparent1 {
-    ($f:tt, $v:ty, $p:ty) => {
-        pub(crate) fn $f(&self, p: $p) -> $v {
-            match self {
-                AnyEscaperConfig::ComplyAudit(s) => s.$f(p),
-                AnyEscaperConfig::DirectFixed(s) => s.$f(p),
-                AnyEscaperConfig::DirectFloat(s) => s.$f(p),
-                AnyEscaperConfig::DivertTcp(s) => s.$f(p),
-                AnyEscaperConfig::DummyDeny(s) => s.$f(p),
-                AnyEscaperConfig::ProxyFloat(s) => s.$f(p),
-                AnyEscaperConfig::ProxyHttp(s) => s.$f(p),
-                AnyEscaperConfig::ProxyHttps(s) => s.$f(p),
-                AnyEscaperConfig::ProxySocks5(s) => s.$f(p),
-                AnyEscaperConfig::ProxySocks5s(s) => s.$f(p),
-                AnyEscaperConfig::RouteFailover(s) => s.$f(p),
-                AnyEscaperConfig::RouteResolved(s) => s.$f(p),
-                AnyEscaperConfig::RouteGeoIp(s) => s.$f(p),
-                AnyEscaperConfig::RouteMapping(s) => s.$f(p),
-                AnyEscaperConfig::RouteQuery(s) => s.$f(p),
-                AnyEscaperConfig::RouteSelect(s) => s.$f(p),
-                AnyEscaperConfig::RouteUpstream(s) => s.$f(p),
-                AnyEscaperConfig::RouteClient(s) => s.$f(p),
-                AnyEscaperConfig::TrickFloat(s) => s.$f(p),
-            }
-        }
-    };
-}
-
-impl AnyEscaperConfig {
-    impl_transparent0!(name, &NodeName);
-    impl_transparent0!(position, Option<YamlDocPosition>);
-    impl_transparent0!(dependent_escaper, Option<BTreeSet<NodeName>>);
-    impl_transparent0!(resolver, &NodeName);
-
-    impl_transparent1!(diff_action, EscaperConfigDiffAction, &Self);
 }
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {

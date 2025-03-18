@@ -28,6 +28,7 @@ futures-util.workspace = true
 arc-swap.workspace = true
 serde_json.workspace = true
 g3-daemon = { workspace = true, features = ["register", "event-log"] }
+g3-macros.workspace = true
 g3-yaml = { workspace = true, features = ["histogram"] }
 g3-types = { workspace = true, features = [] }
 g3-socket.workspace = true
